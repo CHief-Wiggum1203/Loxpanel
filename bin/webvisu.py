@@ -2218,8 +2218,13 @@ class App:
             modes = self._json_list_map(c, "operatingModes")   # {id: name}
             fans = self._json_list_map(c, "fanspeeds")          # {id: name}
             on = (self._state(c, "status") or 0) != 0
-            cur_mode = int(self._state(c, "mode") or 0)
-            cur_fan = int(self._state(c, "fan") or 0)
+            def _as_int(v, d=0):
+                try:
+                    return int(float(v))
+                except (TypeError, ValueError):
+                    return d
+            cur_mode = _as_int(self._state(c, "mode"))
+            cur_fan = _as_int(self._state(c, "fan"))
             tgt = self._state(c, "targetTemperature")
             ist = self._state(c, "temperature")
             try:
@@ -2463,10 +2468,20 @@ class App:
                 self._dirty = False
                 for ws, route in list(self.conn_route.items()):
                     try:
-                        await ws.send_json(self.render(route, self.conn_prof.get(ws)))
+                        msg = self.render(route, self.conn_prof.get(ws))
+                    except Exception:
+                        # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-
+                        # Update-Schleife killen (sonst bekommen ALLE Panels keine
+                        # Rueckmeldung mehr). Fehler loggen, diese Verbindung
+                        # diesmal ueberspringen, Rest weiter bedienen.
+                        log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
+                        continue
+                    try:
+                        await ws.send_json(msg)
                     except ConnectionError:
                         self.conn_route.pop(ws, None)
                         self.conn_prof.pop(ws, None)
+                        self.conn_dev.pop(ws, None)
 
     async def close(self) -> None:
         if self.ws:
@@ -2998,7 +3013,15 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             if data.get("t") == "nav" and isinstance(data.get("route"), dict):
                 route = data["route"]
                 app.conn_route[ws] = route
-                await ws.send_json(app.render(route, prof))
+                try:
+                    view_msg = app.render(route, app.conn_prof.get(ws, prof))
+                except Exception:
+                    # Detailseite wirft -> nicht die Verbindung abreissen lassen
+                    # (sonst Reconnect-Loop). Fehler loggen, Hinweis anzeigen.
+                    log.exception("render() (nav) fehlgeschlagen fuer route %s", route)
+                    view_msg = {"t": "view", "title": "Fehler", "route": route,
+                                "blocks": [{"k": "status", "text": "Diese Ansicht konnte nicht geladen werden."}]}
+                await ws.send_json(view_msg)
                 # Beim Oeffnen einer AudioZone / Musikauswahl die Zonen-Favoriten
                 # aktiv anfordern; das frische Ergebnis wird per broadcaster
                 # nachgereicht (roomfav/get befuellt den sourceList-State).
