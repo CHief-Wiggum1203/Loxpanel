@@ -35,16 +35,16 @@
   .screen.fill{max-width:none;max-height:none;
     width:min(100vw, calc(100vh * var(--cols,2) / var(--rows,2)));
     height:min(100vh, calc(100vw * var(--rows,2) / var(--cols,2)));}
-  /* Split-Layout (grosse Tablets): links fester Player, rechts navigierbare Visu.
-     Fuellt den ganzen Schirm (50/50); #grid+#tabs wandern in die rechte Spalte. */
+  /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
+     fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
   .screen.split{max-width:none;max-height:none;width:100vw;height:100vh;
     grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
   #playerpane{display:none;}
-  .screen.split #playerpane{display:flex;flex-direction:column;grid-column:1;grid-row:1 / span 2;
-    border-right:1px solid var(--line);overflow:hidden;padding:14px;gap:10px;}
-  .screen.split #grid{grid-column:2;grid-row:1;}
-  .screen.split #tabs{grid-column:2;grid-row:2;}
-  .screen.split .conn{grid-column:2;grid-row:1;place-self:start end;margin:6px;}
+  .screen.split #grid{grid-column:1;grid-row:1;}
+  .screen.split #playerpane{display:flex;flex-direction:column;grid-column:2;grid-row:1;
+    border-left:1px solid var(--line);overflow:hidden;padding:14px;gap:10px;}
+  .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
+  .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   #playerpane .ppcover{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.06);
     display:grid;place-items:center;color:var(--muted);}
