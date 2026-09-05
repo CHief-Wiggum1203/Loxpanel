@@ -37,7 +37,11 @@
     height:min(100vh, calc(100vw * var(--rows,2) / var(--cols,2)));}
   /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
      fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
-  .screen.split{max-width:none;max-height:none;width:100vw;height:100vh;
+  /* Denke in einem 4x2-Raster: links 2x2 = Visu, rechts 2x2 = Player. Der Block
+     hat Seitenverhaeltnis 4:2 (=2:1) und wird zentriert eingepasst (quadratische
+     Kacheln, kein Strecken ueber den ganzen Schirm). */
+  .screen.split{max-width:none;max-height:none;
+    width:min(100vw, calc(100vh * 2));height:min(100vh, calc(100vw / 2));
     grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
   #playerpane{display:none;}
   .screen.split #grid{grid-column:1;grid-row:1;}
