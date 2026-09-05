@@ -427,6 +427,11 @@ function renderEditor(){
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
+       '<div class="field" style="max-width:300px"><label class="lbl">Fester Player (Split-Layout)</label>'+
+         '<select id="fPlayer">'+
+           '<option value="">(kein – normale Visu)</option>'+audioZoneOptions((p.ui||{}).player)+
+         '</select>'+
+         '<div class="hint" style="padding-top:4px">Links fester Musikplayer dieser Zone, rechts die Visu (50/50). Für große Tablets – am besten mit Layout 2×3.</div></div>'+
      '</div></div>'+
 
    '<div class="card"><h3>Aktiv-Overlay</h3>'+
@@ -450,6 +455,8 @@ function renderEditor(){
       else if(v==='3x2'){ p.ui.cols=3; delete p.ui.rows; }
       else { delete p.ui.cols; delete p.ui.rows; }
       markDirty(); }; }
+  { const fp=$('#fPlayer'); if(fp) fp.onchange=e=>{ p.ui=p.ui||{};
+      if(e.target.value) p.ui.player=e.target.value; else delete p.ui.player; markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
 
@@ -478,6 +485,10 @@ function langField(ui){
   return '<div class="field" style="max-width:220px"><label class="lbl">Sprache</label>'+
     '<select id="fLang">'+LANGS.map(l=>'<option value="'+l[0]+'"'+(cur===l[0]?' selected':'')+'>'+esc(l[1])+'</option>').join('')+'</select>'+
     '<div class="hint" style="padding-top:4px">Steuert vorerst Datum &amp; Uhr am Panel. Gerätenamen kommen aus dem Miniserver.</div></div>';
+}
+function audioZoneOptions(sel){
+  return (META.controls||[]).filter(c=>c.type==='AudioZone'||c.type==='AudioZoneV2')
+    .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
 
 function renderChips(p){

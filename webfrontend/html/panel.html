@@ -35,6 +35,30 @@
   .screen.fill{max-width:none;max-height:none;
     width:min(100vw, calc(100vh * var(--cols,2) / var(--rows,2)));
     height:min(100vh, calc(100vw * var(--rows,2) / var(--cols,2)));}
+  /* Split-Layout (grosse Tablets): links fester Player, rechts navigierbare Visu.
+     Fuellt den ganzen Schirm (50/50); #grid+#tabs wandern in die rechte Spalte. */
+  .screen.split{max-width:none;max-height:none;width:100vw;height:100vh;
+    grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
+  #playerpane{display:none;}
+  .screen.split #playerpane{display:flex;flex-direction:column;grid-column:1;grid-row:1 / span 2;
+    border-right:1px solid var(--line);overflow:hidden;padding:14px;gap:10px;}
+  .screen.split #grid{grid-column:2;grid-row:1;}
+  .screen.split #tabs{grid-column:2;grid-row:2;}
+  .screen.split .conn{grid-column:2;grid-row:1;place-self:start end;margin:6px;}
+  /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
+  #playerpane .ppcover{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.06);
+    display:grid;place-items:center;color:var(--muted);}
+  #playerpane .ppcover img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s;}
+  #playerpane .ppcover .coverph svg{width:64px;height:64px;}
+  #playerpane .pptitle{font-size:18px;font-weight:600;text-align:center;line-height:1.2;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #playerpane .ppsub{font-size:14px;color:var(--muted);text-align:center;margin-top:-4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #playerpane .pptrans{display:flex;gap:14px;justify-content:center;align-items:center;}
+  #playerpane .ppvol{display:flex;align-items:center;gap:8px;}
+  #playerpane .ppvol .sico{color:var(--muted);} #playerpane .ppvol .sico svg{width:20px;height:20px;}
+  #playerpane .ppvol input[type=range]{flex:1;accent-color:var(--accent);}
+  #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
   .grid{--gap:10px;grid-area:1/1;
     display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
@@ -258,6 +282,7 @@
 <body>
 <div class="screen">
   <div class="conn" id="conn"></div>
+  <div class="playerpane" id="playerpane"></div>
   <div class="grid" id="grid"></div>
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
@@ -309,6 +334,7 @@ let tabsCfg = ['favoriten','zentral','raeume','kategorien'];
 let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // Spalten (2x2 / 3x2 / 4x3), vom Panel-Profil
 let gridRows = 2;   // sichtbare Zeilen pro Seite (2, bei 4x3 = 3)
+let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -702,7 +728,9 @@ function connect(){
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
       gridCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       gridRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
-      { const sc=document.querySelector('.screen'); if(sc) sc.classList.toggle('fill', !!msg.fill); }
+      { const sc=document.querySelector('.screen'); if(sc){ sc.classList.toggle('fill', !!msg.fill && !msg.player);
+          sc.classList.toggle('split', !!msg.player); }
+        if(!msg.player){ _playerBuilt=false; const pp=el('playerpane'); if(pp) pp.innerHTML=''; } }
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
@@ -710,6 +738,7 @@ function connect(){
     if(msg.t==='ring'){ if(msg.id) nav({view:'control',id:msg.id}); return; }
     if(msg.t==='alarm'){ if(msg.on){ startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
+    if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -757,6 +786,52 @@ function showNotify(text, level, secs){
   n.textContent=text; hideSaver();
   clearTimeout(n._t);
   n._t=setTimeout(()=>{ if(n&&n.parentNode) n.parentNode.removeChild(n); }, Math.max(1,(secs||5))*1000);
+}
+// Fester Player im Split-Layout (linke Spalte). Baut das Grundgeruest einmal
+// auf und aktualisiert danach nur Cover/Titel/Transport/Lautstaerke in-place
+// (kein Neu-Rendern bei jedem 0.3s-Update -> kein Cover-Flackern).
+function renderPlayer(blocks){
+  const pane=el('playerpane'); if(!pane||!Array.isArray(blocks)) return;
+  const cover=blocks.find(b=>b.k==='cover');
+  const title=blocks.find(b=>b.k==='title');
+  const row=blocks.find(b=>b.k==='row');
+  const sl=blocks.find(b=>b.k==='slider');
+  if(!_playerBuilt){
+    pane.innerHTML=
+      '<div class="ppcover"><div class="coverph">'+svg(ICONS.music)+'</div><img id="ppimg" alt=""></div>'+
+      '<div class="pptitle" id="pptitle"></div>'+
+      '<div class="ppsub" id="ppsub"></div>'+
+      '<div class="pptrans" id="pptrans"></div>'+
+      '<div class="ppvol"><span class="sico">'+svg(ICONS.vol)+'</span>'+
+        '<input type="range" id="ppsld" min="0" max="100" value="0"><span class="sval" id="ppsldv">0</span></div>';
+    const s=el('ppsld');
+    s.addEventListener('input',()=>{ _playerVolDrag=true; el('ppsldv').textContent=s.value; });
+    s.addEventListener('change',()=>{ _playerVolDrag=false;
+      if(s._uuid&&s._tmpl) send({t:'cmd',uuid:s._uuid,cmd:s._tmpl.replace('{v}',s.value)}); });
+    _playerBuilt=true;
+  }
+  // Cover nur bei Aenderung neu laden (sonst Flackern)
+  const img=el('ppimg');
+  if(img){ if(cover&&cover.src){ if(img.getAttribute('src')!==cover.src){
+        img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cover.src; } }
+    else { img.removeAttribute('src'); img.style.opacity='0'; } }
+  el('pptitle').textContent=title?(title.text||''):'';
+  el('ppsub').textContent=title?(title.sub||''):'';
+  // Transport-Buttons: einmal bauen, dann Icon+cmd in-place aktualisieren
+  const tr=el('pptrans'), cells=(row&&row.cells)||[];
+  if(tr){
+    if(tr.children.length!==cells.length){
+      tr.innerHTML=cells.map((c,i)=>'<div class="btn'+(c.icon?' icon':'')+(c.big?' big':'')+'" data-c="'+i+'"></div>').join('');
+      tr.querySelectorAll('[data-c]').forEach(n=>n.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+        if(n._cmd) send({t:'cmd',uuid:n._cmd.uuid,cmd:n._cmd.cmd}); }));
+    }
+    cells.forEach((c,i)=>{ const n=tr.querySelector('[data-c="'+i+'"]'); if(!n)return;
+      n._cmd=c.cmd||null;
+      n.innerHTML=c.icon?svgF(ICONS[c.icon]||ICONS.info):esc(c.label||'');
+      n.className='btn'+(c.icon?' icon':'')+(c.big?' big':''); });
+  }
+  if(sl){ const s=el('ppsld'); if(s&&sl.cmd){ s._uuid=sl.cmd.uuid; s._tmpl=sl.cmd.tmpl; }
+    if(s&&!_playerVolDrag){ s.value=sl.value; el('ppsldv').textContent=sl.value; } }
 }
 function resetIdle(){ clearTimeout(idleTimer);
   idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS); }

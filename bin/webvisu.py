@@ -781,7 +781,22 @@ class App:
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
+            "player": (ui.get("player") or ""),  # Split-Layout: feste AudioZone als linker Player
         }
+
+    def player_blocks(self, uuid: str):
+        """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
+        AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
+        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
+            return None
+        try:
+            v = self._view_control_inner(uuid)
+        except Exception:
+            log.exception("player_blocks fehlgeschlagen (%s)", uuid)
+            return None
+        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
 
     def _tab_meta(self, tab_keys) -> dict:
         """Label + Icon fuer dynamische Tabs (Kategorie-Direkt-Tabs). Die 4
@@ -904,7 +919,7 @@ class App:
             "ui": {k: v for k, v in (raw.get("ui") or {}).items()
                    if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
                             "dpmsOff", "reloadHours", "cols", "rows", "fill",
-                            "overlay", "textColor", "bold", "lang")},
+                            "overlay", "textColor", "bold", "lang", "player")},
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
@@ -963,6 +978,8 @@ class App:
                 cui["rows"] = int(ui["rows"])   # Zeilen (nur 4x3 nutzt 3)
             if ui.get("fill"):
                 cui["fill"] = True              # Visu fuellt grosse Screens (quadratische Kacheln)
+            if isinstance(ui.get("player"), str) and ui.get("player"):
+                cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if ui.get("bold"):
@@ -2462,8 +2479,14 @@ class App:
             if self._dirty and self.conn_route:
                 self._dirty = False
                 for ws, route in list(self.conn_route.items()):
+                    prof = self.conn_prof.get(ws)
                     try:
-                        await ws.send_json(self.render(route, self.conn_prof.get(ws)))
+                        await ws.send_json(self.render(route, prof))
+                        # Split-Layout: festen Player mit aktualisieren
+                        if prof and prof.get("player"):
+                            pb = self.player_blocks(prof["player"])
+                            if pb is not None:
+                                await ws.send_json({"t": "player", "blocks": pb})
                     except ConnectionError:
                         self.conn_route.pop(ws, None)
                         self.conn_prof.pop(ws, None)
@@ -2985,8 +3008,13 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
              "alle" if prof["cats"] is None else len(prof["cats"]))
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
-                        "lang": prof["lang"], "fill": prof["fill"]})
+                        "lang": prof["lang"], "fill": prof["fill"],
+                        "player": prof["player"]})
     await ws.send_json(app.render(app.conn_route[ws], prof))
+    if prof.get("player"):
+        pb = app.player_blocks(prof["player"])
+        if pb is not None:
+            await ws.send_json({"t": "player", "blocks": pb})
     try:
         async for msg in ws:
             if msg.type != WSMsgType.TEXT:
