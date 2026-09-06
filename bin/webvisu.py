@@ -214,7 +214,7 @@ def _config() -> dict:
             "host": env["LOXPANEL_MS_HOST"],
             "user": env.get("LOXPANEL_MS_USER", ""),
             "pass": env.get("LOXPANEL_MS_PASS", ""),
-            "port": int(env.get("LOXPANEL_MS_PORT", "443")),
+            "port": int(env.get("LOXPANEL_MS_PORT") or "443"),
             "verify_tls": env.get("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes"),
         }
     # Beispiel-Config nur nutzen, wenn vorhanden. Beim LoxBerry-Plugin verdeckt

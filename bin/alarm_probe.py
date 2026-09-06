@@ -25,7 +25,7 @@ def _conn() -> dict:
     env = os.environ.get
     if env("LOXPANEL_MS_HOST"):
         return {"host": env("LOXPANEL_MS_HOST"), "user": env("LOXPANEL_MS_USER", ""),
-                "pass": env("LOXPANEL_MS_PASS", ""), "port": int(env("LOXPANEL_MS_PORT", "443")),
+                "pass": env("LOXPANEL_MS_PASS", ""), "port": int(env("LOXPANEL_MS_PORT") or "443"),
                 "verify_tls": env("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes")}
     f = Path(__file__).resolve().parent.parent / "config" / "loxpanel.cfg"
     return json.loads(f.read_text(encoding="utf-8"))["miniserver"]
