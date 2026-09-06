@@ -8,7 +8,7 @@ und hält ihn am Laufen. Die gesamte App (Server + Weboberfläche) steckt im Ima
 ## Was das Plugin macht
 
 - installiert bei Bedarf **Docker** (offizielles Docker-Repo, Pakete via `dpkg/apt`)
-- startet `ghcr.io/lenardo1/loxpanel:latest` per `docker compose` (Port **8099**)
+- startet `ghcr.io/chief-wiggum1203/loxpanel:latest` per `docker compose` (Port **8099**)
 - startet das Panel beim **Boot** (`daemon`) und prüft alle **5 Minuten**, ob der
   Container läuft (`cron.05min` → `loxpanel-ctl.sh check`)
 - sichert die Nutzerdaten bei Updates (`pre-/postupgrade.sh`)
@@ -29,7 +29,7 @@ Einstellungen-Seite und in `data/plugins/loxpanel/config/loxpanel.cfg`
 ## Voraussetzungen
 
 - LoxBerry **3.0+** (Debian Bullseye oder neuer)
-- Das Image `ghcr.io/lenardo1/loxpanel` muss **öffentlich** (public) sein, damit
+- Das Image `ghcr.io/chief-wiggum1203/loxpanel` muss **öffentlich** (public) sein, damit
   der LoxBerry es ohne Login pullen kann. Multi-Arch: `arm64`, `amd64`, `armv7`.
 
 ## Steuerung von Hand (SSH auf dem LoxBerry)

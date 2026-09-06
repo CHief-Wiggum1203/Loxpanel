@@ -221,7 +221,7 @@ my $backups_html = $blist
     : "<p style='color:#777;margin:6px 0 0'>Noch keine Sicherung vorhanden.</p>";
 
 # ---- Ausgabe im LoxBerry-Rahmen ----
-LoxBerry::Web::lbheader("LoxPanel V$version", "https://github.com/Lenardo1/Loxpanel", "");
+LoxBerry::Web::lbheader("LoxPanel V$version", "https://github.com/CHief-Wiggum1203/Loxpanel", "");
 
 print <<"HTML";
 <style>

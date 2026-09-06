@@ -27,7 +27,7 @@ KEEP=20                 # so viele Backups behalten, aeltere werden entfernt
 _img() {
 	local i
 	i=$(sed -n 's/^[[:space:]]*image:[[:space:]]*//p' "$COMPOSE" | head -1)
-	[ -n "$i" ] && echo "$i" || echo "ghcr.io/lenardo1/loxpanel:latest"
+	[ -n "$i" ] && echo "$i" || echo "ghcr.io/chief-wiggum1203/loxpanel:latest"
 }
 
 # Einen sh-Befehl als root im Container ausfuehren. $DATADIR wird nach /data

@@ -237,7 +237,7 @@ Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 
 1. LoxBerry → **Plugin-Verwaltung**.
 2. Plugin per ZIP-URL installieren:
-   `https://github.com/Lenardo1/Loxpanel/releases/latest/download/loxpanel-plugin.zip`
+   `https://github.com/CHief-Wiggum1203/Loxpanel/releases/latest/download/loxpanel-plugin.zip`
 3. Das Plugin installiert bei Bedarf Docker und startet den LoxPanel-Container
    automatisch. Danach erreichst du alles über das Plugin-Widget in LoxBerry.
 
@@ -288,7 +288,7 @@ Telemetrie. Zugangsdaten liegen ausschließlich lokal im Daten-Volume.
 ## Weitere Installationsarten (ohne LoxBerry)
 
 LoxPanel ist ein normaler Docker-Dienst und läuft auch ohne LoxBerry – gleiche
-Server-Basis, gleiches Image `ghcr.io/lenardo1/loxpanel:latest` (multi-arch:
+Server-Basis, gleiches Image `ghcr.io/chief-wiggum1203/loxpanel:latest` (multi-arch:
 amd64 / arm64 / **armv7**).
 
 **Portainer / docker compose:**
@@ -296,7 +296,7 @@ amd64 / arm64 / **armv7**).
 ```yaml
 services:
   loxpanel:
-    image: ghcr.io/lenardo1/loxpanel:latest
+    image: ghcr.io/chief-wiggum1203/loxpanel:latest
     container_name: loxpanel
     restart: unless-stopped
     ports:
@@ -363,5 +363,7 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 
 ## Support & Quellcode
 
-Fragen, Ideen und Fehlerberichte gerne als GitHub-Issue:
-<https://github.com/Lenardo1/Loxpanel>
+Dieses Repository ist ein Fork von **LoxPanel** von Lenardo1
+(<https://github.com/Lenardo1/Loxpanel>) und wird hier eigenständig weiterentwickelt.
+Fragen, Ideen und Fehlerberichte zu dieser Fassung gerne als GitHub-Issue:
+<https://github.com/CHief-Wiggum1203/Loxpanel>
