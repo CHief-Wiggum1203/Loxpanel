@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  Unraid-Docker-Template fuer LoxPanel.
+  Einbinden: Unraid -> Docker -> "Template repositories" ->
+  https://github.com/CHief-Wiggum1203/Loxpanel/tree/main/unraid eintragen,
+  dann "Add Container" -> Template "LoxPanel" waehlen.
+-->
+<Container version="2">
+  <Name>LoxPanel</Name>
+  <Repository>ghcr.io/chief-wiggum1203/loxpanel:latest</Repository>
+  <Registry>https://github.com/CHief-Wiggum1203/Loxpanel/pkgs/container/loxpanel</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/CHief-Wiggum1203/Loxpanel/issues</Support>
+  <Project>https://github.com/CHief-Wiggum1203/Loxpanel</Project>
+  <Overview>Konfigurierbare Touch-Visu fuer den Loxone Miniserver. Verwandelt Wandpanel, Tablet oder Handy in eine frei gestaltbare Bedienoberflaeche. Verbindet sich per WebSocket (Token-Auth) mit dem Miniserver und liest die Struktur automatisch ein.&#xD;
+&#xD;
+Nach dem Start: Miniserver-Zugang unter http://[IP]:[PORT:8099]/settings eintragen (oder ueber die Variablen unten), Panels unter /config gestalten, Visu unter /?panel=&lt;id&gt; aufrufen.&#xD;
+&#xD;
+Der Ordner /app/config enthaelt loxpanel.cfg, panels.json und theme.json und muss persistent sein (appdata).</Overview>
+  <Category>HomeAutomation:</Category>
+  <WebUI>http://[IP]:[PORT:8099]/config</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/CHief-Wiggum1203/Loxpanel/main/unraid/loxpanel.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/CHief-Wiggum1203/Loxpanel/main/loxberry-plugin/icons/icon_256.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Web-Port" Target="8099" Default="8099" Mode="tcp" Description="Port fuer Visu, Konfigurator (/config) und Einstellungen (/settings). Die Panels verbinden sich auf diesen Port." Type="Port" Display="always" Required="true" Mask="false">8099</Config>
+  <Config Name="Konfiguration (appdata)" Target="/app/config" Default="/mnt/user/appdata/loxpanel/config" Mode="rw" Description="Persistente Konfiguration: loxpanel.cfg (Miniserver-Zugang, Intercom), panels.json (Panel-Profile), theme.json (Design)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/loxpanel/config</Config>
+  <Config Name="Miniserver-Host" Target="LOXPANEL_MS_HOST" Default="" Mode="" Description="IP oder Hostname des Loxone Miniservers. Optional: leer lassen und den Zugang stattdessen unter /settings eintragen. Ein unter /settings gespeicherter Zugang hat Vorrang vor diesen Variablen." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Miniserver-Benutzer" Target="LOXPANEL_MS_USER" Default="" Mode="" Description="Loxone-Benutzer fuer die Visu (Rechte auf die gewuenschten Raeume/Bausteine)." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Miniserver-Passwort" Target="LOXPANEL_MS_PASS" Default="" Mode="" Description="Passwort des Loxone-Benutzers." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Miniserver-Port" Target="LOXPANEL_MS_PORT" Default="443" Mode="" Description="Port des Miniservers: 443 (Gen2, HTTPS) oder 80 (Gen1, HTTP)." Type="Variable" Display="advanced" Required="false" Mask="false">443</Config>
+  <Config Name="Miniserver TLS pruefen" Target="LOXPANEL_MS_VERIFY_TLS" Default="false" Mode="" Description="true = TLS-Zertifikat des Miniservers pruefen. Gen2 nutzt ein selbstsigniertes Zertifikat, daher false." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+</Container>

@@ -2,9 +2,10 @@
 
 **Eine konfigurierbare Touch-Visu für Loxone** – verwandelt jedes Display
 (Wandpanel, Tablet oder Handy) in eine aufgeräumte, frei gestaltbare
-Bedienoberfläche für den Loxone Miniserver. LoxPanel läuft als **Docker-Container
-auf dem LoxBerry** (Plug&Play-Plugin); eingerichtet und gestaltet wird alles im
-Browser – ganz ohne Programmierung und ohne die Loxone-App.
+Bedienoberfläche für den Loxone Miniserver. LoxPanel läuft als **Docker-Container**
+– auf einem **Unraid**-Server, jedem anderen Docker-Host oder als Plug&Play-Plugin
+auf dem **LoxBerry**; eingerichtet und gestaltet wird alles im Browser – ganz ohne
+Programmierung und ohne die Loxone-App.
 
 > Status: **lauffähig & produktiv einsetzbar.** Verbindet sich per WebSocket mit
 > dem Miniserver (Token-Auth), liest die Struktur automatisch ein und steuert live.
@@ -15,6 +16,7 @@ Browser – ganz ohne Programmierung und ohne die Loxone-App.
 - [Unterstützte Bausteine](#unterstützte-bausteine)
 - [Der Panel-Agent (Wandpanel-Kiosk)](#der-panel-agent-wandpanel-kiosk)
 - [Voraussetzungen](#voraussetzungen)
+- [Installation auf Unraid](#installation-auf-unraid)
 - [Installation als LoxBerry-Plugin](#installation-als-loxberry-plugin)
 - [Konfiguration](#konfiguration)
 - [Updates](#updates)
@@ -233,6 +235,19 @@ Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 - **Docker** – wird vom Plugin bei Bedarf automatisch installiert.
 - Erreichbarer **Loxone Miniserver** (Gen1 oder Gen2).
 
+## Installation auf Unraid
+
+1. Unraid → **Docker** → ganz unten **Template repositories** →
+   `https://github.com/CHief-Wiggum1203/Loxpanel` eintragen → **Save**.
+2. **Add Container** → Template **LoxPanel** wählen. Port `8099` und der
+   appdata-Pfad `/mnt/user/appdata/loxpanel/config` sind vorbelegt → **Apply**.
+3. **WebUI** öffnen, unter `/settings` den Miniserver-Zugang eintragen, unter
+   `/config` die Panels gestalten.
+
+Updates laufen über **Check for Updates** im Docker-Tab, die Sicherung über den
+appdata-Ordner. Details, Wandpanel-Agent und Fehlersuche:
+[`deploy/UNRAID.md`](deploy/UNRAID.md).
+
 ## Installation als LoxBerry-Plugin
 
 1. LoxBerry → **Plugin-Verwaltung**.
@@ -269,6 +284,8 @@ Zustandsfarben. Ohne Profil verhält sich ein Panel wie `default` (alles sichtba
 - Der Fortschritt wird live im **Log-Fenster** angezeigt.
 - Deine Panels und Einstellungen bleiben dabei **immer erhalten** (eigenes
   Daten-Volume; zusätzlich werden sie bei Plugin-Updates gesichert).
+- **Auf Unraid:** Docker-Tab → **Check for Updates** → **update**. Die Konfiguration
+  liegt im appdata-Ordner und bleibt erhalten.
 
 ## Sicherung (Backup & Wiederherstellung)
 
@@ -279,11 +296,17 @@ an. Die Archive liegen auf dem LoxBerry unter
 lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
 vorher automatisch gesichert).
 
+**Auf Unraid** liegt die komplette Konfiguration in
+`/mnt/user/appdata/loxpanel/config` (`loxpanel.cfg`, `panels.json`, `theme.json`).
+Diesen Ordner sichern, z. B. mit dem Plugin **Appdata Backup**; zum Wiederherstellen
+die Dateien zurückkopieren und den Container neu starten.
+
 ## Datenschutz
 
-LoxPanel läuft **vollständig lokal**: Die Verbindung besteht nur zwischen LoxBerry
-und dem Miniserver in deinem Netz. Es gibt **keine Cloud**, kein Konto und keine
-Telemetrie. Zugangsdaten liegen ausschließlich lokal im Daten-Volume.
+LoxPanel läuft **vollständig lokal**: Die Verbindung besteht nur zwischen dem
+LoxPanel-Server (Unraid, Docker-Host oder LoxBerry) und dem Miniserver in deinem
+Netz. Es gibt **keine Cloud**, kein Konto und keine Telemetrie. Zugangsdaten liegen
+ausschließlich lokal im Daten-Volume.
 
 ## Weitere Installationsarten (ohne LoxBerry)
 
@@ -307,6 +330,7 @@ services:
       LOXPANEL_MS_PASS: "dein-passwort"
       LOXPANEL_MS_PORT: "443"
       LOXPANEL_MS_VERIFY_TLS: "false"       # Gen2 selbstsigniert -> false
+      TZ: "Europe/Vienna"                   # Zeitzone (Unraid setzt TZ automatisch)
     volumes:
       - loxpanel_config:/app/config          # panels.json / theme.json / loxpanel.cfg persistent
 volumes:
@@ -324,7 +348,7 @@ cp config/loxpanel.cfg.example config/loxpanel.cfg   # Miniserver eintragen (git
 python bin/webvisu.py             # -> http://localhost:8099
 ```
 
-Details: [`deploy/DOCKER.md`](deploy/DOCKER.md) / [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
+Details: [`deploy/DOCKER.md`](deploy/DOCKER.md) / [`deploy/UNRAID.md`](deploy/UNRAID.md) / [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 
 ## Architektur
 
