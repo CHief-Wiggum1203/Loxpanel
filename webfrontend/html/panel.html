@@ -50,11 +50,15 @@
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
   .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
-  #playerpane .ppcover{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.06);
-    display:grid;place-items:center;color:var(--muted);}
-  #playerpane .ppcover>*{grid-area:1/1;}   /* Note-Platzhalter + Cover uebereinander (nicht stapeln) */
-  #playerpane .ppcover img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s;}
-  #playerpane .ppcover .coverph svg{width:64px;height:64px;}
+  /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
+     Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
+  #playerpane .ppcover{flex:1;min-height:0;display:grid;place-items:center;color:var(--muted);}
+  #playerpane .ppcover>*{grid-area:1/1;}   /* Note-Platzhalter + Cover uebereinander */
+  #playerpane .ppcover img{max-width:100%;max-height:100%;aspect-ratio:1;object-fit:cover;
+    border-radius:14px;opacity:0;transition:opacity .2s;}
+  #playerpane .ppcover .coverph{width:96px;height:96px;display:grid;place-items:center;
+    background:rgba(255,255,255,.06);border-radius:14px;}
+  #playerpane .ppcover .coverph svg{width:56px;height:56px;}
   #playerpane .pptitle{font-size:18px;font-weight:600;text-align:center;line-height:1.2;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #playerpane .ppsub{font-size:14px;color:var(--muted);text-align:center;margin-top:-4px;
