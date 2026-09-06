@@ -6,7 +6,7 @@
 services:
   loxpanel:
     container_name: loxpanel
-    image: ghcr.io/lenardo1/loxpanel:latest
+    image: ghcr.io/chief-wiggum1203/loxpanel:latest
     hostname: loxpanel
     restart: unless-stopped
     ports:
