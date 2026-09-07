@@ -210,6 +210,11 @@ Chromium-Kiosk – kann ein Container auf dem LoxBerry aber nicht steuern. Genau
 - **Robuster Neustart:** bereinigt nach einem Stromausfall den „Wiederherstellen?"-
   Dialog von Chromium, damit der Kiosk ohne Eingriff wieder hochkommt.
 
+**Android-Panels und Tablets ohne Agent:** Auf Android übernimmt eine Kiosk-App
+den Autostart, und die Visu schaltet das Display selbst (mit Fully Kiosk Browser).
+Betriebsmodus, Reload, Goto und Notify funktionieren dort ohne Agent. Einrichtung
+und Grenzen: [`deploy/ANDROID.md`](deploy/ANDROID.md).
+
 **Installation (per SSH auf dem Panel):** ein Skript richtet Agent + Autostart ein:
 
 ```bash

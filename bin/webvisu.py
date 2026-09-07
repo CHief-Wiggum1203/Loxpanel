@@ -87,6 +87,8 @@ JAL = JalousieAdapter()
 
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
+# Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
+DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 
 
 def _is_tab(t) -> bool:
@@ -349,6 +351,8 @@ class App:
         self.conn_route: dict[web.WebSocketResponse, dict] = {}
         self.conn_prof: dict[web.WebSocketResponse, dict] = {}
         self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraete-Kennung (?device=)
+        self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
+        self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -796,8 +800,10 @@ class App:
 
     def panel_dpms(self, pid: str | None):
         """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
-        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Wird dem
-        Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
+        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Geht an
+        den Panel-Agenten (Announce-Antwort, xset) UND an die Visu (theme-
+        Nachricht): ohne Agent schaltet die Seite das Display ueber die
+        JS-Schnittstelle der Kiosk-App (z.B. Fully Kiosk Browser)."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("dpmsOff")
@@ -806,11 +812,136 @@ class App:
     def panel_reload(self, pid: str | None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
         (0/None = aus). Gegen Einfrieren; der Agent startet Chromium periodisch
-        neu. Wird in der Announce-Antwort mitgegeben."""
+        neu (Announce-Antwort), ohne Agent laedt die Visu sich selbst neu
+        (theme-Nachricht)."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("reloadHours")
         return max(0, min(168, float(v))) if isinstance(v, (int, float)) else None
+
+    def _has_agent(self, name: str) -> bool:
+        """True, wenn zu einer Geraetekennung (?device=) ein Panel-Agent bekannt
+        ist, der sich in den letzten 10 Minuten gemeldet hat. Dann schaltet der
+        Agent das Display und startet Chromium neu; die Visu haelt sich mit
+        eigener Abschaltung und eigenem Reload zurueck."""
+        if not name:
+            return False
+        now = time.time()
+        return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
+                   for a in self.agents.values())
+
+    def device_list(self) -> dict:
+        """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
+        Panel-Agenten (Announce), verbundene Browser (?device=) und die in
+        panels.json konfigurierten Geraete (Betriebsmodus-Automatik). Browser
+        ohne Kennung stehen getrennt unter `anonymous` (nach IP) und koennen
+        aus den Einstellungen benannt werden (`/api/device/name`)."""
+        now = time.time()
+        devs: dict[str, dict] = {}
+
+        def entry(name: str) -> dict:
+            return devs.setdefault(name, {
+                "name": name, "agent": None, "connections": 0, "online": False,
+                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False})
+
+        for a in self.agents.values():
+            if (now - a["ts"]) >= 600:
+                continue
+            e = entry(a["name"])
+            e["agent"] = {"ip": a["ip"], "port": a["port"], "kiosk": a["kiosk"],
+                          "panel": a["panel"], "online": (now - a["ts"]) < 60}
+            e["ip"] = a["ip"]
+            e["lastSeen"] = max(e["lastSeen"], a["ts"])
+            e["online"] = e["online"] or e["agent"]["online"]
+        anonymous = []
+        for ws, info in list(self.conn_info.items()):
+            prof = (self.conn_prof.get(ws) or {}).get("id", "")
+            if not info.get("dev"):
+                anonymous.append({"ip": info.get("ip", ""), "profile": prof,
+                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0)})
+                continue
+            e = entry(info["dev"])
+            e["connections"] += 1
+            e["online"] = True
+            e["profile"] = prof
+            e["kiosk"] = info.get("kiosk") or e["kiosk"]
+            e["ip"] = e["ip"] or info.get("ip", "")
+            e["lastSeen"] = max(e["lastSeen"], info.get("ts", 0))
+        for name in self.devices:
+            entry(name)["configured"] = True
+        for e in devs.values():
+            e["type"] = "agent" if e["agent"] else ("fully" if e["kiosk"] == "fully" else "browser")
+            if e["agent"] and not e["profile"]:
+                e["profile"] = e["agent"]["panel"]
+        anonymous.sort(key=lambda a: a["ip"])
+        return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
+                "anonymous": anonymous, "profiles": sorted(self.panels)}
+
+    def _spawn(self, coro) -> None:
+        """Hintergrund-Task ohne auf das Ergebnis zu warten (Treiber-Aufrufe)."""
+        task = asyncio.create_task(coro)
+        self.bg_tasks.add(task)
+        task.add_done_callback(self.bg_tasks.discard)
+
+    async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
+        """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully
+        Kiosk Remote Admin, WallPanel). Betroffen sind Geraete mit `display`-
+        Treiber in panels.json: bei `device` genau dieses, bei `panel` die, die
+        das Profil gerade zeigen, sonst alle. Liefert je Geraet ein Ergebnis."""
+        showing = {}
+        for ws, info in list(self.conn_info.items()):
+            if info.get("dev"):
+                showing[info["dev"]] = (self.conn_prof.get(ws) or {}).get("id", "")
+        out = []
+        for name, cfg in self.devices.items():
+            disp = cfg.get("display") if isinstance(cfg, dict) else None
+            if not disp:
+                continue
+            if device and name != device:
+                continue
+            if panel and not device and showing.get(name) != panel:
+                continue
+            out.append(await self._drive_display(name, disp, on))
+        return out
+
+    async def _drive_display(self, name: str, disp: dict, on: bool) -> dict:
+        sess = self._drv_session
+        if sess is None or sess.closed:
+            sess = self._drv_session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=6))
+        drv = disp.get("driver")
+        res = {"device": name, "driver": drv, "on": on}
+        try:
+            if drv == "fully":
+                # Fully Kiosk Browser, Remote Admin: GET /?cmd=screenOn|screenOff&password=...
+                url = (f"http://{disp['host']}:{disp['port']}/?cmd="
+                       f"{'screenOn' if on else 'screenOff'}&type=json"
+                       f"&password={quote(str(disp.get('password') or ''), safe='')}")
+                async with sess.get(url) as r:
+                    txt = (await r.text())[:300]
+                    ok = r.status == 200
+                    try:
+                        j = json.loads(txt)
+                        if isinstance(j, dict) and str(j.get("status", "")).lower() == "error":
+                            ok, txt = False, str(j.get("statustext") or txt)
+                    except ValueError:
+                        pass
+            else:
+                # WallPanel: POST /api/command {"wake": true|false}. false gibt nur
+                # den Bildschirmschoner von WallPanel frei (eigene Abschaltzeit dort).
+                url = f"http://{disp['host']}:{disp['port']}/api/command"
+                async with sess.post(url, json={"wake": bool(on)}) as r:
+                    txt = (await r.text())[:300]
+                    ok = r.status == 200
+            if not ok:
+                res["error"] = f"HTTP {r.status}: {txt}".strip()
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+            ok = False
+            res["error"] = str(err) or err.__class__.__name__
+        res["ok"] = ok
+        if not ok:
+            log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
+        return res
 
     async def _agent_start(self, agent: dict, profile: str) -> bool:
         """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl)."""
@@ -1047,10 +1178,33 @@ class App:
                 prof = prof.strip()
                 if mode and prof and prof in panel_ids:
                     modes[mode] = prof
-            if not modes:
+            display = App._sanitize_display(cfg.get("display"))
+            if not modes and not display:
                 continue
-            out[name.strip()[:60]] = {"auto": bool(cfg.get("auto", True)), "modes": modes}
+            entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
+            if display:
+                entry["display"] = display
+            out[name.strip()[:60]] = entry
         return out
+
+    @staticmethod
+    def _sanitize_display(d) -> dict | None:
+        """Display-Treiber eines Geraets: {driver: fully|wallpanel, host, port,
+        password}. Ohne gueltigen Treiber oder Host -> None."""
+        if not isinstance(d, dict):
+            return None
+        drv = str(d.get("driver") or "").strip().lower()
+        if drv not in DISPLAY_DRIVERS:
+            return None
+        host = str(d.get("host") or "").strip()[:100]
+        if not host:
+            return None
+        try:
+            port = int(d.get("port") or DISPLAY_DRIVERS[drv])
+        except (TypeError, ValueError):
+            port = DISPLAY_DRIVERS[drv]
+        return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
+                "password": str(d.get("password") or "")[:100]}
 
     @staticmethod
     def _sanitize_theme_ui(ui: dict) -> dict:
@@ -2446,6 +2600,7 @@ class App:
             if self._pending_ring is not None:
                 rid, self._pending_ring = self._pending_ring, None
                 log.info("Klingel → Popup: %s", rid)
+                self._spawn(self.display_drivers(True))   # Kiosk-Apps ueber HTTP wecken
                 for ws in list(self.conn_route):
                     try:
                         await ws.send_json({"t": "ring", "id": rid})
@@ -2454,6 +2609,8 @@ class App:
             while self._pending_alarm:
                 ev = self._pending_alarm.pop(0)
                 log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
+                if ev["on"]:
+                    self._spawn(self.display_drivers(True))
                 for ws in list(self.conn_route):
                     try:
                         await ws.send_json({"t": "alarm", "id": ev["id"], "on": ev["on"]})
@@ -2779,6 +2936,87 @@ async def api_save_devices(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "devices": devices})
 
 
+async def api_devices_get(request: web.Request) -> web.Response:
+    """Alle Anzeigegeraete (Agent, Kiosk-App, Browser) mit Online-Status,
+    Ansicht und Typ; Browser ohne Kennung getrennt nach IP."""
+    app: App = request.app["app"]
+    return web.json_response(app.device_list())
+
+
+async def api_device_switch(request: web.Request) -> web.Response:
+    """Ansicht eines Geraets wechseln: {device, panel}. Zuerst per WebSocket-
+    Push (Browser laedt sich mit neuem Profil neu), sonst ueber den Agenten."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    device = str(d.get("device") or "").strip()
+    panel = str(d.get("panel") or "").strip()
+    if not device:
+        return web.json_response({"ok": False, "error": "device fehlt"}, status=400)
+    if panel and panel not in app.panels:
+        return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
+    n = await _push(app, {"t": "switch", "panel": panel}, "", device)
+    if n:
+        return web.json_response({"ok": True, "sent": n, "via": "ws"})
+    now = time.time()
+    agent = next((a for a in app.agents.values()
+                  if a.get("name") == device and (now - a["ts"]) < 600), None)
+    if agent:
+        ok = await app._agent_start(agent, panel)
+        return web.json_response({"ok": ok, "sent": 1 if ok else 0, "via": "agent"})
+    return web.json_response({"ok": False, "sent": 0, "error": "Panel nicht online"})
+
+
+async def api_device_name(request: web.Request) -> web.Response:
+    """Gibt einem Browser ohne Kennung einen Geraetenamen: {ip, name}. Die
+    Visu merkt sich den Namen (localStorage) und verbindet sich neu."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    ip = str(d.get("ip") or "").strip()
+    name = str(d.get("name") or "").strip()[:60]
+    if not ip or not name:
+        return web.json_response({"ok": False, "error": "ip und name noetig"}, status=400)
+    n = 0
+    for ws, info in list(app.conn_info.items()):
+        if info.get("ip") != ip or info.get("dev"):
+            continue
+        try:
+            await ws.send_json({"t": "setdevice", "name": name})
+            n += 1
+        except ConnectionError:
+            pass
+    return web.json_response({"ok": n > 0, "sent": n,
+                              **({} if n else {"error": "kein Geraet ohne Kennung unter dieser IP"})})
+
+
+async def api_display(request: web.Request) -> web.Response:
+    """Display der Panels schalten: ?on=1|0, optional ?panel= / ?device=.
+    Wirkt auf Geraete mit Kiosk-App (Fully Kiosk), die die Visu offen haben;
+    Linux-Panels mit Agent regeln das Display selbst. Auch aus Loxone nutzbar."""
+    app: App = request.app["app"]
+    d = await _json_or_empty(request)
+    raw = d.get("on", request.query.get("on"))
+    if isinstance(raw, bool):
+        on = raw
+    else:
+        v = str(raw if raw is not None else "").strip().lower()
+        if v in ("1", "true", "on", "an", "ein"):
+            on = True
+        elif v in ("0", "false", "off", "aus"):
+            on = False
+        else:
+            return web.json_response({"ok": False, "error": "on=1|0 fehlt"}, status=400)
+    panel, device = _push_filter(request, d)
+    n = await _push(app, {"t": "display", "on": on}, panel, device)
+    drivers = await app.display_drivers(on, device, panel)
+    return web.json_response({"ok": True, "sent": n, "on": on, "drivers": drivers})
+
+
 async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int:
     """Push an offene Visu-Verbindungen (Server -> Browser). Optional gefiltert
     auf ein Panel-Profil (`panel`) oder ein Geraet (`device`, aus ?device=).
@@ -2798,6 +3036,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_route.pop(ws, None)
             app.conn_prof.pop(ws, None)
             app.conn_dev.pop(ws, None)
+            app.conn_info.pop(ws, None)
     return n
 
 
@@ -2843,6 +3082,7 @@ async def api_goto(request: web.Request) -> web.Response:
                                  status=400)
     panel, device = _push_filter(request, d)
     n = await _push(app, {"t": "goto", "route": route}, panel, device)
+    app._spawn(app.display_drivers(True, device, panel))   # Kiosk-Apps wecken
     return web.json_response({"ok": True, "route": route, "sent": n})
 
 
@@ -2863,6 +3103,7 @@ async def api_notify(request: web.Request) -> web.Response:
         secs = 5
     secs = max(1, min(60, secs))
     panel, device = _push_filter(request, d)
+    app._spawn(app.display_drivers(True, device, panel))   # Kiosk-Apps wecken
     n = await _push(app, {"t": "notify", "text": text, "level": level, "secs": secs},
                     panel, device)
     return web.json_response({"ok": True, "sent": n})
@@ -2978,14 +3219,23 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     prof = app.resolve_profile(pid)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
+    kiosk = request.query.get("kiosk", "")
+    app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk == "fully" else "",
+                         "ip": request.remote or "", "ts": time.time()}
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}
     log.info("Panel verbunden: '%s' (Tabs %s, Räume %s, Kategorien %s)", prof["id"],
              prof["tabs"], "alle" if prof["rooms"] is None else len(prof["rooms"]),
              "alle" if prof["cats"] is None else len(prof["cats"]))
+    # Display-Einstellungen gehen auch an die Visu: ohne Agent (Android-Panel,
+    # Tablet mit Kiosk-App) schaltet die Seite das Display selbst ab und laedt
+    # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
-                        "lang": prof["lang"], "fill": prof["fill"]})
+                        "lang": prof["lang"], "fill": prof["fill"],
+                        "dpmsOff": app.panel_dpms(prof["id"]),
+                        "reloadHours": app.panel_reload(prof["id"]),
+                        "agent": app._has_agent(dev)})
     await ws.send_json(app.render(app.conn_route[ws], prof))
     try:
         async for msg in ws:
@@ -3006,6 +3256,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     task = asyncio.create_task(app.prime_favs(route["id"]))
                     app.bg_tasks.add(task)
                     task.add_done_callback(app.bg_tasks.discard)
+            elif data.get("t") == "idle":
+                # Visu ohne Kiosk-JS meldet Leerlauf -> Display ueber Treiber aus
+                if dev:
+                    app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
@@ -3015,6 +3269,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_route.pop(ws, None)
         app.conn_prof.pop(ws, None)
         app.conn_dev.pop(ws, None)
+        app.conn_info.pop(ws, None)
     return ws
 
 
@@ -3030,6 +3285,9 @@ async def on_startup(a: web.Application) -> None:
 async def on_cleanup(a: web.Application) -> None:
     for t in a.get("tasks", []):
         t.cancel()
+    sess = a["app"]._drv_session
+    if sess is not None and not sess.closed:
+        await sess.close()
     await a["app"].close()
 
 
@@ -3056,6 +3314,11 @@ def main() -> None:
     a.router.add_get("/api/agents", api_agents)
     a.router.add_post("/api/agent/command", api_agent_command)
     a.router.add_post("/api/devices", api_save_devices)
+    a.router.add_get("/api/devices", api_devices_get)
+    a.router.add_post("/api/device/switch", api_device_switch)
+    a.router.add_post("/api/device/name", api_device_name)
+    a.router.add_get("/api/display", api_display)
+    a.router.add_post("/api/display", api_display)
     a.router.add_get("/api/mode", api_mode)
     a.router.add_post("/api/mode", api_mode)
     a.router.add_get("/api/mode/{mode}", api_mode)

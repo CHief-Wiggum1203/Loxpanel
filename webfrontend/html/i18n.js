@@ -44,11 +44,25 @@
       'SIP-Anbindung ist in Arbeit.': 'SIP integration is in progress.',
       'Coming soon': 'Coming soon',
       // Panels
-      'Panels mit installiertem Agent melden sich automatisch. Ansicht wählen und den Kiosk starten / aktualisieren.':
-        'Panels with the agent installed register automatically. Pick a view and start / refresh the kiosk.',
+      'Alle Anzeigegeräte auf einen Blick: Linux-Panels mit Agent melden sich automatisch, Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?device=<name>). Geräte ohne Kennung stehen unten und bekommen hier einen Namen.':
+        'All display devices at a glance: Linux panels with the agent register automatically, Android panels and tablets appear as soon as they open the visu with a device id (?device=<name>). Devices without an id are listed below and get a name here.',
+      'Ansicht wechseln': 'Switch view',
+      'Neu laden': 'Reload',
+      'Display aus': 'Display off',
+      'Display an': 'Display on',
+      'Visu offen': 'visu open',
+      'Ohne Kennung': 'No device id',
+      'Gerätename': 'Device name',
+      'Namen vergeben': 'Assign name',
+      'Bitte einen Namen eingeben': 'Please enter a name',
+      'Browser': 'Browser',
+      'Ansicht': 'View',
+      'Panel nicht erreicht': 'Panel not reached',
+      'Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.':
+        'Devices without an id (by IP). Assign a name so the device stays listed and can be switched by operating mode.',
+      'Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.':
+        'No panel found yet. A panel appears as soon as it opens the visu with ?device=<name> or the agent runs on it.',
       'Suche Panels…': 'Searching for panels…',
-      'Noch kein Panel gefunden. Agent auf dem Panel starten (agent/loxpanel-agent.py).':
-        'No panel found yet. Start the agent on the panel (agent/loxpanel-agent.py).',
       '(Standard)': '(Default)',
       'Start': 'Start',
       'Reload': 'Reload',
@@ -92,9 +106,23 @@
         'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per panel, which view appears for which mode. A panel without an entry for a mode stays unchanged.',
       'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
-      'Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.':
-        'No panel known yet. A panel must have reported in once (agent running), then it appears here.',
-      'Automatik speichern': 'Save automation',
+      'Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.':
+        'No panel known yet. As soon as a panel opens the visu with a device id or an agent runs, it appears here.',
+      'Speichern': 'Save',
+      'Betriebsmodus-Automatik und Display-Steuerung': 'Operating-mode automation and display control',
+      'Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.':
+        'Display control per device: for Fully Kiosk enable the Remote Admin interface (port 2323, password), for WallPanel the HTTP server (port 2971). The server then switches the display on for doorbell, alarm clock, notify and goto and off after the timeout, independent of the page.',
+      'Display-Steuerung': 'Display control',
+      'keine (nur über die Seite)': 'none (page only)',
+      'Passwort (Fully)': 'Password (Fully)',
+      'Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.':
+        'Two ways: an Android panel or tablet with a kiosk app only needs a start URL; a Linux panel gets the agent via SSH.',
+      'Android-Panel oder Tablet (Kiosk-App)': 'Android panel or tablet (kiosk app)',
+      'Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.':
+        'Enter the start URL in Fully Kiosk Browser or WallPanel. The device name makes the device appear under Panels and switchable by operating mode. Display off: enable the JavaScript interface in Fully or configure a display driver above. Details in deploy/ANDROID.md.',
+      'Start-URL erzeugen': 'Generate start URL',
+      'Gerätename und Server-Adresse nötig': 'Device name and server address required',
+      'Linux-Panel mit Agent (SSH)': 'Linux panel with agent (SSH)',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',

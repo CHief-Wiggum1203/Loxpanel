@@ -3,7 +3,8 @@
 Web-Touch-Visu für den Loxone Miniserver. Fork von `Lenardo1/Loxpanel`, hier
 eigenständig weiterentwickelt und auf Unraid betrieben. Ausführliche Analyse in
 [`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md), dort stehen Datenfluss, Routen,
-Konfigurationsformate, Erweiterungs-Rezepte und bekannte Schwachstellen.
+Konfigurationsformate, Erweiterungs-Rezepte und bekannte Schwachstellen. Die
+priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
 
 ## Aufbau in einem Satz
 

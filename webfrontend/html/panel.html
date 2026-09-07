@@ -673,10 +673,12 @@ g.addEventListener('touchend',e=>{
 
 let booted=false;
 const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
-// Geraete-Kennung (physisches Panel). Nur noetig, wenn dieses Geraet per
-// Betriebsmodus automatisch umgeschaltet werden soll (Server adressiert es
-// darueber). Ohne Agent: einfach ?device=<name> an die Kiosk-URL haengen.
-const DEVICE_ID = new URLSearchParams(location.search).get('device') || '';
+// Geraete-Kennung (physisches Panel). Darueber adressiert der Server dieses
+// Geraet (Betriebsmodus, Display, Ansicht wechseln) und listet es unter
+// Einstellungen -> Panels. Quelle: ?device=<name> in der Kiosk-URL, sonst ein
+// unter Einstellungen -> Panels vergebener Name (t:'setdevice', localStorage).
+let DEVICE_ID = new URLSearchParams(location.search).get('device') || '';
+try{ if(!DEVICE_ID) DEVICE_ID = localStorage.getItem('lp_device') || ''; }catch(e){}
 let LANG='de-DE';   // Panel-Sprache (aus dem Profil, Server sendet sie im theme); steuert Datum/Uhr
 // Horizontaler Feinversatz der ganzen Visu — live einstellbar ohne Redeploy:
 //   ?x=-6  -> 6px nach links     ?x=8 -> nach rechts     ?x=0 -> zuruecksetzen
@@ -691,6 +693,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
+  if(kiosk()) q.push('kiosk=fully');   // Kiosk-App melden -> Typ in der Geraeteliste
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
@@ -706,16 +709,21 @@ function connect(){
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
-      if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs; renderTabs(); return; }
-    if(msg.t==='ring'){ if(msg.id) nav({view:'control',id:msg.id}); return; }
-    if(msg.t==='alarm'){ if(msg.on){ startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
+      if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
+      applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      renderTabs(); return; }
+    if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
+    if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
-    if(msg.t==='goto'){ if(msg.route){ hideSaver(); resetIdle(); nav(msg.route); } return; }  // auf Seite springen
-    if(msg.t==='notify'){ showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
+    if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
+    if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
+    if(msg.t==='display'){ if(msg.on) wake(); else screenOff(); return; }   // Server schaltet Display (Kiosk-App)
+    if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
+        DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
     if(msg.t!=='view') return;
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
@@ -759,9 +767,42 @@ function showNotify(text, level, secs){
   n._t=setTimeout(()=>{ if(n&&n.parentNode) n.parentNode.removeChild(n); }, Math.max(1,(secs||5))*1000);
 }
 function resetIdle(){ clearTimeout(idleTimer);
-  idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS); }
+  idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS);
+  armDpms(); }
 el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); hideSaver(); resetIdle(); });
 ['pointerdown','keydown','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ if(!saverOn()) resetIdle(); }, {passive:true}));
+// ---- Display ohne Agent: Kiosk-App-Anbindung (Android) ----
+// Auf einem Linux-Panel schaltet der Agent das Display (Server meldet agent:true,
+// die Seite haelt sich dann raus). Ohne Agent uebernimmt die Seite: nach dpmsOff
+// Sekunden Inaktivitaet Display aus ueber die JS-Schnittstelle der Kiosk-App,
+// bei Klingel / Wecker / Notify / Goto wieder an. Erkannt wird Fully Kiosk
+// Browser (window.fully; dort "Enable JavaScript Interface" einschalten).
+// Auto-Neustart (reloadHours) erledigt die Seite ohne Agent per location.reload().
+const DISP = { dpmsOff: 0, reloadHours: 0, agent: false };
+let dpmsTimer=null, reloadTimer=null;
+function kiosk(){
+  const f=window.fully;
+  return (f && typeof f.turnScreenOff==='function' && typeof f.turnScreenOn==='function') ? f : null;
+}
+function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }catch(e){} }
+function screenOn(){ const f=kiosk(); if(!f) return;
+  try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
+function armDpms(){ clearTimeout(dpmsTimer);
+  if(DISP.agent || !(DISP.dpmsOff>0)) return;
+  // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
+  // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
+  dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
+function applyDisplayCfg(msg){
+  DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
+  DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
+  DISP.agent = !!msg.agent;
+  armDpms();
+  clearTimeout(reloadTimer);
+  if(!DISP.agent && DISP.reloadHours>0) reloadTimer=setTimeout(()=>location.reload(), DISP.reloadHours*3600*1000);
+}
+// Server-Ereignis, das Aufmerksamkeit braucht: Display an, Uhr weg, Timer neu.
+function wake(){ screenOn(); hideSaver(); resetIdle(); }
+
 setInterval(tickClock, 1000);
 showSaver();     // Startseite = Uhr
 resetIdle();
