@@ -6,7 +6,7 @@ Klammern verweisen auf die Befunde in [`ARCHITEKTUR.md`](ARCHITEKTUR.md)
 **S** = unter einer Stunde, **M** = ein halber Tag, **L** = mehrere Tage.
 
 Sicherheit ist bewusst ganz unten eingeordnet: Der Server läuft nur im Heimnetz
-und ist nicht von außen erreichbar. Sollte sich das ändern, rückt Block 8 nach
+und ist nicht von außen erreichbar. Sollte sich das ändern, rückt Block 10 nach
 oben.
 
 ---
@@ -168,26 +168,106 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 - [ ] **Workflow auch für Pull Requests**: `py_compile`, Lint und Rauchtest auf
       jedem PR, Image-Build weiter nur auf `main`. **S**
 
-## 8. Funktionen
+## 8. Bausteine: was fehlt
 
-Aus der Roadmap des Original-Autors und den README-Lücken. Reihenfolge nach
-eigenem Bedarf festlegen.
+Stand aus dem Code (Commit `de31d76`): `_control_item()` und
+`_view_control_inner()` in `bin/webvisu.py` behandeln 59 Typen. Ein
+unbekannter Typ ergibt eine tote Kachel ohne Untertitel und ohne Reaktion, so
+wie „Energieflussmonitor" in der Testanlage. Vorgehen je Typ: Rezept (a) in
+[`ARCHITEKTUR.md`](ARCHITEKTUR.md), State- und Befehlsnamen aus der eigenen
+Strukturdatei (`LoxAPP3.json`) des Miniservers ablesen.
 
-- [ ] **Fehlende Bausteine**: 16 laut README geplant, darunter `MoodSwitch`,
-      `Remote`, `ClimateController`, `Heatmixer`, `Sauna`, `EnergyManager2`,
-      `Wallbox`, `PoolController`, `NfcCodeTouch`. Je Typ ein Zweig in beiden
-      Ketten, siehe Rezept (a) in `ARCHITEKTUR.md`. **S** je Typ
-- [ ] **AudioZone**: Musikauswahl statt Platzhalter, `AudioZoneV2` mit
-      denselben Favoriten wie `AudioZone`. **M**
-- [ ] **AlarmClock bearbeiten** (derzeit nur Anzeige und Weckton). **M**
+### 8.1 Zuerst
+
+- [ ] **Diagnose-Endpunkt `/api/types`**: listet alle Bausteintypen der
+      verbundenen Anlage mit Anzahl, Beispielnamen, Unterstützungsstatus
+      (voll / teilweise / keine) und den State-Namen sowie `details`-Schlüsseln
+      je Typ. Damit ist sofort sichtbar, welche Kacheln in der eigenen Anlage
+      tot sind und was ein neuer Zweig lesen muss. **S**
+- [ ] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
+      Untertitel „Typ nicht unterstützt" statt leerer Kachel, und die Kachel
+      per `hide` ausblendbar lassen. **S**
+- [ ] **README-Tabelle angleichen**: `AudioZoneV2` und `EIBDimmer` sind im Code
+      umgesetzt, fehlen aber in der Tabelle (die Roadmap nennt `AudioZoneV2`
+      noch als offen). `ColorPicker` steht als „voll" in der Tabelle, der Code
+      prüft `Colorpicker` (kleines p); den tatsächlichen Typnamen in der
+      Strukturdatei prüfen und Code oder Tabelle korrigieren. **S**
+
+### 8.2 Komplett fehlend, im README als geplant geführt (16)
+
+Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
+
+- [ ] `MoodSwitch` (Stimmungsschalter): wie `LightControllerV2`, Stimmungsliste
+      und aktive Stimmung, Befehl `changeTo/<id>`; Licht-Adapter wiederverwenden. **S**
+- [ ] `Sequential` (Sequenzer): aktueller Schritt, Befehle Weiter/Start/Stop. **S**
+- [ ] `Heatmixer` (Heizungsmischer): Ist- und Solltemperatur, Ventilstellung,
+      nur Anzeige. **S**
+- [ ] `LoadManager` (Lastmanager): Lastliste mit Zustand, nur Anzeige. **S**
+- [ ] `NfcCodeTouch`: letzter Zutritt und Zustand, nur Anzeige; Codes werden
+      nicht in der Visu gepflegt. **S**
+- [ ] `SolarPumpController` (Solarpumpe): Temperaturen, Pumpenzustand, Modus
+      umschalten. **M**
+- [ ] `ClimateController` (Klimaregelung EU): Betriebsart, Solltemperatur,
+      Zustände Heizen/Kühlen. **M**
+- [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
+      Override wie bei V2. **M**
+- [ ] `Sauna` (Sauna-Steuerung): Ist/Soll, Feuchte, Ein/Aus, Modus, Timer. **M**
+- [ ] `PoolController` (Pool): Modus, Temperaturen, Filterlauf, Befehle. **M**
+- [ ] `LightsceneRGB` (RGB-Lichtszene): Szenenliste, aktive Szene, Farbe
+      setzen; Farbwahl aus `ColorPickerV2` wiederverwenden. **M**
+- [ ] `Remote` (Fernbedienung): Modusliste und Tastenbefehle als Button-Raster. **M**
+- [ ] `Wallbox` (Ladestation): Ladeleistung, Energie, Ladezustand, Modus und
+      Leistungsgrenze setzen. **M**
+- [ ] `EnergyManager2` (Energiemanager): Erzeugung, Verbrauch, Speicher,
+      Netz, Verbraucherliste; zunächst nur Anzeige. **M**
+- [ ] `SpotPriceOptimizer` (Strompreis-Optimierer): Preisverlauf und Plan,
+      nur Anzeige. **M**
+- [ ] `MediaClient` (Media Client, alt): Steuerung veralteter Geräte;
+      niedrige Priorität, nur bei Bedarf. **L**
+
+### 8.3 Weder im Code noch im README erwähnt
+
+Typen, die Loxone in der Strukturdatei liefert, hier aber nirgends vorkommen.
+Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
+
+- [ ] `EnergyFlowMonitor` (Energieflussmonitor): kommt in der Testanlage vor.
+      Erzeugung, Verbrauch, Speicher, Netz und Verbraucher als Anzeige; das
+      Layout des Blocks `hero` + `value`-Zeilen reicht für den Anfang. **M**
+- [ ] `EnergyManager` (Energiemanager, alte Version), `Wallbox2`, `CarCharger`:
+      ältere bzw. neuere Varianten der Energie-Bausteine. **M**
+- [ ] `IntercomV2`: neue Türsprechstelle, nach dem Muster von `Intercom`. **M**
+- [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
+      Muster von `Daytimer`. **S**
+- [ ] `Irrigation` (Bewässerung): Zonen, Laufzeiten, Start/Stop. **M**
+- [ ] `AlarmChain`, `AalEmergency`, `AalSmartAlarm` (Alarmkette, Notfall,
+      Smart Alarm): Zustand und Quittieren nach dem Muster von `Alarm`. **S**
+- [ ] `MailBox` (Briefkasten): Post da / geleert, Quittieren. **S**
+- [ ] `LeafSystem`, `PowerUnit`: Anzeige-Bausteine, nur Werte. **S**
+- [ ] `UpDownLeftRightAnalog`, `UpDownLeftRightDigital`: vier Richtungstasten,
+      nach dem Muster von `UpDownDigital`. **S**
+- [ ] `Application`, `MsShortcut`: Verknüpfungen, in der Visu ausblenden statt
+      tote Kachel. **S**
+
+### 8.4 Nur teilweise umgesetzt (6)
+
+- [ ] `AudioZone`: Musikauswahl ist ein Platzhalter; Quellen und Favoriten wie
+      in `_view_sources` auch für `AudioZoneV2` anbieten. **M**
+- [ ] `AlarmClock` (Wecker): nur Anzeige und Weckton, kein Bearbeiten der
+      Weckzeiten. **M**
+- [ ] `Intercom`: Kamera und Klingel-Popup, kein Gegensprechen (SIP). **L**
+- [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
+- [ ] `UpDownAnalog`: nur Anzeige, keine Auf/Ab-Befehle. **S**
+- [ ] `Ventilation` (Lüftung): nur Stufe anzeigen, kein Umschalten. **S**
+
+## 9. Weitere Funktionen
+
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
       Betriebsart, nicht nur Override. **M**
-- [ ] **Intercom Gegensprechen** (SIP-Client im Browser oder auf dem Panel). **L**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
 
-## 9. Sicherheit (zurückgestuft)
+## 10. Sicherheit (zurückgestuft)
 
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird
 oder Gäste im WLAN nicht vertrauenswürdig sind.
