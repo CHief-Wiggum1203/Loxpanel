@@ -45,6 +45,23 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
       WallPanel), danach ggf. Feinschliff an den Bezeichnungen der
       App-Einstellungen in der Anleitung. **S**
 
+## 0b. Upstream-Abgleich
+
+Upstream 0.3.2 (Lenardo1) ist eingepflegt: Audioserver-Favoriten direkt am
+Audioserver (Port 7091), Split-Player je Panel, vereinte Web-UI (`/settings`
+→ Rubrik Settings in `/config`), flackerfreie Live-Updates, Broadcaster
+überlebt Render-Fehler. Neue Upstream-Releases per
+`git fetch upstream && git merge upstream/main` holen, Konflikte lösen, als
+Merge-Commit nach `main`.
+
+- [ ] **Upstream 0.3.2 an der Anlage prüfen:** Audioserver-Favoriten in der
+      AudioZone, Split-Player (Panel Configuration → „Fester Player"),
+      Live-Updates ohne Flackern, Settings-Rubrik mit Geräteliste und
+      Display-Treibern. **S**
+- [ ] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
+      Bausteintypen, `/api/types`, Unraid-Template. Was Upstream übernimmt,
+      muss der Fork nicht mehr mitschleppen. **M**
+
 ## 1. Konfiguration vor Datenverlust schützen
 
 - [ ] **Atomares Schreiben** von `loxpanel.cfg`, `panels.json`, `theme.json`:
@@ -56,13 +73,14 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 - [ ] **Sicherung vor dem Überschreiben**: vor jedem Schreiben von `panels.json`
       eine Kopie `panels.json.bak` behalten, eine Generation reicht. **S**
 - [ ] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
-      `ms["user"]`, verständliche Fehlermeldung in `/settings`. (F7) **S**
+      `ms["user"]`, verständliche Fehlermeldung in `/config` (Settings). (F7) **S**
 
 ## 2. Server-Stabilität
 
-- [ ] **Broadcaster absichern**: `send_json` in `broadcaster()`, `_push()`,
-      `switch_mode()` und `api_testtone` mit `except Exception` plus Logging
-      umschließen. Ein einzelner Sendefehler darf den Task nicht beenden. (F3) **S**
+- [ ] **Broadcaster absichern**: Upstream 0.3.2 fängt Render-Fehler je
+      Verbindung im `broadcaster()` und bei `nav` ab. Offen: `send_json` in
+      `_push()`, `switch_mode()` und `api_testtone` gegen andere Ausnahmen als
+      `ConnectionError` absichern. (F3) **S**
 - [ ] **`op_modes` in `App.__init__` initialisieren**, `getattr`-Workaround in
       `_alarm_repeat` entfernen. (F2) **S**
 - [ ] **Timeout für Icon- und Cover-Abrufe** in `fetch_icon`/`fetch_cover`,
@@ -117,7 +135,7 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 - [ ] **Log-Level per Umgebungsvariable** (`LOXPANEL_LOG_LEVEL`), damit der
       Zugriffs-Log von aiohttp im Normalbetrieb ruhig ist. **S**
 - [ ] **Backup-Endpunkt** `GET /api/backup` liefert die drei Config-Dateien als
-      ZIP, `/settings` bekommt einen Download-Button. Ersetzt die
+      ZIP, die Rubrik Settings bekommt einen Download-Button. Ersetzt die
       Widget-Funktion des LoxBerry-Plugins auch auf Unraid. **M**
 
 ## 6. Wartbarkeit
@@ -125,8 +143,8 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
       unter `/loxpanel-agent.py` aus, `install-agent.sh` holt die Datei per
       `curl` statt sie als Heredoc zu enthalten. (W2) **S**
-- [ ] **Duplikate zusammenführen**: `esc()` dreifach, `ICONS`/`BICONS`,
-      Admin-CSS in `config.html` und `settings.html`, Overlay-Berechnung,
+- [ ] **Duplikate zusammenführen**: `esc()` doppelt, `ICONS`/`BICONS`,
+      Overlay-Berechnung,
       Config-Leser `_config`/`_audio_config`/`_intercom_config`,
       `api_testtone` gegen `_push`. (W3) **M**
 - [ ] **Magische Zahlen als Konstanten** am Dateianfang: Broadcaster-Takt,
@@ -262,8 +280,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ### 8.4 Nur teilweise umgesetzt (6)
 
-- [ ] `AudioZone`: Musikauswahl ist ein Platzhalter; Quellen und Favoriten wie
-      in `_view_sources` auch für `AudioZoneV2` anbieten. **M**
+- [x] `AudioZone`: Upstream 0.3.2 holt Favoriten und Steuerung direkt vom
+      Audioserver (Port 7091), auch für `AudioZoneV2`; an der eigenen Anlage
+      noch nicht geprüft. **M**
 - [ ] `AlarmClock` (Wecker): nur Anzeige und Weckton, kein Bearbeiten der
       Weckzeiten. **M**
 - [ ] `Intercom`: Kamera und Klingel-Popup, kein Gegensprechen (SIP). **L**
@@ -284,7 +303,7 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird
 oder Gäste im WLAN nicht vertrauenswürdig sind.
 
-- [ ] **Optionales Zugriffs-Token** für `/config`, `/settings` und alle
+- [ ] **Optionales Zugriffs-Token** für `/config` und alle
       schreibenden `/api/*`-Routen; `/`, `/ws` und die Bild-Proxys bleiben frei.
       Abschaltbar per Umgebungsvariable. (S1) **M**
 - [ ] **Cover-Proxy auf bekannte Hosts** (Miniserver, Audioserver)
@@ -293,5 +312,5 @@ oder Gäste im WLAN nicht vertrauenswürdig sind.
       alternativ nur Anfragen von der Server-IP annehmen. (S4) **S**
 - [ ] **Gleichzeitige MJPEG-Streams begrenzen**. (S6) **S**
 - [ ] **HTTPS** über einen Reverse-Proxy auf Unraid; dann muss der
-      Installer-Befehl in `settings.html` das Schema übernehmen. (S3) **M**
+      Installer-Befehl in `config.html` das Schema übernehmen. (S3) **M**
 - [ ] LoxBerry-`sudoers` enger fassen. Betrifft nur den LoxBerry-Betrieb. (S5) **S**

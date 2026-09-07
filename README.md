@@ -62,7 +62,7 @@ Programmierung und ohne die Loxone-App.
 
 ![Panel-Darstellung](docs/screenshots/panel-display-options.png)
 
-**Einstellungen – verwaltete Panels** — Panels mit [Agent](#der-panel-agent-wandpanel-kiosk) melden sich automatisch; Ansicht wählen, Kiosk Start/Reload/Stop:
+**Einstellungen – verwaltete Panels** (`/config` → Reiter *Settings* → *Panels*) — Panels mit [Agent](#der-panel-agent-wandpanel-kiosk) melden sich automatisch; Ansicht wählen, Kiosk Start/Reload/Stop:
 
 ![Einstellungen – Panels](docs/screenshots/settings-panels.png)
 
@@ -254,8 +254,8 @@ Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
    `https://github.com/CHief-Wiggum1203/Loxpanel` eintragen → **Save**.
 2. **Add Container** → Template **LoxPanel** wählen. Port `8099` und der
    appdata-Pfad `/mnt/user/appdata/loxpanel/config` sind vorbelegt → **Apply**.
-3. **WebUI** öffnen, unter `/settings` den Miniserver-Zugang eintragen, unter
-   `/config` die Panels gestalten.
+3. **WebUI** öffnen (`/config`), im Reiter **Settings** den Miniserver-Zugang
+   eintragen, unter **Panel Configuration** die Panels gestalten.
 
 Updates laufen über **Check for Updates** im Docker-Tab, die Sicherung über den
 appdata-Ordner. Details, Wandpanel-Agent und Fehlersuche:
@@ -350,8 +350,9 @@ volumes:
   loxpanel_config:
 ```
 
-Danach: Visu `http://<host>:8099`, Konfig `…/config`, Einstellungen `…/settings`.
-Zugangsdaten per Env **oder** leer lassen und in `/settings` eintragen.
+Danach: Visu `http://<host>:8099`, Konfigurator und Einstellungen `…/config`
+(`/settings` leitet dorthin weiter). Zugangsdaten per Env **oder** leer lassen
+und unter *Settings → Miniserver* eintragen.
 
 **Für Entwickler (Standalone):**
 

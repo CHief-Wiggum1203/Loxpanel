@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import ssl as _ssl
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlencode
 
 import aiohttp
 from aiohttp import WSMsgType, web
@@ -56,6 +56,7 @@ def _make_client(host, user, password, port, verify_tls) -> LoxoneClient:
     return c
 from adapters import JalousieAdapter, LightControllerV2Adapter  # noqa: E402
 from audioserver import make_backend, AudioBackend  # noqa: E402
+from audioserver_events import AudioEventClient  # noqa: E402
 
 log = logging.getLogger("loxpanel.webvisu")
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
@@ -227,7 +228,7 @@ def _config() -> dict:
         }
     # Beispiel-Config nur nutzen, wenn vorhanden. Beim LoxBerry-Plugin verdeckt
     # das (leere) Daten-Volume die Image-Beispieldatei -> darf NICHT crashen.
-    # Ohne jede Config startet der Server trotzdem (Zugang via /settings).
+    # Ohne jede Config startet der Server trotzdem (Zugang via /config).
     ex = base / "loxpanel.cfg.example"
     if ex.is_file():
         try:
@@ -250,6 +251,25 @@ def _audio_config() -> dict:
         f = base / "loxpanel.cfg.example"
     try:
         cfg = json.loads(f.read_text(encoding="utf-8")).get("audio", {})
+    except (ValueError, OSError):
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def _audiometa_config() -> dict:
+    """Metadaten-Quelle Audioserver4Home/Sonn (REST /api/v1/zones, Port 7090).
+
+    Aus loxpanel.cfg `audiometa`-Block: {"host": "10.0.0.55", "port": 7090,
+    "enabled": true}. Sonns AudioZoneV2-Ausgaenge liefern ueber das Loxone-
+    Protokoll KEINE Track-Metadaten; dieser Block fuellt Cover/Titel/Interpret
+    per Namensabgleich aus der Sonn-API nach.
+    """
+    base = Path(__file__).resolve().parent.parent / "config"
+    f = base / "loxpanel.cfg"
+    if not f.is_file():
+        f = base / "loxpanel.cfg.example"
+    try:
+        cfg = json.loads(f.read_text(encoding="utf-8")).get("audiometa", {})
     except (ValueError, OSError):
         return {}
     return cfg if isinstance(cfg, dict) else {}
@@ -334,17 +354,32 @@ def load_devices() -> dict:
 
 
 class App:
-    def __init__(self, ms: dict, audio: dict | None = None):
+    def __init__(self, ms: dict, audio: dict | None = None,
+                 audiometa: dict | None = None):
         # ms kann leer sein (noch kein Miniserver konfiguriert) -> Server startet
-        # trotzdem, /settings bleibt bedienbar; verbunden wird erst mit host.
+        # trotzdem, /config bleibt bedienbar; verbunden wird erst mit host.
         self.host, self.port = ms.get("host", ""), ms.get("port", 443)
         self.user, self.password = ms.get("user", ""), ms.get("pass", "")
         self.verify_tls = ms.get("verify_tls", False)
 
         self.audio_cfg = audio or {}
         self.audio: AudioBackend | None = make_backend(self.audio_cfg)
+        # Ein Steuerungs-Backend je Audioserver-Host (WS 7091), aufgebaut on
+        # demand aus dem in der Struktur hinterlegten mediaServer-Host.
+        self.audio_backends: dict[str, AudioBackend] = {}
+        # Gen-2-Audioserver-Metadaten (universeller audio_event-Kanal, Port 7091):
+        # Adressen werden AUTOMATISCH aus der Loxone-Struktur (/mediaServer/<uuid>
+        # /host) gelesen; pro Audioserver ein Event-Client. Zonen-Zuordnung ueber
+        # control.details.server (-> host) + details.playerid. Funktioniert mit
+        # Original-Audioserver, Sonn und jedem Nachbau, ohne IP-Eingabe.
+        self.audiometa_cfg = audiometa or {}
+        self.mediaservers: dict[str, str] = {}          # serverUUID -> "host:port"
+        self.audio_clients: dict[str, AudioEventClient] = {}  # host -> Client
         # uuidAction -> Loxone-playerid (fuer Audioserver-Kommandos)
         self.playerid_by_action: dict[str, int] = {}
+        # uuidAction -> Audioserver-Host (aus mediaServer der Struktur). So
+        # steht der Host auch fest, wenn nichts spielt (kein Cover zum Ableiten).
+        self.audiohost_by_action: dict[str, str] = {}
 
         self.client: LoxoneClient | None = None
         self.ws: LoxoneWS | None = None
@@ -379,6 +414,60 @@ class App:
         self._pending_alarm: list[dict] = []
         self.agents: dict[str, dict] = {}   # ip -> Panel-Agent (Fernstart)
         self.bg_tasks: set = set()          # laufende Hintergrund-Tasks (z.B. Favs anfordern)
+        # Dynamisches Song-Cover (iTunes) fuer Zonen, die nur ein Sender-Logo
+        # liefern (z.B. Sonn/Audioserver): "artist\ntitle" -> (url|None, expiry).
+        self._cover_cache: dict[str, tuple[str | None, float]] = {}
+        self._cover_pending: set[str] = set()
+
+    def _spawn(self, coro) -> None:
+        """Hintergrund-Task starten und sauber referenziert halten."""
+        task = asyncio.ensure_future(coro)
+        self.bg_tasks.add(task)
+        task.add_done_callback(self.bg_tasks.discard)
+
+    def _song_cover(self, artist: str, title: str) -> str | None:
+        """Album-Cover (ueber /cover-Proxy) zu Interpret+Titel, gecacht.
+
+        Cache-Treffer -> URL bzw. None (kein Album, z.B. Wortbeitrag). Bei einem
+        Miss wird der Lookup einmalig im Hintergrund angestossen; das Ergebnis
+        erscheint beim naechsten Render (der Lookup setzt _dirty)."""
+        artist = (artist or "").strip()
+        title = (title or "").strip()
+        if not artist or not title:
+            return None
+        key = f"{artist}\n{title}".lower()
+        hit = self._cover_cache.get(key)
+        if hit and hit[1] > time.time():
+            return ("/cover?u=" + quote(hit[0], safe="")) if hit[0] else None
+        if key not in self._cover_pending:
+            self._cover_pending.add(key)
+            self._spawn(self._lookup_cover(artist, title, key))
+        return None
+
+    async def _lookup_cover(self, artist: str, title: str, key: str) -> None:
+        """iTunes-Suche nach Interpret+Titel -> Album-Cover-URL (600px)."""
+        url = None
+        try:
+            sess = self.icon_session
+            if sess is not None:
+                api = "https://itunes.apple.com/search?" + urlencode(
+                    {"term": f"{artist} {title}", "media": "music",
+                     "entity": "song", "limit": 1})
+                async with sess.get(api, timeout=aiohttp.ClientTimeout(total=6)) as r:
+                    if r.status == 200:
+                        data = await r.json(content_type=None)
+                        res = data.get("results") or []
+                        if res:
+                            art = res[0].get("artworkUrl100") or ""
+                            url = art.replace("100x100bb", "600x600bb") or None
+        except Exception as err:
+            log.debug("Cover-Lookup (%s): %s", key, err)
+        # Treffer lange cachen (gleicher Song -> gleiches Cover), Fehlschlag kurz
+        # (aus Wortbeitrag wird spaeter wieder ein Titel).
+        self._cover_cache[key] = (url, time.time() + (24 * 3600 if url else 900))
+        self._cover_pending.discard(key)
+        if url:
+            self._dirty = True
 
     def _ssl_ctx(self) -> _ssl.SSLContext:
         ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
@@ -391,6 +480,10 @@ class App:
         self.controls = st.get("controls", {})
         self.rooms = st.get("rooms", {})
         self.cats = st.get("cats", {})
+        # Audioserver-Adressen fuer den Gen-2-Event-Kanal: {serverUUID: "host:port"}
+        ms = st.get("mediaServer") or {}
+        self.mediaservers = {u: (v or {}).get("host", "")
+                             for u, v in ms.items() if isinstance(v, dict) and (v or {}).get("host")}
         self.rooms_with = sorted(
             {c.get("room") for c in self.controls.values() if c.get("room") in self.rooms},
             key=lambda r: self.rooms[r].get("name", ""))
@@ -403,6 +496,7 @@ class App:
         # eines Eintrags verweisen hierauf (z.B. Wochentage Mo-So).
         self.op_modes = {str(k): v for k, v in (st.get("operatingModes") or {}).items()}
         self.playerid_by_action = {}
+        self.audiohost_by_action = {}
         for _u, _c in self.controls.items():
             if _c.get("type") == "Intercom":
                 _bu = (_c.get("states") or {}).get("bell")
@@ -412,11 +506,20 @@ class App:
                 _au = (_c.get("states") or {}).get("isAlarmActive")
                 if _au:
                     self.alarm_map[_au] = _u
-            elif _c.get("type") == "AudioZone":
-                _pid = (_c.get("details") or {}).get("playerid")
+            elif _c.get("type") in ("AudioZone", "AudioZoneV2"):
+                # Beide Zonentypen werden direkt am Audioserver (7091) gesteuert:
+                # AudioZone -> Musikserver, AudioZoneV2 -> Audioserver Gen2 (Sonn).
+                # Der Umweg ueber den Miniserver (sps/io) reicht roomfav/play NICHT
+                # zuverlaessig durch; der Direktkanal (auch beim Sonn, ohne Token
+                # getestet) funktioniert fuer play/pause/next/volume/roomfav.
+                _det = _c.get("details") or {}
+                _pid = _det.get("playerid")
                 _ua = _c.get("uuidAction")
                 if _ua and _pid is not None:
                     self.playerid_by_action[_ua] = int(_pid)
+                    _hp = self.mediaservers.get(_det.get("server"))
+                    if _hp:
+                        self.audiohost_by_action[_ua] = _hp.split(":")[0].strip()
         log.info("Struktur: %d Controls, %d Räume, %d Kategorien, %d Intercom-Klingeln, %d Wecker, %d AudioZones",
                  len(self.controls), len(self.rooms_with), len(self.cats_with),
                  len(self.bell_map), len(self.alarm_map), len(self.playerid_by_action))
@@ -662,8 +765,18 @@ class App:
         per WS -> _on_value setzt _dirty -> broadcaster re-rendert die offene
         Ansicht (Musikauswahl) mit den nun vorhandenen Favoriten."""
         c = self.controls.get(uuid, {})
-        if c.get("type") != "AudioZone":
+        t = c.get("type")
+        if t not in ("AudioZone", "AudioZoneV2"):
             return
+        # Zone mit laufendem Audioserver-Event-Client (Gen1 Musikserver ODER
+        # Gen2 Audioserver): Raumfavoriten direkt ueber den 7091-Kanal anfordern
+        # (Ergebnis kommt async -> _dirty). Der Loxone-sourceList-State ist bei
+        # vielen Setups leer, deshalb ist das der zuverlaessige Weg.
+        cl, pid = self._audio_client_for(c)
+        if cl is not None and pid is not None:
+            await cl.request_favs(pid)
+            return
+        # Fallback ohne Event-Client (z.B. MS4H ohne 7091): Loxone-roomfav.
         ua = c.get("uuidAction")
         if ua:
             await self.command(ua, "roomfav/get/0/20")
@@ -835,7 +948,22 @@ class App:
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
+            "player": (ui.get("player") or ""),  # Split-Layout: feste AudioZone als linker Player
         }
+
+    def player_blocks(self, uuid: str):
+        """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
+        AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
+        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
+            return None
+        try:
+            v = self._view_control_inner(uuid)
+        except Exception:
+            log.exception("player_blocks fehlgeschlagen (%s)", uuid)
+            return None
+        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
 
     def _tab_meta(self, tab_keys) -> dict:
         """Label + Icon fuer dynamische Tabs (Kategorie-Direkt-Tabs). Die 4
@@ -1126,7 +1254,7 @@ class App:
             "ui": {k: v for k, v in (raw.get("ui") or {}).items()
                    if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
                             "dpmsOff", "reloadHours", "cols", "rows", "fill",
-                            "overlay", "textColor", "bold", "lang")},
+                            "overlay", "textColor", "bold", "lang", "player")},
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
@@ -1185,6 +1313,8 @@ class App:
                 cui["rows"] = int(ui["rows"])   # Zeilen (nur 4x3 nutzt 3)
             if ui.get("fill"):
                 cui["fill"] = True              # Visu fuellt grosse Screens (quadratische Kacheln)
+            if isinstance(ui.get("player"), str) and ui.get("player"):
+                cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if ui.get("bold"):
@@ -1232,8 +1362,7 @@ class App:
 
     def _persist_panels_file(self, panels: dict, devices: dict) -> None:
         """Schreibt config/panels.json (Profile + Geraete-Automatik) in einem Rutsch."""
-        doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config bzw. "
-                           "/settings) verwaltet. Jedes Panel oeffnet die Visu mit "
+        doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config) verwaltet. Jedes Panel oeffnet die Visu mit "
                            "?panel=<id>. rooms/cats leer = alle sichtbar. "
                            "`devices` bildet Betriebsmodus -> Profil je Panel ab.",
                "panels": panels}
@@ -1668,8 +1797,13 @@ class App:
             # Audioserver Gen 2: wird ueber den Miniserver gesteuert (play/pause/
             # prev/next/volume) — nicht ueber das Gen-1-Audio-Backend (kein playerid).
             playing = self._state(c, "playState") == 2
+            song = self._song(c)
+            sm = self._sonn_for(c)          # Sonn liefert Titel/Status, wo Loxone leer ist
+            if sm:
+                playing = playing or bool(sm.get("playing"))
+                song = song or sm.get("title") or ""
             ua = c.get("uuidAction")
-            it.update(on=playing, sublabel=(self._song(c) or ("Spielt" if playing else "Aus")),
+            it.update(on=playing, sublabel=(song or ("Spielt" if playing else "Aus")),
                       icon="music", nav={"view": "control", "id": uuid},
                       controls=[
                           {"icon": "prev", "cmd": {"uuid": ua, "cmd": "prev"}},
@@ -1994,6 +2128,26 @@ class App:
         """
         c = self.controls.get(uuid, {})
         ua = c.get("uuidAction")
+
+        # Favoriten aus dem Audioserver-Event-Kanal (Port 7091) — fuer Gen1
+        # (Musikserver) UND Gen2 (Audioserver/Sonn). Der Loxone-sourceList-State
+        # ist bei vielen Setups leer, dies ist der zuverlaessige Weg. Der
+        # Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
+        # Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
+        _cl, _pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
+        if _cl is not None and _pid is not None:
+            favs = _cl.favs.get(_pid, [])
+            items = [{"label": f["name"],
+                      "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
+                      "cover": ("/cover?u=" + quote(f["cover"], safe="")) if f["cover"] else ""}
+                     for f in favs if f.get("slot") is not None]
+            body = ({"k": "favs", "wrap": True, "items": items} if items else
+                    {"k": "status", "text": "noch keine – in der App/am Tablet anlegen"})
+            return {"t": "view", "title": _clean(c.get("name")),
+                    "route": {"view": "sources", "id": uuid},
+                    "blocks": [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
+                               {"k": "head", "text": "Favoriten"}, body]}
+
         favs = self._audio_favs(c)
 
         def strip(items):
@@ -2184,16 +2338,51 @@ class App:
             # Quellen (Radio/Playlist/Spotify) immer auf Unterseite erreichbar
             # (Favoriten werden dort per prime_favs frisch angefordert).
             blocks.append({"k": "more", "route": {"view": "sources", "id": uuid}})
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
+            # Bedienleiste (Transport + Lautstaerke) unten andocken; Cover/Titel
+            # oben zentriert. Ohne laufende Musik rutscht so nichts nach oben.
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": blocks}
         if t == "AudioZoneV2":
             ua = c.get("uuidAction")
             playing = self._state(c, "playState") == 2
-            title = self._song(c) or ("Spielt" if playing else "Aus")
+            title = self._song(c)
             sub = self._text(c, "artist") or self._text(c, "album")
             vol = int(self._state(c, "volume") or 0)
             cover = self._state(c, "cover")
+            # Sonn/Audioserver4Home reicht Track-Metadaten NICHT ueber das
+            # Loxone-Protokoll durch -> per Namensabgleich aus der Sonn-API
+            # ergaenzen (nur wo Loxone leer ist).
+            sm = self._sonn_for(c)
+            if sm:
+                playing = playing or bool(sm.get("playing"))
+                title = title or sm.get("title") or ""
+                sub = sub or sm.get("artist") or sm.get("album") or ""
+                cover = cover or sm.get("cover")
+                if not vol and sm.get("volume") is not None:
+                    try:
+                        vol = int(sm.get("volume"))
+                    except (TypeError, ValueError):
+                        pass
+            # Dynamisches Song-Cover: Der Audioserver (Sonn) liefert bei Radio oft
+            # nur das Sender-Logo. Laeuft ein echter Titel, das passende Album-
+            # Cover (iTunes) nachschlagen und statt des Logos zeigen. Bei
+            # Wortbeitraegen (kein Treffer) bleibt das Sender-Logo.
+            art = (self._text(c, "artist") or (sm.get("artist") if sm else "") or "").strip()
+            if playing and title and art:
+                dyn = self._song_cover(art, title)
+                if dyn:
+                    blocks_cover_dyn = dyn
+                    cover = None  # dyn ist bereits eine fertige /cover-URL
+                else:
+                    blocks_cover_dyn = None
+            else:
+                blocks_cover_dyn = None
+            if not title:
+                title = "Spielt" if playing else "Aus"
             blocks = []
-            if cover:
+            if blocks_cover_dyn:
+                blocks.append({"k": "cover", "src": blocks_cover_dyn})
+            elif cover:
                 blocks.append({"k": "cover", "src": "/cover?u=" + quote(str(cover), safe="")})
             else:
                 blocks.append({"k": "hero", "icon": "music"})
@@ -2208,7 +2397,10 @@ class App:
                 {"k": "slider", "icon": "vol", "value": vol, "min": 0, "max": 100,
                  "cmd": {"uuid": ua, "tmpl": "volume/{v}"}},
             ]
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
+            # 3-Punkte -> Quellen/Favoriten (Sonn via API, sonst Loxone-roomfav)
+            blocks.append({"k": "more", "route": {"view": "sources", "id": uuid}})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": blocks}
         if t == "Gate":
             ua = c.get("uuidAction")
             pct = round((self._state(c, "position") or 0) * 100)
@@ -2554,8 +2746,13 @@ class App:
             modes = self._json_list_map(c, "operatingModes")   # {id: name}
             fans = self._json_list_map(c, "fanspeeds")          # {id: name}
             on = (self._state(c, "status") or 0) != 0
-            cur_mode = int(self._state(c, "mode") or 0)
-            cur_fan = int(self._state(c, "fan") or 0)
+            def _as_int(v, d=0):
+                try:
+                    return int(float(v))
+                except (TypeError, ValueError):
+                    return d
+            cur_mode = _as_int(self._state(c, "mode"))
+            cur_fan = _as_int(self._state(c, "fan"))
             tgt = self._state(c, "targetTemperature")
             ist = self._state(c, "temperature")
             try:
@@ -2817,6 +3014,68 @@ class App:
             return self._view_sources(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
 
+    async def audio_events_task(self) -> None:
+        """Verwaltet je Audioserver (aus /mediaServer der Struktur) einen
+        Gen-2-Event-Client (WS 7091). Startet neue Server, stoppt verschwundene;
+        reagiert so auf Struktur-/Config-Aenderungen. `enabled` (audiometa) ist
+        der Master-Schalter. Adressen kommen automatisch aus der Struktur —
+        keine IP-Eingabe noetig."""
+        while True:
+            enabled = (self.audiometa_cfg or {}).get("enabled", True)
+            want = set()
+            if enabled:
+                for hp in self.mediaservers.values():
+                    host = (hp or "").split(":")[0].strip()
+                    if host:
+                        want.add(host)
+            for host in want:
+                if host not in self.audio_clients:
+                    cl = AudioEventClient(host, 7091)
+                    self.audio_clients[host] = cl
+                    asyncio.create_task(self._run_audio_client(host, cl))
+                    log.info("Audioserver-Event-Client gestartet: %s", host)
+            for host in list(self.audio_clients):
+                if host not in want:
+                    cl = self.audio_clients.pop(host, None)
+                    if cl:
+                        await cl.close()
+                        log.info("Audioserver-Event-Client gestoppt: %s", host)
+            await asyncio.sleep(10)
+
+    async def _run_audio_client(self, host: str, cl: AudioEventClient) -> None:
+        try:
+            await cl.run(self._mark_dirty)
+        except Exception as err:
+            log.debug("audio client %s: %s", host, err)
+        finally:
+            if self.audio_clients.get(host) is cl:
+                self.audio_clients.pop(host, None)
+
+    def _mark_dirty(self) -> None:
+        self._dirty = True
+
+    def _audio_client_for(self, c: dict):
+        """(Event-Client, playerid) zur AudioZoneV2-Zone `c` — via
+        details.server -> mediaServer-Host und details.playerid. (None, None),
+        wenn kein passender Client laeuft."""
+        det = c.get("details") or {}
+        pid = det.get("playerid")
+        hp = self.mediaservers.get(det.get("server"))
+        if pid is None or not hp:
+            return None, None
+        host = hp.split(":")[0].strip()
+        return self.audio_clients.get(host), pid
+
+    def _sonn_for(self, c: dict) -> dict | None:
+        """Now-Playing zur Zone `c` aus dem passenden Audioserver-Event-Client."""
+        cl, pid = self._audio_client_for(c)
+        return cl.now.get(pid) if cl else None
+
+    def _sonn_zone_id(self, c: dict):
+        """playerid der Zone `c`, nur wenn ein Event-Client dafuer laeuft."""
+        cl, pid = self._audio_client_for(c)
+        return pid if cl else None
+
     def _detect_audio_host(self) -> str | None:
         """Audioserver-Host aus einer AudioZone-Cover/sourceList-URL ableiten.
 
@@ -2835,16 +3094,25 @@ class App:
                         return m.group(1)
         return None
 
-    def _audio_backend(self) -> AudioBackend | None:
-        """Liefert das Audio-Backend; erkennt den Host bei Bedarf automatisch."""
-        if self.audio is not None:
+    def _audio_backend_for(self, uuid: str) -> AudioBackend | None:
+        """Liefert das Steuer-Backend fuer eine AudioZone (uuidAction).
+
+        Host-Reihenfolge: manuell konfiguriert (audio_cfg) -> mediaServer-Host
+        aus der Struktur (steht IMMER fest, auch wenn nichts spielt) -> als
+        letzter Ausweg aus einer Cover-URL abgeleitet. Pro Host ein Backend.
+        """
+        if self.audio is not None:               # explizit konfiguriert
             return self.audio
-        host = self._detect_audio_host()
-        if host:
-            self.audio = make_backend({"host": host, "port": self.audio_cfg.get("port", 7091)})
-            if self.audio:
-                log.info("Audioserver-Host automatisch erkannt: %s", host)
-        return self.audio
+        host = self.audiohost_by_action.get(uuid) or self._detect_audio_host()
+        if not host:
+            return None
+        be = self.audio_backends.get(host)
+        if be is None:
+            be = make_backend({"host": host, "port": self.audio_cfg.get("port", 7091)})
+            if be is not None:
+                self.audio_backends[host] = be
+                log.info("Audioserver-Backend fuer %s", host)
+        return be
 
     async def command(self, uuid: str, cmd: str, pin: str | None = None) -> str | None:
         """Fuehrt einen Befehl aus. Mit pin: gesicherter Befehl (Visu-Passwort)."""
@@ -2863,7 +3131,7 @@ class App:
             # befuellt den sourceList-State fuer die Anzeige.
             pid = self.playerid_by_action.get(uuid)
             if pid is not None and not cmd.startswith("roomfav/get"):
-                backend = self._audio_backend()
+                backend = self._audio_backend_for(uuid)
                 if backend:
                     ok = await backend.command(pid, cmd)
                     return "200" if ok else None
@@ -2909,11 +3177,11 @@ class App:
     async def stream_task(self) -> None:
         # Dauer-Loop: Erstverbindung + Reconnect zum Miniserver. Bricht NIEMALS
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
-        # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
+        # oder das Passwort falsch ist (dann bleibt /config bedienbar).
         while True:
             try:
                 if not self.host:
-                    # Noch kein Miniserver konfiguriert -> auf /settings warten
+                    # Noch kein Miniserver konfiguriert -> auf /config warten
                     # (kein Verbindungsversuch, kein Log-Spam).
                     await asyncio.sleep(5)
                     continue
@@ -2965,11 +3233,32 @@ class App:
             if self._dirty and self.conn_route:
                 self._dirty = False
                 for ws, route in list(self.conn_route.items()):
+                    prof = self.conn_prof.get(ws)
                     try:
-                        await ws.send_json(self.render(route, self.conn_prof.get(ws)))
+                        msg = self.render(route, prof)
+                    except Exception:
+                        # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-
+                        # Update-Schleife killen (sonst bekommen ALLE Panels keine
+                        # Rueckmeldung mehr). Fehler loggen, diese Verbindung
+                        # diesmal ueberspringen, Rest weiter bedienen.
+                        log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
+                        continue
+                    # Split-Layout: festen Player mitrendern (Fehler ebenso isolieren)
+                    player_msg = None
+                    if prof and prof.get("player"):
+                        try:
+                            pb = self.player_blocks(prof["player"])
+                            player_msg = {"t": "player", "blocks": pb} if pb is not None else None
+                        except Exception:
+                            log.exception("player_blocks fehlgeschlagen (%s)", prof.get("player"))
+                    try:
+                        await ws.send_json(msg)
+                        if player_msg is not None:
+                            await ws.send_json(player_msg)
                     except ConnectionError:
                         self.conn_route.pop(ws, None)
                         self.conn_prof.pop(ws, None)
+                        self.conn_dev.pop(ws, None)
 
     async def close(self) -> None:
         if self.ws:
@@ -2980,6 +3269,12 @@ class App:
             await self.client.close()
         if self.audio:
             await self.audio.close()
+        for be in list(self.audio_backends.values()):
+            await be.close()
+        self.audio_backends.clear()
+        for cl in list(self.audio_clients.values()):
+            await cl.close()
+        self.audio_clients.clear()
 
 
 # Panel-/Config-/Settings-HTML immer frisch ausliefern: der Kiosk-Chromium
@@ -3000,7 +3295,7 @@ async def config_index(request: web.Request) -> web.Response:
 
 
 async def i18n_js(request: web.Request) -> web.Response:
-    """Gemeinsamer Uebersetzungs-Katalog fuer /settings und /config."""
+    """Gemeinsamer Uebersetzungs-Katalog fuer /config."""
     return web.Response(text=I18N_JS.read_text(encoding="utf-8"),
                         content_type="application/javascript", headers=_NOCACHE)
 
@@ -3116,6 +3411,7 @@ async def api_settings(request: web.Request) -> web.Response:
 
     intercoms = [{"uuid": u, "name": _clean(c.get("name")), **icv(u)}
                  for u, c in app.controls.items() if c.get("type") == "Intercom"]
+    am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
     return web.json_response({
         "miniserver": {
             "host": ms.get("host") or os.environ.get("LOXPANEL_MS_HOST", ""),
@@ -3125,6 +3421,8 @@ async def api_settings(request: web.Request) -> web.Response:
             "hasPass": bool(ms.get("pass")) or env_ms,
         },
         "intercoms": intercoms,
+        "audiometa": {"enabled": bool(am.get("enabled", True)),
+                      "servers": sorted(app.mediaservers.values())},
         "connected": app.client is not None,
         "nControls": len(app.controls),
     })
@@ -3138,7 +3436,7 @@ async def api_types(request: web.Request) -> web.Response:
         data = {"connected": app.client is not None, "controls": 0, "typeCount": 0,
                 "typesByStatus": {"full": 0, "partial": 0, "none": 0}, "types": [],
                 "unsupportedControls": [],
-                "hint": "Keine Struktur geladen. Miniserver unter /settings verbinden."}
+                "hint": "Keine Struktur geladen. Miniserver unter /config verbinden."}
     else:
         data = app.types_overview()
     if request.query.get("format") == "text":
@@ -3191,6 +3489,31 @@ async def api_settings_ms(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "connected": True, "nControls": n})
     except Exception as err:
         return web.json_response({"ok": False, "error": f"Verbindung fehlgeschlagen: {err}"})
+
+
+async def api_settings_audiometa(request: web.Request) -> web.Response:
+    """Audioserver-Live-Daten (Gen-2-Event-Kanal) an/aus. Adressen werden
+    automatisch aus der Struktur gelesen — es gibt nur den Master-Schalter."""
+    app: App = request.app["app"]
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
+    cfg = _load_cfg()
+    am = dict(cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {})
+    am["enabled"] = bool(data.get("enabled"))
+    cfg["audiometa"] = am
+    _write_cfg(cfg)
+    app.audiometa_cfg = _audiometa_config()
+    # Bei Deaktivierung laufende Clients sofort schliessen; beim Aktivieren
+    # startet der audio_events_task sie beim naechsten Durchlauf automatisch.
+    if not am["enabled"]:
+        for cl in list(app.audio_clients.values()):
+            await cl.close()
+        app.audio_clients.clear()
+    app._dirty = True
+    log.info("Audioserver-Live-Daten %s", "aktiv" if am["enabled"] else "aus")
+    return web.json_response({"ok": True})
 
 
 async def api_settings_intercom(request: web.Request) -> web.Response:
@@ -3612,8 +3935,13 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"],
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
-                        "agent": app._has_agent(dev)})
+                        "agent": app._has_agent(dev),
+                        "player": prof["player"]})
     await ws.send_json(app.render(app.conn_route[ws], prof))
+    if prof.get("player"):
+        pb = app.player_blocks(prof["player"])
+        if pb is not None:
+            await ws.send_json({"t": "player", "blocks": pb})
     try:
         async for msg in ws:
             if msg.type != WSMsgType.TEXT:
@@ -3625,7 +3953,15 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             if data.get("t") == "nav" and isinstance(data.get("route"), dict):
                 route = data["route"]
                 app.conn_route[ws] = route
-                await ws.send_json(app.render(route, prof))
+                try:
+                    view_msg = app.render(route, app.conn_prof.get(ws, prof))
+                except Exception:
+                    # Detailseite wirft -> nicht die Verbindung abreissen lassen
+                    # (sonst Reconnect-Loop). Fehler loggen, Hinweis anzeigen.
+                    log.exception("render() (nav) fehlgeschlagen fuer route %s", route)
+                    view_msg = {"t": "view", "title": "Fehler", "route": route,
+                                "blocks": [{"k": "status", "text": "Diese Ansicht konnte nicht geladen werden."}]}
+                await ws.send_json(view_msg)
                 # Beim Oeffnen einer AudioZone / Musikauswahl die Zonen-Favoriten
                 # aktiv anfordern; das frische Ergebnis wird per broadcaster
                 # nachgereicht (roomfav/get befuellt den sourceList-State).
@@ -3652,11 +3988,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
 async def on_startup(a: web.Application) -> None:
     # HTTP-Server startet SOFORT; die Miniserver-Verbindung baut stream_task im
-    # Hintergrund auf (mit Retry) — so ist /settings auch ohne/mit falschen
+    # Hintergrund auf (mit Retry) — so ist /config auch ohne/mit falschen
     # Zugangsdaten erreichbar.
     app: App = a["app"]
     a["tasks"] = [asyncio.create_task(app.stream_task()),
-                  asyncio.create_task(app.broadcaster())]
+                  asyncio.create_task(app.broadcaster()),
+                  asyncio.create_task(app.audio_events_task())]
 
 
 async def on_cleanup(a: web.Application) -> None:
@@ -3675,7 +4012,7 @@ def main() -> None:
     args = p.parse_args()
 
     a = web.Application()
-    a["app"] = App(_config(), _audio_config())
+    a["app"] = App(_config(), _audio_config(), _audiometa_config())
     a.router.add_get("/", index)
     a.router.add_get("/config", config_index)
     a.router.add_get("/settings", settings_index)
@@ -3688,6 +4025,7 @@ def main() -> None:
     a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
+    a.router.add_post("/api/settings/audiometa", api_settings_audiometa)
     a.router.add_post("/api/agent/announce", api_agent_announce)
     a.router.add_get("/api/agents", api_agents)
     a.router.add_post("/api/agent/command", api_agent_command)

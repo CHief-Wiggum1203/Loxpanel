@@ -78,7 +78,7 @@ sudo reboot
 
 Statt `kiosk.sh` direkt zu starten, den **Agenten** starten — er startet den
 Kiosk selbst UND meldet das Panel beim Server, sodass du es unter
-`http://<SERVER>/settings` findest und dort **Start / Reload / Ansicht wechseln**
+`http://<SERVER>/config#panels` findest und dort **Start / Reload / Ansicht wechseln**
 kannst. Nutzt dieselbe `loxpanel-kiosk.conf` (zusaetzlich optional `AGENT_PORT`,
 `AGENT_NAME`); nur Python-Standardlib, keine Extra-Pakete.
 
