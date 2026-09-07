@@ -89,6 +89,10 @@ SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
+# Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
+# Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
+# controls/sublabel, unbekannt = nichts davon (tote Kachel).
+PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation"}
 
 
 def _is_tab(t) -> bool:
@@ -876,6 +880,47 @@ class App:
         anonymous.sort(key=lambda a: a["ip"])
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
+
+    def types_overview(self) -> dict:
+        """Diagnose fuer /api/types: alle Bausteintypen der geladenen Anlage mit
+        Anzahl, Beispielnamen, Unterstuetzungsstatus (full / partial / none),
+        den State-Namen und details-Schluesseln je Typ, dazu die Liste der
+        Controls, die als tote Kachel enden. Der Status wird nicht aus einer
+        Liste geraten, sondern aus dem Rendering: `_control_item()` liefert
+        fuer unterstuetzte Typen nav, cmd, controls oder sublabel."""
+        types: dict[str, dict] = {}
+        for uuid, c in self.controls.items():
+            t = str(c.get("type") or "?")
+            e = types.setdefault(t, {"type": t, "count": 0, "examples": [], "states": set(),
+                                     "details": set(), "supported": False, "controls": []})
+            e["count"] += 1
+            name = _clean(c.get("name"))
+            if name and len(e["examples"]) < 3:
+                e["examples"].append(name)
+            e["states"].update(k for k in (c.get("states") or {}) if isinstance(k, str))
+            e["details"].update(k for k in (c.get("details") or {}) if isinstance(k, str))
+            room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
+            e["controls"].append({"uuid": uuid, "name": name, "room": room})
+            if not e["supported"]:
+                try:
+                    it = self._control_item(uuid)
+                except Exception as err:  # Diagnose darf nie an einem Baustein scheitern
+                    log.warning("types_overview: %s (%s): %s", name, t, err)
+                    it = {}
+                if any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+                    e["supported"] = True
+        out, dead = [], []
+        for t in sorted(types, key=str.lower):
+            e = types[t]
+            status = "none" if not e["supported"] else ("partial" if t in PARTIAL_TYPES else "full")
+            if status == "none":
+                dead.extend({**ctl, "type": t} for ctl in e["controls"])
+            out.append({"type": t, "status": status, "count": e["count"], "examples": e["examples"],
+                        "states": sorted(e["states"]), "details": sorted(e["details"])})
+        counts = {s: sum(1 for e in out if e["status"] == s) for s in ("full", "partial", "none")}
+        return {"connected": self.client is not None, "controls": len(self.controls),
+                "typeCount": len(out), "typesByStatus": counts, "types": out,
+                "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
 
     def _spawn(self, coro) -> None:
         """Hintergrund-Task ohne auf das Ergebnis zu warten (Treiber-Aufrufe)."""
@@ -2784,6 +2829,37 @@ async def api_settings(request: web.Request) -> web.Response:
     })
 
 
+async def api_types(request: web.Request) -> web.Response:
+    """Diagnose: Bausteintypen der Anlage mit Unterstuetzungsstatus. JSON,
+    mit ?format=text als lesbare Tabelle fuer den Browser."""
+    app: App = request.app["app"]
+    if not app.controls:
+        data = {"connected": app.client is not None, "controls": 0, "typeCount": 0,
+                "typesByStatus": {"full": 0, "partial": 0, "none": 0}, "types": [],
+                "unsupportedControls": [],
+                "hint": "Keine Struktur geladen. Miniserver unter /settings verbinden."}
+    else:
+        data = app.types_overview()
+    if request.query.get("format") == "text":
+        lines = [f"LoxPanel Bausteintypen: {data['controls']} Controls, {data['typeCount']} Typen "
+                 f"(voll {data['typesByStatus']['full']}, teilweise {data['typesByStatus']['partial']}, "
+                 f"keine {data['typesByStatus']['none']})", ""]
+        if data.get("hint"):
+            lines.append(data["hint"])
+        label = {"full": "voll", "partial": "teilw.", "none": "KEINE"}
+        lines.append(f"{'Status':8} {'Anzahl':>6}  {'Typ':30} Beispiele")
+        for e in data["types"]:
+            lines.append(f"{label[e['status']]:8} {e['count']:6}  {e['type']:30} {', '.join(e['examples'])}")
+        if data["unsupportedControls"]:
+            lines += ["", "Nicht unterstuetzte Controls (tote Kacheln):"]
+            lines += [f"  {d['room'] or '-':24} {d['name']:36} {d['type']}" for d in data["unsupportedControls"]]
+        lines += ["", "States/Details je Typ:"]
+        for e in data["types"]:
+            lines.append(f"  {e['type']}: states={', '.join(e['states']) or '-'} | details={', '.join(e['details']) or '-'}")
+        return web.Response(text="\n".join(lines) + "\n", content_type="text/plain", charset="utf-8")
+    return web.json_response(data, dumps=lambda d: json.dumps(d, ensure_ascii=False, indent=2))
+
+
 async def api_settings_ms(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     try:
@@ -3308,6 +3384,7 @@ def main() -> None:
     a.router.add_post("/api/panels", api_save_panels)
     a.router.add_post("/api/theme", api_save_theme)
     a.router.add_get("/api/settings", api_settings)
+    a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
     a.router.add_post("/api/agent/announce", api_agent_announce)

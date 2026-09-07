@@ -38,6 +38,9 @@
       'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
         'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',
       'Speichern': 'Save',
+      'Bausteintypen der Anlage anzeigen': 'Show control types of the installation',
+      '(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)':
+        '(which types exist and which LoxPanel does not support yet; JSON at /api/types)',
       // SIP
       'Gegensprechen über die Türstation direkt am Panel (SIP-Audio/-Video statt nur Kamerabild).':
         'Two-way audio via the door station directly on the panel (SIP audio/video instead of just the camera image).',
@@ -108,7 +111,6 @@
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
       'Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.':
         'No panel known yet. As soon as a panel opens the visu with a device id or an agent runs, it appears here.',
-      'Speichern': 'Save',
       'Betriebsmodus-Automatik und Display-Steuerung': 'Operating-mode automation and display control',
       'Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.':
         'Display control per device: for Fully Kiosk enable the Remote Admin interface (port 2323, password), for WallPanel the HTTP server (port 2971). The server then switches the display on for doorbell, alarm clock, notify and goto and off after the timeout, independent of the page.',

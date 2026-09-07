@@ -179,11 +179,11 @@ Strukturdatei (`LoxAPP3.json`) des Miniservers ablesen.
 
 ### 8.1 Zuerst
 
-- [ ] **Diagnose-Endpunkt `/api/types`**: listet alle Bausteintypen der
+- [x] **Diagnose-Endpunkt `/api/types`**: listet alle Bausteintypen der
       verbundenen Anlage mit Anzahl, Beispielnamen, Unterstützungsstatus
-      (voll / teilweise / keine) und den State-Namen sowie `details`-Schlüsseln
-      je Typ. Damit ist sofort sichtbar, welche Kacheln in der eigenen Anlage
-      tot sind und was ein neuer Zweig lesen muss. **S**
+      (voll / teilweise / keine), State-Namen und `details`-Schlüsseln je Typ
+      sowie die toten Kacheln mit Raum. `?format=text` für den Browser, Link
+      unter *Einstellungen → Miniserver*. **S**
 - [ ] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
       Untertitel „Typ nicht unterstützt" statt leerer Kachel, und die Kachel
       per `hide` ausblendbar lassen. **S**
