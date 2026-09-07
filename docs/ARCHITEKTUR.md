@@ -232,6 +232,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
+| GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` | Panel-Agent |
@@ -367,7 +368,9 @@ Sonderfälle:
 
 **Unbekannte Typen:** Es gibt keinen `else`-Zweig. Die Kachel bleibt bei
 `{"label": name, "icon": "info", "on": false}` ohne `nav` und ohne `cmd`, ist also
-sichtbar, aber tot.
+sichtbar, aber tot. Welche Typen der eigenen Anlage betroffen sind, zeigt
+`/api/types` (`App.types_overview()`, Status aus dem Rendering abgeleitet,
+`PARTIAL_TYPES` markiert die teilweise umgesetzten).
 
 **Adapter:** `adapters.py` war als Erweiterungsmuster gedacht. Der Server nutzt
 nur die zwei konkreten Klassen als Modul-Globals `LIGHT` und `JAL`. Die Registry

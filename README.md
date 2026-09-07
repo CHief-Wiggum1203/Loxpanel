@@ -396,7 +396,9 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 Eine ausführliche Analyse von Aufbau, Datenfluss, Schnittstellen, Konfigurations-
 formaten und bekannten Schwachstellen steht in
 [`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md), ein kurzer Einstieg in
-[`CLAUDE.md`](CLAUDE.md).
+[`CLAUDE.md`](CLAUDE.md), die Arbeitsliste in [`docs/TODO.md`](docs/TODO.md).
+Welche Bausteintypen der eigenen Anlage noch nicht unterstützt werden, zeigt
+`http://<server>:8099/api/types?format=text`.
 
 ## Support & Quellcode
 
