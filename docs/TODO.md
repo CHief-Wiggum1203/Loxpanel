@@ -211,15 +211,17 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Zustände Heizen/Kühlen. **M**
 - [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
       Override wie bei V2. **M**
-- [ ] `Sauna` (Sauna-Steuerung): Ist/Soll, Feuchte, Ein/Aus, Modus, Timer. **M**
+- [x] `Sauna` (Sauna-Steuerung): Ist/Soll, Bank, Feuchte, Tür, Timer als
+      Anzeige, Ein/Aus als Befehl. Offen: Modus und Solltemperatur setzen,
+      Befehlsnamen auf der Anlage prüfen. **M**
 - [ ] `PoolController` (Pool): Modus, Temperaturen, Filterlauf, Befehle. **M**
 - [ ] `LightsceneRGB` (RGB-Lichtszene): Szenenliste, aktive Szene, Farbe
       setzen; Farbwahl aus `ColorPickerV2` wiederverwenden. **M**
 - [ ] `Remote` (Fernbedienung): Modusliste und Tastenbefehle als Button-Raster. **M**
 - [ ] `Wallbox` (Ladestation): Ladeleistung, Energie, Ladezustand, Modus und
       Leistungsgrenze setzen. **M**
-- [ ] `EnergyManager2` (Energiemanager): Erzeugung, Verbrauch, Speicher,
-      Netz, Verbraucherliste; zunächst nur Anzeige. **M**
+- [x] `EnergyManager2` (Energiemanager): Erzeugung, Netz, Speicher mit
+      Ladestand und Reserve, Verbraucherliste aus `loads`; nur Anzeige. **M**
 - [ ] `SpotPriceOptimizer` (Strompreis-Optimierer): Preisverlauf und Plan,
       nur Anzeige. **M**
 - [ ] `MediaClient` (Media Client, alt): Steuerung veralteter Geräte;
@@ -230,18 +232,28 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
 Typen, die Loxone in der Strukturdatei liefert, hier aber nirgends vorkommen.
 Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
-- [ ] `EnergyFlowMonitor` (Energieflussmonitor): kommt in der Testanlage vor.
-      Erzeugung, Verbrauch, Speicher, Netz und Verbraucher als Anzeige; das
-      Layout des Blocks `hero` + `value`-Zeilen reicht für den Anfang. **M**
+- [x] `EFM` (Energieflussmonitor, Typname in der Strukturdatei ist `EFM`):
+      Erzeugung, Netz mit Bezug/Einspeisung, Speicher mit Laden/Entladen,
+      Knoten aus `details.nodes` mit `actual0..5`; nur Anzeige. Annahme
+      Vorzeichen wie in der Loxone-App (positiv = Bezug bzw. Laden), auf der
+      Anlage gegenprüfen. **M**
+- [x] `PvProductionForecast` (PV-Produktionsvorhersage): heute, morgen,
+      Zeitraum, danach, Anlagenleistung. **S**
+- [x] `SteakThermo` (Touch & Grill Thermometer): Fühlertemperaturen aus
+      `currentTemperatures`, Zielwerte, Alarmtext, Timer, Akku. Struktur von
+      `currentTemperatures` auf der Anlage gegenprüfen. **S**
 - [ ] `EnergyManager` (Energiemanager, alte Version), `Wallbox2`, `CarCharger`:
       ältere bzw. neuere Varianten der Energie-Bausteine. **M**
 - [ ] `IntercomV2`: neue Türsprechstelle, nach dem Muster von `Intercom`. **M**
 - [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
       Muster von `Daytimer`. **S**
-- [ ] `Irrigation` (Bewässerung): Zonen, Laufzeiten, Start/Stop. **M**
+- [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
+      erwarteter Niederschlag als Anzeige. Offen: Start/Stop und Zone starten,
+      Befehlsnamen auf der Anlage prüfen. **M**
 - [ ] `AlarmChain`, `AalEmergency`, `AalSmartAlarm` (Alarmkette, Notfall,
       Smart Alarm): Zustand und Quittieren nach dem Muster von `Alarm`. **S**
-- [ ] `MailBox` (Briefkasten): Post da / geleert, Quittieren. **S**
+- [x] `MailBox` (Briefkasten): Post da / Paket da / leer als Anzeige.
+      Offen: Quittieren, Befehlsname auf der Anlage prüfen. **S**
 - [ ] `LeafSystem`, `PowerUnit`: Anzeige-Bausteine, nur Werte. **S**
 - [ ] `UpDownLeftRightAnalog`, `UpDownLeftRightDigital`: vier Richtungstasten,
       nach dem Muster von `UpDownDigital`. **S**

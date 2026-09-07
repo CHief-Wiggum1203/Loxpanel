@@ -92,7 +92,8 @@ DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
-PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation"}
+PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
+                 "Irrigation", "Sauna"}   # Irrigation: nur Anzeige; Sauna: nur Ein/Aus
 
 
 def _is_tab(t) -> bool:
@@ -105,7 +106,8 @@ STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
               "InfoOnlyDigital", "SmokeAlarm", "PresenceDetector",
               "ClimateControllerUS", "Hourcounter"}
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
-_ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter"}
+_ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
+           "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -504,6 +506,49 @@ class App:
         v = self._state(control, name)
         return unquote(str(v)) if v not in (None, "") else ""
 
+    def _json_state(self, control: dict, name: str):
+        """JSON-State (Loxone liefert Listen/Objekte als ggf. prozentkodierten
+        Text). None, wenn leer oder nicht parsebar (dann einmal geloggt)."""
+        raw = self._state(control, name)
+        if raw in (None, ""):
+            return None
+        if not isinstance(raw, str):
+            return raw
+        txt = unquote(raw).strip()
+        try:
+            return json.loads(txt)
+        except ValueError:
+            log.warning("%s.%s nicht als JSON parsebar: %r", control.get("type"), name, txt[:160])
+            return None
+
+    @staticmethod
+    def _named_items(data) -> list[tuple[str, dict]]:
+        """Liste/Objekt aus einem JSON-State in (Label, Eintrag)-Paare wandeln.
+        Label aus name/title/label, sonst laufende Nummer."""
+        if isinstance(data, dict):
+            seq = list(data.items())
+        elif isinstance(data, (list, tuple)):
+            seq = list(enumerate(data))
+        else:
+            return []
+        out = []
+        for i, (key, e) in enumerate(seq):
+            if isinstance(e, dict):
+                label = _clean(e.get("name") or e.get("title") or e.get("label")) or str(key if isinstance(key, str) else i + 1)
+                out.append((label, e))
+            else:
+                out.append((str(key if isinstance(key, str) else i + 1), {"value": e}))
+        return out
+
+    def _flow_text(self, value, fmt: str, pos: str, neg: str) -> str:
+        """Leistung mit Richtung: Vorzeichen -> Text (z.B. Bezug/Einspeisung).
+        Annahme wie in der Loxone-App: positiv = Bezug bzw. Laden."""
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return ""
+        return f"{pos if v >= 0 else neg} {self._fmt_num(abs(v), fmt)}"
+
     def _tracker_lines(self, control: dict) -> list[str]:
         """Ereignis-Zeilen eines Tracker-Bausteins (State 'entries'). Loxone
         liefert einen mehrzeiligen, ggf. prozentkodierten Text; neueste zuerst.
@@ -631,6 +676,7 @@ class App:
             return ""
         m = _NUMFMT.match(fmt or "%.1f")
         numfmt, unit = (m.group(1), m.group(2)) if m else ("%.1f", "")
+        unit = unit.strip()   # "%.2f kW" und "%.2fkW" ergeben beide "3,25 kW"
         if unit[:1] in _PREFIX:
             i = _PREFIX.index(unit[0]); rest = unit[1:]
             while abs(value) >= 1000 and i < len(_PREFIX) - 1:
@@ -1716,6 +1762,68 @@ class App:
             _, last = self._split_ts(lines[0]) if lines else (None, "")
             it.update(icon="list", nav={"view": "control", "id": uuid},
                       sublabel=(last or "Keine Einträge"))
+        elif t == "EFM":
+            # Energieflussmonitor: Ppwr Erzeugung, Gpwr Netz (+Bezug/-Einspeisung),
+            # Spwr Speicher (+Laden/-Entladen), actual0..5 = Knoten aus details.nodes
+            fmt = (c.get("details") or {}).get("actualFormat") or "%.2f kW"
+            bits = []
+            p = self._state(c, "Ppwr")
+            if p is not None:
+                bits.append("PV " + self._fmt_num(p, fmt))
+            g = self._flow_text(self._state(c, "Gpwr"), fmt, "Bezug", "Einspeisung")
+            if g:
+                bits.append(g)
+            it.update(icon="central", nav={"view": "control", "id": uuid},
+                      sublabel=" · ".join(bits) or "Energiefluss")
+        elif t == "EnergyManager2":
+            bits = []
+            p = self._state(c, "Ppwr")
+            if p is not None:
+                bits.append("PV " + self._fmt_num(p, "%.2f kW"))
+            soc = self._state(c, "Ssoc")
+            if soc is not None and (c.get("details") or {}).get("HasSsoc", True):
+                bits.append("Speicher " + self._fmt_num(soc, "%.0f") + " %")
+            it.update(icon="central", nav={"view": "control", "id": uuid},
+                      sublabel=" · ".join(bits) or "Energiemanager")
+        elif t == "PvProductionForecast":
+            bits = [f"{lbl} {self._fmt_num(v, '%.1f kWh')}"
+                    for lbl, v in (("Heute", self._state(c, "today")), ("Morgen", self._state(c, "tomorrow")))
+                    if v is not None]
+            it.update(icon="central", nav={"view": "control", "id": uuid},
+                      sublabel=" · ".join(bits) or "PV-Prognose")
+        elif t == "Irrigation":
+            act = bool(self._state(c, "active"))
+            rain = bool(self._state(c, "rainActive"))
+            sub = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
+            zone = self._irrigation_zone_name(c)
+            if act and zone:
+                sub += " · " + zone
+            it.update(icon="info", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
+        elif t == "MailBox":
+            mail = bool(self._state(c, "mailReceived"))
+            pk = bool(self._state(c, "packetReceived"))
+            sub = " · ".join(x for x, f in (("Post da", mail), ("Paket da", pk)) if f) or "Leer"
+            it.update(icon="info", on=(mail or pk), nav={"view": "control", "id": uuid}, sublabel=sub)
+        elif t == "Sauna":
+            act = bool(self._state(c, "active"))
+            ta = self._state(c, "tempActual")
+            sub = "Ein" if act else "Aus"
+            if ta is not None:
+                sub += f" · {self._fmt_num(ta, '%.0f')} °C"
+            if act:
+                tt = self._state(c, "tempTarget")
+                if tt is not None:
+                    sub += f" → {self._fmt_num(tt, '%.0f')} °C"
+            if self._state(c, "error") or self._state(c, "saunaError"):
+                it["tone"] = "crit"
+            it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
+        elif t == "SteakThermo":
+            act = bool(self._state(c, "isActive"))
+            temps = self._steak_temps(c)
+            sub = " · ".join(f"{self._fmt_num(v, '%.0f')} °C" for _, v in temps[:2]) if temps else ("Aktiv" if act else "Aus")
+            if self._state(c, "greenAlarmActive") or self._state(c, "yellowAlarmActive") or self._state(c, "timerAlarmActive"):
+                it["tone"] = "good"
+            it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
         elif (t or "").startswith("Central"):
             muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
                       if m.get("uuid") in self.controls]
@@ -1920,6 +2028,35 @@ class App:
             blocks.append({"k": "status", "text": sub})
         return {"t": "view", "title": _clean(c.get("name")),
                 "route": {"view": "control", "id": uuid}, "blocks": blocks}
+
+    def _irrigation_zone_name(self, c: dict) -> str:
+        """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
+        in der zones-Liste), sonst leer."""
+        cur = self._state(c, "currentZone")
+        zones = self._named_items(self._json_state(c, "zones"))
+        if cur in (None, "", 0, "0") and not zones:
+            return ""
+        try:
+            idx = int(float(cur))
+        except (TypeError, ValueError):
+            idx = None
+        for i, (label, z) in enumerate(zones):
+            if idx is not None and (z.get("id") == idx or z.get("idx") == idx or i + 1 == idx):
+                return label
+        return f"Zone {cur}" if idx else ""
+
+    def _steak_temps(self, c: dict) -> list[tuple[str, float]]:
+        """Fuehler-Temperaturen des Grillthermometers aus currentTemperatures
+        (Liste von Zahlen oder Objekten mit name/value)."""
+        data = self._json_state(c, "currentTemperatures")
+        out = []
+        for label, e in self._named_items(data):
+            v = e.get("value", e.get("temperature", e.get("temp")))
+            try:
+                out.append((label if not label.isdigit() else f"Fühler {label}", float(v)))
+            except (TypeError, ValueError):
+                continue
+        return out
 
     def _view_control(self, uuid: str) -> dict:
         v = self._view_control_inner(uuid)
@@ -2503,6 +2640,170 @@ class App:
             ov = self._state(c, "overdue")
             return self._big_view(uuid, "info", self._fmt_num(self._state(c, "total"), "%.0f h") or "–",
                                   "Wartung fällig" if ov else "", tone=("crit" if ov else None))
+        if t == "EFM":
+            det = c.get("details") or {}
+            fmt = det.get("actualFormat") or "%.2f kW"
+            p = self._state(c, "Ppwr")
+            rows = []
+            g = self._flow_text(self._state(c, "Gpwr"), fmt, "Netzbezug", "Einspeisung")
+            if g:
+                rows.append({"k": "status", "text": g})
+            sp = self._flow_text(self._state(c, "Spwr"), det.get("storageFormat") or fmt, "Speicher lädt", "Speicher entlädt")
+            if sp:
+                rows.append({"k": "status", "text": sp})
+            nodes = self._named_items(det.get("nodes"))
+            vals = [(label, self._state(c, f"actual{i}")) for i, (label, _n) in enumerate(nodes[:6])]
+            vals = [(label, v) for label, v in vals if v is not None]
+            if vals:
+                rows.append({"k": "head", "text": "Verbraucher und Quellen"})
+                rows += [{"k": "status", "text": f"{label}: {self._fmt_num(v, fmt)}"} for label, v in vals]
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+                {"k": "hero", "icon": "central"},
+                {"k": "big", "text": (self._fmt_num(p, fmt) if p is not None else "–")},
+                {"k": "status", "text": "Aktuelle Erzeugung"},
+                *rows,
+            ]}
+        if t == "EnergyManager2":
+            det = c.get("details") or {}
+            p = self._state(c, "Ppwr")
+            rows = []
+            g = self._flow_text(self._state(c, "Gpwr"), "%.2f kW", "Netzbezug", "Einspeisung")
+            if g:
+                rows.append({"k": "status", "text": g})
+            if det.get("HasSpwr", True):
+                sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher lädt", "Speicher entlädt")
+                if sp:
+                    rows.append({"k": "status", "text": sp})
+            soc = self._state(c, "Ssoc")
+            if soc is not None and det.get("HasSsoc", True):
+                txt = f"Speicher {self._fmt_num(soc, '%.0f')} %"
+                mn = self._state(c, "MinSoc")
+                if mn is not None:
+                    txt += f" (Reserve {self._fmt_num(mn, '%.0f')} %)"
+                rows.append({"k": "status", "text": txt})
+            loads = self._named_items(self._json_state(c, "loads"))
+            if loads:
+                rows.append({"k": "head", "text": "Verbraucher"})
+                for label, e in loads:
+                    st = e.get("status", e.get("state", e.get("active")))
+                    if isinstance(st, bool) or st in (0, 1, "0", "1"):
+                        st = "Ein" if st in (True, 1, "1") else "Aus"
+                    rows.append({"k": "status", "text": label + (f": {st}" if st not in (None, "") else "")})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+                {"k": "hero", "icon": "central"},
+                {"k": "big", "text": (self._fmt_num(p, "%.2f kW") if p is not None else "–")},
+                {"k": "status", "text": "Aktuelle Erzeugung"},
+                *rows,
+            ]}
+        if t == "PvProductionForecast":
+            det = c.get("details") or {}
+            today = self._state(c, "today")
+            rows = []
+            for nm, lbl in (("tomorrow", "Morgen"), ("period", "Aktueller Zeitraum"), ("after", "Danach")):
+                v = self._state(c, nm)
+                if v is not None:
+                    rows.append({"k": "status", "text": f"{lbl}: {self._fmt_num(v, '%.1f kWh')}"})
+            mp = det.get("maxPower")
+            if mp is not None:
+                rows.append({"k": "status", "text": f"Anlagenleistung {self._fmt_num(mp, '%.1f kW')}"})
+            err = self._text(c, "errorInfo")
+            if err:
+                rows.append({"k": "status", "text": err})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+                {"k": "hero", "icon": "central"},
+                {"k": "big", "text": (self._fmt_num(today, "%.1f kWh") if today is not None else "–")},
+                {"k": "status", "text": "Erwartete Erzeugung heute"},
+                *rows,
+            ]}
+        if t == "Irrigation":
+            act = bool(self._state(c, "active"))
+            rain = bool(self._state(c, "rainActive"))
+            big = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
+            rows = []
+            zone = self._irrigation_zone_name(c)
+            if act and zone:
+                rows.append({"k": "status", "text": "Aktive Zone: " + zone})
+            ep = self._state(c, "expectedPrecipitation")
+            if ep is not None:
+                rows.append({"k": "status", "text": f"Erwarteter Niederschlag {self._fmt_num(ep, '%.1f mm')}"})
+            zones = self._named_items(self._json_state(c, "zones"))
+            if zones:
+                rows.append({"k": "head", "text": "Zonen"})
+                rows += [{"k": "status", "text": (label + (" ← aktiv" if act and label == zone else ""))}
+                         for label, _z in zones]
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+                {"k": "hero", "icon": "info"},
+                {"k": "big", "text": big, **({"tone": "good"} if act else {})},
+                {"k": "status", "text": "Bewässerung"},
+                *rows,
+            ]}
+        if t == "MailBox":
+            mail = bool(self._state(c, "mailReceived"))
+            pk = bool(self._state(c, "packetReceived"))
+            big = "Post und Paket" if (mail and pk) else ("Post da" if mail else ("Paket da" if pk else "Leer"))
+            return self._big_view(uuid, "info", big, "Postkasten", tone=("good" if (mail or pk) else None))
+        if t == "Sauna":
+            ua = c.get("uuidAction")
+            act = bool(self._state(c, "active"))
+            ta = self._state(c, "tempActual")
+            err = self._state(c, "error") or self._state(c, "saunaError")
+            sbits = ["Ein" if act else "Aus"]
+            tt = self._state(c, "tempTarget")
+            if tt is not None:
+                sbits.append(f"Soll {self._fmt_num(tt, '%.0f')} °C")
+            tb = self._state(c, "tempBench")
+            if tb is not None:
+                sbits.append(f"Bank {self._fmt_num(tb, '%.0f')} °C")
+            hum = self._state(c, "humidityActual")
+            if hum is not None and (c.get("details") or {}).get("hasVaporizer"):
+                sbits.append(f"Feuchte {self._fmt_num(hum, '%.0f')} %")
+            rows = []
+            if (c.get("details") or {}).get("hasDoorSensor") and self._state(c, "doorClosed") == 0:
+                rows.append({"k": "status", "text": "Tür offen"})
+            if self._state(c, "ready"):
+                rows.append({"k": "status", "text": "Betriebstemperatur erreicht"})
+            if self._state(c, "timer"):
+                rows.append({"k": "status", "text": "Timer läuft"})
+            if err:
+                rows.append({"k": "status", "text": "Störung"})
+            blocks = [
+                {"k": "hero", "icon": "thermo"},
+                {"k": "big", "text": (f"{self._fmt_num(ta, '%.0f')} °C" if ta is not None else "–"),
+                 **({"tone": "crit"} if err else {})},
+                {"k": "status", "text": " · ".join(sbits)},
+                *rows,
+                # Ein/Aus wie bei Schaltern (on/off). Weitere Befehle (Modus,
+                # Solltemperatur) erst nach Pruefung auf der Anlage.
+                {"k": "row", "cells": [
+                    {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
+                    {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
+                ]},
+            ]
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": blocks}
+        if t == "SteakThermo":
+            act = bool(self._state(c, "isActive"))
+            temps = self._steak_temps(c)
+            rows = [{"k": "status", "text": f"{label}: {self._fmt_num(v, '%.0f')} °C"} for label, v in temps]
+            for nm, lbl in (("targetGreen", "Ziel grün"), ("targetYellow", "Ziel gelb")):
+                v = self._state(c, nm)
+                if v is not None:
+                    rows.append({"k": "status", "text": f"{lbl}: {self._fmt_num(v, '%.0f')} °C"})
+            al = self._text(c, "activeAlarmText")
+            if al:
+                rows.append({"k": "status", "text": al})
+            if self._state(c, "timerAlarmActive") or self._state(c, "timerRemaining"):
+                rows.append({"k": "status", "text": "Timer läuft"})
+            bat = self._state(c, "batteryStateOfCharge")
+            if bat is not None:
+                rows.append({"k": "status", "text": f"Akku {self._fmt_num(bat, '%.0f')} %"})
+            big = (f"{self._fmt_num(temps[0][1], '%.0f')} °C" if temps else ("Aktiv" if act else "Aus"))
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+                {"k": "hero", "icon": "thermo"},
+                {"k": "big", "text": big},
+                {"k": "status", "text": "Grillthermometer" + ("" if act else " · aus")},
+                *rows,
+            ]}
         return {"t": "view", "title": _clean(c.get("name")), "route": route,
                 "items": [self._control_item(uuid)]}
 
