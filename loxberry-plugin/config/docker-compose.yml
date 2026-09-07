@@ -1,8 +1,8 @@
 # LoxPanel als Docker-Service. REPLACELBPDATADIR wird beim Plugin-Install durch
 # das echte Datenverzeichnis ersetzt (/opt/loxberry/data/plugins/loxpanel).
 # Der Miniserver-Zugang wird NICHT hier gesetzt, sondern zur Laufzeit ueber die
-# Weboberflaeche (http://<loxberry>:8099/settings) und in config/loxpanel.cfg
-# im gemounteten Volume gespeichert.
+# Weboberflaeche (http://<loxberry>:8099/config -> Settings) und in
+# config/loxpanel.cfg im gemounteten Volume gespeichert.
 services:
   loxpanel:
     container_name: loxpanel

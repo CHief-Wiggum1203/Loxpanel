@@ -10,8 +10,10 @@ priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
 
 `bin/webvisu.py` (aiohttp) verbindet sich per WebSocket mit dem Miniserver, rendert
 alle Ansichten serverseitig als JSON und schickt sie per WebSocket an
-`webfrontend/html/panel.html`, das nur noch anzeigt. Konfigurator (`config.html`)
-und Einstellungen (`settings.html`) sprechen `/api/*`.
+`webfrontend/html/panel.html`, das nur noch anzeigt. Konfigurator und Einstellungen
+liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Rubriken „Panel
+Configuration" und „Settings"), `settings.html` leitet nur noch weiter; beide
+sprechen `/api/*`.
 
 ## Wichtige Dateien
 
@@ -19,6 +21,7 @@ und Einstellungen (`settings.html`) sprechen `/api/*`.
 |---|---|
 | `bin/webvisu.py` | gesamter Server, 3.000 Zeilen, Routen in `main()` am Ende |
 | `bin/loxone_ws.py` | Loxone-WebSocket und Binärparser |
+| `bin/audioserver.py`, `bin/audioserver_events.py` | Audioserver-Backends: Gen1/MS4H und Gen2-Events (Port 7091) |
 | `webfrontend/html/*.html`, `i18n.js` | Frontend, Vanilla JS, kein Build |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
 | `config/*.example` | Vorlagen; echte Dateien liegen im Volume `/app/config` |
@@ -34,7 +37,7 @@ LOXPANEL_MS_HOST=<ip> LOXPANEL_MS_USER=<user> LOXPANEL_MS_PASS=<pass> \
 ```
 
 Ohne Miniserver startet der Server trotzdem und versucht alle 10 s die
-Verbindung. `/config`, `/settings` und `/api/settings` sind dann erreichbar, das
+Verbindung. `/config` und `/api/settings` sind dann erreichbar, das
 reicht als Rauchtest. Docker: `docker compose up -d --build`.
 
 ## Prüfen vor einem Push
@@ -58,7 +61,8 @@ Dazu den Server starten und `/api/settings` sowie `/config` abrufen.
 - Neue Bausteintypen kommen in die beiden Ketten `_control_item()` und
   `_view_control_inner()`, nicht in `adapters.py`. Reihenfolge der Zweige ist
   relevant.
-- `loxpanel.cfg` aus `/settings` hat Vorrang vor `LOXPANEL_MS_*`-Variablen.
+- `loxpanel.cfg` aus `/config` (Settings → Miniserver) hat Vorrang vor
+  `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und
   den Heredoc in `deploy/install-agent.sh`.
 - Keine Authentifizierung auf den Routen. Nichts bauen, was das Netz nach außen
@@ -73,4 +77,7 @@ Dazu den Server starten und `/api/settings` sowie `/config` abrufen.
 Entwicklung auf Feature-Branches, PR gegen `main` dieses Forks (nicht gegen das
 Original). Das Repo erlaubt nur Squash oder Rebase, keine Merge-Commits.
 Upstream-Updates: `git remote add upstream https://github.com/Lenardo1/Loxpanel`,
-dann `git fetch upstream && git merge upstream/main`.
+dann `git fetch upstream && git merge upstream/main`. Upstream-Merges als echten
+Merge-Commit nach `main` bringen (PR mit „Create a merge commit", nicht
+squashen), sonst kennt der Fork die Upstream-Commits nicht und dieselben
+Konflikte kommen beim nächsten Release wieder.

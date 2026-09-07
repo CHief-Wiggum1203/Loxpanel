@@ -45,7 +45,8 @@ kein Frontend-Framework und keine Datenbank.
 | Persistenz | drei JSON-Dateien im Ordner `config/` (im Container `/app/config`) |
 
 **Projektstand:** Das Projekt ist jung. Der erste Commit stammt vom 28.08.2026,
-alle Commits stammen von einem Autor, Version 0.3.1. Der Code ist funktional weit,
+alle Commits stammen von einem Autor, Version 0.3.2 (Upstream-Stand vom
+07.09.2026, in den Fork gemergt). Der Code ist funktional weit,
 aber es gibt keine automatisierten Tests, keine Authentifizierung und einige
 Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
@@ -63,9 +64,10 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value- und Text-State-Tabellen |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
+| `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator (Panels, Tabs, Räume, Kacheln, Design) |
-| `webfrontend/html/settings.html` | Einstellungen (Miniserver, Intercom, Agenten, Betriebsmodus, Audio) |
+| `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Neues Panel) |
+| `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, der Anker bleibt erhalten (`/settings#panels` → `/config#panels`) |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
@@ -126,9 +128,9 @@ Befehle vom Browser gehen über `App.command()` entweder an den Miniserver
 
 `main()` (`webvisu.py:3036`) liest `--port` bzw. `LOXPANEL_PORT` (Default 8099),
 baut `App(_config(), _audio_config())`, registriert alle Routen und startet beim
-`on_startup` zwei Dauer-Tasks: `stream_task()` (Miniserver-Verbindung) und
-`broadcaster()` (Verteilung). Der HTTP-Server ist sofort erreichbar, auch ohne
-Miniserver-Zugang. So bleibt `/settings` immer bedienbar.
+`on_startup` drei Dauer-Tasks: `stream_task()` (Miniserver-Verbindung),
+`broadcaster()` (Verteilung) und `audio_events_task()` (Audioserver-Gen2-Events). Der HTTP-Server ist sofort erreichbar, auch ohne
+Miniserver-Zugang. So bleibt `/config` immer bedienbar.
 
 ### 3.3 Zentrale Klasse `App` (`webvisu.py:328`)
 
@@ -225,7 +227,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 |---|---|---|---|---|
 | GET | `/` | `index` | `panel.html` | Visu |
 | GET | `/config` | `config_index` | `config.html` | Konfigurator |
-| GET | `/settings` | `settings_index` | `settings.html` | Einstellungen |
+| GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme | Konfigurator, Einstellungen |
@@ -235,6 +237,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
+| POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` | Panel-Agent |
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
@@ -273,7 +276,7 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 3. `loxpanel.cfg.example`
 4. leer, Server startet trotzdem
 
-Ein unter `/settings` gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
+Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 
 ### 5.2 `loxpanel.cfg`
 
@@ -381,8 +384,8 @@ nicht in einen Adapter.
 
 ## 7. Frontend
 
-Drei Single-File-Seiten ohne Framework. Nur `config.html` und `settings.html`
-laden `/i18n.js`; die Visu nicht.
+Zwei Single-File-Seiten ohne Framework, `settings.html` ist seit Upstream 0.3.2
+nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 
 ### 7.1 `panel.html` (Visu, 772 Zeilen)
 
@@ -414,12 +417,16 @@ laden `/i18n.js`; die Visu nicht.
 - Overlay-Vorschau rechnet die Alphas selbst nach (`ovPreview()`), parallel zur
   Server-Logik `_overlay_alphas()`.
 
-### 7.3 `settings.html` (Einstellungen, 452 Zeilen)
+### 7.3 Rubrik „Settings" in `config.html` (früher `settings.html`)
 
-Sechs Bereiche: Miniserver, Intercom, SIP (nur Platzhalter), Panels (Agenten mit
-Fernstart, Polling alle 6 s, plus Betriebsmodus-Automatik), Audio (Testton),
-Neues Panel (erzeugt nur lokal den SSH-Befehl). Kein Dirty-Flag, ungespeicherte
-Eingaben gehen beim Verlassen verloren.
+Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
+Speicherleiste unten gilt nur für „Panel Configuration". Sechs Reiter:
+Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (nur
+Platzhalter), Panels (alle Anzeigegeräte: Agent, Kiosk-App, Browser; Polling
+alle 6 s; Betriebsmodus-Automatik und Display-Treiber je Gerät), Audio (Testton,
+Audioserver-Live-Daten), Neues Panel (Start-URL für Kiosk-Apps, SSH-Befehl für
+Linux-Panels). `/config#<reiter>` öffnet einen Reiter direkt. Kein Dirty-Flag,
+ungespeicherte Eingaben gehen beim Verlassen verloren.
 
 ### 7.4 `i18n.js`
 
@@ -512,7 +519,7 @@ Root-Rechte auf dem LoxBerry bedeutet.
 
 Template `unraid/loxpanel.xml`, Anleitung `deploy/UNRAID.md`. Start/Stop, Update
 und Backup übernimmt Unraid. Was das LoxBerry-Widget an Funktionen hat, gibt es
-auf Unraid nur über `/settings` und den appdata-Ordner.
+auf Unraid nur über `/config` (Settings) und den appdata-Ordner.
 
 ### 9.3 Build und Release
 
@@ -558,7 +565,7 @@ für GET+POST `_json_or_empty()` und `_push_filter()`, für Pushes `_push()`.
 Leser nach dem Muster `_audio_config()` (`:232`), Feld in `App.__init__`, bei
 Verbindungsrelevanz auch in `reconnect()` neu einlesen. Schreiben über
 `_load_cfg()` + Mutation + `_write_cfg()`. Für die UI: Feld in `api_settings`,
-neuer POST-Handler, `settings.html`, `i18n.js`. Bei Env-Override zusätzlich
+neuer POST-Handler, Rubrik „Settings" in `config.html`, `i18n.js`. Bei Env-Override zusätzlich
 `_config()`, `.env.example`, `docker-compose.yml`, `unraid/loxpanel.xml`.
 
 ### (d) Neue Option im Konfigurator
@@ -582,8 +589,8 @@ hart im Server.
 ### (f) Design
 
 Visu statisch in `panel.html:8-256`, zur Laufzeit über CSS-Variablen mit
-Defaults in `_theme_vars()`. Admin-Seiten haben ihr CSS doppelt in `config.html`
-und `settings.html`, beide parallel ändern.
+Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
+`config.html`.
 
 ---
 
@@ -653,7 +660,7 @@ und `settings.html`, beide parallel ändern.
 
 ### Doku-Inkonsistenzen
 
-- README-Changelog endet bei 0.2.6, Plugin steht auf 0.3.1.
+- README-Changelog endet bei 0.2.6, Plugin steht auf 0.3.2.
 - README nennt die Stromspar-Pause als aktives Feature, sie ist per Default aus.
 - README nennt `armhf`, laut Plugin-Kommentar matcht nur `armv7l`.
 - `DOCKER.md` und `DEPLOY.md` sprechen vom „späteren" LoxBerry-Plugin.
@@ -705,10 +712,10 @@ Priorisiert nach Nutzen für einen eigenen Betrieb auf Unraid:
    letzte gesendete JSON merken und nur senden, wenn es sich geändert hat. Das
    allein spart bei laufenden Werten einen Großteil der WebSocket-Last.
 5. **Einfacher Zugriffsschutz** (S1). Für ein Heimnetz reicht ein optionales
-   Token, das `/config`, `/settings` und die schreibenden `/api/*`-Routen
+   Token, das `/config` und die schreibenden `/api/*`-Routen
    schützt, während `/`, `/ws` und die Bild-Proxys frei bleiben. Alternativ ein
    Reverse-Proxy mit Auth auf Unraid, dann muss der Installer-Befehl in
-   `settings.html` HTTPS können.
+   `config.html` HTTPS können.
 6. **Cover-Proxy einschränken** (S2). Nur Hosts zulassen, die als Miniserver
    oder Audioserver bekannt sind.
 7. **Agent-Kopie aus dem Installer entfernen** (W2). Der Installer kann die

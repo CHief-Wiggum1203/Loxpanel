@@ -17,7 +17,7 @@
   <Project>https://github.com/CHief-Wiggum1203/Loxpanel</Project>
   <Overview>Konfigurierbare Touch-Visu fuer den Loxone Miniserver. Verwandelt Wandpanel, Tablet oder Handy in eine frei gestaltbare Bedienoberflaeche. Verbindet sich per WebSocket (Token-Auth) mit dem Miniserver und liest die Struktur automatisch ein.&#xD;
 &#xD;
-Nach dem Start: Miniserver-Zugang unter http://[IP]:[PORT:8099]/settings eintragen (oder ueber die Variablen unten), Panels unter /config gestalten, Visu unter /?panel=&lt;id&gt; aufrufen.&#xD;
+Nach dem Start: Miniserver-Zugang unter http://[IP]:[PORT:8099]/config (Reiter Settings) eintragen (oder ueber die Variablen unten), Panels dort unter Panel Configuration gestalten, Visu unter /?panel=&lt;id&gt; aufrufen.&#xD;
 &#xD;
 Der Ordner /app/config enthaelt loxpanel.cfg, panels.json und theme.json und muss persistent sein (appdata).</Overview>
   <Category>HomeAutomation:</Category>
@@ -31,9 +31,9 @@ Der Ordner /app/config enthaelt loxpanel.cfg, panels.json und theme.json und mus
   <DonateText/>
   <DonateLink/>
   <Requires/>
-  <Config Name="Web-Port" Target="8099" Default="8099" Mode="tcp" Description="Port fuer Visu, Konfigurator (/config) und Einstellungen (/settings). Die Panels verbinden sich auf diesen Port." Type="Port" Display="always" Required="true" Mask="false">8099</Config>
+  <Config Name="Web-Port" Target="8099" Default="8099" Mode="tcp" Description="Port fuer Visu, Konfigurator und Einstellungen (/config). Die Panels verbinden sich auf diesen Port." Type="Port" Display="always" Required="true" Mask="false">8099</Config>
   <Config Name="Konfiguration (appdata)" Target="/app/config" Default="/mnt/user/appdata/loxpanel/config" Mode="rw" Description="Persistente Konfiguration: loxpanel.cfg (Miniserver-Zugang, Intercom), panels.json (Panel-Profile), theme.json (Design)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/loxpanel/config</Config>
-  <Config Name="Miniserver-Host" Target="LOXPANEL_MS_HOST" Default="" Mode="" Description="IP oder Hostname des Loxone Miniservers. Optional: leer lassen und den Zugang stattdessen unter /settings eintragen. Ein unter /settings gespeicherter Zugang hat Vorrang vor diesen Variablen." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Miniserver-Host" Target="LOXPANEL_MS_HOST" Default="" Mode="" Description="IP oder Hostname des Loxone Miniservers. Optional: leer lassen und den Zugang stattdessen unter /config (Reiter Settings) eintragen. Ein dort gespeicherter Zugang hat Vorrang vor diesen Variablen." Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="Miniserver-Benutzer" Target="LOXPANEL_MS_USER" Default="" Mode="" Description="Loxone-Benutzer fuer die Visu (Rechte auf die gewuenschten Raeume/Bausteine)." Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="Miniserver-Passwort" Target="LOXPANEL_MS_PASS" Default="" Mode="" Description="Passwort des Loxone-Benutzers." Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <Config Name="Miniserver-Port" Target="LOXPANEL_MS_PORT" Default="443" Mode="" Description="Port des Miniservers: 443 (Gen2, HTTPS) oder 80 (Gen1, HTTP)." Type="Variable" Display="advanced" Required="false" Mask="false">443</Config>

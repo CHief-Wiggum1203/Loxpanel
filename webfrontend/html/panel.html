@@ -26,7 +26,7 @@
     position:relative;
     width:100vw;height:100vh;
     max-width:calc(var(--cols,2) * 240px);max-height:calc(var(--rows,2) * 240px);
-    border-radius:16px;overflow:hidden;background:var(--screen);
+    border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
     transform:translateX(var(--nudge-x,0));
     display:grid;grid-template-rows:1fr auto;}
@@ -35,6 +35,42 @@
   .screen.fill{max-width:none;max-height:none;
     width:min(100vw, calc(100vh * var(--cols,2) / var(--rows,2)));
     height:min(100vh, calc(100vw * var(--rows,2) / var(--cols,2)));}
+  /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
+     fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
+  /* Denke in einem 4x2-Raster: links 2x2 = Visu, rechts 2x2 = Player. Der Block
+     hat Seitenverhaeltnis 4:2 (=2:1) und wird zentriert eingepasst (quadratische
+     Kacheln, kein Strecken ueber den ganzen Schirm). */
+  .screen.split{max-width:none;max-height:none;
+    width:min(100vw, calc(100vh * 2));height:min(100vh, calc(100vw / 2));
+    grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
+  #playerpane{display:none;}
+  .screen.split #grid{grid-column:1;grid-row:1;}
+  .screen.split #playerpane{display:flex;flex-direction:column;grid-column:2;grid-row:1;
+    border-left:1px solid var(--line);overflow:hidden;padding:14px;gap:10px;}
+  .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
+  .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
+  /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
+  /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
+     Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
+  #playerpane .ppcover{flex:1;min-height:0;display:grid;place-items:center;color:var(--muted);}
+  #playerpane .ppcover>*{grid-area:1/1;}   /* Note-Platzhalter + Cover uebereinander */
+  /* Cover als zentriertes Quadrat, das in die Flaeche passt, ABER nach oben
+     begrenzt ist: sonst fuellt z.B. ein Senderlogo die halbe Seite. */
+  #playerpane .ppcover img{max-width:min(100%,300px);max-height:min(100%,300px);
+    aspect-ratio:1;object-fit:cover;
+    border-radius:14px;opacity:0;transition:opacity .2s;}
+  #playerpane .ppcover .coverph{width:96px;height:96px;display:grid;place-items:center;
+    background:rgba(255,255,255,.06);border-radius:14px;}
+  #playerpane .ppcover .coverph svg{width:56px;height:56px;}
+  #playerpane .pptitle{font-size:18px;font-weight:600;text-align:center;line-height:1.2;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #playerpane .ppsub{font-size:14px;color:var(--muted);text-align:center;margin-top:-4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #playerpane .pptrans{display:flex;gap:14px;justify-content:center;align-items:center;}
+  #playerpane .ppvol{display:flex;align-items:center;gap:8px;}
+  #playerpane .ppvol .sico{color:var(--muted);} #playerpane .ppvol .sico svg{width:20px;height:20px;}
+  #playerpane .ppvol input[type=range]{flex:1;accent-color:var(--accent);}
+  #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
   .grid{--gap:10px;grid-area:1/1;
     display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
@@ -258,6 +294,7 @@
 <body>
 <div class="screen">
   <div class="conn" id="conn"></div>
+  <div class="playerpane" id="playerpane"></div>
   <div class="grid" id="grid"></div>
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
@@ -309,6 +346,7 @@ let tabsCfg = ['favoriten','zentral','raeume','kategorien'];
 let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // Spalten (2x2 / 3x2 / 4x3), vom Panel-Profil
 let gridRows = 2;   // sichtbare Zeilen pro Seite (2, bei 4x3 = 3)
+let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -594,6 +632,52 @@ function renderTabs(){
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
 }
 
+// Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
+// updateGrid() gemeinsam genutzt, liefert den ROHEN Style (ohne HTML-Escape).
+function tileVarStyle(it){
+  const sv=[]; const ts=it.style||{};
+  if(it.colorFixed){ sv.push('--ico:'+it.colorFixed); sv.push('--ico-fixed:'+it.colorFixed); }
+  else if(it.color) sv.push('--ico:'+it.color);
+  if(ts.bg) sv.push('background:'+ts.bg);
+  if(ts.border) sv.push('border-color:'+ts.border);
+  if(ts.txt) sv.push('color:'+ts.txt);
+  if(ts.font) sv.push('font-family:'+ts.font);
+  if(ts.ovFill!=null) sv.push('--ov-fill:'+ts.ovFill);
+  if(ts.ovBord!=null) sv.push('--ov-bord:'+ts.ovBord);
+  if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
+  return sv.join(';');
+}
+function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':'')); }
+// Live-Update der Kachel-Ansicht OHNE Neuaufbau: aktualisiert nur die
+// veraenderlichen Teile (Zustand/Farben/Sublabel/Steuer-Icons) der bestehenden
+// Kacheln. Verhindert das Flackern (Icons/Cover werden nicht neu geladen).
+// Gibt false zurueck, wenn sich die Struktur geaendert hat -> voller render().
+function updateGrid(items){
+  const g=el('grid');
+  if(g.classList.contains('panel')) return false;
+  const nodes=g.querySelectorAll('.tile[data-id]');
+  if(nodes.length!==items.length || !nodes.length) return false;
+  for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
+  const _pg=(view.layout==='list'?4:gridCols*gridRows);
+  items.forEach((it,i)=>{
+    const n=nodes[i];
+    n._it=it;
+    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'');
+    if(n.className!==cls) n.className=cls;
+    const stStr=tileVarStyle(it);
+    if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
+    const body=n.querySelector('.body');
+    if(body){ let subEl=body.querySelector('.sub');
+      if(it.sublabel){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
+        if(subEl.textContent!==it.sublabel) subEl.textContent=it.sublabel; }
+      else if(subEl){ subEl.remove(); } }
+    if(it.controls){ const tbs=n.querySelectorAll('.tctrls .tb');
+      if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
+        b._cmd=c.cmd; b._secured=it.secured;
+        const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
+  });
+  return true;
+}
 function render(){
   if(!view) return;
   stopVideo();
@@ -616,19 +700,10 @@ function render(){
       : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
     const chev = (it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
-    const tone = it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':''));
-    const sv=[]; const ts=it.style||{};
-    if(it.colorFixed){ sv.push('--ico:'+it.colorFixed); sv.push('--ico-fixed:'+it.colorFixed); }
-    else if(it.color) sv.push('--ico:'+it.color);
-    if(ts.bg) sv.push('background:'+ts.bg);
-    if(ts.border) sv.push('border-color:'+ts.border);
-    if(ts.txt) sv.push('color:'+ts.txt);
-    if(ts.font) sv.push('font-family:'+ts.font);
-    // Aktiv-Overlay pro Kachel: nur die --ov-* Variablen setzen (Farbe bleibt zustandsabhaengig)
-    if(ts.ovFill!=null) sv.push('--ov-fill:'+ts.ovFill);
-    if(ts.ovBord!=null) sv.push('--ov-bord:'+ts.ovBord);
-    if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
-    const st = sv.length?' style="'+esc(sv.join(';'))+'"':'';
+    const tone = tileTone(it);
+    const ts=it.style||{};
+    const stStr = tileVarStyle(it);
+    const st = stStr?' style="'+esc(stStr)+'"':'';
     const nsv=[];
     if(ts.txt) nsv.push('color:'+ts.txt);
     if(ts.font) nsv.push('font-family:'+ts.font);
@@ -649,15 +724,16 @@ function render(){
   g.classList.toggle('snapy', items.length > (view.layout==='list'?4:gridCols*gridRows));   // Snapping erst ab >1 Seite
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
+    n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
-        const c = it.controls[+b.dataset.c];
+        b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
         b.addEventListener('pointerdown', ev=>{ ev.preventDefault();
-          if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,it.secured); });
+          if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
       });
     }
-    n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return;
-      if(it.nav) nav(it.nav); else if(it.cmd) sendCmd(it.cmd.uuid,it.cmd.cmd,(view&&view.secured)||it.secured); };
+    n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
+      if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
   renderTabs();
 }
@@ -705,7 +781,9 @@ function connect(){
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
       gridCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       gridRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
-      { const sc=document.querySelector('.screen'); if(sc) sc.classList.toggle('fill', !!msg.fill); }
+      { const sc=document.querySelector('.screen'); if(sc){ sc.classList.toggle('fill', !!msg.fill && !msg.player);
+          sc.classList.toggle('split', !!msg.player); }
+        if(!msg.player){ _playerBuilt=false; const pp=el('playerpane'); if(pp) pp.innerHTML=''; } }
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
@@ -715,6 +793,7 @@ function connect(){
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
+    if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -734,7 +813,11 @@ function connect(){
       else renderPanel(msg.blocks);
     } else {
       const st=same?g.scrollTop:0;
-      view=msg; render(); g.scrollTop=st;   // Scrollposition bei Live-Update halten
+      view=msg;
+      // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
+      // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
+      // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
+      if(!(same && updateGrid(view.items||[]))){ render(); g.scrollTop=st; }
     }
   };
 }
@@ -765,6 +848,52 @@ function showNotify(text, level, secs){
   n.textContent=text; hideSaver();
   clearTimeout(n._t);
   n._t=setTimeout(()=>{ if(n&&n.parentNode) n.parentNode.removeChild(n); }, Math.max(1,(secs||5))*1000);
+}
+// Fester Player im Split-Layout (linke Spalte). Baut das Grundgeruest einmal
+// auf und aktualisiert danach nur Cover/Titel/Transport/Lautstaerke in-place
+// (kein Neu-Rendern bei jedem 0.3s-Update -> kein Cover-Flackern).
+function renderPlayer(blocks){
+  const pane=el('playerpane'); if(!pane||!Array.isArray(blocks)) return;
+  const cover=blocks.find(b=>b.k==='cover');
+  const title=blocks.find(b=>b.k==='title');
+  const row=blocks.find(b=>b.k==='row');
+  const sl=blocks.find(b=>b.k==='slider');
+  if(!_playerBuilt){
+    pane.innerHTML=
+      '<div class="ppcover"><div class="coverph">'+svg(ICONS.music)+'</div><img id="ppimg" alt=""></div>'+
+      '<div class="pptitle" id="pptitle"></div>'+
+      '<div class="ppsub" id="ppsub"></div>'+
+      '<div class="pptrans" id="pptrans"></div>'+
+      '<div class="ppvol"><span class="sico">'+svg(ICONS.vol)+'</span>'+
+        '<input type="range" id="ppsld" min="0" max="100" value="0"><span class="sval" id="ppsldv">0</span></div>';
+    const s=el('ppsld');
+    s.addEventListener('input',()=>{ _playerVolDrag=true; el('ppsldv').textContent=s.value; });
+    s.addEventListener('change',()=>{ _playerVolDrag=false;
+      if(s._uuid&&s._tmpl) send({t:'cmd',uuid:s._uuid,cmd:s._tmpl.replace('{v}',s.value)}); });
+    _playerBuilt=true;
+  }
+  // Cover nur bei Aenderung neu laden (sonst Flackern)
+  const img=el('ppimg');
+  if(img){ if(cover&&cover.src){ if(img.getAttribute('src')!==cover.src){
+        img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cover.src; } }
+    else { img.removeAttribute('src'); img.style.opacity='0'; } }
+  el('pptitle').textContent=title?(title.text||''):'';
+  el('ppsub').textContent=title?(title.sub||''):'';
+  // Transport-Buttons: einmal bauen, dann Icon+cmd in-place aktualisieren
+  const tr=el('pptrans'), cells=(row&&row.cells)||[];
+  if(tr){
+    if(tr.children.length!==cells.length){
+      tr.innerHTML=cells.map((c,i)=>'<div class="btn'+(c.icon?' icon':'')+(c.big?' big':'')+'" data-c="'+i+'"></div>').join('');
+      tr.querySelectorAll('[data-c]').forEach(n=>n.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+        if(n._cmd) send({t:'cmd',uuid:n._cmd.uuid,cmd:n._cmd.cmd}); }));
+    }
+    cells.forEach((c,i)=>{ const n=tr.querySelector('[data-c="'+i+'"]'); if(!n)return;
+      n._cmd=c.cmd||null;
+      n.innerHTML=c.icon?svgF(ICONS[c.icon]||ICONS.info):esc(c.label||'');
+      n.className='btn'+(c.icon?' icon':'')+(c.big?' big':''); });
+  }
+  if(sl){ const s=el('ppsld'); if(s&&sl.cmd){ s._uuid=sl.cmd.uuid; s._tmpl=sl.cmd.tmpl; }
+    if(s&&!_playerVolDrag){ s.value=sl.value; el('ppsldv').textContent=sl.value; } }
 }
 function resetIdle(){ clearTimeout(idleTimer);
   idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS);

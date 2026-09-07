@@ -25,7 +25,7 @@
     }
   },
 
-  "_devices_comment": "Betriebsmodus-Automatik: pro physischem Panel (Schluessel = Agent-Name aus der kiosk.conf) eine Zuordnung Betriebsmodus -> Panel-Profil. Loxone schickt per virtuellem HTTP-Ausgang nur den Modusnamen an GET http://<server>:8099/api/mode/<modus> (oder ?name=<modus>); der Server schaltet dann jedes Panel mit passender Zuordnung um. auto=false pausiert die Automatik fuer dieses Panel. Wird ueber /settings (Reiter Panels) verwaltet.",
+  "_devices_comment": "Betriebsmodus-Automatik: pro physischem Panel (Schluessel = Agent-Name aus der kiosk.conf) eine Zuordnung Betriebsmodus -> Panel-Profil. Loxone schickt per virtuellem HTTP-Ausgang nur den Modusnamen an GET http://<server>:8099/api/mode/<modus> (oder ?name=<modus>); der Server schaltet dann jedes Panel mit passender Zuordnung um. auto=false pausiert die Automatik fuer dieses Panel. Wird ueber /config (Settings, Reiter Panels) verwaltet.",
   "devices": {
     "Wohnzimmer": {
       "auto": true,

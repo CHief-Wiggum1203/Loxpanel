@@ -25,9 +25,9 @@ Variablen im Template gesetzt.
 
 | Feld | Standard | Bedeutung |
 |---|---|---|
-| Web-Port | `8099` | Port für Visu, Konfigurator (`/config`) und Einstellungen (`/settings`) |
+| Web-Port | `8099` | Port für Visu, Konfigurator und Einstellungen (`/config`) |
 | Konfiguration (appdata) | `/mnt/user/appdata/loxpanel/config` | persistente Konfiguration (`loxpanel.cfg`, `panels.json`, `theme.json`) |
-| Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/settings` eintragen |
+| Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/config` → *Settings → Miniserver* eintragen |
 | Miniserver-Port | `443` | Gen2 = 443, Gen1 = 80 (unter *Show more settings*) |
 | Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false` |
 
@@ -51,12 +51,12 @@ Variablen im Template gesetzt.
 
 1. Im Docker-Tab auf das LoxPanel-Icon klicken und **WebUI** wählen. Das öffnet
    `http://<unraid-ip>:8099/config`.
-2. Miniserver-Zugang unter `http://<unraid-ip>:8099/settings` eintragen und
-   speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
+2. Miniserver-Zugang unter `http://<unraid-ip>:8099/config` im Reiter
+   **Settings → Miniserver** eintragen und speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
 3. Panels unter `/config` anlegen und gestalten. Die Visu läuft dann unter
    `http://<unraid-ip>:8099/?panel=<id>`.
 
-**Vorrang der Zugangsdaten:** Ein unter `/settings` gespeicherter Zugang (liegt in
+**Vorrang der Zugangsdaten:** Ein unter *Settings → Miniserver* gespeicherter Zugang (liegt in
 `loxpanel.cfg` im appdata-Ordner) hat Vorrang vor den Template-Variablen. Die
 Variablen sind dann sinnvoll, wenn der Zugang von Anfang an feststehen soll oder
 der appdata-Ordner leer ist.
@@ -118,7 +118,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 | Widget: Starten / Stoppen / Neu starten | Docker-Tab, Klick auf das Container-Icon |
 | Widget: „Jetzt updaten" | **Check for Updates** im Docker-Tab |
 | Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup** |
-| Widget: „Aus LoxBerry übernehmen" | Zugang unter `/settings` oder Template-Variablen |
+| Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
 
 ## Fehlersuche
@@ -127,7 +127,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   Miniserver geladen wurde und ob die WebSocket-Verbindung steht.
 - **Keine Verbindung zum Miniserver:** im Log steht dann
   `Miniserver nicht verbunden (...) — neuer Versuch in 10s`. Zugangsdaten unter
-  `/settings` prüfen, Port (443 Gen2 / 80 Gen1) und bei Gen2 *TLS prüfen* auf
+  `/config` (Settings → Miniserver) prüfen, Port (443 Gen2 / 80 Gen1) und bei Gen2 *TLS prüfen* auf
   `false` lassen. LoxPanel versucht es alle 10 Sekunden erneut, ein Neustart ist
   nicht nötig.
 - **Port 8099 belegt:** im Template einen anderen Host-Port wählen (z. B. `8100`).
