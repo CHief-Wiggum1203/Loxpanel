@@ -9,61 +9,83 @@
   :root{
     --bg:#16181c; --panel:#1c1f24; --panel2:#212530; --line:#2a2e35;
     --fg:#e7e9ec; --muted:#9aa0a8; --accent:#e0a24d; --good:#52b881; --crit:#e2695f;
-    --radius:12px;
+    --radius:6px;
     --font:"Inter","Roboto","Segoe UI Variable Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;}
   body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.45;}
   a{color:var(--accent);text-decoration:none;}
-  .wrap{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
-  /* Sidebar */
-  .side{background:var(--panel);border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column;gap:14px;}
+  .wrap{display:grid;grid-template-columns:262px 1fr;height:100vh;}
+  /* ---------- Sidebar (Panelleiste) ---------- */
+  .side{background:var(--panel);border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
   .brand{font-size:20px;font-weight:600;letter-spacing:.2px;}
   .brand small{display:block;color:var(--muted);font-size:12px;font-weight:400;letter-spacing:.4px;text-transform:uppercase;margin-top:2px;}
-  .plist{display:flex;flex-direction:column;gap:6px;}
-  .pitem{display:flex;flex-direction:column;gap:1px;padding:9px 11px;border-radius:10px;border:1px solid transparent;cursor:pointer;}
-  .pitem:hover{background:var(--panel2);}
+  .sectlbl{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:2px 0 -4px;}
+  .plist{display:flex;flex-direction:column;gap:5px;}
+  .pitem{display:flex;flex-direction:column;gap:1px;padding:9px 11px;border-radius:4px;border:1px solid var(--line);background:var(--bg);cursor:pointer;}
+  .pitem:hover{background:var(--panel2);border-color:#3a3f49;}
   .pitem.active{background:var(--panel2);border-color:var(--accent);}
   .pitem .pn{font-weight:550;}
   .pitem .pid{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
-  .addbtn{margin-top:2px;background:transparent;color:var(--accent);border:1px dashed #3a3f49;border-radius:10px;padding:9px;cursor:pointer;font:inherit;}
+  .addbtn{background:transparent;color:var(--accent);border:1px dashed #3a3f49;border-radius:4px;padding:9px;cursor:pointer;font:inherit;}
   .addbtn:hover{border-color:var(--accent);}
   .hint{color:var(--muted);font-size:12.5px;padding-top:2px;}
-  .hint code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:12px;}
-  /* prominente Aktions-Buttons in der Sidebar */
+  .hint code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:12px;}
   .navacts{display:flex;flex-direction:column;gap:9px;margin-top:auto;border-top:1px solid var(--line);padding-top:14px;}
-  .navbtn{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:11px;
+  .navbtn{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:4px;
     border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;
     text-decoration:none;transition:border-color .15s,background .15s,transform .05s;}
   .navbtn:hover{border-color:var(--accent);background:#252a33;}
   .navbtn:active{transform:translateY(1px);}
-  .navbtn .nbico{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  .navbtn .nbico{flex:none;width:34px;height:34px;border-radius:4px;display:grid;place-items:center;
     background:rgba(224,162,77,.14);color:var(--accent);font-size:18px;}
   .navbtn .nbtx{display:flex;flex-direction:column;gap:1px;min-width:0;}
   .navbtn .nbt{font-weight:600;font-size:14px;color:var(--fg);}
   .navbtn .nbs{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .navbtn .nbarrow{margin-left:auto;color:var(--muted);font-size:15px;}
   .navbtn:hover .nbarrow{color:var(--accent);}
-  /* Main */
-  .main{padding:26px 30px;overflow-y:auto;max-height:100vh;}
-  .ehead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
-  .ehead h2{margin:0;font-size:22px;font-weight:600;}
-  .badge{font-family:ui-monospace,monospace;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:2px 8px;border-radius:999px;}
-  .url{color:var(--muted);font-size:13px;margin-bottom:22px;}
-  .url code{color:var(--fg);}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;}
+  .conn{font-size:13px;color:var(--muted);}
+  .conn b.ok{color:var(--good);} .conn b.bad{color:var(--crit);}
+  /* ---------- Main: Rubriken + Reiter + Inhalt + Speicherleiste ---------- */
+  .main{display:flex;flex-direction:column;height:100vh;min-width:0;}
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:0 30px;}
+  .rubrics{display:flex;gap:2px;}
+  .rub{padding:16px 24px;background:none;border:none;border-bottom:2px solid transparent;
+    color:var(--muted);font:inherit;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.2px;}
+  .rub:hover{color:var(--fg);}
+  .rub.active{color:var(--fg);border-bottom-color:var(--accent);}
+  #phead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0 14px;}
+  #phead h2{margin:0;font-size:21px;font-weight:600;}
+  #phead .badge{font-family:ui-monospace,monospace;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:2px 8px;border-radius:4px;}
+  #phead .kurl{color:var(--muted);font-size:12.5px;}
+  #phead .kurl code{color:var(--fg);}
+  .subtabs{display:flex;gap:2px;padding:0 30px;border-bottom:1px solid var(--line);background:var(--bg);overflow-x:auto;}
+  .stab{padding:11px 15px;background:none;border:none;border-bottom:2px solid transparent;
+    color:var(--muted);font:inherit;font-size:13.5px;font-weight:550;cursor:pointer;white-space:nowrap;}
+  .stab:hover{color:var(--fg);}
+  .stab.active{color:var(--fg);border-bottom-color:var(--accent);}
+  .scroll{flex:1;overflow-y:auto;padding:22px 30px;min-height:0;}
+  .spane{display:none;} .spane.active{display:block;}
+  .savebar{display:flex;gap:12px;align-items:center;padding:14px 30px;border-top:1px solid var(--line);background:var(--panel);}
+  /* ---------- Karten & Formfelder ---------- */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;max-width:760px;}
   .card h3{margin:0 0 4px;font-size:15px;font-weight:600;}
   .card .note{color:var(--muted);font-size:13px;margin:0 0 14px;}
+  .lead{color:var(--muted);font-size:13.5px;margin:0 0 18px;max-width:680px;}
   .field{display:flex;flex-direction:column;gap:6px;max-width:420px;}
   label.lbl{font-size:13px;color:var(--muted);}
-  input[type=text],input[type=number]{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:9px;padding:9px 11px;font:inherit;}
+  input[type=text],input[type=number],input[type=password]{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:9px 11px;font:inherit;}
   input:focus{outline:none;border-color:var(--accent);}
   .sizes{display:flex;gap:16px;flex-wrap:wrap;}
   .sizes .field{max-width:120px;}
-  /* chips (tabs) */
+  .row2{display:flex;gap:12px;flex-wrap:wrap;}
+  .row2 .field{flex:1;min-width:140px;max-width:none;}
+  .chk{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;margin-bottom:6px;}
+  .chk input{width:18px;height:18px;accent-color:var(--accent);}
+  /* chips (Tabs-Auswahl) */
   .chips{display:flex;gap:8px;flex-wrap:wrap;}
-  .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;user-select:none;font-size:14px;}
+  .chip{padding:8px 14px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;user-select:none;font-size:14px;}
   .chip.on{background:rgba(224,162,77,.14);border-color:var(--accent);color:var(--fg);}
   .chip.dis{opacity:.4;cursor:not-allowed;}
   .chip.cat{border-style:dashed;}
@@ -75,43 +97,48 @@
   .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
   .count{color:var(--muted);font-size:13px;}
   .count b{color:var(--fg);}
-  .minibtn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px;}
+  .minibtn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px;}
+  .minibtn:hover{border-color:var(--accent);}
   .cclist{display:flex;flex-direction:column;gap:7px;}
   .ccrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .ccnm{flex:1;min-width:120px;font-size:14px;}
   .cclbl{font-size:12px;color:var(--muted);}
   .ccmut{font-size:12.5px;color:var(--muted);}
-  .ccrow input[type=color]{width:40px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--bg);cursor:pointer;}
-  .minibtn:hover{border-color:var(--accent);}
+  .ccrow input[type=color]{width:40px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;}
-  .opt{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);cursor:pointer;user-select:none;}
+  .opt{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;user-select:none;}
   .opt:hover{border-color:#3a3f49;}
   .opt.on{border-color:var(--accent);background:rgba(224,162,77,.08);}
-  .opt .box{width:18px;height:18px;border-radius:5px;border:1.5px solid #454b55;display:grid;place-items:center;flex:none;color:var(--bg);font-size:12px;font-weight:700;}
+  .opt .box{width:18px;height:18px;border-radius:4px;border:1.5px solid #454b55;display:grid;place-items:center;flex:none;color:var(--bg);font-size:12px;font-weight:700;}
   .opt.on .box{background:var(--accent);border-color:var(--accent);}
   .opt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  /* footer actions */
-  .actions{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;padding:16px 0 6px;background:linear-gradient(transparent,var(--bg) 40%);}
-  .btn{border:none;border-radius:10px;padding:11px 20px;font:inherit;font-weight:600;cursor:pointer;}
+  /* Buttons */
+  .btn{border:1px solid transparent;border-radius:4px;padding:11px 20px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#1a1205;}
+  .btn:hover{filter:brightness(1.06);}
+  .btn:disabled{opacity:.5;cursor:default;filter:none;}
   .btn.save{background:var(--accent);color:#1a1205;}
-  .btn.save:hover{filter:brightness(1.06);}
-  .btn.del{background:transparent;color:var(--crit);border:1px solid #45343a;}
-  .btn.del:hover{border-color:var(--crit);}
-  .toast{margin-left:auto;color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
+  .btn.del{background:transparent;color:var(--crit);border-color:#45343a;}
+  .btn.del:hover{filter:none;border-color:var(--crit);}
+  .btn.ghost{background:var(--panel2);color:var(--fg);border-color:var(--line);}
+  .btn.sm{padding:8px 13px;font-size:13px;}
+  .actions{display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;}
+  .toast{color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
   .toast.show{opacity:1;}
   .toast.err{color:var(--crit);}
+  .toast.ok{color:var(--good);}
   .empty{color:var(--muted);padding:40px 0;}
+  .muted{color:var(--muted);padding:12px;}
   /* Kachel-Liste */
-  .tlist{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;}
-  .trow{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;cursor:pointer;border:1px solid transparent;}
+  .tlist{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:6px;}
+  .trow{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:4px;cursor:pointer;border:1px solid transparent;}
   .trow:hover{background:var(--panel2);}
   .trow.active{background:var(--panel2);border-color:var(--accent);}
   .trow .tico{width:22px;height:22px;background:var(--muted);flex:none;-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
-  .trow .tico.gen{background:#3a3f49;border-radius:5px;-webkit-mask:none;mask:none;}
+  .trow .tico.gen{background:#3a3f49;border-radius:4px;-webkit-mask:none;mask:none;}
   .trow .tnm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .trow .trm{color:var(--muted);font-size:12px;}
   .trow .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;}
-  .trow .eye{flex:none;width:30px;height:26px;display:grid;place-items:center;border-radius:7px;color:var(--muted);cursor:pointer;}
+  .trow .eye{flex:none;width:30px;height:26px;display:grid;place-items:center;border-radius:4px;color:var(--muted);cursor:pointer;}
   .trow .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .trow .eye:hover{background:var(--bg);color:var(--fg);}
   .trow .eye.off{color:var(--crit);}
@@ -119,7 +146,7 @@
   .thidden{color:var(--crit);}
   /* Kachel-Editor */
   .tedit{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;}
-  .tprev{width:150px;height:110px;flex:none;border:1px solid var(--line);border-radius:12px;background:var(--panel2);display:flex;flex-direction:column;justify-content:space-between;padding:12px;overflow:hidden;}
+  .tprev{width:150px;height:110px;flex:none;border:1px solid var(--line);border-radius:6px;background:var(--panel2);display:flex;flex-direction:column;justify-content:space-between;padding:12px;overflow:hidden;}
   .tprev .pico{width:34px;height:34px;color:var(--accent);}
   .tprev .pico svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .tprev .pico.img{display:inline-block;width:34px;height:34px;background:var(--accent);-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
@@ -127,27 +154,26 @@
   .tctrl{flex:1;min-width:280px;display:flex;flex-direction:column;gap:9px;}
   .crow{display:flex;align-items:center;gap:10px;}
   .crow .lbl{width:92px;flex:none;}
-  .crow input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;}
+  .crow input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;}
   .crow .cval{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);flex:1;}
   .frow{display:flex;align-items:center;gap:10px;}
   .frow .lbl{width:92px;flex:none;}
   .itabs{display:flex;gap:6px;flex-wrap:wrap;}
-  .itab{padding:5px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);}
+  .itab{padding:5px 11px;border:1px solid var(--line);border-radius:4px;cursor:pointer;font-size:13px;color:var(--muted);}
   .itab.on{border-color:var(--accent);color:var(--fg);background:rgba(224,162,77,.14);}
   .itab.dis{opacity:.45;cursor:default;}
-  .ipick{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;}
-  .iopt{display:grid;place-items:center;height:38px;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--fg);}
+  .ipick{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:8px;}
+  .iopt{display:grid;place-items:center;height:38px;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--fg);}
   .iopt:hover{border-color:var(--accent);}
   .iopt.sel{border-color:var(--accent);background:rgba(224,162,77,.14);}
   .iopt svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .iopt .loxi{width:24px;height:24px;background:var(--fg);-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .iopt.clear{font-size:20px;color:var(--muted);}
-  .tgl{display:inline-grid;place-items:center;width:34px;height:32px;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);font-weight:700;user-select:none;}
+  .tgl{display:inline-grid;place-items:center;width:34px;height:32px;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);font-weight:700;user-select:none;}
   .tgl.it{font-style:italic;font-family:Georgia,serif;font-weight:600;}
   .tgl.on{border-color:var(--accent);color:var(--fg);background:rgba(224,162,77,.14);}
-  select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:9px;padding:8px 10px;font:inherit;max-width:220px;}
+  select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:8px 10px;font:inherit;max-width:220px;}
   select:focus{outline:none;border-color:var(--accent);}
-  .muted{color:var(--muted);padding:12px;}
   /* Aktiv-Overlay-Editor */
   .ovwrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
   .ovctrl{flex:1;min-width:250px;display:flex;flex-direction:column;gap:9px;}
@@ -155,38 +181,173 @@
   .ovctrl .frow input[type=range]{flex:1;accent-color:var(--accent);}
   .ovctrl .cval{min-width:44px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   .ovprev{flex:none;display:grid;place-items:center;}
-  .ovtile{--on-rgb:224,162,77;width:132px;height:88px;border-radius:14px;display:grid;place-items:center;
+  .ovtile{--on-rgb:224,162,77;width:132px;height:88px;border-radius:6px;display:grid;place-items:center;
     color:var(--fg);font-size:13px;font-weight:500;
     background:rgba(var(--on-rgb),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb),var(--ov-bord,.55));}
   .ovtile.g{--on-rgb:82,184,129;} .ovtile.c{--on-rgb:226,107,95;}
-  @media(max-width:720px){ .wrap{grid-template-columns:1fr;} .side{border-right:none;border-bottom:1px solid var(--line);} .main{max-height:none;} }
+  /* Einstellungen-spezifisch */
+  .soon{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:44px 20px;color:var(--muted);}
+  .soon .ssico{font-size:40px;opacity:.8;}
+  .soon .sstag{display:inline-block;margin-top:4px;padding:5px 13px;border-radius:4px;
+    background:rgba(224,162,77,.14);border:1px solid var(--accent);color:var(--accent);
+    font-size:12.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;}
+  .ic{border-top:1px solid var(--line);padding-top:14px;margin-top:6px;}
+  .ic:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .ic .icname{font-weight:600;margin-bottom:10px;}
+  .ic .field{max-width:none;margin-bottom:12px;}
+  .ag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:12px 0;}
+  .ag:first-child{border-top:none;}
+  .ag .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none;}
+  .ag .dot.on{background:var(--good);}
+  .ag .agn{font-weight:600;}
+  .ag .agip{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
+  .ag .sp{flex:1;min-width:8px;}
+  .cmdout{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:12px;margin-top:10px;
+    font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--fg);}
+  @media(max-width:760px){ .wrap{grid-template-columns:1fr;height:auto;} .side{border-right:none;border-bottom:1px solid var(--line);}
+    .main{height:auto;} .scroll{overflow:visible;} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <aside class="side">
     <div class="brand">LoxPanel<small>Konfiguration</small></div>
+    <div class="sectlbl">Panels</div>
     <div class="plist" id="plist"></div>
     <button class="addbtn" id="addBtn">＋ Neues Panel</button>
     <div class="navacts">
-      <a class="navbtn" href="/settings#panels">
-        <span class="nbico">⚙</span>
-        <span class="nbtx"><span class="nbt">Einstellungen</span><span class="nbs">Panels · Miniserver · Intercom</span></span>
-        <span class="nbarrow">›</span></a>
       <a class="navbtn" href="/" target="_blank" id="openVisu">
         <span class="nbico">↗</span>
         <span class="nbtx"><span class="nbt">Visu öffnen</span><span class="nbs">Panel-Ansicht anzeigen</span></span>
         <span class="nbarrow">›</span></a>
     </div>
     <div class="hint">Auf jedem Wandpanel die Visu mit <code>?panel=&lt;id&gt;</code> öffnen.</div>
-    <div class="langrow" data-langsel style="margin-top:4px"></div>
+    <div class="conn" id="conn">…</div>
+    <div class="langrow" data-langsel style="margin-top:2px"></div>
   </aside>
-  <main class="main" id="main"><div class="empty">lädt …</div></main>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="rubrics">
+        <button class="rub active" data-rub="pconf">Panel Configuration</button>
+        <button class="rub" data-rub="settings">Settings</button>
+      </div>
+      <div id="phead"></div>
+    </div>
+    <div class="subtabs" id="subtabs"></div>
+    <div class="scroll" id="scroll">
+      <!-- Panel Configuration -->
+      <div id="pconfHost"><div class="empty">lädt …</div></div>
+
+      <!-- Settings -->
+      <div id="setHost" style="display:none">
+        <!-- Miniserver -->
+        <section class="spane" data-sub="miniserver">
+          <p class="lead" data-i18n>Zugang zum Loxone Miniserver. Nach dem Speichern verbindet der Server sofort neu.</p>
+          <div class="card">
+            <div class="field" style="max-width:none"><label class="lbl" data-i18n>Host / IP</label><input type="text" id="ms_host" placeholder="192.168.1.50"></div>
+            <div class="row2" style="margin-top:12px">
+              <div class="field"><label class="lbl" data-i18n>Benutzer</label><input type="text" id="ms_user" autocomplete="off"></div>
+              <div class="field"><label class="lbl" data-i18n>Passwort</label><input type="password" id="ms_pass" autocomplete="new-password" placeholder="unverändert lassen" data-i18n-ph></div>
+            </div>
+            <div class="row2" style="margin-top:12px">
+              <div class="field" style="max-width:120px"><label class="lbl" data-i18n>Port</label><input type="number" id="ms_port" value="443"></div>
+            </div>
+            <label class="chk" style="margin-top:12px"><input type="checkbox" id="ms_tls"><span data-i18n>Zertifikat prüfen (Gen2 mit selbstsigniertem Zertifikat: aus)</span></label>
+            <div class="actions"><button class="btn" id="ms_save" data-i18n>Verbinden &amp; Speichern</button><span class="toast" id="ms_toast"></span></div>
+          </div>
+        </section>
+
+        <!-- Kamera / Türstation -->
+        <section class="spane" data-sub="intercom">
+          <p class="lead" data-i18n>Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.</p>
+          <div class="card">
+            <div id="ic_list"><div class="muted">…</div></div>
+            <div class="actions" style="margin-top:12px"><button class="btn" id="ic_save" data-i18n>Speichern</button><span class="toast" id="ic_toast"></span></div>
+          </div>
+        </section>
+
+        <!-- SIP (coming soon) -->
+        <section class="spane" data-sub="sip">
+          <p class="lead" data-i18n>Gegensprechen über die Türstation direkt am Panel (SIP-Audio/-Video statt nur Kamerabild).</p>
+          <div class="card">
+            <div class="soon">
+              <div class="ssico">☎</div>
+              <div data-i18n>SIP-Anbindung ist in Arbeit.</div>
+              <div class="sstag" data-i18n>Coming soon</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panels (Displays / Agenten) -->
+        <section class="spane" data-sub="panels">
+          <p class="lead" data-i18n>Panels mit installiertem Agent melden sich automatisch. Ansicht wählen und den Kiosk starten / aktualisieren.</p>
+          <div class="card">
+            <div id="ag_list"><div class="muted" data-i18n>Suche Panels…</div></div>
+            <div class="toast" id="ag_toast" style="margin-top:8px"></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Betriebsmodus-Automatik</h3>
+            <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Panel fest, welche Ansicht bei welchem Modus erscheint. Panel ohne Eintrag für einen Modus bleibt unverändert.</p>
+            <pre class="cmdout" id="mode_hint">GET http://<span id="mode_host">…</span>/api/mode/&lt;modus&gt;</pre>
+            <p class="note" data-i18n>Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).</p>
+            <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.</div></div>
+            <div class="actions"><button class="btn" id="dev_save" data-i18n>Automatik speichern</button><span class="toast" id="dev_toast"></span></div>
+          </div>
+        </section>
+
+        <!-- Audio -->
+        <section class="spane" data-sub="audio">
+          <p class="lead" data-i18n>Weckton-Test und Audioserver-Live-Daten (Cover/Titel/Favoriten).</p>
+          <div class="card">
+            <h3 data-i18n>Test-Ton</h3>
+            <p class="note" data-i18n>Sendet 3 kurze Pieptöne an das/die gewählte(n) Panel(s). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).</p>
+            <div class="row2">
+              <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Ziel-Panel</label><select id="at_panel"></select></div>
+            </div>
+            <div class="actions"><button class="btn" id="at_send" data-i18n>🔊 Test-Ton senden</button><span class="toast" id="at_toast"></span></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Audioserver (Cover / Titel / Favoriten)</h3>
+            <p class="note" data-i18n>Loxone-Audioserver (Gen 2) liefern Cover/Titel/Interpret und Favoriten über einen eigenen Live-Kanal (Audioprotokoll, Port 7091) — genau wie die Loxone-App. LoxPanel abonniert diesen Kanal und legt die Infos über die passende Zone. Die Audioserver-Adresse wird <b>automatisch</b> aus der Loxone-Struktur erkannt — keine IP-Eingabe nötig. Funktioniert mit dem originalen Loxone-Audioserver ebenso wie mit Nachbauten (Sonn/Audioserver4Home). Musikserver-/MS4H-Zonen bleiben unberührt (die liefern es ohnehin).</p>
+            <label class="chk"><input type="checkbox" id="am_enabled"><span data-i18n>Audioserver-Live-Daten abonnieren (automatisch)</span></label>
+            <div class="note" id="am_servers" style="margin-top:8px"></div>
+            <div class="actions"><button class="btn" id="am_save" data-i18n>Speichern</button><span class="toast" id="am_toast"></span></div>
+          </div>
+        </section>
+
+        <!-- Neues Panel -->
+        <section class="spane" data-sub="newpanel">
+          <p class="lead" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
+          <div class="card">
+            <div class="row2">
+              <div class="field"><label class="lbl" data-i18n>Panel-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
+              <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
+            </div>
+            <div class="row2" style="margin-top:12px">
+              <div class="field"><label class="lbl" data-i18n>Anzeigename</label><input type="text" id="np_name" placeholder="Wohnzimmer"></div>
+              <div class="field"><label class="lbl" data-i18n>Startansicht (Profil)</label><select id="np_panel"></select></div>
+            </div>
+            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="np_server" placeholder="10.0.0.55:8099"></div>
+            <div class="actions"><button class="btn" id="np_gen" data-i18n>Befehl erzeugen</button></div>
+            <pre id="np_out" class="cmdout" style="display:none"></pre>
+            <div class="actions" id="np_copyrow" style="display:none"><button class="btn ghost sm" id="np_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="np_toast"></span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="savebar" id="savebar">
+      <button class="btn save" id="saveBtn">Speichern</button>
+      <span id="delSlot"></span>
+      <span class="toast" id="toast"></span>
+    </div>
+  </main>
 </div>
 <script>
 const $ = (s,r=document)=>r.querySelector(s);
 let META=null, PANELS={}, cur=null, dirty=false, tileSel=null;
+let rubric='pconf', subPconf='title', subSet='miniserver';
 function svg(inner){return '<svg viewBox="0 0 24 24">'+inner+'</svg>';}
 const BICONS = {
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -222,16 +383,27 @@ const FONTS = [
 ];
 const sameFont=(f,v)=>((f||'')===(v||''));
 const customFont=(f)=>!!f && !FONTS.some(x=>x.v===f);
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// Reiter-Definitionen je Rubrik
+const PCONF_TABS=[
+  {k:'title',label:'Titel'},{k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},
+  {k:'cats',label:'Kategorien'},{k:'tiles',label:'Kacheln gestalten'},
+  {k:'appearance',label:'Darstellung'},{k:'overlay',label:'Aktiv-Overlay'}];
+const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
+const SET_TABS=[
+  {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
+  {k:'sip',label:'SIP'},{k:'panels',label:'Panels'},{k:'audio',label:'Audio'},
+  {k:'newpanel',label:'Neues Panel'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
   PANELS = JSON.parse(JSON.stringify(META.panels||{}));
   if(!PANELS.default) PANELS.default = {title:'LoxPanel', tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}};
-  // Virtuelles Global-Profil: bearbeitet theme.json (gilt fuer alle Panels)
   PANELS.__global__ = {title:'Global (alle Panels)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
-  renderList(); renderEditor();
+  renderList(); setRubric('pconf');
 }
 
 function renderList(){
@@ -240,7 +412,7 @@ function renderList(){
     const g=document.createElement('div');
     g.className='pitem'+('__global__'===cur?' active':'');
     g.innerHTML='<span class="pn">🌐 Global</span><span class="pid">alle Panels</span>';
-    g.onclick=()=>{ cur='__global__'; tileSel=null; renderList(); renderEditor(); };
+    g.onclick=()=>{ cur='__global__'; tileSel=null; renderList(); setRubric('pconf'); };
     box.appendChild(g);
   }
   for(const id of Object.keys(PANELS)){
@@ -249,15 +421,51 @@ function renderList(){
     const d=document.createElement('div');
     d.className='pitem'+(id===cur?' active':'');
     d.innerHTML='<span class="pn">'+esc(p.title||id)+'</span><span class="pid">?panel='+esc(id)+'</span>';
-    d.onclick=()=>{ cur=id; tileSel=null; renderList(); renderEditor(); };
+    d.onclick=()=>{ cur=id; tileSel=null; renderList(); setRubric('pconf'); };
     box.appendChild(d);
   }
 }
 
-function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// ---- Rubriken / Reiter-Steuerung ----
+function setRubric(r){
+  rubric=r;
+  document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
+  const pc=r==='pconf';
+  $('#pconfHost').style.display = pc?'':'none';
+  $('#setHost').style.display = pc?'none':'';
+  $('#savebar').style.display = pc?'':'none';
+  $('#phead').style.display = pc?'':'none';
+  if(pc){ renderEditor(); }
+  else { renderSubtabs(); showSub(subSet); }
+}
+document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.rub));
+
+function subTabs(){
+  if(rubric==='settings') return SET_TABS;
+  return (PANELS[cur]&&PANELS[cur].__global) ? GLOBAL_TABS : PCONF_TABS;
+}
+function renderSubtabs(){
+  const tabs=subTabs(), active=(rubric==='settings')?subSet:subPconf;
+  const bar=$('#subtabs');
+  bar.innerHTML=tabs.map(t=>'<button class="stab'+(t.k===active?' active':'')+'" data-sub="'+t.k+'">'+esc(t.label)+'</button>').join('');
+  bar.querySelectorAll('.stab').forEach(b=>b.onclick=()=>{
+    if(rubric==='settings') subSet=b.dataset.sub; else subPconf=b.dataset.sub;
+    bar.querySelectorAll('.stab').forEach(x=>x.classList.toggle('active',x===b));
+    showSub(b.dataset.sub);
+  });
+  if(window.I18N) I18N.autoChrome('.stab');
+}
+function showSub(k){
+  const host = (rubric==='settings')?$('#setHost'):$('#pconfHost');
+  if(!host) return;
+  const panes=host.querySelectorAll('.spane');
+  let found=false;
+  panes.forEach(p=>{ const on=p.dataset.sub===k; p.classList.toggle('active',on); if(on)found=true; });
+  if(!found&&panes.length){ panes[0].classList.add('active'); }
+}
 
 // ---- Aktiv-Overlay (Rahmen/Füllung/Deckkraft) ----
-const OV_DEF={mode:'both',fill:16,bord:55,bw:1};   // = bisheriges Aussehen
+const OV_DEF={mode:'both',fill:16,bord:55,bw:1};
 function ovVal(ov,k){ return (ov&&ov[k]!=null)?ov[k]:OV_DEF[k]; }
 function pruneOverlay(host){ if(host&&host.overlay&&!Object.keys(host.overlay).length) delete host.overlay; }
 function overlayFields(ov,pfx){
@@ -293,7 +501,6 @@ function ovPreview(elId,ov){
 }
 
 function bindAppearance(p){
-  // Handler fuer die gemeinsamen Darstellungs-Felder (Panel- + Global-Editor)
   document.querySelectorAll('input[data-ui]').forEach(inp=>{
     inp.oninput=()=>{ p.ui=p.ui||{}; const k=inp.dataset.ui;
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); }; });
@@ -317,27 +524,29 @@ function appearanceFields(ui){
       '<input type="text" id="fFontCustom" value="'+esc(customFont(ui.font)?ui.font:'')+'" placeholder="z. B. Pacifico, cursive"'+(customFont(ui.font)?'':' style="display:none"')+'></div>'+
     '<div class="field" style="max-width:230px"><label class="lbl">Schriftfarbe (Name)</label>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
-        '<input type="color" id="fTextColor" value="'+esc(ui.textColor&&String(ui.textColor)[0]==="#"?ui.textColor:"#e8eaed")+'" style="width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer">'+
+        '<input type="color" id="fTextColor" value="'+esc(ui.textColor&&String(ui.textColor)[0]==="#"?ui.textColor:"#e8eaed")+'" style="width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer">'+
         '<span class="cval" id="fTextColorVal" style="flex:1">'+esc(ui.textColor||"Standard")+'</span>'+
         '<button class="minibtn" id="fTextColorClr">Standard</button></div></div>'+
     '<div class="field" style="max-width:150px"><label class="lbl">Schriftstärke</label>'+
       '<select id="fBold"><option value="">Normal</option><option value="1"'+(ui.bold?' selected':'')+'>Fett</option></select></div>';
 }
+
 function renderGlobalEditor(p){
-  $('#main').innerHTML =
-    '<div class="ehead"><h2>🌐 Globale Darstellung</h2><span class="badge">alle Panels</span></div>'+
-    '<div class="url">'+T('Standard-Aussehen für <b>alle</b> Panels. Einzelne Panels können es unter „Darstellung" überschreiben (leer = erbt global).')+'</div>'+
-    '<div class="card"><h3>Darstellung</h3>'+
+  if(subPconf!=='appearance'&&subPconf!=='catcolors') subPconf='appearance';
+  $('#phead').innerHTML='<h2>🌐 Globale Darstellung</h2><span class="badge">alle Panels</span>'+
+    '<span class="kurl">'+T('Standard-Aussehen für alle Panels. Einzelne Panels überschreiben es unter „Darstellung".')+'</span>';
+  $('#pconfHost').innerHTML =
+    '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.</p>'+
-      '<div class="sizes">'+appearanceFields(p.ui)+'</div></div>'+
-    '<div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
+      '<div class="sizes">'+appearanceFields(p.ui)+'</div></div></section>'+
+    '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
-      '<div class="cclist" id="catcolors"></div></div>'+
-    '<div class="actions"><button class="btn save" id="saveBtn">Speichern</button>'+
-      '<span class="toast" id="toast"></span></div>';
+      '<div class="cclist" id="catcolors"></div></div></section>';
   bindAppearance(p);
   renderCatColors(p);
+  $('#delSlot').innerHTML='';
   $('#saveBtn').onclick=save;
+  renderSubtabs(); showSub(subPconf);
 }
 function renderCatColors(p){
   const box=$('#catcolors'); if(!box) return;
@@ -367,44 +576,47 @@ function renderCatColors(p){
     cc[nm][inp.dataset.slot]=inp.value; markDirty();
   });
 }
+
 function renderEditor(){
-  const p=PANELS[cur]; if(!p){ $('#main').innerHTML='<div class="empty">Kein Panel gewählt.</div>'; return; }
-  // „Visu öffnen" auf das gerade bearbeitete Panel zeigen lassen
+  const p=PANELS[cur];
+  if(!p){ $('#pconfHost').innerHTML='<div class="empty">Kein Panel gewählt.</div>'; $('#phead').innerHTML=''; return; }
   { const ov=$('#openVisu'); if(ov) ov.href = (cur==='default'||cur==='__global__') ? '/' : '/?panel='+encodeURIComponent(cur); }
   if(p.__global){ renderGlobalEditor(p); return; }
+  const ok=['title','tabs','rooms','cats','tiles','appearance','overlay'];
+  if(!ok.includes(subPconf)) subPconf='title';
   const urlTxt = cur==='default' ? '/  (Standard, ohne Parameter)' : '/?panel='+cur;
-  const m=$('#main');
-  m.innerHTML =
-   '<div class="ehead"><h2 id="hTitle">'+esc(p.title||cur)+'</h2><span class="badge">'+esc(cur)+'</span></div>'+
-   '<div class="url">'+T('Kiosk-URL:')+' <code>'+esc(urlTxt)+'</code></div>'+
+  $('#phead').innerHTML =
+    '<h2 id="hTitle">'+esc(p.title||cur)+'</h2><span class="badge">'+esc(cur)+'</span>'+
+    '<span class="kurl">'+T('Kiosk-URL:')+' <code>'+esc(urlTxt)+'</code></span>';
 
-   '<div class="card"><h3>Titel</h3><p class="note">Fenstertitel des Panels.</p>'+
-     '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div></div>'+
+  $('#pconfHost').innerHTML =
+   '<section class="spane" data-sub="title"><div class="card"><h3>Titel</h3><p class="note">Fenstertitel des Panels.</p>'+
+     '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div></div></section>'+
 
-   '<div class="card"><h3>Untere Leiste (Tabs)</h3>'+
+   '<section class="spane" data-sub="tabs"><div class="card"><h3>Untere Leiste (Tabs)</h3>'+
      '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien als Abkürzung. Der <b>erste aktive</b> ist die Startseite (★). ')+
        '<span id="tabcount"></span></p>'+
-     '<div class="chips" id="chips"></div></div>'+
+     '<div class="chips" id="chips"></div></div></section>'+
 
-   '<div class="card"><h3>Räume</h3>'+
+   '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
      '<p class="note">'+T('Welche Räume dieses Panel zeigt. <b>Nichts angehakt = alle Räume.</b>')+'</p>'+
      '<div class="toolbar"><span class="count" id="cntRooms"></span>'+
        '<button class="minibtn" id="clrRooms">Alle abwählen</button></div>'+
-     '<div class="grid" id="rooms"></div></div>'+
+     '<div class="grid" id="rooms"></div></div></section>'+
 
-   '<div class="card"><h3>Kategorien</h3>'+
+   '<section class="spane" data-sub="cats"><div class="card"><h3>Kategorien</h3>'+
      '<p class="note">'+T('Welche Kategorien im Tab „Kategorien" erscheinen. <b>Nichts angehakt = alle.</b> Bei gesetzter Raum-Auswahl werden Kategorien zusätzlich auf diese Räume gefiltert.')+'</p>'+
      '<div class="toolbar"><span class="count" id="cntCats"></span>'+
        '<button class="minibtn" id="clrCats">Alle abwählen</button></div>'+
-     '<div class="grid" id="cats"></div></div>'+
+     '<div class="grid" id="cats"></div></div></section>'+
 
-   '<div class="card"><h3>Kacheln gestalten</h3>'+
+   '<section class="spane" data-sub="tiles"><div class="card"><h3>Kacheln gestalten</h3>'+
      '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (auf diesem Panel). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel auf diesem Panel ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
      '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
      '<div class="tlist" id="tiles"></div>'+
-     '<div id="tileEditor"></div></div>'+
+     '<div id="tileEditor"></div></div></section>'+
 
-   '<div class="card"><h3>Darstellung (optional)</h3>'+
+   '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung (optional)</h3>'+
      '<p class="note">Überschreibt das globale Theme nur für dieses Panel. Leer = global.</p>'+
      '<div class="sizes">'+appearanceFields(p.ui)+
        '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
@@ -432,23 +644,21 @@ function renderEditor(){
            '<option value="">(kein – normale Visu)</option>'+audioZoneOptions((p.ui||{}).player)+
          '</select>'+
          '<div class="hint" style="padding-top:4px">Links fester Musikplayer dieser Zone, rechts die Visu (50/50). Für große Tablets – am besten mit Layout 2×3.</div></div>'+
-     '</div></div>'+
+     '</div></div></section>'+
 
-   '<div class="card"><h3>Aktiv-Overlay</h3>'+
+   '<section class="spane" data-sub="overlay"><div class="card"><h3>Aktiv-Overlay</h3>'+
      '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.')+'</p>'+
      '<div class="ovwrap">'+
        '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div></div>'+
        '<div class="ovctrl">'+overlayFields((p.ui||{}).overlay,'ov_')+
          '<div class="frow"><button class="minibtn" id="ovReset">Auf Standard zurücksetzen</button></div>'+
-       '</div></div></div>'+
+       '</div></div></div></section>';
 
-   '<div class="actions">'+
-     '<button class="btn save" id="saveBtn">Speichern</button>'+
-     (cur==='default'?'':'<button class="btn del" id="delBtn">Panel löschen</button>')+
-     '<span class="toast" id="toast"></span></div>';
+  // Speicherleiste: Löschen-Button je Panel
+  $('#delSlot').innerHTML = (cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>';
 
   // Titel live
-  $('#fTitle').oninput=e=>{ p.title=e.target.value; $('#hTitle').textContent=e.target.value||cur; markDirty(); };
+  $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
   bindAppearance(p);
   { const fl=$('#fLayout'); if(fl) fl.onchange=e=>{ p.ui=p.ui||{}; const v=e.target.value;
       if(v==='4x3'){ p.ui.cols=4; p.ui.rows=3; }
@@ -471,7 +681,10 @@ function renderEditor(){
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
   $('#clrCats').onclick=()=>{ p.cats=[]; renderChecklist(p,'cats'); renderTileList(); markDirty(); };
   $('#saveBtn').onclick=save;
-  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); renderEditor(); markDirty(); } };
+  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
+
+  renderSubtabs(); showSub(subPconf);
+  if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .note, .hint, option, .stab');
 }
 
 function sizeField(label,key,ui){
@@ -492,7 +705,7 @@ function audioZoneOptions(sel){
 }
 
 function renderChips(p){
-  const box=$('#chips'); box.innerHTML='';
+  const box=$('#chips'); if(!box) return; box.innerHTML='';
   const full = p.tabs.length>=4;
   META.tabs.forEach(t=>{
     const on=p.tabs.includes(t.tab);
@@ -505,25 +718,22 @@ function renderChips(p){
     box.appendChild(c);
   });
   const tc=$('#tabcount'); if(tc){ tc.textContent=p.tabs.length+'/4 gewählt'+(full?' (voll)':''); tc.className=full?'full':''; }
-  // Größen-Inputs binden
   document.querySelectorAll('input[data-ui]').forEach(inp=>{
     inp.oninput=()=>{ p.ui=p.ui||{}; const k=inp.dataset.ui;
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); };
   });
 }
-function defaultTabs(){ // 4 Standard-Tabs (Favoriten, Zentral, Räume, Kategorien) – ohne Kategorie-Direkt-Tabs
-  return (META.tabs||[]).filter(t=>!t.cat).slice(0,4).map(t=>t.tab); }
-function firstTabIndex(p){ // kleinster Index in kanonischer Reihenfolge
+function defaultTabs(){ return (META.tabs||[]).filter(t=>!t.cat).slice(0,4).map(t=>t.tab); }
+function firstTabIndex(p){
   const order=META.tabs.map(t=>t.tab);
   let best=99,bt=null; p.tabs.forEach(tb=>{const i=order.indexOf(tb); if(i>-1&&i<best){best=i;bt=tb;}});
   return p.tabs.indexOf(bt);
 }
 function toggleTab(p,tab){
   const i=p.tabs.indexOf(tab);
-  if(i>-1){ if(p.tabs.length>1) p.tabs.splice(i,1); }   // mind. 1 Tab behalten
+  if(i>-1){ if(p.tabs.length>1) p.tabs.splice(i,1); }
   else {
-    if(p.tabs.length>=4) return;   // max. 4 Buttons
-    // in kanonischer Reihenfolge einsortieren
+    if(p.tabs.length>=4) return;
     const order=META.tabs.map(t=>t.tab);
     p.tabs.push(tab); p.tabs.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
   }
@@ -531,7 +741,7 @@ function toggleTab(p,tab){
 
 function renderChecklist(p,kind){
   const list=META[kind]||[], sel=p[kind]||[];
-  const box=$('#'+kind); box.innerHTML='';
+  const box=$('#'+kind); if(!box) return; box.innerHTML='';
   list.forEach(o=>{
     const on=sel.includes(o.uuid);
     const d=document.createElement('div');
@@ -551,12 +761,10 @@ function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast
 async function save(){
   const t=$('#toast');
   try{
-    // Panels (ohne das virtuelle Global-Profil) speichern
     const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=PANELS[k]; }
     const r=await fetch('/api/panels',{method:'POST',headers:{'Content-Type':'application/json'},
                           body:JSON.stringify({panels})});
     const j=await r.json();
-    // Globale Darstellung + Kategorie-Farben (theme.json) speichern
     let okT=true, errT='';
     if(PANELS.__global__){
       const g=PANELS.__global__;
@@ -713,14 +921,253 @@ $('#addBtn').onclick=()=>{
   if(!id){ alert(T('Ungültige ID.')); return; }
   if(PANELS[id]){ alert('Panel „'+id+'" gibt es schon.'); return; }
   PANELS[id]={title:id.charAt(0).toUpperCase()+id.slice(1), tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}, tiles:{}};
-  cur=id; tileSel=null; renderList(); renderEditor(); markDirty();
+  cur=id; tileSel=null; renderList(); setRubric('pconf'); markDirty();
 };
 
 window.addEventListener('beforeunload',e=>{ if(dirty){ e.preventDefault(); e.returnValue=''; } });
-load().catch(e=>{ $('#main').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
-// Admin-UI-Uebersetzung: uebersetzt JS-generierte Chrome-Texte nach jedem Render
-// (Blatt-Elemente der Selektoren; Miniserver-Namen bleiben unberuehrt).
-if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .navbtn .nbt, .navbtn .nbs, .brand small, .itab, .cclbl, .ccmut, .empty, .muted, .note, .lead, .hint, option');
+
+/* ============================================================
+   SETTINGS-Rubrik (frühere /settings-Seite als Reiter)
+   ============================================================ */
+let SET=null;
+function flash(el,msg,ok){ if(!el)return; el.textContent=msg; el.className='toast show '+(ok?'ok':'err'); setTimeout(()=>el.classList.remove('show'),4000); }
+
+async function loadSettings(){
+  const r=await fetch('/api/settings'); SET=await r.json();
+  const m=SET.miniserver||{};
+  $('#ms_host').value=m.host||''; $('#ms_user').value=m.user||'';
+  $('#ms_port').value=m.port||443; $('#ms_tls').checked=!!m.verify_tls;
+  $('#ms_pass').placeholder = m.hasPass ? 'unverändert lassen' : 'Passwort eingeben';
+  const c=$('#conn');
+  if(c){ if(SET.connected){ c.innerHTML=T('Status:')+' <b class="ok">'+T('verbunden')+'</b> · '+SET.nControls+' Controls'; }
+    else { c.innerHTML=T('Status:')+' <b class="bad">'+T('nicht verbunden')+'</b>'; } }
+  const box=$('#ic_list');
+  if(box){
+    if(!(SET.intercoms||[]).length){ box.innerHTML='<div class="muted">'+T('Keine Intercom-Bausteine gefunden (Miniserver verbunden?).')+'</div>'; }
+    else {
+      box.innerHTML=SET.intercoms.map(ic=>
+        '<div class="ic" data-uuid="'+esc(ic.uuid)+'"><div class="icname">'+esc(ic.name)+'</div>'+
+        '<div class="field"><label class="lbl">'+T('Video-URL (MJPEG)')+'</label><input type="text" class="ic_url" value="'+esc(ic.url)+'" placeholder="http://192.168.1.201/cgi-bin/faststream.jpg?stream=full&fps=8"></div>'+
+        '<div class="row2"><div class="field"><label class="lbl">'+T('Benutzer')+'</label><input type="text" class="ic_user" value="'+esc(ic.user)+'" autocomplete="off"></div>'+
+        '<div class="field"><label class="lbl">'+T('Passwort')+'</label><input type="password" class="ic_pass" autocomplete="new-password" placeholder="'+(ic.hasPass?T('unverändert lassen'):'')+'"></div></div></div>'
+      ).join('');
+    }
+  }
+  const am=SET.audiometa||{};
+  const ae=$('#am_enabled'); if(ae) ae.checked=am.enabled!==false;
+  const srv=$('#am_servers');
+  if(srv){ const list=am.servers||[];
+    srv.innerHTML = list.length
+      ? T('Erkannte Audioserver:')+' '+list.map(esc).join(', ')
+      : T('Kein Audioserver in der Loxone-Struktur gefunden.'); }
+}
+
+$('#ms_save').onclick=async()=>{
+  const body={host:$('#ms_host').value.trim(),user:$('#ms_user').value.trim(),
+    port:parseInt($('#ms_port').value)||443,verify_tls:$('#ms_tls').checked};
+  const pw=$('#ms_pass').value; if(pw) body.pass=pw;
+  $('#ms_save').disabled=true;
+  try{
+    const r=await fetch('/api/settings/miniserver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.ok){ flash($('#ms_toast'),'✓ Verbunden — '+j.nControls+' Controls',true); $('#ms_pass').value=''; loadSettings(); }
+    else flash($('#ms_toast'),j.error||'Fehler',false);
+  }catch(e){ flash($('#ms_toast'),'Fehler: '+e,false); }
+  $('#ms_save').disabled=false;
+};
+
+$('#ic_save').onclick=async()=>{
+  const intercoms={};
+  document.querySelectorAll('.ic[data-uuid]').forEach(n=>{
+    const e={url:n.querySelector('.ic_url').value.trim(),user:n.querySelector('.ic_user').value.trim()};
+    const p=n.querySelector('.ic_pass').value; if(p)e.pass=p;
+    intercoms[n.dataset.uuid]=e;
+  });
+  try{
+    const r=await fetch('/api/settings/intercom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intercoms})});
+    const j=await r.json();
+    if(j.ok){ flash($('#ic_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#ic_toast'),j.error||T('Fehler'),false);
+  }catch(e){ flash($('#ic_toast'),'Fehler: '+e,false); }
+};
+
+$('#am_save').onclick=async()=>{
+  const body={enabled:$('#am_enabled').checked};
+  $('#am_save').disabled=true;
+  try{
+    const r=await fetch('/api/settings/audiometa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.ok){ flash($('#am_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#am_toast'),j.error||T('Fehler'),false);
+  }catch(e){ flash($('#am_toast'),'Fehler: '+e,false); }
+  $('#am_save').disabled=false;
+};
+
+// ---- Panels (Panel-Agenten) ----
+let PANEL_IDS=[];
+let DEV={};
+let AGENT_NAMES=[];
+async function loadPanelIds(){
+  try{
+    const r=await fetch('/api/meta'); const m=await r.json();
+    PANEL_IDS=Object.keys(m.panels||{});
+    DEV={};
+    Object.entries(m.devices||{}).forEach(([name,d])=>{
+      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{})};
+    });
+    (m.wsDevices||[]).forEach(n=>{ if(AGENT_NAMES.indexOf(n)<0) AGENT_NAMES.push(n); });
+  }catch(e){ PANEL_IDS=[]; }
+}
+function agentRow(a,sel){
+  const cur = (sel!==undefined)?sel:a.panel;
+  const opts=['<option value="">'+T('(Standard)')+'</option>'].concat(
+    PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>')).join('');
+  return '<div class="ag" data-ip="'+esc(a.ip)+'">'+
+    '<span class="dot'+(a.online?' on':'')+'"></span>'+
+    '<span class="agn">'+esc(a.name)+'</span>'+
+    '<span class="agip">'+esc(a.ip)+(a.kiosk?(' · '+T('Kiosk läuft')):'')+'</span>'+
+    '<span class="sp"></span>'+
+    '<select class="agsel">'+opts+'</select>'+
+    '<button class="btn sm" data-act="start">'+T('Start')+'</button>'+
+    '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
+    '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button></div>';
+}
+function renderAgents(agents){
+  const box=$('#ag_list'); if(!box) return;
+  const prev={}; box.querySelectorAll('.ag').forEach(n=>{ prev[n.dataset.ip]=n.querySelector('.agsel')?n.querySelector('.agsel').value:undefined; });
+  if(!agents.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel gefunden. Agent auf dem Panel starten (agent/loxpanel-agent.py).')+'</div>'; return; }
+  box.innerHTML=agents.map(a=>agentRow(a,prev[a.ip])).join('');
+  box.querySelectorAll('.ag').forEach(n=>{
+    const ip=n.dataset.ip;
+    n.querySelectorAll('button[data-act]').forEach(b=>{ b.onclick=()=>agentCmd(ip,b.dataset.act,n.querySelector('.agsel').value); });
+  });
+}
+async function agentCmd(ip,action,panel){
+  try{
+    const r=await fetch('/api/agent/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip,action,panel})});
+    const j=await r.json();
+    flash($('#ag_toast'), j.ok?('✓ '+action+' gesendet'):('Fehler: '+(j.error||('HTTP '+j.status))), j.ok);
+  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
+}
+async function pollAgents(){
+  try{
+    const r=await fetch('/api/agents'); const j=await r.json(); const ags=j.agents||[];
+    renderAgents(ags);
+    const names=ags.map(a=>a.name).filter(Boolean);
+    const isNew=names.some(n=>AGENT_NAMES.indexOf(n)<0);
+    AGENT_NAMES=Array.from(new Set(AGENT_NAMES.concat(names)));
+    if(isNew){ readDevFromDom(); renderDevices(); }
+  }catch(e){}
+}
+
+// ---- Betriebsmodus-Automatik ----
+function profOpts(sel){
+  return '<option value="">'+T('— Ansicht wählen —')+'</option>'+
+    PANEL_IDS.map(id=>'<option'+(sel===id?' selected':'')+'>'+esc(id)+'</option>').join('');
+}
+function devRow(name){
+  const d=DEV[name]||{auto:true,modes:[]};
+  const pairs=d.modes&&d.modes.length?d.modes:[['','']];
+  const rows=pairs.map(([m,p])=>
+    '<div class="dmrow" style="display:flex;gap:6px;align-items:center;margin:4px 0">'+
+      '<input class="dm_mode" placeholder="'+T('Modus (z.B. gaeste)')+'" value="'+esc(m)+'" style="flex:1;min-width:120px">'+
+      '<span style="opacity:.6">→</span>'+
+      '<select class="dm_prof" style="flex:1;min-width:120px">'+profOpts(p)+'</select>'+
+      '<button class="btn sm ghost dm_del" type="button" title="'+T('Zeile entfernen')+'">✕</button>'+
+    '</div>').join('');
+  return '<div class="dev" data-name="'+esc(name)+'" style="border-top:1px solid var(--line);padding:10px 0">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">'+
+      '<b>'+esc(name)+'</b>'+
+      '<label style="margin-left:auto;font-size:13px;opacity:.85"><input type="checkbox" class="dev_auto"'+(d.auto?' checked':'')+'> '+T('Automatik aktiv')+'</label>'+
+    '</div>'+
+    '<div class="dmrows">'+rows+'</div>'+
+    '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
+  '</div>';
+}
+function readDevFromDom(){
+  const box=$('#dev_list'); if(!box) return;
+  box.querySelectorAll('.dev').forEach(n=>{
+    const modes=[];
+    n.querySelectorAll('.dmrow').forEach(r=>{
+      modes.push([r.querySelector('.dm_mode').value, r.querySelector('.dm_prof').value]);
+    });
+    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes};
+  });
+}
+function renderDevices(){
+  const box=$('#dev_list'); if(!box) return;
+  const names=Array.from(new Set(AGENT_NAMES.concat(Object.keys(DEV)))).sort();
+  if(!names.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.')+'</div>'; return; }
+  box.innerHTML=names.map(devRow).join('');
+  box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
+    readDevFromDom(); const name=b.closest('.dev').dataset.name;
+    (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); renderDevices();
+  });
+  box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
+    const dev=b.closest('.dev'), name=dev.dataset.name;
+    const idx=Array.from(dev.querySelectorAll('.dmrow')).indexOf(b.closest('.dmrow'));
+    readDevFromDom(); DEV[name].modes.splice(idx,1); renderDevices();
+  });
+}
+$('#dev_save').onclick=async()=>{
+  readDevFromDom();
+  const devices={};
+  Object.entries(DEV).forEach(([name,d])=>{
+    const modes={};
+    (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
+    if(Object.keys(modes).length) devices[name]={auto:d.auto!==false, modes};
+  });
+  $('#dev_save').disabled=true;
+  try{
+    const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
+    const j=await r.json();
+    if(j.ok){ flash($('#dev_toast'),T('✓ Gespeichert'),true); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
+  }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
+  $('#dev_save').disabled=false;
+};
+
+// ---- Audio: Test-Ton ----
+function fillAudioPanels(){
+  const sel=$('#at_panel'); if(!sel) return;
+  sel.innerHTML='<option value="">'+T('Alle Panels')+'</option>'+
+    PANEL_IDS.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
+}
+$('#at_send').onclick=async()=>{
+  const panel=$('#at_panel').value;
+  $('#at_send').disabled=true;
+  try{
+    const r=await fetch('/api/testtone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({panel})});
+    const j=await r.json();
+    if(j.ok){ flash($('#at_toast'), j.sent? ('✓ an '+j.sent+' Panel'+(j.sent>1?'s':'')+' gesendet') : 'Kein Panel verbunden (Kiosk offen?)', j.sent>0); }
+    else flash($('#at_toast'), j.error||'Fehler', false);
+  }catch(e){ flash($('#at_toast'),'Fehler: '+e,false); }
+  $('#at_send').disabled=false;
+};
+
+// ---- Neues Panel: Befehl-Generator ----
+function fillNewPanel(){
+  const srv=$('#np_server'); if(srv && !srv.value) srv.value=location.host;
+  const sel=$('#np_panel'); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
+    PANEL_IDS.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
+}
+function genPanelCmd(){
+  const ip=$('#np_ip').value.trim(), user=($('#np_user').value.trim()||'linaro');
+  const name=$('#np_name').value.trim(), panel=$('#np_panel').value, server=$('#np_server').value.trim();
+  if(!ip||!server){ flash($('#np_toast'),T('Panel-IP und Server-Adresse nötig'),false); return; }
+  const cmd="ssh -t "+user+"@"+ip+" \"curl -fsSL http://"+server+"/install-agent.sh -o /tmp/lp-install.sh && "+
+    "SERVER='"+server+"' AGENT_NAME='"+name+"' PANEL='"+panel+"' bash /tmp/lp-install.sh\"";
+  $('#np_out').textContent=cmd; $('#np_out').style.display='block'; $('#np_copyrow').style.display='flex';
+}
+$('#np_gen').onclick=genPanelCmd;
+$('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textContent)
+  .then(()=>flash($('#np_toast'),T('✓ kopiert'),true))
+  .catch(()=>flash($('#np_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
+
+// ---- Start ----
+load().catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
+loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
+{ const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
+loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollAgents(); setInterval(pollAgents,6000); });
+
+if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .navbtn .nbt, .navbtn .nbs, .brand small, .itab, .cclbl, .ccmut, .empty, .muted, .note, .lead, .hint, .rub, .stab, .sectlbl, option, [data-i18n]');
 </script>
 </body>
 </html>
