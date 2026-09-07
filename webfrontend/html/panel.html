@@ -673,10 +673,12 @@ g.addEventListener('touchend',e=>{
 
 let booted=false;
 const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
-// Geraete-Kennung (physisches Panel). Nur noetig, wenn dieses Geraet per
-// Betriebsmodus automatisch umgeschaltet werden soll (Server adressiert es
-// darueber). Ohne Agent: einfach ?device=<name> an die Kiosk-URL haengen.
-const DEVICE_ID = new URLSearchParams(location.search).get('device') || '';
+// Geraete-Kennung (physisches Panel). Darueber adressiert der Server dieses
+// Geraet (Betriebsmodus, Display, Ansicht wechseln) und listet es unter
+// Einstellungen -> Panels. Quelle: ?device=<name> in der Kiosk-URL, sonst ein
+// unter Einstellungen -> Panels vergebener Name (t:'setdevice', localStorage).
+let DEVICE_ID = new URLSearchParams(location.search).get('device') || '';
+try{ if(!DEVICE_ID) DEVICE_ID = localStorage.getItem('lp_device') || ''; }catch(e){}
 let LANG='de-DE';   // Panel-Sprache (aus dem Profil, Server sendet sie im theme); steuert Datum/Uhr
 // Horizontaler Feinversatz der ganzen Visu — live einstellbar ohne Redeploy:
 //   ?x=-6  -> 6px nach links     ?x=8 -> nach rechts     ?x=0 -> zuruecksetzen
@@ -691,6 +693,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
+  if(kiosk()) q.push('kiosk=fully');   // Kiosk-App melden -> Typ in der Geraeteliste
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
@@ -718,6 +721,9 @@ function connect(){
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
+    if(msg.t==='display'){ if(msg.on) wake(); else screenOff(); return; }   // Server schaltet Display (Kiosk-App)
+    if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
+        DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
     if(msg.t!=='view') return;
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }

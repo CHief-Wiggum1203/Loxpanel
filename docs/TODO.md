@@ -24,10 +24,13 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
       Wecker, Notify und Goto wieder ein; Auto-Neustart per `location.reload`.
       Der Agent hängt seine Gerätekennung an die Kiosk-URL, damit der Server
       Agent-Panels am WebSocket erkennt. Doku in `deploy/ANDROID.md`. **S**
-- [ ] **Schritt 2, Geräteverwaltung an der Gerätekennung.** Browser-Geräte
-      erscheinen unter *Einstellungen → Panels* mit Name, Online-Status,
-      Profil und Typ (Agent / Kiosk-App / Browser), unabhängig von der
-      Agent-IP. Gerätename in der Visu setzbar, falls die URL keinen trägt. **M**
+- [x] **Schritt 2, Geräteverwaltung an der Gerätekennung.** `GET /api/devices`
+      führt Agenten, verbundene Browser und konfigurierte Geräte zusammen;
+      *Einstellungen → Panels* zeigt eine Liste mit Typ (Agent / Fully Kiosk /
+      Browser), Online-Status, Ansicht und Aktionen (Ansicht wechseln, Neu
+      laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
+      per „Namen vergeben" benannt (Visu merkt sich den Namen, `setdevice`).
+      Neu `/api/display` zum Schalten des Displays, auch aus Loxone. **M**
 - [ ] **Schritt 3, serverseitige Display-Treiber.** Je Gerät ein Treiber:
       Agent (bestehend), Fully Kiosk über dessen REST-API (IP, Port 2323,
       Passwort), WallPanel über dessen HTTP-API. Damit schaltet der Server das

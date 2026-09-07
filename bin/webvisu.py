@@ -349,6 +349,7 @@ class App:
         self.conn_route: dict[web.WebSocketResponse, dict] = {}
         self.conn_prof: dict[web.WebSocketResponse, dict] = {}
         self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraete-Kennung (?device=)
+        self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -825,6 +826,53 @@ class App:
         now = time.time()
         return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
                    for a in self.agents.values())
+
+    def device_list(self) -> dict:
+        """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
+        Panel-Agenten (Announce), verbundene Browser (?device=) und die in
+        panels.json konfigurierten Geraete (Betriebsmodus-Automatik). Browser
+        ohne Kennung stehen getrennt unter `anonymous` (nach IP) und koennen
+        aus den Einstellungen benannt werden (`/api/device/name`)."""
+        now = time.time()
+        devs: dict[str, dict] = {}
+
+        def entry(name: str) -> dict:
+            return devs.setdefault(name, {
+                "name": name, "agent": None, "connections": 0, "online": False,
+                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False})
+
+        for a in self.agents.values():
+            if (now - a["ts"]) >= 600:
+                continue
+            e = entry(a["name"])
+            e["agent"] = {"ip": a["ip"], "port": a["port"], "kiosk": a["kiosk"],
+                          "panel": a["panel"], "online": (now - a["ts"]) < 60}
+            e["ip"] = a["ip"]
+            e["lastSeen"] = max(e["lastSeen"], a["ts"])
+            e["online"] = e["online"] or e["agent"]["online"]
+        anonymous = []
+        for ws, info in list(self.conn_info.items()):
+            prof = (self.conn_prof.get(ws) or {}).get("id", "")
+            if not info.get("dev"):
+                anonymous.append({"ip": info.get("ip", ""), "profile": prof,
+                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0)})
+                continue
+            e = entry(info["dev"])
+            e["connections"] += 1
+            e["online"] = True
+            e["profile"] = prof
+            e["kiosk"] = info.get("kiosk") or e["kiosk"]
+            e["ip"] = e["ip"] or info.get("ip", "")
+            e["lastSeen"] = max(e["lastSeen"], info.get("ts", 0))
+        for name in self.devices:
+            entry(name)["configured"] = True
+        for e in devs.values():
+            e["type"] = "agent" if e["agent"] else ("fully" if e["kiosk"] == "fully" else "browser")
+            if e["agent"] and not e["profile"]:
+                e["profile"] = e["agent"]["panel"]
+        anonymous.sort(key=lambda a: a["ip"])
+        return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
+                "anonymous": anonymous, "profiles": sorted(self.panels)}
 
     async def _agent_start(self, agent: dict, profile: str) -> bool:
         """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl)."""
@@ -2793,6 +2841,86 @@ async def api_save_devices(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "devices": devices})
 
 
+async def api_devices_get(request: web.Request) -> web.Response:
+    """Alle Anzeigegeraete (Agent, Kiosk-App, Browser) mit Online-Status,
+    Ansicht und Typ; Browser ohne Kennung getrennt nach IP."""
+    app: App = request.app["app"]
+    return web.json_response(app.device_list())
+
+
+async def api_device_switch(request: web.Request) -> web.Response:
+    """Ansicht eines Geraets wechseln: {device, panel}. Zuerst per WebSocket-
+    Push (Browser laedt sich mit neuem Profil neu), sonst ueber den Agenten."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    device = str(d.get("device") or "").strip()
+    panel = str(d.get("panel") or "").strip()
+    if not device:
+        return web.json_response({"ok": False, "error": "device fehlt"}, status=400)
+    if panel and panel not in app.panels:
+        return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
+    n = await _push(app, {"t": "switch", "panel": panel}, "", device)
+    if n:
+        return web.json_response({"ok": True, "sent": n, "via": "ws"})
+    now = time.time()
+    agent = next((a for a in app.agents.values()
+                  if a.get("name") == device and (now - a["ts"]) < 600), None)
+    if agent:
+        ok = await app._agent_start(agent, panel)
+        return web.json_response({"ok": ok, "sent": 1 if ok else 0, "via": "agent"})
+    return web.json_response({"ok": False, "sent": 0, "error": "Panel nicht online"})
+
+
+async def api_device_name(request: web.Request) -> web.Response:
+    """Gibt einem Browser ohne Kennung einen Geraetenamen: {ip, name}. Die
+    Visu merkt sich den Namen (localStorage) und verbindet sich neu."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    ip = str(d.get("ip") or "").strip()
+    name = str(d.get("name") or "").strip()[:60]
+    if not ip or not name:
+        return web.json_response({"ok": False, "error": "ip und name noetig"}, status=400)
+    n = 0
+    for ws, info in list(app.conn_info.items()):
+        if info.get("ip") != ip or info.get("dev"):
+            continue
+        try:
+            await ws.send_json({"t": "setdevice", "name": name})
+            n += 1
+        except ConnectionError:
+            pass
+    return web.json_response({"ok": n > 0, "sent": n,
+                              **({} if n else {"error": "kein Geraet ohne Kennung unter dieser IP"})})
+
+
+async def api_display(request: web.Request) -> web.Response:
+    """Display der Panels schalten: ?on=1|0, optional ?panel= / ?device=.
+    Wirkt auf Geraete mit Kiosk-App (Fully Kiosk), die die Visu offen haben;
+    Linux-Panels mit Agent regeln das Display selbst. Auch aus Loxone nutzbar."""
+    app: App = request.app["app"]
+    d = await _json_or_empty(request)
+    raw = d.get("on", request.query.get("on"))
+    if isinstance(raw, bool):
+        on = raw
+    else:
+        v = str(raw if raw is not None else "").strip().lower()
+        if v in ("1", "true", "on", "an", "ein"):
+            on = True
+        elif v in ("0", "false", "off", "aus"):
+            on = False
+        else:
+            return web.json_response({"ok": False, "error": "on=1|0 fehlt"}, status=400)
+    panel, device = _push_filter(request, d)
+    n = await _push(app, {"t": "display", "on": on}, panel, device)
+    return web.json_response({"ok": True, "sent": n, "on": on})
+
+
 async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int:
     """Push an offene Visu-Verbindungen (Server -> Browser). Optional gefiltert
     auf ein Panel-Profil (`panel`) oder ein Geraet (`device`, aus ?device=).
@@ -2812,6 +2940,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_route.pop(ws, None)
             app.conn_prof.pop(ws, None)
             app.conn_dev.pop(ws, None)
+            app.conn_info.pop(ws, None)
     return n
 
 
@@ -2992,6 +3121,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     prof = app.resolve_profile(pid)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
+    kiosk = request.query.get("kiosk", "")
+    app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk == "fully" else "",
+                         "ip": request.remote or "", "ts": time.time()}
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}
     log.info("Panel verbunden: '%s' (Tabs %s, Räume %s, Kategorien %s)", prof["id"],
@@ -3035,6 +3167,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_route.pop(ws, None)
         app.conn_prof.pop(ws, None)
         app.conn_dev.pop(ws, None)
+        app.conn_info.pop(ws, None)
     return ws
 
 
@@ -3076,6 +3209,11 @@ def main() -> None:
     a.router.add_get("/api/agents", api_agents)
     a.router.add_post("/api/agent/command", api_agent_command)
     a.router.add_post("/api/devices", api_save_devices)
+    a.router.add_get("/api/devices", api_devices_get)
+    a.router.add_post("/api/device/switch", api_device_switch)
+    a.router.add_post("/api/device/name", api_device_name)
+    a.router.add_get("/api/display", api_display)
+    a.router.add_post("/api/display", api_display)
     a.router.add_get("/api/mode", api_mode)
     a.router.add_post("/api/mode", api_mode)
     a.router.add_get("/api/mode/{mode}", api_mode)

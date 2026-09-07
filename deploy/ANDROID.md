@@ -13,7 +13,9 @@ als Anzeigegeräte.
 | Betriebsmodus-Umschaltung, Reload, Goto, Notify | ja, per WebSocket-Push | ja |
 | Auto-Neustart nach `reloadHours` | ja, die Seite lädt sich selbst neu | ja, Chromium-Neustart |
 | Display aus nach `dpmsOff`, Wecken bei Klingel / Wecker / Notify / Goto | ja, mit Fully Kiosk Browser (JavaScript-Schnittstelle) | ja, per DPMS und Backlight |
-| Anzeige in *Einstellungen → Panels* mit Online-Status | über die Gerätekennung (`?device=`) | ja |
+| Anzeige in *Einstellungen → Panels* mit Name, Typ, Online-Status und Ansicht | ja | ja |
+| Ansicht wechseln und neu laden aus den Einstellungen | ja, per WebSocket-Push | ja |
+| Display aus/an aus den Einstellungen oder per HTTP (`/api/display`) | ja, mit Fully Kiosk | nein, der Agent regelt das selbst |
 | Fernstart / Stopp des Kiosks aus den Einstellungen | nein, das macht die Kiosk-App | ja |
 | Installationsskript | nein, Kiosk-App von Hand einrichten | ja |
 
@@ -50,6 +52,29 @@ ohne sie läuft die Visu trotzdem, nur ohne Abschaltung durch die Seite.
 
 Die Bezeichnungen der Einstellungen können je nach Fully-Version leicht
 abweichen.
+
+## Gerät benennen und steuern
+
+Ein Gerät erscheint unter *Einstellungen → Panels*, sobald es die Visu mit
+`?device=<name>` öffnet. Fehlt die Kennung in der URL, steht das Gerät dort
+unter „Ohne Kennung" mit seiner IP. Dort einen Namen eintragen und „Namen
+vergeben" klicken: Die Visu merkt sich den Namen im Browser und verbindet sich
+neu, ab dann ist das Gerät dauerhaft gelistet und per Betriebsmodus schaltbar.
+Der Name bleibt auch ohne `?device=` in der URL erhalten, solange die
+Browserdaten der Kiosk-App nicht gelöscht werden.
+
+Je Gerät gibt es in der Liste: Ansicht wechseln (Profil wählen, Browser lädt
+sich neu), Neu laden, und bei Fully Kiosk „Display aus" / „Display an". Das
+Display lässt sich auch aus Loxone oder einem Skript schalten:
+
+```
+GET http://<server-ip>:8099/api/display?on=0&device=<name>   # aus
+GET http://<server-ip>:8099/api/display?on=1&device=<name>   # an
+GET http://<server-ip>:8099/api/display?on=0                 # alle Panels
+```
+
+`device=` oder `panel=` grenzen ein, ohne Filter sind alle offenen Visus
+gemeint. Die Antwort nennt, wie viele Verbindungen erreicht wurden.
 
 ## WallPanel
 

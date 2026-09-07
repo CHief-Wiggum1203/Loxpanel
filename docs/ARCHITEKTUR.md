@@ -139,6 +139,7 @@ Wichtige Felder:
 | `states` | `state-UUID → Wert`, der flache Live-Zustand der gesamten Anlage |
 | `controls`, `rooms`, `cats` | rohe Teilbäume aus `LoxAPP3.json` |
 | `conn_route`, `conn_prof`, `conn_dev` | je Browser-WebSocket: aktuelle Route, aufgelöstes Panel-Profil, Gerätekennung |
+| `conn_info` | je Browser-WebSocket: Gerätekennung, Kiosk-App (`fully`), IP, Verbindungszeit; Basis von `device_list()` |
 | `panels`, `devices` | aus `panels.json` |
 | `agents` | `ip → Agent-Datensatz` (Announce) |
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
@@ -186,6 +187,8 @@ Server → Browser (`panel.html:700`):
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
+| `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
+| `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 
 Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
@@ -234,6 +237,10 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät | Einstellungen |
+| GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ; Browser ohne Kennung nach IP | Einstellungen |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel}`), per WebSocket-Push, sonst über den Agenten | Einstellungen |
+| POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
+| GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
 | POST | `/api/testtone` | `api_testtone` | Testton an Panels | Einstellungen |
 | GET/POST | `/api/reload` | `api_reload` | Panels neu laden, Filter `panel`/`device` | Loxone, extern |
@@ -458,7 +465,12 @@ selbst über die JavaScript-Schnittstelle von Fully Kiosk Browser
 (`window.fully`), weckt es bei Klingel, Wecker, Notify und Goto und lädt sich
 nach `reloadHours` neu. Der Agent hängt dafür `device=<Name>` an die
 Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
-(`App._has_agent`). Einrichtung in `deploy/ANDROID.md`.
+(`App._has_agent`). `App.device_list()` führt Agenten, verbundene Browser und
+konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
+eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
+Neu laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
+können benannt werden. Die Visu meldet `kiosk=fully` in der WebSocket-URL,
+wenn sie in Fully Kiosk läuft. Einrichtung in `deploy/ANDROID.md`.
 
 **Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
 das per `sudo mkdir` als root angelegt wird, während der Agent als

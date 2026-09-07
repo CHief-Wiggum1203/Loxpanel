@@ -44,11 +44,25 @@
       'SIP-Anbindung ist in Arbeit.': 'SIP integration is in progress.',
       'Coming soon': 'Coming soon',
       // Panels
-      'Panels mit installiertem Agent melden sich automatisch. Ansicht wählen und den Kiosk starten / aktualisieren.':
-        'Panels with the agent installed register automatically. Pick a view and start / refresh the kiosk.',
+      'Alle Anzeigegeräte auf einen Blick: Linux-Panels mit Agent melden sich automatisch, Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?device=<name>). Geräte ohne Kennung stehen unten und bekommen hier einen Namen.':
+        'All display devices at a glance: Linux panels with the agent register automatically, Android panels and tablets appear as soon as they open the visu with a device id (?device=<name>). Devices without an id are listed below and get a name here.',
+      'Ansicht wechseln': 'Switch view',
+      'Neu laden': 'Reload',
+      'Display aus': 'Display off',
+      'Display an': 'Display on',
+      'Visu offen': 'visu open',
+      'Ohne Kennung': 'No device id',
+      'Gerätename': 'Device name',
+      'Namen vergeben': 'Assign name',
+      'Bitte einen Namen eingeben': 'Please enter a name',
+      'Browser': 'Browser',
+      'Ansicht': 'View',
+      'Panel nicht erreicht': 'Panel not reached',
+      'Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.':
+        'Devices without an id (by IP). Assign a name so the device stays listed and can be switched by operating mode.',
+      'Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.':
+        'No panel found yet. A panel appears as soon as it opens the visu with ?device=<name> or the agent runs on it.',
       'Suche Panels…': 'Searching for panels…',
-      'Noch kein Panel gefunden. Agent auf dem Panel starten (agent/loxpanel-agent.py).':
-        'No panel found yet. Start the agent on the panel (agent/loxpanel-agent.py).',
       '(Standard)': '(Default)',
       'Start': 'Start',
       'Reload': 'Reload',
@@ -92,8 +106,8 @@
         'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per panel, which view appears for which mode. A panel without an entry for a mode stays unchanged.',
       'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
-      'Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.':
-        'No panel known yet. A panel must have reported in once (agent running), then it appears here.',
+      'Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.':
+        'No panel known yet. As soon as a panel opens the visu with a device id or an agent runs, it appears here.',
       'Automatik speichern': 'Save automation',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
