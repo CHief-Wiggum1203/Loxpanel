@@ -11,6 +11,32 @@ oben.
 
 ---
 
+## 0. Umbau: Android-Panels ohne Agent
+
+Ziel: Jedes Android-Gerät mit Kiosk-App ist gleichwertig zum Linux-Panel mit
+Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
+[`ARCHITEKTUR.md`](ARCHITEKTUR.md), Abschnitt 8.
+
+- [x] **Schritt 1, Visu übernimmt die Display-Steuerung.** Server schickt
+      `dpmsOff`, `reloadHours` und `agent` mit der `theme`-Nachricht. Ohne Agent
+      schaltet die Seite nach `dpmsOff` Sekunden das Display über die
+      JavaScript-Schnittstelle von Fully Kiosk Browser aus und bei Klingel,
+      Wecker, Notify und Goto wieder ein; Auto-Neustart per `location.reload`.
+      Der Agent hängt seine Gerätekennung an die Kiosk-URL, damit der Server
+      Agent-Panels am WebSocket erkennt. Doku in `deploy/ANDROID.md`. **S**
+- [ ] **Schritt 2, Geräteverwaltung an der Gerätekennung.** Browser-Geräte
+      erscheinen unter *Einstellungen → Panels* mit Name, Online-Status,
+      Profil und Typ (Agent / Kiosk-App / Browser), unabhängig von der
+      Agent-IP. Gerätename in der Visu setzbar, falls die URL keinen trägt. **M**
+- [ ] **Schritt 3, serverseitige Display-Treiber.** Je Gerät ein Treiber:
+      Agent (bestehend), Fully Kiosk über dessen REST-API (IP, Port 2323,
+      Passwort), WallPanel über dessen HTTP-API. Damit schaltet der Server das
+      Display auch, wenn die Seite nicht läuft, und WallPanel wird voll
+      unterstützt. **M**
+- [ ] **Schritt 4, Einstellungen und Doku.** Start-URL mit `?panel=&device=`
+      in den Einstellungen erzeugen und kopieren, Anleitung für Fully Kiosk
+      und WallPanel, Installationsskript nur noch für Linux ausweisen. **S**
+
 ## 1. Konfiguration vor Datenverlust schützen
 
 - [ ] **Atomares Schreiben** von `loxpanel.cfg`, `panels.json`, `theme.json`:

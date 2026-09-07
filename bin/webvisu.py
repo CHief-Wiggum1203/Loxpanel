@@ -796,8 +796,10 @@ class App:
 
     def panel_dpms(self, pid: str | None):
         """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
-        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Wird dem
-        Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
+        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Geht an
+        den Panel-Agenten (Announce-Antwort, xset) UND an die Visu (theme-
+        Nachricht): ohne Agent schaltet die Seite das Display ueber die
+        JS-Schnittstelle der Kiosk-App (z.B. Fully Kiosk Browser)."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("dpmsOff")
@@ -806,11 +808,23 @@ class App:
     def panel_reload(self, pid: str | None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
         (0/None = aus). Gegen Einfrieren; der Agent startet Chromium periodisch
-        neu. Wird in der Announce-Antwort mitgegeben."""
+        neu (Announce-Antwort), ohne Agent laedt die Visu sich selbst neu
+        (theme-Nachricht)."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("reloadHours")
         return max(0, min(168, float(v))) if isinstance(v, (int, float)) else None
+
+    def _has_agent(self, name: str) -> bool:
+        """True, wenn zu einer Geraetekennung (?device=) ein Panel-Agent bekannt
+        ist, der sich in den letzten 10 Minuten gemeldet hat. Dann schaltet der
+        Agent das Display und startet Chromium neu; die Visu haelt sich mit
+        eigener Abschaltung und eigenem Reload zurueck."""
+        if not name:
+            return False
+        now = time.time()
+        return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
+                   for a in self.agents.values())
 
     async def _agent_start(self, agent: dict, profile: str) -> bool:
         """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl)."""
@@ -2983,9 +2997,15 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     log.info("Panel verbunden: '%s' (Tabs %s, Räume %s, Kategorien %s)", prof["id"],
              prof["tabs"], "alle" if prof["rooms"] is None else len(prof["rooms"]),
              "alle" if prof["cats"] is None else len(prof["cats"]))
+    # Display-Einstellungen gehen auch an die Visu: ohne Agent (Android-Panel,
+    # Tablet mit Kiosk-App) schaltet die Seite das Display selbst ab und laedt
+    # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
-                        "lang": prof["lang"], "fill": prof["fill"]})
+                        "lang": prof["lang"], "fill": prof["fill"],
+                        "dpmsOff": app.panel_dpms(prof["id"]),
+                        "reloadHours": app.panel_reload(prof["id"]),
+                        "agent": app._has_agent(dev)})
     await ws.send_json(app.render(app.conn_route[ws], prof))
     try:
         async for msg in ws:

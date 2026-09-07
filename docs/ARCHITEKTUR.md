@@ -451,6 +451,15 @@ weichen bereits ab. Der Server liefert ausgerechnet diese Kopie über
 `/install-agent.sh` aus. Es gibt keinen Mechanismus, der die beiden synchron
 hält.
 
+**Ohne Agent (Android):** Seit dem Umbau-Schritt 1 schickt der Server `dpmsOff`,
+`reloadHours` und `agent` mit der `theme`-Nachricht an die Visu. Meldet der
+Server keinen Agenten für die Gerätekennung, schaltet die Seite das Display
+selbst über die JavaScript-Schnittstelle von Fully Kiosk Browser
+(`window.fully`), weckt es bei Klingel, Wecker, Notify und Goto und lädt sich
+nach `reloadHours` neu. Der Agent hängt dafür `device=<Name>` an die
+Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
+(`App._has_agent`). Einrichtung in `deploy/ANDROID.md`.
+
 **Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
 das per `sudo mkdir` als root angelegt wird, während der Agent als
 Login-Benutzer läuft. Das Schreiben schlägt dann leise fehl, und die gewählte
