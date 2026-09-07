@@ -31,14 +31,19 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
       laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
       per „Namen vergeben" benannt (Visu merkt sich den Namen, `setdevice`).
       Neu `/api/display` zum Schalten des Displays, auch aus Loxone. **M**
-- [ ] **Schritt 3, serverseitige Display-Treiber.** Je Gerät ein Treiber:
-      Agent (bestehend), Fully Kiosk über dessen REST-API (IP, Port 2323,
-      Passwort), WallPanel über dessen HTTP-API. Damit schaltet der Server das
-      Display auch, wenn die Seite nicht läuft, und WallPanel wird voll
-      unterstützt. **M**
-- [ ] **Schritt 4, Einstellungen und Doku.** Start-URL mit `?panel=&device=`
-      in den Einstellungen erzeugen und kopieren, Anleitung für Fully Kiosk
-      und WallPanel, Installationsskript nur noch für Linux ausweisen. **S**
+- [x] **Schritt 3, serverseitige Display-Treiber.** Je Gerät unter
+      *Einstellungen → Panels* ein Treiber: Fully Kiosk Remote Admin (Port
+      2323, Passwort) oder WallPanel HTTP (Port 2971), gespeichert in
+      `panels.json` unter `devices[name].display`. Der Server schaltet damit
+      bei `/api/display`, Klingel, Wecker, Notify, Goto und nach der
+      Leerlauf-Meldung der Visu (`idle`). **M**
+- [x] **Schritt 4, Einstellungen und Doku.** *Neues Panel* hat zwei Karten:
+      Start-URL-Generator für Android (Gerätename, Ansicht, kopieren) und der
+      SSH-Weg für Linux. `deploy/ANDROID.md` beschreibt Fully Kiosk (JS und
+      Remote Admin) und WallPanel. **S**
+- [ ] **Offen nach dem Umbau:** Test auf echter Hardware (Fully Kiosk und
+      WallPanel), danach ggf. Feinschliff an den Bezeichnungen der
+      App-Einstellungen in der Anleitung. **S**
 
 ## 1. Konfiguration vor Datenverlust schützen
 

@@ -87,6 +87,8 @@ JAL = JalousieAdapter()
 
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
+# Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
+DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 
 
 def _is_tab(t) -> bool:
@@ -350,6 +352,7 @@ class App:
         self.conn_prof: dict[web.WebSocketResponse, dict] = {}
         self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraete-Kennung (?device=)
         self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
+        self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -874,6 +877,72 @@ class App:
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
 
+    def _spawn(self, coro) -> None:
+        """Hintergrund-Task ohne auf das Ergebnis zu warten (Treiber-Aufrufe)."""
+        task = asyncio.create_task(coro)
+        self.bg_tasks.add(task)
+        task.add_done_callback(self.bg_tasks.discard)
+
+    async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
+        """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully
+        Kiosk Remote Admin, WallPanel). Betroffen sind Geraete mit `display`-
+        Treiber in panels.json: bei `device` genau dieses, bei `panel` die, die
+        das Profil gerade zeigen, sonst alle. Liefert je Geraet ein Ergebnis."""
+        showing = {}
+        for ws, info in list(self.conn_info.items()):
+            if info.get("dev"):
+                showing[info["dev"]] = (self.conn_prof.get(ws) or {}).get("id", "")
+        out = []
+        for name, cfg in self.devices.items():
+            disp = cfg.get("display") if isinstance(cfg, dict) else None
+            if not disp:
+                continue
+            if device and name != device:
+                continue
+            if panel and not device and showing.get(name) != panel:
+                continue
+            out.append(await self._drive_display(name, disp, on))
+        return out
+
+    async def _drive_display(self, name: str, disp: dict, on: bool) -> dict:
+        sess = self._drv_session
+        if sess is None or sess.closed:
+            sess = self._drv_session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=6))
+        drv = disp.get("driver")
+        res = {"device": name, "driver": drv, "on": on}
+        try:
+            if drv == "fully":
+                # Fully Kiosk Browser, Remote Admin: GET /?cmd=screenOn|screenOff&password=...
+                url = (f"http://{disp['host']}:{disp['port']}/?cmd="
+                       f"{'screenOn' if on else 'screenOff'}&type=json"
+                       f"&password={quote(str(disp.get('password') or ''), safe='')}")
+                async with sess.get(url) as r:
+                    txt = (await r.text())[:300]
+                    ok = r.status == 200
+                    try:
+                        j = json.loads(txt)
+                        if isinstance(j, dict) and str(j.get("status", "")).lower() == "error":
+                            ok, txt = False, str(j.get("statustext") or txt)
+                    except ValueError:
+                        pass
+            else:
+                # WallPanel: POST /api/command {"wake": true|false}. false gibt nur
+                # den Bildschirmschoner von WallPanel frei (eigene Abschaltzeit dort).
+                url = f"http://{disp['host']}:{disp['port']}/api/command"
+                async with sess.post(url, json={"wake": bool(on)}) as r:
+                    txt = (await r.text())[:300]
+                    ok = r.status == 200
+            if not ok:
+                res["error"] = f"HTTP {r.status}: {txt}".strip()
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+            ok = False
+            res["error"] = str(err) or err.__class__.__name__
+        res["ok"] = ok
+        if not ok:
+            log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
+        return res
+
     async def _agent_start(self, agent: dict, profile: str) -> bool:
         """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl)."""
         url = f"http://{agent['ip']}:{agent['port']}/start"
@@ -1109,10 +1178,33 @@ class App:
                 prof = prof.strip()
                 if mode and prof and prof in panel_ids:
                     modes[mode] = prof
-            if not modes:
+            display = App._sanitize_display(cfg.get("display"))
+            if not modes and not display:
                 continue
-            out[name.strip()[:60]] = {"auto": bool(cfg.get("auto", True)), "modes": modes}
+            entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
+            if display:
+                entry["display"] = display
+            out[name.strip()[:60]] = entry
         return out
+
+    @staticmethod
+    def _sanitize_display(d) -> dict | None:
+        """Display-Treiber eines Geraets: {driver: fully|wallpanel, host, port,
+        password}. Ohne gueltigen Treiber oder Host -> None."""
+        if not isinstance(d, dict):
+            return None
+        drv = str(d.get("driver") or "").strip().lower()
+        if drv not in DISPLAY_DRIVERS:
+            return None
+        host = str(d.get("host") or "").strip()[:100]
+        if not host:
+            return None
+        try:
+            port = int(d.get("port") or DISPLAY_DRIVERS[drv])
+        except (TypeError, ValueError):
+            port = DISPLAY_DRIVERS[drv]
+        return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
+                "password": str(d.get("password") or "")[:100]}
 
     @staticmethod
     def _sanitize_theme_ui(ui: dict) -> dict:
@@ -2508,6 +2600,7 @@ class App:
             if self._pending_ring is not None:
                 rid, self._pending_ring = self._pending_ring, None
                 log.info("Klingel → Popup: %s", rid)
+                self._spawn(self.display_drivers(True))   # Kiosk-Apps ueber HTTP wecken
                 for ws in list(self.conn_route):
                     try:
                         await ws.send_json({"t": "ring", "id": rid})
@@ -2516,6 +2609,8 @@ class App:
             while self._pending_alarm:
                 ev = self._pending_alarm.pop(0)
                 log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
+                if ev["on"]:
+                    self._spawn(self.display_drivers(True))
                 for ws in list(self.conn_route):
                     try:
                         await ws.send_json({"t": "alarm", "id": ev["id"], "on": ev["on"]})
@@ -2918,7 +3013,8 @@ async def api_display(request: web.Request) -> web.Response:
             return web.json_response({"ok": False, "error": "on=1|0 fehlt"}, status=400)
     panel, device = _push_filter(request, d)
     n = await _push(app, {"t": "display", "on": on}, panel, device)
-    return web.json_response({"ok": True, "sent": n, "on": on})
+    drivers = await app.display_drivers(on, device, panel)
+    return web.json_response({"ok": True, "sent": n, "on": on, "drivers": drivers})
 
 
 async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int:
@@ -2986,6 +3082,7 @@ async def api_goto(request: web.Request) -> web.Response:
                                  status=400)
     panel, device = _push_filter(request, d)
     n = await _push(app, {"t": "goto", "route": route}, panel, device)
+    app._spawn(app.display_drivers(True, device, panel))   # Kiosk-Apps wecken
     return web.json_response({"ok": True, "route": route, "sent": n})
 
 
@@ -3006,6 +3103,7 @@ async def api_notify(request: web.Request) -> web.Response:
         secs = 5
     secs = max(1, min(60, secs))
     panel, device = _push_filter(request, d)
+    app._spawn(app.display_drivers(True, device, panel))   # Kiosk-Apps wecken
     n = await _push(app, {"t": "notify", "text": text, "level": level, "secs": secs},
                     panel, device)
     return web.json_response({"ok": True, "sent": n})
@@ -3158,6 +3256,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     task = asyncio.create_task(app.prime_favs(route["id"]))
                     app.bg_tasks.add(task)
                     task.add_done_callback(app.bg_tasks.discard)
+            elif data.get("t") == "idle":
+                # Visu ohne Kiosk-JS meldet Leerlauf -> Display ueber Treiber aus
+                if dev:
+                    app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
@@ -3183,6 +3285,9 @@ async def on_startup(a: web.Application) -> None:
 async def on_cleanup(a: web.Application) -> None:
     for t in a.get("tasks", []):
         t.cancel()
+    sess = a["app"]._drv_session
+    if sess is not None and not sess.closed:
+        await sess.close()
     await a["app"].close()
 
 

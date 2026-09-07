@@ -108,7 +108,21 @@
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
       'Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.':
         'No panel known yet. As soon as a panel opens the visu with a device id or an agent runs, it appears here.',
-      'Automatik speichern': 'Save automation',
+      'Speichern': 'Save',
+      'Betriebsmodus-Automatik und Display-Steuerung': 'Operating-mode automation and display control',
+      'Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.':
+        'Display control per device: for Fully Kiosk enable the Remote Admin interface (port 2323, password), for WallPanel the HTTP server (port 2971). The server then switches the display on for doorbell, alarm clock, notify and goto and off after the timeout, independent of the page.',
+      'Display-Steuerung': 'Display control',
+      'keine (nur über die Seite)': 'none (page only)',
+      'Passwort (Fully)': 'Password (Fully)',
+      'Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.':
+        'Two ways: an Android panel or tablet with a kiosk app only needs a start URL; a Linux panel gets the agent via SSH.',
+      'Android-Panel oder Tablet (Kiosk-App)': 'Android panel or tablet (kiosk app)',
+      'Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.':
+        'Enter the start URL in Fully Kiosk Browser or WallPanel. The device name makes the device appear under Panels and switchable by operating mode. Display off: enable the JavaScript interface in Fully or configure a display driver above. Details in deploy/ANDROID.md.',
+      'Start-URL erzeugen': 'Generate start URL',
+      'Gerätename und Server-Adresse nötig': 'Device name and server address required',
+      'Linux-Panel mit Agent (SSH)': 'Linux panel with agent (SSH)',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',

@@ -12,23 +12,35 @@ als Anzeigegeräte.
 | Visu, Kacheln, Detailseiten, PIN, Weckton | ja | ja |
 | Betriebsmodus-Umschaltung, Reload, Goto, Notify | ja, per WebSocket-Push | ja |
 | Auto-Neustart nach `reloadHours` | ja, die Seite lädt sich selbst neu | ja, Chromium-Neustart |
-| Display aus nach `dpmsOff`, Wecken bei Klingel / Wecker / Notify / Goto | ja, mit Fully Kiosk Browser (JavaScript-Schnittstelle) | ja, per DPMS und Backlight |
+| Display aus nach `dpmsOff`, Wecken bei Klingel / Wecker / Notify / Goto | ja, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel (HTTP) | ja, per DPMS und Backlight |
 | Anzeige in *Einstellungen → Panels* mit Name, Typ, Online-Status und Ansicht | ja | ja |
 | Ansicht wechseln und neu laden aus den Einstellungen | ja, per WebSocket-Push | ja |
-| Display aus/an aus den Einstellungen oder per HTTP (`/api/display`) | ja, mit Fully Kiosk | nein, der Agent regelt das selbst |
+| Display aus/an aus den Einstellungen oder per HTTP (`/api/display`) | ja, mit Fully Kiosk und WallPanel | nein, der Agent regelt das selbst |
 | Fernstart / Stopp des Kiosks aus den Einstellungen | nein, das macht die Kiosk-App | ja |
 | Installationsskript | nein, Kiosk-App von Hand einrichten | ja |
 
-Die Display-Steuerung aus der Seite heraus setzt eine Kiosk-App voraus, die eine
-JavaScript-Schnittstelle in die Seite einblendet. Derzeit wird **Fully Kiosk
-Browser** erkannt (`window.fully`). In einem normalen Browser passiert nichts,
-dort bleibt es beim Screensaver mit Uhr.
+Für die Display-Steuerung gibt es zwei Wege, die sich ergänzen:
+
+1. **Aus der Seite heraus** über die JavaScript-Schnittstelle der Kiosk-App.
+   Das kann derzeit Fully Kiosk Browser (`window.fully`). Kein weiteres Setup
+   außer dem Schalter in Fully.
+2. **Vom Server aus** über die HTTP-Schnittstelle der Kiosk-App, den
+   sogenannten Display-Treiber. Er wird je Gerät unter *Einstellungen → Panels
+   → Betriebsmodus-Automatik und Display-Steuerung* eingetragen (Treiber, IP,
+   Port, bei Fully das Passwort). Damit schaltet der Server das Display auch,
+   wenn die Seite gerade nicht läuft, und WallPanel wird voll unterstützt.
+   Meldet die Seite Leerlauf, schaltet der Server über den Treiber aus;
+   Klingel, Wecker, Notify und Goto schalten ein.
+
+In einem normalen Browser ohne Kiosk-App und ohne Treiber bleibt es beim
+Screensaver mit Uhr.
 
 ## Fully Kiosk Browser einrichten
 
 Fully Kiosk Browser gibt es im Play Store und als APK vom Hersteller. Die
-Display-Steuerung braucht die kostenpflichtige PLUS-Lizenz (einmalig pro Gerät),
-ohne sie läuft die Visu trotzdem, nur ohne Abschaltung durch die Seite.
+JavaScript-Schnittstelle und die Fernverwaltung brauchen die kostenpflichtige
+PLUS-Lizenz (einmalig pro Gerät), ohne sie läuft die Visu trotzdem, nur ohne
+Display-Steuerung.
 
 1. **Start-URL** setzen:
    `http://<server-ip>:8099/?panel=<profil-id>&device=<gerätename>`
@@ -76,13 +88,31 @@ GET http://<server-ip>:8099/api/display?on=0                 # alle Panels
 `device=` oder `panel=` grenzen ein, ohne Filter sind alle offenen Visus
 gemeint. Die Antwort nennt, wie viele Verbindungen erreicht wurden.
 
+## Fully Kiosk vom Server aus steuern (Remote Admin)
+
+Alternativ oder zusätzlich zur JavaScript-Schnittstelle: In Fully unter *Remote
+Administration (PLUS)* die Fernverwaltung einschalten und ein Passwort setzen.
+Dann in LoxPanel unter *Einstellungen → Panels* beim Gerät den Display-Treiber
+„Fully Kiosk (Remote Admin)" wählen, IP des Geräts, Port 2323 und das Passwort
+eintragen, speichern. Der Server ruft dann `http://<ip>:2323/?cmd=screenOn`
+bzw. `screenOff` auf.
+
 ## WallPanel
 
-WallPanel ist quelloffen, kostenlos und auf F-Droid verfügbar. Es zeigt die Visu
-wie jeder Browser an, hat aber keine JavaScript-Schnittstelle in der Seite. Die
-Display-Abschaltung aus der Seite heraus funktioniert damit nicht. Vorgesehen
-ist dafür ein serverseitiger Treiber über die HTTP-Schnittstelle von WallPanel
-(siehe `docs/TODO.md`, Schritt 3 des Umbaus).
+WallPanel ist quelloffen, kostenlos und auf F-Droid verfügbar. Es hat keine
+JavaScript-Schnittstelle in der Seite, dafür einen HTTP-Server. Einrichtung:
+
+1. In WallPanel unter *Einstellungen → HTTP* den Server einschalten (Port
+   2971) und unter *Bildschirmschoner* die gewünschte Abschaltung nach
+   Inaktivität wählen (Dimmen oder Schwarz).
+2. Start-URL wie oben mit `?panel=&device=` eintragen.
+3. In LoxPanel beim Gerät den Display-Treiber „WallPanel (HTTP)" mit IP und
+   Port 2971 eintragen.
+
+Der Server schickt `{"wake": true}` zum Einschalten und `{"wake": false}`
+nach der Abschaltzeit. Letzteres gibt den Bildschirmschoner von WallPanel
+frei, der dann nach seiner eigenen Inaktivitätszeit greift. Ein sofortiges
+Abschalten kennt WallPanel nicht.
 
 ## Geräte
 
@@ -94,6 +124,12 @@ ist dafür ein serverseitiger Treiber über die HTTP-Schnittstelle von WallPanel
 - **SONOFF NSPanel Pro:** Android, unterstützt F-Droid ab Firmware 4.0. Für
   Fully Kiosk ist meist der Entwicklermodus und ADB nötig, was die Garantie
   berührt. Zigbee, Matter und Relais des Geräts bleiben mit Loxone ungenutzt.
+
+## Start-URL aus den Einstellungen
+
+Unter *Einstellungen → Neues Panel* gibt es für Android-Geräte einen
+Generator: Gerätename und Startansicht wählen, „Start-URL erzeugen", kopieren
+und in die Kiosk-App eintragen.
 
 ## Testen ohne Kauf
 

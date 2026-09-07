@@ -172,12 +172,13 @@
       </div>
 
       <div class="card">
-        <h3 data-i18n>Betriebsmodus-Automatik</h3>
+        <h3 data-i18n>Betriebsmodus-Automatik und Display-Steuerung</h3>
         <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Panel fest, welche Ansicht bei welchem Modus erscheint. Panel ohne Eintrag für einen Modus bleibt unverändert.</p>
         <pre class="cmdout" id="mode_hint">GET http://<span id="mode_host">…</span>/api/mode/&lt;modus&gt;</pre>
         <p class="note" data-i18n>Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).</p>
         <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
-        <div class="actions"><button class="btn" id="dev_save" data-i18n>Automatik speichern</button><span class="toast" id="dev_toast"></span></div>
+        <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
+        <div class="actions"><button class="btn" id="dev_save" data-i18n>Speichern</button><span class="toast" id="dev_toast"></span></div>
       </div>
     </section>
 
@@ -198,8 +199,22 @@
     <!-- Neues Panel -->
     <section class="pane" data-pane="newpanel">
       <h2 data-i18n>Neues Panel einrichten</h2>
-      <p class="lead" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
+      <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
       <div class="card">
+        <h3 data-i18n>Android-Panel oder Tablet (Kiosk-App)</h3>
+        <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
+        <div class="row2">
+          <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
+          <div class="field"><label class="lbl" data-i18n>Startansicht (Profil)</label><select id="nk_panel"></select></div>
+        </div>
+        <div class="field"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
+        <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
+        <pre id="nk_out" class="cmdout" style="display:none"></pre>
+        <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
+      </div>
+      <div class="card">
+        <h3 data-i18n>Linux-Panel mit Agent (SSH)</h3>
+        <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
         <div class="row2">
           <div class="field"><label class="lbl" data-i18n>Panel-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
           <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
@@ -289,13 +304,14 @@ $('#ic_save').onclick=async()=>{
 let PANEL_IDS=[];
 let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...]}  (Arbeitskopie)
 let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
+let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
 async function loadPanelIds(){
   try{
     const r=await fetch('/api/meta'); const m=await r.json();
     PANEL_IDS=Object.keys(m.panels||{});
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
-      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{})};
+      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null};
     });
   }catch(e){ PANEL_IDS=[]; }
 }
@@ -385,6 +401,7 @@ async function pollDevices(){
     const r=await fetch('/api/devices'); const j=await r.json();
     renderDeviceList(j);
     const names=(j.devices||[]).map(d=>d.name).filter(Boolean);
+    (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip; });
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew){ readDevFromDom(); renderDevices(); }   // neues Panel -> Editor ergaenzen (Eingaben behalten)
@@ -413,6 +430,20 @@ function devRow(name){
     '</div>'+
     '<div class="dmrows">'+rows+'</div>'+
     '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
+    displayRow(d.display)+
+  '</div>';
+}
+const DRIVER_PORT={fully:2323, wallpanel:2971};
+function displayRow(disp){
+  const x=disp||{driver:'',host:'',port:'',password:''};
+  return '<div class="ddrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+    '<span style="font-size:13px;opacity:.85">'+T('Display-Steuerung')+'</span>'+
+    '<select class="dd_drv"><option value="">'+T('keine (nur über die Seite)')+'</option>'+
+      '<option value="fully"'+(x.driver==='fully'?' selected':'')+'>Fully Kiosk (Remote Admin)</option>'+
+      '<option value="wallpanel"'+(x.driver==='wallpanel'?' selected':'')+'>WallPanel (HTTP)</option></select>'+
+    '<input class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
+    '<input class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
+    '<input class="dd_pw" type="password" placeholder="'+T('Passwort (Fully)')+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
   '</div>';
 }
 function readDevFromDom(){
@@ -422,7 +453,11 @@ function readDevFromDom(){
     n.querySelectorAll('.dmrow').forEach(r=>{
       modes.push([r.querySelector('.dm_mode').value, r.querySelector('.dm_prof').value]);
     });
-    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes};
+    const drv=n.querySelector('.dd_drv').value;
+    const display=drv?{driver:drv, host:n.querySelector('.dd_host').value.trim(),
+      port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
+      password:n.querySelector('.dd_pw').value}:null;
+    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display};
   });
 }
 function renderDevices(){
@@ -433,6 +468,11 @@ function renderDevices(){
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
     (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); renderDevices();
+  });
+  box.querySelectorAll('.dd_drv').forEach(sel=>sel.onchange=()=>{
+    const row=sel.closest('.dev'), name=row.dataset.name, drv=sel.value;
+    const host=row.querySelector('.dd_host'), port=row.querySelector('.dd_port');
+    if(drv){ if(!host.value && DEVICE_IPS[name]) host.value=DEVICE_IPS[name]; if(!port.value) port.value=DRIVER_PORT[drv]||''; }
   });
   box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
     const dev=b.closest('.dev'), name=dev.dataset.name;
@@ -446,7 +486,8 @@ $('#dev_save').onclick=async()=>{
   Object.entries(DEV).forEach(([name,d])=>{
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
-    if(Object.keys(modes).length) devices[name]={auto:d.auto!==false, modes};
+    const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
+    if(Object.keys(modes).length || display){ devices[name]={auto:d.auto!==false, modes}; if(display) devices[name].display=display; }
   });
   $('#dev_save').disabled=true;
   try{
@@ -477,10 +518,20 @@ $('#at_send').onclick=async()=>{
 
 // ---- Neues Panel: Befehl-Generator ----
 function fillNewPanel(){
-  const srv=$('#np_server'); if(srv && !srv.value) srv.value=location.host;
-  const sel=$('#np_panel'); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
-    PANEL_IDS.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
+  ['#np_server','#nk_server'].forEach(id=>{ const srv=$(id); if(srv && !srv.value) srv.value=location.host; });
+  ['#np_panel','#nk_panel'].forEach(id=>{ const sel=$(id); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
+    PANEL_IDS.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join(''); });
 }
+function genKioskUrl(){
+  const name=$('#nk_name').value.trim(), panel=$('#nk_panel').value, server=$('#nk_server').value.trim();
+  if(!name||!server){ flash($('#nk_toast'),T('Gerätename und Server-Adresse nötig'),false); return; }
+  const q=[]; if(panel) q.push('panel='+encodeURIComponent(panel)); q.push('device='+encodeURIComponent(name));
+  $('#nk_out').textContent='http://'+server+'/?'+q.join('&'); $('#nk_out').style.display='block'; $('#nk_copyrow').style.display='flex';
+}
+$('#nk_gen').onclick=genKioskUrl;
+$('#nk_copy').onclick=()=>{ navigator.clipboard.writeText($('#nk_out').textContent)
+  .then(()=>flash($('#nk_toast'),T('✓ kopiert'),true))
+  .catch(()=>flash($('#nk_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
 function genPanelCmd(){
   const ip=$('#np_ip').value.trim(), user=($('#np_user').value.trim()||'linaro');
   const name=$('#np_name').value.trim(), panel=$('#np_panel').value, server=$('#np_server').value.trim();

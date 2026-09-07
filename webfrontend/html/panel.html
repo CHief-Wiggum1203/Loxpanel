@@ -788,8 +788,10 @@ function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }c
 function screenOn(){ const f=kiosk(); if(!f) return;
   try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
 function armDpms(){ clearTimeout(dpmsTimer);
-  if(DISP.agent || !(DISP.dpmsOff>0) || !kiosk()) return;
-  dpmsTimer=setTimeout(screenOff, DISP.dpmsOff*1000); }
+  if(DISP.agent || !(DISP.dpmsOff>0)) return;
+  // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
+  // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
+  dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;

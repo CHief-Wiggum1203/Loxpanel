@@ -188,6 +188,7 @@ Server → Browser (`panel.html:700`):
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
+| (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 
 Browser → Server (`ws_handler`, `webvisu.py:2991`):
@@ -320,7 +321,10 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
     }
   },
   "devices": {
-    "<Agent-Name>": {"auto": true, "modes": {"<Modusname>": "<panel-id>"}}
+    "<Gerätename>": {
+      "auto": true, "modes": {"<Modusname>": "<panel-id>"},
+      "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."}  // optional; auch "wallpanel" (Port 2971)
+    }
   }
 }
 ```
@@ -470,7 +474,16 @@ konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
 eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
 Neu laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
 können benannt werden. Die Visu meldet `kiosk=fully` in der WebSocket-URL,
-wenn sie in Fully Kiosk läuft. Einrichtung in `deploy/ANDROID.md`.
+wenn sie in Fully Kiosk läuft.
+
+**Display-Treiber (Schritt 3):** `App.display_drivers(on, device, panel)`
+spricht je Gerät die HTTP-Schnittstelle der Kiosk-App an (`_drive_display`):
+Fully Kiosk Remote Admin per `GET /?cmd=screenOn|screenOff&password=`,
+WallPanel per `POST /api/command {"wake": true|false}`. Konfiguration in
+`panels.json` unter `devices[name].display`, Konstante `DISPLAY_DRIVERS`.
+Aufrufer: `/api/display` (wartet auf das Ergebnis), Klingel und Wecker im
+`broadcaster`, `/api/notify` und `/api/goto` (im Hintergrund, `_spawn`),
+sowie die `idle`-Meldung der Visu. Einrichtung in `deploy/ANDROID.md`.
 
 **Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
 das per `sudo mkdir` als root angelegt wird, während der Agent als
