@@ -26,6 +26,7 @@ Programmierung und ohne die Loxone-App.
 - [Architektur](#architektur)
 - [Roadmap](#roadmap)
 - [Changelog](#changelog)
+- [Für Entwickler](#für-entwickler)
 
 ## Screenshots
 
@@ -384,6 +385,13 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 - **0.2.5** – Backup & Wiederherstellung der Konfiguration im Plugin-Widget.
 - **0.2.4** – Container-Aktionen laufen im Hintergrund + Live-Statuslog (kein Timeout mehr).
 - **0.2.x** – erstes öffentliches LoxBerry-Plugin (Docker, automatische Installation).
+
+## Für Entwickler
+
+Eine ausführliche Analyse von Aufbau, Datenfluss, Schnittstellen, Konfigurations-
+formaten und bekannten Schwachstellen steht in
+[`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md), ein kurzer Einstieg in
+[`CLAUDE.md`](CLAUDE.md).
 
 ## Support & Quellcode
 
