@@ -121,8 +121,14 @@ Browser (panel.html)
 ```
 
 Befehle vom Browser gehen über `App.command()` entweder an den Miniserver
-(`jdev/sps/io/<uuid>/<cmd>`) oder, bei AudioZone-Befehlen mit bekannter
-`playerid`, an den Audioserver auf Port 7091.
+(`jdev/sps/io/<uuid>/<cmd>`) oder, bei Zonenbefehlen mit bekannter `playerid`,
+direkt an den Audioserver auf Port 7091. `_audio_direct()` entscheidet:
+`AudioZone` (Musikserver Gen 1) immer direkt, `AudioZoneV2` nur mit
+`audio.directV2` in `loxpanel.cfg`, denn ein gekoppelter Loxone-Audioserver
+lehnt unangemeldete Befehle ab („command not allowed when paired", prüfbar mit
+`bin/audioserver_probe.py`). Titel und Cover für `AudioZoneV2` kommen nur über
+den Audioserver-Kanal (`audioserver_events.py`) und fehlen daher beim echten
+Audioserver, solange dessen Anmeldung nicht nachgebaut ist.
 
 ### 3.2 Start
 

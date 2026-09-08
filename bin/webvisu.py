@@ -364,6 +364,11 @@ class App:
 
         self.audio_cfg = audio or {}
         self.audio: AudioBackend | None = make_backend(self.audio_cfg)
+        # Zonen-Zuordnung (uuidAction -> playerid / Audioserver-Host / Typ),
+        # gefuellt in _apply_structure; leer, solange keine Struktur geladen ist.
+        self.playerid_by_action: dict[str, int] = {}
+        self.audiohost_by_action: dict[str, str] = {}
+        self.zone_type_by_action: dict[str, str] = {}
         # Ein Steuerungs-Backend je Audioserver-Host (WS 7091), aufgebaut on
         # demand aus dem in der Struktur hinterlegten mediaServer-Host.
         self.audio_backends: dict[str, AudioBackend] = {}
@@ -497,6 +502,7 @@ class App:
         self.op_modes = {str(k): v for k, v in (st.get("operatingModes") or {}).items()}
         self.playerid_by_action = {}
         self.audiohost_by_action = {}
+        self.zone_type_by_action = {}
         for _u, _c in self.controls.items():
             if _c.get("type") == "Intercom":
                 _bu = (_c.get("states") or {}).get("bell")
@@ -517,6 +523,7 @@ class App:
                 _ua = _c.get("uuidAction")
                 if _ua and _pid is not None:
                     self.playerid_by_action[_ua] = int(_pid)
+                    self.zone_type_by_action[_ua] = _c.get("type")
                     _hp = self.mediaservers.get(_det.get("server"))
                     if _hp:
                         self.audiohost_by_action[_ua] = _hp.split(":")[0].strip()
@@ -3114,6 +3121,21 @@ class App:
                 log.info("Audioserver-Backend fuer %s", host)
         return be
 
+    def _audio_direct(self, uuid: str) -> bool:
+        """Soll ein Zonenbefehl direkt an den Audioserver (Port 7091) gehen?
+
+        AudioZone (Musikserver Gen 1, MS4H): ja, der nimmt Befehle ohne
+        Anmeldung an. AudioZoneV2 (Audioserver Gen 2): nur wenn in loxpanel.cfg
+        `audio.directV2` gesetzt ist. Ein mit dem Miniserver gekoppelter
+        Loxone-Audioserver antwortet auf unangemeldete Befehle mit
+        "command not allowed when paired"; Nachbauten (Sonn, Audioserver4Home)
+        nehmen sie an. Standard ist deshalb der Weg ueber den Miniserver
+        (sps/io), der fuer play, pause, prev, next, on, off und volume
+        dokumentiert ist."""
+        if self.zone_type_by_action.get(uuid) == "AudioZoneV2":
+            return bool(self.audio_cfg.get("directV2"))
+        return True
+
     async def command(self, uuid: str, cmd: str, pin: str | None = None) -> str | None:
         """Fuehrt einen Befehl aus. Mit pin: gesicherter Befehl (Visu-Passwort)."""
         if not (self.client and uuid and cmd):
@@ -3130,7 +3152,7 @@ class App:
             # die Favoriten-Abfrage muss ueber den Miniserver laufen, sie
             # befuellt den sourceList-State fuer die Anzeige.
             pid = self.playerid_by_action.get(uuid)
-            if pid is not None and not cmd.startswith("roomfav/get"):
+            if pid is not None and not cmd.startswith("roomfav/get") and self._audio_direct(uuid):
                 backend = self._audio_backend_for(uuid)
                 if backend:
                     ok = await backend.command(pid, cmd)
@@ -3412,6 +3434,7 @@ async def api_settings(request: web.Request) -> web.Response:
     intercoms = [{"uuid": u, "name": _clean(c.get("name")), **icv(u)}
                  for u, c in app.controls.items() if c.get("type") == "Intercom"]
     am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
+    au = cfg.get("audio", {}) if isinstance(cfg.get("audio"), dict) else {}
     return web.json_response({
         "miniserver": {
             "host": ms.get("host") or os.environ.get("LOXPANEL_MS_HOST", ""),
@@ -3423,6 +3446,7 @@ async def api_settings(request: web.Request) -> web.Response:
         "intercoms": intercoms,
         "audiometa": {"enabled": bool(am.get("enabled", True)),
                       "servers": sorted(app.mediaservers.values())},
+        "audio": {"directV2": bool(au.get("directV2"))},
         "connected": app.client is not None,
         "nControls": len(app.controls),
     })
@@ -3503,8 +3527,15 @@ async def api_settings_audiometa(request: web.Request) -> web.Response:
     am = dict(cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {})
     am["enabled"] = bool(data.get("enabled"))
     cfg["audiometa"] = am
+    if "directV2" in data:
+        # Zonen des Audioservers Gen 2 direkt ueber Port 7091 steuern (nur fuer
+        # Nachbauten sinnvoll, siehe App._audio_direct).
+        au = dict(cfg.get("audio", {}) if isinstance(cfg.get("audio"), dict) else {})
+        au["directV2"] = bool(data.get("directV2"))
+        cfg["audio"] = au
     _write_cfg(cfg)
     app.audiometa_cfg = _audiometa_config()
+    app.audio_cfg = _audio_config()
     # Bei Deaktivierung laufende Clients sofort schliessen; beim Aktivieren
     # startet der audio_events_task sie beim naechsten Durchlauf automatisch.
     if not am["enabled"]:
@@ -3512,7 +3543,8 @@ async def api_settings_audiometa(request: web.Request) -> web.Response:
             await cl.close()
         app.audio_clients.clear()
     app._dirty = True
-    log.info("Audioserver-Live-Daten %s", "aktiv" if am["enabled"] else "aus")
+    log.info("Audioserver-Live-Daten %s, Gen-2-Zonen %s", "aktiv" if am["enabled"] else "aus",
+             "direkt (7091)" if app.audio_cfg.get("directV2") else "ueber den Miniserver")
     return web.json_response({"ok": True})
 
 

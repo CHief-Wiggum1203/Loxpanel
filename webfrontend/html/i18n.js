@@ -77,6 +77,10 @@
       'Der Weckton (Loxone-Wecker) wird direkt im Kiosk-Browser des Panels erzeugt. Mit dem Test-Ton prüfst du, ob am Panel wirklich etwas zu hören ist — falls nicht, liegt es meist an der Lautstärke/Ausgabe am Gerät (ALSA/PulseAudio), nicht am Browser.':
         'The alarm tone (Loxone alarm clock) is generated directly in the panel’s kiosk browser. Use the test tone to check whether the panel actually plays sound — if not, it is usually the volume/output on the device (ALSA/PulseAudio), not the browser.',
       'Test-Ton': 'Test tone',
+      'Zonen des Audioservers Gen 2 direkt über Port 7091 steuern (nur Nachbauten wie Sonn oder Audioserver4Home)':
+        'Control Audioserver Gen 2 zones directly via port 7091 (only for clones such as Sonn or Audioserver4Home)',
+      'Ein mit dem Miniserver gekoppelter Loxone-Audioserver lehnt Befehle ohne Anmeldung ab („command not allowed when paired"). Deshalb gehen Play, Pause, Vor, Zurück und Lautstärke standardmäßig über den Miniserver. Zonen eines Musikservers Gen 1 werden immer direkt gesteuert.':
+        'A Loxone Audioserver paired with the Miniserver rejects unauthenticated commands ("command not allowed when paired"). Play, pause, next, previous and volume therefore go through the Miniserver by default. Zones of a Music Server Gen 1 are always controlled directly.',
       'Sendet 3 kurze Pieptöne an das/die gewählte(n) Panel(s). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).':
         'Sends 3 short beeps to the selected panel(s). They must be open (kiosk running and showing the visu).',
       'Ziel-Panel': 'Target panel',

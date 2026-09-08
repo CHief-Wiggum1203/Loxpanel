@@ -107,7 +107,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>CentralAudioZone</code></td><td>Zentral Audio</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Radio</code></td><td>Radio / Auswahlschalter</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>AudioZone</code></td><td>Audiozone (Music Server)</td><td align="center">🟡</td><td>Play/Pause/Skip; Musikauswahl Platzhalter</td></tr>
-<tr><td><code>AudioZoneV2</code></td><td>Audiozone (Audioserver)</td><td align="center">✅</td><td>Play/Pause/Skip, Lautstärke, Quellen</td></tr>
+<tr><td><code>AudioZoneV2</code></td><td>Audiozone (Audioserver Gen 2)</td><td align="center">🟡</td><td>Play/Pause/Skip und Lautstärke über den Miniserver; Titel, Cover und Favoriten nur bei Nachbauten (Sonn, Audioserver4Home), der gekoppelte Loxone-Audioserver verlangt dafür eine Anmeldung</td></tr>
 <tr><td><code>MediaClient</code></td><td>Media Client</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Bedienelemente</th></tr>
 <tr><td><code>Pushbutton</code></td><td>Virtueller Taster</td><td align="center">✅</td><td>Puls</td></tr>
