@@ -3,21 +3,37 @@
 Der Loxone-Audioserver (Original ODER Nachbau wie Sonn/Audioserver4Home) sendet
 Now-Playing und Favoriten NICHT ueber die Miniserver-Struktur-States, sondern
 ueber einen eigenen Event-Kanal: die App verbindet sich direkt per WebSocket zum
-Audioserver (Port 7091, unverschluesselt, OHNE Auth) und bekommt beim Connect +
-bei jeder Aenderung `audio_event`-Push-Nachrichten fuer alle Zonen. So bekommen
-AudioZoneV2-Zonen im Panel Cover/Titel/Interpret/Status — universell, egal
-welcher Audioserver, mit Live-Push statt Polling.
+Audioserver (Port 7091, unverschluesselt) und bekommt beim Connect + bei jeder
+Aenderung `audio_event`-Push-Nachrichten fuer alle Zonen. So bekommen
+AudioZoneV2-Zonen im Panel Cover/Titel/Interpret/Status — mit Live-Push statt
+Polling.
 
-Nachrichtenformate (verifiziert gegen Sonn 4.0.0-beta.20 / LWSS API 1.6):
-  Banner (kein JSON):  "LWSS V 17.1.05.05 | ~API:1.6~ | Session-Token: ..."
+Verifiziert gegen den echten Loxone-Audioserver (LWSS 17.2, mit Miniserver
+gekoppelt) und gegen Sonn 4.0.0-beta.20 (LWSS API 1.6):
+  * Die WebSocket-Verbindung MUSS das Unterprotokoll "remotecontrol" anfordern
+    (wie beim Miniserver). Ohne Unterprotokoll nimmt der echte Audioserver die
+    Verbindung an, schweigt aber vollstaendig. Der Pfad ist egal.
+  * Ereignisse kommen ohne Anmeldung, sofort nach dem Connect fuer alle Zonen.
+  * Ein gekoppelter Audioserver beantwortet Befehle ohne Anmeldung per HTTP
+    mit {"error": "command not allowed when paired"} und schliesst den
+    WebSocket beim ersten Befehl. Deshalb wird der Kanal dort nur zum Hoeren
+    benutzt (self.paired); Nachbauten nehmen Befehle und getroomfavs an.
+
+Nachrichtenformate:
+  Banner (kein JSON):  "LWSS V 17.2.08.28 | ~API:1.6~ | Session-Token: ..."
   Push:  {"audio_event":[{playerid,name,title,artist,album,coverurl,station,
-                          mode(play/pause/stop),volume,plrepeat,plshuffle,...}]}
+                          mode(play/pause/stop),power,volume,plrepeat,plshuffle,
+                          audiopath,audiotype,qid,qindex,duration,...}]}
   Abruf: audio/<id>/status            -> {"status_result":[{...wie audio_event}]}
          audio/cfg/getroomfavs/<id>   -> {"getroomfavs_result":[{id,items:[
                                           {slot,name,title,coverurl,type,...}]}]}
+  HTTP:  audio/cfg/getkey             -> RSA-Public-Key des Audioservers (auch
+                                          gekoppelt), Ansatz fuer eine spaetere
+                                          Anmeldung.
 
-Steuerung (play/pause/next/volume/roomfav) laeuft weiter ueber den Miniserver
-(`sps/io/<uuid>/<cmd>` -> `audio/<id>/<cmd>`), nicht ueber dieses Modul.
+Steuerung (play/pause/next/volume) laeuft ueber den Miniserver
+(`sps/io/<uuid>/<cmd>`) bzw. bei Nachbauten direkt (audioserver.py), nicht
+ueber dieses Modul.
 """
 from __future__ import annotations
 
@@ -40,11 +56,17 @@ class AudioEventClient:
     playerid), NICHT ueber den Namen — das ist eindeutig und kollisionsfrei.
     """
 
+    PROTOCOL = "remotecontrol"   # Pflicht: ohne Unterprotokoll schweigt der Audioserver
+    PAIRED_ERROR = "not allowed when paired"
+
     def __init__(self, host: str, port: int = 7091):
         self.host = host
         self.port = port
         self.now: dict[int, dict] = {}
         self.favs: dict[int, list] = {}
+        # None = noch nicht geprueft; True = gekoppelter Loxone-Audioserver, der
+        # auf diesem Kanal keine Befehle annimmt (nur hoeren); False = Befehle ok.
+        self.paired: bool | None = None
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._session: aiohttp.ClientSession | None = None
         self._on_change = None
@@ -67,8 +89,10 @@ class AudioEventClient:
                 "title": e.get("title") or "",
                 "artist": e.get("artist") or "",
                 "album": e.get("album") or e.get("station") or "",
+                "station": e.get("station") or "",
                 "cover": e.get("coverurl") or "",
                 "playing": (e.get("mode") == "play"),
+                "power": e.get("power"),
                 "volume": e.get("volume"),
             }
             if self.now.get(pid) != np:
@@ -133,9 +157,33 @@ class AudioEventClient:
         Die Range-Form `.../<start>/<count>` ist zwingend: ohne sie liefert der
         Server die Favoriten mit `slot: null` (nicht abspielbar). Mit Range
         kommen echte Slot-Nummern (1..N) fuer roomfav/play/<slot>.
+
+        Bei einem gekoppelten Loxone-Audioserver wird nichts gesendet: jeder
+        Befehl auf dem Kanal beendet dort die Verbindung, und die Ereignisse
+        (Cover/Titel) waeren weg.
         """
-        if playerid is not None:
-            await self._send(f"audio/cfg/getroomfavs/{int(playerid)}/0/50")
+        if playerid is None or self.paired:
+            return
+        await self._send(f"audio/cfg/getroomfavs/{int(playerid)}/0/50")
+
+    async def _check_paired(self) -> None:
+        """Einmal per HTTP pruefen, ob der Audioserver Befehle ohne Anmeldung
+        annimmt. Gekoppelte Loxone-Audioserver antworten mit
+        "command not allowed when paired"; Nachbauten liefern die Zonenliste."""
+        if self.paired is not None:
+            return
+        try:
+            async with self._session.get(f"http://{self.host}:{self.port}/audio/cfg/all",
+                                         timeout=aiohttp.ClientTimeout(total=6)) as r:
+                text = await r.text()
+        except Exception as err:
+            log.debug("Audioserver %s: audio/cfg/all nicht abfragbar: %s", self.host, err)
+            return
+        self.paired = self.PAIRED_ERROR in text
+        log.info("Audioserver %s: %s", self.host,
+                 "mit dem Miniserver gekoppelt, Kanal nur zum Hoeren (Cover/Titel); "
+                 "Favoriten und Befehle nicht ueber Port 7091"
+                 if self.paired else "nimmt Befehle auf Port 7091 an (Favoriten moeglich)")
 
     async def run(self, on_change=None) -> None:
         """Verbindungs-/Lese-Schleife mit Auto-Reconnect. `on_change` wird bei
@@ -145,8 +193,10 @@ class AudioEventClient:
             try:
                 if self._session is None or self._session.closed:
                     self._session = aiohttp.ClientSession()
+                await self._check_paired()
                 async with self._session.ws_connect(
-                        self.url, timeout=8, heartbeat=30) as ws:
+                        self.url, timeout=8, heartbeat=30,
+                        protocols=(self.PROTOCOL,)) as ws:
                     self._ws = ws
                     log.info("Audioserver-Events verbunden: %s", self.url)
                     async for m in ws:
