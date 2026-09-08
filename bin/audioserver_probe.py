@@ -32,6 +32,7 @@ ARG = sys.argv[1] if len(sys.argv) > 1 else ""
 FAVS_ONLY = ARG == "favs"
 ROOMFAV_ONLY = ARG == "roomfav"
 ROOMFAVWS_ONLY = ARG == "roomfavws"
+ZONEDUMP_ONLY = ARG == "zonedump"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -440,6 +441,95 @@ async def roomfav_ws_probe():
         await ws.close()
 
 
+async def zonedump_probe():
+    """Teil 8: Aufbau einer AudioZoneV2 in der Struktur (states, details,
+    subControls) und die ROHEN WebSocket-Antworten des Miniservers auf
+    roomfav/get. LoxoneWS.stream() verwirft Text-Frames (Kommando-Antworten);
+    hier wird jeder Frame gezeigt. Nichts wird veraendert."""
+    print("\n===== Teil 8: AudioZoneV2-Aufbau und rohe WS-Antworten auf roomfav/get")
+    for d in (str(APP_DIR / "bin"), "/app/bin"):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    from loxone_api import LoxoneClient
+    from loxone_ws import LoxoneWS, format_uuid
+    import struct
+    ms = miniserver_config()
+    if not ms.get("host"):
+        print("  kein Miniserver-Zugang gefunden"); return
+    host = ms["host"]; port = int(ms.get("port", 443)); secure = port != 80
+    c = LoxoneClient(host=host, user=ms.get("user", ""), password=ms.get("pass", ""),
+                     port=port, verify_tls=bool(ms.get("verify_tls", False)))
+    if not secure:
+        c.base_url = f"http://{host}:{port}/"
+    async with c:
+        alg = (await c.getkey2()).hashAlg
+        jwt = await c.authenticate()
+        st = await c.load_structure()
+    print("  Struktur-Abschnitte:", ", ".join(sorted(k for k in st.keys() if isinstance(st, dict))))
+    for u, v in (st.get("mediaServer") or {}).items():
+        print(f"  mediaServer {u}: {cut(json.dumps(v, ensure_ascii=False), 400)}")
+    controls = st.get("controls", {}) if isinstance(st, dict) else {}
+    zones = [(u, cc) for u, cc in controls.items() if isinstance(cc, dict) and cc.get("type") == "AudioZoneV2"]
+    if not zones:
+        print("  keine AudioZoneV2"); return
+    u, cc = zones[0]
+    print(f"\n--- Control {cc.get('name')} ({u}) vollstaendig:")
+    print("  " + cut(json.dumps(cc, ensure_ascii=False), 3000))
+    ua = cc.get("uuidAction") or u
+    state_name = {suid: sname for sname, suid in (cc.get("states") or {}).items() if isinstance(suid, str)}
+
+    ws = LoxoneWS(host=host, port=port, user=ms.get("user", ""), jwt=jwt,
+                  hash_alg=alg, verify_tls=bool(ms.get("verify_tls", False)), secure=secure)
+    await ws.connect()
+    raw = ws._ws
+    pending = {"ident": None}
+
+    async def drain(secs, label):
+        loop = asyncio.get_event_loop(); end = loop.time() + secs
+        n_bin = 0; n_txt = 0
+        while True:
+            left = end - loop.time()
+            if left <= 0:
+                break
+            try:
+                m = await asyncio.wait_for(raw.receive(), timeout=left)
+            except asyncio.TimeoutError:
+                break
+            if m.type == aiohttp.WSMsgType.TEXT:
+                n_txt += 1
+                print(f"  [{label}] TEXT <- {cut(m.data, 1500)}")
+            elif m.type == aiohttp.WSMsgType.BINARY:
+                data = m.data
+                if len(data) == 8 and data[0] == 0x03:
+                    pending["ident"] = data[1]; continue
+                ident, pending["ident"] = pending["ident"], None
+                n_bin += 1
+                if ident == 3:      # Text-States: nur die dieser Zone bzw. mit roomfav zeigen
+                    off = 0
+                    while off + 36 <= len(data):
+                        suid = format_uuid(data[off:off + 16])
+                        tlen = struct.unpack("<I", data[off + 32:off + 36])[0]
+                        text = data[off + 36:off + 36 + tlen].decode("utf-8", "replace")
+                        off += (36 + tlen + 3) & ~3
+                        if suid in state_name or "roomfav" in text or "getroomfavs" in text:
+                            print(f"  [{label}] TEXT-STATE {suid} [{state_name.get(suid, '?')}] = {cut(text, 300)}")
+                elif ident not in (2, 3):
+                    print(f"  [{label}] BINARY ident={ident} {len(data)} Bytes")
+            else:
+                print(f"  [{label}] WS {m.type.name}"); break
+        print(f"  [{label}] Frames: {n_bin} binaer, {n_txt} text")
+
+    try:
+        await drain(3, "Voll-Dump")
+        for cmd in (f"jdev/sps/io/{ua}/roomfav/get/0/50", f"jdev/sps/io/{ua}/roomfav/get",
+                    f"jdev/sps/io/{ua}/roomfavs", f"jdev/sps/io/{ua}/getroomfavs/0/50"):
+            print(f"\n--- sende {cmd}")
+            await raw.send_str(cmd)
+            await drain(4, "Antwort")
+    finally:
+        await ws.close()
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -458,6 +548,9 @@ async def main():
         return
     if ROOMFAVWS_ONLY:
         await roomfav_ws_probe()
+        return
+    if ZONEDUMP_ONLY:
+        await zonedump_probe()
         return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
