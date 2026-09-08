@@ -317,6 +317,8 @@
             <p class="note" data-i18n>Loxone-Audioserver (Gen 2) liefern Cover/Titel/Interpret und Favoriten über einen eigenen Live-Kanal (Audioprotokoll, Port 7091) — genau wie die Loxone-App. LoxPanel abonniert diesen Kanal und legt die Infos über die passende Zone. Die Audioserver-Adresse wird <b>automatisch</b> aus der Loxone-Struktur erkannt — keine IP-Eingabe nötig. Funktioniert mit dem originalen Loxone-Audioserver ebenso wie mit Nachbauten (Sonn/Audioserver4Home). Musikserver-/MS4H-Zonen bleiben unberührt (die liefern es ohnehin).</p>
             <label class="chk"><input type="checkbox" id="am_enabled"><span data-i18n>Audioserver-Live-Daten abonnieren (automatisch)</span></label>
             <div class="note" id="am_servers" style="margin-top:8px"></div>
+            <label class="chk" style="margin-top:12px"><input type="checkbox" id="am_direct"><span data-i18n>Zonen des Audioservers Gen 2 direkt über Port 7091 steuern (nur Nachbauten wie Sonn oder Audioserver4Home)</span></label>
+            <p class="note" data-i18n>Ein mit dem Miniserver gekoppelter Loxone-Audioserver lehnt Befehle ohne Anmeldung ab („command not allowed when paired"). Deshalb gehen Play, Pause, Vor, Zurück und Lautstärke standardmäßig über den Miniserver. Zonen eines Musikservers Gen 1 werden immer direkt gesteuert.</p>
             <div class="actions"><button class="btn" id="am_save" data-i18n>Speichern</button><span class="toast" id="am_toast"></span></div>
           </div>
         </section>
@@ -973,6 +975,7 @@ async function loadSettings(){
   }
   const am=SET.audiometa||{};
   const ae=$('#am_enabled'); if(ae) ae.checked=am.enabled!==false;
+  const ad=$('#am_direct'); if(ad) ad.checked=!!((SET.audio||{}).directV2);
   const srv=$('#am_servers');
   if(srv){ const list=am.servers||[];
     srv.innerHTML = list.length
@@ -1009,7 +1012,7 @@ $('#ic_save').onclick=async()=>{
 };
 
 $('#am_save').onclick=async()=>{
-  const body={enabled:$('#am_enabled').checked};
+  const body={enabled:$('#am_enabled').checked, directV2:$('#am_direct').checked};
   $('#am_save').disabled=true;
   try{
     const r=await fetch('/api/settings/audiometa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

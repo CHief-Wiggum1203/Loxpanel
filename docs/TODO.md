@@ -280,9 +280,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ### 8.4 Nur teilweise umgesetzt (6)
 
-- [x] `AudioZone`: Upstream 0.3.2 holt Favoriten und Steuerung direkt vom
-      Audioserver (Port 7091), auch für `AudioZoneV2`; an der eigenen Anlage
-      noch nicht geprüft. **M**
+- [ ] `AudioZoneV2` (Loxone Audioserver Gen 2, gekoppelt): Steuerung läuft
+      wieder über den Miniserver (`sps/io`), weil der Audioserver unangemeldete
+      Befehle auf Port 7091 mit „command not allowed when paired" ablehnt
+      (Sonde `bin/audioserver_probe.py`). Offen: Titel, Cover und Favoriten
+      kommen nur über den Audioserver-Kanal; dafür muss der Anmeldeablauf der
+      Loxone-App gegenüber dem gekoppelten Audioserver nachgebaut werden
+      (Handshake `secure/hello` … mit Token vom Miniserver). Bis dahin zeigt
+      die Zone nur „Spielt/Aus" und Lautstärke. **L**
+- [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn): Upstream 0.3.2 holt
+      Favoriten und Steuerung direkt vom Audioserver (Port 7091); mit
+      `audio.directV2` auch für `AudioZoneV2`-Nachbauten. **M**
 - [ ] `AlarmClock` (Wecker): nur Anzeige und Weckton, kein Bearbeiten der
       Weckzeiten. **M**
 - [ ] `Intercom`: Kamera und Klingel-Popup, kein Gegensprechen (SIP). **L**
