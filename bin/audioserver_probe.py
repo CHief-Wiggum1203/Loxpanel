@@ -30,6 +30,7 @@ import aiohttp
 
 ARG = sys.argv[1] if len(sys.argv) > 1 else ""
 FAVS_ONLY = ARG == "favs"
+ROOMFAV_ONLY = ARG == "roomfav"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -296,6 +297,72 @@ async def favs_probe(host, port):
         print(f"  Ergebnis Zone {pid}: Favoriten={got['result']}, Verbindung geschlossen={got['closed_after_send']}")
 
 
+async def roomfav_probe():
+    """Teil 6: Holt der MINISERVER die Raumfavoriten inline zurueck?
+
+    Baut den Miniserver-Client wie der Server (Token-Anmeldung), laedt die
+    Struktur, findet die AudioZoneV2-Zonen und schickt fuer die ersten zwei
+    `jdev/sps/io/<uuidAction>/roomfav/get/0/50`. Zeigt die rohe Antwort und
+    LL.value. Erwartung bei Erfolg: LL.value ist ein (evtl. prozentkodierter)
+    JSON-Text mit getroomfavs_result und items (slot, name, coverurl). Damit
+    liesse sich die Favoritenliste ohne Audioserver-Anmeldung fuellen.
+    Es wird nichts veraendert (roomfav/get liest nur)."""
+    print("\n===== Teil 6: Raumfavoriten ueber den Miniserver (roomfav/get)")
+    for d in (str(APP_DIR / "bin"), "/app/bin"):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    from loxone_api import LoxoneClient
+    ms = miniserver_config()
+    if not ms.get("host"):
+        print("  kein Miniserver-Zugang gefunden"); return
+    port = int(ms.get("port", 443))
+    c = LoxoneClient(host=ms["host"], user=ms.get("user", ""), password=ms.get("pass", ""),
+                     port=port, verify_tls=bool(ms.get("verify_tls", False)))
+    if port == 80:
+        c.base_url = f"http://{ms['host']}:{port}/"
+    async with c:
+        await c.getkey2()
+        await c.authenticate()
+        st = await c.load_structure()
+    controls = st.get("controls", {}) if isinstance(st, dict) else {}
+    zones = [(u, cc) for u, cc in controls.items() if isinstance(cc, dict) and cc.get("type") == "AudioZoneV2"]
+    print(f"  {len(zones)} AudioZoneV2-Zonen in der Struktur")
+    if not zones:
+        return
+    # Der Client muss fuer die Kommandos offen bleiben:
+    c2 = LoxoneClient(host=ms["host"], user=ms.get("user", ""), password=ms.get("pass", ""),
+                      port=port, verify_tls=bool(ms.get("verify_tls", False)))
+    if port == 80:
+        c2.base_url = f"http://{ms['host']}:{port}/"
+    async with c2:
+        await c2.getkey2()
+        await c2.authenticate()
+        for u, cc in zones[:2]:
+            ua = cc.get("uuidAction") or u
+            name = cc.get("name", "")
+            print(f"\n--- Zone {name} (uuidAction {ua})")
+            path = f"sps/io/{ua}/roomfav/get/0/50"
+            try:
+                r = await c2.jdev_get(path)
+            except Exception as err:
+                print(f"  jdev_get Fehler: {cut(err, 300)}"); continue
+            ll = (r.get("LL") or {}) if isinstance(r, dict) else {}
+            val = ll.get("value")
+            code = ll.get("Code") or ll.get("code")
+            print(f"  Code: {code}")
+            print(f"  LL.value (roh): {cut(repr(val), 700)}")
+            if isinstance(val, str) and val.strip():
+                from urllib.parse import unquote
+                txt = unquote(val)
+                try:
+                    parsed = json.loads(txt)
+                    print(f"  LL.value als JSON: {cut(json.dumps(parsed, ensure_ascii=False), 700)}")
+                except (ValueError, TypeError):
+                    if txt != val:
+                        print(f"  LL.value (url-dekodiert): {cut(txt, 500)}")
+                    print("  (nicht als JSON parsebar)")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -309,6 +376,9 @@ async def main():
                   ", ".join(f"{z.get('name')} ({z.get('roomName')})" for z in zones) or "keine")
         except Exception as err:
             print("Zonenliste nicht lesbar:", err)
+    if ROOMFAV_ONLY:
+        await roomfav_probe()
+        return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
         host, _, port = hp.partition(":")
