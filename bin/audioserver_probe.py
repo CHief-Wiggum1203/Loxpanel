@@ -31,6 +31,7 @@ import aiohttp
 ARG = sys.argv[1] if len(sys.argv) > 1 else ""
 FAVS_ONLY = ARG == "favs"
 ROOMFAV_ONLY = ARG == "roomfav"
+ROOMFAVWS_ONLY = ARG == "roomfavws"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -363,6 +364,82 @@ async def roomfav_probe():
                     print("  (nicht als JSON parsebar)")
 
 
+async def roomfav_ws_probe():
+    """Teil 7: Kommt die Favoritenliste als Zustands-Push ueber DIESELBE
+    WebSocket, die den Befehl sendet? Der Miniserver echot roomfav/get nur
+    (Teil 6), die Liste kommt asynchron als Text-State. Dieser Push geht an die
+    WS-Sitzung, die den Befehl abgesetzt hat. Also: eine LoxoneWS-Verbindung
+    aufbauen (Status-Updates an), roomfav/get UEBER DIESE WS senden und sehen,
+    welcher Text-State die Liste traegt. Nichts wird veraendert."""
+    print("\n===== Teil 7: Favoriten als Zustands-Push (roomfav/get ueber die Status-WS)")
+    for d in (str(APP_DIR / "bin"), "/app/bin"):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    from loxone_api import LoxoneClient
+    from loxone_ws import LoxoneWS
+    ms = miniserver_config()
+    if not ms.get("host"):
+        print("  kein Miniserver-Zugang gefunden"); return
+    host = ms["host"]; port = int(ms.get("port", 443)); secure = port != 80
+    c = LoxoneClient(host=host, user=ms.get("user", ""), password=ms.get("pass", ""),
+                     port=port, verify_tls=bool(ms.get("verify_tls", False)))
+    if not secure:
+        c.base_url = f"http://{host}:{port}/"
+    async with c:
+        alg = (await c.getkey2()).hashAlg
+        jwt = await c.authenticate()
+        st = await c.load_structure()
+    controls = st.get("controls", {}) if isinstance(st, dict) else {}
+    # Reverse-Map: State-UUID -> "Zone.stateName" fuer alle AudioZoneV2
+    state_name = {}
+    zones = []
+    for u, cc in controls.items():
+        if not (isinstance(cc, dict) and cc.get("type") == "AudioZoneV2"):
+            continue
+        zones.append((cc.get("uuidAction") or u, cc.get("name", "")))
+        for sname, suid in (cc.get("states") or {}).items():
+            if isinstance(suid, str):
+                state_name[suid] = f"{cc.get('name','')}.{sname}"
+    print(f"  {len(zones)} AudioZoneV2-Zonen, {len(state_name)} bekannte State-UUIDs")
+    if not zones:
+        return
+    ws = LoxoneWS(host=host, port=port, user=ms.get("user", ""), jwt=jwt,
+                  hash_alg=alg, verify_tls=bool(ms.get("verify_tls", False)), secure=secure)
+    texts = {}
+    def on_value(uuid, val):
+        if isinstance(val, str):
+            texts[uuid] = val
+    await ws.connect()
+    stream = asyncio.ensure_future(ws.stream(on_value))
+    try:
+        await asyncio.sleep(3)          # Voll-Dump abwarten (Basis)
+        base = dict(texts)
+        for ua, name in zones[:2]:
+            print(f"\n--- Zone {name}: sende roomfav/get ueber die Status-WS")
+            texts.clear(); texts.update(base)
+            await ws._ws.send_str(f"jdev/sps/io/{ua}/roomfav/get/0/50")
+            await asyncio.sleep(4)
+            hits = []
+            for uuid, val in texts.items():
+                changed = base.get(uuid) != val
+                if "getroomfavs_result" in val or ("roomfav" in val and "{" in val) or \
+                   ('"slot"' in val and ("coverurl" in val or "\"name\"" in val)):
+                    hits.append((uuid, val, changed))
+            if hits:
+                for uuid, val, changed in hits:
+                    label = state_name.get(uuid, "(nicht in der Zonen-Statenliste)")
+                    print(f"  >>> FAVORITEN-STATE {uuid}  [{label}]  geaendert={changed}")
+                    print(f"      {cut(val, 700)}")
+            else:
+                ch = [(u, v) for u, v in texts.items() if base.get(u) != v]
+                print(f"  keine Favoriten-Liste erkannt. Geaenderte Text-States: {len(ch)}")
+                for u, v in ch[:6]:
+                    print(f"    {u} [{state_name.get(u,'?')}]: {cut(v, 200)}")
+    finally:
+        stream.cancel()
+        await ws.close()
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -378,6 +455,9 @@ async def main():
             print("Zonenliste nicht lesbar:", err)
     if ROOMFAV_ONLY:
         await roomfav_probe()
+        return
+    if ROOMFAVWS_ONLY:
+        await roomfav_ws_probe()
         return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
