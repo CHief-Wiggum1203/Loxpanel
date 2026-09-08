@@ -200,6 +200,23 @@ async def path_probe(host, port):
         print(f"  HTTP Fehler: {cut(err)}")
 
 
+async def event_probe(host, port):
+    """Teil 4: Verhalten des Ereigniskanals mit Unterprotokoll remotecontrol.
+    Kommen Ereignisse laufend ohne Befehl? Welcher Befehl schliesst die
+    Verbindung? Antwortet secure/info/pairing allein?"""
+    print(f"\n===== Teil 4: Ereigniskanal (remotecontrol) an {host}:{port}")
+    print("\n--- 10 s nur hoeren, kein Befehl (Lautstaerke oder Titel am Geraet aendern zeigt Ereignisse)")
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.ws_connect(f"ws://{host}:{port}/", timeout=8, protocols=("remotecontrol",)) as ws:
+                await listen(ws, 10)
+                print(f"  Verbindung danach offen: {not ws.closed}")
+    except Exception as err:
+        print(f"  WS Fehler: {cut(err)}")
+    for cmd in (f"audio/{PLAYER}/status", "secure/info/pairing", "audio/cfg/getkey"):
+        await ws_try(host, port, f"remotecontrol, nur {cmd}", [cmd], protocols=("remotecontrol",))
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -218,6 +235,7 @@ async def main():
         host, _, port = hp.partition(":")
         port = int(port) if port.strip().isdigit() else 7091
         await probe(host.strip(), port, volume)
+        await event_probe(host.strip(), port)
         await path_probe(host.strip(), port)
         await auth_probe(host.strip(), port)
 

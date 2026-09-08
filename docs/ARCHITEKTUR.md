@@ -126,9 +126,12 @@ direkt an den Audioserver auf Port 7091. `_audio_direct()` entscheidet:
 `AudioZone` (Musikserver Gen 1) immer direkt, `AudioZoneV2` nur mit
 `audio.directV2` in `loxpanel.cfg`, denn ein gekoppelter Loxone-Audioserver
 lehnt unangemeldete Befehle ab („command not allowed when paired", prüfbar mit
-`bin/audioserver_probe.py`). Titel und Cover für `AudioZoneV2` kommen nur über
-den Audioserver-Kanal (`audioserver_events.py`) und fehlen daher beim echten
-Audioserver, solange dessen Anmeldung nicht nachgebaut ist.
+`bin/audioserver_probe.py`). Titel, Sender und Cover für `AudioZoneV2` kommen
+über den Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das
+Unterprotokoll `remotecontrol` anfordern, dann schickt auch der gekoppelte
+Audioserver die Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem
+Kanal (auch `getroomfavs`) schließen dort die Verbindung, deshalb erkennt der
+Client den gekoppelten Zustand per HTTP und benutzt den Kanal nur zum Hören.
 
 ### 3.2 Start
 

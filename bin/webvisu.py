@@ -780,10 +780,11 @@ class App:
         # (Ergebnis kommt async -> _dirty). Der Loxone-sourceList-State ist bei
         # vielen Setups leer, deshalb ist das der zuverlaessige Weg.
         cl, pid = self._audio_client_for(c)
-        if cl is not None and pid is not None:
+        if cl is not None and pid is not None and not cl.paired:
             await cl.request_favs(pid)
             return
-        # Fallback ohne Event-Client (z.B. MS4H ohne 7091): Loxone-roomfav.
+        # Fallback ohne Event-Client (z.B. MS4H ohne 7091) oder bei gekoppeltem
+        # Loxone-Audioserver (nimmt auf 7091 keine Befehle an): Loxone-roomfav.
         ua = c.get("uuidAction")
         if ua:
             await self.command(ua, "roomfav/get/0/20")
