@@ -72,7 +72,7 @@ async def fetch_jwt() -> str:
     port = int(ms.get("port", 443))
     c = LoxoneClient(host=ms["host"], user=ms.get("user", ""), password=ms.get("pass", ""),
                      port=port, verify_tls=bool(ms.get("verify_tls", False)))
-    if port not in (443, 8443):
+    if port == 80:   # wie _ms_https() im Server: Gen 1 spricht nur HTTP
         c.base_url = f"http://{ms['host']}:{port}/"
     async with c:
         await c.getkey2()
