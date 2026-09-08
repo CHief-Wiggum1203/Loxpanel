@@ -28,7 +28,9 @@ from pathlib import Path
 
 import aiohttp
 
-PLAYER = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+ARG = sys.argv[1] if len(sys.argv) > 1 else ""
+FAVS_ONLY = ARG == "favs"
+PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
 JWT = ""   # wird in Teil 2 gesetzt, damit cut() das Token unkenntlich macht
@@ -217,6 +219,83 @@ async def event_probe(host, port):
         await ws_try(host, port, f"remotecontrol, nur {cmd}", [cmd], protocols=("remotecontrol",))
 
 
+async def collect_players(host, port, secs=3):
+    """Playerids aus den audio_event-Pushs einer remotecontrol-Verbindung."""
+    ids = {}
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.ws_connect(f"ws://{host}:{port}/", timeout=8, protocols=("remotecontrol",)) as ws:
+                end = asyncio.get_event_loop().time() + secs
+                while True:
+                    left = end - asyncio.get_event_loop().time()
+                    if left <= 0:
+                        break
+                    try:
+                        m = await asyncio.wait_for(ws.receive(), timeout=left)
+                    except asyncio.TimeoutError:
+                        break
+                    if m.type != aiohttp.WSMsgType.TEXT:
+                        break
+                    try:
+                        data = json.loads(m.data)
+                    except (ValueError, TypeError):
+                        continue
+                    for e in data.get("audio_event", []) or []:
+                        if isinstance(e, dict) and e.get("playerid") is not None:
+                            ids.setdefault(e["playerid"], (e.get("name") or "").strip())
+    except Exception as err:
+        print(f"  Playerids nicht lesbar: {cut(err)}")
+    return ids
+
+
+async def favs_probe(host, port):
+    """Teil 5: Holt der gekoppelte Audioserver Favoriten heraus, bevor er die
+    remotecontrol-Verbindung schliesst? Je Zone eine frische Verbindung:
+    zuerst die Events abwarten, dann getroomfavs senden und die Antwort samt
+    Schliess-Zeitpunkt zeigen. Nichts wird veraendert."""
+    print(f"\n===== Teil 5: Favoriten ueber frische remotecontrol-Verbindungen an {host}:{port}")
+    players = await collect_players(host, port)
+    if not players:
+        print("  Keine Playerids aus den Ereignissen — laeuft Musik? Sonst spaeter erneut.")
+        return
+    print("  Playerids:", ", ".join(f"{pid} ({name})" for pid, name in sorted(players.items())))
+    for pid in sorted(players):
+        label = f"Zone {pid} ({players[pid]})"
+        got = {"result": False, "closed_after_send": False}
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.ws_connect(f"ws://{host}:{port}/", timeout=8, protocols=("remotecontrol",)) as ws:
+                    await listen(ws, 1.5)   # Banner + erste Events schlucken
+                    cmd = f"audio/cfg/getroomfavs/{pid}/0/50"
+                    print(f"\n--- {label}: sende {cmd}")
+                    if ws.closed:
+                        print("  (Verbindung war schon zu)")
+                        continue
+                    await ws.send_str(cmd)
+                    loop = asyncio.get_event_loop(); end = loop.time() + 6
+                    while True:
+                        left = end - loop.time()
+                        if left <= 0:
+                            break
+                        try:
+                            m = await asyncio.wait_for(ws.receive(), timeout=left)
+                        except asyncio.TimeoutError:
+                            break
+                        if m.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.ERROR):
+                            print(f"  WS geschlossen: {m.type.name}")
+                            got["closed_after_send"] = True
+                            break
+                        if m.type == aiohttp.WSMsgType.TEXT:
+                            if "getroomfavs_result" in m.data or "roomfav" in m.data:
+                                got["result"] = True
+                                print(f"  >>> FAVORITEN: {cut(m.data, 700)}")
+                            else:
+                                print(f"  WS <- {cut(m.data, 160)}")
+        except Exception as err:
+            print(f"  WS Fehler: {cut(err)}")
+        print(f"  Ergebnis Zone {pid}: Favoriten={got['result']}, Verbindung geschlossen={got['closed_after_send']}")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -234,10 +313,14 @@ async def main():
     for hp in servers:
         host, _, port = hp.partition(":")
         port = int(port) if port.strip().isdigit() else 7091
+        if FAVS_ONLY:
+            await favs_probe(host.strip(), port)
+            continue
         await probe(host.strip(), port, volume)
         await event_probe(host.strip(), port)
         await path_probe(host.strip(), port)
         await auth_probe(host.strip(), port)
+        await favs_probe(host.strip(), port)
 
 
 if __name__ == "__main__":
