@@ -126,12 +126,15 @@ async def probe(host, port, volume):
             print(f"WS Fehler: {err}")
 
 
-async def ws_try(host, port, label, cmds, headers=None, query=""):
+async def ws_try(host, port, label, cmds, headers=None, query="", path="/", protocols=()):
     """Eine frische WebSocket-Verbindung, Befehle nacheinander, Antworten zeigen."""
     print(f"\n--- {label}")
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.ws_connect(f"ws://{host}:{port}/{query}", timeout=8, headers=headers or {}) as ws:
+            async with s.ws_connect(f"ws://{host}:{port}{path}{query}", timeout=8,
+                                    headers=headers or {}, protocols=protocols) as ws:
+                if ws.protocol:
+                    print(f"  Unterprotokoll bestaetigt: {ws.protocol}")
                 await listen(ws, 1.5)
                 for cmd in cmds:
                     if ws.closed:
@@ -174,6 +177,29 @@ async def auth_probe(host, port):
         print(f"  HTTP Fehler: {cut(err)}")
 
 
+async def path_probe(host, port):
+    """Teil 3: Auf welchem Pfad und mit welchem Unterprotokoll antwortet der
+    WebSocket ueberhaupt? Der Miniserver nutzt /ws/rfc6455 und das
+    Unterprotokoll "remotecontrol"; die App verwendet dieselbe Bibliothek."""
+    print(f"\n===== Teil 3: WebSocket-Pfade an {host}:{port}")
+    probe_cmds = ["secure/info/pairing", "audio/cfg/all"]
+    for path in ("/ws/rfc6455", "/ws", "/websocket", "/rfc6455", "/"):
+        for protos in (("remotecontrol",), ()):
+            label = f"Pfad {path}" + (f", Unterprotokoll {protos[0]}" if protos else ", ohne Unterprotokoll")
+            await ws_try(host, port, label, probe_cmds, path=path, protocols=protos)
+    print("\n--- HTTP: welche secure/*-Befehle kennt der Server (Fehlertext unterscheidet)?")
+    cid = str(uuidlib.uuid4())
+    try:
+        async with aiohttp.ClientSession() as s:
+            for path in ("secure/info/pairing", "secure/info", f"secure/hello/{cid}/probe", "secure/hello/probe",
+                         "secure/init/probe", "secure/init", "secure/authenticate/probe", "secure/authenticate",
+                         "audio/cfg/ready", "audio/cfg/miniserverip", "audio/cfg/getkey"):
+                async with s.get(f"http://{host}:{port}/{path}", timeout=aiohttp.ClientTimeout(total=6)) as r:
+                    print(f"  HTTP GET /{cut(path, 60)} -> {r.status} {cut(await r.text(), 220)}")
+    except Exception as err:
+        print(f"  HTTP Fehler: {cut(err)}")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -192,6 +218,7 @@ async def main():
         host, _, port = hp.partition(":")
         port = int(port) if port.strip().isdigit() else 7091
         await probe(host.strip(), port, volume)
+        await path_probe(host.strip(), port)
         await auth_probe(host.strip(), port)
 
 
