@@ -532,17 +532,21 @@ async def zonedump_probe():
 
 
 APPJS_KEYWORDS = ("secure/hello", "secure/authenticate", "secure/init", "audio/cfg/getkey",
-                  "Session-Token", "getroomfavs", "remotecontrol", "keyexchange", "audio/cfg/all")
+                  "keyexchange", "getroomfavs", "Session-Token")
+APPJS_BROAD = ("audioserver", "AudioServer", "mediaServer", "7091", "LWSS", "remotecontrol", "audio_event")
 
 
 async def appjs_probe():
     """Teil 9: Den Quellcode der Loxone-Weboberflaeche vom Miniserver holen und
     darin den Anmeldeablauf zum Audioserver suchen. Die Web-App ist dieselbe
     wie die Loxone-App; ihr JavaScript enthaelt die exakte Befehlsfolge
-    (secure/hello, secure/authenticate, secure/init, getkey ...). Zeigt je
+    (secure/hello, secure/authenticate, secure/init, getkey ...). Die App
+    laedt ihre Module dynamisch nach, deshalb werden alle .js-Verweise aus der
+    Startseite und aus jedem geladenen Skript rekursiv verfolgt. Zeigt je
     Stichwort die Fundstellen mit Umgebung. Es wird nichts veraendert."""
+    import base64
     import re
-    from urllib.parse import urljoin
+    from urllib.parse import urljoin, urlparse
     print("\n===== Teil 9: Anmeldeablauf im Quellcode der Loxone-Weboberflaeche")
     ms = miniserver_config()
     if not ms.get("host"):
@@ -550,43 +554,83 @@ async def appjs_probe():
     host = ms["host"]; port = int(ms.get("port", 443))
     scheme = "http" if port == 80 else "https"
     base = f"{scheme}://{host}:{port}/"
-    auth = aiohttp.BasicAuth(ms.get("user", ""), ms.get("pass", ""))
+    cred = base64.b64encode(f"{ms.get('user', '')}:{ms.get('pass', '')}".encode()).decode()
+    auth_hdr = {"Authorization": "Basic " + cred}
+    ref_re = re.compile(r'["\'\(]([^"\'\(\)\s]+?\.(?:m?js))(?:\?[^"\'\)\s]*)?["\'\)]')
     async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as s:
-        async def get(url, use_auth):
-            async with s.get(url, auth=auth if use_auth else None,
-                             timeout=aiohttp.ClientTimeout(total=30)) as r:
-                return r.status, str(r.url), await r.text(errors="replace")
-        status, final, html = await get(base, False)
-        if status in (401, 403):
-            status, final, html = await get(base, True)
+        async def get(url):
+            for hdr in ({}, auth_hdr):
+                async with s.get(url, headers=hdr, timeout=aiohttp.ClientTimeout(total=40)) as r:
+                    if r.status in (401, 403) and not hdr:
+                        continue
+                    return r.status, str(r.url), await r.text(errors="replace")
+            return 0, url, ""
+        status, final, html = await get(base)
         print(f"  Startseite {base} -> {status} ({final}), {len(html)} Zeichen")
         if status != 200:
             print("  Startseite nicht lesbar, Abbruch"); return
-        scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, re.I)
-        print(f"  {len(scripts)} Skripte referenziert: " + ", ".join(scripts[:12]))
-        found_any = False
-        for src in scripts:
-            url = urljoin(final, src)
+        origin = "{u.scheme}://{u.netloc}".format(u=urlparse(final))
+        queue = []
+        seen = set()
+        def collect(text, from_url):
+            found = set(re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', text, re.I))
+            found |= set(m for m in ref_re.findall(text))
+            out = []
+            for ref in found:
+                if ref.startswith(("data:", "blob:", "//")) or "://" in ref and not ref.startswith(origin):
+                    continue
+                url = urljoin(from_url, ref)
+                if url.startswith(origin) and url not in seen:
+                    seen.add(url); out.append(url)
+            return out
+        queue.extend(collect(html, final))
+        print(f"  {len(queue)} Skript-Verweise in der Startseite: " +
+              ", ".join(u.replace(origin, "") for u in queue[:15]) + (" …" if len(queue) > 15 else ""))
+        # Inline-Skripte der Startseite ebenfalls durchsuchen
+        docs = [("(Startseite inline)", html)]
+        fetched = 0
+        while queue and fetched < 80:
+            url = queue.pop(0)
             try:
-                st_, _, js = await get(url, False)
-                if st_ in (401, 403):
-                    st_, _, js = await get(url, True)
+                st_, _, js = await get(url)
             except Exception as err:
-                print(f"  {src}: Fehler {cut(err, 120)}"); continue
-            if st_ != 200:
-                print(f"  {src}: HTTP {st_}"); continue
-            hits = {k: [m.start() for m in re.finditer(re.escape(k), js)] for k in APPJS_KEYWORDS}
+                print(f"  {url.replace(origin, '')}: Fehler {cut(err, 120)}"); continue
+            if st_ != 200 or not js:
+                print(f"  {url.replace(origin, '')}: HTTP {st_}"); continue
+            fetched += 1
+            docs.append((url.replace(origin, ""), js))
+            more = collect(js, url)
+            if more:
+                queue.extend(more)
+        print(f"  {fetched} Skripte geladen, {len(queue)} nicht mehr verfolgt")
+        found_any = False
+        for name, text in docs:
+            hits = {k: [m.start() for m in re.finditer(re.escape(k), text)] for k in APPJS_KEYWORDS}
+            broad = {k: len(re.findall(re.escape(k), text)) for k in APPJS_BROAD}
             total = sum(len(v) for v in hits.values())
-            print(f"\n--- {src}: {len(js)} Zeichen, {total} Treffer")
+            btotal = sum(broad.values())
+            if not total and not btotal:
+                continue
+            print(f"\n--- {name}: {len(text)} Zeichen, {total} Anmelde-Treffer, breit: " +
+                  ", ".join(f"{k}={n}" for k, n in broad.items() if n))
             for k, pos in hits.items():
                 for pnum, pstart in enumerate(pos[:2]):
                     found_any = True
-                    a = max(0, pstart - 250); b = min(len(js), pstart + 900)
+                    a = max(0, pstart - 300); b = min(len(text), pstart + 1000)
                     print(f"  >>> '{k}' Treffer {pnum + 1}/{len(pos)} bei {pstart}:")
-                    print("      " + js[a:b].replace("\n", " "))
+                    print("      " + text[a:b].replace("\n", " "))
+            if not total:
+                # nur breite Treffer: eine Fundstelle zur Orientierung zeigen
+                for k in APPJS_BROAD:
+                    m = re.search(re.escape(k), text)
+                    if m:
+                        a = max(0, m.start() - 150); b = min(len(text), m.start() + 350)
+                        print(f"  ~ '{k}': " + text[a:b].replace("\n", " "))
+                        break
         if not found_any:
-            print("\n  Keine Stichwoerter in den Skripten. Vielleicht laedt die App weitere Dateien nach; "
-                  "dann bitte in Chrome unter Netzwerk die .js-Dateien nennen.")
+            print("\n  Kein Anmelde-Stichwort gefunden. Liste aller geladenen Dateien:")
+            for name, text in docs:
+                print(f"    {name} ({len(text)} Zeichen)")
 
 
 async def main():
