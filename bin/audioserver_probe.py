@@ -697,6 +697,31 @@ async def apphub_probe():
             print("")
 
 
+async def zone_players() -> dict:
+    """playerid -> Zonenname aller AudioZoneV2 aus der Miniserver-Struktur."""
+    for d in (str(APP_DIR / "bin"), "/app/bin"):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    from loxone_api import LoxoneClient
+    ms = miniserver_config()
+    port = int(ms.get("port", 443))
+    c = LoxoneClient(host=ms["host"], user=ms.get("user", ""), password=ms.get("pass", ""),
+                     port=port, verify_tls=bool(ms.get("verify_tls", False)))
+    if port == 80:
+        c.base_url = f"http://{ms['host']}:{port}/"
+    async with c:
+        await c.getkey2()
+        await c.authenticate()
+        st = await c.load_structure()
+    out = {}
+    for cc in (st.get("controls") or {}).values():
+        if isinstance(cc, dict) and cc.get("type") == "AudioZoneV2":
+            pid = (cc.get("details") or {}).get("playerid")
+            if pid is not None:
+                out[int(pid)] = cc.get("name", "")
+    return out
+
+
 async def auth_probe2(host, port):
     """Teil 11: Anmeldung wie die Loxone-App (bin/audioserver_auth.py) und danach
     getroomfavs fuer alle Zonen auf derselben Verbindung. Nichts wird veraendert."""
@@ -773,8 +798,10 @@ async def auth_probe2(host, port):
                 print(f"  Anmeldung: {result!r}")
                 if result != aa.AUTH_OK:
                     return
-                if not players:
-                    await asyncio.sleep(2)
+                try:
+                    players.update({k: v for k, v in (await zone_players()).items() if k not in players})
+                except Exception as err:
+                    print(f"  Zonenliste aus der Struktur nicht lesbar: {cut(err, 120)}")
                 if not players:
                     players = {PLAYER: "?"}
                 for pid in sorted(k for k in players if k is not None):
@@ -794,6 +821,9 @@ async def auth_probe2(host, port):
                         items = (grp[0].get("items") if grp and isinstance(grp[0], dict) else []) or []
                         names = [it.get("name") or it.get("title") for it in items if isinstance(it, dict)]
                         print(f"  Zone {pid} ({players[pid]}): {len(items)} Favoriten: {cut(', '.join(str(n) for n in names), 300)}")
+                        if items and pid == min(players):
+                            print(f"    Felder des ersten Eintrags: {cut(json.dumps(items[0], ensure_ascii=False), 600)}")
+                            print(f"    Rahmen: {cut(json.dumps({k: v for k, v in grp[0].items() if k != 'items'}, ensure_ascii=False), 300)}")
                     except (ValueError, AttributeError):
                         print(f"  Zone {pid}: {cut(got, 300)}")
                 print(f"  Verbindung am Ende offen: {not ws.closed}")
