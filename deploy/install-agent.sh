@@ -686,7 +686,26 @@ for pol in /etc/chromium/policies/managed /etc/chromium-browser/policies/managed
 JSONEOF
 done
 
-echo "==> 5/5 Autostart via ~/.xsession"
+echo "==> 5/5 Autostart: Auto-Login + ~/.xsession"
+# Auto-Login: ohne diesen bleibt der Boot am Login-Screen stehen und die
+# ~/.xsession (und damit der Kiosk) startet nie. Als drop-in geschrieben, damit
+# eine vorhandene /etc/lightdm/lightdm.conf nicht zerschossen wird. Greift bei
+# LightDM; bei anderem Display-Manager (GDM/SDDM) den Auto-Login einmalig dort
+# von Hand einrichten.
+KIOSK_USER="$(id -un)"
+if [ -d /etc/lightdm ]; then
+  sudo mkdir -p /etc/lightdm/lightdm.conf.d
+  sudo tee /etc/lightdm/lightdm.conf.d/50-loxpanel-autologin.conf >/dev/null <<EOF
+[Seat:*]
+autologin-user=$KIOSK_USER
+autologin-user-timeout=0
+EOF
+  echo "   Auto-Login fuer '$KIOSK_USER' gesetzt (LightDM drop-in)"
+else
+  echo "   HINWEIS: kein LightDM gefunden — Auto-Login bitte manuell einrichten,"
+  echo "            sonst startet der Kiosk nach dem Boot nicht automatisch."
+fi
+
 # Robust fuer LightDM/GDM (Default-Xsession fuehrt ~/.xsession aus) und startx.
 # Der Kiosk laeuft ohne extra Fenstermanager (wie eine dedizierte Kiosk-Session).
 XS="$HOME/.xsession"
