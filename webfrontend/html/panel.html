@@ -268,25 +268,31 @@
   .saver .sv-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;
     width:min(92%,440px);animation:svdrift 90s linear infinite;}
   @keyframes svdrift{
-    0%{transform:translate(-14px,-10px);}   25%{transform:translate(14px,-10px);}
-    50%{transform:translate(14px,10px);}     75%{transform:translate(-14px,10px);}
-    100%{transform:translate(-14px,-10px);}
+    0%{transform:translate(-14px,-5px);}   25%{transform:translate(14px,-5px);}
+    50%{transform:translate(14px,5px);}     75%{transform:translate(-14px,5px);}
+    100%{transform:translate(-14px,-5px);}
   }
   .sv-clock{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  /* Kompakte Front, sobald Wetter/Termine dazukommen (sonst passt es nicht aufs
+     480x480-Panel). Die reine Uhr (ohne Front-Daten) bleibt gross. */
+  .sv-wrap.rich{gap:9px;}
+  .sv-wrap.rich .sv-time{font-size:44px;}
+  .sv-wrap.rich .sv-date{font-size:15px;}
+  .sv-wrap.rich .sv-hint{display:none;}   /* bei voller Front kein Platz; nur-Uhr behaelt ihn */
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
-  .saver .sv-wx{display:flex;flex-direction:column;gap:12px;align-self:stretch;}
+  .saver .sv-wx{display:flex;flex-direction:column;gap:10px;align-self:stretch;}
   .sv-wx .now{display:flex;align-items:center;gap:12px;}
-  .sv-wx .now .ico{width:40px;height:40px;flex:none;}
-  .sv-wx .now .t{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1;
+  .sv-wx .now .ico{width:34px;height:34px;flex:none;}
+  .sv-wx .now .t{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;}
   .sv-wx .now .meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
   .sv-wx .now .cond{font-size:15px;font-weight:500;}
   .sv-wx .now .hl{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
   .sv-wx .fore{display:grid;grid-template-columns:repeat(var(--fc,4),1fr);gap:8px;}
   .sv-wx .fc{background:var(--tile);border:1px solid var(--line);border-radius:12px;
-    padding:9px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:5px;}
+    padding:6px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;}
   .sv-wx .fc .d{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
-  .sv-wx .fc .ico{width:24px;height:24px;}
+  .sv-wx .fc .ico{width:22px;height:22px;}
   .sv-wx .fc .tt{font-size:12.5px;font-variant-numeric:tabular-nums;}
   .sv-wx .fc .tt .mx{font-weight:600;} .sv-wx .fc .tt .mn{color:var(--muted);}
   .sv-wx .ico{display:grid;place-items:center;color:var(--ink);}
@@ -299,11 +305,11 @@
     color:var(--muted);display:flex;align-items:center;gap:8px;}
   .sv-cal .lbl::after{content:"";flex:1;height:1px;background:var(--line);}
   .sv-ev{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;
-    background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:9px 12px;}
+    background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:7px 11px;}
   .sv-ev .when{display:flex;flex-direction:column;gap:1px;min-width:52px;}
   .sv-ev .when .day{font-size:12px;color:var(--muted);}
   .sv-ev .when .tm{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1;}
-  .sv-ev .ttl{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sv-ev .ttl{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sv-ev .tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
     border:1px solid rgba(82,184,129,.4);background:rgba(82,184,129,.10);
     border-radius:999px;padding:2px 8px;white-space:nowrap;}
@@ -931,6 +937,9 @@ function renderFront(){
       (nm?'<span class="tag">'+esc(nm)+'</span>':'')+'</div>').join('');
     calEl.hidden=false;
   } else { calEl.hidden=true; calEl.innerHTML=''; }
+  // Kompakt-Layout aktivieren, sobald Wetter oder Termine angezeigt werden.
+  const wrap=document.querySelector('.sv-wrap');
+  if(wrap) wrap.classList.toggle('rich', !!w || evs.length>0);
 }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
 function showSaver(){ tickClock(); el('saver').classList.remove('hidden'); }
