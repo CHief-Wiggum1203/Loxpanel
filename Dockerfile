@@ -3,9 +3,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Abhaengigkeiten (loxone-api zieht aiohttp mit)
+# Abhaengigkeiten (loxone-api zieht aiohttp mit; cryptography fuer die
+# Audioserver-Anmeldung). Auf 32-bit-ARM (linux/arm/v7) gibt es kein fertiges
+# cffi-Paket -> Compiler + libffi nur zum Bauen installieren und danach wieder
+# entfernen, damit das Image schlank bleibt (amd64/arm64 nutzen fertige Wheels).
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends gcc libffi-dev; \
+    pip install --no-cache-dir -r requirements.txt; \
+    apt-get purge -y --auto-remove gcc libffi-dev; \
+    rm -rf /var/lib/apt/lists/*
 
 # App-Code + Standard-Frontend/Config (Beispiele/Defaults)
 COPY bin/ ./bin/
