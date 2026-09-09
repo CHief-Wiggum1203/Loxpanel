@@ -10,9 +10,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends gcc libffi-dev; \
+    apt-get install -y --no-install-recommends gcc libc6-dev libffi-dev; \
     pip install --no-cache-dir -r requirements.txt; \
-    apt-get purge -y --auto-remove gcc libffi-dev; \
+    apt-get purge -y --auto-remove gcc libc6-dev libffi-dev; \
     rm -rf /var/lib/apt/lists/*
 
 # App-Code + Standard-Frontend/Config (Beispiele/Defaults)
