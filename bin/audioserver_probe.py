@@ -33,6 +33,7 @@ FAVS_ONLY = ARG == "favs"
 ROOMFAV_ONLY = ARG == "roomfav"
 ROOMFAVWS_ONLY = ARG == "roomfavws"
 ZONEDUMP_ONLY = ARG == "zonedump"
+APPJS_ONLY = ARG == "appjs"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -530,6 +531,64 @@ async def zonedump_probe():
         await ws.close()
 
 
+APPJS_KEYWORDS = ("secure/hello", "secure/authenticate", "secure/init", "audio/cfg/getkey",
+                  "Session-Token", "getroomfavs", "remotecontrol", "keyexchange", "audio/cfg/all")
+
+
+async def appjs_probe():
+    """Teil 9: Den Quellcode der Loxone-Weboberflaeche vom Miniserver holen und
+    darin den Anmeldeablauf zum Audioserver suchen. Die Web-App ist dieselbe
+    wie die Loxone-App; ihr JavaScript enthaelt die exakte Befehlsfolge
+    (secure/hello, secure/authenticate, secure/init, getkey ...). Zeigt je
+    Stichwort die Fundstellen mit Umgebung. Es wird nichts veraendert."""
+    import re
+    from urllib.parse import urljoin
+    print("\n===== Teil 9: Anmeldeablauf im Quellcode der Loxone-Weboberflaeche")
+    ms = miniserver_config()
+    if not ms.get("host"):
+        print("  kein Miniserver-Zugang gefunden"); return
+    host = ms["host"]; port = int(ms.get("port", 443))
+    scheme = "http" if port == 80 else "https"
+    base = f"{scheme}://{host}:{port}/"
+    auth = aiohttp.BasicAuth(ms.get("user", ""), ms.get("pass", ""))
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as s:
+        async def get(url, use_auth):
+            async with s.get(url, auth=auth if use_auth else None,
+                             timeout=aiohttp.ClientTimeout(total=30)) as r:
+                return r.status, str(r.url), await r.text(errors="replace")
+        status, final, html = await get(base, False)
+        if status in (401, 403):
+            status, final, html = await get(base, True)
+        print(f"  Startseite {base} -> {status} ({final}), {len(html)} Zeichen")
+        if status != 200:
+            print("  Startseite nicht lesbar, Abbruch"); return
+        scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, re.I)
+        print(f"  {len(scripts)} Skripte referenziert: " + ", ".join(scripts[:12]))
+        found_any = False
+        for src in scripts:
+            url = urljoin(final, src)
+            try:
+                st_, _, js = await get(url, False)
+                if st_ in (401, 403):
+                    st_, _, js = await get(url, True)
+            except Exception as err:
+                print(f"  {src}: Fehler {cut(err, 120)}"); continue
+            if st_ != 200:
+                print(f"  {src}: HTTP {st_}"); continue
+            hits = {k: [m.start() for m in re.finditer(re.escape(k), js)] for k in APPJS_KEYWORDS}
+            total = sum(len(v) for v in hits.values())
+            print(f"\n--- {src}: {len(js)} Zeichen, {total} Treffer")
+            for k, pos in hits.items():
+                for pnum, pstart in enumerate(pos[:2]):
+                    found_any = True
+                    a = max(0, pstart - 250); b = min(len(js), pstart + 900)
+                    print(f"  >>> '{k}' Treffer {pnum + 1}/{len(pos)} bei {pstart}:")
+                    print("      " + js[a:b].replace("\n", " "))
+        if not found_any:
+            print("\n  Keine Stichwoerter in den Skripten. Vielleicht laedt die App weitere Dateien nach; "
+                  "dann bitte in Chrome unter Netzwerk die .js-Dateien nennen.")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -551,6 +610,9 @@ async def main():
         return
     if ZONEDUMP_ONLY:
         await zonedump_probe()
+        return
+    if APPJS_ONLY:
+        await appjs_probe()
         return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
