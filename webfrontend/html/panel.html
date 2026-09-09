@@ -276,6 +276,9 @@
   /* Kompakte Front, sobald Wetter/Termine dazukommen (sonst passt es nicht aufs
      480x480-Panel). Die reine Uhr (ohne Front-Daten) bleibt gross. */
   .sv-wrap.rich{gap:9px;}
+  /* Mit Wetter/Terminen keine Anti-Einbrenn-Drift — der Inhalt soll ruhig stehen
+     (die reine Uhr weiter unten driftet weiterhin als Einbrennschutz). */
+  .saver .sv-wrap.rich{animation:none;transform:none;}
   .sv-wrap.rich .sv-time{font-size:44px;}
   .sv-wrap.rich .sv-date{font-size:15px;}
   .sv-wrap.rich .sv-hint{display:none;}   /* bei voller Front kein Platz; nur-Uhr behaelt ihn */
