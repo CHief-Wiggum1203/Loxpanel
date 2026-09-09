@@ -280,17 +280,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ### 8.4 Nur teilweise umgesetzt (6)
 
-- [ ] `AudioZoneV2` (Loxone Audioserver Gen 2, gekoppelt): Steuerung läuft
-      über den Miniserver (`sps/io`), weil der Audioserver unangemeldete
-      Befehle auf Port 7091 mit „command not allowed when paired" ablehnt.
-      Titel, Sender und Cover kommen über den Ereigniskanal, sobald der
-      WebSocket das Unterprotokoll `remotecontrol` anfordert (ohne Anmeldung,
-      Sonde `bin/audioserver_probe.py`). Offen: Raumfavoriten. Die Liste
-      liefert der Audioserver nur auf Befehl (`getroomfavs`), und Befehle
-      schließen bei gekoppelten Geräten die Verbindung. Ansatz: Anmeldung
-      über den RSA-Schlüssel aus `audio/cfg/getkey` und das Session-Token aus
-      dem Banner nachbauen, oder Favoriten über den Miniserver
-      (`roomfav/get`, sourceList-State) prüfen. **M**
+- [x] `AudioZoneV2` (Loxone Audioserver Gen 2, gekoppelt): vollständig.
+      Play/Pause/Skip und Lautstärke laufen über den Miniserver (`sps/io`),
+      Titel/Sender/Cover live über den Ereigniskanal (`remotecontrol`). Die
+      Raumfavoriten liefert der gekoppelte Audioserver nur einer angemeldeten
+      Verbindung; die Anmeldung wurde wie in der Loxone-App nachgebaut
+      (`bin/audioserver_auth.py`): Session-Token aus dem Banner,
+      `audio/cfg/getkey` → RSA-Schlüssel, Miniserver-JWT mit AES-256-CBC
+      verschlüsselt, `key:iv:sessionToken` mit RSA-PKCS#1-v1.5, dann
+      `secure/authenticate/<user>/<rsa>/<chiffre>`. Danach `getroomfavs` und
+      `roomfav/play/<id>` auf derselben Verbindung. An der echten Anlage (LWSS
+      17.2) verifiziert. **M**
 - [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn): Upstream 0.3.2 holt
       Favoriten und Steuerung direkt vom Audioserver (Port 7091); mit
       `audio.directV2` auch für `AudioZoneV2`-Nachbauten. **M**
