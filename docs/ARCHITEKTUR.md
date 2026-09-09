@@ -65,7 +65,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
-| `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver, PIN, Weckton) |
+| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
+| `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Neues Panel) |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, der Anker bleibt erhalten (`/settings#panels` → `/config#panels`) |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
@@ -203,6 +204,7 @@ Server → Browser (`panel.html:700`):
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
+| `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 
@@ -251,6 +253,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
+| POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` | Panel-Agent |
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
@@ -298,11 +301,12 @@ Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorr
 | `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls` | `_config()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
+| `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
 
 In der Beispieldatei stehen zusätzlich `loxone.poll_interval`, `mqtt`, `web`,
 `lms` und `miniserver.msno`. Diese Sektionen wertet der Server **nicht** aus.
 
-Geschrieben wird die Datei komplett neu durch `_write_cfg()`, nur über die beiden
+Geschrieben wird die Datei komplett neu durch `_write_cfg()`, nur über die
 Settings-Endpunkte. Passwörter liegen im Klartext.
 
 ### 5.3 `panels.json`

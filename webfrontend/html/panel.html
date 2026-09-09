@@ -14,6 +14,7 @@
     --nudge-x:0px;    /* Feinversatz der ganzen Visu; live via ?x=-6 (negativ=links) */
   }
   *{box-sizing:border-box;}
+  [hidden]{display:none !important;}   /* el.hidden zuverlaessig, trotz eigener display-Regeln */
   /* Touch-Panel (Wandpanel/Tablet): keinen Mauszeiger anzeigen — auch nicht die
      pointer-Hand ueber Kacheln. Am Desktop (echte Maus) bleibt der Cursor.
      Zwei Trigger: Media-Query (Touch-Geraet) + .touch-Klasse (erste Beruehrung). */
@@ -261,15 +262,51 @@
   .saver .sv-time{font-size:78px;font-weight:300;line-height:1;letter-spacing:1px;
     font-variant-numeric:tabular-nums;color:var(--ink);}
   .saver .sv-date{font-size:20px;color:var(--muted);margin-top:8px;text-transform:capitalize;}
-  .saver .sv-hint{margin-top:22px;font-size:13px;color:var(--muted);opacity:.5;}
-  /* Anti-Einbrennen: Uhr driftet langsam ueber den Schirm */
-  .saver .sv-wrap{display:flex;flex-direction:column;align-items:center;
-    animation:svdrift 90s linear infinite;}
+  .saver .sv-hint{margin-top:6px;font-size:13px;color:var(--muted);opacity:.5;}
+  /* Anti-Einbrennen: Inhalt driftet langsam ueber den Schirm. Kleinere Amplitude
+     als bei der reinen Uhr, damit Wetter/Termine nicht ueber den Rand wandern. */
+  .saver .sv-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;
+    width:min(92%,440px);animation:svdrift 90s linear infinite;}
   @keyframes svdrift{
-    0%{transform:translate(-30px,-20px);}   25%{transform:translate(30px,-20px);}
-    50%{transform:translate(30px,20px);}     75%{transform:translate(-30px,20px);}
-    100%{transform:translate(-30px,-20px);}
+    0%{transform:translate(-14px,-10px);}   25%{transform:translate(14px,-10px);}
+    50%{transform:translate(14px,10px);}     75%{transform:translate(-14px,10px);}
+    100%{transform:translate(-14px,-10px);}
   }
+  .sv-clock{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
+  .saver .sv-wx{display:flex;flex-direction:column;gap:12px;align-self:stretch;}
+  .sv-wx .now{display:flex;align-items:center;gap:12px;}
+  .sv-wx .now .ico{width:40px;height:40px;flex:none;}
+  .sv-wx .now .t{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1;
+    font-variant-numeric:tabular-nums;}
+  .sv-wx .now .meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .sv-wx .now .cond{font-size:15px;font-weight:500;}
+  .sv-wx .now .hl{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .sv-wx .fore{display:grid;grid-template-columns:repeat(var(--fc,4),1fr);gap:8px;}
+  .sv-wx .fc{background:var(--tile);border:1px solid var(--line);border-radius:12px;
+    padding:9px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .sv-wx .fc .d{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+  .sv-wx .fc .ico{width:24px;height:24px;}
+  .sv-wx .fc .tt{font-size:12.5px;font-variant-numeric:tabular-nums;}
+  .sv-wx .fc .tt .mx{font-weight:600;} .sv-wx .fc .tt .mn{color:var(--muted);}
+  .sv-wx .ico{display:grid;place-items:center;color:var(--ink);}
+  .sv-wx .ico svg{width:100%;height:100%;}
+  .sv-wx .ico.sun{color:var(--glow);}
+  .sv-wx .ico.rain,.sv-wx .ico.drizzle,.sv-wx .ico.snow,.sv-wx .ico.storm{color:#7fb2e6;}
+  /* Termine unten: die naechsten Eintraege aus dem iCal-Abo. */
+  .saver .sv-cal{display:flex;flex-direction:column;gap:8px;align-self:stretch;}
+  .sv-cal .lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .sv-cal .lbl::after{content:"";flex:1;height:1px;background:var(--line);}
+  .sv-ev{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;
+    background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:9px 12px;}
+  .sv-ev .when{display:flex;flex-direction:column;gap:1px;min-width:52px;}
+  .sv-ev .when .day{font-size:12px;color:var(--muted);}
+  .sv-ev .when .tm{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .sv-ev .ttl{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sv-ev .tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
+    border:1px solid rgba(82,184,129,.4);background:rgba(82,184,129,.10);
+    border-radius:999px;padding:2px 8px;white-space:nowrap;}
   .moreb{position:absolute;top:6px;right:8px;z-index:6;width:34px;height:34px;border-radius:50%;
     display:grid;place-items:center;color:var(--muted);font-size:24px;line-height:1;cursor:pointer;
     background:rgba(255,255,255,.06);}
@@ -304,8 +341,12 @@
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
     <div class="sv-wrap">
-      <div class="sv-time" id="svTime">--:--</div>
-      <div class="sv-date" id="svDate"></div>
+      <div class="sv-wx" id="svWx" hidden></div>
+      <div class="sv-clock">
+        <div class="sv-time" id="svTime">--:--</div>
+        <div class="sv-date" id="svDate"></div>
+      </div>
+      <div class="sv-cal" id="svCal" hidden></div>
       <div class="sv-hint">Zum Öffnen tippen</div>
     </div>
   </div>
@@ -809,6 +850,7 @@ function connect(){
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
+    if(msg.t==='front'){ frontData=msg; renderFront(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
@@ -845,6 +887,50 @@ function tickClock(){
   const t=el('svTime'), dd=el('svDate');
   if(t) t.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(dd) dd.textContent=d.toLocaleDateString(LANG,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+// ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
+// Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
+// zeigt nur an. Wetter-Icons im gleichen Strichstil wie die uebrigen Icons.
+let frontData=null;
+const WXI={
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/>',
+  cloud:'<path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/>',
+  rain:'<path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 15z"/><path d="M8 18v2M12 18v2.6M16 18v2"/>',
+  drizzle:'<path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 15z"/><path d="M9 18v1.4M13 18v1.4M15 18v1.4"/>',
+  snow:'<path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 15z"/><path d="M8 19h.01M12 20h.01M16 19h.01"/>',
+  fog:'<path d="M17.5 14a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 14z"/><path d="M6 18h12M8 21h8"/>',
+  storm:'<path d="M17.5 14a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 14z"/><path d="m13 14-3 4h3.5l-2.5 4"/>',
+};
+function wxSvg(k){ return svg(WXI[k]||WXI.cloud); }
+function fmtTemp(t){ if(t==null||isNaN(t)) return '–'; return Number(t).toLocaleString(LANG,{minimumFractionDigits:1,maximumFractionDigits:1}); }
+function tdeg(v){ return v==null?'–':(Math.round(v)+'°'); }
+function renderFront(){
+  const wxEl=el('svWx'), calEl=el('svCal'); if(!wxEl||!calEl) return;
+  const d=frontData||{}, w=d.weather;
+  if(w){
+    const fc=Array.isArray(w.forecast)?w.forecast:[];
+    wxEl.style.setProperty('--fc', Math.max(1,Math.min(7,fc.length))||4);
+    let html='<div class="now"><span class="ico '+esc(w.icon||'cloud')+'">'+wxSvg(w.icon)+'</span>'+
+      '<span class="t">'+fmtTemp(w.temp)+'°</span>'+
+      '<span class="meta"><span class="cond">'+esc(w.cond||'')+'</span>';
+    if(w.hi!=null||w.lo!=null) html+='<span class="hl">Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span>';
+    html+='</span></div>';
+    if(fc.length) html+='<div class="fore">'+fc.map(f=>
+      '<div class="fc"><span class="d">'+esc(f.day||'')+'</span>'+
+      '<span class="ico '+esc(f.icon||'cloud')+'">'+wxSvg(f.icon)+'</span>'+
+      '<span class="tt"><span class="mx">'+tdeg(f.hi)+'</span> <span class="mn">'+tdeg(f.lo)+'</span></span></div>').join('')+'</div>';
+    wxEl.innerHTML=html; wxEl.hidden=false;
+  } else { wxEl.hidden=true; wxEl.innerHTML=''; }
+  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,3);
+  if(evs.length){
+    const nm=d.calName||'';
+    calEl.innerHTML='<div class="lbl">Nächste Termine</div>'+evs.map(e=>
+      '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
+      '<span class="tm">'+esc(e.time||'')+'</span></span>'+
+      '<span class="ttl">'+esc(e.title||'')+'</span>'+
+      (nm?'<span class="tag">'+esc(nm)+'</span>':'')+'</div>').join('');
+    calEl.hidden=false;
+  } else { calEl.hidden=true; calEl.innerHTML=''; }
 }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
 function showSaver(){ tickClock(); el('saver').classList.remove('hidden'); }
