@@ -34,6 +34,7 @@ ROOMFAV_ONLY = ARG == "roomfav"
 ROOMFAVWS_ONLY = ARG == "roomfavws"
 ZONEDUMP_ONLY = ARG == "zonedump"
 APPJS_ONLY = ARG == "appjs"
+APPHUB_ONLY = ARG == "apphub"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -633,6 +634,68 @@ async def appjs_probe():
                 print(f"    {name} ({len(text)} Zeichen)")
 
 
+APPHUB_ANCHORS = (
+    # (Suchbegriff, Zeichen davor, Zeichen danach, max. Treffer)
+    ("rsaEnc", 1200, 1800, 3),
+    ("sessionToken", 600, 1400, 4),
+    ("getkey_result", 800, 1200, 2),
+    ("pubkey", 600, 1200, 2),
+    ("remotecontrol", 1500, 1500, 2),
+    ("authenticate_result", 300, 300, 1),
+    ("class AudioServerManager", 200, 2500, 1),
+    ("hello", 400, 900, 3),
+    ("secure/init", 600, 900, 2),
+    ("LWSS", 300, 600, 2),
+)
+
+
+async def apphub_probe():
+    """Teil 10: Gezielte Auswertung von /scripts/AppHub.js der Loxone-Weboberflaeche.
+    Zeigt alle secure/*- und audio/cfg/*-Befehlsliterale und grosse Ausschnitte
+    um die Stellen, die die Anmeldung am Audioserver bauen (RSA-Block, AES-
+    Chiffre, Session-Token). Es wird nichts veraendert."""
+    import base64
+    import re
+    print("\n===== Teil 10: Anmeldung am Audioserver im Code der Loxone-App (AppHub.js)")
+    ms = miniserver_config()
+    if not ms.get("host"):
+        print("  kein Miniserver-Zugang gefunden"); return
+    host = ms["host"]; port = int(ms.get("port", 443))
+    scheme = "http" if port == 80 else "https"
+    url = f"{scheme}://{host}:{port}/scripts/AppHub.js"
+    cred = base64.b64encode(f"{ms.get('user', '')}:{ms.get('pass', '')}".encode()).decode()
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as s:
+        js = ""
+        for hdr in ({}, {"Authorization": "Basic " + cred}):
+            async with s.get(url, headers=hdr, timeout=aiohttp.ClientTimeout(total=60)) as r:
+                if r.status in (401, 403) and not hdr:
+                    continue
+                if r.status != 200:
+                    print(f"  {url} -> HTTP {r.status}"); return
+                js = await r.text(errors="replace")
+                break
+    print(f"  AppHub.js: {len(js)} Zeichen")
+    lits = sorted(set(re.findall(r'secure/[A-Za-z/_%]+', js)))
+    print("  secure/*-Literale:", ", ".join(lits) or "keine")
+    cfg = sorted(set(re.findall(r'audio/cfg/[A-Za-z_]+', js)))
+    print("  audio/cfg/*-Literale:", ", ".join(cfg) or "keine")
+    for key, before, after, maxhits in APPHUB_ANCHORS:
+        pos = [m.start() for m in re.finditer(re.escape(key), js)]
+        if not pos:
+            print(f"\n--- '{key}': keine Fundstelle"); continue
+        print(f"\n--- '{key}': {len(pos)} Fundstellen, zeige {min(maxhits, len(pos))}")
+        shown = []
+        for pstart in pos:
+            if any(abs(pstart - q) < before for q in shown):
+                continue      # ueberlappende Fenster ueberspringen
+            shown.append(pstart)
+            if len(shown) > maxhits:
+                break
+            a = max(0, pstart - before); b = min(len(js), pstart + after)
+            print(f"  [{pstart}] " + js[a:b].replace("\n", " "))
+            print("")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -657,6 +720,9 @@ async def main():
         return
     if APPJS_ONLY:
         await appjs_probe()
+        return
+    if APPHUB_ONLY:
+        await apphub_probe()
         return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
