@@ -35,6 +35,7 @@ ROOMFAVWS_ONLY = ARG == "roomfavws"
 ZONEDUMP_ONLY = ARG == "zonedump"
 APPJS_ONLY = ARG == "appjs"
 APPHUB_ONLY = ARG == "apphub"
+AUTH_ONLY = ARG == "auth"
 PLAYER = int(ARG) if ARG.isdigit() else 1
 PANEL = "http://127.0.0.1:8099"
 APP_DIR = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path("/app")
@@ -696,6 +697,110 @@ async def apphub_probe():
             print("")
 
 
+async def auth_probe2(host, port):
+    """Teil 11: Anmeldung wie die Loxone-App (bin/audioserver_auth.py) und danach
+    getroomfavs fuer alle Zonen auf derselben Verbindung. Nichts wird veraendert."""
+    global JWT
+    print(f"\n===== Teil 11: Anmeldung am Audioserver wie die Loxone-App ({host}:{port})")
+    for d in (str(APP_DIR / "bin"), "/app/bin"):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    import audioserver_auth as aa
+    if not aa.HAVE_CRYPTO:
+        print("  Paket 'cryptography' fehlt im Container. Einmalig nachinstallieren:")
+        print("    docker exec LoxPanel pip install -q cryptography")
+        return
+    ms = miniserver_config()
+    user = ms.get("user", "")
+    try:
+        JWT = await fetch_jwt()
+    except Exception as err:
+        print(f"  Token vom Miniserver nicht bekommen: {cut(err)}"); return
+    print(f"  Miniserver-Benutzer {user!r}, App-Token {len(JWT)} Zeichen")
+    players = {}
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.ws_connect(f"ws://{host}:{port}/", timeout=8, protocols=("remotecontrol",)) as ws:
+                greeting = None
+                loop = asyncio.get_event_loop(); end = loop.time() + 4
+                while greeting is None and loop.time() < end:
+                    m = await asyncio.wait_for(ws.receive(), timeout=max(0.1, end - loop.time()))
+                    if m.type != aiohttp.WSMsgType.TEXT:
+                        print(f"  WS {m.type.name} vor dem Banner"); return
+                    greeting = aa.parse_greeting(m.data)
+                    if greeting is None:
+                        try:
+                            for e in json.loads(m.data).get("audio_event", []) or []:
+                                players.setdefault(e.get("playerid"), (e.get("name") or "").strip())
+                        except (ValueError, AttributeError):
+                            pass
+                if not greeting:
+                    print("  kein Banner empfangen"); return
+                print(f"  Banner: Firmware {greeting['firmware']}, API {greeting['api']}, Session-Token {len(greeting['token'])} Zeichen")
+                await ws.send_str("audio/cfg/getkey")
+                pubkey = None
+                end = loop.time() + 5
+                while pubkey is None and loop.time() < end:
+                    m = await asyncio.wait_for(ws.receive(), timeout=max(0.1, end - loop.time()))
+                    if m.type != aiohttp.WSMsgType.TEXT:
+                        print(f"  WS {m.type.name} nach getkey"); return
+                    try:
+                        data = json.loads(m.data)
+                    except ValueError:
+                        continue
+                    if "getkey_result" in data:
+                        pubkey = aa.public_key_from_getkey(data)
+                    else:
+                        for e in data.get("audio_event", []) or []:
+                            players.setdefault(e.get("playerid"), (e.get("name") or "").strip())
+                if pubkey is None:
+                    print("  kein brauchbares getkey_result"); return
+                print(f"  RSA-Schluessel des Audioservers: {pubkey.key_size} Bit")
+                cmd = aa.build_authenticate(user, JWT, greeting["token"], pubkey)
+                print(f"  sende {cut(cmd, 90)}")
+                await ws.send_str(cmd)
+                result = None
+                end = loop.time() + 6
+                while result is None and loop.time() < end:
+                    m = await asyncio.wait_for(ws.receive(), timeout=max(0.1, end - loop.time()))
+                    if m.type != aiohttp.WSMsgType.TEXT:
+                        print(f"  WS {m.type.name} nach secure/authenticate -> abgelehnt"); return
+                    print(f"  WS <- {cut(m.data, 300)}")
+                    try:
+                        result = aa.auth_result(json.loads(m.data))
+                    except ValueError:
+                        pass
+                print(f"  Anmeldung: {result!r}")
+                if result != aa.AUTH_OK:
+                    return
+                if not players:
+                    await asyncio.sleep(2)
+                if not players:
+                    players = {PLAYER: "?"}
+                for pid in sorted(k for k in players if k is not None):
+                    cmd = f"audio/cfg/getroomfavs/{pid}/0/50"
+                    await ws.send_str(cmd)
+                    got = None; end = loop.time() + 5
+                    while got is None and loop.time() < end:
+                        m = await asyncio.wait_for(ws.receive(), timeout=max(0.1, end - loop.time()))
+                        if m.type != aiohttp.WSMsgType.TEXT:
+                            print(f"  WS {m.type.name} nach {cmd}"); return
+                        if "getroomfavs_result" in m.data:
+                            got = m.data
+                    if got is None:
+                        print(f"  Zone {pid} ({players[pid]}): keine Antwort auf getroomfavs"); continue
+                    try:
+                        grp = json.loads(got).get("getroomfavs_result", [])
+                        items = (grp[0].get("items") if grp and isinstance(grp[0], dict) else []) or []
+                        names = [it.get("name") or it.get("title") for it in items if isinstance(it, dict)]
+                        print(f"  Zone {pid} ({players[pid]}): {len(items)} Favoriten: {cut(', '.join(str(n) for n in names), 300)}")
+                    except (ValueError, AttributeError):
+                        print(f"  Zone {pid}: {cut(got, 300)}")
+                print(f"  Verbindung am Ende offen: {not ws.closed}")
+    except Exception as err:
+        print(f"  Fehler: {cut(err)}")
+
+
 async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(f"{PANEL}/api/settings") as r:
@@ -723,6 +828,11 @@ async def main():
         return
     if APPHUB_ONLY:
         await apphub_probe()
+        return
+    if AUTH_ONLY:
+        for hp in servers:
+            host, _, port = hp.partition(":")
+            await auth_probe2(host.strip(), int(port) if port.strip().isdigit() else 7091)
         return
     print("Audioserver laut Struktur:", ", ".join(servers) or "keine")
     for hp in servers:
