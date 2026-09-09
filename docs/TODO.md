@@ -303,6 +303,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ## 9. Weitere Funktionen
 
+- [x] **Front: Kalender + Wetter auf dem Screensaver.** Neu `bin/front_info.py`
+      (eigenständig, keine Fremdabhängigkeit): iCal-Abo laden und parsen
+      (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von
+      Open-Meteo (kein API-Key, nur Koordinaten). Der Server holt beides alle
+      15 Min (`front_task`) und pusht `{t:"front"}`; die Uhr-Startseite zeigt
+      Wetter oben und die nächsten Termine unten. Pflegbar unter *Settings →
+      Kalender & Wetter*, gespeichert im `calendar`-Block von `loxpanel.cfg`. **M**
+- [ ] **Kalender/Wetter als eigener Tab**: volle Terminliste zum Durchscrollen
+      und größere Wetteransicht, nicht nur die Front. **M**
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
       Betriebsart, nicht nur Override. **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server

@@ -57,6 +57,7 @@ def _make_client(host, user, password, port, verify_tls) -> LoxoneClient:
 from adapters import JalousieAdapter, LightControllerV2Adapter  # noqa: E402
 from audioserver import make_backend, AudioBackend  # noqa: E402
 from audioserver_events import AudioEventClient  # noqa: E402
+import front_info  # noqa: E402  # Kalender (iCal-Abo) + Wetter (Open-Meteo) fuer die Front
 
 log = logging.getLogger("loxpanel.webvisu")
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
@@ -292,6 +293,21 @@ def _intercom_config() -> dict:
     return cfg
 
 
+def _calendar_config() -> dict:
+    """Kalender-/Wetter-Block aus loxpanel.cfg `calendar`:
+    {"ical_url": "...", "name": "Family", "lat": 47.07, "lon": 15.44,
+     "days": 14, "fore_days": 4}. Steuert die Front (Screensaver)."""
+    base = Path(__file__).resolve().parent.parent / "config"
+    f = base / "loxpanel.cfg"
+    if not f.is_file():
+        f = base / "loxpanel.cfg.example"
+    try:
+        cfg = json.loads(f.read_text(encoding="utf-8")).get("calendar", {})
+    except (ValueError, OSError):
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
 DEFAULT_THEME = {"states": {"active": "#e0a24d", "good": "#52b881",
                             "warn": "#d6a24a", "crit": "#e2695f"}}
 
@@ -409,6 +425,18 @@ class App:
         self.icon_cache: dict[str, tuple[bytes, str]] = {}
         self.theme = load_theme()
         self.intercom_cfg = _intercom_config()
+        # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
+        # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
+        # ihr Abbild zum Vergleich (nur bei Aenderung neu senden), _front_meta der
+        # Status fuer die Config-Seite. _front_refresh stoesst ein sofortiges
+        # Neuladen an (nach dem Speichern).
+        self.calendar_cfg = _calendar_config()
+        self._front: dict | None = None
+        self._front_key: str | None = None
+        self._front_meta: dict = {}
+        self._front_dirty = False
+        self._front_refresh = asyncio.Event()
+        self._front_session: aiohttp.ClientSession | None = None
         self.bell_map: dict[str, str] = {}
         self._bell_prev: dict[str, object] = {}
         self._pending_ring: str | None = None
@@ -3275,6 +3303,13 @@ class App:
                 self._spawn(self.display_drivers(True))   # Display wecken (Kiosk-App)
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
+        if self._front_dirty:
+            # Front (Kalender/Wetter) an alle Panels. Neu verbundene bekommen den
+            # aktuellen Stand ausserdem direkt beim Verbinden (ws_handler).
+            self._front_dirty = False
+            if self._front is not None:
+                for ws in list(self.conn_route):
+                    await self._send_or_drop(ws, self._front)
         if self._dirty and self.conn_route:
             self._dirty = False
             for ws, route in list(self.conn_route.items()):
@@ -3309,6 +3344,50 @@ class App:
                 raise
             except Exception:
                 log.exception("broadcaster-Tick fehlgeschlagen — Schleife laeuft weiter")
+
+    def _front_payload(self, data: dict) -> dict:
+        return {"t": "front", "weather": data.get("weather"),
+                "events": data.get("events") or [], "calName": data.get("calName") or "Family"}
+
+    async def front_task(self) -> None:
+        """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
+        aktiv, wenn eine iCal-URL ODER Koordinaten gesetzt sind. Ein sofortiges
+        Neuladen wird ueber _front_refresh (nach dem Speichern) ausgeloest."""
+        self._front_session = aiohttp.ClientSession()
+        try:
+            while True:
+                cfg = self.calendar_cfg or {}
+                configured = bool((cfg.get("ical_url") or "").strip()) or (
+                    cfg.get("lat") not in (None, "") and cfg.get("lon") not in (None, ""))
+                if configured:
+                    try:
+                        data = await front_info.load_front(self._front_session, cfg)
+                        self._front_meta = data.get("meta", {})
+                        payload = self._front_payload(data)
+                    except Exception:
+                        log.exception("front_task: Laden fehlgeschlagen")
+                        payload = None
+                else:
+                    self._front_meta = {}
+                    payload = {"t": "front", "weather": None, "events": [],
+                               "calName": (cfg.get("name") or "Family")}
+                # Nur bei echter Aenderung senden (spart Broadcasts bei gleichem Stand).
+                if payload is not None:
+                    key = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+                    if key != self._front_key:
+                        self._front = payload
+                        self._front_key = key
+                        self._front_dirty = True
+                # Bis zum naechsten Intervall (15 Min) ODER bis ein Speichern weckt.
+                try:
+                    await asyncio.wait_for(self._front_refresh.wait(), timeout=900)
+                except asyncio.TimeoutError:
+                    pass
+                self._front_refresh.clear()
+        finally:
+            if self._front_session is not None:
+                await self._front_session.close()
+                self._front_session = None
 
     async def close(self) -> None:
         if self.ws:
@@ -3463,6 +3542,7 @@ async def api_settings(request: web.Request) -> web.Response:
                  for u, c in app.controls.items() if c.get("type") == "Intercom"]
     am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
     au = cfg.get("audio", {}) if isinstance(cfg.get("audio"), dict) else {}
+    cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
         "miniserver": {
             "host": ms.get("host") or os.environ.get("LOXPANEL_MS_HOST", ""),
@@ -3475,6 +3555,15 @@ async def api_settings(request: web.Request) -> web.Response:
         "audiometa": {"enabled": bool(am.get("enabled", True)),
                       "servers": sorted(app.mediaservers.values())},
         "audio": {"directV2": bool(au.get("directV2"))},
+        "calendar": {
+            "ical_url": (cal.get("ical_url") or "").strip(),
+            "name": cal.get("name") or "Family",
+            "lat": cal.get("lat"),
+            "lon": cal.get("lon"),
+            "days": cal.get("days", 14),
+            "fore_days": cal.get("fore_days", 4),
+            "status": app._front_meta,
+        },
         "connected": app.client is not None,
         "nControls": len(app.controls),
     })
@@ -3602,6 +3691,50 @@ async def api_settings_intercom(request: web.Request) -> web.Response:
     _write_cfg(cfg)
     app.intercom_cfg = _intercom_config()
     log.info("Intercom-Settings gespeichert (%d Einträge)", len(ic))
+    return web.json_response({"ok": True})
+
+
+async def api_settings_calendar(request: web.Request) -> web.Response:
+    """Kalender (iCal-Abo) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
+    app: App = request.app["app"]
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
+
+    def _coord(v):
+        # leer = nicht gesetzt; deutsches Komma erlauben; ausserhalb des Bereichs = ungueltig
+        if v in (None, ""):
+            return None
+        try:
+            f = float(str(v).replace(",", "."))
+        except (TypeError, ValueError):
+            return None
+        return f if -90.0 <= f <= 180.0 else None
+
+    def _int(v, default, lo, hi):
+        try:
+            return max(lo, min(hi, int(v)))
+        except (TypeError, ValueError):
+            return default
+
+    cfg = _load_cfg()
+    cal = dict(cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {})
+    cal["ical_url"] = str(data.get("ical_url", "")).strip()
+    cal["name"] = str(data.get("name", "")).strip() or "Family"
+    lat, lon = _coord(data.get("lat")), _coord(data.get("lon"))
+    # Nur ein vollstaendiges Koordinatenpaar speichern (halb gesetzt = kein Wetter).
+    cal["lat"] = lat if (lat is not None and lon is not None) else None
+    cal["lon"] = lon if (lat is not None and lon is not None) else None
+    cal["days"] = _int(data.get("days"), 14, 1, 60)
+    cal["fore_days"] = _int(data.get("fore_days"), 4, 1, 7)
+    cfg["calendar"] = cal
+    _write_cfg(cfg)
+    app.calendar_cfg = _calendar_config()
+    app._front_refresh.set()   # sofort neu laden und an die Panels schicken
+    log.info("Kalender/Wetter gespeichert (iCal %s, Wetter %s)",
+             "gesetzt" if cal["ical_url"] else "leer",
+             "gesetzt" if cal["lat"] is not None else "leer")
     return web.json_response({"ok": True})
 
 
@@ -4002,6 +4135,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         pb = app.player_blocks(prof["player"])
         if pb is not None:
             await ws.send_json({"t": "player", "blocks": pb})
+    # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)
+    if app._front is not None:
+        await ws.send_json(app._front)
     try:
         async for msg in ws:
             if msg.type != WSMsgType.TEXT:
@@ -4053,7 +4189,8 @@ async def on_startup(a: web.Application) -> None:
     app: App = a["app"]
     a["tasks"] = [asyncio.create_task(app.stream_task()),
                   asyncio.create_task(app.broadcaster()),
-                  asyncio.create_task(app.audio_events_task())]
+                  asyncio.create_task(app.audio_events_task()),
+                  asyncio.create_task(app.front_task())]
 
 
 async def on_cleanup(a: web.Application) -> None:
@@ -4086,6 +4223,7 @@ def main() -> None:
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
     a.router.add_post("/api/settings/audiometa", api_settings_audiometa)
+    a.router.add_post("/api/settings/calendar", api_settings_calendar)
     a.router.add_post("/api/agent/announce", api_agent_announce)
     a.router.add_get("/api/agents", api_agents)
     a.router.add_post("/api/agent/command", api_agent_command)

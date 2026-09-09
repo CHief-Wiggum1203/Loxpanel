@@ -47,6 +47,7 @@
   .navbtn:hover .nbarrow{color:var(--accent);}
   .conn{font-size:13px;color:var(--muted);}
   .conn b.ok{color:var(--good);} .conn b.bad{color:var(--crit);}
+  .card b.ok{color:var(--good);} .card b.bad{color:var(--crit);}
   /* ---------- Main: Rubriken + Reiter + Inhalt + Speicherleiste ---------- */
   .main{display:flex;flex-direction:column;height:100vh;min-width:0;}
   .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:0 30px;}
@@ -323,6 +324,35 @@
           </div>
         </section>
 
+        <!-- Kalender & Wetter (Front / Screensaver) -->
+        <section class="spane" data-sub="calendar">
+          <p class="lead" data-i18n>Zeigt Termine aus einem iCal-Abo und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
+          <div class="card">
+            <h3 data-i18n>iCal-Kalender</h3>
+            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login.</p>
+            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Name</label><input type="text" id="cal_name" placeholder="Family"></div>
+            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>iCal-Abo-URL</label><input type="text" id="cal_url" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>
+            <div class="note" id="cal_status" style="margin-top:10px"></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Wetter</h3>
+            <p class="note" data-i18n>Wetter von Open-Meteo — kostenlos, ohne API-Schlüssel und ohne Konto. Nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus.</p>
+            <div class="row2">
+              <div class="field"><label class="lbl" data-i18n>Breitengrad</label><input type="text" id="cal_lat" placeholder="47.071" autocomplete="off"></div>
+              <div class="field"><label class="lbl" data-i18n>Längengrad</label><input type="text" id="cal_lon" placeholder="15.439" autocomplete="off"></div>
+            </div>
+            <div class="note" id="cal_wxstatus" style="margin-top:10px"></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Anzeige</h3>
+            <div class="row2">
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine der nächsten … Tage</label><input type="number" id="cal_days" min="1" max="60" value="14"></div>
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Wetter-Vorschau (Tage)</label><input type="number" id="cal_foredays" min="1" max="7" value="4"></div>
+            </div>
+            <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
+          </div>
+        </section>
+
         <!-- Neues Panel -->
         <section class="spane" data-sub="newpanel">
           <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
@@ -414,7 +444,7 @@ const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Ka
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'panels',label:'Panels'},{k:'audio',label:'Audio'},
-  {k:'newpanel',label:'Neues Panel'}];
+  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
@@ -981,6 +1011,29 @@ async function loadSettings(){
     srv.innerHTML = list.length
       ? T('Erkannte Audioserver:')+' '+list.map(esc).join(', ')
       : T('Kein Audioserver in der Loxone-Struktur gefunden.'); }
+  // Kalender & Wetter
+  const cal=SET.calendar||{};
+  if($('#cal_name')){
+    $('#cal_name').value=cal.name||'Family';
+    $('#cal_url').value=cal.ical_url||'';
+    $('#cal_lat').value=(cal.lat==null?'':cal.lat);
+    $('#cal_lon').value=(cal.lon==null?'':cal.lon);
+    $('#cal_days').value=cal.days||14;
+    $('#cal_foredays').value=cal.fore_days||4;
+    const st=cal.status||{};
+    const cs=$('#cal_status');
+    if(cs){
+      if(!st.cal_configured) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
+      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error);
+      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine');
+    }
+    const ws=$('#cal_wxstatus');
+    if(ws){
+      if(!st.wx_configured) ws.innerHTML='<span class="ccmut">'+T('Kein Standort konfiguriert.')+'</span>';
+      else if(st.wx_error) ws.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.wx_error);
+      else ws.innerHTML='<b class="ok">'+T('Wetter geladen')+'</b>';
+    }
+  }
 }
 
 $('#ms_save').onclick=async()=>{
@@ -1020,6 +1073,23 @@ $('#am_save').onclick=async()=>{
     if(j.ok){ flash($('#am_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#am_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#am_toast'),'Fehler: '+e,false); }
   $('#am_save').disabled=false;
+};
+
+$('#cal_save').onclick=async()=>{
+  const body={
+    name:$('#cal_name').value.trim(), ical_url:$('#cal_url').value.trim(),
+    lat:$('#cal_lat').value.trim(), lon:$('#cal_lon').value.trim(),
+    days:parseInt($('#cal_days').value)||14, fore_days:parseInt($('#cal_foredays').value)||4};
+  $('#cal_save').disabled=true;
+  try{
+    const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
+      // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
+      setTimeout(loadSettings,1500); }
+    else flash($('#cal_toast'),j.error||T('Fehler'),false);
+  }catch(e){ flash($('#cal_toast'),'Fehler: '+e,false); }
+  $('#cal_save').disabled=false;
 };
 
 // ---- Panels (alle Anzeigegeraete: Agent, Kiosk-App, Browser) ----

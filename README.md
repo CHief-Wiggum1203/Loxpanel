@@ -89,6 +89,10 @@ Programmierung und ohne die Loxone-App.
 - **Intercom** (z. B. Mobotix T25): Live-Bild (MJPEG mit Auth), Tür öffnen &
   Außenlicht, Klingel-Popup (der Server erkennt den `bell`-State und schiebt die
   Ansicht aufs Panel). Gegensprechen (SIP) folgt.
+- **Kalender & Wetter auf der Startseite:** die Uhr-Startseite (Screensaver) zeigt
+  optional das Wetter (von Open-Meteo, kostenlos und ohne API-Schlüssel – nur die
+  Koordinaten eintragen) und die nächsten Termine aus einem iCal-Abo (Apple/iCloud,
+  Google u. a.; Serientermine inklusive). Pflegbar unter *Settings → Kalender & Wetter*.
 - **Theming:** Kategorie-Farben, Zustandsfarben, Icon-/Schriftgrößen, sichtbare
   Tabs und Schrift zentral einstellbar.
 - **Sicherung an Bord:** Backup & Wiederherstellung der kompletten Konfiguration
