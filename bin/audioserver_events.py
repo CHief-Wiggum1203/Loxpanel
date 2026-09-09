@@ -43,6 +43,11 @@ import logging
 
 import aiohttp
 
+try:
+    from . import audioserver_auth as _auth  # type: ignore
+except ImportError:  # als Skript ohne Paketkontext geladen
+    import audioserver_auth as _auth
+
 log = logging.getLogger("loxpanel.audioevents")
 
 
@@ -59,14 +64,21 @@ class AudioEventClient:
     PROTOCOL = "remotecontrol"   # Pflicht: ohne Unterprotokoll schweigt der Audioserver
     PAIRED_ERROR = "not allowed when paired"
 
-    def __init__(self, host: str, port: int = 7091):
+    def __init__(self, host: str, port: int = 7091, user: str = "", token_provider=None):
         self.host = host
         self.port = port
+        # user + token_provider (async, liefert das aktuelle Miniserver-JWT)
+        # erlauben die Anmeldung am gekoppelten Audioserver wie die Loxone-App.
+        self.user = user
+        self._token_provider = token_provider
         self.now: dict[int, dict] = {}
         self.favs: dict[int, list] = {}
         # None = noch nicht geprueft; True = gekoppelter Loxone-Audioserver, der
-        # auf diesem Kanal keine Befehle annimmt (nur hoeren); False = Befehle ok.
+        # unangemeldete Befehle ablehnt; False = Befehle ohne Anmeldung ok.
         self.paired: bool | None = None
+        # True, sobald die Anmeldung (secure/authenticate) auf dieser Verbindung
+        # erfolgreich war -> Befehle (getroomfavs, roomfav/play) werden beantwortet.
+        self.authed = False
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._session: aiohttp.ClientSession | None = None
         self._on_change = None
@@ -162,9 +174,20 @@ class AudioEventClient:
         Befehl auf dem Kanal beendet dort die Verbindung, und die Ereignisse
         (Cover/Titel) waeren weg.
         """
-        if playerid is None or self.paired:
+        if playerid is None:
+            return
+        if self.paired and not self.authed:
             return
         await self._send(f"audio/cfg/getroomfavs/{int(playerid)}/0/50")
+
+    async def play_roomfav(self, playerid: int, favid) -> bool:
+        """Einen Raumfavoriten abspielen (Feld `id` des Favoriten, siehe
+        _apply_favs). Nur ueber eine angemeldete Verbindung; sonst wuerde der
+        gekoppelte Audioserver die Verbindung schliessen."""
+        if playerid is None or (self.paired and not self.authed):
+            return False
+        await self._send(f"audio/{int(playerid)}/roomfav/play/{favid}")
+        return True
 
     async def _check_paired(self) -> None:
         """Einmal per HTTP pruefen, ob der Audioserver Befehle ohne Anmeldung
@@ -185,6 +208,76 @@ class AudioEventClient:
                  "Favoriten und Befehle nicht ueber Port 7091"
                  if self.paired else "nimmt Befehle auf Port 7091 an (Favoriten moeglich)")
 
+    async def _get_jwt(self) -> str:
+        """Aktuelles Miniserver-JWT vom Server holen (fuer die Anmeldung)."""
+        if self._token_provider is None:
+            return ""
+        tok = self._token_provider()
+        if asyncio.iscoroutine(tok):
+            tok = await tok
+        return tok or ""
+
+    async def _authenticate(self, ws) -> None:
+        """Am gekoppelten Audioserver anmelden wie die Loxone-App: Banner ->
+        Session-Token, audio/cfg/getkey -> RSA-Schluessel, dann
+        secure/authenticate. Ereignisse waehrend des Handshakes werden normal
+        verarbeitet. Setzt self.authed. Fehler werden nur geloggt, die
+        Verbindung bleibt zum Hoeren bestehen."""
+        self.authed = False
+        if not _auth.HAVE_CRYPTO:
+            log.warning("Audioserver %s: Paket 'cryptography' fehlt, keine Anmeldung "
+                        "(Favoriten/Steuerung ueber 7091 nicht moeglich)", self.host)
+            return
+        user = self.user
+        jwt = await self._get_jwt()
+        if not (user and jwt):
+            log.debug("Audioserver %s: kein Benutzer/Token fuer die Anmeldung", self.host)
+            return
+
+        async def read_until(key, secs):
+            loop = asyncio.get_event_loop(); end = loop.time() + secs
+            while loop.time() < end:
+                try:
+                    m = await asyncio.wait_for(ws.receive(), timeout=max(0.1, end - loop.time()))
+                except asyncio.TimeoutError:
+                    return None
+                if m.type != aiohttp.WSMsgType.TEXT:
+                    return None
+                greet = _auth.parse_greeting(m.data)
+                if greet:
+                    return {"__greeting__": greet}
+                try:
+                    data = json.loads(m.data)
+                except (ValueError, TypeError):
+                    continue
+                if key in data:
+                    return data
+                # Ereignisse (Cover/Titel) nicht verlieren
+                if self._handle(m.data) and self._on_change:
+                    self._on_change()
+            return None
+
+        greet = await read_until("__greeting__", 4)
+        token = (greet or {}).get("__greeting__", {}).get("token") if greet else None
+        if not token:
+            log.warning("Audioserver %s: kein Banner mit Session-Token", self.host); return
+        await ws.send_str("audio/cfg/getkey")
+        gk = await read_until("getkey_result", 5)
+        pubkey = _auth.public_key_from_getkey(gk) if gk else None
+        if pubkey is None:
+            log.warning("Audioserver %s: kein RSA-Schluessel (getkey)", self.host); return
+        try:
+            cmd = _auth.build_authenticate(user, jwt, token, pubkey)
+        except Exception as err:
+            log.warning("Audioserver %s: Anmeldebefehl nicht baubar: %s", self.host, err); return
+        await ws.send_str(cmd)
+        res = await read_until("authenticate_result", 6)
+        result = _auth.auth_result(res) if res else None
+        self.authed = (result == _auth.AUTH_OK)
+        log.info("Audioserver %s: Anmeldung %s", self.host,
+                 "erfolgreich (Favoriten/Steuerung ueber 7091)" if self.authed
+                 else f"fehlgeschlagen ({result!r})")
+
     async def run(self, on_change=None) -> None:
         """Verbindungs-/Lese-Schleife mit Auto-Reconnect. `on_change` wird bei
         jeder Zustandsaenderung aufgerufen (setzt im Server _dirty)."""
@@ -199,6 +292,12 @@ class AudioEventClient:
                         protocols=(self.PROTOCOL,)) as ws:
                     self._ws = ws
                     log.info("Audioserver-Events verbunden: %s", self.url)
+                    # Gekoppelter Audioserver: erst anmelden, dann sind
+                    # getroomfavs/roomfav-play auf dieser Verbindung moeglich.
+                    if self.paired:
+                        await self._authenticate(ws)
+                        if self.authed and self._on_change:
+                            self._on_change()   # Ansicht ggf. mit Favoriten neu rendern
                     async for m in ws:
                         if m.type == aiohttp.WSMsgType.TEXT:
                             if self._handle(m.data) and self._on_change:
@@ -209,6 +308,7 @@ class AudioEventClient:
             except Exception as err:
                 log.debug("Audioserver-Events (%s): %s", self.url, err)
             self._ws = None
+            self.authed = False
             if self._stop:
                 break
             await asyncio.sleep(5)

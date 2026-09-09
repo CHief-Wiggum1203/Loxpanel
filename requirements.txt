@@ -1,3 +1,5 @@
 # LoxPanel Python-Abhaengigkeiten (via pip; die uebrigen kommen aus 'apt').
 # loxone-api uebernimmt Token-Auth (getkey2/getjwt), WebSocket und Struktur.
 loxone-api>=0.1.25
+# Anmeldung am gekoppelten Loxone-Audioserver (RSA/AES, bin/audioserver_auth.py)
+cryptography>=42

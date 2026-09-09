@@ -130,8 +130,12 @@ lehnt unangemeldete Befehle ab („command not allowed when paired", prüfbar mi
 über den Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das
 Unterprotokoll `remotecontrol` anfordern, dann schickt auch der gekoppelte
 Audioserver die Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem
-Kanal (auch `getroomfavs`) schließen dort die Verbindung, deshalb erkennt der
-Client den gekoppelten Zustand per HTTP und benutzt den Kanal nur zum Hören.
+Kanal setzen bei einem gekoppelten Audioserver eine Anmeldung voraus. LoxPanel
+meldet sich wie die Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus
+dem Banner, `audio/cfg/getkey` → RSA-Schlüssel, das Miniserver-JWT AES-256-CBC-
+verschlüsselt und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach
+laufen `getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung; Play/Pause/
+Lautstärke bleiben beim Miniserver.
 
 ### 3.2 Start
 

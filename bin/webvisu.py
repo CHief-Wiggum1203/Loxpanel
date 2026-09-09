@@ -780,7 +780,7 @@ class App:
         # (Ergebnis kommt async -> _dirty). Der Loxone-sourceList-State ist bei
         # vielen Setups leer, deshalb ist das der zuverlaessige Weg.
         cl, pid = self._audio_client_for(c)
-        if cl is not None and pid is not None and not cl.paired:
+        if cl is not None and pid is not None and (not cl.paired or cl.authed):
             await cl.request_favs(pid)
             return
         # Fallback ohne Event-Client (z.B. MS4H ohne 7091) oder bei gekoppeltem
@@ -3038,7 +3038,8 @@ class App:
                         want.add(host)
             for host in want:
                 if host not in self.audio_clients:
-                    cl = AudioEventClient(host, 7091)
+                    cl = AudioEventClient(host, 7091, user=self.user,
+                                          token_provider=lambda: self.jwt)
                     self.audio_clients[host] = cl
                     asyncio.create_task(self._run_audio_client(host, cl))
                     log.info("Audioserver-Event-Client gestartet: %s", host)
@@ -3153,6 +3154,16 @@ class App:
             # die Favoriten-Abfrage muss ueber den Miniserver laufen, sie
             # befuellt den sourceList-State fuer die Anzeige.
             pid = self.playerid_by_action.get(uuid)
+            # Raumfavorit abspielen: bei einem gekoppelten Audioserver ueber die
+            # angemeldete Ereignis-Verbindung (der Miniserver relayt roomfav/play
+            # fuer AudioZoneV2 nicht zuverlaessig; der Direktkanal ohne Anmeldung
+            # wuerde die Verbindung schliessen).
+            if pid is not None and cmd.startswith("roomfav/play/"):
+                host = self.audiohost_by_action.get(uuid)
+                acl = self.audio_clients.get(host) if host else None
+                if acl is not None and acl.authed:
+                    ok = await acl.play_roomfav(pid, cmd.rsplit("/", 1)[-1])
+                    return "200" if ok else None
             if pid is not None and not cmd.startswith("roomfav/get") and self._audio_direct(uuid):
                 backend = self._audio_backend_for(uuid)
                 if backend:

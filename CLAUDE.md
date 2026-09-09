@@ -21,7 +21,7 @@ sprechen `/api/*`.
 |---|---|
 | `bin/webvisu.py` | gesamter Server, 3.000 Zeilen, Routen in `main()` am Ende |
 | `bin/loxone_ws.py` | Loxone-WebSocket und Binärparser |
-| `bin/audioserver.py`, `bin/audioserver_events.py` | Audioserver-Backends: Gen1/MS4H und Gen2-Events (Port 7091) |
+| `bin/audioserver.py`, `bin/audioserver_events.py`, `bin/audioserver_auth.py` | Audioserver-Backends: Gen1/MS4H, Gen2-Events (Port 7091) und die App-Anmeldung am gekoppelten Audioserver (RSA/AES, braucht `cryptography`) |
 | `webfrontend/html/*.html`, `i18n.js` | Frontend, Vanilla JS, kein Build |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
 | `config/*.example` | Vorlagen; echte Dateien liegen im Volume `/app/config` |
