@@ -3242,57 +3242,73 @@ class App:
                     await self._close_conn()    # Client kaputt -> harter Reset (start() baut neu)
                 await asyncio.sleep(10)
 
+    async def _send_or_drop(self, ws, payload) -> bool:
+        """Sendet an ein Panel; bei JEDEM Fehler ODER Haenger (Timeout) wird die
+        Verbindung getrennt (nicht nur bei ConnectionError — aiohttp wirft bei
+        sterbenden Sockets auch RuntimeError, oder send blockiert bei half-open).
+        Das ws wird zusaetzlich geschlossen, damit das Panel den Abbruch bemerkt
+        und sich neu verbindet (statt still ohne Live-Updates weiterzulaufen)."""
+        try:
+            await asyncio.wait_for(ws.send_json(payload), timeout=5)
+            return True
+        except Exception:
+            self.conn_route.pop(ws, None)
+            self.conn_prof.pop(ws, None)
+            self.conn_dev.pop(ws, None)
+            try:
+                await ws.close()
+            except Exception:
+                pass
+            return False
+
+    async def _broadcast_tick(self) -> None:
+        if self._pending_ring is not None:
+            rid, self._pending_ring = self._pending_ring, None
+            log.info("Klingel → Popup: %s", rid)
+            self._spawn(self.display_drivers(True))   # Kiosk-Apps ueber HTTP wecken
+            for ws in list(self.conn_route):
+                await self._send_or_drop(ws, {"t": "ring", "id": rid})
+        while self._pending_alarm:
+            ev = self._pending_alarm.pop(0)
+            log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
+            if ev["on"]:
+                self._spawn(self.display_drivers(True))   # Display wecken (Kiosk-App)
+            for ws in list(self.conn_route):
+                await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
+        if self._dirty and self.conn_route:
+            self._dirty = False
+            for ws, route in list(self.conn_route.items()):
+                prof = self.conn_prof.get(ws)
+                try:
+                    msg = self.render(route, prof)
+                except Exception:
+                    # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-Update-
+                    # Schleife killen. Fehler loggen, diese Verbindung ueberspringen.
+                    log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
+                    continue
+                # Split-Layout: festen Player mitrendern (Fehler ebenso isolieren)
+                player_msg = None
+                if prof and prof.get("player"):
+                    try:
+                        pb = self.player_blocks(prof["player"])
+                        player_msg = {"t": "player", "blocks": pb} if pb is not None else None
+                    except Exception:
+                        log.exception("player_blocks fehlgeschlagen (%s)", prof.get("player"))
+                if await self._send_or_drop(ws, msg) and player_msg is not None:
+                    await self._send_or_drop(ws, player_msg)
+
     async def broadcaster(self) -> None:
+        # Diese Schleife darf NIEMALS sterben — sonst bekommen ALLE Panels keine
+        # Live-Updates mehr (Symptom: Aktion wird ausgefuehrt, aber erst nach
+        # Weg-/Zurueck-Navigieren angezeigt). Der ganze Tick ist deshalb gekapselt.
         while True:
             await asyncio.sleep(0.3)
-            if self._pending_ring is not None:
-                rid, self._pending_ring = self._pending_ring, None
-                log.info("Klingel → Popup: %s", rid)
-                self._spawn(self.display_drivers(True))   # Kiosk-Apps ueber HTTP wecken
-                for ws in list(self.conn_route):
-                    try:
-                        await ws.send_json({"t": "ring", "id": rid})
-                    except ConnectionError:
-                        self.conn_route.pop(ws, None)
-            while self._pending_alarm:
-                ev = self._pending_alarm.pop(0)
-                log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
-                if ev["on"]:
-                    self._spawn(self.display_drivers(True))
-                for ws in list(self.conn_route):
-                    try:
-                        await ws.send_json({"t": "alarm", "id": ev["id"], "on": ev["on"]})
-                    except ConnectionError:
-                        self.conn_route.pop(ws, None)
-            if self._dirty and self.conn_route:
-                self._dirty = False
-                for ws, route in list(self.conn_route.items()):
-                    prof = self.conn_prof.get(ws)
-                    try:
-                        msg = self.render(route, prof)
-                    except Exception:
-                        # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-
-                        # Update-Schleife killen (sonst bekommen ALLE Panels keine
-                        # Rueckmeldung mehr). Fehler loggen, diese Verbindung
-                        # diesmal ueberspringen, Rest weiter bedienen.
-                        log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
-                        continue
-                    # Split-Layout: festen Player mitrendern (Fehler ebenso isolieren)
-                    player_msg = None
-                    if prof and prof.get("player"):
-                        try:
-                            pb = self.player_blocks(prof["player"])
-                            player_msg = {"t": "player", "blocks": pb} if pb is not None else None
-                        except Exception:
-                            log.exception("player_blocks fehlgeschlagen (%s)", prof.get("player"))
-                    try:
-                        await ws.send_json(msg)
-                        if player_msg is not None:
-                            await ws.send_json(player_msg)
-                    except ConnectionError:
-                        self.conn_route.pop(ws, None)
-                        self.conn_prof.pop(ws, None)
-                        self.conn_dev.pop(ws, None)
+            try:
+                await self._broadcast_tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("broadcaster-Tick fehlgeschlagen — Schleife laeuft weiter")
 
     async def close(self) -> None:
         if self.ws:

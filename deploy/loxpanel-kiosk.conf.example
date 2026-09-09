@@ -26,7 +26,18 @@ AGENT_PORT=8130
 # DPMS_OFF = Sekunden bis das Display komplett abschaltet (Backlight aus), wenn
 # nichts angetippt wird. 0 = nie. Antippen weckt es sofort. Default 180 (3 min).
 # Der Web-Screensaver (Uhr) erscheint schon nach 60 s; danach schaltet DPMS ab.
-# DPMS_OFF=180
+# Bewaehrt am PX30-Wandpanel: 60 (schaltet zuegig ab, bleibt kuehl).
+# DPMS_OFF=60
+# BL_ON = feste Helligkeit im Ein-Zustand (0..max_brightness des Panels). Leer =
+# volles max_brightness. Wird beim Aufwachen immer neu gesetzt (nicht aus dem
+# Ist-Wert gelernt), damit ein zu dunkel gedimmtes Panel wieder hell wird.
+# Bewaehrt am PX30: 200.
+# BL_ON=200
+# PAUSE_ON_BLANK = Chromium-Kiosk pausieren (SIGSTOP), solange das Display aus
+# ist. 0 = weiterlaufen lassen (Default, empfohlen: Visu bleibt live, wacht
+# sofort mit aktuellem Stand auf). 1 = pausieren (spart CPU, aber Kaltstart-
+# Gefuehl beim Aufwachen). Backlight/DPMS laeuft unabhaengig davon.
+# PAUSE_ON_BLANK=0
 # RELOAD_HOURS = Stunden bis zum automatischen Kiosk-Neustart (gegen Einfrieren
 # des Panels). 0 = aus (Default). Besser ueber die Settings-Seite pro Panel
 # setzen (ueberschreibt diesen Wert). Beispiel: alle 12 Stunden neu starten.
