@@ -95,7 +95,7 @@ DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
-                 "Irrigation", "Sauna"}   # Irrigation: nur Anzeige; Sauna: nur Ein/Aus
+                 "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
 
 
 def _is_tab(t) -> bool:
@@ -3022,18 +3022,35 @@ class App:
                 rows.append({"k": "status", "text": "Wasser nachfüllen"})
             if err:
                 rows.append({"k": "status", "text": "Störung"})
+            # Steuerung. Befehle an der Anlage verifiziert (bin/sauna_probe.py):
+            # Solltemperatur temp/<wert>, Betriebsart mode/<0..6>, Ein/Aus on/off.
+            # Solltemperatur relativ (der Miniserver begrenzt auf die Sauna-Grenzen);
+            # die Buttons rechnen bei jedem Rendering vom aktuellen Sollwert weiter.
+            ctrl = []
+            if tt is not None:
+                base = int(round(tt))
+                ctrl.append({"k": "row", "cells": [
+                    {"label": "−5°", "cmd": {"uuid": ua, "cmd": f"temp/{base - 5}"}},
+                    {"label": "−1°", "cmd": {"uuid": ua, "cmd": f"temp/{base - 1}"}},
+                    {"label": "+1°", "cmd": {"uuid": ua, "cmd": f"temp/{base + 1}"}},
+                    {"label": "+5°", "cmd": {"uuid": ua, "cmd": f"temp/{base + 5}"}},
+                ]})
+            # Betriebsart per Aufklapper (mode/<n>), aktive Art ist markiert.
+            ctrl.append({"k": "row", "cells": [
+                {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
+                {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
+                {"label": "Programm", "menu": [
+                    {"label": nm, "on": isinstance(md, (int, float)) and int(md) == n,
+                     "cmd": {"uuid": ua, "cmd": f"mode/{n}"}}
+                    for n, nm in SAUNA_MODES.items()]},
+            ]})
             blocks = [
                 {"k": "hero", "icon": "thermo"},
                 {"k": "big", "text": (f"{self._fmt_num(ta, '%.0f')} °C" if ta is not None else "–"),
                  **({"tone": "crit"} if err else {})},
                 {"k": "status", "text": " · ".join(sbits)},
                 *rows,
-                # Ein/Aus wie bei Schaltern (on/off). Solltemperatur und Modus
-                # setzen folgt, sobald die Befehle auf der Anlage geprueft sind.
-                {"k": "row", "cells": [
-                    {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
-                    {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
-                ]},
+                *ctrl,
             ]
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
