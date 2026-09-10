@@ -229,9 +229,12 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Zustände Heizen/Kühlen. **M**
 - [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
       Override wie bei V2. **M**
-- [x] `Sauna` (Sauna-Steuerung): Ist/Soll, Bank, Feuchte, Tür, Timer als
-      Anzeige, Ein/Aus als Befehl. Offen: Modus und Solltemperatur setzen,
-      Befehlsnamen auf der Anlage prüfen. **M**
+- [x] `Sauna` (Sauna-Steuerung): **vollständig**. Anzeige von Ist/Soll/Bank,
+      Betriebsart (`mode` 0..6 als Klartext), Feuchte (Ist/Soll), Lüftung,
+      Trocknung, Tür, Betriebstemperatur, Wassermangel, Timer und Störung.
+      Bedienung: Ein/Aus (`on`/`off`), Solltemperatur (`temp/<wert>`, ±1/±5 °C)
+      und Betriebsart (`mode/<0..6>` als Aufklapper). States und Befehle an der
+      echten Anlage verifiziert (`bin/sauna_probe.py`). **M**
 - [ ] `PoolController` (Pool): Modus, Temperaturen, Filterlauf, Befehle. **M**
 - [ ] `LightsceneRGB` (RGB-Lichtszene): Szenenliste, aktive Szene, Farbe
       setzen; Farbwahl aus `ColorPickerV2` wiederverwenden. **M**
@@ -266,8 +269,11 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
       Muster von `Daytimer`. **S**
 - [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
-      erwarteter Niederschlag als Anzeige. Offen: Start/Stop und Zone starten,
-      Befehlsnamen auf der Anlage prüfen. **M**
+      erwarteter Niederschlag als Anzeige; Bedienung Start/Erzwingen/Stopp und
+      alle Zonen an/aus (`start`/`startForce`/`stop`/`select/9`/`select/0`, aus
+      der Loxone-Structure-File-Doku). Offen: Auswahl EINZELNER Zonen
+      (`select/<n>`) — Zonennummerierung mit `bin/steuer_probe.py --zones`
+      an der Anlage klären. **M**
 - [ ] `AlarmChain`, `AalEmergency`, `AalSmartAlarm` (Alarmkette, Notfall,
       Smart Alarm): Zustand und Quittieren nach dem Muster von `Alarm`. **S**
 - [x] `MailBox` (Briefkasten): Post da / Paket da / leer als Anzeige.
@@ -294,11 +300,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn): Upstream 0.3.2 holt
       Favoriten und Steuerung direkt vom Audioserver (Port 7091); mit
       `audio.directV2` auch für `AudioZoneV2`-Nachbauten. **M**
-- [ ] `AlarmClock` (Wecker): nur Anzeige und Weckton, kein Bearbeiten der
-      Weckzeiten. **M**
-- [ ] `Intercom`: Kamera und Klingel-Popup, kein Gegensprechen (SIP). **L**
+- [ ] `AlarmClock` (Wecker): Anzeige + Weckton; beim Klingeln Schlummer
+      (`snooze`) und Aus (`dismiss`). Offen: Master-Ein/Aus (`setActive`, zu
+      verifizieren) und Bearbeiten/Anlegen der Weckzeiten (braucht Zeit-/
+      Wochentag-Picker im Frontend, eigenes Feature). **M/L**
+- [ ] `Intercom`: Kamera, Live-Klingelanzeige (`bell`) auf Kachel/Detail,
+      Tür/Ausgänge öffnen (`pulse` je Sub-Control). Offen: Gegensprechen (SIP,
+      eigener Medien-Stack), Klingel-Historie mit Vorschaubildern (neue
+      Bild-Route, Format an der Anlage zu prüfen). **L**
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
-- [ ] `UpDownAnalog`: nur Anzeige, keine Auf/Ab-Befehle. **S**
+- [ ] `UpDownAnalog`: nur Anzeige. Setz-Befehl noch nicht belegt (Roh-Wert vs.
+      Auf/Ab-Puls unklar) — mit `bin/steuer_probe.py --updown` an der Anlage
+      klären, dann Steuerung bauen. **S**
 - [ ] `Ventilation` (Lüftung): nur Stufe anzeigen, kein Umschalten. **S**
 
 ## 9. Weitere Funktionen

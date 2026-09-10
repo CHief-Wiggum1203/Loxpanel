@@ -95,7 +95,7 @@ DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
-                 "Irrigation", "Sauna"}   # Irrigation: nur Anzeige; Sauna: nur Ein/Aus
+                 "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
 
 
 def _is_tab(t) -> bool:
@@ -110,6 +110,10 @@ STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
+# Betriebsarten des Sauna-Bausteins (State "mode", 0..6), Zuordnung aus der
+# offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
+SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
+               3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -1745,8 +1749,12 @@ class App:
             it.update(icon="thermo", nav={"view": "control", "id": uuid},
                       on=bool(prep), sublabel=sub)
         elif t == "Intercom":
-            it.update(icon="cam", sublabel="Türsprechanlage",
+            ring = bool(self._state(c, "bell"))
+            it.update(icon="cam", on=ring,
+                      sublabel=("Es klingelt" if ring else "Türsprechanlage"),
                       nav={"view": "control", "id": uuid})
+            if ring:
+                it["tone"] = "crit"
         elif t in SWITCHY:
             on = bool(self._state(c, "active"))
             it.update(on=on, sublabel="Ein" if on else "Aus", icon="switch",
@@ -1984,6 +1992,11 @@ class App:
                 tt = self._state(c, "tempTarget")
                 if tt is not None:
                     sub += f" → {self._fmt_num(tt, '%.0f')} °C"
+                md = self._state(c, "mode")
+                if isinstance(md, (int, float)) and int(md) in SAUNA_MODES:
+                    sub += f" · {SAUNA_MODES[int(md)]}"
+            if (c.get("details") or {}).get("hasVaporizer") and self._state(c, "lessWater"):
+                it["tone"] = "warn"
             if self._state(c, "error") or self._state(c, "saunaError"):
                 it["tone"] = "crit"
             it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
@@ -2504,8 +2517,11 @@ class App:
             cells = [{"label": _clean(sc.get("name")),
                       "cmd": {"uuid": sc.get("uuidAction"), "cmd": "pulse"}}
                      for sc in subs.values()]
-            blocks = [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
-                     [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
+            blocks = []
+            if self._state(c, "bell"):
+                blocks.append({"k": "astat", "text": "Es klingelt", "tone": "crit"})
+            blocks += [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
+                      [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
             if cells:
                 blocks.append({"k": "row", "cells": cells})
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
@@ -2609,9 +2625,9 @@ class App:
             entries = self._alarm_entries(c)
             room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
             # Layout wie IRR/Klima (anchor:bottom): Statuszeile mittig oben (Raum
-            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Read-only —
-            # keine Eintrags-Bearbeitung; klingelt der Wecker, gibt es genau EINEN
-            # Button (Loxone 'dismiss' -> isAlarmActive 0 -> Weckton stoppt).
+            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Keine
+            # Eintrags-Bearbeitung; klingelt der Wecker, gibt es Schlummer (Loxone
+            # 'snooze') und Wecker aus ('dismiss' -> isAlarmActive 0 -> Weckton stoppt).
             stat = {"k": "astat", "text": ("Weckt jetzt" if ringing else (nxt or "Keine Weckzeit aktiv"))}
             if ringing:
                 stat["tone"] = "crit"
@@ -2620,6 +2636,7 @@ class App:
             blocks = [{"k": "hero", "icon": "alarm"}, stat, {"k": "alarmlist", "entries": entries}]
             if ringing:
                 blocks.append({"k": "row", "cells": [
+                    {"label": "Schlummer", "cmd": {"uuid": ua, "cmd": "snooze"}},
                     {"label": "Wecker aus", "cmd": {"uuid": ua, "cmd": "dismiss"}}]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
@@ -2949,6 +2966,7 @@ class App:
                 *rows,
             ]}
         if t == "Irrigation":
+            ua = c.get("uuidAction")
             act = bool(self._state(c, "active"))
             rain = bool(self._state(c, "rainActive"))
             big = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
@@ -2964,7 +2982,23 @@ class App:
                 rows.append({"k": "head", "text": "Zonen"})
                 rows += [{"k": "status", "text": (label + (" ← aktiv" if act and label == zone else ""))}
                          for label, _z in zones]
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+            # Steuerung. Befehle aus der offiziellen Loxone-Structure-File-Doku
+            # (Irrigation): start = nur wenn noetig, startForce = erwarteten/
+            # vergangenen Regen ignorieren, stop, select/9 = alle Zonen an,
+            # select/0 = alle aus. Die Auswahl EINZELNER Zonen (select/<n>) ist
+            # noch nicht belegt (Zonennummerierung an der Anlage zu pruefen) und
+            # daher hier bewusst weggelassen.
+            rows.append({"k": "row", "cells": [
+                {"label": "Start", "on": act, "cmd": {"uuid": ua, "cmd": "start"}},
+                {"label": "Erzwingen", "cmd": {"uuid": ua, "cmd": "startForce"}},
+                {"label": "Stopp", "on": not act, "cmd": {"uuid": ua, "cmd": "stop"}},
+            ]})
+            rows.append({"k": "row", "cells": [
+                {"label": "Alle Zonen", "cmd": {"uuid": ua, "cmd": "select/9"}},
+                {"label": "Alles aus", "cmd": {"uuid": ua, "cmd": "select/0"}},
+            ]})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": [
                 {"k": "hero", "icon": "info"},
                 {"k": "big", "text": big, **({"tone": "good"} if act else {})},
                 {"k": "status", "text": "Bewässerung"},
@@ -2977,10 +3011,14 @@ class App:
             return self._big_view(uuid, "info", big, "Postkasten", tone=("good" if (mail or pk) else None))
         if t == "Sauna":
             ua = c.get("uuidAction")
+            det = c.get("details") or {}
             act = bool(self._state(c, "active"))
             ta = self._state(c, "tempActual")
             err = self._state(c, "error") or self._state(c, "saunaError")
             sbits = ["Ein" if act else "Aus"]
+            md = self._state(c, "mode")
+            if isinstance(md, (int, float)) and int(md) in SAUNA_MODES:
+                sbits.append(SAUNA_MODES[int(md)])
             tt = self._state(c, "tempTarget")
             if tt is not None:
                 sbits.append(f"Soll {self._fmt_num(tt, '%.0f')} °C")
@@ -2988,29 +3026,56 @@ class App:
             if tb is not None:
                 sbits.append(f"Bank {self._fmt_num(tb, '%.0f')} °C")
             hum = self._state(c, "humidityActual")
-            if hum is not None and (c.get("details") or {}).get("hasVaporizer"):
-                sbits.append(f"Feuchte {self._fmt_num(hum, '%.0f')} %")
+            if hum is not None and det.get("hasVaporizer"):
+                fbit = f"Feuchte {self._fmt_num(hum, '%.0f')} %"
+                ht = self._state(c, "humidityTarget")
+                if isinstance(ht, (int, float)) and ht > 0:
+                    fbit += f" → {self._fmt_num(ht, '%.0f')} %"
+                sbits.append(fbit)
             rows = []
-            if (c.get("details") or {}).get("hasDoorSensor") and self._state(c, "doorClosed") == 0:
+            if det.get("hasDoorSensor") and self._state(c, "doorClosed") == 0:
                 rows.append({"k": "status", "text": "Tür offen"})
             if self._state(c, "ready"):
                 rows.append({"k": "status", "text": "Betriebstemperatur erreicht"})
+            if self._state(c, "fan"):
+                rows.append({"k": "status", "text": "Lüftung läuft"})
+            if self._state(c, "drying"):
+                rows.append({"k": "status", "text": "Trocknung läuft"})
             if self._state(c, "timer"):
                 rows.append({"k": "status", "text": "Timer läuft"})
+            if det.get("hasVaporizer") and self._state(c, "lessWater"):
+                rows.append({"k": "status", "text": "Wasser nachfüllen"})
             if err:
                 rows.append({"k": "status", "text": "Störung"})
+            # Steuerung. Befehle an der Anlage verifiziert (bin/sauna_probe.py):
+            # Solltemperatur temp/<wert>, Betriebsart mode/<0..6>, Ein/Aus on/off.
+            # Solltemperatur relativ (der Miniserver begrenzt auf die Sauna-Grenzen);
+            # die Buttons rechnen bei jedem Rendering vom aktuellen Sollwert weiter.
+            ctrl = []
+            if tt is not None:
+                base = int(round(tt))
+                ctrl.append({"k": "row", "cells": [
+                    {"label": "−5°", "cmd": {"uuid": ua, "cmd": f"temp/{base - 5}"}},
+                    {"label": "−1°", "cmd": {"uuid": ua, "cmd": f"temp/{base - 1}"}},
+                    {"label": "+1°", "cmd": {"uuid": ua, "cmd": f"temp/{base + 1}"}},
+                    {"label": "+5°", "cmd": {"uuid": ua, "cmd": f"temp/{base + 5}"}},
+                ]})
+            # Betriebsart per Aufklapper (mode/<n>), aktive Art ist markiert.
+            ctrl.append({"k": "row", "cells": [
+                {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
+                {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
+                {"label": "Programm", "menu": [
+                    {"label": nm, "on": isinstance(md, (int, float)) and int(md) == n,
+                     "cmd": {"uuid": ua, "cmd": f"mode/{n}"}}
+                    for n, nm in SAUNA_MODES.items()]},
+            ]})
             blocks = [
                 {"k": "hero", "icon": "thermo"},
                 {"k": "big", "text": (f"{self._fmt_num(ta, '%.0f')} °C" if ta is not None else "–"),
                  **({"tone": "crit"} if err else {})},
                 {"k": "status", "text": " · ".join(sbits)},
                 *rows,
-                # Ein/Aus wie bei Schaltern (on/off). Weitere Befehle (Modus,
-                # Solltemperatur) erst nach Pruefung auf der Anlage.
-                {"k": "row", "cells": [
-                    {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
-                    {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
-                ]},
+                *ctrl,
             ]
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}

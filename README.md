@@ -154,7 +154,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>ClimateController</code></td><td>Klimaregelung (EU)</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Heatmixer</code></td><td>Heizungsmischer</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>IRoomController</code></td><td>Raumregelung (alt)</td><td align="center">⬜</td><td></td></tr>
-<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">🟡</td><td>Temperaturen, Feuchte, Tür, Timer; Ein/Aus</td></tr>
+<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">✅</td><td>Ist/Soll/Bank, Betriebsart, Feuchte, Lüftung, Trocknung, Tür, Timer; Ein/Aus, Solltemperatur & Programm setzen</td></tr>
 <tr><td><code>Ventilation</code></td><td>Lueftung</td><td align="center">🟡</td><td></td></tr>
 <tr><th colspan="4" align="left">Sensorik / Anzeige</th></tr>
 <tr><td><code>Hourcounter</code></td><td>Betriebsstundenzaehler</td><td align="center">✅</td><td>inkl. Wartung faellig</td></tr>
@@ -174,17 +174,17 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>PoolController</code></td><td>Pool-Steuerung</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Sequential</code></td><td>Sequenzer</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Webpage</code></td><td>Webseite (eingebettet)</td><td align="center">✅</td><td></td></tr>
-<tr><td><code>Irrigation</code></td><td>Bewässerung</td><td align="center">🟡</td><td>Zustand, Zonen, Niederschlag; keine Bedienung</td></tr>
+<tr><td><code>Irrigation</code></td><td>Bewässerung</td><td align="center">🟡</td><td>Zustand, Zonen, Niederschlag; Start/Stopp/Erzwingen, alle Zonen an/aus (Einzelzonen folgen)</td></tr>
 <tr><td><code>MailBox</code></td><td>Briefkasten</td><td align="center">✅</td><td>Post / Paket da</td></tr>
 <tr><td><code>SteakThermo</code></td><td>Grillthermometer (Touch &amp; Grill)</td><td align="center">✅</td><td>Fühler, Zielwerte, Akku; nur Anzeige</td></tr>
 <tr><th colspan="4" align="left">Tor / Zutritt</th></tr>
 <tr><td><code>CentralGate</code></td><td>Zentral Tor</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Gate</code></td><td>Tor / Garagentor</td><td align="center">✅</td><td>Position, Auf/Zu</td></tr>
-<tr><td><code>Intercom</code></td><td>Tuersprechanlage</td><td align="center">🟡</td><td>Kamera/Klingel-Popup; SIP folgt</td></tr>
+<tr><td><code>Intercom</code></td><td>Tuersprechanlage</td><td align="center">🟡</td><td>Kamera, Live-Klingelanzeige, Tür/Ausgänge öffnen; SIP folgt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
 <tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off</td></tr>
-<tr><td><code>AlarmClock</code></td><td>Wecker</td><td align="center">🟡</td><td>read-only Anzeige + Weckton/Alarm (kein Bearbeiten)</td></tr>
+<tr><td><code>AlarmClock</code></td><td>Wecker</td><td align="center">🟡</td><td>Anzeige + Weckton, Schlummer/Aus beim Klingeln; Weckzeiten bearbeiten folgt</td></tr>
 <tr><td><code>Daytimer</code></td><td>Wochenuhr / Zeitplan</td><td align="center">✅</td><td></td></tr>
 </tbody>
 </table>
