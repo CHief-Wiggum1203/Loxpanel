@@ -1749,8 +1749,12 @@ class App:
             it.update(icon="thermo", nav={"view": "control", "id": uuid},
                       on=bool(prep), sublabel=sub)
         elif t == "Intercom":
-            it.update(icon="cam", sublabel="Türsprechanlage",
+            ring = bool(self._state(c, "bell"))
+            it.update(icon="cam", on=ring,
+                      sublabel=("Es klingelt" if ring else "Türsprechanlage"),
                       nav={"view": "control", "id": uuid})
+            if ring:
+                it["tone"] = "crit"
         elif t in SWITCHY:
             on = bool(self._state(c, "active"))
             it.update(on=on, sublabel="Ein" if on else "Aus", icon="switch",
@@ -2513,8 +2517,11 @@ class App:
             cells = [{"label": _clean(sc.get("name")),
                       "cmd": {"uuid": sc.get("uuidAction"), "cmd": "pulse"}}
                      for sc in subs.values()]
-            blocks = [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
-                     [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
+            blocks = []
+            if self._state(c, "bell"):
+                blocks.append({"k": "astat", "text": "Es klingelt", "tone": "crit"})
+            blocks += [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
+                      [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
             if cells:
                 blocks.append({"k": "row", "cells": cells})
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
@@ -2618,9 +2625,9 @@ class App:
             entries = self._alarm_entries(c)
             room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
             # Layout wie IRR/Klima (anchor:bottom): Statuszeile mittig oben (Raum
-            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Read-only —
-            # keine Eintrags-Bearbeitung; klingelt der Wecker, gibt es genau EINEN
-            # Button (Loxone 'dismiss' -> isAlarmActive 0 -> Weckton stoppt).
+            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Keine
+            # Eintrags-Bearbeitung; klingelt der Wecker, gibt es Schlummer (Loxone
+            # 'snooze') und Wecker aus ('dismiss' -> isAlarmActive 0 -> Weckton stoppt).
             stat = {"k": "astat", "text": ("Weckt jetzt" if ringing else (nxt or "Keine Weckzeit aktiv"))}
             if ringing:
                 stat["tone"] = "crit"
@@ -2629,6 +2636,7 @@ class App:
             blocks = [{"k": "hero", "icon": "alarm"}, stat, {"k": "alarmlist", "entries": entries}]
             if ringing:
                 blocks.append({"k": "row", "cells": [
+                    {"label": "Schlummer", "cmd": {"uuid": ua, "cmd": "snooze"}},
                     {"label": "Wecker aus", "cmd": {"uuid": ua, "cmd": "dismiss"}}]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
@@ -2958,6 +2966,7 @@ class App:
                 *rows,
             ]}
         if t == "Irrigation":
+            ua = c.get("uuidAction")
             act = bool(self._state(c, "active"))
             rain = bool(self._state(c, "rainActive"))
             big = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
@@ -2973,7 +2982,23 @@ class App:
                 rows.append({"k": "head", "text": "Zonen"})
                 rows += [{"k": "status", "text": (label + (" ← aktiv" if act and label == zone else ""))}
                          for label, _z in zones]
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
+            # Steuerung. Befehle aus der offiziellen Loxone-Structure-File-Doku
+            # (Irrigation): start = nur wenn noetig, startForce = erwarteten/
+            # vergangenen Regen ignorieren, stop, select/9 = alle Zonen an,
+            # select/0 = alle aus. Die Auswahl EINZELNER Zonen (select/<n>) ist
+            # noch nicht belegt (Zonennummerierung an der Anlage zu pruefen) und
+            # daher hier bewusst weggelassen.
+            rows.append({"k": "row", "cells": [
+                {"label": "Start", "on": act, "cmd": {"uuid": ua, "cmd": "start"}},
+                {"label": "Erzwingen", "cmd": {"uuid": ua, "cmd": "startForce"}},
+                {"label": "Stopp", "on": not act, "cmd": {"uuid": ua, "cmd": "stop"}},
+            ]})
+            rows.append({"k": "row", "cells": [
+                {"label": "Alle Zonen", "cmd": {"uuid": ua, "cmd": "select/9"}},
+                {"label": "Alles aus", "cmd": {"uuid": ua, "cmd": "select/0"}},
+            ]})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": [
                 {"k": "hero", "icon": "info"},
                 {"k": "big", "text": big, **({"tone": "good"} if act else {})},
                 {"k": "status", "text": "Bewässerung"},
