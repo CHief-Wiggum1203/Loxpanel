@@ -16,10 +16,13 @@ Sicherheit:
     Sauna eingeschaltet ist (sonst ist tempTarget/mode nicht aussagekraeftig).
   * Der Modus-Test laeuft nur zusaetzlich mit --mode.
 
-Ausfuehren (am besten bei EINGESCHALTETER Sauna):
-    docker exec -it loxpanel python bin/sauna_probe.py            # Trockenlauf
-    docker exec -it loxpanel python bin/sauna_probe.py --write    # Solltemp testen
-    docker exec -it loxpanel python bin/sauna_probe.py --write --mode  # + Modus
+Ausfuehren (am besten bei EINGESCHALTETER Sauna).
+  Unraid: die Datei in den appdata-Ordner legen (/mnt/user/appdata/loxpanel/config,
+  im Container /app/config); der Container heisst "LoxPanel":
+    docker exec -it LoxPanel python /app/config/sauna_probe.py --mode          # Trockenlauf
+    docker exec -it LoxPanel python /app/config/sauna_probe.py --write --mode  # echte Verifikation
+  Lokal (mit config/loxpanel.cfg oder LOXPANEL_MS_*-Variablen):
+    python bin/sauna_probe.py --write --mode
 
 Zugang: erst Env (LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS), sonst
 config/loxpanel.cfg (wie der Server). Die komplette Ausgabe bitte teilen.
@@ -31,7 +34,13 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Hilfsmodule (loxone_api via pip, loxone_ws lokal im bin-Ordner). Damit das
+# Skript auch laeuft, wenn es woanders liegt - z.B. im gemounteten /app/config
+# eines Unraid-Containers -, werden moegliche bin-Pfade zum Suchpfad ergaenzt.
+_here = Path(__file__).resolve().parent
+for _cand in (_here, _here.parent / "bin", Path("/app/bin")):
+    if _cand.is_dir() and str(_cand) not in sys.path:
+        sys.path.insert(0, str(_cand))
 from loxone_api import LoxoneClient  # noqa: E402
 from loxone_ws import LoxoneWS  # noqa: E402
 
