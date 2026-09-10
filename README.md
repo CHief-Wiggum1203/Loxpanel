@@ -154,7 +154,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>ClimateController</code></td><td>Klimaregelung (EU)</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Heatmixer</code></td><td>Heizungsmischer</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>IRoomController</code></td><td>Raumregelung (alt)</td><td align="center">⬜</td><td></td></tr>
-<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">🟡</td><td>Temperaturen, Feuchte, Tür, Timer; Ein/Aus</td></tr>
+<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">🟡</td><td>Ist/Soll/Bank, Betriebsart, Feuchte (Ist/Soll), Lüftung, Trocknung, Tür, Timer; Ein/Aus</td></tr>
 <tr><td><code>Ventilation</code></td><td>Lueftung</td><td align="center">🟡</td><td></td></tr>
 <tr><th colspan="4" align="left">Sensorik / Anzeige</th></tr>
 <tr><td><code>Hourcounter</code></td><td>Betriebsstundenzaehler</td><td align="center">✅</td><td>inkl. Wartung faellig</td></tr>

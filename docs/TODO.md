@@ -229,9 +229,12 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Zustände Heizen/Kühlen. **M**
 - [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
       Override wie bei V2. **M**
-- [x] `Sauna` (Sauna-Steuerung): Ist/Soll, Bank, Feuchte, Tür, Timer als
-      Anzeige, Ein/Aus als Befehl. Offen: Modus und Solltemperatur setzen,
-      Befehlsnamen auf der Anlage prüfen. **M**
+- [x] `Sauna` (Sauna-Steuerung): Anzeige von Ist/Soll/Bank, Betriebsart
+      (`mode` 0..6 als Klartext), Feuchte (Ist/Soll), Lüftung, Trocknung, Tür,
+      Betriebstemperatur, Wassermangel, Timer und Störung; Ein/Aus als Befehl.
+      States an der Anlage (LoxAPP3.json) verifiziert. Offen: Solltemperatur
+      und Modus **setzen** – die Loxone-Befehlsnamen dafür stehen nicht in der
+      Struktur und müssen an der Anlage verifiziert werden. **M**
 - [ ] `PoolController` (Pool): Modus, Temperaturen, Filterlauf, Befehle. **M**
 - [ ] `LightsceneRGB` (RGB-Lichtszene): Szenenliste, aktive Szene, Farbe
       setzen; Farbwahl aus `ColorPickerV2` wiederverwenden. **M**

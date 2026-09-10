@@ -110,6 +110,10 @@ STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
+# Betriebsarten des Sauna-Bausteins (State "mode", 0..6), Zuordnung aus der
+# offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
+SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
+               3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -1984,6 +1988,11 @@ class App:
                 tt = self._state(c, "tempTarget")
                 if tt is not None:
                     sub += f" → {self._fmt_num(tt, '%.0f')} °C"
+                md = self._state(c, "mode")
+                if isinstance(md, (int, float)) and int(md) in SAUNA_MODES:
+                    sub += f" · {SAUNA_MODES[int(md)]}"
+            if (c.get("details") or {}).get("hasVaporizer") and self._state(c, "lessWater"):
+                it["tone"] = "warn"
             if self._state(c, "error") or self._state(c, "saunaError"):
                 it["tone"] = "crit"
             it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
@@ -2977,10 +2986,14 @@ class App:
             return self._big_view(uuid, "info", big, "Postkasten", tone=("good" if (mail or pk) else None))
         if t == "Sauna":
             ua = c.get("uuidAction")
+            det = c.get("details") or {}
             act = bool(self._state(c, "active"))
             ta = self._state(c, "tempActual")
             err = self._state(c, "error") or self._state(c, "saunaError")
             sbits = ["Ein" if act else "Aus"]
+            md = self._state(c, "mode")
+            if isinstance(md, (int, float)) and int(md) in SAUNA_MODES:
+                sbits.append(SAUNA_MODES[int(md)])
             tt = self._state(c, "tempTarget")
             if tt is not None:
                 sbits.append(f"Soll {self._fmt_num(tt, '%.0f')} °C")
@@ -2988,15 +3001,25 @@ class App:
             if tb is not None:
                 sbits.append(f"Bank {self._fmt_num(tb, '%.0f')} °C")
             hum = self._state(c, "humidityActual")
-            if hum is not None and (c.get("details") or {}).get("hasVaporizer"):
-                sbits.append(f"Feuchte {self._fmt_num(hum, '%.0f')} %")
+            if hum is not None and det.get("hasVaporizer"):
+                fbit = f"Feuchte {self._fmt_num(hum, '%.0f')} %"
+                ht = self._state(c, "humidityTarget")
+                if isinstance(ht, (int, float)) and ht > 0:
+                    fbit += f" → {self._fmt_num(ht, '%.0f')} %"
+                sbits.append(fbit)
             rows = []
-            if (c.get("details") or {}).get("hasDoorSensor") and self._state(c, "doorClosed") == 0:
+            if det.get("hasDoorSensor") and self._state(c, "doorClosed") == 0:
                 rows.append({"k": "status", "text": "Tür offen"})
             if self._state(c, "ready"):
                 rows.append({"k": "status", "text": "Betriebstemperatur erreicht"})
+            if self._state(c, "fan"):
+                rows.append({"k": "status", "text": "Lüftung läuft"})
+            if self._state(c, "drying"):
+                rows.append({"k": "status", "text": "Trocknung läuft"})
             if self._state(c, "timer"):
                 rows.append({"k": "status", "text": "Timer läuft"})
+            if det.get("hasVaporizer") and self._state(c, "lessWater"):
+                rows.append({"k": "status", "text": "Wasser nachfüllen"})
             if err:
                 rows.append({"k": "status", "text": "Störung"})
             blocks = [
@@ -3005,8 +3028,8 @@ class App:
                  **({"tone": "crit"} if err else {})},
                 {"k": "status", "text": " · ".join(sbits)},
                 *rows,
-                # Ein/Aus wie bei Schaltern (on/off). Weitere Befehle (Modus,
-                # Solltemperatur) erst nach Pruefung auf der Anlage.
+                # Ein/Aus wie bei Schaltern (on/off). Solltemperatur und Modus
+                # setzen folgt, sobald die Befehle auf der Anlage geprueft sind.
                 {"k": "row", "cells": [
                     {"label": "Ein", "on": act, "cmd": {"uuid": ua, "cmd": "on"}},
                     {"label": "Aus", "on": not act, "cmd": {"uuid": ua, "cmd": "off"}},
