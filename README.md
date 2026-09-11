@@ -398,6 +398,17 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 
 ## Changelog
 
+- **0.4.0** – Auf den Stand von Upstream 0.4.0 (Lenardo1) gebracht und um eigene
+  Bausteine erweitert: **Sauna** komplett (Modus im Klartext, Solltemperatur ±,
+  Programmwahl), **Intercom** mit Live-Klingelanzeige, **Bewässerung** mit
+  Grundsteuerung (Start/Erzwingen/Stopp/alle Zonen; Einzelzonen-Auswahl noch
+  offen) und **Wecker**-Schlummer beim Klingeln. Screensaver zusätzlich mit
+  Feiertagen (zweites iCal-Abo) und Monatsraster. Audioserver: Wiedergabe und
+  Raumfavoriten laufen direkt über die `playerid`, an gekoppelten Geräten über
+  die angemeldete Verbindung.
+- **0.3.x** – Screensaver („Front") mit Kalender (iCal-Abo) und Wetter
+  (Open-Meteo), kompaktes 480×480-Layout; Anmeldung am gekoppelten
+  Loxone-Audioserver wie die Loxone-App (Raumfavoriten).
 - **0.2.6** – Miniserver-Felder nebeneinander (mehr Platz); Button „Aus LoxBerry übernehmen".
 - **0.2.5** – Backup & Wiederherstellung der Konfiguration im Plugin-Widget.
 - **0.2.4** – Container-Aktionen laufen im Hintergrund + Live-Statuslog (kein Timeout mehr).

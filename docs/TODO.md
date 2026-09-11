@@ -297,9 +297,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `secure/authenticate/<user>/<rsa>/<chiffre>`. Danach `getroomfavs` und
       `roomfav/play/<id>` auf derselben Verbindung. An der echten Anlage (LWSS
       17.2) verifiziert. **M**
-- [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn): Upstream 0.3.2 holt
-      Favoriten und Steuerung direkt vom Audioserver (Port 7091); mit
-      `audio.directV2` auch für `AudioZoneV2`-Nachbauten. **M**
+- [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn) und `AudioZoneV2`
+      (Audioserver Gen 2): Favoriten und Steuerung laufen direkt am
+      Audioserver (Port 7091), sobald die Zone eine `playerid` hat. **M**
 - [ ] `AlarmClock` (Wecker): Anzeige + Weckton; beim Klingeln Schlummer
       (`snooze`) und Aus (`dismiss`). Offen: Master-Ein/Aus (`setActive`, zu
       verifizieren) und Bearbeiten/Anlegen der Weckzeiten (braucht Zeit-/
