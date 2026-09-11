@@ -23,6 +23,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import request as urlreq
+from urllib.parse import quote
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CONF_PATHS = [os.environ.get("LOXPANEL_KIOSK_CONF", ""),
@@ -162,6 +163,10 @@ def kiosk_url(panel):
         q.append("panel=%s" % panel)
     if NUDGE_X:
         q.append("x=%s" % NUDGE_X)
+    # Geraetekennung mitgeben: so ordnet der Server die WebSocket-Verbindung
+    # diesem Agenten zu (Betriebsmodus-Wechsel per Push statt Chromium-Neustart,
+    # Display-Abschaltung bleibt Sache des Agenten).
+    q.append("device=%s" % quote(NAME))
     return "http://%s/" % SERVER + ("?" + "&".join(q) if q else "")
 
 

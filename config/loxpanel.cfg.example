@@ -41,5 +41,16 @@
     "host": "",
     "port": 7091,
     "enabled": true
+  },
+
+  "calendar": {
+    "_comment": "Front (Screensaver): Termine aus einem iCal-Abo und Wetter (Open-Meteo). ical_url: webcal:// oder https:// Abo-Link (Apple/iCloud, Google, ...). lat/lon: Standort in Dezimalgrad fuer das Wetter (leer/null = kein Wetter, kein API-Key noetig). days: Termine der naechsten n Tage; fore_days: Wetter-Vorschautage (1-7). Pflegbar unter /config -> Settings -> Kalender & Wetter.",
+    "ical_url": "",
+    "holiday_url": "",
+    "name": "Family",
+    "lat": null,
+    "lon": null,
+    "days": 14,
+    "fore_days": 4
   }
 }

@@ -47,6 +47,7 @@
   .navbtn:hover .nbarrow{color:var(--accent);}
   .conn{font-size:13px;color:var(--muted);}
   .conn b.ok{color:var(--good);} .conn b.bad{color:var(--crit);}
+  .card b.ok{color:var(--good);} .card b.bad{color:var(--crit);}
   /* ---------- Main: Rubriken + Reiter + Inhalt + Speicherleiste ---------- */
   .main{display:flex;flex-direction:column;height:100vh;min-width:0;}
   .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:0 30px;}
@@ -105,6 +106,9 @@
   .cclbl{font-size:12px;color:var(--muted);}
   .ccmut{font-size:12.5px;color:var(--muted);}
   .ccrow input[type=color]{width:40px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;}
+  .ccreset{font-size:11px;padding:3px 9px;}
+  .ccms{font-size:11px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px;}
+  .ccsw{width:11px;height:11px;border-radius:3px;background:var(--sw,#888);border:1px solid rgba(0,0,0,.3);display:inline-block;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;}
   .opt{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;user-select:none;}
   .opt:hover{border-color:#3a3f49;}
@@ -201,12 +205,50 @@
   .ag .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none;}
   .ag .dot.on{background:var(--good);}
   .ag .agn{font-weight:600;}
+  .ag .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--muted);white-space:nowrap;}
   .ag .agip{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
   .ag .sp{flex:1;min-width:8px;}
   .cmdout{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:12px;margin-top:10px;
     font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--fg);}
   @media(max-width:760px){ .wrap{grid-template-columns:1fr;height:auto;} .side{border-right:none;border-bottom:1px solid var(--line);}
     .main{height:auto;} .scroll{overflow:visible;} }
+
+  /* ---------- Übersicht-Rubrik (Beschreibung + Setting-Boxen) ---------- */
+  .ovw{--scr:#101319;--tile:#1e232c;--tline:#2f3641;--smut:#8b929c;max-width:1000px;}
+  .ovw .lead{font-size:15px;color:var(--muted);max-width:70ch;margin:0 0 22px;line-height:1.55;}
+  .ovw h3{font-size:13px;letter-spacing:.02em;color:var(--fg);margin:26px 0 14px;font-weight:600;}
+  .ovw h3 .n{font-family:ui-monospace,monospace;color:var(--accent);margin-right:8px;font-size:12px;}
+  /* Pane-Mockups */
+  .ovw .pane{width:120px;aspect-ratio:1;background:var(--scr);border:1px solid var(--tline);border-radius:11px;
+    padding:8px;position:relative;overflow:hidden;flex:none;}
+  .ovw .visu{display:grid;grid-template-columns:repeat(var(--c,2),1fr);grid-template-rows:repeat(var(--r,2),1fr);gap:5px;height:100%;}
+  .ovw .visu i{background:var(--tile);border:1px solid var(--tline);border-radius:5px;position:relative;}
+  .ovw .visu i::after{content:"";position:absolute;left:5px;top:5px;width:7px;height:7px;border-radius:3px;background:color-mix(in srgb,var(--accent) 55%,transparent);}
+  .ovw .visu.d3 i::after{width:5px;height:5px;left:3px;top:3px;}
+  .ovw .plist{display:flex;flex-direction:column;gap:5px;height:100%;} .ovw .plist u{flex:1;background:var(--tile);border:1px solid var(--tline);border-radius:5px;}
+  .ovw .pfull{height:100%;background:var(--tile);border:1px solid var(--tline);border-radius:7px;display:grid;place-items:center;}
+  .ovw .pfull b{font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums;} .ovw .pfull b small{font-size:.45em;color:var(--smut);}
+  .ovw .p2{height:100%;display:flex;flex-direction:column;gap:6px;color:var(--fg);}
+  .ovw .p2h{font-family:ui-monospace,monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--smut);}
+  .ovw .wxr{display:flex;align-items:center;gap:6px;} .ovw .wxr svg{width:18px;height:18px;flex:none;} .ovw .wxr b{font-size:16px;font-weight:600;}
+  .ovw .fore{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:auto;} .ovw .fore span{height:20px;background:var(--tile);border:1px solid var(--tline);border-radius:4px;}
+  .ovw .mcal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;} .ovw .mcal b{aspect-ratio:1;background:var(--tile);border-radius:2px;} .ovw .mcal b.hi{background:var(--accent);} .ovw .mcal b.rd{background:color-mix(in srgb,var(--crit) 70%,transparent);}
+  .ovw .cover{aspect-ratio:1;width:60%;margin:2px auto 0;background:linear-gradient(135deg,#a986e0,#5b8ad6);border-radius:7px;}
+  .ovw .ppb{display:flex;gap:8px;justify-content:center;margin-top:auto;} .ovw .ppb span{width:12px;height:12px;border-radius:50%;background:var(--tile);border:1px solid var(--tline);} .ovw .ppb span.m{background:#a986e0;border-color:transparent;}
+  .ovw .soonic{height:100%;display:grid;place-items:center;color:var(--smut);opacity:.7;} .ovw .soonic svg{width:46%;height:46%;}
+  .ovw .row{display:flex;flex-wrap:wrap;gap:18px 16px;}
+  .ovw figure{margin:0;width:120px;} .ovw figcaption{margin-top:8px;font-size:12px;color:var(--muted);}
+  .ovw figcaption b{color:var(--fg);font-weight:600;display:block;font-size:12.5px;} .ovw figcaption .badge{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:1px 6px;}
+  .ovw .dev{display:flex;gap:26px;flex-wrap:wrap;} .ovw .dev .panes{display:flex;gap:6px;}
+  /* Setting-Boxen zweispaltig */
+  .ovcols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px;}
+  @media(max-width:760px){ .ovcols{grid-template-columns:1fr;} }
+  .ovcol h4{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin:0 0 12px;font-weight:600;}
+  .ovbox{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;margin-bottom:10px;cursor:pointer;color:inherit;font:inherit;transition:border-color .15s,background .15s;}
+  .ovbox:hover,.ovbox:focus-visible{border-color:var(--accent);background:var(--panel2);outline:none;}
+  .ovbox b{display:block;font-size:14px;color:var(--fg);margin-bottom:2px;}
+  .ovbox span{font-size:12.5px;color:var(--muted);line-height:1.45;}
 </style>
 </head>
 <body>
@@ -230,15 +272,71 @@
   <main class="main">
     <div class="topbar">
       <div class="rubrics">
-        <button class="rub active" data-rub="pconf">Panel Configuration</button>
+        <button class="rub active" data-rub="overview">Übersicht</button>
+        <button class="rub" data-rub="pconf">Panel Configuration</button>
         <button class="rub" data-rub="settings">Settings</button>
       </div>
       <div id="phead"></div>
     </div>
     <div class="subtabs" id="subtabs"></div>
     <div class="scroll" id="scroll">
+      <!-- Übersicht / Beschreibung -->
+      <div id="overviewHost" class="ovw">
+        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei nebeneinander (Visu links, Zusatz rechts). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
+
+        <h3><span class="n">A</span>Geräteklassen</h3>
+        <div class="dev">
+          <figure><div class="panes"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div></div>
+            <figcaption><b>4″-Wandpanel</b>1 Pane – nur Visu</figcaption></figure>
+          <figure><div class="panes"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div></div>
+            <figcaption><b>Tablet</b>2 Panes, gleiche Größe</figcaption></figure>
+        </div>
+
+        <h3><span class="n">B</span>Aufteilung im Pane</h3>
+        <div class="row">
+          <figure><div class="pane"><div class="visu" style="--c:2;--r:2"><i></i><i></i><i></i><i></i></div></div><figcaption><b>2×2</b>4 Kacheln</figcaption></figure>
+          <figure><div class="pane"><div class="visu d3" style="--c:3;--r:2"><i></i><i></i><i></i><i></i><i></i><i></i></div></div><figcaption><b>3×2</b>6 Kacheln</figcaption></figure>
+          <figure><div class="pane"><div class="visu d3" style="--c:2;--r:3"><i></i><i></i><i></i><i></i><i></i><i></i></div></div><figcaption><b>2×3</b>6 Kacheln</figcaption></figure>
+          <figure><div class="pane"><div class="visu d3" style="--c:3;--r:3"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><figcaption><b>3×3</b>9 Kacheln</figcaption></figure>
+          <figure><div class="pane"><div class="plist"><u></u><u></u><u></u><u></u></div></div><figcaption><b>Liste</b>4 × 120</figcaption></figure>
+          <figure><div class="pane"><div class="pfull"><b>21,4<small>°C</small></b></div></div><figcaption><b>Vollbild</b>Status</figcaption></figure>
+        </div>
+
+        <h3><span class="n">C</span>Zusatz-Inhalt (Pane 2, je Tab)</h3>
+        <div class="row">
+          <figure><div class="pane"><div class="p2"><div class="p2h">Audio · Zone</div><div class="cover"></div><div class="ppb"><span></span><span class="m"></span><span></span></div></div></div><figcaption><b>Audio</b>Musikzone je Tab</figcaption></figure>
+          <figure><div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div><figcaption><b>Wetter</b>Kurve &amp; Vorschau</figcaption></figure>
+          <figure><div class="pane"><div class="p2"><div class="p2h">Kalender</div><div class="mcal"><b></b><b></b><b class="rd"></b><b></b><b></b><b></b><b class="rd"></b><b></b><b class="hi"></b><b></b><b></b><b></b><b></b><b class="rd"></b></div></div></div><figcaption><b>Kalender</b>Monat + Termine</figcaption></figure>
+          <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#57c4c4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="7"/><path d="M24 6v10M24 32v10M6 24h10M32 24h10M11 11l6 6M37 37l-6-6"/></svg></div></div><figcaption><b>Energiefluss</b><span class="badge">Bald</span></figcaption></figure>
+          <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#5aa9e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 31c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M6 39c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M14 23V13a4 4 0 0 1 8 0"/></svg></div></div><figcaption><b>Pool</b><span class="badge">Bald</span></figcaption></figure>
+          <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#e08a4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="8" width="26" height="32" rx="3"/><rect x="16" y="20" width="16" height="14" rx="2"/><path d="M16 13h.01M21 13h.01"/></svg></div></div><figcaption><b>Ofensteuerung</b><span class="badge">Bald</span></figcaption></figure>
+        </div>
+        <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Zusatzinhalt: <b>„Screen füllen"</b> verdoppelt die Kacheln nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2, gleiche Kachelgröße). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
+
+        <div class="ovcols">
+          <div class="ovcol"><h4>Panel-Konfiguration</h4>
+            <button class="ovbox" data-goto="pconf:appearance"><b>Darstellung</b><span>Kachel-Layout (2×2 … 3×3), Split-Pane je Tab (Audio/Wetter/Kalender/Screen füllen), Bildschirm füllen.</span></button>
+            <button class="ovbox" data-goto="pconf:tabs"><b>Tabs</b><span>Untere Leiste: bis 4 Buttons – Standard-Tabs und/oder Kategorien als Abkürzung.</span></button>
+            <button class="ovbox" data-goto="pconf:rooms"><b>Räume</b><span>Welche Räume dieses Panel zeigt. Nichts angehakt = alle.</span></button>
+            <button class="ovbox" data-goto="pconf:cats"><b>Kategorien</b><span>Welche Kategorien im Tab „Kategorien" erscheinen.</span></button>
+            <button class="ovbox" data-goto="pconf:tiles"><b>Kacheln gestalten</b><span>Einzelne Kacheln umbenennen, färben, Icon setzen oder ausblenden.</span></button>
+            <button class="ovbox" data-goto="pconf:title"><b>Titel</b><span>Name/Fenstertitel dieses Panel-Profils.</span></button>
+            <button class="ovbox" data-goto="pconf:overlay"><b>Aktiv-Overlay</b><span>Wie eine aktive Kachel hervorgehoben wird (Rahmen, Füllung, Deckkraft).</span></button>
+          </div>
+          <div class="ovcol"><h4>Grundeinstellungen</h4>
+            <button class="ovbox" data-goto="settings:miniserver"><b>Miniserver</b><span>Zugang zum Loxone Miniserver (Host, Benutzer, Passwort). HTTPS/443.</span></button>
+            <button class="ovbox" data-goto="settings:calendar"><b>Kalender &amp; Wetter</b><span>iCal-Abo + Feiertags-iCal, Wetter (Open-Meteo, Standort automatisch vom Miniserver).</span></button>
+            <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
+            <button class="ovbox" data-goto="settings:intercom"><b>Kamera / Türstation</b><span>Kamerabilder und Klingel-Popup je Intercom-Baustein.</span></button>
+            <button class="ovbox" data-goto="settings:panels"><b>Panels &amp; Geräte</b><span>Alle Anzeigegeräte, Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
+            <button class="ovbox" data-goto="settings:newpanel"><b>Neues Panel</b><span>Start-URL für ein Android/Tablet erzeugen oder Agent per SSH aufs Linux-Panel.</span></button>
+          </div>
+        </div>
+      </div>
+
       <!-- Panel Configuration -->
-      <div id="pconfHost"><div class="empty">lädt …</div></div>
+      <div id="pconfHost" style="display:none"><div class="empty">lädt …</div></div>
 
       <!-- Settings -->
       <div id="setHost" style="display:none">
@@ -256,6 +354,7 @@
             </div>
             <label class="chk" style="margin-top:12px"><input type="checkbox" id="ms_tls"><span data-i18n>Zertifikat prüfen (Gen2 mit selbstsigniertem Zertifikat: aus)</span></label>
             <div class="actions"><button class="btn" id="ms_save" data-i18n>Verbinden &amp; Speichern</button><span class="toast" id="ms_toast"></span></div>
+            <p class="note"><a href="/api/types?format=text" target="_blank" rel="noopener">Bausteintypen der Anlage anzeigen</a> <span>(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)</span></p>
           </div>
         </section>
 
@@ -280,20 +379,21 @@
           </div>
         </section>
 
-        <!-- Panels (Displays / Agenten) -->
+        <!-- Panels (Displays / Agenten / Kiosk-Apps) -->
         <section class="spane" data-sub="panels">
-          <p class="lead" data-i18n>Panels mit installiertem Agent melden sich automatisch. Ansicht wählen und den Kiosk starten / aktualisieren.</p>
+          <p class="lead" data-i18n>Alle Anzeigegeräte auf einen Blick: Linux-Panels mit Agent melden sich automatisch, Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?device=&lt;name&gt;). Geräte ohne Kennung stehen unten und bekommen hier einen Namen.</p>
           <div class="card">
             <div id="ag_list"><div class="muted" data-i18n>Suche Panels…</div></div>
             <div class="toast" id="ag_toast" style="margin-top:8px"></div>
           </div>
           <div class="card">
-            <h3 data-i18n>Betriebsmodus-Automatik</h3>
+            <h3 data-i18n>Betriebsmodus-Automatik und Display-Steuerung</h3>
             <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Panel fest, welche Ansicht bei welchem Modus erscheint. Panel ohne Eintrag für einen Modus bleibt unverändert.</p>
             <pre class="cmdout" id="mode_hint">GET http://<span id="mode_host">…</span>/api/mode/&lt;modus&gt;</pre>
             <p class="note" data-i18n>Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).</p>
-            <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.</div></div>
-            <div class="actions"><button class="btn" id="dev_save" data-i18n>Automatik speichern</button><span class="toast" id="dev_toast"></span></div>
+            <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
+            <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
+            <div class="actions"><button class="btn" id="dev_save" data-i18n>Speichern</button><span class="toast" id="dev_toast"></span></div>
           </div>
         </section>
 
@@ -317,10 +417,55 @@
           </div>
         </section>
 
+        <!-- Kalender & Wetter (Front / Screensaver) -->
+        <section class="spane" data-sub="calendar">
+          <p class="lead" data-i18n>Zeigt Termine aus einem iCal-Abo und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
+          <div class="card">
+            <h3 data-i18n>iCal-Kalender</h3>
+            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login.</p>
+            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Name</label><input type="text" id="cal_name" placeholder="Family"></div>
+            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>iCal-Abo-URL</label><input type="text" id="cal_url" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>
+            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
+            <p class="note" data-i18n>Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.</p>
+            <div class="note" id="cal_status" style="margin-top:10px"></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Wetter</h3>
+            <p class="note" data-i18n>Wetter von Open-Meteo — kostenlos, ohne API-Schlüssel und ohne Konto. Nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus.</p>
+            <div class="row2">
+              <div class="field"><label class="lbl" data-i18n>Breitengrad</label><input type="text" id="cal_lat" placeholder="47.071" autocomplete="off"></div>
+              <div class="field"><label class="lbl" data-i18n>Längengrad</label><input type="text" id="cal_lon" placeholder="15.439" autocomplete="off"></div>
+            </div>
+            <div class="note" id="cal_wxstatus" style="margin-top:10px"></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Anzeige</h3>
+            <div class="row2">
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine der nächsten … Tage</label><input type="number" id="cal_days" min="1" max="60" value="14"></div>
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Wetter-Vorschau (Tage)</label><input type="number" id="cal_foredays" min="1" max="7" value="4"></div>
+            </div>
+            <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
+          </div>
+        </section>
+
         <!-- Neues Panel -->
         <section class="spane" data-sub="newpanel">
-          <p class="lead" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
+          <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
           <div class="card">
+            <h3 data-i18n>Android-Panel oder Tablet (Kiosk-App)</h3>
+            <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
+            <div class="row2">
+              <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
+              <div class="field"><label class="lbl" data-i18n>Startansicht (Profil)</label><select id="nk_panel"></select></div>
+            </div>
+            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
+            <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
+            <pre id="nk_out" class="cmdout" style="display:none"></pre>
+            <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Linux-Panel mit Agent (SSH)</h3>
+            <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
             <div class="row2">
               <div class="field"><label class="lbl" data-i18n>Panel-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
               <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
@@ -347,7 +492,7 @@
 <script>
 const $ = (s,r=document)=>r.querySelector(s);
 let META=null, PANELS={}, cur=null, dirty=false, tileSel=null;
-let rubric='pconf', subPconf='title', subSet='miniserver';
+let rubric='overview', subPconf='title', subSet='miniserver';
 function svg(inner){return '<svg viewBox="0 0 24 24">'+inner+'</svg>';}
 const BICONS = {
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -394,7 +539,7 @@ const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Ka
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'panels',label:'Panels'},{k:'audio',label:'Audio'},
-  {k:'newpanel',label:'Neues Panel'}];
+  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
@@ -403,7 +548,7 @@ async function load(){
   PANELS.__global__ = {title:'Global (alle Panels)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
-  renderList(); setRubric('pconf');
+  renderList(); setRubric('overview');
 }
 
 function renderList(){
@@ -430,15 +575,23 @@ function renderList(){
 function setRubric(r){
   rubric=r;
   document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
-  const pc=r==='pconf';
+  const ov=r==='overview', pc=r==='pconf';
+  const oh=$('#overviewHost'); if(oh) oh.style.display = ov?'':'none';
   $('#pconfHost').style.display = pc?'':'none';
-  $('#setHost').style.display = pc?'none':'';
+  $('#setHost').style.display = (ov||pc)?'none':'';
   $('#savebar').style.display = pc?'':'none';
   $('#phead').style.display = pc?'':'none';
+  $('#subtabs').style.display = ov?'none':'';
+  if(ov) return;
   if(pc){ renderEditor(); }
   else { renderSubtabs(); showSub(subSet); }
 }
 document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.rub));
+document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
+  const g=(b.dataset.goto||'').split(':'), r=g[0], sub=g[1];
+  if(r==='pconf') subPconf=sub; else subSet=sub;
+  setRubric(r); renderSubtabs(); showSub(sub);
+});
 
 function subTabs(){
   if(rubric==='settings') return SET_TABS;
@@ -551,29 +704,51 @@ function renderGlobalEditor(p){
 function renderCatColors(p){
   const box=$('#catcolors'); if(!box) return;
   const cc=p.catColors||(p.catColors={});
+  const MSCOL={}; (META.cats||[]).forEach(c=>{ if(c&&c.color) MSCOL[c.name]=String(c.color); });   // Loxone-Voreinstellung je Kategorie
+  // Backend matcht theme.json-Schluessel per Teilstring gegen den Kategorienamen
+  // ("Beleuchtung" passt auf "1.2 Beleuchtung"). Die UI muss denselben vorhandenen
+  // Schluessel finden und in-place bearbeiten, sonst entstehen Duplikate/„neutral".
+  const catKey=nm=>{ const nl=nm.toLowerCase();
+    for(const k in cc){ if(!k.startsWith('_') && nl.includes(k.toLowerCase())) return k; }
+    return nm; };
   const names=[...new Set((META.cats||[]).map(c=>c.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
   box.innerHTML = names.map(nm=>{
-    const v=cc[nm], amp=(v&&typeof v==='object');
+    const v=cc[catKey(nm)];
+    const has=(v!=null&&v!=='');
+    const amp=(has&&typeof v==='object');
+    const single=(typeof v==='string')?v:'';   // Alt-/Einfachfarbe (nur Icon)
     const on=amp?(v.on||'#e2695f'):'#e2695f', off=amp?(v.off||'#52b881'):'#52b881';
+    const ms=MSCOL[nm]||'';                     // Miniserver-Farbe (falls vorhanden)
     return '<div class="ccrow">'+
       '<span class="tgl'+(amp?' on':'')+'" data-catt="'+esc(nm)+'" title="Zustands-Ampel an/aus">◐</span>'+
       '<span class="ccnm">'+esc(nm)+'</span>'+
       (amp
         ? '<label class="cclbl">Aktiv</label><input type="color" data-catc="'+esc(nm)+'" data-slot="on" value="'+esc(on)+'">'+
           '<label class="cclbl">OK</label><input type="color" data-catc="'+esc(nm)+'" data-slot="off" value="'+esc(off)+'">'
-        : '<span class="ccmut">neutral</span>')+
+        : (single
+            ? '<label class="cclbl">Farbe</label><input type="color" data-catc="'+esc(nm)+'" data-slot="single" value="'+esc(single)+'">'
+            : '<span class="ccmut">neutral</span>'))+
+      (ms ? '<button class="minibtn ccms" data-catms="'+esc(nm)+'" title="Miniserver-Voreinstellung übernehmen" style="--sw:'+esc(ms)+'"><span class="ccsw"></span>Standard</button>' : '')+
+      (has ? '<button class="minibtn ccreset" data-catr="'+esc(nm)+'" title="Diese Kategorie auf neutral zurücksetzen">neutral</button>' : '')+
     '</div>';
   }).join('');
+  box.querySelectorAll('[data-catms]').forEach(b=>b.onclick=()=>{
+    const nm=b.dataset.catms; cc[catKey(nm)]=MSCOL[nm]; markDirty(); renderCatColors(p);   // Einfachfarbe = Miniserver-Farbe
+  });
   box.querySelectorAll('[data-catt]').forEach(t=>t.onclick=()=>{
-    const nm=t.dataset.catt;
-    if(cc[nm]&&typeof cc[nm]==='object') delete cc[nm];
-    else cc[nm]={on:'#e2695f',off:'#52b881'};
+    const k=catKey(t.dataset.catt);
+    if(cc[k]&&typeof cc[k]==='object') delete cc[k];   // Ampel aus -> neutral
+    else cc[k]={on:'#e2695f',off:'#52b881'};           // neutral/Einfachfarbe -> Ampel
     markDirty(); renderCatColors(p);
   });
+  box.querySelectorAll('[data-catr]').forEach(b=>b.onclick=()=>{
+    delete cc[catKey(b.dataset.catr)]; markDirty(); renderCatColors(p);   // zuverlaessig neutral (String ODER Objekt)
+  });
   box.querySelectorAll('input[data-catc]').forEach(inp=>inp.oninput=()=>{
-    const nm=inp.dataset.catc;
-    if(!cc[nm]||typeof cc[nm]!=='object') cc[nm]={on:'#e2695f',off:'#52b881'};
-    cc[nm][inp.dataset.slot]=inp.value; markDirty();
+    const k=catKey(inp.dataset.catc), slot=inp.dataset.slot;
+    if(slot==='single'){ cc[k]=inp.value; markDirty(); return; }   // Einfachfarbe als String halten
+    if(!cc[k]||typeof cc[k]!=='object') cc[k]={on:'#e2695f',off:'#52b881'};
+    cc[k][slot]=inp.value; markDirty();
   });
 }
 
@@ -630,20 +805,25 @@ function renderEditor(){
          (((p.ui||{}).reloadHours==null)?'':(p.ui||{}).reloadHours)+'" placeholder="0 = aus"></div>'+
        '<div class="field" style="max-width:200px"><label class="lbl">Kachel-Layout</label>'+
          '<select id="fLayout">'+
-           '<option value="2x2"'+(((p.ui||{}).cols==3||(p.ui||{}).cols==4)?'':' selected')+'>2 × 2 (4″-Panel)</option>'+
-           '<option value="3x2"'+(((p.ui||{}).cols==3)?' selected':'')+'>3 × 2 (Tablet)</option>'+
-           '<option value="4x3"'+(((p.ui||{}).cols==4)?' selected':'')+'>4 × 3 (großes Tablet)</option>'+
+           '<option value="2x2"'+(((p.ui||{}).cols!=3&&(p.ui||{}).rows!=3)?' selected':'')+'>2 × 2 (4″-Panel)</option>'+
+           '<option value="3x2"'+(((p.ui||{}).cols==3&&(p.ui||{}).rows!=3)?' selected':'')+'>3 × 2 (Tablet)</option>'+
+           '<option value="2x3"'+(((p.ui||{}).cols!=3&&(p.ui||{}).rows==3)?' selected':'')+'>2 × 3 (Tablet hoch)</option>'+
+           '<option value="3x3"'+(((p.ui||{}).cols==3&&(p.ui||{}).rows==3)?' selected':'')+'>3 × 3 (großes Tablet)</option>'+
          '</select></div>'+
        '<div class="field" style="max-width:220px"><label class="lbl">Bildschirm füllen</label>'+
          '<select id="fFill">'+
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
-       '<div class="field" style="max-width:300px"><label class="lbl">Fester Player (Split-Layout)</label>'+
-         '<select id="fPlayer">'+
-           '<option value="">(kein – normale Visu)</option>'+audioZoneOptions((p.ui||{}).player)+
+       '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
+         '<select id="fSplit">'+
+           '<option value="1"'+(((p.ui||{}).split===false)?'':' selected')+'>An (Tablet – 2 Panes)</option>'+
+           '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Panel – nur Visu)</option>'+
          '</select>'+
-         '<div class="hint" style="padding-top:4px">Links fester Musikplayer dieser Zone, rechts die Visu (50/50). Für große Tablets – am besten mit Layout 2×3.</div></div>'+
+         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die linke Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
+       '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
+         '<div class="cclist" id="panePerTab"></div>'+
+         '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Wetter</b> oder <b>Kalender</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '</div></div></section>'+
 
    '<section class="spane" data-sub="overlay"><div class="card"><h3>Aktiv-Overlay</h3>'+
@@ -661,21 +841,25 @@ function renderEditor(){
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
   bindAppearance(p);
   { const fl=$('#fLayout'); if(fl) fl.onchange=e=>{ p.ui=p.ui||{}; const v=e.target.value;
-      if(v==='4x3'){ p.ui.cols=4; p.ui.rows=3; }
+      if(v==='3x3'){ p.ui.cols=3; p.ui.rows=3; }
+      else if(v==='2x3'){ delete p.ui.cols; p.ui.rows=3; }
       else if(v==='3x2'){ p.ui.cols=3; delete p.ui.rows; }
-      else { delete p.ui.cols; delete p.ui.rows; }
+      else { delete p.ui.cols; delete p.ui.rows; }   // 2x2
       markDirty(); }; }
-  { const fp=$('#fPlayer'); if(fp) fp.onchange=e=>{ p.ui=p.ui||{};
-      if(e.target.value) p.ui.player=e.target.value; else delete p.ui.player; markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
+  { const fs=$('#fSplit'); if(fs) fs.onchange=e=>{ p.ui=p.ui||{};
+      const off=e.target.value==='off';
+      if(off) p.ui.split=false; else delete p.ui.split;
+      const pf=$('#paneField'); if(pf) pf.style.display=off?'none':'';
+      markDirty(); }; }
 
   bindOverlay('ov_', ()=>{ p.ui=p.ui||{}; p.ui.overlay=p.ui.overlay||{}; return p.ui.overlay; },
               ()=>{ pruneOverlay(p.ui); ovPreview('ovPrev',(p.ui||{}).overlay); markDirty(); });
   ovPreview('ovPrev',(p.ui||{}).overlay);
   { const r=$('#ovReset'); if(r) r.onclick=()=>{ if(p.ui) delete p.ui.overlay; renderEditor(); markDirty(); }; }
 
-  renderChips(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
+  renderChips(p); renderPanes(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
   renderTileList(); renderTileEditor();
   const tsr=$('#tileSearch'); if(tsr) tsr.oninput=()=>renderTileList();
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
@@ -703,7 +887,44 @@ function audioZoneOptions(sel){
   return (META.controls||[]).filter(c=>c.type==='AudioZone'||c.type==='AudioZoneV2')
     .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
+function firstAudioZone(){
+  const z=(META.controls||[]).find(c=>c.type==='AudioZone'||c.type==='AudioZoneV2');
+  return z?z.uuid:'';
+}
 
+function renderPanes(p){
+  const pf=$('#paneField'); if(pf) pf.style.display=((p.ui||{}).split===false)?'none':'';   // 4"-Panel: keine Pane-Auswahl
+  const box=$('#panePerTab'); if(!box) return;
+  const tabs=(p.tabs||[]), panes=(p.ui&&p.ui.panes)||{};
+  box.innerHTML = tabs.map(tk=>{
+    const meta=(META.tabs||[]).find(t=>t.tab===tk);
+    const label=meta?meta.label:tk;
+    const v=panes[tk]||'';
+    const isP=v.indexOf('player:')===0, kind=isP?'player':v, zone=isP?v.slice(7):'';
+    let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
+      '<select data-pane="'+esc(tk)+'">'+
+        '<option value=""'+(kind===''?' selected':'')+'>Screen füllen</option>'+
+        '<option value="player"'+(kind==='player'?' selected':'')+'>Audio</option>'+
+        '<option value="weather"'+(kind==='weather'?' selected':'')+'>Wetter</option>'+
+        '<option value="calendar"'+(kind==='calendar'?' selected':'')+'>Kalender</option>'+
+      '</select>';
+    if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
+    return row+'</div>';
+  }).join('') || '<div class="ccmut">Keine Tabs.</div>';
+  const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
+    if(val) p.ui.panes[tk]=val; else delete p.ui.panes[tk];
+    if(!Object.keys(p.ui.panes).length) delete p.ui.panes; markDirty(); };
+  box.querySelectorAll('select[data-pane]').forEach(s=>s.onchange=()=>{
+    const tk=s.dataset.pane, k=s.value;
+    if(k==='player'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      const z=cur.indexOf('player:')===0?cur.slice(7):firstAudioZone(); setPane(tk,'player:'+z); }
+    else setPane(tk,k);
+    renderPanes(p);   // Zonen-Dropdown ein-/ausblenden
+  });
+  box.querySelectorAll('select[data-panez]').forEach(s=>s.onchange=()=>{
+    setPane(s.dataset.panez,'player:'+s.value);
+  });
+}
 function renderChips(p){
   const box=$('#chips'); if(!box) return; box.innerHTML='';
   const full = p.tabs.length>=4;
@@ -714,7 +935,7 @@ function renderChips(p){
     c.className='chip'+(on?' on':'')+(!on&&full?' dis':'')+(t.cat?' cat':'');
     c.innerHTML=(t.iconUrl?'<img class="chic" src="'+esc(t.iconUrl)+'">':'')+
       esc(t.label)+(on&&first?'<span class="star">★ Start</span>':'');
-    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); markDirty(); };
+    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); renderPanes(p); markDirty(); };
     box.appendChild(c);
   });
   const tc=$('#tabcount'); if(tc){ tc.textContent=p.tabs.length+'/4 gewählt'+(full?' (voll)':''); tc.className=full?'full':''; }
@@ -960,6 +1181,38 @@ async function loadSettings(){
     srv.innerHTML = list.length
       ? T('Erkannte Audioserver:')+' '+list.map(esc).join(', ')
       : T('Kein Audioserver in der Loxone-Struktur gefunden.'); }
+  // Kalender & Wetter
+  const cal=SET.calendar||{};
+  if($('#cal_name')){
+    $('#cal_name').value=cal.name||'Family';
+    $('#cal_url').value=cal.ical_url||'';
+    if($('#cal_holurl')) $('#cal_holurl').value=cal.holiday_url||'';
+    $('#cal_lat').value=(cal.lat==null?'':cal.lat);
+    $('#cal_lon').value=(cal.lon==null?'':cal.lon);
+    $('#cal_days').value=cal.days||14;
+    $('#cal_foredays').value=cal.fore_days||4;
+    const st=cal.status||{};
+    const cs=$('#cal_status');
+    if(cs){
+      if(!st.cal_configured) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
+      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error);
+      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine');
+    }
+    // Auto-Standort vom Miniserver als Platzhalter zeigen (falls keine Koordinaten gesetzt)
+    const autoGeo=(cal.ms_lat!=null&&cal.ms_lon!=null);
+    if(autoGeo){ $('#cal_lat').placeholder=cal.ms_lat; $('#cal_lon').placeholder=cal.ms_lon; }
+    const ws=$('#cal_wxstatus');
+    if(ws){
+      const manual=(cal.lat!=null&&cal.lat!=='');
+      const auto=(!manual&&autoGeo)
+        ? ' <span class="ccmut">· '+T('Automatisch vom Miniserver:')+' '+esc(cal.ms_location||'')+' ('+cal.ms_lat+' / '+cal.ms_lon+')</span>'
+        : '';
+      if(st.wx_error) ws.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.wx_error);
+      else if(st.wx_configured) ws.innerHTML='<b class="ok">'+T('Wetter geladen')+'</b>'+auto;
+      else if(autoGeo) ws.innerHTML='<span class="ccmut">'+T('Standort vom Miniserver wird verwendet.')+'</span>'+auto;
+      else ws.innerHTML='<span class="ccmut">'+T('Kein Standort konfiguriert.')+'</span>';
+    }
+  }
 }
 
 $('#ms_save').onclick=async()=>{
@@ -1001,60 +1254,129 @@ $('#am_save').onclick=async()=>{
   $('#am_save').disabled=false;
 };
 
-// ---- Panels (Panel-Agenten) ----
+$('#cal_save').onclick=async()=>{
+  const body={
+    name:$('#cal_name').value.trim(), ical_url:$('#cal_url').value.trim(),
+    holiday_url:($('#cal_holurl')?$('#cal_holurl').value.trim():''),
+    lat:$('#cal_lat').value.trim(), lon:$('#cal_lon').value.trim(),
+    days:parseInt($('#cal_days').value)||14, fore_days:parseInt($('#cal_foredays').value)||4};
+  $('#cal_save').disabled=true;
+  try{
+    const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
+      // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
+      setTimeout(loadSettings,1500); }
+    else flash($('#cal_toast'),j.error||T('Fehler'),false);
+  }catch(e){ flash($('#cal_toast'),'Fehler: '+e,false); }
+  $('#cal_save').disabled=false;
+};
+
+// ---- Panels (alle Anzeigegeraete: Agent, Kiosk-App, Browser) ----
 let PANEL_IDS=[];
-let DEV={};
-let AGENT_NAMES=[];
+let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...], display}  (Arbeitskopie)
+let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
+let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
 async function loadPanelIds(){
   try{
     const r=await fetch('/api/meta'); const m=await r.json();
     PANEL_IDS=Object.keys(m.panels||{});
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
-      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{})};
+      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null};
     });
-    (m.wsDevices||[]).forEach(n=>{ if(AGENT_NAMES.indexOf(n)<0) AGENT_NAMES.push(n); });
   }catch(e){ PANEL_IDS=[]; }
 }
-function agentRow(a,sel){
-  const cur = (sel!==undefined)?sel:a.panel;
-  const opts=['<option value="">'+T('(Standard)')+'</option>'].concat(
-    PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>')).join('');
-  return '<div class="ag" data-ip="'+esc(a.ip)+'">'+
-    '<span class="dot'+(a.online?' on':'')+'"></span>'+
-    '<span class="agn">'+esc(a.name)+'</span>'+
-    '<span class="agip">'+esc(a.ip)+(a.kiosk?(' · '+T('Kiosk läuft')):'')+'</span>'+
-    '<span class="sp"></span>'+
-    '<select class="agsel">'+opts+'</select>'+
-    '<button class="btn sm" data-act="start">'+T('Start')+'</button>'+
-    '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
-    '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button></div>';
+const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', browser:'Browser'};
+function profSelect(cls, cur){
+  return '<select class="'+cls+'"><option value="">'+T('(Standard)')+'</option>'+
+    PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>').join('')+'</select>';
 }
-function renderAgents(agents){
+function deviceRow(d, sel){
+  const cur=(sel!==undefined)?sel:(d.profile||'');
+  const info=[d.ip, (d.agent&&d.agent.kiosk)?T('Kiosk läuft'):'', d.connections?T('Visu offen'):''].filter(Boolean).join(' · ');
+  let btns='';
+  if(d.connections) btns+='<button class="btn sm" data-act="switch">'+T('Ansicht wechseln')+'</button>'+
+                          '<button class="btn sm ghost" data-act="wsreload">'+T('Neu laden')+'</button>';
+  if(d.type==='fully') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
+                             '<button class="btn sm ghost" data-act="dispon">'+T('Display an')+'</button>';
+  if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
+                    '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
+                    '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button>';
+  return '<div class="ag" data-name="'+esc(d.name)+'" data-ip="'+esc(d.agent?d.agent.ip:'')+'">'+
+    '<span class="dot'+(d.online?' on':'')+'"></span>'+
+    '<span class="agn">'+esc(d.name)+'</span>'+
+    '<span class="tag">'+esc(TYPE_LABEL[d.type]||d.type)+'</span>'+
+    '<span class="agip">'+esc(info)+'</span>'+
+    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+'</div>';
+}
+function anonRow(a, typed){
+  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):''].filter(Boolean).join(' · ');
+  return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
+    '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
+    '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
+    '<input class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
+    '<button class="btn sm" data-act="name">'+T('Namen vergeben')+'</button></div>';
+}
+function renderDeviceList(j){
   const box=$('#ag_list'); if(!box) return;
-  const prev={}; box.querySelectorAll('.ag').forEach(n=>{ prev[n.dataset.ip]=n.querySelector('.agsel')?n.querySelector('.agsel').value:undefined; });
-  if(!agents.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel gefunden. Agent auf dem Panel starten (agent/loxpanel-agent.py).')+'</div>'; return; }
-  box.innerHTML=agents.map(a=>agentRow(a,prev[a.ip])).join('');
-  box.querySelectorAll('.ag').forEach(n=>{
-    const ip=n.dataset.ip;
-    n.querySelectorAll('button[data-act]').forEach(b=>{ b.onclick=()=>agentCmd(ip,b.dataset.act,n.querySelector('.agsel').value); });
+  // Waehrend jemand in der Liste tippt oder auswaehlt, nicht neu zeichnen.
+  if(box.contains(document.activeElement) && document.activeElement.tagName!=='BUTTON') return;
+  const prevSel={}, prevName={};
+  box.querySelectorAll('.ag[data-name]').forEach(n=>{ const s=n.querySelector('.agsel'); if(s) prevSel[n.dataset.name]=s.value; });
+  box.querySelectorAll('.ag[data-anon]').forEach(n=>{ const i=n.querySelector('.anname'); if(i) prevName[n.dataset.anon]=i.value; });
+  const devs=j.devices||[], anon=j.anonymous||[];
+  if(!devs.length && !anon.length){
+    box.innerHTML='<div class="muted">'+T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.')+'</div>'; return; }
+  let html=devs.map(d=>deviceRow(d,prevSel[d.name])).join('');
+  if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
+    anon.map(a=>anonRow(a,prevName[a.ip])).join('');
+  box.innerHTML=html;
+  box.querySelectorAll('.ag[data-name] button[data-act]').forEach(b=>{
+    const row=b.closest('.ag');
+    b.onclick=()=>deviceAction(b.dataset.act, row.dataset.name, row.dataset.ip, row.querySelector('.agsel').value);
+  });
+  box.querySelectorAll('.ag[data-anon] button[data-act="name"]').forEach(b=>{
+    const row=b.closest('.ag');
+    b.onclick=()=>nameDevice(row.dataset.anon, row.querySelector('.anname').value.trim());
   });
 }
-async function agentCmd(ip,action,panel){
+async function postJson(url, body){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  return r.json();
+}
+async function deviceAction(act, name, ip, panel){
   try{
-    const r=await fetch('/api/agent/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip,action,panel})});
-    const j=await r.json();
-    flash($('#ag_toast'), j.ok?('✓ '+action+' gesendet'):('Fehler: '+(j.error||('HTTP '+j.status))), j.ok);
+    let j;
+    if(act==='start'||act==='reload'||act==='stop') j=await postJson('/api/agent/command',{ip,action:act,panel});
+    else if(act==='switch') j=await postJson('/api/device/switch',{device:name,panel});
+    else if(act==='wsreload') j=await postJson('/api/reload',{device:name});
+    else if(act==='dispoff') j=await postJson('/api/display',{device:name,on:false});
+    else if(act==='dispon') j=await postJson('/api/display',{device:name,on:true});
+    else return;
+    const n=(j.sent!==undefined)?j.sent:j.reloaded;
+    const ok=!!j.ok && (n===undefined || n>0);
+    flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Panel nicht erreicht'):('HTTP '+j.status)))), ok);
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
 }
-async function pollAgents(){
+async function nameDevice(ip,name){
+  if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return; }
   try{
-    const r=await fetch('/api/agents'); const j=await r.json(); const ags=j.agents||[];
-    renderAgents(ags);
-    const names=ags.map(a=>a.name).filter(Boolean);
-    const isNew=names.some(n=>AGENT_NAMES.indexOf(n)<0);
-    AGENT_NAMES=Array.from(new Set(AGENT_NAMES.concat(names)));
-    if(isNew){ readDevFromDom(); renderDevices(); }
+    const j=await postJson('/api/device/name',{ip,name});
+    flash($('#ag_toast'), j.ok?('✓ '+name):('Fehler: '+(j.error||'')), j.ok);
+    if(document.activeElement) document.activeElement.blur();
+    setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Kennung neu
+  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
+}
+async function pollDevices(){
+  try{
+    const r=await fetch('/api/devices'); const j=await r.json();
+    renderDeviceList(j);
+    const names=(j.devices||[]).map(d=>d.name).filter(Boolean);
+    (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip; });
+    const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
+    KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
+    if(isNew){ readDevFromDom(); renderDevices(); }   // neues Panel -> Editor ergaenzen (Eingaben behalten)
   }catch(e){}
 }
 
@@ -1080,6 +1402,20 @@ function devRow(name){
     '</div>'+
     '<div class="dmrows">'+rows+'</div>'+
     '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
+    displayRow(d.display)+
+  '</div>';
+}
+const DRIVER_PORT={fully:2323, wallpanel:2971};
+function displayRow(disp){
+  const x=disp||{driver:'',host:'',port:'',password:''};
+  return '<div class="ddrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+    '<span style="font-size:13px;opacity:.85">'+T('Display-Steuerung')+'</span>'+
+    '<select class="dd_drv"><option value="">'+T('keine (nur über die Seite)')+'</option>'+
+      '<option value="fully"'+(x.driver==='fully'?' selected':'')+'>Fully Kiosk (Remote Admin)</option>'+
+      '<option value="wallpanel"'+(x.driver==='wallpanel'?' selected':'')+'>WallPanel (HTTP)</option></select>'+
+    '<input class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
+    '<input class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
+    '<input class="dd_pw" type="password" placeholder="'+T('Passwort (Fully)')+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
   '</div>';
 }
 function readDevFromDom(){
@@ -1089,17 +1425,26 @@ function readDevFromDom(){
     n.querySelectorAll('.dmrow').forEach(r=>{
       modes.push([r.querySelector('.dm_mode').value, r.querySelector('.dm_prof').value]);
     });
-    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes};
+    const drv=n.querySelector('.dd_drv').value;
+    const display=drv?{driver:drv, host:n.querySelector('.dd_host').value.trim(),
+      port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
+      password:n.querySelector('.dd_pw').value}:null;
+    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display};
   });
 }
 function renderDevices(){
   const box=$('#dev_list'); if(!box) return;
-  const names=Array.from(new Set(AGENT_NAMES.concat(Object.keys(DEV)))).sort();
-  if(!names.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel bekannt. Ein Panel muss sich einmal gemeldet haben (Agent läuft), dann erscheint es hier.')+'</div>'; return; }
+  const names=Array.from(new Set(KNOWN_NAMES.concat(Object.keys(DEV)))).sort();
+  if(!names.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.')+'</div>'; return; }
   box.innerHTML=names.map(devRow).join('');
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
     (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); renderDevices();
+  });
+  box.querySelectorAll('.dd_drv').forEach(sel=>sel.onchange=()=>{
+    const row=sel.closest('.dev'), name=row.dataset.name, drv=sel.value;
+    const host=row.querySelector('.dd_host'), port=row.querySelector('.dd_port');
+    if(drv){ if(!host.value && DEVICE_IPS[name]) host.value=DEVICE_IPS[name]; if(!port.value) port.value=DRIVER_PORT[drv]||''; }
   });
   box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
     const dev=b.closest('.dev'), name=dev.dataset.name;
@@ -1113,7 +1458,8 @@ $('#dev_save').onclick=async()=>{
   Object.entries(DEV).forEach(([name,d])=>{
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
-    if(Object.keys(modes).length) devices[name]={auto:d.auto!==false, modes};
+    const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
+    if(Object.keys(modes).length || display){ devices[name]={auto:d.auto!==false, modes}; if(display) devices[name].display=display; }
   });
   $('#dev_save').disabled=true;
   try{
@@ -1144,10 +1490,20 @@ $('#at_send').onclick=async()=>{
 
 // ---- Neues Panel: Befehl-Generator ----
 function fillNewPanel(){
-  const srv=$('#np_server'); if(srv && !srv.value) srv.value=location.host;
-  const sel=$('#np_panel'); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
-    PANEL_IDS.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
+  ['#np_server','#nk_server'].forEach(id=>{ const srv=$(id); if(srv && !srv.value) srv.value=location.host; });
+  ['#np_panel','#nk_panel'].forEach(id=>{ const sel=$(id); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
+    PANEL_IDS.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join(''); });
 }
+function genKioskUrl(){
+  const name=$('#nk_name').value.trim(), panel=$('#nk_panel').value, server=$('#nk_server').value.trim();
+  if(!name||!server){ flash($('#nk_toast'),T('Gerätename und Server-Adresse nötig'),false); return; }
+  const q=[]; if(panel) q.push('panel='+encodeURIComponent(panel)); q.push('device='+encodeURIComponent(name));
+  $('#nk_out').textContent='http://'+server+'/?'+q.join('&'); $('#nk_out').style.display='block'; $('#nk_copyrow').style.display='flex';
+}
+$('#nk_gen').onclick=genKioskUrl;
+$('#nk_copy').onclick=()=>{ navigator.clipboard.writeText($('#nk_out').textContent)
+  .then(()=>flash($('#nk_toast'),T('✓ kopiert'),true))
+  .catch(()=>flash($('#nk_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
 function genPanelCmd(){
   const ip=$('#np_ip').value.trim(), user=($('#np_user').value.trim()||'linaro');
   const name=$('#np_name').value.trim(), panel=$('#np_panel').value, server=$('#np_server').value.trim();
@@ -1165,7 +1521,7 @@ $('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textConte
 load().catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
 loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
 { const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
-loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollAgents(); setInterval(pollAgents,6000); });
+loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });
 
 if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .navbtn .nbt, .navbtn .nbs, .brand small, .itab, .cclbl, .ccmut, .empty, .muted, .note, .lead, .hint, .rub, .stab, .sectlbl, option, [data-i18n]');
 </script>

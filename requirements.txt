@@ -1,3 +1,10 @@
 # LoxPanel Python-Abhaengigkeiten (via pip; die uebrigen kommen aus 'apt').
 # loxone-api uebernimmt Token-Auth (getkey2/getjwt), WebSocket und Struktur.
 loxone-api>=0.1.25
+# Front (Screensaver): iCal-Abo parsen + Serientermine (RRULE) aufloesen.
+# Reines Python (keine Compiler noetig, auch auf armv7). Wetter (Open-Meteo)
+# braucht nur aiohttp (schon vorhanden).
+icalendar>=5.0,<7
+python-dateutil>=2.8
+# Anmeldung am gekoppelten Loxone-Audioserver (RSA/AES, bin/audioserver_auth.py)
+cryptography>=42
