@@ -61,23 +61,22 @@ class AudioEventClient:
     playerid), NICHT ueber den Namen — das ist eindeutig und kollisionsfrei.
     """
 
-    PROTOCOL = "remotecontrol"   # Pflicht: ohne Unterprotokoll schweigt der Audioserver
     PAIRED_ERROR = "not allowed when paired"
 
     def __init__(self, host: str, port: int = 7091, user: str = "", token_provider=None):
         self.host = host
         self.port = port
-        # user + token_provider (async, liefert das aktuelle Miniserver-JWT)
-        # erlauben die Anmeldung am gekoppelten Audioserver wie die Loxone-App.
+        # user + token_provider (async oder sync, liefert das aktuelle Miniserver-
+        # JWT) erlauben die Anmeldung am gekoppelten Audioserver wie die Loxone-App.
         self.user = user
         self._token_provider = token_provider
         self.now: dict[int, dict] = {}
         self.favs: dict[int, list] = {}
         # None = noch nicht geprueft; True = gekoppelter Loxone-Audioserver, der
-        # unangemeldete Befehle ablehnt; False = Befehle ohne Anmeldung ok.
+        # unangemeldete Befehle ablehnt und die Verbindung schliesst; False =
+        # Nachbau (Sonn/AudioServer4Home), Befehle ohne Anmeldung ok.
         self.paired: bool | None = None
-        # True, sobald die Anmeldung (secure/authenticate) auf dieser Verbindung
-        # erfolgreich war -> Befehle (getroomfavs, roomfav/play) werden beantwortet.
+        # True, sobald secure/authenticate auf dieser Verbindung erfolgreich war.
         self.authed = False
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._session: aiohttp.ClientSession | None = None
@@ -181,9 +180,9 @@ class AudioEventClient:
         await self._send(f"audio/cfg/getroomfavs/{int(playerid)}/0/50")
 
     async def play_roomfav(self, playerid: int, favid) -> bool:
-        """Einen Raumfavoriten abspielen (Feld `id` des Favoriten, siehe
-        _apply_favs). Nur ueber eine angemeldete Verbindung; sonst wuerde der
-        gekoppelte Audioserver die Verbindung schliessen."""
+        """Einen Raumfavoriten abspielen (Feld `play`/`id` des Favoriten, siehe
+        _apply_favs). Bei einem gekoppelten Audioserver nur ueber eine angemeldete
+        Verbindung; sonst wuerde er die Verbindung schliessen."""
         if playerid is None or (self.paired and not self.authed):
             return False
         await self._send(f"audio/{int(playerid)}/roomfav/play/{favid}")
@@ -205,7 +204,7 @@ class AudioEventClient:
         self.paired = self.PAIRED_ERROR in text
         log.info("Audioserver %s: %s", self.host,
                  "mit dem Miniserver gekoppelt, Kanal nur zum Hoeren (Cover/Titel); "
-                 "Favoriten und Befehle nicht ueber Port 7091"
+                 "Favoriten/Befehle ueber Port 7091 nur nach Anmeldung"
                  if self.paired else "nimmt Befehle auf Port 7091 an (Favoriten moeglich)")
 
     async def _get_jwt(self) -> str:
@@ -287,11 +286,16 @@ class AudioEventClient:
                 if self._session is None or self._session.closed:
                     self._session = aiohttp.ClientSession()
                 await self._check_paired()
+                # PFLICHT: Das Unterprotokoll "remotecontrol" anfordern (wie die
+                # Loxone-App / der Miniserver-WS). Ohne es nimmt der ECHTE Loxone-
+                # Audioserver die Verbindung zwar an, schweigt aber vollstaendig —
+                # dann kaemen nie audio_event-Push-Nachrichten. Nachbauten (Sonn)
+                # funktionieren mit und ohne, deshalb universell sicher.
                 async with self._session.ws_connect(
                         self.url, timeout=8, heartbeat=30,
-                        protocols=(self.PROTOCOL,)) as ws:
+                        protocols=("remotecontrol",)) as ws:
                     self._ws = ws
-                    log.info("Audioserver-Events verbunden: %s", self.url)
+                    log.info("Audioserver-Events verbunden (remotecontrol): %s", self.url)
                     # Gekoppelter Audioserver: erst anmelden, dann sind
                     # getroomfavs/roomfav-play auf dieser Verbindung moeglich.
                     if self.paired:
