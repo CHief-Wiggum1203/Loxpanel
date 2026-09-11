@@ -84,3 +84,6 @@ dann `git fetch upstream && git merge upstream/main`. Upstream-Merges als echten
 Merge-Commit nach `main` bringen (PR mit „Create a merge commit", nicht
 squashen), sonst kennt der Fork die Upstream-Commits nicht und dieselben
 Konflikte kommen beim nächsten Release wieder.
+
+Ausführlicher Ablauf – Feature-Entwicklung als Contributor und den Fork
+synchron halten: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
