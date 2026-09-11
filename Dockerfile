@@ -5,8 +5,8 @@ WORKDIR /app
 
 # Abhaengigkeiten (loxone-api zieht aiohttp mit; cryptography fuer die
 # Audioserver-Anmeldung). Auf 32-bit-ARM (linux/arm/v7) gibt es kein fertiges
-# cffi-Paket -> Compiler + libffi nur zum Bauen installieren und danach wieder
-# entfernen, damit das Image schlank bleibt (amd64/arm64 nutzen fertige Wheels).
+# cffi-Paket -> Compiler + libffi/libc nur zum Bauen installieren und danach
+# wieder entfernen, damit das Image schlank bleibt (amd64/arm64 nutzen Wheels).
 COPY requirements.txt .
 RUN set -eux; \
     apt-get update; \

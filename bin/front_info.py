@@ -166,6 +166,7 @@ def _parse_events(ics_bytes: bytes, days: int) -> list:
         sort_time = "00:00" if all_day else f"{t.hour:02d}:{t.minute:02d}"
         out.append({
             "day": _day_label(d, today),
+            "date": d.isoformat(),          # ISO-Datum (fuer das Monatsraster im Pane)
             "time": "ganztägig" if all_day else f"{t.hour}:{t.minute:02d}",
             "title": title,
             "allday": all_day,
@@ -191,14 +192,36 @@ async def fetch_events(session: aiohttp.ClientSession, url: str, days: int) -> l
     return await loop.run_in_executor(None, _parse_events, data, days)
 
 
+def _iso(s):
+    """ISO-Zeitstring von Open-Meteo -> datetime (oder None)."""
+    try:
+        return datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def _hhmm(s):
+    """ISO-Zeitstring -> "HH:MM" (oder None)."""
+    d = _iso(s)
+    return f"{d.hour:02d}:{d.minute:02d}" if d else None
+
+
 async def fetch_weather(session: aiohttp.ClientSession, lat: float, lon: float, fore_days: int) -> dict:
-    """Aktuelles Wetter + Tagesvorhersage von Open-Meteo (kein API-Key)."""
+    """Aktuelles Wetter + Tagesvorhersage von Open-Meteo (kein API-Key).
+
+    Liefert zusaetzlich die naechsten Stunden (`hourly`: Temperaturverlauf +
+    Regenwahrscheinlichkeit) fuer die ausfuehrliche Ansicht (Split-Pane); die
+    Felder temp/cond/icon/hi/lo/forecast bleiben fuer den kompakten Screensaver.
+    """
     fore_days = max(1, min(7, int(fore_days)))
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current_weather": "true",
-        "daily": "temperature_2m_max,temperature_2m_min,weathercode",
+        "current": "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,"
+                   "weather_code,wind_speed_10m,wind_direction_10m,pressure_msl",
+        "hourly": "temperature_2m,precipitation_probability,weather_code,apparent_temperature",
+        "daily": "temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max,"
+                 "precipitation_sum,sunrise,sunset,uv_index_max",
         "timezone": "auto",
         "forecast_days": fore_days,
     }
@@ -206,12 +229,17 @@ async def fetch_weather(session: aiohttp.ClientSession, lat: float, lon: float, 
         r.raise_for_status()
         j = await r.json()
 
-    cw = j.get("current_weather") or {}
+    cur = j.get("current") or {}
     daily = j.get("daily") or {}
     dates = daily.get("time") or []
     tmax = daily.get("temperature_2m_max") or []
     tmin = daily.get("temperature_2m_min") or []
     codes = daily.get("weathercode") or []
+    pmax = daily.get("precipitation_probability_max") or []
+    psum = daily.get("precipitation_sum") or []
+    sunr = daily.get("sunrise") or []
+    suns = daily.get("sunset") or []
+    uvmx = daily.get("uv_index_max") or []
     today = date.today()
 
     forecast = []
@@ -225,16 +253,58 @@ async def fetch_weather(session: aiohttp.ClientSession, lat: float, lon: float, 
             "icon": wmo_icon(codes[i] if i < len(codes) else 0),
             "hi": round(tmax[i]) if i < len(tmax) and tmax[i] is not None else None,
             "lo": round(tmin[i]) if i < len(tmin) and tmin[i] is not None else None,
+            "pop": int(pmax[i]) if i < len(pmax) and pmax[i] is not None else None,
         })
 
-    code = cw.get("weathercode", 0)
+    # Stundenverlauf ab der aktuellen Stunde (max. 24 Werte) fuer Kurve + Regenband.
+    hourly = j.get("hourly") or {}
+    h_time = hourly.get("time") or []
+    h_temp = hourly.get("temperature_2m") or []
+    h_pop = hourly.get("precipitation_probability") or []
+    h_code = hourly.get("weather_code") or []
+    h_feel = hourly.get("apparent_temperature") or []
+    ref = _iso(cur.get("time")) or datetime.now()
+    ref = ref.replace(minute=0, second=0, microsecond=0)
+    start = 0
+    for i, ts in enumerate(h_time):
+        d = _iso(ts)
+        if d and d >= ref:
+            start = i
+            break
+    hourly_out = []
+    for i in range(start, min(start + 24, len(h_time))):
+        d = _iso(h_time[i])
+        hourly_out.append({
+            "h": d.hour if d else None,
+            "temp": round(h_temp[i]) if i < len(h_temp) and h_temp[i] is not None else None,
+            "pop": int(h_pop[i]) if i < len(h_pop) and h_pop[i] is not None else None,
+            "icon": wmo_icon(h_code[i]) if i < len(h_code) else "cloud",
+        })
+    def _r(v):
+        return round(v) if isinstance(v, (int, float)) else None
+
+    code = cur.get("weather_code", 0)
+    feels = _r(cur.get("apparent_temperature"))
+    if feels is None:   # Fallback aus dem Stundenwert
+        feels = (round(h_feel[start]) if start < len(h_feel) and h_feel[start] is not None else None)
     return {
-        "temp": cw.get("temperature"),
+        "temp": cur.get("temperature_2m"),
         "cond": WMO_TEXT.get(int(code) if code is not None else 0, "—"),
         "icon": wmo_icon(code),
         "hi": forecast[0]["hi"] if forecast else None,
         "lo": forecast[0]["lo"] if forecast else None,
+        "feels": feels,
+        "wind": _r(cur.get("wind_speed_10m")),
+        "wind_dir": cur.get("wind_direction_10m"),
+        "humidity": _r(cur.get("relative_humidity_2m")),
+        "pressure": _r(cur.get("pressure_msl")),
+        "is_day": cur.get("is_day"),
+        "sunrise": _hhmm(sunr[0]) if sunr else None,
+        "sunset": _hhmm(suns[0]) if suns else None,
+        "uv": _r(uvmx[0]) if uvmx else None,
+        "precip_sum": (round(psum[0], 1) if psum and isinstance(psum[0], (int, float)) else None),
         "forecast": forecast,
+        "hourly": hourly_out,
     }
 
 
@@ -246,9 +316,11 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict) -> dict:
     out = {
         "weather": None,
         "events": [],
+        "holidays": {},                 # ISO-Datum -> Feiertagsname (2. iCal, optional)
         "calName": name,
         "meta": {"cal_configured": False, "cal_count": 0, "cal_error": None,
-                 "wx_configured": False, "wx_error": None},
+                 "wx_configured": False, "wx_error": None,
+                 "hol_configured": False, "hol_count": 0, "hol_error": None},
     }
 
     url = (cfg.get("ical_url") or "").strip()
@@ -264,6 +336,19 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict) -> dict:
         except Exception as e:
             out["meta"]["cal_error"] = str(e)
             log.warning("Kalender laden fehlgeschlagen: %s", e)
+
+    # Feiertage aus einem zweiten, optionalen iCal (ganztaegige Eintraege). Weit
+    # nach vorn geladen (fuer die Monatsnavigation), Rueckgabe als {Datum: Name}.
+    hol_url = (cfg.get("holiday_url") or "").strip()
+    if hol_url:
+        out["meta"]["hol_configured"] = True
+        try:
+            hev = await fetch_events(session, hol_url, 400)
+            out["holidays"] = {e["date"]: e["title"] for e in hev if e.get("date")}
+            out["meta"]["hol_count"] = len(out["holidays"])
+        except Exception as e:
+            out["meta"]["hol_error"] = str(e)
+            log.warning("Feiertage laden fehlgeschlagen: %s", e)
 
     lat, lon = cfg.get("lat"), cfg.get("lon")
     if lat not in (None, "") and lon not in (None, ""):

@@ -122,21 +122,26 @@ Browser (panel.html)
 ```
 
 Befehle vom Browser gehen über `App.command()` entweder an den Miniserver
-(`jdev/sps/io/<uuid>/<cmd>`) oder, bei Zonenbefehlen mit bekannter `playerid`,
-direkt an den Audioserver auf Port 7091. `_audio_direct()` entscheidet:
-`AudioZone` (Musikserver Gen 1) immer direkt, `AudioZoneV2` nur mit
-`audio.directV2` in `loxpanel.cfg`, denn ein gekoppelter Loxone-Audioserver
-lehnt unangemeldete Befehle ab („command not allowed when paired", prüfbar mit
-`bin/audioserver_probe.py`). Titel, Sender und Cover für `AudioZoneV2` kommen
-über den Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das
-Unterprotokoll `remotecontrol` anfordern, dann schickt auch der gekoppelte
-Audioserver die Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem
-Kanal setzen bei einem gekoppelten Audioserver eine Anmeldung voraus. LoxPanel
-meldet sich wie die Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus
-dem Banner, `audio/cfg/getkey` → RSA-Schlüssel, das Miniserver-JWT AES-256-CBC-
-verschlüsselt und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach
-laufen `getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung; Play/Pause/
-Lautstärke bleiben beim Miniserver.
+(`jdev/sps/io/<uuid>/<cmd>`) oder, wenn die Zone eine `playerid` hat, direkt an
+den Audioserver auf Port 7091 (`audio/<playerid>/<cmd>`). Die `playerid` wird
+beim Laden der Struktur für `AudioZone` (Musikserver Gen 1) wie für `AudioZoneV2`
+(Audioserver Gen 2 / Sonn) aus `details.playerid` gesetzt; darüber laufen
+play/pause, queueplus/-minus, volume und roomfav/play direkt am Audioserver statt
+über den Miniserver. Nur `roomfav/get` bleibt am Miniserver, es füllt den
+`sourceList`-State für die Anzeige. Ausnahme roomfav/play: bei einem gekoppelten
+Loxone-Audioserver läuft `roomfav/play/<slot>` über die angemeldete Ereignis-
+Verbindung (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle
+ablehnt und die Verbindung schließt („command not allowed when paired", prüfbar
+mit `bin/audioserver_probe.py`); Nachbauten (Sonn, `authed=false`) nutzen weiter
+den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
+`remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
+Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem
+gekoppelten Audioserver eine Anmeldung voraus. LoxPanel meldet sich wie die
+Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus dem Banner,
+`audio/cfg/getkey` → RSA-Schlüssel, das Miniserver-JWT AES-256-CBC-verschlüsselt
+und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach laufen
+`getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung.
 
 ### 3.2 Start
 

@@ -82,8 +82,20 @@ def _load_cfg() -> dict:
     return {}
 
 
+def _atomic_write(path: Path, text: str) -> None:
+    """Schreibt text atomar: erst nach <datei>.tmp, fsync, dann os.replace.
+    Ein Crash/Stromausfall mitten im Schreiben laesst so die alte, vollstaendige
+    Datei stehen statt einer halben, kaputten (F5)."""
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
 def _write_cfg(cfg: dict) -> None:
-    CFG_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _atomic_write(CFG_FILE, json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
 LIGHT = LightControllerV2Adapter()
 JAL = JalousieAdapter()
 
@@ -91,11 +103,6 @@ SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
-# Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
-# Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
-# controls/sublabel, unbekannt = nichts davon (tote Kachel).
-PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
-                 "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
 
 
 def _is_tab(t) -> bool:
@@ -114,6 +121,11 @@ _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Ho
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
                3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
+# Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
+# Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
+# controls/sublabel, unbekannt = nichts davon (tote Kachel).
+PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
+                 "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -228,12 +240,12 @@ def _config() -> dict:
             "host": env["LOXPANEL_MS_HOST"],
             "user": env.get("LOXPANEL_MS_USER", ""),
             "pass": env.get("LOXPANEL_MS_PASS", ""),
-            "port": int(env.get("LOXPANEL_MS_PORT") or "443"),
+            "port": int(env.get("LOXPANEL_MS_PORT", "443")),
             "verify_tls": env.get("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes"),
         }
     # Beispiel-Config nur nutzen, wenn vorhanden. Beim LoxBerry-Plugin verdeckt
     # das (leere) Daten-Volume die Image-Beispieldatei -> darf NICHT crashen.
-    # Ohne jede Config startet der Server trotzdem (Zugang via /config).
+    # Ohne jede Config startet der Server trotzdem (Zugang via /settings).
     ex = base / "loxpanel.cfg.example"
     if ex.is_file():
         try:
@@ -377,18 +389,13 @@ class App:
     def __init__(self, ms: dict, audio: dict | None = None,
                  audiometa: dict | None = None):
         # ms kann leer sein (noch kein Miniserver konfiguriert) -> Server startet
-        # trotzdem, /config bleibt bedienbar; verbunden wird erst mit host.
+        # trotzdem, /settings bleibt bedienbar; verbunden wird erst mit host.
         self.host, self.port = ms.get("host", ""), ms.get("port", 443)
         self.user, self.password = ms.get("user", ""), ms.get("pass", "")
         self.verify_tls = ms.get("verify_tls", False)
 
         self.audio_cfg = audio or {}
         self.audio: AudioBackend | None = make_backend(self.audio_cfg)
-        # Zonen-Zuordnung (uuidAction -> playerid / Audioserver-Host / Typ),
-        # gefuellt in _apply_structure; leer, solange keine Struktur geladen ist.
-        self.playerid_by_action: dict[str, int] = {}
-        self.audiohost_by_action: dict[str, str] = {}
-        self.zone_type_by_action: dict[str, str] = {}
         # Ein Steuerungs-Backend je Audioserver-Host (WS 7091), aufgebaut on
         # demand aus dem in der Struktur hinterlegten mediaServer-Host.
         self.audio_backends: dict[str, AudioBackend] = {}
@@ -419,6 +426,7 @@ class App:
         self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraete-Kennung (?device=)
         self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
         self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
+        self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -435,6 +443,10 @@ class App:
         # Status fuer die Config-Seite. _front_refresh stoesst ein sofortiges
         # Neuladen an (nach dem Speichern).
         self.calendar_cfg = _calendar_config()
+        # Standort des Miniservers (aus msInfo) als Wetter-Fallback ohne Konfiguration.
+        self.ms_lat: float | None = None
+        self.ms_lon: float | None = None
+        self.ms_location: str = ""
         self._front: dict | None = None
         self._front_key: str | None = None
         self._front_meta: dict = {}
@@ -521,6 +533,15 @@ class App:
         ms = st.get("mediaServer") or {}
         self.mediaservers = {u: (v or {}).get("host", "")
                              for u, v in ms.items() if isinstance(v, dict) and (v or {}).get("host")}
+        # Standort des Miniservers (Loxone setzt latitude/longitude immer, fuer
+        # Astro/Sonnenstand) -> Wetter ohne Konfiguration (Fallback fuer loxpanel.cfg).
+        info = st.get("msInfo") or {}
+        try:
+            self.ms_lat = float(info["latitude"]) if info.get("latitude") not in (None, "") else None
+            self.ms_lon = float(info["longitude"]) if info.get("longitude") not in (None, "") else None
+        except (TypeError, ValueError, KeyError):
+            self.ms_lat = self.ms_lon = None
+        self.ms_location = str(info.get("location") or "").strip()
         self.rooms_with = sorted(
             {c.get("room") for c in self.controls.values() if c.get("room") in self.rooms},
             key=lambda r: self.rooms[r].get("name", ""))
@@ -534,7 +555,6 @@ class App:
         self.op_modes = {str(k): v for k, v in (st.get("operatingModes") or {}).items()}
         self.playerid_by_action = {}
         self.audiohost_by_action = {}
-        self.zone_type_by_action = {}
         for _u, _c in self.controls.items():
             if _c.get("type") == "Intercom":
                 _bu = (_c.get("states") or {}).get("bell")
@@ -555,7 +575,6 @@ class App:
                 _ua = _c.get("uuidAction")
                 if _ua and _pid is not None:
                     self.playerid_by_action[_ua] = int(_pid)
-                    self.zone_type_by_action[_ua] = _c.get("type")
                     _hp = self.mediaservers.get(_det.get("server"))
                     if _hp:
                         self.audiohost_by_action[_ua] = _hp.split(":")[0].strip()
@@ -592,6 +611,12 @@ class App:
         zurueck; wirft bei falschen Zugangsdaten. Alte Verbindung bleibt bei
         Fehler bestehen (neuer Client wird nur bei Erfolg uebernommen)."""
         ms = _config()
+        missing = [k for k in ("host", "user", "pass") if not ms.get(k)]
+        if missing:
+            raise ValueError(
+                "Miniserver-Konfiguration unvollstaendig (fehlt: "
+                + ", ".join(missing) + "). Bitte unter Einstellungen -> "
+                "Miniserver Host, Benutzer und Passwort eintragen.")
         newc = _make_client(ms["host"], ms["user"], ms["pass"],
                             ms.get("port", 443), ms.get("verify_tls", False))
         try:
@@ -816,7 +841,7 @@ class App:
             await cl.request_favs(pid)
             return
         # Fallback ohne Event-Client (z.B. MS4H ohne 7091) oder bei gekoppeltem
-        # Loxone-Audioserver (nimmt auf 7091 keine Befehle an): Loxone-roomfav.
+        # Audioserver ohne Anmeldung: Favoriten ueber den Miniserver holen.
         ua = c.get("uuidAction")
         if ua:
             await self.command(ua, "roomfav/get/0/20")
@@ -956,10 +981,10 @@ class App:
             v["--font"] = ui["font"]
         if ui.get("textColor"):
             v["--name-color"] = ui["textColor"]
-        if ui.get("cols") in (3, 4):
-            v["--cols"] = str(int(ui["cols"]))   # 3x2 (Tablet) / 4x3 (grosses Tablet); Default 2x2
+        if ui.get("cols") == 3:
+            v["--cols"] = "3"          # 3 Spalten (3x2 / 3x3); Default 2
         if ui.get("rows") == 3:
-            v["--rows"] = "3"          # 3 Zeilen (nur 4x3); Default 2
+            v["--rows"] = "3"          # 3 Zeilen (2x3 / 3x3); Default 2
         nudge = ui.get("nudgeX")
         if nudge not in (None, ""):
             # Horizontaler Feinversatz der ganzen Visu (px, negativ = nach links)
@@ -988,7 +1013,12 @@ class App:
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
-            "player": (ui.get("player") or ""),  # Split-Layout: feste AudioZone als linker Player
+            # Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2, keine
+            # Verdopplung). Default an; nur bei explizitem False aus.
+            "split": ui.get("split") is not False,
+            # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
+            # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
+            "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
         }
 
     def player_blocks(self, uuid: str):
@@ -1018,10 +1048,8 @@ class App:
 
     def panel_dpms(self, pid: str | None):
         """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
-        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Geht an
-        den Panel-Agenten (Announce-Antwort, xset) UND an die Visu (theme-
-        Nachricht): ohne Agent schaltet die Seite das Display ueber die
-        JS-Schnittstelle der Kiosk-App (z.B. Fully Kiosk Browser)."""
+        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Wird dem
+        Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("dpmsOff")
@@ -1030,8 +1058,7 @@ class App:
     def panel_reload(self, pid: str | None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
         (0/None = aus). Gegen Einfrieren; der Agent startet Chromium periodisch
-        neu (Announce-Antwort), ohne Agent laedt die Visu sich selbst neu
-        (theme-Nachricht)."""
+        neu. Wird in der Announce-Antwort mitgegeben."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("reloadHours")
@@ -1094,53 +1121,6 @@ class App:
         anonymous.sort(key=lambda a: a["ip"])
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
-
-    def types_overview(self) -> dict:
-        """Diagnose fuer /api/types: alle Bausteintypen der geladenen Anlage mit
-        Anzahl, Beispielnamen, Unterstuetzungsstatus (full / partial / none),
-        den State-Namen und details-Schluesseln je Typ, dazu die Liste der
-        Controls, die als tote Kachel enden. Der Status wird nicht aus einer
-        Liste geraten, sondern aus dem Rendering: `_control_item()` liefert
-        fuer unterstuetzte Typen nav, cmd, controls oder sublabel."""
-        types: dict[str, dict] = {}
-        for uuid, c in self.controls.items():
-            t = str(c.get("type") or "?")
-            e = types.setdefault(t, {"type": t, "count": 0, "examples": [], "states": set(),
-                                     "details": set(), "supported": False, "controls": []})
-            e["count"] += 1
-            name = _clean(c.get("name"))
-            if name and len(e["examples"]) < 3:
-                e["examples"].append(name)
-            e["states"].update(k for k in (c.get("states") or {}) if isinstance(k, str))
-            e["details"].update(k for k in (c.get("details") or {}) if isinstance(k, str))
-            room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
-            e["controls"].append({"uuid": uuid, "name": name, "room": room})
-            if not e["supported"]:
-                try:
-                    it = self._control_item(uuid)
-                except Exception as err:  # Diagnose darf nie an einem Baustein scheitern
-                    log.warning("types_overview: %s (%s): %s", name, t, err)
-                    it = {}
-                if any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
-                    e["supported"] = True
-        out, dead = [], []
-        for t in sorted(types, key=str.lower):
-            e = types[t]
-            status = "none" if not e["supported"] else ("partial" if t in PARTIAL_TYPES else "full")
-            if status == "none":
-                dead.extend({**ctl, "type": t} for ctl in e["controls"])
-            out.append({"type": t, "status": status, "count": e["count"], "examples": e["examples"],
-                        "states": sorted(e["states"]), "details": sorted(e["details"])})
-        counts = {s: sum(1 for e in out if e["status"] == s) for s in ("full", "partial", "none")}
-        return {"connected": self.client is not None, "controls": len(self.controls),
-                "typeCount": len(out), "typesByStatus": counts, "types": out,
-                "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
-
-    def _spawn(self, coro) -> None:
-        """Hintergrund-Task ohne auf das Ergebnis zu warten (Treiber-Aufrufe)."""
-        task = asyncio.create_task(coro)
-        self.bg_tasks.add(task)
-        task.add_done_callback(self.bg_tasks.discard)
 
     async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
         """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully
@@ -1247,8 +1227,8 @@ class App:
                     try:
                         await ws.send_json({"t": "switch", "panel": profile})
                         sent += 1
-                    except ConnectionError:
-                        pass
+                    except Exception as err:   # nicht nur ConnectionError (F3)
+                        log.debug("switch-Push an Panel fehlgeschlagen: %s", err)
                 results.append({"panel": name, "profile": profile,
                                 "ok": sent > 0, "via": "ws"})
                 continue
@@ -1286,15 +1266,24 @@ class App:
         r = self._resolve_ids(raw.get("rooms"), self.rooms)
         c = self._resolve_ids(raw.get("cats"), self.cats)
         tabs = [t for t in (raw.get("tabs") or VALID_TABS) if _is_tab(t)]
+        ui = {k: v for k, v in (raw.get("ui") or {}).items()
+              if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
+                       "dpmsOff", "reloadHours", "cols", "rows", "fill",
+                       "overlay", "textColor", "bold", "lang", "player", "panes", "split")}
+        # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
+        if isinstance(ui.get("panes"), dict):
+            ui["panes"] = {str(k): v for k, v in ui["panes"].items()
+                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and v.startswith("player:") and len(v) > 7))}
+            if not ui["panes"]:
+                ui.pop("panes", None)
+        else:
+            ui.pop("panes", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
             "rooms": [u for u in self.rooms_with if r and u in r],
             "cats": [u for u in self.cats_with if c and u in c],
-            "ui": {k: v for k, v in (raw.get("ui") or {}).items()
-                   if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
-                            "dpmsOff", "reloadHours", "cols", "rows", "fill",
-                            "overlay", "textColor", "bold", "lang", "player")},
+            "ui": ui,
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
@@ -1347,14 +1336,21 @@ class App:
                 cui["dpmsOff"] = max(0, min(3600, int(ui["dpmsOff"])))  # Display aus nach Sek.
             if isinstance(ui.get("reloadHours"), (int, float)):
                 cui["reloadHours"] = max(0, min(168, float(ui["reloadHours"])))  # Auto-Neustart Std.
-            if ui.get("cols") in (2, 3, 4):
-                cui["cols"] = int(ui["cols"])   # Spalten: 2x2 / 3x2 / 4x3
+            if ui.get("cols") in (2, 3):
+                cui["cols"] = int(ui["cols"])   # Spalten: 2 oder 3
             if ui.get("rows") in (2, 3):
-                cui["rows"] = int(ui["rows"])   # Zeilen (nur 4x3 nutzt 3)
+                cui["rows"] = int(ui["rows"])   # Zeilen: 2 oder 3 (2x3 / 3x3)
             if ui.get("fill"):
                 cui["fill"] = True              # Visu fuellt grosse Screens (quadratische Kacheln)
+            if ui.get("split") is False:
+                cui["split"] = False            # Split-Screen aus (4"-Panel: nur Visu)
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
+            if isinstance(ui.get("panes"), dict):
+                pn = {str(k): v for k, v in ui["panes"].items()
+                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and v.startswith("player:") and len(v) > 7))}
+                if pn:
+                    cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if ui.get("bold"):
@@ -1402,14 +1398,15 @@ class App:
 
     def _persist_panels_file(self, panels: dict, devices: dict) -> None:
         """Schreibt config/panels.json (Profile + Geraete-Automatik) in einem Rutsch."""
-        doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config) verwaltet. Jedes Panel oeffnet die Visu mit "
+        doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config bzw. "
+                           "/settings) verwaltet. Jedes Panel oeffnet die Visu mit "
                            "?panel=<id>. rooms/cats leer = alle sichtbar. "
                            "`devices` bildet Betriebsmodus -> Profil je Panel ab.",
                "panels": panels}
         if devices:
             doc["devices"] = devices
-        PANELS_FILE.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
-                               encoding="utf-8")
+        _atomic_write(PANELS_FILE,
+                      json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
 
     def _write_panels(self, panels: dict) -> None:
         self._persist_panels_file(panels, self.devices)
@@ -1530,7 +1527,7 @@ class App:
             keep = {k: v for k, v in (doc.get("categories") or {}).items()
                     if str(k).startswith("_")}   # _comment behalten
             doc["categories"] = {**keep, **categories}
-        f.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        _atomic_write(f, json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
         self.theme = load_theme()
         self._dirty = True   # verbundene Panels neu rendern lassen
 
@@ -1543,12 +1540,14 @@ class App:
         url = f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
         try:
-            async with self.icon_session.get(url, headers=headers) as r:
+            async with self.icon_session.get(
+                    url, headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=6)) as r:
                 if r.status != 200:
                     return None
                 body = await r.read()
                 ctype = r.headers.get("Content-Type", "application/octet-stream")
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return None
         self.icon_cache[path] = (body, ctype)
         return self.icon_cache[path]
@@ -1702,6 +1701,47 @@ class App:
         import colorsys
         r, g, b = colorsys.hsv_to_rgb((h % 360) / 360.0, s / 100.0, v / 100.0)
         return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
+
+    def types_overview(self) -> dict:
+        """Diagnose fuer /api/types: alle Bausteintypen der geladenen Anlage mit
+        Anzahl, Beispielnamen, Unterstuetzungsstatus (full / partial / none),
+        den State-Namen und details-Schluesseln je Typ, dazu die Liste der
+        Controls, die als tote Kachel enden. Der Status wird nicht aus einer
+        Liste geraten, sondern aus dem Rendering: `_control_item()` liefert
+        fuer unterstuetzte Typen nav, cmd, controls oder sublabel."""
+        types: dict[str, dict] = {}
+        for uuid, c in self.controls.items():
+            t = str(c.get("type") or "?")
+            e = types.setdefault(t, {"type": t, "count": 0, "examples": [], "states": set(),
+                                     "details": set(), "supported": False, "controls": []})
+            e["count"] += 1
+            name = _clean(c.get("name"))
+            if name and len(e["examples"]) < 3:
+                e["examples"].append(name)
+            e["states"].update(k for k in (c.get("states") or {}) if isinstance(k, str))
+            e["details"].update(k for k in (c.get("details") or {}) if isinstance(k, str))
+            room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
+            e["controls"].append({"uuid": uuid, "name": name, "room": room})
+            if not e["supported"]:
+                try:
+                    it = self._control_item(uuid)
+                except Exception as err:  # Diagnose darf nie an einem Baustein scheitern
+                    log.warning("types_overview: %s (%s): %s", name, t, err)
+                    it = {}
+                if any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+                    e["supported"] = True
+        out, dead = [], []
+        for t in sorted(types, key=str.lower):
+            e = types[t]
+            status = "none" if not e["supported"] else ("partial" if t in PARTIAL_TYPES else "full")
+            if status == "none":
+                dead.extend({**ctl, "type": t} for ctl in e["controls"])
+            out.append({"type": t, "status": status, "count": e["count"], "examples": e["examples"],
+                        "states": sorted(e["states"]), "details": sorted(e["details"])})
+        counts = {s: sum(1 for e in out if e["status"] == s) for s in ("full", "partial", "none")}
+        return {"connected": self.client is not None, "controls": len(self.controls),
+                "typeCount": len(out), "typesByStatus": counts, "types": out,
+                "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
 
     def _control_item(self, uuid: str, prof: dict | None = None,
                       show_room: bool = False) -> dict:
@@ -3216,21 +3256,6 @@ class App:
                 log.info("Audioserver-Backend fuer %s", host)
         return be
 
-    def _audio_direct(self, uuid: str) -> bool:
-        """Soll ein Zonenbefehl direkt an den Audioserver (Port 7091) gehen?
-
-        AudioZone (Musikserver Gen 1, MS4H): ja, der nimmt Befehle ohne
-        Anmeldung an. AudioZoneV2 (Audioserver Gen 2): nur wenn in loxpanel.cfg
-        `audio.directV2` gesetzt ist. Ein mit dem Miniserver gekoppelter
-        Loxone-Audioserver antwortet auf unangemeldete Befehle mit
-        "command not allowed when paired"; Nachbauten (Sonn, Audioserver4Home)
-        nehmen sie an. Standard ist deshalb der Weg ueber den Miniserver
-        (sps/io), der fuer play, pause, prev, next, on, off und volume
-        dokumentiert ist."""
-        if self.zone_type_by_action.get(uuid) == "AudioZoneV2":
-            return bool(self.audio_cfg.get("directV2"))
-        return True
-
     async def command(self, uuid: str, cmd: str, pin: str | None = None) -> str | None:
         """Fuehrt einen Befehl aus. Mit pin: gesicherter Befehl (Visu-Passwort)."""
         if not (self.client and uuid and cmd):
@@ -3248,16 +3273,16 @@ class App:
             # befuellt den sourceList-State fuer die Anzeige.
             pid = self.playerid_by_action.get(uuid)
             # Raumfavorit abspielen: bei einem gekoppelten Audioserver ueber die
-            # angemeldete Ereignis-Verbindung (der Miniserver relayt roomfav/play
-            # fuer AudioZoneV2 nicht zuverlaessig; der Direktkanal ohne Anmeldung
-            # wuerde die Verbindung schliessen).
+            # angemeldete Ereignis-Verbindung (der Direktkanal ohne Anmeldung
+            # wuerde die Verbindung schliessen). Nachbauten (Sonn) haben authed=
+            # False -> dieser Zweig wird uebersprungen, Steuerung wie bisher.
             if pid is not None and cmd.startswith("roomfav/play/"):
                 host = self.audiohost_by_action.get(uuid)
                 acl = self.audio_clients.get(host) if host else None
                 if acl is not None and acl.authed:
                     ok = await acl.play_roomfav(pid, cmd.rsplit("/", 1)[-1])
                     return "200" if ok else None
-            if pid is not None and not cmd.startswith("roomfav/get") and self._audio_direct(uuid):
+            if pid is not None and not cmd.startswith("roomfav/get"):
                 backend = self._audio_backend_for(uuid)
                 if backend:
                     ok = await backend.command(pid, cmd)
@@ -3304,11 +3329,11 @@ class App:
     async def stream_task(self) -> None:
         # Dauer-Loop: Erstverbindung + Reconnect zum Miniserver. Bricht NIEMALS
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
-        # oder das Passwort falsch ist (dann bleibt /config bedienbar).
+        # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
         while True:
             try:
                 if not self.host:
-                    # Noch kein Miniserver konfiguriert -> auf /config warten
+                    # Noch kein Miniserver konfiguriert -> auf /settings warten
                     # (kein Verbindungsversuch, kein Log-Spam).
                     await asyncio.sleep(5)
                     continue
@@ -3348,6 +3373,7 @@ class App:
             self.conn_route.pop(ws, None)
             self.conn_prof.pop(ws, None)
             self.conn_dev.pop(ws, None)
+            self.conn_player.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -3365,7 +3391,7 @@ class App:
             ev = self._pending_alarm.pop(0)
             log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
             if ev["on"]:
-                self._spawn(self.display_drivers(True))   # Display wecken (Kiosk-App)
+                self._spawn(self.display_drivers(True))
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
         if self._front_dirty:
@@ -3386,14 +3412,16 @@ class App:
                     # Schleife killen. Fehler loggen, diese Verbindung ueberspringen.
                     log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
                     continue
-                # Split-Layout: festen Player mitrendern (Fehler ebenso isolieren)
+                # Split-Layout: Player-Pane des aktiven Tabs mitrendern (Zone kommt
+                # vom Client via setplayer -> conn_player). Fehler isolieren.
                 player_msg = None
-                if prof and prof.get("player"):
+                _zone = self.conn_player.get(ws)
+                if _zone:
                     try:
-                        pb = self.player_blocks(prof["player"])
+                        pb = self.player_blocks(_zone)
                         player_msg = {"t": "player", "blocks": pb} if pb is not None else None
                     except Exception:
-                        log.exception("player_blocks fehlgeschlagen (%s)", prof.get("player"))
+                        log.exception("player_blocks fehlgeschlagen (%s)", _zone)
                 if await self._send_or_drop(ws, msg) and player_msg is not None:
                     await self._send_or_drop(ws, player_msg)
 
@@ -3412,7 +3440,8 @@ class App:
 
     def _front_payload(self, data: dict) -> dict:
         return {"t": "front", "weather": data.get("weather"),
-                "events": data.get("events") or [], "calName": data.get("calName") or "Family"}
+                "events": data.get("events") or [], "holidays": data.get("holidays") or {},
+                "calName": data.get("calName") or "Family"}
 
     async def front_task(self) -> None:
         """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
@@ -3421,7 +3450,10 @@ class App:
         self._front_session = aiohttp.ClientSession()
         try:
             while True:
-                cfg = self.calendar_cfg or {}
+                cfg = dict(self.calendar_cfg or {})
+                # Koordinaten automatisch vom Miniserver, wenn keine in der Config.
+                if cfg.get("lat") in (None, "") and self.ms_lat is not None:
+                    cfg["lat"], cfg["lon"] = self.ms_lat, self.ms_lon
                 configured = bool((cfg.get("ical_url") or "").strip()) or (
                     cfg.get("lat") not in (None, "") and cfg.get("lon") not in (None, ""))
                 if configured:
@@ -3489,7 +3521,7 @@ async def config_index(request: web.Request) -> web.Response:
 
 
 async def i18n_js(request: web.Request) -> web.Response:
-    """Gemeinsamer Uebersetzungs-Katalog fuer /config."""
+    """Gemeinsamer Uebersetzungs-Katalog fuer /settings und /config."""
     return web.Response(text=I18N_JS.read_text(encoding="utf-8"),
                         content_type="application/javascript", headers=_NOCACHE)
 
@@ -3498,7 +3530,9 @@ async def api_meta(request: web.Request) -> web.Response:
     """Alle Räume/Kategorien der Anlage + aktuelle Profile (für den Editor)."""
     app: App = request.app["app"]
     rooms = [{"uuid": ru, "name": _clean(app.rooms[ru].get("name", ""))} for ru in app.rooms_with]
-    cats = [{"uuid": cu, "name": _clean(app.cats[cu].get("name", ""))} for cu in app.cats_with]
+    cats = [{"uuid": cu, "name": _clean(app.cats[cu].get("name", "")),
+             "color": app.cats[cu].get("color")}         # Loxone-Voreinstellungsfarbe der Kategorie
+            for cu in app.cats_with]
     panels = {pid: app._panel_export(raw) for pid, raw in app.panels.items()}
     controls = []
     for u, c in app.controls.items():
@@ -3606,7 +3640,6 @@ async def api_settings(request: web.Request) -> web.Response:
     intercoms = [{"uuid": u, "name": _clean(c.get("name")), **icv(u)}
                  for u, c in app.controls.items() if c.get("type") == "Intercom"]
     am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
-    au = cfg.get("audio", {}) if isinstance(cfg.get("audio"), dict) else {}
     cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
         "miniserver": {
@@ -3619,15 +3652,17 @@ async def api_settings(request: web.Request) -> web.Response:
         "intercoms": intercoms,
         "audiometa": {"enabled": bool(am.get("enabled", True)),
                       "servers": sorted(app.mediaservers.values())},
-        "audio": {"directV2": bool(au.get("directV2"))},
         "calendar": {
             "ical_url": (cal.get("ical_url") or "").strip(),
+            "holiday_url": (cal.get("holiday_url") or "").strip(),
             "name": cal.get("name") or "Family",
             "lat": cal.get("lat"),
             "lon": cal.get("lon"),
             "days": cal.get("days", 14),
             "fore_days": cal.get("fore_days", 4),
             "status": app._front_meta,
+            # Auto-Standort vom Miniserver (Fallback, wenn keine Koordinaten gesetzt)
+            "ms_lat": app.ms_lat, "ms_lon": app.ms_lon, "ms_location": app.ms_location,
         },
         "connected": app.client is not None,
         "nControls": len(app.controls),
@@ -3709,15 +3744,8 @@ async def api_settings_audiometa(request: web.Request) -> web.Response:
     am = dict(cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {})
     am["enabled"] = bool(data.get("enabled"))
     cfg["audiometa"] = am
-    if "directV2" in data:
-        # Zonen des Audioservers Gen 2 direkt ueber Port 7091 steuern (nur fuer
-        # Nachbauten sinnvoll, siehe App._audio_direct).
-        au = dict(cfg.get("audio", {}) if isinstance(cfg.get("audio"), dict) else {})
-        au["directV2"] = bool(data.get("directV2"))
-        cfg["audio"] = au
     _write_cfg(cfg)
     app.audiometa_cfg = _audiometa_config()
-    app.audio_cfg = _audio_config()
     # Bei Deaktivierung laufende Clients sofort schliessen; beim Aktivieren
     # startet der audio_events_task sie beim naechsten Durchlauf automatisch.
     if not am["enabled"]:
@@ -3725,8 +3753,7 @@ async def api_settings_audiometa(request: web.Request) -> web.Response:
             await cl.close()
         app.audio_clients.clear()
     app._dirty = True
-    log.info("Audioserver-Live-Daten %s, Gen-2-Zonen %s", "aktiv" if am["enabled"] else "aus",
-             "direkt (7091)" if app.audio_cfg.get("directV2") else "ueber den Miniserver")
+    log.info("Audioserver-Live-Daten %s", "aktiv" if am["enabled"] else "aus")
     return web.json_response({"ok": True})
 
 
@@ -3786,6 +3813,7 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
     cfg = _load_cfg()
     cal = dict(cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {})
     cal["ical_url"] = str(data.get("ical_url", "")).strip()
+    cal["holiday_url"] = str(data.get("holiday_url", "")).strip()
     cal["name"] = str(data.get("name", "")).strip() or "Family"
     lat, lon = _coord(data.get("lat")), _coord(data.get("lon"))
     # Nur ein vollstaendiges Koordinatenpaar speichern (halb gesetzt = kein Wetter).
@@ -3990,11 +4018,13 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
         try:
             await ws.send_json(msg)
             n += 1
-        except ConnectionError:
+        except Exception as err:   # nicht nur ConnectionError (F3)
+            log.debug("Push an Panel fehlgeschlagen: %s", err)
             app.conn_route.pop(ws, None)
             app.conn_prof.pop(ws, None)
             app.conn_dev.pop(ws, None)
             app.conn_info.pop(ws, None)
+            app.conn_player.pop(ws, None)
     return n
 
 
@@ -4085,7 +4115,8 @@ async def api_testtone(request: web.Request) -> web.Response:
         try:
             await ws.send_json({"t": "testtone"})
             n += 1
-        except ConnectionError:
+        except Exception as err:   # nicht nur ConnectionError (F3)
+            log.debug("testtone-Push an Panel fehlgeschlagen: %s", err)
             app.conn_route.pop(ws, None)
             app.conn_prof.pop(ws, None)
     return web.json_response({"ok": True, "sent": n})
@@ -4190,16 +4221,14 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
-                        "lang": prof["lang"], "fill": prof["fill"],
+                        "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
+                        "panes": prof.get("panes") or {},
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
-                        "agent": app._has_agent(dev),
-                        "player": prof["player"]})
+                        "agent": app._has_agent(dev)})
     await ws.send_json(app.render(app.conn_route[ws], prof))
-    if prof.get("player"):
-        pb = app.player_blocks(prof["player"])
-        if pb is not None:
-            await ws.send_json({"t": "player", "blocks": pb})
+    # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
+    # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.
     # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)
     if app._front is not None:
         await ws.send_json(app._front)
@@ -4239,17 +4268,31 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
                     await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+            elif data.get("t") == "setplayer":
+                # Client meldet die AudioZone der aktiven Player-Pane (oder "" = keine).
+                zone = str(data.get("zone") or "").strip()
+                if zone:
+                    app.conn_player[ws] = zone
+                    try:
+                        pb = app.player_blocks(zone)
+                        if pb is not None:
+                            await ws.send_json({"t": "player", "blocks": pb})
+                    except Exception:
+                        log.exception("player_blocks (setplayer) fehlgeschlagen (%s)", zone)
+                else:
+                    app.conn_player.pop(ws, None)
     finally:
         app.conn_route.pop(ws, None)
         app.conn_prof.pop(ws, None)
         app.conn_dev.pop(ws, None)
         app.conn_info.pop(ws, None)
+        app.conn_player.pop(ws, None)
     return ws
 
 
 async def on_startup(a: web.Application) -> None:
     # HTTP-Server startet SOFORT; die Miniserver-Verbindung baut stream_task im
-    # Hintergrund auf (mit Retry) — so ist /config auch ohne/mit falschen
+    # Hintergrund auf (mit Retry) — so ist /settings auch ohne/mit falschen
     # Zugangsdaten erreichbar.
     app: App = a["app"]
     a["tasks"] = [asyncio.create_task(app.stream_task()),
