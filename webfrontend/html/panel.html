@@ -1270,7 +1270,7 @@ function energyInner(d){
   d=d||{};
   const nodes=(d.nodes||[]).slice(0,9), N=nodes.length;
   if(!N) return '<div class="epane"><div class="ebot">Energiefluss lädt …</div></div>';
-  const C=220,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[],txts=[];
+  const C=240,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[],txts=[];   // C=240 in 480er-viewBox -> Rand fuer Beschriftung ausserhalb der Ringe
   nodes.forEach((n,i)=>{
     const ang=-Math.PI/2 + i*2*Math.PI/N, nx=C+R*Math.cos(ang), ny=C+R*Math.sin(ang);
     const col=eColorCls(n), dir=eDirCls(n), tx=nx.toFixed(1), ty=ny.toFixed(1);
@@ -1281,12 +1281,12 @@ function energyInner(d){
     const above=ny<C-4, nm=esc(nodeLabel(n));
     const val=esc(n.flow?fmtPower(n.w):'0 W'), vcls='enval'+(col==='idle'?' idle':'');
     txts.push(above
-      ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-40).toFixed(1)+'">'+nm+'</text>'
-      : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+54).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+72).toFixed(1)+'">'+val+'</text>');
+      ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-74).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+nm+'</text>'
+      : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+56).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+76).toFixed(1)+'">'+val+'</text>');
   });
   return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
-    '<div class="ewrap"><svg viewBox="0 0 440 440" preserveAspectRatio="xMidYMid meet">'+
-    spokes.join('')+dots.join('')+'<circle class="ehub" cx="220" cy="220" r="13"/>'+ng.join('')+txts.join('')+
+    '<div class="ewrap"><svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">'+
+    spokes.join('')+dots.join('')+'<circle class="ehub" cx="'+C+'" cy="'+C+'" r="13"/>'+ng.join('')+txts.join('')+
     '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';
 }
 // Struktur-Signatur: nur bei Aenderung (Knotensatz/Icons) neu zeichnen.
