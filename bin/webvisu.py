@@ -1073,13 +1073,14 @@ class App:
 
     def energy_blocks(self, uuid: str, max_cons: int = 6):
         """Energiefluss-Daten (Radial, Loxone-Standard) einer EFM/EnergyManager2-
-        Kachel fuers Panel. Liefert die Knoten so, wie der Miniserver sie vorgibt:
-        PV, Netz, Speicher (sofern vorhanden) + alle in der Loxone-Config
-        angelegten Verbraucher/Gruppen (actual0..5, Namen UND Icons kommen vom
-        Miniserver). 0-W-Knoten werden mitgezeigt (grau/inaktiv, wie in der App);
-        nur nicht existierende Knoten (kein State) entfallen. Leistung in WATT,
-        Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine Anzeige,
-        keine Steuerung. max_cons entspricht Loxones eigener Grenze (actual0..5).
+        Kachel fuers Panel. EFM: genau die in der Loxone-Config angelegten Knoten
+        (actual0..5, Name UND Icon vom Miniserver) – das ist wie in der Loxone-App
+        die vollstaendige Liste inkl. PV/Netz/Speicher, daher KEINE zusaetzlichen
+        Summen-Knoten (sonst Dopplung). EnergyManager2 (oder EFM ohne eigene
+        Knoten): Summen-Knoten aus Ppwr/Gpwr/Spwr. 0-W-Knoten werden mitgezeigt
+        (grau/inaktiv); nur nicht existierende (kein State) entfallen. Leistung in
+        WATT, Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine
+        Anzeige, keine Steuerung. max_cons = Loxones Grenze (actual0..5, max. 6).
 
         Vorzeichen wie in der Loxone-App (siehe _flow_text): Gpwr>0 = Netzbezug
         (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher laedt (raus), <0 =
@@ -1104,28 +1105,36 @@ class App:
                 return None
             return "in" if ((w > 0) == positive_is_in) else "out"
 
-        nodes = []
-        pv = watt("Ppwr")                       # Erzeugung -> immer rein
-        nodes.append({"name": "PV", "icon": "pv",
-                      "w": abs(pv) if pv else 0.0, "flow": ("in" if pv else None)})
+        pv = watt("Ppwr")                       # Erzeugung
         g = watt("Gpwr")                        # Netz: >0 Bezug (rein), <0 Einspeisung (raus)
-        nodes.append({"name": "Netz", "icon": "grid",
-                      "w": abs(g) if g else 0.0, "flow": flow_of(g, True)})
         sp = watt("Spwr")                       # Speicher: >0 laedt (raus), <0 entlaedt (rein)
         try:
             soc = float(self._state(c, "Ssoc"))
         except (TypeError, ValueError):
             soc = None
-        if soc is not None or (sp not in (None, 0.0)):   # nur wenn ein Speicher da ist
-            bn = {"name": "Speicher", "icon": "battery",
-                  "w": abs(sp) if sp else 0.0, "flow": flow_of(sp, False)}
-            if soc is not None:
-                bn["soc"] = max(0.0, min(100.0, soc))
-            nodes.append(bn)
-        # Verbraucher/Quellen: EFM-Knoten actual0..5 – Name UND Icon aus
-        # details.nodes, also genau die (ggf. gruppierten) Knoten der Loxone-
-        # Config. 0-W-Knoten bleiben (grau); nur nicht existierende (State None)
-        # entfallen.
+
+        def agg_nodes():
+            """Feste Summen-Knoten (PV/Netz/Speicher) aus Ppwr/Gpwr/Spwr – fuer
+            EnergyManager2 und als Rueckfall, wenn ein EFM keine eigenen Knoten hat."""
+            ns = [{"name": "PV", "icon": "pv",
+                   "w": abs(pv) if pv else 0.0, "flow": ("in" if pv else None)},
+                  {"name": "Netz", "icon": "grid",
+                   "w": abs(g) if g else 0.0, "flow": flow_of(g, True)}]
+            if soc is not None or (sp not in (None, 0.0)):
+                bn = {"name": "Speicher", "icon": "battery",
+                      "w": abs(sp) if sp else 0.0, "flow": flow_of(sp, False)}
+                if soc is not None:
+                    bn["soc"] = max(0.0, min(100.0, soc))
+                ns.append(bn)
+            return ns
+
+        # EFM: die actual0..5-Knoten SIND – wie in der Loxone-App – die
+        # vollstaendige Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher
+        # KEINE zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung: "PV" +
+        # "PV Anlage", "Netz" + "Netz"). Name UND Icon kommen vom Miniserver;
+        # 0-W-Knoten bleiben (grau). Vorzeichen -> Richtung: >0 raus (Verbraucher),
+        # <0 rein (Quelle/Bezug). Feinheiten der Rolle pro Knoten siehe Diagnose
+        # /api/types -> energyDetails.
         cons = []
         if c.get("type") == "EFM":
             for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
@@ -1136,9 +1145,11 @@ class App:
                 cons.append({"name": label or f"Knoten {i + 1}", "icon": "load",
                              "iconUrl": self._node_icon_url(nd),
                              "w": abs(v), "flow": flow})
-        # Aktive Verbraucher nach Leistung, 0-W-Knoten (grau) ans Ende – wie in der App.
-        cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))
-        nodes += cons
+        if cons:
+            cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
+            nodes = cons
+        else:
+            nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
                 "totals": {"prod": abs(pv) if pv else 0.0,
@@ -1858,8 +1869,23 @@ class App:
             out.append({"type": t, "status": status, "count": e["count"], "examples": e["examples"],
                         "states": sorted(e["states"]), "details": sorted(e["details"])})
         counts = {s: sum(1 for e in out if e["status"] == s) for s in ("full", "partial", "none")}
+        # Diagnose Energiefluss: rohe Knotenstruktur + aktuelle Werte je EFM/EM2.
+        # Damit laesst sich die Rolle/Richtung je Knoten belegen (statt raten).
+        energy = []
+        for uuid, c in self.controls.items():
+            if c.get("type") in ("EFM", "EnergyManager2"):
+                det = c.get("details") or {}
+                energy.append({
+                    "uuid": uuid, "name": _clean(c.get("name")), "type": c.get("type"),
+                    "actualFormat": det.get("actualFormat"), "storageFormat": det.get("storageFormat"),
+                    "Ppwr": self._state(c, "Ppwr"), "Gpwr": self._state(c, "Gpwr"),
+                    "Spwr": self._state(c, "Spwr"), "Ssoc": self._state(c, "Ssoc"),
+                    "nodes": det.get("nodes"),
+                    "actuals": {f"actual{i}": self._state(c, f"actual{i}") for i in range(6)},
+                })
         return {"connected": self.client is not None, "controls": len(self.controls),
                 "typeCount": len(out), "typesByStatus": counts, "types": out,
+                "energyDetails": energy,
                 "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
 
     def _control_item(self, uuid: str, prof: dict | None = None,
