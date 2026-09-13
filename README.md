@@ -100,7 +100,7 @@ Programmierung und ohne die Loxone-App.
 
 ## Unterstützte Bausteine
 
-LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **46 voll unterstützt**, **8 teilweise**, **14 geplant**. Welche Typen in der eigenen Anlage vorkommen und wie sie unterstützt werden, zeigt `/api/types?format=text`.
+LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **47 voll unterstützt**, **7 teilweise**, **14 geplant**. Welche Typen in der eigenen Anlage vorkommen und wie sie unterstützt werden, zeigt `/api/types?format=text`.
 
 **Legende:** ✅ unterstützt · 🟡 teilweise · ⬜ geplant
 
