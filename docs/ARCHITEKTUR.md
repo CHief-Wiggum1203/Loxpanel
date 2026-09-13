@@ -122,18 +122,22 @@ Browser (panel.html)
 ```
 
 Befehle vom Browser gehen über `App.command()` entweder an den Miniserver
-(`jdev/sps/io/<uuid>/<cmd>`) oder, wenn die Zone eine `playerid` hat, direkt an
-den Audioserver auf Port 7091 (`audio/<playerid>/<cmd>`). Die `playerid` wird
-beim Laden der Struktur für `AudioZone` (Musikserver Gen 1) wie für `AudioZoneV2`
-(Audioserver Gen 2 / Sonn) aus `details.playerid` gesetzt; darüber laufen
-play/pause, queueplus/-minus, volume und roomfav/play direkt am Audioserver statt
-über den Miniserver. Nur `roomfav/get` bleibt am Miniserver, es füllt den
-`sourceList`-State für die Anzeige. Ausnahme roomfav/play: bei einem gekoppelten
-Loxone-Audioserver läuft `roomfav/play/<slot>` über die angemeldete Ereignis-
-Verbindung (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle
-ablehnt und die Verbindung schließt („command not allowed when paired", prüfbar
-mit `bin/audioserver_probe.py`); Nachbauten (Sonn, `authed=false`) nutzen weiter
-den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+(`jdev/sps/io/<uuid>/<cmd>`) oder direkt an den Audioserver auf Port 7091
+(`audio/<playerid>/<cmd>`). Welcher Weg, hängt am Kopplungsstatus des
+Audioservers: Ein mit dem Miniserver **gekoppelter** Loxone-Audioserver lehnt
+Befehle ohne Anmeldung ab („command not allowed when paired", prüfbar mit
+`bin/audioserver_probe.py`) und schließt die Verbindung; seine Transportbefehle
+(play/pause, next/prev, volume) laufen deshalb über den Miniserver. Nur ein
+nachweislich **nicht** gekoppelter Audioserver (Nachbau Sonn/MS4H bzw.
+Musikserver Gen 1, `paired=false`) bekommt sie direkt auf Port 7091 (die
+`playerid` dafür stammt aus `details.playerid`). Den `paired`-Status ermittelt
+der Ereignis-Client je Host automatisch (`audioserver_events.py`, HTTP
+`audio/cfg/all`); solange er unbekannt ist, wird sicher über den Miniserver
+geleitet. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
+für die Anzeige). Ausnahme roomfav/play: bei einem gekoppelten Loxone-Audioserver
+läuft `roomfav/play/<slot>` über die angemeldete Ereignis-Verbindung
+(`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle ablehnt;
+Nachbauten (`authed=false`) nutzen den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
 Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
 `remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
 Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem
