@@ -1100,10 +1100,26 @@ class App:
             except (TypeError, ValueError):
                 return None
 
-        def flow_of(w, positive_is_in):
-            if not w:
-                return None
-            return "in" if ((w > 0) == positive_is_in) else "out"
+        def classify(nt, v):
+            """Richtung (flow: in/out/None) UND Farbe/Rolle (kind) je Knoten aus
+            Loxone-nodeType + Vorzeichen:
+              kind "prod" = Quelle, gruen  (PV/Production; Netz-Einspeisung; Speicher entladen)
+              kind "grid" = Netzbezug, ROT (Netz liefert Strom ins Haus)
+              kind "load" = Verbraucher, orange (Load/Group; Speicher laden)
+              kind "idle" = 0 W, grau
+            PV/Production ist immer Quelle (kann nie beziehen). Netz: Bezug (v>0)
+            rein/rot, Einspeisung (v<0) raus/gruen. Speicher: laden (v>0) raus/orange,
+            entladen (v<0) rein/gruen."""
+            ntl = (nt or "").lower()
+            if not v:
+                return (None, "idle")
+            if ntl == "production":
+                return ("in", "prod")
+            if ntl == "grid":
+                return ("in", "grid") if v > 0 else ("out", "prod")
+            if ntl in ("storage", "battery"):
+                return ("out", "load") if v > 0 else ("in", "prod")
+            return ("out", "load") if v > 0 else ("in", "prod")
 
         pv = watt("Ppwr")                       # Erzeugung
         g = watt("Gpwr")                        # Netz: >0 Bezug (rein), <0 Einspeisung (raus)
@@ -1116,45 +1132,53 @@ class App:
         def agg_nodes():
             """Feste Summen-Knoten (PV/Netz/Speicher) aus Ppwr/Gpwr/Spwr – fuer
             EnergyManager2 und als Rueckfall, wenn ein EFM keine eigenen Knoten hat."""
-            ns = [{"name": "PV", "icon": "pv",
-                   "w": abs(pv) if pv else 0.0, "flow": ("in" if pv else None)},
-                  {"name": "Netz", "icon": "grid",
-                   "w": abs(g) if g else 0.0, "flow": flow_of(g, True)}]
+            def mk(name, icon, val, nt, extra=None):
+                fl, kd = classify(nt, val)
+                n = {"name": name, "icon": icon, "w": abs(val) if val else 0.0,
+                     "flow": fl, "kind": kd}
+                if extra:
+                    n.update(extra)
+                return n
+            ns = [mk("PV", "pv", pv, "production"),
+                  mk("Netz", "grid", g, "grid")]
             if soc is not None or (sp not in (None, 0.0)):
-                bn = {"name": "Speicher", "icon": "battery",
-                      "w": abs(sp) if sp else 0.0, "flow": flow_of(sp, False)}
-                if soc is not None:
-                    bn["soc"] = max(0.0, min(100.0, soc))
-                ns.append(bn)
+                ns.append(mk("Speicher", "battery", sp, "storage",
+                             {"soc": max(0.0, min(100.0, soc))} if soc is not None else None))
             return ns
 
-        # EFM: die actual0..5-Knoten SIND – wie in der Loxone-App – die
-        # vollstaendige Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher
-        # KEINE zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung: "PV" +
-        # "PV Anlage", "Netz" + "Netz"). Name UND Icon kommen vom Miniserver;
-        # 0-W-Knoten bleiben (grau). Vorzeichen -> Richtung: >0 raus (Verbraucher),
-        # <0 rein (Quelle/Bezug). Feinheiten der Rolle pro Knoten siehe Diagnose
-        # /api/types -> energyDetails.
+        # EFM: die actual0..5-Knoten SIND – wie in der Loxone-App – die vollstaendige
+        # Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher KEINE
+        # zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung). Name, Icon UND
+        # Rolle (nodeType) kommen vom Miniserver; 0-W-Knoten bleiben (grau).
         cons = []
+        prod_sum = cons_sum = 0.0
         if c.get("type") == "EFM":
             for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
                 v = watt(f"actual{i}")
                 if v is None:
                     continue
-                flow = None if v == 0 else ("out" if v > 0 else "in")
+                nt = nd.get("nodeType") if isinstance(nd, dict) else None
+                flow, kind = classify(nt, v)
                 cons.append({"name": label or f"Knoten {i + 1}", "icon": "load",
                              "iconUrl": self._node_icon_url(nd),
-                             "w": abs(v), "flow": flow})
+                             "w": abs(v), "flow": flow, "kind": kind})
+                ntl = (nt or "").lower()
+                if ntl == "production":
+                    prod_sum += abs(v)
+                elif ntl in ("load", "group") and v > 0:
+                    cons_sum += abs(v)
         if cons:
             cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
             nodes = cons
+            prod_total = prod_sum or (abs(pv) if pv else 0.0)
+            cons_total = cons_sum
         else:
             nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
+            prod_total = abs(pv) if pv else 0.0
+            cons_total = 0.0
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
-                "totals": {"prod": abs(pv) if pv else 0.0,
-                           "cons": sum(x["w"] for x in cons if x["flow"] == "out"),
-                           "grid": g or 0.0}}
+                "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
 
     def _tab_meta(self, tab_keys) -> dict:
         """Label + Icon fuer dynamische Tabs (Kategorie-Direkt-Tabs). Die 4
