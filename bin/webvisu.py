@@ -3066,12 +3066,14 @@ class App:
             if vals:
                 rows.append({"k": "head", "text": "Verbraucher und Quellen"})
                 rows += [{"k": "status", "text": f"{label}: {self._fmt_num(v, fmt)}"} for label, v in vals]
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
-                {"k": "hero", "icon": "central"},
-                {"k": "big", "text": (self._fmt_num(p, fmt) if p is not None else "–")},
-                {"k": "status", "text": "Aktuelle Erzeugung"},
-                *rows,
-            ]}
+            eb = self.energy_blocks(uuid)   # Radial auch beim Antippen (4"-Panel ohne Split)
+            if eb:
+                blocks = [{"k": "eflow", "e": eb}]   # zeigt PV/Netz/Speicher + Verbraucher live, wie in der Loxone-App
+            else:
+                blocks = [{"k": "hero", "icon": "central"},
+                          {"k": "big", "text": (self._fmt_num(p, fmt) if p is not None else "–")},
+                          {"k": "status", "text": "Aktuelle Erzeugung"}, *rows]
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "EnergyManager2":
             det = c.get("details") or {}
             p = self._state(c, "Ppwr")
@@ -3098,12 +3100,13 @@ class App:
                     if isinstance(st, bool) or st in (0, 1, "0", "1"):
                         st = "Ein" if st in (True, 1, "1") else "Aus"
                     rows.append({"k": "status", "text": label + (f": {st}" if st not in (None, "") else "")})
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
-                {"k": "hero", "icon": "central"},
-                {"k": "big", "text": (self._fmt_num(p, "%.2f kW") if p is not None else "–")},
-                {"k": "status", "text": "Aktuelle Erzeugung"},
-                *rows,
-            ]}
+            eb = self.energy_blocks(uuid)   # Radial auch beim Antippen (4"-Panel ohne Split)
+            head = ([{"k": "eflow", "e": eb}] if eb else
+                    [{"k": "hero", "icon": "central"},
+                     {"k": "big", "text": (self._fmt_num(p, "%.2f kW") if p is not None else "–")},
+                     {"k": "status", "text": "Aktuelle Erzeugung"}])
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "blocks": [*head, *rows]}
         if t == "PvProductionForecast":
             det = c.get("details") or {}
             today = self._state(c, "today")
