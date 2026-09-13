@@ -897,7 +897,11 @@ function energyControlOptions(sel){
     .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
 function firstEnergyControl(){
-  const z=(META.controls||[]).find(c=>c.type==='EFM'||c.type==='EnergyManager2');
+  // Standard = Energieflussmonitor (EFM, mit Verbraucher-Leistungen). Der
+  // Energiemanager (EnergyManager2, nur PV/Netz/Speicher) nur als Rueckfall,
+  // wenn kein EFM existiert – sonst ausdruecklich im Dropdown waehlbar.
+  const cs=(META.controls||[]);
+  const z=cs.find(c=>c.type==='EFM')||cs.find(c=>c.type==='EnergyManager2');
   return z?z.uuid:'';
 }
 

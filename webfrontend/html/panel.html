@@ -80,10 +80,15 @@
   .epane .enlab{fill:var(--muted);font-size:12px;text-anchor:middle;}
   .epane .edot{opacity:0;}
   .epane .edot.prod{fill:var(--accent);} .epane .edot.cons{fill:var(--glow);}
-  @media (prefers-reduced-motion: no-preference){
-    .epane .edot{animation:2.6s linear infinite;}
-    .epane .edot.prod{animation-name:eflowin;} .epane .edot.cons{animation-name:eflowout;}
-  }
+  /* Fluss-Punkte laufen dauerhaft (Bewegung = Flussrichtung, also Info, kein
+     Deko-Effekt). Die Pane wird nur bei Strukturaenderung neu gezeichnet, sonst
+     laufen die Punkte ununterbrochen weiter (siehe paintEnergy/updateEnergyPane). */
+  .epane .edot{animation:2.6s linear infinite;}
+  .epane .edot.prod{animation-name:eflowin;} .epane .edot.cons{animation-name:eflowout;}
+  .epane .edot.idle{animation:none;opacity:0;}
+  /* Radial in der Detailansicht (Antippen der Energie-Kachel; auch 4"-Panel ohne Split) */
+  .epane-detail{width:min(100%,440px);margin:6px auto 0;}
+  .epane-detail .epane{height:clamp(280px,58vh,460px);}
   @keyframes eflowout{0%{transform:translate(0,0);opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
   @keyframes eflowin{0%{transform:translate(var(--dx),var(--dy));opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
@@ -735,8 +740,9 @@ function renderPanel(blocks){
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
   const anchorBot = !!(view && view.anchor==='bottom');
   g.classList.toggle('anchorbot', anchorBot);
-  const TOPK = {hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1};
+  const TOPK = {hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1,eflow:1};
   const bh = b => {
+    if(b.k==='eflow') return '<div class="epane-detail" data-eflow></div>';   // Radial; wird nach dem Einfuegen von paintEnergy gefuellt
     if(b.k==='hero'){ const hic = b.iconImg
         ? '<img class="rawico" src="'+esc(b.iconImg)+'" alt="">'
         : b.iconUrl
@@ -776,6 +782,7 @@ function renderPanel(blocks){
     for(const b of blocks){ if(b.k!=='more') html+=bh(b); }
     g.innerHTML=html;
   }
+  const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial in der Detailansicht zeichnen
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img){img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
@@ -821,6 +828,7 @@ function updatePanel(blocks){
   const ast=blocks.find(b=>b.k==='astat'); if(ast){const e=g.querySelector('.astat'); if(e){ e.childNodes[0].nodeValue=ast.text||''; e.className='astat'+(ast.tone==='crit'?' crit':''); const su=e.querySelector('.astatsub'); if(su)su.textContent=ast.sub||''; }}
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
+  const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       if(c.icon){ btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info); btn.className='btn icon'+(c.big?' big':'')+(c.on?' on':''); }
@@ -1232,42 +1240,69 @@ const EICONS={
 // Knoten-Icon: echtes Loxone-Icon (per CSS-Maske in Flussfarbe eingefaerbt),
 // sonst das eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND
 // Name vor (siehe energy_blocks/_node_icon_url im Server).
-function eIconMarkup(n,cls){
+function eIconMarkup(n,cls,i){
+  const tag='data-ic="'+i+'"';
   if(n && n.iconUrl){
     const u=String(n.iconUrl).replace(/"/g,'%22');
     return '<foreignObject x="-13" y="-13" width="26" height="26">'+
-      '<div xmlns="http://www.w3.org/1999/xhtml" class="emask '+cls+'" '+
+      '<div xmlns="http://www.w3.org/1999/xhtml" '+tag+' class="emask '+cls+'" '+
       'style="-webkit-mask:url(&quot;'+u+'&quot;) center/contain no-repeat;'+
       'mask:url(&quot;'+u+'&quot;) center/contain no-repeat"></div></foreignObject>';
   }
   const icon=EICONS[n&&n.icon]||EICONS.load;
-  return '<g class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
+  return '<g '+tag+' class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
 }
-function renderEnergyPane(elc){
-  if(!elc) return;
-  const d=energyData||{}, nodes=(d.nodes||[]).slice(0,9), N=nodes.length;
-  if(!N){ elc.innerHTML='<div class="epane"><div class="ebot">Energiefluss lädt …</div></div>'; return; }
-  const C=220,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[];
+function eflowCls(n){ return n.flow==='in'?'prod':(n.flow==='out'?'cons':'idle'); }
+function nodeLabel(n){ return (n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''); }
+function efooter(tt){ return 'Erzeugung <b>'+esc(fmtPower(tt.prod||0))+'</b> · Verbrauch <b>'+esc(fmtPower(tt.cons||0))+'</b>'; }
+// Baut das Radial als HTML-String (fuer Pane UND Detailansicht). Knoten tragen
+// data-Attribute, damit updateEnergyPane() nur Werte/Farben aendert und die
+// Fluss-Punkte NICHT neu erzeugt werden (Animation laeuft sonst nie durch).
+function energyInner(d){
+  d=d||{};
+  const nodes=(d.nodes||[]).slice(0,9), N=nodes.length;
+  if(!N) return '<div class="epane"><div class="ebot">Energiefluss lädt …</div></div>';
+  const C=220,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[],txts=[];
   nodes.forEach((n,i)=>{
     const ang=-Math.PI/2 + i*2*Math.PI/N, nx=C+R*Math.cos(ang), ny=C+R*Math.sin(ang);
-    const cls=n.flow==='in'?'prod':(n.flow==='out'?'cons':'idle'), tx=nx.toFixed(1);
-    spokes.push('<line class="spoke" x1="'+C+'" y1="'+C+'" x2="'+tx+'" y2="'+ny.toFixed(1)+'"/>');
-    if(n.flow){ const dx=((nx-C)*0.72).toFixed(1), dy=((ny-C)*0.72).toFixed(1);
-      for(let k=0;k<2;k++) dots.push('<circle class="edot '+cls+'" cx="'+C+'" cy="'+C+'" r="4.5" style="--dx:'+dx+'px;--dy:'+dy+'px;animation-delay:'+(k*1.3)+'s"/>'); }
-    const above=ny<C-4;
-    const nm=esc((n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''));
+    const cls=eflowCls(n), tx=nx.toFixed(1), ty=ny.toFixed(1);
+    spokes.push('<line class="spoke" x1="'+C+'" y1="'+C+'" x2="'+tx+'" y2="'+ty+'"/>');
+    const dx=((nx-C)*0.72).toFixed(1), dy=((ny-C)*0.72).toFixed(1);
+    for(let k=0;k<2;k++) dots.push('<circle data-nd="'+i+'-'+k+'" class="edot '+cls+'" cx="'+C+'" cy="'+C+'" r="4.5" style="--dx:'+dx+'px;--dy:'+dy+'px;animation-delay:'+(k*1.3)+'s'+(n.flow?'':';display:none')+'"/>');
+    ng.push('<g transform="translate('+tx+','+ty+')"><circle class="ering '+cls+'" data-ri="'+i+'" r="'+rn+'"/>'+eIconMarkup(n,cls,i)+'</g>');
+    const above=ny<C-4, nm=esc(nodeLabel(n));
     const val=esc(n.flow?fmtPower(n.w):'0 W'), vcls='enval'+(cls==='idle'?' idle':'');
-    const txt=above
-      ? '<text class="'+vcls+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+val+'</text><text class="enlab" x="'+tx+'" y="'+(ny-40).toFixed(1)+'">'+nm+'</text>'
-      : '<text class="enlab" x="'+tx+'" y="'+(ny+54).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" x="'+tx+'" y="'+(ny+72).toFixed(1)+'">'+val+'</text>';
-    ng.push('<g transform="translate('+tx+','+ny.toFixed(1)+')"><circle class="ering '+cls+'" r="'+rn+'"/>'+eIconMarkup(n,cls)+'</g>'+txt);
+    txts.push(above
+      ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-40).toFixed(1)+'">'+nm+'</text>'
+      : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+54).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+72).toFixed(1)+'">'+val+'</text>');
   });
-  const tt=d.totals||{};
-  elc.innerHTML='<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
+  return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
     '<div class="ewrap"><svg viewBox="0 0 440 440" preserveAspectRatio="xMidYMid meet">'+
-    spokes.join('')+dots.join('')+'<circle class="ehub" cx="220" cy="220" r="13"/>'+ng.join('')+
-    '</svg></div><div class="ebot">Erzeugung <b>'+esc(fmtPower(tt.prod||0))+'</b> · Verbrauch <b>'+esc(fmtPower(tt.cons||0))+'</b></div></div>';
+    spokes.join('')+dots.join('')+'<circle class="ehub" cx="220" cy="220" r="13"/>'+ng.join('')+txts.join('')+
+    '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';
 }
+// Struktur-Signatur: nur bei Aenderung (Knotensatz/Icons) neu zeichnen.
+function energySig(d){ return ((d.nodes||[]).map(n=>(n.name||'')+'§'+(n.icon||'')+'§'+(n.iconUrl||'')).join('¦'))+'#'+((d.nodes||[]).length); }
+function updateEnergyPane(elc,d){
+  (d.nodes||[]).slice(0,9).forEach((n,i)=>{
+    const cls=eflowCls(n);
+    const ring=elc.querySelector('.ering[data-ri="'+i+'"]'); if(ring){ const w='ering '+cls; if(ring.getAttribute('class')!==w) ring.setAttribute('class',w); }
+    const ic=elc.querySelector('[data-ic="'+i+'"]'); if(ic){ const base=ic.classList.contains('emask')?'emask':'eic'; const w=base+' '+cls; if(ic.getAttribute('class')!==w) ic.setAttribute('class',w); }
+    const vv=elc.querySelector('[data-vv="'+i+'"]'); if(vv){ const t=n.flow?fmtPower(n.w):'0 W'; if(vv.textContent!==t) vv.textContent=t; const w='enval'+(cls==='idle'?' idle':''); if(vv.getAttribute('class')!==w) vv.setAttribute('class',w); }
+    const vl=elc.querySelector('[data-vl="'+i+'"]'); if(vl){ const t=nodeLabel(n); if(vl.textContent!==t) vl.textContent=t; }
+    for(let k=0;k<2;k++){ const dot=elc.querySelector('.edot[data-nd="'+i+'-'+k+'"]'); if(dot){ const w='edot '+cls; if(dot.getAttribute('class')!==w) dot.setAttribute('class',w); const disp=n.flow?'':'none'; if(dot.style.display!==disp) dot.style.display=disp; } }
+  });
+  const bot=elc.querySelector('.ebot'); if(bot){ const h=efooter(d.totals||{}); if(bot.innerHTML!==h) bot.innerHTML=h; }
+}
+// Zeichnet in elc: nur bei Strukturaenderung Neuaufbau, sonst in-place -> Punkte laufen weiter.
+function paintEnergy(elc,d){
+  d=d||{};
+  const sig=energySig(d);
+  if(elc._esig===sig && elc.querySelector('.ewrap svg')){ updateEnergyPane(elc,d); return; }
+  elc._esig=sig;
+  elc.innerHTML=energyInner(d);
+}
+function renderEnergyPane(elc){ if(elc) paintEnergy(elc, energyData||{}); }
 
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{};
   elc.innerHTML=fpWeatherHTML(d.weather)||'<div class="fp-empty">Kein Wetter konfiguriert.</div>'; }
