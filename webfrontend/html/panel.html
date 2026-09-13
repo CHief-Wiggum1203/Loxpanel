@@ -72,6 +72,9 @@
   .epane .ering.idle{stroke:var(--muted);opacity:.55;}
   .epane .eic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .epane .eic.prod{stroke:var(--accent);} .epane .eic.cons{stroke:var(--glow);} .epane .eic.idle{stroke:var(--muted);}
+  /* echtes Loxone-Icon: monochrome SVG-Maske, in Flussfarbe eingefaerbt */
+  .epane .emask{width:100%;height:100%;background:currentColor;}
+  .epane .emask.prod{color:var(--accent);} .epane .emask.cons{color:var(--glow);} .epane .emask.idle{color:var(--muted);}
   .epane .enval{fill:var(--ink);font-size:16px;font-weight:600;text-anchor:middle;}
   .epane .enval.idle{fill:var(--muted);}
   .epane .enlab{fill:var(--muted);font-size:12px;text-anchor:middle;}
@@ -1226,24 +1229,38 @@ const EICONS={
   battery:'<rect x="2" y="7" width="16" height="11" rx="2.4"/><path d="M21 11v3"/>',
   load:'<path d="M13 2 4 14h7l-1 8 10-12h-7z"/>'
 };
+// Knoten-Icon: echtes Loxone-Icon (per CSS-Maske in Flussfarbe eingefaerbt),
+// sonst das eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND
+// Name vor (siehe energy_blocks/_node_icon_url im Server).
+function eIconMarkup(n,cls){
+  if(n && n.iconUrl){
+    const u=String(n.iconUrl).replace(/"/g,'%22');
+    return '<foreignObject x="-13" y="-13" width="26" height="26">'+
+      '<div xmlns="http://www.w3.org/1999/xhtml" class="emask '+cls+'" '+
+      'style="-webkit-mask:url(&quot;'+u+'&quot;) center/contain no-repeat;'+
+      'mask:url(&quot;'+u+'&quot;) center/contain no-repeat"></div></foreignObject>';
+  }
+  const icon=EICONS[n&&n.icon]||EICONS.load;
+  return '<g class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
+}
 function renderEnergyPane(elc){
   if(!elc) return;
-  const d=energyData||{}, nodes=(d.nodes||[]).slice(0,8), N=nodes.length;
+  const d=energyData||{}, nodes=(d.nodes||[]).slice(0,9), N=nodes.length;
   if(!N){ elc.innerHTML='<div class="epane"><div class="ebot">Energiefluss lädt …</div></div>'; return; }
-  const C=220,R=140,rn=40, spokes=[],dots=[],ng=[];
+  const C=220,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[];
   nodes.forEach((n,i)=>{
     const ang=-Math.PI/2 + i*2*Math.PI/N, nx=C+R*Math.cos(ang), ny=C+R*Math.sin(ang);
     const cls=n.flow==='in'?'prod':(n.flow==='out'?'cons':'idle'), tx=nx.toFixed(1);
     spokes.push('<line class="spoke" x1="'+C+'" y1="'+C+'" x2="'+tx+'" y2="'+ny.toFixed(1)+'"/>');
     if(n.flow){ const dx=((nx-C)*0.72).toFixed(1), dy=((ny-C)*0.72).toFixed(1);
       for(let k=0;k<2;k++) dots.push('<circle class="edot '+cls+'" cx="'+C+'" cy="'+C+'" r="4.5" style="--dx:'+dx+'px;--dy:'+dy+'px;animation-delay:'+(k*1.3)+'s"/>'); }
-    const above=ny<C-4, icon=EICONS[n.icon]||EICONS.load;
+    const above=ny<C-4;
     const nm=esc((n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''));
     const val=esc(n.flow?fmtPower(n.w):'0 W'), vcls='enval'+(cls==='idle'?' idle':'');
     const txt=above
       ? '<text class="'+vcls+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+val+'</text><text class="enlab" x="'+tx+'" y="'+(ny-40).toFixed(1)+'">'+nm+'</text>'
       : '<text class="enlab" x="'+tx+'" y="'+(ny+54).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" x="'+tx+'" y="'+(ny+72).toFixed(1)+'">'+val+'</text>';
-    ng.push('<g transform="translate('+tx+','+ny.toFixed(1)+')"><circle class="ering '+cls+'" r="'+rn+'"/><g class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g></g>'+txt);
+    ng.push('<g transform="translate('+tx+','+ny.toFixed(1)+')"><circle class="ering '+cls+'" r="'+rn+'"/>'+eIconMarkup(n,cls)+'</g>'+txt);
   });
   const tt=d.totals||{};
   elc.innerHTML='<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+

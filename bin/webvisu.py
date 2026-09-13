@@ -907,6 +907,24 @@ class App:
             img = (self.cats.get(c.get("cat")) or {}).get("image")   # Kategorie als Fallback
         return self._icon_url(img)
 
+    def _node_icon_url(self, nd: dict) -> str | None:
+        """Echtes Loxone-Icon eines EFM-Knotens (Verbraucher/Quelle). Die Icons
+        gibt der Miniserver pro Knoten vor; das Feld heisst je nach Firmware
+        unterschiedlich, deshalb erst die von Controls bekannten Felder, dann
+        notfalls irgendein Bildpfad (.svg/.png) im Knoten. `image` kann ein Pfad
+        oder ein {on/off}-Objekt sein (wie bei Controls)."""
+        if not isinstance(nd, dict):
+            return None
+        cands = [nd.get("image"), nd.get("defaultIcon"), nd.get("icon"),
+                 nd.get("iconSrc")] + list(nd.values())
+        for v in cands:
+            if isinstance(v, dict):
+                v = v.get("on") or v.get("off")
+            u = self._icon_url(v) if isinstance(v, str) else None
+            if u:
+                return u
+        return None
+
     def _cat_entry(self, cat_uuid: str | None):
         """Passender categories-Eintrag (Match: Schluessel als Teilstring des
         Kategorienamens). Rueckgabe: str (nur Icon-Farbe) | dict {on,off}
@@ -1036,12 +1054,15 @@ class App:
             return None
         return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
 
-    def energy_blocks(self, uuid: str, max_nodes: int = 6):
+    def energy_blocks(self, uuid: str, max_cons: int = 6):
         """Energiefluss-Daten (Radial, Loxone-Standard) einer EFM/EnergyManager2-
-        Kachel fuers Panel. Liefert Knoten (PV, Netz, Speicher + die groessten
-        Verbraucher, auf max_nodes begrenzt) mit Leistung in WATT und Flussrichtung;
-        das Panel zeichnet daraus das Diagramm. None bei ungueltiger Kachel. Reine
-        Anzeige, keine Steuerung.
+        Kachel fuers Panel. Liefert die Knoten so, wie der Miniserver sie vorgibt:
+        PV, Netz, Speicher (sofern vorhanden) + alle in der Loxone-Config
+        angelegten Verbraucher/Gruppen (actual0..5, Namen UND Icons kommen vom
+        Miniserver). 0-W-Knoten werden mitgezeigt (grau/inaktiv, wie in der App);
+        nur nicht existierende Knoten (kein State) entfallen. Leistung in WATT,
+        Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine Anzeige,
+        keine Steuerung. max_cons entspricht Loxones eigener Grenze (actual0..5).
 
         Vorzeichen wie in der Loxone-App (siehe _flow_text): Gpwr>0 = Netzbezug
         (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher laedt (raus), <0 =
@@ -1084,22 +1105,28 @@ class App:
             if soc is not None:
                 bn["soc"] = max(0.0, min(100.0, soc))
             nodes.append(bn)
-        # Verbraucher/Quellen: EFM-Knoten actual0..5 mit Namen aus details.nodes.
+        # Verbraucher/Quellen: EFM-Knoten actual0..5 – Name UND Icon aus
+        # details.nodes, also genau die (ggf. gruppierten) Knoten der Loxone-
+        # Config. 0-W-Knoten bleiben (grau); nur nicht existierende (State None)
+        # entfallen.
         cons = []
         if c.get("type") == "EFM":
-            for i, (label, _n) in enumerate(self._named_items(det.get("nodes"))[:6]):
+            for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
                 v = watt(f"actual{i}")
-                if not v:
+                if v is None:
                     continue
+                flow = None if v == 0 else ("out" if v > 0 else "in")
                 cons.append({"name": label or f"Knoten {i + 1}", "icon": "load",
-                             "w": abs(v), "flow": ("out" if v > 0 else "in")})
-        cons.sort(key=lambda n: n["w"], reverse=True)
-        # Gesamtknoten begrenzen (wie Loxone): feste Knoten + groesste Verbraucher.
-        nodes += cons[:max(0, max_nodes - len(nodes))]
+                             "iconUrl": self._node_icon_url(nd),
+                             "w": abs(v), "flow": flow})
+        # Aktive Verbraucher nach Leistung, 0-W-Knoten (grau) ans Ende – wie in der App.
+        cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))
+        nodes += cons
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
                 "totals": {"prod": abs(pv) if pv else 0.0,
-                           "cons": sum(x["w"] for x in cons), "grid": g or 0.0}}
+                           "cons": sum(x["w"] for x in cons if x["flow"] == "out"),
+                           "grid": g or 0.0}}
 
     def _tab_meta(self, tab_keys) -> dict:
         """Label + Icon fuer dynamische Tabs (Kategorie-Direkt-Tabs). Die 4
