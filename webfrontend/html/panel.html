@@ -57,6 +57,42 @@
   /* Split-Pane Wetter/Kalender: rechte Spalte, eigener Scroll (Agenda). */
   .screen.split #frontpane{display:flex;flex-direction:column;grid-column:2;grid-row:1;
     border-left:1px solid var(--line);overflow-y:auto;padding:14px;gap:10px;}
+  /* Energiefluss-Pane (Radial, Loxone-Standard). Erzeugung=Akzent, Verbrauch=Glow. */
+  .epane{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .epane .etop{display:flex;justify-content:center;padding:2px 0 2px;}
+  .epane .ettl{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+  .epane .ewrap{flex:1;min-height:0;}
+  .epane .ewrap svg{width:100%;height:100%;display:block;}
+  .epane .ebot{text-align:center;color:var(--muted);font-size:12px;padding-top:2px;}
+  .epane .ebot b{color:var(--ink);font-weight:600;}
+  .epane .spoke{stroke:var(--line);stroke-width:2;}
+  .epane .ehub{fill:var(--screen);stroke:var(--line);stroke-width:1.5;}
+  .epane .ering{fill:var(--screen);stroke-width:3;}
+  .epane .ering.prod{stroke:var(--accent);} .epane .ering.cons{stroke:var(--glow);} .epane .ering.grid{stroke:var(--crit);}
+  .epane .ering.idle{stroke:var(--muted);opacity:.55;}
+  .epane .eic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .epane .eic.prod{stroke:var(--accent);} .epane .eic.cons{stroke:var(--glow);} .epane .eic.grid{stroke:var(--crit);} .epane .eic.idle{stroke:var(--muted);}
+  /* echtes Loxone-Icon: monochrome SVG-Maske, in Rollenfarbe eingefaerbt */
+  .epane .emask{width:100%;height:100%;background:currentColor;}
+  .epane .emask.prod{color:var(--accent);} .epane .emask.cons{color:var(--glow);} .epane .emask.grid{color:var(--crit);} .epane .emask.idle{color:var(--muted);}
+  .epane .enval{fill:var(--ink);font-size:16px;font-weight:600;text-anchor:middle;}
+  .epane .enval.idle{fill:var(--muted);}
+  .epane .enlab{fill:var(--muted);font-size:12px;text-anchor:middle;}
+  .epane .edot{opacity:0;}
+  .epane .edot.prod{fill:var(--accent);} .epane .edot.cons{fill:var(--glow);} .epane .edot.grid{fill:var(--crit);}
+  /* Fluss-Punkte laufen dauerhaft (Bewegung = Flussrichtung, also Info, kein
+     Deko-Effekt). Farbe = Rolle (prod/cons/grid), Richtung = Fluss (fin/fout) –
+     entkoppelt: z.B. Einspeisung ist gruen UND laeuft nach aussen (fout). Die Pane
+     wird nur bei Strukturaenderung neu gezeichnet, sonst laufen die Punkte
+     ununterbrochen weiter (siehe paintEnergy/updateEnergyPane). */
+  .epane .edot{animation:2.6s linear infinite;}
+  .epane .edot.fin{animation-name:eflowin;} .epane .edot.fout{animation-name:eflowout;}
+  .epane .edot.idle{animation:none;opacity:0;}
+  /* Radial in der Detailansicht (Antippen der Energie-Kachel; auch 4"-Panel ohne Split) */
+  .epane-detail{width:min(100%,440px);margin:6px auto 0;}
+  .epane-detail .epane{height:clamp(280px,58vh,460px);}
+  @keyframes eflowout{0%{transform:translate(0,0);opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
+  @keyframes eflowin{0%{transform:translate(var(--dx),var(--dy));opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
   .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
@@ -520,10 +556,11 @@ let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -
 let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
 let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
-// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"}
+// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
 // curPlayerZone = zuletzt an den Server gemeldete Player-Zone (setplayer).
-let panesCfg = {}, themeFill = false, curPlayerZone = '';
+let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '';
+let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
@@ -705,8 +742,9 @@ function renderPanel(blocks){
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
   const anchorBot = !!(view && view.anchor==='bottom');
   g.classList.toggle('anchorbot', anchorBot);
-  const TOPK = {hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1};
+  const TOPK = {hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1,eflow:1};
   const bh = b => {
+    if(b.k==='eflow') return '<div class="epane-detail" data-eflow></div>';   // Radial; wird nach dem Einfuegen von paintEnergy gefuellt
     if(b.k==='hero'){ const hic = b.iconImg
         ? '<img class="rawico" src="'+esc(b.iconImg)+'" alt="">'
         : b.iconUrl
@@ -746,6 +784,7 @@ function renderPanel(blocks){
     for(const b of blocks){ if(b.k!=='more') html+=bh(b); }
     g.innerHTML=html;
   }
+  const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial in der Detailansicht zeichnen
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img){img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
@@ -791,6 +830,7 @@ function updatePanel(blocks){
   const ast=blocks.find(b=>b.k==='astat'); if(ast){const e=g.querySelector('.astat'); if(e){ e.childNodes[0].nodeValue=ast.text||''; e.className='astat'+(ast.tone==='crit'?' crit':''); const su=e.querySelector('.astatsub'); if(su)su.textContent=ast.sub||''; }}
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
+  const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       if(c.icon){ btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info); btn.className='btn icon'+(c.big?' big':'')+(c.on?' on':''); }
@@ -822,24 +862,28 @@ function renderTabs(){
   applyPane();
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
-// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>".
+// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
-function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : v) : null; }
+function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : v)) : null; }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   const raw=themeSplit?paneForTab(activeTab()):null;   // Split aus (4"-Panel) -> keine Pane 2
   const kind=paneKind(raw);
-  const isPane=(kind==='player'||kind==='weather'||kind==='calendar');   // Widget in Pane 2
+  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy');   // Widget in Pane 2
   sc.classList.toggle('split', isPane);   // Widget -> zweigeteilt, sonst "Screen fuellen"
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
-  if(fp) fp.hidden=!(kind==='weather'||kind==='calendar');
+  if(fp) fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy');
   if(kind==='weather') renderWeatherPane(fp);
   else if(kind==='calendar') renderCalendarPane(fp);
+  else if(kind==='energy') renderEnergyPane(fp);
   // Player-Zone dieses Tabs dem Server melden (nur bei Aenderung -> er pusht die Blocks).
   const zone=(kind==='player')?raw.slice(7):'';
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
+  // Energiefluss-Kachel dieses Tabs dem Server melden (er pusht dann {t:'energy'}).
+  const euid=(kind==='energy')?raw.slice(7):'';
+  if(euid!==curEnergyUuid){ curEnergyUuid=euid; try{ send({t:'setenergy',uuid:euid}); }catch(e){} }
 }
 
 // Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
@@ -895,7 +939,7 @@ function render(){
   // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
-  const _widget = (_k==='player'||_k==='weather'||_k==='calendar');
+  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy');
   if(themeSplit && !_widget && window.innerWidth > window.innerHeight){ gridCols = profCols*2; gridRows = profRows; }
   else { gridCols = profCols; gridRows = profRows; }
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -1016,6 +1060,7 @@ function connect(){
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
+    if(msg.t==='energy'){ energyData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -1184,6 +1229,89 @@ function fpCalHTML(d){
 // Vollseite (Test ?front=1): Wetter + Kalender kombiniert.
 function renderFrontRich(elc){ if(!elc) return; const d=frontData||{}; elc.innerHTML=fpWeatherHTML(d.weather)+fpCalHTML(d); }
 // Split-Panes: je eine eigene Pane.
+// Energiefluss-Pane (Radial, Loxone-Standard): Daten vom Server ({t:'energy'});
+// das Panel zeichnet Knoten + animierte Fluss-Punkte. Zahlen deutsch, W/kW auto.
+function fmtPower(w){ if(w==null) return '–'; const a=Math.abs(w);
+  return a<1000 ? Math.round(w)+' W' : (w/1000).toFixed(1).replace('.',',')+' kW'; }
+const EICONS={
+  pv:'<circle cx="12" cy="8" r="3.2"/><path d="M12 1.6v1.6M6.7 3.3l1 1M17.3 3.3l-1 1M4.5 8h1.4M18.1 8h1.4"/><path d="M6 14l1.6 6.4h8.8L18 14z"/><path d="M7.4 17.2h9.2M11 14v6.4"/>',
+  grid:'<path d="M12 2 5.5 22M12 2l6.5 20M8 15h8M9.3 9h5.4"/>',
+  battery:'<rect x="2" y="7" width="16" height="11" rx="2.4"/><path d="M21 11v3"/>',
+  load:'<path d="M13 2 4 14h7l-1 8 10-12h-7z"/>'
+};
+// Knoten-Icon: echtes Loxone-Icon (per CSS-Maske in Flussfarbe eingefaerbt),
+// sonst das eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND
+// Name vor (siehe energy_blocks/_node_icon_url im Server).
+function eIconMarkup(n,cls,i){
+  const tag='data-ic="'+i+'"';
+  if(n && n.iconUrl){
+    const u=String(n.iconUrl).replace(/"/g,'%22');
+    return '<foreignObject x="-13" y="-13" width="26" height="26">'+
+      '<div xmlns="http://www.w3.org/1999/xhtml" '+tag+' class="emask '+cls+'" '+
+      'style="-webkit-mask:url(&quot;'+u+'&quot;) center/contain no-repeat;'+
+      'mask:url(&quot;'+u+'&quot;) center/contain no-repeat"></div></foreignObject>';
+  }
+  const icon=EICONS[n&&n.icon]||EICONS.load;
+  return '<g '+tag+' class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
+}
+// Farbe nach ROLLE (kind vom Server): prod=Quelle gruen, grid=Netzbezug ROT,
+// load=Verbraucher orange, idle=0 W grau. (Fallback aus flow, falls kein kind.)
+function eColorCls(n){ const k=n.kind||(n.flow==='out'?'load':(n.flow==='in'?'prod':'idle'));
+  return k==='grid'?'grid':(k==='load'?'cons':(k==='prod'?'prod':'idle')); }
+// Animationsrichtung nach ECHTEM Fluss (flow), entkoppelt von der Farbe:
+// in = zur Mitte, out = nach aussen (in den Knoten, z.B. Einspeisung).
+function eDirCls(n){ return n.flow==='in'?' fin':(n.flow==='out'?' fout':''); }
+function nodeLabel(n){ return (n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''); }
+function efooter(tt){ return 'Erzeugung <b>'+esc(fmtPower(tt.prod||0))+'</b> · Verbrauch <b>'+esc(fmtPower(tt.cons||0))+'</b>'; }
+// Baut das Radial als HTML-String (fuer Pane UND Detailansicht). Knoten tragen
+// data-Attribute, damit updateEnergyPane() nur Werte/Farben aendert und die
+// Fluss-Punkte NICHT neu erzeugt werden (Animation laeuft sonst nie durch).
+function energyInner(d){
+  d=d||{};
+  const nodes=(d.nodes||[]).slice(0,9), N=nodes.length;
+  if(!N) return '<div class="epane"><div class="ebot">Energiefluss lädt …</div></div>';
+  const C=240,R=140,rn=(N>6?34:40), spokes=[],dots=[],ng=[],txts=[];   // C=240 in 480er-viewBox -> Rand fuer Beschriftung ausserhalb der Ringe
+  nodes.forEach((n,i)=>{
+    const ang=-Math.PI/2 + i*2*Math.PI/N, nx=C+R*Math.cos(ang), ny=C+R*Math.sin(ang);
+    const col=eColorCls(n), dir=eDirCls(n), tx=nx.toFixed(1), ty=ny.toFixed(1);
+    spokes.push('<line class="spoke" x1="'+C+'" y1="'+C+'" x2="'+tx+'" y2="'+ty+'"/>');
+    const dx=((nx-C)*0.72).toFixed(1), dy=((ny-C)*0.72).toFixed(1);
+    for(let k=0;k<2;k++) dots.push('<circle data-nd="'+i+'-'+k+'" class="edot '+col+dir+'" cx="'+C+'" cy="'+C+'" r="4.5" style="--dx:'+dx+'px;--dy:'+dy+'px;animation-delay:'+(k*1.3)+'s'+(n.flow?'':';display:none')+'"/>');
+    ng.push('<g transform="translate('+tx+','+ty+')"><circle class="ering '+col+'" data-ri="'+i+'" r="'+rn+'"/>'+eIconMarkup(n,col,i)+'</g>');
+    const above=ny<C-4, nm=esc(nodeLabel(n));
+    const val=esc(n.flow?fmtPower(n.w):'0 W'), vcls='enval'+(col==='idle'?' idle':'');
+    txts.push(above
+      ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-74).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+nm+'</text>'
+      : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+56).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+76).toFixed(1)+'">'+val+'</text>');
+  });
+  return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
+    '<div class="ewrap"><svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">'+
+    spokes.join('')+dots.join('')+'<circle class="ehub" cx="'+C+'" cy="'+C+'" r="13"/>'+ng.join('')+txts.join('')+
+    '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';
+}
+// Struktur-Signatur: nur bei Aenderung (Knotensatz/Icons) neu zeichnen.
+function energySig(d){ return ((d.nodes||[]).map(n=>(n.name||'')+'§'+(n.icon||'')+'§'+(n.iconUrl||'')).join('¦'))+'#'+((d.nodes||[]).length); }
+function updateEnergyPane(elc,d){
+  (d.nodes||[]).slice(0,9).forEach((n,i)=>{
+    const col=eColorCls(n), dir=eDirCls(n);
+    const ring=elc.querySelector('.ering[data-ri="'+i+'"]'); if(ring){ const w='ering '+col; if(ring.getAttribute('class')!==w) ring.setAttribute('class',w); }
+    const ic=elc.querySelector('[data-ic="'+i+'"]'); if(ic){ const base=ic.classList.contains('emask')?'emask':'eic'; const w=base+' '+col; if(ic.getAttribute('class')!==w) ic.setAttribute('class',w); }
+    const vv=elc.querySelector('[data-vv="'+i+'"]'); if(vv){ const t=n.flow?fmtPower(n.w):'0 W'; if(vv.textContent!==t) vv.textContent=t; const w='enval'+(col==='idle'?' idle':''); if(vv.getAttribute('class')!==w) vv.setAttribute('class',w); }
+    const vl=elc.querySelector('[data-vl="'+i+'"]'); if(vl){ const t=nodeLabel(n); if(vl.textContent!==t) vl.textContent=t; }
+    for(let k=0;k<2;k++){ const dot=elc.querySelector('.edot[data-nd="'+i+'-'+k+'"]'); if(dot){ const w='edot '+col+dir; if(dot.getAttribute('class')!==w) dot.setAttribute('class',w); const disp=n.flow?'':'none'; if(dot.style.display!==disp) dot.style.display=disp; } }
+  });
+  const bot=elc.querySelector('.ebot'); if(bot){ const h=efooter(d.totals||{}); if(bot.innerHTML!==h) bot.innerHTML=h; }
+}
+// Zeichnet in elc: nur bei Strukturaenderung Neuaufbau, sonst in-place -> Punkte laufen weiter.
+function paintEnergy(elc,d){
+  d=d||{};
+  const sig=energySig(d);
+  if(elc._esig===sig && elc.querySelector('.ewrap svg')){ updateEnergyPane(elc,d); return; }
+  elc._esig=sig;
+  elc.innerHTML=energyInner(d);
+}
+function renderEnergyPane(elc){ if(elc) paintEnergy(elc, energyData||{}); }
+
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{};
   elc.innerHTML=fpWeatherHTML(d.weather)||'<div class="fp-empty">Kein Wetter konfiguriert.</div>'; }
 function fpMonthHTML(events, holidays){

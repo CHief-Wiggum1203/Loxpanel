@@ -427,6 +427,7 @@ class App:
         self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
         self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
+        self.conn_energy: dict[web.WebSocketResponse, str] = {}   # ws -> EFM/EnergyManager2-UUID der aktiven Energiefluss-Pane (via setenergy)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -854,7 +855,7 @@ class App:
             return ""
         m = _NUMFMT.match(fmt or "%.1f")
         numfmt, unit = (m.group(1), m.group(2)) if m else ("%.1f", "")
-        unit = unit.strip()   # "%.2f kW" und "%.2fkW" ergeben beide "3,25 kW"
+        unit = unit.strip().replace("%%", "%")   # "%.2f kW"/"%.2fkW" -> "3,25 kW"; Loxone-Escape "%%" -> "%"
         if unit[:1] in _PREFIX:
             i = _PREFIX.index(unit[0]); rest = unit[1:]
             while abs(value) >= 1000 and i < len(_PREFIX) - 1:
@@ -905,6 +906,24 @@ class App:
         if not img:
             img = (self.cats.get(c.get("cat")) or {}).get("image")   # Kategorie als Fallback
         return self._icon_url(img)
+
+    def _node_icon_url(self, nd: dict) -> str | None:
+        """Echtes Loxone-Icon eines EFM-Knotens (Verbraucher/Quelle). Die Icons
+        gibt der Miniserver pro Knoten vor; das Feld heisst je nach Firmware
+        unterschiedlich, deshalb erst die von Controls bekannten Felder, dann
+        notfalls irgendein Bildpfad (.svg/.png) im Knoten. `image` kann ein Pfad
+        oder ein {on/off}-Objekt sein (wie bei Controls)."""
+        if not isinstance(nd, dict):
+            return None
+        cands = [nd.get("image"), nd.get("defaultIcon"), nd.get("icon"),
+                 nd.get("iconSrc")] + list(nd.values())
+        for v in cands:
+            if isinstance(v, dict):
+                v = v.get("on") or v.get("off")
+            u = self._icon_url(v) if isinstance(v, str) else None
+            if u:
+                return u
+        return None
 
     def _cat_entry(self, cat_uuid: str | None):
         """Passender categories-Eintrag (Match: Schluessel als Teilstring des
@@ -1034,6 +1053,115 @@ class App:
             log.exception("player_blocks fehlgeschlagen (%s)", uuid)
             return None
         return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+
+    def energy_blocks(self, uuid: str, max_cons: int = 6):
+        """Energiefluss-Daten (Radial, Loxone-Standard) einer EFM/EnergyManager2-
+        Kachel fuers Panel. EFM: genau die in der Loxone-Config angelegten Knoten
+        (actual0..5, Name UND Icon vom Miniserver) – das ist wie in der Loxone-App
+        die vollstaendige Liste inkl. PV/Netz/Speicher, daher KEINE zusaetzlichen
+        Summen-Knoten (sonst Dopplung). EnergyManager2 (oder EFM ohne eigene
+        Knoten): Summen-Knoten aus Ppwr/Gpwr/Spwr. 0-W-Knoten werden mitgezeigt
+        (grau/inaktiv); nur nicht existierende (kein State) entfallen. Leistung in
+        WATT, Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine
+        Anzeige, keine Steuerung. max_cons = Loxones Grenze (actual0..5, max. 6).
+
+        Vorzeichen wie in der Loxone-App (siehe _flow_text): Gpwr>0 = Netzbezug
+        (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher laedt (raus), <0 =
+        entlaedt (rein); Ppwr = Erzeugung (rein). flow: "in" = zur Mitte (gruen),
+        "out" = nach aussen (orange), None = 0/inaktiv (grau)."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") not in ("EFM", "EnergyManager2"):
+            return None
+        det = c.get("details") or {}
+        fmt = det.get("actualFormat") or "%.2f kW"
+        to_w = 1000.0 if "kw" in fmt.lower() else 1.0   # States meist in kW -> Watt
+
+        def watt(key):
+            v = self._state(c, key)
+            try:
+                return float(v) * to_w
+            except (TypeError, ValueError):
+                return None
+
+        def classify(nt, v):
+            """Richtung (flow: in/out/None) UND Farbe/Rolle (kind) je Knoten aus
+            Loxone-nodeType + Vorzeichen:
+              kind "prod" = Quelle, gruen  (PV/Production; Netz-Einspeisung; Speicher entladen)
+              kind "grid" = Netzbezug, ROT (Netz liefert Strom ins Haus)
+              kind "load" = Verbraucher, orange (Load/Group; Speicher laden)
+              kind "idle" = 0 W, grau
+            PV/Production ist immer Quelle (kann nie beziehen). Netz: Bezug (v>0)
+            rein/rot, Einspeisung (v<0) raus/gruen. Speicher: laden (v>0) raus/orange,
+            entladen (v<0) rein/gruen."""
+            ntl = (nt or "").lower()
+            if not v:
+                return (None, "idle")
+            if ntl == "production":
+                return ("in", "prod")
+            if ntl == "grid":
+                return ("in", "grid") if v > 0 else ("out", "prod")
+            if ntl in ("storage", "battery"):
+                return ("out", "load") if v > 0 else ("in", "prod")
+            return ("out", "load") if v > 0 else ("in", "prod")
+
+        pv = watt("Ppwr")                       # Erzeugung
+        g = watt("Gpwr")                        # Netz: >0 Bezug (rein), <0 Einspeisung (raus)
+        sp = watt("Spwr")                       # Speicher: >0 laedt (raus), <0 entlaedt (rein)
+        try:
+            soc = float(self._state(c, "Ssoc"))
+        except (TypeError, ValueError):
+            soc = None
+
+        def agg_nodes():
+            """Feste Summen-Knoten (PV/Netz/Speicher) aus Ppwr/Gpwr/Spwr – fuer
+            EnergyManager2 und als Rueckfall, wenn ein EFM keine eigenen Knoten hat."""
+            def mk(name, icon, val, nt, extra=None):
+                fl, kd = classify(nt, val)
+                n = {"name": name, "icon": icon, "w": abs(val) if val else 0.0,
+                     "flow": fl, "kind": kd}
+                if extra:
+                    n.update(extra)
+                return n
+            ns = [mk("PV", "pv", pv, "production"),
+                  mk("Netz", "grid", g, "grid")]
+            if soc is not None or (sp not in (None, 0.0)):
+                ns.append(mk("Speicher", "battery", sp, "storage",
+                             {"soc": max(0.0, min(100.0, soc))} if soc is not None else None))
+            return ns
+
+        # EFM: die actual0..5-Knoten SIND – wie in der Loxone-App – die vollstaendige
+        # Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher KEINE
+        # zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung). Name, Icon UND
+        # Rolle (nodeType) kommen vom Miniserver; 0-W-Knoten bleiben (grau).
+        cons = []
+        prod_sum = cons_sum = 0.0
+        if c.get("type") == "EFM":
+            for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
+                v = watt(f"actual{i}")
+                if v is None:
+                    continue
+                nt = nd.get("nodeType") if isinstance(nd, dict) else None
+                flow, kind = classify(nt, v)
+                cons.append({"name": label or f"Knoten {i + 1}", "icon": "load",
+                             "iconUrl": self._node_icon_url(nd),
+                             "w": abs(v), "flow": flow, "kind": kind})
+                ntl = (nt or "").lower()
+                if ntl == "production":
+                    prod_sum += abs(v)
+                elif ntl in ("load", "group") and v > 0:
+                    cons_sum += abs(v)
+        if cons:
+            cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
+            nodes = cons
+            prod_total = prod_sum or (abs(pv) if pv else 0.0)
+            cons_total = cons_sum
+        else:
+            nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
+            prod_total = abs(pv) if pv else 0.0
+            cons_total = 0.0
+        return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
+                "nodes": nodes,
+                "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
 
     def _tab_meta(self, tab_keys) -> dict:
         """Label + Icon fuer dynamische Tabs (Kategorie-Direkt-Tabs). Die 4
@@ -1273,7 +1401,7 @@ class App:
         # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
-                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and v.startswith("player:") and len(v) > 7))}
+                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:")) and len(v) > 7))}
             if not ui["panes"]:
                 ui.pop("panes", None)
         else:
@@ -1348,7 +1476,7 @@ class App:
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
                 pn = {str(k): v for k, v in ui["panes"].items()
-                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and v.startswith("player:") and len(v) > 7))}
+                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:")) and len(v) > 7))}
                 if pn:
                     cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
             if _color_ok(ui.get("textColor")):
@@ -1739,8 +1867,23 @@ class App:
             out.append({"type": t, "status": status, "count": e["count"], "examples": e["examples"],
                         "states": sorted(e["states"]), "details": sorted(e["details"])})
         counts = {s: sum(1 for e in out if e["status"] == s) for s in ("full", "partial", "none")}
+        # Diagnose Energiefluss: rohe Knotenstruktur + aktuelle Werte je EFM/EM2.
+        # Damit laesst sich die Rolle/Richtung je Knoten belegen (statt raten).
+        energy = []
+        for uuid, c in self.controls.items():
+            if c.get("type") in ("EFM", "EnergyManager2"):
+                det = c.get("details") or {}
+                energy.append({
+                    "uuid": uuid, "name": _clean(c.get("name")), "type": c.get("type"),
+                    "actualFormat": det.get("actualFormat"), "storageFormat": det.get("storageFormat"),
+                    "Ppwr": self._state(c, "Ppwr"), "Gpwr": self._state(c, "Gpwr"),
+                    "Spwr": self._state(c, "Spwr"), "Ssoc": self._state(c, "Ssoc"),
+                    "nodes": det.get("nodes"),
+                    "actuals": {f"actual{i}": self._state(c, f"actual{i}") for i in range(6)},
+                })
         return {"connected": self.client is not None, "controls": len(self.controls),
                 "typeCount": len(out), "typesByStatus": counts, "types": out,
+                "energyDetails": energy,
                 "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
 
     def _control_item(self, uuid: str, prof: dict | None = None,
@@ -2947,12 +3090,14 @@ class App:
             if vals:
                 rows.append({"k": "head", "text": "Verbraucher und Quellen"})
                 rows += [{"k": "status", "text": f"{label}: {self._fmt_num(v, fmt)}"} for label, v in vals]
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
-                {"k": "hero", "icon": "central"},
-                {"k": "big", "text": (self._fmt_num(p, fmt) if p is not None else "–")},
-                {"k": "status", "text": "Aktuelle Erzeugung"},
-                *rows,
-            ]}
+            eb = self.energy_blocks(uuid)   # Radial auch beim Antippen (4"-Panel ohne Split)
+            if eb:
+                blocks = [{"k": "eflow", "e": eb}]   # zeigt PV/Netz/Speicher + Verbraucher live, wie in der Loxone-App
+            else:
+                blocks = [{"k": "hero", "icon": "central"},
+                          {"k": "big", "text": (self._fmt_num(p, fmt) if p is not None else "–")},
+                          {"k": "status", "text": "Aktuelle Erzeugung"}, *rows]
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "EnergyManager2":
             det = c.get("details") or {}
             p = self._state(c, "Ppwr")
@@ -2979,12 +3124,13 @@ class App:
                     if isinstance(st, bool) or st in (0, 1, "0", "1"):
                         st = "Ein" if st in (True, 1, "1") else "Aus"
                     rows.append({"k": "status", "text": label + (f": {st}" if st not in (None, "") else "")})
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
-                {"k": "hero", "icon": "central"},
-                {"k": "big", "text": (self._fmt_num(p, "%.2f kW") if p is not None else "–")},
-                {"k": "status", "text": "Aktuelle Erzeugung"},
-                *rows,
-            ]}
+            eb = self.energy_blocks(uuid)   # Radial auch beim Antippen (4"-Panel ohne Split)
+            head = ([{"k": "eflow", "e": eb}] if eb else
+                    [{"k": "hero", "icon": "central"},
+                     {"k": "big", "text": (self._fmt_num(p, "%.2f kW") if p is not None else "–")},
+                     {"k": "status", "text": "Aktuelle Erzeugung"}])
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "blocks": [*head, *rows]}
         if t == "PvProductionForecast":
             det = c.get("details") or {}
             today = self._state(c, "today")
@@ -3374,6 +3520,7 @@ class App:
             self.conn_prof.pop(ws, None)
             self.conn_dev.pop(ws, None)
             self.conn_player.pop(ws, None)
+            self.conn_energy.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -3422,8 +3569,21 @@ class App:
                         player_msg = {"t": "player", "blocks": pb} if pb is not None else None
                     except Exception:
                         log.exception("player_blocks fehlgeschlagen (%s)", _zone)
-                if await self._send_or_drop(ws, msg) and player_msg is not None:
-                    await self._send_or_drop(ws, player_msg)
+                # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
+                # kommt vom Client via setenergy -> conn_energy). Fehler isolieren.
+                energy_msg = None
+                _euid = self.conn_energy.get(ws)
+                if _euid:
+                    try:
+                        eb = self.energy_blocks(_euid)
+                        energy_msg = {"t": "energy", **eb} if eb is not None else None
+                    except Exception:
+                        log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
+                if await self._send_or_drop(ws, msg):
+                    if player_msg is not None:
+                        await self._send_or_drop(ws, player_msg)
+                    if energy_msg is not None:
+                        await self._send_or_drop(ws, energy_msg)
 
     async def broadcaster(self) -> None:
         # Diese Schleife darf NIEMALS sterben — sonst bekommen ALLE Panels keine
@@ -4025,6 +4185,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_dev.pop(ws, None)
             app.conn_info.pop(ws, None)
             app.conn_player.pop(ws, None)
+            app.conn_energy.pop(ws, None)
     return n
 
 
@@ -4281,12 +4442,27 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("player_blocks (setplayer) fehlgeschlagen (%s)", zone)
                 else:
                     app.conn_player.pop(ws, None)
+            elif data.get("t") == "setenergy":
+                # Client meldet die EFM/EnergyManager2-Kachel der aktiven
+                # Energiefluss-Pane (oder "" = keine).
+                euid = str(data.get("uuid") or "").strip()
+                if euid:
+                    app.conn_energy[ws] = euid
+                    try:
+                        eb = app.energy_blocks(euid)
+                        if eb is not None:
+                            await ws.send_json({"t": "energy", **eb})
+                    except Exception:
+                        log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
+                else:
+                    app.conn_energy.pop(ws, None)
     finally:
         app.conn_route.pop(ws, None)
         app.conn_prof.pop(ws, None)
         app.conn_dev.pop(ws, None)
         app.conn_info.pop(ws, None)
         app.conn_player.pop(ws, None)
+        app.conn_energy.pop(ws, None)
     return ws
 
 
