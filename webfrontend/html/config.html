@@ -236,6 +236,7 @@
   .ovw .cover{aspect-ratio:1;width:60%;margin:2px auto 0;background:linear-gradient(135deg,#a986e0,#5b8ad6);border-radius:7px;}
   .ovw .ppb{display:flex;gap:8px;justify-content:center;margin-top:auto;} .ovw .ppb span{width:12px;height:12px;border-radius:50%;background:var(--tile);border:1px solid var(--tline);} .ovw .ppb span.m{background:#a986e0;border-color:transparent;}
   .ovw .soonic{height:100%;display:grid;place-items:center;color:var(--smut);opacity:.7;} .ovw .soonic svg{width:46%;height:46%;}
+  .ovw .eflow{flex:1;display:grid;place-items:center;} .ovw .eflow svg{width:80%;height:80%;}
   .ovw .row{display:flex;flex-wrap:wrap;gap:18px 16px;}
   .ovw figure{margin:0;width:120px;} .ovw figcaption{margin-top:8px;font-size:12px;color:var(--muted);}
   .ovw figcaption b{color:var(--fg);font-weight:600;display:block;font-size:12.5px;} .ovw figcaption .badge{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:1px 6px;}
@@ -308,7 +309,7 @@
           <figure><div class="pane"><div class="p2"><div class="p2h">Audio · Zone</div><div class="cover"></div><div class="ppb"><span></span><span class="m"></span><span></span></div></div></div><figcaption><b>Audio</b>Musikzone je Tab</figcaption></figure>
           <figure><div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div><figcaption><b>Wetter</b>Kurve &amp; Vorschau</figcaption></figure>
           <figure><div class="pane"><div class="p2"><div class="p2h">Kalender</div><div class="mcal"><b></b><b></b><b class="rd"></b><b></b><b></b><b></b><b class="rd"></b><b></b><b class="hi"></b><b></b><b></b><b></b><b></b><b class="rd"></b></div></div></div><figcaption><b>Kalender</b>Monat + Termine</figcaption></figure>
-          <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#57c4c4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="7"/><path d="M24 6v10M24 32v10M6 24h10M32 24h10M11 11l6 6M37 37l-6-6"/></svg></div></div><figcaption><b>Energiefluss</b><span class="badge">Bald</span></figcaption></figure>
+          <figure><div class="pane"><div class="p2"><div class="p2h">Energie</div><div class="eflow"><svg viewBox="0 0 62 46" fill="none" stroke-width="2" stroke-linecap="round"><line x1="31" y1="23" x2="31" y2="9" stroke="#52b881"/><line x1="31" y1="23" x2="50" y2="23" stroke="#e0a24d"/><line x1="31" y1="23" x2="17" y2="38" stroke="#e0a24d"/><line x1="31" y1="23" x2="12" y2="23" stroke="#52b881"/><circle cx="31" cy="15" r="1.5" fill="#52b881" stroke="none"/><circle cx="41" cy="23" r="1.5" fill="#e0a24d" stroke="none"/><circle cx="31" cy="9" r="4.3" stroke="#52b881" fill="#101319"/><circle cx="50" cy="23" r="4.3" stroke="#e0a24d" fill="#101319"/><circle cx="17" cy="38" r="4.3" stroke="#e0a24d" fill="#101319"/><circle cx="12" cy="23" r="4.3" stroke="#52b881" fill="#101319"/><circle cx="31" cy="23" r="6" stroke="#8b929c" fill="#1e232c"/></svg></div></div></div><figcaption><b>Energiefluss</b>Radial, live</figcaption></figure>
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#5aa9e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 31c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M6 39c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M14 23V13a4 4 0 0 1 8 0"/></svg></div></div><figcaption><b>Pool</b><span class="badge">Bald</span></figcaption></figure>
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#e08a4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="8" width="26" height="32" rx="3"/><rect x="16" y="20" width="16" height="14" rx="2"/><path d="M16 13h.01M21 13h.01"/></svg></div></div><figcaption><b>Ofensteuerung</b><span class="badge">Bald</span></figcaption></figure>
         </div>
@@ -891,6 +892,14 @@ function firstAudioZone(){
   const z=(META.controls||[]).find(c=>c.type==='AudioZone'||c.type==='AudioZoneV2');
   return z?z.uuid:'';
 }
+function energyControlOptions(sel){
+  return (META.controls||[]).filter(c=>c.type==='EFM'||c.type==='EnergyManager2')
+    .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function firstEnergyControl(){
+  const z=(META.controls||[]).find(c=>c.type==='EFM'||c.type==='EnergyManager2');
+  return z?z.uuid:'';
+}
 
 function renderPanes(p){
   const pf=$('#paneField'); if(pf) pf.style.display=((p.ui||{}).split===false)?'none':'';   // 4"-Panel: keine Pane-Auswahl
@@ -900,15 +909,18 @@ function renderPanes(p){
     const meta=(META.tabs||[]).find(t=>t.tab===tk);
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
-    const isP=v.indexOf('player:')===0, kind=isP?'player':v, zone=isP?v.slice(7):'';
+    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0;
+    const kind=isP?'player':(isE?'energy':v), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'';
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
       '<select data-pane="'+esc(tk)+'">'+
         '<option value=""'+(kind===''?' selected':'')+'>Screen füllen</option>'+
         '<option value="player"'+(kind==='player'?' selected':'')+'>Audio</option>'+
         '<option value="weather"'+(kind==='weather'?' selected':'')+'>Wetter</option>'+
         '<option value="calendar"'+(kind==='calendar'?' selected':'')+'>Kalender</option>'+
+        '<option value="energy"'+(kind==='energy'?' selected':'')+'>Energiefluss</option>'+
       '</select>';
     if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
+    if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
     return row+'</div>';
   }).join('') || '<div class="ccmut">Keine Tabs.</div>';
   const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
@@ -918,11 +930,16 @@ function renderPanes(p){
     const tk=s.dataset.pane, k=s.value;
     if(k==='player'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const z=cur.indexOf('player:')===0?cur.slice(7):firstAudioZone(); setPane(tk,'player:'+z); }
+    else if(k==='energy'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      const u=cur.indexOf('energy:')===0?cur.slice(7):firstEnergyControl(); setPane(tk,'energy:'+u); }
     else setPane(tk,k);
-    renderPanes(p);   // Zonen-Dropdown ein-/ausblenden
+    renderPanes(p);   // Zonen-/Control-Dropdown ein-/ausblenden
   });
   box.querySelectorAll('select[data-panez]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panez,'player:'+s.value);
+  });
+  box.querySelectorAll('select[data-panee]').forEach(s=>s.onchange=()=>{
+    setPane(s.dataset.panee,'energy:'+s.value);
   });
 }
 function renderChips(p){
