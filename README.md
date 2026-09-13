@@ -93,7 +93,7 @@ Browser – ganz ohne Programmierung und ohne die Loxone-App.
 
 ## Unterstützte Bausteine
 
-LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **39 voll unterstützt**, **6 teilweise**, **16 geplant**.
+LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **47 voll unterstützt**, **7 teilweise**, **14 geplant**. Welche Typen in der eigenen Anlage vorkommen und wie sie unterstützt werden, zeigt `/api/types?format=text`.
 
 **Legende:** ✅ unterstützt · 🟡 teilweise · ⬜ geplant
 
@@ -104,6 +104,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>CentralAudioZone</code></td><td>Zentral Audio</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Radio</code></td><td>Radio / Auswahlschalter</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>AudioZone</code></td><td>Audiozone (Music Server)</td><td align="center">🟡</td><td>Play/Pause/Skip; Musikauswahl Platzhalter</td></tr>
+<tr><td><code>AudioZoneV2</code></td><td>Audiozone (Audioserver Gen 2)</td><td align="center">✅</td><td>Play/Pause/Skip, Lautstärke, Titel, Sender, Cover und Radio-Favoriten; beim gekoppelten Loxone-Audioserver meldet sich LoxPanel dafür wie die App an (RSA/AES mit dem Miniserver-Token)</td></tr>
 <tr><td><code>MediaClient</code></td><td>Media Client</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Bedienelemente</th></tr>
 <tr><td><code>Pushbutton</code></td><td>Virtueller Taster</td><td align="center">✅</td><td>Puls</td></tr>
@@ -122,6 +123,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>LightControllerV2</code></td><td>Beleuchtung (Lichtsteuerung)</td><td align="center">✅</td><td>Szenen/Stimmungen als Liste</td></tr>
 <tr><td><code>ColorPickerV2</code></td><td>Farbauswahl RGB/Lumitech</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Dimmer</code></td><td>Dimmer</td><td align="center">✅</td><td></td></tr>
+<tr><td><code>EIBDimmer</code></td><td>KNX-Dimmer</td><td align="center">✅</td><td>wie Dimmer</td></tr>
 <tr><td><code>LightsceneRGB</code></td><td>RGB-Lichtszene</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Beschattung</th></tr>
 <tr><td><code>CentralJalousie</code></td><td>Zentral Beschattung</td><td align="center">✅</td><td></td></tr>
@@ -130,7 +132,9 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>CentralWindow</code></td><td>Zentral Fenster</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Window</code></td><td>Fenster (Motor)</td><td align="center">✅</td><td></td></tr>
 <tr><th colspan="4" align="left">Energie</th></tr>
-<tr><td><code>EnergyManager2</code></td><td>Energiemanager</td><td align="center">⬜</td><td></td></tr>
+<tr><td><code>EFM</code></td><td>Energieflussmonitor</td><td align="center">✅</td><td>Erzeugung, Netz, Speicher, Knoten; nur Anzeige</td></tr>
+<tr><td><code>EnergyManager2</code></td><td>Energiemanager</td><td align="center">✅</td><td>Erzeugung, Netz, Speicher, Verbraucherliste; nur Anzeige</td></tr>
+<tr><td><code>PvProductionForecast</code></td><td>PV-Produktionsvorhersage</td><td align="center">✅</td><td>Heute / Morgen / Zeitraum</td></tr>
 <tr><td><code>Fronius</code></td><td>Fronius Wechselrichter</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>LoadManager</code></td><td>Lastmanager</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>SolarPumpController</code></td><td>Solarpumpen-Steuerung</td><td align="center">⬜</td><td></td></tr>
@@ -143,7 +147,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>ClimateController</code></td><td>Klimaregelung (EU)</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Heatmixer</code></td><td>Heizungsmischer</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>IRoomController</code></td><td>Raumregelung (alt)</td><td align="center">⬜</td><td></td></tr>
-<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">⬜</td><td></td></tr>
+<tr><td><code>Sauna</code></td><td>Sauna-Steuerung</td><td align="center">✅</td><td>Ist/Soll/Bank, Betriebsart, Feuchte, Lüftung, Trocknung, Tür, Timer; Ein/Aus, Solltemperatur & Programm setzen</td></tr>
 <tr><td><code>Ventilation</code></td><td>Lueftung</td><td align="center">🟡</td><td></td></tr>
 <tr><th colspan="4" align="left">Sensorik / Anzeige</th></tr>
 <tr><td><code>Hourcounter</code></td><td>Betriebsstundenzaehler</td><td align="center">✅</td><td>inkl. Wartung faellig</td></tr>
@@ -163,14 +167,17 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>PoolController</code></td><td>Pool-Steuerung</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Sequential</code></td><td>Sequenzer</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Webpage</code></td><td>Webseite (eingebettet)</td><td align="center">✅</td><td></td></tr>
+<tr><td><code>Irrigation</code></td><td>Bewässerung</td><td align="center">🟡</td><td>Zustand, Zonen, Niederschlag; Start/Stopp/Erzwingen, alle Zonen an/aus (Einzelzonen folgen)</td></tr>
+<tr><td><code>MailBox</code></td><td>Briefkasten</td><td align="center">✅</td><td>Post / Paket da</td></tr>
+<tr><td><code>SteakThermo</code></td><td>Grillthermometer (Touch &amp; Grill)</td><td align="center">✅</td><td>Fühler, Zielwerte, Akku; nur Anzeige</td></tr>
 <tr><th colspan="4" align="left">Tor / Zutritt</th></tr>
 <tr><td><code>CentralGate</code></td><td>Zentral Tor</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Gate</code></td><td>Tor / Garagentor</td><td align="center">✅</td><td>Position, Auf/Zu</td></tr>
-<tr><td><code>Intercom</code></td><td>Tuersprechanlage</td><td align="center">🟡</td><td>Kamera/Klingel-Popup; SIP folgt</td></tr>
+<tr><td><code>Intercom</code></td><td>Tuersprechanlage</td><td align="center">🟡</td><td>Kamera, Live-Klingelanzeige, Tür/Ausgänge öffnen; SIP folgt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
 <tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off</td></tr>
-<tr><td><code>AlarmClock</code></td><td>Wecker</td><td align="center">🟡</td><td>read-only Anzeige + Weckton/Alarm (kein Bearbeiten)</td></tr>
+<tr><td><code>AlarmClock</code></td><td>Wecker</td><td align="center">🟡</td><td>Anzeige + Weckton, Schlummer/Aus beim Klingeln; Weckzeiten bearbeiten folgt</td></tr>
 <tr><td><code>Daytimer</code></td><td>Wochenuhr / Zeitplan</td><td align="center">✅</td><td></td></tr>
 </tbody>
 </table>
