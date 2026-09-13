@@ -549,7 +549,7 @@ let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -
 let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
 let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
-// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"}
+// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
 // curPlayerZone = zuletzt an den Server gemeldete Player-Zone (setplayer).
 let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '';
@@ -852,7 +852,7 @@ function renderTabs(){
   applyPane();
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
-// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>".
+// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
 function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : v)) : null; }
 function applyPane(){
@@ -929,7 +929,7 @@ function render(){
   // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
-  const _widget = (_k==='player'||_k==='weather'||_k==='calendar');
+  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy');
   if(themeSplit && !_widget && window.innerWidth > window.innerHeight){ gridCols = profCols*2; gridRows = profRows; }
   else { gridCols = profCols; gridRows = profRows; }
   document.documentElement.style.setProperty('--cols', gridCols);

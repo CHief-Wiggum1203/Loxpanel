@@ -872,7 +872,7 @@ class App:
             return ""
         m = _NUMFMT.match(fmt or "%.1f")
         numfmt, unit = (m.group(1), m.group(2)) if m else ("%.1f", "")
-        unit = unit.strip()   # "%.2f kW" und "%.2fkW" ergeben beide "3,25 kW"
+        unit = unit.strip().replace("%%", "%")   # "%.2f kW"/"%.2fkW" -> "3,25 kW"; Loxone-Escape "%%" -> "%"
         if unit[:1] in _PREFIX:
             i = _PREFIX.index(unit[0]); rest = unit[1:]
             while abs(value) >= 1000 and i < len(_PREFIX) - 1:
