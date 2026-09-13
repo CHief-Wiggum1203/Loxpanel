@@ -101,6 +101,52 @@ Alternativ über eine PR: dann kurz „Allow merge commits" aktivieren und mit
 „Create a merge commit" mergen – **niemals** squashen/rebasen, sonst geht die
 Upstream-Historie verloren.
 
+## Sync-Checkliste (vor und nach jedem Upstream-Abgleich)
+
+Der Fork soll strukturell nur Identität/Deployment enthalten (siehe
+Mentalmodell) — dann kann ein Sync keinen Fix „verschlucken". Diese Liste
+sichert das ab. Sie entstand aus einem realen Fehler: Beim 0.4.0-Sync wurde
+`bin/webvisu.py` komplett von Upstream übernommen und dabei eine Fork-eigene
+Audio-Weiche überschrieben, die nur im Fork lag → die Bedienung eines
+gekoppelten Audioservers war tot. **Merke:** Ein Fork-Fix an einer Datei, die
+Upstream ebenfalls ändert, geht verloren, sobald man Upstream übernimmt.
+
+**1. Vor dem Sync — Divergenz prüfen:**
+
+```bash
+git fetch upstream
+git log --oneline upstream/main..main    # Fork-Commits, die Upstream NICHT hat
+```
+
+Jeder gelistete Commit ist entweder (a) Identität/Deployment (ok, bleibt im
+Fork) oder (b) ein echter Code-Fix / ein Feature. **Fall (b) gehört zuerst nach
+Upstream** (Ablauf A) — sonst geht er beim Übernehmen verloren. Idealzustand:
+die Liste enthält nur noch (a).
+
+**2. Beim Auflösen von Konflikten:**
+
+Nie `git checkout --theirs <datei>` auf eine Datei mit Fork-eigener Logik, ohne
+diese Logik vorher zu sichern: erst `git diff main upstream/main -- <datei>`
+ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
+(besser: die Änderung vorher upstream einreichen, dann ist sie in beiden).
+
+**3. Nach dem Sync — Funktionstest der kritischen Pfade** (nicht nur der
+`py_compile`-Rauchtest), bevor `:latest` gebaut/deployt wird:
+
+- Musik: play/pause + Lautstärke an einer `AudioZone`/`AudioZoneV2`
+- PIN-Tür, Intercom-Bild, eine Jalousie / ein Licht schalten
+- Front/Screensaver lädt (Kalender/Wetter)
+
+**4. Fork-eigene Patches (Stand pflegen):**
+
+Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
+nicht unbemerkt entfernt:
+
+- Paired-Audio-Weiche in `bin/webvisu.py` (`App.command()`): leitet Transport
+  bei gekoppeltem Audioserver über den Miniserver. Liegt vorerst nur im Fork;
+  die identische Änderung ist als Upstream-PR eingereicht. Sobald Lenardo sie
+  merged, ist es kein Fork-eigener Patch mehr und der nächste Sync übernimmt sie.
+
 ## Drei Fallstricke
 
 1. **Merge-Commit-Regel:** Upstream-Syncs nie squashen/rebasen. Lokal mergen +
