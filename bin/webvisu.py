@@ -615,6 +615,17 @@ class App:
         except (TypeError, ValueError):
             return ""
 
+    def _adopt_structure(self, st: dict) -> bool:
+        """Struktur anwenden und melden, ob sie sich seit der letzten Verbindung
+        geaendert hat (Grundlage fuer den Panel-Reload). Beim allerersten Anwenden
+        (`_struct_sig` noch None) gilt sie nie als 'geaendert' — frisch verbundene
+        Panels holen sich die Ansichten ohnehin neu."""
+        sig = self._structure_sig(st)
+        changed = bool(self._struct_sig and sig and sig != self._struct_sig)
+        self._apply_structure(st)
+        self._struct_sig = sig
+        return changed
+
     async def _refresh_structure(self) -> bool:
         """Struktur neu vom Miniserver laden und anwenden, WENN sie sich geaendert
         hat (Loxone-Config geaendert). Gibt True bei Aenderung zurueck. Rein lesend;
@@ -622,11 +633,8 @@ class App:
         if self.client is None:
             return False
         st = await self.client.load_structure()
-        sig = self._structure_sig(st)
-        if sig and sig == self._struct_sig:
+        if not self._adopt_structure(st):
             return False                      # unveraendert -> nichts tun (kein Panel-Reload)
-        self._apply_structure(st)
-        self._struct_sig = sig
         self.states = {}                      # nach Struktur-Wechsel States frisch (MS sendet neu)
         self._dirty = True
         return True
@@ -639,8 +647,11 @@ class App:
             self.alg = (await self.client.getkey2()).hashAlg
             self.jwt = await self.client.authenticate()
             st = await self.client.load_structure()
-            self._apply_structure(st)
-            self._struct_sig = self._structure_sig(st)
+            # Reconnect nach Miniserver-Reboot (z.B. Loxone-Config hochgeladen):
+            # hat sich die Struktur geaendert, Panels neu laden lassen. Beim
+            # allerersten Start ist _struct_sig None -> kein Reload.
+            if self._adopt_structure(st):
+                self._pending_reload = True
             self.icon_session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
             await self._connect_ws()
             log.info("Mit Miniserver verbunden (%s).", self.host)
@@ -687,8 +698,9 @@ class App:
         self.verify_tls = ms.get("verify_tls", False)
         old_client, self.client = self.client, newc
         self.alg, self.jwt = alg, jwt
-        self._apply_structure(st)
-        self._struct_sig = self._structure_sig(st)
+        # Anderer/geaenderter Miniserver -> Struktur evtl. anders, dann Panels neu laden.
+        if self._adopt_structure(st):
+            self._pending_reload = True
         self.states = {}
         old_is, self.icon_session = self.icon_session, \
             aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
