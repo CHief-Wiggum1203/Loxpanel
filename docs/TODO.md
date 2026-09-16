@@ -370,14 +370,16 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (Temperatur, Vorhersage): prüfen, ob die Anlage einen Wetterserver-Baustein
       führt, und ihn dann Open-Meteo vorziehen; Open-Meteo bleibt Rückfall für
       Anlagen ohne Wetterserver. **M**
-- [ ] **Nachtmodus über einen Loxone-Betriebsmodus schalten**: An der Anlage
-      nachgemessen: `globalStates.operatingMode` führt **nur den Kalendertag-Modus**
-      (Wert 5 = „Mittwoch"). Die gleichzeitig laufenden Sondermodi — „Abendstimmung"
-      (ID −13), „Nachtruhe" (−12), „Haus im Tiefschlaf" (−3) — stehen dort **nicht**
-      und sind über die Struktur nicht abgreifbar. Der Miniserver muss den Wechsel
-      also aktiv melden: eigener Endpunkt, den ein virtueller Ausgang bei
-      Moduswechsel aufruft (an/aus). Der bestehende `/api/mode` passt nicht — der
-      nimmt einen Namen und schaltet ganze Panel-Profile. **M**
+- [ ] **Nachtmodus über ein frei wählbares Control auslösen**: Statt am
+      Sonnenstand soll der Nachtmodus an einem Baustein hängen können — Auswahl
+      über die Controls der Anlage, gewählter Baustein `active` = Nacht.
+      Rangfolge dann: gewähltes Control → Sonnenzeiten (Miniserver →
+      Wetterdienst) → festes Fenster. Das deckt **Betriebsmodi mit ab**, sobald
+      sie in der Visu liegen: Der Modus selbst ist nicht abgreifbar, wohl aber
+      ein Status-Baustein, auf den er in Loxone Config gelegt wird — wie
+      „Fernsehen abend" (`InfoOnlyDigital`) und „Frostsicherung" (`Switch`) in
+      der untersuchten Anlage. Begründung und Messwerte siehe „Grundregel" in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md), Abschnitt 6. **M**
 
 ## 10. Sicherheit (zurückgestuft)
 

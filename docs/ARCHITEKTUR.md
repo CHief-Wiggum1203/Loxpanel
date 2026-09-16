@@ -375,6 +375,30 @@ Kategorie, Teilstring-Match auf den Namen, entweder eine Farbe oder `{on, off}`)
 
 ## 6. Loxone-Bausteine
 
+**Grundregel: Wir sehen genau das, was in der Visualisierung steht.** LoxPanel
+liest ausschließlich die `LoxAPP3.json` des Miniservers und den zugehörigen
+State-Stream. Was dort als Control auftaucht (Objekt mit Raum *und* Kategorie,
+Verwendung in der Visu aktiviert), können wir anzeigen und — wo der Baustein es
+hergibt — auch bedienen. Was nicht drinsteht, existiert für uns nicht, egal wie
+sichtbar es in Loxone Config ist.
+
+**Lehrstück Betriebsmodi** (an einer echten Anlage nachgemessen, 09/2026):
+`globalStates.operatingMode` führt nur den **Kalendertag**-Modus (Wert `5` =
+„Mittwoch"). Die gleichzeitig laufenden Sondermodi — in Loxone Config an den
+negativen IDs erkennbar: „Abendstimmung" (−13), „Nachtruhe" (−12), „Anwesend"
+(−7) — stehen dort **nicht** und sind über die Struktur nicht abgreifbar. Auch
+nicht, wenn der Config-Baum hinter dem Modusnamen Raum und Kategorie anzeigt:
+Das sind die Räume der *Logikbausteine*, die den Modus füttern (z. B.
+„\*Anwesend – ODER", „Anwesend – Monoflop"), nicht die des Modus selbst.
+
+Der Ausweg ist derselbe wie für alles andere: **den Zustand in Loxone auf ein
+Visu-Objekt legen.** In der untersuchten Anlage war das für zwei Modi bereits so
+gemacht — „Fernsehen abend" als `InfoOnlyDigital`, „Frostsicherung" als
+`Switch`. Beide liefern ihren Zustand über denselben State `active` und sind
+damit ohne Sonderbehandlung auswertbar. Wer einen weiteren Modus braucht, hängt
+ihn in Loxone Config an einen Status-Baustein mit Raum und Kategorie — danach
+sieht LoxPanel ihn ohne jede Codeänderung.
+
 Die Liste der unterstützten Typen steht im README (39 voll, 6 teilweise, 16
 geplant). Technisch gibt es zwei Ebenen, beide in `webvisu.py`:
 
