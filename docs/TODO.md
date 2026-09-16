@@ -364,17 +364,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
 
-- [ ] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: liegen am Miniserver
-      Wetterdaten vor, sollen die genutzt werden; Open-Meteo bleibt Rückfall für
-      Anlagen ohne Wetterserver. Erst die echte Struktur prüfen (`/api/types`
-      liefert jetzt `globalStates`), dann bauen — nichts annehmen. **M**
-- [ ] **Nachtmodus Stufe 2: Erkennung über Loxone**: Rangfolge
-      Betriebsmodus (z. B. „Abendstimmung", frei wählbar aus den echten
-      `operatingModes`) → Sonnenzeiten vom Miniserver → Sonnenzeiten von
-      Open-Meteo → festes Fenster. Beachten: Betriebsmodi laufen **gleichzeitig**,
-      es gilt „ist Modus X aktiv", nicht „der Modus ist X". Der bestehende
-      `/api/mode`-Weg (virtueller Ausgang, ein Name, schaltet Profile) passt dafür
-      nicht. **M**
+- [ ] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Sonnenauf-/-untergang
+      kommen bereits vom Miniserver (`globalStates.sunrise`/`sunset`, Minuten seit
+      Mitternacht) und steuern den Nachtmodus. Offen ist die **Anzeige** selbst
+      (Temperatur, Vorhersage): prüfen, ob die Anlage einen Wetterserver-Baustein
+      führt, und ihn dann Open-Meteo vorziehen; Open-Meteo bleibt Rückfall für
+      Anlagen ohne Wetterserver. **M**
+- [ ] **Nachtmodus über einen Loxone-Betriebsmodus schalten**: An der Anlage
+      nachgemessen: `globalStates.operatingMode` führt **nur den Kalendertag-Modus**
+      (Wert 5 = „Mittwoch"). Die gleichzeitig laufenden Sondermodi — „Abendstimmung"
+      (ID −13), „Nachtruhe" (−12), „Haus im Tiefschlaf" (−3) — stehen dort **nicht**
+      und sind über die Struktur nicht abgreifbar. Der Miniserver muss den Wechsel
+      also aktiv melden: eigener Endpunkt, den ein virtueller Ausgang bei
+      Moduswechsel aufruft (an/aus). Der bestehende `/api/mode` passt nicht — der
+      nimmt einen Namen und schaltet ganze Panel-Profile. **M**
 
 ## 10. Sicherheit (zurückgestuft)
 

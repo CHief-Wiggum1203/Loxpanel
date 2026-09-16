@@ -1268,17 +1268,43 @@ class App:
 
         return {"dim": _num("nightDim", 0, 90, 0), "wake": _num("nightWake", 0, 300, 20)}
 
-    def _night_now(self) -> bool:
-        """Ist gerade Nacht? Quelle sind Sonnenauf-/-untergang aus den Front-Wetter-
-        daten ("HH:MM" Ortszeit, nullgepolstert -> Stringvergleich genuegt). Liegen
-        keine vor, gilt NIGHT_FROM..NIGHT_TO. Bewusst quellenunabhaengig: liefert
-        spaeter der Miniserver die Zeiten, aendert sich hier nichts."""
+    def _sun_minutes(self) -> tuple[int, int] | None:
+        """Sonnenauf-/-untergang als Minuten seit Mitternacht (Ortszeit).
+
+        Rangfolge: zuerst der MINISERVER (globalStates `sunrise`/`sunset` liefern
+        genau dieses Format), sonst der Wetterdienst aus den Front-Daten ("HH:MM").
+        None, wenn keine Quelle brauchbare Werte hat."""
+        gs = self.global_states or {}
+        ms = []
+        for key in ("sunrise", "sunset"):
+            u = gs.get(key)
+            v = self.states.get(u) if isinstance(u, str) else None
+            ms.append(int(v) if isinstance(v, (int, float)) and 0 <= v < 1440 else None)
+        if ms[0] is not None and ms[1] is not None:
+            return ms[0], ms[1]
         w = (self._front or {}).get("weather") or {}
-        rise, dusk = w.get("sunrise"), w.get("sunset")
-        now = datetime.now().strftime("%H:%M")
-        if isinstance(rise, str) and isinstance(dusk, str) and ":" in rise and ":" in dusk:
-            return now >= dusk or now < rise
-        return now >= NIGHT_FROM or now < NIGHT_TO
+        out = []
+        for key in ("sunrise", "sunset"):
+            hm = w.get(key)
+            if not (isinstance(hm, str) and ":" in hm):
+                return None
+            h, _, m = hm.partition(":")
+            try:
+                out.append(int(h) * 60 + int(m))
+            except ValueError:
+                return None
+        return out[0], out[1]
+
+    def _night_now(self) -> bool:
+        """Ist gerade Nacht? Sonnenzeiten nach _sun_minutes() (Miniserver vor
+        Wetterdienst); ohne jede Quelle gilt NIGHT_FROM..NIGHT_TO."""
+        now = datetime.now()
+        sun = self._sun_minutes()
+        if sun:
+            cur = now.hour * 60 + now.minute
+            return cur >= sun[1] or cur < sun[0]
+        hm = now.strftime("%H:%M")
+        return hm >= NIGHT_FROM or hm < NIGHT_TO
 
     def panel_reload(self, pid: str | None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
