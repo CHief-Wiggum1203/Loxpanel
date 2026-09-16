@@ -120,6 +120,9 @@ SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
+# Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
+# konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
+NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
 
 
 def _is_tab(t) -> bool:
@@ -448,6 +451,8 @@ class App:
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
+        self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
+        self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self._dirty = True
@@ -573,6 +578,10 @@ class App:
         # Betriebsarten (id -> Name) fuer die Wecker-Wiederholung: die `modes`
         # eines Eintrags verweisen hierauf (z.B. Wochentage Mo-So).
         self.op_modes = {str(k): v for k, v in (st.get("operatingModes") or {}).items()}
+        # Globale States der Anlage (Name -> UUID): u.a. Sonnenauf-/-untergang und
+        # die aktiven Betriebsmodi. Die Werte kommen ueber den WS-Stream in
+        # self.states. Roh uebernehmen, die Belegung ist je Anlage verschieden.
+        self.global_states = dict(st.get("globalStates") or {})
         self.playerid_by_action = {}
         self.audiohost_by_action = {}
         for _u, _c in self.controls.items():
@@ -1246,6 +1255,31 @@ class App:
         v = ui.get("dpmsOff")
         return max(0, min(3600, int(v))) if isinstance(v, (int, float)) else None
 
+    def panel_night(self, pid: str | None) -> dict:
+        """Nachtmodus je Panel: `dim` = Abdunklung in Prozent (0 = aus), `wake` =
+        Sekunden, die eine Beruehrung wieder voll aufhellt (0 = nicht aufhellen).
+        Wie panel_dpms(): Theme-Vorgabe, vom Panel-Profil ueberschreibbar."""
+        ui = {**self.theme.get("ui", {}),
+              **((self.panels.get(pid or "") or {}).get("ui") or {})}
+
+        def _num(key, lo, hi, default):
+            v = ui.get(key)
+            return max(lo, min(hi, int(v))) if isinstance(v, (int, float)) else default
+
+        return {"dim": _num("nightDim", 0, 90, 0), "wake": _num("nightWake", 0, 300, 20)}
+
+    def _night_now(self) -> bool:
+        """Ist gerade Nacht? Quelle sind Sonnenauf-/-untergang aus den Front-Wetter-
+        daten ("HH:MM" Ortszeit, nullgepolstert -> Stringvergleich genuegt). Liegen
+        keine vor, gilt NIGHT_FROM..NIGHT_TO. Bewusst quellenunabhaengig: liefert
+        spaeter der Miniserver die Zeiten, aendert sich hier nichts."""
+        w = (self._front or {}).get("weather") or {}
+        rise, dusk = w.get("sunrise"), w.get("sunset")
+        now = datetime.now().strftime("%H:%M")
+        if isinstance(rise, str) and isinstance(dusk, str) and ":" in rise and ":" in dusk:
+            return now >= dusk or now < rise
+        return now >= NIGHT_FROM or now < NIGHT_TO
+
     def panel_reload(self, pid: str | None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
         (0/None = aus). Gegen Einfrieren; der Agent startet Chromium periodisch
@@ -1459,7 +1493,8 @@ class App:
         tabs = [t for t in (raw.get("tabs") or VALID_TABS) if _is_tab(t)]
         ui = {k: v for k, v in (raw.get("ui") or {}).items()
               if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
-                       "dpmsOff", "reloadHours", "cols", "rows", "fill",
+                       "dpmsOff", "reloadHours", "nightDim", "nightWake",
+                       "cols", "rows", "fill",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
         if isinstance(ui.get("panes"), dict):
@@ -1527,6 +1562,10 @@ class App:
                 cui["dpmsOff"] = max(0, min(3600, int(ui["dpmsOff"])))  # Display aus nach Sek.
             if isinstance(ui.get("reloadHours"), (int, float)):
                 cui["reloadHours"] = max(0, min(168, float(ui["reloadHours"])))  # Auto-Neustart Std.
+            if isinstance(ui.get("nightDim"), (int, float)):
+                cui["nightDim"] = max(0, min(90, int(ui["nightDim"])))    # Nachts abdunkeln in %
+            if isinstance(ui.get("nightWake"), (int, float)):
+                cui["nightWake"] = max(0, min(300, int(ui["nightWake"])))  # Aufhellen bei Beruehrung, Sek.
             if ui.get("cols") in (2, 3):
                 cui["cols"] = int(ui["cols"])   # Spalten: 2 oder 3
             if ui.get("rows") in (2, 3):
@@ -1953,9 +1992,20 @@ class App:
                     "nodes": det.get("nodes"),
                     "actuals": {f"actual{i}": self._state(c, f"actual{i}") for i in range(6)},
                 })
+        # Diagnose globale States (Sonnenzeiten, aktive Betriebsmodi ...): Name,
+        # UUID und aktueller Wert. Sonst nirgends sichtbar; Grundlage dafuer, die
+        # Nacht-Erkennung an den Miniserver zu haengen statt an einen Wetterdienst.
+        gstates = []
+        for _n, _ref in (self.global_states or {}).items():
+            if isinstance(_ref, str):
+                gstates.append({"name": _n, "uuid": _ref, "value": self.states.get(_ref)})
+            else:
+                gstates.append({"name": _n, "raw": _ref})
         return {"connected": self.client is not None, "controls": len(self.controls),
                 "typeCount": len(out), "typesByStatus": counts, "types": out,
                 "energyDetails": energy,
+                "globalStates": sorted(gstates, key=lambda g: g["name"]),
+                "operatingModes": self.op_modes,
                 "unsupportedControls": sorted(dead, key=lambda d: (d["room"], d["name"]))}
 
     def _control_item(self, uuid: str, prof: dict | None = None,
@@ -3643,6 +3693,13 @@ class App:
             if self._front is not None:
                 for ws in list(self.conn_route):
                     await self._send_or_drop(ws, self._front)
+        night = self._night_now()
+        if night != self._night_on:
+            # Nur beim Wechsel senden — die Panels halten den Zustand selbst.
+            self._night_on = night
+            log.info("Nachtmodus %s", "an" if night else "aus")
+            for ws in list(self.conn_route):
+                await self._send_or_drop(ws, {"t": "night", "on": night})
         if self._pending_reload:
             # Loxone-Struktur hat sich geaendert (Config) -> Panels neu laden, damit
             # neue/umbenannte Controls erscheinen. Nur bei echter Aenderung gesetzt.
@@ -4499,6 +4556,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "panes": prof.get("panes") or {},
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
+                        "night": {**app.panel_night(prof["id"]), "on": app._night_on},
                         "agent": app._has_agent(dev)})
     await ws.send_json(app.render(app.conn_route[ws], prof))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
