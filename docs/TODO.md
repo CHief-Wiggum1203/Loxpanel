@@ -5,6 +5,11 @@ Klammern verweisen auf die Befunde in [`ARCHITEKTUR.md`](ARCHITEKTUR.md)
 (F = Fehler, S = Sicherheit, P = Performance, W = Wartbarkeit). Aufwand:
 **S** = unter einer Stunde, **M** = ein halber Tag, **L** = mehrere Tage.
 
+Stand 16.09.2026: Die Liste wurde vollständig gegen den Code geprüft (jeder
+Eintrag einzeln, Haken ignoriert). Sieben Punkte waren längst erledigt und sind
+jetzt abgehakt; die dabei gefundenen echten Defekte stehen als neue Punkte
+drin.
+
 Sicherheit ist bewusst ganz unten eingeordnet: Der Server läuft nur im Heimnetz
 und ist nicht von außen erreichbar. Sollte sich das ändern, rückt Block 10 nach
 oben.
@@ -58,26 +63,28 @@ Merge-Commit nach `main`.
       AudioZone, Split-Player (Panel Configuration → „Fester Player"),
       Live-Updates ohne Flackern, Settings-Rubrik mit Geräteliste und
       Display-Treibern. **S**
-- [ ] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
-      Bausteintypen, `/api/types`, Unraid-Template. Was Upstream übernimmt,
-      muss der Fork nicht mehr mitschleppen. **M**
+- [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
+      Bausteintypen und `/api/types` sind in Upstream angekommen. Das
+      Unraid-Template bleibt bewusst fork-eigen (siehe
+      [`CONTRIBUTING.md`](CONTRIBUTING.md), Spalte „Nur in den Fork"), damit
+      ist der Punkt abgeschlossen. **M**
 
 ## 1. Konfiguration vor Datenverlust schützen
 
-- [ ] **Atomares Schreiben** von `loxpanel.cfg`, `panels.json`, `theme.json`:
+- [x] **Atomares Schreiben** von `loxpanel.cfg`, `panels.json`, `theme.json`:
       in `<datei>.tmp` schreiben, `fsync`, `os.replace`. Stellen: `_write_cfg`,
       `_persist_panels_file`, `_write_theme` in `bin/webvisu.py`. (F5) **S**
-- [ ] **Fehlerbehandlung beim Schreiben**: `OSError` in `_write_cfg` und den
+- [x] **Fehlerbehandlung beim Schreiben**: `OSError` in `_write_cfg` und den
       beiden Settings-Handlern fangen und als `{"ok": false, "error": ...}`
       zurückgeben statt 500. (F6) **S**
-- [ ] **Sicherung vor dem Überschreiben**: vor jedem Schreiben von `panels.json`
+- [x] **Sicherung vor dem Überschreiben**: vor jedem Schreiben von `panels.json`
       eine Kopie `panels.json.bak` behalten, eine Generation reicht. **S**
-- [ ] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
+- [x] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
       `ms["user"]`, verständliche Fehlermeldung in `/config` (Settings). (F7) **S**
 
 ## 2. Server-Stabilität
 
-- [ ] **Broadcaster absichern**: Upstream 0.3.2 fängt Render-Fehler je
+- [x] **Broadcaster absichern**: Upstream 0.3.2 fängt Render-Fehler je
       Verbindung im `broadcaster()` und bei `nav` ab. Offen: `send_json` in
       `_push()`, `switch_mode()` und `api_testtone` gegen andere Ausnahmen als
       `ConnectionError` absichern. (F3) **S**
@@ -91,10 +98,15 @@ Merge-Commit nach `main`.
       damit eine fehlende Datei einen 404 statt eines Stacktrace liefert. **S**
 - [ ] **`JSON.parse` im WebSocket-Handler** der Visu in `try/catch`. (F9) **S**
 - [ ] **Reconnect mit Backoff** statt fester 10 s, z. B. 5, 10, 20, 40, 60 s. **S**
+- [ ] **Rückfall auf Miniserver-Favoriten ist unerreichbar**: `_view_sources`
+      verzweigt nur danach, ob ein Ereignis-Client existiert, nicht darauf, ob
+      die Anmeldung am Audioserver geklappt hat. Schlägt sie fehl, greift der
+      dafür gedachte Rückfall (`_audio_favs`) nie — der Zweig ist toter Code.
+      Auf `authed` prüfen. **S**
 
 ## 3. Sichtbare Fehler in der Visu
 
-- [ ] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft
+- [x] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft
       Attribute mit Miniserver-Namen und Freitext-Schriftarten. (F10) **S**
 - [ ] **Panel-`states`-Farben validieren** mit `_color_ok` in
       `_sanitize_panels`, oder das Feld entfernen, da der Konfigurator es nicht
@@ -103,11 +115,21 @@ Merge-Commit nach `main`.
       Material Icons per Proxy, Upload-Verzeichnis für eigene Icons) oder die
       Erzeugung in `_apply_tile_style` und die Annahme in `_clean_icon`
       entfernen, bis das Feature gebaut wird. (F1) **S** (entfernen) / **M** (bauen)
-- [ ] **`updatePanel()` robust machen**: Blöcke über einen stabilen Schlüssel
-      statt Index und erstem Treffer zuordnen, z. B. Server vergibt `id` je Block.
-      (F12) **M**
+- [x] **`updatePanel()` robust machen**: gelöst über eine Struktur-Signatur
+      (`blockSig()`): weicht Art/Reihenfolge der Blöcke vom zuletzt Gerenderten
+      ab, wird komplett neu aufgebaut, sonst weiter in-place (kein Flackern).
+      Zusätzlich werden alle Blöcke einer Art über ihre Position gepatcht statt
+      nur der erste Treffer — das war die Ursache für eingefrorene Statuszeilen
+      auf der Sauna-Detailseite. (F12) **M**
 - [ ] **Stiller Verlust beim Speichern**: `_sanitize_panels` soll melden, welche
       Felder verworfen wurden, und der Konfigurator zeigt es an. (W7) **M**
+- [ ] **Speicher-Vorzeichen im Energiemanager prüfen**: `_flow_text(Spwr, …)`
+      und `classify()` nehmen an, dass ein positiver `Spwr` „Speicher lädt"
+      bedeutet. Die Loxone-Doku beschreibt es umgekehrt (positiv = Speicher
+      wird entladen). Wenn das stimmt, sind Laden/Entladen in Text **und**
+      Flussrichtung des Radials vertauscht. An einer Anlage mit echtem Speicher
+      gegenprüfen, bevor etwas geändert wird — betrifft auch den
+      Energiefluss-Beitrag an Upstream. **S**
 
 ## 4. Performance
 
@@ -172,6 +194,14 @@ Merge-Commit nach `main`.
       `loxpanel-kiosk.conf.example` vervollständigen, `DOCKER.md`/`DEPLOY.md`
       vom „späteren Plugin" befreien, Root-`docker-compose.yml` auf das fertige
       Image umstellen. **S**
+- [ ] **Toter Zweig im EFM-Detail entfernen**: in `_view_control_inner` kann
+      `energy_blocks()` im `EFM`-Zweig nie `None` liefern, damit sind die dort
+      aufgebauten `rows` und der `else`-Zweig unerreichbar. Entweder entfernen
+      oder den Aufruf absichern. **S**
+- [ ] **`loxpanel-kiosk.conf.example` vervollständigen**: der Agent liest 13
+      Schlüssel, die Beispieldatei dokumentiert 10. Es fehlen `PROFILE_DIR`,
+      `BL_DEVICE` und `STATE_FILE`; besonders `BL_DEVICE` ist nutzerrelevant,
+      wenn die Backlight-Erkennung danebengreift. **S**
 
 ## 7. Tests und CI
 
@@ -299,7 +329,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       17.2) verifiziert. **M**
 - [x] `AudioZone` (Musikserver Gen 1, MS4H, Sonn) und `AudioZoneV2`
       (Audioserver Gen 2): Favoriten und Steuerung laufen direkt am
-      Audioserver (Port 7091), sobald die Zone eine `playerid` hat. **M**
+      Audioserver (Port 7091) — aber nur bei einem **ungekoppelten**
+      Audioserver (`paired is False`). Am gekoppelten Audioserver läuft die
+      Steuerung bewusst über den Miniserver (`sps/io`); so seit dem Fix der
+      Paired-Weiche. **M**
 - [ ] `AlarmClock` (Wecker): Anzeige + Weckton; beim Klingeln Schlummer
       (`snooze`) und Aus (`dismiss`). Offen: Master-Ein/Aus (`setActive`, zu
       verifizieren) und Bearbeiten/Anlegen der Weckzeiten (braucht Zeit-/
