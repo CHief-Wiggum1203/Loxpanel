@@ -311,6 +311,7 @@ Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorr
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
+| `night` | `control` (UUID eines Bausteins mit `active`-State; leer = Sonnenzeiten entscheiden) | `_night_config()` |
 
 In der Beispieldatei stehen zusätzlich `loxone.poll_interval`, `mqtt`, `web`,
 `lms` und `miniserver.msno`. Diese Sektionen wertet der Server **nicht** aus.
