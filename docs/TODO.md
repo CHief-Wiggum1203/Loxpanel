@@ -364,6 +364,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
 
+- [ ] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: liegen am Miniserver
+      Wetterdaten vor, sollen die genutzt werden; Open-Meteo bleibt Rückfall für
+      Anlagen ohne Wetterserver. Erst die echte Struktur prüfen (`/api/types`
+      liefert jetzt `globalStates`), dann bauen — nichts annehmen. **M**
+- [ ] **Nachtmodus Stufe 2: Erkennung über Loxone**: Rangfolge
+      Betriebsmodus (z. B. „Abendstimmung", frei wählbar aus den echten
+      `operatingModes`) → Sonnenzeiten vom Miniserver → Sonnenzeiten von
+      Open-Meteo → festes Fenster. Beachten: Betriebsmodi laufen **gleichzeitig**,
+      es gilt „ist Modus X aktiv", nicht „der Modus ist X". Der bestehende
+      `/api/mode`-Weg (virtueller Ausgang, ein Name, schaltet Profile) passt dafür
+      nicht. **M**
+
 ## 10. Sicherheit (zurückgestuft)
 
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird
