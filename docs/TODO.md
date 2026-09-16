@@ -370,7 +370,7 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (Temperatur, Vorhersage): prüfen, ob die Anlage einen Wetterserver-Baustein
       führt, und ihn dann Open-Meteo vorziehen; Open-Meteo bleibt Rückfall für
       Anlagen ohne Wetterserver. **M**
-- [ ] **Nachtmodus über ein frei wählbares Control auslösen**: Statt am
+- [x] **Nachtmodus über ein frei wählbares Control auslösen**: Statt am
       Sonnenstand soll der Nachtmodus an einem Baustein hängen können — Auswahl
       über die Controls der Anlage, gewählter Baustein `active` = Nacht.
       Rangfolge dann: gewähltes Control → Sonnenzeiten (Miniserver →

@@ -329,6 +329,21 @@ def _intercom_config() -> dict:
     return cfg
 
 
+def _night_config() -> dict:
+    """Nachtmodus-Block aus loxpanel.cfg `night`: {"control": "<uuid>"}. Der
+    `active`-State dieses Bausteins schaltet den Nachtmodus. Leer = kein
+    Ausloeser, dann entscheiden die Sonnenzeiten."""
+    base = Path(__file__).resolve().parent.parent / "config"
+    f = base / "loxpanel.cfg"
+    if not f.is_file():
+        f = base / "loxpanel.cfg.example"
+    try:
+        cfg = json.loads(f.read_text(encoding="utf-8")).get("night", {})
+    except (ValueError, OSError):
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
 def _calendar_config() -> dict:
     """Kalender-/Wetter-Block aus loxpanel.cfg `calendar`:
     {"ical_url": "...", "name": "Family", "lat": 47.07, "lon": 15.44,
@@ -453,6 +468,7 @@ class App:
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
         self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
+        self.night_cfg = _night_config()  # {"control": uuid} -> dessen active-State = Nacht
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self._dirty = True
@@ -1268,6 +1284,22 @@ class App:
 
         return {"dim": _num("nightDim", 0, 90, 0), "wake": _num("nightWake", 0, 300, 20)}
 
+    def night_control_options(self) -> list:
+        """Bausteine, die als Nacht-Ausloeser taugen: alles mit einem `active`-State
+        (Switch, InfoOnlyDigital, PresenceDetector ...). Damit laesst sich auch ein
+        Loxone-Betriebsmodus nutzen, sobald er in der Visu auf so einem Baustein
+        liegt — der Modus selbst steht nicht in der Struktur (s. ARCHITEKTUR.md)."""
+        out = []
+        for u, c in self.controls.items():
+            if not (c.get("states") or {}).get("active"):
+                continue
+            name = _clean(c.get("name"))
+            if not name:
+                continue
+            out.append({"uuid": u, "name": name, "type": c.get("type"),
+                        "room": _clean((self.rooms.get(c.get("room")) or {}).get("name"))})
+        return sorted(out, key=lambda d: (d["room"], d["name"]))
+
     def _sun_minutes(self) -> tuple[int, int] | None:
         """Sonnenauf-/-untergang als Minuten seit Mitternacht (Ortszeit).
 
@@ -1296,8 +1328,17 @@ class App:
         return out[0], out[1]
 
     def _night_now(self) -> bool:
-        """Ist gerade Nacht? Sonnenzeiten nach _sun_minutes() (Miniserver vor
-        Wetterdienst); ohne jede Quelle gilt NIGHT_FROM..NIGHT_TO."""
+        """Ist gerade Nacht?
+
+        Rangfolge: ein in den Einstellungen gewaehlter Baustein (sein `active`-State
+        = Nacht), sonst die Sonnenzeiten nach _sun_minutes() (Miniserver vor
+        Wetterdienst), zuletzt NIGHT_FROM..NIGHT_TO. Ein gewaehlter, aber nicht
+        (mehr) vorhandener Baustein faellt still auf die Sonnenzeiten zurueck."""
+        u = (self.night_cfg or {}).get("control")
+        if u:
+            c = self.controls.get(u)
+            if c:
+                return bool(self._state(c, "active"))
         now = datetime.now()
         sun = self._sun_minutes()
         if sun:
@@ -4008,6 +4049,8 @@ async def api_settings(request: web.Request) -> web.Response:
             # Auto-Standort vom Miniserver (Fallback, wenn keine Koordinaten gesetzt)
             "ms_lat": app.ms_lat, "ms_lon": app.ms_lon, "ms_location": app.ms_location,
         },
+        "night": {"control": (app.night_cfg or {}).get("control") or "",
+                  "options": app.night_control_options()},
         "connected": app.client is not None,
         "nControls": len(app.controls),
     })
@@ -4077,6 +4120,30 @@ async def api_settings_ms(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "connected": True, "nControls": n})
     except Exception as err:
         return web.json_response({"ok": False, "error": f"Verbindung fehlgeschlagen: {err}"})
+
+
+async def api_settings_night(request: web.Request) -> web.Response:
+    """Nacht-Ausloeser: Baustein, dessen `active`-State den Nachtmodus schaltet.
+    Leer = keiner, dann entscheiden die Sonnenzeiten."""
+    app: App = request.app["app"]
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
+    u = str(data.get("control") or "").strip()
+    if u and u not in app.controls:
+        return web.json_response({"ok": False, "error": "Baustein nicht gefunden"}, status=400)
+    cfg = _load_cfg()
+    night = dict(cfg.get("night", {}) if isinstance(cfg.get("night"), dict) else {})
+    night["control"] = u
+    cfg["night"] = night
+    try:
+        _write_cfg(cfg)
+    except OSError as err:
+        return web.json_response({"ok": False, "error": str(err)}, status=500)
+    app.night_cfg = _night_config()
+    log.info("Nacht-Ausloeser gespeichert: %s", u or "(keiner -> Sonnenzeiten)")
+    return web.json_response({"ok": True})
 
 
 async def api_settings_audiometa(request: web.Request) -> web.Response:
@@ -4703,6 +4770,7 @@ def main() -> None:
     a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
+    a.router.add_post("/api/settings/night", api_settings_night)
     a.router.add_post("/api/settings/audiometa", api_settings_audiometa)
     a.router.add_post("/api/settings/calendar", api_settings_calendar)
     a.router.add_post("/api/agent/announce", api_agent_announce)
