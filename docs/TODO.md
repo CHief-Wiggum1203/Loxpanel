@@ -364,12 +364,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
 
-- [ ] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Sonnenauf-/-untergang
-      kommen bereits vom Miniserver (`globalStates.sunrise`/`sunset`, Minuten seit
-      Mitternacht) und steuern den Nachtmodus. Offen ist die **Anzeige** selbst
-      (Temperatur, Vorhersage): prüfen, ob die Anlage einen Wetterserver-Baustein
-      führt, und ihn dann Open-Meteo vorziehen; Open-Meteo bleibt Rückfall für
-      Anlagen ohne Wetterserver. **M**
+- [x] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Hat die Anlage den
+      Loxone-Wetterdienst, schickt der Miniserver das Wetter über den WebSocket
+      als eigene Binärtabelle (Kennung 7). `loxone_ws.py` zerlegt sie,
+      `loxone_weather.py` rechnet sie in dieselbe Form wie
+      `front_info.fetch_weather()` um; Open-Meteo bleibt Rückfall und wird gar
+      nicht mehr abgefragt, solange der Miniserver liefert. Wetterlage-Texte
+      (`weatherTypeTexts`) und Einheiten (`format`) kommen aus der Struktur des
+      Miniservers — im Code steht keine Tabelle mit Loxone-Wettercodes, weil die
+      Nummern je nach Quelle unterschiedlich dokumentiert sind. Was der Dienst
+      nicht führt, bleibt leer (Regenwahrscheinlichkeit, UV-Index); lässt sich
+      ein Wert nicht sicher beschriften, fällt er weg statt falsch angezeigt zu
+      werden. Diagnose unter *Settings → Diagnose* (`weatherServer`). **M**
 - [x] **Nachtmodus über ein frei wählbares Control auslösen**: Statt am
       Sonnenstand soll der Nachtmodus an einem Baustein hängen können — Auswahl
       über die Controls der Anlage, gewählter Baustein `active` = Nacht.

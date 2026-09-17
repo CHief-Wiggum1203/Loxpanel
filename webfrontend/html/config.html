@@ -1288,7 +1288,10 @@ async function loadSettings(){
       const auto=(!manual&&autoGeo)
         ? ' <span class="ccmut">· '+T('Automatisch vom Miniserver:')+' '+esc(cal.ms_location||'')+' ('+cal.ms_lat+' / '+cal.ms_lon+')</span>'
         : '';
-      if(st.wx_error) ws.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.wx_error);
+      // Der Loxone-Wetterserver hat Vorrang; dann sind Koordinaten und Open-Meteo unbenutzt.
+      if(st.wx_source==='miniserver') ws.innerHTML='<b class="ok">'+T('Wetter vom Loxone-Wetterserver')+'</b>'
+        +' <span class="ccmut">· '+T('Open-Meteo wird nicht abgefragt.')+'</span>';
+      else if(st.wx_error) ws.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.wx_error);
       else if(st.wx_configured) ws.innerHTML='<b class="ok">'+T('Wetter geladen')+'</b>'+auto;
       else if(autoGeo) ws.innerHTML='<span class="ccmut">'+T('Standort vom Miniserver wird verwendet.')+'</span>'+auto;
       else ws.innerHTML='<span class="ccmut">'+T('Kein Standort konfiguriert.')+'</span>';
