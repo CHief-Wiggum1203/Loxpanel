@@ -1611,7 +1611,10 @@ const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
 function showSaver(){ tickClock();
-  el('saver').classList.toggle('split', !!themeSplit);   // Split-Panel: Screensaver zweispaltig (Uhr oben, Wetter|Kalender)
+  // Zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly X2) – gleiches
+  // Kriterium wie das Kachel-Grid (s. render()). Das quadratische 4"-Panel bleibt
+  // einspaltig (Wetter oben, Uhr, Termine untereinander), auch wenn Split erlaubt ist.
+  el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
   el('saver').classList.remove('hidden'); }
 function hideSaver(){ el('saver').classList.add('hidden'); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
