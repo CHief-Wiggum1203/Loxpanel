@@ -69,32 +69,33 @@ Merge-Commit nach `main`.
       [`CONTRIBUTING.md`](CONTRIBUTING.md), Spalte „Nur in den Fork"), damit
       ist der Punkt abgeschlossen. **M**
 
-### Offene Beiträge bei Lenardo1
+### Upstream-Beiträge
 
-Stand 17.09.2026. Die Zweige liegen im Fork und sitzen jeweils als EIN Commit
-direkt auf `upstream/main`, damit GitHub Titel und Beschreibung selbst füllt.
+Stand 17.09.2026. **Alle bisherigen Beiträge sind in `upstream/main` gemergt:**
 
-| PR | Inhalt | Zweig im Fork |
-|---|---|---|
-| [#13](https://github.com/Lenardo1/loxpanel/pull/13) | Struktur-Änderungen live übernehmen | `feat/live-structure-reload` |
-| [#15](https://github.com/Lenardo1/loxpanel/pull/15) | Kalender-Zeitzone + eingefrorene Statuszeilen | `fix/audit-folgefixes` |
-| [#19](https://github.com/Lenardo1/loxpanel/pull/19) | Nachtmodus (Dimmen + freier Auslöser) | `feat/night-mode` |
-| [#20](https://github.com/Lenardo1/loxpanel/pull/20) | Panel-Theme aus einer Grundfarbe | `feat/theme-base-color` |
-| [#21](https://github.com/Lenardo1/loxpanel/pull/21) | Nur senden, was sich geändert hat | `up/send-only-changes` |
+| PR | Inhalt |
+|---|---|
+| [#13](https://github.com/Lenardo1/loxpanel/pull/13) | Struktur-Änderungen live übernehmen |
+| [#15](https://github.com/Lenardo1/loxpanel/pull/15) | Kalender-Zeitzone + eingefrorene Statuszeilen |
+| [#19](https://github.com/Lenardo1/loxpanel/pull/19) | Nachtmodus (Dimmen + freier Auslöser) |
+| [#20](https://github.com/Lenardo1/loxpanel/pull/20) | Panel-Theme aus einer Grundfarbe |
+| [#21](https://github.com/Lenardo1/loxpanel/pull/21) | Nur senden, was sich geändert hat |
 
-Fertig portiert und geprüft, aber bewusst noch **nicht** eingereicht — erst
-wenn der Stapel oben kleiner wird:
+Fertig portiert, geprüft und **auf dem aktuellen `upstream/main` aufgesetzt**,
+aber noch nicht eingereicht:
 
-- `up/tile-position-ring` — Positionsring auf der Kachel. Ohne die
-  Theme-Farben `--crit-fill`/`--crit-ink`, die zu #20 gehören.
-- `up/loxone-weather` — Wetter vom Loxone-Wetterserver. Ohne
-  `import theme_colors`, ohne Struktur-Refresh beim Reconnect, ohne die
-  Fork-Dokumente. **Überschneidung:** führt `self.global_states` ein, das
-  auch #19 einführt — wer zuerst gemergt wird, der andere braucht ein
-  triviales Rebase.
+- `up/tile-position-ring` — Positionsring auf der Kachel.
+- `up/loxone-weather` — Wetter vom Loxone-Wetterserver. Die Sonnenzeiten nutzen
+  `self.global_states`, das mit #19 bereits hereingekommen ist.
 
-Links zum Einreichen (GitHub füllt Titel und Text aus dem Commit):
+Beide sitzen als EIN Commit direkt auf `upstream/main`, damit GitHub Titel und
+Beschreibung selbst füllt. Link zum Einreichen:
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
+
+Offen im Fork: `upstream/main` ist seit dem letzten Abgleich um 12 Commits
+gewachsen (u.a. gerahmte Split-Panes, Kamera-Pane, zweispaltiger Screensaver,
+konfigurierbarer Kachelrahmen). Als echten Merge-Commit nach `main` holen,
+nicht squashen — sonst kennt der Fork die Upstream-Commits nicht.
 
 ## 1. Konfiguration vor Datenverlust schützen
 
