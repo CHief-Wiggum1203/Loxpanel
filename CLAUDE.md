@@ -24,6 +24,7 @@ sprechen `/api/*`.
 | `bin/audioserver.py`, `bin/audioserver_events.py`, `bin/audioserver_auth.py` | Audioserver-Backends: Gen1/MS4H, Gen2-Events (Port 7091) und die App-Anmeldung am gekoppelten Audioserver (RSA/AES, braucht `cryptography`) |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo parsen (`icalendar`+`python-dateutil`) und Wetter von Open-Meteo (kein API-Key). Eigenständig; `webvisu.py` ruft `load_front()` periodisch (`front_task`) und pusht `{t:"front"}` an die Panels |
+| `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver (falls die Anlage ihn hat): rechnet die Binaertabelle des Miniservers in dieselbe Form wie `front_info.fetch_weather()` um und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur des Miniservers, nicht aus einer Tabelle im Code |
 | `webfrontend/html/*.html`, `i18n.js` | Frontend, Vanilla JS, kein Build |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
 | `config/*.example` | Vorlagen; echte Dateien liegen im Volume `/app/config` |
@@ -48,7 +49,7 @@ Es gibt keine automatisierten Tests. Mindestens:
 
 ```bash
 python3 -m py_compile bin/webvisu.py bin/front_info.py bin/loxone_ws.py \
-  bin/theme_colors.py agent/loxpanel-agent.py
+  bin/theme_colors.py bin/loxone_weather.py agent/loxpanel-agent.py
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/docker-image.yml'))"
 python3 -c "import xml.dom.minidom as m; m.parse('unraid/loxpanel.xml')"
 ```

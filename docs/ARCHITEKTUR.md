@@ -61,11 +61,12 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
-| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value- und Text-State-Tabellen |
+| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
+| `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Neues Panel) |
@@ -214,7 +215,7 @@ Server → Browser (`panel.html:700`):
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
-| `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) |
+| `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 
@@ -242,6 +243,52 @@ Kachelseiten bestehen aus `items[]` mit `id`, `label`, `sublabel`, `room`,
 Ein Tippfehler im Server erzeugt stumm eine leere Seite.
 
 ---
+
+### 3.8 Woher das Wetter kommt
+
+Zwei Quellen, feste Rangfolge. Der **Loxone-Wetterserver** gewinnt, sobald er
+brauchbare Daten liefert; **Open-Meteo** ist der Rückfall und wird dann gar nicht
+mehr abgefragt (`load_front(..., skip_weather=True)`).
+
+Weg der Miniserver-Daten:
+
+1. Die Struktur führt den Block `weatherServer` — nur vorhanden, wenn die Anlage
+   den (kostenpflichtigen) Loxone-Wetterdienst hat. Darin stehen die State-UUIDs
+   (`states.actual`, `states.forecast`), die Wetterlage-Texte
+   (`weatherTypeTexts`) und die Formatstrings mit den Einheiten (`format`).
+   `_apply_structure()` legt ihn in `self.weather_cfg` ab.
+2. Der Miniserver schickt das Wetter über denselben WebSocket wie alle States,
+   aber als eigene Binärtabelle mit der **Kennung 7**: 16-Byte-UUID +
+   `lastUpdate` + `nrEntries`, danach je Eintrag 68 Byte (5 × int32 + 6 × double).
+   `loxone_ws.py:_parse_weather()` zerlegt sie, `App._on_weather()` legt die
+   Rohdaten je UUID ab und weckt die Front sofort.
+3. `loxone_weather.build()` macht daraus genau die Form, die
+   `front_info.fetch_weather()` liefert — das Panel merkt vom Quellenwechsel
+   nichts.
+
+Zwei Regeln, die das Modul trägt:
+
+* **Keine Wettercode-Tabelle im Code.** Die Nummern des Wetterdienstes sind je
+  nach Quelle unterschiedlich dokumentiert; der Miniserver selbst liefert die
+  Texte mit. Das Panel-Icon wird aus diesem Text abgeleitet (deutsch und
+  englisch). Passt kein Begriff, gilt die Quelle als nicht beschriftbar.
+* **Lieber nichts als falsch.** Zeitstempel werden gegen die aktuelle Zeit
+  geprüft, die Temperatur-Einheit gegen Fahrenheit, Wind und Luftdruck werden nur
+  mit belegter Einheit angezeigt (m/s wird auf km/h gerechnet, die Einheit geht
+  als `wind_unit` ans Panel). Scheitert eine dieser Prüfungen, gibt `build()`
+  `None` zurück und Open-Meteo übernimmt wieder.
+
+Was der Wetterdienst nicht führt, bleibt leer: **Regenwahrscheinlichkeit** und
+**UV-Index** gibt es dort nicht (`solarRadiation` ist Einstrahlung in W/m²). Das
+Panel blendet leere Werte von sich aus aus — das Regenband im Stundenverlauf und
+die UV-Kachel fehlen dann.
+
+Sonnenauf- und -untergang kommen unabhängig davon aus den globalen States
+(`_ms_sun_hhmm()`), also aus derselben Quelle wie der Nachtmodus.
+
+*Settings → Diagnose* zeigt unter `weatherServer`, was die Anlage meldet: die
+State-UUIDs, wie viele Einträge angekommen sind, den aktuellen Rohdatensatz mit
+seinen Werten, die Wetterlage-Texte und die Formatstrings.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
