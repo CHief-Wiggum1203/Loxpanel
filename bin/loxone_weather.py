@@ -27,14 +27,17 @@ from __future__ import annotations
 import logging
 import math
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import front_info
 
 log = logging.getLogger("loxpanel.wetter")
 
-# Loxone zaehlt Sekunden seit dem 01.01.2009, in der Ortszeit des Miniservers.
-LOX_EPOCH = datetime(2009, 1, 1)
+# Loxone zaehlt Sekunden seit dem 01.01.2009 in UTC. Belegt an einer Anlage in
+# Oesterreich (CEST): die Stundenwerte lagen durchgaengig 2 h vor der Ortszeit,
+# also genau um den UTC-Abstand. Umgerechnet wird je Eintrag einzeln, damit die
+# Sommerzeit-Umstellung mitten in der Vorhersage nicht verrutscht.
+LOX_EPOCH = datetime(2009, 1, 1, tzinfo=timezone.utc)
 
 # Toleranz der Plausibilitaetspruefung: liegt der aktuelle Messwert weiter weg,
 # stimmt an der Zeitrechnung etwas nicht und die Daten bleiben ungenutzt.
@@ -121,10 +124,15 @@ def _zahl(v):
 
 
 def _zeit(ts) -> datetime | None:
+    """Loxone-Zeitstempel -> Ortszeit ohne Zeitzonen-Angabe."""
     try:
-        return LOX_EPOCH + timedelta(seconds=int(ts))
-    except (TypeError, ValueError, OverflowError):
+        return (LOX_EPOCH + timedelta(seconds=int(ts))).astimezone().replace(tzinfo=None)
+    except (TypeError, ValueError, OverflowError, OSError):
         return None
+
+
+def _volle_stunde(t: datetime) -> datetime:
+    return t.replace(minute=0, second=0, microsecond=0)
 
 
 def weather_texts(cfg: dict) -> dict:
@@ -205,11 +213,23 @@ def build(cfg: dict, actual: list, forecast: list, *,
     cur = actual[0] if actual and isinstance(actual[0], dict) else None
     if cur is None:
         return None
-    t_jetzt = _zeit(cur.get("ts"))
-    if t_jetzt is None or not (now - MAX_RUECK <= t_jetzt <= now + MAX_RUECK):
-        log.warning("Wetterserver: Zeitstempel unplausibel (%s statt ~%s) — Open-Meteo bleibt",
-                    t_jetzt, now.replace(microsecond=0))
+    t_roh = _zeit(cur.get("ts"))
+    if t_roh is None:
         return None
+    # Der aktuelle Messwert IST "jetzt" — der Miniserver stempelt ihn auf die
+    # laufende Stunde. Bleibt danach ein voller Stundenversatz, rechnet diese
+    # Anlage in einer anderen Zeitzone als hier angenommen; der Abstand wird
+    # gemessen und auf alle Eintraege angewandt, statt ihn zu raten. Ohne das
+    # rutschen Stunden ueber die Tagesgrenze und "heute" bekommt fremde Werte.
+    versatz = _volle_stunde(now) - _volle_stunde(t_roh)
+    if abs(versatz) > MAX_RUECK:
+        log.warning("Wetterserver: Zeitstempel unplausibel (%s statt ~%s) — Open-Meteo bleibt",
+                    t_roh, now.replace(microsecond=0))
+        return None
+    if versatz:
+        log.info("Wetterserver: Zeitstempel um %+d h gegen die Ortszeit verschoben — wird ausgeglichen",
+                 round(versatz.total_seconds() / 3600))
+    t_jetzt = t_roh + versatz
 
     fmt = cfg.get("format") if isinstance(cfg.get("format"), dict) else {}
     # Temperatur wird als Grad Celsius gelesen; nur eine ausdrueckliche
@@ -231,7 +251,10 @@ def build(cfg: dict, actual: list, forecast: list, *,
         if not isinstance(e, dict):
             continue
         t = _zeit(e.get("ts"))
-        if t is None or not (now - MAX_RUECK <= t <= now + MAX_VOR):
+        if t is None:
+            continue
+        t += versatz
+        if not (now - MAX_RUECK <= t <= now + MAX_VOR):
             continue
         tage.setdefault(t.date(), []).append((t, e))
     if not tage:
@@ -244,8 +267,14 @@ def build(cfg: dict, actual: list, forecast: list, *,
     fore_days = max(1, min(7, int(fore_days or 4)))
     ab_heute = sorted(k for k in tage if k >= heute)[:fore_days]
     vorschau = []
+    t_cur = _zahl(cur.get("temp"))
     for d in ab_heute:
         temps = [x for x in (_zahl(e.get("temp")) for _t, e in tage[d]) if x is not None]
+        # Heute zaehlt der aktuelle Messwert mit: die Vorhersage beginnt bei der
+        # laufenden Stunde, ohne ihn kann das Tageshoch UNTER der jetzigen
+        # Temperatur liegen. Die Loxone-App rechnet genauso.
+        if d == heute and t_cur is not None:
+            temps.append(t_cur)
         vorschau.append({
             "day": front_info.day_label(d, heute),
             "icon": _tagesicon(tage[d], texte),
@@ -255,8 +284,12 @@ def build(cfg: dict, actual: list, forecast: list, *,
         })
 
     # Niederschlagssumme heute: mm/h mal Stundenabstand des jeweiligen Eintrags.
+    # Einheit des Niederschlags: "mm", "mm/h" oder — so fuehrt der Loxone-
+    # Wetterdienst ihn — "l/m²/h". 1 l/m² ist 1 mm, die Summe stimmt also in
+    # beiden Faellen; das Panel schreibt "mm".
+    p_unit = (_fmt_unit(fmt, "precip") or "").lower().replace(" ", "")
     precip_sum = None
-    if _fmt_unit(fmt, "precip") in ("mm", "l/m²", "l/m2"):
+    if p_unit.startswith("mm") or p_unit.startswith("l/m"):
         heute_eintraege = tage.get(heute) or []
         spannen = _spannen(heute_eintraege)
         summe = 0.0
@@ -267,7 +300,7 @@ def build(cfg: dict, actual: list, forecast: list, *,
         precip_sum = round(summe, 1)
 
     # Stundenverlauf ab der laufenden Stunde, hoechstens 24 Werte.
-    ab = now.replace(minute=0, second=0, microsecond=0)
+    ab = _volle_stunde(now)
     stunden = sorted((p for liste in tage.values() for p in liste if p[0] >= ab),
                      key=lambda p: p[0])[:24]
     hourly = [{"h": t.hour,
