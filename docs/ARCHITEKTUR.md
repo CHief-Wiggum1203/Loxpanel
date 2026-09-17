@@ -66,6 +66,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Neues Panel) |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, der Anker bleibt erhalten (`/settings#panels` → `/config#panels`) |
@@ -371,6 +372,13 @@ Globale Darstellung: `states` (Zustandsfarben), `categories` (Farbe je
 Kategorie, Teilstring-Match auf den Namen, entweder eine Farbe oder `{on, off}`),
 `ui` (wie oben, gilt für alle Panels). Panel-`ui` überschreibt Theme-`ui`.
 `_write_theme()` löscht `ui`-Keys, die nicht im Payload stehen.
+
+In `ui` steckt auch `baseColor`: die Grundfarbe des Panel-Themes. Steht sie da,
+leitet `theme_colors.derive()` daraus den ganzen Farbsatz ab — Hintergrund,
+Kachel, Leiste, Schrift, Zweitzeile, Icon- und Zustandsfarben — und
+`_theme_vars()` schickt ihn als CSS-Variablen mit. Ohne `baseColor` ändert sich
+nichts: jede Farbe in `panel.html` trägt ihren bisherigen Wert als Rückfall.
+Ausdrücklich gesetzte `states` schlagen die Herleitung.
 
 ---
 
