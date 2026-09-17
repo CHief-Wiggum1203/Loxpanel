@@ -486,6 +486,12 @@ class App:
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self._dirty = True
+        # Zuletzt an JEDE Verbindung zugestellte Nutzlast, je Art getrennt
+        # ({"view":…, "player":…, "energy":…}). Grundlage dafuer, unveraenderte
+        # Ansichten gar nicht erst zu senden. Eingetragen wird ausschliesslich
+        # NACH erfolgreichem Senden - ein abgebrochener Versuch darf nie als
+        # zugestellt gelten.
+        self._last_sent: dict = {}
         self.jwt: str | None = None
         self.alg: str = "SHA1"
         self.icon_session: aiohttp.ClientSession | None = None
@@ -3836,6 +3842,12 @@ class App:
             self._pending_reload = False
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "reload"})
+        if self._last_sent:
+            # Merkzettel von Verbindungen befreien, die es nicht mehr gibt.
+            # Selbstheilend, damit nicht an jeder der vier Stellen, die eine
+            # Verbindung schliessen, daran gedacht werden muss.
+            for _tot in [w for w in self._last_sent if w not in self.conn_route]:
+                del self._last_sent[_tot]
         if self._dirty and self.conn_route:
             self._dirty = False
             for ws, route in list(self.conn_route.items()):
@@ -3867,11 +3879,28 @@ class App:
                         energy_msg = {"t": "energy", **eb} if eb is not None else None
                     except Exception:
                         log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
-                if await self._send_or_drop(ws, msg):
-                    if player_msg is not None:
-                        await self._send_or_drop(ws, player_msg)
-                    if energy_msg is not None:
-                        await self._send_or_drop(ws, energy_msg)
+                # Nur senden, was sich seit der letzten Zustellung an DIESE
+                # Verbindung geaendert hat. Der Tick laeuft, sobald sich
+                # irgendein Wert im Haus bewegt — meist betrifft das die
+                # Ansicht dieses Panels gar nicht, und das Panel wuerde
+                # dieselbe Ansicht erneut bekommen und komplett neu zeichnen.
+                last = self._last_sent.setdefault(ws, {})
+                if msg != last.get("view"):
+                    if not await self._send_or_drop(ws, msg):
+                        self._last_sent.pop(ws, None)
+                        continue
+                    last["view"] = msg
+                if player_msg is not None and player_msg != last.get("player"):
+                    if await self._send_or_drop(ws, player_msg):
+                        last["player"] = player_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
+                if energy_msg is not None and energy_msg != last.get("energy"):
+                    if await self._send_or_drop(ws, energy_msg):
+                        last["energy"] = energy_msg
+                    else:
+                        self._last_sent.pop(ws, None)
 
     async def broadcaster(self) -> None:
         # Diese Schleife darf NIEMALS sterben — sonst bekommen ALLE Panels keine
@@ -4714,7 +4743,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "reloadHours": app.panel_reload(prof["id"]),
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
                         "agent": app._has_agent(dev)})
-    await ws.send_json(app.render(app.conn_route[ws], prof))
+    _first = app.render(app.conn_route[ws], prof)
+    await ws.send_json(_first)
+    app._last_sent.setdefault(ws, {})["view"] = _first
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.
     # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)
@@ -4740,6 +4771,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     view_msg = {"t": "view", "title": "Fehler", "route": route,
                                 "blocks": [{"k": "status", "text": "Diese Ansicht konnte nicht geladen werden."}]}
                 await ws.send_json(view_msg)
+                # Auch die Navigation sendet am Tick vorbei — eintragen, sonst
+                # schickt der naechste Tick dieselbe Ansicht ein zweites Mal.
+                app._last_sent.setdefault(ws, {})["view"] = view_msg
                 # Beim Oeffnen einer AudioZone / Musikauswahl die Zonen-Favoriten
                 # aktiv anfordern; das frische Ergebnis wird per broadcaster
                 # nachgereicht (roomfav/get befuellt den sourceList-State).
@@ -4764,7 +4798,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         pb = app.player_blocks(zone)
                         if pb is not None:
-                            await ws.send_json({"t": "player", "blocks": pb})
+                            _pm = {"t": "player", "blocks": pb}
+                            await ws.send_json(_pm)
+                            app._last_sent.setdefault(ws, {})["player"] = _pm
                     except Exception:
                         log.exception("player_blocks (setplayer) fehlgeschlagen (%s)", zone)
                 else:
@@ -4778,7 +4814,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         eb = app.energy_blocks(euid)
                         if eb is not None:
-                            await ws.send_json({"t": "energy", **eb})
+                            _em = {"t": "energy", **eb}
+                            await ws.send_json(_em)
+                            app._last_sent.setdefault(ws, {})["energy"] = _em
                     except Exception:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
