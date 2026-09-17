@@ -266,6 +266,20 @@ Weg der Miniserver-Daten:
    `front_info.fetch_weather()` liefert — das Panel merkt vom Quellenwechsel
    nichts.
 
+**Zeitstempel sind UTC.** Die Einträge zählen Sekunden seit dem 01.01.2009 in
+UTC, nicht in der Ortszeit des Miniservers — an einer Anlage in Österreich lagen
+die Stundenwerte durchgängig um den UTC-Abstand daneben. Umgerechnet wird je
+Eintrag einzeln (Sommerzeit). Zusätzlich gleicht `build()` einen verbleibenden
+vollen Stundenversatz selbst aus: der aktuelle Messwert **ist** „jetzt", der
+Abstand zur laufenden Stunde wird gemessen und auf alle Einträge angewandt.
+Damit stimmt die Zuordnung auch, wenn eine Anlage anders rechnet als hier
+angenommen. Ohne das rutschen Stunden über die Tagesgrenze und „heute" bekommt
+Werte von morgen früh.
+
+**Heute zählt der aktuelle Messwert mit.** Die Vorhersage beginnt bei der
+laufenden Stunde; ohne den aktuellen Wert kann das Tageshoch unter der jetzigen
+Temperatur liegen. Die Loxone-App rechnet genauso.
+
 Zwei Regeln, die das Modul trägt:
 
 * **Keine Wettercode-Tabelle im Code.** Die Nummern des Wetterdienstes sind je
@@ -276,7 +290,10 @@ Zwei Regeln, die das Modul trägt:
   geprüft, die Temperatur-Einheit gegen Fahrenheit, Wind und Luftdruck werden nur
   mit belegter Einheit angezeigt (m/s wird auf km/h gerechnet, die Einheit geht
   als `wind_unit` ans Panel). Scheitert eine dieser Prüfungen, gibt `build()`
-  `None` zurück und Open-Meteo übernimmt wieder.
+  `None` zurück und Open-Meteo übernimmt wieder. Die Einheit steht immer im
+  `format`-Block: die Loxone-App rendert dieselben States damit, Wert und
+  Formatstring passen also zwangsläufig zusammen — Niederschlag führt der Dienst
+  z.B. als `l/m²/h`, was 1:1 mm entspricht.
 
 Was der Wetterdienst nicht führt, bleibt leer: **Regenwahrscheinlichkeit** und
 **UV-Index** gibt es dort nicht (`solarRadiation` ist Einstrahlung in W/m²). Das
