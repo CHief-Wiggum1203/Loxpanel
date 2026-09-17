@@ -69,6 +69,33 @@ Merge-Commit nach `main`.
       [`CONTRIBUTING.md`](CONTRIBUTING.md), Spalte „Nur in den Fork"), damit
       ist der Punkt abgeschlossen. **M**
 
+### Offene Beiträge bei Lenardo1
+
+Stand 17.09.2026. Die Zweige liegen im Fork und sitzen jeweils als EIN Commit
+direkt auf `upstream/main`, damit GitHub Titel und Beschreibung selbst füllt.
+
+| PR | Inhalt | Zweig im Fork |
+|---|---|---|
+| [#13](https://github.com/Lenardo1/loxpanel/pull/13) | Struktur-Änderungen live übernehmen | `feat/live-structure-reload` |
+| [#15](https://github.com/Lenardo1/loxpanel/pull/15) | Kalender-Zeitzone + eingefrorene Statuszeilen | `fix/audit-folgefixes` |
+| [#19](https://github.com/Lenardo1/loxpanel/pull/19) | Nachtmodus (Dimmen + freier Auslöser) | `feat/night-mode` |
+| [#20](https://github.com/Lenardo1/loxpanel/pull/20) | Panel-Theme aus einer Grundfarbe | `feat/theme-base-color` |
+| [#21](https://github.com/Lenardo1/loxpanel/pull/21) | Nur senden, was sich geändert hat | `up/send-only-changes` |
+
+Fertig portiert und geprüft, aber bewusst noch **nicht** eingereicht — erst
+wenn der Stapel oben kleiner wird:
+
+- `up/tile-position-ring` — Positionsring auf der Kachel. Ohne die
+  Theme-Farben `--crit-fill`/`--crit-ink`, die zu #20 gehören.
+- `up/loxone-weather` — Wetter vom Loxone-Wetterserver. Ohne
+  `import theme_colors`, ohne Struktur-Refresh beim Reconnect, ohne die
+  Fork-Dokumente. **Überschneidung:** führt `self.global_states` ein, das
+  auch #19 einführt — wer zuerst gemergt wird, der andere braucht ein
+  triviales Rebase.
+
+Links zum Einreichen (GitHub füllt Titel und Text aus dem Commit):
+`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
+
 ## 1. Konfiguration vor Datenverlust schützen
 
 - [x] **Atomares Schreiben** von `loxpanel.cfg`, `panels.json`, `theme.json`:
