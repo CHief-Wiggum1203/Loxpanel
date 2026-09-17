@@ -147,6 +147,11 @@ def _dritte_rolle(screen: str, glow: str, good: str, muted: str, helle_schrift: 
     rotem Panelgrund geht der unter. Deshalb wird der Farbton gesucht statt
     gesetzt. Erst mit weitem Abstand, und nur wenn kein Farbton den schafft,
     mit dem Mindestabstand.
+
+    Geprueft wird gegen AA, nicht gegen die Grafik-Schwelle: dieselbe Farbe
+    traegt in panel.html die Fehlermeldung der PIN-Eingabe (.pinmsg, 13 px auf
+    .pinbox mit --screen) und den Sonntag im Kalender. Das ist normaler Text,
+    und der braucht 4,5:1, nicht 3:1.
     """
     kandidaten = ((4 / 360, 0.72), (330 / 360, 0.62), (272 / 360, 0.58), (198 / 360, 0.70))
     basis = 0.55 if helle_schrift else 0.45
@@ -155,7 +160,7 @@ def _dritte_rolle(screen: str, glow: str, good: str, muted: str, helle_schrift: 
         for farbton, saettigung in kandidaten:
             for schritt in range(101):
                 kandidat = _aus_hls(farbton, basis + richtung * schritt / 100, saettigung)
-                if kontrast(kandidat, screen) < GRAFIK or buntheit(kandidat) < BUNT_MIN:
+                if kontrast(kandidat, screen) < AA or buntheit(kandidat) < BUNT_MIN:
                     continue
                 # Auch gegen die Zweitzeile pruefen: im Energiefluss steht der
                 # Ring direkt ueber seinem Knotennamen, im Kalender der Sonntag

@@ -1070,17 +1070,34 @@ class App:
         # Zweitzeile, Icon- und Zustandsfarben. Ohne Grundfarbe bleibt v leer und
         # es aendert sich nichts gegenueber frueher.
         v = dict(theme_colors.derive(ui["baseColor"]) or {}) if ui.get("baseColor") else {}
-        # Ausdruecklich eingestellte Zustandsfarben schlagen die Herleitung, sonst
-        # wuerde eine einmal gewaehlte Farbe stillschweigend verschwinden.
-        for _var, _wert in (("--glow", states.get("active")), ("--good", states.get("good")),
-                            ("--crit", states.get("crit")), ("--warn", states.get("warn"))):
+        # Ausdruecklich eingestellte Zustandsfarben schlagen die Herleitung.
+        # Aber: "nicht gesetzt" gibt es bei states gar nicht - load_theme()
+        # fuellt sie immer aus DEFAULT_THEME, und theme.example.json liefert
+        # dieselben Werte. Als ausdrueckliche Wahl zaehlt deshalb nur ein Wert,
+        # der von der eingebauten Vorgabe abweicht. Sonst wuerden die alten
+        # Festfarben jedes hergeleitete Theme ueberschreiben und die ganze
+        # Nachrechnung in theme_colors.py waere fuer diese Rollen wirkungslos.
+        _hergeleitet = bool(v)
+        _vorgabe = DEFAULT_THEME["states"]
+
+        def _gewaehlt(key: str):
+            wert = states.get(key)
+            if not wert:
+                return None
+            if _hergeleitet and str(wert).strip().lower() == str(_vorgabe.get(key, "")).lower():
+                return None
+            return wert
+
+        for _var, _key in (("--glow", "active"), ("--good", "good"),
+                           ("--crit", "crit"), ("--warn", "warn")):
+            _wert = _gewaehlt(_key)
             if _wert:
                 v[_var] = _wert
-        if v.get("--accent") and states.get("good"):
+        if v.get("--accent") and _gewaehlt("good"):
             # Innerhalb eines Themes zieht der Akzent mit der OK-Farbe mit, damit
             # aktiver Tab, Energiefluss und Kalender nicht zurueckbleiben.
-            v["--accent"] = states["good"]
-            _rgb = _hex_rgb(states["good"])
+            v["--accent"] = _gewaehlt("good")
+            _rgb = _hex_rgb(_gewaehlt("good"))
             if _rgb:
                 v["--accent-rgb"] = _rgb
         v.update({
@@ -1092,7 +1109,7 @@ class App:
         # (Fuellung/Rahmen) die konfigurierte Farbe mit variabler Deckkraft nutzt.
         for skey, rvar in (("active", "--on-rgb"), ("good", "--good-rgb"),
                            ("crit", "--crit-rgb"), ("warn", "--warn-rgb")):
-            rgb = _hex_rgb(states.get(skey))
+            rgb = _hex_rgb(_gewaehlt(skey))
             if rgb:
                 v[rvar] = rgb
         # Aussehen des Aktiv-Overlays (global fuers Panel; pro Kachel ueberschreibbar).
@@ -3973,7 +3990,7 @@ async def api_meta(request: web.Request) -> web.Response:
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in ("iconSize", "nameSize", "subSize", "font",
-                                  "textColor", "bold", "lang")},
+                                  "textColor", "baseColor", "bold", "lang")},
                   "categories": {k: v for k, v in (app.theme.get("categories") or {}).items()
                                  if not str(k).startswith("_")}},
     })
