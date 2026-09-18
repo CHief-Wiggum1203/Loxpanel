@@ -346,6 +346,22 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation | Visu |
 | GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket | Visu |
 
+### Parameter an der Panel-URL
+
+Neben `?panel=<id>` und `?device=<name>` kennt `panel.html` zwei Regler, die
+das Gerät selbst merkt (`localStorage`) — gedacht zum Einstellen direkt am
+Wandpanel, ohne Konfigurator:
+
+| Parameter | Wirkung | Gemerkt als |
+|---|---|---|
+| `?x=-6` | Feinversatz der ganzen Visu nach links (`--nudge-x`) | `lp_nudge_x` |
+| `?ring=4` | Strichstärke des Positionsrings (`--posring-w`), 6 = Standard | `lp_posring_w` |
+
+Beide **schlagen die Konfiguration**: der Theme-Push setzt dieselben Variablen,
+danach greift `posringOverride()` erneut. Das ist gewollt — der Wert am Gerät
+gewinnt, sonst wäre der Live-Test beim nächsten Push weg. Ohne gemerkten Wert
+gilt wieder, was unter *Panel Configuration → Positionsring* eingestellt ist.
+
 Fehlend: `_apply_tile_style()` erzeugt URLs `/gicon?name=` und `/uicon?f=` für
 Google- und Custom-Icons (`:1598`, `:1601`), aber diese Routen sind nicht
 registriert. Im Konfigurator ist der entsprechende Reiter deaktiviert.
