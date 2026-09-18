@@ -14,3 +14,8 @@ services:
     volumes:
       # Persistiert panels.json, theme.json und loxpanel.cfg (Miniserver/Intercom).
       - REPLACELBPDATADIR/config:/app/config
+      # Loxone-Icon-Bibliothek (optional): die SVGs des LoxBerry-Plugins
+      # "loxoneicons" read-only einblenden -> der Kachel-Editor bietet die volle
+      # Bibliothek (~550 Icons). Ist das Plugin nicht installiert, bleibt der
+      # Ordner leer und die Icon-Quelle erscheint gar nicht.
+      - /opt/loxberry/data/plugins/loxoneicons/loxone_icons/svg/filled:/app/loxone-icons/filled:ro

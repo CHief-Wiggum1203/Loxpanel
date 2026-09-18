@@ -384,9 +384,14 @@
   .tabs{display:flex;border-top:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
   .tab{flex:1;display:grid;place-items:center;padding:13px 0;color:var(--muted);cursor:pointer;}
   .tab svg{width:28px;height:28px;}
-  .tab .tico{display:inline-block;width:28px;height:28px;background-color:currentColor;
+  /* Kategorie-Tab-Icon: Maskenfarbe DIREKT an die Theme-Variable haengen (nicht
+     an currentColor). Sonst loest die eingeschraenkte WebView (Shelly) currentColor
+     beim Farbschema-Wechsel nicht neu auf und das Icon bleibt an der Standardfarbe
+     haengen -> auf getoentem Theme kaum sichtbar. */
+  .tab .tico{display:inline-block;width:28px;height:28px;background-color:var(--muted);
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tab.active{color:var(--accent);}
+  .tab.active .tico{background-color:var(--accent);}
   .tab:active{transform:scale(.92);}
   /* Online-Punkt: nur auf den Haupt-Screens (Tabs), zentriert im 2x2-Raster */
   .conn{grid-row:1;grid-column:1;place-self:center;z-index:6;pointer-events:none;
@@ -659,6 +664,7 @@ let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -> 4)
 let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
 let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
+let _lastWide = null;   // zuletzt gerenderte Quer/Hoch-Entscheidung (fuer resize-Nachzug, s. render())
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 // Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"|"camera:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
@@ -1088,7 +1094,12 @@ function render(){
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
   const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera');
-  if(themeSplit && !_widget && window.innerWidth > window.innerHeight){ gridCols = profCols*2; gridRows = profRows; }
+  // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
+  // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
+  // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
+  // der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster wie beim Screensaver).
+  _lastWide = window.innerWidth > window.innerHeight;
+  if(themeSplit && !_widget && _lastWide){ gridCols = profCols*2; gridRows = profRows; }
   else { gridCols = profCols; gridRows = profRows; }
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
@@ -1242,7 +1253,17 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   // Bild kann nach dem Layout erst die richtige Groesse liefern -> nach Frame fitten
   requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
 }
-window.addEventListener('resize',()=>{ if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit(); });
+window.addEventListener('resize',()=>{
+  if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
+  // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
+  // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
+  if(saverOn()) applySaverSplit();
+  // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
+  // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
+  // Startmessung 4x2 haengenzubleiben.
+  if(view && !el('grid').classList.contains('scheme')
+     && (window.innerWidth > window.innerHeight) !== _lastWide) render();
+});
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
 let sx=null, sy=null;
@@ -1292,6 +1313,7 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
+      if(saverOn()) applySaverSplit();      // Split-Erlaubnis kann sich geaendert haben -> Screensaver-Spaltigkeit nachziehen
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
@@ -1652,11 +1674,20 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
-function showSaver(){ tickClock();
-  // Zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly X2) – gleiches
-  // Kriterium wie das Kachel-Grid (s. render()). Das quadratische 4"-Panel bleibt
-  // einspaltig (Wetter oben, Uhr, Termine untereinander), auch wenn Split erlaubt ist.
+// Screensaver zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly
+// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Das quadratische
+// 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine untereinander).
+// WICHTIG: Die Entscheidung haengt an der aktuellen Fenstergroesse, die beim
+// Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch (quer) sein kann,
+// bevor die echte 480x480-Flaeche steht. Darum gekapselt und bei jedem resize
+// neu getroffen – sonst bleibt die Anzeige in der beim Start zufaellig
+// gemessenen Spaltigkeit haengen (2-spaltig direkt nach dem Speichern, erst
+// spaeter wieder einspaltig).
+function applySaverSplit(){
   el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
+}
+function showSaver(){ tickClock();
+  applySaverSplit();
   el('saver').classList.remove('hidden'); }
 function hideSaver(){ el('saver').classList.add('hidden'); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.

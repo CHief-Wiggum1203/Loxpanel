@@ -1269,6 +1269,7 @@ function renderTileEditor(){
       '<div class="frow"><label class="lbl">Icon</label><div class="itabs">'+
         '<span class="itab on" data-src="builtin">Eingebaut</span>'+
         '<span class="itab" data-src="loxone">Loxone ('+(((META.icons||{}).loxone)||[]).length+')</span>'+
+        (((META.icons||{}).loxlib)?'<span class="itab" data-src="loxlib">'+T('Bibliothek')+' ('+META.icons.loxlib+')</span>':'')+
         '<span class="itab dis" title="folgt in Stufe 2/3">Google · Upload</span></div></div>'+
       '<div class="ipick" id="ipick"></div>'+
       '<div class="frow" style="margin-top:8px"><label class="lbl">Aktiv-Overlay</label>'+
@@ -1322,6 +1323,7 @@ function drawPrev(){
   const col=ov.iconColor||'var(--accent)', ic=ov.icon; let ih;
   if(ic&&ic.src==='builtin') ih='<span class="pico" style="color:'+col+'">'+svg(BICONS[ic.id]||BICONS.info)+'</span>';
   else if(ic&&ic.src==='loxone') ih='<span class="pico img" style="--u:url(\'/icon?p='+encodeURIComponent(ic.p)+'\');background:'+col+'"></span>';
+  else if(ic&&ic.src==='loxlib') ih='<span class="pico img" style="--u:url(\'/loxlib?n='+encodeURIComponent(ic.name)+'\');background:'+col+'"></span>';
   else if(c.iconUrl) ih='<span class="pico img" style="--u:url(\''+esc(c.iconUrl)+'\');background:'+col+'"></span>';
   else ih='<span class="pico" style="color:'+col+'">'+svg(BICONS.info)+'</span>';
   el.innerHTML=ih+'<div class="pnm"'+nst+'>'+esc(c.name||'')+'</div>';
@@ -1343,7 +1345,38 @@ function renderIconPick(src){
       b.innerHTML='<span class="loxi" style="--u:url(\'/icon?p='+encodeURIComponent(p)+'\')"></span>';
       b.onclick=()=>{ setTileIcon({src:'loxone',p}); renderIconPick(src); }; box.appendChild(b);
     });
+  } else if(src==='loxlib'){
+    // Loxone-Bibliothek (LoxoneIcons-Plugin, ~550 SVGs): lazy laden + Suchfeld,
+    // damit nicht hunderte Icons auf einmal geladen werden.
+    const f=document.createElement('input'); f.type='search';
+    f.placeholder=T('Suchen… z. B. light, blind, alarm'); f.value=loxlibFilter;
+    f.style.cssText='grid-column:1/-1;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--fg);font-size:13px';
+    f.oninput=()=>{ loxlibFilter=f.value; paintLoxlib(box); };
+    box.appendChild(f);
+    loadLoxlib(()=>{ if(document.body.contains(box)) paintLoxlib(box); });
   }
+}
+let LOXLIB=null, loxlibFilter='';
+function loadLoxlib(cb){
+  if(LOXLIB!==null){ cb(); return; }
+  fetch('/api/loxicons').then(r=>r.json()).then(j=>{ LOXLIB=(j&&j.icons)||[]; cb(); }).catch(()=>{ LOXLIB=[]; cb(); });
+}
+function paintLoxlib(box){
+  box.querySelectorAll('.iopt:not(.clear),.lxnote').forEach(n=>n.remove());
+  const cic=((PANELS[cur].tiles||{})[tileSel]||{}).icon||{};
+  const q=(loxlibFilter||'').trim().toLowerCase();
+  const all=LOXLIB||[];
+  const list=q?all.filter(n=>n.toLowerCase().indexOf(q)>=0):all;
+  list.slice(0,300).forEach(n=>{
+    const b=document.createElement('span'); b.className='iopt'+(cic.src==='loxlib'&&cic.name===n?' sel':''); b.title=n;
+    b.innerHTML='<span class="loxi" style="--u:url(\'/loxlib?n='+encodeURIComponent(n)+'\')"></span>';
+    b.onclick=()=>{ setTileIcon({src:'loxlib',name:n}); paintLoxlib(box); }; box.appendChild(b);
+  });
+  const note=t=>{ const m=document.createElement('div'); m.className='lxnote';
+    m.style.cssText='grid-column:1/-1;color:var(--muted);font-size:12px;padding:2px'; m.textContent=t; box.appendChild(m); };
+  if(!all.length) note(T('Keine Loxone-Bibliothek gefunden — LoxoneIcons-Plugin installiert und gemountet?'));
+  else if(list.length>300) note((list.length-300)+' '+T('weitere — Suche eingrenzen'));
+  else if(!list.length) note(T('Nichts gefunden.'));
 }
 
 $('#addBtn').onclick=()=>{
