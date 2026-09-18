@@ -394,6 +394,7 @@
   /* Tabs */
   .tabs{display:flex;border-top:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
   .tab{flex:1;display:grid;place-items:center;padding:13px 0;color:var(--muted);cursor:pointer;}
+  .tabspacer{flex:1;pointer-events:none;}   /* leere Zelle, haelt den Zurueck-Button mittig */
   .tab svg{width:28px;height:28px;}
   /* Kategorie-Tab-Icon: Maskenfarbe DIREKT an die Theme-Variable haengen (nicht
      an currentColor). Sonst loest die eingeschraenkte WebView (Shelly) currentColor
@@ -999,14 +1000,21 @@ function renderTabs(){
   // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
   const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
            : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+  const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
   let items;
   if(ct){
-    items = ct.map(c => {
+    const tabsHtml = ct.map(c => {
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
         : svg('<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>');
       return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
     });
+    // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
+    // fehlende Zelle rechts mit einem leeren Spacer auffuellen, damit beide
+    // Seiten gleich breit sind (1->links, 2->je einer, 3->2+1, 4->symmetrisch).
+    const N=tabsHtml.length, leftN=Math.ceil(N/2), pad=leftN-(N-leftN);
+    items = tabsHtml.slice(0,leftN).concat([backHtml]).concat(tabsHtml.slice(leftN));
+    for(let s=0;s<pad;s++) items.push('<div class="tabspacer" aria-hidden="true"></div>');
   } else {
     const at = activeTab();
     items = tabsCfg.map(tk => {
@@ -1024,9 +1032,8 @@ function renderTabs(){
         : svg(fallback);
       return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m.label||'')+'">'+ico+'</div>';
     }).filter(Boolean);
+    items.splice(Math.floor(items.length/2), 0, backHtml);
   }
-  const mid = Math.floor(items.length/2);
-  items.splice(mid, 0, '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>');
   el('tabs').innerHTML = items.join('');
   if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>scrollToCat(n.dataset.cat));
   else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
