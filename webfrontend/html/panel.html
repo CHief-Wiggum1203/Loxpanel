@@ -171,13 +171,6 @@
   .grid.snapy{scroll-snap-type:y mandatory;scroll-padding-top:10px;}
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
-  /* Raum-Panel: nach Kategorie gruppierte, frei scrollbare Liste (kein Vierer-
-     Snap). Kacheln behalten normale Hoehe, dazwischen kleine Kategorie-Trenner;
-     die untere Leiste zeigt die Kategorien als Scroll-Tabs (s. renderTabs). */
-  .grid.catrooms{grid-auto-rows:minmax(96px,auto);align-content:start;scroll-snap-type:none;}
-  .catdiv{grid-column:1/-1;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--muted);padding:8px 4px 3px;border-bottom:1px solid var(--line);scroll-margin-top:8px;}
-  .catdiv:first-child{padding-top:2px;}
   .tile{background:linear-gradient(180deg,var(--tile),rgba(var(--wash,255,255,255),.015));
     border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:16px;padding:16px;
     display:flex;flex-direction:column;justify-content:space-between;
@@ -883,7 +876,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme','catrooms');
+  el('grid').classList.remove('list','snapy','scheme');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
@@ -1033,9 +1026,9 @@ function renderTabs(){
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
 }
-// Raum-Panel: zur ersten Kachel einer Kategorie scrollen (Trenner ist der Anker).
+// Raum-Panel: zur ersten Kachel einer Kategorie scrollen (Anker = die Kachel).
 function scrollToCat(key){
-  const d = el('grid').querySelector('.catdiv[data-cat="'+key+'"]');
+  const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
   if(d) d.scrollIntoView({behavior:'smooth', block:'start'});
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
@@ -1179,10 +1172,6 @@ function render(){
   el('conn').classList.toggle('vis', !!(view.route && view.route.view==='tab'));
   el('grid').classList.remove('panel','bigpage','anchorbot','scheme');
   el('grid').classList.toggle('list', view.layout==='list');
-  // Raum-Panel: nach Kategorie gruppierte, frei scrollbare Liste mit Trennern
-  // (untere Leiste = Kategorie-Tabs, s. renderTabs). Kein hartes Vierer-Snap.
-  const isRoomCat = Array.isArray(view.catTabs) && view.catTabs.length>0;
-  el('grid').classList.toggle('catrooms', isRoomCat);
   const items = view.items || [];
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
@@ -1190,7 +1179,6 @@ function render(){
   let _i=-1;
   for(const it of items){
     _i++;
-    if(it.catHead) html += '<div class="catdiv" data-cat="'+esc(it.catKey||'')+'">'+esc(it.catHead)+'</div>';
     const icoHtml = it.iconImg
       ? '<span class="ico"><img class="rawico" src="'+esc(it.iconImg)+'" alt=""></span>'
       : it.iconUrl
@@ -1220,7 +1208,7 @@ function render(){
     if(ts.italic) nsv.push('font-style:italic');
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
-    html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+st+'>'+
+    html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+icoCell+chev+'</div>'+
               '<div class="body">'+
               (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+

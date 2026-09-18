@@ -2736,11 +2736,11 @@ class App:
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == ru and self._cat_ok(u, prof) and self._shown(u, prof)]
             # Raum-Panel: nach Kategorie gruppieren, damit die untere Leiste die
-            # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zu den
-            # jeweiligen Bausteinen scrollt. Die erste Kachel jeder Gruppe traegt
-            # catHead (Trenner-Text) + catKey (Scroll-Anker). Reihenfolge =
-            # cats_with (wie im Kategorien-Tab); Bausteine ohne bekannte Kategorie
-            # kommen ohne Ueberschrift ans Ende. Tabs: die ersten 4 Kategorien.
+            # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zur
+            # jeweiligen Kachel-Gruppe scrollt (keine Ueberschriften, Kacheln
+            # bleiben normal 2x2). Die erste Kachel jeder Gruppe traegt catKey als
+            # Scroll-Anker. Reihenfolge = cats_with; Bausteine ohne bekannte
+            # Kategorie kommen ans Ende. Tabs: die ersten 4 Kategorien.
             by_cat: dict = {}
             for u in uuids:
                 cu = self.controls[u].get("cat")
@@ -2752,8 +2752,7 @@ class App:
                 for j, u in enumerate(by_cat[cu]):
                     it = self._control_item(u, prof)
                     if j == 0:
-                        it["catHead"] = label
-                        it["catKey"] = cu
+                        it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
                     items.append(it)
                 if len(cat_tabs) < 4:
                     cat_tabs.append({"key": cu, "label": label,
