@@ -2735,10 +2735,35 @@ class App:
             ru = tab[5:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == ru and self._cat_ok(u, prof) and self._shown(u, prof)]
-            items = [self._control_item(u, prof) for u in uuids]
+            # Raum-Panel: nach Kategorie gruppieren, damit die untere Leiste die
+            # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zu den
+            # jeweiligen Bausteinen scrollt. Die erste Kachel jeder Gruppe traegt
+            # catHead (Trenner-Text) + catKey (Scroll-Anker). Reihenfolge =
+            # cats_with (wie im Kategorien-Tab); Bausteine ohne bekannte Kategorie
+            # kommen ohne Ueberschrift ans Ende. Tabs: die ersten 4 Kategorien.
+            by_cat: dict = {}
+            for u in uuids:
+                cu = self.controls[u].get("cat")
+                by_cat.setdefault(cu if cu in self.cats else None, []).append(u)
+            items = []
+            cat_tabs = []
+            for cu in [c for c in self.cats_with if c in by_cat]:
+                label = _clean(self.cats.get(cu, {}).get("name")) or "Kategorie"
+                for j, u in enumerate(by_cat[cu]):
+                    it = self._control_item(u, prof)
+                    if j == 0:
+                        it["catHead"] = label
+                        it["catKey"] = cu
+                    items.append(it)
+                if len(cat_tabs) < 4:
+                    cat_tabs.append({"key": cu, "label": label,
+                                     "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""})
+            for u in by_cat.get(None, []):
+                items.append(self._control_item(u, prof))
             title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"
             return {"t": "view", "title": title, "tab": tab,
-                    "route": {"view": "tab", "tab": tab}, "items": items}
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    "catTabs": cat_tabs}
         if tab == "favoriten":
             uuids = [u for u, c in self.controls.items()
                      if c.get("isFavorite") and self._room_ok(u, prof) and self._shown(u, prof)]
