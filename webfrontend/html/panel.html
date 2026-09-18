@@ -986,12 +986,19 @@ function updatePanel(blocks){
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
+// Raum-Panel-Kontext: der (einzige) Profil-Tab ist ein Raum. Dann bleiben in
+// ALLEN Ansichten (auch Detail) die Kategorie-Tabs + mittiger Zurueck-Button
+// unten stehen. roomCatTabs merkt sie sich fuer Ansichten ohne eigene catTabs.
+function isRoomPanel(){ return tabsCfg.length===1 && String(tabsCfg[0]||'').indexOf('room:')===0; }
+let roomCatTabs=null, pendingCatScroll=null;
 
 function renderTabs(){
   // Raum-Panel: die untere Leiste zeigt die im Raum vorkommenden Kategorien
   // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
   // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
-  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs : null;
+  // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
+  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
+           : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
   let items;
   if(ct){
     items = ct.map(c => {
@@ -1026,10 +1033,14 @@ function renderTabs(){
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
 }
-// Raum-Panel: zur ersten Kachel einer Kategorie scrollen (Anker = die Kachel).
+// Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
+// Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
+// nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
 function scrollToCat(key){
   const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
-  if(d) d.scrollIntoView({behavior:'smooth', block:'start'});
+  if(d){ d.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+  pendingCatScroll = key;
+  const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
 // Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>".
@@ -1232,7 +1243,11 @@ function render(){
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
+  if(view.catTabs && view.catTabs.length) roomCatTabs = view.catTabs;   // fuer Detailansichten merken
   renderTabs();
+  // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
+  if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
+    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
 }
 
 // ---- Anlagenschema (SystemScheme) ----

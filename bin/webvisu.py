@@ -1265,6 +1265,7 @@ class App:
             "cats": self._resolve_ids(prof.get("cats"), self.cats),
             "vars": self._theme_vars(states, ui),
             "tiles": prof.get("tiles") or {},
+            "roomCats": [c for c in (prof.get("roomCats") or []) if isinstance(c, str)],
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
@@ -1782,6 +1783,11 @@ class App:
             e["tabs"] = tabs or list(VALID_TABS)
             e["rooms"] = [str(x) for x in (p.get("rooms") or []) if isinstance(x, str)]
             e["cats"] = [str(x) for x in (p.get("cats") or []) if isinstance(x, str)]
+            # Raum-Panel: welche Kategorien des Raums als untere Tabs dienen
+            # (max 4). Leer/fehlt = automatisch (erste 4 im Raum).
+            rc = [str(x) for x in (p.get("roomCats") or []) if isinstance(x, str)][:4]
+            if rc:
+                e["roomCats"] = rc
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
@@ -2745,18 +2751,26 @@ class App:
             for u in uuids:
                 cu = self.controls[u].get("cat")
                 by_cat.setdefault(cu if cu in self.cats else None, []).append(u)
+            present = [c for c in self.cats_with if c in by_cat]
+            # Gewaehlte Tab-Kategorien (Config) vor die uebrigen; leer = automatisch.
+            chosen = [c for c in (prof.get("roomCats") or []) if c in by_cat] if prof else []
+            if chosen:
+                order = chosen + [c for c in present if c not in chosen]
+                tab_cats = chosen[:4]
+            else:
+                order = present
+                tab_cats = present[:4]
             items = []
-            cat_tabs = []
-            for cu in [c for c in self.cats_with if c in by_cat]:
-                label = _clean(self.cats.get(cu, {}).get("name")) or "Kategorie"
+            for cu in order:
                 for j, u in enumerate(by_cat[cu]):
                     it = self._control_item(u, prof)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
                     items.append(it)
-                if len(cat_tabs) < 4:
-                    cat_tabs.append({"key": cu, "label": label,
-                                     "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""})
+            cat_tabs = [{"key": cu,
+                         "label": _clean(self.cats.get(cu, {}).get("name")) or "Kategorie",
+                         "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""}
+                        for cu in tab_cats]
             for u in by_cat.get(None, []):
                 items.append(self._control_item(u, prof))
             title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"

@@ -994,7 +994,11 @@ function renderEditor(){
      '<div id="tabRoom">'+
        '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
        '<div class="field" style="max-width:340px"><label class="lbl">'+T('Dieser Raum')+'</label>'+
-         '<select id="tabRoomSel"></select></div></div>'+
+         '<select id="tabRoomSel"></select></div>'+
+       '<div class="field" style="max-width:none" id="tabRoomCatWrap"><label class="lbl">'+T('Kategorie-Tabs (unten)')+
+           '<button class="minibtn" id="tabRoomAuto" style="margin-left:8px">'+T('Automatisch')+'</button></label>'+
+         '<div class="chips" id="tabRoomCats"></div>'+
+         '<div class="hint" style="padding-top:4px">'+T('Bis zu 4 Kategorien als untere Tabs. Vorausgewählt sind die ersten im Raum — du kannst sie ändern. „Automatisch" folgt wieder dem Rauminhalt.')+'</div></div></div>'+
      '<div id="tabClassic">'+
        '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
          '<span id="tabcount"></span></p>'+
@@ -1258,9 +1262,38 @@ function renderTabMode(p){
     const curRoom=isRoom?p.tabs[0]:'';
     sel.innerHTML=(rooms.length?'':'<option value="">'+T('Keine Räume')+'</option>')+
       rooms.map(r=>'<option value="'+esc(r.tab)+'"'+(r.tab===curRoom?' selected':'')+'>'+esc(r.label)+'</option>').join('');
-    sel.onchange=()=>{ if(sel.value){ p.tabs=[sel.value]; markDirty(); renderTabMode(p); renderPanes(p); } };
+    // Raumwechsel -> die Kategorie-Auswahl gilt nur fuer den alten Raum, zurueck auf Auto.
+    sel.onchange=()=>{ if(sel.value){ p.tabs=[sel.value]; delete p.roomCats; markDirty(); renderTabMode(p); renderPanes(p); } };
   }
-  if(!isRoom) renderChips(p);
+  if(isRoom) renderRoomCats(p);
+  else renderChips(p);
+}
+// Kategorien, die es im gewaehlten Raum gibt (Reihenfolge = META.cats = cats_with).
+function roomCatList(roomTab){
+  const ru=String(roomTab||'').slice(5);
+  return (META.cats||[]).filter(cat=>(META.controls||[]).some(c=>c.room===ru && c.cat===cat.uuid));
+}
+// Auswahl der unteren Kategorie-Tabs im Raum-Panel: die Auto-4 sind vorgewaehlt,
+// aenderbar (max 4). Ohne eigene Auswahl bleibt p.roomCats leer = automatisch.
+function renderRoomCats(p){
+  const box=$('#tabRoomCats'); if(!box) return;
+  const cats=roomCatList((p.tabs&&p.tabs[0])||'');
+  const auto=cats.slice(0,4).map(c=>c.uuid);
+  const isAuto=!(Array.isArray(p.roomCats)&&p.roomCats.length);
+  const sel=isAuto?auto:p.roomCats, selSet=new Set(sel), full=sel.length>=4;
+  box.innerHTML = cats.length
+    ? cats.map(c=>{ const on=selSet.has(c.uuid);
+        return '<div class="chip'+(on?' on':'')+(!on&&full?' dis':'')+'" data-rc="'+esc(c.uuid)+'">'+esc(c.name)+'</div>'; }).join('')
+    : '<span class="ccmut">'+T('Keine Kategorien im Raum')+'</span>';
+  box.querySelectorAll('.chip[data-rc]').forEach(n=>n.onclick=()=>{
+    let cur=(Array.isArray(p.roomCats)&&p.roomCats.length)?p.roomCats.slice():auto.slice();
+    const id=n.dataset.rc, i=cur.indexOf(id);
+    if(i>-1) cur.splice(i,1); else { if(cur.length>=4) return; cur.push(id); }
+    if(cur.length) p.roomCats=cur; else delete p.roomCats;
+    markDirty(); renderRoomCats(p);
+  });
+  const a=$('#tabRoomAuto'); if(a){ a.style.visibility=isAuto?'hidden':'visible';
+    a.onclick=()=>{ delete p.roomCats; markDirty(); renderRoomCats(p); }; }
 }
 function defaultTabs(){ return (META.tabs||[]).filter(t=>!t.cat&&!t.room).slice(0,4).map(t=>t.tab); }
 function firstTabIndex(p){ return 0; }   // Startseite = erster Tab der Leiste
