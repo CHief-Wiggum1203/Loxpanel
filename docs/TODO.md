@@ -399,6 +399,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Server `up`/`down` für die Detailansicht längst liest. Sie zeigt jetzt
       „▲ fährt … 40% zu". **M**
 
+      *Upstream angenommen* als PR #30. Lenardo hatte den eingefrorenen Ring
+      unabhängig selbst gefunden (`updateTileRing()`) und die Strichstärke als
+      Live-Regler `?ring=` gebaut; beim Zusammenführen hat seine Benennung
+      gewonnen — die CSS-Variablen heißen `--posring-w`/`--posring-op`/
+      `--posring-trk`, die Schlüssel in `panels.json` unverändert
+      `rw`/`ring`/`rtrk`. Sein `?ring=` schlägt die Konfiguration
+      (`posringOverride()` greift nach dem Theme-Push erneut).
+
 - [ ] **Bedientasten auf der Kachel: erst den Auslöser reparieren.** Auf/Ab
       direkt auf der Beschattungs-Kachel wäre über die vorhandene
       `controls`-Mechanik des Audioplayers billig zu haben, ist aber bewusst
