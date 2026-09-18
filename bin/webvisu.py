@@ -2316,25 +2316,24 @@ class App:
             s = c.get("states") or {}
             up_move = bool(self.states.get(s.get("up")))
             down_move = bool(self.states.get(s.get("down")))
-            moving = up_move or down_move
             sub = r["label"]
             if up_move:
                 sub = "▲ fährt … " + sub
             elif down_move:
                 sub = "▼ fährt … " + sub
-            ua = c.get("uuidAction")
-            # Auf/Ab direkt auf der Kachel, wie die Transporttasten am Player:
-            # spart den Umweg ueber die Detailansicht. Semantik wie dort - waehrend
-            # der Fahrt haelt ein Tipp an, die fahrende Richtung zeigt das
-            # Stop-Zeichen (so wie der Player play/pause tauscht).
+            # BEWUSST KEINE Auf/Ab-Tasten auf der Kachel, obwohl die controls-
+            # Mechanik des Audioplayers sie hergeben wuerde: deren Tasten loesen
+            # per pointerdown schon beim AUFSETZEN des Fingers aus und schlucken
+            # dabei die Wischgeste (panel.html, Bindung der .tctrls .tb). Das
+            # Kachelraster scrollt; ein Wischer, der auf so einer Taste beginnt,
+            # wuerde die Beschattung losfahren lassen statt zu scrollen. Beim
+            # Player kostet das einen Titel, hier eine halbe Minute Fahrt. Die
+            # Kachel selbst reagiert dagegen erst auf einen echten Klick.
+            # Bedient wird die Beschattung in der Detailansicht, die ohnehin mehr
+            # bietet als auf eine Kachel passt: Auf/Ab, Ganz Auf/Ganz Ab und
+            # Beschatten, dazu Automatikstatus und Stellung im Klartext.
             it.update(on=r["on"], sublabel=sub, icon="blind",
-                      nav={"view": "control", "id": uuid},
-                      controls=[
-                          {"icon": "stop" if up_move else "up",
-                           "cmd": {"uuid": ua, "cmd": "Stop" if moving else "Up"}},
-                          {"icon": "stop" if down_move else "down",
-                           "cmd": {"uuid": ua, "cmd": "Stop" if moving else "Down"}},
-                      ])
+                      nav={"view": "control", "id": uuid})
             _p = _pos_pct(r.get("pct"))
             if _p is not None:
                 it["pos"] = _p

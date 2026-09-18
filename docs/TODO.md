@@ -397,8 +397,22 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       im vorhandenen `overlay`-Dict regelbar, Defaults = die alten Hartwerte.
       *(c)* Die Kachel kannte nur die Stellung, nicht die Fahrt, obwohl der
       Server `up`/`down` für die Detailansicht längst liest. Sie zeigt jetzt
-      „▲ fährt … 40% zu" und trägt Auf/Ab als Tasten wie der Audioplayer —
-      das spart bei jeder Bedienung den Umweg über die Detailansicht. **M**
+      „▲ fährt … 40% zu". **M**
+
+- [ ] **Bedientasten auf der Kachel: erst den Auslöser reparieren.** Auf/Ab
+      direkt auf der Beschattungs-Kachel wäre über die vorhandene
+      `controls`-Mechanik des Audioplayers billig zu haben, ist aber bewusst
+      NICHT gebaut: die Tasten lösen per `pointerdown` schon beim Aufsetzen
+      des Fingers aus und schlucken dabei die Wischgeste. Das Kachelraster
+      scrollt (`.grid{overflow-y:auto}`) — ein Wischer, der auf so einer
+      Taste beginnt, ließe die Beschattung losfahren statt zu scrollen.
+      Gemessen: ein blankes `pointerdown` sendet `{"t":"cmd","cmd":"Up"}` und
+      setzt `defaultPrevented`. Beim Player kostet das einen Titel, bei einer
+      Jalousie eine halbe Minute Fahrt. Die Kachel selbst hat das Problem
+      nicht, sie wartet auf einen echten Klick. Vorbedingung für Tasten auf
+      Kacheln ist also, `.tctrls .tb` auf eine echte Tippgeste umzustellen
+      (Aufsetzen und Loslassen ohne nennenswerte Bewegung) — das nützt dem
+      Player gleich mit. **S**
 
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
