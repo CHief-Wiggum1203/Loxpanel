@@ -381,6 +381,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ## 9. Weitere Funktionen
 
+- [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
+      Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
+      dem Aufwecken direkt in diesem Raum stehen, ohne vorher Raum oder
+      Kategorie zu waehlen. Umgesetzt als Gegenstueck zum vorhandenen
+      Kategorie-Direkt-Tab: `room:<uuid>` in `_is_tab()`, `_view_tab()` und
+      `_tab_meta()`, in der Tab-Auswahl der Konfiguration angeboten. Am
+      Aufwach-Verhalten war nichts zu aendern — es haengt am ersten Tab
+      (`conn_route` beim Verbinden, `resetIdle()` nach 60 s Leerlauf). **S**
+
 - [x] **Front: Kalender + Wetter auf dem Screensaver.** Neu `bin/front_info.py`
       (eigenständig, keine Fremdabhängigkeit): iCal-Abo laden und parsen
       (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von
