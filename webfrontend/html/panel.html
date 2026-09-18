@@ -195,11 +195,11 @@
   .tile .posring{position:absolute;left:50%;top:50%;pointer-events:none;
     width:calc(var(--ico-size,38px) + 18px);height:calc(var(--ico-size,38px) + 18px);
     transform:translate(-50%,-50%);}
-  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--ring-w,6);}
-  .tile .posring .trk{opacity:var(--ring-trk,.18);}
+  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--posring-w,6);}
+  .tile .posring .trk{opacity:var(--posring-trk,.18);}
   /* Der Uebergang laesst den Bogen der Fahrt FOLGEN statt in 1-%-Stufen zu
      springen - keine Dauer-Animation: im Stand steht er absolut still. */
-  .tile .posring .val{stroke-linecap:round;opacity:var(--ring-op,1);
+  .tile .posring .val{stroke-linecap:round;opacity:var(--posring-op,1);
     transition:stroke-dasharray .4s linear;}
   @media (prefers-reduced-motion:reduce){ .tile .posring .val{transition:none;} }
   .favs{display:flex;gap:10px;overflow-x:auto;padding:6px 2px;-webkit-overflow-scrolling:touch;}
@@ -221,8 +221,15 @@
   .favc img{width:100%;height:100%;object-fit:cover;}
   .favc svg{width:34px;height:34px;}
   .favn{font-size:12px;margin-top:5px;line-height:1.15;max-height:2.4em;overflow:hidden;}
-  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:currentColor;
+  /* Maskiertes Kachel-Icon: Fuellfarbe DIREKT aus der Icon-/Theme-Variable statt
+     ueber currentColor. Sonst bricht die eingeschraenkte Panel-WebView, sobald
+     eine eigene Icon-Farbe (--ico inline) gesetzt ist -> Icon bleibt leer.
+     Die Zustaende spiegeln die Farbregeln von .tile .ico (on/good/crit). */
+  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:var(--ico,var(--muted));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .tile.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .tile.good .ico.img{background-color:var(--good);}
+  .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
   .tile .chev svg{width:20px;height:20px;}
   .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:500;letter-spacing:.02em;text-transform:uppercase;
@@ -979,30 +986,61 @@ function updatePanel(blocks){
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
+// Raum-Panel-Kontext: der (einzige) Profil-Tab ist ein Raum. Dann bleiben in
+// ALLEN Ansichten (auch Detail) die Kategorie-Tabs + mittiger Zurueck-Button
+// unten stehen. roomCatTabs merkt sie sich fuer Ansichten ohne eigene catTabs.
+function isRoomPanel(){ return tabsCfg.length===1 && String(tabsCfg[0]||'').indexOf('room:')===0; }
+let roomCatTabs=null, pendingCatScroll=null;
 
 function renderTabs(){
-  const at = activeTab();
-  const items = tabsCfg.map(tk => {
-    const cls = 'tab'+(tk===at?' active':'');
-    const t = TABS.find(x => x.tab===tk);
-    if(t) return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(t.label)+'">'+svg(t.icon)+'</div>';
-    const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
-    // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
-    // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
-    const fallback = tk.indexOf('room:')===0
-      ? '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'
-      : '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>';
-    const ico = m.iconUrl
-      ? '<span class="tico" style="--u:url(\''+esc(m.iconUrl)+'\')"></span>'
-      : svg(fallback);
-    return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m.label||'')+'">'+ico+'</div>';
-  }).filter(Boolean);
+  // Raum-Panel: die untere Leiste zeigt die im Raum vorkommenden Kategorien
+  // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
+  // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
+  // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
+  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
+           : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+  let items;
+  if(ct){
+    items = ct.map(c => {
+      const ico = c.iconUrl
+        ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
+        : svg('<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>');
+      return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
+    });
+  } else {
+    const at = activeTab();
+    items = tabsCfg.map(tk => {
+      const cls = 'tab'+(tk===at?' active':'');
+      const t = TABS.find(x => x.tab===tk);
+      if(t) return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(t.label)+'">'+svg(t.icon)+'</div>';
+      const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
+      // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
+      // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
+      const fallback = tk.indexOf('room:')===0
+        ? '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'
+        : '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>';
+      const ico = m.iconUrl
+        ? '<span class="tico" style="--u:url(\''+esc(m.iconUrl)+'\')"></span>'
+        : svg(fallback);
+      return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m.label||'')+'">'+ico+'</div>';
+    }).filter(Boolean);
+  }
   const mid = Math.floor(items.length/2);
   items.splice(mid, 0, '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>');
   el('tabs').innerHTML = items.join('');
-  el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
+  if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>scrollToCat(n.dataset.cat));
+  else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
+}
+// Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
+// Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
+// nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
+function scrollToCat(key){
+  const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
+  if(d){ d.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+  pendingCatScroll = key;
+  const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
 // Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>".
@@ -1057,9 +1095,9 @@ function tileVarStyle(it){
   if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
   if(ts.tileBord!=null) sv.push('--tile-bord:'+ts.tileBord);
   if(ts.tileBw!=null) sv.push('--tile-bw:'+ts.tileBw+'px');
-  if(ts.ringOp!=null) sv.push('--ring-op:'+ts.ringOp);
-  if(ts.ringTrk!=null) sv.push('--ring-trk:'+ts.ringTrk);
-  if(ts.ringW!=null) sv.push('--ring-w:'+ts.ringW);
+  if(ts.ringOp!=null) sv.push('--posring-op:'+ts.ringOp);
+  if(ts.ringTrk!=null) sv.push('--posring-trk:'+ts.ringTrk);
+  if(ts.ringW!=null) sv.push('--posring-w:'+ts.ringW);
   return sv.join(';');
 }
 function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':'')); }
@@ -1076,18 +1114,32 @@ function ringDash(posv){ return (posv/100*RING_U).toFixed(2)+' '+RING_U; }
 // veraenderlichen Teile (Zustand/Farben/Sublabel/Steuer-Icons) der bestehenden
 // Kacheln. Verhindert das Flackern (Icons/Cover werden nicht neu geladen).
 // Gibt false zurueck, wenn sich die Struktur geaendert hat -> voller render().
+// Positionsring live nachziehen (Rollladen/Tor/Fenster/Dimmer): updateGrid()
+// baute den Ring frueher NICHT mit -> der Bogen fror auf dem Stand vom letzten
+// vollen Render ein (Text sagte 95 %, Ring zeigte noch 20 %). Gibt false zurueck,
+// wenn sich die Ring-STRUKTUR aendert (Ring kommt/geht) -> voller render().
+function updateTileRing(n,it){
+  const posv=ringPos(it);
+  const ring=n.querySelector('.posring');
+  if(posv===null) return !ring;          // Ring war da, ist aber weg -> Struktur
+  if(!ring) return false;                // Ring soll da sein, ist aber nicht -> Struktur
+  const grp=ring.querySelector('g'); let val=ring.querySelector('.val');
+  if(posv>0){
+    if(!val){ val=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      val.setAttribute('class','val'); val.setAttribute('cx','50'); val.setAttribute('cy','50'); val.setAttribute('r','46');
+      if(grp) grp.appendChild(val); }
+    const d=ringDash(posv); if(val.getAttribute('stroke-dasharray')!==d) val.setAttribute('stroke-dasharray',d);
+  } else if(val){ val.remove(); }        // 0 %: nur die Spur bleibt
+  return true;
+}
 function updateGrid(items){
   const g=el('grid');
   if(g.classList.contains('panel')) return false;
   const nodes=g.querySelectorAll('.tile[data-id]');
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
-  // Kam ein Positionsring dazu oder fiel einer weg, hat sich die Struktur der
-  // Kachel geaendert -> voller Neuaufbau, wie bei anderer Kachelzahl auch.
-  for(let i=0;i<items.length;i++){
-    if((ringPos(items[i])===null) !== !nodes[i].querySelector('.icowrap')) return false;
-  }
   const _pg=(view.layout==='list'?4:gridCols*gridRows);
+  let ok=true;
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
@@ -1104,29 +1156,9 @@ function updateGrid(items){
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
-    // Positionsring nachziehen. Ohne das blieb der Bogen auf dem Stand vom
-    // letzten Vollrender stehen, waehrend die Zweitzeile daneben weiterzaehlte:
-    // der Rollladen fuhr, der Ring stand.
-    const ring=n.querySelector('.posring');
-    if(ring){
-      const posv=ringPos(it);
-      let val=ring.querySelector('.val');
-      if(posv>0){
-        if(!val){
-          val=document.createElementNS('http://www.w3.org/2000/svg','circle');
-          val.setAttribute('class','val');
-          val.setAttribute('cx','50'); val.setAttribute('cy','50'); val.setAttribute('r','46');
-          ring.querySelector('g').appendChild(val);
-        }
-        const da=ringDash(posv);
-        if(val.getAttribute('stroke-dasharray')!==da) val.setAttribute('stroke-dasharray',da);
-      }
-      // Bei 0 % bleibt allein die Spur stehen - eine runde Kappe auf Laenge null
-      // waere sonst ein Punkt und saehe aus wie ein Fehler (wie im Vollrender).
-      else if(val) val.remove();
-    }
+    if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
   });
-  return true;
+  return ok;
 }
 function render(){
   if(!view) return;
@@ -1187,7 +1219,7 @@ function render(){
     if(ts.italic) nsv.push('font-style:italic');
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
-    html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+st+'>'+
+    html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+icoCell+chev+'</div>'+
               '<div class="body">'+
               (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
@@ -1211,7 +1243,11 @@ function render(){
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
+  if(view.catTabs && view.catTabs.length) roomCatTabs = view.catTabs;   // fuer Detailansichten merken
   renderTabs();
+  // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
+  if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
+    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
 }
 
 // ---- Anlagenschema (SystemScheme) ----
@@ -1334,6 +1370,22 @@ let LANG='de-DE';   // Panel-Sprache (aus dem Profil, Server sendet sie im theme
   const v=localStorage.getItem('lp_nudge_x');
   if(v!==null && v!=='') document.documentElement.style.setProperty('--nudge-x',(parseFloat(v)||0)+'px');
 })();
+// Strichstaerke des Positionsrings live am echten Display einstellen (verschiedene
+// Panels zeichnen duenne Linien unterschiedlich – Shelly braucht mehr fuer eine
+// sichtbare Linie): ?ring=4 duenner · ?ring=8 dicker · ?ring=6 Standard. Gemerkt.
+// Der gemerkte Geraetewert muss NACH den Theme-Variablen erneut gesetzt werden:
+// seit die Strichstaerke auch aus der Konfiguration kommt, schickt der Server
+// --posring-w mit, und der Theme-Push wuerde den Live-Test sonst ueberschreiben.
+// Der Wert am Geraet gewinnt - genau das ist der Zweck des Reglers.
+function posringOverride(){
+  const v=localStorage.getItem('lp_posring_w');
+  if(v!==null && v!=='') document.documentElement.style.setProperty('--posring-w', parseFloat(v)||6);
+}
+(function(){
+  const p=new URLSearchParams(location.search).get('ring');
+  if(p!==null) localStorage.setItem('lp_posring_w', p);
+  posringOverride();
+})();
 function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
@@ -1348,6 +1400,7 @@ function connect(){
   ws.onmessage=e=>{
     const msg=JSON.parse(e.data);
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
+      posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       profRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
       gridCols = profCols; gridRows = profRows;
