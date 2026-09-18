@@ -402,6 +402,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // 60 s Leerlauf dorthin zurueck -> ein
                                              // Raum als erster Tab heisst, das Panel
                                              // wacht direkt in diesem Raum auf.
+                                             // Die Reihenfolge der Liste IST die
+                                             // Reihenfolge der Leiste; im Konfigurator
+                                             // legt die Klickreihenfolge sie fest.
       "rooms": ["<uuid oder Namensteil>"],   // Whitelist, leer = alle
       "cats":  ["<uuid oder Namensteil>"],
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
