@@ -664,6 +664,7 @@ let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -> 4)
 let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
 let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
+let _lastWide = null;   // zuletzt gerenderte Quer/Hoch-Entscheidung (fuer resize-Nachzug, s. render())
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 // Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"|"camera:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
@@ -1088,7 +1089,12 @@ function render(){
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
   const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera');
-  if(themeSplit && !_widget && window.innerWidth > window.innerHeight){ gridCols = profCols*2; gridRows = profRows; }
+  // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
+  // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
+  // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
+  // der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster wie beim Screensaver).
+  _lastWide = window.innerWidth > window.innerHeight;
+  if(themeSplit && !_widget && _lastWide){ gridCols = profCols*2; gridRows = profRows; }
   else { gridCols = profCols; gridRows = profRows; }
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
@@ -1247,6 +1253,11 @@ window.addEventListener('resize',()=>{
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
   if(saverOn()) applySaverSplit();
+  // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
+  // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
+  // Startmessung 4x2 haengenzubleiben.
+  if(view && !el('grid').classList.contains('scheme')
+     && (window.innerWidth > window.innerHeight) !== _lastWide) render();
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
