@@ -34,7 +34,7 @@
     border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
     transform:translateX(var(--nudge-x,0));
-    display:grid;grid-template-rows:1fr auto;}
+    display:grid;grid-template-rows:minmax(0,1fr) auto;}
   /* "Bildschirm fuellen": ganzen Tablet-Schirm nutzen (Voll-Zoom). Die Kacheln
      passen sich der Geraeteform an (koennen leicht rechteckig werden) statt als
      zentrierter cols:rows-Kasten mit Rand zu stehen. Gilt auch fuer Vollbreit. */
@@ -49,7 +49,7 @@
      (identisch zur nicht-geteilten .screen -> kein Hoehensprung beim Tab-Wechsel). */
   .screen.split{max-width:none;max-height:none;
     width:min(100vw, calc(var(--cols,2) * 480px));height:min(100vh, calc(var(--rows,2) * 240px));
-    grid-template-columns:1fr 1fr;grid-template-rows:1fr auto;}
+    grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) auto;}
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
   .screen.split.fill{width:100vw;height:100vh;}
@@ -57,10 +57,37 @@
   #frontpane{display:none;}
   .screen.split #grid{grid-column:1;grid-row:1;}
   .screen.split #playerpane{display:flex;flex-direction:column;grid-column:2;grid-row:1;
-    border-left:1px solid var(--line);overflow:hidden;padding:14px;gap:10px;}
-  /* Split-Pane Wetter/Kalender: rechte Spalte, eigener Scroll (Agenda). */
+    min-height:0;border-left:1px solid var(--line);overflow:hidden;padding:10px;gap:10px;}
+  /* Split-Pane Wetter/Kalender/Energie: rechte Spalte, auf Pane-Hoehe begrenzt
+     (min-height:0 + minmax(0,1fr)-Zeile) -> Inhalt scrollt INNEN statt ueber den
+     Kachelrahmen hinauszulaufen. Seiten-Snapping wie beim Kachel-Grid:
+     jede .fp-page fuellt genau die Pane-Hoehe, Scrollen rastet seitenweise ein. */
   .screen.split #frontpane{display:flex;flex-direction:column;grid-column:2;grid-row:1;
-    border-left:1px solid var(--line);overflow-y:auto;padding:14px;gap:10px;}
+    min-height:0;border-left:1px solid var(--line);overflow-y:auto;padding:10px;gap:10px;
+    scroll-snap-type:y mandatory;scroll-padding-top:10px;}
+  /* Jede Seite = ein gerahmter 480x480-Block wie der 2x2-Kachelblock links:
+     min-height:100% fuellt die Pane-Hoehe, gleiche Rahmung/Innenabstand wie eine
+     Kachel -> Inhalt startet auf gleicher Hoehe (nicht mehr "zu hoch"). */
+  .screen.split #frontpane .fp-page,
+  .screen.split #playerpane .fp-page{flex:0 0 auto;min-height:100%;box-sizing:border-box;
+    display:flex;flex-direction:column;gap:10px;padding:16px;
+    background:linear-gradient(180deg,var(--tile),rgba(255,255,255,.015));
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:16px;
+    scroll-snap-align:start;scroll-snap-stop:always;}
+  /* Einzel-Seite (Energie/Kamera/Audio): genau EINE Pane hoch (480x480), fuellt sie
+     exakt statt content-getrieben zu wachsen. Der Inhalt (quadratisches Radial-SVG,
+     4:3-Video, Cover) skaliert per object-fit/preserveAspectRatio hinein - sonst
+     erzwingt z.B. das 480x480-SVG seine Breite als Hoehe -> Pane ~550 statt 480.
+     Wetter/Kalender bleiben mehrseitig (Snap) und duerfen scrollen. */
+  .screen.split #frontpane .fp-page.solo,
+  .screen.split #playerpane .fp-page.solo{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;}
+  /* Kamera-Pane: MJPEG-Live-Bild fuellt die rechte Spalte (kein Padding/Scroll). */
+  /* Kamera-Pane: volle Intercom-Ansicht (Klingel-Banner + Video + Tür-/Ausgang-Buttons). */
+  #frontpane.cam{justify-content:flex-start;}
+  #frontpane .cambell{margin:0;}
+  #frontpane .camwait{display:flex;flex-direction:column;align-items:center;gap:10px;
+    color:var(--muted);padding:24px 0;}
+  #frontpane .camwait svg{width:56px;height:56px;opacity:.5;}
   /* Energiefluss-Pane (Radial, Loxone-Standard). Erzeugung=Akzent, Verbrauch=Glow. */
   .epane{flex:1;display:flex;flex-direction:column;min-height:0;}
   .epane .etop{display:flex;justify-content:center;padding:2px 0 2px;}
@@ -119,7 +146,7 @@
   #playerpane .pptrans{display:flex;gap:14px;justify-content:center;align-items:center;}
   #playerpane .ppvol{display:flex;align-items:center;gap:8px;}
   #playerpane .ppvol .sico{color:var(--muted);} #playerpane .ppvol .sico svg{width:20px;height:20px;}
-  #playerpane .ppvol input[type=range]{flex:1;accent-color:var(--accent);}
+  #playerpane .ppvol .sld{flex:1;}
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
   .grid{--gap:10px;grid-area:1/1;
@@ -136,7 +163,7 @@
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
   .tile{background:linear-gradient(180deg,var(--tile),rgba(var(--wash,255,255,255),.015));
-    border:1px solid var(--line);border-radius:16px;padding:16px;
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:16px;padding:16px;
     display:flex;flex-direction:column;justify-content:space-between;
     cursor:pointer;user-select:none;overflow:hidden;
     transition:background .16s,border-color .16s,transform .07s;}
@@ -217,6 +244,29 @@
   .grid.list .tctrls{margin-top:0;}
   /* Detail-Panel (z.B. Jalousie) */
   .grid.panel{display:flex;flex-direction:column;gap:10px;align-items:stretch;grid-auto-rows:initial;}
+  /* Anlagenschema (SystemScheme): Titel oben, darunter ein Zoom-/Pan-Viewport.
+     .schemestage ist das Original-Koordinatensystem (schemeSize), per transform
+     skaliert/verschoben. Die Werte liegen absolut an ihren pos-Koordinaten. */
+  .grid.scheme{display:flex;flex-direction:column;gap:0;padding:0;grid-auto-rows:initial;overflow:hidden;}
+  .schemetitle{flex:0 0 auto;text-align:center;font-weight:600;font-size:16px;
+    padding:10px 12px 8px;border-bottom:1px solid var(--line);}
+  .schemeview{flex:1;min-height:0;position:relative;overflow:hidden;touch-action:none;
+    background:var(--screen);}
+  .schemestage{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
+  .schemeimg{position:absolute;top:0;left:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none;}
+  .schemeval{position:absolute;display:flex;align-items:center;justify-content:center;
+    font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;
+    /* Bewusst KEINE --wash-Auflage: das Wertschild liegt ueber dem Schemabild,
+       nicht ueber dem Panelgrund. Es bringt seinen Hintergrund selbst mit und
+       muss hell bleiben, sonst steht die dunkle Schrift auf Schwarz. */
+    color:#12140f;background:rgba(255,255,255,.82);border-radius:6px;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);padding:0 4px;overflow:hidden;white-space:nowrap;}
+  .schemeval span{overflow:hidden;text-overflow:ellipsis;}
+  .schemeval.on{background:rgba(var(--accent-rgb,82,184,129),.9);color:var(--on-accent,#08130c);}
+  .schemeval.crit{background:var(--crit-fill,rgba(226,105,95,.92));color:var(--crit-ink,#fff);}
+  .schemeval.tap{cursor:pointer;box-shadow:0 0 0 2px var(--accent),0 1px 3px rgba(0,0,0,.25);}
+  .schemehint{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--muted);
+    background:rgba(0,0,0,.35);border-radius:6px;padding:2px 7px;pointer-events:none;}
   .hero{display:grid;place-items:center;padding:6px 0 2px;}
   .hero .circle{width:84px;height:84px;border-radius:50%;background:var(--tile);
     border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);}
@@ -264,9 +314,14 @@
   .menuitem:active{background:rgba(var(--wash,255,255,255),.13);}
   .menuitem.on{color:var(--glow);background:rgba(var(--on-rgb,224,162,77),.15);}
   /* Musik-Player */
-  .cover{position:relative;display:grid;place-items:center;padding:4px 0 2px;}
-  .cover .coverph,.cover img{width:60%;max-width:210px;aspect-ratio:1/1;border-radius:12px;}
-  .cover .coverph{position:absolute;background:var(--tile);display:grid;place-items:center;color:var(--muted);}
+  /* Cover = zentriertes Quadrat, das in Breite UND Hoehe der Flaeche passt.
+     Ohne Hoehen-Cap ueberdeckt/verdraengt es auf flachen bzw. quadratischen
+     Displays (4-Zoll 480x480, Shelly X2) Titel/Interpret. */
+  .cover{position:relative;display:grid;place-items:center;padding:4px 0 2px;min-height:0;}
+  .cover .coverph,.cover img{width:auto;height:auto;
+    max-width:min(60%,210px);max-height:min(44vh,210px);aspect-ratio:1/1;border-radius:12px;}
+  .cover .coverph{position:absolute;width:120px;height:120px;
+    background:var(--tile);display:grid;place-items:center;color:var(--muted);}
   .cover .coverph svg{width:44px;height:44px;}
   .cover img{position:relative;object-fit:cover;opacity:0;transition:opacity .2s;
     box-shadow:0 8px 24px rgba(0,0,0,.45);}
@@ -294,11 +349,19 @@
     place-items:center;cursor:pointer;user-select:none;-webkit-user-select:none;}
   .sbtn:active{background:var(--glow);color:var(--on-glow,#04121f);}
   #playerpane .ppvol .sbtn{width:30px;height:30px;font-size:18px;}
-  .sld{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;
-    background:rgba(var(--wash,255,255,255),.15);outline:none;}
-  .sld::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
-    background:var(--glow);cursor:pointer;}
-  .sld::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;
+  /* Einheitliche Lautstaerke-/Wert-Leiste fuer BEIDE Player (Vollseite + Pane).
+     Fuellung ueber --p (Prozent, per JS gesetzt) statt natives accent-color,
+     damit sie auf jedem WebView gleich aussieht und der Track nie verschwindet.
+     Track ueber --wash getoent, damit er auf hellen Themes sichtbar bleibt. */
+  .sld{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:4px;cursor:pointer;
+    outline:none;background:linear-gradient(to right,
+      var(--glow) var(--p,0%),rgba(var(--wash,255,255,255),.22) var(--p,0%));}
+  .sld::-webkit-slider-runnable-track{-webkit-appearance:none;height:6px;border-radius:4px;background:transparent;}
+  .sld::-webkit-slider-thumb{-webkit-appearance:none;margin-top:-6px;width:18px;height:18px;border-radius:50%;
+    background:var(--glow);border:2px solid var(--bg);box-shadow:0 1px 3px rgba(0,0,0,.5);cursor:pointer;}
+  .sld::-moz-range-track{height:6px;border-radius:4px;background:rgba(var(--wash,255,255,255),.22);}
+  .sld::-moz-range-progress{height:6px;border-radius:4px;background:var(--glow);}
+  .sld::-moz-range-thumb{width:16px;height:16px;border:2px solid var(--bg);border-radius:50%;
     background:var(--glow);cursor:pointer;}
   /* Schwebender Zurück-Pfeil (nur beim Reinnavigieren) */
   .tabback{flex:0 0 auto;align-self:center;width:50px;height:50px;margin:0 14px;
@@ -349,6 +412,17 @@
   .sv-wrap.rich .sv-date{font-size:15px;}
   .sv-wrap.rich .sv-clock{margin:20px 0 6px;}   /* Uhr klar von der Wettervorschau darueber absetzen */
   .sv-wrap.rich .sv-hint{display:none;}   /* bei voller Front kein Platz; nur-Uhr behaelt ihn */
+  /* Split-Panel: doppelte Breite nutzen. Uhr oben mittig ueber beide Spalten,
+     darunter Wetter links und Kalender rechts. Festes 2-Spalten-Grid (bricht
+     nicht um). Nur mit Front-Daten (rich); die reine Uhr bleibt zentriert. */
+  .saver.split .sv-wrap.rich{width:min(94%,820px);display:grid;
+    grid-template-columns:1fr 1fr;grid-template-areas:"clock clock" "wx cal";
+    column-gap:44px;row-gap:16px;align-items:start;}
+  .saver.split .sv-wrap.rich .sv-clock{grid-area:clock;justify-self:center;margin:0 0 4px;}
+  .saver.split .sv-wrap.rich .sv-wx{grid-area:wx;}
+  .saver.split .sv-wrap.rich .sv-cal{grid-area:cal;}
+  .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
+  .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
   .saver .sv-wx{display:flex;flex-direction:column;gap:10px;align-self:stretch;}
   .sv-wx .now{display:flex;align-items:center;gap:12px;}
@@ -577,10 +651,11 @@ let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -
 let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
 let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
-// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"}
+// Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"|"camera:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
 // curPlayerZone = zuletzt an den Server gemeldete Player-Zone (setplayer).
-let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '';
+let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '', curCameraUuid = '';
+let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 
@@ -705,11 +780,17 @@ function doSecure(uuid,cmd,msg){
 }
 function sendCmd(uuid,cmd,secured){ if(secured) doSecure(uuid,cmd,''); else send({t:'cmd',uuid,cmd}); }
 const SLD_STEP=5;   // Schrittweite der -/+ Tasten am Schieberegler (Lautstaerke etc.)
+// Fuellstand der Leiste als CSS-Var --p (Prozent) setzen -> gefuellte Anzeige
+// unabhaengig vom nativen accent-color-Rendering des jeweiligen WebViews.
+function sldFill(sld){ if(!sld)return;
+  const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
+  const p=max>min?((+sld.value-min)/(max-min))*100:0;
+  sld.style.setProperty('--p', Math.max(0,Math.min(100,p))+'%'); }
 function nudgeSld(sld,delta,valEl){ if(!sld)return;
   const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
   let v=Math.round((+sld.value||0)+delta); v=Math.max(min,Math.min(max,v));
   if(v===(+sld.value)) return;
-  sld.value=v; if(valEl) valEl.textContent=v;
+  sld.value=v; sldFill(sld); if(valEl) valEl.textContent=v;
   if(sld._uuid&&sld._tmpl) send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',v)}); }
 
 let holdRelease=null;
@@ -769,7 +850,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy');
+  el('grid').classList.remove('list','snapy','scheme');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
@@ -823,8 +904,8 @@ function renderPanel(blocks){
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
   const sb=blocks.find(b=>b.k==='slider'); const sld=g.querySelector('.sld');
-  if(sb&&sld){ sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl;
-    sld.addEventListener('input',()=>{ sldDragging=true; const sv=g.querySelector('.sval'); if(sv)sv.textContent=sld.value; });
+  if(sb&&sld){ sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl; sldFill(sld);
+    sld.addEventListener('input',()=>{ sldDragging=true; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sld.value; });
     sld.addEventListener('change',()=>{ sldDragging=false; send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',sld.value)}); });
     const sdn=g.querySelector('.srow .sbtn[data-sd="dn"]'), sup=g.querySelector('.srow .sbtn[data-sd="up"]');
     const step=(sb.step&&+sb.step>0)?+sb.step:SLD_STEP;
@@ -867,7 +948,7 @@ function updatePanel(blocks){
   nth('title','.ptitle',(e,b)=>{ e.childNodes[0].nodeValue=b.text||''; const su=e.querySelector('.psub'); if(su)su.textContent=b.sub||''; });
   nth('astat','.astat',(e,b)=>{ e.childNodes[0].nodeValue=b.text||''; e.className='astat'+(b.tone==='crit'?' crit':''); const su=e.querySelector('.astatsub'); if(su)su.textContent=b.sub||''; });
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
-  const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
+  const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
@@ -900,28 +981,41 @@ function renderTabs(){
   applyPane();
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
-// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>".
+// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
-function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : v)) : null; }
+function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : v))) : null; }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   const raw=themeSplit?paneForTab(activeTab()):null;   // Split aus (4"-Panel) -> keine Pane 2
   const kind=paneKind(raw);
-  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy');   // Widget in Pane 2
+  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');   // Widget in Pane 2
   sc.classList.toggle('split', isPane);   // Widget -> zweigeteilt, sonst "Screen fuellen"
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
-  if(fp) fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy');
+  if(fp){
+    fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');
+    fp.classList.toggle('cam', kind==='camera');
+    // Kamera verlassen -> Video-Stream stoppen (Inhalt leeren), keine Hintergrund-Verbindung.
+    if(kind!=='camera' && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
+  }
   if(kind==='weather') renderWeatherPane(fp);
   else if(kind==='calendar') renderCalendarPane(fp);
   else if(kind==='energy') renderEnergyPane(fp);
+  else if(kind==='camera') renderCameraPane(fp);
   // Player-Zone dieses Tabs dem Server melden (nur bei Aenderung -> er pusht die Blocks).
   const zone=(kind==='player')?raw.slice(7):'';
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
   // Energiefluss-Kachel dieses Tabs dem Server melden (er pusht dann {t:'energy'}).
   const euid=(kind==='energy')?raw.slice(7):'';
   if(euid!==curEnergyUuid){ curEnergyUuid=euid; try{ send({t:'setenergy',uuid:euid}); }catch(e){} }
+  // Kamera (Intercom) dieses Tabs dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
+  const cuid=(kind==='camera')?raw.slice(7):'';
+  if(cuid!==curCameraUuid){ curCameraUuid=cuid; cameraData=null;
+    if(fp){ delete fp.dataset.cam; delete fp.dataset.camsig; }
+    try{ send({t:'setcamera',uuid:cuid}); }catch(e){}
+    if(cuid&&kind==='camera') renderCameraPane(fp);   // sofort Platzhalter zeigen, bis der Push kommt
+  }
 }
 
 // Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
@@ -937,6 +1031,8 @@ function tileVarStyle(it){
   if(ts.ovFill!=null) sv.push('--ov-fill:'+ts.ovFill);
   if(ts.ovBord!=null) sv.push('--ov-bord:'+ts.ovBord);
   if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
+  if(ts.tileBord!=null) sv.push('--tile-bord:'+ts.tileBord);
+  if(ts.tileBw!=null) sv.push('--tile-bw:'+ts.tileBw+'px');
   return sv.join(';');
 }
 function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':'')); }
@@ -977,7 +1073,7 @@ function render(){
   // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
-  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy');
+  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera');
   if(themeSplit && !_widget && window.innerWidth > window.innerHeight){ gridCols = profCols*2; gridRows = profRows; }
   else { gridCols = profCols; gridRows = profRows; }
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -986,7 +1082,7 @@ function render(){
   closeMenu();
   setMore(null);
   el('conn').classList.toggle('vis', !!(view.route && view.route.view==='tab'));
-  el('grid').classList.remove('panel','bigpage','anchorbot');
+  el('grid').classList.remove('panel','bigpage','anchorbot','scheme');
   el('grid').classList.toggle('list', view.layout==='list');
   const items = view.items || [];
   const g = el('grid');
@@ -1052,12 +1148,95 @@ function render(){
   renderTabs();
 }
 
+// ---- Anlagenschema (SystemScheme) ----
+// Hintergrundbild + Live-Werte als Overlay. Der Viewport zeigt das Schema
+// fit-to-width; Pinch/Pan zoomt und verschiebt. Antippbare Werte (nav)
+// springen zur Detailansicht des Bausteins.
+let schemeFit=null;
+function schemeValHtml(it,i){
+  const w=it.w||120, h=it.h||30;
+  const cls='schemeval'+(it.on?' on':'')+(it.nav?' tap':'')+(it.tone==='crit'?' crit':'');
+  return '<div class="'+cls+'" data-i="'+i+'" style="left:'+it.x+'px;top:'+it.y+'px;width:'+w+'px;height:'+h+'px">'+
+    '<span>'+esc(it.text||'')+'</span></div>';
+}
+function renderScheme(v){
+  const g=el('grid');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy');
+  g.classList.add('scheme');
+  el('conn').classList.remove('vis');
+  const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
+  let html='<div class="schemetitle">'+esc(v.title||'')+'</div>'+
+    '<div class="schemeview" id="schemeView"><div class="schemestage" id="schemeStage" '+
+    'style="width:'+sw+'px;height:'+sh+'px">';
+  if(v.image) html+='<img class="schemeimg" src="'+esc(v.image)+'" alt="" draggable="false">';
+  html+=items.map(schemeValHtml).join('')+'</div><div class="schemehint">Ziehen · 2 Finger zoomen</div></div>';
+  g.innerHTML=html;
+  const viewEl=el('schemeView'), stage=el('schemeStage');
+  stage.querySelectorAll('.schemeval.tap').forEach(n=>{
+    n.onclick=()=>{ const it=items[+n.dataset.i]; if(it&&it.nav) nav(it.nav); };
+  });
+  setupSchemeZoom(viewEl, stage, sw, sh);
+  renderTabs();
+}
+function updateScheme(v){
+  const stage=el('schemeStage'); if(!stage) return false;
+  const nodes=stage.querySelectorAll('.schemeval');
+  const items=v.items||[];
+  if(nodes.length!==items.length) return false;   // Struktur anders -> voller Neuaufbau
+  items.forEach((it,i)=>{
+    const n=nodes[i], sp=n.querySelector('span');
+    if(sp && sp.textContent!==(it.text||'')) sp.textContent=it.text||'';
+    const cls='schemeval'+(it.on?' on':'')+(it.nav?' tap':'')+(it.tone==='crit'?' crit':'');
+    if(n.className!==cls){ n.className=cls;
+      n.onclick=it.nav?(()=>{ if(it.nav) nav(it.nav); }):null; }
+  });
+  return true;
+}
+function setupSchemeZoom(viewEl, stage, sw, sh){
+  let scale=1, tx=0, ty=0, minScale=0.05;
+  const apply=()=>{ stage.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'; };
+  const clamp=()=>{ const vw=viewEl.clientWidth, vh=viewEl.clientHeight, cw=sw*scale, ch=sh*scale;
+    if(cw<=vw) tx=(vw-cw)/2; else tx=Math.min(0,Math.max(vw-cw,tx));
+    if(ch<=vh) ty=(vh-ch)/2; else ty=Math.min(0,Math.max(vh-ch,ty)); };
+  const fit=()=>{ const vw=viewEl.clientWidth, vh=viewEl.clientHeight; if(!vw||!vh) return;
+    minScale=Math.min(vw/sw, vh/sh);              // "contain": ganzes Schema sichtbar
+    scale=minScale;                               // Start: komplett eingepasst (Hoehe & Breite)
+    tx=(vw-sw*scale)/2; ty=(vh-sh*scale)/2; clamp(); apply(); };
+  const pts=new Map(); let lastDist=0;
+  viewEl.onpointerdown=e=>{ viewEl.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastDist=0; };
+  viewEl.onpointermove=e=>{ if(!pts.has(e.pointerId)) return;
+    const prev=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){ tx+=e.clientX-prev.x; ty+=e.clientY-prev.y; clamp(); apply(); }
+    else if(pts.size>=2){ const a=[...pts.values()], dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      const rect=viewEl.getBoundingClientRect(), cx=(a[0].x+a[1].x)/2-rect.left, cy=(a[0].y+a[1].y)/2-rect.top;
+      if(lastDist){ const ns=Math.max(minScale,Math.min(6,scale*(dist/lastDist)));
+        tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); }
+      lastDist=dist; } };
+  const up=e=>{ pts.delete(e.pointerId); lastDist=0; };
+  viewEl.onpointerup=up; viewEl.onpointercancel=up;
+  // Doppeltipp: zwischen fit-to-width und 2.5x umschalten
+  let lastTap=0;
+  viewEl.addEventListener('click',e=>{ if(e.target.closest('.schemeval.tap')) return;
+    const now=Date.now(); if(now-lastTap<300){ const vw=viewEl.clientWidth;
+      // Doppeltipp: von "ganz sichtbar" auf fit-to-width (lesbar) zoomen, sonst zurueck
+      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect();
+        const cx=e.clientX-rect.left, cy=e.clientY-rect.top, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
+        tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); } }
+    lastTap=now; });
+  schemeFit=fit;
+  // Bild kann nach dem Layout erst die richtige Groesse liefern -> nach Frame fitten
+  requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
+}
+window.addEventListener('resize',()=>{ if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit(); });
+
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
 let sx=null, sy=null;
 const g=el('grid');
 g.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
 g.addEventListener('touchend',e=>{
   if(sx==null)return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null;
+  if(g.classList.contains('scheme')) return;   // im Schema pant der Finger, kein "zurueck"
   if(dx>60 && Math.abs(dy)<45) back();
 });
 
@@ -1112,6 +1291,7 @@ function connect(){
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='energy'){ energyData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
+    if(msg.t==='camera'){ cameraData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -1125,6 +1305,12 @@ function connect(){
     if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
     if(msg.t!=='view') return;
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
+    if(msg.layout==='scheme'){
+      const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
+      view=msg;
+      if(!(sameS && updateScheme(msg))) renderScheme(msg);   // gleiche Seite: nur Werte patchen (Zoom bleibt)
+      return;
+    }
     const same = view && key(view.route)===key(msg.route);
     if(msg.blocks){
       view=msg;
@@ -1230,7 +1416,8 @@ function fpCurve(hourly){
 // Wetterserver das, was die Anlage in ihren Formatstrings fuehrt).
 function wUnit(w){ return (w&&w.wind_unit)?w.wind_unit:'km/h'; }
 function windDir(deg){ const C=['N','NO','O','SO','S','SW','W','NW']; return (deg==null)?'':(C[Math.round(deg/45)%8]||''); }
-function fpWeatherHTML(w){
+// Seite 1 (fuellt die 2x2-Kachelhoehe): Aktuell + Kurve + Vorschau.
+function fpWeatherMainHTML(w){
   if(!w) return '';
   let html='<div class="fp-h" data-i18n>Wetter</div>';
   html+='<div class="fp-now"><span class="ico '+esc(w.icon||'cloud')+'">'+wxSvg(w.icon)+'</span>'+
@@ -1246,7 +1433,11 @@ function fpWeatherHTML(w){
     '<span class="ico '+esc(f.icon||'cloud')+'">'+wxSvg(f.icon)+'</span>'+
     '<span class="tt"><span class="mx">'+tdeg(f.hi)+'</span> <span class="mn">'+tdeg(f.lo)+'</span></span>'+
     (f.pop!=null?'<span class="pop">'+f.pop+'%</span>':'')+'</div>').join('')+'</div>';
-  // Detailkacheln fuellen den restlichen Pane-Platz (nur vorhandene Werte).
+  return html;
+}
+// Seite 2: Detailkacheln (nur vorhandene Werte).
+function fpWeatherDetailHTML(w){
+  if(!w) return '';
   const det=[];
   if(w.humidity!=null) det.push(['Luftfeuchte', w.humidity+' %']);
   if(w.wind!=null) det.push(['Wind', w.wind+' '+wUnit(w)+(w.wind_dir!=null?' '+windDir(w.wind_dir):'')]);
@@ -1254,8 +1445,9 @@ function fpWeatherHTML(w){
   if(w.uv!=null) det.push(['UV-Index', String(w.uv)]);
   if(w.precip_sum!=null) det.push(['Niederschlag', String(w.precip_sum).replace('.',',')+' mm']);
   if(w.pressure!=null) det.push(['Luftdruck', w.pressure+' hPa']);
-  if(det.length) html+='<div class="fp-det">'+det.map(x=>'<div><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join('')+'</div>';
-  return html;
+  return det.length ? '<div class="fp-det">'+det.map(x=>'<div><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join('')+'</div>' : '';
+}
+function fpWeatherHTML(w){ if(!w) return ''; return fpWeatherMainHTML(w)+fpWeatherDetailHTML(w);
 }
 let calMonthOff=0, calSel='';   // Kalender-Pane: Monatsverschiebung + gewaehlter Tag (ISO)
 function isoDay(dt){ const p=n=>String(n).padStart(2,'0'); return dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate()); }
@@ -1365,10 +1557,50 @@ function paintEnergy(elc,d){
   elc._esig=sig;
   elc.innerHTML=energyInner(d);
 }
-function renderEnergyPane(elc){ if(elc) paintEnergy(elc, energyData||{}); }
+function renderEnergyPane(elc){ if(!elc) return;
+  // Energiefluss in denselben gerahmten .fp-page-Block wie Wetter/Kalender (eine Seite).
+  let page=elc.querySelector('.fp-page.epage');
+  if(!page){ elc.innerHTML='<div class="fp-page epage solo"></div>'; page=elc.querySelector('.fp-page.epage'); }
+  paintEnergy(page, energyData||{}); }
 
-function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{};
-  elc.innerHTML=fpWeatherHTML(d.weather)||'<div class="fp-empty">Kein Wetter konfiguriert.</div>'; }
+// Kamera-Pane: VOLLE Intercom-Ansicht (Klingel-Banner + Video + Tür-/Ausgang-Buttons),
+// gleiche Blöcke wie der Baustein (kommen per {t:'camera'}-Push vom Server). Das Video
+// wird wie beim Baustein direkt geladen (kein onload-Gate -> zeigt auch in Browsern, die
+// ein nacktes MJPEG-<img> nicht rendern). Struktur nur bei Änderung neu bauen, sonst nur
+// Buttons/Klingel in-place aktualisieren -> der Video-Stream läuft ununterbrochen weiter.
+function renderCameraPane(elc){ if(!elc) return;
+  const blocks=(cameraData&&cameraData.blocks)||null;
+  if(blocks===null){   // Push noch nicht da -> Platzhalter
+    if(elc.dataset.cam!=='wait'){ elc.dataset.cam='wait'; delete elc.dataset.camsig;
+      elc.innerHTML='<div class="fp-page solo campage"><div class="camwait">'+svg(ICONS.cam)+'<span>Kamera lädt …</span></div></div>'; }
+    return;
+  }
+  const video=blocks.find(b=>b.k==='video'), row=blocks.find(b=>b.k==='row');
+  const bell=blocks.find(b=>b.k==='astat'), nostat=blocks.find(b=>b.k==='status');
+  const sig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'');
+  if(elc.dataset.camsig!==sig){          // Struktur -> Neuaufbau
+    elc.dataset.camsig=sig; elc.dataset.cam='1';
+    let html='<div class="cambell astat crit" hidden></div>';
+    html+= video ? '<div class="video"><img alt=""></div>'
+                 : '<div class="status">'+esc(nostat?nostat.text:'Kein Video')+'</div>';
+    if(row) html+='<div class="brow'+(row.wrap?' wraprow':'')+'">'+row.cells.map(cellHtml).join('')+'</div>';
+    elc.innerHTML='<div class="fp-page solo campage">'+html+'</div>';
+    const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
+    if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
+      row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
+        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,false); }); }); }
+  } else if(row){                         // gleiche Struktur -> nur Buttons aktualisieren (Video unangetastet)
+    const btns=elc.querySelectorAll('.brow [data-c]');
+    row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
+  }
+  const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
+}
+function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.weather;
+  if(!w){ elc.innerHTML='<div class="fp-empty">Kein Wetter konfiguriert.</div>'; return; }
+  // Seite 1 = Aktuell/Kurve/Vorschau (fuellt die 2x2-Hoehe), Seite 2 = Detailkacheln.
+  const det=fpWeatherDetailHTML(w);
+  elc.innerHTML='<div class="fp-page">'+fpWeatherMainHTML(w)+'</div>'
+    +(det?'<div class="fp-page">'+det+'</div>':''); }
 function fpMonthHTML(events, holidays){
   const base=new Date(); base.setDate(1); base.setMonth(base.getMonth()+calMonthOff);
   const y=base.getFullYear(), m=base.getMonth();
@@ -1395,7 +1627,9 @@ function fpMonthHTML(events, holidays){
   return html+'</div></div>';
 }
 function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
-  elc.innerHTML=fpMonthHTML(d.events, d.holidays)+fpCalHTML(d);
+  // Seite 1 = Monat (fuellt die 2x2-Hoehe), Seite 2 = Agenda/Termine.
+  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays)+'</div>'
+    +'<div class="fp-page">'+fpCalHTML(d)+'</div>';
   elc.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderCalendarPane(elc); });
   elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc); });
   elc.querySelectorAll('[data-calall]').forEach(b=>b.onclick=()=>{ calSel=''; renderCalendarPane(elc); });
@@ -1404,7 +1638,12 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
-function showSaver(){ tickClock(); el('saver').classList.remove('hidden'); }
+function showSaver(){ tickClock();
+  // Zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly X2) – gleiches
+  // Kriterium wie das Kachel-Grid (s. render()). Das quadratische 4"-Panel bleibt
+  // einspaltig (Wetter oben, Uhr, Termine untereinander), auch wenn Split erlaubt ist.
+  el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
+  el('saver').classList.remove('hidden'); }
 function hideSaver(){ el('saver').classList.add('hidden'); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
 function showNotify(text, level, secs){
@@ -1433,18 +1672,20 @@ function renderPlayer(blocks){
   const sl=blocks.find(b=>b.k==='slider');
   if(!_playerBuilt){
     pane.innerHTML=
+      '<div class="fp-page solo pppage">'+
       '<div class="ppcover"><div class="coverph">'+svg(ICONS.music)+'</div><img id="ppimg" alt=""></div>'+
       '<div class="pptitle" id="pptitle"></div>'+
       '<div class="ppsub" id="ppsub"></div>'+
       '<div class="pptrans" id="pptrans"></div>'+
       '<div class="ppvol"><span class="sico">'+svg(ICONS.vol)+'</span>'+
         '<button type="button" class="sbtn" data-sd="dn">−</button>'+
-        '<input type="range" id="ppsld" min="0" max="100" value="0">'+
-        '<button type="button" class="sbtn" data-sd="up">+</button><span class="sval" id="ppsldv">0</span></div>';
+        '<input type="range" class="sld" id="ppsld" min="0" max="100" value="0">'+
+        '<button type="button" class="sbtn" data-sd="up">+</button><span class="sval" id="ppsldv">0</span></div>'+
+      '</div>';
     const s=el('ppsld');
     pane.querySelector('.ppvol .sbtn[data-sd="dn"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,-SLD_STEP,el('ppsldv')); });
     pane.querySelector('.ppvol .sbtn[data-sd="up"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,SLD_STEP,el('ppsldv')); });
-    s.addEventListener('input',()=>{ _playerVolDrag=true; el('ppsldv').textContent=s.value; });
+    s.addEventListener('input',()=>{ _playerVolDrag=true; sldFill(s); el('ppsldv').textContent=s.value; });
     s.addEventListener('change',()=>{ _playerVolDrag=false;
       if(s._uuid&&s._tmpl) send({t:'cmd',uuid:s._uuid,cmd:s._tmpl.replace('{v}',s.value)}); });
     _playerBuilt=true;
@@ -1470,7 +1711,7 @@ function renderPlayer(blocks){
       n.className='btn'+(c.icon?' icon':'')+(c.big?' big':''); });
   }
   if(sl){ const s=el('ppsld'); if(s&&sl.cmd){ s._uuid=sl.cmd.uuid; s._tmpl=sl.cmd.tmpl; }
-    if(s&&!_playerVolDrag){ s.value=sl.value; el('ppsldv').textContent=sl.value; } }
+    if(s&&!_playerVolDrag){ s.value=sl.value; sldFill(s); el('ppsldv').textContent=sl.value; } }
 }
 function resetIdle(){ clearTimeout(idleTimer);
   idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS);

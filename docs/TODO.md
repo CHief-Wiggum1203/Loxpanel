@@ -52,17 +52,23 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Upstream 0.3.2 (Lenardo1) ist eingepflegt: Audioserver-Favoriten direkt am
-Audioserver (Port 7091), Split-Player je Panel, vereinte Web-UI (`/settings`
-→ Rubrik Settings in `/config`), flackerfreie Live-Updates, Broadcaster
-überlebt Render-Fehler. Neue Upstream-Releases per
-`git fetch upstream && git merge upstream/main` holen, Konflikte lösen, als
-Merge-Commit nach `main`.
+Zuletzt eingepflegt am **18.09.2026** (`upstream/main` @ `a76ed83`), als echter
+Merge-Commit. Damit im Fork: **Kamera als Split-Pane** (Intercom-Livebild mit
+Tür-Buttons), **gerahmte Split-Panes** mit Seiten-Snap, **zweispaltiger
+Screensaver** im Querformat, **konfigurierbarer Kachelrahmen** für helle
+Displays, vereinheitlichte Lautstärkeleiste, **Anlagenschema (SystemScheme)**,
+Rubrik „unterstützte Geräte" und der GHCR-Login-Fallback. Dazu `LICENSE.md`:
+Upstream steht seit `cade27a` unter der PolyForm Noncommercial License 1.0.0.
 
-- [ ] **Upstream 0.3.2 an der Anlage prüfen:** Audioserver-Favoriten in der
-      AudioZone, Split-Player (Panel Configuration → „Fester Player"),
-      Live-Updates ohne Flackern, Settings-Rubrik mit Geräteliste und
-      Display-Treibern. **S**
+Neue Upstream-Releases per `git fetch upstream && git merge upstream/main`
+holen, Konflikte lösen, als **Merge-Commit** nach `main` — nicht squashen,
+sonst kennt der Fork die Upstream-Commits nicht und dieselben Konflikte kommen
+beim nächsten Mal wieder.
+
+- [ ] **Neu Eingepflegtes an der Anlage prüfen:** Kamera-Pane (Intercom-Bild +
+      Tür-Buttons), gerahmte Split-Panes, zweispaltiger Screensaver im
+      Querformat, Kachelrahmen-Einstellung, Lautstärkeleiste in beiden
+      Player-Ansichten, Anlagenschema. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -92,10 +98,8 @@ Beide sitzen als EIN Commit direkt auf `upstream/main`, damit GitHub Titel und
 Beschreibung selbst füllt. Link zum Einreichen:
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
 
-Offen im Fork: `upstream/main` ist seit dem letzten Abgleich um 12 Commits
-gewachsen (u.a. gerahmte Split-Panes, Kamera-Pane, zweispaltiger Screensaver,
-konfigurierbarer Kachelrahmen). Als echten Merge-Commit nach `main` holen,
-nicht squashen — sonst kennt der Fork die Upstream-Commits nicht.
+Der Fork ist mit `upstream/main` gleichgezogen (siehe oben); offen sind nur noch
+die beiden Zweige in dieser Liste.
 
 ## 1. Konfiguration vor Datenverlust schützen
 
