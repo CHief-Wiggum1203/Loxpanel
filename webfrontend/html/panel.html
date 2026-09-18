@@ -217,8 +217,15 @@
   .favc img{width:100%;height:100%;object-fit:cover;}
   .favc svg{width:34px;height:34px;}
   .favn{font-size:12px;margin-top:5px;line-height:1.15;max-height:2.4em;overflow:hidden;}
-  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:currentColor;
+  /* Maskiertes Kachel-Icon: Fuellfarbe DIREKT aus der Icon-/Theme-Variable statt
+     ueber currentColor. Sonst bricht die eingeschraenkte Panel-WebView, sobald
+     eine eigene Icon-Farbe (--ico inline) gesetzt ist -> Icon bleibt leer.
+     Die Zustaende spiegeln die Farbregeln von .tile .ico (on/good/crit). */
+  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:var(--ico,var(--muted));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .tile.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .tile.good .ico.img{background-color:var(--good);}
+  .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
   .tile .chev svg{width:20px;height:20px;}
   .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:500;letter-spacing:.02em;text-transform:uppercase;
