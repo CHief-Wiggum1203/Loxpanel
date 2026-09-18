@@ -413,7 +413,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
-        "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1}
+        "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
+                    "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
+                    "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
       },
       "states": {"active": "#..", "good": "#..", "warn": "#..", "crit": "#.."},
       "tiles": {

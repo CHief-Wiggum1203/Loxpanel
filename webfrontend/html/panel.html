@@ -195,9 +195,13 @@
   .tile .posring{position:absolute;left:50%;top:50%;pointer-events:none;
     width:calc(var(--ico-size,38px) + 18px);height:calc(var(--ico-size,38px) + 18px);
     transform:translate(-50%,-50%);}
-  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:6;}
-  .tile .posring .trk{opacity:.18;}
-  .tile .posring .val{stroke-linecap:round;}
+  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--ring-w,6);}
+  .tile .posring .trk{opacity:var(--ring-trk,.18);}
+  /* Der Uebergang laesst den Bogen der Fahrt FOLGEN statt in 1-%-Stufen zu
+     springen - keine Dauer-Animation: im Stand steht er absolut still. */
+  .tile .posring .val{stroke-linecap:round;opacity:var(--ring-op,1);
+    transition:stroke-dasharray .4s linear;}
+  @media (prefers-reduced-motion:reduce){ .tile .posring .val{transition:none;} }
   .favs{display:flex;gap:10px;overflow-x:auto;padding:6px 2px;-webkit-overflow-scrolling:touch;}
   .favs.wrap{flex-wrap:wrap;overflow-x:visible;justify-content:flex-start;gap:12px;}
   .phead{font-weight:650;font-size:15px;margin:10px 2px 2px;padding-bottom:6px;border-bottom:1px solid var(--line);text-align:left;}
@@ -1053,9 +1057,21 @@ function tileVarStyle(it){
   if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
   if(ts.tileBord!=null) sv.push('--tile-bord:'+ts.tileBord);
   if(ts.tileBw!=null) sv.push('--tile-bw:'+ts.tileBw+'px');
+  if(ts.ringOp!=null) sv.push('--ring-op:'+ts.ringOp);
+  if(ts.ringTrk!=null) sv.push('--ring-trk:'+ts.ringTrk);
+  if(ts.ringW!=null) sv.push('--ring-w:'+ts.ringW);
   return sv.join(';');
 }
 function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':'')); }
+// Positionsring: EINE Quelle fuer Vollrender und In-place-Patch. Vorher stand
+// der Umfang zweimal als Zahl im Render-Zweig; sobald der Patch dazukam, waere
+// er die dritte Stelle gewesen, an der sich derselbe Wert aendern muss.
+const RING_U = 289.03;                      // Umfang bei r=46 im viewBox 0..100
+function ringPos(it){
+  return (typeof it.pos === 'number' && isFinite(it.pos))
+    ? Math.max(0, Math.min(100, it.pos)) : null;
+}
+function ringDash(posv){ return (posv/100*RING_U).toFixed(2)+' '+RING_U; }
 // Live-Update der Kachel-Ansicht OHNE Neuaufbau: aktualisiert nur die
 // veraenderlichen Teile (Zustand/Farben/Sublabel/Steuer-Icons) der bestehenden
 // Kacheln. Verhindert das Flackern (Icons/Cover werden nicht neu geladen).
@@ -1066,6 +1082,11 @@ function updateGrid(items){
   const nodes=g.querySelectorAll('.tile[data-id]');
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
+  // Kam ein Positionsring dazu oder fiel einer weg, hat sich die Struktur der
+  // Kachel geaendert -> voller Neuaufbau, wie bei anderer Kachelzahl auch.
+  for(let i=0;i<items.length;i++){
+    if((ringPos(items[i])===null) !== !nodes[i].querySelector('.icowrap')) return false;
+  }
   const _pg=(view.layout==='list'?4:gridCols*gridRows);
   items.forEach((it,i)=>{
     const n=nodes[i];
@@ -1083,6 +1104,27 @@ function updateGrid(items){
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
+    // Positionsring nachziehen. Ohne das blieb der Bogen auf dem Stand vom
+    // letzten Vollrender stehen, waehrend die Zweitzeile daneben weiterzaehlte:
+    // der Rollladen fuhr, der Ring stand.
+    const ring=n.querySelector('.posring');
+    if(ring){
+      const posv=ringPos(it);
+      let val=ring.querySelector('.val');
+      if(posv>0){
+        if(!val){
+          val=document.createElementNS('http://www.w3.org/2000/svg','circle');
+          val.setAttribute('class','val');
+          val.setAttribute('cx','50'); val.setAttribute('cy','50'); val.setAttribute('r','46');
+          ring.querySelector('g').appendChild(val);
+        }
+        const da=ringDash(posv);
+        if(val.getAttribute('stroke-dasharray')!==da) val.setAttribute('stroke-dasharray',da);
+      }
+      // Bei 0 % bleibt allein die Spur stehen - eine runde Kappe auf Laenge null
+      // waere sonst ein Punkt und saehe aus wie ein Fehler (wie im Vollrender).
+      else if(val) val.remove();
+    }
   });
   return true;
 }
@@ -1124,14 +1166,13 @@ function render(){
     // Positionsring: nur fuer Bausteine, die eine Stellung haben. Bei 0 %
     // bleibt allein die Spur stehen - ein runder Abschluss auf der Laenge null
     // wuerde sonst als Punkt erscheinen und wie ein Fehler aussehen.
-    const posv = (typeof it.pos === 'number' && isFinite(it.pos))
-      ? Math.max(0, Math.min(100, it.pos)) : null;
+    const posv = ringPos(it);
     const icoCell = posv===null ? icoHtml
       : '<span class="icowrap"><svg class="posring" viewBox="0 0 100 100" aria-hidden="true">'+
           '<g transform="rotate(-90 50 50)">'+
             '<circle class="trk" cx="50" cy="50" r="46"/>'+
             (posv>0 ? '<circle class="val" cx="50" cy="50" r="46" stroke-dasharray="'+
-              (posv/100*289.03).toFixed(2)+' 289.03"/>' : '')+
+              ringDash(posv)+'"/>' : '')+
           '</g></svg>'+icoHtml+'</span>';
     const chev = (it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
