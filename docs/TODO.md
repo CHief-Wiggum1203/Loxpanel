@@ -381,6 +381,25 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ## 9. Weitere Funktionen
 
+- [x] **Positionsring: eingefroren, zu kräftig, und die Kachel schwieg zur
+      Fahrt.** Drei Befunde aus einer Messung am echten Code, nicht aus dem
+      Gefühl:
+      *(a)* `updateGrid()` patcht die Kachel in-place, fasste `.posring` aber
+      nie an — der Bogen blieb auf dem Stand vom letzten Vollrender stehen,
+      während die Zweitzeile weiterzählte (im Browser nachgestellt: Text 20 →
+      95 %, Ring unverändert bei 20 %). Jetzt wird er mitgezogen, dazu
+      `transition:stroke-dasharray .4s` — er folgt der Fahrt, animiert aber
+      nichts im Stand.
+      *(b)* Die Strichstärke hing an einem festen `stroke-width:6` in einer
+      Box von `--ico-size + 18px`. Durch den festen Summanden fällt der Ring
+      bei kleinen Icons dicker aus als die Icon-Linien: gemessen 1,25× bei
+      38 px, 1,48× bei 24 px, 2,75× bei 8 px. Jetzt über `ring`/`rtrk`/`rw`
+      im vorhandenen `overlay`-Dict regelbar, Defaults = die alten Hartwerte.
+      *(c)* Die Kachel kannte nur die Stellung, nicht die Fahrt, obwohl der
+      Server `up`/`down` für die Detailansicht längst liest. Sie zeigt jetzt
+      „▲ fährt … 40% zu" und trägt Auf/Ab als Tasten wie der Audioplayer —
+      das spart bei jeder Bedienung den Umweg über die Detailansicht. **M**
+
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
       dem Aufwecken direkt in diesem Raum stehen, ohne vorher Raum oder
