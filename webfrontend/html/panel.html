@@ -1242,7 +1242,12 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   // Bild kann nach dem Layout erst die richtige Groesse liefern -> nach Frame fitten
   requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
 }
-window.addEventListener('resize',()=>{ if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit(); });
+window.addEventListener('resize',()=>{
+  if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
+  // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
+  // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
+  if(saverOn()) applySaverSplit();
+});
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
 let sx=null, sy=null;
@@ -1292,6 +1297,7 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
+      if(saverOn()) applySaverSplit();      // Split-Erlaubnis kann sich geaendert haben -> Screensaver-Spaltigkeit nachziehen
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
@@ -1652,11 +1658,20 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
-function showSaver(){ tickClock();
-  // Zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly X2) – gleiches
-  // Kriterium wie das Kachel-Grid (s. render()). Das quadratische 4"-Panel bleibt
-  // einspaltig (Wetter oben, Uhr, Termine untereinander), auch wenn Split erlaubt ist.
+// Screensaver zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly
+// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Das quadratische
+// 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine untereinander).
+// WICHTIG: Die Entscheidung haengt an der aktuellen Fenstergroesse, die beim
+// Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch (quer) sein kann,
+// bevor die echte 480x480-Flaeche steht. Darum gekapselt und bei jedem resize
+// neu getroffen – sonst bleibt die Anzeige in der beim Start zufaellig
+// gemessenen Spaltigkeit haengen (2-spaltig direkt nach dem Speichern, erst
+// spaeter wieder einspaltig).
+function applySaverSplit(){
   el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
+}
+function showSaver(){ tickClock();
+  applySaverSplit();
   el('saver').classList.remove('hidden'); }
 function hideSaver(){ el('saver').classList.add('hidden'); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
