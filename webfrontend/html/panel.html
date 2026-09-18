@@ -384,9 +384,14 @@
   .tabs{display:flex;border-top:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
   .tab{flex:1;display:grid;place-items:center;padding:13px 0;color:var(--muted);cursor:pointer;}
   .tab svg{width:28px;height:28px;}
-  .tab .tico{display:inline-block;width:28px;height:28px;background-color:currentColor;
+  /* Kategorie-Tab-Icon: Maskenfarbe DIREKT an die Theme-Variable haengen (nicht
+     an currentColor). Sonst loest die eingeschraenkte WebView (Shelly) currentColor
+     beim Farbschema-Wechsel nicht neu auf und das Icon bleibt an der Standardfarbe
+     haengen -> auf getoentem Theme kaum sichtbar. */
+  .tab .tico{display:inline-block;width:28px;height:28px;background-color:var(--muted);
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tab.active{color:var(--accent);}
+  .tab.active .tico{background-color:var(--accent);}
   .tab:active{transform:scale(.92);}
   /* Online-Punkt: nur auf den Haupt-Screens (Tabs), zentriert im 2x2-Raster */
   .conn{grid-row:1;grid-column:1;place-self:center;z-index:6;pointer-events:none;
