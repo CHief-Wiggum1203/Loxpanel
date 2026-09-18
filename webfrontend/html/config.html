@@ -184,12 +184,17 @@
   .ovctrl .frow{display:flex;align-items:center;gap:10px;}
   .ovctrl .frow input[type=range]{flex:1;accent-color:var(--accent);}
   .ovctrl .cval{min-width:44px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
-  .ovprev{flex:none;display:grid;place-items:center;}
+  .ovprev{flex:none;display:grid;place-items:center;gap:10px;}
   .ovtile{--on-rgb:224,162,77;width:132px;height:88px;border-radius:6px;display:grid;place-items:center;
     color:var(--fg);font-size:13px;font-weight:500;
     background:rgba(var(--on-rgb),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb),var(--ov-bord,.55));}
   .ovtile.g{--on-rgb:82,184,129;} .ovtile.c{--on-rgb:226,107,95;}
+  /* Vorschau der inaktiven Kachel (nur Rahmen, konfigurierbar) */
+  .ovtile.off{background:transparent;color:var(--muted);
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));}
+  .ovgrp{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.03em;margin-top:6px;}
+  .ovgrp .ovgrp-h{font-weight:400;opacity:.75;}
   /* Einstellungen-spezifisch */
   .soon{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:44px 20px;color:var(--muted);}
   .soon .ssico{font-size:40px;opacity:.8;}
@@ -250,6 +255,28 @@
   .ovbox:hover,.ovbox:focus-visible{border-color:var(--accent);background:var(--panel2);outline:none;}
   .ovbox b{display:block;font-size:14px;color:var(--fg);margin-bottom:2px;}
   .ovbox span{font-size:12.5px;color:var(--muted);line-height:1.45;}
+
+  /* ---------- Rubrik „unterstützte Geräte" (Geräte-Katalog) ---------- */
+  .ovw .devcat{display:flex;flex-wrap:wrap;gap:24px 22px;align-items:flex-start;}
+  .ovw .devcat figure{width:150px;margin:0;}
+  .ovw .devcat figure.wide{width:auto;min-width:150px;max-width:230px;}
+  .ovw .devcat .nm{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;font-weight:600;font-size:13px;color:var(--fg);}
+  .ovw .devcat .spec{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--smut);margin-top:4px;letter-spacing:.02em;}
+  .ovw .devcat .desc{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45;}
+  .ovw .devcat .badge{font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:1px 7px;}
+  .ovw .devcat .badge.ref{color:#52b881;border-color:color-mix(in srgb,#52b881 50%,transparent);}
+  /* Physische Formfaktoren proportional zur mm-Groesse */
+  .ovw .faceplate{background:#0a0c10;border:1px solid var(--tline);border-radius:12px;position:relative;max-width:100%;
+    display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);}
+  .ovw .miniscr{aspect-ratio:1;background:var(--scr);border:1px solid var(--tline);border-radius:6px;padding:5px;flex:none;overflow:hidden;}
+  .ovw .miniscr .visu,.ovw .miniscr .p2{height:100%;}
+  .ovw .fpmm{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-family:ui-monospace,monospace;font-size:8px;color:var(--smut);letter-spacing:.05em;}
+  .ovw .fp120{width:96px;aspect-ratio:76/120;align-items:flex-start;padding-top:10px;}
+  .ovw .fp120 .miniscr{width:76%;}
+  .ovw .fpx2{width:214px;aspect-ratio:176/87;padding:0 8px;}
+  .ovw .fpx2 .miniscr{height:82%;}
+  .ovw .fptab{width:198px;aspect-ratio:16/10;}
+  .ovw .fptab .miniscr{height:72%;}
 </style>
 </head>
 <body>
@@ -276,6 +303,7 @@
         <button class="rub active" data-rub="overview">Übersicht</button>
         <button class="rub" data-rub="pconf">Panel Configuration</button>
         <button class="rub" data-rub="settings">Settings</button>
+        <button class="rub" data-rub="devices">unterstützte Geräte</button>
       </div>
       <div id="phead"></div>
     </div>
@@ -333,6 +361,76 @@
             <button class="ovbox" data-goto="settings:panels"><b>Panels &amp; Geräte</b><span>Alle Anzeigegeräte, Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
             <button class="ovbox" data-goto="settings:newpanel"><b>Neues Panel</b><span>Start-URL für ein Android/Tablet erzeugen oder Agent per SSH aufs Linux-Panel.</span></button>
           </div>
+        </div>
+      </div>
+
+      <!-- unterstützte Geräte -->
+      <div id="devicesHost" class="ovw" style="display:none">
+        <p class="lead">LoxPanel läuft auf <b>Android-Wandpanels</b> (Fully Kiosk per <code>adb</code>) im Zielformat <b>480×480</b>. Diese Geräte sind erprobt – 4″-Panels 1:1, höher aufgelöste oder größere per Zoom, breite Geräte als zwei Panes.</p>
+        <h3>Wandpanels · ein Pane</h3>
+        <div class="devcat">
+
+          <figure>
+            <div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="nm">4″-Standardpanel <span class="badge ref">Referenz</span></div>
+            <div class="spec">480×480 · Android 11 / Debian 11</div>
+            <div class="desc">YC-SM41P (Portworld) &amp; baugleiche. 1 Pane, fix – native Auflösung. Debian + Chromium-Kiosk = primäres Ziel.</div>
+          </figure>
+
+          <figure>
+            <div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="nm">Sonoff NSPanel Pro 86 <span class="badge">1 Pane · Fix</span></div>
+            <div class="spec">3,95″ · 480×480 · Android</div>
+            <div class="desc">Natives Format, 1:1. Android gesperrt → Fully Kiosk per adb. 2 Relais onboard.</div>
+          </figure>
+
+          <figure>
+            <div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="nm">Shelly Wall Display X1i <span class="badge">1 Pane · Zoom</span></div>
+            <div class="spec">4″ · 720×720 · Android 11</div>
+            <div class="desc">Quadratisch, höher aufgelöst – das 480×480-Pane wird sauber auf 720² gezoomt.</div>
+          </figure>
+
+          <figure class="wide">
+            <div class="faceplate fp120">
+              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              <span class="fpmm">76 × 120 mm</span>
+            </div>
+            <div class="nm">Sonoff NSPanel Pro 120 <span class="badge">1 Pane · Zoom</span></div>
+            <div class="spec">4,7″ · Hochformat 76×120 mm</div>
+            <div class="desc">Anderer Formfaktor als die quadratischen 4″-Panels: höher als breit. Ein Pane, gezoomt.</div>
+          </figure>
+
+        </div>
+
+        <h3>Shelly Wall Display X2 / X2i · zwei Panes</h3>
+        <div class="devcat">
+
+          <figure class="wide">
+            <div class="faceplate fpx2">
+              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            </div>
+            <div class="nm">Shelly Wall Display X2 / X2i <span class="badge">2 Panes</span></div>
+            <div class="spec">6,95″ · 87×176 mm · Android 11</div>
+            <div class="desc">Breites Gerät (~2:1): ein Gerät mit zwei 480×480-Panes nebeneinander. Wie zwei 4″-Displays in einem Rahmen.</div>
+          </figure>
+
+        </div>
+
+        <h3>Tablets · zwei Panes</h3>
+        <div class="devcat">
+
+          <figure class="wide">
+            <div class="faceplate fptab">
+              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
+            </div>
+            <div class="nm">7–8″-Tablet <span class="badge">2 Panes / Zoom</span></div>
+            <div class="spec">~1024×600 / 1280×800 · Android · quer</div>
+            <div class="desc">Zwei Panes (Visu + Zusatz) nebeneinander – oder Zoom auf den ganzen Schirm.</div>
+          </figure>
+
         </div>
       </div>
 
@@ -585,14 +683,15 @@ function renderList(){
 function setRubric(r){
   rubric=r;
   document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
-  const ov=r==='overview', pc=r==='pconf';
+  const ov=r==='overview', pc=r==='pconf', dv=r==='devices';
   const oh=$('#overviewHost'); if(oh) oh.style.display = ov?'':'none';
+  const dh=$('#devicesHost'); if(dh) dh.style.display = dv?'':'none';
   $('#pconfHost').style.display = pc?'':'none';
-  $('#setHost').style.display = (ov||pc)?'none':'';
+  $('#setHost').style.display = (ov||pc||dv)?'none':'';
   $('#savebar').style.display = pc?'':'none';
   $('#phead').style.display = pc?'':'none';
-  $('#subtabs').style.display = ov?'none':'';
-  if(ov) return;
+  $('#subtabs').style.display = (ov||dv)?'none':'';
+  if(ov||dv) return;
   if(pc){ renderEditor(); }
   else { renderSubtabs(); showSub(subSet); }
 }
@@ -628,13 +727,15 @@ function showSub(k){
 }
 
 // ---- Aktiv-Overlay (Rahmen/Füllung/Deckkraft) ----
-const OV_DEF={mode:'both',fill:16,bord:55,bw:1};
+const OV_DEF={mode:'both',fill:16,bord:55,bw:1,ibord:8,ibw:1};
 function ovVal(ov,k){ return (ov&&ov[k]!=null)?ov[k]:OV_DEF[k]; }
 function pruneOverlay(host){ if(host&&host.overlay&&!Object.keys(host.overlay).length) delete host.overlay; }
 function overlayFields(ov,pfx){
-  const m=ovVal(ov,'mode'),fi=ovVal(ov,'fill'),bo=ovVal(ov,'bord'),bw=ovVal(ov,'bw');
+  const m=ovVal(ov,'mode'),fi=ovVal(ov,'fill'),bo=ovVal(ov,'bord'),bw=ovVal(ov,'bw'),
+        ib=ovVal(ov,'ibord'),ibw=ovVal(ov,'ibw');
   const opt=(v,t)=>'<option value="'+v+'"'+(m===v?' selected':'')+'>'+t+'</option>';
-  return '<div class="frow"><label class="lbl">Darstellung</label><select id="'+pfx+'mode">'+
+  return '<div class="ovgrp">Aktive Kacheln</div>'+
+    '<div class="frow"><label class="lbl">Darstellung</label><select id="'+pfx+'mode">'+
       opt('both','Rahmen + Füllung')+opt('border','Nur Rahmen')+opt('fill','Nur Füllung')+'</select></div>'+
     '<div class="frow"><label class="lbl">Füllung</label>'+
       '<input type="range" id="'+pfx+'fill" min="0" max="100" step="5" value="'+fi+'">'+
@@ -643,24 +744,40 @@ function overlayFields(ov,pfx){
       '<input type="range" id="'+pfx+'bord" min="0" max="100" step="5" value="'+bo+'">'+
       '<span class="cval" id="'+pfx+'bordv">'+bo+' %</span></div>'+
     '<div class="frow"><label class="lbl">Rahmenbreite</label><select id="'+pfx+'bw">'+
-      [1,2,3,4].map(n=>'<option value="'+n+'"'+(bw===n?' selected':'')+'>'+n+' px</option>').join('')+'</select></div>';
+      [1,2,3,4].map(n=>'<option value="'+n+'"'+(bw===n?' selected':'')+'>'+n+' px</option>').join('')+'</select></div>'+
+    '<div class="ovgrp">Inaktive Kacheln &amp; rechte Panes <span class="ovgrp-h">(Rahmen, z. B. für helle Displays)</span></div>'+
+    '<div class="frow"><label class="lbl">Rahmen</label>'+
+      '<input type="range" id="'+pfx+'ibord" min="0" max="100" step="5" value="'+ib+'">'+
+      '<span class="cval" id="'+pfx+'ibordv">'+ib+' %</span></div>'+
+    '<div class="frow"><label class="lbl">Rahmenbreite</label><select id="'+pfx+'ibw">'+
+      [1,2,3,4].map(n=>'<option value="'+n+'"'+(ibw===n?' selected':'')+'>'+n+' px</option>').join('')+'</select></div>';
 }
 function bindOverlay(pfx,getOv,onChange){
   const m=$('#'+pfx+'mode'),fi=$('#'+pfx+'fill'),bo=$('#'+pfx+'bord'),bw=$('#'+pfx+'bw'),
-        fiv=$('#'+pfx+'fillv'),bov=$('#'+pfx+'bordv');
+        fiv=$('#'+pfx+'fillv'),bov=$('#'+pfx+'bordv'),
+        ib=$('#'+pfx+'ibord'),ibw=$('#'+pfx+'ibw'),ibv=$('#'+pfx+'ibordv');
   const set=(k,v)=>{ getOv()[k]=v; onChange(); };
   if(m) m.onchange=()=>set('mode',m.value);
   if(fi) fi.oninput=()=>{ fiv.textContent=fi.value+' %'; set('fill',Number(fi.value)); };
   if(bo) bo.oninput=()=>{ bov.textContent=bo.value+' %'; set('bord',Number(bo.value)); };
   if(bw) bw.onchange=()=>set('bw',Number(bw.value));
+  if(ib) ib.oninput=()=>{ ibv.textContent=ib.value+' %'; set('ibord',Number(ib.value)); };
+  if(ibw) ibw.onchange=()=>set('ibw',Number(ibw.value));
 }
 function ovPreview(elId,ov){
-  const el=$('#'+elId); if(!el) return;
-  const m=ovVal(ov,'mode'); let fill=ovVal(ov,'fill')/100, bord=ovVal(ov,'bord')/100;
-  if(m==='border') fill=0; if(m==='fill') bord=0;
-  el.style.setProperty('--ov-fill',fill);
-  el.style.setProperty('--ov-bord',bord);
-  el.style.setProperty('--ov-bw',ovVal(ov,'bw')+'px');
+  const el=$('#'+elId);
+  if(el){
+    const m=ovVal(ov,'mode'); let fill=ovVal(ov,'fill')/100, bord=ovVal(ov,'bord')/100;
+    if(m==='border') fill=0; if(m==='fill') bord=0;
+    el.style.setProperty('--ov-fill',fill);
+    el.style.setProperty('--ov-bord',bord);
+    el.style.setProperty('--ov-bw',ovVal(ov,'bw')+'px');
+  }
+  const off=$('#'+elId+'Off');   // Vorschau der inaktiven Kachel
+  if(off){
+    off.style.setProperty('--tile-bord','rgba(255,255,255,'+(ovVal(ov,'ibord')/100)+')');
+    off.style.setProperty('--tile-bw',ovVal(ov,'ibw')+'px');
+  }
 }
 
 function bindAppearance(p){
@@ -877,13 +994,14 @@ function renderEditor(){
          '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die linke Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
        '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
          '<div class="cclist" id="panePerTab"></div>'+
-         '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Wetter</b> oder <b>Kalender</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+         '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '</div></div></section>'+
 
    '<section class="spane" data-sub="overlay"><div class="card"><h3>Aktiv-Overlay</h3>'+
-     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.')+'</p>'+
+     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.')+'</p>'+
      '<div class="ovwrap">'+
-       '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div></div>'+
+       '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div>'+
+         '<div class="ovtile off" id="ovPrevOff">Aus</div></div>'+
        '<div class="ovctrl">'+overlayFields((p.ui||{}).overlay,'ov_')+
          '<div class="frow"><button class="minibtn" id="ovReset">Auf Standard zurücksetzen</button></div>'+
        '</div></div></div></section>';
@@ -957,6 +1075,16 @@ function firstEnergyControl(){
   const z=cs.find(c=>c.type==='EFM')||cs.find(c=>c.type==='EnergyManager2');
   return z?z.uuid:'';
 }
+// Kameras = Intercom-Bausteine (Tuerstation/Kamera). Das Live-Bild kommt ueber
+// /mjpeg?id=<uuid>; die Zugangsdaten stehen in Einstellungen -> Intercom.
+function cameraOptions(sel){
+  return (META.controls||[]).filter(c=>c.type==='Intercom')
+    .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function firstCamera(){
+  const z=(META.controls||[]).find(c=>c.type==='Intercom');
+  return z?z.uuid:'';
+}
 
 function renderPanes(p){
   const pf=$('#paneField'); if(pf) pf.style.display=((p.ui||{}).split===false)?'none':'';   // 4"-Panel: keine Pane-Auswahl
@@ -966,18 +1094,20 @@ function renderPanes(p){
     const meta=(META.tabs||[]).find(t=>t.tab===tk);
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
-    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0;
-    const kind=isP?'player':(isE?'energy':v), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'';
+    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0;
+    const kind=isP?'player':(isE?'energy':(isC?'camera':v)), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
       '<select data-pane="'+esc(tk)+'">'+
         '<option value=""'+(kind===''?' selected':'')+'>Screen füllen</option>'+
         '<option value="player"'+(kind==='player'?' selected':'')+'>Audio</option>'+
+        '<option value="camera"'+(kind==='camera'?' selected':'')+'>Kamera</option>'+
         '<option value="weather"'+(kind==='weather'?' selected':'')+'>Wetter</option>'+
         '<option value="calendar"'+(kind==='calendar'?' selected':'')+'>Kalender</option>'+
         '<option value="energy"'+(kind==='energy'?' selected':'')+'>Energiefluss</option>'+
       '</select>';
     if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
     if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
+    if(isC) row+='<select data-panec="'+esc(tk)+'">'+cameraOptions(camu)+'</select>';
     return row+'</div>';
   }).join('') || '<div class="ccmut">Keine Tabs.</div>';
   const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
@@ -989,14 +1119,19 @@ function renderPanes(p){
       const z=cur.indexOf('player:')===0?cur.slice(7):firstAudioZone(); setPane(tk,'player:'+z); }
     else if(k==='energy'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const u=cur.indexOf('energy:')===0?cur.slice(7):firstEnergyControl(); setPane(tk,'energy:'+u); }
+    else if(k==='camera'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      const u=cur.indexOf('camera:')===0?cur.slice(7):firstCamera(); setPane(tk,'camera:'+u); }
     else setPane(tk,k);
-    renderPanes(p);   // Zonen-/Control-Dropdown ein-/ausblenden
+    renderPanes(p);   // Zonen-/Control-/Kamera-Dropdown ein-/ausblenden
   });
   box.querySelectorAll('select[data-panez]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panez,'player:'+s.value);
   });
   box.querySelectorAll('select[data-panee]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panee,'energy:'+s.value);
+  });
+  box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{
+    setPane(s.dataset.panec,'camera:'+s.value);
   });
 }
 function renderChips(p){
@@ -1140,7 +1275,8 @@ function renderTileEditor(){
         '<span class="tgl'+(ov.overlay?' on':'')+'" id="tOvOn" title="Für diese Kachel abweichend">◐</span>'+
         '<span style="color:var(--muted);font-size:12.5px">abweichend vom Panel</span></div>'+
       '<div class="ovwrap" id="tOvBox"'+(ov.overlay?'':' style="display:none"')+'>'+
-        '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div></div>'+
+        '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div>'+
+          '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';

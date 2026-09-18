@@ -19,5 +19,8 @@ deploy/loxpanel-kiosk.conf
 __pycache__/
 .venv/
 
+# Lokal gebautes Overlay-Test-Plugin (Build-Artefakt, gehoert nicht ins Repo)
+loxpanel-plugin-test.zip
+
 # Globale Theme-/Kategorie-Farben (zur Laufzeit ueber die Config-UI geschrieben)
 config/theme.json

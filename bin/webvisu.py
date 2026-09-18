@@ -244,6 +244,24 @@ def _overlay_alphas(ov: dict) -> tuple[float, float, int]:
     return fill, bord, bw
 
 
+def _inactive_border(ov: dict) -> tuple[float, int]:
+    """Overlay-Config -> (Rahmen-Alpha, Rahmenbreite px) fuer NICHT aktive Kacheln.
+
+    Defaults entsprechen dem bisherigen fest verdrahteten --line (weiss 8%) und
+    1px, damit sich ohne Konfiguration nichts aendert. `ibord`/`ibw` machen den
+    sonst kaum sichtbaren Kachelrahmen (z.B. auf hellen Shelly-Displays) staerker.
+    """
+    ov = ov if isinstance(ov, dict) else {}
+    def _num(key, default):
+        try:
+            return float(ov.get(key, default))
+        except (TypeError, ValueError):
+            return float(default)
+    alpha = max(0.0, min(1.0, _num("ibord", 8) / 100.0))
+    bw = max(1, min(4, int(_num("ibw", 1))))
+    return alpha, bw
+
+
 def _sanitize_overlay(ov) -> dict:
     """Overlay-Config aus der Config-Seite auf erlaubte Werte eindampfen."""
     if not isinstance(ov, dict):
@@ -251,11 +269,12 @@ def _sanitize_overlay(ov) -> dict:
     out: dict = {}
     if ov.get("mode") in ("both", "border", "fill"):
         out["mode"] = ov["mode"]
-    for k in ("fill", "bord"):
+    for k in ("fill", "bord", "ibord"):
         if isinstance(ov.get(k), (int, float)):
             out[k] = max(0, min(100, int(ov[k])))
-    if isinstance(ov.get("bw"), (int, float)):
-        out["bw"] = max(1, min(4, int(ov["bw"])))
+    for k in ("bw", "ibw"):
+        if isinstance(ov.get(k), (int, float)):
+            out[k] = max(1, min(4, int(ov[k])))
     return out
 
 
@@ -479,14 +498,15 @@ class App:
         self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
         self.conn_energy: dict[web.WebSocketResponse, str] = {}   # ws -> EFM/EnergyManager2-UUID der aktiven Energiefluss-Pane (via setenergy)
+        self.conn_camera: dict[web.WebSocketResponse, str] = {}   # ws -> Intercom-UUID der aktiven Kamera-Pane (via setcamera)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
+        self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
+        self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
         self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
         self.night_cfg = _night_config()  # {"control": uuid} -> dessen active-State = Nacht
-        self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
-        self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self._dirty = True
         # Zuletzt an JEDE Verbindung zugestellte Nutzlast, je Art getrennt
         # ({"view":…, "player":…, "energy":…}). Grundlage dafuer, unveraenderte
@@ -1152,6 +1172,10 @@ class App:
             v["--ov-fill"] = f"{fill:.3g}"
             v["--ov-bord"] = f"{bord:.3g}"
             v["--ov-bw"] = f"{bw}px"
+            # Rahmen der NICHT aktiven Kacheln (sonst kaum sichtbar auf hellen Displays).
+            ialpha, ibw = _inactive_border(ui["overlay"])
+            v["--tile-bord"] = f"rgba(255,255,255,{ialpha:.3g})"
+            v["--tile-bw"] = f"{ibw}px"
         if ui.get("font"):
             v["--font"] = ui["font"]
         if ui.get("textColor"):
@@ -1207,6 +1231,21 @@ class App:
             v = self._view_control_inner(uuid)
         except Exception:
             log.exception("player_blocks fehlgeschlagen (%s)", uuid)
+            return None
+        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+
+    def intercom_blocks(self, uuid: str):
+        """Volle Intercom-Ansicht (Video + Tuer-/Ausgang-Buttons + Klingel-Banner)
+        einer Intercom-UUID fuer die Kamera-Pane. Gleiche Bloecke wie die
+        Detailansicht -> das Bild wird wie beim Baustein direkt geladen (robust,
+        auch wo ein nacktes MJPEG-<img> nicht anzeigt). None, wenn kein Intercom."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") != "Intercom":
+            return None
+        try:
+            v = self._view_control_inner(uuid)
+        except Exception:
+            log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
         return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
 
@@ -1634,7 +1673,7 @@ class App:
         # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
-                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:")) and len(v) > 7))}
+                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
             if not ui["panes"]:
                 ui.pop("panes", None)
         else:
@@ -1713,7 +1752,7 @@ class App:
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
                 pn = {str(k): v for k, v in ui["panes"].items()
-                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:")) and len(v) > 7))}
+                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
                 if pn:
                     cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
             if _color_ok(ui.get("textColor")):
@@ -2413,7 +2452,11 @@ class App:
                       nav={"view": "control", "id": uuid},
                       sublabel=("Heizt" if dh else ("Kühlt" if dc else "Bereit")))
         elif t == "SystemScheme":
-            it.update(icon="info", sublabel="Anlagenschema")
+            # Kachel oeffnet die volle Schema-Ansicht (Hintergrundbild + Live-Werte).
+            # Als Sublabel den Hauptbaustein (details.mainControl) zeigen, sonst Hinweis.
+            main = self._resolve_control((c.get("details") or {}).get("mainControl"))
+            sub = (self._scheme_value(main).get("text") if main else "") or "Anlagenschema"
+            it.update(icon="central", sublabel=sub, nav={"view": "control", "id": uuid})
         elif t == "Hourcounter":
             it["sublabel"] = ("Wartung fällig" if self._state(c, "overdue")
                               else self._fmt_num(self._state(c, "total"), "%.0f h"))
@@ -2552,6 +2595,9 @@ class App:
             style["ovFill"] = f"{fill:.3g}"     # ueberschreibt --ov-* nur fuer diese Kachel
             style["ovBord"] = f"{bord:.3g}"
             style["ovBw"] = bw
+            ialpha, ibw = _inactive_border(ov["overlay"])
+            style["tileBord"] = f"rgba(255,255,255,{ialpha:.3g})"   # inaktiver Rahmen nur fuer diese Kachel
+            style["tileBw"] = ibw
         if style:
             it["style"] = style
         ic = ov.get("icon")
@@ -2743,6 +2789,90 @@ class App:
                 continue
         return out
 
+    # ---- Anlagenschema (SystemScheme) -----------------------------------
+    def _resolve_control(self, uuid: str | None) -> dict | None:
+        """Baustein zu einer UUID liefern – auch wenn es ein Subcontrol ist.
+        self.controls enthaelt nur die Top-Level-Bausteine; die Referenzen im
+        Anlagenschema zeigen teils auf Subcontrols (z.B. InfoOnly eines Oelkessels)."""
+        if not uuid:
+            return None
+        c = self.controls.get(uuid)
+        if c:
+            return c
+        for pc in self.controls.values():
+            sub = (pc.get("subControls") or {}).get(uuid)
+            if sub:
+                return sub
+        return None
+
+    def _scheme_value(self, c: dict | None) -> dict:
+        """Kompakter Anzeige-Wert eines im Schema referenzierten Bausteins:
+        {text, on, tone}. Deckt die im Anlagenschema ueblichen Typen ab
+        (Slider/InfoOnlyAnalog = Zahl, InfoOnlyDigital = Ein/Aus, TextState)."""
+        if not c:
+            return {"text": "", "on": False}
+        t = c.get("type")
+        det = c.get("details") or {}
+        if t in ("Slider", "InfoOnlyAnalog", "Meter"):
+            return {"text": self._fmt_num(self._state(c, "value") if t != "Meter"
+                                          else self._state(c, "actual"),
+                                          det.get("format", "%.1f")), "on": False}
+        if t == "InfoOnlyDigital":
+            on = bool(self._state(c, "active"))
+            txt = det.get("text") or {}
+            return {"text": (txt.get("on") if on else txt.get("off"))
+                    or ("Ein" if on else "Aus"), "on": on}
+        if t in ("TextState", "InfoOnlyText"):
+            return {"text": str(self._state(c, "textAndIcon")
+                               or self._state(c, "text") or ""), "on": False}
+        # Fallback: erster vorhandener State als Text.
+        for name in (c.get("states") or {}):
+            v = self._state(c, name)
+            if v not in (None, ""):
+                return {"text": str(v), "on": False}
+        return {"text": "", "on": False}
+
+    def _view_scheme(self, uuid: str, c: dict, route: dict) -> dict:
+        """Anlagenschema als Ansicht: Hintergrundbild vom Miniserver (ueber den
+        /icon-Proxy) plus die Live-Werte der referenzierten Bausteine als Overlay
+        an ihren Positionen. schemeSize ist das Original-Koordinatensystem, in dem
+        pos/size angegeben sind – der Client skaliert es auf die Panelbreite."""
+        det = c.get("details") or {}
+        sz = det.get("schemeSize") or {}
+        img = det.get("imagePath")
+        # /icon liefert .png vom Miniserver (mit JWT); &v busted den Browser-Cache
+        # bei geaenderter imageVersion. Hinweis: der Server-seitige icon_cache wird
+        # per Pfad gehalten – aendert sich das Bild im Config, ggf. Server neu laden.
+        src = None
+        if img:
+            src = "/icon?p=" + quote(img, safe="")
+            if det.get("imageVersion"):
+                src += "&v=" + str(det["imageVersion"])
+        items = []
+        for ref in (det.get("controlReferences") or []):
+            rc = self._resolve_control(ref.get("uuidAction"))
+            if not rc:
+                continue
+            val = self._scheme_value(rc)
+            pos = ref.get("pos") or {}
+            size = ref.get("size") or {}
+            entry = {
+                "x": pos.get("x", 0), "y": pos.get("y", 0),
+                "w": size.get("width"), "h": size.get("height"),
+                "text": (ref.get("text") or "") + val["text"],
+                "on": val["on"],
+            }
+            # Bedienbare Referenzen (actionsVisible) sind antippbar -> Detailansicht
+            # des Bausteins. Nur fuer Top-Level-Bausteine, die eine eigene View haben.
+            ru = ref.get("uuidAction")
+            if ref.get("actionsVisible") and ru in self.controls:
+                entry["nav"] = {"view": "control", "id": ru}
+            items.append(entry)
+        return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                "layout": "scheme", "image": src,
+                "sw": sz.get("width") or 1300, "sh": sz.get("height") or 866,
+                "items": items}
+
     def _view_control(self, uuid: str) -> dict:
         v = self._view_control_inner(uuid)
         if self.controls.get(uuid, {}).get("isSecured"):
@@ -2753,6 +2883,8 @@ class App:
         c = self.controls.get(uuid, {})
         t = c.get("type")
         route = {"view": "control", "id": uuid}
+        if t == "SystemScheme":
+            return self._view_scheme(uuid, c, route)
         if t == "LightControllerV2":
             cu = self._with_uuid(uuid)
             active = LIGHT.active_moods(cu, self.states)
@@ -3894,6 +4026,7 @@ class App:
             self.conn_dev.pop(ws, None)
             self.conn_player.pop(ws, None)
             self.conn_energy.pop(ws, None)
+            self.conn_camera.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -3921,13 +4054,6 @@ class App:
             if self._front is not None:
                 for ws in list(self.conn_route):
                     await self._send_or_drop(ws, self._front)
-        night = self._night_now()
-        if night != self._night_on:
-            # Nur beim Wechsel senden — die Panels halten den Zustand selbst.
-            self._night_on = night
-            log.info("Nachtmodus %s", "an" if night else "aus")
-            for ws in list(self.conn_route):
-                await self._send_or_drop(ws, {"t": "night", "on": night})
         if self._pending_reload:
             # Loxone-Struktur hat sich geaendert (Config) -> Panels neu laden, damit
             # neue/umbenannte Controls erscheinen. Nur bei echter Aenderung gesetzt.
@@ -3940,6 +4066,13 @@ class App:
             # Verbindung schliessen, daran gedacht werden muss.
             for _tot in [w for w in self._last_sent if w not in self.conn_route]:
                 del self._last_sent[_tot]
+        night = self._night_now()
+        if night != self._night_on:
+            # Nur beim Wechsel senden — die Panels halten den Zustand selbst.
+            self._night_on = night
+            log.info("Nachtmodus %s", "an" if night else "aus")
+            for ws in list(self.conn_route):
+                await self._send_or_drop(ws, {"t": "night", "on": night})
         if self._dirty and self.conn_route:
             self._dirty = False
             for ws, route in list(self.conn_route.items()):
@@ -3971,6 +4104,16 @@ class App:
                         energy_msg = {"t": "energy", **eb} if eb is not None else None
                     except Exception:
                         log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
+                # Split-Layout: Kamera-Pane (Intercom-Vollansicht) des aktiven Tabs
+                # mitrendern (kommt vom Client via setcamera -> conn_camera).
+                camera_msg = None
+                _cuid = self.conn_camera.get(ws)
+                if _cuid:
+                    try:
+                        ib = self.intercom_blocks(_cuid)
+                        camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
+                    except Exception:
+                        log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
                 # Nur senden, was sich seit der letzten Zustellung an DIESE
                 # Verbindung geaendert hat. Der Tick laeuft, sobald sich
                 # irgendein Wert im Haus bewegt — meist betrifft das die
@@ -3991,6 +4134,12 @@ class App:
                 if energy_msg is not None and energy_msg != last.get("energy"):
                     if await self._send_or_drop(ws, energy_msg):
                         last["energy"] = energy_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
+                if camera_msg is not None and camera_msg != last.get("camera"):
+                    if await self._send_or_drop(ws, camera_msg):
+                        last["camera"] = camera_msg
                     else:
                         self._last_sent.pop(ws, None)
 
@@ -4645,6 +4794,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_info.pop(ws, None)
             app.conn_player.pop(ws, None)
             app.conn_energy.pop(ws, None)
+            app.conn_camera.pop(ws, None)
     return n
 
 
@@ -4925,6 +5075,20 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
                     app.conn_energy.pop(ws, None)
+            elif data.get("t") == "setcamera":
+                # Client meldet die Intercom-Kachel der aktiven Kamera-Pane
+                # (oder "" = keine).
+                cuid = str(data.get("uuid") or "").strip()
+                if cuid:
+                    app.conn_camera[ws] = cuid
+                    try:
+                        ib = app.intercom_blocks(cuid)
+                        if ib is not None:
+                            await ws.send_json({"t": "camera", "blocks": ib})
+                    except Exception:
+                        log.exception("intercom_blocks (setcamera) fehlgeschlagen (%s)", cuid)
+                else:
+                    app.conn_camera.pop(ws, None)
     finally:
         app.conn_route.pop(ws, None)
         app.conn_prof.pop(ws, None)
@@ -4932,6 +5096,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_info.pop(ws, None)
         app.conn_player.pop(ws, None)
         app.conn_energy.pop(ws, None)
+        app.conn_camera.pop(ws, None)
     return ws
 
 
