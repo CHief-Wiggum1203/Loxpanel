@@ -384,15 +384,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
       dem Aufwecken direkt in diesem Raum stehen, ohne vorher Raum oder
-      Kategorie zu waehlen. Umgesetzt als Gegenstueck zum vorhandenen
+      Kategorie zu wählen. Umgesetzt als Gegenstück zum vorhandenen
       Kategorie-Direkt-Tab: `room:<uuid>` in `_is_tab()`, `_view_tab()` und
       `_tab_meta()`, in der Tab-Auswahl der Konfiguration angeboten. Am
-      Aufwach-Verhalten war nichts zu aendern — es haengt am ersten Tab
+      Aufwach-Verhalten war nichts zu ändern — es hängt am ersten Tab
       (`conn_route` beim Verbinden, `resetIdle()` nach 60 s Leerlauf). Dazu ein
-      Bugfix, ohne den die Direkt-Tabs ihren Zweck nicht erfuellen konnten:
-      `toggleTab()` sortierte die gewaehlten Tabs hart nach der Reihenfolge von
-      `/api/meta`, wo Kategorien und Raeume hinten stehen — sie rutschten damit
-      immer ans Ende und konnten nie Startseite sein, ausser als einziger Tab.
+      Bugfix, ohne den die Direkt-Tabs ihren Zweck nicht erfüllen konnten:
+      `toggleTab()` sortierte die gewählten Tabs hart nach der Reihenfolge von
+      `/api/meta`, wo Kategorien und Räume hinten stehen — sie rutschten damit
+      immer ans Ende und konnten nie Startseite sein, außer als einziger Tab.
       Das betraf auch die schon vorhandenen `cat:`-Tabs. Jetzt ist die
       Klickreihenfolge die Reihenfolge der Leiste. **S**
 
