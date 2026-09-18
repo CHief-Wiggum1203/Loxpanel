@@ -177,6 +177,22 @@ def _clean_lang(v):
     return v if v.split("-")[0] in SUPPORTED_LANGS else ""
 
 
+# Loxone-Icon-Bibliothek: SVGs des LoxBerry-Plugins "loxoneicons", read-only in
+# den Container gemountet (docker-compose). Fehlt der Mount/das Plugin, ist der
+# Ordner leer -> die Icon-Quelle erscheint gar nicht. Ueber Env ueberschreibbar.
+LOXLIB_DIR = os.environ.get("LOXPANEL_LOXLIB_DIR", "/app/loxone-icons/filled")
+_LOXLIB_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.svg$")
+
+
+def _loxlib_names() -> list:
+    """Dateinamen der Loxone-Bibliothek (flache .svg im gemounteten Ordner)."""
+    try:
+        return sorted(fn for fn in os.listdir(LOXLIB_DIR)
+                      if _LOXLIB_NAME.match(fn) and ".." not in fn)
+    except OSError:
+        return []
+
+
 def _clean_icon(ic):
     """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner)."""
     if not isinstance(ic, dict):
@@ -187,6 +203,9 @@ def _clean_icon(ic):
     if s == "loxone" and isinstance(ic.get("p"), str) and ".." not in ic["p"] \
             and (ic["p"].endswith(".svg") or ic["p"].endswith(".png")):
         return {"src": "loxone", "p": ic["p"]}
+    if s == "loxlib" and isinstance(ic.get("name"), str) and _LOXLIB_NAME.match(ic["name"]) \
+            and ".." not in ic["name"]:
+        return {"src": "loxlib", "name": ic["name"]}
     if s == "google" and isinstance(ic.get("name"), str) and re.match(r"^[a-z0-9_]{1,48}$", ic["name"]):
         return {"src": "google", "name": ic["name"]}
     if s == "custom" and isinstance(ic.get("file"), str) and re.match(r"^[A-Za-z0-9._-]{1,80}$", ic["file"]):
@@ -2621,6 +2640,9 @@ class App:
                 if u:
                     it["iconUrl"] = u
                     it.pop("iconImg", None)
+            elif s == "loxlib" and ic.get("name"):
+                it["iconUrl"] = "/loxlib?n=" + quote(str(ic["name"]))
+                it.pop("iconImg", None)
             elif s == "google" and ic.get("name"):
                 it["iconUrl"] = "/gicon?name=" + quote(str(ic["name"]))
                 it.pop("iconImg", None)
@@ -4299,7 +4321,7 @@ async def api_meta(request: web.Request) -> web.Response:
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
-        "icons": {"loxone": app._loxone_icons()},
+        "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
                  {"tab": "raeume", "label": "Räume"},
@@ -4929,6 +4951,29 @@ async def icon_handler(request: web.Request) -> web.Response:
                         headers={"Cache-Control": "max-age=86400"})
 
 
+async def loxicons_handler(request: web.Request) -> web.Response:
+    """Namen der Loxone-Bibliothek (fuer den Kachel-Editor, lazy geladen)."""
+    return web.json_response({"icons": _loxlib_names()})
+
+
+async def loxlib_handler(request: web.Request) -> web.Response:
+    """Ein SVG der Loxone-Bibliothek aus dem gemounteten Ordner ausliefern.
+    Nur flache, validierte Dateinamen - kein Pfad-Ausbruch."""
+    n = request.query.get("n", "")
+    if not _LOXLIB_NAME.match(n) or ".." in n:
+        return web.Response(status=400, text="bad")
+    path = os.path.join(LOXLIB_DIR, n)
+    if os.path.dirname(os.path.abspath(path)) != os.path.abspath(LOXLIB_DIR):
+        return web.Response(status=400, text="bad")
+    try:
+        with open(path, "rb") as f:
+            body = f.read()
+    except OSError:
+        return web.Response(status=404)
+    return web.Response(body=body, content_type="image/svg+xml",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
 async def cover_handler(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     u = request.query.get("u", "")
@@ -5188,6 +5233,8 @@ def main() -> None:
     a.router.add_get("/api/notify", api_notify)
     a.router.add_post("/api/notify", api_notify)
     a.router.add_get("/icon", icon_handler)
+    a.router.add_get("/loxlib", loxlib_handler)
+    a.router.add_get("/api/loxicons", loxicons_handler)
     a.router.add_get("/cover", cover_handler)
     a.router.add_get("/mjpeg", mjpeg_handler)
     a.router.add_get("/ws", ws_handler)
