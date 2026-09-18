@@ -1197,9 +1197,13 @@ class App:
             _wert = _gewaehlt(_key)
             if _wert:
                 v[_var] = _wert
-        if v.get("--accent") and _gewaehlt("good"):
-            # Innerhalb eines Themes zieht der Akzent mit der OK-Farbe mit, damit
-            # aktiver Tab, Energiefluss und Kalender nicht zurueckbleiben.
+        if _gewaehlt("good"):
+            # Der Akzent zieht mit der OK-Farbe mit, damit aktiver Tab,
+            # Energiefluss-Ring und Kalender ("heute") die eingestellte Farbe
+            # uebernehmen statt auf dem Default (#52b881) zu bleiben - AUCH ohne
+            # Panel-Farbe (loest #16: --accent wurde vorher nie an die Panels
+            # geschickt). Mit Panel-Farbe schlaegt eine ausdrueckliche OK-Farbe
+            # den hergeleiteten Akzent, sonst bleibt der hergeleitete Wert.
             v["--accent"] = _gewaehlt("good")
             _rgb = _hex_rgb(_gewaehlt("good"))
             if _rgb:
