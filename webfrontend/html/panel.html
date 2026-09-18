@@ -195,7 +195,7 @@
   .tile .posring{position:absolute;left:50%;top:50%;pointer-events:none;
     width:calc(var(--ico-size,38px) + 18px);height:calc(var(--ico-size,38px) + 18px);
     transform:translate(-50%,-50%);}
-  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:6;}
+  .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--posring-w,6);}
   .tile .posring .trk{opacity:.18;}
   .tile .posring .val{stroke-linecap:round;}
   .favs{display:flex;gap:10px;overflow-x:auto;padding:6px 2px;-webkit-overflow-scrolling:touch;}
@@ -1320,6 +1320,15 @@ let LANG='de-DE';   // Panel-Sprache (aus dem Profil, Server sendet sie im theme
   if(p!==null) localStorage.setItem('lp_nudge_x', p);
   const v=localStorage.getItem('lp_nudge_x');
   if(v!==null && v!=='') document.documentElement.style.setProperty('--nudge-x',(parseFloat(v)||0)+'px');
+})();
+// Strichstaerke des Positionsrings live am echten Display einstellen (verschiedene
+// Panels zeichnen duenne Linien unterschiedlich – Shelly braucht mehr fuer eine
+// sichtbare Linie): ?ring=4 duenner · ?ring=8 dicker · ?ring=6 Standard. Gemerkt.
+(function(){
+  const p=new URLSearchParams(location.search).get('ring');
+  if(p!==null) localStorage.setItem('lp_posring_w', p);
+  const v=localStorage.getItem('lp_posring_w');
+  if(v!==null && v!=='') document.documentElement.style.setProperty('--posring-w', parseFloat(v)||6);
 })();
 function connect(){
   const q=[];
