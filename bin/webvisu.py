@@ -1229,9 +1229,9 @@ class App:
             # Positionsring (Rollladen/Tor/Fenster/Dimmer) - herunterdrehbar, wo
             # er zu kraeftig wirkt.
             rop, rtrk, rw = _posring(ui["overlay"])
-            v["--ring-op"] = f"{rop:.3g}"
-            v["--ring-trk"] = f"{rtrk:.3g}"
-            v["--ring-w"] = f"{rw}"
+            v["--posring-op"] = f"{rop:.3g}"
+            v["--posring-trk"] = f"{rtrk:.3g}"
+            v["--posring-w"] = f"{rw}"
         if ui.get("font"):
             v["--font"] = ui["font"]
         if ui.get("textColor"):
@@ -1265,6 +1265,7 @@ class App:
             "cats": self._resolve_ids(prof.get("cats"), self.cats),
             "vars": self._theme_vars(states, ui),
             "tiles": prof.get("tiles") or {},
+            "roomCats": [c for c in (prof.get("roomCats") or []) if isinstance(c, str)],
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
@@ -1782,6 +1783,11 @@ class App:
             e["tabs"] = tabs or list(VALID_TABS)
             e["rooms"] = [str(x) for x in (p.get("rooms") or []) if isinstance(x, str)]
             e["cats"] = [str(x) for x in (p.get("cats") or []) if isinstance(x, str)]
+            # Raum-Panel: welche Kategorien des Raums als untere Tabs dienen
+            # (max 4). Leer/fehlt = automatisch (erste 4 im Raum).
+            rc = [str(x) for x in (p.get("roomCats") or []) if isinstance(x, str)][:4]
+            if rc:
+                e["roomCats"] = rc
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
@@ -2735,10 +2741,42 @@ class App:
             ru = tab[5:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == ru and self._cat_ok(u, prof) and self._shown(u, prof)]
-            items = [self._control_item(u, prof) for u in uuids]
+            # Raum-Panel: nach Kategorie gruppieren, damit die untere Leiste die
+            # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zur
+            # jeweiligen Kachel-Gruppe scrollt (keine Ueberschriften, Kacheln
+            # bleiben normal 2x2). Die erste Kachel jeder Gruppe traegt catKey als
+            # Scroll-Anker. Reihenfolge = cats_with; Bausteine ohne bekannte
+            # Kategorie kommen ans Ende. Tabs: die ersten 4 Kategorien.
+            by_cat: dict = {}
+            for u in uuids:
+                cu = self.controls[u].get("cat")
+                by_cat.setdefault(cu if cu in self.cats else None, []).append(u)
+            present = [c for c in self.cats_with if c in by_cat]
+            # Gewaehlte Tab-Kategorien (Config) vor die uebrigen; leer = automatisch.
+            chosen = [c for c in (prof.get("roomCats") or []) if c in by_cat] if prof else []
+            if chosen:
+                order = chosen + [c for c in present if c not in chosen]
+                tab_cats = chosen[:4]
+            else:
+                order = present
+                tab_cats = present[:4]
+            items = []
+            for cu in order:
+                for j, u in enumerate(by_cat[cu]):
+                    it = self._control_item(u, prof)
+                    if j == 0:
+                        it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
+                    items.append(it)
+            cat_tabs = [{"key": cu,
+                         "label": _clean(self.cats.get(cu, {}).get("name")) or "Kategorie",
+                         "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""}
+                        for cu in tab_cats]
+            for u in by_cat.get(None, []):
+                items.append(self._control_item(u, prof))
             title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"
             return {"t": "view", "title": title, "tab": tab,
-                    "route": {"view": "tab", "tab": tab}, "items": items}
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    "catTabs": cat_tabs}
         if tab == "favoriten":
             uuids = [u for u, c in self.controls.items()
                      if c.get("isFavorite") and self._room_ok(u, prof) and self._shown(u, prof)]
