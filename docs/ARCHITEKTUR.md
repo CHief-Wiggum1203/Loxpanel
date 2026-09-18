@@ -394,7 +394,14 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
   "panels": {
     "wohnzimmer": {
       "title": "Wohnzimmer",                 // max. 40 Zeichen
-      "tabs": ["favoriten", "raeume", "cat:<uuid>"],   // max. 4, leer = alle 4 Standard-Tabs
+      "tabs": ["room:<uuid>", "favoriten", "cat:<uuid>"],  // max. 4, leer = alle 4 Standard-Tabs
+                                             // `cat:`/`room:` = Direkt-Tab in eine
+                                             // Kategorie bzw. einen Raum. Der ERSTE
+                                             // Tab ist die Startseite: das Panel
+                                             // verbindet sich dorthin und kehrt nach
+                                             // 60 s Leerlauf dorthin zurueck -> ein
+                                             // Raum als erster Tab heisst, das Panel
+                                             // wacht direkt in diesem Raum auf.
       "rooms": ["<uuid oder Namensteil>"],   // Whitelist, leer = alle
       "cats":  ["<uuid oder Namensteil>"],
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
