@@ -62,6 +62,10 @@ Dazu den Server starten und `/api/settings` sowie `/config` abrufen.
   (Schlüssel = deutscher Text), Panel-Texte stehen hart im Server. Das gilt auch
   für die Front: Wochentage, „Heute"/„Morgen"/„ganztägig" und die Wetterlage baut
   `front_info.py`, das Panel zeigt sie nur an (Zahlen formatiert das Panel deutsch).
+- Umlaute: Anzeige-Texte, Commit-Meldungen, PR-Titel und PR-Texte schreiben sich
+  mit `ä ö ü ß`. Kommentare im Code bleiben bei der Ersatzschreibung (`ae oe ue
+  ss`), wie sie Upstream durchgehend verwendet — sonst reibt sich jeder
+  Upstream-Merge daran. Doku unter `docs/` ist reiner Umlaut-Text.
 - Neue Panel-Optionen müssen in `_sanitize_panels()` freigeschaltet werden, sonst
   verwirft der Server sie beim Speichern still.
 - Neue Bausteintypen kommen in die beiden Ketten `_control_item()` und
