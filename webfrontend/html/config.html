@@ -755,9 +755,8 @@ function overlayFields(ov,pfx){
     '<div class="frow"><label class="lbl">Rahmenbreite</label><select id="'+pfx+'ibw">'+
       [1,2,3,4].map(n=>'<option value="'+n+'"'+(ibw===n?' selected':'')+'>'+n+' px</option>').join('')+'</select></div>'+
     '<div class="ovgrp">Positionsring <span class="ovgrp-h">(Rollladen, Tor, Fenster, Dimmer)</span></div>'+
-    '<div class="frow"><label class="lbl">Strichstärke</label><select id="'+pfx+'rw">'+
-      [2,3,4,5,6,7,8,10,12].map(n=>'<option value="'+n+'"'+(rw===n?' selected':'')+'>'+n+
-        (n===6?' (Standard)':'')+'</option>').join('')+'</select>'+
+    '<div class="frow"><label class="lbl">Strichstärke</label>'+
+      '<input type="range" id="'+pfx+'rw" min="1" max="12" step="1" value="'+rw+'">'+
       '<span class="cval" id="'+pfx+'rwv"></span></div>'+
     '<div class="frow"><label class="lbl">Bogen</label>'+
       '<input type="range" id="'+pfx+'ring" min="0" max="100" step="5" value="'+rg+'">'+
@@ -796,7 +795,7 @@ function bindOverlay(pfx,getOv,onChange){
   const icoJetzt=()=>{ const i=document.querySelector('input[data-ui="iconSize"]');
                        return (i&&i.value)?Number(i.value):38; };
   const rwHint=()=>{ if(rwv&&rw) rwv.textContent=ringHint(Number(rw.value),icoJetzt()); };
-  if(rw){ rwHint(); rw.onchange=()=>{ rwHint(); set('rw',Number(rw.value)); }; }
+  if(rw){ rwHint(); rw.oninput=()=>{ rwHint(); set('rw',Number(rw.value)); }; }
   if(rg) rg.oninput=()=>{ rgv.textContent=rg.value+' %'; set('ring',Number(rg.value)); };
   if(rt) rt.oninput=()=>{ rtv.textContent=rt.value+' %'; set('rtrk',Number(rt.value)); };
 }
