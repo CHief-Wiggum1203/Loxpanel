@@ -1067,6 +1067,25 @@ function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit'
 // veraenderlichen Teile (Zustand/Farben/Sublabel/Steuer-Icons) der bestehenden
 // Kacheln. Verhindert das Flackern (Icons/Cover werden nicht neu geladen).
 // Gibt false zurueck, wenn sich die Struktur geaendert hat -> voller render().
+// Positionsring live nachziehen (Rollladen/Tor/Fenster/Dimmer): updateGrid()
+// baute den Ring frueher NICHT mit -> der Bogen fror auf dem Stand vom letzten
+// vollen Render ein (Text sagte 95 %, Ring zeigte noch 20 %). Gibt false zurueck,
+// wenn sich die Ring-STRUKTUR aendert (Ring kommt/geht) -> voller render().
+function ringDash(posv){ return (posv/100*289.03).toFixed(2)+' 289.03'; }
+function updateTileRing(n,it){
+  const posv=(typeof it.pos==='number'&&isFinite(it.pos))?Math.max(0,Math.min(100,it.pos)):null;
+  const ring=n.querySelector('.posring');
+  if(posv===null) return !ring;          // Ring war da, ist aber weg -> Struktur
+  if(!ring) return false;                // Ring soll da sein, ist aber nicht -> Struktur
+  const grp=ring.querySelector('g'); let val=ring.querySelector('.val');
+  if(posv>0){
+    if(!val){ val=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      val.setAttribute('class','val'); val.setAttribute('cx','50'); val.setAttribute('cy','50'); val.setAttribute('r','46');
+      if(grp) grp.appendChild(val); }
+    const d=ringDash(posv); if(val.getAttribute('stroke-dasharray')!==d) val.setAttribute('stroke-dasharray',d);
+  } else if(val){ val.remove(); }        // 0 %: nur die Spur bleibt
+  return true;
+}
 function updateGrid(items){
   const g=el('grid');
   if(g.classList.contains('panel')) return false;
@@ -1074,6 +1093,7 @@ function updateGrid(items){
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
   const _pg=(view.layout==='list'?4:gridCols*gridRows);
+  let ok=true;
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
@@ -1090,8 +1110,9 @@ function updateGrid(items){
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
+    if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
   });
-  return true;
+  return ok;
 }
 function render(){
   if(!view) return;
