@@ -52,9 +52,18 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **18.09.2026** (`upstream/main` @ `a76ed83`), als echter
-Merge-Commit. Damit im Fork: **Kamera als Split-Pane** (Intercom-Livebild mit
-Tür-Buttons), **gerahmte Split-Panes** mit Seiten-Snap, **zweispaltiger
+Zuletzt eingepflegt am **19.09.2026** (`upstream/main` @ `f5bdb01`,
+**Release 0.5.0**), als echter Merge-Commit. Neu damit im Fork: **Zurück-Button
+der Tab-Leiste exakt mittig** (links `ceil(N/2)`, rechts `floor(N/2)`, fehlende
+Zelle als Abstandhalter), **`--accent` folgt der OK-Farbe auch ohne gesetzte
+Panel-Grundfarbe**, und der YC-SM55P steht im Gerätekatalog bei den
+2-Pane-Geräten. Der Fork trägt seitdem ebenfalls `VERSION=0.5.0` — bewusst im
+Gleichschritt mit Upstream, weil die Versionszeile sonst bei jedem Release von
+Hand aufzulösen wäre; `ARCHIVEURL` zeigt weiterhin auf die Releases **dieses**
+Forks.
+
+Davor, am 18.09.2026 (`a76ed83`): **Kamera als Split-Pane** (Intercom-Livebild
+mit Tür-Buttons), **gerahmte Split-Panes** mit Seiten-Snap, **zweispaltiger
 Screensaver** im Querformat, **konfigurierbarer Kachelrahmen** für helle
 Displays, vereinheitlichte Lautstärkeleiste, **Anlagenschema (SystemScheme)**,
 Rubrik „unterstützte Geräte" und der GHCR-Login-Fallback. Dazu `LICENSE.md`:
@@ -77,7 +86,8 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 17.09.2026. **Alle bisherigen Beiträge sind in `upstream/main` gemergt:**
+Stand 19.09.2026. **Alle zwölf Beiträge sind in `upstream/main` gemergt, es ist
+nichts mehr offen:**
 
 | PR | Inhalt |
 |---|---|
@@ -86,20 +96,21 @@ Stand 17.09.2026. **Alle bisherigen Beiträge sind in `upstream/main` gemergt:**
 | [#19](https://github.com/Lenardo1/loxpanel/pull/19) | Nachtmodus (Dimmen + freier Auslöser) |
 | [#20](https://github.com/Lenardo1/loxpanel/pull/20) | Panel-Theme aus einer Grundfarbe |
 | [#21](https://github.com/Lenardo1/loxpanel/pull/21) | Nur senden, was sich geändert hat |
+| [#23](https://github.com/Lenardo1/loxpanel/pull/23) | Positionsring auf der Kachel |
+| [#24](https://github.com/Lenardo1/loxpanel/pull/24) | Wetter vom Loxone-Wetterserver |
+| [#25](https://github.com/Lenardo1/loxpanel/pull/25) | Split-Pane: schlanke Scrollleiste |
+| [#27](https://github.com/Lenardo1/loxpanel/pull/27) | Raum als Startseite (Raum-Direkt-Tab) + Tab-Reihenfolge |
+| [#30](https://github.com/Lenardo1/loxpanel/pull/30) | Positionsring: Strichstärke regelbar, gleitend, Fahrt auf der Kachel |
+| [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
+| [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 
-Fertig portiert, geprüft und **auf dem aktuellen `upstream/main` aufgesetzt**,
-aber noch nicht eingereicht:
-
-- `up/tile-position-ring` — Positionsring auf der Kachel.
-- `up/loxone-weather` — Wetter vom Loxone-Wetterserver. Die Sonnenzeiten nutzen
-  `self.global_states`, das mit #19 bereits hereingekommen ist.
-
-Beide sitzen als EIN Commit direkt auf `upstream/main`, damit GitHub Titel und
-Beschreibung selbst füllt. Link zum Einreichen:
+Die zugehörigen `up/*`-Zweige wurden nach dem Merge gelöscht. Für den nächsten
+Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
+aufsetzen, damit GitHub Titel und Beschreibung selbst füllt, und über diesen
+Link einreichen:
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
 
-Der Fork ist mit `upstream/main` gleichgezogen (siehe oben); offen sind nur noch
-die beiden Zweige in dieser Liste.
+Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
 ## 1. Konfiguration vor Datenverlust schützen
 
@@ -165,9 +176,11 @@ die beiden Zweige in dieser Liste.
 
 ## 4. Performance
 
-- [ ] **Nur senden, was sich geändert hat**: pro Verbindung das zuletzt
-      gesendete `view`-JSON merken und bei Gleichheit nicht senden. Größter
-      Hebel bei kleinstem Eingriff. (P1) **S**
+- [x] **Nur senden, was sich geändert hat**: umgesetzt in `broadcast_task`
+      (`bin/webvisu.py`, `self._last_sent` pro WebSocket). Nicht nur `view`,
+      sondern auch `player`, `energy` und `camera` werden je Verbindung
+      verglichen und bei Gleichheit übersprungen. Upstream angenommen als
+      [#21](https://github.com/Lenardo1/loxpanel/pull/21). (P1) **S**
 - [ ] **Nur rendern, was betroffen ist**: pro Route die Menge der State-UUIDs
       merken, die sie liest, und nur bei Änderung einer dieser UUIDs neu rendern.
       Zweiter Schritt nach dem ersten Punkt. (P1) **M**
