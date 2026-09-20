@@ -86,8 +86,8 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 19.09.2026. **Alle zwölf Beiträge sind in `upstream/main` gemergt, es ist
-nichts mehr offen:**
+Stand 20.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, einer ist
+eingereicht und noch offen:**
 
 | PR | Inhalt |
 |---|---|
@@ -104,7 +104,16 @@ nichts mehr offen:**
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 
-Die zugehörigen `up/*`-Zweige wurden nach dem Merge gelöscht. Für den nächsten
+**NOCH OFFEN — Zweig nicht löschen:**
+
+| PR | Zweig | Inhalt |
+|---|---|---|
+| [#34](https://github.com/Lenardo1/loxpanel/pull/34) | `up/kleinigkeiten` | `ValueError` bei leerer `LOXPANEL_MS_PORT`; veralteter `/settings`-Hinweis |
+
+`up/kleinigkeiten` trägt den Kopf dieses offenen Pull Requests. Wird der Zweig
+gelöscht, schließt GitHub den PR. Erst nach dem Merge bei Lenardo entfernen.
+
+Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
 aufsetzen, damit GitHub Titel und Beschreibung selbst füllt, und über diesen
 Link einreichen:
