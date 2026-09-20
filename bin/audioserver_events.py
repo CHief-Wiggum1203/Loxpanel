@@ -100,10 +100,8 @@ class AudioEventClient:
                 "title": e.get("title") or "",
                 "artist": e.get("artist") or "",
                 "album": e.get("album") or e.get("station") or "",
-                "station": e.get("station") or "",
                 "cover": e.get("coverurl") or "",
                 "playing": (e.get("mode") == "play"),
-                "power": e.get("power"),
                 "volume": e.get("volume"),
             }
             if self.now.get(pid) != np:
