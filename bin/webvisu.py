@@ -2784,11 +2784,46 @@ class App:
                     continue
                 gesehen.add(u)
                 uuids.append(u)
+            # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
+            # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
+            # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
+            # statt nach Kategorie. Ohne das ist eine Seite aus 40 Bausteinen
+            # quer durchs Haus auf einem 4-Zoll-Panel nicht mehr zu bedienen.
+            #
+            # Reihenfolge der Raeume = erstes Vorkommen in der Auswahl. Damit
+            # bleibt die Klickreihenfolge aus der Konfiguration die fuehrende
+            # Ordnung; innerhalb eines Raums stehen die Bausteine ebenfalls so,
+            # wie sie gewaehlt wurden. Dicts halten die Einfuegereihenfolge.
+            nach_raum: dict = {}
+            for u in uuids:
+                nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
+            raeume = [ru for ru in nach_raum if ru in self.rooms]
             sr = self._spans_rooms(uuids)
-            items = [self._control_item(u, prof, show_room=sr) for u in uuids]
+            items = []
+            for ru in raeume:
+                for j, u in enumerate(nach_raum[ru]):
+                    it = self._control_item(u, prof, show_room=sr)
+                    if j == 0:
+                        # Scroll-Anker fuer die Sprungmarke. Der Schluessel
+                        # heisst im Panel catKey, weil dieselbe Mechanik schon
+                        # fuer die Kategorien des Raum-Panels da ist - fuer das
+                        # Panel ist er ein undurchsichtiger Schluessel.
+                        it["catKey"] = ru
+                    items.append(it)
+            # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
+            for ru, us in nach_raum.items():
+                if ru not in self.rooms:
+                    items += [self._control_item(u, prof, show_room=sr) for u in us]
+            # Erst ab zwei Raeumen sind Sprungmarken etwas wert - bei einem
+            # einzigen zeigte die Leiste nur den Raum, in dem man ohnehin steht.
+            raum_tabs = ([{"key": ru,
+                           "label": _clean(self.rooms[ru].get("name")) or "Raum",
+                           "iconUrl": self._icon_url(self.rooms[ru].get("image")) or ""}
+                          for ru in raeume[:4]] if len(raeume) > 1 else [])
             title = (prof.get("pickName") if prof else "") or "Auswahl"
             return {"t": "view", "title": title, "tab": tab,
-                    "route": {"view": "tab", "tab": tab}, "items": items}
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    "catTabs": raum_tabs}
         if isinstance(tab, str) and tab.startswith("cat:"):
             # Kategorie-Direkt-Tab: dieselben Controls wie im Kategorie-Drilldown
             cu = tab[4:]
