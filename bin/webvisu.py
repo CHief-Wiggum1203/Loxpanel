@@ -4512,7 +4512,11 @@ class App:
         """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
         aktiv, wenn mindestens ein iCal-Abo ODER Koordinaten gesetzt sind. Ein sofortiges
         Neuladen wird ueber _front_refresh (nach dem Speichern) ausgeloest."""
-        self._front_session = aiohttp.ClientSession()
+        # Grenze je Host: mehrere Abos liegen oft beim selben Anbieter (iCloud,
+        # Google). Acht gleichzeitige Verbindungen dorthin sehen nach einem
+        # Ansturm aus — genau das beantwortet iCloud gern mit 503.
+        self._front_session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(limit_per_host=3))
         try:
             while True:
                 cfg = dict(self.calendar_cfg or {})
@@ -4941,34 +4945,48 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
     cfg = _load_cfg()
     cal = dict(cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {})
 
-    # Kalenderquellen: Liste aus der Oberflaeche, leere Zeilen fliegen raus.
-    quellen = []
+    # Kalenderquellen NUR anfassen, wenn die Oberflaeche sie mitgeschickt hat.
+    # Eine aeltere /config-Seite, die noch im Browser offen steht, kennt das
+    # Feld nicht - ohne diese Pruefung loescht ihr "Speichern" saemtliche Abos.
+    # Dasselbe gilt fuer die anderen neuen Felder weiter unten.
     roh = data.get("sources")
     if isinstance(roh, list):
+        quellen, gesehen = [], set()
         for q in roh:
             if not isinstance(q, dict):
                 continue
             url = front_info.normalize_ical_url(q.get("url"))
-            if not url or len(quellen) >= front_info.MAX_SOURCES:
+            # Doppelte URLs hier schon wegwerfen: calendar_sources() tut es
+            # ohnehin, sonst stuenden sie in der Datei und die Oberflaeche
+            # zeigte beim naechsten Laden weniger an, als gespeichert wurde.
+            if not url or url in gesehen or len(quellen) >= front_info.MAX_SOURCES:
                 continue
+            gesehen.add(url)
             quellen.append({"name": str(q.get("name", "")).strip()[:40],
                             "url": url,
                             # Leer = spaeter die Vorschlagsfarbe der Position
                             "color": front_info.clean_color(q.get("color"), "")})
-    cal["sources"] = quellen
-    # Die alte Einzel-URL wandert in die Liste und bleibt danach leer, damit sie
-    # nicht als neunter Kalender doppelt auftaucht.
-    cal["ical_url"] = ""
+        cal["sources"] = quellen
+        # Die alte Einzel-URL darf stehen bleiben, solange sie in der Liste
+        # steht: calendar_sources() liest sie nur, wenn `sources` nichts
+        # hergibt, ein Doppel-Kalender entsteht also nicht - und ein Downgrade
+        # auf eine aeltere Version findet seinen Kalender noch vor. Erst wenn
+        # der Benutzer sie aus der Liste genommen hat, verschwindet sie auch
+        # hier, sonst kaeme sie beim Loeschen des letzten Abos zurueck.
+        if front_info.normalize_ical_url(cal.get("ical_url")) not in gesehen:
+            cal["ical_url"] = ""
     cal["holiday_url"] = str(data.get("holiday_url", "")).strip()
     cal["name"] = str(data.get("name", "")).strip() or "Family"
-    cal["colors"] = bool(data.get("colors", True))
+    if "colors" in data:
+        cal["colors"] = bool(data.get("colors"))
     lat, lon = _coord(data.get("lat")), _coord(data.get("lon"))
     # Nur ein vollstaendiges Koordinatenpaar speichern (halb gesetzt = kein Wetter).
     cal["lat"] = lat if (lat is not None and lon is not None) else None
     cal["lon"] = lon if (lat is not None and lon is not None) else None
     cal["days"] = _int(data.get("days"), 14, 1, 60)
     cal["fore_days"] = _int(data.get("fore_days"), 4, 1, 7)
-    cal["sv_events"] = _int(data.get("sv_events"), 3, 1, 10)
+    if "sv_events" in data:
+        cal["sv_events"] = _int(data.get("sv_events"), 3, 1, 10)
     cfg["calendar"] = cal
     try:
         _write_cfg(cfg)
@@ -4977,7 +4995,8 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
     app.calendar_cfg = _calendar_config()
     app._front_refresh.set()   # sofort neu laden und an die Panels schicken
     log.info("Kalender/Wetter gespeichert (%d iCal-Abo(s), Wetter %s)",
-             len(cal["sources"]), "gesetzt" if cal["lat"] is not None else "leer")
+             len(front_info.calendar_sources(cal)),
+             "gesetzt" if cal["lat"] is not None else "leer")
     return web.json_response({"ok": True})
 
 

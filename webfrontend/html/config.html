@@ -1936,7 +1936,10 @@ async function loadSettings(){
     CAL_PALETTE=cal.palette||CAL_PALETTE;
     CAL_MAX=cal.max_sources||CAL_MAX;
     CAL_STAT={}; (st.cal_sources||[]).forEach(q=>{ if(q&&q.key) CAL_STAT[q.key]=q; });
-    CALS=(cal.sources||[]).map(q=>({name:q.name||'',url:q.url||'',color:q.color||'',key:q.key||''}));
+    // Nur uebernehmen, solange nichts Ungespeichertes in der Liste steht.
+    if(!CAL_DIRTY){
+      CALS=(cal.sources||[]).map(q=>({name:q.name||'',url:q.url||'',color:q.color||'',key:q.key||''}));
+    }
     renderCals();
     const cs=$('#cal_status');
     if(cs){
@@ -2029,6 +2032,11 @@ $('#am_save').onclick=async()=>{
 // CALS ist die Arbeitskopie: Eingaben schreiben direkt hinein, damit ein
 // Hinzufuegen oder Loeschen die anderen Zeilen nicht zuruecksetzt.
 let CALS=[], CAL_STAT={}, CAL_MAX=8;
+// Gesetzt, sobald an der Liste etwas geaendert wurde. loadSettings() laeuft
+// auch nach dem Speichern ANDERER Karten (Miniserver, Intercom ...) - ohne das
+// Flag wuerde es die Arbeitskopie ueberschreiben und noch nicht gespeicherte
+// Kalenderzeilen verschwinden lassen.
+let CAL_DIRTY=false;
 let CAL_PALETTE=['#e0a24d','#52b881','#6aa9e0','#c98ad4','#e2695f','#4fc3c3','#b2c94a','#9a8fe0'];
 function calStatHTML(q){
   const st=q.key?CAL_STAT[q.key]:null;
@@ -2057,23 +2065,40 @@ function renderCals(){
   // Eingaben laufen in die Arbeitskopie, ohne die Liste neu zu zeichnen (das
   // wuerde den Cursor aus dem Feld werfen).
   box.querySelectorAll('.cal_n').forEach(inp=>inp.oninput=()=>{
-    const i=+inp.dataset.i; CALS[i].name=inp.value;
+    const i=+inp.dataset.i; CALS[i].name=inp.value; CAL_DIRTY=true;
     const n=box.querySelector('.cal[data-i="'+i+'"] .caln');
     if(n) n.textContent=inp.value.trim()||(T('Kalender')+' '+(i+1));
   });
-  box.querySelectorAll('.cal_u').forEach(inp=>inp.oninput=()=>{ CALS[+inp.dataset.i].url=inp.value; });
+  box.querySelectorAll('.cal_u').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].url=inp.value; CAL_DIRTY=true;
+    // Der Status haengt am Schluessel der ALTEN URL. Bleibt er stehen, behauptet
+    // die Zeile weiter "geladen · 14 Termine" fuer einen Kalender, der so gar
+    // nicht mehr eingetragen ist.
+    CALS[i].key='';
+    const st=box.querySelector('.cal[data-i="'+i+'"] .calst');
+    if(st) st.remove();
+  });
   box.querySelectorAll('.cal_c').forEach(inp=>inp.oninput=()=>{
-    const i=+inp.dataset.i; CALS[i].color=inp.value;
+    const i=+inp.dataset.i; CALS[i].color=inp.value; CAL_DIRTY=true;
     const d=box.querySelector('.cal[data-i="'+i+'"] .caldot');
     if(d) d.style.background=inp.value;
   });
   box.querySelectorAll('[data-caldel]').forEach(b=>b.onclick=()=>{
-    CALS.splice(+b.dataset.caldel,1); renderCals();
+    CALS.splice(+b.dataset.caldel,1); CAL_DIRTY=true; renderCals();
   });
+}
+// Erste noch freie Farbe der Palette. Ueber die Listenlaenge zu gehen waere
+// falsch: nach dem Loeschen einer Zeile bekaeme die naechste neue die Farbe
+// einer bestehenden.
+function freieFarbe(){
+  const vergeben=new Set(CALS.map(q=>(q.color||'').toLowerCase()));
+  return CAL_PALETTE.find(c=>!vergeben.has(c.toLowerCase()))
+      || CAL_PALETTE[CALS.length%CAL_PALETTE.length];
 }
 if($('#cal_add')) $('#cal_add').onclick=()=>{
   if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als')+' '+CAL_MAX+' '+T('Kalender gehen nicht.'),false); return; }
-  CALS.push({name:'',url:'',color:CAL_PALETTE[CALS.length%CAL_PALETTE.length],key:''});
+  CAL_DIRTY=true;
+  CALS.push({name:'',url:'',color:freieFarbe(),key:''});
   renderCals();
   const felder=$('#cal_list').querySelectorAll('.cal_n');
   if(felder.length) felder[felder.length-1].focus();
@@ -2093,6 +2118,7 @@ $('#cal_save').onclick=async()=>{
     const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
+      CAL_DIRTY=false;    // Liste ist jetzt der Serverstand
       // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
       setTimeout(loadSettings,1500); }
     else flash($('#cal_toast'),j.error||T('Fehler'),false);

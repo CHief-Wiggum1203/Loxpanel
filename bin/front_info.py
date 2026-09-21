@@ -56,6 +56,7 @@ CAL_COLORS = ["#e0a24d", "#52b881", "#6aa9e0", "#c98ad4",
 
 MAX_SOURCES = 8         # so viele iCal-Abos nimmt die Front entgegen
 MAX_SPAN_DAYS = 400     # Schutzgrenze gegen ein kaputtes DTEND weit in der Zukunft
+MAX_ICS_BYTES = 8 * 1024 * 1024   # so viel .ics nimmt der Server je Abo entgegen
 
 # WMO-Wettercode -> deutsche Lage (Open-Meteo liefert diese Codes).
 WMO_TEXT = {
@@ -119,10 +120,13 @@ def _vorruebergehend(e: Exception) -> bool:
     Nein bei 4xx: 401/403/404 heisst falsche URL oder nicht mehr oeffentlich
     geteilt, das wird durch Wiederholen nicht besser.
     """
-    if isinstance(e, (asyncio.TimeoutError, aiohttp.ClientConnectionError)):
-        return True
+    if isinstance(e, (asyncio.TimeoutError, aiohttp.ClientConnectionError,
+                      aiohttp.ClientPayloadError)):
+        return True          # abgerissene Antwort ist auch nur ein Aussetzer
     status = getattr(e, "status", None)
-    return isinstance(status, int) and status >= 500
+    # 429 = gedrosselt, 408 = der Server selbst meldet Zeitueberschreitung:
+    # beides geht nach einer Pause oft durch, anders als die uebrigen 4xx.
+    return isinstance(status, int) and (status >= 500 or status in (408, 429))
 
 
 def normalize_ical_url(url) -> str:
@@ -271,33 +275,37 @@ def _event_span(component, dtstart, all_day: bool) -> int:
     return max(1, min(MAX_SPAN_DAYS, tage))
 
 
-def _exdates(component) -> set:
-    """Abgesagte Termine einer Serie (EXDATE) als Menge von Tagen.
+def _exdates(component) -> tuple:
+    """Abgesagte Termine einer Serie (EXDATE) als (Zeitpunkte, Tage).
 
-    Tagesgenau statt sekundengenau: ein abgesagter Serientermin faellt fuer den
-    ganzen Tag weg, und der Vergleich bleibt von Zeitzonen unabhaengig.
+    Termine mit Uhrzeit werden ZEITGENAU verglichen: eine Serie kann mehrmals
+    am selben Tag auftreten (alle zwoelf Stunden, morgens und abends), und eine
+    einzelne Absage darf die uebrigen nicht mitreissen. Ganztaegige EXDATE
+    haben keine Uhrzeit und gelten weiter fuer den ganzen Tag.
     """
     roh = component.get("exdate")
     if not roh:
-        return set()
-    raus = set()
+        return set(), set()
+    zeiten, tage = set(), set()
     for p in (roh if isinstance(roh, list) else [roh]):
         for d in getattr(p, "dts", []):
             v = getattr(d, "dt", None)
             if isinstance(v, datetime):
-                raus.add(_local_naive(v).date())
+                zeiten.add(_local_naive(v))
             elif isinstance(v, date):
-                raus.add(v)
-    return raus
+                tage.add(v)
+    return zeiten, tage
 
 
-def _occurrences(component, range_start: date, range_end: date):
+def _occurrences(component, range_start: date, range_end: date,
+                 extra_ex: set | None = None):
     """Auftreten eines VEVENT im Zeitraum (loest RRULE-Serien auf).
 
     Liefert Tupel (Zeitpunkt, all_day, dauer_tage): bei Ganztagsterminen ein
     `date`, sonst ein naives `datetime` in ORTSZEIT (die Wanduhrzeit, die das
     Panel anzeigt). Ein mehrtaegiger Termin, der VOR dem Zeitraum begonnen hat
     und noch laeuft, kommt mit — sonst fehlen laufende Ferien ab Tag zwei.
+    `extra_ex` sind zusaetzlich abgesagte Zeitpunkte (s. _cancelled_single()).
     """
     dtstart_prop = component.get("dtstart")
     if not dtstart_prop:
@@ -305,6 +313,8 @@ def _occurrences(component, range_start: date, range_end: date):
     dtstart = dtstart_prop.dt
     all_day = not isinstance(dtstart, datetime)
     dauer = _event_span(component, dtstart, all_day)
+    rrule = component.get("rrule")
+    rrule_txt = rrule.to_ical().decode() if rrule else ""
 
     if all_day:
         base = datetime.combine(dtstart, time.min)
@@ -312,6 +322,12 @@ def _occurrences(component, range_start: date, range_end: date):
         # Aware bleibt aware: dateutil loest die Serie dann in der Original-
         # Zeitzone auf, also ueber Sommer-/Winterzeit hinweg korrekt.
         base = dtstart
+        # Google-Feeds schreiben oft DTSTART ohne Zeitzone, das UNTIL der RRULE
+        # aber mit 'Z'. dateutil verweigert diese Mischung mit einem ValueError,
+        # und ohne das hier fiele die GANZE Serie aus. Den Start in die Ortszeit
+        # heben bringt beide Seiten in dieselbe Welt.
+        if base.tzinfo is None and re.search(r"UNTIL=[^;]*Z", rrule_txt, re.I):
+            base = base.astimezone()
 
     # Um die Dauer nach hinten erweitert suchen: ein am 1.7. begonnener
     # Ferientermin muss am 21.9. noch gefunden werden.
@@ -323,15 +339,21 @@ def _occurrences(component, range_start: date, range_end: date):
         # vergleicht dateutil aware mit naiv und wirft TypeError.
         range_start_dt = range_start_dt.astimezone()
         range_end_dt = range_end_dt.astimezone()
-    rrule = component.get("rrule")
-    abgesagt = _exdates(component)
+    ex_zeiten, ex_tage = _exdates(component)
+    if extra_ex:
+        ex_zeiten = ex_zeiten | {v for v in extra_ex if isinstance(v, datetime)}
+        ex_tage = ex_tage | {v for v in extra_ex
+                             if isinstance(v, date) and not isinstance(v, datetime)}
+
+    def _faellt_aus(lokal: datetime) -> bool:
+        return lokal in ex_zeiten or lokal.date() in ex_tage
 
     if rrule and HAVE_RRULE:
         try:
-            rule = rrulestr(rrule.to_ical().decode(), dtstart=base)
+            rule = rrulestr(rrule_txt, dtstart=base)
             for occ in rule.between(range_start_dt, range_end_dt, inc=True):
                 occ_local = _local_naive(occ)
-                if occ_local.date() in abgesagt:
+                if _faellt_aus(occ_local):
                     continue
                 yield (occ_local.date() if all_day else occ_local, all_day, dauer)
         except Exception as e:                       # kaputte RRULE nicht fatal
@@ -339,12 +361,37 @@ def _occurrences(component, range_start: date, range_end: date):
     elif not rrule:
         if all_day:
             d = dtstart if not isinstance(dtstart, datetime) else dtstart.date()
-            if such_start <= d <= range_end and d not in abgesagt:
+            if such_start <= d <= range_end and not _faellt_aus(datetime.combine(d, time.min)):
                 yield (d, True, dauer)
         else:
             lokal = _local_naive(base)
-            if range_start_dt <= base <= range_end_dt and lokal.date() not in abgesagt:
+            if range_start_dt <= base <= range_end_dt and not _faellt_aus(lokal):
                 yield (lokal, False, dauer)
+
+
+def _cancelled_single(cal) -> dict:
+    """Abgesagte EINZELtermine einer Serie: {UID -> Menge der Zeitpunkte}.
+
+    Google und Apple sagen einen einzelnen Serientermin nicht per EXDATE ab,
+    sondern schicken ein ZUSAETZLICHES VEVENT mit derselben UID, einer
+    RECURRENCE-ID auf den betroffenen Termin und STATUS:CANCELLED. Dieses
+    VEVENT zu ueberspringen genuegt nicht — die Serie erzeugt das Auftreten ja
+    trotzdem. Also erst einsammeln, dann beim Aufloesen der Serie ausschliessen.
+    """
+    raus: dict = {}
+    for comp in cal.walk():
+        if comp.name != "VEVENT":
+            continue
+        if str(comp.get("status", "")).strip().upper() != "CANCELLED":
+            continue
+        rid = comp.get("recurrence-id")
+        v = getattr(rid, "dt", None) if rid is not None else None
+        if isinstance(v, datetime):
+            v = _local_naive(v)
+        elif not isinstance(v, date):
+            continue
+        raus.setdefault(str(comp.get("uid", "")), set()).add(v)
+    return raus
 
 
 def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> list:
@@ -361,6 +408,7 @@ def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> li
     range_end = today + timedelta(days=max(1, int(days)) - 1)
     q = quelle or {}
     q_name, q_color, q_key = q.get("name") or "", q.get("color") or "", q.get("key") or ""
+    abgesagt_einzeln = _cancelled_single(cal)
 
     raw = []
     for comp in cal.walk():
@@ -372,7 +420,8 @@ def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> li
             continue
         title = str(comp.get("summary", "Termin")).strip() or "Termin"
         uid = str(comp.get("uid", ""))
-        for occ, all_day, dauer in _occurrences(comp, today, range_end):
+        for occ, all_day, dauer in _occurrences(comp, today, range_end,
+                                                abgesagt_einzeln.get(uid)):
             erster = occ if not isinstance(occ, datetime) else occ.date()
             letzter = erster + timedelta(days=dauer - 1)
             for n in range(dauer):
@@ -386,7 +435,11 @@ def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> li
                             else f"bis {WD[letzter.weekday()]} {letzter.day}.{letzter.month}.")
                 else:
                     note = ""
-                raw.append((f"{q_key}_{uid}_{d.isoformat()}", d, t, title, note))
+                # Schluessel MIT Uhrzeit: eine Serie kann mehrmals am selben
+                # Tag auftreten (alle 12 Stunden, zweimal taeglich ...). Nur
+                # nach Tag entdoppelt faellt jedes weitere Auftreten weg.
+                schl = f"{q_key}_{uid}_{d.isoformat()}_{'' if t is None else t.isoformat()}"
+                raw.append((schl, d, t, title, note))
 
     seen = set()
     out = []
@@ -447,7 +500,12 @@ async def fetch_events(session: aiohttp.ClientSession, url: str, days: int,
             async with session.get(url, headers=_HEADERS,
                                    timeout=aiohttp.ClientTimeout(total=15)) as r:
                 r.raise_for_status()
-                data = await r.read()
+                # Begrenzt lesen: ein Panel-Server hat wenig Speicher, und was
+                # ein fremder Host schickt, bestimmt nicht er allein.
+                data = await r.content.read(MAX_ICS_BYTES + 1)
+                if len(data) > MAX_ICS_BYTES:
+                    raise RuntimeError(
+                        f"Kalender ist groesser als {MAX_ICS_BYTES // (1024 * 1024)} MB")
             break
         except Exception as e:
             if nr == versuche - 1 or not _vorruebergehend(e):
@@ -608,17 +666,21 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict,
                  "hol_configured": False, "hol_count": 0, "hol_error": None},
     }
 
+    # Feiertage gehoeren MIT in den einen parallelen Abruf. Haengen sie hinten
+    # dran, addiert sich ihre Wartezeit auf die der Quellen — mit der Retry-Kette
+    # sind das im schlimmsten Fall zwei volle Runden hintereinander.
+    hol_url = (cfg.get("holiday_url") or "").strip()
+    days = _int(cfg.get("days"), 14, 1, 60)   # auch aus der Datei begrenzen
+    aufgaben = [fetch_events(session, q["url"], days, q) for q in quellen]
+    if hol_url:
+        out["meta"]["hol_configured"] = True
+        aufgaben.append(fetch_events(session, hol_url, 400, {"name": "Feiertage"}))
+    ergebnisse = list(await asyncio.gather(*aufgaben, return_exceptions=True)) if aufgaben else []
+
     if quellen:
         out["meta"]["cal_configured"] = True
-        try:
-            days = int(cfg.get("days") or 14)
-        except (TypeError, ValueError):
-            days = 14
-        ergebnisse = await asyncio.gather(
-            *(fetch_events(session, q["url"], days, q) for q in quellen),
-            return_exceptions=True)
         alle, status, fehler = [], [], []
-        for q, r in zip(quellen, ergebnisse):
+        for q, r in zip(quellen, ergebnisse[:len(quellen)]):
             eintrag = {"key": q["key"], "name": q["name"], "color": q["color"],
                        "count": 0, "error": None}
             if isinstance(r, BaseException):
@@ -637,16 +699,14 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict,
 
     # Feiertage aus einem zweiten, optionalen iCal (ganztaegige Eintraege). Weit
     # nach vorn geladen (fuer die Monatsnavigation), Rueckgabe als {Datum: Name}.
-    hol_url = (cfg.get("holiday_url") or "").strip()
     if hol_url:
-        out["meta"]["hol_configured"] = True
-        try:
-            hev = await fetch_events(session, hol_url, 400, {"name": "Feiertage"})
+        hev = ergebnisse[-1]
+        if isinstance(hev, BaseException):
+            out["meta"]["hol_error"] = error_text(hev)
+            log.warning("Feiertage laden fehlgeschlagen: %s", out["meta"]["hol_error"])
+        else:
             out["holidays"] = {e["date"]: e["title"] for e in hev if e.get("date")}
             out["meta"]["hol_count"] = len(out["holidays"])
-        except Exception as e:
-            out["meta"]["hol_error"] = error_text(e)
-            log.warning("Feiertage laden fehlgeschlagen: %s", out["meta"]["hol_error"])
 
     lat, lon = cfg.get("lat"), cfg.get("lon")
     if not skip_weather and lat not in (None, "") and lon not in (None, ""):
