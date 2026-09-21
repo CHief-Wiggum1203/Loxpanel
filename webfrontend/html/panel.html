@@ -1022,9 +1022,17 @@ function renderTabs(){
   // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
   // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
   // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
-  const ct = (view && Array.isArray(view.catTabs))
+  // Sprungmarken ERSETZEN die ganze Leiste. Das darf nur geschehen, wenn das
+  // Panel ueberhaupt nur diese eine Seite hat: sonst waeren die uebrigen Tabs
+  // nicht mehr antippbar, und der Zurueck-Knopf hilft nicht, weil die Seite
+  // die unterste im Stapel ist. Frueher hing das daran, dass nur die
+  // room:-Ansicht catTabs lieferte - steht ein room:-Tab in einer klassischen
+  // Leiste, greift dieselbe Falle auch ohne die freie Auswahl.
+  const anker = isRoomPanel();
+  const ct = !anker ? null
+           : (view && Array.isArray(view.catTabs))
              ? (view.catTabs.length ? view.catTabs : null)
-             : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+             : (roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
   const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
   let items;
   if(ct){

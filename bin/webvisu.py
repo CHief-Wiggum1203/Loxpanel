@@ -2799,27 +2799,36 @@ class App:
                 nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
             raeume = [ru for ru in nach_raum if ru in self.rooms]
             sr = self._spans_rooms(uuids)
+            # Sprungmarken ERSETZEN im Panel die ganze untere Leiste. Das ist
+            # nur dann richtig, wenn diese Seite die einzige des Panels ist.
+            # Steht der Auswahl-Tab dagegen neben anderen Seiten in der
+            # klassischen Leiste, waeren die uebrigen Tabs nicht mehr
+            # erreichbar - und der Zurueck-Knopf hilft nicht, weil die Seite
+            # die unterste im Stapel ist.
+            # Erst ab zwei Raeumen sind Sprungmarken ausserdem etwas wert: bei
+            # einem einzigen zeigte die Leiste nur den Raum, in dem man steht.
+            allein = list((prof.get("tabs") or []) if prof else []) == [PICK_TAB]
+            marken = allein and len(raeume) > 1
             items = []
             for ru in raeume:
                 for j, u in enumerate(nach_raum[ru]):
                     it = self._control_item(u, prof, show_room=sr)
-                    if j == 0:
+                    if marken and j == 0:
                         # Scroll-Anker fuer die Sprungmarke. Der Schluessel
                         # heisst im Panel catKey, weil dieselbe Mechanik schon
                         # fuer die Kategorien des Raum-Panels da ist - fuer das
-                        # Panel ist er ein undurchsichtiger Schluessel.
+                        # Panel ist er ein undurchsichtiger Schluessel. Ohne
+                        # Leiste waere er ein totes Attribut, also nur dann.
                         it["catKey"] = ru
                     items.append(it)
             # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
             for ru, us in nach_raum.items():
                 if ru not in self.rooms:
                     items += [self._control_item(u, prof, show_room=sr) for u in us]
-            # Erst ab zwei Raeumen sind Sprungmarken etwas wert - bei einem
-            # einzigen zeigte die Leiste nur den Raum, in dem man ohnehin steht.
             raum_tabs = ([{"key": ru,
                            "label": _clean(self.rooms[ru].get("name")) or "Raum",
                            "iconUrl": self._icon_url(self.rooms[ru].get("image")) or ""}
-                          for ru in raeume[:4]] if len(raeume) > 1 else [])
+                          for ru in raeume[:4]] if marken else [])
             title = (prof.get("pickName") if prof else "") or "Auswahl"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
