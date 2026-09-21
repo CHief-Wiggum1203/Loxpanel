@@ -25,7 +25,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import ssl as _ssl
@@ -58,7 +58,7 @@ def _make_client(host, user, password, port, verify_tls) -> LoxoneClient:
 from adapters import JalousieAdapter, LightControllerV2Adapter  # noqa: E402
 from audioserver import make_backend, AudioBackend  # noqa: E402
 from audioserver_events import AudioEventClient  # noqa: E402
-import front_info  # noqa: E402  # Kalender (iCal-Abo) + Wetter (Open-Meteo) fuer die Front
+import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fuer die Front
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 
@@ -436,8 +436,11 @@ def _night_config() -> dict:
 
 def _calendar_config() -> dict:
     """Kalender-/Wetter-Block aus loxpanel.cfg `calendar`:
-    {"ical_url": "...", "name": "Family", "lat": 47.07, "lon": 15.44,
-     "days": 14, "fore_days": 4}. Steuert die Front (Screensaver)."""
+    {"sources": [{"name": "Familie", "url": "...", "color": "#e0a24d"}, ...],
+     "holiday_url": "...", "name": "Family", "colors": true, "sv_events": 3,
+     "lat": 47.07, "lon": 15.44, "days": 14, "fore_days": 4}.
+    Steuert die Front (Screensaver). Eine aeltere einzelne `ical_url` wird von
+    front_info.calendar_sources() als erste Quelle mitgelesen."""
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "loxpanel.cfg"
     if not f.is_file():
@@ -594,10 +597,15 @@ class App:
         self._front: dict | None = None
         self._front_key: str | None = None
         self._front_meta: dict = {}
-        # Letzter erfolgreich geladener Stand je Teil (Termine, Feiertage,
-        # Wetter) plus dessen Uhrzeit. Ueberbrueckt Aussetzer der Quellen,
-        # siehe _front_keep().
+        # Letzter erfolgreich geladener Stand je Teil (Feiertage, Wetter) plus
+        # dessen Uhrzeit. Ueberbrueckt Aussetzer der Quellen, siehe _front_keep().
         self._front_good: dict = {}
+        # Dasselbe fuer die Termine, aber JE KALENDER: {Quellenschluessel ->
+        # {"events": [...], "zeit": "HH:MM"}}. Mit mehreren Abos reicht ein
+        # gemeinsamer Stand nicht — faellt iCloud aus und Google liefert, waere
+        # die Terminliste nicht leer und der alte Stand (mit den iCloud-
+        # Terminen darin) wuerde ueberschrieben.
+        self._front_good_cal: dict = {}
         self._front_dirty = False
         self._front_refresh = asyncio.Event()
         self._front_session: aiohttp.ClientSession | None = None
@@ -4414,7 +4422,33 @@ class App:
     def _front_payload(self, data: dict) -> dict:
         return {"t": "front", "weather": data.get("weather"),
                 "events": data.get("events") or [], "holidays": data.get("holidays") or {},
-                "calName": data.get("calName") or "Family"}
+                "calName": data.get("calName") or "Family",
+                # Legende der Kalender (Name + Farbe, ohne die Abo-URLs) und
+                # die Anzeigeoptionen, die das Panel dafuer braucht.
+                "cals": data.get("cals") or [],
+                "calColors": bool(data.get("colors", True)),
+                "svEvents": data.get("sv_events") or 3}
+
+    def _front_cached_events(self, events: list) -> list:
+        """Gespeicherte Termine auf HEUTE umschreiben.
+
+        Der gespeicherte Stand kann von gestern sein — dauert der Aussetzer
+        ueber Mitternacht, zeigt sein "Heute" auf den Vortag und laengst
+        vergangene Tage stehen noch in der Liste. Beides hier richtigstellen,
+        statt einen falschen Tag aufs Panel zu schicken.
+        """
+        heute = date.today()
+        raus = []
+        for e in events:
+            try:
+                d = date.fromisoformat(e.get("date") or "")
+            except (ValueError, TypeError):
+                continue
+            if d < heute:
+                continue
+            label = front_info.day_label(d, heute)
+            raus.append(e if e.get("day") == label else dict(e, day=label))
+        return raus
 
     def _front_keep(self, data: dict) -> dict:
         """Bei einem fehlgeschlagenen Abruf den letzten guten Stand behalten.
@@ -4426,10 +4460,45 @@ class App:
         503 gesagt hat. Der alte Stand ist in dem Fall die bessere Auskunft als
         gar keiner; die Einstellungsseite nennt den Fehler weiterhin und sagt
         jetzt dazu, von wann die gezeigten Daten sind.
+
+        Die Termine werden JE KALENDER ueberbrueckt: bei mehreren Abos ist die
+        Liste auch dann gefuellt, wenn eine Quelle ausfaellt — ein gemeinsamer
+        Stand wuerde genau dann ueberschrieben und die Termine der ausgefallenen
+        Quelle verschwinden lassen.
         """
         meta = data.get("meta") or {}
-        for fehler, feld in (("cal_error", "events"),
-                             ("hol_error", "holidays"),
+
+        quellen = meta.get("cal_sources") or []
+        if quellen:
+            frisch: dict = {}
+            for e in data.get("events") or []:
+                frisch.setdefault(e.get("ck") or "", []).append(e)
+            zusammen, stale = [], None
+            for q in quellen:
+                k = q.get("key") or ""
+                gut = self._front_good_cal.get(k)
+                if q.get("error") and not frisch.get(k) and gut:
+                    zusammen.extend(self._front_cached_events(gut["events"]))
+                    q["stale"] = gut["zeit"]
+                    stale = gut["zeit"]
+                else:
+                    ev = frisch.get(k, [])
+                    zusammen.extend(ev)
+                    if not q.get("error"):
+                        self._front_good_cal[k] = {"events": ev, "zeit": time.strftime("%H:%M")}
+            # Quellen einzeln sortiert -> zusammengefuehrt neu ordnen.
+            zusammen.sort(key=front_info.event_sort_key)
+            data["events"] = zusammen
+            meta["cal_count"] = len(zusammen)
+            if stale:
+                meta["events_stale"] = stale
+        # Entfernte Kalender nicht ewig im Speicher mitschleppen.
+        aktuell = {q.get("key") for q in quellen}
+        for k in list(self._front_good_cal):
+            if k not in aktuell:
+                del self._front_good_cal[k]
+
+        for fehler, feld in (("hol_error", "holidays"),
                              ("wx_error", "weather")):
             if meta.get(fehler) and not data.get(feld) and self._front_good.get(feld):
                 data[feld] = self._front_good[feld]
@@ -4441,7 +4510,7 @@ class App:
 
     async def front_task(self) -> None:
         """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
-        aktiv, wenn eine iCal-URL ODER Koordinaten gesetzt sind. Ein sofortiges
+        aktiv, wenn mindestens ein iCal-Abo ODER Koordinaten gesetzt sind. Ein sofortiges
         Neuladen wird ueber _front_refresh (nach dem Speichern) ausgeloest."""
         self._front_session = aiohttp.ClientSession()
         try:
@@ -4454,7 +4523,7 @@ class App:
                 # fuer Anlagen ohne Loxone-Wetterdienst. Liefert der Wetterserver
                 # Wetter, braucht es weder Koordinaten noch einen zweiten Abruf.
                 wx = self._loxone_weather()
-                configured = bool((cfg.get("ical_url") or "").strip()) or wx is not None or (
+                configured = bool(front_info.calendar_sources(cfg)) or wx is not None or (
                     cfg.get("lat") not in (None, "") and cfg.get("lon") not in (None, ""))
                 if configured:
                     try:
@@ -4476,6 +4545,8 @@ class App:
                     self._front_meta = {}
                     self._wx_source = "open-meteo"
                     payload = {"t": "front", "weather": None, "events": [],
+                               "holidays": {}, "cals": [], "calColors": True,
+                               "svEvents": 3,
                                "calName": (cfg.get("name") or "Family")}
                 # Nur bei echter Aenderung senden (spart Broadcasts bei gleichem Stand).
                 if payload is not None:
@@ -4666,9 +4737,18 @@ async def api_settings(request: web.Request) -> web.Response:
         "audiometa": {"enabled": bool(am.get("enabled", True)),
                       "servers": sorted(app.mediaservers.values())},
         "calendar": {
-            "ical_url": (cal.get("ical_url") or "").strip(),
+            # Quellen normalisiert (inkl. Migration einer alten einzelnen
+            # ical_url), damit die Einstellungsseite genau das sieht, womit der
+            # Server auch arbeitet.
+            "sources": [{"name": q["name"], "url": q["url"], "color": q["color"],
+                         "key": q["key"]}
+                        for q in front_info.calendar_sources(cal)],
             "holiday_url": (cal.get("holiday_url") or "").strip(),
             "name": cal.get("name") or "Family",
+            "colors": bool(cal.get("colors", True)),
+            "sv_events": cal.get("sv_events", 3),
+            "palette": front_info.CAL_COLORS,
+            "max_sources": front_info.MAX_SOURCES,
             "lat": cal.get("lat"),
             "lon": cal.get("lon"),
             "days": cal.get("days", 14),
@@ -4835,7 +4915,7 @@ async def api_settings_intercom(request: web.Request) -> web.Response:
 
 
 async def api_settings_calendar(request: web.Request) -> web.Response:
-    """Kalender (iCal-Abo) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
+    """Kalender (iCal-Abos) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -4860,15 +4940,35 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
 
     cfg = _load_cfg()
     cal = dict(cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {})
-    cal["ical_url"] = str(data.get("ical_url", "")).strip()
+
+    # Kalenderquellen: Liste aus der Oberflaeche, leere Zeilen fliegen raus.
+    quellen = []
+    roh = data.get("sources")
+    if isinstance(roh, list):
+        for q in roh:
+            if not isinstance(q, dict):
+                continue
+            url = front_info.normalize_ical_url(q.get("url"))
+            if not url or len(quellen) >= front_info.MAX_SOURCES:
+                continue
+            quellen.append({"name": str(q.get("name", "")).strip()[:40],
+                            "url": url,
+                            # Leer = spaeter die Vorschlagsfarbe der Position
+                            "color": front_info.clean_color(q.get("color"), "")})
+    cal["sources"] = quellen
+    # Die alte Einzel-URL wandert in die Liste und bleibt danach leer, damit sie
+    # nicht als neunter Kalender doppelt auftaucht.
+    cal["ical_url"] = ""
     cal["holiday_url"] = str(data.get("holiday_url", "")).strip()
     cal["name"] = str(data.get("name", "")).strip() or "Family"
+    cal["colors"] = bool(data.get("colors", True))
     lat, lon = _coord(data.get("lat")), _coord(data.get("lon"))
     # Nur ein vollstaendiges Koordinatenpaar speichern (halb gesetzt = kein Wetter).
     cal["lat"] = lat if (lat is not None and lon is not None) else None
     cal["lon"] = lon if (lat is not None and lon is not None) else None
     cal["days"] = _int(data.get("days"), 14, 1, 60)
     cal["fore_days"] = _int(data.get("fore_days"), 4, 1, 7)
+    cal["sv_events"] = _int(data.get("sv_events"), 3, 1, 10)
     cfg["calendar"] = cal
     try:
         _write_cfg(cfg)
@@ -4876,9 +4976,8 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
     app.calendar_cfg = _calendar_config()
     app._front_refresh.set()   # sofort neu laden und an die Panels schicken
-    log.info("Kalender/Wetter gespeichert (iCal %s, Wetter %s)",
-             "gesetzt" if cal["ical_url"] else "leer",
-             "gesetzt" if cal["lat"] is not None else "leer")
+    log.info("Kalender/Wetter gespeichert (%d iCal-Abo(s), Wetter %s)",
+             len(cal["sources"]), "gesetzt" if cal["lat"] is not None else "leer")
     return web.json_response({"ok": True})
 
 

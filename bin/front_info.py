@@ -6,7 +6,11 @@ periodisch auf und schickt das Ergebnis per WebSocket an die Panels; die Uhr-
 Startseite (Screensaver) zeigt Wetter oben und die naechsten Termine unten an.
 
 Kalender: laedt die .ics (`webcal://` -> `https://`), parst die VEVENTs, loest
-Serientermine (RRULE) auf und liefert die naechsten Tage.
+Serientermine (RRULE, abzueglich abgesagter EXDATE) auf, verteilt mehrtaegige
+Termine (Ferien, Urlaub) auf JEDEN ihrer Tage und liefert die naechsten Tage.
+Mehrere Abos (Apple, Google, Muellabfuhr, Geburtstage, ...) werden parallel
+geladen und zu EINER nach Tag und Uhrzeit sortierten Liste zusammengefuehrt;
+jeder Termin traegt Name und Farbe seiner Quelle mit.
 Wetter: Open-Meteo (kostenlos, KEIN API-Key) per Koordinaten; `timezone=auto`
 richtet sich nach dem Standort.
 
@@ -17,7 +21,9 @@ Zahlen (Temperaturen) gehen als Zahl an das Panel, das sie deutsch formatiert.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import re
 from datetime import datetime, date, time, timedelta
 
 import aiohttp
@@ -40,6 +46,16 @@ except ImportError:
 
 WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+
+# Vorschlagsfarben fuer neue Kalender. Die Einstellungsseite bietet sie an, je
+# Kalender ist eine eigene Farbe waehlbar; `colors: false` in der Config zeigt
+# am Panel wieder alles schlicht einfarbig. Bewusst gut unterscheidbar und auf
+# dunklem WIE hellem Panel lesbar.
+CAL_COLORS = ["#e0a24d", "#52b881", "#6aa9e0", "#c98ad4",
+              "#e2695f", "#4fc3c3", "#b2c94a", "#9a8fe0"]
+
+MAX_SOURCES = 8         # so viele iCal-Abos nimmt die Front entgegen
+MAX_SPAN_DAYS = 400     # Schutzgrenze gegen ein kaputtes DTEND weit in der Zukunft
 
 # WMO-Wettercode -> deutsche Lage (Open-Meteo liefert diese Codes).
 WMO_TEXT = {
@@ -79,7 +95,20 @@ def wmo_icon(code) -> str:
     return "cloud"
 
 
-_RETRY_PAUSE = 3.0          # Sekunden zwischen den beiden Versuchen
+# Pausen vor dem 2., 3. und 4. Versuch (wachsend). iClouds `pNNN-caldav`-Hosts
+# sind bei bestehenden Abos teils minutenlang mit 503 zu; ein einzelner zweiter
+# Versuch nach drei Sekunden faellt dann genauso hinein wie der erste.
+_RETRY_PAUSEN = (3.0, 10.0, 25.0)
+
+# Anbieter beantworten Abrufe ohne gebraeuchlichen Browser-Kopf teils mit 503 —
+# iCloud ist dafuer bekannt. Der Abruf bleibt lesend und anonym; der Kopf sagt
+# nur, womit gelesen wird und welches Format erwartet wird.
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/calendar, text/plain;q=0.9, */*;q=0.8",
+    "Accept-Language": "de,en;q=0.8",
+}
 
 
 def _vorruebergehend(e: Exception) -> bool:
@@ -106,6 +135,83 @@ def normalize_ical_url(url) -> str:
     return url
 
 
+def source_key(url) -> str:
+    """Kurzer, stabiler Schluessel einer Quelle.
+
+    Gehasht, damit die (oft private) Abo-URL nicht bis aufs Panel durchgereicht
+    wird — der Server erkennt seine Quellen trotzdem wieder und kann den letzten
+    guten Stand je Quelle halten.
+    """
+    return hashlib.sha1(normalize_ical_url(url).encode("utf-8")).hexdigest()[:8]
+
+
+def clean_color(v, fallback: str) -> str:
+    """Nur echte #rrggbb-Farben durchlassen.
+
+    Hier und nicht erst beim Speichern: in die Config kann auch von Hand etwas
+    eingetragen werden, und die Farbe landet unveraendert im style-Attribut des
+    Panels. Was hier rausgeht, ist garantiert eine Farbe.
+    """
+    v = str(v or "").strip()
+    return v if re.fullmatch(r"#[0-9a-fA-F]{6}", v) else fallback
+
+
+def calendar_sources(cfg: dict) -> list:
+    """Config -> Liste der Kalenderquellen [{key, name, url, color}].
+
+    Neue Configs fuehren `sources` als Liste. Aeltere kennen nur die eine
+    `ical_url` samt `name` — die wird als erste Quelle mitgelesen, damit ein
+    Update nichts umzukonfigurieren verlangt.
+    """
+    cfg = cfg or {}
+    out, gesehen = [], set()
+
+    def _add(name, url, color):
+        url = normalize_ical_url(url)
+        if not url or url in gesehen or len(out) >= MAX_SOURCES:
+            return
+        gesehen.add(url)
+        name = (str(name or "").strip() or f"Kalender {len(out) + 1}")[:40]
+        color = clean_color(color, CAL_COLORS[len(out) % len(CAL_COLORS)])
+        out.append({"key": source_key(url), "name": name, "url": url, "color": color})
+
+    roh = cfg.get("sources")
+    if isinstance(roh, list):
+        for q in roh:
+            if isinstance(q, dict):
+                _add(q.get("name"), q.get("url"), q.get("color"))
+            elif isinstance(q, str):
+                _add("", q, "")
+    if not out:                       # alte Config: die einzelne ical_url
+        _add(cfg.get("name"), cfg.get("ical_url"), CAL_COLORS[0])
+    return out
+
+
+def event_sort_key(e: dict) -> tuple:
+    """Sortierschluessel eines Termins: Tag, Uhrzeit, Titel, Quelle.
+
+    Aus den ANZEIGEFELDERN rekonstruiert, damit auch der Server die Termine
+    mehrerer Quellen in dieselbe Reihenfolge bringen kann, ohne ein
+    Extra-Sortierfeld bis aufs Panel mitzuschleppen. Titel und Quelle als
+    Tiebreaker: sonst wackelt die Reihenfolge zwischen zwei Abrufen und die
+    Panels bekommen bei jedem Durchlauf ein sinnloses Update.
+    """
+    t = "00:00"
+    if not e.get("allday"):
+        h, sep, m = str(e.get("time") or "").partition(":")
+        if sep and h.strip().isdigit() and m.strip().isdigit():
+            t = f"{int(h):02d}:{int(m):02d}"
+    return (str(e.get("date") or ""), t, str(e.get("title") or ""), str(e.get("ck") or ""))
+
+
+def _int(v, default: int, lo: int, hi: int) -> int:
+    """Ganzzahl aus der Config, auf den erlaubten Bereich begrenzt."""
+    try:
+        return max(lo, min(hi, int(v)))
+    except (TypeError, ValueError):
+        return default
+
+
 def day_label(d: date, today: date) -> str:
     """`date` -> "Heute" / "Morgen" / "Sa 12.9." (Wochentag + Tag.Monat)."""
     delta = (d - today).days
@@ -125,17 +231,80 @@ def _local_naive(dt: datetime) -> datetime:
     return dt.astimezone().replace(tzinfo=None) if dt.tzinfo is not None else dt
 
 
+def _event_span(component, dtstart, all_day: bool) -> int:
+    """Wie viele Tage belegt der Termin? (1 = eintaegig)
+
+    iCal fuehrt das Ende als DTEND (EXKLUSIV) oder als DURATION. Ferien, Urlaub
+    und Messen stehen so als EIN Termin ueber viele Tage im Kalender und
+    gehoeren an jedem ihrer Tage aufs Panel, nicht nur am ersten. Beispiel:
+    Ferien vom 1.7. bis 10.9. stehen im ICS als DTEND;VALUE=DATE:20250911.
+    """
+    ende = None
+    prop = component.get("dtend")
+    if prop is not None:
+        ende = getattr(prop, "dt", None)
+    else:
+        prop = component.get("duration")
+        if prop is not None:
+            try:
+                ende = dtstart + prop.dt
+            except (TypeError, AttributeError):
+                ende = None
+    if ende is None:
+        return 1
+    try:
+        if all_day:
+            tage = (ende - dtstart).days                 # beides `date`, DTEND exklusiv
+        elif not isinstance(ende, datetime):
+            tage = (ende - dtstart.date()).days          # Datum als Ende: ebenfalls exklusiv
+        elif (ende.tzinfo is None) != (dtstart.tzinfo is None):
+            return 1                                     # gemischt naiv/aware: nicht vergleichbar
+        elif ende <= dtstart:
+            return 1
+        else:
+            # Letzter belegter Tag: endet der Termin genau um Mitternacht,
+            # zaehlt dieser Tag nicht mehr mit.
+            letzter = ende - timedelta(microseconds=1)
+            tage = (letzter.date() - dtstart.date()).days + 1
+    except (TypeError, ValueError, OverflowError):
+        return 1
+    return max(1, min(MAX_SPAN_DAYS, tage))
+
+
+def _exdates(component) -> set:
+    """Abgesagte Termine einer Serie (EXDATE) als Menge von Tagen.
+
+    Tagesgenau statt sekundengenau: ein abgesagter Serientermin faellt fuer den
+    ganzen Tag weg, und der Vergleich bleibt von Zeitzonen unabhaengig.
+    """
+    roh = component.get("exdate")
+    if not roh:
+        return set()
+    raus = set()
+    for p in (roh if isinstance(roh, list) else [roh]):
+        for d in getattr(p, "dts", []):
+            v = getattr(d, "dt", None)
+            if isinstance(v, datetime):
+                raus.add(_local_naive(v).date())
+            elif isinstance(v, date):
+                raus.add(v)
+    return raus
+
+
 def _occurrences(component, range_start: date, range_end: date):
     """Auftreten eines VEVENT im Zeitraum (loest RRULE-Serien auf).
 
-    Liefert Tupel (Zeitpunkt, all_day): bei Ganztagsterminen ein `date`, sonst ein
-    naives `datetime` in ORTSZEIT (die Wanduhrzeit, die das Panel anzeigt).
+    Liefert Tupel (Zeitpunkt, all_day, dauer_tage): bei Ganztagsterminen ein
+    `date`, sonst ein naives `datetime` in ORTSZEIT (die Wanduhrzeit, die das
+    Panel anzeigt). Ein mehrtaegiger Termin, der VOR dem Zeitraum begonnen hat
+    und noch laeuft, kommt mit — sonst fehlen laufende Ferien ab Tag zwei.
     """
     dtstart_prop = component.get("dtstart")
     if not dtstart_prop:
         return
     dtstart = dtstart_prop.dt
     all_day = not isinstance(dtstart, datetime)
+    dauer = _event_span(component, dtstart, all_day)
 
     if all_day:
         base = datetime.combine(dtstart, time.min)
@@ -144,7 +313,10 @@ def _occurrences(component, range_start: date, range_end: date):
         # Zeitzone auf, also ueber Sommer-/Winterzeit hinweg korrekt.
         base = dtstart
 
-    range_start_dt = datetime.combine(range_start, time.min)
+    # Um die Dauer nach hinten erweitert suchen: ein am 1.7. begonnener
+    # Ferientermin muss am 21.9. noch gefunden werden.
+    such_start = range_start - timedelta(days=dauer - 1)
+    range_start_dt = datetime.combine(such_start, time.min)
     range_end_dt = datetime.combine(range_end, time.max)
     if base.tzinfo is not None:
         # Grenzen sind naive Ortszeit -> in dieselbe (aware) Welt heben, sonst
@@ -152,92 +324,140 @@ def _occurrences(component, range_start: date, range_end: date):
         range_start_dt = range_start_dt.astimezone()
         range_end_dt = range_end_dt.astimezone()
     rrule = component.get("rrule")
+    abgesagt = _exdates(component)
 
     if rrule and HAVE_RRULE:
         try:
             rule = rrulestr(rrule.to_ical().decode(), dtstart=base)
             for occ in rule.between(range_start_dt, range_end_dt, inc=True):
                 occ_local = _local_naive(occ)
-                yield (occ_local.date() if all_day else occ_local, all_day)
+                if occ_local.date() in abgesagt:
+                    continue
+                yield (occ_local.date() if all_day else occ_local, all_day, dauer)
         except Exception as e:                       # kaputte RRULE nicht fatal
             log.warning("RRULE nicht lesbar: %s", e)
     elif not rrule:
         if all_day:
-            d = dtstart if isinstance(dtstart, date) and not isinstance(dtstart, datetime) else dtstart.date()
-            if range_start <= d <= range_end:
-                yield (d, True)
+            d = dtstart if not isinstance(dtstart, datetime) else dtstart.date()
+            if such_start <= d <= range_end and d not in abgesagt:
+                yield (d, True, dauer)
         else:
-            if range_start_dt <= base <= range_end_dt:
-                yield (_local_naive(base), False)
+            lokal = _local_naive(base)
+            if range_start_dt <= base <= range_end_dt and lokal.date() not in abgesagt:
+                yield (lokal, False, dauer)
 
 
-def _parse_events(ics_bytes: bytes, days: int) -> list:
-    """ICS-Bytes -> sortierte, anzeigefertige Terminliste fuer die naechsten `days`."""
+def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> list:
+    """ICS-Bytes -> sortierte, anzeigefertige Terminliste fuer die naechsten `days`.
+
+    Mehrtaegige Termine erscheinen an JEDEM ihrer Tage — Ferien stehen sonst nur
+    am ersten Tag da, und ab Tag zwei sieht das Panel aus, als waere nichts.
+    `note` sagt dazu, wie lange der Termin noch laeuft. `quelle` haengt Name,
+    Farbe und Schluessel des Kalenders an jeden Termin, damit das Panel mehrere
+    Abos auseinanderhalten kann.
+    """
     cal = Calendar.from_ical(ics_bytes)
     today = date.today()
     range_end = today + timedelta(days=max(1, int(days)) - 1)
+    q = quelle or {}
+    q_name, q_color, q_key = q.get("name") or "", q.get("color") or "", q.get("key") or ""
 
     raw = []
     for comp in cal.walk():
         if comp.name != "VEVENT":
             continue
+        # Abgesagte Termine gehoeren nicht aufs Panel — Google und Apple lassen
+        # sie mit STATUS:CANCELLED im Feed stehen.
+        if str(comp.get("status", "")).strip().upper() == "CANCELLED":
+            continue
         title = str(comp.get("summary", "Termin")).strip() or "Termin"
         uid = str(comp.get("uid", ""))
-        for occ, all_day in _occurrences(comp, today, range_end):
-            if all_day:
-                d = occ if isinstance(occ, date) and not isinstance(occ, datetime) else occ.date()
-                raw.append((f"{uid}_{d.isoformat()}", d, None, True, title))
-            else:
-                raw.append((f"{uid}_{occ.isoformat()}", occ.date(), occ.time(), False, title))
+        for occ, all_day, dauer in _occurrences(comp, today, range_end):
+            erster = occ if not isinstance(occ, datetime) else occ.date()
+            letzter = erster + timedelta(days=dauer - 1)
+            for n in range(dauer):
+                d = erster + timedelta(days=n)
+                if not (today <= d <= range_end):
+                    continue
+                # Tag 1 traegt die Uhrzeit, Folgetage laufen ganztaegig weiter.
+                t = None if (all_day or n > 0) else occ.time()
+                if dauer > 1:
+                    note = ("letzter Tag" if d == letzter
+                            else f"bis {WD[letzter.weekday()]} {letzter.day}.{letzter.month}.")
+                else:
+                    note = ""
+                raw.append((f"{q_key}_{uid}_{d.isoformat()}", d, t, title, note))
 
     seen = set()
     out = []
-    for key, d, t, all_day, title in raw:
+    for key, d, t, title, note in raw:
         if key in seen:
             continue
         seen.add(key)
-        sort_time = "00:00" if all_day else f"{t.hour:02d}:{t.minute:02d}"
         out.append({
             "day": day_label(d, today),
             "date": d.isoformat(),          # ISO-Datum (fuer das Monatsraster im Pane)
-            "time": "ganztägig" if all_day else f"{t.hour}:{t.minute:02d}",
+            "time": "ganztägig" if t is None else f"{t.hour}:{t.minute:02d}",
             "title": title,
-            "allday": all_day,
-            "_sort": (d.isoformat(), sort_time),
+            "note": note,                   # "bis Mi 10.9." / "letzter Tag" bei mehrtaegigen
+            "allday": t is None,
+            "cal": q_name,                  # Name der Quelle (Tag am Termin + Legende)
+            "color": q_color,               # Farbe der Quelle
+            "ck": q_key,                    # Schluessel der Quelle (Server: Stand je Quelle)
         })
-    out.sort(key=lambda e: e["_sort"])
-    for e in out:
-        e.pop("_sort", None)
+    out.sort(key=event_sort_key)
     return out
 
 
-async def fetch_events(session: aiohttp.ClientSession, url: str, days: int) -> list:
+_URL_RE = re.compile(r"(https?://[^/\s'\"]+)(/[^\s'\"]*)?")
+
+
+def error_text(e) -> str:
+    """Fehler lesbar machen — ohne den Pfad der (privaten) Abo-URL.
+
+    aiohttp haengt die volle URL an seine Meldungen. Die stuende sonst im
+    Klartext auf der Einstellungsseite und damit in jedem Screenshot davon,
+    obwohl ein Abo-Link ohne weiteres Login den ganzen Kalender preisgibt.
+    Der Host bleibt stehen — er sagt, WER gerade nicht antwortet.
+    """
+    txt = (str(e) or e.__class__.__name__).strip()
+    return _URL_RE.sub(lambda m: m.group(1) + ("/…" if m.group(2) else ""), txt)
+
+
+async def fetch_events(session: aiohttp.ClientSession, url: str, days: int,
+                       quelle: dict | None = None) -> list:
     """iCal-Abo laden (async) und parsen (Parsen im Thread, blockiert die Loop nicht).
 
-    Ein zweiter Versuch nach kurzer Pause bei VORUEBERGEHENDEN Fehlern: iClouds
+    Mehrere Versuche mit wachsender Pause bei VORUEBERGEHENDEN Fehlern: iClouds
     `pNNN-caldav`-Hosts antworten regelmaessig mit 503, obwohl das Abo in Ordnung
-    ist. Ein 404 oder 401 wiederholt sich dagegen nicht - dann ist die URL falsch
-    oder das Abo nicht mehr oeffentlich, und ein zweiter Abruf kostet nur Zeit.
+    ist, und sind das teils ein paar Minuten am Stueck. Ein 404 oder 401
+    wiederholt sich dagegen nicht — dann ist die URL falsch oder das Abo nicht
+    mehr oeffentlich, und weitere Abrufe kosten nur Zeit.
     """
     url = normalize_ical_url(url)
     if not url:
         return []
     if not HAVE_ICAL:
         raise RuntimeError("Bibliothek 'icalendar' nicht installiert")
+    name = (quelle or {}).get("name") or "Kalender"
     data = None
-    for versuch in (1, 2):
+    versuche = len(_RETRY_PAUSEN) + 1
+    for nr in range(versuche):
         try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
+            async with session.get(url, headers=_HEADERS,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as r:
                 r.raise_for_status()
                 data = await r.read()
             break
         except Exception as e:
-            if versuch == 2 or not _vorruebergehend(e):
+            if nr == versuche - 1 or not _vorruebergehend(e):
                 raise
-            log.info("Kalender: %s - zweiter Versuch in %.0f s", e, _RETRY_PAUSE)
-            await asyncio.sleep(_RETRY_PAUSE)
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _parse_events, data, days)
+            pause = _RETRY_PAUSEN[nr]
+            log.info("Kalender '%s': %s — Versuch %d von %d in %.0f s",
+                     name, error_text(e), nr + 2, versuche, pause)
+            await asyncio.sleep(pause)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _parse_events, data, days, quelle)
 
 
 def _iso(s):
@@ -359,36 +579,61 @@ async def fetch_weather(session: aiohttp.ClientSession, lat: float, lon: float, 
 
 async def load_front(session: aiohttp.ClientSession, cfg: dict,
                      skip_weather: bool = False) -> dict:
-    """Kalender + Wetter gemaess Config laden. Ein Fehler in einem Teil laesst den
-    anderen unberuehrt. Rueckgabe: {weather, events, calName, meta}.
+    """Kalender + Wetter gemaess Config laden. Ein Fehler in einem Teil laesst die
+    anderen unberuehrt. Rueckgabe: {weather, events, holidays, calName, cals,
+    colors, meta}.
+
+    Alle Kalender werden PARALLEL geladen — acht Abos nacheinander abzufragen
+    wuerde die Front bei einem lahmen Anbieter minutenlang blockieren. Faellt
+    eine Quelle aus, liefern die anderen trotzdem; `meta.cal_sources` sagt je
+    Quelle, was sie beigetragen hat oder woran sie gescheitert ist.
 
     `skip_weather` laesst Open-Meteo aus — der Aufrufer hat schon Wetter vom
     Loxone-Wetterserver und braucht die zweite Quelle nicht."""
     cfg = cfg or {}
     name = (cfg.get("name") or "Family").strip() or "Family"
+    quellen = calendar_sources(cfg)
     out = {
         "weather": None,
         "events": [],
         "holidays": {},                 # ISO-Datum -> Feiertagsname (2. iCal, optional)
         "calName": name,
+        # Legende fuer das Panel: Name + Farbe je Quelle (ohne die Abo-URL).
+        "cals": [{"key": q["key"], "name": q["name"], "color": q["color"]} for q in quellen],
+        "colors": bool(cfg.get("colors", True)),    # false = schlicht, ohne Kalenderfarben
+        "sv_events": _int(cfg.get("sv_events"), 3, 1, 10),   # Termine auf der Uhr-Seite
         "meta": {"cal_configured": False, "cal_count": 0, "cal_error": None,
+                 "cal_sources": [],
                  "wx_configured": False, "wx_error": None,
                  "hol_configured": False, "hol_count": 0, "hol_error": None},
     }
 
-    url = (cfg.get("ical_url") or "").strip()
-    if url:
+    if quellen:
         out["meta"]["cal_configured"] = True
         try:
             days = int(cfg.get("days") or 14)
         except (TypeError, ValueError):
             days = 14
-        try:
-            out["events"] = await fetch_events(session, url, days)
-            out["meta"]["cal_count"] = len(out["events"])
-        except Exception as e:
-            out["meta"]["cal_error"] = str(e)
-            log.warning("Kalender laden fehlgeschlagen: %s", e)
+        ergebnisse = await asyncio.gather(
+            *(fetch_events(session, q["url"], days, q) for q in quellen),
+            return_exceptions=True)
+        alle, status, fehler = [], [], []
+        for q, r in zip(quellen, ergebnisse):
+            eintrag = {"key": q["key"], "name": q["name"], "color": q["color"],
+                       "count": 0, "error": None}
+            if isinstance(r, BaseException):
+                eintrag["error"] = error_text(r)
+                fehler.append(f"{q['name']}: {eintrag['error']}")
+                log.warning("Kalender '%s' laden fehlgeschlagen: %s", q["name"], eintrag["error"])
+            else:
+                alle.extend(r)
+                eintrag["count"] = len(r)
+            status.append(eintrag)
+        alle.sort(key=event_sort_key)   # Quellen einzeln sortiert -> gemeinsam neu ordnen
+        out["events"] = alle
+        out["meta"]["cal_sources"] = status
+        out["meta"]["cal_count"] = len(alle)
+        out["meta"]["cal_error"] = " · ".join(fehler) if fehler else None
 
     # Feiertage aus einem zweiten, optionalen iCal (ganztaegige Eintraege). Weit
     # nach vorn geladen (fuer die Monatsnavigation), Rueckgabe als {Datum: Name}.
@@ -396,12 +641,12 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict,
     if hol_url:
         out["meta"]["hol_configured"] = True
         try:
-            hev = await fetch_events(session, hol_url, 400)
+            hev = await fetch_events(session, hol_url, 400, {"name": "Feiertage"})
             out["holidays"] = {e["date"]: e["title"] for e in hev if e.get("date")}
             out["meta"]["hol_count"] = len(out["holidays"])
         except Exception as e:
-            out["meta"]["hol_error"] = str(e)
-            log.warning("Feiertage laden fehlgeschlagen: %s", e)
+            out["meta"]["hol_error"] = error_text(e)
+            log.warning("Feiertage laden fehlgeschlagen: %s", out["meta"]["hol_error"])
 
     lat, lon = cfg.get("lat"), cfg.get("lon")
     if not skip_weather and lat not in (None, "") and lon not in (None, ""):
@@ -413,7 +658,7 @@ async def load_front(session: aiohttp.ClientSession, cfg: dict,
         try:
             out["weather"] = await fetch_weather(session, float(lat), float(lon), fore)
         except Exception as e:
-            out["meta"]["wx_error"] = str(e)
-            log.warning("Wetter laden fehlgeschlagen: %s", e)
+            out["meta"]["wx_error"] = error_text(e)
+            log.warning("Wetter laden fehlgeschlagen: %s", out["meta"]["wx_error"])
 
     return out
