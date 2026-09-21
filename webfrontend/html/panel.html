@@ -998,8 +998,15 @@ function renderTabs(){
   // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
   // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
   // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
-  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
-           : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+  // Die Kategorie-Tabs ERSETZEN die ganze untere Leiste. Das ist nur richtig,
+  // wenn der Raum die einzige Seite des Panels ist. Steht der room:-Tab dagegen
+  // neben anderen Seiten in der Leiste, waeren diese danach nicht mehr
+  // erreichbar - und der Zurueck-Knopf hilft nicht, weil der Raum die unterste
+  // Ansicht im Stapel ist (back() prueft stack.length>1).
+  const anker = isRoomPanel();
+  const ct = !anker ? null
+           : (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
+           : (roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
   const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
   let items;
   if(ct){
