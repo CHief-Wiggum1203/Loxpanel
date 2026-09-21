@@ -459,6 +459,52 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Das betraf auch die schon vorhandenen `cat:`-Tabs. Jetzt ist die
       Klickreihenfolge die Reihenfolge der Leiste. **S**
 
+- [x] **Frei zusammengestellte Seite („Eigene Auswahl").** Aus dem Forum: eine
+      Seite aus beliebigen Bausteinen, unabhängig von Raum und Kategorie. Eine
+      je Panel, Schlüssel `auswahl` (`PICK_TAB`), Profil trägt `picks` (geordnete
+      UUID-Liste, gedeckelt bei 60) und `pickName`. Der Panelfilter gilt hier
+      bewusst **nicht** — wer einen Baustein ausdrücklich wählt, will ihn sehen;
+      nur `hide` bleibt als Sicherheitsnetz.
+
+      Danach nachgebessert, weil sich die Bedienung nicht gut anfühlte: die
+      Seite ist jetzt der **dritte Modus** der unteren Leiste, neben Raum-Panel
+      und Klassisch. Der Umschalter wechselt in Wahrheit die *Bedeutung* der
+      Leiste — bei Raum-Panel und Eigener Auswahl sind es Sprungmarken statt
+      Seiten. Die Auswahl gruppiert nach **Raum**, die Leiste zeigt bis zu vier
+      Räume als Sprungmarken (erst ab zwei Räumen), ein Tipp scrollt zur Gruppe.
+      Dieselbe Mechanik wie beim Raum-Panel (`catKey` als Anker, `catTabs`).
+      Zusammenstellen und Sichtbarmachen liegen damit an einer Stelle; der
+      eigene Unterreiter ist entfallen. Dazu eine geführte Einrichtung in drei
+      Schritten, ein Raumfilter über der Bausteinliste und eine Vorschau der
+      Sprungmarken. Drei Fehler nebenbei behoben: der Chip in der Konfiguration
+      zeigte das feste Serverlabel statt des vergebenen Namens; ein
+      Moduswechsel verwarf eine selbst zusammengestellte Tab-Leiste ohne
+      Rückfrage; und eine leere `catTabs`-Liste wurde im Panel als „kein Wert"
+      statt als Aussage gelesen, sodass Sprungmarken stehen blieben, die ins
+      Leere zeigten. Raumnamen stehen als Text in der Leiste, wenn der Raum
+      kein Bild hat — mit vier gleichen Symbolen wäre sie nicht zu treffen.
+
+      Eine Gegenprüfung des fertigen Standes vor dem Merge fand noch einen
+      **kritischen Fehler**: Sprungmarken ersetzen im Panel die *ganze* untere
+      Leiste. Stand der Auswahl-Tab in einer klassischen Leiste neben anderen
+      Seiten, waren diese damit unerreichbar — der Zurück-Knopf hilft nicht,
+      weil die Seite die unterste im Stapel ist, und der Leerlauf springt nach
+      60 s wieder auf denselben ersten Tab. Behoben an beiden Enden: der Server
+      liefert Sprungmarken und Anker nur noch, wenn die Seite allein in der
+      Leiste steht (`prof["tabs"] == [PICK_TAB]`), und `renderTabs()` ersetzt
+      die Leiste nur noch im Ein-Seiten-Modus. Die zweite Sperre behebt
+      dieselbe Falle für einen `room:`-Tab in einer klassischen Leiste, die es
+      schon vorher gab — **dafür lohnt ein Hinweis an Upstream**.
+
+      Dazu drei kleinere Funde derselben Prüfung: die Konfiguration zählte
+      ausgeblendete Bausteine bei der Gruppierung mit (der Server wirft sie per
+      `_shown()` vorher weg), wodurch ein unsichtbarer Baustein die
+      Raumreihenfolge und alle Nummern dahinter verschob; ein enger
+      `I18N.autoChrome()`-Aufruf im Auswahl-Editor hätte den modulweiten
+      Selektor verengt und damit die Übersetzung der restlichen
+      Konfigurationsseite abgeschaltet (jetzt `applyChrome` auf den Teilbaum);
+      und zwei neue Code-Kommentare trugen Umlaute entgegen der Konvention. **M**
+
 - [x] **Front: Kalender + Wetter auf dem Screensaver.** Neu `bin/front_info.py`
       (eigenständig, keine Fremdabhängigkeit): iCal-Abo laden und parsen
       (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von
