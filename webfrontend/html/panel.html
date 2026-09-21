@@ -404,6 +404,15 @@
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tab.active{color:var(--accent);}
   .tab.active .tico{background-color:var(--accent);}
+  /* Sprungmarke ohne Bild: der Name traegt die Unterscheidung. Vier gleiche
+     Symbole waeren wertlos - Raeume haben in Loxone meist kein Bild. */
+  /* 10px auf dem 4-Zoll-Panel (480 px): dort passt jeder Raumname der Anlage
+     ganz hinein, ohne mitten im Wort zu brechen - nachgemessen mit 21 echten
+     Namen. Auf breiteren Displays waechst die Schrift bis 13px mit. */
+  .tab .tlbl{font-size:clamp(10px,2vw,13px);line-height:1.15;font-weight:600;letter-spacing:.02em;
+    max-width:100%;padding:0 4px;text-align:center;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow-wrap:anywhere;}
   .tab:active{transform:scale(.92);}
   /* Online-Punkt: nur auf den Haupt-Screens (Tabs), zentriert im 2x2-Raster */
   .conn{grid-row:1;grid-column:1;place-self:center;z-index:6;pointer-events:none;
@@ -666,6 +675,10 @@ const TABS = [
   {tab:'raeume',    label:'Räume',     icon:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'},
   {tab:'kategorien',label:'Kategorien',icon:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>'},
 ];
+
+// Freie Bausteinauswahl: eine Seite je Panel, Name kommt per tabMeta vom
+// Server (PICK_TAB in bin/webvisu.py). Muss mit dem Server uebereinstimmen.
+const PICK_TAB = 'auswahl';
 
 const el = id => document.getElementById(id);
 let ws, stack = [{view:'tab',tab:'favoriten'}], view = null;
@@ -987,10 +1000,14 @@ function updatePanel(blocks){
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
-// Raum-Panel-Kontext: der (einzige) Profil-Tab ist ein Raum. Dann bleiben in
-// ALLEN Ansichten (auch Detail) die Kategorie-Tabs + mittiger Zurueck-Button
-// unten stehen. roomCatTabs merkt sie sich fuer Ansichten ohne eigene catTabs.
-function isRoomPanel(){ return tabsCfg.length===1 && String(tabsCfg[0]||'').indexOf('room:')===0; }
+// Anker-Kontext: der (einzige) Profil-Tab traegt eine Seite, deren untere
+// Leiste Sprungmarken statt Seiten zeigt - ein Raum (Kategorien des Raums) oder
+// die freie Auswahl (Raeume der Auswahl). Dann bleiben in ALLEN Ansichten (auch
+// Detail) diese Tabs + mittiger Zurueck-Button unten stehen. roomCatTabs merkt
+// sie sich fuer Ansichten ohne eigene catTabs. Der Name bleibt roomCatTabs bzw.
+// isRoomPanel, damit sich kuenftige Upstream-Merges nicht daran reiben.
+function isRoomPanel(){ const t = String(tabsCfg[0]||'');
+  return tabsCfg.length===1 && (t.indexOf('room:')===0 || t===PICK_TAB); }
 let roomCatTabs=null, pendingCatScroll=null;
 
 function renderTabs(){
@@ -998,15 +1015,27 @@ function renderTabs(){
   // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
   // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
   // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
-  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
-           : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+  // Sprungmarken ERSETZEN die ganze Leiste. Das darf nur geschehen, wenn das
+  // Panel ueberhaupt nur diese eine Seite hat: sonst waeren die uebrigen Tabs
+  // nicht mehr antippbar, und der Zurueck-Knopf hilft nicht, weil die Seite
+  // die unterste im Stapel ist. Frueher hing das daran, dass nur die
+  // room:-Ansicht catTabs lieferte - steht ein room:-Tab in einer klassischen
+  // Leiste, greift dieselbe Falle auch ohne die freie Auswahl.
+  const anker = isRoomPanel();
+  const ct = !anker ? null
+           : (view && Array.isArray(view.catTabs))
+             ? (view.catTabs.length ? view.catTabs : null)
+             : (roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
   const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
   let items;
   if(ct){
     const tabsHtml = ct.map(c => {
+      // Ohne Bild den NAMEN zeigen, nicht den Kategorie-Wuerfel: sonst sehen
+      // mehrere Sprungmarken identisch aus und man kann nichts treffen.
+      // Kategorien aus Loxone bringen fast immer ein Bild mit, Raeume selten.
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
-        : svg('<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>');
+        : '<span class="tlbl">'+esc(c.label||'')+'</span>';
       return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
     });
     // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
@@ -1024,7 +1053,14 @@ function renderTabs(){
       const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
       // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
       // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
-      const fallback = tk.indexOf('room:')===0
+      const fallback = tk===PICK_TAB
+        // Checkliste: klar unterscheidbar von Favoriten-Stern, Haus, Raum und
+        // Kategorie-Wuerfel. Die freie Auswahl hat kein Bild aus Loxone, weil
+        // sie weder Raum noch Kategorie ist - dieses Symbol gilt immer.
+        ? '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>'
+          +'<path d="m3 6 1.4 1.4L7 4.9"/><path d="m3 12 1.4 1.4L7 10.9"/>'
+          +'<path d="m3 18 1.4 1.4L7 16.9"/>'
+        : tk.indexOf('room:')===0
         ? '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'
         : '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>';
       const ico = m.iconUrl
@@ -1250,7 +1286,12 @@ function render(){
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
-  if(view.catTabs && view.catTabs.length) roomCatTabs = view.catTabs;   // fuer Detailansichten merken
+  // Eine LEERE Liste ist eine Aussage ("diese Seite hat keine Sprungmarken"),
+  // kein fehlender Wert: sie muss die gemerkten loeschen. Sonst blieben nach
+  // einer Auswahl mit mehreren Raeumen Marken stehen, die ins Leere zeigen,
+  // sobald nur noch ein Raum uebrig ist. Nur Ansichten OHNE den Schluessel
+  // (Detailansichten) greifen auf die gemerkten zurueck.
+  if(Array.isArray(view.catTabs)) roomCatTabs = view.catTabs.length ? view.catTabs : null;
   renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;

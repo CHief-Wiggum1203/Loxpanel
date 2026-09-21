@@ -121,6 +121,10 @@ JAL = JalousieAdapter()
 
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
+# Freie Bausteinauswahl: EINE Seite je Panel, die Bausteine unabhaengig von Raum
+# und Kategorie zusammenstellt. Bewusst kein Praefix mit UUID wie cat:/room: -
+# es gibt genau eine je Panel, die Liste steht im Profil unter "picks".
+PICK_TAB = "auswahl"
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
@@ -129,9 +133,10 @@ NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
 
 
 def _is_tab(t) -> bool:
-    """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs ODER eine einzelne
-    Kategorie bzw. ein einzelner Raum als Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
-    if t in VALID_TABS:
+    """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs, die freie Auswahl
+    (`auswahl`) ODER eine einzelne Kategorie bzw. ein einzelner Raum als
+    Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
+    if t in VALID_TABS or t == PICK_TAB:
         return True
     if not isinstance(t, str):
         return False
@@ -1275,6 +1280,9 @@ class App:
             "tiles": prof.get("tiles") or {},
             "roomCats": [c for c in (prof.get("roomCats") or []) if isinstance(c, str)],
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
+            # Liste, kein Set: die Reihenfolge ist die Anzeigereihenfolge.
+            "picks": [u for u in (prof.get("picks") or []) if isinstance(u, str)],
+            "pickName": prof.get("pickName") or "",
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
             # Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2, keine
@@ -1423,12 +1431,17 @@ class App:
                 "nodes": nodes,
                 "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
 
-    def _tab_meta(self, tab_keys) -> dict:
-        """Label + Icon fuer dynamische Tabs (Kategorie- und Raum-Direkt-Tabs).
-        Die 4 Standard-Tabs kennt das Frontend selbst; hier nur `cat:`/`room:`."""
+    def _tab_meta(self, tab_keys, prof: dict | None = None) -> dict:
+        """Label + Icon fuer dynamische Tabs (Kategorie-, Raum- und Auswahl-Tab).
+        Die 4 Standard-Tabs kennt das Frontend selbst; hier nur `cat:`/`room:`
+        und `auswahl` - letzteres traegt einen frei gewaehlten Namen, sein
+        Symbol bringt das Panel selbst mit."""
         meta = {}
         for t in tab_keys or []:
-            if isinstance(t, str) and t.startswith("cat:"):
+            if t == PICK_TAB:
+                meta[t] = {"label": (prof.get("pickName") if prof else "") or "Auswahl",
+                           "iconUrl": ""}
+            elif isinstance(t, str) and t.startswith("cat:"):
                 cat = self.cats.get(t[4:], {})
                 meta[t] = {"label": _clean(cat.get("name")) or "Kategorie",
                            "iconUrl": self._icon_url(cat.get("image")) or ""}
@@ -1758,6 +1771,11 @@ class App:
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
             "hide": [u for u in (raw.get("hide") or [])
                      if isinstance(u, str) and u in self.controls],
+            # Reihenfolge ist die Klickreihenfolge, deshalb NICHT sortieren -
+            # anders als rooms/cats, die der Loxone-Reihenfolge folgen.
+            "picks": [u for u in (raw.get("picks") or [])
+                      if isinstance(u, str) and u in self.controls],
+            "pickName": raw.get("pickName") or "",
         }
 
     def _loxone_icons(self) -> list:
@@ -1799,6 +1817,15 @@ class App:
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
+            # Freie Auswahl (Tab "auswahl"): handverlesene Bausteine in
+            # Klickreihenfolge. Hier nur Form pruefen - ob die UUIDs existieren,
+            # entscheidet _panel_export gegen self.controls, wie bei "hide".
+            picks = [str(x) for x in (p.get("picks") or []) if isinstance(x, str)][:60]
+            if picks:
+                e["picks"] = picks
+            pname = str(p.get("pickName") or "").strip()[:40]
+            if pname:
+                e["pickName"] = pname
             ui = p.get("ui") or {}
             # Groessen genauso klemmen wie der globale Pfad (_sanitize_theme_ui)
             # und wie die Nachbarfelder unten - sonst nimmt der Panel-Override
@@ -2737,6 +2764,75 @@ class App:
     def _view_tab(self, tab: str, prof: dict | None = None) -> dict:
         ar = prof.get("rooms") if prof else None
         ac = prof.get("cats") if prof else None
+        if tab == PICK_TAB:
+            # Freie Auswahl: genau die handverlesenen Bausteine, in der
+            # gespeicherten Reihenfolge (= Klickreihenfolge in der Konfig).
+            #
+            # BEWUSST OHNE _room_ok/_cat_ok: wer einen Baustein ausdruecklich
+            # auswaehlt, will ihn sehen - auch wenn sein Raum oder seine
+            # Kategorie im Panelfilter fehlt. Sonst waere das Auswaehlen
+            # wirkungslos und der Sinn der Seite dahin.
+            #
+            # _shown bleibt: "hide" ist panelweit und das Sicherheitsnetz.
+            # Die Konfigurationsseite zeigt so einen Baustein ausgegraut.
+            gewaehlt = (prof.get("picks") or []) if prof else []
+            uuids, gesehen = [], set()
+            for u in gewaehlt:
+                # Doppelte ueberspringen: zwei Kacheln mit derselben id wuerden
+                # den In-place-Abgleich im Panel (updateGrid) durcheinander bringen.
+                if u in gesehen or u not in self.controls or not self._shown(u, prof):
+                    continue
+                gesehen.add(u)
+                uuids.append(u)
+            # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
+            # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
+            # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
+            # statt nach Kategorie. Ohne das ist eine Seite aus 40 Bausteinen
+            # quer durchs Haus auf einem 4-Zoll-Panel nicht mehr zu bedienen.
+            #
+            # Reihenfolge der Raeume = erstes Vorkommen in der Auswahl. Damit
+            # bleibt die Klickreihenfolge aus der Konfiguration die fuehrende
+            # Ordnung; innerhalb eines Raums stehen die Bausteine ebenfalls so,
+            # wie sie gewaehlt wurden. Dicts halten die Einfuegereihenfolge.
+            nach_raum: dict = {}
+            for u in uuids:
+                nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
+            raeume = [ru for ru in nach_raum if ru in self.rooms]
+            sr = self._spans_rooms(uuids)
+            # Sprungmarken ERSETZEN im Panel die ganze untere Leiste. Das ist
+            # nur dann richtig, wenn diese Seite die einzige des Panels ist.
+            # Steht der Auswahl-Tab dagegen neben anderen Seiten in der
+            # klassischen Leiste, waeren die uebrigen Tabs nicht mehr
+            # erreichbar - und der Zurueck-Knopf hilft nicht, weil die Seite
+            # die unterste im Stapel ist.
+            # Erst ab zwei Raeumen sind Sprungmarken ausserdem etwas wert: bei
+            # einem einzigen zeigte die Leiste nur den Raum, in dem man steht.
+            allein = list((prof.get("tabs") or []) if prof else []) == [PICK_TAB]
+            marken = allein and len(raeume) > 1
+            items = []
+            for ru in raeume:
+                for j, u in enumerate(nach_raum[ru]):
+                    it = self._control_item(u, prof, show_room=sr)
+                    if marken and j == 0:
+                        # Scroll-Anker fuer die Sprungmarke. Der Schluessel
+                        # heisst im Panel catKey, weil dieselbe Mechanik schon
+                        # fuer die Kategorien des Raum-Panels da ist - fuer das
+                        # Panel ist er ein undurchsichtiger Schluessel. Ohne
+                        # Leiste waere er ein totes Attribut, also nur dann.
+                        it["catKey"] = ru
+                    items.append(it)
+            # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
+            for ru, us in nach_raum.items():
+                if ru not in self.rooms:
+                    items += [self._control_item(u, prof, show_room=sr) for u in us]
+            raum_tabs = ([{"key": ru,
+                           "label": _clean(self.rooms[ru].get("name")) or "Raum",
+                           "iconUrl": self._icon_url(self.rooms[ru].get("image")) or ""}
+                          for ru in raeume[:4]] if marken else [])
+            title = (prof.get("pickName") if prof else "") or "Auswahl"
+            return {"t": "view", "title": title, "tab": tab,
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    "catTabs": raum_tabs}
         if isinstance(tab, str) and tab.startswith("cat:"):
             # Kategorie-Direkt-Tab: dieselben Controls wie im Kategorie-Drilldown
             cu = tab[4:]
@@ -4464,7 +4560,8 @@ async def api_meta(request: web.Request) -> web.Response:
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
                  {"tab": "raeume", "label": "Räume"},
-                 {"tab": "kategorien", "label": "Kategorien"}]
+                 {"tab": "kategorien", "label": "Kategorien"},
+                 {"tab": PICK_TAB, "label": "Eigene Auswahl", "pick": True}]
         + [{"tab": "cat:" + cu, "label": _clean(app.cats[cu].get("name", "")),
             "iconUrl": app._icon_url(app.cats[cu].get("image")), "cat": True}
            for cu in app.cats_with]
@@ -5198,7 +5295,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # Tablet mit Kiosk-App) schaltet die Seite das Display selbst ab und laedt
     # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
-                        "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
+                        "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "panes": prof.get("panes") or {},
                         "dpmsOff": app.panel_dpms(prof["id"]),
