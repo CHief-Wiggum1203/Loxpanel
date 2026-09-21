@@ -157,6 +157,19 @@
   .trow .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .trow .eye:hover{background:var(--bg);color:var(--fg);}
   .trow .eye.off{color:var(--crit);}
+  /* Eigene Auswahl: Nummer = Platz auf der Seite, leerer Kreis = nicht gewaehlt */
+  .trow .pick{flex:none;width:24px;height:24px;border-radius:50%;display:grid;
+    place-items:center;font-size:12px;font-weight:600;border:1px solid var(--line);
+    color:var(--muted);background:var(--bg);}
+  .trow .pick.on{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+  .trow.dim{opacity:.45;}
+  .trow .tag{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .picked{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px;}
+  .picked .chip{padding:6px 10px;font-size:13px;display:inline-flex;align-items:center;}
+  .picked .chip .pos{margin:0 6px 0 0;color:var(--accent);font-weight:600;}
+  .picked .chip .rm{color:var(--muted);font-size:11px;margin-left:6px;}
+  .picked .chip .x{margin-left:9px;color:var(--muted);font-size:15px;line-height:1;}
+  .picked .none{color:var(--muted);font-size:13px;padding:6px 0;}
   .trow.hidden .tico{opacity:.4;} .trow.hidden .tnm{opacity:.5;text-decoration:line-through;} .trow.hidden .trm{opacity:.5;}
   .thidden{color:var(--crit);}
   /* Kachel-Editor */
@@ -662,7 +675,8 @@ function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;'
 // Reiter-Definitionen je Rubrik
 const PCONF_TABS=[
   {k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},{k:'cats',label:'Kategorien'},
-  {k:'tiles',label:'Kacheln gestalten'},{k:'appearance',label:'Aussehen'},
+  {k:'tiles',label:'Kacheln gestalten'},{k:'auswahl',label:'Eigene Auswahl'},
+  {k:'appearance',label:'Aussehen'},
   {k:'overlay',label:'Aktiv-Overlay'},{k:'title',label:'Titel'}];
 const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
 const SET_TABS=[
@@ -976,7 +990,7 @@ function renderEditor(){
   if(!p){ $('#pconfHost').innerHTML='<div class="empty">Kein Panel gewählt.</div>'; $('#phead').innerHTML=''; return; }
   { const ov=$('#openVisu'); if(ov) ov.href = (cur==='default'||cur==='__global__') ? '/' : '/?panel='+encodeURIComponent(cur); }
   if(p.__global){ renderGlobalEditor(p); return; }
-  const ok=['title','tabs','rooms','cats','tiles','appearance','overlay'];
+  const ok=['title','tabs','rooms','cats','tiles','auswahl','appearance','overlay'];
   if(!ok.includes(subPconf)) subPconf='tabs';
   const urlTxt = cur==='default' ? '/  (Standard, ohne Parameter)' : '/?panel='+cur;
   $('#phead').innerHTML =
@@ -1003,7 +1017,7 @@ function renderEditor(){
          '<div class="chips" id="tabRoomCats"></div>'+
          '<div class="hint" style="padding-top:4px">'+T('Bis zu 4 Kategorien als untere Tabs. Vorausgewählt sind die ersten im Raum — du kannst sie ändern. „Automatisch" folgt wieder dem Rauminhalt.')+'</div></div></div>'+
      '<div id="tabClassic">'+
-       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
+       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs, die <b>eigene Auswahl</b> und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
      '</div></section>'+
@@ -1025,6 +1039,21 @@ function renderEditor(){
      '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
      '<div class="tlist" id="tiles"></div>'+
      '<div id="tileEditor"></div></div></section>'+
+
+   '<section class="spane" data-sub="auswahl"><div class="card"><h3>'+T('Eigene Auswahl')+'</h3>'+
+     '<p class="note">'+T('Stell dir eine Seite aus <b>beliebigen Bausteinen</b> zusammen – egal aus welchem Raum oder welcher Kategorie. Die <b>Reihenfolge der Klicks</b> ist die Reihenfolge auf dem Panel. Damit die Seite am Panel erscheint, leg den Tab <b>Eigene Auswahl</b> unter <b>Tabs</b> in die Leiste.')+'</p>'+
+     '<div class="grph">'+T('Name der Seite')+'</div>'+
+     '<div class="field" style="max-width:280px">'+
+       '<input type="text" id="pickName" maxlength="40" value="'+esc(p.pickName||'')+'" placeholder="'+T('Auswahl')+'"></div>'+
+     '<div class="grph">'+T('Gewählt')+' (<span id="pickCnt">0</span>)'+
+       '<button class="minibtn" id="clrPicks" style="float:right;margin-top:-4px">'+T('Alle entfernen')+'</button></div>'+
+     '<div class="picked" id="picked"></div>'+
+     '<p class="note" style="margin:8px 0 0">'+T('Tippen auf <b>×</b> nimmt einen Baustein wieder heraus; die Nummern rutschen nach.')+'</p>'+
+     '<div class="grph">'+T('Bausteine')+'</div>'+
+     '<input type="text" id="pickSearch" placeholder="'+T('Baustein suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
+     '<div class="tlist" id="pickList"></div>'+
+     '<p class="note" style="margin:10px 0 0">'+T('Die Liste zeigt <b>alle</b> Bausteine der Anlage – der Raum- und Kategoriefilter dieses Panels gilt hier bewusst nicht, sonst könntest du nicht über ihn hinausgreifen. Ein auf diesem Panel <b>ausgeblendeter</b> Baustein bleibt ausgeblendet, auch wenn du ihn hier wählst.')+'</p>'+
+     '</div></section>'+
 
    '<section class="spane" data-sub="appearance"><div class="card"><h3>Aussehen &amp; Verhalten (optional)</h3>'+
      '<p class="note">'+T('Überschreibt das globale Theme nur für dieses Panel. Leer = global.')+'</p>'+
@@ -1122,6 +1151,12 @@ function renderEditor(){
   renderTabMode(p); renderPanes(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
   renderTileList(); renderTileEditor();
   const tsr=$('#tileSearch'); if(tsr) tsr.oninput=()=>renderTileList();
+  renderPicked(); renderPickList();
+  const psr=$('#pickSearch'); if(psr) psr.oninput=()=>renderPickList();
+  const cpk=$('#clrPicks'); if(cpk) cpk.onclick=clearPicks;
+  const pnm=$('#pickName');
+  if(pnm) pnm.oninput=()=>{ const v=pnm.value.trim();
+    if(v) PANELS[cur].pickName=v; else delete PANELS[cur].pickName; markDirty(); };
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
   $('#clrCats').onclick=()=>{ p.cats=[]; renderChecklist(p,'cats'); renderTileList(); markDirty(); };
   $('#saveBtn').onclick=save;
@@ -1385,6 +1420,63 @@ function toggleHide(uuid){ const p=PANELS[cur]; p.hide=p.hide||[];
   const i=p.hide.indexOf(uuid); if(i>-1) p.hide.splice(i,1); else p.hide.push(uuid);
   if(!p.hide.length) delete p.hide; markDirty(); renderTileList(); }
 function clearHide(){ const p=PANELS[cur]; if(p.hide){ delete p.hide; markDirty(); renderTileList(); } }
+
+// ---- Eigene Auswahl (Tab "auswahl") ----
+// Die Liste ist BEWUSST UNGEFILTERT (kein panelControls()): der Sinn der Seite
+// ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen. Waere sie
+// gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
+// Reihenfolge = Klickreihenfolge, wie bei der Tab-Leiste (toggleTab).
+// NUR LESEN - darf p.picks nicht anlegen. Sonst brächte jedes Rendern den
+// Schlüssel zurück, den togglePick/clearPicks gerade entfernt haben, und das
+// Panel gälte als geändert, obwohl nichts gewählt ist.
+function pickList(p){ return p.picks || []; }
+
+function renderPicked(){
+  const box=$('#picked'); if(!box) return;
+  const p=PANELS[cur], sel=pickList(p);
+  const cnt=$('#pickCnt'); if(cnt) cnt.textContent=sel.length;
+  if(!sel.length){ box.innerHTML='<span class="none">'+T('Noch nichts gewählt – unten antippen.')+'</span>'; return; }
+  box.innerHTML=sel.map((u,i)=>{
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    if(!c) return '';                       // Karteileiche: der Server wirft sie ohnehin weg
+    return '<span class="chip on" data-pu="'+esc(u)+'"><span class="pos">'+(i+1)+'</span>'+esc(c.name)+
+           '<span class="rm">'+esc(c.roomName||'')+'</span><span class="x">×</span></span>';
+  }).join('');
+  box.querySelectorAll('.chip[data-pu]').forEach(n=>n.onclick=()=>togglePick(n.dataset.pu));
+}
+
+function renderPickList(){
+  const box=$('#pickList'); if(!box) return;
+  const p=PANELS[cur], sel=pickList(p);
+  const q=(($('#pickSearch')||{}).value||'').toLowerCase();
+  const list=(META.controls||[]).filter(c=>c.name.toLowerCase().includes(q)||(c.roomName||'').toLowerCase().includes(q));
+  box.innerHTML='';
+  if(!list.length){ box.innerHTML='<div class="muted">'+T('nichts gefunden')+'</div>'; return; }
+  list.slice(0,400).forEach(c=>{
+    const i=sel.indexOf(c.uuid), on=i>-1;
+    const versteckt=!!(p.hide&&p.hide.includes(c.uuid));
+    const d=document.createElement('div');
+    d.className='trow'+(versteckt?' dim':'');
+    const ic=c.iconUrl?'<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>':'<span class="tico gen"></span>';
+    d.innerHTML='<span class="pick'+(on?' on':'')+'">'+(on?(i+1):'')+'</span>'+ic+
+      '<span class="tnm">'+esc(c.name)+'</span>'+
+      (versteckt?'<span class="tag">'+T('ausgeblendet')+'</span>':'')+
+      '<span class="trm">'+esc(c.roomName||'')+'</span>';
+    d.onclick=()=>togglePick(c.uuid);
+    box.appendChild(d);
+  });
+}
+
+function togglePick(uuid){
+  const p=PANELS[cur], sel=pickList(p).slice(), i=sel.indexOf(uuid);
+  if(i>-1) sel.splice(i,1);
+  else { if(sel.length>=60) return; sel.push(uuid); }   // derselbe Deckel wie im Server
+  if(sel.length) p.picks=sel; else delete p.picks;      // eine Stelle schreibt
+  markDirty(); renderPicked(); renderPickList();
+}
+
+function clearPicks(){ const p=PANELS[cur];
+  if(p.picks){ delete p.picks; markDirty(); renderPicked(); renderPickList(); } }
 function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.tiles[tileSel]||{}; return p.tiles[tileSel]; }
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }

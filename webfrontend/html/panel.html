@@ -667,6 +667,10 @@ const TABS = [
   {tab:'kategorien',label:'Kategorien',icon:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>'},
 ];
 
+// Freie Bausteinauswahl: eine Seite je Panel, Name kommt per tabMeta vom
+// Server (PICK_TAB in bin/webvisu.py). Muss mit dem Server uebereinstimmen.
+const PICK_TAB = 'auswahl';
+
 const el = id => document.getElementById(id);
 let ws, stack = [{view:'tab',tab:'favoriten'}], view = null;
 // Touch-Panel: nach der ersten Beruehrung den Mauszeiger ausblenden (Desktop-Maus bleibt)
@@ -1024,7 +1028,14 @@ function renderTabs(){
       const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
       // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
       // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
-      const fallback = tk.indexOf('room:')===0
+      const fallback = tk===PICK_TAB
+        // Checkliste: klar unterscheidbar von Favoriten-Stern, Haus, Raum und
+        // Kategorie-Wuerfel. Die freie Auswahl hat kein Bild aus Loxone, weil
+        // sie weder Raum noch Kategorie ist - dieses Symbol gilt immer.
+        ? '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>'
+          +'<path d="m3 6 1.4 1.4L7 4.9"/><path d="m3 12 1.4 1.4L7 10.9"/>'
+          +'<path d="m3 18 1.4 1.4L7 16.9"/>'
+        : tk.indexOf('room:')===0
         ? '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'
         : '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>';
       const ico = m.iconUrl
