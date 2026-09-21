@@ -157,6 +157,40 @@
   .trow .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .trow .eye:hover{background:var(--bg);color:var(--fg);}
   .trow .eye.off{color:var(--crit);}
+  /* Eigene Auswahl: Nummer = Platz auf der Seite, leerer Kreis = nicht gewaehlt */
+  .trow .pick{flex:none;width:24px;height:24px;border-radius:50%;display:grid;
+    place-items:center;font-size:12px;font-weight:600;border:1px solid var(--line);
+    color:var(--muted);background:var(--bg);}
+  .trow .pick.on{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+  .trow.dim{opacity:.45;}
+  .trow .tag{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .picked{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px;}
+  .picked .chip{padding:6px 10px;font-size:13px;display:inline-flex;align-items:center;}
+  .picked .chip .pos{margin:0 6px 0 0;color:var(--accent);font-weight:600;}
+  .picked .chip .rm{color:var(--muted);font-size:11px;margin-left:6px;}
+  .picked .chip .x{margin-left:9px;color:var(--muted);font-size:15px;line-height:1;}
+  .picked .chip.dim{opacity:.5;}
+  .picked .chip.dim .pos{color:var(--muted);}
+  .picked .none{color:var(--muted);font-size:13px;padding:6px 0;}
+  /* Gefuehrte Einrichtung der eigenen Auswahl: Schrittanzeige, Navigation,
+     Filterzeile ueber der Bausteinliste und die Vorschau der Sprungmarken. */
+  .wsteps{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 16px;}
+  .wstep{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 6px;}
+  .wstep b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+    font-size:11px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
+  .wstep.on{color:var(--fg);border-color:var(--accent);}
+  .wstep.on b{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .wstep.done b{color:var(--accent);border-color:var(--accent);}
+  .wnav{display:flex;gap:10px;align-items:center;margin-top:20px;}
+  .wnav .grow{flex:1;}
+  .btn[disabled]{opacity:.4;cursor:default;}
+  .pickbar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+  .pickbar .field{max-width:240px;}
+  .anchors{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0;}
+  .anchors .chip{padding:6px 12px;font-size:13px;}
+  .wsum{font-size:14px;line-height:1.7;margin:0 0 4px;}
+  .wsum b{color:var(--fg);}
   .trow.hidden .tico{opacity:.4;} .trow.hidden .tnm{opacity:.5;text-decoration:line-through;} .trow.hidden .trm{opacity:.5;}
   .thidden{color:var(--crit);}
   /* Kachel-Editor */
@@ -660,9 +694,14 @@ const customFont=(f)=>!!f && !FONTS.some(x=>x.v===f);
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // Reiter-Definitionen je Rubrik
+// Schluessel der frei zusammengestellten Seite - derselbe Wert wie PICK_TAB
+// im Server und im Panel. Sie hat KEINEN eigenen Unterreiter mehr: der Editor
+// lebt unter "Tabs", wo die Seite auch sichtbar geschaltet wird.
+const PICK_TAB='auswahl';
 const PCONF_TABS=[
   {k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},{k:'cats',label:'Kategorien'},
-  {k:'tiles',label:'Kacheln gestalten'},{k:'appearance',label:'Aussehen'},
+  {k:'tiles',label:'Kacheln gestalten'},
+  {k:'appearance',label:'Aussehen'},
   {k:'overlay',label:'Aktiv-Overlay'},{k:'title',label:'Titel'}];
 const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
 const SET_TABS=[
@@ -993,6 +1032,7 @@ function renderEditor(){
      '<div class="segmode" id="tabMode">'+
        '<button type="button" data-mode="room">'+T('Raum-Panel')+'</button>'+
        '<button type="button" data-mode="classic">'+T('Klassisch')+'</button>'+
+       '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
        '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
@@ -1003,9 +1043,10 @@ function renderEditor(){
          '<div class="chips" id="tabRoomCats"></div>'+
          '<div class="hint" style="padding-top:4px">'+T('Bis zu 4 Kategorien als untere Tabs. Vorausgewählt sind die ersten im Raum — du kannst sie ändern. „Automatisch" folgt wieder dem Rauminhalt.')+'</div></div></div>'+
      '<div id="tabClassic">'+
-       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
+       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs, die <b>eigene Auswahl</b> und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
+     '<div id="tabPick"></div>'+
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
@@ -1231,10 +1272,15 @@ function renderChips(p){
     const first = on && pos===firstTabIndex(p);
     const c=document.createElement('div');
     c.className='chip'+(on?' on':'')+(!on&&full?' dis':'')+(t.cat?' cat':'')+(t.room?' room':'');
+    // Der Auswahl-Tab traegt den Namen, den die Seite hier bekommen hat. Das
+    // Label aus META.tabs ist nur der Rueckfall - /api/meta baut die Tabliste
+    // fuer alle Panels zusammen und kennt das einzelne Profil gar nicht.
+    const label=(t.pick&&(p.pickName||'').trim())?p.pickName.trim():t.label;
     c.innerHTML=(t.iconUrl?'<img class="chic" src="'+esc(t.iconUrl)+'">':'')+
-      esc(t.label)+(first?'<span class="star">★ Start</span>'
+      esc(label)+(first?'<span class="star">★ Start</span>'
                    :(on?'<span class="pos">'+(pos+1)+'.</span>':''));
-    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); renderPanes(p); markDirty(); };
+    // renderPick: der Editor haengt daran, ob der Tab in der Leiste steht.
+    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); renderPanes(p); renderPick(p); markDirty(); };
     box.appendChild(c);
   });
   const tc=$('#tabcount'); if(tc){ tc.textContent=p.tabs.length+'/4 gewählt'+(full?' (voll)':''); tc.className=full?'full':''; }
@@ -1243,23 +1289,50 @@ function renderChips(p){
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); };
   });
 }
-// Tabs-Modus: "Raum-Panel" (genau ein room:-Tab = Startseite, ein Klick) oder
-// "Klassisch" (die bekannte Chip-Leiste). Der Modus wird aus p.tabs abgeleitet.
+// Tabs-Modus. Drei Bauformen, und der Umschalter wechselt in Wahrheit die
+// BEDEUTUNG der unteren Leiste:
+//   "Klassisch"      - die Leiste sind bis zu 4 SEITEN (p.tabs).
+//   "Raum-Panel"     - eine Seite (ein Raum), die Leiste sind SPRUNGMARKEN auf
+//                      die Kategorien des Raums.
+//   "Eigene Auswahl" - eine Seite (handverlesene Bausteine), die Leiste sind
+//                      SPRUNGMARKEN auf die Raeume der Auswahl.
+// Der Modus wird aus p.tabs abgeleitet - kein eigener Speicherschluessel, den
+// _sanitize_panels() erst freischalten muesste.
+function tabMode(p){
+  const t=p.tabs||[], eins=(t.length===1);
+  if(eins && String(t[0]||'').indexOf('room:')===0) return 'room';
+  if(eins && t[0]===PICK_TAB) return 'pick';
+  return 'classic';
+}
+// Gilt die Leiste als selbst zusammengestellt? Nur dann wird vor dem Verwerfen
+// gefragt - die unveraenderte Standardleiste darf kommentarlos weichen, sonst
+// steht bei jedem Ausprobieren eine Rueckfrage im Weg.
+function tabsEigen(p){
+  const t=p.tabs||[], d=defaultTabs();
+  return t.length!==d.length || t.some((x,i)=>x!==d[i]);
+}
 function renderTabMode(p){
   p.tabs = Array.isArray(p.tabs) ? p.tabs : [];
   const rooms = (META.tabs||[]).filter(t=>t.room);
-  const isRoom = (p.tabs.length===1 && String(p.tabs[0]||'').indexOf('room:')===0);
+  const mode = tabMode(p), isRoom = (mode==='room');
   const seg=$('#tabMode'), roomBox=$('#tabRoom'), classicBox=$('#tabClassic');
   if(seg) seg.querySelectorAll('button').forEach(b=>{
-    b.classList.toggle('on', b.dataset.mode===(isRoom?'room':'classic'));
+    b.classList.toggle('on', b.dataset.mode===mode);
     b.onclick=()=>{
-      if(b.dataset.mode==='room'){ if(!rooms.length){ alert(T('Keine Räume verfügbar.')); return; } if(!isRoom) p.tabs=[rooms[0].tab]; }
-      else { if(isRoom) p.tabs=defaultTabs(); }
+      const ziel=b.dataset.mode; if(ziel===mode) return;
+      if(ziel==='room' && !rooms.length){ alert(T('Keine Räume verfügbar.')); return; }
+      // Der Wechsel ueberschreibt p.tabs. Frueher geschah das stillschweigend;
+      // mit drei Modi trifft es einen dreimal so oft.
+      if(mode==='classic' && tabsEigen(p) &&
+         !confirm(T('Die zusammengestellte Tab-Leiste geht dabei verloren. Fortfahren?'))) return;
+      if(ziel==='room') p.tabs=[rooms[0].tab];
+      else if(ziel==='pick') p.tabs=[PICK_TAB];
+      else p.tabs=defaultTabs();
       markDirty(); renderTabMode(p); renderPanes(p);
     };
   });
   if(roomBox) roomBox.style.display=isRoom?'':'none';
-  if(classicBox) classicBox.style.display=isRoom?'none':'';
+  if(classicBox) classicBox.style.display=(mode==='classic')?'':'none';
   const sel=$('#tabRoomSel');
   if(sel){
     const curRoom=isRoom?p.tabs[0]:'';
@@ -1269,7 +1342,8 @@ function renderTabMode(p){
     sel.onchange=()=>{ if(sel.value){ p.tabs=[sel.value]; delete p.roomCats; markDirty(); renderTabMode(p); renderPanes(p); } };
   }
   if(isRoom) renderRoomCats(p);
-  else renderChips(p);
+  else if(mode==='classic') renderChips(p);
+  renderPick(p);
 }
 // Kategorien, die es im gewaehlten Raum gibt (Reihenfolge = META.cats = cats_with).
 function roomCatList(roomTab){
@@ -1385,6 +1459,259 @@ function toggleHide(uuid){ const p=PANELS[cur]; p.hide=p.hide||[];
   const i=p.hide.indexOf(uuid); if(i>-1) p.hide.splice(i,1); else p.hide.push(uuid);
   if(!p.hide.length) delete p.hide; markDirty(); renderTileList(); }
 function clearHide(){ const p=PANELS[cur]; if(p.hide){ delete p.hide; markDirty(); renderTileList(); } }
+
+// ---- Eigene Auswahl (Tab "auswahl") ----
+// Die Liste ist BEWUSST UNGEFILTERT (kein panelControls()): der Sinn der Seite
+// ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen. Waere sie
+// gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
+// Reihenfolge = Klickreihenfolge, wie bei der Tab-Leiste (toggleTab).
+// NUR LESEN - darf p.picks nicht anlegen. Sonst brächte jedes Rendern den
+// Schlüssel zurück, den togglePick/clearPicks gerade entfernt haben, und das
+// Panel gälte als geändert, obwohl nichts gewählt ist.
+function pickList(p){ return p.picks || []; }
+
+// Zustand der Rubrik. pickWiz: 0 = noch nicht entschieden, 1..3 = Schritt des
+// Assistenten, -1 = direkter Editor. pickFor merkt sich, zu welchem Panel der
+// Zustand gehoert - beim Panelwechsel faengt alles wieder von vorn an, ohne
+// dass renderEditor() (das auch aus anderen Gruenden laeuft) ihn zuruecksetzt.
+let pickWiz=0, pickQ='', pickRoomF='', pickFor=null;
+
+// Raeume der Auswahl in derselben Reihenfolge wie der Server sie gruppiert:
+// erstes Vorkommen in picks. Ausgeblendete Bausteine zaehlen nicht mit, weil
+// _view_tab() sie per _shown() schon vorher aussortiert - sonst verspraeche
+// die Vorschau Sprungmarken, die am Panel gar nicht auftauchen.
+function pickRooms(p){
+  const out=[];
+  pickSichtbar(p).forEach(u=>{
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    if(c && c.room && out.indexOf(c.room)<0) out.push(c.room);
+  });
+  return out;
+}
+function roomName(uuid){ const r=(META.rooms||[]).find(x=>x.uuid===uuid); return r?r.name:'?'; }
+
+// Auf diesem Panel ausgeblendete Bausteine. _view_tab() wirft sie per _shown()
+// AUS DER AUSWAHL, bevor es nach Raum gruppiert - sie bestimmen am Panel also
+// weder die Reihenfolge der Raeume noch die Nummern.
+function pickAus(p,uuid){ return !!(p.hide && p.hide.indexOf(uuid)>-1); }
+function pickSichtbar(p){ return pickList(p).filter(u=>!pickAus(p,u)); }
+
+// Die Reihenfolge, in der die Bausteine WIRKLICH am Panel stehen: _view_tab()
+// gruppiert nach Raum, Raumreihenfolge = erstes Vorkommen, innerhalb eines
+// Raums die Klickreihenfolge. Chips und Nummern hier zeigen genau das - sonst
+// versprechen sie eine Ordnung, die das Panel nicht einhaelt.
+// Ausgeblendete haengen ungezaehlt hinten an: gewaehlt sind sie ja, nur
+// erscheinen sie nicht. Waeren sie eingereiht, verschoebe ein einziger
+// ausgeblendeter Baustein jede Nummer dahinter gegenueber dem Panel.
+function pickOrder(p){
+  const grp=new Map(), aus=[];
+  pickList(p).forEach(u=>{
+    if(pickAus(p,u)){ aus.push(u); return; }
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    const k=(c&&c.room)?c.room:'\u0000';   // ohne bekannten Raum: ans Ende
+    if(!grp.has(k)) grp.set(k,[]);
+    grp.get(k).push(u);
+  });
+  const out=[];
+  grp.forEach((us,k)=>{ if(k!=='\u0000') out.push.apply(out,us); });
+  if(grp.has('\u0000')) out.push.apply(out,grp.get('\u0000'));
+  return out.concat(aus);
+}
+
+// ---- Bausteine der Anlage: Filterzeile und Liste ----
+// Die Liste ist BEWUSST UNGEFILTERT vom Panelfilter (kein panelControls()): der
+// Sinn der Seite ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen.
+// Waere sie gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
+// Der Raumfilter HIER ist etwas anderes - er blaettert nur, er schraenkt nicht ein.
+function pickFilterHtml(){
+  return '<div class="grph">'+T('Bausteine')+'</div>'+
+    '<div class="pickbar">'+
+      '<div class="field"><label class="lbl">'+T('Raum')+'</label><select id="pickRoom">'+
+        '<option value="">'+T('Alle Räume')+'</option>'+
+        (META.rooms||[]).map(r=>'<option value="'+esc(r.uuid)+'"'+
+          (pickRoomF===r.uuid?' selected':'')+'>'+esc(r.name)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="field"><label class="lbl">'+T('Suche')+'</label>'+
+        '<input type="text" id="pickSearch" value="'+esc(pickQ)+'" placeholder="'+T('Baustein suchen…')+'"></div>'+
+    '</div><div class="tlist" id="pickList"></div>';
+}
+function pickChosenHtml(){
+  return '<div class="grph">'+T('Gewählt')+' (<span id="pickCnt">0</span>)'+
+    '<button class="minibtn" id="clrPicks" style="float:right;margin-top:-4px">'+T('Alle entfernen')+'</button></div>'+
+    '<div class="picked" id="picked"></div>';
+}
+// Vorschau der unteren Leiste. Steht im Assistenten (Schritt 3) und im Editor,
+// damit man nicht erst speichern und zum Panel laufen muss.
+function pickAnchorsInner(p){
+  const rs=pickRooms(p);
+  if(!pickList(p).length) return '';
+  if(rs.length<2) return '<p class="hint">'+
+    T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
+  return '<p class="hint">'+T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:')+'</p>'+
+    '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
+    (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
+      T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
+}
+function pickAnchorsHtml(p){ return '<div id="pickAnchors">'+pickAnchorsInner(p)+'</div>'; }
+
+// ---- Gefuehrte Einrichtung ----
+function pickWizHtml(p){
+  const S=[T('Name'),T('Bausteine'),T('Fertig')];
+  let h='<div class="grph">'+T('Eigene Auswahl einrichten')+'</div>'+
+    '<div class="wsteps">'+S.map((x,k)=>'<span class="wstep'+(k+1===pickWiz?' on':'')+
+      (k+1<pickWiz?' done':'')+'"><b>'+(k+1<pickWiz?'✓':(k+1))+'</b>'+esc(x)+'</span>').join('')+'</div>';
+  if(pickWiz===1){
+    h+='<p class="note">'+T('Diese Seite stellt Bausteine aus <b>beliebigen Räumen und Kategorien</b> zusammen – etwa alles, was du morgens brauchst. Die untere Leiste am Panel wird dabei zu <b>Sprungmarken auf die Räume</b> deiner Auswahl.')+'</p>'+
+      '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
+        '<input type="text" id="pickName" maxlength="40" value="'+esc(p.pickName||'')+'" placeholder="'+T('Auswahl')+'"></div>'+
+      '<div class="anchors" id="pickNameEx">'+
+        ['Morgens','Abends','Urlaub','Putzen'].map(x=>'<span class="chip" data-ex="'+esc(x)+'">'+esc(x)+'</span>').join('')+'</div>'+
+      '<p class="hint" style="padding-top:8px">'+T('Ohne Namen heißt die Seite „Auswahl“.')+'</p>'+
+      '<div class="wnav"><span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
+  } else if(pickWiz===2){
+    h+='<p class="note">'+T('Tippe die Bausteine an, die auf die Seite sollen. Am Panel stehen sie <b>nach Räumen gruppiert</b> – ein Raum kommt dorthin, wo du seinen ersten Baustein angeklickt hast, innerhalb des Raums gilt die Klickreihenfolge. Genau diese Gruppen werden unten zu den Sprungmarken.')+'</p>'+
+      pickChosenHtml()+pickFilterHtml()+
+      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
+        '<span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
+  } else {
+    // Gezaehlt wird, was am Panel ANKOMMT: ausgeblendete Bausteine wirft der
+    // Server vorher weg, sie duerfen die Zahl nicht aufblaehen.
+    const sel=pickSichtbar(p), rs=pickRooms(p), weg=pickList(p).length-sel.length;
+    h+='<p class="wsum">'+T('Die Seite')+' <b>'+esc((p.pickName||'').trim()||T('Auswahl'))+'</b> '+
+      T('zeigt')+' <b>'+sel.length+'</b> '+(sel.length===1?T('Baustein'):T('Bausteine'))+' '+
+      T('aus')+' <b>'+rs.length+'</b> '+(rs.length===1?T('Raum'):T('Räumen'))+'.</p>'+
+      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.')
+                                             :T('gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.'))+'</p>':'')+
+      pickAnchorsHtml(p)+
+      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
+        '<span class="grow"></span><button class="btn" id="wizDone">'+T('Fertig')+'</button></div>';
+  }
+  return h;
+}
+
+// ---- Direkter Editor (sobald etwas gewaehlt ist) ----
+function pickEditHtml(p){
+  return '<div class="grph">'+T('Eigene Auswahl')+
+      '<button class="minibtn" id="wizAgain" style="float:right;margin-top:-4px">'+T('Schritt für Schritt')+'</button></div>'+
+    '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
+      '<input type="text" id="pickName" maxlength="40" value="'+esc(p.pickName||'')+'" placeholder="'+T('Auswahl')+'"></div>'+
+    '<div style="margin-top:10px">'+pickAnchorsHtml(p)+'</div>'+
+    pickChosenHtml()+
+    '<p class="note" style="margin:8px 0 0">'+T('Tippen auf <b>×</b> nimmt einen Baustein wieder heraus; die Nummern rutschen nach.')+'</p>'+
+    pickFilterHtml()+
+    '<p class="note" style="margin:10px 0 0">'+T('Die Liste zeigt <b>alle</b> Bausteine der Anlage – der Raum- und Kategoriefilter dieses Panels gilt hier bewusst nicht, sonst könntest du nicht über ihn hinausgreifen. Ein auf diesem Panel <b>ausgeblendeter</b> Baustein bleibt ausgeblendet, auch wenn du ihn hier wählst.')+'</p>';
+}
+
+// Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
+// Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
+// Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
+function renderPick(p){
+  const box=$('#tabPick'); if(!box) return;
+  if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; }
+  if((p.tabs||[]).indexOf(PICK_TAB)<0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  if(!pickWiz) pickWiz = pickList(p).length ? -1 : 1;
+  box.innerHTML = pickWiz>0 ? pickWizHtml(p) : pickEditHtml(p);
+  bindPick(p);
+}
+
+function bindPick(p){
+  renderPicked(); renderPickList();
+  const pnm=$('#pickName');
+  if(pnm) pnm.oninput=()=>{ const v=pnm.value.trim();
+    if(v) p.pickName=v; else delete p.pickName;
+    renderChips(p); markDirty(); };
+  const ex=$('#pickNameEx');
+  if(ex) ex.querySelectorAll('.chip[data-ex]').forEach(n=>n.onclick=()=>{
+    p.pickName=n.dataset.ex; markDirty(); renderPick(p); });
+  const psr=$('#pickSearch');
+  if(psr) psr.oninput=()=>{ pickQ=psr.value; renderPickList(); };
+  const prm=$('#pickRoom');
+  if(prm) prm.onchange=()=>{ pickRoomF=prm.value; renderPickList(); };
+  const cpk=$('#clrPicks'); if(cpk) cpk.onclick=clearPicks;
+  const nx=$('#wizNext'); if(nx){
+    nx.onclick=()=>{ pickWiz=Math.min(3,pickWiz+1); renderPick(p); };
+    pickNavUpd();
+  }
+  const bk=$('#wizBack'); if(bk) bk.onclick=()=>{ pickWiz=Math.max(1,pickWiz-1); renderPick(p); };
+  const dn=$('#wizDone'); if(dn) dn.onclick=()=>{ pickWiz=-1; renderPick(p); };
+  const ag=$('#wizAgain'); if(ag) ag.onclick=()=>{ pickWiz=1; renderPick(p); };
+  // BEWUSST applyChrome, nicht autoChrome: autoChrome setzt in i18n.js den
+  // modulweiten Selektor NEU und haengt bei jedem Aufruf einen weiteren
+  // MutationObserver an. Ein enger Aufruf hier wuerde die Uebersetzung der
+  // uebrigen Konfigurationsseite abschalten, sobald der Nutzer hier etwas tut.
+  // applyChrome uebersetzt nur diesen Teilbaum, mit dem breiten Selektor, den
+  // renderEditor ohnehin gesetzt hat.
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome($('#tabPick'));
+}
+// Ohne Baustein ist "Weiter" in Schritt 2 sinnlos - sonst landet man auf einer
+// Zusammenfassung, die nichts zusammenzufassen hat.
+function pickNavUpd(){
+  const nx=$('#wizNext'); if(nx && pickWiz===2) nx.disabled = !pickList(PANELS[cur]).length;
+}
+
+function renderPicked(){
+  const box=$('#picked'); if(!box) return;
+  const p=PANELS[cur], sel=pickOrder(p);
+  const cnt=$('#pickCnt'); if(cnt) cnt.textContent=sel.length;
+  if(!sel.length){ box.innerHTML='<span class="none">'+T('Noch nichts gewählt – unten antippen.')+'</span>'; return; }
+  box.innerHTML=sel.map((u,i)=>{
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    if(!c) return '';                       // Karteileiche: der Server wirft sie ohnehin weg
+    // Ausgeblendete stehen hinten und tragen keine Nummer - sie haben am Panel
+    // keinen Platz, eine Zahl waere eine Zusage, die das Panel nicht einhaelt.
+    const versteckt=pickAus(p,u);
+    return '<span class="chip on'+(versteckt?' dim':'')+'" data-pu="'+esc(u)+'">'+
+           '<span class="pos">'+(versteckt?'–':(i+1))+'</span>'+esc(c.name)+
+           '<span class="rm">'+esc(versteckt?T('ausgeblendet'):(c.roomName||''))+'</span>'+
+           '<span class="x">×</span></span>';
+  }).join('');
+  box.querySelectorAll('.chip[data-pu]').forEach(n=>n.onclick=()=>togglePick(n.dataset.pu));
+}
+
+function renderPickList(){
+  const box=$('#pickList'); if(!box) return;
+  const p=PANELS[cur], sel=pickOrder(p), q=pickQ.toLowerCase();
+  const list=(META.controls||[]).filter(c=>
+    (pickRoomF ? c.room===pickRoomF : true) &&
+    (c.name.toLowerCase().includes(q)||(c.roomName||'').toLowerCase().includes(q)));
+  box.innerHTML='';
+  if(!list.length){ box.innerHTML='<div class="muted">'+T('nichts gefunden')+'</div>'; return; }
+  list.slice(0,400).forEach(c=>{
+    const i=sel.indexOf(c.uuid), on=i>-1;
+    const versteckt=pickAus(p,c.uuid);
+    const d=document.createElement('div');
+    d.className='trow'+(versteckt?' dim':'');
+    const ic=c.iconUrl?'<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>':'<span class="tico gen"></span>';
+    d.innerHTML='<span class="pick'+(on?' on':'')+'">'+((on&&!versteckt)?(i+1):'')+'</span>'+ic+
+      '<span class="tnm">'+esc(c.name)+'</span>'+
+      (versteckt?'<span class="tag">'+T('ausgeblendet')+'</span>':'')+
+      '<span class="trm">'+esc(c.roomName||'')+'</span>';
+    d.onclick=()=>togglePick(c.uuid);
+    box.appendChild(d);
+  });
+}
+
+// NUR pickList liest, NUR hier wird geschrieben: pickList(p) darf p.picks nicht
+// anlegen, sonst braechte jedes Rendern den Schluessel zurueck, den togglePick
+// und clearPicks gerade entfernt haben, und das Panel gaelte als geaendert.
+function togglePick(uuid){
+  const p=PANELS[cur], sel=pickList(p).slice(), i=sel.indexOf(uuid);
+  if(i>-1) sel.splice(i,1);
+  else { if(sel.length>=60) return; sel.push(uuid); }   // derselbe Deckel wie im Server
+  if(sel.length) p.picks=sel; else delete p.picks;      // eine Stelle schreibt
+  markDirty(); pickRefresh();
+}
+
+function clearPicks(){ const p=PANELS[cur];
+  if(p.picks){ delete p.picks; markDirty(); pickRefresh(); } }
+
+// Nach jeder Aenderung an der Auswahl: nur die Teile neu zeichnen, die davon
+// abhaengen. NICHT die ganze Rubrik - das naehme Such- und Namensfeld den Fokus.
+function pickRefresh(){
+  renderPicked(); renderPickList(); pickNavUpd();
+  const a=$('#pickAnchors'); if(a) a.innerHTML=pickAnchorsInner(PANELS[cur]);
+}
 function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.tiles[tileSel]||{}; return p.tiles[tileSel]; }
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
