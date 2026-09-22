@@ -104,14 +104,24 @@ eingereicht und noch offen:**
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 
-**NOCH OFFEN — Zweig nicht löschen:**
+**NOCH OFFEN — diese drei Zweige nicht löschen:**
 
 | PR | Zweig | Inhalt |
 |---|---|---|
 | [#34](https://github.com/Lenardo1/loxpanel/pull/34) | `up/kleinigkeiten` | `ValueError` bei leerer `LOXPANEL_MS_PORT`; veralteter `/settings`-Hinweis |
+| [#35](https://github.com/Lenardo1/loxpanel/pull/35) | `up/raumtab-leiste` | Raum-Tab in einer mehrteiligen Leiste sperrt die übrigen Seiten aus |
+| [#36](https://github.com/Lenardo1/loxpanel/pull/36) | `up/eigene-auswahl` | Freie Bausteinauswahl, ganzes Feature (enthält #35 mit) |
 
-`up/kleinigkeiten` trägt den Kopf dieses offenen Pull Requests. Wird der Zweig
-gelöscht, schließt GitHub den PR. Erst nach dem Merge bei Lenardo entfernen.
+Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
+gelöscht, schließt GitHub den zugehörigen PR. Erst nach dem Merge bei
+Lenardo entfernen — und zwar einzeln, nicht in einem Rutsch.
+
+Zu #35 und #36: Der Fehler in #35 steckt in Lenardos Code und ist an seinem
+unveränderten `panel.html` im Browser nachgestellt — `renderTabs()` ersetzt
+die ganze untere Leiste, sobald eine Ansicht nicht-leere `catTabs` mitbringt,
+ohne zu prüfen, ob das Panel nur diese eine Seite hat. #36 enthält dieselbe
+Bedingung, weil die freie Auswahl ohne sie in dieselbe Falle liefe. Wird #35
+zuerst gemergt, rebast #36 sauber darauf.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
