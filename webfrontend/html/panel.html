@@ -482,21 +482,38 @@
      ihnen die Uhr ein Fuenftel davon: gemessen bei 960x480 blieb der Grafik
      299 px, das 480er-SVG lief auf 62 % und die Knotennamen auf 7,5 px -
      unlesbar. Hier steht die Uhr deshalb links ueber dem Wetter, und die rechte
-     Spalte bekommt die volle Hoehe. Sie wird auch breiter als die linke: die
-     Kamera ist 4:3 und damit durch die Breite begrenzt, nicht durch die Hoehe.
+     Spalte bekommt die volle Hoehe.
+     Beide Spalten gleich breit: der Energiefluss ist durch die HOEHE begrenzt
+     (gemessen: 392 px bei 480 wie bei 444 px Spaltenbreite) - breiter machte
+     nur den leeren Rahmen neben ihm groesser und die Box wuchtiger. Die Kamera
+     (4:3, breitenbegrenzt) verliert dabei wenig: 454x341 -> 418x314.
      Die Uhr sitzt unten in der oberen Zeile, das Wetter oben in der unteren -
      so treffen sie sich auf der Mittellinie der rechten Grafik. */
   .saver.split .sv-wrap.rich.tall{width:min(96%,920px);
-    grid-template-columns:minmax(0,.85fr) minmax(0,1fr);
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     grid-template-areas:"clock cal" "wx cal";grid-template-rows:1fr 1fr;
     column-gap:32px;row-gap:14px;align-items:stretch;}
-  .saver.split .sv-wrap.rich.tall .sv-clock{align-self:end;margin:0;}
-  .saver.split .sv-wrap.rich.tall .sv-wx{align-self:start;}
+  .saver.split .sv-wrap.rich.tall .sv-clock{align-self:end;margin:0 0 10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx{align-self:start;gap:14px;}
+  /* Die linke Seite hat hier die volle Hoehe, nicht mehr nur eine Zeile ueber
+     beiden Spalten. Mit der Uhr aus dem alten Layout (60 px) nutzten Uhr und
+     Wetter nur 49 % der Hoehe der rechten Box, und die Grafik erschlug die
+     Uhr. Jetzt ist die Uhr wieder das, was man zuerst sieht (70 %). */
+  .saver.split .sv-wrap.rich.tall .sv-time{font-size:96px;}
+  .saver.split .sv-wrap.rich.tall .sv-date{font-size:21px;margin-top:10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .ico{width:48px;height:48px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .t{font-size:36px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .cond{font-size:19px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .hl{font-size:15px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc{padding:11px 6px 12px;gap:5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .d{font-size:12.5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .ico{width:28px;height:28px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .tt{font-size:15px;}
   /* Ohne Wetter bliebe die untere linke Zelle leer und die Uhr saesse ueber der
      Mitte (gemessen 53 px zu hoch). Dann ueber beide Zeilen und mittig. Das
      Wetter steht im Markup direkt vor der Uhr - so geht es ohne :has(), das
      aeltere Kiosk-WebViews nicht kennen. */
-  .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;}
+  .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;margin:0;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */

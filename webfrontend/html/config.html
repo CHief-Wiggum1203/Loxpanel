@@ -223,6 +223,8 @@
   .tgl.on{border-color:var(--accent);color:var(--fg);background:rgba(224,162,77,.14);}
   select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:8px 10px;font:inherit;max-width:220px;}
   select:focus{outline:none;border-color:var(--accent);}
+  /* Skalierungs-Auswahl: die Stufen tragen laengere Texte als die 220px oben */
+  select.skal{max-width:100%;}
   /* Aktiv-Overlay-Editor */
   .ovwrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
   .ovctrl{flex:1;min-width:250px;display:flex;flex-direction:column;gap:9px;}
@@ -972,11 +974,20 @@ function renderGlobalEditor(p){
   $('#pconfHost').innerHTML =
     '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.</p>'+
-      '<div class="sizes">'+appearanceFields(p.ui)+'</div></div></section>'+
+      '<div class="sizes">'+appearanceFields(p.ui)+'</div>'+
+      '<div class="grph">'+T('Skalierung')+'</div>'+
+      '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Panels')+'</label>'+
+        '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
+      '<p class="note">'+T('Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.')+'</p>'+
+      '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
       '<div class="cclist" id="catcolors"></div></div></section>';
   bindAppearance(p);
+  { const gs=$('#gScale'); if(gs) gs.onchange=e=>{ p.ui=p.ui||{};
+      const v=scaleValue(e.target.value);
+      if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // global ist "Aus" das Fehlen
+      markDirty(); }; }
   renderCatColors(p);
   $('#delSlot').innerHTML='';
   $('#saveBtn').onclick=save;
@@ -1109,9 +1120,10 @@ function renderEditor(){
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
        '<div class="field" style="max-width:320px"><label class="lbl">'+T('Skalierung')+'</label>'+
-         '<select id="fScale">'+scaleOptions((p.ui||{}).scale,false)+'</select></div>'+
+         '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
+            T('Wie global')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. Pro Gerät übersteuerbar unter Settings → Panels.')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Settings → Panels.')+'</div>'+
      '<div class="grph">'+T('Split / Pane 2')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
@@ -1175,7 +1187,9 @@ function renderEditor(){
       markDirty(); }; }
   { const fsc=$('#fScale'); if(fsc) fsc.onchange=e=>{ p.ui=p.ui||{};
       const v=scaleValue(e.target.value);
-      if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // im Profil ist "aus" das Fehlen
+      // leer = wie global; "off" ausdruecklich speichern, sonst liesse sich ein
+      // globales "Automatisch" im Profil nicht abschalten
+      if(v==='') delete p.ui.scale; else p.ui.scale=v;
       markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
@@ -1256,13 +1270,21 @@ function firstCamera(){
 // scaleRange). Die Stufen hier sind nur die Auswahl fuer die Bedienung.
 const SCALE_STEPS=[0.8,0.9,1.1,1.25,1.5,1.75,2];
 function fmtZahl(v){ try{ return Number(v).toLocaleString((window.I18N&&I18N.lang)||'de',{maximumFractionDigits:2}); }catch(e){ return String(v); } }
-function scaleOptions(cur, erben){
+// Kette: Global -> Profil -> Geraet. erbe = Text der Option "erbt von oben"
+// (Profil: "Wie global", Geraet: "Wie im Profil"); ohne erbe (global) ist das
+// Fehlen gleich "Aus".
+function scaleName(v){
+  if(v==='auto') return T('Automatisch');
+  if(typeof v==='number') return Math.round(v*100)+' %';
+  return T('Aus');
+}
+function scaleOptions(cur, erbe){
   const r=(META&&META.scaleRange)||[1,1];
   const leer=(cur===undefined||cur===null||cur==='');
   const pct=v=>Math.round(v*100)+' %';
   let h='';
-  if(erben) h+='<option value=""'+(leer?' selected':'')+'>'+T('Wie im Profil')+'</option>';
-  h+='<option value="off"'+((cur==='off'||(!erben&&leer))?' selected':'')+'>'+T('Aus (feste Größe)')+'</option>';
+  if(erbe) h+='<option value=""'+(leer?' selected':'')+'>'+esc(erbe)+'</option>';
+  h+='<option value="off"'+((cur==='off'||(!erbe&&leer))?' selected':'')+'>'+T('Aus (feste Größe)')+'</option>';
   h+='<option value="auto"'+(cur==='auto'?' selected':'')+'>'+T('Automatisch (Bildschirm ausnutzen)')+'</option>';
   SCALE_STEPS.filter(v=>v>=r[0]&&v<=r[1]).forEach(v=>{
     h+='<option value="'+v+'"'+(cur===v?' selected':'')+'>'+T('Fest')+' '+pct(v)+'</option>'; });
@@ -2400,7 +2422,7 @@ function devRow(name){
     displayRow(d.display)+
     '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
-      '<select class="ds_scale">'+scaleOptions(d.scale,true)+'</select>'+
+      '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie im Profil'))+'</select>'+
     '</div>'+
   '</div>';
 }

@@ -204,7 +204,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil, `effective_scale()`) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured` | eine komplette Ansicht |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -433,7 +433,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
-        "scale": "auto",                     // oder Faktor 0.5–2.0; fehlt = feste Größe
+        "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -453,7 +453,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
     "<Gerätename>": {
       "auto": true, "modes": {"<Modusname>": "<panel-id>"},
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
-      "scale": "off"                         // optional; übersteuert ui.scale des Profils ("off" | "auto" | Faktor)
+      "scale": "off"                         // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
     }
   }
 }
@@ -469,7 +469,12 @@ sie beim Speichern verloren.
 Globale Darstellung: `states` (Zustandsfarben), `categories` (Farbe je
 Kategorie, Teilstring-Match auf den Namen, entweder eine Farbe oder `{on, off}`),
 `ui` (wie oben, gilt für alle Panels). Panel-`ui` überschreibt Theme-`ui`.
-`_write_theme()` löscht `ui`-Keys, die nicht im Payload stehen.
+`_write_theme()` löscht `ui`-Keys, die nicht im Payload stehen. Welche Keys
+der Konfigurator unter Global → Darstellung setzt, steht einmal in
+`THEME_UI_KEYS`: `_write_theme()` schreibt genau diese, `/api/meta` liefert
+genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
+sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
+Skalierung für alle Panels; fehlt sie, ist sie aus.
 
 In `ui` steckt auch `baseColor`: die Grundfarbe des Panel-Themes. Steht sie da,
 leitet `theme_colors.derive()` daraus den ganzen Farbsatz ab — Hintergrund,
@@ -556,7 +561,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
-- Skalierung (`ui.scale` je Profil, `scale` je Gerät, Gerät gewinnt): Die Visu
+- Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
+  Gerät (`devices[name].scale`): die spätere gewinnt, fehlt sie, gilt die
+  frühere. Profil und Gerät speichern deshalb auch `"off"` ausdrücklich, sonst
+  könnte ein Profil ein globales `"auto"` nicht abschalten. Die Visu
   rechnet mit festen 240er Kacheln, der Kasten ist also 480×480 bzw. im Split
   960×480. Ein größeres Display zeigte ihn bisher mit Rand (1280×800: 55 % des
   Schirms ungenutzt). `applyScale()` setzt `--ui-scale` am `.screen`
@@ -582,7 +590,13 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `.tall`: Uhr und Wetter links, die Grafik rechts über die volle Höhe. Beide
   brauchen Höhe (Energiefluss quadratisch, Kamera 4:3); über beiden Spalten nahm
   ihnen die Uhr ein Fünftel davon. Gemessen bei 960×480: Energiefluss 299 → 392 px,
-  Knotennamen 7,5 → 11,4 px, Kamerabild 362×269 → 454×341.
+  Knotennamen 7,5 → 11,4 px, Kamerabild 362×269 → 418×314. Die beiden Spalten
+  sind gleich breit, und links füllen Uhr und Wetter die Höhe: die Uhr (96 px)
+  sitzt unten in der oberen Hälfte, das Wetter oben in der unteren. Mit der
+  60-px-Uhr des Querformats nutzte die linke Seite nur 49 % der Höhe und die
+  Box rechts wirkte übergroß, jetzt 70 %. Die Energiegrafik behält dabei ihre
+  392 px, weil sie von der Höhe begrenzt wird, nicht von der Breite. Ohne
+  Wetter steht die Uhr allein mittig.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
   Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
@@ -596,6 +610,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 - Die gesamte rechte Seite wird per `innerHTML` neu aufgebaut; Zustand in vier
   Modulvariablen (`META`, `PANELS`, `cur`, `dirty`).
 - Virtuelles Profil `__global__` landet in `theme.json` statt `panels.json`.
+  Die Skalierung dort hat keine Erb-Option („Aus" ist das Fehlen des Keys),
+  das Profil bietet „Wie global (…)" mit dem geerbten Wert in Klammern, das
+  Gerät „Wie im Profil".
 - Kachelliste auf 400 Einträge begrenzt.
 - Eigene Icon-Map `BICONS` (20 Icons, `fan` und `list` fehlen gegenüber der Visu).
 - Overlay-Vorschau rechnet die Alphas selbst nach (`ovPreview()`), parallel zur

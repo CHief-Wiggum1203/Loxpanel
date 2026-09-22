@@ -545,6 +545,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       demselben Profil unterschiedlich laufen können; die Geräteeinstellung
       wirkt ohne Neuladen. Geräte, die nur eine Skalierung tragen, fielen beim
       Speichern bisher still weg (Server und Konfigurator) — behoben. **L**
+- [x] **Skalierung auch global unter Global → Darstellung.** Gilt für alle
+      Panels, deren Profil „Wie global" eingestellt hat (das ist jedes Profil,
+      das keine eigene Skalierung trägt); das Profil zeigt den geerbten Wert in
+      Klammern. Nebenbei behoben: `_write_theme()` und `/api/meta` führten je
+      eine eigene Liste der globalen Darstellungs-Keys, ein neuer Key ging so
+      beim Speichern still verloren. Die Liste steht jetzt einmal in
+      `THEME_UI_KEYS`. Die Skalierungs-Auswahl schnitt bei „Automatisch
+      (Bildschirm ausnutzen)" ab (allgemeine 220-px-Grenze für Auswahlfelder)
+      — behoben. **S**
+- [x] **Uhr-Seite mit Energiefluss/Kamera: Proportionen.** Links nutzten Uhr
+      und Wetter nur 49 % der Höhe, die Uhr hatte noch die 60 px des
+      Querformats, die Box rechts wirkte dadurch übergroß. Jetzt gleich breite
+      Spalten, Uhr 96 px, links 70 % der Höhe genutzt. Energiegrafik unverändert
+      392 px (höhenbegrenzt), Kamerabild 454×341 → 418×314. **S**
 - [ ] **Energiefluss: Beschriftungen ab sieben Knoten laufen in die Nachbarringe.**
       Die Namen und Werte stehen mit festem Abstand über bzw. unter ihrem Ring.
       Ab sieben Knoten rücken die Ringe so eng zusammen (40° Abstand, Radius 34),
