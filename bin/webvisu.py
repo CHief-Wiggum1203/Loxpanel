@@ -187,6 +187,54 @@ def _clean_lang(v):
 SV_STATUS_MAX = 8
 
 
+# Skalierung der Visu (Profil ui.scale, Geraet scale). "auto" = das Panel
+# rechnet selbst aus, wie weit es seinen Kasten ohne Rand und ohne Verzerrung
+# vergroessern kann; eine Zahl ist ein fester Faktor (das Panel begrenzt ihn
+# so, dass alles auf den Schirm passt); "off" = feste Groesse wie bisher. Die
+# Grenzen stehen nur hier, der Konfigurator liest sie ueber /api/meta.
+SCALE_MIN, SCALE_MAX = 0.5, 2.0
+
+
+def _clean_scale(v):
+    """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
+    (auf zwei Stellen gerundet, deutsches Komma erlaubt). Ungueltiges ergibt
+    None = nicht gesetzt. Zahlen ausserhalb werden an die Grenze gesetzt, wie
+    die uebrigen Groessen in dieser Datei auch."""
+    if isinstance(v, str):
+        v = v.strip().lower()
+        if v in ("off", "auto"):
+            return v
+        try:
+            v = float(v.replace(",", "."))
+        except ValueError:
+            return None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
+        return None
+    return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
+
+
+def _clean_screen(d) -> dict:
+    """Bildschirmmeldung eines Panels ({t:"screen"}) auf plausible Zahlen
+    beschraenken. Dient nur der Anzeige unter Settings -> Panels; nichts davon
+    steuert den Server."""
+    if not isinstance(d, dict):
+        return {}
+
+    def zahl(k, lo, hi, stellen=0):
+        v = d.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+            return None
+        v = max(lo, min(hi, float(v)))
+        return round(v, stellen) if stellen else int(round(v))
+
+    out = {"vw": zahl("vw", 1, 20000), "vh": zahl("vh", 1, 20000),     # sichtbare Flaeche (CSS-px)
+           "sw": zahl("sw", 1, 20000), "sh": zahl("sh", 1, 20000),     # Bildschirm laut Geraet (CSS-px)
+           "dpr": zahl("dpr", 0.25, 8, 2),                              # Pixeldichte
+           "bw": zahl("bw", 1, 20000), "bh": zahl("bh", 1, 20000),     # Kasten der Visu (ungeskaliert)
+           "k": zahl("k", 0.1, 10, 3)}                                  # wirksamer Faktor
+    return {k: v for k, v in out.items() if v is not None}
+
+
 def _clean_tabpane(v) -> str:
     """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
     | "energy:<uuid>" | "camera:<uuid>". "" heisst "kein Widget" — die Visu
@@ -1349,6 +1397,9 @@ class App:
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
+            # Skalierung laut Profil: "off" | "auto" | Faktor. Ein Geraet kann
+            # sie uebersteuern, siehe effective_scale().
+            "scale": _clean_scale(ui.get("scale")) or "off",
         }
 
     def player_blocks(self, uuid: str):
@@ -1637,6 +1688,17 @@ class App:
         return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
                    for a in self.agents.values())
 
+    def effective_scale(self, prof: dict | None, dev: str) -> str | float:
+        """Wirksame Skalierung eines Panels: die des Geraets, falls dort eine
+        gesetzt ist, sonst die des Profils. So lassen sich zwei Displays mit
+        demselben Profil unterschiedlich einstellen."""
+        d = self.devices.get(dev) if dev else None
+        if isinstance(d, dict):
+            sc = _clean_scale(d.get("scale"))
+            if sc is not None:
+                return sc
+        return (prof or {}).get("scale") or "off"
+
     def device_list(self) -> dict:
         """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
         Panel-Agenten (Announce), verbundene Browser (?device=) und die in
@@ -1649,7 +1711,8 @@ class App:
         def entry(name: str) -> dict:
             return devs.setdefault(name, {
                 "name": name, "agent": None, "connections": 0, "online": False,
-                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False})
+                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False,
+                "screen": {}})
 
         for a in self.agents.values():
             if (now - a["ts"]) >= 600:
@@ -1665,7 +1728,8 @@ class App:
             prof = (self.conn_prof.get(ws) or {}).get("id", "")
             if not info.get("dev"):
                 anonymous.append({"ip": info.get("ip", ""), "profile": prof,
-                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0)})
+                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0),
+                                  "screen": info.get("screen") or {}})
                 continue
             e = entry(info["dev"])
             e["connections"] += 1
@@ -1674,6 +1738,8 @@ class App:
             e["kiosk"] = info.get("kiosk") or e["kiosk"]
             e["ip"] = e["ip"] or info.get("ip", "")
             e["lastSeen"] = max(e["lastSeen"], info.get("ts", 0))
+            if info.get("screen"):
+                e["screen"] = info["screen"]   # zuletzt gemeldete Groesse (bei mehreren Fenstern das letzte)
         for name in self.devices:
             entry(name)["configured"] = True
         for e in devs.values():
@@ -1833,7 +1899,7 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane")}
+                       "svPane", "scale")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -1849,6 +1915,12 @@ class App:
             ui["svPane"] = _sp
         else:
             ui.pop("svPane", None)
+        # Skalierung: im Profil nur "auto" oder ein Faktor, "off" ist das Fehlen.
+        _sc = _clean_scale(ui.get("scale"))
+        if _sc not in (None, "off"):
+            ui["scale"] = _sc
+        else:
+            ui.pop("scale", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -1952,6 +2024,9 @@ class App:
             _sp = _clean_svpane(ui.get("svPane"))
             if _sp:
                 cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
+            _sc = _clean_scale(ui.get("scale"))
+            if _sc not in (None, "off"):
+                cui["scale"] = _sc              # Skalierung: "auto" oder fester Faktor
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if _color_ok(ui.get("baseColor")):
@@ -2053,11 +2128,17 @@ class App:
                 if mode and prof and prof in panel_ids:
                     modes[mode] = prof
             display = App._sanitize_display(cfg.get("display"))
-            if not modes and not display:
+            # Skalierung je Geraet (auch "off", um ein "auto" des Profils zu
+            # uebersteuern). Ein Geraet, das NUR sie traegt, muss bleiben -
+            # bisher fiel alles ohne Modi und Display-Treiber still weg.
+            scale = _clean_scale(cfg.get("scale"))
+            if not modes and not display and scale is None:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
                 entry["display"] = display
+            if scale is not None:
+                entry["scale"] = scale
             out[name.strip()[:60]] = entry
         return out
 
@@ -4735,6 +4816,9 @@ async def api_meta(request: web.Request) -> web.Response:
         # Wie viele Werte-Kacheln die Uhr-Seite traegt. Der Konfigurator liest
         # die Zahl hier ab, statt sie ein zweites Mal zu fuehren.
         "svStatusMax": SV_STATUS_MAX,
+        # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
+        # innerhalb davon an.
+        "scaleRange": [SCALE_MIN, SCALE_MAX],
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -5191,6 +5275,12 @@ async def api_save_devices(request: web.Request) -> web.Response:
         app._write_devices(devices)
     except Exception as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
+    # Skalierung je Geraet sofort wirksam machen: jedem verbundenen Panel
+    # seinen (evtl. neuen) wirksamen Faktor schicken - ohne Neuladen, das
+    # beim Speichern von Profilen noetig ist, hier aber nicht.
+    for ws, info in list(app.conn_info.items()):
+        await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
+            app.conn_prof.get(ws), info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": devices})
 
 
@@ -5522,6 +5612,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
+                        "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
@@ -5604,6 +5695,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
                     app.conn_energy.pop(ws, None)
+            elif data.get("t") == "screen":
+                # Das Panel meldet seine Bildschirmgroesse - beim Verbinden und
+                # nach jeder Groessenaenderung. Nur fuer die Anzeige unter
+                # Settings -> Panels; nichts davon steuert den Server.
+                if ws in app.conn_info:
+                    app.conn_info[ws]["screen"] = _clean_screen(data)
             elif data.get("t") == "setsvstatus":
                 # Client meldet die Bausteine der Status-Spalte seines
                 # Screensavers (oder [] = keine). Antwort sofort, damit die

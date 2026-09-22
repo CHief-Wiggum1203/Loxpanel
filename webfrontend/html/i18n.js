@@ -179,6 +179,20 @@
       'Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.':
         'Display control per device: for Fully Kiosk enable the Remote Admin interface (port 2323, password), for WallPanel the HTTP server (port 2971). The server then switches the display on for doorbell, alarm clock, notify and goto and off after the timeout, independent of the page.',
       'Display-Steuerung': 'Display control',
+      // Skalierung / Bildschirmgroesse
+      'Skalierung': 'Scaling',
+      'Wie im Profil': 'Same as profile',
+      'Aus (feste Größe)': 'Off (fixed size)',
+      'Automatisch (Bildschirm ausnutzen)': 'Automatic (use the screen)',
+      'Fest': 'Fixed',
+      'quer': 'landscape',
+      'hoch': 'portrait',
+      'quadratisch': 'square',
+      'physisch': 'physical',
+      'Visu': 'visu',
+      'nutzt': 'uses',
+      'Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. Pro Gerät übersteuerbar unter Settings → Panels.':
+        'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. Can be overridden per device under Settings → Panels.',
       'keine (nur über die Seite)': 'none (page only)',
       'Passwort (Fully)': 'Password (Fully)',
       'Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.':

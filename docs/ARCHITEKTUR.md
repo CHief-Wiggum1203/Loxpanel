@@ -204,7 +204,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab und die rechte Spalte der Uhr-Seite |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil, `effective_scale()`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured` | eine komplette Ansicht |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -216,6 +216,7 @@ Server → Browser (`panel.html:700`):
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
+| `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -226,6 +227,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
+| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Settings → Panels; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
 ### 3.7 Das Block-Vokabular
@@ -431,6 +433,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
+        "scale": "auto",                     // oder Faktor 0.5–2.0; fehlt = feste Größe
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -449,7 +452,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
   "devices": {
     "<Gerätename>": {
       "auto": true, "modes": {"<Modusname>": "<panel-id>"},
-      "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."}  // optional; auch "wallpanel" (Port 2971)
+      "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
+      "scale": "off"                         // optional; übersteuert ui.scale des Profils ("off" | "auto" | Faktor)
     }
   }
 }
@@ -552,6 +556,20 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
+- Skalierung (`ui.scale` je Profil, `scale` je Gerät, Gerät gewinnt): Die Visu
+  rechnet mit festen 240er Kacheln, der Kasten ist also 480×480 bzw. im Split
+  960×480. Ein größeres Display zeigte ihn bisher mit Rand (1280×800: 55 % des
+  Schirms ungenutzt). `applyScale()` setzt `--ui-scale` am `.screen`
+  (`transform: scale`): bei `"auto"` so groß, wie ohne Rand und Verzerrung
+  geht, ein fester Faktor höchstens so groß, dass alles passt. Das Layout
+  bleibt unverändert, nur die Anzeige wächst — deshalb muss jeder Code, der
+  sichtbare Maße (`getBoundingClientRect`, Pointer-Koordinaten) mit Layout-Maßen
+  (`offsetWidth`, CSS-Werte) verrechnet, durch `visScale(el)` teilen (Menü,
+  Grundriss-Zoom; `svFit()` misst nur noch Layout-Höhen). `overflow:hidden`
+  steht nur auf `html`: `body` ist Grid-Element mit `place-items:center` und
+  damit so schmal wie der ungeskalierte Kasten — dort schnitte es die
+  vergrößerte Anzeige ab. Ein `ResizeObserver` am `.screen` rechnet den Faktor
+  neu, wenn sich der Kasten ändert (Split an/aus beim Tab-Wechsel).
 - Screensaver: rechte Spalte je Panel einstellbar (`ui.svPane`), wirksam nur im
   Querformat. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,

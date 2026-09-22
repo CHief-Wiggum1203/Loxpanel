@@ -33,12 +33,22 @@
     max-width:calc(var(--cols,2) * 240px);max-height:calc(var(--rows,2) * 240px);
     border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
-    transform:translateX(var(--nudge-x,0));
+    /* --ui-scale: Skalierung (Profil/Geraet "scale", gesetzt in applyScale).
+       Der Kasten behaelt seine Layout-Groesse aus 240er Kacheln, die Anzeige
+       waechst gleichmaessig mit - Schrift, Icons, Uhr-Seite, Panes. Erst
+       skaliert, dann versetzt: der Feinversatz bleibt in echten Pixeln. */
+    transform:translateX(var(--nudge-x,0)) scale(var(--ui-scale,1));
     display:grid;grid-template-rows:minmax(0,1fr) auto;}
   /* "Bildschirm fuellen": ganzen Tablet-Schirm nutzen (Voll-Zoom). Die Kacheln
      passen sich der Geraeteform an (koennen leicht rechteckig werden) statt als
      zentrierter cols:rows-Kasten mit Rand zu stehen. Gilt auch fuer Vollbreit. */
   .screen.fill{max-width:none;max-height:none;width:100vw;height:100vh;}
+  /* Skaliert fuellt der Kasten den Schirm auf den Pixel genau - eine Rundung
+     darf keine Scrollleiste erzeugen. NUR auf html (wirkt aufs Fenster), nicht
+     auf body: body ist hier Grid-Element mit place-items:center und damit nur
+     so breit wie der UNskalierte Kasten. overflow:hidden dort schnitt die
+     vergroesserte Anzeige links und rechts ab - sichtbar und fuer Tipps. */
+  html.scaled{overflow:hidden;}
   /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
      fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
   /* Denke in einem 4x2-Raster: links 2x2 = Visu, rechts 2x2 = Player. Der Block
@@ -963,6 +973,13 @@ function cellHtml(c,i){
 function closeMenu(){ const m=document.querySelector('.menuov'); if(m)m.remove(); }
 // Auswahl-Popup ueber einem Button (Klima Modus/Fan): oeffnet nach oben, Tipp
 // daneben schliesst. Auswahl sendet den Befehl und schliesst.
+// Verhaeltnis sichtbare Groesse / Layout-Groesse eines Elements. Ist die Visu
+// skaliert (transform am .screen), liefern getBoundingClientRect und Pointer-
+// Koordinaten SICHTBARE Pixel, offsetWidth/clientWidth und CSS-Werte aber
+// LAYOUT-Pixel. Wer beides verrechnet, teilt Sichtbares hierdurch. Am Element
+// selbst gemessen statt aus einer Variablen gelesen: stimmt so fuer jede Art
+// der Skalierung, auch fuer kuenftige.
+function visScale(e){ const w=e&&e.offsetWidth; return w ? (e.getBoundingClientRect().width/w)||1 : 1; }
 function openMenu(btn, items){
   const s=document.querySelector('.screen'); if(!s)return;
   closeMenu();
@@ -970,11 +987,13 @@ function openMenu(btn, items){
   const box=document.createElement('div'); box.className='menubox';
   box.innerHTML=items.map((it,i)=>'<div class="menuitem'+(it.on?' on':'')+'" data-m="'+i+'">'+esc(it.label)+'</div>').join('');
   ov.appendChild(box); s.appendChild(ov);
-  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect();
-  let left=br.left-sr.left;
-  left=Math.max(8, Math.min(left, sr.width-box.offsetWidth-8));
+  // Rects sind SICHTBARE Pixel, style.left/bottom LAYOUT-Pixel: bei skalierter
+  // Visu erst umrechnen, sonst sitzt das Menue neben seinem Button.
+  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect(), k=visScale(s);
+  let left=(br.left-sr.left)/k;
+  left=Math.max(8, Math.min(left, s.offsetWidth-box.offsetWidth-8));
   box.style.left=left+'px';
-  box.style.bottom=(sr.height-(br.top-sr.top)+6)+'px';   // ueber dem Button
+  box.style.bottom=((sr.height-(br.top-sr.top))/k+6)+'px';   // ueber dem Button
   box.querySelectorAll('.menuitem').forEach(n=>{
     n.addEventListener('pointerdown',ev=>{ ev.preventDefault(); ev.stopPropagation();
       const it=items[+n.dataset.m]; closeMenu();
@@ -1486,9 +1505,12 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
     pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastDist=0; };
   viewEl.onpointermove=e=>{ if(!pts.has(e.pointerId)) return;
     const prev=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(pts.size===1){ tx+=e.clientX-prev.x; ty+=e.clientY-prev.y; clamp(); apply(); }
+    // Pointer-Koordinaten sind sichtbare Pixel, tx/ty Layout-Pixel: bei
+    // skalierter Visu liefe das Bild dem Finger sonst davon.
+    const k=visScale(viewEl);
+    if(pts.size===1){ tx+=(e.clientX-prev.x)/k; ty+=(e.clientY-prev.y)/k; clamp(); apply(); }
     else if(pts.size>=2){ const a=[...pts.values()], dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      const rect=viewEl.getBoundingClientRect(), cx=(a[0].x+a[1].x)/2-rect.left, cy=(a[0].y+a[1].y)/2-rect.top;
+      const rect=viewEl.getBoundingClientRect(), cx=((a[0].x+a[1].x)/2-rect.left)/k, cy=((a[0].y+a[1].y)/2-rect.top)/k;
       if(lastDist){ const ns=Math.max(minScale,Math.min(6,scale*(dist/lastDist)));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); }
       lastDist=dist; } };
@@ -1499,8 +1521,8 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   viewEl.addEventListener('click',e=>{ if(e.target.closest('.schemeval.tap')) return;
     const now=Date.now(); if(now-lastTap<300){ const vw=viewEl.clientWidth;
       // Doppeltipp: von "ganz sichtbar" auf fit-to-width (lesbar) zoomen, sonst zurueck
-      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect();
-        const cx=e.clientX-rect.left, cy=e.clientY-rect.top, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
+      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect(), k=visScale(viewEl);
+        const cx=(e.clientX-rect.left)/k, cy=(e.clientY-rect.top)/k, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); } }
     lastTap=now; });
   schemeFit=fit;
@@ -1593,6 +1615,9 @@ function connect(){
       if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      uiScaleCfg=scaleCfg(msg.scale);
+      _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
+      applyScale();
       renderTabs(); return; }
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
@@ -1605,6 +1630,7 @@ function connect(){
     if(msg.t==='camera'){ cameraData=msg;
       if(svSideOn()){ renderFront(); return; }
       const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[]; if(saverOn()) renderFront(); return; }   // frei gewaehlte Werte auf der Uhr-Seite
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
@@ -1700,7 +1726,10 @@ function svFit(){
   [el('svBox'), el('svCal')].forEach(c=>{
     if(!c||c.hidden) return;
     const zeilen=[...c.querySelectorAll('.sv-st,.sv-ev')];
-    for(let i=zeilen.length-1; i>=1 && wrap.getBoundingClientRect().height>platz; i--){
+    // offsetHeight, nicht getBoundingClientRect: platz ist eine Layout-Hoehe,
+    // und bei skalierter Visu waere die sichtbare Hoehe k-mal groesser - dann
+    // fielen Termine weg, die in Wahrheit passen.
+    for(let i=zeilen.length-1; i>=1 && wrap.offsetHeight>platz; i--){
       zeilen[i].remove();
     }
   });
@@ -2256,6 +2285,51 @@ function armDpms(){ clearTimeout(dpmsTimer);
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
   dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
+// ---- Skalierung ("scale" aus Profil oder Geraet, vom Server) ----
+// Die Visu rechnet mit festen 240er Kacheln; ein groesseres Display zeigte den
+// Kasten bisher mit Rand (1280x800: 55 % des Schirms ungenutzt). "auto"
+// vergroessert ihn gleichmaessig, bis er an Breite oder Hoehe anstoesst - ohne
+// Verzerrung, Schrift und Icons wachsen mit. Eine Zahl ist ein fester Faktor,
+// aber nie groesser, als der Schirm hergibt (sonst waere ein Teil
+// abgeschnitten). "off" = feste Groesse wie bisher. Unter "Bildschirm fuellen"
+// ist der Kasten schon so gross wie der Schirm, dort ergibt sich von selbst 1.
+let uiScaleCfg='off', uiScaleEff=1;
+function scaleCfg(v){ return (v==='auto' || (typeof v==='number' && v>0)) ? v : 'off'; }
+function applyScale(){
+  const s=document.querySelector('.screen'); if(!s) return;
+  const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
+  const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
+  let k=1;
+  if(uiScaleCfg==='auto') k=Math.max(1,passt);      // nur vergroessern: kleiner rechnet das Layout selbst
+  else if(typeof uiScaleCfg==='number') k=Math.min(uiScaleCfg,passt);
+  k=Math.round(k*1000)/1000;
+  if(k!==uiScaleEff || s.style.getPropertyValue('--ui-scale')===''){
+    uiScaleEff=k;
+    s.style.setProperty('--ui-scale', String(k));
+    document.documentElement.classList.toggle('scaled', k!==1);
+  }
+  reportScreen();
+}
+// Groesse an den Server melden (Anzeige unter Settings -> Panels). Entprellt:
+// beim Drehen oder Kiosk-Start feuert resize mehrfach hintereinander. Nur
+// senden, was sich geaendert hat.
+let _screenTimer=null, _screenSent='';
+function reportScreen(){
+  clearTimeout(_screenTimer);
+  _screenTimer=setTimeout(()=>{
+    const s=document.querySelector('.screen'), sc=window.screen||{};
+    const m={t:'screen', vw:innerWidth, vh:innerHeight, sw:sc.width||0, sh:sc.height||0,
+      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff};
+    const sig=JSON.stringify(m);
+    if(sig===_screenSent) return;
+    try{ send(m); _screenSent=sig; }catch(e){}
+  },400);
+}
+// Aendert sich die Layout-Groesse des Kastens (Split an/aus beim Tab-Wechsel,
+// Layout, "Bildschirm fuellen") oder des Fensters, muss der Faktor neu. Der
+// transform selbst aendert die Layout-Groesse nicht - kein Rueckkopplungskreis.
+window.addEventListener('resize', applyScale);
+if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(applyScale).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
