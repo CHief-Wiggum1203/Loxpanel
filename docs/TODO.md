@@ -86,7 +86,7 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 20.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, einer ist
+Stand 22.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, drei sind
 eingereicht und noch offen:**
 
 | PR | Inhalt |
@@ -113,15 +113,28 @@ eingereicht und noch offen:**
 | [#36](https://github.com/Lenardo1/loxpanel/pull/36) | `up/eigene-auswahl` | Freie Bausteinauswahl, ganzes Feature (enthält #35 mit) |
 
 Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
-gelöscht, schließt GitHub den zugehörigen PR. Erst nach dem Merge bei
-Lenardo entfernen — und zwar einzeln, nicht in einem Rutsch.
+gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
+den PR gemergt oder geschlossen hat — und zwar einzeln, nicht in einem Rutsch.
 
 Zu #35 und #36: Der Fehler in #35 steckt in Lenardos Code und ist an seinem
 unveränderten `panel.html` im Browser nachgestellt — `renderTabs()` ersetzt
 die ganze untere Leiste, sobald eine Ansicht nicht-leere `catTabs` mitbringt,
 ohne zu prüfen, ob das Panel nur diese eine Seite hat. #36 enthält dieselbe
-Bedingung, weil die freie Auswahl ohne sie in dieselbe Falle liefe. Wird #35
-zuerst gemergt, rebast #36 sauber darauf.
+Bedingung, weil die freie Auswahl ohne sie in dieselbe Falle liefe — aber mit
+anderem Wortlaut und auf die freie Auswahl verallgemeinert. Deshalb kollidieren
+die beiden: Nacheinander angewendet gibt es in `renderTabs()` einen Konflikt,
+per Cherry-Pick wie per Rebase nachgeprüft (22.09.2026). Vorschlag an Lenardo:
+#34 und #36 mergen, #35 schließen. Wird #35 doch zuerst gemergt, gilt beim
+Konflikt die Fassung aus #36.
+
+**Noch nicht eingereicht** (am 22.09.2026 probeweise auf `upstream/main`
+angewendet, Server dort gestartet, ohne Fehler): Raumzeile-Kontrast (Fork #63,
+unabhängig), Kalender mit mehreren Abos (Fork #66/#67), rechte Spalte der
+Uhr-Seite (Fork #68–#70), Anzeigegröße und Skalierung (Fork #71/#72). Die
+letzten drei nur in dieser Reihenfolge, weil sie dieselben Stellen im
+Screensaver ändern. Von Hand: beim Kalender die README (die des Forks weicht
+ab), bei der Skalierung eine Stelle in `i18n.js`, an der nur Einträge
+dazukommen.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
