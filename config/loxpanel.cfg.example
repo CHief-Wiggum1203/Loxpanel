@@ -44,10 +44,13 @@
   },
 
   "calendar": {
-    "_comment": "Front (Screensaver): Termine aus einem iCal-Abo und Wetter (Open-Meteo). ical_url: webcal:// oder https:// Abo-Link (Apple/iCloud, Google, ...). lat/lon: Standort in Dezimalgrad fuer das Wetter (leer/null = kein Wetter, kein API-Key noetig). days: Termine der naechsten n Tage; fore_days: Wetter-Vorschautage (1-7). Pflegbar unter /config -> Settings -> Kalender & Wetter.",
+    "_comment": "Front (Screensaver): Termine aus iCal-Abos und Wetter (Open-Meteo). sources: bis zu 8 Abos (Familie, Muellabfuhr, Geburtstage, Ferien, ...), jeweils webcal:// oder https:// Abo-Link (Apple/iCloud, Google, ...) mit Name und Farbe; alle werden zu einer Liste zusammengefuehrt. ical_url: alte Einzel-URL, wird als erste Quelle mitgelesen. holiday_url: zweiter iCal nur fuer Feiertage (rote Tage im Monatsraster). name: Ueberschrift am Panel. colors: false zeigt die Termine schlicht ohne Kalenderfarben. sv_events: wie viele Termine auf die Uhr-Seite passen (1-10). lat/lon: Standort in Dezimalgrad fuer das Wetter (leer/null = kein Wetter, kein API-Key noetig). days: Termine der naechsten n Tage; fore_days: Wetter-Vorschautage (1-7). Pflegbar unter /config -> Settings -> Kalender & Wetter.",
+    "sources": [],
     "ical_url": "",
     "holiday_url": "",
     "name": "Family",
+    "colors": true,
+    "sv_events": 3,
     "lat": null,
     "lon": null,
     "days": 14,
