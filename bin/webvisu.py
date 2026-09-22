@@ -182,6 +182,34 @@ def _clean_lang(v):
     return v if v.split("-")[0] in SUPPORTED_LANGS else ""
 
 
+# Screensaver: hoechstens so viele Status-Kacheln in der rechten Spalte. Mehr
+# passt neben Uhr und Wetter auf keinem Panel lesbar hin.
+SV_STATUS_MAX = 8
+
+
+def _clean_svpane(v) -> str:
+    """Rechte Spalte der Uhr-Seite (Screensaver) pruefen und normieren.
+
+    Erlaubt: "off" (keine zweite Spalte), "calendar", "weather",
+    "energy:<uuid>", "camera:<uuid>" und "status:<uuid>,<uuid>,...".
+    Alles andere ergibt "" — das ist die Automatik: Termine, wenn welche
+    anstehen, sonst die Wetter-Details. Unbekannte Werte wandern damit auf
+    die Automatik statt eine leere Spalte zu erzeugen."""
+    if not isinstance(v, str):
+        return ""
+    v = v.strip()
+    if v in ("off", "calendar", "weather"):
+        return v
+    for kopf in ("energy:", "camera:"):
+        if v.startswith(kopf) and len(v) > len(kopf):
+            return v
+    if v.startswith("status:"):
+        uu = [x.strip() for x in v[7:].split(",") if x.strip()][:SV_STATUS_MAX]
+        if uu:
+            return "status:" + ",".join(uu)
+    return ""
+
+
 # Loxone-Icon-Bibliothek: SVGs des LoxBerry-Plugins "loxoneicons", read-only in
 # den Container gemountet (docker-compose). Fehlt der Mount/das Plugin, ist der
 # Ordner leer -> die Icon-Quelle erscheint gar nicht. Ueber Env ueberschreibbar.
@@ -557,6 +585,7 @@ class App:
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
         self.conn_energy: dict[web.WebSocketResponse, str] = {}   # ws -> EFM/EnergyManager2-UUID der aktiven Energiefluss-Pane (via setenergy)
         self.conn_camera: dict[web.WebSocketResponse, str] = {}   # ws -> Intercom-UUID der aktiven Kamera-Pane (via setcamera)
+        self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -1299,6 +1328,9 @@ class App:
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
+            # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
+            # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
+            "svPane": _clean_svpane(ui.get("svPane")),
         }
 
     def player_blocks(self, uuid: str):
@@ -1329,6 +1361,29 @@ class App:
             log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
         return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+
+    def status_blocks(self, uuids) -> list:
+        """Frei gewaehlte Bausteine als Nur-Lese-Kacheln fuer die rechte Spalte
+        des Screensavers. Baut bewusst ueber _control_item() — damit stehen dort
+        Name, Wert, Icon und Zustandsfarbe genau so wie auf einer Kachel, und ein
+        neuer Bausteintyp wirkt hier mit, ohne dass jemand daran denken muss.
+        Unbekannte UUIDs (geloeschter Baustein) fallen still weg."""
+        raus = []
+        for u in list(uuids or [])[:SV_STATUS_MAX]:
+            if u not in self.controls:
+                continue
+            try:
+                it = self._control_item(u, show_room=True)
+            except Exception:
+                log.exception("status_blocks: Baustein uebersprungen (%s)", u)
+                continue
+            # Die Uhr-Seite zeigt nur an — Navigation und Steuer-Buttons haetten
+            # dort keine Wirkung (ein Tipp weckt das Panel) und wuerden Platz
+            # kosten. Deshalb hier raus, statt sie im Panel zu ignorieren.
+            for k in ("nav", "controls", "secured"):
+                it.pop(k, None)
+            raus.append(it)
+        return raus
 
     def energy_blocks(self, uuid: str, max_cons: int = 6):
         """Energiefluss-Daten (Radial, Loxone-Standard) einer EFM/EnergyManager2-
@@ -1759,7 +1814,8 @@ class App:
               if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
-                       "overlay", "textColor", "bold", "lang", "player", "panes", "split")}
+                       "overlay", "textColor", "bold", "lang", "player", "panes", "split",
+                       "svPane")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -1768,6 +1824,13 @@ class App:
                 ui.pop("panes", None)
         else:
             ui.pop("panes", None)
+        # Rechte Spalte des Screensavers: derselbe Pruefer wie beim Speichern,
+        # damit der Konfigurator nie einen Wert anzeigt, den der Server verwirft.
+        _sp = _clean_svpane(ui.get("svPane"))
+        if _sp:
+            ui["svPane"] = _sp
+        else:
+            ui.pop("svPane", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -1868,6 +1931,9 @@ class App:
                       if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
                 if pn:
                     cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
+            _sp = _clean_svpane(ui.get("svPane"))
+            if _sp:
+                cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if _color_ok(ui.get("baseColor")):
@@ -4290,6 +4356,7 @@ class App:
             self.conn_player.pop(ws, None)
             self.conn_energy.pop(ws, None)
             self.conn_camera.pop(ws, None)
+            self.conn_status.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -4377,6 +4444,15 @@ class App:
                         camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
                     except Exception:
                         log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
+                # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
+                # Panels (kommt vom Client via setsvstatus -> conn_status).
+                status_msg = None
+                _suu = self.conn_status.get(ws)
+                if _suu:
+                    try:
+                        status_msg = {"t": "svstatus", "items": self.status_blocks(_suu)}
+                    except Exception:
+                        log.exception("status_blocks fehlgeschlagen")
                 # Nur senden, was sich seit der letzten Zustellung an DIESE
                 # Verbindung geaendert hat. Der Tick laeuft, sobald sich
                 # irgendein Wert im Haus bewegt — meist betrifft das die
@@ -4403,6 +4479,12 @@ class App:
                 if camera_msg is not None and camera_msg != last.get("camera"):
                     if await self._send_or_drop(ws, camera_msg):
                         last["camera"] = camera_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
+                if status_msg is not None and status_msg != last.get("svstatus"):
+                    if await self._send_or_drop(ws, status_msg):
+                        last["svstatus"] = status_msg
                     else:
                         self._last_sent.pop(ws, None)
 
@@ -4632,6 +4714,9 @@ async def api_meta(request: web.Request) -> web.Response:
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
+        # Wie viele Werte-Kacheln die Uhr-Seite traegt. Der Konfigurator liest
+        # die Zahl hier ab, statt sie ein zweites Mal zu fuehren.
+        "svStatusMax": SV_STATUS_MAX,
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -5196,6 +5281,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_player.pop(ws, None)
             app.conn_energy.pop(ws, None)
             app.conn_camera.pop(ws, None)
+            app.conn_status.pop(ws, None)
     return n
 
 
@@ -5417,6 +5503,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "panes": prof.get("panes") or {},
+                        "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
@@ -5499,6 +5586,23 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
                     app.conn_energy.pop(ws, None)
+            elif data.get("t") == "setsvstatus":
+                # Client meldet die Bausteine der Status-Spalte seines
+                # Screensavers (oder [] = keine). Antwort sofort, damit die
+                # Spalte beim Einblenden nicht leer bleibt.
+                _uu = tuple(str(x) for x in (data.get("uuids") or [])
+                            if isinstance(x, str))[:SV_STATUS_MAX]
+                if _uu:
+                    app.conn_status[ws] = _uu
+                    try:
+                        sb = app.status_blocks(_uu)
+                        _sm = {"t": "svstatus", "items": sb}
+                        await ws.send_json(_sm)
+                        app._last_sent.setdefault(ws, {})["svstatus"] = _sm
+                    except Exception:
+                        log.exception("status_blocks (setsvstatus) fehlgeschlagen")
+                else:
+                    app.conn_status.pop(ws, None)
             elif data.get("t") == "setcamera":
                 # Client meldet die Intercom-Kachel der aktiven Kamera-Pane
                 # (oder "" = keine).
@@ -5521,6 +5625,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_player.pop(ws, None)
         app.conn_energy.pop(ws, None)
         app.conn_camera.pop(ws, None)
+        app.conn_status.pop(ws, None)
     return ws
 
 
