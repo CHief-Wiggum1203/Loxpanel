@@ -132,9 +132,10 @@ angewendet, Server dort gestartet, ohne Fehler): Raumzeile-Kontrast (Fork #63,
 unabhängig), Kalender mit mehreren Abos (Fork #66/#67), rechte Spalte der
 Uhr-Seite (Fork #68–#70), Anzeigegröße und Skalierung (Fork #71/#72). Die
 letzten drei nur in dieser Reihenfolge, weil sie dieselben Stellen im
-Screensaver ändern. Von Hand: beim Kalender die README (die des Forks weicht
-ab), bei der Skalierung eine Stelle in `i18n.js`, an der nur Einträge
-dazukommen.
+Screensaver ändern. Den Kalender nur zusammen mit dem Abruf-Fix aus Fork #74
+weitergeben: #66 allein liest große Abos abgeschnitten. Von Hand: beim
+Kalender die README (die des Forks weicht ab), bei der Skalierung eine Stelle
+in `i18n.js`, an der nur Einträge dazukommen.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`

@@ -501,11 +501,19 @@ async def fetch_events(session: aiohttp.ClientSession, url: str, days: int,
                                    timeout=aiohttp.ClientTimeout(total=15)) as r:
                 r.raise_for_status()
                 # Begrenzt lesen: ein Panel-Server hat wenig Speicher, und was
-                # ein fremder Host schickt, bestimmt nicht er allein.
-                data = await r.content.read(MAX_ICS_BYTES + 1)
-                if len(data) > MAX_ICS_BYTES:
-                    raise RuntimeError(
-                        f"Kalender ist groesser als {MAX_ICS_BYTES // (1024 * 1024)} MB")
+                # ein fremder Host schickt, bestimmt nicht er allein. In Stuecken
+                # bis zum Ende, denn read(n) gibt nur zurueck, was GERADE im
+                # Puffer liegt - nicht die ersten n Bytes des Abos. Ein Kalender,
+                # der nicht in einem Rutsch ankommt, kaeme damit abgeschnitten an
+                # und liesse sich nicht mehr parsen.
+                teile, gelesen = [], 0
+                async for stueck in r.content.iter_chunked(64 * 1024):
+                    gelesen += len(stueck)
+                    if gelesen > MAX_ICS_BYTES:
+                        raise RuntimeError(
+                            f"Kalender ist groesser als {MAX_ICS_BYTES // (1024 * 1024)} MB")
+                    teile.append(stueck)
+                data = b"".join(teile)
             break
         except Exception as e:
             if nr == versuche - 1 or not _vorruebergehend(e):
