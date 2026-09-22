@@ -272,6 +272,9 @@
   .ag .agn{font-weight:600;}
   .ag .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--muted);white-space:nowrap;}
   .ag .agip{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
+  /* Erkannte Bildschirmgroesse: eigene Zeile unter dem Geraet (flex-basis 100 %),
+     eingerueckt auf Hoehe des Namens (Punkt 9 px + Abstand 10 px). */
+  .ag .agscr{flex-basis:100%;padding-left:19px;color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
   .ag .sp{flex:1;min-width:8px;}
   .cmdout{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:12px;margin-top:10px;
     font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--fg);}
@@ -1105,7 +1108,10 @@ function renderEditor(){
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
+       '<div class="field" style="max-width:320px"><label class="lbl">'+T('Skalierung')+'</label>'+
+         '<select id="fScale">'+scaleOptions((p.ui||{}).scale,false)+'</select></div>'+
      '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. Pro Gerät übersteuerbar unter Settings → Panels.')+'</div>'+
      '<div class="grph">'+T('Split / Pane 2')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
@@ -1166,6 +1172,10 @@ function renderEditor(){
       else if(v==='2x3'){ delete p.ui.cols; p.ui.rows=3; }
       else if(v==='3x2'){ p.ui.cols=3; delete p.ui.rows; }
       else { delete p.ui.cols; delete p.ui.rows; }   // 2x2
+      markDirty(); }; }
+  { const fsc=$('#fScale'); if(fsc) fsc.onchange=e=>{ p.ui=p.ui||{};
+      const v=scaleValue(e.target.value);
+      if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // im Profil ist "aus" das Fehlen
       markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
@@ -1239,6 +1249,45 @@ function cameraOptions(sel){
 function firstCamera(){
   const z=(META.controls||[]).find(c=>c.type==='Intercom');
   return z?z.uuid:'';
+}
+
+// ---- Skalierung (Profil und Geraet) ----
+// Welche Werte zulaessig sind, entscheidet allein der Server (/api/meta
+// scaleRange). Die Stufen hier sind nur die Auswahl fuer die Bedienung.
+const SCALE_STEPS=[0.8,0.9,1.1,1.25,1.5,1.75,2];
+function fmtZahl(v){ try{ return Number(v).toLocaleString((window.I18N&&I18N.lang)||'de',{maximumFractionDigits:2}); }catch(e){ return String(v); } }
+function scaleOptions(cur, erben){
+  const r=(META&&META.scaleRange)||[1,1];
+  const leer=(cur===undefined||cur===null||cur==='');
+  const pct=v=>Math.round(v*100)+' %';
+  let h='';
+  if(erben) h+='<option value=""'+(leer?' selected':'')+'>'+T('Wie im Profil')+'</option>';
+  h+='<option value="off"'+((cur==='off'||(!erben&&leer))?' selected':'')+'>'+T('Aus (feste Größe)')+'</option>';
+  h+='<option value="auto"'+(cur==='auto'?' selected':'')+'>'+T('Automatisch (Bildschirm ausnutzen)')+'</option>';
+  SCALE_STEPS.filter(v=>v>=r[0]&&v<=r[1]).forEach(v=>{
+    h+='<option value="'+v+'"'+(cur===v?' selected':'')+'>'+T('Fest')+' '+pct(v)+'</option>'; });
+  // Ein gespeicherter Faktor ausserhalb der Stufen (z.B. von Hand in
+  // panels.json) darf beim Oeffnen nicht still auf "Aus" springen.
+  if(typeof cur==='number' && SCALE_STEPS.indexOf(cur)<0)
+    h+='<option value="'+cur+'" selected>'+T('Fest')+' '+pct(cur)+'</option>';
+  return h;
+}
+function scaleValue(v){ return (v==='auto'||v==='off'||v==='') ? v : parseFloat(v); }
+// Was ein Panel ueber seinen Bildschirm meldet ({t:'screen'}): sichtbare
+// Flaeche in CSS-Pixeln und Ausrichtung, die physischen Pixel (Flaeche x
+// Pixeldichte) - und was die Visu daraus macht: Faktor und Anteil des
+// Bildschirms, den sie nutzt.
+function screenInfo(sc){
+  if(!sc||!sc.vw||!sc.vh) return '';
+  const lage=sc.vw>sc.vh?T('quer'):(sc.vw<sc.vh?T('hoch'):T('quadratisch'));
+  const teile=[sc.vw+'×'+sc.vh+' '+lage];
+  if(sc.dpr&&sc.dpr!==1) teile.push(T('physisch')+' '+Math.round(sc.vw*sc.dpr)+'×'+Math.round(sc.vh*sc.dpr));
+  const k=sc.k||1;
+  if(sc.bw&&sc.bh){
+    const anteil=Math.min(100,Math.round(100*sc.bw*sc.bh*k*k/(sc.vw*sc.vh)));
+    teile.push((k!==1?(T('Visu')+' '+fmtZahl(k)+'× · '):'')+T('nutzt')+' '+anteil+' %');
+  }
+  return teile.join(' · ');
 }
 
 function renderPanes(p){
@@ -2227,7 +2276,8 @@ async function loadPanelIds(){
     PANEL_IDS=Object.keys(m.panels||{});
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
-      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null};
+      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
+                 scale:(d.scale===undefined?'':d.scale)};   // '' = wie im Profil
     });
   }catch(e){ PANEL_IDS=[]; }
 }
@@ -2252,10 +2302,11 @@ function deviceRow(d, sel){
     '<span class="agn">'+esc(d.name)+'</span>'+
     '<span class="tag">'+esc(TYPE_LABEL[d.type]||d.type)+'</span>'+
     '<span class="agip">'+esc(info)+'</span>'+
-    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+'</div>';
+    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+
+    (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
 }
 function anonRow(a, typed){
-  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):''].filter(Boolean).join(' · ');
+  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
@@ -2347,6 +2398,10 @@ function devRow(name){
     '<div class="dmrows">'+rows+'</div>'+
     '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
     displayRow(d.display)+
+    '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+      '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
+      '<select class="ds_scale">'+scaleOptions(d.scale,true)+'</select>'+
+    '</div>'+
   '</div>';
 }
 const DRIVER_PORT={fully:2323, wallpanel:2971};
@@ -2373,7 +2428,9 @@ function readDevFromDom(){
     const display=drv?{driver:drv, host:n.querySelector('.dd_host').value.trim(),
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
-    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display};
+    const sc=n.querySelector('.ds_scale');
+    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
+                         scale:sc?scaleValue(sc.value):''};
   });
 }
 function renderDevices(){
@@ -2403,7 +2460,14 @@ $('#dev_save').onclick=async()=>{
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
     const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
-    if(Object.keys(modes).length || display){ devices[name]={auto:d.auto!==false, modes}; if(display) devices[name].display=display; }
+    const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie im Profil
+    // Bisher fiel ein Geraet ohne Modi und Display-Treiber hier still weg -
+    // eines, das nur eine Skalierung traegt, muss bleiben.
+    if(Object.keys(modes).length || display || scale!==null){
+      devices[name]={auto:d.auto!==false, modes};
+      if(display) devices[name].display=display;
+      if(scale!==null) devices[name].scale=scale;
+    }
   });
   $('#dev_save').disabled=true;
   try{
