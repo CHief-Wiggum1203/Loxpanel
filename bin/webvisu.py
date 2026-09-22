@@ -187,6 +187,24 @@ def _clean_lang(v):
 SV_STATUS_MAX = 8
 
 
+def _clean_tabpane(v) -> str:
+    """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
+    | "energy:<uuid>" | "camera:<uuid>". "" heisst "kein Widget" — die Visu
+    weitet sich dann nach rechts aus.
+
+    Stand vorher wortgleich an zwei Stellen (Export und Speichern). Laufen die
+    auseinander, zeigt der Konfigurator einen Wert an, den der Server beim
+    Speichern still verwirft. Prueft bewusst genau wie bisher, insbesondere
+    OHNE strip(): das Zusammenfassen soll am Ergebnis nichts aendern."""
+    if v in ("weather", "calendar"):
+        return v
+    if isinstance(v, str):
+        for kopf in ("player:", "energy:", "camera:"):
+            if v.startswith(kopf) and len(v) > len(kopf):
+                return v
+    return ""
+
+
 def _clean_svpane(v) -> str:
     """Rechte Spalte der Uhr-Seite (Screensaver) pruefen und normieren.
 
@@ -1816,10 +1834,10 @@ class App:
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane")}
-        # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
+        # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
-                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
+                           if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
             if not ui["panes"]:
                 ui.pop("panes", None)
         else:
@@ -1928,7 +1946,7 @@ class App:
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
                 pn = {str(k): v for k, v in ui["panes"].items()
-                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
+                      if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
                     cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
             _sp = _clean_svpane(ui.get("svPane"))
