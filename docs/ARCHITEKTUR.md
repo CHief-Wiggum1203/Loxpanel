@@ -69,8 +69,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Neues Panel) |
-| `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, der Anker bleibt erhalten (`/settings#panels` → `/config#panels`) |
+| `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Kalender & Wetter, Neues Panel) |
+| `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
@@ -621,13 +621,16 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 ### 7.3 Rubrik „Settings" in `config.html` (früher `settings.html`)
 
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
-Speicherleiste unten gilt nur für „Panel Configuration". Sechs Reiter:
+Speicherleiste unten gilt nur für „Panel Configuration". Sieben Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (nur
 Platzhalter), Panels (alle Anzeigegeräte: Agent, Kiosk-App, Browser; Polling
 alle 6 s; Betriebsmodus-Automatik und Display-Treiber je Gerät), Audio (Testton,
-Audioserver-Live-Daten), Neues Panel (Start-URL für Kiosk-Apps, SSH-Befehl für
-Linux-Panels). `/config#<reiter>` öffnet einen Reiter direkt. Kein Dirty-Flag,
-ungespeicherte Eingaben gehen beim Verlassen verloren.
+Audioserver-Live-Daten), Kalender & Wetter (iCal-Abos, Wetter der Uhr-Seite),
+Neues Panel (Start-URL für Kiosk-Apps, SSH-Befehl für Linux-Panels). Zu einem
+Reiter führen die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder
+die Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite
+nicht aus, sie öffnet wie immer die Übersicht. Kein Dirty-Flag, ungespeicherte
+Eingaben gehen beim Verlassen verloren.
 
 ### 7.4 `i18n.js`
 
