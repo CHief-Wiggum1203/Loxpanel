@@ -604,7 +604,7 @@
             <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift am Panel</label><input type="text" id="cal_name" placeholder="Family"></div>
             <div id="cal_list" style="margin-top:16px"></div>
             <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button></div>
-            <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
+            <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" data-i18n-ph placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
             <p class="note" data-i18n>Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.</p>
             <div class="note" id="cal_status" style="margin-top:10px"></div>
           </div>
@@ -1946,18 +1946,22 @@ async function loadSettings(){
       // Bei einem Aussetzer zeigt das Panel weiter den letzten guten Stand —
       // das muss hier dabeistehen, sonst sieht man einen Fehler und gleichzeitig
       // Termine am Panel und hält eines von beidem für falsch.
-      const stale=st.events_stale?'<br><span class="ccmut">'+T('Das Panel zeigt weiter den Stand von')
-        +' '+esc(st.events_stale)+' '+T('Uhr.')+'</span>':'';
+      // Ganzer Satz statt zusammengesetzter Fragmente: im Englischen steht die
+      // Uhrzeit an anderer Stelle im Satz, und "Uhr." hat dort keine Entsprechung.
+      const stale=st.events_stale?'<br><span class="ccmut">'
+        +T('Das Panel zeigt weiter den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.events_stale))
+        +'</span>':'';
       const qs=st.cal_sources||[], kaputt=qs.filter(q=>q&&q.error).length;
       if(!CALS.length) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
       // Der genaue Fehler steht schon oben beim betroffenen Kalender — hier
       // nur noch, wie viele betroffen sind.
-      else if(kaputt) cs.innerHTML='<b class="bad">'+kaputt+' '+T('von')+' '+qs.length+' '
-        +T('Kalendern nicht geladen')+'</b> <span class="ccmut">· '+T('Grund steht oben beim jeweiligen Kalender.')+'</span>'
+      else if(kaputt) cs.innerHTML='<b class="bad">'
+        +T('{n} von {gesamt} Kalendern nicht geladen').replace('{n}',kaputt).replace('{gesamt}',qs.length)
+        +'</b> <span class="ccmut">· '+T('Grund steht oben beim jeweiligen Kalender.')+'</span>'
         +' · '+(st.cal_count||0)+' '+T('Termine')+stale;
       else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error)+stale;
       else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine')
-        +(CALS.length>1?' <span class="ccmut">'+T('aus')+' '+CALS.length+' '+T('Kalendern')+'</span>':'');
+        +(CALS.length>1?' <span class="ccmut">'+T('aus {n} Kalendern').replace('{n}',CALS.length)+'</span>':'');
     }
     // Auto-Standort vom Miniserver als Platzhalter zeigen (falls keine Koordinaten gesetzt)
     const autoGeo=(cal.ms_lat!=null&&cal.ms_lon!=null);
@@ -2042,7 +2046,7 @@ function calStatHTML(q){
   const st=q.key?CAL_STAT[q.key]:null;
   if(!st) return q.url?'<span class="calst">'+T('noch nicht geladen')+'</span>':'';
   if(st.error) return '<span class="calst err"><b class="bad">'+T('Fehler:')+'</b> '+esc(st.error)
-    +(st.stale?' · '+T('Panel zeigt den Stand von')+' '+esc(st.stale)+' '+T('Uhr.'):'')+'</span>';
+    +(st.stale?' · '+T('Panel zeigt den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.stale)):'')+'</span>';
   return '<span class="calst"><b class="ok">'+T('geladen')+'</b> · '+(st.count||0)+' '+T('Termine')+'</span>';
 }
 function renderCals(){
@@ -2096,7 +2100,7 @@ function freieFarbe(){
       || CAL_PALETTE[CALS.length%CAL_PALETTE.length];
 }
 if($('#cal_add')) $('#cal_add').onclick=()=>{
-  if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als')+' '+CAL_MAX+' '+T('Kalender gehen nicht.'),false); return; }
+  if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als {max} Kalender gehen nicht.').replace('{max}',CAL_MAX),false); return; }
   CAL_DIRTY=true;
   CALS.push({name:'',url:'',color:freieFarbe(),key:''});
   renderCals();
@@ -2122,7 +2126,7 @@ $('#cal_save').onclick=async()=>{
       // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
       setTimeout(loadSettings,1500); }
     else flash($('#cal_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#cal_toast'),'Fehler: '+e,false); }
+  }catch(e){ flash($('#cal_toast'),T('Fehler:')+' '+e,false); }
   $('#cal_save').disabled=false;
 };
 
