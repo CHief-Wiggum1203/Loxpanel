@@ -187,12 +187,22 @@ def _clean_lang(v):
 SV_STATUS_MAX = 8
 
 
-# Skalierung der Visu (Profil ui.scale, Geraet scale). "auto" = das Panel
+# Skalierung der Visu. Kette: global (theme.json ui.scale) -> Profil (ui.scale)
+# -> Geraet (devices[name].scale); die spaetere gewinnt, FEHLT sie, gilt die
+# fruehere. Deshalb speichern Profil und Geraet auch "off" ausdruecklich - sonst
+# koennte ein Profil ein globales "auto" nicht abschalten. "auto" = das Panel
 # rechnet selbst aus, wie weit es seinen Kasten ohne Rand und ohne Verzerrung
 # vergroessern kann; eine Zahl ist ein fester Faktor (das Panel begrenzt ihn
 # so, dass alles auf den Schirm passt); "off" = feste Groesse wie bisher. Die
 # Grenzen stehen nur hier, der Konfigurator liest sie ueber /api/meta.
 SCALE_MIN, SCALE_MAX = 0.5, 2.0
+
+# Darstellungs-Keys der globalen ui (theme.json), die der Konfigurator unter
+# Global -> Darstellung setzt. Einzige Liste: _write_theme() schreibt genau
+# diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
+# muss auch hier stehen, sonst geht es beim Speichern still verloren.
+THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "font", "textColor", "baseColor",
+                 "bold", "lang", "scale")
 
 
 def _clean_scale(v):
@@ -1397,7 +1407,8 @@ class App:
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
-            # Skalierung laut Profil: "off" | "auto" | Faktor. Ein Geraet kann
+            # Skalierung laut Profil, sonst global (ui ist oben schon aus Theme
+            # und Profil gemischt): "off" | "auto" | Faktor. Ein Geraet kann
             # sie uebersteuern, siehe effective_scale().
             "scale": _clean_scale(ui.get("scale")) or "off",
         }
@@ -1690,8 +1701,9 @@ class App:
 
     def effective_scale(self, prof: dict | None, dev: str) -> str | float:
         """Wirksame Skalierung eines Panels: die des Geraets, falls dort eine
-        gesetzt ist, sonst die des Profils. So lassen sich zwei Displays mit
-        demselben Profil unterschiedlich einstellen."""
+        gesetzt ist, sonst die des Profils (resolve_profile() hat dort schon
+        die globale eingemischt). So lassen sich zwei Displays mit demselben
+        Profil unterschiedlich einstellen."""
         d = self.devices.get(dev) if dev else None
         if isinstance(d, dict):
             sc = _clean_scale(d.get("scale"))
@@ -1915,9 +1927,9 @@ class App:
             ui["svPane"] = _sp
         else:
             ui.pop("svPane", None)
-        # Skalierung: im Profil nur "auto" oder ein Faktor, "off" ist das Fehlen.
+        # Skalierung: "off" | "auto" | Faktor; fehlt sie, gilt die globale.
         _sc = _clean_scale(ui.get("scale"))
-        if _sc not in (None, "off"):
+        if _sc is not None:
             ui["scale"] = _sc
         else:
             ui.pop("scale", None)
@@ -2025,8 +2037,8 @@ class App:
             if _sp:
                 cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
             _sc = _clean_scale(ui.get("scale"))
-            if _sc not in (None, "off"):
-                cui["scale"] = _sc              # Skalierung: "auto" oder fester Faktor
+            if _sc is not None:
+                cui["scale"] = _sc              # Skalierung: off/auto/Faktor; fehlt = wie global
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if _color_ok(ui.get("baseColor")):
@@ -2180,6 +2192,9 @@ class App:
         lang = _clean_lang(ui.get("lang"))
         if lang:
             out["lang"] = lang
+        _sc = _clean_scale(ui.get("scale"))
+        if _sc not in (None, "off"):
+            out["scale"] = _sc          # Skalierung fuer alle Panels; "off" = Fehlen
         return out
 
     @staticmethod
@@ -2217,8 +2232,7 @@ class App:
         except ValueError:
             doc = {}
         cur = doc.get("ui") if isinstance(doc.get("ui"), dict) else {}
-        for k in ("iconSize", "nameSize", "subSize", "font", "textColor", "baseColor",
-                  "bold", "lang"):
+        for k in THEME_UI_KEYS:
             if k in ui:
                 cur[k] = ui[k]
             else:
@@ -4835,8 +4849,7 @@ async def api_meta(request: web.Request) -> web.Response:
         "devices": app.devices,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
-                         if k in ("iconSize", "nameSize", "subSize", "font",
-                                  "textColor", "baseColor", "bold", "lang")},
+                         if k in THEME_UI_KEYS},
                   "categories": {k: v for k, v in (app.theme.get("categories") or {}).items()
                                  if not str(k).startswith("_")}},
     })
