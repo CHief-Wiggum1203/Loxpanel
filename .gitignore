@@ -6,7 +6,10 @@ data/*
 config/loxpanel.cfg
 
 # Panel-Profile mit der konkreten Raum-/Kategorie-Aufteilung (personenbezogen)
+# Die .bak legt der Server bei JEDEM Speichern selbst an (_persist_panels_file,
+# Sicherung vor dem Ueberschreiben) - sie enthaelt dieselben Daten.
 config/panels.json
+config/panels.json.bak
 
 # Panel-lokale Kiosk-Konfig (Server-IP + Panel-ID, pro Geraet unterschiedlich)
 deploy/loxpanel-kiosk.conf
