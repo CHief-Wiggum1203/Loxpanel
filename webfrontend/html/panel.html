@@ -468,6 +468,25 @@
      zeigen): einspaltig weiterlaufen, statt die halbe Flaeche leer zu lassen. */
   .saver.split .sv-wrap.rich.solo{grid-template-columns:1fr;
     grid-template-areas:"clock" "wx";width:min(94%,620px);}
+  /* Energiefluss und Kamera rechts brauchen HOEHE. Ueber beiden Spalten nimmt
+     ihnen die Uhr ein Fuenftel davon: gemessen bei 960x480 blieb der Grafik
+     299 px, das 480er-SVG lief auf 62 % und die Knotennamen auf 7,5 px -
+     unlesbar. Hier steht die Uhr deshalb links ueber dem Wetter, und die rechte
+     Spalte bekommt die volle Hoehe. Sie wird auch breiter als die linke: die
+     Kamera ist 4:3 und damit durch die Breite begrenzt, nicht durch die Hoehe.
+     Die Uhr sitzt unten in der oberen Zeile, das Wetter oben in der unteren -
+     so treffen sie sich auf der Mittellinie der rechten Grafik. */
+  .saver.split .sv-wrap.rich.tall{width:min(96%,920px);
+    grid-template-columns:minmax(0,.85fr) minmax(0,1fr);
+    grid-template-areas:"clock cal" "wx cal";grid-template-rows:1fr 1fr;
+    column-gap:32px;row-gap:14px;align-items:stretch;}
+  .saver.split .sv-wrap.rich.tall .sv-clock{align-self:end;margin:0;}
+  .saver.split .sv-wrap.rich.tall .sv-wx{align-self:start;}
+  /* Ohne Wetter bliebe die untere linke Zelle leer und die Uhr saesse ueber der
+     Mitte (gemessen 53 px zu hoch). Dann ueber beide Zeilen und mittig. Das
+     Wetter steht im Markup direkt vor der Uhr - so geht es ohne :has(), das
+     aeltere Kiosk-WebViews nicht kennen. */
+  .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
@@ -516,15 +535,26 @@
     border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:14px;}
   .saver .sv-box .fp-page.solo{overflow:hidden;}
   /* Energiefluss und Kamera sind EINE Seite, die eine Hoehe BRAUCHT: am
-     Hauptschirm gibt die Pane sie vor, hier der gemessene freie Platz unter der
-     Uhr (--sv-frei, gesetzt in svFit). Ohne diese Grenze uebersetzt die
-     quadratische Grafik die Spaltenbreite in Hoehe und schiebt die Uhr aus dem
-     Bild. Mit ihr laeuft innen alles wie am Hauptschirm ueber Flex, und beide
-     Grafiken zentrieren sich (SVG per preserveAspectRatio, Bild per
-     object-fit), statt zu strecken. */
+     Hauptschirm gibt die Pane sie vor, hier die gemessene Hoehe des
+     Screensavers abzueglich Rand (--sv-frei, gesetzt in svFit; die Uhr steht
+     in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
+     am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
+     preserveAspectRatio, Bild per object-fit), statt zu strecken. */
   .saver .sv-box.solo{height:var(--sv-frei,auto);}
   .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
   .saver .sv-box.solo .video{max-height:100%;}
+  /* Kamera ist durch die Breite begrenzt (4:3): sie steht mittig in der Spalte,
+     statt oben zu kleben und unten einen leeren Streifen zu lassen. */
+  .saver .sv-box .campage{justify-content:center;}
+  /* Namen im Energiefluss: das SVG skaliert samt Text. Gemessen bei 960x480
+     standen die Namen bei 9,8 px, am Hauptschirm sogar bei 8,4 px. Die Uhr-Seite
+     wird aber aus Entfernung gelesen, nicht aus der Naehe bedient - deshalb hier
+     14 statt 12 Nutzereinheiten (~11 px am Schirm). NUR die Namen: die Werte
+     sind fett und schon ~13 px; groesser gemacht fressen sie bei den unteren
+     Knoten den festen Spalt zwischen Name und Wert (dort stehen beide dann
+     Rahmen an Rahmen). Nicht bei .dicht (ab 7 Knoten): dort laufen die Namen
+     schon in normaler Groesse in die Nachbarringe. */
+  .saver .sv-box .epane:not(.dicht) .enlab{font-size:14px;}
   /* Frei gewaehlte Bausteine: Name/Raum links, Wert rechts. Zustandsfarben wie
      auf einer Kachel, damit dasselbe Geraet nicht zweierlei Farbsprache hat. */
   .sv-st{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;
@@ -1658,12 +1688,12 @@ function svFit(){
   const platz=saver.clientHeight;
   const wrap=saver.querySelector('.sv-wrap');
   if(!platz||!wrap) return;                      // versteckt/noch nicht gemessen
-  // Quadratische bzw. 4:3-Grafiken (Energiefluss, Kamera) uebersetzen sonst die
-  // Spaltenbreite in Hoehe und schieben die Uhr aus dem Bild. Ihnen sagen, wie
-  // viel unter der Uhr wirklich frei ist — gemessen, nicht geschaetzt.
-  const uhr=wrap.querySelector('.sv-clock');
-  const frei=platz-(uhr?uhr.getBoundingClientRect().height:0)-28;
-  wrap.style.setProperty('--sv-frei', Math.max(120,Math.round(frei))+'px');
+  // Hoehe fuer Energiefluss/Kamera rechts (nur dort gelesen, siehe .tall): die
+  // Uhr steht dann links, der Grafik gehoert die ganze Hoehe bis auf den Rand.
+  // Der Rand ist derselbe Anteil wie seitlich (Breite 94 % -> je 3 %), damit
+  // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
+  const rand=Math.round(platz*0.03);
+  wrap.style.setProperty('--sv-frei', Math.max(120,platz-2*rand)+'px');
   // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
   // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
   // Kamera haben keine solchen Zeilen und bleiben unangetastet.
@@ -1708,7 +1738,10 @@ function renderFront(){
   // Kompakt-Layout aktivieren, sobald Wetter oder eine zweite Spalte da ist.
   const wrap=document.querySelector('.sv-wrap');
   if(wrap){ wrap.classList.toggle('rich', !!w || zweite);
-    wrap.classList.toggle('solo', !zweite); }
+    wrap.classList.toggle('solo', !zweite);
+    // Energiefluss/Kamera rechts: Uhr nach links, Grafik bekommt die volle Hoehe.
+    const box=el('svBox');
+    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo')); }
   svFit();
 }
 // ---- Rechte Spalte der Uhr-Seite ----
@@ -1952,7 +1985,10 @@ function energyInner(d){
       ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-74).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+nm+'</text>'
       : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+56).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+76).toFixed(1)+'">'+val+'</text>');
   });
-  return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
+  // "dicht": ab sieben Knoten stehen die Ringe so eng (rn 34 statt 40), dass
+  // die Beschriftungen der Seitenknoten schon jetzt in die Nachbarringe laufen.
+  // Wer die Schrift vergroessert (Screensaver), muss diesen Fall aussparen.
+  return '<div class="epane'+(N>6?' dicht':'')+'"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
     '<div class="ewrap"><svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">'+
     spokes.join('')+dots.join('')+'<circle class="ehub" cx="'+C+'" cy="'+C+'" r="13"/>'+ng.join('')+txts.join('')+
     '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';

@@ -534,6 +534,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       einer Stelle (`_clean_svpane()`), einstellbar unter *Panels → Aussehen &
       Verhalten*. Hochkant und auf dem 4″-Panel unverändert. Nebenbei behoben:
       eine Kamera-Pane streamte bisher hinter dem Screensaver weiter. **M**
+- [ ] **Energiefluss: Beschriftungen ab sieben Knoten laufen in die Nachbarringe.**
+      Die Namen und Werte stehen mit festem Abstand über bzw. unter ihrem Ring.
+      Ab sieben Knoten rücken die Ringe so eng zusammen (40° Abstand, Radius 34),
+      dass die Beschriftungen der Seitenknoten in die Ringe der Nachbarn ragen —
+      gemessen bei neun Knoten mit üblichen Namen („Klimaanlage OG",
+      „Wärmepumpe Keller"): sechs Überschneidungen. Betrifft Hauptschirm und
+      Screensaver gleichermaßen, weil beide dasselbe SVG zeichnen
+      (`energyInner()` in `panel.html`). Die Grafik trägt dann die Klasse
+      `dicht`; der Screensaver vergrößert die Namen in dem Fall bewusst nicht.
+      Lösungsidee: Beschriftung der Seitenknoten nach außen statt nach oben/unten
+      setzen. **M**
 - [ ] **Kalender/Wetter als eigener Tab**: volle Terminliste zum Durchscrollen
       und größere Wetteransicht, nicht nur die Front. **M**
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die

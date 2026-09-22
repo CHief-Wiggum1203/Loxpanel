@@ -560,6 +560,11 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
   oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe
   ihr MJPEG-Stream unsichtbar weiter.
+  Steht rechts Energiefluss oder Kamera, schaltet die Uhr-Seite auf das Layout
+  `.tall`: Uhr und Wetter links, die Grafik rechts über die volle Höhe. Beide
+  brauchen Höhe (Energiefluss quadratisch, Kamera 4:3); über beiden Spalten nahm
+  ihnen die Uhr ein Fünftel davon. Gemessen bei 960×480: Energiefluss 299 → 392 px,
+  Knotennamen 7,5 → 11,4 px, Kamerabild 362×269 → 454×341.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
   Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
