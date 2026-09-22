@@ -512,6 +512,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       15 Min (`front_task`) und pusht `{t:"front"}`; die Uhr-Startseite zeigt
       Wetter oben und die nächsten Termine unten. Pflegbar unter *Settings →
       Kalender & Wetter*, gespeichert im `calendar`-Block von `loxpanel.cfg`. **M**
+- [x] **Screensaver: rechte Spalte nutzbar machen.** Im Querformat stand rechts
+      neben der Uhr nur die Terminliste — gab es keine Termine (oder kein
+      iCal-Abo), blieb die halbe Fläche leer, während das Wetter links auf 50 %
+      gedrängt blieb. Jetzt entscheidet je Panel `ui.svPane`, was dort steht:
+      Automatik (Termine, sonst die Wetter-Details mit Stundenverlauf,
+      Luftfeuchte, Wind, Sonne), fest Termine, fest Wetter, Energiefluss,
+      Kamera, frei gewählte Bausteine als Werte-Kacheln (neu `status_blocks()`
+      + `{t:"svstatus"}`, gebaut über `_control_item()` wie jede Kachel) oder
+      gar nichts — dann rücken Uhr und Wetter auf die volle Breite. Geprüft an
+      einer Stelle (`_clean_svpane()`), einstellbar unter *Panels → Aussehen &
+      Verhalten*. Hochkant und auf dem 4″-Panel unverändert. Nebenbei behoben:
+      eine Kamera-Pane streamte bisher hinter dem Screensaver weiter. **M**
 - [ ] **Kalender/Wetter als eigener Tab**: volle Terminliste zum Durchscrollen
       und größere Wetteransicht, nicht nur die Front. **M**
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die

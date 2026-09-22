@@ -204,7 +204,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab und die rechte Spalte der Uhr-Seite |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured` | eine komplette Ansicht |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -216,6 +216,7 @@ Server → Browser (`panel.html:700`):
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
+| `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 
@@ -225,6 +226,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
+| `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
 ### 3.7 Das Block-Vokabular
 
@@ -550,6 +552,14 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
+- Screensaver: rechte Spalte je Panel einstellbar (`ui.svPane`), wirksam nur im
+  Querformat. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
+  Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,
+  `weather`, `energy:<uuid>`, `camera:<uuid>`, `status:<uuid>,…`. Geprüft an
+  EINER Stelle (`_clean_svpane()`), gezeichnet in `renderSvSide()`. Energiefluss
+  und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
+  oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe
+  ihr MJPEG-Stream unsichtbar weiter.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
   Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
