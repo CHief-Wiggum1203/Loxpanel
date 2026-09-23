@@ -257,8 +257,13 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
 
 `hero`, `cover`, `video`, `web`, `status`, `title`, `value`, `big`, `astat`,
 `slider`, `row` (mit `cells`, Varianten `transport`, `wrap`, `hidden`), `head`,
-`favs`, `alarmlist`, `more`. Zellen innerhalb `row`: `cmd`, `hold`+`release`,
-`menu`, `icon`, `big`, `on`, `label`.
+`favs`, `alarmlist`, `chart`, `more`. Zellen innerhalb `row`: `cmd`,
+`hold`+`release`, `menu`, `icon`, `big`, `on`, `label`.
+
+`chart` (Verlaufs-Diagramm) trägt `kind` (`line`, `digital`, `counter`), `unit`,
+`t0`/`t1`, `series[]` (`name`, `dec`, `pts` als `[sekunden, wert]`) und `state`
+(`ok`, `loading`, `error`, `empty`); das erste Diagramm einer Seite dazu `range`
+und `ranges` für die Zeitraum-Knöpfe. Gezeichnet in `paintChart()` der Visu.
 
 Kachelseiten bestehen aus `items[]` mit `id`, `label`, `sublabel`, `room`,
 `icon|iconUrl|iconImg`, `on`, `tone`, `color`, `style`, `nav` oder `cmd`,
@@ -330,6 +335,47 @@ Sonnenauf- und -untergang kommen unabhängig davon aus den globalen States
 *Settings → Diagnose* zeigt unter `weatherServer`, was die Anlage meldet: die
 State-UUIDs, wie viele Einträge angekommen sind, den aktuellen Rohdatensatz mit
 seinen Werten, die Wetterlage-Texte und die Formatstrings.
+
+### 3.9 Woher die Verläufe kommen
+
+Bausteine mit Aufzeichnung tragen in der Struktur `statistic` (ältere Art) oder
+`statisticV2` (Energie-Zähler, EFM). Die Detailseite eines Bausteins mit
+`statistic` bekommt unter dem aktuellen Wert Verlaufs-Diagramme (Block `chart`,
+§3.7). Die Daten liegen am Miniserver als Monatsdateien
+`/stats/<uuidAction>.<JJJJMM>.xml`, jede Zeile `<S T="JJJJ-MM-TT hh:mm:ss"
+V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
+`/stats/`, und so führt sie die Loxone-App (Befehlstabelle `STATISTIC` in
+`scripts4.js` der Weboberfläche); ermittelt an der Anlage mit
+`bin/statistic_probe.py`.
+
+- **Abruf:** `_stat_load()` holt eine Monatsdatei mit dem Bearer-Token über
+  `icon_session`, im Hintergrund (`_spawn`), sobald eine Detailseite sie
+  braucht. Danach `_dirty`, der Broadcaster schickt die Seite mit Diagramm neu
+  (vorher `state: loading`). 404 heißt: kein Eintrag in diesem Monat.
+- **Cache:** `stat_cache` je (uuidAction, Monat). Ein Monat, der beim Abruf
+  schon vorbei war, ändert sich nicht mehr; der laufende wird nach
+  `STAT_REFRESH` (5 Min.) neu geholt, nach einem Fehler frühestens nach
+  `STAT_RETRY`. `stat_memo` hält die fertigen Blöcke für den Rest der Minute,
+  damit der Broadcaster-Takt nicht jede Monatsdatei neu durchrechnet.
+- **Zeitraum:** läuft in der Route mit, `{"view":"control","id":…,
+  "range":"24h"|"7d"|"30d"}`. Die Knöpfe ersetzen die oberste Seite im Stapel,
+  statt eine neue aufzulegen.
+- **Darstellung** nach `visuType` des Ausgangs (an der Anlage beobachtet):
+  0 Linie, 1 Digitalwert als Stufen mit Ein-Dauer, 2 Zählerstand als Verbrauch
+  je Stunde (24 h) bzw. je Tag ab Mitternacht (7/30 Tage). Ausgänge gleicher
+  Art und Einheit teilen sich ein Diagramm. Linien werden auf 240 Punkte
+  ausgedünnt (Mittelwert, bei Digitalwerten Maximum). Beim Zählerstand zählt
+  ein Absturz auf weniger als die Hälfte als Reset, ein kleiner Rücksprung
+  (Rundung) nicht als Verbrauch.
+- **Zeit:** Die Zeitstempel sind Ortszeit des Miniservers und werden als
+  Wanduhr-Sekunden (`timegm`) geführt, die Visu formatiert sie mit `getUTC*`.
+  So zeigen Server und Panel dieselbe Uhrzeit, unabhängig von der Zeitzone des
+  Browsers; „jetzt" kommt aus der Container-Zeit (`TZ`, wie beim Nachtmodus).
+
+`statisticV2` wird über `jdev/sps/getStatistic/%s/%s/%i/%i/%s/%s/%s` abgerufen
+(Befehlstabelle `StatisticV2` derselben Datei). Die Bedeutung der sieben
+Parameter ist noch nicht ermittelt; diese Bausteine bekommen deshalb noch
+kein Diagramm.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
