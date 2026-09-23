@@ -12,11 +12,11 @@ Laeuft im LoxPanel-Container, weil dort aiohttp vorhanden ist und der Server die
 Adressen (Miniserver + Audioserver) aus der Struktur kennt. Solange die Datei
 noch nicht im Image steckt, per Pipe:
 
-    curl -fsSL <url dieser datei> | docker exec -i LoxPanel python3 - [argumente]
+    curl -fsSL <url dieser datei> | docker exec -i LoxPanel python3 -u - [argumente]
 
 sonst direkt:
 
-    docker exec -i LoxPanel python3 bin/treeturbo_probe.py [argumente]
+    docker exec -i LoxPanel python3 -u bin/treeturbo_probe.py [argumente]
 
 Argumente (kombinierbar mit `full`):
     (ohne)          Adressen aus Panel und Struktur lesen, die zugehoerigen
@@ -159,7 +159,7 @@ async def resolve_ipv4(host: str) -> str:
     loop = asyncio.get_running_loop()
     try:
         infos = await asyncio.wait_for(loop.getaddrinfo(host, None, family=socket.AF_INET), DNS_TIMEOUT)
-    except (asyncio.TimeoutError, OSError):
+    except (asyncio.TimeoutError, OSError, ValueError):   # UnicodeError bei "192.168..20"
         return ""
     return infos[0][4][0] if infos else ""
 
@@ -220,7 +220,7 @@ async def http_banner(host: str, port: int) -> str:
                 server = r.headers.get("Server", "")
                 text = await r.text(errors="replace")
     except Exception as err:
-        return f"nicht abrufbar ({cut(err, 80)})"
+        return f"nicht abrufbar ({cut(err, 80) or type(err).__name__})"
     m = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
     title = (m.group(1).strip() if m else "")[:120]
     parts = [f"HTTP {status}"]
@@ -234,10 +234,14 @@ async def http_banner(host: str, port: int) -> str:
 async def audio_banner(host: str, port: int = 7091) -> str:
     """Audioserver-Protokoll: mit Unterprotokoll remotecontrol verbinden und das
     Begruessungsbanner (LWSS V ... | ~API:...~) einsammeln. Es wird kein Befehl
-    gesendet, nur zugehoert."""
+    gesendet, nur zugehoert. Das Session-Timeout begrenzt den Handshake (ein
+    float-`timeout` an ws_connect gilt bei aiohttp nur fuers Schliessen, der
+    Handshake liefe sonst bis 300 s); nach dem Upgrade setzt aiohttp das
+    Lese-Timeout zurueck, das Zuhoeren begrenzt die Schleife selbst."""
+    timeout = aiohttp.ClientTimeout(total=None, sock_connect=5, sock_read=8)
     try:
-        async with aiohttp.ClientSession() as s:
-            async with s.ws_connect(f"ws://{host}:{port}/", timeout=8, protocols=("remotecontrol",)) as ws:
+        async with aiohttp.ClientSession(timeout=timeout) as s:
+            async with s.ws_connect(f"ws://{host}:{port}/", protocols=("remotecontrol",)) as ws:
                 proto = ws.protocol or "(keins)"
                 loop = asyncio.get_running_loop()
                 end = loop.time() + 4
@@ -255,7 +259,7 @@ async def audio_banner(host: str, port: int = 7091) -> str:
                     if not first:
                         first = cut(m.data, 160)
     except Exception as err:
-        return f"WebSocket nicht moeglich ({cut(err, 80)})"
+        return f"WebSocket nicht moeglich ({cut(err, 80) or type(err).__name__})"
     return f"WebSocket verbunden (Unterprotokoll {proto})" + \
         (f", erste Nachricht: {cut(first, 200)}" if first else ", in 4 s keine Nachricht")
 

@@ -161,11 +161,11 @@ auch mit Ablehnung, so tauchen auch Geräte ohne offenen Loxone-Port auf. Die
 Liste zeigt je Gerät den Namen aus dem Router-DNS und markiert Miniserver und
 Audioserver; Geräte mit offenen Ports werden genauer abgefragt (HTTP-Banner,
 Audioserver-Banner auf 7091 über das Unterprotokoll `remotecontrol`, nur
-zuhören). Aufruf `docker exec -i LoxPanel python3 bin/treeturbo_probe.py`,
+zuhören). Aufruf `docker exec -i LoxPanel python3 -u bin/treeturbo_probe.py`,
 solange die Datei nicht im Image steckt per `curl … | docker exec -i LoxPanel
-python3 -`; `host <ip>` prüft eine Adresse, `net <cidr>` ein bestimmtes Netz,
-`full` (kombinierbar) die Ports 1–10000 je abgefragtem Gerät. Die Sonde liest
-nur. So lässt sich feststellen, welche Tree-Turbo-Geräte im Netz auftauchen und
+python3 -u -` (`-u` zeigt die Ausgabe sofort statt erst am Ende); `host <ip>`
+prüft eine Adresse, `net <cidr>` ein bestimmtes Netz, `full` (kombinierbar) die
+Ports 1–10000 je abgefragtem Gerät. Die Sonde liest nur. So lässt sich feststellen, welche Tree-Turbo-Geräte im Netz auftauchen und
 welche Dienste sie ohne Anmeldung anbieten — die Grundlage, um ein eigenes Panel
 als Ersatz für das Wall Display anzubinden, statt es zu kaufen.
 
