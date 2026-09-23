@@ -126,19 +126,26 @@ def test_split_haelfte_und_kachel(tmp_path, miniserver_http):
     asyncio.run(lauf())
 
 
-def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http):
+@pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raumzeile", "ohne_raumzeile"])
+def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
     """Der Mini-Verlauf passt sich der Kachel an (Querformat ohne rechte Haelfte
     verdoppelt die Spalten, 3 -> 6):
     mitte   genug Hoehe: Verlauf in der Kachelmitte
     kopf    niedrig, aber breit: Verlauf in der Kopfzeile neben dem Icon
     keiner  niedrig und schmal (18 Kacheln auf 800 x 480): kein Platz fuer einen
-            Verlauf, die Angabe bleibt in der Raumzeile lesbar"""
+            Verlauf, die Angabe bleibt in der Raumzeile lesbar
+    Ohne Raumzeile (alle Bausteine in einem Raum, wie in der Raum-Ansicht)
+    bekommt die Angabe die Zeile ueber dem Namen, der Verlauf wird dafuer
+    niedriger gezeichnet statt abgeschnitten."""
     faelle = [(1280, 800, 3, "mitte"), (800, 480, 2, "mitte"), (1280, 480, 3, "kopf"), (800, 480, 3, "keiner")]
     tiles = {"T": {"chart": "24h", "chartStyle": "span"}, "Z": {"chart": "24h", "chartStyle": "pattern"},
              "R": {"chart": "7d"}, "P": {"chart": "24h"}}
 
     async def lauf():
         async with Umgebung(tmp_path, {}) as u:
+            if not raumzeile:
+                for c in u.app.controls.values():
+                    c["room"] = "r1"
             for breite, hoehe, zeilen, ort in faelle:
                 u.app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"],
                                                                 "ui": {"cols": 3, "rows": zeilen}, "tiles": tiles}})
@@ -147,6 +154,10 @@ def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http):
                     name: t.querySelector('.name').textContent, svg: !!t.querySelector('.tspark svg'),
                     rects: t.querySelectorAll('.tspark rect').length, eng: t.classList.contains('sparktight'),
                     hoehe: (t.querySelector('.tspark svg') || {}).clientHeight || 0,
+                    ueber: (sv => sv ? sv.getBoundingClientRect().bottom
+                                       - t.querySelector('.tspark').getBoundingClientRect().bottom : 0)
+                           (t.querySelector('.tspark svg')),
+                    raum: !!t.querySelector('.room:not(.tsline)'),
                     zeile: [...t.querySelectorAll('.room')].filter(e => getComputedStyle(e).display !== 'none')
                              .map(e => e.textContent).join('|'),
                     angabe: (t.querySelector('.tsbadge') || {}).textContent || '',
@@ -157,8 +168,10 @@ def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http):
                 await u.bild(pg, f"stile_{breite}x{hoehe}_{zeilen}zeilen")
                 k = {i["name"]: i for i in info}
                 mit = [k[n] for n in ("Boiler", "Stromzähler", "Regen", "PV Anlage")]
-                fall = f"{breite}x{hoehe}, {zeilen} Zeilen"
+                fall = f"{breite}x{hoehe}, {zeilen} Zeilen, {'mit' if raumzeile else 'ohne'} Raumzeile"
                 assert not k["Licht"]["svg"] and not any(i["abgeschnitten"] for i in info), (fall, info)
+                assert all(i["raum"] == raumzeile for i in info), (fall, info)
+                assert all(i["ueber"] <= 1 for i in mit), f"{fall}: Verlauf ragt aus seinem Platz {info}"
                 assert all(i["eng"] == (ort != "mitte") for i in mit), (fall, info)
                 if ort == "keiner":
                     assert not any(i["svg"] for i in mit), (fall, info)

@@ -140,6 +140,8 @@
       'Tagesmuster': 'Daily pattern',
       'Tagesspanne': 'Daily range',
       'Kurve mit Tief, Hoch und Änderung': 'Curve with low, high and change',
+      'Verbrauch als Balken, dazu die Summe': 'Consumption as bars, plus the total',
+      'Ein/Aus als Stufen, dazu die Einschaltdauer': 'On/off as steps, plus the time switched on',
       '7 Tage × 24 Stunden als Farbraster': '7 days × 24 hours as a color grid',
       'Tief bis Hoch je Tag, 7 Tage': 'Low to high per day, 7 days',
       '7 Tage': '7 days',

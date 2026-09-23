@@ -121,8 +121,9 @@ Einreichen:**
 | [#43](https://github.com/Lenardo1/loxpanel/pull/43) | `up/token-stabilitaet` | Miniserver-Token erneuern, Befehlsfehler im Panel, kleinere Stabilitätsfehler (Fork #81) |
 | noch nicht eingereicht | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, dazu die zwei Kachel-Korrekturen aus #82), setzt auf #43 auf |
 
-Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
-gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
+Jeder eingereichte Zweig trägt den Kopf seines Pull Requests. Wird er
+gelöscht, schließt GitHub den zugehörigen PR. `up/verlaeufe` hat noch keinen,
+bleibt bis zum Einreichen aber genauso stehen. Erst entfernen, wenn Lenardo
 den PR gemergt oder geschlossen hat — und zwar einzeln, nicht in einem Rutsch.
 
 Zu #35 und #36: Der Fehler in #35 steckt in Lenardos Code und ist an seinem
@@ -175,8 +176,12 @@ an (beide Seiten behalten), nach #39 zusätzlich an fünf Stellen in
 #39 und die Verläufe dieselben Stellen um ihr jeweiliges Gegenstück
 (`conn_status`/`conn_chart`, `setsvstatus`/`setchart`,
 `svStatusMax`/`statRanges`, `svstatus`/`chart`), und `chart:` gehört dann in
-das mit #39 eingeführte `_clean_tabpane()`. Im Fork steht beides schon
-nebeneinander, die Auflösung von dort übernehmen.
+das mit #39 eingeführte `_clean_tabpane()`. In `panel.html` braucht die
+Verlaufs-Pane außerdem den `svSideOn()`-Schutz aus #39: Solange der
+Screensaver oben liegt, meldet `setchart` keinen Baustein, und `{t:"chart"}`
+wird nicht gezeichnet. Diesen Schutz hat keine der beiden Seiten. Nur beide
+Seiten zu behalten reicht also nicht, die Auflösung aus dem Fork übernehmen,
+wo alles schon nebeneinander steht.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`

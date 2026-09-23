@@ -461,6 +461,11 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
     die Kurzangabe bleibt.
   - Passt die Kurzangabe nicht in den Kopf, steht sie ebenfalls in der
     Raumzeile (`sparkbadge`).
+  - Kacheln ohne Raumzeile (Raum-Ansicht, Favoriten aus nur einem Raum)
+    bekommen dafür eine eigene Zeile über dem Namen. Die Mitte wird dadurch
+    niedriger, deshalb misst `paintSpark()` nach jedem Wechsel von
+    `sparkbadge` neu (`placeSpark()`) und zeichnet den Verlauf in der neuen
+    Höhe oder rückt ihn in den Kopf.
   - Beschriftungen entfallen bei zu wenig Platz (Tief/Hoch und Wochentage unter
     48 px Höhe, Wochentage auch unter 16 px je Tag), statt sich zu überlappen.
 

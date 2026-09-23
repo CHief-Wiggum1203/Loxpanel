@@ -87,6 +87,12 @@ def test_kachel_verlauf_stil_und_zeitraum():
         const stand = () => JSON.parse(JSON.stringify((p.tiles || {})[tileSel] || null));
         const out = {stile: {}, schritte: {}};
         for (const u of ['T', 'Z', 'R', 'P', 'X']) { tileSel = u; renderTileEditor(); out.stile[u] = opts('tChartStyle'); }
+        out.hinweise = {};
+        for (const u of ['T', 'Z', 'R']) {
+            tileSel = u; renderTileEditor(); wahl('tChartStyle', 'trend');
+            const art = (META.controls.find(c => c.uuid === u) || {}).statKind;
+            out.hinweise[u] = [art, document.querySelector('#tileEditor .hint').textContent];
+            wahl('tChartStyle', ''); }
         tileSel = 'T'; renderTileEditor();
         const schritt = name => out.schritte[name] = {ov: stand(), zeitraum: opts('tChartRange') &&
                                                        document.getElementById('tChartRange').value};
@@ -101,6 +107,11 @@ def test_kachel_verlauf_stil_und_zeitraum():
         return out; }""")
     alle = ["", "trend", "pattern", "span"]
     assert res["stile"] == {"T": alle, "P": alle, "Z": alle[:3], "R": alle[:3], "X": None}   # Spanne nur fuer Messwerte
+    # der Hinweis zum Trend sagt, was die Kachel bei dieser Art zeichnet
+    trend = {"line": "Kurve mit Tief, Hoch und Änderung", "counter": "Verbrauch als Balken, dazu die Summe",
+             "digital": "Ein/Aus als Stufen, dazu die Einschaltdauer"}
+    assert {a for a, _ in res["hinweise"].values()} == set(trend), res["hinweise"]
+    assert all(h == trend[a] for a, h in res["hinweise"].values()), res["hinweise"]
     s = res["schritte"]
     assert s["trend"] == {"ov": {"chart": "24h"}, "zeitraum": "24h"}
     assert s["trend 7d"]["ov"] == {"chart": "7d"}
