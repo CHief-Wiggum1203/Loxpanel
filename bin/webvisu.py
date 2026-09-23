@@ -159,6 +159,16 @@ STAT_DEFAULT_RANGE = "24h"
 STAT_MAX_POINTS = 240    # Punkte je Linie nach dem Ausduennen (Diagramm ~440 px breit)
 STAT_REFRESH = 300       # Monatsdatei, die noch waechst, nach so vielen Sekunden neu holen
 STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
+# Anfragen an den Miniserver (Befehle, Verlaeufe, Icons) tragen das Token der
+# Anmeldung. Es laeuft nach einiger Zeit ab, die WebSocket-Verbindung fuer die
+# Anzeige braucht es danach aber nicht mehr - ohne Erneuerung zeigte das Panel
+# nach 1-2 Tagen weiter Werte an, nahm aber keine Befehle mehr an. Meldet der
+# Miniserver 401, meldet _ms_http() sich neu an und wiederholt die Anfrage.
+MS_CMD_TIMEOUT = 10      # s: ein Befehl blockiert solange die Nachrichten seines Panels
+TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
+MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
+ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
+COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
 STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
 # visuType der Statistik-Ausgaenge, wie an der Anlage beobachtet: 0 Analogwert
 # (Temperatur, Leistung ...), 1 Digitalwert (Regen, Sonnenschein), 2 Zaehlerstand
@@ -849,6 +859,7 @@ class App:
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
+        self.op_modes: dict = {}        # Betriebsarten der Anlage (Id -> Name), s. _apply_structure
         self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
         self.night_cfg = _night_config()  # {"control": uuid} -> dessen active-State = Nacht
         self._dirty = True
@@ -860,6 +871,9 @@ class App:
         self._last_sent: dict = {}
         self.jwt: str | None = None
         self.alg: str = "SHA1"
+        self._auth_gen = 0               # zaehlt jede Anmeldung (-> _renew_token)
+        self._auth_at = 0.0              # monotonic der letzten Anmeldung
+        self._auth_lock = asyncio.Lock()
         self.icon_session: aiohttp.ClientSession | None = None
         self.icon_cache: dict[str, tuple[bytes, str]] = {}
         # Verlaufsdaten: (uuidAction, "JJJJMM") -> (monotonic, JJJJMM beim Abruf,
@@ -1090,7 +1104,7 @@ class App:
                                        self.port, self.verify_tls)
             await self.client.__aenter__()
             self.alg = (await self.client.getkey2()).hashAlg
-            self.jwt = await self.client.authenticate()
+            self._set_token(await self.client.authenticate())
             st = await self.client.load_structure()
             # Reconnect nach Miniserver-Reboot (z.B. Loxone-Config hochgeladen):
             # hat sich die Struktur geaendert, Panels neu laden lassen. Beim
@@ -1142,7 +1156,8 @@ class App:
         self.user, self.password = ms["user"], ms["pass"]
         self.verify_tls = ms.get("verify_tls", False)
         old_client, self.client = self.client, newc
-        self.alg, self.jwt = alg, jwt
+        self.alg = alg
+        self._set_token(jwt)
         # Anderer/geaenderter Miniserver -> Struktur evtl. anders, dann Panels neu laden.
         if self._adopt_structure(st):
             self._pending_reload = True
@@ -1169,10 +1184,65 @@ class App:
                            secure=_ms_https(self.port))
         await self.ws.connect()
 
+    def _set_token(self, jwt: str) -> None:
+        self.jwt = jwt
+        self._auth_gen += 1
+        self._auth_at = time.monotonic()
+
     async def _reauth(self) -> None:
         # Token erneuern (kann nach langer Laufzeit ablaufen)
         if self.client:
-            self.jwt = await self.client.authenticate()
+            self._set_token(await self.client.authenticate())
+
+    async def _renew_token(self, seen_gen: int) -> bool:
+        """Nach einem 401 neu anmelden. Hat eine parallele Anfrage das schon
+        getan (Zaehler weiter als seen_gen), genuegt es, erneut zu senden. Innerhalb
+        von TOKEN_RENEW_MIN nach der letzten Anmeldung nicht noch einmal: dann liegt
+        der 401 nicht am Token. -> True, wenn sich ein Neuversuch lohnt."""
+        async with self._auth_lock:
+            if self._auth_gen != seen_gen:
+                return True
+            if not self.client or time.monotonic() - self._auth_at < TOKEN_RENEW_MIN:
+                return False
+            self._auth_at = time.monotonic()     # auch ein Fehlversuch sperrt fuer TOKEN_RENEW_MIN
+            try:
+                self._set_token(await self.client.authenticate())
+            except Exception as err:            # z. B. Passwort geaendert, Miniserver startet neu
+                log.warning("Neuanmeldung am Miniserver fehlgeschlagen: %s", err or type(err).__name__)
+                return False
+            log.info("Miniserver-Token abgelaufen -> neu angemeldet")
+            return True
+
+    async def _ms_http(self, path: str, timeout: float, renew: bool = True) -> tuple[int, bytes, str]:
+        """GET an den Miniserver mit dem aktuellen Token; bei 401 (und renew)
+        einmal neu anmelden und wiederholen. -> (HTTP-Status, Inhalt, Content-Type). Wirft
+        ConnectionError ohne Verbindung, sonst aiohttp.ClientError/TimeoutError."""
+        async def once() -> tuple[int, bytes, str]:
+            if self.icon_session is None:
+                raise ConnectionError("keine Verbindung zum Miniserver")
+            scheme = "https" if _ms_https(self.port) else "http"
+            headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+            async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}",
+                                             headers=headers,
+                                             timeout=aiohttp.ClientTimeout(total=timeout)) as r:
+                return r.status, await r.read(), r.headers.get("Content-Type", "")
+        gen = self._auth_gen
+        res = await once()
+        if res[0] == 401 and renew and await self._renew_token(gen):
+            res = await once()
+        return res
+
+    async def _ms_jdev(self, path: str, timeout: float = MS_CMD_TIMEOUT,
+                       renew: bool = True) -> tuple[str, object]:
+        """jdev-Befehl ueber _ms_http. -> (Code, LL.value); Code ist der
+        LL-Code der Antwort, ohne lesbares JSON der HTTP-Status."""
+        status, body, _ = await self._ms_http("jdev/" + path.lstrip("/"), timeout, renew)
+        try:
+            ll = json.loads(body.decode("utf-8", "replace").lstrip("\ufeff").strip("\x00")).get("LL") or {}
+        except (ValueError, AttributeError):
+            ll = {}
+        code = ll.get("Code") or ll.get("code")
+        return (str(code) if code is not None else str(status)), ll.get("value")
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -2059,11 +2129,8 @@ class App:
                     if (self.conn_prof.get(ws) or {}).get("id") == profile:
                         sent += 1            # zeigt bereits das richtige Profil
                         continue
-                    try:
-                        await ws.send_json({"t": "switch", "panel": profile})
+                    if await self._send_or_drop(ws, {"t": "switch", "panel": profile}):
                         sent += 1
-                    except Exception as err:   # nicht nur ConnectionError (F3)
-                        log.debug("switch-Push an Panel fehlgeschlagen: %s", err)
                 results.append({"panel": name, "profile": profile,
                                 "ok": sent > 0, "via": "ws"})
                 continue
@@ -2447,23 +2514,19 @@ class App:
 
     async def fetch_icon(self, path: str) -> tuple[bytes, str] | None:
         if path in self.icon_cache:
-            return self.icon_cache[path]
-        if not self.icon_session:
-            return None
-        scheme = "https" if _ms_https(self.port) else "http"
-        url = f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}"
-        headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+            hit = self.icon_cache.pop(path)       # neu einsortieren = zuletzt benutzt
+            self.icon_cache[path] = hit
+            return hit
         try:
-            async with self.icon_session.get(
-                    url, headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=6)) as r:
-                if r.status != 200:
-                    return None
-                body = await r.read()
-                ctype = r.headers.get("Content-Type", "application/octet-stream")
-        except (aiohttp.ClientError, asyncio.TimeoutError):
+            status, body, ctype = await self._ms_http(path, 6)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
             return None
+        if status != 200:
+            return None
+        ctype = ctype or "application/octet-stream"
         self.icon_cache[path] = (body, ctype)
+        while len(self.icon_cache) > ICON_CACHE_MAX:
+            self.icon_cache.pop(next(iter(self.icon_cache)))   # am laengsten unbenutzt
         return self.icon_cache[path]
 
     async def _stat_load(self, ua: str, ym: str) -> None:
@@ -2475,19 +2538,14 @@ class App:
         key = (ua, ym)
         rows: list | None = None
         try:
-            if self.icon_session:
-                scheme = "https" if _ms_https(self.port) else "http"
-                url = f"{scheme}://{self.host}:{self.port}/stats/{ua}.{ym}.xml"
-                headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
-                async with self.icon_session.get(url, headers=headers,
-                                                 timeout=aiohttp.ClientTimeout(total=20)) as r:
-                    if r.status == 404:
-                        rows = []
-                    elif r.status == 200:
-                        rows = _parse_stat_xml(await r.text(errors="replace"))
-                    else:
-                        log.info("Statistik %s.%s: HTTP %s", ua, ym, r.status)
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            status, body, _ = await self._ms_http(f"stats/{ua}.{ym}.xml", 20)
+            if status == 404:
+                rows = []
+            elif status == 200:
+                rows = _parse_stat_xml(body.decode("utf-8", "replace"))
+            else:
+                log.info("Statistik %s.%s: HTTP %s", ua, ym, status)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
             log.info("Statistik %s.%s nicht abrufbar: %s", ua, ym, err)
         finally:
             self.stat_pending.discard(key)
@@ -2510,25 +2568,19 @@ class App:
         path = f"jdev/sps/getStatistic/{ua}/raw/{now - span - 3600}/{now}/all/{quote(gid)}/{quote(out)}"
         try:
             async with self.stat2_sem:
-                if self.icon_session:
-                    scheme = "https" if _ms_https(self.port) else "http"
-                    headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
-                    async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path}",
-                                                     headers=headers,
-                                                     timeout=aiohttp.ClientTimeout(total=30)) as r:
-                        body = await r.read()
-                        if r.status != 200:
-                            log.info("Statistik V2 %s: HTTP %s", path, r.status)
-                        elif not body:
-                            rows = []
-                        elif body[:1] == b"{":
-                            rows = []
-                            log.info("Statistik V2 %s: keine Daten (%s)", path, body[:160].decode("utf-8", "replace"))
-                        else:
-                            rows = _parse_stat2_bin(body)
-                            if rows is None:
-                                log.info("Statistik V2 %s: unerwartete Antwort, %d Bytes", path, len(body))
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                status, body, _ = await self._ms_http(path, 30)
+            if status != 200:
+                log.info("Statistik V2 %s: HTTP %s", path, status)
+            elif not body:
+                rows = []
+            elif body[:1] == b"{":
+                rows = []
+                log.info("Statistik V2 %s: keine Daten (%s)", path, body[:160].decode("utf-8", "replace"))
+            else:
+                rows = _parse_stat2_bin(body)
+                if rows is None:
+                    log.info("Statistik V2 %s: unerwartete Antwort, %d Bytes", path, len(body))
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
             log.info("Statistik V2 %s nicht abrufbar: %s", path, err)
         finally:
             self.stat_pending.discard(key)
@@ -2544,11 +2596,11 @@ class App:
         if not self.icon_session:
             return None
         try:
-            async with self.icon_session.get(url) as r:
+            async with self.icon_session.get(url, timeout=aiohttp.ClientTimeout(total=COVER_TIMEOUT)) as r:
                 if r.status != 200:
                     return None
                 return (await r.read(), r.headers.get("Content-Type", "image/jpeg"))
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return None
 
     # ---- Kachel fuer ein Control ----
@@ -2633,7 +2685,7 @@ class App:
         modes = e.get("modes")
         if not isinstance(modes, list) or not modes:
             return ""
-        op = getattr(self, "op_modes", {})
+        op = self.op_modes
         names = []
         for m in modes:
             nm = _clean(op.get(str(m)))
@@ -3433,8 +3485,11 @@ class App:
         # ist bei vielen Setups leer, dies ist der zuverlaessige Weg. Der
         # Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
         # Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
+        # Nur wenn der Kanal die Favoriten auch liefern darf: ein gekoppelter
+        # Audioserver ohne geglueckte Anmeldung schickt keine (dieselbe Bedingung
+        # wie beim Anfordern in prime_favs) -> dann die des Miniservers.
         _cl, _pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
-        if _cl is not None and _pid is not None:
+        if _cl is not None and _pid is not None and (not _cl.paired or _cl.authed):
             favs = _cl.favs.get(_pid, [])
             items = [{"label": f["name"],
                       "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
@@ -4890,25 +4945,30 @@ class App:
                 return None
             # Miniserver: gekoppelte Zonen (Transport + roomfav-Fallback),
             # unbekannter Kopplungsstatus, roomfav/get und Nicht-Audio-Befehle.
-            log.info("cmd %s/%s", uuid, cmd)
-            await self.client.jdev_get(f"sps/io/{uuid}/{cmd}")
-            return "200"
+            code, _ = await self._ms_jdev(f"sps/io/{uuid}/{cmd}")
+            if code == "200":
+                log.info("cmd %s/%s", uuid, cmd)
+            else:
+                log.warning("cmd %s/%s -> Code %s", uuid, cmd, code)
+            return code
         except Exception as err:  # Befehl darf den Server nicht killen
-            log.warning("cmd fehlgeschlagen: %s", err)
+            log.warning("cmd %s/%s fehlgeschlagen: %s", uuid, cmd, err or type(err).__name__)
             return None
 
     async def _secured_command(self, uuid: str, cmd: str, pin: str) -> str | None:
         """Loxone secured-command: getvisusalt -> Hash(visuPw:salt) -> HMAC(key) -> ios."""
-        r = await self.client.jdev_get(f"sys/getvisusalt/{quote(self.user)}")
-        val = (r.get("LL") or {}).get("value") or {}
+        # Ein abgelaufenes Token faellt hier auf (und wird erneuert), nicht erst
+        # beim ios-Aufruf: dort hiesse ein Fehler "Visu-Passwort falsch".
+        _, val = await self._ms_jdev(f"sys/getvisusalt/{quote(self.user)}")
+        val = val if isinstance(val, dict) else {}
         key, salt = val.get("key", ""), val.get("salt", "")
         alg = (val.get("hashAlg") or "SHA1").upper()
         digest = hashlib.sha256 if alg == "SHA256" else hashlib.sha1
         pwhash = digest(f"{pin}:{salt}".encode()).hexdigest().upper()
         h = hmac.new(bytes.fromhex(key), pwhash.encode(), digest).hexdigest()
-        resp = await self.client.jdev_get(f"sps/ios/{h}/{uuid}/{cmd}")
-        ll = resp.get("LL") or {}
-        code = str(ll.get("Code") or ll.get("code") or "")
+        # Der Hash gilt nur einmal, und ein Fehler hier heisst meist falsches
+        # Visu-Passwort -> nicht neu anmelden (das Token war eben noch gueltig).
+        code, _ = await self._ms_jdev(f"sps/ios/{h}/{uuid}/{cmd}", renew=False)
         log.info("secured cmd %s/%s -> Code %s", uuid, cmd, code)
         return code
 
@@ -4982,6 +5042,11 @@ class App:
         # Dauer-Loop: Erstverbindung + Reconnect zum Miniserver. Bricht NIEMALS
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
         # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
+        # Wartezeit zwischen Versuchen waechst (MS_RETRY). Von vorn beginnt sie
+        # erst, wenn eine Verbindung mindestens so lange hielt wie die laengste
+        # Wartezeit - sonst liefe ein Miniserver, der sofort wieder trennt, in
+        # eine Anmeldung alle paar Sekunden.
+        retry, connected_at = 0, None
         while True:
             try:
                 if not self.host:
@@ -5003,12 +5068,18 @@ class App:
                     except Exception:
                         log.exception("Struktur-Refresh beim Reconnect uebersprungen")
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
+                connected_at = time.monotonic()
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
                 raise
             except Exception as err:
-                log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in 10s", err)
+                if connected_at is not None and time.monotonic() - connected_at >= MS_RETRY[-1]:
+                    retry = 0
+                connected_at = None
+                wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
+                retry += 1
+                log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in %ss", err, wait)
                 try:
                     if self.ws:
                         await self.ws.close()
@@ -5020,7 +5091,7 @@ class App:
                         await self._reauth()    # Token erneuern, Client behalten
                 except Exception:
                     await self._close_conn()    # Client kaputt -> harter Reset (start() baut neu)
-                await asyncio.sleep(10)
+                await asyncio.sleep(wait)
 
     async def _send_or_drop(self, ws, payload) -> bool:
         """Sendet an ein Panel; bei JEDEM Fehler ODER Haenger (Timeout) wird die
@@ -5035,6 +5106,7 @@ class App:
             self.conn_route.pop(ws, None)
             self.conn_prof.pop(ws, None)
             self.conn_dev.pop(ws, None)
+            self.conn_info.pop(ws, None)
             self.conn_player.pop(ws, None)
             self.conn_energy.pop(ws, None)
             self.conn_chart.pop(ws, None)
@@ -5375,20 +5447,29 @@ class App:
 _NOCACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 
+def _web_file(path: Path, ctype: str) -> web.Response:
+    """Eine der Oberflaechen-Dateien ausliefern. Fehlt sie (kaputtes Image,
+    falsch gemountetes Volume), gibt es einen 404 mit Dateinamen statt eines
+    Stacktrace als 500."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as err:
+        log.error("%s nicht lesbar: %s", path, err)
+        return web.Response(status=404, text=f"{path.name} fehlt im LoxPanel-Image")
+    return web.Response(text=text, content_type=ctype, headers=_NOCACHE)
+
+
 async def index(request: web.Request) -> web.Response:
-    return web.Response(text=HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(HTML, "text/html")
 
 
 async def config_index(request: web.Request) -> web.Response:
-    return web.Response(text=CONFIG_HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(CONFIG_HTML, "text/html")
 
 
 async def i18n_js(request: web.Request) -> web.Response:
     """Gemeinsamer Uebersetzungs-Katalog fuer /settings und /config."""
-    return web.Response(text=I18N_JS.read_text(encoding="utf-8"),
-                        content_type="application/javascript", headers=_NOCACHE)
+    return _web_file(I18N_JS, "application/javascript")
 
 
 async def api_meta(request: web.Request) -> web.Response:
@@ -5493,8 +5574,7 @@ async def api_save_theme(request: web.Request) -> web.Response:
 
 
 async def settings_index(request: web.Request) -> web.Response:
-    return web.Response(text=SETTINGS_HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(SETTINGS_HTML, "text/html")
 
 
 async def install_script(request: web.Request) -> web.Response:
@@ -5985,20 +6065,8 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             continue
         if device and app.conn_dev.get(ws) != device:
             continue
-        try:
-            await ws.send_json(msg)
+        if await app._send_or_drop(ws, msg):
             n += 1
-        except Exception as err:   # nicht nur ConnectionError (F3)
-            log.debug("Push an Panel fehlgeschlagen: %s", err)
-            app.conn_route.pop(ws, None)
-            app.conn_prof.pop(ws, None)
-            app.conn_dev.pop(ws, None)
-            app.conn_info.pop(ws, None)
-            app.conn_player.pop(ws, None)
-            app.conn_energy.pop(ws, None)
-            app.conn_chart.pop(ws, None)
-            app.conn_camera.pop(ws, None)
-            app.conn_status.pop(ws, None)
     return n
 
 
@@ -6086,13 +6154,8 @@ async def api_testtone(request: web.Request) -> web.Response:
     for ws, prof in list(app.conn_prof.items()):
         if target and (prof or {}).get("id") != target:
             continue
-        try:
-            await ws.send_json({"t": "testtone"})
+        if await app._send_or_drop(ws, {"t": "testtone"}):
             n += 1
-        except Exception as err:   # nicht nur ConnectionError (F3)
-            log.debug("testtone-Push an Panel fehlgeschlagen: %s", err)
-            app.conn_route.pop(ws, None)
-            app.conn_prof.pop(ws, None)
     return web.json_response({"ok": True, "sent": n})
 
 
@@ -6273,6 +6336,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
                     await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+                elif code != "200" and data.get("uuid") and data.get("cmd"):
+                    # Sichtbar machen statt still verschlucken (Details im Log)
+                    await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
+                                        "Befehl nicht ausgeführt – Miniserver antwortet nicht" if code is None
+                                        else f"Befehl nicht ausgeführt (Miniserver meldet {code})"})
             elif data.get("t") == "setplayer":
                 # Client meldet die AudioZone der aktiven Player-Pane (oder "" = keine).
                 zone = str(data.get("zone") or "").strip()
