@@ -243,7 +243,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured` | eine komplette Ansicht |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -498,7 +498,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
 | POST | `/api/testtone` | `api_testtone` | Testton an Panels | Einstellungen |
 | GET/POST | `/api/reload` | `api_reload` | Panels neu laden, Filter `panel`/`device` | Loxone, extern |
-| GET/POST | `/api/goto` | `api_goto` | Panels auf Control oder Tab schicken | Loxone, extern |
+| GET/POST | `/api/goto` | `api_goto` | Panels auf Control oder Tab schicken (jeder gültige Tab, auch `kalender`/`wetter`) | Loxone, extern |
 | GET/POST | `/api/notify` | `api_notify` | Nachricht einblenden | Loxone, extern |
 | GET | `/icon?p=` | `icon_handler` | Loxone-Icon-Proxy, 24 h Cache | Visu, Konfigurator |
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
@@ -571,7 +571,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "title": "Wohnzimmer",                 // max. 40 Zeichen
       "tabs": ["room:<uuid>", "favoriten", "cat:<uuid>"],  // max. 4, leer = alle 4 Standard-Tabs
                                              // `cat:`/`room:` = Direkt-Tab in eine
-                                             // Kategorie bzw. einen Raum. Der ERSTE
+                                             // Kategorie bzw. einen Raum,
+                                             // `kalender`/`wetter` = eigene Seite
+                                             // aus der Front (FRONT_TABS). Der ERSTE
                                              // Tab ist die Startseite: das Panel
                                              // verbindet sich dorthin und kehrt nach
                                              // 60 s Leerlauf dorthin zurueck -> ein
@@ -991,6 +993,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
 | F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebt vermutlich keinen Reboot | `agent/loxpanel-agent.py:111`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
+| F16 | Globale Regel `.empty{grid-column:1/-1}` (für „nichts hier" im Kachelraster) traf auch die Leerfelder vor dem 1. im Monatskalender: sie belegten eine ganze Zeile, jeder Monat begann am Montag, alle Tage standen unter dem falschen Wochentag (Split-Pane Kalender) — behoben, Regel auf `.grid>.empty` begrenzt; Regressionstest misst die Spalten im Browser | `panel.html` CSS, `fpMonthHTML()` |
 | F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
 
 ### Sicherheit

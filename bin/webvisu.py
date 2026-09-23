@@ -129,6 +129,10 @@ VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
 # und Kategorie zusammenstellt. Bewusst kein Praefix mit UUID wie cat:/room: -
 # es gibt genau eine je Panel, die Liste steht im Profil unter "picks".
 PICK_TAB = "auswahl"
+# Kalender und Wetter als eigene Seite in der unteren Leiste. Der Inhalt kommt
+# aus der Front ({t:"front"}), die jedes Panel ohnehin bekommt; die Seite sagt
+# nur, welcher Teil gezeigt wird. Schluessel -> (Titel, Teil der Front).
+FRONT_TABS = {"kalender": ("Kalender", "calendar"), "wetter": ("Wetter", "weather")}
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
@@ -138,9 +142,9 @@ NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
 
 def _is_tab(t) -> bool:
     """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs, die freie Auswahl
-    (`auswahl`) ODER eine einzelne Kategorie bzw. ein einzelner Raum als
-    Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
-    if t in VALID_TABS or t == PICK_TAB:
+    (`auswahl`), Kalender/Wetter (FRONT_TABS) ODER eine einzelne Kategorie bzw.
+    ein einzelner Raum als Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
+    if t in VALID_TABS or t == PICK_TAB or t in FRONT_TABS:
         return True
     if not isinstance(t, str):
         return False
@@ -3285,6 +3289,10 @@ class App:
 
     # ---- Views ----
     def _view_tab(self, tab: str, prof: dict | None = None) -> dict:
+        if tab in FRONT_TABS:
+            titel, teil = FRONT_TABS[tab]
+            return {"t": "view", "title": titel, "tab": tab,
+                    "route": {"view": "tab", "tab": tab}, "items": [], "front": teil}
         ar = prof.get("rooms") if prof else None
         ac = prof.get("cats") if prof else None
         if tab == PICK_TAB:
@@ -5517,6 +5525,7 @@ async def api_meta(request: web.Request) -> web.Response:
                  {"tab": "raeume", "label": "Räume"},
                  {"tab": "kategorien", "label": "Kategorien"},
                  {"tab": PICK_TAB, "label": "Eigene Auswahl", "pick": True}]
+        + [{"tab": k, "label": titel} for k, (titel, _teil) in FRONT_TABS.items()]
         + [{"tab": "cat:" + cu, "label": _clean(app.cats[cu].get("name", "")),
             "iconUrl": app._icon_url(app.cats[cu].get("image")), "cat": True}
            for cu in app.cats_with]
@@ -6193,7 +6202,8 @@ async def api_reload(request: web.Request) -> web.Response:
 
 async def api_goto(request: web.Request) -> web.Response:
     """Schickt offene Panels auf eine Seite. ?control=<uuid> (Detailseite) ODER
-    ?tab=<favoriten|zentral|raeume|kategorien>. Optional ?panel= / ?device=."""
+    ?tab=<favoriten|zentral|raeume|kategorien|kalender|wetter|auswahl|cat:...|room:...>.
+    Optional ?panel= / ?device=."""
     app: App = request.app["app"]
     d = await _json_or_empty(request)
     control = str(d.get("control") or d.get("uuid") or request.query.get("control")
