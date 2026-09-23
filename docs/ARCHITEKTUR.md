@@ -47,7 +47,7 @@ kein Frontend-Framework und keine Datenbank.
 **Projektstand:** Das Projekt ist jung. Der erste Commit stammt vom 28.08.2026,
 alle Commits stammen von einem Autor, Version 0.3.2 (Upstream-Stand vom
 07.09.2026, in den Fork gemergt). Der Code ist funktional weit,
-aber es gibt keine automatisierten Tests, keine Authentifizierung und einige
+es gibt Tests gegen einen Miniserver-Nachbau (`tests/`, Abschnitt 9.3), aber keine Authentifizierung und einige
 Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
 **Umfang:** rund 9.900 Zeilen, davon `bin/webvisu.py` allein 3.080 Zeilen.
@@ -83,7 +83,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
 | Pfad | Rolle |
 |---|---|
-| `bin/*_probe.py`, `bin/*_check.py`, `bin/*_test.py` (20 Dateien) | Manuelle Diagnose-Skripte gegen einen echten Miniserver oder den laufenden Server. Keine automatisierten Tests. Viele enthalten fest kodierte UUIDs und IPs der Entwickler-Anlage. |
+| `bin/*_probe.py`, `bin/*_check.py`, `bin/*_test.py` (20 Dateien) | Manuelle Diagnose-Skripte gegen einen echten Miniserver oder den laufenden Server, keine automatisierten Tests. Viele enthalten fest kodierte UUIDs und IPs der Entwickler-Anlage. |
+| `tests/` | Automatisierte Tests (pytest): reine Funktionen, Server gegen einen Miniserver-Nachbau (`tests/lox.py`), Rauchtest als eigener Prozess, Visu und Konfigurator in Chromium (`tests/browser/`, Marker `browser`) |
 | `deploy/kiosk.sh`, `deploy/loxpanel-webvisu.service`, `deploy/DEPLOY.md` | Ältere Bare-Metal-Variante. Funktional vom Agenten abgelöst. |
 | `agent/loxpanel-agent.service` | systemd-Unit, die der Installer nie installiert |
 
@@ -451,6 +452,17 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   Änderungen an Ort und Stelle neu. Ergebnisse sind je Minute zwischengespeichert
   (`stat_memo`). Nur Bausteine mit Aufzeichnung; `/api/meta` kennzeichnet sie
   mit `stat`.
+
+  Anpassung an die Kachelgröße (`paintSpark()`; Querformat ohne rechte Hälfte
+  verdoppelt die Spalten, dann werden Kacheln schnell klein):
+  - Ist die freie Mitte niedriger als `SPARK_MIN_H` (36 px), rückt der Verlauf
+    in die Kopfzeile neben das Icon (Klasse `sparktight`), die Kurzangabe
+    ersetzt die Raumzeile. Ist auch dort zu wenig Breite, entfällt der Verlauf,
+    die Kurzangabe bleibt.
+  - Passt die Kurzangabe nicht in den Kopf, steht sie ebenfalls in der
+    Raumzeile (`sparkbadge`).
+  - Beschriftungen entfallen bei zu wenig Platz (Tief/Hoch und Wochentage unter
+    48 px Höhe, Wochentage auch unter 16 px je Tag), statt sich zu überlappen.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
@@ -876,6 +888,7 @@ auf Unraid nur über `/config` (Settings) und den appdata-Ordner.
 
 | Workflow | Trigger | Ergebnis |
 |---|---|---|
+| `tests.yml` | jeder PR, Push auf `main`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push |
 | `docker-image.yml` | Push auf `main`, Tags `v*`, manuell | `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest`, `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7 |
 | `plugin-release.yml` | GitHub-Release veröffentlicht, manuell | `loxpanel-plugin.zip` aus `loxberry-plugin/` am Release |
 
@@ -1005,10 +1018,12 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 - W6: Kategorie-Farben per Teilstring-Match auf Namen; `"Alarm"` matcht auch
   `"Alarmanlage deaktiviert"`.
 - W7: `_sanitize_panels` verwirft still, die UI erfährt nie, was verloren ging.
-- W8: Keine automatisierten Tests, kein Linter im CI. Gut testbare reine
-  Funktionen: `_fmt_num`, `_color_parse`, `_alarm_next_text`, `_alarm_entries`,
-  `_audio_favs`, `_tracker_lines`, `_resolve_ids`, `_sanitize_panels`,
-  `LoxoneWS._parse_values/_parse_texts`.
+- W8: Keine automatisierten Tests, kein Linter im CI — behoben: `tests/`
+  deckt die reinen Funktionen (`_fmt_num`, `_color_parse`, `_alarm_next_text`,
+  `_alarm_entries`, `_audio_favs`, `_tracker_lines`, `_resolve_ids`,
+  `_sanitize_panels`, `LoxoneWS._parse_values/_parse_texts`), die Verläufe, die
+  Token-Erneuerung und die Stabilität ab; `tests.yml` führt sie samt `ruff` auf
+  jedem PR aus.
 
 ### Doku-Inkonsistenzen
 
@@ -1073,8 +1088,8 @@ Priorisiert nach Nutzen für einen eigenen Betrieb auf Unraid:
 7. **Agent-Kopie aus dem Installer entfernen** (W2). Der Installer kann die
    Datei per `curl` vom Server holen, wenn der Server `agent/loxpanel-agent.py`
    zusätzlich ausliefert. Dann gibt es nur noch eine Quelle.
-8. **Tests für die reinen Funktionen** (W8) plus ein Lint-Job im Workflow, bevor
-   größere Umbauten beginnen.
+8. ~~**Tests für die reinen Funktionen** (W8) plus ein Lint-Job im Workflow, bevor
+   größere Umbauten beginnen.~~ Erledigt, `tests/` und `tests.yml`.
 9. **Altlasten entfernen** (Abschnitt 12), sobald klar ist, wie eng der Fork dem
    Upstream folgen soll.
 10. **Bausteinketten aufteilen** (W1). Eine Tabelle `Typ → (kachel_fn,

@@ -200,11 +200,15 @@
   .tile .tspark svg{display:block;}
   .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
   /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
-     Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile. */
+     Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
+     Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
+     in die Raumzeile, dort hat sie die ganze Breite. */
   .tile .tsline{display:none;}
   .tile.sparktight .head .tspark{flex:1 1 0;min-width:0;align-self:stretch;margin:0 8px;}
-  .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline){display:none;}
-  .tile.sparktight .room:not(.tsline)+.tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline),
+  .tile.sparkbadge .tsbadge,.tile.sparkbadge .room:not(.tsline){display:none;}
+  .tile.sparktight .room:not(.tsline)+.tsline,
+  .tile.sparkbadge .room:not(.tsline)+.tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
   .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
     color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
@@ -1206,7 +1210,7 @@ function sparkSvg(sp,W,H){
   } else if(sp.style==='span'){
     const sp7=sp.spans||[], ok=sp7.filter(Boolean); if(!ok.length) return '';
     let mn=Math.min(...ok.map(r=>r[0])), mx=Math.max(...ok.map(r=>r[1])); if(mx-mn<1e-9){ mn-=1; mx+=1; }
-    const lab=H>=48?11:0, n=sp7.length, col=W/n, bw=Math.min(16,col*0.58), top=2, bot=H-lab-2;
+    const n=sp7.length, col=W/n, lab=(H>=48 && col>=16)?11:0, bw=Math.min(16,col*0.58), top=2, bot=H-lab-2;
     const Y=v=>bot-(v-mn)*(bot-top)/(mx-mn);
     sp7.forEach((r,i)=>{ const x=i*col+(col-bw)/2, today=i===n-1;
       if(r){ const y1=Y(r[1]), y0=Y(r[0]);
@@ -1263,8 +1267,13 @@ function paintSpark(el,sp){
     }
   }
   const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
-  if(el._key===key) return;
-  el._key=key; el.innerHTML=sparkSvg(sp,W,H);
+  if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
+  // Angabe im Kopf abgeschnitten -> in die Raumzeile (nur ohne enge Kachel, dort steht sie ohnehin da)
+  const bd=tile&&tile.querySelector('.tsbadge');
+  if(bd){
+    tile.classList.remove('sparkbadge');
+    if(!tile.classList.contains('sparktight') && bd.scrollWidth>bd.clientWidth+1) tile.classList.add('sparkbadge');
+  }
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
@@ -1605,7 +1614,7 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+(n.classList.contains('sparktight')?' sparktight':'');
+    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+[...n.classList].filter(c=>c.startsWith('spark')).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
