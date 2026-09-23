@@ -33,12 +33,22 @@
     max-width:calc(var(--cols,2) * 240px);max-height:calc(var(--rows,2) * 240px);
     border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
-    transform:translateX(var(--nudge-x,0));
+    /* --ui-scale: Skalierung (Profil/Geraet "scale", gesetzt in applyScale).
+       Der Kasten behaelt seine Layout-Groesse aus 240er Kacheln, die Anzeige
+       waechst gleichmaessig mit - Schrift, Icons, Uhr-Seite, Panes. Erst
+       skaliert, dann versetzt: der Feinversatz bleibt in echten Pixeln. */
+    transform:translateX(var(--nudge-x,0)) scale(var(--ui-scale,1));
     display:grid;grid-template-rows:minmax(0,1fr) auto;}
   /* "Bildschirm fuellen": ganzen Tablet-Schirm nutzen (Voll-Zoom). Die Kacheln
      passen sich der Geraeteform an (koennen leicht rechteckig werden) statt als
      zentrierter cols:rows-Kasten mit Rand zu stehen. Gilt auch fuer Vollbreit. */
   .screen.fill{max-width:none;max-height:none;width:100vw;height:100vh;}
+  /* Skaliert fuellt der Kasten den Schirm auf den Pixel genau - eine Rundung
+     darf keine Scrollleiste erzeugen. NUR auf html (wirkt aufs Fenster), nicht
+     auf body: body ist hier Grid-Element mit place-items:center und damit nur
+     so breit wie der UNskalierte Kasten. overflow:hidden dort schnitt die
+     vergroesserte Anzeige links und rechts ab - sichtbar und fuer Tipps. */
+  html.scaled{overflow:hidden;}
   /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
      fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
   /* Denke in einem 4x2-Raster: links 2x2 = Visu, rechts 2x2 = Player. Der Block
@@ -452,6 +462,42 @@
      zeigen): einspaltig weiterlaufen, statt die halbe Flaeche leer zu lassen. */
   .saver.split .sv-wrap.rich.solo{grid-template-columns:1fr;
     grid-template-areas:"clock" "wx";width:min(94%,620px);}
+  /* Energiefluss und Kamera rechts brauchen HOEHE. Ueber beiden Spalten nimmt
+     ihnen die Uhr ein Fuenftel davon: gemessen bei 960x480 blieb der Grafik
+     299 px, das 480er-SVG lief auf 62 % und die Knotennamen auf 7,5 px -
+     unlesbar. Hier steht die Uhr deshalb links ueber dem Wetter, und die rechte
+     Spalte bekommt die volle Hoehe.
+     Beide Spalten gleich breit: der Energiefluss ist durch die HOEHE begrenzt
+     (gemessen: 392 px bei 480 wie bei 444 px Spaltenbreite) - breiter machte
+     nur den leeren Rahmen neben ihm groesser und die Box wuchtiger. Die Kamera
+     (4:3, breitenbegrenzt) verliert dabei wenig: 454x341 -> 418x314.
+     Die Uhr sitzt unten in der oberen Zeile, das Wetter oben in der unteren -
+     so treffen sie sich auf der Mittellinie der rechten Grafik. */
+  .saver.split .sv-wrap.rich.tall{width:min(96%,920px);
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"clock cal" "wx cal";grid-template-rows:1fr 1fr;
+    column-gap:32px;row-gap:14px;align-items:stretch;}
+  .saver.split .sv-wrap.rich.tall .sv-clock{align-self:end;margin:0 0 10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx{align-self:start;gap:14px;}
+  /* Die linke Seite hat hier die volle Hoehe, nicht mehr nur eine Zeile ueber
+     beiden Spalten. Mit der Uhr aus dem alten Layout (60 px) nutzten Uhr und
+     Wetter nur 49 % der Hoehe der rechten Box, und die Grafik erschlug die
+     Uhr. Jetzt ist die Uhr wieder das, was man zuerst sieht (70 %). */
+  .saver.split .sv-wrap.rich.tall .sv-time{font-size:96px;}
+  .saver.split .sv-wrap.rich.tall .sv-date{font-size:21px;margin-top:10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .ico{width:48px;height:48px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .t{font-size:36px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .cond{font-size:19px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .hl{font-size:15px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc{padding:11px 6px 12px;gap:5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .d{font-size:12.5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .ico{width:28px;height:28px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .tt{font-size:15px;}
+  /* Ohne Wetter bliebe die untere linke Zelle leer und die Uhr saesse ueber der
+     Mitte (gemessen 53 px zu hoch). Dann ueber beide Zeilen und mittig. Das
+     Wetter steht im Markup direkt vor der Uhr - so geht es ohne :has(), das
+     aeltere Kiosk-WebViews nicht kennen. */
+  .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;margin:0;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
@@ -500,15 +546,26 @@
     border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:14px;}
   .saver .sv-box .fp-page.solo{overflow:hidden;}
   /* Energiefluss und Kamera sind EINE Seite, die eine Hoehe BRAUCHT: am
-     Hauptschirm gibt die Pane sie vor, hier der gemessene freie Platz unter der
-     Uhr (--sv-frei, gesetzt in svFit). Ohne diese Grenze uebersetzt die
-     quadratische Grafik die Spaltenbreite in Hoehe und schiebt die Uhr aus dem
-     Bild. Mit ihr laeuft innen alles wie am Hauptschirm ueber Flex, und beide
-     Grafiken zentrieren sich (SVG per preserveAspectRatio, Bild per
-     object-fit), statt zu strecken. */
+     Hauptschirm gibt die Pane sie vor, hier die gemessene Hoehe des
+     Screensavers abzueglich Rand (--sv-frei, gesetzt in svFit; die Uhr steht
+     in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
+     am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
+     preserveAspectRatio, Bild per object-fit), statt zu strecken. */
   .saver .sv-box.solo{height:var(--sv-frei,auto);}
   .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
   .saver .sv-box.solo .video{max-height:100%;}
+  /* Kamera ist durch die Breite begrenzt (4:3): sie steht mittig in der Spalte,
+     statt oben zu kleben und unten einen leeren Streifen zu lassen. */
+  .saver .sv-box .campage{justify-content:center;}
+  /* Namen im Energiefluss: das SVG skaliert samt Text. Gemessen bei 960x480
+     standen die Namen bei 9,8 px, am Hauptschirm sogar bei 8,4 px. Die Uhr-Seite
+     wird aber aus Entfernung gelesen, nicht aus der Naehe bedient - deshalb hier
+     14 statt 12 Nutzereinheiten (~11 px am Schirm). NUR die Namen: die Werte
+     sind fett und schon ~13 px; groesser gemacht fressen sie bei den unteren
+     Knoten den festen Spalt zwischen Name und Wert (dort stehen beide dann
+     Rahmen an Rahmen). Nicht bei .dicht (ab 7 Knoten): dort laufen die Namen
+     schon in normaler Groesse in die Nachbarringe. */
+  .saver .sv-box .epane:not(.dicht) .enlab{font-size:14px;}
   /* Frei gewaehlte Bausteine: Name/Raum links, Wert rechts. Zustandsfarben wie
      auf einer Kachel, damit dasselbe Geraet nicht zweierlei Farbsprache hat. */
   .sv-st{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;
@@ -913,6 +970,13 @@ function cellHtml(c,i){
 function closeMenu(){ const m=document.querySelector('.menuov'); if(m)m.remove(); }
 // Auswahl-Popup ueber einem Button (Klima Modus/Fan): oeffnet nach oben, Tipp
 // daneben schliesst. Auswahl sendet den Befehl und schliesst.
+// Verhaeltnis sichtbare Groesse / Layout-Groesse eines Elements. Ist die Visu
+// skaliert (transform am .screen), liefern getBoundingClientRect und Pointer-
+// Koordinaten SICHTBARE Pixel, offsetWidth/clientWidth und CSS-Werte aber
+// LAYOUT-Pixel. Wer beides verrechnet, teilt Sichtbares hierdurch. Am Element
+// selbst gemessen statt aus einer Variablen gelesen: stimmt so fuer jede Art
+// der Skalierung, auch fuer kuenftige.
+function visScale(e){ const w=e&&e.offsetWidth; return w ? (e.getBoundingClientRect().width/w)||1 : 1; }
 function openMenu(btn, items){
   const s=document.querySelector('.screen'); if(!s)return;
   closeMenu();
@@ -920,11 +984,13 @@ function openMenu(btn, items){
   const box=document.createElement('div'); box.className='menubox';
   box.innerHTML=items.map((it,i)=>'<div class="menuitem'+(it.on?' on':'')+'" data-m="'+i+'">'+esc(it.label)+'</div>').join('');
   ov.appendChild(box); s.appendChild(ov);
-  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect();
-  let left=br.left-sr.left;
-  left=Math.max(8, Math.min(left, sr.width-box.offsetWidth-8));
+  // Rects sind SICHTBARE Pixel, style.left/bottom LAYOUT-Pixel: bei skalierter
+  // Visu erst umrechnen, sonst sitzt das Menue neben seinem Button.
+  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect(), k=visScale(s);
+  let left=(br.left-sr.left)/k;
+  left=Math.max(8, Math.min(left, s.offsetWidth-box.offsetWidth-8));
   box.style.left=left+'px';
-  box.style.bottom=(sr.height-(br.top-sr.top)+6)+'px';   // ueber dem Button
+  box.style.bottom=((sr.height-(br.top-sr.top))/k+6)+'px';   // ueber dem Button
   box.querySelectorAll('.menuitem').forEach(n=>{
     n.addEventListener('pointerdown',ev=>{ ev.preventDefault(); ev.stopPropagation();
       const it=items[+n.dataset.m]; closeMenu();
@@ -1408,9 +1474,12 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
     pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastDist=0; };
   viewEl.onpointermove=e=>{ if(!pts.has(e.pointerId)) return;
     const prev=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(pts.size===1){ tx+=e.clientX-prev.x; ty+=e.clientY-prev.y; clamp(); apply(); }
+    // Pointer-Koordinaten sind sichtbare Pixel, tx/ty Layout-Pixel: bei
+    // skalierter Visu liefe das Bild dem Finger sonst davon.
+    const k=visScale(viewEl);
+    if(pts.size===1){ tx+=(e.clientX-prev.x)/k; ty+=(e.clientY-prev.y)/k; clamp(); apply(); }
     else if(pts.size>=2){ const a=[...pts.values()], dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      const rect=viewEl.getBoundingClientRect(), cx=(a[0].x+a[1].x)/2-rect.left, cy=(a[0].y+a[1].y)/2-rect.top;
+      const rect=viewEl.getBoundingClientRect(), cx=((a[0].x+a[1].x)/2-rect.left)/k, cy=((a[0].y+a[1].y)/2-rect.top)/k;
       if(lastDist){ const ns=Math.max(minScale,Math.min(6,scale*(dist/lastDist)));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); }
       lastDist=dist; } };
@@ -1421,8 +1490,8 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   viewEl.addEventListener('click',e=>{ if(e.target.closest('.schemeval.tap')) return;
     const now=Date.now(); if(now-lastTap<300){ const vw=viewEl.clientWidth;
       // Doppeltipp: von "ganz sichtbar" auf fit-to-width (lesbar) zoomen, sonst zurueck
-      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect();
-        const cx=e.clientX-rect.left, cy=e.clientY-rect.top, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
+      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect(), k=visScale(viewEl);
+        const cx=(e.clientX-rect.left)/k, cy=(e.clientY-rect.top)/k, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); } }
     lastTap=now; });
   schemeFit=fit;
@@ -1515,6 +1584,9 @@ function connect(){
       if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      uiScaleCfg=scaleCfg(msg.scale);
+      _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
+      applyScale();
       renderTabs(); return; }
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
@@ -1527,6 +1599,7 @@ function connect(){
     if(msg.t==='camera'){ cameraData=msg;
       if(svSideOn()){ renderFront(); return; }
       const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[]; if(saverOn()) renderFront(); return; }   // frei gewaehlte Werte auf der Uhr-Seite
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
@@ -1610,19 +1683,22 @@ function svFit(){
   const platz=saver.clientHeight;
   const wrap=saver.querySelector('.sv-wrap');
   if(!platz||!wrap) return;                      // versteckt/noch nicht gemessen
-  // Quadratische bzw. 4:3-Grafiken (Energiefluss, Kamera) uebersetzen sonst die
-  // Spaltenbreite in Hoehe und schieben die Uhr aus dem Bild. Ihnen sagen, wie
-  // viel unter der Uhr wirklich frei ist — gemessen, nicht geschaetzt.
-  const uhr=wrap.querySelector('.sv-clock');
-  const frei=platz-(uhr?uhr.getBoundingClientRect().height:0)-28;
-  wrap.style.setProperty('--sv-frei', Math.max(120,Math.round(frei))+'px');
+  // Hoehe fuer Energiefluss/Kamera rechts (nur dort gelesen, siehe .tall): die
+  // Uhr steht dann links, der Grafik gehoert die ganze Hoehe bis auf den Rand.
+  // Der Rand ist derselbe Anteil wie seitlich (Breite 94 % -> je 3 %), damit
+  // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
+  const rand=Math.round(platz*0.03);
+  wrap.style.setProperty('--sv-frei', Math.max(120,platz-2*rand)+'px');
   // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
   // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
   // Kamera haben keine solchen Zeilen und bleiben unangetastet.
   [el('svBox'), el('svCal')].forEach(c=>{
     if(!c||c.hidden) return;
     const zeilen=[...c.querySelectorAll('.sv-st,.sv-ev')];
-    for(let i=zeilen.length-1; i>=1 && wrap.getBoundingClientRect().height>platz; i--){
+    // offsetHeight, nicht getBoundingClientRect: platz ist eine Layout-Hoehe,
+    // und bei skalierter Visu waere die sichtbare Hoehe k-mal groesser - dann
+    // fielen Termine weg, die in Wahrheit passen.
+    for(let i=zeilen.length-1; i>=1 && wrap.offsetHeight>platz; i--){
       zeilen[i].remove();
     }
   });
@@ -1660,7 +1736,10 @@ function renderFront(){
   // Kompakt-Layout aktivieren, sobald Wetter oder eine zweite Spalte da ist.
   const wrap=document.querySelector('.sv-wrap');
   if(wrap){ wrap.classList.toggle('rich', !!w || zweite);
-    wrap.classList.toggle('solo', !zweite); }
+    wrap.classList.toggle('solo', !zweite);
+    // Energiefluss/Kamera rechts: Uhr nach links, Grafik bekommt die volle Hoehe.
+    const box=el('svBox');
+    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo')); }
   svFit();
 }
 // ---- Rechte Spalte der Uhr-Seite ----
@@ -1904,7 +1983,10 @@ function energyInner(d){
       ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-74).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+nm+'</text>'
       : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+56).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+76).toFixed(1)+'">'+val+'</text>');
   });
-  return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
+  // "dicht": ab sieben Knoten stehen die Ringe so eng (rn 34 statt 40), dass
+  // die Beschriftungen der Seitenknoten schon jetzt in die Nachbarringe laufen.
+  // Wer die Schrift vergroessert (Screensaver), muss diesen Fall aussparen.
+  return '<div class="epane'+(N>6?' dicht':'')+'"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
     '<div class="ewrap"><svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">'+
     spokes.join('')+dots.join('')+'<circle class="ehub" cx="'+C+'" cy="'+C+'" r="13"/>'+ng.join('')+txts.join('')+
     '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';
@@ -2172,6 +2254,51 @@ function armDpms(){ clearTimeout(dpmsTimer);
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
   dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
+// ---- Skalierung ("scale" aus Profil oder Geraet, vom Server) ----
+// Die Visu rechnet mit festen 240er Kacheln; ein groesseres Display zeigte den
+// Kasten bisher mit Rand (1280x800: 55 % des Schirms ungenutzt). "auto"
+// vergroessert ihn gleichmaessig, bis er an Breite oder Hoehe anstoesst - ohne
+// Verzerrung, Schrift und Icons wachsen mit. Eine Zahl ist ein fester Faktor,
+// aber nie groesser, als der Schirm hergibt (sonst waere ein Teil
+// abgeschnitten). "off" = feste Groesse wie bisher. Unter "Bildschirm fuellen"
+// ist der Kasten schon so gross wie der Schirm, dort ergibt sich von selbst 1.
+let uiScaleCfg='off', uiScaleEff=1;
+function scaleCfg(v){ return (v==='auto' || (typeof v==='number' && v>0)) ? v : 'off'; }
+function applyScale(){
+  const s=document.querySelector('.screen'); if(!s) return;
+  const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
+  const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
+  let k=1;
+  if(uiScaleCfg==='auto') k=Math.max(1,passt);      // nur vergroessern: kleiner rechnet das Layout selbst
+  else if(typeof uiScaleCfg==='number') k=Math.min(uiScaleCfg,passt);
+  k=Math.round(k*1000)/1000;
+  if(k!==uiScaleEff || s.style.getPropertyValue('--ui-scale')===''){
+    uiScaleEff=k;
+    s.style.setProperty('--ui-scale', String(k));
+    document.documentElement.classList.toggle('scaled', k!==1);
+  }
+  reportScreen();
+}
+// Groesse an den Server melden (Anzeige unter Settings -> Panels). Entprellt:
+// beim Drehen oder Kiosk-Start feuert resize mehrfach hintereinander. Nur
+// senden, was sich geaendert hat.
+let _screenTimer=null, _screenSent='';
+function reportScreen(){
+  clearTimeout(_screenTimer);
+  _screenTimer=setTimeout(()=>{
+    const s=document.querySelector('.screen'), sc=window.screen||{};
+    const m={t:'screen', vw:innerWidth, vh:innerHeight, sw:sc.width||0, sh:sc.height||0,
+      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff};
+    const sig=JSON.stringify(m);
+    if(sig===_screenSent) return;
+    try{ send(m); _screenSent=sig; }catch(e){}
+  },400);
+}
+// Aendert sich die Layout-Groesse des Kastens (Split an/aus beim Tab-Wechsel,
+// Layout, "Bildschirm fuellen") oder des Fensters, muss der Faktor neu. Der
+// transform selbst aendert die Layout-Groesse nicht - kein Rueckkopplungskreis.
+window.addEventListener('resize', applyScale);
+if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(applyScale).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
