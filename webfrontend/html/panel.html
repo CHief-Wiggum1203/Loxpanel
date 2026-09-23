@@ -202,13 +202,14 @@
   /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
      Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
      Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
-     in die Raumzeile, dort hat sie die ganze Breite. */
+     in die Raumzeile, dort hat sie die ganze Breite. Kacheln ohne Raumzeile
+     (Raum-Ansicht, alle Bausteine in einem Raum) bekommen die Zeile dafuer. */
   .tile .tsline{display:none;}
   .tile.sparktight .head .tspark{flex:1 1 0;min-width:0;align-self:stretch;margin:0 8px;}
   .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline),
   .tile.sparkbadge .tsbadge,.tile.sparkbadge .room:not(.tsline){display:none;}
-  .tile.sparktight .room:not(.tsline)+.tsline,
-  .tile.sparkbadge .room:not(.tsline)+.tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  .tile.sparktight .tsline,
+  .tile.sparkbadge .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
   .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
     color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
@@ -1284,7 +1285,22 @@ function sparkSvg(sp,W,H){
 const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
 function paintSpark(el,sp){
   if(!el) return;
-  const tile=el.closest('.tile'), head=tile&&tile.querySelector('.head');
+  const tile=el.closest('.tile');
+  placeSpark(el,sp,tile);
+  // Angabe im Kopf abgeschnitten -> in die Raumzeile (nur ohne enge Kachel, dort steht sie ohnehin da).
+  // Ohne Raumzeile kommt die Zeile dabei neu dazu oder faellt weg: dann hat
+  // die Mitte eine andere Hoehe, Platz und Zeichnung also neu bestimmen.
+  const bd=tile&&tile.querySelector('.tsbadge');
+  if(bd){
+    const vorher=tile.classList.contains('sparkbadge');
+    tile.classList.remove('sparkbadge');
+    if(!tile.classList.contains('sparktight') && bd.scrollWidth>bd.clientWidth+1) tile.classList.add('sparkbadge');
+    if(vorher!==tile.classList.contains('sparkbadge')) placeSpark(el,sp,tile);
+  }
+}
+// Verlauf in die Mitte oder (zu niedrige Mitte) in die Kopfzeile setzen und zeichnen.
+function placeSpark(el,sp,tile){
+  const head=tile&&tile.querySelector('.head');
   if(head){
     // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
     const cs=getComputedStyle(tile);
@@ -1300,12 +1316,6 @@ function paintSpark(el,sp){
   }
   const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
   if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
-  // Angabe im Kopf abgeschnitten -> in die Raumzeile (nur ohne enge Kachel, dort steht sie ohnehin da)
-  const bd=tile&&tile.querySelector('.tsbadge');
-  if(bd){
-    tile.classList.remove('sparkbadge');
-    if(!tile.classList.contains('sparktight') && bd.scrollWidth>bd.clientWidth+1) tile.classList.add('sparkbadge');
-  }
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];

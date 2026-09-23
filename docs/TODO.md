@@ -86,9 +86,8 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, zehn
-sind eingereicht und noch offen, einer ist vorbereitet und wartet aufs
-Einreichen:**
+Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, elf
+sind eingereicht und noch offen:**
 
 | PR | Inhalt |
 |---|---|
@@ -119,7 +118,7 @@ Einreichen:**
 | [#41](https://github.com/Lenardo1/loxpanel/pull/41) | `up/energiefluss-icons` | Energiefluss: Loxone-Icons sitzen auf Safari, iPad und in WebViews wieder in ihren Kreisen (Fork #77) |
 | [#42](https://github.com/Lenardo1/loxpanel/pull/42) | `up/kalender-wochentage` | Monatskalender: Tage stehen wieder unter dem richtigen Wochentag (F16 aus Fork #84) |
 | [#43](https://github.com/Lenardo1/loxpanel/pull/43) | `up/token-stabilitaet` | Miniserver-Token erneuern, Befehlsfehler im Panel, kleinere Stabilitätsfehler (Fork #81) |
-| noch nicht eingereicht | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, dazu die zwei Kachel-Korrekturen aus #82), setzt auf #43 auf |
+| [#44](https://github.com/Lenardo1/loxpanel/pull/44) | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, dazu die zwei Kachel-Korrekturen aus #82), setzt auf #43 auf |
 
 Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
 gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
@@ -155,14 +154,14 @@ formuliert („Standort vom Miniserver wird verwendet."); #40 dazu
 spätere gewinnt. Mergt Lenardo #33 zuerst, die Doppel aus #38 und #40
 herausnehmen; angekündigt ist das im Text von #38.
 
-Zu #41 bis #43 und `up/verlaeufe` (#41–#43 eingereicht am 23.09.2026): Aus
+Zu #41 bis #44 (eingereicht am 23.09.2026): Aus
 dem Fork ging nur mit, was Upstream ohne die Fork-Werkzeuge versteht — keine
 Tests und CI (#82), kein Unraid-Betrieb (#83), keine Kalender-/Wetter-Tabs
 (#84). #41 und #42 stehen für sich. Den WebKit-Fehler aus #41 kann man hier
 nicht nachstellen; in Chromium liegen Icon- und Kreismitte vorher wie
-nachher genau aufeinander. `up/verlaeufe` braucht `_ms_http()` aus #43 und
-enthält dessen Commit mit, neu ist nur der zweite. Nach dem Merge von #43
-den Zweig auf das neue `upstream/main` rebasen und mit `--force-with-lease`
+nachher genau aufeinander. #44 (`up/verlaeufe`) braucht `_ms_http()` aus
+#43 und enthält dessen Commit mit, neu ist nur der zweite. Nach dem Merge von
+#43 den Zweig auf das neue `upstream/main` rebasen und mit `--force-with-lease`
 pushen, wie bei #38–#40.
 
 Überschneidung mit den offenen PRs, jeder einzeln gegen die vier Zweige
@@ -175,8 +174,12 @@ an (beide Seiten behalten), nach #39 zusätzlich an fünf Stellen in
 #39 und die Verläufe dieselben Stellen um ihr jeweiliges Gegenstück
 (`conn_status`/`conn_chart`, `setsvstatus`/`setchart`,
 `svStatusMax`/`statRanges`, `svstatus`/`chart`), und `chart:` gehört dann in
-das mit #39 eingeführte `_clean_tabpane()`. Im Fork steht beides schon
-nebeneinander, die Auflösung von dort übernehmen.
+das mit #39 eingeführte `_clean_tabpane()`. In `panel.html` braucht die
+Verlaufs-Pane außerdem den `svSideOn()`-Schutz aus #39: Solange der
+Screensaver oben liegt, meldet `setchart` keinen Baustein, und `{t:"chart"}`
+wird nicht gezeichnet. Diesen Schutz hat keine der beiden Seiten. Nur beide
+Seiten zu behalten reicht also nicht, die Auflösung aus dem Fork übernehmen,
+wo alles schon nebeneinander steht.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
@@ -672,7 +675,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`statistic` V1 und `statisticV2`) auf der Detailseite, als Split-Hälfte
       (`chart:<uuid>`) und als Mini-Verlauf in der Kachel mit drei Stilen
       (Trend, Tagesmuster, Tagesspanne). Beschreibung in `ARCHITEKTUR.md` §3.9.
-      Für Upstream vorbereitet als Zweig `up/verlaeufe`, setzt auf #43 auf
+      An Upstream eingereicht als
+      [#44](https://github.com/Lenardo1/loxpanel/pull/44), setzt auf #43 auf
       (siehe 0b).
 - [x] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Hat die Anlage den
       Loxone-Wetterdienst, schickt der Miniserver das Wetter über den WebSocket

@@ -1922,8 +1922,12 @@ function setTileIcon(ic){ const ov=tileOv(); if(ic) ov.icon=ic; else delete ov.i
 // Mini-Diagramm der Kachel: Stil und (nur beim Trend) Zeitraum. Tagesmuster
 // und Tagesspanne zeigen immer die letzten 7 Tage, die Spanne gibt es nur bei
 // Messwerten (bei Zaehlern und Ein/Aus hat ein Tag kein Tief und Hoch).
+// Der Trend zeichnet je Art etwas anderes, der Hinweis sagt es genauso.
+const CHART_TREND_HINT={line:'Kurve mit Tief, Hoch und Änderung',
+                        counter:'Verbrauch als Balken, dazu die Summe',
+                        digital:'Ein/Aus als Stufen, dazu die Einschaltdauer'};
 function chartStyles(c){
-  const st=[['','Aus',''],['trend','Trend','Kurve mit Tief, Hoch und Änderung'],
+  const st=[['','Aus',''],['trend','Trend',CHART_TREND_HINT[c.statKind]||CHART_TREND_HINT.line],
             ['pattern','Tagesmuster','7 Tage × 24 Stunden als Farbraster']];
   if(c.statKind==='line') st.push(['span','Tagesspanne','Tief bis Hoch je Tag, 7 Tage']);
   return st;
