@@ -1246,6 +1246,15 @@ function energyControlOptions(sel){
   return (META.controls||[]).filter(c=>c.type==='EFM'||c.type==='EnergyManager2')
     .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
+function statControls(){
+  return (META.controls||[]).filter(c=>c.stat)
+    .sort((a,b)=>(a.roomName||'').localeCompare(b.roomName||'','de')||a.name.localeCompare(b.name,'de'));
+}
+function chartControlOptions(sel){
+  return statControls()
+    .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function firstChartControl(){ const z=statControls()[0]; return z?z.uuid:''; }
 function firstEnergyControl(){
   // Standard = Energieflussmonitor (EFM, mit Verbraucher-Leistungen). Der
   // Energiemanager (EnergyManager2, nur PV/Netz/Speicher) nur als Rueckfall,
@@ -1320,8 +1329,8 @@ function renderPanes(p){
     const meta=(META.tabs||[]).find(t=>t.tab===tk);
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
-    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0;
-    const kind=isP?'player':(isE?'energy':(isC?'camera':v)), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
+    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0, isV=v.indexOf('chart:')===0;
+    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':v))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'', vuid=isV?v.slice(6):'';
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
       '<select data-pane="'+esc(tk)+'">'+
         '<option value=""'+(kind===''?' selected':'')+'>Screen füllen</option>'+
@@ -1330,10 +1339,12 @@ function renderPanes(p){
         '<option value="weather"'+(kind==='weather'?' selected':'')+'>Wetter</option>'+
         '<option value="calendar"'+(kind==='calendar'?' selected':'')+'>Kalender</option>'+
         '<option value="energy"'+(kind==='energy'?' selected':'')+'>Energiefluss</option>'+
+        (statControls().length?'<option value="chart"'+(kind==='chart'?' selected':'')+'>Verlauf</option>':'')+
       '</select>';
     if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
     if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
     if(isC) row+='<select data-panec="'+esc(tk)+'">'+cameraOptions(camu)+'</select>';
+    if(isV) row+='<select data-panev="'+esc(tk)+'">'+chartControlOptions(vuid)+'</select>';
     return row+'</div>';
   }).join('') || '<div class="ccmut">Keine Tabs.</div>';
   const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
@@ -1347,6 +1358,8 @@ function renderPanes(p){
       const u=cur.indexOf('energy:')===0?cur.slice(7):firstEnergyControl(); setPane(tk,'energy:'+u); }
     else if(k==='camera'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const u=cur.indexOf('camera:')===0?cur.slice(7):firstCamera(); setPane(tk,'camera:'+u); }
+    else if(k==='chart'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      const u=cur.indexOf('chart:')===0?cur.slice(6):firstChartControl(); setPane(tk,'chart:'+u); }
     else setPane(tk,k);
     renderPanes(p);   // Zonen-/Control-/Kamera-Dropdown ein-/ausblenden
   });
@@ -1358,6 +1371,9 @@ function renderPanes(p){
   });
   box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panec,'camera:'+s.value);
+  });
+  box.querySelectorAll('select[data-panev]').forEach(s=>s.onchange=()=>{
+    setPane(s.dataset.panev,'chart:'+s.value);
   });
 }
 // Screensaver: rechte Spalte. Gleiche Werte-Grammatik wie die Tab-Panes, damit
@@ -1893,6 +1909,38 @@ function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
 function setTileIcon(ic){ const ov=tileOv(); if(ic) ov.icon=ic; else delete ov.icon; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
+// Mini-Diagramm der Kachel: Stil und (nur beim Trend) Zeitraum. Tagesmuster
+// und Tagesspanne zeigen immer die letzten 7 Tage, die Spanne gibt es nur bei
+// Messwerten (bei Zaehlern und Ein/Aus hat ein Tag kein Tief und Hoch).
+// Der Trend zeichnet je Art etwas anderes, der Hinweis sagt es genauso.
+const CHART_TREND_HINT={line:'Kurve mit Tief, Hoch und Änderung',
+                        counter:'Verbrauch als Balken, dazu die Summe',
+                        digital:'Ein/Aus als Stufen, dazu die Einschaltdauer'};
+function chartStyles(c){
+  const st=[['','Aus',''],['trend','Trend',CHART_TREND_HINT[c.statKind]||CHART_TREND_HINT.line],
+            ['pattern','Tagesmuster','7 Tage × 24 Stunden als Farbraster']];
+  if(c.statKind==='line') st.push(['span','Tagesspanne','Tief bis Hoch je Tag, 7 Tage']);
+  return st;
+}
+function curChartStyle(ov){ return ov.chart ? (ov.chartStyle||'trend') : ''; }
+function chartStyleRows(c,ov){
+  const cur=curChartStyle(ov), st=chartStyles(c), hint=(st.find(o=>o[0]===cur)||st[0])[2];
+  let h='<div class="frow"><label class="lbl">Verlauf</label><select id="tChartStyle">'+
+    st.map(o=>'<option value="'+esc(o[0])+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select>'+(hint?'<span class="hint">'+esc(hint)+'</span>':'')+'</div>';
+  if(cur==='trend') h+='<div class="frow"><label class="lbl">Zeitraum</label><select id="tChartRange">'+
+    (META.statRanges||[]).map(o=>'<option value="'+esc(o[0])+'"'+(ov.chart===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select></div>';
+  return h;
+}
+function setChartStyle(v){
+  // Der Zeitraum bleibt beim Stilwechsel erhalten; Muster und Spanne rechnet
+  // der Server unabhaengig davon ueber 7 Tage.
+  const ov=tileOv(), first=((META.statRanges||[])[0]||[])[0];
+  if(!v){ delete ov.chart; delete ov.chartStyle; }
+  else { if(!ov.chart) ov.chart=first; if(v==='trend') delete ov.chartStyle; else ov.chartStyle=v; }
+  pruneTile(); markDirty(); renderTileEditor(); renderTileList();
+}
 function renderTileEditor(){
   const host=$('#tileEditor'); if(!host) return;
   if(!tileSel){ host.innerHTML=''; return; }
@@ -1924,6 +1972,7 @@ function renderTileEditor(){
         '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div>'+
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
+      (c.stat?chartStyleRows(c,ov):'')+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';
   bindColor('bg'); bindColor('border'); bindColor('iconColor'); bindColor('textColor');
@@ -1940,6 +1989,8 @@ function renderTileEditor(){
   ovPreview('tovPrev', ov.overlay);
   { const tg=$('#tOvOn'); if(tg) tg.onclick=()=>{ const o=tileOv();
       if(o.overlay) delete o.overlay; else o.overlay={}; pruneTile(); renderTileEditor(); renderTileList(); markDirty(); }; }
+  { const ts=$('#tChartStyle'); if(ts) ts.onchange=()=>setChartStyle(ts.value); }
+  { const tr=$('#tChartRange'); if(tr) tr.onchange=()=>setTile('chart', tr.value); }
   $('#tileReset').onclick=()=>{ if(PANELS[cur].tiles) delete PANELS[cur].tiles[tileSel]; renderTileEditor(); renderTileList(); markDirty(); };
   renderIconPick('builtin'); drawPrev();
 }
