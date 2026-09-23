@@ -32,8 +32,17 @@ Variablen im Template gesetzt.
 | Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false` |
 
 5. **Apply**. Unraid zieht das Image und startet den Container.
+6. Die Versionsspalte zeigt zunächst *not available* (dt. *nicht verfügbar*): Unraid
+   prüft beim Anlegen nicht und behält die leere Anzeige bis zur ersten Prüfung.
+   Die läuft jede Nacht von selbst. Sofort geht es wie unter [Updates](#updates)
+   beschrieben.
 
 ## Manuell ohne Template
+
+Auch ohne Template den Container über Unraid anlegen, nicht per `docker run` oder
+Compose im Terminal. Solche Container führt Unraid als *3rd Party*: Es kann sie
+nicht bearbeiten, prüft sie nicht auf Updates, und sie bekommen **keine Zeitzone**
+(siehe [Netzwerk und Zeitzone](#netzwerk-und-zeitzone)).
 
 *Add Container* ohne Template-Auswahl, dann:
 
@@ -77,9 +86,28 @@ Host-Port.
 
 ## Updates
 
-- **Docker**-Tab → **Check for Updates**. Zeigt LoxPanel *update ready*, auf
-  **update** klicken. Unraid zieht das neue Image und startet den Container neu.
-- Automatisch geht das mit dem Community-Applications-Plugin **Auto Update
+- **Unraid prüft jede Nacht selbst** auf neue Images (Standard 00:10, der Zeitplan
+  steht in den Benachrichtigungs-Einstellungen von Unraid) und meldet ein Update als
+  Benachrichtigung „Docker - LoxPanel".
+- Ist ein Update da, steht in der **Versionsspalte** des Containers der Link
+  *apply update*. Ein Klick darauf zieht das Image, legt den Container damit neu an
+  und hält Unraids Update-Stand aktuell.
+- **Sofort prüfen**, statt bis zur Nacht zu warten: **Check for Updates** unter der
+  Container-Liste. Ist der Knopf nicht zu sehen, im Unraid-Terminal dasselbe Skript
+  starten, das nachts läuft, und danach den Docker-Tab neu laden:
+
+  ```bash
+  /usr/local/emhttp/plugins/dynamix.docker.manager/scripts/dockerupdate check
+  ```
+
+- **Update erzwingen**, also dasselbe Image neu ziehen und den Container neu anlegen:
+  In der *Erweiterten Ansicht* (Schalter oben rechts im Docker-Tab) steht bei einem
+  aktuellen Container in der Versionsspalte der Link *force update*. Im Menü des
+  Container-Icons gibt es diesen Eintrag nicht.
+- **Nicht per `docker pull` aktualisieren.** Ein geholtes Image ändert den laufenden
+  Container nicht, er läuft auf dem Image weiter, mit dem er angelegt wurde. Und
+  Unraids Update-Stand bleibt dabei zurück (siehe [Fehlersuche](#fehlersuche)).
+- Automatisch einspielen geht mit dem Community-Applications-Plugin **Auto Update
   Applications**.
 - Panels und Einstellungen bleiben erhalten, sie liegen im appdata-Ordner und nicht
   im Image.
@@ -107,16 +135,22 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   Port-Mapping. Die Visu ist dann direkt unter `http://<container-ip>:8099` erreichbar.
 - Liegt der Miniserver in einem anderen VLAN, muss der Unraid-Server ihn ausgehend
   erreichen dürfen.
-- Die **Zeitzone** übergibt Unraid jedem Container automatisch als `TZ`-Variable
-  (*Settings → Date and Time*). LoxPanel nutzt sie für Anzeigen wie „Heute/Morgen"
-  beim Wecker.
+- Die **Zeitzone** übergibt Unraid als `TZ`-Variable (*Settings → Date and Time*),
+  aber **nur an Container, die es selbst anlegt** (über Template oder *Add
+  Container*). Ein per `docker run` oder Compose angelegter Container läuft in UTC.
+  Das fällt am Kalender auf: Die Termine stehen um den UTC-Abstand verschoben, in
+  Mitteleuropa im Sommer 2 Stunden zu früh. Die große Uhr darüber stimmt trotzdem,
+  weil der Browser sie zeichnet. Abhilfe: den Container über Unraid anlegen, oder
+  `-e TZ=Europe/Vienna` (bzw. die eigene Zone) mitgeben. LoxPanel nutzt die
+  Zeitzone für alle Uhrzeiten, die der Server berechnet: Termine, „Heute/Morgen",
+  den Wecker.
 
 ## Unterschiede zum LoxBerry-Plugin
 
 | LoxBerry-Plugin | Unraid |
 |---|---|
 | Widget: Starten / Stoppen / Neu starten | Docker-Tab, Klick auf das Container-Icon |
-| Widget: „Jetzt updaten" | **Check for Updates** im Docker-Tab |
+| Widget: „Jetzt updaten" | nächtliche Prüfung, dann *apply update* in der Versionsspalte |
 | Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup** |
 | Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
@@ -132,6 +166,28 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   nicht nötig.
 - **Port 8099 belegt:** im Template einen anderen Host-Port wählen (z. B. `8100`).
   Panels und Agent dann mit `SERVER=<unraid-ip>:8100` ansprechen.
+- **Termine um Stunden verschoben, die Uhr stimmt:** Der Container hat keine
+  Zeitzone und läuft in UTC, siehe [Netzwerk und Zeitzone](#netzwerk-und-zeitzone).
+  Prüfen im Unraid-Terminal: `docker exec LoxPanel date` muss die Ortszeit zeigen.
+- **Versionsspalte zeigt *not available* (dt. *nicht verfügbar*):** Unraid
+  berechnet diese Anzeige nur beim ersten Anzeigen des Containers und bei einer
+  Update-Prüfung neu, nicht bei jedem Seitenaufruf. Wurde der Container nach der
+  letzten nächtlichen Prüfung angelegt, bleibt „nicht verfügbar" bis zur nächsten
+  stehen. Sofort beheben: die Prüfung wie unter [Updates](#updates) starten.
+- **Neue Version ist gezogen, läuft aber nicht:** Der Container läuft noch auf dem
+  alten Image. Vergleichen:
+
+  ```bash
+  docker inspect LoxPanel --format '{{.Image}}'
+  docker image inspect ghcr.io/chief-wiggum1203/loxpanel:latest --format '{{.Id}}'
+  ```
+
+  Unterscheiden sich die beiden, Container-Icon → **Edit** → **Apply**. Unraid legt
+  den Container dann mit dem aktuellen Image neu an, Einstellungen bleiben erhalten.
+  Danach kann Unraid *apply update* anzeigen, obwohl das neue Image schon läuft: Seine
+  Prüfung übernimmt den lokalen Stand aus der eigenen Statusdatei, statt ihn neu
+  auszulesen. Ein Klick auf *apply update* holt dasselbe Image noch einmal und
+  gleicht den Stand an.
 - **Image lässt sich nicht ziehen:** das GitHub-Package
   `chief-wiggum1203/loxpanel` muss auf *public* stehen und der Workflow
   *Docker Image* muss mindestens einmal auf `main` gelaufen sein.

@@ -18,6 +18,9 @@ services:
       LOXPANEL_MS_PASS: "${LOXPANEL_MS_PASS}"
       LOXPANEL_MS_PORT: "${LOXPANEL_MS_PORT:-443}"
       LOXPANEL_MS_VERIFY_TLS: "${LOXPANEL_MS_VERIFY_TLS:-false}"
+      # Zeitzone (aus .env). Ohne sie laeuft der Container in UTC, und die
+      # Uhrzeiten der Termine am Panel stehen um den UTC-Abstand verschoben.
+      TZ: "${TZ:-}"
     volumes:
       # Persistiert panels.json (von /config geschrieben), theme.json und
       # optional loxpanel.cfg (Intercom/T25-Login). Host-Ordner ./config.
