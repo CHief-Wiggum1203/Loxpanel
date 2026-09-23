@@ -464,7 +464,12 @@
     column-gap:44px;row-gap:16px;align-items:start;}
   .saver.split .sv-wrap.rich .sv-clock{grid-area:clock;justify-self:center;margin:0 0 4px;}
   .saver.split .sv-wrap.rich .sv-wx{grid-area:wx;}
-  .saver.split .sv-wrap.rich .sv-cal{grid-area:cal;}
+  .saver.split .sv-wrap.rich .sv-cal,
+  .saver.split .sv-wrap.rich .sv-box{grid-area:cal;}
+  /* Steht rechts nichts (Einstellung "aus", oder es gibt schlicht nichts zu
+     zeigen): einspaltig weiterlaufen, statt die halbe Flaeche leer zu lassen. */
+  .saver.split .sv-wrap.rich.solo{grid-template-columns:1fr;
+    grid-template-areas:"clock" "wx";width:min(94%,620px);}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
@@ -501,6 +506,45 @@
   .sv-ev .tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
     border:1px solid rgba(var(--accent-rgb,82,184,129),.4);background:rgba(var(--accent-rgb,82,184,129),.10);
     border-radius:999px;padding:2px 8px;white-space:nowrap;}
+  /* Zweite Spalte, wenn dort nicht die Termine stehen: Wetter-Details,
+     Energiefluss, Kamera oder frei gewaehlte Bausteine. Eigener Container neben
+     .sv-cal — beide liegen im selben Rasterfeld, sichtbar ist immer nur einer. */
+  .saver .sv-box{display:flex;flex-direction:column;gap:8px;align-self:stretch;min-width:0;}
+  /* .fp-page ist sonst auf die Panes am Hauptschirm gemuenzt (#frontpane) und
+     braucht hier dieselbe Rahmung — aber ohne deren Seiten-Snapping. */
+  .saver .sv-box .fp-page{display:flex;flex-direction:column;gap:10px;padding:12px;
+    box-sizing:border-box;min-height:0;
+    background:linear-gradient(180deg,var(--tile),rgba(255,255,255,.015));
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:14px;}
+  .saver .sv-box .fp-page.solo{overflow:hidden;}
+  /* Energiefluss und Kamera sind EINE Seite, die eine Hoehe BRAUCHT: am
+     Hauptschirm gibt die Pane sie vor, hier der gemessene freie Platz unter der
+     Uhr (--sv-frei, gesetzt in svFit). Ohne diese Grenze uebersetzt die
+     quadratische Grafik die Spaltenbreite in Hoehe und schiebt die Uhr aus dem
+     Bild. Mit ihr laeuft innen alles wie am Hauptschirm ueber Flex, und beide
+     Grafiken zentrieren sich (SVG per preserveAspectRatio, Bild per
+     object-fit), statt zu strecken. */
+  .saver .sv-box.solo{height:var(--sv-frei,auto);}
+  .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
+  .saver .sv-box.solo .video{max-height:100%;}
+  /* Frei gewaehlte Bausteine: Name/Raum links, Wert rechts. Zustandsfarben wie
+     auf einer Kachel, damit dasselbe Geraet nicht zweierlei Farbsprache hat. */
+  .sv-st{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;
+    background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:7px 11px;}
+  .sv-st .ico{width:22px;height:22px;flex:none;display:grid;place-items:center;color:var(--ico,var(--ink));}
+  .sv-st .ico svg{width:100%;height:100%;}
+  .sv-st .ico img{width:100%;height:100%;object-fit:contain;}
+  .sv-st .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
+    -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .sv-st .nm{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sv-st .nm .rm{display:block;font-size:11px;font-weight:400;color:var(--muted);}
+  .sv-st .vl{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .sv-st.on .ico,.sv-st.on .vl{color:var(--ico-fixed,var(--glow));}
+  .sv-st.good .ico,.sv-st.good .vl{color:var(--good);}
+  .sv-st.crit .ico,.sv-st.crit .vl{color:var(--crit-ink,var(--crit));}
+  .sv-st.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .sv-st.good .ico.img{background-color:var(--good);}
+  .sv-st.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   /* Groessere Panels/Tablets/Browser: die Front nutzt den Platz statt als kleine
      440px-Saeule in der Mitte zu haengen. Nur der Screensaver (.saver) skaliert
      hoch — die reine 480x480-Ansicht bleibt unveraendert kompakt. */
@@ -528,6 +572,12 @@
     .sv-ev .when .tm{font-size:19px;}
     .sv-ev .ttl{font-size:18px;}
     .sv-ev .tag{font-size:12px;padding:3px 11px;}
+    .saver .sv-box{gap:11px;}
+    .sv-st{padding:12px 18px;gap:16px;border-radius:14px;}
+    .sv-st .ico{width:28px;height:28px;}
+    .sv-st .nm{font-size:18px;}
+    .sv-st .nm .rm{font-size:13px;}
+    .sv-st .vl{font-size:19px;}
   }
   /* ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (eigene Seite / Split-Pane) ---- */
   .frontpage.hidden{display:none;}
@@ -667,6 +717,7 @@
         <div class="sv-date" id="svDate"></div>
       </div>
       <div class="sv-cal" id="svCal" hidden></div>
+      <div class="sv-box" id="svBox" hidden></div>
       <div class="sv-hint">Zum Öffnen tippen</div>
     </div>
   </div>
@@ -724,6 +775,9 @@ let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layo
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
 // curPlayerZone = zuletzt an den Server gemeldete Player-Zone (setplayer).
 let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '', curCameraUuid = '';
+// Rechte Spalte der Uhr-Seite (Screensaver), Einstellung je Panel; svStatusData
+// sind die Werte der frei gewaehlten Bausteine ({t:'svstatus'} vom Server).
+let svPaneCfg = '', svStatusData = null, curSvStatus = '';
 let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
@@ -1131,25 +1185,43 @@ function applyPane(){
     fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');
     fp.classList.toggle('cam', kind==='camera');
     // Kamera verlassen -> Video-Stream stoppen (Inhalt leeren), keine Hintergrund-Verbindung.
-    if(kind!=='camera' && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
+    // Auch, wenn der Screensaver darueber liegt: das <img> haengt direkt an
+    // /mjpeg und streamt sonst unsichtbar weiter.
+    if((kind!=='camera' || svSideOn()) && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
   }
   if(kind==='weather') renderWeatherPane(fp);
   else if(kind==='calendar') renderCalendarPane(fp);
   else if(kind==='energy') renderEnergyPane(fp);
-  else if(kind==='camera') renderCameraPane(fp);
+  else if(kind==='camera' && !svSideOn()) renderCameraPane(fp);
   // Player-Zone dieses Tabs dem Server melden (nur bei Aenderung -> er pusht die Blocks).
   const zone=(kind==='player')?raw.slice(7):'';
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
-  // Energiefluss-Kachel dieses Tabs dem Server melden (er pusht dann {t:'energy'}).
-  const euid=(kind==='energy')?raw.slice(7):'';
+  // Energiefluss und Kamera hat der Server je Verbindung nur EINMAL. Liegt der
+  // Screensaver oben, gilt SEINE Wahl — die Pane darunter ist verdeckt, und ein
+  // Kamerabild hinter dem Screensaver waere eine Dauerverbindung zur
+  // Tuerstation, die niemand sieht. Sonst zaehlt die Pane des aktiven Tabs.
+  const qraw = svSideOn() ? svSideRaw() : (raw||'');
+  const qarg = (v,kopf)=> (v && v.indexOf(kopf)===0) ? v.slice(kopf.length) : '';
+  // Energiefluss-Kachel dem Server melden (er pusht dann {t:'energy'}).
+  const euid=qarg(qraw,'energy:');
   if(euid!==curEnergyUuid){ curEnergyUuid=euid; try{ send({t:'setenergy',uuid:euid}); }catch(e){} }
-  // Kamera (Intercom) dieses Tabs dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
-  const cuid=(kind==='camera')?raw.slice(7):'';
+  // Kamera (Intercom) dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
+  const cuid=qarg(qraw,'camera:');
   if(cuid!==curCameraUuid){ curCameraUuid=cuid; cameraData=null;
     if(fp){ delete fp.dataset.cam; delete fp.dataset.camsig; }
+    const sb=el('svBox'); if(sb){ delete sb.dataset.cam; delete sb.dataset.camsig; }
     try{ send({t:'setcamera',uuid:cuid}); }catch(e){}
-    if(cuid&&kind==='camera') renderCameraPane(fp);   // sofort Platzhalter zeigen, bis der Push kommt
+    // Sofort einen Platzhalter zeigen, bis der Push kommt — je nachdem, wo die
+    // Kamera gerade hingehoert.
+    if(cuid){ if(svSideOn()) renderFront(); else if(kind==='camera') renderCameraPane(fp); }
   }
+  // Frei gewaehlte Werte fuer die Uhr-Seite beim Server anmelden. Bewusst
+  // unabhaengig davon, ob der Screensaver gerade oben liegt: sonst stuende die
+  // Spalte beim Einblenden erst einmal leer da.
+  const sraw = themeSplit ? (svPaneCfg||'') : '';
+  const suu = (svKind(sraw)==='status') ? svArg(sraw) : '';
+  if(suu!==curSvStatus){ curSvStatus=suu; svStatusData=null;
+    try{ send({t:'setsvstatus', uuids: suu?suu.split(','):[]}); }catch(e){} }
 }
 
 // Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
@@ -1411,7 +1483,7 @@ window.addEventListener('resize',()=>{
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
-  if(saverOn()){ applySaverSplit(); renderFront(); }
+  if(saverOn()){ applySaverSplit(); applyPane(); renderFront(); }
   // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
   // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
   // Startmessung 4x2 haengenzubleiben.
@@ -1484,7 +1556,9 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
-      if(saverOn()) applySaverSplit();      // Split-Erlaubnis kann sich geaendert haben -> Screensaver-Spaltigkeit nachziehen
+      svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
+      if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
+      applyPane();                          // Energie-/Kamera-Kachel und Status-Werte neu anmelden
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
@@ -1497,8 +1571,13 @@ function connect(){
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
-    if(msg.t==='energy'){ energyData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
-    if(msg.t==='camera'){ cameraData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='energy'){ energyData=msg;
+      if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> dort zeichnen, nicht in die verdeckte Pane
+      const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
+    if(msg.t==='camera'){ cameraData=msg;
+      if(svSideOn()){ renderFront(); return; }
+      const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[]; if(saverOn()) renderFront(); return; }   // frei gewaehlte Werte auf der Uhr-Seite
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -1576,15 +1655,27 @@ function svCount(d){ const n=parseInt(d&&d.svEvents); return (n>=1&&n<=10)?n:3; 
 // wuerde oben das Wetter und unten die Termine abschneiden. Darum nach dem
 // Zeichnen messen und von unten so lange Zeilen wegnehmen, bis es passt.
 function svFit(){
-  const saver=el('saver'), cal=el('svCal');
-  if(!saver||!cal||cal.hidden) return;
+  const saver=el('saver');
+  if(!saver) return;
   const platz=saver.clientHeight;
   const wrap=saver.querySelector('.sv-wrap');
   if(!platz||!wrap) return;                      // versteckt/noch nicht gemessen
-  const zeilen=[...cal.querySelectorAll('.sv-ev')];
-  for(let i=zeilen.length-1; i>=1 && wrap.getBoundingClientRect().height>platz; i--){
-    zeilen[i].remove();
-  }
+  // Quadratische bzw. 4:3-Grafiken (Energiefluss, Kamera) uebersetzen sonst die
+  // Spaltenbreite in Hoehe und schieben die Uhr aus dem Bild. Ihnen sagen, wie
+  // viel unter der Uhr wirklich frei ist — gemessen, nicht geschaetzt.
+  const uhr=wrap.querySelector('.sv-clock');
+  const frei=platz-(uhr?uhr.getBoundingClientRect().height:0)-28;
+  wrap.style.setProperty('--sv-frei', Math.max(120,Math.round(frei))+'px');
+  // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
+  // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
+  // Kamera haben keine solchen Zeilen und bleiben unangetastet.
+  [el('svBox'), el('svCal')].forEach(c=>{
+    if(!c||c.hidden) return;
+    const zeilen=[...c.querySelectorAll('.sv-st,.sv-ev')];
+    for(let i=zeilen.length-1; i>=1 && wrap.getBoundingClientRect().height>platz; i--){
+      zeilen[i].remove();
+    }
+  });
 }
 // Legende: nur wenn es mehrere Kalender gibt UND die Farben an sind.
 function fpLegendHTML(d){
@@ -1596,7 +1687,7 @@ function fpLegendHTML(d){
 function fmtTemp(t){ if(t==null||isNaN(t)) return '–'; return Number(t).toLocaleString(LANG,{minimumFractionDigits:1,maximumFractionDigits:1}); }
 function tdeg(v){ return v==null?'–':(Math.round(v)+'°'); }
 function renderFront(){
-  const wxEl=el('svWx'), calEl=el('svCal'); if(!wxEl||!calEl) return;
+  const wxEl=el('svWx'); if(!wxEl) return;   // die zweite Spalte prueft renderSvSide selbst
   const d=frontData||{}, w=d.weather;
   if(w){
     const fc=Array.isArray(w.forecast)?w.forecast:[];
@@ -1615,19 +1706,96 @@ function renderFront(){
   // Wie viele Termine auf die Uhr-Seite passen, sagt die Einstellung — mit
   // mehreren Kalendern sind drei schnell zu wenig, um den Tag zu sehen.
   const evs=(Array.isArray(d.events)?d.events:[]).slice(0,svCount(d));
-  if(evs.length){
-    calEl.innerHTML='<div class="lbl">Nächste Termine</div>'+evs.map(e=>{
-      const tag=evTag(d,e);
-      return '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
-      '<span class="tm">'+esc(e.time||'')+'</span></span>'+
-      '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+'</span>'+
-      (tag?'<span class="tag">'+esc(tag)+'</span>':'')+'</div>'; }).join('');
-    calEl.hidden=false;
-  } else { calEl.hidden=true; calEl.innerHTML=''; }
-  // Kompakt-Layout aktivieren, sobald Wetter oder Termine angezeigt werden.
+  const zweite=renderSvSide(evs);   // Termine, Wetter, Energie, Kamera oder Werte
+  // Kompakt-Layout aktivieren, sobald Wetter oder eine zweite Spalte da ist.
   const wrap=document.querySelector('.sv-wrap');
-  if(wrap) wrap.classList.toggle('rich', !!w || evs.length>0);
+  if(wrap){ wrap.classList.toggle('rich', !!w || zweite);
+    wrap.classList.toggle('solo', !zweite); }
   svFit();
+}
+// ---- Rechte Spalte der Uhr-Seite ----
+// Was dort steht, sagt die Einstellung je Panel (svPaneCfg, vom Server):
+// "" = Automatik (Termine, und sobald keine anstehen die Wetter-Details),
+// "off" = keine zweite Spalte, sonst "calendar" | "weather" | "energy:<uuid>"
+// | "camera:<uuid>" | "status:<uuid>,...".
+// Sie greift NUR im zweispaltigen Screensaver (Querformat) — einspaltig gibt es
+// keine Flaeche, die ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
+function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
+function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
+function svSideOn(){ const s=el('saver');
+  return !!s && !s.classList.contains('hidden') && s.classList.contains('split'); }
+function svSideRaw(){ return svSideOn() ? (svPaneCfg||'') : ''; }
+// Terminliste — aus renderFront herausgeloest, seit sie nicht mehr die einzige
+// moegliche Fuellung der Spalte ist.
+function svCalHTML(d,evs){
+  return '<div class="lbl">Nächste Termine</div>'+evs.map(e=>{
+    const tag=evTag(d,e);
+    return '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
+    '<span class="tm">'+esc(e.time||'')+'</span></span>'+
+    '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+'</span>'+
+    (tag?'<span class="tag">'+esc(tag)+'</span>':'')+'</div>'; }).join('');
+}
+// Wetter fuer die zweite Spalte: Stundenverlauf und die Detailwerte. Bewusst
+// NICHT noch einmal die Tagesvorschau — die steht schon in der linken Spalte.
+function svWeatherHTML(w){
+  if(!w) return '';
+  const hh=Array.isArray(w.hourly)?w.hourly:[];
+  const kurve=(hh.length>=2)?'<div class="fp-curve">'+fpCurve(hh)+'</div>':'';
+  const det=fpWeatherDetailHTML(w);
+  return (kurve||det) ? '<div class="lbl">Wetter</div>'+kurve+det : '';
+}
+// Frei gewaehlte Bausteine: Name, Raum, Wert — nur lesen. Die Kacheln baut der
+// Server ueber dieselbe Kette wie jede andere Kachel (status_blocks).
+function renderSvStatus(box){
+  const items=Array.isArray(svStatusData)?svStatusData:[];
+  if(!items.length){
+    box.innerHTML='<div class="lbl">Werte</div><div class="fp-empty">'+
+      (svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
+    return;
+  }
+  box.innerHTML='<div class="lbl">Werte</div>'+items.map(it=>{
+    const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
+    const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
+      : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+      : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+    return '<div class="sv-st'+ton+'"'+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
+      '<span class="nm">'+esc(it.label||'')+
+      (it.room?'<span class="rm">'+esc(it.room)+'</span>':'')+'</span>'+
+      '<span class="vl">'+esc(it.sublabel||'')+'</span></div>'; }).join('');
+}
+// Liefert true, wenn rechts (bzw. einspaltig: unten) ueberhaupt etwas steht.
+function renderSvSide(evs){
+  const cal=el('svCal'), box=el('svBox');
+  if(!cal||!box) return false;
+  const d=frontData||{}, zwei=svSideOn(), raw=svSideRaw(), k=svKind(raw);
+  // Termine: einspaltig wie bisher unter der Uhr, zweispaltig bei "calendar"
+  // und in der Automatik — solange ueberhaupt welche anstehen.
+  const zeigeCal = evs.length>0 && (!zwei || k==='calendar' || k==='');
+  if(zeigeCal){ cal.innerHTML=svCalHTML(d,evs); cal.hidden=false; }
+  else { cal.hidden=true; cal.innerHTML=''; }
+  // Ist die Kamera nicht (mehr) gemeint, muss ihr <img> weg — es haengt direkt
+  // an /mjpeg und streamt sonst weiter, auch unsichtbar.
+  if(k!=='camera' && box.dataset.cam!==undefined){
+    box.innerHTML=''; delete box.dataset.cam; delete box.dataset.camsig; }
+  let inhalt=false;
+  if(zwei && k!=='off' && k!=='calendar'){
+    if(k==='energy'){ renderEnergyPane(box); inhalt=true; }
+    else if(k==='camera'){ renderCameraPane(box); inhalt=true; }
+    else if(k==='status'){ renderSvStatus(box); inhalt=true; }
+    else if(k==='weather' || (k==='' && !zeigeCal)){
+      // Automatik: sobald die Termine die Spalte nicht fuellen, uebernimmt das
+      // Wetter sie — sonst bliebe die halbe Flaeche leer.
+      const h=svWeatherHTML(d.weather);
+      if(h){ box.innerHTML=h; inhalt=true; }
+    }
+  }
+  if(!inhalt && k!=='camera') box.innerHTML='';
+  // Energiefluss und Kamera fuellen eine Seite und brauchen die Hoehengrenze
+  // oben; Termine, Wetter und Werte sind Listen und duerfen wachsen (svFit
+  // nimmt ihnen notfalls die unterste Zeile).
+  box.classList.toggle('solo', inhalt && (k==='energy'||k==='camera'));
+  box.hidden=!inhalt;
+  return zeigeCal || inhalt;
 }
 // ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (fuer eigene Seite / Split-Pane) ----
 // Zeichnet den Stunden-Temperaturverlauf als Inline-SVG (Regenband + Kurve),
@@ -1928,9 +2096,17 @@ function applySaverSplit(){
 function showSaver(){ tickClock();
   applySaverSplit();
   el('saver').classList.remove('hidden');
-  // Erst jetzt hat der Screensaver eine Hoehe — die Termine passen sich an.
+  // Reihenfolge zaehlt: erst sichtbar schalten (svSideOn() gilt), dann die
+  // Energie-/Kamera-Kachel auf die Wahl des Screensavers umstellen, dann
+  // zeichnen — jetzt hat er auch eine Hoehe, an der sich svFit ausrichtet.
+  applyPane();
   renderFront(); }
-function hideSaver(){ el('saver').classList.add('hidden'); }
+function hideSaver(){ el('saver').classList.add('hidden');
+  // Zweite Spalte abraeumen: ein Kamerabild dort haelt sonst seine Verbindung
+  // zur Tuerstation offen, obwohl die Uhr-Seite gar nicht mehr zu sehen ist.
+  const b=el('svBox');
+  if(b){ b.innerHTML=''; b.hidden=true; delete b.dataset.cam; delete b.dataset.camsig; }
+  applyPane(); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
 function showNotify(text, level, secs){
   if(!text) return;

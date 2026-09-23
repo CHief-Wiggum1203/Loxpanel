@@ -1118,6 +1118,11 @@ function renderEditor(){
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
        '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+     '<div id="svPaneField">'+
+       '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
+       '<div class="field" style="max-width:none"><label class="lbl">Rechte Spalte im Querformat</label>'+
+       '<div id="svPaneBox"></div>'+
+       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite im <b>Querformat</b> hat rechts neben der Uhr Platz. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Energiefluss</b>, <b>Kamera</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Hochkant und auf dem 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
@@ -1168,6 +1173,7 @@ function renderEditor(){
       const off=e.target.value==='off';
       if(off) p.ui.split=false; else delete p.ui.split;
       const pf=$('#paneField'); if(pf) pf.style.display=off?'none':'';
+      const sf=$('#svPaneField'); if(sf) sf.style.display=off?'none':'';
       markDirty(); }; }
   // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt
   // nachts abgedunkelt wird (sonst wirkungslos).
@@ -1180,7 +1186,7 @@ function renderEditor(){
   ovPreview('ovPrev',(p.ui||{}).overlay);
   { const r=$('#ovReset'); if(r) r.onclick=()=>{ if(p.ui) delete p.ui.overlay; renderEditor(); markDirty(); }; }
 
-  renderTabMode(p); renderPanes(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
+  renderTabMode(p); renderPanes(p); renderSvPane(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
   renderTileList(); renderTileEditor();
   const tsr=$('#tileSearch'); if(tsr) tsr.oninput=()=>renderTileList();
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
@@ -1282,6 +1288,86 @@ function renderPanes(p){
   box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panec,'camera:'+s.value);
   });
+}
+// Screensaver: rechte Spalte. Gleiche Werte-Grammatik wie die Tab-Panes, damit
+// es nicht zwei Sprachen fuer dieselbe Sache gibt.
+// Drei Arten brauchen ein Ziel: "Werte" mindestens einen Baustein, Energiefluss
+// und Kamera je einen passenden. Solange keines da ist, wird NICHTS gespeichert
+// — ein halber Wert wie "energy:" wuerde vom Server still verworfen und die
+// Auswahl spraenge beim naechsten Laden kommentarlos zurueck. Dass die Auswahl
+// trotzdem stehen bleibt (mit Hinweis), merkt sich svWant je Panel und Art.
+let svWant='';
+function svWantKind(){ return (svWant.indexOf(cur+'|')===0) ? svWant.slice(cur.length+1) : ''; }
+// Obergrenze kommt vom Server (/api/meta) - eine Quelle fuer beide Seiten.
+function svMax(){ return Number(META && META.svStatusMax) || 0; }
+function controlOptions(){
+  return (META.controls||[]).map(c=>'<option value="'+esc(c.uuid)+'">'+esc(c.name)+
+    (c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function renderSvPane(p){
+  const fld=$('#svPaneField'); if(fld) fld.style.display=((p.ui||{}).split===false)?'none':'';
+  const box=$('#svPaneBox'); if(!box) return;
+  const v=((p.ui||{}).svPane)||'';
+  const i=v.indexOf(':');
+  const arg=i>0?v.slice(i+1):'';
+  const k=(i>0?v.slice(0,i):v) || svWantKind();
+  let h='<div class="ccrow"><span class="ccnm">'+T('Inhalt')+'</span>'+
+    '<select id="fSvPane">'+
+      '<option value=""'+(k===''?' selected':'')+'>Automatisch (Termine, sonst Wetter)</option>'+
+      '<option value="calendar"'+(k==='calendar'?' selected':'')+'>Termine</option>'+
+      '<option value="weather"'+(k==='weather'?' selected':'')+'>Wetter-Details</option>'+
+      '<option value="energy"'+(k==='energy'?' selected':'')+'>Energiefluss</option>'+
+      '<option value="camera"'+(k==='camera'?' selected':'')+'>Kamera</option>'+
+      '<option value="status"'+(k==='status'?' selected':'')+'>Werte (eigene Auswahl)</option>'+
+      '<option value="off"'+(k==='off'?' selected':'')+'>Nichts (Uhr über volle Breite)</option>'+
+    '</select>';
+  if(k==='energy'||k==='camera'){
+    const opt=(k==='energy')?energyControlOptions(arg):cameraOptions(arg);
+    h+= opt ? '<select id="fSvArg">'+opt+'</select>'
+      : '<span class="ccmut">'+(k==='energy'
+          ? T('Kein Energieflussmonitor in der Anlage.')
+          : T('Kein Intercom-Baustein in der Anlage.'))+'</span>';
+  }
+  h+='</div>';
+  const uu=(k==='status'&&arg)?arg.split(','):[];
+  if(k==='status'){
+    h+='<div class="ccrow" style="margin-top:8px"><span class="ccnm">'+T('Bausteine')+'</span>'+
+       '<select id="fSvAdd"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
+       ((svMax()&&uu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+'</div>';
+    h+='<div class="picked" id="svStatChips" style="margin-top:8px">'+(uu.length
+      ? uu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
+          return '<span class="chip on" data-su="'+esc(u)+'">'+esc(c?c.name:u)+
+            '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+      : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
+  }
+  box.innerHTML=h;
+  const setSv=(val)=>{ p.ui=p.ui||{};
+    if(val) p.ui.svPane=val; else delete p.ui.svPane;
+    markDirty(); renderSvPane(p); };
+  const sel=$('#fSvPane');
+  if(sel) sel.onchange=()=>{
+    const nk=sel.value;
+    // Arten mit Ziel: nur speichern, wenn es das Ziel wirklich gibt. Sonst die
+    // Auswahl nur merken (Hinweis erscheint), aber nichts Halbes ablegen.
+    let ziel='';
+    if(nk==='energy') ziel=(k==='energy'&&arg)?arg:firstEnergyControl();
+    else if(nk==='camera') ziel=(k==='camera'&&arg)?arg:firstCamera();
+    else if(nk==='status') ziel=uu.join(',');
+    svWant=(nk==='energy'||nk==='camera'||nk==='status') && !ziel ? cur+'|'+nk : '';
+    if(nk==='energy'||nk==='camera'||nk==='status') setSv(ziel?(nk+':'+ziel):'');
+    else setSv(nk);
+  };
+  const sa=$('#fSvArg');
+  if(sa) sa.onchange=()=>setSv(k+':'+sa.value);
+  const add=$('#fSvAdd');
+  if(add) add.onchange=()=>{ const u=add.value; add.value='';
+    if(!u || uu.indexOf(u)>-1 || (svMax()&&uu.length>=svMax())) return;
+    setSv('status:'+uu.concat([u]).join(',')); };
+  box.querySelectorAll('.chip[data-su]').forEach(n=>n.onclick=()=>{
+    const rest=uu.filter(x=>x!==n.dataset.su);
+    setSv(rest.length?('status:'+rest.join(',')):'');
+  });
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome(box);
 }
 function renderChips(p){
   const box=$('#chips'); if(!box) return; box.innerHTML='';
