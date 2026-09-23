@@ -149,6 +149,21 @@ Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus dem Banner,
 und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach laufen
 `getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung.
 
+Tree-Turbo-Geräte (Stereo Extension, Install Speaker/Sub/Satellite Master,
+künftig das Wall Display 10") hängen laut Loxone per IP-Powerline an einer
+Tree-Turbo-Schnittstelle des Audioservers bzw. Miniserver Compact und holen sich
+per DHCP eine IP im normalen Heimnetz — sie sind also im LAN direkt erreichbar.
+`bin/treeturbo_probe.py` sucht sie dort: liest die bekannten Adressen
+(Miniserver + Audioserver) aus dem laufenden Panel und der Struktur, leitet die
+zugehörigen `/24`-Netze ab, scannt sie auf die Loxone-Ports (80/443, 7090–7095)
+und fragt jeden Treffer ab (HTTP-Banner, Audioserver-Banner auf 7091 über das
+Unterprotokoll `remotecontrol`). Aufruf `docker exec -i LoxPanel python3
+bin/treeturbo_probe.py`; `host <ip>` prüft eine Adresse, `net <cidr>` ein
+bestimmtes Netz, `full` erweitert den Portbereich je Treffer. Die Sonde liest
+nur. So lässt sich feststellen, welche Tree-Turbo-Geräte im Netz auftauchen und
+welche Dienste sie ohne Anmeldung anbieten — die Grundlage, um ein eigenes Panel
+als Ersatz für das Wall Display anzubinden, statt es zu kaufen.
+
 ### 3.2 Start
 
 `main()` (`webvisu.py:3036`) liest `--port` bzw. `LOXPANEL_PORT` (Default 8099),
