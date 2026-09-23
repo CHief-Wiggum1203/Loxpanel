@@ -27,4 +27,11 @@ COPY agent/ ./agent/
 ENV LOXPANEL_PORT=8099
 EXPOSE 8099
 
+# Zustand fuer Docker/Unraid (Docker-Tab: healthy/unhealthy). /api/health meldet
+# 503, wenn eine Hintergrund-Aufgabe des Servers beendet ist. Ein nicht
+# erreichbarer Miniserver macht den Container NICHT ungesund (Neustart hilft da
+# nicht, der Server verbindet selbst neu). Python statt curl: slim hat kein curl.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('LOXPANEL_PORT', '8099'), timeout=4)"]
+
 CMD ["python", "bin/webvisu.py"]
