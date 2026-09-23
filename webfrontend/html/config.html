@@ -1909,6 +1909,34 @@ function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
 function setTileIcon(ic){ const ov=tileOv(); if(ic) ov.icon=ic; else delete ov.icon; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
+// Mini-Diagramm der Kachel: Stil und (nur beim Trend) Zeitraum. Tagesmuster
+// und Tagesspanne zeigen immer die letzten 7 Tage, die Spanne gibt es nur bei
+// Messwerten (bei Zaehlern und Ein/Aus hat ein Tag kein Tief und Hoch).
+function chartStyles(c){
+  const st=[['','Aus',''],['trend','Trend','Kurve mit Tief, Hoch und Änderung'],
+            ['pattern','Tagesmuster','7 Tage × 24 Stunden als Farbraster']];
+  if(c.statKind==='line') st.push(['span','Tagesspanne','Tief bis Hoch je Tag, 7 Tage']);
+  return st;
+}
+function curChartStyle(ov){ return ov.chart ? (ov.chartStyle||'trend') : ''; }
+function chartStyleRows(c,ov){
+  const cur=curChartStyle(ov), st=chartStyles(c), hint=(st.find(o=>o[0]===cur)||st[0])[2];
+  let h='<div class="frow"><label class="lbl">Verlauf</label><select id="tChartStyle">'+
+    st.map(o=>'<option value="'+esc(o[0])+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select>'+(hint?'<span class="hint">'+esc(hint)+'</span>':'')+'</div>';
+  if(cur==='trend') h+='<div class="frow"><label class="lbl">Zeitraum</label><select id="tChartRange">'+
+    (META.statRanges||[]).map(o=>'<option value="'+esc(o[0])+'"'+(ov.chart===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select></div>';
+  return h;
+}
+function setChartStyle(v){
+  // Der Zeitraum bleibt beim Stilwechsel erhalten; Muster und Spanne rechnet
+  // der Server unabhaengig davon ueber 7 Tage.
+  const ov=tileOv(), first=((META.statRanges||[])[0]||[])[0];
+  if(!v){ delete ov.chart; delete ov.chartStyle; }
+  else { if(!ov.chart) ov.chart=first; if(v==='trend') delete ov.chartStyle; else ov.chartStyle=v; }
+  pruneTile(); markDirty(); renderTileEditor(); renderTileList();
+}
 function renderTileEditor(){
   const host=$('#tileEditor'); if(!host) return;
   if(!tileSel){ host.innerHTML=''; return; }
@@ -1940,9 +1968,7 @@ function renderTileEditor(){
         '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div>'+
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
-      (c.stat?'<div class="frow"><label class="lbl">Verlauf</label><select id="tChart">'+
-        [['','Aus']].concat(META.statRanges||[]).map(o=>'<option value="'+esc(o[0])+'"'+((ov.chart||'')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
-        '</select><span style="color:var(--muted);font-size:12.5px">Mini-Diagramm in der Kachel</span></div>':'')+
+      (c.stat?chartStyleRows(c,ov):'')+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';
   bindColor('bg'); bindColor('border'); bindColor('iconColor'); bindColor('textColor');
@@ -1959,7 +1985,8 @@ function renderTileEditor(){
   ovPreview('tovPrev', ov.overlay);
   { const tg=$('#tOvOn'); if(tg) tg.onclick=()=>{ const o=tileOv();
       if(o.overlay) delete o.overlay; else o.overlay={}; pruneTile(); renderTileEditor(); renderTileList(); markDirty(); }; }
-  { const tc=$('#tChart'); if(tc) tc.onchange=()=>setTile('chart', tc.value); }
+  { const ts=$('#tChartStyle'); if(ts) ts.onchange=()=>setChartStyle(ts.value); }
+  { const tr=$('#tChartRange'); if(tr) tr.onchange=()=>setTile('chart', tr.value); }
   $('#tileReset').onclick=()=>{ if(PANELS[cur].tiles) delete PANELS[cur].tiles[tileSel]; renderTileEditor(); renderTileList(); markDirty(); };
   renderIconPick('builtin'); drawPrev();
 }

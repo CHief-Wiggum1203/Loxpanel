@@ -196,8 +196,18 @@
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
   .tile .head{display:flex;justify-content:space-between;align-items:flex-start;}
   /* Mini-Verlauf (it.spark): fuellt die freie Mitte zwischen Icon und Text */
-  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;color:var(--accent);}
-  .tile .tspark svg{display:block;width:100%;height:100%;}
+  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;overflow:hidden;}
+  .tile .tspark svg{display:block;}
+  .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
+     Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile. */
+  .tile .tsline{display:none;}
+  .tile.sparktight .head .tspark{flex:1 1 0;min-width:0;align-self:stretch;margin:0 8px;}
+  .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline){display:none;}
+  .tile.sparktight .room:not(.tsline)+.tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
+  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
+    color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
   .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
@@ -1171,32 +1181,90 @@ function renderChartPane(elc){ if(!elc) return;
   if(d){ page.querySelector('.cpname').textContent=d.name||''; page.querySelector('.cpval').textContent=d.value||'';
     paintCharts(page,blocks); }
 }
-// Mini-Verlauf in einer Kachel (it.spark, eingeschaltet je Kachel im Konfigurator):
-// ohne Achsen, dehnt sich auf die freie Mitte der Kachel. Linie mit Flaeche,
-// Digitalwert als Stufen, Zaehlerstand als Verbrauchsbalken. Farbe = Akzent.
-function sparkSvg(sp){
-  if(!sp || sp.state!=='ok' || !sp.pts || !sp.pts.length) return '';
-  const W=200, H=60, p=sp.pts, t0=sp.t0, t1=sp.t1, span=Math.max(1,t1-t0);
-  const vs=p.map(q=>q[1]); let mn=Math.min(...vs), mx=Math.max(...vs);
-  if(sp.kind!=='line') mn=Math.min(0,mn);
-  if(mx-mn<1e-9) mx=mn+1;
-  const X=t=>(t-t0)*W/span, Y=v=>H-2-(v-mn)*(H-4)/(mx-mn), f=n=>n.toFixed(1);
-  const ln='vector-effect="non-scaling-stroke"';
+// Mini-Verlauf in einer Kachel (it.spark, je Kachel im Konfigurator gewaehlt). Drei
+// Stile, gezeichnet in der echten Pixelgroesse der freien Kachelmitte (paintSpark),
+// damit Beschriftungen scharf und unverzerrt bleiben:
+//   trend    Verlauf: Linie mit Tiefst-/Hoechstwert und Jetzt-Punkt, Digitalwert
+//            als Stufen, Zaehlerstand als Verbrauchsbalken
+//   pattern  Tagesmuster: 7 Tage (Zeilen, heute unten) x 24 Stunden, Deckkraft = Wert
+//   span     Tagesspanne: je Tag ein Balken Tiefst- bis Hoechstwert, Strich = Mittel
+// Ein Farbton (Akzent) fuer alle Werte, Beschriftung in der Textfarbe (--muted).
+function sparkSvg(sp,W,H){
+  if(!sp || sp.state!=='ok' || W<24 || H<18) return '';
+  const f=n=>n.toFixed(1), dec=sp.dec||0, acc='var(--accent)';
+  const txt=(x,y,t,anc,extra)=>'<text class="mm" x="'+f(x)+'" y="'+f(y)+'" text-anchor="'+(anc||'middle')+'"'+(extra||'')+'>'+esc(t)+'</text>';
   let s='';
-  if(sp.kind==='counter'){
-    p.forEach(([t,v],i)=>{ const x=X(t), w=Math.max(1,(i+1<p.length?X(p[i+1][0]):W)-x-1.5), y=Y(v);
-      s+='<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(w)+'" height="'+f(Math.max(0,H-2-y))+'" rx="1" style="fill:currentColor;opacity:.85"/>'; });
-  } else if(sp.kind==='digital'){
-    let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1]));
-    p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1; d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
-    s='<path d="'+d+' V'+(H-2)+' H'+f(X(p[0][0]))+' Z" style="fill:currentColor;opacity:.22"/>'+
-      '<path d="'+d+'" '+ln+' style="fill:none;stroke:currentColor;stroke-width:2"/>';
+  if(sp.style==='pattern'){
+    const c=sp.cells||[], vs=c.filter(v=>v!=null); if(!vs.length) return '';
+    let mn=sp.kind==='line'?Math.min(...vs):0, mx=Math.max(...vs); if(mx-mn<1e-9) mx=mn+1;
+    const lab=H>=58?11:0, gap=W<150?.75:1.5, cw=(W-23*gap)/24, ch=Math.max(2,(H-lab-6*gap)/7);
+    c.forEach((v,i)=>{ const d=Math.floor(i/24), h=i%24, x=h*(cw+gap), y=d*(ch+gap);
+      s+= v==null
+        ? '<rect x="'+f(x+.5)+'" y="'+f(y+.5)+'" width="'+f(cw-1)+'" height="'+f(ch-1)+'" rx="1.5" style="fill:none;stroke:var(--line)"/>'
+        : '<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(cw)+'" height="'+f(ch)+'" rx="1.5" style="fill:'+acc+';opacity:'+(0.08+0.92*(v-mn)/(mx-mn)).toFixed(3)+'"/>'; });
+    if(lab){ const y=H-1; s+=txt(0,y,'0 h','start')+txt(12*(cw+gap)-gap/2,y,'12 h')+txt(W,y,'24 h','end'); }
+  } else if(sp.style==='span'){
+    const sp7=sp.spans||[], ok=sp7.filter(Boolean); if(!ok.length) return '';
+    let mn=Math.min(...ok.map(r=>r[0])), mx=Math.max(...ok.map(r=>r[1])); if(mx-mn<1e-9){ mn-=1; mx+=1; }
+    const lab=H>=48?11:0, n=sp7.length, col=W/n, bw=Math.min(16,col*0.58), top=2, bot=H-lab-2;
+    const Y=v=>bot-(v-mn)*(bot-top)/(mx-mn);
+    sp7.forEach((r,i)=>{ const x=i*col+(col-bw)/2, today=i===n-1;
+      if(r){ const y1=Y(r[1]), y0=Y(r[0]);
+        s+='<rect x="'+f(x)+'" y="'+f(y1)+'" width="'+f(bw)+'" height="'+f(Math.max(3,y0-y1))+'" rx="'+f(Math.min(4,bw/2))+'" style="fill:'+acc+';opacity:'+(today?1:.3)+'"/>';
+        if(r[2]!=null) s+='<line x1="'+f(x+2)+'" x2="'+f(x+bw-2)+'" y1="'+f(Y(r[2]))+'" y2="'+f(Y(r[2]))+'" style="stroke:'+(today?'var(--tile)':'var(--ink)')+';stroke-width:1.5;opacity:.75"/>'; }
+      if(lab) s+=txt(i*col+col/2,H-1,(sp.days||[])[i]||'','middle',today?' style="fill:var(--ink);font-weight:600"':''); });
   } else {
-    const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
-    s='<polygon points="'+f(X(p[0][0]))+','+H+' '+line+' '+f(X(p[p.length-1][0]))+','+H+'" style="fill:currentColor;opacity:.16"/>'+
-      '<polyline points="'+line+'" '+ln+' style="fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round"/>';
+    const p=sp.pts||[]; if(!p.length) return '';
+    const t0=sp.t0, t1=sp.t1, span=Math.max(1,t1-t0), ln=sp.kind==='line';
+    const vs=p.map(q=>q[1]); let mn=Math.min(...vs), mx=Math.max(...vs);
+    if(sp.lo) mn=Math.min(mn,sp.lo[1]); if(sp.hi) mx=Math.max(mx,sp.hi[1]);
+    if(!ln) mn=Math.min(0,mn); if(mx-mn<1e-9) mx=mn+1;
+    const labs=ln&&H>=48, pt=labs?13:6, pb=labs?13:6, pl=ln?4:0, pr=ln?6:0;
+    const X=t=>pl+(t-t0)*(W-pl-pr)/span, Y=v=>H-pb-(v-mn)*(H-pt-pb)/(mx-mn);
+    if(sp.kind==='counter'){
+      p.forEach(([t,v],i)=>{ const x=X(t), w=Math.max(1,(i+1<p.length?X(p[i+1][0]):W)-x-1.5), y=Y(v);
+        s+='<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(w)+'" height="'+f(Math.max(0,Y(0)-y))+'" rx="1.5" style="fill:'+acc+';opacity:.85"/>'; });
+    } else if(sp.kind==='digital'){
+      let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1]));
+      p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1; d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
+      s='<path d="'+d+' V'+f(Y(0))+' H'+f(X(p[0][0]))+' Z" style="fill:'+acc+';opacity:.22"/>'+
+        '<path d="'+d+'" style="fill:none;stroke:'+acc+';stroke-width:2"/>';
+    } else {
+      const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
+      s='<polygon points="'+f(X(p[0][0]))+','+f(H)+' '+line+' '+f(X(p[p.length-1][0]))+','+f(H)+'" style="fill:'+acc+';opacity:.12"/>'+
+        '<polyline points="'+line+'" style="fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round"/>';
+      const mark=(q,above)=>{ const x=X(q[0]), y=Y(q[1]), a=x<18?'start':(x>W-18?'end':'middle');
+        return '<circle cx="'+f(x)+'" cy="'+f(y)+'" r="3" style="fill:var(--tile);stroke:var(--ink);stroke-width:1.4"/>'+
+               (labs?txt(x,above?y-5.5:y+12,chNum(q[1],dec),a):''); };
+      if(sp.hi) s+=mark(sp.hi,true);
+      if(sp.lo && (!sp.hi || sp.lo[0]!==sp.hi[0])) s+=mark(sp.lo,false);
+      const q=p[p.length-1];
+      s+='<circle cx="'+f(X(q[0]))+'" cy="'+f(Y(q[1]))+'" r="4.5" style="fill:'+acc+';stroke:var(--tile);stroke-width:2"/>';
+    }
   }
-  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+s+'</svg>';
+  return '<svg viewBox="0 0 '+f(W)+' '+f(H)+'" width="'+f(W)+'" height="'+f(H)+'" aria-hidden="true">'+s+'</svg>';
+}
+// Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
+const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+function paintSpark(el,sp){
+  if(!el) return;
+  const tile=el.closest('.tile'), head=tile&&tile.querySelector('.head');
+  if(head){
+    // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
+    const cs=getComputedStyle(tile);
+    let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
+    for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
+    const tight=free<SPARK_MIN_H;
+    if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
+      tile.classList.toggle('sparktight',tight);
+      if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
+      else tile.insertBefore(el,head.nextSibling);
+      el.innerHTML=''; el._key=null;
+    }
+  }
+  const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
+  if(el._key===key) return;
+  el._key=key; el.innerHTML=sparkSvg(sp,W,H);
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
@@ -1537,7 +1605,7 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'');
+    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+(n.classList.contains('sparktight')?' sparktight':'');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
@@ -1552,9 +1620,10 @@ function updateGrid(items){
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
     // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
-    const spEl=n.querySelector('.tspark');
-    if(!!it.spark!==!!spEl) ok=false;
-    else if(spEl){ const sh=sparkSvg(it.spark); if(spEl._src!==sh){ spEl.innerHTML=sh; spEl._src=sh; } }
+    const spEl=n.querySelector('.tspark'), bdEl=n.querySelector('.tsbadge'), bd=it.spark&&it.spark.badge;
+    if(!!it.spark!==!!spEl || !!bd!==!!bdEl) ok=false;
+    else if(spEl){ paintSpark(spEl,it.spark);
+      n.querySelectorAll('.tsbadge,.tsline').forEach(e=>{ if(e.textContent!==bd) e.textContent=bd; }); }
   });
   return ok;
 }
@@ -1618,10 +1687,11 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
     html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
-              '<div class="head">'+icoCell+chev+'</div>'+
-              (it.spark?'<div class="tspark">'+sparkSvg(it.spark)+'</div>':'')+
+              '<div class="head">'+icoCell+(it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+chev+'</div>'+
+              (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
               (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
+              (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
               '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
               (it.sublabel?'<div class="sub">'+esc(it.sublabel)+'</div>':'')+'</div>'+
               ctrls+
@@ -1632,6 +1702,7 @@ function render(){
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
+    if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
         b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;

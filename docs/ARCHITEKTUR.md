@@ -406,12 +406,34 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
   `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
   melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
-- **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum):
-  `_apply_tile_style()` hängt `spark` an die Kachel, das erste Linien-Diagramm
-  (sonst das erste überhaupt), erste Reihe, auf 48 Punkte ausgedünnt. Die Visu
-  zeichnet es ohne Achsen in die freie Mitte der Kachel (`sparkSvg()`),
-  `updateGrid()` zeichnet es bei Änderungen an Ort und Stelle neu. Nur
-  Bausteine mit Aufzeichnung; `/api/meta` kennzeichnet sie mit `stat`.
+- **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
+  `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
+  an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des
+  Bausteins (sonst dem ersten überhaupt, `_stat_primary()`), erste Reihe. Drei
+  Darstellungen, im Konfigurator unter „Verlauf" wählbar:
+  - **Trend** (Standard, Schlüssel fehlt): Kurve über den Zeitraum, auf 48
+    Punkte ausgedünnt, Tief und Hoch markiert und beschriftet, aktueller Wert
+    als Punkt. Dazu ein Kennzeichen im Kachelkopf: bei Messwerten die Änderung
+    gegenüber vor 24 h (`▲ 1,2 °C in 24 h`), bei Ein/Aus die Einschaltdauer im
+    Zeitraum, bei Zählern der Verbrauch (`Σ …`, als Balken je Stunde/Tag).
+  - **Tagesmuster** (`pattern`): 7 Tage × 24 Stunden als Farbraster in der
+    Akzentfarbe, je Zelle der zeitgewichtete Stundenmittelwert
+    (`_stat_buckets()`), bei Zählern der Stundenverbrauch, bei Ein/Aus der
+    Einschaltanteil. Stunden in der Zukunft bleiben leer umrandet.
+  - **Tagesspanne** (`span`, nur Messwerte): je Tag ein Balken von Tief bis
+    Hoch mit Strich beim Tagesmittel (`_stat_day_range()`), heute
+    hervorgehoben; Kennzeichen `heute Tief–Hoch Einheit`. Für Zähler und
+    Ein/Aus fällt der Server auf Trend zurück; `/api/meta` meldet dafür
+    `statKind`, damit der Konfigurator die Spanne nur bei Messwerten anbietet.
+
+  Tagesmuster und Tagesspanne zeigen immer die letzten 7 Kalendertage bis
+  jetzt, der Zeitraum gilt nur für den Trend. Alle Texte (Wochentage,
+  Kennzeichen) baut der Server. Die Visu zeichnet nach dem Einfügen in der
+  echten Pixelgröße der Kachel (`paintSpark()` → `sparkSvg(sp, W, H)`), damit
+  Schrift und Striche nicht verzerrt werden; `updateGrid()` zeichnet bei
+  Änderungen an Ort und Stelle neu. Ergebnisse sind je Minute zwischengespeichert
+  (`stat_memo`). Nur Bausteine mit Aufzeichnung; `/api/meta` kennzeichnet sie
+  mit `stat`.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
@@ -551,7 +573,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
           "font": "..", "bold": true, "italic": false,
           "icon": {"src": "builtin", "id": "bulb"},   // oder {"src":"loxone","p":"..svg"}
           "overlay": {...},
-          "chart": "24h"                     // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
+          "chart": "24h",                    // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
+          "chartStyle": "pattern"            // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
         }
       }
     }
