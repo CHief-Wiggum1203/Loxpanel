@@ -1,6 +1,7 @@
 """Konfigurator (config.html) in Chromium: Verlauf als Split-Haelfte und als
 Mini-Verlauf der Kachel einstellen; was der Server beim Speichern behaelt."""
 import asyncio
+import zipfile
 
 import pytest
 
@@ -27,14 +28,15 @@ BAUSTEINE = {
 
 
 def _im_konfigurator(skript: str):
-    """config.html laden, skript (async JS-Funktion) darin ausfuehren -> Ergebnis."""
+    """config.html laden, skript darin ausfuehren -> Ergebnis. skript ist eine
+    async JS-Funktion als Text oder eine async Python-Funktion(page)."""
     async def lauf():
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(BAUSTEINE))
         app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten", "raeume"]}})
         ui = web.Application()
         ui["app"] = app
-        for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta),
+        for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/backup", W.api_backup),
                         ("/api/settings", W.api_settings), ("/i18n.js", W.i18n_js)):
             ui.router.add_get(pfad, h)
         runner, port = await serve(ui)
@@ -46,7 +48,7 @@ def _im_konfigurator(skript: str):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
-                res = await pg.evaluate(skript)
+                res = await skript(pg) if callable(skript) else await pg.evaluate(skript)
                 await b.close()
         finally:
             await runner.cleanup()
@@ -108,3 +110,20 @@ def test_kachel_verlauf_stil_und_zeitraum():
     assert s["aus"]["ov"] is None
     gespeichert = W.App._sanitize_panels({"t": {"title": "T", "tabs": ["favoriten"], "tiles": res["tiles"]}})
     assert gespeichert["t"]["tiles"] == res["tiles"] == {"Z": {"chart": "24h", "chartStyle": "pattern"}}
+
+
+def test_sicherung_herunterladen(tmp_path):
+    async def klick(pg):
+        await pg.locator(".rub", has_text="Settings").click()
+        await pg.locator(".stab", has_text="Sicherung").click()
+        await pg.screenshot(path=str(tmp_path / "sicherung.png"))
+        async with pg.expect_download() as dl:
+            await pg.locator("#bk_dl").click()
+        d = await dl.value
+        ziel = tmp_path / d.suggested_filename
+        await d.save_as(ziel)
+        return str(ziel)
+    datei = _im_konfigurator(klick)
+    assert datei.endswith(".zip") and "loxpanel-einstellungen-" in datei
+    with zipfile.ZipFile(datei) as z:
+        assert "LIESMICH.txt" in z.namelist()

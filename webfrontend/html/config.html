@@ -131,6 +131,7 @@
   .btn{border:1px solid transparent;border-radius:4px;padding:11px 20px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#1a1205;}
   .btn:hover{filter:brightness(1.06);}
   .btn:disabled{opacity:.5;cursor:default;filter:none;}
+  a.btn{display:inline-block;text-decoration:none;}
   .btn.save{background:var(--accent);color:#1a1205;}
   .btn.del{background:transparent;color:var(--crit);border-color:#45343a;}
   .btn.del:hover{filter:none;border-color:var(--crit);}
@@ -637,6 +638,15 @@
         </section>
 
         <!-- Neues Panel -->
+        <section class="spane" data-sub="backup">
+          <p class="lead" data-i18n>Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.</p>
+          <div class="card">
+            <div class="actions" style="margin-top:0"><a class="btn" id="bk_dl" href="/api/backup" download data-i18n>Einstellungen herunterladen</a></div>
+            <p class="note" style="margin-top:14px" data-i18n>Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist – nach dem Zurückspielen neu eintragen.</p>
+            <p class="note" data-i18n>Zurückspielen: die Dateien aus dem ZIP in den Config-Ordner legen (Unraid: appdata/loxpanel/config) und LoxPanel neu starten. Das steht auch in der LIESMICH.txt im ZIP.</p>
+          </div>
+        </section>
+
         <section class="spane" data-sub="newpanel">
           <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
           <div class="card">
@@ -732,7 +742,7 @@ const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Ka
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'panels',label:'Panels'},{k:'audio',label:'Audio'},
-  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'}];
+  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'},{k:'backup',label:'Sicherung'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();

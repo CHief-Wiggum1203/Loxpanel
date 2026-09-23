@@ -6,3 +6,14 @@ config/panels.json
 .env
 **/__pycache__
 *.pyc
+# Altlasten ohne Funktion (CLAUDE.md) und nur fuer Entwicklung/CI: nicht ins Image
+webfrontend/htmlauth
+config/visu.*
+daemon
+postinstall.sh
+apt
+plugin.cfg
+tests
+pytest.ini
+requirements-dev.txt
+loxberry-plugin

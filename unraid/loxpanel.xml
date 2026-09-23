@@ -38,4 +38,5 @@ Der Ordner /app/config enthaelt loxpanel.cfg, panels.json und theme.json und mus
   <Config Name="Miniserver-Passwort" Target="LOXPANEL_MS_PASS" Default="" Mode="" Description="Passwort des Loxone-Benutzers." Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <Config Name="Miniserver-Port" Target="LOXPANEL_MS_PORT" Default="443" Mode="" Description="Port des Miniservers: 443 (Gen2, HTTPS) oder 80 (Gen1, HTTP)." Type="Variable" Display="advanced" Required="false" Mask="false">443</Config>
   <Config Name="Miniserver TLS pruefen" Target="LOXPANEL_MS_VERIFY_TLS" Default="false" Mode="" Description="true = TLS-Zertifikat des Miniservers pruefen. Gen2 nutzt ein selbstsigniertes Zertifikat, daher false." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Log-Level" Target="LOXPANEL_LOG_LEVEL" Default="INFO" Mode="" Description="Wie ausfuehrlich das Log ist: INFO (normal), DEBUG (Fehlersuche, zeigt auch jede einzelne HTTP-Anfrage), WARNING (nur Warnungen und Fehler)." Type="Variable" Display="advanced" Required="false" Mask="false">INFO</Config>
 </Container>

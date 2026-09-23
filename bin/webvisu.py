@@ -19,6 +19,7 @@ import asyncio
 import calendar
 import hashlib
 import hmac
+import io
 import json
 import logging
 import math
@@ -27,6 +28,7 @@ import re
 import struct
 import sys
 import time
+import zipfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -5586,6 +5588,100 @@ async def install_script(request: web.Request) -> web.Response:
     return web.Response(text=txt, content_type="text/plain")
 
 
+async def api_health(request: web.Request) -> web.Response:
+    """Zustand fuer den Docker-HEALTHCHECK (Unraid zeigt ihn im Docker-Tab).
+
+    503, sobald eine Hintergrund-Aufgabe beendet ist: dann bekommen die Panels
+    keine Werte oder Ansichten mehr, und ein Neustart des Containers hilft. Die
+    Miniserver-Verbindung wird nur gemeldet - ist der Miniserver weg, hilft ein
+    Neustart nicht, stream_task verbindet von selbst neu."""
+    app: App = request.app["app"]
+    tasks, ok = {}, True
+    for name, t in (request.app.get("tasks") or {}).items():
+        if not t.done():
+            tasks[name] = "läuft"
+            continue
+        ok = False
+        err = None if t.cancelled() else t.exception()
+        tasks[name] = f"beendet: {err!r}" if err else "beendet"
+    started = request.app.get("started")
+    return web.json_response({
+        "ok": ok, "tasks": tasks,
+        "miniserver": bool(app.client and app.ws),
+        "panels": len(app.conn_route),
+        "uptime": round(time.monotonic() - started) if started is not None else None,
+    }, status=200 if ok else 503, headers=_NOCACHE)
+
+
+# Einstellungen, die /api/backup einpackt (alles, was LoxPanel in config/ schreibt).
+BACKUP_FILES = ("loxpanel.cfg", "panels.json", "theme.json")
+# Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
+# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht.
+_SECRET_KEYS = {"pass", "password"}
+
+
+def _ohne_kennwoerter(obj, pfad: str = "") -> tuple:
+    """Kopie ohne Kennwoerter (leer statt Wert) -> (daten, [entfernte Pfade])."""
+    if isinstance(obj, dict):
+        out, weg = {}, []
+        for k, v in obj.items():
+            p = f"{pfad}.{k}" if pfad else str(k)
+            if str(k).lower() in _SECRET_KEYS and v not in (None, ""):
+                out[k] = ""
+                weg.append(p)
+            else:
+                out[k], sub = _ohne_kennwoerter(v, p)
+                weg += sub
+        return out, weg
+    if isinstance(obj, list):
+        out, weg = [], []
+        for i, v in enumerate(obj):
+            w, sub = _ohne_kennwoerter(v, f"{pfad}[{i}]")
+            out.append(w)
+            weg += sub
+        return out, weg
+    return obj, []
+
+
+def _backup_zip(cfgdir: Path) -> bytes:
+    """Die Einstellungs-Dateien als ZIP, Kennwoerter entfernt, mit LIESMICH.txt.
+    Eine Datei, die kein lesbares JSON ist, bleibt draussen: ungeprueft koennte
+    sie ein Kennwort enthalten."""
+    buf, drin, weg, fehlt = io.BytesIO(), [], [], []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in BACKUP_FILES:
+            f = cfgdir / name
+            if not f.is_file():
+                continue
+            try:
+                daten, entfernt = _ohne_kennwoerter(json.loads(f.read_text(encoding="utf-8")))
+            except (OSError, ValueError) as err:
+                log.warning("Backup: %s nicht lesbar (%s) - nicht enthalten", name, err)
+                fehlt.append(name)
+                continue
+            z.writestr(name, json.dumps(daten, ensure_ascii=False, indent=2) + "\n")
+            drin.append(name)
+            weg += [f"{name}: {p}" for p in entfernt]
+        zeilen = [f"LoxPanel-Einstellungen vom {datetime.now():%d.%m.%Y %H:%M}", "",
+                  "Enthalten: " + (", ".join(drin) or "keine (noch nichts gespeichert)")]
+        if fehlt:
+            zeilen.append("Nicht enthalten, weil nicht lesbar: " + ", ".join(fehlt))
+        zeilen += ["", "Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung",
+                   "herunterzuladen ist. Nach dem Zurückspielen unter Settings neu eintragen:"]
+        zeilen += [f"  - {p}" for p in weg] or ["  (keine gesetzt)"]
+        zeilen += ["", "Zurückspielen: Dateien in den Config-Ordner des Containers legen",
+                   "(Unraid: appdata/loxpanel, im Container /app/config) und LoxPanel neu starten."]
+        z.writestr("LIESMICH.txt", "\n".join(zeilen) + "\n")
+    return buf.getvalue()
+
+
+async def api_backup(request: web.Request) -> web.Response:
+    """Einstellungen als ZIP herunterladen (Settings -> Sicherung)."""
+    name = f"loxpanel-einstellungen-{datetime.now():%Y-%m-%d_%H%M}.zip"
+    return web.Response(body=_backup_zip(_CFGDIR), content_type="application/zip",
+                        headers={**_NOCACHE, "Content-Disposition": f'attachment; filename="{name}"'})
+
+
 async def api_settings(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     cfg = _load_cfg()
@@ -6444,14 +6540,16 @@ async def on_startup(a: web.Application) -> None:
     # Hintergrund auf (mit Retry) — so ist /settings auch ohne/mit falschen
     # Zugangsdaten erreichbar.
     app: App = a["app"]
-    a["tasks"] = [asyncio.create_task(app.stream_task()),
-                  asyncio.create_task(app.broadcaster()),
-                  asyncio.create_task(app.audio_events_task()),
-                  asyncio.create_task(app.front_task())]
+    # Benannt, damit /api/health melden kann, welche Aufgabe nicht mehr laeuft.
+    a["tasks"] = {"miniserver": asyncio.create_task(app.stream_task()),
+                  "broadcaster": asyncio.create_task(app.broadcaster()),
+                  "audio": asyncio.create_task(app.audio_events_task()),
+                  "front": asyncio.create_task(app.front_task())}
+    a["started"] = time.monotonic()
 
 
 async def on_cleanup(a: web.Application) -> None:
-    for t in a.get("tasks", []):
+    for t in a.get("tasks", {}).values():
         t.cancel()
     sess = a["app"]._drv_session
     if sess is not None and not sess.closed:
@@ -6459,8 +6557,31 @@ async def on_cleanup(a: web.Application) -> None:
     await a["app"].close()
 
 
+def _log_level() -> tuple[int, str | None]:
+    """LOXPANEL_LOG_LEVEL (DEBUG, INFO, WARNING, ERROR) -> (Level, Warnung)."""
+    roh = os.environ.get("LOXPANEL_LOG_LEVEL", "").strip()
+    if not roh:
+        return logging.INFO, None
+    level = logging.getLevelName(roh.upper())
+    if isinstance(level, int):
+        return level, None
+    return logging.INFO, f"LOXPANEL_LOG_LEVEL={roh!r} unbekannt (DEBUG, INFO, WARNING, ERROR) - INFO gilt"
+
+
+def _logging_einrichten() -> int:
+    """Log-Level aus LOXPANEL_LOG_LEVEL setzen -> Level. Der Zugriffs-Log von
+    aiohttp (eine Zeile je HTTP-Anfrage, auch jedes Icon) nur bei DEBUG."""
+    level, warnung = _log_level()
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger().setLevel(level)
+    logging.getLogger("aiohttp.access").setLevel(logging.DEBUG if level <= logging.DEBUG else logging.WARNING)
+    if warnung:
+        log.warning(warnung)
+    return level
+
+
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    _logging_einrichten()
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=int(os.environ.get("LOXPANEL_PORT", "8099")))
     args = p.parse_args()
@@ -6476,6 +6597,8 @@ def main() -> None:
     a.router.add_post("/api/panels", api_save_panels)
     a.router.add_post("/api/theme", api_save_theme)
     a.router.add_get("/api/settings", api_settings)
+    a.router.add_get("/api/health", api_health)
+    a.router.add_get("/api/backup", api_backup)
     a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)

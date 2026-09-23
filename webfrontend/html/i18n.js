@@ -18,6 +18,14 @@
       'Kamera / Türstation': 'Camera / Door station',
       'bald': 'soon',
       'Neues Panel': 'New panel',
+      'Sicherung': 'Backup',
+      'Einstellungen herunterladen': 'Download settings',
+      'Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.':
+        'All settings of this server as a ZIP file: Miniserver access, camera, calendar, panels, devices and design.',
+      'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist – nach dem Zurückspielen neu eintragen.':
+        'Passwords (Miniserver, camera, display driver) are not included because the download needs no login – enter them again after restoring.',
+      'Zurückspielen: die Dateien aus dem ZIP in den Config-Ordner legen (Unraid: appdata/loxpanel/config) und LoxPanel neu starten. Das steht auch in der LIESMICH.txt im ZIP.':
+        'Restoring: put the files from the ZIP into the config folder (Unraid: appdata/loxpanel/config) and restart LoxPanel. This is also described in LIESMICH.txt inside the ZIP.',
       '＋ Neues Panel': '＋ New panel',
       'Panels & Kacheln': 'Panels & tiles',
       'Ansichten gestalten': 'Design views',

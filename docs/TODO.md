@@ -252,16 +252,18 @@ Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
 ## 5. Unraid-Betrieb
 
-- [ ] **`HEALTHCHECK` im Dockerfile**, z. B. `GET /api/settings`. Unraid zeigt
-      dann den Zustand im Docker-Tab. **S**
-- [ ] **Altlasten aus dem Image halten**: `.dockerignore` um
+- [x] **`HEALTHCHECK` im Dockerfile** über `/api/health`: unhealthy nur, wenn
+      eine Hintergrund-Aufgabe beendet ist (dann hilft ein Neustart); ein
+      fehlender Miniserver wird gemeldet, macht den Container aber nicht
+      unhealthy. **S**
+- [x] **Altlasten aus dem Image halten**: `.dockerignore` um
       `webfrontend/htmlauth`, `config/visu.*`, `daemon/`, `postinstall.sh`,
-      `apt`, `plugin.cfg` ergänzen. **S**
-- [ ] **Log-Level per Umgebungsvariable** (`LOXPANEL_LOG_LEVEL`), damit der
-      Zugriffs-Log von aiohttp im Normalbetrieb ruhig ist. **S**
-- [ ] **Backup-Endpunkt** `GET /api/backup` liefert die drei Config-Dateien als
-      ZIP, die Rubrik Settings bekommt einen Download-Button. Ersetzt die
-      Widget-Funktion des LoxBerry-Plugins auch auf Unraid. **M**
+      `apt`, `plugin.cfg` ergänzt, dazu Tests und `loxberry-plugin/`. **S**
+- [x] **Log-Level per Umgebungsvariable** (`LOXPANEL_LOG_LEVEL`, auch im
+      Unraid-Template): Zugriffs-Log von aiohttp nur bei `DEBUG`. **S**
+- [x] **Backup-Endpunkt** `GET /api/backup`: die drei Config-Dateien als ZIP,
+      Kennwörter leer (die Route hat keine Anmeldung), `LIESMICH.txt` nennt sie;
+      Settings → *Sicherung* mit Download-Knopf. **M**
 
 ## 6. Wartbarkeit
 

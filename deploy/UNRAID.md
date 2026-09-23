@@ -124,6 +124,12 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 
 - **Sichern:** den Ordner kopieren, oder das Community-Applications-Plugin
   **Appdata Backup** einsetzen, das alle appdata-Ordner regelmäßig sichert.
+- **Schnell zwischendurch:** `/config` → Settings → **Sicherung** →
+  *Einstellungen herunterladen* (oder `http://<unraid-ip>:8099/api/backup`) lädt
+  die drei Dateien als ZIP. Kennwörter (Miniserver, Kamera, Display-Treiber) sind
+  darin leer, weil der Download ohne Anmeldung möglich ist; die `LIESMICH.txt`
+  im ZIP listet, welche nach dem Zurückspielen neu einzutragen sind. Die
+  vollständige Sicherung samt Kennwörtern bleibt der appdata-Ordner.
 - **Wiederherstellen:** Container stoppen, die Dateien zurückkopieren, Container
   starten.
 
@@ -151,19 +157,29 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 |---|---|
 | Widget: Starten / Stoppen / Neu starten | Docker-Tab, Klick auf das Container-Icon |
 | Widget: „Jetzt updaten" | nächtliche Prüfung, dann *apply update* in der Versionsspalte |
-| Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup** |
+| Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup**, schnell: Settings → **Sicherung** |
 | Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
+| Status im Widget | Docker-Tab: **healthy** / **unhealthy** am Container (`HEALTHCHECK`) |
 
 ## Fehlersuche
 
 - **Logs:** Docker-Tab → Container-Icon → **Logs**. Dort steht, ob die Struktur vom
-  Miniserver geladen wurde und ob die WebSocket-Verbindung steht.
+  Miniserver geladen wurde und ob die WebSocket-Verbindung steht. Mehr Details
+  für die Fehlersuche: Template-Variable **Log-Level** (`LOXPANEL_LOG_LEVEL`) auf
+  `DEBUG` stellen, dann steht auch jede einzelne HTTP-Anfrage im Log; im
+  Normalbetrieb (`INFO`) nicht, damit das Log lesbar bleibt.
+- **Zustand (healthy / unhealthy):** Der Container prüft alle 30 s
+  `/api/health`. *unhealthy* heißt: eine interne Aufgabe des Servers ist
+  beendet, die Panels bekommen keine Werte mehr — Container neu starten und das
+  Log ansehen (`/api/health` nennt die Aufgabe und den Fehler). Ein nicht
+  erreichbarer Miniserver macht den Container **nicht** unhealthy, denn ein
+  Neustart hilft da nicht; `/api/health` meldet ihn als `"miniserver": false`.
 - **Keine Verbindung zum Miniserver:** im Log steht dann
-  `Miniserver nicht verbunden (...) — neuer Versuch in 10s`. Zugangsdaten unter
+  `Miniserver nicht verbunden (...) — neuer Versuch in 5s`. Zugangsdaten unter
   `/config` (Settings → Miniserver) prüfen, Port (443 Gen2 / 80 Gen1) und bei Gen2 *TLS prüfen* auf
-  `false` lassen. LoxPanel versucht es alle 10 Sekunden erneut, ein Neustart ist
-  nicht nötig.
+  `false` lassen. LoxPanel versucht es selbst erneut, mit wachsendem Abstand
+  von 5 bis 60 Sekunden; ein Neustart ist nicht nötig.
 - **Port 8099 belegt:** im Template einen anderen Host-Port wählen (z. B. `8100`).
   Panels und Agent dann mit `SERVER=<unraid-ip>:8100` ansprechen.
 - **Termine um Stunden verschoben, die Uhr stimmt:** Der Container hat keine
