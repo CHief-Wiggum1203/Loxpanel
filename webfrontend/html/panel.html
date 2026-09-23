@@ -232,8 +232,15 @@
   .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
   .tile .chev svg{width:20px;height:20px;}
-  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:500;letter-spacing:.02em;text-transform:uppercase;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;opacity:.85;}
+  /* Raumzeile tritt hinter Name und Zustand zurueck - aber TYPOGRAFISCH, nicht
+     ueber die Farbe: sie ist leichter (400 statt 500, also leichter als die
+     Zustandszeile darunter) und weiter gesperrt, was Versalien als ruhiges
+     Etikett lesen laesst statt als Ueberschrift.
+     KEINE opacity mehr. theme_colors.derive() rechnet --muted so aus, dass es
+     auf --tile gerade AA (4.5:1) schafft; die fruehere opacity:.85 drueckte es
+     danach wieder darunter - in 9 von 17 geprueften Themes, bis auf 3.75:1. */
+  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
   .tile .name{font-size:var(--name-size,18px);font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .tile .sub{font-size:var(--sub-size,15px);color:var(--muted);font-weight:400;
