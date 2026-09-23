@@ -1,0 +1,97 @@
+name: Tests
+
+# Prueft jeden Pull Request und jeden Push auf main, bevor ein Image fuer den
+# Betrieb entsteht: Syntax, Lint (nur Fehlerregeln), Tests gegen einen
+# Miniserver-Nachbau, Rauchtest des Servers, Visu-/Konfigurator-Tests in
+# Chromium und fuer Pull Requests ein Probe-Build des Images (ohne Push).
+# Lokal dasselbe: pip install -r requirements-dev.txt, dann pytest.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    name: Syntax, Lint, Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"     # wie im Image (Dockerfile)
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Abhaengigkeiten
+        run: pip install -r requirements-dev.txt
+
+      - name: Syntax (Python, Workflows, Unraid-Vorlage)
+        run: |
+          python -m py_compile bin/*.py agent/loxpanel-agent.py
+          python -c "import glob, yaml; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"
+          python -c "import xml.dom.minidom as m; m.parse('unraid/loxpanel.xml')"
+
+      - name: Lint (Fehlerregeln)
+        run: ruff check --select F,E9 bin agent tests
+
+      - name: Tests und Rauchtest
+        run: pytest -m "not browser" --basetemp="${{ runner.temp }}/pytest"
+
+  visu:
+    name: Visu und Konfigurator (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Abhaengigkeiten und Chromium
+        run: |
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Browser-Tests
+        run: pytest -m browser --basetemp="${{ runner.temp }}/pytest"
+
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/pytest/**/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+  image:
+    name: Image bauen (amd64, ohne Push)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha

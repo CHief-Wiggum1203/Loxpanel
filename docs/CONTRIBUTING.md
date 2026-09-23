@@ -159,14 +159,20 @@ nicht unbemerkt entfernt:
    `ghcr.io/chief-wiggum1203/loxpanel` (klein), `ARCHIVEURL` auf den Fork und
    `plugin.cfg` NAME/FOLDER/AUTHOR unverändert sind.
 
-## Rauchtest vor jedem Push
+## Prüfen vor jedem Push
 
-Es gibt keine automatisierten Tests. Mindestens (aus `CLAUDE.md`):
+Die GitHub-Action „Tests" (`.github/workflows/tests.yml`) läuft auf jedem PR und
+jedem Push auf `main`: Syntax, Lint (Fehlerregeln), pytest mit Miniserver-Nachbau
+und Rauchtest, Visu-/Konfigurator-Tests in Chromium und für PRs ein Probe-Build
+des Images. Ein PR wird erst gemergt, wenn sie grün ist. Lokal dasselbe
+(Einzelheiten in `CLAUDE.md`):
 
 ```bash
-python3 -m py_compile bin/webvisu.py bin/front_info.py bin/loxone_ws.py agent/loxpanel-agent.py
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/docker-image.yml'))"
-python3 -c "import xml.dom.minidom as m; m.parse('unraid/loxpanel.xml')"
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m playwright install chromium
+.venv/bin/ruff check --select F,E9 bin agent tests
+.venv/bin/pytest
 ```
 
-Dazu den Server starten und `/api/settings` sowie `/config` abrufen.
+Die Tests ersetzen nicht den Funktionstest an der echten Anlage nach einem
+Upstream-Sync (Abschnitt oben): sie kennen nur den Nachbau.

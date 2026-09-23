@@ -308,16 +308,23 @@ Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
 ## 7. Tests und CI
 
-- [ ] **pytest für reine Funktionen**: `_fmt_num`, `_color_parse`,
+- [x] **pytest für reine Funktionen**: `_fmt_num`, `_color_parse`,
       `_alarm_next_text`, `_alarm_entries`, `_audio_favs`, `_tracker_lines`,
       `_resolve_ids`, `_sanitize_panels`, `LoxoneWS._parse_values`,
-      `LoxoneWS._parse_texts`. Dafür müssen die Funktionen ohne `App`-Instanz
-      aufrufbar sein oder eine `App` ohne Verbindung konstruierbar bleiben. (W8) **M**
-- [ ] **Lint im Workflow** (`ruff`), zunächst nur als Warnung. **S**
-- [ ] **Rauchtest im Workflow**: Server ohne Miniserver starten, `/api/settings`
-      und `/config` abrufen, vor dem Image-Build. **S**
-- [ ] **Workflow auch für Pull Requests**: `py_compile`, Lint und Rauchtest auf
-      jedem PR, Image-Build weiter nur auf `main`. **S**
+      `LoxoneWS._parse_texts` in `tests/test_reine_funktionen.py`, dazu die
+      Statistik-Rechnungen. Eine `App` ohne Verbindung reicht dafür. (W8) **M**
+- [x] **Server-Tests gegen einen Miniserver-Nachbau** (`tests/lox.py`):
+      Verläufe V1/V2, Kachel-Stile, Token-Erneuerung, Stabilität; Visu und
+      Konfigurator in Chromium (`tests/browser/`). **M**
+- [x] **Lint im Workflow** (`ruff`): gleich als harte Prüfung, weil mit den
+      Fehlerregeln (`F`, `E9`) nur eine tote Zuweisung übrig war
+      (`loxone_weather.py`, entfernt). **S**
+- [x] **Rauchtest im Workflow**: `tests/test_rauchtest.py` startet den Server
+      als eigenen Prozess ohne Miniserver und ruft alle Oberflächen und die
+      Lese-APIs ab; kein Stacktrace im Log. **S**
+- [x] **Workflow auch für Pull Requests**: `tests.yml` auf jedem PR und Push auf
+      `main`, dazu bei PRs ein Probe-Build des Images (amd64, ohne Push); der
+      Multi-Arch-Build mit Push bleibt in `docker-image.yml` auf `main`. **S**
 
 ## 8. Bausteine: was fehlt
 

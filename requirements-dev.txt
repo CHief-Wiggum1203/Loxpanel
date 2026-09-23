@@ -1,0 +1,9 @@
+# Nur fuer Entwicklung und CI, nicht im Image. Laufzeit-Abhaengigkeiten stehen
+# in requirements.txt.
+-r requirements.txt
+pytest>=8
+ruff>=0.5
+pyyaml>=6
+# Visu- und Konfigurator-Tests (pytest -m browser). Chromium danach einmalig:
+#   python -m playwright install chromium
+playwright>=1.45

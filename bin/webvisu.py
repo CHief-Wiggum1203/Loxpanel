@@ -2693,7 +2693,7 @@ class App:
                 continue
             names.append(self._WD_ABBR.get(nm.lower(), nm))
         if not names:
-            return "%d Betriebsarten" % len(modes)
+            return f"{len(modes)} Betriebsart" + ("" if len(modes) == 1 else "en")
         # Alle 7 Wochentage -> „Täglich" (kompakter)
         if len(names) == 7 and all(v in names for v in self._WD_ABBR.values()):
             return "Täglich"

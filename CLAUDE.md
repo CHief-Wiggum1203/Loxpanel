@@ -45,16 +45,26 @@ reicht als Rauchtest. Docker: `docker compose up -d --build`.
 
 ## Prüfen vor einem Push
 
-Es gibt keine automatisierten Tests. Mindestens:
+Tests liegen in `tests/` (pytest), die GitHub-Action `tests.yml` führt sie auf
+jedem PR und jedem Push auf `main` aus. Lokal dasselbe:
 
 ```bash
-python3 -m py_compile bin/webvisu.py bin/front_info.py bin/loxone_ws.py \
-  bin/theme_colors.py bin/loxone_weather.py agent/loxpanel-agent.py
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/docker-image.yml'))"
-python3 -c "import xml.dom.minidom as m; m.parse('unraid/loxpanel.xml')"
+.venv/bin/pip install -r requirements-dev.txt     # einmalig, dazu für Browser-Tests:
+.venv/bin/python -m playwright install chromium    # einmalig
+python3 -m py_compile bin/*.py agent/loxpanel-agent.py
+.venv/bin/ruff check --select F,E9 bin agent tests
+.venv/bin/pytest                  # alles; -m "not browser" ohne Chromium (~15 s)
 ```
 
-Dazu den Server starten und `/api/settings` sowie `/config` abrufen.
+- `tests/lox.py` enthält den Miniserver-Nachbau (Statistik-Dateien, V2-Binärdaten,
+  Befehle, Token-Prüfung) und die Beispiel-Anlage. Neue Tests bauen darauf auf,
+  statt eigene Nachbauten anzulegen.
+- Browser-Tests (`tests/browser/`, Marker `browser`) fahren die echte Visu und den
+  Konfigurator in Chromium; Screenshots landen im `tmp_path` bzw. in der CI als
+  Artefakt „screenshots".
+- Kein Test darf `config/` verändern, ein Wächter in `tests/conftest.py` prüft das.
+- Tests, die von der Uhrzeit abhängen, erzeugen Aufzeichnungen je Monat
+  (`monatsdateien()`), sonst scheitern sie am Monatsanfang.
 
 ## Konventionen und Stolperfallen
 
