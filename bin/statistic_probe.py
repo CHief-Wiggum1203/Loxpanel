@@ -14,15 +14,16 @@ Repo; diese Sonde ermittelt es an der echten Anlage:
   Teil 3  Probeabruf: Statistik-Verzeichnis /stats/ und eine Datei daraus
           (Status, Typ, Groesse, erste Bytes), um das Datenformat zu sehen.
 
-Mit dem Argument `v2` nur statisticV2 (Energie-Zaehler, EFM). Der erste Lauf an
-der Anlage fand in AppHub.js (Modul StatisticV2Ext) die Belegung des Befehls:
+Mit dem Argument `v2` nur statisticV2 (Energie-Zaehler, EFM). Teil 2 fand an
+der Anlage in AppHub.js (Modul StatisticV2Ext) die Belegung des Befehls:
   raw:  jdev/sps/getStatistic/<controlUUID>/raw/<vonUnixUtc>/<bisUnixUtc>/all/<groupId>/<output>
   diff: jdev/sps/getStatistic/<controlUUID>/diff/<vonUnixUtc>/<bis+1>/<dataPointUnit>/<groupId>/<output>
-Offen sind die zulaessigen dataPointUnit-Werte und das Antwortformat:
   Teil V2a  Umgebung von StatisticV2Ext in AppHub.js: Einheiten-Pruefung,
             Transport (_getDataForCmd) und Antwortpruefung (_verifyResult).
   Teil V2b  Lesender Probeabruf `raw` der letzten 2 Stunden je Baustein
-            (Status, Typ, Groesse, Anfang der Antwort).
+            (Status, Typ, Groesse, Anfang der Antwort). An der Anlage:
+            binaer, je Eintrag uint32 Unix-UTC + float64, little-endian
+            (umgesetzt in webvisu._parse_stat2_bin).
 
 Aufruf im Container (liest nur, veraendert nichts, zeigt keine Passwoerter;
 das Token erscheint nur als <JWT>):

@@ -24,6 +24,7 @@ import logging
 import math
 import os
 import re
+import struct
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -392,13 +393,37 @@ def _parse_stat_xml(text: str) -> list:
 
 
 def _stat_fmt(fmt) -> tuple[int, str]:
-    """Loxone-Zahlenformat ("%.1f °C", "%.0f%", "%.0fLx") -> (Nachkommastellen,
-    Einheit). Ohne Format (Digitalwert) -> (0, "")."""
-    m = re.search(r"%(?:\.(\d+))?[fd]", str(fmt or ""))
-    if not m:
-        return 0, ""
-    unit = str(fmt)[m.end():].replace("%%", "%").strip()
-    return int(m.group(1) or 0), unit
+    """Loxone-Zahlenformat -> (Nachkommastellen, Einheit). Zwei Schreibweisen:
+    printf wie bei `statistic` ("%.1f °C", "%.0f%", "%.0fLx") und die Maske von
+    `statisticV2` ("0,000kW", "0,0kWh", "0,00€"). Ohne Format -> (0, "")."""
+    s = str(fmt or "")
+    m = re.search(r"%(?:\.(\d+))?[fd]", s)
+    if m:
+        return int(m.group(1) or 0), s[m.end():].replace("%%", "%").strip()
+    m = re.match(r"^[#0]+(?:[.,]([#0]+))?(.*)$", s.strip())
+    if m:
+        return len(m.group(1) or ""), m.group(2).strip()
+    return 0, ""
+
+
+def _parse_stat2_bin(body: bytes, nvals: int = 1) -> list | None:
+    """Antwort von jdev/sps/getStatistic/.../raw/... -> [(sekunden, [werte])].
+
+    Binaer, je Eintrag 4 Byte Zeitstempel (uint32, Unix-UTC) und je Wert 8 Byte
+    (float64), little-endian - an der Anlage so gemessen (PV 7,42 kW, Netz
+    -6,26 kW, Eintraege im Abstand der Gruppe). Die Zeit wird wie bei den
+    Monatsdateien in Wanduhr-Sekunden der Container-Zeitzone umgerechnet.
+    Passt die Laenge nicht zum Eintragsformat -> None (unbekannte Antwort)."""
+    size = 4 + 8 * nvals
+    if len(body) % size:
+        return None
+    out = []
+    for off in range(0, len(body), size):
+        ts, *vals = struct.unpack_from("<I" + "d" * nvals, body, off)
+        vals = [v if math.isfinite(v) else None for v in vals]
+        out.append((calendar.timegm(time.localtime(ts)), vals))
+    out.sort(key=lambda r: r[0])
+    return out
 
 
 def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
@@ -793,7 +818,12 @@ class App:
         # [(sekunden, [werte])] oder None nach Abruffehler). Ein Monat, der beim
         # Abruf schon vorbei war, aendert sich nicht mehr.
         self.stat_cache: dict[tuple[str, str], tuple[float, str, list | None]] = {}
-        self.stat_pending: set[tuple[str, str]] = set()
+        self.stat_pending: set[tuple] = set()
+        # statisticV2 (Energie-Zaehler): (uuidAction, Gruppe, Ausgang, Zeitraum) ->
+        # (monotonic, [(sekunden, [wert])] oder None nach Abruffehler). Hoechstens
+        # zwei Abrufe gleichzeitig; die Loxone-App erlaubt 4 (Gen 2) bzw. 1 (Gen 1).
+        self.stat2_cache: dict[tuple, tuple[float, list | None]] = {}
+        self.stat2_sem = asyncio.Semaphore(2)
         self.stat_gen = 0              # zaehlt jeden Abruf, Schluessel fuer stat_memo
         self.stat_memo: dict[tuple, list] = {}
         self.theme = load_theme()
@@ -1072,7 +1102,7 @@ class App:
         old_is, self.icon_session = self.icon_session, \
             aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
         self.icon_cache = {}
-        self.stat_cache, self.stat_memo = {}, {}   # anderer Miniserver -> andere Verlaeufe
+        self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
         self.stat_gen += 1
         old_ws, self.ws = self.ws, None   # stream_task baut WS mit neuen Daten neu auf
         self.intercom_cfg = _intercom_config()
@@ -2417,6 +2447,47 @@ class App:
         self.stat_memo = {}
         self._dirty = True
 
+    async def _stat2_load(self, key: tuple, ua: str, gid: str, out: str, span: int) -> None:
+        """Verlauf eines statisticV2-Ausgangs holen: jdev/sps/getStatistic/<uuid>/raw/
+        <vonUnixUtc>/<bisUnixUtc>/all/<gruppe>/<ausgang> (so baut ihn die Loxone-App,
+        StatisticV2Ext.getStatisticRaw). Eine Stunde Vorlauf liefert den Stand vor
+        dem ersten Balken. Leere Antwort oder JSON statt Binaerdaten heisst: keine
+        Aufzeichnung (leere Liste); andere Fehler legen None ab."""
+        rows: list | None = None
+        now = int(time.time())
+        path = f"jdev/sps/getStatistic/{ua}/raw/{now - span - 3600}/{now}/all/{quote(gid)}/{quote(out)}"
+        try:
+            async with self.stat2_sem:
+                if self.icon_session:
+                    scheme = "https" if _ms_https(self.port) else "http"
+                    headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+                    async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path}",
+                                                     headers=headers,
+                                                     timeout=aiohttp.ClientTimeout(total=30)) as r:
+                        body = await r.read()
+                        if r.status != 200:
+                            log.info("Statistik V2 %s: HTTP %s", path, r.status)
+                        elif not body:
+                            rows = []
+                        elif body[:1] == b"{":
+                            rows = []
+                            log.info("Statistik V2 %s: keine Daten (%s)", path, body[:160].decode("utf-8", "replace"))
+                        else:
+                            rows = _parse_stat2_bin(body)
+                            if rows is None:
+                                log.info("Statistik V2 %s: unerwartete Antwort, %d Bytes", path, len(body))
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            log.info("Statistik V2 %s nicht abrufbar: %s", path, err)
+        finally:
+            self.stat_pending.discard(key)
+        self.stat2_cache.pop(key, None)
+        self.stat2_cache[key] = (time.monotonic(), rows)
+        while len(self.stat2_cache) > STAT_CACHE_MAX:
+            self.stat2_cache.pop(next(iter(self.stat2_cache)))
+        self.stat_gen += 1
+        self.stat_memo = {}
+        self._dirty = True
+
     async def fetch_cover(self, url: str) -> tuple[bytes, str] | None:
         if not self.icon_session:
             return None
@@ -3400,13 +3471,60 @@ class App:
         before = [r for r in allrows if r[0] < t0]
         return ([before[-1]] if before else []) + [r for r in allrows if t0 <= r[0] <= t1], loading, error
 
+    def _stat2_rows(self, ua: str, gid: str, out: str, rng: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Wie _stat_rows, fuer einen statisticV2-Ausgang: Zeilen im Fenster, vorneweg
+        der letzte Stand davor; fehlend oder aelter als STAT_REFRESH -> im
+        Hintergrund neu holen. -> (zeilen, laedt_noch, abruffehler)"""
+        key = (ua, gid, out, rng)
+        ent = self.stat2_cache.get(key)
+        age = time.monotonic() - ent[0] if ent else 0.0
+        if ent is None or age >= (STAT_RETRY if ent[1] is None else STAT_REFRESH):
+            if key not in self.stat_pending:
+                self.stat_pending.add(key)
+                self._spawn(self._stat2_load(key, ua, gid, out, STAT_RANGES[rng][1]))
+        if ent is None:
+            return [], True, False
+        if ent[1] is None:
+            return [], False, True
+        before = [r for r in ent[1] if r[0] < t0]
+        return ([before[-1]] if before else []) + [r for r in ent[1] if t0 <= r[0] <= t1], False, False
+
+    @staticmethod
+    def _stat_series_defs(c: dict) -> list:
+        """Alle aufgezeichneten Reihen eines Bausteins als (name, art, stellen,
+        einheit, quelle). `statistic`: je Ausgang, Art aus visuType, Quelle
+        ("v1", index in der Monatsdatei). `statisticV2`: je Datenpunkt einer
+        Gruppe, `accumulated` = Zaehlerstand, Quelle ("v2", gruppe, ausgang).
+        Gleiche Titel in einer Gruppe (Netz: zweimal "Zaehlerstand") bekommen
+        den Ausgangsnamen dazu."""
+        defs = []
+        for i, o in enumerate((c.get("statistic") or {}).get("outputs") or []):
+            if isinstance(o, dict):
+                dec, unit = _stat_fmt(o.get("format"))
+                defs.append((_clean(o.get("name")) or f"Wert {i + 1}",
+                             STAT_KIND.get(o.get("visuType"), "line"), dec, unit, ("v1", i)))
+        for g in (c.get("statisticV2") or {}).get("groups") or []:
+            if not isinstance(g, dict):
+                continue
+            dps = [d for d in (g.get("dataPoints") or []) if isinstance(d, dict) and d.get("output")]
+            titles = [d.get("title") for d in dps]
+            for d in dps:
+                dec, unit = _stat_fmt(d.get("format"))
+                name = _clean(d.get("title")) or d["output"]
+                if titles.count(d.get("title")) > 1:
+                    name = f"{name} · {d['output']}"
+                defs.append((name, "counter" if g.get("accumulated") else "line", dec, unit,
+                             ("v2", str(g.get("id")), str(d["output"]))))
+        return defs
+
     def _stat_blocks(self, c: dict, rng: str) -> list:
-        """Diagramm-Bloecke fuer einen Baustein mit `statistic`. Ausgaenge gleicher
-        Art und Einheit teilen sich ein Diagramm (z.B. zwei Grillfuehler), sonst je
-        eines (Stromzaehler: Leistung als Linie, Verbrauch als Balken)."""
-        outs = [o for o in ((c.get("statistic") or {}).get("outputs") or []) if isinstance(o, dict)]
+        """Diagramm-Bloecke fuer einen Baustein mit `statistic` oder `statisticV2`.
+        Reihen gleicher Art und Einheit teilen sich ein Diagramm (zwei Grillfuehler,
+        Netz-Bezug und -Einspeisung), sonst je eines (Zaehler: Leistung als Linie,
+        Verbrauch als Balken)."""
+        defs = self._stat_series_defs(c)
         ua = c.get("uuidAction")
-        if not (ua and outs):
+        if not (ua and defs):
             return []
         now = calendar.timegm(datetime.now().timetuple())
         t1 = now - now % 60                    # Fenster rueckt je Minute vor
@@ -3414,26 +3532,34 @@ class App:
         if mkey in self.stat_memo:
             return self.stat_memo[mkey]
         t0 = t1 - STAT_RANGES[rng][1]
-        rows, loading, error = self._stat_rows(ua, t0, t1)
+        v1 = None                              # Monatsdateien: eine Abfrage fuer alle Ausgaenge
         groups: dict[tuple[str, str], list] = {}
-        for i, o in enumerate(outs):
-            dec, unit = _stat_fmt(o.get("format"))
-            groups.setdefault((STAT_KIND.get(o.get("visuType"), "line"), unit), []).append((i, o, dec))
+        for d in defs:
+            groups.setdefault((d[1], d[3]), []).append(d)
         blocks = []
         for kind, unit in groups:
             edges = self._stat_edges(rng, t1) if kind == "counter" else None
-            series = []
-            for i, o, dec in groups[(kind, unit)]:
-                pts = [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None]
+            series, any_rows, loading, error = [], False, False, False
+            for name, _kind, dec, _unit, src in groups[(kind, unit)]:
+                if src[0] == "v1":
+                    if v1 is None:
+                        v1 = self._stat_rows(ua, t0, t1)
+                    rows, ld, er = v1
+                    i = src[1]
+                    pts = [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None]
+                else:
+                    rows, ld, er = self._stat2_rows(ua, src[1], src[2], rng, t0, t1)
+                    pts = [(r[0], r[1][0]) for r in rows if r[1] and r[1][0] is not None]
+                any_rows, loading, error = any_rows or bool(rows), loading or ld, error or er
                 if kind == "counter":
                     pts = _stat_bars(pts, edges)
                 else:
                     if pts and pts[0][0] < t0:
                         pts[0] = (t0, pts[0][1])   # letzter Stand vor dem Fenster = Startwert
                     pts = _stat_thin(pts, t0, t1, STAT_MAX_POINTS, kind == "digital")
-                series.append({"name": _clean(o.get("name")) or f"Wert {i + 1}", "dec": dec,
+                series.append({"name": name, "dec": dec,
                                "pts": [[int(t), round(v, dec + 2)] for t, v in pts]})
-            has = bool(rows) if kind == "counter" else any(s["pts"] for s in series)
+            has = any_rows if kind == "counter" else any(s["pts"] for s in series)
             blk = {"k": "chart", "kind": kind, "unit": unit, "series": series,
                    "t0": edges[0] if edges else t0, "t1": t1,
                    "state": "ok" if has else ("loading" if loading else ("error" if error else "empty"))}
@@ -3565,7 +3691,7 @@ class App:
             v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
         # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
-        if c.get("statistic") and isinstance(v.get("blocks"), list):
+        if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
             rng = rng if rng in STAT_RANGES else STAT_DEFAULT_RANGE
             charts = self._stat_blocks(c, rng)
             if charts:

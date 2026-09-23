@@ -339,9 +339,9 @@ seinen Werten, die Wetterlage-Texte und die Formatstrings.
 ### 3.9 Woher die Verläufe kommen
 
 Bausteine mit Aufzeichnung tragen in der Struktur `statistic` (ältere Art) oder
-`statisticV2` (Energie-Zähler, EFM). Die Detailseite eines Bausteins mit
-`statistic` bekommt unter dem aktuellen Wert Verlaufs-Diagramme (Block `chart`,
-§3.7). Die Daten liegen am Miniserver als Monatsdateien
+`statisticV2` (Energie-Zähler, EFM). Ihre Detailseite bekommt unter dem
+aktuellen Wert Verlaufs-Diagramme (Block `chart`, §3.7). Für `statistic`
+liegen die Daten am Miniserver als Monatsdateien
 `/stats/<uuidAction>.<JJJJMM>.xml`, jede Zeile `<S T="JJJJ-MM-TT hh:mm:ss"
 V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
 `/stats/`, und so führt sie die Loxone-App (Befehlstabelle `STATISTIC` in
@@ -372,10 +372,30 @@ V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
   So zeigen Server und Panel dieselbe Uhrzeit, unabhängig von der Zeitzone des
   Browsers; „jetzt" kommt aus der Container-Zeit (`TZ`, wie beim Nachtmodus).
 
-`statisticV2` wird über `jdev/sps/getStatistic/%s/%s/%i/%i/%s/%s/%s` abgerufen
-(Befehlstabelle `StatisticV2` derselben Datei). Die Bedeutung der sieben
-Parameter ist noch nicht ermittelt; diese Bausteine bekommen deshalb noch
-kein Diagramm.
+**`statisticV2`** (an der Anlage die Energie-Zähler und der EFM) kommt nicht
+aus Dateien, sondern je Datenpunkt über
+`jdev/sps/getStatistic/<uuidAction>/raw/<vonUnixUtc>/<bisUnixUtc>/all/<gruppe>/<ausgang>`.
+So baut ihn die Loxone-App (`StatisticV2Ext.getStatisticRaw` in `AppHub.js`,
+ermittelt mit `bin/statistic_probe.py v2`). Die Antwort ist binär, je Eintrag
+4 Byte Zeitstempel (uint32, Unix-UTC) und 8 Byte Wert (float64),
+little-endian; an der Anlage kamen Leistungswerte im 30-Minuten-, Zählerstände
+im Stundenabstand. `_parse_stat2_bin()` rechnet die UTC-Zeit in dieselben
+Wanduhr-Sekunden um wie bei den Monatsdateien.
+
+- Gruppen mit `accumulated` sind Zählerstände (Balken wie oben), die übrigen
+  Linien. Die Formate schreibt V2 als Maske (`0,000kW`, `0,0kWh`, `0,00€`),
+  `_stat_fmt()` versteht beide Schreibweisen.
+- Abgerufen wird je (Baustein, Gruppe, Ausgang, Zeitraum) das ganze Fenster
+  plus eine Stunde Vorlauf für den Stand vor dem ersten Balken, neu nach
+  `STAT_REFRESH`. Höchstens zwei Abrufe gleichzeitig (`stat2_sem`); die
+  Loxone-App erlaubt vier (Gen 2) bzw. einen (Gen 1).
+- Leere Antwort oder JSON statt Binärdaten gilt als „keine Aufzeichnung".
+- Gleiche Titel in einer Gruppe (Netz: zweimal „Zählerstand" für `total` und
+  `totalNeg`) bekommen den Ausgangsnamen dazu; mehrere Zählerreihen stehen
+  als Balken nebeneinander.
+- Die `diff`-Variante desselben Befehls (Verbrauch je Einheit) wird nicht
+  genutzt: ihre zulässigen Einheiten sind nicht bekannt, und der Verbrauch
+  ergibt sich ebenso aus den Zählerständen.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 

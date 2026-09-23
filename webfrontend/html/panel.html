@@ -1090,9 +1090,11 @@ function paintChart(box,b){
   b.series.forEach((se,si)=>{
     const col=CH_COLORS[si%CH_COLORS.length], p=se.pts; if(!p.length) return;
     let info='';
-    if(b.kind==='counter'){           // Verbrauch je Stunde/Tag als Balken
-      p.forEach(([t,v],i)=>{ const x0=X(t), x1=i+1<p.length?X(p[i+1][0]):W-pR, g=Math.min(3,(x1-x0)*0.15), y=Y(v);
-        s+='<rect x="'+f(x0+g)+'" y="'+f(y)+'" width="'+f(Math.max(1,x1-x0-2*g))+'" height="'+f(Math.max(0,Y(0)-y))+
+    if(b.kind==='counter'){           // Verbrauch je Stunde/Tag als Balken, mehrere Reihen nebeneinander
+      const nS=b.series.length;
+      p.forEach(([t,v],i)=>{ const x0=X(t), x1=i+1<p.length?X(p[i+1][0]):W-pR, g=Math.min(3,(x1-x0)*0.15),
+          bw=Math.max(1,(x1-x0-2*g)/nS), y=Y(v);
+        s+='<rect x="'+f(x0+g+si*bw)+'" y="'+f(y)+'" width="'+f(bw)+'" height="'+f(Math.max(0,Y(0)-y))+
            '" rx="2" style="fill:'+col+'"/>'; });
       info='Summe <b>'+chNum(p.reduce((a,q)=>a+q[1],0),se.dec)+unit+'</b>';
     } else if(b.kind==='digital'){    // Stufen, dazu die Ein-Dauer im Zeitraum
