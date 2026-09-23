@@ -237,6 +237,7 @@ Server → Browser (`panel.html:700`):
 | `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
+| `chart` | `control`, `name`, `value`, `range`, `blocks[]` (Blöcke `chart`, §3.7) | Verlaufs-Pane im Split-Layout; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_blocks()`) |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -248,6 +249,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Settings → Panels; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
+| `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
 ### 3.7 Das Block-Vokabular
@@ -397,6 +399,20 @@ Wanduhr-Sekunden um wie bei den Monatsdateien.
   genutzt: ihre zulässigen Einheiten sind nicht bekannt, und der Verbrauch
   ergibt sich ebenso aus den Zählerständen.
 
+**Außerhalb der Detailseite** gibt es die Verläufe an zwei weiteren Stellen,
+beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
+
+- **Verlaufs-Pane** (`panes`: `chart:<uuid>`): rechte Hälfte im Split-Layout
+  mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
+  `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
+  melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
+- **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum):
+  `_apply_tile_style()` hängt `spark` an die Kachel, das erste Linien-Diagramm
+  (sonst das erste überhaupt), erste Reihe, auf 48 Punkte ausgedünnt. Die Visu
+  zeichnet es ohne Achsen in die freie Mitte der Kachel (`sparkSvg()`),
+  `updateGrid()` zeichnet es bei Änderungen an Ort und Stelle neu. Nur
+  Bausteine mit Aufzeichnung; `/api/meta` kennzeichnet sie mit `stat`.
+
 ## 4. HTTP- und WebSocket-Schnittstelle
 
 Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
@@ -520,6 +536,10 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
+        "panes": {"favoriten": "chart:<uuid>"},   // rechte Hälfte je Tab: "weather" | "calendar" |
+                                             // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
+                                             // "chart:<uuid>" (Verlauf eines Bausteins mit
+                                             // Aufzeichnung); fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -530,7 +550,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
           "bg": "#..", "border": "#..", "iconColor": "#..", "textColor": "#..",
           "font": "..", "bold": true, "italic": false,
           "icon": {"src": "builtin", "id": "bulb"},   // oder {"src":"loxone","p":"..svg"}
-          "overlay": {...}
+          "overlay": {...},
+          "chart": "24h"                     // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
         }
       }
     }

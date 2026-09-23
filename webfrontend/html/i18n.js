@@ -126,6 +126,10 @@
       'Panel zeigt den Stand von {zeit} Uhr.': 'Panel is showing the data from {zeit}.',
       // Wetter
       'Wetter': 'Weather',
+      'Verlauf': 'History',
+      'Mini-Diagramm in der Kachel': 'Mini chart in the tile',
+      '7 Tage': '7 days',
+      '30 Tage': '30 days',
       'Hat die Anlage den Loxone-Wetterdienst, kommt das Wetter von dort — die Koordinaten bleiben dann unbenutzt. Sonst von Open-Meteo: kostenlos, ohne API-Schlüssel und ohne Konto, nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus, solange kein Wetterserver liefert.':
         'If the installation has the Loxone weather service, the weather comes from there — the coordinates then stay unused. Otherwise from Open-Meteo: free, no API key and no account, just enter the coordinates of your location (decimal degrees, e.g. 47.071 / 15.439). Leaving them empty switches the weather off, as long as no weather server delivers.',
       'Breitengrad': 'Latitude',
