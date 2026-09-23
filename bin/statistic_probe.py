@@ -14,11 +14,21 @@ Repo; diese Sonde ermittelt es an der echten Anlage:
   Teil 3  Probeabruf: Statistik-Verzeichnis /stats/ und eine Datei daraus
           (Status, Typ, Groesse, erste Bytes), um das Datenformat zu sehen.
 
+Mit dem Argument `v2` nur statisticV2 (Energie-Zaehler, EFM). Der erste Lauf an
+der Anlage fand in AppHub.js (Modul StatisticV2Ext) die Belegung des Befehls:
+  raw:  jdev/sps/getStatistic/<controlUUID>/raw/<vonUnixUtc>/<bisUnixUtc>/all/<groupId>/<output>
+  diff: jdev/sps/getStatistic/<controlUUID>/diff/<vonUnixUtc>/<bis+1>/<dataPointUnit>/<groupId>/<output>
+Offen sind die zulaessigen dataPointUnit-Werte und das Antwortformat:
+  Teil V2a  Umgebung von StatisticV2Ext in AppHub.js: Einheiten-Pruefung,
+            Transport (_getDataForCmd) und Antwortpruefung (_verifyResult).
+  Teil V2b  Lesender Probeabruf `raw` der letzten 2 Stunden je Baustein
+            (Status, Typ, Groesse, Anfang der Antwort).
+
 Aufruf im Container (liest nur, veraendert nichts, zeigt keine Passwoerter;
 das Token erscheint nur als <JWT>):
 
-    curl -fsSL <raw-url> | docker exec -i LoxPanel python3 -u -
-    docker exec -i LoxPanel python3 -u bin/statistic_probe.py      # im Image
+    curl -fsSL <raw-url> | docker exec -i LoxPanel python3 -u - [v2]
+    docker exec -i LoxPanel python3 -u bin/statistic_probe.py [v2]      # im Image
 
 Zugang wie der Server: loxpanel.cfg (Settings) vor LOXPANEL_MS_*.
 """
@@ -28,6 +38,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -231,12 +242,77 @@ async def part3(s, base, headers) -> None:
         print("  Binaer, erste 96 Bytes hex: " + head[:96].hex(" "))
 
 
+def show_body(status, ctype, body, n=900) -> None:
+    """Antwort ausgeben: JSON kompakt, Text gekuerzt, sonst Hex-Anfang."""
+    print(f"      -> HTTP {status}, {ctype or '-'}, {len(body)} Bytes")
+    head = body[:4096]
+    printable = sum(32 <= b < 127 or b in (9, 10, 13) or b >= 0xC2 for b in head)
+    if head and printable / len(head) > 0.9:
+        text = body.decode("utf-8", "replace")
+        try:
+            text = json.dumps(json.loads(text), ensure_ascii=False)
+        except ValueError:
+            pass
+        print("      " + cut(text, n).replace("\n", "\n      "))
+    elif head:
+        print("      Binaer, erste 128 Bytes hex: " + head[:128].hex(" "))
+
+
+async def part_v2(s, base, headers, st) -> None:
+    print("\n===== Teil V2a: StatisticV2Ext im Code der Loxone-App (AppHub.js)")
+    status, _, body = await fetch(s, urljoin(base, "scripts/AppHub.js"), headers)
+    js = body.decode("utf-8", "replace") if status == 200 else ""
+    print(f"  AppHub.js -> HTTP {status}, {len(js)} Zeichen")
+    # (Suchbegriff, Zeichen davor, danach, Fundstellen). Vor getStatisticRaw
+    # stehen die Hilfsfunktionen des Moduls, darunter die Einheiten-Pruefung.
+    for word, before, after, maxhits in (
+            ("StatisticV2Ext.prototype.getStatisticRaw", 5000, 300, 1),
+            ("StatisticV2Ext.prototype._getDataForCmd", 200, 2500, 1),
+            ("StatisticV2Ext.prototype._verifyResult", 100, 1800, 1),
+            ("StatisticV2Ext.prototype._processQueue", 100, 1800, 1),
+            ("dataPointUnit", 500, 700, 4)):
+        pos, i = [], js.find(word)
+        while i >= 0 and len(pos) < maxhits:
+            pos.append(i)
+            i = js.find(word, i + after)
+        if not pos:
+            print(f"\n  --- '{word}': keine Fundstelle")
+        for p in pos:
+            print(f"\n  --- '{word}' bei {p}:")
+            print("      " + cut(js[max(0, p - before):p + after], before + after + 20))
+
+    print("\n===== Teil V2b: Probeabruf getStatistic raw, letzte 2 Stunden (nur lesen)")
+    now = int(time.time())
+    frm = now - 7200
+    n = 0
+    for uuid, c in (st.get("controls") or {}).items():
+        groups = ((c or {}).get("statisticV2") or {}).get("groups") or []
+        grp = next((g for g in groups if g.get("dataPoints")), None)
+        if not grp:
+            continue
+        ua = c.get("uuidAction") or uuid
+        out = grp["dataPoints"][0].get("output", "")
+        print(f"\n--- {c.get('name')} [{c.get('type')}] Gruppe {grp.get('id')} ({grp.get('mode')}), Ausgang {out}")
+        for o in ((out, "") if n == 0 else (out,)):   # beim ersten auch ohne Ausgang (App-Standard)
+            path = f"jdev/sps/getStatistic/{ua}/raw/{frm}/{now}/all/{grp.get('id')}/{o}"
+            print(f"    GET /{path}")
+            show_body(*await fetch(s, urljoin(base, path), headers), n=1400 if n == 0 else 300)
+        n += 1
+    if not n:
+        print("  Keine Bausteine mit statisticV2 gefunden.")
+
+
 async def main():
     print("Anmelden und Struktur laden ...")
     try:
         base, headers, st = await connect()
     except Exception as err:
         print(f"Miniserver nicht erreichbar/anmeldbar: {cut(err, 200)}")
+        return
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "v2":
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as s:
+            await part_v2(s, base, headers, st)
+        print("\nFertig. V2a zeigt Einheiten, Transport und Antwortpruefung, V2b die echte Antwort.")
         return
     found = part1(st)
     if not found:
