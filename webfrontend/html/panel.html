@@ -292,7 +292,10 @@
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
   .tctrls .tb svg{width:17px;height:17px;}
-  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
+  /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
+     Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
+     Zeile belegten - jeder Monat begann so am Montag. */
+  .grid>.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
   /* Listen-Layout (volle Breite): immer exakt 4 Zeilen sichtbar (fuellt die
      Grid-Hoehe, egal wie hoch die Tab-Leiste ist -> kein 3,75-Zeilen-Rest). */
   .grid.list{grid-template-columns:1fr;grid-auto-rows:calc((100% - 3*var(--gap)) / 4);}
@@ -677,6 +680,32 @@
     .sv-st .vl{font-size:19px;}
   }
   /* ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (eigene Seite / Split-Pane) ---- */
+  /* Kalender-/Wetter-Seite (renderFrontTab): fuellt die Kachelflaeche. Quer zwei
+     Spalten, die je fuer sich scrollen; hoch oder quadratisch untereinander, dann
+     scrollt die ganze Seite. Wetter groesser als in der halben Split-Pane. */
+  .grid.fronttab{display:block;overflow:hidden;}
+  .ft{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;}
+  .ft-a,.ft-b{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px;}
+  .ft-leer{display:block;}
+  .ft-cal .fp-mon-c{min-height:44px;font-size:15px;}
+  /* Beschreibung unter Symbol und Temperatur statt gequetscht daneben */
+  .ft-wx .fp-now{flex-wrap:wrap;row-gap:6px;}
+  .ft-wx .fp-now .meta{flex-basis:100%;}
+  .ft-wx .fp-now .ico{width:84px;height:84px;}
+  .ft-wx .fp-now .t{font-size:72px;}
+  .ft-wx .fp-now .cond{font-size:21px;}
+  .ft-wx .fp-now .sub{font-size:15px;}
+  .ft-wx .fp-fc{padding:14px 4px 15px;gap:7px;}
+  .ft-wx .fp-fc .d{font-size:14px;}
+  .ft-wx .fp-fc .ico{width:34px;height:34px;}
+  .ft-wx .fp-fc .tt{font-size:15px;}
+  .ft-wx .fp-det>div{padding:12px 14px;}
+  .ft-wx .fp-det>div b{font-size:19px;}
+  @media (orientation:portrait){
+    .grid.fronttab{overflow-y:auto;}
+    .ft{height:auto;display:flex;flex-direction:column;}
+    .ft-a,.ft-b{overflow:visible;}
+  }
   .frontpage.hidden{display:none;}
   .frontpage{position:absolute;inset:0;z-index:5;background:var(--screen);
     display:flex;flex-direction:column;gap:14px;padding:16px;overflow-y:auto;}
@@ -851,6 +880,9 @@ const TABS = [
   {tab:'zentral',   label:'Zentral',   icon:'<path d="M3 11 12 4l9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/>'},
   {tab:'raeume',    label:'Räume',     icon:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'},
   {tab:'kategorien',label:'Kategorien',icon:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>'},
+  // Kalender/Wetter als eigene Seite (FRONT_TABS im Server); Inhalt aus frontData
+  {tab:'kalender',  label:'Kalender',  icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/>'},
+  {tab:'wetter',    label:'Wetter',    get icon(){ return WXI.sun; }},
 ];
 
 // Freie Bausteinauswahl: eine Seite je Panel, Name kommt per tabMeta vom
@@ -1285,7 +1317,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme');
+  el('grid').classList.remove('list','snapy','scheme','fronttab');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   const g=el('grid');
@@ -1657,7 +1689,8 @@ function render(){
   closeMenu();
   setMore(null);
   el('conn').classList.toggle('vis', !!(view.route && view.route.view==='tab'));
-  el('grid').classList.remove('panel','bigpage','anchorbot','scheme');
+  el('grid').classList.remove('panel','bigpage','anchorbot','scheme','fronttab');
+  if(view.front){ renderFrontTab(); return; }
   el('grid').classList.toggle('list', view.layout==='list');
   const items = view.items || [];
   const g = el('grid');
@@ -1747,7 +1780,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab');
   g.classList.add('scheme');
   el('conn').classList.remove('vis');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
@@ -1913,7 +1946,8 @@ function connect(){
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
-    if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
+    if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane();
+      if(view && view.front && el('grid').classList.contains('fronttab')) renderFrontTab(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='energy'){ energyData=msg;
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> dort zeichnen, nicht in die verdeckte Pane
@@ -2187,21 +2221,28 @@ function windDir(deg){ const C=['N','NO','O','SO','S','SW','W','NW']; return (de
 // Seite 1 (fuellt die 2x2-Kachelhoehe): Aktuell + Kurve + Vorschau.
 function fpWeatherMainHTML(w){
   if(!w) return '';
-  let html='<div class="fp-h" data-i18n>Wetter</div>';
-  html+='<div class="fp-now"><span class="ico '+esc(w.icon||'cloud')+'">'+wxSvg(w.icon)+'</span>'+
+  return '<div class="fp-h" data-i18n>Wetter</div>'+fpNowHTML(w)+fpCurveHTML(w)+fpForeHTML(w);
+}
+// Teile der Wetteransicht: Pane und Screensaver setzen sie untereinander, die
+// Wetter-Seite (renderFrontTab) auf zwei Spalten verteilt.
+function fpNowHTML(w){
+  return '<div class="fp-now"><span class="ico '+esc(w.icon||'cloud')+'">'+wxSvg(w.icon)+'</span>'+
     '<span class="t">'+fmtTemp(w.temp)+'°</span><span class="meta">'+
     '<span class="cond">'+esc(w.cond||'')+'</span>'+
     '<span class="sub">'+(w.feels!=null?'Gefühlt '+tdeg(w.feels):'')+(w.wind!=null?' · Wind '+w.wind+' '+wUnit(w):'')+'</span>'+
     '<span class="sub">Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span></span></div>';
+}
+function fpCurveHTML(w){
   const hh=Array.isArray(w.hourly)?w.hourly:[];
-  if(hh.length>=2) html+='<div class="fp-curve">'+fpCurve(hh)+'</div>';
+  return hh.length>=2 ? '<div class="fp-curve">'+fpCurve(hh)+'</div>' : '';
+}
+function fpForeHTML(w){
   const fc=Array.isArray(w.forecast)?w.forecast:[];
-  if(fc.length) html+='<div class="fp-fore" style="--fc:'+Math.max(1,Math.min(7,fc.length))+'">'+fc.map(f=>
+  return fc.length ? '<div class="fp-fore" style="--fc:'+Math.max(1,Math.min(7,fc.length))+'">'+fc.map(f=>
     '<div class="fp-fc"><span class="d">'+esc(f.day||'')+'</span>'+
     '<span class="ico '+esc(f.icon||'cloud')+'">'+wxSvg(f.icon)+'</span>'+
     '<span class="tt"><span class="mx">'+tdeg(f.hi)+'</span> <span class="mn">'+tdeg(f.lo)+'</span></span>'+
-    (f.pop!=null?'<span class="pop">'+f.pop+'%</span>':'')+'</div>').join('')+'</div>';
-  return html;
+    (f.pop!=null?'<span class="pop">'+f.pop+'%</span>':'')+'</div>').join('')+'</div>' : '';
 }
 // Seite 2: Detailkacheln (nur vorhandene Werte).
 function fpWeatherDetailHTML(w){
@@ -2432,6 +2473,33 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
   elc.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderCalendarPane(elc); });
   elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc); });
   elc.querySelectorAll('[data-calall]').forEach(b=>b.onclick=()=>{ calSel=''; renderCalendarPane(elc); });
+}
+// Kalender-/Wetter-Seite (Tab "kalender"/"wetter", view.front): dieselben
+// Bausteine wie die Split-Pane, aber auf der ganzen Kachelflaeche. Quer zwei
+// Spalten, die je fuer sich scrollen (Kalender: Monat | alle Termine; Wetter:
+// Lage, Kurve, Vorschau | Details), hoch/quadratisch untereinander.
+function renderFrontTab(){
+  const g=el('grid'), d=frontData||{}, art=view.front;
+  const liste=g.querySelector('.ft-b'), oben=(g.classList.contains('fronttab') && liste) ? liste.scrollTop : 0;
+  g.classList.remove('list','snapy','chartpage');
+  g.classList.add('fronttab');
+  el('conn').classList.remove('vis');   // der Verbindungspunkt saesse mitten im Inhalt
+  if(art==='calendar'){
+    g.innerHTML='<div class="ft ft-cal"><div class="ft-a">'+fpMonthHTML(d.events, d.holidays, d.calColors)
+      +fpLegendHTML(d)+'</div><div class="ft-b">'+fpCalHTML(d)+'</div></div>';
+    g.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderFrontTab(); });
+    g.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderFrontTab();
+      const b=g.querySelector('.ft-b'); if(b) b.scrollTop=0; });
+    g.querySelectorAll('[data-calall]').forEach(b=>b.onclick=()=>{ calSel=''; renderFrontTab(); });
+  } else {
+    const w=d.weather;
+    g.innerHTML = w
+      ? '<div class="ft ft-wx"><div class="ft-a"><div class="fp-h" data-i18n>Wetter</div>'+fpNowHTML(w)
+        +fpWeatherDetailHTML(w)+'</div><div class="ft-b">'+fpCurveHTML(w)+fpForeHTML(w)+'</div></div>'
+      : '<div class="ft ft-leer"><div class="fp-empty">Kein Wetter eingerichtet (Konfigurator → Settings → Kalender &amp; Wetter).</div></div>';
+  }
+  const b=g.querySelector('.ft-b'); if(b && oben) b.scrollTop=oben;
+  renderTabs();
 }
 // Test-/Vorschau-Schalter: ?front=1 zeigt die ausfuehrliche Ansicht als Vollseite.
 const FRONT_TEST=new URLSearchParams(location.search).has('front');

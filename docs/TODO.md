@@ -620,8 +620,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `dicht`; der Screensaver vergrößert die Namen in dem Fall bewusst nicht.
       Lösungsidee: Beschriftung der Seitenknoten nach außen statt nach oben/unten
       setzen. **M**
-- [ ] **Kalender/Wetter als eigener Tab**: volle Terminliste zum Durchscrollen
-      und größere Wetteransicht, nicht nur die Front. **M**
+- [x] **Kalender/Wetter als eigener Tab**: Tabs `kalender` und `wetter`
+      (`FRONT_TABS`), im Konfigurator wie die übrigen Tabs wählbar. Kalender:
+      Monat mit Blättern und Tagesauswahl, daneben alle Termine des
+      eingestellten Zeitraums (bis 60 Tage) zum Durchscrollen. Wetter: Lage und
+      Details, Tageskurve und bis zu 7 Tage Vorhersage. Quer zwei Spalten, hoch
+      oder quadratisch untereinander. Dabei gefunden: der Monatskalender stellte
+      jeden Monat ab Montag dar (F16), behoben. **M**
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
       Betriebsart, nicht nur Override. **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
