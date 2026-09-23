@@ -103,9 +103,8 @@
   .epane .ering.idle{stroke:var(--muted);opacity:.55;}
   .epane .eic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .epane .eic.prod{stroke:var(--accent);} .epane .eic.cons{stroke:var(--glow);} .epane .eic.grid{stroke:var(--crit);} .epane .eic.idle{stroke:var(--muted);}
-  /* echtes Loxone-Icon: monochrome SVG-Maske, in Rollenfarbe eingefaerbt */
-  .epane .emask{width:100%;height:100%;background:currentColor;}
-  .epane .emask.prod{color:var(--accent);} .epane .emask.cons{color:var(--glow);} .epane .emask.grid{color:var(--crit);} .epane .emask.idle{color:var(--muted);}
+  /* echtes Loxone-Icon: SVG-<mask> (Alpha des Bildes), Rechteck in Rollenfarbe darunter */
+  .epane .emask.prod{fill:var(--accent);} .epane .emask.cons{fill:var(--glow);} .epane .emask.grid{fill:var(--crit);} .epane .emask.idle{fill:var(--muted);}
   .epane .enval{fill:var(--ink);font-size:16px;font-weight:600;text-anchor:middle;}
   .epane .enval.idle{fill:var(--muted);}
   .epane .enlab{fill:var(--muted);font-size:12px;text-anchor:middle;}
@@ -1671,17 +1670,24 @@ const EICONS={
   battery:'<rect x="2" y="7" width="16" height="11" rx="2.4"/><path d="M21 11v3"/>',
   load:'<path d="M13 2 4 14h7l-1 8 10-12h-7z"/>'
 };
-// Knoten-Icon: echtes Loxone-Icon (per CSS-Maske in Flussfarbe eingefaerbt),
-// sonst das eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND
-// Name vor (siehe energy_blocks/_node_icon_url im Server).
+// Knoten-Icon: echtes Loxone-Icon (in Flussfarbe eingefaerbt), sonst das
+// eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND Name vor
+// (siehe energy_blocks/_node_icon_url im Server).
+// Einfaerben rein in SVG: das Bild ist Alpha-Maske eines Rechtecks in
+// Rollenfarbe. KEIN foreignObject mit CSS-mask: WebKit (Safari, iPad,
+// Panel-WebViews) legt HTML mit eigener Render-Ebene im foreignObject ohne
+// die translate() der Knotengruppe ab -> alle Icons landeten oben links.
+// Masken-IDs sind dokumentweit eindeutig (Pane, Detailansicht und
+// Screensaver koennen das Radial gleichzeitig zeigen).
+let eMaskSeq=0;
 function eIconMarkup(n,cls,i){
   const tag='data-ic="'+i+'"';
   if(n && n.iconUrl){
-    const u=String(n.iconUrl).replace(/"/g,'%22');
-    return '<foreignObject x="-13" y="-13" width="26" height="26">'+
-      '<div xmlns="http://www.w3.org/1999/xhtml" '+tag+' class="emask '+cls+'" '+
-      'style="-webkit-mask:url(&quot;'+u+'&quot;) center/contain no-repeat;'+
-      'mask:url(&quot;'+u+'&quot;) center/contain no-repeat"></div></foreignObject>';
+    const u=esc(String(n.iconUrl)), id='emk'+(++eMaskSeq);
+    return '<mask id="'+id+'" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" '+
+      'x="-13" y="-13" width="26" height="26" style="mask-type:alpha">'+
+      '<image href="'+u+'" xlink:href="'+u+'" x="-13" y="-13" width="26" height="26" preserveAspectRatio="xMidYMid meet"/></mask>'+
+      '<rect '+tag+' class="emask '+cls+'" x="-13" y="-13" width="26" height="26" mask="url(#'+id+')"/>';
   }
   const icon=EICONS[n&&n.icon]||EICONS.load;
   return '<g '+tag+' class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
