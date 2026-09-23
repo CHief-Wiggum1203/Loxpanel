@@ -164,6 +164,10 @@ STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aend
 # (Temperatur, Leistung ...), 1 Digitalwert (Regen, Sonnenschein), 2 Zaehlerstand
 # (Gesamtverbrauch kWh). Zaehlerstaende zeigen den Verbrauch je Stunde/Tag als Balken.
 STAT_KIND = {1: "digital", 2: "counter"}
+# Darstellung des Mini-Verlaufs in der Kachel (tiles.<uuid>.chartStyle). Fehlt der
+# Schluessel, gilt "trend". Tagesmuster und Tagesspanne zeigen immer 7 Tage.
+STAT_TILE_STYLES = ("trend", "pattern", "span")
+STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
@@ -444,6 +448,48 @@ def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
         else:
             out.append((int(sum(t for t, _ in items) / len(items)),
                         sum(v for _, v in items) / len(items)))
+    return out
+
+
+def _stat_buckets(pts: list, edges: list, t_end: int) -> list:
+    """Zeitgewichteter Mittelwert je Abschnitt [edges[i], edges[i+1]). Ein Messwert
+    gilt bis zum naechsten (Treppe) - so stimmt das auch fuer Digitalwerte, die nur
+    bei Aenderung aufgezeichnet werden: der Mittelwert ist dann der Ein-Anteil.
+    Abschnitte ohne bekannten Wert oder nach t_end -> None."""
+    out, k, n = [], 0, len(pts)
+    for a, b in zip(edges, edges[1:]):
+        b2 = min(b, t_end)
+        while k + 1 < n and pts[k + 1][0] <= a:
+            k += 1
+        if b2 <= a or not n or pts[0][0] >= b2:
+            out.append(None)
+            continue
+        acc = dur = 0.0
+        j = k
+        while j < n and pts[j][0] < b2:
+            t, v = pts[j]
+            lo, hi = max(a, t), min(b2, pts[j + 1][0] if j + 1 < n else t_end)
+            if hi > lo:
+                acc += v * (hi - lo)
+                dur += hi - lo
+            j += 1
+        out.append(acc / dur if dur else None)
+    return out
+
+
+def _stat_day_range(pts: list, edges: list, t_end: int) -> list:
+    """Tiefst- und Hoechstwert je Abschnitt, mit dem Stand, der zu Beginn des
+    Abschnitts galt. Abschnitte ohne bekannten Wert oder nach t_end -> None."""
+    out = []
+    for a, b in zip(edges, edges[1:]):
+        if a >= t_end:
+            out.append(None)
+            continue
+        vals = [v for t, v in pts if a <= t < min(b, t_end + 1)]
+        prev = [v for t, v in pts if t < a]
+        if prev:
+            vals.append(prev[-1])
+        out.append((min(vals), max(vals)) if vals else None)
     return out
 
 
@@ -2235,6 +2281,8 @@ class App:
                         e2["icon"] = icc
                     if ov.get("chart") in STAT_RANGES:
                         e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
+                        if ov.get("chartStyle") in STAT_TILE_STYLES and ov["chartStyle"] != "trend":
+                            e2["chartStyle"] = ov["chartStyle"]   # Tagesmuster / Tagesspanne
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -3175,7 +3223,8 @@ class App:
         rng = ov.get("chart")
         c = self.controls.get(uuid) or {}
         if rng in STAT_RANGES and (c.get("statistic") or c.get("statisticV2")):
-            sp = self._stat_spark(c, rng)
+            style = ov.get("chartStyle") if ov.get("chartStyle") in STAT_TILE_STYLES else "trend"
+            sp = self._stat_spark(c, rng, style)
             if sp:
                 it["spark"] = sp
         return it
@@ -3597,23 +3646,119 @@ class App:
         return {"control": uuid, "name": _clean(c.get("name")), "value": big,
                 "range": rng, "blocks": self._stat_blocks(c, rng)}
 
-    def _stat_spark(self, c: dict, rng: str) -> dict | None:
-        """Mini-Verlauf fuer eine Kachel (tiles.<uuid>.chart): das erste Linien-
-        Diagramm des Bausteins, sonst das erste ueberhaupt, davon nur die erste
-        Reihe, auf 48 Punkte ausgeduennt. Balken (Zaehlerstand) bleiben wie sie
-        sind: 24 Stunden- bzw. 7/30 Tagesbalken."""
-        blocks = self._stat_blocks(c, rng)
-        if not blocks:
+    def _stat_primary(self, c: dict) -> tuple | None:
+        """Die Reihe, die eine Kachel zeigt: die erste Linie, sonst die erste Reihe."""
+        defs = self._stat_series_defs(c)
+        return next((d for d in defs if d[1] == "line"), defs[0] if defs else None)
+
+    def _stat_raw(self, c: dict, d: tuple, rng: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Rohpunkte einer Reihe im Fenster, vorneweg der letzte Stand davor, aus
+        denselben Caches wie die Diagramme. -> (punkte, laedt_noch, abruffehler)"""
+        ua, src = c.get("uuidAction"), d[4]
+        if src[0] == "v1":
+            rows, ld, er = self._stat_rows(ua, t0, t1)
+            i = src[1]
+            return [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None], ld, er
+        rows, ld, er = self._stat2_rows(ua, src[1], src[2], rng, t0, t1)
+        return [(r[0], r[1][0]) for r in rows if r[1] and r[1][0] is not None], ld, er
+
+    @staticmethod
+    def _stat_dur(sec: float) -> str:
+        """Dauer als "3 h 20 min" bzw. "40 min"."""
+        h, m = int(sec // 3600), int(round(sec % 3600 / 60))
+        if m == 60:
+            h, m = h + 1, 0
+        return f"{h} h" + (f" {m} min" if m else "") if h else f"{m} min"
+
+    def _stat_spark(self, c: dict, rng: str, style: str = "trend") -> dict | None:
+        """Mini-Verlauf fuer eine Kachel (tiles.<uuid>.chart/.chartStyle).
+
+        trend    Verlauf im gewaehlten Zeitraum: Linie mit Tiefst-/Hoechstwert,
+                 Digitalwert als Stufen, Zaehlerstand als Verbrauchsbalken.
+        pattern  Tagesmuster: 7 Tage x 24 Stunden, je Stunde der zeitgewichtete
+                 Mittelwert (Digital: Ein-Anteil, Zaehler: Verbrauch der Stunde).
+        span     Tagesspanne (nur Linien): je Tag Tiefst-, Hoechst- und Mittelwert.
+
+        `badge` ist die kurze Angabe im Kopf der Kachel; die Visu zeigt sie nur an."""
+        d = self._stat_primary(c)
+        ua = c.get("uuidAction")
+        if not (d and ua):
             return None
-        b = next((x for x in blocks if x.get("kind") == "line"), blocks[0])
-        se = (b.get("series") or [{}])[0]
-        pts = se.get("pts") or []
-        if b.get("kind") != "counter":
-            pts = [[int(t), round(v, se.get("dec", 0) + 2)]
-                   for t, v in _stat_thin([tuple(p) for p in pts], b["t0"], b["t1"], 48,
-                                          b.get("kind") == "digital")]
-        return {"kind": b.get("kind"), "state": b.get("state"), "t0": b.get("t0"), "t1": b.get("t1"),
-                "dec": se.get("dec", 0), "pts": pts}
+        name, kind, dec, unit, src = d
+        if style == "span" and kind != "line":
+            style = "trend"
+        now = calendar.timegm(datetime.now().timetuple())
+        t1 = now - now % 60
+        mkey = ("spark", ua, rng, style, t1, self.stat_gen)
+        if mkey in self.stat_memo:
+            return self.stat_memo[mkey]
+        fmt = f"%.{dec}f{unit}"
+        out: dict | None = None
+        if style == "trend":
+            blocks = self._stat_blocks(c, rng)
+            b = next((x for x in blocks if x.get("kind") == kind and x.get("unit") == unit), None)
+            if b is None:
+                return None
+            se = next((x for x in b.get("series") or [] if x.get("name") == name), (b.get("series") or [{}])[0])
+            full = [tuple(p) for p in se.get("pts") or []]
+            out = {"style": "trend", "kind": kind, "state": b.get("state"), "t0": b.get("t0"),
+                   "t1": b.get("t1"), "dec": dec}
+            if kind == "counter":
+                out["pts"] = [list(p) for p in full]
+                if full:
+                    out["badge"] = "Σ " + self._fmt_num(sum(v for _, v in full), fmt)
+            else:
+                out["pts"] = [[int(t), round(v, dec + 2)]
+                              for t, v in _stat_thin(full, b["t0"], b["t1"], 48, kind == "digital")]
+                if full and kind == "line":
+                    lo, hi = min(full, key=lambda p: p[1]), max(full, key=lambda p: p[1])
+                    out["lo"], out["hi"] = [int(lo[0]), lo[1]], [int(hi[0]), hi[1]]
+                    ago = [v for t, v in full if t <= t1 - 86400]
+                    if ago:
+                        delta = full[-1][1] - ago[-1]
+                        step = 10 ** -dec / 2
+                        arrow = "▲" if delta >= step else ("▼" if delta <= -step else "=")
+                        out["badge"] = f"{arrow} {self._fmt_num(abs(delta), fmt)} in 24 h"
+                elif full:
+                    t0 = b["t0"]
+                    raw, _ld, _er = self._stat_raw(c, d, rng, t0, t1)
+                    share = _stat_buckets(raw, [t0, t1], t1)[0]
+                    if share is not None:
+                        out["badge"] = "Ein " + self._stat_dur(share * (t1 - t0))
+        else:
+            start = t1 - t1 % 86400 - 6 * 86400        # Mitternacht vor 6 Tagen
+            raw, loading, error = self._stat_raw(c, d, "7d", start, t1)
+            days = [STAT_WEEKDAYS[((start // 86400) + i + 3) % 7] for i in range(7)]   # 1.1.1970 = Do
+            state = "ok" if raw else ("loading" if loading else ("error" if error else "empty"))
+            out = {"style": style, "kind": kind, "state": state, "dec": dec, "days": days}
+            if style == "pattern":
+                edges = [start + h * 3600 for h in range(7 * 24 + 1)]
+                if kind == "counter":
+                    cells = [None if a >= t1 else v for (a, v) in _stat_bars(raw, edges)]
+                else:
+                    cells = _stat_buckets(raw, edges, t1)
+                out["cells"] = [None if v is None else round(v, dec + 2) for v in cells]
+                vals = [v for v in cells if v is not None]
+                if vals and kind == "counter":
+                    out["badge"] = "7 Tage · Σ " + self._fmt_num(sum(vals), fmt)
+                elif vals and kind == "line":
+                    out["badge"] = "7 Tage · max " + self._fmt_num(max(vals), fmt)
+                elif vals:
+                    out["badge"] = "7 Tage"
+            else:
+                edges = [start + i * 86400 for i in range(8)]
+                rngs = _stat_day_range(raw, edges, t1)
+                avgs = _stat_buckets(raw, edges, t1)
+                out["spans"] = [None if r is None else [round(r[0], dec + 2), round(r[1], dec + 2),
+                                                        None if a is None else round(a, dec + 2)]
+                                for r, a in zip(rngs, avgs)]
+                if rngs[-1] is not None:
+                    lo, hi = rngs[-1]
+                    out["badge"] = "heute " + self._fmt_num(lo, f"%.{dec}f") + "–" + self._fmt_num(hi, fmt)
+        if len(self.stat_memo) > 64:
+            self.stat_memo = {}
+        self.stat_memo[mkey] = out
+        return out
 
     def _irrigation_zone_name(self, c: dict) -> str:
         """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
@@ -5268,6 +5413,9 @@ async def api_meta(request: web.Request) -> web.Response:
             # Zeichnet der Baustein auf? Dann bietet der Konfigurator ihn fuer
             # die Verlaufs-Pane und den Mini-Verlauf in der Kachel an.
             "stat": bool(c.get("statistic") or c.get("statisticV2")),
+            # Art der Reihe, die die Kachel zeigt (line/digital/counter): die
+            # Tagesspanne gibt es nur fuer Linien.
+            "statKind": (app._stat_primary(c) or (None, None))[1],
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
