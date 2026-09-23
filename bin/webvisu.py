@@ -264,7 +264,8 @@ def _clean_screen(d) -> dict:
 
 def _clean_tabpane(v) -> str:
     """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
-    | "energy:<uuid>" | "camera:<uuid>". "" heisst "kein Widget" — die Visu
+    | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>" (Verlauf eines Bausteins
+    mit Aufzeichnung). "" heisst "kein Widget" — die Visu
     weitet sich dann nach rechts aus.
 
     Stand vorher wortgleich an zwei Stellen (Export und Speichern). Laufen die
@@ -274,7 +275,7 @@ def _clean_tabpane(v) -> str:
     if v in ("weather", "calendar"):
         return v
     if isinstance(v, str):
-        for kopf in ("player:", "energy:", "camera:"):
+        for kopf in ("player:", "energy:", "camera:", "chart:"):
             if v.startswith(kopf) and len(v) > len(kopf):
                 return v
     return ""
@@ -794,6 +795,7 @@ class App:
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
         self.conn_energy: dict[web.WebSocketResponse, str] = {}   # ws -> EFM/EnergyManager2-UUID der aktiven Energiefluss-Pane (via setenergy)
         self.conn_camera: dict[web.WebSocketResponse, str] = {}   # ws -> Intercom-UUID der aktiven Kamera-Pane (via setcamera)
+        self.conn_chart: dict[web.WebSocketResponse, tuple[str, str]] = {}   # ws -> (Baustein-UUID, Zeitraum) der Verlaufs-Pane (via setchart)
         self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
@@ -2231,6 +2233,8 @@ class App:
                     icc = _clean_icon(ov.get("icon"))
                     if icc:
                         e2["icon"] = icc
+                    if ov.get("chart") in STAT_RANGES:
+                        e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -3166,6 +3170,14 @@ class App:
             elif s == "custom" and ic.get("file"):
                 it["iconImg"] = "/uicon?f=" + quote(str(ic["file"]))
                 it.pop("iconUrl", None)
+        # Mini-Verlauf in der Kachel (tiles.<uuid>.chart = Zeitraum), nur fuer
+        # Bausteine mit Aufzeichnung. Ein Tipp oeffnet wie bisher die Detailseite.
+        rng = ov.get("chart")
+        c = self.controls.get(uuid) or {}
+        if rng in STAT_RANGES and (c.get("statistic") or c.get("statisticV2")):
+            sp = self._stat_spark(c, rng)
+            if sp:
+                it["spark"] = sp
         return it
 
     # ---- Views ----
@@ -3570,6 +3582,38 @@ class App:
             self.stat_memo = {}
         self.stat_memo[mkey] = blocks
         return blocks
+
+    def chart_blocks(self, uuid: str, rng: str | None = None) -> dict | None:
+        """Inhalt der Verlaufs-Pane im Split-Layout (panes "chart:<uuid>"): Name,
+        aktueller Wert wie auf der Detailseite und die Diagramme aus
+        _stat_blocks (dieselben Abrufe, Caches und Zustaende). None, wenn der
+        Baustein fehlt oder nichts aufzeichnet."""
+        c = self.controls.get(uuid)
+        if not c or not (c.get("statistic") or c.get("statisticV2")):
+            return None
+        rng = rng if rng in STAT_RANGES else STAT_DEFAULT_RANGE
+        v = self._view_control_inner(uuid)
+        big = next((b.get("text") or "" for b in v.get("blocks") or [] if b.get("k") == "big"), "")
+        return {"control": uuid, "name": _clean(c.get("name")), "value": big,
+                "range": rng, "blocks": self._stat_blocks(c, rng)}
+
+    def _stat_spark(self, c: dict, rng: str) -> dict | None:
+        """Mini-Verlauf fuer eine Kachel (tiles.<uuid>.chart): das erste Linien-
+        Diagramm des Bausteins, sonst das erste ueberhaupt, davon nur die erste
+        Reihe, auf 48 Punkte ausgeduennt. Balken (Zaehlerstand) bleiben wie sie
+        sind: 24 Stunden- bzw. 7/30 Tagesbalken."""
+        blocks = self._stat_blocks(c, rng)
+        if not blocks:
+            return None
+        b = next((x for x in blocks if x.get("kind") == "line"), blocks[0])
+        se = (b.get("series") or [{}])[0]
+        pts = se.get("pts") or []
+        if b.get("kind") != "counter":
+            pts = [[int(t), round(v, se.get("dec", 0) + 2)]
+                   for t, v in _stat_thin([tuple(p) for p in pts], b["t0"], b["t1"], 48,
+                                          b.get("kind") == "digital")]
+        return {"kind": b.get("kind"), "state": b.get("state"), "t0": b.get("t0"), "t1": b.get("t1"),
+                "dec": se.get("dec", 0), "pts": pts}
 
     def _irrigation_zone_name(self, c: dict) -> str:
         """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
@@ -4848,6 +4892,7 @@ class App:
             self.conn_dev.pop(ws, None)
             self.conn_player.pop(ws, None)
             self.conn_energy.pop(ws, None)
+            self.conn_chart.pop(ws, None)
             self.conn_camera.pop(ws, None)
             self.conn_status.pop(ws, None)
             try:
@@ -4927,6 +4972,16 @@ class App:
                         energy_msg = {"t": "energy", **eb} if eb is not None else None
                     except Exception:
                         log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
+                # Split-Layout: Verlaufs-Pane (chart:<uuid>) des aktiven Tabs
+                # mitrendern (kommt vom Client via setchart -> conn_chart).
+                chart_msg = None
+                _chart = self.conn_chart.get(ws)
+                if _chart:
+                    try:
+                        cb = self.chart_blocks(*_chart)
+                        chart_msg = {"t": "chart", **cb} if cb is not None else None
+                    except Exception:
+                        log.exception("chart_blocks fehlgeschlagen (%s)", _chart)
                 # Split-Layout: Kamera-Pane (Intercom-Vollansicht) des aktiven Tabs
                 # mitrendern (kommt vom Client via setcamera -> conn_camera).
                 camera_msg = None
@@ -4966,6 +5021,12 @@ class App:
                 if energy_msg is not None and energy_msg != last.get("energy"):
                     if await self._send_or_drop(ws, energy_msg):
                         last["energy"] = energy_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
+                if chart_msg is not None and chart_msg != last.get("chart"):
+                    if await self._send_or_drop(ws, chart_msg):
+                        last["chart"] = chart_msg
                     else:
                         self._last_sent.pop(ws, None)
                         continue
@@ -5204,9 +5265,15 @@ async def api_meta(request: web.Request) -> web.Response:
             "roomName": _clean((app.rooms.get(room) or {}).get("name", "")) if room else "",
             "cat": c.get("cat"),
             "iconUrl": app._control_icon_url(c),
+            # Zeichnet der Baustein auf? Dann bietet der Konfigurator ihn fuer
+            # die Verlaufs-Pane und den Mini-Verlauf in der Kachel an.
+            "stat": bool(c.get("statistic") or c.get("statisticV2")),
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
+        # Zeitraeume der Verlaufs-Diagramme (Schluessel, Anzeige) fuer die Auswahl
+        # "Verlauf in der Kachel" — eine Quelle mit der Visu (STAT_RANGES).
+        "statRanges": [[k, v[0]] for k, v in STAT_RANGES.items()],
         # Wie viele Werte-Kacheln die Uhr-Seite traegt. Der Konfigurator liest
         # die Zahl hier ab, statt sie ein zweites Mal zu fuehren.
         "svStatusMax": SV_STATUS_MAX,
@@ -5781,6 +5848,7 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             app.conn_info.pop(ws, None)
             app.conn_player.pop(ws, None)
             app.conn_energy.pop(ws, None)
+            app.conn_chart.pop(ws, None)
             app.conn_camera.pop(ws, None)
             app.conn_status.pop(ws, None)
     return n
@@ -6088,6 +6156,23 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
                     app.conn_energy.pop(ws, None)
+            elif data.get("t") == "setchart":
+                # Client meldet den Baustein der aktiven Verlaufs-Pane und den
+                # dort gewaehlten Zeitraum (oder uuid "" = keine Pane).
+                cuid = str(data.get("uuid") or "").strip()
+                rng = data.get("range") if data.get("range") in STAT_RANGES else STAT_DEFAULT_RANGE
+                if cuid:
+                    app.conn_chart[ws] = (cuid, rng)
+                    try:
+                        cb = app.chart_blocks(cuid, rng)
+                        if cb is not None:
+                            _cm = {"t": "chart", **cb}
+                            await ws.send_json(_cm)
+                            app._last_sent.setdefault(ws, {})["chart"] = _cm
+                    except Exception:
+                        log.exception("chart_blocks (setchart) fehlgeschlagen (%s)", cuid)
+                else:
+                    app.conn_chart.pop(ws, None)
             elif data.get("t") == "screen":
                 # Das Panel meldet seine Bildschirmgroesse - beim Verbinden und
                 # nach jeder Groessenaenderung. Nur fuer die Anzeige unter
@@ -6132,6 +6217,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_info.pop(ws, None)
         app.conn_player.pop(ws, None)
         app.conn_energy.pop(ws, None)
+        app.conn_chart.pop(ws, None)
         app.conn_camera.pop(ws, None)
         app.conn_status.pop(ws, None)
     return ws
