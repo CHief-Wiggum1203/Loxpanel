@@ -143,10 +143,18 @@ async def part2(s, base, headers) -> None:
         for ref in refs:
             if ref.startswith(("data:", "blob:", "//")) or ("://" in ref and not ref.startswith(origin)):
                 continue
-            url = urljoin(from_url, ref)
-            if url.startswith(origin) and url not in seen:
-                seen.add(url)
-                queue.append(url)
+            cands = [urljoin(from_url, ref)]
+            if not ref.startswith(("/", "./", "../")):
+                # Worker-Pfade wie "scripts/SandboxComp/..." gelten ab der Startseite,
+                # nicht ab dem Skript, das sie nennt: beide Aufloesungen probieren.
+                cands.append(urljoin(base, ref))
+            for url in cands:
+                if url.startswith(origin) and url not in seen:
+                    seen.add(url)
+                    if "tatistic" in url:   # Statistik-Module zuerst: die App hat ~2000 Skripte
+                        queue.insert(0, url)
+                    else:
+                        queue.append(url)
 
     collect(text, base)
     apphub = urljoin(base, "scripts/AppHub.js")   # Hauptmodul der App (audioserver_probe)
@@ -176,15 +184,26 @@ async def part2(s, base, headers) -> None:
     print(f"\n  Pfad-/Befehlsliterale mit Statistik-Bezug ({len(literals)}):")
     for lit in sorted(literals)[:80]:
         print(f"    {cut(lit, 160)}")
-    for word in ("binstatisticdata", "statisticV2", "getstatistic", "/stats"):
+    print("\n  Geladene Statistik-Module: "
+          + (", ".join(n for n, _ in docs if "tatistic" in n.lower()) or "keine"))
+    # (Suchwort, Fundstellen): Die Aufrufstellen von StatisticV2.GET zeigen, wie
+    # die sieben Parameter von getStatistic belegt werden. Ohne Beachtung von
+    # Gross-/Kleinschreibung, der Befehl heisst im Code getStatistic.
+    for word, maxhits in (("binstatisticdata", 1), ("StatisticV2.GET", 3), ("getStatistic", 2),
+                          ("statisticV2", 1), ("/stats", 1)):
+        low, shown = word.lower(), 0
         for name, js in docs:
-            i = js.find(word)
-            if i >= 0:
-                a, b = max(0, i - 400), min(len(js), i + 700)
+            jl = js.lower()
+            i = jl.find(low)
+            while i >= 0 and shown < maxhits:
+                a, b = max(0, i - 500), min(len(js), i + 900)
                 print(f"\n  --- Fundstelle '{word}' in {name} bei {i}:")
-                print("      " + cut(js[a:b], 1100))
+                print("      " + cut(js[a:b], 1400))
+                shown += 1
+                i = jl.find(low, i + 900)          # naechste Stelle ausserhalb dieses Ausschnitts
+            if shown >= maxhits:
                 break
-        else:
+        if not shown:
             print(f"\n  --- '{word}': keine Fundstelle")
 
 
