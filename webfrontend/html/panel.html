@@ -586,6 +586,26 @@
   .fp-mon-c.today{background:var(--accent);color:var(--on-accent,#fff);font-weight:700;
     box-shadow:0 2px 8px rgba(0,0,0,.28);}
   .fp-mon-c.today.ev::after{background:var(--on-accent,#fff);}
+  /* Kalenderfarben: ein Punkt vor dem Titel sagt, aus welchem Abo der Termin
+     kommt. Schaltet die Einstellung sie ab, entfaellt der Punkt ersatzlos. */
+  .cdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;
+    vertical-align:1px;flex:none;}
+  .fp-ev .note{font-size:12px;color:var(--muted);margin-left:8px;white-space:nowrap;}
+  .fp-ev .cal{font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap;
+    border:1px solid var(--line);border-radius:999px;padding:1px 7px;}
+  .fp-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:2px 0 8px;}
+  .fp-mon + .fp-leg{margin-top:10px;justify-content:center;}
+  .fp-leg span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .fp-leg i{width:8px;height:8px;border-radius:50%;flex:none;}
+  /* Monatsraster mit mehreren Kalendern: je Tag bis zu drei Farbpunkte statt
+     des einen Akzentpunkts aus .ev::after. */
+  .fp-mon-c .mdots{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+    display:flex;gap:2px;pointer-events:none;}
+  .fp-mon-c .mdots i{width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .fp-mon-c.ev.dots::after{display:none;}
+  /* Auf dem Akzent-Hintergrund des heutigen Tages waeren farbige Punkte kaum
+     zu sehen — dort gewinnt die Lesbarkeit gegen die Inline-Farbe. */
+  .fp-mon-c.today .mdots i{background:var(--on-accent,#fff) !important;}
   .fp-allbtn{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:2px 4px;}
   .fp-ev.holi .tm{color:var(--crit,#e2695f);}
   .moreb{position:absolute;top:6px;right:8px;z-index:6;width:34px;height:34px;border-radius:50%;
@@ -1341,7 +1361,7 @@ window.addEventListener('resize',()=>{
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
-  if(saverOn()) applySaverSplit();
+  if(saverOn()){ applySaverSplit(); renderFront(); }
   // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
   // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
   // Startmessung 4x2 haengenzubleiben.
@@ -1486,6 +1506,43 @@ const WXI={
   storm:'<path d="M17.5 14a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 14z"/><path d="m13 14-3 4h3.5l-2.5 4"/>',
 };
 function wxSvg(k){ return svg(WXI[k]||WXI.cloud); }
+// ---- Kalenderfarben (mehrere iCal-Abos) ----
+// Der Server schickt je Termin Name und Farbe seines Kalenders mit; `calColors`
+// schaltet die Farben ab (schlichte Anzeige, nur noch der Name als Tag).
+function calDot(d,e){
+  return (d && d.calColors!==false && e && e.color)
+    ? '<span class="cdot" style="background:'+esc(e.color)+'"></span>' : '';
+}
+// Tag am Termin: der Kalender, aus dem er kommt. Bei nur einem Abo bleibt es
+// die Ueberschrift — sonst stuende an jedem Termin dasselbe Wort.
+function evTag(d,e){
+  const n=(Array.isArray(d.cals)?d.cals.length:0);
+  if(n>1) return (e&&e.cal)||'';
+  return (d&&d.calName)||'';
+}
+function svCount(d){ const n=parseInt(d&&d.svEvents); return (n>=1&&n<=10)?n:3; }
+// Die eingestellte Zahl ist eine OBERGRENZE — den Rest entscheidet der Schirm.
+// Auf dem 480x480-Panel passen neben Wetter und Uhr etwa drei Termine; mehr
+// wuerde oben das Wetter und unten die Termine abschneiden. Darum nach dem
+// Zeichnen messen und von unten so lange Zeilen wegnehmen, bis es passt.
+function svFit(){
+  const saver=el('saver'), cal=el('svCal');
+  if(!saver||!cal||cal.hidden) return;
+  const platz=saver.clientHeight;
+  const wrap=saver.querySelector('.sv-wrap');
+  if(!platz||!wrap) return;                      // versteckt/noch nicht gemessen
+  const zeilen=[...cal.querySelectorAll('.sv-ev')];
+  for(let i=zeilen.length-1; i>=1 && wrap.getBoundingClientRect().height>platz; i--){
+    zeilen[i].remove();
+  }
+}
+// Legende: nur wenn es mehrere Kalender gibt UND die Farben an sind.
+function fpLegendHTML(d){
+  const cals=Array.isArray(d.cals)?d.cals:[];
+  if(d.calColors===false || cals.length<2) return '';
+  return '<div class="fp-leg">'+cals.map(c=>
+    '<span><i style="background:'+esc(c.color||'')+'"></i>'+esc(c.name||'')+'</span>').join('')+'</div>';
+}
 function fmtTemp(t){ if(t==null||isNaN(t)) return '–'; return Number(t).toLocaleString(LANG,{minimumFractionDigits:1,maximumFractionDigits:1}); }
 function tdeg(v){ return v==null?'–':(Math.round(v)+'°'); }
 function renderFront(){
@@ -1505,19 +1562,22 @@ function renderFront(){
       '<span class="tt"><span class="mx">'+tdeg(f.hi)+'</span> <span class="mn">'+tdeg(f.lo)+'</span></span></div>').join('')+'</div>';
     wxEl.innerHTML=html; wxEl.hidden=false;
   } else { wxEl.hidden=true; wxEl.innerHTML=''; }
-  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,3);
+  // Wie viele Termine auf die Uhr-Seite passen, sagt die Einstellung — mit
+  // mehreren Kalendern sind drei schnell zu wenig, um den Tag zu sehen.
+  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,svCount(d));
   if(evs.length){
-    const nm=d.calName||'';
-    calEl.innerHTML='<div class="lbl">Nächste Termine</div>'+evs.map(e=>
-      '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
+    calEl.innerHTML='<div class="lbl">Nächste Termine</div>'+evs.map(e=>{
+      const tag=evTag(d,e);
+      return '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
       '<span class="tm">'+esc(e.time||'')+'</span></span>'+
-      '<span class="ttl">'+esc(e.title||'')+'</span>'+
-      (nm?'<span class="tag">'+esc(nm)+'</span>':'')+'</div>').join('');
+      '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+'</span>'+
+      (tag?'<span class="tag">'+esc(tag)+'</span>':'')+'</div>'; }).join('');
     calEl.hidden=false;
   } else { calEl.hidden=true; calEl.innerHTML=''; }
   // Kompakt-Layout aktivieren, sobald Wetter oder Termine angezeigt werden.
   const wrap=document.querySelector('.sv-wrap');
   if(wrap) wrap.classList.toggle('rich', !!w || evs.length>0);
+  svFit();
 }
 // ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (fuer eigene Seite / Split-Pane) ----
 // Zeichnet den Stunden-Temperaturverlauf als Inline-SVG (Regenband + Kurve),
@@ -1588,8 +1648,16 @@ function fpWeatherHTML(w){ if(!w) return ''; return fpWeatherMainHTML(w)+fpWeath
 }
 let calMonthOff=0, calSel='';   // Kalender-Pane: Monatsverschiebung + gewaehlter Tag (ISO)
 function isoDay(dt){ const p=n=>String(n).padStart(2,'0'); return dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate()); }
-function evRow(e){ return '<div class="fp-ev"><span class="tm'+(e.allday?' all':'')+'">'+esc(e.time||'')+'</span>'+
-    '<span class="ttl">'+esc(e.title||'')+'</span></div>'; }
+function evRow(d,e){
+  // Sind die Farben abgeschaltet, sagt sonst nichts mehr, aus welchem Kalender
+  // der Termin kommt — dann traegt die Zeile den Namen, wie es die Einstellung
+  // ankuendigt ("nur der Kalendername steht daneben").
+  const n=(Array.isArray(d.cals)?d.cals.length:0);
+  const nam=(d.calColors===false && n>1 && e.cal)
+    ? '<span class="cal">'+esc(e.cal)+'</span>' : '';
+  return '<div class="fp-ev"><span class="tm'+(e.allday?' all':'')+'">'+esc(e.time||'')+'</span>'+
+    '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+nam+
+    (e.note?'<span class="note">'+esc(e.note)+'</span>':'')+'</span></div>'; }
 function fpCalHTML(d){
   const evs=Array.isArray(d.events)?d.events:[], hol=d.holidays||{};
   if(calSel){   // ein Tag gewaehlt -> nur dessen Termine (+ Feiertag)
@@ -1598,14 +1666,14 @@ function fpCalHTML(d){
     let html='<div class="fp-h"><span>'+esc(lbl)+'</span><button class="fp-allbtn" data-calall="1">Alle ›</button></div>';
     if(hol[calSel]) html+='<div class="fp-ev holi"><span class="tm all">Feiertag</span><span class="ttl">'+esc(hol[calSel])+'</span></div>';
     const day=evs.filter(e=>e.date===calSel);
-    if(day.length) html+=day.map(evRow).join('');
+    if(day.length) html+=day.map(e=>evRow(d,e)).join('');
     else if(!hol[calSel]) html+='<div class="fp-empty">Keine Termine an diesem Tag.</div>';
     return html;
   }
-  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>';
+  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>'+fpLegendHTML(d);
   if(evs.length){
     html+='<div class="fp-cal">'; let curDay=null;
-    evs.forEach(e=>{ if(e.day!==curDay){ curDay=e.day; html+='<div class="fp-day">'+esc(e.day||'')+'</div>'; } html+=evRow(e); });
+    evs.forEach(e=>{ if(e.day!==curDay){ curDay=e.day; html+='<div class="fp-day">'+esc(e.day||'')+'</div>'; } html+=evRow(d,e); });
     html+='</div>';
   } else { html+='<div class="fp-empty" data-i18n>Keine Termine.</div>'; }
   return html;
@@ -1738,12 +1806,18 @@ function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.wea
   const det=fpWeatherDetailHTML(w);
   elc.innerHTML='<div class="fp-page">'+fpWeatherMainHTML(w)+'</div>'
     +(det?'<div class="fp-page">'+det+'</div>':''); }
-function fpMonthHTML(events, holidays){
+function fpMonthHTML(events, holidays, colors){
   const base=new Date(); base.setDate(1); base.setMonth(base.getMonth()+calMonthOff);
   const y=base.getFullYear(), m=base.getMonth();
   const startDow=(new Date(y,m,1).getDay()+6)%7;    // 0 = Montag
   const dim=new Date(y,m+1,0).getDate();
-  const evd=new Set((events||[]).map(e=>e&&e.date).filter(Boolean));
+  // Je Tag die Farben der Kalender sammeln, aus denen an ihm etwas ansteht —
+  // jede Farbe nur einmal, damit fuenf Termine aus einem Abo nicht fuenf
+  // gleiche Punkte ergeben.
+  const evd=new Map();
+  (events||[]).forEach(e=>{ if(!e||!e.date) return;
+    const f=evd.get(e.date)||[]; if(e.color&&f.indexOf(e.color)<0) f.push(e.color);
+    evd.set(e.date,f); });
   const hol=holidays||{}, todayISO=isoDay(new Date());
   const pad=n=>String(n).padStart(2,'0');
   const mn=new Date(y,m,1).toLocaleDateString(LANG,{month:'long',year:'numeric'});
@@ -1757,15 +1831,22 @@ function fpMonthHTML(events, holidays){
     const iso=y+'-'+pad(m+1)+'-'+pad(d);
     const dow=(startDow+d-1)%7;                     // 5=Sa, 6=So
     const isHol=!!hol[iso];
+    const farben=(colors!==false ? (evd.get(iso)||[]) : []).slice(0,3);
     const cls='fp-mon-c'+(dow===5?' sat':'')+((dow===6||isHol)?' sun':'')+(isHol?' holi':'')+
-      (iso===todayISO?' today':'')+(evd.has(iso)?' ev':'')+(iso===calSel?' sel':'');
-    html+='<div class="'+cls+'" data-day="'+iso+'"'+(isHol?(' title="'+esc(hol[iso])+'"'):'')+'>'+d+'</div>';
+      (iso===todayISO?' today':'')+(evd.has(iso)?' ev':'')+(farben.length?' dots':'')+
+      (iso===calSel?' sel':'');
+    const punkte=farben.length
+      ? '<span class="mdots">'+farben.map(c=>'<i style="background:'+esc(c)+'"></i>').join('')+'</span>' : '';
+    html+='<div class="'+cls+'" data-day="'+iso+'"'+(isHol?(' title="'+esc(hol[iso])+'"'):'')+'>'+d+punkte+'</div>';
   }
   return html+'</div></div>';
 }
 function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
   // Seite 1 = Monat (fuellt die 2x2-Hoehe), Seite 2 = Agenda/Termine.
-  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays)+'</div>'
+  // Legende auch unter das Monatsraster: dort stehen die Farbpunkte, die sie
+  // erklaert — sie nur auf der Agenda-Seite zu zeigen, hilft niemandem.
+  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays, d.calColors)
+      +fpLegendHTML(d)+'</div>'
     +'<div class="fp-page">'+fpCalHTML(d)+'</div>';
   elc.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderCalendarPane(elc); });
   elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc); });
@@ -1789,7 +1870,9 @@ function applySaverSplit(){
 }
 function showSaver(){ tickClock();
   applySaverSplit();
-  el('saver').classList.remove('hidden'); }
+  el('saver').classList.remove('hidden');
+  // Erst jetzt hat der Screensaver eine Hoehe — die Termine passen sich an.
+  renderFront(); }
 function hideSaver(){ el('saver').classList.add('hidden'); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
 function showNotify(text, level, secs){
