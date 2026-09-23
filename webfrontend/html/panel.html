@@ -1876,7 +1876,10 @@ function connect(){
   ws.onopen=()=>{ el('conn').classList.add('ok'); curChartKey=''; if(booted) send({t:'nav',route:stack[stack.length-1]}); };
   ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
   ws.onmessage=e=>{
-    const msg=JSON.parse(e.data);
+    let msg;
+    try{ msg=JSON.parse(e.data); }
+    catch(err){ console.warn('LoxPanel: unlesbare Nachricht verworfen', err); return; }
+    if(!msg || typeof msg!=='object') return;
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);

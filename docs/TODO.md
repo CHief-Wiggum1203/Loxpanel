@@ -173,25 +173,37 @@ Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
 ## 2. Server-Stabilität
 
+- [x] **Befehle nach ein bis zwei Tagen wirkungslos (Token läuft ab)**: Das
+      Miniserver-Token wurde nur erneuert, wenn der WebSocket abriss. Blieb er
+      stabil, lief es ab — die Anzeige lief weiter, aber jeder Befehl (auch
+      Icons und Verläufe) scheiterte still mit 401. Jetzt laufen alle
+      HTTP-Anfragen über `_ms_http()`, das sich bei 401 einmal neu anmeldet und
+      wiederholt; gescheiterte Befehle zeigt das Panel als Hinweis an. (F15,
+      `ARCHITEKTUR.md` §3.4) **S**
 - [x] **Broadcaster absichern**: Upstream 0.3.2 fängt Render-Fehler je
-      Verbindung im `broadcaster()` und bei `nav` ab. Offen: `send_json` in
-      `_push()`, `switch_mode()` und `api_testtone` gegen andere Ausnahmen als
-      `ConnectionError` absichern. (F3) **S**
-- [ ] **`op_modes` in `App.__init__` initialisieren**, `getattr`-Workaround in
-      `_alarm_repeat` entfernen. (F2) **S**
-- [ ] **Timeout für Icon- und Cover-Abrufe** in `fetch_icon`/`fetch_cover`,
-      `asyncio.TimeoutError` fangen. (F8) **S**
-- [ ] **`icon_cache` begrenzen**, z. B. auf 500 Einträge mit einfacher
-      Verdrängung. (F4) **S**
-- [ ] **HTTP-Handler für die vier HTML-Dateien** mit `try` um `read_text`,
-      damit eine fehlende Datei einen 404 statt eines Stacktrace liefert. **S**
-- [ ] **`JSON.parse` im WebSocket-Handler** der Visu in `try/catch`. (F9) **S**
-- [ ] **Reconnect mit Backoff** statt fester 10 s, z. B. 5, 10, 20, 40, 60 s. **S**
-- [ ] **Rückfall auf Miniserver-Favoriten ist unerreichbar**: `_view_sources`
+      Verbindung im `broadcaster()` und bei `nav` ab. `_push()`, `switch_mode()`
+      und `api_testtone` fingen schon jeden Fehler, hatten aber kein Zeitlimit;
+      sie senden jetzt über `_send_or_drop()` (5 s, trennt hängende
+      Verbindungen). (F3) **S**
+- [x] **`op_modes` in `App.__init__` initialisieren**, `getattr`-Workaround
+      entfernt. Ohne Miniserver warf `/api/types` vorher einen
+      `AttributeError`. (F2) **S**
+- [x] **Timeout für Icon- und Cover-Abrufe**: `fetch_icon` hatte schon 6 s,
+      `fetch_cover` hat jetzt `COVER_TIMEOUT` und fängt `asyncio.TimeoutError`.
+      (F8) **S**
+- [x] **`icon_cache` begrenzen**: `ICON_CACHE_MAX` = 500, der am längsten
+      unbenutzte Eintrag fliegt zuerst. (F4) **S**
+- [x] **HTTP-Handler für die vier HTML-Dateien**: `_web_file()` liefert bei
+      fehlender Datei einen 404 mit Dateinamen statt eines Stacktrace. **S**
+- [x] **`JSON.parse` im WebSocket-Handler** der Visu in `try/catch`. (F9) **S**
+- [x] **Reconnect mit Backoff**: `MS_RETRY` 5, 10, 20, 40, 60 s; von vorn erst,
+      wenn eine Verbindung mindestens 60 s hielt. **S**
+- [x] **Rückfall auf Miniserver-Favoriten ist unerreichbar**: `_view_sources`
       verzweigt nur danach, ob ein Ereignis-Client existiert, nicht darauf, ob
       die Anmeldung am Audioserver geklappt hat. Schlägt sie fehl, greift der
       dafür gedachte Rückfall (`_audio_favs`) nie — der Zweig ist toter Code.
-      Auf `authed` prüfen. **S**
+      Prüft jetzt dieselbe Bedingung wie `prime_favs()` (nicht gekoppelt oder
+      angemeldet). **S**
 
 ## 3. Sichtbare Fehler in der Visu
 
@@ -586,7 +598,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Querformats, die Box rechts wirkte dadurch übergroß. Jetzt gleich breite
       Spalten, Uhr 96 px, links 70 % der Höhe genutzt. Energiegrafik unverändert
       392 px (höhenbegrenzt), Kamerabild 454×341 → 418×314. **S**
-- [ ] **Energiefluss: Beschriftungen ab sieben Knoten laufen in die Nachbarringe.**
+- [x] **Energiefluss: Beschriftungen ab sieben Knoten laufen in die Nachbarringe.**
+      Erledigt mit „Beschriftung außerhalb der Ringe" (#31), an der Anlage
+      bestätigt.
       Die Namen und Werte stehen mit festem Abstand über bzw. unter ihrem Ring.
       Ab sieben Knoten rücken die Ringe so eng zusammen (40° Abstand, Radius 34),
       dass die Beschriftungen der Seitenknoten in die Ringe der Nachbarn ragen —
@@ -605,6 +619,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
 
+- [x] **Verlaufs-Diagramme** (#78–#80): Aufzeichnungen des Miniservers
+      (`statistic` V1 und `statisticV2`) auf der Detailseite, als Split-Hälfte
+      (`chart:<uuid>`) und als Mini-Verlauf in der Kachel mit drei Stilen
+      (Trend, Tagesmuster, Tagesspanne). Beschreibung in `ARCHITEKTUR.md` §3.9.
 - [x] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Hat die Anlage den
       Loxone-Wetterdienst, schickt der Miniserver das Wetter über den WebSocket
       als eigene Binärtabelle (Kennung 7). `loxone_ws.py` zerlegt sie,

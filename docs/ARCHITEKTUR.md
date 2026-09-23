@@ -190,19 +190,36 @@ Wichtige Felder:
 | `panels`, `devices` | aus `panels.json` |
 | `agents` | `ip → Agent-Datensatz` (Announce) |
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
-| `icon_cache` | unbegrenzter Cache für Loxone-Icons |
+| `icon_cache` | Cache für Loxone-Icons, höchstens `ICON_CACHE_MAX` (500) Einträge, der am längsten unbenutzte fliegt zuerst |
 | `last_mode` | zuletzt gesetzter Betriebsmodus |
 
-Achtung: `op_modes` wird nicht in `__init__` angelegt, sondern erst in
-`_apply_structure()`. Zugriffe vor der ersten Strukturladung brauchen `getattr`.
+`op_modes` (Betriebsarten) ist ab `__init__` ein leeres Dict und wird in
+`_apply_structure()` gefüllt; `/api/types` funktioniert damit auch ohne Miniserver.
 
 ### 3.4 Verbindung und Reconnect
 
 - `App.start()` (`:414`): Client bauen, `getkey2`, `authenticate` (JWT), Struktur
   laden, Icon-Session anlegen, WebSocket öffnen.
 - `stream_task()` (`:2409`): Endlosschleife. Bei Fehler wird das Token erneuert,
-  scheitert das, wird die Verbindung hart zurückgesetzt. Danach feste 10 s Pause,
-  kein Backoff.
+  scheitert das, wird die Verbindung hart zurückgesetzt. Danach wachsende Pause
+  (`MS_RETRY`: 5, 10, 20, 40, 60 s). Von vorn beginnt sie erst, wenn eine
+  Verbindung mindestens 60 s hielt — ein Miniserver, der sofort wieder trennt,
+  bekommt so nicht alle paar Sekunden eine neue Anmeldung.
+- **Token-Erneuerung für HTTP-Anfragen:** Die WebSocket-Verbindung braucht das
+  Token nur beim Anmelden, die HTTP-Anfragen (Befehle `sps/io`, gesicherte
+  Befehle, Icons, Verläufe) tragen es bei jedem Aufruf als Bearer. Läuft es ab,
+  während der WebSocket stabil bleibt, kamen früher weiter Werte, aber jeder
+  Befehl scheiterte still. Das passt zur Beobachtung an der eigenen Anlage,
+  dass sich das Panel nach ein bis zwei Tagen nicht mehr bedienen ließ. Deshalb laufen alle HTTP-Anfragen an den Miniserver über
+  `_ms_http()`: Bei HTTP 401 meldet `_renew_token()` sich einmal neu an und die
+  Anfrage wird wiederholt. Gleichzeitige Anfragen lösen nur eine Anmeldung aus
+  (Lock und Zähler `_auth_gen`), und innerhalb von `TOKEN_RENEW_MIN` (60 s) nach
+  der letzten Anmeldung wird nicht erneut angemeldet, weil ein 401 dann nicht am
+  Token liegt (z. B. fehlende Rechte). Der zweite Aufruf eines gesicherten
+  Befehls (`sps/ios`) erneuert nie: Ein Fehler heißt dort falsches
+  Visu-Passwort. Befehle haben `MS_CMD_TIMEOUT` (10 s), weil sie den
+  Nachrichten-Loop ihres Panels blockieren. Scheitert ein Befehl trotzdem,
+  bekommt das Panel einen gelben Hinweis (`notify`) statt nichts.
 - `reconnect()` (`:438`): zweiter Weg über `/api/settings/miniserver`. Baut einen
   neuen Client und übernimmt ihn nur bei Erfolg, die alte Verbindung überlebt
   einen Fehlversuch.
@@ -350,8 +367,8 @@ V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
 `scripts4.js` der Weboberfläche); ermittelt an der Anlage mit
 `bin/statistic_probe.py`.
 
-- **Abruf:** `_stat_load()` holt eine Monatsdatei mit dem Bearer-Token über
-  `icon_session`, im Hintergrund (`_spawn`), sobald eine Detailseite sie
+- **Abruf:** `_stat_load()` holt eine Monatsdatei über `_ms_http()` (Token,
+  Erneuerung bei 401, §3.4), im Hintergrund (`_spawn`), sobald eine Detailseite sie
   braucht. Danach `_dirty`, der Broadcaster schickt die Seite mit Diagramm neu
   (vorher `state: loading`). 404 heißt: kein Eintrag in diesem Monat.
 - **Cache:** `stat_cache` je (uuidAction, Monat). Ein Monat, der beim Abruf
@@ -935,19 +952,20 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | Nr. | Befund | Stelle |
 |---|---|---|
 | F1 | Routen `/gicon` und `/uicon` werden erzeugt, aber nie registriert | `webvisu.py:1598`, `:1601` |
-| F2 | `op_modes` fehlt in `App.__init__` | `:394`, Workaround `:1235` |
-| F3 | Push-Stellen fangen nur `ConnectionError`. Ein `RuntimeError` beim Senden würde den Broadcaster-Task beenden, alle Panels blieben stumm, ohne Log | `:2452-2467`, `:2797` |
-| F4 | `icon_cache` unbegrenzt, kein Limit, keine TTL | `:359`, `:1139` |
+| F2 | `op_modes` fehlt in `App.__init__` — behoben, `/api/types` warf ohne Miniserver einen `AttributeError` | `:394`, Workaround `:1235` |
+| F3 | Push-Stellen fangen nur `ConnectionError`. Ein `RuntimeError` beim Senden würde den Broadcaster-Task beenden, alle Panels blieben stumm, ohne Log — behoben, alle Push-Stellen senden über `_send_or_drop()` (jeder Fehler, 5 s Zeitlimit) | `:2452-2467`, `:2797` |
+| F4 | `icon_cache` unbegrenzt, kein Limit, keine TTL — behoben, `ICON_CACHE_MAX` | `:359`, `:1139` |
 | F5 | Kein atomares Schreiben der drei Config-Dateien (kein tmp+rename) | `:84`, `:1020`, `:1119` |
 | F6 | `_write_cfg` und die Settings-Handler fangen `OSError` nicht | `:83`, `:2653`, `:2685` |
 | F7 | `reconnect()` greift mit `ms["user"]` direkt zu, unvollständige cfg → `KeyError` | `:443` |
-| F8 | `fetch_icon` hat kein Timeout und fängt `asyncio.TimeoutError` nicht | `:1123` |
-| F9 | `JSON.parse` im WebSocket-Handler ohne try/catch | `panel.html:701` |
+| F8 | `fetch_icon` hat kein Timeout und fängt `asyncio.TimeoutError` nicht — behoben, ebenso `fetch_cover` (`COVER_TIMEOUT`) | `:1123` |
+| F9 | `JSON.parse` im WebSocket-Handler ohne try/catch — behoben | `panel.html:701` |
 | F10 | `esc()` in der Visu escapt keine Anführungszeichen, Ausgabe landet in Attributen. Freitext-Schriftarten und Miniserver-Namen mit `"` zerlegen das Markup | `panel.html:316`, `:631`, `:637` |
 | F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `webvisu.py:979` |
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
 | F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebt vermutlich keinen Reboot | `agent/loxpanel-agent.py:111`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
+| F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
 
 ### Sicherheit
 
