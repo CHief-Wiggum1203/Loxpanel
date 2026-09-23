@@ -65,6 +65,19 @@
       'Ziel-Panel': 'Target panel',
       '🔊 Test-Ton senden': '🔊 Send test tone',
       'Alle Panels': 'All panels',
+      // Verlaufs-Diagramme (Detailseite, Split-Haelfte, Kachel)
+      'Verlauf': 'History',
+      'Zeitraum': 'Period',
+      'Trend': 'Trend',
+      'Tagesmuster': 'Daily pattern',
+      'Tagesspanne': 'Daily range',
+      'Kurve mit Tief, Hoch und Änderung': 'Curve with low, high and change',
+      'Verbrauch als Balken, dazu die Summe': 'Consumption as bars, plus the total',
+      'Ein/Aus als Stufen, dazu die Einschaltdauer': 'On/off as steps, plus the time switched on',
+      '7 Tage × 24 Stunden als Farbraster': '7 days × 24 hours as a color grid',
+      'Tief bis Hoch je Tag, 7 Tage': 'Low to high per day, 7 days',
+      '7 Tage': '7 days',
+      '30 Tage': '30 days',
       // Neues Panel
       'Neues Panel einrichten': 'Set up a new panel',
       'Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.':

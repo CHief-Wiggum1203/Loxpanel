@@ -81,6 +81,11 @@
      Wetter/Kalender bleiben mehrseitig (Snap) und duerfen scrollen. */
   .screen.split #frontpane .fp-page.solo,
   .screen.split #playerpane .fp-page.solo{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;}
+  /* Verlaufs-Pane: eine Seite, aber mehrere Diagramme duerfen scrollen */
+  .screen.split #frontpane .fp-page.solo.cpage{overflow-y:auto;gap:10px;}
+  #frontpane .cphead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  #frontpane .cpname{font-weight:650;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #frontpane .cpval{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
   /* Kamera-Pane: MJPEG-Live-Bild fuellt die rechte Spalte (kein Padding/Scroll). */
   /* Kamera-Pane: volle Intercom-Ansicht (Klingel-Banner + Video + Tür-/Ausgang-Buttons). */
   #frontpane.cam{justify-content:flex-start;}
@@ -181,6 +186,24 @@
   .tile.on{background:rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
   .tile .head{display:flex;justify-content:space-between;align-items:flex-start;}
+  /* Mini-Verlauf (it.spark): fuellt die freie Mitte zwischen Icon und Text */
+  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;overflow:hidden;}
+  .tile .tspark svg{display:block;}
+  .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
+     Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
+     Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
+     in die Raumzeile, dort hat sie die ganze Breite. Kacheln ohne Raumzeile
+     (Raum-Ansicht, alle Bausteine in einem Raum) bekommen die Zeile dafuer. */
+  .tile .tsline{display:none;}
+  .tile.sparktight .head .tspark{flex:1 1 0;min-width:0;align-self:stretch;margin:0 8px;}
+  .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline),
+  .tile.sparkbadge .tsbadge,.tile.sparkbadge .room:not(.tsline){display:none;}
+  .tile.sparktight .tsline,
+  .tile.sparkbadge .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
+  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
+    color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
   .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
@@ -305,6 +328,27 @@
     padding:8px 8px;word-break:break-word;}
   .pbig.good{color:var(--good);} .pbig.crit{color:var(--crit);}
   .grid.panel.bigpage{justify-content:center;gap:14px;}
+  /* Verlaufs-Diagramm (Block k:'chart'). Farben nur ueber Theme-Variablen. */
+  .chart{background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:8px 10px 6px;}
+  .chrng{display:flex;gap:6px;justify-content:center;margin-bottom:6px;}
+  .chrng .chip{font:inherit;font-size:13px;color:var(--muted);background:transparent;
+    border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;}
+  .chrng .chip.on{color:var(--accent);border-color:var(--accent);background:rgba(var(--accent-rgb,82,184,129),.12);}
+  .chbody svg{display:block;width:100%;height:auto;}
+  .chbody .chax{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+  .chbody .chgrid{stroke:var(--line);stroke-width:1;}
+  .chbody .chvgrid{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4;}
+  .chmsg{color:var(--muted);font-size:14px;text-align:center;padding:26px 0;}
+  .chleg{display:flex;flex-wrap:wrap;gap:2px 14px;justify-content:center;font-size:12.5px;color:var(--muted);
+    margin-top:2px;font-variant-numeric:tabular-nums;}
+  .chleg .chdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+  .chleg b{font-weight:600;color:var(--ink);}
+  /* Detailseite mit Diagramm: oben anfangen (eine zentrierte Spalte schnitte beim
+     Scrollen den Kopf ab), Deko-Kreis weg, Wert kleiner - so passt der Verlauf
+     auch auf 480x480 unter den aktuellen Wert. */
+  .grid.panel.chartpage{justify-content:flex-start;gap:10px;}
+  .grid.panel.chartpage .hero{display:none;}
+  .grid.panel.chartpage .pbig{font-size:clamp(40px,10vw,56px);padding:2px 8px;}
   /* anchor:bottom (IRR/Klima): Anzeige oben zentriert, Bedienung unten fixiert.
      Aufklappende Auswahl steht im .panbot VOR den festen Zeilen -> waechst nach oben. */
   .grid.panel.anchorbot{justify-content:flex-start;gap:0;}
@@ -684,6 +728,9 @@ let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layo
 let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '', curCameraUuid = '';
 let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
+// Verlaufs-Pane (chart:<uuid>): gemeldeter Baustein|Zeitraum, letzter {t:'chart'}-Push,
+// in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
+let curChartKey = '', chartData = null, chartRange = '24h';
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
@@ -871,6 +918,218 @@ function blockSig(blocks){
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
     : b.k).join('|');
 }
+// ---- Verlaufs-Diagramme (Block k:'chart'). Die Daten stammen aus den
+// Statistik-Dateien des Miniservers und kommen fertig aufbereitet vom Server.
+// Zeitstempel sind Wanduhr-Sekunden der Anlage, als UTC gefuehrt: mit getUTC*
+// formatiert zeigt jedes Panel dieselbe Uhrzeit wie der Miniserver, egal in
+// welcher Zeitzone der Browser laeuft. Farben per style, weil var() in
+// SVG-Praesentationsattributen nicht ueberall greift.
+const CH_COLORS=['var(--accent)','var(--glow)','var(--crit)','var(--muted)'];
+function chNum(v,dec){ return (+v).toFixed(dec).replace('.',','); }
+function chTime(t,span){ const d=new Date(t*1000), p=n=>String(n).padStart(2,'0');
+  return span<=129600 ? p(d.getUTCHours())+':'+p(d.getUTCMinutes()) : p(d.getUTCDate())+'.'+p(d.getUTCMonth()+1)+'.'; }
+function chDur(sec){ const h=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+  return h ? h+' h'+(m?' '+m+' min':'') : m+' min'; }
+// Runde Zeitpunkte fuer die Zeitachse: der kleinste Abstand aus der Liste, der
+// hoechstens 5 Beschriftungen ergibt (24 h -> alle 6 h, 7 Tage -> jeden 2. Tag,
+// 30 Tage -> woechentlich). Die Sekunden sind Wanduhrzeit, t % Tag = 0 ist also
+// Mitternacht; Wochen beginnen am Montag (der 1.1.1970 war ein Donnerstag).
+function chTicks(t0,t1){
+  const H=3600, D=86400;
+  for(const st of [H,3*H,6*H,12*H,D,2*D,7*D]){
+    const off=st===7*D?4*D:0, first=Math.ceil((t0-off)/st)*st+off;
+    if(Math.floor((t1-first)/st)+1<=5){ const out=[]; for(let t=first;t<=t1;t+=st) out.push(t); return {ticks:out, day:st>=D}; }
+  }
+  return {ticks:[t0,t1], day:true};
+}
+let chSeq=0;
+function paintChart(box,b){
+  box.querySelectorAll('[data-rng]').forEach(c=>c.classList.toggle('on',c.dataset.rng===b.range));
+  const body=box.querySelector('.chbody'); if(!body) return;
+  if(b.state!=='ok'){
+    body.innerHTML='<div class="chmsg">'+(b.state==='loading'?'Verlauf wird geladen …'
+      :b.state==='error'?'Verlauf nicht abrufbar':'Keine Aufzeichnung in diesem Zeitraum')+'</div>';
+    return; }
+  const W=440,H=150,pL=46,pR=10,pT=10,pB=22, t0=b.t0, t1=b.t1, span=Math.max(1,t1-t0);
+  const unit=b.unit?(' '+b.unit):'', dec=Math.max(0,...b.series.map(s=>s.dec||0));
+  const vals=b.series.flatMap(s=>s.pts.map(p=>p[1]));
+  let lo=vals.length?Math.min(...vals):0, hi=vals.length?Math.max(...vals):1, mn, mx;
+  if(b.kind==='digital'){ mn=-0.08; mx=1.08; }
+  else if(b.kind==='counter'){ lo=0; if(hi<=0) hi=1; mn=0; mx=hi*1.08; }
+  else { if(hi-lo<1e-9){ lo-=1; hi+=1; } const pd=(hi-lo)*0.1; mn=lo-pd; mx=hi+pd; }
+  const X=t=>pL+(t-t0)*(W-pL-pR)/span, Y=v=>pT+(mx-v)*(H-pT-pB)/(mx-mn), f=n=>n.toFixed(1);
+  const id='chg'+(++chSeq), c0=CH_COLORS[0];
+  let s='<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:'+c0+';stop-opacity:.28"/>'+
+        '<stop offset="1" style="stop-color:'+c0+';stop-opacity:0"/></linearGradient></defs>';
+  const yt=b.kind==='digital'?[[0,'Aus'],[1,'Ein']]:[lo,(lo+hi)/2,hi].map(v=>[v,chNum(v,dec)]);
+  yt.forEach(([v,l])=>{ s+='<line class="chgrid" x1="'+pL+'" x2="'+(W-pR)+'" y1="'+f(Y(v))+'" y2="'+f(Y(v))+'"/>'+
+    '<text class="chax" x="'+(pL-6)+'" y="'+f(Y(v)+4)+'" text-anchor="end">'+esc(l)+'</text>'; });
+  const tk=chTicks(t0,t1);
+  tk.ticks.forEach(t=>{ const x=X(t), a=x<pL+18?'start':(x>W-pR-18?'end':'middle');
+    s+='<line class="chvgrid" x1="'+f(x)+'" x2="'+f(x)+'" y1="'+pT+'" y2="'+(H-pB)+'"/>'+
+       '<text class="chax" x="'+f(x)+'" y="'+(H-6)+'" text-anchor="'+a+'">'+chTime(t,tk.day?Infinity:0)+'</text>'; });
+  const leg=[];
+  b.series.forEach((se,si)=>{
+    const col=CH_COLORS[si%CH_COLORS.length], p=se.pts; if(!p.length) return;
+    let info='';
+    if(b.kind==='counter'){           // Verbrauch je Stunde/Tag als Balken, mehrere Reihen nebeneinander
+      const nS=b.series.length;
+      p.forEach(([t,v],i)=>{ const x0=X(t), x1=i+1<p.length?X(p[i+1][0]):W-pR, g=Math.min(3,(x1-x0)*0.15),
+          bw=Math.max(1,(x1-x0-2*g)/nS), y=Y(v);
+        s+='<rect x="'+f(x0+g+si*bw)+'" y="'+f(y)+'" width="'+f(bw)+'" height="'+f(Math.max(0,Y(0)-y))+
+           '" rx="2" style="fill:'+col+'"/>'; });
+      info='Summe <b>'+chNum(p.reduce((a,q)=>a+q[1],0),se.dec)+unit+'</b>';
+    } else if(b.kind==='digital'){    // Stufen, dazu die Ein-Dauer im Zeitraum
+      let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1])), on=0;
+      p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1;
+        if(v>=0.5) on+=Math.max(0,tn-t);
+        d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
+      s+='<path d="'+d+' V'+f(Y(0))+' H'+f(X(p[0][0]))+' Z" style="fill:'+col+';opacity:.22"/>'+
+         '<path d="'+d+'" style="fill:none;stroke:'+col+';stroke-width:2;stroke-linejoin:round"/>';
+      info='Ein <b>'+chDur(on)+'</b>';
+    } else {                          // Linie, erste Reihe mit Verlaufsflaeche
+      const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
+      if(si===0) s+='<polygon points="'+f(X(p[0][0]))+','+f(Y(mn))+' '+line+' '+f(X(p[p.length-1][0]))+','+f(Y(mn))+'" fill="url(#'+id+')"/>';
+      s+='<polyline points="'+line+'" style="fill:none;stroke:'+col+';stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round"/>';
+      const q=p[p.length-1]; s+='<circle cx="'+f(X(q[0]))+'" cy="'+f(Y(q[1]))+'" r="3.5" style="fill:'+col+'"/>';
+      const vs=p.map(q=>q[1]);
+      info='min <b>'+chNum(Math.min(...vs),se.dec)+'</b> · max <b>'+chNum(Math.max(...vs),se.dec)+unit+'</b>';
+    }
+    leg.push('<span><span class="chdot" style="background:'+col+'"></span>'+esc(se.name)+' · '+info+'</span>');
+  });
+  body.innerHTML='<svg viewBox="0 0 '+W+' '+H+'">'+s+'</svg><div class="chleg">'+leg.join('')+'</div>';
+}
+// Rahmen eines Diagramms (Detailseite und Verlaufs-Pane); die Zeitraum-Knoepfe
+// traegt nur das erste Diagramm einer Seite (b.ranges).
+function chartBoxHtml(b){
+  return '<div class="chart" data-chart>'+(b.ranges?'<div class="chrng">'+
+    b.ranges.map(r=>'<button type="button" class="chip" data-rng="'+esc(r[0])+'">'+esc(r[1])+'</button>').join('')+
+    '</div>':'')+'<div class="chbody"></div></div>';
+}
+// Verlaufs-Pane im Split-Layout: Name und aktueller Wert, darunter die Diagramme
+// wie auf der Detailseite. Neu aufgebaut nur, wenn sich Baustein oder Aufbau
+// aendern, sonst nur neu gezeichnet. Die Zeitraum-Knoepfe melden den Zeitraum
+// dem Server neu (setchart), statt wie auf der Detailseite die Route zu ersetzen:
+// links bleibt die Kachelseite stehen.
+function renderChartPane(elc){ if(!elc) return;
+  const uuid=(paneForTab(activeTab())||'').slice(6);
+  const d=(chartData && chartData.control===uuid) ? chartData : null;
+  const blocks=d ? (d.blocks||[]) : [];
+  const sig=uuid+'|'+(d?blocks.map(b=>b.kind+(b.ranges?'r':'')).join(','):'-');
+  let page=elc.querySelector('.fp-page.cpage');
+  if(!page || page.dataset.sig!==sig){
+    elc.innerHTML='<div class="fp-page cpage solo"><div class="cphead"><div class="cpname"></div><div class="cpval"></div></div>'+
+      (d ? blocks.map(chartBoxHtml).join('') : '<div class="chmsg">Verlauf wird geladen …</div>')+'</div>';
+    page=elc.querySelector('.fp-page.cpage'); page.dataset.sig=sig;
+    page.querySelectorAll('.chrng [data-rng]').forEach(btn=>btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+      chartRange=btn.dataset.rng; applyPane(); }));
+  }
+  if(d){ page.querySelector('.cpname').textContent=d.name||''; page.querySelector('.cpval').textContent=d.value||'';
+    paintCharts(page,blocks); }
+}
+// Mini-Verlauf in einer Kachel (it.spark, je Kachel im Konfigurator gewaehlt). Drei
+// Stile, gezeichnet in der echten Pixelgroesse der freien Kachelmitte (paintSpark),
+// damit Beschriftungen scharf und unverzerrt bleiben:
+//   trend    Verlauf: Linie mit Tiefst-/Hoechstwert und Jetzt-Punkt, Digitalwert
+//            als Stufen, Zaehlerstand als Verbrauchsbalken
+//   pattern  Tagesmuster: 7 Tage (Zeilen, heute unten) x 24 Stunden, Deckkraft = Wert
+//   span     Tagesspanne: je Tag ein Balken Tiefst- bis Hoechstwert, Strich = Mittel
+// Ein Farbton (Akzent) fuer alle Werte, Beschriftung in der Textfarbe (--muted).
+function sparkSvg(sp,W,H){
+  if(!sp || sp.state!=='ok' || W<24 || H<18) return '';
+  const f=n=>n.toFixed(1), dec=sp.dec||0, acc='var(--accent)';
+  const txt=(x,y,t,anc,extra)=>'<text class="mm" x="'+f(x)+'" y="'+f(y)+'" text-anchor="'+(anc||'middle')+'"'+(extra||'')+'>'+esc(t)+'</text>';
+  let s='';
+  if(sp.style==='pattern'){
+    const c=sp.cells||[], vs=c.filter(v=>v!=null); if(!vs.length) return '';
+    let mn=sp.kind==='line'?Math.min(...vs):0, mx=Math.max(...vs); if(mx-mn<1e-9) mx=mn+1;
+    const lab=H>=58?11:0, gap=W<150?.75:1.5, cw=(W-23*gap)/24, ch=Math.max(2,(H-lab-6*gap)/7);
+    c.forEach((v,i)=>{ const d=Math.floor(i/24), h=i%24, x=h*(cw+gap), y=d*(ch+gap);
+      s+= v==null
+        ? '<rect x="'+f(x+.5)+'" y="'+f(y+.5)+'" width="'+f(cw-1)+'" height="'+f(ch-1)+'" rx="1.5" style="fill:none;stroke:var(--line)"/>'
+        : '<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(cw)+'" height="'+f(ch)+'" rx="1.5" style="fill:'+acc+';opacity:'+(0.08+0.92*(v-mn)/(mx-mn)).toFixed(3)+'"/>'; });
+    if(lab){ const y=H-1; s+=txt(0,y,'0 h','start')+txt(12*(cw+gap)-gap/2,y,'12 h')+txt(W,y,'24 h','end'); }
+  } else if(sp.style==='span'){
+    const sp7=sp.spans||[], ok=sp7.filter(Boolean); if(!ok.length) return '';
+    let mn=Math.min(...ok.map(r=>r[0])), mx=Math.max(...ok.map(r=>r[1])); if(mx-mn<1e-9){ mn-=1; mx+=1; }
+    const n=sp7.length, col=W/n, lab=(H>=48 && col>=16)?11:0, bw=Math.min(16,col*0.58), top=2, bot=H-lab-2;
+    const Y=v=>bot-(v-mn)*(bot-top)/(mx-mn);
+    sp7.forEach((r,i)=>{ const x=i*col+(col-bw)/2, today=i===n-1;
+      if(r){ const y1=Y(r[1]), y0=Y(r[0]);
+        s+='<rect x="'+f(x)+'" y="'+f(y1)+'" width="'+f(bw)+'" height="'+f(Math.max(3,y0-y1))+'" rx="'+f(Math.min(4,bw/2))+'" style="fill:'+acc+';opacity:'+(today?1:.3)+'"/>';
+        if(r[2]!=null) s+='<line x1="'+f(x+2)+'" x2="'+f(x+bw-2)+'" y1="'+f(Y(r[2]))+'" y2="'+f(Y(r[2]))+'" style="stroke:'+(today?'var(--tile)':'var(--ink)')+';stroke-width:1.5;opacity:.75"/>'; }
+      if(lab) s+=txt(i*col+col/2,H-1,(sp.days||[])[i]||'','middle',today?' style="fill:var(--ink);font-weight:600"':''); });
+  } else {
+    const p=sp.pts||[]; if(!p.length) return '';
+    const t0=sp.t0, t1=sp.t1, span=Math.max(1,t1-t0), ln=sp.kind==='line';
+    const vs=p.map(q=>q[1]); let mn=Math.min(...vs), mx=Math.max(...vs);
+    if(sp.lo) mn=Math.min(mn,sp.lo[1]); if(sp.hi) mx=Math.max(mx,sp.hi[1]);
+    if(!ln) mn=Math.min(0,mn); if(mx-mn<1e-9) mx=mn+1;
+    const labs=ln&&H>=48, pt=labs?13:6, pb=labs?13:6, pl=ln?4:0, pr=ln?6:0;
+    const X=t=>pl+(t-t0)*(W-pl-pr)/span, Y=v=>H-pb-(v-mn)*(H-pt-pb)/(mx-mn);
+    if(sp.kind==='counter'){
+      p.forEach(([t,v],i)=>{ const x=X(t), w=Math.max(1,(i+1<p.length?X(p[i+1][0]):W)-x-1.5), y=Y(v);
+        s+='<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(w)+'" height="'+f(Math.max(0,Y(0)-y))+'" rx="1.5" style="fill:'+acc+';opacity:.85"/>'; });
+    } else if(sp.kind==='digital'){
+      let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1]));
+      p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1; d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
+      s='<path d="'+d+' V'+f(Y(0))+' H'+f(X(p[0][0]))+' Z" style="fill:'+acc+';opacity:.22"/>'+
+        '<path d="'+d+'" style="fill:none;stroke:'+acc+';stroke-width:2"/>';
+    } else {
+      const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
+      s='<polygon points="'+f(X(p[0][0]))+','+f(H)+' '+line+' '+f(X(p[p.length-1][0]))+','+f(H)+'" style="fill:'+acc+';opacity:.12"/>'+
+        '<polyline points="'+line+'" style="fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round"/>';
+      const mark=(q,above)=>{ const x=X(q[0]), y=Y(q[1]), a=x<18?'start':(x>W-18?'end':'middle');
+        return '<circle cx="'+f(x)+'" cy="'+f(y)+'" r="3" style="fill:var(--tile);stroke:var(--ink);stroke-width:1.4"/>'+
+               (labs?txt(x,above?y-5.5:y+12,chNum(q[1],dec),a):''); };
+      if(sp.hi) s+=mark(sp.hi,true);
+      if(sp.lo && (!sp.hi || sp.lo[0]!==sp.hi[0])) s+=mark(sp.lo,false);
+      const q=p[p.length-1];
+      s+='<circle cx="'+f(X(q[0]))+'" cy="'+f(Y(q[1]))+'" r="4.5" style="fill:'+acc+';stroke:var(--tile);stroke-width:2"/>';
+    }
+  }
+  return '<svg viewBox="0 0 '+f(W)+' '+f(H)+'" width="'+f(W)+'" height="'+f(H)+'" aria-hidden="true">'+s+'</svg>';
+}
+// Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
+const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+function paintSpark(el,sp){
+  if(!el) return;
+  const tile=el.closest('.tile');
+  placeSpark(el,sp,tile);
+  // Angabe im Kopf abgeschnitten -> in die Raumzeile (nur ohne enge Kachel, dort steht sie ohnehin da).
+  // Ohne Raumzeile kommt die Zeile dabei neu dazu oder faellt weg: dann hat
+  // die Mitte eine andere Hoehe, Platz und Zeichnung also neu bestimmen.
+  const bd=tile&&tile.querySelector('.tsbadge');
+  if(bd){
+    const vorher=tile.classList.contains('sparkbadge');
+    tile.classList.remove('sparkbadge');
+    if(!tile.classList.contains('sparktight') && bd.scrollWidth>bd.clientWidth+1) tile.classList.add('sparkbadge');
+    if(vorher!==tile.classList.contains('sparkbadge')) placeSpark(el,sp,tile);
+  }
+}
+// Verlauf in die Mitte oder (zu niedrige Mitte) in die Kopfzeile setzen und zeichnen.
+function placeSpark(el,sp,tile){
+  const head=tile&&tile.querySelector('.head');
+  if(head){
+    // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
+    const cs=getComputedStyle(tile);
+    let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
+    for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
+    const tight=free<SPARK_MIN_H;
+    if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
+      tile.classList.toggle('sparktight',tight);
+      if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
+      else tile.insertBefore(el,head.nextSibling);
+      el.innerHTML=''; el._key=null;
+    }
+  }
+  const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
+  if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
+}
+function paintCharts(g,blocks){
+  const els=[...g.querySelectorAll('[data-chart]')];
+  blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
+}
 function renderPanel(blocks){
   stopVideo();
   closeMenu();
@@ -879,6 +1138,7 @@ function renderPanel(blocks){
   el('grid').classList.add('panel');
   el('grid').classList.remove('list','snapy','scheme');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
+  el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
@@ -904,6 +1164,7 @@ function renderPanel(blocks){
     if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span><button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
     if(b.k==='row') return '<div class="brow'+(b.cells.some(c=>c.icon)?' transport':'')+(b.wrap?' wraprow':'')+(b.hidden?' collapsed':'')+'"'+(b.id?' data-rowid="'+esc(b.id)+'"':'')+'>'+b.cells.map(cellHtml).join('')+'</div>';
     if(b.k==='head') return '<div class="phead">'+esc(b.text||'')+'</div>';
+    if(b.k==='chart') return chartBoxHtml(b);   // Inhalt zeichnet paintChart nach dem Einfuegen
     if(b.k==='favs') return '<div class="favs'+(b.wrap?' wrap':'')+'">'+b.items.map((f,i)=>'<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+'</div><div class="favn">'+esc(f.label)+'</div></div>').join('')+'</div>';
     if(b.k==='alarmlist'){
       if(!b.entries||!b.entries.length) return '<div class="status alist-empty">Keine Weckzeiten angelegt</div>';
@@ -927,6 +1188,12 @@ function renderPanel(blocks){
     g.innerHTML=html;
   }
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial in der Detailansicht zeichnen
+  paintCharts(g,blocks);
+  // Zeitraum-Wahl: die aktuelle Seite mit anderem Zeitraum ERSETZEN, nicht
+  // stapeln - sonst fuellte jeder Wechsel den Zurueck-Stapel.
+  g.querySelectorAll('.chrng [data-rng]').forEach(btn=>btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+    const top=stack[stack.length-1]; if(!top) return;
+    const r=Object.assign({},top,{range:btn.dataset.rng}); stack[stack.length-1]=r; send({t:'nav',route:r}); }));
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img){img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
@@ -977,6 +1244,7 @@ function updatePanel(blocks){
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
+  paintCharts(g,blocks);   // Verlauf nachgeladen oder Fenster vorgerueckt: neu zeichnen, Knoepfe bleiben
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       if(c.icon){ btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info); btn.className='btn icon'+(c.big?' big':'')+(c.on?' on':''); }
@@ -1050,20 +1318,20 @@ function scrollToCat(key){
   const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
-// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>".
+// Wert je Tab: "weather" | "calendar" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
-function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : v))) : null; }
+function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : (v.indexOf('chart:')===0 ? 'chart' : v)))) : null; }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   const raw=themeSplit?paneForTab(activeTab()):null;   // Split aus (4"-Panel) -> keine Pane 2
   const kind=paneKind(raw);
-  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');   // Widget in Pane 2
+  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart');   // Widget in Pane 2
   sc.classList.toggle('split', isPane);   // Widget -> zweigeteilt, sonst "Screen fuellen"
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
   if(fp){
-    fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');
+    fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart');
     fp.classList.toggle('cam', kind==='camera');
     // Kamera verlassen -> Video-Stream stoppen (Inhalt leeren), keine Hintergrund-Verbindung.
     if(kind!=='camera' && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
@@ -1072,6 +1340,7 @@ function applyPane(){
   else if(kind==='calendar') renderCalendarPane(fp);
   else if(kind==='energy') renderEnergyPane(fp);
   else if(kind==='camera') renderCameraPane(fp);
+  else if(kind==='chart') renderChartPane(fp);
   // Player-Zone dieses Tabs dem Server melden (nur bei Aenderung -> er pusht die Blocks).
   const zone=(kind==='player')?raw.slice(7):'';
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
@@ -1085,6 +1354,10 @@ function applyPane(){
     try{ send({t:'setcamera',uuid:cuid}); }catch(e){}
     if(cuid&&kind==='camera') renderCameraPane(fp);   // sofort Platzhalter zeigen, bis der Push kommt
   }
+  // Verlaufs-Pane: Baustein und gewaehlten Zeitraum melden (er pusht dann {t:'chart'}).
+  const chuid=(kind==='chart') ? raw.slice(6) : '';
+  const chkey=chuid ? chuid+'|'+chartRange : '';
+  if(chkey!==curChartKey){ curChartKey=chkey; try{ send({t:'setchart',uuid:chuid,range:chartRange}); }catch(e){} }
 }
 
 // Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
@@ -1150,7 +1423,7 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'');
+    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+[...n.classList].filter(c=>c.startsWith('spark')).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
@@ -1164,6 +1437,11 @@ function updateGrid(items){
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
+    // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
+    const spEl=n.querySelector('.tspark'), bdEl=n.querySelector('.tsbadge'), bd=it.spark&&it.spark.badge;
+    if(!!it.spark!==!!spEl || !!bd!==!!bdEl) ok=false;
+    else if(spEl){ paintSpark(spEl,it.spark);
+      n.querySelectorAll('.tsbadge,.tsline').forEach(e=>{ if(e.textContent!==bd) e.textContent=bd; }); }
   });
   return ok;
 }
@@ -1174,7 +1452,7 @@ function render(){
   // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
-  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera');
+  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera'||_k==='chart');
   // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
   // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
   // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
@@ -1227,9 +1505,11 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
     html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
-              '<div class="head">'+icoCell+chev+'</div>'+
+              '<div class="head">'+icoCell+(it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+chev+'</div>'+
+              (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
               (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
+              (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
               '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
               (it.sublabel?'<div class="sub">'+esc(it.sublabel)+'</div>':'')+'</div>'+
               ctrls+
@@ -1240,6 +1520,7 @@ function render(){
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
+    if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
         b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
@@ -1402,7 +1683,7 @@ function connect(){
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
   // Reconnect stattdessen die zuletzt betrachtete Seite wiederherstellen.
-  ws.onopen=()=>{ el('conn').classList.add('ok'); if(booted) send({t:'nav',route:stack[stack.length-1]}); };
+  ws.onopen=()=>{ el('conn').classList.add('ok'); curChartKey=''; if(booted) send({t:'nav',route:stack[stack.length-1]}); };
   ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
   ws.onmessage=e=>{
     let msg;
@@ -1432,6 +1713,8 @@ function connect(){
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
     if(msg.t==='energy'){ energyData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
     if(msg.t==='camera'){ cameraData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='chart'){ chartData=msg;   // Verlaufs-Pane
+      const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='chart') renderChartPane(fp); return; }
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
