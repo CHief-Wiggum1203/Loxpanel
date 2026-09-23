@@ -250,6 +250,21 @@
   .ic:first-child{border-top:none;padding-top:0;margin-top:0;}
   .ic .icname{font-weight:600;margin-bottom:10px;}
   .ic .field{max-width:none;margin-bottom:12px;}
+  /* Kalenderliste (mehrere iCal-Abos, je eines pro Zeile) */
+  .cal{border-top:1px solid var(--line);padding-top:14px;margin-top:14px;}
+  .cal:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .cal .calh{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap;}
+  .cal .caldot{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.18);}
+  .cal .caln{font-weight:600;}
+  .cal .calst{font-size:12.5px;color:var(--muted);order:2;}
+  .cal .calst .ok{color:var(--good);} .cal .calst .bad{color:var(--crit);}
+  /* Ein Fehlertext ist zu lang fuer die Kopfzeile: er bekommt eine eigene,
+     der Entfernen-Knopf bleibt oben rechts stehen. */
+  .cal .calst.err{flex-basis:100%;order:4;margin-top:-2px;}
+  .cal .calh .btn{margin-left:auto;order:3;}
+  .cal .field{max-width:none;margin-bottom:10px;}
+  .cal input[type=color]{padding:2px;height:38px;width:56px;cursor:pointer;}
+  .calempty{color:var(--muted);font-size:14px;padding:4px 0 10px;}
   .ag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:12px 0;}
   .ag:first-child{border-top:none;}
   .ag .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none;}
@@ -582,13 +597,14 @@
 
         <!-- Kalender & Wetter (Front / Screensaver) -->
         <section class="spane" data-sub="calendar">
-          <p class="lead" data-i18n>Zeigt Termine aus einem iCal-Abo und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
+          <p class="lead" data-i18n>Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
           <div class="card">
             <h3 data-i18n>iCal-Kalender</h3>
-            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login.</p>
-            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Name</label><input type="text" id="cal_name" placeholder="Family"></div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>iCal-Abo-URL</label><input type="text" id="cal_url" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
+            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.</p>
+            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift am Panel</label><input type="text" id="cal_name" placeholder="Family"></div>
+            <div id="cal_list" style="margin-top:16px"></div>
+            <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button></div>
+            <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" data-i18n-ph placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
             <p class="note" data-i18n>Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.</p>
             <div class="note" id="cal_status" style="margin-top:10px"></div>
           </div>
@@ -606,7 +622,11 @@
             <div class="row2">
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine der nächsten … Tage</label><input type="number" id="cal_days" min="1" max="60" value="14"></div>
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Wetter-Vorschau (Tage)</label><input type="number" id="cal_foredays" min="1" max="7" value="4"></div>
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine auf der Uhr-Seite (max.)</label><input type="number" id="cal_svevents" min="1" max="10" value="3"></div>
             </div>
+            <label class="chk" style="margin-top:14px"><input type="checkbox" id="cal_colors" checked><span data-i18n>Kalenderfarben am Panel zeigen</span></label>
+            <p class="note" data-i18n>Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.</p>
+            <p class="note" data-i18n>„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.</p>
             <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
           </div>
         </section>
@@ -1903,23 +1923,45 @@ async function loadSettings(){
   const cal=SET.calendar||{};
   if($('#cal_name')){
     $('#cal_name').value=cal.name||'Family';
-    $('#cal_url').value=cal.ical_url||'';
     if($('#cal_holurl')) $('#cal_holurl').value=cal.holiday_url||'';
     $('#cal_lat').value=(cal.lat==null?'':cal.lat);
     $('#cal_lon').value=(cal.lon==null?'':cal.lon);
     $('#cal_days').value=cal.days||14;
     $('#cal_foredays').value=cal.fore_days||4;
+    if($('#cal_svevents')) $('#cal_svevents').value=cal.sv_events||3;
+    if($('#cal_colors')) $('#cal_colors').checked=cal.colors!==false;
     const st=cal.status||{};
+    // Kalenderliste aus der gespeicherten Config aufbauen; der Status kommt je
+    // Quelle ueber ihren Schluessel dazu.
+    CAL_PALETTE=cal.palette||CAL_PALETTE;
+    CAL_MAX=cal.max_sources||CAL_MAX;
+    CAL_STAT={}; (st.cal_sources||[]).forEach(q=>{ if(q&&q.key) CAL_STAT[q.key]=q; });
+    // Nur uebernehmen, solange nichts Ungespeichertes in der Liste steht.
+    if(!CAL_DIRTY){
+      CALS=(cal.sources||[]).map(q=>({name:q.name||'',url:q.url||'',color:q.color||'',key:q.key||''}));
+    }
+    renderCals();
     const cs=$('#cal_status');
     if(cs){
-      if(!st.cal_configured) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
       // Bei einem Aussetzer zeigt das Panel weiter den letzten guten Stand —
       // das muss hier dabeistehen, sonst sieht man einen Fehler und gleichzeitig
       // Termine am Panel und hält eines von beidem für falsch.
-      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error)
-        +(st.events_stale?'<br><span class="ccmut">'+T('Das Panel zeigt weiter den Stand von')
-          +' '+esc(st.events_stale)+' '+T('Uhr.')+'</span>':'');
-      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine');
+      // Ganzer Satz statt zusammengesetzter Fragmente: im Englischen steht die
+      // Uhrzeit an anderer Stelle im Satz, und "Uhr." hat dort keine Entsprechung.
+      const stale=st.events_stale?'<br><span class="ccmut">'
+        +T('Das Panel zeigt weiter den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.events_stale))
+        +'</span>':'';
+      const qs=st.cal_sources||[], kaputt=qs.filter(q=>q&&q.error).length;
+      if(!CALS.length) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
+      // Der genaue Fehler steht schon oben beim betroffenen Kalender — hier
+      // nur noch, wie viele betroffen sind.
+      else if(kaputt) cs.innerHTML='<b class="bad">'
+        +T('{n} von {gesamt} Kalendern nicht geladen').replace('{n}',kaputt).replace('{gesamt}',qs.length)
+        +'</b> <span class="ccmut">· '+T('Grund steht oben beim jeweiligen Kalender.')+'</span>'
+        +' · '+(st.cal_count||0)+' '+T('Termine')+stale;
+      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error)+stale;
+      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine')
+        +(CALS.length>1?' <span class="ccmut">'+T('aus {n} Kalendern').replace('{n}',CALS.length)+'</span>':'');
     }
     // Auto-Standort vom Miniserver als Platzhalter zeigen (falls keine Koordinaten gesetzt)
     const autoGeo=(cal.ms_lat!=null&&cal.ms_lon!=null);
@@ -1990,21 +2032,101 @@ $('#am_save').onclick=async()=>{
   $('#am_save').disabled=false;
 };
 
+// ---- Kalenderliste (mehrere iCal-Abos) ----
+// CALS ist die Arbeitskopie: Eingaben schreiben direkt hinein, damit ein
+// Hinzufuegen oder Loeschen die anderen Zeilen nicht zuruecksetzt.
+let CALS=[], CAL_STAT={}, CAL_MAX=8;
+// Gesetzt, sobald an der Liste etwas geaendert wurde. loadSettings() laeuft
+// auch nach dem Speichern ANDERER Karten (Miniserver, Intercom ...) - ohne das
+// Flag wuerde es die Arbeitskopie ueberschreiben und noch nicht gespeicherte
+// Kalenderzeilen verschwinden lassen.
+let CAL_DIRTY=false;
+let CAL_PALETTE=['#e0a24d','#52b881','#6aa9e0','#c98ad4','#e2695f','#4fc3c3','#b2c94a','#9a8fe0'];
+function calStatHTML(q){
+  const st=q.key?CAL_STAT[q.key]:null;
+  if(!st) return q.url?'<span class="calst">'+T('noch nicht geladen')+'</span>':'';
+  if(st.error) return '<span class="calst err"><b class="bad">'+T('Fehler:')+'</b> '+esc(st.error)
+    +(st.stale?' · '+T('Panel zeigt den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.stale)):'')+'</span>';
+  return '<span class="calst"><b class="ok">'+T('geladen')+'</b> · '+(st.count||0)+' '+T('Termine')+'</span>';
+}
+function renderCals(){
+  const box=$('#cal_list'); if(!box) return;
+  if(!CALS.length){ box.innerHTML='<div class="calempty">'+T('Noch kein Kalender. Mit „＋ Kalender hinzufügen" den ersten Abo-Link eintragen.')+'</div>'; }
+  else box.innerHTML=CALS.map((q,i)=>
+    '<div class="cal" data-i="'+i+'">'+
+      '<div class="calh"><span class="caldot" style="background:'+esc(q.color||CAL_PALETTE[i%CAL_PALETTE.length])+'"></span>'+
+      '<span class="caln">'+esc(q.name||(T('Kalender')+' '+(i+1)))+'</span>'+calStatHTML(q)+
+      '<button class="btn del sm" data-caldel="'+i+'">'+T('Entfernen')+'</button></div>'+
+      '<div class="row2">'+
+        '<div class="field" style="max-width:260px"><label class="lbl">'+T('Name')+'</label>'+
+          '<input type="text" class="cal_n" data-i="'+i+'" value="'+esc(q.name||'')+'" placeholder="'+T('z.B. Müllabfuhr')+'"></div>'+
+        '<div class="field" style="max-width:90px"><label class="lbl">'+T('Farbe')+'</label>'+
+          '<input type="color" class="cal_c" data-i="'+i+'" value="'+esc(q.color||CAL_PALETTE[i%CAL_PALETTE.length])+'"></div>'+
+      '</div>'+
+      '<div class="field"><label class="lbl">'+T('iCal-Abo-URL')+'</label>'+
+        '<input type="text" class="cal_u" data-i="'+i+'" value="'+esc(q.url||'')+'" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>'+
+    '</div>').join('');
+  // Eingaben laufen in die Arbeitskopie, ohne die Liste neu zu zeichnen (das
+  // wuerde den Cursor aus dem Feld werfen).
+  box.querySelectorAll('.cal_n').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].name=inp.value; CAL_DIRTY=true;
+    const n=box.querySelector('.cal[data-i="'+i+'"] .caln');
+    if(n) n.textContent=inp.value.trim()||(T('Kalender')+' '+(i+1));
+  });
+  box.querySelectorAll('.cal_u').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].url=inp.value; CAL_DIRTY=true;
+    // Der Status haengt am Schluessel der ALTEN URL. Bleibt er stehen, behauptet
+    // die Zeile weiter "geladen · 14 Termine" fuer einen Kalender, der so gar
+    // nicht mehr eingetragen ist.
+    CALS[i].key='';
+    const st=box.querySelector('.cal[data-i="'+i+'"] .calst');
+    if(st) st.remove();
+  });
+  box.querySelectorAll('.cal_c').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].color=inp.value; CAL_DIRTY=true;
+    const d=box.querySelector('.cal[data-i="'+i+'"] .caldot');
+    if(d) d.style.background=inp.value;
+  });
+  box.querySelectorAll('[data-caldel]').forEach(b=>b.onclick=()=>{
+    CALS.splice(+b.dataset.caldel,1); CAL_DIRTY=true; renderCals();
+  });
+}
+// Erste noch freie Farbe der Palette. Ueber die Listenlaenge zu gehen waere
+// falsch: nach dem Loeschen einer Zeile bekaeme die naechste neue die Farbe
+// einer bestehenden.
+function freieFarbe(){
+  const vergeben=new Set(CALS.map(q=>(q.color||'').toLowerCase()));
+  return CAL_PALETTE.find(c=>!vergeben.has(c.toLowerCase()))
+      || CAL_PALETTE[CALS.length%CAL_PALETTE.length];
+}
+if($('#cal_add')) $('#cal_add').onclick=()=>{
+  if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als {max} Kalender gehen nicht.').replace('{max}',CAL_MAX),false); return; }
+  CAL_DIRTY=true;
+  CALS.push({name:'',url:'',color:freieFarbe(),key:''});
+  renderCals();
+  const felder=$('#cal_list').querySelectorAll('.cal_n');
+  if(felder.length) felder[felder.length-1].focus();
+};
+
 $('#cal_save').onclick=async()=>{
   const body={
-    name:$('#cal_name').value.trim(), ical_url:$('#cal_url').value.trim(),
+    name:$('#cal_name').value.trim(),
+    sources:CALS.filter(q=>(q.url||'').trim()).map(q=>({name:(q.name||'').trim(),url:q.url.trim(),color:q.color||''})),
     holiday_url:($('#cal_holurl')?$('#cal_holurl').value.trim():''),
     lat:$('#cal_lat').value.trim(), lon:$('#cal_lon').value.trim(),
+    colors:($('#cal_colors')?$('#cal_colors').checked:true),
+    sv_events:parseInt($('#cal_svevents')&&$('#cal_svevents').value)||3,
     days:parseInt($('#cal_days').value)||14, fore_days:parseInt($('#cal_foredays').value)||4};
   $('#cal_save').disabled=true;
   try{
     const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
+      CAL_DIRTY=false;    // Liste ist jetzt der Serverstand
       // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
       setTimeout(loadSettings,1500); }
     else flash($('#cal_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#cal_toast'),'Fehler: '+e,false); }
+  }catch(e){ flash($('#cal_toast'),T('Fehler:')+' '+e,false); }
   $('#cal_save').disabled=false;
 };
 
