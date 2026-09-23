@@ -260,7 +260,10 @@
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
   .tctrls .tb svg{width:17px;height:17px;}
-  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
+  /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
+     Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
+     Zeile belegten - jeder Monat begann so am Montag. */
+  .grid>.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
   /* Listen-Layout (volle Breite): immer exakt 4 Zeilen sichtbar (fuellt die
      Grid-Hoehe, egal wie hoch die Tab-Leiste ist -> kein 3,75-Zeilen-Rest). */
   .grid.list{grid-template-columns:1fr;grid-auto-rows:calc((100% - 3*var(--gap)) / 4);}
