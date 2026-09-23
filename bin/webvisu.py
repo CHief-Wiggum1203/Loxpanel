@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import calendar
 import hashlib
 import hmac
 import json
@@ -23,6 +24,7 @@ import logging
 import math
 import os
 import re
+import struct
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -147,6 +149,21 @@ def _is_tab(t) -> bool:
 STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
               "InfoOnlyDigital", "SmokeAlarm", "PresenceDetector",
               "ClimateControllerUS", "Hourcounter"}
+# Verlaufs-Diagramme fuer Bausteine mit `statistic` in der Struktur. Die Daten
+# liegen am Miniserver als Monatsdateien /stats/<uuidAction>.<JJJJMM>.xml (so
+# listet sie /stats/, und so fuehrt sie die Loxone-App: STATISTIC-Befehle in
+# scripts4.js, ermittelt mit bin/statistic_probe.py). Der Zeitraum laeuft in der
+# Route mit: {"view": "control", "id": uuid, "range": "7d"}.
+STAT_RANGES = {"24h": ("24 h", 86400), "7d": ("7 Tage", 7 * 86400), "30d": ("30 Tage", 30 * 86400)}
+STAT_DEFAULT_RANGE = "24h"
+STAT_MAX_POINTS = 240    # Punkte je Linie nach dem Ausduennen (Diagramm ~440 px breit)
+STAT_REFRESH = 300       # Monatsdatei, die noch waechst, nach so vielen Sekunden neu holen
+STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
+STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
+# visuType der Statistik-Ausgaenge, wie an der Anlage beobachtet: 0 Analogwert
+# (Temperatur, Leistung ...), 1 Digitalwert (Regen, Sonnenschein), 2 Zaehlerstand
+# (Gesamtverbrauch kWh). Zaehlerstaende zeigen den Verbrauch je Stunde/Tag als Balken.
+STAT_KIND = {1: "digital", 2: "counter"}
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
@@ -339,6 +356,122 @@ def _pos_pct(value) -> int | None:
 
 def _clean(name: str) -> str:
     return re.sub(r"^[^0-9A-Za-zÄÖÜäöü]+", "", name or "").strip() or (name or "")
+
+
+_STAT_ROW = re.compile(r"<S\s([^>]*?)/?>")
+_STAT_ATTR = re.compile(r'(\w+)="([^"]*)"')
+
+
+def _parse_stat_xml(text: str) -> list:
+    """Loxone-Statistik-Monatsdatei -> [(sekunden, [werte ...])], zeitlich sortiert.
+
+    Jede Zeile ist <S T="JJJJ-MM-TT hh:mm:ss" V="1.23"/>; bei mehreren
+    Ausgaengen stehen weitere Wert-Attribute in Ausgangsreihenfolge dahinter.
+    Gelesen wird deshalb jedes Attribut ausser T in Dokumentreihenfolge, ohne
+    Annahme ueber seinen Namen. Per Regex statt XML-Parser: die Datei ist flach,
+    und so gibt es keine Entitaeten-Aufloesung. Zeitstempel sind Ortszeit des
+    Miniservers und werden als Wanduhr-Sekunden (timegm) gefuehrt, damit Server
+    und Panel ohne Zeitzonenrechnung dieselbe Uhrzeit zeigen."""
+    out = []
+    for m in _STAT_ROW.finditer(text or ""):
+        ts, vals = None, []
+        for name, raw in _STAT_ATTR.findall(m.group(1)):
+            if name == "T":
+                try:
+                    ts = calendar.timegm(datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").timetuple())
+                except ValueError:
+                    ts = None
+            else:
+                try:
+                    vals.append(float(raw))
+                except ValueError:
+                    vals.append(None)
+        if ts is not None and vals:
+            out.append((ts, vals))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def _stat_fmt(fmt) -> tuple[int, str]:
+    """Loxone-Zahlenformat -> (Nachkommastellen, Einheit). Zwei Schreibweisen:
+    printf wie bei `statistic` ("%.1f °C", "%.0f%", "%.0fLx") und die Maske von
+    `statisticV2` ("0,000kW", "0,0kWh", "0,00€"). Ohne Format -> (0, "")."""
+    s = str(fmt or "")
+    m = re.search(r"%(?:\.(\d+))?[fd]", s)
+    if m:
+        return int(m.group(1) or 0), s[m.end():].replace("%%", "%").strip()
+    m = re.match(r"^[#0]+(?:[.,]([#0]+))?(.*)$", s.strip())
+    if m:
+        return len(m.group(1) or ""), m.group(2).strip()
+    return 0, ""
+
+
+def _parse_stat2_bin(body: bytes, nvals: int = 1) -> list | None:
+    """Antwort von jdev/sps/getStatistic/.../raw/... -> [(sekunden, [werte])].
+
+    Binaer, je Eintrag 4 Byte Zeitstempel (uint32, Unix-UTC) und je Wert 8 Byte
+    (float64), little-endian - an der Anlage so gemessen (PV 7,42 kW, Netz
+    -6,26 kW, Eintraege im Abstand der Gruppe). Die Zeit wird wie bei den
+    Monatsdateien in Wanduhr-Sekunden der Container-Zeitzone umgerechnet.
+    Passt die Laenge nicht zum Eintragsformat -> None (unbekannte Antwort)."""
+    size = 4 + 8 * nvals
+    if len(body) % size:
+        return None
+    out = []
+    for off in range(0, len(body), size):
+        ts, *vals = struct.unpack_from("<I" + "d" * nvals, body, off)
+        vals = [v if math.isfinite(v) else None for v in vals]
+        out.append((calendar.timegm(time.localtime(ts)), vals))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
+    """Linie auf hoechstens n Punkte ausduennen: je Zeitfenster der Mittelwert
+    (Analog) bzw. das Maximum (Digital: ein kurzes "Ein" soll sichtbar bleiben)."""
+    if len(pts) <= n or t1 <= t0:
+        return pts
+    w = (t1 - t0) / n
+    buckets: dict[int, list] = {}
+    for t, v in pts:
+        buckets.setdefault(min(n - 1, max(0, int((t - t0) / w))), []).append((t, v))
+    out = []
+    for b in sorted(buckets):
+        items = buckets[b]
+        if digital:
+            out.append((items[-1][0], max(v for _, v in items)))
+        else:
+            out.append((int(sum(t for t, _ in items) / len(items)),
+                        sum(v for _, v in items) / len(items)))
+    return out
+
+
+def _stat_bars(pts: list, edges: list) -> list:
+    """Zaehlerstaende -> Verbrauch je Abschnitt [edges[i], edges[i+1]).
+
+    Summiert von Messpunkt zu Messpunkt: Grundlage ist der letzte Stand davor
+    (pts beginnt mit dem letzten Wert vor dem Fenster, falls bekannt; sonst ist
+    der erste Stand die Basis). Faellt der Stand auf weniger als die Haelfte,
+    wurde der Zaehler zurueckgesetzt und zaehlt ab 0 weiter. Ein kleiner
+    Ruecksprung (Rundung, 1000,5 -> 1000,4) ist kein Verbrauch, sonst ergaebe
+    er einen Balken in Hoehe des ganzen Zaehlerstands."""
+    out, i, prev = [], 0, None
+    while i < len(pts) and pts[i][0] < edges[0]:
+        prev = pts[i][1]
+        i += 1
+    for a, b in zip(edges, edges[1:]):
+        use = 0.0
+        while i < len(pts) and pts[i][0] < b:
+            v = pts[i][1]
+            if prev is not None:
+                if v >= prev:
+                    use += v - prev
+                elif v < prev / 2:
+                    use += v              # zurueckgesetzt: ab 0 weitergezaehlt
+            prev = v
+            i += 1
+        out.append((a, use))
+    return out
 
 
 def _hex_rgb(value) -> str | None:
@@ -681,6 +814,18 @@ class App:
         self.alg: str = "SHA1"
         self.icon_session: aiohttp.ClientSession | None = None
         self.icon_cache: dict[str, tuple[bytes, str]] = {}
+        # Verlaufsdaten: (uuidAction, "JJJJMM") -> (monotonic, JJJJMM beim Abruf,
+        # [(sekunden, [werte])] oder None nach Abruffehler). Ein Monat, der beim
+        # Abruf schon vorbei war, aendert sich nicht mehr.
+        self.stat_cache: dict[tuple[str, str], tuple[float, str, list | None]] = {}
+        self.stat_pending: set[tuple] = set()
+        # statisticV2 (Energie-Zaehler): (uuidAction, Gruppe, Ausgang, Zeitraum) ->
+        # (monotonic, [(sekunden, [wert])] oder None nach Abruffehler). Hoechstens
+        # zwei Abrufe gleichzeitig; die Loxone-App erlaubt 4 (Gen 2) bzw. 1 (Gen 1).
+        self.stat2_cache: dict[tuple, tuple[float, list | None]] = {}
+        self.stat2_sem = asyncio.Semaphore(2)
+        self.stat_gen = 0              # zaehlt jeden Abruf, Schluessel fuer stat_memo
+        self.stat_memo: dict[tuple, list] = {}
         self.theme = load_theme()
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
@@ -957,6 +1102,8 @@ class App:
         old_is, self.icon_session = self.icon_session, \
             aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
         self.icon_cache = {}
+        self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
+        self.stat_gen += 1
         old_ws, self.ws = self.ws, None   # stream_task baut WS mit neuen Daten neu auf
         self.intercom_cfg = _intercom_config()
         self._dirty = True
@@ -2267,6 +2414,80 @@ class App:
         self.icon_cache[path] = (body, ctype)
         return self.icon_cache[path]
 
+    async def _stat_load(self, ua: str, ym: str) -> None:
+        """Eine Statistik-Monatsdatei holen (/stats/<uuidAction>.<JJJJMM>.xml,
+        Bearer-Token wie bei den Icons) und in stat_cache legen. 404 heisst:
+        fuer diesen Monat gibt es keine Aufzeichnung (leere Liste). Andere
+        Fehler legen None ab, dann wird erst nach STAT_RETRY erneut versucht.
+        Danach neu rendern lassen, damit offene Detailseiten das Diagramm zeigen."""
+        key = (ua, ym)
+        rows: list | None = None
+        try:
+            if self.icon_session:
+                scheme = "https" if _ms_https(self.port) else "http"
+                url = f"{scheme}://{self.host}:{self.port}/stats/{ua}.{ym}.xml"
+                headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+                async with self.icon_session.get(url, headers=headers,
+                                                 timeout=aiohttp.ClientTimeout(total=20)) as r:
+                    if r.status == 404:
+                        rows = []
+                    elif r.status == 200:
+                        rows = _parse_stat_xml(await r.text(errors="replace"))
+                    else:
+                        log.info("Statistik %s.%s: HTTP %s", ua, ym, r.status)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            log.info("Statistik %s.%s nicht abrufbar: %s", ua, ym, err)
+        finally:
+            self.stat_pending.discard(key)
+        self.stat_cache.pop(key, None)          # neu einsortieren = zuletzt benutzt
+        self.stat_cache[key] = (time.monotonic(), datetime.now().strftime("%Y%m"), rows)
+        while len(self.stat_cache) > STAT_CACHE_MAX:
+            self.stat_cache.pop(next(iter(self.stat_cache)))
+        self.stat_gen += 1
+        self.stat_memo = {}
+        self._dirty = True
+
+    async def _stat2_load(self, key: tuple, ua: str, gid: str, out: str, span: int) -> None:
+        """Verlauf eines statisticV2-Ausgangs holen: jdev/sps/getStatistic/<uuid>/raw/
+        <vonUnixUtc>/<bisUnixUtc>/all/<gruppe>/<ausgang> (so baut ihn die Loxone-App,
+        StatisticV2Ext.getStatisticRaw). Eine Stunde Vorlauf liefert den Stand vor
+        dem ersten Balken. Leere Antwort oder JSON statt Binaerdaten heisst: keine
+        Aufzeichnung (leere Liste); andere Fehler legen None ab."""
+        rows: list | None = None
+        now = int(time.time())
+        path = f"jdev/sps/getStatistic/{ua}/raw/{now - span - 3600}/{now}/all/{quote(gid)}/{quote(out)}"
+        try:
+            async with self.stat2_sem:
+                if self.icon_session:
+                    scheme = "https" if _ms_https(self.port) else "http"
+                    headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+                    async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path}",
+                                                     headers=headers,
+                                                     timeout=aiohttp.ClientTimeout(total=30)) as r:
+                        body = await r.read()
+                        if r.status != 200:
+                            log.info("Statistik V2 %s: HTTP %s", path, r.status)
+                        elif not body:
+                            rows = []
+                        elif body[:1] == b"{":
+                            rows = []
+                            log.info("Statistik V2 %s: keine Daten (%s)", path, body[:160].decode("utf-8", "replace"))
+                        else:
+                            rows = _parse_stat2_bin(body)
+                            if rows is None:
+                                log.info("Statistik V2 %s: unerwartete Antwort, %d Bytes", path, len(body))
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            log.info("Statistik V2 %s nicht abrufbar: %s", path, err)
+        finally:
+            self.stat_pending.discard(key)
+        self.stat2_cache.pop(key, None)
+        self.stat2_cache[key] = (time.monotonic(), rows)
+        while len(self.stat2_cache) > STAT_CACHE_MAX:
+            self.stat2_cache.pop(next(iter(self.stat2_cache)))
+        self.stat_gen += 1
+        self.stat_memo = {}
+        self._dirty = True
+
     async def fetch_cover(self, url: str) -> tuple[bytes, str] | None:
         if not self.icon_session:
             return None
@@ -3200,6 +3421,156 @@ class App:
         return {"t": "view", "title": _clean(c.get("name")),
                 "route": {"view": "control", "id": uuid}, "blocks": blocks}
 
+    @staticmethod
+    def _stat_months(t0: int, t1: int) -> list[str]:
+        """Monatsschluessel JJJJMM, die das Fenster [t0, t1] (Wanduhr-Sekunden) beruehrt."""
+        a = datetime(1970, 1, 1) + timedelta(seconds=t0)
+        b = datetime(1970, 1, 1) + timedelta(seconds=t1)
+        y, m, out = a.year, a.month, []
+        while (y, m) <= (b.year, b.month):
+            out.append(f"{y:04d}{m:02d}")
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        return out
+
+    @staticmethod
+    def _stat_edges(rng: str, t1: int) -> list[int]:
+        """Abschnittsgrenzen der Verbrauchsbalken: bei 24 h je volle Stunde, sonst
+        je Tag ab Mitternacht. Der letzte Abschnitt laeuft bis jetzt."""
+        if rng == "24h":
+            step, n = 3600, 24
+        else:
+            step, n = 86400, STAT_RANGES[rng][1] // 86400
+        start = t1 - t1 % step - (n - 1) * step
+        return [start + k * step for k in range(n)] + [t1 + 1]
+
+    def _stat_rows(self, ua: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Zeilen im Fenster aus stat_cache, vorneweg der letzte Stand davor (falls
+        bekannt). Fehlende oder noch wachsende Monate werden im Hintergrund
+        nachgeladen. -> (zeilen, laedt_noch, abruffehler)"""
+        allrows, loading, error = [], False, False
+        now = time.monotonic()
+        for ym in self._stat_months(t0, t1):
+            key = (ua, ym)
+            ent = self.stat_cache.get(key)
+            if ent is None:
+                want = True
+            elif ent[2] is None:
+                want = now - ent[0] >= STAT_RETRY
+            else:
+                want = ent[1] <= ym and now - ent[0] >= STAT_REFRESH
+            if want and key not in self.stat_pending:
+                self.stat_pending.add(key)
+                self._spawn(self._stat_load(ua, ym))
+            if ent is None:
+                loading = True
+            elif ent[2] is None:
+                error = True
+            else:
+                allrows.extend(ent[2])
+        allrows.sort(key=lambda r: r[0])
+        before = [r for r in allrows if r[0] < t0]
+        return ([before[-1]] if before else []) + [r for r in allrows if t0 <= r[0] <= t1], loading, error
+
+    def _stat2_rows(self, ua: str, gid: str, out: str, rng: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Wie _stat_rows, fuer einen statisticV2-Ausgang: Zeilen im Fenster, vorneweg
+        der letzte Stand davor; fehlend oder aelter als STAT_REFRESH -> im
+        Hintergrund neu holen. -> (zeilen, laedt_noch, abruffehler)"""
+        key = (ua, gid, out, rng)
+        ent = self.stat2_cache.get(key)
+        age = time.monotonic() - ent[0] if ent else 0.0
+        if ent is None or age >= (STAT_RETRY if ent[1] is None else STAT_REFRESH):
+            if key not in self.stat_pending:
+                self.stat_pending.add(key)
+                self._spawn(self._stat2_load(key, ua, gid, out, STAT_RANGES[rng][1]))
+        if ent is None:
+            return [], True, False
+        if ent[1] is None:
+            return [], False, True
+        before = [r for r in ent[1] if r[0] < t0]
+        return ([before[-1]] if before else []) + [r for r in ent[1] if t0 <= r[0] <= t1], False, False
+
+    @staticmethod
+    def _stat_series_defs(c: dict) -> list:
+        """Alle aufgezeichneten Reihen eines Bausteins als (name, art, stellen,
+        einheit, quelle). `statistic`: je Ausgang, Art aus visuType, Quelle
+        ("v1", index in der Monatsdatei). `statisticV2`: je Datenpunkt einer
+        Gruppe, `accumulated` = Zaehlerstand, Quelle ("v2", gruppe, ausgang).
+        Gleiche Titel in einer Gruppe (Netz: zweimal "Zaehlerstand") bekommen
+        den Ausgangsnamen dazu."""
+        defs = []
+        for i, o in enumerate((c.get("statistic") or {}).get("outputs") or []):
+            if isinstance(o, dict):
+                dec, unit = _stat_fmt(o.get("format"))
+                defs.append((_clean(o.get("name")) or f"Wert {i + 1}",
+                             STAT_KIND.get(o.get("visuType"), "line"), dec, unit, ("v1", i)))
+        for g in (c.get("statisticV2") or {}).get("groups") or []:
+            if not isinstance(g, dict):
+                continue
+            dps = [d for d in (g.get("dataPoints") or []) if isinstance(d, dict) and d.get("output")]
+            titles = [d.get("title") for d in dps]
+            for d in dps:
+                dec, unit = _stat_fmt(d.get("format"))
+                name = _clean(d.get("title")) or d["output"]
+                if titles.count(d.get("title")) > 1:
+                    name = f"{name} · {d['output']}"
+                defs.append((name, "counter" if g.get("accumulated") else "line", dec, unit,
+                             ("v2", str(g.get("id")), str(d["output"]))))
+        return defs
+
+    def _stat_blocks(self, c: dict, rng: str) -> list:
+        """Diagramm-Bloecke fuer einen Baustein mit `statistic` oder `statisticV2`.
+        Reihen gleicher Art und Einheit teilen sich ein Diagramm (zwei Grillfuehler,
+        Netz-Bezug und -Einspeisung), sonst je eines (Zaehler: Leistung als Linie,
+        Verbrauch als Balken)."""
+        defs = self._stat_series_defs(c)
+        ua = c.get("uuidAction")
+        if not (ua and defs):
+            return []
+        now = calendar.timegm(datetime.now().timetuple())
+        t1 = now - now % 60                    # Fenster rueckt je Minute vor
+        mkey = (ua, rng, t1, self.stat_gen)
+        if mkey in self.stat_memo:
+            return self.stat_memo[mkey]
+        t0 = t1 - STAT_RANGES[rng][1]
+        v1 = None                              # Monatsdateien: eine Abfrage fuer alle Ausgaenge
+        groups: dict[tuple[str, str], list] = {}
+        for d in defs:
+            groups.setdefault((d[1], d[3]), []).append(d)
+        blocks = []
+        for kind, unit in groups:
+            edges = self._stat_edges(rng, t1) if kind == "counter" else None
+            series, any_rows, loading, error = [], False, False, False
+            for name, _kind, dec, _unit, src in groups[(kind, unit)]:
+                if src[0] == "v1":
+                    if v1 is None:
+                        v1 = self._stat_rows(ua, t0, t1)
+                    rows, ld, er = v1
+                    i = src[1]
+                    pts = [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None]
+                else:
+                    rows, ld, er = self._stat2_rows(ua, src[1], src[2], rng, t0, t1)
+                    pts = [(r[0], r[1][0]) for r in rows if r[1] and r[1][0] is not None]
+                any_rows, loading, error = any_rows or bool(rows), loading or ld, error or er
+                if kind == "counter":
+                    pts = _stat_bars(pts, edges)
+                else:
+                    if pts and pts[0][0] < t0:
+                        pts[0] = (t0, pts[0][1])   # letzter Stand vor dem Fenster = Startwert
+                    pts = _stat_thin(pts, t0, t1, STAT_MAX_POINTS, kind == "digital")
+                series.append({"name": name, "dec": dec,
+                               "pts": [[int(t), round(v, dec + 2)] for t, v in pts]})
+            has = any_rows if kind == "counter" else any(s["pts"] for s in series)
+            blk = {"k": "chart", "kind": kind, "unit": unit, "series": series,
+                   "t0": edges[0] if edges else t0, "t1": t1,
+                   "state": "ok" if has else ("loading" if loading else ("error" if error else "empty"))}
+            if not blocks:                     # Zeitraum-Wahl nur am ersten Diagramm der Seite
+                blk.update(range=rng, ranges=[[k, v[0]] for k, v in STAT_RANGES.items()])
+            blocks.append(blk)
+        if len(self.stat_memo) > 64:
+            self.stat_memo = {}
+        self.stat_memo[mkey] = blocks
+        return blocks
+
     def _irrigation_zone_name(self, c: dict) -> str:
         """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
         in der zones-Liste), sonst leer."""
@@ -3313,10 +3684,19 @@ class App:
                 "sw": sz.get("width") or 1300, "sh": sz.get("height") or 866,
                 "items": items}
 
-    def _view_control(self, uuid: str) -> dict:
+    def _view_control(self, uuid: str, rng: str | None = None) -> dict:
         v = self._view_control_inner(uuid)
-        if self.controls.get(uuid, {}).get("isSecured"):
+        c = self.controls.get(uuid, {})
+        if c.get("isSecured"):
             v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
+        # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
+        # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
+        if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
+            rng = rng if rng in STAT_RANGES else STAT_DEFAULT_RANGE
+            charts = self._stat_blocks(c, rng)
+            if charts:
+                v["blocks"] = v["blocks"] + charts
+                v["route"] = dict(v.get("route") or {}, range=rng)
         return v
 
     def _view_control_inner(self, uuid: str) -> dict:
@@ -4169,7 +4549,7 @@ class App:
         if v == "group":
             return self._view_group(route, prof)
         if v == "control":
-            return self._view_control(route.get("id"))
+            return self._view_control(route.get("id"), route.get("range"))
         if v == "sources":
             return self._view_sources(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)

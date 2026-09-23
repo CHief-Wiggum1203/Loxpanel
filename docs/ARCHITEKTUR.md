@@ -149,6 +149,26 @@ Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus dem Banner,
 und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach laufen
 `getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung.
 
+Tree-Turbo-Geräte (Stereo Extension, Install Speaker/Sub/Satellite Master,
+künftig das Wall Display 10") hängen laut Loxone per IP-Powerline an einer
+Tree-Turbo-Schnittstelle des Audioservers bzw. Miniserver Compact und holen sich
+per DHCP eine IP im normalen Heimnetz — sie sind also im LAN direkt erreichbar.
+`bin/treeturbo_probe.py` sucht sie dort: liest die bekannten Adressen
+(Miniserver + Audioserver) aus Konfiguration, laufendem Panel und Struktur,
+leitet die zugehörigen `/24`-Netze ab und prüft jede Adresse per TCP auf
+80/443/8080 und 7090–7092. Ein Gerät zählt als vorhanden, sobald es antwortet –
+auch mit Ablehnung, so tauchen auch Geräte ohne offenen Loxone-Port auf. Die
+Liste zeigt je Gerät den Namen aus dem Router-DNS und markiert Miniserver und
+Audioserver; Geräte mit offenen Ports werden genauer abgefragt (HTTP-Banner,
+Audioserver-Banner auf 7091 über das Unterprotokoll `remotecontrol`, nur
+zuhören). Aufruf `docker exec -i LoxPanel python3 -u bin/treeturbo_probe.py`,
+solange die Datei nicht im Image steckt per `curl … | docker exec -i LoxPanel
+python3 -u -` (`-u` zeigt die Ausgabe sofort statt erst am Ende); `host <ip>`
+prüft eine Adresse, `net <cidr>` ein bestimmtes Netz, `full` (kombinierbar) die
+Ports 1–10000 je abgefragtem Gerät. Die Sonde liest nur. So lässt sich feststellen, welche Tree-Turbo-Geräte im Netz auftauchen und
+welche Dienste sie ohne Anmeldung anbieten — die Grundlage, um ein eigenes Panel
+als Ersatz für das Wall Display anzubinden, statt es zu kaufen.
+
 ### 3.2 Start
 
 `main()` (`webvisu.py:3036`) liest `--port` bzw. `LOXPANEL_PORT` (Default 8099),
@@ -237,8 +257,13 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
 
 `hero`, `cover`, `video`, `web`, `status`, `title`, `value`, `big`, `astat`,
 `slider`, `row` (mit `cells`, Varianten `transport`, `wrap`, `hidden`), `head`,
-`favs`, `alarmlist`, `more`. Zellen innerhalb `row`: `cmd`, `hold`+`release`,
-`menu`, `icon`, `big`, `on`, `label`.
+`favs`, `alarmlist`, `chart`, `more`. Zellen innerhalb `row`: `cmd`,
+`hold`+`release`, `menu`, `icon`, `big`, `on`, `label`.
+
+`chart` (Verlaufs-Diagramm) trägt `kind` (`line`, `digital`, `counter`), `unit`,
+`t0`/`t1`, `series[]` (`name`, `dec`, `pts` als `[sekunden, wert]`) und `state`
+(`ok`, `loading`, `error`, `empty`); das erste Diagramm einer Seite dazu `range`
+und `ranges` für die Zeitraum-Knöpfe. Gezeichnet in `paintChart()` der Visu.
 
 Kachelseiten bestehen aus `items[]` mit `id`, `label`, `sublabel`, `room`,
 `icon|iconUrl|iconImg`, `on`, `tone`, `color`, `style`, `nav` oder `cmd`,
@@ -310,6 +335,67 @@ Sonnenauf- und -untergang kommen unabhängig davon aus den globalen States
 *Settings → Diagnose* zeigt unter `weatherServer`, was die Anlage meldet: die
 State-UUIDs, wie viele Einträge angekommen sind, den aktuellen Rohdatensatz mit
 seinen Werten, die Wetterlage-Texte und die Formatstrings.
+
+### 3.9 Woher die Verläufe kommen
+
+Bausteine mit Aufzeichnung tragen in der Struktur `statistic` (ältere Art) oder
+`statisticV2` (Energie-Zähler, EFM). Ihre Detailseite bekommt unter dem
+aktuellen Wert Verlaufs-Diagramme (Block `chart`, §3.7). Für `statistic`
+liegen die Daten am Miniserver als Monatsdateien
+`/stats/<uuidAction>.<JJJJMM>.xml`, jede Zeile `<S T="JJJJ-MM-TT hh:mm:ss"
+V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
+`/stats/`, und so führt sie die Loxone-App (Befehlstabelle `STATISTIC` in
+`scripts4.js` der Weboberfläche); ermittelt an der Anlage mit
+`bin/statistic_probe.py`.
+
+- **Abruf:** `_stat_load()` holt eine Monatsdatei mit dem Bearer-Token über
+  `icon_session`, im Hintergrund (`_spawn`), sobald eine Detailseite sie
+  braucht. Danach `_dirty`, der Broadcaster schickt die Seite mit Diagramm neu
+  (vorher `state: loading`). 404 heißt: kein Eintrag in diesem Monat.
+- **Cache:** `stat_cache` je (uuidAction, Monat). Ein Monat, der beim Abruf
+  schon vorbei war, ändert sich nicht mehr; der laufende wird nach
+  `STAT_REFRESH` (5 Min.) neu geholt, nach einem Fehler frühestens nach
+  `STAT_RETRY`. `stat_memo` hält die fertigen Blöcke für den Rest der Minute,
+  damit der Broadcaster-Takt nicht jede Monatsdatei neu durchrechnet.
+- **Zeitraum:** läuft in der Route mit, `{"view":"control","id":…,
+  "range":"24h"|"7d"|"30d"}`. Die Knöpfe ersetzen die oberste Seite im Stapel,
+  statt eine neue aufzulegen.
+- **Darstellung** nach `visuType` des Ausgangs (an der Anlage beobachtet):
+  0 Linie, 1 Digitalwert als Stufen mit Ein-Dauer, 2 Zählerstand als Verbrauch
+  je Stunde (24 h) bzw. je Tag ab Mitternacht (7/30 Tage). Ausgänge gleicher
+  Art und Einheit teilen sich ein Diagramm. Linien werden auf 240 Punkte
+  ausgedünnt (Mittelwert, bei Digitalwerten Maximum). Beim Zählerstand zählt
+  ein Absturz auf weniger als die Hälfte als Reset, ein kleiner Rücksprung
+  (Rundung) nicht als Verbrauch.
+- **Zeit:** Die Zeitstempel sind Ortszeit des Miniservers und werden als
+  Wanduhr-Sekunden (`timegm`) geführt, die Visu formatiert sie mit `getUTC*`.
+  So zeigen Server und Panel dieselbe Uhrzeit, unabhängig von der Zeitzone des
+  Browsers; „jetzt" kommt aus der Container-Zeit (`TZ`, wie beim Nachtmodus).
+
+**`statisticV2`** (an der Anlage die Energie-Zähler und der EFM) kommt nicht
+aus Dateien, sondern je Datenpunkt über
+`jdev/sps/getStatistic/<uuidAction>/raw/<vonUnixUtc>/<bisUnixUtc>/all/<gruppe>/<ausgang>`.
+So baut ihn die Loxone-App (`StatisticV2Ext.getStatisticRaw` in `AppHub.js`,
+ermittelt mit `bin/statistic_probe.py v2`). Die Antwort ist binär, je Eintrag
+4 Byte Zeitstempel (uint32, Unix-UTC) und 8 Byte Wert (float64),
+little-endian; an der Anlage kamen Leistungswerte im 30-Minuten-, Zählerstände
+im Stundenabstand. `_parse_stat2_bin()` rechnet die UTC-Zeit in dieselben
+Wanduhr-Sekunden um wie bei den Monatsdateien.
+
+- Gruppen mit `accumulated` sind Zählerstände (Balken wie oben), die übrigen
+  Linien. Die Formate schreibt V2 als Maske (`0,000kW`, `0,0kWh`, `0,00€`),
+  `_stat_fmt()` versteht beide Schreibweisen.
+- Abgerufen wird je (Baustein, Gruppe, Ausgang, Zeitraum) das ganze Fenster
+  plus eine Stunde Vorlauf für den Stand vor dem ersten Balken, neu nach
+  `STAT_REFRESH`. Höchstens zwei Abrufe gleichzeitig (`stat2_sem`); die
+  Loxone-App erlaubt vier (Gen 2) bzw. einen (Gen 1).
+- Leere Antwort oder JSON statt Binärdaten gilt als „keine Aufzeichnung".
+- Gleiche Titel in einer Gruppe (Netz: zweimal „Zählerstand" für `total` und
+  `totalNeg`) bekommen den Ausgangsnamen dazu; mehrere Zählerreihen stehen
+  als Balken nebeneinander.
+- Die `diff`-Variante desselben Befehls (Verbrauch je Einheit) wird nicht
+  genutzt: ihre zulässigen Einheiten sind nicht bekannt, und der Verbrauch
+  ergibt sich ebenso aus den Zählerständen.
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
