@@ -86,8 +86,9 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, sieben
-sind eingereicht und noch offen:**
+Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, zehn
+sind eingereicht und noch offen, einer ist vorbereitet und wartet aufs
+Einreichen:**
 
 | PR | Inhalt |
 |---|---|
@@ -104,7 +105,7 @@ sind eingereicht und noch offen:**
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 
-**NOCH OFFEN — diese sieben Zweige nicht löschen:**
+**NOCH OFFEN — diese elf Zweige nicht löschen:**
 
 | PR | Zweig | Inhalt |
 |---|---|---|
@@ -115,6 +116,10 @@ sind eingereicht und noch offen:**
 | [#38](https://github.com/Lenardo1/loxpanel/pull/38) | `up/kalender-abos` | Kalender: mehrere Abos, mehrtägige Termine, vier Parser-Fehler (Fork #66, #67, #74) |
 | [#39](https://github.com/Lenardo1/loxpanel/pull/39) | `up/uhrseite-spalte` | Uhr-Seite: rechte Spalte wählbar (Fork #68–#70), setzt auf #38 auf |
 | [#40](https://github.com/Lenardo1/loxpanel/pull/40) | `up/anzeige-skalierung` | Anzeigegröße und Skalierung (Fork #71, #72), setzt auf #39 auf |
+| [#41](https://github.com/Lenardo1/loxpanel/pull/41) | `up/energiefluss-icons` | Energiefluss: Loxone-Icons sitzen auf Safari, iPad und in WebViews wieder in ihren Kreisen (Fork #77) |
+| [#42](https://github.com/Lenardo1/loxpanel/pull/42) | `up/kalender-wochentage` | Monatskalender: Tage stehen wieder unter dem richtigen Wochentag (F16 aus Fork #84) |
+| [#43](https://github.com/Lenardo1/loxpanel/pull/43) | `up/token-stabilitaet` | Miniserver-Token erneuern, Befehlsfehler im Panel, kleinere Stabilitätsfehler (Fork #81) |
+| noch nicht eingereicht | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, dazu die zwei Kachel-Korrekturen aus #82), setzt auf #43 auf |
 
 Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
 gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
@@ -150,11 +155,37 @@ formuliert („Standort vom Miniserver wird verwendet."); #40 dazu
 spätere gewinnt. Mergt Lenardo #33 zuerst, die Doppel aus #38 und #40
 herausnehmen; angekündigt ist das im Text von #38.
 
+Zu #41 bis #43 und `up/verlaeufe` (#41–#43 eingereicht am 23.09.2026): Aus
+dem Fork ging nur mit, was Upstream ohne die Fork-Werkzeuge versteht — keine
+Tests und CI (#82), kein Unraid-Betrieb (#83), keine Kalender-/Wetter-Tabs
+(#84). #41 und #42 stehen für sich. Den WebKit-Fehler aus #41 kann man hier
+nicht nachstellen; in Chromium liegen Icon- und Kreismitte vorher wie
+nachher genau aufeinander. `up/verlaeufe` braucht `_ms_http()` aus #43 und
+enthält dessen Commit mit, neu ist nur der zweite. Nach dem Merge von #43
+den Zweig auf das neue `upstream/main` rebasen und mit `--force-with-lease`
+pushen, wie bei #38–#40.
+
+Überschneidung mit den offenen PRs, jeder einzeln gegen die vier Zweige
+geprüft (23.09.2026): #33 bis #37 vertragen sich mit allen vier, #41 und #42
+auch mit #38 bis #40. Kommt #39 vor #43, gibt es in `_push()` eine
+Konfliktstelle: die Seite von #43 nehmen, `_send_or_drop()` räumt in #39
+`conn_status` schon selbst mit ab. Die Verläufe stoßen nach #38 in `i18n.js`
+an (beide Seiten behalten), nach #39 zusätzlich an fünf Stellen in
+`bin/webvisu.py` und drei in `panel.html`. Dort erweitern die Uhr-Seite aus
+#39 und die Verläufe dieselben Stellen um ihr jeweiliges Gegenstück
+(`conn_status`/`conn_chart`, `setsvstatus`/`setchart`,
+`svStatusMax`/`statRanges`, `svstatus`/`chart`), und `chart:` gehört dann in
+das mit #39 eingeführte `_clean_tabpane()`. Im Fork steht beides schon
+nebeneinander, die Auflösung von dort übernehmen.
+
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
 aufsetzen, damit GitHub Titel und Beschreibung selbst füllt, und über diesen
 Link einreichen:
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
+Bei gestapelten Zweigen mit mehreren Commits füllt GitHub nichts aus; Titel
+und Text dann aus der Meldung des obersten Commits übernehmen und oben
+vermerken, auf welchem PR er aufsetzt.
 
 Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
@@ -179,7 +210,8 @@ Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
       Icons und Verläufe) scheiterte still mit 401. Jetzt laufen alle
       HTTP-Anfragen über `_ms_http()`, das sich bei 401 einmal neu anmeldet und
       wiederholt; gescheiterte Befehle zeigt das Panel als Hinweis an. (F15,
-      `ARCHITEKTUR.md` §3.4) **S**
+      `ARCHITEKTUR.md` §3.4) An Upstream eingereicht als
+      [#43](https://github.com/Lenardo1/loxpanel/pull/43). **S**
 - [x] **Broadcaster absichern**: Upstream 0.3.2 fängt Render-Fehler je
       Verbindung im `broadcaster()` und bei `nav` ab. `_push()`, `switch_mode()`
       und `api_testtone` fingen schon jeden Fehler, hatten aber kein Zeitlimit;
@@ -626,7 +658,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       eingestellten Zeitraums (bis 60 Tage) zum Durchscrollen. Wetter: Lage und
       Details, Tageskurve und bis zu 7 Tage Vorhersage. Quer zwei Spalten, hoch
       oder quadratisch untereinander. Dabei gefunden: der Monatskalender stellte
-      jeden Monat ab Montag dar (F16), behoben. **M**
+      jeden Monat ab Montag dar (F16), behoben. Die Korrektur allein ist an
+      Upstream eingereicht als
+      [#42](https://github.com/Lenardo1/loxpanel/pull/42), die Tabs nicht.
+      **M**
 - [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
       Betriebsart, nicht nur Override. **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
@@ -637,6 +672,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`statistic` V1 und `statisticV2`) auf der Detailseite, als Split-Hälfte
       (`chart:<uuid>`) und als Mini-Verlauf in der Kachel mit drei Stilen
       (Trend, Tagesmuster, Tagesspanne). Beschreibung in `ARCHITEKTUR.md` §3.9.
+      Für Upstream vorbereitet als Zweig `up/verlaeufe`, setzt auf #43 auf
+      (siehe 0b).
 - [x] **Wetterdaten vom Loxone-Wetterserver bevorzugen**: Hat die Anlage den
       Loxone-Wetterdienst, schickt der Miniserver das Wetter über den WebSocket
       als eigene Binärtabelle (Kennung 7). `loxone_ws.py` zerlegt sie,
