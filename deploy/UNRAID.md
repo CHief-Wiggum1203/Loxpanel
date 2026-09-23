@@ -32,8 +32,18 @@ Variablen im Template gesetzt.
 | Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false` |
 
 5. **Apply**. Unraid zieht das Image und startet den Container.
+6. Einmal **Check for Updates** (dt. *Nach Updates suchen*) ausführen. Bis dahin
+   zeigt die Versionsspalte *not available* (dt. *nicht verfügbar*): Unraid prüft
+   beim Anlegen nicht und behält die leere Anzeige, bis die erste Prüfung läuft.
+   Ist der Knopf nicht zu sehen, geht es auch im Terminal (siehe
+   [Fehlersuche](#fehlersuche)).
 
 ## Manuell ohne Template
+
+Auch ohne Template den Container über Unraid anlegen, nicht per `docker run` oder
+Compose im Terminal. Solche Container führt Unraid als *3rd Party*: Es kann sie
+nicht bearbeiten, prüft sie nicht auf Updates, und sie bekommen **keine Zeitzone**
+(siehe [Netzwerk und Zeitzone](#netzwerk-und-zeitzone)).
 
 *Add Container* ohne Template-Auswahl, dann:
 
@@ -79,6 +89,10 @@ Host-Port.
 
 - **Docker**-Tab → **Check for Updates**. Zeigt LoxPanel *update ready*, auf
   **update** klicken. Unraid zieht das neue Image und startet den Container neu.
+- Ein neues Image zu holen (`docker pull`) ändert den **laufenden** Container
+  nicht. Er läuft auf dem Image weiter, mit dem er angelegt wurde, bis er neu
+  angelegt wird. Das erledigt der Update-Knopf von Unraid mit, von Hand geht es
+  über Container-Icon → **Edit** → **Apply** (ohne etwas zu ändern).
 - Automatisch geht das mit dem Community-Applications-Plugin **Auto Update
   Applications**.
 - Panels und Einstellungen bleiben erhalten, sie liegen im appdata-Ordner und nicht
@@ -107,9 +121,15 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   Port-Mapping. Die Visu ist dann direkt unter `http://<container-ip>:8099` erreichbar.
 - Liegt der Miniserver in einem anderen VLAN, muss der Unraid-Server ihn ausgehend
   erreichen dürfen.
-- Die **Zeitzone** übergibt Unraid jedem Container automatisch als `TZ`-Variable
-  (*Settings → Date and Time*). LoxPanel nutzt sie für Anzeigen wie „Heute/Morgen"
-  beim Wecker.
+- Die **Zeitzone** übergibt Unraid als `TZ`-Variable (*Settings → Date and Time*),
+  aber **nur an Container, die es selbst anlegt** (über Template oder *Add
+  Container*). Ein per `docker run` oder Compose angelegter Container läuft in UTC.
+  Das fällt am Kalender auf: Die Termine stehen um den UTC-Abstand verschoben, in
+  Mitteleuropa im Sommer 2 Stunden zu früh. Die große Uhr darüber stimmt trotzdem,
+  weil der Browser sie zeichnet. Abhilfe: den Container über Unraid anlegen, oder
+  `-e TZ=Europe/Vienna` (bzw. die eigene Zone) mitgeben. LoxPanel nutzt die
+  Zeitzone für alle Uhrzeiten, die der Server berechnet: Termine, „Heute/Morgen",
+  den Wecker.
 
 ## Unterschiede zum LoxBerry-Plugin
 
@@ -132,6 +152,30 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   nicht nötig.
 - **Port 8099 belegt:** im Template einen anderen Host-Port wählen (z. B. `8100`).
   Panels und Agent dann mit `SERVER=<unraid-ip>:8100` ansprechen.
+- **Termine um Stunden verschoben, die Uhr stimmt:** Der Container hat keine
+  Zeitzone und läuft in UTC, siehe [Netzwerk und Zeitzone](#netzwerk-und-zeitzone).
+  Prüfen im Unraid-Terminal: `docker exec LoxPanel date` muss die Ortszeit zeigen.
+- **Versionsspalte zeigt *not available* (dt. *nicht verfügbar*):** Unraid
+  berechnet diese Anzeige nur beim ersten Anzeigen des Containers und bei *Check
+  for Updates* neu, nicht bei jedem Seitenaufruf. Fand beim Anlegen noch keine
+  Prüfung statt, bleibt „nicht verfügbar" stehen. Abhilfe: *Check for Updates*.
+  Ohne den Knopf startet dieser Befehl im Unraid-Terminal dieselbe Prüfung, danach
+  den Docker-Tab neu laden:
+
+  ```bash
+  php -r 'require_once "/usr/local/emhttp/plugins/dynamix.docker.manager/include/DockerClient.php"; (new DockerTemplates())->getAllInfo(true);'
+  ```
+
+- **Neue Version ist gezogen, läuft aber nicht:** Der Container läuft noch auf dem
+  alten Image. Vergleichen:
+
+  ```bash
+  docker inspect LoxPanel --format '{{.Image}}'
+  docker image inspect ghcr.io/chief-wiggum1203/loxpanel:latest --format '{{.Id}}'
+  ```
+
+  Unterscheiden sich die beiden, Container-Icon → **Edit** → **Apply**. Unraid legt
+  den Container dann mit dem aktuellen Image neu an, Einstellungen bleiben erhalten.
 - **Image lässt sich nicht ziehen:** das GitHub-Package
   `chief-wiggum1203/loxpanel` muss auf *public* stehen und der Workflow
   *Docker Image* muss mindestens einmal auf `main` gelaufen sein.
