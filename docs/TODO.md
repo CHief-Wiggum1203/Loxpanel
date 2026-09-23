@@ -86,8 +86,8 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 22.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, drei sind
-eingereicht und noch offen:**
+Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, sieben
+sind eingereicht und noch offen:**
 
 | PR | Inhalt |
 |---|---|
@@ -104,13 +104,17 @@ eingereicht und noch offen:**
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 
-**NOCH OFFEN — diese drei Zweige nicht löschen:**
+**NOCH OFFEN — diese sieben Zweige nicht löschen:**
 
 | PR | Zweig | Inhalt |
 |---|---|---|
 | [#34](https://github.com/Lenardo1/loxpanel/pull/34) | `up/kleinigkeiten` | `ValueError` bei leerer `LOXPANEL_MS_PORT`; veralteter `/settings`-Hinweis |
 | [#35](https://github.com/Lenardo1/loxpanel/pull/35) | `up/raumtab-leiste` | Raum-Tab in einer mehrteiligen Leiste sperrt die übrigen Seiten aus |
 | [#36](https://github.com/Lenardo1/loxpanel/pull/36) | `up/eigene-auswahl` | Freie Bausteinauswahl, ganzes Feature (enthält #35 mit) |
+| [#37](https://github.com/Lenardo1/loxpanel/pull/37) | `up/raumzeile-kontrast` | Raumzeile tritt zurück und schafft wieder AA (Fork #63) |
+| [#38](https://github.com/Lenardo1/loxpanel/pull/38) | `up/kalender-abos` | Kalender: mehrere Abos, mehrtägige Termine, vier Parser-Fehler (Fork #66, #67, #74) |
+| [#39](https://github.com/Lenardo1/loxpanel/pull/39) | `up/uhrseite-spalte` | Uhr-Seite: rechte Spalte wählbar (Fork #68–#70), setzt auf #38 auf |
+| [#40](https://github.com/Lenardo1/loxpanel/pull/40) | `up/anzeige-skalierung` | Anzeigegröße und Skalierung (Fork #71, #72), setzt auf #39 auf |
 
 Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
 gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
@@ -127,15 +131,24 @@ per Cherry-Pick wie per Rebase nachgeprüft (22.09.2026). Vorschlag an Lenardo:
 #34 und #36 mergen, #35 schließen. Wird #35 doch zuerst gemergt, gilt beim
 Konflikt die Fassung aus #36.
 
-**Noch nicht eingereicht** (am 22.09.2026 probeweise auf `upstream/main`
-angewendet, Server dort gestartet, ohne Fehler): Raumzeile-Kontrast (Fork #63,
-unabhängig), Kalender mit mehreren Abos (Fork #66/#67), rechte Spalte der
-Uhr-Seite (Fork #68–#70), Anzeigegröße und Skalierung (Fork #71/#72). Die
-letzten drei nur in dieser Reihenfolge, weil sie dieselben Stellen im
-Screensaver ändern. Den Kalender nur zusammen mit dem Abruf-Fix aus Fork #74
-weitergeben: #66 allein liest große Abos abgeschnitten. Von Hand: beim
-Kalender die README (die des Forks weicht ab), bei der Skalierung eine Stelle
-in `i18n.js`, an der nur Einträge dazukommen.
+Zu #37 bis #40 (eingereicht am 23.09.2026): #37 steht für sich. #38, #39 und
+#40 sind gestapelt, weil sie dieselben Stellen im Screensaver ändern: #39
+enthält den Commit aus #38, #40 die aus #38 und #39; neu ist jeweils nur der
+letzte. Sie müssen in dieser Reihenfolge gemergt werden. **Nach jedem Merge den
+nächsten Zweig auf das neue `upstream/main` rebasen und mit
+`--force-with-lease` pushen** — sonst zeigt der PR den schon gemergten Commit
+weiter mit. Alle vier sind auf `upstream/main` gebaut und dort geprüft
+(Parser-Fälle, Abruf, Kalender Ende zu Ende, alle Spalten-Modi,
+Skalierungskette, Messwerte), und sie gehen auch nach #33, #34 und #36 sauber
+durch. Die README bleibt außen vor, Lenardos README beschreibt den Kalender
+nicht.
+
+Überschneidung mit Lenardos eigenem #33 (englische Übersetzungen): #38 bringt
+zehn Katalog-Einträge mit, die #33 auch hat, neun wortgleich, einer anders
+formuliert („Standort vom Miniserver wird verwendet."); #40 dazu
+„Automatisch", gleich übersetzt. Doppelte Schlüssel sind kein Fehler, der
+spätere gewinnt. Mergt Lenardo #33 zuerst, die Doppel aus #38 und #40
+herausnehmen; angekündigt ist das im Text von #38.
 
 Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
 Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
