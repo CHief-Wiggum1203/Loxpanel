@@ -92,10 +92,6 @@
       // Status der Kalender
       'noch nicht geladen': 'not loaded yet',
       'geladen': 'loaded',
-      'Termine': 'events',
-      'Fehler:': 'Error:',
-      'Kalender geladen': 'Calendar loaded',
-      'Kein Kalender konfiguriert.': 'No calendar configured.',
       'aus {n} Kalendern': 'from {n} calendars',
       '{n} von {gesamt} Kalendern nicht geladen': '{n} of {gesamt} calendars not loaded',
       'Grund steht oben beim jeweiligen Kalender.':
@@ -109,12 +105,6 @@
         'If the installation has the Loxone weather service, the weather comes from there — the coordinates then stay unused. Otherwise from Open-Meteo: free, no API key and no account, just enter the coordinates of your location (decimal degrees, e.g. 47.071 / 15.439). Leaving them empty switches the weather off, as long as no weather server delivers.',
       'Breitengrad': 'Latitude',
       'Längengrad': 'Longitude',
-      'Wetter vom Loxone-Wetterserver': 'Weather from the Loxone weather server',
-      'Open-Meteo wird nicht abgefragt.': 'Open-Meteo is not queried.',
-      'Wetter geladen': 'Weather loaded',
-      'Standort vom Miniserver wird verwendet.': 'The location from the Miniserver is used.',
-      'Kein Standort konfiguriert.': 'No location configured.',
-      'Automatisch vom Miniserver:': 'Automatically from the Miniserver:',
       // Anzeige am Panel
       'Anzeige': 'Display',
       'Termine der nächsten … Tage': 'Events for the next … days',
@@ -269,7 +259,6 @@
         'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Settings → Panels.',
       'Wie global': 'Same as global',
       'Standard für alle Panels': 'Default for all panels',
-      'Automatisch': 'Automatic',
       'Aus': 'Off',
       'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.':
         'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Settings → Panels.',
