@@ -107,9 +107,10 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 24.09.2026. **Alle bisher eingereichten Beiträge sind in
-`upstream/main`:** zwölf einzeln gemergt, dazu #34–#44 über unseren
-Sammel-PR #45 (Zweig `up/sammel`), den Lenardo am 24.09.2026 gemergt hat.
+Stand 24.09.2026. **Alle Beiträge bis #45 sind in `upstream/main`:** zwölf
+einzeln gemergt, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
+`up/sammel`), den Lenardo am 24.09.2026 gemergt hat. Offen ist nur #46
+(unten).
 
 | PR | Inhalt |
 |---|---|
@@ -154,12 +155,12 @@ Sammel-PR #45 (Zweig `up/sammel`), den Lenardo am 24.09.2026 gemergt hat.
 
 | PR | Zweig | Inhalt |
 |---|---|---|
-| noch zu öffnen | `up/kalender-wetterpush` | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87) |
+| [#46](https://github.com/Lenardo1/loxpanel/pull/46) | `up/kalender-wetterpush` | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87) |
 
-Der Zweig steht auf `946af6a`, ein Commit, nur `bin/front_info.py` und
-`bin/webvisu.py`, gleich dem Fork-Stand. Öffnen über
-`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/kalender-wetterpush?expand=1`,
-danach die PR-Nummer hier eintragen.
+#46 ist am 24.09.2026 eingereicht. Der Zweig steht auf `946af6a`, ein
+Commit, nur `bin/front_info.py` und `bin/webvisu.py`, gleich dem Fork-Stand.
+Kommt vor dem Merge Neues auf `upstream/main`, das dieselben Stellen ändert,
+den Zweig darauf rebasen und mit `--force-with-lease` pushen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
