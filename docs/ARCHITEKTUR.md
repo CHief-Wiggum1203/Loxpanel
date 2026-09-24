@@ -310,7 +310,11 @@ Weg der Miniserver-Daten:
    aber als eigene Binärtabelle mit der **Kennung 7**: 16-Byte-UUID +
    `lastUpdate` + `nrEntries`, danach je Eintrag 68 Byte (5 × int32 + 6 × double).
    `loxone_ws.py:_parse_weather()` zerlegt sie, `App._on_weather()` legt die
-   Rohdaten je UUID ab und weckt die Front sofort.
+   Rohdaten je UUID ab und weckt die Front sofort. Die baut sich dann aus dem
+   letzten Stand mit dem neuen Wetter neu (`_front_nur_wetter()`). Kalender und
+   Open-Meteo holt `front_task` nur im 15-Minuten-Takt (`FRONT_INTERVAL`) oder
+   nach dem Speichern. Früher löste jede Wetter-Änderung auch einen
+   Kalenderabruf aus, und iCloud sperrte das Abo mit 503 und `Retry-After`.
 3. `loxone_weather.build()` macht daraus genau die Form, die
    `front_info.fetch_weather()` liefert — das Panel merkt vom Quellenwechsel
    nichts.
