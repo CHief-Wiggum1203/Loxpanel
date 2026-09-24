@@ -134,18 +134,6 @@
       'Panel zeigt den Stand von {zeit} Uhr.': 'Panel is showing the data from {zeit}.',
       // Wetter
       'Wetter': 'Weather',
-      'Verlauf': 'History',
-      'Zeitraum': 'Period',
-      'Trend': 'Trend',
-      'Tagesmuster': 'Daily pattern',
-      'Tagesspanne': 'Daily range',
-      'Kurve mit Tief, Hoch und Änderung': 'Curve with low, high and change',
-      'Verbrauch als Balken, dazu die Summe': 'Consumption as bars, plus the total',
-      'Ein/Aus als Stufen, dazu die Einschaltdauer': 'On/off as steps, plus the time switched on',
-      '7 Tage × 24 Stunden als Farbraster': '7 days × 24 hours as a color grid',
-      'Tief bis Hoch je Tag, 7 Tage': 'Low to high per day, 7 days',
-      '7 Tage': '7 days',
-      '30 Tage': '30 days',
       'Hat die Anlage den Loxone-Wetterdienst, kommt das Wetter von dort — die Koordinaten bleiben dann unbenutzt. Sonst von Open-Meteo: kostenlos, ohne API-Schlüssel und ohne Konto, nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus, solange kein Wetterserver liefert.':
         'If the installation has the Loxone weather service, the weather comes from there — the coordinates then stay unused. Otherwise from Open-Meteo: free, no API key and no account, just enter the coordinates of your location (decimal degrees, e.g. 47.071 / 15.439). Leaving them empty switches the weather off, as long as no weather server delivers.',
       'Breitengrad': 'Latitude',
@@ -166,6 +154,19 @@
         'Off = plain: all events in a single color, only the calendar name beside them. On = every calendar gets its color dot, in the month grid too.',
       '„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.':
         '“Events on the clock page” is an upper limit — whatever no longer fits on the screen next to the weather and the clock is left out (on a 480×480 panel that is about three). The full list is in the calendar pane.',
+      // Verlaufs-Diagramme (Detailseite, Split-Haelfte, Kachel)
+      'Verlauf': 'History',
+      'Zeitraum': 'Period',
+      'Trend': 'Trend',
+      'Tagesmuster': 'Daily pattern',
+      'Tagesspanne': 'Daily range',
+      'Kurve mit Tief, Hoch und Änderung': 'Curve with low, high and change',
+      'Verbrauch als Balken, dazu die Summe': 'Consumption as bars, plus the total',
+      'Ein/Aus als Stufen, dazu die Einschaltdauer': 'On/off as steps, plus the time switched on',
+      '7 Tage × 24 Stunden als Farbraster': '7 days × 24 hours as a color grid',
+      'Tief bis Hoch je Tag, 7 Tage': 'Low to high per day, 7 days',
+      '7 Tage': '7 days',
+      '30 Tage': '30 days',
       // Neues Panel
       'Neues Panel einrichten': 'Set up a new panel',
       'Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.':
