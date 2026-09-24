@@ -52,12 +52,21 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **19.09.2026** (`upstream/main` @ `f5bdb01`,
-**Release 0.5.0**), als echter Merge-Commit. Neu damit im Fork: **Zurück-Button
-der Tab-Leiste exakt mittig** (links `ceil(N/2)`, rechts `floor(N/2)`, fehlende
-Zelle als Abstandhalter), **`--accent` folgt der OK-Farbe auch ohne gesetzte
-Panel-Grundfarbe**, und der YC-SM55P steht im Gerätekatalog bei den
-2-Pane-Geräten. Der Fork trägt seitdem ebenfalls `VERSION=0.5.0` — bewusst im
+Zuletzt eingepflegt am **24.09.2026** (`upstream/main` @ `946af6a`,
+**Sammel-Merge #45**), als echter Merge-Commit. Inhaltlich kam nichts Neues:
+Die elf Commits darin sind alle unsere Beiträge #34–#44, zusammengeführt auf
+unserem Sammel-Zweig `up/sammel`, den Lenardo unverändert gemergt hat. Der Fork
+hatte sie schon; das Merge-Ergebnis war Byte für Byte der bisherige
+Fork-`main`. Der Merge hält die Geschichte fest, damit dieselben Konflikte
+nicht wiederkommen. Dabei ist der Verlaufs-Block in `i18n.js` an Upstreams
+Stelle gerückt (eigene Überschrift vor „Neues Panel“), er war im Fork in den
+Wetter-Block geraten.
+
+Davor, am 19.09.2026 (`f5bdb01`, **Release 0.5.0**). Neu damit im Fork:
+**Zurück-Button der Tab-Leiste exakt mittig** (links `ceil(N/2)`, rechts
+`floor(N/2)`, fehlende Zelle als Abstandhalter), **`--accent` folgt der
+OK-Farbe auch ohne gesetzte Panel-Grundfarbe**, und der YC-SM55P steht im
+Gerätekatalog bei den 2-Pane-Geräten. Der Fork trägt seitdem ebenfalls `VERSION=0.5.0` — bewusst im
 Gleichschritt mit Upstream, weil die Versionszeile sonst bei jedem Release von
 Hand aufzulösen wäre; `ARCHIVEURL` zeigt weiterhin auf die Releases **dieses**
 Forks.
@@ -78,6 +87,18 @@ beim nächsten Mal wieder.
       Tür-Buttons), gerahmte Split-Panes, zweispaltiger Screensaver im
       Querformat, Kachelrahmen-Einstellung, Lautstärkeleiste in beiden
       Player-Ansichten, Anlagenschema. **S**
+- [ ] **Beim nächsten Abgleich: Lenardos #33 (englische Übersetzungen).**
+      Unser a62ed9f hat elf Kalender- und Wetter-Übersetzungen aus dem
+      Upstream-Beitrag genommen, weil #33 sie mitbringt. #33 ist noch nicht
+      gemergt, bei Upstream fehlen sie also gerade, im Fork stehen sie. Kommt
+      #33, stehen sie in `i18n.js` doppelt; je Schlüssel einen Eintrag
+      behalten, und zwar die Fassung aus #33, damit Fork und Upstream gleich
+      lauten. Zehn sind wortgleich, „Standort vom Miniserver wird verwendet."
+      ist in #33 anders übersetzt. **S**
+- [ ] **Tote Zuweisung bei Upstream:** `bin/loxone_weather.py` hat dort
+      noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
+      eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
+      packen. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -86,8 +107,9 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 23.09.2026. **Zwölf Beiträge sind in `upstream/main` gemergt, elf
-sind eingereicht und noch offen:**
+Stand 24.09.2026. **Alle bisher eingereichten Beiträge sind in
+`upstream/main`:** zwölf einzeln gemergt, dazu #34–#44 über unseren
+Sammel-PR #45 (Zweig `up/sammel`), den Lenardo am 24.09.2026 gemergt hat.
 
 | PR | Inhalt |
 |---|---|
@@ -103,92 +125,51 @@ sind eingereicht und noch offen:**
 | [#30](https://github.com/Lenardo1/loxpanel/pull/30) | Positionsring: Strichstärke regelbar, gleitend, Fahrt auf der Kachel |
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
+| [#45](https://github.com/Lenardo1/loxpanel/pull/45) | Sammel-PR: #34–#44 nacheinander auf einem Zweig, Konflikte dort aufgelöst, von Lenardo unverändert gemergt |
 
-**NOCH OFFEN — diese elf Zweige nicht löschen:**
+Über #45 übernommen:
 
 | PR | Zweig | Inhalt |
 |---|---|---|
 | [#34](https://github.com/Lenardo1/loxpanel/pull/34) | `up/kleinigkeiten` | `ValueError` bei leerer `LOXPANEL_MS_PORT`; veralteter `/settings`-Hinweis |
-| [#35](https://github.com/Lenardo1/loxpanel/pull/35) | `up/raumtab-leiste` | Raum-Tab in einer mehrteiligen Leiste sperrt die übrigen Seiten aus |
-| [#36](https://github.com/Lenardo1/loxpanel/pull/36) | `up/eigene-auswahl` | Freie Bausteinauswahl, ganzes Feature (enthält #35 mit) |
+| [#35](https://github.com/Lenardo1/loxpanel/pull/35) | `up/raumtab-leiste` | Raum-Tab in einer mehrteiligen Leiste sperrt die übrigen Seiten aus (steckt in #36) |
+| [#36](https://github.com/Lenardo1/loxpanel/pull/36) | `up/eigene-auswahl` | Freie Bausteinauswahl, ganzes Feature |
 | [#37](https://github.com/Lenardo1/loxpanel/pull/37) | `up/raumzeile-kontrast` | Raumzeile tritt zurück und schafft wieder AA (Fork #63) |
 | [#38](https://github.com/Lenardo1/loxpanel/pull/38) | `up/kalender-abos` | Kalender: mehrere Abos, mehrtägige Termine, vier Parser-Fehler (Fork #66, #67, #74) |
-| [#39](https://github.com/Lenardo1/loxpanel/pull/39) | `up/uhrseite-spalte` | Uhr-Seite: rechte Spalte wählbar (Fork #68–#70), setzt auf #38 auf |
-| [#40](https://github.com/Lenardo1/loxpanel/pull/40) | `up/anzeige-skalierung` | Anzeigegröße und Skalierung (Fork #71, #72), setzt auf #39 auf |
+| [#39](https://github.com/Lenardo1/loxpanel/pull/39) | `up/uhrseite-spalte` | Uhr-Seite: rechte Spalte wählbar (Fork #68–#70) |
+| [#40](https://github.com/Lenardo1/loxpanel/pull/40) | `up/anzeige-skalierung` | Anzeigegröße und Skalierung (Fork #71, #72) |
 | [#41](https://github.com/Lenardo1/loxpanel/pull/41) | `up/energiefluss-icons` | Energiefluss: Loxone-Icons sitzen auf Safari, iPad und in WebViews wieder in ihren Kreisen (Fork #77) |
 | [#42](https://github.com/Lenardo1/loxpanel/pull/42) | `up/kalender-wochentage` | Monatskalender: Tage stehen wieder unter dem richtigen Wochentag (F16 aus Fork #84) |
 | [#43](https://github.com/Lenardo1/loxpanel/pull/43) | `up/token-stabilitaet` | Miniserver-Token erneuern, Befehlsfehler im Panel, kleinere Stabilitätsfehler (Fork #81) |
-| [#44](https://github.com/Lenardo1/loxpanel/pull/44) | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, dazu die zwei Kachel-Korrekturen aus #82), setzt auf #43 auf |
+| [#44](https://github.com/Lenardo1/loxpanel/pull/44) | `up/verlaeufe` | Verlaufs-Diagramme: Detailseite, Split-Hälfte, Mini-Verlauf in der Kachel (Fork #78–#80, #82) |
 
-Jeder dieser Zweige trägt den Kopf seines Pull Requests. Wird ein Zweig
-gelöscht, schließt GitHub den zugehörigen PR. Erst entfernen, wenn Lenardo
-den PR gemergt oder geschlossen hat — und zwar einzeln, nicht in einem Rutsch.
+- [ ] **#34–#44 bei Lenardo schließen, danach die Zweige löschen.** #45
+      enthält ihre Commits neu aufgesetzt, mit anderen Kennungen; GitHub
+      markiert die Einzel-PRs deshalb nicht selbst als gemergt. Nachsehen, ob
+      Lenardo sie geschlossen hat, offene mit Verweis auf #45 schließen. Erst
+      dann die elf Zweige aus der Tabelle und `up/sammel` im Fork löschen: Ein
+      gelöschter Zweig schließt seinen offenen PR ohne Hinweis. **S**
 
-Zu #35 und #36: Der Fehler in #35 steckt in Lenardos Code und ist an seinem
-unveränderten `panel.html` im Browser nachgestellt — `renderTabs()` ersetzt
-die ganze untere Leiste, sobald eine Ansicht nicht-leere `catTabs` mitbringt,
-ohne zu prüfen, ob das Panel nur diese eine Seite hat. #36 enthält dieselbe
-Bedingung, weil die freie Auswahl ohne sie in dieselbe Falle liefe — aber mit
-anderem Wortlaut und auf die freie Auswahl verallgemeinert. Deshalb kollidieren
-die beiden: Nacheinander angewendet gibt es in `renderTabs()` einen Konflikt,
-per Cherry-Pick wie per Rebase nachgeprüft (22.09.2026). Vorschlag an Lenardo:
-#34 und #36 mergen, #35 schließen. Wird #35 doch zuerst gemergt, gilt beim
-Konflikt die Fassung aus #36.
+**Eingereicht, noch offen — Zweig nicht löschen:**
 
-Zu #37 bis #40 (eingereicht am 23.09.2026): #37 steht für sich. #38, #39 und
-#40 sind gestapelt, weil sie dieselben Stellen im Screensaver ändern: #39
-enthält den Commit aus #38, #40 die aus #38 und #39; neu ist jeweils nur der
-letzte. Sie müssen in dieser Reihenfolge gemergt werden. **Nach jedem Merge den
-nächsten Zweig auf das neue `upstream/main` rebasen und mit
-`--force-with-lease` pushen** — sonst zeigt der PR den schon gemergten Commit
-weiter mit. Alle vier sind auf `upstream/main` gebaut und dort geprüft
-(Parser-Fälle, Abruf, Kalender Ende zu Ende, alle Spalten-Modi,
-Skalierungskette, Messwerte), und sie gehen auch nach #33, #34 und #36 sauber
-durch. Die README bleibt außen vor, Lenardos README beschreibt den Kalender
-nicht.
+| PR | Zweig | Inhalt |
+|---|---|---|
+| noch zu öffnen | `up/kalender-wetterpush` | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87) |
 
-Überschneidung mit Lenardos eigenem #33 (englische Übersetzungen): #38 bringt
-zehn Katalog-Einträge mit, die #33 auch hat, neun wortgleich, einer anders
-formuliert („Standort vom Miniserver wird verwendet."); #40 dazu
-„Automatisch", gleich übersetzt. Doppelte Schlüssel sind kein Fehler, der
-spätere gewinnt. Mergt Lenardo #33 zuerst, die Doppel aus #38 und #40
-herausnehmen; angekündigt ist das im Text von #38.
+Der Zweig steht auf `946af6a`, ein Commit, nur `bin/front_info.py` und
+`bin/webvisu.py`, gleich dem Fork-Stand. Öffnen über
+`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/kalender-wetterpush?expand=1`,
+danach die PR-Nummer hier eintragen.
 
-Zu #41 bis #44 (eingereicht am 23.09.2026): Aus
-dem Fork ging nur mit, was Upstream ohne die Fork-Werkzeuge versteht — keine
-Tests und CI (#82), kein Unraid-Betrieb (#83), keine Kalender-/Wetter-Tabs
-(#84). #41 und #42 stehen für sich. Den WebKit-Fehler aus #41 kann man hier
-nicht nachstellen; in Chromium liegen Icon- und Kreismitte vorher wie
-nachher genau aufeinander. #44 (`up/verlaeufe`) braucht `_ms_http()` aus
-#43 und enthält dessen Commit mit, neu ist nur der zweite. Nach dem Merge von
-#43 den Zweig auf das neue `upstream/main` rebasen und mit `--force-with-lease`
-pushen, wie bei #38–#40.
-
-Überschneidung mit den offenen PRs, jeder einzeln gegen die vier Zweige
-geprüft (23.09.2026): #33 bis #37 vertragen sich mit allen vier, #41 und #42
-auch mit #38 bis #40. Kommt #39 vor #43, gibt es in `_push()` eine
-Konfliktstelle: die Seite von #43 nehmen, `_send_or_drop()` räumt in #39
-`conn_status` schon selbst mit ab. Die Verläufe stoßen nach #38 in `i18n.js`
-an (beide Seiten behalten), nach #39 zusätzlich an fünf Stellen in
-`bin/webvisu.py` und drei in `panel.html`. Dort erweitern die Uhr-Seite aus
-#39 und die Verläufe dieselben Stellen um ihr jeweiliges Gegenstück
-(`conn_status`/`conn_chart`, `setsvstatus`/`setchart`,
-`svStatusMax`/`statRanges`, `svstatus`/`chart`), und `chart:` gehört dann in
-das mit #39 eingeführte `_clean_tabpane()`. In `panel.html` braucht die
-Verlaufs-Pane außerdem den `svSideOn()`-Schutz aus #39: Solange der
-Screensaver oben liegt, meldet `setchart` keinen Baustein, und `{t:"chart"}`
-wird nicht gezeichnet. Diesen Schutz hat keine der beiden Seiten. Nur beide
-Seiten zu behalten reicht also nicht, die Auflösung aus dem Fork übernehmen,
-wo alles schon nebeneinander steht.
-
-Die Zweige der zwölf gemergten Beiträge sind gelöscht. Für den nächsten
-Beitrag wieder genauso vorgehen: EIN Commit direkt auf `upstream/main`
-aufsetzen, damit GitHub Titel und Beschreibung selbst füllt, und über diesen
-Link einreichen:
+Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
+`upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
+und über diesen Link einreichen:
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`
 Bei gestapelten Zweigen mit mehreren Commits füllt GitHub nichts aus; Titel
 und Text dann aus der Meldung des obersten Commits übernehmen und oben
-vermerken, auf welchem PR er aufsetzt.
+vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
+denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
+nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
 Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
 
