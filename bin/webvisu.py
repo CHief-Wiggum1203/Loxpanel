@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import calendar
 import hashlib
 import hmac
 import json
@@ -23,9 +24,10 @@ import logging
 import math
 import os
 import re
+import struct
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import ssl as _ssl
@@ -58,7 +60,7 @@ def _make_client(host, user, password, port, verify_tls) -> LoxoneClient:
 from adapters import JalousieAdapter, LightControllerV2Adapter  # noqa: E402
 from audioserver import make_backend, AudioBackend  # noqa: E402
 from audioserver_events import AudioEventClient  # noqa: E402
-import front_info  # noqa: E402  # Kalender (iCal-Abo) + Wetter (Open-Meteo) fuer die Front
+import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fuer die Front
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 
@@ -121,6 +123,10 @@ JAL = JalousieAdapter()
 
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
+# Freie Bausteinauswahl: EINE Seite je Panel, die Bausteine unabhaengig von Raum
+# und Kategorie zusammenstellt. Bewusst kein Praefix mit UUID wie cat:/room: -
+# es gibt genau eine je Panel, die Liste steht im Profil unter "picks".
+PICK_TAB = "auswahl"
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
@@ -129,9 +135,10 @@ NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
 
 
 def _is_tab(t) -> bool:
-    """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs ODER eine einzelne
-    Kategorie bzw. ein einzelner Raum als Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
-    if t in VALID_TABS:
+    """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs, die freie Auswahl
+    (`auswahl`) ODER eine einzelne Kategorie bzw. ein einzelner Raum als
+    Direkt-Tab (`cat:<uuid>`/`room:<uuid>`)."""
+    if t in VALID_TABS or t == PICK_TAB:
         return True
     if not isinstance(t, str):
         return False
@@ -142,6 +149,35 @@ def _is_tab(t) -> bool:
 STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
               "InfoOnlyDigital", "SmokeAlarm", "PresenceDetector",
               "ClimateControllerUS", "Hourcounter"}
+# Verlaufs-Diagramme fuer Bausteine mit `statistic` in der Struktur. Die Daten
+# liegen am Miniserver als Monatsdateien /stats/<uuidAction>.<JJJJMM>.xml (so
+# listet sie /stats/, und so fuehrt sie die Loxone-App: STATISTIC-Befehle in
+# scripts4.js, ermittelt mit bin/statistic_probe.py). Der Zeitraum laeuft in der
+# Route mit: {"view": "control", "id": uuid, "range": "7d"}.
+STAT_RANGES = {"24h": ("24 h", 86400), "7d": ("7 Tage", 7 * 86400), "30d": ("30 Tage", 30 * 86400)}
+STAT_DEFAULT_RANGE = "24h"
+STAT_MAX_POINTS = 240    # Punkte je Linie nach dem Ausduennen (Diagramm ~440 px breit)
+STAT_REFRESH = 300       # Monatsdatei, die noch waechst, nach so vielen Sekunden neu holen
+STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
+STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
+# visuType der Statistik-Ausgaenge, wie an der Anlage beobachtet: 0 Analogwert
+# (Temperatur, Leistung ...), 1 Digitalwert (Regen, Sonnenschein), 2 Zaehlerstand
+# (Gesamtverbrauch kWh). Zaehlerstaende zeigen den Verbrauch je Stunde/Tag als Balken.
+STAT_KIND = {1: "digital", 2: "counter"}
+# Darstellung des Mini-Verlaufs in der Kachel (tiles.<uuid>.chartStyle). Fehlt der
+# Schluessel, gilt "trend". Tagesmuster und Tagesspanne zeigen immer 7 Tage.
+STAT_TILE_STYLES = ("trend", "pattern", "span")
+STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+# Anfragen an den Miniserver (Befehle, Verlaeufe, Icons) tragen das Token der
+# Anmeldung. Es laeuft nach einiger Zeit ab, die WebSocket-Verbindung fuer die
+# Anzeige braucht es danach aber nicht mehr - ohne Erneuerung zeigte das Panel
+# nach 1-2 Tagen weiter Werte an, nahm aber keine Befehle mehr an. Meldet der
+# Miniserver 401, meldet _ms_http() sich neu an und wiederholt die Anfrage.
+MS_CMD_TIMEOUT = 10      # s: ein Befehl blockiert solange die Nachrichten seines Panels
+TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
+MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
+ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
+COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
@@ -175,6 +211,111 @@ def _clean_lang(v):
         return ""
     v = v.strip().lower()[:8]
     return v if v.split("-")[0] in SUPPORTED_LANGS else ""
+
+
+# Screensaver: hoechstens so viele Status-Kacheln in der rechten Spalte. Mehr
+# passt neben Uhr und Wetter auf keinem Panel lesbar hin.
+SV_STATUS_MAX = 8
+
+
+# Skalierung der Visu. Kette: global (theme.json ui.scale) -> Profil (ui.scale)
+# -> Geraet (devices[name].scale); die spaetere gewinnt, FEHLT sie, gilt die
+# fruehere. Deshalb speichern Profil und Geraet auch "off" ausdruecklich - sonst
+# koennte ein Profil ein globales "auto" nicht abschalten. "auto" = das Panel
+# rechnet selbst aus, wie weit es seinen Kasten ohne Rand und ohne Verzerrung
+# vergroessern kann; eine Zahl ist ein fester Faktor (das Panel begrenzt ihn
+# so, dass alles auf den Schirm passt); "off" = feste Groesse wie bisher. Die
+# Grenzen stehen nur hier, der Konfigurator liest sie ueber /api/meta.
+SCALE_MIN, SCALE_MAX = 0.5, 2.0
+
+# Darstellungs-Keys der globalen ui (theme.json), die der Konfigurator unter
+# Global -> Darstellung setzt. Einzige Liste: _write_theme() schreibt genau
+# diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
+# muss auch hier stehen, sonst geht es beim Speichern still verloren.
+THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "font", "textColor", "baseColor",
+                 "bold", "lang", "scale")
+
+
+def _clean_scale(v):
+    """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
+    (auf zwei Stellen gerundet, deutsches Komma erlaubt). Ungueltiges ergibt
+    None = nicht gesetzt. Zahlen ausserhalb werden an die Grenze gesetzt, wie
+    die uebrigen Groessen in dieser Datei auch."""
+    if isinstance(v, str):
+        v = v.strip().lower()
+        if v in ("off", "auto"):
+            return v
+        try:
+            v = float(v.replace(",", "."))
+        except ValueError:
+            return None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
+        return None
+    return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
+
+
+def _clean_screen(d) -> dict:
+    """Bildschirmmeldung eines Panels ({t:"screen"}) auf plausible Zahlen
+    beschraenken. Dient nur der Anzeige unter Settings -> Panels; nichts davon
+    steuert den Server."""
+    if not isinstance(d, dict):
+        return {}
+
+    def zahl(k, lo, hi, stellen=0):
+        v = d.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+            return None
+        v = max(lo, min(hi, float(v)))
+        return round(v, stellen) if stellen else int(round(v))
+
+    out = {"vw": zahl("vw", 1, 20000), "vh": zahl("vh", 1, 20000),     # sichtbare Flaeche (CSS-px)
+           "sw": zahl("sw", 1, 20000), "sh": zahl("sh", 1, 20000),     # Bildschirm laut Geraet (CSS-px)
+           "dpr": zahl("dpr", 0.25, 8, 2),                              # Pixeldichte
+           "bw": zahl("bw", 1, 20000), "bh": zahl("bh", 1, 20000),     # Kasten der Visu (ungeskaliert)
+           "k": zahl("k", 0.1, 10, 3)}                                  # wirksamer Faktor
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def _clean_tabpane(v) -> str:
+    """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
+    | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>" (Verlauf eines Bausteins
+    mit Aufzeichnung). "" heisst "kein Widget" — die Visu
+    weitet sich dann nach rechts aus.
+
+    Stand vorher wortgleich an zwei Stellen (Export und Speichern). Laufen die
+    auseinander, zeigt der Konfigurator einen Wert an, den der Server beim
+    Speichern still verwirft. Prueft bewusst genau wie bisher, insbesondere
+    OHNE strip(): das Zusammenfassen soll am Ergebnis nichts aendern."""
+    if v in ("weather", "calendar"):
+        return v
+    if isinstance(v, str):
+        for kopf in ("player:", "energy:", "camera:", "chart:"):
+            if v.startswith(kopf) and len(v) > len(kopf):
+                return v
+    return ""
+
+
+def _clean_svpane(v) -> str:
+    """Rechte Spalte der Uhr-Seite (Screensaver) pruefen und normieren.
+
+    Erlaubt: "off" (keine zweite Spalte), "calendar", "weather",
+    "energy:<uuid>", "camera:<uuid>" und "status:<uuid>,<uuid>,...".
+    Alles andere ergibt "" — das ist die Automatik: Termine, wenn welche
+    anstehen, sonst die Wetter-Details. Unbekannte Werte wandern damit auf
+    die Automatik statt eine leere Spalte zu erzeugen."""
+    if not isinstance(v, str):
+        return ""
+    v = v.strip()
+    if v in ("off", "calendar", "weather"):
+        return v
+    for kopf in ("energy:", "camera:"):
+        if v.startswith(kopf) and len(v) > len(kopf):
+            return v
+    if v.startswith("status:"):
+        uu = [x.strip() for x in v[7:].split(",") if x.strip()][:SV_STATUS_MAX]
+        if uu:
+            return "status:" + ",".join(uu)
+    return ""
 
 
 # Loxone-Icon-Bibliothek: SVGs des LoxBerry-Plugins "loxoneicons", read-only in
@@ -230,6 +371,164 @@ def _pos_pct(value) -> int | None:
 
 def _clean(name: str) -> str:
     return re.sub(r"^[^0-9A-Za-zÄÖÜäöü]+", "", name or "").strip() or (name or "")
+
+
+_STAT_ROW = re.compile(r"<S\s([^>]*?)/?>")
+_STAT_ATTR = re.compile(r'(\w+)="([^"]*)"')
+
+
+def _parse_stat_xml(text: str) -> list:
+    """Loxone-Statistik-Monatsdatei -> [(sekunden, [werte ...])], zeitlich sortiert.
+
+    Jede Zeile ist <S T="JJJJ-MM-TT hh:mm:ss" V="1.23"/>; bei mehreren
+    Ausgaengen stehen weitere Wert-Attribute in Ausgangsreihenfolge dahinter.
+    Gelesen wird deshalb jedes Attribut ausser T in Dokumentreihenfolge, ohne
+    Annahme ueber seinen Namen. Per Regex statt XML-Parser: die Datei ist flach,
+    und so gibt es keine Entitaeten-Aufloesung. Zeitstempel sind Ortszeit des
+    Miniservers und werden als Wanduhr-Sekunden (timegm) gefuehrt, damit Server
+    und Panel ohne Zeitzonenrechnung dieselbe Uhrzeit zeigen."""
+    out = []
+    for m in _STAT_ROW.finditer(text or ""):
+        ts, vals = None, []
+        for name, raw in _STAT_ATTR.findall(m.group(1)):
+            if name == "T":
+                try:
+                    ts = calendar.timegm(datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").timetuple())
+                except ValueError:
+                    ts = None
+            else:
+                try:
+                    vals.append(float(raw))
+                except ValueError:
+                    vals.append(None)
+        if ts is not None and vals:
+            out.append((ts, vals))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def _stat_fmt(fmt) -> tuple[int, str]:
+    """Loxone-Zahlenformat -> (Nachkommastellen, Einheit). Zwei Schreibweisen:
+    printf wie bei `statistic` ("%.1f °C", "%.0f%", "%.0fLx") und die Maske von
+    `statisticV2` ("0,000kW", "0,0kWh", "0,00€"). Ohne Format -> (0, "")."""
+    s = str(fmt or "")
+    m = re.search(r"%(?:\.(\d+))?[fd]", s)
+    if m:
+        return int(m.group(1) or 0), s[m.end():].replace("%%", "%").strip()
+    m = re.match(r"^[#0]+(?:[.,]([#0]+))?(.*)$", s.strip())
+    if m:
+        return len(m.group(1) or ""), m.group(2).strip()
+    return 0, ""
+
+
+def _parse_stat2_bin(body: bytes, nvals: int = 1) -> list | None:
+    """Antwort von jdev/sps/getStatistic/.../raw/... -> [(sekunden, [werte])].
+
+    Binaer, je Eintrag 4 Byte Zeitstempel (uint32, Unix-UTC) und je Wert 8 Byte
+    (float64), little-endian - an der Anlage so gemessen (PV 7,42 kW, Netz
+    -6,26 kW, Eintraege im Abstand der Gruppe). Die Zeit wird wie bei den
+    Monatsdateien in Wanduhr-Sekunden der Container-Zeitzone umgerechnet.
+    Passt die Laenge nicht zum Eintragsformat -> None (unbekannte Antwort)."""
+    size = 4 + 8 * nvals
+    if len(body) % size:
+        return None
+    out = []
+    for off in range(0, len(body), size):
+        ts, *vals = struct.unpack_from("<I" + "d" * nvals, body, off)
+        vals = [v if math.isfinite(v) else None for v in vals]
+        out.append((calendar.timegm(time.localtime(ts)), vals))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
+    """Linie auf hoechstens n Punkte ausduennen: je Zeitfenster der Mittelwert
+    (Analog) bzw. das Maximum (Digital: ein kurzes "Ein" soll sichtbar bleiben)."""
+    if len(pts) <= n or t1 <= t0:
+        return pts
+    w = (t1 - t0) / n
+    buckets: dict[int, list] = {}
+    for t, v in pts:
+        buckets.setdefault(min(n - 1, max(0, int((t - t0) / w))), []).append((t, v))
+    out = []
+    for b in sorted(buckets):
+        items = buckets[b]
+        if digital:
+            out.append((items[-1][0], max(v for _, v in items)))
+        else:
+            out.append((int(sum(t for t, _ in items) / len(items)),
+                        sum(v for _, v in items) / len(items)))
+    return out
+
+
+def _stat_buckets(pts: list, edges: list, t_end: int) -> list:
+    """Zeitgewichteter Mittelwert je Abschnitt [edges[i], edges[i+1]). Ein Messwert
+    gilt bis zum naechsten (Treppe) - so stimmt das auch fuer Digitalwerte, die nur
+    bei Aenderung aufgezeichnet werden: der Mittelwert ist dann der Ein-Anteil.
+    Abschnitte ohne bekannten Wert oder nach t_end -> None."""
+    out, k, n = [], 0, len(pts)
+    for a, b in zip(edges, edges[1:]):
+        b2 = min(b, t_end)
+        while k + 1 < n and pts[k + 1][0] <= a:
+            k += 1
+        if b2 <= a or not n or pts[0][0] >= b2:
+            out.append(None)
+            continue
+        acc = dur = 0.0
+        j = k
+        while j < n and pts[j][0] < b2:
+            t, v = pts[j]
+            lo, hi = max(a, t), min(b2, pts[j + 1][0] if j + 1 < n else t_end)
+            if hi > lo:
+                acc += v * (hi - lo)
+                dur += hi - lo
+            j += 1
+        out.append(acc / dur if dur else None)
+    return out
+
+
+def _stat_day_range(pts: list, edges: list, t_end: int) -> list:
+    """Tiefst- und Hoechstwert je Abschnitt, mit dem Stand, der zu Beginn des
+    Abschnitts galt. Abschnitte ohne bekannten Wert oder nach t_end -> None."""
+    out = []
+    for a, b in zip(edges, edges[1:]):
+        if a >= t_end:
+            out.append(None)
+            continue
+        vals = [v for t, v in pts if a <= t < min(b, t_end + 1)]
+        prev = [v for t, v in pts if t < a]
+        if prev:
+            vals.append(prev[-1])
+        out.append((min(vals), max(vals)) if vals else None)
+    return out
+
+
+def _stat_bars(pts: list, edges: list) -> list:
+    """Zaehlerstaende -> Verbrauch je Abschnitt [edges[i], edges[i+1]).
+
+    Summiert von Messpunkt zu Messpunkt: Grundlage ist der letzte Stand davor
+    (pts beginnt mit dem letzten Wert vor dem Fenster, falls bekannt; sonst ist
+    der erste Stand die Basis). Faellt der Stand auf weniger als die Haelfte,
+    wurde der Zaehler zurueckgesetzt und zaehlt ab 0 weiter. Ein kleiner
+    Ruecksprung (Rundung, 1000,5 -> 1000,4) ist kein Verbrauch, sonst ergaebe
+    er einen Balken in Hoehe des ganzen Zaehlerstands."""
+    out, i, prev = [], 0, None
+    while i < len(pts) and pts[i][0] < edges[0]:
+        prev = pts[i][1]
+        i += 1
+    for a, b in zip(edges, edges[1:]):
+        use = 0.0
+        while i < len(pts) and pts[i][0] < b:
+            v = pts[i][1]
+            if prev is not None:
+                if v >= prev:
+                    use += v - prev
+                elif v < prev / 2:
+                    use += v              # zurueckgesetzt: ab 0 weitergezaehlt
+            prev = v
+            i += 1
+        out.append((a, use))
+    return out
 
 
 def _hex_rgb(value) -> str | None:
@@ -431,8 +730,11 @@ def _night_config() -> dict:
 
 def _calendar_config() -> dict:
     """Kalender-/Wetter-Block aus loxpanel.cfg `calendar`:
-    {"ical_url": "...", "name": "Family", "lat": 47.07, "lon": 15.44,
-     "days": 14, "fore_days": 4}. Steuert die Front (Screensaver)."""
+    {"sources": [{"name": "Familie", "url": "...", "color": "#e0a24d"}, ...],
+     "holiday_url": "...", "name": "Family", "colors": true, "sv_events": 3,
+     "lat": 47.07, "lon": 15.44, "days": 14, "fore_days": 4}.
+    Steuert die Front (Screensaver). Eine aeltere einzelne `ical_url` wird von
+    front_info.calendar_sources() als erste Quelle mitgelesen."""
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "loxpanel.cfg"
     if not f.is_file():
@@ -549,12 +851,15 @@ class App:
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
         self.conn_energy: dict[web.WebSocketResponse, str] = {}   # ws -> EFM/EnergyManager2-UUID der aktiven Energiefluss-Pane (via setenergy)
         self.conn_camera: dict[web.WebSocketResponse, str] = {}   # ws -> Intercom-UUID der aktiven Kamera-Pane (via setcamera)
+        self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
+        self.conn_chart: dict[web.WebSocketResponse, tuple[str, str]] = {}   # ws -> (Baustein-UUID, Zeitraum) der Verlaufs-Pane (via setchart)
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
+        self.op_modes: dict = {}        # Betriebsarten der Anlage (Id -> Name), s. _apply_structure
         self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
         self.night_cfg = _night_config()  # {"control": uuid} -> dessen active-State = Nacht
         self._dirty = True
@@ -566,8 +871,23 @@ class App:
         self._last_sent: dict = {}
         self.jwt: str | None = None
         self.alg: str = "SHA1"
+        self._auth_gen = 0               # zaehlt jede Anmeldung (-> _renew_token)
+        self._auth_at = 0.0              # monotonic der letzten Anmeldung
+        self._auth_lock = asyncio.Lock()
         self.icon_session: aiohttp.ClientSession | None = None
         self.icon_cache: dict[str, tuple[bytes, str]] = {}
+        # Verlaufsdaten: (uuidAction, "JJJJMM") -> (monotonic, JJJJMM beim Abruf,
+        # [(sekunden, [werte])] oder None nach Abruffehler). Ein Monat, der beim
+        # Abruf schon vorbei war, aendert sich nicht mehr.
+        self.stat_cache: dict[tuple[str, str], tuple[float, str, list | None]] = {}
+        self.stat_pending: set[tuple] = set()
+        # statisticV2 (Energie-Zaehler): (uuidAction, Gruppe, Ausgang, Zeitraum) ->
+        # (monotonic, [(sekunden, [wert])] oder None nach Abruffehler). Hoechstens
+        # zwei Abrufe gleichzeitig; die Loxone-App erlaubt 4 (Gen 2) bzw. 1 (Gen 1).
+        self.stat2_cache: dict[tuple, tuple[float, list | None]] = {}
+        self.stat2_sem = asyncio.Semaphore(2)
+        self.stat_gen = 0              # zaehlt jeden Abruf, Schluessel fuer stat_memo
+        self.stat_memo: dict[tuple, list] = {}
         self.theme = load_theme()
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
@@ -589,10 +909,15 @@ class App:
         self._front: dict | None = None
         self._front_key: str | None = None
         self._front_meta: dict = {}
-        # Letzter erfolgreich geladener Stand je Teil (Termine, Feiertage,
-        # Wetter) plus dessen Uhrzeit. Ueberbrueckt Aussetzer der Quellen,
-        # siehe _front_keep().
+        # Letzter erfolgreich geladener Stand je Teil (Feiertage, Wetter) plus
+        # dessen Uhrzeit. Ueberbrueckt Aussetzer der Quellen, siehe _front_keep().
         self._front_good: dict = {}
+        # Dasselbe fuer die Termine, aber JE KALENDER: {Quellenschluessel ->
+        # {"events": [...], "zeit": "HH:MM"}}. Mit mehreren Abos reicht ein
+        # gemeinsamer Stand nicht — faellt iCloud aus und Google liefert, waere
+        # die Terminliste nicht leer und der alte Stand (mit den iCloud-
+        # Terminen darin) wuerde ueberschrieben.
+        self._front_good_cal: dict = {}
         self._front_dirty = False
         self._front_refresh = asyncio.Event()
         self._front_session: aiohttp.ClientSession | None = None
@@ -779,7 +1104,7 @@ class App:
                                        self.port, self.verify_tls)
             await self.client.__aenter__()
             self.alg = (await self.client.getkey2()).hashAlg
-            self.jwt = await self.client.authenticate()
+            self._set_token(await self.client.authenticate())
             st = await self.client.load_structure()
             # Reconnect nach Miniserver-Reboot (z.B. Loxone-Config hochgeladen):
             # hat sich die Struktur geaendert, Panels neu laden lassen. Beim
@@ -831,7 +1156,8 @@ class App:
         self.user, self.password = ms["user"], ms["pass"]
         self.verify_tls = ms.get("verify_tls", False)
         old_client, self.client = self.client, newc
-        self.alg, self.jwt = alg, jwt
+        self.alg = alg
+        self._set_token(jwt)
         # Anderer/geaenderter Miniserver -> Struktur evtl. anders, dann Panels neu laden.
         if self._adopt_structure(st):
             self._pending_reload = True
@@ -839,6 +1165,8 @@ class App:
         old_is, self.icon_session = self.icon_session, \
             aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
         self.icon_cache = {}
+        self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
+        self.stat_gen += 1
         old_ws, self.ws = self.ws, None   # stream_task baut WS mit neuen Daten neu auf
         self.intercom_cfg = _intercom_config()
         self._dirty = True
@@ -856,10 +1184,65 @@ class App:
                            secure=_ms_https(self.port))
         await self.ws.connect()
 
+    def _set_token(self, jwt: str) -> None:
+        self.jwt = jwt
+        self._auth_gen += 1
+        self._auth_at = time.monotonic()
+
     async def _reauth(self) -> None:
         # Token erneuern (kann nach langer Laufzeit ablaufen)
         if self.client:
-            self.jwt = await self.client.authenticate()
+            self._set_token(await self.client.authenticate())
+
+    async def _renew_token(self, seen_gen: int) -> bool:
+        """Nach einem 401 neu anmelden. Hat eine parallele Anfrage das schon
+        getan (Zaehler weiter als seen_gen), genuegt es, erneut zu senden. Innerhalb
+        von TOKEN_RENEW_MIN nach der letzten Anmeldung nicht noch einmal: dann liegt
+        der 401 nicht am Token. -> True, wenn sich ein Neuversuch lohnt."""
+        async with self._auth_lock:
+            if self._auth_gen != seen_gen:
+                return True
+            if not self.client or time.monotonic() - self._auth_at < TOKEN_RENEW_MIN:
+                return False
+            self._auth_at = time.monotonic()     # auch ein Fehlversuch sperrt fuer TOKEN_RENEW_MIN
+            try:
+                self._set_token(await self.client.authenticate())
+            except Exception as err:            # z. B. Passwort geaendert, Miniserver startet neu
+                log.warning("Neuanmeldung am Miniserver fehlgeschlagen: %s", err or type(err).__name__)
+                return False
+            log.info("Miniserver-Token abgelaufen -> neu angemeldet")
+            return True
+
+    async def _ms_http(self, path: str, timeout: float, renew: bool = True) -> tuple[int, bytes, str]:
+        """GET an den Miniserver mit dem aktuellen Token; bei 401 (und renew)
+        einmal neu anmelden und wiederholen. -> (HTTP-Status, Inhalt, Content-Type). Wirft
+        ConnectionError ohne Verbindung, sonst aiohttp.ClientError/TimeoutError."""
+        async def once() -> tuple[int, bytes, str]:
+            if self.icon_session is None:
+                raise ConnectionError("keine Verbindung zum Miniserver")
+            scheme = "https" if _ms_https(self.port) else "http"
+            headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+            async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}",
+                                             headers=headers,
+                                             timeout=aiohttp.ClientTimeout(total=timeout)) as r:
+                return r.status, await r.read(), r.headers.get("Content-Type", "")
+        gen = self._auth_gen
+        res = await once()
+        if res[0] == 401 and renew and await self._renew_token(gen):
+            res = await once()
+        return res
+
+    async def _ms_jdev(self, path: str, timeout: float = MS_CMD_TIMEOUT,
+                       renew: bool = True) -> tuple[str, object]:
+        """jdev-Befehl ueber _ms_http. -> (Code, LL.value); Code ist der
+        LL-Code der Antwort, ohne lesbares JSON der HTTP-Status."""
+        status, body, _ = await self._ms_http("jdev/" + path.lstrip("/"), timeout, renew)
+        try:
+            ll = json.loads(body.decode("utf-8", "replace").lstrip("\ufeff").strip("\x00")).get("LL") or {}
+        except (ValueError, AttributeError):
+            ll = {}
+        code = ll.get("Code") or ll.get("code")
+        return (str(code) if code is not None else str(status)), ll.get("value")
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -1275,6 +1658,9 @@ class App:
             "tiles": prof.get("tiles") or {},
             "roomCats": [c for c in (prof.get("roomCats") or []) if isinstance(c, str)],
             "hide": {u for u in (prof.get("hide") or []) if isinstance(u, str)},
+            # Liste, kein Set: die Reihenfolge ist die Anzeigereihenfolge.
+            "picks": [u for u in (prof.get("picks") or []) if isinstance(u, str)],
+            "pickName": prof.get("pickName") or "",
             "lang": (ui.get("lang") or "de"),   # Panel-Sprache (Datum/Uhr; spaeter i18n der Texte)
             "fill": bool(ui.get("fill")),       # Visu fuellt grosse Screens (quadratische Kacheln)
             # Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2, keine
@@ -1283,6 +1669,13 @@ class App:
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
+            # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
+            # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
+            "svPane": _clean_svpane(ui.get("svPane")),
+            # Skalierung laut Profil, sonst global (ui ist oben schon aus Theme
+            # und Profil gemischt): "off" | "auto" | Faktor. Ein Geraet kann
+            # sie uebersteuern, siehe effective_scale().
+            "scale": _clean_scale(ui.get("scale")) or "off",
         }
 
     def player_blocks(self, uuid: str):
@@ -1313,6 +1706,29 @@ class App:
             log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
         return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+
+    def status_blocks(self, uuids) -> list:
+        """Frei gewaehlte Bausteine als Nur-Lese-Kacheln fuer die rechte Spalte
+        des Screensavers. Baut bewusst ueber _control_item() — damit stehen dort
+        Name, Wert, Icon und Zustandsfarbe genau so wie auf einer Kachel, und ein
+        neuer Bausteintyp wirkt hier mit, ohne dass jemand daran denken muss.
+        Unbekannte UUIDs (geloeschter Baustein) fallen still weg."""
+        raus = []
+        for u in list(uuids or [])[:SV_STATUS_MAX]:
+            if u not in self.controls:
+                continue
+            try:
+                it = self._control_item(u, show_room=True)
+            except Exception:
+                log.exception("status_blocks: Baustein uebersprungen (%s)", u)
+                continue
+            # Die Uhr-Seite zeigt nur an — Navigation und Steuer-Buttons haetten
+            # dort keine Wirkung (ein Tipp weckt das Panel) und wuerden Platz
+            # kosten. Deshalb hier raus, statt sie im Panel zu ignorieren.
+            for k in ("nav", "controls", "secured"):
+                it.pop(k, None)
+            raus.append(it)
+        return raus
 
     def energy_blocks(self, uuid: str, max_cons: int = 6):
         """Energiefluss-Daten (Radial, Loxone-Standard) einer EFM/EnergyManager2-
@@ -1423,12 +1839,17 @@ class App:
                 "nodes": nodes,
                 "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
 
-    def _tab_meta(self, tab_keys) -> dict:
-        """Label + Icon fuer dynamische Tabs (Kategorie- und Raum-Direkt-Tabs).
-        Die 4 Standard-Tabs kennt das Frontend selbst; hier nur `cat:`/`room:`."""
+    def _tab_meta(self, tab_keys, prof: dict | None = None) -> dict:
+        """Label + Icon fuer dynamische Tabs (Kategorie-, Raum- und Auswahl-Tab).
+        Die 4 Standard-Tabs kennt das Frontend selbst; hier nur `cat:`/`room:`
+        und `auswahl` - letzteres traegt einen frei gewaehlten Namen, sein
+        Symbol bringt das Panel selbst mit."""
         meta = {}
         for t in tab_keys or []:
-            if isinstance(t, str) and t.startswith("cat:"):
+            if t == PICK_TAB:
+                meta[t] = {"label": (prof.get("pickName") if prof else "") or "Auswahl",
+                           "iconUrl": ""}
+            elif isinstance(t, str) and t.startswith("cat:"):
                 cat = self.cats.get(t[4:], {})
                 meta[t] = {"label": _clean(cat.get("name")) or "Kategorie",
                            "iconUrl": self._icon_url(cat.get("image")) or ""}
@@ -1543,6 +1964,18 @@ class App:
         return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
                    for a in self.agents.values())
 
+    def effective_scale(self, prof: dict | None, dev: str) -> str | float:
+        """Wirksame Skalierung eines Panels: die des Geraets, falls dort eine
+        gesetzt ist, sonst die des Profils (resolve_profile() hat dort schon
+        die globale eingemischt). So lassen sich zwei Displays mit demselben
+        Profil unterschiedlich einstellen."""
+        d = self.devices.get(dev) if dev else None
+        if isinstance(d, dict):
+            sc = _clean_scale(d.get("scale"))
+            if sc is not None:
+                return sc
+        return (prof or {}).get("scale") or "off"
+
     def device_list(self) -> dict:
         """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
         Panel-Agenten (Announce), verbundene Browser (?device=) und die in
@@ -1555,7 +1988,8 @@ class App:
         def entry(name: str) -> dict:
             return devs.setdefault(name, {
                 "name": name, "agent": None, "connections": 0, "online": False,
-                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False})
+                "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False,
+                "screen": {}})
 
         for a in self.agents.values():
             if (now - a["ts"]) >= 600:
@@ -1571,7 +2005,8 @@ class App:
             prof = (self.conn_prof.get(ws) or {}).get("id", "")
             if not info.get("dev"):
                 anonymous.append({"ip": info.get("ip", ""), "profile": prof,
-                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0)})
+                                  "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0),
+                                  "screen": info.get("screen") or {}})
                 continue
             e = entry(info["dev"])
             e["connections"] += 1
@@ -1580,6 +2015,8 @@ class App:
             e["kiosk"] = info.get("kiosk") or e["kiosk"]
             e["ip"] = e["ip"] or info.get("ip", "")
             e["lastSeen"] = max(e["lastSeen"], info.get("ts", 0))
+            if info.get("screen"):
+                e["screen"] = info["screen"]   # zuletzt gemeldete Groesse (bei mehreren Fenstern das letzte)
         for name in self.devices:
             entry(name)["configured"] = True
         for e in devs.values():
@@ -1692,11 +2129,8 @@ class App:
                     if (self.conn_prof.get(ws) or {}).get("id") == profile:
                         sent += 1            # zeigt bereits das richtige Profil
                         continue
-                    try:
-                        await ws.send_json({"t": "switch", "panel": profile})
+                    if await self._send_or_drop(ws, {"t": "switch", "panel": profile}):
                         sent += 1
-                    except Exception as err:   # nicht nur ConnectionError (F3)
-                        log.debug("switch-Push an Panel fehlgeschlagen: %s", err)
                 results.append({"panel": name, "profile": profile,
                                 "ok": sent > 0, "via": "ws"})
                 continue
@@ -1738,15 +2172,29 @@ class App:
               if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
-                       "overlay", "textColor", "bold", "lang", "player", "panes", "split")}
-        # Split-Pane je Tab: nur gueltige Tab-Kennung -> "weather"|"calendar".
+                       "overlay", "textColor", "bold", "lang", "player", "panes", "split",
+                       "svPane", "scale")}
+        # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
-                           if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
+                           if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
             if not ui["panes"]:
                 ui.pop("panes", None)
         else:
             ui.pop("panes", None)
+        # Rechte Spalte des Screensavers: derselbe Pruefer wie beim Speichern,
+        # damit der Konfigurator nie einen Wert anzeigt, den der Server verwirft.
+        _sp = _clean_svpane(ui.get("svPane"))
+        if _sp:
+            ui["svPane"] = _sp
+        else:
+            ui.pop("svPane", None)
+        # Skalierung: "off" | "auto" | Faktor; fehlt sie, gilt die globale.
+        _sc = _clean_scale(ui.get("scale"))
+        if _sc is not None:
+            ui["scale"] = _sc
+        else:
+            ui.pop("scale", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -1758,6 +2206,11 @@ class App:
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
             "hide": [u for u in (raw.get("hide") or [])
                      if isinstance(u, str) and u in self.controls],
+            # Reihenfolge ist die Klickreihenfolge, deshalb NICHT sortieren -
+            # anders als rooms/cats, die der Loxone-Reihenfolge folgen.
+            "picks": [u for u in (raw.get("picks") or [])
+                      if isinstance(u, str) and u in self.controls],
+            "pickName": raw.get("pickName") or "",
         }
 
     def _loxone_icons(self) -> list:
@@ -1799,6 +2252,15 @@ class App:
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
+            # Freie Auswahl (Tab "auswahl"): handverlesene Bausteine in
+            # Klickreihenfolge. Hier nur Form pruefen - ob die UUIDs existieren,
+            # entscheidet _panel_export gegen self.controls, wie bei "hide".
+            picks = [str(x) for x in (p.get("picks") or []) if isinstance(x, str)][:60]
+            if picks:
+                e["picks"] = picks
+            pname = str(p.get("pickName") or "").strip()[:40]
+            if pname:
+                e["pickName"] = pname
             ui = p.get("ui") or {}
             # Groessen genauso klemmen wie der globale Pfad (_sanitize_theme_ui)
             # und wie die Nachbarfelder unten - sonst nimmt der Panel-Override
@@ -1830,9 +2292,15 @@ class App:
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
                 pn = {str(k): v for k, v in ui["panes"].items()
-                      if isinstance(k, str) and _is_tab(k) and (v in ("weather", "calendar") or (isinstance(v, str) and (v.startswith("player:") or v.startswith("energy:") or v.startswith("camera:")) and len(v) > 7))}
+                      if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
                     cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
+            _sp = _clean_svpane(ui.get("svPane"))
+            if _sp:
+                cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
+            _sc = _clean_scale(ui.get("scale"))
+            if _sc is not None:
+                cui["scale"] = _sc              # Skalierung: off/auto/Faktor; fehlt = wie global
             if _color_ok(ui.get("textColor")):
                 cui["textColor"] = ui["textColor"].strip()   # globale Schriftfarbe (Name)
             if _color_ok(ui.get("baseColor")):
@@ -1878,6 +2346,10 @@ class App:
                     icc = _clean_icon(ov.get("icon"))
                     if icc:
                         e2["icon"] = icc
+                    if ov.get("chart") in STAT_RANGES:
+                        e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
+                        if ov.get("chartStyle") in STAT_TILE_STYLES and ov["chartStyle"] != "trend":
+                            e2["chartStyle"] = ov["chartStyle"]   # Tagesmuster / Tagesspanne
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -1934,11 +2406,17 @@ class App:
                 if mode and prof and prof in panel_ids:
                     modes[mode] = prof
             display = App._sanitize_display(cfg.get("display"))
-            if not modes and not display:
+            # Skalierung je Geraet (auch "off", um ein "auto" des Profils zu
+            # uebersteuern). Ein Geraet, das NUR sie traegt, muss bleiben -
+            # bisher fiel alles ohne Modi und Display-Treiber still weg.
+            scale = _clean_scale(cfg.get("scale"))
+            if not modes and not display and scale is None:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
                 entry["display"] = display
+            if scale is not None:
+                entry["scale"] = scale
             out[name.strip()[:60]] = entry
         return out
 
@@ -1980,6 +2458,9 @@ class App:
         lang = _clean_lang(ui.get("lang"))
         if lang:
             out["lang"] = lang
+        _sc = _clean_scale(ui.get("scale"))
+        if _sc not in (None, "off"):
+            out["scale"] = _sc          # Skalierung fuer alle Panels; "off" = Fehlen
         return out
 
     @staticmethod
@@ -2017,8 +2498,7 @@ class App:
         except ValueError:
             doc = {}
         cur = doc.get("ui") if isinstance(doc.get("ui"), dict) else {}
-        for k in ("iconSize", "nameSize", "subSize", "font", "textColor", "baseColor",
-                  "bold", "lang"):
+        for k in THEME_UI_KEYS:
             if k in ui:
                 cur[k] = ui[k]
             else:
@@ -2034,34 +2514,93 @@ class App:
 
     async def fetch_icon(self, path: str) -> tuple[bytes, str] | None:
         if path in self.icon_cache:
-            return self.icon_cache[path]
-        if not self.icon_session:
-            return None
-        scheme = "https" if _ms_https(self.port) else "http"
-        url = f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}"
-        headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
+            hit = self.icon_cache.pop(path)       # neu einsortieren = zuletzt benutzt
+            self.icon_cache[path] = hit
+            return hit
         try:
-            async with self.icon_session.get(
-                    url, headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=6)) as r:
-                if r.status != 200:
-                    return None
-                body = await r.read()
-                ctype = r.headers.get("Content-Type", "application/octet-stream")
-        except (aiohttp.ClientError, asyncio.TimeoutError):
+            status, body, ctype = await self._ms_http(path, 6)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
             return None
+        if status != 200:
+            return None
+        ctype = ctype or "application/octet-stream"
         self.icon_cache[path] = (body, ctype)
+        while len(self.icon_cache) > ICON_CACHE_MAX:
+            self.icon_cache.pop(next(iter(self.icon_cache)))   # am laengsten unbenutzt
         return self.icon_cache[path]
+
+    async def _stat_load(self, ua: str, ym: str) -> None:
+        """Eine Statistik-Monatsdatei holen (/stats/<uuidAction>.<JJJJMM>.xml,
+        Bearer-Token wie bei den Icons) und in stat_cache legen. 404 heisst:
+        fuer diesen Monat gibt es keine Aufzeichnung (leere Liste). Andere
+        Fehler legen None ab, dann wird erst nach STAT_RETRY erneut versucht.
+        Danach neu rendern lassen, damit offene Detailseiten das Diagramm zeigen."""
+        key = (ua, ym)
+        rows: list | None = None
+        try:
+            status, body, _ = await self._ms_http(f"stats/{ua}.{ym}.xml", 20)
+            if status == 404:
+                rows = []
+            elif status == 200:
+                rows = _parse_stat_xml(body.decode("utf-8", "replace"))
+            else:
+                log.info("Statistik %s.%s: HTTP %s", ua, ym, status)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
+            log.info("Statistik %s.%s nicht abrufbar: %s", ua, ym, err)
+        finally:
+            self.stat_pending.discard(key)
+        self.stat_cache.pop(key, None)          # neu einsortieren = zuletzt benutzt
+        self.stat_cache[key] = (time.monotonic(), datetime.now().strftime("%Y%m"), rows)
+        while len(self.stat_cache) > STAT_CACHE_MAX:
+            self.stat_cache.pop(next(iter(self.stat_cache)))
+        self.stat_gen += 1
+        self.stat_memo = {}
+        self._dirty = True
+
+    async def _stat2_load(self, key: tuple, ua: str, gid: str, out: str, span: int) -> None:
+        """Verlauf eines statisticV2-Ausgangs holen: jdev/sps/getStatistic/<uuid>/raw/
+        <vonUnixUtc>/<bisUnixUtc>/all/<gruppe>/<ausgang> (so baut ihn die Loxone-App,
+        StatisticV2Ext.getStatisticRaw). Eine Stunde Vorlauf liefert den Stand vor
+        dem ersten Balken. Leere Antwort oder JSON statt Binaerdaten heisst: keine
+        Aufzeichnung (leere Liste); andere Fehler legen None ab."""
+        rows: list | None = None
+        now = int(time.time())
+        path = f"jdev/sps/getStatistic/{ua}/raw/{now - span - 3600}/{now}/all/{quote(gid)}/{quote(out)}"
+        try:
+            async with self.stat2_sem:
+                status, body, _ = await self._ms_http(path, 30)
+            if status != 200:
+                log.info("Statistik V2 %s: HTTP %s", path, status)
+            elif not body:
+                rows = []
+            elif body[:1] == b"{":
+                rows = []
+                log.info("Statistik V2 %s: keine Daten (%s)", path, body[:160].decode("utf-8", "replace"))
+            else:
+                rows = _parse_stat2_bin(body)
+                if rows is None:
+                    log.info("Statistik V2 %s: unerwartete Antwort, %d Bytes", path, len(body))
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
+            log.info("Statistik V2 %s nicht abrufbar: %s", path, err)
+        finally:
+            self.stat_pending.discard(key)
+        self.stat2_cache.pop(key, None)
+        self.stat2_cache[key] = (time.monotonic(), rows)
+        while len(self.stat2_cache) > STAT_CACHE_MAX:
+            self.stat2_cache.pop(next(iter(self.stat2_cache)))
+        self.stat_gen += 1
+        self.stat_memo = {}
+        self._dirty = True
 
     async def fetch_cover(self, url: str) -> tuple[bytes, str] | None:
         if not self.icon_session:
             return None
         try:
-            async with self.icon_session.get(url) as r:
+            async with self.icon_session.get(url, timeout=aiohttp.ClientTimeout(total=COVER_TIMEOUT)) as r:
                 if r.status != 200:
                     return None
                 return (await r.read(), r.headers.get("Content-Type", "image/jpeg"))
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             return None
 
     # ---- Kachel fuer ein Control ----
@@ -2146,7 +2685,7 @@ class App:
         modes = e.get("modes")
         if not isinstance(modes, list) or not modes:
             return ""
-        op = getattr(self, "op_modes", {})
+        op = self.op_modes
         names = []
         for m in modes:
             nm = _clean(op.get(str(m)))
@@ -2731,12 +3270,90 @@ class App:
             elif s == "custom" and ic.get("file"):
                 it["iconImg"] = "/uicon?f=" + quote(str(ic["file"]))
                 it.pop("iconUrl", None)
+        # Mini-Verlauf in der Kachel (tiles.<uuid>.chart = Zeitraum), nur fuer
+        # Bausteine mit Aufzeichnung. Ein Tipp oeffnet wie bisher die Detailseite.
+        rng = ov.get("chart")
+        c = self.controls.get(uuid) or {}
+        if rng in STAT_RANGES and (c.get("statistic") or c.get("statisticV2")):
+            style = ov.get("chartStyle") if ov.get("chartStyle") in STAT_TILE_STYLES else "trend"
+            sp = self._stat_spark(c, rng, style)
+            if sp:
+                it["spark"] = sp
         return it
 
     # ---- Views ----
     def _view_tab(self, tab: str, prof: dict | None = None) -> dict:
         ar = prof.get("rooms") if prof else None
         ac = prof.get("cats") if prof else None
+        if tab == PICK_TAB:
+            # Freie Auswahl: genau die handverlesenen Bausteine, in der
+            # gespeicherten Reihenfolge (= Klickreihenfolge in der Konfig).
+            #
+            # BEWUSST OHNE _room_ok/_cat_ok: wer einen Baustein ausdruecklich
+            # auswaehlt, will ihn sehen - auch wenn sein Raum oder seine
+            # Kategorie im Panelfilter fehlt. Sonst waere das Auswaehlen
+            # wirkungslos und der Sinn der Seite dahin.
+            #
+            # _shown bleibt: "hide" ist panelweit und das Sicherheitsnetz.
+            # Die Konfigurationsseite zeigt so einen Baustein ausgegraut.
+            gewaehlt = (prof.get("picks") or []) if prof else []
+            uuids, gesehen = [], set()
+            for u in gewaehlt:
+                # Doppelte ueberspringen: zwei Kacheln mit derselben id wuerden
+                # den In-place-Abgleich im Panel (updateGrid) durcheinander bringen.
+                if u in gesehen or u not in self.controls or not self._shown(u, prof):
+                    continue
+                gesehen.add(u)
+                uuids.append(u)
+            # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
+            # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
+            # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
+            # statt nach Kategorie. Ohne das ist eine Seite aus 40 Bausteinen
+            # quer durchs Haus auf einem 4-Zoll-Panel nicht mehr zu bedienen.
+            #
+            # Reihenfolge der Raeume = erstes Vorkommen in der Auswahl. Damit
+            # bleibt die Klickreihenfolge aus der Konfiguration die fuehrende
+            # Ordnung; innerhalb eines Raums stehen die Bausteine ebenfalls so,
+            # wie sie gewaehlt wurden. Dicts halten die Einfuegereihenfolge.
+            nach_raum: dict = {}
+            for u in uuids:
+                nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
+            raeume = [ru for ru in nach_raum if ru in self.rooms]
+            sr = self._spans_rooms(uuids)
+            # Sprungmarken ERSETZEN im Panel die ganze untere Leiste. Das ist
+            # nur dann richtig, wenn diese Seite die einzige des Panels ist.
+            # Steht der Auswahl-Tab dagegen neben anderen Seiten in der
+            # klassischen Leiste, waeren die uebrigen Tabs nicht mehr
+            # erreichbar - und der Zurueck-Knopf hilft nicht, weil die Seite
+            # die unterste im Stapel ist.
+            # Erst ab zwei Raeumen sind Sprungmarken ausserdem etwas wert: bei
+            # einem einzigen zeigte die Leiste nur den Raum, in dem man steht.
+            allein = list((prof.get("tabs") or []) if prof else []) == [PICK_TAB]
+            marken = allein and len(raeume) > 1
+            items = []
+            for ru in raeume:
+                for j, u in enumerate(nach_raum[ru]):
+                    it = self._control_item(u, prof, show_room=sr)
+                    if marken and j == 0:
+                        # Scroll-Anker fuer die Sprungmarke. Der Schluessel
+                        # heisst im Panel catKey, weil dieselbe Mechanik schon
+                        # fuer die Kategorien des Raum-Panels da ist - fuer das
+                        # Panel ist er ein undurchsichtiger Schluessel. Ohne
+                        # Leiste waere er ein totes Attribut, also nur dann.
+                        it["catKey"] = ru
+                    items.append(it)
+            # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
+            for ru, us in nach_raum.items():
+                if ru not in self.rooms:
+                    items += [self._control_item(u, prof, show_room=sr) for u in us]
+            raum_tabs = ([{"key": ru,
+                           "label": _clean(self.rooms[ru].get("name")) or "Raum",
+                           "iconUrl": self._icon_url(self.rooms[ru].get("image")) or ""}
+                          for ru in raeume[:4]] if marken else [])
+            title = (prof.get("pickName") if prof else "") or "Auswahl"
+            return {"t": "view", "title": title, "tab": tab,
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    "catTabs": raum_tabs}
         if isinstance(tab, str) and tab.startswith("cat:"):
             # Kategorie-Direkt-Tab: dieselben Controls wie im Kategorie-Drilldown
             cu = tab[4:]
@@ -2868,8 +3485,11 @@ class App:
         # ist bei vielen Setups leer, dies ist der zuverlaessige Weg. Der
         # Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
         # Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
+        # Nur wenn der Kanal die Favoriten auch liefern darf: ein gekoppelter
+        # Audioserver ohne geglueckte Anmeldung schickt keine (dieselbe Bedingung
+        # wie beim Anfordern in prime_favs) -> dann die des Miniservers.
         _cl, _pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
-        if _cl is not None and _pid is not None:
+        if _cl is not None and _pid is not None and (not _cl.paired or _cl.authed):
             favs = _cl.favs.get(_pid, [])
             items = [{"label": f["name"],
                       "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
@@ -2916,6 +3536,284 @@ class App:
             blocks.append({"k": "status", "text": sub})
         return {"t": "view", "title": _clean(c.get("name")),
                 "route": {"view": "control", "id": uuid}, "blocks": blocks}
+
+    @staticmethod
+    def _stat_months(t0: int, t1: int) -> list[str]:
+        """Monatsschluessel JJJJMM, die das Fenster [t0, t1] (Wanduhr-Sekunden) beruehrt."""
+        a = datetime(1970, 1, 1) + timedelta(seconds=t0)
+        b = datetime(1970, 1, 1) + timedelta(seconds=t1)
+        y, m, out = a.year, a.month, []
+        while (y, m) <= (b.year, b.month):
+            out.append(f"{y:04d}{m:02d}")
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        return out
+
+    @staticmethod
+    def _stat_edges(rng: str, t1: int) -> list[int]:
+        """Abschnittsgrenzen der Verbrauchsbalken: bei 24 h je volle Stunde, sonst
+        je Tag ab Mitternacht. Der letzte Abschnitt laeuft bis jetzt."""
+        if rng == "24h":
+            step, n = 3600, 24
+        else:
+            step, n = 86400, STAT_RANGES[rng][1] // 86400
+        start = t1 - t1 % step - (n - 1) * step
+        return [start + k * step for k in range(n)] + [t1 + 1]
+
+    def _stat_rows(self, ua: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Zeilen im Fenster aus stat_cache, vorneweg der letzte Stand davor (falls
+        bekannt). Fehlende oder noch wachsende Monate werden im Hintergrund
+        nachgeladen. -> (zeilen, laedt_noch, abruffehler)"""
+        allrows, loading, error = [], False, False
+        now = time.monotonic()
+        for ym in self._stat_months(t0, t1):
+            key = (ua, ym)
+            ent = self.stat_cache.get(key)
+            if ent is None:
+                want = True
+            elif ent[2] is None:
+                want = now - ent[0] >= STAT_RETRY
+            else:
+                want = ent[1] <= ym and now - ent[0] >= STAT_REFRESH
+            if want and key not in self.stat_pending:
+                self.stat_pending.add(key)
+                self._spawn(self._stat_load(ua, ym))
+            if ent is None:
+                loading = True
+            elif ent[2] is None:
+                error = True
+            else:
+                allrows.extend(ent[2])
+        allrows.sort(key=lambda r: r[0])
+        before = [r for r in allrows if r[0] < t0]
+        return ([before[-1]] if before else []) + [r for r in allrows if t0 <= r[0] <= t1], loading, error
+
+    def _stat2_rows(self, ua: str, gid: str, out: str, rng: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Wie _stat_rows, fuer einen statisticV2-Ausgang: Zeilen im Fenster, vorneweg
+        der letzte Stand davor; fehlend oder aelter als STAT_REFRESH -> im
+        Hintergrund neu holen. -> (zeilen, laedt_noch, abruffehler)"""
+        key = (ua, gid, out, rng)
+        ent = self.stat2_cache.get(key)
+        age = time.monotonic() - ent[0] if ent else 0.0
+        if ent is None or age >= (STAT_RETRY if ent[1] is None else STAT_REFRESH):
+            if key not in self.stat_pending:
+                self.stat_pending.add(key)
+                self._spawn(self._stat2_load(key, ua, gid, out, STAT_RANGES[rng][1]))
+        if ent is None:
+            return [], True, False
+        if ent[1] is None:
+            return [], False, True
+        before = [r for r in ent[1] if r[0] < t0]
+        return ([before[-1]] if before else []) + [r for r in ent[1] if t0 <= r[0] <= t1], False, False
+
+    @staticmethod
+    def _stat_series_defs(c: dict) -> list:
+        """Alle aufgezeichneten Reihen eines Bausteins als (name, art, stellen,
+        einheit, quelle). `statistic`: je Ausgang, Art aus visuType, Quelle
+        ("v1", index in der Monatsdatei). `statisticV2`: je Datenpunkt einer
+        Gruppe, `accumulated` = Zaehlerstand, Quelle ("v2", gruppe, ausgang).
+        Gleiche Titel in einer Gruppe (Netz: zweimal "Zaehlerstand") bekommen
+        den Ausgangsnamen dazu."""
+        defs = []
+        for i, o in enumerate((c.get("statistic") or {}).get("outputs") or []):
+            if isinstance(o, dict):
+                dec, unit = _stat_fmt(o.get("format"))
+                defs.append((_clean(o.get("name")) or f"Wert {i + 1}",
+                             STAT_KIND.get(o.get("visuType"), "line"), dec, unit, ("v1", i)))
+        for g in (c.get("statisticV2") or {}).get("groups") or []:
+            if not isinstance(g, dict):
+                continue
+            dps = [d for d in (g.get("dataPoints") or []) if isinstance(d, dict) and d.get("output")]
+            titles = [d.get("title") for d in dps]
+            for d in dps:
+                dec, unit = _stat_fmt(d.get("format"))
+                name = _clean(d.get("title")) or d["output"]
+                if titles.count(d.get("title")) > 1:
+                    name = f"{name} · {d['output']}"
+                defs.append((name, "counter" if g.get("accumulated") else "line", dec, unit,
+                             ("v2", str(g.get("id")), str(d["output"]))))
+        return defs
+
+    def _stat_blocks(self, c: dict, rng: str) -> list:
+        """Diagramm-Bloecke fuer einen Baustein mit `statistic` oder `statisticV2`.
+        Reihen gleicher Art und Einheit teilen sich ein Diagramm (zwei Grillfuehler,
+        Netz-Bezug und -Einspeisung), sonst je eines (Zaehler: Leistung als Linie,
+        Verbrauch als Balken)."""
+        defs = self._stat_series_defs(c)
+        ua = c.get("uuidAction")
+        if not (ua and defs):
+            return []
+        now = calendar.timegm(datetime.now().timetuple())
+        t1 = now - now % 60                    # Fenster rueckt je Minute vor
+        mkey = (ua, rng, t1, self.stat_gen)
+        if mkey in self.stat_memo:
+            return self.stat_memo[mkey]
+        t0 = t1 - STAT_RANGES[rng][1]
+        v1 = None                              # Monatsdateien: eine Abfrage fuer alle Ausgaenge
+        groups: dict[tuple[str, str], list] = {}
+        for d in defs:
+            groups.setdefault((d[1], d[3]), []).append(d)
+        blocks = []
+        for kind, unit in groups:
+            edges = self._stat_edges(rng, t1) if kind == "counter" else None
+            series, any_rows, loading, error = [], False, False, False
+            for name, _kind, dec, _unit, src in groups[(kind, unit)]:
+                if src[0] == "v1":
+                    if v1 is None:
+                        v1 = self._stat_rows(ua, t0, t1)
+                    rows, ld, er = v1
+                    i = src[1]
+                    pts = [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None]
+                else:
+                    rows, ld, er = self._stat2_rows(ua, src[1], src[2], rng, t0, t1)
+                    pts = [(r[0], r[1][0]) for r in rows if r[1] and r[1][0] is not None]
+                any_rows, loading, error = any_rows or bool(rows), loading or ld, error or er
+                if kind == "counter":
+                    pts = _stat_bars(pts, edges)
+                else:
+                    if pts and pts[0][0] < t0:
+                        pts[0] = (t0, pts[0][1])   # letzter Stand vor dem Fenster = Startwert
+                    pts = _stat_thin(pts, t0, t1, STAT_MAX_POINTS, kind == "digital")
+                series.append({"name": name, "dec": dec,
+                               "pts": [[int(t), round(v, dec + 2)] for t, v in pts]})
+            has = any_rows if kind == "counter" else any(s["pts"] for s in series)
+            blk = {"k": "chart", "kind": kind, "unit": unit, "series": series,
+                   "t0": edges[0] if edges else t0, "t1": t1,
+                   "state": "ok" if has else ("loading" if loading else ("error" if error else "empty"))}
+            if not blocks:                     # Zeitraum-Wahl nur am ersten Diagramm der Seite
+                blk.update(range=rng, ranges=[[k, v[0]] for k, v in STAT_RANGES.items()])
+            blocks.append(blk)
+        if len(self.stat_memo) > 64:
+            self.stat_memo = {}
+        self.stat_memo[mkey] = blocks
+        return blocks
+
+    def chart_blocks(self, uuid: str, rng: str | None = None) -> dict | None:
+        """Inhalt der Verlaufs-Pane im Split-Layout (panes "chart:<uuid>"): Name,
+        aktueller Wert wie auf der Detailseite und die Diagramme aus
+        _stat_blocks (dieselben Abrufe, Caches und Zustaende). None, wenn der
+        Baustein fehlt oder nichts aufzeichnet."""
+        c = self.controls.get(uuid)
+        if not c or not (c.get("statistic") or c.get("statisticV2")):
+            return None
+        rng = rng if rng in STAT_RANGES else STAT_DEFAULT_RANGE
+        v = self._view_control_inner(uuid)
+        big = next((b.get("text") or "" for b in v.get("blocks") or [] if b.get("k") == "big"), "")
+        return {"control": uuid, "name": _clean(c.get("name")), "value": big,
+                "range": rng, "blocks": self._stat_blocks(c, rng)}
+
+    def _stat_primary(self, c: dict) -> tuple | None:
+        """Die Reihe, die eine Kachel zeigt: die erste Linie, sonst die erste Reihe."""
+        defs = self._stat_series_defs(c)
+        return next((d for d in defs if d[1] == "line"), defs[0] if defs else None)
+
+    def _stat_raw(self, c: dict, d: tuple, rng: str, t0: int, t1: int) -> tuple[list, bool, bool]:
+        """Rohpunkte einer Reihe im Fenster, vorneweg der letzte Stand davor, aus
+        denselben Caches wie die Diagramme. -> (punkte, laedt_noch, abruffehler)"""
+        ua, src = c.get("uuidAction"), d[4]
+        if src[0] == "v1":
+            rows, ld, er = self._stat_rows(ua, t0, t1)
+            i = src[1]
+            return [(r[0], r[1][i]) for r in rows if i < len(r[1]) and r[1][i] is not None], ld, er
+        rows, ld, er = self._stat2_rows(ua, src[1], src[2], rng, t0, t1)
+        return [(r[0], r[1][0]) for r in rows if r[1] and r[1][0] is not None], ld, er
+
+    @staticmethod
+    def _stat_dur(sec: float) -> str:
+        """Dauer als "3 h 20 min" bzw. "40 min"."""
+        h, m = int(sec // 3600), int(round(sec % 3600 / 60))
+        if m == 60:
+            h, m = h + 1, 0
+        return f"{h} h" + (f" {m} min" if m else "") if h else f"{m} min"
+
+    def _stat_spark(self, c: dict, rng: str, style: str = "trend") -> dict | None:
+        """Mini-Verlauf fuer eine Kachel (tiles.<uuid>.chart/.chartStyle).
+
+        trend    Verlauf im gewaehlten Zeitraum: Linie mit Tiefst-/Hoechstwert,
+                 Digitalwert als Stufen, Zaehlerstand als Verbrauchsbalken.
+        pattern  Tagesmuster: 7 Tage x 24 Stunden, je Stunde der zeitgewichtete
+                 Mittelwert (Digital: Ein-Anteil, Zaehler: Verbrauch der Stunde).
+        span     Tagesspanne (nur Linien): je Tag Tiefst-, Hoechst- und Mittelwert.
+
+        `badge` ist die kurze Angabe im Kopf der Kachel; die Visu zeigt sie nur an."""
+        d = self._stat_primary(c)
+        ua = c.get("uuidAction")
+        if not (d and ua):
+            return None
+        name, kind, dec, unit, src = d
+        if style == "span" and kind != "line":
+            style = "trend"
+        now = calendar.timegm(datetime.now().timetuple())
+        t1 = now - now % 60
+        mkey = ("spark", ua, rng, style, t1, self.stat_gen)
+        if mkey in self.stat_memo:
+            return self.stat_memo[mkey]
+        fmt = f"%.{dec}f{unit}"
+        out: dict | None = None
+        if style == "trend":
+            blocks = self._stat_blocks(c, rng)
+            b = next((x for x in blocks if x.get("kind") == kind and x.get("unit") == unit), None)
+            if b is None:
+                return None
+            se = next((x for x in b.get("series") or [] if x.get("name") == name), (b.get("series") or [{}])[0])
+            full = [tuple(p) for p in se.get("pts") or []]
+            out = {"style": "trend", "kind": kind, "state": b.get("state"), "t0": b.get("t0"),
+                   "t1": b.get("t1"), "dec": dec}
+            if kind == "counter":
+                out["pts"] = [list(p) for p in full]
+                if full:
+                    out["badge"] = "Σ " + self._fmt_num(sum(v for _, v in full), fmt)
+            else:
+                out["pts"] = [[int(t), round(v, dec + 2)]
+                              for t, v in _stat_thin(full, b["t0"], b["t1"], 48, kind == "digital")]
+                if full and kind == "line":
+                    lo, hi = min(full, key=lambda p: p[1]), max(full, key=lambda p: p[1])
+                    out["lo"], out["hi"] = [int(lo[0]), lo[1]], [int(hi[0]), hi[1]]
+                    ago = [v for t, v in full if t <= t1 - 86400]
+                    if ago:
+                        delta = full[-1][1] - ago[-1]
+                        step = 10 ** -dec / 2
+                        arrow = "▲" if delta >= step else ("▼" if delta <= -step else "=")
+                        out["badge"] = f"{arrow} {self._fmt_num(abs(delta), fmt)} in 24 h"
+                elif full:
+                    t0 = b["t0"]
+                    raw, _ld, _er = self._stat_raw(c, d, rng, t0, t1)
+                    share = _stat_buckets(raw, [t0, t1], t1)[0]
+                    if share is not None:
+                        out["badge"] = "Ein " + self._stat_dur(share * (t1 - t0))
+        else:
+            start = t1 - t1 % 86400 - 6 * 86400        # Mitternacht vor 6 Tagen
+            raw, loading, error = self._stat_raw(c, d, "7d", start, t1)
+            days = [STAT_WEEKDAYS[((start // 86400) + i + 3) % 7] for i in range(7)]   # 1.1.1970 = Do
+            state = "ok" if raw else ("loading" if loading else ("error" if error else "empty"))
+            out = {"style": style, "kind": kind, "state": state, "dec": dec, "days": days}
+            if style == "pattern":
+                edges = [start + h * 3600 for h in range(7 * 24 + 1)]
+                if kind == "counter":
+                    cells = [None if a >= t1 else v for (a, v) in _stat_bars(raw, edges)]
+                else:
+                    cells = _stat_buckets(raw, edges, t1)
+                out["cells"] = [None if v is None else round(v, dec + 2) for v in cells]
+                vals = [v for v in cells if v is not None]
+                if vals and kind == "counter":
+                    out["badge"] = "7 Tage · Σ " + self._fmt_num(sum(vals), fmt)
+                elif vals and kind == "line":
+                    out["badge"] = "7 Tage · max " + self._fmt_num(max(vals), fmt)
+                elif vals:
+                    out["badge"] = "7 Tage"
+            else:
+                edges = [start + i * 86400 for i in range(8)]
+                rngs = _stat_day_range(raw, edges, t1)
+                avgs = _stat_buckets(raw, edges, t1)
+                out["spans"] = [None if r is None else [round(r[0], dec + 2), round(r[1], dec + 2),
+                                                        None if a is None else round(a, dec + 2)]
+                                for r, a in zip(rngs, avgs)]
+                if rngs[-1] is not None:
+                    lo, hi = rngs[-1]
+                    out["badge"] = "heute " + self._fmt_num(lo, f"%.{dec}f") + "–" + self._fmt_num(hi, fmt)
+        if len(self.stat_memo) > 64:
+            self.stat_memo = {}
+        self.stat_memo[mkey] = out
+        return out
 
     def _irrigation_zone_name(self, c: dict) -> str:
         """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
@@ -3030,10 +3928,19 @@ class App:
                 "sw": sz.get("width") or 1300, "sh": sz.get("height") or 866,
                 "items": items}
 
-    def _view_control(self, uuid: str) -> dict:
+    def _view_control(self, uuid: str, rng: str | None = None) -> dict:
         v = self._view_control_inner(uuid)
-        if self.controls.get(uuid, {}).get("isSecured"):
+        c = self.controls.get(uuid, {})
+        if c.get("isSecured"):
             v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
+        # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
+        # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
+        if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
+            rng = rng if rng in STAT_RANGES else STAT_DEFAULT_RANGE
+            charts = self._stat_blocks(c, rng)
+            if charts:
+                v["blocks"] = v["blocks"] + charts
+                v["route"] = dict(v.get("route") or {}, range=rng)
         return v
 
     def _view_control_inner(self, uuid: str) -> dict:
@@ -3886,7 +4793,7 @@ class App:
         if v == "group":
             return self._view_group(route, prof)
         if v == "control":
-            return self._view_control(route.get("id"))
+            return self._view_control(route.get("id"), route.get("range"))
         if v == "sources":
             return self._view_sources(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
@@ -4037,25 +4944,30 @@ class App:
                 return None
             # Miniserver: gekoppelte Zonen (Transport + roomfav-Fallback),
             # unbekannter Kopplungsstatus, roomfav/get und Nicht-Audio-Befehle.
-            log.info("cmd %s/%s", uuid, cmd)
-            await self.client.jdev_get(f"sps/io/{uuid}/{cmd}")
-            return "200"
+            code, _ = await self._ms_jdev(f"sps/io/{uuid}/{cmd}")
+            if code == "200":
+                log.info("cmd %s/%s", uuid, cmd)
+            else:
+                log.warning("cmd %s/%s -> Code %s", uuid, cmd, code)
+            return code
         except Exception as err:  # Befehl darf den Server nicht killen
-            log.warning("cmd fehlgeschlagen: %s", err)
+            log.warning("cmd %s/%s fehlgeschlagen: %s", uuid, cmd, err or type(err).__name__)
             return None
 
     async def _secured_command(self, uuid: str, cmd: str, pin: str) -> str | None:
         """Loxone secured-command: getvisusalt -> Hash(visuPw:salt) -> HMAC(key) -> ios."""
-        r = await self.client.jdev_get(f"sys/getvisusalt/{quote(self.user)}")
-        val = (r.get("LL") or {}).get("value") or {}
+        # Ein abgelaufenes Token faellt hier auf (und wird erneuert), nicht erst
+        # beim ios-Aufruf: dort hiesse ein Fehler "Visu-Passwort falsch".
+        _, val = await self._ms_jdev(f"sys/getvisusalt/{quote(self.user)}")
+        val = val if isinstance(val, dict) else {}
         key, salt = val.get("key", ""), val.get("salt", "")
         alg = (val.get("hashAlg") or "SHA1").upper()
         digest = hashlib.sha256 if alg == "SHA256" else hashlib.sha1
         pwhash = digest(f"{pin}:{salt}".encode()).hexdigest().upper()
         h = hmac.new(bytes.fromhex(key), pwhash.encode(), digest).hexdigest()
-        resp = await self.client.jdev_get(f"sps/ios/{h}/{uuid}/{cmd}")
-        ll = resp.get("LL") or {}
-        code = str(ll.get("Code") or ll.get("code") or "")
+        # Der Hash gilt nur einmal, und ein Fehler hier heisst meist falsches
+        # Visu-Passwort -> nicht neu anmelden (das Token war eben noch gueltig).
+        code, _ = await self._ms_jdev(f"sps/ios/{h}/{uuid}/{cmd}", renew=False)
         log.info("secured cmd %s/%s -> Code %s", uuid, cmd, code)
         return code
 
@@ -4129,6 +5041,11 @@ class App:
         # Dauer-Loop: Erstverbindung + Reconnect zum Miniserver. Bricht NIEMALS
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
         # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
+        # Wartezeit zwischen Versuchen waechst (MS_RETRY). Von vorn beginnt sie
+        # erst, wenn eine Verbindung mindestens so lange hielt wie die laengste
+        # Wartezeit - sonst liefe ein Miniserver, der sofort wieder trennt, in
+        # eine Anmeldung alle paar Sekunden.
+        retry, connected_at = 0, None
         while True:
             try:
                 if not self.host:
@@ -4150,12 +5067,18 @@ class App:
                     except Exception:
                         log.exception("Struktur-Refresh beim Reconnect uebersprungen")
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
+                connected_at = time.monotonic()
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
                 raise
             except Exception as err:
-                log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in 10s", err)
+                if connected_at is not None and time.monotonic() - connected_at >= MS_RETRY[-1]:
+                    retry = 0
+                connected_at = None
+                wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
+                retry += 1
+                log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in %ss", err, wait)
                 try:
                     if self.ws:
                         await self.ws.close()
@@ -4167,7 +5090,7 @@ class App:
                         await self._reauth()    # Token erneuern, Client behalten
                 except Exception:
                     await self._close_conn()    # Client kaputt -> harter Reset (start() baut neu)
-                await asyncio.sleep(10)
+                await asyncio.sleep(wait)
 
     async def _send_or_drop(self, ws, payload) -> bool:
         """Sendet an ein Panel; bei JEDEM Fehler ODER Haenger (Timeout) wird die
@@ -4182,9 +5105,12 @@ class App:
             self.conn_route.pop(ws, None)
             self.conn_prof.pop(ws, None)
             self.conn_dev.pop(ws, None)
+            self.conn_info.pop(ws, None)
             self.conn_player.pop(ws, None)
             self.conn_energy.pop(ws, None)
+            self.conn_chart.pop(ws, None)
             self.conn_camera.pop(ws, None)
+            self.conn_status.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -4262,6 +5188,16 @@ class App:
                         energy_msg = {"t": "energy", **eb} if eb is not None else None
                     except Exception:
                         log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
+                # Split-Layout: Verlaufs-Pane (chart:<uuid>) des aktiven Tabs
+                # mitrendern (kommt vom Client via setchart -> conn_chart).
+                chart_msg = None
+                _chart = self.conn_chart.get(ws)
+                if _chart:
+                    try:
+                        cb = self.chart_blocks(*_chart)
+                        chart_msg = {"t": "chart", **cb} if cb is not None else None
+                    except Exception:
+                        log.exception("chart_blocks fehlgeschlagen (%s)", _chart)
                 # Split-Layout: Kamera-Pane (Intercom-Vollansicht) des aktiven Tabs
                 # mitrendern (kommt vom Client via setcamera -> conn_camera).
                 camera_msg = None
@@ -4272,6 +5208,15 @@ class App:
                         camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
                     except Exception:
                         log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
+                # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
+                # Panels (kommt vom Client via setsvstatus -> conn_status).
+                status_msg = None
+                _suu = self.conn_status.get(ws)
+                if _suu:
+                    try:
+                        status_msg = {"t": "svstatus", "items": self.status_blocks(_suu)}
+                    except Exception:
+                        log.exception("status_blocks fehlgeschlagen")
                 # Nur senden, was sich seit der letzten Zustellung an DIESE
                 # Verbindung geaendert hat. Der Tick laeuft, sobald sich
                 # irgendein Wert im Haus bewegt — meist betrifft das die
@@ -4295,9 +5240,21 @@ class App:
                     else:
                         self._last_sent.pop(ws, None)
                         continue
+                if chart_msg is not None and chart_msg != last.get("chart"):
+                    if await self._send_or_drop(ws, chart_msg):
+                        last["chart"] = chart_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
                 if camera_msg is not None and camera_msg != last.get("camera"):
                     if await self._send_or_drop(ws, camera_msg):
                         last["camera"] = camera_msg
+                    else:
+                        self._last_sent.pop(ws, None)
+                        continue
+                if status_msg is not None and status_msg != last.get("svstatus"):
+                    if await self._send_or_drop(ws, status_msg):
+                        last["svstatus"] = status_msg
                     else:
                         self._last_sent.pop(ws, None)
 
@@ -4317,7 +5274,33 @@ class App:
     def _front_payload(self, data: dict) -> dict:
         return {"t": "front", "weather": data.get("weather"),
                 "events": data.get("events") or [], "holidays": data.get("holidays") or {},
-                "calName": data.get("calName") or "Family"}
+                "calName": data.get("calName") or "Family",
+                # Legende der Kalender (Name + Farbe, ohne die Abo-URLs) und
+                # die Anzeigeoptionen, die das Panel dafuer braucht.
+                "cals": data.get("cals") or [],
+                "calColors": bool(data.get("colors", True)),
+                "svEvents": data.get("sv_events") or 3}
+
+    def _front_cached_events(self, events: list) -> list:
+        """Gespeicherte Termine auf HEUTE umschreiben.
+
+        Der gespeicherte Stand kann von gestern sein — dauert der Aussetzer
+        ueber Mitternacht, zeigt sein "Heute" auf den Vortag und laengst
+        vergangene Tage stehen noch in der Liste. Beides hier richtigstellen,
+        statt einen falschen Tag aufs Panel zu schicken.
+        """
+        heute = date.today()
+        raus = []
+        for e in events:
+            try:
+                d = date.fromisoformat(e.get("date") or "")
+            except (ValueError, TypeError):
+                continue
+            if d < heute:
+                continue
+            label = front_info.day_label(d, heute)
+            raus.append(e if e.get("day") == label else dict(e, day=label))
+        return raus
 
     def _front_keep(self, data: dict) -> dict:
         """Bei einem fehlgeschlagenen Abruf den letzten guten Stand behalten.
@@ -4329,10 +5312,45 @@ class App:
         503 gesagt hat. Der alte Stand ist in dem Fall die bessere Auskunft als
         gar keiner; die Einstellungsseite nennt den Fehler weiterhin und sagt
         jetzt dazu, von wann die gezeigten Daten sind.
+
+        Die Termine werden JE KALENDER ueberbrueckt: bei mehreren Abos ist die
+        Liste auch dann gefuellt, wenn eine Quelle ausfaellt — ein gemeinsamer
+        Stand wuerde genau dann ueberschrieben und die Termine der ausgefallenen
+        Quelle verschwinden lassen.
         """
         meta = data.get("meta") or {}
-        for fehler, feld in (("cal_error", "events"),
-                             ("hol_error", "holidays"),
+
+        quellen = meta.get("cal_sources") or []
+        if quellen:
+            frisch: dict = {}
+            for e in data.get("events") or []:
+                frisch.setdefault(e.get("ck") or "", []).append(e)
+            zusammen, stale = [], None
+            for q in quellen:
+                k = q.get("key") or ""
+                gut = self._front_good_cal.get(k)
+                if q.get("error") and not frisch.get(k) and gut:
+                    zusammen.extend(self._front_cached_events(gut["events"]))
+                    q["stale"] = gut["zeit"]
+                    stale = gut["zeit"]
+                else:
+                    ev = frisch.get(k, [])
+                    zusammen.extend(ev)
+                    if not q.get("error"):
+                        self._front_good_cal[k] = {"events": ev, "zeit": time.strftime("%H:%M")}
+            # Quellen einzeln sortiert -> zusammengefuehrt neu ordnen.
+            zusammen.sort(key=front_info.event_sort_key)
+            data["events"] = zusammen
+            meta["cal_count"] = len(zusammen)
+            if stale:
+                meta["events_stale"] = stale
+        # Entfernte Kalender nicht ewig im Speicher mitschleppen.
+        aktuell = {q.get("key") for q in quellen}
+        for k in list(self._front_good_cal):
+            if k not in aktuell:
+                del self._front_good_cal[k]
+
+        for fehler, feld in (("hol_error", "holidays"),
                              ("wx_error", "weather")):
             if meta.get(fehler) and not data.get(feld) and self._front_good.get(feld):
                 data[feld] = self._front_good[feld]
@@ -4344,9 +5362,13 @@ class App:
 
     async def front_task(self) -> None:
         """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
-        aktiv, wenn eine iCal-URL ODER Koordinaten gesetzt sind. Ein sofortiges
+        aktiv, wenn mindestens ein iCal-Abo ODER Koordinaten gesetzt sind. Ein sofortiges
         Neuladen wird ueber _front_refresh (nach dem Speichern) ausgeloest."""
-        self._front_session = aiohttp.ClientSession()
+        # Grenze je Host: mehrere Abos liegen oft beim selben Anbieter (iCloud,
+        # Google). Acht gleichzeitige Verbindungen dorthin sehen nach einem
+        # Ansturm aus — genau das beantwortet iCloud gern mit 503.
+        self._front_session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(limit_per_host=3))
         try:
             while True:
                 cfg = dict(self.calendar_cfg or {})
@@ -4357,7 +5379,7 @@ class App:
                 # fuer Anlagen ohne Loxone-Wetterdienst. Liefert der Wetterserver
                 # Wetter, braucht es weder Koordinaten noch einen zweiten Abruf.
                 wx = self._loxone_weather()
-                configured = bool((cfg.get("ical_url") or "").strip()) or wx is not None or (
+                configured = bool(front_info.calendar_sources(cfg)) or wx is not None or (
                     cfg.get("lat") not in (None, "") and cfg.get("lon") not in (None, ""))
                 if configured:
                     try:
@@ -4379,6 +5401,8 @@ class App:
                     self._front_meta = {}
                     self._wx_source = "open-meteo"
                     payload = {"t": "front", "weather": None, "events": [],
+                               "holidays": {}, "cals": [], "calColors": True,
+                               "svEvents": 3,
                                "calName": (cfg.get("name") or "Family")}
                 # Nur bei echter Aenderung senden (spart Broadcasts bei gleichem Stand).
                 if payload is not None:
@@ -4422,20 +5446,29 @@ class App:
 _NOCACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 
+def _web_file(path: Path, ctype: str) -> web.Response:
+    """Eine der Oberflaechen-Dateien ausliefern. Fehlt sie (kaputtes Image,
+    falsch gemountetes Volume), gibt es einen 404 mit Dateinamen statt eines
+    Stacktrace als 500."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as err:
+        log.error("%s nicht lesbar: %s", path, err)
+        return web.Response(status=404, text=f"{path.name} fehlt im LoxPanel-Image")
+    return web.Response(text=text, content_type=ctype, headers=_NOCACHE)
+
+
 async def index(request: web.Request) -> web.Response:
-    return web.Response(text=HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(HTML, "text/html")
 
 
 async def config_index(request: web.Request) -> web.Response:
-    return web.Response(text=CONFIG_HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(CONFIG_HTML, "text/html")
 
 
 async def i18n_js(request: web.Request) -> web.Response:
     """Gemeinsamer Uebersetzungs-Katalog fuer /settings und /config."""
-    return web.Response(text=I18N_JS.read_text(encoding="utf-8"),
-                        content_type="application/javascript", headers=_NOCACHE)
+    return _web_file(I18N_JS, "application/javascript")
 
 
 async def api_meta(request: web.Request) -> web.Response:
@@ -4457,14 +5490,30 @@ async def api_meta(request: web.Request) -> web.Response:
             "roomName": _clean((app.rooms.get(room) or {}).get("name", "")) if room else "",
             "cat": c.get("cat"),
             "iconUrl": app._control_icon_url(c),
+            # Zeichnet der Baustein auf? Dann bietet der Konfigurator ihn fuer
+            # die Verlaufs-Pane und den Mini-Verlauf in der Kachel an.
+            "stat": bool(c.get("statistic") or c.get("statisticV2")),
+            # Art der Reihe, die die Kachel zeigt (line/digital/counter): die
+            # Tagesspanne gibt es nur fuer Linien.
+            "statKind": (app._stat_primary(c) or (None, None))[1],
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
+        # Wie viele Werte-Kacheln die Uhr-Seite traegt. Der Konfigurator liest
+        # die Zahl hier ab, statt sie ein zweites Mal zu fuehren.
+        "svStatusMax": SV_STATUS_MAX,
+        # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
+        # innerhalb davon an.
+        "scaleRange": [SCALE_MIN, SCALE_MAX],
+        # Zeitraeume der Verlaufs-Diagramme (Schluessel, Anzeige) fuer die Auswahl
+        # "Verlauf in der Kachel" — eine Quelle mit der Visu (STAT_RANGES).
+        "statRanges": [[k, v[0]] for k, v in STAT_RANGES.items()],
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
                  {"tab": "raeume", "label": "Räume"},
-                 {"tab": "kategorien", "label": "Kategorien"}]
+                 {"tab": "kategorien", "label": "Kategorien"},
+                 {"tab": PICK_TAB, "label": "Eigene Auswahl", "pick": True}]
         + [{"tab": "cat:" + cu, "label": _clean(app.cats[cu].get("name", "")),
             "iconUrl": app._icon_url(app.cats[cu].get("image")), "cat": True}
            for cu in app.cats_with]
@@ -4475,8 +5524,7 @@ async def api_meta(request: web.Request) -> web.Response:
         "devices": app.devices,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
-                         if k in ("iconSize", "nameSize", "subSize", "font",
-                                  "textColor", "baseColor", "bold", "lang")},
+                         if k in THEME_UI_KEYS},
                   "categories": {k: v for k, v in (app.theme.get("categories") or {}).items()
                                  if not str(k).startswith("_")}},
     })
@@ -4525,8 +5573,7 @@ async def api_save_theme(request: web.Request) -> web.Response:
 
 
 async def settings_index(request: web.Request) -> web.Response:
-    return web.Response(text=SETTINGS_HTML.read_text(encoding="utf-8"),
-                        content_type="text/html", headers=_NOCACHE)
+    return _web_file(SETTINGS_HTML, "text/html")
 
 
 async def install_script(request: web.Request) -> web.Response:
@@ -4568,9 +5615,18 @@ async def api_settings(request: web.Request) -> web.Response:
         "audiometa": {"enabled": bool(am.get("enabled", True)),
                       "servers": sorted(app.mediaservers.values())},
         "calendar": {
-            "ical_url": (cal.get("ical_url") or "").strip(),
+            # Quellen normalisiert (inkl. Migration einer alten einzelnen
+            # ical_url), damit die Einstellungsseite genau das sieht, womit der
+            # Server auch arbeitet.
+            "sources": [{"name": q["name"], "url": q["url"], "color": q["color"],
+                         "key": q["key"]}
+                        for q in front_info.calendar_sources(cal)],
             "holiday_url": (cal.get("holiday_url") or "").strip(),
             "name": cal.get("name") or "Family",
+            "colors": bool(cal.get("colors", True)),
+            "sv_events": cal.get("sv_events", 3),
+            "palette": front_info.CAL_COLORS,
+            "max_sources": front_info.MAX_SOURCES,
             "lat": cal.get("lat"),
             "lon": cal.get("lon"),
             "days": cal.get("days", 14),
@@ -4737,7 +5793,7 @@ async def api_settings_intercom(request: web.Request) -> web.Response:
 
 
 async def api_settings_calendar(request: web.Request) -> web.Response:
-    """Kalender (iCal-Abo) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
+    """Kalender (iCal-Abos) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -4762,15 +5818,49 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
 
     cfg = _load_cfg()
     cal = dict(cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {})
-    cal["ical_url"] = str(data.get("ical_url", "")).strip()
+
+    # Kalenderquellen NUR anfassen, wenn die Oberflaeche sie mitgeschickt hat.
+    # Eine aeltere /config-Seite, die noch im Browser offen steht, kennt das
+    # Feld nicht - ohne diese Pruefung loescht ihr "Speichern" saemtliche Abos.
+    # Dasselbe gilt fuer die anderen neuen Felder weiter unten.
+    roh = data.get("sources")
+    if isinstance(roh, list):
+        quellen, gesehen = [], set()
+        for q in roh:
+            if not isinstance(q, dict):
+                continue
+            url = front_info.normalize_ical_url(q.get("url"))
+            # Doppelte URLs hier schon wegwerfen: calendar_sources() tut es
+            # ohnehin, sonst stuenden sie in der Datei und die Oberflaeche
+            # zeigte beim naechsten Laden weniger an, als gespeichert wurde.
+            if not url or url in gesehen or len(quellen) >= front_info.MAX_SOURCES:
+                continue
+            gesehen.add(url)
+            quellen.append({"name": str(q.get("name", "")).strip()[:40],
+                            "url": url,
+                            # Leer = spaeter die Vorschlagsfarbe der Position
+                            "color": front_info.clean_color(q.get("color"), "")})
+        cal["sources"] = quellen
+        # Die alte Einzel-URL darf stehen bleiben, solange sie in der Liste
+        # steht: calendar_sources() liest sie nur, wenn `sources` nichts
+        # hergibt, ein Doppel-Kalender entsteht also nicht - und ein Downgrade
+        # auf eine aeltere Version findet seinen Kalender noch vor. Erst wenn
+        # der Benutzer sie aus der Liste genommen hat, verschwindet sie auch
+        # hier, sonst kaeme sie beim Loeschen des letzten Abos zurueck.
+        if front_info.normalize_ical_url(cal.get("ical_url")) not in gesehen:
+            cal["ical_url"] = ""
     cal["holiday_url"] = str(data.get("holiday_url", "")).strip()
     cal["name"] = str(data.get("name", "")).strip() or "Family"
+    if "colors" in data:
+        cal["colors"] = bool(data.get("colors"))
     lat, lon = _coord(data.get("lat")), _coord(data.get("lon"))
     # Nur ein vollstaendiges Koordinatenpaar speichern (halb gesetzt = kein Wetter).
     cal["lat"] = lat if (lat is not None and lon is not None) else None
     cal["lon"] = lon if (lat is not None and lon is not None) else None
     cal["days"] = _int(data.get("days"), 14, 1, 60)
     cal["fore_days"] = _int(data.get("fore_days"), 4, 1, 7)
+    if "sv_events" in data:
+        cal["sv_events"] = _int(data.get("sv_events"), 3, 1, 10)
     cfg["calendar"] = cal
     try:
         _write_cfg(cfg)
@@ -4778,8 +5868,8 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
     app.calendar_cfg = _calendar_config()
     app._front_refresh.set()   # sofort neu laden und an die Panels schicken
-    log.info("Kalender/Wetter gespeichert (iCal %s, Wetter %s)",
-             "gesetzt" if cal["ical_url"] else "leer",
+    log.info("Kalender/Wetter gespeichert (%d iCal-Abo(s), Wetter %s)",
+             len(front_info.calendar_sources(cal)),
              "gesetzt" if cal["lat"] is not None else "leer")
     return web.json_response({"ok": True})
 
@@ -4872,6 +5962,12 @@ async def api_save_devices(request: web.Request) -> web.Response:
         app._write_devices(devices)
     except Exception as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
+    # Skalierung je Geraet sofort wirksam machen: jedem verbundenen Panel
+    # seinen (evtl. neuen) wirksamen Faktor schicken - ohne Neuladen, das
+    # beim Speichern von Profilen noetig ist, hier aber nicht.
+    for ws, info in list(app.conn_info.items()):
+        await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
+            app.conn_prof.get(ws), info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": devices})
 
 
@@ -4968,18 +6064,8 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             continue
         if device and app.conn_dev.get(ws) != device:
             continue
-        try:
-            await ws.send_json(msg)
+        if await app._send_or_drop(ws, msg):
             n += 1
-        except Exception as err:   # nicht nur ConnectionError (F3)
-            log.debug("Push an Panel fehlgeschlagen: %s", err)
-            app.conn_route.pop(ws, None)
-            app.conn_prof.pop(ws, None)
-            app.conn_dev.pop(ws, None)
-            app.conn_info.pop(ws, None)
-            app.conn_player.pop(ws, None)
-            app.conn_energy.pop(ws, None)
-            app.conn_camera.pop(ws, None)
     return n
 
 
@@ -5067,13 +6153,8 @@ async def api_testtone(request: web.Request) -> web.Response:
     for ws, prof in list(app.conn_prof.items()):
         if target and (prof or {}).get("id") != target:
             continue
-        try:
-            await ws.send_json({"t": "testtone"})
+        if await app._send_or_drop(ws, {"t": "testtone"}):
             n += 1
-        except Exception as err:   # nicht nur ConnectionError (F3)
-            log.debug("testtone-Push an Panel fehlgeschlagen: %s", err)
-            app.conn_route.pop(ws, None)
-            app.conn_prof.pop(ws, None)
     return web.json_response({"ok": True, "sent": n})
 
 
@@ -5198,9 +6279,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # Tablet mit Kiosk-App) schaltet die Seite das Display selbst ab und laedt
     # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
-                        "tabMeta": app._tab_meta(prof["tabs"]), "title": prof["title"],
+                        "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "panes": prof.get("panes") or {},
+                        "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
+                        "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
@@ -5252,6 +6335,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
                     await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+                elif code != "200" and data.get("uuid") and data.get("cmd"):
+                    # Sichtbar machen statt still verschlucken (Details im Log)
+                    await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
+                                        "Befehl nicht ausgeführt – Miniserver antwortet nicht" if code is None
+                                        else f"Befehl nicht ausgeführt (Miniserver meldet {code})"})
             elif data.get("t") == "setplayer":
                 # Client meldet die AudioZone der aktiven Player-Pane (oder "" = keine).
                 zone = str(data.get("zone") or "").strip()
@@ -5283,6 +6371,46 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         log.exception("energy_blocks (setenergy) fehlgeschlagen (%s)", euid)
                 else:
                     app.conn_energy.pop(ws, None)
+            elif data.get("t") == "screen":
+                # Das Panel meldet seine Bildschirmgroesse - beim Verbinden und
+                # nach jeder Groessenaenderung. Nur fuer die Anzeige unter
+                # Settings -> Panels; nichts davon steuert den Server.
+                if ws in app.conn_info:
+                    app.conn_info[ws]["screen"] = _clean_screen(data)
+            elif data.get("t") == "setsvstatus":
+                # Client meldet die Bausteine der Status-Spalte seines
+                # Screensavers (oder [] = keine). Antwort sofort, damit die
+                # Spalte beim Einblenden nicht leer bleibt.
+                _uu = tuple(str(x) for x in (data.get("uuids") or [])
+                            if isinstance(x, str))[:SV_STATUS_MAX]
+                if _uu:
+                    app.conn_status[ws] = _uu
+                    try:
+                        sb = app.status_blocks(_uu)
+                        _sm = {"t": "svstatus", "items": sb}
+                        await ws.send_json(_sm)
+                        app._last_sent.setdefault(ws, {})["svstatus"] = _sm
+                    except Exception:
+                        log.exception("status_blocks (setsvstatus) fehlgeschlagen")
+                else:
+                    app.conn_status.pop(ws, None)
+            elif data.get("t") == "setchart":
+                # Client meldet den Baustein der aktiven Verlaufs-Pane und den
+                # dort gewaehlten Zeitraum (oder uuid "" = keine Pane).
+                cuid = str(data.get("uuid") or "").strip()
+                rng = data.get("range") if data.get("range") in STAT_RANGES else STAT_DEFAULT_RANGE
+                if cuid:
+                    app.conn_chart[ws] = (cuid, rng)
+                    try:
+                        cb = app.chart_blocks(cuid, rng)
+                        if cb is not None:
+                            _cm = {"t": "chart", **cb}
+                            await ws.send_json(_cm)
+                            app._last_sent.setdefault(ws, {})["chart"] = _cm
+                    except Exception:
+                        log.exception("chart_blocks (setchart) fehlgeschlagen (%s)", cuid)
+                else:
+                    app.conn_chart.pop(ws, None)
             elif data.get("t") == "setcamera":
                 # Client meldet die Intercom-Kachel der aktiven Kamera-Pane
                 # (oder "" = keine).
@@ -5304,7 +6432,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_info.pop(ws, None)
         app.conn_player.pop(ws, None)
         app.conn_energy.pop(ws, None)
+        app.conn_chart.pop(ws, None)
         app.conn_camera.pop(ws, None)
+        app.conn_status.pop(ws, None)
     return ws
 
 

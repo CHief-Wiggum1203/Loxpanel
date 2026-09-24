@@ -33,12 +33,22 @@
     max-width:calc(var(--cols,2) * 240px);max-height:calc(var(--rows,2) * 240px);
     border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
-    transform:translateX(var(--nudge-x,0));
+    /* --ui-scale: Skalierung (Profil/Geraet "scale", gesetzt in applyScale).
+       Der Kasten behaelt seine Layout-Groesse aus 240er Kacheln, die Anzeige
+       waechst gleichmaessig mit - Schrift, Icons, Uhr-Seite, Panes. Erst
+       skaliert, dann versetzt: der Feinversatz bleibt in echten Pixeln. */
+    transform:translateX(var(--nudge-x,0)) scale(var(--ui-scale,1));
     display:grid;grid-template-rows:minmax(0,1fr) auto;}
   /* "Bildschirm fuellen": ganzen Tablet-Schirm nutzen (Voll-Zoom). Die Kacheln
      passen sich der Geraeteform an (koennen leicht rechteckig werden) statt als
      zentrierter cols:rows-Kasten mit Rand zu stehen. Gilt auch fuer Vollbreit. */
   .screen.fill{max-width:none;max-height:none;width:100vw;height:100vh;}
+  /* Skaliert fuellt der Kasten den Schirm auf den Pixel genau - eine Rundung
+     darf keine Scrollleiste erzeugen. NUR auf html (wirkt aufs Fenster), nicht
+     auf body: body ist hier Grid-Element mit place-items:center und damit nur
+     so breit wie der UNskalierte Kasten. overflow:hidden dort schnitt die
+     vergroesserte Anzeige links und rechts ab - sichtbar und fuer Tipps. */
+  html.scaled{overflow:hidden;}
   /* Split-Layout (grosse Tablets): EIN Panel = links navigierbare Visu, rechts
      fester Player, unten EINE gemeinsame Tab-Leiste ueber die volle Breite. */
   /* Denke in einem 4x2-Raster: links 2x2 = Visu, rechts 2x2 = Player. Der Block
@@ -81,6 +91,11 @@
      Wetter/Kalender bleiben mehrseitig (Snap) und duerfen scrollen. */
   .screen.split #frontpane .fp-page.solo,
   .screen.split #playerpane .fp-page.solo{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;}
+  /* Verlaufs-Pane: eine Seite, aber mehrere Diagramme duerfen scrollen */
+  .screen.split #frontpane .fp-page.solo.cpage{overflow-y:auto;gap:10px;}
+  #frontpane .cphead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  #frontpane .cpname{font-weight:650;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #frontpane .cpval{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
   /* Kamera-Pane: MJPEG-Live-Bild fuellt die rechte Spalte (kein Padding/Scroll). */
   /* Kamera-Pane: volle Intercom-Ansicht (Klingel-Banner + Video + Tür-/Ausgang-Buttons). */
   #frontpane.cam{justify-content:flex-start;}
@@ -103,9 +118,8 @@
   .epane .ering.idle{stroke:var(--muted);opacity:.55;}
   .epane .eic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   .epane .eic.prod{stroke:var(--accent);} .epane .eic.cons{stroke:var(--glow);} .epane .eic.grid{stroke:var(--crit);} .epane .eic.idle{stroke:var(--muted);}
-  /* echtes Loxone-Icon: monochrome SVG-Maske, in Rollenfarbe eingefaerbt */
-  .epane .emask{width:100%;height:100%;background:currentColor;}
-  .epane .emask.prod{color:var(--accent);} .epane .emask.cons{color:var(--glow);} .epane .emask.grid{color:var(--crit);} .epane .emask.idle{color:var(--muted);}
+  /* echtes Loxone-Icon: SVG-<mask> (Alpha des Bildes), Rechteck in Rollenfarbe darunter */
+  .epane .emask.prod{fill:var(--accent);} .epane .emask.cons{fill:var(--glow);} .epane .emask.grid{fill:var(--crit);} .epane .emask.idle{fill:var(--muted);}
   .epane .enval{fill:var(--ink);font-size:16px;font-weight:600;text-anchor:middle;}
   .epane .enval.idle{fill:var(--muted);}
   .epane .enlab{fill:var(--muted);font-size:12px;text-anchor:middle;}
@@ -181,6 +195,24 @@
   .tile.on{background:rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
   .tile .head{display:flex;justify-content:space-between;align-items:flex-start;}
+  /* Mini-Verlauf (it.spark): fuellt die freie Mitte zwischen Icon und Text */
+  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;overflow:hidden;}
+  .tile .tspark svg{display:block;}
+  .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
+     Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
+     Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
+     in die Raumzeile, dort hat sie die ganze Breite. Kacheln ohne Raumzeile
+     (Raum-Ansicht, alle Bausteine in einem Raum) bekommen die Zeile dafuer. */
+  .tile .tsline{display:none;}
+  .tile.sparktight .head .tspark{flex:1 1 0;min-width:0;align-self:stretch;margin:0 8px;}
+  .tile.sparktight .tsbadge,.tile.sparktight .room:not(.tsline),
+  .tile.sparkbadge .tsbadge,.tile.sparkbadge .room:not(.tsline){display:none;}
+  .tile.sparktight .tsline,
+  .tile.sparkbadge .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
+  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
+    color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
   .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
@@ -232,8 +264,15 @@
   .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
   .tile .chev svg{width:20px;height:20px;}
-  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:500;letter-spacing:.02em;text-transform:uppercase;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;opacity:.85;}
+  /* Raumzeile tritt hinter Name und Zustand zurueck - aber TYPOGRAFISCH, nicht
+     ueber die Farbe: sie ist leichter (400 statt 500, also leichter als die
+     Zustandszeile darunter) und weiter gesperrt, was Versalien als ruhiges
+     Etikett lesen laesst statt als Ueberschrift.
+     KEINE opacity mehr. theme_colors.derive() rechnet --muted so aus, dass es
+     auf --tile gerade AA (4.5:1) schafft; die fruehere opacity:.85 drueckte es
+     danach wieder darunter - in 9 von 17 geprueften Themes, bis auf 3.75:1. */
+  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
   .tile .name{font-size:var(--name-size,18px);font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .tile .sub{font-size:var(--sub-size,15px);color:var(--muted);font-weight:400;
@@ -254,7 +293,10 @@
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
   .tctrls .tb svg{width:17px;height:17px;}
-  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
+  /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
+     Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
+     Zeile belegten - jeder Monat begann so am Montag. */
+  .grid>.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding-top:40px;font-size:15px;}
   /* Listen-Layout (volle Breite): immer exakt 4 Zeilen sichtbar (fuellt die
      Grid-Hoehe, egal wie hoch die Tab-Leiste ist -> kein 3,75-Zeilen-Rest). */
   .grid.list{grid-template-columns:1fr;grid-auto-rows:calc((100% - 3*var(--gap)) / 4);}
@@ -305,6 +347,27 @@
     padding:8px 8px;word-break:break-word;}
   .pbig.good{color:var(--good);} .pbig.crit{color:var(--crit);}
   .grid.panel.bigpage{justify-content:center;gap:14px;}
+  /* Verlaufs-Diagramm (Block k:'chart'). Farben nur ueber Theme-Variablen. */
+  .chart{background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:8px 10px 6px;}
+  .chrng{display:flex;gap:6px;justify-content:center;margin-bottom:6px;}
+  .chrng .chip{font:inherit;font-size:13px;color:var(--muted);background:transparent;
+    border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;}
+  .chrng .chip.on{color:var(--accent);border-color:var(--accent);background:rgba(var(--accent-rgb,82,184,129),.12);}
+  .chbody svg{display:block;width:100%;height:auto;}
+  .chbody .chax{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+  .chbody .chgrid{stroke:var(--line);stroke-width:1;}
+  .chbody .chvgrid{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4;}
+  .chmsg{color:var(--muted);font-size:14px;text-align:center;padding:26px 0;}
+  .chleg{display:flex;flex-wrap:wrap;gap:2px 14px;justify-content:center;font-size:12.5px;color:var(--muted);
+    margin-top:2px;font-variant-numeric:tabular-nums;}
+  .chleg .chdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+  .chleg b{font-weight:600;color:var(--ink);}
+  /* Detailseite mit Diagramm: oben anfangen (eine zentrierte Spalte schnitte beim
+     Scrollen den Kopf ab), Deko-Kreis weg, Wert kleiner - so passt der Verlauf
+     auch auf 480x480 unter den aktuellen Wert. */
+  .grid.panel.chartpage{justify-content:flex-start;gap:10px;}
+  .grid.panel.chartpage .hero{display:none;}
+  .grid.panel.chartpage .pbig{font-size:clamp(40px,10vw,56px);padding:2px 8px;}
   /* anchor:bottom (IRR/Klima): Anzeige oben zentriert, Bedienung unten fixiert.
      Aufklappende Auswahl steht im .panbot VOR den festen Zeilen -> waechst nach oben. */
   .grid.panel.anchorbot{justify-content:flex-start;gap:0;}
@@ -404,6 +467,15 @@
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tab.active{color:var(--accent);}
   .tab.active .tico{background-color:var(--accent);}
+  /* Sprungmarke ohne Bild: der Name traegt die Unterscheidung. Vier gleiche
+     Symbole waeren wertlos - Raeume haben in Loxone meist kein Bild. */
+  /* 10px auf dem 4-Zoll-Panel (480 px): dort passt jeder Raumname der Anlage
+     ganz hinein, ohne mitten im Wort zu brechen - nachgemessen mit 21 echten
+     Namen. Auf breiteren Displays waechst die Schrift bis 13px mit. */
+  .tab .tlbl{font-size:clamp(10px,2vw,13px);line-height:1.15;font-weight:600;letter-spacing:.02em;
+    max-width:100%;padding:0 4px;text-align:center;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow-wrap:anywhere;}
   .tab:active{transform:scale(.92);}
   /* Online-Punkt: nur auf den Haupt-Screens (Tabs), zentriert im 2x2-Raster */
   .conn{grid-row:1;grid-column:1;place-self:center;z-index:6;pointer-events:none;
@@ -446,7 +518,48 @@
     column-gap:44px;row-gap:16px;align-items:start;}
   .saver.split .sv-wrap.rich .sv-clock{grid-area:clock;justify-self:center;margin:0 0 4px;}
   .saver.split .sv-wrap.rich .sv-wx{grid-area:wx;}
-  .saver.split .sv-wrap.rich .sv-cal{grid-area:cal;}
+  .saver.split .sv-wrap.rich .sv-cal,
+  .saver.split .sv-wrap.rich .sv-box{grid-area:cal;}
+  /* Steht rechts nichts (Einstellung "aus", oder es gibt schlicht nichts zu
+     zeigen): einspaltig weiterlaufen, statt die halbe Flaeche leer zu lassen. */
+  .saver.split .sv-wrap.rich.solo{grid-template-columns:1fr;
+    grid-template-areas:"clock" "wx";width:min(94%,620px);}
+  /* Energiefluss und Kamera rechts brauchen HOEHE. Ueber beiden Spalten nimmt
+     ihnen die Uhr ein Fuenftel davon: gemessen bei 960x480 blieb der Grafik
+     299 px, das 480er-SVG lief auf 62 % und die Knotennamen auf 7,5 px -
+     unlesbar. Hier steht die Uhr deshalb links ueber dem Wetter, und die rechte
+     Spalte bekommt die volle Hoehe.
+     Beide Spalten gleich breit: der Energiefluss ist durch die HOEHE begrenzt
+     (gemessen: 392 px bei 480 wie bei 444 px Spaltenbreite) - breiter machte
+     nur den leeren Rahmen neben ihm groesser und die Box wuchtiger. Die Kamera
+     (4:3, breitenbegrenzt) verliert dabei wenig: 454x341 -> 418x314.
+     Die Uhr sitzt unten in der oberen Zeile, das Wetter oben in der unteren -
+     so treffen sie sich auf der Mittellinie der rechten Grafik. */
+  .saver.split .sv-wrap.rich.tall{width:min(96%,920px);
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"clock cal" "wx cal";grid-template-rows:1fr 1fr;
+    column-gap:32px;row-gap:14px;align-items:stretch;}
+  .saver.split .sv-wrap.rich.tall .sv-clock{align-self:end;margin:0 0 10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx{align-self:start;gap:14px;}
+  /* Die linke Seite hat hier die volle Hoehe, nicht mehr nur eine Zeile ueber
+     beiden Spalten. Mit der Uhr aus dem alten Layout (60 px) nutzten Uhr und
+     Wetter nur 49 % der Hoehe der rechten Box, und die Grafik erschlug die
+     Uhr. Jetzt ist die Uhr wieder das, was man zuerst sieht (70 %). */
+  .saver.split .sv-wrap.rich.tall .sv-time{font-size:96px;}
+  .saver.split .sv-wrap.rich.tall .sv-date{font-size:21px;margin-top:10px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .ico{width:48px;height:48px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .t{font-size:36px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .cond{font-size:19px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .now .hl{font-size:15px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc{padding:11px 6px 12px;gap:5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .d{font-size:12.5px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .ico{width:28px;height:28px;}
+  .saver.split .sv-wrap.rich.tall .sv-wx .fc .tt{font-size:15px;}
+  /* Ohne Wetter bliebe die untere linke Zelle leer und die Uhr saesse ueber der
+     Mitte (gemessen 53 px zu hoch). Dann ueber beide Zeilen und mittig. Das
+     Wetter steht im Markup direkt vor der Uhr - so geht es ohne :has(), das
+     aeltere Kiosk-WebViews nicht kennen. */
+  .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;margin:0;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
@@ -483,6 +596,56 @@
   .sv-ev .tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
     border:1px solid rgba(var(--accent-rgb,82,184,129),.4);background:rgba(var(--accent-rgb,82,184,129),.10);
     border-radius:999px;padding:2px 8px;white-space:nowrap;}
+  /* Zweite Spalte, wenn dort nicht die Termine stehen: Wetter-Details,
+     Energiefluss, Kamera oder frei gewaehlte Bausteine. Eigener Container neben
+     .sv-cal — beide liegen im selben Rasterfeld, sichtbar ist immer nur einer. */
+  .saver .sv-box{display:flex;flex-direction:column;gap:8px;align-self:stretch;min-width:0;}
+  /* .fp-page ist sonst auf die Panes am Hauptschirm gemuenzt (#frontpane) und
+     braucht hier dieselbe Rahmung — aber ohne deren Seiten-Snapping. */
+  .saver .sv-box .fp-page{display:flex;flex-direction:column;gap:10px;padding:12px;
+    box-sizing:border-box;min-height:0;
+    background:linear-gradient(180deg,var(--tile),rgba(255,255,255,.015));
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:14px;}
+  .saver .sv-box .fp-page.solo{overflow:hidden;}
+  /* Energiefluss und Kamera sind EINE Seite, die eine Hoehe BRAUCHT: am
+     Hauptschirm gibt die Pane sie vor, hier die gemessene Hoehe des
+     Screensavers abzueglich Rand (--sv-frei, gesetzt in svFit; die Uhr steht
+     in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
+     am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
+     preserveAspectRatio, Bild per object-fit), statt zu strecken. */
+  .saver .sv-box.solo{height:var(--sv-frei,auto);}
+  .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
+  .saver .sv-box.solo .video{max-height:100%;}
+  /* Kamera ist durch die Breite begrenzt (4:3): sie steht mittig in der Spalte,
+     statt oben zu kleben und unten einen leeren Streifen zu lassen. */
+  .saver .sv-box .campage{justify-content:center;}
+  /* Namen im Energiefluss: das SVG skaliert samt Text. Gemessen bei 960x480
+     standen die Namen bei 9,8 px, am Hauptschirm sogar bei 8,4 px. Die Uhr-Seite
+     wird aber aus Entfernung gelesen, nicht aus der Naehe bedient - deshalb hier
+     14 statt 12 Nutzereinheiten (~11 px am Schirm). NUR die Namen: die Werte
+     sind fett und schon ~13 px; groesser gemacht fressen sie bei den unteren
+     Knoten den festen Spalt zwischen Name und Wert (dort stehen beide dann
+     Rahmen an Rahmen). Nicht bei .dicht (ab 7 Knoten): dort laufen die Namen
+     schon in normaler Groesse in die Nachbarringe. */
+  .saver .sv-box .epane:not(.dicht) .enlab{font-size:14px;}
+  /* Frei gewaehlte Bausteine: Name/Raum links, Wert rechts. Zustandsfarben wie
+     auf einer Kachel, damit dasselbe Geraet nicht zweierlei Farbsprache hat. */
+  .sv-st{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;
+    background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:7px 11px;}
+  .sv-st .ico{width:22px;height:22px;flex:none;display:grid;place-items:center;color:var(--ico,var(--ink));}
+  .sv-st .ico svg{width:100%;height:100%;}
+  .sv-st .ico img{width:100%;height:100%;object-fit:contain;}
+  .sv-st .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
+    -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .sv-st .nm{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sv-st .nm .rm{display:block;font-size:11px;font-weight:400;color:var(--muted);}
+  .sv-st .vl{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .sv-st.on .ico,.sv-st.on .vl{color:var(--ico-fixed,var(--glow));}
+  .sv-st.good .ico,.sv-st.good .vl{color:var(--good);}
+  .sv-st.crit .ico,.sv-st.crit .vl{color:var(--crit-ink,var(--crit));}
+  .sv-st.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .sv-st.good .ico.img{background-color:var(--good);}
+  .sv-st.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   /* Groessere Panels/Tablets/Browser: die Front nutzt den Platz statt als kleine
      440px-Saeule in der Mitte zu haengen. Nur der Screensaver (.saver) skaliert
      hoch — die reine 480x480-Ansicht bleibt unveraendert kompakt. */
@@ -510,6 +673,12 @@
     .sv-ev .when .tm{font-size:19px;}
     .sv-ev .ttl{font-size:18px;}
     .sv-ev .tag{font-size:12px;padding:3px 11px;}
+    .saver .sv-box{gap:11px;}
+    .sv-st{padding:12px 18px;gap:16px;border-radius:14px;}
+    .sv-st .ico{width:28px;height:28px;}
+    .sv-st .nm{font-size:18px;}
+    .sv-st .nm .rm{font-size:13px;}
+    .sv-st .vl{font-size:19px;}
   }
   /* ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (eigene Seite / Split-Pane) ---- */
   .frontpage.hidden{display:none;}
@@ -586,6 +755,26 @@
   .fp-mon-c.today{background:var(--accent);color:var(--on-accent,#fff);font-weight:700;
     box-shadow:0 2px 8px rgba(0,0,0,.28);}
   .fp-mon-c.today.ev::after{background:var(--on-accent,#fff);}
+  /* Kalenderfarben: ein Punkt vor dem Titel sagt, aus welchem Abo der Termin
+     kommt. Schaltet die Einstellung sie ab, entfaellt der Punkt ersatzlos. */
+  .cdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;
+    vertical-align:1px;flex:none;}
+  .fp-ev .note{font-size:12px;color:var(--muted);margin-left:8px;white-space:nowrap;}
+  .fp-ev .cal{font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap;
+    border:1px solid var(--line);border-radius:999px;padding:1px 7px;}
+  .fp-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:2px 0 8px;}
+  .fp-mon + .fp-leg{margin-top:10px;justify-content:center;}
+  .fp-leg span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .fp-leg i{width:8px;height:8px;border-radius:50%;flex:none;}
+  /* Monatsraster mit mehreren Kalendern: je Tag bis zu drei Farbpunkte statt
+     des einen Akzentpunkts aus .ev::after. */
+  .fp-mon-c .mdots{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+    display:flex;gap:2px;pointer-events:none;}
+  .fp-mon-c .mdots i{width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .fp-mon-c.ev.dots::after{display:none;}
+  /* Auf dem Akzent-Hintergrund des heutigen Tages waeren farbige Punkte kaum
+     zu sehen — dort gewinnt die Lesbarkeit gegen die Inline-Farbe. */
+  .fp-mon-c.today .mdots i{background:var(--on-accent,#fff) !important;}
   .fp-allbtn{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:2px 4px;}
   .fp-ev.holi .tm{color:var(--crit,#e2695f);}
   .moreb{position:absolute;top:6px;right:8px;z-index:6;width:34px;height:34px;border-radius:50%;
@@ -629,6 +818,7 @@
         <div class="sv-date" id="svDate"></div>
       </div>
       <div class="sv-cal" id="svCal" hidden></div>
+      <div class="sv-box" id="svBox" hidden></div>
       <div class="sv-hint">Zum Öffnen tippen</div>
     </div>
   </div>
@@ -667,6 +857,10 @@ const TABS = [
   {tab:'kategorien',label:'Kategorien',icon:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>'},
 ];
 
+// Freie Bausteinauswahl: eine Seite je Panel, Name kommt per tabMeta vom
+// Server (PICK_TAB in bin/webvisu.py). Muss mit dem Server uebereinstimmen.
+const PICK_TAB = 'auswahl';
+
 const el = id => document.getElementById(id);
 let ws, stack = [{view:'tab',tab:'favoriten'}], view = null;
 // Touch-Panel: nach der ersten Beruehrung den Mauszeiger ausblenden (Desktop-Maus bleibt)
@@ -682,8 +876,14 @@ let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layo
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
 // curPlayerZone = zuletzt an den Server gemeldete Player-Zone (setplayer).
 let panesCfg = {}, themeFill = false, curPlayerZone = '', curEnergyUuid = '', curCameraUuid = '';
+// Rechte Spalte der Uhr-Seite (Screensaver), Einstellung je Panel; svStatusData
+// sind die Werte der frei gewaehlten Bausteine ({t:'svstatus'} vom Server).
+let svPaneCfg = '', svStatusData = null, curSvStatus = '';
 let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
+// Verlaufs-Pane (chart:<uuid>): gemeldeter Baustein|Zeitraum, letzter {t:'chart'}-Push,
+// in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
+let curChartKey = '', chartData = null, chartRange = '24h';
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
@@ -839,6 +1039,13 @@ function cellHtml(c,i){
 function closeMenu(){ const m=document.querySelector('.menuov'); if(m)m.remove(); }
 // Auswahl-Popup ueber einem Button (Klima Modus/Fan): oeffnet nach oben, Tipp
 // daneben schliesst. Auswahl sendet den Befehl und schliesst.
+// Verhaeltnis sichtbare Groesse / Layout-Groesse eines Elements. Ist die Visu
+// skaliert (transform am .screen), liefern getBoundingClientRect und Pointer-
+// Koordinaten SICHTBARE Pixel, offsetWidth/clientWidth und CSS-Werte aber
+// LAYOUT-Pixel. Wer beides verrechnet, teilt Sichtbares hierdurch. Am Element
+// selbst gemessen statt aus einer Variablen gelesen: stimmt so fuer jede Art
+// der Skalierung, auch fuer kuenftige.
+function visScale(e){ const w=e&&e.offsetWidth; return w ? (e.getBoundingClientRect().width/w)||1 : 1; }
 function openMenu(btn, items){
   const s=document.querySelector('.screen'); if(!s)return;
   closeMenu();
@@ -846,11 +1053,13 @@ function openMenu(btn, items){
   const box=document.createElement('div'); box.className='menubox';
   box.innerHTML=items.map((it,i)=>'<div class="menuitem'+(it.on?' on':'')+'" data-m="'+i+'">'+esc(it.label)+'</div>').join('');
   ov.appendChild(box); s.appendChild(ov);
-  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect();
-  let left=br.left-sr.left;
-  left=Math.max(8, Math.min(left, sr.width-box.offsetWidth-8));
+  // Rects sind SICHTBARE Pixel, style.left/bottom LAYOUT-Pixel: bei skalierter
+  // Visu erst umrechnen, sonst sitzt das Menue neben seinem Button.
+  const br=btn.getBoundingClientRect(), sr=s.getBoundingClientRect(), k=visScale(s);
+  let left=(br.left-sr.left)/k;
+  left=Math.max(8, Math.min(left, s.offsetWidth-box.offsetWidth-8));
   box.style.left=left+'px';
-  box.style.bottom=(sr.height-(br.top-sr.top)+6)+'px';   // ueber dem Button
+  box.style.bottom=((sr.height-(br.top-sr.top))/k+6)+'px';   // ueber dem Button
   box.querySelectorAll('.menuitem').forEach(n=>{
     n.addEventListener('pointerdown',ev=>{ ev.preventDefault(); ev.stopPropagation();
       const it=items[+n.dataset.m]; closeMenu();
@@ -871,6 +1080,218 @@ function blockSig(blocks){
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
     : b.k).join('|');
 }
+// ---- Verlaufs-Diagramme (Block k:'chart'). Die Daten stammen aus den
+// Statistik-Dateien des Miniservers und kommen fertig aufbereitet vom Server.
+// Zeitstempel sind Wanduhr-Sekunden der Anlage, als UTC gefuehrt: mit getUTC*
+// formatiert zeigt jedes Panel dieselbe Uhrzeit wie der Miniserver, egal in
+// welcher Zeitzone der Browser laeuft. Farben per style, weil var() in
+// SVG-Praesentationsattributen nicht ueberall greift.
+const CH_COLORS=['var(--accent)','var(--glow)','var(--crit)','var(--muted)'];
+function chNum(v,dec){ return (+v).toFixed(dec).replace('.',','); }
+function chTime(t,span){ const d=new Date(t*1000), p=n=>String(n).padStart(2,'0');
+  return span<=129600 ? p(d.getUTCHours())+':'+p(d.getUTCMinutes()) : p(d.getUTCDate())+'.'+p(d.getUTCMonth()+1)+'.'; }
+function chDur(sec){ const h=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+  return h ? h+' h'+(m?' '+m+' min':'') : m+' min'; }
+// Runde Zeitpunkte fuer die Zeitachse: der kleinste Abstand aus der Liste, der
+// hoechstens 5 Beschriftungen ergibt (24 h -> alle 6 h, 7 Tage -> jeden 2. Tag,
+// 30 Tage -> woechentlich). Die Sekunden sind Wanduhrzeit, t % Tag = 0 ist also
+// Mitternacht; Wochen beginnen am Montag (der 1.1.1970 war ein Donnerstag).
+function chTicks(t0,t1){
+  const H=3600, D=86400;
+  for(const st of [H,3*H,6*H,12*H,D,2*D,7*D]){
+    const off=st===7*D?4*D:0, first=Math.ceil((t0-off)/st)*st+off;
+    if(Math.floor((t1-first)/st)+1<=5){ const out=[]; for(let t=first;t<=t1;t+=st) out.push(t); return {ticks:out, day:st>=D}; }
+  }
+  return {ticks:[t0,t1], day:true};
+}
+let chSeq=0;
+function paintChart(box,b){
+  box.querySelectorAll('[data-rng]').forEach(c=>c.classList.toggle('on',c.dataset.rng===b.range));
+  const body=box.querySelector('.chbody'); if(!body) return;
+  if(b.state!=='ok'){
+    body.innerHTML='<div class="chmsg">'+(b.state==='loading'?'Verlauf wird geladen …'
+      :b.state==='error'?'Verlauf nicht abrufbar':'Keine Aufzeichnung in diesem Zeitraum')+'</div>';
+    return; }
+  const W=440,H=150,pL=46,pR=10,pT=10,pB=22, t0=b.t0, t1=b.t1, span=Math.max(1,t1-t0);
+  const unit=b.unit?(' '+b.unit):'', dec=Math.max(0,...b.series.map(s=>s.dec||0));
+  const vals=b.series.flatMap(s=>s.pts.map(p=>p[1]));
+  let lo=vals.length?Math.min(...vals):0, hi=vals.length?Math.max(...vals):1, mn, mx;
+  if(b.kind==='digital'){ mn=-0.08; mx=1.08; }
+  else if(b.kind==='counter'){ lo=0; if(hi<=0) hi=1; mn=0; mx=hi*1.08; }
+  else { if(hi-lo<1e-9){ lo-=1; hi+=1; } const pd=(hi-lo)*0.1; mn=lo-pd; mx=hi+pd; }
+  const X=t=>pL+(t-t0)*(W-pL-pR)/span, Y=v=>pT+(mx-v)*(H-pT-pB)/(mx-mn), f=n=>n.toFixed(1);
+  const id='chg'+(++chSeq), c0=CH_COLORS[0];
+  let s='<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:'+c0+';stop-opacity:.28"/>'+
+        '<stop offset="1" style="stop-color:'+c0+';stop-opacity:0"/></linearGradient></defs>';
+  const yt=b.kind==='digital'?[[0,'Aus'],[1,'Ein']]:[lo,(lo+hi)/2,hi].map(v=>[v,chNum(v,dec)]);
+  yt.forEach(([v,l])=>{ s+='<line class="chgrid" x1="'+pL+'" x2="'+(W-pR)+'" y1="'+f(Y(v))+'" y2="'+f(Y(v))+'"/>'+
+    '<text class="chax" x="'+(pL-6)+'" y="'+f(Y(v)+4)+'" text-anchor="end">'+esc(l)+'</text>'; });
+  const tk=chTicks(t0,t1);
+  tk.ticks.forEach(t=>{ const x=X(t), a=x<pL+18?'start':(x>W-pR-18?'end':'middle');
+    s+='<line class="chvgrid" x1="'+f(x)+'" x2="'+f(x)+'" y1="'+pT+'" y2="'+(H-pB)+'"/>'+
+       '<text class="chax" x="'+f(x)+'" y="'+(H-6)+'" text-anchor="'+a+'">'+chTime(t,tk.day?Infinity:0)+'</text>'; });
+  const leg=[];
+  b.series.forEach((se,si)=>{
+    const col=CH_COLORS[si%CH_COLORS.length], p=se.pts; if(!p.length) return;
+    let info='';
+    if(b.kind==='counter'){           // Verbrauch je Stunde/Tag als Balken, mehrere Reihen nebeneinander
+      const nS=b.series.length;
+      p.forEach(([t,v],i)=>{ const x0=X(t), x1=i+1<p.length?X(p[i+1][0]):W-pR, g=Math.min(3,(x1-x0)*0.15),
+          bw=Math.max(1,(x1-x0-2*g)/nS), y=Y(v);
+        s+='<rect x="'+f(x0+g+si*bw)+'" y="'+f(y)+'" width="'+f(bw)+'" height="'+f(Math.max(0,Y(0)-y))+
+           '" rx="2" style="fill:'+col+'"/>'; });
+      info='Summe <b>'+chNum(p.reduce((a,q)=>a+q[1],0),se.dec)+unit+'</b>';
+    } else if(b.kind==='digital'){    // Stufen, dazu die Ein-Dauer im Zeitraum
+      let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1])), on=0;
+      p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1;
+        if(v>=0.5) on+=Math.max(0,tn-t);
+        d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
+      s+='<path d="'+d+' V'+f(Y(0))+' H'+f(X(p[0][0]))+' Z" style="fill:'+col+';opacity:.22"/>'+
+         '<path d="'+d+'" style="fill:none;stroke:'+col+';stroke-width:2;stroke-linejoin:round"/>';
+      info='Ein <b>'+chDur(on)+'</b>';
+    } else {                          // Linie, erste Reihe mit Verlaufsflaeche
+      const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
+      if(si===0) s+='<polygon points="'+f(X(p[0][0]))+','+f(Y(mn))+' '+line+' '+f(X(p[p.length-1][0]))+','+f(Y(mn))+'" fill="url(#'+id+')"/>';
+      s+='<polyline points="'+line+'" style="fill:none;stroke:'+col+';stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round"/>';
+      const q=p[p.length-1]; s+='<circle cx="'+f(X(q[0]))+'" cy="'+f(Y(q[1]))+'" r="3.5" style="fill:'+col+'"/>';
+      const vs=p.map(q=>q[1]);
+      info='min <b>'+chNum(Math.min(...vs),se.dec)+'</b> · max <b>'+chNum(Math.max(...vs),se.dec)+unit+'</b>';
+    }
+    leg.push('<span><span class="chdot" style="background:'+col+'"></span>'+esc(se.name)+' · '+info+'</span>');
+  });
+  body.innerHTML='<svg viewBox="0 0 '+W+' '+H+'">'+s+'</svg><div class="chleg">'+leg.join('')+'</div>';
+}
+// Rahmen eines Diagramms (Detailseite und Verlaufs-Pane); die Zeitraum-Knoepfe
+// traegt nur das erste Diagramm einer Seite (b.ranges).
+function chartBoxHtml(b){
+  return '<div class="chart" data-chart>'+(b.ranges?'<div class="chrng">'+
+    b.ranges.map(r=>'<button type="button" class="chip" data-rng="'+esc(r[0])+'">'+esc(r[1])+'</button>').join('')+
+    '</div>':'')+'<div class="chbody"></div></div>';
+}
+// Verlaufs-Pane im Split-Layout: Name und aktueller Wert, darunter die Diagramme
+// wie auf der Detailseite. Neu aufgebaut nur, wenn sich Baustein oder Aufbau
+// aendern, sonst nur neu gezeichnet. Die Zeitraum-Knoepfe melden den Zeitraum
+// dem Server neu (setchart), statt wie auf der Detailseite die Route zu ersetzen:
+// links bleibt die Kachelseite stehen.
+function renderChartPane(elc){ if(!elc) return;
+  const uuid=(paneForTab(activeTab())||'').slice(6);
+  const d=(chartData && chartData.control===uuid) ? chartData : null;
+  const blocks=d ? (d.blocks||[]) : [];
+  const sig=uuid+'|'+(d?blocks.map(b=>b.kind+(b.ranges?'r':'')).join(','):'-');
+  let page=elc.querySelector('.fp-page.cpage');
+  if(!page || page.dataset.sig!==sig){
+    elc.innerHTML='<div class="fp-page cpage solo"><div class="cphead"><div class="cpname"></div><div class="cpval"></div></div>'+
+      (d ? blocks.map(chartBoxHtml).join('') : '<div class="chmsg">Verlauf wird geladen …</div>')+'</div>';
+    page=elc.querySelector('.fp-page.cpage'); page.dataset.sig=sig;
+    page.querySelectorAll('.chrng [data-rng]').forEach(btn=>btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+      chartRange=btn.dataset.rng; applyPane(); }));
+  }
+  if(d){ page.querySelector('.cpname').textContent=d.name||''; page.querySelector('.cpval').textContent=d.value||'';
+    paintCharts(page,blocks); }
+}
+// Mini-Verlauf in einer Kachel (it.spark, je Kachel im Konfigurator gewaehlt). Drei
+// Stile, gezeichnet in der echten Pixelgroesse der freien Kachelmitte (paintSpark),
+// damit Beschriftungen scharf und unverzerrt bleiben:
+//   trend    Verlauf: Linie mit Tiefst-/Hoechstwert und Jetzt-Punkt, Digitalwert
+//            als Stufen, Zaehlerstand als Verbrauchsbalken
+//   pattern  Tagesmuster: 7 Tage (Zeilen, heute unten) x 24 Stunden, Deckkraft = Wert
+//   span     Tagesspanne: je Tag ein Balken Tiefst- bis Hoechstwert, Strich = Mittel
+// Ein Farbton (Akzent) fuer alle Werte, Beschriftung in der Textfarbe (--muted).
+function sparkSvg(sp,W,H){
+  if(!sp || sp.state!=='ok' || W<24 || H<18) return '';
+  const f=n=>n.toFixed(1), dec=sp.dec||0, acc='var(--accent)';
+  const txt=(x,y,t,anc,extra)=>'<text class="mm" x="'+f(x)+'" y="'+f(y)+'" text-anchor="'+(anc||'middle')+'"'+(extra||'')+'>'+esc(t)+'</text>';
+  let s='';
+  if(sp.style==='pattern'){
+    const c=sp.cells||[], vs=c.filter(v=>v!=null); if(!vs.length) return '';
+    let mn=sp.kind==='line'?Math.min(...vs):0, mx=Math.max(...vs); if(mx-mn<1e-9) mx=mn+1;
+    const lab=H>=58?11:0, gap=W<150?.75:1.5, cw=(W-23*gap)/24, ch=Math.max(2,(H-lab-6*gap)/7);
+    c.forEach((v,i)=>{ const d=Math.floor(i/24), h=i%24, x=h*(cw+gap), y=d*(ch+gap);
+      s+= v==null
+        ? '<rect x="'+f(x+.5)+'" y="'+f(y+.5)+'" width="'+f(cw-1)+'" height="'+f(ch-1)+'" rx="1.5" style="fill:none;stroke:var(--line)"/>'
+        : '<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(cw)+'" height="'+f(ch)+'" rx="1.5" style="fill:'+acc+';opacity:'+(0.08+0.92*(v-mn)/(mx-mn)).toFixed(3)+'"/>'; });
+    if(lab){ const y=H-1; s+=txt(0,y,'0 h','start')+txt(12*(cw+gap)-gap/2,y,'12 h')+txt(W,y,'24 h','end'); }
+  } else if(sp.style==='span'){
+    const sp7=sp.spans||[], ok=sp7.filter(Boolean); if(!ok.length) return '';
+    let mn=Math.min(...ok.map(r=>r[0])), mx=Math.max(...ok.map(r=>r[1])); if(mx-mn<1e-9){ mn-=1; mx+=1; }
+    const n=sp7.length, col=W/n, lab=(H>=48 && col>=16)?11:0, bw=Math.min(16,col*0.58), top=2, bot=H-lab-2;
+    const Y=v=>bot-(v-mn)*(bot-top)/(mx-mn);
+    sp7.forEach((r,i)=>{ const x=i*col+(col-bw)/2, today=i===n-1;
+      if(r){ const y1=Y(r[1]), y0=Y(r[0]);
+        s+='<rect x="'+f(x)+'" y="'+f(y1)+'" width="'+f(bw)+'" height="'+f(Math.max(3,y0-y1))+'" rx="'+f(Math.min(4,bw/2))+'" style="fill:'+acc+';opacity:'+(today?1:.3)+'"/>';
+        if(r[2]!=null) s+='<line x1="'+f(x+2)+'" x2="'+f(x+bw-2)+'" y1="'+f(Y(r[2]))+'" y2="'+f(Y(r[2]))+'" style="stroke:'+(today?'var(--tile)':'var(--ink)')+';stroke-width:1.5;opacity:.75"/>'; }
+      if(lab) s+=txt(i*col+col/2,H-1,(sp.days||[])[i]||'','middle',today?' style="fill:var(--ink);font-weight:600"':''); });
+  } else {
+    const p=sp.pts||[]; if(!p.length) return '';
+    const t0=sp.t0, t1=sp.t1, span=Math.max(1,t1-t0), ln=sp.kind==='line';
+    const vs=p.map(q=>q[1]); let mn=Math.min(...vs), mx=Math.max(...vs);
+    if(sp.lo) mn=Math.min(mn,sp.lo[1]); if(sp.hi) mx=Math.max(mx,sp.hi[1]);
+    if(!ln) mn=Math.min(0,mn); if(mx-mn<1e-9) mx=mn+1;
+    const labs=ln&&H>=48, pt=labs?13:6, pb=labs?13:6, pl=ln?4:0, pr=ln?6:0;
+    const X=t=>pl+(t-t0)*(W-pl-pr)/span, Y=v=>H-pb-(v-mn)*(H-pt-pb)/(mx-mn);
+    if(sp.kind==='counter'){
+      p.forEach(([t,v],i)=>{ const x=X(t), w=Math.max(1,(i+1<p.length?X(p[i+1][0]):W)-x-1.5), y=Y(v);
+        s+='<rect x="'+f(x)+'" y="'+f(y)+'" width="'+f(w)+'" height="'+f(Math.max(0,Y(0)-y))+'" rx="1.5" style="fill:'+acc+';opacity:.85"/>'; });
+    } else if(sp.kind==='digital'){
+      let d='M'+f(X(p[0][0]))+' '+f(Y(p[0][1]));
+      p.forEach(([t,v],i)=>{ const tn=i+1<p.length?p[i+1][0]:t1; d+=' H'+f(X(tn))+(i+1<p.length?' V'+f(Y(p[i+1][1])):''); });
+      s='<path d="'+d+' V'+f(Y(0))+' H'+f(X(p[0][0]))+' Z" style="fill:'+acc+';opacity:.22"/>'+
+        '<path d="'+d+'" style="fill:none;stroke:'+acc+';stroke-width:2"/>';
+    } else {
+      const line=p.map(([t,v])=>f(X(t))+','+f(Y(v))).join(' ');
+      s='<polygon points="'+f(X(p[0][0]))+','+f(H)+' '+line+' '+f(X(p[p.length-1][0]))+','+f(H)+'" style="fill:'+acc+';opacity:.12"/>'+
+        '<polyline points="'+line+'" style="fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round"/>';
+      const mark=(q,above)=>{ const x=X(q[0]), y=Y(q[1]), a=x<18?'start':(x>W-18?'end':'middle');
+        return '<circle cx="'+f(x)+'" cy="'+f(y)+'" r="3" style="fill:var(--tile);stroke:var(--ink);stroke-width:1.4"/>'+
+               (labs?txt(x,above?y-5.5:y+12,chNum(q[1],dec),a):''); };
+      if(sp.hi) s+=mark(sp.hi,true);
+      if(sp.lo && (!sp.hi || sp.lo[0]!==sp.hi[0])) s+=mark(sp.lo,false);
+      const q=p[p.length-1];
+      s+='<circle cx="'+f(X(q[0]))+'" cy="'+f(Y(q[1]))+'" r="4.5" style="fill:'+acc+';stroke:var(--tile);stroke-width:2"/>';
+    }
+  }
+  return '<svg viewBox="0 0 '+f(W)+' '+f(H)+'" width="'+f(W)+'" height="'+f(H)+'" aria-hidden="true">'+s+'</svg>';
+}
+// Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
+const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+function paintSpark(el,sp){
+  if(!el) return;
+  const tile=el.closest('.tile');
+  placeSpark(el,sp,tile);
+  // Angabe im Kopf abgeschnitten -> in die Raumzeile (nur ohne enge Kachel, dort steht sie ohnehin da).
+  // Ohne Raumzeile kommt die Zeile dabei neu dazu oder faellt weg: dann hat
+  // die Mitte eine andere Hoehe, Platz und Zeichnung also neu bestimmen.
+  const bd=tile&&tile.querySelector('.tsbadge');
+  if(bd){
+    const vorher=tile.classList.contains('sparkbadge');
+    tile.classList.remove('sparkbadge');
+    if(!tile.classList.contains('sparktight') && bd.scrollWidth>bd.clientWidth+1) tile.classList.add('sparkbadge');
+    if(vorher!==tile.classList.contains('sparkbadge')) placeSpark(el,sp,tile);
+  }
+}
+// Verlauf in die Mitte oder (zu niedrige Mitte) in die Kopfzeile setzen und zeichnen.
+function placeSpark(el,sp,tile){
+  const head=tile&&tile.querySelector('.head');
+  if(head){
+    // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
+    const cs=getComputedStyle(tile);
+    let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
+    for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
+    const tight=free<SPARK_MIN_H;
+    if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
+      tile.classList.toggle('sparktight',tight);
+      if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
+      else tile.insertBefore(el,head.nextSibling);
+      el.innerHTML=''; el._key=null;
+    }
+  }
+  const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
+  if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
+}
+function paintCharts(g,blocks){
+  const els=[...g.querySelectorAll('[data-chart]')];
+  blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
+}
 function renderPanel(blocks){
   stopVideo();
   closeMenu();
@@ -879,6 +1300,7 @@ function renderPanel(blocks){
   el('grid').classList.add('panel');
   el('grid').classList.remove('list','snapy','scheme');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
+  el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
@@ -904,6 +1326,7 @@ function renderPanel(blocks){
     if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span><button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
     if(b.k==='row') return '<div class="brow'+(b.cells.some(c=>c.icon)?' transport':'')+(b.wrap?' wraprow':'')+(b.hidden?' collapsed':'')+'"'+(b.id?' data-rowid="'+esc(b.id)+'"':'')+'>'+b.cells.map(cellHtml).join('')+'</div>';
     if(b.k==='head') return '<div class="phead">'+esc(b.text||'')+'</div>';
+    if(b.k==='chart') return chartBoxHtml(b);   // Inhalt zeichnet paintChart nach dem Einfuegen
     if(b.k==='favs') return '<div class="favs'+(b.wrap?' wrap':'')+'">'+b.items.map((f,i)=>'<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+'</div><div class="favn">'+esc(f.label)+'</div></div>').join('')+'</div>';
     if(b.k==='alarmlist'){
       if(!b.entries||!b.entries.length) return '<div class="status alist-empty">Keine Weckzeiten angelegt</div>';
@@ -927,6 +1350,12 @@ function renderPanel(blocks){
     g.innerHTML=html;
   }
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial in der Detailansicht zeichnen
+  paintCharts(g,blocks);
+  // Zeitraum-Wahl: die aktuelle Seite mit anderem Zeitraum ERSETZEN, nicht
+  // stapeln - sonst fuellte jeder Wechsel den Zurueck-Stapel.
+  g.querySelectorAll('.chrng [data-rng]').forEach(btn=>btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
+    const top=stack[stack.length-1]; if(!top) return;
+    const r=Object.assign({},top,{range:btn.dataset.rng}); stack[stack.length-1]=r; send({t:'nav',route:r}); }));
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img){img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
@@ -977,6 +1406,7 @@ function updatePanel(blocks){
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
+  paintCharts(g,blocks);   // Verlauf nachgeladen oder Fenster vorgerueckt: neu zeichnen, Knoepfe bleiben
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       if(c.icon){ btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info); btn.className='btn icon'+(c.big?' big':'')+(c.on?' on':''); }
@@ -987,10 +1417,14 @@ function updatePanel(blocks){
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
-// Raum-Panel-Kontext: der (einzige) Profil-Tab ist ein Raum. Dann bleiben in
-// ALLEN Ansichten (auch Detail) die Kategorie-Tabs + mittiger Zurueck-Button
-// unten stehen. roomCatTabs merkt sie sich fuer Ansichten ohne eigene catTabs.
-function isRoomPanel(){ return tabsCfg.length===1 && String(tabsCfg[0]||'').indexOf('room:')===0; }
+// Anker-Kontext: der (einzige) Profil-Tab traegt eine Seite, deren untere
+// Leiste Sprungmarken statt Seiten zeigt - ein Raum (Kategorien des Raums) oder
+// die freie Auswahl (Raeume der Auswahl). Dann bleiben in ALLEN Ansichten (auch
+// Detail) diese Tabs + mittiger Zurueck-Button unten stehen. roomCatTabs merkt
+// sie sich fuer Ansichten ohne eigene catTabs. Der Name bleibt roomCatTabs bzw.
+// isRoomPanel, damit sich kuenftige Upstream-Merges nicht daran reiben.
+function isRoomPanel(){ const t = String(tabsCfg[0]||'');
+  return tabsCfg.length===1 && (t.indexOf('room:')===0 || t===PICK_TAB); }
 let roomCatTabs=null, pendingCatScroll=null;
 
 function renderTabs(){
@@ -998,15 +1432,27 @@ function renderTabs(){
   // (vom Server als view.catTabs) als SCROLL-Tabs - ein Tipp scrollt zur Gruppe,
   // statt die Seite zu wechseln. Design bleibt: 4 Tabs + Zurueck-Button mittig.
   // In Detailansichten (kein view.catTabs) die gemerkten Tabs weiterzeigen.
-  const ct = (view && Array.isArray(view.catTabs) && view.catTabs.length) ? view.catTabs
-           : (isRoomPanel() && roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
+  // Sprungmarken ERSETZEN die ganze Leiste. Das darf nur geschehen, wenn das
+  // Panel ueberhaupt nur diese eine Seite hat: sonst waeren die uebrigen Tabs
+  // nicht mehr antippbar, und der Zurueck-Knopf hilft nicht, weil die Seite
+  // die unterste im Stapel ist. Frueher hing das daran, dass nur die
+  // room:-Ansicht catTabs lieferte - steht ein room:-Tab in einer klassischen
+  // Leiste, greift dieselbe Falle auch ohne die freie Auswahl.
+  const anker = isRoomPanel();
+  const ct = !anker ? null
+           : (view && Array.isArray(view.catTabs))
+             ? (view.catTabs.length ? view.catTabs : null)
+             : (roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
   const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
   let items;
   if(ct){
     const tabsHtml = ct.map(c => {
+      // Ohne Bild den NAMEN zeigen, nicht den Kategorie-Wuerfel: sonst sehen
+      // mehrere Sprungmarken identisch aus und man kann nichts treffen.
+      // Kategorien aus Loxone bringen fast immer ein Bild mit, Raeume selten.
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
-        : svg('<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>');
+        : '<span class="tlbl">'+esc(c.label||'')+'</span>';
       return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
     });
     // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
@@ -1024,7 +1470,14 @@ function renderTabs(){
       const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
       // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
       // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
-      const fallback = tk.indexOf('room:')===0
+      const fallback = tk===PICK_TAB
+        // Checkliste: klar unterscheidbar von Favoriten-Stern, Haus, Raum und
+        // Kategorie-Wuerfel. Die freie Auswahl hat kein Bild aus Loxone, weil
+        // sie weder Raum noch Kategorie ist - dieses Symbol gilt immer.
+        ? '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>'
+          +'<path d="m3 6 1.4 1.4L7 4.9"/><path d="m3 12 1.4 1.4L7 10.9"/>'
+          +'<path d="m3 18 1.4 1.4L7 16.9"/>'
+        : tk.indexOf('room:')===0
         ? '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v16"/>'
         : '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/>';
       const ico = m.iconUrl
@@ -1050,41 +1503,65 @@ function scrollToCat(key){
   const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
-// Wert je Tab: "weather" | "calendar" | "wide" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>".
+// Wert je Tab: "weather" | "calendar" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
-function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : v))) : null; }
+function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : (v.indexOf('chart:')===0 ? 'chart' : v)))) : null; }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   const raw=themeSplit?paneForTab(activeTab()):null;   // Split aus (4"-Panel) -> keine Pane 2
   const kind=paneKind(raw);
-  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');   // Widget in Pane 2
+  const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart');   // Widget in Pane 2
   sc.classList.toggle('split', isPane);   // Widget -> zweigeteilt, sonst "Screen fuellen"
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
   if(fp){
-    fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera');
+    fp.hidden=!(kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart');
     fp.classList.toggle('cam', kind==='camera');
     // Kamera verlassen -> Video-Stream stoppen (Inhalt leeren), keine Hintergrund-Verbindung.
-    if(kind!=='camera' && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
+    // Auch, wenn der Screensaver darueber liegt: das <img> haengt direkt an
+    // /mjpeg und streamt sonst unsichtbar weiter.
+    if((kind!=='camera' || svSideOn()) && fp.dataset.cam!==undefined){ fp.innerHTML=''; delete fp.dataset.cam; delete fp.dataset.camsig; }
   }
   if(kind==='weather') renderWeatherPane(fp);
   else if(kind==='calendar') renderCalendarPane(fp);
   else if(kind==='energy') renderEnergyPane(fp);
-  else if(kind==='camera') renderCameraPane(fp);
+  else if(kind==='camera' && !svSideOn()) renderCameraPane(fp);
+  else if(kind==='chart') renderChartPane(fp);
   // Player-Zone dieses Tabs dem Server melden (nur bei Aenderung -> er pusht die Blocks).
   const zone=(kind==='player')?raw.slice(7):'';
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
-  // Energiefluss-Kachel dieses Tabs dem Server melden (er pusht dann {t:'energy'}).
-  const euid=(kind==='energy')?raw.slice(7):'';
+  // Energiefluss und Kamera hat der Server je Verbindung nur EINMAL. Liegt der
+  // Screensaver oben, gilt SEINE Wahl — die Pane darunter ist verdeckt, und ein
+  // Kamerabild hinter dem Screensaver waere eine Dauerverbindung zur
+  // Tuerstation, die niemand sieht. Sonst zaehlt die Pane des aktiven Tabs.
+  const qraw = svSideOn() ? svSideRaw() : (raw||'');
+  const qarg = (v,kopf)=> (v && v.indexOf(kopf)===0) ? v.slice(kopf.length) : '';
+  // Energiefluss-Kachel dem Server melden (er pusht dann {t:'energy'}).
+  const euid=qarg(qraw,'energy:');
   if(euid!==curEnergyUuid){ curEnergyUuid=euid; try{ send({t:'setenergy',uuid:euid}); }catch(e){} }
-  // Kamera (Intercom) dieses Tabs dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
-  const cuid=(kind==='camera')?raw.slice(7):'';
+  // Kamera (Intercom) dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
+  const cuid=qarg(qraw,'camera:');
   if(cuid!==curCameraUuid){ curCameraUuid=cuid; cameraData=null;
     if(fp){ delete fp.dataset.cam; delete fp.dataset.camsig; }
+    const sb=el('svBox'); if(sb){ delete sb.dataset.cam; delete sb.dataset.camsig; }
     try{ send({t:'setcamera',uuid:cuid}); }catch(e){}
-    if(cuid&&kind==='camera') renderCameraPane(fp);   // sofort Platzhalter zeigen, bis der Push kommt
+    // Sofort einen Platzhalter zeigen, bis der Push kommt — je nachdem, wo die
+    // Kamera gerade hingehoert.
+    if(cuid){ if(svSideOn()) renderFront(); else if(kind==='camera') renderCameraPane(fp); }
   }
+  // Verlaufs-Pane: Baustein und gewaehlten Zeitraum melden (er pusht dann
+  // {t:'chart'}); unter dem Screensaver abmelden, die Pane ist dann verdeckt.
+  const chuid=(kind==='chart' && !svSideOn()) ? raw.slice(6) : '';
+  const chkey=chuid ? chuid+'|'+chartRange : '';
+  if(chkey!==curChartKey){ curChartKey=chkey; try{ send({t:'setchart',uuid:chuid,range:chartRange}); }catch(e){} }
+  // Frei gewaehlte Werte fuer die Uhr-Seite beim Server anmelden. Bewusst
+  // unabhaengig davon, ob der Screensaver gerade oben liegt: sonst stuende die
+  // Spalte beim Einblenden erst einmal leer da.
+  const sraw = themeSplit ? (svPaneCfg||'') : '';
+  const suu = (svKind(sraw)==='status') ? svArg(sraw) : '';
+  if(suu!==curSvStatus){ curSvStatus=suu; svStatusData=null;
+    try{ send({t:'setsvstatus', uuids: suu?suu.split(','):[]}); }catch(e){} }
 }
 
 // Inline-Style (CSS-Variablen + Farben) einer Kachel — von render() und
@@ -1150,7 +1627,7 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'');
+    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+[...n.classList].filter(c=>c.startsWith('spark')).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
@@ -1164,6 +1641,11 @@ function updateGrid(items){
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
+    // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
+    const spEl=n.querySelector('.tspark'), bdEl=n.querySelector('.tsbadge'), bd=it.spark&&it.spark.badge;
+    if(!!it.spark!==!!spEl || !!bd!==!!bdEl) ok=false;
+    else if(spEl){ paintSpark(spEl,it.spark);
+      n.querySelectorAll('.tsbadge,.tsline').forEach(e=>{ if(e.textContent!==bd) e.textContent=bd; }); }
   });
   return ok;
 }
@@ -1174,7 +1656,7 @@ function render(){
   // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
   // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
-  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera');
+  const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera'||_k==='chart');
   // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
   // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
   // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
@@ -1227,9 +1709,11 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
     html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
-              '<div class="head">'+icoCell+chev+'</div>'+
+              '<div class="head">'+icoCell+(it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+chev+'</div>'+
+              (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
               (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
+              (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
               '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
               (it.sublabel?'<div class="sub">'+esc(it.sublabel)+'</div>':'')+'</div>'+
               ctrls+
@@ -1240,6 +1724,7 @@ function render(){
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
+    if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
         b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
@@ -1250,7 +1735,12 @@ function render(){
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
-  if(view.catTabs && view.catTabs.length) roomCatTabs = view.catTabs;   // fuer Detailansichten merken
+  // Eine LEERE Liste ist eine Aussage ("diese Seite hat keine Sprungmarken"),
+  // kein fehlender Wert: sie muss die gemerkten loeschen. Sonst blieben nach
+  // einer Auswahl mit mehreren Raeumen Marken stehen, die ins Leere zeigen,
+  // sobald nur noch ein Raum uebrig ist. Nur Ansichten OHNE den Schluessel
+  // (Detailansichten) greifen auf die gemerkten zurueck.
+  if(Array.isArray(view.catTabs)) roomCatTabs = view.catTabs.length ? view.catTabs : null;
   renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
@@ -1316,9 +1806,12 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
     pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastDist=0; };
   viewEl.onpointermove=e=>{ if(!pts.has(e.pointerId)) return;
     const prev=pts.get(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(pts.size===1){ tx+=e.clientX-prev.x; ty+=e.clientY-prev.y; clamp(); apply(); }
+    // Pointer-Koordinaten sind sichtbare Pixel, tx/ty Layout-Pixel: bei
+    // skalierter Visu liefe das Bild dem Finger sonst davon.
+    const k=visScale(viewEl);
+    if(pts.size===1){ tx+=(e.clientX-prev.x)/k; ty+=(e.clientY-prev.y)/k; clamp(); apply(); }
     else if(pts.size>=2){ const a=[...pts.values()], dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
-      const rect=viewEl.getBoundingClientRect(), cx=(a[0].x+a[1].x)/2-rect.left, cy=(a[0].y+a[1].y)/2-rect.top;
+      const rect=viewEl.getBoundingClientRect(), cx=((a[0].x+a[1].x)/2-rect.left)/k, cy=((a[0].y+a[1].y)/2-rect.top)/k;
       if(lastDist){ const ns=Math.max(minScale,Math.min(6,scale*(dist/lastDist)));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); }
       lastDist=dist; } };
@@ -1329,8 +1822,8 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   viewEl.addEventListener('click',e=>{ if(e.target.closest('.schemeval.tap')) return;
     const now=Date.now(); if(now-lastTap<300){ const vw=viewEl.clientWidth;
       // Doppeltipp: von "ganz sichtbar" auf fit-to-width (lesbar) zoomen, sonst zurueck
-      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect();
-        const cx=e.clientX-rect.left, cy=e.clientY-rect.top, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
+      if(scale>minScale*1.15){ fit(); } else { const rect=viewEl.getBoundingClientRect(), k=visScale(viewEl);
+        const cx=(e.clientX-rect.left)/k, cy=(e.clientY-rect.top)/k, ns=Math.min(6,Math.max(vw/sw,minScale*2.5));
         tx=cx-(cx-tx)*(ns/scale); ty=cy-(cy-ty)*(ns/scale); scale=ns; clamp(); apply(); } }
     lastTap=now; });
   schemeFit=fit;
@@ -1341,7 +1834,7 @@ window.addEventListener('resize',()=>{
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
-  if(saverOn()) applySaverSplit();
+  if(saverOn()){ applySaverSplit(); applyPane(); renderFront(); }
   // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
   // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
   // Startmessung 4x2 haengenzubleiben.
@@ -1402,10 +1895,13 @@ function connect(){
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
   // Reconnect stattdessen die zuletzt betrachtete Seite wiederherstellen.
-  ws.onopen=()=>{ el('conn').classList.add('ok'); if(booted) send({t:'nav',route:stack[stack.length-1]}); };
+  ws.onopen=()=>{ el('conn').classList.add('ok'); curChartKey=''; if(booted) send({t:'nav',route:stack[stack.length-1]}); };
   ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
   ws.onmessage=e=>{
-    const msg=JSON.parse(e.data);
+    let msg;
+    try{ msg=JSON.parse(e.data); }
+    catch(err){ console.warn('LoxPanel: unlesbare Nachricht verworfen', err); return; }
+    if(!msg || typeof msg!=='object') return;
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
@@ -1414,21 +1910,34 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
-      if(saverOn()) applySaverSplit();      // Split-Erlaubnis kann sich geaendert haben -> Screensaver-Spaltigkeit nachziehen
+      svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
+      if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
+      applyPane();                          // Energie-/Kamera-Kachel und Status-Werte neu anmelden
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
       if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      uiScaleCfg=scaleCfg(msg.scale);
+      _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
+      applyScale();
       renderTabs(); return; }
     if(msg.t==='ring'){ if(msg.id){ wake(); nav({view:'control',id:msg.id}); } return; }   // Klingel: Display an, Uhr weg
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ renderPlayer(msg.blocks); return; }   // fester Player im Split-Layout
-    if(msg.t==='energy'){ energyData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
-    if(msg.t==='camera'){ cameraData=msg; const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='energy'){ energyData=msg;
+      if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> dort zeichnen, nicht in die verdeckte Pane
+      const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='energy') renderEnergyPane(fp); return; }   // Energiefluss-Pane
+    if(msg.t==='camera'){ cameraData=msg;
+      if(svSideOn()){ renderFront(); return; }
+      const fp=el('frontpane'); if(fp && paneKind(paneForTab(activeTab()))==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
+    if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
+    if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[]; if(saverOn()) renderFront(); return; }   // frei gewaehlte Werte auf der Uhr-Seite
+    if(msg.t==='chart'){ chartData=msg;   // Verlaufs-Pane
+      const fp=el('frontpane'); if(fp && !svSideOn() && paneKind(paneForTab(activeTab()))==='chart') renderChartPane(fp); return; }
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
@@ -1486,10 +1995,62 @@ const WXI={
   storm:'<path d="M17.5 14a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 14z"/><path d="m13 14-3 4h3.5l-2.5 4"/>',
 };
 function wxSvg(k){ return svg(WXI[k]||WXI.cloud); }
+// ---- Kalenderfarben (mehrere iCal-Abos) ----
+// Der Server schickt je Termin Name und Farbe seines Kalenders mit; `calColors`
+// schaltet die Farben ab (schlichte Anzeige, nur noch der Name als Tag).
+function calDot(d,e){
+  return (d && d.calColors!==false && e && e.color)
+    ? '<span class="cdot" style="background:'+esc(e.color)+'"></span>' : '';
+}
+// Tag am Termin: der Kalender, aus dem er kommt. Bei nur einem Abo bleibt es
+// die Ueberschrift — sonst stuende an jedem Termin dasselbe Wort.
+function evTag(d,e){
+  const n=(Array.isArray(d.cals)?d.cals.length:0);
+  if(n>1) return (e&&e.cal)||'';
+  return (d&&d.calName)||'';
+}
+function svCount(d){ const n=parseInt(d&&d.svEvents); return (n>=1&&n<=10)?n:3; }
+// Die eingestellte Zahl ist eine OBERGRENZE — den Rest entscheidet der Schirm.
+// Auf dem 480x480-Panel passen neben Wetter und Uhr etwa drei Termine; mehr
+// wuerde oben das Wetter und unten die Termine abschneiden. Darum nach dem
+// Zeichnen messen und von unten so lange Zeilen wegnehmen, bis es passt.
+function svFit(){
+  const saver=el('saver');
+  if(!saver) return;
+  const platz=saver.clientHeight;
+  const wrap=saver.querySelector('.sv-wrap');
+  if(!platz||!wrap) return;                      // versteckt/noch nicht gemessen
+  // Hoehe fuer Energiefluss/Kamera rechts (nur dort gelesen, siehe .tall): die
+  // Uhr steht dann links, der Grafik gehoert die ganze Hoehe bis auf den Rand.
+  // Der Rand ist derselbe Anteil wie seitlich (Breite 94 % -> je 3 %), damit
+  // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
+  const rand=Math.round(platz*0.03);
+  wrap.style.setProperty('--sv-frei', Math.max(120,platz-2*rand)+'px');
+  // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
+  // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
+  // Kamera haben keine solchen Zeilen und bleiben unangetastet.
+  [el('svBox'), el('svCal')].forEach(c=>{
+    if(!c||c.hidden) return;
+    const zeilen=[...c.querySelectorAll('.sv-st,.sv-ev')];
+    // offsetHeight, nicht getBoundingClientRect: platz ist eine Layout-Hoehe,
+    // und bei skalierter Visu waere die sichtbare Hoehe k-mal groesser - dann
+    // fielen Termine weg, die in Wahrheit passen.
+    for(let i=zeilen.length-1; i>=1 && wrap.offsetHeight>platz; i--){
+      zeilen[i].remove();
+    }
+  });
+}
+// Legende: nur wenn es mehrere Kalender gibt UND die Farben an sind.
+function fpLegendHTML(d){
+  const cals=Array.isArray(d.cals)?d.cals:[];
+  if(d.calColors===false || cals.length<2) return '';
+  return '<div class="fp-leg">'+cals.map(c=>
+    '<span><i style="background:'+esc(c.color||'')+'"></i>'+esc(c.name||'')+'</span>').join('')+'</div>';
+}
 function fmtTemp(t){ if(t==null||isNaN(t)) return '–'; return Number(t).toLocaleString(LANG,{minimumFractionDigits:1,maximumFractionDigits:1}); }
 function tdeg(v){ return v==null?'–':(Math.round(v)+'°'); }
 function renderFront(){
-  const wxEl=el('svWx'), calEl=el('svCal'); if(!wxEl||!calEl) return;
+  const wxEl=el('svWx'); if(!wxEl) return;   // die zweite Spalte prueft renderSvSide selbst
   const d=frontData||{}, w=d.weather;
   if(w){
     const fc=Array.isArray(w.forecast)?w.forecast:[];
@@ -1505,19 +2066,102 @@ function renderFront(){
       '<span class="tt"><span class="mx">'+tdeg(f.hi)+'</span> <span class="mn">'+tdeg(f.lo)+'</span></span></div>').join('')+'</div>';
     wxEl.innerHTML=html; wxEl.hidden=false;
   } else { wxEl.hidden=true; wxEl.innerHTML=''; }
-  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,3);
-  if(evs.length){
-    const nm=d.calName||'';
-    calEl.innerHTML='<div class="lbl">Nächste Termine</div>'+evs.map(e=>
-      '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
-      '<span class="tm">'+esc(e.time||'')+'</span></span>'+
-      '<span class="ttl">'+esc(e.title||'')+'</span>'+
-      (nm?'<span class="tag">'+esc(nm)+'</span>':'')+'</div>').join('');
-    calEl.hidden=false;
-  } else { calEl.hidden=true; calEl.innerHTML=''; }
-  // Kompakt-Layout aktivieren, sobald Wetter oder Termine angezeigt werden.
+  // Wie viele Termine auf die Uhr-Seite passen, sagt die Einstellung — mit
+  // mehreren Kalendern sind drei schnell zu wenig, um den Tag zu sehen.
+  const evs=(Array.isArray(d.events)?d.events:[]).slice(0,svCount(d));
+  const zweite=renderSvSide(evs);   // Termine, Wetter, Energie, Kamera oder Werte
+  // Kompakt-Layout aktivieren, sobald Wetter oder eine zweite Spalte da ist.
   const wrap=document.querySelector('.sv-wrap');
-  if(wrap) wrap.classList.toggle('rich', !!w || evs.length>0);
+  if(wrap){ wrap.classList.toggle('rich', !!w || zweite);
+    wrap.classList.toggle('solo', !zweite);
+    // Energiefluss/Kamera rechts: Uhr nach links, Grafik bekommt die volle Hoehe.
+    const box=el('svBox');
+    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo')); }
+  svFit();
+}
+// ---- Rechte Spalte der Uhr-Seite ----
+// Was dort steht, sagt die Einstellung je Panel (svPaneCfg, vom Server):
+// "" = Automatik (Termine, und sobald keine anstehen die Wetter-Details),
+// "off" = keine zweite Spalte, sonst "calendar" | "weather" | "energy:<uuid>"
+// | "camera:<uuid>" | "status:<uuid>,...".
+// Sie greift NUR im zweispaltigen Screensaver (Querformat) — einspaltig gibt es
+// keine Flaeche, die ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
+function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
+function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
+function svSideOn(){ const s=el('saver');
+  return !!s && !s.classList.contains('hidden') && s.classList.contains('split'); }
+function svSideRaw(){ return svSideOn() ? (svPaneCfg||'') : ''; }
+// Terminliste — aus renderFront herausgeloest, seit sie nicht mehr die einzige
+// moegliche Fuellung der Spalte ist.
+function svCalHTML(d,evs){
+  return '<div class="lbl">Nächste Termine</div>'+evs.map(e=>{
+    const tag=evTag(d,e);
+    return '<div class="sv-ev"><span class="when"><span class="day">'+esc(e.day||'')+'</span>'+
+    '<span class="tm">'+esc(e.time||'')+'</span></span>'+
+    '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+'</span>'+
+    (tag?'<span class="tag">'+esc(tag)+'</span>':'')+'</div>'; }).join('');
+}
+// Wetter fuer die zweite Spalte: Stundenverlauf und die Detailwerte. Bewusst
+// NICHT noch einmal die Tagesvorschau — die steht schon in der linken Spalte.
+function svWeatherHTML(w){
+  if(!w) return '';
+  const hh=Array.isArray(w.hourly)?w.hourly:[];
+  const kurve=(hh.length>=2)?'<div class="fp-curve">'+fpCurve(hh)+'</div>':'';
+  const det=fpWeatherDetailHTML(w);
+  return (kurve||det) ? '<div class="lbl">Wetter</div>'+kurve+det : '';
+}
+// Frei gewaehlte Bausteine: Name, Raum, Wert — nur lesen. Die Kacheln baut der
+// Server ueber dieselbe Kette wie jede andere Kachel (status_blocks).
+function renderSvStatus(box){
+  const items=Array.isArray(svStatusData)?svStatusData:[];
+  if(!items.length){
+    box.innerHTML='<div class="lbl">Werte</div><div class="fp-empty">'+
+      (svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
+    return;
+  }
+  box.innerHTML='<div class="lbl">Werte</div>'+items.map(it=>{
+    const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
+    const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
+      : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+      : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+    return '<div class="sv-st'+ton+'"'+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
+      '<span class="nm">'+esc(it.label||'')+
+      (it.room?'<span class="rm">'+esc(it.room)+'</span>':'')+'</span>'+
+      '<span class="vl">'+esc(it.sublabel||'')+'</span></div>'; }).join('');
+}
+// Liefert true, wenn rechts (bzw. einspaltig: unten) ueberhaupt etwas steht.
+function renderSvSide(evs){
+  const cal=el('svCal'), box=el('svBox');
+  if(!cal||!box) return false;
+  const d=frontData||{}, zwei=svSideOn(), raw=svSideRaw(), k=svKind(raw);
+  // Termine: einspaltig wie bisher unter der Uhr, zweispaltig bei "calendar"
+  // und in der Automatik — solange ueberhaupt welche anstehen.
+  const zeigeCal = evs.length>0 && (!zwei || k==='calendar' || k==='');
+  if(zeigeCal){ cal.innerHTML=svCalHTML(d,evs); cal.hidden=false; }
+  else { cal.hidden=true; cal.innerHTML=''; }
+  // Ist die Kamera nicht (mehr) gemeint, muss ihr <img> weg — es haengt direkt
+  // an /mjpeg und streamt sonst weiter, auch unsichtbar.
+  if(k!=='camera' && box.dataset.cam!==undefined){
+    box.innerHTML=''; delete box.dataset.cam; delete box.dataset.camsig; }
+  let inhalt=false;
+  if(zwei && k!=='off' && k!=='calendar'){
+    if(k==='energy'){ renderEnergyPane(box); inhalt=true; }
+    else if(k==='camera'){ renderCameraPane(box); inhalt=true; }
+    else if(k==='status'){ renderSvStatus(box); inhalt=true; }
+    else if(k==='weather' || (k==='' && !zeigeCal)){
+      // Automatik: sobald die Termine die Spalte nicht fuellen, uebernimmt das
+      // Wetter sie — sonst bliebe die halbe Flaeche leer.
+      const h=svWeatherHTML(d.weather);
+      if(h){ box.innerHTML=h; inhalt=true; }
+    }
+  }
+  if(!inhalt && k!=='camera') box.innerHTML='';
+  // Energiefluss und Kamera fuellen eine Seite und brauchen die Hoehengrenze
+  // oben; Termine, Wetter und Werte sind Listen und duerfen wachsen (svFit
+  // nimmt ihnen notfalls die unterste Zeile).
+  box.classList.toggle('solo', inhalt && (k==='energy'||k==='camera'));
+  box.hidden=!inhalt;
+  return zeigeCal || inhalt;
 }
 // ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (fuer eigene Seite / Split-Pane) ----
 // Zeichnet den Stunden-Temperaturverlauf als Inline-SVG (Regenband + Kurve),
@@ -1588,8 +2232,16 @@ function fpWeatherHTML(w){ if(!w) return ''; return fpWeatherMainHTML(w)+fpWeath
 }
 let calMonthOff=0, calSel='';   // Kalender-Pane: Monatsverschiebung + gewaehlter Tag (ISO)
 function isoDay(dt){ const p=n=>String(n).padStart(2,'0'); return dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate()); }
-function evRow(e){ return '<div class="fp-ev"><span class="tm'+(e.allday?' all':'')+'">'+esc(e.time||'')+'</span>'+
-    '<span class="ttl">'+esc(e.title||'')+'</span></div>'; }
+function evRow(d,e){
+  // Sind die Farben abgeschaltet, sagt sonst nichts mehr, aus welchem Kalender
+  // der Termin kommt — dann traegt die Zeile den Namen, wie es die Einstellung
+  // ankuendigt ("nur der Kalendername steht daneben").
+  const n=(Array.isArray(d.cals)?d.cals.length:0);
+  const nam=(d.calColors===false && n>1 && e.cal)
+    ? '<span class="cal">'+esc(e.cal)+'</span>' : '';
+  return '<div class="fp-ev"><span class="tm'+(e.allday?' all':'')+'">'+esc(e.time||'')+'</span>'+
+    '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+nam+
+    (e.note?'<span class="note">'+esc(e.note)+'</span>':'')+'</span></div>'; }
 function fpCalHTML(d){
   const evs=Array.isArray(d.events)?d.events:[], hol=d.holidays||{};
   if(calSel){   // ein Tag gewaehlt -> nur dessen Termine (+ Feiertag)
@@ -1598,14 +2250,14 @@ function fpCalHTML(d){
     let html='<div class="fp-h"><span>'+esc(lbl)+'</span><button class="fp-allbtn" data-calall="1">Alle ›</button></div>';
     if(hol[calSel]) html+='<div class="fp-ev holi"><span class="tm all">Feiertag</span><span class="ttl">'+esc(hol[calSel])+'</span></div>';
     const day=evs.filter(e=>e.date===calSel);
-    if(day.length) html+=day.map(evRow).join('');
+    if(day.length) html+=day.map(e=>evRow(d,e)).join('');
     else if(!hol[calSel]) html+='<div class="fp-empty">Keine Termine an diesem Tag.</div>';
     return html;
   }
-  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>';
+  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>'+fpLegendHTML(d);
   if(evs.length){
     html+='<div class="fp-cal">'; let curDay=null;
-    evs.forEach(e=>{ if(e.day!==curDay){ curDay=e.day; html+='<div class="fp-day">'+esc(e.day||'')+'</div>'; } html+=evRow(e); });
+    evs.forEach(e=>{ if(e.day!==curDay){ curDay=e.day; html+='<div class="fp-day">'+esc(e.day||'')+'</div>'; } html+=evRow(d,e); });
     html+='</div>';
   } else { html+='<div class="fp-empty" data-i18n>Keine Termine.</div>'; }
   return html;
@@ -1623,17 +2275,24 @@ const EICONS={
   battery:'<rect x="2" y="7" width="16" height="11" rx="2.4"/><path d="M21 11v3"/>',
   load:'<path d="M13 2 4 14h7l-1 8 10-12h-7z"/>'
 };
-// Knoten-Icon: echtes Loxone-Icon (per CSS-Maske in Flussfarbe eingefaerbt),
-// sonst das eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND
-// Name vor (siehe energy_blocks/_node_icon_url im Server).
+// Knoten-Icon: echtes Loxone-Icon (in Flussfarbe eingefaerbt), sonst das
+// eingebaute Symbol als Fallback. So gibt der Miniserver Icon UND Name vor
+// (siehe energy_blocks/_node_icon_url im Server).
+// Einfaerben rein in SVG: das Bild ist Alpha-Maske eines Rechtecks in
+// Rollenfarbe. KEIN foreignObject mit CSS-mask: WebKit (Safari, iPad,
+// Panel-WebViews) legt HTML mit eigener Render-Ebene im foreignObject ohne
+// die translate() der Knotengruppe ab -> alle Icons landeten oben links.
+// Masken-IDs sind dokumentweit eindeutig (Pane, Detailansicht und
+// Screensaver koennen das Radial gleichzeitig zeigen).
+let eMaskSeq=0;
 function eIconMarkup(n,cls,i){
   const tag='data-ic="'+i+'"';
   if(n && n.iconUrl){
-    const u=String(n.iconUrl).replace(/"/g,'%22');
-    return '<foreignObject x="-13" y="-13" width="26" height="26">'+
-      '<div xmlns="http://www.w3.org/1999/xhtml" '+tag+' class="emask '+cls+'" '+
-      'style="-webkit-mask:url(&quot;'+u+'&quot;) center/contain no-repeat;'+
-      'mask:url(&quot;'+u+'&quot;) center/contain no-repeat"></div></foreignObject>';
+    const u=esc(String(n.iconUrl)), id='emk'+(++eMaskSeq);
+    return '<mask id="'+id+'" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" '+
+      'x="-13" y="-13" width="26" height="26" style="mask-type:alpha">'+
+      '<image href="'+u+'" xlink:href="'+u+'" x="-13" y="-13" width="26" height="26" preserveAspectRatio="xMidYMid meet"/></mask>'+
+      '<rect '+tag+' class="emask '+cls+'" x="-13" y="-13" width="26" height="26" mask="url(#'+id+')"/>';
   }
   const icon=EICONS[n&&n.icon]||EICONS.load;
   return '<g '+tag+' class="eic '+cls+'" transform="translate(-12,-12)">'+icon+'</g>';
@@ -1668,7 +2327,10 @@ function energyInner(d){
       ? '<text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny-74).toFixed(1)+'">'+val+'</text><text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny-56).toFixed(1)+'">'+nm+'</text>'
       : '<text class="enlab" data-vl="'+i+'" x="'+tx+'" y="'+(ny+56).toFixed(1)+'">'+nm+'</text><text class="'+vcls+'" data-vv="'+i+'" x="'+tx+'" y="'+(ny+76).toFixed(1)+'">'+val+'</text>');
   });
-  return '<div class="epane"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
+  // "dicht": ab sieben Knoten stehen die Ringe so eng (rn 34 statt 40), dass
+  // die Beschriftungen der Seitenknoten schon jetzt in die Nachbarringe laufen.
+  // Wer die Schrift vergroessert (Screensaver), muss diesen Fall aussparen.
+  return '<div class="epane'+(N>6?' dicht':'')+'"><div class="etop"><span class="ettl">'+esc(d.name||'Energiefluss')+'</span></div>'+
     '<div class="ewrap"><svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">'+
     spokes.join('')+dots.join('')+'<circle class="ehub" cx="'+C+'" cy="'+C+'" r="13"/>'+ng.join('')+txts.join('')+
     '</svg></div><div class="ebot">'+efooter(d.totals||{})+'</div></div>';
@@ -1738,12 +2400,18 @@ function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.wea
   const det=fpWeatherDetailHTML(w);
   elc.innerHTML='<div class="fp-page">'+fpWeatherMainHTML(w)+'</div>'
     +(det?'<div class="fp-page">'+det+'</div>':''); }
-function fpMonthHTML(events, holidays){
+function fpMonthHTML(events, holidays, colors){
   const base=new Date(); base.setDate(1); base.setMonth(base.getMonth()+calMonthOff);
   const y=base.getFullYear(), m=base.getMonth();
   const startDow=(new Date(y,m,1).getDay()+6)%7;    // 0 = Montag
   const dim=new Date(y,m+1,0).getDate();
-  const evd=new Set((events||[]).map(e=>e&&e.date).filter(Boolean));
+  // Je Tag die Farben der Kalender sammeln, aus denen an ihm etwas ansteht —
+  // jede Farbe nur einmal, damit fuenf Termine aus einem Abo nicht fuenf
+  // gleiche Punkte ergeben.
+  const evd=new Map();
+  (events||[]).forEach(e=>{ if(!e||!e.date) return;
+    const f=evd.get(e.date)||[]; if(e.color&&f.indexOf(e.color)<0) f.push(e.color);
+    evd.set(e.date,f); });
   const hol=holidays||{}, todayISO=isoDay(new Date());
   const pad=n=>String(n).padStart(2,'0');
   const mn=new Date(y,m,1).toLocaleDateString(LANG,{month:'long',year:'numeric'});
@@ -1757,15 +2425,22 @@ function fpMonthHTML(events, holidays){
     const iso=y+'-'+pad(m+1)+'-'+pad(d);
     const dow=(startDow+d-1)%7;                     // 5=Sa, 6=So
     const isHol=!!hol[iso];
+    const farben=(colors!==false ? (evd.get(iso)||[]) : []).slice(0,3);
     const cls='fp-mon-c'+(dow===5?' sat':'')+((dow===6||isHol)?' sun':'')+(isHol?' holi':'')+
-      (iso===todayISO?' today':'')+(evd.has(iso)?' ev':'')+(iso===calSel?' sel':'');
-    html+='<div class="'+cls+'" data-day="'+iso+'"'+(isHol?(' title="'+esc(hol[iso])+'"'):'')+'>'+d+'</div>';
+      (iso===todayISO?' today':'')+(evd.has(iso)?' ev':'')+(farben.length?' dots':'')+
+      (iso===calSel?' sel':'');
+    const punkte=farben.length
+      ? '<span class="mdots">'+farben.map(c=>'<i style="background:'+esc(c)+'"></i>').join('')+'</span>' : '';
+    html+='<div class="'+cls+'" data-day="'+iso+'"'+(isHol?(' title="'+esc(hol[iso])+'"'):'')+'>'+d+punkte+'</div>';
   }
   return html+'</div></div>';
 }
 function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
   // Seite 1 = Monat (fuellt die 2x2-Hoehe), Seite 2 = Agenda/Termine.
-  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays)+'</div>'
+  // Legende auch unter das Monatsraster: dort stehen die Farbpunkte, die sie
+  // erklaert — sie nur auf der Agenda-Seite zu zeigen, hilft niemandem.
+  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays, d.calColors)
+      +fpLegendHTML(d)+'</div>'
     +'<div class="fp-page">'+fpCalHTML(d)+'</div>';
   elc.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderCalendarPane(elc); });
   elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc); });
@@ -1789,8 +2464,18 @@ function applySaverSplit(){
 }
 function showSaver(){ tickClock();
   applySaverSplit();
-  el('saver').classList.remove('hidden'); }
-function hideSaver(){ el('saver').classList.add('hidden'); }
+  el('saver').classList.remove('hidden');
+  // Reihenfolge zaehlt: erst sichtbar schalten (svSideOn() gilt), dann die
+  // Energie-/Kamera-Kachel auf die Wahl des Screensavers umstellen, dann
+  // zeichnen — jetzt hat er auch eine Hoehe, an der sich svFit ausrichtet.
+  applyPane();
+  renderFront(); }
+function hideSaver(){ el('saver').classList.add('hidden');
+  // Zweite Spalte abraeumen: ein Kamerabild dort haelt sonst seine Verbindung
+  // zur Tuerstation offen, obwohl die Uhr-Seite gar nicht mehr zu sehen ist.
+  const b=el('svBox');
+  if(b){ b.innerHTML=''; b.hidden=true; delete b.dataset.cam; delete b.dataset.camsig; }
+  applyPane(); }
 // Kurze Nachricht/Banner vom Server (t:'notify') oben im Panel einblenden.
 function showNotify(text, level, secs){
   if(!text) return;
@@ -1913,6 +2598,51 @@ function armDpms(){ clearTimeout(dpmsTimer);
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
   dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
+// ---- Skalierung ("scale" aus Profil oder Geraet, vom Server) ----
+// Die Visu rechnet mit festen 240er Kacheln; ein groesseres Display zeigte den
+// Kasten bisher mit Rand (1280x800: 55 % des Schirms ungenutzt). "auto"
+// vergroessert ihn gleichmaessig, bis er an Breite oder Hoehe anstoesst - ohne
+// Verzerrung, Schrift und Icons wachsen mit. Eine Zahl ist ein fester Faktor,
+// aber nie groesser, als der Schirm hergibt (sonst waere ein Teil
+// abgeschnitten). "off" = feste Groesse wie bisher. Unter "Bildschirm fuellen"
+// ist der Kasten schon so gross wie der Schirm, dort ergibt sich von selbst 1.
+let uiScaleCfg='off', uiScaleEff=1;
+function scaleCfg(v){ return (v==='auto' || (typeof v==='number' && v>0)) ? v : 'off'; }
+function applyScale(){
+  const s=document.querySelector('.screen'); if(!s) return;
+  const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
+  const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
+  let k=1;
+  if(uiScaleCfg==='auto') k=Math.max(1,passt);      // nur vergroessern: kleiner rechnet das Layout selbst
+  else if(typeof uiScaleCfg==='number') k=Math.min(uiScaleCfg,passt);
+  k=Math.round(k*1000)/1000;
+  if(k!==uiScaleEff || s.style.getPropertyValue('--ui-scale')===''){
+    uiScaleEff=k;
+    s.style.setProperty('--ui-scale', String(k));
+    document.documentElement.classList.toggle('scaled', k!==1);
+  }
+  reportScreen();
+}
+// Groesse an den Server melden (Anzeige unter Settings -> Panels). Entprellt:
+// beim Drehen oder Kiosk-Start feuert resize mehrfach hintereinander. Nur
+// senden, was sich geaendert hat.
+let _screenTimer=null, _screenSent='';
+function reportScreen(){
+  clearTimeout(_screenTimer);
+  _screenTimer=setTimeout(()=>{
+    const s=document.querySelector('.screen'), sc=window.screen||{};
+    const m={t:'screen', vw:innerWidth, vh:innerHeight, sw:sc.width||0, sh:sc.height||0,
+      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff};
+    const sig=JSON.stringify(m);
+    if(sig===_screenSent) return;
+    try{ send(m); _screenSent=sig; }catch(e){}
+  },400);
+}
+// Aendert sich die Layout-Groesse des Kastens (Split an/aus beim Tab-Wechsel,
+// Layout, "Bildschirm fuellen") oder des Fensters, muss der Faktor neu. Der
+// transform selbst aendert die Layout-Groesse nicht - kein Rueckkopplungskreis.
+window.addEventListener('resize', applyScale);
+if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(applyScale).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;

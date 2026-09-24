@@ -65,6 +65,69 @@
       'Ziel-Panel': 'Target panel',
       '🔊 Test-Ton senden': '🔊 Send test tone',
       'Alle Panels': 'All panels',
+      // Kalender & Wetter (Front / Screensaver)
+      'Kalender & Wetter': 'Calendar & weather',
+      'Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.':
+        'Shows events from your iCal subscriptions and the weather on the clock start page (screensaver) of all panels. Server-wide — the server fetches the data and pushes it to the panels.',
+      'iCal-Kalender': 'iCal calendars',
+      'Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.':
+        'Subscription link from Apple/iCloud (Calendar → Share → Public calendar), Google or other services. webcal:// or https://. Read-only, no login. Several calendars are possible — birthdays, waste collection, school holidays and family appointments all end up in one list.',
+      'Überschrift am Panel': 'Heading on the panel',
+      '＋ Kalender hinzufügen': '＋ Add calendar',
+      'Feiertags-iCal (optional)': 'Holiday iCal (optional)',
+      'z.B. österr. Feiertage aus Google Kalender (basic.ics)':
+        'e.g. Austrian public holidays from Google Calendar (basic.ics)',
+      'Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.':
+        'An optional second iCal for public holidays only — those days are marked red in the month grid (like Sundays). For example your country’s holiday calendar from Google.',
+      // Kalenderzeile
+      'Kalender': 'Calendar',
+      'Name': 'Name',
+      'Farbe': 'Color',
+      'Entfernen': 'Remove',
+      'iCal-Abo-URL': 'iCal subscription URL',
+      'z.B. Müllabfuhr': 'e.g. waste collection',
+      'Noch kein Kalender. Mit „＋ Kalender hinzufügen" den ersten Abo-Link eintragen.':
+        'No calendar yet. Use “＋ Add calendar” to enter the first subscription link.',
+      'Mehr als {max} Kalender gehen nicht.': 'More than {max} calendars are not possible.',
+      // Status der Kalender
+      'noch nicht geladen': 'not loaded yet',
+      'geladen': 'loaded',
+      'aus {n} Kalendern': 'from {n} calendars',
+      '{n} von {gesamt} Kalendern nicht geladen': '{n} of {gesamt} calendars not loaded',
+      'Grund steht oben beim jeweiligen Kalender.':
+        'The reason is shown above, at the calendar concerned.',
+      'Das Panel zeigt weiter den Stand von {zeit} Uhr.':
+        'The panel still shows the data from {zeit}.',
+      'Panel zeigt den Stand von {zeit} Uhr.': 'Panel is showing the data from {zeit}.',
+      // Wetter
+      'Wetter': 'Weather',
+      'Hat die Anlage den Loxone-Wetterdienst, kommt das Wetter von dort — die Koordinaten bleiben dann unbenutzt. Sonst von Open-Meteo: kostenlos, ohne API-Schlüssel und ohne Konto, nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus, solange kein Wetterserver liefert.':
+        'If the installation has the Loxone weather service, the weather comes from there — the coordinates then stay unused. Otherwise from Open-Meteo: free, no API key and no account, just enter the coordinates of your location (decimal degrees, e.g. 47.071 / 15.439). Leaving them empty switches the weather off, as long as no weather server delivers.',
+      'Breitengrad': 'Latitude',
+      'Längengrad': 'Longitude',
+      // Anzeige am Panel
+      'Anzeige': 'Display',
+      'Termine der nächsten … Tage': 'Events for the next … days',
+      'Wetter-Vorschau (Tage)': 'Weather forecast (days)',
+      'Termine auf der Uhr-Seite (max.)': 'Events on the clock page (max.)',
+      'Kalenderfarben am Panel zeigen': 'Show calendar colors on the panel',
+      'Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.':
+        'Off = plain: all events in a single color, only the calendar name beside them. On = every calendar gets its color dot, in the month grid too.',
+      '„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.':
+        '“Events on the clock page” is an upper limit — whatever no longer fits on the screen next to the weather and the clock is left out (on a 480×480 panel that is about three). The full list is in the calendar pane.',
+      // Verlaufs-Diagramme (Detailseite, Split-Haelfte, Kachel)
+      'Verlauf': 'History',
+      'Zeitraum': 'Period',
+      'Trend': 'Trend',
+      'Tagesmuster': 'Daily pattern',
+      'Tagesspanne': 'Daily range',
+      'Kurve mit Tief, Hoch und Änderung': 'Curve with low, high and change',
+      'Verbrauch als Balken, dazu die Summe': 'Consumption as bars, plus the total',
+      'Ein/Aus als Stufen, dazu die Einschaltdauer': 'On/off as steps, plus the time switched on',
+      '7 Tage × 24 Stunden als Farbraster': '7 days × 24 hours as a color grid',
+      'Tief bis Hoch je Tag, 7 Tage': 'Low to high per day, 7 days',
+      '7 Tage': '7 days',
+      '30 Tage': '30 days',
       // Neues Panel
       'Neues Panel einrichten': 'Set up a new panel',
       'Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.':
@@ -180,6 +243,25 @@
       'Kategorie-Farben (Ampel)': 'Category colors (traffic light)',
       'Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.':
         'Per category an <b>active</b> and an <b>OK</b> color for tile background and border — applies system-wide on all panels (recognizability). Turn on ◐ = state traffic light (e.g. alarm red/green, gate yellow/green). Off = neutral. Analog readings always stay neutral.',
+      // Skalierung / Bildschirmgroesse
+      'Skalierung': 'Scaling',
+      'Wie im Profil': 'Same as profile',
+      'Aus (feste Größe)': 'Off (fixed size)',
+      'Automatisch (Bildschirm ausnutzen)': 'Automatic (use the screen)',
+      'Fest': 'Fixed',
+      'quer': 'landscape',
+      'hoch': 'portrait',
+      'quadratisch': 'square',
+      'physisch': 'physical',
+      'Visu': 'visu',
+      'nutzt': 'uses',
+      'Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Settings → Panels.':
+        'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Settings → Panels.',
+      'Wie global': 'Same as global',
+      'Standard für alle Panels': 'Default for all panels',
+      'Aus': 'Off',
+      'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.':
+        'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Settings → Panels.',
       // Dialoge
       'ID des neuen Panels (klein, ohne Leerzeichen), z. B. wohnzimmer:':
         'ID of the new panel (lowercase, no spaces), e.g. livingroom:',

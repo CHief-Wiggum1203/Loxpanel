@@ -157,6 +157,40 @@
   .trow .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .trow .eye:hover{background:var(--bg);color:var(--fg);}
   .trow .eye.off{color:var(--crit);}
+  /* Eigene Auswahl: Nummer = Platz auf der Seite, leerer Kreis = nicht gewaehlt */
+  .trow .pick{flex:none;width:24px;height:24px;border-radius:50%;display:grid;
+    place-items:center;font-size:12px;font-weight:600;border:1px solid var(--line);
+    color:var(--muted);background:var(--bg);}
+  .trow .pick.on{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+  .trow.dim{opacity:.45;}
+  .trow .tag{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .picked{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px;}
+  .picked .chip{padding:6px 10px;font-size:13px;display:inline-flex;align-items:center;}
+  .picked .chip .pos{margin:0 6px 0 0;color:var(--accent);font-weight:600;}
+  .picked .chip .rm{color:var(--muted);font-size:11px;margin-left:6px;}
+  .picked .chip .x{margin-left:9px;color:var(--muted);font-size:15px;line-height:1;}
+  .picked .chip.dim{opacity:.5;}
+  .picked .chip.dim .pos{color:var(--muted);}
+  .picked .none{color:var(--muted);font-size:13px;padding:6px 0;}
+  /* Gefuehrte Einrichtung der eigenen Auswahl: Schrittanzeige, Navigation,
+     Filterzeile ueber der Bausteinliste und die Vorschau der Sprungmarken. */
+  .wsteps{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 16px;}
+  .wstep{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 6px;}
+  .wstep b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+    font-size:11px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
+  .wstep.on{color:var(--fg);border-color:var(--accent);}
+  .wstep.on b{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .wstep.done b{color:var(--accent);border-color:var(--accent);}
+  .wnav{display:flex;gap:10px;align-items:center;margin-top:20px;}
+  .wnav .grow{flex:1;}
+  .btn[disabled]{opacity:.4;cursor:default;}
+  .pickbar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+  .pickbar .field{max-width:240px;}
+  .anchors{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0;}
+  .anchors .chip{padding:6px 12px;font-size:13px;}
+  .wsum{font-size:14px;line-height:1.7;margin:0 0 4px;}
+  .wsum b{color:var(--fg);}
   .trow.hidden .tico{opacity:.4;} .trow.hidden .tnm{opacity:.5;text-decoration:line-through;} .trow.hidden .trm{opacity:.5;}
   .thidden{color:var(--crit);}
   /* Kachel-Editor */
@@ -189,6 +223,8 @@
   .tgl.on{border-color:var(--accent);color:var(--fg);background:rgba(224,162,77,.14);}
   select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:8px 10px;font:inherit;max-width:220px;}
   select:focus{outline:none;border-color:var(--accent);}
+  /* Skalierungs-Auswahl: die Stufen tragen laengere Texte als die 220px oben */
+  select.skal{max-width:100%;}
   /* Aktiv-Overlay-Editor */
   .ovwrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
   .ovctrl{flex:1;min-width:250px;display:flex;flex-direction:column;gap:9px;}
@@ -216,6 +252,21 @@
   .ic:first-child{border-top:none;padding-top:0;margin-top:0;}
   .ic .icname{font-weight:600;margin-bottom:10px;}
   .ic .field{max-width:none;margin-bottom:12px;}
+  /* Kalenderliste (mehrere iCal-Abos, je eines pro Zeile) */
+  .cal{border-top:1px solid var(--line);padding-top:14px;margin-top:14px;}
+  .cal:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .cal .calh{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap;}
+  .cal .caldot{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.18);}
+  .cal .caln{font-weight:600;}
+  .cal .calst{font-size:12.5px;color:var(--muted);order:2;}
+  .cal .calst .ok{color:var(--good);} .cal .calst .bad{color:var(--crit);}
+  /* Ein Fehlertext ist zu lang fuer die Kopfzeile: er bekommt eine eigene,
+     der Entfernen-Knopf bleibt oben rechts stehen. */
+  .cal .calst.err{flex-basis:100%;order:4;margin-top:-2px;}
+  .cal .calh .btn{margin-left:auto;order:3;}
+  .cal .field{max-width:none;margin-bottom:10px;}
+  .cal input[type=color]{padding:2px;height:38px;width:56px;cursor:pointer;}
+  .calempty{color:var(--muted);font-size:14px;padding:4px 0 10px;}
   .ag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:12px 0;}
   .ag:first-child{border-top:none;}
   .ag .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none;}
@@ -223,6 +274,9 @@
   .ag .agn{font-weight:600;}
   .ag .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--muted);white-space:nowrap;}
   .ag .agip{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
+  /* Erkannte Bildschirmgroesse: eigene Zeile unter dem Geraet (flex-basis 100 %),
+     eingerueckt auf Hoehe des Namens (Punkt 9 px + Abstand 10 px). */
+  .ag .agscr{flex-basis:100%;padding-left:19px;color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
   .ag .sp{flex:1;min-width:8px;}
   .cmdout{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:12px;margin-top:10px;
     font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--fg);}
@@ -548,13 +602,14 @@
 
         <!-- Kalender & Wetter (Front / Screensaver) -->
         <section class="spane" data-sub="calendar">
-          <p class="lead" data-i18n>Zeigt Termine aus einem iCal-Abo und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
+          <p class="lead" data-i18n>Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
           <div class="card">
             <h3 data-i18n>iCal-Kalender</h3>
-            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login.</p>
-            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Name</label><input type="text" id="cal_name" placeholder="Family"></div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>iCal-Abo-URL</label><input type="text" id="cal_url" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
+            <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.</p>
+            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift am Panel</label><input type="text" id="cal_name" placeholder="Family"></div>
+            <div id="cal_list" style="margin-top:16px"></div>
+            <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button></div>
+            <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" data-i18n-ph placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
             <p class="note" data-i18n>Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.</p>
             <div class="note" id="cal_status" style="margin-top:10px"></div>
           </div>
@@ -572,7 +627,11 @@
             <div class="row2">
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine der nächsten … Tage</label><input type="number" id="cal_days" min="1" max="60" value="14"></div>
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Wetter-Vorschau (Tage)</label><input type="number" id="cal_foredays" min="1" max="7" value="4"></div>
+              <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine auf der Uhr-Seite (max.)</label><input type="number" id="cal_svevents" min="1" max="10" value="3"></div>
             </div>
+            <label class="chk" style="margin-top:14px"><input type="checkbox" id="cal_colors" checked><span data-i18n>Kalenderfarben am Panel zeigen</span></label>
+            <p class="note" data-i18n>Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.</p>
+            <p class="note" data-i18n>„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.</p>
             <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
           </div>
         </section>
@@ -660,9 +719,14 @@ const customFont=(f)=>!!f && !FONTS.some(x=>x.v===f);
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // Reiter-Definitionen je Rubrik
+// Schluessel der frei zusammengestellten Seite - derselbe Wert wie PICK_TAB
+// im Server und im Panel. Sie hat KEINEN eigenen Unterreiter mehr: der Editor
+// lebt unter "Tabs", wo die Seite auch sichtbar geschaltet wird.
+const PICK_TAB='auswahl';
 const PCONF_TABS=[
   {k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},{k:'cats',label:'Kategorien'},
-  {k:'tiles',label:'Kacheln gestalten'},{k:'appearance',label:'Aussehen'},
+  {k:'tiles',label:'Kacheln gestalten'},
+  {k:'appearance',label:'Aussehen'},
   {k:'overlay',label:'Aktiv-Overlay'},{k:'title',label:'Titel'}];
 const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
 const SET_TABS=[
@@ -910,11 +974,20 @@ function renderGlobalEditor(p){
   $('#pconfHost').innerHTML =
     '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.</p>'+
-      '<div class="sizes">'+appearanceFields(p.ui)+'</div></div></section>'+
+      '<div class="sizes">'+appearanceFields(p.ui)+'</div>'+
+      '<div class="grph">'+T('Skalierung')+'</div>'+
+      '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Panels')+'</label>'+
+        '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
+      '<p class="note">'+T('Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.')+'</p>'+
+      '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
       '<div class="cclist" id="catcolors"></div></div></section>';
   bindAppearance(p);
+  { const gs=$('#gScale'); if(gs) gs.onchange=e=>{ p.ui=p.ui||{};
+      const v=scaleValue(e.target.value);
+      if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // global ist "Aus" das Fehlen
+      markDirty(); }; }
   renderCatColors(p);
   $('#delSlot').innerHTML='';
   $('#saveBtn').onclick=save;
@@ -993,6 +1066,7 @@ function renderEditor(){
      '<div class="segmode" id="tabMode">'+
        '<button type="button" data-mode="room">'+T('Raum-Panel')+'</button>'+
        '<button type="button" data-mode="classic">'+T('Klassisch')+'</button>'+
+       '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
        '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
@@ -1003,9 +1077,10 @@ function renderEditor(){
          '<div class="chips" id="tabRoomCats"></div>'+
          '<div class="hint" style="padding-top:4px">'+T('Bis zu 4 Kategorien als untere Tabs. Vorausgewählt sind die ersten im Raum — du kannst sie ändern. „Automatisch" folgt wieder dem Rauminhalt.')+'</div></div></div>'+
      '<div id="tabClassic">'+
-       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
+       '<p class="note">'+T('Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs, die <b>eigene Auswahl</b> und/oder einzelne Kategorien (gestrichelt) bzw. Räume (gepunktet). <b>Die Reihenfolge des Anklickens ist die Reihenfolge in der Leiste</b> (1., 2., …), der erste ist die Startseite (★). ')+
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
+     '<div id="tabPick"></div>'+
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
@@ -1044,7 +1119,11 @@ function renderEditor(){
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
+       '<div class="field" style="max-width:320px"><label class="lbl">'+T('Skalierung')+'</label>'+
+         '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
+            T('Wie global')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
      '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Settings → Panels.')+'</div>'+
      '<div class="grph">'+T('Split / Pane 2')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
@@ -1057,6 +1136,11 @@ function renderEditor(){
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
        '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+     '<div id="svPaneField">'+
+       '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
+       '<div class="field" style="max-width:none"><label class="lbl">Rechte Spalte im Querformat</label>'+
+       '<div id="svPaneBox"></div>'+
+       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite im <b>Querformat</b> hat rechts neben der Uhr Platz. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Energiefluss</b>, <b>Kamera</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Hochkant und auf dem 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
@@ -1101,12 +1185,19 @@ function renderEditor(){
       else if(v==='3x2'){ p.ui.cols=3; delete p.ui.rows; }
       else { delete p.ui.cols; delete p.ui.rows; }   // 2x2
       markDirty(); }; }
+  { const fsc=$('#fScale'); if(fsc) fsc.onchange=e=>{ p.ui=p.ui||{};
+      const v=scaleValue(e.target.value);
+      // leer = wie global; "off" ausdruecklich speichern, sonst liesse sich ein
+      // globales "Automatisch" im Profil nicht abschalten
+      if(v==='') delete p.ui.scale; else p.ui.scale=v;
+      markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
   { const fs=$('#fSplit'); if(fs) fs.onchange=e=>{ p.ui=p.ui||{};
       const off=e.target.value==='off';
       if(off) p.ui.split=false; else delete p.ui.split;
       const pf=$('#paneField'); if(pf) pf.style.display=off?'none':'';
+      const sf=$('#svPaneField'); if(sf) sf.style.display=off?'none':'';
       markDirty(); }; }
   // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt
   // nachts abgedunkelt wird (sonst wirkungslos).
@@ -1119,7 +1210,7 @@ function renderEditor(){
   ovPreview('ovPrev',(p.ui||{}).overlay);
   { const r=$('#ovReset'); if(r) r.onclick=()=>{ if(p.ui) delete p.ui.overlay; renderEditor(); markDirty(); }; }
 
-  renderTabMode(p); renderPanes(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
+  renderTabMode(p); renderPanes(p); renderSvPane(p); renderChecklist(p,'rooms'); renderChecklist(p,'cats');
   renderTileList(); renderTileEditor();
   const tsr=$('#tileSearch'); if(tsr) tsr.oninput=()=>renderTileList();
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
@@ -1155,6 +1246,15 @@ function energyControlOptions(sel){
   return (META.controls||[]).filter(c=>c.type==='EFM'||c.type==='EnergyManager2')
     .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
+function statControls(){
+  return (META.controls||[]).filter(c=>c.stat)
+    .sort((a,b)=>(a.roomName||'').localeCompare(b.roomName||'','de')||a.name.localeCompare(b.name,'de'));
+}
+function chartControlOptions(sel){
+  return statControls()
+    .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function firstChartControl(){ const z=statControls()[0]; return z?z.uuid:''; }
 function firstEnergyControl(){
   // Standard = Energieflussmonitor (EFM, mit Verbraucher-Leistungen). Der
   // Energiemanager (EnergyManager2, nur PV/Netz/Speicher) nur als Rueckfall,
@@ -1174,6 +1274,53 @@ function firstCamera(){
   return z?z.uuid:'';
 }
 
+// ---- Skalierung (Profil und Geraet) ----
+// Welche Werte zulaessig sind, entscheidet allein der Server (/api/meta
+// scaleRange). Die Stufen hier sind nur die Auswahl fuer die Bedienung.
+const SCALE_STEPS=[0.8,0.9,1.1,1.25,1.5,1.75,2];
+function fmtZahl(v){ try{ return Number(v).toLocaleString((window.I18N&&I18N.lang)||'de',{maximumFractionDigits:2}); }catch(e){ return String(v); } }
+// Kette: Global -> Profil -> Geraet. erbe = Text der Option "erbt von oben"
+// (Profil: "Wie global", Geraet: "Wie im Profil"); ohne erbe (global) ist das
+// Fehlen gleich "Aus".
+function scaleName(v){
+  if(v==='auto') return T('Automatisch');
+  if(typeof v==='number') return Math.round(v*100)+' %';
+  return T('Aus');
+}
+function scaleOptions(cur, erbe){
+  const r=(META&&META.scaleRange)||[1,1];
+  const leer=(cur===undefined||cur===null||cur==='');
+  const pct=v=>Math.round(v*100)+' %';
+  let h='';
+  if(erbe) h+='<option value=""'+(leer?' selected':'')+'>'+esc(erbe)+'</option>';
+  h+='<option value="off"'+((cur==='off'||(!erbe&&leer))?' selected':'')+'>'+T('Aus (feste Größe)')+'</option>';
+  h+='<option value="auto"'+(cur==='auto'?' selected':'')+'>'+T('Automatisch (Bildschirm ausnutzen)')+'</option>';
+  SCALE_STEPS.filter(v=>v>=r[0]&&v<=r[1]).forEach(v=>{
+    h+='<option value="'+v+'"'+(cur===v?' selected':'')+'>'+T('Fest')+' '+pct(v)+'</option>'; });
+  // Ein gespeicherter Faktor ausserhalb der Stufen (z.B. von Hand in
+  // panels.json) darf beim Oeffnen nicht still auf "Aus" springen.
+  if(typeof cur==='number' && SCALE_STEPS.indexOf(cur)<0)
+    h+='<option value="'+cur+'" selected>'+T('Fest')+' '+pct(cur)+'</option>';
+  return h;
+}
+function scaleValue(v){ return (v==='auto'||v==='off'||v==='') ? v : parseFloat(v); }
+// Was ein Panel ueber seinen Bildschirm meldet ({t:'screen'}): sichtbare
+// Flaeche in CSS-Pixeln und Ausrichtung, die physischen Pixel (Flaeche x
+// Pixeldichte) - und was die Visu daraus macht: Faktor und Anteil des
+// Bildschirms, den sie nutzt.
+function screenInfo(sc){
+  if(!sc||!sc.vw||!sc.vh) return '';
+  const lage=sc.vw>sc.vh?T('quer'):(sc.vw<sc.vh?T('hoch'):T('quadratisch'));
+  const teile=[sc.vw+'×'+sc.vh+' '+lage];
+  if(sc.dpr&&sc.dpr!==1) teile.push(T('physisch')+' '+Math.round(sc.vw*sc.dpr)+'×'+Math.round(sc.vh*sc.dpr));
+  const k=sc.k||1;
+  if(sc.bw&&sc.bh){
+    const anteil=Math.min(100,Math.round(100*sc.bw*sc.bh*k*k/(sc.vw*sc.vh)));
+    teile.push((k!==1?(T('Visu')+' '+fmtZahl(k)+'× · '):'')+T('nutzt')+' '+anteil+' %');
+  }
+  return teile.join(' · ');
+}
+
 function renderPanes(p){
   const pf=$('#paneField'); if(pf) pf.style.display=((p.ui||{}).split===false)?'none':'';   // 4"-Panel: keine Pane-Auswahl
   const box=$('#panePerTab'); if(!box) return;
@@ -1182,8 +1329,8 @@ function renderPanes(p){
     const meta=(META.tabs||[]).find(t=>t.tab===tk);
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
-    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0;
-    const kind=isP?'player':(isE?'energy':(isC?'camera':v)), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
+    const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0, isV=v.indexOf('chart:')===0;
+    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':v))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'', vuid=isV?v.slice(6):'';
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
       '<select data-pane="'+esc(tk)+'">'+
         '<option value=""'+(kind===''?' selected':'')+'>Screen füllen</option>'+
@@ -1192,10 +1339,12 @@ function renderPanes(p){
         '<option value="weather"'+(kind==='weather'?' selected':'')+'>Wetter</option>'+
         '<option value="calendar"'+(kind==='calendar'?' selected':'')+'>Kalender</option>'+
         '<option value="energy"'+(kind==='energy'?' selected':'')+'>Energiefluss</option>'+
+        (statControls().length?'<option value="chart"'+(kind==='chart'?' selected':'')+'>Verlauf</option>':'')+
       '</select>';
     if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
     if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
     if(isC) row+='<select data-panec="'+esc(tk)+'">'+cameraOptions(camu)+'</select>';
+    if(isV) row+='<select data-panev="'+esc(tk)+'">'+chartControlOptions(vuid)+'</select>';
     return row+'</div>';
   }).join('') || '<div class="ccmut">Keine Tabs.</div>';
   const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
@@ -1209,6 +1358,8 @@ function renderPanes(p){
       const u=cur.indexOf('energy:')===0?cur.slice(7):firstEnergyControl(); setPane(tk,'energy:'+u); }
     else if(k==='camera'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const u=cur.indexOf('camera:')===0?cur.slice(7):firstCamera(); setPane(tk,'camera:'+u); }
+    else if(k==='chart'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      const u=cur.indexOf('chart:')===0?cur.slice(6):firstChartControl(); setPane(tk,'chart:'+u); }
     else setPane(tk,k);
     renderPanes(p);   // Zonen-/Control-/Kamera-Dropdown ein-/ausblenden
   });
@@ -1221,6 +1372,89 @@ function renderPanes(p){
   box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panec,'camera:'+s.value);
   });
+  box.querySelectorAll('select[data-panev]').forEach(s=>s.onchange=()=>{
+    setPane(s.dataset.panev,'chart:'+s.value);
+  });
+}
+// Screensaver: rechte Spalte. Gleiche Werte-Grammatik wie die Tab-Panes, damit
+// es nicht zwei Sprachen fuer dieselbe Sache gibt.
+// Drei Arten brauchen ein Ziel: "Werte" mindestens einen Baustein, Energiefluss
+// und Kamera je einen passenden. Solange keines da ist, wird NICHTS gespeichert
+// — ein halber Wert wie "energy:" wuerde vom Server still verworfen und die
+// Auswahl spraenge beim naechsten Laden kommentarlos zurueck. Dass die Auswahl
+// trotzdem stehen bleibt (mit Hinweis), merkt sich svWant je Panel und Art.
+let svWant='';
+function svWantKind(){ return (svWant.indexOf(cur+'|')===0) ? svWant.slice(cur.length+1) : ''; }
+// Obergrenze kommt vom Server (/api/meta) - eine Quelle fuer beide Seiten.
+function svMax(){ return Number(META && META.svStatusMax) || 0; }
+function controlOptions(){
+  return (META.controls||[]).map(c=>'<option value="'+esc(c.uuid)+'">'+esc(c.name)+
+    (c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
+}
+function renderSvPane(p){
+  const fld=$('#svPaneField'); if(fld) fld.style.display=((p.ui||{}).split===false)?'none':'';
+  const box=$('#svPaneBox'); if(!box) return;
+  const v=((p.ui||{}).svPane)||'';
+  const i=v.indexOf(':');
+  const arg=i>0?v.slice(i+1):'';
+  const k=(i>0?v.slice(0,i):v) || svWantKind();
+  let h='<div class="ccrow"><span class="ccnm">'+T('Inhalt')+'</span>'+
+    '<select id="fSvPane">'+
+      '<option value=""'+(k===''?' selected':'')+'>Automatisch (Termine, sonst Wetter)</option>'+
+      '<option value="calendar"'+(k==='calendar'?' selected':'')+'>Termine</option>'+
+      '<option value="weather"'+(k==='weather'?' selected':'')+'>Wetter-Details</option>'+
+      '<option value="energy"'+(k==='energy'?' selected':'')+'>Energiefluss</option>'+
+      '<option value="camera"'+(k==='camera'?' selected':'')+'>Kamera</option>'+
+      '<option value="status"'+(k==='status'?' selected':'')+'>Werte (eigene Auswahl)</option>'+
+      '<option value="off"'+(k==='off'?' selected':'')+'>Nichts (Uhr über volle Breite)</option>'+
+    '</select>';
+  if(k==='energy'||k==='camera'){
+    const opt=(k==='energy')?energyControlOptions(arg):cameraOptions(arg);
+    h+= opt ? '<select id="fSvArg">'+opt+'</select>'
+      : '<span class="ccmut">'+(k==='energy'
+          ? T('Kein Energieflussmonitor in der Anlage.')
+          : T('Kein Intercom-Baustein in der Anlage.'))+'</span>';
+  }
+  h+='</div>';
+  const uu=(k==='status'&&arg)?arg.split(','):[];
+  if(k==='status'){
+    h+='<div class="ccrow" style="margin-top:8px"><span class="ccnm">'+T('Bausteine')+'</span>'+
+       '<select id="fSvAdd"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
+       ((svMax()&&uu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+'</div>';
+    h+='<div class="picked" id="svStatChips" style="margin-top:8px">'+(uu.length
+      ? uu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
+          return '<span class="chip on" data-su="'+esc(u)+'">'+esc(c?c.name:u)+
+            '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+      : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
+  }
+  box.innerHTML=h;
+  const setSv=(val)=>{ p.ui=p.ui||{};
+    if(val) p.ui.svPane=val; else delete p.ui.svPane;
+    markDirty(); renderSvPane(p); };
+  const sel=$('#fSvPane');
+  if(sel) sel.onchange=()=>{
+    const nk=sel.value;
+    // Arten mit Ziel: nur speichern, wenn es das Ziel wirklich gibt. Sonst die
+    // Auswahl nur merken (Hinweis erscheint), aber nichts Halbes ablegen.
+    let ziel='';
+    if(nk==='energy') ziel=(k==='energy'&&arg)?arg:firstEnergyControl();
+    else if(nk==='camera') ziel=(k==='camera'&&arg)?arg:firstCamera();
+    else if(nk==='status') ziel=uu.join(',');
+    svWant=(nk==='energy'||nk==='camera'||nk==='status') && !ziel ? cur+'|'+nk : '';
+    if(nk==='energy'||nk==='camera'||nk==='status') setSv(ziel?(nk+':'+ziel):'');
+    else setSv(nk);
+  };
+  const sa=$('#fSvArg');
+  if(sa) sa.onchange=()=>setSv(k+':'+sa.value);
+  const add=$('#fSvAdd');
+  if(add) add.onchange=()=>{ const u=add.value; add.value='';
+    if(!u || uu.indexOf(u)>-1 || (svMax()&&uu.length>=svMax())) return;
+    setSv('status:'+uu.concat([u]).join(',')); };
+  box.querySelectorAll('.chip[data-su]').forEach(n=>n.onclick=()=>{
+    const rest=uu.filter(x=>x!==n.dataset.su);
+    setSv(rest.length?('status:'+rest.join(',')):'');
+  });
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome(box);
 }
 function renderChips(p){
   const box=$('#chips'); if(!box) return; box.innerHTML='';
@@ -1231,10 +1465,15 @@ function renderChips(p){
     const first = on && pos===firstTabIndex(p);
     const c=document.createElement('div');
     c.className='chip'+(on?' on':'')+(!on&&full?' dis':'')+(t.cat?' cat':'')+(t.room?' room':'');
+    // Der Auswahl-Tab traegt den Namen, den die Seite hier bekommen hat. Das
+    // Label aus META.tabs ist nur der Rueckfall - /api/meta baut die Tabliste
+    // fuer alle Panels zusammen und kennt das einzelne Profil gar nicht.
+    const label=(t.pick&&(p.pickName||'').trim())?p.pickName.trim():t.label;
     c.innerHTML=(t.iconUrl?'<img class="chic" src="'+esc(t.iconUrl)+'">':'')+
-      esc(t.label)+(first?'<span class="star">★ Start</span>'
+      esc(label)+(first?'<span class="star">★ Start</span>'
                    :(on?'<span class="pos">'+(pos+1)+'.</span>':''));
-    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); renderPanes(p); markDirty(); };
+    // renderPick: der Editor haengt daran, ob der Tab in der Leiste steht.
+    c.onclick=()=>{ toggleTab(p,t.tab); renderChips(p); renderPanes(p); renderPick(p); markDirty(); };
     box.appendChild(c);
   });
   const tc=$('#tabcount'); if(tc){ tc.textContent=p.tabs.length+'/4 gewählt'+(full?' (voll)':''); tc.className=full?'full':''; }
@@ -1243,23 +1482,50 @@ function renderChips(p){
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); };
   });
 }
-// Tabs-Modus: "Raum-Panel" (genau ein room:-Tab = Startseite, ein Klick) oder
-// "Klassisch" (die bekannte Chip-Leiste). Der Modus wird aus p.tabs abgeleitet.
+// Tabs-Modus. Drei Bauformen, und der Umschalter wechselt in Wahrheit die
+// BEDEUTUNG der unteren Leiste:
+//   "Klassisch"      - die Leiste sind bis zu 4 SEITEN (p.tabs).
+//   "Raum-Panel"     - eine Seite (ein Raum), die Leiste sind SPRUNGMARKEN auf
+//                      die Kategorien des Raums.
+//   "Eigene Auswahl" - eine Seite (handverlesene Bausteine), die Leiste sind
+//                      SPRUNGMARKEN auf die Raeume der Auswahl.
+// Der Modus wird aus p.tabs abgeleitet - kein eigener Speicherschluessel, den
+// _sanitize_panels() erst freischalten muesste.
+function tabMode(p){
+  const t=p.tabs||[], eins=(t.length===1);
+  if(eins && String(t[0]||'').indexOf('room:')===0) return 'room';
+  if(eins && t[0]===PICK_TAB) return 'pick';
+  return 'classic';
+}
+// Gilt die Leiste als selbst zusammengestellt? Nur dann wird vor dem Verwerfen
+// gefragt - die unveraenderte Standardleiste darf kommentarlos weichen, sonst
+// steht bei jedem Ausprobieren eine Rueckfrage im Weg.
+function tabsEigen(p){
+  const t=p.tabs||[], d=defaultTabs();
+  return t.length!==d.length || t.some((x,i)=>x!==d[i]);
+}
 function renderTabMode(p){
   p.tabs = Array.isArray(p.tabs) ? p.tabs : [];
   const rooms = (META.tabs||[]).filter(t=>t.room);
-  const isRoom = (p.tabs.length===1 && String(p.tabs[0]||'').indexOf('room:')===0);
+  const mode = tabMode(p), isRoom = (mode==='room');
   const seg=$('#tabMode'), roomBox=$('#tabRoom'), classicBox=$('#tabClassic');
   if(seg) seg.querySelectorAll('button').forEach(b=>{
-    b.classList.toggle('on', b.dataset.mode===(isRoom?'room':'classic'));
+    b.classList.toggle('on', b.dataset.mode===mode);
     b.onclick=()=>{
-      if(b.dataset.mode==='room'){ if(!rooms.length){ alert(T('Keine Räume verfügbar.')); return; } if(!isRoom) p.tabs=[rooms[0].tab]; }
-      else { if(isRoom) p.tabs=defaultTabs(); }
+      const ziel=b.dataset.mode; if(ziel===mode) return;
+      if(ziel==='room' && !rooms.length){ alert(T('Keine Räume verfügbar.')); return; }
+      // Der Wechsel ueberschreibt p.tabs. Frueher geschah das stillschweigend;
+      // mit drei Modi trifft es einen dreimal so oft.
+      if(mode==='classic' && tabsEigen(p) &&
+         !confirm(T('Die zusammengestellte Tab-Leiste geht dabei verloren. Fortfahren?'))) return;
+      if(ziel==='room') p.tabs=[rooms[0].tab];
+      else if(ziel==='pick') p.tabs=[PICK_TAB];
+      else p.tabs=defaultTabs();
       markDirty(); renderTabMode(p); renderPanes(p);
     };
   });
   if(roomBox) roomBox.style.display=isRoom?'':'none';
-  if(classicBox) classicBox.style.display=isRoom?'none':'';
+  if(classicBox) classicBox.style.display=(mode==='classic')?'':'none';
   const sel=$('#tabRoomSel');
   if(sel){
     const curRoom=isRoom?p.tabs[0]:'';
@@ -1269,7 +1535,8 @@ function renderTabMode(p){
     sel.onchange=()=>{ if(sel.value){ p.tabs=[sel.value]; delete p.roomCats; markDirty(); renderTabMode(p); renderPanes(p); } };
   }
   if(isRoom) renderRoomCats(p);
-  else renderChips(p);
+  else if(mode==='classic') renderChips(p);
+  renderPick(p);
 }
 // Kategorien, die es im gewaehlten Raum gibt (Reihenfolge = META.cats = cats_with).
 function roomCatList(roomTab){
@@ -1385,10 +1652,295 @@ function toggleHide(uuid){ const p=PANELS[cur]; p.hide=p.hide||[];
   const i=p.hide.indexOf(uuid); if(i>-1) p.hide.splice(i,1); else p.hide.push(uuid);
   if(!p.hide.length) delete p.hide; markDirty(); renderTileList(); }
 function clearHide(){ const p=PANELS[cur]; if(p.hide){ delete p.hide; markDirty(); renderTileList(); } }
+
+// ---- Eigene Auswahl (Tab "auswahl") ----
+// Die Liste ist BEWUSST UNGEFILTERT (kein panelControls()): der Sinn der Seite
+// ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen. Waere sie
+// gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
+// Reihenfolge = Klickreihenfolge, wie bei der Tab-Leiste (toggleTab).
+// NUR LESEN - darf p.picks nicht anlegen. Sonst brächte jedes Rendern den
+// Schlüssel zurück, den togglePick/clearPicks gerade entfernt haben, und das
+// Panel gälte als geändert, obwohl nichts gewählt ist.
+function pickList(p){ return p.picks || []; }
+
+// Zustand der Rubrik. pickWiz: 0 = noch nicht entschieden, 1..3 = Schritt des
+// Assistenten, -1 = direkter Editor. pickFor merkt sich, zu welchem Panel der
+// Zustand gehoert - beim Panelwechsel faengt alles wieder von vorn an, ohne
+// dass renderEditor() (das auch aus anderen Gruenden laeuft) ihn zuruecksetzt.
+let pickWiz=0, pickQ='', pickRoomF='', pickFor=null;
+
+// Raeume der Auswahl in derselben Reihenfolge wie der Server sie gruppiert:
+// erstes Vorkommen in picks. Ausgeblendete Bausteine zaehlen nicht mit, weil
+// _view_tab() sie per _shown() schon vorher aussortiert - sonst verspraeche
+// die Vorschau Sprungmarken, die am Panel gar nicht auftauchen.
+function pickRooms(p){
+  const out=[];
+  pickSichtbar(p).forEach(u=>{
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    if(c && c.room && out.indexOf(c.room)<0) out.push(c.room);
+  });
+  return out;
+}
+function roomName(uuid){ const r=(META.rooms||[]).find(x=>x.uuid===uuid); return r?r.name:'?'; }
+
+// Auf diesem Panel ausgeblendete Bausteine. _view_tab() wirft sie per _shown()
+// AUS DER AUSWAHL, bevor es nach Raum gruppiert - sie bestimmen am Panel also
+// weder die Reihenfolge der Raeume noch die Nummern.
+function pickAus(p,uuid){ return !!(p.hide && p.hide.indexOf(uuid)>-1); }
+function pickSichtbar(p){ return pickList(p).filter(u=>!pickAus(p,u)); }
+
+// Die Reihenfolge, in der die Bausteine WIRKLICH am Panel stehen: _view_tab()
+// gruppiert nach Raum, Raumreihenfolge = erstes Vorkommen, innerhalb eines
+// Raums die Klickreihenfolge. Chips und Nummern hier zeigen genau das - sonst
+// versprechen sie eine Ordnung, die das Panel nicht einhaelt.
+// Ausgeblendete haengen ungezaehlt hinten an: gewaehlt sind sie ja, nur
+// erscheinen sie nicht. Waeren sie eingereiht, verschoebe ein einziger
+// ausgeblendeter Baustein jede Nummer dahinter gegenueber dem Panel.
+function pickOrder(p){
+  const grp=new Map(), aus=[];
+  pickList(p).forEach(u=>{
+    if(pickAus(p,u)){ aus.push(u); return; }
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    const k=(c&&c.room)?c.room:'\u0000';   // ohne bekannten Raum: ans Ende
+    if(!grp.has(k)) grp.set(k,[]);
+    grp.get(k).push(u);
+  });
+  const out=[];
+  grp.forEach((us,k)=>{ if(k!=='\u0000') out.push.apply(out,us); });
+  if(grp.has('\u0000')) out.push.apply(out,grp.get('\u0000'));
+  return out.concat(aus);
+}
+
+// ---- Bausteine der Anlage: Filterzeile und Liste ----
+// Die Liste ist BEWUSST UNGEFILTERT vom Panelfilter (kein panelControls()): der
+// Sinn der Seite ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen.
+// Waere sie gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
+// Der Raumfilter HIER ist etwas anderes - er blaettert nur, er schraenkt nicht ein.
+function pickFilterHtml(){
+  return '<div class="grph">'+T('Bausteine')+'</div>'+
+    '<div class="pickbar">'+
+      '<div class="field"><label class="lbl">'+T('Raum')+'</label><select id="pickRoom">'+
+        '<option value="">'+T('Alle Räume')+'</option>'+
+        (META.rooms||[]).map(r=>'<option value="'+esc(r.uuid)+'"'+
+          (pickRoomF===r.uuid?' selected':'')+'>'+esc(r.name)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="field"><label class="lbl">'+T('Suche')+'</label>'+
+        '<input type="text" id="pickSearch" value="'+esc(pickQ)+'" placeholder="'+T('Baustein suchen…')+'"></div>'+
+    '</div><div class="tlist" id="pickList"></div>';
+}
+function pickChosenHtml(){
+  return '<div class="grph">'+T('Gewählt')+' (<span id="pickCnt">0</span>)'+
+    '<button class="minibtn" id="clrPicks" style="float:right;margin-top:-4px">'+T('Alle entfernen')+'</button></div>'+
+    '<div class="picked" id="picked"></div>';
+}
+// Vorschau der unteren Leiste. Steht im Assistenten (Schritt 3) und im Editor,
+// damit man nicht erst speichern und zum Panel laufen muss.
+function pickAnchorsInner(p){
+  const rs=pickRooms(p);
+  if(!pickList(p).length) return '';
+  if(rs.length<2) return '<p class="hint">'+
+    T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
+  return '<p class="hint">'+T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:')+'</p>'+
+    '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
+    (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
+      T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
+}
+function pickAnchorsHtml(p){ return '<div id="pickAnchors">'+pickAnchorsInner(p)+'</div>'; }
+
+// ---- Gefuehrte Einrichtung ----
+function pickWizHtml(p){
+  const S=[T('Name'),T('Bausteine'),T('Fertig')];
+  let h='<div class="grph">'+T('Eigene Auswahl einrichten')+'</div>'+
+    '<div class="wsteps">'+S.map((x,k)=>'<span class="wstep'+(k+1===pickWiz?' on':'')+
+      (k+1<pickWiz?' done':'')+'"><b>'+(k+1<pickWiz?'✓':(k+1))+'</b>'+esc(x)+'</span>').join('')+'</div>';
+  if(pickWiz===1){
+    h+='<p class="note">'+T('Diese Seite stellt Bausteine aus <b>beliebigen Räumen und Kategorien</b> zusammen – etwa alles, was du morgens brauchst. Die untere Leiste am Panel wird dabei zu <b>Sprungmarken auf die Räume</b> deiner Auswahl.')+'</p>'+
+      '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
+        '<input type="text" id="pickName" maxlength="40" value="'+esc(p.pickName||'')+'" placeholder="'+T('Auswahl')+'"></div>'+
+      '<div class="anchors" id="pickNameEx">'+
+        ['Morgens','Abends','Urlaub','Putzen'].map(x=>'<span class="chip" data-ex="'+esc(x)+'">'+esc(x)+'</span>').join('')+'</div>'+
+      '<p class="hint" style="padding-top:8px">'+T('Ohne Namen heißt die Seite „Auswahl“.')+'</p>'+
+      '<div class="wnav"><span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
+  } else if(pickWiz===2){
+    h+='<p class="note">'+T('Tippe die Bausteine an, die auf die Seite sollen. Am Panel stehen sie <b>nach Räumen gruppiert</b> – ein Raum kommt dorthin, wo du seinen ersten Baustein angeklickt hast, innerhalb des Raums gilt die Klickreihenfolge. Genau diese Gruppen werden unten zu den Sprungmarken.')+'</p>'+
+      pickChosenHtml()+pickFilterHtml()+
+      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
+        '<span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
+  } else {
+    // Gezaehlt wird, was am Panel ANKOMMT: ausgeblendete Bausteine wirft der
+    // Server vorher weg, sie duerfen die Zahl nicht aufblaehen.
+    const sel=pickSichtbar(p), rs=pickRooms(p), weg=pickList(p).length-sel.length;
+    h+='<p class="wsum">'+T('Die Seite')+' <b>'+esc((p.pickName||'').trim()||T('Auswahl'))+'</b> '+
+      T('zeigt')+' <b>'+sel.length+'</b> '+(sel.length===1?T('Baustein'):T('Bausteine'))+' '+
+      T('aus')+' <b>'+rs.length+'</b> '+(rs.length===1?T('Raum'):T('Räumen'))+'.</p>'+
+      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.')
+                                             :T('gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.'))+'</p>':'')+
+      pickAnchorsHtml(p)+
+      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
+        '<span class="grow"></span><button class="btn" id="wizDone">'+T('Fertig')+'</button></div>';
+  }
+  return h;
+}
+
+// ---- Direkter Editor (sobald etwas gewaehlt ist) ----
+function pickEditHtml(p){
+  return '<div class="grph">'+T('Eigene Auswahl')+
+      '<button class="minibtn" id="wizAgain" style="float:right;margin-top:-4px">'+T('Schritt für Schritt')+'</button></div>'+
+    '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
+      '<input type="text" id="pickName" maxlength="40" value="'+esc(p.pickName||'')+'" placeholder="'+T('Auswahl')+'"></div>'+
+    '<div style="margin-top:10px">'+pickAnchorsHtml(p)+'</div>'+
+    pickChosenHtml()+
+    '<p class="note" style="margin:8px 0 0">'+T('Tippen auf <b>×</b> nimmt einen Baustein wieder heraus; die Nummern rutschen nach.')+'</p>'+
+    pickFilterHtml()+
+    '<p class="note" style="margin:10px 0 0">'+T('Die Liste zeigt <b>alle</b> Bausteine der Anlage – der Raum- und Kategoriefilter dieses Panels gilt hier bewusst nicht, sonst könntest du nicht über ihn hinausgreifen. Ein auf diesem Panel <b>ausgeblendeter</b> Baustein bleibt ausgeblendet, auch wenn du ihn hier wählst.')+'</p>';
+}
+
+// Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
+// Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
+// Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
+function renderPick(p){
+  const box=$('#tabPick'); if(!box) return;
+  if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; }
+  if((p.tabs||[]).indexOf(PICK_TAB)<0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  if(!pickWiz) pickWiz = pickList(p).length ? -1 : 1;
+  box.innerHTML = pickWiz>0 ? pickWizHtml(p) : pickEditHtml(p);
+  bindPick(p);
+}
+
+function bindPick(p){
+  renderPicked(); renderPickList();
+  const pnm=$('#pickName');
+  if(pnm) pnm.oninput=()=>{ const v=pnm.value.trim();
+    if(v) p.pickName=v; else delete p.pickName;
+    renderChips(p); markDirty(); };
+  const ex=$('#pickNameEx');
+  if(ex) ex.querySelectorAll('.chip[data-ex]').forEach(n=>n.onclick=()=>{
+    p.pickName=n.dataset.ex; markDirty(); renderPick(p); });
+  const psr=$('#pickSearch');
+  if(psr) psr.oninput=()=>{ pickQ=psr.value; renderPickList(); };
+  const prm=$('#pickRoom');
+  if(prm) prm.onchange=()=>{ pickRoomF=prm.value; renderPickList(); };
+  const cpk=$('#clrPicks'); if(cpk) cpk.onclick=clearPicks;
+  const nx=$('#wizNext'); if(nx){
+    nx.onclick=()=>{ pickWiz=Math.min(3,pickWiz+1); renderPick(p); };
+    pickNavUpd();
+  }
+  const bk=$('#wizBack'); if(bk) bk.onclick=()=>{ pickWiz=Math.max(1,pickWiz-1); renderPick(p); };
+  const dn=$('#wizDone'); if(dn) dn.onclick=()=>{ pickWiz=-1; renderPick(p); };
+  const ag=$('#wizAgain'); if(ag) ag.onclick=()=>{ pickWiz=1; renderPick(p); };
+  // BEWUSST applyChrome, nicht autoChrome: autoChrome setzt in i18n.js den
+  // modulweiten Selektor NEU und haengt bei jedem Aufruf einen weiteren
+  // MutationObserver an. Ein enger Aufruf hier wuerde die Uebersetzung der
+  // uebrigen Konfigurationsseite abschalten, sobald der Nutzer hier etwas tut.
+  // applyChrome uebersetzt nur diesen Teilbaum, mit dem breiten Selektor, den
+  // renderEditor ohnehin gesetzt hat.
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome($('#tabPick'));
+}
+// Ohne Baustein ist "Weiter" in Schritt 2 sinnlos - sonst landet man auf einer
+// Zusammenfassung, die nichts zusammenzufassen hat.
+function pickNavUpd(){
+  const nx=$('#wizNext'); if(nx && pickWiz===2) nx.disabled = !pickList(PANELS[cur]).length;
+}
+
+function renderPicked(){
+  const box=$('#picked'); if(!box) return;
+  const p=PANELS[cur], sel=pickOrder(p);
+  const cnt=$('#pickCnt'); if(cnt) cnt.textContent=sel.length;
+  if(!sel.length){ box.innerHTML='<span class="none">'+T('Noch nichts gewählt – unten antippen.')+'</span>'; return; }
+  box.innerHTML=sel.map((u,i)=>{
+    const c=(META.controls||[]).find(x=>x.uuid===u);
+    if(!c) return '';                       // Karteileiche: der Server wirft sie ohnehin weg
+    // Ausgeblendete stehen hinten und tragen keine Nummer - sie haben am Panel
+    // keinen Platz, eine Zahl waere eine Zusage, die das Panel nicht einhaelt.
+    const versteckt=pickAus(p,u);
+    return '<span class="chip on'+(versteckt?' dim':'')+'" data-pu="'+esc(u)+'">'+
+           '<span class="pos">'+(versteckt?'–':(i+1))+'</span>'+esc(c.name)+
+           '<span class="rm">'+esc(versteckt?T('ausgeblendet'):(c.roomName||''))+'</span>'+
+           '<span class="x">×</span></span>';
+  }).join('');
+  box.querySelectorAll('.chip[data-pu]').forEach(n=>n.onclick=()=>togglePick(n.dataset.pu));
+}
+
+function renderPickList(){
+  const box=$('#pickList'); if(!box) return;
+  const p=PANELS[cur], sel=pickOrder(p), q=pickQ.toLowerCase();
+  const list=(META.controls||[]).filter(c=>
+    (pickRoomF ? c.room===pickRoomF : true) &&
+    (c.name.toLowerCase().includes(q)||(c.roomName||'').toLowerCase().includes(q)));
+  box.innerHTML='';
+  if(!list.length){ box.innerHTML='<div class="muted">'+T('nichts gefunden')+'</div>'; return; }
+  list.slice(0,400).forEach(c=>{
+    const i=sel.indexOf(c.uuid), on=i>-1;
+    const versteckt=pickAus(p,c.uuid);
+    const d=document.createElement('div');
+    d.className='trow'+(versteckt?' dim':'');
+    const ic=c.iconUrl?'<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>':'<span class="tico gen"></span>';
+    d.innerHTML='<span class="pick'+(on?' on':'')+'">'+((on&&!versteckt)?(i+1):'')+'</span>'+ic+
+      '<span class="tnm">'+esc(c.name)+'</span>'+
+      (versteckt?'<span class="tag">'+T('ausgeblendet')+'</span>':'')+
+      '<span class="trm">'+esc(c.roomName||'')+'</span>';
+    d.onclick=()=>togglePick(c.uuid);
+    box.appendChild(d);
+  });
+}
+
+// NUR pickList liest, NUR hier wird geschrieben: pickList(p) darf p.picks nicht
+// anlegen, sonst braechte jedes Rendern den Schluessel zurueck, den togglePick
+// und clearPicks gerade entfernt haben, und das Panel gaelte als geaendert.
+function togglePick(uuid){
+  const p=PANELS[cur], sel=pickList(p).slice(), i=sel.indexOf(uuid);
+  if(i>-1) sel.splice(i,1);
+  else { if(sel.length>=60) return; sel.push(uuid); }   // derselbe Deckel wie im Server
+  if(sel.length) p.picks=sel; else delete p.picks;      // eine Stelle schreibt
+  markDirty(); pickRefresh();
+}
+
+function clearPicks(){ const p=PANELS[cur];
+  if(p.picks){ delete p.picks; markDirty(); pickRefresh(); } }
+
+// Nach jeder Aenderung an der Auswahl: nur die Teile neu zeichnen, die davon
+// abhaengen. NICHT die ganze Rubrik - das naehme Such- und Namensfeld den Fokus.
+function pickRefresh(){
+  renderPicked(); renderPickList(); pickNavUpd();
+  const a=$('#pickAnchors'); if(a) a.innerHTML=pickAnchorsInner(PANELS[cur]);
+}
 function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.tiles[tileSel]||{}; return p.tiles[tileSel]; }
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
 function setTileIcon(ic){ const ov=tileOv(); if(ic) ov.icon=ic; else delete ov.icon; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
+// Mini-Diagramm der Kachel: Stil und (nur beim Trend) Zeitraum. Tagesmuster
+// und Tagesspanne zeigen immer die letzten 7 Tage, die Spanne gibt es nur bei
+// Messwerten (bei Zaehlern und Ein/Aus hat ein Tag kein Tief und Hoch).
+// Der Trend zeichnet je Art etwas anderes, der Hinweis sagt es genauso.
+const CHART_TREND_HINT={line:'Kurve mit Tief, Hoch und Änderung',
+                        counter:'Verbrauch als Balken, dazu die Summe',
+                        digital:'Ein/Aus als Stufen, dazu die Einschaltdauer'};
+function chartStyles(c){
+  const st=[['','Aus',''],['trend','Trend',CHART_TREND_HINT[c.statKind]||CHART_TREND_HINT.line],
+            ['pattern','Tagesmuster','7 Tage × 24 Stunden als Farbraster']];
+  if(c.statKind==='line') st.push(['span','Tagesspanne','Tief bis Hoch je Tag, 7 Tage']);
+  return st;
+}
+function curChartStyle(ov){ return ov.chart ? (ov.chartStyle||'trend') : ''; }
+function chartStyleRows(c,ov){
+  const cur=curChartStyle(ov), st=chartStyles(c), hint=(st.find(o=>o[0]===cur)||st[0])[2];
+  let h='<div class="frow"><label class="lbl">Verlauf</label><select id="tChartStyle">'+
+    st.map(o=>'<option value="'+esc(o[0])+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select>'+(hint?'<span class="hint">'+esc(hint)+'</span>':'')+'</div>';
+  if(cur==='trend') h+='<div class="frow"><label class="lbl">Zeitraum</label><select id="tChartRange">'+
+    (META.statRanges||[]).map(o=>'<option value="'+esc(o[0])+'"'+(ov.chart===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+
+    '</select></div>';
+  return h;
+}
+function setChartStyle(v){
+  // Der Zeitraum bleibt beim Stilwechsel erhalten; Muster und Spanne rechnet
+  // der Server unabhaengig davon ueber 7 Tage.
+  const ov=tileOv(), first=((META.statRanges||[])[0]||[])[0];
+  if(!v){ delete ov.chart; delete ov.chartStyle; }
+  else { if(!ov.chart) ov.chart=first; if(v==='trend') delete ov.chartStyle; else ov.chartStyle=v; }
+  pruneTile(); markDirty(); renderTileEditor(); renderTileList();
+}
 function renderTileEditor(){
   const host=$('#tileEditor'); if(!host) return;
   if(!tileSel){ host.innerHTML=''; return; }
@@ -1420,6 +1972,7 @@ function renderTileEditor(){
         '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div>'+
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
+      (c.stat?chartStyleRows(c,ov):'')+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';
   bindColor('bg'); bindColor('border'); bindColor('iconColor'); bindColor('textColor');
@@ -1436,6 +1989,8 @@ function renderTileEditor(){
   ovPreview('tovPrev', ov.overlay);
   { const tg=$('#tOvOn'); if(tg) tg.onclick=()=>{ const o=tileOv();
       if(o.overlay) delete o.overlay; else o.overlay={}; pruneTile(); renderTileEditor(); renderTileList(); markDirty(); }; }
+  { const ts=$('#tChartStyle'); if(ts) ts.onchange=()=>setChartStyle(ts.value); }
+  { const tr=$('#tChartRange'); if(tr) tr.onchange=()=>setTile('chart', tr.value); }
   $('#tileReset').onclick=()=>{ if(PANELS[cur].tiles) delete PANELS[cur].tiles[tileSel]; renderTileEditor(); renderTileList(); markDirty(); };
   renderIconPick('builtin'); drawPrev();
 }
@@ -1576,23 +2131,45 @@ async function loadSettings(){
   const cal=SET.calendar||{};
   if($('#cal_name')){
     $('#cal_name').value=cal.name||'Family';
-    $('#cal_url').value=cal.ical_url||'';
     if($('#cal_holurl')) $('#cal_holurl').value=cal.holiday_url||'';
     $('#cal_lat').value=(cal.lat==null?'':cal.lat);
     $('#cal_lon').value=(cal.lon==null?'':cal.lon);
     $('#cal_days').value=cal.days||14;
     $('#cal_foredays').value=cal.fore_days||4;
+    if($('#cal_svevents')) $('#cal_svevents').value=cal.sv_events||3;
+    if($('#cal_colors')) $('#cal_colors').checked=cal.colors!==false;
     const st=cal.status||{};
+    // Kalenderliste aus der gespeicherten Config aufbauen; der Status kommt je
+    // Quelle ueber ihren Schluessel dazu.
+    CAL_PALETTE=cal.palette||CAL_PALETTE;
+    CAL_MAX=cal.max_sources||CAL_MAX;
+    CAL_STAT={}; (st.cal_sources||[]).forEach(q=>{ if(q&&q.key) CAL_STAT[q.key]=q; });
+    // Nur uebernehmen, solange nichts Ungespeichertes in der Liste steht.
+    if(!CAL_DIRTY){
+      CALS=(cal.sources||[]).map(q=>({name:q.name||'',url:q.url||'',color:q.color||'',key:q.key||''}));
+    }
+    renderCals();
     const cs=$('#cal_status');
     if(cs){
-      if(!st.cal_configured) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
       // Bei einem Aussetzer zeigt das Panel weiter den letzten guten Stand —
       // das muss hier dabeistehen, sonst sieht man einen Fehler und gleichzeitig
       // Termine am Panel und hält eines von beidem für falsch.
-      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error)
-        +(st.events_stale?'<br><span class="ccmut">'+T('Das Panel zeigt weiter den Stand von')
-          +' '+esc(st.events_stale)+' '+T('Uhr.')+'</span>':'');
-      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine');
+      // Ganzer Satz statt zusammengesetzter Fragmente: im Englischen steht die
+      // Uhrzeit an anderer Stelle im Satz, und "Uhr." hat dort keine Entsprechung.
+      const stale=st.events_stale?'<br><span class="ccmut">'
+        +T('Das Panel zeigt weiter den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.events_stale))
+        +'</span>':'';
+      const qs=st.cal_sources||[], kaputt=qs.filter(q=>q&&q.error).length;
+      if(!CALS.length) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
+      // Der genaue Fehler steht schon oben beim betroffenen Kalender — hier
+      // nur noch, wie viele betroffen sind.
+      else if(kaputt) cs.innerHTML='<b class="bad">'
+        +T('{n} von {gesamt} Kalendern nicht geladen').replace('{n}',kaputt).replace('{gesamt}',qs.length)
+        +'</b> <span class="ccmut">· '+T('Grund steht oben beim jeweiligen Kalender.')+'</span>'
+        +' · '+(st.cal_count||0)+' '+T('Termine')+stale;
+      else if(st.cal_error) cs.innerHTML='<b class="bad">'+T('Fehler:')+'</b> '+esc(st.cal_error)+stale;
+      else cs.innerHTML='<b class="ok">'+T('Kalender geladen')+'</b> · '+(st.cal_count||0)+' '+T('Termine')
+        +(CALS.length>1?' <span class="ccmut">'+T('aus {n} Kalendern').replace('{n}',CALS.length)+'</span>':'');
     }
     // Auto-Standort vom Miniserver als Platzhalter zeigen (falls keine Koordinaten gesetzt)
     const autoGeo=(cal.ms_lat!=null&&cal.ms_lon!=null);
@@ -1663,21 +2240,101 @@ $('#am_save').onclick=async()=>{
   $('#am_save').disabled=false;
 };
 
+// ---- Kalenderliste (mehrere iCal-Abos) ----
+// CALS ist die Arbeitskopie: Eingaben schreiben direkt hinein, damit ein
+// Hinzufuegen oder Loeschen die anderen Zeilen nicht zuruecksetzt.
+let CALS=[], CAL_STAT={}, CAL_MAX=8;
+// Gesetzt, sobald an der Liste etwas geaendert wurde. loadSettings() laeuft
+// auch nach dem Speichern ANDERER Karten (Miniserver, Intercom ...) - ohne das
+// Flag wuerde es die Arbeitskopie ueberschreiben und noch nicht gespeicherte
+// Kalenderzeilen verschwinden lassen.
+let CAL_DIRTY=false;
+let CAL_PALETTE=['#e0a24d','#52b881','#6aa9e0','#c98ad4','#e2695f','#4fc3c3','#b2c94a','#9a8fe0'];
+function calStatHTML(q){
+  const st=q.key?CAL_STAT[q.key]:null;
+  if(!st) return q.url?'<span class="calst">'+T('noch nicht geladen')+'</span>':'';
+  if(st.error) return '<span class="calst err"><b class="bad">'+T('Fehler:')+'</b> '+esc(st.error)
+    +(st.stale?' · '+T('Panel zeigt den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.stale)):'')+'</span>';
+  return '<span class="calst"><b class="ok">'+T('geladen')+'</b> · '+(st.count||0)+' '+T('Termine')+'</span>';
+}
+function renderCals(){
+  const box=$('#cal_list'); if(!box) return;
+  if(!CALS.length){ box.innerHTML='<div class="calempty">'+T('Noch kein Kalender. Mit „＋ Kalender hinzufügen" den ersten Abo-Link eintragen.')+'</div>'; }
+  else box.innerHTML=CALS.map((q,i)=>
+    '<div class="cal" data-i="'+i+'">'+
+      '<div class="calh"><span class="caldot" style="background:'+esc(q.color||CAL_PALETTE[i%CAL_PALETTE.length])+'"></span>'+
+      '<span class="caln">'+esc(q.name||(T('Kalender')+' '+(i+1)))+'</span>'+calStatHTML(q)+
+      '<button class="btn del sm" data-caldel="'+i+'">'+T('Entfernen')+'</button></div>'+
+      '<div class="row2">'+
+        '<div class="field" style="max-width:260px"><label class="lbl">'+T('Name')+'</label>'+
+          '<input type="text" class="cal_n" data-i="'+i+'" value="'+esc(q.name||'')+'" placeholder="'+T('z.B. Müllabfuhr')+'"></div>'+
+        '<div class="field" style="max-width:90px"><label class="lbl">'+T('Farbe')+'</label>'+
+          '<input type="color" class="cal_c" data-i="'+i+'" value="'+esc(q.color||CAL_PALETTE[i%CAL_PALETTE.length])+'"></div>'+
+      '</div>'+
+      '<div class="field"><label class="lbl">'+T('iCal-Abo-URL')+'</label>'+
+        '<input type="text" class="cal_u" data-i="'+i+'" value="'+esc(q.url||'')+'" placeholder="webcal://p…-caldav.icloud.com/published/2/…"></div>'+
+    '</div>').join('');
+  // Eingaben laufen in die Arbeitskopie, ohne die Liste neu zu zeichnen (das
+  // wuerde den Cursor aus dem Feld werfen).
+  box.querySelectorAll('.cal_n').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].name=inp.value; CAL_DIRTY=true;
+    const n=box.querySelector('.cal[data-i="'+i+'"] .caln');
+    if(n) n.textContent=inp.value.trim()||(T('Kalender')+' '+(i+1));
+  });
+  box.querySelectorAll('.cal_u').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].url=inp.value; CAL_DIRTY=true;
+    // Der Status haengt am Schluessel der ALTEN URL. Bleibt er stehen, behauptet
+    // die Zeile weiter "geladen · 14 Termine" fuer einen Kalender, der so gar
+    // nicht mehr eingetragen ist.
+    CALS[i].key='';
+    const st=box.querySelector('.cal[data-i="'+i+'"] .calst');
+    if(st) st.remove();
+  });
+  box.querySelectorAll('.cal_c').forEach(inp=>inp.oninput=()=>{
+    const i=+inp.dataset.i; CALS[i].color=inp.value; CAL_DIRTY=true;
+    const d=box.querySelector('.cal[data-i="'+i+'"] .caldot');
+    if(d) d.style.background=inp.value;
+  });
+  box.querySelectorAll('[data-caldel]').forEach(b=>b.onclick=()=>{
+    CALS.splice(+b.dataset.caldel,1); CAL_DIRTY=true; renderCals();
+  });
+}
+// Erste noch freie Farbe der Palette. Ueber die Listenlaenge zu gehen waere
+// falsch: nach dem Loeschen einer Zeile bekaeme die naechste neue die Farbe
+// einer bestehenden.
+function freieFarbe(){
+  const vergeben=new Set(CALS.map(q=>(q.color||'').toLowerCase()));
+  return CAL_PALETTE.find(c=>!vergeben.has(c.toLowerCase()))
+      || CAL_PALETTE[CALS.length%CAL_PALETTE.length];
+}
+if($('#cal_add')) $('#cal_add').onclick=()=>{
+  if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als {max} Kalender gehen nicht.').replace('{max}',CAL_MAX),false); return; }
+  CAL_DIRTY=true;
+  CALS.push({name:'',url:'',color:freieFarbe(),key:''});
+  renderCals();
+  const felder=$('#cal_list').querySelectorAll('.cal_n');
+  if(felder.length) felder[felder.length-1].focus();
+};
+
 $('#cal_save').onclick=async()=>{
   const body={
-    name:$('#cal_name').value.trim(), ical_url:$('#cal_url').value.trim(),
+    name:$('#cal_name').value.trim(),
+    sources:CALS.filter(q=>(q.url||'').trim()).map(q=>({name:(q.name||'').trim(),url:q.url.trim(),color:q.color||''})),
     holiday_url:($('#cal_holurl')?$('#cal_holurl').value.trim():''),
     lat:$('#cal_lat').value.trim(), lon:$('#cal_lon').value.trim(),
+    colors:($('#cal_colors')?$('#cal_colors').checked:true),
+    sv_events:parseInt($('#cal_svevents')&&$('#cal_svevents').value)||3,
     days:parseInt($('#cal_days').value)||14, fore_days:parseInt($('#cal_foredays').value)||4};
   $('#cal_save').disabled=true;
   try{
     const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
+      CAL_DIRTY=false;    // Liste ist jetzt der Serverstand
       // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
       setTimeout(loadSettings,1500); }
     else flash($('#cal_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#cal_toast'),'Fehler: '+e,false); }
+  }catch(e){ flash($('#cal_toast'),T('Fehler:')+' '+e,false); }
   $('#cal_save').disabled=false;
 };
 
@@ -1692,7 +2349,8 @@ async function loadPanelIds(){
     PANEL_IDS=Object.keys(m.panels||{});
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
-      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null};
+      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
+                 scale:(d.scale===undefined?'':d.scale)};   // '' = wie im Profil
     });
   }catch(e){ PANEL_IDS=[]; }
 }
@@ -1717,10 +2375,11 @@ function deviceRow(d, sel){
     '<span class="agn">'+esc(d.name)+'</span>'+
     '<span class="tag">'+esc(TYPE_LABEL[d.type]||d.type)+'</span>'+
     '<span class="agip">'+esc(info)+'</span>'+
-    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+'</div>';
+    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+
+    (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
 }
 function anonRow(a, typed){
-  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):''].filter(Boolean).join(' · ');
+  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
@@ -1812,6 +2471,10 @@ function devRow(name){
     '<div class="dmrows">'+rows+'</div>'+
     '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
     displayRow(d.display)+
+    '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+      '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
+      '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie im Profil'))+'</select>'+
+    '</div>'+
   '</div>';
 }
 const DRIVER_PORT={fully:2323, wallpanel:2971};
@@ -1838,7 +2501,9 @@ function readDevFromDom(){
     const display=drv?{driver:drv, host:n.querySelector('.dd_host').value.trim(),
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
-    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display};
+    const sc=n.querySelector('.ds_scale');
+    DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
+                         scale:sc?scaleValue(sc.value):''};
   });
 }
 function renderDevices(){
@@ -1868,7 +2533,14 @@ $('#dev_save').onclick=async()=>{
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
     const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
-    if(Object.keys(modes).length || display){ devices[name]={auto:d.auto!==false, modes}; if(display) devices[name].display=display; }
+    const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie im Profil
+    // Bisher fiel ein Geraet ohne Modi und Display-Treiber hier still weg -
+    // eines, das nur eine Skalierung traegt, muss bleiben.
+    if(Object.keys(modes).length || display || scale!==null){
+      devices[name]={auto:d.auto!==false, modes};
+      if(display) devices[name].display=display;
+      if(scale!==null) devices[name].scale=scale;
+    }
   });
   $('#dev_save').disabled=true;
   try{
