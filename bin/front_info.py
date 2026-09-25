@@ -129,6 +129,22 @@ def _vorruebergehend(e: Exception) -> bool:
     return isinstance(status, int) and (status >= 500 or status in (408, 429))
 
 
+def _retry_after(e: Exception) -> float | None:
+    """Wartezeit in Sekunden, um die der Server per `Retry-After` bittet.
+
+    None, wenn er keine nennt. Die Datumsform des Kopfes zaehlt als unendlich:
+    sie steht fuer "spaeter", und fuer die Entscheidung in fetch_events()
+    genuegt, dass sie praktisch immer laenger ist als die eigenen Pausen.
+    """
+    wert = (getattr(e, "headers", None) or {}).get("Retry-After")
+    if wert is None:
+        return None
+    try:
+        return max(0.0, float(str(wert).strip()))
+    except ValueError:
+        return float("inf")
+
+
 def normalize_ical_url(url) -> str:
     """`webcal://` / `webcals://` -> `https://` (Apple/iCloud teilt webcal-Links)."""
     url = (url or "").strip()
@@ -486,6 +502,11 @@ async def fetch_events(session: aiohttp.ClientSession, url: str, days: int,
     ist, und sind das teils ein paar Minuten am Stueck. Ein 404 oder 401
     wiederholt sich dagegen nicht — dann ist die URL falsch oder das Abo nicht
     mehr oeffentlich, und weitere Abrufe kosten nur Zeit.
+
+    Nennt der Server per `Retry-After` selbst eine Wartezeit, die laenger ist
+    als die naechste eigene Pause, bleibt es bei diesem Versuch. iCloud
+    antwortet einem Abrufer, der zu oft kommt, mit 503 und Retry-After 60;
+    wer nach 3 s wiederkommt, haelt die Sperre nur aufrecht.
     """
     url = normalize_ical_url(url)
     if not url:
@@ -519,6 +540,12 @@ async def fetch_events(session: aiohttp.ClientSession, url: str, days: int,
             if nr == versuche - 1 or not _vorruebergehend(e):
                 raise
             pause = _RETRY_PAUSEN[nr]
+            bitte = _retry_after(e)
+            if bitte is not None and bitte > pause:
+                log.info("Kalender '%s': %s — Server bittet um %s, kein weiterer "
+                         "Versuch in diesem Durchgang", name, error_text(e),
+                         "eine laengere Pause" if bitte == float("inf") else f"{bitte:.0f} s Pause")
+                raise
             log.info("Kalender '%s': %s — Versuch %d von %d in %.0f s",
                      name, error_text(e), nr + 2, versuche, pause)
             await asyncio.sleep(pause)

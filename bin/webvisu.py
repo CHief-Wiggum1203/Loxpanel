@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import calendar
+import copy
 import hashlib
 import hmac
 import json
@@ -221,6 +222,7 @@ TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende 
 MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
+FRONT_INTERVAL = 900     # s: Kalender + Open-Meteo so oft neu holen; Wetter-Pushes dazwischen ohne Abruf
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
            "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
@@ -937,8 +939,8 @@ class App:
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
         # ihr Abbild zum Vergleich (nur bei Aenderung neu senden), _front_meta der
-        # Status fuer die Config-Seite. _front_refresh stoesst ein sofortiges
-        # Neuladen an (nach dem Speichern).
+        # Status fuer die Config-Seite. _front_refresh weckt front_task (nach dem
+        # Speichern und bei neuem Wetter vom Miniserver).
         self.calendar_cfg = _calendar_config()
         # Loxone-Wetterserver: Konfiguration aus der Struktur, Rohdaten je
         # State-UUID (kommen ueber den WS als eigene Tabelle) und die zuletzt
@@ -964,6 +966,12 @@ class App:
         self._front_good_cal: dict = {}
         self._front_dirty = False
         self._front_refresh = asyncio.Event()
+        # Letzter fertig gebauter Front-Stand (nach _front_keep) und ab wann der
+        # Kalender wieder aus dem Netz geholt wird (time.monotonic(), 0 = sofort).
+        # Ein Wetter-Push des Miniservers baut die Front aus diesem Stand neu und
+        # ruft KEINEN Kalender ab, siehe front_task().
+        self._front_last: dict | None = None
+        self._front_cal_due = 0.0
         self._front_session: aiohttp.ClientSession | None = None
         self.bell_map: dict[str, str] = {}
         self._bell_prev: dict[str, object] = {}
@@ -5073,9 +5081,9 @@ class App:
         """Wetter-Tabelle vom Miniserver uebernehmen (nur mit Wetterdienst).
 
         Die Front wird sofort neu gebaut, statt bis zum naechsten 15-Minuten-Takt
-        zu warten. Nur bei echter Aenderung — sonst wuerde jeder Wiederholungs-
-        Push auch den Kalender neu laden, und wie oft der Miniserver schickt,
-        bestimmt er selbst."""
+        zu warten: aus dem letzten Stand, mit neuem Wetter und OHNE neuen
+        Kalenderabruf (siehe _front_nur_wetter()). Nur bei echter Aenderung,
+        sonst baute jeder Wiederholungs-Push die Front umsonst neu."""
         if self._lox_wx.get(uuid) == entries:
             return
         self._lox_wx[uuid] = entries
@@ -5385,6 +5393,37 @@ class App:
             raus.append(e if e.get("day") == label else dict(e, day=label))
         return raus
 
+    def _front_wetter(self, data: dict, wx: dict | None) -> None:
+        """Wetter vom Loxone-Wetterserver einsetzen (Vorrang vor Open-Meteo) und
+        die tatsaechlich verwendete Quelle fuer die Diagnose festhalten."""
+        if wx is not None:
+            data["weather"] = wx
+            data["meta"]["wx_configured"] = True
+            data["meta"]["wx_error"] = None
+        data["meta"]["wx_source"] = "miniserver" if wx is not None else "open-meteo"
+        self._wx_source = data["meta"]["wx_source"]
+
+    def _front_nur_wetter(self, wx: dict | None) -> dict | None:
+        """Front aus dem letzten Stand neu bauen, nur mit frischem Wetter.
+
+        So reagiert die Front auf einen Wetter-Push des Miniservers, ohne
+        Kalender und Open-Meteo erneut abzufragen. Wie oft der Miniserver
+        schickt, bestimmt er selbst. Hing daran ein Kalenderabruf, fragte
+        LoxPanel iCloud Durchgang an Durchgang an, und iCloud sperrte das Abo
+        mit 503 und Retry-After. Der letzte Stand ist schon durch _front_keep()
+        gelaufen; ein zweiter Durchgang wuerde die Uhrzeit des letzten guten
+        Kalenderstands verfaelschen.
+        """
+        if self._front_last is None:
+            return None
+        data = copy.deepcopy(self._front_last)
+        # Liefert der Wetterserver gerade nichts Brauchbares, bleibt der letzte
+        # Stand samt seiner Quelle stehen; Open-Meteo kommt im naechsten Takt.
+        if wx is not None:
+            self._front_wetter(data, wx)
+        self._front_meta = data.get("meta", {})
+        return self._front_payload(data)
+
     def _front_keep(self, data: dict) -> dict:
         """Bei einem fehlgeschlagenen Abruf den letzten guten Stand behalten.
 
@@ -5445,8 +5484,11 @@ class App:
 
     async def front_task(self) -> None:
         """Kalender + Wetter periodisch laden und an die Panels schicken. Laeuft nur
-        aktiv, wenn mindestens ein iCal-Abo ODER Koordinaten gesetzt sind. Ein sofortiges
-        Neuladen wird ueber _front_refresh (nach dem Speichern) ausgeloest."""
+        aktiv, wenn mindestens ein iCal-Abo ODER Koordinaten gesetzt sind.
+
+        _front_refresh weckt die Schleife vorzeitig. Nach dem Speichern holt sie
+        alles neu; bei neuem Wetter vom Miniserver tauscht sie nur das Wetter und
+        laesst den Kalender bis zum naechsten Takt in Ruhe."""
         # Grenze je Host: mehrere Abos liegen oft beim selben Anbieter (iCloud,
         # Google). Acht gleichzeitige Verbindungen dorthin sehen nach einem
         # Ansturm aus — genau das beantwortet iCloud gern mit 503.
@@ -5466,17 +5508,21 @@ class App:
                     cfg.get("lat") not in (None, "") and cfg.get("lon") not in (None, ""))
                 if configured:
                     try:
-                        data = await front_info.load_front(self._front_session, cfg,
-                                                           skip_weather=wx is not None)
-                        if wx is not None:
-                            data["weather"] = wx
-                            data["meta"]["wx_configured"] = True
-                            data["meta"]["wx_error"] = None
-                        data["meta"]["wx_source"] = "miniserver" if wx is not None else "open-meteo"
-                        self._wx_source = data["meta"]["wx_source"]
-                        data = self._front_keep(data)   # Aussetzer loescht nichts
-                        self._front_meta = data.get("meta", {})
-                        payload = self._front_payload(data)
+                        if time.monotonic() < self._front_cal_due:
+                            # Geweckt vom Wetter-Push, der Kalender ist noch nicht
+                            # wieder faellig: nur das Wetter tauschen.
+                            payload = self._front_nur_wetter(wx)
+                        else:
+                            # Vor dem Abruf vormerken: auch ein unerwarteter Fehler
+                            # darf keinen Abruf nach dem anderen nach sich ziehen.
+                            self._front_cal_due = time.monotonic() + FRONT_INTERVAL
+                            data = await front_info.load_front(self._front_session, cfg,
+                                                               skip_weather=wx is not None)
+                            self._front_wetter(data, wx)
+                            data = self._front_keep(data)   # Aussetzer loescht nichts
+                            self._front_last = copy.deepcopy(data)
+                            self._front_meta = data.get("meta", {})
+                            payload = self._front_payload(data)
                     except Exception:
                         log.exception("front_task: Laden fehlgeschlagen")
                         payload = None
@@ -5494,9 +5540,15 @@ class App:
                         self._front = payload
                         self._front_key = key
                         self._front_dirty = True
-                # Bis zum naechsten Intervall (15 Min) ODER bis ein Speichern weckt.
+                # Bis der Kalender wieder faellig ist (hoechstens FRONT_INTERVAL) ODER
+                # bis ein Speichern oder neues Wetter vom Miniserver weckt. Nach einem
+                # Wetter-Push nur die RESTzeit warten, sonst schoebe jeder Push den
+                # naechsten Kalenderabruf weiter hinaus.
+                warte = FRONT_INTERVAL
+                if configured:
+                    warte = min(FRONT_INTERVAL, max(1.0, self._front_cal_due - time.monotonic()))
                 try:
-                    await asyncio.wait_for(self._front_refresh.wait(), timeout=900)
+                    await asyncio.wait_for(self._front_refresh.wait(), timeout=warte)
                 except asyncio.TimeoutError:
                     pass
                 self._front_refresh.clear()
@@ -5950,6 +6002,7 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
     except OSError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
     app.calendar_cfg = _calendar_config()
+    app._front_cal_due = 0.0   # Kalender sofort neu holen, nicht erst im naechsten Takt
     app._front_refresh.set()   # sofort neu laden und an die Panels schicken
     log.info("Kalender/Wetter gespeichert (%d iCal-Abo(s), Wetter %s)",
              len(front_info.calendar_sources(cal)),
