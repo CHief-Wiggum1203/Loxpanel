@@ -271,22 +271,6 @@
       // Panels
       'Alle Anzeigegeräte auf einen Blick: Linux-Panels mit Agent melden sich automatisch, Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?device=<name>). Geräte ohne Kennung stehen unten und bekommen hier einen Namen.':
         'All display devices at a glance: Linux panels with the agent register automatically, Android panels and tablets appear as soon as they open the visu with a device id (?device=<name>). Devices without an id are listed below and get a name here.',
-      'Ansicht wechseln': 'Switch view',
-      'Neu laden': 'Reload',
-      'Display aus': 'Display off',
-      'Display an': 'Display on',
-      'Visu offen': 'visu open',
-      'Ohne Kennung': 'No device id',
-      'Gerätename': 'Device name',
-      'Namen vergeben': 'Assign name',
-      'Bitte einen Namen eingeben': 'Please enter a name',
-      'Browser': 'Browser',
-      'Ansicht': 'View',
-      'Panel nicht erreicht': 'Panel not reached',
-      'Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.':
-        'Devices without an id (by IP). Assign a name so the device stays listed and can be switched by operating mode.',
-      'Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.':
-        'No panel found yet. A panel appears as soon as it opens the visu with ?device=<name> or the agent runs on it.',
       'Suche Panels…': 'Searching for panels…',
       '(Standard)': '(Default)',
       'Start': 'Start',
@@ -335,10 +319,6 @@
       // Status der Kalender
       'noch nicht geladen': 'not loaded yet',
       'geladen': 'loaded',
-      'Termine': 'events',
-      'Fehler:': 'Error:',
-      'Kalender geladen': 'Calendar loaded',
-      'Kein Kalender konfiguriert.': 'No calendar configured.',
       'aus {n} Kalendern': 'from {n} calendars',
       '{n} von {gesamt} Kalendern nicht geladen': '{n} of {gesamt} calendars not loaded',
       'Grund steht oben beim jeweiligen Kalender.':
@@ -352,12 +332,6 @@
         'If the installation has the Loxone weather service, the weather comes from there — the coordinates then stay unused. Otherwise from Open-Meteo: free, no API key and no account, just enter the coordinates of your location (decimal degrees, e.g. 47.071 / 15.439). Leaving them empty switches the weather off, as long as no weather server delivers.',
       'Breitengrad': 'Latitude',
       'Längengrad': 'Longitude',
-      'Wetter vom Loxone-Wetterserver': 'Weather from the Loxone weather server',
-      'Open-Meteo wird nicht abgefragt.': 'Open-Meteo is not queried.',
-      'Wetter geladen': 'Weather loaded',
-      'Standort vom Miniserver wird verwendet.': 'The location from the Miniserver is used.',
-      'Kein Standort konfiguriert.': 'No location configured.',
-      'Automatisch vom Miniserver:': 'Automatically from the Miniserver:',
       // Anzeige am Panel
       'Anzeige': 'Display',
       'Termine der nächsten … Tage': 'Events for the next … days',
@@ -408,12 +382,7 @@
         'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per panel, which view appears for which mode. A panel without an entry for a mode stays unchanged.',
       'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
-      'Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.':
-        'No panel known yet. As soon as a panel opens the visu with a device id or an agent runs, it appears here.',
       'Betriebsmodus-Automatik und Display-Steuerung': 'Operating-mode automation and display control',
-      'Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.':
-        'Display control per device: for Fully Kiosk enable the Remote Admin interface (port 2323, password), for WallPanel the HTTP server (port 2971). The server then switches the display on for doorbell, alarm clock, notify and goto and off after the timeout, independent of the page.',
-      'Display-Steuerung': 'Display control',
       // Skalierung / Bildschirmgroesse
       'Skalierung': 'Scaling',
       'Wie im Profil': 'Same as profile',
@@ -430,20 +399,9 @@
         'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Settings → Panels.',
       'Wie global': 'Same as global',
       'Standard für alle Panels': 'Default for all panels',
-      'Automatisch': 'Automatic',
       'Aus': 'Off',
       'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.':
         'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Settings → Panels.',
-      'keine (nur über die Seite)': 'none (page only)',
-      'Passwort (Fully)': 'Password (Fully)',
-      'Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.':
-        'Two ways: an Android panel or tablet with a kiosk app only needs a start URL; a Linux panel gets the agent via SSH.',
-      'Android-Panel oder Tablet (Kiosk-App)': 'Android panel or tablet (kiosk app)',
-      'Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.':
-        'Enter the start URL in Fully Kiosk Browser or WallPanel. The device name makes the device appear under Panels and switchable by operating mode. Display off: enable the JavaScript interface in Fully or configure a display driver above. Details in deploy/ANDROID.md.',
-      'Start-URL erzeugen': 'Generate start URL',
-      'Gerätename und Server-Adresse nötig': 'Device name and server address required',
-      'Linux-Panel mit Agent (SSH)': 'Linux panel with agent (SSH)',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',
@@ -451,8 +409,6 @@
       'Zeile entfernen': 'Remove row',
 
       // ---- /config (Panel-Editor) ----
-      'Konfiguration': 'Configuration',
-      '＋ Neues Panel': '＋ New panel',
       'Titel': 'Title',
       'Fenstertitel des Panels.': 'Window title of the panel.',
       'Kiosk-URL:': 'Kiosk URL:',
