@@ -12,7 +12,7 @@ priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
 alle Ansichten serverseitig als JSON und schickt sie per WebSocket an
 `webfrontend/html/panel.html`, das nur noch anzeigt. Konfigurator und Einstellungen
 liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Rubriken „Panel
-Configuration" und „Settings"), `settings.html` leitet nur noch weiter; beide
+Configuration", „Displays" und „Settings"), `settings.html` leitet nur noch weiter; beide
 sprechen `/api/*`.
 
 ## Wichtige Dateien
