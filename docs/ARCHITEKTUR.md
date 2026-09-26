@@ -69,7 +69,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit zwei Rubriken: „Panel Configuration" (Panels, Tabs, Räume, Kacheln, Design, Split-Player) und „Settings" (Miniserver, Intercom, Geräte, Betriebsmodus, Display-Steuerung, Audio, Kalender & Wetter, Neues Panel) |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
@@ -266,7 +266,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
-| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Settings → Panels; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
+| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 

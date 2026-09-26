@@ -62,9 +62,7 @@ Programmierung und ohne die Loxone-App.
 
 ![Panel-Darstellung](docs/screenshots/panel-display-options.png)
 
-**Einstellungen – verwaltete Panels** (`/config` → Reiter *Settings* → *Panels*) — Panels mit [Agent](#der-panel-agent-wandpanel-kiosk) melden sich automatisch; Ansicht wählen, Kiosk Start/Reload/Stop:
-
-![Einstellungen – Panels](docs/screenshots/settings-panels.png)
+**Displays – verwaltete Panels** (`/config` → Reiter *Displays*) — Panels mit [Agent](#der-panel-agent-wandpanel-kiosk) melden sich automatisch; Ansicht wählen, Kiosk Start/Reload/Stop, Betriebsmodus-Assistent, Display-Steuerung und Nachtmodus.
 
 ## Funktionen
 
@@ -213,8 +211,8 @@ Chromium-Kiosk – kann ein Container auf dem LoxBerry aber nicht steuern. Genau
 
 - **Kiosk-Autostart:** startet Chromium im Vollbild mit der richtigen Panel-URL
   (`?panel=<id>`) automatisch beim Booten.
-- **Auto-Discovery:** meldet das Panel selbstständig beim Server – es erscheint in
-  **Einstellungen → Panels**. Von dort lässt sich die Ansicht wählen und der Kiosk
+- **Auto-Discovery:** meldet das Panel selbstständig beim Server – es erscheint im Reiter
+  **Displays**. Von dort lässt sich die Ansicht wählen und der Kiosk
   **fernstarten / neu laden**.
 - **Echte Display-Abschaltung:** schaltet nach Inaktivität nicht nur das Bildsignal,
   sondern die **Hintergrundbeleuchtung** ab (alle Backlight-Devices) → das Panel
@@ -289,7 +287,8 @@ lädt es die Struktur automatisch.
 im Konfigurator: Ansichten anlegen, Räume/Kategorien/Tabs je Panel wählen, Kacheln
 ein-/ausblenden, Farben, Icons und Schrift pro Kachel einstellen.
 
-**3. Panels verwalten** – unter **„Settings öffnen"** siehst du alle Wandpanels mit
+**3. Panels verwalten** – über **„Settings öffnen"** und dort den Reiter
+**Displays** siehst du alle Wandpanels mit
 [installiertem Agent](#der-panel-agent-wandpanel-kiosk), wählst deren Ansicht und
 startest/aktualisierst den Kiosk aus der Ferne.
 
