@@ -189,15 +189,18 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 |---|---|---|
 | noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
 | noch zu öffnen | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
+| noch zu öffnen | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
 
-Beide Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne die
-Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
-`i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`. Sie sind
-unabhängig voneinander: der Probe-Merge beider auf 0.6.0 läuft ohne Konflikt,
+Alle drei Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
+die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
+`i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`,
+`up/assistent-ausweg` nur `config.html` und `i18n.js`. Sie sind unabhängig
+voneinander: der Probe-Merge aller drei auf 0.6.0 läuft ohne Konflikt,
 und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
 (Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Einreichen über
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`
-bzw. `…:up/sprungmarken?expand=1`, danach die PR-Nummern hier eintragen.
+bzw. `…:up/sprungmarken?expand=1` und `…:up/assistent-ausweg?expand=1`,
+danach die PR-Nummern hier eintragen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -755,6 +758,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Minute Ruhe wieder alle. Anlass: im Sauna-Raum (wenige Kacheln) bewirkte
       ein Tipp auf „Licht“ sichtbar nichts. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Sprungmarken“. **M**
+- [x] **Betriebsmodus-Assistent: Ausweg und Geräte ohne Namen.** Aus dem
+      Assistenten kam man nur per Klick neben das Fenster heraus: kein
+      Schließen-Knopf, kein Esc, und in Schritt 1 waren „Zurück“ und ohne
+      bekanntes Gerät auch „Weiter“ gesperrt. Dazu meldete er „Noch kein Gerät
+      bekannt“, obwohl ein Gerät ohne Namen verbunden war. Jetzt haben beide
+      Assistenten (Betriebsmodus, Neues Panel) ein ✕ und schließen mit Esc; ein
+      verbundenes Gerät ohne Namen wird im Assistenten benannt und ist danach
+      gewählt. Nebenbei: „?device=<name>“ erschien als „?device=“, weil
+      `<name>` als HTML-Tag gelesen wurde (auch in der Geräteliste). Die
+      Automatik selbst war in Ordnung: nachgestellt schaltet `/api/mode/<modus>`
+      das Gerät auf die zugeordnete Ansicht um. Geprüft in
+      `test_betriebsmodus_assistent_ausweg_und_benennen`. **S**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
