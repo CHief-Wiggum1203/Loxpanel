@@ -126,6 +126,76 @@ def test_split_haelfte_und_kachel(tmp_path, miniserver_http):
     asyncio.run(lauf())
 
 
+LAGE = """() => { const r = id => { const b = document.getElementById(id).getBoundingClientRect();
+    return {l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height}; };
+  const s = document.querySelector('.screen'), sb = s.getBoundingClientRect(),
+        kt = document.querySelector('#grid .tile'), k = kt && kt.getBoundingClientRect();   // Detailseite: keine Kacheln
+  return {hoch: s.classList.contains('hoch'), split: s.classList.contains('split'),
+          screen: {w: sb.width, h: sb.height}, grid: r('grid'), pane: r('frontpane'), tabs: r('tabs'),
+          kachel: k ? {w: k.width, h: k.height} : null, fenster: {w: innerWidth, h: innerHeight},
+          diagramme: document.querySelectorAll('#frontpane .chart svg').length}; }"""
+
+
+@pytest.mark.parametrize("breite, hoehe, fuellen", [(533, 893, False), (533, 893, True), (480, 800, False),
+                                                     (893, 533, False)],
+                         ids=["tablet_hoch", "tablet_hoch_fuellen", "schmal_hoch", "tablet_quer"])
+def test_split_hochkant_uebereinander(tmp_path, miniserver_http, breite, hoehe, fuellen):
+    """Hochkant liegen Visu und Pane 2 uebereinander (Visu oben, Pane darunter,
+    Tab-Leiste unten ueber die volle Breite) statt als zwei schmale Streifen
+    nebeneinander. Quer bleibt es nebeneinander wie bisher."""
+    panel = {"ui": {"panes": {"favoriten": "chart:P"}, "scale": "auto", **({"fill": True} if fuellen else {})}}
+
+    async def lauf():
+        async with Umgebung(tmp_path, panel) as u:
+            pg = await u.seite(breite, hoehe)
+            m = await pg.evaluate(LAGE)
+            await u.bild(pg, f"split_{breite}x{hoehe}{'_fuellen' if fuellen else ''}")
+            assert m["split"] and m["diagramme"] == 2, m
+            g, p, t = m["grid"], m["pane"], m["tabs"]
+            if hoehe > breite:
+                assert m["hoch"], m
+                assert p["t"] >= g["b"] - 1 and abs(p["l"] - g["l"]) <= 1 and abs(p["w"] - g["w"]) <= 1, m
+                assert t["t"] >= p["b"] - 1 and abs(t["w"] - m["screen"]["w"]) <= 1, m
+                assert abs(m["screen"]["h"] - hoehe) <= 1, "hochkant nutzt die volle Hoehe"
+                if fuellen:
+                    assert abs(m["screen"]["w"] - breite) <= 1, "Bildschirm fuellen nutzt die volle Breite"
+                # zwei Kacheln je Zeile ueber die volle Breite, nicht gequetscht
+                assert m["kachel"]["w"] >= 0.4 * m["screen"]["w"] and m["kachel"]["w"] >= 0.9 * m["kachel"]["h"], m
+            else:
+                assert not m["hoch"] and p["l"] >= g["r"] - 1, m
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+def test_split_dreht_mit(tmp_path, miniserver_http):
+    """Drehen im Betrieb stellt die Haelften um, auch auf einer Detailseite; die
+    Anmeldung der Verlaufs-Pane beim Server bleibt dabei bestehen."""
+    async def lauf():
+        async with Umgebung(tmp_path, {"ui": {"panes": {"favoriten": "chart:P"}}}) as u:
+            pg = await u.seite(533, 893)
+            for b, h in [(893, 533), (533, 893)]:
+                await pg.set_viewport_size({"width": b, "height": h})
+                await pg.wait_for_timeout(400)
+                m = await pg.evaluate(LAGE)
+                assert m["hoch"] == (h > b), m
+                assert (m["pane"]["t"] >= m["grid"]["b"] - 1) == (h > b), m
+            await pg.locator("#grid .tile").first.click()
+            await pg.wait_for_timeout(600)
+            assert await pg.evaluate("stack.length") == 2
+            await pg.set_viewport_size({"width": 893, "height": 533})
+            await pg.wait_for_timeout(400)
+            assert not (await pg.evaluate(LAGE))["hoch"]
+            await pg.set_viewport_size({"width": 533, "height": 893})
+            await pg.wait_for_timeout(400)
+            m = await pg.evaluate(LAGE)
+            assert m["hoch"] and m["pane"]["t"] >= m["grid"]["b"] - 1, m
+            assert await pg.evaluate("stack.length") == 2, "Drehen navigiert nicht"
+            assert list(u.app.conn_chart.values()) == [("P", "24h")]
+            await u.bild(pg, "split_detail_hoch")
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
 @pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raumzeile", "ohne_raumzeile"])
 def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
     """Der Mini-Verlauf passt sich der Kachel an (Querformat ohne rechte Haelfte

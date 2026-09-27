@@ -183,9 +183,11 @@ def test_kalender_und_wetter_tab(tmp_path, monkeypatch):
     asyncio.run(lauf())
 
 
-def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch):
-    """Die rechte Split-Haelfte nutzt dieselben Bausteine: Wetter komplett (Lage,
-    Kurve, Vorschau, Details), Kalender mit Tagen unter dem richtigen Wochentag."""
+@pytest.mark.parametrize("breite, hoehe", [(960, 480), (533, 893)], ids=["quer", "hochkant"])
+def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch, breite, hoehe):
+    """Die Split-Haelfte nutzt dieselben Bausteine: Wetter komplett (Lage,
+    Kurve, Vorschau, Details), Kalender mit Tagen unter dem richtigen Wochentag.
+    Quer rechts neben der Visu, hochkant darunter - gleiche Inhalte."""
     async def lauf():
         daten = await _front(monkeypatch)
         app = W.App({"host": "", "port": 80})
@@ -200,7 +202,7 @@ def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch):
         try:
             async with async_playwright() as p:
                 b = await p.chromium.launch()
-                pg = await b.new_page(viewport={"width": 960, "height": 480}, locale="de-DE")
+                pg = await b.new_page(viewport={"width": breite, "height": hoehe}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
                 await pg.wait_for_timeout(600)
@@ -211,7 +213,10 @@ def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch):
                     tage: document.querySelectorAll('#frontpane .fp-fc').length,
                     details: document.querySelectorAll('#frontpane .fp-det > div').length})""")
                 assert w == {"now": True, "kurve": True, "tage": 7, "details": 6}, w
-                await pg.screenshot(path=str(tmp_path / "split_wetter.png"))
+                unter = await pg.evaluate("""() => document.getElementById('frontpane').getBoundingClientRect().top
+                    >= document.getElementById('grid').getBoundingClientRect().bottom - 1""")
+                assert unter == (hoehe > breite), "hochkant unter der Visu, quer daneben"
+                await pg.screenshot(path=str(tmp_path / f"split_wetter_{breite}x{hoehe}.png"))
                 await pg.locator('#tabs .tab[data-tab="zentral"]').click()
                 await pg.wait_for_timeout(500)
                 falsch = await pg.evaluate("""() => {
@@ -223,7 +228,7 @@ def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch):
                         return Math.abs((r.left + r.right) / 2 - (kopf[wt].left + kopf[wt].right) / 2) > 2; })
                       .map(c => c.dataset.day); }""")
                 assert not falsch, f"Split-Kalender: {falsch[:5]}"
-                await pg.screenshot(path=str(tmp_path / "split_kalender.png"))
+                await pg.screenshot(path=str(tmp_path / f"split_kalender_{breite}x{hoehe}.png"))
                 await b.close()
         finally:
             bc.cancel()

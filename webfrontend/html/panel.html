@@ -60,6 +60,17 @@
   .screen.split{max-width:none;max-height:none;
     width:min(100vw, calc(var(--cols,2) * 480px));height:min(100vh, calc(var(--rows,2) * 240px));
     grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) auto;}
+  /* Split im Hochformat (Klasse "hoch", gesetzt in applyHoch): die beiden
+     Haelften UEBEREINANDER statt nebeneinander - oben die Visu, darunter Pane 2,
+     unten die Tab-Leiste. Nebeneinander blieben auf einem hochkant haengenden
+     Tablet zwei schmale Streifen mit leerer Flaeche darueber und darunter.
+     Masse gespiegelt: Breite --cols*240, Hoehe --rows*480 (zwei Haelften). Steht
+     VOR der fill-Regel, damit "Bildschirm fuellen" auch hier den Schirm fuellt. */
+  .screen.split.hoch{width:min(100vw, calc(var(--cols,2) * 240px));height:min(100vh, calc(var(--rows,2) * 480px));
+    grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto;}
+  .screen.split.hoch #playerpane,
+  .screen.split.hoch #frontpane{grid-column:1;grid-row:2;border-left:0;border-top:1px solid var(--line);}
+  .screen.split.hoch #tabs{grid-row:3;}
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
   .screen.split.fill{width:100vw;height:100vh;}
@@ -1535,9 +1546,16 @@ function scrollToCat(key){
   pendingCatScroll = key;
   const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
-// ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
+// ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was in Pane 2 steht (quer rechts, hochkant unten) ----
 // Wert je Tab: "weather" | "calendar" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
+// Split im Hochformat: Visu und Pane 2 uebereinander (CSS .screen.split.hoch).
+// Eigene Funktion, weil sie auch beim Drehen laufen muss - dort wird nicht in
+// jedem Fall neu gerendert (z.B. Anlagenschema, Screensaver oben).
+function applyHoch(){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  sc.classList.toggle('hoch', sc.classList.contains('split') && window.innerHeight > window.innerWidth);
+}
 function paneKind(v){ return v ? (v.indexOf('player:')===0 ? 'player' : (v.indexOf('energy:')===0 ? 'energy' : (v.indexOf('camera:')===0 ? 'camera' : (v.indexOf('chart:')===0 ? 'chart' : v)))) : null; }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
@@ -1545,6 +1563,7 @@ function applyPane(){
   const kind=paneKind(raw);
   const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart');   // Widget in Pane 2
   sc.classList.toggle('split', isPane);   // Widget -> zweigeteilt, sonst "Screen fuellen"
+  applyHoch();
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
@@ -1866,6 +1885,7 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
 }
 window.addEventListener('resize',()=>{
+  applyHoch();   // Split beim Drehen zwischen nebeneinander und uebereinander umstellen
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
