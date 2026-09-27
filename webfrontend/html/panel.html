@@ -1581,15 +1581,6 @@ function renderTabs(){
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
 }
-// Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
-// Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
-// nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
-function scrollToCat(key){
-  const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
-  if(d){ springeZu(d); leuchte(key); return; }
-  pendingCatScroll = key;
-  const rt = tabsCfg[0]; if(rt) goTab(rt);
-}
 // Zur SEITE springen, auf der die Kachel steht. Die Kachelflaeche rastet
 // seitenweise ein (scroll-snap mandatory, Rastpunkt = erste Kachel jeder
 // Seite). Ein Sprung direkt auf eine Kachel im unteren Teil einer Seite
@@ -1632,6 +1623,15 @@ function katSichtbar(items){
   const f=items.filter(it=>it.grp===katFilter);
   if(!f.length){ katFilter=null; return items; }
   return f;
+}
+// Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
+// Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
+// nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
+function scrollToCat(key){
+  const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
+  if(d){ springeZu(d); leuchte(key); return; }
+  pendingCatScroll = key;
+  const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was in Pane 2 steht (quer rechts, hochkant unten) ----
 // Wert je Tab: "weather" | "calendar" | "player:<zone-uuid>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>".

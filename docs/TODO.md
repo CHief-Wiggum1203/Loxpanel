@@ -53,6 +53,18 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
+**Offen: Upstream 0.6.0** (`fba3e4a`, seit 27.09.2026, noch nicht im Fork).
+Darin Lenardos #51 „Widgets überall + Panel-Assistent-Ausbau“: ein Widget
+als eigener Vollbild-Tab (`view.widget`, auch als freie Seite mit `widget`),
+Werte (`status:`) und Audio als Widget in Pane 2 und auf der Uhr-Seite, der
+Begriff „Widget“ statt „Zusatz“ in Konfigurator und Assistent sowie eine
+Übersicht der Assistenten-Schritte. Beim Merge beachten: Die Fassungen von
+`up/hochformat-split` und `up/sprungmarken` auf 0.6.0 zeigen, wie die
+Konflikte mit unserem Hochformat (#91, #92) und den Sprungmarken (#93)
+aufzulösen sind — Lenardos Wortlaut mit unseren Hochkant-Ergänzungen, und
+die Wahl „Springen/Filtern“ entfällt bei einer freien Seite, die ein Widget
+ist.
+
 Zuletzt eingepflegt am **26.09.2026** (`upstream/main` @ `a37c022`), als
 echter Merge-Commit. Neu damit im Fork: der **Panel-Assistent** im
 Konfigurator (Anzeige, Inhalt, Design, Screensaver, Aktiv-Overlay), die
@@ -178,10 +190,12 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
 | noch zu öffnen | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
 
-Beide Zweige stehen auf `a37c022`, je ein Commit, ohne die Fork-Tests:
-`up/hochformat-split` ändert `panel.html`, `config.html` und `i18n.js`,
-`up/sprungmarken` zusätzlich `bin/webvisu.py`. Sie sind unabhängig
-voneinander und lassen sich in beliebiger Reihenfolge mergen. Einreichen über
+Beide Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne die
+Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
+`i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`. Sie sind
+unabhängig voneinander: der Probe-Merge beider auf 0.6.0 läuft ohne Konflikt,
+und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
+(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Einreichen über
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`
 bzw. `…:up/sprungmarken?expand=1`, danach die PR-Nummern hier eintragen.
 
@@ -195,7 +209,7 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (siehe oben).
+Der Fork steht auf `a37c022`; Upstream 0.6.0 ist noch offen (siehe oben).
 
 ## 1. Konfiguration vor Datenverlust schützen
 
