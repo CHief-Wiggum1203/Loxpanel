@@ -312,6 +312,8 @@
   .ovw figure{margin:0;width:120px;} .ovw figcaption{margin-top:8px;font-size:12px;color:var(--muted);}
   .ovw figcaption b{color:var(--fg);font-weight:600;display:block;font-size:12.5px;} .ovw figcaption .badge{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:1px 6px;}
   .ovw .dev{display:flex;gap:26px;flex-wrap:wrap;} .ovw .dev .panes{display:flex;gap:6px;}
+  .ovw .dev figure{width:auto;min-width:100px;}   /* so breit wie die Skizze (Tablet quer: zwei Panes) */
+  .ovw .dev .panes.hoch{flex-direction:column;} .ovw .dev .panes.hoch .pane{width:84px;}
   /* Setting-Boxen zweispaltig */
   .ovcols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px;}
   @media(max-width:760px){ .ovcols{grid-template-columns:1fr;} }
@@ -343,6 +345,14 @@
   .ovw .fpx2 .miniscr{height:82%;}
   .ovw .fptab{width:198px;aspect-ratio:16/10;}
   .ovw .fptab .miniscr{height:72%;}
+  /* Dasselbe Geraet hochkant daneben: die beiden Panes uebereinander */
+  .ovw .fprow{display:flex;gap:12px;align-items:flex-end;}
+  .ovw .devcat figure.wide.zwei{max-width:300px;}
+  .ovw .faceplate.hoch{flex-direction:column;padding:8px 0;}
+  .ovw .fptab.hoch{width:78px;aspect-ratio:10/16;}
+  .ovw .fpx2.hoch{width:74px;aspect-ratio:87/176;}
+  .ovw .faceplate.hoch .miniscr{height:auto;width:62%;}
+  .ovw .fpx2.hoch .miniscr{width:80%;}
   /* Pick-Tab-Leiste (bis zu 4 freie Seiten) */
   .picktabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
   .ptb{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer;}
@@ -470,7 +480,10 @@
             <figcaption><b>4″-Wandpanel</b>1 Pane – nur Visu</figcaption></figure>
           <figure><div class="panes"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
             <div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div></div>
-            <figcaption><b>Tablet</b>2 Panes, gleiche Größe</figcaption></figure>
+            <figcaption><b>Tablet quer</b>2 Panes, gleiche Größe</figcaption></figure>
+          <figure class="hoch"><div class="panes hoch"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div></div></div></div>
+            <figcaption><b>Tablet hochkant</b>2 Panes übereinander</figcaption></figure>
         </div>
 
         <h3><span class="n">B</span>Aufteilung im Pane</h3>
@@ -492,7 +505,7 @@
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#5aa9e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 31c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M6 39c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M14 23V13a4 4 0 0 1 8 0"/></svg></div></div><figcaption><b>Pool</b><span class="badge">Bald</span></figcaption></figure>
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#e08a4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="8" width="26" height="32" rx="3"/><rect x="16" y="20" width="16" height="14" rx="2"/><path d="M16 13h.01M21 13h.01"/></svg></div></div><figcaption><b>Ofensteuerung</b><span class="badge">Bald</span></figcaption></figure>
         </div>
-        <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Zusatzinhalt: <b>„Screen füllen"</b> verdoppelt die Kacheln nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2, gleiche Kachelgröße). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
+        <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Zusatzinhalt: <b>„Screen füllen"</b> verdoppelt die Kacheln bei gleicher Kachelgröße – quer nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2), hochkant nach unten (aus 2×2 wird 2×4; das Hochformat-Raster 2×3 bleibt). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
 
         <div class="ovcols">
           <div class="ovcol"><h4>Panel-Konfiguration</h4>
@@ -567,10 +580,16 @@
             <div class="desc">Breites Gerät (~2:1): ein Gerät mit zwei 480×480-Panes nebeneinander. Wie zwei 4″-Displays in einem Rahmen.</div>
           </figure>
 
-          <figure class="wide">
-            <div class="faceplate fpx2">
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+          <figure class="wide zwei">
+            <div class="fprow">
+              <div class="faceplate fpx2">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              </div>
+              <div class="faceplate fpx2 hoch">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              </div>
             </div>
             <div class="nm">YC-SM55P (Portworld) <span class="badge">2 Panes · LAN/PoE</span></div>
             <div class="spec">5,5″ · 720×1280 · Android 11 (RK3566) · PoE</div>
@@ -582,10 +601,16 @@
         <h3>Tablets · zwei Panes</h3>
         <div class="devcat">
 
-          <figure class="wide">
-            <div class="faceplate fptab">
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
-              <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
+          <figure class="wide zwei">
+            <div class="fprow">
+              <div class="faceplate fptab">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
+              </div>
+              <div class="faceplate fptab hoch">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="p2"><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg></div></div></div>
+              </div>
             </div>
             <div class="nm">7–8″-Tablet <span class="badge">2 Panes / Zoom</span></div>
             <div class="spec">~1024×600 / 1280×800 · Android · quer oder hochkant</div>
@@ -1238,16 +1263,16 @@ function renderEditor(){
            '<option value="1"'+(((p.ui||{}).split===false)?'':' selected')+'>An (Tablet – 2 Panes)</option>'+
            '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Panel – nur Visu)</option>'+
          '</select>'+
-         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die linke Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
+         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab eine Zusatzfläche – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich quer nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+       '<div class="hint" style="padding-top:4px">Je Tab eine Zusatzfläche – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
-       '<div class="field" style="max-width:none"><label class="lbl">Rechte Spalte im Querformat</label>'+
+       '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
        '<div id="svPaneBox"></div>'+
-       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite im <b>Querformat</b> hat rechts neben der Uhr Platz. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Energiefluss</b>, <b>Kamera</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Hochkant und auf dem 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
+       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Energiefluss</b>, <b>Kamera</b>, ein <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
@@ -2330,7 +2355,7 @@ function wzP2Real(v){
 }
 function wzPaneRows(){
   var v=wzViews(); if(!v.length) return '';
-  return '<p class="wzq mt">'+T('Rechtes Pane je Ansicht')+'</p><div class="wzopts">'+v.map(function(x){
+  return '<p class="wzq mt">'+T('Zusatzfläche je Ansicht')+'</p><div class="wzopts">'+v.map(function(x){
     return '<div class="wzo" style="cursor:default"><span class="tx" style="flex:1"><b>'+esc(x.label)+'</b></span><select class="wzp2sel" data-p2k="'+esc(x.key)+'" style="max-width:170px">'+wzP2Opts(WZ.pane2[x.key])+'</select></div>';
   }).join('')+'</div><div class="wznote">'+T('Audio/Energie/Kamera/Verlauf nehmen automatisch den ersten passenden Baustein — den genauen wählst du bei Bedarf im Editor.')+'</div>';
 }
@@ -2440,7 +2465,7 @@ function wzRender(){
   if(key==='anzeige'){
     b.innerHTML='<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
       wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.'))+
-      wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + rechte Fläche (je Tab wählbar).'))+
+      wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Zusatzfläche – quer rechts, hochkant darunter (je Tab wählbar).'))+
       '</div><p class="wzq mt">'+T('Kachel-Raster — frei wählbar')+'</p><div class="wzgrid">'+
       ['2x2','3x2','2x3','3x3'].map(function(g){ var x=wzGridCells(g); return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+g.replace('x','×')+'</b></button>'; }).join('')+'</div>';
   } else if(key==='inhalt'){
@@ -2465,7 +2490,7 @@ function wzRender(){
   } else if(key==='screensaver'){
     if(WZ.panes!=='2'){ b.innerHTML='<div class="wznote">'+T('Am 4″-Panel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>'; }
     else { var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl();
-      b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Spalte')+'</p><div class="wzopts">'+
+      b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
       wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
       wzOpt('svPane','off','clock',T('Aus — nur Uhr'),'')+
       wzOpt('svPane','calendar','cal',T('Kalender'),'')+
@@ -2473,7 +2498,7 @@ function wzRender(){
       (svHasE?wzOpt('svPane','energy','energy',T('Energiefluss'),''):'')+
       (svHasC?wzOpt('svPane','camera','camera',T('Kamera'),''):'')+
       (svHasV?wzOpt('svPane','chart','status',T('Verlauf'),''):'')+
-      '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) in der Spalte legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV)?' '+T('Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
+      '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV)?' '+T('Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
   } else if(key==='review'){
     b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
       '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>';

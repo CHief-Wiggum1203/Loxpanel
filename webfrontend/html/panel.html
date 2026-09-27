@@ -573,6 +573,42 @@
   .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;margin:0;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
+  /* Hochkant (Klasse "hoch", gesetzt in applySaverSplit): Uhr, Wetter und die
+     zweite Flaeche UNTEREINANDER ueber die volle Breite - wie der Split
+     hochkant. Listen (Termine, Werte, Wetter-Details) wachsen nach unten, svFit
+     kuerzt sie notfalls. Energiefluss, Kamera und Verlauf (.tall) brauchen eine
+     feste Hoehe: der Kasten ist dann so hoch wie der Screensaver (--sv-frei),
+     und die untere Zeile bekommt, was unter Uhr und Wetter bleibt. Die Groessen
+     aus dem Querformat (.tall: Uhr links, grosse Schrift) gelten hier nicht. */
+  .saver.split.hoch .sv-wrap.rich,
+  .saver.split.hoch .sv-wrap.rich.tall{width:min(94%,680px);
+    grid-template-columns:minmax(0,1fr);grid-template-areas:"clock" "wx" "cal";
+    grid-template-rows:auto auto minmax(0,1fr);row-gap:18px;column-gap:0;align-items:stretch;}
+  .saver.split.hoch .sv-wrap.rich.solo{grid-template-areas:"clock" "wx";grid-template-rows:auto auto;}
+  .saver.split.hoch .sv-wrap.rich.tall{height:var(--sv-frei,auto);}
+  /* Verlauf: die Diagramme richten ihre Hoehe nach der Breite (festes
+     Seitenverhaeltnis), eine hoehere Box bliebe unten leer. Hier so hoch wie
+     der Inhalt und der ganze Block mittig; reicht der Platz nicht, schrumpft
+     die untere Zeile (minmax) und die Box schneidet unten ab. */
+  .saver.split.hoch .sv-wrap.rich.tall.verlauf{grid-template-rows:auto auto minmax(0,auto);align-content:center;}
+  .saver.split.hoch .sv-wrap.rich.tall.verlauf .sv-box.solo .fp-page{flex:0 1 auto;}
+  .saver.split.hoch .sv-wrap.rich .sv-clock,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-clock,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:auto;align-self:auto;justify-self:center;margin:0;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx{align-self:auto;gap:10px;}
+  .saver.split.hoch .sv-box.solo{height:auto;min-height:0;}
+  .saver.split.hoch .sv-wrap.rich .sv-time,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-time{font-size:80px;}
+  .saver.split.hoch .sv-wrap.rich .sv-date,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-date{font-size:20px;margin-top:8px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .ico{width:34px;height:34px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .t{font-size:26px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .cond{font-size:15px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .hl{font-size:13px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc{padding:6px 4px 7px;gap:3px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .d{font-size:11px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .ico{width:22px;height:22px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .tt{font-size:12.5px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
   .saver .sv-wx{display:flex;flex-direction:column;gap:10px;align-self:stretch;}
   .sv-wx .now{display:flex;align-items:center;gap:12px;}
@@ -910,9 +946,9 @@ addEventListener('touchstart', ()=>document.body.classList.add('touch'), {once:t
 let tabsCfg = ['favoriten','zentral','raeume','kategorien'];
 let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -> 4)
-let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
-let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
-let _lastWide = null;   // zuletzt gerenderte Quer/Hoch-Entscheidung (fuer resize-Nachzug, s. render())
+let gridRows = 2;   // effektive sichtbare Zeilen pro Seite (hochkant Vollbreit -> 4)
+let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2 bzw. 2x4
+let _lastRaster = null, _lastWidget = false;   // zuletzt gerenderte Lage + Raster (fuer resize-Nachzug, s. render())
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 // Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"|"camera:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
@@ -1702,21 +1738,39 @@ function updateGrid(items){
   });
   return ok;
 }
+// "Screen fuellen" (kein Widget in Pane 2): die KACHELZAHL wird verdoppelt
+// (GLEICHE Kachelgroesse, nur mehr Kacheln), unabhaengig vom Zoom ("Bildschirm
+// fuellen"). Quer nach rechts: aus 2x2 wird 2x2|2x2 = 4x2 (2-Pane-Tablet).
+// Hochkant nach unten: aus 2x2 wird 2x4 - aber nur, wenn das Raster dadurch
+// besser zur Fensterform passt (Seitenverhaeltnis Spalten:Zeilen naeher am
+// Fenster). Die Grenze liegt beim geometrischen Mittel zwischen einfachem und
+// doppeltem Raster: 2x2, 3x2 und 3x3 werden auf einem Hochkant-Tablet
+// verdoppelt, 2x3 ist schon ein Hochformat-Raster und bleibt. Das quadratische
+// 4"-Panel bleibt in jedem Fall bei seinem Raster.
+function rasterFuer(widget){
+  const w=window.innerWidth, h=window.innerHeight;
+  if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
+  if(w>h) return [profCols*2, profRows];
+  if(h>w && w/h < (profCols/profRows)/Math.SQRT2) return [profCols, profRows*2];
+  return [profCols, profRows];
+}
+// Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
+function rasterKey(widget){
+  const w=window.innerWidth, h=window.innerHeight;
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x');
+}
 function render(){
   if(!view) return;
-  // "Screen fuellen" (kein Widget in Pane 2): die KACHELZAHL wird nach rechts
-  // verdoppelt -> aus 2x2 wird 2x2|2x2 = 4x2 (GLEICHE Kachelgroesse, nur mehr
-  // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
-  // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
   const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera'||_k==='chart');
-  // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
-  // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
-  // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
-  // der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster wie beim Screensaver).
-  _lastWide = window.innerWidth > window.innerHeight;
-  if(themeSplit && !_widget && _lastWide){ gridCols = profCols*2; gridRows = profRows; }
-  else { gridCols = profCols; gridRows = profRows; }
+  // Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das Fenster
+  // kurz eine falsche Groesse (etwa quer), bevor die echte Flaeche steht. Der
+  // resize-Handler rendert neu, sobald Lage oder Raster kippen (sonst bliebe
+  // das 4"-Panel in der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster
+  // wie beim Screensaver).
+  _lastWidget = _widget;
+  _lastRaster = rasterKey(_widget);
+  [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
   stopVideo();
@@ -1890,11 +1944,11 @@ window.addEventListener('resize',()=>{
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
   if(saverOn()){ applySaverSplit(); applyPane(); renderFront(); }
-  // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
-  // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
-  // Startmessung 4x2 haengenzubleiben.
+  // Kachel-Grid nur neu rendern, wenn Lage (quer/hoch/quadratisch) oder Raster
+  // tatsaechlich kippen (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt
+  // 2x2 statt in der Startmessung 4x2 haengenzubleiben.
   if(view && !el('grid').classList.contains('scheme')
-     && (window.innerWidth > window.innerHeight) !== _lastWide) render();
+     && rasterKey(_lastWidget) !== _lastRaster) render();
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
@@ -2133,7 +2187,8 @@ function renderFront(){
     wrap.classList.toggle('solo', !zweite);
     // Energiefluss/Kamera rechts: Uhr nach links, Grafik bekommt die volle Hoehe.
     const box=el('svBox');
-    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo')); }
+    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo'));
+    wrap.classList.toggle('verlauf', wrap.classList.contains('tall') && svKind(svSideRaw())==='chart'); }
   svFit();
 }
 // ---- Rechte Spalte der Uhr-Seite ----
@@ -2141,8 +2196,9 @@ function renderFront(){
 // "" = Automatik (Termine, und sobald keine anstehen die Wetter-Details),
 // "off" = keine zweite Spalte, sonst "calendar" | "weather" | "energy:<uuid>"
 // | "camera:<uuid>" | "status:<uuid>,...".
-// Sie greift NUR im zweispaltigen Screensaver (Querformat) — einspaltig gibt es
-// keine Flaeche, die ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
+// Sie greift NUR im geteilten Screensaver (quer rechts, hochkant unten, s.
+// applySaverSplit) — einspaltig (4"-Panel) gibt es keine Flaeche, die
+// ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
 function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
 function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
 function svSideOn(){ const s=el('saver');
@@ -2542,17 +2598,25 @@ function renderFrontTab(){
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
-// Screensaver zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly
-// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Das quadratische
-// 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine untereinander).
-// WICHTIG: Die Entscheidung haengt an der aktuellen Fenstergroesse, die beim
-// Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch (quer) sein kann,
-// bevor die echte 480x480-Flaeche steht. Darum gekapselt und bei jedem resize
-// neu getroffen – sonst bleibt die Anzeige in der beim Start zufaellig
-// gemessenen Spaltigkeit haengen (2-spaltig direkt nach dem Speichern, erst
-// spaeter wieder einspaltig).
+// Screensaver zweispaltig im Querformat (breites 2-Pane-Tablet, z.B. Shelly
+// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Hochkant liegt
+// die zweite Flaeche UNTER Uhr und Wetter (Klasse "hoch"), sobald der Kasten
+// deutlich hoeher als breit ist (mind. Wurzel 2, wie bei der Verdopplung nach
+// unten) - gemessen am Kasten, denn in ihm liegt der Screensaver. Das
+// quadratische 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine
+// untereinander).
+// WICHTIG: Die Entscheidung haengt an der aktuellen Fenster- und Kastengroesse,
+// die beim Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch sein
+// kann, bevor die echte Flaeche steht. Darum gekapselt und bei jedem resize und
+// jeder Groessenaenderung des Kastens neu getroffen – sonst bleibt die Anzeige
+// in der beim Start zufaellig gemessenen Spaltigkeit haengen (2-spaltig direkt
+// nach dem Speichern, erst spaeter wieder einspaltig).
 function applySaverSplit(){
-  el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
+  const s=el('saver'), sc=document.querySelector('.screen');
+  const quer=window.innerWidth > window.innerHeight;
+  const hoch=!!themeSplit && !quer && !!sc && sc.offsetHeight >= sc.offsetWidth*Math.SQRT2;
+  s.classList.toggle('split', (!!themeSplit && quer) || hoch);
+  s.classList.toggle('hoch', hoch);
 }
 function showSaver(){ tickClock();
   applySaverSplit();
@@ -2734,7 +2798,16 @@ function reportScreen(){
 // Layout, "Bildschirm fuellen") oder des Fensters, muss der Faktor neu. Der
 // transform selbst aendert die Layout-Groesse nicht - kein Rueckkopplungskreis.
 window.addEventListener('resize', applyScale);
-if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(applyScale).observe(_s); }
+// Der Screensaver liegt im Kasten: waechst dieser (etwa beim Start, sobald die
+// erste Ansicht das Raster hochkant verdoppelt), muss auch er seine Aufteilung
+// neu waehlen und neu einpassen (svFit kuerzt sonst Termine, die jetzt passen).
+function onScreenResize(){
+  applyScale();
+  if(saverOn()){ const vorher=el('saver').className; applySaverSplit();
+    if(el('saver').className!==vorher){ applyPane(); }
+    renderFront(); }
+}
+if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;

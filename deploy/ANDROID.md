@@ -121,6 +121,11 @@ Abschalten kennt WallPanel nicht.
   Visu entworfen wurde.
 - **Tablets** in einer Wandhalterung: größer, günstig, überall erhältlich. Das
   4×3-Kachel-Layout und *Bildschirm füllen* im Panel-Profil nutzen den Platz.
+  Hochkant aufgehängt liegen Visu und Zusatzfläche übereinander statt
+  nebeneinander, Tabs ohne Zusatzfläche bekommen doppelt so viele Zeilen, und
+  die Uhr-Seite zeigt ihre zweite Fläche unter Uhr und Wetter. Die Ausrichtung
+  in Fully Kiosk fest einstellen (*Screen Orientation* unter *Device
+  Management*), sonst dreht die Anzeige mit dem Lagesensor.
 - **SONOFF NSPanel Pro:** Android, unterstützt F-Droid ab Firmware 4.0. Für
   Fully Kiosk ist meist der Entwicklermodus und ADB nötig, was die Garantie
   berührt. Zigbee, Matter und Relais des Geräts bleiben mit Loxone ungenutzt.

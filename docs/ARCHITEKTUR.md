@@ -600,7 +600,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
-        "panes": {"favoriten": "chart:<uuid>"},   // rechte Hälfte je Tab: "weather" | "calendar" |
+        "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
                                              // "chart:<uuid>" (Verlauf eines Bausteins mit
                                              // Aufzeichnung); fehlt = Screen füllen
@@ -762,10 +762,25 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   hochkant geprüft sind Verlauf, Wetter und Kalender.
   Geprüft in `test_split_hochkant_uebereinander`, `test_split_dreht_mit` und
   `test_split_haelfte_wetter_und_kalender[hochkant]`.
-- Screensaver: rechte Spalte je Panel einstellbar (`ui.svPane`), wirksam nur im
-  Querformat. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
+- „Screen füllen“ (Tab ohne Pane 2) verdoppelt das Raster: quer die Spalten
+  (2×2 → 4×2), hochkant die Zeilen (2×2 → 2×4). Hochkant nur, wenn das Raster
+  dadurch besser zur Fensterform passt: `rasterFuer()` verdoppelt, sobald
+  Breite/Höhe kleiner ist als Spalten/Zeilen geteilt durch √2 (das
+  geometrische Mittel zwischen einfachem und doppeltem Raster). Auf einem
+  Hochkant-Tablet werden so 2×2, 3×2 und 3×3 verdoppelt; 2×3 („Tablet hoch“ im
+  Editor) ist schon ein Hochformat-Raster und bleibt, sonst wären es sechs
+  flache Zeilen. Das quadratische 4″-Panel bleibt, Split „Aus“ verdoppelt nie.
+  Gemessen auf 533×893: vorher ein 533×533-Quadrat mit je 180 px leer darüber
+  und darunter (mit „Bildschirm füllen“ auf 252×404 gestreckte Kacheln),
+  jetzt 2×4 Kacheln mit 225×197, mit „Bildschirm füllen“ 252×197. Der
+  `resize`-Handler vergleicht Lage und Raster (`rasterKey()`) statt nur
+  quer/nicht quer und rendert neu, sobald eines kippt.
+  Geprüft in `test_screen_fuellen_hochkant_nach_unten`.
+- Screensaver: zweite Fläche je Panel einstellbar (`ui.svPane`): quer die
+  rechte Spalte, hochkant unter Uhr und Wetter, auf dem quadratischen
+  4″-Panel keine. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,
-  `weather`, `energy:<uuid>`, `camera:<uuid>`, `status:<uuid>,…`. Geprüft an
+  `weather`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>`, `status:<uuid>,…`. Geprüft an
   EINER Stelle (`_clean_svpane()`), gezeichnet in `renderSvSide()`. Energiefluss
   und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
   oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe
@@ -781,6 +796,23 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Box rechts wirkte übergroß, jetzt 70 %. Die Energiegrafik behält dabei ihre
   392 px, weil sie von der Höhe begrenzt wird, nicht von der Breite. Ohne
   Wetter steht die Uhr allein mittig.
+  Hochkant setzt `applySaverSplit()` neben `.split` die Klasse `.hoch`, sobald
+  der Kasten mindestens √2-mal so hoch wie breit ist (gemessen am Kasten, denn
+  in ihm liegt der Screensaver; dieselbe Grenze wie bei der Verdopplung nach
+  unten). Uhr (80 px), Wetter und die zweite Fläche stehen dann untereinander
+  über die volle Breite. Listen wachsen nach unten, `svFit()` kürzt sie wie
+  quer. Energiefluss und Kamera bekommen die ganze Höhe unter Uhr und Wetter.
+  Der Verlauf nicht: seine Diagramme richten die Höhe nach der Breite, eine
+  hohe Box bliebe unten leer (gemessen 100 px). Dort ist die Box so hoch wie
+  der Inhalt und der ganze Block mittig (`.verlauf`). Vorher zeigte das Tab A9
+  hochkant (533×893) dieselbe Uhr-Seite wie das 4″-Panel: 440×442 in der Mitte,
+  je 225 px leer darüber und darunter, und eine gewählte zweite Fläche
+  erschien nie. Beim Start steht der Kasten kurz im Profilraster, bevor die
+  erste Ansicht ihn verdoppelt. Der `ResizeObserver` am `.screen` ruft deshalb
+  `onScreenResize()` auf: neu skalieren und, wenn die Uhr-Seite oben liegt,
+  ihre Aufteilung neu wählen und neu einpassen, damit `svFit()` keine Termine
+  kürzt, die im größeren Kasten Platz haben.
+  Geprüft in `test_uhrseite_hochkant_zweite_flaeche_unten`.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
   Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.

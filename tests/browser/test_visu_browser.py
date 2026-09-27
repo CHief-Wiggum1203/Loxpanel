@@ -196,6 +196,111 @@ def test_split_dreht_mit(tmp_path, miniserver_http):
     asyncio.run(lauf())
 
 
+RASTER = """() => { const s = document.querySelector('.screen').getBoundingClientRect(),
+    k = document.querySelector('#grid .tile').getBoundingClientRect(), cs = getComputedStyle(document.documentElement);
+  return {raster: cs.getPropertyValue('--cols').trim() + 'x' + cs.getPropertyValue('--rows').trim(),
+          screen: {w: s.width, h: s.height}, kachel: {w: k.width, h: k.height}}; }"""
+
+
+@pytest.mark.parametrize("breite, hoehe, ui, raster", [
+    (533, 893, {}, "2x4"), (533, 893, {"fill": True}, "2x4"), (533, 893, {"cols": 3}, "3x4"),
+    (533, 893, {"rows": 3}, "2x3"), (533, 893, {"split": False}, "2x2"),
+    (480, 480, {}, "2x2"), (893, 533, {}, "4x2")],
+    ids=["hoch_2x2", "hoch_2x2_fuellen", "hoch_3x2", "hoch_2x3_bleibt", "hoch_split_aus", "quadrat", "quer"])
+def test_screen_fuellen_hochkant_nach_unten(tmp_path, miniserver_http, breite, hoehe, ui, raster):
+    """Tab ohne Pane 2 ("Screen fuellen"): quer werden die Spalten verdoppelt,
+    hochkant die Zeilen - aber nur, wenn das Raster dadurch besser zur
+    Fensterform passt (2x3 ist schon ein Hochformat-Raster). Das 4"-Panel und
+    Split "Aus" bleiben beim Profilraster."""
+    async def lauf():
+        async with Umgebung(tmp_path, {"ui": dict({"scale": "auto"}, **ui)}) as u:
+            pg = await u.seite(breite, hoehe)
+            m = await pg.evaluate(RASTER)
+            await u.bild(pg, f"fuellen_{breite}x{hoehe}_{raster}")
+            assert m["raster"] == raster, m
+            if raster == "2x4":
+                # kein leerer Streifen mehr ueber und unter einem 2x2-Quadrat, keine gestreckten Kacheln
+                assert abs(m["screen"]["h"] - hoehe) <= 1, m
+                assert 0.9 <= m["kachel"]["w"] / m["kachel"]["h"] <= 1.4, m
+                if ui.get("fill"):
+                    assert abs(m["screen"]["w"] - breite) <= 1, m
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+def test_screen_fuellen_dreht_mit(tmp_path, miniserver_http):
+    """Drehen stellt die Verdopplung um: hochkant 2x4, quer 4x2, quadratisch 2x2."""
+    async def lauf():
+        async with Umgebung(tmp_path, {}) as u:
+            pg = await u.seite(533, 893)
+            for b, h, raster in [(533, 893, "2x4"), (893, 533, "4x2"), (533, 893, "2x4"), (480, 480, "2x2"),
+                                 (533, 893, "2x4")]:
+                await pg.set_viewport_size({"width": b, "height": h})
+                await pg.wait_for_timeout(400)
+                assert (await pg.evaluate(RASTER))["raster"] == raster, (b, h)
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+UHRSEITE = """() => { const r = e => { if (!e || e.hidden) return null; const b = e.getBoundingClientRect();
+    return {t: b.top, b: b.bottom, l: b.left, w: b.width, h: b.height}; };
+  const s = el('saver');
+  return {klassen: s.className, saver: r(s), clock: r(s.querySelector('.sv-clock')), wx: r(el('svWx')),
+          cal: r(el('svCal')), box: r(el('svBox')), termine: document.querySelectorAll('#svCal .sv-ev').length,
+          diagramme: document.querySelectorAll('#svBox .chart svg').length}; }"""
+
+
+@pytest.mark.parametrize("svpane", ["", "chart:P", "off"], ids=["automatik", "verlauf", "aus"])
+def test_uhrseite_hochkant_zweite_flaeche_unten(tmp_path, miniserver_http, monkeypatch, svpane):
+    """Uhr-Seite hochkant: die gewaehlte zweite Flaeche steht unter Uhr und
+    Wetter (vorher wurde sie hochkant ignoriert und der halbe Schirm blieb
+    leer). 4"-Panel und quer bleiben wie bisher."""
+    from test_front_tabs_browser import _front
+
+    async def lauf():
+        daten = await _front(monkeypatch)
+        async with Umgebung(tmp_path, {"ui": {"svPane": svpane}}) as u:
+            u.app._front = u.app._front_payload(daten)
+            for b, h in [(533, 893), (480, 480), (960, 480)]:
+                pg = await u.seite(b, h)
+                await pg.evaluate("showSaver()")
+                await pg.wait_for_timeout(1200)
+                m = await pg.evaluate(UHRSEITE)
+                await u.bild(pg, f"uhrseite_{svpane or 'automatik'}_{b}x{h}".replace(":", "-"))
+                k = m["klassen"].split()
+                if (b, h) == (480, 480):
+                    assert "split" not in k and m["termine"] == 3, m   # unveraendert einspaltig
+                elif b > h:
+                    assert "split" in k and "hoch" not in k, m
+                else:
+                    assert "split" in k and "hoch" in k, m
+                    assert m["clock"]["b"] <= m["wx"]["t"] + 1, m          # Uhr ueber dem Wetter
+                    unten = m["box"] if svpane == "chart:P" else m["cal"]
+                    if svpane == "off":
+                        assert m["box"] is None and m["cal"] is None, m
+                    else:
+                        assert unten and unten["t"] >= m["wx"]["b"] - 1, m      # zweite Flaeche darunter
+                        assert unten["b"] <= m["saver"]["b"] + 1, m
+                        assert abs(unten["w"] - m["wx"]["w"]) <= 1, m           # volle Breite
+                    if svpane == "chart:P":
+                        assert m["diagramme"] == 2 and m["box"]["h"] >= 300, m
+                        # Box so hoch wie ihr Inhalt, der Block mittig: gleich viel Rand oben und unten
+                        oben, rest = m["clock"]["t"] - m["saver"]["t"], m["saver"]["b"] - m["box"]["b"]
+                        assert abs(oben - rest) <= 12, m
+                    if svpane == "":
+                        assert m["termine"] == 3, m
+                await pg.close()
+            # Start ohne Antippen: die Uhr-Seite steht, bevor die erste Ansicht das
+            # Raster verdoppelt - sie muss danach trotzdem hochkant geteilt sein.
+            pg = await u.browser.new_page(viewport={"width": 533, "height": 893})
+            pg.on("pageerror", lambda e: u.fehler.append(str(e)))
+            await pg.goto(f"http://127.0.0.1:{u.port}/?panel=test")
+            await pg.wait_for_timeout(1500)
+            assert "hoch" in (await pg.evaluate(UHRSEITE))["klassen"].split()
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
 @pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raumzeile", "ohne_raumzeile"])
 def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
     """Der Mini-Verlauf passt sich der Kachel an (Querformat ohne rechte Haelfte
