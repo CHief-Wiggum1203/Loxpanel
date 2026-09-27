@@ -53,19 +53,25 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-**Offen: Upstream 0.6.0** (`fba3e4a`, seit 27.09.2026, noch nicht im Fork).
-Darin Lenardos #51 „Widgets überall + Panel-Assistent-Ausbau“: ein Widget
-als eigener Vollbild-Tab (`view.widget`, auch als freie Seite mit `widget`),
-Werte (`status:`) und Audio als Widget in Pane 2 und auf der Uhr-Seite, der
-Begriff „Widget“ statt „Zusatz“ in Konfigurator und Assistent sowie eine
-Übersicht der Assistenten-Schritte. Beim Merge beachten: Die Fassungen von
-`up/hochformat-split` und `up/sprungmarken` auf 0.6.0 zeigen, wie die
-Konflikte mit unserem Hochformat (#91, #92) und den Sprungmarken (#93)
-aufzulösen sind — Lenardos Wortlaut mit unseren Hochkant-Ergänzungen, und
-die Wahl „Springen/Filtern“ entfällt bei einer freien Seite, die ein Widget
-ist.
+Zuletzt eingepflegt am **27.09.2026** (`upstream/main` @ `fba3e4a`,
+**Release 0.6.0**), als echter Merge-Commit. Neu damit im Fork: Lenardos #51
+„Widgets überall + Panel-Assistent-Ausbau“ — eine freie Seite kann statt
+Kacheln ein **Widget als Vollbild-Tab** sein (`pickTabs[].widget`, im Panel
+`view.widget`, `.screen.widgettab`), **Werte** (`status:`) auch als Pane 2,
+**Audio** (Now Playing) als zweite Spalte der Uhr-Seite, der Begriff
+„Widget“ statt „Zusatz“ in Konfigurator und Assistent und eine Übersicht der
+Assistenten-Schritte. Drei Konfliktdateien: `release.cfg` (Version 0.6.0,
+`ARCHIVEURL` bleibt beim Fork), `panel.html` (Lenardos `paneRawNow()`,
+Widget-Seite und Audio-Push mit unserem Hochformat, den Kalender-/Wetter-Tabs
+und dem Raster), `config.html` (Lenardos Wortlaut mit unseren
+Hochkant-Ergänzungen, dazu seine neuen Texte; die Wahl „Springen/Filtern“
+entfällt bei einer freien Seite, die ein Widget ist) — aufgelöst wie in den
+Upstream-Zweigen #52–#54. In `i18n.js` wurden die verwaisten Fork-Schlüssel
+zu Lenardos neuen Texten „Widget je Tab“ und „Visu + Widget je Tab – …“
+umbenannt, die damit auch englisch sind. Neuer Test:
+`test_widget_seite_quer_und_hochkant`.
 
-Zuletzt eingepflegt am **26.09.2026** (`upstream/main` @ `a37c022`), als
+Davor, am **26.09.2026** (`upstream/main` @ `a37c022`), als
 echter Merge-Commit. Neu damit im Fork: der **Panel-Assistent** im
 Konfigurator (Anzeige, Inhalt, Design, Screensaver, Aktiv-Overlay), die
 **freie Auswahl mit bis zu vier Seiten** samt Name und Icon (`auswahl`,
@@ -135,7 +141,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind `up/hochformat-split` und `up/sprungmarken` (unten).
+`up/sammel`). Offen sind #52, #53 und #54 (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -187,9 +193,9 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 
 | PR | Zweig | Inhalt |
 |---|---|---|
-| noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
-| noch zu öffnen | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
-| noch zu öffnen | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
+| [#52](https://github.com/Lenardo1/loxpanel/pull/52) | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
+| [#53](https://github.com/Lenardo1/loxpanel/pull/53) | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
+| [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
 
 Alle drei Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
 die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
@@ -197,10 +203,9 @@ die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
 `up/assistent-ausweg` nur `config.html` und `i18n.js`. Sie sind unabhängig
 voneinander: der Probe-Merge aller drei auf 0.6.0 läuft ohne Konflikt,
 und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
-(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Einreichen über
-`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`
-bzw. `…:up/sprungmarken?expand=1` und `…:up/assistent-ausweg?expand=1`,
-danach die PR-Nummern hier eintragen.
+(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Eingereicht am
+27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
+patch-gleich zurück; danach die drei Zweige löschen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -212,7 +217,7 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork steht auf `a37c022`; Upstream 0.6.0 ist noch offen (siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
 
 ## 1. Konfiguration vor Datenverlust schützen
 
