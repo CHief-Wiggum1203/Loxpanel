@@ -123,7 +123,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen ist derzeit nichts.
+`up/sammel`). Offen ist nur `up/hochformat-split` (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -170,6 +170,17 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
       von Hand. **S**
 - [ ] **Zweig `up/kalender-wetterpush` löschen.** #46 ist gemergt, der Zweig
       hängt an keinem offenen PR mehr. **S**
+
+**Eingereicht, noch offen — Zweig nicht löschen:**
+
+| PR | Zweig | Inhalt |
+|---|---|---|
+| noch zu öffnen | `up/hochformat-split` | Split im Hochformat: Visu und Pane 2 übereinander statt nebeneinander |
+
+Der Zweig steht auf `a37c022`, ein Commit, nur `panel.html` und
+`config.html`, ohne die Fork-Tests. Einreichen über
+`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`,
+danach die PR-Nummer hier eintragen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -691,6 +702,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       „Fernsehen abend" (`InfoOnlyDigital`) und „Frostsicherung" (`Switch`) in
       der untersuchten Anlage. Begründung und Messwerte siehe „Grundregel" in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md), Abschnitt 6. **M**
+- [x] **Split im Hochformat übereinander.** Ein hochkant hängendes Tablet
+      (Anlass: Galaxy Tab A9 im Sauna-Vorraum) zeigte Visu und Pane 2 als zwei
+      schmale Streifen nebeneinander: gemessen auf 533×893 ein Kasten von
+      533×480 mit rund 200 px leerer Fläche darüber und darunter, Kacheln
+      118×198 mit abgeschnittenen Namen. Jetzt liegen hochkant oben die
+      Kacheln (225×195), darunter die Pane über die volle Breite, unten die
+      Tab-Leiste; quer bleibt alles wie bisher. Die Pane ist hochkant fast so
+      groß wie quer (480×419 gegen 480×425); Verlauf, Wetter und Kalender
+      sind hochkant geprüft, Energie, Kamera und Player bekommen dieselbe
+      Fläche. Drehen im Betrieb stellt um, auch auf einer Detailseite. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Split hochkant“. **M**
+- [ ] **Hochformat-Split an der Anlage prüfen**, sobald das Tab A9 hängt:
+      echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
+      Sauna-Profil mit „Bildschirm füllen“ und Verlaufs-Pane ansehen. **S**
 
 ## 10. Sicherheit (zurückgestuft)
 
