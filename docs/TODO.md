@@ -175,10 +175,10 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 
 | PR | Zweig | Inhalt |
 |---|---|---|
-| noch zu öffnen | `up/hochformat-split` | Split im Hochformat: Visu und Pane 2 übereinander statt nebeneinander |
+| noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
 
-Der Zweig steht auf `a37c022`, ein Commit, nur `panel.html` und
-`config.html`, ohne die Fork-Tests. Einreichen über
+Der Zweig steht auf `a37c022`, ein Commit, nur `panel.html`, `config.html`
+und `i18n.js`, ohne die Fork-Tests. Einreichen über
 `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`,
 danach die PR-Nummer hier eintragen.
 
@@ -713,9 +713,24 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       sind hochkant geprüft, Energie, Kamera und Player bekommen dieselbe
       Fläche. Drehen im Betrieb stellt um, auch auf einer Detailseite. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Split hochkant“. **M**
-- [ ] **Hochformat-Split an der Anlage prüfen**, sobald das Tab A9 hängt:
+- [x] **Hochformat vervollständigt.** Nach dem Split fehlte hochkant noch:
+      Tabs ohne Pane 2 blieben ein 2×2-Quadrat (533×893: je 180 px leer
+      darüber und darunter, mit „Bildschirm füllen“ auf 252×404 gestreckte
+      Kacheln), und die Uhr-Seite sah aus wie am 4″-Panel (440×442 in der
+      Mitte, die gewählte zweite Fläche erschien nie). Jetzt verdoppelt
+      „Screen füllen“ hochkant die Zeilen (2×2 → 2×4, Kacheln 225×197; 2×3
+      bleibt, es ist schon ein Hochformat-Raster), und die Uhr-Seite zeigt
+      Uhr, Wetter und darunter die zweite Fläche (Verlauf 451×456, mittig).
+      Nachgezogen: Assistent „Neues Panel“ (Zusatzfläche quer rechts,
+      hochkant darunter), Editor-Hinweise, Übersicht und Geräteseite mit
+      Hochkant-Skizzen, englische Übersetzungen, Android-Anleitung. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Screen füllen“ und
+      „Screensaver“. **M**
+- [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
-      Sauna-Profil mit „Bildschirm füllen“ und Verlaufs-Pane ansehen. **S**
+      Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
+      ansehen. Danach das Tab A9 in die Geräteseite aufnehmen (sie nennt nur
+      erprobte Geräte). **S**
 
 ## 10. Sicherheit (zurückgestuft)
 
