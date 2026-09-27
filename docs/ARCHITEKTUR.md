@@ -242,7 +242,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -600,6 +600,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
+        "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
                                              // "chart:<uuid>" (Verlauf eines Bausteins mit
@@ -813,6 +814,27 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   ihre Aufteilung neu wählen und neu einpassen, damit `svFit()` keine Termine
   kürzt, die im größeren Kasten Platz haben.
   Geprüft in `test_uhrseite_hochkant_zweite_flaeche_unten`.
+- Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
+  (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
+  durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;
+  `isRoomPanel()`). Die Kacheln stehen nach Gruppe sortiert, die erste jeder
+  Gruppe trägt `catKey` als Anker, jede Kachel `grp` (Kategorie bzw. Raum).
+  Ein Tipp springt (Standard) oder filtert (`ui.catFilter`, im Konfigurator
+  „Tipp auf eine Sprungmarke“). Springen geht auf die **Seite**, auf der die
+  Gruppe beginnt (`springeZu()`): die Kachelfläche rastet seitenweise ein
+  (`scroll-snap-type: y mandatory`, Rastpunkt = erste Kachel jeder Seite), und
+  ein Sprung direkt auf eine Kachel im unteren Teil einer Seite landete am
+  nächstgelegenen Rastpunkt, oft schon auf der folgenden Seite. Die Zielkachel
+  verschwand dann oben (gemessen 2×2: 199 px, 2×3 hochkant: 210 px über dem
+  sichtbaren Bereich). Danach leuchten die Kacheln der Gruppe 1,5 s auf
+  (`leuchte()`, Klasse `.katleucht`), damit ein Tipp auch dann sichtbar wirkt,
+  wenn die Gruppe schon im Bild steht. Filtern (`katTipp()`, `katSichtbar()`)
+  zeigt nur die Kacheln mit diesem `grp` und markiert die Marke; ein zweiter
+  Tipp zeigt wieder alle. Der Filter gilt auch für die Live-Updates
+  (`updateGrid()` bekommt die gefilterte Liste), aus einer Detailansicht führt
+  ein Tipp zurück in die gefilterte Seite, und nach Ruhe (`nachRuhe()`) fällt
+  er weg. Geprüft in `tests/test_sprungmarken.py` und
+  `tests/browser/test_sprungmarken_browser.py`.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
   Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.

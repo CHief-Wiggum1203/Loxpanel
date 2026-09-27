@@ -376,6 +376,13 @@
   .wzbox{width:100%;max-width:640px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:92vh;}
   .wzhd{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
   .wzhd b{font-size:16px;} .wzhd .wzstep{margin-left:auto;color:var(--muted);font-size:12px;}
+  /* Schliessen: ohne ihn kam man aus einem Assistenten nur per Klick neben das
+     Fenster heraus - in Schritt 1 sind Zurueck und (ohne Auswahl) Weiter gesperrt. */
+  .wzhd .wzx{background:none;border:0;color:var(--muted);font:inherit;font-size:18px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:5px;}
+  .wzhd .wzx:hover,.wzhd .wzx:focus-visible{color:var(--fg);background:var(--panel2);outline:none;}
+  .mzanon{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+  .mzanon .agip{color:var(--muted);font-size:12.5px;min-width:120px;}
+  .mzanon input{max-width:180px;}
   .wzbody{padding:20px;overflow-y:auto;}
   .wzq{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 9px;}
   .wzq.mt{margin-top:22px;}
@@ -1201,7 +1208,7 @@ function renderEditor(){
        '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
-       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
+       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).')+'</p>'+
        '<div class="field" style="max-width:340px"><label class="lbl">'+T('Dieser Raum')+'</label>'+
          '<select id="tabRoomSel"></select></div>'+
        '<div class="field" style="max-width:none" id="tabRoomCatWrap"><label class="lbl">'+T('Kategorie-Tabs (unten)')+
@@ -1213,6 +1220,7 @@ function renderEditor(){
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
      '<div id="tabPick"></div>'+
+     '<div id="tabBarMode"></div>'+
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
@@ -1938,7 +1946,8 @@ function pickAnchorsInner(p){
   if(!pickList(p).length) return '';
   if(rs.length<2) return '<p class="hint">'+
     T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
-  return '<p class="hint">'+T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:')+'</p>'+
+  return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:')
+                                                    : T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:'))+'</p>'+
     '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
     (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
       T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
@@ -1997,7 +2006,28 @@ function pickEditHtml(p){
 // Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
 // Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
 // Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
+// Sprungmarken der unteren Leiste: springen (Standard) oder filtern. Nur fuer
+// Panels, deren Leiste aus Sprungmarken besteht - ein Raum-Panel oder eine
+// einzige freie Seite (wie isRoomPanel() im Panel). Haengt an renderPick, weil
+// das bei jedem Wechsel der Leiste laeuft (Modus, Seiten hinzu/weg).
+function renderBarMode(p){
+  const box=$('#tabBarMode'); if(!box) return;
+  const t=p.tabs||[];
+  const anker=t.length===1 && (String(t[0]).indexOf('room:')===0 || isPick(t[0]));
+  if(!anker){ box.innerHTML=''; return; }
+  const an=!!(p.ui&&p.ui.catFilter);
+  box.innerHTML='<div class="field" style="max-width:440px;margin-top:14px"><label class="lbl">'+T('Tipp auf eine Sprungmarke')+'</label>'+
+    '<select id="fCatFilter" style="max-width:none">'+
+      '<option value=""'+(an?'':' selected')+'>'+T('Springen – zur Gruppe scrollen')+'</option>'+
+      '<option value="1"'+(an?' selected':'')+'>'+T('Filtern – nur diese Gruppe zeigen')+'</option>'+
+    '</select>'+
+    '<div class="hint" style="padding-top:4px">'+T('Springen: die Kacheln der Gruppe leuchten kurz auf. Filtern: ein zweiter Tipp auf dieselbe Marke zeigt wieder alle, ebenso eine Minute ohne Bedienung.')+'</div></div>';
+  $('#fCatFilter').onchange=e=>{ p.ui=p.ui||{};
+    if(e.target.value) p.ui.catFilter=true; else delete p.ui.catFilter;
+    markDirty(); const pa=$('#pickAnchors'); if(pa) pa.innerHTML=pickAnchorsInner(p); };
+}
 function renderPick(p){
+  renderBarMode(p);
   const box=$('#tabPick'); if(!box) return;
   if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; curPickIdx=0; }
   if(!(p.tabs||[]).some(isPick)){ box.style.display='none'; box.innerHTML=''; return; }
@@ -2315,16 +2345,17 @@ const WZIC={
 function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
 const WZ_LOOK_DEF={iconSize:38,nameSize:20,subSize:16};
-const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
+const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
+function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
 function wzOpen(){
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
     $('#wzNext').onclick=wzNext;
     $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
+    $('#wzX').onclick=wzClose;
   }
   wzReset();
   $('#wzOv').hidden=false; wzRender();
@@ -2368,6 +2399,15 @@ function wzIcoGrid(i){
   (LOXLIB||[]).forEach(function(n){ g+=btn('/loxlib?n='+encodeURIComponent(n),n.replace(/\.svg$/i,'')); });
   return '<input class="pgi-search" oninput="pickIcoFilter(this.value)" placeholder="'+T('Icon suchen…')+'" style="width:100%;margin-top:6px"><div class="picogrid" style="width:100%">'+g+'</div>';
 }
+// Leiste aus Sprungmarken (Raum-Panel oder genau eine freie Seite)? Dann gibt
+// es die Wahl Springen/Filtern (ui.catFilter).
+function wzAnker(){ return WZ.content==='room' || (WZ.content==='pick' && (WZ.pickPages||[]).length===1); }
+function wzCatModeHtml(){
+  if(!wzAnker()) return '';
+  return '<p class="wzq mt">'+T('Tipp auf eine Sprungmarke')+'</p><div class="wzopts">'+
+    wzOpt('catMode','jump','grid',T('Springen'),T('Zur Gruppe scrollen, die Kacheln leuchten kurz auf.'))+
+    wzOpt('catMode','filter','pick',T('Filtern'),T('Nur die Kacheln dieser Gruppe zeigen, ein zweiter Tipp zeigt wieder alle.'))+'</div>';
+}
 function wzSetup(){
   wzInitSetup();
   if(WZ.content==='room'){
@@ -2376,7 +2416,7 @@ function wzSetup(){
     var h='<div class="wzfield"><label>'+T('Raum')+'</label><select id="wzRoom">'+(rooms.length?rooms.map(function(r){return '<option value="'+esc(r.tab)+'"'+(WZ.roomTab===r.tab?' selected':'')+'>'+esc(r.label||r.tab)+'</option>';}).join(''):'<option value="">'+T('Keine Räume gefunden')+'</option>')+'</select></div>';
     h+='<p class="wzq mt">'+T('Sprungtabs — Kategorien des Raums')+' <span style="text-transform:none;letter-spacing:0">('+T('max 4, leer = automatisch')+')</span></p><div class="wzopts">';
     h+=(cats.length?cats.slice(0,10).map(function(c){ var on=!auto&&WZ.roomCats.indexOf(c.uuid)>=0; return '<button class="wzo'+(on?' on':'')+'" data-rc="'+esc(c.uuid)+'"><span class="tx" style="flex:1"><b>'+esc(c.name||'Kategorie')+'</b></span></button>'; }).join(''):'<div class="wznote">'+T('Für diesen Raum sind keine Kategorien hinterlegt.')+'</div>');
-    return h+'</div>'+wzPaneRows();
+    return h+'</div>'+wzCatModeHtml()+wzPaneRows();
   }
   if(WZ.content==='classic'){
     var h2='<p class="wzq">'+T('Standard-Tabs — an/aus')+'</p><div class="wzopts">';
@@ -2397,7 +2437,7 @@ function wzSetup(){
   }).join('');
   h3+='</div>';
   if(WZ.pickPages.length<4) h3+='<button class="wzbtn" id="wzPgAdd" style="margin-top:8px">＋ '+T('Seite hinzufügen')+'</button>';
-  h3+=wzPaneRows();
+  h3+=wzCatModeHtml()+wzPaneRows();
   return h3;
 }
 function wzTileEditor(i){
@@ -2453,6 +2493,7 @@ function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),WZ.grid.replace('x','×')],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+  if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push('Name '+L.nameSize); if(L.subSize)det.push('Sub '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
   rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
@@ -2554,6 +2595,7 @@ function wzBuild(){
   if(WZ.grid==='3x2'||WZ.grid==='3x3') ui.cols=3;
   if(WZ.grid==='2x3'||WZ.grid==='3x3') ui.rows=3;
   if(WZ.panes==='1') ui.split=false;
+  if(wzAnker() && WZ.catMode==='filter') ui.catFilter=true;   // Sprungmarken filtern statt springen
   if(WZ.panes==='2' && WZ.svPane){ var sv=WZ.svPane;
     if(sv==='energy'){ var eu=firstEnergyControl(); sv=eu?'energy:'+eu:''; }
     else if(sv==='camera'){ var cu=firstCamera(); sv=cu?'camera:'+cu:''; }
@@ -2836,6 +2878,7 @@ let PANEL_IDS=[];
 let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...], display}  (Arbeitskopie)
 let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
 let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
+let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
 async function loadPanelIds(){
   try{
     const r=await fetch('/api/meta'); const m=await r.json();
@@ -2888,7 +2931,7 @@ function renderDeviceList(j){
   box.querySelectorAll('.ag[data-anon]').forEach(n=>{ const i=n.querySelector('.anname'); if(i) prevName[n.dataset.anon]=i.value; });
   const devs=j.devices||[], anon=j.anonymous||[];
   if(!devs.length && !anon.length){
-    box.innerHTML='<div class="muted">'+T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.')+'</div>'; return; }
+    box.innerHTML='<div class="muted">'+esc(T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.'))+'</div>'; return; }
   let html=devs.map(d=>deviceRow(d,prevSel[d.name])).join('');
   if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
     anon.map(a=>anonRow(a,prevName[a.ip])).join('');
@@ -2921,23 +2964,26 @@ async function deviceAction(act, name, ip, panel){
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
 }
 async function nameDevice(ip,name){
-  if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return; }
+  if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return false; }
   try{
     const j=await postJson('/api/device/name',{ip,name});
     flash($('#ag_toast'), j.ok?('✓ '+name):('Fehler: '+(j.error||'')), j.ok);
     if(document.activeElement) document.activeElement.blur();
     setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Kennung neu
-  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
+    return !!j.ok;
+  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); return false; }
 }
 async function pollDevices(){
   try{
     const r=await fetch('/api/devices'); const j=await r.json();
     renderDeviceList(j);
+    ANON_DEVICES=Array.isArray(j.anonymous)?j.anonymous:[];
     const names=(j.devices||[]).map(d=>d.name).filter(Boolean);
     (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip; });
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew){ readDevFromDom(); renderDevices(); }   // neues Panel -> Editor ergaenzen (Eingaben behalten)
+    mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
   }catch(e){}
 }
 
@@ -3052,7 +3098,7 @@ const MZ_PRESETS=[
   {key:'anwesend',label:'Anwesend'},{key:'abwesend',label:'Abwesend'},
   {key:'gaeste',label:'Gäste'},{key:'putzen',label:'Putzen'},
   {key:'urlaub',label:'Urlaub'},{key:'nacht',label:'Nacht'}];
-const MZ={devices:[],modes:[],step:0,_wired:false};
+const MZ={devices:[],modes:[],step:0,_wired:false,benannt:''};
 function mzKey(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,''); }
 function mzFlow(){ return ['geraete','modi','zuordnung','fertig']; }
 function mzDevNames(){ return Array.from(new Set(KNOWN_NAMES.concat(Object.keys(DEV)))).sort(); }
@@ -3062,8 +3108,9 @@ function mzOpen(){
     $('#mzBack').onclick=()=>{ if(MZ.step>0){ MZ.step--; mzRender(); } };
     $('#mzNext').onclick=mzNext;
     $('#mzOv').onclick=(e)=>{ if(e.target===$('#mzOv')) mzClose(); };
+    $('#mzX').onclick=mzClose;
   }
-  MZ.devices=[]; MZ.modes=[]; MZ.step=0;
+  MZ.devices=[]; MZ.modes=[]; MZ.step=0; MZ.benannt='';
   $('#mzOv').hidden=false; mzRender();
 }
 function mzClose(){ $('#mzOv').hidden=true; }
@@ -3072,9 +3119,17 @@ function mzRender(){
   $('#mzStep').textContent=T('Schritt')+' '+(MZ.step+1)+' / '+f.length;
   if(key==='geraete'){
     const names=mzDevNames();
+    MZ._sig=mzGeraeteSig();
+    // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
+    // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
+    const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
+      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input class="mzname" placeholder="'+T('Gerätename')+'">'+
+      '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'
-        : '<div class="wznote">'+T('Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.')+'</div>')+
+        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.'))+'</div>'))+
+      (anon ? '<div class="wznote" style="margin-top:10px">'+T('Verbunden, aber noch ohne Namen – erst benennen, dann auswählen:')+'</div>'+anon : '')+
+      (MZ.benannt ? '<div class="wznote" style="margin-top:8px">'+esc(T('✓ Name vergeben – das Gerät verbindet sich neu und erscheint gleich oben:')+' '+MZ.benannt)+'</div>' : '')+
       '<div class="wznote" style="margin-top:10px">'+T('Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.')+'</div>';
   } else if(key==='modi'){
     b.innerHTML='<p class="wzq">'+T('Welche Betriebsmodi?')+'</p><div class="wzopts">'+
@@ -3103,6 +3158,13 @@ function mzRender(){
       '<div class="wznote" style="margin-top:10px">'+T('Geräte:')+' <b>'+esc(MZ.devices.join(', ')||'—')+'</b>. '+T('„Übernehmen" speichert das für alle gewählten Geräte.')+'</div>';
   }
   b.querySelectorAll('[data-mzdev]').forEach(el=>el.onclick=()=>{ const n=el.dataset.mzdev, i=MZ.devices.indexOf(n); if(i>=0)MZ.devices.splice(i,1); else MZ.devices.push(n); mzRender(); });
+  b.querySelectorAll('[data-mzanon]').forEach(row=>{
+    const inp=row.querySelector('.mzname'), btn=row.querySelector('[data-mzname]');
+    const go=async()=>{ const name=inp.value.trim(); if(!name){ inp.focus(); return; }
+      btn.disabled=true;
+      if(await nameDevice(row.dataset.mzanon,name)){ MZ.benannt=name; mzRender(); } else btn.disabled=false; };
+    btn.onclick=go; inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } };
+  });
   b.querySelectorAll('[data-mzmode]').forEach(el=>el.onclick=()=>{ const k=el.dataset.mzmode, i=MZ.modes.findIndex(x=>x.key===k);
     if(i>=0)MZ.modes.splice(i,1); else MZ.modes.push({key:k,label:el.dataset.mzlabel,profile:''}); mzRender(); });
   b.querySelectorAll('[data-mzdel]').forEach(el=>el.onclick=()=>{ const k=el.dataset.mzdel, i=MZ.modes.findIndex(x=>x.key===k); if(i>=0){ MZ.modes.splice(i,1); mzRender(); } });
@@ -3120,6 +3182,20 @@ function mzRender(){
   $('#mzNext').disabled=!ok;
 }
 function mzNext(){ const f=mzFlow(); if(MZ.step<f.length-1){ MZ.step++; mzRender(); return; } mzApply(); }
+// Neue Geraetenamen aus pollDevices: steht der Assistent bei den Geraeten und
+// wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
+function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(a=>a.ip)]); }
+function mzGeraeteNeu(names){
+  if($('#mzOv').hidden || mzFlow()[MZ.step]!=='geraete') return;
+  let neu=false;
+  if(MZ.benannt && names.indexOf(MZ.benannt)>=0){
+    if(MZ.devices.indexOf(MZ.benannt)<0) MZ.devices.push(MZ.benannt);
+    MZ.benannt=''; neu=true;
+  }
+  if(!neu && mzGeraeteSig()===MZ._sig) return;   // nichts Neues: nicht alle 6 s neu zeichnen
+  const b=$('#mzBody'); if(b && b.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;   // nicht beim Tippen
+  mzRender();
+}
 async function mzApply(){
   readDevFromDom();   // manuelle Tabellen-Edits nicht überschreiben
   MZ.devices.forEach(name=>{
@@ -3143,6 +3219,11 @@ async function mzApply(){
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
 }
 { const mo=$('#mzOpenBtn'); if(mo) mo.onclick=mzOpen; }
+// Esc schliesst den offenen Assistenten (Betriebsmodus liegt ueber allem).
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(!$('#mzOv').hidden) mzClose(); else if(!$('#wzOv').hidden) wzClose();
+});
 
 // ---- Audio: Test-Ton ----
 function fillAudioPanels(){
@@ -3201,7 +3282,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </script>
 <div id="wzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>＋ Neues Panel — Assistent</b><span class="wzstep" id="wzStep"></span></div>
+    <div class="wzhd"><b>＋ Neues Panel — Assistent</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="wzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="wzBack">← Zurück</button>
@@ -3214,7 +3295,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </div>
 <div id="mzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>🧭 Betriebsmodus-Assistent</b><span class="wzstep" id="mzStep"></span></div>
+    <div class="wzhd"><b>🧭 Betriebsmodus-Assistent</b><span class="wzstep" id="mzStep"></span><button class="wzx" id="mzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="mzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="mzBack">← Zurück</button>

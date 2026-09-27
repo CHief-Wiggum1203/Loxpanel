@@ -202,6 +202,10 @@
     cursor:pointer;user-select:none;overflow:hidden;
     transition:background .16s,border-color .16s,transform .07s;}
   .tile:active{transform:scale(.97);}
+  /* Sprungmarke angetippt: die Kacheln der Gruppe leuchten kurz auf (innerer
+     Akzentrahmen; die Kachel selbst nutzt keinen Schatten, nur den Rahmen). */
+  .tile.katleucht{animation:katleucht 1.5s ease-out;}
+  @keyframes katleucht{0%,40%{box-shadow:inset 0 0 0 3px var(--accent);}100%{box-shadow:inset 0 0 0 3px transparent;}}
   /* Aktiv-Overlay: Farbe je Zustand (--*-rgb), Aussehen global via --ov-* (pro Kachel ueberschreibbar) */
   .tile.on{background:rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
@@ -1506,6 +1510,10 @@ function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : nul
 function isRoomPanel(){ const t = String(tabsCfg[0]||'');
   return tabsCfg.length===1 && (t.indexOf('room:')===0 || isPick(t)); }
 let roomCatTabs=null, pendingCatScroll=null;
+// Sprungmarken im Filter-Modus (Profil ui.catFilter): ein Tipp zeigt nur die
+// Kacheln dieser Gruppe (Kategorie im Raum-Panel, Raum in der freien Auswahl),
+// ein zweiter Tipp wieder alle. katFilter = aktive Gruppe oder null.
+let themeCatFilter=false, katFilter=null;
 
 function renderTabs(){
   // Raum-Panel: die untere Leiste zeigt die im Raum vorkommenden Kategorien
@@ -1533,7 +1541,7 @@ function renderTabs(){
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
         : '<span class="tlbl">'+esc(c.label||'')+'</span>';
-      return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
+      return '<div class="tab'+(katFilter===c.key?' active':'')+'" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
     });
     // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
     // fehlende Zelle rechts mit einem leeren Spacer auffuellen, damit beide
@@ -1568,17 +1576,60 @@ function renderTabs(){
     items.splice(Math.floor(items.length/2), 0, backHtml);
   }
   el('tabs').innerHTML = items.join('');
-  if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>scrollToCat(n.dataset.cat));
+  if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>katTipp(n.dataset.cat));
   else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
+}
+// Zur SEITE springen, auf der die Kachel steht. Die Kachelflaeche rastet
+// seitenweise ein (scroll-snap mandatory, Rastpunkt = erste Kachel jeder
+// Seite). Ein Sprung direkt auf eine Kachel im unteren Teil einer Seite
+// landete am naechstgelegenen Rastpunkt - oft schon auf der FOLGENDEN Seite,
+// und die Zielkachel verschwand oben (gemessen 2x2 und 2x3: 199 bzw. 210 px
+// ueber dem sichtbaren Bereich).
+function springeZu(d){
+  const g=el('grid'), tiles=[...g.querySelectorAll('.tile[data-id]')];
+  const pg=(view && view.layout==='list') ? 4 : gridCols*gridRows;
+  const i=tiles.indexOf(d);
+  const ziel=(i>=0 && g.classList.contains('snapy')) ? tiles[Math.floor(i/pg)*pg] : d;
+  ziel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+// Kacheln der Gruppe kurz hervorheben: auch wenn nichts scrollt (die Gruppe
+// steht schon im Bild), sieht man so, welche Bausteine gemeint sind.
+let _leuchtTimer=null;
+function leuchte(key){
+  // Die vorige Gruppe zuerst abraeumen: bei schnellem Tippen loescht der neue
+  // Timer den alten, dessen Kacheln behielten sonst die Klasse.
+  el('grid').querySelectorAll('.tile.katleucht').forEach(n=>n.classList.remove('katleucht'));
+  const ns=[...el('grid').querySelectorAll('.tile[data-id]')].filter(n=>n._it && n._it.grp===key);
+  ns.forEach(n=>{ n.classList.remove('katleucht'); void n.offsetWidth; n.classList.add('katleucht'); });
+  clearTimeout(_leuchtTimer);
+  _leuchtTimer=setTimeout(()=>ns.forEach(n=>n.classList.remove('katleucht')), 1600);
+}
+// Tipp auf eine Sprungmarke: springen (Standard) oder filtern (ui.catFilter).
+function katTipp(key){
+  if(!themeCatFilter){ scrollToCat(key); return; }
+  katFilter=(katFilter===key) ? null : key;   // zweiter Tipp auf dieselbe Marke: wieder alle
+  // Auf der Seite mit den Marken neu zeichnen; aus einer Detailansicht zurueck
+  // in den Raum - dort greift der Filter beim Rendern.
+  if(view && Array.isArray(view.catTabs)){ render(); el('grid').scrollTop=0; }
+  else { const rt=tabsCfg[0]; if(rt) goTab(rt); }
+}
+// Kacheln, die im Filter-Modus sichtbar sind. Nur auf der Seite mit den Marken
+// (view.catTabs), nicht in Detailansichten. Gibt es die Gruppe nicht mehr
+// (Konfiguration geaendert), faellt der Filter weg, statt eine leere Seite zu zeigen.
+function katSichtbar(items){
+  if(!katFilter || !view || !Array.isArray(view.catTabs)) return items;
+  const f=items.filter(it=>it.grp===katFilter);
+  if(!f.length){ katFilter=null; return items; }
+  return f;
 }
 // Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
 // Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
 // nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
 function scrollToCat(key){
   const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
-  if(d){ d.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+  if(d){ springeZu(d); leuchte(key); return; }
   pendingCatScroll = key;
   const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
@@ -1780,7 +1831,7 @@ function render(){
   el('grid').classList.remove('panel','bigpage','anchorbot','scheme','fronttab');
   if(view.front){ renderFrontTab(); return; }
   el('grid').classList.toggle('list', view.layout==='list');
-  const items = view.items || [];
+  const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
   let html='';
@@ -1852,7 +1903,7 @@ function render(){
   renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
-    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
+    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d){ springeZu(d); leuchte(k); } }); }
 }
 
 // ---- Anlagenschema (SystemScheme) ----
@@ -2019,6 +2070,8 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
+      themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
+      if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
       applyPane();                          // Energie-/Kamera-Kachel und Status-Werte neu anmelden
@@ -2079,7 +2132,7 @@ function connect(){
       // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
       // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
       // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
-      if(!(same && updateGrid(view.items||[]))){ render(); g.scrollTop=st; }
+      if(!(same && updateGrid(katSichtbar(view.items||[])))){ render(); g.scrollTop=st; }
     }
   };
 }
@@ -2700,8 +2753,12 @@ function renderPlayer(blocks){
   if(sl){ const s=el('ppsld'); if(s&&sl.cmd){ s._uuid=sl.cmd.uuid; s._tmpl=sl.cmd.tmpl; }
     if(s&&!_playerVolDrag){ s.value=sl.value; sldFill(s); el('ppsldv').textContent=sl.value; } }
 }
+// Nach Ruhe zurueck zur Startseite und zur Uhr. Ein gesetzter Filter der
+// Sprungmarken faellt dabei weg, sonst zeigte das Wandpanel dauerhaft nur
+// eine Gruppe.
+function nachRuhe(){ katFilter=null; goTab(tabsCfg[0]||'favoriten'); showSaver(); }
 function resetIdle(){ clearTimeout(idleTimer);
-  idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS);
+  idleTimer=setTimeout(nachRuhe, SAVER_IDLE_MS);
   armDpms(); }
 el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); nightWake(); hideSaver(); resetIdle(); });
 ['pointerdown','keydown','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ nightWake(); if(!saverOn()) resetIdle(); }, {passive:true}));

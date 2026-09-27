@@ -1727,6 +1727,9 @@ class App:
             # Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2, keine
             # Verdopplung). Default an; nur bei explizitem False aus.
             "split": ui.get("split") is not False,
+            # Sprungmarken der unteren Leiste (Raum-Panel, freie Auswahl): ein
+            # Tipp springt zur Gruppe (Standard) oder zeigt nur sie (Filter).
+            "catFilter": ui.get("catFilter") is True,
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
@@ -2384,6 +2387,8 @@ class App:
                 cui["fill"] = True              # Visu fuellt grosse Screens (quadratische Kacheln)
             if ui.get("split") is False:
                 cui["split"] = False            # Split-Screen aus (4"-Panel: nur Visu)
+            if ui.get("catFilter") is True:
+                cui["catFilter"] = True         # untere Leiste filtert statt zu springen
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -3444,6 +3449,10 @@ class App:
                         # Panel ist er ein undurchsichtiger Schluessel. Ohne
                         # Leiste waere er ein totes Attribut, also nur dann.
                         it["catKey"] = ru
+                    if marken:
+                        # Gruppe an JEDER Kachel: das Panel laesst beim Sprung
+                        # die ganze Gruppe aufleuchten und filtert nach ihr.
+                        it["grp"] = ru
                     items.append(it)
             # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
             for ru, us in nach_raum.items():
@@ -3500,6 +3509,7 @@ class App:
                     it = self._control_item(u, prof)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
+                    it["grp"] = cu              # Gruppe: Aufleuchten und Filter im Panel
                     items.append(it)
             cat_tabs = [{"key": cu,
                          "label": _clean(self.cats.get(cu, {}).get("name")) or "Kategorie",
@@ -6526,6 +6536,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
+                        "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)

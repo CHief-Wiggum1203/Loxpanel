@@ -184,6 +184,30 @@ def anlage(controls: dict) -> dict:
             "cats": {"c1": {"name": "Energie"}}, "controls": controls}
 
 
+# Raum mit vier Kategorien fuer die Sprungmarken der unteren Leiste: 3 + 2 + 4 + 3
+# Schalter in "Sauna" (r1), dazu 2 Schalter im "Technikraum" (r2) fuer die freie
+# Auswahl ueber zwei Raeume. Bei 2x2 beginnt "Heizung" unten rechts auf Seite 1,
+# bei 2x3 "Lüftung" - genau dort, wo ein Sprung frueher auf die Folgeseite rutschte.
+RAUM_KATS = {"c1": ("Beleuchtung", 3), "c2": ("Heizung", 2), "c3": ("Lüftung", 4), "c4": ("Sonstiges", 3)}
+
+
+def raum_anlage() -> tuple[dict, dict]:
+    """-> (Struktur, States) fuer ein Raum-Panel mit vier Kategorien."""
+    controls, states, n = {}, {}, 0
+    for cat, (name, anzahl) in RAUM_KATS.items():
+        for i in range(anzahl):
+            n += 1
+            controls[f"S{n}"] = {"name": f"{name} {i + 1}", "type": "Switch", "uuidAction": f"S{n}",
+                                 "room": "r1", "cat": cat, "states": {"active": f"s{n}"}}
+            states[f"s{n}"] = 0
+    for i in (1, 2):
+        controls[f"T{i}"] = {"name": f"Technik {i}", "type": "Switch", "uuidAction": f"T{i}",
+                             "room": "r2", "cat": "c1", "states": {"active": f"t{i}"}}
+        states[f"t{i}"] = 0
+    return ({"rooms": {"r1": {"name": "Sauna"}, "r2": {"name": "Technikraum"}},
+             "cats": {c: {"name": v[0]} for c, v in RAUM_KATS.items()}, "controls": controls}, states)
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)

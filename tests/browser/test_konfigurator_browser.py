@@ -1,6 +1,7 @@
 """Konfigurator (config.html) in Chromium: Verlauf als Split-Haelfte und als
 Mini-Verlauf der Kachel einstellen; was der Server beim Speichern behaelt."""
 import asyncio
+import json
 import zipfile
 
 import pytest
@@ -138,3 +139,97 @@ def test_sicherung_herunterladen(tmp_path):
     assert datei.endswith(".zip") and "loxpanel-einstellungen-" in datei
     with zipfile.ZipFile(datei) as z:
         assert "LIESMICH.txt" in z.namelist()
+
+
+def test_sprungmarken_springen_oder_filtern():
+    """Die Wahl Springen/Filtern gibt es nur bei einer Leiste aus Sprungmarken
+    (Raum-Panel, eine freie Seite). Editor und Assistent speichern sie als
+    ui.catFilter, der Server behaelt sie."""
+    res = _im_konfigurator("""async () => {
+        cur = 'test'; const p = PANELS[cur]; p.tabs = ['room:r1']; renderEditor();
+        const sel = document.getElementById('fCatFilter');
+        const feld = !!sel;
+        sel.value = '1'; sel.onchange({target: sel});
+        const an = !!(p.ui && p.ui.catFilter);
+        sel.value = ''; sel.onchange({target: sel});
+        const aus = !(p.ui && 'catFilter' in p.ui);
+        p.tabs = ['favoriten', 'raeume']; renderEditor();
+        const klassisch = !!document.getElementById('fCatFilter');
+        p.tabs = ['room:r1']; p.ui.catFilter = true; renderEditor();
+        const bleibt = document.getElementById('fCatFilter').value === '1';
+        wzOpen(); WZ.panes = '1'; WZ.content = 'room'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
+        WZ.step = wzFlow().indexOf('setup'); wzRender();
+        const knopf = document.querySelector('#wzBody [data-wk="catMode"][data-wo="filter"]');
+        const wahl = !!knopf; knopf.click();
+        WZ.step = wzFlow().indexOf('review'); wzRender();
+        const zusammenfassung = document.getElementById('wzBody').innerText.includes('Filtern');
+        wzBuild();
+        return {feld, an, aus, klassisch, bleibt, wahl, zusammenfassung,
+                panel: JSON.parse(JSON.stringify(PANELS['sauna']))}; }""")
+    panel = res.pop("panel")
+    assert res == {"feld": True, "an": True, "aus": True, "klassisch": False, "bleibt": True,
+                   "wahl": True, "zusammenfassung": True}, res
+    assert panel["ui"]["catFilter"] is True and len(panel["tabs"]) == 1 and panel["tabs"][0].startswith("room:")
+    assert W.App._sanitize_panels({"sauna": panel})["sauna"]["ui"]["catFilter"] is True
+
+
+def test_betriebsmodus_assistent_ausweg_und_benennen():
+    """Der Betriebsmodus-Assistent laesst sich per ✕ und Esc schliessen - vorher
+    nur per Klick neben das Fenster, und in Schritt 1 waren Zurueck und (ohne
+    bekanntes Geraet) Weiter gesperrt. Ein verbundenes Geraet ohne Namen wird im
+    Assistenten benannt und ist danach gewaehlt. Dasselbe ✕/Esc fuer den
+    Assistenten "Neues Panel"."""
+    async def ablauf(pg):
+        stand = {"name": None, "leer": False}
+
+        async def geraete(route):
+            name = stand["name"]
+            devs = [{"name": name, "type": "browser", "online": True, "connections": 1, "ip": "192.168.1.148"}] if name else []
+            anon = [] if name or stand["leer"] else [{"ip": "192.168.1.148", "kiosk": "", "profile": "test"}]
+            await route.fulfill(json={"devices": devs, "anonymous": anon, "profiles": ["test"]})
+
+        async def benennen(route):
+            stand["name"] = json.loads(route.request.post_data)["name"]
+            await route.fulfill(json={"ok": True})
+        await pg.route("**/api/devices", geraete)
+        await pg.route("**/api/device/name", benennen)
+        offen = """() => !document.getElementById('mzOv').hidden"""
+        await pg.locator('.rub[data-rub="displays"]').click()
+        await pg.evaluate("pollDevices()")
+        await pg.wait_for_timeout(200)
+        await pg.locator("#mzOpenBtn").click()
+        assert await pg.evaluate(offen)
+        assert await pg.locator("#mzBody [data-mzanon]").count() == 1
+        assert "Noch kein Gerät bekannt" not in await pg.locator("#mzBody").inner_text()
+        await pg.keyboard.press("Escape")
+        assert not await pg.evaluate(offen)
+        await pg.locator("#mzOpenBtn").click()
+        await pg.locator("#mzX").click()
+        assert not await pg.evaluate(offen)
+        await pg.locator("#mzOpenBtn").click()
+        assert await pg.evaluate("document.getElementById('mzNext').disabled")
+        await pg.locator("#mzBody .mzname").fill("Sauna")
+        await pg.locator("#mzBody [data-mzname]").click()
+        await pg.wait_for_timeout(3300)                    # nameDevice fragt nach 2,5 s neu ab
+        chips = await pg.evaluate("""() => [...document.querySelectorAll('#mzBody [data-mzdev]')]
+            .map(c => c.textContent + (c.classList.contains('on') ? '*' : ''))""")
+        assert chips == ["Sauna*"], chips
+        assert not await pg.evaluate("document.getElementById('mzNext').disabled")
+        await pg.keyboard.press("Escape")
+        # Ohne jedes Geraet: der Hinweis nennt ?device=<name> woertlich
+        stand.update(name=None, leer=True)
+        await pg.evaluate("KNOWN_NAMES=[]; DEV={}; pollDevices()")
+        await pg.wait_for_timeout(200)
+        await pg.locator("#mzOpenBtn").click()
+        assert "?device=<name>" in await pg.locator("#mzBody").inner_text()
+        await pg.locator("#mzX").click()
+        # Neues Panel: ✕ und Esc
+        wz = """() => !document.getElementById('wzOv').hidden"""
+        await pg.locator("#addBtn").click()
+        assert await pg.evaluate(wz)
+        await pg.locator("#wzX").click()
+        assert not await pg.evaluate(wz)
+        await pg.locator("#addBtn").click()
+        await pg.keyboard.press("Escape")
+        assert not await pg.evaluate(wz)
+    _im_konfigurator(ablauf)
