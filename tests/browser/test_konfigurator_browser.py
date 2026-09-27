@@ -138,3 +138,35 @@ def test_sicherung_herunterladen(tmp_path):
     assert datei.endswith(".zip") and "loxpanel-einstellungen-" in datei
     with zipfile.ZipFile(datei) as z:
         assert "LIESMICH.txt" in z.namelist()
+
+
+def test_sprungmarken_springen_oder_filtern():
+    """Die Wahl Springen/Filtern gibt es nur bei einer Leiste aus Sprungmarken
+    (Raum-Panel, eine freie Seite). Editor und Assistent speichern sie als
+    ui.catFilter, der Server behaelt sie."""
+    res = _im_konfigurator("""async () => {
+        cur = 'test'; const p = PANELS[cur]; p.tabs = ['room:r1']; renderEditor();
+        const sel = document.getElementById('fCatFilter');
+        const feld = !!sel;
+        sel.value = '1'; sel.onchange({target: sel});
+        const an = !!(p.ui && p.ui.catFilter);
+        sel.value = ''; sel.onchange({target: sel});
+        const aus = !(p.ui && 'catFilter' in p.ui);
+        p.tabs = ['favoriten', 'raeume']; renderEditor();
+        const klassisch = !!document.getElementById('fCatFilter');
+        p.tabs = ['room:r1']; p.ui.catFilter = true; renderEditor();
+        const bleibt = document.getElementById('fCatFilter').value === '1';
+        wzOpen(); WZ.panes = '1'; WZ.content = 'room'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
+        WZ.step = wzFlow().indexOf('setup'); wzRender();
+        const knopf = document.querySelector('#wzBody [data-wk="catMode"][data-wo="filter"]');
+        const wahl = !!knopf; knopf.click();
+        WZ.step = wzFlow().indexOf('review'); wzRender();
+        const zusammenfassung = document.getElementById('wzBody').innerText.includes('Filtern');
+        wzBuild();
+        return {feld, an, aus, klassisch, bleibt, wahl, zusammenfassung,
+                panel: JSON.parse(JSON.stringify(PANELS['sauna']))}; }""")
+    panel = res.pop("panel")
+    assert res == {"feld": True, "an": True, "aus": True, "klassisch": False, "bleibt": True,
+                   "wahl": True, "zusammenfassung": True}, res
+    assert panel["ui"]["catFilter"] is True and len(panel["tabs"]) == 1 and panel["tabs"][0].startswith("room:")
+    assert W.App._sanitize_panels({"sauna": panel})["sauna"]["ui"]["catFilter"] is True

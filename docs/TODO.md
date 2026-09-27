@@ -123,7 +123,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen ist nur `up/hochformat-split` (unten).
+`up/sammel`). Offen sind `up/hochformat-split` und `up/sprungmarken` (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -176,11 +176,14 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | PR | Zweig | Inhalt |
 |---|---|---|
 | noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
+| noch zu öffnen | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
 
-Der Zweig steht auf `a37c022`, ein Commit, nur `panel.html`, `config.html`
-und `i18n.js`, ohne die Fork-Tests. Einreichen über
-`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`,
-danach die PR-Nummer hier eintragen.
+Beide Zweige stehen auf `a37c022`, je ein Commit, ohne die Fork-Tests:
+`up/hochformat-split` ändert `panel.html`, `config.html` und `i18n.js`,
+`up/sprungmarken` zusätzlich `bin/webvisu.py`. Sie sind unabhängig
+voneinander und lassen sich in beliebiger Reihenfolge mergen. Einreichen über
+`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`
+bzw. `…:up/sprungmarken?expand=1`, danach die PR-Nummern hier eintragen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -726,6 +729,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Hochkant-Skizzen, englische Übersetzungen, Android-Anleitung. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Screen füllen“ und
       „Screensaver“. **M**
+- [x] **Sprungmarken: Sprung auf die richtige Seite, Aufleuchten, Filter.**
+      Im Raum-Panel (und in der freien Auswahl) rutschte ein Tipp auf eine
+      Sprungmarke eine Seite zu weit, sobald die Gruppe unten auf einer Seite
+      begann: die Kachelfläche rastet seitenweise ein, und der Sprung landete
+      am nächsten Rastpunkt. Gemessen verschwand die Zielkachel 199 px (2×2)
+      bzw. 210 px (2×3 hochkant) über dem sichtbaren Bereich. Jetzt springt
+      das Panel auf die Seite, auf der die Gruppe beginnt, und ihre Kacheln
+      leuchten kurz auf. Neu als Option je Panel („Tipp auf eine Sprungmarke“,
+      `ui.catFilter`): Filtern zeigt nur die Gruppe, ein zweiter Tipp oder eine
+      Minute Ruhe wieder alle. Anlass: im Sauna-Raum (wenige Kacheln) bewirkte
+      ein Tipp auf „Licht“ sichtbar nichts. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) unter „Sprungmarken“. **M**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
