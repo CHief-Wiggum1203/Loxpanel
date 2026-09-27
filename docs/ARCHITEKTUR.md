@@ -424,7 +424,7 @@ Wanduhr-Sekunden um wie bei den Monatsdateien.
 **Außerhalb der Detailseite** gibt es die Verläufe an zwei weiteren Stellen,
 beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
 
-- **Verlaufs-Pane** (`panes`: `chart:<uuid>`): rechte Hälfte im Split-Layout
+- **Verlaufs-Pane** (`panes`: `chart:<uuid>`): zweite Hälfte im Split-Layout (quer rechts, hochkant unten)
   mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
   `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
   melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
@@ -738,7 +738,7 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   frühere. Profil und Gerät speichern deshalb auch `"off"` ausdrücklich, sonst
   könnte ein Profil ein globales `"auto"` nicht abschalten. Die Visu
   rechnet mit festen 240er Kacheln, der Kasten ist also 480×480 bzw. im Split
-  960×480. Ein größeres Display zeigte ihn bisher mit Rand (1280×800: 55 % des
+  960×480 (hochkant 480×960). Ein größeres Display zeigte ihn bisher mit Rand (1280×800: 55 % des
   Schirms ungenutzt). `applyScale()` setzt `--ui-scale` am `.screen`
   (`transform: scale`): bei `"auto"` so groß, wie ohne Rand und Verzerrung
   geht, ein fester Faktor höchstens so groß, dass alles passt. Das Layout
@@ -750,6 +750,18 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   damit so schmal wie der ungeskalierte Kasten — dort schnitte es die
   vergrößerte Anzeige ab. Ein `ResizeObserver` am `.screen` rechnet den Faktor
   neu, wenn sich der Kasten ändert (Split an/aus beim Tab-Wechsel).
+- Split hochkant: Ist das Fenster höher als breit, liegen Visu und Pane 2
+  übereinander statt nebeneinander (oben Kacheln, darunter die Pane, unten die
+  Tab-Leiste über die volle Breite). `applyHoch()` setzt dafür `.hoch` am
+  `.screen`, sobald `.split` gesetzt ist; die Maße sind gespiegelt
+  (`--cols`·240 breit, `--rows`·480 hoch), „Bildschirm füllen“ gilt weiter.
+  `applyHoch()` läuft in `applyPane()` und im `resize`-Handler, weil beim
+  Drehen nicht in jedem Fall neu gerendert wird (Anlagenschema, Screensaver
+  oben). Die Pane ist hochkant fast so groß wie quer (Tab A9: 480×419 gegen
+  480×425 auf 960×480), ihre Inhalte brauchen deshalb keine eigene Fassung;
+  hochkant geprüft sind Verlauf, Wetter und Kalender.
+  Geprüft in `test_split_hochkant_uebereinander`, `test_split_dreht_mit` und
+  `test_split_haelfte_wetter_und_kalender[hochkant]`.
 - Screensaver: rechte Spalte je Panel einstellbar (`ui.svPane`), wirksam nur im
   Querformat. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,

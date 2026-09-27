@@ -462,7 +462,7 @@
     <div class="scroll" id="scroll">
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
-        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei nebeneinander (Visu links, Zusatz rechts). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
+        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Zusatz rechts), hochkant übereinander (Visu oben, Zusatz unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
         <h3><span class="n">A</span>Geräteklassen</h3>
         <div class="dev">
@@ -574,7 +574,7 @@
             </div>
             <div class="nm">YC-SM55P (Portworld) <span class="badge">2 Panes · LAN/PoE</span></div>
             <div class="spec">5,5″ · 720×1280 · Android 11 (RK3566) · PoE</div>
-            <div class="desc">5,5″-Gerät in der Klasse des Shelly X2 – zwei 480×480-Panes nebeneinander, zusätzlich mit <b>LAN/PoE</b> (Strom + Netzwerk über ein Kabel). Hoch- und Querformat möglich; der Hochformat-Feinschliff kommt später.</div>
+            <div class="desc">5,5″-Gerät in der Klasse des Shelly X2 – zwei 480×480-Panes nebeneinander, zusätzlich mit <b>LAN/PoE</b> (Strom + Netzwerk über ein Kabel). Hoch- und Querformat möglich; hochkant liegen die beiden Panes übereinander.</div>
           </figure>
 
         </div>
@@ -588,8 +588,8 @@
               <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
             </div>
             <div class="nm">7–8″-Tablet <span class="badge">2 Panes / Zoom</span></div>
-            <div class="spec">~1024×600 / 1280×800 · Android · quer</div>
-            <div class="desc">Zwei Panes (Visu + Zusatz) nebeneinander – oder Zoom auf den ganzen Schirm.</div>
+            <div class="spec">~1024×600 / 1280×800 · Android · quer oder hochkant</div>
+            <div class="desc">Zwei Panes (Visu + Zusatz) – quer nebeneinander, hochkant übereinander – oder Zoom auf den ganzen Schirm.</div>
           </figure>
 
         </div>
@@ -1242,7 +1242,7 @@ function renderEditor(){
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Split-Pane je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab rechts eine Zusatzfläche: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+       '<div class="hint" style="padding-top:4px">Je Tab eine Zusatzfläche – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b> oder <b>Energiefluss</b>. <b>Screen füllen</b> = kein Zusatz, die Visu weitet sich quer nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
        '<div class="field" style="max-width:none"><label class="lbl">Rechte Spalte im Querformat</label>'+
