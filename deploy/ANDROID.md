@@ -13,10 +13,10 @@ als Anzeigegeräte.
 | Betriebsmodus-Umschaltung, Reload, Goto, Notify | ja, per WebSocket-Push | ja |
 | Auto-Neustart nach `reloadHours` | ja, die Seite lädt sich selbst neu | ja, Chromium-Neustart |
 | Display aus nach `dpmsOff`, Wecken bei Klingel / Wecker / Notify / Goto | ja, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel (HTTP) | ja, per DPMS und Backlight |
-| Anzeige in *Einstellungen → Panels* mit Name, Typ, Online-Status und Ansicht | ja | ja |
-| Ansicht wechseln und neu laden aus den Einstellungen | ja, per WebSocket-Push | ja |
-| Display aus/an aus den Einstellungen oder per HTTP (`/api/display`) | ja, mit Fully Kiosk und WallPanel | nein, der Agent regelt das selbst |
-| Fernstart / Stopp des Kiosks aus den Einstellungen | nein, das macht die Kiosk-App | ja |
+| Anzeige unter *Displays* mit Name, Typ, Online-Status und Ansicht | ja | ja |
+| Ansicht wechseln und neu laden unter *Displays* | ja, per WebSocket-Push | ja |
+| Display aus/an unter *Displays* oder per HTTP (`/api/display`) | ja, mit Fully Kiosk und WallPanel | nein, der Agent regelt das selbst |
+| Fernstart / Stopp des Kiosks unter *Displays* | nein, das macht die Kiosk-App | ja |
 | Installationsskript | nein, Kiosk-App von Hand einrichten | ja |
 
 Für die Display-Steuerung gibt es zwei Wege, die sich ergänzen:
@@ -25,8 +25,8 @@ Für die Display-Steuerung gibt es zwei Wege, die sich ergänzen:
    Das kann derzeit Fully Kiosk Browser (`window.fully`). Kein weiteres Setup
    außer dem Schalter in Fully.
 2. **Vom Server aus** über die HTTP-Schnittstelle der Kiosk-App, den
-   sogenannten Display-Treiber. Er wird je Gerät unter *Einstellungen → Panels
-   → Betriebsmodus-Automatik und Display-Steuerung* eingetragen (Treiber, IP,
+   sogenannten Display-Treiber. Er wird je Gerät unter *Displays →
+   Betriebsmodus-Automatik & Display-Steuerung* eingetragen (Treiber, IP,
    Port, bei Fully das Passwort). Damit schaltet der Server das Display auch,
    wenn die Seite gerade nicht läuft, und WallPanel wird voll unterstützt.
    Meldet die Seite Leerlauf, schaltet der Server über den Treiber aus;
@@ -44,7 +44,7 @@ Display-Steuerung.
 
 1. **Start-URL** setzen:
    `http://<server-ip>:8099/?panel=<profil-id>&device=<gerätename>`
-   Der Gerätename ist frei wählbar und erscheint unter *Einstellungen → Panels*.
+   Der Gerätename ist frei wählbar und erscheint unter *Displays*.
    Ohne `panel=` startet das Profil `default`.
 2. **JavaScript-Schnittstelle aktivieren:** *Advanced Web Settings → Enable
    JavaScript Interface (PLUS)*. Ohne diesen Schalter gibt es kein
@@ -67,7 +67,7 @@ abweichen.
 
 ## Gerät benennen und steuern
 
-Ein Gerät erscheint unter *Einstellungen → Panels*, sobald es die Visu mit
+Ein Gerät erscheint unter *Displays → Geräte & Ansicht*, sobald es die Visu mit
 `?device=<name>` öffnet. Fehlt die Kennung in der URL, steht das Gerät dort
 unter „Ohne Kennung" mit seiner IP. Dort einen Namen eintragen und „Namen
 vergeben" klicken: Die Visu merkt sich den Namen im Browser und verbindet sich
@@ -92,10 +92,10 @@ gemeint. Die Antwort nennt, wie viele Verbindungen erreicht wurden.
 
 Alternativ oder zusätzlich zur JavaScript-Schnittstelle: In Fully unter *Remote
 Administration (PLUS)* die Fernverwaltung einschalten und ein Passwort setzen.
-Dann in LoxPanel unter *Einstellungen → Panels* beim Gerät den Display-Treiber
-„Fully Kiosk (Remote Admin)" wählen, IP des Geräts, Port 2323 und das Passwort
-eintragen, speichern. Der Server ruft dann `http://<ip>:2323/?cmd=screenOn`
-bzw. `screenOff` auf.
+Dann in LoxPanel unter *Displays → Betriebsmodus-Automatik & Display-Steuerung*
+beim Gerät den Display-Treiber „Fully Kiosk (Remote Admin)" wählen, IP des
+Geräts, Port 2323 und das Passwort eintragen, speichern. Der Server ruft dann
+`http://<ip>:2323/?cmd=screenOn` bzw. `screenOff` auf.
 
 ## WallPanel
 

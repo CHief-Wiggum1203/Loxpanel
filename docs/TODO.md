@@ -31,13 +31,14 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
       Agent-Panels am WebSocket erkennt. Doku in `deploy/ANDROID.md`. **S**
 - [x] **Schritt 2, Geräteverwaltung an der Gerätekennung.** `GET /api/devices`
       führt Agenten, verbundene Browser und konfigurierte Geräte zusammen;
-      *Einstellungen → Panels* zeigt eine Liste mit Typ (Agent / Fully Kiosk /
-      Browser), Online-Status, Ansicht und Aktionen (Ansicht wechseln, Neu
+      *Einstellungen → Panels* (seit Upstream #50 *Displays*) zeigt eine
+      Liste mit Typ (Agent / Fully Kiosk / Browser), Online-Status, Ansicht und Aktionen (Ansicht wechseln, Neu
       laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
       per „Namen vergeben" benannt (Visu merkt sich den Namen, `setdevice`).
       Neu `/api/display` zum Schalten des Displays, auch aus Loxone. **M**
 - [x] **Schritt 3, serverseitige Display-Treiber.** Je Gerät unter
-      *Einstellungen → Panels* ein Treiber: Fully Kiosk Remote Admin (Port
+      *Einstellungen → Panels* (heute *Displays → Betriebsmodus-Automatik &
+      Display-Steuerung*) ein Treiber: Fully Kiosk Remote Admin (Port
       2323, Passwort) oder WallPanel HTTP (Port 2971), gespeichert in
       `panels.json` unter `devices[name].display`. Der Server schaltet damit
       bei `/api/display`, Klingel, Wecker, Notify, Goto und nach der
@@ -52,15 +53,22 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **24.09.2026** (`upstream/main` @ `946af6a`,
-**Sammel-Merge #45**), als echter Merge-Commit. Inhaltlich kam nichts Neues:
-Die elf Commits darin sind alle unsere Beiträge #34–#44, zusammengeführt auf
-unserem Sammel-Zweig `up/sammel`, den Lenardo unverändert gemergt hat. Der Fork
-hatte sie schon; das Merge-Ergebnis war Byte für Byte der bisherige
-Fork-`main`. Der Merge hält die Geschichte fest, damit dieselben Konflikte
-nicht wiederkommen. Dabei ist der Verlaufs-Block in `i18n.js` an Upstreams
-Stelle gerückt (eigene Überschrift vor „Neues Panel“), er war im Fork in den
-Wetter-Block geraten.
+Zuletzt eingepflegt am **26.09.2026** (`upstream/main` @ `a37c022`), als
+echter Merge-Commit. Neu damit im Fork: der **Panel-Assistent** im
+Konfigurator (Anzeige, Inhalt, Design, Screensaver, Aktiv-Overlay), die
+**freie Auswahl mit bis zu vier Seiten** samt Name und Icon (`auswahl`,
+`auswahl2` … `auswahl4`, `pickTabs` im Profil), **Tab-Icons**, der **Verlauf
+als zweite Spalte der Uhr-Seite** und der neue Hauptreiter **Displays** mit
+**Betriebsmodus-Assistent** (#47, #50). „Settings → Panels“ ist in diesen
+Reiter umgezogen, README, `deploy/` und `ARCHITEKTUR.md` nennen den neuen
+Weg. Lenardos #49 vervollständigt die englischen Übersetzungen und ersetzt
+#33; die 38 Schlüssel, die der Fork schon hatte, gelten jetzt in seinem
+Wortlaut. Unser Kalender-Fix #46 kam patch-gleich zurück. Fünf
+Konfliktstellen, jede mit beiden Seiten aufgelöst: Der Fork behält die
+Kalender-/Wetter-Tabs (#84) und die Rubrik „Sicherung“.
+
+Davor, am 24.09.2026 (`946af6a`, Sammel-Merge #45): nur Geschichte. Die elf
+Commits darin waren unsere Beiträge #34–#44 und im Fork schon enthalten.
 
 Davor, am 19.09.2026 (`f5bdb01`, **Release 0.5.0**). Neu damit im Fork:
 **Zurück-Button der Tab-Leiste exakt mittig** (links `ceil(N/2)`, rechts
@@ -87,14 +95,20 @@ beim nächsten Mal wieder.
       Tür-Buttons), gerahmte Split-Panes, zweispaltiger Screensaver im
       Querformat, Kachelrahmen-Einstellung, Lautstärkeleiste in beiden
       Player-Ansichten, Anlagenschema. **S**
-- [ ] **Beim nächsten Abgleich: Lenardos #33 (englische Übersetzungen).**
-      Unser a62ed9f hat elf Kalender- und Wetter-Übersetzungen aus dem
-      Upstream-Beitrag genommen, weil #33 sie mitbringt. #33 ist noch nicht
-      gemergt, bei Upstream fehlen sie also gerade, im Fork stehen sie. Kommt
-      #33, stehen sie in `i18n.js` doppelt; je Schlüssel einen Eintrag
-      behalten, und zwar die Fassung aus #33, damit Fork und Upstream gleich
-      lauten. Zehn sind wortgleich, „Standort vom Miniserver wird verwendet."
-      ist in #33 anders übersetzt. **S**
+- [ ] **Panel-Assistent und Displays an der Anlage prüfen:** den Assistenten
+      einmal für ein neues Panel durchlaufen, freie Auswahl mit mehreren Seiten
+      und Icons, Geräteliste und Display-Treiber unter *Displays*,
+      Betriebsmodus-Assistent samt fertiger Loxone-Adresse, Verlauf als
+      Uhr-Spalte. Die Fork-Tests decken diese Teile nicht ab. **S**
+- [ ] **Tests für die neuen Upstream-Teile:** Browser-Tests für den Reiter
+      *Displays* (Geräteliste, Display-Treiber speichern) und für die freie
+      Auswahl mit vier Seiten über Speichern und Neuladen des Konfigurators —
+      genau dort lag der Fehler, den #47 selbst noch behebt („Seiten 2–4 gehen
+      verloren“). **M**
+- [x] **Lenardos #33 (englische Übersetzungen):** kam als #49, das #33
+      ersetzt. Die 38 doppelten Schlüssel sind aufgelöst, es gilt Lenardos
+      Wortlaut; geprüft am wirksamen Wert, kein Text wird anders angezeigt als
+      bei Upstream. **S**
 - [ ] **Tote Zuweisung bei Upstream:** `bin/loxone_weather.py` hat dort
       noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
       eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
@@ -107,10 +121,9 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 24.09.2026. **Alle Beiträge bis #45 sind in `upstream/main`:** zwölf
-einzeln gemergt, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`), den Lenardo am 24.09.2026 gemergt hat. Offen ist nur #46
-(unten).
+Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
+die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
+`up/sammel`). Offen ist derzeit nichts.
 
 | PR | Inhalt |
 |---|---|
@@ -127,6 +140,7 @@ einzeln gemergt, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | [#31](https://github.com/Lenardo1/loxpanel/pull/31) | Kalender: ein Aussetzer der Quelle löscht die Termine nicht mehr |
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 | [#45](https://github.com/Lenardo1/loxpanel/pull/45) | Sammel-PR: #34–#44 nacheinander auf einem Zweig, Konflikte dort aufgelöst, von Lenardo unverändert gemergt |
+| [#46](https://github.com/Lenardo1/loxpanel/pull/46) | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87), am 25.09.2026 per Squash gemergt |
 
 Über #45 übernommen:
 
@@ -149,18 +163,13 @@ einzeln gemergt, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
       markiert die Einzel-PRs deshalb nicht selbst als gemergt. Nachsehen, ob
       Lenardo sie geschlossen hat, offene mit Verweis auf #45 schließen. Erst
       dann die elf Zweige aus der Tabelle und `up/sammel` im Fork löschen: Ein
-      gelöschter Zweig schließt seinen offenen PR ohne Hinweis. **S**
-
-**Eingereicht, noch offen — Zweig nicht löschen:**
-
-| PR | Zweig | Inhalt |
-|---|---|---|
-| [#46](https://github.com/Lenardo1/loxpanel/pull/46) | `up/kalender-wetterpush` | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87) |
-
-#46 ist am 24.09.2026 eingereicht. Der Zweig steht auf `946af6a`, ein
-Commit, nur `bin/front_info.py` und `bin/webvisu.py`, gleich dem Fork-Stand.
-Kommt vor dem Merge Neues auf `upstream/main`, das dieselben Stellen ändert,
-den Zweig darauf rebasen und mit `--force-with-lease` pushen.
+      gelöschter Zweig schließt seinen offenen PR ohne Hinweis. Geprüft am
+      25.09.2026: Der Inhalt aller zwölf steckt in `upstream/main`, und
+      Lenardos `refs/pull/34`–`45` halten die Commits, auch nach dem Löschen.
+      Die Session-Umgebung darf keine Zweige löschen (HTTP 403), das geht nur
+      von Hand. **S**
+- [ ] **Zweig `up/kalender-wetterpush` löschen.** #46 ist gemergt, der Zweig
+      hängt an keinem offenen PR mehr. **S**
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -603,7 +612,7 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       rechnet mit festen 240er Kacheln; auf einem größeren Display stand der
       Kasten mit schwarzem Rand da (1280×800: 55 % ungenutzt), und „Bildschirm
       füllen" vergrößerte nur die Kacheln, nicht Schrift und Icons. Jetzt
-      meldet jedes Panel seine Größe (Anzeige unter Settings → Panels:
+      meldet jedes Panel seine Größe (Anzeige unter Displays → Geräte & Ansicht:
       sichtbare Fläche, physische Pixel, Faktor, genutzter Anteil), und je
       Profil lässt sich eine Skalierung wählen: aus, automatisch oder ein
       fester Faktor. Pro Gerät übersteuerbar, sodass zwei Displays mit
