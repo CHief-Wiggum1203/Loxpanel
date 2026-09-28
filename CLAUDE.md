@@ -77,7 +77,10 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   ss`), wie sie Upstream durchgehend verwendet — sonst reibt sich jeder
   Upstream-Merge daran. Doku unter `docs/` ist reiner Umlaut-Text.
 - Neue Panel-Optionen müssen in `_sanitize_panels()` freigeschaltet werden, sonst
-  verwirft der Server sie beim Speichern still.
+  verwirft der Server sie beim Speichern. Das passiert nicht mehr still: die
+  Antwort nennt sie (`verworfen`), der Konfigurator zeigt eine Warnung. Ein
+  Standardwert, der bewusst nicht gespeichert wird, gehört nach
+  `PANEL_STANDARD`, sonst gibt es einen Fehlalarm.
 - Neue Bausteintypen kommen in die beiden Ketten `_control_item()` und
   `_view_control_inner()`, nicht in `adapters.py`. Reihenfolge der Zweige ist
   relevant.

@@ -291,8 +291,24 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       Zusätzlich werden alle Blöcke einer Art über ihre Position gepatcht statt
       nur der erste Treffer — das war die Ursache für eingefrorene Statuszeilen
       auf der Sauna-Detailseite. (F12) **M**
-- [ ] **Stiller Verlust beim Speichern**: `_sanitize_panels` soll melden, welche
-      Felder verworfen wurden, und der Konfigurator zeigt es an. (W7) **M**
+- [x] **Stiller Verlust beim Speichern**: `/api/panels` antwortet zusätzlich
+      mit `verworfen` – was `_sanitize_panels` nicht übernommen hat, als
+      lesbare Pfade („Wohnzimmer: ui.cols“, „… tabs: quatsch“, Kacheln mit
+      Bausteinnamen statt UUID). Der Konfigurator zeigt es als gelbe Warnung,
+      die bis zur nächsten Änderung stehen bleibt; das Server-Log nennt es
+      auch. Gemeldet wird nur, was einen Inhalt hatte: leere Werte,
+      begrenzte/gekürzte Werte und Standardwerte, die bewusst nicht
+      gespeichert werden (`PANEL_STANDARD`: `ui.split = true`,
+      `tiles.*.chartStyle = "trend"`), nicht. Geprüft: was Editor und
+      Assistent „Neues Panel“ schreiben, behält der Server; Speichern ohne
+      Änderung meldet nichts. Tests: `tests/test_nicht_uebernommen.py`,
+      `tests/browser/test_speichern_browser.py`. (W7) **M**
+- [ ] **Freie Seite: fremde Icon-Adressen**: `_sanitize_panels` soll laut
+      Kommentar externe URLs als Seiten-Icon verwerfen, lässt aber jede
+      Adresse durch, die auf `.svg`/`.png` endet (z. B.
+      `https://fremd.example/x.png`). Das Panel lädt das Bild dann von dort.
+      Beim Bau der Meldung für den stillen Verlust gefunden; Adressen mit
+      Schema (`://`) ausschließen, Loxone-Icon-Pfade sind relativ. **S**
 - [x] **Speicher-Vorzeichen im Energiefluss**: Loxone zählt aus Sicht des
       Hauses, ein positiver `Spwr` heißt „Speicher entlädt“ (fließt ins Haus,
       wie Netzbezug). `classify()` und die Texte der Detailseiten hatten es
