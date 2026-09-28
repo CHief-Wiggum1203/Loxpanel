@@ -449,8 +449,8 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Nummern aus der Loxone-Strukturdoku, die Strukturform (Liste
       `temperatures`, `details.temperatures[].isAbsolute`) von einer echten
       Anlage. Ohne bekannten, absoluten Komfortwert gibt es kein −/+. Im
-      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart (`mode/…`)
-      ist wie beim V2 noch nicht umschaltbar. Tests:
+      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart
+      (`mode/…`) ist umschaltbar, siehe „Betriebsart umschalten“. Tests:
       `tests/test_raumregelung_v1.py`, Browser-Test bis zum Befehl am
       Miniserver. An Upstream eingereicht als
       [#56](https://github.com/Lenardo1/loxpanel/pull/56). **M**
@@ -713,8 +713,19 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Upstream eingereicht als
       [#42](https://github.com/Lenardo1/loxpanel/pull/42), die Tabs nicht.
       **M**
-- [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
-      Betriebsart, nicht nur Override. **M**
+- [x] **Heizung: Betriebsart umschalten** für beide Raumregelungen, als
+      Aufklapper „Betriebsart“ zwischen − und + auf der Detailseite; eine
+      manuelle Betriebsart steht in der Statuszeile (dann läuft kein
+      Zeitplan). `IRoomControllerV2`: `operatingMode` 0–5,
+      `setOperatingMode/<Nr>` (Bedeutung wie in der openHAB-Loxone-Anbindung).
+      `IRoomController`: `mode/<Nr>` mit 0, 3–6 laut Loxone-Strukturdoku,
+      1/2 („Automatik, heizt/kühlt gerade“) gelten als Automatik,
+      `restrictedToMode` blendet Heizen bzw. Kühlen aus. Dabei beim V2 die
+      Annahme „Komfort unbekannt → Soll oder 20 °C“ entfernt: ohne bekannten
+      Komfortwert gibt es kein −/+. Beim V2 wird nicht nach Heizen/Kühlen
+      gefiltert – das Detail `possibleCapabilities` nennt nur PyLoxone, eine
+      zweite Quelle fehlt. Tests: `tests/test_betriebsart.py`, Browser-Test
+      bis zum Befehl am Miniserver. **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**

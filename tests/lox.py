@@ -238,6 +238,33 @@ def irc1_baustein(**werte) -> tuple[dict, dict]:
     return control, werte_uuid
 
 
+# Intelligente Raumregelung V2 (IRoomControllerV2): State-Namen wie in der
+# openHAB-Loxone-Anbindung, Temperatur-Modi (details.timerModes) wie activeMode
+# dort: 0 Eco, 1 Komfort, 2 Gebaeudeschutz.
+IRC2_STATES = ("activeMode", "operatingMode", "prepareState", "openWindow", "tempActual",
+               "tempTarget", "comfortTemperature", "comfortTemperatureCool", "comfortTolerance",
+               "absentMinOffset", "absentMaxOffset", "frostProtectTemperature",
+               "heatProtectionTemperature", "comfortTemperatureOffset", "overrideEntries")
+
+
+def irc2_baustein(**werte) -> tuple[dict, dict]:
+    """-> (Control, States) einer Raumregelung V2 in Automatik Heizen & Kuehlen
+    mit Komfort aktiv; werte ueberschreibt States nach Namen."""
+    states = {n: f"irc2-{n}" for n in IRC2_STATES}
+    control = {"name": "Bad Heizung", "type": "IRoomControllerV2", "uuidAction": "IRC2",
+               "room": "r1", "cat": "c1",
+               "details": {"format": "%.1f°", "timerModes": [
+                   {"id": 0, "name": "Eco"}, {"id": 1, "name": "Komfort"},
+                   {"id": 2, "name": "Gebäudeschutz"}]},
+               "states": states}
+    w = {"activeMode": 1, "operatingMode": 0, "prepareState": 0, "openWindow": 0,
+         "tempActual": 21.0, "tempTarget": 22.5, "comfortTemperature": 22.5,
+         "comfortTemperatureCool": 25.0, "comfortTolerance": 1.0, "absentMinOffset": 2.0,
+         "absentMaxOffset": 2.0, "frostProtectTemperature": 5.0, "heatProtectionTemperature": 35.0,
+         "comfortTemperatureOffset": 0.0, "overrideEntries": "[]", **werte}
+    return control, {states[n]: w[n] for n in IRC2_STATES}
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)
