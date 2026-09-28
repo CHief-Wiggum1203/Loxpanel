@@ -207,6 +207,12 @@ und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
 27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
 patch-gleich zurück; danach die drei Zweige löschen.
 
+**Bereit, noch nicht eingereicht:** `up/speicher-vorzeichen` — Speicher im
+Energiefluss richtig herum, schließt Lenardos Issue
+[#14](https://github.com/Lenardo1/loxpanel/issues/14). Ein Commit auf 0.6.0,
+nur `bin/webvisu.py`; läuft mit den drei Zweigen oben ohne Konflikt
+zusammen. Nach dem Einreichen die PR-Nummer oben in die Tabelle übernehmen.
+
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
 und über diesen Link einreichen:
@@ -286,13 +292,15 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       auf der Sauna-Detailseite. (F12) **M**
 - [ ] **Stiller Verlust beim Speichern**: `_sanitize_panels` soll melden, welche
       Felder verworfen wurden, und der Konfigurator zeigt es an. (W7) **M**
-- [ ] **Speicher-Vorzeichen im Energiemanager prüfen**: `_flow_text(Spwr, …)`
-      und `classify()` nehmen an, dass ein positiver `Spwr` „Speicher lädt"
-      bedeutet. Die Loxone-Doku beschreibt es umgekehrt (positiv = Speicher
-      wird entladen). Wenn das stimmt, sind Laden/Entladen in Text **und**
-      Flussrichtung des Radials vertauscht. An einer Anlage mit echtem Speicher
-      gegenprüfen, bevor etwas geändert wird — betrifft auch den
-      Energiefluss-Beitrag an Upstream. **S**
+- [x] **Speicher-Vorzeichen im Energiefluss**: Loxone zählt aus Sicht des
+      Hauses, ein positiver `Spwr` heißt „Speicher entlädt“ (fließt ins Haus,
+      wie Netzbezug). `classify()` und die Texte der Detailseiten hatten es
+      umgekehrt, der Speicher lief also beim Entladen in die Batterie hinein.
+      Im Loxone-Forum an einer Anlage mit Speicher bestätigt (Energieflussmonitor,
+      Lenardo1/Loxpanel#14). Jetzt entlädt er grün zur Mitte und lädt orange
+      nach außen, für EFM-Knoten mit `nodeType` Storage wie für den
+      Summen-Knoten aus `Spwr`; bei 0 kW steht „Speicher“ ohne Richtung.
+      Tests: `tests/test_energiefluss.py`. **S**
 
 ## 4. Performance
 
@@ -459,9 +467,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 - [x] `EFM` (Energieflussmonitor, Typname in der Strukturdatei ist `EFM`):
       Erzeugung, Netz mit Bezug/Einspeisung, Speicher mit Laden/Entladen,
-      Knoten aus `details.nodes` mit `actual0..5`; nur Anzeige. Annahme
-      Vorzeichen wie in der Loxone-App (positiv = Bezug bzw. Laden), auf der
-      Anlage gegenprüfen. **M**
+      Knoten aus `details.nodes` mit `actual0..5`; nur Anzeige. Vorzeichen
+      aus Sicht des Hauses (positiv = Netzbezug bzw. Speicher entlädt), beim
+      Speicher an einer Anlage bestätigt (siehe Abschnitt 3). **M**
 - [x] `PvProductionForecast` (PV-Produktionsvorhersage): heute, morgen,
       Zeitraum, danach, Anlagenleistung. **S**
 - [x] `SteakThermo` (Touch & Grill Thermometer): Fühlertemperaturen aus
