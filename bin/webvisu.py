@@ -1347,14 +1347,17 @@ class App:
                 out.append((str(key if isinstance(key, str) else i + 1), {"value": e}))
         return out
 
-    def _flow_text(self, value, fmt: str, pos: str, neg: str) -> str:
+    def _flow_text(self, value, fmt: str, pos: str, neg: str, zero: str | None = None) -> str:
         """Leistung mit Richtung: Vorzeichen -> Text (z.B. Bezug/Einspeisung).
-        Annahme wie in der Loxone-App: positiv = Bezug bzw. Laden."""
+        Loxone zaehlt aus Sicht des Hauses: positiv = fliesst ins Haus, also
+        Netzbezug bzw. Speicher entlaedt; negativ = Einspeisung bzw. Laden.
+        zero: Text fuer 0 (ohne Richtung), sonst gilt 0 als positiv."""
         try:
             v = float(value)
         except (TypeError, ValueError):
             return ""
-        return f"{pos if v >= 0 else neg} {self._fmt_num(abs(v), fmt)}"
+        text = zero if (zero and v == 0) else (pos if v >= 0 else neg)
+        return f"{text} {self._fmt_num(abs(v), fmt)}"
 
     def _tracker_lines(self, control: dict) -> list[str]:
         """Ereignis-Zeilen eines Tracker-Bausteins (State 'entries'). Loxone
@@ -1801,10 +1804,11 @@ class App:
         WATT, Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine
         Anzeige, keine Steuerung. max_cons = Loxones Grenze (actual0..5, max. 6).
 
-        Vorzeichen wie in der Loxone-App (siehe _flow_text): Gpwr>0 = Netzbezug
-        (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher laedt (raus), <0 =
-        entlaedt (rein); Ppwr = Erzeugung (rein). flow: "in" = zur Mitte (gruen),
-        "out" = nach aussen (orange), None = 0/inaktiv (grau)."""
+        Vorzeichen wie bei Loxone aus Sicht des Hauses (siehe _flow_text):
+        Gpwr>0 = Netzbezug (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher
+        entlaedt (rein), <0 = laedt (raus); Ppwr = Erzeugung (rein). Dasselbe
+        gilt fuer EFM-Knoten mit nodeType Storage. flow: "in" = zur Mitte
+        (gruen), "out" = nach aussen (orange), None = 0/inaktiv (grau)."""
         c = self.controls.get(uuid or "")
         if not c or c.get("type") not in ("EFM", "EnergyManager2"):
             return None
@@ -1827,8 +1831,8 @@ class App:
               kind "load" = Verbraucher, orange (Load/Group; Speicher laden)
               kind "idle" = 0 W, grau
             PV/Production ist immer Quelle (kann nie beziehen). Netz: Bezug (v>0)
-            rein/rot, Einspeisung (v<0) raus/gruen. Speicher: laden (v>0) raus/orange,
-            entladen (v<0) rein/gruen."""
+            rein/rot, Einspeisung (v<0) raus/gruen. Speicher wie das Netz aus
+            Sicht des Hauses: entladen (v>0) rein/gruen, laden (v<0) raus/orange."""
             ntl = (nt or "").lower()
             if not v:
                 return (None, "idle")
@@ -1837,12 +1841,12 @@ class App:
             if ntl == "grid":
                 return ("in", "grid") if v > 0 else ("out", "prod")
             if ntl in ("storage", "battery"):
-                return ("out", "load") if v > 0 else ("in", "prod")
+                return ("in", "prod") if v > 0 else ("out", "load")
             return ("out", "load") if v > 0 else ("in", "prod")
 
         pv = watt("Ppwr")                       # Erzeugung
         g = watt("Gpwr")                        # Netz: >0 Bezug (rein), <0 Einspeisung (raus)
-        sp = watt("Spwr")                       # Speicher: >0 laedt (raus), <0 entlaedt (rein)
+        sp = watt("Spwr")                       # Speicher: >0 entlaedt (rein), <0 laedt (raus)
         try:
             soc = float(self._state(c, "Ssoc"))
         except (TypeError, ValueError):
@@ -3212,7 +3216,7 @@ class App:
                       sublabel=(last or "Keine Einträge"))
         elif t == "EFM":
             # Energieflussmonitor: Ppwr Erzeugung, Gpwr Netz (+Bezug/-Einspeisung),
-            # Spwr Speicher (+Laden/-Entladen), actual0..5 = Knoten aus details.nodes
+            # Spwr Speicher (+Entladen/-Laden), actual0..5 = Knoten aus details.nodes
             fmt = (c.get("details") or {}).get("actualFormat") or "%.2f kW"
             bits = []
             p = self._state(c, "Ppwr")
@@ -4690,7 +4694,8 @@ class App:
             g = self._flow_text(self._state(c, "Gpwr"), fmt, "Netzbezug", "Einspeisung")
             if g:
                 rows.append({"k": "status", "text": g})
-            sp = self._flow_text(self._state(c, "Spwr"), det.get("storageFormat") or fmt, "Speicher lädt", "Speicher entlädt")
+            sp = self._flow_text(self._state(c, "Spwr"), det.get("storageFormat") or fmt,
+                                 "Speicher entlädt", "Speicher lädt", "Speicher")
             if sp:
                 rows.append({"k": "status", "text": sp})
             nodes = self._named_items(det.get("nodes"))
@@ -4715,7 +4720,7 @@ class App:
             if g:
                 rows.append({"k": "status", "text": g})
             if det.get("HasSpwr", True):
-                sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher lädt", "Speicher entlädt")
+                sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher entlädt", "Speicher lädt", "Speicher")
                 if sp:
                     rows.append({"k": "status", "text": sp})
             soc = self._state(c, "Ssoc")
