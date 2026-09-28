@@ -105,7 +105,11 @@ def test_kachel_stile(miniserver_http):
         ms = await Miniserver().start()
         app = neue_app(ms)
         try:
-            app.controls = v1_bausteine(ms, JETZT)
+            # Aufzeichnung bis zum Start dieses Tests, nicht bis JETZT (Laden der
+            # Datei, im vollen Lauf Minuten frueher): der Mini-Verlauf rechnet ab
+            # der Stunde, in der er gezeichnet wird.
+            jetzt = datetime.now().replace(second=0, microsecond=0)
+            app.controls = v1_bausteine(ms, jetzt)
             # reiner Zaehler (nur Zaehlerstand); "Z" hat zusaetzlich die Leistung
             app.controls["K"] = dict(app.controls["Z"], statistic={"frequency": 6, "outputs": [
                 {"id": 0, "name": "Gesamtverbrauch", "format": "%.1fkWh", "visuType": 2}]})
@@ -117,18 +121,32 @@ def test_kachel_stile(miniserver_http):
             for u, rng, st in faelle:
                 app._stat_spark(c[u], rng, st)
             await asyncio.sleep(0.6)
-            sp = {(u, st): app._stat_spark(c[u], rng, st) for u, rng, st in faelle}
+            while True:   # Minutenwechsel mitten im Zeichnen: noch einmal zeichnen
+                gezeichnet = datetime.now().replace(second=0, microsecond=0)
+                sp = {(u, st): app._stat_spark(c[u], rng, st) for u, rng, st in faelle}
+                if datetime.now().replace(second=0, microsecond=0) == gezeichnet:
+                    break
 
             t = sp[("T", "trend")]
             assert t["style"] == "trend" and t["badge"].endswith("in 24 h") and t["lo"] and t["hi"]
             assert len(t["pts"]) <= 48
             m = sp[("T", "pattern")]
-            assert len(m["cells"]) == 168 and m["days"][-1] == W.STAT_WEEKDAYS[datetime.now().weekday()]
-            h = datetime.now().hour
-            assert m["cells"][6 * 24 + h] is not None
+            assert len(m["cells"]) == 168 and m["days"][-1] == W.STAT_WEEKDAYS[gezeichnet.weekday()]
+            # Die laufende Stunde traegt den zuletzt gueltigen Wert bis zur vollen
+            # Minute; in ihrer ersten Minute hat sie noch keine Dauer und bleibt
+            # leer. Die Stunde davor ist immer voll (um Mitternacht: 23 Uhr in der
+            # Zeile davor, Index 6 * 24 - 1).
+            h = gezeichnet.hour
+            assert m["cells"][6 * 24 + h - 1] is not None
+            assert (m["cells"][6 * 24 + h] is None) == (gezeichnet.minute == 0)
             assert h == 23 or m["cells"][6 * 24 + 23] is None, "Stunden in der Zukunft bleiben leer"
             s = sp[("T", "span")]
-            assert len(s["spans"]) == 7 and s["badge"].startswith("heute ")
+            # "heute" gibt es ab der ersten vollen Minute des Tages (siehe oben)
+            assert len(s["spans"]) == 7
+            if (h, gezeichnet.minute) == (0, 0):
+                assert "badge" not in s and s["spans"][-1] is None
+            else:
+                assert s["badge"].startswith("heute ")
             assert sp[("R", "trend")]["badge"].startswith("Ein ")
             assert sp[("R", "span")]["style"] == "trend" and sp[("K", "span")]["style"] == "trend"   # nur Messwerte
             assert sp[("Z", "span")]["style"] == "span" and sp[("Z", "span")]["kind"] == "line"      # Kachel zeigt die Leistung
