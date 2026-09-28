@@ -268,15 +268,15 @@ IRC2_BETRIEBSARTEN = {0: "Automatik Heizen & Kühlen", 1: "Automatik nur Heizen"
                       2: "Automatik nur Kühlen", 3: "Manuell Heizen & Kühlen",
                       4: "Manuell nur Heizen", 5: "Manuell nur Kühlen"}
 IRC2_MANUELL = {3, 4, 5}
-# Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
-# Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
-# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
-PANEL_STANDARD = {("ui", "split"): True, ("tiles", "*", "chartStyle"): "trend"}
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
                  "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
+# Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
+# Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
+# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
+PANEL_STANDARD = {("ui", "split"): True, ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
