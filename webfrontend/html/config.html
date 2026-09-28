@@ -140,6 +140,7 @@
   .toast{color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
   .toast.show{opacity:1;}
   .toast.err{color:var(--crit);}
+  .toast.warn{color:var(--accent);}
   .toast.ok{color:var(--good);}
   .empty{color:var(--muted);padding:40px 0;}
   .muted{color:var(--muted);padding:12px;}
@@ -1895,13 +1896,21 @@ async function save(){
                             body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
       const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
     }
-    if(j.ok&&okT){ dirty=false; t.className='toast show'; t.textContent='✓ Gespeichert ('+j.count+' Profile) — Panels wurden automatisch neu geladen';
+    if(j.ok&&okT){ dirty=false;
+      // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
+      // es still zu verlieren; die Warnung bleibt stehen (siehe unten).
+      const weg=j.verworfen||[];
+      t.className='toast show'+(weg.length?' warn':'');
+      t.textContent='✓ Gespeichert ('+j.count+' Profile) — Panels wurden automatisch neu geladen'+
+        (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '');
       // Panel-Liste fuer die Geraete-Zuordnung auffrischen (sonst fehlt ein neues
       // Panel dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
       try{ await loadPanelIds(); renderDevices(); }catch(e){} }
     else { t.className='toast show err'; t.textContent='Fehler: '+(j.error||errT||'?'); }
   }catch(e){ t.className='toast show err'; t.textContent='Fehler: '+e; }
-  setTimeout(()=>{ if(t) t.classList.remove('show'); }, 4000);
+  // Eine Warnung ueber nicht Uebernommenes bleibt bis zur naechsten Aenderung
+  // stehen (markDirty leert die Leiste), alles andere geht nach 4 s.
+  setTimeout(()=>{ if(t && !t.classList.contains('warn')) t.classList.remove('show'); }, 4000);
 }
 
 // ---- Kachel-Editor ----

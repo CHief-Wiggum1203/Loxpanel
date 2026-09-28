@@ -239,6 +239,10 @@ SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
                  "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
+# Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
+# Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
+# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
+PANEL_STANDARD = {("ui", "split"): True, ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -2455,6 +2459,73 @@ class App:
                 if ct:
                     e["tiles"] = ct
             out[pid] = e
+        return out
+
+    @staticmethod
+    def _panels_verworfen(roh: dict, sauber: dict, namen: dict | None = None) -> list[str]:
+        """Was _sanitize_panels nicht uebernommen hat, als lesbare Pfade
+        ("<Panel>: ui.cols", "<Panel>: tabs: foo"), damit der Konfigurator es
+        meldet statt es still zu verlieren. Gemeldet wird nur, was einen Inhalt
+        hatte: leere Werte (None, False, "", [], {}) nicht, begrenzte oder
+        gekuerzte Werte (Groesse 100 -> 80, Titel auf 40 Zeichen) auch nicht -
+        die kommen ja an. Standardwerte, die bewusst nicht gespeichert werden,
+        stehen in PANEL_STANDARD. namen: UUID -> Bausteinname fuer lesbare
+        Pfade (Kachel-Einstellungen stehen unter der UUID)."""
+        namen = namen or {}
+
+        def leer(v) -> bool:
+            return v is None or v is False or (isinstance(v, str) and not v.strip()) \
+                or (isinstance(v, (list, dict)) and not any(not leer(x) for x in
+                                                            (v.values() if isinstance(v, dict) else v)))
+
+        def standard(pfad: tuple, v) -> bool:
+            for muster, wert in PANEL_STANDARD.items():
+                if len(muster) == len(pfad) and all(m in ("*", p) for m, p in zip(muster, pfad)) \
+                        and v == wert:
+                    return True
+            return False
+
+        def kurz(xs: list) -> str:
+            return ", ".join(str(x) for x in xs[:3]) + (f" … (+{len(xs) - 3})" if len(xs) > 3 else "")
+
+        out: list[str] = []
+
+        def vergleich(r, s, pfad: tuple, name: str):
+            if isinstance(r, dict):
+                for k, v in r.items():
+                    if leer(v) or standard(pfad + (str(k),), v):
+                        continue
+                    p = pfad + (str(k),)
+                    if isinstance(s, dict) and k in s:
+                        vergleich(v, s[k], p, name)
+                    elif isinstance(v, (dict, list)):
+                        # ganz weggefallen (z. B. ui nur mit Unbekanntem): die
+                        # einzelnen Angaben darin nennen
+                        vergleich(v, {} if isinstance(v, dict) else [], p, name)
+                    else:
+                        out.append(f"{name}: {'.'.join(namen.get(x, x) for x in p)}")
+            elif isinstance(r, list) and isinstance(s, list):
+                werte = [x for x in r if not leer(x)]
+                if all(isinstance(x, (str, int, float)) for x in werte):
+                    fehlt = [x for x in werte if x not in s]
+                    if fehlt:
+                        out.append(f"{name}: {'.'.join(namen.get(x, x) for x in pfad)}: "
+                                   f"{kurz([namen.get(x, x) for x in fehlt])}")
+                elif len(s) < len(werte):
+                    out.append(f"{name}: {'.'.join(namen.get(x, x) for x in pfad)}: "
+                               f"{len(werte) - len(s)} von {len(werte)}")
+                else:
+                    for i, (x, y) in enumerate(zip(werte, s)):
+                        vergleich(x, y, pfad + (str(i + 1),), name)
+
+        for pid, p in (roh or {}).items():
+            if leer(p):
+                continue
+            if pid not in sauber:
+                out.append(f"Panel „{pid}“")
+            else:
+                titel = str(p.get("title") or "").strip() if isinstance(p, dict) else ""
+                vergleich(p, sauber[pid], (), titel or pid)
         return out
 
     def _persist_panels_file(self, panels: dict, devices: dict) -> None:
@@ -5696,13 +5767,19 @@ async def api_save_panels(request: web.Request) -> web.Response:
     if not isinstance(panels, dict):
         return web.json_response({"ok": False, "error": "Feld 'panels' fehlt"}, status=400)
     clean = App._sanitize_panels(panels)
+    # Was der Server nicht uebernimmt, meldet er (Konfigurator zeigt es an),
+    # statt es still zu verlieren.
+    weg = App._panels_verworfen(panels, clean,
+                                {u: _clean(c.get("name")) or u for u, c in app.controls.items()})
     try:
         app._write_panels(clean)
     except OSError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
     n = await _push(app, {"t": "reload"})   # offene Panels sofort neu laden
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
-    return web.json_response({"ok": True, "count": len(clean), "reloaded": n})
+    if weg:
+        log.warning("panels.json: nicht übernommen: %s", "; ".join(weg))
+    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg})
 
 
 async def api_save_theme(request: web.Request) -> web.Response:
