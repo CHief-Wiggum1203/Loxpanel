@@ -214,6 +214,24 @@ Probe-Merge aller fünf Zweige läuft ohne Konflikt, und die neuen Tests
 (`test_energiefluss.py`, `test_raumregelung_v1.py` samt Browser-Test)
 bestehen auch gegen Lenardos Code. Nach dem Merge dort die Zweige löschen.
 
+**Bereit, noch nicht eingereicht** (Fork #95; nach dem Einreichen die
+PR-Nummer oben in die Tabelle übernehmen):
+
+- `up/betriebsart` — Betriebsart der Raumregelung (V2 und alt) umschaltbar,
+  beim V2 kein angenommener Komfortwert mehr. **Setzt auf #56 auf** (braucht
+  die Detailseite der alten Raumregelung), im PR vermerken.
+- `up/hausverbrauch` — Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“,
+  `bin/webvisu.py` und `panel.html`, direkt auf 0.6.0.
+- `up/speichern-meldung` — nicht Übernommenes beim Speichern melden,
+  `bin/webvisu.py`, `config.html`, `i18n.js`, direkt auf 0.6.0.
+  `PANEL_STANDARD` steht dort wie im Fork hinter `PARTIAL_TYPES` (unter
+  `SAUNA_MODES` kollidierte es mit den Konstanten aus #56).
+
+Der Probe-Merge aller acht Zweige (#52–#56 und die drei) läuft ohne
+Konflikt, auf dem Ergebnis bestehen die Tests der neuen Teile (53; der
+Browser-Test der Speichern-Meldung lief dafür ohne die Fork-Route
+`/api/backup`, die es bei Lenardo nicht gibt).
+
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
 und über diesen Link einreichen:
