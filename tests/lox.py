@@ -265,6 +265,20 @@ def irc2_baustein(**werte) -> tuple[dict, dict]:
     return control, {states[n]: w[n] for n in IRC2_STATES}
 
 
+# Energieflussmonitor (EFM) mit eigenen Knoten und Energiemanager (EM2) mit
+# Ppwr/Gpwr/Spwr in kW, Vorzeichen aus Sicht des Hauses (positiv = ins Haus).
+EFM_NODES = [{"name": "Netz", "nodeType": "Grid"}, {"name": "PV", "nodeType": "Production"},
+             {"name": "Batterie", "nodeType": "Storage"}, {"name": "Wärmepumpe", "nodeType": "Load"}]
+
+EFM = {"name": "Energieflussmonitor", "type": "EFM", "uuidAction": "F", "room": "r1", "cat": "c1",
+       "details": {"actualFormat": "%.2f kW", "nodes": EFM_NODES},
+       "states": {"Ppwr": "f-p", "Gpwr": "f-g", "Spwr": "f-s",
+                  **{f"actual{i}": f"f-a{i}" for i in range(len(EFM_NODES))}}}
+
+EM2 = {"name": "Energiemanager", "type": "EnergyManager2", "uuidAction": "M", "room": "r1", "cat": "c1",
+       "details": {}, "states": {"Ppwr": "m-p", "Gpwr": "m-g", "Spwr": "m-s", "Ssoc": "m-soc"}}
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)

@@ -303,6 +303,15 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       Summen-Knoten aus `Spwr`; bei 0 kW steht „Speicher“ ohne Richtung.
       Tests: `tests/test_energiefluss.py`. An Upstream eingereicht als
       [#55](https://github.com/Lenardo1/loxpanel/pull/55). **S**
+- [x] **„Verbrauch 0 W“ beim Energiemanager**: Unter dem Radial stand beim
+      `EnergyManager2` (und beim EFM ohne Verbraucher-Knoten) immer
+      „Verbrauch 0 W“, der Server rechnete ihn nicht, das Panel setzte 0 ein.
+      Jetzt aus der Bilanz des Hauses: Erzeugung + Netz + Speicher (was
+      hereinkommt, wird verbraucht), nie negativ. Ohne Netzwert, oder solange
+      PV/Speicher angelegt sind, aber keinen Wert haben, ist er unbekannt und
+      die Fußzeile lässt „Verbrauch“ weg. EFM mit Verbraucher-Knoten wie
+      bisher: deren Summe. Tests in `tests/test_energiefluss.py` und
+      `tests/browser/test_energiefluss_browser.py`. **S**
 
 ## 4. Performance
 
