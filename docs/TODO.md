@@ -141,7 +141,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind #52 bis #56 (unten).
+`up/sammel`). Offen sind #52 bis #59 (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -198,6 +198,9 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
 | [#55](https://github.com/Lenardo1/loxpanel/pull/55) | `up/speicher-vorzeichen` | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14); nur `bin/webvisu.py`, eingereicht am 28.09.2026 |
 | [#56](https://github.com/Lenardo1/loxpanel/pull/56) | `up/raumregelung-v1` | Alte Raumregelung (`IRoomController`, IRC v1) mit Kachel und Detailseite, im Forum gemeldet; `bin/webvisu.py` und `README.md`, eingereicht am 28.09.2026 |
+| [#57](https://github.com/Lenardo1/loxpanel/pull/57) | `up/betriebsart` | Betriebsart der Raumregelung (V2 und alt) umschaltbar, beim V2 kein angenommener Komfortwert; **setzt auf #56 auf**, eingereicht am 28.09.2026 |
+| [#58](https://github.com/Lenardo1/loxpanel/pull/58) | `up/hausverbrauch` | Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“; `bin/webvisu.py` und `panel.html`, eingereicht am 28.09.2026 |
+| [#59](https://github.com/Lenardo1/loxpanel/pull/59) | `up/speichern-meldung` | Nicht Übernommenes beim Speichern melden; `bin/webvisu.py`, `config.html`, `i18n.js`, eingereicht am 28.09.2026 |
 
 Die Zweige #52–#54 stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
 die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
@@ -214,23 +217,14 @@ Probe-Merge aller fünf Zweige läuft ohne Konflikt, und die neuen Tests
 (`test_energiefluss.py`, `test_raumregelung_v1.py` samt Browser-Test)
 bestehen auch gegen Lenardos Code. Nach dem Merge dort die Zweige löschen.
 
-**Bereit, noch nicht eingereicht** (Fork #95; nach dem Einreichen die
-PR-Nummer oben in die Tabelle übernehmen):
-
-- `up/betriebsart` — Betriebsart der Raumregelung (V2 und alt) umschaltbar,
-  beim V2 kein angenommener Komfortwert mehr. **Setzt auf #56 auf** (braucht
-  die Detailseite der alten Raumregelung), im PR vermerken.
-- `up/hausverbrauch` — Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“,
-  `bin/webvisu.py` und `panel.html`, direkt auf 0.6.0.
-- `up/speichern-meldung` — nicht Übernommenes beim Speichern melden,
-  `bin/webvisu.py`, `config.html`, `i18n.js`, direkt auf 0.6.0.
-  `PANEL_STANDARD` steht dort wie im Fork hinter `PARTIAL_TYPES` (unter
-  `SAUNA_MODES` kollidierte es mit den Konstanten aus #56).
-
-Der Probe-Merge aller acht Zweige (#52–#56 und die drei) läuft ohne
-Konflikt, auf dem Ergebnis bestehen die Tests der neuen Teile (53; der
-Browser-Test der Speichern-Meldung lief dafür ohne die Fork-Route
-`/api/backup`, die es bei Lenardo nicht gibt).
+#57–#59 kommen aus Fork #95. #57 setzt auf #56 auf (braucht die
+Detailseite der alten Raumregelung) und zeigt dessen Commit mit, bis #56
+gemergt ist; #58 und #59 sind je ein Commit auf 0.6.0. In #59 steht
+`PANEL_STANDARD` wie im Fork hinter `PARTIAL_TYPES` – unter `SAUNA_MODES`
+kollidierte es mit den Konstanten aus #56. Der Probe-Merge aller acht
+Zweige (#52–#59) läuft ohne Konflikt, auf dem Ergebnis bestehen die Tests
+der neuen Teile (53; der Browser-Test der Speichern-Meldung lief dafür ohne
+die Fork-Route `/api/backup`, die es bei Lenardo nicht gibt).
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -320,7 +314,8 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       `tiles.*.chartStyle = "trend"`), nicht. Geprüft: was Editor und
       Assistent „Neues Panel“ schreiben, behält der Server; Speichern ohne
       Änderung meldet nichts. Tests: `tests/test_nicht_uebernommen.py`,
-      `tests/browser/test_speichern_browser.py`. (W7) **M**
+      `tests/browser/test_speichern_browser.py`. An Upstream eingereicht als
+      [#59](https://github.com/Lenardo1/loxpanel/pull/59). (W7) **M**
 - [ ] **Freie Seite: fremde Icon-Adressen**: `_sanitize_panels` soll laut
       Kommentar externe URLs als Seiten-Icon verwerfen, lässt aber jede
       Adresse durch, die auf `.svg`/`.png` endet (z. B.
@@ -345,7 +340,8 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       PV/Speicher angelegt sind, aber keinen Wert haben, ist er unbekannt und
       die Fußzeile lässt „Verbrauch“ weg. EFM mit Verbraucher-Knoten wie
       bisher: deren Summe. Tests in `tests/test_energiefluss.py` und
-      `tests/browser/test_energiefluss_browser.py`. **S**
+      `tests/browser/test_energiefluss_browser.py`. An Upstream eingereicht
+      als [#58](https://github.com/Lenardo1/loxpanel/pull/58). **S**
 
 ## 4. Performance
 
@@ -768,7 +764,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Komfortwert gibt es kein −/+. Beim V2 wird nicht nach Heizen/Kühlen
       gefiltert – das Detail `possibleCapabilities` nennt nur PyLoxone, eine
       zweite Quelle fehlt. Tests: `tests/test_betriebsart.py`, Browser-Test
-      bis zum Befehl am Miniserver. **M**
+      bis zum Befehl am Miniserver. An Upstream eingereicht als
+      [#57](https://github.com/Lenardo1/loxpanel/pull/57). **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**
