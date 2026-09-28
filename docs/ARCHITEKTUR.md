@@ -486,7 +486,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme | Konfigurator, Einstellungen |
-| POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels | Konfigurator |
+| POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |

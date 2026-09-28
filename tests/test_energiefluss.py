@@ -6,18 +6,7 @@ im Forum an einer Anlage mit Speicher bestaetigt). Das Netz stimmte schon und
 laeuft hier als Gegenprobe mit."""
 import pytest
 
-from lox import W, anlage, bloecke
-
-EFM_NODES = [{"name": "Netz", "nodeType": "Grid"}, {"name": "PV", "nodeType": "Production"},
-             {"name": "Batterie", "nodeType": "Storage"}, {"name": "Wärmepumpe", "nodeType": "Load"}]
-
-EFM = {"name": "Energieflussmonitor", "type": "EFM", "uuidAction": "F", "room": "r1", "cat": "c1",
-       "details": {"actualFormat": "%.2f kW", "nodes": EFM_NODES},
-       "states": {"Ppwr": "f-p", "Gpwr": "f-g", "Spwr": "f-s",
-                  **{f"actual{i}": f"f-a{i}" for i in range(len(EFM_NODES))}}}
-
-EM2 = {"name": "Energiemanager", "type": "EnergyManager2", "uuidAction": "M", "room": "r1", "cat": "c1",
-       "details": {}, "states": {"Ppwr": "m-p", "Gpwr": "m-g", "Spwr": "m-s", "Ssoc": "m-soc"}}
+from lox import EFM, EFM_NODES, EM2, W, anlage, bloecke
 
 # (Spwr in kW, erwartete Flussrichtung, erwartete Rolle/Farbe)
 SPEICHER = [(2.0, "in", "prod"), (-1.5, "out", "load"), (0.0, None, "idle")]
@@ -80,3 +69,49 @@ def test_netz_texte_unveraendert():
     assert app._flow_text(-0.5, "%.2f kW", "Netzbezug", "Einspeisung") == "Einspeisung 0,50 kW"
     assert app._flow_text(0, "%.2f kW", "Netzbezug", "Einspeisung") == "Netzbezug 0,00 kW"
     assert app._flow_text(None, "%.2f kW", "Netzbezug", "Einspeisung") == ""
+
+
+# --- Hausverbrauch (Fusszeile "Erzeugung · Verbrauch") ---
+# Frueher stand beim Energiemanager immer "Verbrauch 0 W". Jetzt aus der Bilanz
+# des Hauses: was hereinkommt (PV, Netzbezug, Speicher entlaedt), wird verbraucht.
+
+@pytest.mark.parametrize("pv, netz, speicher, verbrauch", [
+    (3.2, 0.3, 2.0, 5500.0),      # PV + Bezug + Speicher entlaedt
+    (3.2, -0.4, -1.5, 1300.0),    # Einspeisung und Speicher laedt
+    (0.0, 0.8, 0.0, 800.0),       # nachts: nur Netz
+    (3.2, -3.5, 0.0, 0.0),        # Messversatz: Einspeisung > Erzeugung -> 0, nicht negativ
+], ids=["bezug_entladen", "einspeisen_laden", "nur_netz", "nicht_negativ"])
+def test_energiemanager_verbrauch_aus_bilanz(pv, netz, speicher, verbrauch):
+    app = _app({"m-p": pv, "m-g": netz, "m-s": speicher, "m-soc": 50})
+    assert app.energy_blocks("M")["totals"]["cons"] == pytest.approx(verbrauch)
+
+
+def test_verbrauch_unbekannt_statt_null():
+    """Ohne Netzwert, oder mit angelegtem Speicher ohne Wert: unbekannt (None),
+    die Fusszeile laesst "Verbrauch" dann weg."""
+    assert _app({"m-p": 3.2, "m-s": 1.0}).energy_blocks("M")["totals"]["cons"] is None
+    assert _app({"m-p": 3.2, "m-g": 0.3}).energy_blocks("M")["totals"]["cons"] is None
+
+
+def test_verbrauch_ohne_speicher():
+    """Kein Speicher-State (bzw. HasSpwr false): Bilanz aus PV und Netz."""
+    em = dict(EM2, states={k: v for k, v in EM2["states"].items() if k not in ("Spwr", "Ssoc")})
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage({"M": em}))
+    app.states = {"m-p": 3.2, "m-g": 0.3}
+    assert app.energy_blocks("M")["totals"]["cons"] == pytest.approx(3500.0)
+    em = dict(EM2, details={"HasSpwr": False})
+    app._apply_structure(anlage({"M": em}))
+    app.states = {"m-p": 3.2, "m-g": 0.3, "m-s": 9.9}
+    assert app.energy_blocks("M")["totals"]["cons"] == pytest.approx(3500.0)
+
+
+def test_efm_verbrauch_knoten_oder_bilanz():
+    """Energieflussmonitor mit Verbraucher-Knoten: deren Summe wie bisher;
+    ohne Verbraucher-Knoten: die Bilanz aus Ppwr/Gpwr/Spwr."""
+    app = _app({"f-a0": 0.8, "f-a1": 3.2, "f-a2": 2.0, "f-a3": 1.2})
+    assert app.energy_blocks("F")["totals"]["cons"] == pytest.approx(1200.0)
+    efm = dict(EFM, details={"actualFormat": "%.2f kW", "nodes": EFM_NODES[:3]})
+    app._apply_structure(anlage({"F": efm}))
+    app.states = {"f-p": 3.2, "f-g": 0.3, "f-s": 2.0, "f-a0": 0.3, "f-a1": 3.2, "f-a2": 2.0}
+    assert app.energy_blocks("F")["totals"]["cons"] == pytest.approx(5500.0)

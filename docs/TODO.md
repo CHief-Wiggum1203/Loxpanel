@@ -291,8 +291,24 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       Zusätzlich werden alle Blöcke einer Art über ihre Position gepatcht statt
       nur der erste Treffer — das war die Ursache für eingefrorene Statuszeilen
       auf der Sauna-Detailseite. (F12) **M**
-- [ ] **Stiller Verlust beim Speichern**: `_sanitize_panels` soll melden, welche
-      Felder verworfen wurden, und der Konfigurator zeigt es an. (W7) **M**
+- [x] **Stiller Verlust beim Speichern**: `/api/panels` antwortet zusätzlich
+      mit `verworfen` – was `_sanitize_panels` nicht übernommen hat, als
+      lesbare Pfade („Wohnzimmer: ui.cols“, „… tabs: quatsch“, Kacheln mit
+      Bausteinnamen statt UUID). Der Konfigurator zeigt es als gelbe Warnung,
+      die bis zur nächsten Änderung stehen bleibt; das Server-Log nennt es
+      auch. Gemeldet wird nur, was einen Inhalt hatte: leere Werte,
+      begrenzte/gekürzte Werte und Standardwerte, die bewusst nicht
+      gespeichert werden (`PANEL_STANDARD`: `ui.split = true`,
+      `tiles.*.chartStyle = "trend"`), nicht. Geprüft: was Editor und
+      Assistent „Neues Panel“ schreiben, behält der Server; Speichern ohne
+      Änderung meldet nichts. Tests: `tests/test_nicht_uebernommen.py`,
+      `tests/browser/test_speichern_browser.py`. (W7) **M**
+- [ ] **Freie Seite: fremde Icon-Adressen**: `_sanitize_panels` soll laut
+      Kommentar externe URLs als Seiten-Icon verwerfen, lässt aber jede
+      Adresse durch, die auf `.svg`/`.png` endet (z. B.
+      `https://fremd.example/x.png`). Das Panel lädt das Bild dann von dort.
+      Beim Bau der Meldung für den stillen Verlust gefunden; Adressen mit
+      Schema (`://`) ausschließen, Loxone-Icon-Pfade sind relativ. **S**
 - [x] **Speicher-Vorzeichen im Energiefluss**: Loxone zählt aus Sicht des
       Hauses, ein positiver `Spwr` heißt „Speicher entlädt“ (fließt ins Haus,
       wie Netzbezug). `classify()` und die Texte der Detailseiten hatten es
@@ -303,6 +319,15 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       Summen-Knoten aus `Spwr`; bei 0 kW steht „Speicher“ ohne Richtung.
       Tests: `tests/test_energiefluss.py`. An Upstream eingereicht als
       [#55](https://github.com/Lenardo1/loxpanel/pull/55). **S**
+- [x] **„Verbrauch 0 W“ beim Energiemanager**: Unter dem Radial stand beim
+      `EnergyManager2` (und beim EFM ohne Verbraucher-Knoten) immer
+      „Verbrauch 0 W“, der Server rechnete ihn nicht, das Panel setzte 0 ein.
+      Jetzt aus der Bilanz des Hauses: Erzeugung + Netz + Speicher (was
+      hereinkommt, wird verbraucht), nie negativ. Ohne Netzwert, oder solange
+      PV/Speicher angelegt sind, aber keinen Wert haben, ist er unbekannt und
+      die Fußzeile lässt „Verbrauch“ weg. EFM mit Verbraucher-Knoten wie
+      bisher: deren Summe. Tests in `tests/test_energiefluss.py` und
+      `tests/browser/test_energiefluss_browser.py`. **S**
 
 ## 4. Performance
 
@@ -449,8 +474,8 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Nummern aus der Loxone-Strukturdoku, die Strukturform (Liste
       `temperatures`, `details.temperatures[].isAbsolute`) von einer echten
       Anlage. Ohne bekannten, absoluten Komfortwert gibt es kein −/+. Im
-      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart (`mode/…`)
-      ist wie beim V2 noch nicht umschaltbar. Tests:
+      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart
+      (`mode/…`) ist umschaltbar, siehe „Betriebsart umschalten“. Tests:
       `tests/test_raumregelung_v1.py`, Browser-Test bis zum Befehl am
       Miniserver. An Upstream eingereicht als
       [#56](https://github.com/Lenardo1/loxpanel/pull/56). **M**
@@ -713,8 +738,19 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Upstream eingereicht als
       [#42](https://github.com/Lenardo1/loxpanel/pull/42), die Tabs nicht.
       **M**
-- [ ] **Heizung: Modus-Umschaltung** im `IRoomControllerV2` über die
-      Betriebsart, nicht nur Override. **M**
+- [x] **Heizung: Betriebsart umschalten** für beide Raumregelungen, als
+      Aufklapper „Betriebsart“ zwischen − und + auf der Detailseite; eine
+      manuelle Betriebsart steht in der Statuszeile (dann läuft kein
+      Zeitplan). `IRoomControllerV2`: `operatingMode` 0–5,
+      `setOperatingMode/<Nr>` (Bedeutung wie in der openHAB-Loxone-Anbindung).
+      `IRoomController`: `mode/<Nr>` mit 0, 3–6 laut Loxone-Strukturdoku,
+      1/2 („Automatik, heizt/kühlt gerade“) gelten als Automatik,
+      `restrictedToMode` blendet Heizen bzw. Kühlen aus. Dabei beim V2 die
+      Annahme „Komfort unbekannt → Soll oder 20 °C“ entfernt: ohne bekannten
+      Komfortwert gibt es kein −/+. Beim V2 wird nicht nach Heizen/Kühlen
+      gefiltert – das Detail `possibleCapabilities` nennt nur PyLoxone, eine
+      zweite Quelle fehlt. Tests: `tests/test_betriebsart.py`, Browser-Test
+      bis zum Befehl am Miniserver. **M**
 - [ ] **Panel-Texte mehrsprachig**: die rund 90 hart deutschen Strings im Server
       in einen Katalog ziehen, `lang` aus dem Profil auswerten. Nur nötig,
       wenn ein Panel nicht deutsch sein soll. **L**

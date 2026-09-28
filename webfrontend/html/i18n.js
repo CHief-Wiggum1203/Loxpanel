@@ -404,6 +404,7 @@
       'Keine Intercom-Bausteine gefunden (Miniserver verbunden?).':
         'No intercom blocks found (Miniserver connected?).',
       '✓ Gespeichert': '✓ Saved',
+      'Nicht übernommen:': 'Not kept by the server:',
       'verbunden': 'connected',
       'nicht verbunden': 'not connected',
 

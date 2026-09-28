@@ -17,8 +17,9 @@ def _app(**werte) -> W.App:
 
 
 def _zeilen(view: dict) -> list[list[tuple]]:
-    """Knopfzeilen als [(Beschriftung, Befehl, an?)]."""
-    return [[(c["label"], c["cmd"]["cmd"], bool(c.get("on"))) for c in b["cells"]]
+    """Knopfzeilen als [(Beschriftung, Befehl, an?)]; ein Aufklapper hat den
+    Befehl "menu" (Eintraege siehe test_betriebsart.py)."""
+    return [[(c["label"], "menu" if "menu" in c else c["cmd"]["cmd"], bool(c.get("on"))) for c in b["cells"]]
             for b in bloecke(view, "row")]
 
 
@@ -39,7 +40,7 @@ def test_detail_heizen_komfort():
     assert [b["text"] for b in bloecke(v, "big")] == ["20,5 °C"]
     assert [b["text"] for b in bloecke(v, "status")] == ["Soll 22,0 °C · Komfort Heizen · heizt"]
     assert _zeilen(v) == [
-        [("−", "settemp/1/21.5", False), ("+", "settemp/1/22.5", False)],
+        [("−", "settemp/1/21.5", False), ("Betriebsart", "menu", False), ("+", "settemp/1/22.5", False)],
         [("Eco", "starttimer/0/3600", False), ("Komfort", "starttimer/1/3600", True),
          ("Automatik", "stoptimer", False)]]
 
@@ -48,7 +49,8 @@ def test_detail_kuehlen():
     """Autopilot Kuehlen: Komfort Kuehlen (Nr. 2) ist Stellgroesse und Timer."""
     v = _app(mode=4, currCoolTempIx=2, tempTarget=24.0, valveCool=1).render({"view": "control", "id": "IRC"})
     assert [b["text"] for b in bloecke(v, "status")] == ["Soll 24,0 °C · Komfort Kühlen · kühlt"]
-    assert _zeilen(v)[0] == [("−", "settemp/2/23.5", False), ("+", "settemp/2/24.5", False)]
+    assert _zeilen(v)[0] == [("−", "settemp/2/23.5", False), ("Betriebsart", "menu", False),
+                             ("+", "settemp/2/24.5", False)]
     assert ("Komfort", "starttimer/2/3600", True) in _zeilen(v)[1]
 
 
@@ -56,33 +58,34 @@ def test_detail_kuehlen():
 def test_detail_manuell(mode):
     """Manueller Betrieb: -/+ verstellt die manuelle Temperatur (Nr. 7) ab dem Soll."""
     v = _app(mode=mode, tempTarget=23.0).render({"view": "control", "id": "IRC"})
-    assert _zeilen(v)[0] == [("−", "settemp/7/22.5", False), ("+", "settemp/7/23.5", False)]
+    assert _zeilen(v)[0] == [("−", "settemp/7/22.5", False), ("Betriebsart", "menu", False),
+                             ("+", "settemp/7/23.5", False)]
 
 
 def test_detail_eco_aktiv():
     """Eco aktiv: Knopf Eco markiert, -/+ bleibt auf Komfort (Eco haengt davon ab)."""
     v = _app(currHeatTempIx=0, tempTarget=20.0).render({"view": "control", "id": "IRC"})
     assert [b["text"] for b in bloecke(v, "status")] == ["Soll 20,0 °C · Eco"]
-    assert _zeilen(v)[0][1] == ("+", "settemp/1/22.5", False)
+    assert _zeilen(v)[0][2] == ("+", "settemp/1/22.5", False)
     assert ("Eco", "starttimer/0/3600", True) in _zeilen(v)[1]
 
 
 def test_ohne_bekannte_komforttemperatur_kein_plus_minus():
     """Kein Wert fuer Komfort (oder als relativ gemeldet): kein -/+, statt einen
-    Wert anzunehmen. Timer und Automatik bleiben."""
+    Wert anzunehmen. Betriebsart, Timer und Automatik bleiben."""
     control, states = irc1_baustein()
     control["details"]["temperatures"]["1"]["isAbsolute"] = False
     app = W.App({"host": "", "port": 80})
     app._apply_structure(anlage({"IRC": control}))
     app.states = states
     rows = _zeilen(app.render({"view": "control", "id": "IRC"}))
-    assert [lbl for lbl, _, _ in rows[0]] == ["Eco", "Komfort", "Automatik"] and len(rows) == 1
+    assert [[lbl for lbl, _, _ in r] for r in rows] == [["Betriebsart"], ["Eco", "Komfort", "Automatik"]]
 
     control, states = irc1_baustein()
     states.pop("irc-t1")
     app._apply_structure(anlage({"IRC": control}))
     app.states = states
-    assert len(_zeilen(app.render({"view": "control", "id": "IRC"}))) == 1
+    assert [lbl for lbl, _, _ in _zeilen(app.render({"view": "control", "id": "IRC"}))[0]] == ["Betriebsart"]
 
 
 def test_diagnose_voll_unterstuetzt():
