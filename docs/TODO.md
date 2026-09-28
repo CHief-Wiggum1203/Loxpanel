@@ -53,19 +53,25 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-**Offen: Upstream 0.6.0** (`fba3e4a`, seit 27.09.2026, noch nicht im Fork).
-Darin Lenardos #51 „Widgets überall + Panel-Assistent-Ausbau“: ein Widget
-als eigener Vollbild-Tab (`view.widget`, auch als freie Seite mit `widget`),
-Werte (`status:`) und Audio als Widget in Pane 2 und auf der Uhr-Seite, der
-Begriff „Widget“ statt „Zusatz“ in Konfigurator und Assistent sowie eine
-Übersicht der Assistenten-Schritte. Beim Merge beachten: Die Fassungen von
-`up/hochformat-split` und `up/sprungmarken` auf 0.6.0 zeigen, wie die
-Konflikte mit unserem Hochformat (#91, #92) und den Sprungmarken (#93)
-aufzulösen sind — Lenardos Wortlaut mit unseren Hochkant-Ergänzungen, und
-die Wahl „Springen/Filtern“ entfällt bei einer freien Seite, die ein Widget
-ist.
+Zuletzt eingepflegt am **27.09.2026** (`upstream/main` @ `fba3e4a`,
+**Release 0.6.0**), als echter Merge-Commit. Neu damit im Fork: Lenardos #51
+„Widgets überall + Panel-Assistent-Ausbau“ — eine freie Seite kann statt
+Kacheln ein **Widget als Vollbild-Tab** sein (`pickTabs[].widget`, im Panel
+`view.widget`, `.screen.widgettab`), **Werte** (`status:`) auch als Pane 2,
+**Audio** (Now Playing) als zweite Spalte der Uhr-Seite, der Begriff
+„Widget“ statt „Zusatz“ in Konfigurator und Assistent und eine Übersicht der
+Assistenten-Schritte. Drei Konfliktdateien: `release.cfg` (Version 0.6.0,
+`ARCHIVEURL` bleibt beim Fork), `panel.html` (Lenardos `paneRawNow()`,
+Widget-Seite und Audio-Push mit unserem Hochformat, den Kalender-/Wetter-Tabs
+und dem Raster), `config.html` (Lenardos Wortlaut mit unseren
+Hochkant-Ergänzungen, dazu seine neuen Texte; die Wahl „Springen/Filtern“
+entfällt bei einer freien Seite, die ein Widget ist) — aufgelöst wie in den
+Upstream-Zweigen #52–#54. In `i18n.js` wurden die verwaisten Fork-Schlüssel
+zu Lenardos neuen Texten „Widget je Tab“ und „Visu + Widget je Tab – …“
+umbenannt, die damit auch englisch sind. Neuer Test:
+`test_widget_seite_quer_und_hochkant`.
 
-Zuletzt eingepflegt am **26.09.2026** (`upstream/main` @ `a37c022`), als
+Davor, am **26.09.2026** (`upstream/main` @ `a37c022`), als
 echter Merge-Commit. Neu damit im Fork: der **Panel-Assistent** im
 Konfigurator (Anzeige, Inhalt, Design, Screensaver, Aktiv-Overlay), die
 **freie Auswahl mit bis zu vier Seiten** samt Name und Icon (`auswahl`,
@@ -135,7 +141,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind `up/hochformat-split` und `up/sprungmarken` (unten).
+`up/sammel`). Offen sind #52 bis #56 (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -187,20 +193,26 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 
 | PR | Zweig | Inhalt |
 |---|---|---|
-| noch zu öffnen | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
-| noch zu öffnen | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
-| noch zu öffnen | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
+| [#52](https://github.com/Lenardo1/loxpanel/pull/52) | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
+| [#53](https://github.com/Lenardo1/loxpanel/pull/53) | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
+| [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
+| [#55](https://github.com/Lenardo1/loxpanel/pull/55) | `up/speicher-vorzeichen` | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14); nur `bin/webvisu.py`, eingereicht am 28.09.2026 |
+| [#56](https://github.com/Lenardo1/loxpanel/pull/56) | `up/raumregelung-v1` | Alte Raumregelung (`IRoomController`, IRC v1) mit Kachel und Detailseite, im Forum gemeldet; `bin/webvisu.py` und `README.md`, eingereicht am 28.09.2026 |
 
-Alle drei Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
+Die Zweige #52–#54 stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
 die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
 `i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`,
 `up/assistent-ausweg` nur `config.html` und `i18n.js`. Sie sind unabhängig
 voneinander: der Probe-Merge aller drei auf 0.6.0 läuft ohne Konflikt,
 und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
-(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Einreichen über
-`https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/hochformat-split?expand=1`
-bzw. `…:up/sprungmarken?expand=1` und `…:up/assistent-ausweg?expand=1`,
-danach die PR-Nummern hier eintragen.
+(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Eingereicht am
+27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
+patch-gleich zurück; danach die drei Zweige löschen.
+
+#55 und #56 sind ebenfalls je ein Commit auf 0.6.0 ohne die Fork-Tests; der
+Probe-Merge aller fünf Zweige läuft ohne Konflikt, und die neuen Tests
+(`test_energiefluss.py`, `test_raumregelung_v1.py` samt Browser-Test)
+bestehen auch gegen Lenardos Code. Nach dem Merge dort die Zweige löschen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -212,7 +224,7 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork steht auf `a37c022`; Upstream 0.6.0 ist noch offen (siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
 
 ## 1. Konfiguration vor Datenverlust schützen
 
@@ -281,13 +293,16 @@ Der Fork steht auf `a37c022`; Upstream 0.6.0 ist noch offen (siehe oben).
       auf der Sauna-Detailseite. (F12) **M**
 - [ ] **Stiller Verlust beim Speichern**: `_sanitize_panels` soll melden, welche
       Felder verworfen wurden, und der Konfigurator zeigt es an. (W7) **M**
-- [ ] **Speicher-Vorzeichen im Energiemanager prüfen**: `_flow_text(Spwr, …)`
-      und `classify()` nehmen an, dass ein positiver `Spwr` „Speicher lädt"
-      bedeutet. Die Loxone-Doku beschreibt es umgekehrt (positiv = Speicher
-      wird entladen). Wenn das stimmt, sind Laden/Entladen in Text **und**
-      Flussrichtung des Radials vertauscht. An einer Anlage mit echtem Speicher
-      gegenprüfen, bevor etwas geändert wird — betrifft auch den
-      Energiefluss-Beitrag an Upstream. **S**
+- [x] **Speicher-Vorzeichen im Energiefluss**: Loxone zählt aus Sicht des
+      Hauses, ein positiver `Spwr` heißt „Speicher entlädt“ (fließt ins Haus,
+      wie Netzbezug). `classify()` und die Texte der Detailseiten hatten es
+      umgekehrt, der Speicher lief also beim Entladen in die Batterie hinein.
+      Im Loxone-Forum an einer Anlage mit Speicher bestätigt (Energieflussmonitor,
+      Lenardo1/Loxpanel#14). Jetzt entlädt er grün zur Mitte und lädt orange
+      nach außen, für EFM-Knoten mit `nodeType` Storage wie für den
+      Summen-Knoten aus `Spwr`; bei 0 kW steht „Speicher“ ohne Richtung.
+      Tests: `tests/test_energiefluss.py`. An Upstream eingereicht als
+      [#55](https://github.com/Lenardo1/loxpanel/pull/55). **S**
 
 ## 4. Performance
 
@@ -426,8 +441,19 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       umschalten. **M**
 - [ ] `ClimateController` (Klimaregelung EU): Betriebsart, Solltemperatur,
       Zustände Heizen/Kühlen. **M**
-- [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
-      Override wie bei V2. **M**
+- [x] `IRoomController` (alte Raumregelung, IRC v1): Kachel und Detailseite
+      wie beim V2. Ist/Soll, aktive Temperatur, heizt/kühlt (Ventile) und
+      Fenster; −/+ verstellt Komfort der laufenden Periode (`settemp/1` bzw.
+      `/2`, manuell die manuelle Temperatur `settemp/7`), Eco/Komfort für eine
+      Stunde (`starttimer/<Nr>/3600`), Automatik (`stoptimer`). Befehle und
+      Nummern aus der Loxone-Strukturdoku, die Strukturform (Liste
+      `temperatures`, `details.temperatures[].isAbsolute`) von einer echten
+      Anlage. Ohne bekannten, absoluten Komfortwert gibt es kein −/+. Im
+      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart (`mode/…`)
+      ist wie beim V2 noch nicht umschaltbar. Tests:
+      `tests/test_raumregelung_v1.py`, Browser-Test bis zum Befehl am
+      Miniserver. An Upstream eingereicht als
+      [#56](https://github.com/Lenardo1/loxpanel/pull/56). **M**
 - [x] `Sauna` (Sauna-Steuerung): **vollständig**. Anzeige von Ist/Soll/Bank,
       Betriebsart (`mode` 0..6 als Klartext), Feuchte (Ist/Soll), Lüftung,
       Trocknung, Tür, Betriebstemperatur, Wassermangel, Timer und Störung.
@@ -454,9 +480,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 - [x] `EFM` (Energieflussmonitor, Typname in der Strukturdatei ist `EFM`):
       Erzeugung, Netz mit Bezug/Einspeisung, Speicher mit Laden/Entladen,
-      Knoten aus `details.nodes` mit `actual0..5`; nur Anzeige. Annahme
-      Vorzeichen wie in der Loxone-App (positiv = Bezug bzw. Laden), auf der
-      Anlage gegenprüfen. **M**
+      Knoten aus `details.nodes` mit `actual0..5`; nur Anzeige. Vorzeichen
+      aus Sicht des Hauses (positiv = Netzbezug bzw. Speicher entlädt), beim
+      Speicher an einer Anlage bestätigt (siehe Abschnitt 3). **M**
 - [x] `PvProductionForecast` (PV-Produktionsvorhersage): heute, morgen,
       Zeitraum, danach, Anlagenleistung. **S**
 - [x] `SteakThermo` (Touch & Grill Thermometer): Fühlertemperaturen aus

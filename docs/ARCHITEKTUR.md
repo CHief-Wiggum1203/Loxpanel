@@ -604,7 +604,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
                                              // "chart:<uuid>" (Verlauf eines Bausteins mit
-                                             // Aufzeichnung); fehlt = Screen füllen
+                                             // Aufzeichnung) | "status:<uuid>,…" (frei gewählte
+                                             // Werte); fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -781,7 +782,7 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   rechte Spalte, hochkant unter Uhr und Wetter, auf dem quadratischen
   4″-Panel keine. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,
-  `weather`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>`, `status:<uuid>,…`. Geprüft an
+  `weather`, `player:<zone>`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>`, `status:<uuid>,…`. Geprüft an
   EINER Stelle (`_clean_svpane()`), gezeichnet in `renderSvSide()`. Energiefluss
   und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
   oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe
@@ -814,6 +815,15 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   ihre Aufteilung neu wählen und neu einpassen, damit `svFit()` keine Termine
   kürzt, die im größeren Kasten Platz haben.
   Geprüft in `test_uhrseite_hochkant_zweite_flaeche_unten`.
+- Widget-Seite (seit Upstream 0.6.0): Eine freie Seite kann statt Kacheln ein
+  Widget sein (`pickTabs[].widget`, dieselben Werte wie eine Pane,
+  `_clean_tabpane()`). Der Server liefert dann `view.widget` ohne `items`, das
+  Panel setzt `.screen.widgettab`, blendet das Kachelgrid aus und zeichnet das
+  Widget über die ganze Fläche; `paneRawNow()` liefert es den Push-Handlern
+  (Energie, Kamera, Verlauf, Werte, Audio) wie eine Pane 2. Das Raster bleibt
+  beim Profil (keine Verdopplung, auch nicht hochkant), eine Widget-Seite hat
+  keine Sprungmarken. Geprüft in `test_widget_seite_quer_und_hochkant` (quer,
+  hochkant, quadratisch).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

@@ -12,6 +12,24 @@
 
   var CAT = {
     en: {
+      // --- Widget-Terminologie (Pane 2 / Screensaver / eigener Tab) ---
+      'Widget (Pane 2)': 'Widget (Pane 2)',
+      'Widget je Tab': 'Widget per tab',
+      'Visu + Widget je Tab.': 'View + widget per tab.',
+      'Widget': 'Widget',
+      'Widget (Vollbild)': 'Widget (full screen)',
+      'Kein Widget (Screen füllen)': 'No widget (fill screen)',
+      'Seiteninhalt': 'Page content',
+      'Freie Seiten — bis 4, je Name, Icon & Inhalt (Kacheln oder Widget)':
+        'Free pages — up to 4, each with name, icon & content (tiles or widget)',
+      'Bausteine (Kacheln)': 'Blocks (tiles)',
+      'Baustein': 'Block',
+      'Musikzone': 'Music zone',
+      'Keine Musikzone in der Anlage.': 'No music zone in the system.',
+      'Diese Seite zeigt statt Kacheln das gewählte Widget über die ganze Fläche — auch am 1-Pane-Display. Wähle oben „Bausteine (Kacheln)", um wieder Kacheln zu setzen.':
+        'This page shows the chosen widget full-screen instead of tiles — on a 1-pane display too. Pick “Blocks (tiles)” above to use tiles again.',
+      '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
+        '“Automatic” enlarges the view on each display as far as it goes without a border. “Like global” inherits the global setting.',
       // --- Nachgezogen: Assistent, Displays, Betriebsmodus, restliche Admin-UI ---
       "Standard-Farbschema": "Default color scheme",
       "Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift, Icons und Zustandsfarben werden daraus berechnet. Eigene Zustandsfarben behalten Vorrang.": "Pick a color — background, tiles, bar, text, icons and state colors are derived from it. Custom state colors keep priority.",
@@ -97,7 +115,7 @@
       "Keine Loxone-Bibliothek gefunden — LoxoneIcons-Plugin installiert und gemountet?": "No Loxone library found — is the LoxoneIcons plugin installed and mounted?",
       "weitere — Suche eingrenzen": "more — narrow the search",
       "Nichts gefunden.": "Nothing found.",
-      "Zusatzfläche je Ansicht": "Extra area per view",
+      "Widget je Tab": "Widget per tab",
       "Audio/Energie/Kamera/Verlauf nehmen automatisch den ersten passenden Baustein — den genauen wählst du bei Bedarf im Editor.": "Audio/energy/camera/history automatically take the first matching block — you pick the exact one in the editor if needed.",
       "Keine Räume gefunden": "No rooms found",
       "Sprungtabs — Kategorien des Raums": "Jump tabs — categories of the room",
@@ -135,7 +153,7 @@
       "1 Pane — 4″ Wandpanel": "1 pane — 4″ wall panel",
       "Ein Pane, nur die Visu.": "One pane, just the view.",
       "2 Panes — Tablet / Breitbild": "2 panes — tablet / widescreen",
-      "Visu + Zusatzfläche – quer rechts, hochkant darunter (je Tab wählbar).": "View + extra area – to the right in landscape, below in portrait (selectable per tab).",
+      "Visu + Widget je Tab – quer rechts, hochkant darunter.": "View + widget per tab – to the right in landscape, below in portrait.",
       "Kachel-Raster — frei wählbar": "Tile grid — freely selectable",
       "Wie möchtest du befüllen?": "How do you want to fill it?",
       "Ein Raum aus Loxone + Kategorien als Sprungtabs.": "One room from Loxone + categories as jump tabs.",

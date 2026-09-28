@@ -235,3 +235,44 @@ def test_split_haelfte_wetter_und_kalender(tmp_path, monkeypatch, breite, hoehe)
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+@pytest.mark.parametrize("breite, hoehe", [(960, 480), (533, 893), (480, 480)], ids=["quer", "hochkant", "quadrat"])
+def test_widget_seite_quer_und_hochkant(tmp_path, monkeypatch, breite, hoehe):
+    """Upstream 0.6.0: eine freie Seite kann statt Kacheln ein Widget sein
+    (Vollbild-Tab). Es fuellt die Flaeche - quer, hochkant (mit unserem
+    Hochformat) und am 4"-Panel -, ohne Kachelgrid und ohne Split."""
+    async def lauf():
+        daten = await _front(monkeypatch)
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(anlage({"L": {"name": "Licht", "type": "Switch", "uuidAction": "LA", "room": "r1",
+                                           "cat": "c1", "isFavorite": True, "states": {"active": "sl"}}}))
+        app.states = {"sl": 0}
+        app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["auswahl", "favoriten"],
+                                                      "pickTabs": [{"name": "Wetter", "picks": [], "widget": "weather"}]}})
+        app._front = app._front_payload(daten)
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": breite, "height": hoehe}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_timeout(600)
+                await pg.evaluate("wake()")
+                await pg.wait_for_timeout(800)
+                m = await pg.evaluate("""() => { const s = document.querySelector('.screen'), fp = document.getElementById('frontpane');
+                    const r = fp.getBoundingClientRect(), sr = s.getBoundingClientRect();
+                    return {widget: s.classList.contains('widgettab'), split: s.classList.contains('split'),
+                            grid: getComputedStyle(document.getElementById('grid')).display, pane: !fp.hidden,
+                            now: !!fp.querySelector('.fp-now'), breit: r.width / sr.width}; }""")
+                await pg.screenshot(path=str(tmp_path / f"widget_{breite}x{hoehe}.png"))
+                assert m["widget"] and not m["split"] and m["grid"] == "none", m
+                assert m["pane"] and m["now"] and m["breit"] > 0.9, m
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
