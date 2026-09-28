@@ -141,7 +141,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind #52, #53 und #54 (unten).
+`up/sammel`). Offen sind #52 bis #55 (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -196,8 +196,9 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | [#52](https://github.com/Lenardo1/loxpanel/pull/52) | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
 | [#53](https://github.com/Lenardo1/loxpanel/pull/53) | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
 | [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
+| [#55](https://github.com/Lenardo1/loxpanel/pull/55) | `up/speicher-vorzeichen` | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14); nur `bin/webvisu.py`, eingereicht am 28.09.2026 |
 
-Alle drei Zweige stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
+Die Zweige #52–#54 stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
 die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
 `i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`,
 `up/assistent-ausweg` nur `config.html` und `i18n.js`. Sie sind unabhängig
@@ -207,13 +208,10 @@ und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
 27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
 patch-gleich zurück; danach die drei Zweige löschen.
 
-**Bereit, noch nicht eingereicht** (je ein Commit auf 0.6.0, laufen mit den
-drei Zweigen oben und miteinander ohne Konflikt zusammen; nach dem Einreichen
-die PR-Nummer oben in die Tabelle übernehmen):
+**Bereit, noch nicht eingereicht** (ein Commit auf 0.6.0, läuft mit #52–#55
+ohne Konflikt zusammen; nach dem Einreichen die PR-Nummer oben in die Tabelle
+übernehmen):
 
-- `up/speicher-vorzeichen` — Speicher im Energiefluss richtig herum, schließt
-  Lenardos Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14). Nur
-  `bin/webvisu.py`.
 - `up/raumregelung-v1` — alte Raumregelung (`IRoomController`) mit Kachel und
   Detailseite, im Forum gemeldet. `bin/webvisu.py` und `README.md`.
 
@@ -304,7 +302,8 @@ Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
       Lenardo1/Loxpanel#14). Jetzt entlädt er grün zur Mitte und lädt orange
       nach außen, für EFM-Knoten mit `nodeType` Storage wie für den
       Summen-Knoten aus `Spwr`; bei 0 kW steht „Speicher“ ohne Richtung.
-      Tests: `tests/test_energiefluss.py`. **S**
+      Tests: `tests/test_energiefluss.py`. An Upstream eingereicht als
+      [#55](https://github.com/Lenardo1/loxpanel/pull/55). **S**
 
 ## 4. Performance
 
