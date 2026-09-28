@@ -207,11 +207,15 @@ und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
 27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
 patch-gleich zurück; danach die drei Zweige löschen.
 
-**Bereit, noch nicht eingereicht:** `up/speicher-vorzeichen` — Speicher im
-Energiefluss richtig herum, schließt Lenardos Issue
-[#14](https://github.com/Lenardo1/loxpanel/issues/14). Ein Commit auf 0.6.0,
-nur `bin/webvisu.py`; läuft mit den drei Zweigen oben ohne Konflikt
-zusammen. Nach dem Einreichen die PR-Nummer oben in die Tabelle übernehmen.
+**Bereit, noch nicht eingereicht** (je ein Commit auf 0.6.0, laufen mit den
+drei Zweigen oben und miteinander ohne Konflikt zusammen; nach dem Einreichen
+die PR-Nummer oben in die Tabelle übernehmen):
+
+- `up/speicher-vorzeichen` — Speicher im Energiefluss richtig herum, schließt
+  Lenardos Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14). Nur
+  `bin/webvisu.py`.
+- `up/raumregelung-v1` — alte Raumregelung (`IRoomController`) mit Kachel und
+  Detailseite, im Forum gemeldet. `bin/webvisu.py` und `README.md`.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -439,8 +443,18 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       umschalten. **M**
 - [ ] `ClimateController` (Klimaregelung EU): Betriebsart, Solltemperatur,
       Zustände Heizen/Kühlen. **M**
-- [ ] `IRoomController` (alte Raumregelung): Ist/Soll, Betriebsarten,
-      Override wie bei V2. **M**
+- [x] `IRoomController` (alte Raumregelung, IRC v1): Kachel und Detailseite
+      wie beim V2. Ist/Soll, aktive Temperatur, heizt/kühlt (Ventile) und
+      Fenster; −/+ verstellt Komfort der laufenden Periode (`settemp/1` bzw.
+      `/2`, manuell die manuelle Temperatur `settemp/7`), Eco/Komfort für eine
+      Stunde (`starttimer/<Nr>/3600`), Automatik (`stoptimer`). Befehle und
+      Nummern aus der Loxone-Strukturdoku, die Strukturform (Liste
+      `temperatures`, `details.temperatures[].isAbsolute`) von einer echten
+      Anlage. Ohne bekannten, absoluten Komfortwert gibt es kein −/+. Im
+      Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart (`mode/…`)
+      ist wie beim V2 noch nicht umschaltbar. Tests:
+      `tests/test_raumregelung_v1.py`, Browser-Test bis zum Befehl am
+      Miniserver. **M**
 - [x] `Sauna` (Sauna-Steuerung): **vollständig**. Anzeige von Ist/Soll/Bank,
       Betriebsart (`mode` 0..6 als Klartext), Feuchte (Ist/Soll), Lüftung,
       Trocknung, Tür, Betriebstemperatur, Wassermangel, Timer und Störung.

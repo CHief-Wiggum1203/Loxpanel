@@ -208,6 +208,36 @@ def raum_anlage() -> tuple[dict, dict]:
              "cats": {c: {"name": v[0]} for c, v in RAUM_KATS.items()}, "controls": controls}, states)
 
 
+# Alte Raumregelung (IRoomController, v1) in der Form, die ein echter Miniserver
+# liefert (Struktur aus ioBroker.loxone#22): "temperatures" ist in states eine
+# Liste mit einer UUID je Temperatur-Nummer 0..6, details.temperatures sagt je
+# Nummer, ob der Wert absolut ist oder von Komfort abhaengt.
+IRC1_ABSOLUT = {"0": False, "1": True, "2": True, "3": True, "4": True, "5": False, "6": False}
+IRC1_STATES = ("tempTarget", "tempActual", "error", "mode", "serviceMode", "currHeatTempIx",
+               "currCoolTempIx", "override", "isPreparing", "valveHeat", "valveCool", "openWindow",
+               "overrideTotal", "movement", "manualMode")
+
+
+def irc1_baustein(**werte) -> tuple[dict, dict]:
+    """-> (Control, States) einer alten Raumregelung im Autopilot Heizen mit
+    Komfort Heizen aktiv. werte ueberschreibt States nach Namen; "temperatures"
+    ist die Liste der Werte je Nummer (Eco, Erhoehte Waerme, Party relativ)."""
+    states = {n: f"irc-{n}" for n in IRC1_STATES}
+    states["temperatures"] = [f"irc-t{i}" for i in range(len(IRC1_ABSOLUT))]
+    control = {"name": "Wohnzimmer Heizung", "type": "IRoomController", "uuidAction": "IRC",
+               "room": "r1", "cat": "c1",
+               "details": {"restrictedToMode": 0, "format": "%.1f°",
+                           "temperatures": {k: {"isAbsolute": v} for k, v in IRC1_ABSOLUT.items()}},
+               "states": states}
+    w = {"tempTarget": 22.0, "tempActual": 20.5, "error": 0, "mode": 3, "serviceMode": 0,
+         "currHeatTempIx": 1, "currCoolTempIx": 2, "override": 0, "isPreparing": 0, "valveHeat": 0,
+         "valveCool": 0, "openWindow": 0, "overrideTotal": 0, "movement": 0, "manualMode": 0,
+         "temperatures": [2.0, 22.0, 24.0, 12.0, 30.0, 1.0, 0.5], **werte}
+    werte_uuid = {states[n]: w[n] for n in IRC1_STATES}
+    werte_uuid.update(zip(states["temperatures"], w["temperatures"]))
+    return control, werte_uuid
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)
