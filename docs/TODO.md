@@ -141,7 +141,7 @@ beim nächsten Mal wieder.
 
 Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind #52 bis #55 (unten).
+`up/sammel`). Offen sind #52 bis #56 (unten).
 
 | PR | Inhalt |
 |---|---|
@@ -197,6 +197,7 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | [#53](https://github.com/Lenardo1/loxpanel/pull/53) | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
 | [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
 | [#55](https://github.com/Lenardo1/loxpanel/pull/55) | `up/speicher-vorzeichen` | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14); nur `bin/webvisu.py`, eingereicht am 28.09.2026 |
+| [#56](https://github.com/Lenardo1/loxpanel/pull/56) | `up/raumregelung-v1` | Alte Raumregelung (`IRoomController`, IRC v1) mit Kachel und Detailseite, im Forum gemeldet; `bin/webvisu.py` und `README.md`, eingereicht am 28.09.2026 |
 
 Die Zweige #52–#54 stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
 die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
@@ -208,12 +209,10 @@ und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
 27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
 patch-gleich zurück; danach die drei Zweige löschen.
 
-**Bereit, noch nicht eingereicht** (ein Commit auf 0.6.0, läuft mit #52–#55
-ohne Konflikt zusammen; nach dem Einreichen die PR-Nummer oben in die Tabelle
-übernehmen):
-
-- `up/raumregelung-v1` — alte Raumregelung (`IRoomController`) mit Kachel und
-  Detailseite, im Forum gemeldet. `bin/webvisu.py` und `README.md`.
+#55 und #56 sind ebenfalls je ein Commit auf 0.6.0 ohne die Fork-Tests; der
+Probe-Merge aller fünf Zweige läuft ohne Konflikt, und die neuen Tests
+(`test_energiefluss.py`, `test_raumregelung_v1.py` samt Browser-Test)
+bestehen auch gegen Lenardos Code. Nach dem Merge dort die Zweige löschen.
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -453,7 +452,8 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Loxone-Forum gemeldet („IRC v1 does nothing“). Die Betriebsart (`mode/…`)
       ist wie beim V2 noch nicht umschaltbar. Tests:
       `tests/test_raumregelung_v1.py`, Browser-Test bis zum Befehl am
-      Miniserver. **M**
+      Miniserver. An Upstream eingereicht als
+      [#56](https://github.com/Lenardo1/loxpanel/pull/56). **M**
 - [x] `Sauna` (Sauna-Steuerung): **vollständig**. Anzeige von Ist/Soll/Bank,
       Betriebsart (`mode` 0..6 als Klartext), Feuchte (Ist/Soll), Lüftung,
       Trocknung, Tür, Betriebstemperatur, Wassermangel, Timer und Störung.
