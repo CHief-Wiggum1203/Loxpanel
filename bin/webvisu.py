@@ -234,6 +234,20 @@ _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Ho
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
                3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
+# Alte Raumregelung (IRoomController, v1) laut Loxone-Strukturdoku: Nummern der
+# Temperaturen fuer settemp/starttimer und currHeatTempIx/currCoolTempIx. Die
+# Struktur liefert dazu je Nummer einen State (Liste "temperatures") und in
+# details.temperatures, ob der Wert absolut ist oder von Komfort abhaengt.
+IRC1_TEMPS = {0: "Eco", 1: "Komfort Heizen", 2: "Komfort Kühlen", 3: "Haus leer",
+              4: "Hitzeschutz", 5: "Erhöhte Wärme", 6: "Party", 7: "Manuell"}
+IRC1_ECO, IRC1_KOMFORT_HEIZEN, IRC1_KOMFORT_KUEHLEN = 0, 1, 2
+# State "mode": 2 = Autopilot kuehlt gerade, 4 = Autopilot Kuehlen, 6 = Manuell
+# Kuehlen; alle anderen Betriebsarten heizen (bzw. 0 = keine Periode aktiv).
+IRC1_KUEHL_MODI = {2, 4, 6}
+# 5 = Manuell Heizen, 6 = Manuell Kuehlen: dann gilt die manuelle Temperatur.
+IRC1_MANUELL_MODI, IRC1_MANUELL = {5, 6}, 7
+# Eco/Komfort-Knoepfe halten die Temperatur so lange wie der Override beim V2.
+IRC1_TIMER_S = 3600
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
@@ -1418,6 +1432,61 @@ class App:
         if win:
             bits.append("Fenster")
         return bits
+
+    def _irc1(self, c: dict) -> dict:
+        """Zustand der alten Raumregelung (IRoomController, v1):
+          kuehlen   laeuft die Kuehlperiode (State mode, IRC1_KUEHL_MODI)
+          ix/name   aktive Temperatur (currCoolTempIx bzw. currHeatTempIx)
+          stell_ix  Temperatur, die -/+ verstellt: manuell die manuelle, sonst
+                    Komfort der Periode
+          stell     ihr aktueller Wert; None, wenn unbekannt oder relativ zu
+                    Komfort (dann gibt es kein -/+, statt einen Wert zu raten)
+          komfort_ix Komfort der Periode (fuer den Komfort-Knopf)
+          prep      fuer _irc_activity: Ventil Heizen > 0 = 1, Kuehlen > 0 = -1"""
+        def num(name):
+            try:
+                return float(self._state(c, name))
+            except (TypeError, ValueError):
+                return None
+
+        mode = num("mode")
+        mode = int(mode) if mode is not None else None
+        kuehlen = mode in IRC1_KUEHL_MODI
+        ix = num("currCoolTempIx" if kuehlen else "currHeatTempIx")
+        ix = int(ix) if ix is not None else None
+        komfort_ix = IRC1_KOMFORT_KUEHLEN if kuehlen else IRC1_KOMFORT_HEIZEN
+        if mode in IRC1_MANUELL_MODI:
+            stell_ix, stell = IRC1_MANUELL, num("tempTarget")
+        else:
+            stell_ix = komfort_ix
+            stell = self._irc1_temp(c, komfort_ix) if self._irc1_absolut(c, komfort_ix) else None
+        prep = 1 if (num("valveHeat") or 0) > 0 else (-1 if (num("valveCool") or 0) > 0 else 0)
+        return {"kuehlen": kuehlen, "ix": ix, "name": IRC1_TEMPS.get(ix), "stell_ix": stell_ix,
+                "stell": stell, "komfort_ix": komfort_ix, "prep": prep}
+
+    def _irc1_temp(self, c: dict, ix: int):
+        """Wert der Temperatur Nr. ix: der State "temperatures" ist bei der
+        alten Raumregelung eine Liste mit einer UUID je Nummer."""
+        lst = (c.get("states") or {}).get("temperatures")
+        if not isinstance(lst, list) or not 0 <= ix < len(lst):
+            return None
+        try:
+            return float(self.states.get(lst[ix]))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _irc1_absolut(c: dict, ix: int) -> bool:
+        """details.temperatures[ix].isAbsolute: True = fester Wert, False =
+        haengt von Komfort ab. Nummern als Schluessel ("0".."6") oder Liste."""
+        tt = (c.get("details") or {}).get("temperatures")
+        if isinstance(tt, dict):
+            e = tt.get(str(ix), tt.get(ix))
+        elif isinstance(tt, list) and 0 <= ix < len(tt):
+            e = tt[ix]
+        else:
+            e = None
+        return bool(isinstance(e, dict) and e.get("isAbsolute"))
 
     def _audio_favs(self, c: dict) -> list:
         """Raum-Favoriten (Radio/Playlist/Spotify) aus dem sourceList-State.
@@ -3002,9 +3071,11 @@ class App:
                       pos=_pos_pct(pct),
                       sublabel=("Offen" if pct >= 100 else
                                 ("Geschlossen" if pct <= 0 else f"{pct}% offen")))
-        elif t == "IRoomControllerV2":
+        elif t in ("IRoomControllerV2", "IRoomController"):
             ta = self._state(c, "tempActual"); tt = self._state(c, "tempTarget")
-            prep = self._state(c, "prepareState")
+            # heizt/kuehlt: V2 meldet es in prepareState, die alte Raumregelung
+            # ueber ihre Ventile (siehe _irc1)
+            prep = self._state(c, "prepareState") if t == "IRoomControllerV2" else self._irc1(c)["prep"]
             bits = self._irc_activity(prep, self._state(c, "openWindow"))
             sub = (f"{self._fmt_num(ta, '%.1f')}° → {self._fmt_num(tt, '%.1f')}°"
                    if ta is not None else "Heizung")
@@ -4300,6 +4371,38 @@ class App:
                 cells.append({"label": "Automatik",
                               "cmd": {"uuid": ua, "cmd": "stopOverride"}})
                 blocks.append({"k": "row", "cells": cells})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": blocks}
+        if t == "IRoomController":
+            # Alte Raumregelung (v1), Befehle laut Loxone-Strukturdoku:
+            # settemp/<Nr>/<Wert>, starttimer/<Nr>/<Sekunden>, stoptimer.
+            ua = c.get("uuidAction")
+            z = self._irc1(c)
+            ta = self._fmt_num(self._state(c, "tempActual"), "%.1f")
+            tt = self._fmt_num(self._state(c, "tempTarget"), "%.1f")
+            sbits = [z["name"]] if z["name"] else []
+            sbits += self._irc_activity(z["prep"], self._state(c, "openWindow"))
+            status = f"Soll {tt} °C" + (" · " + " · ".join(sbits) if sbits else "")
+            blocks = [
+                {"k": "big", "text": f"{ta} °C"},
+                {"k": "status", "text": status},
+            ]
+            # -/+ verstellt Komfort der Periode (manuell: die manuelle
+            # Temperatur) - nur mit bekanntem, absolutem Wert.
+            if z["stell"] is not None:
+                ix, v = z["stell_ix"], z["stell"]
+                blocks.append({"k": "row", "cells": [
+                    {"label": "−", "cmd": {"uuid": ua, "cmd": f"settemp/{ix}/{v - 0.5:.1f}"}},
+                    {"label": "+", "cmd": {"uuid": ua, "cmd": f"settemp/{ix}/{v + 0.5:.1f}"}},
+                ]})
+            # Eco/Komfort fuer eine Stunde halten, Automatik beendet den Timer.
+            blocks.append({"k": "row", "cells": [
+                {"label": IRC1_TEMPS[IRC1_ECO], "on": z["ix"] == IRC1_ECO,
+                 "cmd": {"uuid": ua, "cmd": f"starttimer/{IRC1_ECO}/{IRC1_TIMER_S}"}},
+                {"label": "Komfort", "on": z["ix"] == z["komfort_ix"],
+                 "cmd": {"uuid": ua, "cmd": f"starttimer/{z['komfort_ix']}/{IRC1_TIMER_S}"}},
+                {"label": "Automatik", "cmd": {"uuid": ua, "cmd": "stoptimer"}},
+            ]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
         if t == "Intercom":
