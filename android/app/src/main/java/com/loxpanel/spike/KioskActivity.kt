@@ -2,6 +2,9 @@ package com.loxpanel.spike
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
@@ -106,8 +109,18 @@ class KioskActivity : Activity() {
         ui.postDelayed(goDark, idleMs)
     }
 
-    /** Bildschirm dunkel/aus (Helligkeit 0); Berührung weckt wieder. */
-    private fun screenOff() { setBrightness(0f) }
+    /** Display echt abschalten (lockNow); Fingerberührung weckt wieder.
+     *  Ohne Geräteadministrator Fallback auf Dimmen (Helligkeit 0). */
+    private fun screenOff() {
+        try {
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            if (dpm.isAdminActive(ComponentName(this, LockAdmin::class.java))) {
+                dpm.lockNow()
+                return
+            }
+        } catch (e: Exception) { /* Fallback unten */ }
+        setBrightness(0f)
+    }
 
     private fun setBrightness(b: Float) {
         val lp = window.attributes
