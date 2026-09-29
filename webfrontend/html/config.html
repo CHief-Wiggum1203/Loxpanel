@@ -1357,7 +1357,7 @@ function renderEditor(){
        '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
-       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
+       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).')+'</p>'+
        '<div class="field" style="max-width:340px"><label class="lbl">'+T('Dieser Raum')+'</label>'+
          '<select id="tabRoomSel"></select></div>'+
        '<div class="field" style="max-width:none" id="tabRoomCatWrap"><label class="lbl">'+T('Kategorie-Tabs (unten)')+
@@ -1369,6 +1369,7 @@ function renderEditor(){
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
      '<div id="tabPick"></div>'+
+     '<div id="tabBarMode"></div>'+
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
@@ -2129,7 +2130,8 @@ function pickAnchorsInner(p){
   if(!pickList(p).length) return '';
   if(rs.length<2) return '<p class="hint">'+
     T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
-  return '<p class="hint">'+T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:')+'</p>'+
+  return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:')
+                                                    : T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:'))+'</p>'+
     '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
     (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
       T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
@@ -2228,7 +2230,30 @@ function pickEditHtml(p){
 // Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
 // Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
 // Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
+// Sprungmarken der unteren Leiste: springen (Standard) oder filtern. Nur fuer
+// Panels, deren Leiste aus Sprungmarken besteht - ein Raum-Panel oder eine
+// einzige freie Seite mit Kacheln (wie isRoomPanel() im Panel; eine Widget-Seite
+// hat keine Marken). Haengt an renderPick, weil das bei jedem Wechsel der
+// Leiste laeuft (Modus, Seiten hinzu/weg, Kacheln/Widget).
+function renderBarMode(p){
+  const box=$('#tabBarMode'); if(!box) return;
+  const t=p.tabs||[];
+  const anker=t.length===1 && (String(t[0]).indexOf('room:')===0
+    || (isPick(t[0]) && !(((p.pickTabs||[])[0]||{}).widget)));
+  if(!anker){ box.innerHTML=''; return; }
+  const an=!!(p.ui&&p.ui.catFilter);
+  box.innerHTML='<div class="field" style="max-width:440px;margin-top:14px"><label class="lbl">'+T('Tipp auf eine Sprungmarke')+'</label>'+
+    '<select id="fCatFilter" style="max-width:none">'+
+      '<option value=""'+(an?'':' selected')+'>'+T('Springen – zur Gruppe scrollen')+'</option>'+
+      '<option value="1"'+(an?' selected':'')+'>'+T('Filtern – nur diese Gruppe zeigen')+'</option>'+
+    '</select>'+
+    '<div class="hint" style="padding-top:4px">'+T('Springen: die Kacheln der Gruppe leuchten kurz auf. Filtern: ein zweiter Tipp auf dieselbe Marke zeigt wieder alle, ebenso eine Minute ohne Bedienung.')+'</div></div>';
+  $('#fCatFilter').onchange=e=>{ p.ui=p.ui||{};
+    if(e.target.value) p.ui.catFilter=true; else delete p.ui.catFilter;
+    markDirty(); const pa=$('#pickAnchors'); if(pa) pa.innerHTML=pickAnchorsInner(p); };
+}
 function renderPick(p){
+  renderBarMode(p);
   const box=$('#tabPick'); if(!box) return;
   if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; curPickIdx=0; }
   if(!(p.tabs||[]).some(isPick)){ box.style.display='none'; box.innerHTML=''; return; }
@@ -2567,10 +2592,10 @@ const WZIC={
 function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
 const WZ_LOOK_DEF={iconSize:38,nameSize:20,subSize:16};
-const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
+const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
+function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
 function wzOpen(){
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
@@ -2648,6 +2673,16 @@ function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg
   else if(k==='camera') o=cameraOptions(a); else if(k==='chart') o=chartControlOptions(a); else return '';
   return o?'<select class="wzp2sel" data-pgwarg="'+i+'" style="max-width:180px">'+o+'</select>':'<span class="wznote" style="margin:0">'+T('Kein passender Baustein')+'</span>';
 }
+// Leiste aus Sprungmarken (Raum-Panel oder genau eine freie Seite mit Kacheln,
+// kein Widget)? Dann gibt es die Wahl Springen/Filtern (ui.catFilter).
+function wzAnker(){ return WZ.content==='room'
+  || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget); }
+function wzCatModeHtml(){
+  if(!wzAnker()) return '';
+  return '<p class="wzq mt">'+T('Tipp auf eine Sprungmarke')+'</p><div class="wzopts">'+
+    wzOpt('catMode','jump','grid',T('Springen'),T('Zur Gruppe scrollen, die Kacheln leuchten kurz auf.'))+
+    wzOpt('catMode','filter','pick',T('Filtern'),T('Nur die Kacheln dieser Gruppe zeigen, ein zweiter Tipp zeigt wieder alle.'))+'</div>';
+}
 function wzSetup(){
   wzInitSetup();
   if(WZ.content==='room'){
@@ -2656,7 +2691,7 @@ function wzSetup(){
     var h='<div class="wzfield"><label>'+T('Raum')+'</label><select id="wzRoom">'+(rooms.length?rooms.map(function(r){return '<option value="'+esc(r.tab)+'"'+(WZ.roomTab===r.tab?' selected':'')+'>'+esc(r.label||r.tab)+'</option>';}).join(''):'<option value="">'+T('Keine Räume gefunden')+'</option>')+'</select></div>';
     h+='<p class="wzq mt">'+T('Sprungtabs — Kategorien des Raums')+' <span style="text-transform:none;letter-spacing:0">('+T('max 4, leer = automatisch')+')</span></p><div class="wzopts">';
     h+=(cats.length?cats.slice(0,10).map(function(c){ var on=!auto&&WZ.roomCats.indexOf(c.uuid)>=0; return '<button class="wzo'+(on?' on':'')+'" data-rc="'+esc(c.uuid)+'"><span class="tx" style="flex:1"><b>'+esc(c.name||'Kategorie')+'</b></span></button>'; }).join(''):'<div class="wznote">'+T('Für diesen Raum sind keine Kategorien hinterlegt.')+'</div>');
-    return h+'</div>'+wzPaneRows();
+    return h+'</div>'+wzCatModeHtml()+wzPaneRows();
   }
   if(WZ.content==='classic'){
     var h2='<p class="wzq">'+T('Standard-Tabs — an/aus')+'</p><div class="wzopts">';
@@ -2679,7 +2714,7 @@ function wzSetup(){
   }).join('');
   h3+='</div>';
   if(WZ.pickPages.length<4) h3+='<button class="wzbtn" id="wzPgAdd" style="margin-top:8px">＋ '+T('Seite hinzufügen')+'</button>';
-  h3+=wzPaneRows();
+  h3+=wzCatModeHtml()+wzPaneRows();
   return h3;
 }
 function wzTileEditor(i){
@@ -2742,6 +2777,7 @@ function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),WZ.grid.replace('x','×')],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+  if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push('Name '+L.nameSize); if(L.subSize)det.push('Sub '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
   rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie global'):scaleName(L.scale)]);
@@ -2849,6 +2885,7 @@ function wzBuild(){
   if(WZ.grid==='3x2'||WZ.grid==='3x3') ui.cols=3;
   if(WZ.grid==='2x3'||WZ.grid==='3x3') ui.rows=3;
   if(WZ.panes==='1') ui.split=false;
+  if(wzAnker() && WZ.catMode==='filter') ui.catFilter=true;   // Sprungmarken filtern statt springen
   if(WZ.panes==='2' && WZ.svPane){ var sv=WZ.svPane;
     if(sv==='player'){ var az=firstAudioZone(); sv=az?'player:'+az:''; }
     else if(sv==='energy'){ var eu=firstEnergyControl(); sv=eu?'energy:'+eu:''; }
