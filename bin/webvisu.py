@@ -1988,8 +1988,26 @@ class App:
         # Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher KEINE
         # zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung). Name, Icon UND
         # Rolle (nodeType) kommen vom Miniserver; 0-W-Knoten bleiben (grau).
+        def bilanz():
+            """Hausverbrauch aus der Energiebilanz (Sicht des Hauses: was
+            hereinkommt, wird verbraucht) = Erzeugung + Netz + Speicher. Ohne
+            Netzwert unbekannt (None), ebenso solange PV oder Speicher angelegt
+            sind, aber noch keinen Wert haben. Fehlt der State ganz (beim EM2
+            auch HasSpwr false), hat die Anlage keinen: Beitrag 0."""
+            if g is None:
+                return None
+            summe = g
+            for key, val, da in (("Ppwr", pv, True), ("Spwr", sp, det.get("HasSpwr", True))):
+                if not da or key not in (c.get("states") or {}):
+                    continue
+                if val is None:
+                    return None
+                summe += val
+            return max(0.0, summe)
+
         cons = []
         prod_sum = cons_sum = 0.0
+        hat_verbraucher = False
         if c.get("type") == "EFM":
             for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
                 v = watt(f"actual{i}")
@@ -2003,17 +2021,20 @@ class App:
                 ntl = (nt or "").lower()
                 if ntl == "production":
                     prod_sum += abs(v)
-                elif ntl in ("load", "group") and v > 0:
-                    cons_sum += abs(v)
+                elif ntl in ("load", "group"):
+                    hat_verbraucher = True
+                    if v > 0:
+                        cons_sum += abs(v)
         if cons:
             cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
             nodes = cons
             prod_total = prod_sum or (abs(pv) if pv else 0.0)
-            cons_total = cons_sum
+            # gemessene Verbraucher-Knoten, sonst die Bilanz
+            cons_total = cons_sum if hat_verbraucher else bilanz()
         else:
             nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
             prod_total = abs(pv) if pv else 0.0
-            cons_total = 0.0
+            cons_total = bilanz()
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
                 "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}

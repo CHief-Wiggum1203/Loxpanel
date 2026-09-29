@@ -2385,7 +2385,11 @@ function eColorCls(n){ const k=n.kind||(n.flow==='out'?'load':(n.flow==='in'?'pr
 // in = zur Mitte, out = nach aussen (in den Knoten, z.B. Einspeisung).
 function eDirCls(n){ return n.flow==='in'?' fin':(n.flow==='out'?' fout':''); }
 function nodeLabel(n){ return (n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''); }
-function efooter(tt){ return 'Erzeugung <b>'+esc(fmtPower(tt.prod||0))+'</b> · Verbrauch <b>'+esc(fmtPower(tt.cons||0))+'</b>'; }
+// Nur Werte, die der Server kennt: unbekannter Verbrauch (null) fehlt, statt "0 W".
+function efooter(tt){ const t=[];
+  if(tt.prod!=null) t.push('Erzeugung <b>'+esc(fmtPower(tt.prod))+'</b>');
+  if(tt.cons!=null) t.push('Verbrauch <b>'+esc(fmtPower(tt.cons))+'</b>');
+  return t.join(' · '); }
 // Baut das Radial als HTML-String (fuer Pane UND Detailansicht). Knoten tragen
 // data-Attribute, damit updateEnergyPane() nur Werte/Farben aendert und die
 // Fluss-Punkte NICHT neu erzeugt werden (Animation laeuft sonst nie durch).
