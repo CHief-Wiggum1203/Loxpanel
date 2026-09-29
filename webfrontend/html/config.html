@@ -140,6 +140,7 @@
   .toast{color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
   .toast.show{opacity:1;}
   .toast.err{color:var(--crit);}
+  .toast.warn{color:var(--accent);}
   .toast.ok{color:var(--good);}
   .empty{color:var(--muted);padding:40px 0;}
   .muted{color:var(--muted);padding:12px;}
@@ -311,6 +312,8 @@
   .ovw figure{margin:0;width:120px;} .ovw figcaption{margin-top:8px;font-size:12px;color:var(--muted);}
   .ovw figcaption b{color:var(--fg);font-weight:600;display:block;font-size:12.5px;} .ovw figcaption .badge{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:1px 6px;}
   .ovw .dev{display:flex;gap:26px;flex-wrap:wrap;} .ovw .dev .panes{display:flex;gap:6px;}
+  .ovw .dev figure{width:auto;min-width:100px;}   /* so breit wie die Skizze (Tablet quer: zwei Panes) */
+  .ovw .dev .panes.hoch{flex-direction:column;} .ovw .dev .panes.hoch .pane{width:84px;}
   /* Setting-Boxen zweispaltig */
   .ovcols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px;}
   @media(max-width:760px){ .ovcols{grid-template-columns:1fr;} }
@@ -342,6 +345,14 @@
   .ovw .fpx2 .miniscr{height:82%;}
   .ovw .fptab{width:198px;aspect-ratio:16/10;}
   .ovw .fptab .miniscr{height:72%;}
+  /* Dasselbe Geraet hochkant daneben: die beiden Panes uebereinander */
+  .ovw .fprow{display:flex;gap:12px;align-items:flex-end;}
+  .ovw .devcat figure.wide.zwei{max-width:300px;}
+  .ovw .faceplate.hoch{flex-direction:column;padding:8px 0;}
+  .ovw .fptab.hoch{width:78px;aspect-ratio:10/16;}
+  .ovw .fpx2.hoch{width:74px;aspect-ratio:87/176;}
+  .ovw .faceplate.hoch .miniscr{height:auto;width:62%;}
+  .ovw .fpx2.hoch .miniscr{width:80%;}
   /* Pick-Tab-Leiste (bis zu 4 freie Seiten) */
   .picktabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
   .ptb{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer;}
@@ -365,6 +376,13 @@
   .wzbox{width:100%;max-width:640px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:92vh;}
   .wzhd{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
   .wzhd b{font-size:16px;} .wzhd .wzstep{margin-left:auto;color:var(--muted);font-size:12px;}
+  /* Schliessen: ohne ihn kam man aus einem Assistenten nur per Klick neben das
+     Fenster heraus - in Schritt 1 sind Zurueck und (ohne Auswahl) Weiter gesperrt. */
+  .wzhd .wzx{background:none;border:0;color:var(--muted);font:inherit;font-size:18px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:5px;}
+  .wzhd .wzx:hover,.wzhd .wzx:focus-visible{color:var(--fg);background:var(--panel2);outline:none;}
+  .mzanon{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+  .mzanon .agip{color:var(--muted);font-size:12.5px;min-width:120px;}
+  .mzanon input{max-width:180px;}
   .wzbody{padding:20px;overflow-y:auto;}
   .wzq{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 9px;}
   .wzq.mt{margin-top:22px;}
@@ -538,7 +556,7 @@
     <div class="scroll" id="scroll">
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
-        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei nebeneinander (Visu links, Widget rechts). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
+        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
         <h3><span class="n">A</span>Geräteklassen</h3>
         <div class="dev">
@@ -546,7 +564,10 @@
             <figcaption><b>4″-Wandpanel</b>1 Pane – nur Visu</figcaption></figure>
           <figure><div class="panes"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
             <div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div></div>
-            <figcaption><b>Tablet</b>2 Panes, gleiche Größe</figcaption></figure>
+            <figcaption><b>Tablet quer</b>2 Panes, gleiche Größe</figcaption></figure>
+          <figure class="hoch"><div class="panes hoch"><div class="pane"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+            <div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div></div></div></div>
+            <figcaption><b>Tablet hochkant</b>2 Panes übereinander</figcaption></figure>
         </div>
 
         <h3><span class="n">B</span>Aufteilung im Pane</h3>
@@ -561,7 +582,7 @@
 
         <h3><span class="n">C</span>Widget (Pane 2, Screensaver oder eigener Tab)</h3>
         <p class="lead" style="font-size:13.5px">Ein <b>Widget</b> ist eine fertige Inhaltsfläche — kein Kachelraster aus <b>Bausteinen</b>, sondern eine eigene Ansicht: <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Kamera</b> (Türstation), <b>Verlauf</b> (Aufzeichnung eines Bausteins), <b>Werte</b> (frei gewählte Bausteine als Liste) oder <b>Audio</b> (Now Playing der Musikzone).</p>
-        <p class="lead" style="font-size:13.5px;margin-top:6px">Dasselbe Widget lässt sich an <b>drei Stellen</b> einsetzen: im <b>Pane 2</b> eines 2-Pane-Panels (rechts neben der Visu, je Tab), in der <b>zweiten Spalte des Screensavers</b> (Uhr-Seite im Querformat) und — <b>bald</b> — als <b>eigener Vollbild-Tab</b> in der unteren Leiste (auch am 1-Pane-Panel). Welche Widgets erscheinen, hängt von der Anlage ab: <b>Werte</b> braucht ausgewählte Bausteine, <b>Audio/Energiefluss/Kamera/Verlauf</b> je einen passenden Baustein.</p>
+        <p class="lead" style="font-size:13.5px;margin-top:6px">Dasselbe Widget lässt sich an <b>drei Stellen</b> einsetzen: im <b>Pane 2</b> eines 2-Pane-Panels (quer rechts neben der Visu, hochkant darunter, je Tab), in der <b>zweiten Spalte des Screensavers</b> (Uhr-Seite quer rechts, hochkant unten) und — <b>bald</b> — als <b>eigener Vollbild-Tab</b> in der unteren Leiste (auch am 1-Pane-Panel). Welche Widgets erscheinen, hängt von der Anlage ab: <b>Werte</b> braucht ausgewählte Bausteine, <b>Audio/Energiefluss/Kamera/Verlauf</b> je einen passenden Baustein.</p>
         <div class="row">
           <figure><div class="pane"><div class="p2"><div class="p2h">Audio · Zone</div><div class="cover"></div><div class="ppb"><span></span><span class="m"></span><span></span></div></div></div><figcaption><b>Audio</b>Musikzone je Tab</figcaption></figure>
           <figure><div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div><figcaption><b>Wetter</b>Kurve &amp; Vorschau</figcaption></figure>
@@ -573,7 +594,7 @@
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#5aa9e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 31c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M6 39c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0"/><path d="M14 23V13a4 4 0 0 1 8 0"/></svg></div></div><figcaption><b>Pool</b><span class="badge">Bald</span></figcaption></figure>
           <figure><div class="pane"><div class="soonic"><svg viewBox="0 0 48 48" fill="none" stroke="#e08a4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="8" width="26" height="32" rx="3"/><rect x="16" y="20" width="16" height="14" rx="2"/><path d="M16 13h.01M21 13h.01"/></svg></div></div><figcaption><b>Ofensteuerung</b><span class="badge">Bald</span></figcaption></figure>
         </div>
-        <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Widget: <b>„Screen füllen"</b> verdoppelt die Kacheln nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2, gleiche Kachelgröße). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
+        <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Widget: <b>„Screen füllen"</b> verdoppelt die Kacheln bei gleicher Kachelgröße – quer nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2), hochkant nach unten (aus 2×2 wird 2×4; das Hochformat-Raster 2×3 bleibt). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
 
         <div class="ovcols">
           <div class="ovcol"><h4>Panel-Konfiguration</h4>
@@ -648,14 +669,20 @@
             <div class="desc">Breites Gerät (~2:1): ein Gerät mit zwei 480×480-Panes nebeneinander. Wie zwei 4″-Displays in einem Rahmen.</div>
           </figure>
 
-          <figure class="wide">
-            <div class="faceplate fpx2">
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+          <figure class="wide zwei">
+            <div class="fprow">
+              <div class="faceplate fpx2">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              </div>
+              <div class="faceplate fpx2 hoch">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+              </div>
             </div>
             <div class="nm">YC-SM55P (Portworld) <span class="badge">2 Panes · LAN/PoE</span></div>
             <div class="spec">5,5″ · 720×1280 · Android 11 (RK3566) · PoE</div>
-            <div class="desc">5,5″-Gerät in der Klasse des Shelly X2 – zwei 480×480-Panes nebeneinander, zusätzlich mit <b>LAN/PoE</b> (Strom + Netzwerk über ein Kabel). Hoch- und Querformat möglich; der Hochformat-Feinschliff kommt später.</div>
+            <div class="desc">5,5″-Gerät in der Klasse des Shelly X2 – zwei 480×480-Panes nebeneinander, zusätzlich mit <b>LAN/PoE</b> (Strom + Netzwerk über ein Kabel). Hoch- und Querformat möglich; hochkant liegen die beiden Panes übereinander.</div>
           </figure>
 
         </div>
@@ -663,14 +690,20 @@
         <h3>Tablets · zwei Panes</h3>
         <div class="devcat">
 
-          <figure class="wide">
-            <div class="faceplate fptab">
-              <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
-              <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
+          <figure class="wide zwei">
+            <div class="fprow">
+              <div class="faceplate fptab">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div>
+              </div>
+              <div class="faceplate fptab hoch">
+                <div class="miniscr"><div class="visu"><i></i><i></i><i></i><i></i></div></div>
+                <div class="miniscr"><div class="p2"><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg></div></div></div>
+              </div>
             </div>
             <div class="nm">7–8″-Tablet <span class="badge">2 Panes / Zoom</span></div>
-            <div class="spec">~1024×600 / 1280×800 · Android · quer</div>
-            <div class="desc">Zwei Panes (Visu + Widget) nebeneinander – oder Zoom auf den ganzen Schirm.</div>
+            <div class="spec">~1024×600 / 1280×800 · Android · quer oder hochkant</div>
+            <div class="desc">Zwei Panes (Visu + Widget) – quer nebeneinander, hochkant übereinander – oder Zoom auf den ganzen Schirm.</div>
           </figure>
 
         </div>
@@ -751,7 +784,7 @@
               </div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">6</div><div><div class="as-of">Schritt 6 / 8</div><h4>Screensaver — Uhr-Seite</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Im Querformat steht rechts neben der Uhr Platz für ein Widget (die zweite Spalte).</p><div class="as-opts"><span class="as-chip">Automatik</span><span class="as-chip">Aus</span><span class="as-chip w">Kalender</span><span class="as-chip w">Wetter</span><span class="as-chip w">Audio</span><span class="as-chip w">Energiefluss</span><span class="as-chip w">Kamera</span><span class="as-chip w">Verlauf</span><span class="as-chip w">Werte</span></div></div>
+            <div class="as-body"><div><p class="as-desc">Auf dem Tablet steht neben bzw. unter der Uhr Platz für ein Widget (die zweite Spalte): quer rechts, hochkant unter Uhr und Wetter.</p><div class="as-opts"><span class="as-chip">Automatik</span><span class="as-chip">Aus</span><span class="as-chip w">Kalender</span><span class="as-chip w">Wetter</span><span class="as-chip w">Audio</span><span class="as-chip w">Energiefluss</span><span class="as-chip w">Kamera</span><span class="as-chip w">Verlauf</span><span class="as-chip w">Werte</span></div></div>
               <div class="as-fig"><div class="as-scr" style="padding:10px"><div class="as-clock"><div class="t"><b>20:45</b><span>Sa · 27. Sep</span></div><div class="w"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><small>Widget</small></div></div></div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">7</div><div><div class="as-of">Schritt 7 / 8</div><h4>Aktiv-Overlay</h4></div></div>
@@ -767,8 +800,8 @@
         <div class="as-band"><h4><span class="pin">2 Panes</span> Was am Breitbild anders ist</h4>
           <p>Der Ablauf ist derselbe — nur bekommt die zweite Spalte einen eigenen Inhalt:</p>
           <div class="as-split">
-            <div class="as-mini"><b>Widget je Tab</b><p>Statt „nur Visu" hat jeder Tab rechts ein eigenes Widget — <code>Kein Widget (Screen füllen)</code> oder Wetter/Kalender/Audio/Energiefluss/Kamera/Verlauf. Pro Tab getrennt wählbar.</p></div>
-            <div class="as-mini"><b>Screensaver-Widget</b><p>Dieselbe Widget-Auswahl steht als zweite Spalte der Uhr-Seite — im Querformat neben der Uhr.</p></div>
+            <div class="as-mini"><b>Widget je Tab</b><p>Statt „nur Visu" hat jeder Tab ein eigenes Widget (quer rechts, hochkant darunter) — <code>Kein Widget (Screen füllen)</code> oder Wetter/Kalender/Audio/Energiefluss/Kamera/Verlauf. Pro Tab getrennt wählbar.</p></div>
+            <div class="as-mini"><b>Screensaver-Widget</b><p>Dieselbe Widget-Auswahl steht als zweite Spalte der Uhr-Seite — quer neben der Uhr, hochkant darunter.</p></div>
           </div>
         </div>
 
@@ -1324,7 +1357,7 @@ function renderEditor(){
        '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
-       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen.')+'</p>'+
+       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).')+'</p>'+
        '<div class="field" style="max-width:340px"><label class="lbl">'+T('Dieser Raum')+'</label>'+
          '<select id="tabRoomSel"></select></div>'+
        '<div class="field" style="max-width:none" id="tabRoomCatWrap"><label class="lbl">'+T('Kategorie-Tabs (unten)')+
@@ -1336,6 +1369,7 @@ function renderEditor(){
          '<span id="tabcount"></span></p>'+
        '<div class="chips" id="chips"></div></div>'+
      '<div id="tabPick"></div>'+
+     '<div id="tabBarMode"></div>'+
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
@@ -1386,16 +1420,16 @@ function renderEditor(){
            '<option value="1"'+(((p.ui||{}).split===false)?'':' selected')+'>An (Tablet – 2 Panes)</option>'+
            '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Panel – nur Visu)</option>'+
          '</select>'+
-         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die linke Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
+         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab rechts ein <b>Widget</b>: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Screen füllen</b> = kein Widget, die Visu weitet sich nach rechts aus (doppelte Spalten). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
-       '<div class="field" style="max-width:none"><label class="lbl">Rechte Spalte im Querformat</label>'+
+       '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
        '<div id="svPaneBox"></div>'+
-       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite im <b>Querformat</b> hat rechts neben der Uhr Platz. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Hochkant und auf dem 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
+       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
@@ -1895,13 +1929,21 @@ async function save(){
                             body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
       const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
     }
-    if(j.ok&&okT){ dirty=false; t.className='toast show'; t.textContent='✓ Gespeichert ('+j.count+' Profile) — Panels wurden automatisch neu geladen';
+    if(j.ok&&okT){ dirty=false;
+      // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
+      // es still zu verlieren; die Warnung bleibt stehen (siehe unten).
+      const weg=j.verworfen||[];
+      t.className='toast show'+(weg.length?' warn':'');
+      t.textContent='✓ Gespeichert ('+j.count+' Profile) — Panels wurden automatisch neu geladen'+
+        (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '');
       // Panel-Liste fuer die Geraete-Zuordnung auffrischen (sonst fehlt ein neues
       // Panel dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
       try{ await loadPanelIds(); renderDevices(); }catch(e){} }
     else { t.className='toast show err'; t.textContent='Fehler: '+(j.error||errT||'?'); }
   }catch(e){ t.className='toast show err'; t.textContent='Fehler: '+e; }
-  setTimeout(()=>{ if(t) t.classList.remove('show'); }, 4000);
+  // Eine Warnung ueber nicht Uebernommenes bleibt bis zur naechsten Aenderung
+  // stehen (markDirty leert die Leiste), alles andere geht nach 4 s.
+  setTimeout(()=>{ if(t && !t.classList.contains('warn')) t.classList.remove('show'); }, 4000);
 }
 
 // ---- Kachel-Editor ----
@@ -2088,7 +2130,8 @@ function pickAnchorsInner(p){
   if(!pickList(p).length) return '';
   if(rs.length<2) return '<p class="hint">'+
     T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
-  return '<p class="hint">'+T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:')+'</p>'+
+  return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:')
+                                                    : T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:'))+'</p>'+
     '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
     (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
       T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
@@ -2187,7 +2230,30 @@ function pickEditHtml(p){
 // Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
 // Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
 // Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
+// Sprungmarken der unteren Leiste: springen (Standard) oder filtern. Nur fuer
+// Panels, deren Leiste aus Sprungmarken besteht - ein Raum-Panel oder eine
+// einzige freie Seite mit Kacheln (wie isRoomPanel() im Panel; eine Widget-Seite
+// hat keine Marken). Haengt an renderPick, weil das bei jedem Wechsel der
+// Leiste laeuft (Modus, Seiten hinzu/weg, Kacheln/Widget).
+function renderBarMode(p){
+  const box=$('#tabBarMode'); if(!box) return;
+  const t=p.tabs||[];
+  const anker=t.length===1 && (String(t[0]).indexOf('room:')===0
+    || (isPick(t[0]) && !(((p.pickTabs||[])[0]||{}).widget)));
+  if(!anker){ box.innerHTML=''; return; }
+  const an=!!(p.ui&&p.ui.catFilter);
+  box.innerHTML='<div class="field" style="max-width:440px;margin-top:14px"><label class="lbl">'+T('Tipp auf eine Sprungmarke')+'</label>'+
+    '<select id="fCatFilter" style="max-width:none">'+
+      '<option value=""'+(an?'':' selected')+'>'+T('Springen – zur Gruppe scrollen')+'</option>'+
+      '<option value="1"'+(an?' selected':'')+'>'+T('Filtern – nur diese Gruppe zeigen')+'</option>'+
+    '</select>'+
+    '<div class="hint" style="padding-top:4px">'+T('Springen: die Kacheln der Gruppe leuchten kurz auf. Filtern: ein zweiter Tipp auf dieselbe Marke zeigt wieder alle, ebenso eine Minute ohne Bedienung.')+'</div></div>';
+  $('#fCatFilter').onchange=e=>{ p.ui=p.ui||{};
+    if(e.target.value) p.ui.catFilter=true; else delete p.ui.catFilter;
+    markDirty(); const pa=$('#pickAnchors'); if(pa) pa.innerHTML=pickAnchorsInner(p); };
+}
 function renderPick(p){
+  renderBarMode(p);
   const box=$('#tabPick'); if(!box) return;
   if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; curPickIdx=0; }
   if(!(p.tabs||[]).some(isPick)){ box.style.display='none'; box.innerHTML=''; return; }
@@ -2526,16 +2592,17 @@ const WZIC={
 function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
 const WZ_LOOK_DEF={iconSize:38,nameSize:20,subSize:16};
-const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
+const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
+function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
 function wzOpen(){
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
     $('#wzNext').onclick=wzNext;
     $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
+    $('#wzX').onclick=wzClose;
   }
   wzReset();
   $('#wzOv').hidden=false; wzRender();
@@ -2606,6 +2673,16 @@ function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg
   else if(k==='camera') o=cameraOptions(a); else if(k==='chart') o=chartControlOptions(a); else return '';
   return o?'<select class="wzp2sel" data-pgwarg="'+i+'" style="max-width:180px">'+o+'</select>':'<span class="wznote" style="margin:0">'+T('Kein passender Baustein')+'</span>';
 }
+// Leiste aus Sprungmarken (Raum-Panel oder genau eine freie Seite mit Kacheln,
+// kein Widget)? Dann gibt es die Wahl Springen/Filtern (ui.catFilter).
+function wzAnker(){ return WZ.content==='room'
+  || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget); }
+function wzCatModeHtml(){
+  if(!wzAnker()) return '';
+  return '<p class="wzq mt">'+T('Tipp auf eine Sprungmarke')+'</p><div class="wzopts">'+
+    wzOpt('catMode','jump','grid',T('Springen'),T('Zur Gruppe scrollen, die Kacheln leuchten kurz auf.'))+
+    wzOpt('catMode','filter','pick',T('Filtern'),T('Nur die Kacheln dieser Gruppe zeigen, ein zweiter Tipp zeigt wieder alle.'))+'</div>';
+}
 function wzSetup(){
   wzInitSetup();
   if(WZ.content==='room'){
@@ -2614,7 +2691,7 @@ function wzSetup(){
     var h='<div class="wzfield"><label>'+T('Raum')+'</label><select id="wzRoom">'+(rooms.length?rooms.map(function(r){return '<option value="'+esc(r.tab)+'"'+(WZ.roomTab===r.tab?' selected':'')+'>'+esc(r.label||r.tab)+'</option>';}).join(''):'<option value="">'+T('Keine Räume gefunden')+'</option>')+'</select></div>';
     h+='<p class="wzq mt">'+T('Sprungtabs — Kategorien des Raums')+' <span style="text-transform:none;letter-spacing:0">('+T('max 4, leer = automatisch')+')</span></p><div class="wzopts">';
     h+=(cats.length?cats.slice(0,10).map(function(c){ var on=!auto&&WZ.roomCats.indexOf(c.uuid)>=0; return '<button class="wzo'+(on?' on':'')+'" data-rc="'+esc(c.uuid)+'"><span class="tx" style="flex:1"><b>'+esc(c.name||'Kategorie')+'</b></span></button>'; }).join(''):'<div class="wznote">'+T('Für diesen Raum sind keine Kategorien hinterlegt.')+'</div>');
-    return h+'</div>'+wzPaneRows();
+    return h+'</div>'+wzCatModeHtml()+wzPaneRows();
   }
   if(WZ.content==='classic'){
     var h2='<p class="wzq">'+T('Standard-Tabs — an/aus')+'</p><div class="wzopts">';
@@ -2637,7 +2714,7 @@ function wzSetup(){
   }).join('');
   h3+='</div>';
   if(WZ.pickPages.length<4) h3+='<button class="wzbtn" id="wzPgAdd" style="margin-top:8px">＋ '+T('Seite hinzufügen')+'</button>';
-  h3+=wzPaneRows();
+  h3+=wzCatModeHtml()+wzPaneRows();
   return h3;
 }
 function wzTileEditor(i){
@@ -2700,6 +2777,7 @@ function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),WZ.grid.replace('x','×')],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+  if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push('Name '+L.nameSize); if(L.subSize)det.push('Sub '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
   rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie global'):scaleName(L.scale)]);
@@ -2713,7 +2791,7 @@ function wzRender(){
   if(key==='anzeige'){
     b.innerHTML='<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
       wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.'))+
-      wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab.'))+
+      wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.'))+
       '</div><p class="wzq mt">'+T('Kachel-Raster — frei wählbar')+'</p><div class="wzgrid">'+
       ['2x2','3x2','2x3','3x3'].map(function(g){ var x=wzGridCells(g); return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+g.replace('x','×')+'</b></button>'; }).join('')+'</div>';
   } else if(key==='inhalt'){
@@ -2738,7 +2816,7 @@ function wzRender(){
   } else if(key==='screensaver'){
     if(WZ.panes!=='2'){ b.innerHTML='<div class="wznote">'+T('Am 4″-Panel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>'; }
     else { var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
-      b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Spalte')+'</p><div class="wzopts">'+
+      b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
       wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
       wzOpt('svPane','off','clock',T('Aus — nur Uhr'),'')+
       wzOpt('svPane','calendar','cal',T('Kalender'),'')+
@@ -2747,7 +2825,7 @@ function wzRender(){
       (svHasE?wzOpt('svPane','energy','energy',T('Energiefluss'),''):'')+
       (svHasC?wzOpt('svPane','camera','camera',T('Kamera'),''):'')+
       (svHasV?wzOpt('svPane','chart','status',T('Verlauf'),''):'')+
-      '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) in der Spalte legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
+      '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
   } else if(key==='review'){
     b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
       '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>';
@@ -2807,6 +2885,7 @@ function wzBuild(){
   if(WZ.grid==='3x2'||WZ.grid==='3x3') ui.cols=3;
   if(WZ.grid==='2x3'||WZ.grid==='3x3') ui.rows=3;
   if(WZ.panes==='1') ui.split=false;
+  if(wzAnker() && WZ.catMode==='filter') ui.catFilter=true;   // Sprungmarken filtern statt springen
   if(WZ.panes==='2' && WZ.svPane){ var sv=WZ.svPane;
     if(sv==='player'){ var az=firstAudioZone(); sv=az?'player:'+az:''; }
     else if(sv==='energy'){ var eu=firstEnergyControl(); sv=eu?'energy:'+eu:''; }
@@ -3097,6 +3176,7 @@ let PANEL_IDS=[];
 let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...], display}  (Arbeitskopie)
 let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
 let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
+let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
 async function loadPanelIds(){
   try{
     const r=await fetch('/api/meta'); const m=await r.json();
@@ -3149,7 +3229,7 @@ function renderDeviceList(j){
   box.querySelectorAll('.ag[data-anon]').forEach(n=>{ const i=n.querySelector('.anname'); if(i) prevName[n.dataset.anon]=i.value; });
   const devs=j.devices||[], anon=j.anonymous||[];
   if(!devs.length && !anon.length){
-    box.innerHTML='<div class="muted">'+T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.')+'</div>'; return; }
+    box.innerHTML='<div class="muted">'+esc(T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.'))+'</div>'; return; }
   let html=devs.map(d=>deviceRow(d,prevSel[d.name])).join('');
   if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
     anon.map(a=>anonRow(a,prevName[a.ip])).join('');
@@ -3182,23 +3262,26 @@ async function deviceAction(act, name, ip, panel){
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
 }
 async function nameDevice(ip,name){
-  if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return; }
+  if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return false; }
   try{
     const j=await postJson('/api/device/name',{ip,name});
     flash($('#ag_toast'), j.ok?('✓ '+name):('Fehler: '+(j.error||'')), j.ok);
     if(document.activeElement) document.activeElement.blur();
     setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Kennung neu
-  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
+    return !!j.ok;
+  }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); return false; }
 }
 async function pollDevices(){
   try{
     const r=await fetch('/api/devices'); const j=await r.json();
     renderDeviceList(j);
+    ANON_DEVICES=Array.isArray(j.anonymous)?j.anonymous:[];
     const names=(j.devices||[]).map(d=>d.name).filter(Boolean);
     (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip; });
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew){ readDevFromDom(); renderDevices(); }   // neues Panel -> Editor ergaenzen (Eingaben behalten)
+    mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
   }catch(e){}
 }
 
@@ -3313,7 +3396,7 @@ const MZ_PRESETS=[
   {key:'anwesend',label:'Anwesend'},{key:'abwesend',label:'Abwesend'},
   {key:'gaeste',label:'Gäste'},{key:'putzen',label:'Putzen'},
   {key:'urlaub',label:'Urlaub'},{key:'nacht',label:'Nacht'}];
-const MZ={devices:[],modes:[],step:0,_wired:false};
+const MZ={devices:[],modes:[],step:0,_wired:false,benannt:''};
 function mzKey(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,''); }
 function mzFlow(){ return ['geraete','modi','zuordnung','fertig']; }
 function mzDevNames(){ return Array.from(new Set(KNOWN_NAMES.concat(Object.keys(DEV)))).sort(); }
@@ -3323,8 +3406,9 @@ function mzOpen(){
     $('#mzBack').onclick=()=>{ if(MZ.step>0){ MZ.step--; mzRender(); } };
     $('#mzNext').onclick=mzNext;
     $('#mzOv').onclick=(e)=>{ if(e.target===$('#mzOv')) mzClose(); };
+    $('#mzX').onclick=mzClose;
   }
-  MZ.devices=[]; MZ.modes=[]; MZ.step=0;
+  MZ.devices=[]; MZ.modes=[]; MZ.step=0; MZ.benannt='';
   $('#mzOv').hidden=false; mzRender();
 }
 function mzClose(){ $('#mzOv').hidden=true; }
@@ -3333,9 +3417,17 @@ function mzRender(){
   $('#mzStep').textContent=T('Schritt')+' '+(MZ.step+1)+' / '+f.length;
   if(key==='geraete'){
     const names=mzDevNames();
+    MZ._sig=mzGeraeteSig();
+    // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
+    // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
+    const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
+      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input class="mzname" placeholder="'+T('Gerätename')+'">'+
+      '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'
-        : '<div class="wznote">'+T('Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.')+'</div>')+
+        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.'))+'</div>'))+
+      (anon ? '<div class="wznote" style="margin-top:10px">'+T('Verbunden, aber noch ohne Namen – erst benennen, dann auswählen:')+'</div>'+anon : '')+
+      (MZ.benannt ? '<div class="wznote" style="margin-top:8px">'+esc(T('✓ Name vergeben – das Gerät verbindet sich neu und erscheint gleich oben:')+' '+MZ.benannt)+'</div>' : '')+
       '<div class="wznote" style="margin-top:10px">'+T('Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.')+'</div>';
   } else if(key==='modi'){
     b.innerHTML='<p class="wzq">'+T('Welche Betriebsmodi?')+'</p><div class="wzopts">'+
@@ -3364,6 +3456,13 @@ function mzRender(){
       '<div class="wznote" style="margin-top:10px">'+T('Geräte:')+' <b>'+esc(MZ.devices.join(', ')||'—')+'</b>. '+T('„Übernehmen" speichert das für alle gewählten Geräte.')+'</div>';
   }
   b.querySelectorAll('[data-mzdev]').forEach(el=>el.onclick=()=>{ const n=el.dataset.mzdev, i=MZ.devices.indexOf(n); if(i>=0)MZ.devices.splice(i,1); else MZ.devices.push(n); mzRender(); });
+  b.querySelectorAll('[data-mzanon]').forEach(row=>{
+    const inp=row.querySelector('.mzname'), btn=row.querySelector('[data-mzname]');
+    const go=async()=>{ const name=inp.value.trim(); if(!name){ inp.focus(); return; }
+      btn.disabled=true;
+      if(await nameDevice(row.dataset.mzanon,name)){ MZ.benannt=name; mzRender(); } else btn.disabled=false; };
+    btn.onclick=go; inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } };
+  });
   b.querySelectorAll('[data-mzmode]').forEach(el=>el.onclick=()=>{ const k=el.dataset.mzmode, i=MZ.modes.findIndex(x=>x.key===k);
     if(i>=0)MZ.modes.splice(i,1); else MZ.modes.push({key:k,label:el.dataset.mzlabel,profile:''}); mzRender(); });
   b.querySelectorAll('[data-mzdel]').forEach(el=>el.onclick=()=>{ const k=el.dataset.mzdel, i=MZ.modes.findIndex(x=>x.key===k); if(i>=0){ MZ.modes.splice(i,1); mzRender(); } });
@@ -3381,6 +3480,20 @@ function mzRender(){
   $('#mzNext').disabled=!ok;
 }
 function mzNext(){ const f=mzFlow(); if(MZ.step<f.length-1){ MZ.step++; mzRender(); return; } mzApply(); }
+// Neue Geraetenamen aus pollDevices: steht der Assistent bei den Geraeten und
+// wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
+function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(a=>a.ip)]); }
+function mzGeraeteNeu(names){
+  if($('#mzOv').hidden || mzFlow()[MZ.step]!=='geraete') return;
+  let neu=false;
+  if(MZ.benannt && names.indexOf(MZ.benannt)>=0){
+    if(MZ.devices.indexOf(MZ.benannt)<0) MZ.devices.push(MZ.benannt);
+    MZ.benannt=''; neu=true;
+  }
+  if(!neu && mzGeraeteSig()===MZ._sig) return;   // nichts Neues: nicht alle 6 s neu zeichnen
+  const b=$('#mzBody'); if(b && b.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;   // nicht beim Tippen
+  mzRender();
+}
 async function mzApply(){
   readDevFromDom();   // manuelle Tabellen-Edits nicht überschreiben
   MZ.devices.forEach(name=>{
@@ -3404,6 +3517,11 @@ async function mzApply(){
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
 }
 { const mo=$('#mzOpenBtn'); if(mo) mo.onclick=mzOpen; }
+// Esc schliesst den offenen Assistenten (Betriebsmodus liegt ueber allem).
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(!$('#mzOv').hidden) mzClose(); else if(!$('#wzOv').hidden) wzClose();
+});
 
 // ---- Audio: Test-Ton ----
 function fillAudioPanels(){
@@ -3462,7 +3580,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </script>
 <div id="wzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>＋ Neues Panel — Assistent</b><span class="wzstep" id="wzStep"></span></div>
+    <div class="wzhd"><b>＋ Neues Panel — Assistent</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="wzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="wzBack">← Zurück</button>
@@ -3475,7 +3593,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </div>
 <div id="mzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>🧭 Betriebsmodus-Assistent</b><span class="wzstep" id="mzStep"></span></div>
+    <div class="wzhd"><b>🧭 Betriebsmodus-Assistent</b><span class="wzstep" id="mzStep"></span><button class="wzx" id="mzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="mzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="mzBack">← Zurück</button>

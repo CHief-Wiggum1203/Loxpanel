@@ -60,6 +60,17 @@
   .screen.split{max-width:none;max-height:none;
     width:min(100vw, calc(var(--cols,2) * 480px));height:min(100vh, calc(var(--rows,2) * 240px));
     grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) auto;}
+  /* Split im Hochformat (Klasse "hoch", gesetzt in applyHoch): die beiden
+     Haelften UEBEREINANDER statt nebeneinander - oben die Visu, darunter Pane 2,
+     unten die Tab-Leiste. Nebeneinander blieben auf einem hochkant haengenden
+     Tablet zwei schmale Streifen mit leerer Flaeche darueber und darunter.
+     Masse gespiegelt: Breite --cols*240, Hoehe --rows*480 (zwei Haelften). Steht
+     VOR der fill-Regel, damit "Bildschirm fuellen" auch hier den Schirm fuellt. */
+  .screen.split.hoch{width:min(100vw, calc(var(--cols,2) * 240px));height:min(100vh, calc(var(--rows,2) * 480px));
+    grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto;}
+  .screen.split.hoch #playerpane,
+  .screen.split.hoch #frontpane{grid-column:1;grid-row:2;border-left:0;border-top:1px solid var(--line);}
+  .screen.split.hoch #tabs{grid-row:3;}
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
   .screen.split.fill{width:100vw;height:100vh;}
@@ -107,8 +118,13 @@
      Wetter/Kalender bleiben mehrseitig (Snap) und duerfen scrollen. */
   .screen.split #frontpane .fp-page.solo,
   .screen.split #playerpane .fp-page.solo{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;}
-  /* Verlaufs-Pane: eine Seite, aber mehrere Diagramme duerfen scrollen */
-  .screen.split #frontpane .fp-page.solo.cpage{overflow-y:auto;gap:10px;}
+  /* Verlaufs-Pane: die Diagramme teilen sich die Pane-Hoehe (fit statt scrollen),
+     damit sie auf kurzen Displays (z.B. 480px) nicht ueberlaufen. */
+  .screen.split #frontpane .fp-page.solo.cpage,
+  .screen.widgettab #frontpane .fp-page.solo.cpage{overflow:hidden;gap:8px;display:flex;flex-direction:column;}
+  .fp-page.solo.cpage .chart{flex:1 1 0;min-height:0;display:flex;flex-direction:column;}
+  .fp-page.solo.cpage .chbody{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  .fp-page.solo.cpage .chbody>svg{flex:1 1 auto;min-height:0;width:100%;height:100%;}
   #frontpane .cphead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   #frontpane .cpname{font-weight:650;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #frontpane .cpval{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
@@ -207,6 +223,10 @@
     cursor:pointer;user-select:none;overflow:hidden;
     transition:background .16s,border-color .16s,transform .07s;}
   .tile:active{transform:scale(.97);}
+  /* Sprungmarke angetippt: die Kacheln der Gruppe leuchten kurz auf (innerer
+     Akzentrahmen; die Kachel selbst nutzt keinen Schatten, nur den Rahmen). */
+  .tile.katleucht{animation:katleucht 1.5s ease-out;}
+  @keyframes katleucht{0%,40%{box-shadow:inset 0 0 0 3px var(--accent);}100%{box-shadow:inset 0 0 0 3px transparent;}}
   /* Aktiv-Overlay: Farbe je Zustand (--*-rgb), Aussehen global via --ov-* (pro Kachel ueberschreibbar) */
   .tile.on{background:rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
@@ -578,6 +598,42 @@
   .saver.split .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:1 / span 2;align-self:center;margin:0;}
   .saver.split .sv-wrap.rich .sv-time{font-size:60px;}
   .saver.split .sv-wrap.rich .sv-date{font-size:18px;}
+  /* Hochkant (Klasse "hoch", gesetzt in applySaverSplit): Uhr, Wetter und die
+     zweite Flaeche UNTEREINANDER ueber die volle Breite - wie der Split
+     hochkant. Listen (Termine, Werte, Wetter-Details) wachsen nach unten, svFit
+     kuerzt sie notfalls. Energiefluss, Kamera und Verlauf (.tall) brauchen eine
+     feste Hoehe: der Kasten ist dann so hoch wie der Screensaver (--sv-frei),
+     und die untere Zeile bekommt, was unter Uhr und Wetter bleibt. Die Groessen
+     aus dem Querformat (.tall: Uhr links, grosse Schrift) gelten hier nicht. */
+  .saver.split.hoch .sv-wrap.rich,
+  .saver.split.hoch .sv-wrap.rich.tall{width:min(94%,680px);
+    grid-template-columns:minmax(0,1fr);grid-template-areas:"clock" "wx" "cal";
+    grid-template-rows:auto auto minmax(0,1fr);row-gap:18px;column-gap:0;align-items:stretch;}
+  .saver.split.hoch .sv-wrap.rich.solo{grid-template-areas:"clock" "wx";grid-template-rows:auto auto;}
+  .saver.split.hoch .sv-wrap.rich.tall{height:var(--sv-frei,auto);}
+  /* Verlauf: die Diagramme richten ihre Hoehe nach der Breite (festes
+     Seitenverhaeltnis), eine hoehere Box bliebe unten leer. Hier so hoch wie
+     der Inhalt und der ganze Block mittig; reicht der Platz nicht, schrumpft
+     die untere Zeile (minmax) und die Box schneidet unten ab. */
+  .saver.split.hoch .sv-wrap.rich.tall.verlauf{grid-template-rows:auto auto minmax(0,auto);align-content:center;}
+  .saver.split.hoch .sv-wrap.rich.tall.verlauf .sv-box.solo .fp-page{flex:0 1 auto;}
+  .saver.split.hoch .sv-wrap.rich .sv-clock,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-clock,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx[hidden] + .sv-clock{grid-row:auto;align-self:auto;justify-self:center;margin:0;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx{align-self:auto;gap:10px;}
+  .saver.split.hoch .sv-box.solo{height:auto;min-height:0;}
+  .saver.split.hoch .sv-wrap.rich .sv-time,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-time{font-size:80px;}
+  .saver.split.hoch .sv-wrap.rich .sv-date,
+  .saver.split.hoch .sv-wrap.rich.tall .sv-date{font-size:20px;margin-top:8px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .ico{width:34px;height:34px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .t{font-size:26px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .cond{font-size:15px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .now .hl{font-size:13px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc{padding:6px 4px 7px;gap:3px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .d{font-size:11px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .ico{width:22px;height:22px;}
+  .saver.split.hoch .sv-wrap.rich.tall .sv-wx .fc .tt{font-size:12.5px;}
   /* Wetter oben: aktuelle Lage + Vorschau-Streifen (je Tag Icon + Max/Min). */
   .saver .sv-wx{display:flex;flex-direction:column;gap:10px;align-self:stretch;}
   .sv-wx .now{display:flex;align-items:center;gap:12px;}
@@ -894,9 +950,9 @@ addEventListener('touchstart', ()=>document.body.classList.add('touch'), {once:t
 let tabsCfg = ['favoriten','zentral','raeume','kategorien'];
 let tabMeta = {};   // Label/Icon fuer dynamische Tabs (Kategorien), vom Server
 let gridCols = 2;   // effektive Spalten der aktuellen Ansicht (Vollbreit-Pane -> 4)
-let gridRows = 2;   // effektive sichtbare Zeilen pro Seite
-let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2
-let _lastWide = null;   // zuletzt gerenderte Quer/Hoch-Entscheidung (fuer resize-Nachzug, s. render())
+let gridRows = 2;   // effektive sichtbare Zeilen pro Seite (hochkant Vollbreit -> 4)
+let profCols = 2, profRows = 2;   // Profil-Standard (aus dem Theme); Vollbreit ueberschreibt auf 4x2 bzw. 2x4
+let _lastRaster = null, _lastWidget = false;   // zuletzt gerenderte Lage + Raster (fuer resize-Nachzug, s. render())
 let _playerBuilt = false, _playerVolDrag = false;   // fester Player (Split-Layout)
 // Split-Pane pro Tab: panesCfg = {tabKennung -> "weather"|"calendar"|"wide"|"player:<zone>"|"energy:<uuid>"|"camera:<uuid>"}
 // (vom Server). themeFill = "Bildschirm fuellen" (gilt jetzt auch im Split).
@@ -1139,7 +1195,7 @@ function paintChart(box,b){
     body.innerHTML='<div class="chmsg">'+(b.state==='loading'?'Verlauf wird geladen …'
       :b.state==='error'?'Verlauf nicht abrufbar':'Keine Aufzeichnung in diesem Zeitraum')+'</div>';
     return; }
-  const W=440,H=150,pL=46,pR=10,pT=10,pB=22, t0=b.t0, t1=b.t1, span=Math.max(1,t1-t0);
+  const W=440,H=150,pL=36,pR=10,pT=10,pB=22, t0=b.t0, t1=b.t1, span=Math.max(1,t1-t0);
   const unit=b.unit?(' '+b.unit):'', dec=Math.max(0,...b.series.map(s=>s.dec||0));
   const vals=b.series.flatMap(s=>s.pts.map(p=>p[1]));
   let lo=vals.length?Math.min(...vals):0, hi=vals.length?Math.max(...vals):1, mn, mx;
@@ -1152,7 +1208,7 @@ function paintChart(box,b){
         '<stop offset="1" style="stop-color:'+c0+';stop-opacity:0"/></linearGradient></defs>';
   const yt=b.kind==='digital'?[[0,'Aus'],[1,'Ein']]:[lo,(lo+hi)/2,hi].map(v=>[v,chNum(v,dec)]);
   yt.forEach(([v,l])=>{ s+='<line class="chgrid" x1="'+pL+'" x2="'+(W-pR)+'" y1="'+f(Y(v))+'" y2="'+f(Y(v))+'"/>'+
-    '<text class="chax" x="'+(pL-6)+'" y="'+f(Y(v)+4)+'" text-anchor="end">'+esc(l)+'</text>'; });
+    '<text class="chax" x="2" y="'+f(Y(v)+4)+'" text-anchor="start">'+esc(l)+'</text>'; });
   const tk=chTicks(t0,t1);
   tk.ticks.forEach(t=>{ const x=X(t), a=x<pL+18?'start':(x>W-pR-18?'end':'middle');
     s+='<line class="chvgrid" x1="'+f(x)+'" x2="'+f(x)+'" y1="'+pT+'" y2="'+(H-pB)+'"/>'+
@@ -1186,7 +1242,7 @@ function paintChart(box,b){
     }
     leg.push('<span><span class="chdot" style="background:'+col+'"></span>'+esc(se.name)+' · '+info+'</span>');
   });
-  body.innerHTML='<svg viewBox="0 0 '+W+' '+H+'">'+s+'</svg><div class="chleg">'+leg.join('')+'</div>';
+  body.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'+s+'</svg><div class="chleg">'+leg.join('')+'</div>';
 }
 // Rahmen eines Diagramms (Detailseite und Verlaufs-Pane); die Zeitraum-Knoepfe
 // traegt nur das erste Diagramm einer Seite (b.ranges).
@@ -1459,6 +1515,10 @@ function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : nul
 function isRoomPanel(){ const t = String(tabsCfg[0]||'');
   return tabsCfg.length===1 && (t.indexOf('room:')===0 || isPick(t)); }
 let roomCatTabs=null, pendingCatScroll=null;
+// Sprungmarken im Filter-Modus (Profil ui.catFilter): ein Tipp zeigt nur die
+// Kacheln dieser Gruppe (Kategorie im Raum-Panel, Raum in der freien Auswahl),
+// ein zweiter Tipp wieder alle. katFilter = aktive Gruppe oder null.
+let themeCatFilter=false, katFilter=null;
 
 function renderTabs(){
   // Raum-Panel: die untere Leiste zeigt die im Raum vorkommenden Kategorien
@@ -1486,7 +1546,7 @@ function renderTabs(){
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
         : '<span class="tlbl">'+esc(c.label||'')+'</span>';
-      return '<div class="tab" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
+      return '<div class="tab'+(katFilter===c.key?' active':'')+'" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
     });
     // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
     // fehlende Zelle rechts mit einem leeren Spacer auffuellen, damit beide
@@ -1521,23 +1581,73 @@ function renderTabs(){
     items.splice(Math.floor(items.length/2), 0, backHtml);
   }
   el('tabs').innerHTML = items.join('');
-  if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>scrollToCat(n.dataset.cat));
+  if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>katTipp(n.dataset.cat));
   else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
+}
+// Zur SEITE springen, auf der die Kachel steht. Die Kachelflaeche rastet
+// seitenweise ein (scroll-snap mandatory, Rastpunkt = erste Kachel jeder
+// Seite). Ein Sprung direkt auf eine Kachel im unteren Teil einer Seite
+// landete am naechstgelegenen Rastpunkt - oft schon auf der FOLGENDEN Seite,
+// und die Zielkachel verschwand oben (gemessen 2x2 und 2x3: 199 bzw. 210 px
+// ueber dem sichtbaren Bereich).
+function springeZu(d){
+  const g=el('grid'), tiles=[...g.querySelectorAll('.tile[data-id]')];
+  const pg=(view && view.layout==='list') ? 4 : gridCols*gridRows;
+  const i=tiles.indexOf(d);
+  const ziel=(i>=0 && g.classList.contains('snapy')) ? tiles[Math.floor(i/pg)*pg] : d;
+  ziel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+// Kacheln der Gruppe kurz hervorheben: auch wenn nichts scrollt (die Gruppe
+// steht schon im Bild), sieht man so, welche Bausteine gemeint sind.
+let _leuchtTimer=null;
+function leuchte(key){
+  // Die vorige Gruppe zuerst abraeumen: bei schnellem Tippen loescht der neue
+  // Timer den alten, dessen Kacheln behielten sonst die Klasse.
+  el('grid').querySelectorAll('.tile.katleucht').forEach(n=>n.classList.remove('katleucht'));
+  const ns=[...el('grid').querySelectorAll('.tile[data-id]')].filter(n=>n._it && n._it.grp===key);
+  ns.forEach(n=>{ n.classList.remove('katleucht'); void n.offsetWidth; n.classList.add('katleucht'); });
+  clearTimeout(_leuchtTimer);
+  _leuchtTimer=setTimeout(()=>ns.forEach(n=>n.classList.remove('katleucht')), 1600);
+}
+// Tipp auf eine Sprungmarke: springen (Standard) oder filtern (ui.catFilter).
+function katTipp(key){
+  if(!themeCatFilter){ scrollToCat(key); return; }
+  katFilter=(katFilter===key) ? null : key;   // zweiter Tipp auf dieselbe Marke: wieder alle
+  // Auf der Seite mit den Marken neu zeichnen; aus einer Detailansicht zurueck
+  // in den Raum - dort greift der Filter beim Rendern.
+  if(view && Array.isArray(view.catTabs)){ render(); el('grid').scrollTop=0; }
+  else { const rt=tabsCfg[0]; if(rt) goTab(rt); }
+}
+// Kacheln, die im Filter-Modus sichtbar sind. Nur auf der Seite mit den Marken
+// (view.catTabs), nicht in Detailansichten. Gibt es die Gruppe nicht mehr
+// (Konfiguration geaendert), faellt der Filter weg, statt eine leere Seite zu zeigen.
+function katSichtbar(items){
+  if(!katFilter || !view || !Array.isArray(view.catTabs)) return items;
+  const f=items.filter(it=>it.grp===katFilter);
+  if(!f.length){ katFilter=null; return items; }
+  return f;
 }
 // Raum-Panel: zur ersten Kachel einer Kategorie scrollen. Sind wir in einer
 // Detailansicht (die Kachel ist gerade nicht da), erst zurueck in den Raum und
 // nach dem Rendern dorthin scrollen (pendingCatScroll, s. render()).
 function scrollToCat(key){
   const d = el('grid').querySelector('.tile[data-cat="'+key+'"]');
-  if(d){ d.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+  if(d){ springeZu(d); leuchte(key); return; }
   pendingCatScroll = key;
   const rt = tabsCfg[0]; if(rt) goTab(rt);
 }
-// ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was rechts steht ----
+// ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was in Pane 2 steht (quer rechts, hochkant unten) ----
 // Wert je Tab: "weather" | "calendar" | "player:<zone>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>" | "status:<uuid>,...".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
+// Split im Hochformat: Visu und Pane 2 uebereinander (CSS .screen.split.hoch).
+// Eigene Funktion, weil sie auch beim Drehen laufen muss - dort wird nicht in
+// jedem Fall neu gerendert (z.B. Anlagenschema, Screensaver oben).
+function applyHoch(){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  sc.classList.toggle('hoch', sc.classList.contains('split') && window.innerHeight > window.innerWidth);
+}
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
@@ -1555,6 +1665,7 @@ function applyPane(){
   const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart'||kind==='status');   // Widget in Pane 2
   sc.classList.toggle('widgettab', !!wt);   // Widget fuellt die ganze Flaeche
   sc.classList.toggle('split', isPane && !wt);   // Widget in Pane 2 -> zweigeteilt
+  applyHoch();
   sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
@@ -1693,21 +1804,39 @@ function updateGrid(items){
   });
   return ok;
 }
+// "Screen fuellen" (kein Widget in Pane 2): die KACHELZAHL wird verdoppelt
+// (GLEICHE Kachelgroesse, nur mehr Kacheln), unabhaengig vom Zoom ("Bildschirm
+// fuellen"). Quer nach rechts: aus 2x2 wird 2x2|2x2 = 4x2 (2-Pane-Tablet).
+// Hochkant nach unten: aus 2x2 wird 2x4 - aber nur, wenn das Raster dadurch
+// besser zur Fensterform passt (Seitenverhaeltnis Spalten:Zeilen naeher am
+// Fenster). Die Grenze liegt beim geometrischen Mittel zwischen einfachem und
+// doppeltem Raster: 2x2, 3x2 und 3x3 werden auf einem Hochkant-Tablet
+// verdoppelt, 2x3 ist schon ein Hochformat-Raster und bleibt. Das quadratische
+// 4"-Panel bleibt in jedem Fall bei seinem Raster.
+function rasterFuer(widget){
+  const w=window.innerWidth, h=window.innerHeight;
+  if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
+  if(w>h) return [profCols*2, profRows];
+  if(h>w && w/h < (profCols/profRows)/Math.SQRT2) return [profCols, profRows*2];
+  return [profCols, profRows];
+}
+// Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
+function rasterKey(widget){
+  const w=window.innerWidth, h=window.innerHeight;
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x');
+}
 function render(){
   if(!view) return;
-  // "Screen fuellen" (kein Widget in Pane 2): die KACHELZAHL wird nach rechts
-  // verdoppelt -> aus 2x2 wird 2x2|2x2 = 4x2 (GLEICHE Kachelgroesse, nur mehr
-  // Kacheln). Nur im Querformat (2-Pane-Tablet); das quadratische 4"-Panel
-  // bleibt einspaltig. Unabhaengig vom Zoom ("Bildschirm fuellen").
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
   const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera'||_k==='chart'||_k==='status');
-  // Querformat-Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das
-  // Fenster kurz eine quere Groesse, bevor die echte Flaeche steht. Der
-  // resize-Handler rendert neu, sobald sie kippt (sonst bliebe das 4"-Panel in
-  // der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster wie beim Screensaver).
-  _lastWide = window.innerWidth > window.innerHeight;
-  if(themeSplit && !_widget && _lastWide){ gridCols = profCols*2; gridRows = profRows; }
-  else { gridCols = profCols; gridRows = profRows; }
+  // Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das Fenster
+  // kurz eine falsche Groesse (etwa quer), bevor die echte Flaeche steht. Der
+  // resize-Handler rendert neu, sobald Lage oder Raster kippen (sonst bliebe
+  // das 4"-Panel in der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster
+  // wie beim Screensaver).
+  _lastWidget = _widget;
+  _lastRaster = rasterKey(_widget);
+  [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
   stopVideo();
@@ -1727,7 +1856,7 @@ function render(){
   }
   el('grid').classList.remove('panel','bigpage','anchorbot','scheme');
   el('grid').classList.toggle('list', view.layout==='list');
-  const items = view.items || [];
+  const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
   let html='';
@@ -1799,7 +1928,7 @@ function render(){
   renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
-    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d) d.scrollIntoView({behavior:'smooth',block:'start'}); }); }
+    requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d){ springeZu(d); leuchte(k); } }); }
 }
 
 // ---- Anlagenschema (SystemScheme) ----
@@ -1886,15 +2015,16 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
 }
 window.addEventListener('resize',()=>{
+  applyHoch();   // Split beim Drehen zwischen nebeneinander und uebereinander umstellen
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
   // Auto-Reload) erst spaet die echte Groesse meldet -> kein Haengenbleiben in 2-spaltig.
   if(saverOn()){ applySaverSplit(); applyPane(); renderFront(); }
-  // Kachel-Grid nur neu rendern, wenn die Quer/Hoch-Entscheidung tatsaechlich
-  // kippt (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt 2x2 statt in der
-  // Startmessung 4x2 haengenzubleiben.
+  // Kachel-Grid nur neu rendern, wenn Lage (quer/hoch/quadratisch) oder Raster
+  // tatsaechlich kippen (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt
+  // 2x2 statt in der Startmessung 4x2 haengenzubleiben.
   if(view && !el('grid').classList.contains('scheme')
-     && (window.innerWidth > window.innerHeight) !== _lastWide) render();
+     && rasterKey(_lastWidget) !== _lastRaster) render();
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
@@ -1965,6 +2095,8 @@ function connect(){
       panesCfg = (msg.panes && typeof msg.panes==='object') ? msg.panes : {};
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
+      themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
+      if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
       applyPane();                          // Energie-/Kamera-Kachel und Status-Werte neu anmelden
@@ -2029,7 +2161,7 @@ function connect(){
       // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
       // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
       // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
-      if(!(same && updateGrid(view.items||[]))){ render(); g.scrollTop=st; }
+      if(!(same && updateGrid(katSichtbar(view.items||[])))){ render(); g.scrollTop=st; }
     }
   };
 }
@@ -2137,7 +2269,8 @@ function renderFront(){
     wrap.classList.toggle('solo', !zweite);
     // Energiefluss/Kamera rechts: Uhr nach links, Grafik bekommt die volle Hoehe.
     const box=el('svBox');
-    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo')); }
+    wrap.classList.toggle('tall', !!box && !box.hidden && box.classList.contains('solo'));
+    wrap.classList.toggle('verlauf', wrap.classList.contains('tall') && svKind(svSideRaw())==='chart'); }
   svFit();
 }
 // ---- Rechte Spalte der Uhr-Seite ----
@@ -2145,8 +2278,9 @@ function renderFront(){
 // "" = Automatik (Termine, und sobald keine anstehen die Wetter-Details),
 // "off" = keine zweite Spalte, sonst "calendar" | "weather" | "energy:<uuid>"
 // | "camera:<uuid>" | "status:<uuid>,...".
-// Sie greift NUR im zweispaltigen Screensaver (Querformat) — einspaltig gibt es
-// keine Flaeche, die ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
+// Sie greift NUR im geteilten Screensaver (quer rechts, hochkant unten, s.
+// applySaverSplit) — einspaltig (4"-Panel) gibt es keine Flaeche, die
+// ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
 function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
 function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
 function svSideOn(){ const s=el('saver');
@@ -2385,7 +2519,11 @@ function eColorCls(n){ const k=n.kind||(n.flow==='out'?'load':(n.flow==='in'?'pr
 // in = zur Mitte, out = nach aussen (in den Knoten, z.B. Einspeisung).
 function eDirCls(n){ return n.flow==='in'?' fin':(n.flow==='out'?' fout':''); }
 function nodeLabel(n){ return (n.name||'')+(n.soc!=null?' · '+Math.round(n.soc)+' %':''); }
-function efooter(tt){ return 'Erzeugung <b>'+esc(fmtPower(tt.prod||0))+'</b> · Verbrauch <b>'+esc(fmtPower(tt.cons||0))+'</b>'; }
+// Nur Werte, die der Server kennt: unbekannter Verbrauch (null) fehlt, statt "0 W".
+function efooter(tt){ const t=[];
+  if(tt.prod!=null) t.push('Erzeugung <b>'+esc(fmtPower(tt.prod))+'</b>');
+  if(tt.cons!=null) t.push('Verbrauch <b>'+esc(fmtPower(tt.cons))+'</b>');
+  return t.join(' · '); }
 // Baut das Radial als HTML-String (fuer Pane UND Detailansicht). Knoten tragen
 // data-Attribute, damit updateEnergyPane() nur Werte/Farben aendert und die
 // Fluss-Punkte NICHT neu erzeugt werden (Animation laeuft sonst nie durch).
@@ -2530,17 +2668,25 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
 if(FRONT_TEST){ const fp=el('frontPage'); if(fp) fp.classList.remove('hidden'); }
 function saverOn(){ return !el('saver').classList.contains('hidden'); }
-// Screensaver zweispaltig NUR im Querformat (breites 2-Pane-Tablet, z.B. Shelly
-// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Das quadratische
-// 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine untereinander).
-// WICHTIG: Die Entscheidung haengt an der aktuellen Fenstergroesse, die beim
-// Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch (quer) sein kann,
-// bevor die echte 480x480-Flaeche steht. Darum gekapselt und bei jedem resize
-// neu getroffen – sonst bleibt die Anzeige in der beim Start zufaellig
-// gemessenen Spaltigkeit haengen (2-spaltig direkt nach dem Speichern, erst
-// spaeter wieder einspaltig).
+// Screensaver zweispaltig im Querformat (breites 2-Pane-Tablet, z.B. Shelly
+// X2) – gleiches Kriterium wie das Kachel-Grid (s. render()). Hochkant liegt
+// die zweite Flaeche UNTER Uhr und Wetter (Klasse "hoch"), sobald der Kasten
+// deutlich hoeher als breit ist (mind. Wurzel 2, wie bei der Verdopplung nach
+// unten) - gemessen am Kasten, denn in ihm liegt der Screensaver. Das
+// quadratische 4"-Panel bleibt einspaltig (Wetter oben, Uhr, Termine
+// untereinander).
+// WICHTIG: Die Entscheidung haengt an der aktuellen Fenster- und Kastengroesse,
+// die beim Kiosk-Start / nach dem Auto-Reload (Speichern) kurz falsch sein
+// kann, bevor die echte Flaeche steht. Darum gekapselt und bei jedem resize und
+// jeder Groessenaenderung des Kastens neu getroffen – sonst bleibt die Anzeige
+// in der beim Start zufaellig gemessenen Spaltigkeit haengen (2-spaltig direkt
+// nach dem Speichern, erst spaeter wieder einspaltig).
 function applySaverSplit(){
-  el('saver').classList.toggle('split', !!themeSplit && window.innerWidth > window.innerHeight);
+  const s=el('saver'), sc=document.querySelector('.screen');
+  const quer=window.innerWidth > window.innerHeight;
+  const hoch=!!themeSplit && !quer && !!sc && sc.offsetHeight >= sc.offsetWidth*Math.SQRT2;
+  s.classList.toggle('split', (!!themeSplit && quer) || hoch);
+  s.classList.toggle('hoch', hoch);
 }
 function showSaver(){ tickClock();
   applySaverSplit();
@@ -2624,8 +2770,12 @@ function renderPlayer(blocks){
   if(sl){ const s=el('ppsld'); if(s&&sl.cmd){ s._uuid=sl.cmd.uuid; s._tmpl=sl.cmd.tmpl; }
     if(s&&!_playerVolDrag){ s.value=sl.value; sldFill(s); el('ppsldv').textContent=sl.value; } }
 }
+// Nach Ruhe zurueck zur Startseite und zur Uhr. Ein gesetzter Filter der
+// Sprungmarken faellt dabei weg, sonst zeigte das Wandpanel dauerhaft nur
+// eine Gruppe.
+function nachRuhe(){ katFilter=null; goTab(tabsCfg[0]||'favoriten'); showSaver(); }
 function resetIdle(){ clearTimeout(idleTimer);
-  idleTimer=setTimeout(()=>{ goTab(tabsCfg[0]||'favoriten'); showSaver(); }, SAVER_IDLE_MS);
+  idleTimer=setTimeout(nachRuhe, SAVER_IDLE_MS);
   armDpms(); }
 el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); nightWake(); hideSaver(); resetIdle(); });
 ['pointerdown','keydown','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ nightWake(); if(!saverOn()) resetIdle(); }, {passive:true}));
@@ -2722,7 +2872,16 @@ function reportScreen(){
 // Layout, "Bildschirm fuellen") oder des Fensters, muss der Faktor neu. Der
 // transform selbst aendert die Layout-Groesse nicht - kein Rueckkopplungskreis.
 window.addEventListener('resize', applyScale);
-if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(applyScale).observe(_s); }
+// Der Screensaver liegt im Kasten: waechst dieser (etwa beim Start, sobald die
+// erste Ansicht das Raster hochkant verdoppelt), muss auch er seine Aufteilung
+// neu waehlen und neu einpassen (svFit kuerzt sonst Termine, die jetzt passen).
+function onScreenResize(){
+  applyScale();
+  if(saverOn()){ const vorher=el('saver').className; applySaverSplit();
+    if(el('saver').className!==vorher){ applyPane(); }
+    renderFront(); }
+}
+if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;

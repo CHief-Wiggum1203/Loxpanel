@@ -234,11 +234,41 @@ _ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Ho
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
                3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
+# Alte Raumregelung (IRoomController, v1) laut Loxone-Strukturdoku: Nummern der
+# Temperaturen fuer settemp/starttimer und currHeatTempIx/currCoolTempIx. Die
+# Struktur liefert dazu je Nummer einen State (Liste "temperatures") und in
+# details.temperatures, ob der Wert absolut ist oder von Komfort abhaengt.
+IRC1_TEMPS = {0: "Eco", 1: "Komfort Heizen", 2: "Komfort Kühlen", 3: "Haus leer",
+              4: "Hitzeschutz", 5: "Erhöhte Wärme", 6: "Party", 7: "Manuell"}
+IRC1_ECO, IRC1_KOMFORT_HEIZEN, IRC1_KOMFORT_KUEHLEN = 0, 1, 2
+# State "mode": 2 = Autopilot kuehlt gerade, 4 = Autopilot Kuehlen, 6 = Manuell
+# Kuehlen; alle anderen Betriebsarten heizen (bzw. 0 = keine Periode aktiv).
+IRC1_KUEHL_MODI = {2, 4, 6}
+# 5 = Manuell Heizen, 6 = Manuell Kuehlen: dann gilt die manuelle Temperatur.
+IRC1_MANUELL_MODI, IRC1_MANUELL = {5, 6}, 7
+# Eco/Komfort-Knoepfe halten die Temperatur so lange wie der Override beim V2.
+IRC1_TIMER_S = 3600
+# Betriebsart der alten Raumregelung, waehlbar per mode/<Nr> (Loxone-Strukturdoku):
+# 1 und 2 ("Automatik, heizt/kuehlt gerade") meldet nur der State, gesendet
+# werden 3 und 4. details.restrictedToMode: 1 = nur Kuehlen, 2 = nur Heizen.
+IRC1_BETRIEBSARTEN = {0: "Automatik", 3: "Automatik Heizen", 4: "Automatik Kühlen",
+                      5: "Manuell Heizen", 6: "Manuell Kühlen"}
+IRC1_NUR_KUEHLEN, IRC1_NUR_HEIZEN = 1, 2
+# Betriebsart des IRoomControllerV2 (State operatingMode, setOperatingMode/<Nr>),
+# Bedeutung wie in der openHAB-Loxone-Anbindung; 3..5 sind manuell.
+IRC2_BETRIEBSARTEN = {0: "Automatik Heizen & Kühlen", 1: "Automatik nur Heizen",
+                      2: "Automatik nur Kühlen", 3: "Manuell Heizen & Kühlen",
+                      4: "Manuell nur Heizen", 5: "Manuell nur Kühlen"}
+IRC2_MANUELL = {3, 4, 5}
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
 PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
                  "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
+# Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
+# Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
+# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
+PANEL_STANDARD = {("ui", "split"): True, ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -1347,14 +1377,17 @@ class App:
                 out.append((str(key if isinstance(key, str) else i + 1), {"value": e}))
         return out
 
-    def _flow_text(self, value, fmt: str, pos: str, neg: str) -> str:
+    def _flow_text(self, value, fmt: str, pos: str, neg: str, zero: str | None = None) -> str:
         """Leistung mit Richtung: Vorzeichen -> Text (z.B. Bezug/Einspeisung).
-        Annahme wie in der Loxone-App: positiv = Bezug bzw. Laden."""
+        Loxone zaehlt aus Sicht des Hauses: positiv = fliesst ins Haus, also
+        Netzbezug bzw. Speicher entlaedt; negativ = Einspeisung bzw. Laden.
+        zero: Text fuer 0 (ohne Richtung), sonst gilt 0 als positiv."""
         try:
             v = float(value)
         except (TypeError, ValueError):
             return ""
-        return f"{pos if v >= 0 else neg} {self._fmt_num(abs(v), fmt)}"
+        text = zero if (zero and v == 0) else (pos if v >= 0 else neg)
+        return f"{text} {self._fmt_num(abs(v), fmt)}"
 
     def _tracker_lines(self, control: dict) -> list[str]:
         """Ereignis-Zeilen eines Tracker-Bausteins (State 'entries'). Loxone
@@ -1418,6 +1451,91 @@ class App:
         if win:
             bits.append("Fenster")
         return bits
+
+    def _irc1(self, c: dict) -> dict:
+        """Zustand der alten Raumregelung (IRoomController, v1):
+          kuehlen   laeuft die Kuehlperiode (State mode, IRC1_KUEHL_MODI)
+          ix/name   aktive Temperatur (currCoolTempIx bzw. currHeatTempIx)
+          stell_ix  Temperatur, die -/+ verstellt: manuell die manuelle, sonst
+                    Komfort der Periode
+          stell     ihr aktueller Wert; None, wenn unbekannt oder relativ zu
+                    Komfort (dann gibt es kein -/+, statt einen Wert zu raten)
+          komfort_ix Komfort der Periode (fuer den Komfort-Knopf)
+          prep      fuer _irc_activity: Ventil Heizen > 0 = 1, Kuehlen > 0 = -1"""
+        def num(name):
+            try:
+                return float(self._state(c, name))
+            except (TypeError, ValueError):
+                return None
+
+        mode = num("mode")
+        mode = int(mode) if mode is not None else None
+        kuehlen = mode in IRC1_KUEHL_MODI
+        ix = num("currCoolTempIx" if kuehlen else "currHeatTempIx")
+        ix = int(ix) if ix is not None else None
+        komfort_ix = IRC1_KOMFORT_KUEHLEN if kuehlen else IRC1_KOMFORT_HEIZEN
+        if mode in IRC1_MANUELL_MODI:
+            stell_ix, stell = IRC1_MANUELL, num("tempTarget")
+        else:
+            stell_ix = komfort_ix
+            stell = self._irc1_temp(c, komfort_ix) if self._irc1_absolut(c, komfort_ix) else None
+        prep = 1 if (num("valveHeat") or 0) > 0 else (-1 if (num("valveCool") or 0) > 0 else 0)
+        return {"kuehlen": kuehlen, "ix": ix, "name": IRC1_TEMPS.get(ix), "stell_ix": stell_ix,
+                "stell": stell, "komfort_ix": komfort_ix, "prep": prep}
+
+    def _irc_betriebsart(self, c: dict) -> tuple[dict | None, str | None]:
+        """Aufklapper "Betriebsart" einer Raumregelung und der Name fuer die
+        Statuszeile, wenn manuell geregelt wird (dann laeuft kein Zeitplan).
+        V2: State operatingMode, setOperatingMode/<Nr>. Alt: State mode,
+        mode/<Nr>; "Automatik, heizt/kuehlt gerade" (1/2) gilt als Automatik,
+        details.restrictedToMode blendet Heizen bzw. Kuehlen aus.
+        (None, None), wenn der Baustein den State nicht hat."""
+        v2 = c.get("type") == "IRoomControllerV2"
+        name = "operatingMode" if v2 else "mode"
+        ua = c.get("uuidAction")
+        if not ua or name not in (c.get("states") or {}):
+            return None, None
+        try:
+            cur = int(float(self._state(c, name)))
+        except (TypeError, ValueError):
+            cur = None
+        if v2:
+            arten, befehl, manuell = IRC2_BETRIEBSARTEN, "setOperatingMode", IRC2_MANUELL
+            markiert = cur
+        else:
+            nur = (c.get("details") or {}).get("restrictedToMode")
+            weg = {IRC1_NUR_KUEHLEN: {3, 5}, IRC1_NUR_HEIZEN: {4, 6}}.get(nur, set())
+            arten = {n: nm for n, nm in IRC1_BETRIEBSARTEN.items() if n not in weg}
+            befehl, manuell = "mode", IRC1_MANUELL_MODI
+            markiert = 0 if cur in (1, 2) else cur
+        zelle = {"label": "Betriebsart", "menu": [
+            {"label": nm, "on": n == markiert, "cmd": {"uuid": ua, "cmd": f"{befehl}/{n}"}}
+            for n, nm in arten.items()]}
+        return zelle, (arten.get(cur) if cur in manuell else None)
+
+    def _irc1_temp(self, c: dict, ix: int):
+        """Wert der Temperatur Nr. ix: der State "temperatures" ist bei der
+        alten Raumregelung eine Liste mit einer UUID je Nummer."""
+        lst = (c.get("states") or {}).get("temperatures")
+        if not isinstance(lst, list) or not 0 <= ix < len(lst):
+            return None
+        try:
+            return float(self.states.get(lst[ix]))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _irc1_absolut(c: dict, ix: int) -> bool:
+        """details.temperatures[ix].isAbsolute: True = fester Wert, False =
+        haengt von Komfort ab. Nummern als Schluessel ("0".."6") oder Liste."""
+        tt = (c.get("details") or {}).get("temperatures")
+        if isinstance(tt, dict):
+            e = tt.get(str(ix), tt.get(ix))
+        elif isinstance(tt, list) and 0 <= ix < len(tt):
+            e = tt[ix]
+        else:
+            e = None
+        return bool(isinstance(e, dict) and e.get("isAbsolute"))
 
     def _audio_favs(self, c: dict) -> list:
         """Raum-Favoriten (Radio/Playlist/Spotify) aus dem sourceList-State.
@@ -1726,6 +1844,9 @@ class App:
             # Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2, keine
             # Verdopplung). Default an; nur bei explizitem False aus.
             "split": ui.get("split") is not False,
+            # Sprungmarken der unteren Leiste (Raum-Panel, freie Auswahl): ein
+            # Tipp springt zur Gruppe (Standard) oder zeigt nur sie (Filter).
+            "catFilter": ui.get("catFilter") is True,
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
@@ -1801,10 +1922,11 @@ class App:
         WATT, Flussrichtung fuers Diagramm. None bei ungueltiger Kachel. Reine
         Anzeige, keine Steuerung. max_cons = Loxones Grenze (actual0..5, max. 6).
 
-        Vorzeichen wie in der Loxone-App (siehe _flow_text): Gpwr>0 = Netzbezug
-        (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher laedt (raus), <0 =
-        entlaedt (rein); Ppwr = Erzeugung (rein). flow: "in" = zur Mitte (gruen),
-        "out" = nach aussen (orange), None = 0/inaktiv (grau)."""
+        Vorzeichen wie bei Loxone aus Sicht des Hauses (siehe _flow_text):
+        Gpwr>0 = Netzbezug (rein), <0 = Einspeisung (raus); Spwr>0 = Speicher
+        entlaedt (rein), <0 = laedt (raus); Ppwr = Erzeugung (rein). Dasselbe
+        gilt fuer EFM-Knoten mit nodeType Storage. flow: "in" = zur Mitte
+        (gruen), "out" = nach aussen (orange), None = 0/inaktiv (grau)."""
         c = self.controls.get(uuid or "")
         if not c or c.get("type") not in ("EFM", "EnergyManager2"):
             return None
@@ -1827,8 +1949,8 @@ class App:
               kind "load" = Verbraucher, orange (Load/Group; Speicher laden)
               kind "idle" = 0 W, grau
             PV/Production ist immer Quelle (kann nie beziehen). Netz: Bezug (v>0)
-            rein/rot, Einspeisung (v<0) raus/gruen. Speicher: laden (v>0) raus/orange,
-            entladen (v<0) rein/gruen."""
+            rein/rot, Einspeisung (v<0) raus/gruen. Speicher wie das Netz aus
+            Sicht des Hauses: entladen (v>0) rein/gruen, laden (v<0) raus/orange."""
             ntl = (nt or "").lower()
             if not v:
                 return (None, "idle")
@@ -1837,12 +1959,12 @@ class App:
             if ntl == "grid":
                 return ("in", "grid") if v > 0 else ("out", "prod")
             if ntl in ("storage", "battery"):
-                return ("out", "load") if v > 0 else ("in", "prod")
+                return ("in", "prod") if v > 0 else ("out", "load")
             return ("out", "load") if v > 0 else ("in", "prod")
 
         pv = watt("Ppwr")                       # Erzeugung
         g = watt("Gpwr")                        # Netz: >0 Bezug (rein), <0 Einspeisung (raus)
-        sp = watt("Spwr")                       # Speicher: >0 laedt (raus), <0 entlaedt (rein)
+        sp = watt("Spwr")                       # Speicher: >0 entlaedt (rein), <0 laedt (raus)
         try:
             soc = float(self._state(c, "Ssoc"))
         except (TypeError, ValueError):
@@ -1869,8 +1991,26 @@ class App:
         # Liste (inkl. PV/Netz/Speicher, falls dort angelegt). Daher KEINE
         # zusaetzlichen Summen-Knoten oben drauf (sonst Dopplung). Name, Icon UND
         # Rolle (nodeType) kommen vom Miniserver; 0-W-Knoten bleiben (grau).
+        def bilanz():
+            """Hausverbrauch aus der Energiebilanz (Sicht des Hauses: was
+            hereinkommt, wird verbraucht) = Erzeugung + Netz + Speicher. Ohne
+            Netzwert unbekannt (None), ebenso solange PV oder Speicher angelegt
+            sind, aber noch keinen Wert haben. Fehlt der State ganz (beim EM2
+            auch HasSpwr false), hat die Anlage keinen: Beitrag 0."""
+            if g is None:
+                return None
+            summe = g
+            for key, val, da in (("Ppwr", pv, True), ("Spwr", sp, det.get("HasSpwr", True))):
+                if not da or key not in (c.get("states") or {}):
+                    continue
+                if val is None:
+                    return None
+                summe += val
+            return max(0.0, summe)
+
         cons = []
         prod_sum = cons_sum = 0.0
+        hat_verbraucher = False
         if c.get("type") == "EFM":
             for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
                 v = watt(f"actual{i}")
@@ -1884,17 +2024,20 @@ class App:
                 ntl = (nt or "").lower()
                 if ntl == "production":
                     prod_sum += abs(v)
-                elif ntl in ("load", "group") and v > 0:
-                    cons_sum += abs(v)
+                elif ntl in ("load", "group"):
+                    hat_verbraucher = True
+                    if v > 0:
+                        cons_sum += abs(v)
         if cons:
             cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
             nodes = cons
             prod_total = prod_sum or (abs(pv) if pv else 0.0)
-            cons_total = cons_sum
+            # gemessene Verbraucher-Knoten, sonst die Bilanz
+            cons_total = cons_sum if hat_verbraucher else bilanz()
         else:
             nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
             prod_total = abs(pv) if pv else 0.0
-            cons_total = 0.0
+            cons_total = bilanz()
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
                 "totals": {"prod": prod_total, "cons": cons_total, "grid": g or 0.0}}
@@ -2388,6 +2531,8 @@ class App:
                 cui["fill"] = True              # Visu fuellt grosse Screens (quadratische Kacheln)
             if ui.get("split") is False:
                 cui["split"] = False            # Split-Screen aus (4"-Panel: nur Visu)
+            if ui.get("catFilter") is True:
+                cui["catFilter"] = True         # untere Leiste filtert statt zu springen
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -2455,6 +2600,73 @@ class App:
                 if ct:
                     e["tiles"] = ct
             out[pid] = e
+        return out
+
+    @staticmethod
+    def _panels_verworfen(roh: dict, sauber: dict, namen: dict | None = None) -> list[str]:
+        """Was _sanitize_panels nicht uebernommen hat, als lesbare Pfade
+        ("<Panel>: ui.cols", "<Panel>: tabs: foo"), damit der Konfigurator es
+        meldet statt es still zu verlieren. Gemeldet wird nur, was einen Inhalt
+        hatte: leere Werte (None, False, "", [], {}) nicht, begrenzte oder
+        gekuerzte Werte (Groesse 100 -> 80, Titel auf 40 Zeichen) auch nicht -
+        die kommen ja an. Standardwerte, die bewusst nicht gespeichert werden,
+        stehen in PANEL_STANDARD. namen: UUID -> Bausteinname fuer lesbare
+        Pfade (Kachel-Einstellungen stehen unter der UUID)."""
+        namen = namen or {}
+
+        def leer(v) -> bool:
+            return v is None or v is False or (isinstance(v, str) and not v.strip()) \
+                or (isinstance(v, (list, dict)) and not any(not leer(x) for x in
+                                                            (v.values() if isinstance(v, dict) else v)))
+
+        def standard(pfad: tuple, v) -> bool:
+            for muster, wert in PANEL_STANDARD.items():
+                if len(muster) == len(pfad) and all(m in ("*", p) for m, p in zip(muster, pfad)) \
+                        and v == wert:
+                    return True
+            return False
+
+        def kurz(xs: list) -> str:
+            return ", ".join(str(x) for x in xs[:3]) + (f" … (+{len(xs) - 3})" if len(xs) > 3 else "")
+
+        out: list[str] = []
+
+        def vergleich(r, s, pfad: tuple, name: str):
+            if isinstance(r, dict):
+                for k, v in r.items():
+                    if leer(v) or standard(pfad + (str(k),), v):
+                        continue
+                    p = pfad + (str(k),)
+                    if isinstance(s, dict) and k in s:
+                        vergleich(v, s[k], p, name)
+                    elif isinstance(v, (dict, list)):
+                        # ganz weggefallen (z. B. ui nur mit Unbekanntem): die
+                        # einzelnen Angaben darin nennen
+                        vergleich(v, {} if isinstance(v, dict) else [], p, name)
+                    else:
+                        out.append(f"{name}: {'.'.join(namen.get(x, x) for x in p)}")
+            elif isinstance(r, list) and isinstance(s, list):
+                werte = [x for x in r if not leer(x)]
+                if all(isinstance(x, (str, int, float)) for x in werte):
+                    fehlt = [x for x in werte if x not in s]
+                    if fehlt:
+                        out.append(f"{name}: {'.'.join(namen.get(x, x) for x in pfad)}: "
+                                   f"{kurz([namen.get(x, x) for x in fehlt])}")
+                elif len(s) < len(werte):
+                    out.append(f"{name}: {'.'.join(namen.get(x, x) for x in pfad)}: "
+                               f"{len(werte) - len(s)} von {len(werte)}")
+                else:
+                    for i, (x, y) in enumerate(zip(werte, s)):
+                        vergleich(x, y, pfad + (str(i + 1),), name)
+
+        for pid, p in (roh or {}).items():
+            if leer(p):
+                continue
+            if pid not in sauber:
+                out.append(f"Panel „{pid}“")
+            else:
+                titel = str(p.get("title") or "").strip() if isinstance(p, dict) else ""
+                vergleich(p, sauber[pid], (), titel or pid)
         return out
 
     def _persist_panels_file(self, panels: dict, devices: dict) -> None:
@@ -3002,9 +3214,11 @@ class App:
                       pos=_pos_pct(pct),
                       sublabel=("Offen" if pct >= 100 else
                                 ("Geschlossen" if pct <= 0 else f"{pct}% offen")))
-        elif t == "IRoomControllerV2":
+        elif t in ("IRoomControllerV2", "IRoomController"):
             ta = self._state(c, "tempActual"); tt = self._state(c, "tempTarget")
-            prep = self._state(c, "prepareState")
+            # heizt/kuehlt: V2 meldet es in prepareState, die alte Raumregelung
+            # ueber ihre Ventile (siehe _irc1)
+            prep = self._state(c, "prepareState") if t == "IRoomControllerV2" else self._irc1(c)["prep"]
             bits = self._irc_activity(prep, self._state(c, "openWindow"))
             sub = (f"{self._fmt_num(ta, '%.1f')}° → {self._fmt_num(tt, '%.1f')}°"
                    if ta is not None else "Heizung")
@@ -3212,7 +3426,7 @@ class App:
                       sublabel=(last or "Keine Einträge"))
         elif t == "EFM":
             # Energieflussmonitor: Ppwr Erzeugung, Gpwr Netz (+Bezug/-Einspeisung),
-            # Spwr Speicher (+Laden/-Entladen), actual0..5 = Knoten aus details.nodes
+            # Spwr Speicher (+Entladen/-Laden), actual0..5 = Knoten aus details.nodes
             fmt = (c.get("details") or {}).get("actualFormat") or "%.2f kW"
             bits = []
             p = self._state(c, "Ppwr")
@@ -3453,6 +3667,10 @@ class App:
                         # Panel ist er ein undurchsichtiger Schluessel. Ohne
                         # Leiste waere er ein totes Attribut, also nur dann.
                         it["catKey"] = ru
+                    if marken:
+                        # Gruppe an JEDER Kachel: das Panel laesst beim Sprung
+                        # die ganze Gruppe aufleuchten und filtert nach ihr.
+                        it["grp"] = ru
                     items.append(it)
             # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
             for ru, us in nach_raum.items():
@@ -3509,6 +3727,7 @@ class App:
                     it = self._control_item(u, prof)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
+                    it["grp"] = cu              # Gruppe: Aufleuchten und Filter im Panel
                     items.append(it)
             cat_tabs = [{"key": cu,
                          "label": _clean(self.cats.get(cu, {}).get("name")) or "Kategorie",
@@ -4263,32 +4482,39 @@ class App:
             ua = c.get("uuidAction")
             ta = self._fmt_num(self._state(c, "tempActual"), "%.1f")
             tt = self._fmt_num(self._state(c, "tempTarget"), "%.1f")
+            # -/+ verstellt die Komforttemperatur - nur mit bekanntem Wert (das
+            # Soll kann gerade Eco sein, ein angenommener Wert verstellt die Regelung)
             try:
-                comfort = float(self._state(c, "comfortTemperature")
-                                or self._state(c, "tempTarget") or 20)
+                comfort = float(self._state(c, "comfortTemperature"))
             except (TypeError, ValueError):
-                comfort = 20.0
+                comfort = None
             modes = self._irc_modes(c)
             am = self._state(c, "activeMode")
             try:
                 am = int(am) if am is not None else None
             except (TypeError, ValueError):
                 am = None
-            # Status: Soll-Temp + aktiver Modus + heizt/kuehlt/Fenster
+            art, manuell = self._irc_betriebsart(c)
+            # Status: Soll-Temp + aktiver Modus + manuelle Betriebsart + heizt/kuehlt/Fenster
             sbits = []
             if am is not None and am in modes:
                 sbits.append(modes[am])
+            if manuell:
+                sbits.append(manuell)
             sbits += self._irc_activity(self._state(c, "prepareState"),
                                         self._state(c, "openWindow"))
             status = f"Soll {tt} °C" + (" · " + " · ".join(sbits) if sbits else "")
             blocks = [
                 {"k": "big", "text": f"{ta} °C"},          # grosse Ist-Temp statt Icon
                 {"k": "status", "text": status},
-                {"k": "row", "cells": [
-                    {"label": "−", "cmd": {"uuid": ua, "cmd": f"setComfortTemperature/{comfort - 0.5:.1f}"}},
-                    {"label": "+", "cmd": {"uuid": ua, "cmd": f"setComfortTemperature/{comfort + 0.5:.1f}"}},
-                ]},
             ]
+            reihe = [art] if art else []
+            if comfort is not None:
+                reihe = [{"label": "−", "cmd": {"uuid": ua, "cmd": f"setComfortTemperature/{comfort - 0.5:.1f}"}},
+                         *reihe,
+                         {"label": "+", "cmd": {"uuid": ua, "cmd": f"setComfortTemperature/{comfort + 0.5:.1f}"}}]
+            if reihe:
+                blocks.append({"k": "row", "cells": reihe})
             # Betriebsmodi in EINER Zeile: Temperatur-Modi (Eco/Komfort) als
             # 1-h-Override + Automatik (zurueck zur Zeitschaltung). Namen aus MS
             # (details.timerModes). Gebaeudeschutz wird ausgelassen (aufgeraeumt).
@@ -4300,6 +4526,45 @@ class App:
                 cells.append({"label": "Automatik",
                               "cmd": {"uuid": ua, "cmd": "stopOverride"}})
                 blocks.append({"k": "row", "cells": cells})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route,
+                    "anchor": "bottom", "blocks": blocks}
+        if t == "IRoomController":
+            # Alte Raumregelung (v1), Befehle laut Loxone-Strukturdoku:
+            # settemp/<Nr>/<Wert>, starttimer/<Nr>/<Sekunden>, stoptimer.
+            ua = c.get("uuidAction")
+            z = self._irc1(c)
+            art, manuell = self._irc_betriebsart(c)
+            ta = self._fmt_num(self._state(c, "tempActual"), "%.1f")
+            tt = self._fmt_num(self._state(c, "tempTarget"), "%.1f")
+            # manuell: die Betriebsart ("Manuell Heizen") statt der Temperatur "Manuell"
+            sbits = [z["name"]] if z["name"] and not (manuell and z["ix"] == IRC1_MANUELL) else []
+            if manuell:
+                sbits.append(manuell)
+            sbits += self._irc_activity(z["prep"], self._state(c, "openWindow"))
+            status = f"Soll {tt} °C" + (" · " + " · ".join(sbits) if sbits else "")
+            blocks = [
+                {"k": "big", "text": f"{ta} °C"},
+                {"k": "status", "text": status},
+            ]
+            # -/+ verstellt Komfort der Periode (manuell: die manuelle
+            # Temperatur) - nur mit bekanntem, absolutem Wert. Dazwischen
+            # die Betriebsart (mode/<Nr>).
+            reihe = [art] if art else []
+            if z["stell"] is not None:
+                ix, v = z["stell_ix"], z["stell"]
+                reihe = [{"label": "−", "cmd": {"uuid": ua, "cmd": f"settemp/{ix}/{v - 0.5:.1f}"}},
+                         *reihe,
+                         {"label": "+", "cmd": {"uuid": ua, "cmd": f"settemp/{ix}/{v + 0.5:.1f}"}}]
+            if reihe:
+                blocks.append({"k": "row", "cells": reihe})
+            # Eco/Komfort fuer eine Stunde halten, Automatik beendet den Timer.
+            blocks.append({"k": "row", "cells": [
+                {"label": IRC1_TEMPS[IRC1_ECO], "on": z["ix"] == IRC1_ECO,
+                 "cmd": {"uuid": ua, "cmd": f"starttimer/{IRC1_ECO}/{IRC1_TIMER_S}"}},
+                {"label": "Komfort", "on": z["ix"] == z["komfort_ix"],
+                 "cmd": {"uuid": ua, "cmd": f"starttimer/{z['komfort_ix']}/{IRC1_TIMER_S}"}},
+                {"label": "Automatik", "cmd": {"uuid": ua, "cmd": "stoptimer"}},
+            ]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
         if t == "Intercom":
@@ -4690,7 +4955,8 @@ class App:
             g = self._flow_text(self._state(c, "Gpwr"), fmt, "Netzbezug", "Einspeisung")
             if g:
                 rows.append({"k": "status", "text": g})
-            sp = self._flow_text(self._state(c, "Spwr"), det.get("storageFormat") or fmt, "Speicher lädt", "Speicher entlädt")
+            sp = self._flow_text(self._state(c, "Spwr"), det.get("storageFormat") or fmt,
+                                 "Speicher entlädt", "Speicher lädt", "Speicher")
             if sp:
                 rows.append({"k": "status", "text": sp})
             nodes = self._named_items(det.get("nodes"))
@@ -4715,7 +4981,7 @@ class App:
             if g:
                 rows.append({"k": "status", "text": g})
             if det.get("HasSpwr", True):
-                sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher lädt", "Speicher entlädt")
+                sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher entlädt", "Speicher lädt", "Speicher")
                 if sp:
                     rows.append({"k": "status", "text": sp})
             soc = self._state(c, "Ssoc")
@@ -5696,13 +5962,19 @@ async def api_save_panels(request: web.Request) -> web.Response:
     if not isinstance(panels, dict):
         return web.json_response({"ok": False, "error": "Feld 'panels' fehlt"}, status=400)
     clean = App._sanitize_panels(panels)
+    # Was der Server nicht uebernimmt, meldet er (Konfigurator zeigt es an),
+    # statt es still zu verlieren.
+    weg = App._panels_verworfen(panels, clean,
+                                {u: _clean(c.get("name")) or u for u, c in app.controls.items()})
     try:
         app._write_panels(clean)
     except OSError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
     n = await _push(app, {"t": "reload"})   # offene Panels sofort neu laden
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
-    return web.json_response({"ok": True, "count": len(clean), "reloaded": n})
+    if weg:
+        log.warning("panels.json: nicht übernommen: %s", "; ".join(weg))
+    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg})
 
 
 async def api_save_theme(request: web.Request) -> web.Response:
@@ -6438,6 +6710,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
+                        "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
