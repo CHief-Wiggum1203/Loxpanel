@@ -1,0 +1,18 @@
+# Build-Ausgaben
+build/
+.gradle/
+.cxx/
+*.apk
+*.aab
+
+# Maschinenspezifisch
+local.properties
+
+# Von 'syncLoxpanelAssets' beim Build aus dem Repo GENERIERT — nie committen
+app/src/main/assets/loxpanel/
+
+# IDE
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
