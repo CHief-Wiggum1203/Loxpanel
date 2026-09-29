@@ -7,22 +7,38 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Erlaubt der App, aus dem Hintergrund heraus eine Activity (Fully Kiosk)
-         zu starten (umgeht Androids Background-Activity-Launch-Sperre). -->
+    <!-- Damit BootReceiver die Kiosk-Anzeige aus dem Hintergrund starten darf
+         (umgeht Androids Background-Activity-Launch-Sperre). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
-        android:label="LoxPanel Server"
-        android:allowBackup="false">
+        android:label="LoxPanel"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
 
+        <!-- Eingebauter Kiosk: Vollbild-WebView auf den lokalen Server. Ist der
+             Launcher (und als HOME wählbar, um die Geräteoberfläche zu ersetzen). -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".KioskActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode|navigation|keyboard">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
+
+        <!-- Status-/Debug-Screen (kein Launcher mehr): via 'adb am start .MainActivity'. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true" />
 
         <service
             android:name=".ServerService"

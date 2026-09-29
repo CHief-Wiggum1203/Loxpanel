@@ -15,12 +15,18 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
         ) {
             val svc = Intent(context, ServerService::class.java)
-                .putExtra("launchKiosk", true)   // beim Boot: Fully Kiosk mitstarten
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(svc)
             } else {
                 context.startService(svc)
             }
+            // Eingebauten Kiosk (unsere Vollbild-WebView) in den Vordergrund holen.
+            try {
+                context.startActivity(
+                    Intent(context, KioskActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e: Exception) { /* ignoriert */ }
         }
     }
 }
