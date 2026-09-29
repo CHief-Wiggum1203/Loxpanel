@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebResourceError
@@ -29,6 +30,10 @@ class KioskActivity : Activity() {
     private val url = "http://127.0.0.1:8099/?panel=default"
     private var errored = false
     private var reloadPending = false
+
+    // Display-Abschaltung bei Inaktivitaet (Berührung weckt wieder).
+    private val idleMs = 90_000L
+    private val goDark = Runnable { screenOff() }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +73,7 @@ class KioskActivity : Activity() {
             }
         }
         show()
+        wake()
     }
 
     /** Lädt die Panel-URL neu. */
@@ -83,7 +89,30 @@ class KioskActivity : Activity() {
     override fun onResume() {
         super.onResume()
         enterImmersive()
+        wake()
         if (errored) show()   // beim Zurückkommen sicher neu laden, falls Fehlerzustand
+    }
+
+    // Jede Berührung weckt den Bildschirm und startet den Inaktivitäts-Timer neu.
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        wake()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Bildschirm an (Systemhelligkeit) + Abschalt-Timer neu setzen. */
+    private fun wake() {
+        setBrightness(-1f)
+        ui.removeCallbacks(goDark)
+        ui.postDelayed(goDark, idleMs)
+    }
+
+    /** Bildschirm dunkel/aus (Helligkeit 0); Berührung weckt wieder. */
+    private fun screenOff() { setBrightness(0f) }
+
+    private fun setBrightness(b: Float) {
+        val lp = window.attributes
+        lp.screenBrightness = b
+        window.attributes = lp
     }
 
     @Suppress("DEPRECATION")
