@@ -75,14 +75,30 @@ class ServerService : Service() {
      * (Miniserver-Zugang etc.) erhalten bleiben.
      */
     private fun deployAssets(appDir: File) {
-        copyAsset("loxpanel/bin", File(appDir, "bin"))
-        copyAsset("loxpanel/webfrontend", File(appDir, "webfrontend"))
-        copyAsset("loxpanel/deploy", File(appDir, "deploy"))
+        appDir.mkdirs()
+        // Nur bei App-Update neu ausrollen: Stempel = Installationszeit der App.
+        // Normale Reboots ueberspringen das Kopieren -> schneller Start.
+        val stamp = File(appDir, ".assets_version")
+        val current = try {
+            packageManager.getPackageInfo(packageName, 0).lastUpdateTime.toString()
+        } catch (e: Exception) { "" }
+        val previous = try { if (stamp.exists()) stamp.readText().trim() else "" } catch (e: Exception) { "" }
+
+        if (current != previous || !File(appDir, "bin/webvisu.py").exists()) {
+            copyAsset("loxpanel/bin", File(appDir, "bin"))
+            copyAsset("loxpanel/webfrontend", File(appDir, "webfrontend"))
+            copyAsset("loxpanel/deploy", File(appDir, "deploy"))
+            try { stamp.writeText(current) } catch (e: Exception) {}
+            Log.i("LPSERVER", "Assets neu ausgerollt (App-Update) unter ${appDir.absolutePath}")
+        } else {
+            Log.i("LPSERVER", "Assets aktuell - kein Neukopieren (schneller Start)")
+        }
+
+        // config nur beim ersten Mal (ueber /settings gespeicherte Zugangsdaten bleiben)
         val cfg = File(appDir, "config")
         if (!cfg.exists()) {
             copyAsset("loxpanel/config", cfg)
         }
-        Log.i("LPSERVER", "Assets bereit unter ${appDir.absolutePath}")
     }
 
     private fun copyAsset(path: String, out: File) {
