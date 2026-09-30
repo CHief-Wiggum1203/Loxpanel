@@ -2824,6 +2824,7 @@ function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }c
 function screenOn(){ const f=kiosk(); if(!f) return;
   try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
 function armDpms(){ clearTimeout(dpmsTimer);
+  if(window.LoxKiosk) return;   // native LoxPanel-Kiosk-App schaltet selbst ab (eigener Screensaver)
   if(DISP.agent || !(DISP.dpmsOff>0)) return;
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
@@ -2884,6 +2885,8 @@ function onScreenResize(){
 if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
+  // Native LoxPanel-Kiosk-App: konfigurierte Display-aus-Zeit an ihren Screensaver geben.
+  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.dpmsOff); }catch(e){}
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
   DISP.agent = !!msg.agent;
   armDpms();
