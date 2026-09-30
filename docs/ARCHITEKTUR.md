@@ -428,6 +428,18 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
   `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
   melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
+  Seit Upstream #60 teilen sich die Diagramme dort (und auf einer Widget-Seite)
+  die Höhe der Pane, statt unten aus ihr herauszuragen: Die Seite ist eine
+  Flex-Spalte, jedes Diagramm bekommt `flex:1`, das SVG
+  (`preserveAspectRatio="none"`) füllt seine Fläche in voller Breite und wird
+  dafür leicht verzerrt. Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
+  zeichnet denselben Baustein (`renderChartPane()`), hochkant ist ihre Box aber
+  so hoch wie ihr Inhalt, und Diagramme mit `flex-basis: 0` fielen dort auf 0 px
+  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb weiter im
+  Seitenverhältnis der Zeichnung (440:150). Geprüft in
+  `test_split_haelfte_und_kachel` und `test_split_hochkant_uebereinander` (kein
+  Überlauf) sowie `test_uhrseite_hochkant_zweite_flaeche_unten`
+  (Seitenverhältnis quer und hochkant).
 - **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
   `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
   an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des

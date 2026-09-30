@@ -119,12 +119,15 @@
   .screen.split #frontpane .fp-page.solo,
   .screen.split #playerpane .fp-page.solo{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;}
   /* Verlaufs-Pane: die Diagramme teilen sich die Pane-Hoehe (fit statt scrollen),
-     damit sie auf kurzen Displays (z.B. 480px) nicht ueberlaufen. */
+     damit sie auf kurzen Displays (z.B. 480px) nicht ueberlaufen. Nur im
+     #frontpane (Split-Pane, Widget-Seite): die Uhr-Seite zeichnet denselben
+     Verlaufs-Baustein, hochkant ist ihre Box aber so hoch wie ihr Inhalt - dort
+     fielen Diagramme mit flex-basis 0 auf 0px zusammen. */
   .screen.split #frontpane .fp-page.solo.cpage,
   .screen.widgettab #frontpane .fp-page.solo.cpage{overflow:hidden;gap:8px;display:flex;flex-direction:column;}
-  .fp-page.solo.cpage .chart{flex:1 1 0;min-height:0;display:flex;flex-direction:column;}
-  .fp-page.solo.cpage .chbody{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
-  .fp-page.solo.cpage .chbody>svg{flex:1 1 auto;min-height:0;width:100%;height:100%;}
+  #frontpane .fp-page.solo.cpage .chart{flex:1 1 0;min-height:0;display:flex;flex-direction:column;}
+  #frontpane .fp-page.solo.cpage .chbody{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  #frontpane .fp-page.solo.cpage .chbody>svg{flex:1 1 auto;min-height:0;width:100%;height:100%;}
   #frontpane .cphead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   #frontpane .cpname{font-weight:650;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #frontpane .cpval{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
