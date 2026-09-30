@@ -146,6 +146,12 @@ nicht unbemerkt entfernt:
   bei gekoppeltem Audioserver über den Miniserver. Liegt vorerst nur im Fork;
   die identische Änderung ist als Upstream-PR eingereicht. Sobald Lenardo sie
   merged, ist es kein Fork-eigener Patch mehr und der nächste Sync übernimmt sie.
+- Verlaufs-Regeln aus Upstream #60 nur im `#frontpane`
+  (`webfrontend/html/panel.html`, CSS der Verlaufs-Pane): hält die Diagramme
+  der Uhr-Seite im Seitenverhältnis, hochkant fielen sie sonst auf 0 px
+  zusammen. Soll nach Upstream (`TODO.md`, Abschnitt 0b); geht der Patch bei
+  einem Sync verloren, schlägt `test_uhrseite_hochkant_zweite_flaeche_unten`
+  an.
 
 ## Drei Fallstricke
 
