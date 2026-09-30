@@ -854,6 +854,32 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Automatik selbst war in Ordnung: nachgestellt schaltet `/api/mode/<modus>`
       das Gerät auf die zugeordnete Ansicht um. Geprüft in
       `test_betriebsmodus_assistent_ausweg_und_benennen`. **S**
+- [x] **Display nach Präsenzmelder.** Je Gerät unter *Displays →
+      Betriebsmodus-Automatik & Display-Steuerung* ein Baustein mit
+      `active`-State (Präsenzmelder, Schalter, digitaler Status): Solange er
+      jemanden meldet, bleibt das Display hell und die Leerlaufzeit ist
+      ausgesetzt; wird der Raum leer, geht es aus, kommt jemand, wieder an.
+      Wirkt mit Fully Kiosk (JavaScript-Schnittstelle, Remote Admin) und
+      WallPanel, nicht bei Linux-Panels mit Agent. Neben der Auswahl steht der
+      aktuelle Stand. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §8,
+      Einrichtung in `deploy/ANDROID.md`; geprüft in `tests/test_praesenz.py`
+      und `tests/browser/test_praesenz_browser.py`. **M**
+- [ ] **Präsenzmelder an der Anlage prüfen:** am Android-Panel mit Fully
+      Kiosk einen Melder koppeln, den Raum verlassen und wieder betreten, die
+      Nachlaufzeit des Melders in Loxone Config passend einstellen. **S**
+- [ ] **iPad als Panel (eigene App):** eine kleine iOS-App (Swift, WKWebView)
+      als Kiosk-Hülle, der Server bleibt auf Unraid. Sie hält das iPad wach und
+      dunkelt statt abzuschalten (Schwarzbild und Helligkeit 0), damit die
+      Verbindung steht und Klingel, Wecker und Präsenzmelder sofort wecken;
+      Töne spielt sie ohne vorheriges Antippen. Sie spricht dieselbe
+      Schnittstelle wie Lenardos Android-App
+      ([#61](https://github.com/Lenardo1/loxpanel/pull/61), noch offen):
+      `window.LoxKiosk` mit `setDisplayOff`, ergänzt um `wake()` und `sleep()`,
+      damit der Server das Display schalten kann – das vorher mit Lenardo
+      abstimmen. Dazu erkennt der Server `kiosk=ios`. Gebaut wird in Xcode auf
+      dem Mac. Grenzen: kein echtes Display-Aus (iPads mit LCD leuchten bei
+      Helligkeit 0 schwach), kein Näherungssensor, nach einem Neustart die App
+      von Hand starten. **L**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
