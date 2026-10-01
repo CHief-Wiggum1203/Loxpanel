@@ -63,6 +63,9 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   Konfigurator in Chromium; Screenshots landen im `tmp_path` bzw. in der CI als
   Artefakt „screenshots".
 - Kein Test darf `config/` verändern, ein Wächter in `tests/conftest.py` prüft das.
+  Wer Config-Dateien lesen und schreiben muss, nimmt die Fixture `cfg_ordner`: Sie
+  leitet Schreiben (`CFG_FILE`, `PANELS_FILE`, `THEME_FILE`) und Lesen (die Leser
+  werten `Path(__file__)` erst beim Aufruf aus) nach `tmp_path` um.
 - Tests, die von der Uhrzeit abhängen, erzeugen Aufzeichnungen je Monat
   (`monatsdateien()`), sonst scheitern sie am Monatsanfang.
 

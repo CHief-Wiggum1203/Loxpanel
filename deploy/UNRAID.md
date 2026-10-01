@@ -128,10 +128,16 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   *Einstellungen herunterladen* (oder `http://<unraid-ip>:8099/api/backup`) lädt
   die drei Dateien als ZIP. Kennwörter (Miniserver, Kamera, Display-Treiber) sind
   darin leer, weil der Download ohne Anmeldung möglich ist; die `LIESMICH.txt`
-  im ZIP listet, welche nach dem Zurückspielen neu einzutragen sind. Die
-  vollständige Sicherung samt Kennwörtern bleibt der appdata-Ordner.
-- **Wiederherstellen:** Container stoppen, die Dateien zurückkopieren, Container
-  starten.
+  im ZIP listet, welche das sind. Die vollständige Sicherung samt Kennwörtern
+  bleibt der appdata-Ordner.
+- **Einspielen:** dieselbe Seite, *ZIP-Datei wählen und einspielen*. Das geht
+  auch mit der Sicherung eines anderen LoxPanel, etwa beim Umzug auf ein Panel
+  mit der Android-App. Kennwörter, die hier schon für denselben Host und
+  Benutzer eingetragen sind, bleiben; fehlende nennt das Ergebnis. Die
+  bisherigen Dateien liegen danach als `.bak` im appdata-Ordner, ein Neustart
+  ist nicht nötig.
+- **Wiederherstellen von Hand:** Container stoppen, die Dateien zurückkopieren,
+  Container starten.
 
 ## Netzwerk und Zeitzone
 

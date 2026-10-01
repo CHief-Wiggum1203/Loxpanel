@@ -284,12 +284,16 @@ selbst aktuell.
       Solange jemand da ist, muss die Visu die Leerlaufzeit der App aussetzen
       (`LoxKiosk.setDisplayOff(0)`), sonst dunkelt die App trotz Anwesenheit
       ab. Heute ist der Präsenzmelder Fork-eigen. **M**
+- [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
+      ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
+      dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
+      vorhandenes Kennwort bleibt nur beim selben Ziel, ein Zugang aus
+      `LOXPANEL_MS_*` oder ohne Miniserver in der Sicherung bleibt stehen.
+      Geprüft in `tests/test_sicherung.py` und
+      `tests/browser/test_sicherung_browser.py`. **M**
 - [ ] **Sicherung und Einspielen zu Lenardo bringen:** Ohne Unraid hat jedes
-      Gerät seine eigene Konfiguration in der App. „Sicherung herunterladen“
-      gibt es bisher nur im Fork, „Einspielen“ noch nirgends. Konzept: alles
-      prüfen, bevor etwas geschrieben wird; ein vorhandenes Kennwort nur
-      behalten, wenn Host und Benutzer gleich bleiben; einen Zugang aus den
-      Umgebungsvariablen nicht durch eine Sicherung ohne Kennwort ersetzen. **M**
+      Gerät seine eigene Konfiguration in der App. Lenardo hat noch gar keine
+      Sicherung; beides als ein Beitrag auf `upstream/main`. **S**
 - [ ] **Ersteinrichtung am Gerät:** Ohne Miniserver-Zugang sagt die Visu
       nicht, unter welcher Adresse der Konfigurator erreichbar ist (IP des
       Geräts, Port 8099). **S**

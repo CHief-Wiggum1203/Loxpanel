@@ -63,7 +63,7 @@ def test_backup_ohne_kennwoerter(tmp_path):
         encoding="utf-8")
     (tmp_path / "theme.json").write_text('{"ui": {"accent": "#52b881"}}', encoding="utf-8")
     dateien = _zip_lesen(W._backup_zip(tmp_path))
-    assert set(dateien) == {"loxpanel.cfg", "panels.json", "theme.json", "LIESMICH.txt"}
+    assert set(dateien) == {"loxpanel.cfg", "panels.json", "theme.json", "LIESMICH.txt", W.BACKUP_VERMERK}
     alles = "".join(dateien.values())
     assert "GEHEIM" not in alles, "kein Kennwort im Backup"
     cfg = json.loads(dateien["loxpanel.cfg"])
@@ -75,12 +75,19 @@ def test_backup_ohne_kennwoerter(tmp_path):
                  "panels.json: devices.Tablet.driver.password"):
         assert pfad in liesmich
     assert "intercom.u2" not in liesmich, "leere Kennwoerter sind nichts Entferntes"
+    vermerk = json.loads(dateien[W.BACKUP_VERMERK])   # fuer /api/restore: wo Kennwoerter fehlen
+    assert vermerk["format"] == W.BACKUP_FORMAT
+    assert vermerk["dateien"] == ["loxpanel.cfg", "panels.json", "theme.json"]
+    assert vermerk["kennwoerter_entfernt"] == {
+        "loxpanel.cfg": [["miniserver", "pass"], ["intercom", "u1", "pass"]],
+        "panels.json": [["devices", "Tablet", "driver", "password"]], "theme.json": []}
 
 
 def test_backup_kaputte_datei_bleibt_draussen(tmp_path):
     (tmp_path / "loxpanel.cfg").write_text('{"miniserver": {"pass": "GEHEIM"', encoding="utf-8")   # abgeschnitten
     dateien = _zip_lesen(W._backup_zip(tmp_path))
-    assert set(dateien) == {"LIESMICH.txt"} and "GEHEIM" not in dateien["LIESMICH.txt"]
+    assert set(dateien) == {"LIESMICH.txt", W.BACKUP_VERMERK} and "GEHEIM" not in dateien["LIESMICH.txt"]
+    assert json.loads(dateien[W.BACKUP_VERMERK])["kennwoerter_entfernt"] == {}
     assert "Nicht enthalten, weil nicht lesbar: loxpanel.cfg" in dateien["LIESMICH.txt"]
 
 

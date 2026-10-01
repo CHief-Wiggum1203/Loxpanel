@@ -502,7 +502,8 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
-| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt`. Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
+| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
+| POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Erst alles prüfen (`_sicherung_lesen`, `_sicherung_pruefen`: nur endliche Zahlen, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Eine Sicherung ohne Miniserver lässt den bisherigen Zugang stehen, ebenso einen aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang. Antwort: `dateien`, `nichtEnthalten`, `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`; 400 bei kaputter Sicherung (nichts geschrieben), 413 über 1 MiB | Settings → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
@@ -1004,8 +1005,8 @@ Root-Rechte auf dem LoxBerry bedeutet.
 
 Template `unraid/loxpanel.xml`, Anleitung `deploy/UNRAID.md`. Start/Stop, Update
 und Backup übernimmt Unraid. Was das LoxBerry-Widget an Funktionen hat, gibt es
-auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup`) und
-den appdata-Ordner.
+auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
+`/api/restore`) und den appdata-Ordner.
 
 - **Zustand:** `HEALTHCHECK` im Dockerfile ruft alle 30 s `/api/health` auf
   (Python statt curl, das slim-Image hat kein curl); Unraid zeigt healthy /

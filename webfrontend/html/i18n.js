@@ -273,10 +273,30 @@
       'Einstellungen herunterladen': 'Download settings',
       'Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.':
         'All settings of this server as a ZIP file: Miniserver access, camera, calendar, panels, devices and design.',
-      'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist – nach dem Zurückspielen neu eintragen.':
-        'Passwords (Miniserver, camera, display driver) are not included because the download needs no login – enter them again after restoring.',
-      'Zurückspielen: die Dateien aus dem ZIP in den Config-Ordner legen (Unraid: appdata/loxpanel/config) und LoxPanel neu starten. Das steht auch in der LIESMICH.txt im ZIP.':
-        'Restoring: put the files from the ZIP into the config folder (Unraid: appdata/loxpanel/config) and restart LoxPanel. This is also described in LIESMICH.txt inside the ZIP.',
+      'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.':
+        'Passwords (Miniserver, camera, display driver) are not included because the download needs no login.',
+      'Sicherung einspielen': 'Restore backup',
+      'Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange Host und Benutzer gleich sind, fehlende nennt das Ergebnis.':
+        'Choose a ZIP file from “Download settings”, also from another LoxPanel. It replaces the settings of this server; whatever is not in the backup stays. Passwords already entered stay as long as host and user are the same; missing ones are listed in the result.',
+      'ZIP-Datei wählen und einspielen': 'Choose ZIP file and restore',
+      'Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?':
+        'The backup replaces the settings of this server. Best “Download settings” first. Continue?',
+      'Ungespeicherte Änderungen an Panels gehen dabei verloren.': 'Unsaved changes to panels will be lost.',
+      '✓ Eingespielt:': '✓ Restored:',
+      'Nur teilweise eingespielt:': 'Only partly restored:',
+      'Nicht eingespielt': 'Not restored',
+      'Miniserver: mit dem eingespielten Zugang neu verbunden.': 'Miniserver: reconnected with the restored access.',
+      'Miniserver: Zugang unverändert, die Verbindung bleibt.': 'Miniserver: access unchanged, the connection stays.',
+      'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: password missing – enter it under Settings → Miniserver.',
+      'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.': 'Miniserver: the backup holds no access, the current one stays.',
+      'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.': 'Miniserver: access comes from the environment variables here and stays.',
+      'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:': 'Miniserver: connecting with the restored access failed:',
+      'Kennwort fehlt, bitte unter Settings eintragen:': 'Password missing, please enter it under Settings:',
+      'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
+      'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',
+      'Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.': 'Please reload the page so the configurator shows the restored settings.',
+      'Kamera': 'Camera',
+      'Display-Treiber': 'Display driver',
       '＋ Neues Panel': '＋ New panel',
       'Panels & Kacheln': 'Panels & tiles',
       'Ansichten gestalten': 'Design views',

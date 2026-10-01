@@ -30,8 +30,9 @@ import struct
 import sys
 import time
 import zipfile
+import zlib
 from datetime import date, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import ssl as _ssl
 from urllib.parse import quote, unquote, urlencode
@@ -78,6 +79,7 @@ _CFGDIR = Path(__file__).resolve().parent.parent / "config"
 PANELS_FILE = _CFGDIR / "panels.json"
 CFG_FILE = _CFGDIR / "loxpanel.cfg"
 CFG_EXAMPLE = _CFGDIR / "loxpanel.cfg.example"
+THEME_FILE = _CFGDIR / "theme.json"
 
 
 def _load_cfg() -> dict:
@@ -6126,14 +6128,19 @@ BACKUP_FILES = ("loxpanel.cfg", "panels.json", "theme.json")
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
 # ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht.
 _SECRET_KEYS = {"pass", "password"}
+# Maschinenlesbarer Vermerk in der Sicherung: je Datei die Pfade der entfernten
+# Kennwoerter. /api/restore setzt nur an diesen Stellen vorhandene wieder ein.
+BACKUP_VERMERK = "sicherung.json"
+BACKUP_FORMAT = 1
 
 
-def _ohne_kennwoerter(obj, pfad: str = "") -> tuple:
-    """Kopie ohne Kennwoerter (leer statt Wert) -> (daten, [entfernte Pfade])."""
+def _ohne_kennwoerter(obj, pfad: tuple = ()) -> tuple:
+    """Kopie ohne Kennwoerter (leer statt Wert) -> (daten, [entfernte Pfade]).
+    Ein Pfad ist ein Tupel aus Schluesseln und Listen-Indizes."""
     if isinstance(obj, dict):
         out, weg = {}, []
         for k, v in obj.items():
-            p = f"{pfad}.{k}" if pfad else str(k)
+            p = pfad + (k,)
             if str(k).lower() in _SECRET_KEYS and v not in (None, ""):
                 out[k] = ""
                 weg.append(p)
@@ -6144,18 +6151,27 @@ def _ohne_kennwoerter(obj, pfad: str = "") -> tuple:
     if isinstance(obj, list):
         out, weg = [], []
         for i, v in enumerate(obj):
-            w, sub = _ohne_kennwoerter(v, f"{pfad}[{i}]")
+            w, sub = _ohne_kennwoerter(v, pfad + (i,))
             out.append(w)
             weg += sub
         return out, weg
     return obj, []
 
 
+def _pfad_text(pfad) -> str:
+    """Pfad als Text, wie ihn die LIESMICH.txt nennt: a.b[0].c"""
+    s = ""
+    for t in pfad:
+        s += f"[{t}]" if isinstance(t, int) else (f".{t}" if s else str(t))
+    return s
+
+
 def _backup_zip(cfgdir: Path) -> bytes:
     """Die Einstellungs-Dateien als ZIP, Kennwoerter entfernt, mit LIESMICH.txt.
     Eine Datei, die kein lesbares JSON ist, bleibt draussen: ungeprueft koennte
     sie ein Kennwort enthalten."""
-    buf, drin, weg, fehlt = io.BytesIO(), [], [], []
+    buf, drin, weg, fehlt, vermerk = io.BytesIO(), [], [], [], {}
+    jetzt = datetime.now()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name in BACKUP_FILES:
             f = cfgdir / name
@@ -6169,17 +6185,27 @@ def _backup_zip(cfgdir: Path) -> bytes:
                 continue
             z.writestr(name, json.dumps(daten, ensure_ascii=False, indent=2) + "\n")
             drin.append(name)
-            weg += [f"{name}: {p}" for p in entfernt]
-        zeilen = [f"LoxPanel-Einstellungen vom {datetime.now():%d.%m.%Y %H:%M}", "",
+            weg += [f"{name}: {_pfad_text(p)}" for p in entfernt]
+            vermerk[name] = [list(p) for p in entfernt]
+        zeilen = [f"LoxPanel-Einstellungen vom {jetzt:%d.%m.%Y %H:%M}", "",
                   "Enthalten: " + (", ".join(drin) or "keine (noch nichts gespeichert)")]
         if fehlt:
             zeilen.append("Nicht enthalten, weil nicht lesbar: " + ", ".join(fehlt))
         zeilen += ["", "Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung",
-                   "herunterzuladen ist. Nach dem Zurückspielen unter Settings neu eintragen:"]
+                   "herunterzuladen ist. Entfernt wurden:"]
         zeilen += [f"  - {p}" for p in weg] or ["  (keine gesetzt)"]
-        zeilen += ["", "Zurückspielen: Dateien in den Config-Ordner des Containers legen",
-                   "(Unraid: appdata/loxpanel, im Container /app/config) und LoxPanel neu starten."]
+        zeilen += ["", "Zurückspielen: im Konfigurator unter Settings → Sicherung diese",
+                   "ZIP-Datei einspielen. Kennwörter, die dort für denselben Host und",
+                   "Benutzer schon eingetragen sind, bleiben erhalten; fehlende nennt der",
+                   "Konfigurator danach. Von Hand geht es auch: die Dateien in den",
+                   "Config-Ordner legen (Unraid: appdata/loxpanel, im Container /app/config)",
+                   "und LoxPanel neu starten. " + BACKUP_VERMERK + " vermerkt für das",
+                   "Einspielen, wo Kennwörter entfernt sind."]
         z.writestr("LIESMICH.txt", "\n".join(zeilen) + "\n")
+        z.writestr(BACKUP_VERMERK, json.dumps(
+            {"format": BACKUP_FORMAT, "erstellt": jetzt.isoformat(timespec="seconds"),
+             "dateien": drin, "kennwoerter_entfernt": vermerk},
+            ensure_ascii=False, indent=2) + "\n")
     return buf.getvalue()
 
 
@@ -6188,6 +6214,444 @@ async def api_backup(request: web.Request) -> web.Response:
     name = f"loxpanel-einstellungen-{datetime.now():%Y-%m-%d_%H%M}.zip"
     return web.Response(body=_backup_zip(_CFGDIR), content_type="application/zip",
                         headers={**_NOCACHE, "Content-Disposition": f'attachment; filename="{name}"'})
+
+
+# ---- Sicherung einspielen (POST /api/restore) ----
+# Ablauf: ZIP lesen (_sicherung_lesen), alles pruefen und vorbereiten, ohne zu
+# schreiben (_sicherung_pruefen), erst dann schreiben und den laufenden Server
+# auffrischen (_sicherung_schreiben). Eine Sicherung kommt auch von einem
+# anderen Server oder aus einer Hand-Bearbeitung; was der Server nicht
+# verkraftet, wird deshalb vorher abgelehnt statt geschrieben.
+
+# Groesste Datei, die das Einspielen annimmt (entpackt). Die Einstellungsdateien
+# haben wenige KB; die Grenze haelt eine ZIP-Datei, die sich beim Entpacken
+# aufblaeht, vom Speicher fern.
+RESTORE_MAX_DATEI = 2 * 1024 * 1024
+# Was ein Kennwort an sein Ziel bindet: Ein vorhandenes Kennwort bleibt beim
+# Einspielen nur, wenn diese Angaben gleich bleiben - sonst ginge es an einen
+# anderen Host oder Benutzer.
+_KENNWORT_ZIEL = ("host", "url", "user", "driver")
+# Groesste ganze Zahl in einer Sicherung (in JavaScript noch genau). Groessere
+# lassen int()/float() im Server ueberlaufen.
+_GROESSTE_ZAHL = 2 ** 53
+# Erwartete Typen der Abschnitte von loxpanel.cfg, die der Server liest. Ein
+# fehlendes Feld ist erlaubt; "port" = ganze Zahl 1..65535.
+_CFG_TYPEN = {
+    "miniserver": {"host": str, "user": str, "pass": str, "port": "port", "verify_tls": bool},
+    "audio": {"host": (str, type(None)), "port": "port", "enabled": bool},
+    "audiometa": {"enabled": bool},
+    "intercom": {},
+    "night": {"control": (str, type(None))},
+    "calendar": {"sources": list, "ical_url": (str, type(None)), "holiday_url": (str, type(None)),
+                 "name": (str, type(None)), "colors": bool, "days": int, "sv_events": int,
+                 "fore_days": int, "lat": (int, float, type(None)), "lon": (int, float, type(None))},
+}
+
+
+def _keine_konstante(c):
+    raise ValueError(f"{c} ist keine Zahl")
+
+
+def _zahlen_pruefen(obj, datei: str, pfad: tuple = ()) -> None:
+    """Nur endliche Zahlen in JavaScript-Groesse: NaN, Unendlich und riesige
+    ganze Zahlen lassen den Server (int(), float()) oder den Konfigurator
+    (JSON.parse) scheitern."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            _zahlen_pruefen(v, datei, pfad + (k,))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            _zahlen_pruefen(v, datei, pfad + (i,))
+    elif (isinstance(obj, float) and not math.isfinite(obj)) or \
+            (isinstance(obj, int) and not isinstance(obj, bool) and abs(obj) > _GROESSTE_ZAHL):
+        raise ValueError(f"{datei}: {_pfad_text(pfad)} ist keine gültige Zahl.")
+
+
+def _sicherung_lesen(daten: bytes) -> tuple:
+    """ZIP aus /api/backup lesen und pruefen -> ({datei: objekt}, vermerk).
+    vermerk ist der Inhalt von sicherung.json, bei aelteren Sicherungen None.
+    Ordner in der ZIP-Datei sind egal (neu gepackt), Fremdes wird ignoriert.
+    Wirft ValueError mit lesbarer Meldung; schreibt nichts."""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(daten))
+    except zipfile.BadZipFile as err:
+        raise ValueError("Das ist keine ZIP-Datei.") from err
+    gesucht = set(BACKUP_FILES) | {BACKUP_VERMERK}
+    gefunden: dict = {}
+    with z:
+        for info in z.infolist():
+            teile = PurePosixPath(info.filename.replace("\\", "/")).parts
+            if info.is_dir() or not teile or teile[-1] not in gesucht or "__MACOSX" in teile:
+                continue
+            name = teile[-1]
+            if name in gefunden:
+                raise ValueError(f"{name} steckt mehrmals in der ZIP-Datei.")
+            if info.file_size > RESTORE_MAX_DATEI:
+                raise ValueError(f"{name} ist zu groß für eine LoxPanel-Sicherung.")
+            try:
+                with z.open(info) as fh:
+                    roh = fh.read(RESTORE_MAX_DATEI + 1)
+            except (zipfile.BadZipFile, zlib.error, RuntimeError, NotImplementedError,
+                    EOFError, OSError) as err:
+                raise ValueError(f"{name} lässt sich nicht entpacken ({err}).") from err
+            if len(roh) > RESTORE_MAX_DATEI:
+                raise ValueError(f"{name} ist zu groß für eine LoxPanel-Sicherung.")
+            try:
+                obj = json.loads(roh.decode("utf-8-sig"), parse_constant=_keine_konstante)
+            except (UnicodeDecodeError, ValueError, RecursionError) as err:
+                raise ValueError(f"{name} ist kein gültiges JSON ({err}).") from err
+            if not isinstance(obj, dict):
+                raise ValueError(f"{name} enthält kein JSON-Objekt.")
+            _zahlen_pruefen(obj, name)
+            gefunden[name] = obj
+    vermerk = gefunden.pop(BACKUP_VERMERK, None)
+    if not gefunden:
+        raise ValueError("Keine LoxPanel-Sicherung: In der ZIP-Datei steckt weder "
+                         + " noch ".join(BACKUP_FILES) + ".")
+    return gefunden, vermerk
+
+
+def _cfg_datei() -> dict:
+    """Nur die geschriebene loxpanel.cfg, ohne Rueckfall auf das Beispiel: Das
+    traegt ein Platzhalter-Kennwort, das kein Einspielen uebernehmen darf."""
+    try:
+        d = json.loads(CFG_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return d if isinstance(d, dict) else {}
+
+
+def _typ_ok(v, erwartet) -> bool:
+    if erwartet == "port":
+        return isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= 65535
+    typen = erwartet if isinstance(erwartet, tuple) else (erwartet,)
+    if isinstance(v, bool) and bool not in typen:
+        return False
+    return isinstance(v, typen)
+
+
+def _cfg_pruefen(cfg: dict) -> None:
+    """Typen der Abschnitte von loxpanel.cfg pruefen, die der Server liest
+    (_CFG_TYPEN, dazu intercom-Eintraege und Kalenderquellen). Ports als
+    Ziffern-Text werden zu Zahlen. Wirft ValueError mit dem Pfad."""
+    for abschnitt, felder in _CFG_TYPEN.items():
+        if abschnitt not in cfg:
+            continue
+        sec = cfg[abschnitt]
+        if not isinstance(sec, dict):
+            raise ValueError(f"loxpanel.cfg: „{abschnitt}“ muss ein Objekt sein.")
+        for k, erwartet in felder.items():
+            if k not in sec:
+                continue
+            if erwartet == "port" and isinstance(sec[k], str) and sec[k].strip().isdigit():
+                sec[k] = int(sec[k].strip())
+            if not _typ_ok(sec[k], erwartet):
+                raise ValueError(f"loxpanel.cfg: {abschnitt}.{k} hat einen ungültigen Wert.")
+    for uuid, e in (cfg.get("intercom") or {}).items():
+        if str(uuid).startswith("_") or isinstance(e, str):
+            continue
+        # user wird zu HTTP-Basic-Auth: kein Doppelpunkt, sonst wirft aiohttp
+        if not isinstance(e, dict) or not all(isinstance(e.get(k, ""), str) for k in ("url", "user", "pass")) \
+                or ":" in e.get("user", ""):
+            raise ValueError(f"loxpanel.cfg: intercom.{uuid} hat einen ungültigen Wert.")
+    for i, q in enumerate((cfg.get("calendar") or {}).get("sources") or []):
+        if isinstance(q, str):
+            continue
+        if not isinstance(q, dict) or not all(isinstance(q.get(k), (str, type(None)))
+                                              for k in ("url", "name", "color", "key")):
+            raise ValueError(f"loxpanel.cfg: calendar.sources[{i}] hat einen ungültigen Wert.")
+
+
+def _vermerk_pfade(vermerk, name: str):
+    """Pfade der entfernten Kennwoerter einer Datei laut sicherung.json, None
+    bei einer Sicherung ohne (brauchbaren) Vermerk."""
+    if not isinstance(vermerk, dict) or not isinstance(vermerk.get("kennwoerter_entfernt"), dict):
+        return None
+    out = []
+    for p in vermerk["kennwoerter_entfernt"].get(name) or []:
+        if isinstance(p, list) and p and all(isinstance(t, (str, int)) and not isinstance(t, bool)
+                                             for t in p):
+            out.append(tuple(p))
+    return out
+
+
+def _leere_kennwoerter(obj, pfad: tuple = ()) -> list:
+    """Aeltere Sicherung ohne Vermerk: leere Kennwoerter neben einem Ziel (Host
+    oder URL gesetzt) gelten als entfernt."""
+    out = []
+    if isinstance(obj, dict):
+        ziel = any(str(obj.get(z) or "").strip() for z in ("host", "url"))
+        for k, v in obj.items():
+            if str(k).lower() in _SECRET_KEYS:
+                if v in (None, "") and ziel:
+                    out.append(pfad + (k,))
+            else:
+                out += _leere_kennwoerter(v, pfad + (k,))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            out += _leere_kennwoerter(v, pfad + (i,))
+    return out
+
+
+def _knoten(obj, pfad: tuple):
+    """Wert an einem Pfad (Schluessel/Indizes), None wenn es ihn nicht gibt."""
+    for t in pfad:
+        if isinstance(obj, dict) and isinstance(t, str):
+            obj = obj.get(t)
+        elif isinstance(obj, list) and isinstance(t, int) and 0 <= t < len(obj):
+            obj = obj[t]
+        else:
+            return None
+    return obj
+
+
+def _kennwoerter_einsetzen(neu, alt, pfade) -> tuple:
+    """Setzt entfernte Kennwoerter aus dem bisherigen Stand wieder ein, aber nur
+    bei gleichem Ziel (_KENNWORT_ZIEL). Veraendert neu -> (behalten, fehlen)
+    als Pfadlisten."""
+    behalten, fehlen = [], []
+    for pfad in pfade:
+        if not pfad or not isinstance(pfad[-1], str):
+            continue
+        n, a, key = _knoten(neu, pfad[:-1]), _knoten(alt, pfad[:-1]), pfad[-1]
+        if not isinstance(n, dict) or n.get(key) not in (None, ""):
+            continue                      # Vermerk passt nicht zur Datei bzw. Kennwort steht drin
+        wert = a.get(key) if isinstance(a, dict) else None
+        if wert not in (None, "") and all(str(n.get(z) or "").strip() == str(a.get(z) or "").strip()
+                                          for z in _KENNWORT_ZIEL):
+            n[key] = wert
+            behalten.append(pfad)
+        else:
+            fehlen.append(pfad)
+    return behalten, fehlen
+
+
+def _kennwort_ziel(datei: str, pfad: tuple, namen: dict) -> dict:
+    """Wozu ein Kennwort gehoert, fuer die Anzeige im Konfigurator."""
+    if datei == "loxpanel.cfg" and pfad == ("miniserver", "pass"):
+        return {"art": "miniserver"}
+    if datei == "loxpanel.cfg" and len(pfad) == 3 and pfad[0] == "intercom":
+        return {"art": "kamera", "name": namen.get(pfad[1], str(pfad[1]))}
+    if datei == "panels.json" and len(pfad) == 4 and pfad[0] == "devices" and pfad[2] == "display":
+        return {"art": "display", "name": str(pfad[1])}
+    return {"art": "sonst", "name": f"{datei}: {_pfad_text(pfad)}"}
+
+
+def _profil_pruefen(datei: str, wer: str, fn, *args):
+    """Vorhandene Sanitizer laufen lassen; stuerzen sie an einem falschen Typ
+    ab, ist die Sicherung kaputt -> ValueError mit dem Ort."""
+    try:
+        return fn(*args)
+    except (TypeError, AttributeError, ValueError, OverflowError, KeyError) as err:
+        raise ValueError(f"{datei}: {wer} hat einen ungültigen Wert ({err}).") from err
+
+
+def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
+    """Alles pruefen und vorbereiten, nichts schreiben -> Plan fuer
+    _sicherung_schreiben. Wirft ValueError, wenn die Sicherung nicht passt."""
+    namen = {u: _clean(c.get("name")) or u for u, c in app.controls.items()}
+    plan: dict = {"dateien": {}, "behalten": [], "fehlen": [], "verworfen": [], "miniserver": ""}
+
+    if "loxpanel.cfg" in dateien:
+        cfg = copy.deepcopy(dateien["loxpanel.cfg"])
+        _cfg_pruefen(cfg)
+        alt = _cfg_datei()
+        pfade = _vermerk_pfade(vermerk, "loxpanel.cfg")
+        behalten, fehlen = _kennwoerter_einsetzen(
+            cfg, alt, _leere_kennwoerter(cfg) if pfade is None else pfade)
+        ms = cfg.get("miniserver") if isinstance(cfg.get("miniserver"), dict) else {}
+        alt_ms = alt.get("miniserver") if isinstance(alt.get("miniserver"), dict) else None
+        env = bool(os.environ.get("LOXPANEL_MS_HOST"))
+        # Den laufenden Zugang nicht verlieren: Eine Sicherung ohne Miniserver
+        # liesse den Server auf die Umgebungsvariablen oder das Beispiel
+        # zurueckfallen; laeuft der Zugang hier ueber LOXPANEL_MS_*, wuerde ein
+        # Abschnitt ohne Kennwort ihn dauerhaft verdraengen.
+        if not str(ms.get("host") or "").strip() or \
+                (not ms.get("pass") and env and not (alt_ms or {}).get("host")):
+            if alt_ms is not None:
+                cfg["miniserver"] = alt_ms
+            else:
+                cfg.pop("miniserver", None)
+            fehlen = [p for p in fehlen if p[:1] != ("miniserver",)]
+            plan["miniserver"] = "umgebung" if env and not (alt_ms or {}).get("host") else "behalten"
+        plan["dateien"]["loxpanel.cfg"] = cfg
+        plan["behalten"] += [("loxpanel.cfg", p) for p in behalten]
+        plan["fehlen"] += [("loxpanel.cfg", p) for p in fehlen]
+
+    if "panels.json" in dateien:
+        doc = dateien["panels.json"]
+        panels, devices = doc.get("panels", {}), copy.deepcopy(doc.get("devices", {}))
+        for k, v in (("panels", panels), ("devices", devices)):
+            if not isinstance(v, dict):
+                raise ValueError(f"panels.json: „{k}“ muss ein Objekt sein.")
+        sauber: dict = {}
+        for pid, p in panels.items():
+            sauber.update(_profil_pruefen("panels.json", f"Profil „{pid}“", App._sanitize_panels, {pid: p}))
+        pfade = _vermerk_pfade(vermerk, "panels.json")
+        roh = {"devices": devices}
+        behalten, fehlen = _kennwoerter_einsetzen(
+            roh, {"devices": app.devices}, _leere_kennwoerter(roh) if pfade is None else pfade)
+        geraete: dict = {}
+        for name, d in devices.items():
+            geraete.update(_profil_pruefen("panels.json", f"Gerät „{name}“", App._sanitize_devices,
+                                           {name: d}, set(sauber)))
+        # Ein Kennwort fuer einen Treiber, der nicht uebernommen wurde, fehlt nicht.
+        fehlen = [p for p in fehlen if isinstance(_knoten({"devices": geraete}, p[:-1]), dict)]
+        plan["verworfen"] += App._panels_verworfen(panels, sauber, namen)
+        plan["dateien"]["panels.json"] = (sauber, geraete)
+        plan["behalten"] += [("panels.json", p) for p in behalten]
+        plan["fehlen"] += [("panels.json", p) for p in fehlen]
+
+    if "theme.json" in dateien:
+        doc = dateien["theme.json"]
+        for k in ("states", "categories", "ui"):
+            if k in doc and not isinstance(doc[k], dict):
+                raise ValueError(f"theme.json: „{k}“ muss ein Objekt sein.")
+        ui_roh = {k: v for k, v in (doc.get("ui") or {}).items() if not str(k).startswith("_")}
+        tabs_roh = ui_roh.pop("tabs", None)
+        if tabs_roh is not None and not isinstance(tabs_roh, list):
+            raise ValueError("theme.json: ui.tabs muss eine Liste sein.")
+        # Die globale Darstellung mischt sich in jedes Profil (resolve_profile),
+        # darum dieselben Pruefungen wie fuer die ui eines Profils.
+        ui = _profil_pruefen("theme.json", "„ui“", App._sanitize_panels,
+                             {"t": {"ui": ui_roh}})["t"].get("ui", {})
+        tabs = [t for t in (tabs_roh or []) if isinstance(t, str) and _is_tab(t)][:4]
+        if tabs:
+            ui["tabs"] = tabs
+        states = {str(k).strip()[:40]: v.strip() for k, v in (doc.get("states") or {}).items()
+                  if not str(k).startswith("_") and _color_ok(v)}
+        theme = {"states": states, "categories": App._sanitize_categories(doc.get("categories") or {}),
+                 "ui": ui}
+        plan["verworfen"] += App._panels_verworfen(
+            {"Darstellung": {"ui": {**ui_roh, **({"tabs": tabs_roh} if tabs_roh else {})}}},
+            {"Darstellung": {"ui": ui}}, namen)
+        plan["dateien"]["theme.json"] = theme
+    plan["namen"] = namen
+    return plan
+
+
+def _vorher_sichern(f: Path) -> None:
+    """Eine Generation Sicherung vor dem Ueberschreiben (wie panels.json.bak);
+    best effort, ein Fehler darf das Einspielen nicht blockieren."""
+    try:
+        if f.is_file():
+            _atomic_write(f.with_name(f.name + ".bak"), f.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        log.warning("%s.bak nicht geschrieben: %s", f.name, err)
+
+
+async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
+    """Plan aus _sicherung_pruefen schreiben und den laufenden Server
+    auffrischen, ohne Neustart. Zwischen dem Lesen der bisherigen Dateien
+    (Kennwort-Abgleich) und dem Schreiben liegt kein await."""
+    dateien, geschrieben, fehler = plan["dateien"], [], ""
+    try:
+        for name in BACKUP_FILES:
+            if name not in dateien:
+                continue
+            if name == "loxpanel.cfg":
+                _vorher_sichern(CFG_FILE)
+                _write_cfg(dateien[name])
+            elif name == "panels.json":
+                app._persist_panels_file(*dateien[name])   # legt selbst panels.json.bak an
+            else:
+                _vorher_sichern(THEME_FILE)
+                _atomic_write(THEME_FILE, json.dumps(dateien[name], indent=2, ensure_ascii=False) + "\n")
+            geschrieben.append(name)
+    except OSError as err:
+        fehler = str(err)
+        log.warning("Sicherung einspielen: Schreiben abgebrochen nach %s: %s", geschrieben or "-", err)
+
+    # Auffrischen, was geschrieben ist - erst alles ohne await, dann der Rest.
+    ms_status, ms_fehler = plan["miniserver"], ""
+    if "loxpanel.cfg" in geschrieben:
+        app.night_cfg = _night_config()
+        app.intercom_cfg = _intercom_config()
+        app.calendar_cfg = _calendar_config()
+        app._front_cal_due = 0.0
+        app._front_good = {}          # Wetter/Feiertage vom alten Ort nicht als "stale" zeigen
+        app._front_refresh.set()
+        app.audiometa_cfg = _audiometa_config()
+    if "panels.json" in geschrieben:
+        app.panels, app.devices = dateien["panels.json"]
+        app._presence_rebuild()
+    if "theme.json" in geschrieben:
+        app.theme = load_theme()
+    app._dirty = True
+
+    if "loxpanel.cfg" in geschrieben:
+        if not app.audiometa_cfg.get("enabled", True):
+            for cl in list(app.audio_clients.values()):
+                await cl.close()
+            app.audio_clients.clear()
+        audio_neu = _audio_config()
+        if audio_neu != app.audio_cfg:
+            for be in [app.audio, *app.audio_backends.values()]:
+                if be is not None:
+                    try:
+                        await be.close()
+                    except Exception as err:
+                        log.debug("Audio-Backend schliessen: %s", err)
+            app.audio_backends.clear()
+            app.audio_cfg = audio_neu
+            app.audio = make_backend(audio_neu)
+        if not ms_status:
+            ms = dateien["loxpanel.cfg"]["miniserver"]
+            laufend = (app.host, app.user, app.password, app.port, bool(app.verify_tls))
+            neu = (ms.get("host"), ms.get("user"), ms.get("pass"), ms.get("port", 443),
+                   bool(ms.get("verify_tls", False)))
+            if not (ms.get("user") and ms.get("pass")):
+                ms_status = "kein_kennwort"
+            elif neu == laufend:
+                ms_status = "unveraendert"
+            else:
+                try:
+                    await app.reconnect()
+                    ms_status = "verbunden"
+                    # Audioserver-Clients merken sich den Benutzer beim Anlegen
+                    for cl in list(app.audio_clients.values()):
+                        await cl.close()
+                    app.audio_clients.clear()
+                    app._front_refresh.set()
+                except Exception as err:
+                    ms_status, ms_fehler = "fehler", str(err)
+    n = await _push(app, {"t": "reload"})   # offene Panels mit dem neuen Stand neu laden
+
+    namen = plan["namen"]
+    log.info("Sicherung eingespielt: %s (Kennwoerter behalten %d, fehlen %d, Miniserver %s)",
+             ", ".join(geschrieben) or "-", len(plan["behalten"]), len(plan["fehlen"]), ms_status or "-")
+    return {
+        "ok": not fehler,
+        **({"error": f"Schreiben abgebrochen: {fehler}"} if fehler else {}),
+        "dateien": geschrieben,
+        "nichtEnthalten": [n_ for n_ in BACKUP_FILES if n_ not in dateien],
+        "kennwoerter": {"behalten": [_kennwort_ziel(d, p, namen) for d, p in plan["behalten"]],
+                        "fehlen": [_kennwort_ziel(d, p, namen) for d, p in plan["fehlen"]]},
+        "verworfen": plan["verworfen"],
+        "miniserver": ms_status,
+        **({"miniserverFehler": ms_fehler} if ms_fehler else {}),
+        "reloaded": n,
+    }
+
+
+async def api_restore(request: web.Request) -> web.Response:
+    """Sicherung einspielen (Settings -> Sicherung): Body = ZIP aus /api/backup."""
+    app: App = request.app["app"]
+    try:
+        daten = await request.read()
+    except web.HTTPRequestEntityTooLarge:
+        return web.json_response({"ok": False, "error": "Die Datei ist zu groß für eine LoxPanel-Sicherung."},
+                                 status=413)
+    if not daten:
+        return web.json_response({"ok": False, "error": "Keine Datei erhalten."}, status=400)
+    try:
+        dateien, vermerk = _sicherung_lesen(daten)
+        plan = _sicherung_pruefen(app, dateien, vermerk)
+    except ValueError as err:
+        log.warning("Sicherung nicht eingespielt: %s", err)
+        return web.json_response({"ok": False, "error": str(err)}, status=400)
+    ergebnis = await _sicherung_schreiben(app, plan)
+    return web.json_response(ergebnis, status=200 if ergebnis["ok"] else 500)
 
 
 async def api_settings(request: web.Request) -> web.Response:
@@ -7114,6 +7578,7 @@ def main() -> None:
     a.router.add_get("/api/settings", api_settings)
     a.router.add_get("/api/health", api_health)
     a.router.add_get("/api/backup", api_backup)
+    a.router.add_post("/api/restore", api_restore)
     a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)
     a.router.add_post("/api/settings/intercom", api_settings_intercom)

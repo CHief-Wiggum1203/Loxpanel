@@ -326,6 +326,11 @@ vorher automatisch gesichert).
 Diesen Ordner sichern, z. B. mit dem Plugin **Appdata Backup**; zum Wiederherstellen
 die Dateien zurückkopieren und den Container neu starten.
 
+**Überall** gibt es im Konfigurator unter *Settings → Sicherung* zusätzlich eine
+Sicherung als ZIP zum Herunterladen und Einspielen, auch von einem LoxPanel auf ein
+anderes. Kennwörter stehen nicht darin: Eingetragene bleiben beim Einspielen, solange
+Host und Benutzer gleich sind, fehlende nennt das Ergebnis.
+
 ## Datenschutz
 
 LoxPanel läuft **vollständig lokal**: Die Verbindung besteht nur zwischen dem
