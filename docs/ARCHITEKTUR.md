@@ -975,7 +975,10 @@ sowie die `idle`-Meldung der Visu. Einrichtung in `deploy/ANDROID.md`.
 Auswahl ist dieselbe wie beim Nacht-Auslöser, `night_control_options()`).
 `_presence_rebuild()` bildet nach dem Einlesen der Struktur und nach dem
 Speichern der Geräte die State-UUID auf die Geräte ab (`presence_map`) und
-führt den Stand je Gerät (`_presence_on`). `_on_value()` reagiert nur auf einen
+führt den Stand je Gerät (`_presence_on`). Ersetzt jemand `devices` oder
+`controls`, ohne das aufzurufen (das Einspielen einer Sicherung), holt es der
+Broadcaster im nächsten Takt nach: `_presence_quelle` hält fest, aus welchen
+beiden Objekten die Zuordnung gebaut ist. `_on_value()` reagiert nur auf einen
 echten Wechsel, der Neuversand aller States nach einem Reconnect schaltet also
 nichts. Der Broadcaster schickt `{t:"display", on, presence}` an die
 Verbindungen genau dieses Geräts und schaltet dessen Display-Treiber mit;

@@ -283,9 +283,10 @@ selbst aktuell.
 - [ ] **Präsenzmelder zu Lenardo bringen** und dabei an die App koppeln:
       Solange jemand da ist, muss die Visu die Leerlaufzeit der App aussetzen
       (`LoxKiosk.setDisplayOff(0)`), sonst dunkelt die App trotz Anwesenheit
-      ab. Heute ist der Präsenzmelder Fork-eigen. Ist `up/sicherung` bei
-      Lenardo schon drin, gehört in `_sicherung_schreiben` wieder der Aufruf
-      `app._presence_rebuild()` nach dem Übernehmen der Geräte. **M**
+      ab. Heute ist der Präsenzmelder Fork-eigen. Die Kopplung baut sich
+      selbst neu auf, sobald Geräte oder Struktur ersetzt sind
+      (`_presence_quelle`); das Einspielen braucht dafür keinen eigenen
+      Aufruf, die Reihenfolge der Beiträge bei Lenardo ist also egal. **M**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein

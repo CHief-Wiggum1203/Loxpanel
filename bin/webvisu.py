@@ -1065,6 +1065,7 @@ class App:
         self.presence_map: dict[str, list[str]] = {}
         self._presence_on: dict[str, bool] = {}
         self._pending_presence: list[dict] = []
+        self._presence_quelle: tuple = (None, None)   # (devices, controls) hinter presence_map
         self.agents: dict[str, dict] = {}   # ip -> Panel-Agent (Fernstart)
         self.bg_tasks: set = set()          # laufende Hintergrund-Tasks (z.B. Favs anfordern)
         # Dynamisches Song-Cover (iTunes) fuer Zonen, die nur ein Sender-Logo
@@ -2300,11 +2301,14 @@ class App:
     def _presence_rebuild(self) -> None:
         """Praesenzmelder der Geraete (devices[name].presence) auf den active-State
         ihres Bausteins abbilden. Laeuft nach dem Einlesen der Struktur und nach
-        dem Speichern der Geraete. Aendert sich dabei der Stand eines Geraets
+        dem Speichern der Geraete; wer devices oder controls sonst ersetzt (z. B.
+        das Einspielen einer Sicherung), dem holt der Broadcaster das im
+        naechsten Takt nach (_presence_quelle). Aendert sich dabei der Stand eines Geraets
         (Melder gewaehlt, waehrend jemand da ist, oder wieder entfernt), erfahren
         es seine Panels als Wecken, nie als Abschalten: aus schaltet nur der
         Melder selbst, wenn der Raum leer wird (_on_value). Ein Baustein, den es
         in der Struktur nicht (mehr) gibt, koppelt nichts."""
+        self._presence_quelle = (self.devices, self.controls)
         pmap: dict[str, list[str]] = {}
         for name, cfg in (self.devices or {}).items():
             u = cfg.get("presence") if isinstance(cfg, dict) else None
@@ -5624,6 +5628,8 @@ class App:
 
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
+        if self._presence_quelle[0] is not self.devices or self._presence_quelle[1] is not self.controls:
+            self._presence_rebuild()   # Geraete oder Struktur ersetzt, ohne neu zu koppeln
         if self._pending_ring is not None:
             rid, self._pending_ring = self._pending_ring, None
             log.info("Klingel → Popup: %s", rid)
@@ -6821,7 +6827,6 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
         app.audiometa_cfg = _audiometa_config()
     if "panels.json" in geschrieben:
         app.panels, app.devices = dateien["panels.json"]
-        app._presence_rebuild()
     if "theme.json" in geschrieben:
         app.theme = load_theme()
     app._dirty = True

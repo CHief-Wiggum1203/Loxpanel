@@ -212,3 +212,20 @@ def test_ein_geraet_wird_direkt_nachgeschlagen():
         return await app.display_drivers(True, "mit"), await app.display_drivers(True, "gibtsnicht"), geschaltet
     ein, kein, geschaltet = asyncio.run(lauf())
     assert len(ein) == 1 and kein == [] and geschaltet == [("mit", True)]
+
+
+def test_ersetzte_geraete_koppelt_der_naechste_takt():
+    """Wer die Geraete ersetzt, ohne neu zu koppeln (das Einspielen einer
+    Sicherung), dem holt der Broadcaster das nach: Melder gekoppelt, Panel
+    geweckt, weil gerade jemand da ist."""
+    async def lauf():
+        app, geschaltet = _app({"kueche": {"scale": "auto"}}, anwesend=True)
+        assert app.presence_map == {}
+        app.devices = W.App._sanitize_devices({"kueche": {"presence": "PM", "display": FULLY}}, set(app.panels))
+        await app._broadcast_tick()
+        while app.bg_tasks:
+            await asyncio.gather(*list(app.bg_tasks))
+        return app.presence_map, app._presence_on, geschaltet
+    pmap, an, geschaltet = asyncio.run(lauf())
+    assert pmap == {"pm_a": ["kueche"]} and an == {"kueche": True}
+    assert geschaltet == [("kueche", True)]

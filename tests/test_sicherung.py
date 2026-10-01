@@ -111,7 +111,9 @@ def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
         aufrufe = _ohne_verbindung(app)
         vorher = (dict(app.presence_map), app.audiometa_cfg, set(app.intercom_cfg),
                   app.calendar_cfg["sources"][0]["name"])
-        return app, await _einspielen(app, sicherung), aufrufe, vorher
+        j = await _einspielen(app, sicherung)
+        await app._broadcast_tick()      # koppelt die eingespielten Praesenzmelder (_presence_quelle)
+        return app, j, aufrufe, vorher
     app, j, aufrufe, vorher = asyncio.run(lauf())
     assert vorher == ({}, {"enabled": False}, {"IC", "IC2"}, "Alt"), "Vorher-Stand weicht ab"
 
