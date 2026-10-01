@@ -39,9 +39,11 @@ LOXPANEL_MS_HOST=<ip> LOXPANEL_MS_USER=<user> LOXPANEL_MS_PASS=<pass> \
   .venv/bin/python bin/webvisu.py          # http://localhost:8099
 ```
 
-Ohne Miniserver startet der Server trotzdem und versucht alle 10 s die
-Verbindung. `/config` und `/api/settings` sind dann erreichbar, das
-reicht als Rauchtest. Docker: `docker compose up -d --build`.
+Ohne Miniserver-Zugang startet der Server trotzdem, wartet und zeigt jedem
+Panel, wo der Konfigurator zu öffnen ist; mit Zugang versucht er es mit
+wachsenden Pausen immer wieder. Den Platzhalter-Zugang aus
+`loxpanel.cfg.example` nimmt er nie. `/config` und `/api/settings` sind dann
+erreichbar, das reicht als Rauchtest. Docker: `docker compose up -d --build`.
 
 ## Prüfen vor einem Push
 

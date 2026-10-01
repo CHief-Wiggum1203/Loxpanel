@@ -26,6 +26,7 @@ import logging
 import math
 import os
 import re
+import socket
 import struct
 import sys
 import time
@@ -83,13 +84,38 @@ CFG_EXAMPLE = _CFGDIR / "loxpanel.cfg.example"
 THEME_FILE = _CFGDIR / "theme.json"
 
 
+# Ziel, ueber das das Betriebssystem nach draussen routen wuerde (RFC 5737,
+# TEST-NET-1: im Internet nie vergeben). connect() auf einem UDP-Socket sendet
+# nichts, legt aber die Quelladresse fest - das ist die Adresse im Heimnetz.
+_ROUTEN_PROBE = ("192.0.2.1", 9)
+
+
+def _lan_adressen() -> list[str]:
+    """IPv4-Adresse dieses Rechners im Netz (ohne 127.x), fuer den
+    Einrichtungshinweis eines Panels, das die Visu ueber 127.0.0.1 laedt
+    (die App auf dem Panel selbst). Leer, wenn es keine Route gibt."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(_ROUTEN_PROBE)
+            adresse = s.getsockname()[0]
+    except OSError:
+        return []
+    return [] if adresse.startswith("127.") or adresse == "0.0.0.0" else [adresse]
+
+
 def _load_cfg() -> dict:
     for f in (CFG_FILE, CFG_EXAMPLE):
         if f.is_file():
             try:
-                return json.loads(f.read_text(encoding="utf-8"))
+                cfg = json.loads(f.read_text(encoding="utf-8"))
             except ValueError:
-                pass
+                continue
+            if f == CFG_EXAMPLE and isinstance(cfg, dict):
+                # Der Miniserver-Abschnitt der Vorlage ist ein Platzhalter
+                # (192.168.1.50, CHANGEME): nie als Zugang anzeigen und nie beim
+                # Speichern einer anderen Einstellung nach loxpanel.cfg uebernehmen.
+                cfg.pop("miniserver", None)
+            return cfg
     return {}
 
 
@@ -226,6 +252,7 @@ STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
 MS_CMD_TIMEOUT = 10      # s: ein Befehl blockiert solange die Nachrichten seines Panels
 TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
 MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
+EINRICHTUNG_FEHLER_MAX = 160     # Zeichen des Verbindungsfehlers im Einrichtungshinweis (Panel 480 px)
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
 STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
@@ -722,7 +749,7 @@ def _sanitize_overlay(ov) -> dict:
 
 
 def _config() -> dict:
-    # Reihenfolge: geschriebene loxpanel.cfg (Settings-Seite) -> Env (Docker) -> Beispiel.
+    # Reihenfolge: geschriebene loxpanel.cfg (Settings-Seite) -> Env (Docker) -> keiner.
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "loxpanel.cfg"
     if f.is_file():
@@ -741,15 +768,11 @@ def _config() -> dict:
             "port": int(env.get("LOXPANEL_MS_PORT", "443")),
             "verify_tls": env.get("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes"),
         }
-    # Beispiel-Config nur nutzen, wenn vorhanden. Beim LoxBerry-Plugin verdeckt
-    # das (leere) Daten-Volume die Image-Beispieldatei -> darf NICHT crashen.
-    # Ohne jede Config startet der Server trotzdem (Zugang via /settings).
-    ex = base / "loxpanel.cfg.example"
-    if ex.is_file():
-        try:
-            return json.loads(ex.read_text(encoding="utf-8")).get("miniserver", {})
-        except ValueError:
-            pass
+    # Die Vorlage loxpanel.cfg.example traegt nur einen Platzhalter-Zugang
+    # (192.168.1.50, CHANGEME). Mit dem anzumelden waere sinnlos und deckte ein
+    # fremdes Geraet unter dieser Adresse mit Fehlanmeldungen ein (die App
+    # bringt die Vorlage mit). Ohne Zugang startet der Server trotzdem, wartet
+    # in stream_task und zeigt den Panels den Einrichtungshinweis.
     return {}
 
 
@@ -985,6 +1008,10 @@ class App:
         self.theme = load_theme()
         self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
         self._einspiel_sperre = asyncio.Lock()   # /api/restore: nur ein Einspielen zur Zeit
+        # Einrichtungshinweis an die Panels (_einrichtung_stand): letzter Fehler
+        # beim Verbinden mit dem Miniserver, und welcher Stand zuletzt rausging.
+        self._ms_fehler = ""
+        self._einrichtung_gemeldet: tuple | None = None
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
@@ -5542,6 +5569,7 @@ class App:
                         log.exception("Struktur-Refresh beim Reconnect uebersprungen")
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
                 connected_at = time.monotonic()
+                self._ms_fehler = ""
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
@@ -5553,6 +5581,9 @@ class App:
                 wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
                 retry += 1
                 log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in %ss", err, wait)
+                text = " ".join(str(err).split()) or err.__class__.__name__
+                self._ms_fehler = text if len(text) <= EINRICHTUNG_FEHLER_MAX \
+                    else text[:EINRICHTUNG_FEHLER_MAX] + " …"
                 try:
                     if self.ws:
                         await self.ws.close()
@@ -5592,6 +5623,7 @@ class App:
             return False
 
     async def _broadcast_tick(self) -> None:
+        await self._einrichtung_melden()
         if self._pending_ring is not None:
             rid, self._pending_ring = self._pending_ring, None
             log.info("Klingel → Popup: %s", rid)
@@ -5746,6 +5778,48 @@ class App:
                         last["svstatus"] = status_msg
                     else:
                         self._last_sent.pop(ws, None)
+
+    def _einrichtung_stand(self) -> tuple | None:
+        """(Titel, Grund), solange der Server keine Struktur vom Miniserver
+        hat und das nicht nur am ersten Verbindungsversuch liegt: kein Zugang
+        eingetragen, oder der letzte Versuch ist gescheitert. Sonst None.
+        Billig genug fuer jeden Broadcast-Takt."""
+        if self.controls:
+            return None
+        if not self.host:
+            return ("Miniserver einrichten", "Noch kein Miniserver eingetragen.")
+        if self._ms_fehler:
+            return ("Keine Verbindung zum Miniserver", f"{self.host}: {self._ms_fehler}")
+        return None
+
+    def _einrichtung_msg(self, stand: tuple | None) -> dict:
+        """Nachricht an die Panels zum Stand aus _einrichtung_stand. Die Adresse
+        des Konfigurators setzt das Panel zusammen: die, ueber die es die Visu
+        geladen hat, oder - bei 127.0.0.1 - eine aus "adressen"."""
+        if stand is None:
+            return {"t": "einrichtung", "aktiv": False}
+        titel, grund = stand
+        return {"t": "einrichtung", "aktiv": True, "titel": titel, "grund": grund,
+                "hinweis": "Konfigurator im Browser eines Computers oder Handys im selben Netz öffnen:",
+                "pfad": "/config", "adressen": _lan_adressen(),
+                "unbekannt": "Die Adresse dieses Panels steht in seinen WLAN-Einstellungen."}
+
+    async def _einrichtung_melden(self, neu=None) -> None:
+        """Einrichtungshinweis an alle Panels, wenn sich der Stand geaendert
+        hat; sonst nur an das neu verbundene Panel `neu`. Beides an einer
+        Stelle, damit nie ein Panel einen Stand hat, den der Broadcaster nicht
+        als gemeldet kennt (sonst bliebe die Karte nach der Rueckkehr zum
+        alten Stand stehen)."""
+        stand = self._einrichtung_stand()
+        if stand != self._einrichtung_gemeldet:
+            self._einrichtung_gemeldet = stand
+            ziele = list(self.conn_route)
+        else:
+            ziele = [neu] if neu is not None else []
+        if ziele:
+            msg = self._einrichtung_msg(stand)
+            for ws in ziele:
+                await self._send_or_drop(ws, msg)
 
     async def broadcaster(self) -> None:
         # Diese Schleife darf NIEMALS sterben — sonst bekommen ALLE Panels keine
@@ -7581,6 +7655,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first
+    # Einrichtungshinweis, solange es keine Struktur vom Miniserver gibt
+    await app._einrichtung_melden(neu=ws)
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.
     # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)

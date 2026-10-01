@@ -251,6 +251,7 @@ Server → Browser (`panel.html:700`):
 | `reload` | | `location.reload()` |
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
+| `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
@@ -560,8 +561,15 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 
 1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt)
 2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`
-3. `loxpanel.cfg.example`
-4. leer, Server startet trotzdem
+3. leer, Server startet trotzdem, wartet und zeigt den Panels den
+   Einrichtungshinweis (§3, `einrichtung`)
+
+`loxpanel.cfg.example` gilt nie als Zugang: Ihr `miniserver`-Abschnitt ist ein
+Platzhalter (`192.168.1.50`, `CHANGEME`). Die Android-App bringt die Vorlage
+mit; früher meldete sich ein frisches Panel damit endlos bei `192.168.1.50`
+an. Auch `_load_cfg()` lässt den Abschnitt der Vorlage weg, damit Settings ihn
+nicht vorausfüllt und kein Speichern einer anderen Einstellung ihn in die
+`loxpanel.cfg` schreibt. Die übrigen Abschnitte der Vorlage bleiben Vorgaben.
 
 Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 

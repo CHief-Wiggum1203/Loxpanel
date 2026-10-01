@@ -308,9 +308,18 @@ selbst aktuell.
       gegen diesen Stand durch, bis auf die Präsenz-Prüfung. Einreichen über
       `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/sicherung?expand=1`.
       **S**
-- [ ] **Ersteinrichtung am Gerät:** Ohne Miniserver-Zugang sagt die Visu
-      nicht, unter welcher Adresse der Konfigurator erreichbar ist (IP des
-      Geräts, Port 8099). **S**
+- [x] **Ersteinrichtung am Gerät im Fork** (01.10.2026): Solange der Server
+      keine Struktur vom Miniserver hat und kein Zugang eingetragen ist oder
+      der letzte Versuch scheiterte, zeigt jedes Panel über der Uhr-Seite eine
+      Karte mit dem Grund und der Adresse des Konfigurators; in der App (Visu
+      über `127.0.0.1`) die WLAN-Adresse des Panels. Dazu nimmt der Server den
+      Platzhalter-Zugang aus `loxpanel.cfg.example` nicht mehr: Ein frisches
+      App-Panel meldete sich damit endlos bei `192.168.1.50` mit `CHANGEME` an,
+      und Settings zeigte „Kennwort gesetzt“. Geprüft in
+      `tests/test_einrichtung.py` und `tests/browser/test_einrichtung_browser.py`.
+      **S**
+- [ ] **Ersteinrichtung zu Lenardo bringen:** dieselbe Änderung als Beitrag
+      auf `upstream/main`; dort ist der Platzhalter genauso in der App. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
