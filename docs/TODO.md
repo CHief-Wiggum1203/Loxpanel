@@ -146,11 +146,21 @@ beim nächsten Mal wieder.
       noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
       eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
       packen. **S**
-- [ ] **Uhr-Seiten-Fix zu #60 an Lenardo geben:** In seinem `main` fallen
-      die Verlaufs-Diagramme der Uhr-Seite hochkant ebenfalls auf 0 px
-      zusammen (#52 und #60 zusammen). EIN Commit auf `upstream/main`, nur
-      die drei auf `#frontpane` beschränkten Regeln in `panel.html`, Weg wie
-      unter „Upstream-Beiträge“. Bis dahin ein Fork-eigener Patch
+- [ ] **Uhr-Seiten-Fix zu #60 bei Lenardo einreichen:** In seinem `main`
+      fallen die Verlaufs-Diagramme der Uhr-Seite hochkant auf 0 px zusammen
+      (#52 und #60 zusammen). Zweig `up/verlauf-uhrseite`, ein Commit auf
+      `upstream/main`, Stand 01.10.2026: die drei Fit-Regeln aus #60 nur im
+      `#frontpane`, und auf der Uhr-Seite schrumpfen die Diagramme, wenn der
+      Kasten nicht reicht. Eine unabhängige Gegenprüfung hatte gezeigt, dass
+      die erste Fassung (nur `#frontpane`, Stand des Forks vom 30.09.) quer
+      bei drei Diagrammen das dritte abschnitt (bei 960 × 480 164 px); #60
+      staucht dort alles in den Kasten. Jetzt im Fork und im Zweig gleich,
+      geprüft mit `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`.
+      Gegen Lenardos `main` laufen die vier Verlaufs-Tests aus dem Fork mit
+      dem Zweig grün, ohne ihn scheitern zwei; mit allen übrigen Beiträgen
+      konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/verlauf-uhrseite?expand=1`.
+      Bis Lenardo ihn übernimmt, ist es ein Fork-eigener Patch
       ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
 - [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
       Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird

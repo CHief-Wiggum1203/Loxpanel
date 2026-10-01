@@ -317,6 +317,69 @@ def test_uhrseite_hochkant_zweite_flaeche_unten(tmp_path, miniserver_http, monke
     asyncio.run(lauf())
 
 
+# Zaehler mit drei Diagrammen (Leistung, Zaehlerstand, Kosten): mehr, als die
+# Uhr-Seite quer im Seitenverhaeltnis der Zeichnung unterbringt
+NETZ_GRUPPEN = [
+    {"id": "1", "mode": 10, "dataPoints": [{"title": "Netzbezug", "format": "0,000kW", "output": "actual"}]},
+    {"id": "2", "mode": 11, "accumulated": True,
+     "dataPoints": [{"title": "Zählerstand", "format": "0,0kWh", "output": "total"}]},
+    {"id": "3", "mode": 11, "accumulated": True, "dataPoints": [{"title": "Kosten", "format": "0,00€", "output": "cost"}]},
+]
+
+# Sichtbarkeit der Verlaufs-Diagramme auf der Uhr-Seite: wie weit Diagramme und
+# Legenden unten aus ihrer Seite ragen (dort abgeschnitten) und die SVG-Groessen
+UHR_VERLAUF = """() => { const p = document.querySelector('#svBox .fp-page.cpage'); if (!p) return null;
+  const unten = p.getBoundingClientRect().bottom;
+  return {ueberlauf: Math.max(0, ...[...p.querySelectorAll('.chart, .chleg')]
+            .map(e => e.getBoundingClientRect().bottom - unten)),
+          svgs: [...p.querySelectorAll('.chart svg')].map(e => { const b = e.getBoundingClientRect();
+            return [Math.round(b.width), Math.round(b.height)]; })}; }"""
+
+
+def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_http, monkeypatch):
+    """Verlauf auf der Uhr-Seite: Passen die Diagramme nicht im Seitenverhaeltnis
+    in den Kasten (drei Diagramme eines Zaehlers; zwei in einem niedrigen
+    Fenster), schrumpfen sie, statt unten abgeschnitten zu werden - quer und
+    hochkant. Mit genug Platz bleibt es beim Seitenverhaeltnis 440:150."""
+    from test_front_tabs_browser import _front
+
+    async def lauf():
+        daten = await _front(monkeypatch)
+        ergebnis = {}
+        for cid, groessen in (("N", [(960, 480), (800, 480), (533, 893), (480, 800)]),
+                              ("P", [(960, 400), (960, 480)])):
+            async with Umgebung(tmp_path, {"ui": {"svPane": "chart:" + cid}}) as u:
+                u.ms.v2.update({("NETZ", "1", "actual"): (1800, pv_leistung),
+                                ("NETZ", "2", "total"): (3600, zaehlerstand(pv_leistung)),
+                                ("NETZ", "3", "cost"): (3600, zaehlerstand(lambda t: pv_leistung(t) * 0.3))})
+                u.controls["N"] = {"name": "Netz", "type": "Meter", "uuidAction": "NETZ",
+                                   "states": {"actual": "a1", "total": "t1"},
+                                   "details": {"actualFormat": "%.3fkW", "totalFormat": "%.1fkWh"},
+                                   "statisticV2": {"groups": NETZ_GRUPPEN},
+                                   "room": "r1", "cat": "c1", "isFavorite": True}
+                u.app._apply_structure(anlage(u.controls))
+                u.app._front = u.app._front_payload(daten)
+                anzahl = 3 if cid == "N" else 2
+                for b, h in groessen:
+                    pg = await u.seite(b, h)
+                    await pg.evaluate("showSaver()")
+                    await pg.wait_for_function(
+                        f"document.querySelectorAll('#svBox .chart svg').length === {anzahl}", timeout=15000)
+                    await pg.wait_for_timeout(400)
+                    ergebnis[(cid, b, h)] = await pg.evaluate(UHR_VERLAUF)
+                    await u.bild(pg, f"uhrseite_verlauf_{cid}_{b}x{h}")
+                    await pg.close()
+                assert not u.fehler, u.fehler
+        return ergebnis
+    ergebnis = asyncio.run(lauf())
+
+    for (cid, b, h), m in ergebnis.items():
+        assert m["ueberlauf"] <= 1, ((cid, b, h), m)                      # nichts abgeschnitten
+        assert all(sh > 0 for _, sh in m["svgs"]), ((cid, b, h), m)        # keins zusammengefallen
+    assert all(abs(sw / sh - 440 / 150) < 0.1 for sw, sh in ergebnis[("P", 960, 480)]["svgs"]), \
+        "mit genug Platz im Seitenverhaeltnis der Zeichnung"
+
+
 @pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raumzeile", "ohne_raumzeile"])
 def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
     """Der Mini-Verlauf passt sich der Kachel an (Querformat ohne rechte Haelfte

@@ -436,11 +436,16 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   dafür leicht verzerrt. Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
   zeichnet denselben Baustein (`renderChartPane()`), hochkant ist ihre Box aber
   so hoch wie ihr Inhalt, und Diagramme mit `flex-basis: 0` fielen dort auf 0 px
-  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb weiter im
-  Seitenverhältnis der Zeichnung (440:150). Geprüft in
-  `test_split_haelfte_und_kachel` und `test_split_hochkant_uebereinander` (kein
-  Überlauf) sowie `test_uhrseite_hochkant_zweite_flaeche_unten`
-  (Seitenverhältnis quer und hochkant).
+  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb im
+  Seitenverhältnis der Zeichnung (440:150), solange der Kasten reicht. Reicht er
+  nicht (quer hat er eine feste Höhe, hochkant bleibt die Fläche unter Uhr und
+  Wetter), schrumpfen sie (`flex:0 1 auto`), statt unten abgeschnitten zu
+  werden, etwa bei drei Diagrammen eines Zählers oder in einem niedrigen
+  Fenster. Geprüft in `test_split_haelfte_und_kachel` und
+  `test_split_hochkant_uebereinander` (kein Überlauf),
+  `test_uhrseite_hochkant_zweite_flaeche_unten` (Seitenverhältnis quer und
+  hochkant) und `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden` (drei
+  Diagramme quer und hochkant, zwei bei 960 × 400: nichts abgeschnitten).
 - **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
   `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
   an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des
