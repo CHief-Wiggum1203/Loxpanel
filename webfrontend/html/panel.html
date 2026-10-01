@@ -2147,10 +2147,10 @@ function connect(){
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
+    if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
-    if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='display'){ if(msg.on) wake(); else screenOff(); return; }   // Server schaltet Display (Kiosk-App)
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
