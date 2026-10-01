@@ -6686,10 +6686,10 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         plan["dateien"]["theme.json"] = theme
 
     # Was hier geschrieben wird, muss sich wieder einspielen lassen: _backup_zip
-    # packt es im selben Format, und eingerueckt waechst es (2 KiB ZIP mit
-    # 500.000 leeren Objekten -> 5 MiB Datei, tief verschachtelt noch viel
-    # mehr). Darum stueckweise zaehlen und beim Ueberschreiten aufhoeren,
-    # statt erst die ganze Datei zu bauen.
+    # packt es im selben Format, und eingerueckt waechst es (eine ZIP von
+    # wenigen KB mit 200.000 Werten 30 Ebenen tief -> ueber 10 MiB). Darum
+    # stueckweise zaehlen und beim Ueberschreiten aufhoeren, statt erst die
+    # ganze Datei zu bauen.
     for name, inhalt in plan["dateien"].items():
         doc = App._panels_doc(*inhalt) if name == "panels.json" else inhalt
         groesse = 1                                  # abschliessender Zeilenumbruch

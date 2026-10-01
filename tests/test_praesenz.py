@@ -178,12 +178,37 @@ def test_viele_geraete_am_melder_bleiben_schnell():
     async def lauf():
         geraete = {f"g{i}": {"presence": "PM"} for i in range(20_000)}
         app, geschaltet = _app({**geraete, "mit": {"presence": "PM", "display": FULLY}})
+        aufrufe = []
+        echt = app.display_drivers
+
+        async def gezaehlt(on, device="", panel=""):
+            aufrufe.append(device)
+            return await echt(on, device, panel)
+        app.display_drivers = gezaehlt
         app._on_value("pm_a", 1.0)
         beginn = time.perf_counter()
         await app._broadcast_tick()
         while app.bg_tasks:
             await asyncio.gather(*list(app.bg_tasks))
-        return time.perf_counter() - beginn, geschaltet
-    dauer, geschaltet = asyncio.run(lauf())
+        return time.perf_counter() - beginn, geschaltet, aufrufe
+    dauer, geschaltet, aufrufe = asyncio.run(lauf())
+    assert aufrufe == ["mit"], f"{len(aufrufe)} Treiber-Aufrufe"
     assert geschaltet == [("mit", True)]
     assert dauer < 2, f"{dauer:.1f} s"
+
+
+class _NurNachschlagen(dict):
+    """Geraete, die sich nicht durchlaufen lassen: wer ein einzelnes Geraet
+    sucht, muss es nachschlagen."""
+
+    def items(self):
+        raise AssertionError("alle Geraete durchlaufen")
+
+
+def test_ein_geraet_wird_direkt_nachgeschlagen():
+    async def lauf():
+        app, geschaltet = _app({"mit": {"display": FULLY}})
+        app.devices = _NurNachschlagen({**{f"g{i}": {} for i in range(1000)}, **app.devices})
+        return await app.display_drivers(True, "mit"), await app.display_drivers(True, "gibtsnicht"), geschaltet
+    ein, kein, geschaltet = asyncio.run(lauf())
+    assert len(ein) == 1 and kein == [] and geschaltet == [("mit", True)]

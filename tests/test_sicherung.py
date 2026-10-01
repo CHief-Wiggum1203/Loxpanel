@@ -14,7 +14,6 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-import theme_colors
 from lox import W, anlage
 
 BAUSTEINE = {
@@ -365,13 +364,21 @@ def test_viele_profile_und_geraete_bleiben_schnell(cfg_ordner):
     assert dauer < 5, f"{dauer:.1f} s"
 
 
-def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner):
-    """Eine Grundfarbe kostet beim Pruefen 10 bis 60 ms; 60 Profile mit
-    verschiedenen Farben rechnen Sekunden. Das Pruefen laeuft im Thread, eine
-    andere Anfrage wird derweil sofort beantwortet."""
-    farben = [f"#{(i * 37) % 256:02x}{(i * 91 + 40) % 256:02x}{(i * 53 + 80) % 256:02x}" for i in range(60)]
-    daten = _zip({"panels.json": {"panels": {f"p{i}": {"ui": {"baseColor": f}} for i, f in enumerate(farben)}}})
-    theme_colors._derive.cache_clear()
+def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner, monkeypatch):
+    """Pruefen kann Sekunden rechnen (eine Grundfarbe kostet 10 bis 60 ms je
+    Profil). Es laeuft im Thread, eine andere Anfrage wird derweil sofort
+    beantwortet. Die Rechenzeit ist hier fest eine Sekunde reines Python, das
+    den GIL haelt wie die echte Pruefung - so haengt der Test nicht am Tempo
+    des Rechners."""
+    daten = _zip({"panels.json": PANELS})
+    echt = W._sicherung_pruefen
+
+    def langsam(*args):
+        ende = time.perf_counter() + 1.0
+        while time.perf_counter() < ende:
+            pass
+        return echt(*args)
+    monkeypatch.setattr(W, "_sicherung_pruefen", langsam)
 
     async def lauf():
         ui = web.Application()
@@ -395,8 +402,45 @@ def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner):
     status, antworten = asyncio.run(lauf())
 
     assert status == 200
-    assert len(antworten) >= 5, f"Pruefen war zu schnell, um etwas zu zeigen ({len(antworten)} Anfragen)"
+    assert len(antworten) >= 5, f"waehrend des Pruefens nur {len(antworten)} Anfragen beantwortet"
     assert max(antworten) < 0.5, f"laengste Antwort {max(antworten):.2f} s"
+
+
+def test_zwei_einspielen_laufen_nacheinander(cfg_ordner, tmp_path, monkeypatch):
+    """Immer nur ein Einspielen zur Zeit: das zweite prueft erst, wenn das
+    erste geschrieben hat - sonst pruefen beide gegen die Dateien von vorher
+    und schreiben verschraenkt."""
+    _schreiben(cfg_ordner)
+    daten = _sicherung_von(tmp_path / "quelle")
+    ablauf = []
+    pruefen, schreiben = W._sicherung_pruefen, W._sicherung_schreiben
+
+    def gepruefter(*args):
+        ablauf.append("pruefen")
+        return pruefen(*args)
+
+    async def geschriebener(app, plan):
+        ablauf.append("schreiben")
+        await asyncio.sleep(0.3)                 # z. B. Neuverbinden mit dem Miniserver
+        try:
+            return await schreiben(app, plan)
+        finally:
+            ablauf.append("fertig")
+    monkeypatch.setattr(W, "_sicherung_pruefen", gepruefter)
+    monkeypatch.setattr(W, "_sicherung_schreiben", geschriebener)
+
+    async def lauf():
+        ui = web.Application()
+        ui["app"] = _app()
+        _ohne_verbindung(ui["app"])
+        ui.router.add_post("/api/restore", W.api_restore)
+        async with TestClient(TestServer(ui)) as cl:
+            antworten = await asyncio.gather(*(cl.post("/api/restore", data=daten,
+                                                       headers={"Content-Type": "application/zip"})
+                                               for _ in range(2)))
+            return [r.status for r in antworten]
+    assert asyncio.run(lauf()) == [200, 200]
+    assert ablauf == ["pruefen", "schreiben", "fertig"] * 2, ablauf
 
 
 KAPUTT = [
@@ -482,20 +526,32 @@ def test_neu_gepackte_zip_mit_ordner_und_mac_resten(cfg_ordner, tmp_path):
     assert j["miniserver"] == "kein_kennwort"
 
 
-@pytest.mark.parametrize("vermerk", [None, {"format": 1, "kennwoerter_entfernt": {"loxpanel.cfg": 5,
-                                                                             "panels.json": True}}],
-                         ids=["ohne", "unbrauchbar"])
-def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, vermerk):
-    """Ohne (brauchbare) sicherung.json ist offen, wo je ein Kennwort stand:
-    mqtt (Altlast aus dem Beispiel) und WallPanel (ohne Kennwort) duerfen
-    nicht als fehlend erscheinen."""
+@pytest.mark.parametrize("vermerk, liesmich", [
+    (None, False),
+    ({"format": 1, "kennwoerter_entfernt": {"loxpanel.cfg": 5, "panels.json": True}}, False),
+    (None, True),
+], ids=["ohne", "unbrauchbar", "nur-liesmich"])
+def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, monkeypatch, vermerk, liesmich):
+    """Ohne (brauchbare) sicherung.json und ohne LIESMICH.txt ist offen, wo je
+    ein Kennwort stand (Rueckfall _leere_kennwoerter); mit LIESMICH.txt sagt es
+    deren Liste. In beiden Faellen bleiben die Kennwoerter fuer dieselben
+    Ziele, und mqtt (Altlast aus dem Beispiel) und WallPanel (ohne Kennwort)
+    erscheinen nicht als fehlend."""
     panels = copy.deepcopy(PANELS)
     panels["devices"]["Flur"] = {"display": {"driver": "wallpanel", "host": "10.0.0.8", "port": 2971,
                                              "password": ""}}
     _schreiben(cfg_ordner, cfg={**CFG, "mqtt": {"host": "127.0.0.1", "pass": ""}}, panels=panels)
     with zipfile.ZipFile(io.BytesIO(W._backup_zip(cfg_ordner))) as z:
-        alt = _zip({**{n: z.read(n) for n in z.namelist() if n != W.BACKUP_VERMERK},
+        weg = (W.BACKUP_VERMERK,) + (() if liesmich else (W.BACKUP_LIESMICH,))
+        alt = _zip({**{n: z.read(n) for n in z.namelist() if n not in weg},
                     **({W.BACKUP_VERMERK: vermerk} if vermerk else {})})
+    rueckfall = []
+    echt = W._leere_kennwoerter
+
+    def gezaehlt(obj, datei):
+        rueckfall.append(datei)
+        return echt(obj, datei)
+    monkeypatch.setattr(W, "_leere_kennwoerter", gezaehlt)
 
     async def lauf():
         app = _app()
@@ -503,6 +559,7 @@ def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, vermerk)
         return await _einspielen(app, alt)
     j = asyncio.run(lauf())
 
+    assert rueckfall == ([] if liesmich else ["loxpanel.cfg", "panels.json"]), "der Weg, den der Fall prueft"
     assert j["ok"] and j["kennwoerter"]["fehlen"] == []
     assert sorted(z["art"] for z in j["kennwoerter"]["behalten"]) == ["display", "kamera", "miniserver"]
     assert _lesen(cfg_ordner, "loxpanel.cfg")["miniserver"]["pass"] == "GEHEIM-MS"
