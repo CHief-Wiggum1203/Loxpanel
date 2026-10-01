@@ -322,6 +322,9 @@ volumes:
 
 Danach: Visu `http://<host>:8099`, Konfig `…/config`, Einstellungen `…/settings`.
 Zugangsdaten per Env **oder** leer lassen und in `/settings` eintragen.
+Bis der Server zum ersten Mal mit dem Miniserver verbunden ist, zeigt jedes
+Panel, unter welcher Adresse der Konfigurator zu öffnen ist – auf einem Panel
+mit der Android-App dessen WLAN-Adresse.
 
 **Für Entwickler (Standalone):**
 
