@@ -2137,7 +2137,10 @@ function connect(){
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
-    if(msg.t==='display'){ if(msg.on) wake(); else screenOff(); return; }   // Server schaltet Display (Kiosk-App)
+    if(msg.t==='display'){   // Server schaltet Display (Kiosk-App); presence = Praesenzmelder des Geraets
+      if(typeof msg.presence==='boolean'){ DISP.presence=msg.presence; appLeerlauf(); }
+      if(msg.on) wake(); else { clearTimeout(dpmsTimer); screenOff(); }
+      return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
@@ -2821,7 +2824,10 @@ function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zuruec
 // Browser (window.fully; dort "Enable JavaScript Interface" einschalten) und die
 // LoxPanel-App fuer Android (window.LoxKiosk); beide haben dieselbe Schnittstelle.
 // Auto-Neustart (reloadHours) erledigt die Seite ohne Agent per location.reload().
-const DISP = { dpmsOff: 0, reloadHours: 0, agent: false };
+// Hat das Geraet einen Praesenzmelder (Displays -> Display-Steuerung), meldet der
+// Server, solange er jemanden sieht (presence): dann bleibt das Display an, der
+// Leerlauf schaltet nicht ab. Wird der Raum leer, schaltet der Server es aus.
+const DISP = { dpmsOff: 0, reloadHours: 0, agent: false, presence: false };
 let dpmsTimer=null, reloadTimer=null;
 // Kiosk-Apps: Kennung (meldet die Seite dem Server -> Typ in der Geraeteliste)
 // -> Name ihrer JS-Schnittstelle im window.
@@ -2835,9 +2841,14 @@ function kiosk(){ const k=kioskKind(); return k ? window[KIOSK_APPS[k]] : null; 
 function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }catch(e){} }
 function screenOn(){ const f=kiosk(); if(!f) return;
   try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
+// LoxPanel-App: Ihr eigener Bildschirmschoner kommt nach dpmsOff Sekunden.
+// Solange der Praesenzmelder des Geraets jemanden sieht, setzt er aus (0) -
+// sonst dunkelte die App trotz Anwesenheit ab.
+function appLeerlauf(){
+  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.presence ? 0 : DISP.dpmsOff); }catch(e){} }
 function armDpms(){ clearTimeout(dpmsTimer);
   if(window.LoxKiosk) return;   // native LoxPanel-Kiosk-App schaltet selbst ab (eigener Screensaver)
-  if(DISP.agent || !(DISP.dpmsOff>0)) return;
+  if(DISP.agent || DISP.presence || !(DISP.dpmsOff>0)) return;
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
   dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
@@ -2897,8 +2908,10 @@ function onScreenResize(){
 if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
-  // Native LoxPanel-Kiosk-App: konfigurierte Display-aus-Zeit an ihren Screensaver geben.
-  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.dpmsOff); }catch(e){}
+  DISP.presence = !!msg.presence;   // jemand im Raum -> Display bleibt an (auch nach Neuladen)
+  // Native LoxPanel-Kiosk-App: konfigurierte Display-aus-Zeit an ihren Screensaver
+  // geben, bei Anwesenheit 0.
+  appLeerlauf();
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
   DISP.agent = !!msg.agent;
   armDpms();

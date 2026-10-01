@@ -1021,6 +1021,14 @@ class App:
         self.alarm_map: dict[str, str] = {}
         self._alarm_prev: dict[str, object] = {}
         self._pending_alarm: list[dict] = []
+        # Praesenzmelder je Geraet (devices[name].presence = Control-UUID): solange
+        # sein active-State jemanden meldet, bleibt das Display des Geraets an.
+        # State-UUID -> Geraete, Stand je Geraet, offene Meldungen an die Panels
+        # (verteilt in _broadcast_tick).
+        self.presence_map: dict[str, list[str]] = {}
+        self._presence_on: dict[str, bool] = {}
+        self._pending_presence: list[dict] = []
+        self._presence_quelle: tuple = (None, None)   # (devices, controls) hinter presence_map
         self.agents: dict[str, dict] = {}   # ip -> Panel-Agent (Fernstart)
         self.bg_tasks: set = set()          # laufende Hintergrund-Tasks (z.B. Favs anfordern)
         # Dynamisches Song-Cover (iTunes) fuer Zonen, die nur ein Sender-Logo
@@ -1149,6 +1157,7 @@ class App:
                     _hp = self.mediaservers.get(_det.get("server"))
                     if _hp:
                         self.audiohost_by_action[_ua] = _hp.split(":")[0].strip()
+        self._presence_rebuild()
         log.info("Struktur: %d Controls, %d Räume, %d Kategorien, %d Intercom-Klingeln, %d Wecker, %d AudioZones",
                  len(self.controls), len(self.rooms_with), len(self.cats_with),
                  len(self.bell_map), len(self.alarm_map), len(self.playerid_by_action))
@@ -2094,7 +2103,8 @@ class App:
         return {"dim": _num("nightDim", 0, 90, 0), "wake": _num("nightWake", 0, 300, 20)}
 
     def night_control_options(self) -> list:
-        """Bausteine, die als Nacht-Ausloeser taugen: alles mit einem `active`-State
+        """Bausteine, die als Nacht-Ausloeser oder Praesenzmelder eines Geraets
+        taugen: alles mit einem `active`-State
         (Switch, InfoOnlyDigital, PresenceDetector ...). Damit laesst sich auch ein
         Loxone-Betriebsmodus nutzen, sobald er in der Visu auf so einem Baustein
         liegt — der Modus selbst steht nicht in der Struktur (s. ARCHITEKTUR.md)."""
@@ -2201,7 +2211,7 @@ class App:
             return devs.setdefault(name, {
                 "name": name, "agent": None, "connections": 0, "online": False,
                 "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False,
-                "screen": {}})
+                "screen": {}, "presence": None})
 
         for a in self.agents.values():
             if (now - a["ts"]) >= 600:
@@ -2231,6 +2241,8 @@ class App:
                 e["screen"] = info["screen"]   # zuletzt gemeldete Groesse (bei mehreren Fenstern das letzte)
         for name in self.devices:
             entry(name)["configured"] = True
+        for name, on in self._presence_on.items():
+            entry(name)["presence"] = on   # nur Geraete mit gekoppeltem Praesenzmelder
         for e in devs.values():
             e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
             if e["agent"] and not e["profile"]:
@@ -2238,6 +2250,33 @@ class App:
         anonymous.sort(key=lambda a: a["ip"])
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
+
+    def _presence_rebuild(self) -> None:
+        """Praesenzmelder der Geraete (devices[name].presence) auf den active-State
+        ihres Bausteins abbilden. Laeuft nach dem Einlesen der Struktur und nach
+        dem Speichern der Geraete; wer devices oder controls sonst ersetzt (z. B.
+        das Einspielen einer Sicherung), dem holt der Broadcaster das im
+        naechsten Takt nach (_presence_quelle). Aendert sich dabei der Stand eines Geraets
+        (Melder gewaehlt, waehrend jemand da ist, oder wieder entfernt), erfahren
+        es seine Panels als Wecken, nie als Abschalten: aus schaltet nur der
+        Melder selbst, wenn der Raum leer wird (_on_value). Ein Baustein, den es
+        in der Struktur nicht (mehr) gibt, koppelt nichts."""
+        self._presence_quelle = (self.devices, self.controls)
+        pmap: dict[str, list[str]] = {}
+        for name, cfg in (self.devices or {}).items():
+            u = cfg.get("presence") if isinstance(cfg, dict) else None
+            su = ((self.controls.get(u) or {}).get("states") or {}).get("active") if u else None
+            if su:
+                pmap.setdefault(su, []).append(name)
+        self.presence_map = pmap
+        jetzt = {n: bool(self.states.get(su)) for su, names in pmap.items() for n in names}
+        for name in set(self._presence_on) | set(jetzt):
+            neu = jetzt.get(name, False)
+            if neu != self._presence_on.get(name, False):
+                self._pending_presence.append({"dev": name, "on": True, "presence": neu})
+        self._presence_on = jetzt
+        if jetzt:
+            log.info("Präsenz: %d Gerät(e) an einen Präsenzmelder gekoppelt", len(jetzt))
 
     async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
         """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully
@@ -2249,11 +2288,13 @@ class App:
             if info.get("dev"):
                 showing[info["dev"]] = (self.conn_prof.get(ws) or {}).get("id", "")
         out = []
-        for name, cfg in self.devices.items():
+        # Ein bestimmtes Geraet direkt nachschlagen: der Praesenzmelder ruft das
+        # je Geraet auf, ueber alle Geraete waere es quadratisch.
+        geraete = ({device: self.devices[device]} if device in self.devices else {}) if device \
+            else self.devices
+        for name, cfg in geraete.items():
             disp = cfg.get("display") if isinstance(cfg, dict) else None
             if not disp:
-                continue
-            if device and name != device:
                 continue
             if panel and not device and showing.get(name) != panel:
                 continue
@@ -2700,12 +2741,14 @@ class App:
     def _write_devices(self, devices: dict) -> None:
         self.devices = devices
         self._persist_panels_file(self.panels, self.devices)
+        self._presence_rebuild()
 
     @staticmethod
     def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
-        (bool) + `modes` = {Modusname -> Profil-Id}. Nur existierende Profile
-        werden uebernommen; leere Geraete fallen weg."""
+        (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
+        Skalierung und Praesenzmelder (`presence` = Control-UUID). Nur
+        existierende Profile werden uebernommen; leere Geraete fallen weg."""
         out: dict = {}
         if not isinstance(devices, dict):
             return out
@@ -2725,13 +2768,21 @@ class App:
             # uebersteuern). Ein Geraet, das NUR sie traegt, muss bleiben -
             # bisher fiel alles ohne Modi und Display-Treiber still weg.
             scale = _clean_scale(cfg.get("scale"))
-            if not modes and not display and scale is None:
+            # Praesenzmelder: solange sein Baustein jemanden meldet, bleibt das
+            # Display an (_presence_rebuild). Ob es ihn gibt, entscheidet erst
+            # die Struktur - wie bei "hide" bleibt die Kennung erhalten, auch
+            # wenn der Miniserver gerade nicht verbunden ist.
+            presence = cfg.get("presence")
+            presence = presence.strip()[:60] if isinstance(presence, str) else ""
+            if not modes and not display and scale is None and not presence:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
                 entry["display"] = display
             if scale is not None:
                 entry["scale"] = scale
+            if presence:
+                entry["presence"] = presence
             out[name.strip()[:60]] = entry
         return out
 
@@ -5366,6 +5417,15 @@ class App:
                 # Loxone/App oder am Panel quittiert) stoppt ihn wieder.
                 self._pending_alarm.append({"id": self.alarm_map[uuid], "on": now})
             self._alarm_prev[uuid] = value
+        if uuid in self.presence_map:
+            # Praesenzmelder: jemand kommt -> Display an und halten, Raum leer
+            # -> aus. Nur bei echtem Wechsel, damit der Neuversand aller States
+            # nach einem Reconnect nichts schaltet.
+            on = bool(value)
+            for name in self.presence_map[uuid]:
+                if on != self._presence_on.get(name, False):
+                    self._presence_on[name] = on
+                    self._pending_presence.append({"dev": name, "on": on, "presence": on})
 
     def _on_weather(self, uuid: str, entries: list) -> None:
         """Wetter-Tabelle vom Miniserver uebernehmen (nur mit Wetterdienst).
@@ -5512,6 +5572,23 @@ class App:
                 self._spawn(self.display_drivers(True))
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
+        if self._presence_quelle[0] is not self.devices or self._presence_quelle[1] is not self.controls:
+            self._presence_rebuild()   # Geraete oder Struktur ersetzt, ohne neu zu koppeln
+        ereignisse, self._pending_presence = self._pending_presence, []
+        for ev in ereignisse:
+            # Nur an das Geraet mit diesem Praesenzmelder: seine Visu haelt das
+            # Display (presence) bzw. schaltet es ueber die Kiosk-App, die
+            # Display-Treiber (Fully Remote Admin, WallPanel) schalten mit.
+            # Einmal durch die Liste (pop(0) waere quadratisch); was waehrend
+            # des Sendens dazukommt, laeuft im naechsten Takt.
+            log.info("Präsenz %s: %s → Display %s", ev["dev"],
+                     "jemand da" if ev["presence"] else "Raum leer", "an" if ev["on"] else "aus")
+            if ((self.devices.get(ev["dev"]) or {}).get("display")):
+                self._spawn(self.display_drivers(ev["on"], ev["dev"]))
+            for ws, info in list(self.conn_info.items()):
+                if info.get("dev") == ev["dev"]:
+                    await self._send_or_drop(ws, {"t": "display", "on": ev["on"],
+                                                  "presence": ev["presence"]})
         if self._front_dirty:
             # Front (Kalender/Wetter) an alle Panels. Neu verbundene bekommen den
             # aktuellen Stand ausserdem direkt beim Verbinden (ws_handler).
@@ -5947,6 +6024,9 @@ async def api_meta(request: web.Request) -> web.Response:
            for ru in app.rooms_with],
         "panels": panels,
         "devices": app.devices,
+        # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
+        # (dieselbe Liste wie beim Nacht-Ausloeser)
+        "activeControls": app.night_control_options(),
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
@@ -6720,6 +6800,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
+                        # Meldet der Praesenzmelder des Geraets gerade jemanden,
+                        # bleibt das Display an - auch nach einem Neuladen.
+                        "presence": app._presence_on.get(dev, False),
                         "agent": app._has_agent(dev)})
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
@@ -6760,8 +6843,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     app.bg_tasks.add(task)
                     task.add_done_callback(app.bg_tasks.discard)
             elif data.get("t") == "idle":
-                # Visu ohne Kiosk-JS meldet Leerlauf -> Display ueber Treiber aus
-                if dev:
+                # Visu ohne Kiosk-JS meldet Leerlauf -> Display ueber Treiber aus,
+                # ausser der Praesenzmelder des Geraets sieht gerade jemanden
+                if dev and not app._presence_on.get(dev):
                     app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")

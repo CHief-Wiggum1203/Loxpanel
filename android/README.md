@@ -105,10 +105,15 @@ und „Display an“.
 
 | Funktion | Wer ruft sie | Wirkung in der App |
 |---|---|---|
-| `setDisplayOff(sekunden)` | Visu beim Laden der Einstellungen (`dpmsOff`) | Leerlaufzeit bis zum Bildschirmschoner, `0` schaltet ihn ab |
+| `setDisplayOff(sekunden)` | Visu beim Laden der Einstellungen (`dpmsOff`) und wenn der Präsenzmelder des Geräts wechselt | Leerlaufzeit bis zum Bildschirmschoner, `0` schaltet ihn ab |
 | `turnScreenOn()` | Visu bei Klingel, Wecker, Notify, Goto und wenn der Server das Display einschaltet | Schoner weg, Leerlaufzeit beginnt neu |
 | `turnScreenOff()` | Visu, wenn der Server das Display abschaltet (*Displays*, `/api/display`) | Schoner an |
 | `isScreenOn()` | Visu vor `turnScreenOn()` | `true`, solange kein Schoner zu sehen ist |
 
 Die drei letzten heißen wie bei Fully Kiosk, damit die Visu beide Apps gleich
 behandelt.
+
+Hat das Gerät unter *Displays* einen Präsenzmelder, gibt die Visu der App
+`setDisplayOff(0)`, solange er jemanden meldet: Der Schoner wartet, bis der
+Raum leer ist. Dann bekommt die App wieder die eingestellte Leerlaufzeit und
+gleich `turnScreenOff()`; kommt jemand, `turnScreenOn()`.
