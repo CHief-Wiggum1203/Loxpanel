@@ -131,6 +131,7 @@
   .btn{border:1px solid transparent;border-radius:4px;padding:11px 20px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#1a1205;}
   .btn:hover{filter:brightness(1.06);}
   .btn:disabled{opacity:.5;cursor:default;filter:none;}
+  a.btn{display:inline-block;text-decoration:none;}
   .btn.save{background:var(--accent);color:#1a1205;}
   .btn.del{background:transparent;color:var(--crit);border-color:#45343a;}
   .btn.del:hover{filter:none;border-color:var(--crit);}
@@ -922,6 +923,21 @@
         </section>
 
         <!-- Neues Panel -->
+        <section class="spane" data-sub="backup">
+          <p class="lead" data-i18n>Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.</p>
+          <div class="card">
+            <div class="actions" style="margin-top:0"><a class="btn" id="bk_dl" href="/api/backup" download data-i18n>Einstellungen herunterladen</a></div>
+            <p class="note" style="margin-top:14px" data-i18n>Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.</p>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Sicherung einspielen</h3>
+            <p class="note" data-i18n>Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.</p>
+            <input type="file" id="rs_file" accept=".zip,application/zip" hidden>
+            <div class="actions" style="margin-top:0"><button class="btn" id="rs_pick" data-i18n>ZIP-Datei wählen und einspielen</button><span class="toast" id="rs_toast"></span></div>
+            <div class="note" id="rs_result" style="margin-top:10px"></div>
+          </div>
+        </section>
+
         <section class="spane" data-sub="newpanel">
           <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
           <div class="card">
@@ -1017,7 +1033,7 @@ const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Ka
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'audio',label:'Audio'},
-  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'}];
+  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'},{k:'backup',label:'Sicherung'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
@@ -3570,8 +3586,82 @@ $('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textConte
   .then(()=>flash($('#np_toast'),T('✓ kopiert'),true))
   .catch(()=>flash($('#np_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
 
+// ---- Sicherung einspielen ----
+// Nach dem Einspielen laedt die Seite neu: Profile, Geraete und Einstellungen im
+// Speicher waeren sonst der alte Stand, und das naechste Speichern ueberschriebe
+// die eingespielten Werte. Das Ergebnis wartet so lange in der sessionStorage
+// und erscheint danach in der Rubrik Sicherung.
+const RS_KEY='lp_einspiel_ergebnis';
+const RS_MS={
+  verbunden:'Miniserver: mit dem eingespielten Zugang neu verbunden.',
+  unveraendert:'Miniserver: Zugang unverändert, die Verbindung bleibt.',
+  kein_kennwort:'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.',
+  behalten:'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.',
+  umgebung:'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.',
+  keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.',
+  kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.',
+  unvollstaendig:'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.',
+  unvollstaendig_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.',
+  fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:',
+  fehler_behalten:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:'};
+function rsZiel(z){
+  if(z.art==='miniserver') return T('Miniserver');
+  if(z.art==='kamera') return T('Kamera')+' „'+z.name+'“';
+  if(z.art==='display') return T('Display-Treiber')+' „'+z.name+'“';
+  return z.name||'';
+}
+function rsZeigen(j, nichtNeuGeladen){
+  const z=[], kw=j.kennwoerter||{};
+  z.push('<b class="'+(j.ok?'ok':'bad')+'">'+esc(j.ok?T('✓ Eingespielt:'):T('Nur teilweise eingespielt:'))+' '+
+         esc((j.dateien||[]).join(', ')||'–')+'</b>');
+  if(j.error) z.push('<b class="bad">'+esc(T(j.error))+'</b>');
+  if((j.nichtEingespielt||[]).length) z.push('<b class="bad">'+esc(T('Nicht eingespielt:'))+' '+esc(j.nichtEingespielt.join(', '))+'</b>');
+  if(j.miniserver){
+    const ziel=j.miniserverZiel||{};
+    // Ersatz als Funktion: ein $& oder $' im Benutzernamen ist sonst ein Ersetzungsmuster
+    z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', ()=>(ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
+           (j.miniserverFehler?' '+esc(j.miniserverFehler):''));
+  }
+  if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Settings eintragen:'))+'</b> '+
+                                    esc(kw.fehlen.map(rsZiel).join(', ')));
+  if((kw.behalten||[]).length) z.push(esc(T('Kennwort von diesem Server übernommen:'))+' '+esc(kw.behalten.map(rsZiel).join(', ')));
+  if((j.nichtEnthalten||[]).length) z.push(esc(T('Nicht in der Sicherung, unverändert:'))+' '+esc(j.nichtEnthalten.join(', ')));
+  if((j.verworfen||[]).length) z.push(esc(T('Nicht übernommen:'))+' '+esc(j.verworfen.join('; ')));
+  if(nichtNeuGeladen) z.push('<b class="bad">'+esc(T('Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.'))+'</b>');
+  $('#rs_result').innerHTML=z.join('<br>');
+}
+function einspielErgebnisZeigen(){
+  let j=null;
+  try{ j=JSON.parse(sessionStorage.getItem(RS_KEY)||'null'); sessionStorage.removeItem(RS_KEY); }catch(e){ j=null; }
+  if(!j) return;
+  subSet='backup'; setRubric('settings'); renderSubtabs(); showSub('backup');
+  rsZeigen(j, false);
+}
+// Erst die Datei waehlen, dann fragen: Der Dateidialog braucht den Klick
+// selbst, nach einer Rueckfrage oeffnet ihn nicht jeder Browser.
+$('#rs_pick').onclick=()=>{ $('#rs_file').value=''; $('#rs_file').click(); };
+$('#rs_file').onchange=async()=>{
+  const f=$('#rs_file').files[0]; if(!f) return;
+  const frage=T('Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?')+
+    (dirty?'\n\n'+T('Ungespeicherte Änderungen an Panels gehen dabei verloren.'):'');
+  if(!confirm(frage)) return;
+  $('#rs_pick').disabled=true; $('#rs_result').textContent='';
+  let j;
+  try{
+    const r=await fetch('/api/restore',{method:'POST',headers:{'Content-Type':'application/zip'},body:f});
+    j=(r.headers.get('content-type')||'').includes('json') ? await r.json() : {ok:false, error:'HTTP '+r.status};
+  }catch(e){ j={ok:false, error:String(e)}; }
+  $('#rs_pick').disabled=false;
+  if((j.dateien||[]).length){            // ganz oder teilweise geschrieben: neu laden
+    try{ sessionStorage.setItem(RS_KEY, JSON.stringify(j)); dirty=false; location.reload(); return; }
+    catch(e){ rsZeigen(j, true); return; }
+  }
+  flash($('#rs_toast'), T('Nicht eingespielt'), false);
+  $('#rs_result').innerHTML='<b class="bad">'+esc(j.error?T(j.error):T('Fehler'))+'</b>';
+};
+
 // ---- Start ----
-load().catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
+load().then(einspielErgebnisZeigen).catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
 loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
 { const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
 loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });

@@ -10,6 +10,10 @@ config/loxpanel.cfg
 # Sicherung vor dem Ueberschreiben) - sie enthaelt dieselben Daten.
 config/panels.json
 config/panels.json.bak
+# Dasselbe beim Einspielen einer Sicherung: loxpanel.cfg.bak traegt die
+# Kennwoerter im Klartext.
+config/loxpanel.cfg.bak
+config/theme.json.bak
 
 # Panel-lokale Kiosk-Konfig (Server-IP + Panel-ID, pro Geraet unterschiedlich)
 deploy/loxpanel-kiosk.conf
