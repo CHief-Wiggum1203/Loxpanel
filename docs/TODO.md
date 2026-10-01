@@ -261,7 +261,7 @@ PIN-Feld der Visu falsch und Abstände fehlen; die Visu braucht etwa Chrome 88,
 Android 13 bringt 101 bis 109. Tablets mit Google Play halten ihr WebView
 selbst aktuell.
 
-- [ ] **Drei weitere Beiträge zu #61 bei Lenardo einreichen.** Je ein
+- [x] **Drei weitere Beiträge zu #61 bei Lenardo eingereicht.** Je ein
       Commit auf seinem `ci/android-apk-pipeline` (`ad5fcd6`), am 01.10.2026
       gebaut und geprüft, zusammen konfliktfrei. Der vierte,
       `up/apk-display-wecken` (Klingel, Notify, Goto, Wecker und der Server
@@ -269,14 +269,12 @@ selbst aktuell.
       `turnScreenOff` und `isScreenOn` wie Fully), steckt in #65 (siehe
       Präsenzmelder unten).
 
-  | Zweig | Inhalt |
-  |---|---|
-  | `up/apk-start-adresse` | Die App merkt sich die zuletzt angezeigte Ansicht statt fest `?panel=default`; Port und Adresse an einer Stelle (`Visu.kt`) |
-  | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
-  | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
+  | PR | Zweig | Inhalt |
+  |---|---|---|
+  | [#68](https://github.com/Lenardo1/loxpanel/pull/68) | `up/apk-start-adresse` | Die App merkt sich die zuletzt angezeigte Ansicht statt fest `?panel=default`; Port und Adresse an einer Stelle (`Visu.kt`) |
+  | [#69](https://github.com/Lenardo1/loxpanel/pull/69) | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
+  | [#70](https://github.com/Lenardo1/loxpanel/pull/70) | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
 
-  Einreichen über
-  `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`.
   Sobald #61 in Lenardos `main` ist, kommt alles mit dem nächsten Abgleich
   in den Fork. **S**
 - [ ] **Mit Lenardo klären:** den Paketnamen vor dem ersten echten Einsatz
