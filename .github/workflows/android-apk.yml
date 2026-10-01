@@ -4,6 +4,10 @@ name: Android APK
 # den GitHub-Release. Die App-Assets (bin/webfrontend/config) werden dabei vom
 # Gradle-Task 'syncLoxpanelAssets' automatisch aus dem Repo generiert — die APK
 # ist also immer auf dem aktuellen Repo-Stand.
+#
+# Signiert wird immer mit demselben Schluessel aus den Repo-Secrets, sonst laesst
+# sich die installierte App nicht aktualisieren (android/README.md, Abschnitt
+# "Release-Signierung"). Die Version kommt aus loxberry-plugin/plugin.cfg.
 
 on:
   push:
@@ -35,12 +39,40 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: APK bauen (Assets kommen per syncLoxpanelAssets aus dem Repo)
-        working-directory: android
-        run: gradle assembleDebug --no-daemon --console=plain
+      - name: Tag passt zur Projektversion
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(sed -n 's/^VERSION=//p' loxberry-plugin/plugin.cfg | tr -d '\r')
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu loxberry-plugin/plugin.cfg (VERSION=$v)"
+            exit 1
+          fi
 
-      - name: APK benennen
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk LoxPanel-Server.apk
+      - name: Signierschluessel bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.LOXPANEL_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret LOXPANEL_KEYSTORE_B64 fehlt. Ohne festen Schluessel laesst sich die App nicht aktualisieren (android/README.md, Release-Signierung)."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/loxpanel.jks"
+          echo "LOXPANEL_KEYSTORE=$RUNNER_TEMP/loxpanel.jks" >> "$GITHUB_ENV"
+
+      - name: APK bauen und signieren (Assets kommen per syncLoxpanelAssets aus dem Repo)
+        working-directory: android
+        env:
+          LOXPANEL_KEYSTORE_PASSWORD: ${{ secrets.LOXPANEL_KEYSTORE_PASSWORD }}
+          LOXPANEL_KEY_ALIAS: ${{ secrets.LOXPANEL_KEY_ALIAS }}
+          LOXPANEL_KEY_PASSWORD: ${{ secrets.LOXPANEL_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --console=plain
+
+      - name: APK benennen und Signatur pruefen
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk LoxPanel-Server.apk
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs LoxPanel-Server.apk > signatur.txt
+          grep -E 'certificate (DN|SHA-256)' signatur.txt
 
       - name: An den Release haengen
         if: startsWith(github.ref, 'refs/tags/v')

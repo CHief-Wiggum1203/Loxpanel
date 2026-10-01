@@ -34,6 +34,42 @@ Kein UI-Framework, kein WebView — nur der Tragfähigkeits-Test.
 - **`loxone-api` FAIL** → meist nur der Import-Name; im Test sind mehrere Namen
   hinterlegt. Zur Not das Paket weglassen — es ist reines Python auf aiohttp.
 
+## Version und Release-Signierung
+Die App übernimmt die Release-Version des Projekts aus
+`loxberry-plugin/plugin.cfg` (`VERSION=x.y.z` → `versionName` x.y.z,
+`versionCode` x·10000 + y·100 + z). Gebaut wird darum immer `android/` im
+Repo-Checkout, nicht eine Kopie des Ordners. Der Workflow prüft, dass ein
+Release-Tag zur Version passt (`v0.6.0` ↔ `VERSION=0.6.0`).
+
+Release-APKs tragen immer denselben Schlüssel. Nur dann installiert Android ein
+Update über die vorhandene App. Mit einem anderen Schlüssel müsste man sie erst
+deinstallieren, und das löscht ihre Konfiguration samt Miniserver-Zugang.
+
+Einmalig einrichten:
+1. Schlüssel erzeugen und sicher aufbewahren (Passwort-Manager, Backup):
+   `keytool -genkeypair -keystore loxpanel.jks -alias loxpanel -keyalg RSA -keysize 4096 -validity 36500`
+2. Die Datei als Base64-Text ausgeben, unter Linux/macOS mit
+   `base64 -w0 loxpanel.jks`, unter Windows (PowerShell) mit
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes("loxpanel.jks"))`.
+3. Im Repo unter *Settings → Secrets and variables → Actions* anlegen:
+
+   | Secret | Inhalt |
+   |---|---|
+   | `LOXPANEL_KEYSTORE_B64` | der Base64-Text aus Schritt 2 |
+   | `LOXPANEL_KEYSTORE_PASSWORD` | Passwort des Schlüsselspeichers |
+   | `LOXPANEL_KEY_ALIAS` | `loxpanel` (der Alias aus Schritt 1) |
+   | `LOXPANEL_KEY_PASSWORD` | Passwort des Schlüssels |
+
+Fehlen die Secrets, bricht der Workflow ab, statt eine nicht aktualisierbare APK
+zu veröffentlichen. Er gibt den SHA-256-Fingerabdruck des Zertifikats aus, der
+bei jedem Release gleich bleiben muss. Geht der Schlüssel verloren, lässt sich
+die App nicht mehr aktualisieren.
+
+Lokal signiert bauen: die vier Werte als Umgebungsvariablen setzen
+(`LOXPANEL_KEYSTORE` = Pfad zur `.jks`, die übrigen heißen wie die Secrets) und
+`gradle assembleRelease`. Zum Ausprobieren reicht `gradle assembleDebug`, das
+braucht keinen Schlüssel.
+
 ## Typische Stolpersteine (bewusst offen gelassen — an deiner Toolchain justieren)
 - **Versionskonflikt beim Sync**: In `build.gradle.kts` (Root) die drei Plugin-
   Versionen an dein Android Studio anpassen — AGP (`com.android.application`),
