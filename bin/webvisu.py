@@ -6153,6 +6153,10 @@ _SECRET_KEYS = {"pass", "password"}
 # Kennwoerter. /api/restore setzt nur an diesen Stellen vorhandene wieder ein.
 BACKUP_VERMERK = "sicherung.json"
 BACKUP_FORMAT = 1
+# Lesbare Beschreibung in der Sicherung. Sie listet die entfernten Kennwoerter
+# als Zeilen "  - <datei>: <pfad>" - aeltere Sicherungen ohne sicherung.json
+# haben nur diese Liste.
+BACKUP_LIESMICH = "LIESMICH.txt"
 
 
 def _ohne_kennwoerter(obj, pfad: tuple = ()) -> tuple:
@@ -6222,7 +6226,7 @@ def _backup_zip(cfgdir: Path) -> bytes:
                    "Config-Ordner legen (Unraid: appdata/loxpanel, im Container /app/config)",
                    "und LoxPanel neu starten. " + BACKUP_VERMERK + " vermerkt für das",
                    "Einspielen, wo Kennwörter entfernt sind."]
-        z.writestr("LIESMICH.txt", "\n".join(zeilen) + "\n")
+        z.writestr(BACKUP_LIESMICH, "\n".join(zeilen) + "\n")
         z.writestr(BACKUP_VERMERK, json.dumps(
             {"format": BACKUP_FORMAT, "erstellt": jetzt.isoformat(timespec="seconds"),
              "dateien": drin, "kennwoerter_entfernt": vermerk},
@@ -6256,6 +6260,13 @@ RESTORE_VERFAHREN = (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)
 # mit etwa sechs Ebenen aus; tiefere braechten Kopieren und Pruefen an die
 # Rekursionsgrenze.
 RESTORE_MAX_TIEFE = 32
+# Meiste Eintraege (Werte, Listen, Objekte) je Datei. Die Beispiel-Dateien
+# haben unter 100; eine sehr grosse, voll gestaltete Anlage (20 Profile mit je
+# 500 Kachel-Einstellungen, Ausblend-Listen, Raeumen) kommt auf rund 100.000.
+# Mehr kann eine ZIP-Datei von wenigen KB trotzdem tragen (Wiederholungen
+# packen sich fast auf nichts) - und jeder Eintrag kostet beim Pruefen,
+# Kopieren und Schreiben Zeit, in der der Server nichts anderes tut.
+RESTORE_MAX_EINTRAEGE = 200_000
 # Was ein Kennwort an sein Ziel bindet: Ein vorhandenes Kennwort bleibt beim
 # Einspielen nur, wenn diese Angaben gleich bleiben - sonst ginge es an einen
 # anderen Host oder Benutzer.
@@ -6297,9 +6308,11 @@ def _inhalt_pruefen(obj, datei: str) -> None:
     """Was der Server aus einer Sicherung nicht verkraftet: NaN, Unendlich und
     ganze Zahlen ueber _GROESSTE_ZAHL (int()/float(), JSON.parse im
     Konfigurator), Text, der sich nicht als UTF-8 schreiben laesst (einzelne
-    Surrogate), und zu tiefe Verschachtelung. Ohne Rekursion; den Pfad baut
-    erst die Fehlermeldung, sonst kostete jeder Knoten seine Tiefe."""
+    Surrogate), zu tiefe Verschachtelung und zu viele Eintraege. Ohne
+    Rekursion; den Pfad baut erst die Fehlermeldung, sonst kostete jeder
+    Knoten seine Tiefe."""
     stapel = [(obj, None, None, 0)]          # (wert, schluessel, eltern, tiefe)
+    anzahl = 0
 
     def pfad(e) -> str:
         teile = []
@@ -6312,6 +6325,11 @@ def _inhalt_pruefen(obj, datei: str) -> None:
     while stapel:
         e = stapel.pop()
         v, tiefe = e[0], e[3]
+        anzahl += 1
+        if anzahl > RESTORE_MAX_EINTRAEGE:
+            grenze = f"{RESTORE_MAX_EINTRAEGE:,}".replace(",", ".")
+            raise ValueError(f"{datei} hat mehr als {grenze} Einträge, mehr als eine "
+                             "LoxPanel-Sicherung haben kann.")
         if isinstance(v, (dict, list)):
             if tiefe >= RESTORE_MAX_TIEFE:
                 raise ValueError(f"{datei}: {pfad(e)} ist zu tief verschachtelt.")
@@ -6328,23 +6346,28 @@ def _inhalt_pruefen(obj, datei: str) -> None:
 
 def _sicherung_lesen(daten: bytes) -> tuple:
     """ZIP aus /api/backup lesen und pruefen -> ({datei: objekt}, vermerk).
-    vermerk ist der Inhalt von sicherung.json, bei aelteren Sicherungen None.
-    Ordner in der ZIP-Datei sind egal (neu gepackt), Fremdes wird ignoriert.
-    Wirft ValueError mit lesbarer Meldung; schreibt nichts."""
+    vermerk sagt, wo Kennwoerter entfernt wurden: {"json": Inhalt von
+    sicherung.json oder None, "liesmich": Listenzeilen der LIESMICH.txt als
+    frozenset oder None} (siehe _vermerk_pfade). Ordner in der ZIP-Datei sind
+    egal (neu gepackt), Fremdes wird ignoriert. Wirft ValueError mit lesbarer
+    Meldung; schreibt nichts."""
     try:
         z = zipfile.ZipFile(io.BytesIO(daten))
     except zipfile.BadZipFile as err:
         raise ValueError("Das ist keine ZIP-Datei.") from err
-    gesucht = set(BACKUP_FILES) | {BACKUP_VERMERK}
+    gesucht = set(BACKUP_FILES) | {BACKUP_VERMERK, BACKUP_LIESMICH}
     gefunden: dict = {}
+    gesehen: set = set()
+    liesmich = None
     with z:
         for info in z.infolist():
             teile = PurePosixPath(info.filename.replace("\\", "/")).parts
             if info.is_dir() or not teile or teile[-1] not in gesucht or "__MACOSX" in teile:
                 continue
             name = teile[-1]
-            if name in gefunden:
+            if name in gesehen:
                 raise ValueError(f"{name} steckt mehrmals in der ZIP-Datei.")
+            gesehen.add(name)
             if info.compress_type not in RESTORE_VERFAHREN:
                 raise ValueError(f"{name} ist mit einem nicht unterstützten Verfahren gepackt "
                                  "(erlaubt: Deflate oder ungepackt).")
@@ -6358,6 +6381,11 @@ def _sicherung_lesen(daten: bytes) -> tuple:
                 raise ValueError(f"{name} lässt sich nicht entpacken ({err}).") from err
             if len(roh) > RESTORE_MAX_DATEI:
                 raise ValueError(f"{name} ist zu groß für eine LoxPanel-Sicherung.")
+            if name == BACKUP_LIESMICH:
+                text = roh.decode("utf-8-sig", errors="replace")
+                liesmich = frozenset(zeile.strip()[2:] for zeile in text.splitlines()
+                                     if zeile.strip().startswith("- "))
+                continue
             try:
                 obj = json.loads(roh.decode("utf-8-sig"), parse_constant=_keine_konstante)
             except (UnicodeDecodeError, ValueError, RecursionError) as err:
@@ -6366,7 +6394,7 @@ def _sicherung_lesen(daten: bytes) -> tuple:
                 raise ValueError(f"{name} enthält kein JSON-Objekt.")
             _inhalt_pruefen(obj, name)
             gefunden[name] = obj
-    vermerk = gefunden.pop(BACKUP_VERMERK, None)
+    vermerk = {"json": gefunden.pop(BACKUP_VERMERK, None), "liesmich": liesmich}
     if not gefunden:
         raise ValueError("Keine LoxPanel-Sicherung: In der ZIP-Datei steckt weder "
                          + " noch ".join(BACKUP_FILES) + ".")
@@ -6424,20 +6452,37 @@ def _cfg_pruefen(cfg: dict) -> None:
             raise ValueError(f"loxpanel.cfg: calendar.sources[{i}] hat einen ungültigen Wert.")
 
 
-def _vermerk_pfade(vermerk, name: str):
-    """Pfade der entfernten Kennwoerter einer Datei laut sicherung.json, None
-    bei einer Sicherung ohne (brauchbaren) Vermerk."""
-    if not isinstance(vermerk, dict) or not isinstance(vermerk.get("kennwoerter_entfernt"), dict):
-        return None
-    pfade = vermerk["kennwoerter_entfernt"].get(name)
-    if pfade is not None and not isinstance(pfade, list):
-        return None
-    out = []
-    for p in pfade or []:
-        if isinstance(p, list) and p and all(isinstance(t, (str, int)) and not isinstance(t, bool)
-                                             for t in p):
-            out.append(tuple(p))
-    return out
+def _leere_geheimnisse(obj):
+    """Pfade aller leeren Kennwort-Felder (_SECRET_KEYS) in obj."""
+    stapel = [((), obj)]
+    while stapel:
+        pfad, knoten = stapel.pop()
+        if isinstance(knoten, dict):
+            for k, v in reversed(list(knoten.items())):
+                if str(k).lower() in _SECRET_KEYS and v in (None, ""):
+                    yield pfad + (k,)
+                else:
+                    stapel.append((pfad + (k,), v))
+        elif isinstance(knoten, list):
+            stapel += [(pfad + (i,), v) for i, v in reversed(list(enumerate(knoten)))]
+
+
+def _vermerk_pfade(vermerk, name: str, obj):
+    """Pfade der entfernten Kennwoerter einer Datei (obj = ihr Inhalt), None
+    wenn die Sicherung es nicht sagt. Erste Quelle ist sicherung.json.
+    Aeltere Sicherungen haben nur die Liste in der LIESMICH.txt; sie wird
+    nicht zurueckgelesen, sondern jede leere Kennwort-Stelle der Datei als
+    Text damit verglichen - ein Punkt im Geraetenamen bringt so nichts
+    durcheinander."""
+    vermerk = vermerk if isinstance(vermerk, dict) else {}
+    eintrag = (vermerk.get("json") or {}).get("kennwoerter_entfernt")
+    if isinstance(eintrag, dict) and isinstance(eintrag.get(name, []), list):
+        return [tuple(p) for p in eintrag.get(name, [])
+                if isinstance(p, list) and p
+                and all(isinstance(t, (str, int)) and not isinstance(t, bool) for t in p)]
+    if isinstance(vermerk.get("liesmich"), frozenset):
+        return [p for p in _leere_geheimnisse(obj) if f"{name}: {_pfad_text(p)}" in vermerk["liesmich"]]
+    return None
 
 
 def _leere_kennwoerter(obj, datei: str) -> list:
@@ -6533,7 +6578,7 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         cfg = copy.deepcopy(dateien["loxpanel.cfg"])
         _cfg_pruefen(cfg)
         alt = _cfg_datei()
-        pfade = _vermerk_pfade(vermerk, "loxpanel.cfg")
+        pfade = _vermerk_pfade(vermerk, "loxpanel.cfg", cfg)
         behalten, fehlen = _kennwoerter_einsetzen(
             cfg, alt, _leere_kennwoerter(cfg, "loxpanel.cfg") if pfade is None else pfade, pfade is None)
         ms = cfg.get("miniserver") if isinstance(cfg.get("miniserver"), dict) else {}
@@ -6570,8 +6615,8 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         sauber: dict = {}
         for pid, p in panels.items():
             sauber.update(_profil_pruefen("panels.json", f"Profil „{pid}“", App._sanitize_panels, {pid: p}))
-        pfade = _vermerk_pfade(vermerk, "panels.json")
         roh = {"devices": devices}
+        pfade = _vermerk_pfade(vermerk, "panels.json", roh)
         behalten, fehlen = _kennwoerter_einsetzen(
             roh, {"devices": app.devices},
             _leere_kennwoerter(roh, "panels.json") if pfade is None else pfade, pfade is None)
@@ -6620,12 +6665,17 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
 
     # Was hier geschrieben wird, muss sich wieder einspielen lassen: _backup_zip
     # packt es im selben Format, und eingerueckt waechst es (2 KiB ZIP mit
-    # 700.000 leeren Objekten -> 5 MiB Datei).
+    # 500.000 leeren Objekten -> 5 MiB Datei, tief verschachtelt noch viel
+    # mehr). Darum stueckweise zaehlen und beim Ueberschreiten aufhoeren,
+    # statt erst die ganze Datei zu bauen.
     for name, inhalt in plan["dateien"].items():
         doc = App._panels_doc(*inhalt) if name == "panels.json" else inhalt
-        if len(json.dumps(doc, indent=2, ensure_ascii=False).encode("utf-8")) + 1 > RESTORE_MAX_DATEI:
-            raise ValueError(f"{name} würde nach dem Einspielen größer, als eine "
-                             "LoxPanel-Sicherung sein darf.")
+        groesse = 1                                  # abschliessender Zeilenumbruch
+        for stueck in json.JSONEncoder(indent=2, ensure_ascii=False).iterencode(doc):
+            groesse += len(stueck.encode("utf-8"))
+            if groesse > RESTORE_MAX_DATEI:
+                raise ValueError(f"{name} würde nach dem Einspielen größer, als eine "
+                                 "LoxPanel-Sicherung sein darf.")
     return plan
 
 
@@ -7412,36 +7462,38 @@ async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
     url = ent.get("url") if isinstance(ent, dict) else ent
     if not url:
         return web.Response(status=404)
+    # Session und Antwort der Kamera werden in jedem Fall freigegeben, auch
+    # wenn der Handler mitten im Verbindungsaufbau abgebrochen wird
+    # (Herunterfahren) - sonst bleiben Socket und Connector offen.
     sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None, sock_read=30))
+    upstream = None
     try:
-        auth = None
-        if isinstance(ent, dict) and ent.get("user"):
-            auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
-        upstream = await sess.get(url, auth=auth)
-    except (aiohttp.ClientError, ValueError):
-        # ValueError: unbrauchbarer Host ("cam..lan") oder Benutzer, der nicht
-        # in den Basic-Auth-Kopf passt (Doppelpunkt, Zeichen ausserhalb Latin-1)
-        await sess.close()
-        return web.Response(status=502, text="camera unreachable")
-    if upstream.status != 200:
-        st = upstream.status
-        upstream.release()
-        await sess.close()
-        return web.Response(status=502, text=f"camera status {st}")
+        try:
+            auth = None
+            if isinstance(ent, dict) and ent.get("user"):
+                auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
+            upstream = await sess.get(url, auth=auth)
+        except (aiohttp.ClientError, ValueError):
+            # ValueError: unbrauchbarer Host ("cam..lan") oder Benutzer, der nicht
+            # in den Basic-Auth-Kopf passt (Doppelpunkt, Zeichen ausserhalb Latin-1)
+            return web.Response(status=502, text="camera unreachable")
+        if upstream.status != 200:
+            return web.Response(status=502, text=f"camera status {upstream.status}")
 
-    ctype = upstream.headers.get("Content-Type", "multipart/x-mixed-replace")
-    resp = web.StreamResponse(status=200, headers={
-        "Content-Type": ctype, "Cache-Control": "no-cache, no-store"})
-    await resp.prepare(request)
-    try:
-        async for chunk in upstream.content.iter_any():
-            await resp.write(chunk)
-    except (aiohttp.ClientError, ConnectionResetError, asyncio.CancelledError):
-        pass
+        ctype = upstream.headers.get("Content-Type", "multipart/x-mixed-replace")
+        resp = web.StreamResponse(status=200, headers={
+            "Content-Type": ctype, "Cache-Control": "no-cache, no-store"})
+        await resp.prepare(request)
+        try:
+            async for chunk in upstream.content.iter_any():
+                await resp.write(chunk)
+        except (aiohttp.ClientError, ConnectionResetError, asyncio.CancelledError):
+            pass
+        return resp
     finally:
-        upstream.release()
+        if upstream is not None:
+            upstream.release()
         await sess.close()
-    return resp
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:

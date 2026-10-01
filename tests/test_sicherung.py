@@ -324,6 +324,10 @@ KAPUTT = [
      "zu tief verschachtelt"),
     ("surrogat", _zip({"panels.json": '{"panels": {"wohnen": {"title": "Wohnen \\ud800"}}}'}),
      "panels.json: panels.wohnen.title enthält ungültige Zeichen"),
+    # 400 KB, gepackt 1 KB - jeder Eintrag kostet Zeit, in der der Server steht
+    ("zu-viele-eintraege",
+     _zip({"loxpanel.cfg": '{"x": [' + ",".join(["0"] * W.RESTORE_MAX_EINTRAEGE) + "]}"}),
+     "loxpanel.cfg hat mehr als 200.000 Einträge, mehr als eine LoxPanel-Sicherung haben kann"),
     # 1,3 MiB kompakt, eingerueckt geschrieben 2,7 MiB: die naechste Sicherung
     # liesse sich nicht mehr einspielen
     ("waechst-beim-schreiben",
@@ -399,6 +403,58 @@ def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, vermerk)
     assert j["ok"] and j["kennwoerter"]["fehlen"] == []
     assert sorted(z["art"] for z in j["kennwoerter"]["behalten"]) == ["display", "kamera", "miniserver"]
     assert _lesen(cfg_ordner, "loxpanel.cfg")["miniserver"]["pass"] == "GEHEIM-MS"
+
+
+# So schrieb /api/backup bis zum 01.10.2026 (main vor „Sicherung einspielen“):
+# ohne sicherung.json, die entfernten Kennwoerter nur in der LIESMICH.txt.
+ALTE_LIESMICH = """LoxPanel-Einstellungen vom 28.09.2026 08:42
+
+Enthalten: loxpanel.cfg, panels.json
+
+Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung
+herunterzuladen ist. Nach dem Zurückspielen unter Settings neu eintragen:
+  - loxpanel.cfg: miniserver.pass
+  - loxpanel.cfg: intercom.IC.pass
+  - panels.json: devices.Küche.display.password
+  - panels.json: devices.Panel.Flur.display.password
+
+Zurückspielen: Dateien in den Config-Ordner des Containers legen
+(Unraid: appdata/loxpanel, im Container /app/config) und LoxPanel neu starten.
+"""
+
+
+@pytest.mark.parametrize("liesmich", ["lf", "crlf", "ohne"])
+def test_alte_sicherung_auf_neuem_server_nennt_fehlende_kennwoerter(cfg_ordner, liesmich):
+    """Umzug mit einer Sicherung im alten Format auf ein frisches Geraet: Die
+    LIESMICH.txt sagt, wo ein Kennwort entfernt wurde - das fehlt dann, auch
+    beim Geraet mit Punkt im Namen. mqtt (Altlast aus dem Beispiel) und
+    WallPanel hatten keines und erscheinen nicht. Ohne LIESMICH.txt ist es
+    nicht zu entscheiden; dann wird nichts als fehlend gemeldet."""
+    display = {"driver": "fully", "port": 2323, "password": ""}
+    alt = {"loxpanel.cfg": {"miniserver": {**MS, "pass": ""},
+                            "intercom": {"IC": {"url": "http://cam/mjpeg", "user": "admin", "pass": ""}},
+                            "mqtt": {"host": "127.0.0.1", "pass": ""}},
+           "panels.json": {"panels": {"wohnen": {"title": "Wohnen"}},
+                           "devices": {"Küche": {"display": {**display, "host": "10.0.0.9"}},
+                                       "Panel.Flur": {"display": {**display, "host": "10.0.0.7"}},
+                                       "Bad": {"display": {"driver": "wallpanel", "host": "10.0.0.8",
+                                                           "port": 2971, "password": ""}}}}}
+    if liesmich != "ohne":
+        alt["LIESMICH.txt"] = ALTE_LIESMICH.replace("\n", "\r\n" if liesmich == "crlf" else "\n")
+
+    async def lauf():
+        app = _app()
+        _ohne_verbindung(app)
+        return await _einspielen(app, _zip(alt))
+    j = asyncio.run(lauf())
+
+    assert j["ok"] and j["miniserver"] == "kein_kennwort" and j["kennwoerter"]["behalten"] == []
+    fehlen = sorted((z["art"], z.get("name", "")) for z in j["kennwoerter"]["fehlen"])
+    if liesmich == "ohne":
+        assert fehlen == []
+    else:
+        assert fehlen == [("display", "Küche"), ("display", "Panel.Flur"), ("kamera", "Haustür"),
+                          ("miniserver", "")]
 
 
 def test_nicht_uebernommenes_wird_gemeldet(cfg_ordner, tmp_path):

@@ -6,8 +6,9 @@ import asyncio
 import time
 from pathlib import Path
 
+import aiohttp
 from aiohttp import web
-from aiohttp.test_utils import TestClient, TestServer
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from lox import W, anlage, serve
 
@@ -230,3 +231,45 @@ def test_kamera_mit_tippfehler_meldet_502():
         finally:
             await runner.cleanup()
     assert asyncio.run(lauf()) == [502, 502, 200]
+
+
+def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch):
+    """Faehrt der Server herunter, waehrend die Kamera noch nicht geantwortet
+    hat, wird der Handler mitten im Verbindungsaufbau abgebrochen. Die Session
+    zur Kamera muss trotzdem zu sein, sonst bleiben Socket und Connector offen
+    ("Unclosed client session")."""
+    sitzungen = []
+
+    def zaehler(*a, **kw):
+        s = aiohttp.ClientSession(*a, **kw)
+        sitzungen.append(s)
+        return s
+    monkeypatch.setattr(W, "aiohttp", _Ersatz(aiohttp, ClientSession=zaehler))
+
+    async def lauf():
+        angekommen, weiter = asyncio.Event(), asyncio.Event()
+
+        async def kamera(request):
+            angekommen.set()
+            await weiter.wait()
+            return web.Response()
+        cam = web.Application()
+        cam.router.add_get("/mjpeg", kamera)
+        runner, port = await serve(cam)
+        app = W.App({"host": "", "port": 80})
+        app.intercom_cfg = {"A": {"url": f"http://127.0.0.1:{port}/mjpeg"}}
+        ui = web.Application()
+        ui["app"] = app
+        handler = asyncio.create_task(W.mjpeg_handler(make_mocked_request("GET", "/mjpeg?id=A", app=ui)))
+        try:
+            await asyncio.wait_for(angekommen.wait(), 5)
+            handler.cancel()
+            try:
+                await handler
+            except asyncio.CancelledError:
+                pass
+            return [s.closed for s in sitzungen]
+        finally:
+            weiter.set()
+            await runner.cleanup()
+    assert asyncio.run(lauf()) == [True]

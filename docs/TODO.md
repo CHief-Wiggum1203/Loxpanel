@@ -283,17 +283,31 @@ selbst aktuell.
 - [ ] **Präsenzmelder zu Lenardo bringen** und dabei an die App koppeln:
       Solange jemand da ist, muss die Visu die Leerlaufzeit der App aussetzen
       (`LoxKiosk.setDisplayOff(0)`), sonst dunkelt die App trotz Anwesenheit
-      ab. Heute ist der Präsenzmelder Fork-eigen. **M**
+      ab. Heute ist der Präsenzmelder Fork-eigen. Ist `up/sicherung` bei
+      Lenardo schon drin, gehört in `_sicherung_schreiben` wieder der Aufruf
+      `app._presence_rebuild()` nach dem Übernehmen der Geräte. **M**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
       vorhandenes Kennwort bleibt nur beim selben Ziel, ein Zugang aus
       `LOXPANEL_MS_*` oder ohne Miniserver in der Sicherung bleibt stehen.
-      Geprüft in `tests/test_sicherung.py` und
-      `tests/browser/test_sicherung_browser.py`. **M**
-- [ ] **Sicherung und Einspielen zu Lenardo bringen:** Ohne Unraid hat jedes
-      Gerät seine eigene Konfiguration in der App. Lenardo hat noch gar keine
-      Sicherung; beides als ein Beitrag auf `upstream/main`. **S**
+      Ältere Sicherungen ohne `sicherung.json` nennen fehlende Kennwörter
+      über die Liste in `LIESMICH.txt`. Gegen präparierte Dateien (keine
+      Anmeldung auf den Routen): nur Deflate oder ungepackt, je Datei höchstens
+      2 MiB, 32 Ebenen und 200.000 Einträge; keine Eingabe blockiert den
+      Server länger als etwa eine Sekunde. Geprüft in
+      `tests/test_sicherung.py` und `tests/browser/test_sicherung_browser.py`.
+      **M**
+- [ ] **Sicherung und Einspielen bei Lenardo einreichen:** Ohne Unraid hat
+      jedes Gerät seine eigene Konfiguration in der App, und an den
+      Config-Ordner kommt dort niemand. Lenardo hat noch gar keine Sicherung.
+      Zweig `up/sicherung` (ein Commit auf `upstream/main`, Stand 01.10.2026):
+      Herunterladen und Einspielen, Rubrik *Settings → Sicherung*, englische
+      Texte, README-Absatz, `.bak` in `.gitignore`/`.dockerignore`. Ohne
+      Präsenzmelder (gibt es dort noch nicht). Die Tests aus dem Fork laufen
+      gegen diesen Stand durch, bis auf die Präsenz-Prüfung. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/sicherung?expand=1`.
+      **S**
 - [ ] **Ersteinrichtung am Gerät:** Ohne Miniserver-Zugang sagt die Visu
       nicht, unter welcher Adresse der Konfigurator erreichbar ist (IP des
       Geräts, Port 8099). **S**
