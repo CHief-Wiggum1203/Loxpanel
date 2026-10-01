@@ -6166,6 +6166,10 @@ BACKUP_FORMAT = 1
 # als Zeilen "  - <datei>: <pfad>" - aeltere Sicherungen ohne sicherung.json
 # haben nur diese Liste.
 BACKUP_LIESMICH = "LIESMICH.txt"
+# Die Zeile vor der Liste; so schreibt sie auch das aeltere Format. Fehlt sie
+# (Datei in einem Editor anders kodiert gespeichert), ist die Liste nicht
+# verlaesslich und zaehlt nicht.
+LIESMICH_KENNWOERTER = "Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung"
 
 
 def _ohne_kennwoerter(obj, pfad: tuple = ()) -> tuple:
@@ -6225,8 +6229,7 @@ def _backup_zip(cfgdir: Path) -> bytes:
                   "Enthalten: " + (", ".join(drin) or "keine (noch nichts gespeichert)")]
         if fehlt:
             zeilen.append("Nicht enthalten, weil nicht lesbar: " + ", ".join(fehlt))
-        zeilen += ["", "Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung",
-                   "herunterzuladen ist. Entfernt wurden:"]
+        zeilen += ["", LIESMICH_KENNWOERTER, "herunterzuladen ist. Entfernt wurden:"]
         zeilen += [f"  - {p}" for p in weg] or ["  (keine gesetzt)"]
         zeilen += ["", "Zurückspielen: im Konfigurator unter Settings → Sicherung diese",
                    "ZIP-Datei einspielen. Kennwörter, die dort schon eingetragen sind,",
@@ -6395,9 +6398,11 @@ def _sicherung_lesen(daten: bytes) -> tuple:
             if len(roh) > RESTORE_MAX_DATEI:
                 raise ValueError(f"{name} ist zu groß für eine LoxPanel-Sicherung.")
             if name == BACKUP_LIESMICH:
-                text = roh.decode("utf-8-sig", errors="replace")
-                liesmich = frozenset(zeile.strip()[2:] for zeile in text.splitlines()
-                                     if zeile.strip().startswith("- "))
+                # Nur an \n trennen: splitlines() bricht auch an Zeichen wie
+                # \x0c oder \x85, die in einem Geraetenamen stehen koennen.
+                zeilen = [z.rstrip("\r").strip() for z in roh.decode("utf-8-sig", errors="replace").split("\n")]
+                if LIESMICH_KENNWOERTER in zeilen:
+                    liesmich = frozenset(z[2:] for z in zeilen if z.startswith("- "))
                 continue
             try:
                 obj = json.loads(roh.decode("utf-8-sig"), parse_constant=_keine_konstante)

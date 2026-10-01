@@ -520,6 +520,7 @@ herunterzuladen ist. Nach dem Zurückspielen unter Settings neu eintragen:
   - loxpanel.cfg: intercom.IC.pass
   - panels.json: devices.Küche.display.password
   - panels.json: devices.Panel.Flur.display.password
+  - panels.json: devices.Gang\x0cOben.display.password
 
 Zurückspielen: Dateien in den Config-Ordner des Containers legen
 (Unraid: appdata/loxpanel, im Container /app/config) und LoxPanel neu starten.
@@ -530,7 +531,7 @@ Zurückspielen: Dateien in den Config-Ordner des Containers legen
 def test_alte_sicherung_auf_neuem_server_nennt_fehlende_kennwoerter(cfg_ordner, liesmich):
     """Umzug mit einer Sicherung im alten Format auf ein frisches Geraet: Die
     LIESMICH.txt sagt, wo ein Kennwort entfernt wurde - das fehlt dann, auch
-    beim Geraet mit Punkt im Namen. mqtt (Altlast aus dem Beispiel) und
+    beim Geraet mit Punkt oder Seitenvorschub im Namen. mqtt (Altlast aus dem Beispiel) und
     WallPanel hatten keines und erscheinen nicht. Ohne LIESMICH.txt ist es
     nicht zu entscheiden; dann wird nichts als fehlend gemeldet."""
     display = {"driver": "fully", "port": 2323, "password": ""}
@@ -540,6 +541,7 @@ def test_alte_sicherung_auf_neuem_server_nennt_fehlende_kennwoerter(cfg_ordner, 
            "panels.json": {"panels": {"wohnen": {"title": "Wohnen"}},
                            "devices": {"Küche": {"display": {**display, "host": "10.0.0.9"}},
                                        "Panel.Flur": {"display": {**display, "host": "10.0.0.7"}},
+                                       "Gang\x0cOben": {"display": {**display, "host": "10.0.0.6"}},
                                        "Bad": {"display": {"driver": "wallpanel", "host": "10.0.0.8",
                                                            "port": 2971, "password": ""}}}}}
     if liesmich != "ohne":
@@ -556,8 +558,30 @@ def test_alte_sicherung_auf_neuem_server_nennt_fehlende_kennwoerter(cfg_ordner, 
     if liesmich == "ohne":
         assert fehlen == []
     else:
-        assert fehlen == [("display", "Küche"), ("display", "Panel.Flur"), ("kamera", "Haustür"),
-                          ("miniserver", "")]
+        assert fehlen == [("display", "Gang\x0cOben"), ("display", "Küche"), ("display", "Panel.Flur"),
+                          ("kamera", "Haustür"), ("miniserver", "")]
+
+
+def test_unlesbare_liesmich_gilt_wie_keine(cfg_ordner):
+    """In einem Editor als UTF-16 gespeichert, ist die Liste der LIESMICH.txt
+    nicht lesbar. Sie darf nicht als "nichts entfernt" zaehlen - sonst blieben
+    die Kennwoerter fuer dieselben Ziele hier still leer."""
+    _schreiben(cfg_ordner)
+    alt = {"loxpanel.cfg": {**CFG, "miniserver": {**MS, "pass": ""},
+                            "intercom": {"IC": {**CFG["intercom"]["IC"], "pass": ""}}},
+           "panels.json": {**PANELS, "devices": {"Küche": {**PANELS["devices"]["Küche"],
+                                                           "display": {**PANELS["devices"]["Küche"]["display"],
+                                                                       "password": ""}}}},
+           "LIESMICH.txt": ALTE_LIESMICH.encode("utf-16")}
+
+    async def lauf():
+        app = _app()
+        _ohne_verbindung(app)
+        return await _einspielen(app, _zip(alt))
+    j = asyncio.run(lauf())
+
+    assert j["ok"] and sorted(z["art"] for z in j["kennwoerter"]["behalten"]) == ["display", "kamera", "miniserver"]
+    assert _lesen(cfg_ordner, "loxpanel.cfg")["intercom"]["IC"]["pass"] == "GEHEIM-CAM"
 
 
 def test_nicht_uebernommenes_wird_gemeldet(cfg_ordner, tmp_path):
