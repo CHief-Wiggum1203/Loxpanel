@@ -1075,7 +1075,7 @@ async function load(){
   PANELS.__global__ = {title:'Global (alle Panels)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
-  renderList(); setRubric('overview');
+  renderList(); setRubric('overview'); verbundenZeigen();
 }
 
 function renderList(){
@@ -3790,7 +3790,7 @@ $('#rs_file').onchange=async()=>{
 };
 
 // ---- Start ----
-load().then(einspielErgebnisZeigen).then(verbundenZeigen).catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
+load().then(einspielErgebnisZeigen).catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
 loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
 { const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
 loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });
