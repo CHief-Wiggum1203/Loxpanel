@@ -9,7 +9,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import W, anlage, serve
+from lox import KONFIGURATOR_GELADEN, W, anlage, serve
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -55,7 +55,7 @@ async def _konfigurator(app, schritte):
             pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
             pg.on("pageerror", lambda e: fehler.append(str(e)))
             await pg.goto(f"http://127.0.0.1:{port}/config")
-            await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
+            await pg.wait_for_function(KONFIGURATOR_GELADEN)
             await pg.locator(".rub", has_text="Settings").click()
             await pg.locator(".stab", has_text="Sicherung").click()
             res = await schritte(pg)
@@ -239,7 +239,7 @@ async def _konfigurator_mit_sprache(app, schritte, sprache):
             await pg.add_init_script(f"try{{ localStorage.setItem('lp_ui_lang', '{sprache[:2]}'); }}catch(e){{}}")
             pg.on("pageerror", lambda e: fehler.append(str(e)))
             await pg.goto(f"http://127.0.0.1:{port}/config")
-            await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
+            await pg.wait_for_function(KONFIGURATOR_GELADEN)
             res = await schritte(pg)
             await b.close()
     finally:

@@ -24,6 +24,12 @@ if str(ROOT / "bin") not in sys.path:
 
 import webvisu as W  # noqa: E402
 
+# Wartebedingung fuer Browser-Tests: Konfigurator hat /api/meta geladen. META
+# ist bis zur Antwort null; die Bedingung darf dann nicht werfen, sonst bricht
+# wait_for_function sofort ab statt weiter zu warten.
+KONFIGURATOR_GELADEN = ("typeof META !== 'undefined' && META !== null"
+                        " && Array.isArray(META.controls) && META.controls.length > 0")
+
 
 async def serve(app: web.Application) -> tuple[web.AppRunner, int]:
     """aiohttp-App auf einem freien Port starten -> (runner, port)."""
