@@ -56,6 +56,15 @@ async def _wischen(cdp, x, y, dy, schritte=20):
     await cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
 
 
+# Hoechste Scroll-Position des Rasters waehrend eines Wischers. Danach rastet es
+# seitenweise ein (scroll-snap) und kann ohne Schwung - auf einem ausgelasteten
+# Rechner kommen die Touch-Ereignisse langsamer - auf die erste Seite
+# zurueckspringen; ob der Wischer gescrollt hat, zeigt nur der Verlauf.
+SCROLL_BEOBACHTEN = """window.__scrollMax = 0;
+  el('grid').addEventListener('scroll', () => {
+    window.__scrollMax = Math.max(window.__scrollMax, el('grid').scrollTop); });"""
+
+
 async def _warten(befehle, n, pg):
     """Bis n Befehle da sind (hoechstens 3 s), dann noch kurz, ob mehr kommen."""
     for _ in range(60):
@@ -84,10 +93,11 @@ def test_tippen_sendet_wischen_scrollt(tmp_path):
                 x, y = await _taste(pg)
 
                 # Wischer nach oben, Beginn auf der Taste: das Raster scrollt, kein Befehl
+                await pg.evaluate(SCROLL_BEOBACHTEN)
                 cdp = await ctx.new_cdp_session(pg)
                 await _wischen(cdp, x, y, -150)
                 await _warten(befehle, 1, pg)
-                gewischt = list(befehle), await pg.evaluate("el('grid').scrollTop")
+                gewischt = list(befehle), await pg.evaluate("__scrollMax")
 
                 # Tippen auf die Taste: genau ein Befehl, die Kachel oeffnet nichts
                 await pg.evaluate("el('grid').scrollTop = 0")
@@ -151,10 +161,11 @@ def test_favoriten_tippen_und_wischen(tmp_path):
 
                 box = await pg.locator(".favs .fav").first.bounding_box()
                 x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+                await pg.evaluate(SCROLL_BEOBACHTEN)
                 cdp = await ctx.new_cdp_session(pg)
                 await _wischen(cdp, x, y, -150)
                 await pg.wait_for_timeout(600)
-                gewischt = abspielen(), await pg.evaluate("el('grid').scrollTop"), \
+                gewischt = abspielen(), await pg.evaluate("__scrollMax"), \
                     await pg.evaluate("stack.length")
 
                 getippt = None
