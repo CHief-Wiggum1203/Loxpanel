@@ -1515,7 +1515,9 @@ function renderPanel(blocks){
   }
   const fb=blocks.find(b=>b.k==='favs'); const fe=g.querySelector('.favs');
   if(fb&&fe){ fe.querySelectorAll('.fav').forEach(n=>{ const f=fb.items[+n.dataset.f]; if(!f)return;
-    n.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(f.cmd){ send({t:'cmd',uuid:f.cmd.uuid,cmd:f.cmd.cmd}); back(); } }); }); }
+    // Wie die Tasten auf der Kachel erst beim Tippen: die Favoriten liegen im
+    // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
+    n.addEventListener('click',()=>{ if(f.cmd){ send({t:'cmd',uuid:f.cmd.uuid,cmd:f.cmd.cmd}); back(); } }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
   renderTabs();
 }
@@ -1958,7 +1960,10 @@ function render(){
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
         b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
-        b.addEventListener('pointerdown', ev=>{ ev.preventDefault();
+        // Erst beim Tippen (click: Aufsetzen und Loslassen ohne Wischen), nicht
+        // schon beim Aufsetzen: ein Wischer, der auf der Taste beginnt, scrollt
+        // das Raster, statt den Befehl zu senden.
+        b.addEventListener('click', ()=>{
           if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
       });
     }

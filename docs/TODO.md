@@ -261,13 +261,16 @@ PIN-Feld der Visu falsch und Abstände fehlen; die Visu braucht etwa Chrome 88,
 Android 13 bringt 101 bis 109. Tablets mit Google Play halten ihr WebView
 selbst aktuell.
 
-- [ ] **Vier Beiträge zu #61 bei Lenardo einreichen.** Je ein Commit auf
-      seinem `ci/android-apk-pipeline` (`ad5fcd6`), am 01.10.2026 gebaut und
-      geprüft, zusammen konfliktfrei:
+- [ ] **Drei weitere Beiträge zu #61 bei Lenardo einreichen.** Je ein
+      Commit auf seinem `ci/android-apk-pipeline` (`ad5fcd6`), am 01.10.2026
+      gebaut und geprüft, zusammen konfliktfrei. Der vierte,
+      `up/apk-display-wecken` (Klingel, Notify, Goto, Wecker und der Server
+      schalten den Schoner der App; `LoxKiosk` bekommt `turnScreenOn`,
+      `turnScreenOff` und `isScreenOn` wie Fully), steckt in #65 (siehe
+      Präsenzmelder unten).
 
   | Zweig | Inhalt |
   |---|---|
-  | `up/apk-display-wecken` | Klingel, Notify, Goto, Wecker und der Server schalten den Schoner der App; `LoxKiosk` bekommt `turnScreenOn`, `turnScreenOff` und `isScreenOn` wie Fully; Typ „LoxPanel-App“ unter *Displays* |
   | `up/apk-start-adresse` | Die App merkt sich die zuletzt angezeigte Ansicht statt fest `?panel=default`; Port und Adresse an einer Stelle (`Visu.kt`) |
   | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
   | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
@@ -280,9 +283,10 @@ selbst aktuell.
       festlegen (heute `com.loxpanel.spike`; ein späterer Wechsel heißt
       Neuinstallation und damit Konfiguration weg) und den Signierschlüssel
       anlegen (Anleitung in `android/README.md` aus `up/apk-signatur`). **S**
-- [ ] **Präsenzmelder bei Lenardo einreichen:** Zweig `up/apk-praesenz`, ein
-      Commit auf `up/apk-display-wecken` (braucht dessen `turnScreenOn` und
-      `turnScreenOff`), Stand 01.10.2026. Dieselbe Funktion wie im Fork, dazu
+- [x] **Präsenzmelder bei Lenardo eingereicht:**
+      [#65](https://github.com/Lenardo1/loxpanel/pull/65) mit beiden Commits,
+      `up/apk-display-wecken` und darauf `up/apk-praesenz` (braucht dessen
+      `turnScreenOn` und `turnScreenOff`). Dieselbe Funktion wie im Fork, dazu
       die Kopplung an die App: Solange jemand da ist, gibt die Visu ihr
       `LoxKiosk.setDisplayOff(0)`, sonst dunkelte ihr Schoner trotz
       Anwesenheit ab; wird der Raum leer, wieder die Leerlaufzeit und gleich
@@ -292,10 +296,7 @@ selbst aktuell.
       Lenardo ist also egal. Alle sieben Beiträge sind zusammen konfliktfrei;
       auf dem Gesamtstand laufen die Fork-Tests zu Präsenz, Ersteinrichtung
       und Sicherung (89) und ein Test mit nachgebauter `LoxKiosk`-Brücke.
-      Nach `up/apk-display-wecken` einreichen, über
-      `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:up/apk-praesenz?expand=1`;
-      GitHub zeigt dann beide Commits, Titel und Text aus dem oberen nehmen
-      und oben auf den PR von `up/apk-display-wecken` verweisen. **S**
+      **S**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
@@ -715,20 +716,30 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `rw`/`ring`/`rtrk`. Sein `?ring=` schlägt die Konfiguration
       (`posringOverride()` greift nach dem Theme-Push erneut).
 
-- [ ] **Bedientasten auf der Kachel: erst den Auslöser reparieren.** Auf/Ab
-      direkt auf der Beschattungs-Kachel wäre über die vorhandene
-      `controls`-Mechanik des Audioplayers billig zu haben, ist aber bewusst
-      NICHT gebaut: die Tasten lösen per `pointerdown` schon beim Aufsetzen
-      des Fingers aus und schlucken dabei die Wischgeste. Das Kachelraster
-      scrollt (`.grid{overflow-y:auto}`) — ein Wischer, der auf so einer
-      Taste beginnt, ließe die Beschattung losfahren statt zu scrollen.
-      Gemessen: ein blankes `pointerdown` sendet `{"t":"cmd","cmd":"Up"}` und
-      setzt `defaultPrevented`. Beim Player kostet das einen Titel, bei einer
-      Jalousie eine halbe Minute Fahrt. Die Kachel selbst hat das Problem
-      nicht, sie wartet auf einen echten Klick. Vorbedingung für Tasten auf
-      Kacheln ist also, `.tctrls .tb` auf eine echte Tippgeste umzustellen
-      (Aufsetzen und Loslassen ohne nennenswerte Bewegung) — das nützt dem
-      Player gleich mit. **S**
+- [x] **Bedientasten auf der Kachel: erst den Auslöser reparieren**
+      (01.10.2026). Die Mini-Player-Tasten (◀ ⏯ ▶ der AudioZone) und die
+      Favoriten der Musikauswahl lösten per `pointerdown` schon beim
+      Aufsetzen des Fingers aus. Ein Wischer, der auf so einer Taste begann,
+      sprang einen Titel weiter oder startete einen Sender und verließ die
+      Seite, statt das Raster zu scrollen. Jetzt hören beide auf `click`: Den
+      meldet der Browser nur, wenn der Finger ohne Wischen aufsetzt und
+      loslässt, wie bei der Kachel selbst. Wird aus der Berührung ein
+      Wischer, scrollt das Raster, und es geht nichts raus. Tests:
+      `tests/browser/test_kachel_tasten_browser.py` (Touch-Display in
+      Chromium: Wischen scrollt und sendet nichts, Tippen genau einmal, Maus
+      wie bisher; mit dem alten Auslöser scheitern beide). An Upstream als
+      Zweig `up/kachel-tasten` (ein Commit auf `upstream/main`, mit allen
+      übrigen Beiträgen konfliktfrei), einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/kachel-tasten?expand=1`.
+      Weiter mit `pointerdown`: die Tasten der
+      Detailseiten und des Split-Players (`.btn` mit `touch-action:none`,
+      Halten fährt die Jalousie), −/+ am Schieberegler und die Zeitraum-Tasten
+      der Diagramme. **S**
+- [ ] **Auf/Ab auf der Beschattungs-Kachel.** Über die `controls`-Mechanik
+      des Audioplayers (Server: `controls` am Kachel-Eintrag, Visu:
+      `.tctrls .tb`), die seit der Reparatur oben erst beim Tippen auslöst.
+      Ein Wischer über die Kachel lässt die Beschattung also nicht mehr
+      losfahren. **S**
 
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
