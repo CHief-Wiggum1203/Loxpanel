@@ -1641,6 +1641,18 @@ class App:
             return "Automatik aktiv" if self.states.get(aa) else "Sonnenstandsautomatik inaktiv"
         return "Manuell"
 
+    def _jal_fahrt(self, c: dict) -> tuple[bool, bool, dict, dict]:
+        """(faehrt auf, faehrt ab, Befehl Auf, Befehl Ab) einer Jalousie, wie in
+        der Original-Visu: Im Stand startet die Richtung die Fahrt, waehrend
+        der Fahrt haelt jede der beiden an. Kachel und Detailansicht nehmen
+        beide dies, damit sie sich gleich bedienen."""
+        s = c.get("states") or {}
+        auf = bool(self.states.get(s.get("up")))
+        ab = bool(self.states.get(s.get("down")))
+        ua = c.get("uuidAction")
+        return (auf, ab, {"uuid": ua, "cmd": "Stop" if auf or ab else "Up"},
+                {"uuid": ua, "cmd": "Stop" if auf or ab else "Down"})
+
     @staticmethod
     def _icon_url(image: str | None) -> str | None:
         if image and (image.endswith(".svg") or image.endswith(".png")):
@@ -3178,9 +3190,7 @@ class App:
             # Fahrt auf der Kachel sichtbar machen: dieselben States, die die
             # Detailansicht schon liest (_view_control_inner). Ohne das steht die
             # Kachel waehrend einer halben Minute Fahrt reglos da.
-            s = c.get("states") or {}
-            up_move = bool(self.states.get(s.get("up")))
-            down_move = bool(self.states.get(s.get("down")))
+            up_move, down_move, auf, ab = self._jal_fahrt(c)
             # „fährt …" vor der Stellung las sich widerspruechlich: „▲ fährt …
             # 62% zu" wirkt, als sei sie beim Auffahren trotzdem zu. Beides
             # stimmt zwar - sie faehrt auf UND steht gerade auf 62 % geschlossen
@@ -3192,19 +3202,18 @@ class App:
                 sub = "▲ öffnet · " + sub
             elif down_move:
                 sub = "▼ schließt · " + sub
-            # BEWUSST KEINE Auf/Ab-Tasten auf der Kachel, obwohl die controls-
-            # Mechanik des Audioplayers sie hergeben wuerde: deren Tasten loesen
-            # per pointerdown schon beim AUFSETZEN des Fingers aus und schlucken
-            # dabei die Wischgeste (panel.html, Bindung der .tctrls .tb). Das
-            # Kachelraster scrollt; ein Wischer, der auf so einer Taste beginnt,
-            # wuerde die Beschattung losfahren lassen statt zu scrollen. Beim
-            # Player kostet das einen Titel, hier eine halbe Minute Fahrt. Die
-            # Kachel selbst reagiert dagegen erst auf einen echten Klick.
-            # Bedient wird die Beschattung in der Detailansicht, die ohnehin mehr
-            # bietet als auf eine Kachel passt: Auf/Ab, Ganz Auf/Ganz Ab und
-            # Beschatten, dazu Automatikstatus und Stellung im Klartext.
+            # Auf/Ab auf der Kachel ueber die controls-Mechanik des Audioplayers,
+            # mit den Befehlen der Detailansicht (_jal_fahrt). Die Tasten loesen
+            # erst beim Tippen aus (panel.html, click auf .tctrls .tb): Ein
+            # Wischer, der auf einer Taste beginnt, scrollt das Raster, statt
+            # die Beschattung eine halbe Minute fahren zu lassen. Waehrend der
+            # Fahrt zeigt die fahrende Richtung Stop; die Anzahl der Tasten
+            # bleibt gleich, so tauscht die Visu nur Symbol und Befehl aus.
+            # Ganz Auf/Ganz Ab und Beschatten bleiben in der Detailansicht.
             it.update(on=r["on"], sublabel=sub, icon="blind",
-                      nav={"view": "control", "id": uuid})
+                      nav={"view": "control", "id": uuid},
+                      controls=[{"icon": "stop" if up_move else "triup", "cmd": auf},
+                                {"icon": "stop" if down_move else "tridown", "cmd": ab}])
             _p = _pos_pct(r.get("pct"))
             if _p is not None:
                 it["pos"] = _p
@@ -4347,10 +4356,7 @@ class App:
         if t == "Jalousie":
             ua = c.get("uuidAction")
             cu = self._with_uuid(uuid)
-            s = c.get("states") or {}
-            up_move = bool(self.states.get(s.get("up")))
-            down_move = bool(self.states.get(s.get("down")))
-            moving = up_move or down_move
+            up_move, down_move, auf_cmd, ab_cmd = self._jal_fahrt(c)
             pct = JAL.render(cu, self.states).get("pct")
             base = "–" if pct is None else ("Offen" if pct <= 0 else
                                             ("Geschlossen" if pct >= 100 else f"{pct}% geschlossen"))
@@ -4359,8 +4365,8 @@ class App:
             val = ("▲ öffnet · " + base) if up_move else (("▼ schließt · " + base) if down_move else base)
             # Wie Original-Visu: kein Stop-Button. Tipp auf die Richtung waehrend der
             # Fahrt sendet Stop (haelt an); im Stand startet er die Fahrt.
-            auf = {"label": "Auf", "on": up_move, "cmd": {"uuid": ua, "cmd": "Stop" if moving else "Up"}}
-            ab = {"label": "Ab", "on": down_move, "cmd": {"uuid": ua, "cmd": "Stop" if moving else "Down"}}
+            auf = {"label": "Auf", "on": up_move, "cmd": auf_cmd}
+            ab = {"label": "Ab", "on": down_move, "cmd": ab_cmd}
             blocks = [
                 {"k": "hero", "icon": "blind"},
                 {"k": "status", "text": self._jal_status(cu)},

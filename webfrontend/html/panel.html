@@ -329,6 +329,13 @@
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
   .tctrls .tb svg{width:17px;height:17px;}
+  /* Enge Kachel (kleines Panel, drei Zeilen): unter dem Text ist kein Platz ->
+     die Tasten ruecken in die Kopfzeile rechts neben das Icon; reicht dort die
+     Breite nicht (3x3, drei Tasten des Players), treten sie an seine Stelle.
+     Die Entscheidung misst placeCtrls(). */
+  .tile.ctrltight .head .tctrls{margin:0 0 0 8px;align-self:center;}
+  .tile.ctrlnarrow .head .ico,.tile.ctrlnarrow .head .icowrap{display:none;}
+  .tile.ctrlnarrow .head .tctrls{margin:0;gap:4px;}
   /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
      Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
      Zeile belegten - jeder Monat begann so am Montag. */
@@ -917,6 +924,10 @@ const ICONS = {
   up:'<path d="m6 15 6-6 6 6"/>',
   down:'<path d="m6 9 6 6 6-6"/>',
   stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  // Gefuellte Dreiecke fuer die Tasten auf der Kachel (svgF): up/down sind
+  // Linien und ergaeben gefuellt nur flache Keile.
+  triup:'<path d="M12 6.5 19.5 17h-15z"/>',
+  tridown:'<path d="M12 17.5 4.5 7h15z"/>',
   music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   vol:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8a5 5 0 0 1 0 8"/>',
   prev:'<path d="M6 6h2v12H6zM20 6v12l-9-6z"/>',
@@ -1377,6 +1388,22 @@ function placeSpark(el,sp,tile){
   const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
   if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
 }
+// Tasten der Kachel (it.controls) unter den Text, in die Kopfzeile neben das
+// Icon (ctrltight) oder an die Stelle des Icons (ctrlnarrow) - je nachdem, was
+// der gemessene Platz hergibt. Gemessen wird nur bei neuer Kachel oder neuem
+// Text (eine fahrende Jalousie meldet laufend), ohne Groesse (Kachel nicht im
+// Layout) erst beim naechsten Mal.
+function placeCtrls(tile){
+  const tc=tile&&tile.querySelector('.tctrls'), head=tile&&tile.querySelector('.head');
+  const text=(tile&&tile.querySelector('.body')||{}).textContent;
+  if(!tc||!head||tile._ctrlText===text||!tile.clientHeight) return;
+  tile._ctrlText=text;
+  tile.classList.remove('ctrltight','ctrlnarrow');
+  if(tc.parentNode!==tile) tile.appendChild(tc);
+  if(tile.scrollHeight<=tile.clientHeight+1) return;
+  tile.classList.add('ctrltight'); head.appendChild(tc);
+  if(head.scrollWidth>head.clientWidth+1) tile.classList.add('ctrlnarrow');
+}
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
@@ -1796,7 +1823,8 @@ function updateGrid(items){
     if(it.controls){ const tbs=n.querySelectorAll('.tctrls .tb');
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
-        const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; }); }
+        const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; });
+      placeCtrls(n); }   // der Text kann eine Zeile mehr brauchen
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
     // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
     const spEl=n.querySelector('.tspark'), bdEl=n.querySelector('.tsbadge'), bd=it.spark&&it.spark.badge;
@@ -1920,6 +1948,7 @@ function render(){
         b.addEventListener('click', ()=>{
           if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
       });
+      placeCtrls(n);
     }
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
