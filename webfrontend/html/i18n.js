@@ -310,6 +310,21 @@
       'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
       'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',
       'Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.': 'Please reload the page so the configurator shows the restored settings.',
+      // --- Ersteinrichtung: ohne Struktur zuerst der Miniserver ---
+      'Zuerst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Ohne Verbindung kennt LoxPanel weder Räume noch Bausteine. Adresse, Benutzer und Passwort eintragen, dann „Verbinden & Speichern“. Danach sind alle Bereiche offen.':
+        'Without a connection LoxPanel knows neither rooms nor blocks. Enter address, user and password, then “Connect & save”. After that all sections are open.',
+      'Erst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Noch kein Miniserver eingetragen.': 'No Miniserver entered yet.',
+      'Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.':
+        'The saved access is not connected. Check the entries and “Connect & save” again.',
+      'Verbindung zu {host} wird aufgebaut …': 'Connecting to {host} …',
+      'Keine Verbindung zu {host}:': 'No connection to {host}:',
+      'Host fehlt': 'Host missing',
+      'Passwort fehlt': 'Password missing',
+      'Mit dem Miniserver verbunden': 'Connected to the Miniserver',
+      'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
+      'Panel einrichten': 'Set up a panel',
       'Kamera': 'Camera',
       'Display-Treiber': 'Display driver',
       '＋ Neues Panel': '＋ New panel',

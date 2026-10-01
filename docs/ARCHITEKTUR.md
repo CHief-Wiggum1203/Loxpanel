@@ -251,7 +251,7 @@ Server → Browser (`panel.html:700`):
 | `reload` | | `location.reload()` |
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
-| `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
+| `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
@@ -506,7 +506,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
-| GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
+| GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
 | GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
 | POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Settings → Sicherung |
@@ -567,7 +567,8 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt)
 2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`
 3. leer, Server startet trotzdem, wartet und zeigt den Panels den
-   Einrichtungshinweis (§3, `einrichtung`)
+   Einrichtungshinweis (§3, `einrichtung`); der Konfigurator führt dann zuerst
+   zu Settings → Miniserver (§7.3)
 
 `loxpanel.cfg.example` gilt nie als Zugang: Ihr `miniserver`-Abschnitt ist ein
 Platzhalter (`192.168.1.50`, `CHANGEME`). Die Android-App bringt die Vorlage
@@ -899,14 +900,35 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
 Speicherleiste unten gilt nur für „Panel Configuration". Sieben Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (nur
-Platzhalter), Panels (alle Anzeigegeräte: Agent, Kiosk-App, Browser; Polling
-alle 6 s; Betriebsmodus-Automatik und Display-Treiber je Gerät), Audio (Testton,
-Audioserver-Live-Daten), Kalender & Wetter (iCal-Abos, Wetter der Uhr-Seite),
-Neues Panel (Start-URL für Kiosk-Apps, SSH-Befehl für Linux-Panels). Zu einem
-Reiter führen die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder
-die Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite
-nicht aus, sie öffnet wie immer die Übersicht. Kein Dirty-Flag, ungespeicherte
-Eingaben gehen beim Verlassen verloren.
+Platzhalter), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
+(iCal-Abos, Wetter der Uhr-Seite), Neues Panel (Start-URL für Kiosk-Apps,
+SSH-Befehl für Linux-Panels), Sicherung (Herunterladen und Einspielen). Die
+Anzeigegeräte stehen in der eigenen Rubrik „Displays". Zu einem Reiter führen
+die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
+Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
+aus, sie öffnet die Übersicht (ohne Struktur Settings → Miniserver, siehe
+unten). Kein Dirty-Flag, ungespeicherte Eingaben gehen beim Verlassen verloren.
+
+**Ersteinrichtung.** Solange der Server keine Struktur vom Miniserver hat
+(`einrichtung` aus `/api/settings`), führt der Konfigurator zuerst zum Zugang:
+
+- Er öffnet Settings → Miniserver mit einem Hinweis samt Stand: noch kein
+  Zugang, gespeicherter Zugang nicht verbunden, Verbindung wird aufgebaut,
+  Fehler des Servers oder des eigenen letzten Versuchs.
+- Gesperrt sind die übrigen Rubriken, die Profil-Liste, „＋ Neues Panel" und
+  die Settings-Reiter außer Miniserver und Sicherung (`EINR_SUBS`): Profile,
+  Displays und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
+  jeden anderen Weg zu Settings um, `showSub()` und `wzOpen()` lehnen ab.
+- Den Stand fragt er alle `EINR_TAKT_MS` (3 s) nach. Steht die Verbindung, über
+  „Verbinden & Speichern" oder von selbst, lädt die Seite neu, damit alles frisch
+  vom Server kommt, und zeigt „Mit dem Miniserver verbunden" mit den nächsten
+  Schritten (Einrichtungsassistent, Sicherung einspielen; Merker
+  `lp_einrichtung_verbunden` in der `sessionStorage`).
+
+Die Karte am Panel kommt aus derselben Quelle (`_einrichtung_stand()` baut auf
+`_einrichtung_info()` auf), erscheint aber nicht während des ersten Versuchs,
+damit beim normalen Start nichts aufblitzt. Geprüft in
+`tests/browser/test_einrichtung_konfigurator_browser.py`.
 
 ### 7.4 `i18n.js`
 

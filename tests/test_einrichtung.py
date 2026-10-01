@@ -81,6 +81,32 @@ def test_einrichtung_je_zustand(monkeypatch):
     assert verbunden._einrichtung_msg(None) == {"t": "einrichtung", "aktiv": False}
 
 
+def test_stand_fuer_den_konfigurator():
+    """Der Konfigurator fuehrt nach diesem Stand zuerst zum Miniserver; anders
+    als die Karte der Panels auch waehrend des ersten Versuchs."""
+    assert _app()._einrichtung_info() == {"stand": "kein_zugang"}
+    assert _app("10.0.0.5")._einrichtung_info() == {"stand": "verbindet", "host": "10.0.0.5"}
+    assert _app("10.0.0.5", "Anmeldung abgelehnt")._einrichtung_info() == \
+        {"stand": "fehler", "host": "10.0.0.5", "fehler": "Anmeldung abgelehnt"}
+    verbunden = _app("10.0.0.5", "Anmeldung abgelehnt")
+    verbunden._apply_structure(anlage(BAUSTEINE))
+    assert verbunden._einrichtung_info() is None
+
+
+def test_settings_nennen_den_stand(cfg_ordner):
+    async def lauf():
+        app = _app()
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_get("/api/settings", W.api_settings)
+        async with TestClient(TestServer(ui)) as cl:
+            frisch = (await (await cl.get("/api/settings")).json())["einrichtung"]
+            app._apply_structure(anlage(BAUSTEINE))
+            fertig = (await (await cl.get("/api/settings")).json())["einrichtung"]
+        return frisch, fertig
+    assert asyncio.run(lauf()) == ({"stand": "kein_zugang"}, None)
+
+
 @pytest.mark.parametrize("fehler, erwartet", [
     (ConnectionError("Anmeldung\n   abgelehnt"), "Anmeldung abgelehnt"),
     (ConnectionError("x" * 500), "x" * W.EINRICHTUNG_FEHLER_MAX + " …"),

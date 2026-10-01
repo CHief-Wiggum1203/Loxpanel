@@ -373,7 +373,9 @@ Danach: Visu `http://<host>:8099`, Konfigurator und Einstellungen `…/config`
 und unter *Settings → Miniserver* eintragen. Bis der Server zum ersten Mal mit
 dem Miniserver verbunden ist, zeigt jedes Panel, unter welcher Adresse der
 Konfigurator zu öffnen ist – auf einem Panel mit der Android-App dessen
-WLAN-Adresse.
+WLAN-Adresse. Der Konfigurator öffnet dann direkt *Settings → Miniserver*;
+die übrigen Bereiche außer der Sicherung sind gesperrt, bis die Verbindung
+steht.
 
 **Für Entwickler (Standalone):**
 

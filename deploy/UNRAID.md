@@ -62,6 +62,8 @@ nicht bearbeiten, prüft sie nicht auf Updates, und sie bekommen **keine Zeitzon
    `http://<unraid-ip>:8099/config`.
 2. Miniserver-Zugang unter `http://<unraid-ip>:8099/config` im Reiter
    **Settings → Miniserver** eintragen und speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
+   Ohne Zugang öffnet der Konfigurator direkt diesen Reiter; die übrigen Bereiche außer der Sicherung sind
+   gesperrt, bis die Verbindung steht.
 3. Panels unter `/config` anlegen und gestalten. Die Visu läuft dann unter
    `http://<unraid-ip>:8099/?panel=<id>`.
 

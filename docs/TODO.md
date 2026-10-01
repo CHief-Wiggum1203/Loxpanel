@@ -366,6 +366,17 @@ selbst aktuell.
       hätten beide beim Zusammenführen einen Konflikt gemeldet. Im Fork steht
       die Zeile an derselben Stelle. Zusammen mit `up/sicherung` konfliktfrei,
       die Tests aus dem Fork laufen gegen beide zusammen. **S**
+- [x] **Geführte Ersteinrichtung im Konfigurator** (01.10.2026): Das Panel
+      zeigte die Karte, der Konfigurator öffnete aber mit der Übersicht, und
+      alle Rubriken waren offen, obwohl ohne Struktur keine taugt. Jetzt öffnet
+      er ohne Struktur *Settings → Miniserver* mit einem Hinweis samt Stand
+      (kein Zugang, verbindet, Fehler mit Grund) und sperrt alles außer
+      Miniserver und Sicherung. Er fragt alle 3 s nach; steht die Verbindung,
+      lädt er neu und bietet Einrichtungsassistent und Sicherung an. Den Stand
+      liefert `/api/settings` (`_einrichtung_info()`), die Karte der Panels
+      kommt aus derselben Quelle. Geprüft in `tests/test_einrichtung.py` und
+      `tests/browser/test_einrichtung_konfigurator_browser.py`; acht
+      Gegenproben, die je einen Teil ausbauen, schlagen an. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,

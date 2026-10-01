@@ -5785,18 +5785,31 @@ class App:
                     else:
                         self._last_sent.pop(ws, None)
 
-    def _einrichtung_stand(self) -> tuple | None:
-        """(Titel, Grund), solange der Server keine Struktur vom Miniserver
-        hat und das nicht nur am ersten Verbindungsversuch liegt: kein Zugang
-        eingetragen, oder der letzte Versuch ist gescheitert. Sonst None.
-        Billig genug fuer jeden Broadcast-Takt."""
+    def _einrichtung_info(self) -> dict | None:
+        """Stand der Ersteinrichtung, solange der Server keine Struktur vom
+        Miniserver hat: "kein_zugang" (nichts eingetragen), "fehler" (letzter
+        Versuch gescheitert, mit Grund) oder "verbindet" (erster Versuch
+        laeuft). Mit Struktur None. Der Konfigurator fuehrt damit zuerst zum
+        Miniserver (/api/settings), die Panels zeigen ihre Karte daraus
+        (_einrichtung_stand). Billig genug fuer jeden Broadcast-Takt."""
         if self.controls:
             return None
         if not self.host:
-            return ("Miniserver einrichten", "Noch kein Miniserver eingetragen.")
+            return {"stand": "kein_zugang"}
         if self._ms_fehler:
-            return ("Keine Verbindung zum Miniserver", f"{self.host}: {self._ms_fehler}")
-        return None
+            return {"stand": "fehler", "host": self.host, "fehler": self._ms_fehler}
+        return {"stand": "verbindet", "host": self.host}
+
+    def _einrichtung_stand(self) -> tuple | None:
+        """(Titel, Grund) fuer die Karte der Panels nach _einrichtung_info,
+        aber nicht waehrend des ersten Verbindungsversuchs: Beim normalen
+        Start soll nichts aufblitzen. Sonst None."""
+        info = self._einrichtung_info()
+        if info is None or info["stand"] == "verbindet":
+            return None
+        if info["stand"] == "kein_zugang":
+            return ("Miniserver einrichten", "Noch kein Miniserver eingetragen.")
+        return ("Keine Verbindung zum Miniserver", f"{info['host']}: {info['fehler']}")
 
     def _einrichtung_msg(self, stand: tuple | None) -> dict:
         """Nachricht an die Panels zum Stand aus _einrichtung_stand. Die Adresse
@@ -6999,6 +7012,8 @@ async def api_settings(request: web.Request) -> web.Response:
                   "options": app.night_control_options()},
         "connected": app.client is not None,
         "nControls": len(app.controls),
+        # Ohne Struktur fuehrt der Konfigurator zuerst zum Miniserver
+        "einrichtung": app._einrichtung_info(),
     })
 
 
