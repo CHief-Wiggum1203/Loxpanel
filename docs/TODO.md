@@ -162,6 +162,16 @@ beim nächsten Mal wieder.
       `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/verlauf-uhrseite?expand=1`.
       Bis Lenardo ihn übernimmt, ist es ein Fork-eigener Patch
       ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
+- [ ] **Auf/Ab auf der Beschattungs-Kachel bei Lenardo einreichen:** Zweig
+      `up/beschattung-tasten`, ein Commit auf `up/kachel-tasten` (#66), weil
+      die Tasten erst seit dort beim Tippen auslösen; bis #66 gemergt ist,
+      zeigt der PR auch dessen Commit. Dieselbe Änderung wie im Fork, samt
+      `placeCtrls()` für enge Kacheln. Gegen den Zweig bestehen die 14 Tests
+      aus dem Fork, ohne die Änderung scheitern 10, darunter die Player-Tasten
+      in 2x3 und 3x3, die bei Lenardo schon abgeschnitten werden. Mit allen
+      Beiträgen paarweise und zusammen konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/beschattung-tasten?expand=1`.
+      **S**
 - [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
       Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
       mitentwickelt (Block 0c). #62, das `.deb`-Paket, verfolgen wir nicht
