@@ -297,9 +297,10 @@ selbst aktuell.
       auf dem Gesamtstand laufen die Fork-Tests zu Präsenz, Ersteinrichtung
       und Sicherung (89) und ein Test mit nachgebauter `LoxKiosk`-Brücke.
       **S**
-- [ ] **Nachtmodus über die echte Display-Helligkeit bei Lenardo einreichen:**
-      Zweig `up/apk-nachthelligkeit`, ein Commit auf `up/apk-praesenz` (#65),
-      Stand 01.10.2026. Nachts legte die Visu nur eine dunkle Fläche über
+- [x] **Nachtmodus über die echte Display-Helligkeit bei Lenardo eingereicht:**
+      [#67](https://github.com/Lenardo1/loxpanel/pull/67), Zweig
+      `up/apk-nachthelligkeit`, ein Commit auf `up/apk-praesenz` (#65), Stand
+      01.10.2026. Nachts legte die Visu nur eine dunkle Fläche über
       sich, die Hintergrundbeleuchtung blieb voll an (Schwarz leuchtet grau).
       In der App senkt jetzt die App die echte Helligkeit:
       `LoxKiosk.setDisplayBrightness(prozent)`, Prozent der eingestellten
@@ -311,10 +312,8 @@ selbst aktuell.
       in `Helligkeit.kt` mit Unit-Test. Geprüft: APK gebaut, 5 Unit-Tests;
       in Chromium mit nachgebauter Brücke 6 Tests, die ohne die Änderung alle
       scheitern; Präsenz- und App-Tests aus #65 laufen; alle App-Beiträge
-      zusammen bauen, beide Unit-Tests bestehen. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:up/apk-nachthelligkeit?expand=1`.
-      Bis #65 gemergt ist, zeigt GitHub drei Commits; Titel und Text aus dem
-      obersten nehmen und oben auf #65 verweisen. Die Browser-Tests mit
+      zusammen bauen, beide Unit-Tests bestehen. Bis #65 gemergt ist, zeigt
+      #67 auch dessen zwei Commits. Die Browser-Tests mit
       nachgebauter Brücke `LoxKiosk` (Display wecken, Präsenz, Nacht) liefen
       gegen Lenardos Zweig, nicht im Fork; was sie prüfen, steht in den
       Commit-Meldungen. Sobald #61 im Fork ist, gehören sie nach
