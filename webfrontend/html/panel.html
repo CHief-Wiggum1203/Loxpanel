@@ -2181,10 +2181,10 @@ function connect(){
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
+    if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
-    if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='display'){   // Server schaltet Display (Kiosk-App); presence = Praesenzmelder des Geraets
       if(typeof msg.presence==='boolean') DISP.presence=msg.presence;
       if(msg.on) wake(); else { clearTimeout(dpmsTimer); screenOff(); }

@@ -280,13 +280,22 @@ selbst aktuell.
       festlegen (heute `com.loxpanel.spike`; ein späterer Wechsel heißt
       Neuinstallation und damit Konfiguration weg) und den Signierschlüssel
       anlegen (Anleitung in `android/README.md` aus `up/apk-signatur`). **S**
-- [ ] **Präsenzmelder zu Lenardo bringen** und dabei an die App koppeln:
-      Solange jemand da ist, muss die Visu die Leerlaufzeit der App aussetzen
-      (`LoxKiosk.setDisplayOff(0)`), sonst dunkelt die App trotz Anwesenheit
-      ab. Heute ist der Präsenzmelder Fork-eigen. Die Kopplung baut sich
-      selbst neu auf, sobald Geräte oder Struktur ersetzt sind
-      (`_presence_quelle`); das Einspielen braucht dafür keinen eigenen
-      Aufruf, die Reihenfolge der Beiträge bei Lenardo ist also egal. **M**
+- [ ] **Präsenzmelder bei Lenardo einreichen:** Zweig `up/apk-praesenz`, ein
+      Commit auf `up/apk-display-wecken` (braucht dessen `turnScreenOn` und
+      `turnScreenOff`), Stand 01.10.2026. Dieselbe Funktion wie im Fork, dazu
+      die Kopplung an die App: Solange jemand da ist, gibt die Visu ihr
+      `LoxKiosk.setDisplayOff(0)`, sonst dunkelte ihr Schoner trotz
+      Anwesenheit ab; wird der Raum leer, wieder die Leerlaufzeit und gleich
+      `turnScreenOff()`. Der Hinweis unter *Displays* nennt die LoxPanel-App.
+      Die Kopplung baut sich selbst neu auf, sobald Geräte oder Struktur
+      ersetzt sind (`_presence_quelle`), die Reihenfolge der Beiträge bei
+      Lenardo ist also egal. Alle sieben Beiträge sind zusammen konfliktfrei;
+      auf dem Gesamtstand laufen die Fork-Tests zu Präsenz, Ersteinrichtung
+      und Sicherung (89) und ein Test mit nachgebauter `LoxKiosk`-Brücke.
+      Nach `up/apk-display-wecken` einreichen, über
+      `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:up/apk-praesenz?expand=1`;
+      GitHub zeigt dann beide Commits, Titel und Text aus dem oberen nehmen
+      und oben auf den PR von `up/apk-display-wecken` verweisen. **S**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
@@ -299,16 +308,15 @@ selbst aktuell.
       Server länger als etwa eine Sekunde. Geprüft in
       `tests/test_sicherung.py` und `tests/browser/test_sicherung_browser.py`.
       **M**
-- [ ] **Sicherung und Einspielen bei Lenardo einreichen:** Ohne Unraid hat
+- [x] **Sicherung und Einspielen bei Lenardo eingereicht:**
+      [#63](https://github.com/Lenardo1/loxpanel/pull/63). Ohne Unraid hat
       jedes Gerät seine eigene Konfiguration in der App, und an den
       Config-Ordner kommt dort niemand. Lenardo hat noch gar keine Sicherung.
       Zweig `up/sicherung` (ein Commit auf `upstream/main`, Stand 01.10.2026):
       Herunterladen und Einspielen, Rubrik *Settings → Sicherung*, englische
       Texte, README-Absatz, `.bak` in `.gitignore`/`.dockerignore`. Ohne
       Präsenzmelder (gibt es dort noch nicht). Die Tests aus dem Fork laufen
-      gegen diesen Stand durch, bis auf die Präsenz-Prüfung. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/sicherung?expand=1`.
-      **S**
+      gegen diesen Stand durch, bis auf die Präsenz-Prüfung. **S**
 - [x] **Ersteinrichtung am Gerät im Fork** (01.10.2026): Solange der Server
       keine Struktur vom Miniserver hat und kein Zugang eingetragen ist oder
       der letzte Versuch scheiterte, zeigt jedes Panel über der Uhr-Seite eine
@@ -319,13 +327,15 @@ selbst aktuell.
       und Settings zeigte „Kennwort gesetzt“. Geprüft in
       `tests/test_einrichtung.py` und `tests/browser/test_einrichtung_browser.py`.
       **S**
-- [ ] **Ersteinrichtung bei Lenardo einreichen:** Zweig
-      `up/ersteinrichtung` (ein Commit auf `upstream/main`, Stand
-      01.10.2026), dieselbe Änderung wie im Fork; dort bringt die App den
-      Platzhalter genauso mit. Zusammen mit `up/sicherung` konfliktfrei, die
-      Tests aus dem Fork laufen gegen beide zusammen. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/ersteinrichtung?expand=1`.
-      **S**
+- [x] **Ersteinrichtung bei Lenardo eingereicht:**
+      [#64](https://github.com/Lenardo1/loxpanel/pull/64), Zweig
+      `up/ersteinrichtung` auf `upstream/main`, dieselbe Änderung wie im
+      Fork; dort bringt die App den Platzhalter genauso mit. Ein zweiter
+      Commit rückt den Nachrichten-Zweig `einrichtung` in `panel.html` vom
+      `display`-Zweig weg, den `up/apk-praesenz` ändert; direkt benachbart
+      hätten beide beim Zusammenführen einen Konflikt gemeldet. Im Fork steht
+      die Zeile an derselben Stelle. Zusammen mit `up/sicherung` konfliktfrei,
+      die Tests aus dem Fork laufen gegen beide zusammen. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,

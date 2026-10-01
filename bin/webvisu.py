@@ -5628,8 +5628,6 @@ class App:
 
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
-        if self._presence_quelle[0] is not self.devices or self._presence_quelle[1] is not self.controls:
-            self._presence_rebuild()   # Geraete oder Struktur ersetzt, ohne neu zu koppeln
         if self._pending_ring is not None:
             rid, self._pending_ring = self._pending_ring, None
             log.info("Klingel → Popup: %s", rid)
@@ -5643,6 +5641,8 @@ class App:
                 self._spawn(self.display_drivers(True))
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
+        if self._presence_quelle[0] is not self.devices or self._presence_quelle[1] is not self.controls:
+            self._presence_rebuild()   # Geraete oder Struktur ersetzt, ohne neu zu koppeln
         ereignisse, self._pending_presence = self._pending_presence, []
         for ev in ereignisse:
             # Nur an das Geraet mit diesem Praesenzmelder: seine Visu haelt das
