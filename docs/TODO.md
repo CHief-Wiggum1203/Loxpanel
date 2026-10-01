@@ -393,6 +393,13 @@ selbst aktuell.
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
       Ansichtswechsel und Neustart der App durchspielen. **S**
+      Stand 01.10.2026, Samsung Galaxy Tab A9 mit der Test-APK (alle
+      Beiträge, arm64): Installation und Update über die vorhandene App
+      (Einstellungen bleiben) laufen. Nach „Daten löschen“ zeigt das Panel
+      die Einrichtungskarte, der Konfigurator führt zum Miniserver, und
+      nach dem Verbinden sind die Räume da. Offen: Klingel, Notify,
+      Ansichtswechsel, Neustart der App, Nachtmodus, dazu das Zielgerät
+      YC-SM41P.
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**
