@@ -2075,7 +2075,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
-  if(kiosk()) q.push('kiosk=fully');   // Kiosk-App melden -> Typ in der Geraeteliste
+  const kk=kioskKind(); if(kk) q.push('kiosk='+kk);   // Kiosk-App melden -> Typ in der Geraeteliste
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
@@ -2817,15 +2817,21 @@ function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zuruec
 // Auf einem Linux-Panel schaltet der Agent das Display (Server meldet agent:true,
 // die Seite haelt sich dann raus). Ohne Agent uebernimmt die Seite: nach dpmsOff
 // Sekunden Inaktivitaet Display aus ueber die JS-Schnittstelle der Kiosk-App,
-// bei Klingel / Wecker / Notify / Goto wieder an. Erkannt wird Fully Kiosk
-// Browser (window.fully; dort "Enable JavaScript Interface" einschalten).
+// bei Klingel / Wecker / Notify / Goto wieder an. Erkannt werden Fully Kiosk
+// Browser (window.fully; dort "Enable JavaScript Interface" einschalten) und die
+// LoxPanel-App fuer Android (window.LoxKiosk); beide haben dieselbe Schnittstelle.
 // Auto-Neustart (reloadHours) erledigt die Seite ohne Agent per location.reload().
 const DISP = { dpmsOff: 0, reloadHours: 0, agent: false };
 let dpmsTimer=null, reloadTimer=null;
-function kiosk(){
-  const f=window.fully;
-  return (f && typeof f.turnScreenOff==='function' && typeof f.turnScreenOn==='function') ? f : null;
+// Kiosk-Apps: Kennung (meldet die Seite dem Server -> Typ in der Geraeteliste)
+// -> Name ihrer JS-Schnittstelle im window.
+const KIOSK_APPS = { fully: 'fully', loxpanel: 'LoxKiosk' };
+function kioskKind(){
+  for(const k in KIOSK_APPS){ const f=window[KIOSK_APPS[k]];
+    if(f && typeof f.turnScreenOff==='function' && typeof f.turnScreenOn==='function') return k; }
+  return '';
 }
+function kiosk(){ const k=kioskKind(); return k ? window[KIOSK_APPS[k]] : null; }
 function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }catch(e){} }
 function screenOn(){ const f=kiosk(); if(!f) return;
   try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
