@@ -410,6 +410,41 @@ selbst aktuell.
       nach dem Verbinden sind die Räume da. Offen: Klingel, Notify,
       Ansichtswechsel, Neustart der App, Nachtmodus, dazu das Zielgerät
       YC-SM41P.
+- [ ] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
+      Gerät). Eingestellt waren Kachel-Layout 3 × 3, „Bildschirm füllen“ an,
+      Skalierung aus, Split-Screen an und als Widget das Wetter. Ergebnis:
+      Links standen fünf sehr große Kacheln mit kleinem Icon oben und Text
+      unten, die untere Hälfte der Visu blieb leer. Rechts stand das Wetter,
+      darunter wieder eine große Leerfläche.
+
+      Für ein gutes Bild müssen heute fünf Regler zusammenpassen, die sich
+      gegenseitig beeinflussen:
+      - Kachel-Layout
+      - „Bildschirm füllen“
+      - Skalierung, dazu „Wie global“ und die Übersteuerung je Gerät; laut
+        Hinweis wirkt sie nicht zusammen mit „Bildschirm füllen“
+      - Split-Screen
+      - Widget je Tab, wo „Screen füllen“ etwas anderes heißt als
+        „Bildschirm füllen“
+
+      Was eine Kombination auf einem bestimmten Schirm ergibt, sieht man erst
+      am Gerät.
+
+      Ziel: Die Ansicht sieht auf jedem Gerät ohne Einstellerei gut aus.
+      LoxPanel wählt Raster, Kachelgröße und Aufteilung selbst nach
+      Bildschirm, Lage und Zahl der Bausteine. Wenige Bausteine werden nicht
+      riesig, viele werden kleiner bis zu einer Mindestgröße, danach wird
+      gescrollt.
+
+      Ideen:
+      - die heutigen Regler unter „Erweitert“ sammeln
+      - „Bildschirm füllen“, „Screen füllen“ und Skalierung zu einer
+        Größenwahl zusammenfassen
+      - das Widget in Pane 2 nutzt seine Höhe
+      - eine Listen-Darstellung als Alternative zu großen Kacheln
+
+      Nebenbei: Der Hinweis bei der Skalierung verweist noch auf „Settings →
+      Panels“, die Geräte stehen unter *Displays*. **L**
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**
