@@ -280,6 +280,21 @@
       'Zertifikat prüfen (Gen2 mit selbstsigniertem Zertifikat: aus)':
         'Verify certificate (Gen2 with self-signed cert: off)',
       'Verbinden & Speichern': 'Connect & save',
+      // --- Ersteinrichtung: ohne Struktur zuerst der Miniserver ---
+      'Zuerst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Ohne Verbindung kennt LoxPanel weder Räume noch Bausteine. Adresse, Benutzer und Passwort eintragen, dann „Verbinden & Speichern“. Danach sind alle Bereiche offen.':
+        'Without a connection LoxPanel knows neither rooms nor blocks. Enter address, user and password, then “Connect & save”. After that all sections are open.',
+      'Erst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Noch kein Miniserver eingetragen.': 'No Miniserver entered yet.',
+      'Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.':
+        'The saved access is not connected. Check the entries and “Connect & save” again.',
+      'Verbindung zu {host} wird aufgebaut …': 'Connecting to {host} …',
+      'Keine Verbindung zu {host}:': 'No connection to {host}:',
+      'Host fehlt': 'Host missing',
+      'Passwort fehlt': 'Password missing',
+      'Mit dem Miniserver verbunden': 'Connected to the Miniserver',
+      'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
+      'Panel einrichten': 'Set up a panel',
       // Kamera / Tuerstation
       'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
         'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',
