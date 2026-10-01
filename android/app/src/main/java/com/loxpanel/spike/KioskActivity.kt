@@ -49,7 +49,6 @@ class KioskActivity : Activity(), SensorEventListener {
     private lateinit var saver: View
     private lateinit var clock: TextView
     private val ui = Handler(Looper.getMainLooper())
-    private val url = "http://127.0.0.1:8099/?panel=default"
     private var errored = false
     private var reloadPending = false
 
@@ -110,6 +109,11 @@ class KioskActivity : Activity(), SensorEventListener {
             override fun onReceivedError(v: WebView, req: WebResourceRequest?, err: WebResourceError?) {
                 if (req == null || req.isForMainFrame) { errored = true; scheduleReload() }
             }
+            // Jede geladene Visu-Adresse merken (auch nach einem Ansichtswechsel
+            // per ?panel=), damit die App nach einem Neustart dort weitermacht.
+            override fun onPageFinished(v: WebView, adresse: String?) {
+                Visu.merken(this@KioskActivity, adresse)
+            }
         }
         // Brücke für die Visu: übergibt die konfigurierte Display-aus-Zeit (dpmsOff
         // aus /config) an den nativen Screensaver.
@@ -139,8 +143,8 @@ class KioskActivity : Activity(), SensorEventListener {
         wake()
     }
 
-    /** Lädt die Panel-URL neu. */
-    private fun show() { errored = false; web.loadUrl(url) }
+    /** Lädt die Visu: die zuletzt angezeigte Adresse, sonst das Standardprofil. */
+    private fun show() { errored = false; web.loadUrl(Visu.startAdresse(this)) }
 
     /** Nach 2 s erneut laden (entprellt, wiederholt sich bei anhaltendem Fehler). */
     private fun scheduleReload() {

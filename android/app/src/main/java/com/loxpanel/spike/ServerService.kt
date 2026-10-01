@@ -24,10 +24,8 @@ class ServerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, buildNotification())
-        // Nur beim Boot-Start (BootReceiver) soll die App Fully Kiosk selbst
-        // hochziehen — nicht, wenn der Nutzer die App manuell öffnet.
-        val launchKiosk = intent?.getBooleanExtra("launchKiosk", false) ?: false
-
+        // Die Anzeige startet der BootReceiver bzw. der Nutzer (KioskActivity);
+        // der Dienst kümmert sich nur um den Server.
         Thread {
             try {
                 val appDir = File(filesDir, "loxpanel")
@@ -37,35 +35,14 @@ class ServerService : Service() {
                     Python.start(AndroidPlatform(this))
                 }
                 val res = Python.getInstance().getModule("boot")
-                    .callAttr("start_bg", appDir.absolutePath, 8099)
+                    .callAttr("start_bg", appDir.absolutePath, Visu.PORT)
                 Log.i("LPSERVER", "boot.start_bg -> $res")
-
-                if (launchKiosk) {
-                    // Warten, bis der Server Anfragen beantwortet (~13s Anlauf),
-                    // dann Fully Kiosk mit dem Panel starten.
-                    Thread.sleep(15000)
-                    launchFullyKiosk()
-                }
             } catch (e: Throwable) {
                 Log.e("LPSERVER", "Serverstart fehlgeschlagen", e)
             }
         }.start()
 
         return START_STICKY
-    }
-
-    private fun launchFullyKiosk() {
-        val url = "http://127.0.0.1:8099/?panel=default"
-        try {
-            val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
-                setClassName("de.ozerov.fully", "de.ozerov.fully.MainActivity")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(i)
-            Log.i("LPSERVER", "Fully Kiosk gestartet ($url)")
-        } catch (e: Throwable) {
-            Log.e("LPSERVER", "Fully-Kiosk-Start fehlgeschlagen", e)
-        }
     }
 
     /**
@@ -135,7 +112,7 @@ class ServerService : Service() {
             Notification.Builder(this, channelId) else Notification.Builder(this)
         return builder
             .setContentTitle("LoxPanel Server")
-            .setContentText("läuft auf 127.0.0.1:8099")
+            .setContentText("läuft auf Port ${Visu.PORT}")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .build()

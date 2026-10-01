@@ -56,6 +56,8 @@ chaquopy {
 
 dependencies {
     // bewusst minimal: kein AppCompat nötig, wir nutzen android.app.Activity
+    // Unit-Tests auf dem PC (gradle testDebugUnitTest), nicht in der APK
+    testImplementation("junit:junit:4.13.2")
 }
 
 // ---- LoxPanel-Code IMMER aus dem Repo in die App-Assets synchronisieren ----
