@@ -723,6 +723,20 @@ geplant). Technisch gibt es zwei Ebenen, beide in `webvisu.py`:
 - **Detailseite:** `_view_control_inner()` (`:1731-2308`), eine ~580 Zeilen lange
   `if`-Kette, die `blocks[]` zusammenstellt.
 
+**Tasten auf der Kachel** (`controls[]`, je `icon` und `cmd`) haben der Player
+(◀ ⏯ ▶) und die Beschattung (▲ ▼). Die Beschattung sendet dieselben Befehle wie
+Auf/Ab der Detailseite (`_jal_fahrt()`): Im Stand startet eine Taste die
+Fahrt, während der Fahrt halten beide an (`Stop`), und die fahrende Richtung
+zeigt ■. Die Visu bindet die Tasten an `click`; ein Wischer, der auf einer
+Taste beginnt, scrollt das Raster. Unter dem Text stehen sie nur, wenn die
+Kachel hoch genug ist. Sonst rücken sie in die Kopfzeile neben das Icon
+(`ctrltight`), und ist auch die zu schmal (3x3, drei Tasten), an seine Stelle
+(`ctrlnarrow`). Das misst `placeCtrls()` wie beim Mini-Verlauf, bei jeder neuen
+Kachel und bei neuem Text, nicht bei jeder Meldung. Geprüft in
+`tests/test_beschattung.py` und `tests/browser/test_kachel_tasten_browser.py`
+(Tippen, Wischen, Stop während der Fahrt, alle vier Raster für Beschattung und
+Player).
+
 Sonderfälle:
 
 - Schalter mit `active`-State stehen in der Konstante `SWITCHY` (`:88`).

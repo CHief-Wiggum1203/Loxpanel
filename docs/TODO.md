@@ -794,11 +794,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Detailseiten und des Split-Players (`.btn` mit `touch-action:none`,
       Halten fährt die Jalousie), −/+ am Schieberegler und die Zeitraum-Tasten
       der Diagramme. **S**
-- [ ] **Auf/Ab auf der Beschattungs-Kachel.** Über die `controls`-Mechanik
-      des Audioplayers (Server: `controls` am Kachel-Eintrag, Visu:
-      `.tctrls .tb`), die seit der Reparatur oben erst beim Tippen auslöst.
-      Ein Wischer über die Kachel lässt die Beschattung also nicht mehr
-      losfahren. **S**
+- [x] **Auf/Ab auf der Beschattungs-Kachel** (01.10.2026). Über die
+      `controls`-Mechanik des Audioplayers, die seit der Reparatur oben erst
+      beim Tippen auslöst; ein Wischer über die Kachel lässt die Beschattung
+      nicht losfahren. ▲ ▼ senden dieselben Befehle wie Auf/Ab der
+      Detailansicht (`_jal_fahrt()`): im Stand `Up`/`Down`, während der Fahrt
+      halten beide an, die fahrende Richtung zeigt ■. Dabei aufgefallen: In
+      Rastern mit drei Zeilen ist die Kachel zu niedrig für eine Tastenreihe,
+      auch die Tasten des Players wurden dort schon abgeschnitten. Jetzt
+      rücken sie in die Kopfzeile neben das Icon, in 3x3 an seine Stelle
+      (`placeCtrls()`). Neue Symbole `triup`/`tridown`, weil `up`/`down`
+      Linien sind. Geprüft in `tests/test_beschattung.py` und
+      `tests/browser/test_kachel_tasten_browser.py`; fünf Gegenproben
+      (Platzierung, Icon-Ersatz, Tasten, Stop, `pointerdown`) schlagen an.
+      **S**
 
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
