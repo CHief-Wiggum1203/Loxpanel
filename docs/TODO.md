@@ -297,6 +297,28 @@ selbst aktuell.
       auf dem Gesamtstand laufen die Fork-Tests zu Präsenz, Ersteinrichtung
       und Sicherung (89) und ein Test mit nachgebauter `LoxKiosk`-Brücke.
       **S**
+- [ ] **Nachtmodus über die echte Display-Helligkeit bei Lenardo einreichen:**
+      Zweig `up/apk-nachthelligkeit`, ein Commit auf `up/apk-praesenz` (#65),
+      Stand 01.10.2026. Nachts legte die Visu nur eine dunkle Fläche über
+      sich, die Hintergrundbeleuchtung blieb voll an (Schwarz leuchtet grau).
+      In der App senkt jetzt die App die echte Helligkeit:
+      `LoxKiosk.setDisplayBrightness(prozent)`, Prozent der eingestellten
+      Systemhelligkeit, nur für ihr Fenster. Die Visu rechnet „Nachts
+      abdunkeln“ auf dieselbe Leuchtdichte um wie mit der Fläche (die wirkt
+      auf die Farbwerte, Potenz 2,2: 70 % = 7 %). Bei automatischer
+      Helligkeit lehnt die App ab, dann bleibt es bei der Fläche, ebenso bei
+      Fully Kiosk und im Browser. Hinweis im Konfigurator (de/en), Rechnung
+      in `Helligkeit.kt` mit Unit-Test. Geprüft: APK gebaut, 5 Unit-Tests;
+      in Chromium mit nachgebauter Brücke 6 Tests, die ohne die Änderung alle
+      scheitern; Präsenz- und App-Tests aus #65 laufen; alle App-Beiträge
+      zusammen bauen, beide Unit-Tests bestehen. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:up/apk-nachthelligkeit?expand=1`.
+      Bis #65 gemergt ist, zeigt GitHub drei Commits; Titel und Text aus dem
+      obersten nehmen und oben auf #65 verweisen. Die Browser-Tests mit
+      nachgebauter Brücke `LoxKiosk` (Display wecken, Präsenz, Nacht) liefen
+      gegen Lenardos Zweig, nicht im Fork; was sie prüfen, steht in den
+      Commit-Meldungen. Sobald #61 im Fork ist, gehören sie nach
+      `tests/browser/`. **S**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
@@ -727,10 +749,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Wischer, scrollt das Raster, und es geht nichts raus. Tests:
       `tests/browser/test_kachel_tasten_browser.py` (Touch-Display in
       Chromium: Wischen scrollt und sendet nichts, Tippen genau einmal, Maus
-      wie bisher; mit dem alten Auslöser scheitern beide). An Upstream als
-      Zweig `up/kachel-tasten` (ein Commit auf `upstream/main`, mit allen
-      übrigen Beiträgen konfliktfrei), einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/kachel-tasten?expand=1`.
+      wie bisher; mit dem alten Auslöser scheitern beide). An Upstream
+      eingereicht als [#66](https://github.com/Lenardo1/loxpanel/pull/66)
+      (Zweig `up/kachel-tasten`, ein Commit auf `upstream/main`, mit allen
+      übrigen Beiträgen konfliktfrei).
       Weiter mit `pointerdown`: die Tasten der
       Detailseiten und des Split-Players (`.btn` mit `touch-action:none`,
       Halten fährt die Jalousie), −/+ am Schieberegler und die Zeitraum-Tasten
