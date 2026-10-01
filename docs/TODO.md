@@ -152,12 +152,10 @@ beim nächsten Mal wieder.
       die drei auf `#frontpane` beschränkten Regeln in `panel.html`, Weg wie
       unter „Upstream-Beiträge“. Bis dahin ein Fork-eigener Patch
       ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
-- [ ] **Lenardos offene PRs #61 und #62 verfolgen** (Stand 30.09.2026):
-      #61 bringt eine Android-App mit eingebautem Server, eigener WebView als
-      Kiosk, Display-Aus bei Inaktivität und Wecken per Näherungssensor; #62
-      ein `.deb`-Paket für Linux mit Kiosk-Starter und Display-Abschaltung
-      (DPMS, Backlight). Beide berühren Block 0 und den Panel-Agenten
-      (`agent/`): vor weiterer Arbeit dort ansehen, was Lenardo übernimmt. **S**
+- [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
+      Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
+      mitentwickelt (Block 0c). #62, das `.deb`-Paket, verfolgen wir nicht
+      weiter. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -244,6 +242,64 @@ nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
 Der Fork ist mit `upstream/main` gleichgezogen (`fba03be`, Stand 30.09.2026,
 siehe oben).
+
+## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
+
+Entscheidung vom 01.10.2026: Unraid soll wegfallen. Neue Panels und Tablets
+laufen mit Android, und auf jedem Gerät läuft LoxPanel als App, die direkt mit
+dem Miniserver spricht: Lenardos
+[#61](https://github.com/Lenardo1/loxpanel/pull/61) (Server per Chaquopy im
+Gerät, eigene Kiosk-Anzeige). Wir bauen keine eigene App, sondern entwickeln
+seine mit; Beiträge gehen als PR in seinen Zweig `ci/android-apk-pipeline`.
+Nicht weiter verfolgt: das `.deb`
+([#62](https://github.com/Lenardo1/loxpanel/pull/62)), weil Debian 11 seit dem
+31.08.2026 keine Sicherheitsupdates mehr bekommt, und eine iPad-App.
+
+Geräte: das Portworld YC-SM41P mit **Android 13** bestellen. Android 11 bringt
+das WebView 83 vom Mai 2020 mit, darauf liegen Bildschirmschoner, Uhr-Seite und
+PIN-Feld der Visu falsch und Abstände fehlen; die Visu braucht etwa Chrome 88,
+Android 13 bringt 101 bis 109. Tablets mit Google Play halten ihr WebView
+selbst aktuell.
+
+- [ ] **Vier Beiträge zu #61 bei Lenardo einreichen.** Je ein Commit auf
+      seinem `ci/android-apk-pipeline` (`ad5fcd6`), am 01.10.2026 gebaut und
+      geprüft, zusammen konfliktfrei:
+
+  | Zweig | Inhalt |
+  |---|---|
+  | `up/apk-display-wecken` | Klingel, Notify, Goto, Wecker und der Server schalten den Schoner der App; `LoxKiosk` bekommt `turnScreenOn`, `turnScreenOff` und `isScreenOn` wie Fully; Typ „LoxPanel-App“ unter *Displays* |
+  | `up/apk-start-adresse` | Die App merkt sich die zuletzt angezeigte Ansicht statt fest `?panel=default`; Port und Adresse an einer Stelle (`Visu.kt`) |
+  | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
+  | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
+
+  Einreichen über
+  `https://github.com/Lenardo1/loxpanel/compare/ci/android-apk-pipeline...CHief-Wiggum1203:Loxpanel:<zweig>?expand=1`.
+  Sobald #61 in Lenardos `main` ist, kommt alles mit dem nächsten Abgleich
+  in den Fork. **S**
+- [ ] **Mit Lenardo klären:** den Paketnamen vor dem ersten echten Einsatz
+      festlegen (heute `com.loxpanel.spike`; ein späterer Wechsel heißt
+      Neuinstallation und damit Konfiguration weg) und den Signierschlüssel
+      anlegen (Anleitung in `android/README.md` aus `up/apk-signatur`). **S**
+- [ ] **Präsenzmelder zu Lenardo bringen** und dabei an die App koppeln:
+      Solange jemand da ist, muss die Visu die Leerlaufzeit der App aussetzen
+      (`LoxKiosk.setDisplayOff(0)`), sonst dunkelt die App trotz Anwesenheit
+      ab. Heute ist der Präsenzmelder Fork-eigen. **M**
+- [ ] **Sicherung und Einspielen zu Lenardo bringen:** Ohne Unraid hat jedes
+      Gerät seine eigene Konfiguration in der App. „Sicherung herunterladen“
+      gibt es bisher nur im Fork, „Einspielen“ noch nirgends. Konzept: alles
+      prüfen, bevor etwas geschrieben wird; ein vorhandenes Kennwort nur
+      behalten, wenn Host und Benutzer gleich bleiben; einen Zugang aus den
+      Umgebungsvariablen nicht durch eine Sicherung ohne Kennwort ersetzen. **M**
+- [ ] **Ersteinrichtung am Gerät:** Ohne Miniserver-Zugang sagt die Visu
+      nicht, unter welcher Adresse der Konfigurator erreichbar ist (IP des
+      Geräts, Port 8099). **S**
+- [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
+      (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
+      (WebView-Version), dann APK installieren und Klingel, Notify,
+      Ansichtswechsel und Neustart der App durchspielen. **S**
+- [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
+      Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
+      Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**
 
 ## 1. Konfiguration vor Datenverlust schützen
 
@@ -867,19 +923,6 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [ ] **Präsenzmelder an der Anlage prüfen:** am Android-Panel mit Fully
       Kiosk einen Melder koppeln, den Raum verlassen und wieder betreten, die
       Nachlaufzeit des Melders in Loxone Config passend einstellen. **S**
-- [ ] **iPad als Panel (eigene App):** eine kleine iOS-App (Swift, WKWebView)
-      als Kiosk-Hülle, der Server bleibt auf Unraid. Sie hält das iPad wach und
-      dunkelt statt abzuschalten (Schwarzbild und Helligkeit 0), damit die
-      Verbindung steht und Klingel, Wecker und Präsenzmelder sofort wecken;
-      Töne spielt sie ohne vorheriges Antippen. Sie spricht dieselbe
-      Schnittstelle wie Lenardos Android-App
-      ([#61](https://github.com/Lenardo1/loxpanel/pull/61), noch offen):
-      `window.LoxKiosk` mit `setDisplayOff`, ergänzt um `wake()` und `sleep()`,
-      damit der Server das Display schalten kann – das vorher mit Lenardo
-      abstimmen. Dazu erkennt der Server `kiosk=ios`. Gebaut wird in Xcode auf
-      dem Mac. Grenzen: kein echtes Display-Aus (iPads mit LCD leuchten bei
-      Helligkeit 0 schwach), kein Näherungssensor, nach einem Neustart die App
-      von Hand starten. **L**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
