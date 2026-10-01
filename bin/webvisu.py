@@ -932,6 +932,10 @@ class App:
         self.host, self.port = ms.get("host", ""), ms.get("port", 443)
         self.user, self.password = ms.get("user", ""), ms.get("pass", "")
         self.verify_tls = ms.get("verify_tls", False)
+        # Einrichtungshinweis an die Panels (_einrichtung_stand): letzter Fehler
+        # beim Verbinden mit dem Miniserver, und welcher Stand zuletzt rausging.
+        self._ms_fehler = ""
+        self._einrichtung_gemeldet: tuple | None = None
 
         self.audio_cfg = audio or {}
         self.audio: AudioBackend | None = make_backend(self.audio_cfg)
@@ -1008,10 +1012,6 @@ class App:
         self.theme = load_theme()
         self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
         self._einspiel_sperre = asyncio.Lock()   # /api/restore: nur ein Einspielen zur Zeit
-        # Einrichtungshinweis an die Panels (_einrichtung_stand): letzter Fehler
-        # beim Verbinden mit dem Miniserver, und welcher Stand zuletzt rausging.
-        self._ms_fehler = ""
-        self._einrichtung_gemeldet: tuple | None = None
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key

@@ -318,8 +318,13 @@ selbst aktuell.
       und Settings zeigte „Kennwort gesetzt“. Geprüft in
       `tests/test_einrichtung.py` und `tests/browser/test_einrichtung_browser.py`.
       **S**
-- [ ] **Ersteinrichtung zu Lenardo bringen:** dieselbe Änderung als Beitrag
-      auf `upstream/main`; dort ist der Platzhalter genauso in der App. **S**
+- [ ] **Ersteinrichtung bei Lenardo einreichen:** Zweig
+      `up/ersteinrichtung` (ein Commit auf `upstream/main`, Stand
+      01.10.2026), dieselbe Änderung wie im Fork; dort bringt die App den
+      Platzhalter genauso mit. Zusammen mit `up/sicherung` konfliktfrei, die
+      Tests aus dem Fork laufen gegen beide zusammen. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/ersteinrichtung?expand=1`.
+      **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
