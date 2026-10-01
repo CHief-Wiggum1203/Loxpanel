@@ -1,10 +1,15 @@
 """Server-Stabilitaet (TODO.md Block 2): fehlende Oberflaechen-Dateien, Icon-
-Cache, Wartezeiten beim Neuverbinden, Favoriten-Rueckfall und haengende Panels."""
+Cache, Wartezeiten beim Neuverbinden, Favoriten-Rueckfall und haengende Panels.
+Dazu Eingaben, die eine Sicherung bringen kann: sehr viele Kategorie-Farben,
+Tippfehler im Host von Display und Kamera."""
 import asyncio
 import time
 from pathlib import Path
 
-from lox import W
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
+
+from lox import W, anlage, serve
 
 
 class _Ersatz:
@@ -154,3 +159,74 @@ def test_haengendes_panel_blockiert_push_nicht():
         assert n == 1 and o.got and 4.5 < time.monotonic() - t < 7
         assert h not in app.conn_prof and h not in app.conn_info, "haengendes Panel wird getrennt"
     asyncio.run(lauf())
+
+
+def test_viele_kategorie_farben_bremsen_nicht(cfg_ordner):
+    """Jede Kachel fragt nach der Farbe ihrer Kategorie, die Suche lief jedes
+    Mal ueber alle Eintraege: 100.000 Farben (Sicherung, /api/theme) kosteten
+    0,7 s je Seite. Das Ergebnis ist je Kategoriename gemerkt und folgt dem
+    Theme, sobald es neu geladen wird."""
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage({}))                      # Kategorie c1 "Energie"
+    viele = {f"kat{i:06d}": "#123456" for i in range(100_000)}
+    app.theme = {"categories": {**viele, "nergi": "#ff0000", "Energie": "#00ff00"}}
+    beginn = time.perf_counter()
+    farben = {app._cat_color("c1") for _ in range(2000)}
+    dauer = time.perf_counter() - beginn
+    assert farben == {"#ff0000"}, "der erste passende Eintrag gilt, wie bisher"
+    assert dauer < 2, f"{dauer:.1f} s"
+    app._write_theme({}, {"Energie": {"on": "#0000ff", "off": "#333333"}})
+    assert app._cat_color("c1") == "#0000ff"
+    assert app._cat_states("c1") == {"on": "#0000ff", "off": "#333333"}
+
+
+def test_tippfehler_im_display_host_stoppt_die_anderen_nicht():
+    """Einen Host wie "tablet..home" nimmt die Namensaufloesung nicht an
+    (ValueError statt Verbindungsfehler): display_drivers brach ab, die
+    folgenden Geraete blieben dunkel."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        empfang = []
+
+        async def wallpanel(request):
+            empfang.append(await request.json())
+            return web.json_response({})
+        ui = web.Application()
+        ui.router.add_post("/api/command", wallpanel)
+        runner, port = await serve(ui)
+        app.devices = {"Flur": {"display": {"driver": "fully", "host": "tablet..home", "port": 2323}},
+                       "Küche": {"display": {"driver": "wallpanel", "host": "127.0.0.1", "port": port}}}
+        try:
+            return await app.display_drivers(True), empfang
+        finally:
+            if app._drv_session:
+                await app._drv_session.close()
+            await runner.cleanup()
+    res, empfang = asyncio.run(lauf())
+    assert [(r["device"], r["ok"]) for r in res] == [("Flur", False), ("Küche", True)], res
+    assert empfang == [{"wake": True}]
+
+
+def test_kamera_mit_tippfehler_meldet_502():
+    """Host, den die Namensaufloesung nicht annimmt, oder ein Benutzer, der
+    nicht in den Basic-Auth-Kopf passt: 502 wie bei einer nicht erreichbaren
+    Kamera statt 500. Die Kamera B antwortet, nur der Benutzer passt nicht."""
+    async def lauf():
+        async def kamera(request):
+            return web.Response(body=b"--frame", content_type="multipart/x-mixed-replace")
+        cam = web.Application()
+        cam.router.add_get("/mjpeg", kamera)
+        runner, port = await serve(cam)
+        app = W.App({"host": "", "port": 80})
+        app.intercom_cfg = {"A": {"url": "http://cam..lan/mjpeg"},
+                            "B": {"url": f"http://127.0.0.1:{port}/mjpeg", "user": "Łukasz", "pass": "x"},
+                            "C": {"url": f"http://127.0.0.1:{port}/mjpeg", "user": "admin", "pass": "x"}}
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_get("/mjpeg", W.mjpeg_handler)
+        try:
+            async with TestClient(TestServer(ui)) as cl:
+                return [(await cl.get("/mjpeg", params={"id": i})).status for i in ("A", "B", "C")]
+        finally:
+            await runner.cleanup()
+    assert asyncio.run(lauf()) == [502, 502, 200]

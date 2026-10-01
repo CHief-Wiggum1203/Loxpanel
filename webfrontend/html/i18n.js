@@ -285,12 +285,24 @@
       '✓ Eingespielt:': '✓ Restored:',
       'Nur teilweise eingespielt:': 'Only partly restored:',
       'Nicht eingespielt': 'Not restored',
+      'Nicht eingespielt:': 'Not restored:',
+      'Das ist keine ZIP-Datei.': 'This is not a ZIP file.',
+      'Keine Datei erhalten.': 'No file received.',
+      'Die Datei ist zu groß für eine LoxPanel-Sicherung.': 'The file is too large for a LoxPanel backup.',
+      'Keine LoxPanel-Sicherung: In der ZIP-Datei steckt weder loxpanel.cfg noch panels.json noch theme.json.':
+        'Not a LoxPanel backup: the ZIP file contains neither loxpanel.cfg nor panels.json nor theme.json.',
       'Miniserver: mit dem eingespielten Zugang neu verbunden.': 'Miniserver: reconnected with the restored access.',
       'Miniserver: Zugang unverändert, die Verbindung bleibt.': 'Miniserver: access unchanged, the connection stays.',
       'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: password missing – enter it under Settings → Miniserver.',
       'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.': 'Miniserver: the backup holds no access, the current one stays.',
       'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.': 'Miniserver: access comes from the environment variables here and stays.',
       'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:': 'Miniserver: connecting with the restored access failed:',
+      'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.':
+        'Miniserver: neither in the backup nor set up here – enter it under Settings → Miniserver.',
+      'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.':
+        'Miniserver: the password for {ziel} from the backup is missing, the current access stays. To switch, enter it with its password under Settings → Miniserver.',
+      'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:':
+        'Miniserver: connecting with the restored access failed, the current access stays:',
       'Kennwort fehlt, bitte unter Settings eintragen:': 'Password missing, please enter it under Settings:',
       'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
       'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',

@@ -144,3 +144,60 @@ def test_abbrechen_und_kaputte_datei(cfg_ordner, tmp_path):
     assert len(res["anfragen"]) == 1 and res["text"] == "Das ist keine ZIP-Datei."
     assert res["seite"] == 1, "bei einem Fehler bleibt die Seite stehen"
     assert set(app.panels) == {"wohnen"}
+
+
+@pytest.mark.parametrize("sprache, erwartet", [
+    ("de-DE", ["✓ Eingespielt: loxpanel.cfg",
+               "Miniserver: Für 10.9.9.9 (visu) aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt.",
+               "Kennwort fehlt, bitte unter Settings eintragen: Kamera „Haustür“, Display-Treiber „Flur“",
+               "Nicht übernommen: Darstellung: states.active"]),
+    ("en-US", ["✓ Restored: loxpanel.cfg",
+               "Miniserver: the password for 10.9.9.9 (visu) from the backup is missing, the current access stays.",
+               "Password missing, please enter it under Settings: Camera „Haustür“, Display driver „Flur“",
+               "Not kept by the server: Darstellung: states.active"]),
+])
+def test_ergebnis_texte(cfg_ordner, sprache, erwartet):
+    """Die Ergebnisanzeige mit allen Teilen, deutsch und englisch; Namen aus
+    der Anlage werden nicht als HTML gelesen."""
+    async def lauf():
+        app, _ = _app()
+
+        async def schritte(pg):
+            return await pg.evaluate("""() => { rsZeigen({ok: true, dateien: ['loxpanel.cfg'],
+                miniserver: 'kein_kennwort_behalten', miniserverZiel: {host: '10.9.9.9', user: 'visu'},
+                kennwoerter: {behalten: [], fehlen: [{art: 'kamera', name: 'Haustür'},
+                                                    {art: 'display', name: 'Flur'},
+                                                    {art: 'display', name: '<img src=x onerror=alert(1)>'}]},
+                verworfen: ['Darstellung: states.active'], nichtEnthalten: []}, false);
+              const el = document.querySelector('#rs_result');
+              return {text: el.innerText, bilder: el.querySelectorAll('img').length}; }""")
+        return await _konfigurator_mit_sprache(app, schritte, sprache)
+    res = asyncio.run(lauf())
+    for teil in erwartet:
+        assert teil in res["text"], (teil, res["text"])
+    assert res["bilder"] == 0 and "<img src=x onerror=alert(1)>" in res["text"], "Namen bleiben Text"
+
+
+async def _konfigurator_mit_sprache(app, schritte, sprache):
+    """Wie _konfigurator, aber mit gewaehlter Oberflaechensprache."""
+    ui = web.Application()
+    ui["app"] = app
+    for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/settings", W.api_settings),
+                    ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js)):
+        ui.router.add_get(pfad, h)
+    runner, port = await serve(ui)
+    fehler = []
+    try:
+        async with async_playwright() as p:
+            b = await p.chromium.launch()
+            pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale=sprache)
+            await pg.add_init_script(f"try{{ localStorage.setItem('lp_ui_lang', '{sprache[:2]}'); }}catch(e){{}}")
+            pg.on("pageerror", lambda e: fehler.append(str(e)))
+            await pg.goto(f"http://127.0.0.1:{port}/config")
+            await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
+            res = await schritte(pg)
+            await b.close()
+    finally:
+        await runner.cleanup()
+    assert not fehler, fehler
+    return res

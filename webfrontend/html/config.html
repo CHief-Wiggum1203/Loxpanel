@@ -3629,7 +3629,10 @@ const RS_MS={
   kein_kennwort:'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.',
   behalten:'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.',
   umgebung:'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.',
-  fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:'};
+  keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.',
+  kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.',
+  fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:',
+  fehler_behalten:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:'};
 function rsZiel(z){
   if(z.art==='miniserver') return T('Miniserver');
   if(z.art==='kamera') return T('Kamera')+' „'+z.name+'“';
@@ -3640,8 +3643,13 @@ function rsZeigen(j, nichtNeuGeladen){
   const z=[], kw=j.kennwoerter||{};
   z.push('<b class="'+(j.ok?'ok':'bad')+'">'+esc(j.ok?T('✓ Eingespielt:'):T('Nur teilweise eingespielt:'))+' '+
          esc((j.dateien||[]).join(', ')||'–')+'</b>');
-  if(j.error) z.push('<b class="bad">'+esc(j.error)+'</b>');
-  if(j.miniserver) z.push(esc(T(RS_MS[j.miniserver]||j.miniserver))+(j.miniserverFehler?' '+esc(j.miniserverFehler):''));
+  if(j.error) z.push('<b class="bad">'+esc(T(j.error))+'</b>');
+  if((j.nichtEingespielt||[]).length) z.push('<b class="bad">'+esc(T('Nicht eingespielt:'))+' '+esc(j.nichtEingespielt.join(', '))+'</b>');
+  if(j.miniserver){
+    const ziel=j.miniserverZiel||{};
+    z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', (ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
+           (j.miniserverFehler?' '+esc(j.miniserverFehler):''));
+  }
   if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Settings eintragen:'))+'</b> '+
                                     esc(kw.fehlen.map(rsZiel).join(', ')));
   if((kw.behalten||[]).length) z.push(esc(T('Kennwort von diesem Server übernommen:'))+' '+esc(kw.behalten.map(rsZiel).join(', ')));
@@ -3677,7 +3685,7 @@ $('#rs_file').onchange=async()=>{
     catch(e){ rsZeigen(j, true); return; }
   }
   flash($('#rs_toast'), T('Nicht eingespielt'), false);
-  $('#rs_result').innerHTML='<b class="bad">'+esc(j.error||T('Fehler'))+'</b>';
+  $('#rs_result').innerHTML='<b class="bad">'+esc(j.error?T(j.error):T('Fehler'))+'</b>';
 };
 
 // ---- Start ----

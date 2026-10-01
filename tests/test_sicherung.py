@@ -76,9 +76,9 @@ async def _einspielen(app, daten):
     return await W._sicherung_schreiben(app, W._sicherung_pruefen(app, *W._sicherung_lesen(daten)))
 
 
-def _zip(dateien: dict) -> bytes:
+def _zip(dateien: dict, verfahren=zipfile.ZIP_DEFLATED) -> bytes:
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as z:
+    with zipfile.ZipFile(buf, "w", verfahren) as z:
         for name, inhalt in dateien.items():
             z.writestr(name, inhalt if isinstance(inhalt, (bytes, str)) else json.dumps(inhalt))
     return buf.getvalue()
@@ -89,16 +89,24 @@ def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
     sicherung = W._backup_zip(cfg_ordner)
     with zipfile.ZipFile(io.BytesIO(sicherung)) as z:
         assert "GEHEIM" not in "".join(z.read(n).decode("utf-8") for n in z.namelist())
-    # danach aendert sich hier einiges, das die Sicherung zurueckholt
-    _schreiben(cfg_ordner, cfg={**CFG, "night": {"control": ""}},
-               panels={"panels": {"anders": {"title": "Anders"}}, "devices": PANELS["devices"]},
+    # danach aendert sich hier einiges, das die Sicherung zurueckholt - bei
+    # gleichen Zielen, damit die Kennwoerter bleiben duerfen
+    _schreiben(cfg_ordner,
+               cfg={**CFG, "night": {"control": ""}, "audiometa": {"enabled": False},
+                    "calendar": {"sources": [{"name": "Alt", "url": "https://alt/ics"}]},
+                    "intercom": {**CFG["intercom"], "IC2": {"url": "http://zweite-kamera/mjpeg"}}},
+               panels={"panels": {"anders": {"title": "Anders"}},
+                       "devices": {"Küche": {**PANELS["devices"]["Küche"], "presence": ""}}},
                theme={"ui": {"iconSize": 20}})
 
     async def lauf():
         app = _app()
         aufrufe = _ohne_verbindung(app)
-        return app, await _einspielen(app, sicherung), aufrufe
-    app, j, aufrufe = asyncio.run(lauf())
+        vorher = (dict(app.presence_map), app.audiometa_cfg, set(app.intercom_cfg),
+                  app.calendar_cfg["sources"][0]["name"])
+        return app, await _einspielen(app, sicherung), aufrufe, vorher
+    app, j, aufrufe, vorher = asyncio.run(lauf())
+    assert vorher == ({}, {"enabled": False}, {"IC", "IC2"}, "Alt"), "Vorher-Stand weicht ab"
 
     assert j["ok"] and j["dateien"] == ["loxpanel.cfg", "panels.json", "theme.json"], j
     assert j["kennwoerter"]["fehlen"] == [] and j["nichtEnthalten"] == []
@@ -121,6 +129,7 @@ def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
     assert set(app.panels) == {"wohnen"} and app.devices["Küche"]["presence"] == "PM"
     assert app.presence_map == {"pm_a": ["Küche"]}
     assert app.night_cfg == {"control": "PM"} and app.intercom_cfg["IC"]["pass"] == "GEHEIM-CAM"
+    assert set(app.intercom_cfg) == {"IC"} and app.audiometa_cfg == {"enabled": True}
     assert app.calendar_cfg["sources"][0]["name"] == "Familie"
     assert app._front_refresh.is_set() and app._front_cal_due == 0.0
     assert app.theme["ui"]["dpmsOff"] == 120 and app.theme["states"]["active"] == "#e0a24d"
@@ -148,14 +157,86 @@ def test_anderes_ziel_bekommt_kein_kennwort(cfg_ordner, tmp_path):
     j, aufrufe = asyncio.run(lauf())
 
     assert j["ok"] and j["kennwoerter"]["behalten"] == []
-    assert sorted(z["art"] for z in j["kennwoerter"]["fehlen"]) == ["display", "kamera", "miniserver"]
-    assert j["miniserver"] == "kein_kennwort" and aufrufe == []
+    assert sorted(z["art"] for z in j["kennwoerter"]["fehlen"]) == ["display", "kamera"]
+    assert j["miniserver"] == "kein_kennwort_behalten" and aufrufe == []
+    assert j["miniserverZiel"] == {"host": "10.9.9.9", "user": "visu"}
     cfg = _lesen(cfg_ordner, "loxpanel.cfg")
-    assert cfg["miniserver"]["host"] == "10.9.9.9" and cfg["miniserver"]["pass"] == ""
+    assert cfg["miniserver"] == MS, "ein funktionierender Zugang bleibt; ohne Kennwort waere er nach dem Neustart tot"
     assert cfg["intercom"]["IC"]["pass"] == ""
     assert _lesen(cfg_ordner, "panels.json")["devices"]["Küche"]["display"]["password"] == ""
     alles = "".join((cfg_ordner / n).read_text(encoding="utf-8") for n in W.BACKUP_FILES)
-    assert "GEHEIM" not in alles, "kein Kennwort geht an ein anderes Ziel"
+    assert "GEHEIM-CAM" not in alles and "GEHEIM-FULLY" not in alles, "kein Kennwort geht an ein anderes Ziel"
+
+
+def test_frischer_server_bekommt_den_zugang_ohne_kennwort(cfg_ordner, tmp_path):
+    """Neues Panel ohne Einstellungen: Host und Benutzer kommen an, das Kennwort
+    fehlt und muss eingetragen werden."""
+    sicherung = _sicherung_von(tmp_path / "unraid")
+
+    async def lauf():
+        app = _app()
+        aufrufe = _ohne_verbindung(app)
+        return await _einspielen(app, sicherung), aufrufe
+    j, aufrufe = asyncio.run(lauf())
+
+    assert j["ok"] and j["miniserver"] == "kein_kennwort" and aufrufe == []
+    assert {"art": "miniserver"} in j["kennwoerter"]["fehlen"]
+    assert _lesen(cfg_ordner, "loxpanel.cfg")["miniserver"] == {**MS, "pass": ""}
+
+
+def test_weder_hier_noch_in_der_sicherung_ein_zugang(cfg_ordner, tmp_path):
+    sicherung = _sicherung_von(tmp_path / "ohne", cfg={"night": {"control": "PM"}}, panels=None, theme=None)
+
+    async def lauf():
+        app = _app()
+        return await _einspielen(app, sicherung)
+    j = asyncio.run(lauf())
+    assert j["ok"] and j["miniserver"] == "keiner"
+    assert "miniserver" not in _lesen(cfg_ordner, "loxpanel.cfg")
+
+
+@pytest.mark.parametrize("was", ["benutzer", "treiber"])
+def test_kennwort_haengt_auch_an_benutzer_und_treiber(cfg_ordner, tmp_path, was):
+    """Gleicher Host bzw. dieselbe URL reicht nicht: ein anderer Benutzer oder
+    ein anderer Display-Treiber bekommt das bisherige Kennwort nicht."""
+    _schreiben(cfg_ordner)
+    cfg, panels = copy.deepcopy(CFG), copy.deepcopy(PANELS)
+    if was == "benutzer":
+        cfg["miniserver"]["user"] = "admin"
+        cfg["intercom"]["IC"]["user"] = "gast"
+    else:
+        panels["devices"]["Küche"]["display"].update(driver="wallpanel", port=2971)
+    sicherung = _sicherung_von(tmp_path / "quelle", cfg=cfg, panels=panels)
+
+    async def lauf():
+        app = _app()
+        _ohne_verbindung(app)
+        return await _einspielen(app, sicherung)
+    j = asyncio.run(lauf())
+
+    fehlen = sorted(z["art"] for z in j["kennwoerter"]["fehlen"])
+    if was == "benutzer":
+        assert fehlen == ["kamera"] and j["miniserver"] == "kein_kennwort_behalten"
+        assert j["miniserverZiel"] == {"host": "10.0.0.5", "user": "admin"}
+        cfg = _lesen(cfg_ordner, "loxpanel.cfg")
+        assert cfg["miniserver"] == MS and cfg["intercom"]["IC"] == {"url": "http://cam/mjpeg", "user": "gast",
+                                                                     "pass": ""}
+    else:
+        assert fehlen == ["display"]
+        assert _lesen(cfg_ordner, "panels.json")["devices"]["Küche"]["display"]["password"] == ""
+
+
+def test_kamera_ohne_struktur_heisst_nach_ihrem_host(cfg_ordner, tmp_path):
+    """Neues Panel, noch nicht verbunden: keine Bausteinnamen, also nennt das
+    Ergebnis die Kamera mit dem Host ihrer URL statt mit der UUID."""
+    sicherung = _sicherung_von(tmp_path / "unraid")
+
+    async def lauf():
+        app = W.App(W._config(), W._audio_config(), W._audiometa_config())   # ohne Struktur
+        _ohne_verbindung(app)
+        return await _einspielen(app, sicherung)
+    j = asyncio.run(lauf())
+    assert {"art": "kamera", "name": "cam"} in j["kennwoerter"]["fehlen"]
 
 
 def test_sicherung_ohne_miniserver_behaelt_den_zugang(cfg_ordner, tmp_path):
@@ -207,11 +288,13 @@ def test_geaenderter_zugang_verbindet_neu(cfg_ordner, tmp_path, fehler):
 
     assert len(aufrufe) == 1 and aufrufe[0]["port"] == 80 and aufrufe[0]["pass"] == "GEHEIM-MS", \
         "gleicher Host und Benutzer: das Kennwort bleibt, der neue Port verbindet neu"
-    assert j["ok"], "die Datei ist geschrieben, auch wenn die Verbindung scheitert"
+    assert j["ok"]
+    ms = _lesen(cfg_ordner, "loxpanel.cfg")["miniserver"]
     if fehler:
-        assert j["miniserver"] == "fehler" and j["miniserverFehler"] == fehler
+        assert j["miniserver"] == "fehler_behalten" and j["miniserverFehler"] == fehler
+        assert ms == MS, "scheitert die Verbindung, bleibt der funktionierende Zugang in der Datei"
     else:
-        assert j["miniserver"] == "verbunden"
+        assert j["miniserver"] == "verbunden" and ms["port"] == 80
 
 
 KAPUTT = [
@@ -235,6 +318,17 @@ KAPUTT = [
      "Gerät „Küche“"),
     ("theme-ui-liste", _zip({"theme.json": {"ui": ["x"]}}), "„ui“ muss ein Objekt sein"),
     ("doppelt", _zip({"a/loxpanel.cfg": {}, "b/loxpanel.cfg": {}}), "loxpanel.cfg steckt mehrmals"),
+    ("bzip2", _zip({"loxpanel.cfg": {}}, zipfile.ZIP_BZIP2), "nicht unterstützten Verfahren"),
+    ("lzma", _zip({"theme.json": {}}, zipfile.ZIP_LZMA), "nicht unterstützten Verfahren"),
+    ("zu-tief", _zip({"theme.json": '{"ui": {"overlay": ' + '{"a": ' * 40 + "1" + "}" * 41 + "}"}),
+     "zu tief verschachtelt"),
+    ("surrogat", _zip({"panels.json": '{"panels": {"wohnen": {"title": "Wohnen \\ud800"}}}'}),
+     "panels.json: panels.wohnen.title enthält ungültige Zeichen"),
+    # 1,3 MiB kompakt, eingerueckt geschrieben 2,7 MiB: die naechste Sicherung
+    # liesse sich nicht mehr einspielen
+    ("waechst-beim-schreiben",
+     _zip({"panels.json": '{"panels": {"p": {"hide": [' + ",".join(f'"U{i:05d}"' for i in range(150_000)) + "]}}}"}),
+     "panels.json würde nach dem Einspielen größer, als eine LoxPanel-Sicherung sein darf"),
 ]
 
 
@@ -262,14 +356,13 @@ def test_zu_grosse_datei_in_der_zip(cfg_ordner):
         W._sicherung_lesen(daten)
 
 
-def test_neu_gepackte_zip_mit_ordner_und_mac_resten(cfg_ordner):
-    """Entpackt und am Mac neu gepackt: Ordner davor, __MACOSX-Reste, keine
-    sicherung.json. Leere Kennwoerter neben Host/URL gelten als entfernt."""
-    ohne = {**CFG, "miniserver": {**MS, "pass": ""},
-            "intercom": {"IC": {"url": "http://cam/mjpeg", "user": "admin", "pass": ""}}}
-    daten = _zip({"loxpanel-einstellungen/loxpanel.cfg": ohne,
-                  "__MACOSX/loxpanel-einstellungen/._loxpanel.cfg": b"\x00\x05\x16\x07",
-                  "loxpanel-einstellungen/LIESMICH.txt": "Hinweise"})
+def test_neu_gepackte_zip_mit_ordner_und_mac_resten(cfg_ordner, tmp_path):
+    """Entpackt und am Mac neu gepackt: ein Ordner davor und __MACOSX-Reste.
+    Auf einem neuen Panel fehlen danach alle Kennwoerter."""
+    with zipfile.ZipFile(io.BytesIO(_sicherung_von(tmp_path / "unraid"))) as z:
+        inhalt = {n: z.read(n) for n in z.namelist()}
+    daten = _zip({**{f"loxpanel-einstellungen/{n}": v for n, v in inhalt.items()},
+                  **{f"__MACOSX/loxpanel-einstellungen/._{n}": b"\x00\x05\x16\x07" for n in inhalt}})
 
     async def lauf():
         app = _app()
@@ -277,15 +370,25 @@ def test_neu_gepackte_zip_mit_ordner_und_mac_resten(cfg_ordner):
         return await _einspielen(app, daten)
     j = asyncio.run(lauf())
 
-    assert j["ok"] and j["dateien"] == ["loxpanel.cfg"] and j["nichtEnthalten"] == ["panels.json", "theme.json"]
-    assert sorted(z["art"] for z in j["kennwoerter"]["fehlen"]) == ["kamera", "miniserver"]
+    assert j["ok"] and j["dateien"] == ["loxpanel.cfg", "panels.json", "theme.json"]
+    assert sorted(z["art"] for z in j["kennwoerter"]["fehlen"]) == ["display", "kamera", "miniserver"]
     assert j["miniserver"] == "kein_kennwort"
 
 
-def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner):
-    _schreiben(cfg_ordner)
+@pytest.mark.parametrize("vermerk", [None, {"format": 1, "kennwoerter_entfernt": {"loxpanel.cfg": 5,
+                                                                             "panels.json": True}}],
+                         ids=["ohne", "unbrauchbar"])
+def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, vermerk):
+    """Ohne (brauchbare) sicherung.json ist offen, wo je ein Kennwort stand:
+    mqtt (Altlast aus dem Beispiel) und WallPanel (ohne Kennwort) duerfen
+    nicht als fehlend erscheinen."""
+    panels = copy.deepcopy(PANELS)
+    panels["devices"]["Flur"] = {"display": {"driver": "wallpanel", "host": "10.0.0.8", "port": 2971,
+                                             "password": ""}}
+    _schreiben(cfg_ordner, cfg={**CFG, "mqtt": {"host": "127.0.0.1", "pass": ""}}, panels=panels)
     with zipfile.ZipFile(io.BytesIO(W._backup_zip(cfg_ordner))) as z:
-        alt = _zip({n: z.read(n) for n in z.namelist() if n != W.BACKUP_VERMERK})
+        alt = _zip({**{n: z.read(n) for n in z.namelist() if n != W.BACKUP_VERMERK},
+                    **({W.BACKUP_VERMERK: vermerk} if vermerk else {})})
 
     async def lauf():
         app = _app()
@@ -302,7 +405,8 @@ def test_nicht_uebernommenes_wird_gemeldet(cfg_ordner, tmp_path):
     sicherung = _sicherung_von(
         tmp_path / "quelle", cfg=None,
         panels={"panels": {"wohnen": {"title": "Wohnen", "tabs": ["favoriten", "gibtsnicht"]}}},
-        theme={"ui": {"iconSize": 40, "gibtsnicht": 1, "lang": "xx"}})
+        theme={"ui": {"iconSize": 40, "gibtsnicht": 1, "lang": "xx"},
+               "states": {"active": "hsl(36, 70%, 59%)", "good": "#52b881"}, "categories": {"Licht": 5}})
 
     async def lauf():
         app = _app()
@@ -312,7 +416,10 @@ def test_nicht_uebernommenes_wird_gemeldet(cfg_ordner, tmp_path):
     assert j["ok"] and j["miniserver"] == "", "ohne loxpanel.cfg bleibt der Miniserver unberuehrt"
     weg = " | ".join(j["verworfen"])
     assert "Wohnen: tabs: gibtsnicht" in weg and "Darstellung: ui.gibtsnicht" in weg and "ui.lang" in weg, weg
-    assert _lesen(cfg_ordner, "theme.json")["ui"] == {"iconSize": 40}
+    assert "Darstellung: states.active" in weg and "Darstellung: categories.Licht" in weg, \
+        "auch verworfene Farben werden gemeldet"
+    th = _lesen(cfg_ordner, "theme.json")
+    assert th["ui"] == {"iconSize": 40} and th["states"] == {"good": "#52b881"}
 
 
 def test_audioserver_wechselt_ohne_neustart(cfg_ordner, tmp_path):
@@ -334,7 +441,7 @@ def test_audioserver_wechselt_ohne_neustart(cfg_ordner, tmp_path):
 
 def test_schreibfehler_wird_gemeldet(cfg_ordner, tmp_path, monkeypatch):
     _schreiben(cfg_ordner)
-    sicherung = _sicherung_von(tmp_path / "quelle", panels={"panels": {"neu": {"title": "Neu"}}})
+    sicherung = _sicherung_von(tmp_path / "quelle", panels={"panels": {"neu": {"title": "Neu", "tabs": ["x"]}}})
 
     def voll(cfg):
         raise OSError("Kein Platz auf dem Gerät")
@@ -346,6 +453,9 @@ def test_schreibfehler_wird_gemeldet(cfg_ordner, tmp_path, monkeypatch):
     j = asyncio.run(lauf())
 
     assert not j["ok"] and j["dateien"] == [] and "Kein Platz" in j["error"]
+    assert j["nichtEingespielt"] == ["loxpanel.cfg", "panels.json", "theme.json"]
+    assert j["verworfen"] == [] and j["kennwoerter"] == {"behalten": [], "fehlen": []} and j["miniserver"] == "", \
+        "die Antwort nennt nur, was geschrieben wurde"
     assert _lesen(cfg_ordner, "panels.json") == PANELS, "nach dem Fehler wird nichts weiter geschrieben"
 
 

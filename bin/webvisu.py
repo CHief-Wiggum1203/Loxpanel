@@ -35,7 +35,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path, PurePosixPath
 
 import ssl as _ssl
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import quote, unquote, urlencode, urlsplit
 
 import aiohttp
 from aiohttp import WSMsgType, web
@@ -105,7 +105,7 @@ def _atomic_write(path: Path, text: str) -> None:
             fh.flush()
             os.fsync(fh.fileno())
         os.replace(tmp, path)
-    except OSError:
+    except BaseException:
         try:
             tmp.unlink()
         except OSError:
@@ -982,6 +982,7 @@ class App:
         self.stat_gen = 0              # zaehlt jeden Abruf, Schluessel fuer stat_memo
         self.stat_memo: dict[tuple, list] = {}
         self.theme = load_theme()
+        self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
@@ -1707,10 +1708,18 @@ class App:
         name = _clean((self.cats.get(cat_uuid) or {}).get("name") or "").lower()
         if not name:
             return None
-        for key, val in self.theme.get("categories", {}).items():
-            if not key.startswith("_") and key.lower() in name:
-                return val
-        return None
+        # Ergebnis je Kategoriename merken: jede Kachel fragt hier, und die
+        # Suche laeuft ueber alle Eintraege (100.000 aus einer Sicherung ->
+        # 0,7 s je Seite). Jede Theme-Aenderung laedt das Theme neu, also
+        # gilt der Speicher genau solange wie dieses categories-Objekt.
+        quelle = self.theme.get("categories", {})
+        if self._cat_memo[0] is not quelle:
+            self._cat_memo = (quelle, {})
+        memo = self._cat_memo[1]
+        if name not in memo:
+            memo[name] = next((val for key, val in quelle.items()
+                               if not key.startswith("_") and key.lower() in name), None)
+        return memo[name]
 
     def _cat_color(self, cat_uuid: str | None) -> str | None:
         val = self._cat_entry(cat_uuid)
@@ -2333,7 +2342,10 @@ class App:
                     ok = r.status == 200
             if not ok:
                 res["error"] = f"HTTP {r.status}: {txt}".strip()
-        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as err:
+            # ValueError: Host, den die Namensaufloesung nicht annimmt
+            # ("tablet..home", Label ueber 63 Zeichen) - sonst bricht die
+            # Schleife in display_drivers fuer alle folgenden Geraete ab
             ok = False
             res["error"] = str(err) or err.__class__.__name__
         res["ok"] = ok
@@ -2693,7 +2705,10 @@ class App:
             elif isinstance(r, list) and isinstance(s, list):
                 werte = [x for x in r if not leer(x)]
                 if all(isinstance(x, (str, int, float)) for x in werte):
-                    fehlt = [x for x in werte if x not in s]
+                    # als Menge: "x not in s" auf der Liste waere quadratisch
+                    # (200.000 ausgeblendete Eintraege -> Minuten)
+                    da = {y for y in s if isinstance(y, (str, int, float))}
+                    fehlt = [x for x in werte if x not in da]
                     if fehlt:
                         out.append(f"{name}: {'.'.join(namen.get(x, x) for x in pfad)}: "
                                    f"{kurz([namen.get(x, x) for x in fehlt])}")
@@ -2714,8 +2729,9 @@ class App:
                 vergleich(p, sauber[pid], (), titel or pid)
         return out
 
-    def _persist_panels_file(self, panels: dict, devices: dict) -> None:
-        """Schreibt config/panels.json (Profile + Geraete-Automatik) in einem Rutsch."""
+    @staticmethod
+    def _panels_doc(panels: dict, devices: dict) -> dict:
+        """Inhalt von config/panels.json, wie _persist_panels_file ihn schreibt."""
         doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config bzw. "
                            "/settings) verwaltet. Jedes Panel oeffnet die Visu mit "
                            "?panel=<id>. rooms/cats leer = alle sichtbar. "
@@ -2723,6 +2739,11 @@ class App:
                "panels": panels}
         if devices:
             doc["devices"] = devices
+        return doc
+
+    def _persist_panels_file(self, panels: dict, devices: dict) -> None:
+        """Schreibt config/panels.json (Profile + Geraete-Automatik) in einem Rutsch."""
+        doc = self._panels_doc(panels, devices)
         # Eine Generation Sicherung: die aktuelle (funktionierende) panels.json
         # vor dem Ueberschreiben nach panels.json.bak kopieren (best effort; ein
         # fehlgeschlagenes Backup darf das Speichern nicht blockieren).
@@ -6225,12 +6246,24 @@ async def api_backup(request: web.Request) -> web.Response:
 
 # Groesste Datei, die das Einspielen annimmt (entpackt). Die Einstellungsdateien
 # haben wenige KB; die Grenze haelt eine ZIP-Datei, die sich beim Entpacken
-# aufblaeht, vom Speicher fern.
+# aufblaeht, vom Speicher fern. Sie greift nur ungepackt und bei Deflate: Bei
+# bzip2 und LZMA entpackt zipfile den ganzen Strom, bevor eine Grenze greift.
+# Darum sind nur diese beiden Verfahren erlaubt (so packen _backup_zip,
+# Windows und macOS).
 RESTORE_MAX_DATEI = 2 * 1024 * 1024
+RESTORE_VERFAHREN = (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)
+# Tiefste Verschachtelung in einer Sicherung. Die Einstellungsdateien kommen
+# mit etwa sechs Ebenen aus; tiefere braechten Kopieren und Pruefen an die
+# Rekursionsgrenze.
+RESTORE_MAX_TIEFE = 32
 # Was ein Kennwort an sein Ziel bindet: Ein vorhandenes Kennwort bleibt beim
 # Einspielen nur, wenn diese Angaben gleich bleiben - sonst ginge es an einen
 # anderen Host oder Benutzer.
 _KENNWORT_ZIEL = ("host", "url", "user", "driver")
+# Wo LoxPanel Kennwoerter fuehrt ("*" = jeder Schluessel). Bei einer aelteren
+# Sicherung ohne Vermerk gelten nur hier leere Kennwoerter als entfernt.
+_KENNWORT_ORTE = {"loxpanel.cfg": (("miniserver", "pass"), ("intercom", "*", "pass")),
+                  "panels.json": (("devices", "*", "display", "password"),)}
 # Groesste ganze Zahl in einer Sicherung (in JavaScript noch genau). Groessere
 # lassen int()/float() im Server ueberlaufen.
 _GROESSTE_ZAHL = 2 ** 53
@@ -6252,19 +6285,45 @@ def _keine_konstante(c):
     raise ValueError(f"{c} ist keine Zahl")
 
 
-def _zahlen_pruefen(obj, datei: str, pfad: tuple = ()) -> None:
-    """Nur endliche Zahlen in JavaScript-Groesse: NaN, Unendlich und riesige
-    ganze Zahlen lassen den Server (int(), float()) oder den Konfigurator
-    (JSON.parse) scheitern."""
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            _zahlen_pruefen(v, datei, pfad + (k,))
-    elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            _zahlen_pruefen(v, datei, pfad + (i,))
-    elif (isinstance(obj, float) and not math.isfinite(obj)) or \
-            (isinstance(obj, int) and not isinstance(obj, bool) and abs(obj) > _GROESSTE_ZAHL):
-        raise ValueError(f"{datei}: {_pfad_text(pfad)} ist keine gültige Zahl.")
+def _utf8_ok(s: str) -> bool:
+    try:
+        s.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _inhalt_pruefen(obj, datei: str) -> None:
+    """Was der Server aus einer Sicherung nicht verkraftet: NaN, Unendlich und
+    ganze Zahlen ueber _GROESSTE_ZAHL (int()/float(), JSON.parse im
+    Konfigurator), Text, der sich nicht als UTF-8 schreiben laesst (einzelne
+    Surrogate), und zu tiefe Verschachtelung. Ohne Rekursion; den Pfad baut
+    erst die Fehlermeldung, sonst kostete jeder Knoten seine Tiefe."""
+    stapel = [(obj, None, None, 0)]          # (wert, schluessel, eltern, tiefe)
+
+    def pfad(e) -> str:
+        teile = []
+        while e is not None and e[1] is not None:
+            teile.append(e[1])
+            e = e[2]
+        s = _pfad_text(teile[::-1]) or "oberste Ebene"
+        return s if len(s) <= 80 else s[:80] + " …"
+
+    while stapel:
+        e = stapel.pop()
+        v, tiefe = e[0], e[3]
+        if isinstance(v, (dict, list)):
+            if tiefe >= RESTORE_MAX_TIEFE:
+                raise ValueError(f"{datei}: {pfad(e)} ist zu tief verschachtelt.")
+            for k, w in (v.items() if isinstance(v, dict) else enumerate(v)):
+                if isinstance(k, str) and not _utf8_ok(k):
+                    raise ValueError(f"{datei}: {pfad(e)} enthält ungültige Zeichen.")
+                stapel.append((w, k, e, tiefe + 1))
+        elif (isinstance(v, float) and not math.isfinite(v)) or \
+                (isinstance(v, int) and not isinstance(v, bool) and abs(v) > _GROESSTE_ZAHL):
+            raise ValueError(f"{datei}: {pfad(e)} ist keine gültige Zahl.")
+        elif isinstance(v, str) and not _utf8_ok(v):
+            raise ValueError(f"{datei}: {pfad(e)} enthält ungültige Zeichen.")
 
 
 def _sicherung_lesen(daten: bytes) -> tuple:
@@ -6286,6 +6345,9 @@ def _sicherung_lesen(daten: bytes) -> tuple:
             name = teile[-1]
             if name in gefunden:
                 raise ValueError(f"{name} steckt mehrmals in der ZIP-Datei.")
+            if info.compress_type not in RESTORE_VERFAHREN:
+                raise ValueError(f"{name} ist mit einem nicht unterstützten Verfahren gepackt "
+                                 "(erlaubt: Deflate oder ungepackt).")
             if info.file_size > RESTORE_MAX_DATEI:
                 raise ValueError(f"{name} ist zu groß für eine LoxPanel-Sicherung.")
             try:
@@ -6302,7 +6364,7 @@ def _sicherung_lesen(daten: bytes) -> tuple:
                 raise ValueError(f"{name} ist kein gültiges JSON ({err}).") from err
             if not isinstance(obj, dict):
                 raise ValueError(f"{name} enthält kein JSON-Objekt.")
-            _zahlen_pruefen(obj, name)
+            _inhalt_pruefen(obj, name)
             gefunden[name] = obj
     vermerk = gefunden.pop(BACKUP_VERMERK, None)
     if not gefunden:
@@ -6367,29 +6429,35 @@ def _vermerk_pfade(vermerk, name: str):
     bei einer Sicherung ohne (brauchbaren) Vermerk."""
     if not isinstance(vermerk, dict) or not isinstance(vermerk.get("kennwoerter_entfernt"), dict):
         return None
+    pfade = vermerk["kennwoerter_entfernt"].get(name)
+    if pfade is not None and not isinstance(pfade, list):
+        return None
     out = []
-    for p in vermerk["kennwoerter_entfernt"].get(name) or []:
+    for p in pfade or []:
         if isinstance(p, list) and p and all(isinstance(t, (str, int)) and not isinstance(t, bool)
                                              for t in p):
             out.append(tuple(p))
     return out
 
 
-def _leere_kennwoerter(obj, pfad: tuple = ()) -> list:
-    """Aeltere Sicherung ohne Vermerk: leere Kennwoerter neben einem Ziel (Host
-    oder URL gesetzt) gelten als entfernt."""
+def _leere_kennwoerter(obj, datei: str) -> list:
+    """Aeltere Sicherung ohne Vermerk: leere Kennwoerter an den bekannten
+    Stellen (_KENNWORT_ORTE) neben einem Ziel (Host oder URL gesetzt)."""
     out = []
-    if isinstance(obj, dict):
-        ziel = any(str(obj.get(z) or "").strip() for z in ("host", "url"))
-        for k, v in obj.items():
-            if str(k).lower() in _SECRET_KEYS:
-                if v in (None, "") and ziel:
-                    out.append(pfad + (k,))
-            else:
-                out += _leere_kennwoerter(v, pfad + (k,))
-    elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            out += _leere_kennwoerter(v, pfad + (i,))
+    for muster in _KENNWORT_ORTE.get(datei, ()):
+        orte = [((), obj)]
+        for teil in muster[:-1]:
+            weiter = []
+            for p, knoten in orte:
+                if isinstance(knoten, dict):
+                    weiter += [(p + (k,), knoten[k]) for k in (list(knoten) if teil == "*" else [teil])
+                               if k in knoten]
+            orte = weiter
+        key = muster[-1]
+        for p, knoten in orte:
+            if isinstance(knoten, dict) and key in knoten and knoten[key] in (None, "") \
+                    and any(str(knoten.get(z) or "").strip() for z in ("host", "url")):
+                out.append(p + (key,))
     return out
 
 
@@ -6405,10 +6473,12 @@ def _knoten(obj, pfad: tuple):
     return obj
 
 
-def _kennwoerter_einsetzen(neu, alt, pfade) -> tuple:
+def _kennwoerter_einsetzen(neu, alt, pfade, nur_wo_eins_war: bool = False) -> tuple:
     """Setzt entfernte Kennwoerter aus dem bisherigen Stand wieder ein, aber nur
     bei gleichem Ziel (_KENNWORT_ZIEL). Veraendert neu -> (behalten, fehlen)
-    als Pfadlisten."""
+    als Pfadlisten. nur_wo_eins_war: aeltere Sicherung, bei der unklar ist, ob
+    an der Stelle je ein Kennwort stand - fehlend ist es dann nur, wenn der
+    bisherige Stand dort eines hatte."""
     behalten, fehlen = [], []
     for pfad in pfade:
         if not pfad or not isinstance(pfad[-1], str):
@@ -6421,7 +6491,7 @@ def _kennwoerter_einsetzen(neu, alt, pfade) -> tuple:
                                           for z in _KENNWORT_ZIEL):
             n[key] = wert
             behalten.append(pfad)
-        else:
+        elif wert not in (None, "") or not nur_wo_eins_war:
             fehlen.append(pfad)
     return behalten, fehlen
 
@@ -6446,11 +6516,18 @@ def _profil_pruefen(datei: str, wer: str, fn, *args):
         raise ValueError(f"{datei}: {wer} hat einen ungültigen Wert ({err}).") from err
 
 
+def _zugang_komplett(ms) -> bool:
+    return isinstance(ms, dict) and all(str(ms.get(k) or "").strip() for k in ("host", "user", "pass"))
+
+
 def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
     """Alles pruefen und vorbereiten, nichts schreiben -> Plan fuer
-    _sicherung_schreiben. Wirft ValueError, wenn die Sicherung nicht passt."""
+    _sicherung_schreiben. Wirft ValueError, wenn die Sicherung nicht passt.
+    behalten, fehlen und verworfen tragen die Datei mit, damit die Antwort
+    nach einem Schreibfehler nur Geschriebenes nennt."""
     namen = {u: _clean(c.get("name")) or u for u, c in app.controls.items()}
-    plan: dict = {"dateien": {}, "behalten": [], "fehlen": [], "verworfen": [], "miniserver": ""}
+    plan: dict = {"dateien": {}, "behalten": [], "fehlen": [], "verworfen": [], "miniserver": "",
+                  "ms_alt": None, "ms_ziel": None, "namen": namen}
 
     if "loxpanel.cfg" in dateien:
         cfg = copy.deepcopy(dateien["loxpanel.cfg"])
@@ -6458,22 +6535,28 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         alt = _cfg_datei()
         pfade = _vermerk_pfade(vermerk, "loxpanel.cfg")
         behalten, fehlen = _kennwoerter_einsetzen(
-            cfg, alt, _leere_kennwoerter(cfg) if pfade is None else pfade)
+            cfg, alt, _leere_kennwoerter(cfg, "loxpanel.cfg") if pfade is None else pfade, pfade is None)
         ms = cfg.get("miniserver") if isinstance(cfg.get("miniserver"), dict) else {}
         alt_ms = alt.get("miniserver") if isinstance(alt.get("miniserver"), dict) else None
+        alt_host = bool(str((alt_ms or {}).get("host") or "").strip())
         env = bool(os.environ.get("LOXPANEL_MS_HOST"))
-        # Den laufenden Zugang nicht verlieren: Eine Sicherung ohne Miniserver
-        # liesse den Server auf die Umgebungsvariablen oder das Beispiel
-        # zurueckfallen; laeuft der Zugang hier ueber LOXPANEL_MS_*, wuerde ein
-        # Abschnitt ohne Kennwort ihn dauerhaft verdraengen.
-        if not str(ms.get("host") or "").strip() or \
-                (not ms.get("pass") and env and not (alt_ms or {}).get("host")):
+        plan["ms_alt"] = alt_ms
+        # Einen laufenden Zugang nie fuer einen schlechteren aufgeben: Eine
+        # Sicherung ohne Miniserver liesse den Server auf Umgebungsvariablen
+        # oder das Beispiel zurueckfallen; ein Ziel ohne Kennwort waere nach
+        # dem naechsten Neustart tot. In beiden Faellen bleibt der bisherige
+        # Abschnitt, das Ziel der Sicherung nennt die Antwort.
+        if not str(ms.get("host") or "").strip():
+            plan["miniserver"] = "behalten" if alt_host else ("umgebung" if env else "keiner")
+        elif not ms.get("pass") and (_zugang_komplett(alt_ms) or (env and not alt_host)):
+            plan["miniserver"] = "kein_kennwort_behalten" if _zugang_komplett(alt_ms) else "umgebung"
+            plan["ms_ziel"] = {"host": str(ms.get("host")).strip(), "user": str(ms.get("user") or "")}
+        if plan["miniserver"]:
             if alt_ms is not None:
                 cfg["miniserver"] = alt_ms
             else:
                 cfg.pop("miniserver", None)
             fehlen = [p for p in fehlen if p[:1] != ("miniserver",)]
-            plan["miniserver"] = "umgebung" if env and not (alt_ms or {}).get("host") else "behalten"
         plan["dateien"]["loxpanel.cfg"] = cfg
         plan["behalten"] += [("loxpanel.cfg", p) for p in behalten]
         plan["fehlen"] += [("loxpanel.cfg", p) for p in fehlen]
@@ -6490,14 +6573,16 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         pfade = _vermerk_pfade(vermerk, "panels.json")
         roh = {"devices": devices}
         behalten, fehlen = _kennwoerter_einsetzen(
-            roh, {"devices": app.devices}, _leere_kennwoerter(roh) if pfade is None else pfade)
+            roh, {"devices": app.devices},
+            _leere_kennwoerter(roh, "panels.json") if pfade is None else pfade, pfade is None)
         geraete: dict = {}
+        profile = set(sauber)
         for name, d in devices.items():
             geraete.update(_profil_pruefen("panels.json", f"Gerät „{name}“", App._sanitize_devices,
-                                           {name: d}, set(sauber)))
+                                           {name: d}, profile))
         # Ein Kennwort fuer einen Treiber, der nicht uebernommen wurde, fehlt nicht.
         fehlen = [p for p in fehlen if isinstance(_knoten({"devices": geraete}, p[:-1]), dict)]
-        plan["verworfen"] += App._panels_verworfen(panels, sauber, namen)
+        plan["verworfen"] += [("panels.json", t) for t in App._panels_verworfen(panels, sauber, namen)]
         plan["dateien"]["panels.json"] = (sauber, geraete)
         plan["behalten"] += [("panels.json", p) for p in behalten]
         plan["fehlen"] += [("panels.json", p) for p in fehlen]
@@ -6518,15 +6603,29 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         tabs = [t for t in (tabs_roh or []) if isinstance(t, str) and _is_tab(t)][:4]
         if tabs:
             ui["tabs"] = tabs
-        states = {str(k).strip()[:40]: v.strip() for k, v in (doc.get("states") or {}).items()
-                  if not str(k).startswith("_") and _color_ok(v)}
-        theme = {"states": states, "categories": App._sanitize_categories(doc.get("categories") or {}),
-                 "ui": ui}
-        plan["verworfen"] += App._panels_verworfen(
+        # Zustands- und Kategoriefarben landen als CSS im Panel: nur gueltige
+        # Farben, Verworfenes wird gemeldet.
+        states_roh = {k: v for k, v in (doc.get("states") or {}).items() if not str(k).startswith("_")}
+        states = {str(k).strip()[:40]: v.strip() for k, v in states_roh.items() if _color_ok(v)}
+        cats_roh = {k: v for k, v in (doc.get("categories") or {}).items() if not str(k).startswith("_")}
+        cats = App._sanitize_categories(cats_roh)
+        theme = {"states": states, "categories": cats, "ui": ui}
+        weg = App._panels_verworfen(
             {"Darstellung": {"ui": {**ui_roh, **({"tabs": tabs_roh} if tabs_roh else {})}}},
             {"Darstellung": {"ui": ui}}, namen)
+        weg += [f"Darstellung: states.{k}" for k, v in states_roh.items() if not _color_ok(v)]
+        weg += [f"Darstellung: categories.{k}" for k in cats_roh if str(k).strip()[:40] not in cats]
+        plan["verworfen"] += [("theme.json", t) for t in weg]
         plan["dateien"]["theme.json"] = theme
-    plan["namen"] = namen
+
+    # Was hier geschrieben wird, muss sich wieder einspielen lassen: _backup_zip
+    # packt es im selben Format, und eingerueckt waechst es (2 KiB ZIP mit
+    # 700.000 leeren Objekten -> 5 MiB Datei).
+    for name, inhalt in plan["dateien"].items():
+        doc = App._panels_doc(*inhalt) if name == "panels.json" else inhalt
+        if len(json.dumps(doc, indent=2, ensure_ascii=False).encode("utf-8")) + 1 > RESTORE_MAX_DATEI:
+            raise ValueError(f"{name} würde nach dem Einspielen größer, als eine "
+                             "LoxPanel-Sicherung sein darf.")
     return plan
 
 
@@ -6558,12 +6657,12 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
                 _vorher_sichern(THEME_FILE)
                 _atomic_write(THEME_FILE, json.dumps(dateien[name], indent=2, ensure_ascii=False) + "\n")
             geschrieben.append(name)
-    except OSError as err:
+    except (OSError, ValueError) as err:
         fehler = str(err)
         log.warning("Sicherung einspielen: Schreiben abgebrochen nach %s: %s", geschrieben or "-", err)
 
     # Auffrischen, was geschrieben ist - erst alles ohne await, dann der Rest.
-    ms_status, ms_fehler = plan["miniserver"], ""
+    ms_status, ms_fehler = (plan["miniserver"] if "loxpanel.cfg" in geschrieben else ""), ""
     if "loxpanel.cfg" in geschrieben:
         app.night_cfg = _night_config()
         app.intercom_cfg = _intercom_config()
@@ -6615,20 +6714,44 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
                     app._front_refresh.set()
                 except Exception as err:
                     ms_status, ms_fehler = "fehler", str(err)
+                    # reconnect() behaelt die alte Verbindung; die Datei soll
+                    # den funktionierenden Zugang auch nach einem Neustart haben.
+                    if _zugang_komplett(plan["ms_alt"]):
+                        try:
+                            cfg = _cfg_datei()
+                            cfg["miniserver"] = plan["ms_alt"]
+                            _write_cfg(cfg)
+                            ms_status = "fehler_behalten"
+                        except (OSError, ValueError) as err2:
+                            log.warning("Bisherigen Miniserver-Zugang nicht zurueckgeschrieben: %s", err2)
     n = await _push(app, {"t": "reload"})   # offene Panels mit dem neuen Stand neu laden
 
-    namen = plan["namen"]
+    # Kameras ohne Namen aus der Struktur (neues Panel, noch nicht verbunden)
+    # am Host ihrer URL erkennbar machen statt an der UUID.
+    namen = dict(plan["namen"])
+    for uuid, e in ((dateien.get("loxpanel.cfg") or {}).get("intercom") or {}).items():
+        url = e.get("url") if isinstance(e, dict) else e
+        if uuid not in namen and isinstance(url, str):
+            try:
+                namen[uuid] = urlsplit(url.strip()).hostname or uuid
+            except ValueError:
+                pass
+    behalten = [(d, p) for d, p in plan["behalten"] if d in geschrieben]
+    fehlen = [(d, p) for d, p in plan["fehlen"] if d in geschrieben]
     log.info("Sicherung eingespielt: %s (Kennwoerter behalten %d, fehlen %d, Miniserver %s)",
-             ", ".join(geschrieben) or "-", len(plan["behalten"]), len(plan["fehlen"]), ms_status or "-")
+             ", ".join(geschrieben) or "-", len(behalten), len(fehlen), ms_status or "-")
     return {
         "ok": not fehler,
         **({"error": f"Schreiben abgebrochen: {fehler}"} if fehler else {}),
         "dateien": geschrieben,
         "nichtEnthalten": [n_ for n_ in BACKUP_FILES if n_ not in dateien],
-        "kennwoerter": {"behalten": [_kennwort_ziel(d, p, namen) for d, p in plan["behalten"]],
-                        "fehlen": [_kennwort_ziel(d, p, namen) for d, p in plan["fehlen"]]},
-        "verworfen": plan["verworfen"],
+        "nichtEingespielt": [n_ for n_ in BACKUP_FILES if n_ in dateien and n_ not in geschrieben],
+        "kennwoerter": {"behalten": [_kennwort_ziel(d, p, namen) for d, p in behalten],
+                        "fehlen": [_kennwort_ziel(d, p, namen) for d, p in fehlen]},
+        "verworfen": [t for d, t in plan["verworfen"] if d in geschrieben],
         "miniserver": ms_status,
+        **({"miniserverZiel": plan["ms_ziel"]}
+           if ms_status == "kein_kennwort_behalten" and plan["ms_ziel"] else {}),
         **({"miniserverFehler": ms_fehler} if ms_fehler else {}),
         "reloaded": n,
     }
@@ -7289,14 +7412,15 @@ async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
     url = ent.get("url") if isinstance(ent, dict) else ent
     if not url:
         return web.Response(status=404)
-    auth = None
-    if isinstance(ent, dict) and ent.get("user"):
-        auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
-
     sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None, sock_read=30))
     try:
+        auth = None
+        if isinstance(ent, dict) and ent.get("user"):
+            auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
         upstream = await sess.get(url, auth=auth)
-    except aiohttp.ClientError:
+    except (aiohttp.ClientError, ValueError):
+        # ValueError: unbrauchbarer Host ("cam..lan") oder Benutzer, der nicht
+        # in den Basic-Auth-Kopf passt (Doppelpunkt, Zeichen ausserhalb Latin-1)
         await sess.close()
         return web.Response(status=502, text="camera unreachable")
     if upstream.status != 200:
