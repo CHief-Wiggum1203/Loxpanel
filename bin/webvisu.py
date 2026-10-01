@@ -33,6 +33,7 @@ import zipfile
 import zlib
 from datetime import date, datetime, timedelta
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 
 import ssl as _ssl
 from urllib.parse import quote, unquote, urlencode, urlsplit
@@ -983,6 +984,7 @@ class App:
         self.stat_memo: dict[tuple, list] = {}
         self.theme = load_theme()
         self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
+        self._einspiel_sperre = asyncio.Lock()   # /api/restore: nur ein Einspielen zur Zeit
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
@@ -1744,10 +1746,12 @@ class App:
             return None
         names = {k: _clean(v.get("name", "")).lower() for k, v in table.items()}
         out = set()
+        gesehen = set()
         for e in entries:
             e = str(e).strip()
-            if not e:
+            if not e or e in gesehen:          # doppelte Eintraege kosten sonst je einen Durchlauf
                 continue
+            gesehen.add(e)
             if e in table:                       # exakte UUID
                 out.add(e)
                 continue
@@ -2300,11 +2304,13 @@ class App:
             if info.get("dev"):
                 showing[info["dev"]] = (self.conn_prof.get(ws) or {}).get("id", "")
         out = []
-        for name, cfg in self.devices.items():
+        # Ein bestimmtes Geraet direkt nachschlagen: der Praesenzmelder ruft das
+        # je Geraet auf, ueber alle Geraete waere es quadratisch.
+        geraete = ({device: self.devices[device]} if device in self.devices else {}) if device \
+            else self.devices
+        for name, cfg in geraete.items():
             disp = cfg.get("display") if isinstance(cfg, dict) else None
             if not disp:
-                continue
-            if device and name != device:
                 continue
             if panel and not device and showing.get(name) != panel:
                 continue
@@ -5599,14 +5605,17 @@ class App:
                 self._spawn(self.display_drivers(True))
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
-        while self._pending_presence:
+        ereignisse, self._pending_presence = self._pending_presence, []
+        for ev in ereignisse:
             # Nur an das Geraet mit diesem Praesenzmelder: seine Visu haelt das
             # Display (presence) bzw. schaltet es ueber die Kiosk-App, die
             # Display-Treiber (Fully Remote Admin, WallPanel) schalten mit.
-            ev = self._pending_presence.pop(0)
+            # Einmal durch die Liste (pop(0) waere quadratisch); was waehrend
+            # des Sendens dazukommt, laeuft im naechsten Takt.
             log.info("Präsenz %s: %s → Display %s", ev["dev"],
                      "jemand da" if ev["presence"] else "Raum leer", "an" if ev["on"] else "aus")
-            self._spawn(self.display_drivers(ev["on"], ev["dev"]))
+            if ((self.devices.get(ev["dev"]) or {}).get("display")):
+                self._spawn(self.display_drivers(ev["on"], ev["dev"]))
             for ws, info in list(self.conn_info.items()):
                 if info.get("dev") == ev["dev"]:
                     await self._send_or_drop(ws, {"t": "display", "on": ev["on"],
@@ -6220,9 +6229,10 @@ def _backup_zip(cfgdir: Path) -> bytes:
                    "herunterzuladen ist. Entfernt wurden:"]
         zeilen += [f"  - {p}" for p in weg] or ["  (keine gesetzt)"]
         zeilen += ["", "Zurückspielen: im Konfigurator unter Settings → Sicherung diese",
-                   "ZIP-Datei einspielen. Kennwörter, die dort für denselben Host und",
-                   "Benutzer schon eingetragen sind, bleiben erhalten; fehlende nennt der",
-                   "Konfigurator danach. Von Hand geht es auch: die Dateien in den",
+                   "ZIP-Datei einspielen. Kennwörter, die dort schon eingetragen sind,",
+                   "bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer,",
+                   "Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende",
+                   "nennt der Konfigurator danach. Von Hand geht es auch: die Dateien in den",
                    "Config-Ordner legen (Unraid: appdata/loxpanel, im Container /app/config)",
                    "und LoxPanel neu starten. " + BACKUP_VERMERK + " vermerkt für das",
                    "Einspielen, wo Kennwörter entfernt sind."]
@@ -6355,6 +6365,9 @@ def _sicherung_lesen(daten: bytes) -> tuple:
         z = zipfile.ZipFile(io.BytesIO(daten))
     except zipfile.BadZipFile as err:
         raise ValueError("Das ist keine ZIP-Datei.") from err
+    except (NotImplementedError, EOFError, OSError, ValueError) as err:
+        # z. B. eine Versionsangabe, die zipfile nicht kennt
+        raise ValueError(f"Die ZIP-Datei lässt sich nicht lesen ({err}).") from err
     gesucht = set(BACKUP_FILES) | {BACKUP_VERMERK, BACKUP_LIESMICH}
     gefunden: dict = {}
     gesehen: set = set()
@@ -6569,7 +6582,9 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
     """Alles pruefen und vorbereiten, nichts schreiben -> Plan fuer
     _sicherung_schreiben. Wirft ValueError, wenn die Sicherung nicht passt.
     behalten, fehlen und verworfen tragen die Datei mit, damit die Antwort
-    nach einem Schreibfehler nur Geschriebenes nennt."""
+    nach einem Schreibfehler nur Geschriebenes nennt. Vom laufenden Server
+    braucht es nur controls und devices; api_restore uebergibt dafuer eine
+    Momentaufnahme, weil es hier in einem Thread laeuft."""
     namen = {u: _clean(c.get("name")) or u for u, c in app.controls.items()}
     plan: dict = {"dateien": {}, "behalten": [], "fehlen": [], "verworfen": [], "miniserver": "",
                   "ms_alt": None, "ms_ziel": None, "namen": namen}
@@ -6593,8 +6608,10 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
         # Abschnitt, das Ziel der Sicherung nennt die Antwort.
         if not str(ms.get("host") or "").strip():
             plan["miniserver"] = "behalten" if alt_host else ("umgebung" if env else "keiner")
-        elif not ms.get("pass") and (_zugang_komplett(alt_ms) or (env and not alt_host)):
-            plan["miniserver"] = "kein_kennwort_behalten" if _zugang_komplett(alt_ms) else "umgebung"
+        elif not _zugang_komplett(ms) and (_zugang_komplett(alt_ms) or (env and not alt_host)):
+            plan["miniserver"] = ("umgebung" if not _zugang_komplett(alt_ms)
+                                  else "kein_kennwort_behalten" if str(ms.get("user") or "").strip()
+                                  else "unvollstaendig_behalten")
             plan["ms_ziel"] = {"host": str(ms.get("host")).strip(), "user": str(ms.get("user") or "")}
         if plan["miniserver"]:
             if alt_ms is not None:
@@ -6691,8 +6708,10 @@ def _vorher_sichern(f: Path) -> None:
 
 async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
     """Plan aus _sicherung_pruefen schreiben und den laufenden Server
-    auffrischen, ohne Neustart. Zwischen dem Lesen der bisherigen Dateien
-    (Kennwort-Abgleich) und dem Schreiben liegt kein await."""
+    auffrischen, ohne Neustart. Den Kennwort-Abgleich hat _sicherung_pruefen
+    mit den Dateien von vorher gemacht; wer waehrenddessen in einem anderen
+    Fenster Einstellungen speichert, dessen Aenderung ersetzt das Einspielen
+    wie alles andere."""
     dateien, geschrieben, fehler = plan["dateien"], [], ""
     try:
         for name in BACKUP_FILES:
@@ -6749,7 +6768,9 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
             laufend = (app.host, app.user, app.password, app.port, bool(app.verify_tls))
             neu = (ms.get("host"), ms.get("user"), ms.get("pass"), ms.get("port", 443),
                    bool(ms.get("verify_tls", False)))
-            if not (ms.get("user") and ms.get("pass")):
+            if not str(ms.get("user") or "").strip():
+                ms_status = "unvollstaendig"
+            elif not ms.get("pass"):
                 ms_status = "kein_kennwort"
             elif neu == laufend:
                 ms_status = "unveraendert"
@@ -6765,11 +6786,19 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
                 except Exception as err:
                     ms_status, ms_fehler = "fehler", str(err)
                     # reconnect() behaelt die alte Verbindung; die Datei soll
-                    # den funktionierenden Zugang auch nach einem Neustart haben.
-                    if _zugang_komplett(plan["ms_alt"]):
+                    # sie auch nach einem Neustart liefern. Das war entweder der
+                    # Abschnitt der Datei oder - hatte der keinen Host - der
+                    # Zugang aus LOXPANEL_MS_* (_config()).
+                    alt_ms = plan["ms_alt"]
+                    umgebung = bool(os.environ.get("LOXPANEL_MS_HOST")) and \
+                        not str((alt_ms or {}).get("host") or "").strip()
+                    if _zugang_komplett(alt_ms) or umgebung:
                         try:
                             cfg = _cfg_datei()
-                            cfg["miniserver"] = plan["ms_alt"]
+                            if alt_ms is None:
+                                cfg.pop("miniserver", None)
+                            else:
+                                cfg["miniserver"] = alt_ms
                             _write_cfg(cfg)
                             ms_status = "fehler_behalten"
                         except (OSError, ValueError) as err2:
@@ -6801,7 +6830,7 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
         "verworfen": [t for d, t in plan["verworfen"] if d in geschrieben],
         "miniserver": ms_status,
         **({"miniserverZiel": plan["ms_ziel"]}
-           if ms_status == "kein_kennwort_behalten" and plan["ms_ziel"] else {}),
+           if ms_status in ("kein_kennwort_behalten", "unvollstaendig_behalten") and plan["ms_ziel"] else {}),
         **({"miniserverFehler": ms_fehler} if ms_fehler else {}),
         "reloaded": n,
     }
@@ -6817,13 +6846,18 @@ async def api_restore(request: web.Request) -> web.Response:
                                  status=413)
     if not daten:
         return web.json_response({"ok": False, "error": "Keine Datei erhalten."}, status=400)
-    try:
-        dateien, vermerk = _sicherung_lesen(daten)
-        plan = _sicherung_pruefen(app, dateien, vermerk)
-    except ValueError as err:
-        log.warning("Sicherung nicht eingespielt: %s", err)
-        return web.json_response({"ok": False, "error": str(err)}, status=400)
-    ergebnis = await _sicherung_schreiben(app, plan)
+    async with app._einspiel_sperre:
+        # Lesen und Pruefen kosten bei grossen Sicherungen Sekunden Rechenzeit
+        # (Grundfarben je Profil, Sanitizer, Groessenpruefung); im Thread bleibt
+        # die Visu derweil bedienbar. Der Thread sieht vom laufenden Server nur
+        # eine Momentaufnahme der Bausteinnamen und Geraete.
+        stand = SimpleNamespace(controls=dict(app.controls), devices=copy.deepcopy(app.devices))
+        try:
+            plan = await asyncio.to_thread(lambda: _sicherung_pruefen(stand, *_sicherung_lesen(daten)))
+        except ValueError as err:
+            log.warning("Sicherung nicht eingespielt: %s", err)
+            return web.json_response({"ok": False, "error": str(err)}, status=400)
+        ergebnis = await _sicherung_schreiben(app, plan)
     return web.json_response(ergebnis, status=200 if ergebnis["ok"] else 500)
 
 
@@ -7460,7 +7494,7 @@ async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
     app: App = request.app["app"]
     ent = app.intercom_cfg.get(request.query.get("id", ""))
     url = ent.get("url") if isinstance(ent, dict) else ent
-    if not url:
+    if not isinstance(url, str) or not url.strip():
         return web.Response(status=404)
     # Session und Antwort der Kamera werden in jedem Fall freigegeben, auch
     # wenn der Handler mitten im Verbindungsaufbau abgebrochen wird

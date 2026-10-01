@@ -132,8 +132,10 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   bleibt der appdata-Ordner.
 - **Einspielen:** dieselbe Seite, *ZIP-Datei wählen und einspielen*. Das geht
   auch mit der Sicherung eines anderen LoxPanel, etwa beim Umzug auf ein Panel
-  mit der Android-App. Kennwörter, die hier schon für denselben Host und
-  Benutzer eingetragen sind, bleiben; fehlende nennt das Ergebnis. Die
+  mit der Android-App. Kennwörter, die hier schon eingetragen sind, bleiben,
+  solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera:
+  Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das
+  Ergebnis. Die
   bisherigen Dateien liegen danach als `.bak` im appdata-Ordner, ein Neustart
   ist nicht nötig.
 - **Wiederherstellen von Hand:** Container stoppen, die Dateien zurückkopieren,

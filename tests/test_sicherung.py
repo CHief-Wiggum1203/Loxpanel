@@ -7,12 +7,14 @@ import asyncio
 import copy
 import io
 import json
+import time
 import zipfile
 
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
+import theme_colors
 from lox import W, anlage
 
 BAUSTEINE = {
@@ -82,6 +84,12 @@ def _zip(dateien: dict, verfahren=zipfile.ZIP_DEFLATED) -> bytes:
         for name, inhalt in dateien.items():
             z.writestr(name, inhalt if isinstance(inhalt, (bytes, str)) else json.dumps(inhalt))
     return buf.getvalue()
+
+
+def _mit_version(daten: bytes, version: int) -> bytes:
+    """ZIP mit anderer Angabe "version needed to extract" im Zentralverzeichnis."""
+    i = daten.index(b"PK\x01\x02")
+    return daten[:i + 6] + bytes([version]) + daten[i + 7:]
 
 
 def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
@@ -297,8 +305,103 @@ def test_geaenderter_zugang_verbindet_neu(cfg_ordner, tmp_path, fehler):
         assert j["miniserver"] == "verbunden" and ms["port"] == 80
 
 
+def test_umgebungs_zugang_bleibt_wenn_der_neue_nicht_verbindet(cfg_ordner, monkeypatch):
+    """Zugang aus LOXPANEL_MS_*, die Sicherung bringt einen vollstaendigen
+    anderen (z. B. von Hand gepackt). Scheitert die Verbindung damit, muss
+    nach einem Neustart wieder die Umgebung gelten: Ein Abschnitt mit Host in
+    der Datei haette sonst Vorrang."""
+    for k, v in (("HOST", "10.0.0.5"), ("USER", "visu"), ("PASS", "GEHEIM-ENV")):
+        monkeypatch.setenv(f"LOXPANEL_MS_{k}", v)
+    _schreiben(cfg_ordner, cfg={k: v for k, v in CFG.items() if k != "miniserver"})
+    daten = _zip({"loxpanel.cfg": {**CFG, "miniserver": {"host": "10.9.9.9", "user": "anders", "pass": "X"}}})
+
+    async def lauf():
+        app = _app()
+        aufrufe = _ohne_verbindung(app, "nicht erreichbar")
+        return await _einspielen(app, daten), aufrufe
+    j, aufrufe = asyncio.run(lauf())
+
+    assert aufrufe and aufrufe[0]["host"] == "10.9.9.9", "versucht wird der eingespielte Zugang"
+    assert j["ok"] and j["miniserver"] == "fehler_behalten" and j["miniserverFehler"] == "nicht erreichbar"
+    assert "miniserver" not in _lesen(cfg_ordner, "loxpanel.cfg")
+    assert W._config()["pass"] == "GEHEIM-ENV"
+
+
+@pytest.mark.parametrize("hier, status", [(True, "unvollstaendig_behalten"), (False, "unvollstaendig")],
+                         ids=["zugang-hier", "frisch"])
+def test_sicherung_ohne_benutzer(cfg_ordner, hier, status):
+    """Ein Zugang ohne Benutzer (Tippfehler, von Hand bearbeitet) verdraengt
+    keinen funktionierenden; auf einem neuen Geraet kommt er an, und das
+    Ergebnis sagt, dass der Benutzer fehlt."""
+    if hier:
+        _schreiben(cfg_ordner)
+    daten = _zip({"loxpanel.cfg": {**CFG, "miniserver": {"host": "10.0.0.6", "pass": "x"}}})
+
+    async def lauf():
+        app = _app()
+        aufrufe = _ohne_verbindung(app)
+        return await _einspielen(app, daten), aufrufe
+    j, aufrufe = asyncio.run(lauf())
+
+    assert j["ok"] and j["miniserver"] == status and aufrufe == []
+    ms = _lesen(cfg_ordner, "loxpanel.cfg")["miniserver"]
+    if hier:
+        assert ms == MS and j["miniserverZiel"] == {"host": "10.0.0.6", "user": ""}
+    else:
+        assert ms == {"host": "10.0.0.6", "pass": "x"}
+
+
+def test_viele_profile_und_geraete_bleiben_schnell(cfg_ordner):
+    """Je Geraet wurde die Menge aller Profile neu gebaut: 20.000 Profile und
+    20.000 Geraete kosteten 13 s, in denen der Server stand."""
+    daten = _zip({"panels.json": {"panels": {f"p{i}": {} for i in range(20_000)},
+                                  "devices": {f"d{i}": {} for i in range(20_000)}}})
+    beginn = time.perf_counter()
+    try:
+        W._sicherung_pruefen(_app(), *W._sicherung_lesen(daten))
+    except ValueError:
+        pass                                   # ob angenommen, ist hier egal
+    dauer = time.perf_counter() - beginn
+    assert dauer < 5, f"{dauer:.1f} s"
+
+
+def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner):
+    """Eine Grundfarbe kostet beim Pruefen 10 bis 60 ms; 60 Profile mit
+    verschiedenen Farben rechnen Sekunden. Das Pruefen laeuft im Thread, eine
+    andere Anfrage wird derweil sofort beantwortet."""
+    farben = [f"#{(i * 37) % 256:02x}{(i * 91 + 40) % 256:02x}{(i * 53 + 80) % 256:02x}" for i in range(60)]
+    daten = _zip({"panels.json": {"panels": {f"p{i}": {"ui": {"baseColor": f}} for i, f in enumerate(farben)}}})
+    theme_colors._derive.cache_clear()
+
+    async def lauf():
+        ui = web.Application()
+        ui["app"] = _app()
+
+        async def ping(request):
+            return web.json_response({})
+        ui.router.add_post("/api/restore", W.api_restore)
+        ui.router.add_get("/ping", ping)
+        async with TestClient(TestServer(ui)) as cl:
+            einspielen = asyncio.create_task(
+                cl.post("/api/restore", data=daten, headers={"Content-Type": "application/zip"}))
+            antworten = []
+            while not einspielen.done():
+                beginn = time.perf_counter()
+                await (await cl.get("/ping")).read()
+                antworten.append(time.perf_counter() - beginn)
+                await asyncio.sleep(0.05)
+            r = await einspielen
+            return r.status, antworten
+    status, antworten = asyncio.run(lauf())
+
+    assert status == 200
+    assert len(antworten) >= 5, f"Pruefen war zu schnell, um etwas zu zeigen ({len(antworten)} Anfragen)"
+    assert max(antworten) < 0.5, f"laengste Antwort {max(antworten):.2f} s"
+
+
 KAPUTT = [
     ("keine-zip", b"kein zip", "keine ZIP-Datei"),
+    ("unbekannte-version", _mit_version(_zip({"loxpanel.cfg": {}}), 96), "Die ZIP-Datei lässt sich nicht lesen"),
     ("fremde-zip", _zip({"bild.png": b"x"}), "Keine LoxPanel-Sicherung"),
     ("kein-json", _zip({"loxpanel.cfg": "{kaputt"}), "loxpanel.cfg ist kein gültiges JSON"),
     ("liste-statt-objekt", _zip({"panels.json": []}), "panels.json enthält kein JSON-Objekt"),
@@ -496,8 +599,11 @@ def test_audioserver_wechselt_ohne_neustart(cfg_ordner, tmp_path):
 
 
 def test_schreibfehler_wird_gemeldet(cfg_ordner, tmp_path, monkeypatch):
+    """Schon loxpanel.cfg scheitert. Die Sicherung hat keinen Miniserver - der
+    Plan hiesse "behalten", geschrieben ist aber nichts."""
     _schreiben(cfg_ordner)
-    sicherung = _sicherung_von(tmp_path / "quelle", panels={"panels": {"neu": {"title": "Neu", "tabs": ["x"]}}})
+    sicherung = _sicherung_von(tmp_path / "quelle", cfg={k: v for k, v in CFG.items() if k != "miniserver"},
+                               panels={"panels": {"neu": {"title": "Neu", "tabs": ["x"]}}})
 
     def voll(cfg):
         raise OSError("Kein Platz auf dem Gerät")
@@ -513,6 +619,62 @@ def test_schreibfehler_wird_gemeldet(cfg_ordner, tmp_path, monkeypatch):
     assert j["verworfen"] == [] and j["kennwoerter"] == {"behalten": [], "fehlen": []} and j["miniserver"] == "", \
         "die Antwort nennt nur, was geschrieben wurde"
     assert _lesen(cfg_ordner, "panels.json") == PANELS, "nach dem Fehler wird nichts weiter geschrieben"
+
+
+@pytest.mark.parametrize("fehler", [OSError("Kein Platz auf dem Gerät"), ValueError("kaputtes Zeichen")],
+                         ids=["oserror", "valueerror"])
+def test_teilweise_geschrieben_nennt_nur_geschriebenes(cfg_ordner, tmp_path, monkeypatch, fehler):
+    """Erst theme.json scheitert: Kennwort-Meldungen zu loxpanel.cfg und
+    panels.json bleiben, Verworfenes aus theme.json nicht."""
+    _schreiben(cfg_ordner)
+    sicherung = _sicherung_von(tmp_path / "quelle", cfg={**CFG, "miniserver": {**MS, "host": "10.0.0.6"}},
+                               theme={**THEME, "states": {"active": "rot!"}})
+    echt = W._atomic_write
+
+    def schreiben(pfad, text):
+        if pfad == W.THEME_FILE:
+            raise fehler
+        echt(pfad, text)
+    monkeypatch.setattr(W, "_atomic_write", schreiben)
+
+    async def lauf():
+        app = _app()
+        _ohne_verbindung(app)
+        return await _einspielen(app, sicherung)
+    j = asyncio.run(lauf())
+
+    assert not j["ok"] and str(fehler) in j["error"]
+    assert j["dateien"] == ["loxpanel.cfg", "panels.json"] and j["nichtEingespielt"] == ["theme.json"]
+    assert j["miniserver"] == "kein_kennwort_behalten" and j["miniserverZiel"]["host"] == "10.0.0.6"
+    assert sorted(z["art"] for z in j["kennwoerter"]["behalten"]) == ["display", "kamera"]
+    assert not any(t.startswith("Darstellung") for t in j["verworfen"]), j["verworfen"]
+    assert _lesen(cfg_ordner, "theme.json") == THEME
+
+
+def test_abgebrochenes_schreiben_laesst_keine_tmp_liegen(tmp_path):
+    with pytest.raises(UnicodeEncodeError):
+        W._atomic_write(tmp_path / "x.json", "a\ud800")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_ohne_vermerk_kein_fehlalarm_fuer_fremde_kennwoerter(cfg_ordner):
+    """Ohne sicherung.json und LIESMICH.txt zaehlen nur die bekannten Stellen
+    (Miniserver, Kamera, Display): ein mqtt-Kennwort hier, mit anderem
+    mqtt-Host in der Sicherung, erscheint nicht als fehlend."""
+    _schreiben(cfg_ordner, cfg={**CFG, "mqtt": {"host": "127.0.0.1", "pass": "MQ"}})
+    daten = _zip({"loxpanel.cfg": {**CFG, "miniserver": {**MS, "pass": ""},
+                                   "intercom": {"IC": {**CFG["intercom"]["IC"], "pass": ""}},
+                                   "mqtt": {"host": "10.0.0.99", "pass": ""}}})
+
+    async def lauf():
+        app = _app()
+        _ohne_verbindung(app)
+        return await _einspielen(app, daten)
+    j = asyncio.run(lauf())
+
+    assert j["ok"] and j["kennwoerter"]["fehlen"] == []
+    assert sorted(z["art"] for z in j["kennwoerter"]["behalten"]) == ["kamera", "miniserver"]
+    assert _lesen(cfg_ordner, "loxpanel.cfg")["mqtt"]["pass"] == ""
 
 
 def test_route_leer_und_zu_gross(cfg_ordner):

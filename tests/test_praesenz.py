@@ -5,6 +5,7 @@ am echten Server (ws_handler, Broadcaster) mit einer WebSocket-Verbindung je
 Geraet. Display-Treiber und Datei ersetzt ein Stellvertreter - kein Test darf
 config/ veraendern."""
 import asyncio
+import time
 
 import aiohttp
 from aiohttp import web
@@ -168,3 +169,21 @@ def test_stand_in_der_geraeteliste_und_auswahl_im_konfigurator():
             assert [(o["uuid"], o["type"]) for o in m["activeControls"]] == [("L", "Switch"),
                                                                            ("PM", "PresenceDetector")]
     asyncio.run(lauf())
+
+
+def test_viele_geraete_am_melder_bleiben_schnell():
+    """Ein Melder an 20.000 Geraeten (Sicherung, /api/devices): jeder Wechsel
+    gab je Geraet einen Treiber-Aufruf, der alle Geraete durchlief -
+    quadratisch, 7 bis 38 s Stillstand. Nur Geraete mit Treiber brauchen einen."""
+    async def lauf():
+        geraete = {f"g{i}": {"presence": "PM"} for i in range(20_000)}
+        app, geschaltet = _app({**geraete, "mit": {"presence": "PM", "display": FULLY}})
+        app._on_value("pm_a", 1.0)
+        beginn = time.perf_counter()
+        await app._broadcast_tick()
+        while app.bg_tasks:
+            await asyncio.gather(*list(app.bg_tasks))
+        return time.perf_counter() - beginn, geschaltet
+    dauer, geschaltet = asyncio.run(lauf())
+    assert geschaltet == [("mit", True)]
+    assert dauer < 2, f"{dauer:.1f} s"

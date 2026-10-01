@@ -10,6 +10,7 @@ import aiohttp
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
+import theme_colors
 from lox import W, anlage, serve
 
 
@@ -273,3 +274,41 @@ def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch):
             weiter.set()
             await runner.cleanup()
     assert asyncio.run(lauf()) == [True]
+
+
+def test_kamera_ohne_text_als_adresse():
+    """Eintraege mit "_" am Anfang prueft das Einspielen nicht (Kommentare);
+    eine Zahl als Adresse warf TypeError, HTTP 500."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app.intercom_cfg = {"_x": {"url": 5}, "_kommentar": "", "leer": {"url": "  "}}
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_get("/mjpeg", W.mjpeg_handler)
+        async with TestClient(TestServer(ui)) as cl:
+            return [(await cl.get("/mjpeg", params={"id": i})).status for i in ("_x", "_kommentar", "leer")]
+    assert asyncio.run(lauf()) == [404, 404, 404]
+
+
+def test_grundfarbe_wird_gemerkt():
+    """Eine Herleitung kostet 10 bis 60 ms und lief bei jeder Panel-Verbindung
+    und jedem Speichern neu. Jeder Aufrufer bekommt ein eigenes dict."""
+    theme_colors._derive.cache_clear()
+    a = theme_colors.derive("#74a")
+    b = theme_colors.derive(" #74A ")
+    assert a == b and a is not b and theme_colors._derive.cache_info().hits == 1
+    a["--bg"] = "kaputt"
+    assert theme_colors.derive("#74a")["--bg"] != "kaputt"
+    assert theme_colors.derive("kein") is None and theme_colors.derive(5) is None
+
+
+def test_doppelte_raeume_im_profil_kosten_nichts():
+    """Raeume und Kategorien eines Profils werden bei jeder Panel-Verbindung
+    aufgeloest, jeder Eintrag gegen alle Namen. 150.000 gleiche Eintraege
+    (Sicherung, /api/panels) kosteten je Verbindung Sekunden."""
+    app = W.App({"host": "", "port": 80})
+    app.rooms = {f"r{i}": {"name": f"{i}.0 Raum {i}"} for i in range(300)}
+    erwartet = app._resolve_ids(["Raum 7"], app.rooms)
+    beginn = time.perf_counter()
+    assert app._resolve_ids(["Raum 7"] * 150_000, app.rooms) == erwartet
+    assert time.perf_counter() - beginn < 1

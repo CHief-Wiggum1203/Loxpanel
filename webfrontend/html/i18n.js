@@ -276,8 +276,8 @@
       'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.':
         'Passwords (Miniserver, camera, display driver) are not included because the download needs no login.',
       'Sicherung einspielen': 'Restore backup',
-      'Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange Host und Benutzer gleich sind, fehlende nennt das Ergebnis.':
-        'Choose a ZIP file from “Download settings”, also from another LoxPanel. It replaces the settings of this server; whatever is not in the backup stays. Passwords already entered stay as long as host and user are the same; missing ones are listed in the result.',
+      'Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.':
+        'Choose a ZIP file from “Download settings”, also from another LoxPanel. It replaces the settings of this server; whatever is not in the backup stays. Passwords already entered stay as long as their target stays the same (Miniserver: host and user, camera: address and user, display: host and driver); missing ones are listed in the result.',
       'ZIP-Datei wählen und einspielen': 'Choose ZIP file and restore',
       'Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?':
         'The backup replaces the settings of this server. Best “Download settings” first. Continue?',
@@ -303,6 +303,9 @@
         'Miniserver: the password for {ziel} from the backup is missing, the current access stays. To switch, enter it with its password under Settings → Miniserver.',
       'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:':
         'Miniserver: connecting with the restored access failed, the current access stays:',
+      'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: user missing – enter it under Settings → Miniserver.',
+      'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.':
+        'Miniserver: the user for {ziel} from the backup is missing, the current access stays. To switch, enter the complete access under Settings → Miniserver.',
       'Kennwort fehlt, bitte unter Settings eintragen:': 'Password missing, please enter it under Settings:',
       'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
       'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',

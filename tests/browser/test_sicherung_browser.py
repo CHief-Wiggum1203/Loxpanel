@@ -148,23 +148,24 @@ def test_abbrechen_und_kaputte_datei(cfg_ordner, tmp_path):
 
 @pytest.mark.parametrize("sprache, erwartet", [
     ("de-DE", ["✓ Eingespielt: loxpanel.cfg",
-               "Miniserver: Für 10.9.9.9 (visu) aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt.",
+               "Miniserver: Für 10.9.9.9 (vi$&su) aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt.",
                "Kennwort fehlt, bitte unter Settings eintragen: Kamera „Haustür“, Display-Treiber „Flur“",
                "Nicht übernommen: Darstellung: states.active"]),
     ("en-US", ["✓ Restored: loxpanel.cfg",
-               "Miniserver: the password for 10.9.9.9 (visu) from the backup is missing, the current access stays.",
+               "Miniserver: the password for 10.9.9.9 (vi$&su) from the backup is missing, the current access stays.",
                "Password missing, please enter it under Settings: Camera „Haustür“, Display driver „Flur“",
                "Not kept by the server: Darstellung: states.active"]),
 ])
 def test_ergebnis_texte(cfg_ordner, sprache, erwartet):
-    """Die Ergebnisanzeige mit allen Teilen, deutsch und englisch; Namen aus
-    der Anlage werden nicht als HTML gelesen."""
+    """Die Ergebnisanzeige eines gelungenen Einspielens, deutsch und englisch;
+    Namen aus der Anlage werden nicht als HTML gelesen, ein $& im Benutzer
+    nicht als Ersetzungsmuster."""
     async def lauf():
         app, _ = _app()
 
         async def schritte(pg):
             return await pg.evaluate("""() => { rsZeigen({ok: true, dateien: ['loxpanel.cfg'],
-                miniserver: 'kein_kennwort_behalten', miniserverZiel: {host: '10.9.9.9', user: 'visu'},
+                miniserver: 'kein_kennwort_behalten', miniserverZiel: {host: '10.9.9.9', user: 'vi$&su'},
                 kennwoerter: {behalten: [], fehlen: [{art: 'kamera', name: 'Haustür'},
                                                     {art: 'display', name: 'Flur'},
                                                     {art: 'display', name: '<img src=x onerror=alert(1)>'}]},
@@ -176,6 +177,50 @@ def test_ergebnis_texte(cfg_ordner, sprache, erwartet):
     for teil in erwartet:
         assert teil in res["text"], (teil, res["text"])
     assert res["bilder"] == 0 and "<img src=x onerror=alert(1)>" in res["text"], "Namen bleiben Text"
+
+
+@pytest.mark.parametrize("sprache, erwartet, fehler", [
+    ("de-DE", ["Nur teilweise eingespielt: loxpanel.cfg",
+               "Schreiben abgebrochen: Kein Platz auf dem Gerät",
+               "Nicht eingespielt: panels.json, theme.json",
+               "Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt: "
+               "Anmeldung abgelehnt",
+               "Kennwort von diesem Server übernommen: Miniserver"], "Das ist keine ZIP-Datei."),
+    ("en-US", ["Only partly restored: loxpanel.cfg",
+               "Schreiben abgebrochen: Kein Platz auf dem Gerät",
+               "Not restored: panels.json, theme.json",
+               "Miniserver: connecting with the restored access failed, the current access stays: "
+               "Anmeldung abgelehnt",
+               "Password kept from this server: Miniserver"], "This is not a ZIP file."),
+])
+def test_teilergebnis_und_fehler_texte(cfg_ordner, sprache, erwartet, fehler):
+    """Teilweise geschrieben und abgelehnt: Fehlertext, nicht Eingespieltes,
+    behaltene Kennwoerter und ein gescheitertes Neuverbinden, deutsch und
+    englisch. Die Ablehnung kommt ueber den echten Weg des Hochladens (fetch
+    und Rueckfrage ersetzt)."""
+    async def lauf():
+        app, _ = _app()
+
+        async def schritte(pg):
+            teil = await pg.evaluate("""() => { rsZeigen({ok: false,
+                error: 'Schreiben abgebrochen: Kein Platz auf dem Gerät', dateien: ['loxpanel.cfg'],
+                nichtEingespielt: ['panels.json', 'theme.json'], nichtEnthalten: [], verworfen: [],
+                kennwoerter: {behalten: [{art: 'miniserver'}], fehlen: []},
+                miniserver: 'fehler_behalten', miniserverFehler: 'Anmeldung abgelehnt'}, false);
+              return document.querySelector('#rs_result').innerText; }""")
+            await pg.evaluate("""() => { window.confirm = () => true;
+                window.fetch = async () => new Response(JSON.stringify({ok: false, error: 'Das ist keine ZIP-Datei.'}),
+                    {status: 400, headers: {'Content-Type': 'application/json'}}); }""")
+            await pg.locator("#rs_file").set_input_files(
+                {"name": "urlaub.zip", "mimeType": "application/zip", "buffer": b"kein zip"})
+            await pg.wait_for_function("(t => t && !t.includes('Anmeldung'))"
+                                       "(document.querySelector('#rs_result').textContent)")
+            return teil, await pg.locator("#rs_result").inner_text()
+        return await _konfigurator_mit_sprache(app, schritte, sprache)
+    teil, abgelehnt = asyncio.run(lauf())
+    for zeile in erwartet:
+        assert zeile in teil, (zeile, teil)
+    assert abgelehnt == fehler
 
 
 async def _konfigurator_mit_sprache(app, schritte, sprache):

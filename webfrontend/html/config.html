@@ -932,7 +932,7 @@
           </div>
           <div class="card">
             <h3 data-i18n>Sicherung einspielen</h3>
-            <p class="note" data-i18n>Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange Host und Benutzer gleich sind, fehlende nennt das Ergebnis.</p>
+            <p class="note" data-i18n>Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.</p>
             <input type="file" id="rs_file" accept=".zip,application/zip" hidden>
             <div class="actions" style="margin-top:0"><button class="btn" id="rs_pick" data-i18n>ZIP-Datei wählen und einspielen</button><span class="toast" id="rs_toast"></span></div>
             <div class="note" id="rs_result" style="margin-top:10px"></div>
@@ -3631,6 +3631,8 @@ const RS_MS={
   umgebung:'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.',
   keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.',
   kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.',
+  unvollstaendig:'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.',
+  unvollstaendig_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.',
   fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:',
   fehler_behalten:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:'};
 function rsZiel(z){
@@ -3647,7 +3649,8 @@ function rsZeigen(j, nichtNeuGeladen){
   if((j.nichtEingespielt||[]).length) z.push('<b class="bad">'+esc(T('Nicht eingespielt:'))+' '+esc(j.nichtEingespielt.join(', '))+'</b>');
   if(j.miniserver){
     const ziel=j.miniserverZiel||{};
-    z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', (ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
+    // Ersatz als Funktion: ein $& oder $' im Benutzernamen ist sonst ein Ersetzungsmuster
+    z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', ()=>(ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
            (j.miniserverFehler?' '+esc(j.miniserverFehler):''));
   }
   if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Settings eintragen:'))+'</b> '+

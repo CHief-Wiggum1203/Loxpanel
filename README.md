@@ -329,7 +329,8 @@ die Dateien zurückkopieren und den Container neu starten.
 **Überall** gibt es im Konfigurator unter *Settings → Sicherung* zusätzlich eine
 Sicherung als ZIP zum Herunterladen und Einspielen, auch von einem LoxPanel auf ein
 anderes. Kennwörter stehen nicht darin: Eingetragene bleiben beim Einspielen, solange
-Host und Benutzer gleich sind, fehlende nennt das Ergebnis.
+ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer,
+Display: Host und Treiber), fehlende nennt das Ergebnis.
 
 ## Datenschutz
 
