@@ -375,8 +375,16 @@ selbst aktuell.
       lädt er neu und bietet Einrichtungsassistent und Sicherung an. Den Stand
       liefert `/api/settings` (`_einrichtung_info()`), die Karte der Panels
       kommt aus derselben Quelle. Geprüft in `tests/test_einrichtung.py` und
-      `tests/browser/test_einrichtung_konfigurator_browser.py`; acht
-      Gegenproben, die je einen Teil ausbauen, schlagen an. **S**
+      `tests/browser/test_einrichtung_konfigurator_browser.py`; neun
+      Gegenproben, die je einen Teil ausbauen oder einen Katalog-Schlüssel
+      verfälschen, schlagen an. Bei Lenardo als dritter Commit in #64
+      (`up/ersteinrichtung`). Der Aufruf nach dem Neuladen steht in `load()`,
+      die Texte stehen hinter „Verbinden & Speichern“, damit sich #63 und #64
+      nicht stören. Alle Beiträge bleiben paarweise und zusammen
+      konfliktfrei. Gegen Lenardos Zweig bestehen 18 Einrichtungs-Tests aus
+      dem Fork (ohne #63 fehlt nur der Reiter Sicherung), gegen den
+      Gesamtstand mit allen Beiträgen 97 Tests zu Ersteinrichtung,
+      Sicherung, Präsenz und Kachel-Tasten. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
