@@ -242,7 +242,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `panes`, `svPane`, `scale` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Split-Panes je Tab, die rechte Spalte der Uhr-Seite und die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -252,7 +252,7 @@ Server → Browser (`panel.html:700`):
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
-| `display` | `on` | Display über die Kiosk-App aus- oder einschalten |
+| `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
 | `chart` | `control`, `name`, `value`, `range`, `blocks[]` (Blöcke `chart`, §3.7) | Verlaufs-Pane im Split-Layout; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_blocks()`) |
@@ -428,6 +428,18 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
   `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
   melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
+  Seit Upstream #60 teilen sich die Diagramme dort (und auf einer Widget-Seite)
+  die Höhe der Pane, statt unten aus ihr herauszuragen: Die Seite ist eine
+  Flex-Spalte, jedes Diagramm bekommt `flex:1`, das SVG
+  (`preserveAspectRatio="none"`) füllt seine Fläche in voller Breite und wird
+  dafür leicht verzerrt. Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
+  zeichnet denselben Baustein (`renderChartPane()`), hochkant ist ihre Box aber
+  so hoch wie ihr Inhalt, und Diagramme mit `flex-basis: 0` fielen dort auf 0 px
+  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb weiter im
+  Seitenverhältnis der Zeichnung (440:150). Geprüft in
+  `test_split_haelfte_und_kachel` und `test_split_hochkant_uebereinander` (kein
+  Überlauf) sowie `test_uhrseite_hochkant_zweite_flaeche_unten`
+  (Seitenverhältnis quer und hochkant).
 - **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
   `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
   an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des
@@ -485,7 +497,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme | Konfigurator, Einstellungen |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
@@ -500,7 +512,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät | Einstellungen |
-| GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ; Browser ohne Kennung nach IP | Einstellungen |
+| GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
 | POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel}`), per WebSocket-Push, sonst über den Agenten | Einstellungen |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps | Einstellungen, Loxone, extern |
@@ -627,7 +639,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
     "<Gerätename>": {
       "auto": true, "modes": {"<Modusname>": "<panel-id>"},
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
-      "scale": "off"                         // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
+      "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
+      "presence": "<control-uuid>"           // optional; Präsenzmelder (Baustein mit active-State):
+                                             // Display an, solange er jemanden meldet (§8)
     }
   }
 }
@@ -946,6 +960,25 @@ WallPanel per `POST /api/command {"wake": true|false}`. Konfiguration in
 Aufrufer: `/api/display` (wartet auf das Ergebnis), Klingel und Wecker im
 `broadcaster`, `/api/notify` und `/api/goto` (im Hintergrund, `_spawn`),
 sowie die `idle`-Meldung der Visu. Einrichtung in `deploy/ANDROID.md`.
+
+**Präsenzmelder je Gerät:** `devices[name].presence` nennt einen Baustein mit
+`active`-State (Präsenzmelder, aber auch Schalter oder digitaler Status; die
+Auswahl ist dieselbe wie beim Nacht-Auslöser, `night_control_options()`).
+`_presence_rebuild()` bildet nach dem Einlesen der Struktur und nach dem
+Speichern der Geräte die State-UUID auf die Geräte ab (`presence_map`) und
+führt den Stand je Gerät (`_presence_on`). `_on_value()` reagiert nur auf einen
+echten Wechsel, der Neuversand aller States nach einem Reconnect schaltet also
+nichts. Der Broadcaster schickt `{t:"display", on, presence}` an die
+Verbindungen genau dieses Geräts und schaltet dessen Display-Treiber mit;
+`presence` steht außerdem in der `theme`-Nachricht, damit ein neu geladenes
+Panel nicht trotz Anwesenheit abschaltet. Solange `presence` gilt, setzt die
+Visu `armDpms()` aus, und der Server ignoriert ihre `idle`-Meldung. Aus schaltet
+nur der Melder selbst, wenn der Raum leer wird: Wird ein Melder gewählt,
+während jemand da ist, weckt das Speichern das Gerät; wird er entfernt, fällt
+nur das Halten weg (`on: true, presence: false`), danach gilt wieder die
+Leerlaufzeit. Linux-Panels mit Agent schalten ihr Display per DPMS selbst,
+dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
+`tests/browser/test_praesenz_browser.py`.
 
 **Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
 das per `sudo mkdir` als root angelegt wird, während der Agent als

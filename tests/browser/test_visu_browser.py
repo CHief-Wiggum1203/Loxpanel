@@ -113,6 +113,7 @@ def test_split_haelfte_und_kachel(tmp_path, miniserver_http):
             assert info["split"] and info["name"] == "PV Anlage" and info["diagramme"] == 2, info
             assert info["kacheln"] == {"Boiler": True, "Stromzähler": False, "Regen": False,
                                        "PV Anlage": True, "Licht": False}, info["kacheln"]
+            assert await pg.evaluate(UEBERLAUF) <= 1, "Diagramme passen in die Pane (Upstream #60)"
             await u.bild(pg, "split_24h")
             await pg.locator("#frontpane .chip", has_text="7 Tage").dispatch_event("pointerdown")
             await pg.wait_for_timeout(1500)
@@ -135,6 +136,12 @@ LAGE = """() => { const r = id => { const b = document.getElementById(id).getBou
           kachel: k ? {w: k.width, h: k.height} : null, fenster: {w: innerWidth, h: innerHeight},
           diagramme: document.querySelectorAll('#frontpane .chart svg').length}; }"""
 
+# Wie weit die Diagramme der Verlaufs-Pane unten aus ihrer Seite ragen (px, 0 = alles
+# sichtbar). Seit Upstream #60 teilen sie sich die Hoehe, statt abgeschnitten zu werden.
+UEBERLAUF = """() => { const p = document.querySelector('#frontpane .fp-page.cpage'); if (!p) return null;
+  const unten = p.getBoundingClientRect().bottom;
+  return Math.max(0, ...[...p.querySelectorAll('.chart, .chleg')].map(e => e.getBoundingClientRect().bottom - unten)); }"""
+
 
 @pytest.mark.parametrize("breite, hoehe, fuellen", [(533, 893, False), (533, 893, True), (480, 800, False),
                                                      (893, 533, False)],
@@ -151,6 +158,7 @@ def test_split_hochkant_uebereinander(tmp_path, miniserver_http, breite, hoehe, 
             m = await pg.evaluate(LAGE)
             await u.bild(pg, f"split_{breite}x{hoehe}{'_fuellen' if fuellen else ''}")
             assert m["split"] and m["diagramme"] == 2, m
+            assert await pg.evaluate(UEBERLAUF) <= 1, "Diagramme passen in die Pane (Upstream #60)"
             g, p, t = m["grid"], m["pane"], m["tabs"]
             if hoehe > breite:
                 assert m["hoch"], m
@@ -247,7 +255,9 @@ UHRSEITE = """() => { const r = e => { if (!e || e.hidden) return null; const b 
   const s = el('saver');
   return {klassen: s.className, saver: r(s), clock: r(s.querySelector('.sv-clock')), wx: r(el('svWx')),
           cal: r(el('svCal')), box: r(el('svBox')), termine: document.querySelectorAll('#svCal .sv-ev').length,
-          diagramme: document.querySelectorAll('#svBox .chart svg').length}; }"""
+          diagramme: document.querySelectorAll('#svBox .chart svg').length,
+          svgs: [...document.querySelectorAll('#svBox .chart svg')].map(e => { const b = e.getBoundingClientRect();
+            return [b.width, b.height]; })}; }"""
 
 
 @pytest.mark.parametrize("svpane", ["", "chart:P", "off"], ids=["automatik", "verlauf", "aus"])
@@ -289,6 +299,12 @@ def test_uhrseite_hochkant_zweite_flaeche_unten(tmp_path, miniserver_http, monke
                         assert abs(oben - rest) <= 12, m
                     if svpane == "":
                         assert m["termine"] == 3, m
+                if svpane == "chart:P" and (b, h) != (480, 480):
+                    # quer und hochkant im Seitenverhaeltnis der Zeichnung (440:150): die
+                    # Hoehe teilen sich die Diagramme nur in der Split-Pane (Upstream #60),
+                    # hier fielen sie hochkant sonst auf 0 px zusammen
+                    assert len(m["svgs"]) == 2, m
+                    assert all(sh > 0 and abs(sw / sh - 440 / 150) < 0.1 for sw, sh in m["svgs"]), m["svgs"]
                 await pg.close()
             # Start ohne Antippen: die Uhr-Seite steht, bevor die erste Ansicht das
             # Raster verdoppelt - sie muss danach trotzdem hochkant geteilt sein.

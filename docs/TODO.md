@@ -53,7 +53,21 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **27.09.2026** (`upstream/main` @ `fba3e4a`,
+Zuletzt eingepflegt am **30.09.2026** (`upstream/main` @ `fba03be`, Version
+weiterhin 0.6.0), als echter Merge-Commit. Darin unsere acht Beiträge
+#52–#59, die Lenardo am 29.09.2026 gemergt hat, und sein eigener #60
+„Verlauf-Widget: Diagramme teilen sich die Pane-Höhe, volle Breite“: In der
+Verlaufs-Pane und auf einer Widget-Seite ragen die Diagramme nicht mehr
+unten aus der Fläche, das SVG füllt die volle Breite und wird dafür leicht
+gestreckt. #52–#59 kamen patch-gleich zurück (`README.md`, `bin/webvisu.py`
+und `config.html` byte-gleich mit dem Fork). Ein Konflikt in `i18n.js`: der
+verwaiste Schlüssel „Visu + rechte Fläche (je Tab wählbar).“, den der Fork
+in #92 entfernt hat, bleibt draußen. #60 ließ zusammen mit #52 die
+Diagramme der Uhr-Seite hochkant auf 0 px zusammenfallen; im Fork gelten
+seine Regeln deshalb nur im `#frontpane` (`ARCHITEKTUR.md` §3.9), mit neuen
+Prüfungen in den Browser-Tests der Split-Pane und der Uhr-Seite.
+
+Davor, am **27.09.2026** (`upstream/main` @ `fba3e4a`,
 **Release 0.6.0**), als echter Merge-Commit. Neu damit im Fork: Lenardos #51
 „Widgets überall + Panel-Assistent-Ausbau“ — eine freie Seite kann statt
 Kacheln ein **Widget als Vollbild-Tab** sein (`pickTabs[].widget`, im Panel
@@ -112,7 +126,8 @@ beim nächsten Mal wieder.
 - [ ] **Neu Eingepflegtes an der Anlage prüfen:** Kamera-Pane (Intercom-Bild +
       Tür-Buttons), gerahmte Split-Panes, zweispaltiger Screensaver im
       Querformat, Kachelrahmen-Einstellung, Lautstärkeleiste in beiden
-      Player-Ansichten, Anlagenschema. **S**
+      Player-Ansichten, Anlagenschema, Verlaufs-Pane nach #60 (Diagramme
+      teilen sich die Höhe). **S**
 - [ ] **Panel-Assistent und Displays an der Anlage prüfen:** den Assistenten
       einmal für ein neues Panel durchlaufen, freie Auswahl mit mehreren Seiten
       und Icons, Geräteliste und Display-Treiber unter *Displays*,
@@ -131,6 +146,18 @@ beim nächsten Mal wieder.
       noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
       eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
       packen. **S**
+- [ ] **Uhr-Seiten-Fix zu #60 an Lenardo geben:** In seinem `main` fallen
+      die Verlaufs-Diagramme der Uhr-Seite hochkant ebenfalls auf 0 px
+      zusammen (#52 und #60 zusammen). EIN Commit auf `upstream/main`, nur
+      die drei auf `#frontpane` beschränkten Regeln in `panel.html`, Weg wie
+      unter „Upstream-Beiträge“. Bis dahin ein Fork-eigener Patch
+      ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
+- [ ] **Lenardos offene PRs #61 und #62 verfolgen** (Stand 30.09.2026):
+      #61 bringt eine Android-App mit eingebautem Server, eigener WebView als
+      Kiosk, Display-Aus bei Inaktivität und Wecken per Näherungssensor; #62
+      ein `.deb`-Paket für Linux mit Kiosk-Starter und Display-Abschaltung
+      (DPMS, Backlight). Beide berühren Block 0 und den Panel-Agenten
+      (`agent/`): vor weiterer Arbeit dort ansehen, was Lenardo übernimmt. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -139,9 +166,9 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 26.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
+Stand 30.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
 die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen sind #52 bis #59 (unten).
+`up/sammel`). Offen ist keiner.
 
 | PR | Inhalt |
 |---|---|
@@ -159,6 +186,17 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
 | [#32](https://github.com/Lenardo1/loxpanel/pull/32) | Beschattung: Fahrtrichtung als Verb |
 | [#45](https://github.com/Lenardo1/loxpanel/pull/45) | Sammel-PR: #34–#44 nacheinander auf einem Zweig, Konflikte dort aufgelöst, von Lenardo unverändert gemergt |
 | [#46](https://github.com/Lenardo1/loxpanel/pull/46) | Kalender: Wetter-Push löst keinen Abruf mehr aus, Retry-After wird beachtet (Fork #87), am 25.09.2026 per Squash gemergt |
+| [#52](https://github.com/Lenardo1/loxpanel/pull/52) | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent (Fork #91, #92) |
+| [#53](https://github.com/Lenardo1/loxpanel/pull/53) | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option (Fork #93) |
+| [#54](https://github.com/Lenardo1/loxpanel/pull/54) | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar (Fork #93) |
+| [#55](https://github.com/Lenardo1/loxpanel/pull/55) | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14) (Fork #94) |
+| [#56](https://github.com/Lenardo1/loxpanel/pull/56) | Alte Raumregelung (`IRoomController`, IRC v1) mit Kachel und Detailseite (Fork #94) |
+| [#57](https://github.com/Lenardo1/loxpanel/pull/57) | Betriebsart der Raumregelung (V2 und alt) umschaltbar, beim V2 kein angenommener Komfortwert (Fork #95) |
+| [#58](https://github.com/Lenardo1/loxpanel/pull/58) | Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“ (Fork #95) |
+| [#59](https://github.com/Lenardo1/loxpanel/pull/59) | Nicht Übernommenes beim Speichern melden (Fork #95, #96) |
+
+#52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
+30.09.2026 kamen sie patch-gleich zurück.
 
 Über #45 übernommen:
 
@@ -186,45 +224,13 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
       Lenardos `refs/pull/34`–`45` halten die Commits, auch nach dem Löschen.
       Die Session-Umgebung darf keine Zweige löschen (HTTP 403), das geht nur
       von Hand. **S**
-- [ ] **Zweig `up/kalender-wetterpush` löschen.** #46 ist gemergt, der Zweig
-      hängt an keinem offenen PR mehr. **S**
-
-**Eingereicht, noch offen — Zweig nicht löschen:**
-
-| PR | Zweig | Inhalt |
-|---|---|---|
-| [#52](https://github.com/Lenardo1/loxpanel/pull/52) | `up/hochformat-split` | Hochformat: Split übereinander, „Screen füllen“ nach unten, Uhr-Seite mit zweiter Fläche unten, Konfigurator und Assistent |
-| [#53](https://github.com/Lenardo1/loxpanel/pull/53) | `up/sprungmarken` | Sprungmarken: Sprung rutscht nicht mehr auf die Folgeseite, Gruppe leuchtet auf, Filter-Modus als Option |
-| [#54](https://github.com/Lenardo1/loxpanel/pull/54) | `up/assistent-ausweg` | Assistenten: ✕ und Esc, Betriebsmodus-Assistent benennt Geräte ohne Namen, `?device=<name>` sichtbar |
-| [#55](https://github.com/Lenardo1/loxpanel/pull/55) | `up/speicher-vorzeichen` | Energiefluss: Speicher-Vorzeichen richtig herum, schließt Issue [#14](https://github.com/Lenardo1/loxpanel/issues/14); nur `bin/webvisu.py`, eingereicht am 28.09.2026 |
-| [#56](https://github.com/Lenardo1/loxpanel/pull/56) | `up/raumregelung-v1` | Alte Raumregelung (`IRoomController`, IRC v1) mit Kachel und Detailseite, im Forum gemeldet; `bin/webvisu.py` und `README.md`, eingereicht am 28.09.2026 |
-| [#57](https://github.com/Lenardo1/loxpanel/pull/57) | `up/betriebsart` | Betriebsart der Raumregelung (V2 und alt) umschaltbar, beim V2 kein angenommener Komfortwert; **setzt auf #56 auf**, eingereicht am 28.09.2026 |
-| [#58](https://github.com/Lenardo1/loxpanel/pull/58) | `up/hausverbrauch` | Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“; `bin/webvisu.py` und `panel.html`, eingereicht am 28.09.2026 |
-| [#59](https://github.com/Lenardo1/loxpanel/pull/59) | `up/speichern-meldung` | Nicht Übernommenes beim Speichern melden; `bin/webvisu.py`, `config.html`, `i18n.js`, eingereicht am 28.09.2026 |
-
-Die Zweige #52–#54 stehen auf Lenardos 0.6.0 (`fba3e4a`), je ein Commit, ohne
-die Fork-Tests: `up/hochformat-split` ändert `panel.html`, `config.html` und
-`i18n.js`, `up/sprungmarken` zusätzlich `bin/webvisu.py`,
-`up/assistent-ausweg` nur `config.html` und `i18n.js`. Sie sind unabhängig
-voneinander: der Probe-Merge aller drei auf 0.6.0 läuft ohne Konflikt,
-und die Fork-Tests dazu bestehen bis auf die Fork-eigenen Funktionen
-(Sicherung, Unraid, eigene Kalender-/Wetter-Tabs). Eingereicht am
-27.09.2026. Mergt Lenardo sie, kommen sie beim nächsten Abgleich
-patch-gleich zurück; danach die drei Zweige löschen.
-
-#55 und #56 sind ebenfalls je ein Commit auf 0.6.0 ohne die Fork-Tests; der
-Probe-Merge aller fünf Zweige läuft ohne Konflikt, und die neuen Tests
-(`test_energiefluss.py`, `test_raumregelung_v1.py` samt Browser-Test)
-bestehen auch gegen Lenardos Code. Nach dem Merge dort die Zweige löschen.
-
-#57–#59 kommen aus Fork #95. #57 setzt auf #56 auf (braucht die
-Detailseite der alten Raumregelung) und zeigt dessen Commit mit, bis #56
-gemergt ist; #58 und #59 sind je ein Commit auf 0.6.0. In #59 steht
-`PANEL_STANDARD` wie im Fork hinter `PARTIAL_TYPES` – unter `SAUNA_MODES`
-kollidierte es mit den Konstanten aus #56. Der Probe-Merge aller acht
-Zweige (#52–#59) läuft ohne Konflikt, auf dem Ergebnis bestehen die Tests
-der neuen Teile (53; der Browser-Test der Speichern-Meldung lief dafür ohne
-die Fork-Route `/api/backup`, die es bei Lenardo nicht gibt).
+- [ ] **Zweige der gemergten Beiträge löschen:** `up/kalender-wetterpush`
+      (#46) und die acht Zweige von #52–#59: `up/hochformat-split`,
+      `up/sprungmarken`, `up/assistent-ausweg`, `up/speicher-vorzeichen`,
+      `up/raumregelung-v1`, `up/betriebsart`, `up/hausverbrauch`,
+      `up/speichern-meldung`. Alle neun PRs sind gemergt, das Löschen schließt
+      nichts mehr; Lenardos `refs/pull/<n>/head` halten die Commits. Geht nur
+      von Hand (siehe oben). **S**
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -236,7 +242,8 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (0.6.0, siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (`fba03be`, Stand 30.09.2026,
+siehe oben).
 
 ## 1. Konfiguration vor Datenverlust schützen
 
@@ -847,6 +854,32 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Automatik selbst war in Ordnung: nachgestellt schaltet `/api/mode/<modus>`
       das Gerät auf die zugeordnete Ansicht um. Geprüft in
       `test_betriebsmodus_assistent_ausweg_und_benennen`. **S**
+- [x] **Display nach Präsenzmelder.** Je Gerät unter *Displays →
+      Betriebsmodus-Automatik & Display-Steuerung* ein Baustein mit
+      `active`-State (Präsenzmelder, Schalter, digitaler Status): Solange er
+      jemanden meldet, bleibt das Display hell und die Leerlaufzeit ist
+      ausgesetzt; wird der Raum leer, geht es aus, kommt jemand, wieder an.
+      Wirkt mit Fully Kiosk (JavaScript-Schnittstelle, Remote Admin) und
+      WallPanel, nicht bei Linux-Panels mit Agent. Neben der Auswahl steht der
+      aktuelle Stand. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §8,
+      Einrichtung in `deploy/ANDROID.md`; geprüft in `tests/test_praesenz.py`
+      und `tests/browser/test_praesenz_browser.py`. **M**
+- [ ] **Präsenzmelder an der Anlage prüfen:** am Android-Panel mit Fully
+      Kiosk einen Melder koppeln, den Raum verlassen und wieder betreten, die
+      Nachlaufzeit des Melders in Loxone Config passend einstellen. **S**
+- [ ] **iPad als Panel (eigene App):** eine kleine iOS-App (Swift, WKWebView)
+      als Kiosk-Hülle, der Server bleibt auf Unraid. Sie hält das iPad wach und
+      dunkelt statt abzuschalten (Schwarzbild und Helligkeit 0), damit die
+      Verbindung steht und Klingel, Wecker und Präsenzmelder sofort wecken;
+      Töne spielt sie ohne vorheriges Antippen. Sie spricht dieselbe
+      Schnittstelle wie Lenardos Android-App
+      ([#61](https://github.com/Lenardo1/loxpanel/pull/61), noch offen):
+      `window.LoxKiosk` mit `setDisplayOff`, ergänzt um `wake()` und `sleep()`,
+      damit der Server das Display schalten kann – das vorher mit Lenardo
+      abstimmen. Dazu erkennt der Server `kiosk=ios`. Gebaut wird in Xcode auf
+      dem Mac. Grenzen: kein echtes Display-Aus (iPads mit LCD leuchten bei
+      Helligkeit 0 schwach), kein Näherungssensor, nach einem Neustart die App
+      von Hand starten. **L**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite

@@ -114,6 +114,31 @@ nach der Abschaltzeit. Letzteres gibt den Bildschirmschoner von WallPanel
 frei, der dann nach seiner eigenen Inaktivitätszeit greift. Ein sofortiges
 Abschalten kennt WallPanel nicht.
 
+## Display nach Präsenzmelder
+
+Statt nach fester Leerlaufzeit kann ein Präsenzmelder aus Loxone das Display
+steuern: Solange er jemanden meldet, bleibt es hell, und die Leerlaufzeit ist
+ausgesetzt. Wird der Raum leer, geht es aus, kommt jemand, geht es wieder an.
+
+1. Das Gerät braucht eine Kennung (`?device=<name>`, siehe oben) und eine der
+   Display-Steuerungen: die JavaScript-Schnittstelle von Fully Kiosk, Fully
+   Remote Admin oder WallPanel.
+2. In LoxPanel unter *Displays → Betriebsmodus-Automatik & Display-Steuerung*
+   beim Gerät unter „Präsenzmelder" den Baustein wählen und speichern. Zur
+   Auswahl stehen alle Bausteine mit einem Zustand „aktiv", neben dem
+   Präsenzmelder also auch Schalter oder digitale Statusbausteine – nützlich,
+   wenn die Anwesenheit in Loxone erst über eine Logik entsteht.
+3. Neben der Auswahl steht der aktuelle Stand („gerade: jemand da" bzw.
+   „gerade: Raum leer"). So lässt sich die Kopplung prüfen, ohne vor dem
+   Panel zu stehen.
+
+Wie lange das Display nach dem Verlassen des Raums noch an bleibt, bestimmt
+die Nachlaufzeit des Präsenzmelders in Loxone Config. Eine Berührung weckt
+ein dunkles Display weiterhin, danach gilt wieder die Leerlaufzeit, bis der
+Melder erneut jemanden sieht. Bei WallPanel gibt „Raum leer" wie oben nur den
+Bildschirmschoner frei. Linux-Panels mit Agent steuern ihr Display selbst,
+dort wirkt der Präsenzmelder nicht.
+
 ## Geräte
 
 - **Android-Wandpanels** (4 Zoll, 480×480, PoE, Unterputz) von deutschen
