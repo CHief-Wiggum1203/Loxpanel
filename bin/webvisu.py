@@ -177,6 +177,9 @@ def _pick_tabs(prof):
     return []
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
+# Kiosk-Apps, die die Visu beim Verbinden meldet (?kiosk=): Fully Kiosk und die
+# LoxPanel-App. Beide schalten das Display aus der Seite heraus (JS-Schnittstelle).
+KIOSK_APPS = ("fully", "loxpanel")
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
 # konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
 NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
@@ -2229,7 +2232,7 @@ class App:
         for name in self.devices:
             entry(name)["configured"] = True
         for e in devs.values():
-            e["type"] = "agent" if e["agent"] else ("fully" if e["kiosk"] == "fully" else "browser")
+            e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
             if e["agent"] and not e["profile"]:
                 e["profile"] = e["agent"]["panel"]
         anonymous.sort(key=lambda a: a["ip"])
@@ -6460,7 +6463,7 @@ async def api_device_name(request: web.Request) -> web.Response:
 
 async def api_display(request: web.Request) -> web.Response:
     """Display der Panels schalten: ?on=1|0, optional ?panel= / ?device=.
-    Wirkt auf Geraete mit Kiosk-App (Fully Kiosk), die die Visu offen haben;
+    Wirkt auf Geraete mit Kiosk-App (Fully Kiosk, LoxPanel-App), die die Visu offen haben;
     Linux-Panels mit Agent regeln das Display selbst. Auch aus Loxone nutzbar."""
     app: App = request.app["app"]
     d = await _json_or_empty(request)
@@ -6697,7 +6700,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
     kiosk = request.query.get("kiosk", "")
-    app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk == "fully" else "",
+    app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk in KIOSK_APPS else "",
                          "ip": request.remote or "", "ts": time.time()}
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}

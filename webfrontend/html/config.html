@@ -3188,7 +3188,7 @@ async function loadPanelIds(){
     });
   }catch(e){ PANEL_IDS=[]; }
 }
-const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', browser:'Browser'};
+const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', loxpanel:'LoxPanel-App', browser:'Browser'};
 function profSelect(cls, cur){
   return '<select class="'+cls+'"><option value="">'+T('(Standard)')+'</option>'+
     PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>').join('')+'</select>';
@@ -3199,7 +3199,8 @@ function deviceRow(d, sel){
   let btns='';
   if(d.connections) btns+='<button class="btn sm" data-act="switch">'+T('Ansicht wechseln')+'</button>'+
                           '<button class="btn sm ghost" data-act="wsreload">'+T('Neu laden')+'</button>';
-  if(d.type==='fully') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
+  // Kiosk-Apps schalten das Display aus der Seite heraus (Fully Kiosk, LoxPanel-App)
+  if(d.type==='fully'||d.type==='loxpanel') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
                              '<button class="btn sm ghost" data-act="dispon">'+T('Display an')+'</button>';
   if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
                     '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
@@ -3213,7 +3214,7 @@ function deviceRow(d, sel){
     (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
 }
 function anonRow(a, typed){
-  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
+  const info=[a.ip, TYPE_LABEL[a.kiosk]||T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
@@ -3421,7 +3422,7 @@ function mzRender(){
     // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
     // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
     const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
-      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input class="mzname" placeholder="'+T('Gerätename')+'">'+
+      esc(TYPE_LABEL[a.kiosk]||T('Browser'))+'</span><input class="mzname" placeholder="'+T('Gerätename')+'">'+
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'

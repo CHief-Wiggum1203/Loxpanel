@@ -52,3 +52,19 @@ Nächste Schritte für die echte App (separat, kein Teil dieses Spikes):
 - Server als **Foreground-Service** (dauerhafte Notification) statt in der Activity
 - Display-Steuerung über Android-APIs (Brightness/WakeLock) statt des Linux-Agents
 - LoxPanel-Code (`bin/`, `webfrontend/`, `config/`) als Python-Assets bündeln
+
+## Schnittstelle zur Visu (`LoxKiosk`)
+Die App hängt das Objekt `LoxKiosk` in die WebView. Die Visu erkennt es wie
+`window.fully` von Fully Kiosk und meldet sich beim Server mit `kiosk=loxpanel`.
+Unter *Displays* erscheint das Gerät dann als „LoxPanel-App“, mit „Display aus“
+und „Display an“.
+
+| Funktion | Wer ruft sie | Wirkung in der App |
+|---|---|---|
+| `setDisplayOff(sekunden)` | Visu beim Laden der Einstellungen (`dpmsOff`) | Leerlaufzeit bis zum Bildschirmschoner, `0` schaltet ihn ab |
+| `turnScreenOn()` | Visu bei Klingel, Wecker, Notify, Goto und wenn der Server das Display einschaltet | Schoner weg, Leerlaufzeit beginnt neu |
+| `turnScreenOff()` | Visu, wenn der Server das Display abschaltet (*Displays*, `/api/display`) | Schoner an |
+| `isScreenOn()` | Visu vor `turnScreenOn()` | `true`, solange kein Schoner zu sehen ist |
+
+Die drei letzten heißen wie bei Fully Kiosk, damit die Visu beide Apps gleich
+behandelt.
