@@ -117,9 +117,14 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
             await pg.screenshot(path=str(tmp_path / "einrichtung_verbunden.png"))
             await pg.click("#einrAssistent")
             weiter = await pg.evaluate("rubric")
-            return frisch, umweg, assistent, sicherung, falsch, verbunden, weiter
+            # Gemeldet am Tablet: ohne Neuladen blieb die Raumliste leer ("alle 0 sichtbar")
+            await pg.locator(".rub", has_text="Panel Configuration").click()
+            await pg.locator(".stab", has_text="Räume").click()
+            raeume = (await pg.inner_text("#cntRooms"),
+                      await pg.evaluate("[...document.querySelectorAll('#rooms .opt .nm')].map(e => e.textContent)"))
+            return frisch, umweg, assistent, sicherung, falsch, verbunden, weiter, raeume
         return await _konfigurator(app, schritte), versuche
-    (frisch, umweg, assistent, sicherung, falsch, verbunden, weiter), versuche = asyncio.run(lauf())
+    (frisch, umweg, assistent, sicherung, falsch, verbunden, weiter, raeume), versuche = asyncio.run(lauf())
 
     assert frisch == {"rubrik": "settings", "reiter": "miniserver", "gesperrt": GESPERRT,
                       "reiterGesperrt": REITER_GESPERRT, "neuesPanel": True, "liste": True,
@@ -136,6 +141,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
                          "weiter": "Bausteine geladen: 2. Alle Bereiche sind jetzt offen.",
                          "pane": ["miniserver"]}
     assert weiter == "assistant"
+    assert raeume == ("alle 2 sichtbar", ["Technikraum", "Zentral"]), "Raeume frisch vom Server"
 
 
 def test_verbindet_von_selbst(cfg_ordner):

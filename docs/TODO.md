@@ -372,7 +372,11 @@ selbst aktuell.
       er ohne Struktur *Settings → Miniserver* mit einem Hinweis samt Stand
       (kein Zugang, verbindet, Fehler mit Grund) und sperrt alles außer
       Miniserver und Sicherung. Er fragt alle 3 s nach; steht die Verbindung,
-      lädt er neu und bietet Einrichtungsassistent und Sicherung an. Den Stand
+      lädt er neu und bietet Einrichtungsassistent und Sicherung an. Das
+      Neuladen behebt auch einen Fehler vom ersten Gerät: Der Konfigurator
+      holt Räume und Bausteine nur beim Öffnen (`/api/meta`); wer ihn vor dem
+      Verbinden geöffnet hatte, sah danach „verbunden · 225 Controls“, aber
+      unter *Räume* „alle 0 sichtbar“, bis er die Seite neu lud. Den Stand
       liefert `/api/settings` (`_einrichtung_info()`), die Karte der Panels
       kommt aus derselben Quelle. Geprüft in `tests/test_einrichtung.py` und
       `tests/browser/test_einrichtung_konfigurator_browser.py`; neun
