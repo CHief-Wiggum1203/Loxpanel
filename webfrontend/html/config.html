@@ -3217,7 +3217,7 @@ function anonRow(a, typed){
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
-    '<input class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
+    '<input type="text" class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
     '<button class="btn sm" data-act="name">'+T('Namen vergeben')+'</button></div>';
 }
 function renderDeviceList(j){
@@ -3295,7 +3295,7 @@ function devRow(name){
   const pairs=d.modes&&d.modes.length?d.modes:[['','']];
   const rows=pairs.map(([m,p])=>
     '<div class="dmrow" style="display:flex;gap:6px;align-items:center;margin:4px 0">'+
-      '<input class="dm_mode" placeholder="'+T('Modus (z.B. gaeste)')+'" value="'+esc(m)+'" style="flex:1;min-width:120px">'+
+      '<input type="text" class="dm_mode" placeholder="'+T('Modus (z.B. gaeste)')+'" value="'+esc(m)+'" style="flex:1;min-width:120px">'+
       '<span style="opacity:.6">→</span>'+
       '<select class="dm_prof" style="flex:1;min-width:120px">'+profOpts(p)+'</select>'+
       '<button class="btn sm ghost dm_del" type="button" title="'+T('Zeile entfernen')+'">✕</button>'+
@@ -3322,8 +3322,8 @@ function displayRow(disp){
     '<select class="dd_drv"><option value="">'+T('keine (nur über die Seite)')+'</option>'+
       '<option value="fully"'+(x.driver==='fully'?' selected':'')+'>Fully Kiosk (Remote Admin)</option>'+
       '<option value="wallpanel"'+(x.driver==='wallpanel'?' selected':'')+'>WallPanel (HTTP)</option></select>'+
-    '<input class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
-    '<input class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
+    '<input type="text" class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
+    '<input type="text" class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
     '<input class="dd_pw" type="password" placeholder="'+T('Passwort (Fully)')+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
   '</div>';
 }
