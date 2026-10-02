@@ -28,6 +28,14 @@
       'Keine Musikzone in der Anlage.': 'No music zone in the system.',
       'Diese Seite zeigt statt Kacheln das gewählte Widget über die ganze Fläche — auch am 1-Pane-Display. Wähle oben „Bausteine (Kacheln)", um wieder Kacheln zu setzen.':
         'This page shows the chosen widget full-screen instead of tiles — on a 1-pane display too. Pick “Blocks (tiles)” above to use tiles again.',
+      'Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Display. Baustein/Zone wählst du oben direkt.':
+        'This page shows the widget across the whole area (full-screen tab) — on a 1-pane display too. You pick the block/zone directly above.',
+      'Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.':
+        'Audio/energy flow/camera/history only appear here if a matching block exists.',
+      'Kein passender Baustein': 'No matching block',
+      'Werte': 'Values',
+      'Audio': 'Audio',
+      'Miniserver': 'Miniserver',
       '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
         '“Automatic” enlarges the view on each display as far as it goes without a border. “Like global” inherits the global setting.',
       // --- Nachgezogen: Assistent, Displays, Betriebsmodus, restliche Admin-UI ---
@@ -99,7 +107,6 @@
       "Zurück": "Back",
       "Die Seite": "The page",
       "zeigt": "shows",
-      "Baustein": "block",
       "aus": "from",
       "Räumen": "rooms",
       "gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.": "selected block is hidden on this panel and does not appear.",
@@ -342,6 +349,9 @@
       'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
         'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',
       'Speichern': 'Save',
+      'Bausteintypen der Anlage anzeigen': 'Show control types of the installation',
+      '(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)':
+        '(which types exist and which LoxPanel does not support yet; JSON at /api/types)',
       // SIP
       'Gegensprechen über die Türstation direkt am Panel (SIP-Audio/-Video statt nur Kamerabild).':
         'Two-way audio via the door station directly on the panel (SIP audio/video instead of just the camera image).',
