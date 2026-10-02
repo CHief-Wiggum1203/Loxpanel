@@ -577,11 +577,33 @@ selbst aktuell.
       `tests/browser/test_auto_raster_browser.py`. Nebenbei: Der Hinweis bei
       der Skalierung verweist jetzt auf *Displays* statt auf „Settings →
       Panels“. **L**
-- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ am Tab A9
-      prüfen (Raster quer und hochkant, Widget, Drehen). Aus den Ideen
-      offen: Das Widget in Pane 2 soll seine Höhe nutzen (beim Wetter blieb
-      darunter eine Leerfläche), dazu eine Listen-Darstellung als
-      Alternative zu großen Kacheln. **M**
+- [x] **Widget in Pane 2 nutzt seine Fläche** (02.10.2026). Gemessen am
+      Tab A9: Unter dem Wetter blieben quer 59 px leer, unter dem Monat 30 %
+      (die Termine standen auf einer zweiten Seite), unter zwei Werten 69 %.
+      Mit „Automatisch“ quetschte sich die Beschreibung des Wetters zu einer
+      Spalte, die Vorschau lief seitlich und hochkant unten aus dem Rahmen.
+      Jetzt misst die Visu die Fläche und passt den Inhalt in Stufen an:
+      Die Wetterkurve nimmt die freie Höhe, in echter Größe gezeichnet; passen
+      die Details mit darauf, entfällt Seite 2. Breite Flächen setzen Lage und
+      Kurve nebeneinander, schmale die Beschreibung darunter, die Vorschau
+      lässt sich dort wischen. Der Kalender zeigt unter dem Monat (breit:
+      daneben) die Termine, ein Tipp auf einen Tag zeigt dessen Termine gleich
+      darunter. Die Werte füllen die Höhe, wenige werden groß wie Kacheln.
+      Geprüft über 180 Fälle (neun Bildschirmgrößen von 480×480 bis
+      1340×800, vier Raster, Widget-Seiten), 15 Browser-Tests; 29
+      Gegenproben schlagen an. Nebenbei: Auf einer Widget-Seite saß der
+      Verbindungspunkt mitten im Widget, jetzt ist er dort aus wie auf der
+      Kalender- und Wetter-Seite. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1. **M**
+- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ und die
+      angepasste Pane 2 am Tab A9 prüfen (Raster quer und hochkant, Widget,
+      Drehen). Aus den Ideen offen: eine Listen-Darstellung als Alternative
+      zu großen Kacheln. **M**
+- [ ] **Kalender ohne Namen heißt „Family“:** Der Server nimmt ohne Eintrag
+      unter *Kalender & Wetter* den Namen „Family“ (`webvisu.py`, zwei
+      Stellen, Vorgabe aus Upstream), die Visu zeigt ihn als Überschrift der
+      Termine. Auf Deutsch „Termine“, wie die Visu es ohne Namen ohnehin
+      vorsieht. **S**
 - [x] **App läuft wochenlang ohne Eingriff** (02.10.2026). Bisher blieb die
       Anzeige bei der Fehlerseite stehen, wenn der eingebettete Server hing
       oder eine seiner Aufgaben endete, bis jemand die App neu startete. Stürzte

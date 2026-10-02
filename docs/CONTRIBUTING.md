@@ -176,6 +176,13 @@ nicht unbemerkt entfernt:
   Lenardo. Reibt sich bei Upstream-Merges an `rasterFuer()`, `applyPane()`
   und `applyScale()`. Wachen: `tests/test_auto_raster.py`,
   `tests/browser/test_auto_raster_browser.py`.
+- Pane 2 nutzt ihre Fläche (`wetterEinpassen()`, `kalenderEinpassen()`,
+  `werteEinpassen()`, `paneEinpassen()` am `ResizeObserver` von `#frontpane`,
+  `fpCurve()` mit Größe, die Regeln `.fp-page.wx`/`.kal`/`.werte` in
+  `panel.html`; Verbindungspunkt auf Widget-Seiten aus): kann zu Lenardo,
+  reibt sich bei Upstream-Merges an `renderWeatherPane()`,
+  `renderCalendarPane()` und `renderSvStatus()`. Wache:
+  `tests/browser/test_pane_hoehe_browser.py`.
 - Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
   `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
   `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld

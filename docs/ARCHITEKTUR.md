@@ -884,9 +884,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   (`--cols`·240 breit, `--rows`·480 hoch), „Bildschirm füllen“ gilt weiter.
   `applyHoch()` läuft in `applyPane()` und im `resize`-Handler, weil beim
   Drehen nicht in jedem Fall neu gerendert wird (Anlagenschema, Screensaver
-  oben). Die Pane ist hochkant fast so groß wie quer (Tab A9: 480×419 gegen
-  480×425 auf 960×480), ihre Inhalte brauchen deshalb keine eigene Fassung;
-  hochkant geprüft sind Verlauf, Wetter und Kalender.
+  oben). Mit festem Raster ist die Pane hochkant fast so groß wie quer (Tab A9:
+  480×419 gegen 480×425 auf 960×480); mit „Automatisch“ und je nach Gerät
+  schwankt sie stärker, darum passen sich Wetter, Kalender und Werte ihrer
+  Fläche an (siehe „Pane 2 nutzt ihre Fläche“).
   Geprüft in `test_split_hochkant_uebereinander`, `test_split_dreht_mit` und
   `test_split_haelfte_wetter_und_kalender[hochkant]`.
 - „Screen füllen“ (Tab ohne Pane 2) verdoppelt das Raster: quer die Spalten
@@ -947,8 +948,47 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Widget über die ganze Fläche; `paneRawNow()` liefert es den Push-Handlern
   (Energie, Kamera, Verlauf, Werte, Audio) wie eine Pane 2. Das Raster bleibt
   beim Profil (keine Verdopplung, auch nicht hochkant), eine Widget-Seite hat
-  keine Sprungmarken. Geprüft in `test_widget_seite_quer_und_hochkant` (quer,
-  hochkant, quadratisch).
+  keine Sprungmarken. Den Verbindungspunkt blendet sie aus wie die Kalender-
+  und Wetter-Seite, er säße sonst mitten im Widget. Geprüft in
+  `test_widget_seite_quer_und_hochkant` (quer, hochkant, quadratisch).
+- Pane 2 nutzt ihre Fläche (Oktober 2026): Wie groß die zweite Fläche ist,
+  hängt von Split, Raster, Lage und Gerät ab (gemessen von 240×403 bis
+  778×723). Wetter, Kalender und Werte messen deshalb nach dem Zeichnen und
+  bei jeder Größenänderung von `#frontpane` nach (`ResizeObserver` →
+  `paneEinpassen()`) und setzen Stufen wie `fitTile()` bei den Kacheln.
+  Container-Queries kämen ohne JS aus, gibt es aber erst ab Chrome 105.
+  - Wetter (`wetterEinpassen()`): Seite 1 ist so hoch wie die Fläche. Die
+    Kurve nimmt den Rest (`flex:1 1 0`) und wird in genau dieser Größe
+    gezeichnet (`fpCurve(hourly, W, H)`), ihre Zahlen sind echte 11 px; Uhr-Seite
+    und Wetter-Tab zeichnen weiter 700×150 und skalieren. Breiter als 1,45 × hoch
+    (`PANE_BREIT`) stehen Lage und Kurve nebeneinander (`.breit`), schmaler als
+    380 px (`WX_SCHMAL`) die Beschreibung unter der Temperatur und die Vorschau
+    zum Wischen (`.schmal`). Die Details stehen einmal im Dokument: unter der
+    Vorschau, wenn der Kurve dann noch 96 px bleiben (`WX_KURVE_MIN`), sonst
+    auf Seite 2. Bleiben ihr weniger als 64 px (`WX_KURVE_KNAPP`) oder ragt ein
+    Teil aus seinem Feld, rückt die Lage zusammen und „Heute hoch/tief“
+    entfällt, das in der Vorschau steht (`.eng`). Beschriftet ist jeder dritte
+    Punkt, auf schmaler Kurve seltener (mindestens 26 px Abstand).
+  - Kalender (`kalenderEinpassen()`): eine Seite, unter dem Monat die Termine
+    (`.kal-liste`, scrollt für sich, ohne zweite Legende). Ein Tipp auf einen
+    Tag zeigt dessen Termine gleich darunter; beim Blättern im Monat bleibt
+    die Liste stehen. Nebeneinander (`.breit`), wenn zwei Spalten à 220 px
+    passen (`KAL_SPALTE_MIN`) und die Fläche breit ist oder darunter weniger
+    als 160 px blieben (`KAL_LISTE_MIN`). Passt der Monat nicht, rücken die Tage
+    in zwei Stufen zusammen (`.eng`, `.eng2`).
+  - Werte (`renderWertePane()`, `werteEinpassen()`): gerahmt wie die anderen
+    Widgets, die Zeilen teilen sich die Höhe, Symbol und Schrift wachsen mit
+    der Zeilenhöhe (`--zh`). Ab 80 px (`WERTE_HOCH`) steht der Wert groß unter
+    Symbol und Name. Reicht die Höhe nicht (acht Werte), scrollt die Pane wie
+    bisher. Die Uhr-Seite zeichnet dieselben Zeilen ohne Rahmen
+    (`renderSvStatus()`, `svStatusZeilen()`).
+  - Energiefluss, Kamera, Audio und Verlauf füllten ihre Fläche schon.
+
+  Vorher, gemessen am Tab A9: Wetter quer mit 3 × 3 und „Bildschirm füllen“
+  59 px leer unter der Vorschau; mit „Automatisch“ quer die Beschreibung zu
+  einer Spalte gequetscht und die Vorschau seitlich abgeschnitten, hochkant
+  unten abgeschnitten. Kalender 30 % leer, die Termine auf Seite 2; zwei Werte
+  69 % leer. Geprüft in `tests/browser/test_pane_hoehe_browser.py`.
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

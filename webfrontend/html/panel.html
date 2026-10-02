@@ -150,6 +150,69 @@
   #frontpane .camwait{display:flex;flex-direction:column;align-items:center;gap:10px;
     color:var(--muted);padding:24px 0;}
   #frontpane .camwait svg{width:56px;height:56px;opacity:.5;}
+  /* Pane 2 nutzt ihre Flaeche (wetterEinpassen, kalenderEinpassen, werteEinpassen).
+     Wetter: Seite 1 so hoch wie die Flaeche, die Kurve nimmt den Rest und wird in
+     genau dieser Groesse gezeichnet. */
+  .screen #frontpane .fp-page.wx{height:100%;min-height:0;overflow:hidden;}
+  .screen #frontpane .fp-page.wx .fp-curve{flex:1 1 0;min-height:0;}
+  .screen #frontpane .fp-page.wx .fp-curve svg{height:100%;}
+  /* breit: Lage und Kurve nebeneinander, Vorschau und Details darunter */
+  .screen #frontpane .fp-page.wx.breit{display:grid;grid-template-columns:max-content minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr);grid-auto-rows:auto;column-gap:18px;}
+  .screen #frontpane .fp-page.wx.breit>.fp-h,
+  .screen #frontpane .fp-page.wx.breit>.fp-fore,
+  .screen #frontpane .fp-page.wx.breit>.fp-det{grid-column:1/-1;}
+  /* breit und schmal: die Beschreibung steht unter Symbol und Temperatur. Als
+     Raster, damit die Spalte nur so breit wird wie Symbol und Temperatur. */
+  .screen #frontpane .fp-page.wx.breit .fp-now,
+  .screen #frontpane .fp-page.wx.schmal .fp-now{display:grid;grid-template-columns:auto auto;
+    justify-content:start;align-content:center;column-gap:18px;row-gap:6px;}
+  .screen #frontpane .fp-page.wx.breit .fp-now .meta,
+  .screen #frontpane .fp-page.wx.schmal .fp-now .meta{grid-column:1/-1;}
+  /* schmal: die Vorschau laesst sich seitlich wischen, statt sieben Tage zu quetschen */
+  .screen #frontpane .fp-page.wx.schmal .fp-fore{grid-template-columns:none;grid-auto-flow:column;
+    grid-auto-columns:58px;overflow-x:auto;scrollbar-width:none;}
+  .screen #frontpane .fp-page.wx.schmal .fp-fore::-webkit-scrollbar{display:none;}
+  /* eng: kleinere Lage ohne "Heute hoch/tief" (steht in der Vorschau), Vorschau
+     ohne Regenwahrscheinlichkeit */
+  .screen #frontpane .fp-page.wx.eng .fp-now{gap:12px;padding-bottom:2px;}
+  .screen #frontpane .fp-page.wx.eng .fp-now .heute{display:none;}
+  .screen #frontpane .fp-page.wx.eng .fp-now .ico{width:52px;height:52px;}
+  .screen #frontpane .fp-page.wx.eng .fp-now .t{font-size:44px;}
+  .screen #frontpane .fp-page.wx.eng .fp-fc{padding:7px 2px 8px;gap:3px;}
+  .screen #frontpane .fp-page.wx.eng .fp-fc .pop{display:none;}
+  /* Kalender: eine Seite, unter dem Monat (breit: daneben) die Termine, die fuer
+     sich scrollen */
+  .screen #frontpane .fp-page.kal{height:100%;min-height:0;overflow:hidden;}
+  .screen #frontpane .fp-page.kal .kal-monat{flex:none;}
+  .screen #frontpane .fp-page.kal .kal-liste{flex:1 1 0;min-height:0;overflow-y:auto;
+    display:flex;flex-direction:column;gap:6px;scrollbar-width:none;}
+  .screen #frontpane .fp-page.kal .kal-liste::-webkit-scrollbar{display:none;}
+  .screen #frontpane .fp-page.kal.breit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr);column-gap:16px;}
+  .screen #frontpane .fp-page.kal.eng .fp-mon{padding:10px 10px 12px;}
+  .screen #frontpane .fp-page.kal.eng .fp-mon-h{padding-bottom:7px;margin-bottom:6px;}
+  .screen #frontpane .fp-page.kal.eng .fp-mon-c{min-height:28px;padding:2px 0 8px;}
+  .screen #frontpane .fp-page.kal.eng2 .fp-mon{padding:8px 8px 9px;}
+  .screen #frontpane .fp-page.kal.eng2 .fp-mon-h{padding-bottom:4px;margin-bottom:4px;}
+  .screen #frontpane .fp-page.kal.eng2 .fp-mnav{width:28px;height:28px;}
+  .screen #frontpane .fp-page.kal.eng2 .fp-mon-wd{padding-bottom:3px;}
+  .screen #frontpane .fp-page.kal.eng2 .fp-mon-c{min-height:24px;padding:1px 0 6px;font-size:12px;}
+  /* Werte: die Zeilen teilen sich die Hoehe, Symbol und Schrift wachsen mit */
+  .screen #frontpane .fp-page.werte .sv-st{flex:1 0 auto;
+    padding:8px clamp(11px,calc(var(--zh,44px)*.18),22px);}
+  .screen #frontpane .fp-page.werte .sv-st .ico{width:clamp(22px,calc(var(--zh,44px)*.34),44px);
+    height:clamp(22px,calc(var(--zh,44px)*.34),44px);}
+  .screen #frontpane .fp-page.werte .sv-st .nm{font-size:clamp(14px,calc(var(--zh,44px)*.15),21px);}
+  .screen #frontpane .fp-page.werte .sv-st .nm .rm{font-size:clamp(11px,calc(var(--zh,44px)*.1),15px);}
+  .screen #frontpane .fp-page.werte .sv-st .vl{font-size:clamp(15px,calc(var(--zh,44px)*.28),42px);}
+  /* hohe Zeilen: der grosse Wert steht unter Symbol und Name wie auf einer Kachel,
+     der Name hat die ganze Breite und bricht an Wortgrenzen um */
+  .screen #frontpane .fp-page.werte.hoch .sv-st{grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"ico nm" "vl vl";align-content:center;row-gap:6px;}
+  .screen #frontpane .fp-page.werte.hoch .sv-st .ico{grid-area:ico;}
+  .screen #frontpane .fp-page.werte.hoch .sv-st .nm{grid-area:nm;white-space:normal;overflow-wrap:break-word;}
+  .screen #frontpane .fp-page.werte.hoch .sv-st .vl{grid-area:vl;justify-self:end;}
   /* Energiefluss-Pane (Radial, Loxone-Standard). Erzeugung=Akzent, Verbrauch=Glow. */
   .epane{flex:1;display:flex;flex-direction:column;min-height:0;}
   .epane .etop{display:flex;justify-content:center;padding:2px 0 2px;}
@@ -1844,7 +1907,7 @@ function applyPane(){
   else if(kind==='energy') renderEnergyPane(fp);
   else if(kind==='camera' && !svSideOn()) renderCameraPane(fp);
   else if(kind==='chart') renderChartPane(fp);
-  else if(kind==='status') renderSvStatus(fp);   // frei gewaehlte Werte als Pane 2
+  else if(kind==='status') renderWertePane(fp);   // frei gewaehlte Werte als Pane 2
   // Energiefluss und Kamera hat der Server je Verbindung nur EINMAL. Liegt der
   // Screensaver oben, gilt SEINE Wahl — die Pane darunter ist verdeckt, und ein
   // Kamerabild hinter dem Screensaver waere eine Dauerverbindung zur
@@ -2068,7 +2131,9 @@ function render(){
   stopVideo();
   closeMenu();
   setMore(null);
-  el('conn').classList.toggle('vis', !!(view.route && view.route.view==='tab'));
+  // Auf einer Widget-Seite saesse der Verbindungspunkt mitten im Inhalt, wie
+  // auf der Kalender-/Wetter-Seite (renderFrontTab)
+  el('conn').classList.toggle('vis', !!(view.route && view.route.view==='tab') && !view.widget);
   // Widget-Seite: ganzer Tab = ein Widget (Vollbild). Kein Kachelgrid; die
   // Flaeche bleibt beim Profil-Standard (nicht verdoppeln). applyPane (ueber
   // renderTabs) zeichnet das Widget und meldet seinen Datenkanal an.
@@ -2367,7 +2432,7 @@ function connect(){
     if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[];
       if(saverOn()){ renderFront(); return; }   // Uhr-Seite oben -> dort
-      const fp=el('frontpane'); if(fp && !svSideOn() && paneKind(paneRawNow())==='status') renderSvStatus(fp); return; }   // sonst Werte als Pane 2
+      const fp=el('frontpane'); if(fp && !svSideOn() && paneKind(paneRawNow())==='status') renderWertePane(fp); return; }   // sonst Werte als Pane 2
     if(msg.t==='chart'){ chartData=msg;   // Verlaufs-Pane
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> als zweite Uhr-Spalte zeichnen
       const fp=el('frontpane'); if(fp && paneKind(paneRawNow())==='chart') renderChartPane(fp); return; }
@@ -2552,14 +2617,28 @@ function svWeatherHTML(w){
 }
 // Frei gewaehlte Bausteine: Name, Raum, Wert — nur lesen. Die Kacheln baut der
 // Server ueber dieselbe Kette wie jede andere Kachel (status_blocks).
-function renderSvStatus(box){
+function renderSvStatus(box){ box.innerHTML='<div class="lbl">Werte</div>'+svStatusZeilen(); }
+// Werte als Pane 2: gerahmt wie die anderen Widgets, die Zeilen teilen sich die
+// Hoehe. Sind es wenige, wachsen Symbol und Schrift mit (--zh = Zeilenhoehe,
+// werteEinpassen); reicht die Hoehe nicht, scrollt die Pane wie bisher.
+function renderWertePane(box){
+  box.innerHTML='<div class="fp-page werte"><div class="fp-h">Werte</div>'+svStatusZeilen()+'</div>';
+  werteEinpassen(box);
+}
+// Werte: ab dieser Zeilenhoehe (px) duerfen lange Namen umbrechen
+const WERTE_HOCH = 80;
+function werteEinpassen(box){
+  const s=box && box.querySelector('.fp-page.werte'); if(!s || !s.clientHeight) return;
+  const z=s.querySelector('.sv-st');
+  if(z){ s.style.removeProperty('--zh'); s.classList.remove('hoch');
+    const zh=z.offsetHeight; s.style.setProperty('--zh', zh+'px'); s.classList.toggle('hoch', zh>=WERTE_HOCH); }
+}
+// Zeilen der gewaehlten Werte (Uhr-Seite und Pane 2), ohne Werte ein Hinweis.
+function svStatusZeilen(){
   const items=Array.isArray(svStatusData)?svStatusData:[];
-  if(!items.length){
-    box.innerHTML='<div class="lbl">Werte</div><div class="fp-empty">'+
-      (svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
-    return;
-  }
-  box.innerHTML='<div class="lbl">Werte</div>'+items.map(it=>{
+  if(!items.length)
+    return '<div class="fp-empty">'+(svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
+  return items.map(it=>{
     const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
     const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
       : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
@@ -2625,23 +2704,30 @@ function renderSvSide(evs){
 // ---- Ausfuehrliche "Wetter & Kalender"-Ansicht (fuer eigene Seite / Split-Pane) ----
 // Zeichnet den Stunden-Temperaturverlauf als Inline-SVG (Regenband + Kurve),
 // Vorschaukarten mit Regenwahrscheinlichkeit und die Termine als Tages-Agenda.
-function fpCurve(hourly){
+// W x H: Groesse der Zeichnung. Ohne Angabe 700 x 150, die das SVG auf seine
+// Breite skaliert (Uhr-Seite, Wetter-Tab). Pane 2 zeichnet in der Groesse
+// ihres Platzes, dann sind die Zahlen echte 11 px (wetterEinpassen).
+function fpCurve(hourly, W=700, H=150){
   const pts=hourly.filter(h=>h && h.temp!=null);
   if(pts.length<2) return '';
-  const W=700,H=150,padT=24,padB=32,padX=12,n=pts.length;
+  const padT=24,padB=32,padX=12,n=pts.length;
   const temps=pts.map(p=>p.temp);
   let mn=Math.min(...temps), mx=Math.max(...temps);
   if(mx-mn<4){ const c=(mx+mn)/2; mn=c-2; mx=c+2; }
   const X=i=> padX + i*(W-2*padX)/(n-1);
   const Y=t=> padT + (mx-t)*(H-padT-padB)/(mx-mn);
   const barW=Math.max(3,(W-2*padX)/n*0.55);
+  // Beschriftet ist jeder dritte Punkt, auf schmaler Zeichnung seltener: eine
+  // Zahl braucht gut 26 px. Der letzte Punkt nur, wenn er so weit vom vorigen
+  // beschrifteten entfernt ist.
+  const dx=(W-2*padX)/(n-1), jede=Math.max(3, Math.ceil(26/dx));
   const bars=pts.map((p,i)=>{ if(p.pop==null||p.pop<=0) return '';
     const bh=(p.pop/100)*(H-padB-padT)*0.55;
     return '<rect x="'+(X(i)-barW/2).toFixed(1)+'" y="'+(H-padB-bh).toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="1.5" fill="#7fb2e6" opacity=".2"/>'; }).join('');
   const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.temp).toFixed(1)).join(' ');
   const area=X(0).toFixed(1)+','+(H-padB)+' '+line+' '+X(n-1).toFixed(1)+','+(H-padB);
   let lbl='';
-  pts.forEach((p,i)=>{ if(i%3===0||i===n-1){
+  pts.forEach((p,i)=>{ if(i%jede===0 || (i===n-1 && (i%jede)*dx>=26)){
     lbl+='<text x="'+X(i).toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle" class="fpx">'+p.h+'</text>';
     lbl+='<text x="'+X(i).toFixed(1)+'" y="'+(Y(p.temp)-9).toFixed(1)+'" text-anchor="middle" class="fpt">'+p.temp+'°</text>'; }});
   return '<svg viewBox="0 0 '+W+' '+H+'">'+
@@ -2668,7 +2754,7 @@ function fpNowHTML(w){
     '<span class="t">'+fmtTemp(w.temp)+'°</span><span class="meta">'+
     '<span class="cond">'+esc(w.cond||'')+'</span>'+
     '<span class="sub">'+(w.feels!=null?'Gefühlt '+tdeg(w.feels):'')+(w.wind!=null?' · Wind '+w.wind+' '+wUnit(w):'')+'</span>'+
-    '<span class="sub">Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span></span></div>';
+    '<span class="sub heute">Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span></span></div>';
 }
 function fpCurveHTML(w){
   const hh=Array.isArray(w.hourly)?w.hourly:[];
@@ -2708,7 +2794,8 @@ function evRow(d,e){
   return '<div class="fp-ev"><span class="tm'+(e.allday?' all':'')+'">'+esc(e.time||'')+'</span>'+
     '<span class="ttl">'+calDot(d,e)+esc(e.title||'')+nam+
     (e.note?'<span class="note">'+esc(e.note)+'</span>':'')+'</span></div>'; }
-function fpCalHTML(d){
+// legende=false: die Legende steht schon unter dem Monat (Kalender in Pane 2)
+function fpCalHTML(d, legende=true){
   const evs=Array.isArray(d.events)?d.events:[], hol=d.holidays||{};
   if(calSel){   // ein Tag gewaehlt -> nur dessen Termine (+ Feiertag)
     let dt; try{ dt=new Date(calSel+'T00:00'); }catch(e){ dt=new Date(); }
@@ -2720,7 +2807,7 @@ function fpCalHTML(d){
     else if(!hol[calSel]) html+='<div class="fp-empty">Keine Termine an diesem Tag.</div>';
     return html;
   }
-  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>'+fpLegendHTML(d);
+  let html='<div class="fp-h">'+esc(d.calName||'Termine')+'</div>'+(legende?fpLegendHTML(d):'');
   if(evs.length){
     html+='<div class="fp-cal">'; let curDay=null;
     evs.forEach(e=>{ if(e.day!==curDay){ curDay=e.day; html+='<div class="fp-day">'+esc(e.day||'')+'</div>'; } html+=evRow(d,e); });
@@ -2866,10 +2953,55 @@ function renderCameraPane(elc){ if(!elc) return;
 }
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.weather;
   if(!w){ elc.innerHTML='<div class="fp-empty">Kein Wetter konfiguriert.</div>'; return; }
-  // Seite 1 = Aktuell/Kurve/Vorschau (fuellt die 2x2-Hoehe), Seite 2 = Detailkacheln.
+  // Seite 1 = Aktuell, Kurve, Vorschau und die Details, so hoch wie die Flaeche.
+  // Passen die Details nicht mit darauf, haengt wetterEinpassen sie auf Seite 2.
   const det=fpWeatherDetailHTML(w);
-  elc.innerHTML='<div class="fp-page">'+fpWeatherMainHTML(w)+'</div>'
-    +(det?'<div class="fp-page">'+det+'</div>':''); }
+  elc.innerHTML='<div class="fp-page wx">'+fpWeatherMainHTML(w)+det+'</div>'
+    +(det?'<div class="fp-page wxdet" hidden></div>':'');
+  wetterEinpassen(elc); }
+// ---- Pane 2 nutzt ihre Flaeche (Wetter, Kalender, Werte) ----
+// Wie gross die Flaeche ist, steht erst nach dem Layout fest (Split, Raster,
+// Drehen). Darum misst die Visu nach dem Zeichnen und bei jeder
+// Groessenaenderung von #frontpane nach und setzt Stufen, wie fitTile() bei
+// den Kacheln. Container-Queries kaemen ohne JS aus, aber erst ab Chrome 105.
+// Breiter als hoch um diesen Faktor: Lage und Kurve nebeneinander (Wetter),
+// Monat und Termine nebeneinander (Kalender).
+const PANE_BREIT = 1.45;
+// Wetter: schmaler als das (px), steht die Beschreibung unter der Temperatur
+// und die Vorschau laesst sich seitlich wischen, statt sich zu quetschen.
+const WX_SCHMAL = 380;
+// Wetter: so hoch (px) soll die Kurve mindestens werden. Fehlt der Platz,
+// wandern erst die Details auf Seite 2, dann rueckt der Rest zusammen ("eng").
+const WX_KURVE_MIN = 96, WX_KURVE_KNAPP = 64;
+// Kalender: so hoch (px) soll die Terminliste unter dem Monat mindestens werden
+// (gut drei Termine), so breit eine Spalte, wenn Monat und Termine
+// nebeneinander stehen.
+const KAL_LISTE_MIN = 160, KAL_SPALTE_MIN = 220;
+function inhaltsBox(e){ const cs=getComputedStyle(e);
+  return { w: e.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),
+           h: e.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom) }; }
+function wetterEinpassen(elc){
+  const s=elc && elc.querySelector('.fp-page.wx'), w=(frontData||{}).weather;
+  if(!s || !w || !s.clientHeight) return;    // nicht zu sehen: beim Einblenden (ResizeObserver)
+  const box=inhaltsBox(s), kurve=s.querySelector('.fp-curve'), det=elc.querySelector('.fp-det');
+  const s2=elc.querySelector('.fp-page.wxdet');
+  s.classList.toggle('breit', box.w > box.h*PANE_BREIT);
+  s.classList.toggle('schmal', box.w < WX_SCHMAL);
+  s.classList.remove('eng');
+  // Platz fuer die Kurve: sie nimmt, was die anderen Teile uebrig lassen
+  const frei=()=> kurve ? kurve.clientHeight : Infinity;
+  // passt: nichts ragt aus der Seite und kein Teil aus seinem Feld (nebeneinander
+  // hat die Lage ein festes Feld, ein Ueberlauf laege mitten in der Seite)
+  const passt=()=> s.scrollHeight <= s.clientHeight
+    && ![...s.children].some(k=>!k.hidden && k.scrollHeight > k.clientHeight+1);
+  // Die Details stehen einmal: unter der Vorschau, wenn die Kurve dann noch
+  // genug Platz hat, sonst auf Seite 2.
+  if(det){ s.appendChild(det); if(s2 && (frei()<WX_KURVE_MIN || !passt())) s2.appendChild(det); }
+  if(s2) s2.hidden=!s2.children.length;
+  if(frei()<WX_KURVE_KNAPP || !passt()) s.classList.add('eng');
+  if(kurve){ const hh=Array.isArray(w.hourly)?w.hourly:[];
+    kurve.innerHTML=fpCurve(hh, kurve.clientWidth, kurve.clientHeight); }
+}
 function fpMonthHTML(events, holidays, colors){
   const base=new Date(); base.setDate(1); base.setMonth(base.getMonth()+calMonthOff);
   const y=base.getFullYear(), m=base.getMonth();
@@ -2905,16 +3037,38 @@ function fpMonthHTML(events, holidays, colors){
   }
   return html+'</div></div>';
 }
-function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
-  // Seite 1 = Monat (fuellt die 2x2-Hoehe), Seite 2 = Agenda/Termine.
-  // Legende auch unter das Monatsraster: dort stehen die Farbpunkte, die sie
-  // erklaert — sie nur auf der Agenda-Seite zu zeigen, hilft niemandem.
-  elc.innerHTML='<div class="fp-page">'+fpMonthHTML(d.events, d.holidays, d.calColors)
-      +fpLegendHTML(d)+'</div>'
-    +'<div class="fp-page">'+fpCalHTML(d)+'</div>';
+function renderCalendarPane(elc, nachOben){ if(!elc) return; const d=frontData||{};
+  // Eine Seite so hoch wie die Flaeche: oben der Monat, darunter die Termine,
+  // die den Rest fuellen und fuer sich scrollen. Ein Tipp auf einen Tag zeigt
+  // dessen Termine gleich darunter. Auf breiter Flaeche stehen Monat und
+  // Termine nebeneinander (kalenderEinpassen). Die Legende steht unter dem
+  // Monat: dort sind die Farbpunkte, die sie erklaert.
+  // Die Liste behaelt ihre Stelle (neue Daten, anderer Monat - sie zeigt alle
+  // kommenden Termine); ein gewaehlter Tag oder "Alle" beginnt oben.
+  const alt=elc.querySelector('.kal-liste'), oben=(alt && !nachOben) ? alt.scrollTop : 0;
+  elc.innerHTML='<div class="fp-page kal"><div class="kal-monat">'+fpMonthHTML(d.events, d.holidays, d.calColors)
+      +fpLegendHTML(d)+'</div><div class="kal-liste">'+fpCalHTML(d, false)+'</div></div>';
   elc.querySelectorAll('[data-mnav]').forEach(b=>b.onclick=()=>{ calMonthOff+=parseInt(b.dataset.mnav)||0; renderCalendarPane(elc); });
-  elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc); });
-  elc.querySelectorAll('[data-calall]').forEach(b=>b.onclick=()=>{ calSel=''; renderCalendarPane(elc); });
+  elc.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{ calSel=(calSel===c.dataset.day?'':c.dataset.day); renderCalendarPane(elc, true); });
+  elc.querySelectorAll('[data-calall]').forEach(b=>b.onclick=()=>{ calSel=''; renderCalendarPane(elc, true); });
+  kalenderEinpassen(elc);
+  const liste=elc.querySelector('.kal-liste'); if(liste && oben) liste.scrollTop=oben;
+}
+function kalenderEinpassen(elc){
+  const s=elc && elc.querySelector('.fp-page.kal'); if(!s || !s.clientHeight) return;
+  const box=inhaltsBox(s), liste=s.querySelector('.kal-liste'), monat=s.querySelector('.kal-monat');
+  s.classList.remove('breit','eng','eng2');
+  // Der Monat passt, wenn er weder aus der Seite noch aus seinem Feld ragt
+  // (nebeneinander hat er ein festes Feld). Die Liste scrollt fuer sich.
+  const passt=()=> s.scrollHeight <= s.clientHeight && monat.scrollHeight <= monat.clientHeight+1;
+  // Nebeneinander, wenn die Flaeche breit ist oder unter dem Monat kaum Platz
+  // fuer Termine bliebe - sofern zwei Spalten hineinpassen.
+  if(box.w >= 2*KAL_SPALTE_MIN && (box.w > box.h*PANE_BREIT || liste.clientHeight < KAL_LISTE_MIN)) s.classList.add('breit');
+  // Passt der Monat nicht oder bleibt untereinander zu wenig fuer die Termine,
+  // ruecken die Tage zusammen, wenn noetig in zwei Stufen.
+  const zuWenig=()=> !s.classList.contains('breit') && liste.clientHeight < KAL_LISTE_MIN;
+  if(!passt() || zuWenig()) s.classList.add('eng');
+  if(!passt() || zuWenig()) s.classList.add('eng2');
 }
 // Kalender-/Wetter-Seite (Tab "kalender"/"wetter", view.front): dieselben
 // Bausteine wie die Split-Pane, aber auf der ganzen Kachelflaeche. Quer zwei
@@ -3216,6 +3370,11 @@ function onScreenResize(){
     renderFront(); }
 }
 if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
+// Pane 2 passt ihren Inhalt an, sobald sich ihre Groesse aendert: Drehen, Split
+// an/aus, automatisches Raster, Einblenden nach der Uhr-Seite.
+function paneEinpassen(){ const fp=el('frontpane'); if(!fp || fp.hidden) return;
+  wetterEinpassen(fp); kalenderEinpassen(fp); werteEinpassen(fp); }
+if(window.ResizeObserver){ const _fp=el('frontpane'); if(_fp) new ResizeObserver(paneEinpassen).observe(_fp); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
   DISP.presence = !!msg.presence;   // jemand im Raum -> Display bleibt an (auch nach Neuladen)
