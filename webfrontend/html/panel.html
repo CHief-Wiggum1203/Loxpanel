@@ -74,6 +74,11 @@
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
   .screen.split.fill{width:100vw;height:100vh;}
+  /* Automatisches Raster (Tablet): der Kasten ist der ganze Schirm (wie "fill"),
+     das Widget belegt ganze Kachelspalten bzw. -zeilen (autoRaster) - die
+     Kacheln bleiben mit und ohne Widget gleich gross. */
+  .screen.split.auto:not(.hoch){grid-template-columns:var(--auto-k,1fr) var(--auto-p,1fr);}
+  .screen.split.hoch.auto{grid-template-rows:var(--auto-k,1fr) var(--auto-p,1fr) auto;}
   /* Widget-Seite (Vollbild-Tab): das Widget fuellt die ganze Flaeche, kein
      Kachelgrid, kein Split - gleiche gerahmte fp-page wie in Pane 2. */
   .screen.widgettab #grid{display:none;}
@@ -182,6 +187,9 @@
   @keyframes eflowin{0%{transform:translate(var(--dx),var(--dy));opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
   .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
+  /* Automatisches Raster: Spalten- und Zeilenzahl sind oft ungerade (5 x 3), die
+     Mitte laege auf einer Kachel - der Punkt sitzt wie im Split in der Ecke. */
+  .screen.auto .conn{place-self:start start;margin:6px;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
      Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
@@ -205,9 +213,9 @@
   #playerpane .ppvol .sld{flex:1;}
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
-  .grid{--gap:10px;grid-area:1/1;
+  .grid{--gap:10px;--pad:10px;grid-area:1/1;
     display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
-    grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:10px;
+    grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:var(--pad);
     overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
   /* Schlanke Scrollleiste im Theme fuer JEDEN scrollenden Bereich. Ohne das
      zeichnet der Browser in der Split-Pane seine Standardleiste (16 px, grau)
@@ -357,6 +365,60 @@
   .grid.list .tile .head{flex:0 0 auto;}
   .grid.list .tile .body{flex:1;min-width:0;}
   .grid.list .tctrls{margin-top:0;}
+  /* Neuer Kachel-Aufbau (.lx, Standard; ui.tileLayout "classic" = der bisherige),
+     nach den Kacheln der Loxone-App: Raum klein oben rechts im Kopf statt in
+     Versalien ueber dem Namen, kein Pfeil, Text gleich unter dem Kopf, Tasten
+     als Leiste ueber die ganze Breite unten. Zustand vorn (.zv): der Zustand
+     steht gross, der Name klein darunter. Ein Messwert (Raumregelung, Sauna)
+     steht gross an Stelle des Symbols (.bigv). Das Raster bleibt, wie es ist;
+     die Listen-Ansicht behaelt ihren Aufbau. */
+  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:14px;}
+  .grid.lx:not(.list) .tile .head{gap:8px;}
+  .grid.lx:not(.list) .tile .head .room{flex:1 1 auto;min-width:0;text-align:right;margin:2px 0 0;
+    font-size:var(--room-size,13px);text-transform:none;letter-spacing:0;}
+  .grid.lx:not(.list) .tile .tspark{order:2;margin:8px 0 2px;}
+  .grid.lx:not(.list) .tile .body{order:1;margin-top:10px;display:flex;flex-direction:column;}
+  .grid.lx:not(.list) .tile .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
+  /* Haupttext (--name-size) und Zweittext (--sub-size) wie eingestellt; der
+     Server schickt fuer diesen Aufbau etwas kleinere Standardwerte. Lange
+     Woerter werden getrennt statt mit "..." abgeschnitten. Mehrteilige
+     Zustaende ("Soll 22,0° · heizt") stehen untereinander (subText). Farbe,
+     Fett und Kursiv aus "Kacheln gestalten" (--tile-txt/-fw/-fst) gelten fuer
+     den Haupttext, auch wenn er der Zustand ist. */
+  .grid.lx:not(.list) .tile .name{font-size:var(--name-size,16px);font-weight:max(500,var(--name-weight,450));
+    line-height:1.2;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    hyphens:auto;overflow-wrap:break-word;}
+  .grid.lx:not(.list) .tile .sub{font-size:var(--sub-size,14px);white-space:pre-line;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.2;
+    hyphens:auto;overflow-wrap:break-word;}
+  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:var(--name-size,16px);
+    font-weight:var(--tile-fw,max(500,var(--name-weight,450)));font-style:var(--tile-fst,normal);
+    color:var(--tile-txt,var(--name-color,inherit));}
+  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:var(--sub-size,14px);font-weight:400;
+    color:var(--muted);-webkit-line-clamp:1;}
+  .grid.lx:not(.list) .tile.zv.on .sub{color:var(--glow);}
+  .grid.lx:not(.list) .tile.zv.good .sub{color:var(--good);}
+  .grid.lx:not(.list) .tile.zv.crit .sub{color:var(--crit-ink,var(--crit));}
+  .grid.lx:not(.list) .tile.zv.crit .name{color:var(--crit-muted,var(--muted));}
+  .grid.lx:not(.list) .tile .bigv{font-size:var(--big-size,36px);font-weight:500;line-height:1;
+    letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--name-color,inherit);}
+  .grid.lx:not(.list) .tile .bigv small{font-size:.5em;font-weight:400;color:var(--muted);letter-spacing:0;}
+  .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:10px;gap:8px;}
+  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:44px;border-radius:12px;}
+  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:19px;height:19px;}
+  /* Enge Kachel: die Tasten ruecken wie bisher in den Kopf (placeCtrls), der
+     Raum macht ihnen Platz. */
+  .grid.lx:not(.list) .tile.ctrltight .head .room{display:none;}
+  /* Enge Kachel (etwa 3x3 auf dem 4"-Panel), gemessen in fitTile(): erst steht
+     der Text nur noch einzeilig (eng1), reicht das nicht, faellt die Angabe zum
+     Mini-Verlauf weg (eng2, der Verlauf selbst bleibt im Kopf), dann die zweite
+     Zeile (eng3) - der Name geht vor der Angabe. Ist die zweite Zeile nur eine
+     Beschreibung (.bi, etwa "Tuersprechanlage"), weicht sie zuerst und der Name
+     behaelt zwei Zeilen. */
+  .grid.lx:not(.list) .tile.eng1:not(.bi) .name,.grid.lx:not(.list) .tile.eng1:not(.bi) .sub,
+  .grid.lx:not(.list) .tile.eng3.bi .name{-webkit-line-clamp:1;}
+  .grid.lx:not(.list) .tile.eng1.bi .sub,.grid.lx:not(.list) .tile.eng2 .tsline,
+  .grid.lx:not(.list) .tile.eng3.zv .name,.grid.lx:not(.list) .tile.eng3:not(.zv) .sub{display:none;}
   /* Detail-Panel (z.B. Jalousie) */
   .grid.panel{display:flex;flex-direction:column;gap:10px;align-items:stretch;grid-auto-rows:initial;}
   /* Anlagenschema (SystemScheme): Titel oben, darunter ein Zoom-/Pan-Viewport.
@@ -1031,6 +1093,8 @@ let playerData = null;   // letzter {t:'player'}-Push (Player-Bloecke) fuer die 
 // in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
 let curChartKey = '', chartData = null, chartRange = '24h';
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
+let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
+let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -1456,6 +1520,22 @@ function placeCtrls(tile){
   tile.classList.add('ctrltight'); head.appendChild(tc);
   if(head.scrollWidth>head.clientWidth+1) tile.classList.add('ctrlnarrow');
 }
+// Neuer Aufbau, enge Kachel: laeuft der Text unten aus der Kachel, weicht
+// Stufe fuer Stufe das Unwichtigste - erst steht der Text einzeilig (eng1),
+// dann faellt die Angabe zum Mini-Verlauf weg (eng2), zuletzt die zweite Zeile
+// (eng3). Gemessen wie in placeCtrls() bei neuer Kachel, neuem Text oder neuer Hoehe.
+function fitTile(tile){
+  if(!tile || !tile.clientHeight) return;
+  const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
+  if(tile._fitText===text && tile._fitH===h) return;
+  tile._fitText=text; tile._fitH=h;
+  tile.classList.remove('eng1','eng2','eng3');
+  if(!kachelNeu()) return;
+  for(const stufe of ['eng1','eng2','eng3']){
+    if(tile.scrollHeight<=h+1) return;
+    tile.classList.add(stufe);
+  }
+}
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
@@ -1466,7 +1546,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme','fronttab');
+  el('grid').classList.remove('list','snapy','scheme','fronttab','lx');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   const g=el('grid');
@@ -1747,7 +1827,8 @@ function applyPane(){
   sc.classList.toggle('widgettab', !!wt);   // Widget fuellt die ganze Flaeche
   sc.classList.toggle('split', isPane && !wt);   // Widget in Pane 2 -> zweigeteilt
   applyHoch();
-  sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
+  sc.classList.toggle('fill', themeFill || gridAuto>0);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
+  sc.classList.toggle('auto', gridAuto>0);   // automatisches Raster: Widget auf ganzen Kachelspalten
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
   if(fp){
@@ -1808,8 +1889,11 @@ function tileVarStyle(it){
   else if(it.color) sv.push('--ico:'+it.color);
   if(ts.bg) sv.push('background:'+ts.bg);
   if(ts.border) sv.push('border-color:'+ts.border);
-  if(ts.txt) sv.push('color:'+ts.txt);
+  if(ts.txt){ sv.push('color:'+ts.txt); sv.push('--tile-txt:'+ts.txt); }
   if(ts.font) sv.push('font-family:'+ts.font);
+  // Neuer Aufbau: Fett/Kursiv gelten auch fuer den Zustand, wenn er vorn steht
+  if(ts.weight) sv.push('--tile-fw:'+ts.weight);
+  if(ts.italic) sv.push('--tile-fst:italic');
   if(ts.ovFill!=null) sv.push('--ov-fill:'+ts.ovFill);
   if(ts.ovBord!=null) sv.push('--ov-bord:'+ts.ovBord);
   if(ts.ovBw!=null) sv.push('--ov-bw:'+ts.ovBw+'px');
@@ -1821,6 +1905,28 @@ function tileVarStyle(it){
   return sv.join(';');
 }
 function tileTone(it){ return it.tone==='good'?' good':(it.tone==='crit'?' crit':(it.on?' on':'')); }
+// Neuer Kachel-Aufbau (.lx): Standard, ausser das Profil waehlt "classic". Die
+// Listen-Ansicht behaelt ihren Aufbau.
+function kachelNeu(){ return tileLayout!=='classic' && !(view && view.layout==='list'); }
+// Zeile zum Namen. Zeigt die Kachel einen Messwert gross (it.big), wiederholt
+// die Zeile ihn nicht (it.bigSub).
+function subText(it){
+  if(!kachelNeu()) return it.sublabel||'';
+  const s=(it.big!=null && it.bigSub!=null) ? it.bigSub : (it.sublabel||'');
+  return s.replace(/ · /g,'\n');   // Teile untereinander (white-space:pre-line)
+}
+// Zustand vorn: der Zustand steht gross, der Name klein darunter. Nicht bei
+// Kacheln, die direkt schalten (dort zeigt die Hervorhebung den Zustand), und
+// nicht, wenn die Zeile nur beschreibt (it.subInfo, etwa "Tuersprechanlage").
+function zustandVorn(it){ return kachelNeu() && !it.cmd && !it.subInfo && !!subText(it); }
+// Klassen des neuen Aufbaus fuer render() und updateGrid(): Zustand vorn (zv),
+// zweite Zeile ist nur eine Beschreibung (bi, weicht in enger Kachel zuerst)
+function aufbauKlassen(it){
+  if(!kachelNeu()) return '';
+  return (zustandVorn(it)?' zv':'')+(it.subInfo && subText(it)?' bi':'');
+}
+// Messwert: ganze Zahl gross, Nachkommastellen und Einheit klein ("25" ",4°")
+function bigHtml(v){ const m=/^(-?\d+)(.*)$/.exec(String(v)); return m ? esc(m[1])+'<small>'+esc(m[2])+'</small>' : esc(v); }
 // Positionsring: EINE Quelle fuer Vollrender und In-place-Patch. Vorher stand
 // der Umfang zweimal als Zahl im Render-Zweig; sobald der Patch dazukam, waere
 // er die dritte Stelle gewesen, an der sich derselbe Wert aendern muss.
@@ -1855,6 +1961,7 @@ function updateTileRing(n,it){
 function updateGrid(items){
   const g=el('grid');
   if(g.classList.contains('panel')) return false;
+  if(g.classList.contains('lx')!==kachelNeu()) return false;   // Kachel-Aufbau gewechselt
   const nodes=g.querySelectorAll('.tile[data-id]');
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
@@ -1863,23 +1970,32 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    const cls='tile'+tileTone(it)+(i%_pg===0?' snap':'')+[...n.classList].filter(c=>c.startsWith('spark')).map(c=>' '+c).join('');
+    // Klassen, die placeCtrls()/paintSpark() nach dem Messen setzen, bleiben
+    // stehen: sonst verloere eine enge Kachel bei jedem Zustandswechsel, der
+    // ihren Text nicht aendert (Player: Pause), die Lage ihrer Tasten.
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+(i%_pg===0?' snap':'')+
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^eng\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
     const body=n.querySelector('.body');
-    if(body){ let subEl=body.querySelector('.sub');
-      if(it.sublabel){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
-        if(subEl.textContent!==it.sublabel) subEl.textContent=it.sublabel; }
+    if(body){ let subEl=body.querySelector('.sub'); const sub=subText(it);
+      if(sub){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
+        if(subEl.textContent!==sub) subEl.textContent=sub; }
       else if(subEl){ subEl.remove(); } }
+    // Messwert an Stelle des Symbols: kommt oder geht er, aendert sich der Kopf
+    const bigEl=n.querySelector('.bigv'), mitBig=kachelNeu() && it.big!=null;
+    if(!!bigEl!==mitBig) ok=false;
+    else if(bigEl){ const h=bigHtml(it.big); if(bigEl.innerHTML!==h) bigEl.innerHTML=h; }
     if(it.controls){ const tbs=n.querySelectorAll('.tctrls .tb');
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; });
       placeCtrls(n); }   // der Text kann eine Zeile mehr brauchen
+    fitTile(n);
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
     // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
-    const spEl=n.querySelector('.tspark'), bdEl=n.querySelector('.tsbadge'), bd=it.spark&&it.spark.badge;
+    const spEl=n.querySelector('.tspark'), bdEl=n.querySelector(kachelNeu()?'.tsline':'.tsbadge'), bd=it.spark&&it.spark.badge;
     if(!!it.spark!==!!spEl || !!bd!==!!bdEl) ok=false;
     else if(spEl){ paintSpark(spEl,it.spark);
       n.querySelectorAll('.tsbadge,.tsline').forEach(e=>{ if(e.textContent!==bd) e.textContent=bd; }); }
@@ -1897,15 +2013,40 @@ function updateGrid(items){
 // 4"-Panel bleibt in jedem Fall bei seinem Raster.
 function rasterFuer(widget){
   const w=window.innerWidth, h=window.innerHeight;
+  if(gridAuto){ const r=autoRaster(widget); return [r.cols, r.rows]; }
   if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
   if(w>h) return [profCols*2, profRows];
   if(h>w && w/h < (profCols/profRows)/Math.SQRT2) return [profCols, profRows*2];
   return [profCols, profRows];
 }
+// Automatisches Raster (Profil "Automatisch", Tablet): Spalten und Zeilen aus
+// der freien Flaeche und der Zielgroesse einer Kachel (gridAuto, vom Server).
+// Ein groesserer Schirm zeigt mehr Kacheln statt groesserer, die Zeilen machen
+// die Kacheln etwa quadratisch. Ein Widget (Pane 2) belegt ganze Kachelspalten
+// (quer) bzw. -zeilen (hochkant), rund PANE_ANTEIL der Flaeche; so bleiben die
+// Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
+// Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
+const PANE_ANTEIL = 0.4;
+function autoRaster(widget){
+  const cs=getComputedStyle(el('grid')), tabs=el('tabs');
+  const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
+  const w=window.innerWidth, h=window.innerHeight-(tabs?tabs.offsetHeight:0);
+  const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
+  const cols=anzahl(w, gridAuto);
+  const rows=anzahl(h, (w-2*pad-(cols-1)*gap)/cols);
+  if(!widget) return {cols:cols, rows:rows, k:1, p:0};
+  const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
+  if(window.innerHeight>window.innerWidth){   // hochkant: Widget unter den Kacheln
+    if(rows<2) return {cols:cols, rows:1, k:1, p:1};
+    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p};
+  }
+  if(cols<2) return {cols:1, rows:rows, k:1, p:1};
+  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p};
+}
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
-  const w=window.innerWidth, h=window.innerHeight;
-  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x');
+  const w=window.innerWidth, h=window.innerHeight, a=gridAuto ? autoRaster(widget) : null;
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '');
 }
 function render(){
   if(!view) return;
@@ -1921,6 +2062,9 @@ function render(){
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
+  if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
+    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr'); }
+  reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   stopVideo();
   closeMenu();
   setMore(null);
@@ -1929,16 +2073,17 @@ function render(){
   // Flaeche bleibt beim Profil-Standard (nicht verdoppeln). applyPane (ueber
   // renderTabs) zeichnet das Widget und meldet seinen Datenkanal an.
   if(view.widget){
-    gridCols=profCols; gridRows=profRows;
+    if(!gridAuto){ gridCols=profCols; gridRows=profRows; }   // automatisch: der Kasten ist ohnehin der Schirm
     document.documentElement.style.setProperty('--cols', gridCols);
     document.documentElement.style.setProperty('--rows', gridRows);
-    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab');
+    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx');
     renderTabs();
     return;
   }
   el('grid').classList.remove('panel','bigpage','anchorbot','scheme','fronttab');
   if(view.front){ renderFrontTab(); return; }
   el('grid').classList.toggle('list', view.layout==='list');
+  el('grid').classList.toggle('lx', kachelNeu());
   const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
@@ -1962,7 +2107,9 @@ function render(){
             (posv>0 ? '<circle class="val" cx="50" cy="50" r="46" stroke-dasharray="'+
               ringDash(posv)+'"/>' : '')+
           '</g></svg>'+icoHtml+'</span>';
-    const chev = (it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
+    const lx = kachelNeu(), sub = subText(it);
+    const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>' : icoCell;
+    const chev = (!lx && it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
     const tone = tileTone(it);
     const ts=it.style||{};
@@ -1975,14 +2122,17 @@ function render(){
     if(ts.italic) nsv.push('font-style:italic');
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
-    html += '<div class="tile'+tone+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
-              '<div class="head">'+icoCell+(it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+chev+'</div>'+
+    // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
+    // im Text (im Kopf stuende sie neben dem Raum).
+    html += '<div class="tile'+tone+aufbauKlassen(it)+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+              '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
+                (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
-              (it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
+              (!lx&&it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
               (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
               '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
-              (it.sublabel?'<div class="sub">'+esc(it.sublabel)+'</div>':'')+'</div>'+
+              (sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
               ctrls+
             '</div>';
   }
@@ -2003,6 +2153,7 @@ function render(){
       });
       placeCtrls(n);
     }
+    fitTile(n);
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
@@ -2031,7 +2182,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx');
   g.classList.add('scheme');
   el('conn').classList.remove('vis');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
@@ -2183,6 +2334,8 @@ function connect(){
       themeFill = !!msg.fill;
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
+      tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
+      gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
       if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
@@ -2770,7 +2923,7 @@ function renderCalendarPane(elc){ if(!elc) return; const d=frontData||{};
 function renderFrontTab(){
   const g=el('grid'), d=frontData||{}, art=view.front;
   const liste=g.querySelector('.ft-b'), oben=(g.classList.contains('fronttab') && liste) ? liste.scrollTop : 0;
-  g.classList.remove('list','snapy','chartpage');
+  g.classList.remove('list','snapy','chartpage','lx');
   g.classList.add('fronttab');
   el('conn').classList.remove('vis');   // der Verbindungspunkt saesse mitten im Inhalt
   if(art==='calendar'){
@@ -3022,7 +3175,8 @@ function applyScale(){
   const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
   const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
   let k=1;
-  if(uiScaleCfg==='auto') k=Math.max(1,passt);      // nur vergroessern: kleiner rechnet das Layout selbst
+  if(gridAuto) k=1;                                  // automatisches Raster: Kacheln haben ihre Groesse, der Kasten ist der Schirm
+  else if(uiScaleCfg==='auto') k=Math.max(1,passt); // nur vergroessern: kleiner rechnet das Layout selbst
   else if(typeof uiScaleCfg==='number') k=Math.min(uiScaleCfg,passt);
   k=Math.round(k*1000)/1000;
   if(k!==uiScaleEff || s.style.getPropertyValue('--ui-scale')===''){
@@ -3041,7 +3195,8 @@ function reportScreen(){
   _screenTimer=setTimeout(()=>{
     const s=document.querySelector('.screen'), sc=window.screen||{};
     const m={t:'screen', vw:innerWidth, vh:innerHeight, sw:sc.width||0, sh:sc.height||0,
-      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff};
+      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff,
+      rc:gridCols, rr:gridRows};   // Raster der Kachelansicht (zeigt, was "Automatisch" ergibt)
     const sig=JSON.stringify(m);
     if(sig===_screenSent) return;
     try{ send(m); _screenSent=sig; }catch(e){}

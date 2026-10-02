@@ -549,41 +549,39 @@ selbst aktuell.
       nach dem Verbinden sind die Räume da. Offen: Klingel, Notify,
       Ansichtswechsel, Neustart der App, Nachtmodus, dazu das Zielgerät
       YC-SM41P.
-- [ ] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
+- [x] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
       Gerät). Eingestellt waren Kachel-Layout 3 × 3, „Bildschirm füllen“ an,
       Skalierung aus, Split-Screen an und als Widget das Wetter. Ergebnis:
       Links standen fünf sehr große Kacheln mit kleinem Icon oben und Text
       unten, die untere Hälfte der Visu blieb leer. Rechts stand das Wetter,
-      darunter wieder eine große Leerfläche.
+      darunter wieder eine große Leerfläche. Für ein gutes Bild mussten fünf
+      Regler zusammenpassen: Kachel-Layout, „Bildschirm füllen“, Skalierung,
+      Split-Screen und Widget je Tab.
 
-      Für ein gutes Bild müssen heute fünf Regler zusammenpassen, die sich
-      gegenseitig beeinflussen:
-      - Kachel-Layout
-      - „Bildschirm füllen“
-      - Skalierung, dazu „Wie global“ und die Übersteuerung je Gerät; laut
-        Hinweis wirkt sie nicht zusammen mit „Bildschirm füllen“
-      - Split-Screen
-      - Widget je Tab, wo „Screen füllen“ etwas anderes heißt als
-        „Bildschirm füllen“
-
-      Was eine Kombination auf einem bestimmten Schirm ergibt, sieht man erst
-      am Gerät.
-
-      Ziel: Die Ansicht sieht auf jedem Gerät ohne Einstellerei gut aus.
-      LoxPanel wählt Raster, Kachelgröße und Aufteilung selbst nach
-      Bildschirm, Lage und Zahl der Bausteine. Wenige Bausteine werden nicht
-      riesig, viele werden kleiner bis zu einer Mindestgröße, danach wird
-      gescrollt.
-
-      Ideen:
-      - die heutigen Regler unter „Erweitert“ sammeln
-      - „Bildschirm füllen“, „Screen füllen“ und Skalierung zu einer
-        Größenwahl zusammenfassen
-      - das Widget in Pane 2 nutzt seine Höhe
-      - eine Listen-Darstellung als Alternative zu großen Kacheln
-
-      Nebenbei: Der Hinweis bei der Skalierung verweist noch auf „Settings →
-      Panels“, die Geräte stehen unter *Displays*. **L**
+      Gelöst am 02.10.2026 mit dem Kachel-Layout **„Automatisch (Tablet)“**.
+      Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße
+      und einer Kachelgröße in drei Stufen (klein, mittel, groß). Ein größerer
+      Schirm zeigt so mehr Kacheln statt größerer: am Tab A9 quer 5 × 3,
+      hochkant 3 × 5, am 10″-Tablet quer 7 × 4. Ein Widget belegt ganze
+      Kachelspalten (quer) bzw. -zeilen (hochkant), etwa 40 % der Fläche. Die
+      Kacheln bleiben dabei gleich groß: am Tab A9 quer stehen 3 × 3 neben
+      dem Wetter. „Bildschirm füllen“ und Skalierung braucht es dann nicht,
+      der Konfigurator blendet sie aus. Geblättert wird seitenweise wie
+      bisher, beim Drehen rechnet das Panel neu. Unter *Displays* zeigt die
+      Geräteliste, welches Raster ein Tablet daraus macht. Der Assistent
+      „Neues Panel“ schlägt „Automatisch“ für 2 Panes vor. Das 4″-Panel
+      bleibt beim festen Raster. Festgelegt am 02.10.2026: Wahl je Panel,
+      seitenweise blättern, Kachelgröße in Stufen, Widget auf ganzen
+      Kachelspalten. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1,
+      Tests in `tests/test_auto_raster.py` und
+      `tests/browser/test_auto_raster_browser.py`. Nebenbei: Der Hinweis bei
+      der Skalierung verweist jetzt auf *Displays* statt auf „Settings →
+      Panels“. **L**
+- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ am Tab A9
+      prüfen (Raster quer und hochkant, Widget, Drehen). Aus den Ideen
+      offen: Das Widget in Pane 2 soll seine Höhe nutzen (beim Wetter blieb
+      darunter eine Leerfläche), dazu eine Listen-Darstellung als
+      Alternative zu großen Kacheln. **M**
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**
@@ -692,6 +690,29 @@ selbst aktuell.
       bisher: deren Summe. Tests in `tests/test_energiefluss.py` und
       `tests/browser/test_energiefluss_browser.py`. An Upstream eingereicht
       als [#58](https://github.com/Lenardo1/loxpanel/pull/58). **S**
+- [x] **Kacheltexte: „1 Räumen“ und „–“ bei Radiotasten.** Audio Zentral
+      und Licht Zentral zeigten bei genau einem Raum „Spielt in 1 Räumen“
+      bzw. „In 1 Räumen aktiv“, jetzt steht die Einzahl. Radiotasten ohne
+      aktiven Ausgang (etwa Lüfterstufen) zeigten auf der Kachel „–“, auf der
+      Detailseite den Ruhe-Text aus der Struktur (`allOff`, etwa
+      „Automatik“). Jetzt zeigen beide den Ruhe-Text. Tests:
+      `tests/test_kachel_texte.py`. **S**
+- [x] **„Tipp auf eine Sprungmarke: Filtern“ ging beim nächsten Speichern
+      verloren.** `_sanitize_panels()` behielt `ui.catFilter`, aber
+      `_panel_export()` gab es nicht an den Konfigurator weiter. Der schickt
+      beim Speichern zurück, was er bekam. Ein Test prüft jetzt beide Listen
+      gegeneinander. **S**
+- [x] **Enge Kachel verlor die Lage ihrer Tasten.** Am 4″-Panel (3×3) rücken
+      die Player-Tasten in den Kopf (`ctrltight`, `ctrlnarrow`). Bei einem
+      Zustandswechsel ohne neuen Text (Pause) setzte `updateGrid()` die
+      Klassen neu und warf beide weg, und `placeCtrls()` maß bei gleichem
+      Text nicht nach. Die Tasten standen danach ohne ihre Regeln im Kopf.
+      Jetzt bleiben die gemessenen Klassen stehen, in beiden Kachel-Aufbauten
+      geprüft. **S**
+- [ ] **Online-Punkt bei 3×3:** Der Verbindungspunkt sitzt in der Mitte des
+      Rasters. Bei 2×2 liegt er in der Fuge, bei 3×3 mitten auf der mittleren
+      Kachel und überdeckt dort Text. Gehört zum Vorschlag „Verbindung“ in
+      Block 9 (Vorschläge aus der Kachel-Analyse). **S**
 
 ## 4. Performance
 
@@ -1234,6 +1255,56 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
       ansehen. Danach das Tab A9 in die Geräteseite aufnehmen (sie nennt nur
       erprobte Geräte). **S**
+- [x] **Neuer Kachel-Aufbau nach den Kacheln der Loxone-App** (Standard für
+      alle Panels, „Klassisch“ je Panel wählbar unter *Panels → Aussehen &
+      Verhalten → Kachel-Aufbau*). Der Raum steht klein oben rechts, der Pfeil
+      fällt weg. Bei Anzeige-Bausteinen steht der Zustand groß und der Name
+      klein darunter („Leer“ über „Postkasten“). Bei Kacheln, die direkt
+      schalten, und bei reinen Beschreibungen („Türsprechanlage“) bleibt der
+      Name vorn. Raumregelung und Sauna zeigen die Temperatur groß an Stelle
+      des Symbols, darunter Soll und Tätigkeit untereinander. Tasten liegen
+      als Leiste unten über die ganze Breite, 44 px hoch statt 34 px rund.
+      Lange Namen werden getrennt statt mit „…“ gekappt. Das Raster bleibt,
+      auch am 4″-Panel (2×2, 3×3). Dort weicht auf enger Kachel Stufe für Stufe
+      das Unwichtigste: erst einzeilig, dann die Angabe zum Mini-Verlauf, dann
+      die zweite Zeile. Gemessen bei 3×3 schneidet der klassische Aufbau 9 von
+      13 Namen ab, der neue 4. Er schneidet nirgends etwas ab, was der
+      klassische ganz zeigt, auch nicht mit den Größen 20/15 älterer
+      Installationen. Der Mini-Verlauf bleibt auch dort, wo der klassische
+      Aufbau keinen Platz für ihn hat (18 Kacheln auf 800×480). Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1. Tests:
+      `tests/test_kachel_aufbau.py`, `tests/browser/test_kachel_aufbau_browser.py`,
+      `test_mini_verlauf_im_neuen_aufbau`. **L**
+- [x] **Schriften anpassbar.** Unter *Global → Darstellung* und je Panel:
+      Haupttext, Zweittext (früher „Name-“/„Sub-Größe“), dazu neu Raum und
+      Messwert. Die Schrift einer Kachel aus „Kacheln gestalten“ (Farbe, fett,
+      kursiv) trifft im neuen Aufbau auch den Zustand, wenn er vorn steht.
+      Ohne Einstellung gilt der Standard des Kachel-Aufbaus (neu etwas kleiner
+      als klassisch). Leere Felder zeigen grau, was gilt, im Panel erst den
+      globalen Wert. Vorher wirkte kein Standard: `load_theme()` und die
+      Vorlage `theme.example.json` setzten feste Größen, der Konfigurator
+      zeigte Werte, die niemand gewählt hatte. Eine `theme.json` aus der
+      früheren Vorlage trägt noch 20/15, für den neuen Standard die Felder
+      leeren. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.4. **M**
+- [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
+      nicht entschieden):
+      - Herauslegen: wichtigste Funktion auf die Kachel, nur was die
+        Detailseite schon sendet und gefahrlos ist. Schalter-Schieber,
+        Zeitschalter ⏱, Taster, Licht Ein/Aus mit Stimmungswahl, Dimmer,
+        Fenster ▲▼, Audio Lautstärke und ⏯, Raumregelung −/+, Radiotasten
+        −/+, Klima und Bewässerung Ein/Aus, Wecker Schlummern/Aus. Bewusst
+        nicht: Tor, Türöffner, Alarmanlage, „Sauna Ein“. Je Kachel wählbar
+        („automatisch“/„keine“). Überschneidet sich mit dem nächsten Punkt.
+      - Doppelt breite Kacheln für Audio und Energiefluss.
+      - Startseite wie die Loxone-App: Uhr und Wetter, darunter Favoriten
+        zum direkten Bedienen.
+      - Ruhigerer Aktiv-Zustand: nur Symbol und Zustand farbig, nicht die
+        ganze Kachel (die Einstellung gibt es, es wäre ein neuer Standard).
+      - Stabilität in der App: Server über `/api/health` überwachen und neu
+        starten, WebView-Absturz abfangen, nächtliches Neuladen als Standard.
+      - Verbindung: bei Störung ein klarer Hinweis und gesperrte Tasten statt
+        des Punkts mitten im Raster.
+      - Tipp-Regel: lang drücken öffnet immer die Detailseite.
 - [ ] **Bedienelemente direkt auf der Kachel** (zurückgestellt am
       02.10.2026). Vorbild ist der Fork von najrefisch („LoxPanel
       Favoriten-Fork 0.19.0-fav4“,

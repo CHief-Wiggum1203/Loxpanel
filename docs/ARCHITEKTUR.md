@@ -244,7 +244,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -269,7 +269,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
-| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
+| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
@@ -624,8 +624,14 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "cats":  ["<uuid oder Namensteil>"],
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
       "ui": {
-        "iconSize": 38, "nameSize": 18, "subSize": 15, "font": "Inter",
+        "iconSize": 38, "nameSize": 18, "subSize": 15,   // px; fehlt = global, sonst Standard des
+        "roomSize": 12, "bigSize": 36,       // Kachel-Aufbaus (GROESSEN_STANDARD, §5.4)
+        "font": "Inter",
         "textColor": "#e8eaed", "bold": true, "lang": "de",
+        "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
+        "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
+        "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
+                                             // fehlt = mittel (KACHEL_ZIEL)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
@@ -664,10 +670,14 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
 }
 ```
 
-Die Validierung in `_sanitize_panels()` (`:933`) ist eine Whitelist, die unbekannte
-oder falsch getypte Felder **still verwirft**. Die Antwort ist trotzdem
-`{"ok": true}`. Wer eine neue Option ergänzt, muss sie dort eintragen, sonst geht
-sie beim Speichern verloren.
+Die Validierung in `_sanitize_panels()` ist eine Whitelist, die unbekannte
+oder falsch getypte Felder verwirft. Die Antwort nennt das Verworfene
+(`verworfen`), der Konfigurator zeigt es als Warnung. Wer eine neue Option
+ergänzt, muss sie dort eintragen und zusätzlich in `_panel_export()`, das die
+Profile an den Konfigurator gibt: Der schickt beim Speichern zurück, was er
+bekam, und eine Option, die dort fehlt, geht beim nächsten Speichern still
+verloren. So geschah es mit `catFilter`. `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`
+prüft beide Listen gegeneinander.
 
 ### 5.4 `theme.json`
 
@@ -680,6 +690,19 @@ der Konfigurator unter Global → Darstellung setzt, steht einmal in
 genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
 sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
 Skalierung für alle Panels; fehlt sie, ist sie aus.
+
+Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
+nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
+Standard des Kachel-Aufbaus aus `GROESSEN_STANDARD` (neu Haupttext 16,
+Zweittext 14, Raum 13; klassisch 18, 15, 12; Icon 38 und Messwert 36 in
+beiden). `_theme_vars()` rechnet damit, `/api/meta` gibt die Tabelle als
+`sizeDefaults` an den Konfigurator, der leere Felder grau mit dem Wert zeigt,
+der dann gilt (im Panel erst der globale, sonst der Standard). Weder
+`load_theme()` noch die Vorlage `theme.example.json` legen Größen fest.
+Bis Oktober 2026 taten sie es (18/15 bzw. 20/15). Die Standardwerte wirkten
+deshalb nie, und der Konfigurator zeigte Werte, die niemand gewählt hatte.
+Eine `theme.json` aus jener Zeit trägt noch 20/15, wer den Standard will,
+leert die Felder unter Global → Darstellung.
 
 In `ui` steckt auch `baseColor`: die Grundfarbe des Panel-Themes. Steht sie da,
 leitet `theme_colors.derive()` daraus den ganzen Farbsatz ab — Hintergrund,
@@ -778,6 +801,63 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 - Block-Rendering in `bh()` (`:486-516`), ein Zweig je `k`.
 - Kachel-Grid über CSS-Variablen `--cols`/`--rows` (2×2, 3×2, 4×3), Kachelgröße
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
+- Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):
+  Standard ist der neue nach den Kacheln der Loxone-App, `"classic"` der
+  bisherige. Das Raster (`cols`/`rows`) ist in beiden gleich, die
+  Listen-Ansicht behält ihren Aufbau. `kachelNeu()` entscheidet, `render()`
+  setzt `.lx` am Grid. Im neuen Aufbau steht der Raum klein oben rechts im
+  Kopf statt in Versalien über dem Namen, der Pfeil fällt weg, Tasten liegen
+  als Leiste über die ganze Breite unten (44 px hoch). Zustand vorn (`.zv`,
+  `zustandVorn()`): Der Zustand steht groß, der Name klein darunter. Das gilt
+  nicht für Kacheln, die direkt schalten (`it.cmd`, dort zeigt die
+  Hervorhebung den Zustand), und nicht, wenn die zweite Zeile nur beschreibt
+  (`it.subInfo` vom Server, Klasse `.bi`, etwa „Türsprechanlage“ oder
+  „Zentral“). Ein Messwert ersetzt das Symbol (`.bigv`). Der Server schickt
+  dafür `big` und `bigSub`: bei der Raumregelung die Ist-Temperatur, darunter
+  Soll und Tätigkeit, bei der Sauna die Temperatur, darunter den Zustand.
+  `subText()` setzt mehrteilige Zustände (` · `) untereinander. Enge Kacheln
+  misst `fitTile()` nach `placeCtrls()`; Stufe für Stufe weicht das
+  Unwichtigste. `eng1`: Text einzeilig, bei `.bi` fällt die Beschreibung weg
+  und der Name behält zwei Zeilen. `eng2`: Die Angabe zum Mini-Verlauf fällt
+  weg, der Verlauf selbst bleibt im Kopf. `eng3`: Die zweite Zeile fällt weg.
+  Der Name geht so vor der Angabe, und der Verlauf hat auch dort Platz, wo
+  der klassische Aufbau keinen findet (18 Kacheln auf 800×480). `updateGrid()`
+  behält die gemessenen Klassen (`spark*`, `ctrltight`, `ctrlnarrow`,
+  `eng1`–`eng3`) und setzt `bigv` an Ort und Stelle. Kommt oder geht ein
+  Messwert, baut es neu auf. Schriftgrößen: `--name-size` (Haupttext, im
+  neuen Aufbau meist der Zustand), `--sub-size` (Zweittext), `--room-size`,
+  `--big-size`. Die Schrift einer Kachel aus „Kacheln gestalten“
+  (`--tile-txt`, `--tile-fw`, `--tile-fst`) gilt für den Haupttext, auch wenn
+  er der Zustand ist. Am 4″-Panel (3×3) schneidet der neue Aufbau nichts ab,
+  was der klassische ganz zeigt, mit den Standardgrößen wie mit 20/15 aus
+  älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
+  `tests/browser/test_kachel_aufbau_browser.py` und
+  `test_mini_verlauf_im_neuen_aufbau`.
+- Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
+  Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
+  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
+  Kachel in CSS-Pixeln, die der Server je Stufe schickt (`gridAuto` aus
+  `KACHEL_ZIEL`: klein 150, mittel 170, groß 200). Spalten = Breite durch
+  Zielgröße, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
+  die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
+  Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
+  etwa 167 × 146 px, hochkant 3 × 5, am 10″-Tablet (1280×800) quer 7 × 4. Ein
+  Widget belegt ganze Kachelspalten (quer) bzw. -zeilen (hochkant), rund
+  `PANE_ANTEIL` (40 %) der Fläche. Die Aufteilung setzt `render()` als
+  `--auto-k`/`--auto-p` (fr), die Kacheln bleiben damit mit und ohne Widget
+  gleich groß: am Tab A9 quer 3 × 3 neben dem Widget statt 5 × 3. Der Kasten
+  ist der ganze Schirm (Klasse `.fill` mit `.auto`), „Bildschirm füllen“,
+  Skalierung und die Verdopplung „Screen füllen“ wirken nicht
+  (`applyScale()` bleibt bei 1). Geblättert wird seitenweise wie bisher (je
+  Seite Spalten × Zeilen Kacheln). Beim Drehen rechnet `rasterKey()` neu, der
+  `resize`-Handler baut dann neu auf. Der Online-Punkt sitzt wie im Split in
+  der Ecke, weil die Mitte bei ungeraden Zahlen (5 × 3) auf einer Kachel läge.
+  Das Panel meldet das Raster mit seiner Bildschirmgröße (`rc`, `rr`), der
+  Konfigurator zeigt es unter Displays bei den Geräten. Das feste Raster
+  (4″-Panel, jedes Profil ohne `grid`) bleibt unverändert. Der Assistent
+  „Neues Panel“ schlägt „Automatisch“ für 2 Panes (Tablet) vor. Geprüft in
+  `tests/test_auto_raster.py` und `tests/browser/test_auto_raster_browser.py`.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
@@ -1167,8 +1247,9 @@ neuer POST-Handler, Rubrik „Settings" in `config.html`, `i18n.js`. Bei Env-Ove
 1. Feld in `appearanceFields()` (`config.html:311`, global und pro Panel) oder im
    Markup von `renderEditor()` (`:370`). Zahlenfelder nur mit `data-ui="<key>"`.
 2. Handler in `bindAppearance()` (`:295`) mit `markDirty()`.
-3. Server-Whitelist in `_sanitize_panels()` (`webvisu.py:948-975`) bzw.
-   `_sanitize_theme_ui()`, sonst wird die Option still verworfen.
+3. Server-Whitelist in `_sanitize_panels()` bzw. `_sanitize_theme_ui()` (global
+   zusätzlich `THEME_UI_KEYS`), sonst wird die Option verworfen. Für Panels
+   auch in `_panel_export()`, sonst geht sie beim nächsten Speichern verloren.
 4. Wirkung: CSS-Variable in `_theme_vars()` (`:728`) oder Verhalten in
    `resolve_profile()` (`:766`) plus `theme`-Payload plus Frontend.
 5. Übersetzung in `i18n.js`.
