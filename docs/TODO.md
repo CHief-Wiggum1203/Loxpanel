@@ -248,6 +248,18 @@ beim nächsten Mal wieder.
       grün, ohne ihn rot. Mit allen Beiträgen konfliktfrei. Einreichen über
       `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/weckzeit-einzahl?expand=1`.
       **S**
+- [ ] **Icon-Bibliothek darf das Tippen nicht unterbrechen (Assistent, dann
+      Lenardo):** Der Editor einer freien Seite lädt die Icon-Bibliothek nach
+      (`/api/loxicons`) und baute danach den ganzen Editor neu auf. Wer gerade
+      den Namen tippte, verlor Fokus und Buchstaben; auf der CI von #99 ging so
+      der Name der ersten Seite verloren. Im Fork füllt `pickIcoGridNeu()` jetzt
+      nur das Icon-Raster neu, samt laufender Suche und Icon-Wahl, geprüft mit
+      `test_name_tippen_waehrend_die_icon_bibliothek_laedt` (scheitert ohne die
+      Änderung, ebenso ohne Suche oder ohne neu gebundene Knöpfe). Offen: Der
+      Panel-Assistent hat dasselbe Muster (`wzIcoGrid()` ruft nach dem Laden
+      `wzRender()` für den ganzen Schritt, dort tippt man die Seitennamen).
+      Danach beides als ein Beitrag bei Lenardo einreichen, der Code ist von
+      ihm (#47). **S**
 - [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
       Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
       mitentwickelt (Block 0c). #62, das `.deb`-Paket, verfolgen wir nicht

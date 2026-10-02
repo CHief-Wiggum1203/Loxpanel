@@ -2103,8 +2103,22 @@ function icoGridBody(cur){
 function pickIcoFilter(v){ v=(v||'').trim().toLowerCase(); document.querySelectorAll('.picogrid .pgi[data-in]').forEach(function(b){ if(b.classList.contains('none')) return; b.hidden = !!v && (b.getAttribute('data-in')||'').indexOf(v)<0; }); }
 function pickIcoGridHtml(p){
   const cur=curPT(p).icon||'';
-  if(LOXLIB===null) loadLoxlib(function(){ if($('#tabPick')) renderPick(p); });
+  // Kommt die Bibliothek nach, nur das Raster neu fuellen statt den ganzen
+  // Editor: sonst verliert das Namensfeld mitten im Tippen Fokus und Buchstaben.
+  if(LOXLIB===null) loadLoxlib(pickIcoGridNeu);
   return '<input class="pgi-search" oninput="pickIcoFilter(this.value)" placeholder="'+T('Icon suchen…')+'"><div class="picogrid">'+icoGridBody(cur)+'</div>';
+}
+function pickIcoGridNeu(){
+  const g=document.querySelector('#tabPick .picogrid'), p=PANELS[cur];
+  if(!g || !p) return;
+  g.innerHTML=icoGridBody(curPT(p).icon||'');
+  bindPickIcons(p);
+  const s=document.querySelector('#tabPick .pgi-search'); if(s && s.value) pickIcoFilter(s.value);
+}
+function bindPickIcons(p){
+  $('#tabPick').querySelectorAll('.picogrid [data-pic]').forEach(el=>el.onclick=()=>{
+    const v=el.dataset.pic; if(v) curPT(p).icon=v; else delete curPT(p).icon;
+    markDirty(); renderPick(p); renderChips(p); });
 }
 
 // Zustand der Rubrik. pickWiz: 0 = noch nicht entschieden, 1..3 = Schritt des
@@ -2334,9 +2348,7 @@ function bindPick(p){
   $('#tabPick').querySelectorAll('[data-ptdel]').forEach(el=>el.onclick=(ev)=>{
     ev.stopPropagation(); pickDelTab(p,+el.dataset.ptdel); });
   { const pa=$('#ptAdd'); if(pa) pa.onclick=()=>pickAddTab(p); }
-  $('#tabPick').querySelectorAll('.picogrid [data-pic]').forEach(el=>el.onclick=()=>{
-    const v=el.dataset.pic; if(v) curPT(p).icon=v; else delete curPT(p).icon;
-    markDirty(); renderPick(p); renderChips(p); });
+  bindPickIcons(p);
   // Seiteninhalt: Bausteine (Kacheln) vs Widget
   { const pc=$('#pickContent'); if(pc) pc.onchange=()=>{ const k=pc.value, e=curPT(p);
       if(!k) delete e.widget;

@@ -191,3 +191,54 @@ def test_vier_seiten_ueberstehen_speichern_und_neuladen(cfg_ordner, tmp_path):
         assert not fehler, fehler
         assert dialoge == [], "keine Rueckfrage: die Standardleiste darf kommentarlos weichen"
     asyncio.run(lauf())
+
+
+def test_name_tippen_waehrend_die_icon_bibliothek_laedt(cfg_ordner):
+    """Der Editor einer freien Seite laedt die Icon-Bibliothek nach. Kommt sie,
+    waehrend jemand den Namen tippt, darf das Feld weder den Fokus noch
+    Buchstaben verlieren (frueher baute sie den ganzen Editor neu auf; auf der
+    CI ging so der Name der ersten Seite verloren)."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["favoriten", "zentral", "raeume", "kategorien"]}}}), encoding="utf-8")
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = {"s" + u: 0 for u in STRUKTUR["controls"]}
+        freigabe = asyncio.Event()
+
+        async def bibliothek(request):          # antwortet erst auf Zuruf
+            await freigabe.wait()
+            return await W.loxicons_handler(request)
+        runner, port, bc = await visu_starten(app, [("GET", "/api/loxicons", bibliothek)])
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await _konfigurator(pg, port)
+                await pg.locator("#tabMode button[data-mode='pick']").click()
+                await pg.locator("#tabPick .pgi-search").fill("sofa")    # Suche laeuft schon
+                await pg.locator("#pickName").click()
+                await pg.keyboard.type("Mor")
+                freigabe.set()
+                await pg.wait_for_function("LOXLIB !== null")
+                await pg.keyboard.type("gens")
+                assert await pg.evaluate("document.activeElement && document.activeElement.id") == "pickName"
+                assert await pg.locator("#pickName").input_value() == "Morgens"
+                assert await pg.evaluate("PANELS.flur.pickTabs[0].name") == "Morgens"
+                # Das neu gefuellte Raster haelt die Suche und nimmt die Wahl an
+                sichtbar = await pg.locator("#tabPick .picogrid .pgi:not(.none)").evaluate_all(
+                    "l => l.filter(b => !b.hidden).map(b => b.title)")
+                assert sichtbar == ["IconsFilled/sofa.svg"]
+                await pg.locator('#tabPick .picogrid .pgi[title="IconsFilled/sofa.svg"]').click()
+                assert await pg.evaluate("PANELS.flur.pickTabs[0].icon") == _icon_url("IconsFilled/sofa.svg")
+                assert await pg.evaluate("PANELS.flur.pickTabs[0].name") == "Morgens"
+                await b.close()
+        finally:
+            freigabe.set()
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
