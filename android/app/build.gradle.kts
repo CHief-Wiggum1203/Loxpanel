@@ -4,6 +4,21 @@ plugins {
     id("com.chaquo.python")
 }
 
+// Version der App = Release-Version des Projekts. Sie steht in
+// loxberry-plugin/plugin.cfg (VERSION=x.y.z) und wird bei jedem Release
+// hochgezählt. versionCode muss bei jedem Update steigen: x*10000 + y*100 + z.
+val projektVersion: List<Int> = run {
+    val cfg = rootProject.projectDir.parentFile.resolve("loxberry-plugin/plugin.cfg")
+    val treffer = cfg.takeIf { it.isFile }?.readLines()
+        ?.firstNotNullOfOrNull { Regex("""VERSION=(\d+)\.(\d+)\.(\d+)""").matchEntire(it.trim()) }
+        ?: throw GradleException("${cfg.path}: keine Zeile VERSION=x.y.z gefunden")
+    val teile = treffer.groupValues.drop(1).map { it.toInt() }
+    if (teile[1] > 99 || teile[2] > 99) {
+        throw GradleException("VERSION=${teile.joinToString(".")}: Neben- und Patch-Version je hoechstens 99 (versionCode)")
+    }
+    teile
+}
+
 android {
     namespace = "com.loxpanel.spike"
     compileSdk = 34
@@ -12,13 +27,26 @@ android {
         applicationId = "com.loxpanel.spike"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = projektVersion[0] * 10000 + projektVersion[1] * 100 + projektVersion[2]
+        versionName = projektVersion.joinToString(".")
 
         // WICHTIG: Für ein echtes ARM-Tablet reicht arm64-v8a. x86_64 nur für den
         // Emulator. Mehr ABIs = längerer Build + größeres APK.
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    // Release-Builds tragen immer denselben Schlüssel. Nur dann lässt sich die
+    // installierte App aktualisieren, ohne sie zu deinstallieren (das löscht ihre
+    // Konfiguration samt Miniserver-Zugang). Schlüssel und Passwörter kommen aus
+    // der Umgebung, im Workflow aus den Repo-Secrets (siehe android/README.md).
+    signingConfigs {
+        create("release") {
+            System.getenv("LOXPANEL_KEYSTORE")?.let { storeFile = file(it) }
+            storePassword = System.getenv("LOXPANEL_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("LOXPANEL_KEY_ALIAS")
+            keyPassword = System.getenv("LOXPANEL_KEY_PASSWORD")
         }
     }
 
@@ -32,6 +60,7 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
