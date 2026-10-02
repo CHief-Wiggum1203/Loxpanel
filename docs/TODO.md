@@ -161,44 +161,56 @@ beim nächsten Mal wieder.
       ersetzt. Die 38 doppelten Schlüssel sind aufgelöst, es gilt Lenardos
       Wortlaut; geprüft am wirksamen Wert, kein Text wird anders angezeigt als
       bei Upstream. **S**
-- [ ] **Tote Zuweisung bei Upstream einreichen:** `bin/loxone_weather.py`
-      hat dort noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht
-      mehr. Als eigener Ein-Zeilen-Beitrag vorbereitet (02.10.2026): Zweig
-      `up/wetter-tote-zuweisung`, ein Commit auf `upstream/main`. Danach ist
-      die Datei gleich wie im Fork, und `ruff --select F,E9` über `bin/` und
-      `agent/` ist bei Lenardo ohne Fund. Mit allen Beiträgen konfliktfrei.
-      Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/wetter-tote-zuweisung?expand=1`.
-      **S**
-- [ ] **Weiße Textfelder bei Lenardo einreichen:** Bei ihm stehen unter
-      *Displays* vier Felder ohne `type="text"` browserweiß im dunklen
-      Konfigurator (Namensfeld, Modus, IP, Port). Zweig
-      `up/textfelder-dunkel`, ein Commit auf `upstream/main`, Stand
-      02.10.2026. Gegen seinen Stand laufen die beiden neuen Browser-Tests mit
-      dem Zweig grün, ohne ihn scheitern genau die Feldstil-Prüfungen (die
-      Präsenz-Schritte dafür herausgenommen, die kommen erst mit #65). Mit
-      allen Beiträgen einzeln und zusammen konfliktfrei. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/textfelder-dunkel?expand=1`.
-      Das Namensfeld im Betriebsmodus-Assistenten (`.mzname`) hat denselben
-      Fehler, seine Zeile ändert aber #65. Damit beide konfliktfrei bleiben,
-      folgt dieser eine Fix bei Lenardo erst, wenn #65 übernommen ist; im Fork
-      ist er schon drin. **S**
-- [ ] **Uhr-Seiten-Fix zu #60 bei Lenardo einreichen:** In seinem `main`
-      fallen die Verlaufs-Diagramme der Uhr-Seite hochkant auf 0 px zusammen
-      (#52 und #60 zusammen). Zweig `up/verlauf-uhrseite`, ein Commit auf
-      `upstream/main`, Stand 01.10.2026: die drei Fit-Regeln aus #60 nur im
-      `#frontpane`, und auf der Uhr-Seite schrumpfen die Diagramme, wenn der
-      Kasten nicht reicht. Eine unabhängige Gegenprüfung hatte gezeigt, dass
-      die erste Fassung (nur `#frontpane`, Stand des Forks vom 30.09.) quer
-      bei drei Diagrammen das dritte abschnitt (bei 960 × 480 164 px); #60
-      staucht dort alles in den Kasten. Jetzt im Fork und im Zweig gleich,
-      geprüft mit `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`.
-      Gegen Lenardos `main` laufen die vier Verlaufs-Tests aus dem Fork mit
-      dem Zweig grün, ohne ihn scheitern zwei; mit allen übrigen Beiträgen
-      konfliktfrei. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/verlauf-uhrseite?expand=1`.
-      Bis Lenardo ihn übernimmt, ist es ein Fork-eigener Patch
-      ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
+- [ ] **Konfigurator auf Englisch vervollständigen:** Mit englischer
+      Browsersprache bleiben im Konfigurator 164 sichtbare Textstellen deutsch,
+      im Fork und bei Lenardo gleich (Chromium auf `en-US` durch alle
+      Rubriken, Reiter und beide Assistenten, Stand 02.10.2026 nach
+      `up/uebersetzung-luecken`). Fast alles stammt aus Teilen, die nie an die
+      Übersetzung angeschlossen wurden: *Übersicht*, Panel-Assistent,
+      *unterstützte Geräte* und die Hilfetexte unter *Darstellung*. Vier
+      Ursachen: Texte ohne `T()` oder `data-i18n`; Absätze mit `<b>` oder
+      `<code>`, die `autoChrome()` nicht anfasst, weil es nur Elemente ohne
+      Kind-Elemente übersetzt; 21 Texte mit Katalog-Eintrag, die kein
+      übersetztes Element erreichen (etwa „Raum-Panel“, „Schriftfarbe (Name)“);
+      und `renderEditor()` ruft `I18N.autoChrome()` mit einer engeren Liste auf
+      und schaltet damit `.lead`, `.muted`, `[data-i18n]` und weitere für den
+      Rest der Seite ab, wovor `bindPick()` selbst warnt. Dazu verwaiste
+      Schlüssel, 10 in beiden Katalogen (Vorgänger heutiger Texte, etwa
+      „Panels & Kacheln“, „Kacheln pro Zeile“) und 6 nur bei Lenardo: erst die
+      Nachfolger übersetzen, dann löschen. Vorher mit Lenardo abstimmen, die
+      Übersetzungen kamen zuletzt von ihm (#49). Am Ende ein Browser-Test, der
+      auf Englisch keinen deutschen Text mehr findet. **L**
+- [x] **Tote Zuweisung bei Lenardo eingereicht:**
+      [#72](https://github.com/Lenardo1/loxpanel/pull/72), Zweig
+      `up/wetter-tote-zuweisung`, ein Commit auf `upstream/main`. Ohne
+      `t_jetzt = t_roh + versatz` (ruff F841) ist `bin/loxone_weather.py` dort
+      gleich wie im Fork, und `ruff --select F,E9` über `bin/` und `agent/` ist
+      ohne Fund. **S**
+- [x] **Weiße Textfelder bei Lenardo eingereicht:**
+      [#73](https://github.com/Lenardo1/loxpanel/pull/73), Zweig
+      `up/textfelder-dunkel`: die vier Felder unter *Displays* ohne
+      `type="text"` (Namensfeld, Modus, IP, Port). Gegen seinen Stand laufen
+      die Browser-Tests dazu mit dem Zweig grün, ohne ihn scheitern genau die
+      Feldstil-Prüfungen. **S**
+- [ ] **Namensfeld im Betriebsmodus-Assistenten bei Lenardo nachreichen,
+      sobald #65 übernommen ist:** `.mzname` hat denselben Fehler wie die
+      Felder aus #73, seine Zeile ändert aber #65. Damit beide konfliktfrei
+      bleiben, kommt dieser Fix erst danach. Im Fork ist er drin,
+      `test_geraeteliste_umschalten_und_benennen` prüft ihn. **S**
+- [x] **Uhr-Seiten-Fix zu #60 bei Lenardo eingereicht:**
+      [#71](https://github.com/Lenardo1/loxpanel/pull/71), Zweig
+      `up/verlauf-uhrseite`. In seinem `main` fallen die Verlaufs-Diagramme
+      der Uhr-Seite hochkant auf 0 px zusammen (#52 und #60 zusammen). Mit dem
+      Zweig gelten die drei Fit-Regeln aus #60 nur im `#frontpane`, und auf der
+      Uhr-Seite schrumpfen die Diagramme, wenn der Kasten nicht reicht. Eine
+      unabhängige Gegenprüfung hatte gezeigt, dass die erste Fassung (nur
+      `#frontpane`, Stand des Forks vom 30.09.) quer bei drei Diagrammen das
+      dritte abschnitt (bei 960 × 480 164 px); geprüft mit
+      `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`. Gegen Lenardos
+      `main` laufen die vier Verlaufs-Tests aus dem Fork mit dem Zweig grün,
+      ohne ihn scheitern zwei. Bis Lenardo ihn übernimmt, ist es ein
+      Fork-eigener Patch ([`CONTRIBUTING.md`](CONTRIBUTING.md),
+      Sync-Checkliste Punkt 4). **S**
 - [ ] **Auf/Ab auf der Beschattungs-Kachel bei Lenardo einreichen:** Zweig
       `up/beschattung-tasten`, ein Commit auf `up/kachel-tasten` (#66), weil
       die Tasten erst seit dort beim Tippen auslösen; bis #66 gemergt ist,
@@ -208,6 +220,33 @@ beim nächsten Mal wieder.
       in 2x3 und 3x3, die bei Lenardo schon abgeschnitten werden. Mit allen
       Beiträgen paarweise und zusammen konfliktfrei. Einreichen über
       `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/beschattung-tasten?expand=1`.
+      **S**
+- [ ] **Übersetzungs-Lücken bei Lenardo einreichen:** Zweig
+      `up/uebersetzung-luecken`, ein Commit auf `upstream/main`, Stand
+      02.10.2026. Drei Stellen, an denen die englische Übersetzung gewollt
+      ist, aber nicht ankommt: Der Link „Bausteintypen der Anlage anzeigen“
+      unter *Settings → Miniserver* samt Erläuterung stand in keinem
+      übersetzten Element (jetzt `data-i18n`); vier `T()`-Texte hatten keinen
+      Eintrag („Werte“, „Kein passender Baustein“, die zwei Hinweise des
+      Assistenten zu Widget-Seiten); und „Baustein“ stand zweimal im Katalog,
+      der spätere Eintrag „block“ überschrieb „Block“. Im Fork gleich, dazu
+      `tests/test_uebersetzung.py`: Jeder `T()`-Text und jedes
+      `data-i18n`-Element in `config.html` hat einen englischen Eintrag, und
+      kein Schlüssel hat zwei verschiedene Übersetzungen. Gegen Lenardos Stand
+      bestehen die drei Tests mit dem Zweig, ohne ihn scheitern alle drei; mit
+      englischer Browsersprache erscheinen der Link und seine Erläuterung dann
+      englisch. Mit allen Beiträgen einzeln und zusammen konfliktfrei.
+      Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/uebersetzung-luecken?expand=1`.
+      **S**
+- [ ] **„1 Betriebsart“ bei Lenardo einreichen:** Zweig
+      `up/weckzeit-einzahl`, ein Commit auf `upstream/main`, Stand
+      02.10.2026. Lassen sich die Betriebsmodi einer Weckzeit nicht zu Namen
+      auflösen, zeigt die Wiederholung ihre Anzahl; bei genau einem stand dort
+      „1 Betriebsarten“. Der Fork hat die Einzahl seit #82,
+      `test_weckzeiten_liste` prüft sie: gegen Lenardos Stand mit dem Zweig
+      grün, ohne ihn rot. Mit allen Beiträgen konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/weckzeit-einzahl?expand=1`.
       **S**
 - [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
       Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
@@ -221,9 +260,11 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 30.09.2026. **Alle eingereichten Beiträge sind in `upstream/main`:**
-die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
-`up/sammel`). Offen ist keiner.
+Stand 02.10.2026. **In `upstream/main`** sind die Tabelle unten und #34–#44
+über unseren Sammel-PR #45 (Zweig `up/sammel`). **Offen** sind #63–#73, alle
+konfliktfrei mergebar; Lenardos `main` steht seit #60 (29.09.2026). Was sie
+enthalten und was noch einzureichen ist, steht oben bei den einzelnen Punkten
+und in Block 0c.
 
 | PR | Inhalt |
 |---|---|
@@ -277,6 +318,9 @@ die Tabelle unten, dazu #34–#44 über unseren Sammel-PR #45 (Zweig
       gelöschter Zweig schließt seinen offenen PR ohne Hinweis. Geprüft am
       25.09.2026: Der Inhalt aller zwölf steckt in `upstream/main`, und
       Lenardos `refs/pull/34`–`45` halten die Commits, auch nach dem Löschen.
+      Am 02.10.2026 hatte keiner von #34–#44 mehr eine Merge-Referenz, sie sind
+      also geschlossen oder nicht mehr mergebar; vor dem Löschen kurz auf
+      GitHub nachsehen.
       Die Session-Umgebung darf keine Zweige löschen (HTTP 403), das geht nur
       von Hand. **S**
 - [ ] **Zweige der gemergten Beiträge löschen:** `up/kalender-wetterpush`

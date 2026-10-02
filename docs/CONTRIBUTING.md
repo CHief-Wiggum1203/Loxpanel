@@ -142,16 +142,27 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
 
-- Paired-Audio-Weiche in `bin/webvisu.py` (`App.command()`): leitet Transport
-  bei gekoppeltem Audioserver über den Miniserver. Liegt vorerst nur im Fork;
-  die identische Änderung ist als Upstream-PR eingereicht. Sobald Lenardo sie
-  merged, ist es kein Fork-eigener Patch mehr und der nächste Sync übernimmt sie.
 - Verlaufs-Regeln aus Upstream #60 nur im `#frontpane`
-  (`webfrontend/html/panel.html`, CSS der Verlaufs-Pane): hält die Diagramme
-  der Uhr-Seite im Seitenverhältnis, hochkant fielen sie sonst auf 0 px
-  zusammen. Soll nach Upstream (`TODO.md`, Abschnitt 0b); geht der Patch bei
-  einem Sync verloren, schlägt `test_uhrseite_hochkant_zweite_flaeche_unten`
-  an.
+  (`webfrontend/html/panel.html`, CSS der Verlaufs-Pane), auf der Uhr-Seite
+  schrumpfen die Diagramme, wenn der Kasten nicht reicht: hält sie im
+  Seitenverhältnis, hochkant fielen sie sonst auf 0 px zusammen. Eingereicht
+  als Lenardo1/loxpanel#71; geht der Patch bei einem Sync verloren, schlagen
+  `test_uhrseite_hochkant_zweite_flaeche_unten` und
+  `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden` an.
+- `type="text"` am Namensfeld des Betriebsmodus-Assistenten (`.mzname` in
+  `config.html`): kommt zu Lenardo erst, wenn #65 übernommen ist, das dieselbe
+  Zeile ändert. Geht es verloren, schlägt
+  `test_geraeteliste_umschalten_und_benennen` an.
+
+Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
+nicht still entfernt):
+
+- Kalender- und Wetter-Tabs (`FRONT_TABS` in `bin/webvisu.py`,
+  `renderFrontTab()` in `panel.html`, Fork #84; Lenardo hat Wetter und Kalender
+  inzwischen als Widget-Seite): `tests/browser/test_front_tabs_browser.py`.
+- Docker-Betrieb: `/api/health` für den `HEALTHCHECK` und
+  `LOXPANEL_LOG_LEVEL`: `test_health_meldet_beendete_aufgabe`,
+  `test_log_level` in `tests/test_unraid.py`.
 
 ## Drei Fallstricke
 
