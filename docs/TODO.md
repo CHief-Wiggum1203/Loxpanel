@@ -582,6 +582,36 @@ selbst aktuell.
       offen: Das Widget in Pane 2 soll seine Höhe nutzen (beim Wetter blieb
       darunter eine Leerfläche), dazu eine Listen-Darstellung als
       Alternative zu großen Kacheln. **M**
+- [x] **App läuft wochenlang ohne Eingriff** (02.10.2026). Bisher blieb die
+      Anzeige bei der Fehlerseite stehen, wenn der eingebettete Server hing
+      oder eine seiner Aufgaben endete, bis jemand die App neu startete. Stürzte
+      der Renderer der WebView ab, beendete Android die ganze App. Und ohne
+      Eintrag bei *Auto-Neustart* lud die Visu nie neu, mit Eintrag auch
+      mitten in der Bedienung. Jetzt:
+      - **Server-Wächter** im Server-Dienst: fragt `/api/health` alle 30 s;
+        nach drei Fehlschlägen in Folge startet die App neu (Android holt
+        Dienst und Anzeige zurück), höchstens dreimal je Stunde, beim Start
+        bis zu 5 Minuten Geduld. Server und Wächter starten je Prozess
+        einmal; bisher konnten Anzeige und Boot zwei Starts gleichzeitig
+        anstoßen, die dieselben Dateien kopierten.
+      - **Anzeige baut sich neu auf**, wenn ihr Renderer abstürzt oder
+        Android ihn beendet (ab Android 8), und beendet einen hängenden
+        Renderer nach einer halben Minute (ab Android 10).
+      - **Visu lädt ohne Eintrag jede Nacht um 3 Uhr neu**, mit Zahl alle so
+        viele Stunden, mit 0 nie; immer nur, während die Uhr-Seite steht. Ein
+        dunkles Display bleibt dunkel. Der Konfigurator zeigt im leeren Feld
+        „nachts um 3 Uhr“.
+
+      Geprüft: 12 Unit-Tests für die Regeln des Wächters, Android-Lint ohne
+      neue Befunde, APK gebaut; Neuladen mit gestellter Uhr in Chromium
+      (auch mit nachgebauter App-Brücke) und am Server, 19 Tests; 30
+      Gegenproben schlagen an, 19 in Visu, Server und Konfigurator, 11 in
+      den Regeln des Wächters. Ohne Emulator nicht nachgestellt: der
+      Neustart durch den Wächter und der Neuaufbau nach einem
+      Renderer-Absturz. Beim nächsten Gerätetest im Log nachsehen
+      (`adb logcat -s LPSERVER LPANZEIGE`). Details in
+      [`android/README.md`](../android/README.md) und
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §8. **M**
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**

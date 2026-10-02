@@ -244,7 +244,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -505,7 +505,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder) | Konfigurator, Einstellungen |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`) | Einstellungen, LoxBerry-Widget |
@@ -517,7 +517,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
-| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` | Panel-Agent |
+| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) | Panel-Agent |
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät | Einstellungen |
@@ -1099,7 +1099,7 @@ hält.
 Server keinen Agenten für die Gerätekennung, schaltet die Seite das Display
 selbst über die JavaScript-Schnittstelle von Fully Kiosk Browser
 (`window.fully`), weckt es bei Klingel, Wecker, Notify und Goto und lädt sich
-nach `reloadHours` neu. Der Agent hängt dafür `device=<Name>` an die
+gegen Einfrieren neu (siehe unten). Der Agent hängt dafür `device=<Name>` an die
 Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
 (`App._has_agent`). `App.device_list()` führt Agenten, verbundene Browser und
 konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
@@ -1123,6 +1123,36 @@ senkt nachts die echte Helligkeit statt der dunklen Auflage
 automatischer Helligkeit, bleibt es bei der Auflage). Geprüft mit
 nachgebauter Brücke in `tests/browser/test_loxkiosk_browser.py`,
 `test_praesenz_app_browser.py` und `test_nacht_app_browser.py`.
+
+**Neu laden gegen Einfrieren (ohne Agent):** `reloadHours` aus dem Profil
+(*Auto-Neustart alle (Std.)*) kommt mit der `theme`-Nachricht, `null` heißt
+nicht eingestellt. Dann lädt die Visu einmal je Nacht neu, sobald es nach dem
+Laden der Seite `reloadAt` Uhr geworden ist (`NEULADEN_STUNDE` im Server, 3 Uhr;
+`/api/meta` gibt sie dem Konfigurator für das leere Feld und den Hinweis). Eine
+Zahl lädt so viele Stunden nach dem Laden neu, 0 nie, mit Agent ebenfalls nie
+(der startet den Browser selbst neu). `neuladenPruefen()` schaut jede Minute
+nach und lädt nur, während die Uhr-Seite steht (`saverOn()`), also nie unter
+den Fingern. Die neue Seite startet mit der Uhr und weckt nicht: In der
+LoxPanel-App meldet sie nur `setSaver(true)` und die Leerlaufzeit, ein dunkles
+Display bleibt dunkel. Bis Oktober 2026 lud die Seite ohne Eintrag nie neu, mit
+einer Zahl per `setTimeout` auch mitten in der Bedienung, und jede neue
+Verbindung setzte die Frist zurück. Geprüft mit gestellter Uhr in
+`tests/browser/test_neuladen_browser.py`, Server-Seite in
+`tests/test_neuladen.py`.
+
+**Stabilität der App:** Der Server-Dienst (`ServerService`) startet Server und
+Wächter je Prozess einmal (Anzeige, BootReceiver und Android starten den Dienst
+mehrfach). Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
+Folge (keine Antwort oder 503, weil eine Hintergrund-Aufgabe endete) beendet er
+den Prozess; Android startet Dienst (`START_STICKY`) und Anzeige
+(`stateNotNeeded`) neu. Hat der Server seit dem Start noch nie geantwortet,
+wartet er bis zu 5 Minuten. Höchstens 3 Neustarts je Stunde, die Zeitpunkte
+liegen in den Einstellungen der App (`waechter`). Die Anzeige (`KioskActivity`)
+baut nach einem Renderer-Absturz eine neue WebView auf
+(`onRenderProcessGone`, ab Android 8), statt dass Android die App beendet; einen
+hängenden Renderer beendet sie ab Android 10 nach 6 Meldungen in Folge
+(`WebViewRenderProcessClient`, frühestens alle 5 s). Die Regeln stehen ohne
+Android in `Waechter.kt`, Unit-Tests in `WaechterTest.kt`.
 
 **Display-Treiber (Schritt 3):** `App.display_drivers(on, device, panel)`
 spricht je Gerät die HTTP-Schnittstelle der Kiosk-App an (`_drive_display`):

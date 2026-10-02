@@ -176,6 +176,16 @@ nicht unbemerkt entfernt:
   Lenardo. Reibt sich bei Upstream-Merges an `rasterFuer()`, `applyPane()`
   und `applyScale()`. Wachen: `tests/test_auto_raster.py`,
   `tests/browser/test_auto_raster_browser.py`.
+- Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
+  `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
+  `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
+  *Auto-Neustart* in `config.html`): kann zu Lenardo. Wachen:
+  `tests/test_neuladen.py`, `tests/browser/test_neuladen_browser.py`.
+- Stabilität der LoxPanel-App (`Waechter.kt`, Wächter und einmaliger Start in
+  `ServerService`, `onRenderProcessGone` und `HaengerWaechter` in
+  `KioskActivity`): kann zu Lenardo, aber nur zusammen mit `/api/health`, das
+  der Wächter abfragt und das es bei ihm nicht gibt (siehe unten). Wache:
+  `WaechterTest` (`gradle testDebugUnitTest`).
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):
@@ -185,7 +195,9 @@ nicht still entfernt):
   inzwischen als Widget-Seite): `tests/browser/test_front_tabs_browser.py`.
 - Docker-Betrieb: `/api/health` für den `HEALTHCHECK` und
   `LOXPANEL_LOG_LEVEL`: `test_health_meldet_beendete_aufgabe`,
-  `test_log_level` in `tests/test_unraid.py`.
+  `test_log_level` in `tests/test_unraid.py`. Seit Oktober 2026 fragt auch der
+  Wächter der LoxPanel-App `/api/health` ab; geht die App-Stabilität zu
+  Lenardo, gehört der Endpunkt dazu.
 
 ## Drei Fallstricke
 

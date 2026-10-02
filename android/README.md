@@ -90,6 +90,37 @@ Betriebsmodus-Automatik, lädt sich die Visu mit neuem `?panel=`. Die App merkt
 sich diese Adresse, nach einem Neustart steht also dieselbe Ansicht da. Welche
 Adressen als Visu gelten, prüft `gradle testDebugUnitTest`.
 
+## Stabilität: Wächter und Absturz der Anzeige
+Ein Wandpanel soll wochenlang ohne Eingriff laufen. Drei Teile sorgen dafür,
+die Werte stehen in `Waechter.kt`:
+
+- **Server-Wächter** (`ServerService`): Der Dienst fragt den eingebetteten
+  Server alle 30 s nach `/api/health`. Antwortet er dreimal hintereinander
+  nicht oder meldet er eine beendete Hintergrund-Aufgabe (503), beendet der
+  Dienst den Prozess der App. Android startet sie gleich wieder: den Dienst,
+  weil er `START_STICKY` ist, die Anzeige, wenn sie vorn war (`stateNotNeeded`
+  im Manifest). Nach dem Start hat der Server 5 Minuten für die erste Antwort,
+  denn der erste Start nach einem Update kopiert den Code und entpackt Python.
+  Höchstens 3 Neustarts je Stunde, damit ein dauerhaft kaputter Server die App
+  nicht in eine Schleife schickt. Fehlt nur die Verbindung zum Miniserver,
+  startet nichts neu: `/api/health` meldet das als `"miniserver": false`, und
+  der Server verbindet von selbst neu. Server und Wächter starten je Prozess
+  einmal, auch wenn Anzeige, Boot und Android den Dienst mehrfach starten.
+- **Absturz der Anzeige** (`KioskActivity`, ab Android 8): Stürzt der
+  Renderer der WebView ab oder beendet Android ihn wegen Speichermangel, baut
+  die Anzeige eine neue WebView auf und lädt die Visu nach 2 s, statt die
+  ganze App mitzureißen. Hängt der Renderer, etwa in einer Endlosschleife,
+  meldet Android das ab Android 10 frühestens alle 5 s. Nach 6 Meldungen in
+  Folge beendet die Anzeige ihn, dann greift derselbe Neuaufbau.
+- **Neu laden in der Nacht** (Visu): Ohne Eintrag bei *Auto-Neustart alle
+  (Std.)* lädt sich die Visu jede Nacht um 3 Uhr neu (`NEULADEN_STUNDE` im
+  Server), aber nur, während die Uhr-Seite steht. Ein dunkles Display bleibt
+  dabei dunkel.
+
+Zum Nachsehen: `adb logcat -s LPSERVER LPANZEIGE`. Der Wächter schreibt unter
+`LPSERVER` mit „Wächter:“ davor, die Anzeige unter `LPANZEIGE`. Die Regeln
+prüft `gradle testDebugUnitTest` (`WaechterTest`).
+
 ## Wenn der Spike grün ist
 Nächste Schritte für die echte App (separat, kein Teil dieses Spikes):
 - WebView auf `http://127.0.0.1:8099/?panel=...&device=...`
