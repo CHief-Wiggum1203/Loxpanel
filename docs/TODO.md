@@ -132,20 +132,57 @@ beim nächsten Mal wieder.
       einmal für ein neues Panel durchlaufen, freie Auswahl mit mehreren Seiten
       und Icons, Geräteliste und Display-Treiber unter *Displays*,
       Betriebsmodus-Assistent samt fertiger Loxone-Adresse, Verlauf als
-      Uhr-Spalte. Die Fork-Tests decken diese Teile nicht ab. **S**
-- [ ] **Tests für die neuen Upstream-Teile:** Browser-Tests für den Reiter
-      *Displays* (Geräteliste, Display-Treiber speichern) und für die freie
-      Auswahl mit vier Seiten über Speichern und Neuladen des Konfigurators —
-      genau dort lag der Fehler, den #47 selbst noch behebt („Seiten 2–4 gehen
-      verloren“). **M**
+      Uhr-Spalte. Geräteliste, Display-Treiber und die vier Auswahl-Seiten
+      prüfen seit 02.10.2026 Browser-Tests (siehe unten), Panel-Assistent,
+      Betriebsmodus-Assistent und Verlauf als Uhr-Spalte nur der Blick an der
+      Anlage. **S**
+- [x] **Tests für die neuen Upstream-Teile (02.10.2026):**
+      `tests/browser/test_displays_browser.py` bedient den Reiter *Displays*
+      wie von Hand: Geräteliste mit einem Tablet mit Kennung, einem ohne und
+      einem nur konfigurierten Gerät (Typ, Zustand, Ansicht, Bildschirm),
+      „Ansicht wechseln“ (das Tablet lädt sich mit dem neuen Profil neu) und
+      „Namen vergeben“ (das Gerät verbindet sich mit Kennung neu, erscheint in
+      Liste und Editor, behält den Namen nach dem Neuladen). Im Editor
+      Display-Treiber mit vorbelegter IP und Port, Passwort, Modus,
+      Automatik und Präsenzmelder; danach stimmt `panels.json`, und nach dem
+      Neuladen des Konfigurators und einem Neustart des Servers steht alles
+      wieder da. `tests/browser/test_auswahl_seiten_browser.py` legt vier
+      Seiten mit Name, Icon und Inhalt an (Kacheln in Klickreihenfolge, eine
+      über zwei Räume, eine als Wetter-Widget), speichert, lädt neu,
+      bearbeitet weiter, speichert wieder und prüft die vier Seiten in der
+      Visu. Gegenproben: 16 Verschlechterungen beim ersten, 12 beim zweiten
+      Test, jede fällt auf, darunter der Fehler aus #47 (ohne `pickTabs` in
+      `/api/meta` kennt der Editor nach dem Neuladen nur „Seite 1“). Dabei
+      gefunden und behoben: Fünf Textfelder standen browserweiß im dunklen
+      Konfigurator, weil ihnen `type="text"` fehlte (unter *Displays*
+      Namensfeld, Modus, IP und Port, im Betriebsmodus-Assistenten das
+      Namensfeld); die Tests prüfen ihren Stil mit. **M**
 - [x] **Lenardos #33 (englische Übersetzungen):** kam als #49, das #33
       ersetzt. Die 38 doppelten Schlüssel sind aufgelöst, es gilt Lenardos
       Wortlaut; geprüft am wirksamen Wert, kein Text wird anders angezeigt als
       bei Upstream. **S**
-- [ ] **Tote Zuweisung bei Upstream:** `bin/loxone_weather.py` hat dort
-      noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
-      eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
-      packen. **S**
+- [ ] **Tote Zuweisung bei Upstream einreichen:** `bin/loxone_weather.py`
+      hat dort noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht
+      mehr. Als eigener Ein-Zeilen-Beitrag vorbereitet (02.10.2026): Zweig
+      `up/wetter-tote-zuweisung`, ein Commit auf `upstream/main`. Danach ist
+      die Datei gleich wie im Fork, und `ruff --select F,E9` über `bin/` und
+      `agent/` ist bei Lenardo ohne Fund. Mit allen Beiträgen konfliktfrei.
+      Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/wetter-tote-zuweisung?expand=1`.
+      **S**
+- [ ] **Weiße Textfelder bei Lenardo einreichen:** Bei ihm stehen unter
+      *Displays* vier Felder ohne `type="text"` browserweiß im dunklen
+      Konfigurator (Namensfeld, Modus, IP, Port). Zweig
+      `up/textfelder-dunkel`, ein Commit auf `upstream/main`, Stand
+      02.10.2026. Gegen seinen Stand laufen die beiden neuen Browser-Tests mit
+      dem Zweig grün, ohne ihn scheitern genau die Feldstil-Prüfungen (die
+      Präsenz-Schritte dafür herausgenommen, die kommen erst mit #65). Mit
+      allen Beiträgen einzeln und zusammen konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/textfelder-dunkel?expand=1`.
+      Das Namensfeld im Betriebsmodus-Assistenten (`.mzname`) hat denselben
+      Fehler, seine Zeile ändert aber #65. Damit beide konfliktfrei bleiben,
+      folgt dieser eine Fix bei Lenardo erst, wenn #65 übernommen ist; im Fork
+      ist er schon drin. **S**
 - [ ] **Uhr-Seiten-Fix zu #60 bei Lenardo einreichen:** In seinem `main`
       fallen die Verlaufs-Diagramme der Uhr-Seite hochkant auf 0 px zusammen
       (#52 und #60 zusammen). Zweig `up/verlauf-uhrseite`, ein Commit auf

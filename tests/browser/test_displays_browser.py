@@ -1,0 +1,238 @@
+"""Reiter Displays im Konfigurator (Chromium), bedient wie von Hand. Die
+Geraeteliste zeigt jedes Geraet mit Typ, Zustand, Ansicht und Bildschirm: ein
+Tablet mit Kennung, eines ohne (nach IP) und eines, das nur in panels.json
+steht. Von dort wird die Ansicht gewechselt und ein Name vergeben, die Visu
+folgt live. Im Editor darunter werden Display-Treiber, Modus, Automatik und
+Praesenzmelder gesetzt und gespeichert: das steht danach in panels.json und
+kommt nach dem Neuladen des Konfigurators und nach einem Neustart des Servers
+wieder. Der Config-Ordner ist umgeleitet (Fixture cfg_ordner)."""
+import asyncio
+import json
+
+import pytest
+
+from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+
+pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
+from playwright.async_api import async_playwright  # noqa: E402
+
+pytestmark = pytest.mark.browser
+
+BAUSTEINE = {
+    "PM": {"name": "Präsenz Flur", "type": "PresenceDetector", "uuidAction": "PM", "room": "r1", "cat": "c1",
+           "states": {"active": "pm_a"}},
+    "L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1", "isFavorite": True,
+          "states": {"active": "sl"}},
+}
+PANELS = {"panels": {"wohnen": {"title": "Wohnen", "tabs": ["favoriten"]},
+                     "kueche": {"title": "Küche", "tabs": ["favoriten"]}},
+          "devices": {"flur": {"auto": True, "modes": {"nacht": "kueche"}}}}
+ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
+          ("POST", "/api/device/switch", W.api_device_switch), ("POST", "/api/device/name", W.api_device_name)]
+TABLET = ("?panel=wohnen&device=tablet", {"width": 1024, "height": 600})
+
+
+def _app(cfg_ordner):
+    (cfg_ordner / "panels.json").write_text(json.dumps(PANELS), encoding="utf-8")
+    app = W.App({"host": "", "port": 80})       # liest Profile und Geraete aus panels.json
+    app._apply_structure(anlage(BAUSTEINE))
+    app.states = {"pm_a": 0, "sl": 0}
+    return app
+
+
+async def _bis(bedingung, was, sekunden=10):
+    """Auf einen Zustand am Server warten; der laeuft in derselben Schleife."""
+    for _ in range(int(sekunden * 20)):
+        if bedingung():
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"nicht erreicht: {was}")
+
+
+async def _meldung(pg, sel, text):
+    """Warten, bis die Meldungsleiste sel den Text zeigt (sie folgt erst der
+    Antwort des Servers, nicht schon dem Klick)."""
+    await pg.wait_for_function("([s, t]) => document.querySelector(s).textContent === t", arg=[sel, text])
+
+
+# Stil eines Textfelds; Vergleich ist das Host-Feld unter Settings -> Miniserver.
+# Fehlt einem Feld type="text", steht es browserweiss im dunklen Konfigurator.
+STIL = "e => { const c = getComputedStyle(e); return [c.backgroundColor, c.color, c.borderTopColor]; }"
+
+
+async def _wie_textfeld(pg, *felder):
+    soll = await pg.locator("#ms_host").evaluate(STIL)
+    for feld in felder:
+        assert await feld.evaluate(STIL) == soll, await feld.evaluate("e => e.className")
+
+
+def _geraet(app, name):
+    return next((d for d in app.device_list()["devices"] if d["name"] == name), {})
+
+
+async def _visu(b, port, fehler, adresse, groesse):
+    """Visu in einem eigenen Browser-Kontext (eigener localStorage, wie ein
+    eigenes Geraet)."""
+    pg = await b.new_page(viewport=groesse)
+    pg.on("pageerror", lambda e: fehler.append(str(e)))
+    await pg.goto(f"http://127.0.0.1:{port}/{adresse}")
+    return pg
+
+
+async def _displays(pg, port=None):
+    """Konfigurator oeffnen (oder neu laden) und zum Reiter Displays gehen."""
+    if port is None:
+        await pg.reload()
+    else:
+        await pg.goto(f"http://127.0.0.1:{port}/config")
+    await pg.wait_for_function(KONFIGURATOR_GELADEN)
+    await pg.locator(".rub", has_text="Displays").click()
+
+
+def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                tablet = await _visu(b, port, fehler, *TABLET)
+                ohne = await _visu(b, port, fehler, "?panel=kueche", {"width": 800, "height": 1280})
+                await _bis(lambda: len(app.conn_info) == 2 and all(i.get("screen") for i in app.conn_info.values()),
+                           "beide Visus verbunden und Bildschirm gemeldet")
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await _displays(pg, port)
+                liste = pg.locator("#ag_list")
+                await liste.locator(".ag").nth(2).wait_for()
+                assert await liste.locator(".agn").all_text_contents() == ["flur", "tablet", "Ohne Kennung"]
+
+                flur = liste.locator('.ag[data-name="flur"]')
+                assert await flur.locator(".dot").get_attribute("class") == "dot", "nur konfiguriert: offline"
+                assert await flur.locator(".tag").text_content() == "Browser"
+                assert await flur.locator("button").count() == 0, "offline: nichts zu schalten"
+
+                tab = liste.locator('.ag[data-name="tablet"]')
+                assert await tab.locator(".dot").get_attribute("class") == "dot on"
+                assert await tab.locator(".tag").text_content() == "Browser"
+                assert await tab.locator(".agip").text_content() == "127.0.0.1 · Visu offen"
+                assert await tab.locator(".agsel").input_value() == "wohnen"
+                assert await tab.locator("button").all_text_contents() == ["Ansicht wechseln", "Neu laden"]
+                assert (await tab.locator(".agscr").text_content()).startswith("1024×600 quer")
+
+                anon = liste.locator('.ag[data-anon="127.0.0.1"]')
+                assert (await anon.locator(".agip").text_content()).startswith(
+                    "127.0.0.1 · Browser · Ansicht kueche · 800×1280 hoch")
+                await _wie_textfeld(pg, anon.locator(".anname"))
+                # Auch der Betriebsmodus-Assistent bietet das Geraet zum Benennen an
+                await pg.locator("#mzOpenBtn").click()
+                await _wie_textfeld(pg, pg.locator('#mzOv .mzanon[data-mzanon="127.0.0.1"] .mzname'))
+                await pg.locator("#mzX").click()
+
+                # Ansicht wechseln: das Tablet laedt sich mit dem neuen Profil neu
+                await tab.locator(".agsel").select_option("kueche")
+                await tab.get_by_role("button", name="Ansicht wechseln").click()
+                await tablet.wait_for_url(lambda u: "panel=kueche" in u and "device=tablet" in u)
+                await tablet.wait_for_function("document.title === 'Küche'")
+                await _meldung(pg, "#ag_toast", "✓ switch → 1")
+                await _bis(lambda: _geraet(app, "tablet").get("profile") == "kueche"
+                           and _geraet(app, "tablet").get("connections") == 1, "Tablet mit kueche verbunden")
+
+                # Namen vergeben: das Geraet ohne Kennung verbindet sich als
+                # "kinderzimmer" neu, erscheint in der Liste und im Editor
+                await anon.locator(".anname").fill("kinderzimmer")
+                await anon.get_by_role("button", name="Namen vergeben").click()
+                await _meldung(pg, "#ag_toast", "✓ kinderzimmer")
+                kind = liste.locator('.ag[data-name="kinderzimmer"]')
+                await kind.wait_for(timeout=15000)
+                assert await liste.locator(".agn").all_text_contents() == ["flur", "kinderzimmer", "tablet"]
+                assert await kind.locator(".dot").get_attribute("class") == "dot on"
+                assert await kind.locator(".agsel").input_value() == "kueche"
+                assert await pg.locator("#dev_list .dev").evaluate_all("l => l.map(n => n.dataset.name)") == [
+                    "flur", "kinderzimmer", "tablet"]
+                assert await ohne.evaluate("localStorage.getItem('lp_device')") == "kinderzimmer"
+                assert await tablet.evaluate("localStorage.getItem('lp_device')") is None, \
+                    "das Tablet hat schon eine Kennung und bleibt, wie es ist"
+                await pg.screenshot(path=str(tmp_path / "displays_liste.png"), full_page=True)
+
+                # Der Name gilt auch nach einem Neuladen der Visu
+                await ohne.reload()
+                await _bis(lambda: sorted(i["dev"] for i in app.conn_info.values()) == ["kinderzimmer", "tablet"],
+                           "nach dem Neuladen wieder als kinderzimmer verbunden")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                await _visu(b, port, fehler, *TABLET)
+                await _bis(lambda: _geraet(app, "tablet").get("online"), "Tablet verbunden")
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await _displays(pg, port)
+                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
+                editor = pg.locator("#dev_list")
+                flur, tab = editor.locator('.dev[data-name="flur"]'), editor.locator('.dev[data-name="tablet"]')
+                await tab.wait_for()          # kommt mit der ersten Abfrage der Geraeteliste dazu
+                assert await editor.locator(".dev").evaluate_all("l => l.map(n => n.dataset.name)") == [
+                    "flur", "tablet"]
+                assert [await flur.locator(s).input_value() for s in (".dm_mode", ".dm_prof", ".dd_drv")] == [
+                    "nacht", "kueche", ""]
+
+                # Fully Kiosk: Host und Port stehen schon da (IP des Tablets, Standard-Port)
+                await tab.locator(".dd_drv").select_option("fully")
+                assert await tab.locator(".dd_host").input_value() == "127.0.0.1"
+                assert await tab.locator(".dd_port").input_value() == "2323"
+                await _wie_textfeld(pg, *(tab.locator(s) for s in (".dm_mode", ".dd_host", ".dd_port", ".dd_pw")))
+                await tab.locator(".dd_pw").fill("geheim")
+                await tab.locator(".dm_mode").fill("gaeste")
+                await tab.locator(".dm_prof").select_option("kueche")
+                await tab.locator(".dp_presence").select_option("PM")
+                await flur.locator(".dev_auto").uncheck()
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST") as antwort:
+                    await pg.locator("#dev_save").click()
+                assert (await (await antwort.value).json())["ok"]
+                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+
+                geraete = {
+                    "flur": {"auto": False, "modes": {"nacht": "kueche"}},
+                    "tablet": {"auto": True, "modes": {"gaeste": "kueche"},
+                               "display": {"driver": "fully", "host": "127.0.0.1", "port": 2323,
+                                           "password": "geheim"},
+                               "presence": "PM"}}
+                doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                assert doc["devices"] == geraete
+                assert doc["panels"] == PANELS["panels"], "die Profile bleiben, wie sie waren"
+                assert app.presence_map == {"pm_a": ["tablet"]}, "Praesenzmelder sofort gekoppelt"
+
+                # Konfigurator neu laden: alles steht wieder da
+                await _displays(pg)
+                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
+                await tab.wait_for()
+                assert [await tab.locator(s).input_value() for s in (
+                    ".dd_drv", ".dd_host", ".dd_port", ".dd_pw", ".dm_mode", ".dm_prof", ".dp_presence")] == [
+                    "fully", "127.0.0.1", "2323", "geheim", "gaeste", "kueche", "PM"]
+                assert await tab.locator(".dev_auto").is_checked()
+                assert not await flur.locator(".dev_auto").is_checked()
+                assert [await flur.locator(s).input_value() for s in (".dm_mode", ".dm_prof", ".dd_drv")] == [
+                    "nacht", "kueche", ""]
+                await pg.screenshot(path=str(tmp_path / "displays_editor.png"), full_page=True)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        assert W.App({"host": "", "port": 80}).devices == geraete, "nach einem Neustart dieselben Geraete"
+    asyncio.run(lauf())

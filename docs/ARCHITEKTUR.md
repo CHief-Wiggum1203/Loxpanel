@@ -905,6 +905,20 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   das Profil bietet „Wie global (…)" mit dem geerbten Wert in Klammern, das
   Gerät „Wie im Profil".
 - Kachelliste auf 400 Einträge begrenzt.
+- Freie Auswahl: bis zu vier Seiten je Panel (`pickTabs`, Tabs `auswahl` bis
+  `auswahl4`), je Seite Name, Icon und Inhalt (Kacheln in Klickreihenfolge
+  oder ein Widget). `/api/meta` muss `pickTabs` mitliefern: Fehlt es, kennt der
+  Editor nach dem Neuladen nur eine Seite und kürzt beim nächsten Speichern
+  die Leiste (so geschehen vor #47). Geprüft über Speichern, Neuladen,
+  Weiterbearbeiten und die Visu in `tests/browser/test_auswahl_seiten_browser.py`.
+- Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
+  dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
+  (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
+  Skalierung und Präsenzmelder über `POST /api/devices`. Geprüft in
+  `tests/browser/test_displays_browser.py`.
+- Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
+  `input[type=text|number|password]`, ein Feld ohne `type` steht sonst
+  browserweiß im dunklen Konfigurator.
 - Eigene Icon-Map `BICONS` (20 Icons, `fan` und `list` fehlen gegenüber der Visu).
 - Overlay-Vorschau rechnet die Alphas selbst nach (`ovPreview()`), parallel zur
   Server-Logik `_overlay_alphas()`.
