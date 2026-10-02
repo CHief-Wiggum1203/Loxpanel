@@ -286,6 +286,17 @@ an. Die Archive liegen auf dem LoxBerry unter
 lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
 vorher automatisch gesichert).
 
+Ohne LoxBerry (Docker, Android-App) geht es im Konfigurator unter
+**Settings → Sicherung**, auf dem LoxBerry ebenso: **„Einstellungen
+herunterladen"** liefert eine ZIP-Datei mit Miniserver-Zugang, Kamera, Kalender,
+Panels, Geräten und Design – ohne Kennwörter, weil der Download keine Anmeldung
+braucht. **„ZIP-Datei wählen und einspielen"** spielt sie wieder ein, auch auf
+einem anderen Gerät: erst wird alles geprüft, dann geschrieben (der bisherige
+Stand bleibt als `.bak` daneben), ohne Neustart. Kennwörter, die dort schon
+eingetragen sind, bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und
+Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende
+nennt das Ergebnis.
+
 ## Datenschutz
 
 LoxPanel läuft **vollständig lokal**: Die Verbindung besteht nur zwischen LoxBerry

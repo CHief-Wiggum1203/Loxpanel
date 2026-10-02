@@ -23,6 +23,7 @@ Nur Standardbibliothek, keine zusaetzliche Abhaengigkeit.
 from __future__ import annotations
 
 import colorsys
+import functools
 import math
 import re
 
@@ -273,10 +274,25 @@ def derive(grundfarbe: str) -> dict | None:
     Satz aufgeht, nicht nur die Hauptschrift. Gesaettigte Mitteltoene wie
     Senfgelb liegen sonst in einer toten Zone, in der weder helle noch dunkle
     Akzente Platz haben und alles Richtung Schwarz zusammenfaellt.
+
+    Eine Herleitung kostet 10 bis 60 ms und wird bei jeder Panel-Verbindung
+    und jedem Speichern gebraucht; das Ergebnis je Farbe bleibt gemerkt
+    (_derive). Zurueck kommt jedes Mal ein eigenes dict.
     """
     if not isinstance(grundfarbe, str) or not _HEX.match(grundfarbe.strip()):
         return None
-    grundfarbe = grundfarbe.strip().lower()
+    satz = _derive(grundfarbe.strip().lower())
+    return dict(satz) if satz is not None else None
+
+
+# So viele Grundfarben bleiben gemerkt - mehr als ein Haus je an Profilen hat.
+DERIVE_MERKEN = 256
+
+
+@functools.lru_cache(maxsize=DERIVE_MERKEN)
+def _derive(grundfarbe: str) -> tuple | None:
+    """derive() ohne Pruefung der Eingabe, Ergebnis als Tupel (unveraenderlich,
+    damit der Speicher nicht von aussen veraendert wird)."""
     farbton, hell, saettigung = _hls(grundfarbe)
     helle_schrift = luminanz(grundfarbe) < 0.18
     richtung = -1 if helle_schrift else 1
@@ -293,7 +309,7 @@ def derive(grundfarbe: str) -> dict | None:
     def tripel(h: str) -> str:
         return "%d,%d,%d" % _rgb(h)
 
-    return {
+    return tuple({
         "--bg": satz["rahmen"], "--screen": satz["screen"],
         "--tile": satz["tile"], "--tabbar": satz["leiste"],
         "--wash": satz["wash"],
@@ -315,4 +331,4 @@ def derive(grundfarbe: str) -> dict | None:
         # Toenung der Aktiv-/OK-Kachel. Auf gesaettigtem Grund hebt eine
         # kraeftige Toenung den Kontrast der Zustandsfarbe auf.
         "--ov-fill": f"{satz['deckung']:.3g}",
-    }
+    }.items())

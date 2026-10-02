@@ -3,6 +3,8 @@
 data
 config/loxpanel.cfg
 config/panels.json
+# Sicherungskopien vor dem Ueberschreiben (loxpanel.cfg.bak mit Kennwoertern)
+config/*.bak
 .env
 **/__pycache__
 *.pyc
