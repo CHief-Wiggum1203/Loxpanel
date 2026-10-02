@@ -474,6 +474,15 @@
       // Skalierung / Bildschirmgroesse
       'Kachel-Aufbau': 'Tile layout',
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
+      'Automatisch (Tablet)': 'Automatic (tablet)',
+      'Kachelgröße': 'Tile size',
+      'Klein (mehr Kacheln)': 'Small (more tiles)',
+      'Mittel': 'Medium',
+      'Groß (weniger Kacheln)': 'Large (fewer tiles)',
+      'Kachel-Layout „Automatisch“ (Tablet): Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Displays bei den Geräten.':
+        'Tile grid “Automatic” (tablet): the panel works out columns and rows from its screen size itself – a larger screen shows more tiles, not larger ones. A widget takes whole tile columns, in portrait whole rows; the tiles keep their size. “Fill screen” and scaling are not needed then. What a device makes of it is shown under Displays with the devices.',
+      '„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.':
+        '“Automatic” works out the grid from the tablet’s screen size: a larger screen shows more tiles, not larger ones.',
       'Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.':
         'Tile layout “New”: room small at the top right, the state large with the name below, temperatures large in place of the symbol, buttons as a bar at the bottom. “Classic” is the previous layout. The tile grid stays the same in both.',
       'Skalierung': 'Scaling',
@@ -487,13 +496,13 @@
       'physisch': 'physical',
       'Visu': 'visu',
       'nutzt': 'uses',
-      'Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Settings → Panels.':
-        'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Settings → Panels.',
+      'Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Displays → Betriebsmodus-Automatik & Display-Steuerung.':
+        'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Displays → Operating-mode automation & display control.',
       'Wie global': 'Same as global',
       'Standard für alle Panels': 'Default for all panels',
       'Aus': 'Off',
-      'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Settings → Panels.':
-        'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Settings → Panels.',
+      'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Displays → Betriebsmodus-Automatik & Display-Steuerung.':
+        'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Displays → Operating-mode automation & display control.',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',

@@ -244,7 +244,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -269,7 +269,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
-| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor). Beim Verbinden und nach jeder Größenänderung, entprellt. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
+| `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
@@ -629,6 +629,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "font": "Inter",
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
+        "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
+        "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
+                                             // fehlt = mittel (KACHEL_ZIEL)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
@@ -830,6 +833,31 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py` und
   `test_mini_verlauf_im_neuen_aufbau`.
+- Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
+  Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
+  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
+  Kachel in CSS-Pixeln, die der Server je Stufe schickt (`gridAuto` aus
+  `KACHEL_ZIEL`: klein 150, mittel 170, groß 200). Spalten = Breite durch
+  Zielgröße, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
+  die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
+  Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
+  etwa 167 × 146 px, hochkant 3 × 5, am 10″-Tablet (1280×800) quer 7 × 4. Ein
+  Widget belegt ganze Kachelspalten (quer) bzw. -zeilen (hochkant), rund
+  `PANE_ANTEIL` (40 %) der Fläche. Die Aufteilung setzt `render()` als
+  `--auto-k`/`--auto-p` (fr), die Kacheln bleiben damit mit und ohne Widget
+  gleich groß: am Tab A9 quer 3 × 3 neben dem Widget statt 5 × 3. Der Kasten
+  ist der ganze Schirm (Klasse `.fill` mit `.auto`), „Bildschirm füllen“,
+  Skalierung und die Verdopplung „Screen füllen“ wirken nicht
+  (`applyScale()` bleibt bei 1). Geblättert wird seitenweise wie bisher (je
+  Seite Spalten × Zeilen Kacheln). Beim Drehen rechnet `rasterKey()` neu, der
+  `resize`-Handler baut dann neu auf. Der Online-Punkt sitzt wie im Split in
+  der Ecke, weil die Mitte bei ungeraden Zahlen (5 × 3) auf einer Kachel läge.
+  Das Panel meldet das Raster mit seiner Bildschirmgröße (`rc`, `rr`), der
+  Konfigurator zeigt es unter Displays bei den Geräten. Das feste Raster
+  (4″-Panel, jedes Profil ohne `grid`) bleibt unverändert. Der Assistent
+  „Neues Panel“ schlägt „Automatisch“ für 2 Panes (Tablet) vor. Geprüft in
+  `tests/test_auto_raster.py` und `tests/browser/test_auto_raster_browser.py`.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →

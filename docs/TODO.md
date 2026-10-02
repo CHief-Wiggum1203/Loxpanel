@@ -549,41 +549,39 @@ selbst aktuell.
       nach dem Verbinden sind die Räume da. Offen: Klingel, Notify,
       Ansichtswechsel, Neustart der App, Nachtmodus, dazu das Zielgerät
       YC-SM41P.
-- [ ] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
+- [x] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
       Gerät). Eingestellt waren Kachel-Layout 3 × 3, „Bildschirm füllen“ an,
       Skalierung aus, Split-Screen an und als Widget das Wetter. Ergebnis:
       Links standen fünf sehr große Kacheln mit kleinem Icon oben und Text
       unten, die untere Hälfte der Visu blieb leer. Rechts stand das Wetter,
-      darunter wieder eine große Leerfläche.
+      darunter wieder eine große Leerfläche. Für ein gutes Bild mussten fünf
+      Regler zusammenpassen: Kachel-Layout, „Bildschirm füllen“, Skalierung,
+      Split-Screen und Widget je Tab.
 
-      Für ein gutes Bild müssen heute fünf Regler zusammenpassen, die sich
-      gegenseitig beeinflussen:
-      - Kachel-Layout
-      - „Bildschirm füllen“
-      - Skalierung, dazu „Wie global“ und die Übersteuerung je Gerät; laut
-        Hinweis wirkt sie nicht zusammen mit „Bildschirm füllen“
-      - Split-Screen
-      - Widget je Tab, wo „Screen füllen“ etwas anderes heißt als
-        „Bildschirm füllen“
-
-      Was eine Kombination auf einem bestimmten Schirm ergibt, sieht man erst
-      am Gerät.
-
-      Ziel: Die Ansicht sieht auf jedem Gerät ohne Einstellerei gut aus.
-      LoxPanel wählt Raster, Kachelgröße und Aufteilung selbst nach
-      Bildschirm, Lage und Zahl der Bausteine. Wenige Bausteine werden nicht
-      riesig, viele werden kleiner bis zu einer Mindestgröße, danach wird
-      gescrollt.
-
-      Ideen:
-      - die heutigen Regler unter „Erweitert“ sammeln
-      - „Bildschirm füllen“, „Screen füllen“ und Skalierung zu einer
-        Größenwahl zusammenfassen
-      - das Widget in Pane 2 nutzt seine Höhe
-      - eine Listen-Darstellung als Alternative zu großen Kacheln
-
-      Nebenbei: Der Hinweis bei der Skalierung verweist noch auf „Settings →
-      Panels“, die Geräte stehen unter *Displays*. **L**
+      Gelöst am 02.10.2026 mit dem Kachel-Layout **„Automatisch (Tablet)“**.
+      Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße
+      und einer Kachelgröße in drei Stufen (klein, mittel, groß). Ein größerer
+      Schirm zeigt so mehr Kacheln statt größerer: am Tab A9 quer 5 × 3,
+      hochkant 3 × 5, am 10″-Tablet quer 7 × 4. Ein Widget belegt ganze
+      Kachelspalten (quer) bzw. -zeilen (hochkant), etwa 40 % der Fläche. Die
+      Kacheln bleiben dabei gleich groß: am Tab A9 quer stehen 3 × 3 neben
+      dem Wetter. „Bildschirm füllen“ und Skalierung braucht es dann nicht,
+      der Konfigurator blendet sie aus. Geblättert wird seitenweise wie
+      bisher, beim Drehen rechnet das Panel neu. Unter *Displays* zeigt die
+      Geräteliste, welches Raster ein Tablet daraus macht. Der Assistent
+      „Neues Panel“ schlägt „Automatisch“ für 2 Panes vor. Das 4″-Panel
+      bleibt beim festen Raster. Festgelegt am 02.10.2026: Wahl je Panel,
+      seitenweise blättern, Kachelgröße in Stufen, Widget auf ganzen
+      Kachelspalten. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1,
+      Tests in `tests/test_auto_raster.py` und
+      `tests/browser/test_auto_raster_browser.py`. Nebenbei: Der Hinweis bei
+      der Skalierung verweist jetzt auf *Displays* statt auf „Settings →
+      Panels“. **L**
+- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ am Tab A9
+      prüfen (Raster quer und hochkant, Widget, Drehen). Aus den Ideen
+      offen: Das Widget in Pane 2 soll seine Höhe nutzen (beim Wetter blieb
+      darunter eine Leerfläche), dazu eine Listen-Darstellung als
+      Alternative zu großen Kacheln. **M**
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**

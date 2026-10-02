@@ -74,6 +74,11 @@
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
   .screen.split.fill{width:100vw;height:100vh;}
+  /* Automatisches Raster (Tablet): der Kasten ist der ganze Schirm (wie "fill"),
+     das Widget belegt ganze Kachelspalten bzw. -zeilen (autoRaster) - die
+     Kacheln bleiben mit und ohne Widget gleich gross. */
+  .screen.split.auto:not(.hoch){grid-template-columns:var(--auto-k,1fr) var(--auto-p,1fr);}
+  .screen.split.hoch.auto{grid-template-rows:var(--auto-k,1fr) var(--auto-p,1fr) auto;}
   /* Widget-Seite (Vollbild-Tab): das Widget fuellt die ganze Flaeche, kein
      Kachelgrid, kein Split - gleiche gerahmte fp-page wie in Pane 2. */
   .screen.widgettab #grid{display:none;}
@@ -182,6 +187,9 @@
   @keyframes eflowin{0%{transform:translate(var(--dx),var(--dy));opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
   .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
+  /* Automatisches Raster: Spalten- und Zeilenzahl sind oft ungerade (5 x 3), die
+     Mitte laege auf einer Kachel - der Punkt sitzt wie im Split in der Ecke. */
+  .screen.auto .conn{place-self:start start;margin:6px;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
      Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
@@ -205,9 +213,9 @@
   #playerpane .ppvol .sld{flex:1;}
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
-  .grid{--gap:10px;grid-area:1/1;
+  .grid{--gap:10px;--pad:10px;grid-area:1/1;
     display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
-    grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:10px;
+    grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:var(--pad);
     overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
   /* Schlanke Scrollleiste im Theme fuer JEDEN scrollenden Bereich. Ohne das
      zeichnet der Browser in der Split-Pane seine Standardleiste (16 px, grau)
@@ -1086,6 +1094,7 @@ let playerData = null;   // letzter {t:'player'}-Push (Player-Bloecke) fuer die 
 let curChartKey = '', chartData = null, chartRange = '24h';
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
+let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -1818,7 +1827,8 @@ function applyPane(){
   sc.classList.toggle('widgettab', !!wt);   // Widget fuellt die ganze Flaeche
   sc.classList.toggle('split', isPane && !wt);   // Widget in Pane 2 -> zweigeteilt
   applyHoch();
-  sc.classList.toggle('fill', themeFill);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
+  sc.classList.toggle('fill', themeFill || gridAuto>0);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
+  sc.classList.toggle('auto', gridAuto>0);   // automatisches Raster: Widget auf ganzen Kachelspalten
   const pp=el('playerpane'), fp=el('frontpane');
   if(pp) pp.hidden=(kind!=='player');
   if(fp){
@@ -2003,15 +2013,40 @@ function updateGrid(items){
 // 4"-Panel bleibt in jedem Fall bei seinem Raster.
 function rasterFuer(widget){
   const w=window.innerWidth, h=window.innerHeight;
+  if(gridAuto){ const r=autoRaster(widget); return [r.cols, r.rows]; }
   if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
   if(w>h) return [profCols*2, profRows];
   if(h>w && w/h < (profCols/profRows)/Math.SQRT2) return [profCols, profRows*2];
   return [profCols, profRows];
 }
+// Automatisches Raster (Profil "Automatisch", Tablet): Spalten und Zeilen aus
+// der freien Flaeche und der Zielgroesse einer Kachel (gridAuto, vom Server).
+// Ein groesserer Schirm zeigt mehr Kacheln statt groesserer, die Zeilen machen
+// die Kacheln etwa quadratisch. Ein Widget (Pane 2) belegt ganze Kachelspalten
+// (quer) bzw. -zeilen (hochkant), rund PANE_ANTEIL der Flaeche; so bleiben die
+// Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
+// Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
+const PANE_ANTEIL = 0.4;
+function autoRaster(widget){
+  const cs=getComputedStyle(el('grid')), tabs=el('tabs');
+  const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
+  const w=window.innerWidth, h=window.innerHeight-(tabs?tabs.offsetHeight:0);
+  const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
+  const cols=anzahl(w, gridAuto);
+  const rows=anzahl(h, (w-2*pad-(cols-1)*gap)/cols);
+  if(!widget) return {cols:cols, rows:rows, k:1, p:0};
+  const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
+  if(window.innerHeight>window.innerWidth){   // hochkant: Widget unter den Kacheln
+    if(rows<2) return {cols:cols, rows:1, k:1, p:1};
+    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p};
+  }
+  if(cols<2) return {cols:1, rows:rows, k:1, p:1};
+  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p};
+}
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
-  const w=window.innerWidth, h=window.innerHeight;
-  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x');
+  const w=window.innerWidth, h=window.innerHeight, a=gridAuto ? autoRaster(widget) : null;
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '');
 }
 function render(){
   if(!view) return;
@@ -2027,6 +2062,9 @@ function render(){
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
+  if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
+    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr'); }
+  reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   stopVideo();
   closeMenu();
   setMore(null);
@@ -2035,7 +2073,7 @@ function render(){
   // Flaeche bleibt beim Profil-Standard (nicht verdoppeln). applyPane (ueber
   // renderTabs) zeichnet das Widget und meldet seinen Datenkanal an.
   if(view.widget){
-    gridCols=profCols; gridRows=profRows;
+    if(!gridAuto){ gridCols=profCols; gridRows=profRows; }   // automatisch: der Kasten ist ohnehin der Schirm
     document.documentElement.style.setProperty('--cols', gridCols);
     document.documentElement.style.setProperty('--rows', gridRows);
     el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx');
@@ -2297,6 +2335,7 @@ function connect(){
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
+      gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
       if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
@@ -3136,7 +3175,8 @@ function applyScale(){
   const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
   const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
   let k=1;
-  if(uiScaleCfg==='auto') k=Math.max(1,passt);      // nur vergroessern: kleiner rechnet das Layout selbst
+  if(gridAuto) k=1;                                  // automatisches Raster: Kacheln haben ihre Groesse, der Kasten ist der Schirm
+  else if(uiScaleCfg==='auto') k=Math.max(1,passt); // nur vergroessern: kleiner rechnet das Layout selbst
   else if(typeof uiScaleCfg==='number') k=Math.min(uiScaleCfg,passt);
   k=Math.round(k*1000)/1000;
   if(k!==uiScaleEff || s.style.getPropertyValue('--ui-scale')===''){
@@ -3155,7 +3195,8 @@ function reportScreen(){
   _screenTimer=setTimeout(()=>{
     const s=document.querySelector('.screen'), sc=window.screen||{};
     const m={t:'screen', vw:innerWidth, vh:innerHeight, sw:sc.width||0, sh:sc.height||0,
-      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff};
+      dpr:window.devicePixelRatio||1, bw:s?s.offsetWidth:0, bh:s?s.offsetHeight:0, k:uiScaleEff,
+      rc:gridCols, rr:gridRows};   // Raster der Kachelansicht (zeigt, was "Automatisch" ergibt)
     const sig=JSON.stringify(m);
     if(sig===_screenSent) return;
     try{ send(m); _screenSent=sig; }catch(e){}

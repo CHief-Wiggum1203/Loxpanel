@@ -169,6 +169,13 @@ nicht unbemerkt entfernt:
   und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py`,
   `test_mini_verlauf_im_neuen_aufbau`.
+- Automatisches Raster für Tablets (`ui.grid`/`ui.tileSize`, `KACHEL_ZIEL`,
+  `gridAuto` in der theme-Nachricht, `autoRaster()` und `.screen.auto` in
+  `panel.html`, Kachel-Layout „Automatisch“ und Assistent in `config.html`,
+  Raster in der Bildschirmmeldung `rc`/`rr`): gehört zum selben Vorschlag an
+  Lenardo. Reibt sich bei Upstream-Merges an `rasterFuer()`, `applyPane()`
+  und `applyScale()`. Wachen: `tests/test_auto_raster.py`,
+  `tests/browser/test_auto_raster_browser.py`.
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):

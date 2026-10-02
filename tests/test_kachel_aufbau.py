@@ -65,11 +65,13 @@ def test_jede_gespeicherte_option_kommt_beim_konfigurator_an():
     app._apply_structure(STRUKTUR_PANEL)
     ui = {"iconSize": 30, "nameSize": 20, "subSize": 14, "font": "Inter", "nudgeX": 4, "dpmsOff": 60,
           "reloadHours": 24, "nightDim": 50, "nightWake": 20, "cols": 3, "rows": 3, "fill": True,
-          "split": False, "catFilter": True, "tileLayout": "classic", "player": "Z1",
+          "split": False, "catFilter": True, "tileLayout": "classic", "grid": "auto", "tileSize": "small",
+          "player": "Z1",
           "panes": {"favoriten": "weather"}, "svPane": "calendar", "scale": "auto",
           "textColor": "#ffffff", "bold": True, "lang": "en"}
     gespeichert = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "ui": ui}})["p"]
-    assert {"catFilter", "tileLayout", "panes", "svPane", "scale"} <= set(gespeichert["ui"]), gespeichert["ui"]
+    assert {"catFilter", "tileLayout", "grid", "tileSize", "panes", "svPane", "scale"} <= set(gespeichert["ui"]), \
+        gespeichert["ui"]
     exportiert = app._panel_export(gespeichert)["ui"]
     fehlt = sorted(set(gespeichert["ui"]) - set(exportiert))
     assert fehlt == [], f"beim Konfigurator fehlen {fehlt}"

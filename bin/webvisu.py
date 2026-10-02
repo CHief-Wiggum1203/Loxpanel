@@ -309,7 +309,8 @@ PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnal
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
-PANEL_STANDARD = {("ui", "split"): True, ("tiles", "*", "chartStyle"): "trend"}
+PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
+                  ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
@@ -365,6 +366,13 @@ GROESSEN_STANDARD = {
     "classic": {"iconSize": 38, "nameSize": 18, "subSize": 15, "roomSize": 12, "bigSize": 36},
 }
 
+# Automatisches Raster (ui.grid "auto", fuer Tablets): Zielgroesse einer Kachel
+# in CSS-Pixeln je Stufe (ui.tileSize; fehlt = "medium"). Die Visu rechnet
+# daraus Spalten und Zeilen fuer den Schirm, ein groesserer Schirm zeigt so
+# mehr Kacheln statt groesserer. Einzige Quelle: resolve_profile() schickt den
+# Wert mit der theme-Nachricht.
+KACHEL_ZIEL = {"small": 150, "medium": 170, "large": 200}
+
 
 def _clean_scale(v):
     """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
@@ -402,7 +410,8 @@ def _clean_screen(d) -> dict:
            "sw": zahl("sw", 1, 20000), "sh": zahl("sh", 1, 20000),     # Bildschirm laut Geraet (CSS-px)
            "dpr": zahl("dpr", 0.25, 8, 2),                              # Pixeldichte
            "bw": zahl("bw", 1, 20000), "bh": zahl("bh", 1, 20000),     # Kasten der Visu (ungeskaliert)
-           "k": zahl("k", 0.1, 10, 3)}                                  # wirksamer Faktor
+           "k": zahl("k", 0.1, 10, 3),                                  # wirksamer Faktor
+           "rc": zahl("rc", 1, 50), "rr": zahl("rr", 1, 50)}            # Raster der Kachelansicht
     return {k: v for k, v in out.items() if v is not None}
 
 
@@ -1937,6 +1946,10 @@ class App:
             # Kachel-Aufbau: "" = neuer (Raum oben rechts, Zustand gross, Bedienleiste
             # unten), "classic" = der bisherige. Das Raster (cols/rows) bleibt davon unberuehrt.
             "tileLayout": "classic" if ui.get("tileLayout") == "classic" else "",
+            # Automatisches Raster: Zielgroesse einer Kachel in px; 0 = festes
+            # Raster aus cols/rows (4"-Panel und jedes Profil ohne "auto").
+            "gridAuto": (KACHEL_ZIEL.get(ui.get("tileSize"), KACHEL_ZIEL["medium"])
+                         if ui.get("grid") == "auto" else 0),
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
@@ -2507,7 +2520,7 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout")}
+                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -2660,6 +2673,10 @@ class App:
                 cui["catFilter"] = True         # untere Leiste filtert statt zu springen
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
+            if ui.get("grid") == "auto":
+                cui["grid"] = "auto"            # Raster rechnet die Visu (Tablet), cols/rows gelten dann nicht
+            if ui.get("tileSize") in KACHEL_ZIEL and ui["tileSize"] != "medium":
+                cui["tileSize"] = ui["tileSize"]   # Kachelgroesse im automatischen Raster; fehlt = mittel
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -7725,6 +7742,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
+                        "gridAuto": prof["gridAuto"],      # automatisches Raster: Zielgroesse px, 0 = fest
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
