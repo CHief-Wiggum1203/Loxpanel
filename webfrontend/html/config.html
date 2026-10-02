@@ -743,7 +743,7 @@
             <p class="note" data-i18n>Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).</p>
             <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
             <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
-            <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Panels mit Agent.</p>
+            <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Panels mit Agent.</p>
             <div class="actions"><button class="btn" id="dev_save" data-i18n>Speichern</button><span class="toast" id="dev_toast"></span></div>
           </div>
         </details>
@@ -1499,6 +1499,7 @@ function renderEditor(){
          '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+
          (((p.ui||{}).nightWake==null)?'':(p.ui||{}).nightWake)+'" placeholder="20"></div>'+
      '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
      '<div class="grph">'+T('Feinjustierung')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
@@ -3319,7 +3320,7 @@ async function loadPanelIds(){
     });
   }catch(e){ PANEL_IDS=[]; }
 }
-const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', browser:'Browser'};
+const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', loxpanel:'LoxPanel-App', browser:'Browser'};
 function profSelect(cls, cur){
   return '<select class="'+cls+'"><option value="">'+T('(Standard)')+'</option>'+
     PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>').join('')+'</select>';
@@ -3330,7 +3331,8 @@ function deviceRow(d, sel){
   let btns='';
   if(d.connections) btns+='<button class="btn sm" data-act="switch">'+T('Ansicht wechseln')+'</button>'+
                           '<button class="btn sm ghost" data-act="wsreload">'+T('Neu laden')+'</button>';
-  if(d.type==='fully') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
+  // Kiosk-Apps schalten das Display aus der Seite heraus (Fully Kiosk, LoxPanel-App)
+  if(d.type==='fully'||d.type==='loxpanel') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
                              '<button class="btn sm ghost" data-act="dispon">'+T('Display an')+'</button>';
   if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
                     '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
@@ -3344,7 +3346,7 @@ function deviceRow(d, sel){
     (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
 }
 function anonRow(a, typed){
-  const info=[a.ip, a.kiosk==='fully'?'Fully Kiosk':T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
+  const info=[a.ip, TYPE_LABEL[a.kiosk]||T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
@@ -3584,7 +3586,7 @@ function mzRender(){
     // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
     // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
     const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
-      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input type="text" class="mzname" placeholder="'+T('Gerätename')+'">'+
+      esc(TYPE_LABEL[a.kiosk]||T('Browser'))+'</span><input type="text" class="mzname" placeholder="'+T('Gerätename')+'">'+
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'

@@ -27,6 +27,8 @@ sprechen `/api/*`.
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver (falls die Anlage ihn hat): rechnet die Binaertabelle des Miniservers in dieselbe Form wie `front_info.fetch_weather()` um und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur des Miniservers, nicht aus einer Tabelle im Code |
 | `webfrontend/html/*.html`, `i18n.js` | Frontend, Vanilla JS, kein Build |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
+| `android/` | LoxPanel-App für Android (Lenardos #61): Server per Chaquopy im Gerät, Visu in eigener WebView mit der JS-Brücke `LoxKiosk`. Der Build kopiert `bin/`, `webfrontend/`, `deploy/` und `config/` aus dem Arbeitsbaum in die App (`syncLoxpanelAssets`); Anleitung in `android/README.md` |
+| `packaging/deb/` | Lenardos `.deb`-Paket für Linux-Panels (#62), im Fork nicht weiterentwickelt |
 | `config/*.example` | Vorlagen; echte Dateien liegen im Volume `/app/config` |
 | `unraid/loxpanel.xml`, `deploy/UNRAID.md` | Unraid-Betrieb |
 | `loxberry-plugin/` | LoxBerry-Wrapper, nur für Releases relevant |
@@ -93,6 +95,10 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und
   den Heredoc in `deploy/install-agent.sh`.
+- Die Brücke `LoxKiosk` der App hat zwei Seiten: `KioskBridge` in
+  `android/.../KioskActivity.kt` und die Aufrufe in `panel.html` (`KIOSK_APPS`,
+  `appLeerlauf()`, `appHelligkeit()`, `setSaver`). Die App-Tests in
+  `tests/browser/` bauen sie nach; eine neue Methode gehört auch dorthin.
 - Keine Authentifizierung auf den Routen. Nichts bauen, was das Netz nach außen
   öffnet, ohne das vorher zu lösen.
 - Image-Name `ghcr.io/chief-wiggum1203/loxpanel` in Kleinbuchstaben. Ein Push auf

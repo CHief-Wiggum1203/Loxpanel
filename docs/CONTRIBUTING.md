@@ -142,17 +142,16 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
 
-- Verlaufs-Regeln aus Upstream #60 nur im `#frontpane`
-  (`webfrontend/html/panel.html`, CSS der Verlaufs-Pane), auf der Uhr-Seite
-  schrumpfen die Diagramme, wenn der Kasten nicht reicht: hält sie im
-  Seitenverhältnis, hochkant fielen sie sonst auf 0 px zusammen. Eingereicht
-  als Lenardo1/loxpanel#71; geht der Patch bei einem Sync verloren, schlagen
-  `test_uhrseite_hochkant_zweite_flaeche_unten` und
-  `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden` an.
 - `type="text"` am Namensfeld des Betriebsmodus-Assistenten (`.mzname` in
-  `config.html`): kommt zu Lenardo erst, wenn #65 übernommen ist, das dieselbe
-  Zeile ändert. Geht es verloren, schlägt
+  `config.html`): Lenardo hat #65 übernommen, das dieselbe Zeile ändert, der
+  Fix kann also jetzt zu ihm. Geht er verloren, schlägt
   `test_geraeteliste_umschalten_und_benennen` an.
+- Icon-Bibliothek einer freien Seite (`pickIcoGridNeu()` und
+  `bindPickIcons()` in `config.html`): Kommt die Bibliothek nach, füllt sie nur
+  das Icon-Raster neu statt des ganzen Editors, sonst verliert der Seitenname
+  mitten im Tippen Fokus und Buchstaben. Geht es zu Lenardo, sobald der
+  Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
+  `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):

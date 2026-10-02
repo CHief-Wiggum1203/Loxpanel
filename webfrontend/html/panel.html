@@ -2162,7 +2162,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
-  if(kiosk()) q.push('kiosk=fully');   // Kiosk-App melden -> Typ in der Geraeteliste
+  const kk=kioskKind(); if(kk) q.push('kiosk='+kk);   // Kiosk-App melden -> Typ in der Geraeteliste
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
@@ -2227,7 +2227,7 @@ function connect(){
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
     if(msg.t==='display'){   // Server schaltet Display (Kiosk-App); presence = Praesenzmelder des Geraets
-      if(typeof msg.presence==='boolean') DISP.presence=msg.presence;
+      if(typeof msg.presence==='boolean'){ DISP.presence=msg.presence; appLeerlauf(); }
       if(msg.on) wake(); else { clearTimeout(dpmsTimer); screenOff(); }
       return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
@@ -2814,7 +2814,12 @@ function applySaverSplit(){
   s.classList.toggle('split', (!!themeSplit && quer) || hoch);
   s.classList.toggle('hoch', hoch);
 }
-function showSaver(){ tickClock();
+function showSaver(){
+  // Native Kiosk-App (LoxPanel): nur EIN sichtbarer Screensaver — diese Uhr.
+  // Der App sagen, dass ihr Saver läuft; sie dunkelt nur noch das Backlight
+  // (nach dpmsOff) und weckt per Annäherung/Berührung auf den 1. Tab.
+  try{ if(window.LoxKiosk && LoxKiosk.setSaver) LoxKiosk.setSaver(true); }catch(e){}
+  tickClock();
   applySaverSplit();
   el('saver').classList.remove('hidden');
   // Reihenfolge zaehlt: erst sichtbar schalten (svSideOn() gilt), dann die
@@ -2822,7 +2827,8 @@ function showSaver(){ tickClock();
   // zeichnen — jetzt hat er auch eine Hoehe, an der sich svFit ausrichtet.
   applyPane();
   renderFront(); }
-function hideSaver(){ el('saver').classList.add('hidden');
+function hideSaver(){ try{ if(window.LoxKiosk && LoxKiosk.setSaver) LoxKiosk.setSaver(false); }catch(e){}
+  el('saver').classList.add('hidden');
   // Zweite Spalte abraeumen: ein Kamerabild dort haelt sonst seine Verbindung
   // zur Tuerstation offen, obwohl die Uhr-Seite gar nicht mehr zu sehen ist.
   const b=el('svBox');
@@ -2943,9 +2949,20 @@ function nightLayer(){
   }
   return nightEl;
 }
+// LoxPanel-App: Dort senkt die App statt der Auflage die echte Helligkeit
+// (LoxKiosk.setDisplayBrightness, Prozent der eingestellten Helligkeit). Die
+// Auflage wirkt auf die Farbwerte, die Leuchtdichte faellt also mit der Potenz
+// 2,2 (sRGB): 70 % abdunkeln liess etwa 7 % Leuchtdichte uebrig. Dieselbe
+// Einstellung ergibt in der App dieselbe Leuchtdichte. Lehnt die App ab
+// (automatische Helligkeit am Geraet) oder kennt sie die Funktion nicht (aeltere
+// App), dunkelt wie bisher die Auflage ab.
+function appHelligkeit(dim){
+  const prozent = dim>0 ? Math.max(1, Math.round(100*Math.pow(1-dim/100, 2.2))) : 100;
+  try{ return !!(window.LoxKiosk && typeof LoxKiosk.setDisplayBrightness==='function'
+                 && LoxKiosk.setDisplayBrightness(prozent)); }catch(e){ return false; } }
 function applyNight(awake){
-  nightLayer().style.opacity =
-    (NIGHT.on && NIGHT.dim>0 && !awake) ? Math.min(90,NIGHT.dim)/100 : 0;
+  const dim = (NIGHT.on && NIGHT.dim>0 && !awake) ? Math.min(90,NIGHT.dim) : 0;
+  nightLayer().style.opacity = appHelligkeit(dim) ? 0 : dim/100;
 }
 function setNight(on){ NIGHT.on=!!on; clearTimeout(nightWakeTimer); applyNight(false); }
 function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zurueck
@@ -2958,22 +2975,34 @@ function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zuruec
 // Auf einem Linux-Panel schaltet der Agent das Display (Server meldet agent:true,
 // die Seite haelt sich dann raus). Ohne Agent uebernimmt die Seite: nach dpmsOff
 // Sekunden Inaktivitaet Display aus ueber die JS-Schnittstelle der Kiosk-App,
-// bei Klingel / Wecker / Notify / Goto wieder an. Erkannt wird Fully Kiosk
-// Browser (window.fully; dort "Enable JavaScript Interface" einschalten).
+// bei Klingel / Wecker / Notify / Goto wieder an. Erkannt werden Fully Kiosk
+// Browser (window.fully; dort "Enable JavaScript Interface" einschalten) und die
+// LoxPanel-App fuer Android (window.LoxKiosk); beide haben dieselbe Schnittstelle.
 // Auto-Neustart (reloadHours) erledigt die Seite ohne Agent per location.reload().
 // Hat das Geraet einen Praesenzmelder (Displays -> Display-Steuerung), meldet der
 // Server, solange er jemanden sieht (presence): dann bleibt das Display an, der
 // Leerlauf schaltet nicht ab. Wird der Raum leer, schaltet der Server es aus.
 const DISP = { dpmsOff: 0, reloadHours: 0, agent: false, presence: false };
 let dpmsTimer=null, reloadTimer=null;
-function kiosk(){
-  const f=window.fully;
-  return (f && typeof f.turnScreenOff==='function' && typeof f.turnScreenOn==='function') ? f : null;
+// Kiosk-Apps: Kennung (meldet die Seite dem Server -> Typ in der Geraeteliste)
+// -> Name ihrer JS-Schnittstelle im window.
+const KIOSK_APPS = { fully: 'fully', loxpanel: 'LoxKiosk' };
+function kioskKind(){
+  for(const k in KIOSK_APPS){ const f=window[KIOSK_APPS[k]];
+    if(f && typeof f.turnScreenOff==='function' && typeof f.turnScreenOn==='function') return k; }
+  return '';
 }
+function kiosk(){ const k=kioskKind(); return k ? window[KIOSK_APPS[k]] : null; }
 function screenOff(){ const f=kiosk(); if(!f) return; try{ f.turnScreenOff(); }catch(e){} }
 function screenOn(){ const f=kiosk(); if(!f) return;
   try{ if(typeof f.isScreenOn!=='function' || !f.isScreenOn()) f.turnScreenOn(); }catch(e){} }
+// LoxPanel-App: Ihr eigener Bildschirmschoner kommt nach dpmsOff Sekunden.
+// Solange der Praesenzmelder des Geraets jemanden sieht, setzt er aus (0) -
+// sonst dunkelte die App trotz Anwesenheit ab.
+function appLeerlauf(){
+  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.presence ? 0 : DISP.dpmsOff); }catch(e){} }
 function armDpms(){ clearTimeout(dpmsTimer);
+  if(window.LoxKiosk) return;   // native LoxPanel-Kiosk-App schaltet selbst ab (eigener Screensaver)
   if(DISP.agent || DISP.presence || !(DISP.dpmsOff>0)) return;
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
@@ -3034,9 +3063,12 @@ function onScreenResize(){
 if(window.ResizeObserver){ const _s=document.querySelector('.screen'); if(_s) new ResizeObserver(onScreenResize).observe(_s); }
 function applyDisplayCfg(msg){
   DISP.dpmsOff = (typeof msg.dpmsOff==='number' && msg.dpmsOff>0) ? msg.dpmsOff : 0;
+  DISP.presence = !!msg.presence;   // jemand im Raum -> Display bleibt an (auch nach Neuladen)
+  // Native LoxPanel-Kiosk-App: konfigurierte Display-aus-Zeit an ihren Screensaver
+  // geben, bei Anwesenheit 0.
+  appLeerlauf();
   DISP.reloadHours = (typeof msg.reloadHours==='number' && msg.reloadHours>0) ? msg.reloadHours : 0;
   DISP.agent = !!msg.agent;
-  DISP.presence = !!msg.presence;   // jemand im Raum -> Display bleibt an (auch nach Neuladen)
   armDpms();
   clearTimeout(reloadTimer);
   if(!DISP.agent && DISP.reloadHours>0) reloadTimer=setTimeout(()=>location.reload(), DISP.reloadHours*3600*1000);

@@ -53,7 +53,34 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **30.09.2026** (`upstream/main` @ `fba03be`, Version
+Zuletzt eingepflegt am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
+weiterhin 0.6.0), als echter Merge-Commit. Lenardo hatte an dem Tag alle
+unsere offenen Beiträge übernommen, jeden patch-gleich: #63 Sicherung, #64
+Ersteinrichtung, #66 Kachel-Tasten erst beim Tippen, #71 Uhr-Seite, #72 tote
+Zuweisung, #73 Textfelder, #74 „1 Betriebsart“, #75 Beschattungs-Tasten und
+#76 Übersetzungs-Lücken; die App-Beiträge #65 und #67–#70 zuerst in seinen
+Zweig `ci/android-apk-pipeline`, der dann als #61 nach `main` ging. Neu damit
+im Fork: die **LoxPanel-App** unter `android/` (Server im Gerät, eigene
+Kiosk-Anzeige, Bildschirmschoner mit Näherungssensor, Display-Abschaltung)
+mit dem Workflow `android-apk.yml`, Lenardos **`.deb`-Paket** (#62) unter
+`packaging/deb/` mit `deb.yml` (beide nur bei Tags `v*` oder von Hand), und
+die App-Teile in Server, Visu und Konfigurator, die bisher nur in der
+Test-APK steckten: die App als Kiosk-Typ (`KIOSK_APPS`) mit „Display an/aus“,
+Leerlaufzeit und Präsenzmelder an ihren Schoner, nachts die echte Helligkeit
+(`ARCHITEKTUR.md` Abschnitt 8). Test-APKs entstehen damit direkt aus dem
+Fork: der Build nimmt `bin/`, `webfrontend/`, `deploy/` und `config/` aus dem
+Arbeitsbaum. Sechs Konfliktdateien: `.dockerignore` (der Fork hält
+`config/theme.json` aus dem Image), `README.md` (Lenardos Absätze zu App und
+Sicherung, dazu bleiben der Unraid-Absatz und die genauere Beschreibung der
+Ersteinrichtung), `bin/webvisu.py` (`/api/health` und der Unraid-Pfad in der
+Sicherung bleiben), `config.html` (`TYPE_LABEL` aus #65 mit `type="text"` am
+`.mzname`), `i18n.js` und `panel.html` (jeweils Lenardos Fassung aus #65).
+Eine Zeile hatte Git ohne Konflikt doppelt übernommen (`DISP.presence` in
+`applyDisplayCfg()`), sie steht jetzt wie bei Lenardo einmal vor
+`appLeerlauf()`. Die Browser-Tests mit nachgebauter Brücke `LoxKiosk` liegen
+jetzt in `tests/browser/` (Block 0c).
+
+Davor, am **30.09.2026** (`upstream/main` @ `fba03be`, Version
 weiterhin 0.6.0), als echter Merge-Commit. Darin unsere acht Beiträge
 #52–#59, die Lenardo am 29.09.2026 gemergt hat, und sein eigener #60
 „Verlauf-Widget: Diagramme teilen sich die Pane-Höhe, volle Breite“: In der
@@ -185,18 +212,18 @@ beim nächsten Mal wieder.
       `up/wetter-tote-zuweisung`, ein Commit auf `upstream/main`. Ohne
       `t_jetzt = t_roh + versatz` (ruff F841) ist `bin/loxone_weather.py` dort
       gleich wie im Fork, und `ruff --select F,E9` über `bin/` und `agent/` ist
-      ohne Fund. **S**
+      ohne Fund. Am 02.10.2026 gemergt. **S**
 - [x] **Weiße Textfelder bei Lenardo eingereicht:**
       [#73](https://github.com/Lenardo1/loxpanel/pull/73), Zweig
       `up/textfelder-dunkel`: die vier Felder unter *Displays* ohne
       `type="text"` (Namensfeld, Modus, IP, Port). Gegen seinen Stand laufen
       die Browser-Tests dazu mit dem Zweig grün, ohne ihn scheitern genau die
-      Feldstil-Prüfungen. **S**
-- [ ] **Namensfeld im Betriebsmodus-Assistenten bei Lenardo nachreichen,
-      sobald #65 übernommen ist:** `.mzname` hat denselben Fehler wie die
-      Felder aus #73, seine Zeile ändert aber #65. Damit beide konfliktfrei
-      bleiben, kommt dieser Fix erst danach. Im Fork ist er drin,
-      `test_geraeteliste_umschalten_und_benennen` prüft ihn. **S**
+      Feldstil-Prüfungen. Am 02.10.2026 gemergt. **S**
+- [ ] **Namensfeld im Betriebsmodus-Assistenten bei Lenardo einreichen:**
+      `.mzname` hat denselben Fehler wie die Felder aus #73. Gewartet wurde
+      auf #65, das dieselbe Zeile ändert; seit 02.10.2026 ist es übernommen,
+      der Fix kann also als ein Commit auf `upstream/main` los. Im Fork ist er
+      drin, `test_geraeteliste_umschalten_und_benennen` prüft ihn. **S**
 - [x] **Uhr-Seiten-Fix zu #60 bei Lenardo eingereicht:**
       [#71](https://github.com/Lenardo1/loxpanel/pull/71), Zweig
       `up/verlauf-uhrseite`. In seinem `main` fallen die Verlaufs-Diagramme
@@ -208,22 +235,19 @@ beim nächsten Mal wieder.
       dritte abschnitt (bei 960 × 480 164 px); geprüft mit
       `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`. Gegen Lenardos
       `main` laufen die vier Verlaufs-Tests aus dem Fork mit dem Zweig grün,
-      ohne ihn scheitern zwei. Bis Lenardo ihn übernimmt, ist es ein
-      Fork-eigener Patch ([`CONTRIBUTING.md`](CONTRIBUTING.md),
-      Sync-Checkliste Punkt 4). **S**
-- [ ] **Auf/Ab auf der Beschattungs-Kachel bei Lenardo einreichen:** Zweig
+      ohne ihn scheitern zwei. Am 02.10.2026 gemergt, seitdem kein
+      Fork-eigener Patch mehr. **S**
+- [x] **Auf/Ab auf der Beschattungs-Kachel bei Lenardo eingereicht:**
+      [#75](https://github.com/Lenardo1/loxpanel/pull/75), Zweig
       `up/beschattung-tasten`, ein Commit auf `up/kachel-tasten` (#66), weil
-      die Tasten erst seit dort beim Tippen auslösen; bis #66 gemergt ist,
-      zeigt der PR auch dessen Commit. Dieselbe Änderung wie im Fork, samt
-      `placeCtrls()` für enge Kacheln. Gegen den Zweig bestehen die 14 Tests
-      aus dem Fork, ohne die Änderung scheitern 10, darunter die Player-Tasten
-      in 2x3 und 3x3, die bei Lenardo schon abgeschnitten werden. Mit allen
-      Beiträgen paarweise und zusammen konfliktfrei. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/beschattung-tasten?expand=1`.
-      **S**
-- [ ] **Übersetzungs-Lücken bei Lenardo einreichen:** Zweig
-      `up/uebersetzung-luecken`, ein Commit auf `upstream/main`, Stand
-      02.10.2026. Drei Stellen, an denen die englische Übersetzung gewollt
+      die Tasten erst seit dort beim Tippen auslösen. Dieselbe Änderung wie im
+      Fork, samt `placeCtrls()` für enge Kacheln. Gegen den Zweig bestehen die
+      14 Tests aus dem Fork, ohne die Änderung scheitern 10, darunter die
+      Player-Tasten in 2x3 und 3x3, die bei Lenardo schon abgeschnitten
+      wurden. Am 02.10.2026 nach #66 gemergt. **S**
+- [x] **Übersetzungs-Lücken bei Lenardo eingereicht:**
+      [#76](https://github.com/Lenardo1/loxpanel/pull/76), Zweig
+      `up/uebersetzung-luecken`, ein Commit auf `upstream/main`. Drei Stellen, an denen die englische Übersetzung gewollt
       ist, aber nicht ankommt: Der Link „Bausteintypen der Anlage anzeigen“
       unter *Settings → Miniserver* samt Erläuterung stand in keinem
       übersetzten Element (jetzt `data-i18n`); vier `T()`-Texte hatten keinen
@@ -235,19 +259,14 @@ beim nächsten Mal wieder.
       kein Schlüssel hat zwei verschiedene Übersetzungen. Gegen Lenardos Stand
       bestehen die drei Tests mit dem Zweig, ohne ihn scheitern alle drei; mit
       englischer Browsersprache erscheinen der Link und seine Erläuterung dann
-      englisch. Mit allen Beiträgen einzeln und zusammen konfliktfrei.
-      Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/uebersetzung-luecken?expand=1`.
-      **S**
-- [ ] **„1 Betriebsart“ bei Lenardo einreichen:** Zweig
-      `up/weckzeit-einzahl`, ein Commit auf `upstream/main`, Stand
-      02.10.2026. Lassen sich die Betriebsmodi einer Weckzeit nicht zu Namen
+      englisch. Am 02.10.2026 gemergt. **S**
+- [x] **„1 Betriebsart“ bei Lenardo eingereicht:**
+      [#74](https://github.com/Lenardo1/loxpanel/pull/74), Zweig
+      `up/weckzeit-einzahl`, ein Commit auf `upstream/main`. Lassen sich die Betriebsmodi einer Weckzeit nicht zu Namen
       auflösen, zeigt die Wiederholung ihre Anzahl; bei genau einem stand dort
       „1 Betriebsarten“. Der Fork hat die Einzahl seit #82,
       `test_weckzeiten_liste` prüft sie: gegen Lenardos Stand mit dem Zweig
-      grün, ohne ihn rot. Mit allen Beiträgen konfliktfrei. Einreichen über
-      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/weckzeit-einzahl?expand=1`.
-      **S**
+      grün, ohne ihn rot. Am 02.10.2026 gemergt. **S**
 - [ ] **Icon-Bibliothek darf das Tippen nicht unterbrechen (Assistent, dann
       Lenardo):** Der Editor einer freien Seite lädt die Icon-Bibliothek nach
       (`/api/loxicons`) und baute danach den ganzen Editor neu auf. Wer gerade
@@ -263,7 +282,8 @@ beim nächsten Mal wieder.
 - [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
       Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
       mitentwickelt (Block 0c). #62, das `.deb`-Paket, verfolgen wir nicht
-      weiter. **S**
+      weiter. Lenardo hat beide am 02.10.2026 gemergt, seitdem liegen
+      `android/` und `packaging/deb/` auch im Fork. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -272,11 +292,10 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 02.10.2026. **In `upstream/main`** sind die Tabelle unten und #34–#44
-über unseren Sammel-PR #45 (Zweig `up/sammel`). **Offen** sind #63–#73, alle
-konfliktfrei mergebar; Lenardos `main` steht seit #60 (29.09.2026). Was sie
-enthalten und was noch einzureichen ist, steht oben bei den einzelnen Punkten
-und in Block 0c.
+Stand 02.10.2026, nach dem Abgleich. **In `upstream/main`** sind die
+Tabelle unten und #34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`).
+**Offen** ist keiner; was noch einzureichen ist, steht oben bei den einzelnen
+Punkten (`.mzname`, Icon-Bibliothek) und in Block 0c.
 
 | PR | Inhalt |
 |---|---|
@@ -302,9 +321,25 @@ und in Block 0c.
 | [#57](https://github.com/Lenardo1/loxpanel/pull/57) | Betriebsart der Raumregelung (V2 und alt) umschaltbar, beim V2 kein angenommener Komfortwert (Fork #95) |
 | [#58](https://github.com/Lenardo1/loxpanel/pull/58) | Hausverbrauch aus der Bilanz statt „Verbrauch 0 W“ (Fork #95) |
 | [#59](https://github.com/Lenardo1/loxpanel/pull/59) | Nicht Übernommenes beim Speichern melden (Fork #95, #96) |
+| [#63](https://github.com/Lenardo1/loxpanel/pull/63) | Sicherung: Einstellungen herunterladen und wieder einspielen (Fork #98) |
+| [#64](https://github.com/Lenardo1/loxpanel/pull/64) | Ersteinrichtung: Panel zeigt, wo der Konfigurator zu öffnen ist; Konfigurator führt zum Miniserver (Fork #98) |
+| [#65](https://github.com/Lenardo1/loxpanel/pull/65) | LoxPanel-App: Display wecken und Präsenzmelder (in `ci/android-apk-pipeline`, mit #61 in `main`) |
+| [#66](https://github.com/Lenardo1/loxpanel/pull/66) | Kachel-Tasten und Favoriten lösen erst beim Tippen aus, Wischen scrollt |
+| [#67](https://github.com/Lenardo1/loxpanel/pull/67) | LoxPanel-App: Nachtmodus über die echte Display-Helligkeit (wie #65) |
+| [#68](https://github.com/Lenardo1/loxpanel/pull/68) | LoxPanel-App: zuletzt angezeigte Ansicht nach Neustart wieder laden (wie #65) |
+| [#69](https://github.com/Lenardo1/loxpanel/pull/69) | Android-APK: Python-Pakete aus `requirements.txt` (wie #65) |
+| [#70](https://github.com/Lenardo1/loxpanel/pull/70) | Android-APK: Release mit festem Schlüssel, Version aus `plugin.cfg` (wie #65) |
+| [#71](https://github.com/Lenardo1/loxpanel/pull/71) | Uhr-Seite: Verlauf fällt hochkant nicht mehr auf 0 px zusammen |
+| [#72](https://github.com/Lenardo1/loxpanel/pull/72) | Wetterserver: tote Zuweisung `t_jetzt` entfernt |
+| [#73](https://github.com/Lenardo1/loxpanel/pull/73) | Konfigurator: Textfelder unter *Displays* nicht mehr browserweiß |
+| [#74](https://github.com/Lenardo1/loxpanel/pull/74) | Weckzeiten: „1 Betriebsart“ statt „1 Betriebsarten“ |
+| [#75](https://github.com/Lenardo1/loxpanel/pull/75) | Auf/Ab auf der Beschattungs-Kachel |
+| [#76](https://github.com/Lenardo1/loxpanel/pull/76) | Konfigurator auf Englisch: Link zu `/api/types`, vier Widget-Texte, „Block“ (Fork #99) |
 
 #52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
-30.09.2026 kamen sie patch-gleich zurück.
+30.09.2026 kamen sie patch-gleich zurück. #63–#76 hat er am 02.10.2026
+gemergt, #65 und #67–#70 über seinen Zweig `ci/android-apk-pipeline` (#61);
+beim Abgleich am selben Tag kamen alle patch-gleich zurück.
 
 Über #45 übernommen:
 
@@ -339,7 +374,13 @@ und in Block 0c.
       (#46) und die acht Zweige von #52–#59: `up/hochformat-split`,
       `up/sprungmarken`, `up/assistent-ausweg`, `up/speicher-vorzeichen`,
       `up/raumregelung-v1`, `up/betriebsart`, `up/hausverbrauch`,
-      `up/speichern-meldung`. Alle neun PRs sind gemergt, das Löschen schließt
+      `up/speichern-meldung`. Dazu seit 02.10.2026 die Zweige von #63–#76:
+      `up/sicherung`, `up/ersteinrichtung`, `up/apk-display-wecken`,
+      `up/apk-praesenz`, `up/kachel-tasten`, `up/apk-nachthelligkeit`,
+      `up/apk-start-adresse`, `up/apk-requirements`, `up/apk-signatur`,
+      `up/verlauf-uhrseite`, `up/wetter-tote-zuweisung`,
+      `up/textfelder-dunkel`, `up/weckzeit-einzahl`, `up/beschattung-tasten`,
+      `up/uebersetzung-luecken`. Alle PRs sind gemergt, das Löschen schließt
       nichts mehr; Lenardos `refs/pull/<n>/head` halten die Commits. Geht nur
       von Hand (siehe oben). **S**
 
@@ -353,7 +394,7 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (`fba03be`, Stand 30.09.2026,
+Der Fork ist mit `upstream/main` gleichgezogen (`415ffd5`, Stand 02.10.2026,
 siehe oben).
 
 ## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
@@ -363,10 +404,13 @@ laufen mit Android, und auf jedem Gerät läuft LoxPanel als App, die direkt mit
 dem Miniserver spricht: Lenardos
 [#61](https://github.com/Lenardo1/loxpanel/pull/61) (Server per Chaquopy im
 Gerät, eigene Kiosk-Anzeige). Wir bauen keine eigene App, sondern entwickeln
-seine mit; Beiträge gehen als PR in seinen Zweig `ci/android-apk-pipeline`.
-Nicht weiter verfolgt: das `.deb`
-([#62](https://github.com/Lenardo1/loxpanel/pull/62)), weil Debian 11 seit dem
-31.08.2026 keine Sicherheitsupdates mehr bekommt, und eine iPad-App.
+seine mit. Seit 02.10.2026 ist sie in seinem `main` und mit dem Abgleich unter
+`android/` auch im Fork; neue Beiträge gehen deshalb wie alle anderen als ein
+Commit auf `upstream/main`, nicht mehr in seinen Zweig
+`ci/android-apk-pipeline`. Nicht weiter verfolgt: das `.deb`
+([#62](https://github.com/Lenardo1/loxpanel/pull/62), liegt seit dem Abgleich
+unter `packaging/deb/`), weil Debian 11 seit dem 31.08.2026 keine
+Sicherheitsupdates mehr bekommt, und eine iPad-App.
 
 Geräte: das Portworld YC-SM41P mit **Android 13** bestellen. Android 11 bringt
 das WebView 83 vom Mai 2020 mit, darauf liegen Bildschirmschoner, Uhr-Seite und
@@ -388,12 +432,13 @@ selbst aktuell.
   | [#69](https://github.com/Lenardo1/loxpanel/pull/69) | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
   | [#70](https://github.com/Lenardo1/loxpanel/pull/70) | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
 
-  Sobald #61 in Lenardos `main` ist, kommt alles mit dem nächsten Abgleich
-  in den Fork. **S**
+  Lenardo hat alle drei am 02.10.2026 in seinen Zweig gemergt, der mit #61
+  nach `main` ging; mit dem Abgleich am selben Tag sind sie im Fork. **S**
 - [ ] **Mit Lenardo klären:** den Paketnamen vor dem ersten echten Einsatz
       festlegen (heute `com.loxpanel.spike`; ein späterer Wechsel heißt
       Neuinstallation und damit Konfiguration weg) und den Signierschlüssel
-      anlegen (Anleitung in `android/README.md` aus `up/apk-signatur`). **S**
+      anlegen (Anleitung in `android/README.md`, Abschnitt „Version und
+      Release-Signierung“). **S**
 - [x] **Präsenzmelder bei Lenardo eingereicht:**
       [#65](https://github.com/Lenardo1/loxpanel/pull/65) mit beiden Commits,
       `up/apk-display-wecken` und darauf `up/apk-praesenz` (braucht dessen
@@ -425,10 +470,11 @@ selbst aktuell.
       scheitern; Präsenz- und App-Tests aus #65 laufen; alle App-Beiträge
       zusammen bauen, beide Unit-Tests bestehen. Bis #65 gemergt ist, zeigt
       #67 auch dessen zwei Commits. Die Browser-Tests mit
-      nachgebauter Brücke `LoxKiosk` (Display wecken, Präsenz, Nacht) liefen
-      gegen Lenardos Zweig, nicht im Fork; was sie prüfen, steht in den
-      Commit-Meldungen. Sobald #61 im Fork ist, gehören sie nach
-      `tests/browser/`. **S**
+      nachgebauter Brücke `LoxKiosk` liefen erst gegen Lenardos Zweig; seit
+      dem Abgleich vom 02.10.2026 liegen sie im Fork:
+      `tests/browser/test_loxkiosk_browser.py` (Kiosk-Typ, Display an/aus,
+      Notify weckt, Konfigurator), `test_praesenz_app_browser.py` und
+      `test_nacht_app_browser.py`. **S**
 - [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
       ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
       dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
@@ -1188,6 +1234,28 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
       ansehen. Danach das Tab A9 in die Geräteseite aufnehmen (sie nennt nur
       erprobte Geräte). **S**
+- [ ] **Bedienelemente direkt auf der Kachel** (zurückgestellt am
+      02.10.2026). Vorbild ist der Fork von najrefisch („LoxPanel
+      Favoriten-Fork 0.19.0-fav4“,
+      [actionhero-zz/loxohnepanel](https://github.com/actionhero-zz/loxohnepanel),
+      vorgestellt im Loxforum-Thread „loxpanel“ mit „Bedient euch gerne!“,
+      gleiche Lizenz). Heute haben nur Beschattung (▲▼, während der Fahrt
+      Stop) und Audio (⏮ ⏯ ⏭) Tasten auf der Kachel (`controls`, `.tctrls`).
+      Es fehlen:
+      - Schalter und Zeitschalter: ein Schieber oben rechts, der den Zustand
+        zeigt und erst beim Tippen schaltet (`click` wie die übrigen
+        Kachel-Tasten; bei najrefisch `pointerdown`, dort schaltet also auch
+        ein Wischer übers Raster). Der Tipp auf die übrige Kachel schaltet
+        weiterhin.
+      - Lichtsteuerung: ‹ › für die vorige und die nächste Stimmung
+        (`changeTo/<id>`, „Aus“ übersprungen, wie bei najrefisch). Der Tipp auf
+        die Kachel öffnet weiter die Detailseite. Nicht übernehmen: seinen
+        Doppeltipp für Aus (jeder einfache Tipp wartet dafür 350 ms) und das
+        feste Gelb `#f2c14e`, das am abgeleiteten Farbsatz vorbeigeht.
+      - Taster: ein runder Knopf; heute löst der Tipp auf die Kachel aus.
+
+      Dazu Browser-Tests (Tippen schaltet, Wischen nicht), danach als Beitrag
+      zu Lenardo. **M**
 
 ## 10. Sicherheit (zurückgestuft)
 
