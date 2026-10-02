@@ -28,6 +28,14 @@
       'Keine Musikzone in der Anlage.': 'No music zone in the system.',
       'Diese Seite zeigt statt Kacheln das gewählte Widget über die ganze Fläche — auch am 1-Pane-Display. Wähle oben „Bausteine (Kacheln)", um wieder Kacheln zu setzen.':
         'This page shows the chosen widget full-screen instead of tiles — on a 1-pane display too. Pick “Blocks (tiles)” above to use tiles again.',
+      'Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Display. Baustein/Zone wählst du oben direkt.':
+        'This page shows the widget across the whole area (full-screen tab) — on a 1-pane display too. You pick the block/zone directly above.',
+      'Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.':
+        'Audio/energy flow/camera/history only appear here if a matching block exists.',
+      'Kein passender Baustein': 'No matching block',
+      'Werte': 'Values',
+      'Audio': 'Audio',
+      'Miniserver': 'Miniserver',
       '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
         '“Automatic” enlarges the view on each display as far as it goes without a border. “Like global” inherits the global setting.',
       // --- Nachgezogen: Assistent, Displays, Betriebsmodus, restliche Admin-UI ---
@@ -99,7 +107,6 @@
       "Zurück": "Back",
       "Die Seite": "The page",
       "zeigt": "shows",
-      "Baustein": "block",
       "aus": "from",
       "Räumen": "rooms",
       "gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.": "selected block is hidden on this panel and does not appear.",
@@ -115,7 +122,6 @@
       "Keine Loxone-Bibliothek gefunden — LoxoneIcons-Plugin installiert und gemountet?": "No Loxone library found — is the LoxoneIcons plugin installed and mounted?",
       "weitere — Suche eingrenzen": "more — narrow the search",
       "Nichts gefunden.": "Nothing found.",
-      "Widget je Tab": "Widget per tab",
       "Audio/Energie/Kamera/Verlauf nehmen automatisch den ersten passenden Baustein — den genauen wählst du bei Bedarf im Editor.": "Audio/energy/camera/history automatically take the first matching block — you pick the exact one in the editor if needed.",
       "Keine Räume gefunden": "No rooms found",
       "Sprungtabs — Kategorien des Raums": "Jump tabs — categories of the room",
@@ -356,8 +362,6 @@
       'SIP-Anbindung ist in Arbeit.': 'SIP integration is in progress.',
       'Coming soon': 'Coming soon',
       // Panels
-      'Alle Anzeigegeräte auf einen Blick: Linux-Panels mit Agent melden sich automatisch, Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?device=<name>). Geräte ohne Kennung stehen unten und bekommen hier einen Namen.':
-        'All display devices at a glance: Linux panels with the agent register automatically, Android panels and tablets appear as soon as they open the visu with a device id (?device=<name>). Devices without an id are listed below and get a name here.',
       'Suche Panels…': 'Searching for panels…',
       '(Standard)': '(Default)',
       'Start': 'Start',
@@ -370,10 +374,6 @@
       'Der Weckton (Loxone-Wecker) wird direkt im Kiosk-Browser des Panels erzeugt. Mit dem Test-Ton prüfst du, ob am Panel wirklich etwas zu hören ist — falls nicht, liegt es meist an der Lautstärke/Ausgabe am Gerät (ALSA/PulseAudio), nicht am Browser.':
         'The alarm tone (Loxone alarm clock) is generated directly in the panel’s kiosk browser. Use the test tone to check whether the panel actually plays sound — if not, it is usually the volume/output on the device (ALSA/PulseAudio), not the browser.',
       'Test-Ton': 'Test tone',
-      'Zonen des Audioservers Gen 2 direkt über Port 7091 steuern (nur Nachbauten wie Sonn oder Audioserver4Home)':
-        'Control Audioserver Gen 2 zones directly via port 7091 (only for clones such as Sonn or Audioserver4Home)',
-      'Ein mit dem Miniserver gekoppelter Loxone-Audioserver lehnt Befehle ohne Anmeldung ab („command not allowed when paired"). Deshalb gehen Play, Pause, Vor, Zurück und Lautstärke standardmäßig über den Miniserver. Zonen eines Musikservers Gen 1 werden immer direkt gesteuert.':
-        'A Loxone Audioserver paired with the Miniserver rejects unauthenticated commands ("command not allowed when paired"). Play, pause, next, previous and volume therefore go through the Miniserver by default. Zones of a Music Server Gen 1 are always controlled directly.',
       'Sendet 3 kurze Pieptöne an das/die gewählte(n) Panel(s). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).':
         'Sends 3 short beeps to the selected panel(s). They must be open (kiosk running and showing the visu).',
       'Ziel-Panel': 'Target panel',
@@ -470,7 +470,6 @@
         'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per panel, which view appears for which mode. A panel without an entry for a mode stays unchanged.',
       'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
-      'Betriebsmodus-Automatik und Display-Steuerung': 'Operating-mode automation and display control',
       // Skalierung / Bildschirmgroesse
       'Skalierung': 'Scaling',
       'Wie im Profil': 'Same as profile',

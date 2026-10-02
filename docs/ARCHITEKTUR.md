@@ -966,6 +966,16 @@ auf statischem Markup, `T('...')` im JS, und `autoChrome()` mit
 `localStorage['lp_ui_lang']`, sonst Browser-Sprache. Der Konfigurator bietet
 sechs Panel-Sprachen an, der Katalog kennt zwei.
 
+Zwei Fallen: `autoChrome()` übersetzt nur Elemente ohne Kind-Elemente; ein
+Text neben einem Link oder mit `<b>` braucht `data-i18n` (dann ersetzt
+`apply()` den ganzen Text) oder `T()`. Und jeder Aufruf von `autoChrome()`
+ersetzt die Selektor-Liste für die ganze Seite; für einen Teilbaum gibt es
+`applyChrome()`. Bei doppeltem Schlüssel gilt wie in JS der spätere Eintrag.
+`tests/test_uebersetzung.py` prüft, dass jeder `T()`-Text und jedes
+`data-i18n`-Element in `config.html` einen englischen Eintrag hat und kein
+Schlüssel zwei verschiedene Übersetzungen. Was auf Englisch noch deutsch
+bleibt, steht in `TODO.md` („Konfigurator auf Englisch vervollständigen“).
+
 ---
 
 ## 8. Panel-Agent

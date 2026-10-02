@@ -865,7 +865,7 @@
             </div>
             <label class="chk" style="margin-top:12px"><input type="checkbox" id="ms_tls"><span data-i18n>Zertifikat prüfen (Gen2 mit selbstsigniertem Zertifikat: aus)</span></label>
             <div class="actions"><button class="btn" id="ms_save" data-i18n>Verbinden &amp; Speichern</button><span class="toast" id="ms_toast"></span></div>
-            <p class="note"><a href="/api/types?format=text" target="_blank" rel="noopener">Bausteintypen der Anlage anzeigen</a> <span>(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)</span></p>
+            <p class="note"><a href="/api/types?format=text" target="_blank" rel="noopener" data-i18n>Bausteintypen der Anlage anzeigen</a> <span data-i18n>(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)</span></p>
           </div>
         </section>
 
@@ -2103,8 +2103,22 @@ function icoGridBody(cur){
 function pickIcoFilter(v){ v=(v||'').trim().toLowerCase(); document.querySelectorAll('.picogrid .pgi[data-in]').forEach(function(b){ if(b.classList.contains('none')) return; b.hidden = !!v && (b.getAttribute('data-in')||'').indexOf(v)<0; }); }
 function pickIcoGridHtml(p){
   const cur=curPT(p).icon||'';
-  if(LOXLIB===null) loadLoxlib(function(){ if($('#tabPick')) renderPick(p); });
+  // Kommt die Bibliothek nach, nur das Raster neu fuellen statt den ganzen
+  // Editor: sonst verliert das Namensfeld mitten im Tippen Fokus und Buchstaben.
+  if(LOXLIB===null) loadLoxlib(pickIcoGridNeu);
   return '<input class="pgi-search" oninput="pickIcoFilter(this.value)" placeholder="'+T('Icon suchen…')+'"><div class="picogrid">'+icoGridBody(cur)+'</div>';
+}
+function pickIcoGridNeu(){
+  const g=document.querySelector('#tabPick .picogrid'), p=PANELS[cur];
+  if(!g || !p) return;
+  g.innerHTML=icoGridBody(curPT(p).icon||'');
+  bindPickIcons(p);
+  const s=document.querySelector('#tabPick .pgi-search'); if(s && s.value) pickIcoFilter(s.value);
+}
+function bindPickIcons(p){
+  $('#tabPick').querySelectorAll('.picogrid [data-pic]').forEach(el=>el.onclick=()=>{
+    const v=el.dataset.pic; if(v) curPT(p).icon=v; else delete curPT(p).icon;
+    markDirty(); renderPick(p); renderChips(p); });
 }
 
 // Zustand der Rubrik. pickWiz: 0 = noch nicht entschieden, 1..3 = Schritt des
@@ -2334,9 +2348,7 @@ function bindPick(p){
   $('#tabPick').querySelectorAll('[data-ptdel]').forEach(el=>el.onclick=(ev)=>{
     ev.stopPropagation(); pickDelTab(p,+el.dataset.ptdel); });
   { const pa=$('#ptAdd'); if(pa) pa.onclick=()=>pickAddTab(p); }
-  $('#tabPick').querySelectorAll('.picogrid [data-pic]').forEach(el=>el.onclick=()=>{
-    const v=el.dataset.pic; if(v) curPT(p).icon=v; else delete curPT(p).icon;
-    markDirty(); renderPick(p); renderChips(p); });
+  bindPickIcons(p);
   // Seiteninhalt: Bausteine (Kacheln) vs Widget
   { const pc=$('#pickContent'); if(pc) pc.onchange=()=>{ const k=pc.value, e=curPT(p);
       if(!k) delete e.widget;
