@@ -44,12 +44,11 @@ chaquopy {
         version = "3.11"                 // passend zum auf dem PC installierten Python 3.11
         // buildPython nicht gesetzt: Chaquopy nutzt automatisch 'python' vom PATH (muss 3.11 sein)       // Chaquopy nutzt dieses Python zum Bauen reiner sdists
         pip {
-            // LoxPanel-Laufzeitabhängigkeiten (webvisu.py + bin/-Module):
-            install("cryptography")     // Audioserver-Login (native C-Extension)
-            install("aiohttp")          // Webserver + Miniserver-WS
-            install("loxone-api")       // Loxone-Client
-            install("icalendar")        // Kalender-Front (iCal-Abos)
-            install("python-dateutil")  // Serientermine (RRULE)
+            // LoxPanel-Laufzeitabhängigkeiten aus der requirements.txt des Repos:
+            // dieselben Pakete und Versionsgrenzen wie Docker und LoxBerry, keine
+            // zweite Liste. aiohttp kommt über loxone-api; native Pakete
+            // (cryptography, aiohttp) liefert der Chaquopy-Paketindex als Wheel.
+            install("-r", rootProject.projectDir.parentFile.resolve("requirements.txt").path)
         }
     }
 }
