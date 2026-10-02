@@ -77,6 +77,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
 | `loxberry-plugin/` | LoxBerry-Plugin (Docker-Starter, Widget, Backup) |
 | `unraid/loxpanel.xml` | Unraid-Docker-Template |
+| `android/` | LoxPanel-App für Android (Lenardos #61, Paket `com.loxpanel.spike`): Kotlin mit Chaquopy, der Server läuft im Gerät (`ServerService`), die Visu in einer eigenen Vollbild-WebView (`KioskActivity`) mit der JS-Brücke `LoxKiosk` (siehe Abschnitt 8). Der Gradle-Task `syncLoxpanelAssets` kopiert vor jedem Build `bin/`, `webfrontend/`, `deploy/` und `config/` (ohne die echten Config-Dateien) aus dem Arbeitsbaum in die App. Bauen, Signieren und Einrichten: `android/README.md` |
+| `packaging/deb/` | `.deb`-Paket für Linux-Panels (Lenardos #62): Server als systemd-Dienst, Kiosk-Start mit Chromium oder Cog, Display-Abschaltung. Im Fork nicht weiterentwickelt ([`TODO.md`](TODO.md), Block 0c) |
 | `Dockerfile`, `docker-compose.yml`, `.github/workflows/` | Build und Release |
 
 ### 2.2 Randsysteme und Hilfsmittel
@@ -187,7 +189,7 @@ Wichtige Felder:
 | `states` | `state-UUID → Wert`, der flache Live-Zustand der gesamten Anlage |
 | `controls`, `rooms`, `cats` | rohe Teilbäume aus `LoxAPP3.json` |
 | `conn_route`, `conn_prof`, `conn_dev` | je Browser-WebSocket: aktuelle Route, aufgelöstes Panel-Profil, Gerätekennung |
-| `conn_info` | je Browser-WebSocket: Gerätekennung, Kiosk-App (`fully`), IP, Verbindungszeit; Basis von `device_list()` |
+| `conn_info` | je Browser-WebSocket: Gerätekennung, Kiosk-App (`fully` oder `loxpanel`, `KIOSK_APPS`), IP, Verbindungszeit; Basis von `device_list()` |
 | `panels`, `devices` | aus `panels.json` |
 | `agents` | `ip → Agent-Datensatz` (Announce) |
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
@@ -1023,8 +1025,24 @@ Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
 konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
 eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
 Neu laden, Display aus/an). Browser ohne Kennung werden nach IP gelistet und
-können benannt werden. Die Visu meldet `kiosk=fully` in der WebSocket-URL,
-wenn sie in Fully Kiosk läuft.
+können benannt werden. Die Visu meldet ihre Kiosk-App in der WebSocket-URL,
+`kiosk=fully` in Fully Kiosk und `kiosk=loxpanel` in der LoxPanel-App; der
+Server übernimmt nur diese beiden (`KIOSK_APPS`), alles andere gilt als
+Browser.
+
+**LoxPanel-App:** Die App (`android/`) stellt der Visu `window.LoxKiosk` bereit,
+mit `turnScreenOn`, `turnScreenOff` und `isScreenOn` wie bei Fully. `KIOSK_APPS`
+in `panel.html` ordnet jeder Kiosk-App ihre Schnittstelle zu; `kioskKind()` und
+`kiosk()` finden die vorhandene, Display wecken und ausschalten laufen damit für
+beide gleich. Unterschied: Die App hat einen eigenen Bildschirmschoner. Die
+Visu schaltet dort nicht selbst nach der Leerlaufzeit ab (`armDpms()` kehrt
+sofort zurück), sondern gibt der App die Zeit (`setDisplayOff(dpmsOff)`, bei
+Anwesenheit 0, `appLeerlauf()`), meldet ihr die Uhr-Seite (`setSaver`) und
+senkt nachts die echte Helligkeit statt der dunklen Auflage
+(`setDisplayBrightness`, `appHelligkeit()`; lehnt die App ab, etwa bei
+automatischer Helligkeit, bleibt es bei der Auflage). Geprüft mit
+nachgebauter Brücke in `tests/browser/test_loxkiosk_browser.py`,
+`test_praesenz_app_browser.py` und `test_nacht_app_browser.py`.
 
 **Display-Treiber (Schritt 3):** `App.display_drivers(on, device, panel)`
 spricht je Gerät die HTTP-Schnittstelle der Kiosk-App an (`_drive_display`):
@@ -1101,6 +1119,8 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
 | `tests.yml` | jeder PR, Push auf `main`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push |
 | `docker-image.yml` | Push auf `main`, Tags `v*`, manuell | `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest`, `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7 |
 | `plugin-release.yml` | GitHub-Release veröffentlicht, manuell | `loxpanel-plugin.zip` aus `loxberry-plugin/` am Release |
+| `android-apk.yml` | Tags `v*`, manuell | `LoxPanel-Server.apk`, signiert mit dem festen Schlüssel aus den Secrets `LOXPANEL_KEYSTORE_B64`, `LOXPANEL_KEYSTORE_PASSWORD`, `LOXPANEL_KEY_ALIAS` und `LOXPANEL_KEY_PASSWORD`; ohne sie bricht der Lauf mit einem Hinweis ab, die übrigen Workflows hängen nicht daran |
+| `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release |
 
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
 Plugin-Release: `VERSION` in `loxberry-plugin/plugin.cfg` und

@@ -1,0 +1,87 @@
+name: Android APK
+
+# Baut die LoxPanel-Server-APK bei jedem v*-Tag (und manuell) und haengt sie an
+# den GitHub-Release. Die App-Assets (bin/webfrontend/config) werden dabei vom
+# Gradle-Task 'syncLoxpanelAssets' automatisch aus dem Repo generiert — die APK
+# ist also immer auf dem aktuellen Repo-Stand.
+#
+# Signiert wird immer mit demselben Schluessel aus den Repo-Secrets, sonst laesst
+# sich die installierte App nicht aktualisieren (android/README.md, Abschnitt
+# "Release-Signierung"). Die Version kommt aus loxberry-plugin/plugin.cfg.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Python 3.11 (Chaquopy buildPython)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Tag passt zur Projektversion
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(sed -n 's/^VERSION=//p' loxberry-plugin/plugin.cfg | tr -d '\r')
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu loxberry-plugin/plugin.cfg (VERSION=$v)"
+            exit 1
+          fi
+
+      - name: Signierschluessel bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.LOXPANEL_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret LOXPANEL_KEYSTORE_B64 fehlt. Ohne festen Schluessel laesst sich die App nicht aktualisieren (android/README.md, Release-Signierung)."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/loxpanel.jks"
+          echo "LOXPANEL_KEYSTORE=$RUNNER_TEMP/loxpanel.jks" >> "$GITHUB_ENV"
+
+      - name: APK bauen und signieren (Assets kommen per syncLoxpanelAssets aus dem Repo)
+        working-directory: android
+        env:
+          LOXPANEL_KEYSTORE_PASSWORD: ${{ secrets.LOXPANEL_KEYSTORE_PASSWORD }}
+          LOXPANEL_KEY_ALIAS: ${{ secrets.LOXPANEL_KEY_ALIAS }}
+          LOXPANEL_KEY_PASSWORD: ${{ secrets.LOXPANEL_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --console=plain
+
+      - name: APK benennen und Signatur pruefen
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk LoxPanel-Server.apk
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs LoxPanel-Server.apk > signatur.txt
+          grep -E 'certificate (DN|SHA-256)' signatur.txt
+
+      - name: An den Release haengen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LoxPanel-Server.apk
+
+      - name: APK als Artefakt (auch ohne Tag, z.B. workflow_dispatch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LoxPanel-Server-apk
+          path: LoxPanel-Server.apk

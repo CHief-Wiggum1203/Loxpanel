@@ -82,10 +82,10 @@ Programmierung und ohne die Loxone-App.
   Aktiv-Overlay (Farbe/Transparenz von Füllung und Rahmen), global oder pro Kachel.
 - **Ein Design für alle Geräte:** dieselbe Oberfläche skaliert auf Wandpanel,
   Tablet und Smartphone.
-- **Display nach Anwesenheit:** auf Android-Panels (Fully Kiosk, WallPanel)
-  hält ein Loxone-Präsenzmelder das Display hell, solange jemand im Raum ist,
-  und schaltet es aus, wenn der Raum leer wird – je Gerät einstellbar unter
-  *Displays*.
+- **Display nach Anwesenheit:** auf Android-Panels (LoxPanel-App, Fully Kiosk,
+  WallPanel) hält ein Loxone-Präsenzmelder das Display hell, solange jemand im
+  Raum ist, und schaltet es aus, wenn der Raum leer wird – je Gerät einstellbar
+  unter *Displays*.
 - **Musik** (Loxone AudioZone): Zonen-Liste mit Mini-Player (◀ ⏯ ▶) und voller
   Raum-Player mit Cover (über den Miniserver).
 - **Intercom** (z. B. Mobotix T25): Live-Bild (MJPEG mit Auth), Tür öffnen &
@@ -326,11 +326,16 @@ vorher automatisch gesichert).
 Diesen Ordner sichern, z. B. mit dem Plugin **Appdata Backup**; zum Wiederherstellen
 die Dateien zurückkopieren und den Container neu starten.
 
-**Überall** gibt es im Konfigurator unter *Settings → Sicherung* zusätzlich eine
-Sicherung als ZIP zum Herunterladen und Einspielen, auch von einem LoxPanel auf ein
-anderes. Kennwörter stehen nicht darin: Eingetragene bleiben beim Einspielen, solange
-ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer,
-Display: Host und Treiber), fehlende nennt das Ergebnis.
+Ohne LoxBerry (Docker, Android-App) geht es im Konfigurator unter
+**Settings → Sicherung**, auf dem LoxBerry ebenso: **„Einstellungen
+herunterladen"** liefert eine ZIP-Datei mit Miniserver-Zugang, Kamera, Kalender,
+Panels, Geräten und Design – ohne Kennwörter, weil der Download keine Anmeldung
+braucht. **„ZIP-Datei wählen und einspielen"** spielt sie wieder ein, auch auf
+einem anderen Gerät: erst wird alles geprüft, dann geschrieben (der bisherige
+Stand bleibt als `.bak` daneben), ohne Neustart. Kennwörter, die dort schon
+eingetragen sind, bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und
+Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende
+nennt das Ergebnis.
 
 ## Datenschutz
 
