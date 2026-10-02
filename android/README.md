@@ -82,6 +82,14 @@ braucht keinen Schlüssel.
 - **ABI**: Für ein ARM-Tablet reicht `arm64-v8a`; `x86_64` nur für Emulator.
   In `app/build.gradle.kts` unter `ndk.abiFilters` reduzieren = schnellerer Build.
 
+## Start-Adresse der Anzeige
+Port und Adresse des eingebetteten Servers stehen in `Visu.kt`. Die Anzeige lädt
+beim Start die zuletzt angezeigte Visu-Adresse, beim allerersten Start die Visu mit
+dem Standardprofil. Wechselt die Ansicht über *Displays* oder die
+Betriebsmodus-Automatik, lädt sich die Visu mit neuem `?panel=`. Die App merkt
+sich diese Adresse, nach einem Neustart steht also dieselbe Ansicht da. Welche
+Adressen als Visu gelten, prüft `gradle testDebugUnitTest`.
+
 ## Wenn der Spike grün ist
 Nächste Schritte für die echte App (separat, kein Teil dieses Spikes):
 - WebView auf `http://127.0.0.1:8099/?panel=...&device=...`

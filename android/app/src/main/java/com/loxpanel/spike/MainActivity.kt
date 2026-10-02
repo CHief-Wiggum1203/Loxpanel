@@ -10,7 +10,7 @@ import android.widget.TextView
 
 /**
  * Startet den LoxPanel-Server-Service und zeigt einen kurzen Status.
- * Die eigentliche Anzeige des Panels macht Fully Kiosk auf 127.0.0.1:8099.
+ * Die eigentliche Anzeige des Panels macht die KioskActivity (Visu.BASIS).
  */
 class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,11 +30,11 @@ class MainActivity : Activity() {
             text = buildString {
                 appendLine("LoxPanel-Server wird gestartet …")
                 appendLine()
-                appendLine("Fully Kiosk auf:")
-                appendLine("    http://127.0.0.1:8099")
+                appendLine("Visu:")
+                appendLine("    ${Visu.BASIS}")
                 appendLine()
                 appendLine("Konfiguration:")
-                appendLine("    http://127.0.0.1:8099/config")
+                appendLine("    ${Visu.BASIS}config")
                 appendLine()
                 appendLine("Log ansehen:")
                 appendLine("    adb logcat -s LPSERVER python.stdout python.stderr")
