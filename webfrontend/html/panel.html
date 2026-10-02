@@ -2688,7 +2688,12 @@ function applySaverSplit(){
   s.classList.toggle('split', (!!themeSplit && quer) || hoch);
   s.classList.toggle('hoch', hoch);
 }
-function showSaver(){ tickClock();
+function showSaver(){
+  // Native Kiosk-App (LoxPanel): nur EIN sichtbarer Screensaver — diese Uhr.
+  // Der App sagen, dass ihr Saver läuft; sie dunkelt nur noch das Backlight
+  // (nach dpmsOff) und weckt per Annäherung/Berührung auf den 1. Tab.
+  try{ if(window.LoxKiosk && LoxKiosk.setSaver) LoxKiosk.setSaver(true); }catch(e){}
+  tickClock();
   applySaverSplit();
   el('saver').classList.remove('hidden');
   // Reihenfolge zaehlt: erst sichtbar schalten (svSideOn() gilt), dann die
@@ -2696,7 +2701,8 @@ function showSaver(){ tickClock();
   // zeichnen — jetzt hat er auch eine Hoehe, an der sich svFit ausrichtet.
   applyPane();
   renderFront(); }
-function hideSaver(){ el('saver').classList.add('hidden');
+function hideSaver(){ try{ if(window.LoxKiosk && LoxKiosk.setSaver) LoxKiosk.setSaver(false); }catch(e){}
+  el('saver').classList.add('hidden');
   // Zweite Spalte abraeumen: ein Kamerabild dort haelt sonst seine Verbindung
   // zur Tuerstation offen, obwohl die Uhr-Seite gar nicht mehr zu sehen ist.
   const b=el('svBox');

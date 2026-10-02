@@ -13,8 +13,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.TypedValue
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -25,10 +23,6 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.TextView
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Eingebauter Kiosk: Vollbild-WebView auf den lokalen LoxPanel-Server. Ersetzt
@@ -47,7 +41,6 @@ class KioskActivity : Activity(), SensorEventListener {
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
     private lateinit var saver: View
-    private lateinit var clock: TextView
     private val ui = Handler(Looper.getMainLooper())
     private val url = "http://127.0.0.1:8099/?panel=default"
     private var errored = false
@@ -59,10 +52,12 @@ class KioskActivity : Activity(), SensorEventListener {
     private var idleMs = 90_000L
     private var saverEnabled = true
     private var saverOn = false
+    // Die Visu meldet über setSaver(), ob ihr eigener Screensaver (Uhr) läuft. Es
+    // gibt nur EINEN sichtbaren Screensaver (den der Visu mit Uhr/Wetter/Kalender);
+    // nativ wird nur das Backlight gedunkelt (nach idleMs) und auf Annäherung/
+    // Berührung geweckt.
+    private var visuSaver = false
     private val goDark = Runnable { enterScreensaver() }
-    private val tick = object : Runnable {
-        override fun run() { updateClock(); ui.postDelayed(this, 10_000L) }
-    }
 
     private val sensorManager by lazy { getSystemService(Context.SENSOR_SERVICE) as? SensorManager }
     // Näherungssensor (falls vorhanden). Am Shelly ist er ein Wake-up-Sensor, den
@@ -115,17 +110,11 @@ class KioskActivity : Activity(), SensorEventListener {
         // aus /config) an den nativen Screensaver.
         web.addJavascriptInterface(KioskBridge(), "LoxKiosk")
 
-        // Screensaver-Overlay: schwarz + große Uhr, zunächst versteckt.
-        clock = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 96f)
-            gravity = Gravity.CENTER
-        }
+        // Dunkel-Overlay: NUR schwarz (echtes Schwarz beim Backlight-Aus), KEINE
+        // eigene Uhr — die Uhr zeigt die Visu. Zunächst versteckt.
         saver = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
-            addView(clock, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
 
         root = FrameLayout(this)
@@ -168,25 +157,29 @@ class KioskActivity : Activity(), SensorEventListener {
     // Berührung: im dunklen Screensaver weckt sie nur (Tap wird geschluckt, löst
     // keine Kachel aus) und holt den 1. Tab; sonst normal an die Visu weiterreichen.
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (saverOn) { userWake(); return true }
+        // Wecken, solange IRGENDEIN Saver läuft — der native Dunkel-Modus ODER
+        // der Visu-Uhr-Saver (visuSaver). So weckt Tippen auch in der Uhr-Phase,
+        // in der das Display noch hell ist, auf den 1. Tab (statt nur aus dem
+        // Dunkeln). Der Tap wird dabei geschluckt (löst keine Kachel aus).
+        if (saverOn || visuSaver) { userWake(); return true }
         wake()
         return super.dispatchTouchEvent(ev)
     }
 
-    // Annäherung weckt aus dem dunklen Screensaver und holt den 1. Tab.
+    // Annäherung weckt aus jedem Saver (nativ dunkel ODER Visu-Uhr) und holt den 1. Tab.
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_PROXIMITY) return
         val near = event.values.isNotEmpty() &&
             event.values[0] < (proximity?.maximumRange ?: 5f)
-        if (near && saverOn) userWake()
+        if (near && (saverOn || visuSaver)) userWake()
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) { /* egal */ }
 
-    /** Aus dem Screensaver aufwecken + Inaktivitäts-Timer neu setzen. */
+    /** Backlight wieder an (Dunkel-Overlay weg). Den Backlight-aus-Timer armt nur
+     *  der Visu-Saver (setSaver), nicht jedes Wecken. */
     private fun wake() {
         exitScreensaver()
-        rearmIdle()
     }
 
     /** Aufwecken durch den Nutzer (Berührung/Annäherung) aus dem dunklen Screensaver:
@@ -197,15 +190,18 @@ class KioskActivity : Activity(), SensorEventListener {
         web.evaluateJavascript("try{ if(typeof wake==='function') wake(); }catch(e){}", null)
     }
 
-    /** Inaktivitäts-Timer neu setzen (nur wenn der Schoner aktiviert ist). */
+    /** Backlight-aus-Timer: dunkelt idleMs nachdem der Visu-Saver angegangen ist.
+     *  Nur während der Visu-Saver läuft — sonst greift die App nie von sich aus
+     *  ins Display ein. */
     private fun rearmIdle() {
         ui.removeCallbacks(goDark)
-        if (saverEnabled && !saverOn) ui.postDelayed(goDark, idleMs)
+        if (saverEnabled && visuSaver && !saverOn) ui.postDelayed(goDark, idleMs)
     }
 
-    /** JS-Brücke: die Visu meldet die konfigurierte Display-aus-Zeit (dpmsOff aus
-     *  /config). >0 = Schoner nach so vielen Sekunden; 0 = Schoner aus. */
+    /** JS-Brücke der Visu. */
     inner class KioskBridge {
+        /** Die konfigurierte Display-aus-Zeit (dpmsOff aus /config). >0 = Backlight
+         *  aus so viele Sekunden nach Saver-Start; 0 = nie (Uhr bleibt hell). */
         @JavascriptInterface
         fun setDisplayOff(seconds: Int) {
             ui.post {
@@ -220,31 +216,41 @@ class KioskActivity : Activity(), SensorEventListener {
                 }
             }
         }
+
+        /** Die Visu meldet ihren eigenen Screensaver (Uhr) an/aus. Nativ gibt es
+         *  dann KEINE zweite Uhr — nur Backlight-aus nach idleMs und Wecken per
+         *  Annäherung/Berührung. on=false weckt sofort (Backlight zurück). */
+        @JavascriptInterface
+        fun setSaver(on: Boolean) {
+            ui.post {
+                visuSaver = on
+                if (on) {
+                    rearmIdle()
+                } else {
+                    ui.removeCallbacks(goDark)
+                    if (saverOn) exitScreensaver()
+                }
+            }
+        }
     }
 
-    /** In den Screensaver gehen: schwarz + Uhr, Backlight auf Minimum. */
+    /** Backlight aus: schwarzes Overlay (echtes Schwarz) + Helligkeit 0. KEINE
+     *  Uhr — die zeigt die Visu. */
     private fun enterScreensaver() {
         if (saverOn) return
         saverOn = true
-        updateClock()
         saver.visibility = View.VISIBLE
         saver.bringToFront()
         setBrightness(0f)      // praktisch dunkel (LCD -> kein Einbrennen)
-        ui.post(tick)
     }
 
-    /** Screensaver beenden: Visu zeigen, Systemhelligkeit zurück. */
+    /** Backlight zurück (Systemhelligkeit), Overlay weg. */
     private fun exitScreensaver() {
-        ui.removeCallbacks(tick)
         if (saverOn) {
             saverOn = false
             saver.visibility = View.GONE
         }
         setBrightness(-1f)
-    }
-
-    private fun updateClock() {
-        clock.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
     }
 
     private fun setBrightness(b: Float) {
