@@ -1218,7 +1218,7 @@ function bindOverlay(pfx,getOv,onChange){
   // Die Icon-Größe steht im selben Formular; der Hinweis rechnet mit ihr, damit
   // das Verhältnis Ring zu Iconlinie beim Schieben direkt ablesbar ist.
   const icoJetzt=()=>{ const i=document.querySelector('input[data-ui="iconSize"]');
-                       return (i&&i.value)?Number(i.value):38; };
+                       return Number(i&&(i.value||i.placeholder))||sizeStd('',true).iconSize; };
   const rwHint=()=>{ if(rwv&&rw) rwv.textContent=ringHint(Number(rw.value),icoJetzt()); };
   if(rw){ rwHint(); rw.oninput=()=>{ rwHint(); set('rw',Number(rw.value)); }; }
   if(rg) rg.oninput=()=>{ rgv.textContent=rg.value+' %'; set('ring',Number(rg.value)); };
@@ -1293,14 +1293,16 @@ function baseField(ui){
     '<span class="cval" id="fBaseVal" style="display:block;margin-top:6px">'+
       esc(ui.baseColor||T('Standard-Farbschema'))+'</span></div>';
 }
-function appearanceFields(ui){
+function appearanceFields(ui,std,leer){
   ui=ui||{};
-  return baseField(ui)+langField(ui)+sizeField('Icon-Größe','iconSize',ui)+sizeField('Name-Größe','nameSize',ui)+sizeField('Sub-Größe','subSize',ui)+
+  return baseField(ui)+langField(ui)+sizeField('Icon-Größe','iconSize',ui,std)+sizeField(T('Haupttext-Größe'),'nameSize',ui,std)+
+    sizeField(T('Zweittext-Größe'),'subSize',ui,std)+sizeField(T('Raum-Größe'),'roomSize',ui,std)+sizeField(T('Messwert-Größe'),'bigSize',ui,std)+
+    '<div class="field" style="max-width:none;flex-basis:100%"><div class="hint">'+T('Haupttext ist die große Zeile der Kachel, Zweittext die kleine darunter. Im klassischen Aufbau ist das der Name und darunter der Zustand, im neuen steht meist der Zustand groß und der Name klein. Raum ist die Raumangabe, Messwert die große Temperatur an Stelle des Symbols.')+' '+leer+'</div></div>'+
     '<div class="field" style="max-width:220px"><label class="lbl">Schriftart</label>'+
       '<select id="fFontSel">'+FONTS.map(f=>'<option value="'+esc(f.v)+'"'+(sameFont(ui.font,f.v)?' selected':'')+'>'+esc(f.label)+'</option>').join('')+
         '<option value="__custom"'+(customFont(ui.font)?' selected':'')+'>Eigene…</option></select>'+
       '<input type="text" id="fFontCustom" value="'+esc(customFont(ui.font)?ui.font:'')+'" placeholder="z. B. Pacifico, cursive"'+(customFont(ui.font)?'':' style="display:none"')+'></div>'+
-    '<div class="field" style="max-width:230px"><label class="lbl">Schriftfarbe (Name)</label>'+
+    '<div class="field" style="max-width:230px"><label class="lbl">'+T('Schriftfarbe (Haupttext)')+'</label>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
         '<input type="color" id="fTextColor" value="'+esc(ui.textColor&&String(ui.textColor)[0]==="#"?ui.textColor:"#e8eaed")+'" style="width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer">'+
         '<span class="cval" id="fTextColorVal" style="flex:1">'+esc(ui.textColor||"Standard")+'</span>'+
@@ -1316,7 +1318,8 @@ function renderGlobalEditor(p){
   $('#pconfHost').innerHTML =
     '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.</p>'+
-      '<div class="sizes">'+appearanceFields(p.ui)+'</div>'+
+      '<div class="sizes">'+appearanceFields(p.ui,sizeStd('',false),
+        T('Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.'))+'</div>'+
       '<div class="grph">'+T('Skalierung')+'</div>'+
       '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Panels')+'</label>'+
         '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
@@ -1447,7 +1450,8 @@ function renderEditor(){
    '<section class="spane" data-sub="appearance"><div class="card"><h3>Aussehen &amp; Verhalten (optional)</h3>'+
      '<p class="note">'+T('Überschreibt das globale Theme nur für dieses Panel. Leer = global.')+'</p>'+
      '<div class="grph">'+T('Aussehen')+'</div>'+
-     '<div class="sizes">'+appearanceFields(p.ui)+'</div>'+
+     '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true),
+       T('Ein leeres Feld übernimmt die globale Darstellung, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+'</div>'+
      '<div class="grph">'+T('Layout')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:200px"><label class="lbl">Kachel-Layout</label>'+
@@ -1456,6 +1460,11 @@ function renderEditor(){
            '<option value="3x2"'+(((p.ui||{}).cols==3&&(p.ui||{}).rows!=3)?' selected':'')+'>3 × 2 (Tablet)</option>'+
            '<option value="2x3"'+(((p.ui||{}).cols!=3&&(p.ui||{}).rows==3)?' selected':'')+'>2 × 3 (Tablet hoch)</option>'+
            '<option value="3x3"'+(((p.ui||{}).cols==3&&(p.ui||{}).rows==3)?' selected':'')+'>3 × 3 (großes Tablet)</option>'+
+         '</select></div>'+
+       '<div class="field" style="max-width:260px"><label class="lbl">'+T('Kachel-Aufbau')+'</label>'+
+         '<select id="fTileLayout">'+
+           '<option value=""'+(((p.ui||{}).tileLayout==='classic')?'':' selected')+'>'+T('Neu (wie die Loxone-App)')+'</option>'+
+           '<option value="classic"'+(((p.ui||{}).tileLayout==='classic')?' selected':'')+'>'+T('Klassisch')+'</option>'+
          '</select></div>'+
        '<div class="field" style="max-width:220px"><label class="lbl">Bildschirm füllen</label>'+
          '<select id="fFill">'+
@@ -1466,6 +1475,7 @@ function renderEditor(){
          '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
             T('Wie global')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
      '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.')+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Settings → Panels.')+'</div>'+
      '<div class="grph">'+T('Widget (Pane 2)')+'</div>'+
      '<div class="sizes">'+
@@ -1537,6 +1547,10 @@ function renderEditor(){
       markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
+  // Kachel-Aufbau: nur "classic" wird gespeichert, der neue ist der Standard
+  { const ftl=$('#fTileLayout'); if(ftl) ftl.onchange=e=>{ p.ui=p.ui||{};
+      if(e.target.value==='classic') p.ui.tileLayout='classic'; else delete p.ui.tileLayout;
+      sizePlatzhalter(sizeStd(p.ui.tileLayout,true)); markDirty(); }; }
   { const fs=$('#fSplit'); if(fs) fs.onchange=e=>{ p.ui=p.ui||{};
       const off=e.target.value==='off';
       if(off) p.ui.split=false; else delete p.ui.split;
@@ -1566,10 +1580,25 @@ function renderEditor(){
   if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .note, .hint, option, .stab');
 }
 
-function sizeField(label,key,ui){
-  const v=(ui||{})[key];
+// std: was bei leerem Feld gilt, grau im Feld (sizeStd)
+function sizeField(label,key,ui,std){
+  const v=(ui||{})[key], ph=(std||{})[key];
   return '<div class="field"><label class="lbl">'+label+'</label>'+
-    '<input type="number" min="8" max="80" data-ui="'+key+'" value="'+(v==null?'':v)+'" placeholder="—"></div>';
+    '<input type="number" min="8" max="80" data-ui="'+key+'" value="'+(v==null?'':v)+'" placeholder="'+(ph==null?'—':esc(String(ph)))+'"></div>';
+}
+// Groessen, die bei leerem Feld gelten: der Standard des Kachel-Aufbaus vom
+// Server (/api/meta sizeDefaults), fuer ein Panel davor die globale Einstellung
+const SIZE_KEYS=['iconSize','nameSize','subSize','roomSize','bigSize'];
+function sizeStd(layout,mitGlobal){
+  const std=Object.assign({},((META||{}).sizeDefaults||{})[layout==='classic'?'classic':'neu']);
+  const g=mitGlobal?(((PANELS.__global__||{}).ui)||{}):{};
+  SIZE_KEYS.forEach(k=>{ if(g[k]!=null&&g[k]!=='') std[k]=g[k]; });
+  return std;
+}
+// Nach einem Wechsel des Kachel-Aufbaus: leere Felder zeigen den neuen Standard
+function sizePlatzhalter(std){
+  SIZE_KEYS.forEach(k=>{ const i=document.querySelector('#pconfHost input[data-ui="'+k+'"]');
+    if(i&&std[k]!=null) i.placeholder=String(std[k]); });
 }
 const LANGS=[['','Standard (Deutsch)'],['de','Deutsch'],['en','English'],['fr','Français'],['it','Italiano'],['es','Español'],['nl','Nederlands']];
 function langField(ui){
@@ -2658,7 +2687,8 @@ const WZIC={
 };
 function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
-const WZ_LOOK_DEF={iconSize:38,nameSize:20,subSize:16};
+// Groessen leer = Standard (der Server waehlt ihn passend zum Kachel-Aufbau)
+const WZ_LOOK_DEF={};
 const WZ={panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
@@ -2829,8 +2859,9 @@ function wzLookHtml(){
   var sw=BASE_COLORS.map(function(c){ return '<button type="button" class="wzsw'+(curc===c.v.toLowerCase()?' on':'')+'" data-wbase="'+esc(c.v)+'" title="'+esc(c.n)+'" style="background:'+esc(c.v)+'"></button>'; }).join('');
   var custom='<input type="color" id="wzBaseCustom" title="'+T('Eigene Farbe')+'" value="'+esc(curc&&curc[0]==='#'?L.baseColor:'#3e4468')+'" class="wzsw" style="padding:0">';
   var none='<button type="button" class="wzsw none'+(L.baseColor?'':' on')+'" data-wbase="" title="'+T('Standard-Farbschema')+'">'+T('Keine')+'</button>';
-  var sizes=[['iconSize',T('Icon-Größe')],['nameSize',T('Name-Größe')],['subSize',T('Sub-Größe')]].map(function(s){
-    return '<div class="wzfield" style="max-width:120px"><label>'+s[1]+'</label><input type="number" min="8" max="80" data-wsize="'+s[0]+'" value="'+(L[s[0]]==null?'':L[s[0]])+'" placeholder="—"></div>'; }).join('');
+  var std=sizeStd('',true);
+  var sizes=[['iconSize',T('Icon-Größe')],['nameSize',T('Haupttext-Größe')],['subSize',T('Zweittext-Größe')]].map(function(s){
+    return '<div class="wzfield" style="max-width:120px"><label>'+s[1]+'</label><input type="number" min="8" max="80" data-wsize="'+s[0]+'" value="'+(L[s[0]]==null?'':L[s[0]])+'" placeholder="'+esc(String(std[s[0]]==null?'—':std[s[0]]))+'"></div>'; }).join('');
   var font='<div class="wzfield" style="max-width:220px"><label>'+T('Schriftart')+'</label><select data-wfont>'+FONTS.map(function(f){ return '<option value="'+esc(f.v)+'"'+(String(L.font||'')===f.v?' selected':'')+'>'+esc(f.label)+'</option>'; }).join('')+'</select></div>';
   return '<p class="wzq mt">'+T('Panel-Farbe')+'</p>'+
     '<p class="wznote" style="margin:0 0 8px">'+T('Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift und Icons werden daraus berechnet. Leer = Standard.')+'</p>'+
@@ -2847,7 +2878,7 @@ function wzSummary(){
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
   if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
-  if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push('Name '+L.nameSize); if(L.subSize)det.push('Sub '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
+  if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
   rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie global'):scaleName(L.scale)]);
   rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
   if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }

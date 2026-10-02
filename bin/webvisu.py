@@ -352,8 +352,18 @@ SCALE_MIN, SCALE_MAX = 0.5, 2.0
 # Global -> Darstellung setzt. Einzige Liste: _write_theme() schreibt genau
 # diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
-THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "font", "textColor", "baseColor",
-                 "bold", "lang", "scale")
+THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
+                 "baseColor", "bold", "lang", "scale")
+
+# Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
+# je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
+# darunter (wie die Kacheln der Loxone-App) und kommt mit etwas kleinerer
+# Schrift aus. Einzige Quelle: _theme_vars() rechnet damit, /api/meta gibt sie
+# dem Konfigurator, der sie in leeren Feldern anzeigt.
+GROESSEN_STANDARD = {
+    "neu": {"iconSize": 38, "nameSize": 16, "subSize": 14, "roomSize": 13, "bigSize": 36},
+    "classic": {"iconSize": 38, "nameSize": 18, "subSize": 15, "roomSize": 12, "bigSize": 36},
+}
 
 
 def _clean_scale(v):
@@ -871,9 +881,10 @@ DEFAULT_THEME = {"states": {"active": "#e0a24d", "good": "#52b881",
 
 
 def load_theme() -> dict:
+    # Groessen nur, wenn eingestellt: sonst gilt GROESSEN_STANDARD des
+    # Kachel-Aufbaus, und der Konfigurator zeigt ein leeres Feld
     theme = {"states": dict(DEFAULT_THEME["states"]), "categories": {},
-             "ui": {"tabs": ["favoriten", "zentral", "raeume", "kategorien"],
-                    "iconSize": 38, "nameSize": 18, "subSize": 15, "font": ""}}
+             "ui": {"tabs": ["favoriten", "zentral", "raeume", "kategorien"], "font": ""}}
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "theme.json"
     if not f.is_file():
@@ -1846,11 +1857,13 @@ class App:
             _rgb = _hex_rgb(_gewaehlt("good"))
             if _rgb:
                 v["--accent-rgb"] = _rgb
-        v.update({
-             "--ico-size": f"{ui.get('iconSize', 38)}px",
-             "--name-size": f"{ui.get('nameSize', 18)}px",
-             "--sub-size": f"{ui.get('subSize', 15)}px",
-             "--name-weight": "700" if ui.get("bold") else "450"})
+        # Groessen in px: Panel, sonst global, sonst der Standard des Kachel-Aufbaus
+        std = GROESSEN_STANDARD["classic" if ui.get("tileLayout") == "classic" else "neu"]
+        for _var, _key in (("--ico-size", "iconSize"), ("--name-size", "nameSize"),
+                           ("--sub-size", "subSize"), ("--room-size", "roomSize"),
+                           ("--big-size", "bigSize")):
+            v[_var] = f"{ui.get(_key) or std[_key]}px"
+        v["--name-weight"] = "700" if ui.get("bold") else "450"
         # Zustands-Farben zusaetzlich als R,G,B-Tripel, damit das Aktiv-Overlay
         # (Fuellung/Rahmen) die konfigurierte Farbe mit variabler Deckkraft nutzt.
         for skey, rvar in (("active", "--on-rgb"), ("good", "--good-rgb"),
@@ -1921,6 +1934,9 @@ class App:
             # Sprungmarken der unteren Leiste (Raum-Panel, freie Auswahl): ein
             # Tipp springt zur Gruppe (Standard) oder zeigt nur sie (Filter).
             "catFilter": ui.get("catFilter") is True,
+            # Kachel-Aufbau: "" = neuer (Raum oben rechts, Zustand gross, Bedienleiste
+            # unten), "classic" = der bisherige. Das Raster (cols/rows) bleibt davon unberuehrt.
+            "tileLayout": "classic" if ui.get("tileLayout") == "classic" else "",
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
@@ -2487,11 +2503,11 @@ class App:
         c = self._resolve_ids(raw.get("cats"), self.cats)
         tabs = [t for t in (raw.get("tabs") or VALID_TABS) if _is_tab(t)]
         ui = {k: v for k, v in (raw.get("ui") or {}).items()
-              if k in ("iconSize", "nameSize", "subSize", "font", "nudgeX",
+              if k in ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "nudgeX",
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale")}
+                       "svPane", "scale", "catFilter", "tileLayout")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -2618,7 +2634,7 @@ class App:
             # und wie die Nachbarfelder unten - sonst nimmt der Panel-Override
             # jeden Wert an, waehrend die globale Einstellung auf 8..80 begrenzt
             # ist.
-            cui = {k: max(8, min(80, int(ui[k]))) for k in ("iconSize", "nameSize", "subSize")
+            cui = {k: max(8, min(80, int(ui[k]))) for k in ("iconSize", "nameSize", "subSize", "roomSize", "bigSize")
                    if isinstance(ui.get(k), (int, float))}
             if ui.get("font"):
                 cui["font"] = str(ui["font"])[:120]
@@ -2642,6 +2658,8 @@ class App:
                 cui["split"] = False            # Split-Screen aus (4"-Panel: nur Visu)
             if ui.get("catFilter") is True:
                 cui["catFilter"] = True         # untere Leiste filtert statt zu springen
+            if ui.get("tileLayout") == "classic":
+                cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -2884,7 +2902,7 @@ class App:
         """Globale Darstellungs-ui (theme.json) validieren: nur bekannte Keys."""
         ui = ui or {}
         out: dict = {}
-        for k in ("iconSize", "nameSize", "subSize"):
+        for k in ("iconSize", "nameSize", "subSize", "roomSize", "bigSize"):
             if isinstance(ui.get(k), (int, float)):
                 out[k] = max(8, min(80, int(ui[k])))
         if ui.get("font"):
@@ -3351,11 +3369,20 @@ class App:
                 sub += " · " + " · ".join(bits)
             it.update(icon="thermo", nav={"view": "control", "id": uuid},
                       on=bool(prep), sublabel=sub)
+            if ta is None:
+                it["subInfo"] = True
+            else:
+                # Neuer Kachel-Aufbau: Ist-Temperatur gross an Stelle des
+                # Symbols, die Zeile darunter nennt nur noch Soll und Taetigkeit.
+                it["big"] = f"{self._fmt_num(ta, '%.1f')}°"
+                it["bigSub"] = " · ".join(([f"Soll {self._fmt_num(tt, '%.1f')}°"] if tt is not None else []) + bits)
         elif t == "Intercom":
             ring = bool(self._state(c, "bell"))
             it.update(icon="cam", on=ring,
                       sublabel=("Es klingelt" if ring else "Türsprechanlage"),
                       nav={"view": "control", "id": uuid})
+            if not ring:
+                it["subInfo"] = True
             if ring:
                 it["tone"] = "crit"
         elif t in SWITCHY:
@@ -3402,6 +3429,8 @@ class App:
             prod = self._state(c, "prodCurr")
             it.update(icon="central", nav={"view": "control", "id": uuid},
                       sublabel=(self._fmt_num(prod, "%.2fkW") if prod is not None else "PV-Anlage"))
+            if prod is None:
+                it["subInfo"] = True
         elif t == "Window":
             pct = round((self._state(c, "position") or 0) * 100)
             it.update(icon="blind", on=pct > 0, nav={"view": "control", "id": uuid},
@@ -3416,13 +3445,13 @@ class App:
             det = c.get("details") or {}
             host = re.sub(r"^https?://", "", det.get("url") or "").split("/")[0]
             it.update(icon="info", nav={"view": "control", "id": uuid},
-                      sublabel=(host or "Webseite"))
+                      sublabel=(host or "Webseite"), subInfo=True)
             img = det.get("image")
             if img and not it.get("iconUrl"):
                 it["iconUrl"] = "/icon?p=" + quote(img)
         elif t == "UpDownDigital":
             # Auf/Ab-Taster (keine States) -> Detailseite mit Auf/Ab/Stop.
-            it.update(icon="blind", nav={"view": "control", "id": uuid}, sublabel="Auf / Ab")
+            it.update(icon="blind", nav={"view": "control", "id": uuid}, sublabel="Auf / Ab", subInfo=True)
         elif t in ("Colorpicker", "ColorPickerV2"):
             mode, a, b, v = self._color_parse(self._state(c, "color"))
             bright = a if mode == "temp" else v
@@ -3529,10 +3558,12 @@ class App:
         elif t == "AcControl":
             modes = self._json_list_map(c, "operatingModes")
             tt = self._fmt_num(self._state(c, "targetTemperature"), "%.1f")
+            ac_sub = " · ".join(x for x in (modes.get(int(self._state(c, "mode") or 0)),
+                                            (tt + " °C" if tt else "")) if x)
             it.update(icon="thermo", on=(self._state(c, "status") or 0) != 0,
-                      nav={"view": "control", "id": uuid},
-                      sublabel=(" · ".join(x for x in (modes.get(int(self._state(c, "mode") or 0)),
-                                                       (tt + " °C" if tt else "")) if x) or "Klima"))
+                      nav={"view": "control", "id": uuid}, sublabel=(ac_sub or "Klima"))
+            if not ac_sub:
+                it["subInfo"] = True
         elif t == "ClimateControllerUS":
             dh = self._state(c, "demandHeat") or 0
             dc = self._state(c, "demandCool") or 0
@@ -3543,8 +3574,10 @@ class App:
             # Kachel oeffnet die volle Schema-Ansicht (Hintergrundbild + Live-Werte).
             # Als Sublabel den Hauptbaustein (details.mainControl) zeigen, sonst Hinweis.
             main = self._resolve_control((c.get("details") or {}).get("mainControl"))
-            sub = (self._scheme_value(main).get("text") if main else "") or "Anlagenschema"
-            it.update(icon="central", sublabel=sub, nav={"view": "control", "id": uuid})
+            wert = self._scheme_value(main).get("text") if main else ""
+            it.update(icon="central", sublabel=(wert or "Anlagenschema"), nav={"view": "control", "id": uuid})
+            if not wert:
+                it["subInfo"] = True
         elif t == "Hourcounter":
             it["sublabel"] = ("Wartung fällig" if self._state(c, "overdue")
                               else self._fmt_num(self._state(c, "total"), "%.0f h"))
@@ -3566,6 +3599,8 @@ class App:
                 bits.append(g)
             it.update(icon="central", nav={"view": "control", "id": uuid},
                       sublabel=" · ".join(bits) or "Energiefluss")
+            if not bits:
+                it["subInfo"] = True
         elif t == "EnergyManager2":
             bits = []
             p = self._state(c, "Ppwr")
@@ -3576,12 +3611,16 @@ class App:
                 bits.append("Speicher " + self._fmt_num(soc, "%.0f") + " %")
             it.update(icon="central", nav={"view": "control", "id": uuid},
                       sublabel=" · ".join(bits) or "Energiemanager")
+            if not bits:
+                it["subInfo"] = True
         elif t == "PvProductionForecast":
             bits = [f"{lbl} {self._fmt_num(v, '%.1f kWh')}"
                     for lbl, v in (("Heute", self._state(c, "today")), ("Morgen", self._state(c, "tomorrow")))
                     if v is not None]
             it.update(icon="central", nav={"view": "control", "id": uuid},
                       sublabel=" · ".join(bits) or "PV-Prognose")
+            if not bits:
+                it["subInfo"] = True
         elif t == "Irrigation":
             act = bool(self._state(c, "active"))
             rain = bool(self._state(c, "rainActive"))
@@ -3598,16 +3637,21 @@ class App:
         elif t == "Sauna":
             act = bool(self._state(c, "active"))
             ta = self._state(c, "tempActual")
-            sub = "Ein" if act else "Aus"
-            if ta is not None:
-                sub += f" · {self._fmt_num(ta, '%.0f')} °C"
+            zustand = "Ein" if act else "Aus"
+            ist = f" · {self._fmt_num(ta, '%.0f')} °C" if ta is not None else ""
+            rest = ""
             if act:
                 tt = self._state(c, "tempTarget")
                 if tt is not None:
-                    sub += f" → {self._fmt_num(tt, '%.0f')} °C"
+                    rest += f" → {self._fmt_num(tt, '%.0f')} °C"
                 md = self._state(c, "mode")
                 if isinstance(md, (int, float)) and int(md) in SAUNA_MODES:
-                    sub += f" · {SAUNA_MODES[int(md)]}"
+                    rest += f" · {SAUNA_MODES[int(md)]}"
+            sub = zustand + ist + rest
+            if ta is not None:
+                # Neuer Kachel-Aufbau: Ist-Temperatur gross an Stelle des Symbols
+                it["big"] = f"{self._fmt_num(ta, '%.1f')}°"
+                it["bigSub"] = zustand + rest
             if (c.get("details") or {}).get("hasVaporizer") and self._state(c, "lessWater"):
                 it["tone"] = "warn"
             if self._state(c, "error") or self._state(c, "saunaError"):
@@ -3635,10 +3679,11 @@ class App:
                 n = sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
                 it["sublabel"] = f"{n} offen" if n else "Alle geschlossen"
             elif t == "CentralJalousie":
-                it["sublabel"] = "Beschattung"
+                it.update(sublabel="Beschattung", subInfo=True)
             elif t == "CentralAlarm":
-                it["sublabel"] = "Alarmzentrale"
-            it.setdefault("sublabel", "Zentral")
+                it.update(sublabel="Alarmzentrale", subInfo=True)
+            if "sublabel" not in it:
+                it.update(sublabel="Zentral", subInfo=True)
             it.update(icon="central", on=(n > 0),
                       nav={"view": "group", "kind": "central", "id": uuid})
         # Status-Bausteine antippbar machen -> grosse Wertseite
@@ -6148,6 +6193,9 @@ async def api_meta(request: web.Request) -> web.Response:
         # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
         # innerhalb davon an.
         "scaleRange": [SCALE_MIN, SCALE_MAX],
+        # Groessen ohne Einstellung je Kachel-Aufbau: der Konfigurator zeigt sie
+        # in leeren Feldern an, statt sie ein zweites Mal zu fuehren.
+        "sizeDefaults": GROESSEN_STANDARD,
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -7676,6 +7724,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
+                        "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)

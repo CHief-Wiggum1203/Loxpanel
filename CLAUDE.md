@@ -87,10 +87,15 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   verwirft der Server sie beim Speichern. Das passiert nicht mehr still: die
   Antwort nennt sie (`verworfen`), der Konfigurator zeigt eine Warnung. Ein
   Standardwert, der bewusst nicht gespeichert wird, gehört nach
-  `PANEL_STANDARD`, sonst gibt es einen Fehlalarm.
+  `PANEL_STANDARD`, sonst gibt es einen Fehlalarm. Dazu muss die Option in
+  `_panel_export()` stehen: Der Konfigurator schickt beim Speichern zurück, was
+  er von dort bekam, sonst geht sie beim nächsten Speichern still verloren.
 - Neue Bausteintypen kommen in die beiden Ketten `_control_item()` und
   `_view_control_inner()`, nicht in `adapters.py`. Reihenfolge der Zweige ist
-  relevant.
+  relevant. Nennt die zweite Zeile der Kachel keinen Zustand, sondern
+  beschreibt nur („Türsprechanlage“), `subInfo=True` setzen, sonst steht sie
+  im neuen Kachel-Aufbau groß vorn. Schriftgrößen ohne Einstellung stehen
+  einmal in `GROESSEN_STANDARD`, nicht in `load_theme()` oder der Vorlage.
 - `loxpanel.cfg` aus `/config` (Settings → Miniserver) hat Vorrang vor
   `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und

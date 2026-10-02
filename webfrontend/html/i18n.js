@@ -472,6 +472,10 @@
       'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
         'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
       // Skalierung / Bildschirmgroesse
+      'Kachel-Aufbau': 'Tile layout',
+      'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
+      'Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.':
+        'Tile layout “New”: room small at the top right, the state large with the name below, temperatures large in place of the symbol, buttons as a bar at the bottom. “Classic” is the previous layout. The tile grid stays the same in both.',
       'Skalierung': 'Scaling',
       'Wie im Profil': 'Same as profile',
       'Aus (feste Größe)': 'Off (fixed size)',
@@ -528,10 +532,20 @@
       'nichts gefunden': 'nothing found',
       // Labels
       'Icon-Größe': 'Icon size',
-      'Name-Größe': 'Name size',
-      'Sub-Größe': 'Sub size',
+      'Haupttext-Größe': 'Main text size',
+      'Zweittext-Größe': 'Second line size',
+      'Raum-Größe': 'Room size',
+      'Messwert-Größe': 'Value size',
+      'Haupttext': 'Main text',
+      'Zweittext': 'Second line',
+      'Haupttext ist die große Zeile der Kachel, Zweittext die kleine darunter. Im klassischen Aufbau ist das der Name und darunter der Zustand, im neuen steht meist der Zustand groß und der Name klein. Raum ist die Raumangabe, Messwert die große Temperatur an Stelle des Symbols.':
+        'Main text is the large line of a tile, the second line the small one below it. In the classic layout that is the name with the state below; in the new one the state is mostly large and the name small. Room is the room label, value the large temperature in place of the symbol.',
+      'Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.':
+        'An empty field takes the default of the tile layout; shown in grey is the one of the new layout.',
+      'Ein leeres Feld übernimmt die globale Darstellung, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.':
+        'An empty field takes the global appearance, otherwise the default of the tile layout; shown in grey is what then applies.',
       'Schriftart': 'Font',
-      'Schriftfarbe (Name)': 'Text color (name)',
+      'Schriftfarbe (Haupttext)': 'Text color (main text)',
       'Sprache': 'Language',
       'Steuert vorerst Datum & Uhr am Panel. Gerätenamen kommen aus dem Miniserver.':
         'For now controls date & clock on the panel. Device names come from the Miniserver.',

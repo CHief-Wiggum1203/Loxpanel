@@ -624,8 +624,11 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "cats":  ["<uuid oder Namensteil>"],
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
       "ui": {
-        "iconSize": 38, "nameSize": 18, "subSize": 15, "font": "Inter",
+        "iconSize": 38, "nameSize": 18, "subSize": 15,   // px; fehlt = global, sonst Standard des
+        "roomSize": 12, "bigSize": 36,       // Kachel-Aufbaus (GROESSEN_STANDARD, §5.4)
+        "font": "Inter",
         "textColor": "#e8eaed", "bold": true, "lang": "de",
+        "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
@@ -664,10 +667,14 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
 }
 ```
 
-Die Validierung in `_sanitize_panels()` (`:933`) ist eine Whitelist, die unbekannte
-oder falsch getypte Felder **still verwirft**. Die Antwort ist trotzdem
-`{"ok": true}`. Wer eine neue Option ergänzt, muss sie dort eintragen, sonst geht
-sie beim Speichern verloren.
+Die Validierung in `_sanitize_panels()` ist eine Whitelist, die unbekannte
+oder falsch getypte Felder verwirft. Die Antwort nennt das Verworfene
+(`verworfen`), der Konfigurator zeigt es als Warnung. Wer eine neue Option
+ergänzt, muss sie dort eintragen und zusätzlich in `_panel_export()`, das die
+Profile an den Konfigurator gibt: Der schickt beim Speichern zurück, was er
+bekam, und eine Option, die dort fehlt, geht beim nächsten Speichern still
+verloren. So geschah es mit `catFilter`. `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`
+prüft beide Listen gegeneinander.
 
 ### 5.4 `theme.json`
 
@@ -680,6 +687,19 @@ der Konfigurator unter Global → Darstellung setzt, steht einmal in
 genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
 sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
 Skalierung für alle Panels; fehlt sie, ist sie aus.
+
+Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
+nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
+Standard des Kachel-Aufbaus aus `GROESSEN_STANDARD` (neu Haupttext 16,
+Zweittext 14, Raum 13; klassisch 18, 15, 12; Icon 38 und Messwert 36 in
+beiden). `_theme_vars()` rechnet damit, `/api/meta` gibt die Tabelle als
+`sizeDefaults` an den Konfigurator, der leere Felder grau mit dem Wert zeigt,
+der dann gilt (im Panel erst der globale, sonst der Standard). Weder
+`load_theme()` noch die Vorlage `theme.example.json` legen Größen fest.
+Bis Oktober 2026 taten sie es (18/15 bzw. 20/15). Die Standardwerte wirkten
+deshalb nie, und der Konfigurator zeigte Werte, die niemand gewählt hatte.
+Eine `theme.json` aus jener Zeit trägt noch 20/15, wer den Standard will,
+leert die Felder unter Global → Darstellung.
 
 In `ui` steckt auch `baseColor`: die Grundfarbe des Panel-Themes. Steht sie da,
 leitet `theme_colors.derive()` daraus den ganzen Farbsatz ab — Hintergrund,
@@ -778,6 +798,38 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 - Block-Rendering in `bh()` (`:486-516`), ein Zweig je `k`.
 - Kachel-Grid über CSS-Variablen `--cols`/`--rows` (2×2, 3×2, 4×3), Kachelgröße
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
+- Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):
+  Standard ist der neue nach den Kacheln der Loxone-App, `"classic"` der
+  bisherige. Das Raster (`cols`/`rows`) ist in beiden gleich, die
+  Listen-Ansicht behält ihren Aufbau. `kachelNeu()` entscheidet, `render()`
+  setzt `.lx` am Grid. Im neuen Aufbau steht der Raum klein oben rechts im
+  Kopf statt in Versalien über dem Namen, der Pfeil fällt weg, Tasten liegen
+  als Leiste über die ganze Breite unten (44 px hoch). Zustand vorn (`.zv`,
+  `zustandVorn()`): Der Zustand steht groß, der Name klein darunter. Das gilt
+  nicht für Kacheln, die direkt schalten (`it.cmd`, dort zeigt die
+  Hervorhebung den Zustand), und nicht, wenn die zweite Zeile nur beschreibt
+  (`it.subInfo` vom Server, Klasse `.bi`, etwa „Türsprechanlage“ oder
+  „Zentral“). Ein Messwert ersetzt das Symbol (`.bigv`). Der Server schickt
+  dafür `big` und `bigSub`: bei der Raumregelung die Ist-Temperatur, darunter
+  Soll und Tätigkeit, bei der Sauna die Temperatur, darunter den Zustand.
+  `subText()` setzt mehrteilige Zustände (` · `) untereinander. Enge Kacheln
+  misst `fitTile()` nach `placeCtrls()`; Stufe für Stufe weicht das
+  Unwichtigste. `eng1`: Text einzeilig, bei `.bi` fällt die Beschreibung weg
+  und der Name behält zwei Zeilen. `eng2`: Die Angabe zum Mini-Verlauf fällt
+  weg, der Verlauf selbst bleibt im Kopf. `eng3`: Die zweite Zeile fällt weg.
+  Der Name geht so vor der Angabe, und der Verlauf hat auch dort Platz, wo
+  der klassische Aufbau keinen findet (18 Kacheln auf 800×480). `updateGrid()`
+  behält die gemessenen Klassen (`spark*`, `ctrltight`, `ctrlnarrow`,
+  `eng1`–`eng3`) und setzt `bigv` an Ort und Stelle. Kommt oder geht ein
+  Messwert, baut es neu auf. Schriftgrößen: `--name-size` (Haupttext, im
+  neuen Aufbau meist der Zustand), `--sub-size` (Zweittext), `--room-size`,
+  `--big-size`. Die Schrift einer Kachel aus „Kacheln gestalten“
+  (`--tile-txt`, `--tile-fw`, `--tile-fst`) gilt für den Haupttext, auch wenn
+  er der Zustand ist. Am 4″-Panel (3×3) schneidet der neue Aufbau nichts ab,
+  was der klassische ganz zeigt, mit den Standardgrößen wie mit 20/15 aus
+  älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
+  `tests/browser/test_kachel_aufbau_browser.py` und
+  `test_mini_verlauf_im_neuen_aufbau`.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
@@ -1167,8 +1219,9 @@ neuer POST-Handler, Rubrik „Settings" in `config.html`, `i18n.js`. Bei Env-Ove
 1. Feld in `appearanceFields()` (`config.html:311`, global und pro Panel) oder im
    Markup von `renderEditor()` (`:370`). Zahlenfelder nur mit `data-ui="<key>"`.
 2. Handler in `bindAppearance()` (`:295`) mit `markDirty()`.
-3. Server-Whitelist in `_sanitize_panels()` (`webvisu.py:948-975`) bzw.
-   `_sanitize_theme_ui()`, sonst wird die Option still verworfen.
+3. Server-Whitelist in `_sanitize_panels()` bzw. `_sanitize_theme_ui()` (global
+   zusätzlich `THEME_UI_KEYS`), sonst wird die Option verworfen. Für Panels
+   auch in `_panel_export()`, sonst geht sie beim nächsten Speichern verloren.
 4. Wirkung: CSS-Variable in `_theme_vars()` (`:728`) oder Verhalten in
    `resolve_profile()` (`:766`) plus `theme`-Payload plus Frontend.
 5. Übersetzung in `i18n.js`.

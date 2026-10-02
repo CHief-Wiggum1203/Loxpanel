@@ -390,7 +390,9 @@ def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
             Verlauf, die Angabe bleibt in der Raumzeile lesbar
     Ohne Raumzeile (alle Bausteine in einem Raum, wie in der Raum-Ansicht)
     bekommt die Angabe die Zeile ueber dem Namen, der Verlauf wird dafuer
-    niedriger gezeichnet statt abgeschnitten."""
+    niedriger gezeichnet statt abgeschnitten.
+    Das ist der klassische Kachel-Aufbau; im neuen steht oben rechts der Raum
+    und die Angabe immer als Zeile im Text (test_kachel_aufbau_browser.py)."""
     faelle = [(1280, 800, 3, "mitte"), (800, 480, 2, "mitte"), (1280, 480, 3, "kopf"), (800, 480, 3, "keiner")]
     tiles = {"T": {"chart": "24h", "chartStyle": "span"}, "Z": {"chart": "24h", "chartStyle": "pattern"},
              "R": {"chart": "7d"}, "P": {"chart": "24h"}}
@@ -402,7 +404,9 @@ def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
                     c["room"] = "r1"
             for breite, hoehe, zeilen, ort in faelle:
                 u.app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"],
-                                                                "ui": {"cols": 3, "rows": zeilen}, "tiles": tiles}})
+                                                                "ui": {"cols": 3, "rows": zeilen,
+                                                                       "tileLayout": "classic"},
+                                                                "tiles": tiles}})
                 pg = await u.seite(breite, hoehe)
                 info = await pg.evaluate("""() => [...document.querySelectorAll('.tile')].map(t => ({
                     name: t.querySelector('.name').textContent, svg: !!t.querySelector('.tspark svg'),
@@ -450,6 +454,77 @@ def test_kachel_stile_je_kachelgroesse(tmp_path, miniserver_http, raumzeile):
                 await pg.wait_for_timeout(1500)
                 nachher = await pg.evaluate("document.querySelectorAll('.tile .tspark svg').length")
                 assert nachher == sum(i["svg"] for i in mit), fall
+                await pg.close()
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+@pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raum", "ohne_raum"])
+def test_mini_verlauf_im_neuen_aufbau(tmp_path, miniserver_http, raumzeile):
+    """Der Mini-Verlauf im neuen Kachel-Aufbau, dieselben Kachelgroessen wie im
+    klassischen (test_kachel_stile_je_kachelgroesse). Der Raum steht oben
+    rechts, die Angabe zum Verlauf als Zeile im Text. Ist die Mitte zu niedrig,
+    rueckt der Verlauf in den Kopf; reicht der Text dann noch nicht, weicht die
+    Angabe vor dem Namen - der Verlauf bleibt, auch wo der klassische Aufbau
+    (18 Kacheln auf 800 x 480) keinen Platz fuer ihn hat."""
+    faelle = [(1280, 800, 3, "mitte"), (800, 480, 2, "mitte"), (1280, 480, 3, "kopf"), (800, 480, 3, "kopf")]
+    tiles = {"T": {"chart": "24h", "chartStyle": "span"}, "Z": {"chart": "24h", "chartStyle": "pattern"},
+             "R": {"chart": "7d"}, "P": {"chart": "24h"}}
+
+    async def lauf():
+        async with Umgebung(tmp_path, {}) as u:
+            if not raumzeile:
+                for c in u.app.controls.values():
+                    c["room"] = "r1"
+            for breite, hoehe, zeilen, ort in faelle:
+                u.app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"],
+                                                                "ui": {"cols": 3, "rows": zeilen}, "tiles": tiles}})
+                pg = await u.seite(breite, hoehe)
+                info = await pg.evaluate("""() => [...document.querySelectorAll('.tile')].map(t => {
+                    const sicht = e => !!e && getComputedStyle(e).display !== 'none';
+                    const ganz = e => sicht(e) && e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1;
+                    const svg = t.querySelector('.tspark svg'), sp = t.querySelector('.tspark'), tl = t.querySelector('.tsline');
+                    return {name: t.querySelector('.name').textContent, nameGanz: ganz(t.querySelector('.name')),
+                      zustand: sicht(t.querySelector('.sub')), svg: !!svg, hoehe: svg ? svg.clientHeight : 0,
+                      imKopf: !!sp && sp.parentNode.classList.contains('head'), eng: t.classList.contains('sparktight'),
+                      stufen: [...t.classList].filter(c => /^eng\\d$/.test(c)).join(' '),
+                      ueber: svg ? svg.getBoundingClientRect().bottom - sp.getBoundingClientRect().bottom : 0,
+                      ueberlauf: t.scrollHeight - t.clientHeight,
+                      zeile: sicht(tl) ? tl.textContent : null, kopfAngabe: sicht(t.querySelector('.tsbadge')),
+                      raum: sicht(t.querySelector('.head .room')) ? t.querySelector('.head .room').textContent : null,
+                      angabe: (t.querySelector('.tsline') || {}).textContent || ''}; })""")
+                await u.bild(pg, f"neu_verlauf_{breite}x{hoehe}_{zeilen}zeilen")
+                k = {i["name"]: i for i in info}
+                mit = [k[n] for n in ("Boiler", "Stromzähler", "Regen", "PV Anlage")]
+                fall = f"{breite}x{hoehe}, {zeilen} Zeilen, {'mit' if raumzeile else 'ohne'} Raum"
+                assert await pg.evaluate("document.getElementById('grid').classList.contains('lx')"), fall
+                assert not k["Licht"]["svg"] and all(i["ueberlauf"] <= 1 for i in info), (fall, info)
+                assert all(i["ueber"] <= 1 for i in mit), f"{fall}: Verlauf ragt aus seinem Platz {info}"
+                # Name und Zustand bleiben ganz, der Verlauf immer da, nie eine Angabe im Kopf
+                assert all(i["nameGanz"] and i["zustand"] for i in mit), (fall, info)
+                assert all(i["svg"] and i["hoehe"] >= 30 for i in mit), (fall, info)
+                assert not any(i["kopfAngabe"] for i in info), (fall, info)
+                assert k["Boiler"]["angabe"] and all(i["angabe"] for i in mit), "der Server liefert die Angabe"
+                if ort == "mitte":
+                    # Platz genug: Verlauf in der Mitte, Angabe als Zeile, Raum oben rechts
+                    assert not any(i["eng"] or i["imKopf"] for i in mit), (fall, info)
+                    assert all(i["zeile"] == i["angabe"] for i in mit), (fall, info)
+                    assert all((i["raum"] is not None) == raumzeile for i in mit), (fall, info)
+                else:
+                    # Verlauf im Kopf an Stelle des Raums; die Angabe weicht vor dem Namen
+                    assert all(i["eng"] and i["imKopf"] and i["raum"] is None for i in mit), (fall, info)
+                    assert all(i["zeile"] is None for i in mit), (fall, info)
+                # Live-Aenderung: an Ort und Stelle neu gezeichnet, Darstellung bleibt
+                await pg.evaluate("document.querySelectorAll('.tile').forEach(t => t._alt = true)")
+                u.app.states["sv"] += 0.8
+                u.app.stat_gen += 1
+                u.app._dirty = True
+                await pg.wait_for_timeout(1500)
+                nachher = await pg.evaluate("""() => [...document.querySelectorAll('.tile')].map(t =>
+                    [t._alt === true, !!t.querySelector('.tspark svg'), t.classList.contains('sparktight'),
+                     [...t.classList].filter(c => /^eng\\d$/.test(c)).join(' ')])""")
+                assert all(a for a, _, _, _ in nachher), f"{fall}: neu aufgebaut statt aktualisiert"
+                assert [n[1:] for n in nachher] == [[i["svg"], i["eng"], i["stufen"]] for i in info], (fall, nachher)
                 await pg.close()
             assert not u.fehler, u.fehler
     asyncio.run(lauf())

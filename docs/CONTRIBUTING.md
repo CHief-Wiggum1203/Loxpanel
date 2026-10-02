@@ -152,6 +152,23 @@ nicht unbemerkt entfernt:
   mitten im Tippen Fokus und Buchstaben. Geht es zu Lenardo, sobald der
   Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
   `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
+- Kacheltexte „Spielt in 1 Raum“ (statt „1 Räumen“) und der Ruhe-Text der
+  Radiotasten (`allOff` statt „–“) in `_control_item()`: können zu Lenardo,
+  sonst schlägt `tests/test_kachel_texte.py` an.
+- `catFilter` in `_panel_export()`: ohne geht die Einstellung beim nächsten
+  Speichern verloren, auch bei Lenardo. Kann zu ihm,
+  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an` wacht.
+- `updateGrid()` behält `ctrltight`/`ctrlnarrow`: ohne verliert eine enge
+  Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo. Kann zu ihm,
+  `test_enge_kachel_behaelt_die_lage_ihrer_tasten` wacht.
+- Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
+  `subInfo`/`big`/`bigSub` in `_control_item()`, `ui.tileLayout`,
+  `GROESSEN_STANDARD`, `sizeDefaults` in `/api/meta`, `theme.example.json` ohne
+  Größen): Lenardo erst vorschlagen, er plant ein frei konfigurierbares
+  Display. Bis dahin reiben sich Upstream-Merges an `render()`, `updateGrid()`
+  und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
+  `tests/browser/test_kachel_aufbau_browser.py`,
+  `test_mini_verlauf_im_neuen_aufbau`.
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):

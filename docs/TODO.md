@@ -692,6 +692,29 @@ selbst aktuell.
       bisher: deren Summe. Tests in `tests/test_energiefluss.py` und
       `tests/browser/test_energiefluss_browser.py`. An Upstream eingereicht
       als [#58](https://github.com/Lenardo1/loxpanel/pull/58). **S**
+- [x] **Kacheltexte: „1 Räumen“ und „–“ bei Radiotasten.** Audio Zentral
+      und Licht Zentral zeigten bei genau einem Raum „Spielt in 1 Räumen“
+      bzw. „In 1 Räumen aktiv“, jetzt steht die Einzahl. Radiotasten ohne
+      aktiven Ausgang (etwa Lüfterstufen) zeigten auf der Kachel „–“, auf der
+      Detailseite den Ruhe-Text aus der Struktur (`allOff`, etwa
+      „Automatik“). Jetzt zeigen beide den Ruhe-Text. Tests:
+      `tests/test_kachel_texte.py`. **S**
+- [x] **„Tipp auf eine Sprungmarke: Filtern“ ging beim nächsten Speichern
+      verloren.** `_sanitize_panels()` behielt `ui.catFilter`, aber
+      `_panel_export()` gab es nicht an den Konfigurator weiter. Der schickt
+      beim Speichern zurück, was er bekam. Ein Test prüft jetzt beide Listen
+      gegeneinander. **S**
+- [x] **Enge Kachel verlor die Lage ihrer Tasten.** Am 4″-Panel (3×3) rücken
+      die Player-Tasten in den Kopf (`ctrltight`, `ctrlnarrow`). Bei einem
+      Zustandswechsel ohne neuen Text (Pause) setzte `updateGrid()` die
+      Klassen neu und warf beide weg, und `placeCtrls()` maß bei gleichem
+      Text nicht nach. Die Tasten standen danach ohne ihre Regeln im Kopf.
+      Jetzt bleiben die gemessenen Klassen stehen, in beiden Kachel-Aufbauten
+      geprüft. **S**
+- [ ] **Online-Punkt bei 3×3:** Der Verbindungspunkt sitzt in der Mitte des
+      Rasters. Bei 2×2 liegt er in der Fuge, bei 3×3 mitten auf der mittleren
+      Kachel und überdeckt dort Text. Gehört zum Vorschlag „Verbindung“ in
+      Block 9 (Vorschläge aus der Kachel-Analyse). **S**
 
 ## 4. Performance
 
@@ -1234,6 +1257,56 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite
       ansehen. Danach das Tab A9 in die Geräteseite aufnehmen (sie nennt nur
       erprobte Geräte). **S**
+- [x] **Neuer Kachel-Aufbau nach den Kacheln der Loxone-App** (Standard für
+      alle Panels, „Klassisch“ je Panel wählbar unter *Panels → Aussehen &
+      Verhalten → Kachel-Aufbau*). Der Raum steht klein oben rechts, der Pfeil
+      fällt weg. Bei Anzeige-Bausteinen steht der Zustand groß und der Name
+      klein darunter („Leer“ über „Postkasten“). Bei Kacheln, die direkt
+      schalten, und bei reinen Beschreibungen („Türsprechanlage“) bleibt der
+      Name vorn. Raumregelung und Sauna zeigen die Temperatur groß an Stelle
+      des Symbols, darunter Soll und Tätigkeit untereinander. Tasten liegen
+      als Leiste unten über die ganze Breite, 44 px hoch statt 34 px rund.
+      Lange Namen werden getrennt statt mit „…“ gekappt. Das Raster bleibt,
+      auch am 4″-Panel (2×2, 3×3). Dort weicht auf enger Kachel Stufe für Stufe
+      das Unwichtigste: erst einzeilig, dann die Angabe zum Mini-Verlauf, dann
+      die zweite Zeile. Gemessen bei 3×3 schneidet der klassische Aufbau 9 von
+      13 Namen ab, der neue 4. Er schneidet nirgends etwas ab, was der
+      klassische ganz zeigt, auch nicht mit den Größen 20/15 älterer
+      Installationen. Der Mini-Verlauf bleibt auch dort, wo der klassische
+      Aufbau keinen Platz für ihn hat (18 Kacheln auf 800×480). Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1. Tests:
+      `tests/test_kachel_aufbau.py`, `tests/browser/test_kachel_aufbau_browser.py`,
+      `test_mini_verlauf_im_neuen_aufbau`. **L**
+- [x] **Schriften anpassbar.** Unter *Global → Darstellung* und je Panel:
+      Haupttext, Zweittext (früher „Name-“/„Sub-Größe“), dazu neu Raum und
+      Messwert. Die Schrift einer Kachel aus „Kacheln gestalten“ (Farbe, fett,
+      kursiv) trifft im neuen Aufbau auch den Zustand, wenn er vorn steht.
+      Ohne Einstellung gilt der Standard des Kachel-Aufbaus (neu etwas kleiner
+      als klassisch). Leere Felder zeigen grau, was gilt, im Panel erst den
+      globalen Wert. Vorher wirkte kein Standard: `load_theme()` und die
+      Vorlage `theme.example.json` setzten feste Größen, der Konfigurator
+      zeigte Werte, die niemand gewählt hatte. Eine `theme.json` aus der
+      früheren Vorlage trägt noch 20/15, für den neuen Standard die Felder
+      leeren. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.4. **M**
+- [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
+      nicht entschieden):
+      - Herauslegen: wichtigste Funktion auf die Kachel, nur was die
+        Detailseite schon sendet und gefahrlos ist. Schalter-Schieber,
+        Zeitschalter ⏱, Taster, Licht Ein/Aus mit Stimmungswahl, Dimmer,
+        Fenster ▲▼, Audio Lautstärke und ⏯, Raumregelung −/+, Radiotasten
+        −/+, Klima und Bewässerung Ein/Aus, Wecker Schlummern/Aus. Bewusst
+        nicht: Tor, Türöffner, Alarmanlage, „Sauna Ein“. Je Kachel wählbar
+        („automatisch“/„keine“). Überschneidet sich mit dem nächsten Punkt.
+      - Doppelt breite Kacheln für Audio und Energiefluss.
+      - Startseite wie die Loxone-App: Uhr und Wetter, darunter Favoriten
+        zum direkten Bedienen.
+      - Ruhigerer Aktiv-Zustand: nur Symbol und Zustand farbig, nicht die
+        ganze Kachel (die Einstellung gibt es, es wäre ein neuer Standard).
+      - Stabilität in der App: Server über `/api/health` überwachen und neu
+        starten, WebView-Absturz abfangen, nächtliches Neuladen als Standard.
+      - Verbindung: bei Störung ein klarer Hinweis und gesperrte Tasten statt
+        des Punkts mitten im Raster.
+      - Tipp-Regel: lang drücken öffnet immer die Detailseite.
 - [ ] **Bedienelemente direkt auf der Kachel** (zurückgestellt am
       02.10.2026). Vorbild ist der Fork von najrefisch („LoxPanel
       Favoriten-Fork 0.19.0-fav4“,
