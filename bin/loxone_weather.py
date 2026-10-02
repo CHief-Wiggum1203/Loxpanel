@@ -229,7 +229,6 @@ def build(cfg: dict, actual: list, forecast: list, *,
     if versatz:
         log.info("Wetterserver: Zeitstempel um %+d h gegen die Ortszeit verschoben — wird ausgeglichen",
                  round(versatz.total_seconds() / 3600))
-    t_jetzt = t_roh + versatz
 
     fmt = cfg.get("format") if isinstance(cfg.get("format"), dict) else {}
     # Temperatur wird als Grad Celsius gelesen; nur eine ausdrueckliche
