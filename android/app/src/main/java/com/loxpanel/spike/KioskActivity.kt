@@ -35,6 +35,11 @@ import android.widget.FrameLayout
  * Sonoff NSPanel Pro) — per Annäherung. Bewusst NICHT über die Firmware/den
  * Geräteadmin, weil deren Annäherungs-Weckung greift nur, wenn der Hersteller-
  * Launcher im Vordergrund ist — hier ist es unsere Visu.
+ *
+ * Die Visu schaltet den Schoner zusätzlich selbst: Die JS-Brücke LoxKiosk hat
+ * dieselben Display-Funktionen wie Fully Kiosk (turnScreenOn/turnScreenOff/
+ * isScreenOn). Damit wecken Klingel, Wecker, Notify und Goto das Display, und
+ * der Server kann es schalten (Displays-Seite, /api/display).
  */
 class KioskActivity : Activity(), SensorEventListener {
 
@@ -50,7 +55,8 @@ class KioskActivity : Activity(), SensorEventListener {
     // Vorgabe. dpmsOff=0 schaltet den Schoner ab.
     private var idleMs = 90_000L
     private var saverEnabled = true
-    private var saverOn = false
+    // Volatile: isScreenOn() liest den Wert im Thread der JS-Brücke.
+    @Volatile private var saverOn = false
     // Die Visu meldet über setSaver(), ob ihr eigener Screensaver (Uhr) läuft. Es
     // gibt nur EINEN sichtbaren Screensaver (den der Visu mit Uhr/Wetter/Kalender);
     // nativ wird nur das Backlight gedunkelt (nach idleMs) und auf Annäherung/
@@ -236,6 +242,25 @@ class KioskActivity : Activity(), SensorEventListener {
                 }
             }
         }
+
+        /** Wie Fully Kiosk: Display einschalten. Die Visu ruft das bei Klingel,
+         *  Wecker, Notify und Goto sowie wenn der Server das Display einschaltet.
+         *  Nimmt den Schoner weg und startet die Leerlaufzeit neu. */
+        @JavascriptInterface
+        fun turnScreenOn() {
+            ui.post { wake() }
+        }
+
+        /** Wie Fully Kiosk: Display ausschalten, also den Schoner zeigen. Die Visu
+         *  ruft das, wenn der Server das Display abschaltet. */
+        @JavascriptInterface
+        fun turnScreenOff() {
+            ui.post { enterScreensaver() }
+        }
+
+        /** Wie Fully Kiosk: ob das Display gerade an ist (kein Schoner). */
+        @JavascriptInterface
+        fun isScreenOn(): Boolean = !saverOn
     }
 
     /** Backlight aus: schwarzes Overlay (echtes Schwarz) + Helligkeit 0. KEINE

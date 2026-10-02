@@ -81,6 +81,10 @@ Browser – ganz ohne Programmierung und ohne die Loxone-App.
   Aktiv-Overlay (Farbe/Transparenz von Füllung und Rahmen), global oder pro Kachel.
 - **Ein Design für alle Geräte:** dieselbe Oberfläche skaliert auf Wandpanel,
   Tablet und Smartphone.
+- **Display nach Anwesenheit:** auf Android-Panels (LoxPanel-App, Fully Kiosk,
+  WallPanel) hält ein Loxone-Präsenzmelder das Display hell, solange jemand im
+  Raum ist, und schaltet es aus, wenn der Raum leer wird – je Gerät einstellbar
+  unter *Displays*.
 - **Musik** (Loxone AudioZone): Zonen-Liste mit Mini-Player (◀ ⏯ ▶) und voller
   Raum-Player mit Cover (über den Miniserver).
 - **Intercom** (z. B. Mobotix T25): Live-Bild (MJPEG mit Auth), Tür öffnen &
