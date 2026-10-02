@@ -4,6 +4,7 @@ wird nur, was einen Inhalt hatte - leere Werte, Standardwerte und bloss
 begrenzte Werte nicht."""
 import asyncio
 import json
+import time
 
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
@@ -48,6 +49,18 @@ def test_beispielkonfiguration_und_zweiter_durchlauf():
     assert roh and _meldung(roh) == []
     sauber = W.App._sanitize_panels(roh)
     assert _meldung(sauber) == []
+
+
+def test_lange_liste_bleibt_schnell():
+    """100.000 ausgeblendete Kacheln: der Abgleich ging frueher jede Angabe
+    einzeln durch die ganze Liste (quadratisch, ~1 min Event-Loop blockiert),
+    eine Sicherung mit so einer Liste legte den Server lahm."""
+    hide = [f"U{i:06d}" for i in range(100_000)]
+    beginn = time.perf_counter()
+    meldung = _meldung({"p": {"title": "Flur", "hide": hide + [5, "U000001"]}})
+    dauer = time.perf_counter() - beginn
+    assert meldung == ["Flur: hide: 5"]
+    assert dauer < 5, f"{dauer:.1f} s"
 
 
 def test_speichern_antwortet_mit_verworfen():

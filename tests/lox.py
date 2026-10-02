@@ -24,6 +24,12 @@ if str(ROOT / "bin") not in sys.path:
 
 import webvisu as W  # noqa: E402
 
+# Wartebedingung fuer Browser-Tests: Konfigurator hat /api/meta geladen. META
+# ist bis zur Antwort null; die Bedingung darf dann nicht werfen, sonst bricht
+# wait_for_function sofort ab statt weiter zu warten.
+KONFIGURATOR_GELADEN = ("typeof META !== 'undefined' && META !== null"
+                        " && Array.isArray(META.controls) && META.controls.length > 0")
+
 
 async def serve(app: web.Application) -> tuple[web.AppRunner, int]:
     """aiohttp-App auf einem freien Port starten -> (runner, port)."""
@@ -162,8 +168,9 @@ def bloecke(view: dict, art: str) -> list:
     return [b for b in view.get("blocks") or [] if b.get("k") == art]
 
 
-async def visu_starten(app: W.App) -> tuple[web.AppRunner, int, asyncio.Task]:
+async def visu_starten(app: W.App, routen=()) -> tuple[web.AppRunner, int, asyncio.Task]:
     """Panel-Seite und /ws wie im Betrieb, dazu der Broadcaster.
+    routen: weitere (Methode, Pfad, Handler), etwa die des Reiters Displays.
     -> (runner, port, broadcaster); Aufrufer bricht den Broadcaster ab und
     raeumt den runner auf."""
     ui = web.Application()
@@ -174,6 +181,8 @@ async def visu_starten(app: W.App) -> tuple[web.AppRunner, int, asyncio.Task]:
     ui.router.add_get("/api/meta", W.api_meta)
     ui.router.add_get("/api/settings", W.api_settings)
     ui.router.add_get("/i18n.js", W.i18n_js)
+    for methode, pfad, h in routen:
+        ui.router.add_route(methode, pfad, h)
     runner, port = await serve(ui)
     return runner, port, asyncio.create_task(app.broadcaster())
 

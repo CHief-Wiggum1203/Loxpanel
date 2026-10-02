@@ -70,6 +70,20 @@
   .stab.active{color:var(--fg);border-bottom-color:var(--accent);}
   .scroll{flex:1;overflow-y:auto;padding:22px 30px;min-height:0;}
   .spane{display:none;} .spane.active{display:block;}
+  /* Ersteinrichtung: ohne Struktur vom Miniserver nur der Zugang (einrichtungAnwenden) */
+  .rub:disabled,.stab:disabled{opacity:.35;cursor:not-allowed;}
+  .rub:disabled:hover,.stab:disabled:hover{color:var(--muted);}
+  .addbtn:disabled,.addbtn:disabled:hover{opacity:.35;cursor:not-allowed;border-color:#3a3f49;}
+  .plist.gesperrt{opacity:.35;pointer-events:none;}
+  .einr{background:var(--panel);border:1px solid var(--accent);border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;max-width:760px;}
+  .einr.ok{border-color:var(--good);}
+  .einr h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:15px;font-weight:600;}
+  .einr-n{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;
+    background:var(--accent);color:#1a1205;font-size:13px;font-weight:700;}
+  .einr.ok .einr-n{background:var(--good);}
+  .einr p{margin:0 0 8px;color:var(--muted);font-size:13.5px;}
+  .einr .einr-stand{margin:0;color:var(--fg);}
+  .einr .einr-stand b.bad{color:var(--crit);}
   .savebar{display:flex;gap:12px;align-items:center;padding:14px 30px;border-top:1px solid var(--line);background:var(--panel);}
   /* ---------- Karten & Formfelder ---------- */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;max-width:760px;}
@@ -828,6 +842,17 @@
       <div id="setHost" style="display:none">
         <!-- Miniserver -->
         <section class="spane" data-sub="miniserver">
+          <!-- Ersteinrichtung: ohne Struktur vom Miniserver zuerst dieser Schritt (einrichtungAnwenden) -->
+          <div class="einr" id="einr" hidden>
+            <h3><span class="einr-n">1</span><span data-i18n>Zuerst den Miniserver verbinden</span></h3>
+            <p data-i18n>Ohne Verbindung kennt LoxPanel weder Räume noch Bausteine. Adresse, Benutzer und Passwort eintragen, dann „Verbinden &amp; Speichern“. Danach sind alle Bereiche offen.</p>
+            <p class="einr-stand" id="einrStand"></p>
+          </div>
+          <div class="einr ok" id="einrOk" hidden>
+            <h3><span class="einr-n">✓</span><span data-i18n>Mit dem Miniserver verbunden</span></h3>
+            <p id="einrOkText"></p>
+            <div class="actions"><button class="btn" id="einrAssistent" data-i18n>Panel einrichten</button><button class="btn ghost" id="einrSicherung" data-i18n>Sicherung einspielen</button></div>
+          </div>
           <p class="lead" data-i18n>Zugang zum Loxone Miniserver. Nach dem Speichern verbindet der Server sofort neu.</p>
           <div class="card">
             <div class="field" style="max-width:none"><label class="lbl" data-i18n>Host / IP</label><input type="text" id="ms_host" placeholder="192.168.1.50"></div>
@@ -928,8 +953,14 @@
           <p class="lead" data-i18n>Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.</p>
           <div class="card">
             <div class="actions" style="margin-top:0"><a class="btn" id="bk_dl" href="/api/backup" download data-i18n>Einstellungen herunterladen</a></div>
-            <p class="note" style="margin-top:14px" data-i18n>Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist – nach dem Zurückspielen neu eintragen.</p>
-            <p class="note" data-i18n>Zurückspielen: die Dateien aus dem ZIP in den Config-Ordner legen (Unraid: appdata/loxpanel/config) und LoxPanel neu starten. Das steht auch in der LIESMICH.txt im ZIP.</p>
+            <p class="note" style="margin-top:14px" data-i18n>Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.</p>
+          </div>
+          <div class="card">
+            <h3 data-i18n>Sicherung einspielen</h3>
+            <p class="note" data-i18n>Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.</p>
+            <input type="file" id="rs_file" accept=".zip,application/zip" hidden>
+            <div class="actions" style="margin-top:0"><button class="btn" id="rs_pick" data-i18n>ZIP-Datei wählen und einspielen</button><span class="toast" id="rs_toast"></span></div>
+            <div class="note" id="rs_result" style="margin-top:10px"></div>
           </div>
         </section>
 
@@ -977,6 +1008,13 @@
 const $ = (s,r=document)=>r.querySelector(s);
 let META=null, PANELS={}, cur=null, dirty=false, tileSel=null;
 let rubric='overview', subPconf='tabs', subSet='miniserver';
+// Ersteinrichtung (siehe einrichtungAnwenden): Stand aus /api/settings, solange
+// der Server keine Struktur hat, sonst null; dazu der Zugang aus der Config und
+// der Fehler des letzten eigenen Verbindungsversuchs.
+let EINR=null, EINR_MS={}, EINR_VERSUCH='', EINR_TIMER=null;
+const EINR_SUBS=['miniserver','backup'];       // ohne Struktur offene Settings-Reiter
+const EINR_TAKT_MS=3000;                       // so oft fragt der Konfigurator nach
+const EINR_KEY='lp_einrichtung_verbunden';     // naechster Schritt nach dem Neuladen
 function svg(inner){return '<svg viewBox="0 0 24 24">'+inner+'</svg>';}
 const BICONS = {
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -1037,7 +1075,7 @@ async function load(){
   PANELS.__global__ = {title:'Global (alle Panels)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
-  renderList(); setRubric('overview');
+  renderList(); setRubric('overview'); verbundenZeigen();
 }
 
 function renderList(){
@@ -1062,6 +1100,8 @@ function renderList(){
 
 // ---- Rubriken / Reiter-Steuerung ----
 function setRubric(r){
+  // Ersteinrichtung: ohne Struktur fuehrt jeder Weg zu Settings -> Miniserver
+  if(EINR){ r='settings'; if(!EINR_SUBS.includes(subSet)) subSet='miniserver'; }
   rubric=r;
   document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
   const ov=r==='overview', pc=r==='pconf', dv=r==='devices', dp=r==='displays', as=r==='assistant';
@@ -1093,7 +1133,9 @@ function subTabs(){
 function renderSubtabs(){
   const tabs=subTabs(), active=(rubric==='settings')?subSet:subPconf;
   const bar=$('#subtabs');
-  bar.innerHTML=tabs.map(t=>'<button class="stab'+(t.k===active?' active':'')+'" data-sub="'+t.k+'">'+esc(t.label)+'</button>').join('');
+  const zu=' disabled title="'+esc(T('Erst den Miniserver verbinden'))+'"';
+  bar.innerHTML=tabs.map(t=>'<button class="stab'+(t.k===active?' active':'')+'" data-sub="'+t.k+'"'+
+    (einrichtungGesperrt(t.k)?zu:'')+'>'+esc(t.label)+'</button>').join('');
   bar.querySelectorAll('.stab').forEach(b=>b.onclick=()=>{
     if(rubric==='settings') subSet=b.dataset.sub; else subPconf=b.dataset.sub;
     bar.querySelectorAll('.stab').forEach(x=>x.classList.toggle('active',x===b));
@@ -1104,6 +1146,7 @@ function renderSubtabs(){
 function showSub(k){
   const host = (rubric==='settings')?$('#setHost'):$('#pconfHost');
   if(!host) return;
+  if(einrichtungGesperrt(k)) k='miniserver';
   const panes=host.querySelectorAll('.spane');
   let found=false;
   panes.forEach(p=>{ const on=p.dataset.sub===k; p.classList.toggle('active',on); if(on)found=true; });
@@ -2608,6 +2651,7 @@ let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
 function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
 function wzOpen(){
+  if(EINR) return;                       // Ersteinrichtung: ohne Struktur kein Assistent
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
     $('#wzNext').onclick=wzNext;
@@ -3033,6 +3077,7 @@ async function loadSettings(){
       else ws.innerHTML='<span class="ccmut">'+T('Kein Standort konfiguriert.')+'</span>';
     }
   }
+  einrichtungAnwenden(SET);
 }
 
 $('#ms_save').onclick=async()=>{
@@ -3040,14 +3085,73 @@ $('#ms_save').onclick=async()=>{
     port:parseInt($('#ms_port').value)||443,verify_tls:$('#ms_tls').checked};
   const pw=$('#ms_pass').value; if(pw) body.pass=pw;
   $('#ms_save').disabled=true;
+  EINR_VERSUCH='';
   try{
     const r=await fetch('/api/settings/miniserver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){ flash($('#ms_toast'),'✓ Verbunden — '+j.nControls+' Controls',true); $('#ms_pass').value=''; loadSettings(); }
-    else flash($('#ms_toast'),j.error||'Fehler',false);
-  }catch(e){ flash($('#ms_toast'),'Fehler: '+e,false); }
+    else { EINR_VERSUCH=T(j.error||'Fehler'); flash($('#ms_toast'),EINR_VERSUCH,false); }
+  }catch(e){ EINR_VERSUCH=T('Fehler:')+' '+e; flash($('#ms_toast'),EINR_VERSUCH,false); }
+  einrichtungStand();
   $('#ms_save').disabled=false;
 };
+
+// ---- Ersteinrichtung ----
+// Solange der Server keine Struktur vom Miniserver hat (einrichtung aus
+// /api/settings), fuehrt der Konfigurator zuerst zum Zugang: offen sind nur
+// Settings -> Miniserver und Sicherung (EINR_SUBS), denn Profile, Displays und
+// Assistent brauchen Raeume und Bausteine. Er fragt den Stand alle
+// EINR_TAKT_MS nach. Steht die Verbindung - ueber "Verbinden & Speichern" oder
+// von selbst -, laedt die Seite neu, damit alles frisch vom Server kommt, und
+// zeigt danach den naechsten Schritt (verbundenZeigen).
+function einrichtungGesperrt(sub){ return !!EINR && rubric==='settings' && !EINR_SUBS.includes(sub); }
+function einrichtungAnwenden(s){
+  const vorher=!!EINR;
+  EINR=s.einrichtung||null; EINR_MS=s.miniserver||{};
+  if(!EINR){ if(vorher) einrichtungFertig(s.nControls); return; }
+  const titel=T('Erst den Miniserver verbinden');
+  document.querySelectorAll('.rub').forEach(b=>{ if(b.dataset.rub!=='settings'){ b.disabled=true; b.title=titel; } });
+  const ab=$('#addBtn'); if(ab){ ab.disabled=true; ab.title=titel; }
+  const pl=$('#plist'); if(pl) pl.classList.add('gesperrt');
+  $('#einrOk').hidden=true; $('#einr').hidden=false;
+  einrichtungStand();
+  if(!vorher) setRubric('settings');
+  clearTimeout(EINR_TIMER); EINR_TIMER=setTimeout(einrichtungNachfragen, EINR_TAKT_MS);
+}
+// Zeile unter dem Hinweis: der eigene letzte Versuch, sonst der Stand des Servers.
+// Ersatz als Funktion: ein $& im Host ist sonst ein Ersetzungsmuster.
+function einrichtungStand(){
+  const el=$('#einrStand'); if(!el||!EINR) return;
+  const host=()=>EINR.host||'';
+  if(EINR_VERSUCH) el.innerHTML='<b class="bad">'+esc(EINR_VERSUCH)+'</b>';
+  else if(EINR.stand==='fehler') el.innerHTML='<b class="bad">'+esc(T('Keine Verbindung zu {host}:').replace('{host}',host))+'</b> '+esc(EINR.fehler);
+  else if(EINR.stand==='verbindet') el.textContent=T('Verbindung zu {host} wird aufgebaut …').replace('{host}',host);
+  else if(EINR_MS.host) el.textContent=T('Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.');
+  else el.textContent=T('Noch kein Miniserver eingetragen.');
+}
+async function einrichtungNachfragen(){
+  EINR_TIMER=null;
+  if(!EINR) return;
+  try{ einrichtungAnwenden(await (await fetch('/api/settings')).json()); return; }   // setzt den naechsten Takt
+  catch(e){ /* Server gerade nicht erreichbar (z. B. Neustart): weiter nachfragen */ }
+  EINR_TIMER=setTimeout(einrichtungNachfragen, EINR_TAKT_MS);
+}
+function einrichtungFertig(n){
+  clearTimeout(EINR_TIMER); EINR_TIMER=null;
+  try{ sessionStorage.setItem(EINR_KEY, String(n||0)); }catch(e){}
+  dirty=false; location.reload();
+}
+function verbundenZeigen(){
+  let n=null;
+  try{ n=sessionStorage.getItem(EINR_KEY); sessionStorage.removeItem(EINR_KEY); }catch(e){ n=null; }
+  if(n==null||EINR) return;
+  $('#einrOkText').textContent=T('Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.').replace('{n}',()=>n);
+  $('#einrSicherung').hidden=!SET_TABS.some(t=>t.k==='backup');
+  $('#einrOk').hidden=false;
+  subSet='miniserver'; setRubric('settings');
+}
+$('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('assistant'); };
+$('#einrSicherung').onclick=()=>{ $('#einrOk').hidden=true; subSet='backup'; setRubric('settings'); };
 
 $('#ic_save').onclick=async()=>{
   const intercoms={};
@@ -3232,7 +3336,7 @@ function anonRow(a, typed){
   return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
     '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
-    '<input class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
+    '<input type="text" class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
     '<button class="btn sm" data-act="name">'+T('Namen vergeben')+'</button></div>';
 }
 function renderDeviceList(j){
@@ -3314,7 +3418,7 @@ function devRow(name){
   const pairs=d.modes&&d.modes.length?d.modes:[['','']];
   const rows=pairs.map(([m,p])=>
     '<div class="dmrow" style="display:flex;gap:6px;align-items:center;margin:4px 0">'+
-      '<input class="dm_mode" placeholder="'+T('Modus (z.B. gaeste)')+'" value="'+esc(m)+'" style="flex:1;min-width:120px">'+
+      '<input type="text" class="dm_mode" placeholder="'+T('Modus (z.B. gaeste)')+'" value="'+esc(m)+'" style="flex:1;min-width:120px">'+
       '<span style="opacity:.6">→</span>'+
       '<select class="dm_prof" style="flex:1;min-width:120px">'+profOpts(p)+'</select>'+
       '<button class="btn sm ghost dm_del" type="button" title="'+T('Zeile entfernen')+'">✕</button>'+
@@ -3361,8 +3465,8 @@ function displayRow(disp){
     '<select class="dd_drv"><option value="">'+T('keine (nur über die Seite)')+'</option>'+
       '<option value="fully"'+(x.driver==='fully'?' selected':'')+'>Fully Kiosk (Remote Admin)</option>'+
       '<option value="wallpanel"'+(x.driver==='wallpanel'?' selected':'')+'>WallPanel (HTTP)</option></select>'+
-    '<input class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
-    '<input class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
+    '<input type="text" class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
+    '<input type="text" class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
     '<input class="dd_pw" type="password" placeholder="'+T('Passwort (Fully)')+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
   '</div>';
 }
@@ -3468,7 +3572,7 @@ function mzRender(){
     // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
     // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
     const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
-      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input class="mzname" placeholder="'+T('Gerätename')+'">'+
+      esc(a.kiosk==='fully'?'Fully Kiosk':T('Browser'))+'</span><input type="text" class="mzname" placeholder="'+T('Gerätename')+'">'+
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'
@@ -3611,8 +3715,82 @@ $('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textConte
   .then(()=>flash($('#np_toast'),T('✓ kopiert'),true))
   .catch(()=>flash($('#np_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
 
+// ---- Sicherung einspielen ----
+// Nach dem Einspielen laedt die Seite neu: Profile, Geraete und Einstellungen im
+// Speicher waeren sonst der alte Stand, und das naechste Speichern ueberschriebe
+// die eingespielten Werte. Das Ergebnis wartet so lange in der sessionStorage
+// und erscheint danach in der Rubrik Sicherung.
+const RS_KEY='lp_einspiel_ergebnis';
+const RS_MS={
+  verbunden:'Miniserver: mit dem eingespielten Zugang neu verbunden.',
+  unveraendert:'Miniserver: Zugang unverändert, die Verbindung bleibt.',
+  kein_kennwort:'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.',
+  behalten:'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.',
+  umgebung:'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.',
+  keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.',
+  kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.',
+  unvollstaendig:'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.',
+  unvollstaendig_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.',
+  fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:',
+  fehler_behalten:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:'};
+function rsZiel(z){
+  if(z.art==='miniserver') return T('Miniserver');
+  if(z.art==='kamera') return T('Kamera')+' „'+z.name+'“';
+  if(z.art==='display') return T('Display-Treiber')+' „'+z.name+'“';
+  return z.name||'';
+}
+function rsZeigen(j, nichtNeuGeladen){
+  const z=[], kw=j.kennwoerter||{};
+  z.push('<b class="'+(j.ok?'ok':'bad')+'">'+esc(j.ok?T('✓ Eingespielt:'):T('Nur teilweise eingespielt:'))+' '+
+         esc((j.dateien||[]).join(', ')||'–')+'</b>');
+  if(j.error) z.push('<b class="bad">'+esc(T(j.error))+'</b>');
+  if((j.nichtEingespielt||[]).length) z.push('<b class="bad">'+esc(T('Nicht eingespielt:'))+' '+esc(j.nichtEingespielt.join(', '))+'</b>');
+  if(j.miniserver){
+    const ziel=j.miniserverZiel||{};
+    // Ersatz als Funktion: ein $& oder $' im Benutzernamen ist sonst ein Ersetzungsmuster
+    z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', ()=>(ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
+           (j.miniserverFehler?' '+esc(j.miniserverFehler):''));
+  }
+  if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Settings eintragen:'))+'</b> '+
+                                    esc(kw.fehlen.map(rsZiel).join(', ')));
+  if((kw.behalten||[]).length) z.push(esc(T('Kennwort von diesem Server übernommen:'))+' '+esc(kw.behalten.map(rsZiel).join(', ')));
+  if((j.nichtEnthalten||[]).length) z.push(esc(T('Nicht in der Sicherung, unverändert:'))+' '+esc(j.nichtEnthalten.join(', ')));
+  if((j.verworfen||[]).length) z.push(esc(T('Nicht übernommen:'))+' '+esc(j.verworfen.join('; ')));
+  if(nichtNeuGeladen) z.push('<b class="bad">'+esc(T('Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.'))+'</b>');
+  $('#rs_result').innerHTML=z.join('<br>');
+}
+function einspielErgebnisZeigen(){
+  let j=null;
+  try{ j=JSON.parse(sessionStorage.getItem(RS_KEY)||'null'); sessionStorage.removeItem(RS_KEY); }catch(e){ j=null; }
+  if(!j) return;
+  subSet='backup'; setRubric('settings'); renderSubtabs(); showSub('backup');
+  rsZeigen(j, false);
+}
+// Erst die Datei waehlen, dann fragen: Der Dateidialog braucht den Klick
+// selbst, nach einer Rueckfrage oeffnet ihn nicht jeder Browser.
+$('#rs_pick').onclick=()=>{ $('#rs_file').value=''; $('#rs_file').click(); };
+$('#rs_file').onchange=async()=>{
+  const f=$('#rs_file').files[0]; if(!f) return;
+  const frage=T('Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?')+
+    (dirty?'\n\n'+T('Ungespeicherte Änderungen an Panels gehen dabei verloren.'):'');
+  if(!confirm(frage)) return;
+  $('#rs_pick').disabled=true; $('#rs_result').textContent='';
+  let j;
+  try{
+    const r=await fetch('/api/restore',{method:'POST',headers:{'Content-Type':'application/zip'},body:f});
+    j=(r.headers.get('content-type')||'').includes('json') ? await r.json() : {ok:false, error:'HTTP '+r.status};
+  }catch(e){ j={ok:false, error:String(e)}; }
+  $('#rs_pick').disabled=false;
+  if((j.dateien||[]).length){            // ganz oder teilweise geschrieben: neu laden
+    try{ sessionStorage.setItem(RS_KEY, JSON.stringify(j)); dirty=false; location.reload(); return; }
+    catch(e){ rsZeigen(j, true); return; }
+  }
+  flash($('#rs_toast'), T('Nicht eingespielt'), false);
+  $('#rs_result').innerHTML='<b class="bad">'+esc(j.error?T(j.error):T('Fehler'))+'</b>';
+};
+
 // ---- Start ----
-load().catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
+load().then(einspielErgebnisZeigen).catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
 loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
 { const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
 loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });

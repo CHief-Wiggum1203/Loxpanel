@@ -132,32 +132,87 @@ beim nächsten Mal wieder.
       einmal für ein neues Panel durchlaufen, freie Auswahl mit mehreren Seiten
       und Icons, Geräteliste und Display-Treiber unter *Displays*,
       Betriebsmodus-Assistent samt fertiger Loxone-Adresse, Verlauf als
-      Uhr-Spalte. Die Fork-Tests decken diese Teile nicht ab. **S**
-- [ ] **Tests für die neuen Upstream-Teile:** Browser-Tests für den Reiter
-      *Displays* (Geräteliste, Display-Treiber speichern) und für die freie
-      Auswahl mit vier Seiten über Speichern und Neuladen des Konfigurators —
-      genau dort lag der Fehler, den #47 selbst noch behebt („Seiten 2–4 gehen
-      verloren“). **M**
+      Uhr-Spalte. Geräteliste, Display-Treiber und die vier Auswahl-Seiten
+      prüfen seit 02.10.2026 Browser-Tests (siehe unten), Panel-Assistent,
+      Betriebsmodus-Assistent und Verlauf als Uhr-Spalte nur der Blick an der
+      Anlage. **S**
+- [x] **Tests für die neuen Upstream-Teile (02.10.2026):**
+      `tests/browser/test_displays_browser.py` bedient den Reiter *Displays*
+      wie von Hand: Geräteliste mit einem Tablet mit Kennung, einem ohne und
+      einem nur konfigurierten Gerät (Typ, Zustand, Ansicht, Bildschirm),
+      „Ansicht wechseln“ (das Tablet lädt sich mit dem neuen Profil neu) und
+      „Namen vergeben“ (das Gerät verbindet sich mit Kennung neu, erscheint in
+      Liste und Editor, behält den Namen nach dem Neuladen). Im Editor
+      Display-Treiber mit vorbelegter IP und Port, Passwort, Modus,
+      Automatik und Präsenzmelder; danach stimmt `panels.json`, und nach dem
+      Neuladen des Konfigurators und einem Neustart des Servers steht alles
+      wieder da. `tests/browser/test_auswahl_seiten_browser.py` legt vier
+      Seiten mit Name, Icon und Inhalt an (Kacheln in Klickreihenfolge, eine
+      über zwei Räume, eine als Wetter-Widget), speichert, lädt neu,
+      bearbeitet weiter, speichert wieder und prüft die vier Seiten in der
+      Visu. Gegenproben: 16 Verschlechterungen beim ersten, 12 beim zweiten
+      Test, jede fällt auf, darunter der Fehler aus #47 (ohne `pickTabs` in
+      `/api/meta` kennt der Editor nach dem Neuladen nur „Seite 1“). Dabei
+      gefunden und behoben: Fünf Textfelder standen browserweiß im dunklen
+      Konfigurator, weil ihnen `type="text"` fehlte (unter *Displays*
+      Namensfeld, Modus, IP und Port, im Betriebsmodus-Assistenten das
+      Namensfeld); die Tests prüfen ihren Stil mit. **M**
 - [x] **Lenardos #33 (englische Übersetzungen):** kam als #49, das #33
       ersetzt. Die 38 doppelten Schlüssel sind aufgelöst, es gilt Lenardos
       Wortlaut; geprüft am wirksamen Wert, kein Text wird anders angezeigt als
       bei Upstream. **S**
-- [ ] **Tote Zuweisung bei Upstream:** `bin/loxone_weather.py` hat dort
-      noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht mehr. Als
-      eigenen Ein-Zeilen-Beitrag einreichen, nicht in einen fremden PR
-      packen. **S**
-- [ ] **Uhr-Seiten-Fix zu #60 an Lenardo geben:** In seinem `main` fallen
-      die Verlaufs-Diagramme der Uhr-Seite hochkant ebenfalls auf 0 px
-      zusammen (#52 und #60 zusammen). EIN Commit auf `upstream/main`, nur
-      die drei auf `#frontpane` beschränkten Regeln in `panel.html`, Weg wie
-      unter „Upstream-Beiträge“. Bis dahin ein Fork-eigener Patch
+- [ ] **Tote Zuweisung bei Upstream einreichen:** `bin/loxone_weather.py`
+      hat dort noch `t_jetzt = t_roh + versatz` (ruff F841), der Fork nicht
+      mehr. Als eigener Ein-Zeilen-Beitrag vorbereitet (02.10.2026): Zweig
+      `up/wetter-tote-zuweisung`, ein Commit auf `upstream/main`. Danach ist
+      die Datei gleich wie im Fork, und `ruff --select F,E9` über `bin/` und
+      `agent/` ist bei Lenardo ohne Fund. Mit allen Beiträgen konfliktfrei.
+      Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/wetter-tote-zuweisung?expand=1`.
+      **S**
+- [ ] **Weiße Textfelder bei Lenardo einreichen:** Bei ihm stehen unter
+      *Displays* vier Felder ohne `type="text"` browserweiß im dunklen
+      Konfigurator (Namensfeld, Modus, IP, Port). Zweig
+      `up/textfelder-dunkel`, ein Commit auf `upstream/main`, Stand
+      02.10.2026. Gegen seinen Stand laufen die beiden neuen Browser-Tests mit
+      dem Zweig grün, ohne ihn scheitern genau die Feldstil-Prüfungen (die
+      Präsenz-Schritte dafür herausgenommen, die kommen erst mit #65). Mit
+      allen Beiträgen einzeln und zusammen konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/textfelder-dunkel?expand=1`.
+      Das Namensfeld im Betriebsmodus-Assistenten (`.mzname`) hat denselben
+      Fehler, seine Zeile ändert aber #65. Damit beide konfliktfrei bleiben,
+      folgt dieser eine Fix bei Lenardo erst, wenn #65 übernommen ist; im Fork
+      ist er schon drin. **S**
+- [ ] **Uhr-Seiten-Fix zu #60 bei Lenardo einreichen:** In seinem `main`
+      fallen die Verlaufs-Diagramme der Uhr-Seite hochkant auf 0 px zusammen
+      (#52 und #60 zusammen). Zweig `up/verlauf-uhrseite`, ein Commit auf
+      `upstream/main`, Stand 01.10.2026: die drei Fit-Regeln aus #60 nur im
+      `#frontpane`, und auf der Uhr-Seite schrumpfen die Diagramme, wenn der
+      Kasten nicht reicht. Eine unabhängige Gegenprüfung hatte gezeigt, dass
+      die erste Fassung (nur `#frontpane`, Stand des Forks vom 30.09.) quer
+      bei drei Diagrammen das dritte abschnitt (bei 960 × 480 164 px); #60
+      staucht dort alles in den Kasten. Jetzt im Fork und im Zweig gleich,
+      geprüft mit `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`.
+      Gegen Lenardos `main` laufen die vier Verlaufs-Tests aus dem Fork mit
+      dem Zweig grün, ohne ihn scheitern zwei; mit allen übrigen Beiträgen
+      konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/verlauf-uhrseite?expand=1`.
+      Bis Lenardo ihn übernimmt, ist es ein Fork-eigener Patch
       ([`CONTRIBUTING.md`](CONTRIBUTING.md), Sync-Checkliste Punkt 4). **S**
-- [ ] **Lenardos offene PRs #61 und #62 verfolgen** (Stand 30.09.2026):
-      #61 bringt eine Android-App mit eingebautem Server, eigener WebView als
-      Kiosk, Display-Aus bei Inaktivität und Wecken per Näherungssensor; #62
-      ein `.deb`-Paket für Linux mit Kiosk-Starter und Display-Abschaltung
-      (DPMS, Backlight). Beide berühren Block 0 und den Panel-Agenten
-      (`agent/`): vor weiterer Arbeit dort ansehen, was Lenardo übernimmt. **S**
+- [ ] **Auf/Ab auf der Beschattungs-Kachel bei Lenardo einreichen:** Zweig
+      `up/beschattung-tasten`, ein Commit auf `up/kachel-tasten` (#66), weil
+      die Tasten erst seit dort beim Tippen auslösen; bis #66 gemergt ist,
+      zeigt der PR auch dessen Commit. Dieselbe Änderung wie im Fork, samt
+      `placeCtrls()` für enge Kacheln. Gegen den Zweig bestehen die 14 Tests
+      aus dem Fork, ohne die Änderung scheitern 10, darunter die Player-Tasten
+      in 2x3 und 3x3, die bei Lenardo schon abgeschnitten werden. Mit allen
+      Beiträgen paarweise und zusammen konfliktfrei. Einreichen über
+      `https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/beschattung-tasten?expand=1`.
+      **S**
+- [x] **Lenardos offene PRs #61 und #62 angesehen** (01.10.2026): #61, die
+      Android-App mit eingebautem Server, ist unser Weg ohne Unraid und wird
+      mitentwickelt (Block 0c). #62, das `.deb`-Paket, verfolgen wir nicht
+      weiter. **S**
 - [x] **Allgemein nützliche Fork-Teile Upstream anbieten:** die sieben
       Bausteintypen und `/api/types` sind in Upstream angekommen. Das
       Unraid-Template bleibt bewusst fork-eigen (siehe
@@ -244,6 +299,192 @@ nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
 Der Fork ist mit `upstream/main` gleichgezogen (`fba03be`, Stand 30.09.2026,
 siehe oben).
+
+## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
+
+Entscheidung vom 01.10.2026: Unraid soll wegfallen. Neue Panels und Tablets
+laufen mit Android, und auf jedem Gerät läuft LoxPanel als App, die direkt mit
+dem Miniserver spricht: Lenardos
+[#61](https://github.com/Lenardo1/loxpanel/pull/61) (Server per Chaquopy im
+Gerät, eigene Kiosk-Anzeige). Wir bauen keine eigene App, sondern entwickeln
+seine mit; Beiträge gehen als PR in seinen Zweig `ci/android-apk-pipeline`.
+Nicht weiter verfolgt: das `.deb`
+([#62](https://github.com/Lenardo1/loxpanel/pull/62)), weil Debian 11 seit dem
+31.08.2026 keine Sicherheitsupdates mehr bekommt, und eine iPad-App.
+
+Geräte: das Portworld YC-SM41P mit **Android 13** bestellen. Android 11 bringt
+das WebView 83 vom Mai 2020 mit, darauf liegen Bildschirmschoner, Uhr-Seite und
+PIN-Feld der Visu falsch und Abstände fehlen; die Visu braucht etwa Chrome 88,
+Android 13 bringt 101 bis 109. Tablets mit Google Play halten ihr WebView
+selbst aktuell.
+
+- [x] **Drei weitere Beiträge zu #61 bei Lenardo eingereicht.** Je ein
+      Commit auf seinem `ci/android-apk-pipeline` (`ad5fcd6`), am 01.10.2026
+      gebaut und geprüft, zusammen konfliktfrei. Der vierte,
+      `up/apk-display-wecken` (Klingel, Notify, Goto, Wecker und der Server
+      schalten den Schoner der App; `LoxKiosk` bekommt `turnScreenOn`,
+      `turnScreenOff` und `isScreenOn` wie Fully), steckt in #65 (siehe
+      Präsenzmelder unten).
+
+  | PR | Zweig | Inhalt |
+  |---|---|---|
+  | [#68](https://github.com/Lenardo1/loxpanel/pull/68) | `up/apk-start-adresse` | Die App merkt sich die zuletzt angezeigte Ansicht statt fest `?panel=default`; Port und Adresse an einer Stelle (`Visu.kt`) |
+  | [#69](https://github.com/Lenardo1/loxpanel/pull/69) | `up/apk-requirements` | Python-Pakete aus `requirements.txt` statt eigener Liste (das Gerät bekam `icalendar` 7.3.0 statt 6.3.2) |
+  | [#70](https://github.com/Lenardo1/loxpanel/pull/70) | `up/apk-signatur` | Release mit festem Schlüssel aus den Repo-Secrets, Version aus `loxberry-plugin/plugin.cfg`, Tag-Prüfung im Workflow |
+
+  Sobald #61 in Lenardos `main` ist, kommt alles mit dem nächsten Abgleich
+  in den Fork. **S**
+- [ ] **Mit Lenardo klären:** den Paketnamen vor dem ersten echten Einsatz
+      festlegen (heute `com.loxpanel.spike`; ein späterer Wechsel heißt
+      Neuinstallation und damit Konfiguration weg) und den Signierschlüssel
+      anlegen (Anleitung in `android/README.md` aus `up/apk-signatur`). **S**
+- [x] **Präsenzmelder bei Lenardo eingereicht:**
+      [#65](https://github.com/Lenardo1/loxpanel/pull/65) mit beiden Commits,
+      `up/apk-display-wecken` und darauf `up/apk-praesenz` (braucht dessen
+      `turnScreenOn` und `turnScreenOff`). Dieselbe Funktion wie im Fork, dazu
+      die Kopplung an die App: Solange jemand da ist, gibt die Visu ihr
+      `LoxKiosk.setDisplayOff(0)`, sonst dunkelte ihr Schoner trotz
+      Anwesenheit ab; wird der Raum leer, wieder die Leerlaufzeit und gleich
+      `turnScreenOff()`. Der Hinweis unter *Displays* nennt die LoxPanel-App.
+      Die Kopplung baut sich selbst neu auf, sobald Geräte oder Struktur
+      ersetzt sind (`_presence_quelle`), die Reihenfolge der Beiträge bei
+      Lenardo ist also egal. Alle sieben Beiträge sind zusammen konfliktfrei;
+      auf dem Gesamtstand laufen die Fork-Tests zu Präsenz, Ersteinrichtung
+      und Sicherung (89) und ein Test mit nachgebauter `LoxKiosk`-Brücke.
+      **S**
+- [x] **Nachtmodus über die echte Display-Helligkeit bei Lenardo eingereicht:**
+      [#67](https://github.com/Lenardo1/loxpanel/pull/67), Zweig
+      `up/apk-nachthelligkeit`, ein Commit auf `up/apk-praesenz` (#65), Stand
+      01.10.2026. Nachts legte die Visu nur eine dunkle Fläche über
+      sich, die Hintergrundbeleuchtung blieb voll an (Schwarz leuchtet grau).
+      In der App senkt jetzt die App die echte Helligkeit:
+      `LoxKiosk.setDisplayBrightness(prozent)`, Prozent der eingestellten
+      Systemhelligkeit, nur für ihr Fenster. Die Visu rechnet „Nachts
+      abdunkeln“ auf dieselbe Leuchtdichte um wie mit der Fläche (die wirkt
+      auf die Farbwerte, Potenz 2,2: 70 % = 7 %). Bei automatischer
+      Helligkeit lehnt die App ab, dann bleibt es bei der Fläche, ebenso bei
+      Fully Kiosk und im Browser. Hinweis im Konfigurator (de/en), Rechnung
+      in `Helligkeit.kt` mit Unit-Test. Geprüft: APK gebaut, 5 Unit-Tests;
+      in Chromium mit nachgebauter Brücke 6 Tests, die ohne die Änderung alle
+      scheitern; Präsenz- und App-Tests aus #65 laufen; alle App-Beiträge
+      zusammen bauen, beide Unit-Tests bestehen. Bis #65 gemergt ist, zeigt
+      #67 auch dessen zwei Commits. Die Browser-Tests mit
+      nachgebauter Brücke `LoxKiosk` (Display wecken, Präsenz, Nacht) liefen
+      gegen Lenardos Zweig, nicht im Fork; was sie prüfen, steht in den
+      Commit-Meldungen. Sobald #61 im Fork ist, gehören sie nach
+      `tests/browser/`. **S**
+- [x] **Sicherung einspielen im Fork** (01.10.2026): *Settings → Sicherung →
+      ZIP-Datei wählen und einspielen*, `POST /api/restore`. Erst alles prüfen,
+      dann schreiben (vorher `.bak`) und ohne Neustart auffrischen; ein
+      vorhandenes Kennwort bleibt nur beim selben Ziel, ein Zugang aus
+      `LOXPANEL_MS_*` oder ohne Miniserver in der Sicherung bleibt stehen.
+      Ältere Sicherungen ohne `sicherung.json` nennen fehlende Kennwörter
+      über die Liste in `LIESMICH.txt`. Gegen präparierte Dateien (keine
+      Anmeldung auf den Routen): nur Deflate oder ungepackt, je Datei höchstens
+      2 MiB, 32 Ebenen und 200.000 Einträge; keine Eingabe blockiert den
+      Server länger als etwa eine Sekunde. Geprüft in
+      `tests/test_sicherung.py` und `tests/browser/test_sicherung_browser.py`.
+      **M**
+- [x] **Sicherung und Einspielen bei Lenardo eingereicht:**
+      [#63](https://github.com/Lenardo1/loxpanel/pull/63). Ohne Unraid hat
+      jedes Gerät seine eigene Konfiguration in der App, und an den
+      Config-Ordner kommt dort niemand. Lenardo hat noch gar keine Sicherung.
+      Zweig `up/sicherung` (ein Commit auf `upstream/main`, Stand 01.10.2026):
+      Herunterladen und Einspielen, Rubrik *Settings → Sicherung*, englische
+      Texte, README-Absatz, `.bak` in `.gitignore`/`.dockerignore`. Ohne
+      Präsenzmelder (gibt es dort noch nicht). Die Tests aus dem Fork laufen
+      gegen diesen Stand durch, bis auf die Präsenz-Prüfung. **S**
+- [x] **Ersteinrichtung am Gerät im Fork** (01.10.2026): Solange der Server
+      keine Struktur vom Miniserver hat und kein Zugang eingetragen ist oder
+      der letzte Versuch scheiterte, zeigt jedes Panel über der Uhr-Seite eine
+      Karte mit dem Grund und der Adresse des Konfigurators; in der App (Visu
+      über `127.0.0.1`) die WLAN-Adresse des Panels. Dazu nimmt der Server den
+      Platzhalter-Zugang aus `loxpanel.cfg.example` nicht mehr: Ein frisches
+      App-Panel meldete sich damit endlos bei `192.168.1.50` mit `CHANGEME` an,
+      und Settings zeigte „Kennwort gesetzt“. Geprüft in
+      `tests/test_einrichtung.py` und `tests/browser/test_einrichtung_browser.py`.
+      **S**
+- [x] **Ersteinrichtung bei Lenardo eingereicht:**
+      [#64](https://github.com/Lenardo1/loxpanel/pull/64), Zweig
+      `up/ersteinrichtung` auf `upstream/main`, dieselbe Änderung wie im
+      Fork; dort bringt die App den Platzhalter genauso mit. Ein zweiter
+      Commit rückt den Nachrichten-Zweig `einrichtung` in `panel.html` vom
+      `display`-Zweig weg, den `up/apk-praesenz` ändert; direkt benachbart
+      hätten beide beim Zusammenführen einen Konflikt gemeldet. Im Fork steht
+      die Zeile an derselben Stelle. Zusammen mit `up/sicherung` konfliktfrei,
+      die Tests aus dem Fork laufen gegen beide zusammen. **S**
+- [x] **Geführte Ersteinrichtung im Konfigurator** (01.10.2026): Das Panel
+      zeigte die Karte, der Konfigurator öffnete aber mit der Übersicht, und
+      alle Rubriken waren offen, obwohl ohne Struktur keine taugt. Jetzt öffnet
+      er ohne Struktur *Settings → Miniserver* mit einem Hinweis samt Stand
+      (kein Zugang, verbindet, Fehler mit Grund) und sperrt alles außer
+      Miniserver und Sicherung. Er fragt alle 3 s nach; steht die Verbindung,
+      lädt er neu und bietet Einrichtungsassistent und Sicherung an. Das
+      Neuladen behebt auch einen Fehler vom ersten Gerät: Der Konfigurator
+      holt Räume und Bausteine nur beim Öffnen (`/api/meta`); wer ihn vor dem
+      Verbinden geöffnet hatte, sah danach „verbunden · 225 Controls“, aber
+      unter *Räume* „alle 0 sichtbar“, bis er die Seite neu lud. Den Stand
+      liefert `/api/settings` (`_einrichtung_info()`), die Karte der Panels
+      kommt aus derselben Quelle. Geprüft in `tests/test_einrichtung.py` und
+      `tests/browser/test_einrichtung_konfigurator_browser.py`; neun
+      Gegenproben, die je einen Teil ausbauen oder einen Katalog-Schlüssel
+      verfälschen, schlagen an. Bei Lenardo als dritter Commit in #64
+      (`up/ersteinrichtung`). Der Aufruf nach dem Neuladen steht in `load()`,
+      die Texte stehen hinter „Verbinden & Speichern“, damit sich #63 und #64
+      nicht stören. Alle Beiträge bleiben paarweise und zusammen
+      konfliktfrei. Gegen Lenardos Zweig bestehen 18 Einrichtungs-Tests aus
+      dem Fork (ohne #63 fehlt nur der Reiter Sicherung), gegen den
+      Gesamtstand mit allen Beiträgen 97 Tests zu Ersteinrichtung,
+      Sicherung, Präsenz und Kachel-Tasten. **S**
+- [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
+      (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
+      (WebView-Version), dann APK installieren und Klingel, Notify,
+      Ansichtswechsel und Neustart der App durchspielen. **S**
+      Stand 01.10.2026, Samsung Galaxy Tab A9 mit der Test-APK (alle
+      Beiträge, arm64): Installation und Update über die vorhandene App
+      (Einstellungen bleiben) laufen. Nach „Daten löschen“ zeigt das Panel
+      die Einrichtungskarte, der Konfigurator führt zum Miniserver, und
+      nach dem Verbinden sind die Räume da. Offen: Klingel, Notify,
+      Ansichtswechsel, Neustart der App, Nachtmodus, dazu das Zielgerät
+      YC-SM41P.
+- [ ] **Ansicht am Tablet ohne Einstellerei** (gemeldet 01.10.2026 am ersten
+      Gerät). Eingestellt waren Kachel-Layout 3 × 3, „Bildschirm füllen“ an,
+      Skalierung aus, Split-Screen an und als Widget das Wetter. Ergebnis:
+      Links standen fünf sehr große Kacheln mit kleinem Icon oben und Text
+      unten, die untere Hälfte der Visu blieb leer. Rechts stand das Wetter,
+      darunter wieder eine große Leerfläche.
+
+      Für ein gutes Bild müssen heute fünf Regler zusammenpassen, die sich
+      gegenseitig beeinflussen:
+      - Kachel-Layout
+      - „Bildschirm füllen“
+      - Skalierung, dazu „Wie global“ und die Übersteuerung je Gerät; laut
+        Hinweis wirkt sie nicht zusammen mit „Bildschirm füllen“
+      - Split-Screen
+      - Widget je Tab, wo „Screen füllen“ etwas anderes heißt als
+        „Bildschirm füllen“
+
+      Was eine Kombination auf einem bestimmten Schirm ergibt, sieht man erst
+      am Gerät.
+
+      Ziel: Die Ansicht sieht auf jedem Gerät ohne Einstellerei gut aus.
+      LoxPanel wählt Raster, Kachelgröße und Aufteilung selbst nach
+      Bildschirm, Lage und Zahl der Bausteine. Wenige Bausteine werden nicht
+      riesig, viele werden kleiner bis zu einer Mindestgröße, danach wird
+      gescrollt.
+
+      Ideen:
+      - die heutigen Regler unter „Erweitert“ sammeln
+      - „Bildschirm füllen“, „Screen füllen“ und Skalierung zu einer
+        Größenwahl zusammenfassen
+      - das Widget in Pane 2 nutzt seine Höhe
+      - eine Listen-Darstellung als Alternative zu großen Kacheln
+
+      Nebenbei: Der Hinweis bei der Skalierung verweist noch auf „Settings →
+      Panels“, die Geräte stehen unter *Displays*. **L**
+- [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
+      Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
+      Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**
 
 ## 1. Konfiguration vor Datenverlust schützen
 
@@ -616,20 +857,39 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `rw`/`ring`/`rtrk`. Sein `?ring=` schlägt die Konfiguration
       (`posringOverride()` greift nach dem Theme-Push erneut).
 
-- [ ] **Bedientasten auf der Kachel: erst den Auslöser reparieren.** Auf/Ab
-      direkt auf der Beschattungs-Kachel wäre über die vorhandene
-      `controls`-Mechanik des Audioplayers billig zu haben, ist aber bewusst
-      NICHT gebaut: die Tasten lösen per `pointerdown` schon beim Aufsetzen
-      des Fingers aus und schlucken dabei die Wischgeste. Das Kachelraster
-      scrollt (`.grid{overflow-y:auto}`) — ein Wischer, der auf so einer
-      Taste beginnt, ließe die Beschattung losfahren statt zu scrollen.
-      Gemessen: ein blankes `pointerdown` sendet `{"t":"cmd","cmd":"Up"}` und
-      setzt `defaultPrevented`. Beim Player kostet das einen Titel, bei einer
-      Jalousie eine halbe Minute Fahrt. Die Kachel selbst hat das Problem
-      nicht, sie wartet auf einen echten Klick. Vorbedingung für Tasten auf
-      Kacheln ist also, `.tctrls .tb` auf eine echte Tippgeste umzustellen
-      (Aufsetzen und Loslassen ohne nennenswerte Bewegung) — das nützt dem
-      Player gleich mit. **S**
+- [x] **Bedientasten auf der Kachel: erst den Auslöser reparieren**
+      (01.10.2026). Die Mini-Player-Tasten (◀ ⏯ ▶ der AudioZone) und die
+      Favoriten der Musikauswahl lösten per `pointerdown` schon beim
+      Aufsetzen des Fingers aus. Ein Wischer, der auf so einer Taste begann,
+      sprang einen Titel weiter oder startete einen Sender und verließ die
+      Seite, statt das Raster zu scrollen. Jetzt hören beide auf `click`: Den
+      meldet der Browser nur, wenn der Finger ohne Wischen aufsetzt und
+      loslässt, wie bei der Kachel selbst. Wird aus der Berührung ein
+      Wischer, scrollt das Raster, und es geht nichts raus. Tests:
+      `tests/browser/test_kachel_tasten_browser.py` (Touch-Display in
+      Chromium: Wischen scrollt und sendet nichts, Tippen genau einmal, Maus
+      wie bisher; mit dem alten Auslöser scheitern beide). An Upstream
+      eingereicht als [#66](https://github.com/Lenardo1/loxpanel/pull/66)
+      (Zweig `up/kachel-tasten`, ein Commit auf `upstream/main`, mit allen
+      übrigen Beiträgen konfliktfrei).
+      Weiter mit `pointerdown`: die Tasten der
+      Detailseiten und des Split-Players (`.btn` mit `touch-action:none`,
+      Halten fährt die Jalousie), −/+ am Schieberegler und die Zeitraum-Tasten
+      der Diagramme. **S**
+- [x] **Auf/Ab auf der Beschattungs-Kachel** (01.10.2026). Über die
+      `controls`-Mechanik des Audioplayers, die seit der Reparatur oben erst
+      beim Tippen auslöst; ein Wischer über die Kachel lässt die Beschattung
+      nicht losfahren. ▲ ▼ senden dieselben Befehle wie Auf/Ab der
+      Detailansicht (`_jal_fahrt()`): im Stand `Up`/`Down`, während der Fahrt
+      halten beide an, die fahrende Richtung zeigt ■. Dabei aufgefallen: In
+      Rastern mit drei Zeilen ist die Kachel zu niedrig für eine Tastenreihe,
+      auch die Tasten des Players wurden dort schon abgeschnitten. Jetzt
+      rücken sie in die Kopfzeile neben das Icon, in 3x3 an seine Stelle
+      (`placeCtrls()`). Neue Symbole `triup`/`tridown`, weil `up`/`down`
+      Linien sind. Geprüft in `tests/test_beschattung.py` und
+      `tests/browser/test_kachel_tasten_browser.py`; fünf Gegenproben
+      (Platzierung, Icon-Ersatz, Tasten, Stop, `pointerdown`) schlagen an.
+      **S**
 
 - [x] **Raum als Startseite (Raum-Direkt-Tab).** Aus dem Forum: die kleinen
       Panels bedienen meist EINEN Raum, nicht das ganze Haus — sie sollen nach
@@ -867,19 +1127,6 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [ ] **Präsenzmelder an der Anlage prüfen:** am Android-Panel mit Fully
       Kiosk einen Melder koppeln, den Raum verlassen und wieder betreten, die
       Nachlaufzeit des Melders in Loxone Config passend einstellen. **S**
-- [ ] **iPad als Panel (eigene App):** eine kleine iOS-App (Swift, WKWebView)
-      als Kiosk-Hülle, der Server bleibt auf Unraid. Sie hält das iPad wach und
-      dunkelt statt abzuschalten (Schwarzbild und Helligkeit 0), damit die
-      Verbindung steht und Klingel, Wecker und Präsenzmelder sofort wecken;
-      Töne spielt sie ohne vorheriges Antippen. Sie spricht dieselbe
-      Schnittstelle wie Lenardos Android-App
-      ([#61](https://github.com/Lenardo1/loxpanel/pull/61), noch offen):
-      `window.LoxKiosk` mit `setDisplayOff`, ergänzt um `wake()` und `sleep()`,
-      damit der Server das Display schalten kann – das vorher mit Lenardo
-      abstimmen. Dazu erkennt der Server `kiosk=ios`. Gebaut wird in Xcode auf
-      dem Mac. Grenzen: kein echtes Display-Aus (iPads mit LCD leuchten bei
-      Helligkeit 0 schwach), kein Näherungssensor, nach einem Neustart die App
-      von Hand starten. **L**
 - [ ] **Hochformat an der Anlage prüfen**, sobald das Tab A9 hängt:
       echte Bildschirmgröße unter *Displays → Geräte & Ansicht* ablesen,
       Sauna-Profil mit „Bildschirm füllen“, Verlaufs-Pane und Uhr-Seite

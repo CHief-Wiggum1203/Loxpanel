@@ -273,10 +273,45 @@
       'Einstellungen herunterladen': 'Download settings',
       'Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.':
         'All settings of this server as a ZIP file: Miniserver access, camera, calendar, panels, devices and design.',
-      'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist – nach dem Zurückspielen neu eintragen.':
-        'Passwords (Miniserver, camera, display driver) are not included because the download needs no login – enter them again after restoring.',
-      'Zurückspielen: die Dateien aus dem ZIP in den Config-Ordner legen (Unraid: appdata/loxpanel/config) und LoxPanel neu starten. Das steht auch in der LIESMICH.txt im ZIP.':
-        'Restoring: put the files from the ZIP into the config folder (Unraid: appdata/loxpanel/config) and restart LoxPanel. This is also described in LIESMICH.txt inside the ZIP.',
+      'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.':
+        'Passwords (Miniserver, camera, display driver) are not included because the download needs no login.',
+      'Sicherung einspielen': 'Restore backup',
+      'Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.':
+        'Choose a ZIP file from “Download settings”, also from another LoxPanel. It replaces the settings of this server; whatever is not in the backup stays. Passwords already entered stay as long as their target stays the same (Miniserver: host and user, camera: address and user, display: host and driver); missing ones are listed in the result.',
+      'ZIP-Datei wählen und einspielen': 'Choose ZIP file and restore',
+      'Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?':
+        'The backup replaces the settings of this server. Best “Download settings” first. Continue?',
+      'Ungespeicherte Änderungen an Panels gehen dabei verloren.': 'Unsaved changes to panels will be lost.',
+      '✓ Eingespielt:': '✓ Restored:',
+      'Nur teilweise eingespielt:': 'Only partly restored:',
+      'Nicht eingespielt': 'Not restored',
+      'Nicht eingespielt:': 'Not restored:',
+      'Das ist keine ZIP-Datei.': 'This is not a ZIP file.',
+      'Keine Datei erhalten.': 'No file received.',
+      'Die Datei ist zu groß für eine LoxPanel-Sicherung.': 'The file is too large for a LoxPanel backup.',
+      'Keine LoxPanel-Sicherung: In der ZIP-Datei steckt weder loxpanel.cfg noch panels.json noch theme.json.':
+        'Not a LoxPanel backup: the ZIP file contains neither loxpanel.cfg nor panels.json nor theme.json.',
+      'Miniserver: mit dem eingespielten Zugang neu verbunden.': 'Miniserver: reconnected with the restored access.',
+      'Miniserver: Zugang unverändert, die Verbindung bleibt.': 'Miniserver: access unchanged, the connection stays.',
+      'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: password missing – enter it under Settings → Miniserver.',
+      'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.': 'Miniserver: the backup holds no access, the current one stays.',
+      'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.': 'Miniserver: access comes from the environment variables here and stays.',
+      'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:': 'Miniserver: connecting with the restored access failed:',
+      'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.':
+        'Miniserver: neither in the backup nor set up here – enter it under Settings → Miniserver.',
+      'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.':
+        'Miniserver: the password for {ziel} from the backup is missing, the current access stays. To switch, enter it with its password under Settings → Miniserver.',
+      'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:':
+        'Miniserver: connecting with the restored access failed, the current access stays:',
+      'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: user missing – enter it under Settings → Miniserver.',
+      'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.':
+        'Miniserver: the user for {ziel} from the backup is missing, the current access stays. To switch, enter the complete access under Settings → Miniserver.',
+      'Kennwort fehlt, bitte unter Settings eintragen:': 'Password missing, please enter it under Settings:',
+      'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
+      'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',
+      'Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.': 'Please reload the page so the configurator shows the restored settings.',
+      'Kamera': 'Camera',
+      'Display-Treiber': 'Display driver',
       '＋ Neues Panel': '＋ New panel',
       'Panels & Kacheln': 'Panels & tiles',
       'Ansichten gestalten': 'Design views',
@@ -293,6 +328,21 @@
       'Zertifikat prüfen (Gen2 mit selbstsigniertem Zertifikat: aus)':
         'Verify certificate (Gen2 with self-signed cert: off)',
       'Verbinden & Speichern': 'Connect & save',
+      // --- Ersteinrichtung: ohne Struktur zuerst der Miniserver ---
+      'Zuerst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Ohne Verbindung kennt LoxPanel weder Räume noch Bausteine. Adresse, Benutzer und Passwort eintragen, dann „Verbinden & Speichern“. Danach sind alle Bereiche offen.':
+        'Without a connection LoxPanel knows neither rooms nor blocks. Enter address, user and password, then “Connect & save”. After that all sections are open.',
+      'Erst den Miniserver verbinden': 'Connect the Miniserver first',
+      'Noch kein Miniserver eingetragen.': 'No Miniserver entered yet.',
+      'Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.':
+        'The saved access is not connected. Check the entries and “Connect & save” again.',
+      'Verbindung zu {host} wird aufgebaut …': 'Connecting to {host} …',
+      'Keine Verbindung zu {host}:': 'No connection to {host}:',
+      'Host fehlt': 'Host missing',
+      'Passwort fehlt': 'Password missing',
+      'Mit dem Miniserver verbunden': 'Connected to the Miniserver',
+      'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
+      'Panel einrichten': 'Set up a panel',
       // Kamera / Tuerstation
       'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
         'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',

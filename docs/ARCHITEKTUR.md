@@ -251,6 +251,7 @@ Server → Browser (`panel.html:700`):
 | `reload` | | `location.reload()` |
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
+| `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
 | `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
@@ -435,11 +436,16 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   dafür leicht verzerrt. Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
   zeichnet denselben Baustein (`renderChartPane()`), hochkant ist ihre Box aber
   so hoch wie ihr Inhalt, und Diagramme mit `flex-basis: 0` fielen dort auf 0 px
-  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb weiter im
-  Seitenverhältnis der Zeichnung (440:150). Geprüft in
-  `test_split_haelfte_und_kachel` und `test_split_hochkant_uebereinander` (kein
-  Überlauf) sowie `test_uhrseite_hochkant_zweite_flaeche_unten`
-  (Seitenverhältnis quer und hochkant).
+  zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb im
+  Seitenverhältnis der Zeichnung (440:150), solange der Kasten reicht. Reicht er
+  nicht (quer hat er eine feste Höhe, hochkant bleibt die Fläche unter Uhr und
+  Wetter), schrumpfen sie (`flex:0 1 auto`), statt unten abgeschnitten zu
+  werden, etwa bei drei Diagrammen eines Zählers oder in einem niedrigen
+  Fenster. Geprüft in `test_split_haelfte_und_kachel` und
+  `test_split_hochkant_uebereinander` (kein Überlauf),
+  `test_uhrseite_hochkant_zweite_flaeche_unten` (Seitenverhältnis quer und
+  hochkant) und `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden` (drei
+  Diagramme quer und hochkant, zwei bei 960 × 400: nichts abgeschnitten).
 - **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
   `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
   an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des
@@ -500,9 +506,10 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
-| GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste | Einstellungen, LoxBerry-Widget |
+| GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
-| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt`. Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
+| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
+| POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Settings → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
@@ -559,8 +566,16 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 
 1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt)
 2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`
-3. `loxpanel.cfg.example`
-4. leer, Server startet trotzdem
+3. leer, Server startet trotzdem, wartet und zeigt den Panels den
+   Einrichtungshinweis (§3, `einrichtung`); der Konfigurator führt dann zuerst
+   zu Settings → Miniserver (§7.3)
+
+`loxpanel.cfg.example` gilt nie als Zugang: Ihr `miniserver`-Abschnitt ist ein
+Platzhalter (`192.168.1.50`, `CHANGEME`). Die Android-App bringt die Vorlage
+mit; früher meldete sich ein frisches Panel damit endlos bei `192.168.1.50`
+an. Auch `_load_cfg()` lässt den Abschnitt der Vorlage weg, damit Settings ihn
+nicht vorausfüllt und kein Speichern einer anderen Einstellung ihn in die
+`loxpanel.cfg` schreibt. Die übrigen Abschnitte der Vorlage bleiben Vorgaben.
 
 Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 
@@ -707,6 +722,20 @@ geplant). Technisch gibt es zwei Ebenen, beide in `webvisu.py`:
   (Detailseite) oder `cmd` (Direktschaltung) oder `controls[]` (Mini-Buttons).
 - **Detailseite:** `_view_control_inner()` (`:1731-2308`), eine ~580 Zeilen lange
   `if`-Kette, die `blocks[]` zusammenstellt.
+
+**Tasten auf der Kachel** (`controls[]`, je `icon` und `cmd`) haben der Player
+(◀ ⏯ ▶) und die Beschattung (▲ ▼). Die Beschattung sendet dieselben Befehle wie
+Auf/Ab der Detailseite (`_jal_fahrt()`): Im Stand startet eine Taste die
+Fahrt, während der Fahrt halten beide an (`Stop`), und die fahrende Richtung
+zeigt ■. Die Visu bindet die Tasten an `click`; ein Wischer, der auf einer
+Taste beginnt, scrollt das Raster. Unter dem Text stehen sie nur, wenn die
+Kachel hoch genug ist. Sonst rücken sie in die Kopfzeile neben das Icon
+(`ctrltight`), und ist auch die zu schmal (3x3, drei Tasten), an seine Stelle
+(`ctrlnarrow`). Das misst `placeCtrls()` wie beim Mini-Verlauf, bei jeder neuen
+Kachel und bei neuem Text, nicht bei jeder Meldung. Geprüft in
+`tests/test_beschattung.py` und `tests/browser/test_kachel_tasten_browser.py`
+(Tippen, Wischen, Stop während der Fahrt, alle vier Raster für Beschattung und
+Player).
 
 Sonderfälle:
 
@@ -876,6 +905,20 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   das Profil bietet „Wie global (…)" mit dem geerbten Wert in Klammern, das
   Gerät „Wie im Profil".
 - Kachelliste auf 400 Einträge begrenzt.
+- Freie Auswahl: bis zu vier Seiten je Panel (`pickTabs`, Tabs `auswahl` bis
+  `auswahl4`), je Seite Name, Icon und Inhalt (Kacheln in Klickreihenfolge
+  oder ein Widget). `/api/meta` muss `pickTabs` mitliefern: Fehlt es, kennt der
+  Editor nach dem Neuladen nur eine Seite und kürzt beim nächsten Speichern
+  die Leiste (so geschehen vor #47). Geprüft über Speichern, Neuladen,
+  Weiterbearbeiten und die Visu in `tests/browser/test_auswahl_seiten_browser.py`.
+- Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
+  dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
+  (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
+  Skalierung und Präsenzmelder über `POST /api/devices`. Geprüft in
+  `tests/browser/test_displays_browser.py`.
+- Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
+  `input[type=text|number|password]`, ein Feld ohne `type` steht sonst
+  browserweiß im dunklen Konfigurator.
 - Eigene Icon-Map `BICONS` (20 Icons, `fan` und `list` fehlen gegenüber der Visu).
 - Overlay-Vorschau rechnet die Alphas selbst nach (`ovPreview()`), parallel zur
   Server-Logik `_overlay_alphas()`.
@@ -885,14 +928,35 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
 Speicherleiste unten gilt nur für „Panel Configuration". Sieben Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (nur
-Platzhalter), Panels (alle Anzeigegeräte: Agent, Kiosk-App, Browser; Polling
-alle 6 s; Betriebsmodus-Automatik und Display-Treiber je Gerät), Audio (Testton,
-Audioserver-Live-Daten), Kalender & Wetter (iCal-Abos, Wetter der Uhr-Seite),
-Neues Panel (Start-URL für Kiosk-Apps, SSH-Befehl für Linux-Panels). Zu einem
-Reiter führen die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder
-die Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite
-nicht aus, sie öffnet wie immer die Übersicht. Kein Dirty-Flag, ungespeicherte
-Eingaben gehen beim Verlassen verloren.
+Platzhalter), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
+(iCal-Abos, Wetter der Uhr-Seite), Neues Panel (Start-URL für Kiosk-Apps,
+SSH-Befehl für Linux-Panels), Sicherung (Herunterladen und Einspielen). Die
+Anzeigegeräte stehen in der eigenen Rubrik „Displays". Zu einem Reiter führen
+die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
+Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
+aus, sie öffnet die Übersicht (ohne Struktur Settings → Miniserver, siehe
+unten). Kein Dirty-Flag, ungespeicherte Eingaben gehen beim Verlassen verloren.
+
+**Ersteinrichtung.** Solange der Server keine Struktur vom Miniserver hat
+(`einrichtung` aus `/api/settings`), führt der Konfigurator zuerst zum Zugang:
+
+- Er öffnet Settings → Miniserver mit einem Hinweis samt Stand: noch kein
+  Zugang, gespeicherter Zugang nicht verbunden, Verbindung wird aufgebaut,
+  Fehler des Servers oder des eigenen letzten Versuchs.
+- Gesperrt sind die übrigen Rubriken, die Profil-Liste, „＋ Neues Panel" und
+  die Settings-Reiter außer Miniserver und Sicherung (`EINR_SUBS`): Profile,
+  Displays und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
+  jeden anderen Weg zu Settings um, `showSub()` und `wzOpen()` lehnen ab.
+- Den Stand fragt er alle `EINR_TAKT_MS` (3 s) nach. Steht die Verbindung, über
+  „Verbinden & Speichern" oder von selbst, lädt die Seite neu, damit alles frisch
+  vom Server kommt, und zeigt „Mit dem Miniserver verbunden" mit den nächsten
+  Schritten (Einrichtungsassistent, Sicherung einspielen; Merker
+  `lp_einrichtung_verbunden` in der `sessionStorage`).
+
+Die Karte am Panel kommt aus derselben Quelle (`_einrichtung_stand()` baut auf
+`_einrichtung_info()` auf), erscheint aber nicht während des ersten Versuchs,
+damit beim normalen Start nichts aufblitzt. Geprüft in
+`tests/browser/test_einrichtung_konfigurator_browser.py`.
 
 ### 7.4 `i18n.js`
 
@@ -966,7 +1030,10 @@ sowie die `idle`-Meldung der Visu. Einrichtung in `deploy/ANDROID.md`.
 Auswahl ist dieselbe wie beim Nacht-Auslöser, `night_control_options()`).
 `_presence_rebuild()` bildet nach dem Einlesen der Struktur und nach dem
 Speichern der Geräte die State-UUID auf die Geräte ab (`presence_map`) und
-führt den Stand je Gerät (`_presence_on`). `_on_value()` reagiert nur auf einen
+führt den Stand je Gerät (`_presence_on`). Ersetzt jemand `devices` oder
+`controls`, ohne das aufzurufen (das Einspielen einer Sicherung), holt es der
+Broadcaster im nächsten Takt nach: `_presence_quelle` hält fest, aus welchen
+beiden Objekten die Zuordnung gebaut ist. `_on_value()` reagiert nur auf einen
 echten Wechsel, der Neuversand aller States nach einem Reconnect schaltet also
 nichts. Der Broadcaster schickt `{t:"display", on, presence}` an die
 Verbindungen genau dieses Geräts und schaltet dessen Display-Treiber mit;
@@ -1004,8 +1071,8 @@ Root-Rechte auf dem LoxBerry bedeutet.
 
 Template `unraid/loxpanel.xml`, Anleitung `deploy/UNRAID.md`. Start/Stop, Update
 und Backup übernimmt Unraid. Was das LoxBerry-Widget an Funktionen hat, gibt es
-auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup`) und
-den appdata-Ordner.
+auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
+`/api/restore`) und den appdata-Ordner.
 
 - **Zustand:** `HEALTHCHECK` im Dockerfile ruft alle 30 s `/api/health` auf
   (Python statt curl, das slim-Image hat kein curl); Unraid zeigt healthy /

@@ -5,6 +5,7 @@ am echten Server (ws_handler, Broadcaster) mit einer WebSocket-Verbindung je
 Geraet. Display-Treiber und Datei ersetzt ein Stellvertreter - kein Test darf
 config/ veraendern."""
 import asyncio
+import time
 
 import aiohttp
 from aiohttp import web
@@ -168,3 +169,63 @@ def test_stand_in_der_geraeteliste_und_auswahl_im_konfigurator():
             assert [(o["uuid"], o["type"]) for o in m["activeControls"]] == [("L", "Switch"),
                                                                            ("PM", "PresenceDetector")]
     asyncio.run(lauf())
+
+
+def test_viele_geraete_am_melder_bleiben_schnell():
+    """Ein Melder an 20.000 Geraeten (Sicherung, /api/devices): jeder Wechsel
+    gab je Geraet einen Treiber-Aufruf, der alle Geraete durchlief -
+    quadratisch, 7 bis 38 s Stillstand. Nur Geraete mit Treiber brauchen einen."""
+    async def lauf():
+        geraete = {f"g{i}": {"presence": "PM"} for i in range(20_000)}
+        app, geschaltet = _app({**geraete, "mit": {"presence": "PM", "display": FULLY}})
+        aufrufe = []
+        echt = app.display_drivers
+
+        async def gezaehlt(on, device="", panel=""):
+            aufrufe.append(device)
+            return await echt(on, device, panel)
+        app.display_drivers = gezaehlt
+        app._on_value("pm_a", 1.0)
+        beginn = time.perf_counter()
+        await app._broadcast_tick()
+        while app.bg_tasks:
+            await asyncio.gather(*list(app.bg_tasks))
+        return time.perf_counter() - beginn, geschaltet, aufrufe
+    dauer, geschaltet, aufrufe = asyncio.run(lauf())
+    assert aufrufe == ["mit"], f"{len(aufrufe)} Treiber-Aufrufe"
+    assert geschaltet == [("mit", True)]
+    assert dauer < 2, f"{dauer:.1f} s"
+
+
+class _NurNachschlagen(dict):
+    """Geraete, die sich nicht durchlaufen lassen: wer ein einzelnes Geraet
+    sucht, muss es nachschlagen."""
+
+    def items(self):
+        raise AssertionError("alle Geraete durchlaufen")
+
+
+def test_ein_geraet_wird_direkt_nachgeschlagen():
+    async def lauf():
+        app, geschaltet = _app({"mit": {"display": FULLY}})
+        app.devices = _NurNachschlagen({**{f"g{i}": {} for i in range(1000)}, **app.devices})
+        return await app.display_drivers(True, "mit"), await app.display_drivers(True, "gibtsnicht"), geschaltet
+    ein, kein, geschaltet = asyncio.run(lauf())
+    assert len(ein) == 1 and kein == [] and geschaltet == [("mit", True)]
+
+
+def test_ersetzte_geraete_koppelt_der_naechste_takt():
+    """Wer die Geraete ersetzt, ohne neu zu koppeln (das Einspielen einer
+    Sicherung), dem holt der Broadcaster das nach: Melder gekoppelt, Panel
+    geweckt, weil gerade jemand da ist."""
+    async def lauf():
+        app, geschaltet = _app({"kueche": {"scale": "auto"}}, anwesend=True)
+        assert app.presence_map == {}
+        app.devices = W.App._sanitize_devices({"kueche": {"presence": "PM", "display": FULLY}}, set(app.panels))
+        await app._broadcast_tick()
+        while app.bg_tasks:
+            await asyncio.gather(*list(app.bg_tasks))
+        return app.presence_map, app._presence_on, geschaltet
+    pmap, an, geschaltet = asyncio.run(lauf())
+    assert pmap == {"pm_a": ["kueche"]} and an == {"kueche": True}
+    assert geschaltet == [("kueche", True)]

@@ -39,9 +39,11 @@ LOXPANEL_MS_HOST=<ip> LOXPANEL_MS_USER=<user> LOXPANEL_MS_PASS=<pass> \
   .venv/bin/python bin/webvisu.py          # http://localhost:8099
 ```
 
-Ohne Miniserver startet der Server trotzdem und versucht alle 10 s die
-Verbindung. `/config` und `/api/settings` sind dann erreichbar, das
-reicht als Rauchtest. Docker: `docker compose up -d --build`.
+Ohne Miniserver-Zugang startet der Server trotzdem, wartet und zeigt jedem
+Panel, wo der Konfigurator zu öffnen ist; mit Zugang versucht er es mit
+wachsenden Pausen immer wieder. Den Platzhalter-Zugang aus
+`loxpanel.cfg.example` nimmt er nie. `/config` und `/api/settings` sind dann
+erreichbar, das reicht als Rauchtest. Docker: `docker compose up -d --build`.
 
 ## Prüfen vor einem Push
 
@@ -63,6 +65,9 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   Konfigurator in Chromium; Screenshots landen im `tmp_path` bzw. in der CI als
   Artefakt „screenshots".
 - Kein Test darf `config/` verändern, ein Wächter in `tests/conftest.py` prüft das.
+  Wer Config-Dateien lesen und schreiben muss, nimmt die Fixture `cfg_ordner`: Sie
+  leitet Schreiben (`CFG_FILE`, `PANELS_FILE`, `THEME_FILE`) und Lesen (die Leser
+  werten `Path(__file__)` erst beim Aufruf aus) nach `tmp_path` um.
 - Tests, die von der Uhrzeit abhängen, erzeugen Aufzeichnungen je Monat
   (`monatsdateien()`), sonst scheitern sie am Monatsanfang.
 

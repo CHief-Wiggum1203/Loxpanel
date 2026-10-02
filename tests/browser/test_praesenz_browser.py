@@ -10,7 +10,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import W, anlage, serve, visu_starten
+from lox import KONFIGURATOR_GELADEN, W, anlage, serve, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -98,7 +98,7 @@ def test_konfigurator_waehlt_und_speichert_den_melder(tmp_path):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
-                await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.evaluate("async () => { await loadPanelIds(); renderDevices(); await pollDevices(); }")
                 kueche = pg.locator('#dev_list .dev[data-name="kueche"]')
                 assert await kueche.locator(".dp_presence").input_value() == "PM"

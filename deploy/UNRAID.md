@@ -62,6 +62,8 @@ nicht bearbeiten, prüft sie nicht auf Updates, und sie bekommen **keine Zeitzon
    `http://<unraid-ip>:8099/config`.
 2. Miniserver-Zugang unter `http://<unraid-ip>:8099/config` im Reiter
    **Settings → Miniserver** eintragen und speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
+   Ohne Zugang öffnet der Konfigurator direkt diesen Reiter; die übrigen Bereiche außer der Sicherung sind
+   gesperrt, bis die Verbindung steht.
 3. Panels unter `/config` anlegen und gestalten. Die Visu läuft dann unter
    `http://<unraid-ip>:8099/?panel=<id>`.
 
@@ -128,10 +130,18 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   *Einstellungen herunterladen* (oder `http://<unraid-ip>:8099/api/backup`) lädt
   die drei Dateien als ZIP. Kennwörter (Miniserver, Kamera, Display-Treiber) sind
   darin leer, weil der Download ohne Anmeldung möglich ist; die `LIESMICH.txt`
-  im ZIP listet, welche nach dem Zurückspielen neu einzutragen sind. Die
-  vollständige Sicherung samt Kennwörtern bleibt der appdata-Ordner.
-- **Wiederherstellen:** Container stoppen, die Dateien zurückkopieren, Container
-  starten.
+  im ZIP listet, welche das sind. Die vollständige Sicherung samt Kennwörtern
+  bleibt der appdata-Ordner.
+- **Einspielen:** dieselbe Seite, *ZIP-Datei wählen und einspielen*. Das geht
+  auch mit der Sicherung eines anderen LoxPanel, etwa beim Umzug auf ein Panel
+  mit der Android-App. Kennwörter, die hier schon eingetragen sind, bleiben,
+  solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera:
+  Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das
+  Ergebnis. Die
+  bisherigen Dateien liegen danach als `.bak` im appdata-Ordner, ein Neustart
+  ist nicht nötig.
+- **Wiederherstellen von Hand:** Container stoppen, die Dateien zurückkopieren,
+  Container starten.
 
 ## Netzwerk und Zeitzone
 

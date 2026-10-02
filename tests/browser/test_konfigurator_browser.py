@@ -8,7 +8,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import W, anlage, serve
+from lox import KONFIGURATOR_GELADEN, W, anlage, serve
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -48,7 +48,7 @@ def _im_konfigurator(skript: str):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
-                await pg.wait_for_function("typeof META !== 'undefined' && META.controls && META.controls.length")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 res = await skript(pg) if callable(skript) else await pg.evaluate(skript)
                 await b.close()
         finally:
