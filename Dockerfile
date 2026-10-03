@@ -22,8 +22,8 @@ COPY config/ ./config/
 COPY deploy/ ./deploy/
 COPY agent/ ./agent/
 
-# Welcher Stand im Image steckt: bin/version.json fuer den Konfigurator und
-# /api/health (bin/version_info.py); die Version steht in plugin.cfg, den
+# Welcher Stand im Image steckt: bin/version.json fuer die Anzeige im
+# Konfigurator (bin/version_info.py); die Version steht in plugin.cfg, den
 # Commit reicht der Workflow herein (docker-image.yml).
 ARG LOXPANEL_COMMIT=""
 COPY loxberry-plugin/plugin.cfg ./loxberry-plugin/plugin.cfg

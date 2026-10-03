@@ -127,7 +127,7 @@ tasks.register<Copy>("syncLoxpanelAssets") {
         exclude("loxpanel.cfg", "panels.json", "theme.json")   // keine echten Daten/Layouts
     }
     // Welcher Stand in der App steckt: bin/version.json, gelesen von
-    // bin/version_info.py (Konfigurator, /api/health). Die App packt bin/ bei
+    // bin/version_info.py (Anzeige im Konfigurator). Die App packt bin/ bei
     // jedem Update neu aus, die Datei kommt also immer mit dem Code.
     doLast {
         val gebaut = Instant.now().truncatedTo(ChronoUnit.SECONDS)

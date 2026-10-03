@@ -70,11 +70,11 @@ import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fu
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
-import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
+import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
 
 log = logging.getLogger("loxpanel.webvisu")
-# Welcher Stand laeuft (Konfigurator, /api/settings, /api/health); einmal beim Start gelesen
+# Welcher Stand laeuft (Seitenleiste des Konfigurators); einmal beim Start gelesen
 VERSION = version_info.lesen()
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
