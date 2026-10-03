@@ -332,6 +332,19 @@ enthält zusätzlich `armeabi-v7a`, damit sie auch auf 32-bit-Tablets läuft
 `android/app/build.gradle.kts`, die APK wird dadurch größer. Kommt mit dem
 nächsten Abgleich in den Fork.
 
+**Ebenfalls eingereicht** (03.10.2026): zwei Beiträge, je ein Commit auf
+`main` (`415ffd5`), zusammen konfliktfrei. Der SIP-Beitrag sagt
+Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen seinen Stand bestehen
+die SIP- und Versionstests aus dem Fork. Mit den Beiträgen scheitert kein
+Fork-Test neu, nur der Test für `/api/health`, das es bei ihm nicht gibt. Die
+APK aus `up/versionsnummer` und der Docker-Schritt sind auf seinem Stand
+gebaut.
+
+| PR | Zweig | Inhalt |
+|---|---|---|
+| [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis |
+| [#84](https://github.com/Lenardo1/loxpanel/pull/84) | `up/versionsnummer` (`6fc3908`) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
+
 Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
 Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
 auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
@@ -580,6 +593,11 @@ selbst aktuell.
       dem Fork (ohne #63 fehlt nur der Reiter Sicherung), gegen den
       Gesamtstand mit allen Beiträgen 97 Tests zu Ersteinrichtung,
       Sicherung, Präsenz und Kachel-Tasten. **S**
+- [x] **Welche Test-APK installiert ist, sieht man** (gewünscht am
+      03.10.2026): Version, Commit und Bauzeit stehen in der Seitenleiste des
+      Konfigurators und in `/api/health`, der Commit auch unter App-Info in
+      Android (`bin/version.json`, `bin/version_info.py`; ARCHITEKTUR §9.3).
+      Gilt ebenso für das Docker-Image. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
@@ -1064,7 +1082,37 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Tür/Ausgänge öffnen (`pulse` je Sub-Control). Seit 03.10.2026 dazu
       „Klingel abstellen“ (`answer`) und die verpassten Klingeln
       (`lastBellEvents`) mit Bildern (`camimage/{uuidAction}/{Zeitstempel}`
-      über `/bellimg`). Offen: Gegensprechen (SIP, eigener Medien-Stack). **L**
+      über `/bellimg`). Offen: Gegensprechen (SIP). Ziel ist die Loxone
+      Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
+      Loxone-App direkt per SIP anruft; geklingelt wird weiter über `bell` und
+      das Klingel-Popup, eine Anmeldung am SIP-Server braucht es nicht. Nur in
+      der LoxPanel-App für Android, weil der Browser kein SIP über UDP kann.
+      Drei Schritte: **L**
+      1. [x] *Zugang und Prüfung* (03.10.2026): Den SIP-Zugang gibt der
+         Miniserver nur auf einen verschlüsselten Befehl heraus
+         (`securedDetails`, `bin/loxone_secure.py`). Settings → SIP zeigt ihn
+         je Intercom ohne Passwort; „Verbindung prüfen“ schickt ein OPTIONS
+         mit Anmeldung (`bin/sip_probe.py`), ohne einen Anruf auszulösen.
+         Ablauf in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10.
+         **An der Anlage geprüft (03.10.2026, Test-APK):** Die „Eingang
+         Intercom“ meldet `deviceType` 0 („andere oder unbekannte
+         Türstation“), und ihre gesicherten Details nennen keinen SIP-Zugang.
+         Seitdem zeigt der Reiter in dem Fall, welche Felder der Miniserver
+         liefert (ohne Werte). **Offen:** diese Zeile von der Anlage holen und
+         klären, ob das Audiomodul der Intercom in Loxone Config eingetragen
+         ist (Loxone-KB „Intercom Gen. 1“: eigenes SIP-Audiomodul, die
+         Loxone-App ruft es anonym an). Davon hängt Schritt 2 ab (Adresse,
+         Codec, Anmeldung).
+      2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
+         Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
+         Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen
+         unter GPL, eingebaut müsste die App unter GPL stehen, LoxPanel steht
+         unter PolyForm Noncommercial; Androids `android.net.sip` ist seit
+         Android 12 abgekündigt. Den Zugang holt der Kotlin-Teil im selben
+         Prozess vom Server (Chaquopy), nicht über eine Route im LAN. **L**
+      3. [ ] *Visu:* „Sprechen“ und „Auflegen“ auf der Intercom-Seite und im
+         Klingel-Popup, über die Brücke `LoxKiosk`; ohne App zeigt die Visu
+         sie nicht. **M**
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
 - [x] `UpDownAnalog`: seit 03.10.2026 bedienbar. Laut Strukturdoku
       („UpDownLeftRight analog“) ist der Befehl der Wert selbst, zwischen

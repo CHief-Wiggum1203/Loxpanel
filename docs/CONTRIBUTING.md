@@ -227,6 +227,20 @@ nicht unbemerkt entfernt:
   `test_verlauf_pane_verwirft_fremden_stapel`,
   `test_veralteter_stapel_kommt_nicht_hinterher`.
 
+- SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
+  `secured_details()`, `/api/sip`, Reiter SIP) und die Versionsnummer
+  (`bin/version_info.py`, Seitenleiste, `bin/version.json` aus Gradle und
+  Dockerfile): bei Lenardo eingereicht als #83 (Zweig `up/sip-zugang`) und
+  #84 (`up/versionsnummer`), TODO §0b. Die Stellen im Fork sind dieselben wie in
+  den Beiträgen (`import version_info` hinter `theme_colors`, die
+  Übersetzungen der Versionszeile bei „nicht verbunden“), damit ein Abgleich
+  weder Konflikte noch doppelte Importe bringt. Nur im Fork bleiben `version`
+  in `/api/health` und die Ausnahme `!loxberry-plugin/plugin.cfg` in
+  `.dockerignore` (Lenardo schließt `loxberry-plugin/` nicht aus). Wachen:
+  `tests/test_loxone_secure.py`, `test_sip_probe.py`, `test_sip.py`,
+  `test_version.py`, `tests/browser/test_sip_browser.py`,
+  `test_version_browser.py`.
+
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):
 

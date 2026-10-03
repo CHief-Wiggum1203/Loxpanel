@@ -8,16 +8,25 @@ freien Port, damit Tests parallel und neben einem laufenden LoxPanel laufen.
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import math
+import os
+import re
 import struct
 import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote
 
 import aiohttp
 from aiohttp import web
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "bin") not in sys.path:
@@ -65,6 +74,13 @@ class Miniserver:
     reject  sps/io-Befehle mit LL-Code 500 ablehnen
     deny    Pfad-Anfaenge, die trotz gueltigem Token 401 bekommen
     bilder  (uuidAction, Zeitstempel) -> JPEG fuer camimage (Klingel-Bilder)
+    gesichert  uuidAction -> gesicherte Details (securedDetails), nur ueber
+               einen verschluesselten Befehl (jdev/sys/fenc) zu bekommen;
+               gesichert_code: LL-Code dafuer (etwa "403": keine Rechte)
+
+    Die Verschluesselung ist hier unabhaengig von bin/loxone_secure.py nach der
+    Loxone-Doku nachgebaut (Command Encryption, HTTP): eigener RSA-Schluessel,
+    Sitzungsschluessel "key:iv", AES-256-CBC mit Nullbytes, Antwort ebenso.
     """
 
     def __init__(self) -> None:
@@ -79,6 +95,13 @@ class Miniserver:
         self.io_roh: list[str] = []          # dieselben Befehle so kodiert, wie sie ankamen
         self.bilder: dict[tuple[str, str], bytes] = {}
         self.bild_abrufe: list[str] = []
+        self.gesichert: dict[str, dict] = {}
+        self.gesichert_code = "200"
+        self.benutzer = "loxpanel"          # Benutzer, den der Befehl nennen muss
+        self.getkey = "4C6F78506F6E656C"    # Schluessel aus jdev/sys/getkey (hex)
+        self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+        self.schluessel_abrufe = 0
+        self.fenc: list[str] = []           # entschluesselte Befehle aus jdev/sys/fenc
         self.live = self.peak = 0
         self.runner: web.AppRunner | None = None
         self.port = 0
@@ -106,8 +129,58 @@ class Miniserver:
             return web.Response(status=404)
         return web.Response(body=bild, content_type="image/png" if bild.startswith(b"\x89PNG") else "image/jpeg")
 
+    def neuer_schluessel(self) -> None:
+        """Wie nach einem Neustart: Befehle mit dem alten Schluessel scheitern."""
+        self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+
+    def _ll(self, control: str, value, code: str = "200") -> web.Response:
+        return web.json_response({"LL": {"control": control, "value": value, "Code": code}})
+
+    def _fenc(self, r: web.Request) -> web.Response:
+        roh = r.raw_path.split("/jdev/sys/fenc/", 1)[1].split("?", 1)[0]
+        try:
+            sk = self.schluessel.decrypt(base64.b64decode(r.query.get("sk", "")), padding.PKCS1v15())
+            key_hex, iv_hex = sk.decode("ascii").split(":")
+            key, iv = bytes.fromhex(key_hex), bytes.fromhex(iv_hex)
+            dec = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
+            klar = (dec.update(base64.b64decode(unquote(roh))) + dec.finalize()).rstrip(b"\0").decode()
+        except (ValueError, TypeError):
+            return web.Response(status=401, text="Unauthorized")
+        salz, _, cmd = klar[len("salt/"):].partition("/")
+        assert klar.startswith("salt/") and salz, klar
+        self.fenc.append(cmd)
+        pfad, _, query = cmd.partition("?")
+        q = dict(parse_qsl(query))
+        m = re.fullmatch(r"jdev/sps/io/([^/]+)/securedDetails", pfad)
+        token_hash = hmac.new(bytes.fromhex(self.getkey), self.token.encode(), hashlib.sha1).hexdigest()
+        if not m:
+            code, wert = "404", ""
+        elif q.get("autht") != token_hash or q.get("user") != self.benutzer:
+            code, wert = "401", ""
+        elif m.group(1) not in self.gesichert:
+            code, wert = "500", ""
+        else:
+            code = self.gesichert_code
+            wert = json.dumps(self.gesichert[m.group(1)]) if code == "200" else ""
+        antwort = json.dumps({"LL": {"control": pfad, "value": wert, "Code": code}}).encode()
+        enc = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+        antwort += b"\0" * (-len(antwort) % 16)
+        return web.Response(text=base64.b64encode(enc.update(antwort) + enc.finalize()).decode(),
+                            content_type="text/plain")
+
     async def _jdev(self, r: web.Request) -> web.Response:
         tail = r.match_info["tail"]
+        if tail == "sys/getPublicKey":
+            # Wie der Miniserver: beschriftet als CERTIFICATE, in einer Zeile
+            self.schluessel_abrufe += 1
+            der = self.schluessel.public_key().public_bytes(
+                serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+            return self._ll(tail, "-----BEGIN CERTIFICATE-----" + base64.b64encode(der).decode()
+                            + "-----END CERTIFICATE-----")
+        if tail == "sys/getkey":
+            return self._ll(tail, self.getkey)
+        if tail.startswith("sys/fenc/"):
+            return self._fenc(r)
         if not self._ok(r, tail):
             return web.Response(status=401, text="Unauthorized")
         if tail.startswith("sps/getStatistic/"):
@@ -150,6 +223,98 @@ class Miniserver:
         if self.runner:
             await self.runner.cleanup()
             self.runner = None
+
+
+# SDP einer Tuerstation: G.711 (PCMU, PCMA) und DTMF
+TUER_SDP = ("v=0\r\no=tuer 1 1 IN IP4 127.0.0.1\r\ns=-\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\n"
+            "m=audio 7078 RTP/AVP 0 8 101\r\na=rtpmap:0 PCMU/8000\r\na=rtpmap:8 PCMA/8000\r\n"
+            "a=rtpmap:101 telephone-event/8000\r\n")
+
+
+class SipTuer(asyncio.DatagramProtocol):
+    """Nachbau einer SIP-Tuerstation fuer OPTIONS ueber UDP auf 127.0.0.1.
+
+    anmeldung   verlangt Digest (401 mit WWW-Authenticate); die Antwort wird hier
+                unabhaengig von bin/sip_probe.py nachgerechnet
+    proxy       verlangt sie wie ein Proxy (407, Proxy-Authenticate/-Authorization)
+    qop         Aufforderung mit qop="auth" (sonst die alte Form ohne)
+    algorithmus "MD5" oder "SHA-256"
+    sdp         200 OK mit SDP (PCMU, PCMA, telephone-event)
+    stumm       antwortet nie (nimmt die Anfragen aber auf)
+    vorlaeufig  Sekunden: schickt erst "100 Trying", die Antwort so viel spaeter
+    """
+    REALM = "tuer.local"
+
+    def __init__(self, user="tuer", passwort="geheim", anmeldung=True, proxy=False, qop=True,
+                 algorithmus="MD5", sdp=True, stumm=False, vorlaeufig=0.0) -> None:
+        self.user, self.passwort, self.anmeldung, self.proxy, self.qop = user, passwort, anmeldung, proxy, qop
+        self.algorithmus, self.sdp, self.stumm, self.vorlaeufig = algorithmus, sdp, stumm, vorlaeufig
+        self.anfragen: list[str] = []
+        self.nonce = ""
+        self.transport = None
+        self.port = 0
+
+    async def start(self) -> "SipTuer":
+        loop = asyncio.get_running_loop()
+        self.transport, _ = await loop.create_datagram_endpoint(lambda: self, local_addr=("127.0.0.1", 0))
+        self.port = self.transport.get_extra_info("sockname")[1]
+        return self
+
+    def stop(self) -> None:
+        if self.transport:
+            self.transport.close()
+
+    def datagram_received(self, data: bytes, addr) -> None:
+        text = data.decode("utf-8")
+        self.anfragen.append(text)
+        if self.stumm:
+            return
+        zeilen = text.split("\r\n")
+        methode = zeilen[0].split(" ")[0]
+        kopf = {}
+        for z in zeilen[1:]:
+            if ":" in z:
+                n, w = z.split(":", 1)
+                kopf[n.strip().lower()] = w.strip()
+        auth = "proxy-authorization" if self.proxy else "authorization"
+        if self.anmeldung and auth not in kopf:
+            self.nonce = os.urandom(8).hex()
+            aufforderung = (("Proxy-Authenticate" if self.proxy else "WWW-Authenticate")
+                            + f': Digest realm="{self.REALM}", nonce="{self.nonce}", '
+                            f"algorithm={self.algorithmus}" + (', qop="auth"' if self.qop else ""))
+            return self._antworte(addr, kopf, "407 Proxy Authentication Required" if self.proxy
+                                  else "401 Unauthorized", [aufforderung])
+        if self.anmeldung and not self._digest_ok(kopf[auth], methode):
+            return self._antworte(addr, kopf, "403 Forbidden")
+        self._antworte(addr, kopf, "200 OK", ["Allow: INVITE, ACK, CANCEL, BYE, OPTIONS",
+                                              "User-Agent: Nachbau-Tuer/1.0"], TUER_SDP if self.sdp else "")
+
+    def _digest_ok(self, auth: str, methode: str) -> bool:
+        p = {k: v.strip('"') for k, v in re.findall(r'(\w+)=("[^"]*"|[^,\s]+)', auth)}
+        h = hashlib.sha256 if self.algorithmus == "SHA-256" else hashlib.md5
+
+        def H(x: str) -> str:
+            return h(x.encode()).hexdigest()
+        ha1, ha2 = H(f"{p.get('username')}:{self.REALM}:{self.passwort}"), H(f"{methode}:{p.get('uri')}")
+        if self.qop:
+            soll = H(f"{ha1}:{p.get('nonce')}:{p.get('nc')}:{p.get('cnonce')}:{p.get('qop')}:{ha2}")
+        else:
+            soll = H(f"{ha1}:{p.get('nonce')}:{ha2}")
+        return p.get("username") == self.user and p.get("nonce") == self.nonce and p.get("response") == soll
+
+    def _antworte(self, addr, kopf: dict, status: str, zusatz=(), rumpf: str = "") -> None:
+        def senden(st: str, mit: list[str], body: str) -> None:
+            zeilen = [f"SIP/2.0 {st}", f"Via: {kopf['via']}", f"From: {kopf['from']}",
+                      f"To: {kopf['to']};tag=tuer1", f"Call-ID: {kopf['call-id']}", f"CSeq: {kopf['cseq']}", *mit]
+            if body:
+                zeilen.append("Content-Type: application/sdp")
+            zeilen += [f"Content-Length: {len(body.encode())}", "", body]
+            self.transport.sendto("\r\n".join(zeilen).encode(), addr)
+        if self.vorlaeufig:
+            senden("100 Trying", [], "")
+            asyncio.get_running_loop().call_later(self.vorlaeufig, senden, status, list(zusatz), rumpf)
+        else:
+            senden(status, list(zusatz), rumpf)
 
 
 class Anmeldung:
