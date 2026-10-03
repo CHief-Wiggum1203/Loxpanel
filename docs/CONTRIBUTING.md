@@ -204,6 +204,16 @@ nicht unbemerkt entfernt:
   `KioskActivity`): kann zu Lenardo, aber nur zusammen mit `/api/health`, das
   der Wächter abfragt und das es bei ihm nicht gibt (siehe unten). Wache:
   `WaechterTest` (`gradle testDebugUnitTest`).
+- Zwei Korrekturen zu Lenardos #77 (Verlauf-Widget mit mehreren Bausteinen,
+  im Fork, bevor es bei ihm in `main` ist): Auf der Uhr-Seite schrumpfen die
+  Hüllen `.cpbody`/`.cpsec` mit, sonst werden die Diagramme wieder unten
+  abgeschnitten; die Visu verwirft einen Verlaufs-Push mit Bausteinen außerhalb
+  ihrer Anfrage, und `_broadcast_tick()` schickt keinen Stapel mehr, den die
+  Verbindung inzwischen per `setchart` abgelöst hat. Als Beitrag zu #77
+  vorbereitet (Zweig `up/verlauf-stapel` auf `feature/verlauf-stapelbar`).
+  Wachen: `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`,
+  `test_verlauf_pane_verwirft_fremden_stapel`,
+  `test_veralteter_stapel_kommt_nicht_hinterher`.
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):

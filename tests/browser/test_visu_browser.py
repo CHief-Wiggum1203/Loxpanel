@@ -339,15 +339,17 @@ UHR_VERLAUF = """() => { const p = document.querySelector('#svBox .fp-page.cpage
 def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_http, monkeypatch):
     """Verlauf auf der Uhr-Seite: Passen die Diagramme nicht im Seitenverhaeltnis
     in den Kasten (drei Diagramme eines Zaehlers; zwei in einem niedrigen
-    Fenster), schrumpfen sie, statt unten abgeschnitten zu werden - quer und
-    hochkant. Mit genug Platz bleibt es beim Seitenverhaeltnis 440:150."""
+    Fenster; seit Lenardos #77 auch mehrere Bausteine untereinander), schrumpfen
+    sie, statt unten abgeschnitten zu werden - quer und hochkant. Mit genug
+    Platz bleibt es beim Seitenverhaeltnis 440:150."""
     from test_front_tabs_browser import _front
 
     async def lauf():
         daten = await _front(monkeypatch)
         ergebnis = {}
         for cid, groessen in (("N", [(960, 480), (800, 480), (533, 893), (480, 800)]),
-                              ("P", [(960, 400), (960, 480)])):
+                              ("P", [(960, 400), (960, 480)]),
+                              ("N,P", [(960, 480), (480, 800)])):
             async with Umgebung(tmp_path, {"ui": {"svPane": "chart:" + cid}}) as u:
                 u.ms.v2.update({("NETZ", "1", "actual"): (1800, pv_leistung),
                                 ("NETZ", "2", "total"): (3600, zaehlerstand(pv_leistung)),
@@ -359,7 +361,7 @@ def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_htt
                                    "room": "r1", "cat": "c1", "isFavorite": True}
                 u.app._apply_structure(anlage(u.controls))
                 u.app._front = u.app._front_payload(daten)
-                anzahl = 3 if cid == "N" else 2
+                anzahl = {"N": 3, "P": 2, "N,P": 5}[cid]
                 for b, h in groessen:
                     pg = await u.seite(b, h)
                     await pg.evaluate("showSaver()")
@@ -367,7 +369,7 @@ def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_htt
                         f"document.querySelectorAll('#svBox .chart svg').length === {anzahl}", timeout=15000)
                     await pg.wait_for_timeout(400)
                     ergebnis[(cid, b, h)] = await pg.evaluate(UHR_VERLAUF)
-                    await u.bild(pg, f"uhrseite_verlauf_{cid}_{b}x{h}")
+                    await u.bild(pg, f"uhrseite_verlauf_{cid.replace(',', '+')}_{b}x{h}")
                     await pg.close()
                 assert not u.fehler, u.fehler
         return ergebnis
@@ -423,6 +425,41 @@ def test_verlauf_pane_stapelt_mehrere_bausteine(tmp_path, miniserver_http):
             einzeln = await pg2.evaluate(STAPEL_JS)
             await u.bild(pg2, "verlauf_einzeln")
             assert not einzeln["stapel"] and einzeln["namen"] == ["Boiler"] and not einzeln["scrollt"], einzeln
+        assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+NAMEN_MITSCHREIBEN = """() => { window._namen = []; const fp = document.getElementById('frontpane');
+  new MutationObserver(() => fp.querySelectorAll('.cpname').forEach(e => window._namen.push(e.textContent)))
+    .observe(fp, {subtree: true, childList: true, characterData: true}); }"""
+
+
+def test_verlauf_pane_verwirft_fremden_stapel(tmp_path, miniserver_http):
+    """Ein Verlaufs-Push, der beim Wechsel der Pane schon unterwegs war, nennt
+    Bausteine, die die Pane nicht mehr zeigt: die Visu verwirft ihn, statt das
+    fremde Diagramm samt Namen auch nur kurz zu zeigen. Ein Push zum
+    angefragten Baustein (hier mit anderem Zeitraum) kommt weiter an."""
+    async def lauf():
+        async with Umgebung(tmp_path, {"ui": {"panes": {"favoriten": "chart:T"}}}) as u:
+            pg = await u.seite(960, 480)
+            await pg.wait_for_function("document.querySelectorAll('#frontpane .cpsec .chart svg').length === 1",
+                                       timeout=15000)
+            await pg.evaluate(NAMEN_MITSCHREIBEN)
+            ws, = list(u.app.conn_chart)
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("R",), "24h")})
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("T",), "7d")})
+            await pg.wait_for_function("chartData && chartData.range === '7d'", timeout=15000)
+            await pg.wait_for_timeout(200)
+            gesehen = await pg.evaluate("window._namen")
+            namen = await pg.evaluate("[...document.querySelectorAll('#frontpane .cpsec .cpname')]"
+                                      ".map(e => e.textContent)")
+            assert "Regen" not in gesehen, gesehen
+            assert namen == ["Boiler"] and await pg.evaluate("chartData.controls") == ["T"]
+            # Leerzeichen in der Liste (panels.json von Hand) trimmt der Server
+            # beim Anfragen weg; die Visu vergleicht genauso
+            await pg.evaluate("curChartKey = 'T, R|24h'")
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("T", "R"), "24h")})
+            await pg.wait_for_function("chartData && chartData.controls.length === 2", timeout=15000)
         assert not u.fehler, u.fehler
     asyncio.run(lauf())
 

@@ -197,3 +197,42 @@ def test_mehrere_bausteine_gestapelt(miniserver_http):
     assert W._clean_tabpane("chart:T, R,,") == "chart:T,R"
     assert W._clean_svpane(" chart:T,R ") == "chart:T,R" and W._clean_svpane("chart:") == ""
 
+
+def test_veralteter_stapel_kommt_nicht_hinterher(miniserver_http):
+    """Waehlt das Panel einen anderen Verlaufs-Stapel (setchart), waehrend die
+    Push-Schleife noch an seine Verbindung sendet, hat setchart den neuen schon
+    geschickt. Den Stapel, den die Schleife vorher berechnet hat, darf sie danach
+    nicht mehr schicken - er loeste den neuen in der Pane bis zum naechsten Takt
+    wieder ab."""
+    async def lauf(wechseln):
+        ms = await Miniserver().start()
+        app = neue_app(ms)
+        ws, gesendet = object(), []
+
+        async def senden(w, msg):
+            gesendet.append(msg)
+            if wechseln and msg["t"] != "chart" and app.conn_chart[w] == (("T",), "24h"):
+                # wie der Zweig setchart in ws_handler: merken und sofort schicken
+                app.conn_chart[w] = (("R",), "24h")
+                neu = {"t": "chart", **app.chart_stack(("R",), "24h")}
+                gesendet.append(neu)
+                app._last_sent.setdefault(w, {})["chart"] = neu
+            return True
+        try:
+            app.controls = v1_bausteine(ms, JETZT)
+            app.states = {"sv": 57.3, "sa": 0.6, "st": 1024.5, "sr": 0, "sx": 5}
+            app._send_or_drop = senden
+            app.conn_route[ws] = {"view": "control", "id": "T"}
+            app.conn_chart[ws] = (("T",), "24h")
+            app._dirty = True
+            await app._broadcast_tick()
+            for _ in range(40):                      # angestossene Abrufe auslaufen lassen
+                await asyncio.sleep(0.05)
+                if not app.stat_pending:
+                    break
+        finally:
+            await app.icon_session.close()
+            await ms.stop()
+        return [m["controls"] for m in gesendet if m["t"] == "chart"]
+    assert asyncio.run(lauf(False)) == [["T"]]
+    assert asyncio.run(lauf(True)) == [["R"]]
