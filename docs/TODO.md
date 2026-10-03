@@ -599,11 +599,6 @@ selbst aktuell.
       angepasste Pane 2 am Tab A9 prüfen (Raster quer und hochkant, Widget,
       Drehen). Aus den Ideen offen: eine Listen-Darstellung als Alternative
       zu großen Kacheln. **M**
-- [ ] **Kalender ohne Namen heißt „Family“:** Der Server nimmt ohne Eintrag
-      unter *Kalender & Wetter* den Namen „Family“ (`webvisu.py`, zwei
-      Stellen, Vorgabe aus Upstream), die Visu zeigt ihn als Überschrift der
-      Termine. Auf Deutsch „Termine“, wie die Visu es ohne Namen ohnehin
-      vorsieht. **S**
 - [x] **App läuft wochenlang ohne Eingriff** (02.10.2026). Bisher blieb die
       Anzeige bei der Fehlerseite stehen, wenn der eingebettete Server hing
       oder eine seiner Aufgaben endete, bis jemand die App neu startete. Stürzte
