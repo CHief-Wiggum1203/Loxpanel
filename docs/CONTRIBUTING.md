@@ -230,8 +230,8 @@ nicht unbemerkt entfernt:
 - SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
   `secured_details()`, `/api/sip`, Reiter SIP) und die Versionsnummer
   (`bin/version_info.py`, Seitenleiste, `bin/version.json` aus Gradle und
-  Dockerfile): bei Lenardo vorbereitet als Zweige `up/sip-zugang` und
-  `up/versionsnummer` (TODO §0b). Die Stellen im Fork sind dieselben wie in
+  Dockerfile): bei Lenardo eingereicht als #83 (Zweig `up/sip-zugang`) und
+  #84 (`up/versionsnummer`), TODO §0b. Die Stellen im Fork sind dieselben wie in
   den Beiträgen (`import version_info` hinter `theme_colors`, die
   Übersetzungen der Versionszeile bei „nicht verbunden“), damit ein Abgleich
   weder Konflikte noch doppelte Importe bringt. Nur im Fork bleiben `version`
