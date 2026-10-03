@@ -143,9 +143,8 @@ Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
 
 - `type="text"` am Namensfeld des Betriebsmodus-Assistenten (`.mzname` in
-  `config.html`): Lenardo hat #65 übernommen, das dieselbe Zeile ändert, der
-  Fix kann also jetzt zu ihm. Geht er verloren, schlägt
-  `test_geraeteliste_umschalten_und_benennen` an.
+  `config.html`): für Lenardo vorbereitet im Zweig `up/kleine-fehler`. Geht
+  er verloren, schlägt `test_geraeteliste_umschalten_und_benennen` an.
 - Icon-Bibliothek einer freien Seite (`pickIcoGridNeu()` und
   `bindPickIcons()` in `config.html`): Kommt die Bibliothek nach, füllt sie nur
   das Icon-Raster neu statt des ganzen Editors, sonst verliert der Seitenname
@@ -153,14 +152,15 @@ nicht unbemerkt entfernt:
   Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
   `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
 - Kacheltexte „Spielt in 1 Raum“ (statt „1 Räumen“) und der Ruhe-Text der
-  Radiotasten (`allOff` statt „–“) in `_control_item()`: können zu Lenardo,
-  sonst schlägt `tests/test_kachel_texte.py` an.
+  Radiotasten (`allOff` statt „–“) in `_control_item()`: vorbereitet in
+  `up/kleine-fehler`, sonst schlägt `tests/test_kachel_texte.py` an.
 - `catFilter` in `_panel_export()`: ohne geht die Einstellung beim nächsten
-  Speichern verloren, auch bei Lenardo. Kann zu ihm,
+  Speichern verloren, auch bei Lenardo. Vorbereitet in `up/kleine-fehler`,
   `test_jede_gespeicherte_option_kommt_beim_konfigurator_an` wacht.
 - `updateGrid()` behält `ctrltight`/`ctrlnarrow`: ohne verliert eine enge
-  Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo. Kann zu ihm,
-  `test_enge_kachel_behaelt_die_lage_ihrer_tasten` wacht.
+  Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo. Vorbereitet
+  in `up/kleine-fehler`, `test_enge_kachel_behaelt_die_lage_ihrer_tasten`
+  wacht.
 - Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
   `subInfo`/`big`/`bigSub` in `_control_item()`, `ui.tileLayout`,
   `GROESSEN_STANDARD`, `sizeDefaults` in `/api/meta`, `theme.example.json` ohne
@@ -179,22 +179,29 @@ nicht unbemerkt entfernt:
 - Pane 2 nutzt ihre Fläche (`wetterEinpassen()`, `kalenderEinpassen()`,
   `werteEinpassen()`, `paneEinpassen()` am `ResizeObserver` von `#frontpane`,
   `fpCurve()` mit Größe, die Regeln `.fp-page.wx`/`.kal`/`.werte` in
-  `panel.html`; Verbindungspunkt auf Widget-Seiten aus): kann zu Lenardo,
-  reibt sich bei Upstream-Merges an `renderWeatherPane()`,
+  `panel.html`; Verbindungspunkt auf Widget-Seiten aus): baut auf den
+  fork-eigenen Wetter- und Kalender-Tabs auf (`fpNowHTML()`/`fpCurveHTML()`,
+  `renderWertePane()`); für Lenardo erst auf seinen Wetter-Aufbau
+  (`fpWeatherMainHTML()`, `renderSvStatus()`) umbauen. Reibt sich bei
+  Upstream-Merges an `renderWeatherPane()`,
   `renderCalendarPane()` und `renderSvStatus()`. Wache:
   `tests/browser/test_pane_hoehe_browser.py`.
 - Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
   `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
   `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
-  *Auto-Neustart* in `config.html`): kann zu Lenardo. Wachen:
+  *Auto-Neustart* in `config.html`): für Lenardo vorbereitet im Zweig
+  `up/neuladen-nachts`. Wachen:
   `tests/test_neuladen.py`, `tests/browser/test_neuladen_browser.py`.
 - Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
   Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
   Klingeln des Intercoms samt `/bellimg`, UpDownAnalog wie der Slider. Dazu die
   neuen Blöcke `stepper`, `field`, `timepick`, `chips`, `gallery` und die
-  Zellen mit `nav`/`form`/`confirm`/`back` in `panel.html`, `panelEinpassen()`
-  und `.pantop{flex:1 0 auto}` für volle Detailseiten, die Rundung von
-  `nudgeSld()`. Kann zu Lenardo, reibt sich bei Upstream-Merges an
+  Zellen mit `nav`/`form`/`confirm`/`back` in `panel.html`. Die allgemeinen
+  Teile (`panelEinpassen()` mit `.pantop{flex:1 0 auto}` für volle
+  Detailseiten, die Rundung von `nudgeSld()` und die Signatur der
+  Weckzeiten-Liste in `blockSig()`) sind für Lenardo vorbereitet im Zweig
+  `up/detailseiten`; die Bausteine selbst erst nach der Prüfung an der Anlage
+  (TODO §8.1). Reibt sich bei Upstream-Merges an
   `_control_item()`, `_view_control_inner()`, `renderPanel()` und
   `updatePanel()`. Wachen: `tests/test_auf_ab_wert.py`,
   `tests/test_bewaesserung.py`, `tests/test_wecker.py`,
@@ -207,11 +214,14 @@ nicht unbemerkt entfernt:
 - Zwei Korrekturen zu Lenardos #77 (Verlauf-Widget mit mehreren Bausteinen,
   im Fork, bevor es bei ihm in `main` ist): Auf der Uhr-Seite schrumpfen die
   Hüllen `.cpbody`/`.cpsec` mit, sonst werden die Diagramme wieder unten
-  abgeschnitten; die Visu verwirft einen Verlaufs-Push mit Bausteinen außerhalb
+  abgeschnitten, und unter der Zeitraum-Leiste gilt nur ihr eigener Abstand
+  (sonst schrumpfen zwei Diagramme bei 960 × 480 ohne Not); die Visu
+  verwirft einen Verlaufs-Push mit Bausteinen außerhalb
   ihrer Anfrage, und `_broadcast_tick()` schickt keinen Stapel mehr, den die
   Verbindung inzwischen per `setchart` abgelöst hat. Als Beitrag zu #77
   vorbereitet (Zweig `up/verlauf-stapel` auf `feature/verlauf-stapelbar`).
   Wachen: `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`,
+  `test_uhrseite_hochkant_zweite_flaeche_unten`,
   `test_verlauf_pane_verwirft_fremden_stapel`,
   `test_veralteter_stapel_kommt_nicht_hinterher`.
 
