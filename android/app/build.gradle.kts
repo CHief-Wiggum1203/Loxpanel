@@ -1,3 +1,8 @@
+// Bauzeit fuer bin/version.json. Importiert, weil "java" im Skript die
+// Java-Erweiterung des Projekts meint, nicht das Paket java.time.
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -125,7 +130,7 @@ tasks.register<Copy>("syncLoxpanelAssets") {
     // bin/version_info.py (Konfigurator, /api/health). Die App packt bin/ bei
     // jedem Update neu aus, die Datei kommt also immer mit dem Code.
     doLast {
-        val gebaut = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+        val gebaut = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         dest.resolve("bin/version.json").writeText(
             "{\"version\": \"${projektVersion.joinToString(".")}\", \"commit\": \"$loxCommit\", \"gebaut\": \"$gebaut\"}\n")
     }
