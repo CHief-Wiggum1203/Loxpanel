@@ -560,7 +560,10 @@ Prüfung). `/api/sip` nennt davon nur Adresse, Benutzer und `hasPass`, denn die
 Routen haben keine Anmeldung. Steht kein `host` darin, zeigt der Reiter SIP den
 Aufbau der gesicherten Details (`_gesichert_felder()`: Feldnamen und ob sie
 gefüllt sind, nie Werte), etwa „videoInfo: streamUrl, user, pass · audioInfo:
-leer“. Daran sieht man, ob der Miniserver überhaupt Audio kennt.
+leer“. Daran sieht man, ob der Miniserver überhaupt Audio kennt. Darunter steht,
+wo die Adresse hingehört: beim Baustein in Loxone Config, bei einer
+benutzerdefinierten Intercom „Host für Audio (lokal)“ (Zieladresse des
+SIP-Anrufs; die Loxone-App nutzt dasselbe Feld).
 `/api/sip/pruefen` nimmt aus der Anfrage nur die `uuid`. Adresse und Zugang
 kommen vom Miniserver, so geht die Anmeldung nur an die Türstation.
 

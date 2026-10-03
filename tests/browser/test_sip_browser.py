@@ -38,7 +38,8 @@ async def _karten(pg) -> list[dict]:
         zugang: [...k.querySelectorAll('.sipzug dd')].map(d => d.textContent),
         knopf: !!k.querySelector('.sip_pruefen'),
         fehler: (k.querySelector('.sipfehl') || {}).textContent || '',
-        diag: (k.querySelector('.sipdiag') || {}).textContent || ''}))""")
+        diag: (k.querySelector('.sipdiag') || {}).textContent || '',
+        hinweis: (k.querySelector('.siphinweis') || {}).textContent || ''}))""")
 
 
 async def _pruefen(pg) -> tuple[str, str]:
@@ -115,13 +116,17 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
 
     assert res["karten"] == [
         {"uuid": "IC", "name": "Eingang Intercom", "info": "Zentral · Loxone Intercom",
-         "zugang": [f"127.0.0.1:{res['port']}", "tuer", "vorhanden"], "knopf": True, "fehler": "", "diag": ""},
+         "zugang": [f"127.0.0.1:{res['port']}", "tuer", "vorhanden"], "knopf": True, "fehler": "", "diag": "",
+         "hinweis": ""},
         {"uuid": "IC2", "name": "Garten & <Tor>", "info": "Technikraum · Andere oder unbekannte Türstation",
-         "zugang": ["10.0.0.9", "–", "keins"], "knopf": True, "fehler": "", "diag": ""},
+         "zugang": ["10.0.0.9", "–", "keins"], "knopf": True, "fehler": "", "diag": "", "hinweis": ""},
         {"uuid": "IC3", "name": "Keller Intercom", "info": "Technikraum · Loxone Intercom XL",
          "zugang": [], "knopf": False, "fehler": "Die Intercom nennt keinen SIP-Zugang",
          "diag": "Gesicherte Details vom Miniserver: videoInfo: streamUrl, user, pass, alertImage (leer)"
-                 " · audioInfo: leer"}]
+                 " · audioInfo: leer",
+         "hinweis": "Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die"
+                    " Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“),"
+                    " in den Miniserver speichern und diesen Reiter neu öffnen."}]
     assert res["abrufe_laden"] == 3, "je Intercom eine verschluesselte Anfrage, nur einmal geladen"
     assert res["seite_mit_werten"] == [], "weder Passwoerter noch Werte aus den gesicherten Details"
     assert res["abrufe_doppelt"] == 3, "zwei Aufrufe zugleich laden nur einmal"
@@ -140,6 +145,8 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
     assert res["en_karten"][2]["fehler"] == "The intercom provides no SIP access"
     assert res["en_karten"][2]["diag"] == ("Secured details from the Miniserver: videoInfo: streamUrl, user, pass,"
                                            " alertImage (empty) · audioInfo: empty")
+    assert res["en_karten"][2]["hinweis"].startswith("Without a SIP address there is nothing to check.")
+    assert [k["hinweis"] for k in res["en_karten"][:2]] == ["", ""]
     assert res["en_knopf"] == "Check connection"
     assert res["en_angenommen"][1].startswith("✓ The door station answers and accepts the login.")
     assert "Response: 200 OK" in res["en_angenommen"][1]

@@ -379,6 +379,8 @@
       'Codecs:': 'Codecs:',
       'Methoden:': 'Methods:',
       'Gesicherte Details vom Miniserver:': 'Secured details from the Miniserver:',
+      'Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“), in den Miniserver speichern und diesen Reiter neu öffnen.':
+        'Without a SIP address there is nothing to check. In Loxone Config, enter the audio address at the block of this intercom (for a custom intercom “Host for audio (local)”), save to the Miniserver and reopen this tab.',
       'leer': 'empty',
       // Version in der Seitenleiste
       'Version unbekannt': 'Version unknown',
