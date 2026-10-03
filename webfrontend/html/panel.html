@@ -365,6 +365,51 @@
   .arow .arep{grid-row:2;grid-column:2/4;color:var(--muted);font-size:13px;text-align:left;}
   .arow.off{opacity:.5;}
   .arow.off .adot{background:var(--muted);}
+  /* Weckzeit antippbar (bearbeiten), vorn ein Schalter statt des Punkts */
+  .arow.tap{cursor:pointer;}
+  .arow .asw{grid-row:1/3;grid-column:1;position:relative;width:46px;height:28px;border-radius:14px;
+    background:rgba(var(--wash,255,255,255),.18);cursor:pointer;}
+  .arow .asw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+    background:var(--ink);transition:left .15s;}
+  .arow .asw.on{background:var(--accent);}
+  .arow .asw.on::after{left:21px;}
+  /* Wert mit -/+ (Laufzeit einer Zone, Dauern des Weckers) */
+  .stp{display:flex;align-items:center;gap:10px;background:var(--tile);border:1px solid var(--line);
+    border-radius:12px;padding:10px 12px;}
+  .stp .stpl{flex:1;min-width:0;text-align:left;font-weight:600;font-size:15px;}
+  .stp .stps{font-size:12.5px;font-weight:400;color:var(--muted);margin-top:2px;}
+  .stp .stpv{min-width:92px;text-align:center;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stp .sbtn{width:44px;height:44px;font-size:24px;touch-action:none;}
+  /* Formular (Weckzeit): Name, Uhrzeit, Tage */
+  .fld{display:flex;flex-direction:column;gap:6px;text-align:left;font-size:13px;color:var(--muted);}
+  .fld input{font:inherit;font-size:17px;color:var(--ink);background:var(--tile);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;min-width:0;}
+  .tpk{display:flex;justify-content:center;align-items:center;gap:8px;}
+  .tpc{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .tpc .sbtn{width:64px;height:40px;touch-action:none;}
+  .tpc .sbtn svg{width:22px;height:22px;}
+  .tpv{font-size:46px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .tpsep{font-size:46px;font-weight:600;line-height:1.1;}
+  .chipset{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .chipset .chp{min-width:46px;padding:10px 12px;border-radius:999px;border:1px solid var(--line);
+    background:var(--tile);font-weight:600;font-size:14px;text-align:center;cursor:pointer;
+    user-select:none;-webkit-user-select:none;}
+  .chipset .chp.on{background:linear-gradient(180deg,rgba(var(--on-rgb,224,162,77),.22),rgba(var(--on-rgb,224,162,77),.05));
+    border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--glow);}
+  .btn.dis{opacity:.4;pointer-events:none;}
+  .btn.arm{border-color:var(--crit);color:var(--crit);}
+  /* Antippen oeffnet eine Unterseite: Wischen darueber scrollt die Seite */
+  .btn.nav{touch-action:manipulation;}
+  /* Bilder verpasster Klingeln; Antippen zeigt eins gross */
+  .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+  .gal .gimg{margin:0;background:var(--tile);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    cursor:pointer;}
+  .gal .gimg img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#000;}
+  .gal .gimg figcaption{font-size:13.5px;padding:6px 8px;text-align:left;font-variant-numeric:tabular-nums;}
+  .galov{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.92);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;padding:12px;}
+  .galov img{max-width:100%;max-height:84%;object-fit:contain;border-radius:8px;}
+  .galov .gcap{color:#fff;font-size:15px;}
   .fav{flex:0 0 auto;width:88px;cursor:pointer;text-align:center;}
   .favc{width:88px;height:88px;border-radius:12px;overflow:hidden;background:rgba(var(--wash,255,255,255),.06);display:grid;place-items:center;color:var(--muted);}
   .favc img{width:100%;height:100%;object-fit:cover;}
@@ -549,8 +594,14 @@
   /* anchor:bottom (IRR/Klima): Anzeige oben zentriert, Bedienung unten fixiert.
      Aufklappende Auswahl steht im .panbot VOR den festen Zeilen -> waechst nach oben. */
   .grid.panel.anchorbot{justify-content:flex-start;gap:0;}
-  .grid.panel.anchorbot .pantop{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  .grid.panel.anchorbot .pantop{flex:1 0 auto;min-height:0;display:flex;flex-direction:column;
     justify-content:center;align-items:stretch;gap:10px;}
+  /* Hoeher als der Schirm (480x480 mit vielen Zeilen, panelEinpassen): Deko-Kreis
+     weg, grosser Wert kleiner wie bei Diagrammen. Reicht das nicht, scrollt die
+     Seite - .pantop schrumpft nicht unter seinen Inhalt, sonst ueberlappte er
+     die Bedienung darunter. */
+  .grid.panel.eng .hero{display:none;}
+  .grid.panel.eng .pbig{font-size:clamp(40px,10vw,56px);padding:2px 8px;}
   .grid.panel.anchorbot .panbot{flex:0 0 auto;display:flex;flex-direction:column;gap:10px;padding-top:8px;}
   .brow{display:flex;gap:10px;}
   .btn{flex:1;background:var(--tile);border:1px solid var(--line);border-radius:12px;
@@ -1286,9 +1337,14 @@ function sldFill(sld){ if(!sld)return;
   const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
   const p=max>min?((+sld.value-min)/(max-min))*100:0;
   sld.style.setProperty('--p', Math.max(0,Math.min(100,p))+'%'); }
+// Nachkommastellen einer Zahl (0.5 -> 1, 5 -> 0)
+function stellen(x){ const s=String(Math.abs(+x)), i=s.indexOf('.'); return i<0?0:s.length-i-1; }
+// Auf die Stellen der Schrittweite runden: 0,5er-Schritte bleiben 0,5er-Schritte
+// (frueher Math.round: 20 + 0,5 ergab 21), Rechenreste wie 20.000000000000004
+// fallen weg.
 function nudgeSld(sld,delta,valEl){ if(!sld)return;
   const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
-  let v=Math.round((+sld.value||0)+delta); v=Math.max(min,Math.min(max,v));
+  let v=+((+sld.value||0)+delta).toFixed(stellen(delta)); v=Math.max(min,Math.min(max,v));
   if(v===(+sld.value)) return;
   sld.value=v; sldFill(sld); if(valEl) valEl.textContent=v;
   if(sld._uuid&&sld._tmpl) send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',v)}); }
@@ -1303,12 +1359,105 @@ function endHold(){ if(holdRelease){ send({t:'cmd',uuid:holdRelease.uuid,cmd:hol
 window.addEventListener('pointerup', endHold);
 window.addEventListener('pointercancel', endHold);
 
-function bindCell(btn,c){ btn._cmd=c.cmd||null; btn._release=c.release||null; btn._hold=!!c.hold; btn._menu=c.menu||null; }
+// nav, form, confirm und back wirken erst beim Tippen (click), nicht schon beim
+// Aufsetzen des Fingers: sonst oeffnete ein Wischer ueber die Zonenliste eine
+// Zone, und "Löschen" braucht zwei echte Tipps.
+function bindCell(btn,c){ btn._cmd=c.cmd||null; btn._release=c.release||null; btn._hold=!!c.hold; btn._menu=c.menu||null;
+  btn._nav=c.nav||null; btn._form=c.form||null; btn._confirm=c.confirm||null; btn._back=!!c.back;
+  btn._tippen=!!(c.nav||c.form||c.confirm||c.back); }
+function cellCls(c){ return 'btn'+(c.icon?' icon':'')+(c.big?' big':'')+(c.menu?' toggler':'')+(c.on?' on':'')+(c.nav?' nav':''); }
 function cellHtml(c,i){
   const inner=c.icon?svgF(ICONS[c.icon]||ICONS.info):esc(c.label);
-  const cls='btn'+(c.icon?' icon':'')+(c.big?' big':'')+(c.menu?' toggler':'')+(c.on?' on':'');
-  return '<div class="'+cls+'" data-c="'+i+'">'+inner+'</div>';
+  return '<div class="'+cellCls(c)+'" data-c="'+i+'">'+inner+'</div>';
 }
+// Tipp auf eine Zelle mit nav/form/confirm/back. confirm: der erste Tipp fragt
+// nach (Beschriftung wird zur Rueckfrage), erst ein zweiter innerhalb von
+// ZELLE_BESTAETIGEN_MS fuehrt aus.
+const ZELLE_BESTAETIGEN_MS = 4000;
+function zelleTippen(g,btn){
+  if(btn._nav){ nav(btn._nav); return; }
+  if(btn._confirm && !btn._armed){
+    btn._armed=true; btn._label=btn.textContent; btn.textContent=btn._confirm; btn.classList.add('arm');
+    btn._armT=setTimeout(()=>{ btn._armed=false; btn.textContent=btn._label; btn.classList.remove('arm'); },ZELLE_BESTAETIGEN_MS);
+    return; }
+  clearTimeout(btn._armT);
+  if(btn._form){ const cmd=formBefehl(g,btn._form); if(cmd===null) return; sendCmd(btn._form.uuid,cmd,view&&view.secured); }
+  else if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured);
+  if(btn._back) back();
+}
+// ---- Formular (Weckzeit bearbeiten) ----
+// Felder tragen data-f (Name in der Befehlsvorlage). "Speichern" (form) setzt
+// ihre Werte ein: Text URL-kodiert, Uhrzeit in Sekunden ab Mitternacht,
+// Auswahl als Liste mit Komma. Ein leeres Feld oder keine Auswahl sperrt den
+// Knopf. Die Werte gehoeren der Visu, bis gespeichert ist: Ein Update vom
+// Server aendert sie nicht (blockSig ohne Werte).
+function formWerte(g){ const w={};
+  g.querySelectorAll('[data-f]').forEach(e=>{ const n=e.dataset.f;
+    if(e.tagName==='INPUT') w[n]=encodeURIComponent(e.value.trim());
+    else if(e.classList.contains('tpk')) w[n]=String(+e.dataset.v||0);
+    else if(e.classList.contains('chipset')) w[n]=[...e.querySelectorAll('.chp.on')].map(c=>c.dataset.v).join(',');
+  });
+  return w; }
+function formBefehl(g,form){ const w=formWerte(g); let cmd=form.tmpl;
+  for(const n in w){ if(w[n]==='') return null; cmd=cmd.split('{'+n+'}').join(w[n]); }
+  return cmd; }
+function formPruefen(g){ g.querySelectorAll('.btn').forEach(b=>{ if(b._form) b.classList.toggle('dis',formBefehl(g,b._form)===null); }); }
+// Taste mit Wiederholung: ein Schritt sofort, nach TASTE_HALTEN_MS gedrueckt
+// alle TASTE_TAKT_MS einer.
+const TASTE_HALTEN_MS = 450, TASTE_TAKT_MS = 110;
+function wiederholen(btn,fn){
+  let t1=null, t2=null;
+  const stop=()=>{ clearTimeout(t1); clearInterval(t2); t1=t2=null; };
+  btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); stop(); fn();
+    t1=setTimeout(()=>{ t2=setInterval(()=>{ if(btn.isConnected) fn(); else stop(); },TASTE_TAKT_MS); },TASTE_HALTEN_MS); });
+  ['pointerup','pointerleave','pointercancel'].forEach(n=>btn.addEventListener(n,stop));
+}
+function zeitSchritt(t,u,d){
+  const s=+t.dataset.v||0; let h=Math.floor(s/3600), m=Math.floor(s%3600/60);
+  if(u==='h') h=(h+d+24)%24; else m=(m+d+60)%60;
+  t.dataset.v=h*3600+m*60;
+  const p=n=>String(n).padStart(2,'0'), v=t.querySelectorAll('.tpv'); v[0].textContent=p(h); v[1].textContent=p(m); }
+function formBind(g){
+  g.querySelectorAll('.fld input').forEach(i=>i.addEventListener('input',()=>formPruefen(g)));
+  g.querySelectorAll('.tpk').forEach(t=>t.querySelectorAll('.tpc').forEach(c=>
+    c.querySelectorAll('.sbtn').forEach(b=>wiederholen(b,()=>zeitSchritt(t,c.dataset.u,+b.dataset.d)))));
+  g.querySelectorAll('.chipset').forEach(cs=>{ const multi=!!cs.dataset.multi;
+    cs.querySelectorAll('.chp').forEach(c=>c.addEventListener('click',()=>{
+      if(multi) c.classList.toggle('on'); else cs.querySelectorAll('.chp').forEach(x=>x.classList.toggle('on',x===c));
+      formPruefen(g); })); });
+  formPruefen(g);
+}
+// ---- Wert mit -/+ (Laufzeit einer Zone, Dauern des Weckers) ----
+// Die Visu zaehlt selbst weiter und schickt den Wert erst, wenn STP_SENDEN_MS
+// lang niemand tippt: Beim Durchtippen kommt so ein Befehl an statt zehn, und
+// kein Tipp geht verloren, weil die Antwort des Miniservers noch aussteht.
+// Bis STP_HALTEN_MS nach dem letzten Tipp zeigt sie ihren eigenen Wert.
+const STP_SENDEN_MS = 900, STP_HALTEN_MS = 3000;
+function dauerText(s){ s=Math.max(0,Math.round(+s||0)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), r=s%60;
+  if(!s) return '0 min'; if(h) return h+' h'+(m?' '+m+' min':''); if(m) return m+' min'+(r?' '+r+' s':''); return r+' s'; }
+function stpText(b,v){ return b.fmt==='dauer' ? dauerText(v) : b.fmt==='prozent' ? v+' %' : String(v); }
+function stepperBind(e,b){ e._b=b; e._v=+b.value||0;
+  e.querySelectorAll('.sbtn[data-st]').forEach(btn=>wiederholen(btn,()=>{
+    const bb=e._b, d=+btn.dataset.st, st=+bb.step||1;
+    const mn=bb.min!=null?+bb.min:-Infinity, mx=bb.max!=null?+bb.max:Infinity;
+    // Liegt der Wert schon ausserhalb der Grenzen, fuehrt ein Schritt nie weiter hinaus
+    let v=e._v+d*st;
+    v=d<0 ? Math.max(v,Math.min(mn,e._v)) : Math.min(v,Math.max(mx,e._v));
+    if(v===e._v) return;
+    e._v=v; e._lokal=Date.now(); e.querySelector('.stpv').textContent=stpText(bb,v);
+    clearTimeout(e._senden);
+    e._senden=setTimeout(()=>{ e._senden=null; const c=e._b.cmd;
+      if(c) sendCmd(c.uuid,c.tmpl.split('{v}').join(String(e._v)),view&&view.secured); },STP_SENDEN_MS);
+  }));
+}
+function stepperUpdate(e,b){ e._b=b;
+  if(e._senden || (e._lokal && Date.now()-e._lokal<STP_HALTEN_MS)) return;
+  e._v=+b.value||0; e.querySelector('.stpv').textContent=stpText(b,e._v); }
+// ---- Bild gross (verpasste Klingeln): Tippen schliesst ----
+function bildZeigen(it){ const s=document.querySelector('.screen'); if(!s) return;
+  const ov=document.createElement('div'); ov.className='galov';
+  ov.innerHTML='<img alt="" src="'+esc(it.src)+'"><div class="gcap">'+esc(it.label||'')+'</div>';
+  ov.addEventListener('click',()=>ov.remove()); s.appendChild(ov); }
 function closeMenu(){ const m=document.querySelector('.menuov'); if(m)m.remove(); }
 // Auswahl-Popup ueber einem Button (Klima Modus/Fan): oeffnet nach oben, Tipp
 // daneben schliesst. Auswahl sendet den Befehl und schliesst.
@@ -1349,8 +1498,11 @@ function blockSig(blocks){
   return blocks.filter(b=>b.k!=='more').map(b=>
     b.k==='row' ? 'row'+b.cells.length+(b.hidden?'h':'')
     : b.k==='favs' ? 'favs'+(b.items?b.items.length:0)
-    : b.k==='alarmlist' ? 'alarm'+((b.entries&&b.entries.length)?1:0)
+    : b.k==='alarmlist' ? 'alarm'+JSON.stringify(b.entries||[])
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
+    : b.k==='stepper' ? 'stp'+(b.cmd?1:0)+(b.sub?1:0)
+    : b.k==='chips' ? 'chips'+(b.multi?'m':'')+(b.items?b.items.length:0)
+    : b.k==='gallery' ? 'gal'+(b.items||[]).map(i=>i.src).join(',')
     : b.k).join('|');
 }
 // ---- Verlaufs-Diagramme (Block k:'chart'). Die Daten stammen aus den
@@ -1606,6 +1758,7 @@ function paintCharts(g,blocks){
 function renderPanel(blocks){
   stopVideo();
   closeMenu();
+  document.querySelectorAll('.galov').forEach(o=>o.remove());
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
@@ -1641,14 +1794,30 @@ function renderPanel(blocks){
     if(b.k==='favs') return '<div class="favs'+(b.wrap?' wrap':'')+'">'+b.items.map((f,i)=>'<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+'</div><div class="favn">'+esc(f.label)+'</div></div>').join('')+'</div>';
     if(b.k==='alarmlist'){
       if(!b.entries||!b.entries.length) return '<div class="status alist-empty">Keine Weckzeiten angelegt</div>';
-      return '<div class="alist">'+b.entries.map(e=>
-        '<div class="arow'+(e.active?'':' off')+'">'+
-          '<span class="adot"></span>'+
+      return '<div class="alist">'+b.entries.map((e,i)=>
+        '<div class="arow'+(e.active?'':' off')+(e.nav?' tap':'')+'" data-a="'+i+'">'+
+          (e.cmd?'<span class="asw'+(e.active?' on':'')+'"></span>':'<span class="adot"></span>')+
           '<span class="anm">'+esc(e.name)+'</span>'+
           '<span class="atime">'+esc(e.hm)+'</span>'+
           (e.repeat?'<span class="arep">'+esc(e.repeat)+'</span>':'')+
         '</div>').join('')+'</div>';
     }
+    if(b.k==='stepper') return '<div class="stp"><div class="stpl">'+esc(b.label||'')+
+        (b.sub?'<div class="stps">'+esc(b.sub)+'</div>':'')+'</div>'+
+        (b.cmd?'<button type="button" class="sbtn" data-st="-1">−</button>':'')+
+        '<span class="stpv">'+esc(stpText(b,b.value))+'</span>'+
+        (b.cmd?'<button type="button" class="sbtn" data-st="1">+</button>':'')+'</div>';
+    if(b.k==='field') return '<label class="fld">'+esc(b.label||'')+
+        '<input type="text" autocomplete="off" data-f="'+esc(b.name)+'" value="'+esc(b.value||'')+'"></label>';
+    if(b.k==='timepick'){ const z=(+b.value||0)%86400, p=n=>String(n).padStart(2,'0');
+      const teil=(u,v)=>'<div class="tpc" data-u="'+u+'"><button type="button" class="sbtn" data-d="1">'+svg(ICONS.up)+
+        '</button><span class="tpv">'+p(v)+'</span><button type="button" class="sbtn" data-d="-1">'+svg(ICONS.down)+'</button></div>';
+      return '<div class="tpk" data-f="'+esc(b.name)+'" data-v="'+z+'">'+teil('h',Math.floor(z/3600))+
+        '<span class="tpsep">:</span>'+teil('m',Math.floor(z%3600/60))+'</div>'; }
+    if(b.k==='chips') return '<div class="chipset" data-f="'+esc(b.name)+'"'+(b.multi?' data-multi="1"':'')+'>'+
+        (b.items||[]).map(c=>'<div class="chp'+(c.on?' on':'')+'" data-v="'+esc(String(c.v))+'">'+esc(c.label)+'</div>').join('')+'</div>';
+    if(b.k==='gallery') return '<div class="gal">'+(b.items||[]).map((it,i)=>'<figure class="gimg" data-g="'+i+'">'+
+        '<img loading="lazy" alt="" src="'+esc(it.src)+'"><figcaption>'+esc(it.label||'')+'</figcaption></figure>').join('')+'</div>';
     return '';
   };
   if(anchorBot){
@@ -1685,11 +1854,28 @@ function renderPanel(blocks){
       bindCell(btn,c);
       btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
         if(btn._menu){ openMenu(btn,btn._menu); return; }
+        if(btn._tippen) return;
         if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured);
         if(btn._hold) holdRelease=btn._release||null;
       });
+      btn.addEventListener('click',()=>{ if(btn._tippen && !btn._menu) zelleTippen(g,btn); });
     });
   }
+  // Werte mit -/+, Formular (Weckzeit), Bilder, Weckzeiten-Liste
+  const stps=[...g.querySelectorAll('.stp')];
+  blocks.filter(b=>b.k==='stepper').forEach((b,i)=>{ if(stps[i]) stepperBind(stps[i],b); });
+  formBind(g);
+  const gb=blocks.find(b=>b.k==='gallery');
+  if(gb) g.querySelectorAll('.gal .gimg').forEach(n=>{
+    // Bild fehlt beim Miniserver: dunkle Flaeche statt Symbol fuer kaputtes Bild
+    const img=n.querySelector('img'); if(img) img.addEventListener('error',()=>{ img.style.visibility='hidden'; });
+    n.addEventListener('click',()=>{ const it=gb.items[+n.dataset.g]; if(it) bildZeigen(it); }); });
+  const ab=blocks.find(b=>b.k==='alarmlist');
+  if(ab&&ab.entries) g.querySelectorAll('.arow[data-a]').forEach(n=>{ const e=ab.entries[+n.dataset.a]; if(!e) return;
+    const sw=n.querySelector('.asw');
+    if(sw&&e.cmd) sw.addEventListener('click',ev=>{ ev.stopPropagation(); sw.classList.toggle('on');
+      sendCmd(e.cmd.uuid,e.cmd.cmd,view&&view.secured); });
+    if(e.nav) n.addEventListener('click',()=>nav(e.nav)); });
   const fb=blocks.find(b=>b.k==='favs'); const fe=g.querySelector('.favs');
   if(fb&&fe){ fe.querySelectorAll('.fav').forEach(n=>{ const f=fb.items[+n.dataset.f]; if(!f)return;
     // Wie die Tasten auf der Kachel erst beim Tippen: die Favoriten liegen im
@@ -1697,6 +1883,12 @@ function renderPanel(blocks){
     n.addEventListener('click',()=>{ if(f.cmd){ send({t:'cmd',uuid:f.cmd.uuid,cmd:f.cmd.cmd}); back(); } }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
   renderTabs();
+  panelEinpassen();
+}
+function panelEinpassen(){
+  const g=el('grid'); if(!g.classList.contains('panel')) return;
+  g.classList.remove('eng');
+  if(g.scrollHeight>g.clientHeight+1) g.classList.add('eng');
 }
 function updatePanel(blocks){
   const g=el('grid');
@@ -1722,11 +1914,15 @@ function updatePanel(blocks){
   paintCharts(g,blocks);   // Verlauf nachgeladen oder Fenster vorgerueckt: neu zeichnen, Knoepfe bleiben
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
-      if(c.icon){ btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info); btn.className='btn icon'+(c.big?' big':'')+(c.on?' on':''); }
-      else { btn.textContent=c.label; btn.className='btn'+(c.menu?' toggler':'')+(c.on?' on':''); }
+      if(c.icon) btn.innerHTML=svgF(ICONS[c.icon]||ICONS.info);
+      else if(btn._armed) btn._label=c.label;     // Rueckfrage bleibt stehen
+      else btn.textContent=c.label;
+      btn.className=cellCls(c)+(btn._armed?' arm':'');
       bindCell(btn,c);
     });
   });
+  nth('stepper','.stp',(e,b)=>stepperUpdate(e,b));
+  formPruefen(g);
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
@@ -2328,6 +2524,7 @@ window.addEventListener('resize',()=>{
   // 2x2 statt in der Startmessung 4x2 haengenzubleiben.
   if(view && !el('grid').classList.contains('scheme')
      && rasterKey(_lastWidget) !== _lastRaster) render();
+  panelEinpassen();
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
@@ -3238,7 +3435,8 @@ function resetIdle(){ clearTimeout(idleTimer);
   idleTimer=setTimeout(nachRuhe, SAVER_IDLE_MS);
   armDpms(); }
 el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); nightWake(); hideSaver(); resetIdle(); });
-['pointerdown','keydown','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ nightWake(); if(!saverOn()) resetIdle(); }, {passive:true}));
+// input: Android-Tastaturen melden nicht jedes Zeichen als keydown (Name einer Weckzeit)
+['pointerdown','keydown','input','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ nightWake(); if(!saverOn()) resetIdle(); }, {passive:true}));
 // ---- Nachtmodus: Panel abdunkeln ----
 // Tag/Nacht meldet der Server ({t:"night"}), Staerke und Aufhelldauer kommen je
 // Panel im theme. Gedimmt wird ueber eine schwarze Auflage statt per CSS-Filter:

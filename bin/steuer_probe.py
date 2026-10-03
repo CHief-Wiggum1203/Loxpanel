@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Verifikation offener Setz-/Steuerbefehle an der echten Anlage.
+"""Steuerbefehle an der echten Anlage nachpruefen.
 
-Deckt die zwei Bausteine ab, deren Steuerbefehle nach der Struktur-Analyse noch
-NICHT belegt sind (die Loxone-Struktur liefert die States, aber nicht die
-Schreibbefehle bzw. deren Zonen-Nummerierung):
+LoxPanel sendet seit 03.10.2026, was die Loxone-Strukturdoku (Stand 16.0) und
+die Wissensdatenbank angeben. Dieses Skript prueft an der eigenen Anlage nach,
+ob der Miniserver es so annimmt:
 
-  --updown : UpDownAnalog – prueft, ob sich der Zielwert per Roh-Wert
-             (sps/io/<uuid>/<wert>) setzen laesst; falls nein, testet es die
+  --updown : UpDownAnalog – laut Doku ist der Befehl der Wert selbst
+             (sps/io/<uuid>/<wert>). Prueft das; wirkt er nicht, testet es die
              Auf/Ab-Puls-Befehle (UpOn/UpOff/DownOn/DownOff) wie bei
              UpDownDigital. Harmlos (Beschattungs-/Analogwert), wird
              zurueckgesetzt.
-  --zones  : Irrigation – klaert die Zonen-Nummerierung: select/1 setzen und
-             am State currentZone ablesen, ob 0- oder 1-basiert. ACHTUNG: das
-             laesst KURZ echtes Wasser laufen; direkt danach wird stop + select/0
-             gesendet. Nur ausfuehren, wenn das ok ist.
+  --zones  : Irrigation – laut Doku ist select/1 die Zone mit id 0, also
+             currentZone 0 (siehe IRR_SELECT_* in webvisu.py). Sendet select/1
+             und liest currentZone ab. ACHTUNG: das laesst KURZ echtes Wasser
+             laufen; direkt danach wird stop + select/0 gesendet. Nur
+             ausfuehren, wenn das ok ist.
 
 Ohne --write laeuft ein TROCKENLAUF (zeigt nur, was getestet wuerde).
 Mindestens eines von --updown / --zones angeben.

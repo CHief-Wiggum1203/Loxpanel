@@ -267,7 +267,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
 | `t` | Inhalt |
 |---|---|
-| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`) |
+| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
@@ -280,8 +280,27 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
 
 `hero`, `cover`, `video`, `web`, `status`, `title`, `value`, `big`, `astat`,
 `slider`, `row` (mit `cells`, Varianten `transport`, `wrap`, `hidden`), `head`,
-`favs`, `alarmlist`, `chart`, `more`. Zellen innerhalb `row`: `cmd`,
-`hold`+`release`, `menu`, `icon`, `big`, `on`, `label`.
+`favs`, `alarmlist`, `chart`, `more`, `stepper`, `field`, `timepick`, `chips`,
+`gallery`. Zellen innerhalb `row`: `cmd`, `hold`+`release`, `menu`, `icon`,
+`big`, `on`, `label`, `nav`, `form`, `confirm`, `back`.
+
+- `alarmlist`: Einträge mit `name`, `hm`, `active`, `repeat`; mit `cmd` steht
+  vorn ein Schalter (schaltet, öffnet nichts), mit `nav` öffnet ein Tipp auf die
+  Zeile die Unterseite.
+- `stepper`: Wert mit −/+ (`label`, `value`, `step`, `min`, `max`, `fmt`
+  `dauer` oder `prozent`, `sub`). Ohne `cmd` nur Anzeige. Die Visu zählt selbst
+  und schickt `cmd.tmpl` mit `{v}` erst, wenn 0,9 s niemand tippt
+  (`STP_SENDEN_MS`); gedrückt halten zählt weiter.
+- Formular: `field` (Text), `timepick` (Uhrzeit in Sekunden ab Mitternacht) und
+  `chips` (Auswahl, `multi` für mehrere) tragen je einen `name`. Eine Zelle mit
+  `form` (`uuid`, `tmpl`) setzt beim Tippen deren Werte für `{name}` ein: Text
+  URL-kodiert, Auswahl mit Komma. Ist ein Feld leer oder nichts gewählt, bleibt
+  sie gesperrt. Die Werte gehören der Visu, bis gespeichert ist; Updates vom
+  Server ändern sie nicht.
+- Zellen mit `nav`, `form`, `confirm` oder `back` wirken beim Tippen (`click`),
+  nicht beim Aufsetzen des Fingers. `confirm` fragt beim ersten Tipp nach,
+  `back` geht nach dem Befehl eine Seite zurück.
+- `gallery`: Bilder (`src`, `label`); ein Tipp zeigt eins groß.
 
 `chart` (Verlaufs-Diagramm) trägt `kind` (`line`, `digital`, `counter`), `unit`,
 `t0`/`t1`, `series[]` (`name`, `dec`, `pts` als `[sekunden, wert]`) und `state`
@@ -533,6 +552,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/icon?p=` | `icon_handler` | Loxone-Icon-Proxy, 24 h Cache | Visu, Konfigurator |
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
 | GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation | Visu |
+| GET | `/bellimg?id=&ts=` | `bellimg_handler` | Bild einer verpassten Klingel (`camimage/{uuidAction}/{ts}` vom Miniserver), 24 h Cache, die letzten `BELL_CACHE_MAX` im Speicher | Visu |
 | GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket | Visu |
 
 ### Parameter an der Panel-URL
@@ -779,6 +799,40 @@ sichtbar, aber tot. Welche Typen der eigenen Anlage betroffen sind, zeigt
 `/api/types` (`App.types_overview()`, Status aus dem Rendering abgeleitet,
 `PARTIAL_TYPES` markiert die teilweise umgesetzten).
 
+**Bedienung nach der Loxone-Strukturdoku.** Befehle und Bedeutung der States
+stehen in der Strukturdoku von Loxone („Structure File“, Stand 16.0,
+`loxone.com/wp-content/uploads/datasheets/StructureFile.pdf`), Grenzen und
+Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
+
+- **UpDownAnalog** („UpDownLeftRight analog“): Befehl ist der Wert selbst,
+  zwischen `details.min` und `details.max`, −/+ um `details.step`. Dieselbe
+  Detailseite wie der Slider (State `error` → „Ungültiger Wert“).
+- **Irrigation:** `zones[].id` zählt ab 0, `currentZone` ist −1 (aus), die id
+  der laufenden Zone oder 8 (alle). `select` folgt dem Eingang „Sel“ des
+  Bausteins (Ventil 1..8, 0 alle aus, 9 alle an), eine Zone startet also mit
+  `select/{id+1}` (`IRR_SELECT_*`). Laufzeit `setDuration/{id}={Sekunden}`, nicht
+  bei `setByLogic`. Die Zone hat eine Unterseite (`irrzone`).
+- **AlarmClock:** `entryList/put/{entryID}/{name}/{alarmTime}/{isActive}/{modes|daily}`
+  schreibt einen Eintrag, `entryList/delete/{entryID}` löscht ihn. Einträge mit
+  `nightLight` kennen nur `daily` (einmalig/täglich), die übrigen Betriebsarten:
+  3..9 sind Montag bis Sonntag, 0..2 (Feiertag, Urlaub, freie Tage) haben Vorrang
+  (`WECKER_*`). Eine neue Weckzeit bekommt die kleinste freie ID. Kommt
+  `entryList` als Liste ohne IDs, wird nur angezeigt. Dauern per
+  `setSnoozeDuration` (60..1800 s), `setRingDuration`, `setPrepDuration`; mit
+  Touch Nightlight (`deviceState` 1 oder 2) auch Wecksound, lauter werdend,
+  Signalton, Lautstärke und Helligkeit. `isEnabled` 0 (Eingang DisA) zeigt
+  „Ausgeschaltet“.
+- **Intercom:** `answer` stellt die Klingel ab. `lastBellEvents` (JJJJMMTTHHMMSS,
+  mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
+  `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
+  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) fehlt, darum bleibt der Typ
+  in `PARTIAL_TYPES`.
+
+Die Bausteine dazu stehen in `tests/lox.py` (`aufab_baustein`,
+`bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`), die Tests in
+`tests/test_auf_ab_wert.py`, `test_bewaesserung.py`, `test_wecker.py`,
+`test_intercom.py` und `tests/browser/test_bausteine_browser.py`.
+
 **Adapter:** `adapters.py` war als Erweiterungsmuster gedacht. Der Server nutzt
 nur die zwei konkreten Klassen als Modul-Globals `LIGHT` und `JAL`. Die Registry
 `get_adapter()` wird nicht abgefragt. Neue Typen gehören in die beiden Ketten,
@@ -794,11 +848,18 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 ### 7.1 `panel.html` (Visu, 772 Zeilen)
 
 - Spricht ausschließlich über den WebSocket, kein einziger `fetch`. Bilder kommen
-  über `/icon`, `/cover`, `/mjpeg`.
+  über `/icon`, `/cover`, `/mjpeg`, `/bellimg`.
 - Zwei Renderer: `render()` (`:597`) für Kachelraster aus `items[]`,
   `renderPanel()` (`:472`) für Detailseiten aus `blocks[]`, dazu `updatePanel()`
   (`:550`) als Delta-Update, das bei Live-Werten nur Texte und Slider anfasst.
 - Block-Rendering in `bh()` (`:486-516`), ein Zweig je `k`.
+- Detailseite höher als der Schirm (480×480 mit vielen Zeilen): `panelEinpassen()`
+  setzt nach jedem Neuaufbau und beim Drehen `eng`, dann fallen Deko-Kreis
+  (`hero`) und Größe des großen Werts weg wie bei Diagramm-Seiten. Reicht das
+  nicht, scrollt die Seite. Der obere Teil einer `anchor:bottom`-Seite schrumpft
+  nicht unter seinen Inhalt (`.pantop{flex:1 0 auto}`); früher schob er sich
+  unter die Bedienung (Sauna mit vielen Statuszeilen). Geprüft in
+  `test_volle_seite_ueberlappt_nicht`.
 - Kachel-Grid über CSS-Variablen `--cols`/`--rows` (2×2, 3×2, 4×3), Kachelgröße
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
 - Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):

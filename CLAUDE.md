@@ -96,6 +96,11 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   beschreibt nur („Türsprechanlage“), `subInfo=True` setzen, sonst steht sie
   im neuen Kachel-Aufbau groß vorn. Schriftgrößen ohne Einstellung stehen
   einmal in `GROESSEN_STANDARD`, nicht in `load_theme()` oder der Vorlage.
+- Detailseiten-Blöcke (Vokabular in `docs/ARCHITEKTUR.md` §3.7): Ändert der
+  Inhalt eines Blocks seine Gestalt, gehört er in `blockSig()` der Visu, sonst
+  patcht `updatePanel()` ihn nie und er friert ein. Befehle und State-Bedeutung
+  eines Bausteins aus der Loxone-Strukturdoku („Structure File“), nicht
+  raten; Unterseiten (Zone, Weckzeit …) sind eigene `view`-Routen in `render()`.
 - `loxpanel.cfg` aus `/config` (Settings → Miniserver) hat Vorrang vor
   `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und

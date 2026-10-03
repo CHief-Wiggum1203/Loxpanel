@@ -873,6 +873,25 @@ Strukturdatei (`LoxAPP3.json`) des Miniservers ablesen.
       (voll / teilweise / keine), State-Namen und `details`-Schlüsseln je Typ
       sowie die toten Kacheln mit Raum. `?format=text` für den Browser, Link
       unter *Einstellungen → Miniserver*. **S**
+- [ ] **Bedienung der vier neuen Bausteine an der Anlage prüfen** (seit
+      03.10.2026, Befehle aus der Loxone-Strukturdoku, Stand 16.0, und der
+      Wissensdatenbank; an einem echten Miniserver noch nicht gesehen):
+      Bewässerung eine Zone starten und stoppen: läuft die richtige? Laut Doku
+      ist die Zone mit `id` 0 `select/1`; wenn nicht, `IRR_SELECT_*` in
+      `bin/webvisu.py` und `select/{id+1}` in `_view_irr_zone()` anpassen
+      (`bin/steuer_probe.py --zones --write` misst es, lässt aber kurz Wasser
+      laufen). Laufzeit einer Zone ändern und in der Loxone-App nachsehen
+      (`setDuration/{id}`). Wecker: Weckzeit aus- und einschalten, Uhrzeit,
+      Tage und Namen ändern, neue anlegen, löschen, Schlummerdauer. Intercom:
+      verpasste Klingeln mit Bildern, „Klingel abstellen“ beim Klingeln.
+      UpDownAnalog: −/+ bei „2=Opt. Helligkeit 3= Opt. Kühlung“. **S**
+- [ ] **Gesperrte Bedienung anzeigen (`jLocked`)**: Laut Strukturdoku kann
+      jeder Baustein mit `details.jLockable` gesperrt sein; der Text-State
+      `jLocked` ist dann ein JSON mit `locked` (1 = per Visu, 2 = per Logik)
+      und `reason`. LoxPanel wertet das bei keinem Typ aus: Kachel und
+      Detailseite sollten „Gesperrt“ samt Grund zeigen und keine Befehle
+      anbieten. Betrifft alle Typen, an der eigenen Anlage u. a. Wecker,
+      Bewässerung, Intercom und UpDownAnalog. **M**
 - [ ] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
       Untertitel „Typ nicht unterstützt" statt leerer Kachel, und die Kachel
       per `hide` ausblendbar lassen. **S**
@@ -953,9 +972,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
       erwarteter Niederschlag als Anzeige; Bedienung Start/Erzwingen/Stopp und
       alle Zonen an/aus (`start`/`startForce`/`stop`/`select/9`/`select/0`, aus
-      der Loxone-Structure-File-Doku). Offen: Auswahl EINZELNER Zonen
-      (`select/<n>`) — Zonennummerierung mit `bin/steuer_probe.py --zones`
-      an der Anlage klären. **M**
+      der Loxone-Structure-File-Doku). Seit 03.10.2026 auch jede Zone einzeln:
+      eigene Seite mit Starten/Stoppen und Laufzeit (−/+). Die Nummerierung
+      steht jetzt fest: `zones[].id` zählt ab 0 (Strukturdoku), `select`
+      folgt dem Eingang „Sel“ des Bausteins (Wissensdatenbank: Ventil 1..8),
+      also `select/{id+1}`; die Laufzeit setzt `setDuration/{id}={Sekunden}`,
+      nicht bei `setByLogic`. Dazu Regen der letzten 24 h und die Grenze für
+      den erwarteten Niederschlag. An der Anlage prüfen, siehe 8.1. **M**
 - [ ] `AlarmChain`, `AalEmergency`, `AalSmartAlarm` (Alarmkette, Notfall,
       Smart Alarm): Zustand und Quittieren nach dem Muster von `Alarm`. **S**
 - [x] `MailBox` (Briefkasten): Post da / Paket da / leer als Anzeige.
@@ -966,7 +989,7 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [ ] `Application`, `MsShortcut`: Verknüpfungen, in der Visu ausblenden statt
       tote Kachel. **S**
 
-### 8.4 Nur teilweise umgesetzt (6)
+### 8.4 Nur teilweise umgesetzt (noch 3 offen)
 
 - [x] `AudioZoneV2` (Loxone Audioserver Gen 2, gekoppelt): vollständig.
       Play/Pause/Skip und Lautstärke laufen über den Miniserver (`sps/io`),
@@ -985,18 +1008,26 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Audioserver (`paired is False`). Am gekoppelten Audioserver läuft die
       Steuerung bewusst über den Miniserver (`sps/io`); so seit dem Fix der
       Paired-Weiche. **M**
-- [ ] `AlarmClock` (Wecker): Anzeige + Weckton; beim Klingeln Schlummer
-      (`snooze`) und Aus (`dismiss`). Offen: Master-Ein/Aus (`setActive`, zu
-      verifizieren) und Bearbeiten/Anlegen der Weckzeiten (braucht Zeit-/
-      Wochentag-Picker im Frontend, eigenes Feature). **M/L**
+- [x] `AlarmClock` (Wecker): Anzeige + Weckton; beim Klingeln Schlummer
+      (`snooze`) und Aus (`dismiss`). Seit 03.10.2026 vollständig nach der
+      Strukturdoku: je Weckzeit ein Schalter, Bearbeiten von Name, Uhrzeit und
+      Tagen (Mo–So, dazu Feiertag/Urlaub aus den Betriebsarten der Anlage),
+      neue Weckzeit, Löschen mit Rückfrage (`entryList/put`,
+      `entryList/delete`); Einstellungen für Schlummerdauer, maximale
+      Weckdauer und Vorweckzeit, mit Touch Nightlight auch Wecksound, lauter
+      werdend, Signalton, Lautstärke und Helligkeit. Ein Master-Ein/Aus gibt
+      es laut Doku nicht: der Eingang DisA schaltet per Logik ab, die Visu
+      zeigt dann „Ausgeschaltet“. **M/L**
 - [ ] `Intercom`: Kamera, Live-Klingelanzeige (`bell`) auf Kachel/Detail,
-      Tür/Ausgänge öffnen (`pulse` je Sub-Control). Offen: Gegensprechen (SIP,
-      eigener Medien-Stack), Klingel-Historie mit Vorschaubildern (neue
-      Bild-Route, Format an der Anlage zu prüfen). **L**
+      Tür/Ausgänge öffnen (`pulse` je Sub-Control). Seit 03.10.2026 dazu
+      „Klingel abstellen“ (`answer`) und die verpassten Klingeln
+      (`lastBellEvents`) mit Bildern (`camimage/{uuidAction}/{Zeitstempel}`
+      über `/bellimg`). Offen: Gegensprechen (SIP, eigener Medien-Stack). **L**
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
-- [ ] `UpDownAnalog`: nur Anzeige. Setz-Befehl noch nicht belegt (Roh-Wert vs.
-      Auf/Ab-Puls unklar) — mit `bin/steuer_probe.py --updown` an der Anlage
-      klären, dann Steuerung bauen. **S**
+- [x] `UpDownAnalog`: seit 03.10.2026 bedienbar. Laut Strukturdoku
+      („UpDownLeftRight analog“) ist der Befehl der Wert selbst, zwischen
+      `details.min` und `details.max`; −/+ um `details.step`, dieselbe
+      Detailseite wie der Slider. **S**
 - [ ] `Ventilation` (Lüftung): nur Stufe anzeigen, kein Umschalten. **S**
 
 ## 9. Weitere Funktionen

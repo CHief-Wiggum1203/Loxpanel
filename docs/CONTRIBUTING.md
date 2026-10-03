@@ -188,6 +188,17 @@ nicht unbemerkt entfernt:
   `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
   *Auto-Neustart* in `config.html`): kann zu Lenardo. Wachen:
   `tests/test_neuladen.py`, `tests/browser/test_neuladen_browser.py`.
+- Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
+  Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
+  Klingeln des Intercoms samt `/bellimg`, UpDownAnalog wie der Slider. Dazu die
+  neuen Blöcke `stepper`, `field`, `timepick`, `chips`, `gallery` und die
+  Zellen mit `nav`/`form`/`confirm`/`back` in `panel.html`, `panelEinpassen()`
+  und `.pantop{flex:1 0 auto}` für volle Detailseiten, die Rundung von
+  `nudgeSld()`. Kann zu Lenardo, reibt sich bei Upstream-Merges an
+  `_control_item()`, `_view_control_inner()`, `renderPanel()` und
+  `updatePanel()`. Wachen: `tests/test_auf_ab_wert.py`,
+  `tests/test_bewaesserung.py`, `tests/test_wecker.py`,
+  `tests/test_intercom.py`, `tests/browser/test_bausteine_browser.py`.
 - Stabilität der LoxPanel-App (`Waechter.kt`, Wächter und einmaliger Start in
   `ServerService`, `onRenderProcessGone` und `HaengerWaechter` in
   `KioskActivity`): kann zu Lenardo, aber nur zusammen mit `/api/health`, das
