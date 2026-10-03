@@ -59,6 +59,10 @@ def _im_konfigurator(skript: str):
 
 
 def test_verlauf_als_split_haelfte():
+    """Verlauf als Pane 2: ein oder mehrere Bausteine mit Aufzeichnung (seit
+    Lenardos #77 gestapelt), gewaehlt wie bei den Werten. Die Art waehlt den
+    ersten Baustein mit Aufzeichnung vor, weitere kommen ueber "hinzufuegen"
+    dazu, ein Tipp auf den Chip nimmt einen heraus."""
     res = _im_konfigurator("""async () => {
         cur = 'test'; const p = PANELS[cur]; p.ui = p.ui || {};
         document.body.insertAdjacentHTML('beforeend', '<div id="paneField"><div id="panePerTab"></div></div>');
@@ -66,17 +70,23 @@ def test_verlauf_als_split_haelfte():
         const sel = document.querySelector('select[data-pane="favoriten"]');
         const arten = [...sel.options].map(o => o.value);
         sel.value = 'chart'; sel.onchange();
-        const sub = document.querySelector('select[data-panev="favoriten"]');
-        const auswahl = [...sub.options].map(o => o.textContent);
-        sub.value = 'P'; sub.onchange();
-        return {arten, auswahl, panes: JSON.parse(JSON.stringify(p.ui.panes))}; }""")
+        const erst = JSON.parse(JSON.stringify(p.ui.panes));
+        const dazu = () => document.querySelector('.pchart-add[data-pk="favoriten"]');
+        const auswahl = [...dazu().options].map(o => o.textContent);
+        dazu().value = 'R'; dazu().onchange();
+        const zwei = JSON.parse(JSON.stringify(p.ui.panes));
+        const chips = [...document.querySelectorAll('.chip[data-cu][data-pk="favoriten"]')].map(c => c.dataset.cu);
+        document.querySelector('.chip[data-cu="P"][data-pk="favoriten"]').onclick();
+        return {arten, erst, auswahl, zwei, chips, panes: JSON.parse(JSON.stringify(p.ui.panes))}; }""")
     assert "chart" in res["arten"]
+    assert res["erst"] == {"favoriten": "chart:P"}
     # nur Bausteine mit Aufzeichnung, sortiert nach Raum, dann Name
-    assert res["auswahl"] == ["PV Anlage (Technikraum)", "Stromzähler (Technikraum)", "Regen (Zentral)",
-                              "Temp. Boiler (Zentral)"]
-    assert res["panes"] == {"favoriten": "chart:P"}
-    gespeichert = W.App._sanitize_panels({"t": {"title": "T", "tabs": ["favoriten"], "ui": {"panes": res["panes"]}}})
-    assert gespeichert["t"]["ui"]["panes"] == {"favoriten": "chart:P"}
+    assert res["auswahl"] == ["＋ hinzufügen …", "PV Anlage (Technikraum)", "Stromzähler (Technikraum)",
+                              "Regen (Zentral)", "Temp. Boiler (Zentral)"]
+    assert res["zwei"] == {"favoriten": "chart:P,R"} and res["chips"] == ["P", "R"]
+    assert res["panes"] == {"favoriten": "chart:R"}
+    gespeichert = W.App._sanitize_panels({"t": {"title": "T", "tabs": ["favoriten"], "ui": {"panes": res["zwei"]}}})
+    assert gespeichert["t"]["ui"]["panes"] == {"favoriten": "chart:P,R"}
 
 
 def test_kachel_verlauf_stil_und_zeitraum():

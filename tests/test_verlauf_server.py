@@ -168,3 +168,32 @@ def test_panel_optionen_speichern():
     assert p["ui"]["panes"] == {"favoriten": "chart:P"}
     assert p["tiles"] == {"T": {"chart": "24h", "chartStyle": "pattern"}, "P": {"chart": "7d"}, "Q": {"chart": "7d"}}
     assert W._clean_tabpane("chart:P") == "chart:P" and W._clean_tabpane("chart:") == ""
+
+
+def test_mehrere_bausteine_gestapelt(miniserver_http):
+    """Verlaufs-Pane mit mehreren Bausteinen (Lenardos #77): je Baustein Name,
+    Wert und Diagramme in der gewaehlten Reihenfolge, ein Zeitraum fuer alle.
+    Bausteine ohne Aufzeichnung oder unbekannte fallen still weg."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = neue_app(ms)
+        try:
+            app.controls = v1_bausteine(ms, JETZT)
+            app.states = {"sv": 57.3, "sa": 0.6, "st": 1024.5, "sr": 0, "sx": 5}
+            st = app.chart_stack(("R", "T", "X", "gibtsnicht"), "7d")
+            assert st["controls"] == ["R", "T"] and [c["name"] for c in st["charts"]] == ["Regen", "Boiler"]
+            assert st["range"] == "7d" and [r[0] for r in st["ranges"]] == list(W.STAT_RANGES)
+            assert all(b["k"] == "chart" for c in st["charts"] for b in c["blocks"])
+            assert app.chart_stack(("T",), "quatsch")["range"] == W.STAT_DEFAULT_RANGE
+            assert app.chart_stack(("X",))["charts"] == []
+            for _ in range(40):                      # angestossene Abrufe auslaufen lassen
+                await asyncio.sleep(0.05)
+                if not app.stat_pending:
+                    break
+        finally:
+            await app.icon_session.close()
+            await ms.stop()
+    asyncio.run(lauf())
+    assert W._clean_tabpane("chart:T, R,,") == "chart:T,R"
+    assert W._clean_svpane(" chart:T,R ") == "chart:T,R" and W._clean_svpane("chart:") == ""
+
