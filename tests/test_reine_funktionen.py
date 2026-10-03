@@ -52,20 +52,25 @@ def test_naechste_weckzeit():
 
 
 def test_weckzeiten_liste():
-    APP.op_modes = {"3": "Montag", "4": "Dienstag", "9": "Urlaub"}
+    """Betriebsarten wie in einer Struktur: 3..9 sind laut Loxone-Strukturdoku
+    Montag bis Sonntag, andere (Urlaub ...) heissen wie in operatingModes."""
+    app = W.App({"host": "", "port": 80})
+    app.op_modes = {"1": "Urlaub", "3": "Montag", "4": "Dienstag"}
     roh = {"a": {"name": "Arbeit", "isActive": True, "alarmTime": 6 * 3600 + 30 * 60, "modes": [3, 4]},
            "b": {"name": "", "isActive": False, "alarmTime": 7 * 3600 + 30 * 60, "daily": True},
-           "c": {"name": "Frei", "isActive": True, "alarmTime": 9 * 3600, "modes": [9]}}
-    liste = APP._alarm_entries(_mit_state("entryList", quote(json.dumps(roh))))   # prozentkodiert wie vom MS
+           "c": {"name": "Frei", "isActive": True, "alarmTime": 9 * 3600, "modes": [1]}}
+    app.controls = {"W": {"states": {"entryList": "s"}}}
+    app.states = {"s": quote(json.dumps(roh))}                     # prozentkodiert wie vom MS
+    liste = app._alarm_entries("W")
     assert [(e["name"], e["hm"], e["active"]) for e in liste] == [
         ("Arbeit", "06:30", True), ("Frei", "09:00", True), ("Weckzeit", "07:30", False)]
     assert liste[0]["repeat"] == "Mo Di" and liste[1]["repeat"] == "Urlaub" and liste[2]["repeat"] == "Täglich"
-    woche = dict(zip("1234567", ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]))
-    APP.op_modes = woche
-    assert APP._alarm_repeat({"modes": [1, 2, 3, 4, 5, 6, 7]}) == "Täglich"      # alle sieben Tage
-    assert APP._alarm_repeat({"modes": [42]}) == "1 Betriebsart"                 # Name unbekannt
-    assert APP._alarm_repeat({"modes": [42, 43]}) == "2 Betriebsarten"
-    assert APP._alarm_entries(_mit_state("entryList", "{kaputt")) == []
+    assert app._alarm_repeat({"modes": [3, 4, 5, 6, 7, 8, 9]}) == "Täglich"      # alle sieben Tage
+    assert app._alarm_repeat({"modes": [9, 8]}) == "Sa So"                       # in der Folge der Woche
+    assert app._alarm_repeat({"modes": [42]}) == "Betriebsart 42"                # Name unbekannt
+    assert app._alarm_repeat({"nightLight": True, "daily": False}) == "Einmalig"
+    app.states = {"s": "{kaputt"}
+    assert app._alarm_entries("W") == []
 
 
 @pytest.mark.parametrize("quelle", [

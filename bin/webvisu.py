@@ -263,6 +263,8 @@ MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen 
 EINRICHTUNG_FEHLER_MAX = 160     # Zeichen des Verbindungsfehlers im Einrichtungshinweis (Panel 480 px)
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
+BELL_CACHE_MAX = 30      # Bilder verpasster Klingeln im Speicher (JPEG, je um 100 KB)
+BELL_TIMEOUT = 10        # s: ein Klingel-Bild vom Miniserver
 STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
 FRONT_INTERVAL = 900     # s: Kalender + Open-Meteo so oft neu holen; Wetter-Pushes dazwischen ohne Abruf
 # visuType der Statistik-Ausgaenge, wie an der Anlage beobachtet: 0 Analogwert
@@ -274,8 +276,8 @@ STAT_KIND = {1: "digital", 2: "counter"}
 STAT_TILE_STYLES = ("trend", "pattern", "span")
 STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
-_ANALOG = {"InfoOnlyAnalog", "Slider", "Meter", "TextState", "InfoOnlyText", "Hourcounter",
-           "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
+_ANALOG = {"InfoOnlyAnalog", "Slider", "UpDownAnalog", "Meter", "TextState", "InfoOnlyText",
+           "Hourcounter", "EFM", "EnergyManager2", "PvProductionForecast", "SteakThermo"}
 # Betriebsarten des Sauna-Bausteins (State "mode", 0..6), Zuordnung aus der
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
@@ -306,17 +308,41 @@ IRC2_BETRIEBSARTEN = {0: "Automatik Heizen & Kühlen", 1: "Automatik nur Heizen"
                       2: "Automatik nur Kühlen", 3: "Manuell Heizen & Kühlen",
                       4: "Manuell nur Heizen", 5: "Manuell nur Kühlen"}
 IRC2_MANUELL = {3, 4, 5}
+# Bewaesserung (Irrigation) laut Loxone-Strukturdoku: zones[].id beginnt bei 0,
+# currentZone -1 = aus, 0..7 = diese Zone, 8 = alle Zonen. Der Befehl select
+# entspricht dem Eingang "Sel" des Bausteins (Loxone-Wissensdatenbank): 1..8
+# schaltet Ventil V1..V8, also Zone id + 1; 0 schaltet alle aus, 9 alle an.
+# setDuration/{id}={Sekunden} nimmt dagegen die id aus zones.
+IRR_AUS, IRR_ALLE_AKTIV = -1, 8
+IRR_SELECT_AUS, IRR_SELECT_ALLE = 0, 9
+# Wecker (AlarmClock) laut Strukturdoku: die Betriebsarten 3..9 sind die
+# Wochentage Montag bis Sonntag, 0..2 (Feiertag, Urlaub, freie Tage) haben
+# Vorrang vor ihnen. Grenzen aus der Loxone-Wissensdatenbank (Baustein
+# Wecker): Schlummerdauer 60..1800 s, Lautstaerke des Wecksounds 5..100 %.
+# Wecksound, Lautstaerke und Helligkeit gibt es nur mit Touch Nightlight;
+# deviceState meldet es (0 keins, 1 offline, 2 online).
+WECKER_WOCHENTAGE = range(3, 10)
+WECKER_VORRANG = range(0, 3)
+WECKER_SCHLUMMER_MIN, WECKER_SCHLUMMER_MAX = 60, 1800
+WECKER_LAUT_MIN = 5
+NIGHTLIGHT_DA = (1, 2)
+# Schrittweite der -/+ Tasten fuer Dauern (Laufzeit einer Zone, Wecker-Dauern)
+# und Prozentwerte (Lautstaerke, Helligkeit)
+DAUER_SCHRITT = 60
+PROZENT_SCHRITT = 5
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
-PARTIAL_TYPES = {"AudioZone", "AlarmClock", "Intercom", "TextInput", "UpDownAnalog", "Ventilation",
-                 "Irrigation"}   # Irrigation: nur Anzeige (keine Bedienung)
+# Intercom: alles ausser Gegensprechen (SIP, im Browser nicht zu haben).
+PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
+# Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
+_BELL_TS = re.compile(r"\d{14}")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
 _TS_RE = re.compile(r"^\s*(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}[ ,]+\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$")
@@ -519,6 +545,25 @@ def _pos_pct(value) -> int | None:
 
 def _clean(name: str) -> str:
     return re.sub(r"^[^0-9A-Za-zÄÖÜäöü]+", "", name or "").strip() or (name or "")
+
+
+def _dauer_text(sek) -> str:
+    """Dauer in Sekunden als Text: '45 s', '10 min', '1 min 30 s', '1 h 30 min', '0 min'.
+    Leer, wenn keine Zahl. Dieselbe Schreibweise baut die Visu fuer -/+ nach
+    (dauerText in panel.html)."""
+    try:
+        s = int(round(float(sek)))
+    except (TypeError, ValueError):
+        return ""
+    s = max(0, s)
+    if not s:
+        return "0 min"
+    h, m, r = s // 3600, s % 3600 // 60, s % 60
+    if h:
+        return f"{h} h" + (f" {m} min" if m else "")
+    if m:
+        return f"{m} min" + (f" {r} s" if r else "")
+    return f"{r} s"
 
 
 _STAT_ROW = re.compile(r"<S\s([^>]*?)/?>")
@@ -1025,6 +1070,7 @@ class App:
         self._auth_lock = asyncio.Lock()
         self.icon_session: aiohttp.ClientSession | None = None
         self.icon_cache: dict[str, tuple[bytes, str]] = {}
+        self.bell_cache: dict[str, tuple[bytes, str]] = {}   # camimage-Pfad -> (Bild, Typ)
         # Verlaufsdaten: (uuidAction, "JJJJMM") -> (monotonic, JJJJMM beim Abruf,
         # [(sekunden, [werte])] oder None nach Abruffehler). Ein Monat, der beim
         # Abruf schon vorbei war, aendert sich nicht mehr.
@@ -1330,7 +1376,7 @@ class App:
         self.states = {}
         old_is, self.icon_session = self.icon_session, \
             aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
-        self.icon_cache = {}
+        self.icon_cache, self.bell_cache = {}, {}
         self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
         self.stat_gen += 1
         old_ws, self.ws = self.ws, None   # stream_task baut WS mit neuen Daten neu auf
@@ -1994,7 +2040,7 @@ class App:
         except Exception:
             log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+        return [b for b in (v.get("blocks") or []) if b.get("k") != "more" and b.get("id") != "klingel"]
 
     def status_blocks(self, uuids) -> list:
         """Frei gewaehlte Bausteine als Nur-Lese-Kacheln fuer die rechte Spalte
@@ -3011,6 +3057,27 @@ class App:
             self.icon_cache.pop(next(iter(self.icon_cache)))   # am laengsten unbenutzt
         return self.icon_cache[path]
 
+    async def fetch_bell_image(self, ua: str, ts: str) -> tuple[bytes, str] | None:
+        """Bild einer verpassten Klingel vom Miniserver: laut Strukturdoku
+        camimage/{uuidAction}/{Zeitstempel}, Bearer-Token wie bei den Icons.
+        Zu einem Zeitstempel aendert sich das Bild nicht, darum ein kleiner
+        Zwischenspeicher (zuletzt benutzte zuletzt verdraengt)."""
+        pfad = f"camimage/{ua}/{ts}"
+        if pfad in self.bell_cache:
+            hit = self.bell_cache.pop(pfad)
+            self.bell_cache[pfad] = hit
+            return hit
+        try:
+            status, body, ctype = await self._ms_http(pfad, BELL_TIMEOUT)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+            return None
+        if status != 200 or not body:
+            return None
+        self.bell_cache[pfad] = (body, ctype or "image/jpeg")
+        while len(self.bell_cache) > BELL_CACHE_MAX:
+            self.bell_cache.pop(next(iter(self.bell_cache)))
+        return self.bell_cache[pfad]
+
     async def _stat_load(self, ua: str, ym: str) -> None:
         """Eine Statistik-Monatsdatei holen (/stats/<uuidAction>.<JJJJMM>.xml,
         Bearer-Token wie bei den Icons) und in stat_cache legen. 404 heisst:
@@ -3119,67 +3186,119 @@ class App:
             return ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"][dt.weekday()] + " " + hm
         return dt.strftime("%d.%m.") + " " + hm
 
-    def _alarm_entries(self, c: dict) -> list[dict]:
-        """Weckzeit-Eintraege eines Weckers aus dem State `entryList`. Loxone
-        liefert ein JSON-Objekt {entryID: {name, isActive, alarmTime (Sek seit
-        Mitternacht), modes:[...], daily, nightLight}} — ggf. als (prozentkodierter)
-        String. Gibt [{name, hm, active, repeat}] sortiert nach Uhrzeit zurueck;
-        [] wenn nichts parsebar (dann wird der Rohwert einmal geloggt)."""
+    def _alarm_aus(self, c: dict) -> bool:
+        """Wecker per Logik ausgeschaltet (State isEnabled 0). Fehlt der State
+        (aeltere Firmware), gilt er als eingeschaltet."""
+        v = self._state(c, "isEnabled")
+        return v is not None and not v
+
+    def _alarm_raw(self, c: dict) -> tuple[dict[str, dict], bool] | None:
+        """State entryList eines Weckers -> ({entryID: Eintrag}, IDs echt).
+        Laut Strukturdoku ein JSON-Objekt {entryID: {name, isActive, alarmTime
+        (Sekunden ab Mitternacht), modes, nightLight, daily}}, ggf.
+        prozentkodiert. Kommt eine Liste, steht die Position an Stelle der ID;
+        dann wird nur angezeigt, nicht geschrieben (IDs echt = False), sonst
+        traefe ein Befehl womoeglich einen anderen Eintrag. None, wenn der
+        State fehlt oder nicht lesbar ist (dann wird der Rohwert geloggt)."""
         raw = self._state(c, "entryList")
         if raw in (None, ""):
-            return []
+            return None
         data = raw
         if isinstance(raw, str):
             txt = unquote(raw).strip()
             try:
                 data = json.loads(txt)
-            except Exception:
+            except ValueError:
                 log.warning("Wecker entryList nicht als JSON parsebar: %r", txt[:200])
-                return []
-        seq = data.values() if isinstance(data, dict) else data
-        if not isinstance(seq, (list, tuple)) and not hasattr(seq, "__iter__"):
-            return []
+                return None
+        if isinstance(data, dict):
+            return {str(k): e for k, e in data.items() if isinstance(e, dict)}, True
+        if isinstance(data, list):
+            return {str(i): e for i, e in enumerate(data) if isinstance(e, dict)}, False
+        return None
+
+    @staticmethod
+    def _alarm_secs(e: dict) -> int:
+        try:
+            return int(float(e.get("alarmTime") or 0)) % 86400
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _alarm_modes(e: dict) -> list[int]:
         out = []
-        for e in seq:
-            if not isinstance(e, dict):
-                continue
+        for m in e.get("modes") or []:
             try:
-                secs = int(float(e.get("alarmTime") or 0))
+                out.append(int(m))
             except (TypeError, ValueError):
-                secs = 0
-            hm = "%02d:%02d" % ((secs // 3600) % 24, (secs % 3600) // 60)
-            repeat = self._alarm_repeat(e)
-            out.append({"name": _clean(e.get("name")) or "Weckzeit", "hm": hm,
-                        "active": bool(e.get("isActive")), "repeat": repeat})
+                continue
+        return out
+
+    def _alarm_put(self, eid: str, e: dict, aktiv: bool) -> str:
+        """Befehl entryList/put/{entryID}/{name}/{alarmTime}/{isActive}/{modes|daily}
+        laut Strukturdoku: schreibt den Eintrag mit neuem Aktiv-Stand zurueck.
+        Name URL-kodiert, Zeit in Sekunden ab Mitternacht, zuletzt bei
+        Eintraegen mit nightLight daily (0/1), sonst die Betriebsarten mit Komma."""
+        letzter = (("1" if e.get("daily") else "0") if e.get("nightLight") is True
+                   else ",".join(str(m) for m in self._alarm_modes(e)))
+        return (f"entryList/put/{quote(eid, safe='')}/{quote(str(e.get('name') or ''), safe='')}"
+                f"/{self._alarm_secs(e)}/{1 if aktiv else 0}/{letzter}")
+
+    def _alarm_entries(self, uuid: str) -> list[dict]:
+        """Weckzeit-Eintraege eines Weckers fuer die Liste der Detailseite:
+        [{id, name, hm, active, repeat, cmd, nav}], aktive zuerst, dann nach
+        Uhrzeit. cmd schaltet den Eintrag ein bzw. aus, nav oeffnet ihn zum
+        Bearbeiten."""
+        c = self.controls.get(uuid, {})
+        roh, echt = self._alarm_raw(c) or ({}, False)
+        ua = c.get("uuidAction")
+        out = []
+        for eid, e in roh.items():
+            secs = self._alarm_secs(e)
+            it = {"id": eid, "name": _clean(str(e.get("name") or "")) or "Weckzeit",
+                  "hm": "%02d:%02d" % (secs // 3600, secs % 3600 // 60),
+                  "active": bool(e.get("isActive")), "repeat": self._alarm_repeat(e)}
+            if echt:
+                it["cmd"] = {"uuid": ua, "cmd": self._alarm_put(eid, e, not e.get("isActive"))}
+                it["nav"] = {"view": "alarmentry", "id": uuid, "entry": eid}
+            out.append(it)
         out.sort(key=lambda x: (not x["active"], x["hm"]))
         return out
 
-    _WD_ABBR = {"montag": "Mo", "dienstag": "Di", "mittwoch": "Mi", "donnerstag": "Do",
-                "freitag": "Fr", "samstag": "Sa", "sonntag": "So"}
-
     def _alarm_repeat(self, e: dict) -> str:
-        """Wiederholungs-Text eines Weckzeit-Eintrags. `daily` -> „Täglich"; sonst
-        die `modes` (Betriebsart-IDs) ueber die globalen operatingModes zu Namen
-        aufloesen — Wochentage werden auf Mo/Di/… gekuerzt. Fallback, wenn keine
-        Namen ermittelbar: Anzahl der Betriebsarten."""
+        """Wiederholungs-Text eines Weckzeit-Eintrags. Eintraege mit nightLight
+        kennen nur daily (taeglich oder einmalig). Sonst die Betriebsarten: 3..9
+        sind laut Strukturdoku Montag bis Sonntag (Mo/Di/...), alle sieben
+        heissen "Täglich"; andere (Feiertag, Urlaub ...) mit ihrem Namen aus den
+        operatingModes der Anlage."""
+        if e.get("nightLight") is True:
+            return "Täglich" if e.get("daily") else "Einmalig"
         if e.get("daily"):
             return "Täglich"
-        modes = e.get("modes")
-        if not isinstance(modes, list) or not modes:
-            return ""
-        op = self.op_modes
-        names = []
-        for m in modes:
-            nm = _clean(op.get(str(m)))
-            if not nm:
-                continue
-            names.append(self._WD_ABBR.get(nm.lower(), nm))
-        if not names:
-            return f"{len(modes)} Betriebsart" + ("" if len(modes) == 1 else "en")
-        # Alle 7 Wochentage -> „Täglich" (kompakter)
-        if len(names) == 7 and all(v in names for v in self._WD_ABBR.values()):
-            return "Täglich"
-        return " ".join(names)
+        modes = self._alarm_modes(e)
+        tage = [m for m in WECKER_WOCHENTAGE if m in modes]
+        andere = [m for m in modes if m not in WECKER_WOCHENTAGE]
+        namen = (["Täglich"] if len(tage) == len(WECKER_WOCHENTAGE)
+                 else [STAT_WEEKDAYS[m - WECKER_WOCHENTAGE[0]] for m in tage])
+        namen += [self._op_mode_name(m) for m in andere]
+        return " ".join(namen)
+
+    def _op_mode_name(self, m: int) -> str:
+        """Name einer Betriebsart aus der Struktur, sonst "Betriebsart <Nr>"."""
+        return _clean(str(self.op_modes.get(str(m)) or "")) or f"Betriebsart {m}"
+
+    def _alarm_mode_items(self, modes: list[int]) -> list[dict]:
+        """Waehlbare Tage einer Weckzeit: Mo..So (Betriebsarten 3..9), dazu die
+        Vorrang-Betriebsarten 0..2, soweit die Anlage sie kennt (damit klingelt
+        der Wecker auch an Feiertagen oder im Urlaub), und jede weitere, die der
+        Eintrag schon hat. -> [{v, label, on}]"""
+        gesetzt = set(modes)
+        items = [{"v": m, "label": STAT_WEEKDAYS[i], "on": m in gesetzt}
+                 for i, m in enumerate(WECKER_WOCHENTAGE)]
+        weitere = [m for m in WECKER_VORRANG if str(m) in self.op_modes]
+        weitere += sorted(m for m in gesetzt if m not in WECKER_WOCHENTAGE and m not in weitere)
+        items += [{"v": m, "label": self._op_mode_name(m), "on": m in gesetzt} for m in weitere]
+        return items
 
     def _daytimer_mode(self, c: dict) -> str:
         """Aktiver Modus/Tag eines Daytimers als Name. `mode` (Zahl) wird ueber
@@ -3571,13 +3690,14 @@ class App:
         elif t == "AlarmClock":
             ringing = bool(self._state(c, "isAlarmActive"))
             nxt = self._alarm_next_text(c)
-            has = bool(self._alarm_entries(c))
+            has = bool(self._alarm_entries(uuid))
             rn = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
             if rn:
                 it["room"] = rn   # Raum auf der Kachel zeigen (mehrere Wecker unterscheidbar)
             it.update(icon="alarm", on=ringing, tone=("crit" if ringing else None),
                       nav={"view": "control", "id": uuid},
                       sublabel=("Weckt!" if ringing else
+                                "Ausgeschaltet" if self._alarm_aus(c) else
                                 (nxt or ("Keine Weckzeit aktiv" if has else "Kein Wecker"))))
         elif t == "AcControl":
             modes = self._json_list_map(c, "operatingModes")
@@ -3646,7 +3766,7 @@ class App:
             if not bits:
                 it["subInfo"] = True
         elif t == "Irrigation":
-            act = bool(self._state(c, "active"))
+            act = self._irr_running(c)
             rain = bool(self._state(c, "rainActive"))
             sub = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
             zone = self._irrigation_zone_name(c)
@@ -4053,6 +4173,209 @@ class App:
         return {"t": "view", "title": _clean(c.get("name")),
                 "route": {"view": "sources", "id": uuid}, "blocks": blocks}
 
+    @staticmethod
+    def _gone_view(route: dict, title: str, text: str) -> dict:
+        """Unterseite, deren Gegenstand es (nicht mehr) gibt: nur der Hinweis."""
+        return {"t": "view", "title": title, "route": route, "blocks": [{"k": "status", "text": text}]}
+
+    def _view_irr_zone(self, uuid: str, zone) -> dict:
+        """Eine Zone der Bewaesserung: starten (select, Nummer siehe
+        IRR_SELECT_*) bzw. stoppen (stop) und ihre Laufzeit
+        (setDuration/{id}={Sekunden}). Gibt die Logik die Laufzeit vor
+        (setByLogic), steht sie nur da."""
+        c = self.controls.get(uuid or "", {})
+        route = {"view": "irrzone", "id": uuid, "zone": zone}
+        try:
+            zid = int(zone)
+        except (TypeError, ValueError):
+            zid = None
+        z = (next((z for z in self._irr_zones(c) if z["id"] == zid), None)
+             if c.get("type") == "Irrigation" else None)
+        if z is None:
+            return self._gone_view(route, _clean(c.get("name")), "Diese Zone gibt es nicht mehr.")
+        ua = c.get("uuidAction")
+        cur = self._irr_current(c)
+        an = cur in (zid, IRR_ALLE_AKTIV)
+        blocks = [{"k": "title", "text": z["name"], "sub": _clean(c.get("name"))},
+                  {"k": "big", "text": "Läuft" if an else "Aus", **({"tone": "good"} if an else {})}]
+        if z["duration"] is not None:
+            dauer = {"k": "stepper", "label": "Laufzeit", "value": z["duration"], "fmt": "dauer"}
+            if z["logic"]:
+                dauer["sub"] = "von der Logik vorgegeben"
+            else:
+                dauer.update(step=DAUER_SCHRITT, min=0,
+                             cmd={"uuid": ua, "tmpl": f"setDuration/{zid}={{v}}"})
+            blocks.append(dauer)
+        if an:
+            knopf = {"label": "Alle Zonen stoppen" if cur == IRR_ALLE_AKTIV else "Zone stoppen",
+                     "cmd": {"uuid": ua, "cmd": "stop"}}
+        else:
+            knopf = {"label": "Zone starten", "cmd": {"uuid": ua, "cmd": f"select/{zid + 1}"}}
+        blocks.append({"k": "row", "cells": [knopf]})
+        return {"t": "view", "title": z["name"], "route": route, "anchor": "bottom", "blocks": blocks}
+
+    def _view_alarm_entry(self, uuid: str, entry) -> dict:
+        """Weckzeit bearbeiten oder (entry leer) anlegen: Name, Uhrzeit und
+        Tage. Die Visu setzt die drei in die Befehlsvorlage von "Speichern"
+        ein (form, entryList/put wie _alarm_put); der Aktiv-Stand bleibt, eine
+        neue Weckzeit ist aktiv und beginnt mit der aktuellen Uhrzeit.
+        Loeschen per entryList/delete/{entryID}, mit Rueckfrage."""
+        c = self.controls.get(uuid or "", {})
+        route = {"view": "alarmentry", "id": uuid, "entry": entry}
+        roh = self._alarm_raw(c) if c.get("type") == "AlarmClock" else None
+        if not roh or not roh[1]:
+            return self._gone_view(route, _clean(c.get("name")), "Diese Weckzeit gibt es nicht mehr.")
+        eintraege = roh[0]
+        neu = entry in (None, "")
+        if neu:
+            n = 0
+            while str(n) in eintraege:
+                n += 1
+            eid, jetzt = str(n), datetime.now()
+            e = {"name": "Weckzeit", "isActive": True, "alarmTime": jetzt.hour * 3600 + jetzt.minute * 60}
+        else:
+            eid = str(entry)
+            e = eintraege.get(eid)
+            if e is None:
+                return self._gone_view(route, _clean(c.get("name")), "Diese Weckzeit gibt es nicht mehr.")
+        ua = c.get("uuidAction")
+        name = _clean(str(e.get("name") or "")) or "Weckzeit"
+        if e.get("nightLight") is True:
+            tage = {"k": "chips", "name": "tage", "items": [
+                {"v": 0, "label": "Einmalig", "on": not e.get("daily")},
+                {"v": 1, "label": "Täglich", "on": bool(e.get("daily"))}]}
+        else:
+            tage = {"k": "chips", "name": "tage", "multi": True,
+                    "items": self._alarm_mode_items(self._alarm_modes(e))}
+        aktiv = 1 if e.get("isActive") else 0
+        cells = []
+        if not neu:
+            cells.append({"label": "Löschen", "confirm": "Wirklich löschen?", "back": True,
+                          "cmd": {"uuid": ua, "cmd": f"entryList/delete/{quote(eid, safe='')}"}})
+        cells.append({"label": "Speichern", "back": True, "form": {
+            "uuid": ua, "tmpl": f"entryList/put/{quote(eid, safe='')}/{{name}}/{{zeit}}/{aktiv}/{{tage}}"}})
+        return {"t": "view", "title": name, "route": route, "blocks": [
+            {"k": "title", "text": "Neue Weckzeit" if neu else name, "sub": _clean(c.get("name"))},
+            {"k": "field", "name": "name", "label": "Name", "value": str(e.get("name") or name)},
+            {"k": "timepick", "name": "zeit", "value": self._alarm_secs(e)},
+            tage,
+            {"k": "row", "cells": cells},
+        ]}
+
+    def _view_alarm_settings(self, uuid: str) -> dict:
+        """Einstellungen eines Weckers laut Strukturdoku, jeweils fest, wenn
+        die Logik sie vorgibt (details.*Connected): Schlummerdauer
+        (setSnoozeDuration), maximale Weckdauer (setRingDuration), Vorweckzeit
+        (setPrepDuration). Mit Touch Nightlight dazu Wecksound
+        (setWakeAlarmSound, Auswahl aus details.wakeAlarmSounds), lauter
+        werdend (setWakeAlarmSlopingOn), Signalton (setBeepOn), Lautstaerke
+        (setWakeAlarmVolume) und Helligkeit (setBrightnessInactive/Active)."""
+        c = self.controls.get(uuid or "", {})
+        route = {"view": "alarmsettings", "id": uuid}
+        if c.get("type") != "AlarmClock":
+            return self._gone_view(route, "", "Diesen Wecker gibt es nicht mehr.")
+        ua = c.get("uuidAction")
+        det = c.get("details") or {}
+        blocks = [{"k": "title", "text": "Einstellungen", "sub": _clean(c.get("name"))}]
+
+        def stufe(label, wert, befehl, schritt, minimum, maximum, fmt, fest):
+            if not isinstance(wert, (int, float)) or isinstance(wert, bool):
+                return
+            b = {"k": "stepper", "label": label, "value": int(wert), "fmt": fmt}
+            if fest:
+                b["sub"] = "von der Logik vorgegeben"
+            else:
+                b.update(step=schritt, min=minimum, cmd={"uuid": ua, "tmpl": befehl + "/{v}"})
+                if maximum is not None:
+                    b["max"] = maximum
+            blocks.append(b)
+
+        stufe("Schlummerdauer", self._state(c, "snoozeDuration"), "setSnoozeDuration", DAUER_SCHRITT,
+              WECKER_SCHLUMMER_MIN, WECKER_SCHLUMMER_MAX, "dauer", bool(det.get("snoozeDurationConnected")))
+        stufe("Maximale Weckdauer", self._state(c, "ringDuration"), "setRingDuration", DAUER_SCHRITT,
+              DAUER_SCHRITT, None, "dauer", False)
+        stufe("Vorweckzeit", self._state(c, "prepareDuration"), "setPrepDuration", DAUER_SCHRITT,
+              0, None, "dauer", False)
+        if self._state(c, "deviceState") in NIGHTLIGHT_DA:
+            geraet = self._json_state(c, "deviceSettings")
+            geraet = geraet if isinstance(geraet, dict) else {}
+            ton = self._json_state(c, "wakeAlarmSoundSettings")
+            ton = ton if isinstance(ton, dict) else {}
+            blocks.append({"k": "head", "text": "Touch Nightlight"})
+            sounds = [x for x in det.get("wakeAlarmSounds") or [] if isinstance(x, dict) and x.get("id") is not None]
+            jetzt = next((x for x in sounds if str(x.get("id")) == str(ton.get("sound"))), None)
+            name = _clean(str((jetzt or {}).get("name") or ""))
+            zellen = []
+            if sounds and not det.get("wakeAlarmSoundConnected"):
+                zellen.append({"label": "Wecksound" + (": " + name if name else ""), "menu": [
+                    {"label": _clean(str(x.get("name") or "")) or str(x.get("id")), "on": x is jetzt,
+                     "cmd": {"uuid": ua, "cmd": f"setWakeAlarmSound/{x.get('id')}"}} for x in sounds]})
+            elif name:
+                blocks.append({"k": "status", "text": "Wecksound: " + name})
+            if "isSloping" in ton and not det.get("wakeAlarmSlopingConnected"):
+                an = bool(ton.get("isSloping"))
+                zellen.append({"label": "Lauter werdend", "on": an,
+                               "cmd": {"uuid": ua, "cmd": f"setWakeAlarmSlopingOn/{0 if an else 1}"}})
+            if "beepUsed" in geraet:
+                an = bool(geraet.get("beepUsed"))
+                zellen.append({"label": "Signalton", "on": an,
+                               "cmd": {"uuid": ua, "cmd": f"setBeepOn/{0 if an else 1}"}})
+            if zellen:
+                blocks.append({"k": "row", "wrap": True, "cells": zellen})
+            stufe("Lautstärke", ton.get("volume"), "setWakeAlarmVolume", PROZENT_SCHRITT, WECKER_LAUT_MIN, 100,
+                  "prozent", bool(det.get("wakeAlarmVolumeConnected")))
+            stufe("Helligkeit inaktiv", geraet.get("brightInactive"), "setBrightnessInactive", PROZENT_SCHRITT,
+                  0, 100, "prozent", bool(det.get("brightInactiveConnected")))
+            stufe("Helligkeit aktiv", geraet.get("brightActive"), "setBrightnessActive", PROZENT_SCHRITT,
+                  0, 100, "prozent", bool(det.get("brightActiveConnected")))
+        return {"t": "view", "title": "Einstellungen", "route": route, "blocks": blocks}
+
+    def _bell_events(self, c: dict) -> list[str]:
+        """Zeitstempel der verpassten Klingeln, neueste zuerst. Laut
+        Strukturdoku State lastBellEvents: JJJJMMTTHHMMSS, mit | getrennt."""
+        txt = unquote(str(self._state(c, "lastBellEvents") or ""))
+        return sorted({t.strip() for t in txt.split("|") if _BELL_TS.fullmatch(t.strip())}, reverse=True)
+
+    @staticmethod
+    def _bell_text(ts: str, heute: date | None = None) -> str:
+        """Zeitpunkt einer Klingel: 'Heute 07:49', 'Gestern 07:49', 'Mo 07:49'
+        (die letzte Woche), sonst mit Datum ('01.10. 07:49', aus einem anderen
+        Jahr '01.10.2025 07:49'). Wanduhr des Miniservers, wie geliefert."""
+        try:
+            dt = datetime.strptime(ts, "%Y%m%d%H%M%S")
+        except ValueError:
+            return ts
+        heute = heute or datetime.now().date()
+        tage = (heute - dt.date()).days
+        hm = dt.strftime("%H:%M")
+        if tage == 0:
+            return "Heute " + hm
+        if tage == 1:
+            return "Gestern " + hm
+        if 2 <= tage <= 6:
+            return STAT_WEEKDAYS[dt.weekday()] + " " + hm
+        return dt.strftime("%d.%m. " if dt.year == heute.year else "%d.%m.%Y ") + hm
+
+    def _view_bells(self, uuid: str) -> dict:
+        """Verpasste Klingeln einer Tuersprechstelle, neueste zuerst. Mit
+        details.lastBellEventImages speichert der Miniserver ein Bild je
+        Klingel; die Visu holt es ueber /bellimg (camimage)."""
+        c = self.controls.get(uuid or "", {})
+        route = {"view": "bells", "id": uuid}
+        if c.get("type") != "Intercom":
+            return self._gone_view(route, "", "Diese Türsprechstelle gibt es nicht mehr.")
+        evs = self._bell_events(c)
+        blocks = [{"k": "title", "text": "Verpasste Klingeln", "sub": _clean(c.get("name"))}]
+        if not evs:
+            blocks.append({"k": "status", "text": "Keine verpassten Klingeln"})
+        elif (c.get("details") or {}).get("lastBellEventImages"):
+            blocks.append({"k": "gallery", "items": [
+                {"src": f"/bellimg?id={quote(uuid, safe='')}&ts={ts}", "label": self._bell_text(ts)}
+                for ts in evs]})
+        else:
+            blocks += [{"k": "status", "text": self._bell_text(ts)} for ts in evs]
+        return {"t": "view", "title": "Verpasste Klingeln", "route": route, "blocks": blocks}
+
     def _big_view(self, uuid: str, icon: str, big: str, sub: str = "", tone=None) -> dict:
         """Grosse 1/1-Wertseite fuer reine Status-Bausteine. Das Hero-Icon ist
         dasselbe wie auf der Kachel vorne: Loxone-eigenes Icon, falls vorhanden,
@@ -4349,21 +4672,55 @@ class App:
         self.stat_memo[mkey] = out
         return out
 
-    def _irrigation_zone_name(self, c: dict) -> str:
-        """Name der aktuellen Bewaesserungszone (currentZone = Index oder Id
-        in der zones-Liste), sonst leer."""
-        cur = self._state(c, "currentZone")
-        zones = self._named_items(self._json_state(c, "zones"))
-        if cur in (None, "", 0, "0") and not zones:
-            return ""
+    def _irr_zones(self, c: dict) -> list[dict]:
+        """Zonen der Bewaesserung aus dem State zones (JSON, laut Strukturdoku
+        [{id, name, duration, setByLogic}], id ab 0), nach id sortiert ->
+        [{id, name, duration (Sekunden oder None), logic}]. Eine Zone ohne
+        Nummer faellt weg: ohne sie gaebe es keinen Befehl fuer sie."""
+        data = self._json_state(c, "zones")
+        seq = data.values() if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        out = []
+        for z in seq:
+            if not isinstance(z, dict):
+                continue
+            try:
+                zid = int(z.get("id"))
+            except (TypeError, ValueError):
+                continue
+            try:
+                dauer = int(round(float(z.get("duration"))))
+            except (TypeError, ValueError):
+                dauer = None
+            out.append({"id": zid, "name": _clean(str(z.get("name") or "")) or f"Zone {zid + 1}",
+                        "duration": dauer, "logic": bool(z.get("setByLogic"))})
+        return sorted(out, key=lambda z: z["id"])
+
+    def _irr_current(self, c: dict) -> int | None:
+        """currentZone als Zahl: id der laufenden Zone oder IRR_ALLE_AKTIV;
+        None, wenn keine laeuft (IRR_AUS) oder der Wert fehlt."""
         try:
-            idx = int(float(cur))
+            cur = int(float(self._state(c, "currentZone")))
         except (TypeError, ValueError):
-            idx = None
-        for i, (label, z) in enumerate(zones):
-            if idx is not None and (z.get("id") == idx or z.get("idx") == idx or i + 1 == idx):
-                return label
-        return f"Zone {cur}" if idx else ""
+            return None
+        return None if cur == IRR_AUS else cur
+
+    def _irr_running(self, c: dict) -> bool:
+        """Bewaesserung laeuft: State active (neuere Firmware) oder laut
+        Strukturdoku currentZone ungleich -1."""
+        return bool(self._state(c, "active")) or self._irr_current(c) is not None
+
+    def _irrigation_zone_name(self, c: dict) -> str:
+        """Name der laufenden Zone (currentZone = id aus zones), 'Alle Zonen'
+        bei IRR_ALLE_AKTIV, sonst leer."""
+        cur = self._irr_current(c)
+        if cur is None:
+            return ""
+        if cur == IRR_ALLE_AKTIV:
+            return "Alle Zonen"
+        for z in self._irr_zones(c):
+            if z["id"] == cur:
+                return z["name"]
+        return f"Zone {cur + 1}"
 
     def _steak_temps(self, c: dict) -> list[tuple[str, float]]:
         """Fuehler-Temperaturen des Grillthermometers aus currentTemperatures
@@ -4781,6 +5138,19 @@ class App:
                       [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
             if cells:
                 blocks.append({"k": "row", "cells": cells})
+            # Laut Strukturdoku: 'answer' stellt die Klingel ab; lastBellEvents
+            # sind die Klingeln, auf die niemand reagiert hat. Eigene Zeile
+            # hinter den Ausgaengen - die Kamera-Pane zeigt sie nicht
+            # (intercom_blocks).
+            extra = []
+            if self._state(c, "bell"):
+                extra.append({"label": "Klingel abstellen", "cmd": {"uuid": c.get("uuidAction"), "cmd": "answer"}})
+            n = len(self._bell_events(c))
+            if n:
+                extra.append({"label": f"{n} verpasste Klingel" + ("" if n == 1 else "n"),
+                              "nav": {"view": "bells", "id": uuid}})
+            if extra:
+                blocks.append({"k": "row", "id": "klingel", "cells": extra})
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "Tracker":
             lines = self._tracker_lines(c)
@@ -4801,7 +5171,12 @@ class App:
             a = self._fmt_num(self._state(c, "actual"), det.get("actualFormat", "%.1f"))
             tot = self._fmt_num(self._state(c, "total"), det.get("totalFormat", "%.1f"))
             return self._big_view(uuid, "info", a or "–", (tot + " gesamt") if tot else "")
-        if t == "Slider":
+        if t in ("Slider", "UpDownAnalog"):
+            # Schieberegler und Auf/Ab-Taster sind laut Loxone-Strukturdoku
+            # dieselbe Art virtueller Eingang (UpDownAnalog = "UpDownLeftRight
+            # analog"): details format/min/max/step, State value und error
+            # (ungueltiger Wert), Befehl {wert} zwischen min und max. Die
+            # -/+ Tasten schalten um step weiter.
             ua = c.get("uuidAction")
             det = c.get("details") or {}
             fmt = det.get("format", "%.1f")
@@ -4821,12 +5196,15 @@ class App:
                 cur = float(val)
             except (TypeError, ValueError):
                 cur = mn
-            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": [
-                {"k": "hero", "icon": "info"},
-                {"k": "big", "text": self._fmt_num(val, fmt) or "–"},
-                {"k": "slider", "icon": "vol", "value": _n(cur), "min": _n(mn),
-                 "max": _n(mx), "step": _n(stp), "cmd": {"uuid": ua, "tmpl": "{v}"}},
-            ]}
+            ico = "info" if t == "Slider" else "switch"
+            blocks = [{"k": "hero", "icon": ico},
+                      {"k": "big", "text": self._fmt_num(val, fmt) or "–"}]
+            if self._state(c, "error"):
+                blocks.append({"k": "status", "text": "Ungültiger Wert"})
+            blocks.append({"k": "slider", "icon": "vol" if t == "Slider" else ico, "value": _n(cur),
+                           "min": _n(mn), "max": _n(mx), "step": _n(stp),
+                           "cmd": {"uuid": ua, "tmpl": "{v}"}})
+            return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "InfoOnlyAnalog":
             det = c.get("details") or {}
             return self._big_view(uuid, "info",
@@ -4879,13 +5257,16 @@ class App:
             ua = c.get("uuidAction")
             ringing = bool(self._state(c, "isAlarmActive"))
             nxt = self._alarm_next_text(c)
-            entries = self._alarm_entries(c)
+            entries = self._alarm_entries(uuid)
             room = _clean((self.rooms.get(c.get("room")) or {}).get("name"))
             # Layout wie IRR/Klima (anchor:bottom): Statuszeile mittig oben (Raum
-            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Keine
-            # Eintrags-Bearbeitung; klingelt der Wecker, gibt es Schlummer (Loxone
-            # 'snooze') und Wecker aus ('dismiss' -> isAlarmActive 0 -> Weckton stoppt).
-            stat = {"k": "astat", "text": ("Weckt jetzt" if ringing else (nxt or "Keine Weckzeit aktiv"))}
+            # als Unterzeile), die Weckzeit-Eintraege unten angedockt. Je Eintrag
+            # ein Schalter (ein/aus), Antippen oeffnet ihn zum Bearbeiten. Klingelt
+            # der Wecker, gibt es Schlummer (Loxone 'snooze') und Wecker aus
+            # ('dismiss' -> isAlarmActive 0 -> Weckton stoppt).
+            stat = {"k": "astat", "text": ("Weckt jetzt" if ringing else
+                                           "Ausgeschaltet" if self._alarm_aus(c) else
+                                           (nxt or "Keine Weckzeit aktiv"))}
             if ringing:
                 stat["tone"] = "crit"
             if room:
@@ -4895,6 +5276,10 @@ class App:
                 blocks.append({"k": "row", "cells": [
                     {"label": "Schlummer", "cmd": {"uuid": ua, "cmd": "snooze"}},
                     {"label": "Wecker aus", "cmd": {"uuid": ua, "cmd": "dismiss"}}]})
+            if (self._alarm_raw(c) or ({}, False))[1]:
+                blocks.append({"k": "row", "cells": [
+                    {"label": "Neue Weckzeit", "nav": {"view": "alarmentry", "id": uuid, "entry": ""}},
+                    {"label": "Einstellungen", "nav": {"view": "alarmsettings", "id": uuid}}]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
         if t == "Daytimer":
@@ -4971,10 +5356,6 @@ class App:
             spd = self._state(c, "speed") or 0
             return self._big_view(uuid, "fan", (f"{round(spd)} %" if spd else "Aus"),
                                   sub="Lüftung")
-        if t == "UpDownAnalog":
-            det = c.get("details") or {}
-            return self._big_view(uuid, "switch",
-                                  self._fmt_num(self._state(c, "value"), det.get("format", "%.1f")) or "–")
         if t == "TextInput":
             return self._big_view(uuid, "info", str(self._state(c, "text") or "–"))
         if t == "Fronius":
@@ -5228,35 +5609,43 @@ class App:
             ]}
         if t == "Irrigation":
             ua = c.get("uuidAction")
-            act = bool(self._state(c, "active"))
+            act = self._irr_running(c)
+            cur = self._irr_current(c)
             rain = bool(self._state(c, "rainActive"))
             big = "Bewässert" if act else ("Regenpause" if rain else "Bereit")
             rows = []
             zone = self._irrigation_zone_name(c)
-            if act and zone:
+            if zone:
                 rows.append({"k": "status", "text": "Aktive Zone: " + zone})
             ep = self._state(c, "expectedPrecipitation")
             if ep is not None:
-                rows.append({"k": "status", "text": f"Erwarteter Niederschlag {self._fmt_num(ep, '%.1f mm')}"})
-            zones = self._named_items(self._json_state(c, "zones"))
+                txt = f"Erwarteter Niederschlag {self._fmt_num(ep, '%.1f mm')}"
+                grenze = self._state(c, "maxExpectedPrecipitation")
+                if grenze is not None:
+                    txt += f" · Grenze {self._fmt_num(grenze, '%.1f mm')}"
+                rows.append({"k": "status", "text": txt})
+            regen = self._state(c, "rainTime")
+            if isinstance(regen, (int, float)) and regen > 0:
+                rows.append({"k": "status", "text": "Regen in den letzten 24 h: " + _dauer_text(regen)})
+            # Zonen: Antippen oeffnet die Zone (starten/stoppen, Laufzeit).
+            zones = self._irr_zones(c)
             if zones:
                 rows.append({"k": "head", "text": "Zonen"})
-                rows += [{"k": "status", "text": (label + (" ← aktiv" if act and label == zone else ""))}
-                         for label, _z in zones]
-            # Steuerung. Befehle aus der offiziellen Loxone-Structure-File-Doku
-            # (Irrigation): start = nur wenn noetig, startForce = erwarteten/
-            # vergangenen Regen ignorieren, stop, select/9 = alle Zonen an,
-            # select/0 = alle aus. Die Auswahl EINZELNER Zonen (select/<n>) ist
-            # noch nicht belegt (Zonennummerierung an der Anlage zu pruefen) und
-            # daher hier bewusst weggelassen.
+                rows.append({"k": "row", "wrap": True, "cells": [
+                    {"label": z["name"] + (" · " + _dauer_text(z["duration"]) if z["duration"] is not None else ""),
+                     "on": cur in (z["id"], IRR_ALLE_AKTIV),
+                     "nav": {"view": "irrzone", "id": uuid, "zone": z["id"]}} for z in zones]})
+            # Steuerung laut Loxone-Strukturdoku: start = nur wenn noetig,
+            # startForce = erwarteten/vergangenen Regen ignorieren, stop, dazu
+            # select fuer alle Zonen an/aus (Zahlen siehe IRR_SELECT_*).
             rows.append({"k": "row", "cells": [
                 {"label": "Start", "on": act, "cmd": {"uuid": ua, "cmd": "start"}},
                 {"label": "Erzwingen", "cmd": {"uuid": ua, "cmd": "startForce"}},
                 {"label": "Stopp", "on": not act, "cmd": {"uuid": ua, "cmd": "stop"}},
             ]})
             rows.append({"k": "row", "cells": [
-                {"label": "Alle Zonen", "cmd": {"uuid": ua, "cmd": "select/9"}},
-                {"label": "Alles aus", "cmd": {"uuid": ua, "cmd": "select/0"}},
+                {"label": "Alle Zonen", "cmd": {"uuid": ua, "cmd": f"select/{IRR_SELECT_ALLE}"}},
+                {"label": "Alles aus", "cmd": {"uuid": ua, "cmd": f"select/{IRR_SELECT_AUS}"}},
             ]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": [
@@ -5374,6 +5763,14 @@ class App:
             return self._view_control(route.get("id"), route.get("range"))
         if v == "sources":
             return self._view_sources(route.get("id"))
+        if v == "irrzone":
+            return self._view_irr_zone(route.get("id"), route.get("zone"))
+        if v == "alarmentry":
+            return self._view_alarm_entry(route.get("id"), route.get("entry"))
+        if v == "alarmsettings":
+            return self._view_alarm_settings(route.get("id"))
+        if v == "bells":
+            return self._view_bells(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
 
     async def audio_events_task(self) -> None:
@@ -7661,6 +8058,22 @@ async def loxlib_handler(request: web.Request) -> web.Response:
                         headers={"Cache-Control": "max-age=86400"})
 
 
+async def bellimg_handler(request: web.Request) -> web.Response:
+    """Bild einer verpassten Klingel (/bellimg?id=<Intercom>&ts=JJJJMMTTHHMMSS),
+    vom Miniserver geholt (fetch_bell_image)."""
+    app: App = request.app["app"]
+    c = app.controls.get(request.query.get("id", ""))
+    ts = request.query.get("ts", "")
+    if not c or c.get("type") != "Intercom" or not _BELL_TS.fullmatch(ts):
+        return web.Response(status=400, text="bad bell image")
+    res = await app.fetch_bell_image(c.get("uuidAction") or "", ts)
+    if not res:
+        return web.Response(status=404)
+    body, ctype = res
+    return web.Response(body=body, content_type=ctype.split(";")[0],
+                        headers={"Cache-Control": "max-age=86400"})
+
+
 async def cover_handler(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     u = request.query.get("u", "")
@@ -8015,6 +8428,7 @@ def main() -> None:
     a.router.add_get("/loxlib", loxlib_handler)
     a.router.add_get("/api/loxicons", loxicons_handler)
     a.router.add_get("/cover", cover_handler)
+    a.router.add_get("/bellimg", bellimg_handler)
     a.router.add_get("/mjpeg", mjpeg_handler)
     a.router.add_get("/ws", ws_handler)
     a.on_startup.append(on_startup)

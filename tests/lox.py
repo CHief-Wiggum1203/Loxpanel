@@ -8,6 +8,7 @@ freien Port, damit Tests parallel und neben einem laufenden LoxPanel laufen.
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import struct
 import sys
@@ -63,6 +64,7 @@ class Miniserver:
     token   das derzeit gueltige Token; alles andere -> 401
     reject  sps/io-Befehle mit LL-Code 500 ablehnen
     deny    Pfad-Anfaenge, die trotz gueltigem Token 401 bekommen
+    bilder  (uuidAction, Zeitstempel) -> JPEG fuer camimage (Klingel-Bilder)
     """
 
     def __init__(self) -> None:
@@ -74,6 +76,9 @@ class Miniserver:
         self.stat_hits: list[str] = []
         self.v2_paths: list[str] = []
         self.io: list[str] = []
+        self.io_roh: list[str] = []          # dieselben Befehle so kodiert, wie sie ankamen
+        self.bilder: dict[tuple[str, str], bytes] = {}
+        self.bild_abrufe: list[str] = []
         self.live = self.peak = 0
         self.runner: web.AppRunner | None = None
         self.port = 0
@@ -91,6 +96,16 @@ class Miniserver:
             return web.Response(text=self.files[name], content_type="text/xml")
         return web.Response(status=404)
 
+    async def _camimage(self, r: web.Request) -> web.Response:
+        ua, ts = r.match_info["ua"], r.match_info["ts"]
+        self.bild_abrufe.append(f"{ua}/{ts}")
+        if not self._ok(r, f"camimage/{ua}/{ts}"):
+            return web.Response(status=401)
+        bild = self.bilder.get((ua, ts))
+        if bild is None:
+            return web.Response(status=404)
+        return web.Response(body=bild, content_type="image/png" if bild.startswith(b"\x89PNG") else "image/jpeg")
+
     async def _jdev(self, r: web.Request) -> web.Response:
         tail = r.match_info["tail"]
         if not self._ok(r, tail):
@@ -101,6 +116,7 @@ class Miniserver:
             return web.json_response({"LL": {"control": tail, "Code": "200",
                                              "value": {"key": "abcd", "salt": "s1", "hashAlg": "SHA256"}}})
         self.io.append(tail)
+        self.io_roh.append(r.raw_path.split("/jdev/", 1)[1])
         return web.json_response({"LL": {"control": tail, "value": "1",
                                          "Code": "500" if self.reject else "200"}})
 
@@ -126,6 +142,7 @@ class Miniserver:
         app = web.Application()
         app.router.add_get("/stats/{f}", self._stats)
         app.router.add_get("/jdev/{tail:.*}", self._jdev)
+        app.router.add_get("/camimage/{ua}/{ts}", self._camimage)
         self.runner, self.port = await serve(app)
         return self
 
@@ -333,3 +350,98 @@ def hauslast(ts):
 def zaehlerstand(fn, basis=int(time.time()) - 40 * 86400):
     """Zaehlerstand aus einer Leistung fn (kW), aufsummiert ab basis."""
     return lambda ts: 5000 + sum(fn(t) * 0.5 for t in range(basis - basis % 3600, ts - ts % 3600, 1800))
+
+
+# --- Bausteine nach der Loxone-Strukturdoku (Stand 16.0). State- und
+# details-Namen wie an einer echten Anlage (Ausgabe von /api/types), Werte so,
+# wie die Doku sie beschreibt.
+
+def aufab_baustein(wert=1, fehler=0, **details) -> tuple[dict, dict]:
+    """Auf/Ab-Taster mit Wert (UpDownAnalog, in der Doku "UpDownLeftRight
+    analog"): details format/min/max/step, States value und error."""
+    control = {"name": "1=kompl AUF 3=Lamelle waagrecht", "type": "UpDownAnalog", "uuidAction": "UDA",
+               "room": "r1", "cat": "c1",
+               "details": {"format": "%.0f", "min": 1, "max": 3, "step": 1, "jLockable": True, **details},
+               "states": {"value": "uda-v", "error": "uda-e", "jLocked": "uda-l"}}
+    return control, {"uda-v": wert, "uda-e": fehler, "uda-l": ""}
+
+
+# Zonen einer Bewaesserung: id ab 0, Laufzeit in Sekunden; die Hecke gibt die
+# Logik vor (setByLogic).
+BEW_ZONEN = [{"id": 0, "name": "Rasen vorne", "duration": 600, "setByLogic": False},
+             {"id": 1, "name": "Beete", "duration": 300, "setByLogic": False},
+             {"id": 2, "name": "Hecke", "duration": 900, "setByLogic": True}]
+BEW_STATES = ("active", "currentZone", "expectedPrecipitation", "jLocked", "maxExpectedPrecipitation",
+              "rainActive", "rainTime", "zones")
+
+
+def bewaesserung_baustein(**werte) -> tuple[dict, dict]:
+    """Bewaesserung (Irrigation): zones als JSON-Text, currentZone -1 = aus,
+    0..7 = id der Zone, 8 = alle; rainTime in Sekunden der letzten 24 h."""
+    states = {n: f"bew-{n}" for n in BEW_STATES}
+    control = {"name": "Bewässerung", "type": "Irrigation", "uuidAction": "BEW", "room": "r1", "cat": "c1",
+               "details": {"jLockable": True}, "states": states}
+    w = {"active": 0, "currentZone": -1, "expectedPrecipitation": 0.0, "jLocked": "",
+         "maxExpectedPrecipitation": 2.0, "rainActive": 0, "rainTime": 0, "zones": json.dumps(BEW_ZONEN),
+         **werte}
+    return control, {states[n]: w[n] for n in BEW_STATES}
+
+
+# Betriebsarten wie im Abschnitt operatingModes einer Struktur; 3..9 sind laut
+# Doku Montag bis Sonntag, 0..2 haben Vorrang vor ihnen.
+BETRIEBSARTEN = {"0": "Feiertag", "1": "Urlaub", "3": "Montag", "4": "Dienstag", "5": "Mittwoch",
+                 "6": "Donnerstag", "7": "Freitag", "8": "Samstag", "9": "Sonntag", "10": "Arbeitstag"}
+# Weckzeiten: ab Version 13.0 hat jeder Wecker einen Eintrag mit nightLight
+# (daily statt modes), dazu zwei gewoehnliche.
+WECKZEITEN = {
+    "0": {"name": "Nachtlicht", "isActive": False, "alarmTime": 25200, "modes": [], "nightLight": True,
+          "daily": True},
+    "1": {"name": "Arbeit", "isActive": True, "alarmTime": 22500, "modes": [3, 4, 5, 6, 7],
+          "nightLight": False, "daily": False},
+    "2": {"name": "Wochenende", "isActive": False, "alarmTime": 30600, "modes": [8, 9, 0],
+          "nightLight": False, "daily": False},
+}
+WECKER_STATES = ("confirmationNeeded", "currentEntry", "deviceSettings", "deviceState", "entryList",
+                 "isAlarmActive", "isEnabled", "jLocked", "nextEntry", "nextEntryMode", "nextEntryTime",
+                 "prepareDuration", "ringDuration", "ringingTime", "snoozeDuration", "snoozeTime",
+                 "wakeAlarmSoundSettings")
+
+
+def wecker_baustein(eintraege=None, **werte) -> tuple[dict, dict]:
+    """Wecker (AlarmClock): entryList als JSON-Text {entryID: {name, isActive,
+    alarmTime (Sekunden ab Mitternacht), modes, nightLight, daily}}, Dauern in
+    Sekunden."""
+    states = {n: f"wk-{n}" for n in WECKER_STATES}
+    control = {"name": "Anna Wecker", "type": "AlarmClock", "uuidAction": "WK", "room": "r1", "cat": "c1",
+               "details": {"hasNightLight": True, "snoozeDurationConnected": False,
+                           "brightActiveConnected": False, "brightInactiveConnected": False,
+                           "wakeAlarmSoundConnected": False, "wakeAlarmVolumeConnected": False,
+                           "wakeAlarmSlopingConnected": False, "wakeAlarmSounds": [], "jLockable": True},
+               "states": states}
+    w = {"confirmationNeeded": 0, "currentEntry": -1, "deviceSettings": "", "deviceState": 0,
+         "entryList": json.dumps(WECKZEITEN if eintraege is None else eintraege), "isAlarmActive": 0,
+         "isEnabled": 1, "jLocked": "", "nextEntry": 1, "nextEntryMode": 3, "nextEntryTime": 0,
+         "prepareDuration": 900, "ringDuration": 300, "ringingTime": 0, "snoozeDuration": 540,
+         "snoozeTime": 0, "wakeAlarmSoundSettings": "", **werte}
+    return control, {states[n]: w[n] for n in WECKER_STATES}
+
+
+# Verpasste Klingeln wie im State lastBellEvents: JJJJMMTTHHMMSS, mit | getrennt
+KLINGELN = ("20261001074904", "20261002181530", "20261003091200")
+
+
+def intercom_baustein(klingeln=KLINGELN, bilder=True, **werte) -> tuple[dict, dict]:
+    """Tuersprechstelle (Intercom, "Door Controller"): Klingel bell, verpasste
+    Klingeln lastBellEvents; mit details.lastBellEventImages liefert der
+    Miniserver je Klingel ein Bild (camimage). Ausgaenge sind
+    Pushbutton-Subcontrols (pulse)."""
+    names = ("bell", "jLocked", "lastBellEvents", "lastBellTimestamp")
+    states = {n: f"ic-{n}" for n in names}
+    control = {"name": "Eingang Intercom", "type": "Intercom", "uuidAction": "IC", "room": "r1", "cat": "c1",
+               "details": {"deviceType": 1, "videoInfo": {}, "audioInfo": {}, "lastBellEventImages": bilder,
+                           "showBellImage": False, "jLockable": True},
+               "states": states,
+               "subControls": {"IC/1": {"name": "Tür öffnen", "type": "Pushbutton", "uuidAction": "IC/1",
+                                        "states": {"active": "ic-o1"}}}}
+    w = {"bell": 0, "jLocked": "", "lastBellEvents": "|".join(klingeln), "lastBellTimestamp": "", **werte}
+    return control, {states[n]: w[n] for n in names}
