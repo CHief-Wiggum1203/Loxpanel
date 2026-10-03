@@ -53,6 +53,20 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
+**Lenardos offener PR #77 im Fork (03.10.2026):** „Verlauf-Widget: mehrere
+Bausteine stapeln“ (Zweig `feature/verlauf-stapelbar`, `364a448`) steht als
+echter Merge-Commit im Fork, bevor Lenardo ihn nach `main` bringt. Die
+Verlaufs-Pane zeigt damit einen oder mehrere Bausteine untereinander, die
+Zeitraum-Leiste steht fest darüber (`ARCHITEKTUR.md` §3.9). Ein Konflikt in
+`bin/webvisu.py` (`conn_chart`, `setchart`), sonst Zeile für Zeile seine
+Änderungen. Beim Übernehmen fielen zwei Fehler auf, die der Fork gleich
+behebt und Lenardo als Beitrag zu #77 anbietet (`up/verlauf-stapel`, siehe
+Upstream-Beiträge): Auf der Uhr-Seite wurden die Diagramme wieder unten
+abgeschnitten (bei 960 × 480 um 144 px), und nach einem Wechsel der Pane
+konnte der vorige Stapel samt Namen stehen bleiben. Bringt Lenardo #77 nach
+`main`, holt der nächste Abgleich seinen Stand; seine Zeilen hat der Fork
+dann schon, unsere Korrekturen liegen daneben.
+
 Zuletzt eingepflegt am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
 weiterhin 0.6.0), als echter Merge-Commit. Lenardo hatte an dem Tag alle
 unsere offenen Beiträge übernommen, jeden patch-gleich: #63 Sicherung, #64
@@ -221,9 +235,11 @@ beim nächsten Mal wieder.
       Feldstil-Prüfungen. Am 02.10.2026 gemergt. **S**
 - [ ] **Namensfeld im Betriebsmodus-Assistenten bei Lenardo einreichen:**
       `.mzname` hat denselben Fehler wie die Felder aus #73. Gewartet wurde
-      auf #65, das dieselbe Zeile ändert; seit 02.10.2026 ist es übernommen,
-      der Fix kann also als ein Commit auf `upstream/main` los. Im Fork ist er
-      drin, `test_geraeteliste_umschalten_und_benennen` prüft ihn. **S**
+      auf #65, das dieselbe Zeile ändert; seit 02.10.2026 ist es übernommen.
+      Vorbereitet am 03.10.2026 im Zweig `up/kleine-fehler` zusammen mit vier
+      weiteren kleinen Fehlern (siehe Upstream-Beiträge), einreichen über den
+      Link dort. Im Fork ist er drin, `test_geraeteliste_umschalten_und_benennen`
+      prüft ihn. **S**
 - [x] **Uhr-Seiten-Fix zu #60 bei Lenardo eingereicht:**
       [#71](https://github.com/Lenardo1/loxpanel/pull/71), Zweig
       `up/verlauf-uhrseite`. In seinem `main` fallen die Verlaufs-Diagramme
@@ -292,10 +308,27 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 02.10.2026, nach dem Abgleich. **In `upstream/main`** sind die
-Tabelle unten und #34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`).
-**Offen** ist keiner; was noch einzureichen ist, steht oben bei den einzelnen
-Punkten (`.mzname`, Icon-Bibliothek) und in Block 0c.
+Stand 03.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
+#34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`). **Vorbereitet, noch
+nicht eingereicht** sind vier Zweige mit je einem Commit, dessen Titel und
+Text GitHub für den PR übernimmt. Alle vier gehen konfliktfrei zusammen auf
+#77. Gegen Lenardos Stand bestehen die zugehörigen Tests aus dem Fork, ohne
+die Änderungen scheitern sie (beim Neuladen fehlt ohne die Änderung schon
+die Einstellung, die die Tests abfragen):
+
+| Zweig | Basis | Inhalt | Einreichen |
+|---|---|---|---|
+| `up/verlauf-stapel` | `feature/verlauf-stapelbar` (#77) | Zu #77: Uhr-Seite schneidet nicht ab, kein Diagramm des vorigen Stapels nach einem Wechsel der Pane | [Vergleich](https://github.com/Lenardo1/loxpanel/compare/feature/verlauf-stapelbar...CHief-Wiggum1203:Loxpanel:up/verlauf-stapel?expand=1), als PR in seinen Zweig von #77 |
+| `up/kleine-fehler` | `main` | Namensfeld `.mzname`, „1 Raum“, Ruhe-Text der Radiotasten, `catFilter` im Export an den Konfigurator, `ctrltight`/`ctrlnarrow` in `updateGrid()` | [Vergleich](https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/kleine-fehler?expand=1) |
+| `up/detailseiten` | `main` | Volle Detailseiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen | [Vergleich](https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/detailseiten?expand=1) |
+| `up/neuladen-nachts` | `main` | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite | [Vergleich](https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/neuladen-nachts?expand=1) |
+
+Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
+Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
+auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
+Wetter- und Kalender-Tabs auf, für Lenardo erst auf seinen Wetter-Aufbau
+umbauen), Kachel-Aufbau, automatisches Raster und Schriften (erst
+vorschlagen) und die Icon-Bibliothek (oben).
 
 | PR | Inhalt |
 |---|---|
@@ -394,8 +427,8 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (`415ffd5`, Stand 02.10.2026,
-siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (`415ffd5`, Stand 02.10.2026)
+und enthält dazu Lenardos offenen #77 (siehe oben).
 
 ## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
 

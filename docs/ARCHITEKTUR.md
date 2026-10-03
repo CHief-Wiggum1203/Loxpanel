@@ -258,7 +258,7 @@ Server → Browser (`panel.html:700`):
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
-| `chart` | `control`, `name`, `value`, `range`, `blocks[]` (Blöcke `chart`, §3.7) | Verlaufs-Pane im Split-Layout; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_blocks()`) |
+| `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -270,7 +270,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
-| `setchart` | `uuid`, `range` — Baustein und Zeitraum der Verlaufs-Pane des aktiven Tabs (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`) |
+| `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
 
 ### 3.7 Das Block-Vokabular
@@ -446,15 +446,22 @@ Wanduhr-Sekunden um wie bei den Monatsdateien.
 **Außerhalb der Detailseite** gibt es die Verläufe an zwei weiteren Stellen,
 beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
 
-- **Verlaufs-Pane** (`panes`: `chart:<uuid>`): zweite Hälfte im Split-Layout (quer rechts, hochkant unten)
-  mit Name, aktuellem Wert und den Diagrammen, wie beim Energiefluss über
-  `setchart` angemeldet und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe
-  melden dort nur den Zeitraum neu (`setchart`), die Kachelseite links bleibt.
+- **Verlaufs-Pane** (`panes`: `chart:<uuid>,…`): zweite Hälfte im Split-Layout (quer rechts, hochkant unten)
+  mit einem oder mehreren Bausteinen (Upstream #77), je Baustein Name, aktueller
+  Wert und Diagramme (`.cpsec`), wie beim Energiefluss über `setchart` angemeldet
+  und vom Broadcaster aktualisiert. Die Zeitraum-Knöpfe stehen einmal oben
+  (`.cpr`), gelten für alle Bausteine und melden nur den Zeitraum neu
+  (`setchart`), die Kachelseite links bleibt. Ab zwei Bausteinen bekommt die
+  Seite `.stack`: nur der Bereich mit den Bausteinen (`.cpbody`) scrollt, jedes
+  Diagramm in seinem Seitenverhältnis, die Leiste bleibt stehen. Im
+  Konfigurator wählt man die Bausteine als Chips, in der gewählten
+  Reihenfolge.
   Seit Upstream #60 teilen sich die Diagramme dort (und auf einer Widget-Seite)
   die Höhe der Pane, statt unten aus ihr herauszuragen: Die Seite ist eine
   Flex-Spalte, jedes Diagramm bekommt `flex:1`, das SVG
   (`preserveAspectRatio="none"`) füllt seine Fläche in voller Breite und wird
-  dafür leicht verzerrt. Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
+  dafür leicht verzerrt (mit einem Baustein; im Stapel scrollt die Pane, siehe
+  oben). Diese Regeln gelten nur im `#frontpane`. Die Uhr-Seite
   zeichnet denselben Baustein (`renderChartPane()`), hochkant ist ihre Box aber
   so hoch wie ihr Inhalt, und Diagramme mit `flex-basis: 0` fielen dort auf 0 px
   zusammen. Auf der Uhr-Seite stehen die Diagramme deshalb im
@@ -462,11 +469,18 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   nicht (quer hat er eine feste Höhe, hochkant bleibt die Fläche unter Uhr und
   Wetter), schrumpfen sie (`flex:0 1 auto`), statt unten abgeschnitten zu
   werden, etwa bei drei Diagrammen eines Zählers oder in einem niedrigen
-  Fenster. Geprüft in `test_split_haelfte_und_kachel` und
-  `test_split_hochkant_uebereinander` (kein Überlauf),
-  `test_uhrseite_hochkant_zweite_flaeche_unten` (Seitenverhältnis quer und
-  hochkant) und `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden` (drei
-  Diagramme quer und hochkant, zwei bei 960 × 400: nichts abgeschnitten).
+  Fenster. Die Hüllen um die Diagramme (`.cpbody`, je Baustein `.cpsec`, seit
+  #77) schrumpfen mit; ohne sie ragten drei Diagramme bei 960 × 480 um 144 px
+  heraus. Mehrere Bausteine teilen sich dort den Kasten, statt zu scrollen: Jede
+  Berührung schließt den Bildschirmschoner. Geprüft in
+  `test_split_haelfte_und_kachel` und `test_split_hochkant_uebereinander` (kein
+  Überlauf), `test_uhrseite_hochkant_zweite_flaeche_unten` (Seitenverhältnis
+  quer und hochkant), `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`
+  (drei Diagramme quer und hochkant, zwei bei 960 × 400, zwei Bausteine mit fünf
+  Diagrammen: nichts abgeschnitten), `test_verlauf_pane_stapelt_mehrere_bausteine`
+  (Stapel scrollt, Leiste fest) und `test_verlauf_pane_verwirft_fremden_stapel`
+  bzw. `test_veralteter_stapel_kommt_nicht_hinterher` (nach einem Wechsel kein
+  Diagramm des vorigen Stapels).
 - **Mini-Verlauf in der Kachel** (`tiles.<uuid>.chart` = Zeitraum,
   `tiles.<uuid>.chartStyle` = Darstellung): `_apply_tile_style()` hängt `spark`
   an die Kachel, gebaut in `_stat_spark()` aus dem ersten Linien-Diagramm des
@@ -658,8 +672,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
-                                             // "chart:<uuid>" (Verlauf eines Bausteins mit
-                                             // Aufzeichnung) | "status:<uuid>,…" (frei gewählte
+                                             // "chart:<uuid>,…" (Verlauf eines oder mehrerer
+                                             // Bausteine mit Aufzeichnung, untereinander) |
+                                             // "status:<uuid>,…" (frei gewählte
                                              // Werte); fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
@@ -969,7 +984,7 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   rechte Spalte, hochkant unter Uhr und Wetter, auf dem quadratischen
   4″-Panel keine. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,
-  `weather`, `player:<zone>`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>`, `status:<uuid>,…`. Geprüft an
+  `weather`, `player:<zone>`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>,…`, `status:<uuid>,…`. Geprüft an
   EINER Stelle (`_clean_svpane()`), gezeichnet in `renderSvSide()`. Energiefluss
   und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
   oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe

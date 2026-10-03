@@ -117,7 +117,7 @@ def test_split_haelfte_und_kachel(tmp_path, miniserver_http):
             await u.bild(pg, "split_24h")
             await pg.locator("#frontpane .chip", has_text="7 Tage").dispatch_event("pointerdown")
             await pg.wait_for_timeout(1500)
-            assert list(u.app.conn_chart.values()) == [("P", "7d")]
+            assert list(u.app.conn_chart.values()) == [(("P",), "7d")]
             assert await pg.evaluate("stack.length") == 1, "Zeitraum wechselt ohne Navigation"
             await u.bild(pg, "split_7d")
             await pg.close()
@@ -198,7 +198,7 @@ def test_split_dreht_mit(tmp_path, miniserver_http):
             m = await pg.evaluate(LAGE)
             assert m["hoch"] and m["pane"]["t"] >= m["grid"]["b"] - 1, m
             assert await pg.evaluate("stack.length") == 2, "Drehen navigiert nicht"
-            assert list(u.app.conn_chart.values()) == [("P", "24h")]
+            assert list(u.app.conn_chart.values()) == [(("P",), "24h")]
             await u.bild(pg, "split_detail_hoch")
             assert not u.fehler, u.fehler
     asyncio.run(lauf())
@@ -339,15 +339,17 @@ UHR_VERLAUF = """() => { const p = document.querySelector('#svBox .fp-page.cpage
 def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_http, monkeypatch):
     """Verlauf auf der Uhr-Seite: Passen die Diagramme nicht im Seitenverhaeltnis
     in den Kasten (drei Diagramme eines Zaehlers; zwei in einem niedrigen
-    Fenster), schrumpfen sie, statt unten abgeschnitten zu werden - quer und
-    hochkant. Mit genug Platz bleibt es beim Seitenverhaeltnis 440:150."""
+    Fenster; seit Lenardos #77 auch mehrere Bausteine untereinander), schrumpfen
+    sie, statt unten abgeschnitten zu werden - quer und hochkant. Mit genug
+    Platz bleibt es beim Seitenverhaeltnis 440:150."""
     from test_front_tabs_browser import _front
 
     async def lauf():
         daten = await _front(monkeypatch)
         ergebnis = {}
         for cid, groessen in (("N", [(960, 480), (800, 480), (533, 893), (480, 800)]),
-                              ("P", [(960, 400), (960, 480)])):
+                              ("P", [(960, 400), (960, 480)]),
+                              ("N,P", [(960, 480), (480, 800)])):
             async with Umgebung(tmp_path, {"ui": {"svPane": "chart:" + cid}}) as u:
                 u.ms.v2.update({("NETZ", "1", "actual"): (1800, pv_leistung),
                                 ("NETZ", "2", "total"): (3600, zaehlerstand(pv_leistung)),
@@ -359,7 +361,7 @@ def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_htt
                                    "room": "r1", "cat": "c1", "isFavorite": True}
                 u.app._apply_structure(anlage(u.controls))
                 u.app._front = u.app._front_payload(daten)
-                anzahl = 3 if cid == "N" else 2
+                anzahl = {"N": 3, "P": 2, "N,P": 5}[cid]
                 for b, h in groessen:
                     pg = await u.seite(b, h)
                     await pg.evaluate("showSaver()")
@@ -367,7 +369,7 @@ def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_htt
                         f"document.querySelectorAll('#svBox .chart svg').length === {anzahl}", timeout=15000)
                     await pg.wait_for_timeout(400)
                     ergebnis[(cid, b, h)] = await pg.evaluate(UHR_VERLAUF)
-                    await u.bild(pg, f"uhrseite_verlauf_{cid}_{b}x{h}")
+                    await u.bild(pg, f"uhrseite_verlauf_{cid.replace(',', '+')}_{b}x{h}")
                     await pg.close()
                 assert not u.fehler, u.fehler
         return ergebnis
@@ -378,6 +380,88 @@ def test_uhrseite_verlauf_schrumpft_statt_abzuschneiden(tmp_path, miniserver_htt
         assert all(sh > 0 for _, sh in m["svgs"]), ((cid, b, h), m)        # keins zusammengefallen
     assert all(abs(sw / sh - 440 / 150) < 0.1 for sw, sh in ergebnis[("P", 960, 480)]["svgs"]), \
         "mit genug Platz im Seitenverhaeltnis der Zeichnung"
+
+
+STAPEL_JS = """() => { const p = document.querySelector('#frontpane .fp-page.cpage'); if (!p) return null;
+  const k = p.querySelector('.cpbody');
+  return {stapel: p.classList.contains('stack'),
+          namen: [...p.querySelectorAll('.cpsec .cpname')].map(e => e.textContent),
+          leisten: p.querySelectorAll('.chrng').length,
+          an: [...p.querySelectorAll('.cpr .chip.on')].map(c => c.textContent),
+          svgs: p.querySelectorAll('.cpsec .chart svg').length,
+          scrollt: k.scrollHeight > k.clientHeight,
+          leiste_oben: p.querySelector('.cpr').getBoundingClientRect().bottom <= k.getBoundingClientRect().top + 1}; }"""
+
+
+def test_verlauf_pane_stapelt_mehrere_bausteine(tmp_path, miniserver_http):
+    """Verlauf als Pane 2 mit mehreren Bausteinen (Lenardos #77): je Baustein
+    ein Kopf mit Name und Wert, die Diagramme untereinander. Die Bausteine
+    scrollen, die Zeitraum-Leiste steht einmal fest darueber und gilt fuer
+    alle. Mit einem Baustein bleibt die Pane eingepasst wie bisher."""
+    async def lauf():
+        async with Umgebung(tmp_path, {"ui": {"panes": {"favoriten": "chart:T,R,P"}}}) as u:
+            pg = await u.seite(960, 480)
+            await pg.wait_for_function(
+                "document.querySelectorAll('#frontpane .cpsec .chart svg').length >= 3", timeout=15000)
+            await pg.wait_for_timeout(400)
+            info = await pg.evaluate(STAPEL_JS)
+            await u.bild(pg, "verlauf_gestapelt")
+            assert info["stapel"] and info["namen"] == ["Boiler", "Regen", "PV Anlage"], info
+            assert info["leisten"] == 1 and info["an"] == ["24 h"] and info["leiste_oben"], info
+            assert info["scrollt"], "drei Bausteine passen nicht in die halbe Hoehe: die Pane scrollt"
+            await pg.locator("#frontpane .cpr .chip", has_text="7 Tage").dispatch_event("pointerdown")
+            await pg.wait_for_function("""() => { const c = document.querySelector('#frontpane .cpr .chip.on');
+                return c && c.textContent === '7 Tage'
+                       && document.querySelectorAll('#frontpane .cpsec .chart svg').length >= 3; }""",
+                                       timeout=15000)
+            assert await pg.evaluate("chartData.range") == "7d"
+            assert await pg.evaluate("chartData.controls") == ["T", "R", "P"]
+            u.app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"],
+                                                            "ui": {"panes": {"favoriten": "chart:T"}}}})
+            pg2 = await u.seite(960, 480)
+            await pg2.wait_for_function("document.querySelectorAll('#frontpane .cpsec .chart svg').length === 1",
+                                        timeout=15000)
+            await pg2.wait_for_timeout(400)
+            einzeln = await pg2.evaluate(STAPEL_JS)
+            await u.bild(pg2, "verlauf_einzeln")
+            assert not einzeln["stapel"] and einzeln["namen"] == ["Boiler"] and not einzeln["scrollt"], einzeln
+        assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
+NAMEN_MITSCHREIBEN = """() => { window._namen = []; const fp = document.getElementById('frontpane');
+  new MutationObserver(() => fp.querySelectorAll('.cpname').forEach(e => window._namen.push(e.textContent)))
+    .observe(fp, {subtree: true, childList: true, characterData: true}); }"""
+
+
+def test_verlauf_pane_verwirft_fremden_stapel(tmp_path, miniserver_http):
+    """Ein Verlaufs-Push, der beim Wechsel der Pane schon unterwegs war, nennt
+    Bausteine, die die Pane nicht mehr zeigt: die Visu verwirft ihn, statt das
+    fremde Diagramm samt Namen auch nur kurz zu zeigen. Ein Push zum
+    angefragten Baustein (hier mit anderem Zeitraum) kommt weiter an."""
+    async def lauf():
+        async with Umgebung(tmp_path, {"ui": {"panes": {"favoriten": "chart:T"}}}) as u:
+            pg = await u.seite(960, 480)
+            await pg.wait_for_function("document.querySelectorAll('#frontpane .cpsec .chart svg').length === 1",
+                                       timeout=15000)
+            await pg.evaluate(NAMEN_MITSCHREIBEN)
+            ws, = list(u.app.conn_chart)
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("R",), "24h")})
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("T",), "7d")})
+            await pg.wait_for_function("chartData && chartData.range === '7d'", timeout=15000)
+            await pg.wait_for_timeout(200)
+            gesehen = await pg.evaluate("window._namen")
+            namen = await pg.evaluate("[...document.querySelectorAll('#frontpane .cpsec .cpname')]"
+                                      ".map(e => e.textContent)")
+            assert "Regen" not in gesehen, gesehen
+            assert namen == ["Boiler"] and await pg.evaluate("chartData.controls") == ["T"]
+            # Leerzeichen in der Liste (panels.json von Hand) trimmt der Server
+            # beim Anfragen weg; die Visu vergleicht genauso
+            await pg.evaluate("curChartKey = 'T, R|24h'")
+            await ws.send_json({"t": "chart", **u.app.chart_stack(("T", "R"), "24h")})
+            await pg.wait_for_function("chartData && chartData.controls.length === 2", timeout=15000)
+        assert not u.fehler, u.fehler
+    asyncio.run(lauf())
 
 
 @pytest.mark.parametrize("raumzeile", [True, False], ids=["mit_raumzeile", "ohne_raumzeile"])
