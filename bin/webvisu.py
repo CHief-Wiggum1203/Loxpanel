@@ -70,9 +70,12 @@ import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fu
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
+import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 
 log = logging.getLogger("loxpanel.webvisu")
+# Welcher Stand laeuft (Konfigurator, /api/settings, /api/health); einmal beim Start gelesen
+VERSION = version_info.lesen()
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -1007,6 +1010,28 @@ class ZugangFehler(Exception):
     Grund so, dass ihn der Konfigurator anzeigen kann."""
 
 
+KEIN_SIP = "Die Intercom nennt keinen SIP-Zugang"
+
+
+def _sip_zugang(details: dict) -> dict | None:
+    """SIP-Zugang aus den gesicherten Details einer Intercom (audioInfo: host,
+    user und bei Loxone-Intercoms pass; Strukturdoku 16.0, Intercom).
+    -> {"host", "user", "pass"}; None, wenn kein host darin steht."""
+    ai = details.get("audioInfo")
+    host = str(ai.get("host") or "").strip() if isinstance(ai, dict) else ""
+    if not host:
+        return None
+    return {"host": host, "user": str(ai.get("user") or "").strip(), "pass": str(ai.get("pass") or "")}
+
+
+def _gesichert_felder(details: dict) -> dict:
+    """Aufbau gesicherter Details ohne Werte: je Abschnitt die Felder und ob sie
+    gefuellt sind, etwa {"videoInfo": {"streamUrl": True}, "audioInfo": {}}.
+    Fuer die Diagnose im Reiter SIP; Werte und Passwoerter bleiben im Server."""
+    return {k: ({f: bool(w) for f, w in v.items()} if isinstance(v, dict) else bool(v))
+            for k, v in details.items()}
+
+
 class App:
     def __init__(self, ms: dict, audio: dict | None = None,
                  audiometa: dict | None = None):
@@ -1533,14 +1558,12 @@ class App:
         raise ZugangFehler("Der Miniserver lehnt die verschlüsselte Anfrage ab")
 
     async def intercom_sip(self, uuid: str) -> dict:
-        """SIP-Zugang einer Intercom aus ihren gesicherten Details (audioInfo:
-        host, user und bei Loxone-Intercoms pass; Strukturdoku 16.0, Intercom).
+        """SIP-Zugang einer Intercom aus ihren gesicherten Details (_sip_zugang).
         -> {"host", "user", "pass"}; ZugangFehler, wenn sie keinen nennt."""
-        ai = (await self.secured_details(uuid)).get("audioInfo")
-        host = str(ai.get("host") or "").strip() if isinstance(ai, dict) else ""
-        if not host:
-            raise ZugangFehler("Die Intercom nennt keinen SIP-Zugang")
-        return {"host": host, "user": str(ai.get("user") or "").strip(), "pass": str(ai.get("pass") or "")}
+        sip = _sip_zugang(await self.secured_details(uuid))
+        if sip is None:
+            raise ZugangFehler(KEIN_SIP)
+        return sip
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -6836,6 +6859,7 @@ async def api_health(request: web.Request) -> web.Response:
         "miniserver": bool(app.client and app.ws),
         "panels": len(app.conn_route),
         "uptime": round(time.monotonic() - started) if started is not None else None,
+        "version": VERSION,
     }, status=200 if ok else 503, headers=_NOCACHE)
 
 
@@ -7605,6 +7629,7 @@ async def api_settings(request: web.Request) -> web.Response:
                   "options": app.night_control_options()},
         "connected": app.client is not None,
         "nControls": len(app.controls),
+        "version": VERSION,
         # Ohne Struktur fuehrt der Konfigurator zuerst zum Miniserver
         "einrichtung": app._einrichtung_info(),
     })
@@ -7764,8 +7789,10 @@ async def api_sip(request: web.Request) -> web.Response:
     """Settings -> SIP: die Intercoms der Anlage mit ihrem SIP-Zugang aus den
     gesicherten Details. Das Passwort verlaesst den Server nie, die Routen haben
     keine Anmeldung; es heisst nur, ob es eines gibt (hasPass wie bei
-    /api/settings). Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede
-    Intercom kostet eine verschluesselte Anfrage an den Miniserver.
+    /api/settings). Nennt eine Intercom keinen, steht unter felder, welche
+    Felder ihre gesicherten Details haben und ob sie gefuellt sind, ohne Werte.
+    Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede Intercom kostet
+    eine verschluesselte Anfrage an den Miniserver.
     deviceType wie im Baustein: 0 andere oder unbekannte Tuerstation, 1 Loxone
     Intercom, 2 Loxone Intercom XL (Strukturdoku 16.0, Intercom)."""
     app: App = request.app["app"]
@@ -7777,10 +7804,15 @@ async def api_sip(request: web.Request) -> web.Response:
              "room": _clean((app.rooms.get(c.get("room")) or {}).get("name")),
              "deviceType": (c.get("details") or {}).get("deviceType")}
         try:
-            sip = await app.intercom_sip(uuid)
-            e["sip"] = {"host": sip["host"], "user": sip["user"], "hasPass": bool(sip["pass"])}
+            details = await app.secured_details(uuid)
         except ZugangFehler as err:
             e["error"] = str(err)
+        else:
+            sip = _sip_zugang(details)
+            if sip:
+                e["sip"] = {"host": sip["host"], "user": sip["user"], "hasPass": bool(sip["pass"])}
+            else:
+                e.update(error=KEIN_SIP, felder=_gesichert_felder(details))
         liste.append(e)
     liste.sort(key=lambda e: (e["name"].lower(), e["room"].lower()))
     return web.json_response({"connected": app.client is not None, "intercoms": liste})

@@ -19,4 +19,6 @@ plugin.cfg
 tests
 pytest.ini
 requirements-dev.txt
-loxberry-plugin
+# Vom LoxBerry-Plugin nur plugin.cfg: dort steht die Version (bin/version_info.py)
+loxberry-plugin/*
+!loxberry-plugin/plugin.cfg

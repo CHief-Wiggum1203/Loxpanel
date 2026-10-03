@@ -17,6 +17,9 @@ SIP_PASS, BILD_PASS = "Sip-Kennwort-1", "Bild-Kennwort-2"
 GESICHERT = {"videoInfo": {"streamUrl": "http://192.168.1.201/cgi-bin/faststream.jpg?stream=full",
                            "user": "kamera", "pass": BILD_PASS},
              "audioInfo": {"host": "192.168.1.201", "user": "tuer", "pass": SIP_PASS}}
+# Wie bei einer Intercom ohne eingerichtetes Audio: Kamera ja, SIP nein
+OHNE_AUDIO = {"videoInfo": {"streamUrl": "http://10.9.8.7/bild.jpg", "user": "videonutzer",
+                            "pass": BILD_PASS, "alertImage": ""}, "audioInfo": {}}
 SCHALTER = {"name": "Licht", "type": "Switch", "uuidAction": "S1", "room": "r1", "cat": "c1",
             "states": {"active": "s1"}}
 
@@ -179,34 +182,57 @@ async def _routen(app):
     return await serve(ui)
 
 
-def _zwei_intercoms() -> dict:
+def _kennwort_werte(obj) -> list:
+    """Alle Werte unter den Schluesseln pass und password, egal wie tief."""
+    if isinstance(obj, dict):
+        return [w for k, v in obj.items() for w in ([v] if k in ("pass", "password") else []) + _kennwort_werte(v)]
+    if isinstance(obj, list):
+        return [w for v in obj for w in _kennwort_werte(v)]
+    return []
+
+
+def _intercoms() -> dict:
     ic, _ = intercom_baustein()
     garten = dict(ic, name="Garten Intercom", uuidAction="IC2", room="r2",
                   details=dict(ic["details"], deviceType=0))
-    return {"IC": ic, "IC2": garten, "S1": SCHALTER}
+    keller = dict(ic, name="Keller Intercom", uuidAction="IC3", room="r2",
+                  details=dict(ic["details"], deviceType=0))
+    return {"IC": ic, "IC2": garten, "IC3": keller, "S1": SCHALTER}
 
 
 def test_api_sip_ohne_passwort(miniserver_http):
     """Die Liste nennt Adresse und Benutzer, vom Passwort nur, ob es eines gibt:
-    die Routen haben keine Anmeldung. Eine Intercom ohne Zugang nennt den Grund."""
+    die Routen haben keine Anmeldung. Eine Intercom ohne Zugang nennt den Grund;
+    fehlt nur der SIP-Teil, dazu den Aufbau der gesicherten Details ohne Werte."""
     async def lauf():
-        ms, app = await _aufbau(controls=_zwei_intercoms())
+        ms, app = await _aufbau({"IC": GESICHERT, "IC3": OHNE_AUDIO}, controls=_intercoms())
         runner, port = await _routen(app)
         try:
             async with aiohttp.ClientSession() as s:
                 async with s.get(f"http://127.0.0.1:{port}/api/sip") as r:
                     status, text = r.status, await r.text()
             assert status == 200
-            assert SIP_PASS not in text and BILD_PASS not in text and '"pass"' not in text
+            assert SIP_PASS not in text and BILD_PASS not in text
+            assert _kennwort_werte(json.loads(text)) == [True], "pass nur als Feldname mit gefuellt/leer"
             assert json.loads(text) == {"connected": True, "intercoms": [
                 {"uuid": "IC", "name": "Eingang Intercom", "room": "Zentral", "deviceType": 1,
                  "sip": {"host": "192.168.1.201", "user": "tuer", "hasPass": True}},
                 {"uuid": "IC2", "name": "Garten Intercom", "room": "Technikraum", "deviceType": 0,
-                 "error": "Der Miniserver antwortet mit Code 500"}]}
+                 "error": "Der Miniserver antwortet mit Code 500"},
+                {"uuid": "IC3", "name": "Keller Intercom", "room": "Technikraum", "deviceType": 0,
+                 "error": "Die Intercom nennt keinen SIP-Zugang",
+                 "felder": {"videoInfo": {"streamUrl": True, "user": True, "pass": True, "alertImage": False},
+                            "audioInfo": {}}}]}
+            assert "10.9.8.7" not in text and "videonutzer" not in text, "keine Werte, nur Feldnamen"
         finally:
             await runner.cleanup()
             await _abbau(ms, app)
     asyncio.run(lauf())
+
+
+def test_gesichert_felder():
+    assert W._gesichert_felder({"a": "x", "b": "", "c": {"d": 0, "e": [1], "f": None}, "g": []}) == {
+        "a": True, "b": False, "c": {"d": False, "e": True, "f": False}, "g": False}
 
 
 def test_api_sip_ohne_miniserver():
@@ -236,7 +262,7 @@ def test_api_sip_pruefen(miniserver_http):
         tuer = await SipTuer(passwort=SIP_PASS).start()
         gesichert = copy.deepcopy(GESICHERT)
         gesichert["audioInfo"]["host"] = f"127.0.0.1:{tuer.port}"
-        ms, app = await _aufbau({"IC": gesichert, "IC2": {"audioInfo": {}}}, controls=_zwei_intercoms())
+        ms, app = await _aufbau({"IC": gesichert, "IC2": {"audioInfo": {}}}, controls=_intercoms())
         runner, port = await _routen(app)
         try:
             async with aiohttp.ClientSession() as s:

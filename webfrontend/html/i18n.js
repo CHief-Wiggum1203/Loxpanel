@@ -378,6 +378,11 @@
       'Gegenstelle:': 'Remote side:',
       'Codecs:': 'Codecs:',
       'Methoden:': 'Methods:',
+      'Gesicherte Details vom Miniserver:': 'Secured details from the Miniserver:',
+      'leer': 'empty',
+      // Version in der Seitenleiste
+      'Version unbekannt': 'Version unknown',
+      'gebaut': 'built',
       // SIP: feste Meldungen des Servers (/api/sip, /api/sip/pruefen)
       'Keine Verbindung zum Miniserver': 'No connection to the Miniserver',
       'Die Intercom nennt keinen SIP-Zugang': 'The intercom provides no SIP access',

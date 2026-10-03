@@ -580,6 +580,11 @@ selbst aktuell.
       dem Fork (ohne #63 fehlt nur der Reiter Sicherung), gegen den
       Gesamtstand mit allen Beiträgen 97 Tests zu Ersteinrichtung,
       Sicherung, Präsenz und Kachel-Tasten. **S**
+- [x] **Welche Test-APK installiert ist, sieht man** (gewünscht am
+      03.10.2026): Version, Commit und Bauzeit stehen in der Seitenleiste des
+      Konfigurators und in `/api/health`, der Commit auch unter App-Info in
+      Android (`bin/version.json`, `bin/version_info.py`; ARCHITEKTUR §9.3).
+      Gilt ebenso für das Docker-Image. **S**
 - [ ] **Erstes Gerät prüfen:** `adb shell getprop ro.product.cpu.abilist`
       (muss `arm64-v8a` enthalten), `adb shell dumpsys webviewupdate`
       (WebView-Version), dann APK installieren und Klingel, Notify,
@@ -1076,9 +1081,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          je Intercom ohne Passwort; „Verbindung prüfen“ schickt ein OPTIONS
          mit Anmeldung (`bin/sip_probe.py`), ohne einen Anruf auszulösen.
          Ablauf in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10.
-         **An der Anlage prüfen:** „Verbindung prüfen“ drücken und Antwort,
-         Anmeldung, Gegenstelle und Codecs hier eintragen. Davon hängt
-         Schritt 2 ab (Codec, Digest-Verfahren).
+         **An der Anlage geprüft (03.10.2026, Test-APK):** Die „Eingang
+         Intercom“ meldet `deviceType` 0 („andere oder unbekannte
+         Türstation“), und ihre gesicherten Details nennen keinen SIP-Zugang.
+         Seitdem zeigt der Reiter in dem Fall, welche Felder der Miniserver
+         liefert (ohne Werte). **Offen:** diese Zeile von der Anlage holen und
+         klären, ob das Audiomodul der Intercom in Loxone Config eingetragen
+         ist (Loxone-KB „Intercom Gen. 1“: eigenes SIP-Audiomodul, die
+         Loxone-App ruft es anonym an). Davon hängt Schritt 2 ab (Adresse,
+         Codec, Anmeldung).
       2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
          Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
          Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen
