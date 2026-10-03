@@ -358,10 +358,41 @@
       '(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)':
         '(which types exist and which LoxPanel does not support yet; JSON at /api/types)',
       // SIP
-      'Gegensprechen über die Türstation direkt am Panel (SIP-Audio/-Video statt nur Kamerabild).':
-        'Two-way audio via the door station directly on the panel (SIP audio/video instead of just the camera image).',
-      'SIP-Anbindung ist in Arbeit.': 'SIP integration is in progress.',
-      'Coming soon': 'Coming soon',
+      'SIP-Zugang der Türstation(en), wie ihn der Miniserver für das Gegensprechen nennt. LoxPanel liest ihn verschlüsselt, das Passwort bleibt im Server. „Verbindung prüfen“ fragt die Türstation, ob sie antwortet und die Anmeldung annimmt; ein Anruf entsteht dabei nicht.':
+        'SIP access of the door station(s) as the Miniserver provides it for two-way audio. LoxPanel reads it encrypted, the password stays on the server. “Check connection” asks the door station whether it answers and accepts the login; no call is placed.',
+      'Frage den Miniserver …': 'Asking the Miniserver …',
+      'Andere oder unbekannte Türstation': 'Other or unknown door station',
+      'SIP-Adresse': 'SIP address',
+      'vorhanden': 'present',
+      'keins': 'none',
+      'Verbindung prüfen': 'Check connection',
+      'Prüfe …': 'Checking …',
+      'Die Türstation antwortet und nimmt die Anmeldung an.': 'The door station answers and accepts the login.',
+      'Die Türstation antwortet und verlangt keine Anmeldung.': 'The door station answers and requires no login.',
+      'Die Türstation lehnt die Anmeldung ab.': 'The door station rejects the login.',
+      'Die Türstation verlangt eine Anmeldung, der Miniserver nennt aber kein Passwort.':
+        'The door station requires a login, but the Miniserver provides no password.',
+      'Die Türstation verlangt ein Anmeldeverfahren, das LoxPanel nicht kennt.':
+        'The door station requires a login method LoxPanel does not know.',
+      'Antwort:': 'Response:',
+      'Gegenstelle:': 'Remote side:',
+      'Codecs:': 'Codecs:',
+      'Methoden:': 'Methods:',
+      // SIP: feste Meldungen des Servers (/api/sip, /api/sip/pruefen)
+      'Keine Verbindung zum Miniserver': 'No connection to the Miniserver',
+      'Die Intercom nennt keinen SIP-Zugang': 'The intercom provides no SIP access',
+      'Unbekannte Intercom': 'Unknown intercom',
+      'Der Benutzer von LoxPanel darf diese Zugangsdaten nicht lesen (Rechte in Loxone Config)':
+        'The LoxPanel user may not read these credentials (permissions in Loxone Config)',
+      'Der Miniserver lehnt die Anmeldung von LoxPanel ab (Code 401)': 'The Miniserver rejects the LoxPanel login (code 401)',
+      'Der Miniserver lehnt die verschlüsselte Anfrage ab': 'The Miniserver rejects the encrypted request',
+      'Die Antwort des Miniservers lässt sich nicht entschlüsseln': 'The response of the Miniserver cannot be decrypted',
+      'Die gesicherten Details sind kein JSON': 'The secured details are not JSON',
+      'Der Baustein hat keine gesicherten Details': 'The block has no secured details',
+      "Paket 'cryptography' fehlt": "Package 'cryptography' is missing",
+      'Keine Antwort: an dieser Adresse meldet sich kein SIP-Dienst': 'No response: no SIP service answers at this address',
+      'Port geschlossen: an dieser Adresse läuft kein SIP-Dienst': 'Port closed: no SIP service runs at this address',
+      'Keine Antwort auf die Anmeldung': 'No response to the login',
       // Panels
       'Suche Panels…': 'Searching for panels…',
       '(Standard)': '(Default)',

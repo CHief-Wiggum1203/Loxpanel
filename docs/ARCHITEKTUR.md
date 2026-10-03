@@ -68,6 +68,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
+| `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
@@ -526,6 +528,56 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
   - Beschriftungen entfallen bei zu wenig Platz (Tief/Hoch und Wochentage unter
     48 px Höhe, Wochentage auch unter 16 px je Tag), statt sich zu überlappen.
 
+### 3.10 Gesicherte Details und SIP-Prüfung
+
+Zugangsdaten, die zu einem Baustein gehören, gibt der Miniserver nur auf einen
+verschlüsselten Befehl heraus: `jdev/sps/io/{uuid}/securedDetails`. Bei der
+Intercom sind das Kamera (`videoInfo`) und SIP (`audioInfo`: `host`, `user`,
+`pass`). `App.secured_details()` folgt der Loxone-Doku „Communicating with the
+Miniserver“ 16.0, Abschnitt Command Encryption, Variante für HTTP:
+
+1. `jdev/sys/getPublicKey` liefert den RSA-Schlüssel des Miniservers, als PEM
+   mit der Beschriftung CERTIFICATE, aber mit einem SubjectPublicKeyInfo darin.
+   Die App behält ihn (`_ms_pubkey`); `start()` und `reconnect()` verwerfen ihn.
+2. `jdev/sys/getkey` liefert den Schlüssel für den Token-Hash. Die Anmeldung
+   steckt im Befehl selbst: `?autht={HMAC(Token)}&user={Benutzer}`, mit SHA1
+   oder SHA256 wie bei der WebSocket-Anmeldung (`getkey2`).
+3. `loxone_secure.encrypt_command()`: `salt/{salt}/{cmd}` mit AES-256-CBC,
+   Nullbytes als Ende und Auffüllung; `{key}:{iv}` mit RSA PKCS#1 v1.5. Daraus
+   wird `jdev/sys/fenc/{chiffre}?sk={sitzungsschluessel}`.
+4. Mit `fenc` verschlüsselt der Miniserver auch die Antwort (Base64, derselbe
+   Schlüssel und IV), `decrypt_response()` macht sie wieder lesbar.
+
+Neuversuche: HTTP 401 heißt „Befehl nicht zu entschlüsseln“, meist ein neuer
+Schlüssel nach einem Neustart. Dann holt die App ihn einmal neu. LL-Code 401
+heißt „Token abgelaufen“, dann meldet sie sich über `_renew_token()` neu an,
+aber nicht öfter als `TOKEN_RENEW_MIN`. Alles andere wird zu `ZugangFehler` mit
+einem Satz, den der Konfigurator zeigt: 403 nennt die Rechte in Loxone Config.
+
+`App.intercom_sip()` nimmt daraus `audioInfo`. `/api/sip` nennt davon nur
+Adresse, Benutzer und `hasPass`, denn die Routen haben keine Anmeldung.
+`/api/sip/pruefen` nimmt aus der Anfrage nur die `uuid`. Adresse und Zugang
+kommen vom Miniserver, so geht die Anmeldung nur an die Türstation.
+
+`sip_probe.pruefen()` schickt ein OPTIONS (RFC 3261, Abschnitt 11) über UDP,
+das bei der Türstation keinen Anruf auslöst:
+
+- Ohne Antwort wiederholt es nach T1 = 0,5 s mit Verdopplung, bis `WARTEN`
+  (4 s) um ist. Nach einer vorläufigen Antwort (1xx) wartet es ohne
+  Wiederholung auf die endgültige.
+- Antworten zählen nur mit derselben Call-ID und CSeq; fremde Pakete, auch
+  leere, gehen unter.
+- Auf 401/407 folgt ein zweites OPTIONS mit Digest (RFC 2617; SHA-256 nach
+  RFC 8760; `-sess`; mit `qop=auth` oder in der alten Form ohne).
+- Ein ICMP „Port unerreichbar“ (`ConnectionRefusedError` in
+  `error_received`) beendet die Prüfung sofort mit „Port geschlossen“.
+- Gegenstelle, erlaubte Methoden und die Codecs aus einem mitgeschickten SDP
+  kommen ins Ergebnis.
+
+Getestet wird gegen Nachbauten in `tests/lox.py`: Der Miniserver entschlüsselt
+mit eigenem RSA-Schlüssel, und `SipTuer` rechnet die Anmeldung unabhängig nach.
+Die Digest-Werte stammen aus den Beispielen von RFC 2617 und RFC 7616.
+
 ## 4. HTTP- und WebSocket-Schnittstelle
 
 Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
@@ -548,6 +600,8 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
+| GET | `/api/sip` | `api_sip` | Intercoms der Anlage mit `uuid`, `name`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`); dazu `connected`. Das Passwort steht nie darin. Jede Intercom kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
+| POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) | Panel-Agent |
@@ -841,7 +895,11 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
   `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
   `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) fehlt, darum bleibt der Typ
-  in `PARTIAL_TYPES`.
+  in `PARTIAL_TYPES`. Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
+  Loxone-Intercoms `pass`) gibt der Miniserver seit 8.1 nur noch in den
+  gesicherten Details heraus; `details.audioInfo` ist leer. Lesen und Prüfen:
+  Abschnitt 3.10. Die neue Intercom (Typ `IntercomV2`) ist ein eigener Typ ohne
+  `audioInfo` und hier nicht gemeint.
 
 Die Bausteine dazu stehen in `tests/lox.py` (`aufab_baustein`,
 `bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`), die Tests in
@@ -1125,8 +1183,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
 Speicherleiste unten gilt nur für „Panel Configuration". Sieben Reiter:
-Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (nur
-Platzhalter), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
+Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (Zugang je
+Intercom aus dem Miniserver, „Verbindung prüfen“; lädt erst beim Öffnen,
+`loadSip()`), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
 (iCal-Abos, Wetter der Uhr-Seite), Neues Panel (Start-URL für Kiosk-Apps,
 SSH-Befehl für Linux-Panels), Sicherung (Herunterladen und Einspielen). Die
 Anzeigegeräte stehen in der eigenen Rubrik „Displays". Zu einem Reiter führen

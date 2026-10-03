@@ -1064,7 +1064,31 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Tür/Ausgänge öffnen (`pulse` je Sub-Control). Seit 03.10.2026 dazu
       „Klingel abstellen“ (`answer`) und die verpassten Klingeln
       (`lastBellEvents`) mit Bildern (`camimage/{uuidAction}/{Zeitstempel}`
-      über `/bellimg`). Offen: Gegensprechen (SIP, eigener Medien-Stack). **L**
+      über `/bellimg`). Offen: Gegensprechen (SIP). Ziel ist die Loxone
+      Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
+      Loxone-App direkt per SIP anruft; geklingelt wird weiter über `bell` und
+      das Klingel-Popup, eine Anmeldung am SIP-Server braucht es nicht. Nur in
+      der LoxPanel-App für Android, weil der Browser kein SIP über UDP kann.
+      Drei Schritte: **L**
+      1. [x] *Zugang und Prüfung* (03.10.2026): Den SIP-Zugang gibt der
+         Miniserver nur auf einen verschlüsselten Befehl heraus
+         (`securedDetails`, `bin/loxone_secure.py`). Settings → SIP zeigt ihn
+         je Intercom ohne Passwort; „Verbindung prüfen“ schickt ein OPTIONS
+         mit Anmeldung (`bin/sip_probe.py`), ohne einen Anruf auszulösen.
+         Ablauf in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10.
+         **An der Anlage prüfen:** „Verbindung prüfen“ drücken und Antwort,
+         Anmeldung, Gegenstelle und Codecs hier eintragen. Davon hängt
+         Schritt 2 ab (Codec, Digest-Verfahren).
+      2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
+         Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
+         Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen
+         unter GPL, eingebaut müsste die App unter GPL stehen, LoxPanel steht
+         unter PolyForm Noncommercial; Androids `android.net.sip` ist seit
+         Android 12 abgekündigt. Den Zugang holt der Kotlin-Teil im selben
+         Prozess vom Server (Chaquopy), nicht über eine Route im LAN. **L**
+      3. [ ] *Visu:* „Sprechen“ und „Auflegen“ auf der Intercom-Seite und im
+         Klingel-Popup, über die Brücke `LoxKiosk`; ohne App zeigt die Visu
+         sie nicht. **M**
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
 - [x] `UpDownAnalog`: seit 03.10.2026 bedienbar. Laut Strukturdoku
       („UpDownLeftRight analog“) ist der Befehl der Wert selbst, zwischen

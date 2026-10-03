@@ -90,7 +90,9 @@ Programmierung und ohne die Loxone-App.
   Raum-Player mit Cover (über den Miniserver).
 - **Intercom** (z. B. Mobotix T25): Live-Bild (MJPEG mit Auth), Tür öffnen &
   Außenlicht, Klingel-Popup (der Server erkennt den `bell`-State und schiebt die
-  Ansicht aufs Panel). Gegensprechen (SIP) folgt.
+  Ansicht aufs Panel). Gegensprechen (SIP) folgt in der LoxPanel-App für
+  Android; den SIP-Zugang liest LoxPanel schon verschlüsselt aus dem Miniserver
+  und prüft die Türstation unter *Settings → SIP*.
 - **Kalender & Wetter auf der Uhr-Startseite (Screensaver):** bis zu **8 iCal-Abos**
   gleichzeitig (Apple/iCloud, Google, Müllabfuhr, Geburtstage, Ferien …) – alle
   Termine laufen zu **einer** Liste zusammen, je Kalender mit eigenem Namen und
@@ -187,7 +189,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><th colspan="4" align="left">Tor / Zutritt</th></tr>
 <tr><td><code>CentralGate</code></td><td>Zentral Tor</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Gate</code></td><td>Tor / Garagentor</td><td align="center">✅</td><td>Position, Auf/Zu</td></tr>
-<tr><td><code>Intercom</code></td><td>Türsprechanlage</td><td align="center">🟡</td><td>Kamera, Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern; Gegensprechen (SIP) fehlt</td></tr>
+<tr><td><code>Intercom</code></td><td>Türsprechanlage</td><td align="center">🟡</td><td>Kamera, Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern, SIP-Zugang und -Prüfung (Settings → SIP); Gegensprechen fehlt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
 <tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off</td></tr>
@@ -415,7 +417,8 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 
 ## Roadmap
 
-- Intercom Teil 2: **Gegensprechen** (SIP-Client auf dem Panel).
+- Intercom Teil 2: **Gegensprechen** (SIP-Client in der LoxPanel-App für
+  Android; Zugang und Prüfung der Türstation gibt es schon).
 - Weitere Bausteine (u. a. Remote, AudioZoneV2) und Heizung-Modus-Umschaltung.
 - Musiksteuerung mit austauschbarem Audio-Backend (MS4H/LMS).
 - Optionaler openHASP-Renderer (ESP32) als kuratierter Satellit.
