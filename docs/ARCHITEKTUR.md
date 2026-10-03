@@ -244,7 +244,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart, Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -505,7 +505,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder) | Konfigurator, Einstellungen |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`) | Einstellungen, LoxBerry-Widget |
@@ -517,7 +517,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
-| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` | Panel-Agent |
+| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) | Panel-Agent |
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät | Einstellungen |
@@ -884,9 +884,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   (`--cols`·240 breit, `--rows`·480 hoch), „Bildschirm füllen“ gilt weiter.
   `applyHoch()` läuft in `applyPane()` und im `resize`-Handler, weil beim
   Drehen nicht in jedem Fall neu gerendert wird (Anlagenschema, Screensaver
-  oben). Die Pane ist hochkant fast so groß wie quer (Tab A9: 480×419 gegen
-  480×425 auf 960×480), ihre Inhalte brauchen deshalb keine eigene Fassung;
-  hochkant geprüft sind Verlauf, Wetter und Kalender.
+  oben). Mit festem Raster ist die Pane hochkant fast so groß wie quer (Tab A9:
+  480×419 gegen 480×425 auf 960×480); mit „Automatisch“ und je nach Gerät
+  schwankt sie stärker, darum passen sich Wetter, Kalender und Werte ihrer
+  Fläche an (siehe „Pane 2 nutzt ihre Fläche“).
   Geprüft in `test_split_hochkant_uebereinander`, `test_split_dreht_mit` und
   `test_split_haelfte_wetter_und_kalender[hochkant]`.
 - „Screen füllen“ (Tab ohne Pane 2) verdoppelt das Raster: quer die Spalten
@@ -947,8 +948,47 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Widget über die ganze Fläche; `paneRawNow()` liefert es den Push-Handlern
   (Energie, Kamera, Verlauf, Werte, Audio) wie eine Pane 2. Das Raster bleibt
   beim Profil (keine Verdopplung, auch nicht hochkant), eine Widget-Seite hat
-  keine Sprungmarken. Geprüft in `test_widget_seite_quer_und_hochkant` (quer,
-  hochkant, quadratisch).
+  keine Sprungmarken. Den Verbindungspunkt blendet sie aus wie die Kalender-
+  und Wetter-Seite, er säße sonst mitten im Widget. Geprüft in
+  `test_widget_seite_quer_und_hochkant` (quer, hochkant, quadratisch).
+- Pane 2 nutzt ihre Fläche (Oktober 2026): Wie groß die zweite Fläche ist,
+  hängt von Split, Raster, Lage und Gerät ab (gemessen von 240×403 bis
+  778×723). Wetter, Kalender und Werte messen deshalb nach dem Zeichnen und
+  bei jeder Größenänderung von `#frontpane` nach (`ResizeObserver` →
+  `paneEinpassen()`) und setzen Stufen wie `fitTile()` bei den Kacheln.
+  Container-Queries kämen ohne JS aus, gibt es aber erst ab Chrome 105.
+  - Wetter (`wetterEinpassen()`): Seite 1 ist so hoch wie die Fläche. Die
+    Kurve nimmt den Rest (`flex:1 1 0`) und wird in genau dieser Größe
+    gezeichnet (`fpCurve(hourly, W, H)`), ihre Zahlen sind echte 11 px; Uhr-Seite
+    und Wetter-Tab zeichnen weiter 700×150 und skalieren. Breiter als 1,45 × hoch
+    (`PANE_BREIT`) stehen Lage und Kurve nebeneinander (`.breit`), schmaler als
+    380 px (`WX_SCHMAL`) die Beschreibung unter der Temperatur und die Vorschau
+    zum Wischen (`.schmal`). Die Details stehen einmal im Dokument: unter der
+    Vorschau, wenn der Kurve dann noch 96 px bleiben (`WX_KURVE_MIN`), sonst
+    auf Seite 2. Bleiben ihr weniger als 64 px (`WX_KURVE_KNAPP`) oder ragt ein
+    Teil aus seinem Feld, rückt die Lage zusammen und „Heute hoch/tief“
+    entfällt, das in der Vorschau steht (`.eng`). Beschriftet ist jeder dritte
+    Punkt, auf schmaler Kurve seltener (mindestens 26 px Abstand).
+  - Kalender (`kalenderEinpassen()`): eine Seite, unter dem Monat die Termine
+    (`.kal-liste`, scrollt für sich, ohne zweite Legende). Ein Tipp auf einen
+    Tag zeigt dessen Termine gleich darunter; beim Blättern im Monat bleibt
+    die Liste stehen. Nebeneinander (`.breit`), wenn zwei Spalten à 220 px
+    passen (`KAL_SPALTE_MIN`) und die Fläche breit ist oder darunter weniger
+    als 160 px blieben (`KAL_LISTE_MIN`). Passt der Monat nicht, rücken die Tage
+    in zwei Stufen zusammen (`.eng`, `.eng2`).
+  - Werte (`renderWertePane()`, `werteEinpassen()`): gerahmt wie die anderen
+    Widgets, die Zeilen teilen sich die Höhe, Symbol und Schrift wachsen mit
+    der Zeilenhöhe (`--zh`). Ab 80 px (`WERTE_HOCH`) steht der Wert groß unter
+    Symbol und Name. Reicht die Höhe nicht (acht Werte), scrollt die Pane wie
+    bisher. Die Uhr-Seite zeichnet dieselben Zeilen ohne Rahmen
+    (`renderSvStatus()`, `svStatusZeilen()`).
+  - Energiefluss, Kamera, Audio und Verlauf füllten ihre Fläche schon.
+
+  Vorher, gemessen am Tab A9: Wetter quer mit 3 × 3 und „Bildschirm füllen“
+  59 px leer unter der Vorschau; mit „Automatisch“ quer die Beschreibung zu
+  einer Spalte gequetscht und die Vorschau seitlich abgeschnitten, hochkant
+  unten abgeschnitten. Kalender 30 % leer, die Termine auf Seite 2; zwei Werte
+  69 % leer. Geprüft in `tests/browser/test_pane_hoehe_browser.py`.
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;
@@ -1099,7 +1139,7 @@ hält.
 Server keinen Agenten für die Gerätekennung, schaltet die Seite das Display
 selbst über die JavaScript-Schnittstelle von Fully Kiosk Browser
 (`window.fully`), weckt es bei Klingel, Wecker, Notify und Goto und lädt sich
-nach `reloadHours` neu. Der Agent hängt dafür `device=<Name>` an die
+gegen Einfrieren neu (siehe unten). Der Agent hängt dafür `device=<Name>` an die
 Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
 (`App._has_agent`). `App.device_list()` führt Agenten, verbundene Browser und
 konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
@@ -1123,6 +1163,36 @@ senkt nachts die echte Helligkeit statt der dunklen Auflage
 automatischer Helligkeit, bleibt es bei der Auflage). Geprüft mit
 nachgebauter Brücke in `tests/browser/test_loxkiosk_browser.py`,
 `test_praesenz_app_browser.py` und `test_nacht_app_browser.py`.
+
+**Neu laden gegen Einfrieren (ohne Agent):** `reloadHours` aus dem Profil
+(*Auto-Neustart alle (Std.)*) kommt mit der `theme`-Nachricht, `null` heißt
+nicht eingestellt. Dann lädt die Visu einmal je Nacht neu, sobald es nach dem
+Laden der Seite `reloadAt` Uhr geworden ist (`NEULADEN_STUNDE` im Server, 3 Uhr;
+`/api/meta` gibt sie dem Konfigurator für das leere Feld und den Hinweis). Eine
+Zahl lädt so viele Stunden nach dem Laden neu, 0 nie, mit Agent ebenfalls nie
+(der startet den Browser selbst neu). `neuladenPruefen()` schaut jede Minute
+nach und lädt nur, während die Uhr-Seite steht (`saverOn()`), also nie unter
+den Fingern. Die neue Seite startet mit der Uhr und weckt nicht: In der
+LoxPanel-App meldet sie nur `setSaver(true)` und die Leerlaufzeit, ein dunkles
+Display bleibt dunkel. Bis Oktober 2026 lud die Seite ohne Eintrag nie neu, mit
+einer Zahl per `setTimeout` auch mitten in der Bedienung, und jede neue
+Verbindung setzte die Frist zurück. Geprüft mit gestellter Uhr in
+`tests/browser/test_neuladen_browser.py`, Server-Seite in
+`tests/test_neuladen.py`.
+
+**Stabilität der App:** Der Server-Dienst (`ServerService`) startet Server und
+Wächter je Prozess einmal (Anzeige, BootReceiver und Android starten den Dienst
+mehrfach). Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
+Folge (keine Antwort oder 503, weil eine Hintergrund-Aufgabe endete) beendet er
+den Prozess; Android startet Dienst (`START_STICKY`) und Anzeige
+(`stateNotNeeded`) neu. Hat der Server seit dem Start noch nie geantwortet,
+wartet er bis zu 5 Minuten. Höchstens 3 Neustarts je Stunde, die Zeitpunkte
+liegen in den Einstellungen der App (`waechter`). Die Anzeige (`KioskActivity`)
+baut nach einem Renderer-Absturz eine neue WebView auf
+(`onRenderProcessGone`, ab Android 8), statt dass Android die App beendet; einen
+hängenden Renderer beendet sie ab Android 10 nach 6 Meldungen in Folge
+(`WebViewRenderProcessClient`, frühestens alle 5 s). Die Regeln stehen ohne
+Android in `Waechter.kt`, Unit-Tests in `WaechterTest.kt`.
 
 **Display-Treiber (Schritt 3):** `App.display_drivers(on, device, panel)`
 spricht je Gerät die HTTP-Schnittstelle der Kiosk-App an (`_drive_display`):

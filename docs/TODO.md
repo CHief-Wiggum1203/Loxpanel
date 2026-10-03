@@ -577,11 +577,58 @@ selbst aktuell.
       `tests/browser/test_auto_raster_browser.py`. Nebenbei: Der Hinweis bei
       der Skalierung verweist jetzt auf *Displays* statt auf „Settings →
       Panels“. **L**
-- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ am Tab A9
-      prüfen (Raster quer und hochkant, Widget, Drehen). Aus den Ideen
-      offen: Das Widget in Pane 2 soll seine Höhe nutzen (beim Wetter blieb
-      darunter eine Leerfläche), dazu eine Listen-Darstellung als
-      Alternative zu großen Kacheln. **M**
+- [x] **Widget in Pane 2 nutzt seine Fläche** (02.10.2026). Gemessen am
+      Tab A9: Unter dem Wetter blieben quer 59 px leer, unter dem Monat 30 %
+      (die Termine standen auf einer zweiten Seite), unter zwei Werten 69 %.
+      Mit „Automatisch“ quetschte sich die Beschreibung des Wetters zu einer
+      Spalte, die Vorschau lief seitlich und hochkant unten aus dem Rahmen.
+      Jetzt misst die Visu die Fläche und passt den Inhalt in Stufen an:
+      Die Wetterkurve nimmt die freie Höhe, in echter Größe gezeichnet; passen
+      die Details mit darauf, entfällt Seite 2. Breite Flächen setzen Lage und
+      Kurve nebeneinander, schmale die Beschreibung darunter, die Vorschau
+      lässt sich dort wischen. Der Kalender zeigt unter dem Monat (breit:
+      daneben) die Termine, ein Tipp auf einen Tag zeigt dessen Termine gleich
+      darunter. Die Werte füllen die Höhe, wenige werden groß wie Kacheln.
+      Geprüft über 180 Fälle (neun Bildschirmgrößen von 480×480 bis
+      1340×800, vier Raster, Widget-Seiten), 15 Browser-Tests; 29
+      Gegenproben schlagen an. Nebenbei: Auf einer Widget-Seite saß der
+      Verbindungspunkt mitten im Widget, jetzt ist er dort aus wie auf der
+      Kalender- und Wetter-Seite. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1. **M**
+- [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ und die
+      angepasste Pane 2 am Tab A9 prüfen (Raster quer und hochkant, Widget,
+      Drehen). Aus den Ideen offen: eine Listen-Darstellung als Alternative
+      zu großen Kacheln. **M**
+- [x] **App läuft wochenlang ohne Eingriff** (02.10.2026). Bisher blieb die
+      Anzeige bei der Fehlerseite stehen, wenn der eingebettete Server hing
+      oder eine seiner Aufgaben endete, bis jemand die App neu startete. Stürzte
+      der Renderer der WebView ab, beendete Android die ganze App. Und ohne
+      Eintrag bei *Auto-Neustart* lud die Visu nie neu, mit Eintrag auch
+      mitten in der Bedienung. Jetzt:
+      - **Server-Wächter** im Server-Dienst: fragt `/api/health` alle 30 s;
+        nach drei Fehlschlägen in Folge startet die App neu (Android holt
+        Dienst und Anzeige zurück), höchstens dreimal je Stunde, beim Start
+        bis zu 5 Minuten Geduld. Server und Wächter starten je Prozess
+        einmal; bisher konnten Anzeige und Boot zwei Starts gleichzeitig
+        anstoßen, die dieselben Dateien kopierten.
+      - **Anzeige baut sich neu auf**, wenn ihr Renderer abstürzt oder
+        Android ihn beendet (ab Android 8), und beendet einen hängenden
+        Renderer nach einer halben Minute (ab Android 10).
+      - **Visu lädt ohne Eintrag jede Nacht um 3 Uhr neu**, mit Zahl alle so
+        viele Stunden, mit 0 nie; immer nur, während die Uhr-Seite steht. Ein
+        dunkles Display bleibt dunkel. Der Konfigurator zeigt im leeren Feld
+        „nachts um 3 Uhr“.
+
+      Geprüft: 12 Unit-Tests für die Regeln des Wächters, Android-Lint ohne
+      neue Befunde, APK gebaut; Neuladen mit gestellter Uhr in Chromium
+      (auch mit nachgebauter App-Brücke) und am Server, 19 Tests; 30
+      Gegenproben schlagen an, 19 in Visu, Server und Konfigurator, 11 in
+      den Regeln des Wächters. Ohne Emulator nicht nachgestellt: der
+      Neustart durch den Wächter und der Neuaufbau nach einem
+      Renderer-Absturz. Beim nächsten Gerätetest im Log nachsehen
+      (`adb logcat -s LPSERVER LPANZEIGE`). Details in
+      [`android/README.md`](../android/README.md) und
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §8. **M**
 - [ ] **Nur falls doch Android-11-Panels:** die Visu so anpassen, dass sie ab
       Chrome 83 richtig aussieht (`inset` an 5 Stellen, `gap` in rund 40
       Flex-Layouts, `aspect-ratio` an 3 Stellen in `panel.html`). **M**

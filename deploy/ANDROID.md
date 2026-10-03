@@ -11,7 +11,7 @@ als Anzeigegeräte.
 |---|---|---|
 | Visu, Kacheln, Detailseiten, PIN, Weckton | ja | ja |
 | Betriebsmodus-Umschaltung, Reload, Goto, Notify | ja, per WebSocket-Push | ja |
-| Auto-Neustart nach `reloadHours` | ja, die Seite lädt sich selbst neu | ja, Chromium-Neustart |
+| Neu laden gegen Einfrieren (*Auto-Neustart alle (Std.)*, leer = jede Nacht um 3 Uhr) | ja, die Seite lädt sich selbst neu, nur während die Uhr-Seite steht | ja, Chromium-Neustart nach der Zahl, leer nach `RELOAD_HOURS` der kiosk.conf |
 | Display aus nach `dpmsOff`, Wecken bei Klingel / Wecker / Notify / Goto | ja, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel (HTTP) | ja, per DPMS und Backlight |
 | Anzeige unter *Displays* mit Name, Typ, Online-Status und Ansicht | ja | ja |
 | Ansicht wechseln und neu laden unter *Displays* | ja, per WebSocket-Push | ja |

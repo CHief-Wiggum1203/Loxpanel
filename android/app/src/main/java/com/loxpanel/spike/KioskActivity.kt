@@ -1,6 +1,7 @@
 package com.loxpanel.spike
 
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -15,15 +16,19 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebViewRenderProcess
+import android.webkit.WebViewRenderProcessClient
 import android.widget.FrameLayout
 
 /**
@@ -47,6 +52,10 @@ import android.widget.FrameLayout
  * Helligkeit des Fensters auf einen Teil der eingestellten Systemhelligkeit,
  * statt eine dunkle Fläche über sich zu legen. Bei automatischer Helligkeit
  * lehnt die App ab, dann dunkelt die Visu wie bisher selbst ab.
+ *
+ * Absturz der Anzeige: Stürzt der Renderer der WebView ab oder beendet Android
+ * ihn, baut die Anzeige eine neue WebView auf, statt die App mitzureißen. Hängt
+ * er (ab Android 10 gemeldet), beendet sie ihn nach einer halben Minute selbst.
  */
 class KioskActivity : Activity(), SensorEventListener {
 
@@ -84,7 +93,6 @@ class KioskActivity : Activity(), SensorEventListener {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -96,13 +104,35 @@ class KioskActivity : Activity(), SensorEventListener {
         // aktiv bleibt und den Näherungssensor auswerten kann (sofortiges Wecken).
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        web = WebView(this)
-        web.setBackgroundColor(Color.parseColor("#0b1020"))
-        web.overScrollMode = View.OVER_SCROLL_NEVER
-        web.isVerticalScrollBarEnabled = false
-        web.isHorizontalScrollBarEnabled = false
+        web = neueWebView()
 
-        with(web.settings) {
+        // Dunkel-Overlay: NUR schwarz (echtes Schwarz beim Backlight-Aus), KEINE
+        // eigene Uhr — die Uhr zeigt die Visu. Zunächst versteckt.
+        saver = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            visibility = View.GONE
+        }
+
+        root = FrameLayout(this)
+        root.addView(web, vollbild())
+        root.addView(saver, vollbild())
+        setContentView(root)
+
+        show()
+        wake()
+    }
+
+    /** Die WebView der Anzeige mit Einstellungen und JS-Brücke: beim Start und
+     *  wenn sie neu aufgebaut wird, weil ihr Renderer beendet ist. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun neueWebView(): WebView {
+        val w = WebView(this)
+        w.setBackgroundColor(Color.parseColor("#0b1020"))
+        w.overScrollMode = View.OVER_SCROLL_NEVER
+        w.isVerticalScrollBarEnabled = false
+        w.isHorizontalScrollBarEnabled = false
+
+        with(w.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false   // Wecker-Ton ohne Nutzergeste
@@ -115,7 +145,7 @@ class KioskActivity : Activity(), SensorEventListener {
             cacheMode = WebSettings.LOAD_DEFAULT
         }
 
-        web.webViewClient = object : WebViewClient() {
+        w.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean = false
             override fun onReceivedError(v: WebView, req: WebResourceRequest?, err: WebResourceError?) {
                 if (req == null || req.isForMainFrame) { errored = true; scheduleReload() }
@@ -125,28 +155,59 @@ class KioskActivity : Activity(), SensorEventListener {
             override fun onPageFinished(v: WebView, adresse: String?) {
                 Visu.merken(this@KioskActivity, adresse)
             }
+            // Der Renderer ist abgestürzt oder von Android beendet (Speicher,
+            // HaengerWaechter). Ohne diese Behandlung beendet Android die ganze
+            // App; so baut sich nur die Anzeige neu auf.
+            @TargetApi(Build.VERSION_CODES.O)
+            override fun onRenderProcessGone(v: WebView, detail: RenderProcessGoneDetail): Boolean {
+                Log.w("LPANZEIGE", if (detail.didCrash()) "Renderer abgestürzt, Anzeige wird neu aufgebaut"
+                    else "Renderer beendet, Anzeige wird neu aufgebaut")
+                anzeigeNeuAufbauen(v)
+                return true
+            }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) w.setWebViewRenderProcessClient(HaengerWaechter())
         // Brücke für die Visu: übergibt die konfigurierte Display-aus-Zeit (dpmsOff
         // aus /config) an den nativen Screensaver.
-        web.addJavascriptInterface(KioskBridge(), "LoxKiosk")
+        w.addJavascriptInterface(KioskBridge(), "LoxKiosk")
+        return w
+    }
 
-        // Dunkel-Overlay: NUR schwarz (echtes Schwarz beim Backlight-Aus), KEINE
-        // eigene Uhr — die Uhr zeigt die Visu. Zunächst versteckt.
-        saver = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-            visibility = View.GONE
+    /** Ersetzt die WebView, deren Renderer beendet ist, durch eine neue unter dem
+     *  Dunkel-Overlay und lädt die Visu nach der Pause von scheduleReload: Stürzt
+     *  der neue Renderer gleich wieder ab, baut die Anzeige nicht in einer
+     *  Schleife auf. */
+    private fun anzeigeNeuAufbauen(alt: WebView) {
+        if (alt !== web) return
+        root.removeView(alt)
+        alt.destroy()
+        web = neueWebView()
+        root.addView(web, 0, vollbild())
+        scheduleReload()
+    }
+
+    /** Ab Android 10 meldet die WebView, wenn ihr Renderer nicht reagiert
+     *  (Endlosschleife im Skript), frühestens alle 5 s. Nach mehreren Meldungen
+     *  in Folge beendet die Anzeige ihn, onRenderProcessGone baut sie neu auf. */
+    @TargetApi(Build.VERSION_CODES.Q)
+    private class HaengerWaechter : WebViewRenderProcessClient() {
+        private var meldungen = 0
+
+        override fun onRenderProcessUnresponsive(view: WebView, renderer: WebViewRenderProcess?) {
+            meldungen++
+            if (Waechter.rendererBeenden(meldungen)) {
+                Log.w("LPANZEIGE", "Renderer reagiert nicht ($meldungen Meldungen), wird beendet")
+                renderer?.terminate()
+            }
         }
 
-        root = FrameLayout(this)
-        root.addView(web, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        root.addView(saver, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        setContentView(root)
-
-        show()
-        wake()
+        override fun onRenderProcessResponsive(view: WebView, renderer: WebViewRenderProcess?) {
+            meldungen = 0
+        }
     }
+
+    private fun vollbild() = FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
 
     /** Lädt die Visu: die zuletzt angezeigte Adresse, sonst das Standardprofil. */
     private fun show() { errored = false; web.loadUrl(Visu.startAdresse(this)) }

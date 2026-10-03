@@ -220,6 +220,11 @@ KIOSK_APPS = ("fully", "loxpanel")
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
 # konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
 NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
+# Neuladen gegen Einfrieren ohne Agent (Android, Tablet): Ist reloadHours nicht
+# eingestellt, laedt die Visu einmal je Nacht ab dieser Stunde neu, sobald ihre
+# Uhr-Seite steht. Einzige Quelle: die theme-Nachricht bringt sie der Visu,
+# /api/meta dem Konfigurator.
+NEULADEN_STUNDE = 3
 
 
 def _is_tab(t) -> bool:
@@ -2258,9 +2263,11 @@ class App:
         return hm >= NIGHT_FROM or hm < NIGHT_TO
 
     def panel_reload(self, pid: str | None):
-        """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil
-        (0/None = aus). Gegen Einfrieren; der Agent startet Chromium periodisch
-        neu. Wird in der Announce-Antwort mitgegeben."""
+        """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil, 0 =
+        aus. Gegen Einfrieren: der Agent startet Chromium periodisch neu, ohne
+        Agent laedt sich die Visu neu. None = nicht eingestellt: Der Agent nimmt
+        seinen Wert aus der kiosk.conf, die Visu laedt nachts neu
+        (NEULADEN_STUNDE). Geht in die Announce-Antwort und die theme-Nachricht."""
         ui = {**self.theme.get("ui", {}),
               **((self.panels.get(pid or "") or {}).get("ui") or {})}
         v = ui.get("reloadHours")
@@ -6213,6 +6220,9 @@ async def api_meta(request: web.Request) -> web.Response:
         # Groessen ohne Einstellung je Kachel-Aufbau: der Konfigurator zeigt sie
         # in leeren Feldern an, statt sie ein zweites Mal zu fuehren.
         "sizeDefaults": GROESSEN_STANDARD,
+        # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
+        # der Konfigurator nennt sie im leeren Feld.
+        "reloadAt": NEULADEN_STUNDE,
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -6301,7 +6311,8 @@ async def install_script(request: web.Request) -> web.Response:
 
 
 async def api_health(request: web.Request) -> web.Response:
-    """Zustand fuer den Docker-HEALTHCHECK (Unraid zeigt ihn im Docker-Tab).
+    """Zustand fuer den Docker-HEALTHCHECK (Unraid zeigt ihn im Docker-Tab) und
+    den Waechter der LoxPanel-App, der die App bei 503 neu startet.
 
     503, sobald eine Hintergrund-Aufgabe beendet ist: dann bekommen die Panels
     keine Werte oder Ansichten mehr, und ein Neustart des Containers hilft. Die
@@ -7748,6 +7759,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"]),
                         "reloadHours": app.panel_reload(prof["id"]),
+                        "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
                         # Meldet der Praesenzmelder des Geraets gerade jemanden,
                         # bleibt das Display an - auch nach einem Neuladen.
@@ -7912,6 +7924,8 @@ async def on_startup(a: web.Application) -> None:
     # Zugangsdaten erreichbar.
     app: App = a["app"]
     # Benannt, damit /api/health melden kann, welche Aufgabe nicht mehr laeuft.
+    # Nur Aufgaben, die nie planmaessig enden: Sonst meldet /api/health 503, und
+    # der Waechter der LoxPanel-App startet sie immer wieder neu.
     a["tasks"] = {"miniserver": asyncio.create_task(app.stream_task()),
                   "broadcaster": asyncio.create_task(app.broadcaster()),
                   "audio": asyncio.create_task(app.audio_events_task()),
