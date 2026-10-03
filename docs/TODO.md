@@ -332,6 +332,19 @@ enthält zusätzlich `armeabi-v7a`, damit sie auch auf 32-bit-Tablets läuft
 `android/app/build.gradle.kts`, die APK wird dadurch größer. Kommt mit dem
 nächsten Abgleich in den Fork.
 
+**Vorbereitet, noch einzureichen** (03.10.2026): zwei Beiträge, je ein
+Commit auf `main` (`415ffd5`), zusammen konfliktfrei. Der SIP-Beitrag sagt
+Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen seinen Stand bestehen
+die SIP- und Versionstests aus dem Fork. Mit den Beiträgen scheitert kein
+Fork-Test neu, nur der Test für `/api/health`, das es bei ihm nicht gibt. Die
+APK aus `up/versionsnummer` und der Docker-Schritt sind auf seinem Stand
+gebaut.
+
+| Zweig | Inhalt | Einreichen |
+|---|---|---|
+| `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis | [PR öffnen](https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/sip-zugang?expand=1) |
+| `up/versionsnummer` (`6fc3908`) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) | [PR öffnen](https://github.com/Lenardo1/loxpanel/compare/main...CHief-Wiggum1203:Loxpanel:up/versionsnummer?expand=1) |
+
 Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
 Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
 auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
