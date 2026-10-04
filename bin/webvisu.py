@@ -2825,8 +2825,10 @@ class App:
         self.panels = load_panels()
 
     def _write_devices(self, devices: dict) -> None:
+        # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
+        # Server mit dem Stand der Datei weiter
+        self._persist_panels_file(self.panels, devices)
         self.devices = devices
-        self._persist_panels_file(self.panels, self.devices)
         self._presence_rebuild()
 
     @staticmethod
