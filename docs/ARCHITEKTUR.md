@@ -1437,7 +1437,9 @@ Servers), Neustart nach Absturz, Panel-Wahl in einer State-Datei.
 `~/.local/state/…`), also beim Benutzer, unter dem der Agent läuft. Bis
 Oktober 2026 lag sie neben der kiosk.conf in `/etc/loxpanel/`, das der Installer
 als root anlegt; das Schreiben scheiterte leise, die Wahl überlebte keinen
-Neustart (F13). Eine Datei von dort übernimmt der Agent beim Start einmal.
+Neustart (F13). Eine Datei von dort übernimmt der Agent beim Start einmal und
+löscht sie danach, sonst brächte das Löschen der neuen Datei (Weg zurück auf
+`PANEL`) die alte Wahl zurück; scheitert das Speichern am neuen Ort, bleibt sie.
 Vorrang: `LOXPANEL_PANEL`, dann die gemerkte Wahl (auch `""` = Standardansicht),
 dann `PANEL`. Die Datei hält auch `PANEL` beim Merken (`conf`); steht in der
 kiosk.conf inzwischen etwas anderes, gilt die kiosk.conf. Woher die Ansicht
@@ -1455,7 +1457,8 @@ Obergrenze lief, verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
 (Standard 300 s wie Kubernetes bei CrashLoopBackOff); die Obergrenze liegt über
 `DPMS_OFF`, weil jeder Start per `xset` den Leerlaufzähler zurücksetzt. Ein
 Befehl von Hand (`/start`, `/reload`, `/stop`) fängt wieder bei
-`KIOSK_RESTART_SECS` an; die Laufzeit misst der Wächter mit `time.monotonic()`,
+`KIOSK_RESTART_SECS` an, ebenso der Auto-Reload (bis dahin lief der Kiosk
+`RELOAD_HOURS` ohne Absturz); die Laufzeit misst der Wächter mit `time.monotonic()`,
 weil Panels ohne Echtzeituhr die Uhr beim Booten per NTP stellen.
 `start_kiosk()` läuft ganz unter einer `RLock`, die Prüfung des Wächters auch;
 die Pause selbst hält sie nicht, `/start` und `/stop` warten also nicht.

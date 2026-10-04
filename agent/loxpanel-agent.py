@@ -174,7 +174,13 @@ def _load_panel_state():
         d = _read_state(_STATE_ALT)
         if d is not None:
             print("Panel-Wahl uebernommen: %s -> %s" % (_STATE_ALT, STATE_FILE))
-            _save_panel_state(d["panel"])
+            if _save_panel_state(d["panel"]):
+                # Nur einmal: bliebe die alte Datei liegen, kaeme ihre Wahl
+                # zurueck, sobald jemand die neue loescht (Weg zurueck auf PANEL).
+                try:
+                    os.remove(_STATE_ALT)
+                except OSError as e:
+                    print("Alte Panel-Wahl nicht geloescht, bitte von Hand entfernen: %s" % e)
     if d is None:
         return None
     conf = CFG.get("PANEL", "")
@@ -188,7 +194,7 @@ def _load_panel_state():
 
 def _save_panel_state(panel):
     """Gewaehlte Panel-ID persistieren, damit sie einen Reboot ueberlebt
-    (atomar: tmp-Datei + rename). Schlaegt das fehl, laut melden."""
+    (atomar: tmp-Datei + rename). Schlaegt das fehl, laut melden. True = gespeichert."""
     try:
         if os.path.dirname(STATE_FILE):   # ohne Ordner: im Arbeitsordner
             os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
@@ -196,10 +202,12 @@ def _save_panel_state(panel):
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"panel": panel, "conf": CFG.get("PANEL", "")}, fh)
         os.replace(tmp, STATE_FILE)
+        return True
     except Exception as e:
         print("FEHLER: Panel-Wahl NICHT gespeichert, gilt nur bis zum Neustart des Agenten: %s"
               " (Agent laeuft als uid %d; anderen Ort per STATE_FILE=<pfad> in %s setzen)"
               % (e, os.getuid(), CONF_FILE or "der kiosk.conf"))
+        return False
 
 
 _proc = None
@@ -610,8 +618,8 @@ def _pause_nach_absturz(laufzeit):
 def _absturz_vergessen():
     """Befehl von Hand (/start, /reload, /stop): Eine fruehere Absturzschleife
     zaehlt nicht mehr, der naechste Absturz wartet wieder KIOSK_RESTART_SECS
-    statt bis zu KIOSK_RESTART_MAX_SECS. Auto-Reload und Waechter rufen
-    start_kiosk() direkt und lassen die Pause stehen."""
+    statt bis zu KIOSK_RESTART_MAX_SECS. Ebenso der Auto-Reload: Der Kiosk lief
+    bis dahin RELOAD_HOURS ohne Absturz. Nur der Waechter laesst sie stehen."""
     global _absturz_pause
     with _lock:
         _absturz_pause = 0.0
@@ -688,6 +696,7 @@ def announce_loop():
                     hours = _reload_default()
                 if hours > 0 and running() and (time.time() - _last_reload) >= hours * 3600:
                     print("Auto-Reload nach %gh (gegen Einfrieren)" % hours)
+                    _absturz_vergessen()
                     start_kiosk()
             except Exception:
                 pass

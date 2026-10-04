@@ -233,6 +233,31 @@ def test_alte_state_datei_wird_uebernommen(panel):
     assert json.loads(panel.state.read_text())["panel"] == "keller"
 
 
+def test_alte_state_datei_wird_nur_einmal_uebernommen(panel):
+    """Nach der Uebernahme ist die alte Datei weg: Wer die neue loescht (README,
+    DEPLOY.md: Weg zurueck auf PANEL), bekommt PANEL und nicht die alte Wahl."""
+    panel.conf(PANEL="pool")
+    alt = panel.conf_datei.parent / "loxpanel-agent-state.json"
+    alt.write_text('{"panel": "keller"}')
+    assert panel.laden()._cur_panel == "keller"
+    assert not alt.exists()
+    panel.state.unlink()
+    assert panel.laden()._cur_panel == "pool"
+
+
+def test_alte_state_datei_bleibt_wenn_speichern_scheitert(panel):
+    """Kann der Agent am neuen Ort nicht speichern, ist die alte Datei die
+    einzige Ablage der Wahl und bleibt liegen. (Ordner unter einer Datei:
+    scheitert auch als root.)"""
+    (panel.tmp / "datei").write_text("")
+    panel.mp.setenv("XDG_STATE_HOME", str(panel.tmp / "datei"))
+    alt = panel.conf_datei.parent / "loxpanel-agent-state.json"
+    alt.write_text('{"panel": "keller"}')
+    assert panel.laden()._cur_panel == "keller"
+    assert alt.exists()
+    assert panel.laden()._cur_panel == "keller"
+
+
 def test_standardansicht_ueberlebt_neustart(panel):
     """Gespeichertes "" (Standardansicht) ist eine Wahl, nicht "nichts gemerkt"."""
     panel.conf(PANEL="pool")
@@ -418,14 +443,21 @@ def test_ungueltige_werte_nehmen_den_standard(panel, secs, maximum):
 
 
 def test_auto_reload_bei_laufendem_kiosk(panel, monkeypatch):
-    """Gegenprobe: der periodische Neustart aus der Announce-Antwort bleibt."""
-    panel.conf(RELOAD_HOURS="1", KIOSK_RESTART_SECS="0")
+    """Gegenprobe: der periodische Neustart aus der Announce-Antwort bleibt.
+    Bis dahin lief der Kiosk ohne Absturz: Eine fruehere Absturzschleife ist
+    vorbei, der naechste Absturz wartet wieder KIOSK_RESTART_SECS und nicht die
+    Obergrenze."""
+    panel.conf(RELOAD_HOURS="1", KIOSK_RESTART_SECS="5", KIOSK_RESTART_MAX_SECS="60")
     m = panel.laden()
+    for _ in range(5):
+        m._pause_nach_absturz(1.0)   # Schleife vor dem stabilen Lauf
+    assert m._absturz_pause == 60
 
     class Ende(Exception):
         pass
 
     class Takt:
+        monotonic = staticmethod(time.monotonic)   # vor "time": das verdeckt hier das Modul
         time = staticmethod(time.time)
 
         @staticmethod
@@ -443,6 +475,7 @@ def test_auto_reload_bei_laufendem_kiosk(panel, monkeypatch):
     with pytest.raises(Ende):
         m.announce_loop()
     assert m.running() and m._proc.pid != alt
+    assert m._pause_nach_absturz(1.0) == 5
 
 
 # ---- Ansicht wechseln und Betriebsmodus erreichen den Agenten ----

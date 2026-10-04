@@ -115,13 +115,14 @@ Die unter Displays gewaehlte Ansicht merkt sich der Agent in
 (`STATE_FILE` in der kiosk.conf aendert den Ort). Frueher lag die Datei neben der
 kiosk.conf; da `/opt/loxpanel` und `/etc/loxpanel` root gehoeren, scheiterte das
 Speichern dort, und nach einem Neustart kam wieder `PANEL`. Eine vorhandene alte
-Datei uebernimmt der Agent beim Start einmal. Zurueck auf `PANEL`: Datei loeschen
+Datei uebernimmt der Agent beim Start einmal und loescht sie danach (sie bleibt
+nur, wenn das Speichern am neuen Ort scheitert). Zurueck auf `PANEL`: Datei loeschen
 oder `PANEL` in der kiosk.conf aendern, ein geaendertes `PANEL` gilt vor der
 gemerkten Wahl. Endet Chromium, ohne dass es ueber **Stop** beendet wurde, startet
 der Agent es nach `KIOSK_RESTART_SECS` (Standard 5 s, 0 = aus) neu; bei
 wiederholten Abstuerzen verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
-(Standard 300 s). **Start**, **Reload** oder **Stop** unter Displays fangen
-wieder bei `KIOSK_RESTART_SECS` an.
+(Standard 300 s). **Start**, **Reload** oder **Stop** unter Displays und der
+Auto-Reload fangen wieder bei `KIOSK_RESTART_SECS` an.
 
 > Docker-Hinweis: Der Agent meldet sich **per HTTP** beim Server (kein UDP-
 > Broadcast) — funktioniert daher auch mit dem Server im Docker-Bridge-Netz.
