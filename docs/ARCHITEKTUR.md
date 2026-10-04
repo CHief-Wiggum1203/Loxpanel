@@ -1608,6 +1608,19 @@ aktuelle Stand sie. `/tmp` ist auf dem LoxBerry eine RAM-Disk: Startet er
 zwischen `preroot.sh` und `postroot.sh` neu, sind die Kopien weg.
 `tests/test_loxberry_update.py` spielt den Ablauf von `plugininstall.pl` nach.
 
+Zeitzone: Der Server rechnet Termine, „Heute/Morgen", Nachtmodus, Statistik und
+Wecker in der Ortszeit des Prozesses. `start` schreibt deshalb jedes Mal
+`docker-compose.zeitzone.yml` neben die Compose-Datei und startet mit beiden:
+`/etc/localtime` des LoxBerry nur lesend nach `/run/loxberry-localtime`, dazu
+`TZ=":/run/loxberry-localtime"` (glibc liest die Zone aus der Datei). Nicht nach
+`/etc/localtime` im Container: Dort liegt ein Symlink auf `Etc/UTC`, Docker
+folgte ihm und überschriebe die UTC-Zone selbst, dann läse icalendar `Z`-Zeiten
+falsch. Ist `/etc/localtime` keine Datei (fehlt, toter Symlink), entfällt die
+Override-Datei mit Warnung, der Container läuft in UTC; sonst verhinderte der
+Mount den Start oder Docker legte am LoxBerry ein Verzeichnis an. Eine
+geänderte Zone gilt nach dem nächsten Start des Containers
+(`tests/test_loxberry_zeitzone.py`).
+
 `sudoers` erlaubt dem Benutzer `loxberry` `docker` ohne Passwort, was faktisch
 Root-Rechte auf dem LoxBerry bedeutet.
 

@@ -37,6 +37,15 @@ KONFIG_DATEIEN="loxpanel.cfg panels.json theme.json"
 NICHTS=3                # Status von _sichern: config/ fehlt oder ist leer
 # backup und restore nie gleichzeitig (zweites Fenster, Doppelklick im Widget)
 SPERRE="$DATADIR/.loxpanel-ctl.lock"
+# Zeitzone des LoxBerry fuer den Container (start): dessen /etc/localtime nur
+# lesend an einen eigenen Pfad, TZ=":<pfad>" - glibc liest die Zone aus der
+# Datei, keine Zone steht fest im Plugin. Nicht nach /etc/localtime im
+# Container: dort liegt ein Symlink auf Etc/UTC, Docker folgte ihm und
+# ueberschriebe die UTC-Zone selbst (icalendar laese "Z" dann falsch).
+# LOXPANEL_CTL_LOCALTIME setzen nur die Tests (tests/test_loxberry_zeitzone.py).
+LOCALTIME="${LOXPANEL_CTL_LOCALTIME:-/etc/localtime}"
+TZ_ZIEL="/run/loxberry-localtime"
+ZEITZONE="$CONFIGDIR/docker-compose.zeitzone.yml"
 
 # Image aus der Compose-Datei lesen (Fallback fest).
 _img() {
@@ -180,12 +189,37 @@ exit 1' "$tmp"; then
 	fi
 }
 
+# Override-Datei fuer die Zeitzone bei jedem start neu schreiben (Status 0),
+# aber nur, wenn /etc/localtime eine Datei ist ([ -f ] folgt dem Symlink): ein
+# toter Symlink verhinderte den Start, eine fehlende Datei legte Docker am
+# LoxBerry als Verzeichnis an. Sonst ohne Zeitzone (UTC) und warnen (Status 1).
+_zeitzone() {
+	if [ -f "$LOCALTIME" ]; then
+		cat > "$ZEITZONE" <<EOF && return 0
+# Von loxpanel-ctl.sh start geschrieben, nicht bearbeiten: Zeitzone des LoxBerry.
+services:
+  loxpanel:
+    environment:
+      TZ: ":$TZ_ZIEL"
+    volumes:
+      - "$LOCALTIME:$TZ_ZIEL:ro"
+EOF
+		echo "Warnung: $ZEITZONE ließ sich nicht schreiben – LoxPanel läuft in UTC."
+	else
+		echo "Warnung: $LOCALTIME fehlt oder zeigt ins Leere – LoxPanel läuft in UTC. Zeitzone im LoxBerry einstellen und LoxPanel neu starten."
+	fi
+	rm -f "$ZEITZONE"
+	return 1
+}
+
 start() {
+	local dateien=(-f "$COMPOSE")
 	rm -f "$STOPPED"
+	_zeitzone && dateien+=(-f "$ZEITZONE")
 	# Erst pullen, dann up -d: 'up' nutzt sonst ein evtl. veraltetes lokales
 	# Image (der :latest-Tag ist rollend).
-	sudo docker compose -f "$COMPOSE" pull 2>&1
-	sudo docker compose -f "$COMPOSE" up -d 2>&1
+	sudo docker compose "${dateien[@]}" pull 2>&1
+	sudo docker compose "${dateien[@]}" up -d 2>&1
 }
 
 stop() {
