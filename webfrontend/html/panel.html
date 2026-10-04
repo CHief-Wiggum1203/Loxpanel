@@ -1393,8 +1393,11 @@ function pinAbfragen(job,msg){
 // Halten-Taste (job.los): mit gemerkter PIN echtes Halten, das Loslassen
 // schickt endHold mit derselben PIN; nach der Abfrage ist der Finger laengst
 // oben, dann folgt es sofort (wirkt wie ein Tipp). Nie Druecken ohne Loslassen.
+// seite: die des Tipps, nicht die der Eingabe - eine Wiederholung nach
+// abgelehnter PIN kann schon auf der naechsten Seite stehen, job.ok gehoert
+// aber nicht dorthin, und gemerkt wird die PIN dort auch nicht.
 function pinSenden(job,pin,neu,halten){
-  const w={job,pin,neu,seite:pinSeite()};
+  const w={job,pin,neu,seite:job.seite};
   pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
   if(!job.los) return;
   const los={job:job.los,pin,seite:w.seite,zu:w};
@@ -1414,9 +1417,10 @@ function pinErgebnis(msg){
   pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
 }
 // opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
-// PIN erst nach der Bestaetigung; opt.abbruch: PIN abgebrochen (Anzeige zurueck).
+// PIN erst nach der Bestaetigung und nur noch auf derselben Seite;
+// opt.abbruch: PIN abgebrochen (Anzeige zurueck).
 function sendCmd(uuid,cmd,secured,opt){ opt=opt||{};
-  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null};
+  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null,seite:pinSeite()};
   if(!secured){ cmdSchicken(uuid,cmd,null); if(job.los) holdRelease={job:job.los,pin:null}; if(job.ok) job.ok(); return; }
   const pin=pinGemerkt();
   if(pin==null) pinAbfragen(job,''); else pinSenden(job,pin,false,true);

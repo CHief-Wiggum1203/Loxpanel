@@ -371,6 +371,93 @@ def test_pin_vergessen(tmp_path, miniserver_http, vergessen):
     asyncio.run(_visu(tmp_path, schritt))
 
 
+ZA_AUSWAHL = BEDIENWEGE["musik_favorit"][0]
+DIM_SEITE = {"view": "control", "id": "DIM"}
+
+
+async def _seite(pg) -> dict:
+    return await pg.evaluate("({route: view.route, stack: stack.length, offen: !!document.querySelector('.pinov')})")
+
+
+async def _favorit_antippen(pg):
+    await _nav(pg, ZA_AUSWAHL)
+    await pg.locator(".favs .fav").first.click()
+    await pg.wait_for_timeout(300)
+    assert await _offen(pg)
+
+
+@pytest.mark.parametrize("wechsel", ["wecker", "nav"])
+def test_seitenwechsel_schliesst_offene_abfrage(tmp_path, miniserver_http, wechsel):
+    """Favorit angetippt, die Abfrage ist offen, dann wechselt die Seite ohne
+    Zutun: Wecker-Push vom Server oder nav. Die Abfrage geht zu, nichts
+    erreicht den Miniserver, die neue Seite bleibt. Ein Befehl dort fragt neu
+    und geht danach nicht zurueck."""
+    async def schritt(pg, ms, app):
+        await _favorit_antippen(pg)
+        if wechsel == "wecker":
+            app._pending_alarm.append({"id": "DIM", "on": True})
+        else:
+            await pg.evaluate("r => nav(r)", DIM_SEITE)
+        await pg.wait_for_timeout(1200)
+        z = await _seite(pg)
+        assert z == {"route": DIM_SEITE, "stack": 3, "offen": False}, z
+        assert ms.ios == [] and _ungesichert(ms) == [], (ms.ios, ms.io)
+        await _knopf(pg, "Ein")
+        await pg.wait_for_timeout(300)
+        assert await _offen(pg)
+        await _pin(pg)
+        assert await _ios(ms, 1) == [("DIM/on", "200")]
+        await pg.wait_for_timeout(700)
+        assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": False}
+        if wechsel == "wecker":
+            app._pending_alarm.append({"id": "DIM", "on": False})
+            await pg.wait_for_timeout(700)
+    asyncio.run(_visu(tmp_path, schritt))
+
+
+def test_ergebnis_nach_seitenwechsel_geht_nicht_zurueck(tmp_path, miniserver_http):
+    """Die PIN geht noch auf der Musikauswahl raus, im selben Augenblick
+    wechselt die Seite. Die falsche PIN meldet der Miniserver erst danach, die
+    Wiederholung steht schon auf der neuen Seite: Nach der Bestaetigung geht
+    die Visu von dort nicht zurueck und merkt sich die PIN auch nicht fuer
+    sie."""
+    async def schritt(pg, ms, app):
+        await _favorit_antippen(pg)
+        await pg.evaluate("""r => { nav(r);
+            for (const k of ['0','0','0','0','ok']) document.querySelector('.pinov .pinkey[data-k="'+k+'"]').click(); }""",
+                          DIM_SEITE)
+        assert await _ios(ms, 1) == [("ZA/roomfav/play/1", ms.pin_code)]
+        await pg.wait_for_timeout(800)
+        assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": True}, "Wiederholung der PIN"
+        await _pin(pg)
+        assert (await _ios(ms, 2))[1] == ("ZA/roomfav/play/1", "200")
+        await pg.wait_for_timeout(700)
+        assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": False}
+        assert await pg.evaluate("pinMerk") is None
+        assert _ungesichert(ms) == [], ms.io
+    asyncio.run(_visu(tmp_path, schritt))
+
+
+def test_uhrseite_schliesst_offene_abfrage(tmp_path, miniserver_http):
+    """Auf dem ersten Tab bleibt die Route bei nachRuhe() gleich: Die Uhr-Seite
+    schliesst die offene Abfrage trotzdem, eine spaetere PIN fuehrt den alten
+    Befehl nicht aus."""
+    async def schritt(pg, ms, app):
+        start = await pg.evaluate("key(view.route)")
+        await pg.locator('.tile[data-id="ZA"] .tctrls .tb').first.click()   # Taste auf der Kachel
+        await pg.wait_for_timeout(300)
+        assert await _offen(pg)
+        await pg.evaluate("nachRuhe()")
+        await pg.wait_for_timeout(800)
+        assert await pg.evaluate("key(view.route)") == start
+        await pg.locator("#saver").dispatch_event("pointerdown")
+        await pg.wait_for_timeout(500)
+        assert not await _offen(pg), "Abfrage unter der Uhr-Seite stehen geblieben"
+        assert await pg.evaluate("pinJobs") is None
+        assert ms.ios == [] and _ungesichert(ms) == []
+    asyncio.run(_visu(tmp_path, schritt))
+
+
 # Display aus nach so vielen Sekunden ohne Eingabe (ui.dpmsOff), kuerzer als der
 # Standard von "PIN merken"
 DPMS_S = 2
