@@ -273,6 +273,16 @@ def test_schreibfehler_wird_gemeldet(panel, capsys):
     assert str(panel.tmp / "datei") in aus and "STATE_FILE" in aus, aus
 
 
+def test_state_datei_ohne_ordner_gilt_im_arbeitsordner(panel, monkeypatch):
+    """STATE_FILE=agent-state.json (ohne Ordner) liegt im Arbeitsordner des
+    Agenten, wie vor der XDG-Ablage."""
+    monkeypatch.chdir(panel.tmp)
+    panel.conf(STATE_FILE="agent-state.json")
+    panel.laden()._panel_merken("pool")
+    assert json.loads((panel.tmp / "agent-state.json").read_text())["panel"] == "pool"
+    assert panel.laden()._cur_panel == "pool"
+
+
 def test_panel_wird_in_der_url_kodiert(panel):
     """Die gemerkte Ansicht landet in der Kiosk-URL; Sonderzeichen duerfen dort
     keinen weiteren Parameter einschleusen."""
@@ -354,6 +364,27 @@ def test_absturzschleife_verdoppelt_die_pause_bis_zur_obergrenze(panel):
     assert m._pause_nach_absturz(kurz) == 10
 
 
+@pytest.mark.parametrize("befehl", ["stop", "start", "reload"])
+def test_befehl_beginnt_die_pause_von_vorn(panel, befehl):
+    """Nach einer Absturzschleife ist ein Befehl von Hand (/start, /reload,
+    /stop unter Displays) ein Neuanfang: Der naechste Absturz wartet wieder
+    KIOSK_RESTART_SECS, nicht die Obergrenze."""
+    panel.conf(KIOSK_RESTART_SECS="5", KIOSK_RESTART_MAX_SECS="60")
+    m = panel.laden()
+    for _ in range(5):
+        m._pause_nach_absturz(1.0)
+    assert m._absturz_pause == 60
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), m.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        anfrage = m.urlreq.Request(f"http://127.0.0.1:{srv.server_address[1]}/{befehl}", data=b"{}")
+        assert json.loads(m.urlreq.urlopen(anfrage, timeout=10).read())["ok"]
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    assert m._pause_nach_absturz(1.0) == 5
+
+
 def test_absturzschleife_am_prozess(panel):
     """Echte Schleife: der Stellvertreter endet sofort. Zwischen den Starts
     liegt jeweils mindestens die (wachsende) Pause."""
@@ -376,9 +407,11 @@ def test_obergrenze_liegt_ueber_der_display_abschaltung(panel):
     assert m.KIOSK_RESTART_MAX_SECS > m._dpms_default()
 
 
-@pytest.mark.parametrize("secs, maximum", [("bald", "-3"), ("", "")], ids=["ungueltig", "leer"])
+@pytest.mark.parametrize("secs, maximum", [("bald", "-3"), ("", ""), ("inf", "nan")],
+                         ids=["ungueltig", "leer", "nicht-endlich"])
 def test_ungueltige_werte_nehmen_den_standard(panel, secs, maximum):
-    """Leer schreibt der Installer, wenn beim Aufruf nichts gesetzt war."""
+    """Leer schreibt der Installer, wenn beim Aufruf nichts gesetzt war. "inf"
+    liesse time.sleep im Waechter mit OverflowError abbrechen."""
     panel.conf(KIOSK_RESTART_SECS=secs, KIOSK_RESTART_MAX_SECS=maximum)
     m = panel.laden()
     assert (m.KIOSK_RESTART_SECS, m.KIOSK_RESTART_MAX_SECS) == (5, 300)
@@ -590,7 +623,9 @@ def test_reload_vor_der_uebernahme_startet_mit_der_wahl(panel, cfg_ordner):
         assert j["ok"]
         await _bis(lambda: len(w.panel.starts()) == 2, "Chromium neu gestartet")
         assert "panel=night" in w.panel.starts()[-1]["url"]
-        assert w.m._cur_panel == "night" and w.app.agent_wunsch == {}
+        assert w.m._cur_panel == "night"
+        await w.melden()
+        assert w.app.agent_wunsch == {}, "erledigt, sobald er sie meldet"
         await ws.close()
     asyncio.run(_wand(panel, cfg_ordner, lauf))
 
@@ -694,3 +729,108 @@ def test_ausdrueckliche_wahl_hebt_den_betriebsmodus_auf(cfg_ordner):
         assert theme["title"] == "Tag", "naechster Moduswechsel gilt wieder"
         await ws.close()
     asyncio.run(_server(cfg_ordner, lauf))
+
+
+def _adresse(url: str) -> str:
+    """Query der Kiosk-URL, mit der der Chromium-Stellvertreter gestartet wurde."""
+    return "?" + url.split("?", 1)[1]
+
+
+def test_start_unter_displays_hebt_den_betriebsmodus_auf(panel, cfg_ordner):
+    """Bei gestopptem Kiosk waehlt man die Ansicht unter Displays mit "Start"
+    ("Ansicht wechseln" gibt es nur bei offener Visu). Laeuft ein Betriebsmodus,
+    darf ws_handler die Visu nicht auf dessen Profil ziehen, waehrend der Agent
+    sich die Wahl merkt: Visu, Agent und Abschaltzeit zeigen night."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        async with w.s.get(w.basis + "/api/mode/tag") as r:
+            assert (await r.json())["ok"]
+        assert (await w.post("/api/agent/command", {"ip": "127.0.0.1", "action": "stop"}))["ok"]
+        vorher = len(w.panel.starts())
+        j = await w.post("/api/agent/command", {"ip": "127.0.0.1", "action": "start", "panel": "night"})
+        assert j["ok"]
+        await _bis(lambda: len(w.panel.starts()) > vorher, "Chromium gestartet")
+        ws, theme = await w.verbinden(_adresse(w.panel.starts()[-1]["url"]))
+        assert theme["title"] == "Nacht"
+        await w.melden()
+        assert (w.m._cur_panel, w.xset_aus(), w.app.agent_wunsch) == ("night", 30, {})
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+@pytest.mark.parametrize("vorher", ["unbekannt", "offline"])
+def test_betriebsmodus_beim_verbinden_erreicht_den_agenten(panel, cfg_ordner, vorher):
+    """War der Agent beim Moduswechsel nicht da (noch nie gemeldet oder laenger
+    als AGENT_ONLINE still), zieht ws_handler sein Chromium beim Verbinden auf
+    das Profil des Modus. Das muss auch der Agent erfahren, sonst gelten
+    Abschaltzeit und Neustartintervall des alten Profils weiter und der naechste
+    Kiosk-Start oeffnet es wieder. Ein /start bekommt ein Agent, der nicht
+    online ist, vom Moduswechsel nicht (kein Warten auf ein totes Panel)."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m, "night")
+        if vorher == "offline":
+            await w.melden()
+            w.app.agents["127.0.0.1"]["ts"] -= W.AGENT_ONLINE + 1
+        async with w.s.get(w.basis + "/api/mode/tag") as r:
+            assert (await r.json())["switched"] == [
+                {"panel": "wand", "profile": "day", "ok": False, "error": "Panel nicht online"}]
+        await w.melden()   # Agent wieder da, sein Chromium verbindet
+        assert "panel=night" in w.panel.starts()[-1]["url"]
+        ws, theme = await w.verbinden(_adresse(w.panel.starts()[-1]["url"]))
+        assert theme["title"] == "Tag"
+        await w.melden()
+        assert (w.m._cur_panel, w.xset_aus()) == ("day", 300)
+        assert len(w.panel.starts()) == 1, "ohne Chromium-Neustart"
+        await w.melden()
+        assert w.app.agent_wunsch == {}
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_kiosk_start_vor_der_uebernahme_zeigt_die_wahl(panel, cfg_ordner):
+    """Startet Chromium neu, bevor der Agent die Wahl gemeldet hat (Absturz-
+    Waechter, Auto-Reload, Neustart des Agenten), oeffnet es noch die alte
+    Ansicht. Die Visu zeigt trotzdem die Wahl, wie der Agent nach seiner
+    naechsten Meldung auch; sonst liefen beide bis zum naechsten Chromium-Start
+    auseinander."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        await ws.close()
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)   # wie der Waechter: start_kiosk()
+        assert "panel=day" in w.panel.starts()[-1]["url"]
+        ws, theme = await w.verbinden(_adresse(w.panel.starts()[-1]["url"]))
+        assert theme["title"] == "Nacht"
+        await w.melden()
+        assert w.m._cur_panel == "night"
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_gescheiterter_befehl_behaelt_die_wahl(panel, cfg_ordner):
+    """Erreicht ein Befehl den Agenten nicht (Zeitlimit, Port gesperrt), bleibt
+    die Wahl stehen und der Agent uebernimmt sie mit seiner naechsten Meldung."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        await ws.close()
+        await _bis(lambda: not w.app.conn_dev, "Visu getrennt")
+        # "Reload" mit offener Wahl wird zu /start mit ihr
+        w.app.agents["127.0.0.1"]["port"] = 9   # dort lauscht niemand
+        assert not (await w.post("/api/agent/command", {"ip": "127.0.0.1", "action": "reload"}))["ok"]
+        assert w.app.agent_wunsch == {"127.0.0.1": "night"}
+        await w.melden()
+        assert w.m._cur_panel == "night"
+        # "Ansicht wechseln" bei laufendem Kiosk ohne offene Visu schickt /start
+        w.app.agents["127.0.0.1"]["port"] = 9
+        j = await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "day"})
+        assert j == {"ok": True, "sent": 1, "via": "agent", "agent": "announce"}
+        await w.melden()
+        assert (w.m._cur_panel, w.xset_aus()) == ("day", 300)
+        assert len(w.panel.starts()) == 1
+    asyncio.run(_wand(panel, cfg_ordner, lauf))

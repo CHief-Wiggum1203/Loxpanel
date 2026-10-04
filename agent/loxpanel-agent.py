@@ -14,6 +14,7 @@ Start am Panel aus dem X-Autostart:  python3 loxpanel-agent.py &
 (ersetzt den direkten kiosk.sh-Aufruf — der Agent startet den Kiosk selbst).
 """
 import json
+import math
 import os
 import shutil
 import signal
@@ -109,12 +110,13 @@ RELOAD_HOURS = _cfg("RELOAD_HOURS", "0").strip()
 
 
 def _sekunden(key, standard):
-    """Sekundenwert aus Env/Conf; leer, ungueltig oder negativ -> Standard."""
+    """Sekundenwert aus Env/Conf; leer, ungueltig, negativ oder nicht endlich
+    (inf, nan: time.sleep im Waechter braeche ab) -> Standard."""
     try:
         v = float(_cfg(key, str(standard)))
     except ValueError:
         return standard
-    return v if v >= 0 else standard
+    return v if math.isfinite(v) and v >= 0 else standard
 
 
 # KIOSK_RESTART_SECS = Pause, bevor der Agent ein unerwartet beendetes Chromium
@@ -188,7 +190,8 @@ def _save_panel_state(panel):
     """Gewaehlte Panel-ID persistieren, damit sie einen Reboot ueberlebt
     (atomar: tmp-Datei + rename). Schlaegt das fehl, laut melden."""
     try:
-        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        if os.path.dirname(STATE_FILE):   # ohne Ordner: im Arbeitsordner
+            os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
         tmp = STATE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"panel": panel, "conf": CFG.get("PANEL", "")}, fh)
@@ -571,7 +574,7 @@ def _start_kiosk(panel):
     with _lock:
         _proc = subprocess.Popen(cmd, env=env)
         if KIOSK_RESTART_SECS > 0:
-            threading.Thread(target=_kiosk_waechter, args=(_proc, time.time()), daemon=True).start()
+            threading.Thread(target=_kiosk_waechter, args=(_proc, time.monotonic()), daemon=True).start()
     _kiosk_paused = False        # frisch gestarteter Kiosk laeuft (nicht eingefroren)
     _last_reload = time.time()   # Auto-Reload-Timer bei jedem Start zuruecksetzen
     # force: Chromium-(Neu)Start setzt DPMS auf den X-Default (600) zurueck —
@@ -604,6 +607,16 @@ def _pause_nach_absturz(laufzeit):
     return _absturz_pause
 
 
+def _absturz_vergessen():
+    """Befehl von Hand (/start, /reload, /stop): Eine fruehere Absturzschleife
+    zaehlt nicht mehr, der naechste Absturz wartet wieder KIOSK_RESTART_SECS
+    statt bis zu KIOSK_RESTART_MAX_SECS. Auto-Reload und Waechter rufen
+    start_kiosk() direkt und lassen die Pause stehen."""
+    global _absturz_pause
+    with _lock:
+        _absturz_pause = 0.0
+
+
 def _kiosk_waechter(p, gestartet):
     """Absturz-Waechter fuer genau einen Chromium-Prozess `p` (eigener Thread je
     Start). Endet p, ohne dass stop_kiosk() es beendet hat (dann waere _proc
@@ -615,7 +628,8 @@ def _kiosk_waechter(p, gestartet):
     with _lock:
         if _proc is not p:
             return
-        laufzeit = time.time() - gestartet
+        # monotonic: Panels ohne RTC stellen die Uhr beim Booten per NTP
+        laufzeit = time.monotonic() - gestartet
         pause = _pause_nach_absturz(laufzeit)
     print("Kiosk unerwartet beendet (Code %s nach %ds), Neustart in %gs" % (code, laufzeit, pause))
     time.sleep(pause)
@@ -708,6 +722,8 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         p = self.path.rstrip("/") or "/"
+        if p in ("/start", "/reload", "/stop"):
+            _absturz_vergessen()
         if p == "/start":
             ok = start_kiosk(body.get("panel") if isinstance(body.get("panel"), str) else _cur_panel)
             self._send(200 if ok else 500, {"ok": ok})

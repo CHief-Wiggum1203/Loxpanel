@@ -218,7 +218,7 @@ Wichtige Felder:
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
 | `icon_cache` | Cache für Loxone-Icons, höchstens `ICON_CACHE_MAX` (500) Einträge, der am längsten unbenutzte fliegt zuerst |
 | `last_mode` | zuletzt gesetzter Betriebsmodus |
-| `ansicht_gewaehlt` | Geräte, deren Ansicht unter Displays gewählt wurde: `ws_handler()` zieht sie nicht auf `last_mode`, bis der Betriebsmodus wieder wechselt |
+| `ansicht_gewaehlt` | Geräte, deren Ansicht unter Displays gewählt wurde („Ansicht wechseln“ oder „Start“): `ws_handler()` zieht sie nicht auf `last_mode`, bis der Betriebsmodus wieder wechselt |
 
 `op_modes` (Betriebsarten) ist ab `__init__` ein leeres Dict und wird in
 `_apply_structure()` gefüllt; `/api/types` funktioniert damit auch ohne Miniserver.
@@ -679,10 +679,10 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich (`features: ["panel"]`: kann eine Ansicht übernehmen), Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) und, wenn für ihn eine Ansicht ansteht (`agent_wunsch`), `panel`; die beiden Werte gelten dann schon für sie | Panel-Agent |
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < `AGENT_ONLINE` = 60 s, gelistet < 600 s) | Einstellungen |
-| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
+| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl und hebt `last_mode` für das Gerät auf, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
-| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`). Hebt `last_mode` für das Gerät auf | Einstellungen |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf | Einstellungen |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
@@ -1402,10 +1402,21 @@ Hostnamen melden) und gibt sie ihm mit der nächsten Antwort; ältere Agenten oh
 Chromium-Neustart. Ein Agent, der seit `AGENT_ONLINE` (vier Meldetakte) nichts
 gemeldet hat, bekommt nichts. Ein Betriebsmoduswechsel gibt das Profil ebenso
 an Agenten mit `features` weiter, über den Namen, weil die Zuordnung in
-`panels.json` am Namen hängt. Ein „Reload“ vor der nächsten Meldung startet mit
-der neuen Ansicht; startet der Agent Chromium in diesen höchstens 15 s selbst
-neu (Absturz, Auto-Reload), öffnet er noch die alte. Geprüft in
-`tests/test_agent.py` und `tests/browser/test_displays_browser.py`.
+`panels.json` am Namen hängt; `/start` bekommt auch dort nur ein Agent, der
+online ist. Zieht `ws_handler()` ein frisch verbundenes Chromium auf das Profil
+des laufenden Betriebsmodus, weil der Agent beim Wechsel nicht da war, bekommt
+der Agent das Profil ebenso (`_agenten_der_visu()`: der mit der IP der
+Verbindung, sonst die mit dem Namen, die online sind); ein älterer Agent ohne
+`features` erfährt davon nichts. „Start“ unter Displays
+ist eine ausdrückliche Wahl wie „Ansicht wechseln“ und hebt `last_mode` für
+das Gerät auf; bei gestopptem Kiosk ist es der einzige Weg dazu. Ein „Reload“
+vor der nächsten Meldung startet mit der neuen Ansicht. Startet Chromium in
+dieser Zeit anders neu (Absturz, Auto-Reload, Neustart des Agenten), fragt es
+noch nach der alten Ansicht; `ws_handler()` zeigt dann die offene Wahl, die der
+Agent mit seiner nächsten Meldung übernimmt. Eine Wahl bleibt in
+`agent_wunsch`, bis der Agent sie meldet, auch wenn ein Befehl an ihn
+scheitert. Geprüft in `tests/test_agent.py` und
+`tests/browser/test_displays_browser.py`.
 
 **Konfiguration:** erste existierende Datei aus `$LOXPANEL_KIOSK_CONF`,
 `../deploy/loxpanel-kiosk.conf`, `/etc/loxpanel/kiosk.conf`. Umgebungsvariablen
@@ -1442,7 +1453,10 @@ nach `KIOSK_RESTART_SECS` (Standard 5 s wie `RestartSec=5` der Dienstdateien,
 Code 0 (Alt+F4). Stürzt Chromium wieder ab, bevor es länger als die doppelte
 Obergrenze lief, verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
 (Standard 300 s wie Kubernetes bei CrashLoopBackOff); die Obergrenze liegt über
-`DPMS_OFF`, weil jeder Start per `xset` den Leerlaufzähler zurücksetzt.
+`DPMS_OFF`, weil jeder Start per `xset` den Leerlaufzähler zurücksetzt. Ein
+Befehl von Hand (`/start`, `/reload`, `/stop`) fängt wieder bei
+`KIOSK_RESTART_SECS` an; die Laufzeit misst der Wächter mit `time.monotonic()`,
+weil Panels ohne Echtzeituhr die Uhr beim Booten per NTP stellen.
 `start_kiosk()` läuft ganz unter einer `RLock`, die Prüfung des Wächters auch;
 die Pause selbst hält sie nicht, `/start` und `/stop` warten also nicht.
 Erfasst wird nur das Ende des Browser-Prozesses, ein abgestürzter Tab
