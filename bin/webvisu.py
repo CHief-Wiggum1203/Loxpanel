@@ -4415,8 +4415,6 @@ class App:
     def _view_control(self, uuid: str, rng: str | None = None) -> dict:
         v = self._view_control_inner(uuid)
         c = self.controls.get(uuid, {})
-        if c.get("isSecured"):
-            v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
         # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
         if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
@@ -5317,6 +5315,16 @@ class App:
                 "items": [self._control_item(uuid)]}
 
     def render(self, route: dict, prof: dict | None = None) -> dict:
+        out = self._render_seite(route, prof)
+        # Jede Seite eines gesicherten Bausteins, auch seine Unterseiten
+        # (Musikauswahl ...): die Visu fragt vor jedem Befehl die Visu-PIN ab.
+        # Gruppe und Tab nicht - dort zaehlt die einzelne Kachel.
+        if (out.get("route") or {}).get("view") not in ("group", "tab") \
+                and self._gesichert((route or {}).get("id")):
+            out["secured"] = True
+        return out
+
+    def _render_seite(self, route: dict, prof: dict | None = None) -> dict:
         v = (route or {}).get("view", "tab")
         if v == "group":
             return self._view_group(route, prof)
@@ -5325,6 +5333,19 @@ class App:
         if v == "sources":
             return self._view_sources(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
+
+    def _gesichert(self, uuid) -> bool:
+        """Baustein mit Visu-Passwort (isSecured): Befehle nur mit PIN (sps/ios)."""
+        return isinstance(uuid, str) and bool((self.controls.get(uuid) or {}).get("isSecured"))
+
+    def _pane_msg(self, art: str, uuid: str, blocks: list) -> dict:
+        """{t:"player"|"camera"} fuer Player- bzw. Kamera-Bereich. Gesichert wie
+        die Detailseite derselben Zone bzw. Intercom, sonst bedienten
+        Lautstaerke, Transport und Tueroeffner sie ohne PIN."""
+        m = {"t": art, "blocks": blocks}
+        if self._gesichert(uuid):
+            m["secured"] = True
+        return m
 
     async def audio_events_task(self) -> None:
         """Verwaltet je Audioserver (aus /mediaServer der Struktur) einen
@@ -5734,7 +5755,7 @@ class App:
                 if _zone:
                     try:
                         pb = self.player_blocks(_zone)
-                        player_msg = {"t": "player", "blocks": pb} if pb is not None else None
+                        player_msg = self._pane_msg("player", _zone, pb) if pb is not None else None
                     except Exception:
                         log.exception("player_blocks fehlgeschlagen (%s)", _zone)
                 # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
@@ -5763,7 +5784,7 @@ class App:
                 if _cuid:
                     try:
                         ib = self.intercom_blocks(_cuid)
-                        camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
+                        camera_msg = self._pane_msg("camera", _cuid, ib) if ib is not None else None
                     except Exception:
                         log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
                 # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
@@ -7734,7 +7755,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 pin = data.get("pin")
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
-                    await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+                    # uuid/cmd: die Visu ordnet das Ergebnis ihrem Befehl zu
+                    # (Druecken und Loslassen kommen kurz hintereinander);
+                    # code None = keine Antwort, keine abgelehnte PIN.
+                    await ws.send_json({"t": "cmdresult", "ok": code == "200", "code": code,
+                                        "uuid": data.get("uuid"), "cmd": data.get("cmd")})
                 elif code != "200" and data.get("uuid") and data.get("cmd"):
                     # Sichtbar machen statt still verschlucken (Details im Log)
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
@@ -7748,7 +7773,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         pb = app.player_blocks(zone)
                         if pb is not None:
-                            _pm = {"t": "player", "blocks": pb}
+                            _pm = app._pane_msg("player", zone, pb)
                             await ws.send_json(_pm)
                             app._last_sent.setdefault(ws, {})["player"] = _pm
                     except Exception:
@@ -7819,7 +7844,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         ib = app.intercom_blocks(cuid)
                         if ib is not None:
-                            await ws.send_json({"t": "camera", "blocks": ib})
+                            await ws.send_json(app._pane_msg("camera", cuid, ib))
                     except Exception:
                         log.exception("intercom_blocks (setcamera) fehlgeschlagen (%s)", cuid)
                 else:
