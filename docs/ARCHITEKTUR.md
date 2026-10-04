@@ -228,7 +228,11 @@ Wichtige Felder:
   bekommt das Panel einen gelben Hinweis (`notify`) statt nichts.
 - `reconnect()` (`:438`): zweiter Weg über `/api/settings/miniserver`. Baut einen
   neuen Client und übernimmt ihn nur bei Erfolg, die alte Verbindung überlebt
-  einen Fehlversuch.
+  einen Fehlversuch. Die Anmeldung (`getkey2`, `getjwt`) hat eine Frist,
+  `miniserver.response_timeout` in `loxpanel.cfg`, Standard `MS_CMD_TIMEOUT`
+  (`_ms_antwortfrist()`); das Laden der Struktur hängt an ihrer Größe und hat
+  keine. `api_settings_ms` übergibt den zu prüfenden Zugang und schreibt erst
+  danach (§5.1).
 - Bei Port 80 (Gen1) wird die Basis-URL von Hand auf `http://` gesetzt, weil
   `loxone-api` HTTPS annimmt.
 
@@ -606,7 +610,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
 | POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Settings → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
-| POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
+| POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | GET | `/api/sip` | `api_sip` | Intercoms der Anlage mit `uuid`, `name`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; fehlt nur der SIP-Teil, dazu `felder`: je Abschnitt der gesicherten Details die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
 | POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
@@ -660,10 +664,12 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 
 ### 5.1 Miniserver-Zugang, Priorität
 
-`_config()` (`:200`):
+`_config()` (`:200`), dahinter `_ms_zugang()`, das auch die Quelle nennt:
 
-1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt)
-2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`
+1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt, dann gilt der
+   Abschnitt ganz)
+2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`; ein leerer
+   oder ungültiger Port wird 443
 3. leer, Server startet trotzdem, wartet und zeigt den Panels den
    Einrichtungshinweis (§3, `einrichtung`); der Konfigurator führt dann zuerst
    zu Settings → Miniserver (§7.3)
@@ -677,11 +683,28 @@ nicht vorausfüllt und kein Speichern einer anderen Einstellung ihn in die
 
 Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 
+Settings zeigt genau diesen Zugang (`/api/settings`), und `api_settings_ms`
+geht von ihm aus. Speichern prüft zuerst und schreibt dann:
+
+- Lehnt der Miniserver ab (Kennwort, Benutzer, Zertifikat, keine
+  Loxone-Antwort), bleiben Datei und Verbindung, wie sie sind.
+- Ist er nicht erreichbar (Frist, Verbindung, DNS), wird gespeichert. Eine
+  bestehende Verbindung bleibt; `stream_task` baut die nächste mit dem neuen
+  Zugang auf (`_zugang_neu`). Ohne Verbindung versucht es der Loop sofort damit.
+- Ein leeres Kennwortfeld behält das bisherige Kennwort, aber nur für denselben
+  Host und Benutzer.
+- Wird der Zugang aus `LOXPANEL_MS_*` unverändert gespeichert, schreibt das
+  nichts in die Datei; die Variablen gelten weiter. Ändert sich etwas (Port,
+  Zertifikat), kommt der ganze Zugang samt Kennwort in die Datei, denn ein
+  Abschnitt mit Host gilt nur ganz.
+- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`)
+  bleiben stehen.
+
 ### 5.2 `loxpanel.cfg`
 
 | Sektion | Felder | Gelesen von |
 |---|---|---|
-| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls` | `_config()` |
+| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, Standard `MS_CMD_TIMEOUT`) | `_config()`, `_ms_antwortfrist()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |

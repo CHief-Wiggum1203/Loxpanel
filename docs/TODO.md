@@ -719,6 +719,16 @@ selbst aktuell.
       eine Kopie `panels.json.bak` behalten, eine Generation reicht. **S**
 - [x] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
       `ms["user"]`, verständliche Fehlermeldung in `/config` (Settings). (F7) **S**
+- [x] **Miniserver-Zugang erst prüfen, dann speichern**: Settings → Miniserver
+      schrieb den Zugang vor der Prüfung und nahm ihn nach einem Fehlschlag
+      nicht zurück. Ein Tippfehler im Kennwort blieb in der Datei, und nach dem
+      nächsten Neustart war die Verbindung weg. Zwei Fenster konnten Datei und
+      Verbindung auseinanderbringen. Mit Zugang aus `LOXPANEL_MS_*` zeigte
+      Settings Port 443 und meldete „Passwort fehlt“. Jetzt gilt: abgelehnt =
+      nichts gespeichert, nicht erreichbar = gespeichert mit Warnung, Speichern
+      nacheinander, Anzeige und Speichern wie `_config()`. Die Frist der
+      Anmeldung steht in `miniserver.response_timeout` (Standard 10 s,
+      `ARCHITEKTUR.md` §5.1). **M**
 
 ## 2. Server-Stabilität
 
