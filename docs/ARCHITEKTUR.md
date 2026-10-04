@@ -61,11 +61,11 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
-| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert |
+| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
-| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
+| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
@@ -139,13 +139,32 @@ Befehle ohne Anmeldung ab („command not allowed when paired", prüfbar mit
 nachweislich **nicht** gekoppelter Audioserver (Nachbau Sonn/MS4H bzw.
 Musikserver Gen 1, `paired=false`) bekommt sie direkt auf Port 7091 (die
 `playerid` dafür stammt aus `details.playerid`). Den `paired`-Status ermittelt
-der Ereignis-Client je Host automatisch (`audioserver_events.py`, HTTP
-`audio/cfg/all`); solange er unbekannt ist, wird sicher über den Miniserver
-geleitet. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
+der Ereignis-Client je Host vor dem Verbinden (`audioserver_events.py`,
+`_check_paired()`, HTTP `audio/cfg/all`): Steht „not allowed when paired" in der
+Antwort, ist er gekoppelt, gleich mit welchem HTTP-Status. 5xx, 408, 429,
+Zeitlimit und Verbindungsfehler sagen nichts über die Kopplung, der bisherige
+Wert bleibt. Jede andere Antwort heißt nicht gekoppelt; Nachbauten und
+Musikserver Gen 1 antworten nicht einheitlich (auch 404 oder leer), deshalb gibt
+es kein strengeres Kriterium. Solange der Status unbekannt ist, gilt der
+Audioserver wie gekoppelt ohne Anmeldung: Befehle und Favoriten laufen über den
+Miniserver, auf dem Ereigniskanal wird nur gehört, und die Prüfung wiederholt
+sich alle `audiometa.retry_interval` Sekunden. Ergibt sie „gekoppelt", baut der
+Client die Verbindung sofort neu auf und meldet sich an; ergibt sie „nicht
+gekoppelt", fordert er die Favoriten über 7091 an. Bis der Audioserver als
+gekoppelt erkannt ist, läuft die Prüfung vor jedem Verbinden; so heilt ein
+falsches „nicht gekoppelt": Ein gekoppelter Audioserver schließt den Kanal beim
+ersten Befehl ohne Anmeldung. Ein erkanntes „gekoppelt" bleibt dagegen bis zum
+nächsten Start des Clients. Es entsteht nur aus dem Kopplungstext, und eine
+Antwort beim Hochfahren des Audioservers (404, leer) würde es sonst kippen;
+Transportbefehle gingen dann ohne Anmeldung an 7091 und ins Leere.
+`roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
 für die Anzeige). Ausnahme roomfav/play: bei einem gekoppelten Loxone-Audioserver
 läuft `roomfav/play/<slot>` über die angemeldete Ereignis-Verbindung
 (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle ablehnt;
-Nachbauten (`authed=false`) nutzen den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+Nachbauten (`authed=false`) nutzen den Direktkanal. Ist die Ereignis-Verbindung
+dabei schon weg, meldet `play_roomfav` das, und die Visu zeigt wie bei anderen
+gescheiterten Befehlen einen Hinweis.
+Titel, Sender und Cover für `AudioZoneV2` kommen über den
 Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
 `remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
 Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem
@@ -209,8 +228,31 @@ Wichtige Felder:
 - `stream_task()` (`:2409`): Endlosschleife. Bei Fehler wird das Token erneuert,
   scheitert das, wird die Verbindung hart zurückgesetzt. Danach wachsende Pause
   (`MS_RETRY`: 5, 10, 20, 40, 60 s). Von vorn beginnt sie erst, wenn eine
-  Verbindung mindestens 60 s hielt — ein Miniserver, der sofort wieder trennt,
-  bekommt so nicht alle paar Sekunden eine neue Anmeldung.
+  Verbindung mindestens 60 s lang Nachrichten lieferte (`LoxoneWS.lebenszeit()`,
+  Anmeldung bis letzte Nachricht) — ein Miniserver, der sofort wieder trennt
+  oder nach der Anmeldung schweigt, bekommt so nicht alle paar Sekunden eine
+  neue Anmeldung. Wie lange die Verbindung bloß offen war, zählt nicht: Eine
+  stumme endet erst nach `keepalive_interval` + `response_timeout` (Standard
+  70 s), also nach mehr als `MS_RETRY[-1]`.
+- **Lebenszeichen der Live-Verbindung:** Nach der Anmeldung sendet LoxPanel auf
+  dem WebSocket sonst nichts (Befehle gehen über HTTP). Ein still abgerissener
+  Socket (Strom, WLAN, NAT ohne RST) oder ein Miniserver, der annimmt und
+  schweigt, blieb deshalb unbemerkt hängen: `stream_task` wartete für immer,
+  die Panels zeigten eingefrorene Werte. Jetzt haben Verbindungsaufbau,
+  `getkey` und `authwithtoken` je die Frist `miniserver.response_timeout`
+  (`_ms_antwortfrist()`), und `stream()` sendet alle
+  `miniserver.keepalive_interval` Sekunden (`_ms_keepalive_abstand()`,
+  Standard `MS_KEEPALIVE` = 60 s) `keepalive`. Der Miniserver antwortet mit
+  einem Header der Kennung 6 (Loxone-Doku „Communicating with the Miniserver“,
+  „Keeping the connection alive“); das Log meldet einmal je Verbindung
+  „Miniserver beantwortet keepalive“. Kommt `keepalive_interval` +
+  `response_timeout` lang keine Nachricht, endet `stream()` mit
+  `ConnectionError` und `stream_task` verbindet neu. Die Grenze gilt je
+  Nachricht, auch für den Voll-Dump nach der Anmeldung, der im LAN einen
+  Bruchteil davon braucht. Laut Doku trennt der Miniserver außerdem Clients,
+  die über 5 Minuten nichts senden; an der eigenen Anlage hielt der WebSocket
+  aber auch ohne `keepalive` tagelang. `/api/health` bleibt dabei, wie es ist:
+  Ein fehlender Miniserver ist kein Fehler (§4).
 - **Token-Erneuerung für HTTP-Anfragen:** Die WebSocket-Verbindung braucht das
   Token nur beim Anmelden, die HTTP-Anfragen (Befehle `sps/io`, gesicherte
   Befehle, Icons, Verläufe) tragen es bei jedem Aufruf als Bearer. Läuft es ab,
@@ -714,16 +756,35 @@ geht von ihm aus. Speichern prüft zuerst und schreibt dann:
   nichts in die Datei; die Variablen gelten weiter. Ändert sich etwas (Port,
   Zertifikat), kommt der ganze Zugang samt Kennwort in die Datei, denn ein
   Abschnitt mit Host gilt nur ganz.
-- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`)
-  bleiben stehen.
+- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`,
+  `keepalive_interval`) bleiben stehen.
+
+Zertifikat prüfen (`verify_tls`): Mit `true` prüfen alle Verbindungen zum
+Miniserver Zertifikat und Namen gegen den Standard-Truststore, also Anmeldung
+und Struktur (`loxone_api`), WebSocket (`LoxoneWS`) und die `icon_session`
+(Statistik, Bilder, gesicherte Details, dazu die Cover von außen). Den Kontext
+für WebSocket und `icon_session` baut `ms_ssl_kontext()` in `loxone_ws.py` so
+wie `loxone_api` seinen; die CAs lädt ein eigener Thread
+(`asyncio.to_thread`), damit die Ereignisschleife nicht steht.
+
+- Verbunden wird nur, wenn `host` ein Name ist, den das Zertifikat nennt. Mit
+  der IP-Adresse scheitert die Prüfung („IP address mismatch“), auch bei einem
+  sonst gültigen Zertifikat. Der Name muss im lokalen Netz auflösen.
+- Es zählen die CAs des Systems, auf dem der Server läuft (im Docker-Image die
+  von Debian). Die Android-App prüft gegen die CA-Liste, die Chaquopy
+  mitbringt (certifi); eine unter Android selbst installierte CA kennt sie
+  nicht. Eine eigene CA-Datei lässt sich nicht angeben.
+- Mit `false` (Standard) prüft keine der Verbindungen, wie es ein Gen2 mit
+  selbstsigniertem Zertifikat braucht.
 
 ### 5.2 `loxpanel.cfg`
 
 | Sektion | Felder | Gelesen von |
 |---|---|---|
-| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, Standard `MS_CMD_TIMEOUT`) | `_config()`, `_ms_antwortfrist()` |
+| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, auch beim Aufbau der Live-Verbindung und auf `keepalive`, Standard `MS_CMD_TIMEOUT`); `keepalive_interval` (s, Abstand der `keepalive` auf dem WebSocket, Standard `MS_KEEPALIVE` = 60; ohne Nachricht binnen Abstand + Frist wird neu verbunden, §3.4). Ungültige Werte: Standard mit Warnung im Log | `_config()`, `_ms_antwortfrist()`, `_ms_keepalive_abstand()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
+| `audiometa` | `enabled` (Audioserver-Live-Daten); `retry_interval` (s, Pause vor dem nächsten Verbindungsversuch des Ereignis-Clients und, solange die Kopplung unklar ist, vor der nächsten Prüfung, Standard `AudioEventClient.NEU_VERSUCH_S` = 5); `response_timeout` (s, Zeitlimit der Kopplungsprüfung, Standard `PRUEF_ZEITLIMIT_S` = 6). Beide gelten ab dem nächsten Start des Clients | `_audiometa_config()`, `_audiometa_sekunden()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
 | `night` | `control` (UUID eines Bausteins mit `active`-State; leer = Sonnenzeiten entscheiden) | `_night_config()` |
 
@@ -1579,6 +1640,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
 | F16 | Globale Regel `.empty{grid-column:1/-1}` (für „nichts hier" im Kachelraster) traf auch die Leerfelder vor dem 1. im Monatskalender: sie belegten eine ganze Zeile, jeder Monat begann am Montag, alle Tage standen unter dem falschen Wochentag (Split-Pane Kalender) — behoben, Regel auf `.grid>.empty` begrenzt; Regressionstest misst die Spalten im Browser | `panel.html` CSS, `fpMonthHTML()` |
 | F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
+| F17 | Die Live-Verbindung zum Miniserver hatte weder Zeitlimit noch `keepalive`. Riss sie still ab oder nahm der Miniserver an und schwieg, wartete `stream_task` für immer; die Panels zeigten eingefrorene Werte, `/api/health` meldete „läuft“ — behoben, §3.4 (Fristen, `keepalive`, Backoff nur nach gelieferten Daten) | `loxone_ws.py` `connect()`, `stream()`; `stream_task()` |
 
 ### Sicherheit
 
@@ -1590,7 +1652,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | S4 | Agent-HTTP auf `0.0.0.0:8130` ohne Auth. Jeder im LAN kann Panels umschalten oder abschalten, der `panel`-Wert wird persistiert. |
 | S5 | LoxBerry-`sudoers`: `docker` ohne Passwort ist faktisch Root. |
 | S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session. |
-| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. |
+| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. `true` prüft gegen den Standard-Truststore und klappt nur mit dem Namen aus dem Zertifikat als Host, nicht mit der IP-Adresse (§5.1). |
 
 ### Performance
 

@@ -290,14 +290,13 @@ def test_nicht_erreichbar_bei_bestehender_verbindung(cfg_ordner, miniserver_http
         live = (app.port, app.client is client)
         datei = _datei_ms(cfg_ordner)
         b = await _ms(port=port_b)
-        # Der Nachbau hat keinen WebSocket: Der Loop scheitert daran wie an
-        # einem Abbruch und baut neu auf.
+        # Die Verbindung zu A bricht ab (A aus): Der Loop baut neu auf, mit B.
+        await a.stop()
         loop = asyncio.create_task(app.stream_task())
         await _bis(lambda: "ok" in b.anmeldungen)
         await _abbrechen(loop)
         nachher = (app.port, app._zugang_neu)
         await app._close_conn()
-        await a.stop()
         await b.stop()
         return antwort, live, datei, nachher, a.port, port_b
     (status, j), live, datei, nachher, port_a, port_b = asyncio.run(lauf())
