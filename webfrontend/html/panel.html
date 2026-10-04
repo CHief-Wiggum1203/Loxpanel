@@ -1025,6 +1025,7 @@ let svPaneCfg = '', svStatusData = null, curSvStatus = '';
 let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
 let playerData = null;   // letzter {t:'player'}-Push (Player-Bloecke) fuer die Audio-Pane
+let playerSecured = false;   // Zone des Players ist gesichert (Visu-PIN)
 // Verlaufs-Pane (chart:<uuid>): gemeldeter Baustein|Zeitraum, letzter {t:'chart'}-Push,
 // in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
 let curChartKey = '', chartData = null, chartRange = '24h';
@@ -1127,7 +1128,15 @@ function nav(route){ stack.push(route); send({t:'nav',route}); }
 function goTab(tab){ stack=[{view:'tab',tab}]; send({t:'nav',route:stack[0]}); }
 function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stack.length-1]}); } }
 
-let pendingSecure=null;
+// ---- Befehle und Visu-PIN (gesicherte Bausteine, isSecured) ----
+// Jeder Befehl geht ueber sendCmd(); nur cmdSchicken() baut {t:'cmd'}. Bei
+// einem gesicherten Baustein fragt die Visu vor dem Befehl die PIN ab und
+// schickt sie mit, der Server rechnet daraus den Hash fuer sps/ios und meldet
+// das Ergebnis (cmdresult mit uuid, cmd und code).
+let pinWarten=[];        // gesicherte Befehle, deren cmdresult aussteht
+let pinJobs=null;        // Befehle, die auf die offene PIN-Abfrage warten
+function cmdSchicken(uuid,cmd,pin){ const m={t:'cmd',uuid,cmd}; if(pin!=null) m.pin=pin; send(m); }
+function pinSeite(){ return key(view&&view.route); }
 function askPin(cb,msg){
   const s=document.querySelector('.screen'); let ov=s.querySelector('.pinov'); if(ov)ov.remove();
   ov=document.createElement('div'); ov.className='pinov';
@@ -1154,10 +1163,37 @@ function askPin(cb,msg){
   };});
   ov.querySelector('.cancel').onclick=()=>done(null);
 }
-function doSecure(uuid,cmd,msg){
-  askPin(pin=>{ if(pin==null){pendingSecure=null;return;} pendingSecure={uuid,cmd}; send({t:'cmd',uuid,cmd,pin}); }, msg);
+// Ist die Abfrage schon offen, gilt die eine PIN fuer alle wartenden Befehle.
+function pinAbfragen(job,msg){
+  if(pinJobs){ pinJobs.push(job); const m=document.querySelector('.screen .pinov .pinmsg'); if(m&&msg) m.textContent=msg; return; }
+  pinJobs=[job];
+  askPin(pin=>{ const jobs=pinJobs||[]; pinJobs=null;
+    if(pin==null){ jobs.forEach(j=>{ if(j.abbruch) j.abbruch(); }); return; }
+    jobs.forEach(j=>pinSenden(j,pin)); }, msg);
 }
-function sendCmd(uuid,cmd,secured){ if(secured) doSecure(uuid,cmd,''); else send({t:'cmd',uuid,cmd}); }
+// Mit PIN schicken. Eine Halten-Taste (job.los): Nach der Abfrage ist der
+// Finger laengst oben, das Loslassen folgt darum sofort mit derselben PIN
+// (wirkt wie ein Tipp). Nie Druecken ohne Loslassen.
+function pinSenden(job,pin){
+  const w={job,pin,seite:pinSeite()};
+  pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
+  if(job.los){ pinWarten.push({job:job.los,pin,seite:w.seite,zu:w}); cmdSchicken(job.los.uuid,job.los.cmd,pin); }
+}
+function pinErgebnis(msg){
+  const i=pinWarten.findIndex(w=>w.job.uuid===msg.uuid && w.job.cmd===msg.cmd); if(i<0) return;
+  const w=pinWarten.splice(i,1)[0];
+  if(msg.ok){ if(w.job.ok && w.seite===pinSeite()) w.job.ok(); return; }
+  w.fehl=true;
+  if(w.zu && w.zu.fehl) return;   // Loslassen zu abgelehntem Druecken: die neue Abfrage schickt beide
+  pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
+}
+// opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
+// PIN erst nach der Bestaetigung; opt.abbruch: PIN abgebrochen (Anzeige zurueck).
+function sendCmd(uuid,cmd,secured,opt){ opt=opt||{};
+  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null};
+  if(secured){ pinAbfragen(job,''); return; }
+  cmdSchicken(uuid,cmd,null); if(job.los) holdRelease=job.los; if(job.ok) job.ok();
+}
 const SLD_STEP=5;   // Schrittweite der -/+ Tasten am Schieberegler (Lautstaerke etc.)
 // Fuellstand der Leiste als CSS-Var --p (Prozent) setzen -> gefuellte Anzeige
 // unabhaengig vom nativen accent-color-Rendering des jeweiligen WebViews.
@@ -1170,12 +1206,12 @@ function stellen(x){ const s=String(Math.abs(+x)), i=s.indexOf('.'); return i<0?
 // Auf die Stellen der Schrittweite runden: 0,5er-Schritte bleiben 0,5er-Schritte
 // (frueher Math.round: 20 + 0,5 ergab 21), Rechenreste wie 20.000000000000004
 // fallen weg.
-function nudgeSld(sld,delta,valEl){ if(!sld)return;
+function nudgeSld(sld,delta,valEl,secured,abbruch){ if(!sld)return;
   const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
   let v=+((+sld.value||0)+delta).toFixed(stellen(delta)); v=Math.max(min,Math.min(max,v));
   if(v===(+sld.value)) return;
   sld.value=v; sldFill(sld); if(valEl) valEl.textContent=v;
-  if(sld._uuid&&sld._tmpl) send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',v)}); }
+  if(sld._uuid&&sld._tmpl) sendCmd(sld._uuid,sld._tmpl.replace('{v}',v),secured,{abbruch}); }
 
 let holdRelease=null;
 let videoTimer=null;
@@ -1183,7 +1219,8 @@ function stopVideo(){ if(videoTimer){ clearInterval(videoTimer); videoTimer=null
 function setMore(route){ const s=document.querySelector('.screen'); if(!s)return; let mb=s.querySelector('.moreb');
   if(route){ if(!mb){ mb=document.createElement('div'); mb.className='moreb'; mb.textContent='⋮'; s.appendChild(mb);} mb.onclick=()=>nav(route); }
   else if(mb){ mb.remove(); } }
-function endHold(){ if(holdRelease){ send({t:'cmd',uuid:holdRelease.uuid,cmd:holdRelease.cmd}); holdRelease=null; } }
+// Loslassen einer Halten-Taste, nur ungesichert (unter PIN schickt pinSenden es mit)
+function endHold(){ const h=holdRelease; if(!h) return; holdRelease=null; cmdSchicken(h.uuid,h.cmd,null); }
 window.addEventListener('pointerup', endHold);
 window.addEventListener('pointercancel', endHold);
 
@@ -1562,12 +1599,14 @@ function renderPanel(blocks){
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
   const sb=blocks.find(b=>b.k==='slider'); const sld=g.querySelector('.sld');
   if(sb&&sld){ sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl; sldFill(sld);
+    // PIN abgebrochen: Regler wieder auf den Stand des Servers
+    const zurueck=()=>{ if(view&&view.blocks&&el('grid').classList.contains('panel')) updatePanel(view.blocks); };
     sld.addEventListener('input',()=>{ sldDragging=true; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sld.value; });
-    sld.addEventListener('change',()=>{ sldDragging=false; send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',sld.value)}); });
+    sld.addEventListener('change',()=>{ sldDragging=false; sendCmd(sld._uuid,sld._tmpl.replace('{v}',sld.value),view&&view.secured,{abbruch:zurueck}); });
     const sdn=g.querySelector('.srow .sbtn[data-sd="dn"]'), sup=g.querySelector('.srow .sbtn[data-sd="up"]');
     const step=(sb.step&&+sb.step>0)?+sb.step:SLD_STEP;
-    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,g.querySelector('.sval')); });
-    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,g.querySelector('.sval')); });
+    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,g.querySelector('.sval'),view&&view.secured,zurueck); });
+    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,g.querySelector('.sval'),view&&view.secured,zurueck); });
   }
   const rows=[...g.querySelectorAll('.brow')]; let ri=0;
   for(const b of blocks){ if(b.k!=='row') continue; const rowEl=rows[ri++];
@@ -1575,8 +1614,7 @@ function renderPanel(blocks){
       bindCell(btn,c);
       btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
         if(btn._menu){ openMenu(btn,btn._menu); return; }
-        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured);
-        if(btn._hold) holdRelease=btn._release||null;
+        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured,(btn._hold&&btn._release)?{los:btn._release}:null);
       });
     });
   }
@@ -1584,7 +1622,7 @@ function renderPanel(blocks){
   if(fb&&fe){ fe.querySelectorAll('.fav').forEach(n=>{ const f=fb.items[+n.dataset.f]; if(!f)return;
     // Wie die Tasten auf der Kachel erst beim Tippen: die Favoriten liegen im
     // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
-    n.addEventListener('click',()=>{ if(f.cmd){ send({t:'cmd',uuid:f.cmd.uuid,cmd:f.cmd.cmd}); back(); } }); }); }
+    n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,{ok:back}); }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
   renderTabs();
   panelEinpassen();
@@ -2208,7 +2246,7 @@ function connect(){
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
   // Reconnect stattdessen die zuletzt betrachtete Seite wiederherstellen.
   ws.onopen=()=>{ el('conn').classList.add('ok'); abosVergessen(); if(booted) send({t:'nav',route:stack[stack.length-1]}); };
-  ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
+  ws.onclose=()=>{ el('conn').classList.remove('ok'); pinWarten=[]; setTimeout(connect,1500); };
   ws.onmessage=e=>{
     let msg;
     try{ msg=JSON.parse(e.data); }
@@ -2241,7 +2279,7 @@ function connect(){
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane(); return; }   // Kalender/Wetter fuer die Uhr-Seite
-    if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[];
+    if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[]; playerSecured=!!msg.secured;
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> Audio als zweite Uhr-Spalte
       renderPlayer(playerData); return; }   // sonst fester Player in Pane 2
     if(msg.t==='energy'){ energyData=msg;
@@ -2276,7 +2314,7 @@ function connect(){
       return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
-    if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
+    if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t!=='view') return;
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
@@ -2741,7 +2779,7 @@ function renderCameraPane(elc){ if(!elc) return;
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
-        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,false); }); }); }
+        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,!!(cameraData&&cameraData.secured)); }); }); }
   } else if(row){                         // gleiche Struktur -> nur Buttons aktualisieren (Video unangetastet)
     const btns=elc.querySelectorAll('.brow [data-c]');
     row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
@@ -2902,12 +2940,12 @@ function renderPlayer(blocks){
         '<input type="range" class="sld" id="ppsld" min="0" max="100" value="0">'+
         '<button type="button" class="sbtn" data-sd="up">+</button><span class="sval" id="ppsldv">0</span></div>'+
       '</div>';
-    const s=el('ppsld');
-    pane.querySelector('.ppvol .sbtn[data-sd="dn"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,-SLD_STEP,el('ppsldv')); });
-    pane.querySelector('.ppvol .sbtn[data-sd="up"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,SLD_STEP,el('ppsldv')); });
+    const s=el('ppsld'), zurueck=()=>renderPlayer(playerData);   // PIN abgebrochen: Stand des Servers
+    pane.querySelector('.ppvol .sbtn[data-sd="dn"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,-SLD_STEP,el('ppsldv'),playerSecured,zurueck); });
+    pane.querySelector('.ppvol .sbtn[data-sd="up"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,SLD_STEP,el('ppsldv'),playerSecured,zurueck); });
     s.addEventListener('input',()=>{ _playerVolDrag=true; sldFill(s); el('ppsldv').textContent=s.value; });
     s.addEventListener('change',()=>{ _playerVolDrag=false;
-      if(s._uuid&&s._tmpl) send({t:'cmd',uuid:s._uuid,cmd:s._tmpl.replace('{v}',s.value)}); });
+      if(s._uuid&&s._tmpl) sendCmd(s._uuid,s._tmpl.replace('{v}',s.value),playerSecured,{abbruch:zurueck}); });
     _playerBuilt=true;
   }
   // Cover nur bei Aenderung neu laden (sonst Flackern)
@@ -2923,7 +2961,7 @@ function renderPlayer(blocks){
     if(tr.children.length!==cells.length){
       tr.innerHTML=cells.map((c,i)=>'<div class="btn'+(c.icon?' icon':'')+(c.big?' big':'')+'" data-c="'+i+'"></div>').join('');
       tr.querySelectorAll('[data-c]').forEach(n=>n.addEventListener('pointerdown',ev=>{ ev.preventDefault();
-        if(n._cmd) send({t:'cmd',uuid:n._cmd.uuid,cmd:n._cmd.cmd}); }));
+        if(n._cmd) sendCmd(n._cmd.uuid,n._cmd.cmd,playerSecured); }));
     }
     cells.forEach((c,i)=>{ const n=tr.querySelector('[data-c="'+i+'"]'); if(!n)return;
       n._cmd=c.cmd||null;
