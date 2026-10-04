@@ -139,7 +139,7 @@ Befehle ohne Anmeldung ab („command not allowed when paired", prüfbar mit
 nachweislich **nicht** gekoppelter Audioserver (Nachbau Sonn/MS4H bzw.
 Musikserver Gen 1, `paired=false`) bekommt sie direkt auf Port 7091 (die
 `playerid` dafür stammt aus `details.playerid`). Den `paired`-Status ermittelt
-der Ereignis-Client je Host vor jedem Verbinden (`audioserver_events.py`,
+der Ereignis-Client je Host vor dem Verbinden (`audioserver_events.py`,
 `_check_paired()`, HTTP `audio/cfg/all`): Steht „not allowed when paired" in der
 Antwort, ist er gekoppelt, gleich mit welchem HTTP-Status. 5xx, 408, 429,
 Zeitlimit und Verbindungsfehler sagen nichts über die Kopplung, der bisherige
@@ -150,15 +150,21 @@ Audioserver wie gekoppelt ohne Anmeldung: Befehle und Favoriten laufen über den
 Miniserver, auf dem Ereigniskanal wird nur gehört, und die Prüfung wiederholt
 sich alle `audiometa.retry_interval` Sekunden. Ergibt sie „gekoppelt", baut der
 Client die Verbindung sofort neu auf und meldet sich an; ergibt sie „nicht
-gekoppelt", fordert er die Favoriten über 7091 an. Weil die Prüfung vor jedem
-Verbinden läuft, heilt auch eine Fehleinstufung: Ein gekoppelter Audioserver
-schließt den Kanal beim ersten unangemeldeten Befehl. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
+gekoppelt", fordert er die Favoriten über 7091 an. Bis der Audioserver als
+gekoppelt erkannt ist, läuft die Prüfung vor jedem Verbinden; so heilt ein
+falsches „nicht gekoppelt": Ein gekoppelter Audioserver schließt den Kanal beim
+ersten Befehl ohne Anmeldung. Ein erkanntes „gekoppelt" bleibt dagegen bis zum
+nächsten Start des Clients. Es entsteht nur aus dem Kopplungstext, und eine
+Antwort beim Hochfahren des Audioservers (404, leer) würde es sonst kippen;
+Transportbefehle gingen dann ohne Anmeldung an 7091 und ins Leere.
+`roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
 für die Anzeige). Ausnahme roomfav/play: bei einem gekoppelten Loxone-Audioserver
 läuft `roomfav/play/<slot>` über die angemeldete Ereignis-Verbindung
 (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle ablehnt;
 Nachbauten (`authed=false`) nutzen den Direktkanal. Ist die Ereignis-Verbindung
 dabei schon weg, meldet `play_roomfav` das, und die Visu zeigt wie bei anderen
-gescheiterten Befehlen einen Hinweis. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+gescheiterten Befehlen einen Hinweis.
+Titel, Sender und Cover für `AudioZoneV2` kommen über den
 Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
 `remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
 Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem

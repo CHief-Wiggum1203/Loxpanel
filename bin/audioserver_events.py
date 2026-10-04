@@ -236,8 +236,12 @@ class AudioEventClient:
 
     async def _check_paired(self) -> None:
         """Per HTTP pruefen, ob der Audioserver Befehle ohne Anmeldung annimmt.
-        Laeuft vor jedem Verbinden, so heilt auch eine Fehleinstufung (ein
-        gekoppelter Server schliesst den Kanal beim ersten Befehl).
+        Laeuft vor jedem Verbinden, solange er nicht als gekoppelt erkannt ist;
+        so heilt ein falsches "nicht gekoppelt" (ein gekoppelter Server schliesst
+        den Kanal beim ersten Befehl ohne Anmeldung). Ein erkanntes "gekoppelt"
+        bleibt fuer die Lebensdauer des Clients: Es entsteht nur aus dem
+        Kopplungstext, und eine Antwort beim Hochfahren des Audioservers (404,
+        leer) wuerde es sonst kippen, Befehle gingen dann ohne Anmeldung an 7091.
           - Antwort mit "command not allowed when paired" -> gekoppelt (True),
             egal mit welchem HTTP-Status (der der echten Ablehnung ist nicht
             dokumentiert).
@@ -247,12 +251,14 @@ class AudioEventClient:
           - Jede andere Antwort -> nicht gekoppelt (False). Nachbauten und
             Musikserver Gen 1 antworten nicht einheitlich (auch 404, leer,
             mit BOM), deshalb kein strengeres Kriterium."""
+        if self.paired is True:
+            return
         try:
             async with self._session.get(f"http://{self.host}:{self.port}/audio/cfg/all",
                                          timeout=aiohttp.ClientTimeout(total=self.pruef_zeitlimit_s)) as r:
                 status, text = r.status, await r.text(errors="replace")
         except Exception as err:
-            self._kopplung_unklar(f"nicht abfragbar: {err or type(err).__name__}")
+            self._kopplung_unklar(f"nicht abfragbar: {str(err) or type(err).__name__}")
             return
         if self.PAIRED_ERROR in text:
             paired = True

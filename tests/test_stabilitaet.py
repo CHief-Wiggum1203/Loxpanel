@@ -218,6 +218,38 @@ def test_audioserver_kopplung_unklar(miniserver_http, antwort):
     _audio_lauf(k, cfg_all=[(200, AUDIO_GEKOPPELT) if antwort == "Zeitlimit" else antwort])
 
 
+def test_audioserver_gekoppelt_bleibt_nach_neustart(miniserver_http):
+    """Ein erkanntes "gekoppelt" bleibt, auch wenn der Audioserver nach einem
+    Neustart die Pruefung erst mit 404 beantwortet: Der Client meldet sich neu
+    an, Transportbefehle bleiben am Miniserver und gehen nicht ohne Anmeldung
+    an Port 7091 (dort abgelehnt, aber als Erfolg gemeldet)."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl.authed)
+        await asv.verbindungen[0].close()            # Audioserver startet neu
+        await _bis(lambda: len(asv.verbindungen) == 2)
+        await _bis(lambda: cl.authed or cl.paired is not True)
+        assert cl.paired is True, "404 nach dem Neustart als ungekoppelt genommen"
+        assert cl.authed and asv.cfg_abrufe == 1
+        assert await app.command("ZA", "play") == "200"
+        assert ms.io == ["sps/io/ZA/play"]
+        assert all(angemeldet for _, angemeldet in asv.befehle), asv.befehle
+    _audio_lauf(k, cfg_all=[(200, AUDIO_GEKOPPELT), (404, "not found")])
+
+
+def test_audioserver_falsch_ungekoppelt_heilt(miniserver_http):
+    """Hielt die Pruefung einen gekoppelten Audioserver fuer ungekoppelt (404),
+    schliesst er den Kanal beim ersten Befehl ohne Anmeldung. Vor dem
+    Neuverbinden wird wieder geprueft: gekoppelt, Anmeldung, Favoriten ueber 7091."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl._ws is not None)
+        assert cl.paired is False
+        await app.prime_favs("Z")
+        await _bis(lambda: cl.authed)
+        assert cl.paired is True and len(asv.verbindungen) == 2
+        await _bis(lambda: _favoriten(app) == ["Radio 7091"])
+    _audio_lauf(k, cfg_all=[(404, "not found"), (200, AUDIO_GEKOPPELT)])
+
+
 def test_audioserver_nachbau_nach_503(miniserver_http):
     """Erst 503, dann eine Antwort ohne Kopplungstext: Nachbau. Die Favoriten
     kommen dann ueber 7091, auch auf einer schon offenen Musikauswahl."""
