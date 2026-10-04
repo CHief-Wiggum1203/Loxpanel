@@ -265,6 +265,9 @@ Server → Browser (`panel.html:700`):
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
+| `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
+| `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
+| `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
@@ -279,6 +282,20 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
+| `setenergy` | `uuid` — EFM oder EnergyManager2 der Energiefluss-Pane des aktiven Tabs bzw. der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `energy` und hält den Stand je Verbindung (`conn_energy`) |
+| `setcamera` | `uuid` — Intercom der Kamera-Pane (leer = keine). Antwort `camera`, Stand in `conn_camera` |
+| `setplayer` | `zone` — Audio-Zone der Player-Pane (leer = keine). Antwort `player`, Stand in `conn_player` |
+
+Die `set*`-Nachrichten sind Abos. Der Server hält sie je Verbindung und räumt
+sie ab, wenn die Verbindung endet (`ws_handler`, `_send_or_drop()`). Die Visu
+merkt sich, was sie gemeldet hat (`curEnergyUuid`, `curCameraUuid`,
+`curPlayerZone`, `curSvStatus`, `curChartKey`), und `applyPane()` meldet nur
+Änderungen. Nach jedem Verbindungsaufbau vergisst sie diesen Stand
+(`abosVergessen()` in `ws.onopen`), und der `theme`-Push, der als Erstes kommt,
+meldet über `applyPane()` alle aktiven Abos neu an. Ohne das blieb nach einem
+Neustart des Servers, einem Netzabbruch oder dem Benennen eines Geräts jedes
+Widget auf dem letzten Stand stehen. Ein neues Abo mit eigener Kennung gehört
+in `abosVergessen()`. Geprüft in `tests/browser/test_abo_neuverbindung_browser.py`.
 
 ### 3.7 Das Block-Vokabular
 
