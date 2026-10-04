@@ -1,5 +1,5 @@
 #!/bin/bash
-# LoxPanel Docker-Steuerung.  Nutzung: loxpanel-ctl.sh start|stop|restart|check|backup|restore <datei>
+# LoxPanel Docker-Steuerung.  Nutzung: loxpanel-ctl.sh start|stop|restart|check|backup|restore <datei>|keep
 #   start   pullt das aktuelle Image und startet den Container
 #   stop    stoppt den Container (merkt sich das -> check startet ihn NICHT neu)
 #   restart stop + start  (zieht dabei das neueste Image = manuelles Update)
@@ -8,6 +8,7 @@
 #            Panel wird NICHT wieder gestartet)
 #   backup  sichert die Konfiguration (Panels/Theme/Miniserver) als tar.gz
 #   restore <datei>  spielt ein Backup zurueck (sichert vorher den Ist-Stand)
+#   keep    gibt aus, wie viele Backups behalten werden (KEEP, fuer das Widget)
 # REPLACELBPCONFIGDIR / REPLACELBPDATADIR werden beim Install durch echte Pfade ersetzt.
 # LOXPANEL_CTL_CONFIGDIR / LOXPANEL_CTL_DATADIR setzen nur die Tests
 # (tests/test_loxberry_ctl.py), im Betrieb gelten die Pfade der Installation.
@@ -19,12 +20,17 @@ STOPPED="$CONFIGDIR/loxpanel_stopped.cfg"
 # loxpanel.cfg) und gehoeren root (der Container schreibt als root). Backup/
 # Restore laufen deshalb als root IM Container (sonst darf der Widget-Benutzer
 # loxberry die root-Dateien nicht ueberschreiben -> "tar: Cannot open: File
-# exists"). Sicherungen liegen in data/backups und ueberleben Plugin-Updates
-# (pre-/postroot.sh sichern die Konfiguration ueber das Update hinweg).
+# exists"). Sicherungen liegen in data/backups; pre-/postroot.sh tragen
+# config/ und backups/ ueber Plugin-Updates (LoxBerry loescht dabei den
+# Datenordner).
 DATADIR="${LOXPANEL_CTL_DATADIR:-REPLACELBPDATADIR}"
 CONFIGDATA="$DATADIR/config"
 BACKUPDIR="$DATADIR/backups"
-KEEP=20                 # so viele Backups behalten, aeltere werden entfernt
+# So viele Archive behalten, aeltere werden entfernt (Sicherungen vor einem
+# Restore eingeschlossen). 20: jede Wiederherstellung legt selbst eins an, so
+# bleiben auch nach mehreren Versuchen genug fruehere Staende; ein Archiv hat
+# nur wenige KB. Das Widget liest die Zahl ueber "loxpanel-ctl.sh keep".
+KEEP=20
 # Dateien, die LoxPanel in config/ schreibt (CFG_FILE, PANELS_FILE, THEME_FILE
 # in bin/webvisu.py). Ein Backup ohne eine davon ist keine LoxPanel-Konfiguration.
 KONFIG_DATEIEN="loxpanel.cfg panels.json theme.json"
@@ -197,6 +203,7 @@ case "$1" in
 		;;
 	backup)  backup ;;
 	restore) restore "$2" ;;
-	*) echo "Nutzung: $0 start|stop|restart|check|backup|restore <datei>"; exit 1 ;;
+	keep)    echo "$KEEP" ;;
+	*) echo "Nutzung: $0 start|stop|restart|check|backup|restore <datei>|keep"; exit 1 ;;
 esac
 exit 0

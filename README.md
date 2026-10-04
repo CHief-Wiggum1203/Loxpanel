@@ -331,10 +331,12 @@ Zustandsfarben. Ohne Profil verhält sich ein Panel wie `default` (alles sichtba
 Im Plugin-Widget unter **„Panels sichern & wiederherstellen"** legst du jederzeit
 ein Backup der kompletten Konfiguration (Panels, Kacheln, Theme, Miniserver-Zugang)
 an. Die Archive liegen auf dem LoxBerry unter
-`data/plugins/loxpanel/backups/` und **überleben Plugin-Updates**. Aus der Liste
-lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
-vorher automatisch gesichert). Ein beschädigtes oder fremdes Archiv lehnt die
-Wiederherstellung ab, ohne etwas zu ändern.
+`data/plugins/loxpanel/backups/`; Plugin-Updates nehmen sie mit (gelingt das
+nicht, meldet LoxBerry es beim Update, die Konfiguration selbst bleibt erhalten).
+Ältere Archive räumt das Plugin selbst weg, wie viele es behält, steht im
+Widget. Aus der Liste lässt sich ein Stand mit einem Klick wiederherstellen (der
+aktuelle Stand wird vorher automatisch gesichert). Ein beschädigtes oder fremdes
+Archiv lehnt die Wiederherstellung ab, ohne etwas zu ändern.
 
 **Auf Unraid** liegt die komplette Konfiguration in
 `/mnt/user/appdata/loxpanel/config` (`loxpanel.cfg`, `panels.json`, `theme.json`).

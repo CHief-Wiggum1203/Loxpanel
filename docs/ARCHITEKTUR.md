@@ -1572,7 +1572,8 @@ dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
 Das Plugin ist nur ein Docker-Starter. `loxpanel-ctl.sh` kennt `start` (pull +
 up), `stop` (Marker-Datei + down), `restart`, `check` (Cron alle 5 min und beim
 Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
-als root, 20 Stück Rotation). Das Widget `index.cgi` (Perl) spricht
+als root, Rotation `KEEP` = 20 Stück, das Widget fragt die Zahl über
+`loxpanel-ctl.sh keep` ab). Das Widget `index.cgi` (Perl) spricht
 `http://localhost:8099/api/settings` und `/api/settings/miniserver`.
 
 `backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
@@ -1590,6 +1591,22 @@ Container, nie in den Befehlstext. Eine Sperre (`flock` auf
 zweite bricht sofort ab; Reste eines abgebrochenen Laufs räumt der nächste weg.
 `tests/test_loxberry_ctl.py` führt das echte Skript aus, `docker` und `sudo`
 ersetzt der Nachbau in `tests/loxberry.py`.
+
+Bei einem Plugin-Update löscht LoxBerry zwischen `preroot.sh` und
+`postroot.sh` den ganzen Datenordner (`purge_installation` in
+`plugininstall.pl`). `preroot.sh` kopiert deshalb `backups/` nach
+`/tmp/loxpanel-upgrade-archive` (vor dem Stoppen des Containers) und `config/`
+nach `/tmp/loxpanel-upgrade-backup`, `postroot.sh` spielt beide zurück und
+löscht eine Zwischenkopie erst, wenn sie ganz zurückgespielt ist (sonst Exit 1,
+LoxBerry meldet es). Scheitert die Kopie der Konfiguration, endet `preroot.sh`
+mit 2: LoxBerry bricht ab, bevor es etwas löscht, die Plugin-Datenbank nennt
+dann allerdings schon die neue Version. Scheitert nur die der Archive, warnt
+es (`<WARNING>`, Exit 1) und das Update läuft weiter. Fehlt `config/` beim
+nächsten Update (ein früheres ist nach dem Löschen abgebrochen), bleiben die
+Zwischenkopien stehen und `postroot.sh` spielt sie zurück; sonst ersetzt der
+aktuelle Stand sie. `/tmp` ist auf dem LoxBerry eine RAM-Disk: Startet er
+zwischen `preroot.sh` und `postroot.sh` neu, sind die Kopien weg.
+`tests/test_loxberry_update.py` spielt den Ablauf von `plugininstall.pl` nach.
 
 `sudoers` erlaubt dem Benutzer `loxberry` `docker` ohne Passwort, was faktisch
 Root-Rechte auf dem LoxBerry bedeutet.
