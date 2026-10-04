@@ -266,6 +266,15 @@ STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 MS_CMD_TIMEOUT = 10      # s: ein Befehl blockiert solange die Nachrichten seines Panels
 TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
 MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
+# Lebenszeichen der Live-Verbindung (WebSocket): Nach der Anmeldung sendete
+# LoxPanel dort nichts mehr, eine still abgerissene Verbindung (Strom, WLAN,
+# NAT) oder ein Miniserver, der annimmt und schweigt, blieb unbemerkt haengen.
+# Jetzt geht so oft "keepalive" raus (miniserver.keepalive_interval), der
+# Miniserver antwortet mit einem Header der Kennung 6. Kommt danach binnen
+# _ms_antwortfrist() nichts, wird neu verbunden. 60 s: Laut Loxone-Doku trennt
+# der Miniserver Clients, die ueber 5 Minuten nichts senden; ein Ausfall faellt
+# so nach gut einer Minute auf, und 8 Byte je Minute belasten niemanden.
+MS_KEEPALIVE = 60        # s: Abstand der keepalive an den Miniserver
 EINRICHTUNG_FEHLER_MAX = 160     # Zeichen des Verbindungsfehlers im Einrichtungshinweis (Panel 480 px)
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
@@ -781,6 +790,34 @@ def _config() -> dict:
     # bringt die Vorlage mit). Ohne Zugang startet der Server trotzdem, wartet
     # in stream_task und zeigt den Panels den Einrichtungshinweis.
     return {}
+
+
+def _ms_sekunden(schluessel: str, standard: float) -> float:
+    """Zeitwert in s aus dem Abschnitt miniserver der loxpanel.cfg. Fehlt er
+    oder ist er keine Zahl > 0, gilt `standard` (ungueltig: mit Warnung)."""
+    ms = _cfg_datei().get("miniserver")
+    wert = ms.get(schluessel) if isinstance(ms, dict) else None
+    if isinstance(wert, (int, float)) and not isinstance(wert, bool) and math.isfinite(wert) and wert > 0:
+        return float(wert)
+    if wert is not None:
+        log.warning("loxpanel.cfg: miniserver.%s %r ungueltig, es gelten %s s",
+                    schluessel, wert, standard)
+    return float(standard)
+
+
+def _ms_antwortfrist() -> float:
+    """Sekunden, die der Miniserver fuer eine Antwort bekommt (loxpanel.cfg,
+    miniserver.response_timeout): auf jeden Schritt der WebSocket-Anmeldung
+    und auf keepalive. Ohne gueltigen Wert MS_CMD_TIMEOUT: So lange darf auch
+    ein Befehl dauern, bevor er als gescheitert gilt - ein erreichbarer
+    Miniserver beantwortet eine Anmeldung deutlich schneller."""
+    return _ms_sekunden("response_timeout", MS_CMD_TIMEOUT)
+
+
+def _ms_keepalive_abstand() -> float:
+    """Sekunden zwischen zwei keepalive an den Miniserver-WebSocket
+    (loxpanel.cfg, miniserver.keepalive_interval), Standard MS_KEEPALIVE."""
+    return _ms_sekunden("keepalive_interval", MS_KEEPALIVE)
 
 
 def _audio_config() -> dict:
@@ -1326,7 +1363,8 @@ class App:
     async def _connect_ws(self) -> None:
         self.ws = LoxoneWS(host=self.host, port=self.port, user=self.user, jwt=self.jwt,
                            hash_alg=self.alg, verify_tls=self.verify_tls,
-                           secure=_ms_https(self.port))
+                           secure=_ms_https(self.port), antwortfrist=_ms_antwortfrist(),
+                           keepalive_abstand=_ms_keepalive_abstand())
         await self.ws.connect()
 
     def _set_token(self, jwt: str) -> None:
@@ -5579,10 +5617,13 @@ class App:
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
         # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
         # Wartezeit zwischen Versuchen waechst (MS_RETRY). Von vorn beginnt sie
-        # erst, wenn eine Verbindung mindestens so lange hielt wie die laengste
-        # Wartezeit - sonst liefe ein Miniserver, der sofort wieder trennt, in
-        # eine Anmeldung alle paar Sekunden.
-        retry, connected_at = 0, None
+        # erst, wenn eine Verbindung mindestens so lange Daten lieferte wie die
+        # laengste Wartezeit (LoxoneWS.lebenszeit()) - sonst liefe ein
+        # Miniserver, der sofort wieder trennt, in eine Anmeldung alle paar
+        # Sekunden. Offen sein allein genuegt nicht: Eine stumme Verbindung
+        # endet erst nach keepalive_interval + response_timeout, im Betrieb
+        # laenger als MS_RETRY[-1].
+        retry, verbunden = 0, None
         while True:
             try:
                 if not self.host:
@@ -5604,16 +5645,16 @@ class App:
                     except Exception:
                         log.exception("Struktur-Refresh beim Reconnect uebersprungen")
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
-                connected_at = time.monotonic()
+                verbunden = self.ws
                 self._ms_fehler = ""
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
                 raise
             except Exception as err:
-                if connected_at is not None and time.monotonic() - connected_at >= MS_RETRY[-1]:
+                if verbunden is not None and verbunden.lebenszeit() >= MS_RETRY[-1]:
                     retry = 0
-                connected_at = None
+                verbunden = None
                 wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
                 retry += 1
                 log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in %ss", err, wait)
