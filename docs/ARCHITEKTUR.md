@@ -759,6 +759,24 @@ geht von ihm aus. Speichern prüft zuerst und schreibt dann:
 - Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`,
   `keepalive_interval`) bleiben stehen.
 
+Zertifikat prüfen (`verify_tls`): Mit `true` prüfen alle Verbindungen zum
+Miniserver Zertifikat und Namen gegen den Standard-Truststore, also Anmeldung
+und Struktur (`loxone_api`), WebSocket (`LoxoneWS`) und die `icon_session`
+(Statistik, Bilder, gesicherte Details, dazu die Cover von außen). Den Kontext
+für WebSocket und `icon_session` baut `ms_ssl_kontext()` in `loxone_ws.py` so
+wie `loxone_api` seinen; die CAs lädt ein eigener Thread
+(`asyncio.to_thread`), damit die Ereignisschleife nicht steht.
+
+- Verbunden wird nur, wenn `host` ein Name ist, den das Zertifikat nennt. Mit
+  der IP-Adresse scheitert die Prüfung („IP address mismatch“), auch bei einem
+  sonst gültigen Zertifikat. Der Name muss im lokalen Netz auflösen.
+- Es zählen die CAs des Systems, auf dem der Server läuft (im Docker-Image die
+  von Debian). Die Android-App prüft gegen die CA-Liste, die Chaquopy
+  mitbringt (certifi); eine unter Android selbst installierte CA kennt sie
+  nicht. Eine eigene CA-Datei lässt sich nicht angeben.
+- Mit `false` (Standard) prüft keine der Verbindungen, wie es ein Gen2 mit
+  selbstsigniertem Zertifikat braucht.
+
 ### 5.2 `loxpanel.cfg`
 
 | Sektion | Felder | Gelesen von |
@@ -1634,7 +1652,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | S4 | Agent-HTTP auf `0.0.0.0:8130` ohne Auth. Jeder im LAN kann Panels umschalten oder abschalten, der `panel`-Wert wird persistiert. |
 | S5 | LoxBerry-`sudoers`: `docker` ohne Passwort ist faktisch Root. |
 | S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session. |
-| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. |
+| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. `true` prüft gegen den Standard-Truststore und klappt nur mit dem Namen aus dem Zertifikat als Host, nicht mit der IP-Adresse (§5.1). |
 
 ### Performance
 

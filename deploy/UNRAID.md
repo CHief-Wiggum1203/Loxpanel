@@ -29,7 +29,7 @@ Variablen im Template gesetzt.
 | Konfiguration (appdata) | `/mnt/user/appdata/loxpanel/config` | persistente Konfiguration (`loxpanel.cfg`, `panels.json`, `theme.json`) |
 | Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/config` → *Settings → Miniserver* eintragen |
 | Miniserver-Port | `443` | Gen2 = 443, Gen1 = 80 (unter *Show more settings*) |
-| Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false` |
+| Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false`. `true` klappt nur, wenn Host ein Name ist, den das Zertifikat nennt, nicht mit der IP-Adresse |
 
 5. **Apply**. Unraid zieht das Image und startet den Container.
 6. Die Versionsspalte zeigt zunächst *not available* (dt. *nicht verfügbar*): Unraid

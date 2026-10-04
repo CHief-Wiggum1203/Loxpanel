@@ -15,19 +15,22 @@ import json
 import math
 import os
 import re
+import ssl
 import struct
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote
 
 import aiohttp
 from aiohttp import web
+from cryptography import x509
 from cryptography.hazmat.primitives import padding as blockpadding
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "bin") not in sys.path:
@@ -42,12 +45,65 @@ KONFIGURATOR_GELADEN = ("typeof META !== 'undefined' && META !== null"
                         " && Array.isArray(META.controls) && META.controls.length > 0")
 
 
-async def serve(app: web.Application, port: int = 0) -> tuple[web.AppRunner, int]:
-    """aiohttp-App auf einem freien Port (oder auf `port`) starten -> (runner, port)."""
+async def serve(app: web.Application, port: int = 0,
+                ssl_context: ssl.SSLContext | None = None) -> tuple[web.AppRunner, int]:
+    """aiohttp-App auf einem freien Port (oder auf `port`) starten -> (runner, port).
+    ssl_context: HTTPS/WSS statt HTTP (Zertifikat etwa von Zertifizierungsstelle)."""
     runner = web.AppRunner(app)
     await runner.setup()
-    await web.TCPSite(runner, "127.0.0.1", port).start()
+    await web.TCPSite(runner, "127.0.0.1", port, ssl_context=ssl_context).start()
     return runner, runner.addresses[0][1]
+
+
+def _x509_name(name: str) -> x509.Name:
+    return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
+
+
+class Zertifizierungsstelle:
+    """Eigene CA fuer die TLS-Tests, zur Laufzeit erzeugt (keine Zertifikate im
+    Repo). `datei` ist die CA als PEM, etwa fuer SSL_CERT_FILE; server() stellt
+    ein Server-Zertifikat aus und gibt den SSL-Kontext fuer serve() zurueck.
+    Aufbau wie bei einer echten CA (BasicConstraints, KeyUsage, Schluessel-IDs,
+    serverAuth), damit auch eine strenge Pruefung es annimmt."""
+
+    def __init__(self, ordner: Path, name: str = "LoxPanel-Test-CA") -> None:
+        self.ordner = ordner
+        ordner.mkdir(parents=True, exist_ok=True)
+        self._jetzt = datetime.now(timezone.utc)
+        self._schluessel = ec.generate_private_key(ec.SECP256R1())
+        oeffentlich = self._schluessel.public_key()
+        self.zertifikat = (
+            x509.CertificateBuilder().subject_name(_x509_name(name)).issuer_name(_x509_name(name))
+            .public_key(oeffentlich).serial_number(x509.random_serial_number())
+            .not_valid_before(self._jetzt - timedelta(days=1)).not_valid_after(self._jetzt + timedelta(days=30))
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=False,
+                                         data_encipherment=False, key_agreement=False, key_cert_sign=True,
+                                         crl_sign=True, encipher_only=False, decipher_only=False), critical=True)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(oeffentlich), critical=False)
+            .sign(self._schluessel, hashes.SHA256()))
+        self.datei = ordner / "ca.pem"
+        self.datei.write_bytes(self.zertifikat.public_bytes(serialization.Encoding.PEM))
+
+    def server(self, *namen: str) -> ssl.SSLContext:
+        """Server-Kontext mit einem Zertifikat dieser CA fuer die DNS-Namen `namen`."""
+        schluessel = ec.generate_private_key(ec.SECP256R1())
+        zert = (
+            x509.CertificateBuilder().subject_name(_x509_name(namen[0])).issuer_name(self.zertifikat.subject)
+            .public_key(schluessel.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(self._jetzt - timedelta(days=1)).not_valid_after(self._jetzt + timedelta(days=30))
+            .add_extension(x509.SubjectAlternativeName([x509.DNSName(n) for n in namen]), critical=False)
+            .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(self._schluessel.public_key()),
+                           critical=False)
+            .sign(self._schluessel, hashes.SHA256()))
+        crt, key = self.ordner / f"{namen[0]}.pem", self.ordner / f"{namen[0]}.key"
+        crt.write_bytes(zert.public_bytes(serialization.Encoding.PEM))
+        key.write_bytes(schluessel.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                                 serialization.NoEncryption()))
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx.load_cert_chain(crt, key)
+        return ctx
 
 
 def monatsdateien(ua: str, zeile, stunden: int, schritt_min: int,
@@ -67,7 +123,7 @@ def monatsdateien(ua: str, zeile, stunden: int, schritt_min: int,
 
 
 class Miniserver:
-    """Nachbau der HTTP-Seite des Miniservers.
+    """Nachbau der HTTP- und WebSocket-Seite des Miniservers.
 
     files   Statistik-Monatsdateien (Name -> XML) fuer /stats/<name>
     v2      (uuidAction, Gruppe, Ausgang) -> (Periode s, fn(unix) -> Wert)
@@ -89,20 +145,29 @@ class Miniserver:
     ios        angekommene gesicherte Befehle (sps/ios) als (uuid/cmd, Code)
     pin_code   LL-Code fuer einen abgelehnten gesicherten Befehl (ohne PIN oder
                mit falscher); am Geraet nicht geprueft, der Fehlerbericht nennt 403
-    ws_modus   WebSocket /ws/rfc6455 fuer die Live-Werte. None: keiner (der
-               Aufbau scheitert mit 404). "an": Anmeldung (getkey,
-               authwithtoken mit dem HMAC des Tokens), Status-Updates (erste
-               Tabelle aus ws_werte, weitere ueber ws_wert()) und keepalive
-               (Antwort: Header der Kennung 6, ohne Nutzdaten). Stumme
+    hash_alg   hashAlg aus getkey2; gilt fuer getjwt, die Anmeldung am
+               WebSocket (authwithtoken) und autht in verschluesselten Befehlen
+    ws_modus   WebSocket /ws/rfc6455 fuer die Live-Werte. "an" (Standard):
+               Anmeldung (getkey, authwithtoken mit dem HMAC des Tokens nach
+               hash_alg), Status-Updates (erste Tabelle aus ws_werte, weitere
+               ueber ws_wert()) und keepalive (Antwort: Header der Kennung 6,
+               ohne Nutzdaten); jeden anderen Befehl bestaetigt er mit Wert "1".
+               None: keiner (der Aufbau scheitert mit 404). Stumme
                Gegenstellen: "upgrade" beantwortet den Verbindungsaufbau nicht,
                "anmeldung" nimmt an und antwortet auf nichts, "stream" schweigt
                nach der ersten Tabelle, auch auf keepalive.
                ws_trennen_nach: so viele s nach den Status-Updates trennt der
                Nachbau ("an"; None = nie). ws_verbindungen, keepalives zaehlen.
+    ws_befehle Befehle, die ueber den WebSocket ankamen, auch keepalive; "stream"
+               liest nach der ersten Tabelle nicht mehr mit, "anmeldung" gar nicht
+    TLS        start(ssl_context=...): HTTPS/WSS wie ein Gen2, Zertifikat etwa von
+               Zertifizierungsstelle.server(); ohne ssl_context HTTP/WS wie ein Gen1
 
     Die Anmeldung folgt der Loxone-Doku (Token-Authentifizierung): getkey2
     liefert Schluessel (hex), Salz und hashAlg; getjwt traegt
-    HMAC-SHA256(Schluessel, "user:" + SHA256("kennwort:salz") in Grossbuchstaben).
+    HMAC(Schluessel, "user:" + HASH("kennwort:salz") in Grossbuchstaben), beides
+    mit hashAlg. Am WebSocket meldet sich der Client mit dem Token an:
+    jdev/sys/getkey, dann authwithtoken/HMAC(getkey, token)/user.
 
     Die Verschluesselung ist hier unabhaengig von bin/loxone_secure.py nach der
     Loxone-Doku nachgebaut (Command Encryption, HTTP): eigener RSA-Schluessel,
@@ -139,11 +204,13 @@ class Miniserver:
         self.ios: list[tuple[str, str]] = []
         self.pin_code = "403"
         self.getkey = "4C6F78506F6E656C"    # Schluessel aus jdev/sys/getkey (hex)
+        self.hash_alg = "SHA256"
+        self.ws_befehle: list[str] = []
         self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
         self.schluessel_abrufe = 0
         self.fenc: list[str] = []           # entschluesselte Befehle aus jdev/sys/fenc
         self.live = self.peak = 0
-        self.ws_modus: str | None = None
+        self.ws_modus: str | None = "an"
         self.ws_werte: dict[str, float] = {}
         self.ws_trennen_nach: float | None = None
         self.ws_verbindungen = 0
@@ -183,6 +250,13 @@ class Miniserver:
     def _ll(self, control: str, value, code: str = "200") -> web.Response:
         return web.json_response({"LL": {"control": control, "value": value, "Code": code}})
 
+    def _hash(self):
+        return hashlib.sha256 if self.hash_alg == "SHA256" else hashlib.sha1
+
+    def _token_hash(self) -> str:
+        """HMAC des Tokens mit dem getkey-Schluessel (authwithtoken, autht)."""
+        return hmac.new(bytes.fromhex(self.getkey), self.token.encode(), self._hash()).hexdigest()
+
     def _fenc(self, r: web.Request) -> web.Response:
         roh = r.raw_path.split("/jdev/sys/fenc/", 1)[1].split("?", 1)[0]
         try:
@@ -199,7 +273,7 @@ class Miniserver:
         pfad, _, query = cmd.partition("?")
         q = dict(parse_qsl(query))
         m = re.fullmatch(r"jdev/sps/io/([^/]+)/securedDetails", pfad)
-        token_hash = hmac.new(bytes.fromhex(self.getkey), self.token.encode(), hashlib.sha1).hexdigest()
+        token_hash = self._token_hash()
         if not m:
             code, wert = "404", ""
         elif q.get("autht") != token_hash or q.get("user") != self.benutzer:
@@ -227,7 +301,7 @@ class Miniserver:
         if tail == "sys/getkey":
             return self._ll(tail, self.getkey)
         if tail.startswith("sys/getkey2/"):
-            return self._ll(tail, {"key": self.getkey, "salt": self.salz, "hashAlg": "SHA256"})
+            return self._ll(tail, {"key": self.getkey, "salt": self.salz, "hashAlg": self.hash_alg})
         if tail.startswith("sys/getjwt/"):
             return await self._getjwt(tail)
         if tail.startswith("sys/fenc/"):
@@ -260,8 +334,8 @@ class Miniserver:
         _, _, hash_, user, *_ = tail.split("/")
         if self.verzoegerung:
             await asyncio.sleep(self.verzoegerung)
-        pw = hashlib.sha256(f"{self.kennwort}:{self.salz}".encode()).hexdigest().upper()
-        soll = hmac.new(bytes.fromhex(self.getkey), f"{self.benutzer}:{pw}".encode(), hashlib.sha256).hexdigest()
+        pw = self._hash()(f"{self.kennwort}:{self.salz}".encode()).hexdigest().upper()
+        soll = hmac.new(bytes.fromhex(self.getkey), f"{self.benutzer}:{pw}".encode(), self._hash()).hexdigest()
         ok = user == self.benutzer and hash_ == soll
         self.anmeldungen.append("ok" if ok else "abgelehnt")
         if not ok:
@@ -320,6 +394,8 @@ class Miniserver:
             await self._ws_senden(ws, 2, self._werte_tabelle({uuid: wert}))
 
     async def _ws(self, r: web.Request) -> web.StreamResponse:
+        """WebSocket wie am Miniserver (ws_modus): Antworten mit 8-Byte-Kopf,
+        dann LL-JSON. Merkt sich jeden Befehl (ws_befehle)."""
         if self.ws_modus is None:
             return web.Response(status=404)
         self.ws_verbindungen += 1
@@ -338,6 +414,7 @@ class Miniserver:
                 if m.type != aiohttp.WSMsgType.TEXT:
                     continue
                 befehl = m.data
+                self.ws_befehle.append(befehl)
                 if befehl == "keepalive":
                     self.keepalives += 1
                     await self._ws_senden(ws, 6)
@@ -346,8 +423,7 @@ class Miniserver:
                     wert, code = self.getkey, "200"
                 elif befehl.startswith("authwithtoken/"):
                     _, hash_, user = befehl.split("/")
-                    soll = hmac.new(bytes.fromhex(self.getkey), self.token.encode(), hashlib.sha1).hexdigest()
-                    wert, code = "", "200" if hash_ == soll and user == self.benutzer else "401"
+                    wert, code = "", "200" if hash_ == self._token_hash() and user == self.benutzer else "401"
                 else:
                     wert, code = "1", "200"
                 await self._ws_senden(ws, 0, json.dumps({"LL": {"control": befehl, "value": wert, "Code": code}}))
@@ -370,14 +446,15 @@ class Miniserver:
         await asyncio.sleep(nach)
         await ws.close()
 
-    async def start(self, port: int = 0) -> "Miniserver":
+    async def start(self, port: int = 0, ssl_context: ssl.SSLContext | None = None) -> "Miniserver":
+        """ssl_context: HTTPS/WSS wie Gen2 (sonst HTTP, siehe Fixture miniserver_http)."""
         app = web.Application()
         app.router.add_get("/stats/{f}", self._stats)
         app.router.add_get("/jdev/{tail:.*}", self._jdev)
         app.router.add_get("/camimage/{ua}/{ts}", self._camimage)
         app.router.add_get("/data/LoxAPP3.json", self._loxapp3)
         app.router.add_get("/ws/rfc6455", self._ws)
-        self.runner, self.port = await serve(app, port)
+        self.runner, self.port = await serve(app, port, ssl_context)
         return self
 
     async def stop(self) -> None:
@@ -598,6 +675,7 @@ def neue_app(ms: Miniserver) -> W.App:
     app = W.App({"host": "127.0.0.1", "port": 80})
     app.host, app.port = "127.0.0.1", ms.port
     app.client = Anmeldung(ms)
+    app.alg = ms.hash_alg                   # wie nach getkey2
     app.icon_session = aiohttp.ClientSession()
     app._set_token(ms.token)
     return app

@@ -44,7 +44,7 @@ from aiohttp import WSMsgType, web
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from loxone_api import LoxoneClient  # noqa: E402
-from loxone_ws import LoxoneWS  # noqa: E402
+from loxone_ws import LoxoneWS, ms_ssl_kontext  # noqa: E402
 
 
 def _ms_https(port) -> bool:
@@ -1332,11 +1332,7 @@ class App:
             self._dirty = True
 
     def _ssl_ctx(self) -> _ssl.SSLContext:
-        ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-        if not self.verify_tls:
-            ctx.check_hostname = False
-            ctx.verify_mode = _ssl.CERT_NONE
-        return ctx
+        return ms_ssl_kontext(self.verify_tls)
 
     def _apply_structure(self, st: dict) -> None:
         self.controls = st.get("controls", {})
@@ -1458,7 +1454,8 @@ class App:
             # allerersten Start ist _struct_sig None -> kein Reload.
             if self._adopt_structure(st):
                 self._pending_reload = True
-            self.icon_session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
+            self.icon_session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(ssl=await asyncio.to_thread(self._ssl_ctx)))
             await self._connect_ws()
             log.info("Mit Miniserver verbunden (%s).", self.host)
         except Exception:
@@ -1503,6 +1500,9 @@ class App:
             alg = (await asyncio.wait_for(newc.getkey2(), frist)).hashAlg
             jwt = await asyncio.wait_for(newc.authenticate(), frist)
             st = await newc.load_structure()
+            # Kontext der icon_session schon hier (CAs laden blockiert -> Thread),
+            # damit die Uebernahme unten ohne await durchlaeuft.
+            ssl_ctx = await asyncio.to_thread(ms_ssl_kontext, ms.get("verify_tls", False))
         except Exception as err:
             try:
                 await newc.close()
@@ -1522,7 +1522,7 @@ class App:
             self._pending_reload = True
         self.states = {}
         old_is, self.icon_session = self.icon_session, \
-            aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
+            aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_ctx))
         self.icon_cache, self.bell_cache = {}, {}
         self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
         self.stat_gen += 1
