@@ -14,6 +14,7 @@ Wetter-Tab bleiben, wie sie sind."""
 import asyncio
 from datetime import date, timedelta
 
+import front_info
 import pytest
 
 from lox import W, anlage, visu_starten
@@ -84,16 +85,24 @@ def _app(ui: dict, tabs=("favoriten",), pick_tabs=None):
     return app
 
 
-def _ansehen(monkeypatch, groesse, schritt, ui=None, tabs=("favoriten",), pick_tabs=None, zwei_kalender=False):
+def _ansehen(monkeypatch, groesse, schritt, ui=None, tabs=("favoriten",), pick_tabs=None, zwei_kalender=False,
+             vorschau_ab=None):
     """Visu mit Kalender und Wetter aus dem Nachbau (wie test_front_tabs_browser)
     in der Groesse `groesse` laden, Uhr-Seite weg, dann schritt(pg).
-    zwei_kalender: ein zweiter Kalender, damit es eine Legende gibt."""
+    zwei_kalender: ein zweiter Kalender, damit es eine Legende gibt.
+    vorschau_ab: die Vorschau beschriftet ab diesem Tag (front_info.day_label),
+    statt ab heute - die Breite des Datums haengt sonst am Testtag."""
     from test_front_tabs_browser import _front
 
     async def lauf():
         daten = await _front(monkeypatch)
         if zwei_kalender:
             daten = dict(daten, cals=list(daten["cals"]) + [{"key": "arbeit", "name": "Arbeit", "color": "#e2695f"}])
+        if vorschau_ab:
+            heute = vorschau_ab - timedelta(days=10)
+            vorschau = [dict(f, day=front_info.day_label(vorschau_ab + timedelta(days=i), heute))
+                        for i, f in enumerate(daten["weather"]["forecast"])]
+            daten = dict(daten, weather=dict(daten["weather"], forecast=vorschau))
         app = _app(ui or {}, tabs, pick_tabs)
         app._front = app._front_payload(daten)
         runner, port, bc = await visu_starten(app)
@@ -186,6 +195,25 @@ def test_wetter_eng(monkeypatch):
         assert m["heute"] == "none"
         assert m["kurve"]["h"] >= 64, m["kurve"]
     _ansehen(monkeypatch, HOCH, schritt, _pane("weather", AUTO_GROSS))
+
+
+@pytest.mark.parametrize("groesse,raster", [(HOCH, AUTO_GROSS), (HOCH, AUTO), (QUER, AUTO)])
+def test_wetter_eng_langes_datum(monkeypatch, groesse, raster):
+    """Zweistellige Tage und Monate ("Mo 30.12."): Eng bleibt das Datum der
+    Vorschau einzeilig und passt in seine Zelle, notfalls etwas kleiner. Vorher
+    brach es um, die Vorschau wurde eine Zeile hoeher und die Lage lief ueber
+    (zuerst am 4.10. aufgefallen, als "Sa 10.10." in die Vorschau rutschte)."""
+    async def schritt(pg):
+        m = await pg.evaluate(MESSEN)
+        _passt(m)
+        d = await pg.evaluate("""() => [...document.querySelectorAll('#frontpane .fp-page.wx .fp-fc .d')]
+          .map(e => ({t: e.textContent, h: e.getBoundingClientRect().height, sw: e.scrollWidth, cw: e.clientWidth,
+                      fs: parseFloat(getComputedStyle(e).fontSize)}))""")
+        assert any(len(x["t"]) >= 9 for x in d), d
+        if "eng" in m["klassen"]:
+            assert all(x["sw"] <= x["cw"] for x in d), d
+            assert all(x["h"] < 1.8 * x["fs"] for x in d), d     # eine Zeile, nicht zwei
+    _ansehen(monkeypatch, groesse, schritt, _pane("weather", raster), vorschau_ab=date(2026, 12, 24))
 
 
 def test_wetter_mit_details_auf_einer_seite(monkeypatch):
