@@ -81,6 +81,13 @@ class Miniserver:
                anmeldungen: "ok"/"abgelehnt" je getjwt, verzoegerung: so viele
                Sekunden laesst sich getjwt Zeit
     struktur   LoxAPP3.json (/data/LoxAPP3.json, nur mit gueltigem Token)
+    visu_pin   Visu-Passwort fuer gesicherte Bausteine (isSecured); None: sps/ios
+               ungeprueft angenommen wie jeder andere Befehl
+    gesichert_io  uuidActions mit isSecured: sps/io darauf lehnt der Nachbau mit
+               pin_code ab (Unterbausteine wie IC/1 gehoeren zum Baustein)
+    ios        angekommene gesicherte Befehle (sps/ios) als (uuid/cmd, Code)
+    pin_code   LL-Code fuer einen abgelehnten gesicherten Befehl (ohne PIN oder
+               mit falscher); am Geraet nicht geprueft, der Fehlerbericht nennt 403
 
     Die Anmeldung folgt der Loxone-Doku (Token-Authentifizierung): getkey2
     liefert Schluessel (hex), Salz und hashAlg; getjwt traegt
@@ -89,6 +96,10 @@ class Miniserver:
     Die Verschluesselung ist hier unabhaengig von bin/loxone_secure.py nach der
     Loxone-Doku nachgebaut (Command Encryption, HTTP): eigener RSA-Schluessel,
     Sitzungsschluessel "key:iv", AES-256-CBC mit Nullbytes, Antwort ebenso.
+
+    Gesicherte Befehle ebenso nach der Doku (Secured Commands): getvisusalt
+    liefert Schluessel (hex), Salz und hashAlg, sps/ios/{hash}/{uuid}/{cmd}
+    traegt HMAC-SHA256(Schluessel, SHA256("pin:salz") in Grossbuchstaben).
     """
 
     def __init__(self) -> None:
@@ -111,6 +122,11 @@ class Miniserver:
         self.verzoegerung = 0.0
         self.anmeldungen: list[str] = []
         self.struktur: dict | None = None
+        self.visu_pin: str | None = None
+        self.visu_key, self.visu_salz = "abcd", "s1"   # Antwort von getvisusalt
+        self.gesichert_io: set[str] = set()
+        self.ios: list[tuple[str, str]] = []
+        self.pin_code = "403"
         self.getkey = "4C6F78506F6E656C"    # Schluessel aus jdev/sys/getkey (hex)
         self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
         self.schluessel_abrufe = 0
@@ -204,11 +220,23 @@ class Miniserver:
             return await self._getstatistic(tail)
         if tail.startswith("sys/getvisusalt/"):
             return web.json_response({"LL": {"control": tail, "Code": "200",
-                                             "value": {"key": "abcd", "salt": "s1", "hashAlg": "SHA256"}}})
+                                             "value": {"key": self.visu_key, "salt": self.visu_salz,
+                                                       "hashAlg": "SHA256"}}})
+        if tail.startswith("sps/ios/") and self.visu_pin is not None:
+            _, _, h, befehl = tail.split("/", 3)
+            code = "200" if h.lower() == self._visu_hash() else self.pin_code
+            self.ios.append((befehl, code))
+            return self._ll(tail, "1" if code == "200" else "", code)
         self.io.append(tail)
         self.io_roh.append(r.raw_path.split("/jdev/", 1)[1])
+        if any(tail.startswith(f"sps/io/{u}/") for u in self.gesichert_io):
+            return self._ll(tail, "", self.pin_code)
         return web.json_response({"LL": {"control": tail, "value": "1",
                                          "Code": "500" if self.reject else "200"}})
+
+    def _visu_hash(self) -> str:
+        pw = hashlib.sha256(f"{self.visu_pin}:{self.visu_salz}".encode()).hexdigest().upper()
+        return hmac.new(bytes.fromhex(self.visu_key), pw.encode(), hashlib.sha256).hexdigest()
 
     async def _getjwt(self, tail: str) -> web.Response:
         _, _, hash_, user, *_ = tail.split("/")

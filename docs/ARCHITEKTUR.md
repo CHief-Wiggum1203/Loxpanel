@@ -251,7 +251,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -261,10 +261,13 @@ Server → Browser (`panel.html:700`):
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
-| `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
+| `cmdresult` | `ok`, `code`, `uuid`, `cmd` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“ |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
+| `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
+| `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
+| `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
@@ -279,6 +282,20 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
+| `setenergy` | `uuid` — EFM oder EnergyManager2 der Energiefluss-Pane des aktiven Tabs bzw. der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `energy` und hält den Stand je Verbindung (`conn_energy`) |
+| `setcamera` | `uuid` — Intercom der Kamera-Pane (leer = keine). Antwort `camera`, Stand in `conn_camera` |
+| `setplayer` | `zone` — Audio-Zone der Player-Pane (leer = keine). Antwort `player`, Stand in `conn_player` |
+
+Die `set*`-Nachrichten sind Abos. Der Server hält sie je Verbindung und räumt
+sie ab, wenn die Verbindung endet (`ws_handler`, `_send_or_drop()`). Die Visu
+merkt sich, was sie gemeldet hat (`curEnergyUuid`, `curCameraUuid`,
+`curPlayerZone`, `curSvStatus`, `curChartKey`), und `applyPane()` meldet nur
+Änderungen. Nach jedem Verbindungsaufbau vergisst sie diesen Stand
+(`abosVergessen()` in `ws.onopen`), und der `theme`-Push, der als Erstes kommt,
+meldet über `applyPane()` alle aktiven Abos neu an. Ohne das blieb nach einem
+Neustart des Servers, einem Netzabbruch oder dem Benennen eines Geräts jedes
+Widget auf dem letzten Stand stehen. Ein neues Abo mit eigener Kennung gehört
+in `abosVergessen()`. Geprüft in `tests/browser/test_abo_neuverbindung_browser.py`.
 
 ### 3.7 Das Block-Vokabular
 
@@ -754,6 +771,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
                                              // fehlt = mittel (KACHEL_ZIEL)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
+        "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
+                                             // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
@@ -1187,7 +1206,15 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   er weg. Geprüft in `tests/test_sprungmarken.py` und
   `tests/browser/test_sprungmarken_browser.py`.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
-  Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
+  Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls: Jeder Befehl läuft
+  über `sendCmd()` (nur `cmdSchicken()` baut die Nachricht, `tests/test_pin.py`
+  wacht darüber). `secured` setzt `render()` für jede Seite des Bausteins, auch
+  die Unterseiten, `_pane_msg()` für Player- und Kamera-Bereich. Eine bestätigte
+  PIN gilt `ui.pinMerken` Sekunden (Standard `PIN_MERKEN_STANDARD`) auf derselben
+  Seite; Uhr-Seite, Display aus, Nachtbeginn und Seitenwechsel vergessen sie.
+  Display aus heißt auch mit Agent nach `dpmsOff` ohne Eingabe (`armDpms()`,
+  X schaltet dann selbst ab); die LoxPanel-App dunkelt erst nach der Uhr-Seite
+  ab. Ohne gemerkte PIN wirkt eine Halten-Taste wie ein Tipp. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
 - Sprache wirkt nur auf Datum und Uhrzeit. Alle anderen Panel-Texte sind hart
   deutsch, sowohl im Frontend als auch in den vom Server erzeugten Texten

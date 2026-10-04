@@ -612,6 +612,10 @@
         'For now controls date & clock on the panel. Device names come from the Miniserver.',
       'Horiz. Versatz (px)': 'Horiz. offset (px)',
       'Display aus nach (Sek.)': 'Display off after (sec.)',
+      'Gesicherte Bausteine': 'Secured blocks',
+      'PIN merken (Sek.)': 'Remember PIN (sec.)',
+      'Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.':
+        'After the correct visu PIN the panel does not ask again for secured blocks for this long – only on the same page. Clock page, display off and changing the page forget the PIN at once. 0 = ask every time.',
       'Auto-Neustart alle (Std.)': 'Auto-restart every (hrs.)',
       'nachts um {h} Uhr': 'at night at {h}:00',
       'Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.':
