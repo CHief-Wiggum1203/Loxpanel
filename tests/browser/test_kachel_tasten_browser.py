@@ -263,11 +263,15 @@ def test_favoriten_folgen_dem_server(tmp_path, weg):
         if weg == "miniserver":
             app = _app(befehle)
         else:
-            # Zone am Audioserver; der Ereigniskanal ist da, aber ohne Verbindung
+            # Zone am Audioserver; der Ereigniskanal ist da, aber ohne Verbindung.
+            # Nicht gekoppelt (wie ein Nachbau): Nur dann liefert der Kanal ohne
+            # Anmeldung Favoriten; bei unklarer Kopplung (paired None) gelten
+            # die des Miniservers.
             zonen = {**ZONEN, "Z0": {**ZONEN["Z0"], "details": {"server": "as1", "playerid": 1}}}
             app = _app(befehle, zonen)
             app._apply_structure({**anlage(zonen), "mediaServer": {"as1": {"host": "audioserver:7091"}}})
             app.audio_clients["audioserver"] = W.AudioEventClient("audioserver")
+            app.audio_clients["audioserver"].paired = False
             _favoriten_setzen(app, weg, GRUND)
         runner, port, bc = await visu_starten(app)
         fehler, ergebnis = [], {}
