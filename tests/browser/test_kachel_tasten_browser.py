@@ -5,6 +5,7 @@ beginnt, scrollt das Raster und sendet nichts. Mit der Maus wie bisher.
 Befehle schreibt ein Stellvertreter fuer app.command mit."""
 import asyncio
 import json
+from urllib.parse import quote
 
 import pytest
 
@@ -201,6 +202,142 @@ def test_favoriten_tippen_und_wischen(tmp_path):
     assert gespielt == [], f"ein Wischer durch die Favoriten darf nichts starten: {gespielt}"
     assert scroll > 0 and tiefe == 2, "der Wischer scrollt, die Musikauswahl bleibt offen"
     assert getippt == ([("Z0", "roomfav/play/1")], 1), "Tippen startet den Sender und geht zurueck"
+
+
+# Favoriten als (Abspiel-Index, Name, Cover-Adresse). Der Index ist im
+# Miniserver-Weg der slot, im Audioserver-Weg (Port 7091) die Item-id.
+GRUND = [(i, f"Sender {i}", "") for i in range(1, 31)]
+# Aenderungen, bei denen die Anzahl gleich bleibt
+GLEICH_LANG = {
+    "ersetzt": GRUND[1:] + [(31, "Neu", "")],                 # Favorit 1 weg, ein neuer dazu
+    "umbenannt": [(1, "Neu 1", "")] + GRUND[1:],              # derselbe Platz heisst anders
+    "neues_cover": [(1, "Sender 1", "http://audioserver/cover/1.jpg")] + GRUND[1:],
+    "nur_befehl": [(n + 30, name, c) for n, name, c in GRUND],  # gleiche Namen, neuer Index
+}
+
+# Favoriten der offenen Musikauswahl, wie sie zuletzt vom Server kamen (view)
+# bzw. wie die Seite sie zeigt (Name, Cover)
+FAVS_ZUGESTELLT = """() => view && view.route && view.route.view === 'sources'
+  ? ((view.blocks || []).find(b => b.k === 'favs') || {items: []}).items.map(f => [f.label, f.cover, f.cmd.cmd])
+  : null"""
+FAVS_GEZEIGT = """() => [...document.querySelectorAll('.favs .fav')].map(n => {
+  const i = n.querySelector('.favc img');
+  return [n.querySelector('.favn').textContent, i ? i.getAttribute('src') : '']; })"""
+# Zaehlt, wie oft eine Ansicht derselben Seite ankommt (updatePanel) und wie
+# oft das Raster dabei neu aufgebaut wird; markiert den ersten Favoriten
+ZUSTELLUNG_BEOBACHTEN = """() => {
+  window.__zustellungen = 0; window.__umbauten = 0;
+  const patchen = updatePanel;
+  updatePanel = blocks => { window.__zustellungen++; return patchen(blocks); };
+  new MutationObserver(l => { window.__umbauten += l.length; }).observe(el('grid'), {childList: true});
+  document.querySelector('.favs .fav').__markiert = true; }"""
+
+
+def _favoriten_setzen(app, weg, liste):
+    """Neue Favoriten so einspielen, wie sie im Betrieb ankommen."""
+    if weg == "miniserver":      # Ergebnis von roomfav/get im sourceList-State
+        app._on_value("sl0", json.dumps({"items": [{"slot": n, "name": name, "coverurl": c}
+                                                   for n, name, c in liste]}))
+    else:                        # Antwort auf getroomfavs im Ereigniskanal (wie dessen Leser)
+        if app.audio_clients["audioserver"]._handle(json.dumps({"getroomfavs_result": [
+                {"id": 1, "items": [{"slot": s, "id": n, "name": name, "coverurl": c}
+                                    for s, (n, name, c) in enumerate(liste, 1)]}]})):
+            app._mark_dirty()
+
+
+def _so_vom_server(liste):
+    """Favoriten-Eintraege, wie _view_sources sie fuer `liste` rendert."""
+    return [[name, ("/cover?u=" + quote(c, safe="")) if c else "", f"roomfav/play/{n}"]
+            for n, name, c in liste]
+
+
+@pytest.mark.parametrize("weg", ["miniserver", "audioserver"])
+def test_favoriten_folgen_dem_server(tmp_path, weg):
+    """Die Musikauswahl ist offen, die Favoriten aendern sich bei gleicher
+    Anzahl: ersetzt, umbenannt, neues Cover oder nur der Abspiel-Index. Die
+    Seite zeigt danach, was der Server schickt, und ein Tippen spielt den
+    Favoriten, der dort steht. Gegenprobe: dieselbe Ansicht noch einmal
+    zugestellt baut die Seite nicht neu auf (kein Flackern)."""
+    async def lauf():
+        befehle = []
+        if weg == "miniserver":
+            app = _app(befehle)
+        else:
+            # Zone am Audioserver; der Ereigniskanal ist da, aber ohne Verbindung
+            zonen = {**ZONEN, "Z0": {**ZONEN["Z0"], "details": {"server": "as1", "playerid": 1}}}
+            app = _app(befehle, zonen)
+            app._apply_structure({**anlage(zonen), "mediaServer": {"as1": {"host": "audioserver:7091"}}})
+            app.audio_clients["audioserver"] = W.AudioEventClient("audioserver")
+            _favoriten_setzen(app, weg, GRUND)
+        runner, port, bc = await visu_starten(app)
+        fehler, ergebnis = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                ctx = await b.new_context(viewport={"width": 480, "height": 480}, has_touch=True)
+                pg = await ctx.new_page()
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector(".tile[data-id] .tctrls .tb")
+                await pg.evaluate("hideSaver()")
+
+                async def zugestellt(liste):
+                    """Bis die Seite die Favoriten `liste` vom Server hat (hoechstens 3 s)."""
+                    for _ in range(60):
+                        if await pg.evaluate(FAVS_ZUGESTELLT) == _so_vom_server(liste):
+                            return True
+                        await asyncio.sleep(0.05)
+                    return False
+
+                async def oeffnen():
+                    _favoriten_setzen(app, weg, GRUND)
+                    await pg.evaluate("nav({view: 'sources', id: 'Z0'})")
+                    return await zugestellt(GRUND)
+
+                for fall, liste in GLEICH_LANG.items():
+                    geoeffnet = await oeffnen()
+                    befehle.clear()
+                    _favoriten_setzen(app, weg, liste)      # Musikauswahl ist offen
+                    angekommen = await zugestellt(liste)
+                    gezeigt = await pg.evaluate(FAVS_GEZEIGT)
+                    await pg.screenshot(path=str(tmp_path / f"favoriten_{weg}_{fall}.png"))
+                    box = await pg.locator(".favs .fav").first.bounding_box()
+                    await pg.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                    for _ in range(60):
+                        if any(c.startswith("roomfav/play/") for _, c in befehle):
+                            break
+                        await asyncio.sleep(0.05)
+                    await pg.wait_for_timeout(400)
+                    ergebnis[fall] = {
+                        "zugestellt": geoeffnet and angekommen,
+                        "wie vom Server": gezeigt == [e[:2] for e in _so_vom_server(liste)],
+                        "erster": gezeigt[:1],
+                        "getippt": [x for x in befehle if x[1].startswith("roomfav/play/")],
+                        "tiefe": await pg.evaluate("stack.length")}
+
+                # Gegenprobe: dieselbe Ansicht derselben Seite noch einmal zustellen
+                geoeffnet = await oeffnen()
+                await pg.evaluate(ZUSTELLUNG_BEOBACHTEN)
+                await pg.evaluate("send({t: 'nav', route: stack[stack.length - 1]})")
+                await pg.wait_for_function("window.__zustellungen > 0", timeout=3000)
+                await pg.wait_for_timeout(300)
+                ergebnis["gleiche Zustellung"] = {
+                    "zugestellt": geoeffnet,
+                    "umbauten": await pg.evaluate("window.__umbauten"),
+                    "derselbe Favorit": await pg.evaluate("document.querySelector('.favs .fav').__markiert === true")}
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return ergebnis
+    ergebnis = asyncio.run(lauf())
+
+    erwartet = {fall: {"zugestellt": True, "wie vom Server": True, "erster": [_so_vom_server(liste)[0][:2]],
+                       "getippt": [("Z0", f"roomfav/play/{liste[0][0]}")], "tiefe": 1}
+                for fall, liste in GLEICH_LANG.items()}
+    erwartet["gleiche Zustellung"] = {"zugestellt": True, "umbauten": 0, "derselbe Favorit": True}
+    assert ergebnis == erwartet
 
 
 async def _tasten_von(pg, kachel):
