@@ -88,11 +88,14 @@ Programmierung und ohne die Loxone-App.
   unter *Displays*.
 - **Musik** (Loxone AudioZone): Zonen-Liste mit Mini-Player (◀ ⏯ ▶) und voller
   Raum-Player mit Cover (über den Miniserver).
-- **Intercom** (z. B. Mobotix T25): Live-Bild (MJPEG mit Auth), Tür öffnen &
+- **Intercom** (Türsteuerung, z. B. Mobotix T25 oder eine benutzerdefinierte
+  Intercom, und der neue Baustein Intercom): Live-Bild (MJPEG mit Auth; ohne
+  eigene Adresse die Kamera, die der Miniserver nennt), Tür öffnen &
   Außenlicht, Klingel-Popup (der Server erkennt den `bell`-State und schiebt die
-  Ansicht aufs Panel). Gegensprechen (SIP) folgt in der LoxPanel-App für
-  Android; den SIP-Zugang liest LoxPanel schon verschlüsselt aus dem Miniserver
-  und prüft die Türstation unter *Settings → SIP*.
+  Ansicht aufs Panel); beim neuen Baustein dazu Antworten abspielen und Stumm.
+  Gegensprechen (SIP) folgt in der LoxPanel-App für Android; den SIP-Zugang
+  liest LoxPanel schon verschlüsselt aus dem Miniserver und prüft die
+  Türstation unter *Settings → SIP*.
 - **Kalender & Wetter auf der Uhr-Startseite (Screensaver):** bis zu **8 iCal-Abos**
   gleichzeitig (Apple/iCloud, Google, Müllabfuhr, Geburtstage, Ferien …) – alle
   Termine laufen zu **einer** Liste zusammen, je Kalender mit eigenem Namen und
@@ -189,7 +192,8 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><th colspan="4" align="left">Tor / Zutritt</th></tr>
 <tr><td><code>CentralGate</code></td><td>Zentral Tor</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Gate</code></td><td>Tor / Garagentor</td><td align="center">✅</td><td>Position, Auf/Zu</td></tr>
-<tr><td><code>Intercom</code></td><td>Türsprechanlage</td><td align="center">🟡</td><td>Kamera, Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern, SIP-Zugang und -Prüfung (Settings → SIP); Gegensprechen fehlt</td></tr>
+<tr><td><code>Intercom</code></td><td>Türsprechanlage (Türsteuerung)</td><td align="center">🟡</td><td>Kamera (eigene Adresse oder die des Miniservers), Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern, SIP-Zugang und -Prüfung (Settings → SIP); Gegensprechen fehlt</td></tr>
+<tr><td><code>IntercomV2</code></td><td>Türsprechanlage (Baustein Intercom)</td><td align="center">🟡</td><td>Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, Antworten abspielen, Stumm, Gerätezustand; Kamera mit eigener Adresse oder vom Miniserver, falls er sie nennt; Gegensprechen fehlt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
 <tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off</td></tr>

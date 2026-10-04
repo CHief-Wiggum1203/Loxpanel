@@ -338,9 +338,19 @@ PROZENT_SCHRITT = 5
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
-# Intercom: alles ausser Gegensprechen (SIP ueber UDP kann der Browser nicht;
-# Zugang und Pruefung der Tuerstation unter Settings -> SIP, /api/sip).
-PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
+# Intercom und IntercomV2: alles ausser Gegensprechen (SIP ueber UDP kann der
+# Browser nicht; Zugang und Pruefung der Tuerstation unter Settings -> SIP,
+# /api/sip).
+PARTIAL_TYPES = {"AudioZone", "Intercom", "IntercomV2", "TextInput", "Ventilation"}
+# Tuersprechstellen laut Strukturdoku 17.0: Intercom ("Door Controller", in
+# Loxone Config die Tuersteuerung, auch mit benutzerdefinierter Intercom) und
+# IntercomV2 (der Baustein Intercom). Beide haben bell, answer und Ausgaenge
+# als Pushbutton-Subcontrols; v2 dazu Antworten (playTts), Stumm (mute) und
+# den Geraetezustand (deviceState).
+INTERCOM_TYPES = ("Intercom", "IntercomV2")
+# IntercomV2 deviceState: 1 = StateOk; 0 = StateUnknown sagt nichts Sicheres
+# und bleibt ohne Hinweis.
+INTERCOM_V2_ZUSTAND = {2: "Startet neu", 3: "Startet"}
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
@@ -1011,11 +1021,20 @@ class ZugangFehler(Exception):
 
 
 KEIN_SIP = "Die Intercom nennt keinen SIP-Zugang"
+KEINE_GESICHERTEN = "Der Baustein hat keine gesicherten Details"
+
+
+class OhneGesicherteDetails(ZugangFehler):
+    """Der Miniserver hat fuer den Baustein keine gesicherten Details, es liegt
+    also nicht an Verbindung oder Rechten."""
+
+    def __init__(self):
+        super().__init__(KEINE_GESICHERTEN)
 
 
 def _sip_zugang(details: dict) -> dict | None:
     """SIP-Zugang aus den gesicherten Details einer Intercom (audioInfo: host,
-    user und bei Loxone-Intercoms pass; Strukturdoku 16.0, Intercom).
+    user und bei Loxone-Intercoms pass; Strukturdoku 16.0 und 17.0, Intercom).
     -> {"host", "user", "pass"}; None, wenn kein host darin steht."""
     ai = details.get("audioInfo")
     host = str(ai.get("host") or "").strip() if isinstance(ai, dict) else ""
@@ -1030,6 +1049,34 @@ def _gesichert_felder(details: dict) -> dict:
     Fuer die Diagnose im Reiter SIP; Werte und Passwoerter bleiben im Server."""
     return {k: ({f: bool(w) for f, w in v.items()} if isinstance(v, dict) else bool(v))
             for k, v in details.items()}
+
+
+KEIN_VIDEO = "Kein Video eingerichtet"
+NUR_FERNZUGANG = "Kamera nur über den Fernzugang erreichbar"
+
+
+def _kamera_aus_details(details: dict) -> dict:
+    """Kamera einer Intercom aus ihren gesicherten Details (videoInfo:
+    streamUrl, user, pass; Strukturdoku 16.0 und 17.0, Intercom).
+    -> {"url", "user", "pass"} oder {"grund"} fuer die Intercom-Seite.
+    Steht statt Host oder IP "cloudDNS" oder "remoteConnect" in der streamUrl,
+    ist die Kamera laut Doku nur ueber den Fernzugang des Miniservers zu
+    erreichen; LoxPanel arbeitet im Heimnetz und oeffnet den nicht. Eine
+    Adresse ohne Schema (so wie sie in Loxone Config eingetragen wurde) wird
+    mit http:// angesprochen."""
+    vi = details.get("videoInfo")
+    url = str(vi.get("streamUrl") or "").strip() if isinstance(vi, dict) else ""
+    if not url:
+        return {"grund": KEIN_VIDEO}
+    if "://" not in url:
+        url = "http://" + url
+    try:
+        host = (urlsplit(url).hostname or "").lower()
+    except ValueError:                   # etwa eine kaputte IPv6-Angabe
+        return {"grund": KEIN_VIDEO}
+    if host in ("clouddns", "remoteconnect"):
+        return {"grund": NUR_FERNZUGANG}
+    return {"url": url, "user": str(vi.get("user") or "").strip(), "pass": str(vi.get("pass") or "")}
 
 
 class App:
@@ -1101,6 +1148,10 @@ class App:
         self.jwt: str | None = None
         self.alg: str = "SHA1"
         self._ms_pubkey = None           # RSA-Schluessel des Miniservers fuer verschluesselte Befehle
+        # Kamera je Intercom aus den gesicherten Details (intercom_video): {"url",
+        # "user", "pass"} oder {"grund"}; gilt bis zur naechsten Struktur
+        self.ms_video: dict[str, dict] = {}
+        self._video_sperre = asyncio.Lock()
         self._auth_gen = 0               # zaehlt jede Anmeldung (-> _renew_token)
         self._auth_at = 0.0              # monotonic der letzten Anmeldung
         self._auth_lock = asyncio.Lock()
@@ -1279,10 +1330,13 @@ class App:
         wsrv = st.get("weatherServer")
         self.weather_cfg = wsrv if isinstance(wsrv, dict) else {}
         self._lox_wx = {}
+        # Neue Struktur heisst meist: in Loxone Config gespeichert. Die Kamera
+        # der Intercoms kann sich geaendert haben, also neu fragen.
+        self.ms_video = {}
         self.playerid_by_action = {}
         self.audiohost_by_action = {}
         for _u, _c in self.controls.items():
-            if _c.get("type") == "Intercom":
+            if _c.get("type") in INTERCOM_TYPES:
                 _bu = (_c.get("states") or {}).get("bell")
                 if _bu:
                     self.bell_map[_bu] = _u
@@ -1500,12 +1554,17 @@ class App:
         verschluesselten Befehl heraus (loxone_secure), die Anmeldung steckt im
         Befehl. Lehnt er ab (HTTP 401: Schluessel nicht mehr gueltig, oder LL-Code
         401: Token abgelaufen), einmal mit frischem Schluessel und Token.
+        Gefragt wird nur, wenn der Baustein in der Struktur das Kennzeichen
+        securedDetails traegt (Strukturdoku, Controls: "indicates that there is
+        sensitive information available").
         -> dict; wirft ZugangFehler mit einem Grund fuer den Konfigurator."""
         if not loxone_secure.HAVE_CRYPTO:
             raise ZugangFehler("Paket 'cryptography' fehlt")
         for versuch in range(2):
             if self.icon_session is None or not self.jwt:
                 raise ZugangFehler("Keine Verbindung zum Miniserver")
+            if not (self.controls.get(uuid) or {}).get("securedDetails"):
+                raise OhneGesicherteDetails()
             gen = self._auth_gen
             try:
                 if self._ms_pubkey is None:
@@ -1553,7 +1612,7 @@ class App:
                 except ValueError as err:
                     raise ZugangFehler("Die gesicherten Details sind kein JSON") from err
             if not isinstance(wert, dict):
-                raise ZugangFehler("Der Baustein hat keine gesicherten Details")
+                raise OhneGesicherteDetails()
             return wert
         raise ZugangFehler("Der Miniserver lehnt die verschlüsselte Anfrage ab")
 
@@ -1564,6 +1623,35 @@ class App:
         if sip is None:
             raise ZugangFehler(KEIN_SIP)
         return sip
+
+    async def intercom_video(self, uuid: str) -> dict | None:
+        """Kamera einer Intercom fuer /mjpeg: {"url", "user", "pass"}. Eine in
+        LoxPanel eingetragene Adresse (loxpanel.cfg intercom) hat Vorrang, sonst
+        die aus den gesicherten Details des Miniservers (_kamera_aus_details),
+        gemerkt in ms_video bis zur naechsten Struktur. Scheitert die Anfrage
+        (Verbindung, Rechte), wird nichts gemerkt und beim naechsten Mal neu
+        gefragt. None ohne nutzbare Kamera."""
+        ent = self.intercom_cfg.get(uuid)
+        if isinstance(ent, str):
+            ent = {"url": ent}
+        if isinstance(ent, dict) and isinstance(ent.get("url"), str) and ent["url"].strip():
+            return {"url": ent["url"].strip(), "user": str(ent.get("user") or ""), "pass": str(ent.get("pass") or "")}
+        c = self.controls.get(uuid) or {}
+        if c.get("type") not in INTERCOM_TYPES or not c.get("securedDetails"):
+            return None
+        async with self._video_sperre:   # zwei Panels zugleich: einmal fragen
+            cam = self.ms_video.get(uuid)
+            if cam is None:
+                try:
+                    cam = _kamera_aus_details(await self.secured_details(uuid))
+                except OhneGesicherteDetails:
+                    cam = {"grund": KEIN_VIDEO}
+                except ZugangFehler as err:
+                    log.warning("Kamera der Intercom %s vom Miniserver: %s", uuid, err)
+                    return None
+                self.ms_video[uuid] = cam
+                self._dirty = True       # Intercom-Seite neu: Bild oder Grund
+        return cam if cam.get("url") else None
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -2140,16 +2228,19 @@ class App:
         """Volle Intercom-Ansicht (Video + Tuer-/Ausgang-Buttons + Klingel-Banner)
         einer Intercom-UUID fuer die Kamera-Pane. Gleiche Bloecke wie die
         Detailansicht -> das Bild wird wie beim Baustein direkt geladen (robust,
-        auch wo ein nacktes MJPEG-<img> nicht anzeigt). None, wenn kein Intercom."""
+        auch wo ein nacktes MJPEG-<img> nicht anzeigt). None, wenn kein Intercom.
+        Was nur auf die Detailseite gehoert (Klingel-Zeile, Geraetezustand,
+        Antworten und Stumm der v2), bleibt draussen."""
         c = self.controls.get(uuid or "")
-        if not c or c.get("type") != "Intercom":
+        if not c or c.get("type") not in INTERCOM_TYPES:
             return None
         try:
             v = self._view_control_inner(uuid)
         except Exception:
             log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if b.get("k") != "more" and b.get("id") != "klingel"]
+        return [b for b in (v.get("blocks") or [])
+                if b.get("k") != "more" and b.get("id") not in ("klingel", "zustand", "antworten", "stumm")]
 
     def status_blocks(self, uuids) -> list:
         """Frei gewaehlte Bausteine als Nur-Lese-Kacheln fuer die rechte Spalte
@@ -3628,12 +3719,14 @@ class App:
                 # Symbols, die Zeile darunter nennt nur noch Soll und Taetigkeit.
                 it["big"] = f"{self._fmt_num(ta, '%.1f')}°"
                 it["bigSub"] = " · ".join(([f"Soll {self._fmt_num(tt, '%.1f')}°"] if tt is not None else []) + bits)
-        elif t == "Intercom":
+        elif t in INTERCOM_TYPES:
             ring = bool(self._state(c, "bell"))
-            it.update(icon="cam", on=ring,
-                      sublabel=("Es klingelt" if ring else "Türsprechanlage"),
+            # v2: Geraetezustand und Stumm sind Zustaende, keine Beschreibung
+            sub = "Es klingelt" if ring else (self._intercom_zustand(c) or
+                                              ("Stummgeschaltet" if self._state(c, "muted") else ""))
+            it.update(icon="cam", on=ring, sublabel=sub or "Türsprechanlage",
                       nav={"view": "control", "id": uuid})
-            if not ring:
+            if not sub:
                 it["subInfo"] = True
             if ring:
                 it["tone"] = "crit"
@@ -4445,6 +4538,39 @@ class App:
         txt = unquote(str(self._state(c, "lastBellEvents") or ""))
         return sorted({t.strip() for t in txt.split("|") if _BELL_TS.fullmatch(t.strip())}, reverse=True)
 
+    def _intercom_video_block(self, uuid: str, c: dict) -> dict:
+        """Video der Intercom-Seite: eine in LoxPanel eingetragene Kamera oder
+        die des Miniservers (intercom_video). Solange offen ist, ob er eine
+        nennt, steht das Video schon da: /mjpeg fragt ihn, und die Seite zeigt
+        danach Bild oder Grund."""
+        ent = self.intercom_cfg.get(uuid)
+        eigene = ent.get("url") if isinstance(ent, dict) else ent
+        cam = self.ms_video.get(uuid)
+        if (isinstance(eigene, str) and eigene.strip()) or \
+                (c.get("securedDetails") and (cam is None or cam.get("url"))):
+            return {"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}
+        return {"k": "status", "text": (cam or {}).get("grund") or KEIN_VIDEO}
+
+    def _intercom_zustand(self, c: dict) -> str:
+        """Hinweis zum Geraetezustand einer IntercomV2 (deviceState, Strukturdoku
+        17.0) wie "Startet neu"; leer, wenn sie bereit ist, ohne State und bei v1."""
+        if c.get("type") != "IntercomV2":
+            return ""
+        try:
+            return INTERCOM_V2_ZUSTAND.get(int(float(self._state(c, "deviceState"))), "")
+        except (TypeError, ValueError):
+            return ""
+
+    def _intercom_antworten(self, c: dict) -> list[tuple[int, str]]:
+        """Antworten einer IntercomV2 als (Index, Text). Laut Strukturdoku 17.0
+        ist der State answers eine Liste, playTts/{idx} spielt die mit dem Index
+        an der Tuer ab, setAnswers/{answer0}/{answer1}/... setzt sie als Texte.
+        Der Index bleibt der in der Liste, auch wenn ein Eintrag leer ist."""
+        liste = self._json_state(c, "answers")
+        if not isinstance(liste, list):
+            return []
+        return [(i, a.strip()) for i, a in enumerate(liste) if isinstance(a, str) and a.strip()]
+
     @staticmethod
     def _bell_text(ts: str, heute: date | None = None) -> str:
         """Zeitpunkt einer Klingel: 'Heute 07:49', 'Gestern 07:49', 'Mo 07:49'
@@ -4471,7 +4597,7 @@ class App:
         Klingel; die Visu holt es ueber /bellimg (camimage)."""
         c = self.controls.get(uuid or "", {})
         route = {"view": "bells", "id": uuid}
-        if c.get("type") != "Intercom":
+        if c.get("type") not in INTERCOM_TYPES:
             return self._gone_view(route, "", "Diese Türsprechstelle gibt es nicht mehr.")
         evs = self._bell_events(c)
         blocks = [{"k": "title", "text": "Verpasste Klingeln", "sub": _clean(c.get("name"))}]
@@ -5250,9 +5376,8 @@ class App:
             ]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
-        if t == "Intercom":
-            ent = self.intercom_cfg.get(uuid)
-            has_url = bool(ent.get("url") if isinstance(ent, dict) else ent)
+        if t in INTERCOM_TYPES:
+            ua = c.get("uuidAction")
             subs = c.get("subControls") or {}
             cells = [{"label": _clean(sc.get("name")),
                       "cmd": {"uuid": sc.get("uuidAction"), "cmd": "pulse"}}
@@ -5260,8 +5385,10 @@ class App:
             blocks = []
             if self._state(c, "bell"):
                 blocks.append({"k": "astat", "text": "Es klingelt", "tone": "crit"})
-            blocks += [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
-                      [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
+            zustand = self._intercom_zustand(c)
+            if zustand:
+                blocks.append({"k": "status", "id": "zustand", "text": zustand})
+            blocks.append(self._intercom_video_block(uuid, c))
             if cells:
                 blocks.append({"k": "row", "cells": cells})
             # Laut Strukturdoku: 'answer' stellt die Klingel ab; lastBellEvents
@@ -5270,13 +5397,25 @@ class App:
             # (intercom_blocks).
             extra = []
             if self._state(c, "bell"):
-                extra.append({"label": "Klingel abstellen", "cmd": {"uuid": c.get("uuidAction"), "cmd": "answer"}})
+                extra.append({"label": "Klingel abstellen", "cmd": {"uuid": ua, "cmd": "answer"}})
             n = len(self._bell_events(c))
             if n:
                 extra.append({"label": f"{n} verpasste Klingel" + ("" if n == 1 else "n"),
                               "nav": {"view": "bells", "id": uuid}})
             if extra:
                 blocks.append({"k": "row", "id": "klingel", "cells": extra})
+            # Nur v2 (Strukturdoku 17.0, IntercomV2): Antworten spielt die Intercom
+            # an der Tuer ab (playTts/{idx}); muted ist der Ausgang Qb des
+            # Bausteins, mute/{0/1} schaltet ihn stumm bzw. wieder laut.
+            antworten = [{"label": a, "cmd": {"uuid": ua, "cmd": f"playTts/{i}"}}
+                         for i, a in self._intercom_antworten(c)] if t == "IntercomV2" else []
+            if antworten:
+                blocks += [{"k": "head", "id": "antworten", "text": "Antwort abspielen"},
+                           {"k": "row", "id": "antworten", "wrap": True, "cells": antworten}]
+            if t == "IntercomV2" and "muted" in (c.get("states") or {}):
+                stumm = bool(self._state(c, "muted"))
+                blocks.append({"k": "row", "id": "stumm", "cells": [
+                    {"label": "Stumm", "on": stumm, "cmd": {"uuid": ua, "cmd": "mute/0" if stumm else "mute/1"}}]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "Tracker":
             lines = self._tracker_lines(c)
@@ -7590,7 +7729,7 @@ async def api_settings(request: web.Request) -> web.Response:
                 "hasPass": bool(e.get("pass"))}
 
     intercoms = [{"uuid": u, "name": _clean(c.get("name")), **icv(u)}
-                 for u, c in app.controls.items() if c.get("type") == "Intercom"]
+                 for u, c in app.controls.items() if c.get("type") in INTERCOM_TYPES]
     am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
     cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
@@ -7789,22 +7928,30 @@ async def api_sip(request: web.Request) -> web.Response:
     """Settings -> SIP: die Intercoms der Anlage mit ihrem SIP-Zugang aus den
     gesicherten Details. Das Passwort verlaesst den Server nie, die Routen haben
     keine Anmeldung; es heisst nur, ob es eines gibt (hasPass wie bei
-    /api/settings). Nennt eine Intercom keinen, steht unter felder, welche
-    Felder ihre gesicherten Details haben und ob sie gefuellt sind, ohne Werte.
-    Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede Intercom kostet
-    eine verschluesselte Anfrage an den Miniserver.
-    deviceType wie im Baustein: 0 andere oder unbekannte Tuerstation, 1 Loxone
-    Intercom, 2 Loxone Intercom XL (Strukturdoku 16.0, Intercom)."""
+    /api/settings). Nennt eine Intercom keinen, steht ohneSip darin und, wenn
+    sie gesicherte Details hat, unter felder, welche Felder diese haben und ob
+    sie gefuellt sind, ohne Werte.
+    Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede Intercom mit
+    gesicherten Details kostet eine verschluesselte Anfrage an den Miniserver.
+    type ist der Bausteintyp (Intercom = Tuersteuerung, IntercomV2 = Baustein
+    Intercom), deviceType wie im Baustein (Strukturdoku 17.0): bei Intercom 0
+    andere oder unbekannte Tuerstation, 1 Loxone Intercom, 2 Loxone Intercom
+    XL; bei IntercomV2 0 andere oder unbekannte, 1 Loxone Intercom."""
     app: App = request.app["app"]
     liste = []
     for uuid, c in app.controls.items():
-        if c.get("type") != "Intercom":
+        if c.get("type") not in INTERCOM_TYPES:
             continue
-        e = {"uuid": uuid, "name": _clean(c.get("name")),
+        e = {"uuid": uuid, "name": _clean(c.get("name")), "type": c.get("type"),
              "room": _clean((app.rooms.get(c.get("room")) or {}).get("name")),
              "deviceType": (c.get("details") or {}).get("deviceType")}
+        # ohneSip: der Miniserver nennt keinen SIP-Zugang (anders als bei einem
+        # Fehler mit Verbindung oder Rechten); der Konfigurator sagt dann, wo er
+        # in Loxone Config hingehoert
         try:
             details = await app.secured_details(uuid)
+        except OhneGesicherteDetails as err:
+            e.update(error=str(err), ohneSip=True)
         except ZugangFehler as err:
             e["error"] = str(err)
         else:
@@ -7812,7 +7959,7 @@ async def api_sip(request: web.Request) -> web.Response:
             if sip:
                 e["sip"] = {"host": sip["host"], "user": sip["user"], "hasPass": bool(sip["pass"])}
             else:
-                e.update(error=KEIN_SIP, felder=_gesichert_felder(details))
+                e.update(error=KEIN_SIP, felder=_gesichert_felder(details), ohneSip=True)
         liste.append(e)
     liste.sort(key=lambda e: (e["name"].lower(), e["room"].lower()))
     return web.json_response({"connected": app.client is not None, "intercoms": liste})
@@ -7830,7 +7977,7 @@ async def api_sip_pruefen(request: web.Request) -> web.Response:
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
     uuid = str(data.get("uuid") or "") if isinstance(data, dict) else ""
-    if (app.controls.get(uuid) or {}).get("type") != "Intercom":
+    if (app.controls.get(uuid) or {}).get("type") not in INTERCOM_TYPES:
         return web.json_response({"ok": False, "error": "Unbekannte Intercom"}, status=404)
     try:
         sip = await app.intercom_sip(uuid)
@@ -8275,16 +8422,17 @@ async def cover_handler(request: web.Request) -> web.Response:
 
 
 async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
-    """Relais des MJPEG-Streams der Tuerstation (mit Auth) -> Browser.
+    """Relais des MJPEG-Streams der Tuerstation (mit Auth) -> Browser. Die
+    Kamera kommt aus LoxPanel oder vom Miniserver (App.intercom_video).
 
     Eigene ClientSession (nicht icon_session): mit dem SSL-Connector der
     icon_session liefert die Mobotix nur ein Einzelbild statt des Streams.
     """
     app: App = request.app["app"]
-    ent = app.intercom_cfg.get(request.query.get("id", ""))
-    url = ent.get("url") if isinstance(ent, dict) else ent
-    if not isinstance(url, str) or not url.strip():
+    cam = await app.intercom_video(request.query.get("id", ""))
+    if cam is None:
         return web.Response(status=404)
+    url = cam["url"]
     # Session und Antwort der Kamera werden in jedem Fall freigegeben, auch
     # wenn der Handler mitten im Verbindungsaufbau abgebrochen wird
     # (Herunterfahren) - sonst bleiben Socket und Connector offen.
@@ -8292,9 +8440,7 @@ async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
     upstream = None
     try:
         try:
-            auth = None
-            if isinstance(ent, dict) and ent.get("user"):
-                auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
+            auth = aiohttp.BasicAuth(cam["user"], cam["pass"]) if cam["user"] else None
             upstream = await sess.get(url, auth=auth)
         except (aiohttp.ClientError, ValueError):
             # ValueError: unbrauchbarer Host ("cam..lan") oder Benutzer, der nicht

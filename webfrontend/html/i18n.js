@@ -351,8 +351,8 @@
       'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
       'Panel einrichten': 'Set up a panel',
       // Kamera / Tuerstation
-      'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
-        'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',
+      'Video-URL (MJPEG) und Login der Türstation(en) für das Kamerabild. Leer lassen, dann nimmt LoxPanel die Kamera, die der Miniserver nennt (in Loxone Config am Baustein der Intercom eingetragen). Die Liste kommt aus dem Miniserver.':
+        'Video URL (MJPEG) and login of the door station(s) for the camera image. Leave empty to use the camera the Miniserver provides (set in Loxone Config at the intercom block). The list comes from the Miniserver.',
       'Speichern': 'Save',
       'Bausteintypen der Anlage anzeigen': 'Show control types of the installation',
       '(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)':
@@ -379,8 +379,12 @@
       'Codecs:': 'Codecs:',
       'Methoden:': 'Methods:',
       'Gesicherte Details vom Miniserver:': 'Secured details from the Miniserver:',
-      'Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“), in den Miniserver speichern und diesen Reiter neu öffnen.':
-        'Without a SIP address there is nothing to check. In Loxone Config, enter the audio address at the block of this intercom (for a custom intercom “Host for audio (local)”), save to the Miniserver and reopen this tab.',
+      'Ohne SIP-Adresse gibt es nichts zu prüfen. Die Adresse für Audio steht in Loxone Config am Baustein der Intercom (bei einer benutzerdefinierten Intercom „Host für Audio (intern)“); nach dem Speichern in den Miniserver diesen Reiter neu öffnen. Steht sie dort und fehlt hier trotzdem, gibt der Miniserver sie für diesen Baustein nicht heraus.':
+        'Without a SIP address there is nothing to check. The audio address is set in Loxone Config at the intercom block (for a custom intercom “Host for audio (internal)”); after saving to the Miniserver, reopen this tab. If it is set there and still missing here, the Miniserver does not hand it out for this block.',
+      'Für die Loxone Intercom am Baustein Intercom beschreibt die Strukturdoku von Loxone keinen SIP-Zugang.':
+        'For the Loxone Intercom on the Intercom block, the Loxone structure file documentation describes no SIP access.',
+      'Baustein Türsteuerung': 'Door Controller block',
+      'Baustein Intercom': 'Intercom block',
       'leer': 'empty',
       // SIP: feste Meldungen des Servers (/api/sip, /api/sip/pruefen)
       'Keine Verbindung zum Miniserver': 'No connection to the Miniserver',
