@@ -1986,6 +1986,7 @@ function renderTabMode(p){
       if(ziel==='room') p.tabs=[rooms[0].tab];
       else if(ziel==='pick'){ curPickIdx=0; ensurePickTabs(p); p.tabs=p.pickTabs.map((_,i)=>pickKey(i)); }
       else p.tabs=defaultTabs();
+      delete p.roomCats;   // Kategorie-Auswahl galt dem alten Raum-Panel, wie beim Raumwechsel unten
       markDirty(); renderTabMode(p); renderPanes(p);
     };
   });

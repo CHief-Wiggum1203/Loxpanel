@@ -823,6 +823,15 @@ selbst aktuell.
       `_panel_export()` gab es nicht an den Konfigurator weiter. Der schickt
       beim Speichern zurück, was er bekam. Ein Test prüft jetzt beide Listen
       gegeneinander. **S**
+- [x] **Kategorie-Tabs eines Raum-Panels gingen beim Speichern verloren.**
+      `_panel_export()` gab `roomCats` nicht an den Konfigurator weiter,
+      derselbe Fehler wie bei `catFilter`. Der Editor zeigte deshalb die
+      ersten vier Kategorien, und jedes Speichern, auch eines anderen Profils,
+      löschte die Auswahl ohne Warnung. Der bisherige Test prüfte nur `ui`.
+      Jetzt muss ein Profil, das jedes gespeicherte Feld belegt, Laden und
+      Speichern unverändert überstehen, und ein neues Feld im Sanitizer, das
+      in dieser Vorlage fehlt, lässt einen Test scheitern. Ein Moduswechsel im
+      Editor setzt die Auswahl jetzt zurück wie ein Raumwechsel. **S**
 - [x] **Enge Kachel verlor die Lage ihrer Tasten.** Am 4″-Panel (3×3) rücken
       die Player-Tasten in den Kopf (`ctrltight`, `ctrlnarrow`). Bei einem
       Zustandswechsel ohne neuen Text (Pause) setzte `updateGrid()` die

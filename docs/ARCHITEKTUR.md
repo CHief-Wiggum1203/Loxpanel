@@ -718,6 +718,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // legt die Klickreihenfolge sie fest.
       "rooms": ["<uuid oder Namensteil>"],   // Whitelist, leer = alle
       "cats":  ["<uuid oder Namensteil>"],
+      "roomCats": ["<cat-uuid>"],            // Raum-Panel: Kategorien der unteren Leiste, max. 4,
+                                             // in Klickreihenfolge; fehlt = die ersten 4 im Raum
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
       "ui": {
         "iconSize": 38, "nameSize": 18, "subSize": 15,   // px; fehlt = global, sonst Standard des
@@ -773,8 +775,13 @@ oder falsch getypte Felder verwirft. Die Antwort nennt das Verworfene
 ergänzt, muss sie dort eintragen und zusätzlich in `_panel_export()`, das die
 Profile an den Konfigurator gibt: Der schickt beim Speichern zurück, was er
 bekam, und eine Option, die dort fehlt, geht beim nächsten Speichern still
-verloren. So geschah es mit `catFilter`. `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`
-prüft beide Listen gegeneinander.
+verloren. So geschah es mit `catFilter` und `roomCats`.
+`test_jede_gespeicherte_option_kommt_beim_konfigurator_an` (in
+`tests/test_kachel_aufbau.py`) prüft beide Listen gegeneinander: Ein Profil, das
+jedes gespeicherte Feld belegt (`VOLL`), muss nach `_panel_export()` und
+erneutem Speichern unverändert sein. `test_vorlage_belegt_jedes_gespeicherte_feld`
+schreibt mit, welche Felder `_sanitize_panels()` liest, und schlägt an, sobald
+eines davon in `VOLL` fehlt. Ein neues Feld gehört also auch dorthin.
 
 ### 5.4 `theme.json`
 
