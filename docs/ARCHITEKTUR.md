@@ -1390,21 +1390,49 @@ der Agent lokal anwendet.
 `../deploy/loxpanel-kiosk.conf`, `/etc/loxpanel/kiosk.conf`. Umgebungsvariablen
 `LOXPANEL_<KEY>` haben Vorrang. Schlüssel: `SERVER`, `AGENT_PORT`, `AGENT_NAME`,
 `PANEL`, `AUTOSTART`, `X`, `DPMS_OFF`, `PROFILE_DIR`, `BL_DEVICE`, `BL_ON`,
-`PAUSE_ON_BLANK`, `RELOAD_HOURS`, `STATE_FILE`. Die Beispieldatei dokumentiert
-nur acht davon.
+`PAUSE_ON_BLANK`, `RELOAD_HOURS`, `STATE_FILE`, `KIOSK_RESTART_SECS`,
+`KIOSK_RESTART_MAX_SECS`. Die Beispieldatei dokumentiert alle außer
+`PROFILE_DIR` und `BL_DEVICE`.
 
 **Funktionen:** Chromium-Kiosk mit festen Flags, Crash-Dialog-Bereinigung in
 `Default/Preferences`, DPMS über `xset`, echte Backlight-Abschaltung über alle
 `/sys/class/backlight/*/brightness`, optionale SIGSTOP-Pause (Default aus, weil
-der WebSocket dabei stirbt), periodischer Kiosk-Neustart, Panel-Wahl in einer
-State-Datei.
+der WebSocket dabei stirbt), periodischer Kiosk-Neustart (nur mit Antwort des
+Servers), Neustart nach Absturz, Panel-Wahl in einer State-Datei.
+
+**Panel-Wahl:** `STATE_FILE`, Standard nach XDG
+`$XDG_STATE_HOME/loxpanel/agent-state.json` (ohne absoluten Wert
+`~/.local/state/…`), also beim Benutzer, unter dem der Agent läuft. Bis
+Oktober 2026 lag sie neben der kiosk.conf in `/etc/loxpanel/`, das der Installer
+als root anlegt; das Schreiben scheiterte leise, die Wahl überlebte keinen
+Neustart (F13). Eine Datei von dort übernimmt der Agent beim Start einmal.
+Vorrang: `LOXPANEL_PANEL`, dann die gemerkte Wahl (auch `""` = Standardansicht),
+dann `PANEL`. Die Datei hält auch `PANEL` beim Merken (`conf`); steht in der
+kiosk.conf inzwischen etwas anderes, gilt die kiosk.conf. Woher die Ansicht
+kommt, nennt die Startzeile des Agenten. Schreibfehler meldet er mit Pfad und
+uid; die Ausgabe ist zeilengepuffert, damit sie gleich in `~/.xsession-errors`
+steht.
+
+**Neustart nach Absturz:** Je Chromium-Start wartet ein Thread
+(`_kiosk_waechter`) auf genau diesen Prozess. Endet er, ohne dass `stop_kiosk()`
+ihn beendet hat (dann ist `_proc` nicht mehr dieser Prozess), startet der Agent
+nach `KIOSK_RESTART_SECS` (Standard 5 s wie `RestartSec=5` der Dienstdateien,
+0 = aus) mit derselben Ansicht neu, auch ohne Server. Jedes Ende zählt, auch
+Code 0 (Alt+F4). Stürzt Chromium wieder ab, bevor es länger als die doppelte
+Obergrenze lief, verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
+(Standard 300 s wie Kubernetes bei CrashLoopBackOff); die Obergrenze liegt über
+`DPMS_OFF`, weil jeder Start per `xset` den Leerlaufzähler zurücksetzt.
+`start_kiosk()` läuft ganz unter einer `RLock`, die Prüfung des Wächters auch;
+die Pause selbst hält sie nicht, `/start` und `/stop` warten also nicht.
+Erfasst wird nur das Ende des Browser-Prozesses, ein abgestürzter Tab
+(Renderer) bei laufendem Browser nicht. Geprüft in `tests/test_agent.py`.
 
 **Installation:** `deploy/install-agent.sh`, als Login-Benutzer ohne sudo
 aufrufen. Der Agent-Quelltext ist dort als Heredoc eingebettet, nicht kopiert.
 Der Code ist derzeit identisch mit `agent/loxpanel-agent.py`, die Kommentare
 weichen bereits ab. Der Server liefert ausgerechnet diese Kopie über
-`/install-agent.sh` aus. Es gibt keinen Mechanismus, der die beiden synchron
-hält.
+`/install-agent.sh` aus. `tests/test_agent.py` vergleicht beide per AST und
+schlägt fehl, sobald der Code auseinanderläuft.
 
 **Ohne Agent (Android):** Seit dem Umbau-Schritt 1 schickt der Server `dpmsOff`,
 `reloadHours` und `agent` mit der `theme`-Nachricht an die Visu. Meldet der
@@ -1496,11 +1524,6 @@ nur das Halten weg (`on: true, presence: false`), danach gilt wieder die
 Leerlaufzeit. Linux-Panels mit Agent schalten ihr Display per DPMS selbst,
 dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.
-
-**Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
-das per `sudo mkdir` als root angelegt wird, während der Agent als
-Login-Benutzer läuft. Das Schreiben schlägt dann leise fehl, und die gewählte
-Ansicht überlebt vermutlich keinen Reboot.
 
 ---
 
@@ -1640,7 +1663,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F10 | `esc()` in der Visu escapt keine Anführungszeichen, Ausgabe landet in Attributen. Freitext-Schriftarten und Miniserver-Namen mit `"` zerlegen das Markup | `panel.html:316`, `:631`, `:637` |
 | F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `webvisu.py:979` |
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
-| F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebt vermutlich keinen Reboot | `agent/loxpanel-agent.py:111`, `install-agent.sh:33` |
+| F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebte keinen Reboot — behoben, Ablage nach XDG beim Login-Benutzer, §8 | `agent/loxpanel-agent.py` `STATE_FILE`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
 | F16 | Globale Regel `.empty{grid-column:1/-1}` (für „nichts hier" im Kachelraster) traf auch die Leerfelder vor dem 1. im Monatskalender: sie belegten eine ganze Zeile, jeder Monat begann am Montag, alle Tage standen unter dem falschen Wochentag (Split-Pane Kalender) — behoben, Regel auf `.grid>.empty` begrenzt; Regressionstest misst die Spalten im Browser | `panel.html` CSS, `fpMonthHTML()` |
 | F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
