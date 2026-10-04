@@ -70,7 +70,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
-| `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `docker-image.yml`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
+| `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
@@ -1530,7 +1530,10 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
   aus dem Dockerfile aus.
 - **Log:** `LOXPANEL_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`, `ERROR`; Standard
   `INFO`, Unbekanntes → `INFO` mit Warnung). Der Zugriffs-Log von aiohttp (eine
-  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`).
+  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`). Fehlt
+  ein optionales Paket aus `requirements.txt` (`icalendar`, `python-dateutil`,
+  `cryptography`), läuft der Server ohne die Funktion dahinter weiter und nennt
+  beides einmal beim Start als Warnung (`_fehlende_pakete_melden()`).
 - **Image:** `.dockerignore` hält Altlasten (`webfrontend/htmlauth`,
   `config/visu.*`, `daemon/` …) und Test-/Entwicklungsdateien aus dem Image.
 
@@ -1538,15 +1541,14 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
 
 | Workflow | Trigger | Ergebnis |
 |---|---|---|
-| `tests.yml` | jeder PR, Push auf `main`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push |
-| `docker-image.yml` | Push auf `main`, Tags `v*`, manuell | `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest`, `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7 |
+| `tests.yml` („Tests und Image“) | jeder PR, Push auf `main`, Tags `v*`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push. Danach, nur auf `main` und bei Tags `v*` und nur, wenn beide Test-Jobs desselben Laufs grün sind, der Job `veroeffentlichen`: `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest` (nur `main`), `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7. Ein eigenes `docker-image.yml` gibt es im Fork nicht mehr, es veröffentlichte neben den Tests her (`tests/test_workflows.py`) |
 | `plugin-release.yml` | GitHub-Release veröffentlicht, manuell | `loxpanel-plugin.zip` aus `loxberry-plugin/` am Release |
 | `android-apk.yml` | Tags `v*`, manuell | `LoxPanel-Server.apk`, signiert mit dem festen Schlüssel aus den Secrets `LOXPANEL_KEYSTORE_B64`, `LOXPANEL_KEYSTORE_PASSWORD`, `LOXPANEL_KEY_ALIAS` und `LOXPANEL_KEY_PASSWORD`; ohne sie bricht der Lauf mit einem Hinweis ab, die übrigen Workflows hängen nicht daran |
 | `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release |
 
 Welcher Stand läuft, steht in der Seitenleiste des Konfigurators und in
 `/api/health` (`bin/version.json`, `bin/version_info.py`): Version aus
-`loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `docker-image.yml` reicht den
+`loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `tests.yml` reicht den
 Commit als Build-Argument `LOXPANEL_COMMIT` herein, der APK-Build nimmt ihn aus
 derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
 `versionName` der App (App-Info in Android).
@@ -1554,8 +1556,10 @@ derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
 Plugin-Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
 `loxberry-plugin/release.cfg` gemeinsam hochzählen, nach `main` pushen,
-GitHub-Release mit Tag `v<version>` anlegen. `NAME`, `FOLDER` und `AUTHOR` nie
-ändern. Das GHCR-Package muss einmalig auf public stehen (bereits erledigt).
+GitHub-Release mit Tag `v<version>` anlegen. Das Image `v<version>` erscheint erst
+nach den Tests des Tags, also rund zehn Minuten später. `NAME`, `FOLDER` und
+`AUTHOR` nie ändern. Das GHCR-Package muss einmalig auf public stehen (bereits
+erledigt).
 
 ---
 

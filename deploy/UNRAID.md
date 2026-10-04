@@ -12,8 +12,9 @@ Variablen im Template gesetzt.
 - Der Unraid-Server erreicht den Loxone Miniserver im Netz (Port 443 bei Gen2,
   Port 80 bei Gen1).
 - Das Image `ghcr.io/chief-wiggum1203/loxpanel:latest`. Es wird vom GitHub-Workflow
-  dieses Repos bei jedem Push auf `main` gebaut (multi-arch: amd64 / arm64 / armv7)
-  und muss im GitHub-Package auf **public** stehen, damit Unraid es ohne Login zieht.
+  dieses Repos bei jedem Push auf `main` gebaut, sobald die Tests desselben Commits
+  grün sind (multi-arch: amd64 / arm64 / armv7), und muss im GitHub-Package auf
+  **public** stehen, damit Unraid es ohne Login zieht.
 
 ## Installation über das Template
 
@@ -216,4 +217,5 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   gleicht den Stand an.
 - **Image lässt sich nicht ziehen:** das GitHub-Package
   `chief-wiggum1203/loxpanel` muss auf *public* stehen und der Workflow
-  *Docker Image* muss mindestens einmal auf `main` gelaufen sein.
+  *Tests und Image* muss mindestens einmal auf `main` grün durchgelaufen sein
+  (mit dem Job *Image veroeffentlichen (GHCR)*).

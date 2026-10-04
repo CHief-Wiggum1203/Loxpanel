@@ -73,8 +73,9 @@ git push -u origin fix/unraid-xyz     # PR gegen den Fork-main
 
 Immer wenn Upstream etwas Neues released. Als Repo-Owner ist der einfachste Weg:
 **lokal mergen und direkt auf `main` pushen**. Das umgeht die „nur Squash/
-Rebase"-Einstellung und löst den `:latest`-Build automatisch aus (weil der Push
-mit den eigenen Zugangsdaten erfolgt, nicht über einen Bot-Token).
+Rebase"-Einstellung und löst die Tests und danach den `:latest`-Build
+automatisch aus (weil der Push mit den eigenen Zugangsdaten erfolgt, nicht über
+einen Bot-Token). Das Image entsteht erst, wenn die Tests dieses Pushs grün sind.
 
 ```bash
 # 1. Upstream-Stand holen
@@ -88,10 +89,18 @@ git merge upstream/main
 #    Konflikte fast nur in den Identitäts-Dateien (release.cfg ARCHIVEURL,
 #    plugin.cfg VERSION, Image-Name): Fork-Identität behalten, Upstream-Code
 #    und -Version übernehmen.
+#    Ausnahme .github/workflows/docker-image.yml („deleted in HEAD and
+#    modified in upstream/main“): gelöscht lassen (git rm), sonst
+#    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
+#    veroeffentlichen in tests.yml übertragen (Fork-eigene Patches unten).
 
-# 4. Rauchtest (siehe unten)
+# 4. Rauchtest (siehe unten), mindestens die Wache über die Workflows:
+.venv/bin/pytest tests/test_workflows.py
+#    Bringt der Merge eine NEUE Workflow-Datei mit, die nach ghcr.io
+#    veröffentlicht, gibt es keinen Konflikt. Die Wache meldet sie hier;
+#    nach dem Push veröffentlichte die Datei schon neben den Tests her.
 
-# 5. Direkt pushen -> :latest wird automatisch neu gebaut
+# 5. Direkt pushen -> Tests laufen, nach grünen Tests wird :latest neu gebaut
 git push origin main
 ```
 
@@ -131,7 +140,8 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 (besser: die Änderung vorher upstream einreichen, dann ist sie in beiden).
 
 **3. Nach dem Sync — Funktionstest der kritischen Pfade** (nicht nur der
-`py_compile`-Rauchtest), bevor `:latest` gebaut/deployt wird:
+`py_compile`-Rauchtest), bevor `main` gepusht wird. Danach baut der
+Workflow `:latest`, sobald die Tests grün sind, und die kennen nur den Nachbau:
 
 - Musik: play/pause + Lautstärke an einer `AudioZone`/`AudioZoneV2`
 - PIN-Tür, Intercom-Bild, eine Jalousie / ein Licht schalten
@@ -262,6 +272,14 @@ nicht still entfernt):
 - Kalender- und Wetter-Tabs (`FRONT_TABS` in `bin/webvisu.py`,
   `renderFrontTab()` in `panel.html`, Fork #84; Lenardo hat Wetter und Kalender
   inzwischen als Widget-Seite): `tests/browser/test_front_tabs_browser.py`.
+- Image nur nach grünen Tests: Der Job `veroeffentlichen` in
+  `.github/workflows/tests.yml` baut und veröffentlicht das Image erst, wenn
+  alle Prüf-Jobs desselben Laufs grün sind. Lenardos `docker-image.yml`
+  veröffentlichte neben den Tests her und ist im Fork gelöscht, nicht nur
+  geleert: Ändert Upstream die Datei, hält ein Konflikt den Merge an (Ablauf C,
+  Schritt 3), statt dass sich die Änderung still in eine Restfassung mischt.
+  Dazu gehört der Kommentar beim Build-Argument `LOXPANEL_COMMIT` im
+  `Dockerfile`. Wache: `tests/test_workflows.py`.
 - Docker-Betrieb: `/api/health` für den `HEALTHCHECK` und
   `LOXPANEL_LOG_LEVEL`: `test_health_meldet_beendete_aufgabe`,
   `test_log_level` in `tests/test_unraid.py`. Seit Oktober 2026 fragt auch der
@@ -273,20 +291,28 @@ nicht still entfernt):
 1. **Merge-Commit-Regel:** Upstream-Syncs nie squashen/rebasen. Lokal mergen +
    `git push origin main` ist der sauberste Weg.
 2. **`:latest`-Build:** Ein Push auf `main` mit eigenen Zugangsdaten baut das
-   Image automatisch neu. Merges über einen GitHub-Bot-Token lösen den
-   `push`-Trigger **nicht** aus – dann den Build manuell starten
-   (Actions → „Docker Image" → „Run workflow").
+   Image automatisch neu, sobald die Tests desselben Laufs grün sind (rund zehn
+   Minuten). Merges über einen GitHub-Bot-Token lösen den `push`-Trigger
+   **nicht** aus – dann den Lauf manuell starten (Actions → „Tests und Image“ →
+   „Run workflow“ auf `main`; von anderen Zweigen veröffentlicht er nicht). War
+   ein Test nur zufällig rot, startet „Re-run failed jobs“ das Veröffentlichen
+   mit. Beide Re-runs, „failed jobs“ wie „all jobs“, nur am neuesten Lauf auf
+   `main` starten: An einem älteren setzt das Veröffentlichen `latest` auf
+   dessen Stand zurück, und wartet gerade ein neuerer Lauf, verdrängt der
+   Re-run ihn (je Gruppe wartet nur einer).
 3. **Identität schützen:** Nach jedem Sync prüfen, dass
    `ghcr.io/chief-wiggum1203/loxpanel` (klein), `ARCHIVEURL` auf den Fork und
    `plugin.cfg` NAME/FOLDER/AUTHOR unverändert sind.
 
 ## Prüfen vor jedem Push
 
-Die GitHub-Action „Tests" (`.github/workflows/tests.yml`) läuft auf jedem PR und
-jedem Push auf `main`: Syntax, Lint (Fehlerregeln), pytest mit Miniserver-Nachbau
-und Rauchtest, Visu-/Konfigurator-Tests in Chromium und für PRs ein Probe-Build
-des Images. Ein PR wird erst gemergt, wenn sie grün ist. Lokal dasselbe
-(Einzelheiten in `CLAUDE.md`):
+Die GitHub-Action „Tests und Image“ (`.github/workflows/tests.yml`) läuft auf
+jedem PR, jedem Push auf `main` und jedem `v*`-Tag: Syntax, Lint
+(Fehlerregeln), pytest mit Miniserver-Nachbau und Rauchtest,
+Visu-/Konfigurator-Tests in Chromium, für PRs ein Probe-Build des Images. Auf
+`main` und bei `v*`-Tags veröffentlicht sie danach das Image, aber nur, wenn
+alles davor grün ist. Ein PR wird erst gemergt, wenn sie grün ist. Lokal
+dasselbe (Einzelheiten in `CLAUDE.md`):
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt

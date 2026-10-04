@@ -69,6 +69,7 @@ from audioserver_events import AudioEventClient  # noqa: E402
 import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fuer die Front
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
+import audioserver_auth  # noqa: E402  # Audioserver-Anmeldung; hier nur HAVE_CRYPTO (_fehlende_pakete_melden)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
@@ -8824,8 +8825,27 @@ def _logging_einrichten() -> int:
     return level
 
 
+def _fehlende_pakete_melden() -> None:
+    """Einmal beim Start: welche optionalen Pakete aus requirements.txt fehlen
+    und was dadurch nicht geht. Ohne sie laeuft der Server weiter und meldet
+    sich gesund (/api/health); auffallen wuerde es sonst erst am Kalender, an
+    der Intercom oder am Audioserver."""
+    fehlt: dict[str, list[str]] = {}
+    for da, paket, funktion in (
+            (front_info.HAVE_ICAL, "icalendar", "Kalender der Front"),
+            (front_info.HAVE_RRULE, "python-dateutil", "Serientermine im Kalender"),
+            (loxone_secure.HAVE_CRYPTO, "cryptography", "gesicherte Details der Intercom (SIP-Zugang)"),
+            (audioserver_auth.HAVE_CRYPTO, "cryptography", "Anmeldung am Audioserver (Favoriten, Steuerung)")):
+        if not da:
+            fehlt.setdefault(paket, []).append(funktion)
+    if fehlt:
+        log.warning("Pakete aus requirements.txt fehlen (pip install -r requirements.txt) - %s",
+                    "; ".join(f"ohne {paket}: {', '.join(f)}" for paket, f in fehlt.items()))
+
+
 def main() -> None:
     _logging_einrichten()
+    _fehlende_pakete_melden()
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=int(os.environ.get("LOXPANEL_PORT", "8099")))
     args = p.parse_args()
