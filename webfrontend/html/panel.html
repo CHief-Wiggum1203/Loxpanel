@@ -1028,6 +1028,14 @@ let playerData = null;   // letzter {t:'player'}-Push (Player-Bloecke) fuer die 
 // Verlaufs-Pane (chart:<uuid>): gemeldeter Baustein|Zeitraum, letzter {t:'chart'}-Push,
 // in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
 let curChartKey = '', chartData = null, chartRange = '24h';
+// Die Kennungen oben sind die zuletzt gemeldeten Abos (set*). Der Server fuehrt
+// sie je Verbindung und raeumt sie ab, wenn sie endet (ws_handler, _send_or_drop).
+// Nach jedem Verbindungsaufbau gelten sie darum als nicht gemeldet; der
+// theme-Push ruft danach applyPane(), das alle aktiven neu anmeldet. Aufruf in
+// ws.onopen, nicht in onclose: send() verwirft ohne Verbindung, ein Wechsel in
+// der Trennung setzte die Kennung sonst, ohne dass der Server davon erfaehrt.
+// Ein neues Abo mit eigener Kennung gehoert hier hinein.
+function abosVergessen(){ curEnergyUuid=''; curCameraUuid=''; curPlayerZone=''; curSvStatus=''; curChartKey=''; }
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
@@ -2198,7 +2206,7 @@ function connect(){
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
   // Reconnect stattdessen die zuletzt betrachtete Seite wiederherstellen.
-  ws.onopen=()=>{ el('conn').classList.add('ok'); curChartKey=''; if(booted) send({t:'nav',route:stack[stack.length-1]}); };
+  ws.onopen=()=>{ el('conn').classList.add('ok'); abosVergessen(); if(booted) send({t:'nav',route:stack[stack.length-1]}); };
   ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
   ws.onmessage=e=>{
     let msg;
