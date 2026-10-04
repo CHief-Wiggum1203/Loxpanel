@@ -10,6 +10,7 @@ Ablauf, Abbrechen und Halten-Tasten, bei denen nie ein Druecken ohne sein
 Loslassen ankommen darf."""
 import asyncio
 import json
+import time
 
 import pytest
 
@@ -22,6 +23,7 @@ from playwright.async_api import async_playwright  # noqa: E402
 pytestmark = pytest.mark.browser
 
 PIN = "4711"
+GERAET = "wand"
 
 DIMMER = ({"name": "Flur Dimmer", "type": "Dimmer", "uuidAction": "DIM", "room": "r1", "cat": "c1",
            "states": {"position": "dim-p", "min": "dim-mn", "max": "dim-mx", "step": "dim-st"}},
@@ -38,9 +40,11 @@ def _bausteine():
     return [DIMMER, TOR, ZONE, bewaesserung_baustein(), wecker_baustein(), intercom_baustein()]
 
 
-async def _visu(tmp_path, schritt, ui=None, groesse=(480, 480)):
+async def _visu(tmp_path, schritt, ui=None, groesse=(480, 480), agent=False, init_js=None):
     """Visu mit allen Bausteinen gesichert; der Nachbau kennt die PIN.
-    schritt(pg, ms, app) bedient."""
+    schritt(pg, ms, app) bedient. Die Visu laeuft als Geraet GERAET; agent:
+    ein Panel-Agent hat sich dafuer gemeldet, init_js: vor der Seite geladen
+    (nachgebaute App-Bruecke)."""
     ms = Miniserver()
     ms.visu_pin = PIN
     await ms.start()
@@ -55,6 +59,9 @@ async def _visu(tmp_path, schritt, ui=None, groesse=(480, 480)):
     app._apply_structure(struktur)
     app.states = states
     app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui or {}}})
+    if agent:
+        app.agents["10.0.0.9"] = {"ip": "10.0.0.9", "name": GERAET, "panel": "test", "port": 8130,
+                                  "kiosk": True, "ts": time.time()}
     runner, port, bc = await visu_starten(app)
     fehler = []
     try:
@@ -62,7 +69,9 @@ async def _visu(tmp_path, schritt, ui=None, groesse=(480, 480)):
             b = await p.chromium.launch()
             pg = await b.new_page(viewport={"width": groesse[0], "height": groesse[1]})
             pg.on("pageerror", lambda e: fehler.append(str(e)))
-            await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+            if init_js:
+                await pg.add_init_script(init_js)
+            await pg.goto(f"http://127.0.0.1:{port}/?panel=test&device={GERAET}")
             await pg.wait_for_timeout(600)
             await pg.evaluate("wake()")
             await pg.wait_for_timeout(800)
@@ -326,15 +335,22 @@ def test_pin_merken_aus(tmp_path, miniserver_http):
     asyncio.run(_visu(tmp_path, schritt, ui={"pinMerken": 0}))
 
 
-@pytest.mark.parametrize("vergessen", ["uhrseite", "seitenwechsel"])
+@pytest.mark.parametrize("vergessen", ["uhrseite", "seitenwechsel", "nachtbeginn", "server_display_aus"])
 def test_pin_vergessen(tmp_path, miniserver_http, vergessen):
-    """Mit dem Standard (30 s) gemerkt, aber Uhr-Seite und Seitenwechsel
-    vergessen die PIN sofort."""
+    """Mit dem Standard (30 s) gemerkt, aber Uhr-Seite, Seitenwechsel,
+    Nachtbeginn und "Display aus" vom Server vergessen die PIN sofort."""
     async def schritt(pg, ms, app):
         dim = {"view": "control", "id": "DIM"}
         await _nav(pg, dim)
         await _plus_mit_pin(pg, ms)
-        if vergessen == "uhrseite":
+        await _plus(pg)
+        assert not await _offen(pg), "mit dem Standard gemerkt"
+        if vergessen == "nachtbeginn":
+            await pg.evaluate("setNight(true)")
+        elif vergessen == "server_display_aus":
+            app._pending_presence.append({"dev": GERAET, "on": False, "presence": False})
+            await pg.wait_for_timeout(1000)
+        elif vergessen == "uhrseite":
             await pg.evaluate("showSaver()")
             await pg.wait_for_timeout(300)
             await pg.locator("#saver").dispatch_event("pointerdown")
@@ -347,6 +363,59 @@ def test_pin_vergessen(tmp_path, miniserver_http, vergessen):
         await _plus(pg)
         assert await _offen(pg)
     asyncio.run(_visu(tmp_path, schritt))
+
+
+# Display aus nach so vielen Sekunden ohne Eingabe (ui.dpmsOff), kuerzer als der
+# Standard von "PIN merken"
+DPMS_S = 2
+# JS-Bruecke der LoxPanel-App (KioskActivity.KioskBridge), nachgebaut, soweit
+# sie das Display abdunkelt: setDisplayOff legt die Zeit fest, die erst laeuft,
+# solange die Uhr-Seite steht (setSaver, rearmIdle); turnScreenOff dunkelt
+# sofort. Jedes Abdunkeln haelt fest, ob die Visu da noch eine PIN gemerkt hat.
+APP_JS = """window.__dunkel = []; window.LoxKiosk = { _ms: 0, _uhr: false, _t: null,
+  _arm() { clearTimeout(this._t);
+    if (this._uhr && this._ms > 0) this._t = setTimeout(() => this._dunkel('schoner'), this._ms); },
+  _dunkel(wie) { window.__dunkel.push([wie, pinMerk !== null]); },
+  setDisplayOff(s) { this._ms = s * 1000; this._arm(); },
+  setSaver(an) { this._uhr = an; this._arm(); },
+  turnScreenOff() { this._dunkel('aus'); },
+  turnScreenOn() {}, isScreenOn() { return true; } };"""
+
+
+@pytest.mark.parametrize("betrieb", ["browser", "agent", "app"])
+def test_pin_vergessen_bei_display_aus(tmp_path, miniserver_http, betrieb):
+    """Display aus vergisst die gemerkte PIN, in jeder Betriebsart; vorher ist
+    sie mit dem Standard gemerkt. Im Browser (Fully, Display-Treiber) und mit
+    Agent (X schaltet per DPMS ab, die Seite erfaehrt es nicht) nach dpmsOff
+    Sekunden ohne Eingabe. Die LoxPanel-App dunkelt nicht nach dpmsOff ab,
+    sondern dpmsOff nach der Uhr-Seite oder auf Befehl des Servers; beide Male
+    ist die PIN schon vergessen."""
+    dim = {"view": "control", "id": "DIM"}
+
+    async def schritt(pg, ms, app):
+        await _nav(pg, dim)
+        await _plus_mit_pin(pg, ms)
+        await _plus(pg)
+        assert not await _offen(pg), "mit dem Standard gemerkt"
+        await pg.wait_for_timeout(DPMS_S * 1000 + 600)
+        if betrieb != "app":
+            await _plus(pg)
+            assert await _offen(pg), "Display aus: die Visu fragt wieder"
+            return
+        assert await pg.evaluate("__dunkel") == [], "die App dunkelt erst nach der Uhr-Seite ab"
+        await pg.evaluate("nachRuhe()")             # was der Leerlauf nach SAVER_IDLE_MS aufruft
+        await pg.wait_for_timeout(DPMS_S * 1000 + 600)
+        assert await pg.evaluate("__dunkel") == [["schoner", False]]
+        # Der Server schaltet ab (Praesenzmelder: Raum leer)
+        await pg.evaluate("wake()")
+        await pg.wait_for_timeout(300)
+        await _nav(pg, dim)
+        await _plus_mit_pin(pg, ms)
+        app._pending_presence.append({"dev": GERAET, "on": False, "presence": False})
+        await pg.wait_for_timeout(1000)
+        assert await pg.evaluate("__dunkel") == [["schoner", False], ["aus", False]]
+    asyncio.run(_visu(tmp_path, schritt, ui={"dpmsOff": DPMS_S}, agent=betrieb == "agent",
+                      init_js=APP_JS if betrieb == "app" else None))
 
 
 def test_kamera_auf_der_uhrseite(tmp_path, miniserver_http):

@@ -771,6 +771,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
                                              // fehlt = mittel (KACHEL_ZIEL)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
+        "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
+                                             // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
@@ -1209,8 +1211,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   wacht darüber). `secured` setzt `render()` für jede Seite des Bausteins, auch
   die Unterseiten, `_pane_msg()` für Player- und Kamera-Bereich. Eine bestätigte
   PIN gilt `ui.pinMerken` Sekunden (Standard `PIN_MERKEN_STANDARD`) auf derselben
-  Seite; Uhr-Seite, Display aus und Seitenwechsel vergessen sie. Ohne gemerkte
-  PIN wirkt eine Halten-Taste wie ein Tipp. Wisch nach rechts =
+  Seite; Uhr-Seite, Display aus, Nachtbeginn und Seitenwechsel vergessen sie.
+  Display aus heißt auch mit Agent nach `dpmsOff` ohne Eingabe (`armDpms()`,
+  X schaltet dann selbst ab); die LoxPanel-App dunkelt erst nach der Uhr-Seite
+  ab. Ohne gemerkte PIN wirkt eine Halten-Taste wie ein Tipp. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
 - Sprache wirkt nur auf Datum und Uhrzeit. Alle anderen Panel-Texte sind hart
   deutsch, sowohl im Frontend als auch in den vom Server erzeugten Texten

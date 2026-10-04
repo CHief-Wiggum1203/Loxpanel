@@ -154,7 +154,7 @@ def test_pin_merken_speichern(wert, gespeichert):
     assert W.App._panels_verworfen(roh, sauber) == []
 
 
-@pytest.mark.parametrize("wert", ["30", True])
+@pytest.mark.parametrize("wert", ["30", True, float("inf"), float("nan")])
 def test_pin_merken_ungueltig_wird_gemeldet(wert):
     roh = {"p": {"title": "P", "ui": {"pinMerken": wert}}}
     sauber = W.App._sanitize_panels(roh)

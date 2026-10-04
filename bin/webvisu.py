@@ -373,8 +373,9 @@ SUPPORTED_LANGS = ("de", "en", "fr", "it", "es", "nl")
 
 
 def _pin_merken(v) -> int:
-    """Sekunden, die die Visu eine richtige PIN behaelt; ungueltig -> Standard."""
-    if isinstance(v, bool) or not isinstance(v, (int, float)):
+    """Sekunden, die die Visu eine richtige PIN behaelt; ungueltig -> Standard.
+    json.loads nimmt Infinity und NaN an, int() wuerfe dabei."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
         return PIN_MERKEN_STANDARD
     return max(0, min(PIN_MERKEN_MAX, int(v)))
 
