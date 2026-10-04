@@ -1518,6 +1518,13 @@ function renderEditor(){
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
+     '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
+     '<div class="sizes">'+
+       '<div class="field" style="max-width:180px"><label class="lbl">PIN merken (Sek.)</label>'+
+         '<input type="number" min="0" max="'+esc(String(pinMerkenCfg().max))+'" step="5" data-ui="pinMerken" value="'+
+         (((p.ui||{}).pinMerken==null)?'':(p.ui||{}).pinMerken)+'" placeholder="'+esc(String(pinMerkenCfg().standard))+'"></div>'+
+     '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
      '<div class="grph">'+T('Feinjustierung')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
@@ -1614,6 +1621,9 @@ const SIZE_KEYS=['iconSize','nameSize','subSize','roomSize','bigSize'];
 // Auto-Neustart ohne Eintrag: Die Visu laedt jede Nacht um diese Stunde neu,
 // sie kommt vom Server (/api/meta reloadAt = NEULADEN_STUNDE).
 function neuladenStunde(){ return (META||{}).reloadAt; }
+// PIN merken: Standard und Grenze kommen vom Server (/api/meta pinMerken =
+// PIN_MERKEN_STANDARD/PIN_MERKEN_MAX).
+function pinMerkenCfg(){ return (META||{}).pinMerken||{standard:'',max:''}; }
 function sizeStd(layout,mitGlobal){
   const std=Object.assign({},((META||{}).sizeDefaults||{})[layout==='classic'?'classic':'neu']);
   const g=mitGlobal?(((PANELS.__global__||{}).ui)||{}):{};

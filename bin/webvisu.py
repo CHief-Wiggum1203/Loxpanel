@@ -341,10 +341,19 @@ PROZENT_SCHRITT = 5
 # Intercom: alles ausser Gegensprechen (SIP ueber UDP kann der Browser nicht;
 # Zugang und Pruefung der Tuerstation unter Settings -> SIP, /api/sip).
 PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
+# Gesicherte Bausteine (isSecured): Nach richtiger Visu-PIN fragt die Visu so
+# viele Sekunden nicht erneut (Panel-Option ui.pinMerken, 0 = jedes Mal). 30 s
+# reichen fuer eine Bedienung (Helligkeit oder Lautstaerke in Schritten,
+# Halten am Garagentor) und sind kurz genug, dass ein verlassenes Panel nicht
+# offen bleibt; Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN
+# ohnehin sofort. Obergrenze wie bei "Display aus": eine Stunde.
+PIN_MERKEN_STANDARD = 30
+PIN_MERKEN_MAX = 3600
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
+                  ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
@@ -361,6 +370,13 @@ def _color_ok(v) -> bool:
 # Unterstuetzte Panel-Sprachen (Basis-Codes). Steuert vorerst nur Datum/Uhr am
 # Panel; die Uebersetzung der festen UI-/Statustexte folgt (i18n-Ausbau).
 SUPPORTED_LANGS = ("de", "en", "fr", "it", "es", "nl")
+
+
+def _pin_merken(v) -> int:
+    """Sekunden, die die Visu eine richtige PIN behaelt; ungueltig -> Standard."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return PIN_MERKEN_STANDARD
+    return max(0, min(PIN_MERKEN_MAX, int(v)))
 
 
 def _clean_lang(v):
@@ -2177,6 +2193,8 @@ class App:
             # und Profil gemischt): "off" | "auto" | Faktor. Ein Geraet kann
             # sie uebersteuern, siehe effective_scale().
             "scale": _clean_scale(ui.get("scale")) or "off",
+            # Visu-PIN gesicherter Bausteine so viele Sekunden behalten (0 = nie)
+            "pinMerken": _pin_merken(ui.get("pinMerken")),
         }
 
     def player_blocks(self, uuid: str):
@@ -2759,7 +2777,7 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize")}
+                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -2906,6 +2924,9 @@ class App:
                 cui["nightDim"] = max(0, min(90, int(ui["nightDim"])))    # Nachts abdunkeln in %
             if isinstance(ui.get("nightWake"), (int, float)):
                 cui["nightWake"] = max(0, min(300, int(ui["nightWake"])))  # Aufhellen bei Beruehrung, Sek.
+            if isinstance(ui.get("pinMerken"), (int, float)) and \
+                    _pin_merken(ui["pinMerken"]) != PIN_MERKEN_STANDARD:
+                cui["pinMerken"] = _pin_merken(ui["pinMerken"])   # PIN merken, Sek.; fehlt = Standard
             if ui.get("cols") in (2, 3):
                 cui["cols"] = int(ui["cols"])   # Spalten: 2 oder 3
             if ui.get("rows") in (2, 3):
@@ -5047,8 +5068,6 @@ class App:
     def _view_control(self, uuid: str, rng: str | None = None) -> dict:
         v = self._view_control_inner(uuid)
         c = self.controls.get(uuid, {})
-        if c.get("isSecured"):
-            v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
         # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
         if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
@@ -5981,6 +6000,16 @@ class App:
                 "items": [self._control_item(uuid)]}
 
     def render(self, route: dict, prof: dict | None = None) -> dict:
+        out = self._render_seite(route, prof)
+        # Jede Seite eines gesicherten Bausteins, auch seine Unterseiten (Zone,
+        # Weckzeit, Musikauswahl ...): die Visu fragt vor jedem Befehl die
+        # Visu-PIN ab. Gruppe und Tab nicht - dort zaehlt die einzelne Kachel.
+        if (out.get("route") or {}).get("view") not in ("group", "tab") \
+                and self._gesichert((route or {}).get("id")):
+            out["secured"] = True
+        return out
+
+    def _render_seite(self, route: dict, prof: dict | None = None) -> dict:
         v = (route or {}).get("view", "tab")
         if v == "group":
             return self._view_group(route, prof)
@@ -5997,6 +6026,19 @@ class App:
         if v == "bells":
             return self._view_bells(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
+
+    def _gesichert(self, uuid) -> bool:
+        """Baustein mit Visu-Passwort (isSecured): Befehle nur mit PIN (sps/ios)."""
+        return isinstance(uuid, str) and bool((self.controls.get(uuid) or {}).get("isSecured"))
+
+    def _pane_msg(self, art: str, uuid: str, blocks: list) -> dict:
+        """{t:"player"|"camera"} fuer Player- bzw. Kamera-Bereich. Gesichert wie
+        die Detailseite derselben Zone bzw. Intercom, sonst bedienten
+        Lautstaerke, Transport und Tueroeffner sie ohne PIN."""
+        m = {"t": art, "blocks": blocks}
+        if self._gesichert(uuid):
+            m["secured"] = True
+        return m
 
     async def audio_events_task(self) -> None:
         """Verwaltet je Audioserver (aus /mediaServer der Struktur) einen
@@ -6411,7 +6453,7 @@ class App:
                 if _zone:
                     try:
                         pb = self.player_blocks(_zone)
-                        player_msg = {"t": "player", "blocks": pb} if pb is not None else None
+                        player_msg = self._pane_msg("player", _zone, pb) if pb is not None else None
                     except Exception:
                         log.exception("player_blocks fehlgeschlagen (%s)", _zone)
                 # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
@@ -6440,7 +6482,7 @@ class App:
                 if _cuid:
                     try:
                         ib = self.intercom_blocks(_cuid)
-                        camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
+                        camera_msg = self._pane_msg("camera", _cuid, ib) if ib is not None else None
                     except Exception:
                         log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
                 # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
@@ -6852,6 +6894,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
         # der Konfigurator nennt sie im leeren Feld.
         "reloadAt": NEULADEN_STUNDE,
+        # PIN merken: Standard und Grenze fuer das Feld im Konfigurator
+        "pinMerken": {"standard": PIN_MERKEN_STANDARD, "max": PIN_MERKEN_MAX},
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -8522,6 +8566,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"]),
+                        "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
                         "reloadHours": app.panel_reload(prof["id"]),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
@@ -8578,7 +8623,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 pin = data.get("pin")
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
-                    await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+                    # uuid/cmd: die Visu ordnet das Ergebnis ihrem Befehl zu
+                    # (Druecken und Loslassen kommen kurz hintereinander);
+                    # code None = keine Antwort, keine abgelehnte PIN.
+                    await ws.send_json({"t": "cmdresult", "ok": code == "200", "code": code,
+                                        "uuid": data.get("uuid"), "cmd": data.get("cmd")})
                 elif code != "200" and data.get("uuid") and data.get("cmd"):
                     # Sichtbar machen statt still verschlucken (Details im Log)
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
@@ -8592,7 +8641,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         pb = app.player_blocks(zone)
                         if pb is not None:
-                            _pm = {"t": "player", "blocks": pb}
+                            _pm = app._pane_msg("player", zone, pb)
                             await ws.send_json(_pm)
                             app._last_sent.setdefault(ws, {})["player"] = _pm
                     except Exception:
@@ -8663,7 +8712,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         ib = app.intercom_blocks(cuid)
                         if ib is not None:
-                            await ws.send_json({"t": "camera", "blocks": ib})
+                            await ws.send_json(app._pane_msg("camera", cuid, ib))
                     except Exception:
                         log.exception("intercom_blocks (setcamera) fehlgeschlagen (%s)", cuid)
                 else:
