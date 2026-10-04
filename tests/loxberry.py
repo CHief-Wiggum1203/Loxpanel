@@ -374,7 +374,9 @@ class Widget:
 
     def befehl(self, felder: dict | None = None, api: str | None = None,
                miniserver: dict | None = None) -> dict:
-        """Argumente fuer subprocess.run (auch aus einem Thread heraus)."""
+        """Argumente fuer subprocess.run (auch aus einem Thread heraus). Die
+        Seite muss gueltiges UTF-8 sein (charset=utf-8 im Kopf), sonst
+        scheitert schon das Lesen der Ausgabe."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("LOXBERRY_TEST_")}
         rumpf = urlencode(felder or {})
         env.update(REQUEST_METHOD="POST" if felder else "GET", QUERY_STRING="",
@@ -384,7 +386,7 @@ class Widget:
         if miniserver is not None:
             env["LOXBERRY_TEST_MINISERVER"] = json.dumps(miniserver)
         return {"args": [PERL, "-I", str(self.module), str(self.skript)], "env": env, "input": rumpf,
-                "capture_output": True, "text": True, "timeout": 60}
+                "capture_output": True, "encoding": "utf-8", "timeout": 60}
 
     def aufruf(self, felder: dict | None = None, api: str | None = None,
                miniserver: dict | None = None) -> str:

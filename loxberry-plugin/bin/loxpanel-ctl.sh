@@ -5,7 +5,8 @@
 #   restart stop + start  (zieht dabei das neueste Image = manuelles Update)
 #   check   startet den Container, falls er (unerwartet) nicht laeuft
 #           (fuer Boot-daemon und 5-Minuten-Cron; ein bewusst gestopptes
-#            Panel wird NICHT wieder gestartet)
+#            Panel wird NICHT wieder gestartet, waehrend backup/restore
+#            wartet die Pruefung auf den naechsten Lauf)
 #   backup  sichert die Konfiguration (Panels/Theme/Miniserver) als tar.gz
 #   restore <datei>  spielt ein Backup zurueck (sichert vorher den Ist-Stand)
 #   keep    gibt aus, wie viele Backups behalten werden (KEEP, fuer das Widget)
@@ -35,7 +36,8 @@ KEEP=20
 # in bin/webvisu.py). Ein Backup ohne eine davon ist keine LoxPanel-Konfiguration.
 KONFIG_DATEIEN="loxpanel.cfg panels.json theme.json"
 NICHTS=3                # Status von _sichern: config/ fehlt oder ist leer
-# backup und restore nie gleichzeitig (zweites Fenster, Doppelklick im Widget)
+# backup und restore nie gleichzeitig (zweites Fenster, Doppelklick im Widget),
+# check nie waehrend eines der beiden
 SPERRE="$DATADIR/.loxpanel-ctl.lock"
 # Zeitzone des LoxBerry fuer den Container (start): dessen /etc/localtime nur
 # lesend an einen eigenen Pfad, TZ=":<pfad>" - glibc liest die Zone aus der
@@ -66,13 +68,26 @@ running() {
 	[ -n "$(sudo docker ps --filter 'name=^/loxpanel$' --filter status=running -q 2>/dev/null)" ]
 }
 
+# Sperre auf fd 9 nicht-blockierend nehmen: 0 = gesperrt, 1 = ein anderer Lauf
+# haelt sie, 2 = Sperrdatei nicht zu oeffnen. Nur lesend oeffnen: flock braucht
+# kein Schreibrecht, so sperrt auch eine Datei, die ein Lauf als root (sudo
+# loxpanel-ctl.sh ...) angelegt hat und die loxberry nicht schreiben darf.
+_sperre() {
+	[ -e "$SPERRE" ] || : >"$SPERRE"
+	exec 9<"$SPERRE" || return 2
+	flock -n 9 || return 1
+}
+
 # Sperre fuer backup/restore: ein zweiter Lauf bricht sofort ab, statt auf
 # halbe Zwischenstaende des ersten zu treffen. Danach Reste abgebrochener Laeufe
 # (Stromausfall, kill) wegraeumen - unter der Sperre laeuft sonst keiner.
 _sperren() {
 	local reste
-	exec 9>"$SPERRE" && flock -n 9 || {
-		echo "Es läuft schon eine Sicherung oder Wiederherstellung – bitte warten und erneut versuchen."; exit 1; }
+	_sperre
+	case $? in
+		1) echo "Es läuft schon eine Sicherung oder Wiederherstellung, oder die Prüfung startet gerade das Panel – bitte warten und erneut versuchen."; exit 1 ;;
+		2) echo "Sperrdatei $SPERRE lässt sich nicht anlegen – nichts geändert."; exit 1 ;;
+	esac
 	shopt -s nullglob
 	reste=("$DATADIR"/.restore.* "$BACKUPDIR"/*.part)
 	shopt -u nullglob
@@ -110,10 +125,13 @@ _wegraeumen() {
 	_indocker 'rm -rf -- "/data/$1"' "$1"
 }
 
-# Den fuer restore angehaltenen Container wieder starten (ohne pull).
+# Den fuer restore angehaltenen Container wieder starten (ohne pull). restart
+# statt start: Hat ihn in der Luecke jemand gestartet (Widget "Starten"), liest
+# der Server die Konfiguration so trotzdem neu ein, statt den alten Stand im
+# Speicher zu behalten und beim naechsten Speichern zurueckzuschreiben.
 _wieder_starten() {
-	[ "$1" = 1 ] || { echo "Panel ist gestoppt – die Konfiguration gilt beim nächsten Start."; return; }
-	if sudo docker start loxpanel >/dev/null; then echo "Panel neu gestartet."
+	[ "$1" = 1 ] || running || { echo "Panel ist gestoppt – die Konfiguration gilt beim nächsten Start."; return; }
+	if sudo docker restart loxpanel >/dev/null; then echo "Panel neu gestartet."
 	else echo "Panel ließ sich nicht starten – die 5-Minuten-Prüfung versucht es weiter."; fi
 }
 
@@ -150,7 +168,7 @@ restore() {
 for n in $3; do [ -f "/data/$2/neu/$n" ] && sync && exit 0; done
 echo "Keine LoxPanel-Konfiguration ($3) im Archiv." >&2; exit 1' "$bn" "$tmp" "$KONFIG_DATEIEN"; then
 		_wegraeumen "$tmp"
-		echo "Backup beschädigt, unvollständig oder ohne LoxPanel-Konfiguration – nichts geändert."; exit 1
+		echo "Backup nicht eingespielt: Es ließ sich nicht vollständig entpacken oder enthält keine LoxPanel-Konfiguration (Grund steht darüber) – nichts geändert."; exit 1
 	fi
 	# 2. Container anhalten, sonst schreibt der Server womoeglich zwischen
 	#    Vorher-Sicherung und Tausch (Speichern im Konfigurator).
@@ -233,6 +251,14 @@ case "$1" in
 	restart) stop; start ;;
 	check)
 		[ -f "$STOPPED" ] && exit 0     # bewusst gestoppt -> nichts tun
+		# Nicht waehrend backup/restore: restore haelt den Container fuer den
+		# Tausch an, ein Start hier liesse den Server mitten im Tausch laufen.
+		# Die naechste Pruefung holt es nach. Die Sperre gilt bis zum Ende, sonst
+		# begaenne ein restore mitten im Start. Ist die Sperrdatei nicht zu
+		# oeffnen (2), trotzdem pruefen: ein Panel, das nie mehr startet, waere
+		# schlimmer.
+		_sperre
+		[ $? = 1 ] && { echo "Sicherung oder Wiederherstellung läuft – Prüfung übersprungen."; exit 0; }
 		running || start
 		;;
 	backup)  backup ;;

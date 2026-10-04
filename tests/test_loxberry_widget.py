@@ -51,9 +51,10 @@ def _meldung(seite: str) -> tuple[str, str]:
     return m.group(1), html.unescape(re.sub(r"<[^>]+>", " ", m.group(2)))
 
 
-def _widget(tmp_path, felder=None, miniserver=None, mit_ms=True, mit_server=True):
+def _widget(tmp_path, felder=None, miniserver=None, mit_ms=True, mit_server=True, verbunden=False):
     """Miniserver-Nachbau und Server starten, das Widget einmal aufrufen.
-    felder/miniserver duerfen Funktionen des Miniserver-Ports sein."""
+    felder/miniserver duerfen Funktionen des Miniserver-Ports sein.
+    verbunden: der Server ist vorher schon mit dem Nachbau verbunden."""
     async def lauf():
         ms = None
         if mit_ms:
@@ -61,7 +62,12 @@ def _widget(tmp_path, felder=None, miniserver=None, mit_ms=True, mit_server=True
             ms.struktur = anlage(BAUSTEINE)
             ms = await ms.start(0)
         port = ms.port if ms else _freier_port()
+        if verbunden:
+            W._write_cfg({"miniserver": {"host": "127.0.0.1", "user": "loxpanel", "pass": "richtig", "port": port}})
         app = W.App(W._config())
+        if verbunden:
+            await app.reconnect()
+            assert app.client is not None
         runner, api = (await serve(_ui(app))) if mit_server else (None, None)
         try:
             befehl = Widget(tmp_path).befehl(felder(port) if callable(felder) else felder,
@@ -102,6 +108,29 @@ def test_nicht_erreichbar_ist_eine_warnung(cfg_ordner, miniserver_http, tmp_path
     assert art == "warning", text
     assert NICHT_ERREICHBAR in text and "127.0.0.1" in text, text
     assert (cfg_ordner / "loxpanel.cfg").exists()
+
+
+def test_nicht_erreichbar_bei_bestehender_verbindung(cfg_ordner, miniserver_http, tmp_path):
+    """Der Text des Servers hat Umlaute; die Seite ist UTF-8 (Widget.befehl
+    liest sie so), Latin-1 aus decode_json kaeme dort als Fehler an."""
+    art, text = _meldung(_widget(tmp_path, lambda p: _formular(_freier_port()), verbunden=True))
+    assert art == "warning", text
+    assert "der neue Zugang gilt ab dem nächsten Verbindungsaufbau" in text, text
+
+
+def test_port_ungueltig(cfg_ordner, miniserver_http, tmp_path):
+    art, text = _meldung(_widget(tmp_path, _formular(99999), mit_ms=False))
+    assert art == "danger" and "Port ungültig" in text, text
+    assert "Container" not in text
+
+
+def test_speichern_scheitert_mit_500(cfg_ordner, miniserver_http, tmp_path):
+    """Verbunden, aber loxpanel.cfg laesst sich nicht schreiben (hier ein
+    Ordner an ihrer Stelle): 500 mit JSON ist eine Meldung des Servers."""
+    (cfg_ordner / "loxpanel.cfg").mkdir()
+    art, text = _meldung(_widget(tmp_path, _formular))
+    assert art == "danger", text
+    assert "Verbunden, aber der Zugang ließ sich nicht speichern" in text and "loxpanel.cfg" in text, text
 
 
 def test_leerer_benutzer_ist_kein_toter_container(cfg_ordner, miniserver_http, tmp_path):

@@ -5,11 +5,13 @@ Wiederherstellen tauscht config/ erst, wenn das Backup vollstaendig entpackt,
 als LoxPanel-Konfiguration erkannt und der Ist-Stand gesichert ist; waehrend
 des Tauschs steht der Container. Ein Archiv entsteht erst unter .part und
 heisst erst nach dem Zuruecklesen so, wie das Widget es anbietet. Zwei Laeufe
-gleichzeitig verhindert eine Sperre."""
+gleichzeitig verhindert eine Sperre; solange sie gilt, startet auch die
+5-Minuten-Pruefung (check) den Container nicht."""
 import fcntl
 import os
 import re
 import subprocess
+import time
 
 import pytest
 
@@ -155,6 +157,66 @@ def test_zwei_wiederherstellungen_gleichzeitig(lb):
         assert rc == 0 or "läuft schon" in aus, aus
     assert lb.stand() == ALT and lb.reste() == []
     assert all(_gueltig(lb.backups / n) for n in _angeboten(lb))
+
+
+def test_pruefung_waehrend_restore_startet_nichts(lb):
+    """Die 5-Minuten-Pruefung (cron.05min -> check) sieht den fuer den Tausch
+    angehaltenen Container als ausgefallen. Startete sie ihn, liefe der Server
+    mitten im Tausch und behielte den alten Stand. Sie wartet auf den naechsten
+    Lauf; restore startet den Container danach selbst neu."""
+    name = lb.archiv("loxpanel-config-20260108-000000.tar.gz", ALT).name
+    p = lb.ctl_starten("restore", name, DOCKER_VERZOEGERUNG="0.5")
+    ende = time.monotonic() + 60
+    while lb.container() != "gestoppt":
+        assert p.poll() is None and time.monotonic() < ende, "restore haelt den Container nicht an"
+        time.sleep(0.02)
+    c = lb.ctl("check")
+    aus = p.communicate(timeout=120)[0]
+    assert p.returncode == 0, aus
+    assert c.returncode == 0 and "übersprungen" in c.stdout, c.stdout + c.stderr
+    aufrufe = lb.aufrufe()
+    assert not [a for _, a in aufrufe if a.startswith("compose")], aufrufe
+    tausch = [z for z, a in aufrufe if "mv -t" in a]
+    assert tausch and set(tausch) == {"gestoppt"}, aufrufe
+    assert lb.stand() == ALT and lb.container() == "laeuft" and "Panel neu gestartet." in aus
+
+
+def test_neustart_liest_neu_ein_auch_wenn_jemand_gestartet_hat(lb):
+    """Startet jemand den Container in der Luecke (Widget "Starten"), startet
+    restore ihn am Ende trotzdem neu, statt ihn mit dem alten Stand laufen zu
+    lassen. Hier lief er vorher nicht und wird waehrend der Vorher-Sicherung
+    gestartet."""
+    lb.zustand.write_text("gestoppt\n")
+    name = lb.archiv("loxpanel-config-20260109-000000.tar.gz", ALT).name
+    p = lb.ctl_starten("restore", name, DOCKER_VERZOEGERUNG="0.5")
+    ende = time.monotonic() + 60
+    while not any("tar -czf" in a for _, a in lb.aufrufe()):     # Vorher-Sicherung laeuft
+        assert p.poll() is None and time.monotonic() < ende, "keine Vorher-Sicherung"
+        time.sleep(0.02)
+    lb.zustand.write_text("laeuft\n")
+    aus = p.communicate(timeout=120)[0]
+    assert p.returncode == 0, aus
+    assert lb.stand() == ALT
+    letzter = lb.aufrufe()[-1]
+    assert letzter[1].startswith("restart loxpanel"), lb.aufrufe()
+    assert "Panel neu gestartet." in aus
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root darf jede Datei schreiben")
+def test_sperrdatei_ohne_schreibrecht(lb):
+    """Lief loxpanel-ctl.sh einmal als root (sudo ... backup), gehoert die
+    Sperrdatei root, loxberry darf sie nicht schreiben. Gesperrt wird trotzdem,
+    sonst hiesse es bei jeder Sicherung "es laeuft schon eine"."""
+    sperre = lb.data / ".loxpanel-ctl.lock"
+    sperre.touch()
+    sperre.chmod(0o444)
+    r = lb.ctl("backup")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert len(_angeboten(lb)) == 1
+    with open(sperre) as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        c = lb.ctl("check")
+    assert c.returncode == 0 and "übersprungen" in c.stdout, c.stdout + c.stderr
 
 
 def test_backup_gueltig(lb):

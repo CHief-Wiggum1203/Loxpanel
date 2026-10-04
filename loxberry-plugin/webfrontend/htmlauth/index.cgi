@@ -8,6 +8,7 @@
 use strict;
 use warnings;
 use CGI;
+use Encode qw(encode_utf8);
 use JSON qw(encode_json decode_json);
 use LWP::UserAgent;
 use POSIX qw(strftime);
@@ -53,6 +54,10 @@ sub _lox_cred {
 # des Miniservers steht getrennt in "fehler". "gespeichert" = Miniserver nicht
 # erreichbar, Zugang trotzdem gespeichert -> Warnung statt Fehler. Fehlende
 # Eingaben kommen als 400 mit JSON: der Container laeuft also.
+# decode_json liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als
+# UTF-8-Bytes hinaus (der Text unten steht als Bytes im Skript, lbheader setzt
+# nur charset=utf-8): die Texte des Servers deshalb selbst nach UTF-8, sonst
+# kommt "Port ungueltig" als Latin-1 an.
 sub apply_miniserver {
     my ($data) = @_;
     my $ua = LWP::UserAgent->new(timeout => 25);
@@ -65,8 +70,8 @@ sub apply_miniserver {
     }
     return "<div class='alert alert-success'>Verbunden &ndash; " . ($j->{nControls} // 0) . " Controls geladen.</div>"
         if $j->{ok};
-    my $text = h($j->{error} // 'unbekannt');
-    $text .= "<br><small>" . h($j->{fehler}) . "</small>" if defined $j->{fehler} && $j->{fehler} ne '';
+    my $text = h(encode_utf8($j->{error} // 'unbekannt'));
+    $text .= "<br><small>" . h(encode_utf8($j->{fehler})) . "</small>" if defined $j->{fehler} && $j->{fehler} ne '';
     return $j->{gespeichert} ? "<div class='alert alert-warning'>$text</div>"
                              : "<div class='alert alert-danger'>Fehler: $text</div>";
 }

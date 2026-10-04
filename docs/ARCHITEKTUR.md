@@ -1572,13 +1572,15 @@ dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
 Das Plugin ist nur ein Docker-Starter. `loxpanel-ctl.sh` kennt `start` (pull +
 up), `stop` (Marker-Datei + down), `restart`, `check` (Cron alle 5 min und beim
 Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
-als root, Rotation `KEEP` = 20 Stück, das Widget fragt die Zahl über
+als root, Rotation nach `KEEP` im Skript, das Widget fragt die Zahl über
 `loxpanel-ctl.sh keep` ab). Das Widget `index.cgi` (Perl) spricht
 `http://localhost:8099/api/settings` und `/api/settings/miniserver`. Von dort
 zeigt es `error` und darunter `fehler`, `gespeichert` (nicht erreichbar,
 trotzdem gespeichert) als Warnung. Eine Antwort mit JSON ist immer eine Meldung
 des Servers, auch mit 400 oder 500; „Container nicht erreichbar" heißt es nur
-ohne JSON. „Aus LoxBerry übernehmen" ohne Benutzer in der LoxBerry-Konfiguration
+ohne JSON. Die Texte des Servers kodiert es vor der Ausgabe nach UTF-8: `decode_json`
+liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als Bytes hinaus.
+„Aus LoxBerry übernehmen" ohne Benutzer in der LoxBerry-Konfiguration
 meldet das selbst (`tests/test_loxberry_widget.py`).
 
 `backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
@@ -1590,10 +1592,20 @@ muss vollständig sein und `loxpanel.cfg`, `panels.json` oder `theme.json`
 enthalten. Dann hält das Skript den Container an, sichert den Ist-Stand als
 `…-vor-restore.tar.gz` (scheitert das, bricht es ab) und tauscht nur durch
 Umbenennen; scheitert ein Schritt des Tauschs, kommt der Ist-Stand zurück.
-Danach startet der Container wieder. Dateinamen gehen als Argument in den
-Container, nie in den Befehlstext. Eine Sperre (`flock` auf
-`.loxpanel-ctl.lock` im Datenordner) lässt keine zwei Läufe gleichzeitig zu, der
-zweite bricht sofort ab; Reste eines abgebrochenen Laufs räumt der nächste weg.
+Danach startet das Skript den Container mit `docker restart` neu, so liest der
+Server die Konfiguration auch dann frisch ein, wenn ihn in der Lücke jemand
+gestartet hat. Dateinamen gehen als Argument in den Container, nie in den
+Befehlstext. Eine Sperre (`flock` auf `.loxpanel-ctl.lock` im Datenordner)
+lässt keine zwei Läufe gleichzeitig zu, der zweite bricht sofort ab; Reste
+eines abgebrochenen Laufs räumt der nächste weg. Auch `check` nimmt sie und
+überspringt die Prüfung, solange eine Sicherung oder Wiederherstellung läuft,
+statt den für den Tausch angehaltenen Container zu starten. Das Skript öffnet
+die Sperrdatei nur lesend, so sperrt auch eine, die ein Lauf als root angelegt
+hat. Bricht der Tausch hart ab (Stromausfall zwischen den Umbenennungen), kann
+`config/` leer oder gemischt sein, und der nächste Lauf räumt den
+Zwischenordner samt bisherigem Stand weg. Verloren ist er nicht: Er liegt
+schon vor dem Tausch als `…-vor-restore.tar.gz` auf der Platte und lässt sich
+im Widget wiederherstellen.
 `tests/test_loxberry_ctl.py` führt das echte Skript aus, `docker` und `sudo`
 ersetzt der Nachbau in `tests/loxberry.py`.
 
