@@ -49,6 +49,10 @@ async def _visu(tmp_path, schritt, ui=None, groesse=(480, 480), agent=False, ini
     ms.visu_pin = PIN
     await ms.start()
     app = neue_app(ms)
+    # Tag, gleich zu welcher Uhrzeit der Test laeuft: ab NIGHT_FROM meldete der
+    # Server sonst schon beim Verbinden Nacht, und ein Nachtbeginn waere kein
+    # Wechsel mehr (setNight vergisst die PIN nur beim Uebergang).
+    app._night_now = lambda: False
     controls, states = {}, {}
     for control, st in _bausteine():
         controls[control["uuidAction"]] = {**control, "isSecured": True, "isFavorite": True}
@@ -346,7 +350,9 @@ def test_pin_vergessen(tmp_path, miniserver_http, vergessen):
         await _plus(pg)
         assert not await _offen(pg), "mit dem Standard gemerkt"
         if vergessen == "nachtbeginn":
-            await pg.evaluate("setNight(true)")
+            app._night_now = lambda: True        # der Server meldet den Wechsel im naechsten Takt
+            await pg.wait_for_timeout(1000)
+            assert await pg.evaluate("NIGHT.on")
         elif vergessen == "server_display_aus":
             app._pending_presence.append({"dev": GERAET, "on": False, "presence": False})
             await pg.wait_for_timeout(1000)
