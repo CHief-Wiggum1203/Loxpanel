@@ -379,7 +379,6 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 - Intercom Teil 2: **Gegensprechen** (SIP-Client auf dem Panel).
 - Weitere Bausteine (u. a. Remote, AudioZoneV2) und Heizung-Modus-Umschaltung.
 - Musiksteuerung mit austauschbarem Audio-Backend (MS4H/LMS).
-- Optionaler openHASP-Renderer (ESP32) als kuratierter Satellit.
 
 ## Changelog
 
