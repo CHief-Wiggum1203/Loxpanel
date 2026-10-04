@@ -1132,11 +1132,17 @@ function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stac
 // Jeder Befehl geht ueber sendCmd(); nur cmdSchicken() baut {t:'cmd'}. Bei
 // einem gesicherten Baustein fragt die Visu vor dem Befehl die PIN ab und
 // schickt sie mit, der Server rechnet daraus den Hash fuer sps/ios und meldet
-// das Ergebnis (cmdresult mit uuid, cmd und code).
+// das Ergebnis (cmdresult mit uuid, cmd und code). Eine Abfrage gehoert zu der
+// Seite, auf der getippt wurde: Seitenwechsel und Uhr-Seite schliessen sie
+// (pinVergessen), auch wenn der Wechsel ohne Zutun kommt (Wecker, goto).
 let pinWarten=[];        // gesicherte Befehle, deren cmdresult aussteht
 let pinJobs=null;        // Befehle, die auf die offene PIN-Abfrage warten
 function cmdSchicken(uuid,cmd,pin){ const m={t:'cmd',uuid,cmd}; if(pin!=null) m.pin=pin; send(m); }
 function pinSeite(){ return key(view&&view.route); }
+function pinVergessen(){
+  // eine offene Abfrage gehoert zur alten Seite: zu, ihre Befehle gelten als abgebrochen
+  const s=document.querySelector('.screen'), ov=s&&s.querySelector('.pinov'); if(ov) ov.remove();
+  const jobs=pinJobs; pinJobs=null; if(jobs) jobs.forEach(j=>{ if(j.abbruch) j.abbruch(); }); }
 function askPin(cb,msg){
   const s=document.querySelector('.screen'); let ov=s.querySelector('.pinov'); if(ov)ov.remove();
   ov=document.createElement('div'); ov.className='pinov';
@@ -1173,9 +1179,11 @@ function pinAbfragen(job,msg){
 }
 // Mit PIN schicken. Eine Halten-Taste (job.los): Nach der Abfrage ist der
 // Finger laengst oben, das Loslassen folgt darum sofort mit derselben PIN
-// (wirkt wie ein Tipp). Nie Druecken ohne Loslassen.
+// (wirkt wie ein Tipp). Nie Druecken ohne Loslassen. seite: die des Tipps,
+// nicht die der Eingabe - eine Wiederholung nach abgelehnter PIN kann schon
+// auf der naechsten Seite stehen, job.ok gehoert aber nicht dorthin.
 function pinSenden(job,pin){
-  const w={job,pin,seite:pinSeite()};
+  const w={job,pin,seite:job.seite};
   pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
   if(job.los){ pinWarten.push({job:job.los,pin,seite:w.seite,zu:w}); cmdSchicken(job.los.uuid,job.los.cmd,pin); }
 }
@@ -1188,9 +1196,10 @@ function pinErgebnis(msg){
   pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
 }
 // opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
-// PIN erst nach der Bestaetigung; opt.abbruch: PIN abgebrochen (Anzeige zurueck).
+// PIN erst nach der Bestaetigung und nur noch auf derselben Seite;
+// opt.abbruch: PIN abgebrochen (Anzeige zurueck).
 function sendCmd(uuid,cmd,secured,opt){ opt=opt||{};
-  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null};
+  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null,seite:pinSeite()};
   if(secured){ pinAbfragen(job,''); return; }
   cmdSchicken(uuid,cmd,null); if(job.los) holdRelease=job.los; if(job.ok) job.ok();
 }
@@ -2316,6 +2325,7 @@ function connect(){
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t!=='view') return;
+    if(view && key(view.route)!==key(msg.route)) pinVergessen();   // Seitenwechsel
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
       const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
@@ -2863,6 +2873,7 @@ function applySaverSplit(){
   s.classList.toggle('hoch', hoch);
 }
 function showSaver(){
+  pinVergessen();   // Uhr-Seite: offene PIN-Abfrage zu (nachRuhe auf dem ersten Tab wechselt die Seite nicht)
   // Native Kiosk-App (LoxPanel): nur EIN sichtbarer Screensaver — diese Uhr.
   // Der App sagen, dass ihr Saver läuft; sie dunkelt nur noch das Backlight
   // (nach dpmsOff) und weckt per Annäherung/Berührung auf den 1. Tab.
