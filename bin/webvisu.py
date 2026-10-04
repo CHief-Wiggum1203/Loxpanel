@@ -2524,6 +2524,12 @@ class App:
             "tabs": tabs or list(VALID_TABS),
             "rooms": [u for u in self.rooms_with if r and u in r],
             "cats": [u for u in self.cats_with if c and u in c],
+            # Raum-Panel: gewaehlte Kategorie-Tabs in Klickreihenfolge, wie sie
+            # _sanitize_panels speichert (nicht sortieren, nicht gegen die
+            # Struktur filtern). Fehlt es hier, zeigt der Editor "automatisch",
+            # und das naechste Speichern - auch eines anderen Profils - loescht es.
+            "roomCats": [x for x in (raw["roomCats"] if isinstance(raw.get("roomCats"), list) else [])
+                         if isinstance(x, str)][:4],
             "ui": ui,
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
