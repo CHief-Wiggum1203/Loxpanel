@@ -2590,9 +2590,22 @@ class App:
             # ("tablet..home", Label ueber 63 Zeichen) - sonst bricht die
             # Schleife in display_drivers fuer alle folgenden Geraete ab
             ok = False
-            res["error"] = str(err) or err.__class__.__name__
+            # Ohne die Adresse: InvalidURL und ClientResponseError nennen sie
+            # ganz, bei Fully samt Kennwort.
+            if isinstance(err, aiohttp.InvalidURL):
+                res["error"] = f"ungültige Adresse {disp['host']}:{disp['port']}"
+            elif isinstance(err, aiohttp.ClientResponseError):
+                res["error"] = f"HTTP {err.status}: {err.message}"
+            else:
+                res["error"] = str(err) or err.__class__.__name__
         res["ok"] = ok
         if not ok:
+            # Gibt die Gegenstelle die Anfrage wieder (Echo, Fehlerseite), stuende
+            # das Kennwort sonst doch im Text: im Klartext oder so kodiert, wie
+            # es verschickt wurde (yarl kodiert anders als quote()).
+            pw = str(disp.get("password") or "")
+            res["error"] = re.sub(r"password=[^&\s]*", "password=***",
+                                  res["error"].replace(pw, "***") if pw else res["error"])
             log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
         return res
 
@@ -3083,6 +3096,20 @@ class App:
             port = DISPLAY_DRIVERS[drv]
         return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
                 "password": str(d.get("password") or "")[:100]}
+
+    @staticmethod
+    def _devices_export(devices: dict) -> dict:
+        """Geraete fuer den Konfigurator (/api/meta, Antwort von POST
+        /api/devices): das Display-Kennwort nur als hasPass, wie Miniserver
+        und Kamera in /api/settings. Leer zurueck heisst es "unveraendert"
+        (api_save_devices)."""
+        out = {}
+        for name, e in devices.items():
+            if isinstance(e, dict) and isinstance(e.get("display"), dict):
+                disp = {k: v for k, v in e["display"].items() if str(k).lower() not in _SECRET_KEYS}
+                e = {**e, "display": {**disp, "hasPass": bool(e["display"].get("password"))}}
+            out[name] = e
+        return out
 
     @staticmethod
     def _sanitize_theme_ui(ui: dict) -> dict:
@@ -6771,7 +6798,7 @@ async def api_meta(request: web.Request) -> web.Response:
             "iconUrl": app._icon_url(app.rooms[ru].get("image")), "room": True}
            for ru in app.rooms_with],
         "panels": panels,
-        "devices": app.devices,
+        "devices": App._devices_export(app.devices),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
@@ -6874,7 +6901,8 @@ async def api_health(request: web.Request) -> web.Response:
 # Einstellungen, die /api/backup einpackt (alles, was LoxPanel in config/ schreibt).
 BACKUP_FILES = ("loxpanel.cfg", "panels.json", "theme.json")
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
-# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht.
+# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht,
+# /api/meta nennt beim Display nur hasPass (_devices_export).
 _SECRET_KEYS = {"pass", "password"}
 # Maschinenlesbarer Vermerk in der Sicherung: je Datei die Pfade der entfernten
 # Kennwoerter. /api/restore setzt nur an diesen Stellen vorhandene wieder ein.
@@ -8016,6 +8044,14 @@ async def api_save_devices(request: web.Request) -> web.Response:
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
     devices = App._sanitize_devices(d.get("devices") or {}, set(app.panels))
+    # Leeres Display-Kennwort = unveraendert (/api/meta gibt es nicht heraus),
+    # aber nur beim selben Ziel wie beim Einspielen (_KENNWORT_ZIEL), sonst
+    # ginge das gespeicherte an einen anderen Host. "verworfen": eines war da,
+    # das Ziel ist ein anderes. Vor _write_devices, das app.devices ersetzt.
+    _, verworfen = _kennwoerter_einsetzen(
+        {"devices": devices}, {"devices": app.devices},
+        [("devices", n, "display", "password") for n, e in devices.items() if "display" in e],
+        nur_wo_eins_war=True)
     try:
         app._write_devices(devices)
     except Exception as err:
@@ -8026,7 +8062,8 @@ async def api_save_devices(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
             app.conn_prof.get(ws), info.get("dev", ""))})
-    return web.json_response({"ok": True, "devices": devices})
+    return web.json_response({"ok": True, "devices": App._devices_export(devices),
+                              "kennwortVerworfen": [p[1] for p in verworfen]})
 
 
 async def api_devices_get(request: web.Request) -> web.Response:
