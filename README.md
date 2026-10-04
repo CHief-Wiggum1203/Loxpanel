@@ -333,7 +333,8 @@ ein Backup der kompletten Konfiguration (Panels, Kacheln, Theme, Miniserver-Zuga
 an. Die Archive liegen auf dem LoxBerry unter
 `data/plugins/loxpanel/backups/` und **überleben Plugin-Updates**. Aus der Liste
 lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
-vorher automatisch gesichert).
+vorher automatisch gesichert). Ein beschädigtes oder fremdes Archiv lehnt die
+Wiederherstellung ab, ohne etwas zu ändern.
 
 **Auf Unraid** liegt die komplette Konfiguration in
 `/mnt/user/appdata/loxpanel/config` (`loxpanel.cfg`, `panels.json`, `theme.json`).

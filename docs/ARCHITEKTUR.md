@@ -1575,6 +1575,22 @@ Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
 als root, 20 Stück Rotation). Das Widget `index.cgi` (Perl) spricht
 `http://localhost:8099/api/settings` und `/api/settings/miniserver`.
 
+`backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
+es danach um, das Widget bietet also nie ein halbes Archiv an; ein vorhandenes
+ersetzt es nie, ein leerer Config-Ordner ergibt keins. `restore` ändert
+`config/` erst, wenn alles andere gelungen ist: Das Backup wird in einen
+Zwischenordner neben `config/` entpackt (`.restore.*`, gleiches Dateisystem) und
+muss vollständig sein und `loxpanel.cfg`, `panels.json` oder `theme.json`
+enthalten. Dann hält das Skript den Container an, sichert den Ist-Stand als
+`…-vor-restore.tar.gz` (scheitert das, bricht es ab) und tauscht nur durch
+Umbenennen; scheitert ein Schritt des Tauschs, kommt der Ist-Stand zurück.
+Danach startet der Container wieder. Dateinamen gehen als Argument in den
+Container, nie in den Befehlstext. Eine Sperre (`flock` auf
+`.loxpanel-ctl.lock` im Datenordner) lässt keine zwei Läufe gleichzeitig zu, der
+zweite bricht sofort ab; Reste eines abgebrochenen Laufs räumt der nächste weg.
+`tests/test_loxberry_ctl.py` führt das echte Skript aus, `docker` und `sudo`
+ersetzt der Nachbau in `tests/loxberry.py`.
+
 `sudoers` erlaubt dem Benutzer `loxberry` `docker` ohne Passwort, was faktisch
 Root-Rechte auf dem LoxBerry bedeutet.
 
