@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pytest
 from aiohttp import web
+from icalendar import Calendar
 
 from lox import W, serve
 
@@ -290,6 +291,30 @@ def test_serie_ohne_zeitzone_mit_until_in_utc(ortszeit):
     ]
 
 
+@pytest.mark.parametrize("start, until, verlegt", [
+    # Ende der Sommerzeit am 25.10.2026; UNTIL ist das letzte Auftreten in UTC (7:00 MEZ)
+    (date(2026, 10, 22), "20261028T060000Z", date(2026, 10, 27)),
+    # Beginn der Sommerzeit am 28.3.2027 (7:00 MESZ)
+    (date(2027, 3, 25), "20270331T050000Z", date(2027, 3, 30)),
+], ids=["herbst", "fruehjahr"])
+def test_serie_ohne_zeitzone_ueber_die_zeitumstellung(ortszeit, start, until, verlegt):
+    """Google-Form ueber eine Zeitumstellung hinweg: Jedes Auftreten bleibt um
+    7:00 Ortszeit, das letzte faellt nicht aus dem UNTIL, und die RECURRENCE-ID
+    nach der Umstellung trifft ihr Original. Feste Daten und _occurrences()
+    direkt, damit der Test nicht vom heutigen Tag abhaengt."""
+    cal = Calendar.from_ical(_ics(
+        _ev("UID:dienst@test", f"DTSTART:{start:%Y%m%d}T070000",
+            f"RRULE:FREQ=DAILY;UNTIL={until}", "SUMMARY:Dienst"),
+        _ev("UID:dienst@test", f"RECURRENCE-ID:{verlegt:%Y%m%d}T070000",
+            f"DTSTART:{verlegt:%Y%m%d}T090000", "SUMMARY:Dienst spät")))
+    serie = next(c for c in cal.walk() if c.name == "VEVENT" and "recurrence-id" not in c)
+    tage = [start + timedelta(days=n) for n in range(7)]
+    auftreten = front_info._occurrences(serie, start, tage[-1] + timedelta(days=2),
+                                        front_info._cancelled_single(cal)["dienst@test"])
+    assert [occ for occ, _, _ in auftreten] == [
+        datetime.combine(d, datetime.min.time()).replace(hour=7) for d in tage if d != verlegt]
+
+
 def test_ausnahme_ohne_auftreten_im_zeitraum_bleibt_sichtbar(ortszeit):
     """Einladung zu nur einem Termin einer fremden Serie, Original in der
     Vergangenheit, oder ein Einzeltermin ohne RRULE als Original."""
@@ -332,7 +357,9 @@ def test_ausnahme_mit_eigener_rrule_ersetzt_nur_ein_auftreten(ortszeit):
     ("RECURRENCE-ID;TZID=Europe/Berlin:{d2}T180000", "RECURRENCE-ID;TZID=Europe/Berlin:{d3}T180000"),
     # unlesbarer Wert: icalendar verwirft ihn
     ("RECURRENCE-ID:quatsch",),
-], ids=["zwei-zeilen", "unlesbar"])
+    # am Rand des Kalenders: in Ortszeit (Berlin) jenseits des Jahres 9999
+    ("RECURRENCE-ID:99991231T235959Z",),
+], ids=["zwei-zeilen", "unlesbar", "jenseits-des-kalenders"])
 def test_kaputte_recurrence_id_legt_die_quelle_nicht_lahm(ortszeit, rid_zeilen):
     """Kein Absturz: Der Termin steht wie bisher als eigener Termin da."""
     zeilen = [z.format(d2=_d(2), d3=_d(3)) for z in rid_zeilen]

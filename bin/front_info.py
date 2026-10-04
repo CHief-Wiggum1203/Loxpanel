@@ -42,6 +42,7 @@ except ImportError:
 
 try:
     from dateutil.rrule import rrulestr
+    from dateutil.tz import tzlocal
     HAVE_RRULE = True
 except ImportError:
     HAVE_RRULE = False
@@ -348,10 +349,12 @@ def _occurrences(component, range_start: date, range_end: date,
         base = dtstart
         # Google-Feeds schreiben oft DTSTART ohne Zeitzone, das UNTIL der RRULE
         # aber mit 'Z'. dateutil verweigert diese Mischung mit einem ValueError,
-        # und ohne das hier fiele die GANZE Serie aus. Den Start in die Ortszeit
-        # heben bringt beide Seiten in dieselbe Welt.
-        if base.tzinfo is None and re.search(r"UNTIL=[^;]*Z", rrule_txt, re.I):
-            base = base.astimezone()
+        # und ohne das hier fiele die GANZE Serie aus. Den Start als Ortszeit
+        # kennzeichnen bringt beide Seiten in dieselbe Welt. tzlocal() statt
+        # astimezone(): das setzte einen FESTEN Versatz (+02:00 im Sommer), und
+        # nach der Zeitumstellung stand jedes Auftreten eine Stunde daneben.
+        if HAVE_RRULE and base.tzinfo is None and re.search(r"UNTIL=[^;]*Z", rrule_txt, re.I):
+            base = base.replace(tzinfo=tzlocal())
 
     # Um die Dauer nach hinten erweitert suchen: ein am 1.7. begonnener
     # Ferientermin muss am 21.9. noch gefunden werden.
@@ -399,13 +402,17 @@ def _recurrence_id(component):
     Zeitpunkte wie in _occurrences() als naive ORTSZEIT (eine RECURRENCE-ID in
     UTC trifft so dasselbe Auftreten wie eine mit TZID), ganztaegige als `date`.
     None, wenn keine da ist oder der Feed sie kaputt liefert (mehrere Zeilen
-    ergeben eine Liste ohne `dt`, einen unlesbaren Wert verwirft icalendar):
+    ergeben eine Liste ohne `dt`, einen unlesbaren Wert verwirft icalendar,
+    ein Wert am Rand des Kalenders laesst sich nicht in Ortszeit umrechnen):
     Der Termin gilt dann wie bisher als eigenstaendig, statt die ganze Quelle
     abzuwerfen.
     """
     v = getattr(component.get("recurrence-id"), "dt", None)
     if isinstance(v, datetime):
-        return _local_naive(v)
+        try:
+            return _local_naive(v)
+        except (OverflowError, ValueError, OSError):    # z. B. 99991231T235959Z
+            return None
     return v if isinstance(v, date) else None
 
 
@@ -465,8 +472,8 @@ def _parse_events(ics_bytes: bytes, days: int, quelle: dict | None = None) -> li
         # der Titel geaendert).
         rid = _recurrence_id(comp)
         rid_txt = "" if rid is None else rid.isoformat()
-        for occ, all_day, dauer in _occurrences(comp, today, range_end,
-                                                None if rid is not None else abgesagt_einzeln.get(uid)):
+        ex = None if rid is not None else abgesagt_einzeln.get(uid)
+        for occ, all_day, dauer in _occurrences(comp, today, range_end, ex):
             erster = occ if not isinstance(occ, datetime) else occ.date()
             letzter = erster + timedelta(days=dauer - 1)
             for n in range(dauer):
