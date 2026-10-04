@@ -1530,7 +1530,10 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
   aus dem Dockerfile aus.
 - **Log:** `LOXPANEL_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`, `ERROR`; Standard
   `INFO`, Unbekanntes → `INFO` mit Warnung). Der Zugriffs-Log von aiohttp (eine
-  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`).
+  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`). Fehlt
+  ein optionales Paket aus `requirements.txt` (`icalendar`, `python-dateutil`,
+  `cryptography`), läuft der Server ohne die Funktion dahinter weiter und nennt
+  beides einmal beim Start als Warnung (`_fehlende_pakete_melden()`).
 - **Image:** `.dockerignore` hält Altlasten (`webfrontend/htmlauth`,
   `config/visu.*`, `daemon/` …) und Test-/Entwicklungsdateien aus dem Image.
 

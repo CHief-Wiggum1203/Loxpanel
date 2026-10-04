@@ -732,8 +732,9 @@ async def auth_probe2(host, port):
             sys.path.insert(0, d)
     import audioserver_auth as aa
     if not aa.HAVE_CRYPTO:
-        print("  Paket 'cryptography' fehlt im Container. Einmalig nachinstallieren:")
-        print("    docker exec LoxPanel pip install -q cryptography")
+        print("  Paket 'cryptography' fehlt im Container (aelteres Image). Image aktualisieren")
+        print("  oder die Pakete aus requirements.txt nachinstallieren:")
+        print("    docker exec LoxPanel pip install -q -r /app/requirements.txt")
         return
     ms = miniserver_config()
     user = ms.get("user", "")
