@@ -28,6 +28,19 @@ Der Miniserver-Zugang wird **nicht** im Plugin gesetzt, sondern über die
 Einstellungen-Seite und in `data/plugins/loxpanel/config/loxpanel.cfg`
 (Docker-Volume) gespeichert.
 
+## Zeitzone
+
+Der Container übernimmt die Zeitzone des LoxBerry: `loxpanel-ctl.sh start` legt
+`docker-compose.zeitzone.yml` neben die Compose-Datei. Sie bindet
+`/etc/localtime` des LoxBerry nur lesend als `/run/loxberry-localtime` ein und
+setzt `TZ=":/run/loxberry-localtime"`; eine Zone steht nirgends fest. Fehlt
+`/etc/localtime` oder zeigt der Symlink ins Leere, startet LoxPanel ohne sie in
+UTC und schreibt eine Warnung in den Verlauf.
+
+Nach einer Änderung der Zeitzone im LoxBerry LoxPanel neu starten (Widget:
+**„Jetzt updaten / Neu starten"**); ein Neustart des LoxBerry übernimmt sie
+ebenfalls.
+
 ## Voraussetzungen
 
 - LoxBerry **3.0+** (Debian Bullseye oder neuer)

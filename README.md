@@ -260,6 +260,10 @@ Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 3. Das Plugin installiert bei Bedarf Docker und startet den LoxPanel-Container
    automatisch. Danach erreichst du alles über das Plugin-Widget in LoxBerry.
 
+LoxPanel übernimmt die Zeitzone des LoxBerry. Änderst du sie dort, LoxPanel
+danach neu starten (Widget: **„Jetzt updaten / Neu starten"**, ein Neustart des
+LoxBerry tut es auch).
+
 ## Konfiguration
 
 **1. Miniserver verbinden** – im Plugin-Widget IP, Benutzer, Passwort und Port
