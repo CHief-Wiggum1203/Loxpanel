@@ -24,6 +24,7 @@ from urllib.parse import parse_qsl, unquote
 
 import aiohttp
 from aiohttp import web
+from cryptography.hazmat.primitives import padding as blockpadding
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -478,6 +479,99 @@ class SipTuer(asyncio.DatagramProtocol):
             asyncio.get_running_loop().call_later(self.vorlaeufig, senden, status, list(zusatz), rumpf)
         else:
             senden(status, list(zusatz), rumpf)
+
+
+# Antwort eines gekoppelten Audioservers auf einen Befehl ohne Anmeldung
+AUDIO_GEKOPPELT = '{"error": "command not allowed when paired"}'
+
+
+class Audioserver:
+    """Nachbau eines Loxone-Audioservers (Port 7091) fuer den Ereignis-Client
+    (bin/audioserver_events.py) und das Direkt-Backend (bin/audioserver.py).
+
+    cfg_all       Antworten auf HTTP audio/cfg/all der Reihe nach als (Status,
+                  Text), die letzte wiederholt sich; cfg_abrufe zaehlt sie
+    verzoegerung  so viele Sekunden laesst sich audio/cfg/all Zeit
+    gekoppelt   wie ein mit dem Miniserver gekoppelter Audioserver: Ein
+                  Befehl ohne Anmeldung schliesst die WebSocket-Verbindung
+    jwt           das Miniserver-JWT, das secure/authenticate tragen muss
+    befehle       angekommene Befehle als (Befehl, angemeldet)
+    verbindungen  alle WebSocket-Verbindungen, auch geschlossene
+
+    WebSocket "/": Banner mit Session-Token, ein audio_event fuer Zone 1, dann
+    audio/cfg/getkey und secure/authenticate. Die Anmeldung ist hier
+    unabhaengig von bin/audioserver_auth.py nach dem Ablauf der Loxone-App
+    nachgerechnet: RSA-PKCS#1 v1.5 ueber "key:iv:Session-Token", AES-256-CBC
+    mit PKCS7 ueber das JWT. getroomfavs liefert einen Favoriten (Slot 1, id 7).
+    """
+
+    def __init__(self, gekoppelt: bool = True, cfg_all=((200, AUDIO_GEKOPPELT),), jwt: str = "JWT-1") -> None:
+        self.gekoppelt = gekoppelt
+        self.cfg_all = list(cfg_all)
+        self.cfg_abrufe = 0
+        self.verzoegerung = 0.0
+        self.jwt = jwt
+        self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+        self.befehle: list[tuple[str, bool]] = []
+        self.verbindungen: list[web.WebSocketResponse] = []
+        self.runner: web.AppRunner | None = None
+        self.port = 0
+
+    async def _cfg(self, r: web.Request) -> web.Response:
+        self.cfg_abrufe += 1
+        if self.verzoegerung:
+            await asyncio.sleep(self.verzoegerung)
+        status, text = self.cfg_all[min(self.cfg_abrufe, len(self.cfg_all)) - 1]
+        return web.Response(status=status, text=text)
+
+    def _angemeldet(self, cmd: str, token: str) -> bool:
+        _, _, _, rsa_b64, chiffre = cmd.split("/", 4)
+        klar = self.schluessel.decrypt(base64.b64decode(unquote(rsa_b64)), padding.PKCS1v15()).decode()
+        key_hex, iv_hex, sitzung = klar.split(":", 2)
+        dec = Cipher(algorithms.AES(bytes.fromhex(key_hex)), modes.CBC(bytes.fromhex(iv_hex))).decryptor()
+        roh = dec.update(base64.b64decode(unquote(chiffre))) + dec.finalize()
+        ent = blockpadding.PKCS7(128).unpadder()
+        return sitzung == token and (ent.update(roh) + ent.finalize()).decode() == self.jwt
+
+    async def _ws(self, r: web.Request) -> web.WebSocketResponse:
+        ws = web.WebSocketResponse(protocols=("remotecontrol",))
+        await ws.prepare(r)
+        self.verbindungen.append(ws)
+        token, angemeldet = f"S{len(self.verbindungen)}", False
+        await ws.send_str(f"LWSS V 17.2.08.28 | ~API:1.6~ | Session-Token: {token}")
+        await ws.send_str(json.dumps({"audio_event": [{"playerid": 1, "name": "Küche", "title": "Lied",
+                                                       "mode": "play", "volume": 20}]}))
+        async for m in ws:
+            cmd = m.data
+            if cmd == "audio/cfg/getkey":
+                n = self.schluessel.public_key().public_numbers()
+                await ws.send_str(json.dumps({"getkey_result": [{"exp": n.e, "pubkey": format(n.n, "x")}]}))
+            elif cmd.startswith("secure/authenticate/"):
+                angemeldet = self._angemeldet(cmd, token)
+                await ws.send_str(json.dumps({"authenticate_result":
+                                              "authentication successful" if angemeldet else "denied"}))
+            else:
+                self.befehle.append((cmd, angemeldet))
+                if self.gekoppelt and not angemeldet:
+                    await ws.close()
+                elif cmd.startswith("audio/cfg/getroomfavs/"):
+                    await ws.send_str(json.dumps({"getroomfavs_result": [{"id": 1, "items": [
+                        {"slot": 1, "id": 7, "name": "Radio 7091", "coverurl": ""}]}]}))
+        return ws
+
+    async def start(self) -> "Audioserver":
+        app = web.Application()
+        app.router.add_get("/audio/cfg/all", self._cfg)
+        app.router.add_get("/", self._ws)
+        self.runner, self.port = await serve(app)
+        return self
+
+    async def stop(self) -> None:
+        for ws in self.verbindungen:
+            await ws.close()
+        if self.runner:
+            await self.runner.cleanup()
+            self.runner = None
 
 
 class Anmeldung:

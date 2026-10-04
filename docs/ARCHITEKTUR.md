@@ -139,13 +139,26 @@ Befehle ohne Anmeldung ab („command not allowed when paired", prüfbar mit
 nachweislich **nicht** gekoppelter Audioserver (Nachbau Sonn/MS4H bzw.
 Musikserver Gen 1, `paired=false`) bekommt sie direkt auf Port 7091 (die
 `playerid` dafür stammt aus `details.playerid`). Den `paired`-Status ermittelt
-der Ereignis-Client je Host automatisch (`audioserver_events.py`, HTTP
-`audio/cfg/all`); solange er unbekannt ist, wird sicher über den Miniserver
-geleitet. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
+der Ereignis-Client je Host vor jedem Verbinden (`audioserver_events.py`,
+`_check_paired()`, HTTP `audio/cfg/all`): Steht „not allowed when paired" in der
+Antwort, ist er gekoppelt, gleich mit welchem HTTP-Status. 5xx, 408, 429,
+Zeitlimit und Verbindungsfehler sagen nichts über die Kopplung, der bisherige
+Wert bleibt. Jede andere Antwort heißt nicht gekoppelt; Nachbauten und
+Musikserver Gen 1 antworten nicht einheitlich (auch 404 oder leer), deshalb gibt
+es kein strengeres Kriterium. Solange der Status unbekannt ist, gilt der
+Audioserver wie gekoppelt ohne Anmeldung: Befehle und Favoriten laufen über den
+Miniserver, auf dem Ereigniskanal wird nur gehört, und die Prüfung wiederholt
+sich alle `audiometa.retry_interval` Sekunden. Ergibt sie „gekoppelt", baut der
+Client die Verbindung sofort neu auf und meldet sich an; ergibt sie „nicht
+gekoppelt", fordert er die Favoriten über 7091 an. Weil die Prüfung vor jedem
+Verbinden läuft, heilt auch eine Fehleinstufung: Ein gekoppelter Audioserver
+schließt den Kanal beim ersten unangemeldeten Befehl. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
 für die Anzeige). Ausnahme roomfav/play: bei einem gekoppelten Loxone-Audioserver
 läuft `roomfav/play/<slot>` über die angemeldete Ereignis-Verbindung
 (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle ablehnt;
-Nachbauten (`authed=false`) nutzen den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+Nachbauten (`authed=false`) nutzen den Direktkanal. Ist die Ereignis-Verbindung
+dabei schon weg, meldet `play_roomfav` das, und die Visu zeigt wie bei anderen
+gescheiterten Befehlen einen Hinweis. Titel, Sender und Cover für `AudioZoneV2` kommen über den
 Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
 `remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
 Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem
@@ -747,6 +760,7 @@ geht von ihm aus. Speichern prüft zuerst und schreibt dann:
 | `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, auch beim Aufbau der Live-Verbindung und auf `keepalive`, Standard `MS_CMD_TIMEOUT`); `keepalive_interval` (s, Abstand der `keepalive` auf dem WebSocket, Standard `MS_KEEPALIVE` = 60; ohne Nachricht binnen Abstand + Frist wird neu verbunden, §3.4). Ungültige Werte: Standard mit Warnung im Log | `_config()`, `_ms_antwortfrist()`, `_ms_keepalive_abstand()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
+| `audiometa` | `enabled` (Audioserver-Live-Daten); `retry_interval` (s, Pause vor dem nächsten Verbindungsversuch des Ereignis-Clients und, solange die Kopplung unklar ist, vor der nächsten Prüfung, Standard `AudioEventClient.NEU_VERSUCH_S` = 5); `response_timeout` (s, Zeitlimit der Kopplungsprüfung, Standard `PRUEF_ZEITLIMIT_S` = 6). Beide gelten ab dem nächsten Start des Clients | `_audiometa_config()`, `_audiometa_sekunden()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
 | `night` | `control` (UUID eines Bausteins mit `active`-State; leer = Sonnenzeiten entscheiden) | `_night_config()` |
 
