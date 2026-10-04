@@ -61,7 +61,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
-| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert |
+| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
@@ -209,8 +209,31 @@ Wichtige Felder:
 - `stream_task()` (`:2409`): Endlosschleife. Bei Fehler wird das Token erneuert,
   scheitert das, wird die Verbindung hart zurückgesetzt. Danach wachsende Pause
   (`MS_RETRY`: 5, 10, 20, 40, 60 s). Von vorn beginnt sie erst, wenn eine
-  Verbindung mindestens 60 s hielt — ein Miniserver, der sofort wieder trennt,
-  bekommt so nicht alle paar Sekunden eine neue Anmeldung.
+  Verbindung mindestens 60 s lang Nachrichten lieferte (`LoxoneWS.lebenszeit()`,
+  Anmeldung bis letzte Nachricht) — ein Miniserver, der sofort wieder trennt
+  oder nach der Anmeldung schweigt, bekommt so nicht alle paar Sekunden eine
+  neue Anmeldung. Wie lange die Verbindung bloß offen war, zählt nicht: Eine
+  stumme endet erst nach `keepalive_interval` + `response_timeout` (Standard
+  70 s), also nach mehr als `MS_RETRY[-1]`.
+- **Lebenszeichen der Live-Verbindung:** Nach der Anmeldung sendet LoxPanel auf
+  dem WebSocket sonst nichts (Befehle gehen über HTTP). Ein still abgerissener
+  Socket (Strom, WLAN, NAT ohne RST) oder ein Miniserver, der annimmt und
+  schweigt, blieb deshalb unbemerkt hängen: `stream_task` wartete für immer,
+  die Panels zeigten eingefrorene Werte. Jetzt haben Verbindungsaufbau,
+  `getkey` und `authwithtoken` je die Frist `miniserver.response_timeout`
+  (`_ms_antwortfrist()`), und `stream()` sendet alle
+  `miniserver.keepalive_interval` Sekunden (`_ms_keepalive_abstand()`,
+  Standard `MS_KEEPALIVE` = 60 s) `keepalive`. Der Miniserver antwortet mit
+  einem Header der Kennung 6 (Loxone-Doku „Communicating with the Miniserver“,
+  „Keeping the connection alive“); das Log meldet einmal je Verbindung
+  „Miniserver beantwortet keepalive“. Kommt `keepalive_interval` +
+  `response_timeout` lang keine Nachricht, endet `stream()` mit
+  `ConnectionError` und `stream_task` verbindet neu. Die Grenze gilt je
+  Nachricht, auch für den Voll-Dump nach der Anmeldung, der im LAN einen
+  Bruchteil davon braucht. Laut Doku trennt der Miniserver außerdem Clients,
+  die über 5 Minuten nichts senden; an der eigenen Anlage hielt der WebSocket
+  aber auch ohne `keepalive` tagelang. `/api/health` bleibt dabei, wie es ist:
+  Ein fehlender Miniserver ist kein Fehler (§4).
 - **Token-Erneuerung für HTTP-Anfragen:** Die WebSocket-Verbindung braucht das
   Token nur beim Anmelden, die HTTP-Anfragen (Befehle `sps/io`, gesicherte
   Befehle, Icons, Verläufe) tragen es bei jedem Aufruf als Bearer. Läuft es ab,
@@ -714,14 +737,14 @@ geht von ihm aus. Speichern prüft zuerst und schreibt dann:
   nichts in die Datei; die Variablen gelten weiter. Ändert sich etwas (Port,
   Zertifikat), kommt der ganze Zugang samt Kennwort in die Datei, denn ein
   Abschnitt mit Host gilt nur ganz.
-- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`)
-  bleiben stehen.
+- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`,
+  `keepalive_interval`) bleiben stehen.
 
 ### 5.2 `loxpanel.cfg`
 
 | Sektion | Felder | Gelesen von |
 |---|---|---|
-| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, Standard `MS_CMD_TIMEOUT`) | `_config()`, `_ms_antwortfrist()` |
+| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, auch beim Aufbau der Live-Verbindung und auf `keepalive`, Standard `MS_CMD_TIMEOUT`); `keepalive_interval` (s, Abstand der `keepalive` auf dem WebSocket, Standard `MS_KEEPALIVE` = 60; ohne Nachricht binnen Abstand + Frist wird neu verbunden, §3.4). Ungültige Werte: Standard mit Warnung im Log | `_config()`, `_ms_antwortfrist()`, `_ms_keepalive_abstand()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
@@ -1579,6 +1602,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
 | F16 | Globale Regel `.empty{grid-column:1/-1}` (für „nichts hier" im Kachelraster) traf auch die Leerfelder vor dem 1. im Monatskalender: sie belegten eine ganze Zeile, jeder Monat begann am Montag, alle Tage standen unter dem falschen Wochentag (Split-Pane Kalender) — behoben, Regel auf `.grid>.empty` begrenzt; Regressionstest misst die Spalten im Browser | `panel.html` CSS, `fpMonthHTML()` |
 | F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
+| F17 | Die Live-Verbindung zum Miniserver hatte weder Zeitlimit noch `keepalive`. Riss sie still ab oder nahm der Miniserver an und schwieg, wartete `stream_task` für immer; die Panels zeigten eingefrorene Werte, `/api/health` meldete „läuft“ — behoben, §3.4 (Fristen, `keepalive`, Backoff nur nach gelieferten Daten) | `loxone_ws.py` `connect()`, `stream()`; `stream_task()` |
 
 ### Sicherheit
 

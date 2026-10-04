@@ -757,7 +757,18 @@ selbst aktuell.
       fehlender Datei einen 404 mit Dateinamen statt eines Stacktrace. **S**
 - [x] **`JSON.parse` im WebSocket-Handler** der Visu in `try/catch`. (F9) **S**
 - [x] **Reconnect mit Backoff**: `MS_RETRY` 5, 10, 20, 40, 60 s; von vorn erst,
-      wenn eine Verbindung mindestens 60 s hielt. **S**
+      wenn eine Verbindung mindestens 60 s lang Daten lieferte. **S**
+- [x] **Stumme Miniserver-Verbindung hing dauerhaft**: Der WebSocket für die
+      Live-Werte hatte kein Zeitlimit, und nach der Anmeldung sendete LoxPanel
+      dort nichts mehr. Riss die Verbindung still ab oder schwieg der
+      Miniserver, wartete `stream_task` für immer und die Panels zeigten
+      eingefrorene Werte. Jetzt: Frist je Schritt der Anmeldung
+      (`miniserver.response_timeout`), `keepalive` alle
+      `miniserver.keepalive_interval` Sekunden (Standard 60), ohne Nachricht
+      binnen Abstand + Frist wird neu verbunden. Die Pause beginnt nur nach
+      einer Verbindung, die Daten lieferte, von vorn. (F17, `ARCHITEKTUR.md`
+      §3.4) An der echten Anlage prüfen, ob das Log einmal je Verbindung
+      „Miniserver beantwortet keepalive“ zeigt. **M**
 - [x] **Rückfall auf Miniserver-Favoriten ist unerreichbar**: `_view_sources`
       verzweigt nur danach, ob ein Ereignis-Client existiert, nicht darauf, ob
       die Anmeldung am Audioserver geklappt hat. Schlägt sie fehl, greift der

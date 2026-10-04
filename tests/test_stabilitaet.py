@@ -85,9 +85,8 @@ def test_backoff_bei_dauerfehler(monkeypatch):
 
 def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
     """Trennt der Miniserver sofort wieder, waechst die Wartezeit weiter; erst
-    eine Verbindung, die MS_RETRY[-1] Sekunden hielt, setzt sie zurueck."""
-    uhr = [1000.0]
-    monkeypatch.setattr(W, "time", _Ersatz(time, monotonic=lambda: uhr[0]))
+    eine Verbindung, die MS_RETRY[-1] Sekunden Daten lieferte, setzt sie
+    zurueck (stumme Verbindungen: test_miniserver_ws.py)."""
     halten = iter([1, 1, 1, W.MS_RETRY[-1] + 40, 1])
 
     class Verbindung:
@@ -95,7 +94,10 @@ def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
             self.dauer = dauer
 
         async def stream(self, *_):
-            uhr[0] += self.dauer
+            pass
+
+        def lebenszeit(self):
+            return self.dauer
 
         async def close(self):
             pass

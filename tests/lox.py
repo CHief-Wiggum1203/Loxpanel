@@ -88,6 +88,16 @@ class Miniserver:
     ios        angekommene gesicherte Befehle (sps/ios) als (uuid/cmd, Code)
     pin_code   LL-Code fuer einen abgelehnten gesicherten Befehl (ohne PIN oder
                mit falscher); am Geraet nicht geprueft, der Fehlerbericht nennt 403
+    ws_modus   WebSocket /ws/rfc6455 fuer die Live-Werte. None: keiner (der
+               Aufbau scheitert mit 404). "an": Anmeldung (getkey,
+               authwithtoken mit dem HMAC des Tokens), Status-Updates (erste
+               Tabelle aus ws_werte, weitere ueber ws_wert()) und keepalive
+               (Antwort: Header der Kennung 6, ohne Nutzdaten). Stumme
+               Gegenstellen: "upgrade" beantwortet den Verbindungsaufbau nicht,
+               "anmeldung" nimmt an und antwortet auf nichts, "stream" schweigt
+               nach der ersten Tabelle, auch auf keepalive.
+               ws_trennen_nach: so viele s nach den Status-Updates trennt der
+               Nachbau ("an"; None = nie). ws_verbindungen, keepalives zaehlen.
 
     Die Anmeldung folgt der Loxone-Doku (Token-Authentifizierung): getkey2
     liefert Schluessel (hex), Salz und hashAlg; getjwt traegt
@@ -132,6 +142,13 @@ class Miniserver:
         self.schluessel_abrufe = 0
         self.fenc: list[str] = []           # entschluesselte Befehle aus jdev/sys/fenc
         self.live = self.peak = 0
+        self.ws_modus: str | None = None
+        self.ws_werte: dict[str, float] = {}
+        self.ws_trennen_nach: float | None = None
+        self.ws_verbindungen = 0
+        self.keepalives = 0
+        self._ws_offen: set[web.WebSocketResponse] = set()
+        self._ws_ende = asyncio.Event()      # stop(): stumme Gegenstellen loslassen
         self.runner: web.AppRunner | None = None
         self.port = 0
 
@@ -275,16 +292,97 @@ class Miniserver:
             t += periode
         return web.Response(body=body, content_type="application/octet-stream")
 
+    @staticmethod
+    async def _ws_senden(ws: web.WebSocketResponse, kennung: int, daten: bytes | str = b"") -> None:
+        """Wie der Miniserver: erst der 8-Byte-Header (0x03, Kennung, Info,
+        reserviert, Laenge LE), dann die Nutzdaten, Text als Text-Nachricht."""
+        roh = daten.encode() if isinstance(daten, str) else daten
+        await ws.send_bytes(struct.pack("<BBBBI", 0x03, kennung, 0, 0, len(roh)))
+        if isinstance(daten, str):
+            await ws.send_str(daten)
+        elif roh:
+            await ws.send_bytes(roh)
+
+    @staticmethod
+    def _werte_tabelle(werte: dict[str, float]) -> bytes:
+        """Tabelle der Kennung 2: je Eintrag UUID (16 Byte) und double (LE)."""
+        roh = b""
+        for u, wert in werte.items():
+            d1, d2, d3, d4 = u.split("-")
+            roh += struct.pack("<IHH", int(d1, 16), int(d2, 16), int(d3, 16)) + bytes.fromhex(d4)
+            roh += struct.pack("<d", wert)
+        return roh
+
+    async def ws_wert(self, uuid: str, wert: float) -> None:
+        """Wertaenderung an alle offenen WebSocket-Verbindungen schicken."""
+        for ws in list(self._ws_offen):
+            await self._ws_senden(ws, 2, self._werte_tabelle({uuid: wert}))
+
+    async def _ws(self, r: web.Request) -> web.StreamResponse:
+        if self.ws_modus is None:
+            return web.Response(status=404)
+        self.ws_verbindungen += 1
+        if self.ws_modus == "upgrade":
+            await self._ws_ende.wait()
+            return web.Response(status=503)
+        ws = web.WebSocketResponse(protocols=("remotecontrol",))
+        await ws.prepare(r)
+        self._ws_offen.add(ws)
+        trenner = None
+        try:
+            if self.ws_modus == "anmeldung":
+                await self._ws_ende.wait()
+                return ws
+            async for m in ws:
+                if m.type != aiohttp.WSMsgType.TEXT:
+                    continue
+                befehl = m.data
+                if befehl == "keepalive":
+                    self.keepalives += 1
+                    await self._ws_senden(ws, 6)
+                    continue
+                if befehl == "jdev/sys/getkey":
+                    wert, code = self.getkey, "200"
+                elif befehl.startswith("authwithtoken/"):
+                    _, hash_, user = befehl.split("/")
+                    soll = hmac.new(bytes.fromhex(self.getkey), self.token.encode(), hashlib.sha1).hexdigest()
+                    wert, code = "", "200" if hash_ == soll and user == self.benutzer else "401"
+                else:
+                    wert, code = "1", "200"
+                await self._ws_senden(ws, 0, json.dumps({"LL": {"control": befehl, "value": wert, "Code": code}}))
+                if befehl != "jdev/sps/enablebinstatusupdate":
+                    continue
+                await self._ws_senden(ws, 2, self._werte_tabelle(self.ws_werte))
+                if self.ws_modus == "stream":
+                    await self._ws_ende.wait()      # ab hier Stille, der Socket bleibt offen
+                    return ws
+                if self.ws_trennen_nach is not None:
+                    trenner = asyncio.create_task(self._ws_trennen(ws, self.ws_trennen_nach))
+            return ws
+        finally:
+            self._ws_offen.discard(ws)
+            if trenner is not None:
+                trenner.cancel()
+
+    @staticmethod
+    async def _ws_trennen(ws: web.WebSocketResponse, nach: float) -> None:
+        await asyncio.sleep(nach)
+        await ws.close()
+
     async def start(self, port: int = 0) -> "Miniserver":
         app = web.Application()
         app.router.add_get("/stats/{f}", self._stats)
         app.router.add_get("/jdev/{tail:.*}", self._jdev)
         app.router.add_get("/camimage/{ua}/{ts}", self._camimage)
         app.router.add_get("/data/LoxAPP3.json", self._loxapp3)
+        app.router.add_get("/ws/rfc6455", self._ws)
         self.runner, self.port = await serve(app, port)
         return self
 
     async def stop(self) -> None:
+        self._ws_ende.set()
+        for ws in list(self._ws_offen):
+            await ws.close()
         if self.runner:
             await self.runner.cleanup()
             self.runner = None
