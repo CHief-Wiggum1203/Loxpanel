@@ -829,31 +829,71 @@ def _sanitize_overlay(ov) -> dict:
 
 
 def _config() -> dict:
+    return _ms_zugang()[0]
+
+
+def _ms_zugang() -> tuple[dict, str]:
+    """Wirksamer Miniserver-Zugang und seine Quelle: "datei", wenn der
+    Abschnitt miniserver der loxpanel.cfg einen Host hat (dann gilt er ganz),
+    sonst "umgebung" (LOXPANEL_MS_*), sonst ({}, ""). Verbinden (_config),
+    Anzeige (/api/settings) und Speichern (api_settings_ms) lesen ihn hier."""
     # Reihenfolge: geschriebene loxpanel.cfg (Settings-Seite) -> Env (Docker) -> keiner.
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "loxpanel.cfg"
     if f.is_file():
         try:
-            ms = json.loads(f.read_text(encoding="utf-8")).get("miniserver", {})
+            cfg = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
-            ms = {}
-        if ms.get("host"):
-            return ms
+            cfg = {}
+        ms = cfg.get("miniserver") if isinstance(cfg, dict) else None
+        if isinstance(ms, dict) and ms.get("host"):
+            return ms, "datei"
     env = os.environ
     if env.get("LOXPANEL_MS_HOST"):
+        try:   # leer oder kaputt: Standardport wie in den Sonden, statt beim Start abzustuerzen
+            port = int(env.get("LOXPANEL_MS_PORT") or 443)
+        except ValueError:
+            port = 443
         return {
             "host": env["LOXPANEL_MS_HOST"],
             "user": env.get("LOXPANEL_MS_USER", ""),
             "pass": env.get("LOXPANEL_MS_PASS", ""),
-            "port": int(env.get("LOXPANEL_MS_PORT", "443")),
+            "port": port if 1 <= port <= 65535 else 443,
             "verify_tls": env.get("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes"),
-        }
+        }, "umgebung"
     # Die Vorlage loxpanel.cfg.example traegt nur einen Platzhalter-Zugang
     # (192.168.1.50, CHANGEME). Mit dem anzumelden waere sinnlos und deckte ein
     # fremdes Geraet unter dieser Adresse mit Fehlanmeldungen ein (die App
     # bringt die Vorlage mit). Ohne Zugang startet der Server trotzdem, wartet
     # in stream_task und zeigt den Panels den Einrichtungshinweis.
-    return {}
+    return {}, ""
+
+
+def _ms_antwortfrist() -> float:
+    """Sekunden, die der Miniserver fuer eine Antwort bekommt (loxpanel.cfg,
+    miniserver.response_timeout), etwa auf die Anmeldung beim Pruefen eines
+    neuen Zugangs. Ohne gueltigen Wert MS_CMD_TIMEOUT: So lange darf auch ein
+    Befehl dauern, bevor er als gescheitert gilt - ein erreichbarer
+    Miniserver beantwortet eine Anmeldung deutlich schneller, und laenger
+    soll niemand vor "Verbinden & Speichern" warten."""
+    ms = _cfg_datei().get("miniserver")
+    wert = ms.get("response_timeout") if isinstance(ms, dict) else None
+    if isinstance(wert, (int, float)) and not isinstance(wert, bool) and math.isfinite(wert) and wert > 0:
+        return float(wert)
+    if wert is not None:
+        log.warning("loxpanel.cfg: miniserver.response_timeout %r ungueltig, es gelten %s s",
+                    wert, MS_CMD_TIMEOUT)
+    return float(MS_CMD_TIMEOUT)
+
+
+def _ms_unerreichbar(err: BaseException) -> bool:
+    """Scheiterte die Pruefung eines Zugangs, weil der Miniserver nicht
+    antwortete (Zeitlimit, Verbindung, Namensaufloesung)? Dann ist offen, ob
+    der Zugang stimmt. Hat er geantwortet und abgelehnt (Kennwort, Benutzer,
+    Zertifikat, keine Loxone-Antwort), steht fest, dass er so nicht geht."""
+    if isinstance(err, (aiohttp.ClientSSLError, _ssl.SSLError)):
+        return False
+    return isinstance(err, (asyncio.TimeoutError, aiohttp.ClientConnectionError, OSError))
 
 
 def _audio_config() -> dict:
@@ -1122,6 +1162,12 @@ class App:
         self.theme = load_theme()
         self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
         self._einspiel_sperre = asyncio.Lock()   # /api/restore: nur ein Einspielen zur Zeit
+        # Miniserver-Zugang pruefen und speichern (api_settings_ms, auch beim
+        # Einspielen) nur nacheinander, sonst laufen Datei und Verbindung
+        # auseinander. _zugang_neu: gespeichert, aber beim Pruefen nicht
+        # erreichbar - stream_task verbindet beim naechsten Aufbau damit.
+        self._zugang_sperre = asyncio.Lock()
+        self._zugang_neu: dict | None = None
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
@@ -1376,34 +1422,45 @@ class App:
                 pass
         self.ws = self.icon_session = self.client = None
 
-    async def reconnect(self) -> int:
-        """Verbindung mit (ge-aenderter) Config neu aufbauen. Gibt Control-Anzahl
-        zurueck; wirft bei falschen Zugangsdaten. Alte Verbindung bleibt bei
-        Fehler bestehen (neuer Client wird nur bei Erfolg uebernommen)."""
-        ms = _config()
+    def _zugang_setzen(self, ms: dict) -> None:
+        """Zugang fuer die naechste Anmeldung uebernehmen (verbindet nicht)."""
+        self.host, self.port = ms["host"], ms.get("port", 443)
+        self.user, self.password = ms["user"], ms["pass"]
+        self.verify_tls = ms.get("verify_tls", False)
+        self._zugang_neu = None
+
+    async def reconnect(self, ms: dict | None = None) -> int:
+        """Verbindung mit (ge-aenderter) Config neu aufbauen, mit `ms` statt
+        _config(), wenn ein Zugang erst geprueft wird (api_settings_ms). Gibt
+        Control-Anzahl zurueck; wirft bei falschen Zugangsdaten, TimeoutError,
+        wenn die Anmeldung laenger als _ms_antwortfrist() braucht. Alte
+        Verbindung bleibt bei Fehler bestehen (neuer Client wird nur bei Erfolg
+        uebernommen)."""
+        ms = _config() if ms is None else ms
         missing = [k for k in ("host", "user", "pass") if not ms.get(k)]
         if missing:
             raise ValueError(
                 "Miniserver-Konfiguration unvollstaendig (fehlt: "
                 + ", ".join(missing) + "). Bitte unter Einstellungen -> "
                 "Miniserver Host, Benutzer und Passwort eintragen.")
+        frist = _ms_antwortfrist()
         newc = _make_client(ms["host"], ms["user"], ms["pass"],
                             ms.get("port", 443), ms.get("verify_tls", False))
         try:
             await newc.__aenter__()
-            alg = (await newc.getkey2()).hashAlg
-            jwt = await newc.authenticate()
+            alg = (await asyncio.wait_for(newc.getkey2(), frist)).hashAlg
+            jwt = await asyncio.wait_for(newc.authenticate(), frist)
             st = await newc.load_structure()
-        except Exception:
+        except Exception as err:
             try:
                 await newc.close()
             except Exception:
                 pass
+            if isinstance(err, asyncio.TimeoutError) and not str(err):   # Frist von wait_for
+                raise TimeoutError(f"keine Antwort innerhalb von {frist:g} s") from err
             raise
         # Erfolg -> uebernehmen
-        self.host, self.port = ms["host"], ms.get("port", 443)
-        self.user, self.password = ms["user"], ms["pass"]
-        self.verify_tls = ms.get("verify_tls", False)
+        self._zugang_setzen(ms)
         old_client, self.client = self.client, newc
         self.alg = alg
         self._set_token(jwt)
@@ -2561,6 +2618,14 @@ class App:
                 timeout=aiohttp.ClientTimeout(total=6))
         drv = disp.get("driver")
         res = {"device": name, "driver": drv, "on": on}
+        pw = str(disp.get("password") or "")
+
+        def von_gegenstelle(text: str) -> str:
+            # Gibt die Gegenstelle die Anfrage wieder (Echo, Fehlerseite), stuende
+            # das Kennwort im Klartext darin. Nur hier ersetzen: In selbst
+            # gebildeten Meldungen ("Cannot connect to host h:port") verriete die
+            # Ersetzung ueber den frei waehlbaren Port, ob er das Kennwort enthaelt.
+            return text.replace(pw, "***") if pw else text
         try:
             if drv == "fully":
                 # Fully Kiosk Browser, Remote Admin: GET /?cmd=screenOn|screenOff&password=...
@@ -2584,15 +2649,27 @@ class App:
                     txt = (await r.text())[:300]
                     ok = r.status == 200
             if not ok:
-                res["error"] = f"HTTP {r.status}: {txt}".strip()
+                res["error"] = f"HTTP {r.status}: {von_gegenstelle(txt)}".strip()
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as err:
             # ValueError: Host, den die Namensaufloesung nicht annimmt
             # ("tablet..home", Label ueber 63 Zeichen) - sonst bricht die
             # Schleife in display_drivers fuer alle folgenden Geraete ab
             ok = False
-            res["error"] = str(err) or err.__class__.__name__
+            # Ohne die Adresse: InvalidURL und ClientResponseError nennen sie
+            # ganz, bei Fully samt Kennwort.
+            if isinstance(err, aiohttp.InvalidURL):
+                res["error"] = f"ungültige Adresse {disp['host']}:{disp['port']}"
+            elif isinstance(err, aiohttp.ClientResponseError):
+                res["error"] = f"HTTP {err.status}: {von_gegenstelle(err.message)}"
+            else:
+                res["error"] = str(err) or err.__class__.__name__
         res["ok"] = ok
         if not ok:
+            # Das Kennwort so, wie es verschickt wurde (yarl kodiert anders als
+            # quote()): aus einem Echo der Anfrage oder einer Meldung mit der
+            # ganzen Adresse (Zeitueberschreitung beim Verbinden). Ersetzt den
+            # ganzen Wert, das Ergebnis haengt also nicht vom Kennwort ab.
+            res["error"] = re.sub(r"password=[^&\s]*", "password=***", res["error"])
             log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
         return res
 
@@ -2709,6 +2786,12 @@ class App:
             "tabs": tabs or list(VALID_TABS),
             "rooms": [u for u in self.rooms_with if r and u in r],
             "cats": [u for u in self.cats_with if c and u in c],
+            # Raum-Panel: gewaehlte Kategorie-Tabs in Klickreihenfolge, wie sie
+            # _sanitize_panels speichert (nicht sortieren, nicht gegen die
+            # Struktur filtern). Fehlt es hier, zeigt der Editor "automatisch",
+            # und das naechste Speichern - auch eines anderen Profils - loescht es.
+            "roomCats": [x for x in (raw["roomCats"] if isinstance(raw.get("roomCats"), list) else [])
+                         if isinstance(x, str)][:4],
             "ui": ui,
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
@@ -3010,8 +3093,10 @@ class App:
         self.panels = load_panels()
 
     def _write_devices(self, devices: dict) -> None:
+        # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
+        # Server mit dem Stand der Datei weiter
+        self._persist_panels_file(self.panels, devices)
         self.devices = devices
-        self._persist_panels_file(self.panels, self.devices)
         self._presence_rebuild()
 
     @staticmethod
@@ -3075,6 +3160,20 @@ class App:
             port = DISPLAY_DRIVERS[drv]
         return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
                 "password": str(d.get("password") or "")[:100]}
+
+    @staticmethod
+    def _devices_export(devices: dict) -> dict:
+        """Geraete fuer den Konfigurator (/api/meta, Antwort von POST
+        /api/devices): das Display-Kennwort nur als hasPass, wie Miniserver
+        und Kamera in /api/settings. Leer zurueck heisst es "unveraendert"
+        (api_save_devices)."""
+        out = {}
+        for name, e in devices.items():
+            if isinstance(e, dict) and isinstance(e.get("display"), dict):
+                disp = {k: v for k, v in e["display"].items() if str(k).lower() not in _SECRET_KEYS}
+                e = {**e, "display": {**disp, "hasPass": bool(e["display"].get("password"))}}
+            out[name] = e
+        return out
 
     @staticmethod
     def _sanitize_theme_ui(ui: dict) -> dict:
@@ -6159,6 +6258,8 @@ class App:
         retry, connected_at = 0, None
         while True:
             try:
+                if self._zugang_neu is not None and self.client is None:
+                    self._zugang_setzen(self._zugang_neu)   # beim Speichern nicht erreichbar gewesen
                 if not self.host:
                     # Noch kein Miniserver konfiguriert -> auf /settings warten
                     # (kein Verbindungsversuch, kein Log-Spam).
@@ -6201,7 +6302,9 @@ class App:
                     pass
                 self.ws = None
                 try:
-                    if self.client:
+                    if self.client and self._zugang_neu is not None:
+                        await self._close_conn()    # neuer Zugang gespeichert -> damit neu aufbauen
+                    elif self.client:
                         await self._reauth()    # Token erneuern, Client behalten
                 except Exception:
                     await self._close_conn()    # Client kaputt -> harter Reset (start() baut neu)
@@ -6763,7 +6866,7 @@ async def api_meta(request: web.Request) -> web.Response:
             "iconUrl": app._icon_url(app.rooms[ru].get("image")), "room": True}
            for ru in app.rooms_with],
         "panels": panels,
-        "devices": app.devices,
+        "devices": App._devices_export(app.devices),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
@@ -6866,7 +6969,8 @@ async def api_health(request: web.Request) -> web.Response:
 # Einstellungen, die /api/backup einpackt (alles, was LoxPanel in config/ schreibt).
 BACKUP_FILES = ("loxpanel.cfg", "panels.json", "theme.json")
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
-# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht.
+# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht,
+# /api/meta nennt beim Display nur hasPass (_devices_export).
 _SECRET_KEYS = {"pass", "password"}
 # Maschinenlesbarer Vermerk in der Sicherung: je Datei die Pfade der entfernten
 # Kennwoerter. /api/restore setzt nur an diesen Stellen vorhandene wieder ein.
@@ -7517,6 +7621,8 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
                             ms_status = "fehler_behalten"
                         except (OSError, ValueError) as err2:
                             log.warning("Bisherigen Miniserver-Zugang nicht zurueckgeschrieben: %s", err2)
+        if ms_status in ("unveraendert", "kein_kennwort", "unvollstaendig", "fehler"):
+            app._zugang_neu = None   # der eingespielte Abschnitt ersetzt einen ungeprueft gespeicherten
     n = await _push(app, {"t": "reload"})   # offene Panels mit dem neuen Stand neu laden
 
     # Kameras ohne Namen aus der Struktur (neues Panel, noch nicht verbunden)
@@ -7560,7 +7666,9 @@ async def api_restore(request: web.Request) -> web.Response:
                                  status=413)
     if not daten:
         return web.json_response({"ok": False, "error": "Keine Datei erhalten."}, status=400)
-    async with app._einspiel_sperre:
+    async with app._einspiel_sperre, app._zugang_sperre:
+        # _zugang_sperre: Der Plan merkt sich den bisherigen Miniserver-Zugang
+        # (ms_alt) und schreibt ihn bei Bedarf zurueck - kein Speichern dazwischen.
         # Lesen und Pruefen kosten bei grossen Sicherungen Sekunden Rechenzeit
         # (Grundfarben je Profil, Sanitizer, Groessenpruefung); im Thread bleibt
         # die Visu derweil bedienbar. Der Thread sieht vom laufenden Server nur
@@ -7578,9 +7686,8 @@ async def api_restore(request: web.Request) -> web.Response:
 async def api_settings(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     cfg = _load_cfg()
-    ms = cfg.get("miniserver", {})
+    ms = _config()        # derselbe Zugang, mit dem verbunden wird (Datei, sonst LOXPANEL_MS_*)
     ic = cfg.get("intercom", {})
-    env_ms = bool(os.environ.get("LOXPANEL_MS_HOST"))
 
     def icv(uuid):
         e = ic.get(uuid) or {}
@@ -7595,11 +7702,11 @@ async def api_settings(request: web.Request) -> web.Response:
     cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
         "miniserver": {
-            "host": ms.get("host") or os.environ.get("LOXPANEL_MS_HOST", ""),
-            "user": ms.get("user") or os.environ.get("LOXPANEL_MS_USER", ""),
+            "host": ms.get("host", ""),
+            "user": ms.get("user", ""),
             "port": ms.get("port", 443),
             "verify_tls": bool(ms.get("verify_tls", False)),
-            "hasPass": bool(ms.get("pass")) or env_ms,
+            "hasPass": bool(ms.get("pass")),
         },
         "intercoms": intercoms,
         "audiometa": {"enabled": bool(am.get("enabled", True)),
@@ -7667,6 +7774,13 @@ async def api_types(request: web.Request) -> web.Response:
 
 
 async def api_settings_ms(request: web.Request) -> web.Response:
+    """Miniserver-Zugang pruefen, dann speichern (Settings -> Miniserver).
+    Lehnt der Miniserver ab, bleibt alles beim Alten, Datei wie Verbindung.
+    Antwortet er nicht, ist offen, ob der Zugang stimmt: Er wird gespeichert,
+    eine bestehende Verbindung bleibt aber, bis stream_task sie neu aufbaut
+    (_zugang_neu). Leeres Kennwort = das bisherige, nur fuer denselben Host
+    und Benutzer. "error" ist ein fester Text (i18n), der Fehler des
+    Miniservers steht getrennt in "fehler"."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -7675,30 +7789,71 @@ async def api_settings_ms(request: web.Request) -> web.Response:
     host = str(data.get("host", "")).strip()
     if not host:
         return web.json_response({"ok": False, "error": "Host fehlt"}, status=400)
-    cfg = _load_cfg()
-    ms = dict(cfg.get("miniserver", {}))
-    ms["host"] = host
-    ms["user"] = str(data.get("user", "")).strip()
+    user = str(data.get("user", "")).strip()
+    if not user:
+        return web.json_response({"ok": False, "error": "Benutzer fehlt"}, status=400)
     try:
-        ms["port"] = int(data.get("port") or 443)
+        port = int(data.get("port") or 443)
     except (TypeError, ValueError):
-        ms["port"] = 443
-    ms["verify_tls"] = bool(data.get("verify_tls"))
-    if data.get("pass"):                       # leer = altes Passwort behalten
-        ms["pass"] = str(data["pass"])
-    if not ms.get("pass"):
-        return web.json_response({"ok": False, "error": "Passwort fehlt"}, status=400)
-    cfg["miniserver"] = ms
-    try:
-        _write_cfg(cfg)
-    except OSError as err:
-        return web.json_response({"ok": False, "error": str(err)}, status=500)
-    try:
-        n = await app.reconnect()
-        log.info("Miniserver-Settings gespeichert, verbunden (%d Controls)", n)
-        return web.json_response({"ok": True, "connected": True, "nControls": n})
-    except Exception as err:
-        return web.json_response({"ok": False, "error": f"Verbindung fehlgeschlagen: {err}"})
+        port = 0
+    if not 1 <= port <= 65535:
+        return web.json_response({"ok": False, "error": "Port ungültig"}, status=400)
+    neu = {"host": host, "user": user, "port": port, "verify_tls": bool(data.get("verify_tls"))}
+    async with app._zugang_sperre:
+        alt, quelle = _ms_zugang()
+        if data.get("pass"):
+            neu["pass"] = str(data["pass"])
+        elif alt.get("pass") and (str(alt.get("host") or "").strip(), str(alt.get("user") or "").strip()) == (host, user):
+            neu["pass"] = alt["pass"]
+        else:
+            return web.json_response({"ok": False, "error": "Neuer Host oder Benutzer: bitte das Passwort eingeben."
+                                      if alt.get("pass") else "Passwort fehlt"}, status=400)
+
+        def speichern() -> None:
+            if quelle == "umgebung" and all(alt.get(k) == v for k, v in neu.items()):
+                return   # unveraendert aus LOXPANEL_MS_*: gilt dort weiter, Kennwort nicht in die Datei
+            cfg = _load_cfg()   # erst jetzt: andere Abschnitte koennen sich waehrend der Pruefung geaendert haben
+            datei = cfg.get("miniserver") if isinstance(cfg.get("miniserver"), dict) else {}
+            cfg["miniserver"] = {**datei, **neu}     # msno, _comment, response_timeout bleiben
+            _write_cfg(cfg)
+
+        try:
+            n = await app.reconnect(neu)
+        except Exception as err:
+            fehler = " ".join(str(err).split()) or type(err).__name__
+            if not _ms_unerreichbar(err):
+                log.warning("Miniserver-Zugang nicht gespeichert, Anmeldung an %s gescheitert: %s", host, fehler)
+                return web.json_response({"ok": False, "fehler": fehler, "error":
+                                          "Anmeldung am Miniserver gescheitert. Der Zugang wurde nicht gespeichert."})
+            verbunden = app.client is not None
+            try:
+                speichern()
+            except OSError as err2:
+                log.warning("Miniserver-Zugang nicht gespeichert: %s", err2)
+                return web.json_response({"ok": False, "connected": verbunden, "fehler": f"{fehler} · {err2}",
+                                          "error": "Miniserver nicht erreichbar, und der Zugang ließ sich nicht "
+                                                   "speichern. Es bleibt beim bisherigen."}, status=500)
+            app._zugang_neu = neu
+            log.warning("Miniserver %s nicht erreichbar (%s), Zugang trotzdem gespeichert", host, fehler)
+            return web.json_response({
+                "ok": False, "gespeichert": True, "connected": verbunden, "fehler": fehler,
+                "error": "Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert: Die bestehende "
+                         "Verbindung bleibt, der neue Zugang gilt ab dem nächsten Verbindungsaufbau." if verbunden
+                else "Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert, LoxPanel versucht es damit weiter."})
+        # Audioserver-Clients merken sich den Benutzer beim Anlegen
+        for cl in list(app.audio_clients.values()):
+            await cl.close()
+        app.audio_clients.clear()
+        app._front_refresh.set()
+        try:
+            speichern()
+        except OSError as err:
+            log.warning("Miniserver verbunden, Zugang aber nicht gespeichert: %s", err)
+            return web.json_response({"ok": False, "connected": True, "nControls": n, "fehler": str(err),
+                                      "error": "Verbunden, aber der Zugang ließ sich nicht speichern. "
+                                               "Nach einem Neustart gilt er nicht mehr."}, status=500)
+    log.info("Miniserver-Settings gespeichert, verbunden (%d Controls)", n)
+    return web.json_response({"ok": True, "connected": True, "nControls": n})
 
 
 async def api_settings_night(request: web.Request) -> web.Response:
@@ -8008,6 +8163,14 @@ async def api_save_devices(request: web.Request) -> web.Response:
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
     devices = App._sanitize_devices(d.get("devices") or {}, set(app.panels))
+    # Leeres Display-Kennwort = unveraendert (/api/meta gibt es nicht heraus),
+    # aber nur beim selben Ziel wie beim Einspielen (_KENNWORT_ZIEL), sonst
+    # ginge das gespeicherte an einen anderen Host. "verworfen": eines war da,
+    # das Ziel ist ein anderes. Vor _write_devices, das app.devices ersetzt.
+    _, verworfen = _kennwoerter_einsetzen(
+        {"devices": devices}, {"devices": app.devices},
+        [("devices", n, "display", "password") for n, e in devices.items() if "display" in e],
+        nur_wo_eins_war=True)
     try:
         app._write_devices(devices)
     except Exception as err:
@@ -8018,7 +8181,8 @@ async def api_save_devices(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
             app.conn_prof.get(ws), info.get("dev", ""))})
-    return web.json_response({"ok": True, "devices": devices})
+    return web.json_response({"ok": True, "devices": App._devices_export(devices),
+                              "kennwortVerworfen": [p[1] for p in verworfen]})
 
 
 async def api_devices_get(request: web.Request) -> web.Response:

@@ -5,8 +5,11 @@ steht. Von dort wird die Ansicht gewechselt und ein Name vergeben, die Visu
 folgt live. Im Editor darunter werden Display-Treiber, Modus, Automatik und
 Praesenzmelder gesetzt und gespeichert: das steht danach in panels.json und
 kommt nach dem Neuladen des Konfigurators und nach einem Neustart des Servers
-wieder. Der Config-Ordner ist umgeleitet (Fixture cfg_ordner)."""
+wieder. Das Display-Kennwort bleibt beim Server: Der Konfigurator bekommt nur,
+ob eines gespeichert ist. Der Config-Ordner ist umgeleitet (Fixture
+cfg_ordner)."""
 import asyncio
+import copy
 import json
 
 import pytest
@@ -32,8 +35,8 @@ ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W
 TABLET = ("?panel=wohnen&device=tablet", {"width": 1024, "height": 600})
 
 
-def _app(cfg_ordner):
-    (cfg_ordner / "panels.json").write_text(json.dumps(PANELS), encoding="utf-8")
+def _app(cfg_ordner, panels=PANELS):
+    (cfg_ordner / "panels.json").write_text(json.dumps(panels), encoding="utf-8")
     app = W.App({"host": "", "port": 80})       # liest Profile und Geraete aus panels.json
     app._apply_structure(anlage(BAUSTEINE))
     app.states = {"pm_a": 0, "sl": 0}
@@ -217,13 +220,15 @@ def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
                 assert doc["panels"] == PANELS["panels"], "die Profile bleiben, wie sie waren"
                 assert app.presence_map == {"pm_a": ["tablet"]}, "Praesenzmelder sofort gekoppelt"
 
-                # Konfigurator neu laden: alles steht wieder da
+                # Konfigurator neu laden: alles steht wieder da, nur das
+                # Kennwort nicht - das Feld sagt, dass es gespeichert ist
                 await _displays(pg)
                 await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
                 await tab.wait_for()
                 assert [await tab.locator(s).input_value() for s in (
                     ".dd_drv", ".dd_host", ".dd_port", ".dd_pw", ".dm_mode", ".dm_prof", ".dp_presence")] == [
-                    "fully", "127.0.0.1", "2323", "geheim", "gaeste", "kueche", "PM"]
+                    "fully", "127.0.0.1", "2323", "", "gaeste", "kueche", "PM"]
+                assert await tab.locator(".dd_pw").get_attribute("placeholder") == "unverändert lassen"
                 assert await tab.locator(".dev_auto").is_checked()
                 assert not await flur.locator(".dev_auto").is_checked()
                 assert [await flur.locator(s).input_value() for s in (".dm_mode", ".dm_prof", ".dd_drv")] == [
@@ -235,4 +240,97 @@ def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
             await runner.cleanup()
         assert not fehler, fehler
         assert W.App({"host": "", "port": 80}).devices == geraete, "nach einem Neustart dieselben Geraete"
+    asyncio.run(lauf())
+
+
+def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
+    """Ein gespeichertes Display-Kennwort kommt nicht in den Konfigurator, das
+    Feld sagt nur "unverändert lassen". Speichern ohne Eingabe behaelt es. Ein
+    anderer Host verwirft es: Der Platzhalter sagt das schon beim Tippen, die
+    Meldung nach dem Speichern."""
+    async def lauf():
+        panels = copy.deepcopy(PANELS)
+        panels["devices"]["tablet"] = {"auto": True, "modes": {},
+                                       "display": {"driver": "fully", "host": "127.0.0.1", "port": 2323,
+                                                   "password": "geheim"}}
+        app = _app(cfg_ordner, panels)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+
+        def kennwort():
+            doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+            return doc["devices"]["tablet"]["display"]["password"]
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                async with pg.expect_response(lambda r: r.url.endswith("/api/meta")) as meta:
+                    await _displays(pg, port)
+                assert "geheim" not in await (await meta.value).text()
+                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
+                tab = pg.locator('#dev_list .dev[data-name="tablet"]')
+                await tab.wait_for()
+                pw = tab.locator(".dd_pw")
+                assert await pw.input_value() == ""
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+                assert "geheim" not in await pg.content()
+
+                # Neu zeichnen (+ Modus) laesst den Hinweis stehen
+                await tab.locator(".dm_add").click()
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+
+                # Speichern ohne Eingabe: das Kennwort bleibt
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST") as antwort:
+                    await pg.locator("#dev_save").click()
+                assert "geheim" not in await (await antwort.value).text()
+                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                assert kennwort() == "geheim"
+
+                # Anderes Ziel: der Platzhalter sagt es beim Tippen, zurueck
+                # zum alten Ziel gilt wieder "unverändert lassen"
+                await tab.locator(".dd_host").fill("127.0.0.2")
+                assert await pw.get_attribute("placeholder") == "Passwort (Fully)"
+                await tab.locator(".dd_host").fill("127.0.0.1")
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+                await tab.locator(".dd_drv").select_option("wallpanel")
+                assert await pw.get_attribute("placeholder") == "Passwort (Fully)"
+                await tab.locator(".dd_drv").select_option("fully")
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+
+                # Mit anderem Host speichern: verworfen, die Meldung nennt das Geraet
+                await tab.locator(".dd_host").fill("127.0.0.2")
+                await pg.locator("#dev_save").click()
+                await _meldung(pg, "#dev_toast", "✓ Gespeichert · Display-Kennwort nicht übernommen, "
+                                                 "weil Host oder Treiber geändert: tablet")
+                assert "warn" in await pg.locator("#dev_toast").get_attribute("class")
+                assert kennwort() == ""
+                # Der 4-s-Timer der Meldung vom ersten Speichern blendet die
+                # Warnung nicht aus
+                await pg.wait_for_timeout(4300)
+                assert "show" in await pg.locator("#dev_toast").get_attribute("class")
+                await pg.screenshot(path=str(tmp_path / "displays_kennwort.png"), full_page=True)
+                await tab.locator(".dm_add").click()
+                assert await pw.get_attribute("placeholder") == "Passwort (Fully)", "kein Kennwort mehr"
+
+                # Neues Kennwort fuer das neue Ziel: Nach dem Speichern sagt das
+                # Feld ohne Neuzeichnen, dass ein leeres es behaelt
+                await pw.fill("neu")
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST"):
+                    await pg.locator("#dev_save").click()
+                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                assert kennwort() == "neu"
+                await pw.fill("")
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST"):
+                    await pg.locator("#dev_save").click()
+                assert kennwort() == "neu"
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
     asyncio.run(lauf())

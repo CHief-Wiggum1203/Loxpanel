@@ -719,6 +719,16 @@ selbst aktuell.
       eine Kopie `panels.json.bak` behalten, eine Generation reicht. **S**
 - [x] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
       `ms["user"]`, verständliche Fehlermeldung in `/config` (Settings). (F7) **S**
+- [x] **Miniserver-Zugang erst prüfen, dann speichern**: Settings → Miniserver
+      schrieb den Zugang vor der Prüfung und nahm ihn nach einem Fehlschlag
+      nicht zurück. Ein Tippfehler im Kennwort blieb in der Datei, und nach dem
+      nächsten Neustart war die Verbindung weg. Zwei Fenster konnten Datei und
+      Verbindung auseinanderbringen. Mit Zugang aus `LOXPANEL_MS_*` zeigte
+      Settings Port 443 und meldete „Passwort fehlt“. Jetzt gilt: abgelehnt =
+      nichts gespeichert, nicht erreichbar = gespeichert mit Warnung, Speichern
+      nacheinander, Anzeige und Speichern wie `_config()`. Die Frist der
+      Anmeldung steht in `miniserver.response_timeout` (Standard 10 s,
+      `ARCHITEKTUR.md` §5.1). **M**
 
 ## 2. Server-Stabilität
 
@@ -823,6 +833,15 @@ selbst aktuell.
       `_panel_export()` gab es nicht an den Konfigurator weiter. Der schickt
       beim Speichern zurück, was er bekam. Ein Test prüft jetzt beide Listen
       gegeneinander. **S**
+- [x] **Kategorie-Tabs eines Raum-Panels gingen beim Speichern verloren.**
+      `_panel_export()` gab `roomCats` nicht an den Konfigurator weiter,
+      derselbe Fehler wie bei `catFilter`. Der Editor zeigte deshalb die
+      ersten vier Kategorien, und jedes Speichern, auch eines anderen Profils,
+      löschte die Auswahl ohne Warnung. Der bisherige Test prüfte nur `ui`.
+      Jetzt muss ein Profil, das jedes gespeicherte Feld belegt, Laden und
+      Speichern unverändert überstehen, und ein neues Feld im Sanitizer, das
+      in dieser Vorlage fehlt, lässt einen Test scheitern. Ein Moduswechsel im
+      Editor setzt die Auswahl jetzt zurück wie ein Raumwechsel. **S**
 - [x] **Enge Kachel verlor die Lage ihrer Tasten.** Am 4″-Panel (3×3) rücken
       die Player-Tasten in den Kopf (`ctrltight`, `ctrlnarrow`). Bei einem
       Zustandswechsel ohne neuen Text (Pause) setzte `updateGrid()` die

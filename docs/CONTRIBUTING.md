@@ -158,6 +158,13 @@ nicht unbemerkt entfernt:
 - `catFilter` in `_panel_export()`: ohne geht die Einstellung beim nächsten
   Speichern verloren, auch bei Lenardo. Eingereicht in #80,
   `test_jede_gespeicherte_option_kommt_beim_konfigurator_an` wacht.
+- `roomCats` in `_panel_export()`: ohne zeigt der Editor bei einem Raum-Panel
+  die automatische Kategorie-Auswahl, und das nächste Speichern, auch eines
+  anderen Profils, löscht die gewählte. Dazu setzt der Moduswechsel in
+  `renderTabMode()` (`config.html`) die Auswahl zurück wie der Raumwechsel.
+  Beides auch bei Lenardo, noch nicht eingereicht (passt zu #80). Wachen:
+  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`,
+  `test_raum_panel_kategorie_tabs_im_editor`.
 - `updateGrid()` behält `ctrltight`/`ctrlnarrow`: ohne verliert eine enge
   Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo.
   Eingereicht in #80, `test_enge_kachel_behaelt_die_lage_ihrer_tasten`

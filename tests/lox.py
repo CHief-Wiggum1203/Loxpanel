@@ -41,11 +41,11 @@ KONFIGURATOR_GELADEN = ("typeof META !== 'undefined' && META !== null"
                         " && Array.isArray(META.controls) && META.controls.length > 0")
 
 
-async def serve(app: web.Application) -> tuple[web.AppRunner, int]:
-    """aiohttp-App auf einem freien Port starten -> (runner, port)."""
+async def serve(app: web.Application, port: int = 0) -> tuple[web.AppRunner, int]:
+    """aiohttp-App auf einem freien Port (oder auf `port`) starten -> (runner, port)."""
     runner = web.AppRunner(app)
     await runner.setup()
-    await web.TCPSite(runner, "127.0.0.1", 0).start()
+    await web.TCPSite(runner, "127.0.0.1", port).start()
     return runner, runner.addresses[0][1]
 
 
@@ -77,6 +77,14 @@ class Miniserver:
     gesichert  uuidAction -> gesicherte Details (securedDetails), nur ueber
                einen verschluesselten Befehl (jdev/sys/fenc) zu bekommen;
                gesichert_code: LL-Code dafuer (etwa "403": keine Rechte)
+    kennwort   Kennwort von `benutzer` fuer die Anmeldung (getkey2/getjwt);
+               anmeldungen: "ok"/"abgelehnt" je getjwt, verzoegerung: so viele
+               Sekunden laesst sich getjwt Zeit
+    struktur   LoxAPP3.json (/data/LoxAPP3.json, nur mit gueltigem Token)
+
+    Die Anmeldung folgt der Loxone-Doku (Token-Authentifizierung): getkey2
+    liefert Schluessel (hex), Salz und hashAlg; getjwt traegt
+    HMAC-SHA256(Schluessel, "user:" + SHA256("kennwort:salz") in Grossbuchstaben).
 
     Die Verschluesselung ist hier unabhaengig von bin/loxone_secure.py nach der
     Loxone-Doku nachgebaut (Command Encryption, HTTP): eigener RSA-Schluessel,
@@ -98,6 +106,11 @@ class Miniserver:
         self.gesichert: dict[str, dict] = {}
         self.gesichert_code = "200"
         self.benutzer = "loxpanel"          # Benutzer, den der Befehl nennen muss
+        self.kennwort = "richtig"
+        self.salz = "53616C7A"
+        self.verzoegerung = 0.0
+        self.anmeldungen: list[str] = []
+        self.struktur: dict | None = None
         self.getkey = "4C6F78506F6E656C"    # Schluessel aus jdev/sys/getkey (hex)
         self.schluessel = rsa.generate_private_key(public_exponent=65537, key_size=1024)
         self.schluessel_abrufe = 0
@@ -179,6 +192,10 @@ class Miniserver:
                             + "-----END CERTIFICATE-----")
         if tail == "sys/getkey":
             return self._ll(tail, self.getkey)
+        if tail.startswith("sys/getkey2/"):
+            return self._ll(tail, {"key": self.getkey, "salt": self.salz, "hashAlg": "SHA256"})
+        if tail.startswith("sys/getjwt/"):
+            return await self._getjwt(tail)
         if tail.startswith("sys/fenc/"):
             return self._fenc(r)
         if not self._ok(r, tail):
@@ -192,6 +209,25 @@ class Miniserver:
         self.io_roh.append(r.raw_path.split("/jdev/", 1)[1])
         return web.json_response({"LL": {"control": tail, "value": "1",
                                          "Code": "500" if self.reject else "200"}})
+
+    async def _getjwt(self, tail: str) -> web.Response:
+        _, _, hash_, user, *_ = tail.split("/")
+        if self.verzoegerung:
+            await asyncio.sleep(self.verzoegerung)
+        pw = hashlib.sha256(f"{self.kennwort}:{self.salz}".encode()).hexdigest().upper()
+        soll = hmac.new(bytes.fromhex(self.getkey), f"{self.benutzer}:{pw}".encode(), hashlib.sha256).hexdigest()
+        ok = user == self.benutzer and hash_ == soll
+        self.anmeldungen.append("ok" if ok else "abgelehnt")
+        if not ok:
+            return web.Response(status=401, text="Unauthorized")
+        return self._ll(tail, {"token": self.token, "validUntil": 0, "tokenRights": 4})
+
+    async def _loxapp3(self, r: web.Request) -> web.Response:
+        if not self._ok(r, "data/LoxAPP3.json"):
+            return web.Response(status=401)
+        if self.struktur is None:
+            return web.Response(status=404)
+        return web.json_response(self.struktur)
 
     async def _getstatistic(self, tail: str) -> web.Response:
         _, _, ua, kind, frm, to, allw, gid, out = tail.split("/")
@@ -211,12 +247,13 @@ class Miniserver:
             t += periode
         return web.Response(body=body, content_type="application/octet-stream")
 
-    async def start(self) -> "Miniserver":
+    async def start(self, port: int = 0) -> "Miniserver":
         app = web.Application()
         app.router.add_get("/stats/{f}", self._stats)
         app.router.add_get("/jdev/{tail:.*}", self._jdev)
         app.router.add_get("/camimage/{ua}/{ts}", self._camimage)
-        self.runner, self.port = await serve(app)
+        app.router.add_get("/data/LoxAPP3.json", self._loxapp3)
+        self.runner, self.port = await serve(app, port)
         return self
 
     async def stop(self) -> None:
