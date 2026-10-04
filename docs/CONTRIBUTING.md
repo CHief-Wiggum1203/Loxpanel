@@ -185,8 +185,16 @@ nicht unbemerkt entfernt:
   `renderWertePane()`); für Lenardo erst auf seinen Wetter-Aufbau
   (`fpWeatherMainHTML()`, `renderSvStatus()`) umbauen. Reibt sich bei
   Upstream-Merges an `renderWeatherPane()`,
-  `renderCalendarPane()` und `renderSvStatus()`. Wache:
-  `tests/browser/test_pane_hoehe_browser.py`.
+  `renderCalendarPane()` und `renderSvStatus()`. Dazu gehört
+  `vorschauDatumEinpassen()` (Fork #108): Eng bleibt das Datum der
+  Wetter-Vorschau einzeilig. Wache:
+  `tests/browser/test_pane_hoehe_browser.py` (`test_wetter_eng_langes_datum`).
+- Uhr-Seite wegtippen löst die Kachel darunter nicht aus (`saverGeste` und
+  die Capture-Abfänger auf `window` vor `el('saver')` in `panel.html`, Fork
+  #107): bei Lenardo vorbereitet als Zweig `up/saver-wegtippen`, noch nicht
+  eingereicht. Reibt sich bei Upstream-Merges an der Zeile darunter, die im
+  Fork zusätzlich auf `input` lauscht. Wache:
+  `tests/browser/test_saver_wecken_browser.py`.
 - Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
   `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
   `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
