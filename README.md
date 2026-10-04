@@ -296,7 +296,8 @@ ein Backup der kompletten Konfiguration (Panels, Kacheln, Theme, Miniserver-Zuga
 an. Die Archive liegen auf dem LoxBerry unter
 `data/plugins/loxpanel/backups/` und **überleben Plugin-Updates**. Aus der Liste
 lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
-vorher automatisch gesichert).
+vorher automatisch gesichert). Ein beschädigtes oder fremdes Archiv lehnt die
+Wiederherstellung ab, ohne etwas zu ändern.
 
 Ohne LoxBerry (Docker, Android-App) geht es im Konfigurator unter
 **Settings → Sicherung**, auf dem LoxBerry ebenso: **„Einstellungen
