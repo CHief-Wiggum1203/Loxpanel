@@ -12,6 +12,7 @@ import asyncio
 import copy
 import json
 
+import aiohttp
 import pytest
 
 from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
@@ -163,6 +164,49 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 await ohne.reload()
                 await _bis(lambda: sorted(i["dev"] for i in app.conn_info.values()) == ["kinderzimmer", "tablet"],
                            "nach dem Neuladen wieder als kinderzimmer verbunden")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_ansicht_wechseln_erreicht_den_agenten(cfg_ordner, tmp_path):
+    """Linux-Panel mit Agent: "Ansicht wechseln" stellt die Visu per WebSocket
+    um und gibt die Wahl dem Agenten dieser Zeile (ueber seine IP), der sie mit
+    seiner naechsten Meldung uebernimmt (tests/test_agent.py spielt den Agenten
+    selbst durch)."""
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN + [("POST", "/api/agent/announce", W.api_agent_announce)])
+        meldung = {"name": "wand", "panel": "wohnen", "ip": "127.0.0.1", "port": 9, "kiosk": True,
+                   "features": ["panel"]}
+        fehler = []
+        try:
+            async with aiohttp.ClientSession() as s, async_playwright() as p:
+                async def melden():
+                    async with s.post(f"http://127.0.0.1:{port}/api/agent/announce", json=meldung) as r:
+                        return await r.json()
+                assert "panel" not in await melden()
+                b = await p.chromium.launch()
+                wand = await _visu(b, port, fehler, "?panel=wohnen&device=wand", {"width": 1024, "height": 600})
+                await _bis(lambda: _geraet(app, "wand").get("connections") == 1, "Visu des Panels verbunden")
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await _displays(pg, port)
+                zeile = pg.locator('#ag_list .ag[data-name="wand"]')
+                await zeile.wait_for()
+                assert await zeile.locator(".tag").text_content() == "Agent"
+                await zeile.locator(".agsel").select_option("kueche")
+                await zeile.get_by_role("button", name="Ansicht wechseln").click()
+                await wand.wait_for_url(lambda u: "panel=kueche" in u)
+                await _meldung(pg, "#ag_toast", "✓ switch → 1")
+                assert app.agent_wunsch == {"127.0.0.1": "kueche"}
+                antwort = await melden()
+                assert antwort["panel"] == "kueche"
+                meldung["panel"] = antwort["panel"]          # Agent hat uebernommen
+                assert "panel" not in await melden() and app.agent_wunsch == {}
                 await b.close()
         finally:
             bc.cancel()

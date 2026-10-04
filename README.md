@@ -232,8 +232,10 @@ Chromium-Kiosk – kann ein Container auf dem LoxBerry aber nicht steuern. Genau
 - **Neustart nach Absturz:** Endet Chromium, ohne dass es jemand über **Stop**
   beendet hat, startet der Agent es nach einer kurzen Pause mit derselben Ansicht
   neu. Stürzt es immer wieder ab, wartet er jedes Mal doppelt so lange.
-- **Ansicht merken:** Die unter **Displays** gewählte Ansicht übersteht einen
-  Neustart des Panels. Sie liegt beim Login-Benutzer in
+- **Ansicht merken:** Die unter **Displays** gewählte Ansicht und die eines
+  Betriebsmodus merkt sich der Agent, bei „Ansicht wechseln“ und beim
+  Betriebsmodus ohne Neustart des Browsers. Sie übersteht einen Neustart des
+  Panels. Sie liegt beim Login-Benutzer in
   `~/.local/state/loxpanel/agent-state.json`; Datei löschen oder `PANEL` in der
   kiosk.conf ändern, dann gilt wieder `PANEL`.
 

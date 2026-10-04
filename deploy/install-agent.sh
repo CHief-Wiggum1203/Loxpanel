@@ -573,11 +573,19 @@ def start_kiosk(panel=None):
         return _start_kiosk(panel)
 
 
+def _panel_merken(panel):
+    """Ansicht fuer alle kuenftigen Kiosk-Starts setzen und speichern."""
+    global _cur_panel
+    with _lock:
+        if panel != _cur_panel:
+            _cur_panel = panel
+            _save_panel_state(panel)   # Wahl merken -> ueberlebt Reboot
+
+
 def _start_kiosk(panel):
-    global _proc, _cur_panel, _last_reload, _kiosk_paused
-    if panel is not None and panel != _cur_panel:
-        _cur_panel = panel
-        _save_panel_state(panel)   # Wahl merken -> ueberlebt Reboot
+    global _proc, _last_reload, _kiosk_paused
+    if panel is not None:
+        _panel_merken(panel)
     stop_kiosk()
     chrome = shutil.which("chromium") or shutil.which("chromium-browser")
     if not chrome:
@@ -658,13 +666,23 @@ def announce_loop():
     url = "http://%s/api/agent/announce" % SERVER
     while True:
         try:
+            # features: "panel" = kann eine Ansicht aus der Antwort uebernehmen
             data = json.dumps({"name": NAME, "panel": _cur_panel, "ip": MY_IP,
-                               "port": PORT, "kiosk": running()}).encode()
+                               "port": PORT, "kiosk": running(), "features": ["panel"]}).encode()
             req = urlreq.Request(url, data=data, headers={"Content-Type": "application/json"})
             resp = urlreq.urlopen(req, timeout=6).read()
             # Server kann Geraeteeinstellungen zurueckgeben (z.B. Display-Abschaltung)
             try:
                 r = json.loads(resp or b"{}")
+                # Ansicht, die der Server fuer dieses Panel vorsieht (Displays
+                # "Ansicht wechseln", Betriebsmodus): Die Visu hat schon per
+                # WebSocket gewechselt, also ohne Chromium-Neustart uebernehmen.
+                # Gilt fuer jeden weiteren Kiosk-Start und ab der naechsten
+                # Meldung; dpmsOff/reloadHours dieser Antwort gehoeren schon dazu.
+                neu = r.get("panel")
+                if isinstance(neu, str) and neu != _cur_panel:
+                    _panel_merken(neu)
+                    print("Ansicht vom Server uebernommen:", neu or "(default)")
                 if running():
                     # DPMS nur korrigieren, wenn der aktuelle X-Wert abweicht
                     # (z.B. weil Chromium den Timer beim Start auf den X-Default

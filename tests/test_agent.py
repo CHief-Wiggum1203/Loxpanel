@@ -10,22 +10,33 @@ kein Test das Display des Rechners anfasst.
 
 Der Installer deploy/install-agent.sh enthaelt den Agenten als Heredoc. Beide
 muessen im Code gleich sein (CLAUDE.md), das prueft der erste Test; die
-uebrigen laufen deshalb nur gegen die Datei."""
+uebrigen laufen deshalb nur gegen die Datei.
+
+Der letzte Teil spielt Server (webvisu ueber lox.visu_starten, Config in
+cfg_ordner) und Agent zusammen: Ansicht wechseln unter Displays und
+Betriebsmodus muessen beim Agenten ankommen. Die WebSocket-Verbindung des
+Panels baut der Test selbst auf, der Chromium-Stellvertreter verbindet sich
+nicht."""
 from __future__ import annotations
 
 import ast
+import asyncio
 import importlib.util
 import itertools
 import json
 import os
 import signal
 import sys
+import threading
 import time
+import types
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
+import aiohttp
 import pytest
 
-from lox import ROOT
+from lox import ROOT, W, anlage, visu_starten
 
 AGENT = ROOT / "agent" / "loxpanel-agent.py"
 INSTALL = ROOT / "deploy" / "install-agent.sh"
@@ -46,6 +57,25 @@ if modus == "ende":
     sys.exit(1)
 signal.signal(signal.SIGUSR1, lambda *a: sys.exit(0))
 time.sleep(3600)
+"""
+
+
+# Stellvertreter fuer xset: DPMS-Zustand ("Enabled 600" wie der X-Standard) in
+# einer Datei, damit der Test sieht, welche Abschaltzeit der Agent setzt.
+XSET = """#!{python}
+import os, sys
+datei = os.path.join({ordner!r}, "xset.state")
+an, aus = open(datei).read().split() if os.path.exists(datei) else ("Enabled", "600")
+a = sys.argv[1:]
+if a[:1] == ["q"]:
+    print("DPMS (Energy Star):\\n  Standby: 0    Suspend: 0    Off: %s\\nDPMS is %s\\n  Monitor is On" % (aus, an))
+elif a[:1] == ["+dpms"]:
+    an = "Enabled"
+elif a[:1] == ["-dpms"]:
+    an = "Disabled"
+elif a[:1] == ["dpms"]:
+    aus = a[3]
+open(datei, "w").write("%s %s" % (an, aus))
 """
 
 
@@ -380,3 +410,287 @@ def test_auto_reload_bei_laufendem_kiosk(panel, monkeypatch):
     with pytest.raises(Ende):
         m.announce_loop()
     assert m.running() and m._proc.pid != alt
+
+
+# ---- Ansicht wechseln und Betriebsmodus erreichen den Agenten ----
+
+BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
+                   "isFavorite": True, "states": {"active": "sl"}}}
+PROFILE = {"panels": {"day": {"title": "Tag", "tabs": ["favoriten"], "ui": {"dpmsOff": 300, "reloadHours": 6}},
+                      "night": {"title": "Nacht", "tabs": ["favoriten"], "ui": {"dpmsOff": 30, "reloadHours": 1}}},
+           "devices": {"wand": {"auto": True, "modes": {"tag": "day", "nacht": "night"}}}}
+ROUTEN = [("POST", "/api/agent/announce", W.api_agent_announce),
+          ("POST", "/api/agent/command", W.api_agent_command),
+          ("POST", "/api/device/switch", W.api_device_switch),
+          ("GET", "/api/mode/{mode}", W.api_mode)]
+
+
+class _Halt(BaseException):
+    """Beendet die Announce-Schleife nach genau einem Takt (statt time.sleep(15))."""
+
+
+def _halt(_s):
+    raise _Halt
+
+
+async def _nachricht(ws, art: str, sekunden: float = 5) -> dict:
+    """Naechste Nachricht vom Typ `art` (andere ueberspringen), mit Gesamtfrist."""
+    async def warten():
+        while True:
+            m = await ws.receive_json()
+            if m.get("t") == art:
+                return m
+    return await asyncio.wait_for(warten(), sekunden)
+
+
+class Wand:
+    """Server und Agent eines Wandpanels, wie sie im Betrieb zusammenspielen."""
+
+    def __init__(self, app, m, s, basis, lp, panel):
+        self.app, self.m, self.s, self.basis, self.lp, self.panel = app, m, s, basis, lp, panel
+
+    async def melden(self) -> None:
+        """Ein Takt der Announce-Schleife des Agenten (echter HTTP-Weg)."""
+        def einmal():
+            echt = self.m.time
+            self.m.time = types.SimpleNamespace(time=time.time, sleep=_halt)
+            try:
+                self.m.announce_loop()
+            except _Halt:
+                pass
+            finally:
+                self.m.time = echt
+        await self.lp.run_in_executor(None, einmal)
+
+    async def post(self, pfad: str, daten: dict) -> dict:
+        async with self.s.post(self.basis + pfad, json=daten) as r:
+            return await r.json()
+
+    async def verbinden(self, adresse: str):
+        """WebSocket der Visu wie das Chromium des Panels -> (ws, theme)."""
+        ws = await self.s.ws_connect(f"{self.basis}/ws{adresse}")
+        return ws, await _nachricht(ws, "theme")
+
+    def xset_aus(self) -> int:
+        return int((self.panel.tmp / "xset.state").read_text().split()[1])
+
+
+async def _wand(panel, cfg_ordner, schritt, panels=PROFILE):
+    """Server mit den Profilen day (Display aus nach 300 s, Neustart alle 6 h)
+    und night (30 s, 1 h), dazu der echte Agent "wand" mit PANEL=day, seinem
+    HTTP-Handler und dem xset-Stellvertreter."""
+    (cfg_ordner / "panels.json").write_text(json.dumps(panels), encoding="utf-8")
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage(BAUSTEINE))
+    app.states = {"sl": 0}
+    runner, port, bc = await visu_starten(app, ROUTEN)
+    xset = panel.bin / "xset"
+    xset.write_text(XSET.format(python=sys.executable, ordner=str(panel.tmp)), encoding="utf-8")
+    xset.chmod(0o755)
+    # KIOSK_RESTART_SECS=0: melden() ersetzt kurz die Uhr des Agenten
+    panel.conf(SERVER=f"127.0.0.1:{port}", PANEL="day", KIOSK_RESTART_SECS="0")
+    m = panel.laden()
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), m.Handler)   # freier Port, den meldet der Agent
+    m.PORT = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    lp = asyncio.get_running_loop()
+    try:
+        async with aiohttp.ClientSession() as s:
+            return await schritt(Wand(app, m, s, f"http://127.0.0.1:{port}", lp, panel))
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        await lp.run_in_executor(None, m.stop_kiosk)
+        bc.cancel()
+        await runner.cleanup()
+
+
+async def _bis(bedingung, was: str, sekunden: float = 10) -> None:
+    ende = time.monotonic() + sekunden
+    while time.monotonic() < ende:
+        if bedingung():
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError(f"nicht erreicht: {was}")
+
+
+async def _switch_empfangen(ws) -> dict:
+    return await _nachricht(ws, "switch")
+
+
+def test_ansicht_wechseln_uebernimmt_der_agent_ohne_neustart(panel, cfg_ordner):
+    """Displays -> "Ansicht wechseln": Die Visu wechselt per WebSocket, der Agent
+    uebernimmt die Wahl mit seiner naechsten Meldung, ohne Chromium neu zu
+    starten. Danach gelten Abschaltzeit und Neustartintervall von night, und
+    jeder spaetere Kiosk-Start oeffnet night."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        assert w.app.agents["127.0.0.1"]["features"] == ["panel"]
+        assert w.xset_aus() == 300
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        j = await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        assert j == {"ok": True, "sent": 1, "via": "ws", "agent": "announce"}
+        assert (await _switch_empfangen(ws))["panel"] == "night"
+        await w.melden()
+        assert w.m._cur_panel == "night"
+        assert json.loads(w.panel.state.read_text())["panel"] == "night"
+        assert w.xset_aus() == 30
+        assert len(w.panel.starts()) == 1, "kein Chromium-Neustart"
+        await w.melden()
+        assert w.app.agents["127.0.0.1"]["panel"] == "night"
+        assert w.app.agent_wunsch == {}, "gemeldet: Wahl erledigt"
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_alter_agent_startet_mit_dem_neuen_profil(panel, cfg_ordner):
+    """Ein Agent ohne die Faehigkeit "panel" (aeltere Fassung) bekommt wie
+    bisher /start mit dem neuen Profil, also einen Chromium-Neustart."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.post("/api/agent/announce", {"name": "wand", "panel": "day", "ip": "127.0.0.1",
+                                             "port": w.m.PORT, "kiosk": True})
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        j = await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        assert j["ok"] and j["agent"] == "start"
+        await _bis(lambda: len(w.panel.starts()) == 2, "Chromium neu gestartet")
+        assert "panel=night" in w.panel.starts()[-1]["url"]
+        assert w.m._cur_panel == "night"
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_betriebsmodus_gibt_dem_agenten_das_profil(panel, cfg_ordner):
+    """Betriebsmodus von Loxone: Visu per WebSocket, der Agent uebernimmt das
+    Profil ebenso (Abschaltzeit, naechster Kiosk-Start)."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        async with w.s.get(w.basis + "/api/mode/nacht") as r:
+            assert (await r.json())["switched"][0]["via"] == "ws"
+        assert (await _switch_empfangen(ws))["panel"] == "night"
+        await w.melden()
+        assert w.m._cur_panel == "night" and w.xset_aus() == 30
+        assert len(w.panel.starts()) == 1
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_reload_vor_der_uebernahme_startet_mit_der_wahl(panel, cfg_ordner):
+    """"Reload" gleich nach dem Wechsel, bevor der Agent sich gemeldet hat:
+    Chromium startet mit der neuen Ansicht, nicht mit der alten."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        j = await w.post("/api/agent/command", {"ip": "127.0.0.1", "action": "reload"})
+        assert j["ok"]
+        await _bis(lambda: len(w.panel.starts()) == 2, "Chromium neu gestartet")
+        assert "panel=night" in w.panel.starts()[-1]["url"]
+        assert w.m._cur_panel == "night" and w.app.agent_wunsch == {}
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+def test_start_verwirft_eine_offene_wahl(panel, cfg_ordner):
+    """"Start" mit einer Ansicht ist neuer als eine noch nicht uebernommene
+    Wahl: die naechste Meldung stellt den Agenten nicht zurueck."""
+    async def lauf(w: Wand):
+        await w.lp.run_in_executor(None, w.panel.starten, w.m)
+        await w.melden()
+        ws, _ = await w.verbinden("?panel=day&device=wand")
+        j = await w.post("/api/device/switch", {"device": "wand", "ip": "127.0.0.1", "panel": "night"})
+        assert j["agent"] == "announce"
+        assert (await w.post("/api/agent/command", {"ip": "127.0.0.1", "action": "start", "panel": "day"}))["ok"]
+        await w.melden()
+        assert w.m._cur_panel == "day"
+        await ws.close()
+    asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+async def _server(cfg_ordner, schritt, panels=PROFILE):
+    """Nur der Server: Agenten melden sich im Test von Hand."""
+    (cfg_ordner / "panels.json").write_text(json.dumps(panels), encoding="utf-8")
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage(BAUSTEINE))
+    app.states = {"sl": 0}
+    runner, port, bc = await visu_starten(app, ROUTEN)
+    try:
+        async with aiohttp.ClientSession() as s:
+            return await schritt(Wand(app, None, s, f"http://127.0.0.1:{port}", None, None))
+    finally:
+        bc.cancel()
+        await runner.cleanup()
+
+
+def _meldung(ip: str, name: str = "linaro", **mehr) -> dict:
+    return {"name": name, "panel": "day", "ip": ip, "port": 9, "kiosk": True, "features": ["panel"], **mehr}
+
+
+def test_agent_wird_ueber_die_ip_zugeordnet(cfg_ordner):
+    """Geklonte Panels melden denselben Hostnamen. Die Wahl gilt dem Agenten
+    der Zeile unter Displays (ihre IP), nicht irgendeinem mit dem Namen."""
+    async def lauf(w: Wand):
+        for ip in ("10.0.0.11", "10.0.0.12"):
+            await w.post("/api/agent/announce", _meldung(ip))
+        ws, _ = await w.verbinden("?panel=day&device=linaro")
+        j = await w.post("/api/device/switch", {"device": "linaro", "ip": "10.0.0.12", "panel": "night"})
+        assert j["agent"] == "announce"
+        r12 = await w.post("/api/agent/announce", _meldung("10.0.0.12"))
+        r11 = await w.post("/api/agent/announce", _meldung("10.0.0.11"))
+        assert (r12.get("panel"), r12["dpmsOff"], r12["reloadHours"]) == ("night", 30, 1)
+        assert ("panel" in r11, r11["dpmsOff"]) == (False, 300)
+        await ws.close()
+    asyncio.run(_server(cfg_ordner, lauf))
+
+
+def test_wechsel_ueber_den_agenten_nur_wenn_er_online_ist(cfg_ordner):
+    """Hat sich der Agent laenger als AGENT_ONLINE nicht gemeldet, wechselt nur
+    die Visu; der Agent bekommt nichts (kein Warten auf ein totes Panel)."""
+    async def lauf(w: Wand):
+        await w.post("/api/agent/announce", _meldung("10.0.0.11"))
+        w.app.agents["10.0.0.11"]["ts"] -= W.AGENT_ONLINE + 1
+        ws, _ = await w.verbinden("?panel=day&device=linaro")
+        j = await w.post("/api/device/switch", {"device": "linaro", "ip": "10.0.0.11", "panel": "night"})
+        assert j == {"ok": True, "sent": 1, "via": "ws", "agent": ""}
+        assert w.app.agent_wunsch == {}
+        await ws.close()
+    asyncio.run(_server(cfg_ordner, lauf))
+
+
+def test_online_schwelle_folgt_dem_meldetakt():
+    """Online heisst: hoechstens drei Meldungen in Folge verpasst; der Takt ist
+    der des Agenten (time.sleep am Ende von announce_loop)."""
+    baum = ast.parse(AGENT.read_text(encoding="utf-8"))
+    schleife = next(f for f in baum.body if isinstance(f, ast.FunctionDef) and f.name == "announce_loop")
+    schlaf = [n.args[0].value for n in ast.walk(schleife) if isinstance(n, ast.Call)
+              and getattr(n.func, "attr", "") == "sleep"]
+    assert schlaf == [W.AGENT_MELDETAKT]
+    assert W.AGENT_ONLINE == 4 * W.AGENT_MELDETAKT
+
+
+def test_ausdrueckliche_wahl_hebt_den_betriebsmodus_auf(cfg_ordner):
+    """Laeuft ein Betriebsmodus, zieht der Server ein frisch verbundenes Geraet
+    auf dessen Profil. Eine ausdrueckliche Wahl unter Displays muss das fuer
+    dieses Geraet aufheben, sonst kehrt die Visu beim naechsten Verbinden
+    zurueck. Der naechste Moduswechsel gilt wieder."""
+    async def lauf(w: Wand):
+        async with w.s.get(w.basis + "/api/mode/tag") as r:
+            assert (await r.json())["ok"]
+        ws, theme = await w.verbinden("?panel=night&device=wand")
+        assert theme["title"] == "Tag", "Betriebsmodus zieht um"
+        j = await w.post("/api/device/switch", {"device": "wand", "panel": "night"})
+        assert j["ok"] and (await _switch_empfangen(ws))["panel"] == "night"
+        await ws.close()
+        ws, theme = await w.verbinden("?panel=night&device=wand")   # Visu laedt mit ?panel=night neu
+        assert theme["title"] == "Nacht"
+        await ws.close()
+        async with w.s.get(w.basis + "/api/mode/tag") as r:
+            assert (await r.json())["ok"]
+        ws, theme = await w.verbinden("?panel=night&device=wand")
+        assert theme["title"] == "Tag", "naechster Moduswechsel gilt wieder"
+        await ws.close()
+    asyncio.run(_server(cfg_ordner, lauf))

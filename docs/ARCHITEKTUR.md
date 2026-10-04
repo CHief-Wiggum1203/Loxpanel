@@ -213,10 +213,12 @@ Wichtige Felder:
 | `conn_route`, `conn_prof`, `conn_dev` | je Browser-WebSocket: aktuelle Route, aufgelöstes Panel-Profil, Gerätekennung |
 | `conn_info` | je Browser-WebSocket: Gerätekennung, Kiosk-App (`fully` oder `loxpanel`, `KIOSK_APPS`), IP, Verbindungszeit; Basis von `device_list()` |
 | `panels`, `devices` | aus `panels.json` |
-| `agents` | `ip → Agent-Datensatz` (Announce) |
+| `agents` | `ip → Agent-Datensatz` (Announce, mit `features`) |
+| `agent_wunsch` | `ip → Profil`, das ein Agent mit seiner nächsten Meldung übernehmen soll (Displays, Betriebsmodus); fällt weg, sobald er es meldet |
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
 | `icon_cache` | Cache für Loxone-Icons, höchstens `ICON_CACHE_MAX` (500) Einträge, der am längsten unbenutzte fliegt zuerst |
 | `last_mode` | zuletzt gesetzter Betriebsmodus |
+| `ansicht_gewaehlt` | Geräte, deren Ansicht unter Displays gewählt wurde: `ws_handler()` zieht sie nicht auf `last_mode`, bis der Betriebsmodus wieder wechselt |
 
 `op_modes` (Betriebsarten) ist ab `__init__` ein leeres Dict und wird in
 `_apply_structure()` gefüllt; `/api/types` funktioniert damit auch ohne Miniserver.
@@ -675,12 +677,12 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
-| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) | Panel-Agent |
-| GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
-| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
+| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich (`features: ["panel"]`: kann eine Ansicht übernehmen), Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) und, wenn für ihn eine Ansicht ansteht (`agent_wunsch`), `panel`; die beiden Werte gelten dann schon für sie | Panel-Agent |
+| GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < `AGENT_ONLINE` = 60 s, gelistet < 600 s) | Einstellungen |
+| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
-| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel}`), per WebSocket-Push, sonst über den Agenten | Einstellungen |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`). Hebt `last_mode` für das Gerät auf | Einstellungen |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
@@ -1382,9 +1384,28 @@ Login-Benutzer aus `~/.xsession`.
 Mehr kennt der Agent nicht. `goto`, `notify` und `reload` als Push-Aktionen laufen
 über den Server direkt an den Browser.
 
-**Ausgehend:** alle 15 s `POST /api/agent/announce` mit `{name, panel, ip, port,
-kiosk}`. Die Antwort trägt `dpmsOff` und `reloadHours` aus dem Panel-Profil, die
-der Agent lokal anwendet.
+**Ausgehend:** alle 15 s (`AGENT_MELDETAKT` im Server) `POST /api/agent/announce`
+mit `{name, panel, ip, port, kiosk, features}`. Die Antwort trägt `dpmsOff` und
+`reloadHours` aus dem Panel-Profil, die der Agent lokal anwendet. Steht `panel`
+darin, übernimmt der Agent diese Ansicht ohne Chromium-Neustart in `_cur_panel`
+und die State-Datei und meldet sie ab dann; `features: ["panel"]` sagt dem
+Server, dass er das kann.
+
+**Ansicht wechseln unter Displays:** Die Visu wechselt per WebSocket-Push (lädt
+sich mit `?panel=` neu). Bis Oktober 2026 erfuhr der Agent davon nichts: Er
+meldete weiter das alte Profil, bekam dessen Abschaltzeit und Neustartintervall,
+und jeder Kiosk-Neustart (Auto-Reload, Reload, Absturz, Neustart des Panels)
+öffnete die alte Ansicht. Heute merkt sich der Server die Wahl für den Agenten
+der Zeile (`agent_wunsch`, über die IP, weil geklonte Panels denselben
+Hostnamen melden) und gibt sie ihm mit der nächsten Antwort; ältere Agenten ohne
+`features` bekommen wie früher `/start` mit dem neuen Profil, also einen
+Chromium-Neustart. Ein Agent, der seit `AGENT_ONLINE` (vier Meldetakte) nichts
+gemeldet hat, bekommt nichts. Ein Betriebsmoduswechsel gibt das Profil ebenso
+an Agenten mit `features` weiter, über den Namen, weil die Zuordnung in
+`panels.json` am Namen hängt. Ein „Reload“ vor der nächsten Meldung startet mit
+der neuen Ansicht; startet der Agent Chromium in diesen höchstens 15 s selbst
+neu (Absturz, Auto-Reload), öffnet er noch die alte. Geprüft in
+`tests/test_agent.py` und `tests/browser/test_displays_browser.py`.
 
 **Konfiguration:** erste existierende Datei aus `$LOXPANEL_KIOSK_CONF`,
 `../deploy/loxpanel-kiosk.conf`, `/etc/loxpanel/kiosk.conf`. Umgebungsvariablen
@@ -1702,8 +1723,9 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 - W4: Alle Panel-Anzeigetexte hart deutsch, rund 90 Stellen im Server. Der
   Filter `_irc_modes` matcht per Substring `"schutz"` und bricht bei englischer
   Loxone-Konfiguration still.
-- W5: Magic Numbers ohne Konstante (0,3 s, 10 s, 60/600 s, 8 s, Port 8130,
-  Port 7091, Mood 778, Daytimer-Dauern, Farbtemperaturen).
+- W5: Magic Numbers ohne Konstante (0,3 s, 10 s, 600 s, Port 8130,
+  Port 7091, Mood 778, Daytimer-Dauern, Farbtemperaturen). Die 60 s und 8 s
+  der Agenten sind `AGENT_ONLINE` und `AGENT_BEFEHL_TIMEOUT`.
 - W6: Kategorie-Farben per Teilstring-Match auf Namen; `"Alarm"` matcht auch
   `"Alarmanlage deaktiviert"`.
 - W7: `_sanitize_panels` verwirft still, die UI erfährt nie, was verloren ging.
