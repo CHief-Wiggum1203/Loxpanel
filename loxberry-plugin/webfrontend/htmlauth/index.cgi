@@ -49,18 +49,26 @@ sub _lox_cred {
 }
 
 # Miniserver-Zugang an den Container weiterreichen und Ergebnis-HTML liefern.
+# Antwort von /api/settings/miniserver: "error" ist ein fester Text, der Fehler
+# des Miniservers steht getrennt in "fehler". "gespeichert" = Miniserver nicht
+# erreichbar, Zugang trotzdem gespeichert -> Warnung statt Fehler. Fehlende
+# Eingaben kommen als 400 mit JSON: der Container laeuft also.
 sub apply_miniserver {
     my ($data) = @_;
     my $ua = LWP::UserAgent->new(timeout => 25);
     my $r  = $ua->post("$api/api/settings/miniserver",
         'Content-Type' => 'application/json', Content => encode_json($data));
-    if ($r->is_success) {
-        my $j = eval { decode_json($r->decoded_content) };
-        return "<div class='alert alert-success'>Verbunden &ndash; " . ($j->{nControls} // 0) . " Controls geladen.</div>"
-            if $j && $j->{ok};
-        return "<div class='alert alert-danger'>Fehler: " . h($j ? ($j->{error} // 'unbekannt') : 'ungueltige Antwort') . "</div>";
+    my $j = eval { decode_json($r->decoded_content) };
+    if (ref($j) ne 'HASH') {
+        return "<div class='alert alert-danger'>Fehler: ung&uuml;ltige Antwort</div>" if $r->is_success;
+        return "<div class='alert alert-danger'>Container nicht erreichbar &ndash; l&auml;uft er? (unten &bdquo;Starten&ldquo;)</div>";
     }
-    return "<div class='alert alert-danger'>Container nicht erreichbar &ndash; l&auml;uft er? (unten &bdquo;Starten&ldquo;)</div>";
+    return "<div class='alert alert-success'>Verbunden &ndash; " . ($j->{nControls} // 0) . " Controls geladen.</div>"
+        if $j->{ok};
+    my $text = h($j->{error} // 'unbekannt');
+    $text .= "<br><small>" . h($j->{fehler}) . "</small>" if defined $j->{fehler} && $j->{fehler} ne '';
+    return $j->{gespeichert} ? "<div class='alert alert-warning'>$text</div>"
+                             : "<div class='alert alert-danger'>Fehler: $text</div>";
 }
 
 # ---- POST verarbeiten (vor jeder Ausgabe) ----
@@ -84,10 +92,13 @@ elsif ($action eq 'fromlox') {
     my %ms = LoxBerry::System::get_miniservers();
     my $m;
     for my $k (sort { $a <=> $b } keys %ms) { $m = $ms{$k}; last; }
-    if ($m && ($m->{IPAddress} // '') ne '') {
+    my $user = $m ? _lox_cred($m->{Admin_RAW}, $m->{Admin}) : '';
+    if ($m && ($m->{IPAddress} // '') ne '' && $user eq '') {
+        $msg = "<div class='alert alert-danger'>In LoxBerry ist f&uuml;r den Miniserver kein Benutzer eingetragen (Hauptmen&uuml; &rarr; Miniserver).</div>";
+    } elsif ($m && ($m->{IPAddress} // '') ne '') {
         $msg = apply_miniserver({
             host       => $m->{IPAddress},
-            user       => _lox_cred($m->{Admin_RAW}, $m->{Admin}),
+            user       => $user,
             pass       => _lox_cred($m->{Pass_RAW},  $m->{Pass}),
             port       => int($m->{Port} || 443),   # LoxBerry-Port spiegeln (80=Gen1/HTTP, 443=Gen2/HTTPS)
             verify_tls => JSON::false,

@@ -1574,7 +1574,12 @@ up), `stop` (Marker-Datei + down), `restart`, `check` (Cron alle 5 min und beim
 Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
 als root, Rotation `KEEP` = 20 Stück, das Widget fragt die Zahl über
 `loxpanel-ctl.sh keep` ab). Das Widget `index.cgi` (Perl) spricht
-`http://localhost:8099/api/settings` und `/api/settings/miniserver`.
+`http://localhost:8099/api/settings` und `/api/settings/miniserver`. Von dort
+zeigt es `error` und darunter `fehler`, `gespeichert` (nicht erreichbar,
+trotzdem gespeichert) als Warnung. Eine Antwort mit JSON ist immer eine Meldung
+des Servers, auch mit 400 oder 500; „Container nicht erreichbar" heißt es nur
+ohne JSON. „Aus LoxBerry übernehmen" ohne Benutzer in der LoxBerry-Konfiguration
+meldet das selbst (`tests/test_loxberry_widget.py`).
 
 `backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
 es danach um, das Widget bietet also nie ein halbes Archiv an; ein vorhandenes
