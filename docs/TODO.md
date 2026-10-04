@@ -960,6 +960,13 @@ selbst aktuell.
 - [x] **Workflow auch für Pull Requests**: `tests.yml` auf jedem PR und Push auf
       `main`, dazu bei PRs ein Probe-Build des Images (amd64, ohne Push); der
       Multi-Arch-Build mit Push bleibt in `docker-image.yml` auf `main`. **S**
+- [x] **Image nur nach grünen Tests**: `docker-image.yml` veröffentlichte
+      neben den Tests her, meist Minuten bevor sie fertig waren, und bei Tags
+      `v*` ganz ohne Tests; am 04.10.2026 stand so ein `:latest` mit roten
+      Browser-Tests draußen. Jetzt veröffentlicht der Job `veroeffentlichen` in
+      `tests.yml`, der auf beide Test-Jobs desselben Laufs wartet; `tests.yml`
+      läuft dafür auch bei Tags `v*`, `docker-image.yml` ist gelöscht. Wache:
+      `tests/test_workflows.py`. **S**
 
 ## 8. Bausteine: was fehlt
 

@@ -24,7 +24,7 @@ COPY agent/ ./agent/
 
 # Welcher Stand im Image steckt: bin/version.json fuer die Anzeige im
 # Konfigurator (bin/version_info.py); die Version steht in plugin.cfg, den
-# Commit reicht der Workflow herein (docker-image.yml).
+# Commit reicht der Workflow herein (tests.yml, Job veroeffentlichen).
 ARG LOXPANEL_COMMIT=""
 COPY loxberry-plugin/plugin.cfg ./loxberry-plugin/plugin.cfg
 RUN python bin/version_info.py schreiben "$LOXPANEL_COMMIT"
