@@ -355,16 +355,58 @@ seinen Stand vom 03.10.2026 bestanden die SIP-Tests aus dem Fork.
       SIP-Tests aus dem Fork gegen den neuen Zweig laufen lassen und ihn mit
       `--force-with-lease` pushen; der PR folgt dem Zweig. **S**
 
-**Vorbereitet, noch nicht eingereicht** (04.10.2026): ein Commit auf `main`
-(`415ffd5`), Fork #107. Bei Lenardo steht dieselbe Zeile wie vorher im Fork,
-der Fehler betrifft ihn genauso. Gegen seinen Stand besteht
-`test_saver_wecken_browser.py` aus dem Fork, ohne die Änderung scheitert er
-(„Licht 0“ schaltet). Auf 0.7.0 geht der Zweig weiter konfliktfrei (Probe mit
-`git merge-tree`).
+**Vorbereitet, noch nicht eingereicht** (04.10.2026): elf Zweige, jeder auf
+`upstream/main` (`e8acd1a`, 0.7.0) und im Fork auf GitHub. Sie stammen aus Fork
+#107 und den Korrekturen des Prüfberichts (Fork #111–#116). Was nur der Fork
+hat, fehlt darin: Tests, `docs/ARCHITEKTUR.md`, Unraid, „PIN merken“ und die
+fork-eigenen Bausteine. Jeder Zweig ist gegen Lenardos Code gegengeprüft: Die
+Fork-Tests lagen vorübergehend auf dem Zweig, mit der Änderung grün, ohne sie
+rot, keiner neu rot; das `.deb` prüfte ein Bau-Skript mit dem echten
+`build.sh`. Der PR geht vom Fork-Zweig gegen `Lenardo1/Loxpanel:main`;
+Titel und Text hat der Besitzer.
 
-| Zweig | Inhalt |
-|---|---|
-| `up/saver-wegtippen` (`a73422d`) | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
+| Zweig | Fork | Inhalt |
+|---|---|---|
+| `up/saver-wegtippen` (`9c27852`) | #107 | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
+| `up/konfig-speichern` (`7aeae0d`) | #111 | Kategorie-Tabs eines Raum-Panels (`roomCats`) im Export an den Konfigurator, Geräte erst nach erfolgreichem Schreiben übernehmen, Display-Kennwort verlässt den Server nicht |
+| `up/miniserver-zugang` (`ed064f3`) | #111, #116 | Miniserver-Zugang erst prüfen, dann speichern (abgelehnt: nichts gespeichert, nicht erreichbar: gespeichert mit Warnung), `miniserver.response_timeout`; das LoxBerry-Widget zeigt die Antwort richtig an |
+| `up/visu-neuverbindung` (`be2d98c`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine offene Abfrage gehört zu ihrer Seite |
+| `up/miniserver-verbindung` (`2337507`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
+| `up/audioserver-kopplung` (`b026632`) | #113 | Ein HTTP-Fehler gilt nicht dauerhaft als ungekoppelt, der Raumfavorit meldet Sendefehler |
+| `up/kalender-ausnahmen` (`377b340`) | #113 | Ein verschobener Serientermin ersetzt das Original, eine Serie ohne Zeitzone bleibt nach der Zeitumstellung in Ortszeit |
+| `up/installdoku` (`bdc7fcd`) | #114 | Pakete aus `requirements.txt`, Vorrang des gespeicherten Zugangs, keine feste glibc-Grenze für `cryptography` |
+| `up/agent-ansicht` (`5f6f34d`) | #115 | „Ansicht wechseln“ erreicht den Linux-Agenten, die Ansicht übersteht Neustarts, ein abgestürztes Chromium startet neu |
+| `up/loxberry-sicherung` (`61bfd1d`) | #116 | Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, der Container übernimmt die Zeitzone des LoxBerry |
+| `up/deb-version` (`ead07bc`) | – | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` statt fest aus `control`, Tag-Prüfung, Aufräumen bei Abbruch. Nur bei Lenardo, der Fork entwickelt das `.deb` nicht weiter |
+
+Beim Einreichen auf die Reihenfolge achten:
+- `up/miniserver-zugang` und `up/miniserver-verbindung` bringen beide
+  `_ms_antwortfrist()` und `response_timeout` mit. Git meldet Konflikte in
+  `reconnect()` und `loxpanel.cfg.example`, fügt die Funktion aber still
+  doppelt ein. Wer als Zweiter gemergt wird, auf den neuen `upstream/main`
+  setzen, nur die Fassung mit `_ms_sekunden()` behalten und
+  `ruff check --select F,E9 bin` laufen lassen; Lenardo hat keine Lint-CI.
+- `up/installdoku` und `up/miniserver-verbindung` ändern denselben
+  README-Absatz („Zugangsdaten per Env …“). Der Konflikt ist rein textlich,
+  beide Sätze bleiben.
+- Alle anderen Paare gehen konfliktfrei auf seinen `main` (`git merge-tree`).
+
+- [ ] **Vor `up/visu-neuverbindung` an der Anlage prüfen:** Unter PIN geht ein
+      Musik-Favorit als `sps/ios/…/roomfav/play/{n}` über den Miniserver,
+      nicht über die Verbindung zum Audioserver; bei Favoriten aus dem
+      Audioserver-Kanal ist `n` die Item-id. Geprüft ist das nur gegen den
+      Nachbau, der PR-Text sagt das. Dazu einmal Regler, Favorit und
+      Türöffner unter PIN an einer gesicherten Zone mit gekoppeltem
+      Audioserver. Dasselbe gilt für den Fork. **S**
+- [ ] **`.deb` ohne Versionsanzeige:** Ein installiertes `.deb` zeigt im
+      Konfigurator „Version unbekannt“, weil `build.sh` weder `plugin.cfg`
+      noch `bin/version.json` ins Paket legt. Der PR-Text von
+      `up/deb-version` bietet Lenardo das als zweiten Commit an
+      (`version_info.py schreiben` beim Bau, Commit aus `github.sha`). **S**
+- [ ] **Nach jedem Merge bei Lenardo:** Zeile in die Tabelle der gemergten
+      Beiträge unten, beim nächsten Abgleich (Ablauf C) die Hinweise unter
+      „Fork-eigene Patches“ in `CONTRIBUTING.md` beachten und den Eintrag dort
+      auf „in Upstream“ setzen, den Zweig im Fork löschen.
 
 Fork #108 (Datum der Wetter-Vorschau bleibt eng einzeilig) geht nicht mit:
 Er sitzt in `wetterEinpassen()`, das zu „Pane 2 nutzt ihre Fläche“ gehört
@@ -376,13 +418,6 @@ auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
 Wetter- und Kalender-Tabs auf, für Lenardo erst auf seinen Wetter-Aufbau
 umbauen), Kachel-Aufbau, automatisches Raster und Schriften (erst
 vorschlagen) und die Icon-Bibliothek (oben).
-
-Noch nicht eingereicht, obwohl Lenardo genauso betroffen ist: `roomCats` im
-Export an den Konfigurator (Fork #111; seit 0.7.0 steht dort `catFilter` aus
-#80, `roomCats` fehlt) und die PIN auf jedem Bedienweg samt Signatur der
-Musik-Favoriten (Fork #112). Beide stehen in `CONTRIBUTING.md` unter den
-Fork-eigenen Patches; Fork #112 rieb sich beim Abgleich auf 0.7.0 an #80 und
-#81.
 
 | PR | Inhalt |
 |---|---|
