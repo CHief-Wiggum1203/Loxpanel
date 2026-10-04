@@ -42,6 +42,7 @@ except ImportError:
 
 try:
     from dateutil.rrule import rrulestr
+    from dateutil.tz import tzlocal
     HAVE_RRULE = True
 except ImportError:
     HAVE_RRULE = False
@@ -348,10 +349,12 @@ def _occurrences(component, range_start: date, range_end: date,
         base = dtstart
         # Google-Feeds schreiben oft DTSTART ohne Zeitzone, das UNTIL der RRULE
         # aber mit 'Z'. dateutil verweigert diese Mischung mit einem ValueError,
-        # und ohne das hier fiele die GANZE Serie aus. Den Start in die Ortszeit
-        # heben bringt beide Seiten in dieselbe Welt.
-        if base.tzinfo is None and re.search(r"UNTIL=[^;]*Z", rrule_txt, re.I):
-            base = base.astimezone()
+        # und ohne das hier fiele die GANZE Serie aus. Den Start als Ortszeit
+        # kennzeichnen bringt beide Seiten in dieselbe Welt. tzlocal() statt
+        # astimezone(): das setzte einen FESTEN Versatz (+02:00 im Sommer), und
+        # nach der Zeitumstellung stand jedes Auftreten eine Stunde daneben.
+        if HAVE_RRULE and base.tzinfo is None and re.search(r"UNTIL=[^;]*Z", rrule_txt, re.I):
+            base = base.replace(tzinfo=tzlocal())
 
     # Um die Dauer nach hinten erweitert suchen: ein am 1.7. begonnener
     # Ferientermin muss am 21.9. noch gefunden werden.
