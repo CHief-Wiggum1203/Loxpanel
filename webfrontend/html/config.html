@@ -3107,7 +3107,7 @@ window.addEventListener('beforeunload',e=>{ if(dirty){ e.preventDefault(); e.ret
    SETTINGS-Rubrik (frühere /settings-Seite als Reiter)
    ============================================================ */
 let SET=null;
-function flash(el,msg,ok){ if(!el)return; el.textContent=msg; el.className='toast show '+(ok?'ok':'err'); setTimeout(()=>el.classList.remove('show'),4000); }
+function flash(el,msg,ok){ if(!el)return; el.textContent=msg; el.className='toast show '+(ok?'ok':'err'); setTimeout(()=>{ if(!el.classList.contains('warn')) el.classList.remove('show'); },4000); }
 
 // Version, Commit (kurz, ganz im Tooltip) und Bauzeit in der Ortszeit des Browsers
 function versionZeigen(v){
@@ -3693,6 +3693,10 @@ function pwHinweis(name, drv, host){
   const z=PASS_ZIEL[name];
   return (z && z.driver===drv && z.host===String(host||'').trim()) ? T('unverändert lassen') : T('Passwort (Fully)');
 }
+// ... fuer eine Zeile nach Treiber und Host, wie sie gerade im Formular stehen
+function pwHinweisZeigen(row){
+  row.querySelector('.dd_pw').placeholder=pwHinweis(row.dataset.name, row.querySelector('.dd_drv').value, row.querySelector('.dd_host').value);
+}
 function displayRow(disp, name){
   const x=disp||{driver:'',host:'',port:'',password:''};   // password: nur selbst Eingetipptes
   return '<div class="ddrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
@@ -3734,12 +3738,9 @@ function renderDevices(){
     const row=sel.closest('.dev'), name=row.dataset.name, drv=sel.value;
     const host=row.querySelector('.dd_host'), port=row.querySelector('.dd_port');
     if(drv){ if(!host.value && DEVICE_IPS[name]) host.value=DEVICE_IPS[name]; if(!port.value) port.value=DRIVER_PORT[drv]||''; }
-    row.querySelector('.dd_pw').placeholder=pwHinweis(name, drv, host.value);
+    pwHinweisZeigen(row);
   });
-  box.querySelectorAll('.dd_host').forEach(inp=>inp.oninput=()=>{
-    const row=inp.closest('.dev');
-    row.querySelector('.dd_pw').placeholder=pwHinweis(row.dataset.name, row.querySelector('.dd_drv').value, inp.value);
-  });
+  box.querySelectorAll('.dd_host').forEach(inp=>inp.oninput=()=>pwHinweisZeigen(inp.closest('.dev')));
   box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
     const dev=b.closest('.dev'), name=dev.dataset.name;
     const idx=Array.from(dev.querySelectorAll('.dmrow')).indexOf(b.closest('.dmrow'));
@@ -3767,10 +3768,12 @@ function devicesPayload(){
   });
   return devices;
 }
-// Nach dem Speichern: welche Kennwoerter der Server jetzt hat; eines, das er
-// wegen eines anderen Ziels verworfen hat, nennen (bleibt stehen).
+// Nach dem Speichern: welche Kennwoerter der Server jetzt hat (auch in den
+// Platzhaltern, "Speichern" zeichnet nicht neu); eines, das er wegen eines
+// anderen Ziels verworfen hat, nennen (bleibt stehen).
 function devGespeichert(j, text){
   passZielLesen(j.devices);
+  document.querySelectorAll('#dev_list .dev').forEach(pwHinweisZeigen);
   const weg=j.kennwortVerworfen||[], t=$('#dev_toast');
   if(!weg.length){ flash(t,text,true); return; }
   t.className='toast show warn';

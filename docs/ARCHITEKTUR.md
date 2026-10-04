@@ -619,7 +619,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
 | POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel}`), per WebSocket-Push, sonst über den Agenten | Einstellungen |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
-| GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin) | Einstellungen, Loxone, extern |
+| GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
 | POST | `/api/testtone` | `api_testtone` | Testton an Panels | Einstellungen |
 | GET/POST | `/api/reload` | `api_reload` | Panels neu laden, Filter `panel`/`device` | Loxone, extern |
@@ -1193,10 +1193,11 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   bekommt er nicht, nur `hasPass`: Das Feld bleibt leer und zeigt „unverändert
   lassen“, solange Treiber und Host dem gespeicherten Ziel entsprechen
   (`pwHinweis()`, dieselbe Regel wie `_KENNWORT_ZIEL` im Server), sonst
-  „Passwort (Fully)“. Verwirft der Server ein Kennwort wegen eines anderen
-  Ziels, bleibt eine Warnung stehen. Ein gespeichertes Kennwort löschen geht
-  nur über ein anderes Ziel. Geprüft in `tests/browser/test_displays_browser.py`
-  und `tests/test_geraete_kennwort.py`.
+  „Passwort (Fully)“, auch gleich nach dem Speichern. Verwirft der Server ein
+  Kennwort wegen eines anderen Ziels, bleibt eine Warnung stehen (`flash()`
+  blendet eine Leiste mit `warn` nicht aus). Ein gespeichertes Kennwort
+  löschen geht nur über ein anderes Ziel. Geprüft in
+  `tests/browser/test_displays_browser.py` und `tests/test_geraete_kennwort.py`.
 - Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
   `input[type=text|number|password]`, ein Feld ohne `type` steht sonst
   browserweiß im dunklen Konfigurator.

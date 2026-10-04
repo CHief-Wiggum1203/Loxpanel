@@ -5,12 +5,14 @@ Ein leeres Feld beim Speichern heisst "unveraendert", aber nur beim selben
 Ziel (Host und Treiber, _KENNWORT_ZIEL wie beim Einspielen einer Sicherung);
 sonst ginge das gespeicherte Kennwort an einen anderen Host. Auch der
 Fehlertext eines Display-Treibers (Antwort von /api/display und Log) nennt
-es nicht. Alle Tests im umgeleiteten Config-Ordner (Fixture cfg_ordner)."""
+es nicht und haengt nicht von ihm ab. Alle Tests im umgeleiteten Config-Ordner (Fixture cfg_ordner)."""
 import asyncio
 import copy
 import io
 import json
+import socket
 import zipfile
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from aiohttp import web
@@ -238,6 +240,15 @@ async def _gegenstelle(antwort):
     return srv, srv.sockets[0].getsockname()[1]
 
 
+def _klartext(anfrage: bytes) -> bytes:
+    """Antwort im JSON-Format von Fully (status Error), deren statustext das
+    Kennwort dekodiert wiedergibt: kein password= davor."""
+    kennwort = parse_qs(urlsplit(anfrage.split(b" ")[1].decode()).query)["password"][0]
+    body = json.dumps({"status": "Error", "statustext": "falsch: " + kennwort}).encode()
+    return b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s" % (
+        len(body), body)
+
+
 GEGENSTELLEN = {
     # kein HTTP (etwa ein SSH-Port): aiohttp nennt die Adresse im Fehler
     "kein-http": lambda anfrage: b"SSH-2.0-OpenSSH_9.6\r\n",
@@ -246,6 +257,8 @@ GEGENSTELLEN = {
     # Fehlerseite mit der angefragten Adresse
     "fehlerseite": lambda anfrage: b"HTTP/1.1 404 Not Found\r\nContent-Length: %d\r\n\r\n%s" % (
         len(anfrage), anfrage),
+    # nennt das Kennwort dekodiert, ohne password= davor
+    "klartext": _klartext,
 }
 
 
@@ -277,5 +290,58 @@ def test_display_fehler_nennt_das_kennwort_nicht(cfg_ordner, caplog, fall):
         for teil in KENNWORT_TEILE:
             assert teil not in json.dumps(j), j
             assert teil not in caplog.text, caplog.text
+        # Ohne die Adresse (nicht erst durch die Ersetzung danach): InvalidURL
+        # und ClientResponseError nennen sie in str(err) ganz
+        assert "http://" not in treiber["error"], treiber
         assert "Display-Treiber tablet" in caplog.text, "der Fehler steht weiter im Log"
     asyncio.run(lauf())
+
+
+def _freier_port() -> int:
+    """Port, an dem gerade niemand lauscht: Die Verbindung wird verweigert."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def test_display_fehler_verraet_keine_pin_ueber_den_port(cfg_ordner, caplog):
+    """Der Port gehoert nicht zum Ziel (_KENNWORT_ZIEL): POST /api/devices mit
+    anderem Port und leerem Kennwortfeld behaelt das Kennwort. Bei verweigerter
+    Verbindung nennt aiohttp Host und Port; ersetzte der Server das Kennwort
+    auch in dieser selbst gebildeten Meldung, zeigte /api/display ohne
+    Anmeldung, ob der Port die PIN enthaelt ("127.0.0.1:***"), und jede PIN
+    bis 5 Stellen liesse sich durchprobieren. Der Fehlertext in Antwort und
+    Log haengt deshalb nicht vom Kennwort ab."""
+    port = _freier_port()
+    pin = str(port)
+
+    async def lauf(kennwort):
+        panels = {"panels": PANELS["panels"],
+                  "devices": {"tablet": {"auto": True, "modes": {}, "display": {
+                      "driver": "fully", "host": "127.0.0.1", "port": 2323, "password": kennwort}}}}
+        app = _app(cfg_ordner, panels)
+        cl = await _client(app, ("POST", "/api/devices", W.api_save_devices),
+                           ("GET", "/api/display", W.api_display))
+        try:
+            j = await _speichern(cl, {"tablet": {"auto": True, "modes": {}, "display": {
+                "driver": "fully", "host": "127.0.0.1", "port": port, "password": ""}}})
+            assert j["kennwortVerworfen"] == []
+            assert app.devices["tablet"]["display"] == {"driver": "fully", "host": "127.0.0.1",
+                                                        "port": port, "password": kennwort}
+            caplog.clear()
+            with caplog.at_level("WARNING", logger="loxpanel.webvisu"):
+                r = await cl.get("/api/display?on=1&device=tablet")
+                [treiber] = (await r.json())["drivers"]
+        finally:
+            await cl.close()
+            if app._drv_session:
+                await app._drv_session.close()
+        log = [z.getMessage() for z in caplog.records if "Display-Treiber" in z.getMessage()]
+        return treiber["ok"], treiber["error"], log
+
+    # die PIN ganz, ein Teil davon, eine Ziffer, die auch in der IP steht
+    ergebnisse = {kw: asyncio.run(lauf(kw)) for kw in (pin, pin[1:], "1", "anders")}
+    ok, fehler, log = ergebnisse["anders"]
+    assert ok is False and f"127.0.0.1:{port}" in fehler, fehler
+    assert log == [f"Display-Treiber tablet (fully): {fehler}"], log
+    assert ergebnisse == {kw: (ok, fehler, log) for kw in ergebnisse}, ergebnisse

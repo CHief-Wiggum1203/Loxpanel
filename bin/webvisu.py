@@ -2561,6 +2561,14 @@ class App:
                 timeout=aiohttp.ClientTimeout(total=6))
         drv = disp.get("driver")
         res = {"device": name, "driver": drv, "on": on}
+        pw = str(disp.get("password") or "")
+
+        def von_gegenstelle(text: str) -> str:
+            # Gibt die Gegenstelle die Anfrage wieder (Echo, Fehlerseite), stuende
+            # das Kennwort im Klartext darin. Nur hier ersetzen: In selbst
+            # gebildeten Meldungen ("Cannot connect to host h:port") verriete die
+            # Ersetzung ueber den frei waehlbaren Port, ob er das Kennwort enthaelt.
+            return text.replace(pw, "***") if pw else text
         try:
             if drv == "fully":
                 # Fully Kiosk Browser, Remote Admin: GET /?cmd=screenOn|screenOff&password=...
@@ -2584,7 +2592,7 @@ class App:
                     txt = (await r.text())[:300]
                     ok = r.status == 200
             if not ok:
-                res["error"] = f"HTTP {r.status}: {txt}".strip()
+                res["error"] = f"HTTP {r.status}: {von_gegenstelle(txt)}".strip()
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as err:
             # ValueError: Host, den die Namensaufloesung nicht annimmt
             # ("tablet..home", Label ueber 63 Zeichen) - sonst bricht die
@@ -2595,17 +2603,16 @@ class App:
             if isinstance(err, aiohttp.InvalidURL):
                 res["error"] = f"ungültige Adresse {disp['host']}:{disp['port']}"
             elif isinstance(err, aiohttp.ClientResponseError):
-                res["error"] = f"HTTP {err.status}: {err.message}"
+                res["error"] = f"HTTP {err.status}: {von_gegenstelle(err.message)}"
             else:
                 res["error"] = str(err) or err.__class__.__name__
         res["ok"] = ok
         if not ok:
-            # Gibt die Gegenstelle die Anfrage wieder (Echo, Fehlerseite), stuende
-            # das Kennwort sonst doch im Text: im Klartext oder so kodiert, wie
-            # es verschickt wurde (yarl kodiert anders als quote()).
-            pw = str(disp.get("password") or "")
-            res["error"] = re.sub(r"password=[^&\s]*", "password=***",
-                                  res["error"].replace(pw, "***") if pw else res["error"])
+            # Das Kennwort so, wie es verschickt wurde (yarl kodiert anders als
+            # quote()): aus einem Echo der Anfrage oder einer Meldung mit der
+            # ganzen Adresse (Zeitueberschreitung beim Verbinden). Ersetzt den
+            # ganzen Wert, das Ergebnis haengt also nicht vom Kennwort ab.
+            res["error"] = re.sub(r"password=[^&\s]*", "password=***", res["error"])
             log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
         return res
 

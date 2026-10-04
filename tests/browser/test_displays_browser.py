@@ -306,9 +306,28 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
                                                  "weil Host oder Treiber geändert: tablet")
                 assert "warn" in await pg.locator("#dev_toast").get_attribute("class")
                 assert kennwort() == ""
+                # Der 4-s-Timer der Meldung vom ersten Speichern blendet die
+                # Warnung nicht aus
+                await pg.wait_for_timeout(4300)
+                assert "show" in await pg.locator("#dev_toast").get_attribute("class")
+                await pg.screenshot(path=str(tmp_path / "displays_kennwort.png"), full_page=True)
                 await tab.locator(".dm_add").click()
                 assert await pw.get_attribute("placeholder") == "Passwort (Fully)", "kein Kennwort mehr"
-                await pg.screenshot(path=str(tmp_path / "displays_kennwort.png"), full_page=True)
+
+                # Neues Kennwort fuer das neue Ziel: Nach dem Speichern sagt das
+                # Feld ohne Neuzeichnen, dass ein leeres es behaelt
+                await pw.fill("neu")
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST"):
+                    await pg.locator("#dev_save").click()
+                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                assert kennwort() == "neu"
+                await pw.fill("")
+                assert await pw.get_attribute("placeholder") == "unverändert lassen"
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
+                                              and r.request.method == "POST"):
+                    await pg.locator("#dev_save").click()
+                assert kennwort() == "neu"
                 await b.close()
         finally:
             bc.cancel()
