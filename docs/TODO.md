@@ -53,22 +53,46 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-**Lenardos offener PR #77 im Fork (03.10.2026):** „Verlauf-Widget: mehrere
-Bausteine stapeln“ (Zweig `feature/verlauf-stapelbar`, `364a448`) steht als
-echter Merge-Commit im Fork, bevor Lenardo ihn nach `main` bringt. Die
-Verlaufs-Pane zeigt damit einen oder mehrere Bausteine untereinander, die
-Zeitraum-Leiste steht fest darüber (`ARCHITEKTUR.md` §3.9). Ein Konflikt in
-`bin/webvisu.py` (`conn_chart`, `setchart`), sonst Zeile für Zeile seine
-Änderungen. Beim Übernehmen fielen zwei Fehler auf, die der Fork gleich
-behebt und Lenardo als Beitrag zu #77 eingereicht hat
+Zuletzt eingepflegt am **04.10.2026** (`upstream/main` @ `e8acd1a`,
+**Release 0.7.0**), als echter Merge-Commit. Lenardo hatte an dem Tag unsere
+Beiträge #80, #81, #82 und #84 per Squash gemergt, jeden patch-gleich mit dem
+eingereichten Zweig, dazu seinen #77 (Verlauf-Widget mit mehreren Bausteinen)
+samt unserem #79: Den hatte er zuerst in seinen Zweig
+`feature/verlauf-stapelbar` übernommen, der Stand von #77 in `main` ist
+baum-gleich mit `up/verlauf-stapel`. Außerdem sein
+[#78](https://github.com/Lenardo1/loxpanel/pull/78) (die APK enthält auch
+`armeabi-v7a`, läuft also auch auf 32-bit-Tablets, etwa einem Galaxy Tab S2
+mit Android 7), die Reparatur des APK-Builds (`setup-android` nur mit
+`platform-tools`) und das README mit drei Installationswegen und Changelog
+bis 0.7.0. Der Fork trägt jetzt `VERSION=0.7.0`. Sieben Konfliktdateien:
+`docker-image.yml` bleibt gelöscht (#84 hatte dort das Build-Argument
+`LOXPANEL_COMMIT` ergänzt, das der Job `veroeffentlichen` in `tests.yml`
+schon übergibt), im `Dockerfile` bleibt der Kommentar dazu, `release.cfg` mit
+0.7.0 und der `ARCHIVEURL` des Forks, `README.md` mit Lenardos drei Wegen
+(der erste als Docker-Container auf Unraid, einem Docker-Host oder dem
+LoxBerry), Image und Release-Link des Forks, der Roadmap-Zeile mit dem
+SIP-Zugang und Lenardos Changelog. In `bin/webvisu.py`, `config.html` und
+`panel.html` gilt die Fork-Fassung: Sie hatte Lenardos Zeilen schon und ist
+seit Fork #101, #102 und #112 weiter (CONTRIBUTING, Fork-eigene Patches).
+Jede Zeile, die Lenardo seit `415ffd5` hinzufügt, steht im Ergebnis, außer
+den bewusst ersetzten (Image-Name, Release-Links, Kommentar im
+`Dockerfile`, ältere Fassungen derselben Zeilen). Offen bei ihm bleibt #83
+(SIP Schritt 1, siehe unten).
+
+Davor, am **03.10.2026**, Lenardos damals offener PR #77: „Verlauf-Widget:
+mehrere Bausteine stapeln“ (Zweig `feature/verlauf-stapelbar`, `364a448`)
+stand als echter Merge-Commit im Fork, bevor Lenardo ihn nach `main`
+brachte. Die Verlaufs-Pane zeigt damit einen oder mehrere Bausteine
+untereinander, die Zeitraum-Leiste steht fest darüber (`ARCHITEKTUR.md`
+§3.9). Ein Konflikt in `bin/webvisu.py` (`conn_chart`, `setchart`), sonst
+Zeile für Zeile seine Änderungen. Beim Übernehmen fielen zwei Fehler auf, die
+der Fork gleich behob und Lenardo als Beitrag zu #77 eingereicht hat
 ([#79](https://github.com/Lenardo1/loxpanel/pull/79), in seinen Zweig von
 #77): Auf der Uhr-Seite wurden die Diagramme wieder unten abgeschnitten (bei
 960 × 480 um 144 px), und nach einem Wechsel der Pane konnte der vorige
-Stapel samt Namen stehen bleiben. Bringt Lenardo #77 nach `main`, holt der
-nächste Abgleich seinen Stand; seine Zeilen hat der Fork dann schon, unsere
-Korrekturen liegen daneben.
+Stapel samt Namen stehen bleiben. Mit 0.7.0 sind beide in `main`.
 
-Zuletzt eingepflegt am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
+Davor, am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
 weiterhin 0.6.0), als echter Merge-Commit. Lenardo hatte an dem Tag alle
 unsere offenen Beiträge übernommen, jeden patch-gleich: #63 Sicherung, #64
 Ersteinrichtung, #66 Kachel-Tasten erst beim Tippen, #71 Uhr-Seite, #72 tote
@@ -241,7 +265,7 @@ beim nächsten Mal wieder.
       [#80](https://github.com/Lenardo1/loxpanel/pull/80), Zweig `up/kleine-fehler`,
       zusammen mit vier weiteren kleinen Fehlern, siehe Upstream-Beiträge. Im
       Fork ist er drin, `test_geraeteliste_umschalten_und_benennen` prüft
-      ihn. **S**
+      ihn. Am 04.10.2026 gemergt (0.7.0). **S**
 - [x] **Uhr-Seiten-Fix zu #60 bei Lenardo eingereicht:**
       [#71](https://github.com/Lenardo1/loxpanel/pull/71), Zweig
       `up/verlauf-uhrseite`. In seinem `main` fallen die Verlaufs-Diagramme
@@ -310,46 +334,33 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 03.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
+Stand 04.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
 #34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`). **Eingereicht und
-offen** sind vier Beiträge vom 03.10.2026, je ein Commit. Alle vier gehen
-konfliktfrei zusammen auf #77. Gegen Lenardos Stand bestehen die
-zugehörigen Tests aus dem Fork, ohne die Änderungen scheitern sie (beim
-Neuladen fehlt ohne die Änderung schon die Einstellung, die die Tests
-abfragen):
-
-| PR | Zweig | Basis | Inhalt |
-|---|---|---|---|
-| [#79](https://github.com/Lenardo1/loxpanel/pull/79) | `up/verlauf-stapel` | `feature/verlauf-stapelbar` (#77) | Zu #77: Uhr-Seite schneidet nicht ab, kein Diagramm des vorigen Stapels nach einem Wechsel der Pane |
-| [#80](https://github.com/Lenardo1/loxpanel/pull/80) | `up/kleine-fehler` | `main` | Namensfeld `.mzname`, „1 Raum“, Ruhe-Text der Radiotasten, `catFilter` im Export an den Konfigurator, `ctrltight`/`ctrlnarrow` in `updateGrid()` |
-| [#81](https://github.com/Lenardo1/loxpanel/pull/81) | `up/detailseiten` | `main` | Volle Detailseiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen |
-| [#82](https://github.com/Lenardo1/loxpanel/pull/82) | `up/neuladen-nachts` | `main` | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite |
-
-Am selben Tag hat Lenardo
-[#78](https://github.com/Lenardo1/loxpanel/pull/78) geöffnet: Die APK
-enthält zusätzlich `armeabi-v7a`, damit sie auch auf 32-bit-Tablets läuft
-(etwa Galaxy Tab S2 mit Android 7); eine Zeile in
-`android/app/build.gradle.kts`, die APK wird dadurch größer. Kommt mit dem
-nächsten Abgleich in den Fork.
-
-**Ebenfalls eingereicht** (03.10.2026): zwei Beiträge, je ein Commit auf
-`main` (`415ffd5`), zusammen konfliktfrei. Der SIP-Beitrag sagt
-Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen seinen Stand bestehen
-die SIP- und Versionstests aus dem Fork. Mit den Beiträgen scheitert kein
-Fork-Test neu, nur der Test für `/api/health`, das es bei ihm nicht gibt. Die
-APK aus `up/versionsnummer` und der Docker-Schritt sind auf seinem Stand
-gebaut.
+offen** ist noch ein Beitrag vom 03.10.2026, ein Commit auf `main`
+(`415ffd5`). Er sagt Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen
+seinen Stand vom 03.10.2026 bestanden die SIP-Tests aus dem Fork.
 
 | PR | Zweig | Inhalt |
 |---|---|---|
 | [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis |
-| [#84](https://github.com/Lenardo1/loxpanel/pull/84) | `up/versionsnummer` (`6fc3908`) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
+
+- [ ] **#83 auf 0.7.0 neu aufsetzen:** Seit Lenardos README-Commit
+      `e8acd1a` geht `up/sip-zugang` nicht mehr konfliktfrei auf seinen
+      `main`: Beide ändern die Roadmap-Zeile zum Gegensprechen (Probe mit
+      `git merge-tree upstream/main e424371`, nur `README.md` im Konflikt;
+      Server, Konfigurator und Übersetzungen gehen ohne). Den Commit auf
+      `upstream/main` neu aufsetzen, die Zeile wie im Fork („SIP-Client in der
+      LoxPanel-App für Android; Zugang und Prüfung der Türstation gibt es
+      schon“, die Bausteinzeile wie bei Lenardo ohne AudioZoneV2), die
+      SIP-Tests aus dem Fork gegen den neuen Zweig laufen lassen und ihn mit
+      `--force-with-lease` pushen; der PR folgt dem Zweig. **S**
 
 **Vorbereitet, noch nicht eingereicht** (04.10.2026): ein Commit auf `main`
 (`415ffd5`), Fork #107. Bei Lenardo steht dieselbe Zeile wie vorher im Fork,
 der Fehler betrifft ihn genauso. Gegen seinen Stand besteht
 `test_saver_wecken_browser.py` aus dem Fork, ohne die Änderung scheitert er
-(„Licht 0“ schaltet).
+(„Licht 0“ schaltet). Auf 0.7.0 geht der Zweig weiter konfliktfrei (Probe mit
+`git merge-tree`).
 
 | Zweig | Inhalt |
 |---|---|
@@ -365,6 +376,13 @@ auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
 Wetter- und Kalender-Tabs auf, für Lenardo erst auf seinen Wetter-Aufbau
 umbauen), Kachel-Aufbau, automatisches Raster und Schriften (erst
 vorschlagen) und die Icon-Bibliothek (oben).
+
+Noch nicht eingereicht, obwohl Lenardo genauso betroffen ist: `roomCats` im
+Export an den Konfigurator (Fork #111; seit 0.7.0 steht dort `catFilter` aus
+#80, `roomCats` fehlt) und die PIN auf jedem Bedienweg samt Signatur der
+Musik-Favoriten (Fork #112). Beide stehen in `CONTRIBUTING.md` unter den
+Fork-eigenen Patches; Fork #112 rieb sich beim Abgleich auf 0.7.0 an #80 und
+#81.
 
 | PR | Inhalt |
 |---|---|
@@ -404,11 +422,19 @@ vorschlagen) und die Icon-Bibliothek (oben).
 | [#74](https://github.com/Lenardo1/loxpanel/pull/74) | Weckzeiten: „1 Betriebsart“ statt „1 Betriebsarten“ |
 | [#75](https://github.com/Lenardo1/loxpanel/pull/75) | Auf/Ab auf der Beschattungs-Kachel |
 | [#76](https://github.com/Lenardo1/loxpanel/pull/76) | Konfigurator auf Englisch: Link zu `/api/types`, vier Widget-Texte, „Block“ (Fork #99) |
+| [#79](https://github.com/Lenardo1/loxpanel/pull/79) | Zu #77: Uhr-Seite schneidet nicht ab, kein Diagramm des vorigen Stapels nach einem Wechsel der Pane (in Lenardos Zweig `feature/verlauf-stapelbar`, mit #77 in `main`) |
+| [#80](https://github.com/Lenardo1/loxpanel/pull/80) | Kleine Fehler: Namensfeld `.mzname`, „1 Raum“, Ruhe-Text der Radiotasten, `catFilter` im Export an den Konfigurator, `ctrltight`/`ctrlnarrow` in `updateGrid()` |
+| [#81](https://github.com/Lenardo1/loxpanel/pull/81) | Detailseiten: volle Seiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen |
+| [#82](https://github.com/Lenardo1/loxpanel/pull/82) | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite |
+| [#84](https://github.com/Lenardo1/loxpanel/pull/84) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
 
 #52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
 30.09.2026 kamen sie patch-gleich zurück. #63–#76 hat er am 02.10.2026
 gemergt, #65 und #67–#70 über seinen Zweig `ci/android-apk-pipeline` (#61);
-beim Abgleich am selben Tag kamen alle patch-gleich zurück.
+beim Abgleich am selben Tag kamen alle patch-gleich zurück. #80–#82 und #84
+hat er am 04.10.2026 per Squash gemergt, #79 zuvor in seinen Zweig von #77,
+der als #77 nach `main` ging; beim Abgleich am selben Tag kamen #80–#82 und
+#84 patch-gleich zurück, #77 baum-gleich mit `up/verlauf-stapel`.
 
 Über #45 übernommen:
 
@@ -449,9 +475,11 @@ beim Abgleich am selben Tag kamen alle patch-gleich zurück.
       `up/apk-start-adresse`, `up/apk-requirements`, `up/apk-signatur`,
       `up/verlauf-uhrseite`, `up/wetter-tote-zuweisung`,
       `up/textfelder-dunkel`, `up/weckzeit-einzahl`, `up/beschattung-tasten`,
-      `up/uebersetzung-luecken`. Alle PRs sind gemergt, das Löschen schließt
-      nichts mehr; Lenardos `refs/pull/<n>/head` halten die Commits. Geht nur
-      von Hand (siehe oben). **S**
+      `up/uebersetzung-luecken`. Seit 04.10.2026 dazu die Zweige von #79–#82
+      und #84: `up/verlauf-stapel`, `up/kleine-fehler`, `up/detailseiten`,
+      `up/neuladen-nachts`, `up/versionsnummer`. Alle PRs sind gemergt, das
+      Löschen schließt nichts mehr; Lenardos `refs/pull/<n>/head` halten die
+      Commits. Geht nur von Hand (siehe oben). **S**
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -463,8 +491,8 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (`415ffd5`, Stand 02.10.2026)
-und enthält dazu Lenardos offenen #77 (siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (`e8acd1a`, Release 0.7.0,
+Stand 04.10.2026).
 
 ## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
 

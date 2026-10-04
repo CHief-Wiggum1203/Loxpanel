@@ -152,39 +152,27 @@ Workflow `:latest`, sobald die Tests grün sind, und die kennen nur den Nachbau:
 Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
 
-- `type="text"` am Namensfeld des Betriebsmodus-Assistenten (`.mzname` in
-  `config.html`): bei Lenardo eingereicht als #80 (Zweig
-  `up/kleine-fehler`). Geht er verloren, schlägt
-  `test_geraeteliste_umschalten_und_benennen` an.
 - Icon-Bibliothek einer freien Seite (`pickIcoGridNeu()` und
   `bindPickIcons()` in `config.html`): Kommt die Bibliothek nach, füllt sie nur
   das Icon-Raster neu statt des ganzen Editors, sonst verliert der Seitenname
   mitten im Tippen Fokus und Buchstaben. Geht es zu Lenardo, sobald der
   Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
   `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
-- Kacheltexte „Spielt in 1 Raum“ (statt „1 Räumen“) und der Ruhe-Text der
-  Radiotasten (`allOff` statt „–“) in `_control_item()`: eingereicht in
-  #80, sonst schlägt `tests/test_kachel_texte.py` an.
-- `catFilter` in `_panel_export()`: ohne geht die Einstellung beim nächsten
-  Speichern verloren, auch bei Lenardo. Eingereicht in #80,
-  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an` wacht.
 - `roomCats` in `_panel_export()`: ohne zeigt der Editor bei einem Raum-Panel
   die automatische Kategorie-Auswahl, und das nächste Speichern, auch eines
   anderen Profils, löscht die gewählte. Dazu setzt der Moduswechsel in
   `renderTabMode()` (`config.html`) die Auswahl zurück wie der Raumwechsel.
-  Beides auch bei Lenardo, noch nicht eingereicht (passt zu #80). Wachen:
+  Beides auch bei Lenardo, noch nicht eingereicht: In 0.7.0 steht `catFilter`
+  im Export (#80), `roomCats` fehlt. Wachen:
   `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`,
   `test_raum_panel_kategorie_tabs_im_editor`.
-- `updateGrid()` behält `ctrltight`/`ctrlnarrow`: ohne verliert eine enge
-  Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo.
-  Eingereicht in #80, `test_enge_kachel_behaelt_die_lage_ihrer_tasten`
-  wacht.
 - Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
   `subInfo`/`big`/`bigSub` in `_control_item()`, `ui.tileLayout`,
   `GROESSEN_STANDARD`, `sizeDefaults` in `/api/meta`, `theme.example.json` ohne
   Größen): Lenardo erst vorschlagen, er plant ein frei konfigurierbares
   Display. Bis dahin reiben sich Upstream-Merges an `render()`, `updateGrid()`
-  und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
+  (der Fork behält dort zusätzlich `aufbauKlassen()` und `eng<n>`), an
+  `sizeField()` und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py`,
   `test_mini_verlauf_im_neuen_aufbau`.
 - Automatisches Raster für Tablets (`ui.grid`/`ui.tileSize`, `KACHEL_ZIEL`,
@@ -212,12 +200,6 @@ nicht unbemerkt entfernt:
   eingereicht. Reibt sich bei Upstream-Merges an der Zeile darunter, die im
   Fork zusätzlich auf `input` lauscht. Wache:
   `tests/browser/test_saver_wecken_browser.py`.
-- Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
-  `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
-  `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
-  *Auto-Neustart* in `config.html`): bei Lenardo eingereicht als #82 (Zweig
-  `up/neuladen-nachts`). Wachen:
-  `tests/test_neuladen.py`, `tests/browser/test_neuladen_browser.py`.
 - Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
   Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
   Klingeln des Intercoms samt `/bellimg`, UpDownAnalog wie der Slider. Dazu die
@@ -225,9 +207,9 @@ nicht unbemerkt entfernt:
   Zellen mit `nav`/`form`/`confirm`/`back` in `panel.html`. Die allgemeinen
   Teile (`panelEinpassen()` mit `.pantop{flex:1 0 auto}` für volle
   Detailseiten, die Rundung von `nudgeSld()` und die Signatur der
-  Weckzeiten-Liste in `blockSig()`) sind bei Lenardo eingereicht als #81
-  (Zweig `up/detailseiten`); die Bausteine selbst erst nach der Prüfung an
-  der Anlage (TODO §8.1). Reibt sich bei Upstream-Merges an
+  Weckzeiten-Liste in `blockSig()`) sind seit 0.7.0 in Upstream (#81); die
+  Bausteine selbst gehen erst nach der Prüfung an der Anlage zu Lenardo
+  (TODO §8.1). Reibt sich bei Upstream-Merges an
   `_control_item()`, `_view_control_inner()`, `renderPanel()` und
   `updatePanel()`. Wachen: `tests/test_auf_ab_wert.py`,
   `tests/test_bewaesserung.py`, `tests/test_wecker.py`,
@@ -237,34 +219,36 @@ nicht unbemerkt entfernt:
   `KioskActivity`): kann zu Lenardo, aber nur zusammen mit `/api/health`, das
   der Wächter abfragt und das es bei ihm nicht gibt (siehe unten). Wache:
   `WaechterTest` (`gradle testDebugUnitTest`).
-- Zwei Korrekturen zu Lenardos #77 (Verlauf-Widget mit mehreren Bausteinen,
-  im Fork, bevor es bei ihm in `main` ist): Auf der Uhr-Seite schrumpfen die
-  Hüllen `.cpbody`/`.cpsec` mit, sonst werden die Diagramme wieder unten
-  abgeschnitten, und unter der Zeitraum-Leiste gilt nur ihr eigener Abstand
-  (sonst schrumpfen zwei Diagramme bei 960 × 480 ohne Not); die Visu
-  verwirft einen Verlaufs-Push mit Bausteinen außerhalb
-  ihrer Anfrage, und `_broadcast_tick()` schickt keinen Stapel mehr, den die
-  Verbindung inzwischen per `setchart` abgelöst hat. Als Beitrag zu #77
-  eingereicht: #79 (Zweig `up/verlauf-stapel`, in seinen Zweig
-  `feature/verlauf-stapelbar`).
-  Wachen: `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`,
-  `test_uhrseite_hochkant_zweite_flaeche_unten`,
-  `test_verlauf_pane_verwirft_fremden_stapel`,
-  `test_veralteter_stapel_kommt_nicht_hinterher`.
+- PIN auf jedem Bedienweg und Musik-Favoriten (Fork #112): `nudgeSld()` und
+  die übrigen Bedienwege geben `secured` und den Abbruch an `sendCmd()`
+  weiter, `ui.pinMerken` steht in `_panel_export()` und `/api/meta`, und
+  `blockSig()` vergleicht die Favoriten nach Name, Cover und Befehl statt nur
+  nach ihrer Anzahl. Auch bei Lenardo betroffen, noch nicht eingereicht.
+  Beim Abgleich auf 0.7.0 gab es an `nudgeSld()`, `blockSig()` und der
+  Schlüsselliste in `_panel_export()` Konflikte mit #80 und #81. Wachen:
+  `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
+  `test_favoriten_folgen_dem_server`.
 
 - SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
-  `secured_details()`, `/api/sip`, Reiter SIP) und die Versionsnummer
-  (`bin/version_info.py`, Seitenleiste, `bin/version.json` aus Gradle und
-  Dockerfile): bei Lenardo eingereicht als #83 (Zweig `up/sip-zugang`) und
-  #84 (`up/versionsnummer`), TODO §0b. Die Stellen im Fork sind dieselben wie in
-  den Beiträgen (`import version_info` hinter `theme_colors`, die
-  Übersetzungen der Versionszeile bei „nicht verbunden“), damit ein Abgleich
-  weder Konflikte noch doppelte Importe bringt. Nur im Fork bleiben `version`
-  in `/api/health` und die Ausnahme `!loxberry-plugin/plugin.cfg` in
-  `.dockerignore` (Lenardo schließt `loxberry-plugin/` nicht aus). Wachen:
+  `secured_details()`, `/api/sip`, Reiter SIP): bei Lenardo eingereicht als
+  #83 (Zweig `up/sip-zugang`), noch offen, TODO §0b. Die Stellen im Fork sind
+  dieselben wie im Beitrag, damit ein Abgleich keine Konflikte bringt. Wachen:
   `tests/test_loxone_secure.py`, `test_sip_probe.py`, `test_sip.py`,
-  `test_version.py`, `tests/browser/test_sip_browser.py`,
-  `test_version_browser.py`.
+  `tests/browser/test_sip_browser.py`.
+- Versionsnummer: seit 0.7.0 in Upstream (#84). Nur im Fork bleiben
+  `version` in `/api/health` und die Ausnahme `!loxberry-plugin/plugin.cfg` in
+  `.dockerignore` (Lenardo schließt `loxberry-plugin/` nicht aus). Wachen:
+  `test_settings_und_health_nennen_die_version` in `tests/test_version.py`;
+  für die Ausnahme der Probe-Build des Images in `tests.yml` (ohne sie
+  scheitert `COPY loxberry-plugin/plugin.cfg` im `Dockerfile`).
+
+Seit 0.7.0 in Upstream und deshalb nicht mehr in der Liste (ihre Wachen
+laufen weiter): `type="text"` am `.mzname`, „Spielt in 1 Raum“ und der
+Ruhe-Text der Radiotasten, `catFilter` in `_panel_export()` und
+`ctrltight`/`ctrlnarrow` in `updateGrid()` (#80); die allgemeinen Teile der
+Detailseiten (#81); Neu laden gegen Einfrieren ohne Eintrag jede Nacht (#82);
+die zwei Korrekturen zum Verlauf-Stapel (#79, von Lenardo in den Zweig von
+#77 übernommen und mit #77 gemergt); die Versionsnummer (#84).
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):
@@ -279,7 +263,9 @@ nicht still entfernt):
   geleert: Ändert Upstream die Datei, hält ein Konflikt den Merge an (Ablauf C,
   Schritt 3), statt dass sich die Änderung still in eine Restfassung mischt.
   Dazu gehört der Kommentar beim Build-Argument `LOXPANEL_COMMIT` im
-  `Dockerfile`. Wache: `tests/test_workflows.py`.
+  `Dockerfile`. Beim Abgleich auf 0.7.0 hat das gegriffen: #84 ergänzte in
+  `docker-image.yml` das Build-Argument, das der Job `veroeffentlichen` schon
+  übergibt. Wache: `tests/test_workflows.py`.
 - Docker-Betrieb: `/api/health` für den `HEALTHCHECK` und
   `LOXPANEL_LOG_LEVEL`: `test_health_meldet_beendete_aufgabe`,
   `test_log_level` in `tests/test_unraid.py`. Seit Oktober 2026 fragt auch der
