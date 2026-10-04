@@ -172,6 +172,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 | Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
 | Status im Widget | Docker-Tab: **healthy** / **unhealthy** am Container (`HEALTHCHECK`) |
+| Zeitzone vom LoxBerry (`/etc/localtime`, nach Änderung neu starten) | `TZ` von Unraid (*Settings → Date and Time*) |
 
 ## Fehlersuche
 
