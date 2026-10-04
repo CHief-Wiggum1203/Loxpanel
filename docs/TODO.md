@@ -936,10 +936,10 @@ selbst aktuell.
       `energy_blocks()` im `EFM`-Zweig nie `None` liefern, damit sind die dort
       aufgebauten `rows` und der `else`-Zweig unerreichbar. Entweder entfernen
       oder den Aufruf absichern. **S**
-- [ ] **`loxpanel-kiosk.conf.example` vervollständigen**: der Agent liest 13
-      Schlüssel, die Beispieldatei dokumentiert 10. Es fehlen `PROFILE_DIR`,
-      `BL_DEVICE` und `STATE_FILE`; besonders `BL_DEVICE` ist nutzerrelevant,
-      wenn die Backlight-Erkennung danebengreift. **S**
+- [ ] **`loxpanel-kiosk.conf.example` vervollständigen**: der Agent liest 15
+      Schlüssel, die Beispieldatei dokumentiert 13. Es fehlen `PROFILE_DIR` und
+      `BL_DEVICE`; besonders `BL_DEVICE` ist nutzerrelevant, wenn die
+      Backlight-Erkennung danebengreift. **S**
 
 ## 7. Tests und CI
 
