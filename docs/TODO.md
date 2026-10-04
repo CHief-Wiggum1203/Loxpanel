@@ -345,6 +345,20 @@ gebaut.
 | [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis |
 | [#84](https://github.com/Lenardo1/loxpanel/pull/84) | `up/versionsnummer` (`6fc3908`) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
 
+**Vorbereitet, noch nicht eingereicht** (04.10.2026): ein Commit auf `main`
+(`415ffd5`), Fork #107. Bei Lenardo steht dieselbe Zeile wie vorher im Fork,
+der Fehler betrifft ihn genauso. Gegen seinen Stand besteht
+`test_saver_wecken_browser.py` aus dem Fork, ohne die Änderung scheitert er
+(„Licht 0“ schaltet).
+
+| Zweig | Inhalt |
+|---|---|
+| `up/saver-wegtippen` (`a73422d`) | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
+
+Fork #108 (Datum der Wetter-Vorschau bleibt eng einzeilig) geht nicht mit:
+Er sitzt in `wetterEinpassen()`, das zu „Pane 2 nutzt ihre Fläche“ gehört
+und bei Lenardo fehlt.
+
 Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
 Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
 auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
