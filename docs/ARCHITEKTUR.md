@@ -1109,7 +1109,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
     Vorschau, wenn der Kurve dann noch 96 px bleiben (`WX_KURVE_MIN`), sonst
     auf Seite 2. Bleiben ihr weniger als 64 px (`WX_KURVE_KNAPP`) oder ragt ein
     Teil aus seinem Feld, rückt die Lage zusammen und „Heute hoch/tief“
-    entfällt, das in der Vorschau steht (`.eng`). Beschriftet ist jeder dritte
+    entfällt, das in der Vorschau steht (`.eng`). Eng bleibt auch das Datum der
+    Vorschau einzeilig: Ein zweistelliges („Sa 10.10.“) bräche sonst um und machte
+    die Vorschau eine Zeile höher. Wo es nicht in seine Zelle passt, verkleinert
+    `vorschauDatumEinpassen()` es genau so weit, wie die Zelle verlangt. Beschriftet ist jeder dritte
     Punkt, auf schmaler Kurve seltener (mindestens 26 px Abstand).
   - Kalender (`kalenderEinpassen()`): eine Seite, unter dem Monat die Termine
     (`.kal-liste`, scrollt für sich, ohne zweite Legende). Ein Tipp auf einen
