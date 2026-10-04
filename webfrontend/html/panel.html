@@ -1228,11 +1228,12 @@ function openMenu(btn, items){
 // die Anzeige formen. Weicht sie vom zuletzt Gerenderten ab, muss komplett neu
 // aufgebaut werden — in-place patchen wuerde neu dazugekommene Zeilen nie
 // erzeugen (z.B. "Wasser nachfuellen" in der Sauna) und weggefallene stehen
-// lassen.
+// lassen. Bei den Favoriten zaehlt der Inhalt (Name, Cover, Befehl): updatePanel
+// patcht sie nicht, und der Tipp haelt den Favoriten vom Aufbau fest.
 function blockSig(blocks){
   return blocks.filter(b=>b.k!=='more').map(b=>
     b.k==='row' ? 'row'+b.cells.length+(b.hidden?'h':'')
-    : b.k==='favs' ? 'favs'+(b.items?b.items.length:0)
+    : b.k==='favs' ? 'favs'+JSON.stringify((b.items||[]).map(f=>[f.label,f.cover,f.cmd]))
     : b.k==='alarmlist' ? 'alarm'+JSON.stringify(b.entries||[])
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
     : b.k).join('|');
