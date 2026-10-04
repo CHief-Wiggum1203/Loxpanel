@@ -359,6 +359,9 @@ volumes:
 
 Danach: Visu `http://<host>:8099`, Konfig `…/config`, Einstellungen `…/settings`.
 Zugangsdaten per Env **oder** leer lassen und in `/settings` eintragen.
+`LOXPANEL_MS_VERIFY_TLS: "true"` prüft das Zertifikat des Miniservers gegen die
+CAs des Systems; das klappt nur, wenn der Host ein Name ist, den das Zertifikat
+nennt, nicht die IP-Adresse.
 Bis der Server zum ersten Mal mit dem Miniserver verbunden ist, zeigt jedes
 Panel, unter welcher Adresse der Konfigurator zu öffnen ist – auf einem Panel
 mit der Android-App dessen WLAN-Adresse. Der Konfigurator öffnet dann direkt

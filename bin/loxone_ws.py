@@ -58,6 +58,23 @@ _WX_FIELDS = ("ts", "type", "wind_dir", "radiation", "humidity",
               "temp", "feels", "dew", "precip", "wind", "pressure")
 
 
+def ms_ssl_kontext(verify_tls: bool) -> ssl.SSLContext:
+    """TLS-Kontext fuer den Miniserver, wie ihn loxone_api fuer HTTP baut.
+    verify_tls: Zertifikat und Namen gegen den Standard-Truststore pruefen
+    (SSLContext(PROTOCOL_TLS_CLIENT) allein laedt keine einzige CA, dann
+    scheitert jedes Zertifikat). Das gelingt nur, wenn host ein Name ist, den
+    das Zertifikat nennt; per IP-Adresse scheitert der Namensvergleich. Sonst
+    ohne jede Pruefung (etwa Gen2 mit selbstsigniertem Zertifikat).
+    Das Laden der CAs blockiert; aus async-Code per asyncio.to_thread rufen."""
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if verify_tls:
+        ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)
+    else:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
 def format_uuid(b: bytes) -> str:
     d1 = struct.unpack("<I", b[0:4])[0]
     d2 = struct.unpack("<H", b[4:6])[0]
@@ -89,20 +106,19 @@ class LoxoneWS:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
 
     def _ssl(self) -> ssl.SSLContext:
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        if not self.verify_tls:
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-        return ctx
+        return ms_ssl_kontext(self.verify_tls)
 
     async def connect(self) -> None:
         self._session = aiohttp.ClientSession()
         scheme = "wss" if self.secure else "ws"
         url = f"{scheme}://{self.host}:{self.port}/ws/rfc6455"
         log.info("WS verbinde %s", url)
+        # Kontext vor der Frist und im Thread bauen: Das Laden der CAs
+        # blockiert und ist keine Antwortzeit des Miniservers.
+        ssl_ctx = (await asyncio.to_thread(self._ssl)) if self.secure else None
         self._ws = await self._frist(self._session.ws_connect(
-            url, ssl=(self._ssl() if self.secure else None),
-            protocols=["remotecontrol"], max_msg_size=0), "den Verbindungsaufbau")
+            url, ssl=ssl_ctx, protocols=["remotecontrol"], max_msg_size=0),
+            "den Verbindungsaufbau")
 
         # 1) getkey -> HMAC(token) -> authwithtoken
         key_hex = await self._cmd_value("jdev/sys/getkey")
