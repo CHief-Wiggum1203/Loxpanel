@@ -94,7 +94,11 @@ git merge upstream/main
 #    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
 #    veroeffentlichen in tests.yml übertragen (Fork-eigene Patches unten).
 
-# 4. Rauchtest (siehe unten)
+# 4. Rauchtest (siehe unten), mindestens die Wache über die Workflows:
+.venv/bin/pytest tests/test_workflows.py
+#    Bringt der Merge eine NEUE Workflow-Datei mit, die nach ghcr.io
+#    veröffentlicht, gibt es keinen Konflikt. Die Wache meldet sie hier;
+#    nach dem Push veröffentlichte die Datei schon neben den Tests her.
 
 # 5. Direkt pushen -> Tests laufen, nach grünen Tests wird :latest neu gebaut
 git push origin main
@@ -136,7 +140,7 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 (besser: die Änderung vorher upstream einreichen, dann ist sie in beiden).
 
 **3. Nach dem Sync — Funktionstest der kritischen Pfade** (nicht nur der
-`py_compile`-Rauchtest), bevor der Merge nach `main` geht. Danach baut der
+`py_compile`-Rauchtest), bevor `main` gepusht wird. Danach baut der
 Workflow `:latest`, sobald die Tests grün sind, und die kennen nur den Nachbau:
 
 - Musik: play/pause + Lautstärke an einer `AudioZone`/`AudioZoneV2`
@@ -292,8 +296,10 @@ nicht still entfernt):
    **nicht** aus – dann den Lauf manuell starten (Actions → „Tests und Image“ →
    „Run workflow“ auf `main`; von anderen Zweigen veröffentlicht er nicht). War
    ein Test nur zufällig rot, startet „Re-run failed jobs“ das Veröffentlichen
-   mit, aber nur am neuesten Lauf auf `main`: An einem älteren setzt es
-   `latest` auf dessen Stand zurück.
+   mit. Beide Re-runs, „failed jobs“ wie „all jobs“, nur am neuesten Lauf auf
+   `main` starten: An einem älteren setzt das Veröffentlichen `latest` auf
+   dessen Stand zurück, und wartet gerade ein neuerer Lauf, verdrängt der
+   Re-run ihn (je Gruppe wartet nur einer).
 3. **Identität schützen:** Nach jedem Sync prüfen, dass
    `ghcr.io/chief-wiggum1203/loxpanel` (klein), `ARCHIVEURL` auf den Fork und
    `plugin.cfg` NAME/FOLDER/AUTHOR unverändert sind.

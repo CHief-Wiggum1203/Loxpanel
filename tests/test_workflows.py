@@ -8,8 +8,9 @@ Workflows per `needs`, darum veroeffentlicht jetzt ein Job in tests.yml, der
 auf alle Pruef-Jobs desselben Laufs (also desselben Commits) wartet.
 
 Gelesen werden die echten Workflow-Dateien. `_fehler()` sammelt alle Wege,
-auf denen ein ungeprueftes Image hinauskaeme; die Gegenproben unten zeigen an
-Abwandlungen der echten Dateien, dass sie jeden davon erkennt.
+auf denen ein ungeprueftes Image hinauskaeme oder das Image still ausbliebe;
+die Gegenproben unten zeigen an Abwandlungen der echten Dateien, dass sie
+jeden davon erkennt.
 """
 from __future__ import annotations
 
@@ -121,6 +122,12 @@ def _fehler(wfs: dict) -> list:
                           f"(Ausloeser: {sorted(_ausloeser(wf))})")
         if fehlt := pruefjobs - _vorgaenger(jobs, name):
             fehler.append(f"{wo} wartet nicht auf {sorted(fehlt)}")
+        # Ein uebersprungener Vorgaenger ueberspringt auch das Veroeffentlichen,
+        # dann bliebe das Image still aus.
+        for n in sorted(_vorgaenger(jobs, name) - pruefjobs):
+            if "if" in jobs[n]:
+                fehler.append(f"{wo} wartet auf {n}, der nicht bei jedem Ereignis laeuft "
+                              f"(if: {jobs[n]['if']}), dort bliebe das Image aus")
         marker = {_marker(z) for n in pruefjobs for s in jobs[n].get("steps") or []
                   for z in str(s.get("run", "")).splitlines() if "pytest" in z}
         if pruefjobs and None not in marker and not {"browser", "not browser"} <= marker:
@@ -135,6 +142,10 @@ def _fehler(wfs: dict) -> list:
                 lauf = str(s.get("run", ""))
                 if not _PRUEFT.search(lauf):
                     continue
+                # Ein uebersprungener Schritt zaehlt als gruen, der Job ebenso
+                if "if" in s:
+                    fehler.append(f"{datei}:{n} Schritt {s.get('name')!r} prueft nicht bei jedem "
+                                  f"Ereignis (if: {s['if']})")
                 if _an(s.get("continue-on-error")):
                     fehler.append(f"{datei}:{n} Schritt {s.get('name')!r} hat continue-on-error")
                 if _SCHLUCKT.search(lauf):
@@ -191,6 +202,15 @@ GEGENPROBEN = [
     ("browser_tests_nur_bei_prs",
      lambda w: _jobs(w)["visu"].update({"if": "github.event_name == 'pull_request'"}),
      "prueft nicht bei jedem Ereignis"),
+    ("browser_schritt_nur_bei_prs",
+     lambda w: _pytest(_jobs(w)["visu"]).update({"if": "github.event_name == 'pull_request'"}),
+     "Schritt 'Browser-Tests' prueft nicht bei jedem Ereignis"),
+    ("pytest_schritt_aus",
+     lambda w: _pytest(_jobs(w)["pruefen"]).update({"if": False}),
+     "Schritt 'Tests und Rauchtest' prueft nicht bei jedem Ereignis"),
+    ("wartet_auf_pr_job",
+     lambda w: _jobs(w)["veroeffentlichen"].update(needs=["pruefen", "visu", "image"]),
+     "wartet auf image, der nicht bei jedem Ereignis laeuft"),
     ("continue_on_error_am_job",
      lambda w: _jobs(w)["visu"].update({"continue-on-error": True}), "rot zaehlt dann als gruen"),
     ("continue_on_error_am_schritt",
