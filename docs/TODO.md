@@ -370,7 +370,7 @@ Titel und Text hat der Besitzer.
 | `up/saver-wegtippen` (`9c27852`) | #107 | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
 | `up/konfig-speichern` (`7aeae0d`) | #111 | Kategorie-Tabs eines Raum-Panels (`roomCats`) im Export an den Konfigurator, Geräte erst nach erfolgreichem Schreiben übernehmen, Display-Kennwort verlässt den Server nicht |
 | `up/miniserver-zugang` (`ed064f3`) | #111, #116 | Miniserver-Zugang erst prüfen, dann speichern (abgelehnt: nichts gespeichert, nicht erreichbar: gespeichert mit Warnung), `miniserver.response_timeout`; das LoxBerry-Widget zeigt die Antwort richtig an |
-| `up/visu-neuverbindung` (`be2d98c`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine offene Abfrage gehört zu ihrer Seite |
+| `up/visu-neuverbindung` (`635ea4c`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine PIN-Abfrage und ihr Ergebnis gehören zur Seite, auf der getippt wurde |
 | `up/miniserver-verbindung` (`2337507`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
 | `up/audioserver-kopplung` (`b026632`) | #113 | Ein HTTP-Fehler gilt nicht dauerhaft als ungekoppelt, der Raumfavorit meldet Sendefehler |
 | `up/kalender-ausnahmen` (`377b340`) | #113 | Ein verschobener Serientermin ersetzt das Original, eine Serie ohne Zeitzone bleibt nach der Zeitumstellung in Ortszeit |

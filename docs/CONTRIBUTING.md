@@ -232,7 +232,9 @@ nicht unbemerkt entfernt:
   PIN-Block in `panel.html`: Im Fork stehen dort `pinMerk`, weitere Auslöser
   von `pinVergessen()` (Display aus, Nachtbeginn), ein anderer Kopfkommentar
   und `pinSenden()` mit `neu`/`halten`. Die Fork-Fassung behalten;
-  `job.seite` und die Rümpfe von `pinVergessen()` stehen in beiden gleich.
+  `job.seite`, `pinSeite()` aus `stack`, der Abbruch einer abgelehnten PIN
+  auf fremder Seite und die Rümpfe von `pinVergessen()` stehen in beiden
+  gleich.
   Wachen: `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
   `test_favoriten_folgen_dem_server`, `test_abo_neuverbindung_browser.py`.
 - Weitere Korrekturen des Prüfberichts (Fork #111, #113–#116): bei Lenardo
