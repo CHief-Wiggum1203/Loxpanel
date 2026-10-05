@@ -377,7 +377,7 @@ Titel und Text hat der Besitzer.
 | `up/installdoku` (`bdc7fcd`) | #114 | Pakete aus `requirements.txt`, Vorrang des gespeicherten Zugangs, keine feste glibc-Grenze für `cryptography` |
 | `up/agent-ansicht` (`5f6f34d`) | #115 | „Ansicht wechseln“ erreicht den Linux-Agenten, die Ansicht übersteht Neustarts, ein abgestürztes Chromium startet neu |
 | `up/loxberry-sicherung` (`61bfd1d`) | #116 | Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, der Container übernimmt die Zeitzone des LoxBerry |
-| `up/deb-version` (`ead07bc`) | – | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` statt fest aus `control`, Tag-Prüfung, Aufräumen bei Abbruch. Nur bei Lenardo, der Fork entwickelt das `.deb` nicht weiter |
+| `up/deb-version` (`4f2f1b7`) | – | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` statt fest aus `control` (Tag-Prüfung, Aufräumen bei Abbruch) und zeigt Version, Commit und Bauzeit im Konfigurator (`build.sh` schreibt `bin/version.json` ohne Python). Nur bei Lenardo, der Fork entwickelt das `.deb` nicht weiter |
 
 Beim Einreichen auf die Reihenfolge achten:
 - `up/miniserver-zugang` und `up/miniserver-verbindung` bringen beide
@@ -398,11 +398,6 @@ Beim Einreichen auf die Reihenfolge achten:
       Nachbau, der PR-Text sagt das. Dazu einmal Regler, Favorit und
       Türöffner unter PIN an einer gesicherten Zone mit gekoppeltem
       Audioserver. Dasselbe gilt für den Fork. **S**
-- [ ] **`.deb` ohne Versionsanzeige:** Ein installiertes `.deb` zeigt im
-      Konfigurator „Version unbekannt“, weil `build.sh` weder `plugin.cfg`
-      noch `bin/version.json` ins Paket legt. Der PR-Text von
-      `up/deb-version` bietet Lenardo das als zweiten Commit an
-      (`version_info.py schreiben` beim Bau, Commit aus `github.sha`). **S**
 - [ ] **Nach jedem Merge bei Lenardo:** Zeile in die Tabelle der gemergten
       Beiträge unten, beim nächsten Abgleich (Ablauf C) die Hinweise unter
       „Fork-eigene Patches“ in `CONTRIBUTING.md` beachten und den Eintrag dort
