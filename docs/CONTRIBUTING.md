@@ -162,8 +162,9 @@ nicht unbemerkt entfernt:
   die automatische Kategorie-Auswahl, und das nächste Speichern, auch eines
   anderen Profils, löscht die gewählte. Dazu setzt der Moduswechsel in
   `renderTabMode()` (`config.html`) die Auswahl zurück wie der Raumwechsel.
-  Beides auch bei Lenardo, noch nicht eingereicht: In 0.7.0 steht `catFilter`
-  im Export (#80), `roomCats` fehlt. Wachen:
+  Beides auch bei Lenardo: In 0.7.0 steht `catFilter` im Export (#80),
+  `roomCats` fehlt. Vorbereitet als Zweig `up/konfig-speichern` (mit den
+  übrigen Korrekturen aus Fork #111), noch nicht eingereicht. Wachen:
   `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`,
   `test_raum_panel_kategorie_tabs_im_editor`.
 - Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
@@ -196,9 +197,9 @@ nicht unbemerkt entfernt:
   `tests/browser/test_pane_hoehe_browser.py` (`test_wetter_eng_langes_datum`).
 - Uhr-Seite wegtippen löst die Kachel darunter nicht aus (`saverGeste` und
   die Capture-Abfänger auf `window` vor `el('saver')` in `panel.html`, Fork
-  #107): bei Lenardo vorbereitet als Zweig `up/saver-wegtippen`, noch nicht
-  eingereicht. Reibt sich bei Upstream-Merges an der Zeile darunter, die im
-  Fork zusätzlich auf `input` lauscht. Wache:
+  #107): bei Lenardo vorbereitet als Zweig `up/saver-wegtippen` (auf 0.7.0),
+  noch nicht eingereicht. Reibt sich bei Upstream-Merges an der Zeile
+  darunter, die im Fork zusätzlich auf `input` lauscht. Wache:
   `tests/browser/test_saver_wecken_browser.py`.
 - Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
   Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
@@ -223,11 +224,36 @@ nicht unbemerkt entfernt:
   die übrigen Bedienwege geben `secured` und den Abbruch an `sendCmd()`
   weiter, `ui.pinMerken` steht in `_panel_export()` und `/api/meta`, und
   `blockSig()` vergleicht die Favoriten nach Name, Cover und Befehl statt nur
-  nach ihrer Anzahl. Auch bei Lenardo betroffen, noch nicht eingereicht.
-  Beim Abgleich auf 0.7.0 gab es an `nudgeSld()`, `blockSig()` und der
-  Schlüsselliste in `_panel_export()` Konflikte mit #80 und #81. Wachen:
-  `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
-  `test_favoriten_folgen_dem_server`.
+  nach ihrer Anzahl. Auch bei Lenardo betroffen: vorbereitet als Zweig
+  `up/visu-neuverbindung` (mit den Widget-Abos aus Fork #112, ohne „PIN
+  merken“), noch nicht eingereicht. Beim Abgleich auf 0.7.0 gab es an
+  `nudgeSld()`, `blockSig()` und der Schlüsselliste in `_panel_export()`
+  Konflikte mit #80 und #81. Kommt der Beitrag zurück, reibt sich der
+  PIN-Block in `panel.html`: Im Fork stehen dort `pinMerk`, weitere Auslöser
+  von `pinVergessen()` (Display aus, Nachtbeginn), ein anderer Kopfkommentar
+  und `pinSenden()` mit `neu`/`halten`. Die Fork-Fassung behalten;
+  `job.seite`, `pinSeite()` aus `stack`, der Abbruch einer abgelehnten PIN
+  auf fremder Seite und die Rümpfe von `pinVergessen()` stehen in beiden
+  gleich.
+  Wachen: `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
+  `test_favoriten_folgen_dem_server`, `test_abo_neuverbindung_browser.py`.
+- Weitere Korrekturen des Prüfberichts (Fork #111, #113–#116): bei Lenardo
+  vorbereitet als `up/miniserver-zugang`, `up/miniserver-verbindung`,
+  `up/audioserver-kopplung`, `up/kalender-ausnahmen`, `up/installdoku`,
+  `up/agent-ansicht` und `up/loxberry-sicherung`, noch nicht eingereicht
+  (TODO §0b). Kommen sie zurück: In `bin/webvisu.py` gibt es
+  `_ms_antwortfrist()` danach nur einmal, die Fassung mit `_ms_sekunden()`.
+  Git meldet eine Doppelung nicht, `ruff check --select F,E9` schon (F811).
+  In `reconnect()` und `config/loxpanel.cfg.example` die Fork-Fassung
+  behalten. README und `deploy/DEPLOY.md` haben die Absätze im Fork in
+  anderer Umgebung (Unraid, Intercom), dort sind kleine Textkonflikte zu
+  erwarten. Der Agent-Code ist gleich, `loxpanel-ctl.sh` und `preroot.sh`
+  weichen nur in Kommentaren zu den Testpfaden ab. Wachen:
+  `tests/test_miniserver_zugang.py`, `test_miniserver_ws.py`, `test_tls.py`,
+  `test_stabilitaet.py`, `test_front_abruf.py`, `test_installation.py`,
+  `test_agent.py`, `test_loxberry_ctl.py`, `test_loxberry_update.py`,
+  `test_loxberry_widget.py`, `test_loxberry_zeitzone.py`,
+  `tests/browser/test_kachel_tasten_browser.py`.
 
 - SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
   `secured_details()`, `/api/sip`, Reiter SIP): bei Lenardo eingereicht als

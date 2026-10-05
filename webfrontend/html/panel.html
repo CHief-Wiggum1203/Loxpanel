@@ -1347,7 +1347,10 @@ let pinMerk=null, pinMerkT=null;   // bestaetigte PIN {pin, seite, bis}
 let pinWarten=[];        // gesicherte Befehle, deren cmdresult aussteht
 let pinJobs=null;        // Befehle, die auf die offene PIN-Abfrage warten
 function cmdSchicken(uuid,cmd,pin){ const m={t:'cmd',uuid,cmd}; if(pin!=null) m.pin=pin; send(m); }
-function pinSeite(){ return key(view&&view.route); }
+// Seite = oberster Eintrag von stack, nicht view.route: nav() legt ihn sofort
+// ab, die neue Ansicht schickt der Server aber erst nach dem cmdresult eines
+// laufenden Befehls (er arbeitet die Nachrichten eines Panels der Reihe nach ab)
+function pinSeite(){ return key(stack[stack.length-1]); }
 function pinGemerkt(){
   if(pinMerk && (Date.now()>=pinMerk.bis || pinMerk.seite!==pinSeite())) pinMerk=null;
   return pinMerk ? pinMerk.pin : null; }
@@ -1393,8 +1396,10 @@ function pinAbfragen(job,msg){
 // Halten-Taste (job.los): mit gemerkter PIN echtes Halten, das Loslassen
 // schickt endHold mit derselben PIN; nach der Abfrage ist der Finger laengst
 // oben, dann folgt es sofort (wirkt wie ein Tipp). Nie Druecken ohne Loslassen.
+// seite: die des Tipps (job.seite), nicht die der Eingabe - job.ok und das
+// Merken gelten nur dort, auch fuer die Wiederholung nach abgelehnter PIN.
 function pinSenden(job,pin,neu,halten){
-  const w={job,pin,neu,seite:pinSeite()};
+  const w={job,pin,neu,seite:job.seite};
   pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
   if(!job.los) return;
   const los={job:job.los,pin,seite:w.seite,zu:w};
@@ -1411,12 +1416,15 @@ function pinErgebnis(msg){
     return; }
   w.fehl=true; pinMerk=null;      // abgelehnt: auch eine gemerkte PIN gilt nicht mehr
   if(w.zu && w.zu.fehl) return;   // Loslassen zu abgelehntem Druecken: die neue Abfrage schickt beide
+  // Seite inzwischen gewechselt: keine Abfrage fuer einen fremden Befehl, abgebrochen
+  if(w.seite!==pinSeite()){ if(w.job.abbruch) w.job.abbruch(); return; }
   pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
 }
 // opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
-// PIN erst nach der Bestaetigung; opt.abbruch: PIN abgebrochen (Anzeige zurueck).
+// PIN erst nach der Bestaetigung und nur noch auf derselben Seite;
+// opt.abbruch: PIN abgebrochen (Anzeige zurueck).
 function sendCmd(uuid,cmd,secured,opt){ opt=opt||{};
-  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null};
+  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null,seite:pinSeite()};
   if(!secured){ cmdSchicken(uuid,cmd,null); if(job.los) holdRelease={job:job.los,pin:null}; if(job.ok) job.ok(); return; }
   const pin=pinGemerkt();
   if(pin==null) pinAbfragen(job,''); else pinSenden(job,pin,false,true);

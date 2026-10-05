@@ -34,6 +34,19 @@ def test_anleitungen_installieren_aus_requirements():
     assert falsch == [], "Paketliste nur aus requirements.txt:\n" + "\n".join(falsch)
 
 
+def test_anleitungen_ohne_feste_glibc_grenze():
+    """Ab welcher glibc pip ein fertiges cryptography bekommt, verschiebt jede
+    neue cryptography-Version (46.0.4 hob armv7l von manylinux_2_28 auf 2_31,
+    requirements.txt hat keine Obergrenze). Eine Zahl in der Anleitung
+    veraltet und laesst Rust weg, wo pip doch selbst baut."""
+    falsch = []
+    for datei in ANLEITUNGEN:
+        for nr, zeile in enumerate(datei.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"glibc\s*\(?[^)\n]*?\)?\s*\d+\.\d+", zeile, re.I):
+                falsch.append(f"{datei.relative_to(ROOT)}:{nr}: {zeile.strip()}")
+    assert falsch == [], "feste glibc-Version:\n" + "\n".join(falsch)
+
+
 def _start(monkeypatch) -> None:
     """main() wie beim Start des Servers, nur ohne zu lauschen und ohne das
     Log-Level des Testprozesses umzustellen."""
