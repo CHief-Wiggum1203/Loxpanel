@@ -415,12 +415,11 @@ def test_seitenwechsel_schliesst_offene_abfrage(tmp_path, miniserver_http, wechs
     asyncio.run(_visu(tmp_path, schritt))
 
 
-def test_ergebnis_nach_seitenwechsel_geht_nicht_zurueck(tmp_path, miniserver_http):
+def test_abgelehnt_nach_seitenwechsel_fragt_dort_nicht(tmp_path, miniserver_http):
     """Die PIN geht noch auf der Musikauswahl raus, im selben Augenblick
-    wechselt die Seite. Die falsche PIN meldet der Miniserver erst danach, die
-    Wiederholung steht schon auf der neuen Seite: Nach der Bestaetigung geht
-    die Visu von dort nicht zurueck und merkt sich die PIN auch nicht fuer
-    sie."""
+    wechselt die Seite. Die falsche PIN meldet der Miniserver erst danach:
+    Auf der neuen Seite fragt die Visu nicht nach der PIN fuer den alten
+    Favoriten, der Befehl gilt als abgebrochen, die Seite bleibt."""
     async def schritt(pg, ms, app):
         await _favorit_antippen(pg)
         await pg.evaluate("""r => { nav(r);
@@ -428,13 +427,48 @@ def test_ergebnis_nach_seitenwechsel_geht_nicht_zurueck(tmp_path, miniserver_htt
                           DIM_SEITE)
         assert await _ios(ms, 1) == [("ZA/roomfav/play/1", ms.pin_code)]
         await pg.wait_for_timeout(800)
-        assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": True}, "Wiederholung der PIN"
-        await _pin(pg)
-        assert (await _ios(ms, 2))[1] == ("ZA/roomfav/play/1", "200")
-        await pg.wait_for_timeout(700)
         assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": False}
+        assert await pg.evaluate("pinWarten.length") == 0
         assert await pg.evaluate("pinMerk") is None
-        assert _ungesichert(ms) == [], ms.io
+        assert len(ms.ios) == 1 and _ungesichert(ms) == [], (ms.ios, ms.io)
+    asyncio.run(_visu(tmp_path, schritt))
+
+
+def _langsam(app, sek=1.5):
+    """Der Miniserver antwortet langsam auf gesicherte Befehle (im Betrieb bis
+    MS_CMD_TIMEOUT): Der Befehl ist noch unterwegs, waehrend die Seite
+    wechselt."""
+    vorher = app._secured_command
+
+    async def langsam(uuid, cmd, pin):
+        await asyncio.sleep(sek)
+        return await vorher(uuid, cmd, pin)
+    app._secured_command = langsam
+
+
+@pytest.mark.parametrize("wechsel", ["wecker", "nav"])
+def test_wechsel_waehrend_befehl_unterwegs(tmp_path, miniserver_http, wechsel):
+    """Richtige PIN, der Befehl ist noch beim Miniserver, da wechselt die
+    Seite. Der Server arbeitet die Nachrichten eines Panels der Reihe nach ab:
+    Das cmdresult kommt vor der neuen Ansicht. Das Zurueck des Favoriten
+    gehoert zur alten Seite, die neue bleibt."""
+    async def schritt(pg, ms, app):
+        _langsam(app)
+        await _favorit_antippen(pg)
+        await _pin(pg)
+        await pg.wait_for_timeout(200)
+        if wechsel == "wecker":
+            app._pending_alarm.append({"id": "DIM", "on": True})
+        else:
+            await pg.evaluate("r => nav(r)", DIM_SEITE)
+        await pg.wait_for_timeout(700)
+        assert await pg.evaluate("stack.length") == 3
+        assert await _ios(ms, 1) == [("ZA/roomfav/play/1", "200")]
+        await pg.wait_for_timeout(1500)
+        assert await _seite(pg) == {"route": DIM_SEITE, "stack": 3, "offen": False}
+        if wechsel == "wecker":
+            app._pending_alarm.append({"id": "DIM", "on": False})
+            await pg.wait_for_timeout(700)
     asyncio.run(_visu(tmp_path, schritt))
 
 
