@@ -20,7 +20,10 @@ LOXKIOSK_JS = """window.__lox = []; window.LoxKiosk = { _an: true,
   setDisplayOff(s) { window.__lox.push('dpms:' + s); },
   turnScreenOff() { this._an = false; window.__lox.push('aus'); },
   turnScreenOn() { this._an = true; window.__lox.push('an'); },
-  isScreenOn() { return this._an; } };"""
+  isScreenOn() { return this._an; },
+  startIntercom(uuid) { this._talk = {state:'connecting', uuid, message:''}; return true; },
+  stopIntercom() { this._talk = {state:'idle', uuid:'', message:''}; return true; },
+  intercomStatus() { return JSON.stringify(this._talk || {state:'idle', uuid:'', message:''}); } };"""
 FULLY_JS = """window.__fully = []; window.fully = { _an: true,
   turnScreenOff() { this._an = false; window.__fully.push('aus'); },
   turnScreenOn() { this._an = true; window.__fully.push('an'); },

@@ -135,5 +135,5 @@ def test_bild_zwischenspeicher_begrenzt(miniserver_http, monkeypatch):
 
 
 def test_status_teilweise():
-    """Gegensprechen (SIP) fehlt weiter - darum bleibt das Intercom teilweise."""
+    """Im Browser fehlt SIP weiter; die native App ergaenzt es ueber ihre Bruecke."""
     assert {t["type"]: t["status"] for t in _app().types_overview()["types"]}["Intercom"] == "partial"

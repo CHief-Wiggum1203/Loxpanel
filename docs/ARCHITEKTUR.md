@@ -651,10 +651,21 @@ Getestet wird gegen Nachbauten in `tests/lox.py`: Der Miniserver entschlüsselt
 mit eigenem RSA-Schlüssel, und `SipTuer` rechnet die Anmeldung unabhängig nach.
 Die Digest-Werte stammen aus den Beispielen von RFC 2617 und RFC 7616.
 
+Die native Android-App ergänzt direkte Gen-1-Anrufe: `sip_call.py` führt
+INVITE/Digest/ACK/BYE und SDP, Android übernimmt RTP-G.711 mit
+AudioRecord/AudioTrack. `IntercomTalk` verwaltet eine Sitzung und deren
+15-Sekunden-Lebensfrist. Start/Stop/Status sind nur über Loopback mit dem
+nativen Prozess-Token erreichbar; SIP-Zugangsdaten bleiben im Python-Prozess.
+Die Visu zeigt Sprechen/Auflegen über `LoxKiosk` ausschließlich in der App.
+Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
+[`INTERCOM_GEN1.md`](INTERCOM_GEN1.md).
+
 ## 4. HTTP- und WebSocket-Schnittstelle
 
 Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
-Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
+Authentifizierung, keine Middleware, kein CORS auf den allgemeinen Routen.
+Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
+([`INTERCOM_GEN1.md`](INTERCOM_GEN1.md)).
 
 | Methode | Pfad | Handler | Zweck | Genutzt von |
 |---|---|---|---|---|
@@ -1015,8 +1026,9 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
 - **Intercom:** `answer` stellt die Klingel ab. `lastBellEvents` (JJJJMMTTHHMMSS,
   mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
   `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
-  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) fehlt, darum bleibt der Typ
-  in `PARTIAL_TYPES`. Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
+  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) ist ausschließlich in der
+  nativen Android-App verfügbar; im Browser bleibt der Typ in `PARTIAL_TYPES`.
+  Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
   Loxone-Intercoms `pass`) gibt der Miniserver seit 8.1 nur noch in den
   gesicherten Details heraus; `details.audioInfo` ist leer. Lesen und Prüfen:
   Abschnitt 3.10. Die neue Intercom (Typ `IntercomV2`) ist ein eigener Typ ohne

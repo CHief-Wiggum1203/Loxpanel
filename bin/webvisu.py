@@ -21,6 +21,7 @@ import copy
 import hashlib
 import hmac
 import io
+import ipaddress
 import json
 import logging
 import math
@@ -71,6 +72,7 @@ import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang v
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
 import audioserver_auth  # noqa: E402  # Audioserver-Anmeldung; hier nur HAVE_CRYPTO (_fehlende_pakete_melden)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
+from intercom_talk import IntercomTalk, TalkBusy  # noqa: E402
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
 
@@ -1238,6 +1240,7 @@ class App:
         self._zugang_sperre = asyncio.Lock()
         self._zugang_neu: dict | None = None
         self.intercom_cfg = _intercom_config()
+        self.intercom_talk = IntercomTalk(self._talk_credentials)
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
         # ihr Abbild zum Vergleich (nur bei Aenderung neu senden), _front_meta der
@@ -1694,6 +1697,15 @@ class App:
         if sip is None:
             raise ZugangFehler(KEIN_SIP)
         return sip
+
+    async def _talk_credentials(self, uuid: str) -> dict:
+        """Nur Gen-1 (Door Controller); Gen-2 ist der eigene Typ IntercomV2."""
+        if (self.controls.get(uuid) or {}).get("type") != "Intercom":
+            raise ValueError("Gegensprechen unterstützt nur die Intercom Gen-1")
+        try:
+            return await self.intercom_sip(uuid)
+        except ZugangFehler as err:
+            raise ValueError(str(err)) from err
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -5471,6 +5483,9 @@ class App:
                       [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
             if cells:
                 blocks.append({"k": "row", "cells": cells})
+            # Die native Bruecke fuehrt Audio; Browser/Fully filtern diesen Block.
+            # deviceType ist keine Generation: auch eine Gen-1 kann 0 melden.
+            blocks.append({"k": "intercom-talk", "uuid": uuid, "nativeOnly": True})
             # Laut Strukturdoku: 'answer' stellt die Klingel ab; lastBellEvents
             # sind die Klingeln, auf die niemand reagiert hat. Eigene Zeile
             # hinter den Ausgaengen - die Kamera-Pane zeigt sie nicht
@@ -6900,6 +6915,7 @@ class App:
                 self._front_session = None
 
     async def close(self) -> None:
+        await self.intercom_talk.close()
         if self.ws:
             await self.ws.close()
         if self.icon_session:
@@ -8137,6 +8153,64 @@ async def api_sip_pruefen(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, **erg})
 
 
+def _native_talk(request: web.Request) -> None:
+    """Nur die eingebettete App kennt den Prozess-Token; keine LAN-Call-API."""
+    token = os.environ.get("LOXPANEL_INTERCOM_TOKEN", "")
+    try:
+        local = ipaddress.ip_address(request.remote or "").is_loopback
+    except ValueError:
+        local = False
+    if not local or not token or not hmac.compare_digest(
+            request.headers.get("X-LoxPanel-Intercom", ""), token):
+        raise web.HTTPForbidden(text="Gegensprechen ist nur in der nativen LoxPanel-App verfügbar")
+
+
+def _talk_session(data: dict) -> str:
+    session = data.get("session")
+    if not isinstance(session, str) or not re.fullmatch(r"[A-Za-z0-9-]{16,64}", session):
+        raise web.HTTPBadRequest(text="Ungültige Verbindung")
+    return session
+
+
+async def _talk_json(request: web.Request) -> dict:
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        raise web.HTTPBadRequest(text="Kein gültiges JSON") from None
+    if not isinstance(data, dict):
+        raise web.HTTPBadRequest(text="Kein gültiges JSON-Objekt")
+    return data
+
+
+async def api_intercom_talk_start(request: web.Request) -> web.Response:
+    _native_talk(request)
+    data = await _talk_json(request)
+    session = _talk_session(data)
+    uuid, port = data.get("uuid"), data.get("rtpPort")
+    app: App = request.app["app"]
+    if not isinstance(uuid, str) or (app.controls.get(uuid) or {}).get("type") != "Intercom":
+        return web.json_response({"ok": False, "message": "Gegensprechen unterstützt nur die Intercom Gen-1"}, status=400)
+    if type(port) is not int or not 1024 <= port <= 65535:
+        return web.json_response({"ok": False, "message": "Ungültiger RTP-Port"}, status=400)
+    try:
+        result = await app.intercom_talk.start(session, uuid, port)
+    except TalkBusy as err:
+        return web.json_response({"ok": False, "message": str(err)}, status=409)
+    return web.json_response(result)
+
+
+async def api_intercom_talk_status(request: web.Request) -> web.Response:
+    _native_talk(request)
+    session = _talk_session(dict(request.query))
+    return web.json_response(request.app["app"].intercom_talk.status(session))
+
+
+async def api_intercom_talk_stop(request: web.Request) -> web.Response:
+    _native_talk(request)
+    session = _talk_session(await _talk_json(request))
+    return web.json_response(await request.app["app"].intercom_talk.stop(session))
+
+
 async def api_settings_calendar(request: web.Request) -> web.Response:
     """Kalender (iCal-Abos) + Wetter (Open-Meteo-Koordinaten) fuer die Front."""
     app: App = request.app["app"]
@@ -8976,6 +9050,9 @@ def main() -> None:
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
     a.router.add_get("/api/sip", api_sip)
     a.router.add_post("/api/sip/pruefen", api_sip_pruefen)
+    a.router.add_post("/api/intercom/talk/start", api_intercom_talk_start)
+    a.router.add_get("/api/intercom/talk/status", api_intercom_talk_status)
+    a.router.add_post("/api/intercom/talk/stop", api_intercom_talk_stop)
     a.router.add_post("/api/settings/night", api_settings_night)
     a.router.add_post("/api/settings/audiometa", api_settings_audiometa)
     a.router.add_post("/api/settings/calendar", api_settings_calendar)
