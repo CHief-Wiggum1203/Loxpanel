@@ -1742,7 +1742,9 @@ function renderPanes(p){
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
     const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0, isV=v.indexOf('chart:')===0, isS=v.indexOf('status:')===0;
-    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':(isS?'status':v)))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
+    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':(isS?'status':v)))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'';
+    // Kamera: "camera:<uuid>|<uuid>,..." - Bild-UUID vor, Werte unter dem Bild hinter dem Strich
+    const camu=isC?camUuid(v):'', cwu=isC?camWerte(v):[];
     const suu=isS?v.slice(7).split(',').filter(Boolean):[];
     const vuu=isV?v.slice(6).split(',').filter(Boolean):[];   // Verlauf: ein oder mehrere Bausteine, gestapelt
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
@@ -1762,6 +1764,16 @@ function renderPanes(p){
     if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
     if(isC) row+='<select data-panec="'+esc(tk)+'">'+cameraOptions(camu)+'</select>';
     row+='</div>';
+    if(isC){   // Werte unter dem Kamerabild (Tablet: die Pane ist hoeher als das 4:3-Bild)
+      row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Werte unter dem Bild')+'</span>'+
+        '<select class="pcam-add" data-pk="'+esc(tk)+'"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
+        ((svMax()&&cwu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+'</div>'+
+        '<div class="picked" style="margin:6px 0 2px">'+(cwu.length
+          ? cwu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
+              return '<span class="chip on" data-pk="'+esc(tk)+'" data-cwu="'+esc(u)+'">'+esc(c?c.name:u)+
+                '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+          : '<span class="ccmut">'+T('Keine – das Bild steht allein.')+'</span>')+'</div>';
+    }
     if(isS){   // Werte = mehrere Bausteine, wie auf der Uhr-Seite
       row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Bausteine')+'</span>'+
         '<select class="pstat-add" data-pk="'+esc(tk)+'"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
@@ -1794,7 +1806,7 @@ function renderPanes(p){
     else if(k==='energy'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const u=cur.indexOf('energy:')===0?cur.slice(7):firstEnergyControl(); setPane(tk,'energy:'+u); }
     else if(k==='camera'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
-      const u=cur.indexOf('camera:')===0?cur.slice(7):firstCamera(); setPane(tk,'camera:'+u); }
+      setPane(tk, cur.indexOf('camera:')===0?cur:'camera:'+firstCamera()); }
     else if(k==='chart'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       const u=cur.indexOf('chart:')===0?cur.slice(6):firstChartControl(); setPane(tk,'chart:'+u); }
     else if(k==='status'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
@@ -1822,10 +1834,23 @@ function renderPanes(p){
   box.querySelectorAll('select[data-panee]').forEach(s=>s.onchange=()=>{
     setPane(s.dataset.panee,'energy:'+s.value);
   });
-  box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{
-    setPane(s.dataset.panec,'camera:'+s.value);
+  box.querySelectorAll('select[data-panec]').forEach(s=>s.onchange=()=>{   // Bild wechseln, Werte behalten
+    const tk=s.dataset.panec, cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+    setPane(tk, camPane(s.value, camWerte(cur)));
   });
+  box.querySelectorAll('.pcam-add').forEach(s=>s.onchange=()=>{ const tk=s.dataset.pk, u=s.value; s.value='';
+    const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'', uu=camWerte(cur);
+    if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
+    setPane(tk, camPane(camUuid(cur), uu.concat([u]))); renderPanes(p); });
+  box.querySelectorAll('.chip[data-cwu][data-pk]').forEach(n=>n.onclick=()=>{ const tk=n.dataset.pk;
+    const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+    setPane(tk, camPane(camUuid(cur), camWerte(cur).filter(x=>x!==n.dataset.cwu))); renderPanes(p); });
 }
+// Kamera-Widget: "camera:<uuid>" oder "camera:<uuid>|<uuid>,<uuid>" (Werte unter dem Bild)
+function camUuid(v){ return (v||'').indexOf('camera:')===0 ? v.slice(7).split('|')[0] : ''; }
+function camWerte(v){ if((v||'').indexOf('camera:')!==0) return []; const r=v.slice(7), i=r.indexOf('|');
+  return i<0?[]:r.slice(i+1).split(',').filter(Boolean); }
+function camPane(u,uu){ return 'camera:'+(u||'')+(uu&&uu.length?'|'+uu.join(','):''); }
 // Screensaver: rechte Spalte. Gleiche Werte-Grammatik wie die Tab-Panes, damit
 // es nicht zwei Sprachen fuer dieselbe Sache gibt.
 // Drei Arten brauchen ein Ziel: "Werte" mindestens einen Baustein, Energiefluss

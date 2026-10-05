@@ -473,6 +473,8 @@ und ohne LoxBerry.
 
 ## Changelog
 
+- **Unveröffentlicht** – iPad/iPhone als Web-App vom Home-Bildschirm (Vollbild, kein schwarzer Schirm mehr), Kamera-Widget mit Werten unter dem Bild, verlinkte Objekte unter der Detailseite.
+
 Vollständige Release-Notes: [GitHub Releases des Originals](https://github.com/Lenardo1/Loxpanel/releases);
 der Fork trägt dieselben Versionsnummern.
 

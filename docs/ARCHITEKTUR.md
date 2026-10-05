@@ -840,7 +840,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
-                                             // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
+                                             // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>[|<uuid>,…]" (Kamera,
+                                             // hinter dem Strich Werte unter dem Bild, `_clean_camera()`) |
                                              // "chart:<uuid>,…" (Verlauf eines oder mehrerer
                                              // Bausteine mit Aufzeichnung, untereinander) |
                                              // "status:<uuid>,…" (frei gewählte
@@ -1056,6 +1057,34 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `test_volle_seite_ueberlappt_nicht`.
 - Kachel-Grid über CSS-Variablen `--cols`/`--rows` (2×2, 3×2, 4×3), Kachelgröße
   auf 240 px gedeckelt, außer bei `fill`. Seiten-Snapping pro `cols*rows` Kacheln.
+- Sichtbare Fläche nur über `vpSize()`: `innerWidth`/`innerHeight`, sonst
+  `visualViewport`, sonst das Wurzelelement, nie 0. Eine iOS-Web-App vom
+  Home-Bildschirm (Lesezeichen „Als Web-App öffnen“) und manche Kiosk-Browser
+  melden beim Start 0 × 0 oder die Safari-Fenstergröße ohne späteres `resize`;
+  vorher rechnete `autoRaster()` daraus eine Zeile und der Screensaver lag als
+  „Uhr-Kachel“ im Mini-Kasten. `fensterGeaendert()` läuft zusätzlich bei
+  `pageshow`, `orientationchange` und `visualViewport.resize`. Die Kopf-Metas
+  `apple-mobile-web-app-capable`/`-status-bar-style` starten die Web-App im
+  Vollbild, `viewport-fit=cover` plus `safe-area-inset-bottom` an `#tabs`
+  halten die Tab-Leiste über dem Home-Balken; Höhen stehen in `--vh`
+  (`100dvh`, Fallback `100vh`), weil `100vh` auf iOS die eingefahrenen
+  Browser-Leisten mitzählt und die Tab-Leiste unten abschneidet.
+  Geprüft in `tests/browser/test_tablet_browser.py`.
+- Kamera-Pane mit Werten (`camera:<uuid>|<uuid>,…`): unter Video und Tasten
+  ein Block `.camwerte.werte` mit denselben Zeilen und `.werte`-Regeln wie die
+  Werte-Pane; `applyPane()` meldet die Werte wie bei `status:` per
+  `setsvstatus`, der `svstatus`-Push zeichnet nur den Block neu
+  (`renderCameraWerte()`), das Video bleibt stehen. `camPaneUuid()` und
+  `camPaneWerte()` trennen den Wert, der Konfigurator schreibt ihn mit
+  `camPane()`/`camUuid()`/`camWerte()` („Werte unter dem Bild“ bei Kamera).
+- Verlinkte Objekte: `_link_blocks()` hängt an jede Block-Detailseite die
+  Bausteine aus dem Structure-File-Feld `links` (in Loxone Config am
+  Baustein verlinkt, etwa Abholtermine am Müll-Status) als Überschrift
+  „Verlinkte Objekte“ und umbrechende `row` (`id: links:<uuid>`) an: je Ziel
+  eine Zelle mit Name · Zustand aus `_control_item()`, `nav` auf die
+  Detailseite, bei direkt schaltenden Zielen deren `cmd`. Unbekannte Ziele,
+  Dubletten und der Baustein selbst fallen weg. Tests in
+  `tests/test_verlinkte_objekte.py`.
 - Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):
   Standard ist der neue nach den Kacheln der Loxone-App, `"classic"` der
   bisherige. Das Raster (`cols`/`rows`) ist in beiden gleich, die
@@ -1163,7 +1192,7 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   rechte Spalte, hochkant unter Uhr und Wetter, auf dem quadratischen
   4″-Panel keine. Werte: `""` = Automatik (Termine, und sobald keine anstehen die
   Wetter-Details — so bleibt die halbe Fläche nie leer), `off`, `calendar`,
-  `weather`, `player:<zone>`, `energy:<uuid>`, `camera:<uuid>`, `chart:<uuid>,…`, `status:<uuid>,…`. Geprüft an
+  `weather`, `player:<zone>`, `energy:<uuid>`, `camera:<uuid>[|<uuid>,…]`, `chart:<uuid>,…`, `status:<uuid>,…`. Geprüft an
   EINER Stelle (`_clean_svpane()`), gezeichnet in `renderSvSide()`. Energiefluss
   und Kamera haben beim Server je Verbindung nur einen Platz: liegt die Uhr-Seite
   oben, gilt ihre Wahl, und die Kamera-Pane darunter wird geleert — sonst liefe
