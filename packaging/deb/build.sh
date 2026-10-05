@@ -2,6 +2,7 @@
 # Baut das LoxPanel-Server .deb. Auszufuehren auf einem Debian-Host (dpkg-deb).
 # Nimmt den Code aus dem Repo (bin/webfrontend/config), Config OHNE echte
 # Zugangsdaten (nur .example/Schema). Ergebnis-.deb liegt im Repo-Wurzel.
+# Commit fuer die Versionsanzeige: LOXPANEL_COMMIT, sonst Git (siehe unten).
 set -e
 
 HERE=$(cd "$(dirname "$0")" && pwd)     # packaging/deb
@@ -33,6 +34,45 @@ cp "$REPO/requirements.txt" "$PKG/opt/loxpanel/app/requirements.txt"
 for f in "$REPO"/config/*.example* "$REPO"/config/*.schema.json; do
     [ -e "$f" ] && cp "$f" "$PKG/opt/loxpanel/app/config/"
 done
+
+# --- Stand fuer die Anzeige im Konfigurator ---
+# bin/version_info.py liest Version, Commit und Bauzeit aus bin/version.json;
+# ohne die Datei faellt es auf loxberry-plugin/plugin.cfg und Git zurueck, die
+# beide nicht im Paket sind ("Version unbekannt"). Geschrieben ohne Python (der
+# Bau-Host braucht keins, das Paket holt es erst bei der Installation), im
+# Format von version_info.schreiben(); ersetzt eine veraltete bin/version.json
+# aus dem Arbeitsbaum. Commit: LOXPANEL_COMMIT (deb.yml setzt github.sha), sonst
+# HEAD des Repos, sonst leer. In die Datei kommt nur eine Hex-Kennung mit 7 bis
+# 40 Zeichen (wie loxCommit in android/app/build.gradle.kts).
+ist_commit() {
+    case $1 in
+        ''|*[!0123456789abcdefABCDEF]*) return 1 ;;
+    esac
+    [ "${#1}" -ge 7 ] && [ "${#1}" -le 40 ]
+}
+COMMIT=${LOXPANEL_COMMIT-}
+COMMIT=${COMMIT#"${COMMIT%%[![:space:]]*}"}     # Leerraum vorn ...
+COMMIT=${COMMIT%"${COMMIT##*[![:space:]]}"}     # ... und hinten weg
+# leer gesetzt zaehlt wie nicht gesetzt, alles andere muss eine Kennung sein
+if [ -n "${LOXPANEL_COMMIT-}" ] && ! ist_commit "$COMMIT"; then
+    echo "LOXPANEL_COMMIT ist keine Commit-Kennung (7 bis 40 Hex-Zeichen), wird nicht verwendet" >&2
+    COMMIT=
+fi
+# HEAD nur, wenn das Repo selbst ein Git-Checkout ist (in einem Worktree ist
+# .git eine Datei), nie der eines umgebenden Repos; wie version_info.git_commit
+if [ -z "$COMMIT" ] && [ -e "$REPO/.git" ]; then
+    COMMIT=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) || COMMIT=
+    ist_commit "$COMMIT" || COMMIT=
+fi
+GEBAUT=$(date -u +%Y-%m-%dT%H:%M:%SZ)  # UTC, Format wie version_info
+case $GEBAUT in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) ;;
+    *) echo "date: Bauzeit nicht im Format JJJJ-MM-TTThh:mm:ssZ" >&2; exit 1 ;;
+esac
+VJSON="$PKG/opt/loxpanel/app/bin/version.json"
+rm -f "$VJSON"                          # veraltete weg; durch einen Symlink nie hindurch
+printf '{"version": "%s", "commit": "%s", "gebaut": "%s"}\n' \
+    "$VERSION" "$COMMIT" "$GEBAUT" > "$VJSON"
 
 # --- Control + Maintainer-Skripte ---
 # control traegt keine eigene Version: sie wird hier hinter Package: eingesetzt

@@ -26,6 +26,9 @@ jobs:
           fi
 
       - name: .deb bauen
+        env:
+          # Commit fuer bin/version.json (Anzeige im Konfigurator)
+          LOXPANEL_COMMIT: ${{ github.sha }}
         run: sh packaging/deb/build.sh
 
       - name: An den Release haengen
