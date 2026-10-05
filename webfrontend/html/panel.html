@@ -1138,7 +1138,10 @@ function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stac
 let pinWarten=[];        // gesicherte Befehle, deren cmdresult aussteht
 let pinJobs=null;        // Befehle, die auf die offene PIN-Abfrage warten
 function cmdSchicken(uuid,cmd,pin){ const m={t:'cmd',uuid,cmd}; if(pin!=null) m.pin=pin; send(m); }
-function pinSeite(){ return key(view&&view.route); }
+// Seite = oberster Eintrag von stack, nicht view.route: nav() legt ihn sofort
+// ab, die neue Ansicht schickt der Server aber erst nach dem cmdresult eines
+// laufenden Befehls (er arbeitet die Nachrichten eines Panels der Reihe nach ab)
+function pinSeite(){ return key(stack[stack.length-1]); }
 function pinVergessen(){
   // eine offene Abfrage gehoert zur alten Seite: zu, ihre Befehle gelten als abgebrochen
   const s=document.querySelector('.screen'), ov=s&&s.querySelector('.pinov'); if(ov) ov.remove();
@@ -1179,9 +1182,9 @@ function pinAbfragen(job,msg){
 }
 // Mit PIN schicken. Eine Halten-Taste (job.los): Nach der Abfrage ist der
 // Finger laengst oben, das Loslassen folgt darum sofort mit derselben PIN
-// (wirkt wie ein Tipp). Nie Druecken ohne Loslassen. seite: die des Tipps,
-// nicht die der Eingabe - eine Wiederholung nach abgelehnter PIN kann schon
-// auf der naechsten Seite stehen, job.ok gehoert aber nicht dorthin.
+// (wirkt wie ein Tipp). Nie Druecken ohne Loslassen. seite: die des Tipps
+// (job.seite), nicht die der Eingabe - job.ok gilt nur dort, auch fuer die
+// Wiederholung nach abgelehnter PIN.
 function pinSenden(job,pin){
   const w={job,pin,seite:job.seite};
   pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
@@ -1193,6 +1196,8 @@ function pinErgebnis(msg){
   if(msg.ok){ if(w.job.ok && w.seite===pinSeite()) w.job.ok(); return; }
   w.fehl=true;
   if(w.zu && w.zu.fehl) return;   // Loslassen zu abgelehntem Druecken: die neue Abfrage schickt beide
+  // Seite inzwischen gewechselt: keine Abfrage fuer einen fremden Befehl, abgebrochen
+  if(w.seite!==pinSeite()){ if(w.job.abbruch) w.job.abbruch(); return; }
   pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
 }
 // opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
