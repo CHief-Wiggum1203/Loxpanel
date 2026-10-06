@@ -1495,7 +1495,7 @@ function renderEditor(){
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Kopfzeile</b> legt stattdessen eine Zeile <b>über</b> die Kacheln: Uhr, Wetter in Kurzform und nach Wahl Werte – nimmt weniger Platz als eine Pane und lässt das Raster ungeteilt. <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
        '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
@@ -1742,8 +1742,10 @@ function renderPanes(p){
     const label=meta?meta.label:tk;
     const v=panes[tk]||'';
     const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0, isV=v.indexOf('chart:')===0, isS=v.indexOf('status:')===0;
-    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':(isS?'status':v)))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
+    const isH=(v==='header'||v.indexOf('header:')===0);   // Kopfzeile: Uhr, Wetter, dazu Werte nach Wahl
+    const kind=isP?'player':(isE?'energy':(isC?'camera':(isV?'chart':(isS?'status':(isH?'header':v))))), zone=isP?v.slice(7):'', euid=isE?v.slice(7):'', camu=isC?v.slice(7):'';
     const suu=isS?v.slice(7).split(',').filter(Boolean):[];
+    const huu=isH?v.slice(7).split(',').filter(Boolean):[];   // "header:" ist 7 Zeichen wie "status:"
     const vuu=isV?v.slice(6).split(',').filter(Boolean):[];   // Verlauf: ein oder mehrere Bausteine, gestapelt
     let row='<div class="ccrow"><span class="ccnm">'+esc(label)+'</span>'+
       '<select data-pane="'+esc(tk)+'">'+
@@ -1756,6 +1758,9 @@ function renderPanes(p){
           '<option value="camera"'+(kind==='camera'?' selected':'')+'>Kamera</option>'+
           (statControls().length?'<option value="chart"'+(kind==='chart'?' selected':'')+'>Verlauf</option>':'')+
           '<option value="status"'+(kind==='status'?' selected':'')+'>Werte</option>'+
+        '</optgroup>'+
+        '<optgroup label="'+T('Über den Kacheln')+'">'+
+          '<option value="header"'+(kind==='header'?' selected':'')+'>'+T('Kopfzeile (Uhr, Wetter, Werte)')+'</option>'+
         '</optgroup>'+
       '</select>';
     if(isP) row+='<select data-panez="'+esc(tk)+'">'+audioZoneOptions(zone)+'</select>';
@@ -1771,6 +1776,16 @@ function renderPanes(p){
               return '<span class="chip on" data-pk="'+esc(tk)+'" data-su="'+esc(u)+'">'+esc(c?c.name:u)+
                 '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
           : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
+    }
+    if(isH){   // Kopfzeile: Werte nach Wahl, ohne bleibt es bei Uhr und Wetter
+      row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Werte')+'</span>'+
+        '<select class="pkopf-add" data-pk="'+esc(tk)+'"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
+        ((svMax()&&huu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht in die Zeile.')+'</span>':'')+'</div>'+
+        '<div class="picked" style="margin:6px 0 2px">'+(huu.length
+          ? huu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
+              return '<span class="chip on" data-pk="'+esc(tk)+'" data-hu="'+esc(u)+'">'+esc(c?c.name:u)+
+                '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+          : '<span class="none">'+T('Ohne Werte zeigt die Kopfzeile Uhr und Wetter.')+'</span>')+'</div>';
     }
     if(isV){   // Verlauf = ein oder mehrere Bausteine, gestapelt (wie Werte)
       row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Bausteine')+'</span>'+
@@ -1799,6 +1814,8 @@ function renderPanes(p){
       const u=cur.indexOf('chart:')===0?cur.slice(6):firstChartControl(); setPane(tk,'chart:'+u); }
     else if(k==='status'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
       setPane(tk, cur.indexOf('status:')===0?cur:'status:'); }   // Bausteine unten wählen
+    else if(k==='header'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
+      setPane(tk, cur.indexOf('header')===0?cur:'header'); }     // Werte unten nach Wahl
     else setPane(tk,k);
     renderPanes(p);   // Zonen-/Control-/Kamera-/Werte-Auswahl ein-/ausblenden
   });
@@ -1809,6 +1826,13 @@ function renderPanes(p){
   box.querySelectorAll('.chip[data-su][data-pk]').forEach(n=>n.onclick=()=>{ const tk=n.dataset.pk;
     const rest=paneStatUu(tk).filter(x=>x!==n.dataset.su);
     setPane(tk, rest.length?('status:'+rest.join(',')):'status:'); renderPanes(p); });
+  const paneKopfUu=tk=>{ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||''; return cur.indexOf('header:')===0?cur.slice(7).split(',').filter(Boolean):[]; };
+  const kopfWert=uu=>uu.length?('header:'+uu.join(',')):'header';
+  box.querySelectorAll('.pkopf-add').forEach(s=>s.onchange=()=>{ const tk=s.dataset.pk, u=s.value; s.value='';
+    const uu=paneKopfUu(tk); if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
+    setPane(tk,kopfWert(uu.concat([u]))); renderPanes(p); });
+  box.querySelectorAll('.chip[data-hu][data-pk]').forEach(n=>n.onclick=()=>{ const tk=n.dataset.pk;
+    setPane(tk, kopfWert(paneKopfUu(tk).filter(x=>x!==n.dataset.hu))); renderPanes(p); });
   const paneChartUu=tk=>{ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||''; return cur.indexOf('chart:')===0?cur.slice(6).split(',').filter(Boolean):[]; };
   box.querySelectorAll('.pchart-add').forEach(s=>s.onchange=()=>{ const tk=s.dataset.pk, u=s.value; s.value='';
     const uu=paneChartUu(tk); if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
@@ -2813,11 +2837,11 @@ function wzViews(){
   if(WZ.content==='classic') return (WZ.classic||[]).filter(function(t){return t.on;}).map(function(t){return {key:t.key,label:t.label};});
   return (WZ.pickPages||[]).map(function(pg,i){return {key:pickKey(i),label:(pg.name||'').trim()||(T('Seite')+' '+(i+1))};});
 }
-function wzP2Opts(sel){ var o=[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf']];
+function wzP2Opts(sel){ var o=[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf'],['header','Kopfzeile']];
   return '<option value=""'+((sel||'')===''?' selected':'')+'>'+T('Kein Widget (Screen füllen)')+'</option>'+
     '<optgroup label="'+T('Widget')+'">'+o.map(function(x){return '<option value="'+x[0]+'"'+((sel||'')===x[0]?' selected':'')+'>'+T(x[1])+'</option>';}).join('')+'</optgroup>'; }
 function wzP2Real(v){
-  if(v==='weather'||v==='calendar') return v;
+  if(v==='weather'||v==='calendar'||v==='header') return v;
   if(v==='audio'){ var z=firstAudioZone(); return z?'player:'+z:''; }
   if(v==='energy'){ var u=firstEnergyControl(); return u?'energy:'+u:''; }
   if(v==='camera'){ var u=firstCamera(); return u?'camera:'+u:''; }

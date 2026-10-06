@@ -844,7 +844,11 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // "chart:<uuid>,…" (Verlauf eines oder mehrerer
                                              // Bausteine mit Aufzeichnung, untereinander) |
                                              // "status:<uuid>,…" (frei gewählte
-                                             // Werte); fehlt = Screen füllen
+                                             // Werte) | "header" bzw. "header:<uuid>,…"
+                                             // (Kopfzeile: Uhr, Wetter und bis zu
+                                             // SV_STATUS_MAX Werte in EINER Zeile ÜBER
+                                             // dem Raster statt einer Pane daneben);
+                                             // fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -1247,6 +1251,27 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   einer Spalte gequetscht und die Vorschau seitlich abgeschnitten, hochkant
   unten abgeschnitten. Kalender 30 % leer, die Termine auf Seite 2; zwei Werte
   69 % leer. Geprüft in `tests/browser/test_pane_hoehe_browser.py`.
+- Kopfzeile (Widget `"header"`, Oktober 2026): Statt einer Pane daneben eine
+  Zeile **über** dem Kachelraster mit Uhr, Wetter in Kurzform (Symbol,
+  Temperatur, Lage, „Heute hoch / tief“) und nach Wahl Werten
+  (`"header:<uuid>,…"`, bis `SV_STATUS_MAX`). Das Vorbild ist die Startseite
+  der Loxone-App; auf einem Tablet quer nimmt die Zeile 64 px statt der 40 %
+  eines Widgets. `applyPane()` setzt `.kopf` am `.screen` (dritte Grid-Zeile,
+  volle Breite), nicht `.split`: das Raster bleibt ungeteilt, „Screen füllen“
+  verdoppelt weiter, hochkant ändert sich nichts. Die Höhe steht als
+  `--kopf-h` am `.screen`; `autoRaster()` zieht sie über `kopfHoehe()` von der
+  freien Höhe ab, bevor die Klasse gesetzt ist, damit die Zeilenzahl stimmt.
+  Beim festen Raster geht sie vom Kasten ab (4″ 2×2: Kacheln 225×166 statt
+  225×198). `renderKopfzeile()` baut die Zeile aus `frontData` (Wetter) und
+  `svStatusData` (Werte, angemeldet wie bei „Werte“ per `setsvstatus`, der
+  Server schickt `{t:"svstatus"}` über `status_blocks()`), `tickClock()`
+  stellt die Uhr. Was rechts nicht mehr in die Zeile passt, blendet
+  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Die Kopfzeile gibt es
+  nur als Pane eines Tabs: Widget-Seite (`_clean_widget_tab()`) und Uhr-Seite
+  (`_clean_svpane()`) nehmen sie nicht an, der Konfigurator bietet sie dort
+  nicht an. Geprüft in `tests/test_kopfzeile.py` und
+  `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″, zu
+  viele Werte, Drehen, Konfigurator).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

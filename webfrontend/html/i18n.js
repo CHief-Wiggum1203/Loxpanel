@@ -34,6 +34,11 @@
         'Audio/energy flow/camera/history only appear here if a matching block exists.',
       'Kein passender Baustein': 'No matching block',
       'Werte': 'Values',
+      'Über den Kacheln': 'Above the tiles',
+      'Kopfzeile': 'Header row',
+      'Kopfzeile (Uhr, Wetter, Werte)': 'Header row (clock, weather, values)',
+      'Ohne Werte zeigt die Kopfzeile Uhr und Wetter.': 'Without values the header row shows clock and weather.',
+      'Mehr passt nicht in die Zeile.': 'No more fit in the row.',
       'Audio': 'Audio',
       'Miniserver': 'Miniserver',
       '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
