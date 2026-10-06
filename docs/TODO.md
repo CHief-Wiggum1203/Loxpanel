@@ -1635,6 +1635,12 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       5. **Werte als schmale Leiste statt als Kacheln,** je Seite wählbar:
          Anzeige-Bausteine in eine Zeile, das Raster für Bedienbares. **M**
+         *Erledigt 06.10.2026:* `ui.valueBar` nennt die Seiten, der Server
+         trennt die Anzeige-Bausteine (`WERTE_LEISTE_TYPEN`) als
+         `view.leiste` ab, die Visu zeigt sie als Chips in einer Zeile über
+         dem Raster (scrollt waagerecht, Tipp öffnet die Wertseite), das
+         Raster rechnet die Zeile ab. Kästchen je Tab im Konfigurator.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
          sonst Detailseite; löst das Drei-Zeilen-Problem ohne Sonderfälle. **S**
       7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt

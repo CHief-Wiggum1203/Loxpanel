@@ -321,6 +321,40 @@
   .kz-w.crit .ico,.kz-w.crit .vl{color:var(--crit-ink,var(--crit));}
   .kz-w.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
   .kz-w[hidden]{display:none;}   /* kopfEinpassen(): was nicht passt, bleibt weg */
+  /* Werteleiste (ui.valueBar, view.leiste, renderLeiste): die Anzeige-Bausteine
+     einer Seite als Kette von Werten in EINER Zeile ueber dem Raster statt als
+     Kacheln - das Raster bleibt dem Bedienbaren. Dieselben Chips wie die Werte
+     der Kopfzeile; was nicht in die Zeile passt, scrollt waagerecht statt
+     wegzubleiben (diese Werte haben keine Kachel mehr). Hoehe --leiste-h =
+     LEISTE_H * --ks (setzeFaktor), autoRaster() zieht sie wie die Kopfzeile
+     von der freien Hoehe ab. Mit Kopfzeile steht sie darunter; im Split quer
+     nur ueber dem Raster, das Widget daneben reicht ueber beide Zeilen,
+     hochkant liegt sie ueber Raster und Widget. */
+  .screen{--leiste-h:48px;}
+  .werteleiste{display:none;}
+  .screen.leiste{grid-template-rows:auto minmax(0,1fr) auto;}
+  .screen.leiste .werteleiste{display:flex;align-items:center;gap:8px;grid-column:1;grid-row:1;
+    height:var(--leiste-h);box-sizing:border-box;padding:0 10px;min-width:0;
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity;
+    border-bottom:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
+  .screen.leiste .werteleiste::-webkit-scrollbar{display:none;}
+  .screen.leiste .werteleiste .kz-w{scroll-snap-align:start;cursor:pointer;}
+  .screen.leiste .werteleiste .kz-w:active{transform:scale(.96);}
+  .screen.leiste #grid{grid-row:2;}
+  .screen.leiste #tabs{grid-row:3;}
+  .screen.leiste .conn{grid-row:2;}
+  .screen.kopf.leiste{grid-template-rows:auto auto minmax(0,1fr) auto;}
+  .screen.kopf.leiste .werteleiste{grid-row:2;}
+  .screen.kopf.leiste #grid{grid-row:3;}
+  .screen.kopf.leiste #tabs{grid-row:4;}
+  .screen.kopf.leiste .conn{grid-row:3;}
+  .screen.split.leiste:not(.hoch) #playerpane,
+  .screen.split.leiste:not(.hoch) #frontpane{grid-row:1/3;}
+  .screen.split.hoch.leiste{grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto;}
+  .screen.split.hoch.auto.leiste{grid-template-rows:auto var(--auto-k,1fr) var(--auto-p,1fr) auto;}
+  .screen.split.hoch.leiste #playerpane,
+  .screen.split.hoch.leiste #frontpane{grid-row:3;}
+  .screen.split.hoch.leiste #tabs{grid-row:4;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
      Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
@@ -1211,6 +1245,7 @@
   <div class="playerpane" id="playerpane"></div>
   <div class="frontpane" id="frontpane"></div>
   <div class="kopfzeile" id="kopfzeile" hidden></div>
+  <div class="werteleiste" id="werteleiste" hidden></div>
   <div class="grid" id="grid"></div>
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
@@ -1888,7 +1923,7 @@ const SPARK_MIN_W=40;
 // Vorher standen 16-px-Schrift und 38-px-Symbol auf jeder Kachel, ob 122 oder
 // 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
 // beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
-const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64;
+const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE_H=48;
 let kachelFaktor=1;
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
 // traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
@@ -1901,6 +1936,7 @@ function setzeFaktor(ks){
   sc.style.setProperty('--ks', ks.toFixed(3));
   sc.style.setProperty('--kst-min', ks>=1 ? '1' : '0.6');   // Untergrenze der Textstufen (s. fitTile)
   sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
+  sc.style.setProperty('--leiste-h', Math.round(LEISTE_H*ks)+'px');   // Werteleiste waechst mit
   kopfEinpassen();   // Schrift und Hoehe der Kopfzeile haengen am Faktor: neu einpassen
 }
 function kachelGemessen(){ const g=el('grid');
@@ -2393,15 +2429,17 @@ function paneKind(v){ if(!v) return null;
 // Wetter aus {t:'front'}, die Uhr tickt mit tickClock().
 function kopfAktiv(){ return paneKind(paneRawNow())==='header'; }
 function kopfHoehe(ks){ return kopfAktiv() ? Math.round(KOPF_H*(ks||kachelFaktor)) : 0; }
-function kopfWerteHtml(items){
-  return items.map(it=>{
-    const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
-    const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
-      : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
-      : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
-    return '<div class="kz-w'+ton+'"'+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
-      '<span class="vl">'+esc(it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>'; }).join('');
+// Ein Wert als Chip (Symbol, Wert, Name) - Kopfzeile und Werteleiste; attrs:
+// weitere Attribute (data-i, data-id der Werteleiste)
+function kopfWertHtml(it, attrs){
+  const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
+  const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
+    : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+    : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+  return '<div class="kz-w'+ton+'"'+(attrs||'')+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
+    '<span class="vl">'+esc(it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>';
 }
+function kopfWerteHtml(items){ return items.map(it=>kopfWertHtml(it)).join(''); }
 function renderKopfzeile(){
   const kz=el('kopfzeile'); if(!kz || !kopfAktiv()) return;
   const d=frontData||{}, w=d.weather;
@@ -2424,6 +2462,45 @@ function kopfEinpassen(){
   [...box.children].forEach(c=>{ c.hidden=false; });
   [...box.children].forEach(c=>{ if(c.getBoundingClientRect().right > rechts+1) c.hidden=true; });
 }
+// ---- Werteleiste (ui.valueBar, view.leiste) ----
+// Die Anzeige-Bausteine einer Seite (Messwerte, Zaehler, Texte, Ein/Aus-
+// Anzeigen) als Kette von Werten in EINER Zeile ueber dem Raster statt als
+// Kacheln; der Server trennt sie (_leiste_trennen), das Raster bleibt dem
+// Bedienbaren. Dieselben Chips wie die Werte der Kopfzeile, ein Tipp oeffnet
+// wie die Kachel die Wertseite. Was nicht in die Zeile passt, scrollt
+// waagerecht - nicht ausblenden wie dort: diese Werte haben keine Kachel mehr.
+function leisteAktiv(){ return !!(view && !view.widget && !view.front && Array.isArray(view.leiste) && view.leiste.length); }
+function leisteHoehe(ks){ return leisteAktiv() ? Math.round(LEISTE_H*(ks||kachelFaktor)) : 0; }
+function leisteChip(it,i){ return kopfWertHtml(it, ' data-i="'+i+'" data-id="'+esc(String(it.id))+'"'); }
+function renderLeiste(){
+  const lz=el('werteleiste'), sc=document.querySelector('.screen'); if(!lz || !sc) return;
+  const an=leisteAktiv();
+  sc.classList.toggle('leiste', an); lz.hidden=!an;
+  if(!an){ lz.innerHTML=''; return; }
+  lz.innerHTML=view.leiste.map(leisteChip).join('');
+  lz.querySelectorAll('.kz-w').forEach(n=>{ n.onclick=()=>{ const it=view.leiste[+n.dataset.i]; if(it&&it.nav) nav(it.nav); }; });
+}
+// Gleiche Seite, neue Werte: nur Zustand, Symbol und Texte der Chips nachziehen,
+// die Zeile bleibt stehen (Scroll-Lage, keine neuen Elemente). Andere Werte
+// oder eine andere Anzahl -> false, dann baut render() neu.
+function updateLeiste(items){
+  const lz=el('werteleiste'); if(!lz) return false;
+  const neu=Array.isArray(items)?items:[];
+  const nodes=lz.hidden?[]:[...lz.querySelectorAll('.kz-w')];
+  if(nodes.length!==neu.length) return false;
+  for(let i=0;i<neu.length;i++){ if(String(neu[i].id)!==nodes[i].dataset.id) return false; }
+  neu.forEach((it,i)=>{
+    const n=nodes[i], tmp=document.createElement('div'); tmp.innerHTML=leisteChip(it,i);
+    const soll=tmp.firstChild;
+    if(n.className!==soll.className) n.className=soll.className;
+    if((n.getAttribute('style')||'')!==(soll.getAttribute('style')||'')) n.setAttribute('style', soll.getAttribute('style')||'');
+    ['.ico','.vl','.nm'].forEach(q=>{ const a=n.querySelector(q), b=soll.querySelector(q); if(a&&b&&a.outerHTML!==b.outerHTML) a.outerHTML=b.outerHTML; });
+  });
+  return true;
+}
+// Mausrad ueber der Zeile scrollt sie waagerecht (am Touch-Panel wischt man)
+{ const lz=el('werteleiste'); if(lz) lz.addEventListener('wheel', e=>{
+    if(Math.abs(e.deltaY)>Math.abs(e.deltaX) && lz.scrollWidth>lz.clientWidth){ lz.scrollLeft+=e.deltaY; e.preventDefault(); } }, {passive:false}); }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   // Widget-Seite (Vollbild-Tab): das ganze Tab IST das Widget, kein Kachelgrid,
@@ -2688,7 +2765,7 @@ function autoRaster(widget){
   // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
   const fuer=gesamt=>{
     const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
-    const h=window.innerHeight-tabsH-kopfHoehe(ksw);
+    const h=window.innerHeight-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw);
     const rows=anzahl(h, kb);
     const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
     let r;
@@ -2738,6 +2815,7 @@ function render(){
     sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr');
     setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
+  renderLeiste();   // Werteleiste ueber dem Raster (oder weg) - vor dem Bauen und Messen der Kacheln
   stopVideo();
   closeMenu();
   setMore(null);
@@ -3089,14 +3167,14 @@ function connect(){
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
       const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
-      view=msg;
+      view=msg; renderLeiste();
       if(!(sameS && updateScheme(msg))) renderScheme(msg);   // gleiche Seite: nur Werte patchen (Zoom bleibt)
       return;
     }
     if(msg.widget){ view=msg; render(); return; }   // Widget-Seite (Vollbild-Tab)
     const same = view && key(view.route)===key(msg.route);
     if(msg.blocks){
-      view=msg;
+      view=msg; renderLeiste();
       if(same && el('grid').classList.contains('panel')) updatePanel(msg.blocks);
       else renderPanel(msg.blocks);
     } else {
@@ -3105,7 +3183,7 @@ function connect(){
       // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
       // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
       // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
-      if(!(same && updateGrid(katSichtbar(view.items||[])))){ render(); g.scrollTop=st; }
+      if(!(same && updateGrid(katSichtbar(view.items||[])) && updateLeiste(view.leiste))){ render(); g.scrollTop=st; }
     }
   };
 }
