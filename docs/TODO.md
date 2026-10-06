@@ -1597,6 +1597,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          begrenzt auf 0,85 bis 2,0, einmal je Raster gesetzt, multipliziert
          Symbol, Name, Zweittext, Messwert, Tastenleiste, Innenabstand und
          `--kopf-h`. Nutzergrößen gelten als „bei 170-px-Kachel“. **M**
+         *Erledigt 06.10.2026:* dazu begrenzt die Höhe den Faktor (flache
+         225×128-Kachel: 0,85 statt 1,32), Tasten schrumpfen nie unter ihr
+         Maß, und Textstufen `kst1`–`kst3` nehmen einen Text zurück, der in
+         seine Zeilen nicht passt (über Faktor 1 nie unter den Stand ohne
+         Faktor). Messreihe: 800×480 mit 3×3 15 → 5 abgeschnittene Namen,
+         4″ 3×3 8 → 2, 415-px-Kachel 32-px-Schrift und 76-px-Symbol.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1, Tests in
+         `tests/browser/test_kachel_faktor_browser.py` (16).
       2. **Automatik rechnet mit der Kachelanzahl und einem Zielwert je
          Gerät:** passt alles auf eine Seite, wachsen die Kacheln bis 1,4 ×
          Ziel; Zielkachel als Zahl statt drei Stufen, je Gerät unter
@@ -1639,6 +1647,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           Abweichung. **S**
       16. **Lesbarkeits-Prüfung als Browser-Test:** auf den Standardgeräten
           kein abgeschnittener Name, keine Seite mehr als ein Drittel leer. **S**
+          *Teil Abschneiden erledigt mit Punkt 1*
+          (`test_lesbarkeit_auf_standardgeraeten`: mit Faktor nicht mehr
+          abgeschnitten als ohne, keine Kachel läuft über); der Teil „keine
+          Seite mehr als ein Drittel leer“ kommt mit Punkt 2.
       Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
       Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch

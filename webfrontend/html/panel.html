@@ -507,11 +507,17 @@
      KEINE opacity mehr. theme_colors.derive() rechnet --muted so aus, dass es
      auf --tile gerade AA (4.5:1) schafft; die fruehere opacity:.85 drueckte es
      danach wieder darunter - in 9 von 17 geprueften Themes, bis auf 3.75:1. */
+  /* Textfaktor --kst: wie --ks, aber eine Kachel, deren Name nicht in seine
+     Zeilen passt, nimmt ihn in Stufen zurueck (fitTile: kst1..kst3). */
+  .tile{--kst:var(--ks,1);}
+  .tile.kst1{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.15));}
+  .tile.kst2{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.32));}
+  .tile.kst3{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.5));}
   .tile .room{font-size:calc(var(--room-size,12px) * var(--ks,1));color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
-  .tile .name{font-size:calc(var(--name-size,18px) * var(--ks,1));font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
+  .tile .name{font-size:calc(var(--name-size,18px) * var(--kst,1));font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tile .sub{font-size:calc(var(--sub-size,15px) * var(--ks,1));color:var(--muted);font-weight:400;
+  .tile .sub{font-size:calc(var(--sub-size,15px) * var(--kst,1));color:var(--muted);font-weight:400;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:calc(4px * var(--ks,1));}
   .tile.on .sub{color:var(--glow);}
   .tile.good{background:rgba(var(--good-rgb,82,184,129),var(--ov-fill,.16));
@@ -525,10 +531,10 @@
   .tile.crit .name{color:var(--crit-ink,var(--name-color,inherit));}
   .tile.crit .room,.tile.crit .chev{color:var(--crit-muted,var(--muted));}
   .tctrls{display:flex;gap:calc(8px * var(--ks,1));justify-content:center;margin-top:calc(6px * var(--ks,1));}
-  .tctrls .tb{width:calc(34px * var(--ks,1));height:calc(34px * var(--ks,1));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
+  .tctrls .tb{width:calc(34px * max(1, var(--ks,1)));height:calc(34px * max(1, var(--ks,1)));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
-  .tctrls .tb svg{width:calc(17px * var(--ks,1));height:calc(17px * var(--ks,1));}
+  .tctrls .tb svg{width:calc(17px * max(1, var(--ks,1)));height:calc(17px * max(1, var(--ks,1)));}
   /* Enge Kachel (kleines Panel, drei Zeilen): unter dem Text ist kein Platz ->
      die Tasten ruecken in die Kopfzeile rechts neben das Icon; reicht dort die
      Breite nicht (3x3, drei Tasten des Players), treten sie an seine Stelle.
@@ -567,16 +573,16 @@
      Zustaende ("Soll 22,0° · heizt") stehen untereinander (subText). Farbe,
      Fett und Kursiv aus "Kacheln gestalten" (--tile-txt/-fw/-fst) gelten fuer
      den Haupttext, auch wenn er der Zustand ist. */
-  .grid.lx:not(.list) .tile .name{font-size:calc(var(--name-size,16px) * var(--ks,1));font-weight:max(500,var(--name-weight,450));
+  .grid.lx:not(.list) .tile .name{font-size:calc(var(--name-size,16px) * var(--kst,1));font-weight:max(500,var(--name-weight,450));
     line-height:1.2;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile .sub{font-size:calc(var(--sub-size,14px) * var(--ks,1));white-space:pre-line;
+  .grid.lx:not(.list) .tile .sub{font-size:calc(var(--sub-size,14px) * var(--kst,1));white-space:pre-line;
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:calc(var(--name-size,16px) * var(--ks,1));
+  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:calc(var(--name-size,16px) * var(--kst,1));
     font-weight:var(--tile-fw,max(500,var(--name-weight,450)));font-style:var(--tile-fst,normal);
     color:var(--tile-txt,var(--name-color,inherit));}
-  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:calc(var(--sub-size,14px) * var(--ks,1));font-weight:400;
+  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:calc(var(--sub-size,14px) * var(--kst,1));font-weight:400;
     color:var(--muted);-webkit-line-clamp:1;}
   .grid.lx:not(.list) .tile.zv.on .sub{color:var(--glow);}
   .grid.lx:not(.list) .tile.zv.good .sub{color:var(--good);}
@@ -586,8 +592,9 @@
     letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--name-color,inherit);}
   .grid.lx:not(.list) .tile .bigv small{font-size:.5em;font-weight:400;color:var(--muted);letter-spacing:0;}
   .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:calc(10px * var(--ks,1));gap:calc(8px * var(--ks,1));}
-  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * var(--ks,1));border-radius:calc(12px * var(--ks,1));}
-  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * var(--ks,1));height:calc(19px * var(--ks,1));}
+  /* Tasten sind Touch-Ziele: sie wachsen mit dem Faktor, schrumpfen aber nie */
+  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ks,1)));border-radius:calc(12px * var(--ks,1));}
+  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * max(1, var(--ks,1)));height:calc(19px * max(1, var(--ks,1)));}
   /* Enge Kachel: die Tasten ruecken wie bisher in den Kopf (placeCtrls), der
      Raum macht ihnen Platz. */
   .grid.lx:not(.list) .tile.ctrltight .head .room{display:none;}
@@ -1866,21 +1873,27 @@ const SPARK_MIN_H=36;   // px bei Faktor 1: niedrigere Mitte -> Verlauf in die K
 // Vorher standen 16-px-Schrift und 38-px-Symbol auf jeder Kachel, ob 122 oder
 // 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
 // beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
-const KACHEL_REF=170, KS_MIN=0.85, KS_MAX=2, KOPF_H=64;
+const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64;
 let kachelFaktor=1;
-function kachelFaktorFuer(breite){ return Math.min(KS_MAX, Math.max(KS_MIN, breite/KACHEL_REF)); }
+// Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
+// traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
+function kachelFaktorFuer(breite, hoehe){
+  const k=Math.min(breite/KACHEL_REF, (hoehe>0) ? hoehe/KACHEL_REF_H : Infinity);
+  return Math.min(KS_MAX, Math.max(KS_MIN, k)); }
 function setzeFaktor(ks){
   const sc=document.querySelector('.screen'); if(!sc) return;
   kachelFaktor=ks;
   sc.style.setProperty('--ks', ks.toFixed(3));
+  sc.style.setProperty('--kst-min', ks>=1 ? '1' : '0.6');   // Untergrenze der Textstufen (s. fitTile)
   sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
 }
-function kachelBreiteGemessen(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientWidth : 0; }
+function kachelGemessen(){ const t=el('grid').querySelector('.tile[data-id]');
+  return t ? kachelFaktorFuer(t.clientWidth, t.clientHeight) : kachelFaktor; }
 // Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
 // neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
-  const ks = gridAuto ? autoRaster(_lastWidget).ks : kachelFaktorFuer(kachelBreiteGemessen()||KACHEL_REF);
+  const ks = gridAuto ? autoRaster(_lastWidget).ks : kachelGemessen();
   if(Math.abs(ks-kachelFaktor)<0.01) return;
   setzeFaktor(ks);
   kachelnNeuMessen();
@@ -1950,14 +1963,31 @@ function placeCtrls(tile){
 function fitTile(tile){
   if(!tile || !tile.clientHeight) return;
   const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
-  if(tile._fitText===text && tile._fitH===h) return;
-  tile._fitText=text; tile._fitH=h;
-  tile.classList.remove('eng1','eng2','eng3');
+  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor) return;
+  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor;
+  tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
+  // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
+  // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
+  // bekommt der Text Stufe fuer Stufe weniger Faktor (kst1..kst3, CSS). Ueber
+  // Faktor 1 geht es hoechstens auf 1 zurueck, den Stand ohne Faktor; auf
+  // kleiner Kachel (Faktor unter 1) auch darunter: ein kleiner, ganzer Text
+  // liest sich besser als ein grosser mit "...". Symbol und Tasten behalten
+  // ihre Groesse.
+  const texte=[...tile.querySelectorAll('.body .name, .body .sub')];
+  const passt=()=>texte.every(e=>e.scrollHeight<=e.clientHeight+1 && e.scrollWidth<=e.clientWidth+1);
+  const textStufen=()=>{ if(!texte.length) return;
+    tile.classList.remove('kst1','kst2','kst3');
+    for(const stufe of ['kst1','kst2','kst3']){
+      if(passt()) break;
+      tile.classList.remove('kst1','kst2','kst3'); tile.classList.add(stufe);
+    } };
+  textStufen();
   if(!kachelNeu()) return;
   for(const stufe of ['eng1','eng2','eng3']){
-    if(tile.scrollHeight<=h+1) return;
+    if(tile.scrollHeight<=h+1) break;
     tile.classList.add(stufe);
   }
+  textStufen();   // eng1 kappt den Text auf eine Zeile: dann lieber kleiner und ganz
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
@@ -2489,7 +2519,7 @@ function updateGrid(items){
     // stehen: sonst verloere eine enge Kachel bei jedem Zustandswechsel, der
     // ihren Text nicht aendert (Player: Pause), die Lage ihrer Tasten.
     const cls='tile'+tileTone(it)+aufbauKlassen(it)+(i%_pg===0?' snap':'')+
-      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^eng\d$/.test(c)).map(c=>' '+c).join('');
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
@@ -2549,9 +2579,12 @@ function autoRaster(widget){
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
   const cols=anzahl(w, gridAuto);
   // Kachelbreite aus den Spalten -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen
-  const kb=(w-2*pad-(cols-1)*gap)/cols, ks=kachelFaktorFuer(kb);
-  const h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe(ks);
+  const kb=(w-2*pad-(cols-1)*gap)/cols, ksw=kachelFaktorFuer(kb);
+  const h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe(ksw);
   const rows=anzahl(h, kb);
+  // Mit der Zeilenzahl steht die Hoehe fest; ist die Kachel flach, begrenzt
+  // sie den Faktor (die Kopfzeile wird dann hoechstens ein paar Pixel niedriger)
+  const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
   if(!widget) return {cols:cols, rows:rows, k:1, p:0, ks:ks};
   const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
   if(window.innerHeight>window.innerWidth){   // hochkant: Widget unter den Kacheln
@@ -2662,7 +2695,7 @@ function render(){
   // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
   // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
   renderTabs();
-  if(!gridAuto) setzeFaktor(kachelFaktorFuer(kachelBreiteGemessen()||KACHEL_REF));   // festes Raster: aus der Kachel
+  if(!gridAuto) setzeFaktor(kachelGemessen());   // festes Raster: aus der ersten Kachel
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen

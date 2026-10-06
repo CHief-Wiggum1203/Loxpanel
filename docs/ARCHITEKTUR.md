@@ -1092,6 +1092,36 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py` und
   `test_mini_verlauf_im_neuen_aufbau`.
+- Kachelfaktor (Oktober 2026): Der Inhalt einer Kachel wächst mit ihrer
+  Größe. `setzeFaktor()` setzt `--ks` am `.screen`: Kachelbreite durch
+  `KACHEL_REF` (170 px, die mittlere Stufe des automatischen Rasters), die
+  Höhe durch `KACHEL_REF_H` (150 px) begrenzt, das Ganze auf `KS_MIN` 0,85 bis
+  `KS_MAX` 2,0. CSS multipliziert damit Symbol (`--ico-size`), Haupttext,
+  Zweittext, Raum, Messwert, Innenabstand, Radius, Positionsring,
+  Mini-Verlauf, Tastenleiste und die Kopfzeile (`--kopf-h`). Die eingestellten
+  Größen (`--name-size` usw.) gelten damit „bei 170-px-Kachel“: Tablets im
+  automatischen Raster sehen aus wie zuvor, eine 415-px-Kachel trägt 32-px-
+  Schrift und ein 76-px-Symbol statt derselben 16/38 wie eine 122-px-Kachel,
+  die 13,6/32 bekommt. Im automatischen Raster rechnet `autoRaster()` den
+  Faktor aus der Spaltenbreite, bevor es die Zeilen bestimmt (die Kopfzeile
+  wird mit ihm höher); beim festen Raster liest `render()` ihn aus der ersten
+  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat. Ändert sich
+  die Kachelbreite ohne neues Raster (Fenster, Split an/aus), zieht
+  `faktorNachziehen()` nach und `kachelnNeuMessen()` misst die Kacheln neu
+  ein. Zwei Grenzen: Tasten sind Touch-Ziele und schrumpfen nie
+  (`max(1, var(--ks))`), und ein Text, der in seine Zeilen nicht mehr passt
+  (`line-clamp`, im klassischen Aufbau „…“), nimmt den Faktor über die
+  Textstufen `kst1`–`kst3` (`--kst`, in `fitTile()` gemessen, vor und nach
+  den Eng-Stufen) zurück: über Faktor 1 höchstens auf 1, den Stand ohne
+  Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
+  liest sich besser als ein großer mit „…“. Gemessen mit 23 Favoriten in acht
+  Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
+  abgeschnittener Namen von 15 auf 5, am 4″-Panel mit 3×3 von 8 auf 2, die
+  flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
+  trägt 21-px-Schrift und 50-px-Symbol statt 16/38 in sonst leerer Fläche.
+  Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
+  Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
+  abgeschnitten als ohne, keine Kachel läuft über).
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
   `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
