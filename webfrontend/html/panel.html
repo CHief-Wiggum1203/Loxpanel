@@ -285,7 +285,8 @@
      bleiben wie ohne Widget (keine Teilung; "Screen fuellen" verdoppelt
      weiter). Die Hoehe steht in --kopf-h, autoRaster() zieht sie von der
      freien Hoehe ab, BEVOR die Klasse gesetzt ist (kopfHoehe liest die
-     Konfiguration, nicht das Element). */
+     Konfiguration, nicht das Element). Mit dem Kachelfaktor waechst sie
+     (setzeFaktor setzt --kopf-h = KOPF_H * --ks). */
   .screen{--kopf-h:64px;}
   .kopfzeile{display:none;}
   .screen.kopf{grid-template-rows:auto minmax(0,1fr) auto;}
@@ -296,25 +297,25 @@
   .screen.kopf #tabs{grid-row:3;}
   .screen.kopf .conn{grid-row:2;}
   .kz-uhr{display:flex;flex-direction:column;justify-content:center;flex:none;}
-  .kz-uhr .t{font-size:26px;font-weight:600;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
-  .kz-uhr .d{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;}
+  .kz-uhr .t{font-size:calc(26px * var(--ks,1));font-weight:600;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .kz-uhr .d{font-size:calc(12px * var(--ks,1));color:var(--muted);margin-top:3px;white-space:nowrap;}
   .kz-wx{display:flex;align-items:center;gap:8px;flex:none;min-width:0;padding-left:14px;border-left:1px solid var(--line);}
-  .kz-wx .ico{width:28px;height:28px;flex:none;color:var(--glow);}
+  .kz-wx .ico{width:calc(28px * var(--ks,1));height:calc(28px * var(--ks,1));flex:none;color:var(--glow);}
   .kz-wx .ico svg{width:100%;height:100%;}
-  .kz-wx .t{font-size:22px;font-weight:600;line-height:1;}
-  .kz-wx .m{display:flex;flex-direction:column;font-size:12px;color:var(--muted);line-height:1.2;min-width:0;}
+  .kz-wx .t{font-size:calc(22px * var(--ks,1));font-weight:600;line-height:1;}
+  .kz-wx .m{display:flex;flex-direction:column;font-size:calc(12px * var(--ks,1));color:var(--muted);line-height:1.2;min-width:0;}
   .kz-wx .m .c{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
   /* Werte: rechtsbuendig, was nicht mehr passt, blendet kopfEinpassen() aus */
   .kz-werte{display:flex;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden;}
   .kz-w{display:grid;grid-template-columns:auto auto;grid-template-areas:"ico vl" "ico nm";column-gap:8px;
     align-items:center;flex:none;background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
-  .kz-w .ico{grid-area:ico;width:22px;height:22px;display:grid;place-items:center;color:var(--ico,var(--ink));}
+  .kz-w .ico{grid-area:ico;width:calc(22px * var(--ks,1));height:calc(22px * var(--ks,1));display:grid;place-items:center;color:var(--ico,var(--ink));}
   .kz-w .ico svg{width:100%;height:100%;}
   .kz-w .ico img{width:100%;height:100%;object-fit:contain;}
   .kz-w .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
-  .kz-w .vl{grid-area:vl;font-size:15px;font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
-  .kz-w .nm{grid-area:nm;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+  .kz-w .vl{grid-area:vl;font-size:calc(15px * var(--ks,1));font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .kz-w .nm{grid-area:nm;font-size:calc(11px * var(--ks,1));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
   .kz-w.on .ico,.kz-w.on .vl{color:var(--ico-fixed,var(--glow));}
   .kz-w.good .ico,.kz-w.good .vl{color:var(--good);}
   .kz-w.crit .ico,.kz-w.crit .vl{color:var(--crit-ink,var(--crit));}
@@ -365,8 +366,14 @@
   .grid.snapy{scroll-snap-type:y mandatory;scroll-padding-top:10px;}
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
+  /* Kachelfaktor --ks (am .screen, gesetzt in setzeFaktor): Kachelbreite durch
+     KACHEL_REF (170 px), begrenzt auf KS_MIN..KS_MAX. Symbol, Schrift, Tasten,
+     Innenabstand, Radius, Ring, Mini-Verlauf und die Kopfzeile werden damit
+     multipliziert - eine 415-px-Kachel traegt so 32-px-Schrift und ein
+     76-px-Symbol statt derselben 16/38 wie eine 170-px-Kachel. Die eingestellten
+     Groessen (--name-size usw.) gelten als "bei 170-px-Kachel". */
   .tile{background:linear-gradient(180deg,var(--tile),rgba(var(--wash,255,255,255),.015));
-    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:16px;padding:16px;
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:calc(16px * var(--ks,1));padding:calc(16px * var(--ks,1));
     display:flex;flex-direction:column;justify-content:space-between;
     cursor:pointer;user-select:none;overflow:hidden;
     transition:background .16s,border-color .16s,transform .07s;}
@@ -380,9 +387,9 @@
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
   .tile .head{display:flex;justify-content:space-between;align-items:flex-start;}
   /* Mini-Verlauf (it.spark): fuellt die freie Mitte zwischen Icon und Text */
-  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;overflow:hidden;}
+  .tile .tspark{flex:1 1 auto;min-height:0;margin:calc(6px * var(--ks,1)) 0 calc(4px * var(--ks,1));overflow:hidden;}
   .tile .tspark svg{display:block;}
-  .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  .tile .tspark .mm{font-size:calc(9.5px * var(--ks,1));fill:var(--muted);font-variant-numeric:tabular-nums;}
   /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
      Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
      Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
@@ -395,12 +402,12 @@
   .tile.sparktight .tsline,
   .tile.sparkbadge .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
-  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
+  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:calc(12px * var(--ks,1));
     color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
-  .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
-  .tile .ico .rawico{width:var(--ico-size,38px);height:var(--ico-size,38px);object-fit:contain;display:block;}
+  .tile .ico svg{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));}
+  .tile .ico .rawico{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));object-fit:contain;display:block;}
   /* Positionsring: Stellung von Rollladen, Tor, Fenster und Dimmer als Bogen
      um das Icon. Der Server schickt "pos" nur fuer diese Bausteine; ohne den
      Wert entsteht gar kein Element und die Kachel sieht aus wie immer.
@@ -409,7 +416,7 @@
      er dem Zustand UND dem Theme folgt, ohne eigene Farbregel. */
   .tile .icowrap{position:relative;display:inline-grid;place-items:center;}
   .tile .posring{position:absolute;left:50%;top:50%;pointer-events:none;
-    width:calc(var(--ico-size,38px) + 18px);height:calc(var(--ico-size,38px) + 18px);
+    width:calc((var(--ico-size,38px) + 18px) * var(--ks,1));height:calc((var(--ico-size,38px) + 18px) * var(--ks,1));
     transform:translate(-50%,-50%);}
   .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--posring-w,6);}
   .tile .posring .trk{opacity:var(--posring-trk,.18);}
@@ -486,13 +493,13 @@
      ueber currentColor. Sonst bricht die eingeschraenkte Panel-WebView, sobald
      eine eigene Icon-Farbe (--ico inline) gesetzt ist -> Icon bleibt leer.
      Die Zustaende spiegeln die Farbregeln von .tile .ico (on/good/crit). */
-  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:var(--ico,var(--muted));
+  .tile .ico.img{display:inline-block;width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));background-color:var(--ico,var(--muted));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tile.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
   .tile.good .ico.img{background-color:var(--good);}
   .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
-  .tile .chev svg{width:20px;height:20px;}
+  .tile .chev svg{width:calc(20px * var(--ks,1));height:calc(20px * var(--ks,1));}
   /* Raumzeile tritt hinter Name und Zustand zurueck - aber TYPOGRAFISCH, nicht
      ueber die Farbe: sie ist leichter (400 statt 500, also leichter als die
      Zustandszeile darunter) und weiter gesperrt, was Versalien als ruhiges
@@ -500,12 +507,12 @@
      KEINE opacity mehr. theme_colors.derive() rechnet --muted so aus, dass es
      auf --tile gerade AA (4.5:1) schafft; die fruehere opacity:.85 drueckte es
      danach wieder darunter - in 9 von 17 geprueften Themes, bis auf 3.75:1. */
-  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
+  .tile .room{font-size:calc(var(--room-size,12px) * var(--ks,1));color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
-  .tile .name{font-size:var(--name-size,18px);font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
+  .tile .name{font-size:calc(var(--name-size,18px) * var(--ks,1));font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tile .sub{font-size:var(--sub-size,15px);color:var(--muted);font-weight:400;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
+  .tile .sub{font-size:calc(var(--sub-size,15px) * var(--ks,1));color:var(--muted);font-weight:400;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:calc(4px * var(--ks,1));}
   .tile.on .sub{color:var(--glow);}
   .tile.good{background:rgba(var(--good-rgb,82,184,129),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--good-rgb,82,184,129),var(--ov-bord,.55));}
@@ -517,11 +524,11 @@
      Gegenfarbe. Ohne --crit-ink/--crit-muted aendert sich nichts. */
   .tile.crit .name{color:var(--crit-ink,var(--name-color,inherit));}
   .tile.crit .room,.tile.crit .chev{color:var(--crit-muted,var(--muted));}
-  .tctrls{display:flex;gap:8px;justify-content:center;margin-top:6px;}
-  .tctrls .tb{width:34px;height:34px;border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
+  .tctrls{display:flex;gap:calc(8px * var(--ks,1));justify-content:center;margin-top:calc(6px * var(--ks,1));}
+  .tctrls .tb{width:calc(34px * var(--ks,1));height:calc(34px * var(--ks,1));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
-  .tctrls .tb svg{width:17px;height:17px;}
+  .tctrls .tb svg{width:calc(17px * var(--ks,1));height:calc(17px * var(--ks,1));}
   /* Enge Kachel (kleines Panel, drei Zeilen): unter dem Text ist kein Platz ->
      die Tasten ruecken in die Kopfzeile rechts neben das Icon; reicht dort die
      Breite nicht (3x3, drei Tasten des Players), treten sie an seine Stelle.
@@ -547,12 +554,12 @@
      steht gross, der Name klein darunter. Ein Messwert (Raumregelung, Sauna)
      steht gross an Stelle des Symbols (.bigv). Das Raster bleibt, wie es ist;
      die Listen-Ansicht behaelt ihren Aufbau. */
-  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:14px;}
-  .grid.lx:not(.list) .tile .head{gap:8px;}
+  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:calc(14px * var(--ks,1));}
+  .grid.lx:not(.list) .tile .head{gap:calc(8px * var(--ks,1));}
   .grid.lx:not(.list) .tile .head .room{flex:1 1 auto;min-width:0;text-align:right;margin:2px 0 0;
-    font-size:var(--room-size,13px);text-transform:none;letter-spacing:0;}
-  .grid.lx:not(.list) .tile .tspark{order:2;margin:8px 0 2px;}
-  .grid.lx:not(.list) .tile .body{order:1;margin-top:10px;display:flex;flex-direction:column;}
+    font-size:calc(var(--room-size,13px) * var(--ks,1));text-transform:none;letter-spacing:0;}
+  .grid.lx:not(.list) .tile .tspark{order:2;margin:calc(8px * var(--ks,1)) 0 2px;}
+  .grid.lx:not(.list) .tile .body{order:1;margin-top:calc(10px * var(--ks,1));display:flex;flex-direction:column;}
   .grid.lx:not(.list) .tile .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Haupttext (--name-size) und Zweittext (--sub-size) wie eingestellt; der
      Server schickt fuer diesen Aufbau etwas kleinere Standardwerte. Lange
@@ -560,27 +567,27 @@
      Zustaende ("Soll 22,0° · heizt") stehen untereinander (subText). Farbe,
      Fett und Kursiv aus "Kacheln gestalten" (--tile-txt/-fw/-fst) gelten fuer
      den Haupttext, auch wenn er der Zustand ist. */
-  .grid.lx:not(.list) .tile .name{font-size:var(--name-size,16px);font-weight:max(500,var(--name-weight,450));
+  .grid.lx:not(.list) .tile .name{font-size:calc(var(--name-size,16px) * var(--ks,1));font-weight:max(500,var(--name-weight,450));
     line-height:1.2;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile .sub{font-size:var(--sub-size,14px);white-space:pre-line;
+  .grid.lx:not(.list) .tile .sub{font-size:calc(var(--sub-size,14px) * var(--ks,1));white-space:pre-line;
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:var(--name-size,16px);
+  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:calc(var(--name-size,16px) * var(--ks,1));
     font-weight:var(--tile-fw,max(500,var(--name-weight,450)));font-style:var(--tile-fst,normal);
     color:var(--tile-txt,var(--name-color,inherit));}
-  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:var(--sub-size,14px);font-weight:400;
+  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:calc(var(--sub-size,14px) * var(--ks,1));font-weight:400;
     color:var(--muted);-webkit-line-clamp:1;}
   .grid.lx:not(.list) .tile.zv.on .sub{color:var(--glow);}
   .grid.lx:not(.list) .tile.zv.good .sub{color:var(--good);}
   .grid.lx:not(.list) .tile.zv.crit .sub{color:var(--crit-ink,var(--crit));}
   .grid.lx:not(.list) .tile.zv.crit .name{color:var(--crit-muted,var(--muted));}
-  .grid.lx:not(.list) .tile .bigv{font-size:var(--big-size,36px);font-weight:500;line-height:1;
+  .grid.lx:not(.list) .tile .bigv{font-size:calc(var(--big-size,36px) * var(--ks,1));font-weight:500;line-height:1;
     letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--name-color,inherit);}
   .grid.lx:not(.list) .tile .bigv small{font-size:.5em;font-weight:400;color:var(--muted);letter-spacing:0;}
-  .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:10px;gap:8px;}
-  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:44px;border-radius:12px;}
-  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:19px;height:19px;}
+  .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:calc(10px * var(--ks,1));gap:calc(8px * var(--ks,1));}
+  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * var(--ks,1));border-radius:calc(12px * var(--ks,1));}
+  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * var(--ks,1));height:calc(19px * var(--ks,1));}
   /* Enge Kachel: die Tasten ruecken wie bisher in den Kopf (placeCtrls), der
      Raum macht ihnen Platz. */
   .grid.lx:not(.list) .tile.ctrltight .head .room{display:none;}
@@ -1851,7 +1858,41 @@ function sparkSvg(sp,W,H){
   return '<svg viewBox="0 0 '+f(W)+' '+f(H)+'" width="'+f(W)+'" height="'+f(H)+'" aria-hidden="true">'+s+'</svg>';
 }
 // Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
-const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+const SPARK_MIN_H=36;   // px bei Faktor 1: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+// ---- Kachelfaktor ----
+// Der Inhalt einer Kachel waechst mit ihrer Breite: Faktor = Breite / KACHEL_REF,
+// begrenzt auf KS_MIN..KS_MAX, als --ks am .screen (CSS multipliziert damit
+// Symbol, Schrift, Tasten, Innenabstand, Ring, Mini-Verlauf und Kopfzeile).
+// Vorher standen 16-px-Schrift und 38-px-Symbol auf jeder Kachel, ob 122 oder
+// 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
+// beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
+const KACHEL_REF=170, KS_MIN=0.85, KS_MAX=2, KOPF_H=64;
+let kachelFaktor=1;
+function kachelFaktorFuer(breite){ return Math.min(KS_MAX, Math.max(KS_MIN, breite/KACHEL_REF)); }
+function setzeFaktor(ks){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  kachelFaktor=ks;
+  sc.style.setProperty('--ks', ks.toFixed(3));
+  sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
+}
+function kachelBreiteGemessen(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientWidth : 0; }
+// Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
+// neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
+function faktorNachziehen(){
+  if(!view || view.widget || el('grid').classList.contains('panel')) return;
+  const ks = gridAuto ? autoRaster(_lastWidget).ks : kachelFaktorFuer(kachelBreiteGemessen()||KACHEL_REF);
+  if(Math.abs(ks-kachelFaktor)<0.01) return;
+  setzeFaktor(ks);
+  kachelnNeuMessen();
+}
+function kachelnNeuMessen(){
+  el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
+    n._fitText=null; n._ctrlText=null;
+    if(n._it && n._it.controls) placeCtrls(n);
+    if(n._it && n._it.spark){ const sp=n.querySelector('.tspark'); if(sp) paintSpark(sp, n._it.spark); }
+    fitTile(n);
+  });
+}
 function paintSpark(el,sp){
   if(!el) return;
   const tile=el.closest('.tile');
@@ -1875,7 +1916,7 @@ function placeSpark(el,sp,tile){
     const cs=getComputedStyle(tile);
     let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
     for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
-    const tight=free<SPARK_MIN_H;
+    const tight=free<SPARK_MIN_H*kachelFaktor;
     if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
       tile.classList.toggle('sparktight',tight);
       if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
@@ -2253,8 +2294,7 @@ function paneKind(v){ if(!v) return null;
 // kommen wie bei "status" per {t:'svstatus'} (setsvstatus in applyPane), das
 // Wetter aus {t:'front'}, die Uhr tickt mit tickClock().
 function kopfAktiv(){ return paneKind(paneRawNow())==='header'; }
-function kopfHoehe(){ const sc=document.querySelector('.screen');
-  return (kopfAktiv() && sc) ? (parseFloat(getComputedStyle(sc).getPropertyValue('--kopf-h'))||0) : 0; }
+function kopfHoehe(ks){ return kopfAktiv() ? Math.round(KOPF_H*(ks||kachelFaktor)) : 0; }
 function kopfWerteHtml(items){
   return items.map(it=>{
     const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
@@ -2505,18 +2545,21 @@ const PANE_ANTEIL = 0.4;
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const w=window.innerWidth, h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe();
+  const w=window.innerWidth;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
   const cols=anzahl(w, gridAuto);
-  const rows=anzahl(h, (w-2*pad-(cols-1)*gap)/cols);
-  if(!widget) return {cols:cols, rows:rows, k:1, p:0};
+  // Kachelbreite aus den Spalten -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen
+  const kb=(w-2*pad-(cols-1)*gap)/cols, ks=kachelFaktorFuer(kb);
+  const h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe(ks);
+  const rows=anzahl(h, kb);
+  if(!widget) return {cols:cols, rows:rows, k:1, p:0, ks:ks};
   const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
   if(window.innerHeight>window.innerWidth){   // hochkant: Widget unter den Kacheln
-    if(rows<2) return {cols:cols, rows:1, k:1, p:1};
-    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p};
+    if(rows<2) return {cols:cols, rows:1, k:1, p:1, ks:ks};
+    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p, ks:ks};
   }
-  if(cols<2) return {cols:1, rows:rows, k:1, p:1};
-  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p};
+  if(cols<2) return {cols:1, rows:rows, k:1, p:1, ks:ks};
+  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p, ks:ks};
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
@@ -2538,7 +2581,8 @@ function render(){
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
   if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
-    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr'); }
+    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr');
+    setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   stopVideo();
   closeMenu();
@@ -2615,6 +2659,10 @@ function render(){
   }
   g.innerHTML = html;
   g.classList.toggle('snapy', items.length > (view.layout==='list'?4:gridCols*gridRows));   // Snapping erst ab >1 Seite
+  // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
+  // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
+  renderTabs();
+  if(!gridAuto) setzeFaktor(kachelFaktorFuer(kachelBreiteGemessen()||KACHEL_REF));   // festes Raster: aus der Kachel
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
@@ -2640,7 +2688,6 @@ function render(){
   // sobald nur noch ein Raum uebrig ist. Nur Ansichten OHNE den Schluessel
   // (Detailansichten) greifen auf die gemerkten zurueck.
   if(Array.isArray(view.catTabs)) roomCatTabs = view.catTabs.length ? view.catTabs : null;
-  renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
     requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d){ springeZu(d); leuchte(k); } }); }
@@ -2742,6 +2789,7 @@ window.addEventListener('resize',()=>{
      && rasterKey(_lastWidget) !== _lastRaster) render();
   panelEinpassen();
   kopfEinpassen();
+  faktorNachziehen();   // Kachelbreite geaendert, Raster nicht: Inhalt nachziehen
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
@@ -3821,6 +3869,7 @@ window.addEventListener('resize', applyScale);
 // neu waehlen und neu einpassen (svFit kuerzt sonst Termine, die jetzt passen).
 function onScreenResize(){
   applyScale();
+  faktorNachziehen();   // Split an/aus, Kopfzeile: andere Kachelbreite
   if(saverOn()){ const vorher=el('saver').className; applySaverSplit();
     if(el('saver').className!==vorher){ applyPane(); }
     renderFront(); }
