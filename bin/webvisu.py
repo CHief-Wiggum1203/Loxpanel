@@ -205,7 +205,7 @@ def _pick_tabs(prof):
                             # Statt Kacheln kann eine freie Seite ein Widget sein
                             # (Wetter/Kalender/Energie/Kamera/Verlauf/Werte/Audio),
                             # als Vollbild-Tab. Leer = Kachelseite (picks).
-                            "widget": _clean_tabpane(e.get("widget"))})
+                            "widget": _clean_widget_tab(e.get("widget"))})
         return out
     if prof.get("picks"):
         return [{"name": str(prof.get("pickName") or "Auswahl"),
@@ -496,12 +496,17 @@ def _clean_tabpane(v) -> str:
     """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
     | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>,<uuid>,..." (ein oder
     mehrere Verlaufs-Bausteine mit Aufzeichnung, gestapelt) | "status:<uuid>,..."
-    (frei gewaehlte Werte, wie auf der Uhr-Seite). "" heisst "kein Widget".
+    (frei gewaehlte Werte, wie auf der Uhr-Seite) | "header" bzw.
+    "header:<uuid>,..." (Kopfzeile: Uhr, Wetter und bis zu SV_STATUS_MAX Werte
+    in EINER Zeile ueber dem Kachelraster statt einer Pane daneben; ohne
+    Bausteine nur Uhr und Wetter). "" heisst "kein Widget".
 
     Derselbe Widget-Katalog wie die Uhr-Seite (_clean_svpane), damit Zusatz und
-    Screensaver dieselben Inhalte anbieten. Prueft OHNE strip() am Gesamtwert;
-    nur die status-Liste wird (wie dort) je Eintrag getrimmt und begrenzt."""
-    if v in ("weather", "calendar"):
+    Screensaver dieselben Inhalte anbieten; nur die Kopfzeile gibt es dort
+    nicht (die Uhr-Seite IST schon Uhr und Wetter). Prueft OHNE strip() am
+    Gesamtwert; nur die Listen werden (wie dort) je Eintrag getrimmt und
+    begrenzt."""
+    if v in ("weather", "calendar", "header"):
         return v
     if isinstance(v, str):
         for kopf in ("player:", "energy:", "camera:"):
@@ -512,7 +517,18 @@ def _clean_tabpane(v) -> str:
                 uu = [x.strip() for x in v[len(kopf):].split(",") if x.strip()][:SV_STATUS_MAX]
                 if uu:
                     return kopf + ",".join(uu)
+        if v.startswith("header:"):          # Kopfzeile mit Werten; ohne Werte nur Uhr und Wetter
+            uu = [x.strip() for x in v[len("header:"):].split(",") if x.strip()][:SV_STATUS_MAX]
+            return "header:" + ",".join(uu) if uu else "header"
     return ""
+
+
+def _clean_widget_tab(v) -> str:
+    """Widget einer freien Seite (pickTabs[].widget, Vollbild-Tab): dieselbe
+    Grammatik wie eine Tab-Pane, nur die Kopfzeile nicht - sie ist eine Zeile
+    UEBER Kacheln, als ganze Seite bliebe darunter nichts."""
+    w = _clean_tabpane(v)
+    return "" if w == "header" or w.startswith("header:") else w
 
 
 def _clean_svpane(v) -> str:
@@ -2243,7 +2259,11 @@ class App:
                          if ui.get("grid") == "auto" else 0),
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
-            "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
+            # Normiert, denn die Datei wird beim Laden nicht sanitisiert: eine
+            # von Hand geschriebene "status:A, B" kaeme sonst roh ins Panel.
+            "panes": ({str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
+                       if isinstance(k, str) and _clean_tabpane(v)}
+                      if isinstance(ui.get("panes"), dict) else {}),
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
@@ -2866,9 +2886,12 @@ class App:
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
-        # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
+        # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
+        # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
+        # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
+        # als Teil der UUID meldete.
         if isinstance(ui.get("panes"), dict):
-            ui["panes"] = {str(k): v for k, v in ui["panes"].items()
+            ui["panes"] = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                            if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
             if not ui["panes"]:
                 ui.pop("panes", None)
@@ -2982,8 +3005,9 @@ class App:
                                    or ic.endswith(".svg") or ic.endswith(".png")):
                         ic = ""
                     # Widget-Seite statt Kacheln (Wetter/Kalender/Energie/Kamera/
-                    # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane.
-                    wdg = _clean_tabpane(it.get("widget"))
+                    # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane,
+                    # nur die Kopfzeile nicht (_clean_widget_tab).
+                    wdg = _clean_widget_tab(it.get("widget"))
                     if ps or nm or ic or wdg:
                         entry = {"name": nm or "Auswahl", "picks": ps}
                         if ic:
@@ -3034,10 +3058,12 @@ class App:
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
-                pn = {str(k): v for k, v in ui["panes"].items()
+                # Gespeichert wird der normierte Wert (getrimmte, begrenzte
+                # Listen), nicht die Eingabe - s. _panel_export.
+                pn = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                       if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
-                    cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
+                    cui["panes"] = pn           # Widget je Tab: Pane 2 oder Kopfzeile ("header")
             _sp = _clean_svpane(ui.get("svPane"))
             if _sp:
                 cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
@@ -4257,7 +4283,7 @@ class App:
             # Kacheln. Das Panel rendert es wie eine Pane, nur ueber die volle
             # Flaeche; der Datenkanal (energy/camera/status/player/chart) laeuft
             # ueber dieselbe set*-Mechanik wie Pane 2.
-            _wdg = _clean_tabpane(_entry.get("widget"))
+            _wdg = _clean_widget_tab(_entry.get("widget"))
             if _wdg:
                 return {"t": "view", "title": _clean(_entry.get("name")) or "",
                         "tab": tab, "widget": _wdg,
@@ -8845,8 +8871,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Client meldet die Bausteine der Status-Spalte seines
                 # Screensavers (oder [] = keine). Antwort sofort, damit die
                 # Spalte beim Einblenden nicht leer bleibt.
-                _uu = tuple(str(x) for x in (data.get("uuids") or [])
-                            if isinstance(x, str))[:SV_STATUS_MAX]
+                _uu = tuple(x.strip() for x in (data.get("uuids") or [])
+                            if isinstance(x, str) and x.strip())[:SV_STATUS_MAX]
                 if _uu:
                     app.conn_status[ws] = _uu
                     try:

@@ -1563,6 +1563,84 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       zeigte Werte, die niemand gewählt hatte. Eine `theme.json` aus der
       früheren Vorlage trägt noch 20/15, für den neuen Standard die Felder
       leeren. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.4. **M**
+- [x] **Kopfzeile statt Pane 2** (06.10.2026). Neues Widget je Tab:
+      `"header"` bzw. `"header:<uuid>,…"` in `ui.panes` legt eine Zeile
+      **über** das Kachelraster mit Uhr, Wetter in Kurzform und nach Wahl bis
+      zu acht Werten (dieselbe Anmeldung wie „Werte“, `setsvstatus`). Vorbild
+      ist die Startseite der Loxone-App: Uhrzeit, Wetter und der Haus-Status
+      auf einen Blick, darunter die Kacheln. Auf einem Tablet quer nimmt die
+      Zeile 64 px statt der 40 % eines Widgets, und das Raster bleibt
+      ungeteilt; „Automatisch“ rechnet die Zeile von der freien Höhe ab, beim
+      festen Raster geht sie vom Kasten ab. Was rechts nicht mehr passt,
+      bleibt weg. Sie gilt auch mit Split „Aus“ (4″-Panel), denn sie ist
+      keine Pane. Widget-Seiten und die Uhr-Seite kennen die Kopfzeile nicht
+      (dort wäre sie doppelt oder leer), der Server meldet sie als
+      `verworfen`. Konfigurator: Auswahlfeld „Widget je Tab“ → „Kopfzeile
+      (Uhr, Wetter, Werte)“ mit Werteliste wie bei „Werte“, ohne Split nur
+      sie; Assistent ebenso (für 1 Pane „Kopfzeile je Tab“). Nebenbei aus
+      dem Codex-Review: `ui.panes` wird jetzt normiert gespeichert und
+      exportiert („header:A, B“ → „header:A,B“), vorher ging der Rohwert
+      durch und ein Leerzeichen wurde Teil der UUID. Tests:
+      `tests/test_kopfzeile.py` (4), `tests/browser/test_kopfzeile_browser.py`
+      (8: quer, hochkant, 10″, 4″ mit Split „Aus“, zu viele Werte, Drehen,
+      Konfigurator mit und ohne Split, Assistent). Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.3 und §7.1. **M**
+- [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
+      Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen
+      (480×480 bis 2560×1600) und fünf Profilvarianten: Die Kachel*anzahl*
+      passt sich dem Schirm an, der Kachel*inhalt* nicht (Symbol 38 px,
+      Schrift 16/14 px von 122- bis 628-px-Kacheln), „Automatisch“ kennt die
+      Zahl der Kacheln nicht (23 auf 112 Zellen), und die Kachelstufen sind
+      CSS-Pixel ohne Bezug zum Gerät. Entschieden am 06.10.2026, alle
+      umsetzen, in dieser Reihenfolge:
+      1. **Kachelinhalt skaliert mit der Kachelbreite:** Faktor Breite ÷ 170,
+         begrenzt auf 0,85 bis 2,0, einmal je Raster gesetzt, multipliziert
+         Symbol, Name, Zweittext, Messwert, Tastenleiste, Innenabstand und
+         `--kopf-h`. Nutzergrößen gelten als „bei 170-px-Kachel“. **M**
+      2. **Automatik rechnet mit der Kachelanzahl und einem Zielwert je
+         Gerät:** passt alles auf eine Seite, wachsen die Kacheln bis 1,4 ×
+         Ziel; Zielkachel als Zahl statt drei Stufen, je Gerät unter
+         *Displays* übersteuerbar, Vorschlag aus gemeldeter Größe und
+         Pixeldichte (`{t:"screen"}`). **M**
+      3. **Breite Kacheln:** Feld `w` je Eintrag (Standard nach Typ: Audio,
+         Raumregelung, Energiefluss 2×1; je Kachel übersteuerbar),
+         `grid-column: span` mit dichtem Fluss, Blättern und `fitTile()`
+         angepasst. **M**
+      4. **Raumnamen aus Kachelnamen streichen,** wenn die Seite den Raum
+         schon nennt („Jalousie Wohnzimmer Süd“ auf der Wohnzimmer-Seite).
+         Trifft die meisten abgeschnittenen Namen der Messung. **S**
+      5. **Werte als schmale Leiste statt als Kacheln,** je Seite wählbar:
+         Anzeige-Bausteine in eine Zeile, das Raster für Bedienbares. **M**
+      6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
+         sonst Detailseite; löst das Drei-Zeilen-Problem ohne Sonderfälle. **S**
+      7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt
+         fest 40 %). **S**
+      8. **Seiten waagerecht wischen mit Punkten** auf Tablets, das 4″-Panel
+         bleibt bei senkrechtem Einrasten. **M**
+      9. **Assistent Schritt 1 aus dem Gerät:** Geräteliste aus
+         `/api/devices` mit gemeldeter Größe, „Dieser Browser“ und Katalog
+         als Ausweg; nur passende Anzeigen anbieten, jede mit vorgerechnetem
+         Raster (eine `raster.js` für Visu und Konfigurator); zum Schluss
+         Gerät umschalten und Zielkachel am Gerät merken. **L**
+      10. **Seiten-Editor mit Drag & Drop** als Reiter im Panel-Editor und
+          als Schritt 5 des Assistenten: Palette (Bausteine, Widgets),
+          Arbeitsfläche in Geräteform, Größen 1×1/2×1/2×2, Pointer-Events
+          mit Pfeiltasten als Ersatz; Server: `pickTabs[i].layout`
+          `[{id,w,h}]`, Raum-Gruppierung dort abschaltbar; Entwurfs-Endpunkt
+          für die Vorschau in der echten Visu. **L**
+      11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
+          einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
+      12. **Live-Vorschau am Zielgerät** während des Assistenten (Entwurf an
+          das gewählte Gerät schicken). **M**
+      13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
+          Loxone-Favoriten; drei Pflichtschritte, Rest mit Standardwerten. **M**
+      14. **Profil duplizieren mit Raumtausch.** **S**
+      15. **Profil merkt sich sein Zielgerät,** *Displays* warnt bei
+          Abweichung. **S**
+      16. **Lesbarkeits-Prüfung als Browser-Test:** auf den Standardgeräten
+          kein abgeschnittener Name, keine Seite mehr als ein Drittel leer. **S**
+      Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
+      Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
       nicht entschieden):
       - Herauslegen: wichtigste Funktion auf die Kachel, nur was die
@@ -1574,7 +1652,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
         („automatisch“/„keine“). Überschneidet sich mit dem nächsten Punkt.
       - Doppelt breite Kacheln für Audio und Energiefluss.
       - Startseite wie die Loxone-App: Uhr und Wetter, darunter Favoriten
-        zum direkten Bedienen.
+        zum direkten Bedienen. *Erledigt als Kopfzeile (Widget „header“),
+        siehe oben.*
       - Ruhigerer Aktiv-Zustand: nur Symbol und Zustand farbig, nicht die
         ganze Kachel (die Einstellung gibt es, es wäre ein neuer Standard).
       - Stabilität in der App: Server über `/api/health` überwachen und neu

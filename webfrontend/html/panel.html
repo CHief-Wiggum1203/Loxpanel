@@ -279,6 +279,47 @@
   /* Automatisches Raster: Spalten- und Zeilenzahl sind oft ungerade (5 x 3), die
      Mitte laege auf einer Kachel - der Punkt sitzt wie im Split in der Ecke. */
   .screen.auto .conn{place-self:start start;margin:6px;}
+  /* Kopfzeile (Widget "header", applyPane): EINE Zeile ueber dem Kachelraster
+     mit Uhr, Wetter in Kurzform und bis zu SV_STATUS_MAX Werten - statt einer
+     Pane daneben. Der Kasten bekommt eine dritte Zeile, Breite und Raster
+     bleiben wie ohne Widget (keine Teilung; "Screen fuellen" verdoppelt
+     weiter). Die Hoehe steht in --kopf-h, autoRaster() zieht sie von der
+     freien Hoehe ab, BEVOR die Klasse gesetzt ist (kopfHoehe liest die
+     Konfiguration, nicht das Element). */
+  .screen{--kopf-h:64px;}
+  .kopfzeile{display:none;}
+  .screen.kopf{grid-template-rows:auto minmax(0,1fr) auto;}
+  .screen.kopf .kopfzeile{display:flex;align-items:center;gap:14px;grid-column:1/-1;grid-row:1;
+    height:var(--kopf-h);box-sizing:border-box;padding:0 16px;min-width:0;overflow:hidden;
+    border-bottom:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
+  .screen.kopf #grid{grid-row:2;grid-column:1/-1;}
+  .screen.kopf #tabs{grid-row:3;}
+  .screen.kopf .conn{grid-row:2;}
+  .kz-uhr{display:flex;flex-direction:column;justify-content:center;flex:none;}
+  .kz-uhr .t{font-size:26px;font-weight:600;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .kz-uhr .d{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;}
+  .kz-wx{display:flex;align-items:center;gap:8px;flex:none;min-width:0;padding-left:14px;border-left:1px solid var(--line);}
+  .kz-wx .ico{width:28px;height:28px;flex:none;color:var(--glow);}
+  .kz-wx .ico svg{width:100%;height:100%;}
+  .kz-wx .t{font-size:22px;font-weight:600;line-height:1;}
+  .kz-wx .m{display:flex;flex-direction:column;font-size:12px;color:var(--muted);line-height:1.2;min-width:0;}
+  .kz-wx .m .c{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+  /* Werte: rechtsbuendig, was nicht mehr passt, blendet kopfEinpassen() aus */
+  .kz-werte{display:flex;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden;}
+  .kz-w{display:grid;grid-template-columns:auto auto;grid-template-areas:"ico vl" "ico nm";column-gap:8px;
+    align-items:center;flex:none;background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
+  .kz-w .ico{grid-area:ico;width:22px;height:22px;display:grid;place-items:center;color:var(--ico,var(--ink));}
+  .kz-w .ico svg{width:100%;height:100%;}
+  .kz-w .ico img{width:100%;height:100%;object-fit:contain;}
+  .kz-w .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
+    -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .kz-w .vl{grid-area:vl;font-size:15px;font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .kz-w .nm{grid-area:nm;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+  .kz-w.on .ico,.kz-w.on .vl{color:var(--ico-fixed,var(--glow));}
+  .kz-w.good .ico,.kz-w.good .vl{color:var(--good);}
+  .kz-w.crit .ico,.kz-w.crit .vl{color:var(--crit-ink,var(--crit));}
+  .kz-w.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .kz-w[hidden]{display:none;}   /* kopfEinpassen(): was nicht passt, bleibt weg */
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
      Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
@@ -1145,6 +1186,7 @@
   <div class="conn" id="conn"></div>
   <div class="playerpane" id="playerpane"></div>
   <div class="frontpane" id="frontpane"></div>
+  <div class="kopfzeile" id="kopfzeile" hidden></div>
   <div class="grid" id="grid"></div>
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
@@ -2197,20 +2239,66 @@ function applyHoch(){
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
-function paneRawNow(){ return (view && view.widget) ? view.widget : (themeSplit ? paneForTab(activeTab()) : null); }
+function paneRawNow(){ if(view && view.widget) return view.widget;
+  const v=paneForTab(activeTab());
+  // Die Kopfzeile ist keine Pane: sie gilt auch mit Split "Aus" (4"-Panel),
+  // ein Widget daneben nur im 2-Pane-Betrieb.
+  return (themeSplit || paneKind(v)==='header') ? v : null; }
 function paneKind(v){ if(!v) return null;
-  for(const k of ['player','energy','camera','chart','status']) if(v.indexOf(k+':')===0) return k;
+  for(const k of ['player','energy','camera','chart','status','header']) if(v.indexOf(k+':')===0) return k;
   return v; }
+// ---- Kopfzeile (Widget "header") ----
+// Uhr, Wetter kurz und bis zu SV_STATUS_MAX Werte in einer Zeile ueber dem
+// Kachelraster. Kein Split: der Kasten bekommt nur eine Zeile mehr. Die Werte
+// kommen wie bei "status" per {t:'svstatus'} (setsvstatus in applyPane), das
+// Wetter aus {t:'front'}, die Uhr tickt mit tickClock().
+function kopfAktiv(){ return paneKind(paneRawNow())==='header'; }
+function kopfHoehe(){ const sc=document.querySelector('.screen');
+  return (kopfAktiv() && sc) ? (parseFloat(getComputedStyle(sc).getPropertyValue('--kopf-h'))||0) : 0; }
+function kopfWerteHtml(items){
+  return items.map(it=>{
+    const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
+    const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
+      : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+      : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+    return '<div class="kz-w'+ton+'"'+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
+      '<span class="vl">'+esc(it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>'; }).join('');
+}
+function renderKopfzeile(){
+  const kz=el('kopfzeile'); if(!kz || !kopfAktiv()) return;
+  const d=frontData||{}, w=d.weather;
+  let html='<div class="kz-uhr"><span class="t" id="kzTime">--:--</span><span class="d" id="kzDate"></span></div>';
+  if(w){ html+='<div class="kz-wx"><span class="ico">'+wxSvg(w.icon)+'</span><span class="t">'+tdeg(w.temp)+'</span>'+
+    '<span class="m"><span class="c">'+esc(w.cond||'')+'</span>'+
+    ((w.hi!=null||w.lo!=null)?'<span>Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span>':'')+'</span></div>'; }
+  // Werte nur, wenn die Kopfzeile welche nennt ("header:<uuid>,…") und der
+  // Server sie schon geschickt hat; solange nicht, steht dort nichts.
+  const items=(svArg(paneRawNow()||'') && Array.isArray(svStatusData)) ? svStatusData : [];
+  if(items.length) html+='<div class="kz-werte">'+kopfWerteHtml(items)+'</div>';
+  kz.innerHTML=html; tickClock(); kopfEinpassen();
+}
+// Was rechts nicht mehr in die Zeile passt, bleibt weg - lieber drei ganze
+// Werte als vier angeschnittene.
+function kopfEinpassen(){
+  const kz=el('kopfzeile'); if(!kz || kz.hidden) return;
+  const box=kz.querySelector('.kz-werte'); if(!box) return;
+  const rechts=box.getBoundingClientRect().right;
+  [...box.children].forEach(c=>{ c.hidden=false; });
+  [...box.children].forEach(c=>{ if(c.getBoundingClientRect().right > rechts+1) c.hidden=true; });
+}
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   // Widget-Seite (Vollbild-Tab): das ganze Tab IST das Widget, kein Kachelgrid,
   // kein Split. Sonst die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb).
   const wt = (view && view.widget) ? view.widget : null;
-  const raw = wt ? wt : (themeSplit?paneForTab(activeTab()):null);
+  const raw = paneRawNow();   // Widget-Seite, Pane 2 (nur mit Split) oder Kopfzeile (immer)
   const kind=paneKind(raw);
   const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart'||kind==='status');   // Widget in Pane 2
+  const isKopf=(kind==='header' && !wt);   // Kopfzeile ueber dem Raster, kein Split
   sc.classList.toggle('widgettab', !!wt);   // Widget fuellt die ganze Flaeche
   sc.classList.toggle('split', isPane && !wt);   // Widget in Pane 2 -> zweigeteilt
+  sc.classList.toggle('kopf', isKopf);
+  { const kz=el('kopfzeile'); if(kz){ kz.hidden=!isKopf; if(isKopf) renderKopfzeile(); else kz.innerHTML=''; } }
   applyHoch();
   sc.classList.toggle('fill', themeFill || gridAuto>0);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   sc.classList.toggle('auto', gridAuto>0);   // automatisches Raster: Widget auf ganzen Kachelspalten
@@ -2261,8 +2349,9 @@ function applyPane(){
   // pusht {t:'player'} mit Cover/Titel/Transport.
   const zone=qarg(qraw,'player:');
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
-  // Frei gewaehlte Werte (status) ebenso kontextabhaengig — Pane 2 ODER Uhr-Seite.
-  const suu = (svKind(qraw)==='status') ? svArg(qraw) : '';
+  // Frei gewaehlte Werte (status) ebenso kontextabhaengig — Pane 2, Kopfzeile
+  // ODER Uhr-Seite; die Kopfzeile nennt ihre Werte als "header:<uuid>,…".
+  const suu = (svKind(qraw)==='status' || svKind(qraw)==='header') ? svArg(qraw) : '';
   if(suu!==curSvStatus){ curSvStatus=suu; svStatusData=null;
     try{ send({t:'setsvstatus', uuids: suu?suu.split(','):[]}); }catch(e){} }
 }
@@ -2416,7 +2505,7 @@ const PANE_ANTEIL = 0.4;
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const w=window.innerWidth, h=window.innerHeight-(tabs?tabs.offsetHeight:0);
+  const w=window.innerWidth, h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe();
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
   const cols=anzahl(w, gridAuto);
   const rows=anzahl(h, (w-2*pad-(cols-1)*gap)/cols);
@@ -2652,6 +2741,7 @@ window.addEventListener('resize',()=>{
   if(view && !el('grid').classList.contains('scheme')
      && rasterKey(_lastWidget) !== _lastRaster) render();
   panelEinpassen();
+  kopfEinpassen();
 });
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
@@ -2757,6 +2847,7 @@ function connect(){
     if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[];
       if(saverOn()){ renderFront(); return; }   // Uhr-Seite oben -> dort
+      if(kopfAktiv()){ renderKopfzeile(); return; }   // Werte in der Kopfzeile
       const fp=el('frontpane'); if(fp && !svSideOn() && paneKind(paneRawNow())==='status') renderWertePane(fp); return; }   // sonst Werte als Pane 2
     if(msg.t==='chart'){   // Verlaufs-Pane
       // Nur Daten des zuletzt angefragten Stapels: ein Push, der beim Wechsel
@@ -2814,6 +2905,9 @@ function tickClock(){
   const t=el('svTime'), dd=el('svDate');
   if(t) t.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(dd) dd.textContent=d.toLocaleDateString(LANG,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const kt=el('kzTime'), kd=el('kzDate');   // Kopfzeile (Widget "header")
+  if(kt) kt.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
+  if(kd) kd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'short'});
 }
 // ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
 // Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
