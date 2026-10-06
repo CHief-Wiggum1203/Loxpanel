@@ -1305,6 +1305,7 @@ function abosVergessen(){ curEnergyUuid=''; curCameraUuid=''; curPlayerZone=''; 
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
+let gridGrow = 1;        // ... bis zu diesem Vielfachen wachsen die Kacheln, wenn alle auf eine Seite passen (vom Server)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -2625,27 +2626,48 @@ function rasterFuer(widget){
 // Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
 const PANE_ANTEIL = 0.4;
+// Die Automatik kennt die Kachelanzahl der Seite (_lastAnzahl, aus render()):
+// passen alle auf eine Seite, wachsen die Kacheln, bis die Seite voll ist,
+// hoechstens auf gridGrow * Zielgroesse (KACHEL_WACHSEN vom Server, mit der
+// theme-Nachricht). Mehr Kacheln als Zellen -> Zielgroesse und Blaettern wie
+// bisher. Mit Widget daneben wachsen sie nicht: das Widget belegt ganze
+// Kachelspalten, mit weniger Spalten liesse sich sein Anteil (PANE_ANTEIL)
+// nicht halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %).
+let _lastAnzahl = 0;
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const w=window.innerWidth;
+  const w=window.innerWidth, tabsH=tabs?tabs.offsetHeight:0, hoch=window.innerHeight>window.innerWidth;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
-  const cols=anzahl(w, gridAuto);
-  // Kachelbreite aus den Spalten -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen
-  const kb=(w-2*pad-(cols-1)*gap)/cols, ksw=kachelFaktorFuer(kb);
-  const h=window.innerHeight-(tabs?tabs.offsetHeight:0)-kopfHoehe(ksw);
-  const rows=anzahl(h, kb);
-  // Mit der Zeilenzahl steht die Hoehe fest; ist die Kachel flach, begrenzt
-  // sie den Faktor (die Kopfzeile wird dann hoechstens ein paar Pixel niedriger)
-  const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
-  if(!widget) return {cols:cols, rows:rows, k:1, p:0, ks:ks};
   const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
-  if(window.innerHeight>window.innerWidth){   // hochkant: Widget unter den Kacheln
-    if(rows<2) return {cols:cols, rows:1, k:1, p:1, ks:ks};
-    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p, ks:ks};
+  // Raster fuer eine Spaltenzahl (vor dem Abgeben an das Widget): Kachelbreite
+  // -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen. Mit der Zeilenzahl steht
+  // die Hoehe fest; ist die Kachel flach, begrenzt sie den Faktor (die
+  // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
+  const fuer=gesamt=>{
+    const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
+    const h=window.innerHeight-tabsH-kopfHoehe(ksw);
+    const rows=anzahl(h, kb);
+    const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
+    let r;
+    if(!widget) r={cols:gesamt, rows:rows, k:1, p:0, ks:ks};
+    else if(hoch){   // hochkant: Widget unter den Kacheln
+      if(rows<2) r={cols:gesamt, rows:1, k:1, p:1, ks:ks};
+      else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks}; } }
+    else if(gesamt<2) r={cols:1, rows:rows, k:1, p:1, ks:ks};
+    else { const p=abgeben(gesamt); r={cols:gesamt-p, rows:rows, k:gesamt-p, p:p, ks:ks}; }
+    r.gesamt=gesamt; r.kb=kb;
+    return r;
+  };
+  let r=fuer(anzahl(w, gridAuto));
+  if(!widget && _lastAnzahl>0 && _lastAnzahl<=r.cols*r.rows){
+    for(let c=r.gesamt-1; c>=1; c--){
+      const n=fuer(c);
+      if(n.kb>gridGrow*gridAuto || n.cols*n.rows<_lastAnzahl) break;
+      r=n;
+    }
   }
-  if(cols<2) return {cols:1, rows:rows, k:1, p:1, ks:ks};
-  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p, ks:ks};
+  return r;
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
@@ -2662,6 +2684,9 @@ function render(){
   // das 4"-Panel in der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster
   // wie beim Screensaver).
   _lastWidget = _widget;
+  // Kacheln der Seite (fuer das Wachsen im automatischen Raster): keine auf
+  // Widget-, Front- und Listenseiten
+  _lastAnzahl = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).length : 0;
   _lastRaster = rasterKey(_widget);
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -2949,6 +2974,7 @@ function connect(){
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
       gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
+      gridGrow = (typeof msg.gridGrow==='number' && msg.gridGrow>=1) ? msg.gridGrow : 1;
       if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
@@ -2979,6 +3005,10 @@ function connect(){
       if(svSideOn()){ renderFront(); return; }
       const fp=el('frontpane'); if(fp && paneKind(paneRawNow())==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
     if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
+    if(msg.t==='gridAuto'){   // Zielkachel des Geraets geaendert (Displays gespeichert): Raster neu
+      const g=(typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
+      if(g!==gridAuto){ gridAuto=g; applyScale(); render(); }
+      return; }
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[];
       if(saverOn()){ renderFront(); return; }   // Uhr-Seite oben -> dort
       if(kopfAktiv()){ renderKopfzeile(); return; }   // Werte in der Kopfzeile

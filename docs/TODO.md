@@ -1610,6 +1610,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          Ziel; Zielkachel als Zahl statt drei Stufen, je Gerät unter
          *Displays* übersteuerbar, Vorschlag aus gemeldeter Größe und
          Pixeldichte (`{t:"screen"}`). **M**
+         *Erledigt 06.10.2026:* `ui.tileSize` ist eine Zahl (100–400 px, die
+         Stufen bleiben lesbar), `devices[name].tileTarget` geht vor und wirkt
+         beim Speichern sofort (`{t:"gridAuto"}`), der Vorschlag kommt vom
+         Server (`tileSuggest`: Tablet 170, Monitor ein Fünftel der kürzeren
+         Seite bis 300), `autoRaster()` lässt wenige Kacheln ohne Widget
+         daneben bis `KACHEL_WACHSEN` (1,4) wachsen. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       3. **Breite Kacheln:** Feld `w` je Eintrag (Standard nach Typ: Audio,
          Raumregelung, Energiefluss 2×1; je Kachel übersteuerbar),
          `grid-column: span` mit dichtem Fluss, Blättern und `fitTile()`

@@ -93,7 +93,9 @@ def _zeile_steht(m):
     """Die Kopfzeile liegt ueber dem Raster, das Raster ueber der Leiste,
     nichts ueberlappt, kein Split."""
     assert "kopf" in m["klassen"] and "split" not in m["klassen"], m["klassen"]
-    assert m["sichtbarKopf"] and 56 <= m["kopf"]["h"] <= 72, m["kopf"]
+    # Die Zeile ist KOPF_H (64 px) mal Kachelfaktor hoch: 0,85 bis 1,4 (Kacheln,
+    # die im automatischen Raster wachsen, weil alle auf eine Seite passen)
+    assert m["sichtbarKopf"] and 54 <= m["kopf"]["h"] <= 90 and abs(m["kopf"]["h"] - round(64 * m["ks"])) <= 1, (m["kopf"], m["ks"])
     assert abs(m["kopf"]["w"] - m["screen"]["w"]) <= 2, "volle Breite"
     assert m["grid"]["t"] >= m["kopf"]["b"] - 1 and m["grid"]["b"] <= m["tabs"]["t"] + 1, (m["kopf"], m["grid"], m["tabs"])
     assert m["uhr"] and len(m["uhr"]) == 5 and m["uhr"][2] == ":", m["uhr"]
