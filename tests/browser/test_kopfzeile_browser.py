@@ -42,6 +42,8 @@ MESSEN = """() => {
       name: w.querySelector('.nm').textContent, weg: w.hidden || getComputedStyle(w).display === 'none', rechts: r(w).r})),
     werteBox: box ? r(box) : null,
     raster: [gridCols, gridRows], kachel: t ? [Math.round(r(t).w), Math.round(r(t).h)] : null,
+    ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1,
+    kopfH: parseFloat(getComputedStyle(sc).getPropertyValue('--kopf-h')) || 0,
     sichtbar: kacheln.filter(x => { const b = r(x); return b.t >= gr.t - 1 && b.b <= gr.b + 1; }).length,
     angemeldet: typeof curSvStatus === 'string' ? curSvStatus : null,
   };
@@ -136,6 +138,41 @@ def test_zu_viele_werte_bleiben_weg(monkeypatch):
     assert 1 <= len(gezeigt) < W.SV_STATUS_MAX, "auf 893 px passen nicht alle acht, aber mindestens einer"
     assert all(w["rechts"] <= m["werteBox"]["r"] + 1 for w in gezeigt), "kein gezeigter Wert ragt heraus"
     assert all(w["rechts"] <= m["kopf"]["r"] for w in gezeigt)
+
+
+def test_faktor_haengt_nicht_an_der_seite_davor(monkeypatch):
+    """Codex-Befund an #122: Im festen Raster haengt die Kachelhoehe an --kopf-h
+    und die am Faktor. Einmal gemessen nahm der Faktor die Kopfzeile mit dem
+    Faktor der Seite davor, und kopfEinpassen() lief mit deren Schrift. Jetzt
+    misst render() nach, bis der Faktor steht, und setzeFaktor() passt die
+    Kopfzeile neu ein: ob die Seite frisch kommt oder nach einer Seite mit
+    kleinstem oder groesstem Faktor, Faktor, Kopfhoehe, Kachelhoehe und die
+    gezeigten Werte sind dieselben, und kein gezeigter Wert ragt heraus."""
+    async def wechsel(app, pg):
+        frisch = await pg.evaluate(MESSEN)
+        danach = {}
+        for start in ("KS_MIN", "KS_MAX"):
+            await pg.evaluate(f"setzeFaktor({start}); render()")
+            await pg.wait_for_timeout(300)
+            danach[start] = await pg.evaluate(MESSEN)
+        return frisch, danach
+    werte = "header:" + ",".join(f"V{i}" for i in range(W.SV_STATUS_MAX))
+    # 800 x 480 mit festem 3x2: die Hoehe begrenzt den Faktor (Kachel etwa 250 x 170),
+    # und neben Uhr und Wetter passen Werte in die Zeile
+    frisch, danach = _ansehen(monkeypatch, (800, 480), {"cols": 3, "rows": 2, "split": False,
+                                                         "panes": {"favoriten": werte}}, wechsel)
+    _zeile_steht(frisch)
+    assert frisch["kopfH"] == round(64 * frisch["ks"]), frisch
+    gezeigt = lambda m: [w["name"] for w in m["werte"] if not w["weg"]]
+    assert gezeigt(frisch), "auf 800 px passt mindestens ein Wert"
+    assert frisch["kachel"][1] / 150 < frisch["kachel"][0] / 170, "die Hoehe begrenzt den Faktor, sonst prueft der Test nichts"
+    for start, m in danach.items():
+        _zeile_steht(m)
+        assert abs(m["ks"] - frisch["ks"]) < 0.01, (start, m["ks"], frisch["ks"])
+        assert m["kopfH"] == frisch["kopfH"] and m["kachel"] == frisch["kachel"], (start, m, frisch)
+        assert gezeigt(m) == gezeigt(frisch), (start, gezeigt(m), gezeigt(frisch))
+        assert all(w["rechts"] <= m["werteBox"]["r"] + 1 and w["rechts"] <= m["kopf"]["r"]
+                   for w in m["werte"] if not w["weg"]), (start, m["werte"])
 
 
 def test_kopfzeile_beim_drehen(monkeypatch):

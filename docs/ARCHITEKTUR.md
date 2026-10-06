@@ -1092,6 +1092,54 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py` und
   `test_mini_verlauf_im_neuen_aufbau`.
+- Kachelfaktor (Oktober 2026): Der Inhalt einer Kachel wächst mit ihrer
+  Größe. `setzeFaktor()` setzt `--ks` am `.screen`: Kachelbreite durch
+  `KACHEL_REF` (170 px, die mittlere Stufe des automatischen Rasters), die
+  Höhe durch `KACHEL_REF_H` (150 px) begrenzt, das Ganze auf `KS_MIN` 0,85 bis
+  `KS_MAX` 2,0. CSS multipliziert damit Symbol (`--ico-size`), Haupttext,
+  Zweittext, Raum, Messwert, Innenabstand, Radius, Positionsring,
+  Mini-Verlauf, Tastenleiste und die Kopfzeile (`--kopf-h`). Die eingestellten
+  Größen (`--name-size` usw.) gelten damit „bei 170-px-Kachel“: Tablets im
+  automatischen Raster sehen aus wie zuvor, eine 415-px-Kachel trägt 32-px-
+  Schrift und ein 76-px-Symbol statt derselben 16/38 wie eine 122-px-Kachel,
+  die 13,6/32 bekommt. Im automatischen Raster rechnet `autoRaster()` den
+  Faktor aus der Spaltenbreite, bevor es die Zeilen bestimmt (die Kopfzeile
+  wird mit ihm höher); beim festen Raster liest `render()` ihn aus der ersten
+  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat, und misst
+  nach, bis er steht (`faktorEinmessen()`): mit Kopfzeile hängt die
+  Kachelhöhe an `--kopf-h` und die wieder am Faktor, einmal gemessen hing er
+  an der Seite davor (Codex-Befund an #122). `setzeFaktor()` passt danach
+  die Kopfzeile neu ein, denn ihre Schrift wächst mit. Ändert sich
+  die Kachelbreite ohne neues Raster (Fenster, Split an/aus), zieht
+  `faktorNachziehen()` nach und `kachelnNeuMessen()` misst die Kacheln neu
+  ein. Zwei Grenzen: Tasten sind Touch-Ziele und schrumpfen nie
+  (`max(1, var(--ks))`), und ein Text, der in seine Zeilen nicht mehr passt
+  (`line-clamp`, im klassischen Aufbau „…“), nimmt den Faktor über die
+  Textstufen `kst1`–`kst3` (`--kst`, in `fitTile()` gemessen, vor und nach
+  den Eng-Stufen) zurück: über Faktor 1 höchstens auf 1, den Stand ohne
+  Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
+  liest sich besser als ein großer mit „…“. Dieselben Stufen nimmt eine
+  Kachel mit Mini-Verlauf über Faktor 1 auch, wenn ein Zustand mit dem
+  Faktor auf zwei Zeilen geht („4,200 kW • 9,1 MWh“ auf 200 px) und der
+  Mitte damit die Höhe für den Verlauf (`SPARK_MIN_H`) fehlt: der Text gibt
+  seinen Zuwachs her, sobald eine Stufe die Zeile wieder einzeilig macht und
+  die Mitte reicht, der Verlauf bleibt dort. Eine Stufe, die nur die Schrift
+  verkleinert, ohne eine Zeile zu lösen, zählt nicht, sie brächte die Mitte
+  höchstens knapp über die Schwelle und einen gequetschten Verlauf. Reicht
+  auch Faktor 1 nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und
+  `placeSpark()` setzt den Verlauf wie bisher in den Kopf. `sparkFrei()`
+  misst dafür die freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen
+  neu. Im Kopf
+  füllt der Verlauf die Kopfhöhe (das Symbol gibt sie vor), auch im neuen
+  Aufbau: mit Faktor 0,85 blieben ihm mit den Rändern der Mitte sonst 27 px
+  von 36. Gemessen mit 23 Favoriten in acht
+  Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
+  abgeschnittener Namen von 15 auf 1, am 4″-Panel mit 3×3 von 8 auf 0, die
+  flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
+  trägt 21-px-Schrift und 50-px-Symbol statt 16/38 in sonst leerer Fläche.
+  Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
+  Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
+  abgeschnitten als ohne, keine Kachel läuft über).
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
   `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
