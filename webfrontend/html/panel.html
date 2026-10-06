@@ -1810,7 +1810,7 @@ function paintChartStack(page,charts){
 //   span     Tagesspanne: je Tag ein Balken Tiefst- bis Hoechstwert, Strich = Mittel
 // Ein Farbton (Akzent) fuer alle Werte, Beschriftung in der Textfarbe (--muted).
 function sparkSvg(sp,W,H){
-  if(!sp || sp.state!=='ok' || W<24 || H<18) return '';
+  if(!sp || sp.state!=='ok' || W<SPARK_MIN_W || H<18) return '';
   const f=n=>n.toFixed(1), dec=sp.dec||0, acc='var(--accent)';
   const txt=(x,y,t,anc,extra)=>'<text class="mm" x="'+f(x)+'" y="'+f(y)+'" text-anchor="'+(anc||'middle')+'"'+(extra||'')+'>'+esc(t)+'</text>';
   let s='';
@@ -1865,7 +1865,11 @@ function sparkSvg(sp,W,H){
   return '<svg viewBox="0 0 '+f(W)+' '+f(H)+'" width="'+f(W)+'" height="'+f(H)+'" aria-hidden="true">'+s+'</svg>';
 }
 // Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
-const SPARK_MIN_H=36;   // px bei Faktor 1: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+// Schmaler zeichnet sparkSvg() keinen Verlauf: sieben Tagesbalken auf 27 px
+// waeren Rauschen (so breit blieb der Kopf einer 120-px-Kachel bei Faktor 0,85,
+// vorher unter 24 px -> keiner). Absolute Pixel wie SPARK_MIN_H.
+const SPARK_MIN_W=40;
 // ---- Kachelfaktor ----
 // Der Inhalt einer Kachel waechst mit ihrer Breite: Faktor = Breite / KACHEL_REF,
 // begrenzt auf KS_MIN..KS_MAX, als --ks am .screen (CSS multipliziert damit
@@ -1929,7 +1933,7 @@ function placeSpark(el,sp,tile){
     const cs=getComputedStyle(tile);
     let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
     for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
-    const tight=free<SPARK_MIN_H*kachelFaktor;
+    const tight=free<SPARK_MIN_H;   // absolute Pixel: eine Kurve braucht Hoehe, nicht den Faktor
     if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
       tile.classList.toggle('sparktight',tight);
       if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
