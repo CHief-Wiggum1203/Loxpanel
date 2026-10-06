@@ -1105,7 +1105,11 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   die 13,6/32 bekommt. Im automatischen Raster rechnet `autoRaster()` den
   Faktor aus der Spaltenbreite, bevor es die Zeilen bestimmt (die Kopfzeile
   wird mit ihm höher); beim festen Raster liest `render()` ihn aus der ersten
-  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat. Ändert sich
+  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat, und misst
+  nach, bis er steht (`faktorEinmessen()`): mit Kopfzeile hängt die
+  Kachelhöhe an `--kopf-h` und die wieder am Faktor, einmal gemessen hing er
+  an der Seite davor (Codex-Befund an #122). `setzeFaktor()` passt danach
+  die Kopfzeile neu ein, denn ihre Schrift wächst mit. Ändert sich
   die Kachelbreite ohne neues Raster (Fenster, Split an/aus), zieht
   `faktorNachziehen()` nach und `kachelnNeuMessen()` misst die Kacheln neu
   ein. Zwei Grenzen: Tasten sind Touch-Ziele und schrumpfen nie

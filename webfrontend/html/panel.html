@@ -1895,17 +1895,30 @@ function setzeFaktor(ks){
   sc.style.setProperty('--ks', ks.toFixed(3));
   sc.style.setProperty('--kst-min', ks>=1 ? '1' : '0.6');   // Untergrenze der Textstufen (s. fitTile)
   sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
+  kopfEinpassen();   // Schrift und Hoehe der Kopfzeile haengen am Faktor: neu einpassen
 }
 function kachelGemessen(){ const t=el('grid').querySelector('.tile[data-id]');
   return t ? kachelFaktorFuer(t.clientWidth, t.clientHeight) : kachelFaktor; }
+// Festes Raster: Faktor aus der ersten Kachel. Mit Kopfzeile haengt die
+// Kachelhoehe an --kopf-h und die wieder am Faktor (Codex-Befund: einmal
+// gemessen hing der Faktor an der Seite davor, deren Faktor die Kopfzeile
+// noch hatte). Darum nachmessen, bis er steht: die Kopfzeile wiegt
+// KOPF_H * Faktor auf zwei oder drei Zeilen, zwei Durchgaenge reichen.
+function faktorEinmessen(){
+  for(let i=0;i<4;i++){
+    const ks=kachelGemessen();
+    if(Math.abs(ks-kachelFaktor)<0.005) return;
+    setzeFaktor(ks);
+  }
+}
 // Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
 // neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
-  const ks = gridAuto ? autoRaster(_lastWidget).ks : kachelGemessen();
-  if(Math.abs(ks-kachelFaktor)<0.01) return;
-  setzeFaktor(ks);
-  kachelnNeuMessen();
+  const vorher=kachelFaktor;
+  if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
+  else faktorEinmessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01) kachelnNeuMessen();
 }
 function kachelnNeuMessen(){
   el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
@@ -2735,7 +2748,7 @@ function render(){
   // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
   // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
   renderTabs();
-  if(!gridAuto) setzeFaktor(kachelGemessen());   // festes Raster: aus der ersten Kachel
+  if(!gridAuto) faktorEinmessen();   // festes Raster: aus der ersten Kachel, mit Kopfzeile bis es steht
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
