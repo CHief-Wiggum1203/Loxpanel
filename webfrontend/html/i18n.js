@@ -540,6 +540,18 @@
       'Klein (mehr Kacheln)': 'Small (more tiles)',
       'Mittel': 'Medium',
       'Groß (weniger Kacheln)': 'Large (fewer tiles)',
+      'Zielkachel (px)': 'Target tile (px)',
+      'Zielkachel: Breite einer Kachel in CSS-Pixeln, aus der das Tablet Spalten und Zeilen rechnet. Leer = Standard': 'Target tile: width of a tile in CSS pixels, from which the tablet works out columns and rows. Empty = default',
+      'die bisherigen Stufen Klein, Mittel und Groß entsprechen': 'the former steps small, medium and large correspond to',
+      'Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben) bis zum': 'If all tiles of a page fit on the screen, they grow (without a widget beside them) up to',
+      'Fachen': 'times the target',
+      'Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.': 'A device can get its own value under Displays, with a suggestion from its reported size.',
+      'Zielkachel (Automatik)': 'Target tile (automatic grid)',
+      'wie im Profil': 'as in the profile',
+      'Vorschlag': 'Suggestion',
+      'Pixeldichte': 'pixel density',
+      'übernehmen': 'apply',
+      'kein Vorschlag: das Gerät hat noch keine Größe gemeldet': 'no suggestion: the device has not reported a size yet',
       'Kachel-Layout „Automatisch“ (Tablet): Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Displays bei den Geräten.':
         'Tile grid “Automatic” (tablet): the panel works out columns and rows from its screen size itself – a larger screen shows more tiles, not larger ones. A widget takes whole tile columns, in portrait whole rows; the tiles keep their size. “Fill screen” and scaling are not needed then. What a device makes of it is shown under Displays with the devices.',
       '„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.':

@@ -372,10 +372,27 @@ PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
 # ohnehin sofort. Obergrenze wie bei "Display aus": eine Stunde.
 PIN_MERKEN_STANDARD = 30
 PIN_MERKEN_MAX = 3600
+# Automatisches Raster (ui.grid "auto", fuer Tablets): Zielgroesse einer Kachel
+# in CSS-Pixeln (ui.tileSize, je Geraet devices[name].tileTarget). Die Visu
+# rechnet daraus Spalten und Zeilen fuer den Schirm, ein groesserer Schirm
+# zeigt so mehr Kacheln statt groesserer; passen alle Kacheln einer Seite auf
+# den Schirm, wachsen sie (KACHEL_WACHSEN unten, autoRaster() in panel.html).
+# Einzige Quelle: effective_grid_auto() schickt den Wert mit der
+# theme-Nachricht (Geraet vor Profil, wie bei der Skalierung). Die drei
+# Stufen sind die alte Schreibweise und bleiben fuer bestehende Dateien lesbar
+# (_clean_kachelziel).
+KACHEL_ZIEL = {"small": 150, "medium": 170, "large": 200}
+KACHEL_ZIEL_STANDARD = KACHEL_ZIEL["medium"]
+KACHEL_ZIEL_MIN, KACHEL_ZIEL_MAX = 100, 400
+# Passen alle Kacheln einer Seite auf den Schirm, duerfen sie bis auf das
+# KACHEL_WACHSEN-Fache der Zielkachel wachsen (autoRaster() in panel.html,
+# geschickt als gridGrow mit der theme-Nachricht).
+KACHEL_WACHSEN = 1.4
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
-# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
-PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
+# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
+# ein Tupel nennt mehrere Schreibweisen desselben Standards.
+PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
@@ -443,13 +460,6 @@ GROESSEN_STANDARD = {
     "classic": {"iconSize": 38, "nameSize": 18, "subSize": 15, "roomSize": 12, "bigSize": 36},
 }
 
-# Automatisches Raster (ui.grid "auto", fuer Tablets): Zielgroesse einer Kachel
-# in CSS-Pixeln je Stufe (ui.tileSize; fehlt = "medium"). Die Visu rechnet
-# daraus Spalten und Zeilen fuer den Schirm, ein groesserer Schirm zeigt so
-# mehr Kacheln statt groesserer. Einzige Quelle: resolve_profile() schickt den
-# Wert mit der theme-Nachricht.
-KACHEL_ZIEL = {"small": 150, "medium": 170, "large": 200}
-
 
 def _clean_scale(v):
     """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
@@ -467,6 +477,41 @@ def _clean_scale(v):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
         return None
     return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
+
+
+def _clean_kachelziel(v) -> int | None:
+    """Zielgroesse einer Kachel (ui.tileSize, devices[name].tileTarget) als
+    Zahl in CSS-Pixeln: Zahl oder Ziffernfolge in [KACHEL_ZIEL_MIN,
+    KACHEL_ZIEL_MAX] (an die Grenze gesetzt, wie die uebrigen Groessen in
+    dieser Datei), oder eine der alten Stufen "small" | "medium" | "large"
+    (KACHEL_ZIEL). Ungueltiges ergibt None = nicht gesetzt."""
+    if isinstance(v, str):
+        v = v.strip().lower()
+        if v in KACHEL_ZIEL:
+            return KACHEL_ZIEL[v]
+        if not v.isdigit():
+            return None
+        v = int(v)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
+        return None
+    return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
+
+
+def _kachel_vorschlag(screen) -> int | None:
+    """Vorschlag fuer die Zielkachel eines Geraets aus seiner Bildschirmmeldung
+    (_clean_screen: vw, vh in CSS-Pixeln, dpr Pixeldichte). Mit Pixeldichte ab
+    1,5 ist es ein Tablet in der Hand, dort passt der Standard. Ohne
+    Pixeldichte (Monitor, Wanddisplay, Linux-Panel) sagt die Groesse in
+    CSS-Pixeln, wie weit weg der Schirm haengt: ein Fuenftel der kuerzeren
+    Seite, auf Zehner gerundet, nicht unter dem Standard und nicht ueber 300
+    px (FullHD 220, 2560 x 1600 300). Nur ein Vorschlag fuer den Konfigurator
+    (Displays), nichts davon steuert den Server."""
+    if not isinstance(screen, dict) or not screen.get("vw") or not screen.get("vh"):
+        return None
+    if (screen.get("dpr") or 1) >= 1.5:
+        return KACHEL_ZIEL_STANDARD
+    kurz = min(screen["vw"], screen["vh"])
+    return int(max(KACHEL_ZIEL_STANDARD, min(300, round(kurz / 5 / 10) * 10)))
 
 
 def _clean_screen(d) -> dict:
@@ -2255,7 +2300,7 @@ class App:
             "tileLayout": "classic" if ui.get("tileLayout") == "classic" else "",
             # Automatisches Raster: Zielgroesse einer Kachel in px; 0 = festes
             # Raster aus cols/rows (4"-Panel und jedes Profil ohne "auto").
-            "gridAuto": (KACHEL_ZIEL.get(ui.get("tileSize"), KACHEL_ZIEL["medium"])
+            "gridAuto": ((_clean_kachelziel(ui.get("tileSize")) or KACHEL_ZIEL_STANDARD)
                          if ui.get("grid") == "auto" else 0),
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
@@ -2616,6 +2661,20 @@ class App:
                 return sc
         return (prof or {}).get("scale") or "off"
 
+    def effective_grid_auto(self, prof: dict | None, dev: str) -> int:
+        """Zielkachel des automatischen Rasters fuer ein Panel: die des Geraets
+        (devices[name].tileTarget), falls dort eine steht, sonst die des
+        Profils - wie bei der Skalierung. Nur im Kachel-Layout "Automatisch"
+        (gridAuto > 0): ein festes Raster bleibt fest, auch wenn das Geraet
+        eine Zielkachel traegt."""
+        g = int((prof or {}).get("gridAuto") or 0)
+        d = self.devices.get(dev) if dev else None
+        if g and isinstance(d, dict):
+            z = _clean_kachelziel(d.get("tileTarget"))
+            if z is not None:
+                return z
+        return g
+
     def device_list(self) -> dict:
         """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
         Panel-Agenten (Announce), verbundene Browser (?device=) und die in
@@ -2663,6 +2722,7 @@ class App:
             entry(name)["presence"] = on   # nur Geraete mit gekoppeltem Praesenzmelder
         for e in devs.values():
             e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
+            e["tileSuggest"] = _kachel_vorschlag(e["screen"])   # Zielkachel aus der gemeldeten Groesse
             if e["agent"] and not e["profile"]:
                 e["profile"] = e["agent"]["panel"]
         anonymous.sort(key=lambda a: a["ip"])
@@ -2910,6 +2970,12 @@ class App:
             ui["scale"] = _sc
         else:
             ui.pop("scale", None)
+        # Zielkachel als Zahl, auch wenn die Datei noch eine Stufe nennt
+        _tz = _clean_kachelziel(ui.get("tileSize"))
+        if _tz is not None:
+            ui["tileSize"] = _tz
+        else:
+            ui.pop("tileSize", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -3053,8 +3119,9 @@ class App:
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
             if ui.get("grid") == "auto":
                 cui["grid"] = "auto"            # Raster rechnet die Visu (Tablet), cols/rows gelten dann nicht
-            if ui.get("tileSize") in KACHEL_ZIEL and ui["tileSize"] != "medium":
-                cui["tileSize"] = ui["tileSize"]   # Kachelgroesse im automatischen Raster; fehlt = mittel
+            _tz = _clean_kachelziel(ui.get("tileSize"))
+            if _tz is not None and _tz != KACHEL_ZIEL_STANDARD:
+                cui["tileSize"] = _tz           # Zielkachel px im automatischen Raster; fehlt = Standard
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -3146,7 +3213,7 @@ class App:
         def standard(pfad: tuple, v) -> bool:
             for muster, wert in PANEL_STANDARD.items():
                 if len(muster) == len(pfad) and all(m in ("*", p) for m, p in zip(muster, pfad)) \
-                        and v == wert:
+                        and (v == wert or (isinstance(wert, tuple) and v in wert)):
                     return True
             return False
 
@@ -3259,19 +3326,23 @@ class App:
             # uebersteuern). Ein Geraet, das NUR sie traegt, muss bleiben -
             # bisher fiel alles ohne Modi und Display-Treiber still weg.
             scale = _clean_scale(cfg.get("scale"))
+            # Zielkachel des automatischen Rasters je Geraet (effective_grid_auto)
+            ziel = _clean_kachelziel(cfg.get("tileTarget"))
             # Praesenzmelder: solange sein Baustein jemanden meldet, bleibt das
             # Display an (_presence_rebuild). Ob es ihn gibt, entscheidet erst
             # die Struktur - wie bei "hide" bleibt die Kennung erhalten, auch
             # wenn der Miniserver gerade nicht verbunden ist.
             presence = cfg.get("presence")
             presence = presence.strip()[:60] if isinstance(presence, str) else ""
-            if not modes and not display and scale is None and not presence:
+            if not modes and not display and scale is None and ziel is None and not presence:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
                 entry["display"] = display
             if scale is not None:
                 entry["scale"] = scale
+            if ziel is not None:
+                entry["tileTarget"] = ziel
             if presence:
                 entry["presence"] = presence
             out[name.strip()[:60]] = entry
@@ -7034,6 +7105,9 @@ async def api_meta(request: web.Request) -> web.Response:
            for ru in app.rooms_with],
         "panels": panels,
         "devices": App._devices_export(app.devices),
+        # Zielkachel des automatischen Rasters: Grenzen, Standard, alte Stufen
+        "kachelZiel": {"min": KACHEL_ZIEL_MIN, "max": KACHEL_ZIEL_MAX, "std": KACHEL_ZIEL_STANDARD,
+                       "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
@@ -8376,6 +8450,9 @@ async def api_save_devices(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
             app.conn_prof.get(ws), info.get("dev", ""))})
+        # ... und die Zielkachel je Geraet: die Visu baut ihr Raster neu
+        await app._send_or_drop(ws, {"t": "gridAuto", "gridAuto": app.effective_grid_auto(
+            app.conn_prof.get(ws), info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": App._devices_export(devices),
                               "kennwortVerworfen": [p[1] for p in verworfen]})
 
@@ -8742,7 +8819,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
-                        "gridAuto": prof["gridAuto"],      # automatisches Raster: Zielgroesse px, 0 = fest
+                        "gridAuto": app.effective_grid_auto(prof, dev),   # automatisches Raster: Zielkachel px (Geraet vor Profil), 0 = fest
+                        "gridGrow": KACHEL_WACHSEN,   # ... Kacheln wachsen bis dahin, wenn alle auf eine Seite passen
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
