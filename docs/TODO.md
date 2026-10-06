@@ -1601,8 +1601,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          225×128-Kachel: 0,85 statt 1,32), Tasten schrumpfen nie unter ihr
          Maß, und Textstufen `kst1`–`kst3` nehmen einen Text zurück, der in
          seine Zeilen nicht passt (über Faktor 1 nie unter den Stand ohne
-         Faktor). Messreihe: 800×480 mit 3×3 15 → 5 abgeschnittene Namen,
-         4″ 3×3 8 → 2, 415-px-Kachel 32-px-Schrift und 76-px-Symbol.
+         Faktor). Messreihe: 800×480 mit 3×3 15 → 1 abgeschnittene Namen,
+         4″ 3×3 8 → 0, 415-px-Kachel 32-px-Schrift und 76-px-Symbol.
          Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1, Tests in
          `tests/browser/test_kachel_faktor_browser.py` (16).
       2. **Automatik rechnet mit der Kachelanzahl und einem Zielwert je

@@ -1116,7 +1116,7 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
   liest sich besser als ein großer mit „…“. Gemessen mit 23 Favoriten in acht
   Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
-  abgeschnittener Namen von 15 auf 5, am 4″-Panel mit 3×3 von 8 auf 2, die
+  abgeschnittener Namen von 15 auf 1, am 4″-Panel mit 3×3 von 8 auf 0, die
   flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
   trägt 21-px-Schrift und 50-px-Symbol statt 16/38 in sonst leerer Fläche.
   Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
