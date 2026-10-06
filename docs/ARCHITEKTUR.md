@@ -862,7 +862,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
           "icon": {"src": "builtin", "id": "bulb"},   // oder {"src":"loxone","p":"..svg"}
           "overlay": {...},
           "chart": "24h",                    // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
-          "chartStyle": "pattern"            // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "chartStyle": "pattern",           // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "w": 2                             // Breite in Spalten: 1 | 2; fehlt = nach Typ (KACHEL_BREIT_TYPEN:
+                                             // Audio, Raumregelung, Energiefluss sind 2, alles andere 1; §7.1)
         }
       }
     }
@@ -1143,6 +1145,27 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
   Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
   abgeschnitten als ohne, keine Kachel läuft über).
+- Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
+  (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
+  EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über
+  `tiles[uuid].w` (1 oder 2, Kachel-Editor „Breite“; der Konfigurator bekommt
+  die Typen als `kachelBreit` aus `/api/meta`). `_apply_tile_style()` setzt
+  `w: 2` nur an die breite Kachel, die Visu macht daraus die Klasse `w2`
+  (`grid-column: span 2`), aber nur, wo das Raster zwei Spalten hat. Das
+  Raster fließt dicht (`grid-auto-flow: row dense`): eine Lücke vor einer
+  breiten Kachel füllt die nächste schmale. Damit Seiten und Rastpunkte
+  stimmen, rechnet `rasterLage()` die Lage nach, wie CSS sie setzt (je
+  Kachel die Zeile, daraus die Seitenzahl): `render()` und `updateGrid()`
+  setzen `snap` auf jede Kachel in der ersten Zeile einer Seite und `snapy`
+  ab der zweiten Seite, `springeZu()` springt zur ersten Kachel dieser Zeile,
+  `autoRaster()` prüft mit derselben Lage, ob alle Kacheln auf eine Seite
+  passen (Wachsen, Punkt 2). `kachelGemessen()` nimmt für den Kachelfaktor
+  eine schmale Kachel, notfalls die halbe Breite einer breiten. Auf der
+  breiten Kachel bleibt ein mehrteiliger Zustand („PV 0,55 kW · Bezug
+  0,15 kW“) auf einer Zeile (`subText()`), statt wie auf der schmalen
+  untereinander zu stehen: untereinander kostete er auf der 126-px-Kachel des
+  4″-Panels die Höhe, und die Eng-Stufe kappte den zweiten Teil. Geprüft in
+  `tests/test_kachel_breit.py` und `tests/browser/test_kachel_breit_browser.py`.
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
   `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielkachel in

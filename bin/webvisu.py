@@ -302,6 +302,14 @@ STAT_KIND = {1: "digital", 2: "counter"}
 # Darstellung des Mini-Verlaufs in der Kachel (tiles.<uuid>.chartStyle). Fehlt der
 # Schluessel, gilt "trend". Tagesmuster und Tagesspanne zeigen immer 7 Tage.
 STAT_TILE_STYLES = ("trend", "pattern", "span")
+# Breite Kacheln (2 x 1): Bausteine, deren Kachel von Haus aus zwei Spalten
+# belegt - Audio (Titel und Tasten), Raumregelung (Soll und Ist) und der
+# Energiefluss. Je Kachel uebersteuerbar: tiles[uuid].w = 1 | 2
+# (KACHEL_BREITEN). Die Visu setzt daraus grid-column: span 2 und rechnet
+# Seiten und Rastpunkte mit (rasterLage in panel.html).
+KACHEL_BREIT_TYPEN = frozenset({"AudioZone", "AudioZoneV2", "IRoomControllerV2", "IRoomController",
+                                "EFM", "EnergyManager2"})
+KACHEL_BREITEN = (1, 2)
 STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "UpDownAnalog", "Meter", "TextState", "InfoOnlyText",
@@ -495,6 +503,16 @@ def _clean_kachelziel(v) -> int | None:
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
         return None
     return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
+
+
+def _kachel_breite(v) -> int | None:
+    """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
+    Ziffer; True/False und alles andere ergibt None = nach Typ."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, str) and v.strip().isdigit():
+        v = int(v.strip())
+    return int(v) if isinstance(v, (int, float)) and int(v) == v and int(v) in KACHEL_BREITEN else None
 
 
 def _kachel_vorschlag(screen) -> int | None:
@@ -3186,6 +3204,8 @@ class App:
                         e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
                         if ov.get("chartStyle") in STAT_TILE_STYLES and ov["chartStyle"] != "trend":
                             e2["chartStyle"] = ov["chartStyle"]   # Tagesmuster / Tagesspanne
+                    if _kachel_breite(ov.get("w")) is not None:
+                        e2["w"] = _kachel_breite(ov["w"])   # Breite in Spalten (1 | 2); fehlt = nach Typ
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -4266,8 +4286,16 @@ class App:
         return self._apply_tile_style(it, uuid, prof)
 
     def _apply_tile_style(self, it: dict, uuid: str, prof: dict | None) -> dict:
-        """Pro-Kachel-Overrides (Farben/Icon/Schrift) aus dem Panel-Profil."""
+        """Pro-Kachel-Overrides (Farben/Icon/Schrift/Breite) aus dem Panel-Profil."""
         ov = (prof.get("tiles") if prof else {}).get(uuid) if prof else None
+        # Breite: zwei Spalten fuer Audio, Raumregelung und Energiefluss
+        # (KACHEL_BREIT_TYPEN), je Kachel uebersteuerbar (w = 1 | 2); nur die
+        # breite Kachel traegt das Feld, schmal ist der Standard der Visu.
+        w = _kachel_breite(ov.get("w")) if isinstance(ov, dict) else None
+        if w is None:
+            w = 2 if (self.controls.get(uuid) or {}).get("type") in KACHEL_BREIT_TYPEN else 1
+        if w == 2:
+            it["w"] = 2
         if not isinstance(ov, dict):
             return it
         if ov.get("iconColor"):
@@ -7108,6 +7136,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Zielkachel des automatischen Rasters: Grenzen, Standard, alte Stufen
         "kachelZiel": {"min": KACHEL_ZIEL_MIN, "max": KACHEL_ZIEL_MAX, "std": KACHEL_ZIEL_STANDARD,
                        "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
+        # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
+        "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
