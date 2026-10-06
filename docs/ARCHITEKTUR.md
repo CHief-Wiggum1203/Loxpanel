@@ -1118,10 +1118,14 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Kachel mit Mini-Verlauf über Faktor 1 auch, wenn ein Zustand mit dem
   Faktor auf zwei Zeilen geht („4,200 kW • 9,1 MWh“ auf 200 px) und der
   Mitte damit die Höhe für den Verlauf (`SPARK_MIN_H`) fehlt: der Text gibt
-  seinen Zuwachs her, der Verlauf bleibt in der Mitte. Reicht auch Faktor 1
-  nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und `placeSpark()`
-  setzt den Verlauf wie bisher in den Kopf. `sparkFrei()` misst dafür die
-  freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen neu. Im Kopf
+  seinen Zuwachs her, sobald eine Stufe die Zeile wieder einzeilig macht und
+  die Mitte reicht, der Verlauf bleibt dort. Eine Stufe, die nur die Schrift
+  verkleinert, ohne eine Zeile zu lösen, zählt nicht, sie brächte die Mitte
+  höchstens knapp über die Schwelle und einen gequetschten Verlauf. Reicht
+  auch Faktor 1 nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und
+  `placeSpark()` setzt den Verlauf wie bisher in den Kopf. `sparkFrei()`
+  misst dafür die freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen
+  neu. Im Kopf
   füllt der Verlauf die Kopfhöhe (das Symbol gibt sie vor), auch im neuen
   Aufbau: mit Faktor 0,85 blieben ihm mit den Rändern der Mitte sonst 27 px
   von 36. Gemessen mit 23 Favoriten in acht

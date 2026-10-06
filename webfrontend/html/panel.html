@@ -1998,18 +1998,21 @@ function fitTile(tile){
       setzeStufe(stufe);
     } };
   // Mini-Verlauf: ueber Faktor 1 gibt der Text seinen Zuwachs her (hoechstens
-  // bis Faktor 1, s. --kst-min), wenn der Verlauf dadurch in der Mitte bleibt.
-  // Sonst nimmt ihm ein Zustand, der mit dem Faktor auf zwei Zeilen geht
-  // ("4,200 kW • 9,1 MWh" auf der 200-px-Kachel), die Hoehe und er muesste in
-  // den Kopf. Bringt auch die letzte Stufe nicht genug, bleibt der Text gross
-  // und placeSpark() setzt den Verlauf in den Kopf.
+  // bis Faktor 1, s. --kst-min), wenn ein Zustand, der mit dem Faktor auf zwei
+  // Zeilen ging ("4,200 kW • 9,1 MWh" auf der 200-px-Kachel), damit wieder in
+  // EINE passt und der Verlauf so seine Mindesthoehe in der Mitte bekommt.
+  // Eine Stufe, die nur die Schrift verkleinert, ohne eine Zeile zu loesen,
+  // zaehlt nicht: sie braechte die Mitte hoechstens knapp ueber die Schwelle
+  // und einen gequetschten Verlauf. Bringt keine Stufe eine Zeile zurueck,
+  // bleibt der Text gross und placeSpark() setzt den Verlauf in den Kopf.
+  const zeilen=()=>texte.reduce((n,e)=>{ const r=document.createRange(); r.selectNodeContents(e); return n+r.getClientRects().length; },0);
   const sparkStufen=()=>{
     const sp=tile.querySelector('.tspark');
     if(!sp || !tile.querySelector('.head') || kachelFaktor<=1 || sparkFrei(tile,sp)>=SPARK_MIN_H) return;
-    const vorher=STUFEN.find(s=>tile.classList.contains(s))||null;
+    const vorher=STUFEN.find(s=>tile.classList.contains(s))||null, z0=zeilen();
     for(let i=STUFEN.indexOf(vorher)+1; i<STUFEN.length; i++){
       setzeStufe(STUFEN[i]);
-      if(sparkFrei(tile,sp)>=SPARK_MIN_H) return;
+      if(zeilen()<z0 && sparkFrei(tile,sp)>=SPARK_MIN_H) return;
     }
     setzeStufe(vorher);
   };
