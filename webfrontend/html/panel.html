@@ -565,6 +565,11 @@
   .grid.lx:not(.list) .tile .head .room{flex:1 1 auto;min-width:0;text-align:right;margin:2px 0 0;
     font-size:calc(var(--room-size,13px) * var(--ks,1));text-transform:none;letter-spacing:0;}
   .grid.lx:not(.list) .tile .tspark{order:2;margin:calc(8px * var(--ks,1)) 0 2px;}
+  /* Im Kopf (sparktight) fuellt der Verlauf die Kopfhoehe wie im klassischen
+     Aufbau: die Zeile darueber ist spezifischer als .tile.sparktight .head
+     .tspark und liesse ihm sonst die senkrechten Raender - mit Faktor 0,85
+     blieben von 36 px Kopf nur 27 px Kurve. Seitlich haelt der Kopf Abstand (gap). */
+  .grid.lx:not(.list) .tile.sparktight .head .tspark{margin:0;}
   .grid.lx:not(.list) .tile .body{order:1;margin-top:calc(10px * var(--ks,1));display:flex;flex-direction:column;}
   .grid.lx:not(.list) .tile .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Haupttext (--name-size) und Zweittext (--sub-size) wie eingestellt; der
@@ -1925,15 +1930,20 @@ function paintSpark(el,sp){
     if(vorher!==tile.classList.contains('sparkbadge')) placeSpark(el,sp,tile);
   }
 }
+// Freie Mitte fuer den Verlauf = Innenhoehe der Kachel minus alles ausser dem
+// Verlauf (und seinem Rand). Gleich, ob der Verlauf gerade in der Mitte oder
+// im Kopf steht: dort gibt das Symbol die Hoehe vor, er fuellt sie nur.
+function sparkFrei(tile,el){
+  const cs=getComputedStyle(tile);
+  let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
+  for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
+  return free;
+}
 // Verlauf in die Mitte oder (zu niedrige Mitte) in die Kopfzeile setzen und zeichnen.
 function placeSpark(el,sp,tile){
   const head=tile&&tile.querySelector('.head');
   if(head){
-    // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
-    const cs=getComputedStyle(tile);
-    let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
-    for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
-    const tight=free<SPARK_MIN_H;   // absolute Pixel: eine Kurve braucht Hoehe, nicht den Faktor
+    const tight=sparkFrei(tile,el)<SPARK_MIN_H;   // absolute Pixel: eine Kurve braucht Hoehe, nicht den Faktor
     if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
       tile.classList.toggle('sparktight',tight);
       if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
@@ -1979,19 +1989,42 @@ function fitTile(tile){
   // ihre Groesse.
   const texte=[...tile.querySelectorAll('.body .name, .body .sub')];
   const passt=()=>texte.every(e=>e.scrollHeight<=e.clientHeight+1 && e.scrollWidth<=e.clientWidth+1);
+  const STUFEN=['kst1','kst2','kst3'];
+  const setzeStufe=s=>{ tile.classList.remove(...STUFEN); if(s) tile.classList.add(s); };
   const textStufen=()=>{ if(!texte.length) return;
-    tile.classList.remove('kst1','kst2','kst3');
-    for(const stufe of ['kst1','kst2','kst3']){
+    setzeStufe(null);
+    for(const stufe of STUFEN){
       if(passt()) break;
-      tile.classList.remove('kst1','kst2','kst3'); tile.classList.add(stufe);
+      setzeStufe(stufe);
     } };
+  // Mini-Verlauf: ueber Faktor 1 gibt der Text seinen Zuwachs her (hoechstens
+  // bis Faktor 1, s. --kst-min), wenn der Verlauf dadurch in der Mitte bleibt.
+  // Sonst nimmt ihm ein Zustand, der mit dem Faktor auf zwei Zeilen geht
+  // ("4,200 kW • 9,1 MWh" auf der 200-px-Kachel), die Hoehe und er muesste in
+  // den Kopf. Bringt auch die letzte Stufe nicht genug, bleibt der Text gross
+  // und placeSpark() setzt den Verlauf in den Kopf.
+  const sparkStufen=()=>{
+    const sp=tile.querySelector('.tspark');
+    if(!sp || !tile.querySelector('.head') || kachelFaktor<=1 || sparkFrei(tile,sp)>=SPARK_MIN_H) return;
+    const vorher=STUFEN.find(s=>tile.classList.contains(s))||null;
+    for(let i=STUFEN.indexOf(vorher)+1; i<STUFEN.length; i++){
+      setzeStufe(STUFEN[i]);
+      if(sparkFrei(tile,sp)>=SPARK_MIN_H) return;
+    }
+    setzeStufe(vorher);
+  };
   textStufen();
-  if(!kachelNeu()) return;
-  for(const stufe of ['eng1','eng2','eng3']){
-    if(tile.scrollHeight<=h+1) break;
-    tile.classList.add(stufe);
+  if(kachelNeu()){
+    for(const stufe of ['eng1','eng2','eng3']){
+      if(tile.scrollHeight<=h+1) break;
+      tile.classList.add(stufe);
+    }
+    textStufen();   // eng1 kappt den Text auf eine Zeile: dann lieber kleiner und ganz
   }
-  textStufen();   // eng1 kappt den Text auf eine Zeile: dann lieber kleiner und ganz
+  sparkStufen();
+  // Die Stufen aendern die Hoehe der Mitte: der Verlauf findet seinen Platz neu
+  // (Mitte oder Kopf); ohne Aenderung zeichnet placeSpark() nichts neu.
+  if(tile._it && tile._it.spark) paintSpark(tile.querySelector('.tspark'), tile._it.spark);
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];

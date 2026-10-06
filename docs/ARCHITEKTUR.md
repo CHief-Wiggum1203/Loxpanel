@@ -1114,7 +1114,17 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Textstufen `kst1`–`kst3` (`--kst`, in `fitTile()` gemessen, vor und nach
   den Eng-Stufen) zurück: über Faktor 1 höchstens auf 1, den Stand ohne
   Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
-  liest sich besser als ein großer mit „…“. Gemessen mit 23 Favoriten in acht
+  liest sich besser als ein großer mit „…“. Dieselben Stufen nimmt eine
+  Kachel mit Mini-Verlauf über Faktor 1 auch, wenn ein Zustand mit dem
+  Faktor auf zwei Zeilen geht („4,200 kW • 9,1 MWh“ auf 200 px) und der
+  Mitte damit die Höhe für den Verlauf (`SPARK_MIN_H`) fehlt: der Text gibt
+  seinen Zuwachs her, der Verlauf bleibt in der Mitte. Reicht auch Faktor 1
+  nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und `placeSpark()`
+  setzt den Verlauf wie bisher in den Kopf. `sparkFrei()` misst dafür die
+  freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen neu. Im Kopf
+  füllt der Verlauf die Kopfhöhe (das Symbol gibt sie vor), auch im neuen
+  Aufbau: mit Faktor 0,85 blieben ihm mit den Rändern der Mitte sonst 27 px
+  von 36. Gemessen mit 23 Favoriten in acht
   Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
   abgeschnittener Namen von 15 auf 1, am 4″-Panel mit 3×3 von 8 auf 0, die
   flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
