@@ -40,3 +40,19 @@ def test_widget_seite_nimmt_keine_kopfzeile():
     p = W.App._sanitize_panels(roh)["test"]
     assert "widget" not in p["pickTabs"][0]
     assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh))
+
+
+def test_panes_werden_normiert_gespeichert():
+    """Codex-Befund: Speichern und Export hielten den Rohwert ("header:A, B"),
+    das Panel meldete dann " B" als UUID. Jetzt steht ueberall der normierte
+    Wert - auch im aufgeloesten Profil, denn die Datei wird beim Laden nicht
+    sanitisiert."""
+    roh = {"test": {"title": "Test", "tabs": ["favoriten", "zentral", "raeume"],
+                    "ui": {"panes": {"favoriten": "header:A, B,,", "zentral": "status: A ,B", "raeume": "header:"}}}}
+    p = W.App._sanitize_panels(roh)["test"]
+    assert p["ui"]["panes"] == {"favoriten": "header:A,B", "zentral": "status:A,B", "raeume": "header"}
+    assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh)) == []
+    app = W.App({"host": "", "port": 80})
+    assert app._panel_export(roh["test"])["ui"]["panes"] == p["ui"]["panes"]
+    app.panels = roh                                    # wie aus einer von Hand geschriebenen Datei
+    assert app.resolve_profile("test")["panes"] == p["ui"]["panes"]

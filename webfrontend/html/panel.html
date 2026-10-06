@@ -2239,7 +2239,11 @@ function applyHoch(){
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
-function paneRawNow(){ return (view && view.widget) ? view.widget : (themeSplit ? paneForTab(activeTab()) : null); }
+function paneRawNow(){ if(view && view.widget) return view.widget;
+  const v=paneForTab(activeTab());
+  // Die Kopfzeile ist keine Pane: sie gilt auch mit Split "Aus" (4"-Panel),
+  // ein Widget daneben nur im 2-Pane-Betrieb.
+  return (themeSplit || paneKind(v)==='header') ? v : null; }
 function paneKind(v){ if(!v) return null;
   for(const k of ['player','energy','camera','chart','status','header']) if(v.indexOf(k+':')===0) return k;
   return v; }
@@ -2287,7 +2291,7 @@ function applyPane(){
   // Widget-Seite (Vollbild-Tab): das ganze Tab IST das Widget, kein Kachelgrid,
   // kein Split. Sonst die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb).
   const wt = (view && view.widget) ? view.widget : null;
-  const raw = wt ? wt : (themeSplit?paneForTab(activeTab()):null);
+  const raw = paneRawNow();   // Widget-Seite, Pane 2 (nur mit Split) oder Kopfzeile (immer)
   const kind=paneKind(raw);
   const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart'||kind==='status');   // Widget in Pane 2
   const isKopf=(kind==='header' && !wt);   // Kopfzeile ueber dem Raster, kein Split

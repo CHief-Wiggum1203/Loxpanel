@@ -1572,13 +1572,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Zeile 64 px statt der 40 % eines Widgets, und das Raster bleibt
       ungeteilt; „Automatisch“ rechnet die Zeile von der freien Höhe ab, beim
       festen Raster geht sie vom Kasten ab. Was rechts nicht mehr passt,
-      bleibt weg. Widget-Seiten und die Uhr-Seite kennen die Kopfzeile nicht
+      bleibt weg. Sie gilt auch mit Split „Aus“ (4″-Panel), denn sie ist
+      keine Pane. Widget-Seiten und die Uhr-Seite kennen die Kopfzeile nicht
       (dort wäre sie doppelt oder leer), der Server meldet sie als
       `verworfen`. Konfigurator: Auswahlfeld „Widget je Tab“ → „Kopfzeile
-      (Uhr, Wetter, Werte)“ mit Werteliste wie bei „Werte“, Assistent
-      ebenso. Tests: `tests/test_kopfzeile.py` (3),
-      `tests/browser/test_kopfzeile_browser.py` (7: quer, hochkant, 10″, 4″,
-      zu viele Werte, Drehen, Konfigurator). Details in
+      (Uhr, Wetter, Werte)“ mit Werteliste wie bei „Werte“, ohne Split nur
+      sie; Assistent ebenso (für 1 Pane „Kopfzeile je Tab“). Nebenbei aus
+      dem Codex-Review: `ui.panes` wird jetzt normiert gespeichert und
+      exportiert („header:A, B“ → „header:A,B“), vorher ging der Rohwert
+      durch und ein Leerzeichen wurde Teil der UUID. Tests:
+      `tests/test_kopfzeile.py` (4), `tests/browser/test_kopfzeile_browser.py`
+      (8: quer, hochkant, 10″, 4″ mit Split „Aus“, zu viele Werte, Drehen,
+      Konfigurator mit und ohne Split, Assistent). Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.3 und §7.1. **M**
 - [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
       Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen

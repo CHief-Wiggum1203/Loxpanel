@@ -2259,7 +2259,11 @@ class App:
                          if ui.get("grid") == "auto" else 0),
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
-            "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
+            # Normiert, denn die Datei wird beim Laden nicht sanitisiert: eine
+            # von Hand geschriebene "status:A, B" kaeme sonst roh ins Panel.
+            "panes": ({str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
+                       if isinstance(k, str) and _clean_tabpane(v)}
+                      if isinstance(ui.get("panes"), dict) else {}),
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
@@ -2882,9 +2886,12 @@ class App:
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
-        # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
+        # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
+        # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
+        # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
+        # als Teil der UUID meldete.
         if isinstance(ui.get("panes"), dict):
-            ui["panes"] = {str(k): v for k, v in ui["panes"].items()
+            ui["panes"] = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                            if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
             if not ui["panes"]:
                 ui.pop("panes", None)
@@ -3051,7 +3058,9 @@ class App:
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
-                pn = {str(k): v for k, v in ui["panes"].items()
+                # Gespeichert wird der normierte Wert (getrimmte, begrenzte
+                # Listen), nicht die Eingabe - s. _panel_export.
+                pn = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                       if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
                     cui["panes"] = pn           # Widget je Tab: Pane 2 oder Kopfzeile ("header")
@@ -8862,8 +8871,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Client meldet die Bausteine der Status-Spalte seines
                 # Screensavers (oder [] = keine). Antwort sofort, damit die
                 # Spalte beim Einblenden nicht leer bleibt.
-                _uu = tuple(str(x) for x in (data.get("uuids") or [])
-                            if isinstance(x, str))[:SV_STATUS_MAX]
+                _uu = tuple(x.strip() for x in (data.get("uuids") or [])
+                            if isinstance(x, str) and x.strip())[:SV_STATUS_MAX]
                 if _uu:
                     app.conn_status[ws] = _uu
                     try:

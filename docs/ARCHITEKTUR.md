@@ -1266,12 +1266,19 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `svStatusData` (Werte, angemeldet wie bei „Werte“ per `setsvstatus`, der
   Server schickt `{t:"svstatus"}` über `status_blocks()`), `tickClock()`
   stellt die Uhr. Was rechts nicht mehr in die Zeile passt, blendet
-  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Die Kopfzeile gibt es
-  nur als Pane eines Tabs: Widget-Seite (`_clean_widget_tab()`) und Uhr-Seite
-  (`_clean_svpane()`) nehmen sie nicht an, der Konfigurator bietet sie dort
-  nicht an. Geprüft in `tests/test_kopfzeile.py` und
-  `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″, zu
-  viele Werte, Drehen, Konfigurator).
+  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Weil sie keine Pane
+  ist, gilt sie auch mit Split „Aus“ (4″-Panel): `paneRawNow()` lässt
+  `header` an `themeSplit` vorbei, der Konfigurator zeigt das Feld „Widget je
+  Tab“ dann mit gesperrter Widget-Gruppe, der Assistent bietet für 1 Pane
+  „Kopfzeile je Tab“ an. Die Kopfzeile gibt es nur je Tab: Widget-Seite
+  (`_clean_widget_tab()`) und Uhr-Seite (`_clean_svpane()`) nehmen sie nicht
+  an, der Konfigurator bietet sie dort nicht an. `ui.panes` wird beim
+  Speichern, im Export und in `resolve_profile()` **normiert** abgelegt
+  (`"header:A, B"` → `"header:A,B"`), nicht roh; vorher hätte das Panel
+  `" B"` als UUID gemeldet. Geprüft in `tests/test_kopfzeile.py` und
+  `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″ mit
+  Split „Aus“, zu viele Werte, Drehen, Konfigurator mit und ohne Split,
+  Assistent).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;
