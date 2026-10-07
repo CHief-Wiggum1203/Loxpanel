@@ -34,6 +34,15 @@
         'Audio/energy flow/camera/history only appear here if a matching block exists.',
       'Kein passender Baustein': 'No matching block',
       'Werte': 'Values',
+      'Über den Kacheln': 'Above the tiles',
+      'Kopfzeile': 'Header row',
+      'Kopfzeile (Uhr, Wetter, Werte)': 'Header row (clock, weather, values)',
+      'Ohne Werte zeigt die Kopfzeile Uhr und Wetter.': 'Without values the header row shows clock and weather.',
+      'Mehr passt nicht in die Zeile.': 'No more fit in the row.',
+      'Kopfzeile je Tab': 'Header row per tab',
+      'Keine': 'None',
+      'Am 1-Pane-Panel gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).': 'A 1-pane panel has no widget beside the tiles, but it can have the header row above them: clock, weather and optional values (pick the values in the editor).',
+      'Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.': 'Split is off: there is no widget beside the tiles, but the header row above them is available.',
       'Audio': 'Audio',
       'Miniserver': 'Miniserver',
       '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
@@ -365,8 +374,8 @@
       'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
       'Panel einrichten': 'Set up a panel',
       // Kamera / Tuerstation
-      'Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.':
-        'Video URL (MJPEG) and login of the door station(s). Needed for the camera image in the intercom popup. The list comes from the Miniserver.',
+      'Video-URL (MJPEG) und Login der Türstation(en) für das Kamerabild. Leer lassen, dann nimmt LoxPanel die Kamera, die der Miniserver nennt (in Loxone Config am Baustein der Intercom eingetragen). Die Liste kommt aus dem Miniserver.':
+        'Video URL (MJPEG) and login of the door station(s) for the camera image. Leave empty to use the camera the Miniserver provides (set in Loxone Config at the intercom block). The list comes from the Miniserver.',
       'Speichern': 'Save',
       'Bausteintypen der Anlage anzeigen': 'Show control types of the installation',
       '(welche Typen vorkommen und welche LoxPanel noch nicht unterstützt; als JSON unter /api/types)':
@@ -393,8 +402,12 @@
       'Codecs:': 'Codecs:',
       'Methoden:': 'Methods:',
       'Gesicherte Details vom Miniserver:': 'Secured details from the Miniserver:',
-      'Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“), in den Miniserver speichern und diesen Reiter neu öffnen.':
-        'Without a SIP address there is nothing to check. In Loxone Config, enter the audio address at the block of this intercom (for a custom intercom “Host for audio (local)”), save to the Miniserver and reopen this tab.',
+      'Ohne SIP-Adresse gibt es nichts zu prüfen. Die Adresse für Audio steht in Loxone Config am Baustein der Intercom (bei einer benutzerdefinierten Intercom „Host für Audio (intern)“); nach dem Speichern in den Miniserver diesen Reiter neu öffnen. Steht sie dort und fehlt hier trotzdem, gibt der Miniserver sie für diesen Baustein nicht heraus.':
+        'Without a SIP address there is nothing to check. The audio address is set in Loxone Config at the intercom block (for a custom intercom “Host for audio (internal)”); after saving to the Miniserver, reopen this tab. If it is set there and still missing here, the Miniserver does not hand it out for this block.',
+      'Für die Loxone Intercom am Baustein Intercom beschreibt die Strukturdoku von Loxone keinen SIP-Zugang.':
+        'For the Loxone Intercom on the Intercom block, the Loxone structure file documentation describes no SIP access.',
+      'Baustein Türsteuerung': 'Door Controller block',
+      'Baustein Intercom': 'Intercom block',
       'leer': 'empty',
       // SIP: feste Meldungen des Servers (/api/sip, /api/sip/pruefen)
       'Keine Verbindung zum Miniserver': 'No connection to the Miniserver',
@@ -531,6 +544,18 @@
       'Klein (mehr Kacheln)': 'Small (more tiles)',
       'Mittel': 'Medium',
       'Groß (weniger Kacheln)': 'Large (fewer tiles)',
+      'Zielkachel (px)': 'Target tile (px)',
+      'Zielkachel: Breite einer Kachel in CSS-Pixeln, aus der das Tablet Spalten und Zeilen rechnet. Leer = Standard': 'Target tile: width of a tile in CSS pixels, from which the tablet works out columns and rows. Empty = default',
+      'die bisherigen Stufen Klein, Mittel und Groß entsprechen': 'the former steps small, medium and large correspond to',
+      'Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben) bis zum': 'If all tiles of a page fit on the screen, they grow (without a widget beside them) up to',
+      'Fachen': 'times the target',
+      'Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.': 'A device can get its own value under Displays, with a suggestion from its reported size.',
+      'Zielkachel (Automatik)': 'Target tile (automatic grid)',
+      'wie im Profil': 'as in the profile',
+      'Vorschlag': 'Suggestion',
+      'Pixeldichte': 'pixel density',
+      'übernehmen': 'apply',
+      'kein Vorschlag: das Gerät hat noch keine Größe gemeldet': 'no suggestion: the device has not reported a size yet',
       'Kachel-Layout „Automatisch“ (Tablet): Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Displays bei den Geräten.':
         'Tile grid “Automatic” (tablet): the panel works out columns and rows from its screen size itself – a larger screen shows more tiles, not larger ones. A widget takes whole tile columns, in portrait whole rows; the tiles keep their size. “Fill screen” and scaling are not needed then. What a device makes of it is shown under Displays with the devices.',
       '„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.':

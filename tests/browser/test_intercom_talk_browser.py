@@ -9,8 +9,9 @@ import asyncio
 import base64
 
 import pytest
+from aiohttp import web
 
-from lox import Miniserver, W, anlage, intercom_baustein, neue_app, visu_starten
+from lox import Miniserver, W, anlage, intercom_baustein, intercom_v2_baustein, neue_app, serve, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright, expect  # noqa: E402
@@ -47,18 +48,37 @@ PIXEL = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 
 
-async def _visu(schritt, *, bridge=TALK_JS, kamera=False, device_type=1, typ="Intercom"):
+async def _visu(schritt, *, bridge=TALK_JS, kamera=False, device_type=1, typ="Intercom", kamera_aus_ms=False):
     ms = await Miniserver().start()
     app = neue_app(ms)
-    ic, states = intercom_baustein(klingeln=())
-    ic = dict(ic, type=typ, isFavorite=True, details=dict(ic["details"], deviceType=device_type))
-    app._apply_structure(anlage({"IC": ic}))
+    app.user = ms.benutzer
+    ic, states = (intercom_v2_baustein(geraet=device_type, gesichert=True)
+                  if typ == "IntercomV2" else intercom_baustein(klingeln=()))
+    ic = dict(ic, isFavorite=True, details=dict(ic["details"], deviceType=device_type))
+    uuid = ic["uuidAction"]
+    app._apply_structure(anlage({uuid: ic}))
     app.states = states
-    app.intercom_cfg = {"IC": {"url": "http://kamera.invalid/stream"}}
-    ui = {"panes": {"favoriten": "camera:IC"}} if kamera else {"split": False}
-    app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui}})
-    runner, port, bc = await visu_starten(app)
     fehler, bilder = [], []
+    cam_runner = None
+    if kamera_aus_ms:
+        # Keine Browser-Abkuerzung: echte securedDetails und /mjpeg-Relais.
+        async def kamerabild(request):
+            assert request.headers.get("Authorization") == "Basic " + base64.b64encode(b"kamera:bild-pass").decode()
+            bilder.append(request.path)
+            return web.Response(body=PIXEL, content_type="image/png")
+
+        camera = web.Application()
+        camera.router.add_get("/stream", kamerabild)
+        cam_runner, cam_port = await serve(camera)
+        ms.gesichert = {uuid: {"videoInfo": {"streamUrl": f"http://127.0.0.1:{cam_port}/stream",
+                                           "user": "kamera", "pass": "bild-pass"},
+                                "audioInfo": {"host": "192.0.2.20", "user": "tuer", "pass": "sip-pass"}}}
+        app.intercom_cfg = {}
+    else:
+        app.intercom_cfg = {uuid: {"url": "http://kamera.invalid/stream"}}
+    ui = {"panes": {"favoriten": f"camera:{uuid}"}} if kamera else {"split": False}
+    app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui}})
+    runner, port, bc = await visu_starten(app, [("GET", "/mjpeg", W.mjpeg_handler)] if kamera_aus_ms else ())
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch()
@@ -72,24 +92,27 @@ async def _visu(schritt, *, bridge=TALK_JS, kamera=False, device_type=1, typ="In
                 bilder.append(route.request.url)
                 await route.fulfill(status=200, content_type="image/png", body=PIXEL)
 
-            await pg.route("**/mjpeg?*", bild)
+            if not kamera_aus_ms:
+                await pg.route("**/mjpeg?*", bild)
             await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
             await pg.wait_for_function("booted && view && view.route.view === 'tab'")
             await pg.evaluate("wake()")
-            await expect(pg.locator(".tile", has_text="Eingang Intercom")).to_be_visible()
+            await expect(pg.locator(".tile", has_text=ic["name"])).to_be_visible()
             await schritt(pg, ms, app, bilder)
             await b.close()
     finally:
         bc.cancel()
         await runner.cleanup()
-        await app.icon_session.close()
+        await app.close()
         await ms.stop()
+        if cam_runner is not None:
+            await cam_runner.cleanup()
     assert not fehler, fehler
 
 
-async def _detail(pg):
-    await pg.locator(".tile", has_text="Eingang Intercom").click()
-    await pg.wait_for_function("view && view.route.view === 'control' && view.route.id === 'IC'")
+async def _detail(pg, uuid="IC", name="Eingang Intercom"):
+    await pg.locator(".tile", has_text=name).click()
+    await pg.wait_for_function("uuid => view && view.route.view === 'control' && view.route.id === uuid", arg=uuid)
 
 
 async def _zustand(pg, talk, state, text, uuid="IC", message=""):
@@ -182,21 +205,59 @@ def test_aktive_andere_tuerstation_blockiert_start(miniserver_http):
     asyncio.run(_visu(schritt))
 
 
-def test_gen2_hat_auch_mit_nativer_bruecke_keine_sprechbedienung(miniserver_http):
+@pytest.mark.parametrize("device_type", [0, 1])
+def test_gen2_hat_auch_mit_nativer_bruecke_keine_sprechbedienung(device_type, miniserver_http):
     async def schritt(pg, ms, app, bilder):
-        # Der bisher nicht unterstuetzte Gen2-Baustein hat keinen Kachel-Link;
-        # die echte Detailroute bleibt auch direkt ohne nativen Sprechblock.
-        await pg.evaluate("nav({view:'control', id:'IC'})")
-        await pg.wait_for_function("view && view.route.view === 'control' && view.route.id === 'IC'")
-        assert await pg.locator(".intercom-talk").count() == 0
-        assert await pg.get_by_role("button", name="Sprechen", exact=True).count() == 0
-        assert await pg.evaluate("__talkCalls") == []
-        assert await pg.evaluate("__talkPolls") == 0
-        assert ms.io_roh == []
-    asyncio.run(_visu(schritt, typ="IntercomV2", kamera=True))
+        async def ohne_audio():
+            assert await pg.locator(".intercom-talk").count() == 0
+            assert await pg.get_by_role("button", name="Sprechen", exact=True).count() == 0
+            assert await pg.evaluate("__talkCalls") == []
+            assert await pg.evaluate("__talkPolls") == 0
+
+        # Die echte Gen-2-Kachel, Kamera-Pane und Befehle aus PR #110 bleiben.
+        await expect(pg.locator("#frontpane .video img")).to_be_visible()
+        await pg.wait_for_function("document.querySelector('#frontpane .video img').naturalWidth > 0")
+        await pg.evaluate("window.__gen2PaneVideo = document.querySelector('#frontpane .video img')")
+        await ohne_audio()
+        await pg.locator("#frontpane .brow .btn", has_text="Tür öffnen").click()
+        assert await _befehle(ms, 1) == ["sps/io/IC2V/1/pulse"]
+        await _detail(pg, "IC2V", "Haustür Intercom")
+        await expect(pg.locator("#grid .video img")).to_be_visible()
+        await pg.wait_for_function("document.querySelector('#grid .video img').naturalWidth > 0")
+        await pg.evaluate("window.__gen2DetailVideo = document.querySelector('#grid .video img')")
+        bildabrufe = len(bilder)
+        assert bildabrufe >= 1
+        await ohne_audio()
+        await pg.locator("#grid .brow .btn", has_text="Bitte das Paket").click()
+        assert (await _befehle(ms, 2))[1] == "sps/io/IC2V/playTts/1"
+        stumm = pg.locator("#grid .brow .btn", has_text="Stumm")
+        await stumm.click()
+        assert (await _befehle(ms, 3))[2] == "sps/io/IC2V/mute/1"
+        app.states["ic2-muted"] = 1
+        app._dirty = True
+        await expect(stumm).to_have_class("btn on")
+        await stumm.click()
+        assert (await _befehle(ms, 4))[3] == "sps/io/IC2V/mute/0"
+        assert await pg.evaluate("document.querySelector('#grid .video img') === window.__gen2DetailVideo")
+        bildquelle = await pg.locator("#grid .video img").get_attribute("src")
+        app.states["ic2-bell"] = 1
+        app._dirty = True
+        await expect(pg.locator("#frontpane .cambell")).to_have_text("Es klingelt")
+        await pg.locator("#grid .brow .btn", has_text="Klingel abstellen").click()
+        assert await _befehle(ms, 5) == ["sps/io/IC2V/1/pulse", "sps/io/IC2V/playTts/1",
+                                       "sps/io/IC2V/mute/1", "sps/io/IC2V/mute/0", "sps/io/IC2V/answer"]
+        await ohne_audio()
+        assert await pg.evaluate("document.querySelector('#frontpane .video img') === window.__gen2PaneVideo")
+        # Der neue Klingelblock baut die Detailseite wie vor Gegensprechen neu.
+        await expect(pg.locator("#grid .video img")).to_be_visible()
+        assert await pg.locator("#grid .video img").get_attribute("src") == bildquelle
+        # Chromium kann dieselbe Bildadresse fuer beide Knoten gemeinsam laden.
+        assert len(bilder) == bildabrufe, "Gen-2-Zustandsaenderungen erhalten Kamera-Pane und Detailbild"
+    asyncio.run(_visu(schritt, typ="IntercomV2", device_type=device_type, kamera=True))
 
 
-def test_kamera_status_und_buttons_erhalten_bildknoten(miniserver_http, tmp_path):
+@pytest.mark.parametrize("kamera_aus_ms", [False, True], ids=["cfg-kamera", "miniserver-kamera"])
+def test_kamera_status_und_buttons_erhalten_bildknoten(kamera_aus_ms, miniserver_http, tmp_path):
     async def schritt(pg, ms, app, bilder):
         talk = pg.locator('#frontpane .intercom-talk[data-intercom="IC"]')
         await expect(talk.get_by_role("button", name="Sprechen", exact=True)).to_be_enabled()
@@ -204,6 +265,10 @@ def test_kamera_status_und_buttons_erhalten_bildknoten(miniserver_http, tmp_path
         await pg.evaluate("window.__talkVideo = document.querySelector('#frontpane .video img')")
         bild_url = await pg.locator("#frontpane .video img").get_attribute("src")
         assert len(bilder) == 1
+        if kamera_aus_ms:
+            assert app.intercom_cfg == {}
+            assert app.ms_video["IC"]["user"] == "kamera"
+            assert len(ms.fenc) == 1, "Kamera wurde ueber die echten gesicherten Details geladen"
 
         async def bild_unveraendert():
             assert await pg.evaluate("document.querySelector('#frontpane .video img') === window.__talkVideo")
@@ -224,7 +289,7 @@ def test_kamera_status_und_buttons_erhalten_bildknoten(miniserver_http, tmp_path
         await pg.locator("#frontpane .brow .btn", has_text="Tür öffnen").click()
         assert await _befehle(ms, 1) == ["sps/io/IC/1/pulse"]
         await bild_unveraendert()
-        await pg.screenshot(path=str(tmp_path / "intercom_talk_kamera.png"))
+        await pg.screenshot(path=str(tmp_path / f"intercom_talk_kamera_{kamera_aus_ms}.png"))
 
         await talk.get_by_role("button", name="Auflegen", exact=True).click()
         await expect(talk.locator(".intercom-talk-status")).to_have_text("Gespräch wird beendet …")
@@ -233,7 +298,9 @@ def test_kamera_status_und_buttons_erhalten_bildknoten(miniserver_http, tmp_path
         await bild_unveraendert()
         assert await pg.evaluate("__talkCalls") == [["start", "IC"], ["stop"]]
         assert await pg.evaluate("__talkPolls") >= 3
-    asyncio.run(_visu(schritt, kamera=True))
+        if kamera_aus_ms:
+            assert len(ms.fenc) == 1, "Nativer Status laedt die Kamerazugangsdaten nicht erneut"
+    asyncio.run(_visu(schritt, kamera=True, kamera_aus_ms=kamera_aus_ms))
 
 
 def test_spaet_freigegebene_bruecke_erhaelt_beide_kamerabilder(miniserver_http):

@@ -5,7 +5,7 @@ import aiohttp
 from aiohttp import web
 import pytest
 
-from lox import Miniserver, W, anlage, intercom_baustein, neue_app, serve
+from lox import Miniserver, W, anlage, intercom_baustein, intercom_v2_baustein, neue_app, serve
 from intercom_talk import IntercomTalk, TalkBusy
 
 SESSION = "12345678-1234-1234-1234-123456789012"
@@ -123,11 +123,12 @@ def test_native_api_mit_gesicherten_details(miniserver_http, monkeypatch):
 
     async def run():
         ms = await Miniserver().start()
-        ms.gesichert = {"IC": {"audioInfo": SIP.copy()}}
+        ms.gesichert = {"IC": {"audioInfo": SIP.copy()}, "IC2V": {"audioInfo": SIP.copy()}}
         app = neue_app(ms)
         app.user = ms.benutzer
         ic, _ = intercom_baustein()
-        app._apply_structure(anlage({"IC": ic, "V2": dict(ic, type="IntercomV2")}))
+        v2, _ = intercom_v2_baustein(gesichert=True)
+        app._apply_structure(anlage({"IC": ic, "IC2V": v2}))
         app.intercom_talk.factory = AudioCall
         ui = web.Application()
         ui["app"] = app
@@ -144,9 +145,10 @@ def test_native_api_mit_gesicherten_details(miniserver_http, monkeypatch):
                     assert r.status == 403
                 async with client.post(base + "start", json=body, headers={"X-LoxPanel-Intercom": "wrong"}) as r:
                     assert r.status == 403
-                for changes in ({"uuid": "V2"}, {"rtpPort": True}, {"rtpPort": 506}, {"session": "short"}):
+                for changes in ({"uuid": "IC2V"}, {"rtpPort": True}, {"rtpPort": 506}, {"session": "short"}):
                     async with client.post(base + "start", json={**body, **changes}, headers=headers) as r:
                         assert r.status == 400
+                assert ms.fenc == [], "Gen-2 wird vor dem Lesen seiner SIP-Daten abgelehnt"
                 async with client.post(base + "start", json=body, headers=headers) as r:
                     assert r.status == 200
                     assert (await r.json())["state"] == "connecting"
@@ -175,17 +177,89 @@ def test_native_api_mit_gesicherten_details(miniserver_http, monkeypatch):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("secured, audio", [
+    (False, SIP),
+    (True, None),
+    (True, {}),
+    (True, {"user": "tuer", "pass": SIP["pass"]}),
+    (True, "unbrauchbar"),
+], ids=["ohne-kennzeichen", "ohne-audioInfo", "leeres-audioInfo", "ohne-sip-host", "falscher-audioInfo-typ"])
+def test_native_api_ohne_sip_hat_keinen_kamera_fallback(secured, audio, miniserver_http, monkeypatch):
+    """Die Kameradaten von PR #110 werden niemals als Audioziel verwendet."""
+    monkeypatch.setenv("LOXPANEL_INTERCOM_TOKEN", TOKEN)
+
+    async def run():
+        ms = await Miniserver().start()
+        details = {"videoInfo": {"streamUrl": "http://192.0.2.29/video", "user": "kamera", "pass": "bild-pass"}}
+        if audio is not None:
+            details["audioInfo"] = audio
+        ms.gesichert = {"IC": details}
+        app = neue_app(ms)
+        app.user = ms.benutzer
+        ic, _ = intercom_baustein()
+        if not secured:
+            del ic["securedDetails"]
+        app._apply_structure(anlage({"IC": ic}))
+        app.intercom_cfg = {"IC": {"url": "http://192.0.2.30/eigene-kamera", "user": "eigene", "pass": "eigener-pass"}}
+        created = []
+
+        def factory(*args):
+            created.append(args)
+            return AudioCall(*args)
+
+        app.intercom_talk.factory = factory
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_post("/api/intercom/talk/start", W.api_intercom_talk_start)
+        ui.router.add_get("/api/intercom/talk/status", W.api_intercom_talk_status)
+        runner, port = await serve(ui)
+        base = f"http://127.0.0.1:{port}/api/intercom/talk/"
+        headers = {"X-LoxPanel-Intercom": TOKEN}
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.post(base + "start", json={"session": SESSION, "uuid": "IC", "rtpPort": 12345},
+                                       headers=headers) as r:
+                    assert r.status == 200
+                    assert (await r.json())["state"] == "connecting"
+                await _until(lambda: app.intercom_talk.state == "error")
+                async with client.get(base + "status", params={"session": SESSION}, headers=headers) as r:
+                    assert r.status == 200
+                    data = await r.json()
+                assert data["state"] == "error"
+                assert data["message"] == (W.KEIN_SIP if secured else "Der Baustein hat keine gesicherten Details")
+                assert "media" not in data
+                assert all(secret not in str(data) for secret in (SIP["pass"], "bild-pass", "eigener-pass"))
+                assert created == [] and app.intercom_talk.call is None
+                assert len(ms.fenc) == int(secured)
+                assert ms.io == [], "Audiofehler duerfen keine Tuer- oder Klingelbefehle ausloesen"
+        finally:
+            await runner.cleanup()
+            await app.close()
+            await ms.stop()
+    asyncio.run(run())
+
+
 def test_native_block_gen1_und_ausgaenge_unveraendert():
     app = W.App({"host": ""})
     ic, states = intercom_baustein(bell=1)
     ic["details"]["deviceType"] = 0
-    app._apply_structure(anlage({"IC": ic, "V2": dict(ic, type="IntercomV2")}))
-    app.states = states
+    v2, v2_states = intercom_v2_baustein(gesichert=True, bell=1)
+    app._apply_structure(anlage({"IC": ic, "IC2V": v2}))
+    app.states = {**states, **v2_states}
     detail = app.render({"view": "control", "id": "IC"})["blocks"]
     assert {"k": "intercom-talk", "uuid": "IC", "nativeOnly": True} in detail
     rows = [b for b in detail if b["k"] == "row"]
     assert rows[0]["cells"] == [{"label": "Tür öffnen", "cmd": {"uuid": "IC/1", "cmd": "pulse"}}]
     assert rows[1]["cells"][0]["cmd"] == {"uuid": "IC", "cmd": "answer"}
-    assert app.intercom_blocks("V2") is None
-    assert not any(b["k"] == "intercom-talk" for b in
-                   app.render({"view": "control", "id": "V2"}).get("blocks", []))
+    assert {"k": "intercom-talk", "uuid": "IC", "nativeOnly": True} in app.intercom_blocks("IC")
+    v2_pane = app.intercom_blocks("IC2V")
+    assert v2_pane is not None, "Gen-2-Kamera-Panes aus PR #110 bleiben unterstuetzt"
+    assert {"k": "video", "src": "/mjpeg?id=IC2V"} in v2_pane
+    assert {"label": "Tür öffnen", "cmd": {"uuid": "IC2V/1", "cmd": "pulse"}} in next(
+        b["cells"] for b in v2_pane if b["k"] == "row")
+    v2_detail = app.render({"view": "control", "id": "IC2V"})["blocks"]
+    assert not any(b["k"] == "intercom-talk" for b in v2_pane + v2_detail)
+    commands = [cell["cmd"] for b in v2_detail if b["k"] == "row" for cell in b["cells"] if "cmd" in cell]
+    assert {"uuid": "IC2V", "cmd": "playTts/1"} in commands
+    assert {"uuid": "IC2V", "cmd": "mute/1"} in commands
+    assert {"uuid": "IC2V", "cmd": "answer"} in commands

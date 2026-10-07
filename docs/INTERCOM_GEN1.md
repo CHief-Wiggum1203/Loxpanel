@@ -1,9 +1,12 @@
 # Gegensprechen: Loxone Intercom Gen-1
 
-Implementierungsstand auf `feature/intercom-gen1-talk`, ausgehend von
-`main` bei `227c44206f5ba1e3555abbd08d5b4af60eed506d`. Der Branch wird nicht
-nach `main` gemergt. Die Implementierung ist automatisiert prüfbar; eine
-Freigabe für echte Hardware setzt die unten genannten Gerätetests voraus.
+Implementierungsstand auf `feature/intercom-gen1-talk`: Das ursprüngliche
+Gen-1-Feature geht von `main` bei `227c442` aus. Im Integrationsstand sind
+der aktualisierte PR #110 und dessen `main`-Stand `fa100a7`
+übernommen. Damit kommen Kamera vom Miniserver und die weitere
+`IntercomV2`-Bedienung hinzu. Es wird nichts nach `main` gemergt.
+Die Implementierung ist automatisiert prüfbar; eine Freigabe für echte
+Hardware setzt die unten genannten Gerätetests voraus.
 
 ## Umfang und Voraussetzungen
 
@@ -11,7 +14,8 @@ Gegensprechen gibt es ausschließlich in der nativen LoxPanel-App für Android.
 Unterstützt wird der Gen-1-Baustein „Door Controller“, Typ `Intercom`.
 `deviceType` beschreibt die Türstationsvariante und ist keine zuverlässige
 Generationskennung: eine echte Gen-1 kann `0` melden. `IntercomV2` (Gen-2)
-bleibt ausgeschlossen.
+ist vom Gegensprechen ausgeschlossen; Kamera, Klingel, Tür, Antworten und
+Stummschaltung aus PR #110 bleiben erhalten.
 
 Der konfigurierte Miniserver muss in `securedDetails.audioInfo` einen SIP-Host
 liefern. LoxPanel verwendet dafür unverändert `App.intercom_sip()`; Host,
@@ -97,9 +101,16 @@ ersetzt keinen Mikrofon- oder Türstationstest.
 
 ## Notwendige Hardwaretests und offene Punkte
 
-1. **SIP-Zugang:** echte Gen-1 und Miniserverversion dokumentieren; AudioInfo
-   unter Settings → SIP prüfen. Die früher getestete Anlage lieferte keinen
-   SIP-Host. Dort zuerst die Konfiguration des Audiomoduls klären.
+1. **SIP-Zugang:** echte Gen-1 und Miniserverversion dokumentieren;
+   `audioInfo` unter Settings → SIP prüfen. Bei der am 03. und 04.10.2026
+   getesteten „Eingang Intercom“ (`Intercom`, `deviceType` 0) sind Audio-Host,
+   Benutzer und SIP-Passwort bereits in Loxone Config eingetragen. Trotzdem
+   liefern ihre gesicherten Details nur `videoInfo`, kein `audioInfo`.
+   Klären, ob und wie die Loxone-App mit dieser Einrichtung sprechen kann
+   und woher sie den Audio-Zugang erhält. Die fehlende Quelle bleibt offen;
+   erneutes Konfigurieren ist keine belegte Lösung. Ohne SIP-Host kann dieser
+   Client keinen Anruf aufbauen; aus der UniFi-Kameraadresse wird kein
+   Audio-Ziel abgeleitet.
 2. **Verbindung:** direkte SIP-URI, anonymer und gegebenenfalls authentifizierter
    INVITE; PCMA und PCMU je separat; SIP-Contact, SDP-Adresse und ausgehandelte
    RTP-Ports auf echter Firmware prüfen. Mit Paketmitschnitt bestätigen, dass
@@ -125,11 +136,15 @@ ersetzt keinen Mikrofon- oder Türstationstest.
    adaptiver Jitterbuffer und Paketverlustausgleich sind nicht implementiert.
    Audioqualität unter schlechten Netzbedingungen bleibt zu messen.
 
-Nicht behauptet wird eine bereits erfolgte Hardwarefreigabe. Weitere SIP-
-Funktionen und Gen-2 bleiben außerhalb dieses Branches.
+Eine Hardwarefreigabe steht noch aus. Weitere SIP-Funktionen und
+Gen-2-Gegensprechen gehören nicht zum Umfang dieses Features.
 
 
-## Prüfergebnis (05.10.2026)
+## Prüfergebnis des ursprünglichen Gen-1-Standes (05.10.2026)
+
+Die folgenden Ergebnisse gelten für das ursprüngliche Gen-1-Feature vor der
+Integration von PR #110 und dem neueren `main`. Die Ergebnisse des
+zusammengeführten Standes stehen im folgenden Abschnitt.
 
 - Python-Gesamtlauf: **735 bestanden**, 219 Browserfälle abgewählt.
   Darunter alle SIP-UDP-, SDP- und Sitzungs-/Miniserver-Integrationstests.
@@ -153,3 +168,34 @@ Funktionen und Gen-2 bleiben außerhalb dieses Branches.
 Es war keine echte Intercom und kein Android-Gerät angeschlossen.
 Mikrofon, Lautsprecher, Echo-Unterdrückung und Gen-1-Firmware-Kompatibilität
 sind daher weiterhin gemäß Hardware-Prüfliste abzunehmen.
+
+## Prüfergebnis des integrierten Standes
+
+- Aktualisierter PR #110 gegen `main`/`fa100a7`: **780 Python-Tests bestanden**;
+  die **3 betroffenen Browserfälle** für SIP, Intercom und IntercomV2 bestanden.
+- Integriertes Gegensprechen: **828 Python-Tests bestanden**, **14 native
+  Intercom-Browserfälle bestanden** und **5 bestehende Kiosk-/Präsenzfälle
+  bestanden**. Gen-2 erhält keine Sprechen-Taste und fragt keinen nativen
+  Gesprächsstatus ab. Kamera aus `securedDetails.videoInfo` läuft durch das
+  echte MJPEG-Relais; Gesprächsstatus und Auflegen erhalten die Bildknoten.
+- Android: **48 JUnit-Tests bestanden**, Kotlin kompiliert und Debug-APK
+  erfolgreich gebaut, mit synchronisierten Server-/Frontend-Assets.
+- Python-Syntax, Ruff F/E9, Workflow-YAML, Manifest/Unraid-XML und
+  `git diff --check` bestehen.
+- Der vollständige Browserlauf vor den letzten Integrationskorrekturen hatte
+  **239 bestandene und 11 fehlgeschlagene Fälle**. Der Sprechfall wurde
+  anschließend korrigiert und in der vollständigen 14-Fälle-Intercom-Suite
+  geprüft. Die übrigen **10 Layoutfälle scheitern auch am unveränderten
+  `main`/`fa100a7`**: zwei Kachelaufbau-, drei Kachelfaktor-, drei Wetterhöhen-
+  und zwei Uhr-/Verlaufsfälle. Ein grüner Gesamtbrowserlauf wird deshalb
+  weiterhin nicht behauptet.
+
+Der vorhandene Stiltest für Verlaufs-Kacheln verwendet jetzt einen festen
+Zeitpunkt mitten im Monat; seine Verbrauchs-Assertions sind unverändert.
+Am Monatswechsel kann ein fehlender vorheriger Zählerstand die erste Stunde
+verkürzen. Dieser bestehende Statistik-Grenzfall wurde nicht am Produktcode
+verändert und bleibt außerhalb der Intercom-Integration offen.
+
+Nach der Zusammenführung weiterhin an echten Geräten prüfen: gesicherter
+SIP-Zugang, Gen-1-Firmware, AudioRecord/AudioTrack, Routing, Echo, Standby und
+WLAN-Verluste. Gen-2-Gegensprechen bleibt ausgeschlossen.

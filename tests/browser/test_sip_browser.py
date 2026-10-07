@@ -1,14 +1,16 @@
-"""Reiter SIP im Konfigurator (Chromium): die Intercoms mit dem SIP-Zugang aus
-den gesicherten Details, ohne Passwort in der Seite, und "Verbindung prüfen"
-gegen die nachgebaute Tuerstation - angenommen, abgelehnt, auf Englisch. Fehlt
-der SIP-Zugang, zeigt die Karte den Aufbau der gesicherten Details ohne Werte.
-Miniserver (Command Encryption) und Tuerstation aus tests/lox.py."""
+"""Reiter SIP im Konfigurator (Chromium): die Intercoms (Tuersteuerung und
+Baustein Intercom) mit dem SIP-Zugang aus den gesicherten Details, ohne
+Passwort in der Seite, und "Verbindung prüfen" gegen die nachgebaute
+Tuerstation - angenommen, abgelehnt, auf Englisch. Fehlt der SIP-Zugang, zeigt
+die Karte den Aufbau der gesicherten Details ohne Werte und sagt, wo er
+hingehoert. Miniserver (Command Encryption) und Tuerstation aus tests/lox.py."""
 import asyncio
 
 import pytest
 from aiohttp import web
 
-from lox import KONFIGURATOR_GELADEN, Miniserver, SipTuer, W, anlage, intercom_baustein, neue_app, serve
+from lox import (KONFIGURATOR_GELADEN, Miniserver, SipTuer, W, anlage, intercom_baustein, intercom_v2_baustein,
+                 neue_app, serve)
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -26,7 +28,9 @@ def _bausteine() -> dict:
     # andere Tuerstation, Name mit HTML-Zeichen: muss als Text erscheinen
     garten = dict(ic, name="Garten & <Tor>", uuidAction="IC2", room="r2", details=dict(ic["details"], deviceType=0))
     keller = dict(ic, name="Keller Intercom", uuidAction="IC3", room="r2", details=dict(ic["details"], deviceType=2))
-    return {"IC": ic, "IC2": garten, "IC3": keller,
+    # Loxone Intercom am Baustein Intercom: ohne gesicherte Details, keine Anfrage
+    v2, _ = intercom_v2_baustein()
+    return {"IC": ic, "IC2": garten, "IC3": keller, "IC2V": dict(v2, room="r2"),
             "S1": {"name": "Licht", "type": "Switch", "uuidAction": "S1", "room": "r1", "cat": "c1",
                    "states": {"active": "s1"}}}
 
@@ -78,7 +82,7 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
                 await pg.locator(".rub", has_text="Settings").click()
                 assert ms.fenc == [], "der Reiter laedt erst, wenn er offen ist"
                 await pg.locator(".stab", has_text="SIP").click()
-                await pg.wait_for_function("document.querySelectorAll('#sip_list .sip').length === 3")
+                await pg.wait_for_function("document.querySelectorAll('#sip_list .sip').length === 4")
                 res["karten"] = await _karten(pg)
                 res["abrufe_laden"] = len(ms.fenc)
                 inhalt = await pg.content()
@@ -98,7 +102,7 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator(".rub", has_text="Settings").click()
                 await pg.locator(".stab", has_text="SIP").click()
-                await pg.wait_for_function("document.querySelectorAll('#sip_list .sip').length === 3")
+                await pg.wait_for_function("document.querySelectorAll('#sip_list .sip').length === 4")
                 res["en_karten"] = await _karten(pg)
                 res["en_knopf"] = await pg.locator("#sip_list .sip_pruefen").first.inner_text()
                 res["en_angenommen"] = await _pruefen(pg)
@@ -114,20 +118,27 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
         return res
     res = asyncio.run(lauf())
 
+    hinweis = ("Ohne SIP-Adresse gibt es nichts zu prüfen. Die Adresse für Audio steht in Loxone Config am Baustein"
+               " der Intercom (bei einer benutzerdefinierten Intercom „Host für Audio (intern)“); nach dem Speichern"
+               " in den Miniserver diesen Reiter neu öffnen. Steht sie dort und fehlt hier trotzdem, gibt der"
+               " Miniserver sie für diesen Baustein nicht heraus.")
     assert res["karten"] == [
-        {"uuid": "IC", "name": "Eingang Intercom", "info": "Zentral · Loxone Intercom",
+        {"uuid": "IC", "name": "Eingang Intercom", "info": "Zentral · Loxone Intercom · Baustein Türsteuerung",
          "zugang": [f"127.0.0.1:{res['port']}", "tuer", "vorhanden"], "knopf": True, "fehler": "", "diag": "",
          "hinweis": ""},
-        {"uuid": "IC2", "name": "Garten & <Tor>", "info": "Technikraum · Andere oder unbekannte Türstation",
+        {"uuid": "IC2", "name": "Garten & <Tor>",
+         "info": "Technikraum · Andere oder unbekannte Türstation · Baustein Türsteuerung",
          "zugang": ["10.0.0.9", "–", "keins"], "knopf": True, "fehler": "", "diag": "", "hinweis": ""},
-        {"uuid": "IC3", "name": "Keller Intercom", "info": "Technikraum · Loxone Intercom XL",
+        {"uuid": "IC2V", "name": "Haustür Intercom", "info": "Technikraum · Loxone Intercom · Baustein Intercom",
+         "zugang": [], "knopf": False, "fehler": "Der Baustein hat keine gesicherten Details", "diag": "",
+         "hinweis": "Für die Loxone Intercom am Baustein Intercom beschreibt die Strukturdoku von Loxone keinen"
+                    " SIP-Zugang."},
+        {"uuid": "IC3", "name": "Keller Intercom", "info": "Technikraum · Loxone Intercom XL · Baustein Türsteuerung",
          "zugang": [], "knopf": False, "fehler": "Die Intercom nennt keinen SIP-Zugang",
          "diag": "Gesicherte Details vom Miniserver: videoInfo: streamUrl, user, pass, alertImage (leer)"
                  " · audioInfo: leer",
-         "hinweis": "Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die"
-                    " Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“),"
-                    " in den Miniserver speichern und diesen Reiter neu öffnen."}]
-    assert res["abrufe_laden"] == 3, "je Intercom eine verschluesselte Anfrage, nur einmal geladen"
+         "hinweis": hinweis}]
+    assert res["abrufe_laden"] == 3, "je Intercom mit gesicherten Details eine verschluesselte Anfrage, einmal"
     assert res["seite_mit_werten"] == [], "weder Passwoerter noch Werte aus den gesicherten Details"
     assert res["abrufe_doppelt"] == 3, "zwei Aufrufe zugleich laden nur einmal"
     klasse, text = res["angenommen"]
@@ -138,14 +149,17 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
     assert res["anfragen"] == 2, "OPTIONS, dann mit Anmeldung"
     klasse, text = res["abgelehnt"]
     assert klasse == "bad" and text.startswith("Die Türstation lehnt die Anmeldung ab.") and "403 Forbidden" in text
-    assert [k["info"] for k in res["en_karten"]] == ["Zentral · Loxone Intercom",
-                                                     "Technikraum · Other or unknown door station",
-                                                     "Technikraum · Loxone Intercom XL"]
+    assert [k["info"] for k in res["en_karten"]] == ["Zentral · Loxone Intercom · Door Controller block",
+                                                     "Technikraum · Other or unknown door station · Door Controller block",
+                                                     "Technikraum · Loxone Intercom · Intercom block",
+                                                     "Technikraum · Loxone Intercom XL · Door Controller block"]
     assert [k["zugang"][2] for k in res["en_karten"][:2]] == ["present", "none"]
-    assert res["en_karten"][2]["fehler"] == "The intercom provides no SIP access"
-    assert res["en_karten"][2]["diag"] == ("Secured details from the Miniserver: videoInfo: streamUrl, user, pass,"
+    assert [k["fehler"] for k in res["en_karten"][2:]] == ["The block has no secured details",
+                                                           "The intercom provides no SIP access"]
+    assert res["en_karten"][3]["diag"] == ("Secured details from the Miniserver: videoInfo: streamUrl, user, pass,"
                                            " alertImage (empty) · audioInfo: empty")
-    assert res["en_karten"][2]["hinweis"].startswith("Without a SIP address there is nothing to check.")
+    assert res["en_karten"][2]["hinweis"].startswith("For the Loxone Intercom on the Intercom block,")
+    assert res["en_karten"][3]["hinweis"].startswith("Without a SIP address there is nothing to check.")
     assert [k["hinweis"] for k in res["en_karten"][:2]] == ["", ""]
     assert res["en_knopf"] == "Check connection"
     assert res["en_angenommen"][1].startswith("✓ The door station answers and accepts the login.")

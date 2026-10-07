@@ -934,14 +934,44 @@ def intercom_baustein(klingeln=KLINGELN, bilder=True, **werte) -> tuple[dict, di
     """Tuersprechstelle (Intercom, "Door Controller"): Klingel bell, verpasste
     Klingeln lastBellEvents; mit details.lastBellEventImages liefert der
     Miniserver je Klingel ein Bild (camimage). Ausgaenge sind
-    Pushbutton-Subcontrols (pulse)."""
+    Pushbutton-Subcontrols (pulse). Kamera und SIP-Zugang stehen seit 8.1 in
+    den gesicherten Details, darum das Kennzeichen securedDetails."""
     names = ("bell", "jLocked", "lastBellEvents", "lastBellTimestamp")
     states = {n: f"ic-{n}" for n in names}
     control = {"name": "Eingang Intercom", "type": "Intercom", "uuidAction": "IC", "room": "r1", "cat": "c1",
+               "securedDetails": True,
                "details": {"deviceType": 1, "videoInfo": {}, "audioInfo": {}, "lastBellEventImages": bilder,
                            "showBellImage": False, "jLockable": True},
                "states": states,
                "subControls": {"IC/1": {"name": "Tür öffnen", "type": "Pushbutton", "uuidAction": "IC/1",
                                         "states": {"active": "ic-o1"}}}}
     w = {"bell": 0, "jLocked": "", "lastBellEvents": "|".join(klingeln), "lastBellTimestamp": "", **werte}
+    return control, {states[n]: w[n] for n in names}
+
+
+ANTWORTEN = ("Bin gleich da", "Bitte das Paket vor die Tür legen", "")
+
+
+def intercom_v2_baustein(geraet=1, gesichert=False, antworten=ANTWORTEN, **werte) -> tuple[dict, dict]:
+    """Neue Intercom (IntercomV2, in Loxone Config der Baustein "Intercom") laut
+    Strukturdoku 17.0: Klingel bell, Antworten answers (Liste als JSON-Text,
+    playTts/{idx} spielt eine ab), muted und mute/{0/1}, Geraetezustand
+    deviceState (0 StateUnknown, 1 StateOk, 2 StateRebooting, 3
+    StateInitializing), Ausgaenge als Pushbutton-Subcontrols. deviceType 1 ist
+    die Loxone Intercom, 0 eine andere. Gesicherte Details nennt die Doku fuer
+    den Typ nicht, darum das Kennzeichen nur mit gesichert."""
+    names = ("bell", "address", "answers", "muted", "deviceState", "videoSettingsIntern", "videoSettingsExtern")
+    states = {n: f"ic2-{n}" for n in names}
+    control = {"name": "Haustür Intercom", "type": "IntercomV2", "uuidAction": "IC2V", "room": "r1", "cat": "c1",
+               "details": {"deviceType": geraet, "serialNo": "504F94FF1A2B", "deviceName": "Intercom Haustür",
+                           "deviceUuid": "1a2b3c4d-0123-4567-ffffeeeeddddcccc",
+                           "optionsFramerate": [{"id": 5, "name": "5 fps"}, {"id": 10, "name": "10 fps"}],
+                           "optionsResolution": [{"id": 480, "name": "480p"}, {"id": 720, "name": "720p"}]},
+               "states": states,
+               "subControls": {"IC2V/1": {"name": "Tür öffnen", "type": "Pushbutton", "uuidAction": "IC2V/1",
+                                          "states": {"active": "ic2-o1"}}}}
+    if gesichert:
+        control["securedDetails"] = True
+    w = {"bell": 0, "address": "192.168.1.98", "answers": json.dumps(list(antworten), ensure_ascii=False),
+         "muted": 0, "deviceState": 1, "videoSettingsIntern": 0, "videoSettingsExtern": 0, **werte}
     return control, {states[n]: w[n] for n in names}

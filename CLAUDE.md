@@ -75,6 +75,12 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   werten `Path(__file__)` erst beim Aufruf aus) nach `tmp_path` um.
 - Tests, die von der Uhrzeit abhängen, erzeugen Aufzeichnungen je Monat
   (`monatsdateien()`), sonst scheitern sie am Monatsanfang.
+- Browser-Tests, die Text messen (Umbruch, Abschneiden, freie Höhe), hängen
+  an der Schrift: Die Visu nimmt `Inter`, wenn es installiert ist, die CI
+  (ubuntu-latest) hat es nicht und rendert mit DejaVu Sans, das breiter läuft.
+  Wo eine Zeile genau umbricht, darf ein Test deshalb nicht hart vorgeben,
+  sondern misst es (`test_mini_verlauf_im_neuen_aufbau`) oder vergleicht mit
+  und ohne Faktor (`test_lesbarkeit_auf_standardgeraeten`).
 
 ## Konventionen und Stolperfallen
 
