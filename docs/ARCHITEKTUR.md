@@ -295,7 +295,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -861,8 +861,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
         "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
-        "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
-                                             // fehlt = mittel (KACHEL_ZIEL)
+        "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
+                                             // bis KACHEL_ZIEL_MAX); fehlt = KACHEL_ZIEL_STANDARD; die alten
+                                             // Stufen "small" | "medium" | "large" werden gelesen
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
@@ -874,7 +875,11 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // "chart:<uuid>,…" (Verlauf eines oder mehrerer
                                              // Bausteine mit Aufzeichnung, untereinander) |
                                              // "status:<uuid>,…" (frei gewählte
-                                             // Werte); fehlt = Screen füllen
+                                             // Werte) | "header" bzw. "header:<uuid>,…"
+                                             // (Kopfzeile: Uhr, Wetter und bis zu
+                                             // SV_STATUS_MAX Werte in EINER Zeile ÜBER
+                                             // dem Raster statt einer Pane daneben);
+                                             // fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -898,6 +903,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
                                              // Kennwort verlässt den Server nicht: /api/meta nennt nur hasPass
       "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
+      "tileTarget": 260,                     // optional; Zielkachel des automatischen Rasters für dieses Gerät
+                                             // (Gerät vor Profil, nur im Kachel-Layout „Automatisch“; §7.1)
       "presence": "<control-uuid>"           // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
     }
@@ -1135,12 +1142,80 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py` und
   `test_mini_verlauf_im_neuen_aufbau`.
+- Kachelfaktor (Oktober 2026): Der Inhalt einer Kachel wächst mit ihrer
+  Größe. `setzeFaktor()` setzt `--ks` am `.screen`: Kachelbreite durch
+  `KACHEL_REF` (170 px, die mittlere Stufe des automatischen Rasters), die
+  Höhe durch `KACHEL_REF_H` (150 px) begrenzt, das Ganze auf `KS_MIN` 0,85 bis
+  `KS_MAX` 2,0. CSS multipliziert damit Symbol (`--ico-size`), Haupttext,
+  Zweittext, Raum, Messwert, Innenabstand, Radius, Positionsring,
+  Mini-Verlauf, Tastenleiste und die Kopfzeile (`--kopf-h`). Die eingestellten
+  Größen (`--name-size` usw.) gelten damit „bei 170-px-Kachel“: Tablets im
+  automatischen Raster sehen aus wie zuvor, eine 415-px-Kachel trägt 32-px-
+  Schrift und ein 76-px-Symbol statt derselben 16/38 wie eine 122-px-Kachel,
+  die 13,6/32 bekommt. Im automatischen Raster rechnet `autoRaster()` den
+  Faktor aus der Spaltenbreite, bevor es die Zeilen bestimmt (die Kopfzeile
+  wird mit ihm höher); beim festen Raster liest `render()` ihn aus der ersten
+  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat, und misst
+  nach, bis er steht (`faktorEinmessen()`): mit Kopfzeile hängt die
+  Kachelhöhe an `--kopf-h` und die wieder am Faktor, einmal gemessen hing er
+  an der Seite davor (Codex-Befund an #122). `setzeFaktor()` passt danach
+  die Kopfzeile neu ein, denn ihre Schrift wächst mit. Ändert sich
+  die Kachelbreite ohne neues Raster (Fenster, Split an/aus), zieht
+  `faktorNachziehen()` nach und `kachelnNeuMessen()` misst die Kacheln neu
+  ein. Zwei Grenzen: Tasten sind Touch-Ziele und schrumpfen nie
+  (`max(1, var(--ks))`), und ein Text, der in seine Zeilen nicht mehr passt
+  (`line-clamp`, im klassischen Aufbau „…“), nimmt den Faktor über die
+  Textstufen `kst1`–`kst3` (`--kst`, in `fitTile()` gemessen, vor und nach
+  den Eng-Stufen) zurück: über Faktor 1 höchstens auf 1, den Stand ohne
+  Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
+  liest sich besser als ein großer mit „…“. Dieselben Stufen nimmt eine
+  Kachel mit Mini-Verlauf über Faktor 1 auch, wenn ein Zustand mit dem
+  Faktor auf zwei Zeilen geht („4,200 kW • 9,1 MWh“ auf 200 px) und der
+  Mitte damit die Höhe für den Verlauf (`SPARK_MIN_H`) fehlt: der Text gibt
+  seinen Zuwachs her, sobald eine Stufe die Zeile wieder einzeilig macht und
+  die Mitte reicht, der Verlauf bleibt dort. Eine Stufe, die nur die Schrift
+  verkleinert, ohne eine Zeile zu lösen, zählt nicht, sie brächte die Mitte
+  höchstens knapp über die Schwelle und einen gequetschten Verlauf. Reicht
+  auch Faktor 1 nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und
+  `placeSpark()` setzt den Verlauf wie bisher in den Kopf. `sparkFrei()`
+  misst dafür die freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen
+  neu. Im Kopf
+  füllt der Verlauf die Kopfhöhe (das Symbol gibt sie vor), auch im neuen
+  Aufbau: mit Faktor 0,85 blieben ihm mit den Rändern der Mitte sonst 27 px
+  von 36. Gemessen mit 23 Favoriten in acht
+  Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
+  abgeschnittener Namen von 15 auf 1, am 4″-Panel mit 3×3 von 8 auf 0, die
+  flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
+  trägt 21-px-Schrift und 50-px-Symbol statt 16/38 in sonst leerer Fläche.
+  Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
+  Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
+  abgeschnitten als ohne, keine Kachel läuft über).
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
-  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
-  Kachel in CSS-Pixeln, die der Server je Stufe schickt (`gridAuto` aus
-  `KACHEL_ZIEL`: klein 150, mittel 170, groß 200). Spalten = Breite durch
-  Zielgröße, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielkachel in
+  CSS-Pixeln, die der Server schickt (`gridAuto`): eine Zahl aus `ui.tileSize`
+  (`KACHEL_ZIEL_MIN` bis `KACHEL_ZIEL_MAX`, fehlt = `KACHEL_ZIEL_STANDARD`;
+  die alten Stufen klein/mittel/groß stehen in `KACHEL_ZIEL` und werden beim
+  Speichern zur Zahl), je Gerät übersteuerbar unter Displays
+  (`devices[name].tileTarget`, Gerät vor Profil wie bei der Skalierung,
+  `effective_grid_auto()`; beim Speichern bekommt jede offene Visu
+  `{t:"gridAuto"}` und baut ihr Raster ohne Neuladen neu). Der Konfigurator
+  schlägt je Gerät einen Wert aus der gemeldeten Größe vor
+  (`_kachel_vorschlag()` in `/api/devices` als `tileSuggest`: Pixeldichte ab
+  1,5 ist ein Tablet in der Hand, dort der Standard; ohne Pixeldichte ein
+  Fünftel der kürzeren Seite, auf Zehner gerundet, mindestens der Standard,
+  höchstens 300 px: FullHD 220, 2560×1600 300). Spalten = Breite durch
+  Zielkachel, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  Die Automatik kennt die Kachelanzahl der Seite (`_lastAnzahl` aus
+  `render()`): passen alle Kacheln auf eine Seite, nimmt sie Spalten weg,
+  solange die Seite alle noch fasst und die Kachel nicht breiter als
+  `gridGrow` × Zielkachel wird (`KACHEL_WACHSEN`, 1,4; mit der theme-Nachricht
+  geschickt). Fünf Kacheln auf dem 10″-Tablet quer stehen so in 6 × 3 zu
+  204 px statt in 7 × 4 zu 174 px; mit mehr Kacheln als Zellen bleibt es bei
+  der Zielkachel und dem Blättern. Mit Widget daneben wachsen sie nicht: es
+  belegt ganze Kachelspalten, und mit weniger Spalten ließe sich sein Anteil
+  von rund 40 % nicht halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %,
+  die Wetter-Pane wechselte von „schmal“ auf „breit“).
   Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
   die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
   Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
@@ -1159,7 +1234,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Konfigurator zeigt es unter Displays bei den Geräten. Das feste Raster
   (4″-Panel, jedes Profil ohne `grid`) bleibt unverändert. Der Assistent
   „Neues Panel“ schlägt „Automatisch“ für 2 Panes (Tablet) vor. Geprüft in
-  `tests/test_auto_raster.py` und `tests/browser/test_auto_raster_browser.py`.
+  `tests/test_auto_raster.py` (Prüfer, Standard, Gerät vor Profil, Vorschlag)
+  und `tests/browser/test_auto_raster_browser.py` (Raster je Gerät, Wachsen
+  mit wenigen Kacheln, Zielkachel je Gerät wirkt sofort, Konfigurator).
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
@@ -1294,6 +1371,34 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   einer Spalte gequetscht und die Vorschau seitlich abgeschnitten, hochkant
   unten abgeschnitten. Kalender 30 % leer, die Termine auf Seite 2; zwei Werte
   69 % leer. Geprüft in `tests/browser/test_pane_hoehe_browser.py`.
+- Kopfzeile (Widget `"header"`, Oktober 2026): Statt einer Pane daneben eine
+  Zeile **über** dem Kachelraster mit Uhr, Wetter in Kurzform (Symbol,
+  Temperatur, Lage, „Heute hoch / tief“) und nach Wahl Werten
+  (`"header:<uuid>,…"`, bis `SV_STATUS_MAX`). Das Vorbild ist die Startseite
+  der Loxone-App; auf einem Tablet quer nimmt die Zeile 64 px statt der 40 %
+  eines Widgets. `applyPane()` setzt `.kopf` am `.screen` (dritte Grid-Zeile,
+  volle Breite), nicht `.split`: das Raster bleibt ungeteilt, „Screen füllen“
+  verdoppelt weiter, hochkant ändert sich nichts. Die Höhe steht als
+  `--kopf-h` am `.screen`; `autoRaster()` zieht sie über `kopfHoehe()` von der
+  freien Höhe ab, bevor die Klasse gesetzt ist, damit die Zeilenzahl stimmt.
+  Beim festen Raster geht sie vom Kasten ab (4″ 2×2: Kacheln 225×166 statt
+  225×198). `renderKopfzeile()` baut die Zeile aus `frontData` (Wetter) und
+  `svStatusData` (Werte, angemeldet wie bei „Werte“ per `setsvstatus`, der
+  Server schickt `{t:"svstatus"}` über `status_blocks()`), `tickClock()`
+  stellt die Uhr. Was rechts nicht mehr in die Zeile passt, blendet
+  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Weil sie keine Pane
+  ist, gilt sie auch mit Split „Aus“ (4″-Panel): `paneRawNow()` lässt
+  `header` an `themeSplit` vorbei, der Konfigurator zeigt das Feld „Widget je
+  Tab“ dann mit gesperrter Widget-Gruppe, der Assistent bietet für 1 Pane
+  „Kopfzeile je Tab“ an. Die Kopfzeile gibt es nur je Tab: Widget-Seite
+  (`_clean_widget_tab()`) und Uhr-Seite (`_clean_svpane()`) nehmen sie nicht
+  an, der Konfigurator bietet sie dort nicht an. `ui.panes` wird beim
+  Speichern, im Export und in `resolve_profile()` **normiert** abgelegt
+  (`"header:A, B"` → `"header:A,B"`), nicht roh; vorher hätte das Panel
+  `" B"` als UUID gemeldet. Geprüft in `tests/test_kopfzeile.py` und
+  `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″ mit
+  Split „Aus“, zu viele Werte, Drehen, Konfigurator mit und ohne Split,
+  Assistent).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

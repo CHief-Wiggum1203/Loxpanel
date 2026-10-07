@@ -2,16 +2,21 @@
 Die Visu rechnet Spalten und Zeilen aus der Bildschirmgroesse und der
 Zielgroesse einer Kachel, ein groesserer Schirm zeigt mehr Kacheln statt
 groesserer. Ein Widget belegt ganze Kachelspalten (quer) bzw. -zeilen
-(hochkant), die Kacheln bleiben dabei gleich gross. Die Kachelgroesse kommt in
-drei Stufen, beim Drehen rechnet die Visu neu, geblaettert wird seitenweise
-wie bisher. Das feste Raster (4"-Panel) bleibt, wie es ist, Skalierung wirkt im
-automatischen Raster nicht. Der Konfigurator stellt es ein, blendet die dann
-wirkungslosen Regler aus und zeigt bei den Geraeten das Raster, das ein Tablet
-daraus macht; der Assistent schlaegt es fuer Tablets vor."""
+(hochkant), die Kacheln bleiben dabei gleich gross. Die Zielkachel ist eine
+Zahl in px (die alten Stufen bleiben lesbar), beim Drehen rechnet die Visu neu,
+geblaettert wird seitenweise wie bisher. Passen alle Kacheln einer Seite auf
+den Schirm, wachsen sie bis zum KACHEL_WACHSEN-Fachen; ein Geraet kann unter
+Displays eine eigene Zielkachel bekommen, die sofort wirkt. Das feste Raster
+(4"-Panel) bleibt, wie es ist, Skalierung wirkt im automatischen Raster nicht.
+Der Konfigurator stellt es ein, blendet die dann wirkungslosen Regler aus und
+zeigt bei den Geraeten das Raster, das ein Tablet daraus macht; der Assistent
+schlaegt es fuer Tablets vor."""
 import asyncio
+import inspect
 import json
 import shutil
 
+import aiohttp
 import pytest
 
 from lox import KONFIGURATOR_GELADEN, ROOT, W, anlage, visu_starten
@@ -22,10 +27,16 @@ from playwright.async_api import async_playwright  # noqa: E402
 pytestmark = pytest.mark.browser
 
 ANZAHL = 40
-STRUKTUR = anlage({f"S{i}": {"name": f"Licht {i}", "type": "Switch", "uuidAction": f"S{i}", "room": "r1",
-                             "cat": "c1", "isFavorite": True, "states": {"active": f"s{i}"}}
-                   for i in range(ANZAHL)})
-STATES = {f"s{i}": i % 3 == 0 for i in range(ANZAHL)}
+
+
+def _anlage(n: int):
+    """n Favoriten-Schalter als Struktur, dazu die Zustaende."""
+    return (anlage({f"S{i}": {"name": f"Licht {i}", "type": "Switch", "uuidAction": f"S{i}", "room": "r1",
+                              "cat": "c1", "isFavorite": True, "states": {"active": f"s{i}"}} for i in range(n)}),
+            {f"s{i}": i % 3 == 0 for i in range(n)})
+
+
+STRUKTUR, STATES = _anlage(ANZAHL)
 # Sichtbare Flaeche im Browser (CSS-Pixel): Samsung Galaxy Tab A9, 10"-Tablet,
 # iPad-Format und ein flacher Schirm (Tab A9 mit eingeblendeter Navigationsleiste),
 # auf dem zwei Zeilen reichen - dort waere der Kasten ohne "fill" niedriger als
@@ -62,28 +73,34 @@ def _frische_installation(cfg_ordner):
     shutil.copy(ROOT / "config" / "theme.example.json", cfg_ordner / "theme.example.json")
 
 
-def _laufen(ui, breite, hoehe, schritte=MESSEN, tmp_path=None, bild=None):
-    """Visu mit dem Profil ui oeffnen, schritte ausfuehren (JS-Text oder
-    async Python-Funktion(app, pg)) -> Ergebnis."""
+def _laufen(ui, breite, hoehe, schritte=MESSEN, tmp_path=None, bild=None, anzahl=ANZAHL, routen=(), geraet=""):
+    """Visu mit dem Profil ui oeffnen (anzahl Favoriten, nach Wahl mit
+    Geraetekennung ?device=), schritte ausfuehren (JS-Text oder async
+    Python-Funktion(app, pg, port)) -> Ergebnis."""
     async def lauf():
         app = W.App({"host": "", "port": 80})
-        app._apply_structure(STRUKTUR)
-        app.states = dict(STATES)
+        struktur, states = (STRUKTUR, STATES) if anzahl == ANZAHL else _anlage(anzahl)
+        app._apply_structure(struktur)
+        app.states = dict(states)
         app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui}})
-        runner, port, bc = await visu_starten(app)
+        runner, port, bc = await visu_starten(app, list(routen))
         fehler = []
         try:
             async with async_playwright() as p:
                 b = await p.chromium.launch()
                 pg = await b.new_page(viewport={"width": breite, "height": hoehe})
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
-                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test" + (f"&device={geraet}" if geraet else ""))
                 await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
                 if await pg.locator("#saver:not(.hidden)").count():
                     await pg.click("#saver")
                     await pg.wait_for_selector("#saver.hidden", state="attached")
                 await pg.wait_for_timeout(500)
-                ergebnis = await (pg.evaluate(schritte) if isinstance(schritte, str) else schritte(app, pg))
+                if isinstance(schritte, str):
+                    ergebnis = await pg.evaluate(schritte)
+                else:   # schritte(app, pg) oder, wer den Server selbst anspricht, schritte(app, pg, port)
+                    ergebnis = await (schritte(app, pg, port) if len(inspect.signature(schritte).parameters) >= 3
+                                      else schritte(app, pg))
                 if tmp_path and bild:
                     await pg.screenshot(path=str(tmp_path / f"{bild}.png"))
                 await b.close()
@@ -138,12 +155,70 @@ def test_widget_belegt_ganze_kachelspalten(tmp_path, geraet):
     assert mit["sichtbar"] == c1 * r1, mit
 
 
-def test_kachelgroesse_in_stufen():
-    stufen = ("small", "medium", "large")
-    m = {s: _laufen({"grid": "auto", **({"tileSize": s} if s != "medium" else {})}, 893, 533) for s in stufen}
-    spalten = [m[s]["raster"][0] for s in stufen]
-    breiten = [m[s]["kachel"][0] for s in stufen]
+def test_zielkachel_als_zahl_und_alte_stufe():
+    ziele = (W.KACHEL_ZIEL["small"], W.KACHEL_ZIEL_STANDARD, W.KACHEL_ZIEL["large"])
+    m = {z: _laufen({"grid": "auto", "tileSize": z}, 893, 533) for z in ziele}
+    spalten = [m[z]["raster"][0] for z in ziele]
+    breiten = [m[z]["kachel"][0] for z in ziele]
     assert spalten[0] > spalten[1] > spalten[2] and breiten[0] < breiten[1] < breiten[2], m
+    # eine bestehende Datei nennt noch die Stufe: dieselbe Zahl, dasselbe Raster
+    alt = _laufen({"grid": "auto", "tileSize": "large"}, 893, 533)
+    assert alt["raster"] == m[W.KACHEL_ZIEL["large"]]["raster"] and alt["kachel"] == m[W.KACHEL_ZIEL["large"]]["kachel"]
+
+
+@pytest.mark.parametrize("anzahl, widget", [(5, False), (5, True), (ANZAHL, False)], ids=["fuenf", "fuenf-widget", "vierzig"])
+def test_wenige_kacheln_wachsen_bis_zur_grenze(tmp_path, anzahl, widget):
+    """Punkt 2: die Automatik kennt die Kachelanzahl der Seite. Passen alle
+    auf eine Seite, wachsen die Kacheln, bis die Seite voll ist, hoechstens
+    auf KACHEL_WACHSEN x Zielkachel (vom Server, gridGrow); mit mehr Kacheln
+    als Zellen bleibt es bei der Zielgroesse und dem Blaettern. Mit Widget
+    daneben wachsen sie nicht: es belegt ganze Kachelspalten, und mit weniger
+    Spalten liesse sich sein Anteil von rund 40 % nicht halten."""
+    ui = {"grid": "auto", **({"panes": {"favoriten": "weather"}} if widget else {})}
+    m = _laufen(ui, 1280, 800, anzahl=anzahl, tmp_path=tmp_path, bild=f"auto_wachsen_{anzahl}{'_widget' if widget else ''}")
+    ziel, wachsen = W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN
+    cols, rows = m["raster"]
+    assert m["sichtbar"] == min(anzahl, cols * rows) and "auto" in m["klassen"], m
+    if anzahl < cols * rows and not widget:
+        # gewachsen, aber nicht ueber die Grenze; alle auf einer Seite
+        assert 1.1 * ziel < m["kachel"][0] <= wachsen * ziel + 1, m
+        assert cols * rows >= anzahl, m
+    else:
+        assert 0.8 * ziel <= m["kachel"][0] <= 1.25 * ziel, m
+    assert (m["pane"] is not None) == widget, m
+
+
+def test_zielkachel_je_geraet_wirkt_sofort(cfg_ordner):
+    """devices[name].tileTarget uebersteuert die Zielkachel des Profils (Geraet
+    vor Profil). Beim Speichern unter Displays (POST /api/devices) baut die
+    offene Visu ihr Raster ohne Neuladen neu ({t:"gridAuto"}); ohne Eintrag
+    gilt wieder das Profil."""
+    async def schritte(app, pg, port):
+        stand = {"profil": await pg.evaluate(MESSEN)}
+
+        async def speichern(devices):
+            async with aiohttp.ClientSession() as s:
+                async with s.post(f"http://127.0.0.1:{port}/api/devices", json={"devices": devices}) as r:
+                    assert (await r.json())["ok"]
+
+        async def bis(ziel):
+            for _ in range(100):
+                if await pg.evaluate("gridAuto") == ziel:
+                    break
+                await asyncio.sleep(0.05)
+            await pg.wait_for_timeout(400)
+            return await pg.evaluate(MESSEN)
+        await speichern({"wand": {"tileTarget": 300}})
+        stand["geraet"] = await bis(300)
+        await speichern({"wand": {"scale": "off"}})   # Zielkachel wieder weg, Geraet bleibt
+        stand["zurueck"] = await bis(W.KACHEL_ZIEL_STANDARD)
+        return stand
+    stand = _laufen({"grid": "auto"}, 1280, 800, schritte, routen=[("POST", "/api/devices", W.api_save_devices)],
+                    geraet="wand")
+    p, g, z = stand["profil"], stand["geraet"], stand["zurueck"]
+    assert g["raster"][0] < p["raster"][0] and g["kachel"][0] > 1.5 * p["kachel"][0], stand
+    assert 0.8 * 300 <= g["kachel"][0] <= 1.25 * 300 and g["sichtbar"] == g["raster"][0] * g["raster"][1], stand
+    assert z["raster"] == p["raster"] and z["kachel"] == p["kachel"], stand
 
 
 def test_drehen_rechnet_das_raster_neu():
@@ -237,7 +312,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 stand = {"anfang": (await pg.locator("#fLayout").input_value(), await felder())}
                 await pg.locator("#fLayout").select_option("auto")
                 stand["auto"] = await felder()
-                await pg.locator("#fTileSize").select_option("large")
+                await pg.locator("#fTileSize").fill(str(W.KACHEL_ZIEL["large"]))   # Zielkachel als Zahl
                 stand["gespeichert"] = (await speichern())["ui"]
                 await pg.screenshot(path=str(tmp_path / "konfigurator_automatisch.png"))
 
@@ -294,9 +369,9 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
     an = {"fTileSizeField": True, "fFillField": False, "fScaleField": False, "fScaleHint": False}
     assert stand["anfang"] == ("3x3", aus), stand
     assert stand["auto"] == an, "Kachelgroesse statt Bildschirm fuellen und Skalierung"
-    assert stand["gespeichert"] == {"grid": "auto", "tileSize": "large"}, "cols/rows gelten nicht mehr"
+    assert stand["gespeichert"] == {"grid": "auto", "tileSize": W.KACHEL_ZIEL["large"]}, "cols/rows gelten nicht mehr"
     assert stand["tablet"] == [W.KACHEL_ZIEL["large"], 4, 2], stand
-    assert stand["nach_neuladen"] == ("auto", "large", an), stand
+    assert stand["nach_neuladen"] == ("auto", str(W.KACHEL_ZIEL["large"]), an), stand
     assert stand["geraet"].startswith("893×533 quer") and "Raster 4 × 2" in stand["geraet"], stand
     assert stand["fest"] == aus and stand["zurueck"] == {"cols": 3, "rows": 3}, stand
     assistent = stand["assistent"]
