@@ -1229,9 +1229,18 @@ let svPaneCfg = '', svStatusData = null, curSvStatus = '';
 let cameraData = null;   // letzter {t:'camera'}-Push (Intercom-Bloecke) fuer die Kamera-Pane
 let energyData = null;   // letzter {t:'energy'}-Push fuer die Energiefluss-Pane
 let playerData = null;   // letzter {t:'player'}-Push (Player-Bloecke) fuer die Audio-Pane
+let playerSecured = false;   // Zone des Players ist gesichert (Visu-PIN)
 // Verlaufs-Pane (chart:<uuid>): gemeldeter Baustein|Zeitraum, letzter {t:'chart'}-Push,
 // in der Pane gewaehlter Zeitraum (gilt fuer alle Verlaufs-Panes dieses Panels).
 let curChartKey = '', chartData = null, chartRange = '24h';
+// Die Kennungen oben sind die zuletzt gemeldeten Abos (set*). Der Server fuehrt
+// sie je Verbindung und raeumt sie ab, wenn sie endet (ws_handler, _send_or_drop).
+// Nach jedem Verbindungsaufbau gelten sie darum als nicht gemeldet; der
+// theme-Push ruft danach applyPane(), das alle aktiven neu anmeldet. Aufruf in
+// ws.onopen, nicht in onclose: send() verwirft ohne Verbindung, ein Wechsel in
+// der Trennung setzte die Kennung sonst, ohne dass der Server davon erfaehrt.
+// Ein neues Abo mit eigener Kennung gehoert hier hinein.
+function abosVergessen(){ curEnergyUuid=''; curCameraUuid=''; curPlayerZone=''; curSvStatus=''; curChartKey=''; }
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
@@ -1325,7 +1334,30 @@ function nav(route){ stack.push(route); send({t:'nav',route}); }
 function goTab(tab){ stack=[{view:'tab',tab}]; send({t:'nav',route:stack[0]}); }
 function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stack.length-1]}); } }
 
-let pendingSecure=null;
+// ---- Befehle und Visu-PIN (gesicherte Bausteine, isSecured) ----
+// Jeder Befehl geht ueber sendCmd(); nur cmdSchicken() baut {t:'cmd'}. Bei
+// einem gesicherten Baustein fragt die Visu die PIN ab und schickt sie mit,
+// der Server rechnet daraus den Hash fuer sps/ios. Bestaetigt der Miniserver
+// sie (cmdresult ok), gilt sie pinMerkenS Sekunden weiter (Panel-Einstellung
+// "PIN merken", 0 = jedes Mal fragen) - nur im Speicher und nur auf der Seite,
+// auf der sie eingegeben wurde. Uhr-Seite, Display aus und Seitenwechsel
+// vergessen sie sofort (pinVergessen).
+let pinMerkenS=0;        // kommt mit dem theme; bis dahin jedes Mal fragen
+let pinMerk=null, pinMerkT=null;   // bestaetigte PIN {pin, seite, bis}
+let pinWarten=[];        // gesicherte Befehle, deren cmdresult aussteht
+let pinJobs=null;        // Befehle, die auf die offene PIN-Abfrage warten
+function cmdSchicken(uuid,cmd,pin){ const m={t:'cmd',uuid,cmd}; if(pin!=null) m.pin=pin; send(m); }
+// Seite = oberster Eintrag von stack, nicht view.route: nav() legt ihn sofort
+// ab, die neue Ansicht schickt der Server aber erst nach dem cmdresult eines
+// laufenden Befehls (er arbeitet die Nachrichten eines Panels der Reihe nach ab)
+function pinSeite(){ return key(stack[stack.length-1]); }
+function pinGemerkt(){
+  if(pinMerk && (Date.now()>=pinMerk.bis || pinMerk.seite!==pinSeite())) pinMerk=null;
+  return pinMerk ? pinMerk.pin : null; }
+function pinVergessen(){ pinMerk=null; clearTimeout(pinMerkT);
+  // eine offene Abfrage gehoert zur alten Seite: zu, ihre Befehle gelten als abgebrochen
+  const s=document.querySelector('.screen'), ov=s&&s.querySelector('.pinov'); if(ov) ov.remove();
+  const jobs=pinJobs; pinJobs=null; if(jobs) jobs.forEach(j=>{ if(j.abbruch) j.abbruch(); }); }
 function askPin(cb,msg){
   const s=document.querySelector('.screen'); let ov=s.querySelector('.pinov'); if(ov)ov.remove();
   ov=document.createElement('div'); ov.className='pinov';
@@ -1352,10 +1384,51 @@ function askPin(cb,msg){
   };});
   ov.querySelector('.cancel').onclick=()=>done(null);
 }
-function doSecure(uuid,cmd,msg){
-  askPin(pin=>{ if(pin==null){pendingSecure=null;return;} pendingSecure={uuid,cmd}; send({t:'cmd',uuid,cmd,pin}); }, msg);
+// Ist die Abfrage schon offen, gilt die eine PIN fuer alle wartenden Befehle.
+function pinAbfragen(job,msg){
+  if(pinJobs){ pinJobs.push(job); const m=document.querySelector('.screen .pinov .pinmsg'); if(m&&msg) m.textContent=msg; return; }
+  pinJobs=[job];
+  askPin(pin=>{ const jobs=pinJobs||[]; pinJobs=null;
+    if(pin==null){ jobs.forEach(j=>{ if(j.abbruch) j.abbruch(); }); return; }
+    jobs.forEach(j=>pinSenden(j,pin,true,false)); }, msg);
 }
-function sendCmd(uuid,cmd,secured){ if(secured) doSecure(uuid,cmd,''); else send({t:'cmd',uuid,cmd}); }
+// Mit PIN schicken. neu: eben eingegeben (gemerkt, sobald bestaetigt). Eine
+// Halten-Taste (job.los): mit gemerkter PIN echtes Halten, das Loslassen
+// schickt endHold mit derselben PIN; nach der Abfrage ist der Finger laengst
+// oben, dann folgt es sofort (wirkt wie ein Tipp). Nie Druecken ohne Loslassen.
+// seite: die des Tipps (job.seite), nicht die der Eingabe - job.ok und das
+// Merken gelten nur dort, auch fuer die Wiederholung nach abgelehnter PIN.
+function pinSenden(job,pin,neu,halten){
+  const w={job,pin,neu,seite:job.seite};
+  pinWarten.push(w); cmdSchicken(job.uuid,job.cmd,pin);
+  if(!job.los) return;
+  const los={job:job.los,pin,seite:w.seite,zu:w};
+  if(halten) holdRelease=los; else { pinWarten.push(los); cmdSchicken(los.job.uuid,los.job.cmd,pin); }
+}
+function pinErgebnis(msg){
+  const i=pinWarten.findIndex(w=>w.job.uuid===msg.uuid && w.job.cmd===msg.cmd); if(i<0) return;
+  const w=pinWarten.splice(i,1)[0];
+  if(msg.ok){
+    if(w.neu && pinMerkenS>0 && w.seite===pinSeite()){
+      pinMerk={pin:w.pin, seite:w.seite, bis:Date.now()+pinMerkenS*1000};
+      clearTimeout(pinMerkT); pinMerkT=setTimeout(()=>{ pinMerk=null; }, pinMerkenS*1000); }
+    if(w.job.ok && w.seite===pinSeite()) w.job.ok();
+    return; }
+  w.fehl=true; pinMerk=null;      // abgelehnt: auch eine gemerkte PIN gilt nicht mehr
+  if(w.zu && w.zu.fehl) return;   // Loslassen zu abgelehntem Druecken: die neue Abfrage schickt beide
+  // Seite inzwischen gewechselt: keine Abfrage fuer einen fremden Befehl, abgebrochen
+  if(w.seite!==pinSeite()){ if(w.job.abbruch) w.job.abbruch(); return; }
+  pinAbfragen(w.job, msg.code==null ? 'Miniserver antwortet nicht – nochmal' : 'PIN falsch – nochmal');
+}
+// opt.los: Loslassen einer Halten-Taste; opt.ok: danach (etwa zurueck), bei
+// PIN erst nach der Bestaetigung und nur noch auf derselben Seite;
+// opt.abbruch: PIN abgebrochen (Anzeige zurueck).
+function sendCmd(uuid,cmd,secured,opt){ opt=opt||{};
+  const job={uuid,cmd,los:opt.los||null,ok:opt.ok||null,abbruch:opt.abbruch||null,seite:pinSeite()};
+  if(!secured){ cmdSchicken(uuid,cmd,null); if(job.los) holdRelease={job:job.los,pin:null}; if(job.ok) job.ok(); return; }
+  const pin=pinGemerkt();
+  if(pin==null) pinAbfragen(job,''); else pinSenden(job,pin,false,true);
+}
 const SLD_STEP=5;   // Schrittweite der -/+ Tasten am Schieberegler (Lautstaerke etc.)
 // Fuellstand der Leiste als CSS-Var --p (Prozent) setzen -> gefuellte Anzeige
 // unabhaengig vom nativen accent-color-Rendering des jeweiligen WebViews.
@@ -1368,12 +1441,12 @@ function stellen(x){ const s=String(Math.abs(+x)), i=s.indexOf('.'); return i<0?
 // Auf die Stellen der Schrittweite runden: 0,5er-Schritte bleiben 0,5er-Schritte
 // (frueher Math.round: 20 + 0,5 ergab 21), Rechenreste wie 20.000000000000004
 // fallen weg.
-function nudgeSld(sld,delta,valEl){ if(!sld)return;
+function nudgeSld(sld,delta,valEl,secured,abbruch){ if(!sld)return;
   const min=+sld.min||0, max=(sld.max!==''?+sld.max:100);
   let v=+((+sld.value||0)+delta).toFixed(stellen(delta)); v=Math.max(min,Math.min(max,v));
   if(v===(+sld.value)) return;
   sld.value=v; sldFill(sld); if(valEl) valEl.textContent=v;
-  if(sld._uuid&&sld._tmpl) send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',v)}); }
+  if(sld._uuid&&sld._tmpl) sendCmd(sld._uuid,sld._tmpl.replace('{v}',v),secured,{abbruch}); }
 
 let holdRelease=null;
 let videoTimer=null;
@@ -1381,7 +1454,9 @@ function stopVideo(){ if(videoTimer){ clearInterval(videoTimer); videoTimer=null
 function setMore(route){ const s=document.querySelector('.screen'); if(!s)return; let mb=s.querySelector('.moreb');
   if(route){ if(!mb){ mb=document.createElement('div'); mb.className='moreb'; mb.textContent='⋮'; s.appendChild(mb);} mb.onclick=()=>nav(route); }
   else if(mb){ mb.remove(); } }
-function endHold(){ if(holdRelease){ send({t:'cmd',uuid:holdRelease.uuid,cmd:holdRelease.cmd}); holdRelease=null; } }
+function endHold(){ const h=holdRelease; if(!h) return; holdRelease=null;
+  if(h.pin!=null) pinWarten.push(h);
+  cmdSchicken(h.job.uuid,h.job.cmd,h.pin); }
 window.addEventListener('pointerup', endHold);
 window.addEventListener('pointercancel', endHold);
 
@@ -1407,9 +1482,10 @@ function zelleTippen(g,btn){
     btn._armT=setTimeout(()=>{ btn._armed=false; btn.textContent=btn._label; btn.classList.remove('arm'); },ZELLE_BESTAETIGEN_MS);
     return; }
   clearTimeout(btn._armT);
-  if(btn._form){ const cmd=formBefehl(g,btn._form); if(cmd===null) return; sendCmd(btn._form.uuid,cmd,view&&view.secured); }
-  else if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured);
-  if(btn._back) back();
+  const danach=btn._back?{ok:back}:null;   // mit PIN erst zurueck, wenn der Miniserver bestaetigt
+  if(btn._form){ const cmd=formBefehl(g,btn._form); if(cmd===null) return; sendCmd(btn._form.uuid,cmd,view&&view.secured,danach); }
+  else if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured,danach);
+  else if(btn._back) back();
 }
 // ---- Formular (Weckzeit bearbeiten) ----
 // Felder tragen data-f (Name in der Befehlsvorlage). "Speichern" (form) setzt
@@ -1473,7 +1549,8 @@ function stepperBind(e,b){ e._b=b; e._v=+b.value||0;
     e._v=v; e._lokal=Date.now(); e.querySelector('.stpv').textContent=stpText(bb,v);
     clearTimeout(e._senden);
     e._senden=setTimeout(()=>{ e._senden=null; const c=e._b.cmd;
-      if(c) sendCmd(c.uuid,c.tmpl.split('{v}').join(String(e._v)),view&&view.secured); },STP_SENDEN_MS);
+      if(c) sendCmd(c.uuid,c.tmpl.split('{v}').join(String(e._v)),view&&view.secured,
+                    {abbruch:()=>{ e._lokal=0; stepperUpdate(e,e._b); }}); },STP_SENDEN_MS);
   }));
 }
 function stepperUpdate(e,b){ e._b=b;
@@ -1519,11 +1596,12 @@ function openMenu(btn, items){
 // die Anzeige formen. Weicht sie vom zuletzt Gerenderten ab, muss komplett neu
 // aufgebaut werden — in-place patchen wuerde neu dazugekommene Zeilen nie
 // erzeugen (z.B. "Wasser nachfuellen" in der Sauna) und weggefallene stehen
-// lassen.
+// lassen. Bei den Favoriten zaehlt der Inhalt (Name, Cover, Befehl): updatePanel
+// patcht sie nicht, und der Tipp haelt den Favoriten vom Aufbau fest.
 function blockSig(blocks){
   return blocks.filter(b=>b.k!=='more').map(b=>
     b.k==='row' ? 'row'+b.cells.length+(b.hidden?'h':'')
-    : b.k==='favs' ? 'favs'+(b.items?b.items.length:0)
+    : b.k==='favs' ? 'favs'+JSON.stringify((b.items||[]).map(f=>[f.label,f.cover,f.cmd]))
     : b.k==='alarmlist' ? 'alarm'+JSON.stringify(b.entries||[])
     : b.k==='astat' ? 'astat'+(b.sub?1:0)
     : b.k==='stepper' ? 'stp'+(b.cmd?1:0)+(b.sub?1:0)
@@ -1888,12 +1966,14 @@ function renderPanel(blocks){
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
   const sb=blocks.find(b=>b.k==='slider'); const sld=g.querySelector('.sld');
   if(sb&&sld){ sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl; sldFill(sld);
+    // PIN abgebrochen: Regler wieder auf den Stand des Servers
+    const zurueck=()=>{ if(view&&view.blocks&&el('grid').classList.contains('panel')) updatePanel(view.blocks); };
     sld.addEventListener('input',()=>{ sldDragging=true; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sld.value; });
-    sld.addEventListener('change',()=>{ sldDragging=false; send({t:'cmd',uuid:sld._uuid,cmd:sld._tmpl.replace('{v}',sld.value)}); });
+    sld.addEventListener('change',()=>{ sldDragging=false; sendCmd(sld._uuid,sld._tmpl.replace('{v}',sld.value),view&&view.secured,{abbruch:zurueck}); });
     const sdn=g.querySelector('.srow .sbtn[data-sd="dn"]'), sup=g.querySelector('.srow .sbtn[data-sd="up"]');
     const step=(sb.step&&+sb.step>0)?+sb.step:SLD_STEP;
-    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,g.querySelector('.sval')); });
-    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,g.querySelector('.sval')); });
+    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,g.querySelector('.sval'),view&&view.secured,zurueck); });
+    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,g.querySelector('.sval'),view&&view.secured,zurueck); });
   }
   const rows=[...g.querySelectorAll('.brow')]; let ri=0;
   for(const b of blocks){ if(b.k!=='row') continue; const rowEl=rows[ri++];
@@ -1902,8 +1982,7 @@ function renderPanel(blocks){
       btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
         if(btn._menu){ openMenu(btn,btn._menu); return; }
         if(btn._tippen) return;
-        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured);
-        if(btn._hold) holdRelease=btn._release||null;
+        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured,(btn._hold&&btn._release)?{los:btn._release}:null);
       });
       btn.addEventListener('click',()=>{ if(btn._tippen && !btn._menu) zelleTippen(g,btn); });
     });
@@ -1921,13 +2000,13 @@ function renderPanel(blocks){
   if(ab&&ab.entries) g.querySelectorAll('.arow[data-a]').forEach(n=>{ const e=ab.entries[+n.dataset.a]; if(!e) return;
     const sw=n.querySelector('.asw');
     if(sw&&e.cmd) sw.addEventListener('click',ev=>{ ev.stopPropagation(); sw.classList.toggle('on');
-      sendCmd(e.cmd.uuid,e.cmd.cmd,view&&view.secured); });
+      sendCmd(e.cmd.uuid,e.cmd.cmd,view&&view.secured,{abbruch:()=>sw.classList.toggle('on',!!e.active)}); });
     if(e.nav) n.addEventListener('click',()=>nav(e.nav)); });
   const fb=blocks.find(b=>b.k==='favs'); const fe=g.querySelector('.favs');
   if(fb&&fe){ fe.querySelectorAll('.fav').forEach(n=>{ const f=fb.items[+n.dataset.f]; if(!f)return;
     // Wie die Tasten auf der Kachel erst beim Tippen: die Favoriten liegen im
     // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
-    n.addEventListener('click',()=>{ if(f.cmd){ send({t:'cmd',uuid:f.cmd.uuid,cmd:f.cmd.cmd}); back(); } }); }); }
+    n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,{ok:back}); }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
   renderTabs();
   panelEinpassen();
@@ -2628,8 +2707,8 @@ function connect(){
                    +(q.length?('?'+q.join('&')):''));
   // Erststart: Startseite kommt vom Server (erster Tab des Profils). Nach einem
   // Reconnect stattdessen die zuletzt betrachtete Seite wiederherstellen.
-  ws.onopen=()=>{ el('conn').classList.add('ok'); curChartKey=''; if(booted) send({t:'nav',route:stack[stack.length-1]}); };
-  ws.onclose=()=>{ el('conn').classList.remove('ok'); setTimeout(connect,1500); };
+  ws.onopen=()=>{ el('conn').classList.add('ok'); abosVergessen(); if(booted) send({t:'nav',route:stack[stack.length-1]}); };
+  ws.onclose=()=>{ el('conn').classList.remove('ok'); pinWarten=[]; setTimeout(connect,1500); };
   ws.onmessage=e=>{
     let msg;
     try{ msg=JSON.parse(e.data); }
@@ -2656,6 +2735,7 @@ function connect(){
       if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
       applyScale();
@@ -2665,7 +2745,7 @@ function connect(){
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane();
       if(view && view.front && el('grid').classList.contains('fronttab')) renderFrontTab(); return; }   // Kalender/Wetter fuer die Uhr-Seite
-    if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[];
+    if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[]; playerSecured=!!msg.secured;
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> Audio als zweite Uhr-Spalte
       renderPlayer(playerData); return; }   // sonst fester Player in Pane 2
     if(msg.t==='energy'){ energyData=msg;
@@ -2696,12 +2776,13 @@ function connect(){
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
     if(msg.t==='display'){   // Server schaltet Display (Kiosk-App); presence = Praesenzmelder des Geraets
       if(typeof msg.presence==='boolean'){ DISP.presence=msg.presence; appLeerlauf(); }
-      if(msg.on) wake(); else { clearTimeout(dpmsTimer); screenOff(); }
+      if(msg.on) wake(); else { clearTimeout(dpmsTimer); pinVergessen(); screenOff(); }
       return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
-    if(msg.t==='cmdresult'){ if(msg.ok===false && pendingSecure){ const p=pendingSecure; pendingSecure=null; doSecure(p.uuid,p.cmd,'PIN falsch – nochmal'); } else pendingSecure=null; return; }
+    if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t!=='view') return;
+    if(view && key(view.route)!==key(msg.route)) pinVergessen();   // Seitenwechsel
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
       const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
@@ -3194,7 +3275,7 @@ function renderCameraPane(elc){ if(!elc) return;
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
-        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,false); }); }); }
+        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,!!(cameraData&&cameraData.secured)); }); }); }
   } else if(row){                         // gleiche Struktur -> nur Buttons aktualisieren (Video unangetastet)
     const btns=elc.querySelectorAll('.brow [data-c]');
     row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
@@ -3383,6 +3464,7 @@ function applySaverSplit(){
   s.classList.toggle('hoch', hoch);
 }
 function showSaver(){
+  pinVergessen();   // Uhr-Seite: gemerkte PIN weg
   // Native Kiosk-App (LoxPanel): nur EIN sichtbarer Screensaver — diese Uhr.
   // Der App sagen, dass ihr Saver läuft; sie dunkelt nur noch das Backlight
   // (nach dpmsOff) und weckt per Annäherung/Berührung auf den 1. Tab.
@@ -3460,12 +3542,12 @@ function renderPlayer(blocks){
         '<input type="range" class="sld" id="ppsld" min="0" max="100" value="0">'+
         '<button type="button" class="sbtn" data-sd="up">+</button><span class="sval" id="ppsldv">0</span></div>'+
       '</div>';
-    const s=el('ppsld');
-    pane.querySelector('.ppvol .sbtn[data-sd="dn"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,-SLD_STEP,el('ppsldv')); });
-    pane.querySelector('.ppvol .sbtn[data-sd="up"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,SLD_STEP,el('ppsldv')); });
+    const s=el('ppsld'), zurueck=()=>renderPlayer(playerData);   // PIN abgebrochen: Stand des Servers
+    pane.querySelector('.ppvol .sbtn[data-sd="dn"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,-SLD_STEP,el('ppsldv'),playerSecured,zurueck); });
+    pane.querySelector('.ppvol .sbtn[data-sd="up"]').addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(s,SLD_STEP,el('ppsldv'),playerSecured,zurueck); });
     s.addEventListener('input',()=>{ _playerVolDrag=true; sldFill(s); el('ppsldv').textContent=s.value; });
     s.addEventListener('change',()=>{ _playerVolDrag=false;
-      if(s._uuid&&s._tmpl) send({t:'cmd',uuid:s._uuid,cmd:s._tmpl.replace('{v}',s.value)}); });
+      if(s._uuid&&s._tmpl) sendCmd(s._uuid,s._tmpl.replace('{v}',s.value),playerSecured,{abbruch:zurueck}); });
     _playerBuilt=true;
   }
   // Cover nur bei Aenderung neu laden (sonst Flackern)
@@ -3481,7 +3563,7 @@ function renderPlayer(blocks){
     if(tr.children.length!==cells.length){
       tr.innerHTML=cells.map((c,i)=>'<div class="btn'+(c.icon?' icon':'')+(c.big?' big':'')+'" data-c="'+i+'"></div>').join('');
       tr.querySelectorAll('[data-c]').forEach(n=>n.addEventListener('pointerdown',ev=>{ ev.preventDefault();
-        if(n._cmd) send({t:'cmd',uuid:n._cmd.uuid,cmd:n._cmd.cmd}); }));
+        if(n._cmd) sendCmd(n._cmd.uuid,n._cmd.cmd,playerSecured); }));
     }
     cells.forEach((c,i)=>{ const n=tr.querySelector('[data-c="'+i+'"]'); if(!n)return;
       n._cmd=c.cmd||null;
@@ -3544,7 +3626,8 @@ function applyNight(awake){
   const dim = (NIGHT.on && NIGHT.dim>0 && !awake) ? Math.min(90,NIGHT.dim) : 0;
   nightLayer().style.opacity = appHelligkeit(dim) ? 0 : dim/100;
 }
-function setNight(on){ NIGHT.on=!!on; clearTimeout(nightWakeTimer); applyNight(false); }
+function setNight(on){ const vorher=NIGHT.on; NIGHT.on=!!on; clearTimeout(nightWakeTimer); applyNight(false);
+  if(NIGHT.on && !vorher) pinVergessen(); }   // Nacht beginnt: gemerkte PIN weg
 function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zurueck
   if(!NIGHT.on || NIGHT.dim<=0 || NIGHT.wake<=0) return;
   clearTimeout(nightWakeTimer);
@@ -3583,10 +3666,16 @@ function appLeerlauf(){
   try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.presence ? 0 : DISP.dpmsOff); }catch(e){} }
 function armDpms(){ clearTimeout(dpmsTimer);
   if(window.LoxKiosk) return;   // native LoxPanel-Kiosk-App schaltet selbst ab (eigener Screensaver)
+  // Mit Agent schaltet X (xset dpms) nach dpmsOff Sekunden ohne Eingabe ab, auch
+  // bei Anwesenheit (dort wirkt der Praesenzmelder nicht), und die Seite erfaehrt
+  // nichts davon: Sie vergisst die gemerkte PIN zur selben Zeit. Die LoxPanel-App
+  // braucht das nicht, sie dunkelt erst dpmsOff nach der Uhr-Seite ab (setSaver),
+  // und die vergisst die PIN schon.
+  if(DISP.agent && DISP.dpmsOff>0){ dpmsTimer=setTimeout(pinVergessen, DISP.dpmsOff*1000); return; }
   if(DISP.agent || DISP.presence || !(DISP.dpmsOff>0)) return;
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
-  dpmsTimer=setTimeout(()=>{ if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
+  dpmsTimer=setTimeout(()=>{ pinVergessen(); if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }
 // ---- Skalierung ("scale" aus Profil oder Geraet, vom Server) ----
 // Die Visu rechnet mit festen 240er Kacheln; ein groesseres Display zeigte den
 // Kasten bisher mit Rand (1280x800: 55 % des Schirms ungenutzt). "auto"

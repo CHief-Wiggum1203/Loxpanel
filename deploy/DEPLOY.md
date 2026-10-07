@@ -31,14 +31,35 @@ sudo mkdir -p /opt/loxpanel
 ```bash
 sudo apt update
 sudo apt install -y python3-pip chromium unclutter fonts-inter fonts-roboto
-sudo pip3 install --break-system-packages loxone-api    # zieht aiohttp mit
+# nur 32-bit-ARM-System (dpkg --print-architecture: armhf, auch wenn uname -m
+# bei 64-bit-Kernel aarch64 zeigt): fuer cffi gibt es dort kein fertiges Paket,
+# pip baut es (wie im Dockerfile) und braucht dazu:
+sudo apt install -y gcc libc6-dev libffi-dev python3-dev
+sudo pip3 install --break-system-packages -r /opt/loxpanel/requirements.txt
 ```
+Die Paketliste steht nur in `requirements.txt`: Kalender, Intercom und die
+Anmeldung am Audioserver brauchen mehr als `loxone-api`. Fehlt eins der Pakete
+dafuer, startet der Server trotzdem und nennt es beim Start im Log; ohne
+`loxone-api` (und das damit installierte `aiohttp`) startet er nicht.
+
+`--break-system-packages` kennt pip erst ab Version 23 (Debian 12); auf
+aelteren Systemen die Option weglassen. Auf 32-bit-ARM bekommt pip
+`cryptography` nur fertig, wenn glibc (`ldd --version`) und pip neu genug sind;
+die Grenze kann sich mit jeder neuen cryptography-Version verschieben. Baut pip
+es selbst (Meldung `Building wheel for cryptography`), braucht es zusaetzlich
+`libssl-dev`, `pkg-config` und Rust in der Mindestversion aus der
+[Installationsanleitung von cryptography](https://cryptography.io/en/latest/installation/);
+das `cargo` aus apt ist dafuer auf aelteren Systemen zu alt, dann Rust ueber
+rustup installieren (dessen `cargo` muss auch fuer `sudo pip3` im `PATH` liegen).
 
 ## 3) Miniserver-Zugang
-```bash
-cp /opt/loxpanel/config/loxpanel.cfg.example /opt/loxpanel/config/loxpanel.cfg
-nano /opt/loxpanel/config/loxpanel.cfg      # host/user/pass/verify_tls eintragen
-```
+Nach Schritt 4 im Browser `http://<px30-ip>:8099/config` oeffnen und den Zugang
+unter **Settings → Miniserver** eintragen. Der Server prueft die Anmeldung und
+legt `config/loxpanel.cfg` selbst an; bis dahin wartet er und zeigt jedem Panel,
+wo der Konfigurator zu oeffnen ist. Alternativ in der `.service` unter
+`[Service]` je eine Zeile `Environment=LOXPANEL_MS_HOST=<ip>` (ebenso `_USER`,
+`_PASS`, `_PORT`, `_VERIFY_TLS`); ein unter Settings gespeicherter Zugang hat
+Vorrang vor diesen Variablen.
 
 ## 4) Server als Dienst
 ```bash
@@ -95,6 +116,20 @@ Der Agent hoert auf Port **8130** (Server steuert darueber). Test von Hand:
 ```bash
 DISPLAY=:0 python3 /opt/loxpanel/agent/loxpanel-agent.py
 ```
+
+Die unter Displays gewaehlte Ansicht merkt sich der Agent in
+`~/.local/state/loxpanel/agent-state.json` des Benutzers, unter dem er laeuft
+(`STATE_FILE` in der kiosk.conf aendert den Ort). Frueher lag die Datei neben der
+kiosk.conf; da `/opt/loxpanel` und `/etc/loxpanel` root gehoeren, scheiterte das
+Speichern dort, und nach einem Neustart kam wieder `PANEL`. Eine vorhandene alte
+Datei uebernimmt der Agent beim Start einmal und loescht sie danach (sie bleibt
+nur, wenn das Speichern am neuen Ort scheitert). Zurueck auf `PANEL`: Datei loeschen
+oder `PANEL` in der kiosk.conf aendern, ein geaendertes `PANEL` gilt vor der
+gemerkten Wahl. Endet Chromium, ohne dass es ueber **Stop** beendet wurde, startet
+der Agent es nach `KIOSK_RESTART_SECS` (Standard 5 s, 0 = aus) neu; bei
+wiederholten Abstuerzen verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
+(Standard 300 s). **Start**, **Reload** oder **Stop** unter Displays und der
+Auto-Reload fangen wieder bei `KIOSK_RESTART_SECS` an.
 
 > Docker-Hinweis: Der Agent meldet sich **per HTTP** beim Server (kein UDP-
 > Broadcast) — funktioniert daher auch mit dem Server im Docker-Bridge-Netz.

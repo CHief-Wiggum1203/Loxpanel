@@ -2,10 +2,18 @@
 
 **Eine konfigurierbare Touch-Visu für Loxone** – verwandelt jedes Display
 (Wandpanel, Tablet oder Handy) in eine aufgeräumte, frei gestaltbare
-Bedienoberfläche für den Loxone Miniserver. LoxPanel läuft als **Docker-Container**
-– auf einem **Unraid**-Server, jedem anderen Docker-Host oder als Plug&Play-Plugin
-auf dem **LoxBerry**; eingerichtet und gestaltet wird alles im Browser – ganz ohne
-Programmierung und ohne die Loxone-App.
+Bedienoberfläche für den Loxone Miniserver. Eingerichtet und gestaltet wird alles
+im Browser – ganz ohne Programmierung und ohne die Loxone-App.
+
+**Drei Wege zur Wahl – dieselbe Visu:**
+
+- 🧩 **Docker-Container:** auf einem **Unraid**-Server, jedem anderen Docker-Host
+  oder als Plug&Play-Plugin auf dem **LoxBerry**; **ein** zentraler Server
+  versorgt beliebig viele Displays und Panel-Profile an einer Stelle.
+- 📱 **Android-App (APK):** installiert sich direkt aufs Tablet/Wandpanel, der
+  Server ist eingebaut – **läuft autonom, ohne LoxBerry oder Docker**.
+- 🐧 **Linux-Panel (.deb):** Server + Kiosk-Autostart direkt auf dem Gerät –
+  ebenfalls **eigenständig**, nichts weiter nötig.
 
 > Status: **lauffähig & produktiv einsetzbar.** Verbindet sich per WebSocket mit
 > dem Miniserver (Token-Auth), liest die Struktur automatisch ein und steuert live.
@@ -233,6 +241,15 @@ Chromium-Kiosk – kann ein Container auf dem LoxBerry aber nicht steuern. Genau
   falls der Browser mal hängt.
 - **Robuster Neustart:** bereinigt nach einem Stromausfall den „Wiederherstellen?"-
   Dialog von Chromium, damit der Kiosk ohne Eingriff wieder hochkommt.
+- **Neustart nach Absturz:** Endet Chromium, ohne dass es jemand über **Stop**
+  beendet hat, startet der Agent es nach einer kurzen Pause mit derselben Ansicht
+  neu. Stürzt es immer wieder ab, wartet er jedes Mal doppelt so lange.
+- **Ansicht merken:** Die unter **Displays** gewählte Ansicht und die eines
+  Betriebsmodus merkt sich der Agent, bei „Ansicht wechseln“ und beim
+  Betriebsmodus ohne Neustart des Browsers. Sie übersteht einen Neustart des
+  Panels. Sie liegt beim Login-Benutzer in
+  `~/.local/state/loxpanel/agent-state.json`; Datei löschen oder `PANEL` in der
+  kiosk.conf ändern, dann gilt wieder `PANEL`.
 
 **Android-Panels und Tablets ohne Agent:** Auf Android übernimmt eine Kiosk-App
 den Autostart, und die Visu schaltet das Display selbst (mit Fully Kiosk Browser).
@@ -255,6 +272,9 @@ Einstellungen danach in `/etc/loxpanel/kiosk.conf` – u. a.:
 | `BL_ON` | Helligkeit im Ein-Zustand (0…max; leer = voll) |
 | `PAUSE_ON_BLANK` | Chromium bei dunklem Display einfrieren (Standard 0 = aus; 1 spart CPU/Wärme, verzögert aber das Reagieren nach dem Aufwachen um ~30 s) |
 | `AUTOSTART` | Kiosk beim Booten starten (1) oder nur auf Fernstart warten (0) |
+| `KIOSK_RESTART_SECS` | Pause vor dem Neustart nach einem Chromium-Absturz (Standard 5 s, 0 = kein Neustart) |
+| `KIOSK_RESTART_MAX_SECS` | Obergrenze, bis zu der sich die Pause bei wiederholten Abstürzen verdoppelt (Standard 300 s; über `DPMS_OFF` lassen, sonst bleibt das Display an) |
+| `STATE_FILE` | Ablage der gewählten Ansicht (Standard `$XDG_STATE_HOME/loxpanel/agent-state.json`, sonst `~/.local/state/…`) |
 
 Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 
@@ -285,6 +305,10 @@ appdata-Ordner. Details, Wandpanel-Agent und Fehlersuche:
    `https://github.com/CHief-Wiggum1203/Loxpanel/releases/latest/download/loxpanel-plugin.zip`
 3. Das Plugin installiert bei Bedarf Docker und startet den LoxPanel-Container
    automatisch. Danach erreichst du alles über das Plugin-Widget in LoxBerry.
+
+LoxPanel übernimmt die Zeitzone des LoxBerry. Änderst du sie dort, LoxPanel
+danach neu starten (Widget: **„Jetzt updaten / Neu starten"**, ein Neustart des
+LoxBerry tut es auch).
 
 ## Konfiguration
 
@@ -323,9 +347,12 @@ Zustandsfarben. Ohne Profil verhält sich ein Panel wie `default` (alles sichtba
 Im Plugin-Widget unter **„Panels sichern & wiederherstellen"** legst du jederzeit
 ein Backup der kompletten Konfiguration (Panels, Kacheln, Theme, Miniserver-Zugang)
 an. Die Archive liegen auf dem LoxBerry unter
-`data/plugins/loxpanel/backups/` und **überleben Plugin-Updates**. Aus der Liste
-lässt sich ein Stand mit einem Klick wiederherstellen (der aktuelle Stand wird
-vorher automatisch gesichert).
+`data/plugins/loxpanel/backups/`; Plugin-Updates nehmen sie mit (gelingt das
+nicht, meldet LoxBerry es beim Update, die Konfiguration selbst bleibt erhalten).
+Ältere Archive räumt das Plugin selbst weg, wie viele es behält, steht im
+Widget. Aus der Liste lässt sich ein Stand mit einem Klick wiederherstellen (der
+aktuelle Stand wird vorher automatisch gesichert). Ein beschädigtes oder fremdes
+Archiv lehnt die Wiederherstellung ab, ohne etwas zu ändern.
 
 **Auf Unraid** liegt die komplette Konfiguration in
 `/mnt/user/appdata/loxpanel/config` (`loxpanel.cfg`, `panels.json`, `theme.json`).
@@ -352,11 +379,25 @@ ausschließlich lokal im Daten-Volume.
 
 ## Weitere Installationsarten (ohne LoxBerry)
 
-LoxPanel ist ein normaler Docker-Dienst und läuft auch ohne LoxBerry – gleiche
-Server-Basis, gleiches Image `ghcr.io/chief-wiggum1203/loxpanel:latest` (multi-arch:
-amd64 / arm64 / **armv7**).
+Für ein **einzelnes, eigenständiges Panel** gibt es LoxPanel als fertiges
+Gerätepaket – mit eingebautem Server, **ohne LoxBerry und ohne Docker**. Alle
+Artefakte hängen am
+[jeweils neuesten Release](https://github.com/CHief-Wiggum1203/Loxpanel/releases/latest).
 
-**Portainer / docker compose:**
+**Android (App / APK):** die `LoxPanel-Server.apk` herunterladen und auf Tablet
+oder Wandpanel installieren. Der Server läuft **in der App** (Autostart nach dem
+Booten, Vollbild-Kiosk, eigener Bildschirmschoner mit Display-Abschaltung),
+inklusive 32-bit-Geräte (armeabi-v7a). Danach `http://<geräte-ip>:8099/config`
+im Browser öffnen und den Miniserver eintragen.
+
+**Linux-Panel (.deb):** das Paket `loxpanel-server_*_all.deb` herunterladen und
+mit `sudo apt install ./loxpanel-server_*_all.deb` installieren – richtet den
+Server als **systemd-Dienst** samt Kiosk-Autostart (Chromium/Cog) ein.
+Architektur-unabhängig (das Python-venv wird beim Installieren per uv eingerichtet).
+
+**Docker (Portainer / compose):** LoxPanel ist auch ein normaler Docker-Dienst –
+gleiche Server-Basis, gleiches Image `ghcr.io/chief-wiggum1203/loxpanel:latest`
+(multi-arch: amd64 / arm64 / **armv7**).
 
 ```yaml
 services:
@@ -381,7 +422,8 @@ volumes:
 
 Danach: Visu `http://<host>:8099`, Konfigurator und Einstellungen `…/config`
 (`/settings` leitet dorthin weiter). Zugangsdaten per Env **oder** leer lassen
-und unter *Settings → Miniserver* eintragen. Bis der Server zum ersten Mal mit
+und unter *Settings → Miniserver* eintragen; ein unter Settings gespeicherter
+Zugang hat Vorrang vor den Env-Variablen. Bis der Server zum ersten Mal mit
 dem Miniserver verbunden ist, zeigt jedes Panel, unter welcher Adresse der
 Konfigurator zu öffnen ist – auf einem Panel mit der Android-App dessen
 WLAN-Adresse. Der Konfigurator öffnet dann direkt *Settings → Miniserver*;
@@ -391,10 +433,13 @@ steht.
 **Für Entwickler (Standalone):**
 
 ```bash
-pip install loxone-api            # zieht aiohttp mit
-cp config/loxpanel.cfg.example config/loxpanel.cfg   # Miniserver eintragen (gitignored)
-python bin/webvisu.py             # -> http://localhost:8099
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python bin/webvisu.py   # -> http://localhost:8099
 ```
+
+Den Miniserver-Zugang unter *Settings → Miniserver* eintragen (der Server legt
+`config/loxpanel.cfg` dann selbst an) oder vor dem Start per
+`LOXPANEL_MS_HOST/USER/PASS` setzen.
 
 Details: [`deploy/DOCKER.md`](deploy/DOCKER.md) / [`deploy/UNRAID.md`](deploy/UNRAID.md) / [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 
@@ -419,31 +464,28 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 - **agent/loxpanel-agent.py**: der [Panel-Agent](#der-panel-agent-wandpanel-kiosk)
   auf dem Wandpanel.
 
+Dasselbe `webvisu.py` steckt gebündelt in der **Android-App** (eingebetteter
+Python-Server) und im **.deb** – dort läuft es direkt auf dem Gerät, ohne Docker
+und ohne LoxBerry.
+
 ## Roadmap
 
 - Intercom Teil 2: **Gegensprechen** (SIP-Client in der LoxPanel-App für
   Android; Zugang und Prüfung der Türstation gibt es schon).
-- Weitere Bausteine (u. a. Remote, AudioZoneV2) und Heizung-Modus-Umschaltung.
+- Weitere Bausteine (u. a. Remote) und Heizung-Modus-Umschaltung.
 - Musiksteuerung mit austauschbarem Audio-Backend (MS4H/LMS).
-- Optionaler openHASP-Renderer (ESP32) als kuratierter Satellit.
 
 ## Changelog
 
-- **0.4.0** – Auf den Stand von Upstream 0.4.0 (Lenardo1) gebracht und um eigene
-  Bausteine erweitert: **Sauna** komplett (Modus im Klartext, Solltemperatur ±,
-  Programmwahl), **Intercom** mit Live-Klingelanzeige, **Bewässerung** mit
-  Grundsteuerung (Start/Erzwingen/Stopp/alle Zonen; Einzelzonen-Auswahl noch
-  offen) und **Wecker**-Schlummer beim Klingeln. Screensaver zusätzlich mit
-  Feiertagen (zweites iCal-Abo) und Monatsraster. Audioserver: Wiedergabe und
-  Raumfavoriten laufen direkt über die `playerid`, an gekoppelten Geräten über
-  die angemeldete Verbindung.
-- **0.3.x** – Screensaver („Front") mit Kalender (iCal-Abo) und Wetter
-  (Open-Meteo), kompaktes 480×480-Layout; Anmeldung am gekoppelten
-  Loxone-Audioserver wie die Loxone-App (Raumfavoriten).
-- **0.2.6** – Miniserver-Felder nebeneinander (mehr Platz); Button „Aus LoxBerry übernehmen".
-- **0.2.5** – Backup & Wiederherstellung der Konfiguration im Plugin-Widget.
-- **0.2.4** – Container-Aktionen laufen im Hintergrund + Live-Statuslog (kein Timeout mehr).
-- **0.2.x** – erstes öffentliches LoxBerry-Plugin (Docker, automatische Installation).
+Vollständige Release-Notes: [GitHub Releases des Originals](https://github.com/Lenardo1/Loxpanel/releases);
+der Fork trägt dieselben Versionsnummern.
+
+- **0.7.0** – Direkt aufs Gerät: **Android-App (APK, inkl. 32-bit/armeabi-v7a)** und **Linux-.deb** mit eingebautem Server (ohne LoxBerry/Docker). Verlauf-Widget stapelbar, Neu-Laden gegen Einfrieren, Version/Commit/Bauzeit sichtbar; diverse Detailkorrekturen.
+- **0.6.0** – Einheitliches **Widget-Konzept** (Pane 2 / Screensaver / eigener Tab), freie Tab-Inhalte, **Panel-Assistent**, Displays-Reiter + Betriebsmodus-Automatik, Verlaufs-Diagramme, Anzeige-Skalierung.
+- **0.5.0** – **Raum-Panel**, Theme aus einer **Panel-Farbe** + Nachtmodus, Pane-2-Flächen (Energiefluss/Anlagenschema/Kamera), Wetter vom Loxone-Wetterserver, Positionsring, volle Loxone-Icon-Bibliothek.
+- **0.4.0** – Zusammenführung mit dem Fork von CHief-Wiggum1203: `/api/types`, sieben neue Bausteine (u. a. Sauna, EFM, Irrigation), Android ohne Agent, Audioserver-Anmeldung (AudioZoneV2), Docker für armv7; dazu Split-Panes, Wetter & Kalender.
+- **0.3.x** – Betriebsmodus-Umschaltung, mehrsprachige Oberfläche (DE/EN), ARMv7-Unterstützung.
+- **0.2.x** – erstes öffentliches LoxBerry-Plugin (Docker, automatische Installation), Backup & Wiederherstellung.
 
 ## Für Entwickler
 

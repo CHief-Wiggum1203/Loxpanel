@@ -73,8 +73,9 @@ git push -u origin fix/unraid-xyz     # PR gegen den Fork-main
 
 Immer wenn Upstream etwas Neues released. Als Repo-Owner ist der einfachste Weg:
 **lokal mergen und direkt auf `main` pushen**. Das umgeht die „nur Squash/
-Rebase"-Einstellung und löst den `:latest`-Build automatisch aus (weil der Push
-mit den eigenen Zugangsdaten erfolgt, nicht über einen Bot-Token).
+Rebase"-Einstellung und löst die Tests und danach den `:latest`-Build
+automatisch aus (weil der Push mit den eigenen Zugangsdaten erfolgt, nicht über
+einen Bot-Token). Das Image entsteht erst, wenn die Tests dieses Pushs grün sind.
 
 ```bash
 # 1. Upstream-Stand holen
@@ -88,10 +89,18 @@ git merge upstream/main
 #    Konflikte fast nur in den Identitäts-Dateien (release.cfg ARCHIVEURL,
 #    plugin.cfg VERSION, Image-Name): Fork-Identität behalten, Upstream-Code
 #    und -Version übernehmen.
+#    Ausnahme .github/workflows/docker-image.yml („deleted in HEAD and
+#    modified in upstream/main“): gelöscht lassen (git rm), sonst
+#    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
+#    veroeffentlichen in tests.yml übertragen (Fork-eigene Patches unten).
 
-# 4. Rauchtest (siehe unten)
+# 4. Rauchtest (siehe unten), mindestens die Wache über die Workflows:
+.venv/bin/pytest tests/test_workflows.py
+#    Bringt der Merge eine NEUE Workflow-Datei mit, die nach ghcr.io
+#    veröffentlicht, gibt es keinen Konflikt. Die Wache meldet sie hier;
+#    nach dem Push veröffentlichte die Datei schon neben den Tests her.
 
-# 5. Direkt pushen -> :latest wird automatisch neu gebaut
+# 5. Direkt pushen -> Tests laufen, nach grünen Tests wird :latest neu gebaut
 git push origin main
 ```
 
@@ -131,7 +140,8 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 (besser: die Änderung vorher upstream einreichen, dann ist sie in beiden).
 
 **3. Nach dem Sync — Funktionstest der kritischen Pfade** (nicht nur der
-`py_compile`-Rauchtest), bevor `:latest` gebaut/deployt wird:
+`py_compile`-Rauchtest), bevor `main` gepusht wird. Danach baut der
+Workflow `:latest`, sobald die Tests grün sind, und die kennen nur den Nachbau:
 
 - Musik: play/pause + Lautstärke an einer `AudioZone`/`AudioZoneV2`
 - PIN-Tür, Intercom-Bild, eine Jalousie / ein Licht schalten
@@ -142,32 +152,28 @@ ansehen, Fork-Änderungen erkennen und nach dem Übernehmen wieder einspielen
 Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
 
-- `type="text"` am Namensfeld des Betriebsmodus-Assistenten (`.mzname` in
-  `config.html`): bei Lenardo eingereicht als #80 (Zweig
-  `up/kleine-fehler`). Geht er verloren, schlägt
-  `test_geraeteliste_umschalten_und_benennen` an.
 - Icon-Bibliothek einer freien Seite (`pickIcoGridNeu()` und
   `bindPickIcons()` in `config.html`): Kommt die Bibliothek nach, füllt sie nur
   das Icon-Raster neu statt des ganzen Editors, sonst verliert der Seitenname
   mitten im Tippen Fokus und Buchstaben. Geht es zu Lenardo, sobald der
   Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
   `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
-- Kacheltexte „Spielt in 1 Raum“ (statt „1 Räumen“) und der Ruhe-Text der
-  Radiotasten (`allOff` statt „–“) in `_control_item()`: eingereicht in
-  #80, sonst schlägt `tests/test_kachel_texte.py` an.
-- `catFilter` in `_panel_export()`: ohne geht die Einstellung beim nächsten
-  Speichern verloren, auch bei Lenardo. Eingereicht in #80,
-  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an` wacht.
-- `updateGrid()` behält `ctrltight`/`ctrlnarrow`: ohne verliert eine enge
-  Player-Kachel bei Pause die Lage ihrer Tasten, auch bei Lenardo.
-  Eingereicht in #80, `test_enge_kachel_behaelt_die_lage_ihrer_tasten`
-  wacht.
+- `roomCats` in `_panel_export()`: ohne zeigt der Editor bei einem Raum-Panel
+  die automatische Kategorie-Auswahl, und das nächste Speichern, auch eines
+  anderen Profils, löscht die gewählte. Dazu setzt der Moduswechsel in
+  `renderTabMode()` (`config.html`) die Auswahl zurück wie der Raumwechsel.
+  Beides auch bei Lenardo: In 0.7.0 steht `catFilter` im Export (#80),
+  `roomCats` fehlt. Vorbereitet als Zweig `up/konfig-speichern` (mit den
+  übrigen Korrekturen aus Fork #111), noch nicht eingereicht. Wachen:
+  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`,
+  `test_raum_panel_kategorie_tabs_im_editor`.
 - Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
   `subInfo`/`big`/`bigSub` in `_control_item()`, `ui.tileLayout`,
   `GROESSEN_STANDARD`, `sizeDefaults` in `/api/meta`, `theme.example.json` ohne
   Größen): Lenardo erst vorschlagen, er plant ein frei konfigurierbares
   Display. Bis dahin reiben sich Upstream-Merges an `render()`, `updateGrid()`
-  und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
+  (der Fork behält dort zusätzlich `aufbauKlassen()` und `eng<n>`), an
+  `sizeField()` und der Vorlage. Wachen: `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py`,
   `test_mini_verlauf_im_neuen_aufbau`.
 - Automatisches Raster für Tablets (`ui.grid`/`ui.tileSize`, `KACHEL_ZIEL`,
@@ -185,14 +191,16 @@ nicht unbemerkt entfernt:
   `renderWertePane()`); für Lenardo erst auf seinen Wetter-Aufbau
   (`fpWeatherMainHTML()`, `renderSvStatus()`) umbauen. Reibt sich bei
   Upstream-Merges an `renderWeatherPane()`,
-  `renderCalendarPane()` und `renderSvStatus()`. Wache:
-  `tests/browser/test_pane_hoehe_browser.py`.
-- Neu laden gegen Einfrieren, ohne Eintrag jede Nacht (`NEULADEN_STUNDE`,
-  `reloadAt` in theme-Nachricht und `/api/meta`, `neuladenFaellig()` und
-  `neuladenPruefen()` in `panel.html`, Platzhalter und Hinweis beim Feld
-  *Auto-Neustart* in `config.html`): bei Lenardo eingereicht als #82 (Zweig
-  `up/neuladen-nachts`). Wachen:
-  `tests/test_neuladen.py`, `tests/browser/test_neuladen_browser.py`.
+  `renderCalendarPane()` und `renderSvStatus()`. Dazu gehört
+  `vorschauDatumEinpassen()` (Fork #108): Eng bleibt das Datum der
+  Wetter-Vorschau einzeilig. Wache:
+  `tests/browser/test_pane_hoehe_browser.py` (`test_wetter_eng_langes_datum`).
+- Uhr-Seite wegtippen löst die Kachel darunter nicht aus (`saverGeste` und
+  die Capture-Abfänger auf `window` vor `el('saver')` in `panel.html`, Fork
+  #107): bei Lenardo vorbereitet als Zweig `up/saver-wegtippen` (auf 0.7.0),
+  noch nicht eingereicht. Reibt sich bei Upstream-Merges an der Zeile
+  darunter, die im Fork zusätzlich auf `input` lauscht. Wache:
+  `tests/browser/test_saver_wecken_browser.py`.
 - Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
   Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
   Klingeln des Intercoms samt `/bellimg`, UpDownAnalog wie der Slider. Dazu die
@@ -200,9 +208,9 @@ nicht unbemerkt entfernt:
   Zellen mit `nav`/`form`/`confirm`/`back` in `panel.html`. Die allgemeinen
   Teile (`panelEinpassen()` mit `.pantop{flex:1 0 auto}` für volle
   Detailseiten, die Rundung von `nudgeSld()` und die Signatur der
-  Weckzeiten-Liste in `blockSig()`) sind bei Lenardo eingereicht als #81
-  (Zweig `up/detailseiten`); die Bausteine selbst erst nach der Prüfung an
-  der Anlage (TODO §8.1). Reibt sich bei Upstream-Merges an
+  Weckzeiten-Liste in `blockSig()`) sind seit 0.7.0 in Upstream (#81); die
+  Bausteine selbst gehen erst nach der Prüfung an der Anlage zu Lenardo
+  (TODO §8.1). Reibt sich bei Upstream-Merges an
   `_control_item()`, `_view_control_inner()`, `renderPanel()` und
   `updatePanel()`. Wachen: `tests/test_auf_ab_wert.py`,
   `tests/test_bewaesserung.py`, `tests/test_wecker.py`,
@@ -212,34 +220,53 @@ nicht unbemerkt entfernt:
   `KioskActivity`): kann zu Lenardo, aber nur zusammen mit `/api/health`, das
   der Wächter abfragt und das es bei ihm nicht gibt (siehe unten). Wache:
   `WaechterTest` (`gradle testDebugUnitTest`).
-- Zwei Korrekturen zu Lenardos #77 (Verlauf-Widget mit mehreren Bausteinen,
-  im Fork, bevor es bei ihm in `main` ist): Auf der Uhr-Seite schrumpfen die
-  Hüllen `.cpbody`/`.cpsec` mit, sonst werden die Diagramme wieder unten
-  abgeschnitten, und unter der Zeitraum-Leiste gilt nur ihr eigener Abstand
-  (sonst schrumpfen zwei Diagramme bei 960 × 480 ohne Not); die Visu
-  verwirft einen Verlaufs-Push mit Bausteinen außerhalb
-  ihrer Anfrage, und `_broadcast_tick()` schickt keinen Stapel mehr, den die
-  Verbindung inzwischen per `setchart` abgelöst hat. Als Beitrag zu #77
-  eingereicht: #79 (Zweig `up/verlauf-stapel`, in seinen Zweig
-  `feature/verlauf-stapelbar`).
-  Wachen: `test_uhrseite_verlauf_schrumpft_statt_abzuschneiden`,
-  `test_uhrseite_hochkant_zweite_flaeche_unten`,
-  `test_verlauf_pane_verwirft_fremden_stapel`,
-  `test_veralteter_stapel_kommt_nicht_hinterher`.
+- PIN auf jedem Bedienweg und Musik-Favoriten (Fork #112): `nudgeSld()` und
+  die übrigen Bedienwege geben `secured` und den Abbruch an `sendCmd()`
+  weiter, `ui.pinMerken` steht in `_panel_export()` und `/api/meta`, und
+  `blockSig()` vergleicht die Favoriten nach Name, Cover und Befehl statt nur
+  nach ihrer Anzahl. Auch bei Lenardo betroffen: vorbereitet als Zweig
+  `up/visu-neuverbindung` (mit den Widget-Abos aus Fork #112, ohne „PIN
+  merken“), noch nicht eingereicht. Beim Abgleich auf 0.7.0 gab es an
+  `nudgeSld()`, `blockSig()` und der Schlüsselliste in `_panel_export()`
+  Konflikte mit #80 und #81. Kommt der Beitrag zurück, reibt sich der
+  PIN-Block in `panel.html`: Im Fork stehen dort `pinMerk`, weitere Auslöser
+  von `pinVergessen()` (Display aus, Nachtbeginn), ein anderer Kopfkommentar
+  und `pinSenden()` mit `neu`/`halten`. Die Fork-Fassung behalten;
+  `job.seite`, `pinSeite()` aus `stack`, der Abbruch einer abgelehnten PIN
+  auf fremder Seite und die Rümpfe von `pinVergessen()` stehen in beiden
+  gleich.
+  Wachen: `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
+  `test_favoriten_folgen_dem_server`, `test_abo_neuverbindung_browser.py`.
+- Weitere Korrekturen des Prüfberichts (Fork #111, #113–#116): bei Lenardo
+  vorbereitet als `up/miniserver-zugang`, `up/miniserver-verbindung`,
+  `up/audioserver-kopplung`, `up/kalender-ausnahmen`, `up/installdoku`,
+  `up/agent-ansicht` und `up/loxberry-sicherung`, noch nicht eingereicht
+  (TODO §0b). Kommen sie zurück: In `bin/webvisu.py` gibt es
+  `_ms_antwortfrist()` danach nur einmal, die Fassung mit `_ms_sekunden()`.
+  Git meldet eine Doppelung nicht, `ruff check --select F,E9` schon (F811).
+  In `reconnect()` und `config/loxpanel.cfg.example` die Fork-Fassung
+  behalten. README und `deploy/DEPLOY.md` haben die Absätze im Fork in
+  anderer Umgebung (Unraid, Intercom), dort sind kleine Textkonflikte zu
+  erwarten. Der Agent-Code ist gleich, `loxpanel-ctl.sh` und `preroot.sh`
+  weichen nur in Kommentaren zu den Testpfaden ab. Wachen:
+  `tests/test_miniserver_zugang.py`, `test_miniserver_ws.py`, `test_tls.py`,
+  `test_stabilitaet.py`, `test_front_abruf.py`, `test_installation.py`,
+  `test_agent.py`, `test_loxberry_ctl.py`, `test_loxberry_update.py`,
+  `test_loxberry_widget.py`, `test_loxberry_zeitzone.py`,
+  `tests/browser/test_kachel_tasten_browser.py`.
 
 - SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
-  `secured_details()`, `/api/sip`, Reiter SIP) und die Versionsnummer
-  (`bin/version_info.py`, Seitenleiste, `bin/version.json` aus Gradle und
-  Dockerfile): bei Lenardo eingereicht als #83 (Zweig `up/sip-zugang`) und
-  #84 (`up/versionsnummer`), TODO §0b. Die Stellen im Fork sind dieselben wie in
-  den Beiträgen (`import version_info` hinter `theme_colors`, die
-  Übersetzungen der Versionszeile bei „nicht verbunden“), damit ein Abgleich
-  weder Konflikte noch doppelte Importe bringt. Nur im Fork bleiben `version`
-  in `/api/health` und die Ausnahme `!loxberry-plugin/plugin.cfg` in
-  `.dockerignore` (Lenardo schließt `loxberry-plugin/` nicht aus). Wachen:
+  `secured_details()`, `/api/sip`, Reiter SIP): bei Lenardo eingereicht als
+  #83 (Zweig `up/sip-zugang`), noch offen, TODO §0b. Die Stellen im Fork sind
+  dieselben wie im Beitrag, damit ein Abgleich keine Konflikte bringt. Wachen:
   `tests/test_loxone_secure.py`, `test_sip_probe.py`, `test_sip.py`,
-  `test_version.py`, `tests/browser/test_sip_browser.py`,
-  `test_version_browser.py`.
+  `tests/browser/test_sip_browser.py`.
+- Versionsnummer: seit 0.7.0 in Upstream (#84). Nur im Fork bleiben
+  `version` in `/api/health` und die Ausnahme `!loxberry-plugin/plugin.cfg` in
+  `.dockerignore` (Lenardo schließt `loxberry-plugin/` nicht aus). Wachen:
+  `test_settings_und_health_nennen_die_version` in `tests/test_version.py`;
+  für die Ausnahme der Probe-Build des Images in `tests.yml` (ohne sie
+  scheitert `COPY loxberry-plugin/plugin.cfg` im `Dockerfile`).
 - Intercom v1 und v2 (Oktober 2026): `IntercomV2` neben `Intercom` überall,
   wo Türsprechstellen vorkommen (`INTERCOM_TYPES`; Antworten, Stumm und
   Gerätezustand in `_control_item()` und `_view_control_inner()`), die Kamera
@@ -255,12 +282,30 @@ nicht unbemerkt entfernt:
   `tests/browser/test_sip_browser.py`, `test_intercom_v2` in
   `tests/browser/test_bausteine_browser.py`.
 
+Seit 0.7.0 in Upstream und deshalb nicht mehr in der Liste (ihre Wachen
+laufen weiter): `type="text"` am `.mzname`, „Spielt in 1 Raum“ und der
+Ruhe-Text der Radiotasten, `catFilter` in `_panel_export()` und
+`ctrltight`/`ctrlnarrow` in `updateGrid()` (#80); die allgemeinen Teile der
+Detailseiten (#81); Neu laden gegen Einfrieren ohne Eintrag jede Nacht (#82);
+die zwei Korrekturen zum Verlauf-Stapel (#79, von Lenardo in den Zweig von
+#77 übernommen und mit #77 gemergt); die Versionsnummer (#84).
+
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):
 
 - Kalender- und Wetter-Tabs (`FRONT_TABS` in `bin/webvisu.py`,
   `renderFrontTab()` in `panel.html`, Fork #84; Lenardo hat Wetter und Kalender
   inzwischen als Widget-Seite): `tests/browser/test_front_tabs_browser.py`.
+- Image nur nach grünen Tests: Der Job `veroeffentlichen` in
+  `.github/workflows/tests.yml` baut und veröffentlicht das Image erst, wenn
+  alle Prüf-Jobs desselben Laufs grün sind. Lenardos `docker-image.yml`
+  veröffentlichte neben den Tests her und ist im Fork gelöscht, nicht nur
+  geleert: Ändert Upstream die Datei, hält ein Konflikt den Merge an (Ablauf C,
+  Schritt 3), statt dass sich die Änderung still in eine Restfassung mischt.
+  Dazu gehört der Kommentar beim Build-Argument `LOXPANEL_COMMIT` im
+  `Dockerfile`. Beim Abgleich auf 0.7.0 hat das gegriffen: #84 ergänzte in
+  `docker-image.yml` das Build-Argument, das der Job `veroeffentlichen` schon
+  übergibt. Wache: `tests/test_workflows.py`.
 - Docker-Betrieb: `/api/health` für den `HEALTHCHECK` und
   `LOXPANEL_LOG_LEVEL`: `test_health_meldet_beendete_aufgabe`,
   `test_log_level` in `tests/test_unraid.py`. Seit Oktober 2026 fragt auch der
@@ -272,20 +317,28 @@ nicht still entfernt):
 1. **Merge-Commit-Regel:** Upstream-Syncs nie squashen/rebasen. Lokal mergen +
    `git push origin main` ist der sauberste Weg.
 2. **`:latest`-Build:** Ein Push auf `main` mit eigenen Zugangsdaten baut das
-   Image automatisch neu. Merges über einen GitHub-Bot-Token lösen den
-   `push`-Trigger **nicht** aus – dann den Build manuell starten
-   (Actions → „Docker Image" → „Run workflow").
+   Image automatisch neu, sobald die Tests desselben Laufs grün sind (rund zehn
+   Minuten). Merges über einen GitHub-Bot-Token lösen den `push`-Trigger
+   **nicht** aus – dann den Lauf manuell starten (Actions → „Tests und Image“ →
+   „Run workflow“ auf `main`; von anderen Zweigen veröffentlicht er nicht). War
+   ein Test nur zufällig rot, startet „Re-run failed jobs“ das Veröffentlichen
+   mit. Beide Re-runs, „failed jobs“ wie „all jobs“, nur am neuesten Lauf auf
+   `main` starten: An einem älteren setzt das Veröffentlichen `latest` auf
+   dessen Stand zurück, und wartet gerade ein neuerer Lauf, verdrängt der
+   Re-run ihn (je Gruppe wartet nur einer).
 3. **Identität schützen:** Nach jedem Sync prüfen, dass
    `ghcr.io/chief-wiggum1203/loxpanel` (klein), `ARCHIVEURL` auf den Fork und
    `plugin.cfg` NAME/FOLDER/AUTHOR unverändert sind.
 
 ## Prüfen vor jedem Push
 
-Die GitHub-Action „Tests" (`.github/workflows/tests.yml`) läuft auf jedem PR und
-jedem Push auf `main`: Syntax, Lint (Fehlerregeln), pytest mit Miniserver-Nachbau
-und Rauchtest, Visu-/Konfigurator-Tests in Chromium und für PRs ein Probe-Build
-des Images. Ein PR wird erst gemergt, wenn sie grün ist. Lokal dasselbe
-(Einzelheiten in `CLAUDE.md`):
+Die GitHub-Action „Tests und Image“ (`.github/workflows/tests.yml`) läuft auf
+jedem PR, jedem Push auf `main` und jedem `v*`-Tag: Syntax, Lint
+(Fehlerregeln), pytest mit Miniserver-Nachbau und Rauchtest,
+Visu-/Konfigurator-Tests in Chromium, für PRs ein Probe-Build des Images. Auf
+`main` und bei `v*`-Tags veröffentlicht sie danach das Image, aber nur, wenn
+alles davor grün ist. Ein PR wird erst gemergt, wenn sie grün ist. Lokal
+dasselbe (Einzelheiten in `CLAUDE.md`):
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt

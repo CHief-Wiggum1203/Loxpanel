@@ -53,7 +53,7 @@ erreichbar, das reicht als Rauchtest. Docker: `docker compose up -d --build`.
 ## Prüfen vor einem Push
 
 Tests liegen in `tests/` (pytest), die GitHub-Action `tests.yml` führt sie auf
-jedem PR und jedem Push auf `main` aus. Lokal dasselbe:
+jedem PR, jedem Push auf `main` und jedem `v*`-Tag aus. Lokal dasselbe:
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt     # einmalig, dazu für Browser-Tests:
@@ -118,7 +118,9 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
 - Keine Authentifizierung auf den Routen. Nichts bauen, was das Netz nach außen
   öffnet, ohne das vorher zu lösen.
 - Image-Name `ghcr.io/chief-wiggum1203/loxpanel` in Kleinbuchstaben. Ein Push auf
-  `main` baut `:latest` neu.
+  `main` baut `:latest` neu, aber erst, wenn die Tests desselben Laufs grün sind
+  (Job `veroeffentlichen` in `tests.yml`). Einen eigenen Docker-Workflow gibt es
+  im Fork nicht mehr, `tests/test_workflows.py` wacht darüber.
 - Root-`plugin.cfg`, `daemon/`, `postinstall.sh`, `apt`,
   `webfrontend/htmlauth/index.php`, `config/visu.*` sind Altlasten ohne Funktion.
 

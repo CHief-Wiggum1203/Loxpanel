@@ -33,6 +33,11 @@ jobs:
 
       - name: Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Das alte SDK-Paket 'tools' hat Google entfernt; die Vorgabe der Action
+          # wollte es installieren -> "Failed to find package 'tools'". Nur noch
+          # platform-tools holen, den Rest laedt Gradle/AGP selbst nach.
+          packages: platform-tools
 
       - name: Gradle 8.7
         uses: gradle/actions/setup-gradle@v4

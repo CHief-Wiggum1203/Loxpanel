@@ -2,12 +2,14 @@
 gewaehlte Baustein jemanden meldet, bleibt das Display des Geraets an und die
 Leerlaufzeit schaltet es nicht ab; wird der Raum leer, geht es aus. Geprueft
 am echten Server (ws_handler, Broadcaster) mit einer WebSocket-Verbindung je
-Geraet. Display-Treiber und Datei ersetzt ein Stellvertreter - kein Test darf
-config/ veraendern."""
+Geraet. Display-Treiber und Datei ersetzt ein Stellvertreter; wer wirklich
+schreibt, tut es im umgeleiteten Config-Ordner (Fixture cfg_ordner) - kein
+Test darf config/ veraendern."""
 import asyncio
 import time
 
 import aiohttp
+import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -153,6 +155,41 @@ def test_speichern_koppelt_und_loest_den_melder():
             assert j["ok"] and app.presence_map == {}
             assert app._pending_presence == [{"dev": "kueche", "on": True, "presence": False}]
     asyncio.run(lauf())
+
+
+@pytest.mark.parametrize("fehler", [OSError("Kein Platz auf dem Gerät"), ValueError("kaputtes Zeichen")],
+                         ids=["oserror", "valueerror"])
+def test_gescheitertes_speichern_laesst_den_laufenden_stand(cfg_ordner, monkeypatch, fehler):
+    """Scheitert das Schreiben von panels.json (Volume voll, Rechte, nicht
+    kodierbarer Text), antwortet der Server mit dem Fehler und arbeitet mit dem
+    gespeicherten Stand weiter: kein Melder gekoppelt, kein Display geschaltet."""
+    async def lauf():
+        app, geschaltet = _app({"kueche": {"scale": "auto"}}, anwesend=True)
+        app._persist_panels_file(app.panels, app.devices)       # Ausgangsstand auf der Platte
+        vorher = W.PANELS_FILE.read_text(encoding="utf-8")
+        echt = W._atomic_write
+
+        def schreiben(pfad, text):
+            if pfad == W.PANELS_FILE:
+                raise fehler
+            echt(pfad, text)
+        monkeypatch.setattr(W, "_atomic_write", schreiben)
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_post("/api/devices", W.api_save_devices)
+        async with TestClient(TestServer(ui)) as cl:
+            r = await cl.post("/api/devices", json={"devices": {"kueche": {"presence": "PM", "display": FULLY}}})
+            antwort = (r.status, await r.json())
+        await app._broadcast_tick()                             # holt ein Neukoppeln nach
+        while app.bg_tasks:
+            await asyncio.gather(*list(app.bg_tasks))
+        return app, antwort, vorher, geschaltet
+    app, (status, j), vorher, geschaltet = asyncio.run(lauf())
+    assert status == 500 and j["ok"] is False and str(fehler) in j["error"]
+    assert W.PANELS_FILE.read_text(encoding="utf-8") == vorher
+    assert app.devices == {"kueche": {"auto": True, "modes": {}, "scale": "auto"}}, \
+        "der laufende Server folgt der Datei, nicht dem gescheiterten Speichern"
+    assert app.presence_map == {} and geschaltet == []
 
 
 def test_stand_in_der_geraeteliste_und_auswahl_im_konfigurator():

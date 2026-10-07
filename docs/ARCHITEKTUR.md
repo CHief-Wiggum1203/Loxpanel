@@ -61,16 +61,16 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
-| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert |
+| `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
-| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels |
+| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
-| `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `docker-image.yml`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
+| `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
@@ -139,13 +139,32 @@ Befehle ohne Anmeldung ab („command not allowed when paired", prüfbar mit
 nachweislich **nicht** gekoppelter Audioserver (Nachbau Sonn/MS4H bzw.
 Musikserver Gen 1, `paired=false`) bekommt sie direkt auf Port 7091 (die
 `playerid` dafür stammt aus `details.playerid`). Den `paired`-Status ermittelt
-der Ereignis-Client je Host automatisch (`audioserver_events.py`, HTTP
-`audio/cfg/all`); solange er unbekannt ist, wird sicher über den Miniserver
-geleitet. `roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
+der Ereignis-Client je Host vor dem Verbinden (`audioserver_events.py`,
+`_check_paired()`, HTTP `audio/cfg/all`): Steht „not allowed when paired" in der
+Antwort, ist er gekoppelt, gleich mit welchem HTTP-Status. 5xx, 408, 429,
+Zeitlimit und Verbindungsfehler sagen nichts über die Kopplung, der bisherige
+Wert bleibt. Jede andere Antwort heißt nicht gekoppelt; Nachbauten und
+Musikserver Gen 1 antworten nicht einheitlich (auch 404 oder leer), deshalb gibt
+es kein strengeres Kriterium. Solange der Status unbekannt ist, gilt der
+Audioserver wie gekoppelt ohne Anmeldung: Befehle und Favoriten laufen über den
+Miniserver, auf dem Ereigniskanal wird nur gehört, und die Prüfung wiederholt
+sich alle `audiometa.retry_interval` Sekunden. Ergibt sie „gekoppelt", baut der
+Client die Verbindung sofort neu auf und meldet sich an; ergibt sie „nicht
+gekoppelt", fordert er die Favoriten über 7091 an. Bis der Audioserver als
+gekoppelt erkannt ist, läuft die Prüfung vor jedem Verbinden; so heilt ein
+falsches „nicht gekoppelt": Ein gekoppelter Audioserver schließt den Kanal beim
+ersten Befehl ohne Anmeldung. Ein erkanntes „gekoppelt" bleibt dagegen bis zum
+nächsten Start des Clients. Es entsteht nur aus dem Kopplungstext, und eine
+Antwort beim Hochfahren des Audioservers (404, leer) würde es sonst kippen;
+Transportbefehle gingen dann ohne Anmeldung an 7091 und ins Leere.
+`roomfav/get` bleibt immer am Miniserver (füllt den `sourceList`-State
 für die Anzeige). Ausnahme roomfav/play: bei einem gekoppelten Loxone-Audioserver
 läuft `roomfav/play/<slot>` über die angemeldete Ereignis-Verbindung
 (`play_roomfav`), weil der unangemeldete Direktkanal solche Befehle ablehnt;
-Nachbauten (`authed=false`) nutzen den Direktkanal. Titel, Sender und Cover für `AudioZoneV2` kommen über den
+Nachbauten (`authed=false`) nutzen den Direktkanal. Ist die Ereignis-Verbindung
+dabei schon weg, meldet `play_roomfav` das, und die Visu zeigt wie bei anderen
+gescheiterten Befehlen einen Hinweis.
+Titel, Sender und Cover für `AudioZoneV2` kommen über den
 Ereigniskanal (`audioserver_events.py`): Der WebSocket muss das Unterprotokoll
 `remotecontrol` anfordern, dann schickt auch der gekoppelte Audioserver die
 Ereignisse aller Zonen ohne Anmeldung. Befehle auf diesem Kanal setzen bei einem
@@ -194,10 +213,12 @@ Wichtige Felder:
 | `conn_route`, `conn_prof`, `conn_dev` | je Browser-WebSocket: aktuelle Route, aufgelöstes Panel-Profil, Gerätekennung |
 | `conn_info` | je Browser-WebSocket: Gerätekennung, Kiosk-App (`fully` oder `loxpanel`, `KIOSK_APPS`), IP, Verbindungszeit; Basis von `device_list()` |
 | `panels`, `devices` | aus `panels.json` |
-| `agents` | `ip → Agent-Datensatz` (Announce) |
+| `agents` | `ip → Agent-Datensatz` (Announce, mit `features`) |
+| `agent_wunsch` | `ip → Profil`, das ein Agent mit seiner nächsten Meldung übernehmen soll (Displays, Betriebsmodus); fällt weg, sobald er es meldet |
 | `bell_map`, `alarm_map` | State-UUID → Control für Klingel- und Wecker-Flanken |
 | `icon_cache` | Cache für Loxone-Icons, höchstens `ICON_CACHE_MAX` (500) Einträge, der am längsten unbenutzte fliegt zuerst |
 | `last_mode` | zuletzt gesetzter Betriebsmodus |
+| `ansicht_gewaehlt` | Geräte, deren Ansicht unter Displays gewählt wurde („Ansicht wechseln“ oder „Start“): `ws_handler()` zieht sie nicht auf `last_mode`, bis der Betriebsmodus wieder wechselt |
 
 `op_modes` (Betriebsarten) ist ab `__init__` ein leeres Dict und wird in
 `_apply_structure()` gefüllt; `/api/types` funktioniert damit auch ohne Miniserver.
@@ -209,8 +230,31 @@ Wichtige Felder:
 - `stream_task()` (`:2409`): Endlosschleife. Bei Fehler wird das Token erneuert,
   scheitert das, wird die Verbindung hart zurückgesetzt. Danach wachsende Pause
   (`MS_RETRY`: 5, 10, 20, 40, 60 s). Von vorn beginnt sie erst, wenn eine
-  Verbindung mindestens 60 s hielt — ein Miniserver, der sofort wieder trennt,
-  bekommt so nicht alle paar Sekunden eine neue Anmeldung.
+  Verbindung mindestens 60 s lang Nachrichten lieferte (`LoxoneWS.lebenszeit()`,
+  Anmeldung bis letzte Nachricht) — ein Miniserver, der sofort wieder trennt
+  oder nach der Anmeldung schweigt, bekommt so nicht alle paar Sekunden eine
+  neue Anmeldung. Wie lange die Verbindung bloß offen war, zählt nicht: Eine
+  stumme endet erst nach `keepalive_interval` + `response_timeout` (Standard
+  70 s), also nach mehr als `MS_RETRY[-1]`.
+- **Lebenszeichen der Live-Verbindung:** Nach der Anmeldung sendet LoxPanel auf
+  dem WebSocket sonst nichts (Befehle gehen über HTTP). Ein still abgerissener
+  Socket (Strom, WLAN, NAT ohne RST) oder ein Miniserver, der annimmt und
+  schweigt, blieb deshalb unbemerkt hängen: `stream_task` wartete für immer,
+  die Panels zeigten eingefrorene Werte. Jetzt haben Verbindungsaufbau,
+  `getkey` und `authwithtoken` je die Frist `miniserver.response_timeout`
+  (`_ms_antwortfrist()`), und `stream()` sendet alle
+  `miniserver.keepalive_interval` Sekunden (`_ms_keepalive_abstand()`,
+  Standard `MS_KEEPALIVE` = 60 s) `keepalive`. Der Miniserver antwortet mit
+  einem Header der Kennung 6 (Loxone-Doku „Communicating with the Miniserver“,
+  „Keeping the connection alive“); das Log meldet einmal je Verbindung
+  „Miniserver beantwortet keepalive“. Kommt `keepalive_interval` +
+  `response_timeout` lang keine Nachricht, endet `stream()` mit
+  `ConnectionError` und `stream_task` verbindet neu. Die Grenze gilt je
+  Nachricht, auch für den Voll-Dump nach der Anmeldung, der im LAN einen
+  Bruchteil davon braucht. Laut Doku trennt der Miniserver außerdem Clients,
+  die über 5 Minuten nichts senden; an der eigenen Anlage hielt der WebSocket
+  aber auch ohne `keepalive` tagelang. `/api/health` bleibt dabei, wie es ist:
+  Ein fehlender Miniserver ist kein Fehler (§4).
 - **Token-Erneuerung für HTTP-Anfragen:** Die WebSocket-Verbindung braucht das
   Token nur beim Anmelden, die HTTP-Anfragen (Befehle `sps/io`, gesicherte
   Befehle, Icons, Verläufe) tragen es bei jedem Aufruf als Bearer. Läuft es ab,
@@ -228,7 +272,11 @@ Wichtige Felder:
   bekommt das Panel einen gelben Hinweis (`notify`) statt nichts.
 - `reconnect()` (`:438`): zweiter Weg über `/api/settings/miniserver`. Baut einen
   neuen Client und übernimmt ihn nur bei Erfolg, die alte Verbindung überlebt
-  einen Fehlversuch.
+  einen Fehlversuch. Die Anmeldung (`getkey2`, `getjwt`) hat eine Frist,
+  `miniserver.response_timeout` in `loxpanel.cfg`, Standard `MS_CMD_TIMEOUT`
+  (`_ms_antwortfrist()`); das Laden der Struktur hängt an ihrer Größe und hat
+  keine. `api_settings_ms` übergibt den zu prüfenden Zugang und schreibt erst
+  danach (§5.1).
 - Bei Port 80 (Gen1) wird die Basis-URL von Hand auf `http://` gesetzt, weil
   `loxone-api` HTTPS annimmt.
 
@@ -247,7 +295,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -257,10 +305,13 @@ Server → Browser (`panel.html:700`):
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
-| `cmdresult` | `ok` | Ergebnis eines PIN-gesicherten Befehls |
+| `cmdresult` | `ok`, `code`, `uuid`, `cmd` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“ |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
+| `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
+| `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
+| `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
@@ -275,6 +326,20 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
+| `setenergy` | `uuid` — EFM oder EnergyManager2 der Energiefluss-Pane des aktiven Tabs bzw. der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `energy` und hält den Stand je Verbindung (`conn_energy`) |
+| `setcamera` | `uuid` — Intercom der Kamera-Pane (leer = keine). Antwort `camera`, Stand in `conn_camera` |
+| `setplayer` | `zone` — Audio-Zone der Player-Pane (leer = keine). Antwort `player`, Stand in `conn_player` |
+
+Die `set*`-Nachrichten sind Abos. Der Server hält sie je Verbindung und räumt
+sie ab, wenn die Verbindung endet (`ws_handler`, `_send_or_drop()`). Die Visu
+merkt sich, was sie gemeldet hat (`curEnergyUuid`, `curCameraUuid`,
+`curPlayerZone`, `curSvStatus`, `curChartKey`), und `applyPane()` meldet nur
+Änderungen. Nach jedem Verbindungsaufbau vergisst sie diesen Stand
+(`abosVergessen()` in `ws.onopen`), und der `theme`-Push, der als Erstes kommt,
+meldet über `applyPane()` alle aktiven Abos neu an. Ohne das blieb nach einem
+Neustart des Servers, einem Netzabbruch oder dem Benennen eines Geräts jedes
+Widget auf dem letzten Stand stehen. Ein neues Abo mit eigener Kennung gehört
+in `abosVergessen()`. Geprüft in `tests/browser/test_abo_neuverbindung_browser.py`.
 
 ### 3.7 Das Block-Vokabular
 
@@ -628,7 +693,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte, Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`), `version` (`version`, `commit`, `gebaut`; `version_info.lesen()`, Seitenleiste des Konfigurators) | Einstellungen, LoxBerry-Widget |
@@ -636,20 +701,20 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
 | POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Settings → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
-| POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang speichern, sofort `reconnect()` | Einstellungen, LoxBerry-Widget |
+| POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
 | GET | `/api/sip` | `api_sip` | Intercoms der Anlage (Türsteuerung `Intercom` und Baustein Intercom `IntercomV2`) mit `uuid`, `name`, `type`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; `ohneSip`, wenn der Miniserver geantwortet hat, aber keinen nennt; hat der Baustein gesicherte Details ohne SIP-Teil, dazu `felder`: je Abschnitt die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom mit dem Kennzeichen `securedDetails` kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
 | POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
-| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich, Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) | Panel-Agent |
-| GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < 60 s, gelistet < 600 s) | Einstellungen |
-| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten | Einstellungen |
-| POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät | Einstellungen |
+| POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich (`features: ["panel"]`: kann eine Ansicht übernehmen), Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) und, wenn für ihn eine Ansicht ansteht (`agent_wunsch`), `panel`; die beiden Werte gelten dann schon für sie | Panel-Agent |
+| GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < `AGENT_ONLINE` = 60 s, gelistet < 600 s) | Einstellungen |
+| POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl und hebt `last_mode` für das Gerät auf, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
+| POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
-| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel}`), per WebSocket-Push, sonst über den Agenten | Einstellungen |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf | Einstellungen |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen (`{ip, name}`), Visu merkt sich den Namen und verbindet neu | Einstellungen |
-| GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps | Einstellungen, Loxone, extern |
+| GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
 | POST | `/api/testtone` | `api_testtone` | Testton an Panels | Einstellungen |
 | GET/POST | `/api/reload` | `api_reload` | Panels neu laden, Filter `panel`/`device` | Loxone, extern |
@@ -690,10 +755,12 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 
 ### 5.1 Miniserver-Zugang, Priorität
 
-`_config()` (`:200`):
+`_config()` (`:200`), dahinter `_ms_zugang()`, das auch die Quelle nennt:
 
-1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt)
-2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`
+1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt, dann gilt der
+   Abschnitt ganz)
+2. Umgebungsvariablen `LOXPANEL_MS_HOST/USER/PASS/PORT/VERIFY_TLS`; ein leerer
+   oder ungültiger Port wird 443
 3. leer, Server startet trotzdem, wartet und zeigt den Panels den
    Einrichtungshinweis (§3, `einrichtung`); der Konfigurator führt dann zuerst
    zu Settings → Miniserver (§7.3)
@@ -707,13 +774,49 @@ nicht vorausfüllt und kein Speichern einer anderen Einstellung ihn in die
 
 Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 
+Settings zeigt genau diesen Zugang (`/api/settings`), und `api_settings_ms`
+geht von ihm aus. Speichern prüft zuerst und schreibt dann:
+
+- Lehnt der Miniserver ab (Kennwort, Benutzer, Zertifikat, keine
+  Loxone-Antwort), bleiben Datei und Verbindung, wie sie sind.
+- Ist er nicht erreichbar (Frist, Verbindung, DNS), wird gespeichert. Eine
+  bestehende Verbindung bleibt; `stream_task` baut die nächste mit dem neuen
+  Zugang auf (`_zugang_neu`). Ohne Verbindung versucht es der Loop sofort damit.
+- Ein leeres Kennwortfeld behält das bisherige Kennwort, aber nur für denselben
+  Host und Benutzer.
+- Wird der Zugang aus `LOXPANEL_MS_*` unverändert gespeichert, schreibt das
+  nichts in die Datei; die Variablen gelten weiter. Ändert sich etwas (Port,
+  Zertifikat), kommt der ganze Zugang samt Kennwort in die Datei, denn ein
+  Abschnitt mit Host gilt nur ganz.
+- Weitere Schlüssel des Abschnitts (`msno`, `_comment`, `response_timeout`,
+  `keepalive_interval`) bleiben stehen.
+
+Zertifikat prüfen (`verify_tls`): Mit `true` prüfen alle Verbindungen zum
+Miniserver Zertifikat und Namen gegen den Standard-Truststore, also Anmeldung
+und Struktur (`loxone_api`), WebSocket (`LoxoneWS`) und die `icon_session`
+(Statistik, Bilder, gesicherte Details, dazu die Cover von außen). Den Kontext
+für WebSocket und `icon_session` baut `ms_ssl_kontext()` in `loxone_ws.py` so
+wie `loxone_api` seinen; die CAs lädt ein eigener Thread
+(`asyncio.to_thread`), damit die Ereignisschleife nicht steht.
+
+- Verbunden wird nur, wenn `host` ein Name ist, den das Zertifikat nennt. Mit
+  der IP-Adresse scheitert die Prüfung („IP address mismatch“), auch bei einem
+  sonst gültigen Zertifikat. Der Name muss im lokalen Netz auflösen.
+- Es zählen die CAs des Systems, auf dem der Server läuft (im Docker-Image die
+  von Debian). Die Android-App prüft gegen die CA-Liste, die Chaquopy
+  mitbringt (certifi); eine unter Android selbst installierte CA kennt sie
+  nicht. Eine eigene CA-Datei lässt sich nicht angeben.
+- Mit `false` (Standard) prüft keine der Verbindungen, wie es ein Gen2 mit
+  selbstsigniertem Zertifikat braucht.
+
 ### 5.2 `loxpanel.cfg`
 
 | Sektion | Felder | Gelesen von |
 |---|---|---|
-| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls` | `_config()` |
+| `miniserver` | `host`, `user`, `pass`, `port`, `verify_tls`; `response_timeout` (s, Frist für eine Antwort des Miniservers, auch beim Aufbau der Live-Verbindung und auf `keepalive`, Standard `MS_CMD_TIMEOUT`); `keepalive_interval` (s, Abstand der `keepalive` auf dem WebSocket, Standard `MS_KEEPALIVE` = 60; ohne Nachricht binnen Abstand + Frist wird neu verbunden, §3.4). Ungültige Werte: Standard mit Warnung im Log | `_config()`, `_ms_antwortfrist()`, `_ms_keepalive_abstand()` |
 | `intercom` | `{control-uuid: {url, user, pass}}` | `_intercom_config()` |
 | `audio` | `host` (optional, sonst Auto-Erkennung aus Cover-URLs), `port` (7091), `enabled` | `_audio_config()` |
+| `audiometa` | `enabled` (Audioserver-Live-Daten); `retry_interval` (s, Pause vor dem nächsten Verbindungsversuch des Ereignis-Clients und, solange die Kopplung unklar ist, vor der nächsten Prüfung, Standard `AudioEventClient.NEU_VERSUCH_S` = 5); `response_timeout` (s, Zeitlimit der Kopplungsprüfung, Standard `PRUEF_ZEITLIMIT_S` = 6). Beide gelten ab dem nächsten Start des Clients | `_audiometa_config()`, `_audiometa_sekunden()` |
 | `calendar` | `ical_url`, `name`, `lat`, `lon`, `days`, `fore_days` (Front: iCal-Abo + Wetter) | `_calendar_config()` |
 | `night` | `control` (UUID eines Bausteins mit `active`-State; leer = Sonnenzeiten entscheiden) | `_night_config()` |
 
@@ -748,6 +851,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // legt die Klickreihenfolge sie fest.
       "rooms": ["<uuid oder Namensteil>"],   // Whitelist, leer = alle
       "cats":  ["<uuid oder Namensteil>"],
+      "roomCats": ["<cat-uuid>"],            // Raum-Panel: Kategorien der unteren Leiste, max. 4,
+                                             // in Klickreihenfolge; fehlt = die ersten 4 im Raum
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
       "ui": {
         "iconSize": 38, "nameSize": 18, "subSize": 15,   // px; fehlt = global, sonst Standard des
@@ -759,6 +864,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
                                              // fehlt = mittel (KACHEL_ZIEL)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
+        "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
+                                             // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
@@ -789,6 +896,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
     "<Gerätename>": {
       "auto": true, "modes": {"<Modusname>": "<panel-id>"},
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
+                                             // Kennwort verlässt den Server nicht: /api/meta nennt nur hasPass
       "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
       "presence": "<control-uuid>"           // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
@@ -803,8 +911,13 @@ oder falsch getypte Felder verwirft. Die Antwort nennt das Verworfene
 ergänzt, muss sie dort eintragen und zusätzlich in `_panel_export()`, das die
 Profile an den Konfigurator gibt: Der schickt beim Speichern zurück, was er
 bekam, und eine Option, die dort fehlt, geht beim nächsten Speichern still
-verloren. So geschah es mit `catFilter`. `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`
-prüft beide Listen gegeneinander.
+verloren. So geschah es mit `catFilter` und `roomCats`.
+`test_jede_gespeicherte_option_kommt_beim_konfigurator_an` (in
+`tests/test_kachel_aufbau.py`) prüft beide Listen gegeneinander: Ein Profil, das
+jedes gespeicherte Feld belegt (`VOLL`), muss nach `_panel_export()` und
+erneutem Speichern unverändert sein. `test_vorlage_belegt_jedes_gespeicherte_feld`
+schreibt mit, welche Felder `_sanitize_panels()` liest, und schlägt an, sobald
+eines davon in `VOLL` fehlt. Ein neues Feld gehört also auch dorthin.
 
 ### 5.4 `theme.json`
 
@@ -1203,7 +1316,15 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   er weg. Geprüft in `tests/test_sprungmarken.py` und
   `tests/browser/test_sprungmarken_browser.py`.
 - Screensaver-Uhr nach 60 s, Start immer mit Uhr. Weckton synthetisch per Web
-  Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls. Wisch nach rechts =
+  Audio (880 Hz). PIN-Ziffernblock für `isSecured`-Controls: Jeder Befehl läuft
+  über `sendCmd()` (nur `cmdSchicken()` baut die Nachricht, `tests/test_pin.py`
+  wacht darüber). `secured` setzt `render()` für jede Seite des Bausteins, auch
+  die Unterseiten, `_pane_msg()` für Player- und Kamera-Bereich. Eine bestätigte
+  PIN gilt `ui.pinMerken` Sekunden (Standard `PIN_MERKEN_STANDARD`) auf derselben
+  Seite; Uhr-Seite, Display aus, Nachtbeginn und Seitenwechsel vergessen sie.
+  Display aus heißt auch mit Agent nach `dpmsOff` ohne Eingabe (`armDpms()`,
+  X schaltet dann selbst ab); die LoxPanel-App dunkelt erst nach der Uhr-Seite
+  ab. Ohne gemerkte PIN wirkt eine Halten-Taste wie ein Tipp. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
 - Sprache wirkt nur auf Datum und Uhrzeit. Alle anderen Panel-Texte sind hart
   deutsch, sowohl im Frontend als auch in den vom Server erzeugten Texten
@@ -1228,8 +1349,15 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 - Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
   dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
   (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
-  Skalierung und Präsenzmelder über `POST /api/devices`. Geprüft in
-  `tests/browser/test_displays_browser.py`.
+  Skalierung und Präsenzmelder über `POST /api/devices`. Das Display-Kennwort
+  bekommt er nicht, nur `hasPass`: Das Feld bleibt leer und zeigt „unverändert
+  lassen“, solange Treiber und Host dem gespeicherten Ziel entsprechen
+  (`pwHinweis()`, dieselbe Regel wie `_KENNWORT_ZIEL` im Server), sonst
+  „Passwort (Fully)“, auch gleich nach dem Speichern. Verwirft der Server ein
+  Kennwort wegen eines anderen Ziels, bleibt eine Warnung stehen (`flash()`
+  blendet eine Leiste mit `warn` nicht aus). Ein gespeichertes Kennwort
+  löschen geht nur über ein anderes Ziel. Geprüft in
+  `tests/browser/test_displays_browser.py` und `tests/test_geraete_kennwort.py`.
 - Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
   `input[type=text|number|password]`, ein Feld ohne `type` steht sonst
   browserweiß im dunklen Konfigurator.
@@ -1303,29 +1431,93 @@ Login-Benutzer aus `~/.xsession`.
 Mehr kennt der Agent nicht. `goto`, `notify` und `reload` als Push-Aktionen laufen
 über den Server direkt an den Browser.
 
-**Ausgehend:** alle 15 s `POST /api/agent/announce` mit `{name, panel, ip, port,
-kiosk}`. Die Antwort trägt `dpmsOff` und `reloadHours` aus dem Panel-Profil, die
-der Agent lokal anwendet.
+**Ausgehend:** alle 15 s (`AGENT_MELDETAKT` im Server) `POST /api/agent/announce`
+mit `{name, panel, ip, port, kiosk, features}`. Die Antwort trägt `dpmsOff` und
+`reloadHours` aus dem Panel-Profil, die der Agent lokal anwendet. Steht `panel`
+darin, übernimmt der Agent diese Ansicht ohne Chromium-Neustart in `_cur_panel`
+und die State-Datei und meldet sie ab dann; `features: ["panel"]` sagt dem
+Server, dass er das kann.
+
+**Ansicht wechseln unter Displays:** Die Visu wechselt per WebSocket-Push (lädt
+sich mit `?panel=` neu). Bis Oktober 2026 erfuhr der Agent davon nichts: Er
+meldete weiter das alte Profil, bekam dessen Abschaltzeit und Neustartintervall,
+und jeder Kiosk-Neustart (Auto-Reload, Reload, Absturz, Neustart des Panels)
+öffnete die alte Ansicht. Heute merkt sich der Server die Wahl für den Agenten
+der Zeile (`agent_wunsch`, über die IP, weil geklonte Panels denselben
+Hostnamen melden) und gibt sie ihm mit der nächsten Antwort; ältere Agenten ohne
+`features` bekommen wie früher `/start` mit dem neuen Profil, also einen
+Chromium-Neustart. Ein Agent, der seit `AGENT_ONLINE` (vier Meldetakte) nichts
+gemeldet hat, bekommt nichts. Ein Betriebsmoduswechsel gibt das Profil ebenso
+an Agenten mit `features` weiter, über den Namen, weil die Zuordnung in
+`panels.json` am Namen hängt; `/start` bekommt auch dort nur ein Agent, der
+online ist. Zieht `ws_handler()` ein frisch verbundenes Chromium auf das Profil
+des laufenden Betriebsmodus, weil der Agent beim Wechsel nicht da war, bekommt
+der Agent das Profil ebenso (`_agenten_der_visu()`: der mit der IP der
+Verbindung, sonst die mit dem Namen, die online sind); ein älterer Agent ohne
+`features` erfährt davon nichts. „Start“ unter Displays
+ist eine ausdrückliche Wahl wie „Ansicht wechseln“ und hebt `last_mode` für
+das Gerät auf; bei gestopptem Kiosk ist es der einzige Weg dazu. Ein „Reload“
+vor der nächsten Meldung startet mit der neuen Ansicht. Startet Chromium in
+dieser Zeit anders neu (Absturz, Auto-Reload, Neustart des Agenten), fragt es
+noch nach der alten Ansicht; `ws_handler()` zeigt dann die offene Wahl, die der
+Agent mit seiner nächsten Meldung übernimmt. Eine Wahl bleibt in
+`agent_wunsch`, bis der Agent sie meldet, auch wenn ein Befehl an ihn
+scheitert. Geprüft in `tests/test_agent.py` und
+`tests/browser/test_displays_browser.py`.
 
 **Konfiguration:** erste existierende Datei aus `$LOXPANEL_KIOSK_CONF`,
 `../deploy/loxpanel-kiosk.conf`, `/etc/loxpanel/kiosk.conf`. Umgebungsvariablen
 `LOXPANEL_<KEY>` haben Vorrang. Schlüssel: `SERVER`, `AGENT_PORT`, `AGENT_NAME`,
 `PANEL`, `AUTOSTART`, `X`, `DPMS_OFF`, `PROFILE_DIR`, `BL_DEVICE`, `BL_ON`,
-`PAUSE_ON_BLANK`, `RELOAD_HOURS`, `STATE_FILE`. Die Beispieldatei dokumentiert
-nur acht davon.
+`PAUSE_ON_BLANK`, `RELOAD_HOURS`, `STATE_FILE`, `KIOSK_RESTART_SECS`,
+`KIOSK_RESTART_MAX_SECS`. Die Beispieldatei dokumentiert alle außer
+`PROFILE_DIR` und `BL_DEVICE`.
 
 **Funktionen:** Chromium-Kiosk mit festen Flags, Crash-Dialog-Bereinigung in
 `Default/Preferences`, DPMS über `xset`, echte Backlight-Abschaltung über alle
 `/sys/class/backlight/*/brightness`, optionale SIGSTOP-Pause (Default aus, weil
-der WebSocket dabei stirbt), periodischer Kiosk-Neustart, Panel-Wahl in einer
-State-Datei.
+der WebSocket dabei stirbt), periodischer Kiosk-Neustart (nur mit Antwort des
+Servers), Neustart nach Absturz, Panel-Wahl in einer State-Datei.
+
+**Panel-Wahl:** `STATE_FILE`, Standard nach XDG
+`$XDG_STATE_HOME/loxpanel/agent-state.json` (ohne absoluten Wert
+`~/.local/state/…`), also beim Benutzer, unter dem der Agent läuft. Bis
+Oktober 2026 lag sie neben der kiosk.conf in `/etc/loxpanel/`, das der Installer
+als root anlegt; das Schreiben scheiterte leise, die Wahl überlebte keinen
+Neustart (F13). Eine Datei von dort übernimmt der Agent beim Start einmal und
+löscht sie danach, sonst brächte das Löschen der neuen Datei (Weg zurück auf
+`PANEL`) die alte Wahl zurück; scheitert das Speichern am neuen Ort, bleibt sie.
+Vorrang: `LOXPANEL_PANEL`, dann die gemerkte Wahl (auch `""` = Standardansicht),
+dann `PANEL`. Die Datei hält auch `PANEL` beim Merken (`conf`); steht in der
+kiosk.conf inzwischen etwas anderes, gilt die kiosk.conf. Woher die Ansicht
+kommt, nennt die Startzeile des Agenten. Schreibfehler meldet er mit Pfad und
+uid; die Ausgabe ist zeilengepuffert, damit sie gleich in `~/.xsession-errors`
+steht.
+
+**Neustart nach Absturz:** Je Chromium-Start wartet ein Thread
+(`_kiosk_waechter`) auf genau diesen Prozess. Endet er, ohne dass `stop_kiosk()`
+ihn beendet hat (dann ist `_proc` nicht mehr dieser Prozess), startet der Agent
+nach `KIOSK_RESTART_SECS` (Standard 5 s wie `RestartSec=5` der Dienstdateien,
+0 = aus) mit derselben Ansicht neu, auch ohne Server. Jedes Ende zählt, auch
+Code 0 (Alt+F4). Stürzt Chromium wieder ab, bevor es länger als die doppelte
+Obergrenze lief, verdoppelt sich die Pause bis `KIOSK_RESTART_MAX_SECS`
+(Standard 300 s wie Kubernetes bei CrashLoopBackOff); die Obergrenze liegt über
+`DPMS_OFF`, weil jeder Start per `xset` den Leerlaufzähler zurücksetzt. Ein
+Befehl von Hand (`/start`, `/reload`, `/stop`) fängt wieder bei
+`KIOSK_RESTART_SECS` an, ebenso der Auto-Reload (bis dahin lief der Kiosk
+`RELOAD_HOURS` ohne Absturz); die Laufzeit misst der Wächter mit `time.monotonic()`,
+weil Panels ohne Echtzeituhr die Uhr beim Booten per NTP stellen.
+`start_kiosk()` läuft ganz unter einer `RLock`, die Prüfung des Wächters auch;
+die Pause selbst hält sie nicht, `/start` und `/stop` warten also nicht.
+Erfasst wird nur das Ende des Browser-Prozesses, ein abgestürzter Tab
+(Renderer) bei laufendem Browser nicht. Geprüft in `tests/test_agent.py`.
 
 **Installation:** `deploy/install-agent.sh`, als Login-Benutzer ohne sudo
 aufrufen. Der Agent-Quelltext ist dort als Heredoc eingebettet, nicht kopiert.
 Der Code ist derzeit identisch mit `agent/loxpanel-agent.py`, die Kommentare
 weichen bereits ab. Der Server liefert ausgerechnet diese Kopie über
-`/install-agent.sh` aus. Es gibt keinen Mechanismus, der die beiden synchron
-hält.
+`/install-agent.sh` aus. `tests/test_agent.py` vergleicht beide per AST und
+schlägt fehl, sobald der Code auseinanderläuft.
 
 **Ohne Agent (Android):** Seit dem Umbau-Schritt 1 schickt der Server `dpmsOff`,
 `reloadHours` und `agent` mit der `theme`-Nachricht an die Visu. Meldet der
@@ -1418,11 +1610,6 @@ Leerlaufzeit. Linux-Panels mit Agent schalten ihr Display per DPMS selbst,
 dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.
 
-**Bekannte Schwäche:** Die State-Datei liegt standardmäßig in `/etc/loxpanel/`,
-das per `sudo mkdir` als root angelegt wird, während der Agent als
-Login-Benutzer läuft. Das Schreiben schlägt dann leise fehl, und die gewählte
-Ansicht überlebt vermutlich keinen Reboot.
-
 ---
 
 ## 9. LoxBerry-Plugin, Unraid, Build und Release
@@ -1432,8 +1619,71 @@ Ansicht überlebt vermutlich keinen Reboot.
 Das Plugin ist nur ein Docker-Starter. `loxpanel-ctl.sh` kennt `start` (pull +
 up), `stop` (Marker-Datei + down), `restart`, `check` (Cron alle 5 min und beim
 Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
-als root, 20 Stück Rotation). Das Widget `index.cgi` (Perl) spricht
-`http://localhost:8099/api/settings` und `/api/settings/miniserver`.
+als root, Rotation nach `KEEP` im Skript, das Widget fragt die Zahl über
+`loxpanel-ctl.sh keep` ab). Das Widget `index.cgi` (Perl) spricht
+`http://localhost:8099/api/settings` und `/api/settings/miniserver`. Von dort
+zeigt es `error` und darunter `fehler`, `gespeichert` (nicht erreichbar,
+trotzdem gespeichert) als Warnung. Eine Antwort mit JSON ist immer eine Meldung
+des Servers, auch mit 400 oder 500; „Container nicht erreichbar" heißt es nur
+ohne JSON. Die Texte des Servers kodiert es vor der Ausgabe nach UTF-8: `decode_json`
+liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als Bytes hinaus.
+„Aus LoxBerry übernehmen" ohne Benutzer in der LoxBerry-Konfiguration
+meldet das selbst (`tests/test_loxberry_widget.py`).
+
+`backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
+es danach um, das Widget bietet also nie ein halbes Archiv an; ein vorhandenes
+ersetzt es nie, ein leerer Config-Ordner ergibt keins. `restore` ändert
+`config/` erst, wenn alles andere gelungen ist: Das Backup wird in einen
+Zwischenordner neben `config/` entpackt (`.restore.*`, gleiches Dateisystem) und
+muss vollständig sein und `loxpanel.cfg`, `panels.json` oder `theme.json`
+enthalten. Dann hält das Skript den Container an, sichert den Ist-Stand als
+`…-vor-restore.tar.gz` (scheitert das, bricht es ab) und tauscht nur durch
+Umbenennen; scheitert ein Schritt des Tauschs, kommt der Ist-Stand zurück.
+Danach startet das Skript den Container mit `docker restart` neu, so liest der
+Server die Konfiguration auch dann frisch ein, wenn ihn in der Lücke jemand
+gestartet hat. Dateinamen gehen als Argument in den Container, nie in den
+Befehlstext. Eine Sperre (`flock` auf `.loxpanel-ctl.lock` im Datenordner)
+lässt keine zwei Läufe gleichzeitig zu, der zweite bricht sofort ab; Reste
+eines abgebrochenen Laufs räumt der nächste weg. Auch `check` nimmt sie und
+überspringt die Prüfung, solange eine Sicherung oder Wiederherstellung läuft,
+statt den für den Tausch angehaltenen Container zu starten. Das Skript öffnet
+die Sperrdatei nur lesend, so sperrt auch eine, die ein Lauf als root angelegt
+hat. Bricht der Tausch hart ab (Stromausfall zwischen den Umbenennungen), kann
+`config/` leer oder gemischt sein, und der nächste Lauf räumt den
+Zwischenordner samt bisherigem Stand weg. Verloren ist er nicht: Er liegt
+schon vor dem Tausch als `…-vor-restore.tar.gz` auf der Platte und lässt sich
+im Widget wiederherstellen.
+`tests/test_loxberry_ctl.py` führt das echte Skript aus, `docker` und `sudo`
+ersetzt der Nachbau in `tests/loxberry.py`.
+
+Bei einem Plugin-Update löscht LoxBerry zwischen `preroot.sh` und
+`postroot.sh` den ganzen Datenordner (`purge_installation` in
+`plugininstall.pl`). `preroot.sh` kopiert deshalb `backups/` nach
+`/tmp/loxpanel-upgrade-archive` (vor dem Stoppen des Containers) und `config/`
+nach `/tmp/loxpanel-upgrade-backup`, `postroot.sh` spielt beide zurück und
+löscht eine Zwischenkopie erst, wenn sie ganz zurückgespielt ist (sonst Exit 1,
+LoxBerry meldet es). Scheitert die Kopie der Konfiguration, endet `preroot.sh`
+mit 2: LoxBerry bricht ab, bevor es etwas löscht, die Plugin-Datenbank nennt
+dann allerdings schon die neue Version. Scheitert nur die der Archive, warnt
+es (`<WARNING>`, Exit 1) und das Update läuft weiter. Fehlt `config/` beim
+nächsten Update (ein früheres ist nach dem Löschen abgebrochen), bleiben die
+Zwischenkopien stehen und `postroot.sh` spielt sie zurück; sonst ersetzt der
+aktuelle Stand sie. `/tmp` ist auf dem LoxBerry eine RAM-Disk: Startet er
+zwischen `preroot.sh` und `postroot.sh` neu, sind die Kopien weg.
+`tests/test_loxberry_update.py` spielt den Ablauf von `plugininstall.pl` nach.
+
+Zeitzone: Der Server rechnet Termine, „Heute/Morgen", Nachtmodus, Statistik und
+Wecker in der Ortszeit des Prozesses. `start` schreibt deshalb jedes Mal
+`docker-compose.zeitzone.yml` neben die Compose-Datei und startet mit beiden:
+`/etc/localtime` des LoxBerry nur lesend nach `/run/loxberry-localtime`, dazu
+`TZ=":/run/loxberry-localtime"` (glibc liest die Zone aus der Datei). Nicht nach
+`/etc/localtime` im Container: Dort liegt ein Symlink auf `Etc/UTC`, Docker
+folgte ihm und überschriebe die UTC-Zone selbst, dann läse icalendar `Z`-Zeiten
+falsch. Ist `/etc/localtime` keine Datei (fehlt, toter Symlink), entfällt die
+Override-Datei mit Warnung, der Container läuft in UTC; sonst verhinderte der
+Mount den Start oder Docker legte am LoxBerry ein Verzeichnis an. Eine
+geänderte Zone gilt nach dem nächsten Start des Containers
+(`tests/test_loxberry_zeitzone.py`).
 
 `sudoers` erlaubt dem Benutzer `loxberry` `docker` ohne Passwort, was faktisch
 Root-Rechte auf dem LoxBerry bedeutet.
@@ -1451,7 +1701,10 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
   aus dem Dockerfile aus.
 - **Log:** `LOXPANEL_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`, `ERROR`; Standard
   `INFO`, Unbekanntes → `INFO` mit Warnung). Der Zugriffs-Log von aiohttp (eine
-  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`).
+  Zeile je Anfrage) erscheint nur bei `DEBUG` (`_logging_einrichten()`). Fehlt
+  ein optionales Paket aus `requirements.txt` (`icalendar`, `python-dateutil`,
+  `cryptography`), läuft der Server ohne die Funktion dahinter weiter und nennt
+  beides einmal beim Start als Warnung (`_fehlende_pakete_melden()`).
 - **Image:** `.dockerignore` hält Altlasten (`webfrontend/htmlauth`,
   `config/visu.*`, `daemon/` …) und Test-/Entwicklungsdateien aus dem Image.
 
@@ -1459,15 +1712,14 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
 
 | Workflow | Trigger | Ergebnis |
 |---|---|---|
-| `tests.yml` | jeder PR, Push auf `main`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push |
-| `docker-image.yml` | Push auf `main`, Tags `v*`, manuell | `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest`, `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7 |
+| `tests.yml` („Tests und Image“) | jeder PR, Push auf `main`, Tags `v*`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push. Danach, nur auf `main` und bei Tags `v*` und nur, wenn beide Test-Jobs desselben Laufs grün sind, der Job `veroeffentlichen`: `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest` (nur `main`), `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7. Ein eigenes `docker-image.yml` gibt es im Fork nicht mehr, es veröffentlichte neben den Tests her (`tests/test_workflows.py`) |
 | `plugin-release.yml` | GitHub-Release veröffentlicht, manuell | `loxpanel-plugin.zip` aus `loxberry-plugin/` am Release |
 | `android-apk.yml` | Tags `v*`, manuell | `LoxPanel-Server.apk`, signiert mit dem festen Schlüssel aus den Secrets `LOXPANEL_KEYSTORE_B64`, `LOXPANEL_KEYSTORE_PASSWORD`, `LOXPANEL_KEY_ALIAS` und `LOXPANEL_KEY_PASSWORD`; ohne sie bricht der Lauf mit einem Hinweis ab, die übrigen Workflows hängen nicht daran |
 | `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release |
 
 Welcher Stand läuft, steht in der Seitenleiste des Konfigurators und in
 `/api/health` (`bin/version.json`, `bin/version_info.py`): Version aus
-`loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `docker-image.yml` reicht den
+`loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `tests.yml` reicht den
 Commit als Build-Argument `LOXPANEL_COMMIT` herein, der APK-Build nimmt ihn aus
 derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
 `versionName` der App (App-Info in Android).
@@ -1475,8 +1727,10 @@ derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
 Plugin-Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
 `loxberry-plugin/release.cfg` gemeinsam hochzählen, nach `main` pushen,
-GitHub-Release mit Tag `v<version>` anlegen. `NAME`, `FOLDER` und `AUTHOR` nie
-ändern. Das GHCR-Package muss einmalig auf public stehen (bereits erledigt).
+GitHub-Release mit Tag `v<version>` anlegen. Das Image `v<version>` erscheint erst
+nach den Tests des Tags, also rund zehn Minuten später. `NAME`, `FOLDER` und
+`AUTHOR` nie ändern. Das GHCR-Package muss einmalig auf public stehen (bereits
+erledigt).
 
 ---
 
@@ -1557,10 +1811,11 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F10 | `esc()` in der Visu escapt keine Anführungszeichen, Ausgabe landet in Attributen. Freitext-Schriftarten und Miniserver-Namen mit `"` zerlegen das Markup | `panel.html:316`, `:631`, `:637` |
 | F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `webvisu.py:979` |
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
-| F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebt vermutlich keinen Reboot | `agent/loxpanel-agent.py:111`, `install-agent.sh:33` |
+| F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebte keinen Reboot — behoben, Ablage nach XDG beim Login-Benutzer, §8 | `agent/loxpanel-agent.py` `STATE_FILE`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |
 | F16 | Globale Regel `.empty{grid-column:1/-1}` (für „nichts hier" im Kachelraster) traf auch die Leerfelder vor dem 1. im Monatskalender: sie belegten eine ganze Zeile, jeder Monat begann am Montag, alle Tage standen unter dem falschen Wochentag (Split-Pane Kalender) — behoben, Regel auf `.grid>.empty` begrenzt; Regressionstest misst die Spalten im Browser | `panel.html` CSS, `fpMonthHTML()` |
 | F15 | Das Miniserver-Token wurde nur beim Neuaufbau des WebSockets erneuert. Blieb der stabil, lief es ab: Werte kamen weiter, Befehle scheiterten still (passt zu: Panel nach ein bis zwei Tagen nicht mehr bedienbar) — behoben, §3.4 | `command()`, `_stat_load()`, `fetch_icon()` |
+| F17 | Die Live-Verbindung zum Miniserver hatte weder Zeitlimit noch `keepalive`. Riss sie still ab oder nahm der Miniserver an und schwieg, wartete `stream_task` für immer; die Panels zeigten eingefrorene Werte, `/api/health` meldete „läuft“ — behoben, §3.4 (Fristen, `keepalive`, Backoff nur nach gelieferten Daten) | `loxone_ws.py` `connect()`, `stream()`; `stream_task()` |
 
 ### Sicherheit
 
@@ -1572,7 +1827,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | S4 | Agent-HTTP auf `0.0.0.0:8130` ohne Auth. Jeder im LAN kann Panels umschalten oder abschalten, der `panel`-Wert wird persistiert. |
 | S5 | LoxBerry-`sudoers`: `docker` ohne Passwort ist faktisch Root. |
 | S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session. |
-| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. |
+| S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. `true` prüft gegen den Standard-Truststore und klappt nur mit dem Namen aus dem Zertifikat als Host, nicht mit der IP-Adresse (§5.1). |
 
 ### Performance
 
@@ -1595,8 +1850,9 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 - W4: Alle Panel-Anzeigetexte hart deutsch, rund 90 Stellen im Server. Der
   Filter `_irc_modes` matcht per Substring `"schutz"` und bricht bei englischer
   Loxone-Konfiguration still.
-- W5: Magic Numbers ohne Konstante (0,3 s, 10 s, 60/600 s, 8 s, Port 8130,
-  Port 7091, Mood 778, Daytimer-Dauern, Farbtemperaturen).
+- W5: Magic Numbers ohne Konstante (0,3 s, 10 s, 600 s, Port 8130,
+  Port 7091, Mood 778, Daytimer-Dauern, Farbtemperaturen). Die 60 s und 8 s
+  der Agenten sind `AGENT_ONLINE` und `AGENT_BEFEHL_TIMEOUT`.
 - W6: Kategorie-Farben per Teilstring-Match auf Namen; `"Alarm"` matcht auch
   `"Alarmanlage deaktiviert"`.
 - W7: `_sanitize_panels` verwirft still, die UI erfährt nie, was verloren ging.

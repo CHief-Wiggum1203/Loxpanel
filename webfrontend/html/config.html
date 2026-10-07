@@ -1518,6 +1518,13 @@ function renderEditor(){
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
+     '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
+     '<div class="sizes">'+
+       '<div class="field" style="max-width:180px"><label class="lbl">PIN merken (Sek.)</label>'+
+         '<input type="number" min="0" max="'+esc(String(pinMerkenCfg().max))+'" step="5" data-ui="pinMerken" value="'+
+         (((p.ui||{}).pinMerken==null)?'':(p.ui||{}).pinMerken)+'" placeholder="'+esc(String(pinMerkenCfg().standard))+'"></div>'+
+     '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
      '<div class="grph">'+T('Feinjustierung')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
@@ -1614,6 +1621,9 @@ const SIZE_KEYS=['iconSize','nameSize','subSize','roomSize','bigSize'];
 // Auto-Neustart ohne Eintrag: Die Visu laedt jede Nacht um diese Stunde neu,
 // sie kommt vom Server (/api/meta reloadAt = NEULADEN_STUNDE).
 function neuladenStunde(){ return (META||{}).reloadAt; }
+// PIN merken: Standard und Grenze kommen vom Server (/api/meta pinMerken =
+// PIN_MERKEN_STANDARD/PIN_MERKEN_MAX).
+function pinMerkenCfg(){ return (META||{}).pinMerken||{standard:'',max:''}; }
 function sizeStd(layout,mitGlobal){
   const std=Object.assign({},((META||{}).sizeDefaults||{})[layout==='classic'?'classic':'neu']);
   const g=mitGlobal?(((PANELS.__global__||{}).ui)||{}):{};
@@ -1988,6 +1998,7 @@ function renderTabMode(p){
       if(ziel==='room') p.tabs=[rooms[0].tab];
       else if(ziel==='pick'){ curPickIdx=0; ensurePickTabs(p); p.tabs=p.pickTabs.map((_,i)=>pickKey(i)); }
       else p.tabs=defaultTabs();
+      delete p.roomCats;   // Kategorie-Auswahl galt dem alten Raum-Panel, wie beim Raumwechsel unten
       markDirty(); renderTabMode(p); renderPanes(p);
     };
   });
@@ -3108,7 +3119,7 @@ window.addEventListener('beforeunload',e=>{ if(dirty){ e.preventDefault(); e.ret
    SETTINGS-Rubrik (frühere /settings-Seite als Reiter)
    ============================================================ */
 let SET=null;
-function flash(el,msg,ok){ if(!el)return; el.textContent=msg; el.className='toast show '+(ok?'ok':'err'); setTimeout(()=>el.classList.remove('show'),4000); }
+function flash(el,msg,ok){ if(!el)return; el.textContent=msg; el.className='toast show '+(ok?'ok':'err'); setTimeout(()=>{ if(!el.classList.contains('warn')) el.classList.remove('show'); },4000); }
 
 // Version, Commit (kurz, ganz im Tooltip) und Bauzeit in der Ortszeit des Browsers
 function versionZeigen(v){
@@ -3227,12 +3238,22 @@ $('#ms_save').onclick=async()=>{
     port:parseInt($('#ms_port').value)||443,verify_tls:$('#ms_tls').checked};
   const pw=$('#ms_pass').value; if(pw) body.pass=pw;
   $('#ms_save').disabled=true;
-  EINR_VERSUCH='';
+  EINR_VERSUCH=''; $('#ms_toast').className='toast';
   try{
     const r=await fetch('/api/settings/miniserver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){ flash($('#ms_toast'),'✓ Verbunden — '+j.nControls+' Controls',true); $('#ms_pass').value=''; loadSettings(); }
-    else { EINR_VERSUCH=T(j.error||'Fehler'); flash($('#ms_toast'),EINR_VERSUCH,false); }
+    else {
+      // Fester Text (uebersetzt), der Fehler des Miniservers getrennt dahinter
+      EINR_VERSUCH=T(j.error||'Fehler')+(j.fehler?' ('+j.fehler+')':'');
+      if(j.gespeichert||j.connected){
+        // Gespeichert, aber nicht geprueft (oder verbunden, aber nicht
+        // gespeichert): Die Warnung bleibt bis zum naechsten Versuch stehen.
+        const t=$('#ms_toast'); t.textContent=EINR_VERSUCH; t.className='toast show warn';
+        if(j.gespeichert) $('#ms_pass').value='';
+        loadSettings();
+      } else flash($('#ms_toast'),EINR_VERSUCH,false);
+    }
   }catch(e){ EINR_VERSUCH=T('Fehler:')+' '+e; flash($('#ms_toast'),EINR_VERSUCH,false); }
   einrichtungStand();
   $('#ms_save').disabled=false;
@@ -3520,11 +3541,20 @@ let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Displa
 let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
 let ACTIVE_OPTS=[];    // Bausteine mit active-State (Auswahl Praesenzmelder), aus /api/meta
 let PRESENCE_NOW={};   // Geraetename -> meldet sein Praesenzmelder gerade jemanden? (aus /api/devices)
+let PASS_ZIEL={};      // Geraetename -> {driver, host}, fuer das der Server ein Display-Kennwort hat
+// Das Kennwort selbst bekommt der Konfigurator nie, nur hasPass (wie beim Miniserver).
+function passZielLesen(devices){
+  PASS_ZIEL={};
+  Object.entries(devices||{}).forEach(([name,d])=>{
+    if(d && d.display && d.display.hasPass) PASS_ZIEL[name]={driver:d.display.driver, host:d.display.host};
+  });
+}
 async function loadPanelIds(){
   try{
     const r=await fetch('/api/meta'); const m=await r.json();
     PANEL_IDS=Object.keys(m.panels||{});
     ACTIVE_OPTS=Array.isArray(m.activeControls)?m.activeControls:[];
+    passZielLesen(m.devices);
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
       DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
@@ -3597,7 +3627,7 @@ async function deviceAction(act, name, ip, panel){
   try{
     let j;
     if(act==='start'||act==='reload'||act==='stop') j=await postJson('/api/agent/command',{ip,action:act,panel});
-    else if(act==='switch') j=await postJson('/api/device/switch',{device:name,panel});
+    else if(act==='switch') j=await postJson('/api/device/switch',{device:name,ip,panel});   // ip: Agent dieser Zeile
     else if(act==='wsreload') j=await postJson('/api/reload',{device:name});
     else if(act==='dispoff') j=await postJson('/api/display',{device:name,on:false});
     else if(act==='dispon') j=await postJson('/api/display',{device:name,on:true});
@@ -3657,7 +3687,7 @@ function devRow(name){
     '</div>'+
     '<div class="dmrows">'+rows+'</div>'+
     '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
-    displayRow(d.display)+
+    displayRow(d.display, name)+
     '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
       '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie im Profil'))+'</select>'+
@@ -3685,8 +3715,19 @@ function presenceText(name){
   return p===true ? T('gerade: jemand da') : p===false ? T('gerade: Raum leer') : '';
 }
 const DRIVER_PORT={fully:2323, wallpanel:2971};
-function displayRow(disp){
-  const x=disp||{driver:'',host:'',port:'',password:''};
+// Leeres Kennwortfeld: Der Server behaelt das gespeicherte Kennwort nur fuer
+// dasselbe Ziel (Treiber und Host, _KENNWORT_ZIEL in webvisu.py). Dieselbe
+// Regel hier, damit der Platzhalter sagt, was beim Speichern passiert.
+function pwHinweis(name, drv, host){
+  const z=PASS_ZIEL[name];
+  return (z && z.driver===drv && z.host===String(host||'').trim()) ? T('unverändert lassen') : T('Passwort (Fully)');
+}
+// ... fuer eine Zeile nach Treiber und Host, wie sie gerade im Formular stehen
+function pwHinweisZeigen(row){
+  row.querySelector('.dd_pw').placeholder=pwHinweis(row.dataset.name, row.querySelector('.dd_drv').value, row.querySelector('.dd_host').value);
+}
+function displayRow(disp, name){
+  const x=disp||{driver:'',host:'',port:'',password:''};   // password: nur selbst Eingetipptes
   return '<div class="ddrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
     '<span style="font-size:13px;opacity:.85">'+T('Display-Steuerung')+'</span>'+
     '<select class="dd_drv"><option value="">'+T('keine (nur über die Seite)')+'</option>'+
@@ -3694,7 +3735,7 @@ function displayRow(disp){
       '<option value="wallpanel"'+(x.driver==='wallpanel'?' selected':'')+'>WallPanel (HTTP)</option></select>'+
     '<input type="text" class="dd_host" placeholder="IP" value="'+esc(x.host||'')+'" style="width:130px">'+
     '<input type="text" class="dd_port" placeholder="Port" value="'+esc(x.port||'')+'" style="width:70px">'+
-    '<input class="dd_pw" type="password" placeholder="'+T('Passwort (Fully)')+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
+    '<input class="dd_pw" type="password" placeholder="'+pwHinweis(name, x.driver, x.host)+'" value="'+esc(x.password||'')+'" style="width:140px" autocomplete="new-password">'+
   '</div>';
 }
 function readDevFromDom(){
@@ -3726,7 +3767,9 @@ function renderDevices(){
     const row=sel.closest('.dev'), name=row.dataset.name, drv=sel.value;
     const host=row.querySelector('.dd_host'), port=row.querySelector('.dd_port');
     if(drv){ if(!host.value && DEVICE_IPS[name]) host.value=DEVICE_IPS[name]; if(!port.value) port.value=DRIVER_PORT[drv]||''; }
+    pwHinweisZeigen(row);
   });
+  box.querySelectorAll('.dd_host').forEach(inp=>inp.oninput=()=>pwHinweisZeigen(inp.closest('.dev')));
   box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
     const dev=b.closest('.dev'), name=dev.dataset.name;
     const idx=Array.from(dev.querySelectorAll('.dmrow')).indexOf(b.closest('.dmrow'));
@@ -3754,6 +3797,17 @@ function devicesPayload(){
   });
   return devices;
 }
+// Nach dem Speichern: welche Kennwoerter der Server jetzt hat (auch in den
+// Platzhaltern, "Speichern" zeichnet nicht neu); eines, das er wegen eines
+// anderen Ziels verworfen hat, nennen (bleibt stehen).
+function devGespeichert(j, text){
+  passZielLesen(j.devices);
+  document.querySelectorAll('#dev_list .dev').forEach(pwHinweisZeigen);
+  const weg=j.kennwortVerworfen||[], t=$('#dev_toast');
+  if(!weg.length){ flash(t,text,true); return; }
+  t.className='toast show warn';
+  t.textContent=text+' · '+T('Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:')+' '+weg.join(', ');
+}
 $('#dev_save').onclick=async()=>{
   readDevFromDom();
   const devices=devicesPayload();
@@ -3761,7 +3815,7 @@ $('#dev_save').onclick=async()=>{
   try{
     const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
     const j=await r.json();
-    if(j.ok){ flash($('#dev_toast'),T('✓ Gespeichert'),true); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
+    if(j.ok){ devGespeichert(j,T('✓ Gespeichert')); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
   $('#dev_save').disabled=false;
 };
@@ -3884,7 +3938,7 @@ async function mzApply(){
   try{
     const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
     const j=await r.json();
-    if(j.ok){ mzClose(); renderDevices(); flash($('#dev_toast'),T('✓ Betriebsmodus gespeichert'),true); }
+    if(j.ok){ mzClose(); devGespeichert(j,T('✓ Betriebsmodus gespeichert')); renderDevices(); }
     else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
 }

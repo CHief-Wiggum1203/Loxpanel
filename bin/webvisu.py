@@ -44,7 +44,7 @@ from aiohttp import WSMsgType, web
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from loxone_api import LoxoneClient  # noqa: E402
-from loxone_ws import LoxoneWS  # noqa: E402
+from loxone_ws import LoxoneWS, ms_ssl_kontext  # noqa: E402
 
 
 def _ms_https(port) -> bool:
@@ -69,6 +69,7 @@ from audioserver_events import AudioEventClient  # noqa: E402
 import front_info  # noqa: E402  # Kalender (iCal-Abos) + Wetter (Open-Meteo) fuer die Front
 import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang vor Open-Meteo)
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
+import audioserver_auth  # noqa: E402  # Audioserver-Anmeldung; hier nur HAVE_CRYPTO (_fehlende_pakete_melden)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
@@ -222,6 +223,19 @@ DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Kiosk-Apps, die die Visu beim Verbinden meldet (?kiosk=): Fully Kiosk und die
 # LoxPanel-App. Beide schalten das Display aus der Seite heraus (JS-Schnittstelle).
 KIOSK_APPS = ("fully", "loxpanel")
+# Panel-Agent (agent/loxpanel-agent.py): meldet sich alle AGENT_MELDETAKT s
+# (time.sleep in announce_loop). Online heisst hoechstens drei Meldungen in
+# Folge verpasst: eine verlorene Meldung (WLAN, Server kurz beschaeftigt) macht
+# ein Panel nicht offline. Nur einem Agenten, der online ist, gilt ein Wechsel.
+AGENT_MELDETAKT = 15
+AGENT_ONLINE = 4 * AGENT_MELDETAKT
+# s: Zeitlimit fuer Befehle an den Agenten (/start, /reload, /stop). Er wartet in
+# stop_kiosk bis zu 5 s auf das alte Chromium, bevor er es abschiesst und das
+# neue startet; 3 s Reserve dafuer und fuer die Antwort auf einem langsamen PX30.
+AGENT_BEFEHL_TIMEOUT = 8
+# Faehigkeit im Announce (features): der Agent uebernimmt "panel" aus der
+# Antwort ohne Chromium-Neustart. Aeltere Agenten bekommen stattdessen /start.
+AGENT_KANN_PANEL = "panel"
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
 # konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
 NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
@@ -265,6 +279,15 @@ STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
 MS_CMD_TIMEOUT = 10      # s: ein Befehl blockiert solange die Nachrichten seines Panels
 TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
 MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen zum Miniserver
+# Lebenszeichen der Live-Verbindung (WebSocket): Nach der Anmeldung sendete
+# LoxPanel dort nichts mehr, eine still abgerissene Verbindung (Strom, WLAN,
+# NAT) oder ein Miniserver, der annimmt und schweigt, blieb unbemerkt haengen.
+# Jetzt geht so oft "keepalive" raus (miniserver.keepalive_interval), der
+# Miniserver antwortet mit einem Header der Kennung 6. Kommt danach binnen
+# _ms_antwortfrist() nichts, wird neu verbunden. 60 s: Laut Loxone-Doku trennt
+# der Miniserver Clients, die ueber 5 Minuten nichts senden; ein Ausfall faellt
+# so nach gut einer Minute auf, und 8 Byte je Minute belasten niemanden.
+MS_KEEPALIVE = 60        # s: Abstand der keepalive an den Miniserver
 EINRICHTUNG_FEHLER_MAX = 160     # Zeichen des Verbindungsfehlers im Einrichtungshinweis (Panel 480 px)
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
@@ -351,10 +374,19 @@ INTERCOM_TYPES = ("Intercom", "IntercomV2")
 # IntercomV2 deviceState: 1 = StateOk; 0 = StateUnknown sagt nichts Sicheres
 # und bleibt ohne Hinweis.
 INTERCOM_V2_ZUSTAND = {2: "Startet neu", 3: "Startet"}
+# Gesicherte Bausteine (isSecured): Nach richtiger Visu-PIN fragt die Visu so
+# viele Sekunden nicht erneut (Panel-Option ui.pinMerken, 0 = jedes Mal). 30 s
+# reichen fuer eine Bedienung (Helligkeit oder Lautstaerke in Schritten,
+# Halten am Garagentor) und sind kurz genug, dass ein verlassenes Panel nicht
+# offen bleibt; Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN
+# ohnehin sofort. Obergrenze wie bei "Display aus": eine Stunde.
+PIN_MERKEN_STANDARD = 30
+PIN_MERKEN_MAX = 3600
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
+                  ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
@@ -371,6 +403,14 @@ def _color_ok(v) -> bool:
 # Unterstuetzte Panel-Sprachen (Basis-Codes). Steuert vorerst nur Datum/Uhr am
 # Panel; die Uebersetzung der festen UI-/Statustexte folgt (i18n-Ausbau).
 SUPPORTED_LANGS = ("de", "en", "fr", "it", "es", "nl")
+
+
+def _pin_merken(v) -> int:
+    """Sekunden, die die Visu eine richtige PIN behaelt; ungueltig -> Standard.
+    json.loads nimmt Infinity und NaN an, int() wuerfe dabei."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return PIN_MERKEN_STANDARD
+    return max(0, min(PIN_MERKEN_MAX, int(v)))
 
 
 def _clean_lang(v):
@@ -839,31 +879,84 @@ def _sanitize_overlay(ov) -> dict:
 
 
 def _config() -> dict:
+    return _ms_zugang()[0]
+
+
+def _ms_zugang() -> tuple[dict, str]:
+    """Wirksamer Miniserver-Zugang und seine Quelle: "datei", wenn der
+    Abschnitt miniserver der loxpanel.cfg einen Host hat (dann gilt er ganz),
+    sonst "umgebung" (LOXPANEL_MS_*), sonst ({}, ""). Verbinden (_config),
+    Anzeige (/api/settings) und Speichern (api_settings_ms) lesen ihn hier."""
     # Reihenfolge: geschriebene loxpanel.cfg (Settings-Seite) -> Env (Docker) -> keiner.
     base = Path(__file__).resolve().parent.parent / "config"
     f = base / "loxpanel.cfg"
     if f.is_file():
         try:
-            ms = json.loads(f.read_text(encoding="utf-8")).get("miniserver", {})
+            cfg = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
-            ms = {}
-        if ms.get("host"):
-            return ms
+            cfg = {}
+        ms = cfg.get("miniserver") if isinstance(cfg, dict) else None
+        if isinstance(ms, dict) and ms.get("host"):
+            return ms, "datei"
     env = os.environ
     if env.get("LOXPANEL_MS_HOST"):
+        try:   # leer oder kaputt: Standardport wie in den Sonden, statt beim Start abzustuerzen
+            port = int(env.get("LOXPANEL_MS_PORT") or 443)
+        except ValueError:
+            port = 443
         return {
             "host": env["LOXPANEL_MS_HOST"],
             "user": env.get("LOXPANEL_MS_USER", ""),
             "pass": env.get("LOXPANEL_MS_PASS", ""),
-            "port": int(env.get("LOXPANEL_MS_PORT", "443")),
+            "port": port if 1 <= port <= 65535 else 443,
             "verify_tls": env.get("LOXPANEL_MS_VERIFY_TLS", "false").lower() in ("1", "true", "yes"),
-        }
+        }, "umgebung"
     # Die Vorlage loxpanel.cfg.example traegt nur einen Platzhalter-Zugang
     # (192.168.1.50, CHANGEME). Mit dem anzumelden waere sinnlos und deckte ein
     # fremdes Geraet unter dieser Adresse mit Fehlanmeldungen ein (die App
     # bringt die Vorlage mit). Ohne Zugang startet der Server trotzdem, wartet
     # in stream_task und zeigt den Panels den Einrichtungshinweis.
-    return {}
+    return {}, ""
+
+
+def _ms_sekunden(schluessel: str, standard: float) -> float:
+    """Zeitwert in s aus dem Abschnitt miniserver der loxpanel.cfg. Fehlt er
+    oder ist er keine Zahl > 0, gilt `standard` (ungueltig: mit Warnung)."""
+    ms = _cfg_datei().get("miniserver")
+    wert = ms.get(schluessel) if isinstance(ms, dict) else None
+    if isinstance(wert, (int, float)) and not isinstance(wert, bool) and math.isfinite(wert) and wert > 0:
+        return float(wert)
+    if wert is not None:
+        log.warning("loxpanel.cfg: miniserver.%s %r ungueltig, es gelten %s s",
+                    schluessel, wert, standard)
+    return float(standard)
+
+
+def _ms_antwortfrist() -> float:
+    """Sekunden, die der Miniserver fuer eine Antwort bekommt (loxpanel.cfg,
+    miniserver.response_timeout), etwa auf die Anmeldung beim Pruefen eines
+    neuen Zugangs, auf jeden Schritt der WebSocket-Anmeldung und auf
+    keepalive. Ohne gueltigen Wert MS_CMD_TIMEOUT: So lange darf auch ein
+    Befehl dauern, bevor er als gescheitert gilt - ein erreichbarer
+    Miniserver beantwortet eine Anmeldung deutlich schneller, und laenger
+    soll niemand vor "Verbinden & Speichern" warten."""
+    return _ms_sekunden("response_timeout", MS_CMD_TIMEOUT)
+
+
+def _ms_keepalive_abstand() -> float:
+    """Sekunden zwischen zwei keepalive an den Miniserver-WebSocket
+    (loxpanel.cfg, miniserver.keepalive_interval), Standard MS_KEEPALIVE."""
+    return _ms_sekunden("keepalive_interval", MS_KEEPALIVE)
+
+
+def _ms_unerreichbar(err: BaseException) -> bool:
+    """Scheiterte die Pruefung eines Zugangs, weil der Miniserver nicht
+    antwortete (Zeitlimit, Verbindung, Namensaufloesung)? Dann ist offen, ob
+    der Zugang stimmt. Hat er geantwortet und abgelehnt (Kennwort, Benutzer,
+    Zertifikat, keine Loxone-Antwort), steht fest, dass er so nicht geht."""
+    if isinstance(err, (aiohttp.ClientSSLError, _ssl.SSLError)):
+        return False
+    return isinstance(err, (asyncio.TimeoutError, aiohttp.ClientConnectionError, OSError))
 
 
 def _audio_config() -> dict:
@@ -901,6 +994,19 @@ def _audiometa_config() -> dict:
     except (ValueError, OSError):
         return {}
     return cfg if isinstance(cfg, dict) else {}
+
+
+def _audiometa_sekunden(am: dict, schluessel: str, standard: float) -> float:
+    """Eine Zeit (s) des Audioserver-Ereignis-Clients aus loxpanel.cfg
+    audiometa.<schluessel> (retry_interval, response_timeout). Ohne gueltigen
+    Wert `standard` (AudioEventClient.NEU_VERSUCH_S bzw. PRUEF_ZEITLIMIT_S,
+    begruendet in audioserver_events.py)."""
+    wert = am.get(schluessel) if isinstance(am, dict) else None
+    if isinstance(wert, (int, float)) and not isinstance(wert, bool) and math.isfinite(wert) and wert > 0:
+        return float(wert)
+    if wert is not None:
+        log.warning("loxpanel.cfg: audiometa.%s %r ungueltig, es gelten %s s", schluessel, wert, standard)
+    return float(standard)
 
 
 def _intercom_config() -> dict:
@@ -1132,6 +1238,9 @@ class App:
         self.panels = load_panels()
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
+        # Geraete, deren Ansicht unter Displays ausdruecklich gewaehlt wurde: der
+        # Betriebsmodus zieht sie beim Verbinden nicht um, bis er neu wechselt.
+        self.ansicht_gewaehlt: set[str] = set()
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
@@ -1173,6 +1282,12 @@ class App:
         self.theme = load_theme()
         self._cat_memo: tuple = (None, {})   # _cat_entry: (categories-Objekt, Name -> Eintrag)
         self._einspiel_sperre = asyncio.Lock()   # /api/restore: nur ein Einspielen zur Zeit
+        # Miniserver-Zugang pruefen und speichern (api_settings_ms, auch beim
+        # Einspielen) nur nacheinander, sonst laufen Datei und Verbindung
+        # auseinander. _zugang_neu: gespeichert, aber beim Pruefen nicht
+        # erreichbar - stream_task verbindet beim naechsten Aufbau damit.
+        self._zugang_sperre = asyncio.Lock()
+        self._zugang_neu: dict | None = None
         self.intercom_cfg = _intercom_config()
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
@@ -1228,6 +1343,9 @@ class App:
         self._pending_presence: list[dict] = []
         self._presence_quelle: tuple = (None, None)   # (devices, controls) hinter presence_map
         self.agents: dict[str, dict] = {}   # ip -> Panel-Agent (Fernstart)
+        # ip -> Profil, das ein Agent mit seiner naechsten Meldung uebernehmen
+        # soll (Displays, Betriebsmodus); faellt weg, sobald er es meldet
+        self.agent_wunsch: dict[str, str] = {}
         self.bg_tasks: set = set()          # laufende Hintergrund-Tasks (z.B. Favs anfordern)
         # Dynamisches Song-Cover (iTunes) fuer Zonen, die nur ein Sender-Logo
         # liefern (z.B. Sonn/Audioserver): "artist\ntitle" -> (url|None, expiry).
@@ -1285,11 +1403,7 @@ class App:
             self._dirty = True
 
     def _ssl_ctx(self) -> _ssl.SSLContext:
-        ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-        if not self.verify_tls:
-            ctx.check_hostname = False
-            ctx.verify_mode = _ssl.CERT_NONE
-        return ctx
+        return ms_ssl_kontext(self.verify_tls)
 
     def _apply_structure(self, st: dict) -> None:
         self.controls = st.get("controls", {})
@@ -1414,7 +1528,8 @@ class App:
             # allerersten Start ist _struct_sig None -> kein Reload.
             if self._adopt_structure(st):
                 self._pending_reload = True
-            self.icon_session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
+            self.icon_session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(ssl=await asyncio.to_thread(self._ssl_ctx)))
             await self._connect_ws()
             log.info("Mit Miniserver verbunden (%s).", self.host)
         except Exception:
@@ -1430,34 +1545,48 @@ class App:
                 pass
         self.ws = self.icon_session = self.client = None
 
-    async def reconnect(self) -> int:
-        """Verbindung mit (ge-aenderter) Config neu aufbauen. Gibt Control-Anzahl
-        zurueck; wirft bei falschen Zugangsdaten. Alte Verbindung bleibt bei
-        Fehler bestehen (neuer Client wird nur bei Erfolg uebernommen)."""
-        ms = _config()
+    def _zugang_setzen(self, ms: dict) -> None:
+        """Zugang fuer die naechste Anmeldung uebernehmen (verbindet nicht)."""
+        self.host, self.port = ms["host"], ms.get("port", 443)
+        self.user, self.password = ms["user"], ms["pass"]
+        self.verify_tls = ms.get("verify_tls", False)
+        self._zugang_neu = None
+
+    async def reconnect(self, ms: dict | None = None) -> int:
+        """Verbindung mit (ge-aenderter) Config neu aufbauen, mit `ms` statt
+        _config(), wenn ein Zugang erst geprueft wird (api_settings_ms). Gibt
+        Control-Anzahl zurueck; wirft bei falschen Zugangsdaten, TimeoutError,
+        wenn die Anmeldung laenger als _ms_antwortfrist() braucht. Alte
+        Verbindung bleibt bei Fehler bestehen (neuer Client wird nur bei Erfolg
+        uebernommen)."""
+        ms = _config() if ms is None else ms
         missing = [k for k in ("host", "user", "pass") if not ms.get(k)]
         if missing:
             raise ValueError(
                 "Miniserver-Konfiguration unvollstaendig (fehlt: "
                 + ", ".join(missing) + "). Bitte unter Einstellungen -> "
                 "Miniserver Host, Benutzer und Passwort eintragen.")
+        frist = _ms_antwortfrist()
         newc = _make_client(ms["host"], ms["user"], ms["pass"],
                             ms.get("port", 443), ms.get("verify_tls", False))
         try:
             await newc.__aenter__()
-            alg = (await newc.getkey2()).hashAlg
-            jwt = await newc.authenticate()
+            alg = (await asyncio.wait_for(newc.getkey2(), frist)).hashAlg
+            jwt = await asyncio.wait_for(newc.authenticate(), frist)
             st = await newc.load_structure()
-        except Exception:
+            # Kontext der icon_session schon hier (CAs laden blockiert -> Thread),
+            # damit die Uebernahme unten ohne await durchlaeuft.
+            ssl_ctx = await asyncio.to_thread(ms_ssl_kontext, ms.get("verify_tls", False))
+        except Exception as err:
             try:
                 await newc.close()
             except Exception:
                 pass
+            if isinstance(err, asyncio.TimeoutError) and not str(err):   # Frist von wait_for
+                raise TimeoutError(f"keine Antwort innerhalb von {frist:g} s") from err
             raise
         # Erfolg -> uebernehmen
-        self.host, self.port = ms["host"], ms.get("port", 443)
-        self.user, self.password = ms["user"], ms["pass"]
-        self.verify_tls = ms.get("verify_tls", False)
+        self._zugang_setzen(ms)
         old_client, self.client = self.client, newc
         self.alg = alg
         self._set_token(jwt)
@@ -1467,7 +1596,7 @@ class App:
             self._pending_reload = True
         self.states = {}
         old_is, self.icon_session = self.icon_session, \
-            aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=self._ssl_ctx()))
+            aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_ctx))
         self.icon_cache, self.bell_cache = {}, {}
         self.stat_cache, self.stat2_cache, self.stat_memo = {}, {}, {}   # anderer Miniserver -> andere Verlaeufe
         self.stat_gen += 1
@@ -1485,7 +1614,8 @@ class App:
     async def _connect_ws(self) -> None:
         self.ws = LoxoneWS(host=self.host, port=self.port, user=self.user, jwt=self.jwt,
                            hash_alg=self.alg, verify_tls=self.verify_tls,
-                           secure=_ms_https(self.port))
+                           secure=_ms_https(self.port), antwortfrist=_ms_antwortfrist(),
+                           keepalive_abstand=_ms_keepalive_abstand())
         await self.ws.connect()
 
     def _set_token(self, jwt: str) -> None:
@@ -1915,11 +2045,12 @@ class App:
         # (Ergebnis kommt async -> _dirty). Der Loxone-sourceList-State ist bei
         # vielen Setups leer, deshalb ist das der zuverlaessige Weg.
         cl, pid = self._audio_client_for(c)
-        if cl is not None and pid is not None and (not cl.paired or cl.authed):
+        if cl is not None and pid is not None and (cl.paired is False or cl.authed):
             await cl.request_favs(pid)
             return
-        # Fallback ohne Event-Client (z.B. MS4H ohne 7091) oder bei gekoppeltem
-        # Audioserver ohne Anmeldung: Favoriten ueber den Miniserver holen.
+        # Fallback ohne Event-Client (z.B. MS4H ohne 7091), bei gekoppeltem
+        # Audioserver ohne Anmeldung oder unklarer Kopplung (paired None):
+        # Favoriten ueber den Miniserver holen.
         ua = c.get("uuidAction")
         if ua:
             await self.command(ua, "roomfav/get/0/20")
@@ -2208,6 +2339,8 @@ class App:
             # und Profil gemischt): "off" | "auto" | Faktor. Ein Geraet kann
             # sie uebersteuern, siehe effective_scale().
             "scale": _clean_scale(ui.get("scale")) or "off",
+            # Visu-PIN gesicherter Bausteine so viele Sekunden behalten (0 = nie)
+            "pinMerken": _pin_merken(ui.get("pinMerken")),
         }
 
     def player_blocks(self, uuid: str):
@@ -2530,6 +2663,18 @@ class App:
         return any(a.get("name") == name and (now - a.get("ts", 0)) < 600
                    for a in self.agents.values())
 
+    def _agenten_der_visu(self, dev: str, ip: str) -> list[dict]:
+        """Agenten mit AGENT_KANN_PANEL hinter einer Visu, die als Geraet `dev`
+        von `ip` verbindet. Vorrang hat der Agent mit dieser IP, auch wenn
+        seine letzte Meldung aelter ist: Sein Chromium verbindet gerade, das
+        Panel lebt (etwa gleich nach dem Booten). Meldet er eine andere Adresse
+        (NAT), gelten alle mit dem Namen, die online sind, wie in switch_mode."""
+        now = time.time()
+        gleich = [a for a in self.agents.values() if a["name"] == dev]
+        gleich = ([a for a in gleich if a["ip"] == ip]
+                  or [a for a in gleich if now - a["ts"] < AGENT_ONLINE])
+        return [a for a in gleich if AGENT_KANN_PANEL in a.get("features", ())]
+
     def effective_scale(self, prof: dict | None, dev: str) -> str | float:
         """Wirksame Skalierung eines Panels: die des Geraets, falls dort eine
         gesetzt ist, sonst die des Profils (resolve_profile() hat dort schon
@@ -2562,7 +2707,7 @@ class App:
                 continue
             e = entry(a["name"])
             e["agent"] = {"ip": a["ip"], "port": a["port"], "kiosk": a["kiosk"],
-                          "panel": a["panel"], "online": (now - a["ts"]) < 60}
+                          "panel": a["panel"], "online": (now - a["ts"]) < AGENT_ONLINE}
             e["ip"] = a["ip"]
             e["lastSeen"] = max(e["lastSeen"], a["ts"])
             e["online"] = e["online"] or e["agent"]["online"]
@@ -2652,6 +2797,14 @@ class App:
                 timeout=aiohttp.ClientTimeout(total=6))
         drv = disp.get("driver")
         res = {"device": name, "driver": drv, "on": on}
+        pw = str(disp.get("password") or "")
+
+        def von_gegenstelle(text: str) -> str:
+            # Gibt die Gegenstelle die Anfrage wieder (Echo, Fehlerseite), stuende
+            # das Kennwort im Klartext darin. Nur hier ersetzen: In selbst
+            # gebildeten Meldungen ("Cannot connect to host h:port") verriete die
+            # Ersetzung ueber den frei waehlbaren Port, ob er das Kennwort enthaelt.
+            return text.replace(pw, "***") if pw else text
         try:
             if drv == "fully":
                 # Fully Kiosk Browser, Remote Admin: GET /?cmd=screenOn|screenOff&password=...
@@ -2675,25 +2828,44 @@ class App:
                     txt = (await r.text())[:300]
                     ok = r.status == 200
             if not ok:
-                res["error"] = f"HTTP {r.status}: {txt}".strip()
+                res["error"] = f"HTTP {r.status}: {von_gegenstelle(txt)}".strip()
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as err:
             # ValueError: Host, den die Namensaufloesung nicht annimmt
             # ("tablet..home", Label ueber 63 Zeichen) - sonst bricht die
             # Schleife in display_drivers fuer alle folgenden Geraete ab
             ok = False
-            res["error"] = str(err) or err.__class__.__name__
+            # Ohne die Adresse: InvalidURL und ClientResponseError nennen sie
+            # ganz, bei Fully samt Kennwort.
+            if isinstance(err, aiohttp.InvalidURL):
+                res["error"] = f"ungültige Adresse {disp['host']}:{disp['port']}"
+            elif isinstance(err, aiohttp.ClientResponseError):
+                res["error"] = f"HTTP {err.status}: {von_gegenstelle(err.message)}"
+            else:
+                res["error"] = str(err) or err.__class__.__name__
         res["ok"] = ok
         if not ok:
+            # Das Kennwort so, wie es verschickt wurde (yarl kodiert anders als
+            # quote()): aus einem Echo der Anfrage oder einer Meldung mit der
+            # ganzen Adresse (Zeitueberschreitung beim Verbinden). Ersetzt den
+            # ganzen Wert, das Ergebnis haengt also nicht vom Kennwort ab.
+            res["error"] = re.sub(r"password=[^&\s]*", "password=***", res["error"])
             log.warning("Display-Treiber %s (%s): %s", name, drv, res["error"])
         return res
 
     async def _agent_start(self, agent: dict, profile: str) -> bool:
-        """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl)."""
+        """Startet den Kiosk eines Panel-Agenten mit einem Profil (Fernbefehl).
+        Das Profil ersetzt eine offene Wahl. Ein Agent mit AGENT_KANN_PANEL
+        behaelt es als Wahl, bis er es meldet: Scheitert der Befehl (Zeitlimit,
+        Port gesperrt), uebernimmt er es so mit seiner naechsten Meldung."""
+        if AGENT_KANN_PANEL in agent.get("features", ()):
+            self.agent_wunsch[agent["ip"]] = profile
+        else:
+            self.agent_wunsch.pop(agent["ip"], None)
         url = f"http://{agent['ip']}:{agent['port']}/start"
         try:
             async with aiohttp.ClientSession() as s:
                 async with s.post(url, json={"panel": profile},
-                                  timeout=aiohttp.ClientTimeout(total=8)) as r:
+                                  timeout=aiohttp.ClientTimeout(total=AGENT_BEFEHL_TIMEOUT)) as r:
                     return r.status == 200
         except Exception as err:
             log.warning("Agent %s Start(%s) fehlgeschlagen: %s",
@@ -2707,15 +2879,22 @@ class App:
         1. geraeteunabhaengig: offene Browser-Verbindung mit `?device=<name>`
            bekommt per WS ein `{t:'switch'}` -> laedt sich mit neuem Profil neu
            (funktioniert auf jedem Browser/Kiosk, kein Agent noetig);
-        2. Fallback: Linux-Panel-Agent per Fernstart (`?device=` nicht gesetzt).
+        2. Fallback: Linux-Panel-Agent per Fernstart (`?device=` nicht gesetzt),
+           nur wenn er online ist; einen anderen zieht ws_handler beim
+           Verbinden seines Chromium nach.
+        Ein Agent, der das kann (AGENT_KANN_PANEL), uebernimmt das Profil im
+        ersten Fall mit seiner naechsten Meldung (Abschaltzeit, Neustart-
+        intervall, naechster Kiosk-Start). Ausdrueckliche Wahlen unter
+        Displays gelten ab hier nicht mehr.
         """
         mode = (mode or "").strip()
         results: list = []
         if not mode:
             return results
         self.last_mode = mode   # merken -> frisch verbundene Geraete ziehen darauf nach
+        self.ansicht_gewaehlt.clear()
         now = time.time()
-        by_name = {a["name"]: a for a in self.agents.values() if (now - a["ts"]) < 600}
+        by_name = {a["name"]: a for a in self.agents.values() if (now - a["ts"]) < AGENT_ONLINE}
         for name, cfg in self.devices.items():
             if not cfg.get("auto", True):
                 continue
@@ -2731,6 +2910,10 @@ class App:
                         continue
                     if await self._send_or_drop(ws, {"t": "switch", "panel": profile}):
                         sent += 1
+                for a in self.agents.values():
+                    if (a["name"] == name and AGENT_KANN_PANEL in a.get("features", ())
+                            and (now - a["ts"]) < AGENT_ONLINE):
+                        self.agent_wunsch[a["ip"]] = profile
                 results.append({"panel": name, "profile": profile,
                                 "ok": sent > 0, "via": "ws"})
                 continue
@@ -2773,7 +2956,7 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize")}
+                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
         # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
         if isinstance(ui.get("panes"), dict):
             ui["panes"] = {str(k): v for k, v in ui["panes"].items()
@@ -2800,6 +2983,12 @@ class App:
             "tabs": tabs or list(VALID_TABS),
             "rooms": [u for u in self.rooms_with if r and u in r],
             "cats": [u for u in self.cats_with if c and u in c],
+            # Raum-Panel: gewaehlte Kategorie-Tabs in Klickreihenfolge, wie sie
+            # _sanitize_panels speichert (nicht sortieren, nicht gegen die
+            # Struktur filtern). Fehlt es hier, zeigt der Editor "automatisch",
+            # und das naechste Speichern - auch eines anderen Profils - loescht es.
+            "roomCats": [x for x in (raw["roomCats"] if isinstance(raw.get("roomCats"), list) else [])
+                         if isinstance(x, str)][:4],
             "ui": ui,
             "states": {k: v for k, v in (raw.get("states") or {}).items()
                        if k in ("active", "good", "warn", "crit")},
@@ -2914,6 +3103,9 @@ class App:
                 cui["nightDim"] = max(0, min(90, int(ui["nightDim"])))    # Nachts abdunkeln in %
             if isinstance(ui.get("nightWake"), (int, float)):
                 cui["nightWake"] = max(0, min(300, int(ui["nightWake"])))  # Aufhellen bei Beruehrung, Sek.
+            if isinstance(ui.get("pinMerken"), (int, float)) and \
+                    _pin_merken(ui["pinMerken"]) != PIN_MERKEN_STANDARD:
+                cui["pinMerken"] = _pin_merken(ui["pinMerken"])   # PIN merken, Sek.; fehlt = Standard
             if ui.get("cols") in (2, 3):
                 cui["cols"] = int(ui["cols"])   # Spalten: 2 oder 3
             if ui.get("rows") in (2, 3):
@@ -3101,8 +3293,10 @@ class App:
         self.panels = load_panels()
 
     def _write_devices(self, devices: dict) -> None:
+        # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
+        # Server mit dem Stand der Datei weiter
+        self._persist_panels_file(self.panels, devices)
         self.devices = devices
-        self._persist_panels_file(self.panels, self.devices)
         self._presence_rebuild()
 
     @staticmethod
@@ -3166,6 +3360,20 @@ class App:
             port = DISPLAY_DRIVERS[drv]
         return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
                 "password": str(d.get("password") or "")[:100]}
+
+    @staticmethod
+    def _devices_export(devices: dict) -> dict:
+        """Geraete fuer den Konfigurator (/api/meta, Antwort von POST
+        /api/devices): das Display-Kennwort nur als hasPass, wie Miniserver
+        und Kamera in /api/settings. Leer zurueck heisst es "unveraendert"
+        (api_save_devices)."""
+        out = {}
+        for name, e in devices.items():
+            if isinstance(e, dict) and isinstance(e.get("display"), dict):
+                disp = {k: v for k, v in e["display"].items() if str(k).lower() not in _SECRET_KEYS}
+                e = {**e, "display": {**disp, "hasPass": bool(e["display"].get("password"))}}
+            out[name] = e
+        return out
 
     @staticmethod
     def _sanitize_theme_ui(ui: dict) -> dict:
@@ -4342,10 +4550,11 @@ class App:
         # Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
         # Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
         # Nur wenn der Kanal die Favoriten auch liefern darf: ein gekoppelter
-        # Audioserver ohne geglueckte Anmeldung schickt keine (dieselbe Bedingung
-        # wie beim Anfordern in prime_favs) -> dann die des Miniservers.
+        # Audioserver ohne geglueckte Anmeldung (oder unklare Kopplung) schickt
+        # keine (dieselbe Bedingung wie beim Anfordern in prime_favs) -> dann
+        # die des Miniservers.
         _cl, _pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
-        if _cl is not None and _pid is not None and (not _cl.paired or _cl.authed):
+        if _cl is not None and _pid is not None and (_cl.paired is False or _cl.authed):
             favs = _cl.favs.get(_pid, [])
             items = [{"label": f["name"],
                       "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
@@ -5074,8 +5283,6 @@ class App:
     def _view_control(self, uuid: str, rng: str | None = None) -> dict:
         v = self._view_control_inner(uuid)
         c = self.controls.get(uuid, {})
-        if c.get("isSecured"):
-            v["secured"] = True   # Client fragt vor Befehlen die Visu-PIN ab
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
         # Aufzeichnung hat. Nur bei Block-Seiten; die Route traegt dann den Zeitraum.
         if (c.get("statistic") or c.get("statisticV2")) and isinstance(v.get("blocks"), list):
@@ -6021,6 +6228,16 @@ class App:
                 "items": [self._control_item(uuid)]}
 
     def render(self, route: dict, prof: dict | None = None) -> dict:
+        out = self._render_seite(route, prof)
+        # Jede Seite eines gesicherten Bausteins, auch seine Unterseiten (Zone,
+        # Weckzeit, Musikauswahl ...): die Visu fragt vor jedem Befehl die
+        # Visu-PIN ab. Gruppe und Tab nicht - dort zaehlt die einzelne Kachel.
+        if (out.get("route") or {}).get("view") not in ("group", "tab") \
+                and self._gesichert((route or {}).get("id")):
+            out["secured"] = True
+        return out
+
+    def _render_seite(self, route: dict, prof: dict | None = None) -> dict:
         v = (route or {}).get("view", "tab")
         if v == "group":
             return self._view_group(route, prof)
@@ -6038,6 +6255,19 @@ class App:
             return self._view_bells(route.get("id"))
         return self._view_tab(route.get("tab", "favoriten"), prof)
 
+    def _gesichert(self, uuid) -> bool:
+        """Baustein mit Visu-Passwort (isSecured): Befehle nur mit PIN (sps/ios)."""
+        return isinstance(uuid, str) and bool((self.controls.get(uuid) or {}).get("isSecured"))
+
+    def _pane_msg(self, art: str, uuid: str, blocks: list) -> dict:
+        """{t:"player"|"camera"} fuer Player- bzw. Kamera-Bereich. Gesichert wie
+        die Detailseite derselben Zone bzw. Intercom, sonst bedienten
+        Lautstaerke, Transport und Tueroeffner sie ohne PIN."""
+        m = {"t": art, "blocks": blocks}
+        if self._gesichert(uuid):
+            m["secured"] = True
+        return m
+
     async def audio_events_task(self) -> None:
         """Verwaltet je Audioserver (aus /mediaServer der Struktur) einen
         Gen-2-Event-Client (WS 7091). Startet neue Server, stoppt verschwundene;
@@ -6054,8 +6284,13 @@ class App:
                         want.add(host)
             for host in want:
                 if host not in self.audio_clients:
+                    am = self.audiometa_cfg or {}
                     cl = AudioEventClient(host, 7091, user=self.user,
-                                          token_provider=lambda: self.jwt)
+                                          token_provider=lambda: self.jwt,
+                                          neu_versuch_s=_audiometa_sekunden(
+                                              am, "retry_interval", AudioEventClient.NEU_VERSUCH_S),
+                                          pruef_zeitlimit_s=_audiometa_sekunden(
+                                              am, "response_timeout", AudioEventClient.PRUEF_ZEITLIMIT_S))
                     self.audio_clients[host] = cl
                     asyncio.create_task(self._run_audio_client(host, cl))
                     log.info("Audioserver-Event-Client gestartet: %s", host)
@@ -6292,12 +6527,17 @@ class App:
         # den HTTP-Server ab — auch wenn der Miniserver (noch) nicht erreichbar
         # oder das Passwort falsch ist (dann bleibt /settings bedienbar).
         # Wartezeit zwischen Versuchen waechst (MS_RETRY). Von vorn beginnt sie
-        # erst, wenn eine Verbindung mindestens so lange hielt wie die laengste
-        # Wartezeit - sonst liefe ein Miniserver, der sofort wieder trennt, in
-        # eine Anmeldung alle paar Sekunden.
-        retry, connected_at = 0, None
+        # erst, wenn eine Verbindung mindestens so lange Daten lieferte wie die
+        # laengste Wartezeit (LoxoneWS.lebenszeit()) - sonst liefe ein
+        # Miniserver, der sofort wieder trennt, in eine Anmeldung alle paar
+        # Sekunden. Offen sein allein genuegt nicht: Eine stumme Verbindung
+        # endet erst nach keepalive_interval + response_timeout, im Betrieb
+        # laenger als MS_RETRY[-1].
+        retry, verbunden = 0, None
         while True:
             try:
+                if self._zugang_neu is not None and self.client is None:
+                    self._zugang_setzen(self._zugang_neu)   # beim Speichern nicht erreichbar gewesen
                 if not self.host:
                     # Noch kein Miniserver konfiguriert -> auf /settings warten
                     # (kein Verbindungsversuch, kein Log-Spam).
@@ -6317,16 +6557,16 @@ class App:
                     except Exception:
                         log.exception("Struktur-Refresh beim Reconnect uebersprungen")
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
-                connected_at = time.monotonic()
+                verbunden = self.ws
                 self._ms_fehler = ""
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
                 raise
             except Exception as err:
-                if connected_at is not None and time.monotonic() - connected_at >= MS_RETRY[-1]:
+                if verbunden is not None and verbunden.lebenszeit() >= MS_RETRY[-1]:
                     retry = 0
-                connected_at = None
+                verbunden = None
                 wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
                 retry += 1
                 log.warning("Miniserver nicht verbunden (%s) — neuer Versuch in %ss", err, wait)
@@ -6340,7 +6580,9 @@ class App:
                     pass
                 self.ws = None
                 try:
-                    if self.client:
+                    if self.client and self._zugang_neu is not None:
+                        await self._close_conn()    # neuer Zugang gespeichert -> damit neu aufbauen
+                    elif self.client:
                         await self._reauth()    # Token erneuern, Client behalten
                 except Exception:
                     await self._close_conn()    # Client kaputt -> harter Reset (start() baut neu)
@@ -6447,7 +6689,7 @@ class App:
                 if _zone:
                     try:
                         pb = self.player_blocks(_zone)
-                        player_msg = {"t": "player", "blocks": pb} if pb is not None else None
+                        player_msg = self._pane_msg("player", _zone, pb) if pb is not None else None
                     except Exception:
                         log.exception("player_blocks fehlgeschlagen (%s)", _zone)
                 # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
@@ -6476,7 +6718,7 @@ class App:
                 if _cuid:
                     try:
                         ib = self.intercom_blocks(_cuid)
-                        camera_msg = {"t": "camera", "blocks": ib} if ib is not None else None
+                        camera_msg = self._pane_msg("camera", _cuid, ib) if ib is not None else None
                     except Exception:
                         log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
                 # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
@@ -6888,6 +7130,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
         # der Konfigurator nennt sie im leeren Feld.
         "reloadAt": NEULADEN_STUNDE,
+        # PIN merken: Standard und Grenze fuer das Feld im Konfigurator
+        "pinMerken": {"standard": PIN_MERKEN_STANDARD, "max": PIN_MERKEN_MAX},
         "icons": {"loxone": app._loxone_icons(), "loxlib": len(_loxlib_names())},
         "tabs": [{"tab": "favoriten", "label": "Favoriten"},
                  {"tab": "zentral", "label": "Zentral"},
@@ -6902,7 +7146,7 @@ async def api_meta(request: web.Request) -> web.Response:
             "iconUrl": app._icon_url(app.rooms[ru].get("image")), "room": True}
            for ru in app.rooms_with],
         "panels": panels,
-        "devices": app.devices,
+        "devices": App._devices_export(app.devices),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
@@ -7005,7 +7249,8 @@ async def api_health(request: web.Request) -> web.Response:
 # Einstellungen, die /api/backup einpackt (alles, was LoxPanel in config/ schreibt).
 BACKUP_FILES = ("loxpanel.cfg", "panels.json", "theme.json")
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
-# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht.
+# ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht,
+# /api/meta nennt beim Display nur hasPass (_devices_export).
 _SECRET_KEYS = {"pass", "password"}
 # Maschinenlesbarer Vermerk in der Sicherung: je Datei die Pfade der entfernten
 # Kennwoerter. /api/restore setzt nur an diesen Stellen vorhandene wieder ein.
@@ -7656,6 +7901,8 @@ async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
                             ms_status = "fehler_behalten"
                         except (OSError, ValueError) as err2:
                             log.warning("Bisherigen Miniserver-Zugang nicht zurueckgeschrieben: %s", err2)
+        if ms_status in ("unveraendert", "kein_kennwort", "unvollstaendig", "fehler"):
+            app._zugang_neu = None   # der eingespielte Abschnitt ersetzt einen ungeprueft gespeicherten
     n = await _push(app, {"t": "reload"})   # offene Panels mit dem neuen Stand neu laden
 
     # Kameras ohne Namen aus der Struktur (neues Panel, noch nicht verbunden)
@@ -7699,7 +7946,9 @@ async def api_restore(request: web.Request) -> web.Response:
                                  status=413)
     if not daten:
         return web.json_response({"ok": False, "error": "Keine Datei erhalten."}, status=400)
-    async with app._einspiel_sperre:
+    async with app._einspiel_sperre, app._zugang_sperre:
+        # _zugang_sperre: Der Plan merkt sich den bisherigen Miniserver-Zugang
+        # (ms_alt) und schreibt ihn bei Bedarf zurueck - kein Speichern dazwischen.
         # Lesen und Pruefen kosten bei grossen Sicherungen Sekunden Rechenzeit
         # (Grundfarben je Profil, Sanitizer, Groessenpruefung); im Thread bleibt
         # die Visu derweil bedienbar. Der Thread sieht vom laufenden Server nur
@@ -7717,9 +7966,8 @@ async def api_restore(request: web.Request) -> web.Response:
 async def api_settings(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     cfg = _load_cfg()
-    ms = cfg.get("miniserver", {})
+    ms = _config()        # derselbe Zugang, mit dem verbunden wird (Datei, sonst LOXPANEL_MS_*)
     ic = cfg.get("intercom", {})
-    env_ms = bool(os.environ.get("LOXPANEL_MS_HOST"))
 
     def icv(uuid):
         e = ic.get(uuid) or {}
@@ -7734,11 +7982,11 @@ async def api_settings(request: web.Request) -> web.Response:
     cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
         "miniserver": {
-            "host": ms.get("host") or os.environ.get("LOXPANEL_MS_HOST", ""),
-            "user": ms.get("user") or os.environ.get("LOXPANEL_MS_USER", ""),
+            "host": ms.get("host", ""),
+            "user": ms.get("user", ""),
             "port": ms.get("port", 443),
             "verify_tls": bool(ms.get("verify_tls", False)),
-            "hasPass": bool(ms.get("pass")) or env_ms,
+            "hasPass": bool(ms.get("pass")),
         },
         "intercoms": intercoms,
         "audiometa": {"enabled": bool(am.get("enabled", True)),
@@ -7806,6 +8054,13 @@ async def api_types(request: web.Request) -> web.Response:
 
 
 async def api_settings_ms(request: web.Request) -> web.Response:
+    """Miniserver-Zugang pruefen, dann speichern (Settings -> Miniserver).
+    Lehnt der Miniserver ab, bleibt alles beim Alten, Datei wie Verbindung.
+    Antwortet er nicht, ist offen, ob der Zugang stimmt: Er wird gespeichert,
+    eine bestehende Verbindung bleibt aber, bis stream_task sie neu aufbaut
+    (_zugang_neu). Leeres Kennwort = das bisherige, nur fuer denselben Host
+    und Benutzer. "error" ist ein fester Text (i18n), der Fehler des
+    Miniservers steht getrennt in "fehler"."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -7814,30 +8069,71 @@ async def api_settings_ms(request: web.Request) -> web.Response:
     host = str(data.get("host", "")).strip()
     if not host:
         return web.json_response({"ok": False, "error": "Host fehlt"}, status=400)
-    cfg = _load_cfg()
-    ms = dict(cfg.get("miniserver", {}))
-    ms["host"] = host
-    ms["user"] = str(data.get("user", "")).strip()
+    user = str(data.get("user", "")).strip()
+    if not user:
+        return web.json_response({"ok": False, "error": "Benutzer fehlt"}, status=400)
     try:
-        ms["port"] = int(data.get("port") or 443)
+        port = int(data.get("port") or 443)
     except (TypeError, ValueError):
-        ms["port"] = 443
-    ms["verify_tls"] = bool(data.get("verify_tls"))
-    if data.get("pass"):                       # leer = altes Passwort behalten
-        ms["pass"] = str(data["pass"])
-    if not ms.get("pass"):
-        return web.json_response({"ok": False, "error": "Passwort fehlt"}, status=400)
-    cfg["miniserver"] = ms
-    try:
-        _write_cfg(cfg)
-    except OSError as err:
-        return web.json_response({"ok": False, "error": str(err)}, status=500)
-    try:
-        n = await app.reconnect()
-        log.info("Miniserver-Settings gespeichert, verbunden (%d Controls)", n)
-        return web.json_response({"ok": True, "connected": True, "nControls": n})
-    except Exception as err:
-        return web.json_response({"ok": False, "error": f"Verbindung fehlgeschlagen: {err}"})
+        port = 0
+    if not 1 <= port <= 65535:
+        return web.json_response({"ok": False, "error": "Port ungültig"}, status=400)
+    neu = {"host": host, "user": user, "port": port, "verify_tls": bool(data.get("verify_tls"))}
+    async with app._zugang_sperre:
+        alt, quelle = _ms_zugang()
+        if data.get("pass"):
+            neu["pass"] = str(data["pass"])
+        elif alt.get("pass") and (str(alt.get("host") or "").strip(), str(alt.get("user") or "").strip()) == (host, user):
+            neu["pass"] = alt["pass"]
+        else:
+            return web.json_response({"ok": False, "error": "Neuer Host oder Benutzer: bitte das Passwort eingeben."
+                                      if alt.get("pass") else "Passwort fehlt"}, status=400)
+
+        def speichern() -> None:
+            if quelle == "umgebung" and all(alt.get(k) == v for k, v in neu.items()):
+                return   # unveraendert aus LOXPANEL_MS_*: gilt dort weiter, Kennwort nicht in die Datei
+            cfg = _load_cfg()   # erst jetzt: andere Abschnitte koennen sich waehrend der Pruefung geaendert haben
+            datei = cfg.get("miniserver") if isinstance(cfg.get("miniserver"), dict) else {}
+            cfg["miniserver"] = {**datei, **neu}     # msno, _comment, Zeitwerte bleiben
+            _write_cfg(cfg)
+
+        try:
+            n = await app.reconnect(neu)
+        except Exception as err:
+            fehler = " ".join(str(err).split()) or type(err).__name__
+            if not _ms_unerreichbar(err):
+                log.warning("Miniserver-Zugang nicht gespeichert, Anmeldung an %s gescheitert: %s", host, fehler)
+                return web.json_response({"ok": False, "fehler": fehler, "error":
+                                          "Anmeldung am Miniserver gescheitert. Der Zugang wurde nicht gespeichert."})
+            verbunden = app.client is not None
+            try:
+                speichern()
+            except OSError as err2:
+                log.warning("Miniserver-Zugang nicht gespeichert: %s", err2)
+                return web.json_response({"ok": False, "connected": verbunden, "fehler": f"{fehler} · {err2}",
+                                          "error": "Miniserver nicht erreichbar, und der Zugang ließ sich nicht "
+                                                   "speichern. Es bleibt beim bisherigen."}, status=500)
+            app._zugang_neu = neu
+            log.warning("Miniserver %s nicht erreichbar (%s), Zugang trotzdem gespeichert", host, fehler)
+            return web.json_response({
+                "ok": False, "gespeichert": True, "connected": verbunden, "fehler": fehler,
+                "error": "Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert: Die bestehende "
+                         "Verbindung bleibt, der neue Zugang gilt ab dem nächsten Verbindungsaufbau." if verbunden
+                else "Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert, LoxPanel versucht es damit weiter."})
+        # Audioserver-Clients merken sich den Benutzer beim Anlegen
+        for cl in list(app.audio_clients.values()):
+            await cl.close()
+        app.audio_clients.clear()
+        app._front_refresh.set()
+        try:
+            speichern()
+        except OSError as err:
+            log.warning("Miniserver verbunden, Zugang aber nicht gespeichert: %s", err)
+            return web.json_response({"ok": False, "connected": True, "nControls": n, "fehler": str(err),
+                                      "error": "Verbunden, aber der Zugang ließ sich nicht speichern. "
+                                               "Nach einem Neustart gilt er nicht mehr."}, status=500)
+    log.info("Miniserver-Settings gespeichert, verbunden (%d Controls)", n)
+    return web.json_response({"ok": True, "connected": True, "nControls": n})
 
 
 async def api_settings_night(request: web.Request) -> web.Response:
@@ -8073,26 +8369,38 @@ async def api_settings_calendar(request: web.Request) -> web.Response:
 
 # ---- Panel-Agenten (Fernstart der Displays) ----
 async def api_agent_announce(request: web.Request) -> web.Response:
-    """Panel-Agent meldet sich periodisch (Auto-Discovery)."""
+    """Panel-Agent meldet sich periodisch (Auto-Discovery). Steht fuer ihn eine
+    Ansicht an (agent_wunsch) und kann er sie uebernehmen, nennt die Antwort
+    sie als `panel`, und die Geraeteeinstellungen gelten schon fuer sie."""
     app: App = request.app["app"]
     try:
         d = await request.json()
     except (ValueError, aiohttp.ContentTypeError):
         d = {}
     ip = str(d.get("ip") or "").strip() or request.remote or "?"
+    feats = d.get("features")
+    feats = [f for f in feats if isinstance(f, str)][:8] if isinstance(feats, list) else []
+    panel = str(d.get("panel") or "")
     app.agents[ip] = {"ip": ip, "name": str(d.get("name") or ip)[:60],
-                      "panel": str(d.get("panel") or ""), "port": int(d.get("port") or 8130),
-                      "kiosk": bool(d.get("kiosk")), "ts": time.time()}
+                      "panel": panel, "port": int(d.get("port") or 8130),
+                      "kiosk": bool(d.get("kiosk")), "ts": time.time(), "features": feats}
+    wunsch = app.agent_wunsch.get(ip)
+    if wunsch is not None and (wunsch == panel or AGENT_KANN_PANEL not in feats):
+        app.agent_wunsch.pop(ip, None)   # gemeldet, also uebernommen
+        wunsch = None
+    pid = panel if wunsch is None else wunsch
     # Panel-spezifische Geraeteeinstellungen an den Agenten zurueckgeben
     # (der wendet sie am Geraet an, z.B. Display-Abschaltung per xset).
-    return web.json_response({"ok": True, "dpmsOff": app.panel_dpms(d.get("panel")),
-                              "reloadHours": app.panel_reload(d.get("panel"))})
+    out = {"ok": True, "dpmsOff": app.panel_dpms(pid), "reloadHours": app.panel_reload(pid)}
+    if wunsch is not None:
+        out["panel"] = wunsch
+    return web.json_response(out)
 
 
 async def api_agents(request: web.Request) -> web.Response:
     app: App = request.app["app"]
     now = time.time()
-    out = [{**a, "online": (now - a["ts"]) < 60}
+    out = [{**a, "online": (now - a["ts"]) < AGENT_ONLINE}
            for a in app.agents.values() if (now - a["ts"]) < 600]
     out.sort(key=lambda a: a["name"])
     return web.json_response({"agents": out})
@@ -8112,13 +8420,29 @@ async def api_agent_command(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Panel nicht bekannt"}, status=404)
     if action not in ("start", "reload", "stop"):
         return web.json_response({"ok": False, "error": "unbekannte Aktion"}, status=400)
-    url = f"http://{a['ip']}:{a['port']}/{action}"
     payload = {"panel": str(d.get("panel") or "")} if action == "start" else {}
+    # "Start" mit Ansicht ist eine ausdrueckliche Wahl wie "Ansicht wechseln"
+    # (bei gestopptem Kiosk der einzige Weg dazu)
+    wahl = action == "start"
+    if wahl:
+        app.agent_wunsch.pop(ip, None)   # neuer als eine noch offene Wahl
+    elif action == "reload" and ip in app.agent_wunsch:
+        # Wahl noch nicht gemeldet: mit ihr neu starten, sonst oeffnete der
+        # Agent die alte Ansicht und uebernaehme die neue erst danach. Sie
+        # bleibt stehen, bis er sie meldet: scheitert der Befehl, uebernimmt
+        # er sie mit der naechsten Meldung.
+        action, payload = "start", {"panel": app.agent_wunsch[ip]}
+    url = f"http://{a['ip']}:{a['port']}/{action}"
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=8)) as r:
+            async with s.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=AGENT_BEFEHL_TIMEOUT)) as r:
                 body = await r.text()
                 log.info("Agent %s %s -> %s", ip, action, r.status)
+                if wahl and r.status == 200:
+                    # hebt den Betriebsmodus fuer das Geraet auf: sonst zoege
+                    # ws_handler die Visu auf dessen Profil, der Agent bliebe
+                    # bei der Wahl
+                    app.ansicht_gewaehlt.add(a["name"])
                 return web.json_response({"ok": r.status == 200, "status": r.status,
                                           "body": body[:200]})
     except Exception as err:
@@ -8155,6 +8479,14 @@ async def api_save_devices(request: web.Request) -> web.Response:
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
     devices = App._sanitize_devices(d.get("devices") or {}, set(app.panels))
+    # Leeres Display-Kennwort = unveraendert (/api/meta gibt es nicht heraus),
+    # aber nur beim selben Ziel wie beim Einspielen (_KENNWORT_ZIEL), sonst
+    # ginge das gespeicherte an einen anderen Host. "verworfen": eines war da,
+    # das Ziel ist ein anderes. Vor _write_devices, das app.devices ersetzt.
+    _, verworfen = _kennwoerter_einsetzen(
+        {"devices": devices}, {"devices": app.devices},
+        [("devices", n, "display", "password") for n, e in devices.items() if "display" in e],
+        nur_wo_eins_war=True)
     try:
         app._write_devices(devices)
     except Exception as err:
@@ -8165,7 +8497,8 @@ async def api_save_devices(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
             app.conn_prof.get(ws), info.get("dev", ""))})
-    return web.json_response({"ok": True, "devices": devices})
+    return web.json_response({"ok": True, "devices": App._devices_export(devices),
+                              "kennwortVerworfen": [p[1] for p in verworfen]})
 
 
 async def api_devices_get(request: web.Request) -> web.Response:
@@ -8176,8 +8509,19 @@ async def api_devices_get(request: web.Request) -> web.Response:
 
 
 async def api_device_switch(request: web.Request) -> web.Response:
-    """Ansicht eines Geraets wechseln: {device, panel}. Zuerst per WebSocket-
-    Push (Browser laedt sich mit neuem Profil neu), sonst ueber den Agenten."""
+    """Ansicht eines Geraets wechseln: {device, panel, ip}. Die offene Visu
+    wechselt per WebSocket-Push (Browser laedt sich mit neuem Profil neu).
+    Hat das Geraet einen Agenten, der online ist, erfaehrt er die Wahl, damit
+    sie Kiosk-Neustarts uebersteht und Abschaltzeit und Neustartintervall des
+    neuen Profils gelten. Zugeordnet ueber `ip` aus der Geraeteliste, nicht
+    ueber den Namen: geklonte Panels melden denselben Hostnamen. Ein Agent mit
+    AGENT_KANN_PANEL uebernimmt sie mit seiner naechsten Meldung ohne
+    Chromium-Neustart (`agent: "announce"`, auch bei gestopptem Kiosk: der
+    startet dann damit). Einen aelteren Agenten, und jeden, dessen Kiosk ohne
+    offene Visu laeuft, startet /start mit dem neuen Profil neu (`agent:
+    "start"`; scheitert das bei einem Agenten mit AGENT_KANN_PANEL, uebernimmt
+    er sie mit der naechsten Meldung: "announce"; "" = der Agent hat die Wahl
+    nicht). Die Wahl hebt den Betriebsmodus fuer das Geraet auf."""
     app: App = request.app["app"]
     try:
         d = await request.json()
@@ -8190,14 +8534,22 @@ async def api_device_switch(request: web.Request) -> web.Response:
     if panel and panel not in app.panels:
         return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
     n = await _push(app, {"t": "switch", "panel": panel}, "", device)
+    a = app.agents.get(str(d.get("ip") or "").strip())
+    weg, ok = "", False
+    if a and a["name"] == device and time.time() - a["ts"] < AGENT_ONLINE:
+        if AGENT_KANN_PANEL in a.get("features", ()) and (n or not a["kiosk"]):
+            app.agent_wunsch[a["ip"]] = panel
+            weg, ok = "announce", True
+        elif a["kiosk"]:
+            weg, ok = "start", await app._agent_start(a, panel)
+            if not ok and AGENT_KANN_PANEL in a.get("features", ()):
+                weg, ok = "announce", True   # Wahl liegt in agent_wunsch (_agent_start)
+    if n or ok:
+        app.ansicht_gewaehlt.add(device)
     if n:
-        return web.json_response({"ok": True, "sent": n, "via": "ws"})
-    now = time.time()
-    agent = next((a for a in app.agents.values()
-                  if a.get("name") == device and (now - a["ts"]) < 600), None)
-    if agent:
-        ok = await app._agent_start(agent, panel)
-        return web.json_response({"ok": ok, "sent": 1 if ok else 0, "via": "agent"})
+        return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": weg if ok else ""})
+    if ok:
+        return web.json_response({"ok": True, "sent": 1, "via": "agent", "agent": weg})
     return web.json_response({"ok": False, "sent": 0, "error": "Panel nicht online"})
 
 
@@ -8471,15 +8823,26 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await ws.prepare(request)
     dev = (request.query.get("device", "") or "").strip()[:60]
     pid = request.query.get("panel", "")
+    agenten = app._agenten_der_visu(dev, request.remote or "") if dev else []
+    # Wahl, die der Agent noch nicht gemeldet hat: Chromium startete vorher neu
+    # (Absturz, Auto-Reload, Neustart des Agenten) und fragt nach der alten
+    # Ansicht. Die Visu zeigt schon die, die der Agent gleich uebernimmt.
+    offen = next((app.agent_wunsch[a["ip"]] for a in agenten if a["ip"] in app.agent_wunsch), None)
+    if offen is not None:
+        pid = offen
     # Frisch verbundenes Geraet direkt auf den aktuell laufenden Betriebsmodus
     # setzen (statt der Start-Ansicht aus ?panel=), falls dafuer eine Zuordnung
     # existiert -> ohne Reload-Flackern gleich die richtige Visu.
-    if dev and app.last_mode:
+    if dev and app.last_mode and dev not in app.ansicht_gewaehlt:
         cfg = app.devices.get(dev)
         if cfg and cfg.get("auto", True):
             mapped = (cfg.get("modes") or {}).get(app.last_mode)
             if mapped:
                 pid = mapped
+                # auch dem Agenten, sonst meldete er weiter ?panel= (dessen
+                # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
+                for a in agenten:
+                    app.agent_wunsch[a["ip"]] = mapped
     prof = app.resolve_profile(pid)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
@@ -8504,6 +8867,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"]),
+                        "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
                         "reloadHours": app.panel_reload(prof["id"]),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"]), "on": app._night_on},
@@ -8560,7 +8924,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 pin = data.get("pin")
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
-                    await ws.send_json({"t": "cmdresult", "ok": code == "200"})
+                    # uuid/cmd: die Visu ordnet das Ergebnis ihrem Befehl zu
+                    # (Druecken und Loslassen kommen kurz hintereinander);
+                    # code None = keine Antwort, keine abgelehnte PIN.
+                    await ws.send_json({"t": "cmdresult", "ok": code == "200", "code": code,
+                                        "uuid": data.get("uuid"), "cmd": data.get("cmd")})
                 elif code != "200" and data.get("uuid") and data.get("cmd"):
                     # Sichtbar machen statt still verschlucken (Details im Log)
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
@@ -8574,7 +8942,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         pb = app.player_blocks(zone)
                         if pb is not None:
-                            _pm = {"t": "player", "blocks": pb}
+                            _pm = app._pane_msg("player", zone, pb)
                             await ws.send_json(_pm)
                             app._last_sent.setdefault(ws, {})["player"] = _pm
                     except Exception:
@@ -8645,7 +9013,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     try:
                         ib = app.intercom_blocks(cuid)
                         if ib is not None:
-                            await ws.send_json({"t": "camera", "blocks": ib})
+                            await ws.send_json(app._pane_msg("camera", cuid, ib))
                     except Exception:
                         log.exception("intercom_blocks (setcamera) fehlgeschlagen (%s)", cuid)
                 else:
@@ -8710,8 +9078,27 @@ def _logging_einrichten() -> int:
     return level
 
 
+def _fehlende_pakete_melden() -> None:
+    """Einmal beim Start: welche optionalen Pakete aus requirements.txt fehlen
+    und was dadurch nicht geht. Ohne sie laeuft der Server weiter und meldet
+    sich gesund (/api/health); auffallen wuerde es sonst erst am Kalender, an
+    der Intercom oder am Audioserver."""
+    fehlt: dict[str, list[str]] = {}
+    for da, paket, funktion in (
+            (front_info.HAVE_ICAL, "icalendar", "Kalender der Front"),
+            (front_info.HAVE_RRULE, "python-dateutil", "Serientermine im Kalender"),
+            (loxone_secure.HAVE_CRYPTO, "cryptography", "gesicherte Details der Intercom (SIP-Zugang)"),
+            (audioserver_auth.HAVE_CRYPTO, "cryptography", "Anmeldung am Audioserver (Favoriten, Steuerung)")):
+        if not da:
+            fehlt.setdefault(paket, []).append(funktion)
+    if fehlt:
+        log.warning("Pakete aus requirements.txt fehlen (pip install -r requirements.txt) - %s",
+                    "; ".join(f"ohne {paket}: {', '.join(f)}" for paket, f in fehlt.items()))
+
+
 def main() -> None:
     _logging_einrichten()
+    _fehlende_pakete_melden()
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=int(os.environ.get("LOXPANEL_PORT", "8099")))
     args = p.parse_args()

@@ -12,8 +12,9 @@ Variablen im Template gesetzt.
 - Der Unraid-Server erreicht den Loxone Miniserver im Netz (Port 443 bei Gen2,
   Port 80 bei Gen1).
 - Das Image `ghcr.io/chief-wiggum1203/loxpanel:latest`. Es wird vom GitHub-Workflow
-  dieses Repos bei jedem Push auf `main` gebaut (multi-arch: amd64 / arm64 / armv7)
-  und muss im GitHub-Package auf **public** stehen, damit Unraid es ohne Login zieht.
+  dieses Repos bei jedem Push auf `main` gebaut, sobald die Tests desselben Commits
+  grün sind (multi-arch: amd64 / arm64 / armv7), und muss im GitHub-Package auf
+  **public** stehen, damit Unraid es ohne Login zieht.
 
 ## Installation über das Template
 
@@ -29,7 +30,7 @@ Variablen im Template gesetzt.
 | Konfiguration (appdata) | `/mnt/user/appdata/loxpanel/config` | persistente Konfiguration (`loxpanel.cfg`, `panels.json`, `theme.json`) |
 | Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/config` → *Settings → Miniserver* eintragen |
 | Miniserver-Port | `443` | Gen2 = 443, Gen1 = 80 (unter *Show more settings*) |
-| Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false` |
+| Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false`. `true` klappt nur, wenn Host ein Name ist, den das Zertifikat nennt, nicht mit der IP-Adresse |
 
 5. **Apply**. Unraid zieht das Image und startet den Container.
 6. Die Versionsspalte zeigt zunächst *not available* (dt. *nicht verfügbar*): Unraid
@@ -171,6 +172,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 | Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
 | Status im Widget | Docker-Tab: **healthy** / **unhealthy** am Container (`HEALTHCHECK`) |
+| Zeitzone vom LoxBerry (`/etc/localtime`, nach Änderung neu starten) | `TZ` von Unraid (*Settings → Date and Time*) |
 
 ## Fehlersuche
 
@@ -216,4 +218,5 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   gleicht den Stand an.
 - **Image lässt sich nicht ziehen:** das GitHub-Package
   `chief-wiggum1203/loxpanel` muss auf *public* stehen und der Workflow
-  *Docker Image* muss mindestens einmal auf `main` gelaufen sein.
+  *Tests und Image* muss mindestens einmal auf `main` grün durchgelaufen sein
+  (mit dem Job *Image veroeffentlichen (GHCR)*).

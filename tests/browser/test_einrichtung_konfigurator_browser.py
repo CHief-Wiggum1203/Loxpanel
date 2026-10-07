@@ -6,6 +6,7 @@ zeigt den naechsten Schritt. Config-Ordner umgeleitet (Fixture cfg_ordner),
 reconnect() ersetzt."""
 import asyncio
 import json
+import socket
 import types
 
 import pytest
@@ -80,9 +81,9 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
         app = W.App(W._config())
         versuche = []
 
-        async def reconnect():
-            # wie App.reconnect: liest den eben gespeicherten Zugang
-            versuche.append(W._config())
+        async def reconnect(ms=None):
+            # wie App.reconnect: api_settings_ms gibt den zu pruefenden Zugang mit
+            versuche.append(dict(ms) if ms is not None else W._config())
             if len(versuche) == 1:
                 raise RuntimeError("Anmeldung abgelehnt")
             app.client = types.SimpleNamespace()      # steht fuer den neuen Client
@@ -132,7 +133,8 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
                       "pane": ["miniserver"]}
     assert umweg == frisch and assistent, "Profile, Displays und Assistent warten auf die Struktur"
     assert sicherung["pane"] == ["backup"], "eine Sicherung einspielen geht auch vorher"
-    assert falsch["stand"] == "Verbindung fehlgeschlagen: Anmeldung abgelehnt"
+    assert falsch["stand"] == ("Anmeldung am Miniserver gescheitert. Der Zugang wurde nicht gespeichert. "
+                               "(Anmeldung abgelehnt)")
     assert falsch["gesperrt"] == GESPERRT and falsch["hinweis"]
     assert [(v["host"], v["user"], v["pass"]) for v in versuche] == [("10.0.0.5", "visu", "falsch"),
                                                                    ("10.0.0.5", "visu", "richtig")]
@@ -193,8 +195,8 @@ TEXTE = {
 
 @pytest.mark.parametrize("sprache", ["de", "en"])
 def test_jeder_stand_in_beiden_sprachen(cfg_ordner, sprache):
-    """Zugang gespeichert, aber nicht uebernommen (wie nach einem gescheiterten
-    Speichern), dann verbindet der Server, scheitert und verbindet doch. Jeder
+    """Zugang gespeichert, aber nicht uebernommen (etwa eingespielt ohne
+    Kennwort), dann verbindet der Server, scheitert und verbindet doch. Jeder
     Text steht im Katalog, sonst bliebe er im Englischen deutsch."""
     (cfg_ordner / "loxpanel.cfg").write_text(json.dumps(
         {"miniserver": {"host": "10.0.0.5", "user": "visu", "pass": "x"}}), encoding="utf-8")
@@ -238,3 +240,42 @@ def test_eingerichtet_ohne_fuehrung(cfg_ordner):
     z = asyncio.run(lauf())
     assert z["rubrik"] == "overview" and z["gesperrt"] == [] and not z["neuesPanel"]
     assert not z["hinweis"] and z["weiter"] is None
+
+
+def test_zugang_aus_umgebung_im_formular(cfg_ordner, miniserver_http, monkeypatch):
+    """Zugang aus LOXPANEL_MS_* mit eigenem Port und Zertifikatspruefung: Das
+    Formular zeigt ihn so, wie verbunden wird. Speichern mit leerem
+    Kennwortfeld nimmt das Kennwort der Umgebung; ist der Miniserver nicht
+    erreichbar, bleibt die Warnung stehen, und in die Datei kommt nichts."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]          # hier lauscht niemand: nicht erreichbar
+    umgebung = {"HOST": "127.0.0.1", "USER": "visu", "PASS": "geheim", "PORT": str(port), "VERIFY_TLS": "true"}
+    for k, v in umgebung.items():
+        monkeypatch.setenv(f"LOXPANEL_MS_{k}", v)
+
+    async def lauf():
+        app = W.App(W._config())
+        app._apply_structure(anlage(BAUSTEINE))
+
+        async def schritte(pg):
+            await pg.wait_for_function(KONFIGURATOR_GELADEN + " && SET !== null")
+            await pg.evaluate("setRubric('settings')")
+            await pg.locator(".stab", has_text="Miniserver").click()
+            formular = await pg.evaluate("""() => ({port: document.getElementById('ms_port').value,
+                                                    tls: document.getElementById('ms_tls').checked,
+                                                    pass: document.getElementById('ms_pass').placeholder})""")
+            await pg.click("#ms_save")
+            await pg.wait_for_function("document.getElementById('ms_toast').classList.contains('warn')")
+            await pg.wait_for_timeout(4500)       # laenger als eine gewoehnliche Meldung steht
+            toast = await pg.evaluate("[...document.getElementById('ms_toast').classList]")
+            return formular, toast, await pg.inner_text("#ms_toast")
+        return await _konfigurator(app, schritte, warten="#overviewHost:visible"), app._zugang_neu
+    (formular, toast, text), neu = asyncio.run(lauf())
+
+    assert formular == {"port": str(port), "tls": True, "pass": "unverändert lassen"}
+    assert toast == ["toast", "show", "warn"]
+    assert text.startswith("Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert, LoxPanel versucht "
+                           "es damit weiter. (Cannot connect to host 127.0.0.1:")
+    assert not (cfg_ordner / "loxpanel.cfg").exists(), "das Kennwort der Umgebung wird nicht kopiert"
+    assert neu == {"host": "127.0.0.1", "user": "visu", "pass": "geheim", "port": port, "verify_tls": True}

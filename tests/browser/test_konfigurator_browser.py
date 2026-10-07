@@ -8,7 +8,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, serve
+from lox import KONFIGURATOR_GELADEN, W, anlage, raum_anlage, serve
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -28,13 +28,14 @@ BAUSTEINE = {
 }
 
 
-def _im_konfigurator(skript: str):
+def _im_konfigurator(skript: str, struktur: dict | None = None, panels: dict | None = None):
     """config.html laden, skript darin ausfuehren -> Ergebnis. skript ist eine
-    async JS-Funktion als Text oder eine async Python-Funktion(page)."""
+    async JS-Funktion als Text oder eine async Python-Funktion(page). Ohne
+    struktur/panels: BAUSTEINE und ein klassisches Panel "test"."""
     async def lauf():
         app = W.App({"host": "", "port": 80})
-        app._apply_structure(anlage(BAUSTEINE))
-        app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten", "raeume"]}})
+        app._apply_structure(struktur or anlage(BAUSTEINE))
+        app.panels = W.App._sanitize_panels(panels or {"test": {"title": "Test", "tabs": ["favoriten", "raeume"]}})
         ui = web.Application()
         ui["app"] = app
         for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/backup", W.api_backup),
@@ -181,6 +182,27 @@ def test_sprungmarken_springen_oder_filtern():
                    "wahl": True, "zusammenfassung": True}, res
     assert panel["ui"]["catFilter"] is True and len(panel["tabs"]) == 1 and panel["tabs"][0].startswith("room:")
     assert W.App._sanitize_panels({"sauna": panel})["sauna"]["ui"]["catFilter"] is True
+
+
+def test_raum_panel_kategorie_tabs_im_editor():
+    """Die gewaehlten Kategorie-Tabs eines Raum-Panels (roomCats) kommen im
+    Editor an: ihre Chips sind an, "Automatisch" ist zu sehen - vorher zeigte
+    er die ersten vier und das naechste Speichern loeschte die Wahl. Sie gilt
+    nur im Raum-Modus: ein Moduswechsel setzt sie zurueck wie ein Raumwechsel,
+    sonst bliebe sie unsichtbar stehen und ordnete einen Raum-Tab der
+    klassischen Leiste."""
+    struktur, _ = raum_anlage()
+    res = _im_konfigurator("""async () => {
+        cur = 'sauna'; renderEditor(); const p = PANELS.sauna;
+        const geladen = p.roomCats ?? null;
+        const chips = [...document.querySelectorAll('#tabRoomCats .chip.on')].map(n => n.dataset.rc);
+        const automatisch = document.getElementById('tabRoomAuto').style.visibility;
+        document.querySelector('#tabMode button[data-mode="classic"]').click();
+        return {geladen, chips, automatisch, klassisch: p.roomCats ?? null, tabs: p.tabs}; }""",
+        struktur, {"sauna": {"title": "Sauna", "tabs": ["room:r1"], "roomCats": ["c4", "c2"]}})
+    tabs = res.pop("tabs")
+    assert res == {"geladen": ["c4", "c2"], "chips": ["c2", "c4"], "automatisch": "visible", "klassisch": None}
+    assert tabs and not any(t.startswith("room:") for t in tabs), "Wechsel auf die klassische Leiste"
 
 
 def test_betriebsmodus_assistent_ausweg_und_benennen():

@@ -1,17 +1,21 @@
 """Server-Stabilitaet (TODO.md Block 2): fehlende Oberflaechen-Dateien, Icon-
 Cache, Wartezeiten beim Neuverbinden, Favoriten-Rueckfall und haengende Panels.
 Dazu Eingaben, die eine Sicherung bringen kann: sehr viele Kategorie-Farben,
-Tippfehler im Host von Display und Kamera."""
+Tippfehler im Host von Display und Kamera. Und der Audioserver: Kopplung
+pruefen, wenn er beim Start noch nicht antwortet, Raumfavorit ohne Verbindung."""
 import asyncio
+import json
 import time
 from pathlib import Path
 
 import aiohttp
+import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 import theme_colors
-from lox import W, anlage, serve
+from audioserver_events import AudioEventClient
+from lox import AUDIO_GEKOPPELT, Audioserver, Miniserver, W, anlage, bloecke, neue_app, serve
 
 
 class _Ersatz:
@@ -85,9 +89,8 @@ def test_backoff_bei_dauerfehler(monkeypatch):
 
 def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
     """Trennt der Miniserver sofort wieder, waechst die Wartezeit weiter; erst
-    eine Verbindung, die MS_RETRY[-1] Sekunden hielt, setzt sie zurueck."""
-    uhr = [1000.0]
-    monkeypatch.setattr(W, "time", _Ersatz(time, monotonic=lambda: uhr[0]))
+    eine Verbindung, die MS_RETRY[-1] Sekunden Daten lieferte, setzt sie
+    zurueck (stumme Verbindungen: test_miniserver_ws.py)."""
     halten = iter([1, 1, 1, W.MS_RETRY[-1] + 40, 1])
 
     class Verbindung:
@@ -95,7 +98,10 @@ def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
             self.dauer = dauer
 
         async def stream(self, *_):
-            uhr[0] += self.dauer
+            pass
+
+        def lebenszeit(self):
+            return self.dauer
 
         async def close(self):
             pass
@@ -130,6 +136,203 @@ def test_favoriten_rueckfall():
     assert namen() == ["Radio 7091"]
     kanal.paired, kanal.authed = False, False
     assert namen() == ["Radio 7091"]                # Nachbau ohne Kopplung
+    kanal.paired = None
+    assert namen() == ["Radio Miniserver"]          # Kopplung unklar -> wie gekoppelt
+
+
+async def _bis(bedingung, frist=5.0):
+    ende = time.monotonic() + frist
+    while not bedingung():
+        assert time.monotonic() < ende, "Bedingung nicht erreicht"
+        await asyncio.sleep(0.02)
+
+
+def _audio_lauf(koerper, **nachbau):
+    """Miniserver- und Audioserver-Nachbau, App mit einer AudioZoneV2 (Zone 1,
+    Favorit des Miniservers im sourceList-State) und laufendem Ereignis-Client
+    wie aus audio_events_task(), nur mit kurzer Pause zwischen den Versuchen."""
+    async def lauf():
+        ms = await Miniserver().start()
+        asv = await Audioserver(**nachbau).start()
+        app = neue_app(ms)
+        st = anlage({"Z": {"name": "Küche", "type": "AudioZoneV2", "uuidAction": "ZA", "room": "r1", "cat": "c1",
+                           "states": {"sourceList": "SL"}, "details": {"server": "AS", "playerid": 1}}})
+        st["mediaServer"] = {"AS": {"host": f"127.0.0.1:{asv.port}"}}
+        app._apply_structure(st)
+        app.states["SL"] = json.dumps({"getroomfavs_result": [{"items": [{"slot": 3, "name": "Radio Miniserver"}]}]})
+        app.audio_cfg = {"port": asv.port}            # Direkt-Backend an den Nachbau statt an 7091
+        cl = AudioEventClient("127.0.0.1", asv.port, user=ms.benutzer, token_provider=lambda: asv.jwt)
+        cl.neu_versuch_s = 0.3
+        app.audio_clients["127.0.0.1"] = cl
+        lauf_cl = asyncio.create_task(cl.run(app._mark_dirty))
+        try:
+            await koerper(app, ms, asv, cl)
+        finally:
+            await cl.close()
+            lauf_cl.cancel()
+            for be in app.audio_backends.values():
+                await be.close()
+            await asv.stop()
+            await app.icon_session.close()
+            await ms.stop()
+    asyncio.run(lauf())
+
+
+def _favoriten(app):
+    return [i["label"] for b in bloecke(app._view_sources("Z"), "favs") for i in b["items"]]
+
+
+def test_audioserver_503_beim_start(miniserver_http):
+    """Antwortet der Audioserver beim Start mit 503, ist die Kopplung unklar und
+    nicht "ungekoppelt": Befehle bleiben am Miniserver, die Pruefung wird
+    nachgeholt. Ist er gekoppelt, verbindet der Client neu, meldet sich an und
+    holt die Favoriten ueber 7091."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl._ws is not None)
+        assert cl.paired is None, "503 als Ergebnis der Kopplungspruefung genommen"
+        assert await app.command("ZA", "play") == "200"
+        assert ms.io == ["sps/io/ZA/play"] and asv.befehle == []
+        await _bis(lambda: cl.authed)
+        assert cl.paired is True and len(asv.verbindungen) == 2 and asv.cfg_abrufe >= 2
+        await _bis(lambda: _favoriten(app) == ["Radio 7091"])
+        assert asv.befehle == [("audio/cfg/getroomfavs/1/0/50", True)]
+    _audio_lauf(k, cfg_all=[(503, "Service Unavailable"), (200, AUDIO_GEKOPPELT)])
+
+
+@pytest.mark.parametrize("antwort", [(503, "Service Unavailable"), (500, ""), (408, ""), (429, ""), "Zeitlimit"],
+                         ids=["503", "500", "408", "429", "zeitlimit"])
+def test_audioserver_kopplung_unklar(miniserver_http, antwort):
+    """Solange die Kopplung unklar ist, gilt der Audioserver wie gekoppelt ohne
+    Anmeldung: nichts auf dem Ereigniskanal (ein gekoppelter schloesse ihn, Cover
+    und Titel waeren weg), Favoriten vom Miniserver. Die Pruefung wiederholt sich."""
+    async def k(app, ms, asv, cl):
+        if antwort == "Zeitlimit":           # gekoppelt, aber die Antwort kommt zu spaet
+            cl.pruef_zeitlimit_s, asv.verzoegerung = 0.1, 0.5
+        await _bis(lambda: cl._ws is not None)
+        verbindung = cl._ws
+        await app.prime_favs("Z")
+        assert ms.io == ["sps/io/ZA/roomfav/get/0/20"]
+        assert _favoriten(app) == ["Radio Miniserver"]
+        await _bis(lambda: asv.cfg_abrufe >= 3)
+        assert cl.paired is None and asv.befehle == [] and cl._ws is verbindung and not verbindung.closed
+    _audio_lauf(k, cfg_all=[(200, AUDIO_GEKOPPELT) if antwort == "Zeitlimit" else antwort])
+
+
+def test_audioserver_gekoppelt_bleibt_nach_neustart(miniserver_http):
+    """Ein erkanntes "gekoppelt" bleibt, auch wenn der Audioserver nach einem
+    Neustart die Pruefung erst mit 404 beantwortet: Der Client meldet sich neu
+    an, Transportbefehle bleiben am Miniserver und gehen nicht ohne Anmeldung
+    an Port 7091 (dort abgelehnt, aber als Erfolg gemeldet)."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl.authed)
+        await asv.verbindungen[0].close()            # Audioserver startet neu
+        await _bis(lambda: len(asv.verbindungen) == 2)
+        await _bis(lambda: cl.authed or cl.paired is not True)
+        assert cl.paired is True, "404 nach dem Neustart als ungekoppelt genommen"
+        assert cl.authed and asv.cfg_abrufe == 1
+        assert await app.command("ZA", "play") == "200"
+        assert ms.io == ["sps/io/ZA/play"]
+        assert all(angemeldet for _, angemeldet in asv.befehle), asv.befehle
+    _audio_lauf(k, cfg_all=[(200, AUDIO_GEKOPPELT), (404, "not found")])
+
+
+def test_audioserver_falsch_ungekoppelt_heilt(miniserver_http):
+    """Hielt die Pruefung einen gekoppelten Audioserver fuer ungekoppelt (404),
+    schliesst er den Kanal beim ersten Befehl ohne Anmeldung. Vor dem
+    Neuverbinden wird wieder geprueft: gekoppelt, Anmeldung, Favoriten ueber 7091."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl._ws is not None)
+        assert cl.paired is False
+        await app.prime_favs("Z")
+        await _bis(lambda: cl.authed)
+        assert cl.paired is True and len(asv.verbindungen) == 2
+        await _bis(lambda: _favoriten(app) == ["Radio 7091"])
+    _audio_lauf(k, cfg_all=[(404, "not found"), (200, AUDIO_GEKOPPELT)])
+
+
+def test_audioserver_nachbau_nach_503(miniserver_http):
+    """Erst 503, dann eine Antwort ohne Kopplungstext: Nachbau. Die Favoriten
+    kommen dann ueber 7091, auch auf einer schon offenen Musikauswahl."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl._ws is not None)
+        assert cl.paired is None
+        await _bis(lambda: _favoriten(app) == ["Radio 7091"])
+        assert cl.paired is False and len(asv.verbindungen) == 1
+        assert asv.befehle == [("audio/cfg/getroomfavs/1/0/50", False)]
+    _audio_lauf(k, gekoppelt=False, cfg_all=[(503, "Service Unavailable"), (200, '{"cfg_result": []}')])
+
+
+@pytest.mark.parametrize("antwort", [(200, '{"cfg_result": []}'), (200, '\ufeff{"cfg_result": []}'),
+                                     (200, '{"cfg_result": []}\x00'), (200, ""), (404, "not found")],
+                         ids=["json", "bom", "nul", "leer", "404"])
+def test_audioserver_nachbau_direkt(miniserver_http, antwort):
+    """Jede andere Antwort heisst nicht gekoppelt. Nachbauten und Musikserver
+    Gen 1 antworten nicht einheitlich, ein strengeres Kriterium liesse sie am
+    Miniserver haengen: Befehle gehen direkt an Port 7091."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl.paired is not None)
+        assert cl.paired is False
+        assert await app.command("ZA", "play") == "200"
+        await _bis(lambda: asv.befehle)
+        assert asv.befehle == [("audio/1/play", False)] and ms.io == []
+    _audio_lauf(k, gekoppelt=False, cfg_all=[antwort])
+
+
+def test_audioserver_favorit_ohne_verbindung(miniserver_http):
+    """Raumfavorit am gekoppelten, angemeldeten Audioserver, die Verbindung ist
+    aber schon zu (nach einem Abbruch, bevor run() authed zuruecksetzt): kein
+    Erfolg melden, die Visu zeigt einen Hinweis. Der Test setzt dafuer eine
+    schon geschlossene echte Verbindung ein; er prueft den Rueckgabeweg, nicht
+    das Zeitfenster selbst."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl.authed)
+        assert await app.command("ZA", "roomfav/play/7") == "200"
+        await _bis(lambda: ("audio/1/roomfav/play/7", True) in asv.befehle)
+        echt = cl._ws
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_get("/ws", W.ws_handler)
+        runner, port = await serve(ui)
+        try:
+            async with aiohttp.ClientSession() as s:
+                tot = await s.ws_connect(f"http://127.0.0.1:{asv.port}/", protocols=("remotecontrol",))
+                await tot.close()
+                cl._ws = tot
+                assert await cl.play_roomfav(1, 7) is False
+                async with s.ws_connect(f"http://127.0.0.1:{port}/ws") as pws:
+                    await pws.send_json({"t": "cmd", "uuid": "ZA", "cmd": "roomfav/play/7"})
+                    hinweis = None
+                    while hinweis is None:
+                        m = await asyncio.wait_for(pws.receive_json(), 3)
+                        hinweis = m if m.get("t") == "notify" else None
+                    assert hinweis["level"] == "warn"
+        finally:
+            cl._ws = echt
+            await runner.cleanup()
+    _audio_lauf(k)
+
+
+@pytest.mark.parametrize("am, pause, frist", [({}, 5, 6), ({"retry_interval": 2, "response_timeout": 3.5}, 2, 3.5),
+                                              ({"retry_interval": 0, "response_timeout": "sechs"}, 5, 6),
+                                              ({"retry_interval": True, "response_timeout": -1}, 5, 6)])
+def test_audioserver_zeiten_einstellbar(cfg_ordner, am, pause, frist):
+    """Pause vor dem naechsten Versuch und Zeitlimit der Kopplungspruefung aus
+    loxpanel.cfg (audiometa); ohne gueltigen Wert die Standardwerte."""
+    (cfg_ordner / "loxpanel.cfg").write_text(json.dumps({"audiometa": am, "night": {"control": ""}}),
+                                             encoding="utf-8")
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80}, None, W._audiometa_config())
+        app.mediaservers = {"AS": "127.0.0.1:7091"}
+        verwalter = asyncio.create_task(app.audio_events_task())
+        await _bis(lambda: app.audio_clients)
+        verwalter.cancel()
+        cl = app.audio_clients["127.0.0.1"]
+        await cl.close()
+        return cl
+    cl = asyncio.run(lauf())
+    assert (cl.neu_versuch_s, cl.pruef_zeitlimit_s) == (pause, frist)
+    assert (AudioEventClient.NEU_VERSUCH_S, AudioEventClient.PRUEF_ZEITLIMIT_S) == (5, 6)
 
 
 def test_haengendes_panel_blockiert_push_nicht():

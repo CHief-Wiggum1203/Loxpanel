@@ -53,22 +53,46 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
 
 ## 0b. Upstream-Abgleich
 
-**Lenardos offener PR #77 im Fork (03.10.2026):** „Verlauf-Widget: mehrere
-Bausteine stapeln“ (Zweig `feature/verlauf-stapelbar`, `364a448`) steht als
-echter Merge-Commit im Fork, bevor Lenardo ihn nach `main` bringt. Die
-Verlaufs-Pane zeigt damit einen oder mehrere Bausteine untereinander, die
-Zeitraum-Leiste steht fest darüber (`ARCHITEKTUR.md` §3.9). Ein Konflikt in
-`bin/webvisu.py` (`conn_chart`, `setchart`), sonst Zeile für Zeile seine
-Änderungen. Beim Übernehmen fielen zwei Fehler auf, die der Fork gleich
-behebt und Lenardo als Beitrag zu #77 eingereicht hat
+Zuletzt eingepflegt am **04.10.2026** (`upstream/main` @ `e8acd1a`,
+**Release 0.7.0**), als echter Merge-Commit. Lenardo hatte an dem Tag unsere
+Beiträge #80, #81, #82 und #84 per Squash gemergt, jeden patch-gleich mit dem
+eingereichten Zweig, dazu seinen #77 (Verlauf-Widget mit mehreren Bausteinen)
+samt unserem #79: Den hatte er zuerst in seinen Zweig
+`feature/verlauf-stapelbar` übernommen, der Stand von #77 in `main` ist
+baum-gleich mit `up/verlauf-stapel`. Außerdem sein
+[#78](https://github.com/Lenardo1/loxpanel/pull/78) (die APK enthält auch
+`armeabi-v7a`, läuft also auch auf 32-bit-Tablets, etwa einem Galaxy Tab S2
+mit Android 7), die Reparatur des APK-Builds (`setup-android` nur mit
+`platform-tools`) und das README mit drei Installationswegen und Changelog
+bis 0.7.0. Der Fork trägt jetzt `VERSION=0.7.0`. Sieben Konfliktdateien:
+`docker-image.yml` bleibt gelöscht (#84 hatte dort das Build-Argument
+`LOXPANEL_COMMIT` ergänzt, das der Job `veroeffentlichen` in `tests.yml`
+schon übergibt), im `Dockerfile` bleibt der Kommentar dazu, `release.cfg` mit
+0.7.0 und der `ARCHIVEURL` des Forks, `README.md` mit Lenardos drei Wegen
+(der erste als Docker-Container auf Unraid, einem Docker-Host oder dem
+LoxBerry), Image und Release-Link des Forks, der Roadmap-Zeile mit dem
+SIP-Zugang und Lenardos Changelog. In `bin/webvisu.py`, `config.html` und
+`panel.html` gilt die Fork-Fassung: Sie hatte Lenardos Zeilen schon und ist
+seit Fork #101, #102 und #112 weiter (CONTRIBUTING, Fork-eigene Patches).
+Jede Zeile, die Lenardo seit `415ffd5` hinzufügt, steht im Ergebnis, außer
+den bewusst ersetzten (Image-Name, Release-Links, Kommentar im
+`Dockerfile`, ältere Fassungen derselben Zeilen). Offen bei ihm bleibt #83
+(SIP Schritt 1, siehe unten).
+
+Davor, am **03.10.2026**, Lenardos damals offener PR #77: „Verlauf-Widget:
+mehrere Bausteine stapeln“ (Zweig `feature/verlauf-stapelbar`, `364a448`)
+stand als echter Merge-Commit im Fork, bevor Lenardo ihn nach `main`
+brachte. Die Verlaufs-Pane zeigt damit einen oder mehrere Bausteine
+untereinander, die Zeitraum-Leiste steht fest darüber (`ARCHITEKTUR.md`
+§3.9). Ein Konflikt in `bin/webvisu.py` (`conn_chart`, `setchart`), sonst
+Zeile für Zeile seine Änderungen. Beim Übernehmen fielen zwei Fehler auf, die
+der Fork gleich behob und Lenardo als Beitrag zu #77 eingereicht hat
 ([#79](https://github.com/Lenardo1/loxpanel/pull/79), in seinen Zweig von
 #77): Auf der Uhr-Seite wurden die Diagramme wieder unten abgeschnitten (bei
 960 × 480 um 144 px), und nach einem Wechsel der Pane konnte der vorige
-Stapel samt Namen stehen bleiben. Bringt Lenardo #77 nach `main`, holt der
-nächste Abgleich seinen Stand; seine Zeilen hat der Fork dann schon, unsere
-Korrekturen liegen daneben.
+Stapel samt Namen stehen bleiben. Mit 0.7.0 sind beide in `main`.
 
-Zuletzt eingepflegt am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
+Davor, am **02.10.2026** (`upstream/main` @ `415ffd5`, Version
 weiterhin 0.6.0), als echter Merge-Commit. Lenardo hatte an dem Tag alle
 unsere offenen Beiträge übernommen, jeden patch-gleich: #63 Sicherung, #64
 Ersteinrichtung, #66 Kachel-Tasten erst beim Tippen, #71 Uhr-Seite, #72 tote
@@ -241,7 +265,7 @@ beim nächsten Mal wieder.
       [#80](https://github.com/Lenardo1/loxpanel/pull/80), Zweig `up/kleine-fehler`,
       zusammen mit vier weiteren kleinen Fehlern, siehe Upstream-Beiträge. Im
       Fork ist er drin, `test_geraeteliste_umschalten_und_benennen` prüft
-      ihn. **S**
+      ihn. Am 04.10.2026 gemergt (0.7.0). **S**
 - [x] **Uhr-Seiten-Fix zu #60 bei Lenardo eingereicht:**
       [#71](https://github.com/Lenardo1/loxpanel/pull/71), Zweig
       `up/verlauf-uhrseite`. In seinem `main` fallen die Verlaufs-Diagramme
@@ -310,40 +334,78 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 03.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
+Stand 04.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
 #34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`). **Eingereicht und
-offen** sind vier Beiträge vom 03.10.2026, je ein Commit. Alle vier gehen
-konfliktfrei zusammen auf #77. Gegen Lenardos Stand bestehen die
-zugehörigen Tests aus dem Fork, ohne die Änderungen scheitern sie (beim
-Neuladen fehlt ohne die Änderung schon die Einstellung, die die Tests
-abfragen):
-
-| PR | Zweig | Basis | Inhalt |
-|---|---|---|---|
-| [#79](https://github.com/Lenardo1/loxpanel/pull/79) | `up/verlauf-stapel` | `feature/verlauf-stapelbar` (#77) | Zu #77: Uhr-Seite schneidet nicht ab, kein Diagramm des vorigen Stapels nach einem Wechsel der Pane |
-| [#80](https://github.com/Lenardo1/loxpanel/pull/80) | `up/kleine-fehler` | `main` | Namensfeld `.mzname`, „1 Raum“, Ruhe-Text der Radiotasten, `catFilter` im Export an den Konfigurator, `ctrltight`/`ctrlnarrow` in `updateGrid()` |
-| [#81](https://github.com/Lenardo1/loxpanel/pull/81) | `up/detailseiten` | `main` | Volle Detailseiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen |
-| [#82](https://github.com/Lenardo1/loxpanel/pull/82) | `up/neuladen-nachts` | `main` | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite |
-
-Am selben Tag hat Lenardo
-[#78](https://github.com/Lenardo1/loxpanel/pull/78) geöffnet: Die APK
-enthält zusätzlich `armeabi-v7a`, damit sie auch auf 32-bit-Tablets läuft
-(etwa Galaxy Tab S2 mit Android 7); eine Zeile in
-`android/app/build.gradle.kts`, die APK wird dadurch größer. Kommt mit dem
-nächsten Abgleich in den Fork.
-
-**Ebenfalls eingereicht** (03.10.2026): zwei Beiträge, je ein Commit auf
-`main` (`415ffd5`), zusammen konfliktfrei. Der SIP-Beitrag sagt
-Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen seinen Stand bestehen
-die SIP- und Versionstests aus dem Fork. Mit den Beiträgen scheitert kein
-Fork-Test neu, nur der Test für `/api/health`, das es bei ihm nicht gibt. Die
-APK aus `up/versionsnummer` und der Docker-Schritt sind auf seinem Stand
-gebaut.
+offen** ist noch ein Beitrag vom 03.10.2026, ein Commit auf `main`
+(`415ffd5`). Er sagt Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen
+seinen Stand vom 03.10.2026 bestanden die SIP-Tests aus dem Fork.
 
 | PR | Zweig | Inhalt |
 |---|---|---|
 | [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis |
-| [#84](https://github.com/Lenardo1/loxpanel/pull/84) | `up/versionsnummer` (`6fc3908`) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
+
+- [ ] **#83 auf 0.7.0 neu aufsetzen:** Seit Lenardos README-Commit
+      `e8acd1a` geht `up/sip-zugang` nicht mehr konfliktfrei auf seinen
+      `main`: Beide ändern die Roadmap-Zeile zum Gegensprechen (Probe mit
+      `git merge-tree upstream/main e424371`, nur `README.md` im Konflikt;
+      Server, Konfigurator und Übersetzungen gehen ohne). Den Commit auf
+      `upstream/main` neu aufsetzen, die Zeile wie im Fork („SIP-Client in der
+      LoxPanel-App für Android; Zugang und Prüfung der Türstation gibt es
+      schon“, die Bausteinzeile wie bei Lenardo ohne AudioZoneV2), die
+      SIP-Tests aus dem Fork gegen den neuen Zweig laufen lassen und ihn mit
+      `--force-with-lease` pushen; der PR folgt dem Zweig. **S**
+
+**Vorbereitet, noch nicht eingereicht** (04.10.2026): elf Zweige, jeder auf
+`upstream/main` (`e8acd1a`, 0.7.0) und im Fork auf GitHub. Sie stammen aus Fork
+#107 und den Korrekturen des Prüfberichts (Fork #111–#116). Was nur der Fork
+hat, fehlt darin: Tests, `docs/ARCHITEKTUR.md`, Unraid, „PIN merken“ und die
+fork-eigenen Bausteine. Jeder Zweig ist gegen Lenardos Code gegengeprüft: Die
+Fork-Tests lagen vorübergehend auf dem Zweig, mit der Änderung grün, ohne sie
+rot, keiner neu rot; das `.deb` prüfte ein Bau-Skript mit dem echten
+`build.sh`. Der PR geht vom Fork-Zweig gegen `Lenardo1/Loxpanel:main`;
+Titel und Text hat der Besitzer.
+
+| Zweig | Fork | Inhalt |
+|---|---|---|
+| `up/saver-wegtippen` (`9c27852`) | #107 | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
+| `up/konfig-speichern` (`7aeae0d`) | #111 | Kategorie-Tabs eines Raum-Panels (`roomCats`) im Export an den Konfigurator, Geräte erst nach erfolgreichem Schreiben übernehmen, Display-Kennwort verlässt den Server nicht |
+| `up/miniserver-zugang` (`ed064f3`) | #111, #116 | Miniserver-Zugang erst prüfen, dann speichern (abgelehnt: nichts gespeichert, nicht erreichbar: gespeichert mit Warnung), `miniserver.response_timeout`; das LoxBerry-Widget zeigt die Antwort richtig an |
+| `up/visu-neuverbindung` (`635ea4c`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine PIN-Abfrage und ihr Ergebnis gehören zur Seite, auf der getippt wurde |
+| `up/miniserver-verbindung` (`2337507`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
+| `up/audioserver-kopplung` (`b026632`) | #113 | Ein HTTP-Fehler gilt nicht dauerhaft als ungekoppelt, der Raumfavorit meldet Sendefehler |
+| `up/kalender-ausnahmen` (`377b340`) | #113 | Ein verschobener Serientermin ersetzt das Original, eine Serie ohne Zeitzone bleibt nach der Zeitumstellung in Ortszeit |
+| `up/installdoku` (`bdc7fcd`) | #114 | Pakete aus `requirements.txt`, Vorrang des gespeicherten Zugangs, keine feste glibc-Grenze für `cryptography` |
+| `up/agent-ansicht` (`5f6f34d`) | #115 | „Ansicht wechseln“ erreicht den Linux-Agenten, die Ansicht übersteht Neustarts, ein abgestürztes Chromium startet neu |
+| `up/loxberry-sicherung` (`61bfd1d`) | #116 | Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, der Container übernimmt die Zeitzone des LoxBerry |
+| `up/deb-version` (`4f2f1b7`) | – | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` statt fest aus `control` (Tag-Prüfung, Aufräumen bei Abbruch) und zeigt Version, Commit und Bauzeit im Konfigurator (`build.sh` schreibt `bin/version.json` ohne Python). Nur bei Lenardo, der Fork entwickelt das `.deb` nicht weiter |
+
+Beim Einreichen auf die Reihenfolge achten:
+- `up/miniserver-zugang` und `up/miniserver-verbindung` bringen beide
+  `_ms_antwortfrist()` und `response_timeout` mit. Git meldet Konflikte in
+  `reconnect()` und `loxpanel.cfg.example`, fügt die Funktion aber still
+  doppelt ein. Wer als Zweiter gemergt wird, auf den neuen `upstream/main`
+  setzen, nur die Fassung mit `_ms_sekunden()` behalten und
+  `ruff check --select F,E9 bin` laufen lassen; Lenardo hat keine Lint-CI.
+- `up/installdoku` und `up/miniserver-verbindung` ändern denselben
+  README-Absatz („Zugangsdaten per Env …“). Der Konflikt ist rein textlich,
+  beide Sätze bleiben.
+- Alle anderen Paare gehen konfliktfrei auf seinen `main` (`git merge-tree`).
+
+- [ ] **Vor `up/visu-neuverbindung` an der Anlage prüfen:** Unter PIN geht ein
+      Musik-Favorit als `sps/ios/…/roomfav/play/{n}` über den Miniserver,
+      nicht über die Verbindung zum Audioserver; bei Favoriten aus dem
+      Audioserver-Kanal ist `n` die Item-id. Geprüft ist das nur gegen den
+      Nachbau, der PR-Text sagt das. Dazu einmal Regler, Favorit und
+      Türöffner unter PIN an einer gesicherten Zone mit gekoppeltem
+      Audioserver. Dasselbe gilt für den Fork. **S**
+- [ ] **Nach jedem Merge bei Lenardo:** Zeile in die Tabelle der gemergten
+      Beiträge unten, beim nächsten Abgleich (Ablauf C) die Hinweise unter
+      „Fork-eigene Patches“ in `CONTRIBUTING.md` beachten und den Eintrag dort
+      auf „in Upstream“ setzen, den Zweig im Fork löschen.
+
+Fork #108 (Datum der Wetter-Vorschau bleibt eng einzeilig) geht nicht mit:
+Er sitzt in `wetterEinpassen()`, das zu „Pane 2 nutzt ihre Fläche“ gehört
+und bei Lenardo fehlt.
 
 Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
 Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
@@ -390,11 +452,19 @@ vorschlagen) und die Icon-Bibliothek (oben).
 | [#74](https://github.com/Lenardo1/loxpanel/pull/74) | Weckzeiten: „1 Betriebsart“ statt „1 Betriebsarten“ |
 | [#75](https://github.com/Lenardo1/loxpanel/pull/75) | Auf/Ab auf der Beschattungs-Kachel |
 | [#76](https://github.com/Lenardo1/loxpanel/pull/76) | Konfigurator auf Englisch: Link zu `/api/types`, vier Widget-Texte, „Block“ (Fork #99) |
+| [#79](https://github.com/Lenardo1/loxpanel/pull/79) | Zu #77: Uhr-Seite schneidet nicht ab, kein Diagramm des vorigen Stapels nach einem Wechsel der Pane (in Lenardos Zweig `feature/verlauf-stapelbar`, mit #77 in `main`) |
+| [#80](https://github.com/Lenardo1/loxpanel/pull/80) | Kleine Fehler: Namensfeld `.mzname`, „1 Raum“, Ruhe-Text der Radiotasten, `catFilter` im Export an den Konfigurator, `ctrltight`/`ctrlnarrow` in `updateGrid()` |
+| [#81](https://github.com/Lenardo1/loxpanel/pull/81) | Detailseiten: volle Seiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen |
+| [#82](https://github.com/Lenardo1/loxpanel/pull/82) | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite |
+| [#84](https://github.com/Lenardo1/loxpanel/pull/84) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
 
 #52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
 30.09.2026 kamen sie patch-gleich zurück. #63–#76 hat er am 02.10.2026
 gemergt, #65 und #67–#70 über seinen Zweig `ci/android-apk-pipeline` (#61);
-beim Abgleich am selben Tag kamen alle patch-gleich zurück.
+beim Abgleich am selben Tag kamen alle patch-gleich zurück. #80–#82 und #84
+hat er am 04.10.2026 per Squash gemergt, #79 zuvor in seinen Zweig von #77,
+der als #77 nach `main` ging; beim Abgleich am selben Tag kamen #80–#82 und
+#84 patch-gleich zurück, #77 baum-gleich mit `up/verlauf-stapel`.
 
 Über #45 übernommen:
 
@@ -435,9 +505,11 @@ beim Abgleich am selben Tag kamen alle patch-gleich zurück.
       `up/apk-start-adresse`, `up/apk-requirements`, `up/apk-signatur`,
       `up/verlauf-uhrseite`, `up/wetter-tote-zuweisung`,
       `up/textfelder-dunkel`, `up/weckzeit-einzahl`, `up/beschattung-tasten`,
-      `up/uebersetzung-luecken`. Alle PRs sind gemergt, das Löschen schließt
-      nichts mehr; Lenardos `refs/pull/<n>/head` halten die Commits. Geht nur
-      von Hand (siehe oben). **S**
+      `up/uebersetzung-luecken`. Seit 04.10.2026 dazu die Zweige von #79–#82
+      und #84: `up/verlauf-stapel`, `up/kleine-fehler`, `up/detailseiten`,
+      `up/neuladen-nachts`, `up/versionsnummer`. Alle PRs sind gemergt, das
+      Löschen schließt nichts mehr; Lenardos `refs/pull/<n>/head` halten die
+      Commits. Geht nur von Hand (siehe oben). **S**
 
 Für den nächsten Beitrag wieder genauso vorgehen: EIN Commit direkt auf
 `upstream/main` aufsetzen, damit GitHub Titel und Beschreibung selbst füllt,
@@ -449,8 +521,8 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (`415ffd5`, Stand 02.10.2026)
-und enthält dazu Lenardos offenen #77 (siehe oben).
+Der Fork ist mit `upstream/main` gleichgezogen (`e8acd1a`, Release 0.7.0,
+Stand 04.10.2026).
 
 ## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
 
@@ -705,6 +777,16 @@ selbst aktuell.
       eine Kopie `panels.json.bak` behalten, eine Generation reicht. **S**
 - [x] **Unvollständige `loxpanel.cfg` abfangen**: `reconnect()` mit `.get()` statt
       `ms["user"]`, verständliche Fehlermeldung in `/config` (Settings). (F7) **S**
+- [x] **Miniserver-Zugang erst prüfen, dann speichern**: Settings → Miniserver
+      schrieb den Zugang vor der Prüfung und nahm ihn nach einem Fehlschlag
+      nicht zurück. Ein Tippfehler im Kennwort blieb in der Datei, und nach dem
+      nächsten Neustart war die Verbindung weg. Zwei Fenster konnten Datei und
+      Verbindung auseinanderbringen. Mit Zugang aus `LOXPANEL_MS_*` zeigte
+      Settings Port 443 und meldete „Passwort fehlt“. Jetzt gilt: abgelehnt =
+      nichts gespeichert, nicht erreichbar = gespeichert mit Warnung, Speichern
+      nacheinander, Anzeige und Speichern wie `_config()`. Die Frist der
+      Anmeldung steht in `miniserver.response_timeout` (Standard 10 s,
+      `ARCHITEKTUR.md` §5.1). **M**
 
 ## 2. Server-Stabilität
 
@@ -733,7 +815,18 @@ selbst aktuell.
       fehlender Datei einen 404 mit Dateinamen statt eines Stacktrace. **S**
 - [x] **`JSON.parse` im WebSocket-Handler** der Visu in `try/catch`. (F9) **S**
 - [x] **Reconnect mit Backoff**: `MS_RETRY` 5, 10, 20, 40, 60 s; von vorn erst,
-      wenn eine Verbindung mindestens 60 s hielt. **S**
+      wenn eine Verbindung mindestens 60 s lang Daten lieferte. **S**
+- [x] **Stumme Miniserver-Verbindung hing dauerhaft**: Der WebSocket für die
+      Live-Werte hatte kein Zeitlimit, und nach der Anmeldung sendete LoxPanel
+      dort nichts mehr. Riss die Verbindung still ab oder schwieg der
+      Miniserver, wartete `stream_task` für immer und die Panels zeigten
+      eingefrorene Werte. Jetzt: Frist je Schritt der Anmeldung
+      (`miniserver.response_timeout`), `keepalive` alle
+      `miniserver.keepalive_interval` Sekunden (Standard 60), ohne Nachricht
+      binnen Abstand + Frist wird neu verbunden. Die Pause beginnt nur nach
+      einer Verbindung, die Daten lieferte, von vorn. (F17, `ARCHITEKTUR.md`
+      §3.4) An der echten Anlage prüfen, ob das Log einmal je Verbindung
+      „Miniserver beantwortet keepalive“ zeigt. **M**
 - [x] **Rückfall auf Miniserver-Favoriten ist unerreichbar**: `_view_sources`
       verzweigt nur danach, ob ein Ereignis-Client existiert, nicht darauf, ob
       die Anmeldung am Audioserver geklappt hat. Schlägt sie fehl, greift der
@@ -809,6 +902,15 @@ selbst aktuell.
       `_panel_export()` gab es nicht an den Konfigurator weiter. Der schickt
       beim Speichern zurück, was er bekam. Ein Test prüft jetzt beide Listen
       gegeneinander. **S**
+- [x] **Kategorie-Tabs eines Raum-Panels gingen beim Speichern verloren.**
+      `_panel_export()` gab `roomCats` nicht an den Konfigurator weiter,
+      derselbe Fehler wie bei `catFilter`. Der Editor zeigte deshalb die
+      ersten vier Kategorien, und jedes Speichern, auch eines anderen Profils,
+      löschte die Auswahl ohne Warnung. Der bisherige Test prüfte nur `ui`.
+      Jetzt muss ein Profil, das jedes gespeicherte Feld belegt, Laden und
+      Speichern unverändert überstehen, und ein neues Feld im Sanitizer, das
+      in dieser Vorlage fehlt, lässt einen Test scheitern. Ein Moduswechsel im
+      Editor setzt die Auswahl jetzt zurück wie ein Raumwechsel. **S**
 - [x] **Enge Kachel verlor die Lage ihrer Tasten.** Am 4″-Panel (3×3) rücken
       die Player-Tasten in den Kopf (`ctrltight`, `ctrlnarrow`). Bei einem
       Zustandswechsel ohne neuen Text (Pause) setzte `updateGrid()` die
@@ -892,10 +994,10 @@ selbst aktuell.
       `energy_blocks()` im `EFM`-Zweig nie `None` liefern, damit sind die dort
       aufgebauten `rows` und der `else`-Zweig unerreichbar. Entweder entfernen
       oder den Aufruf absichern. **S**
-- [ ] **`loxpanel-kiosk.conf.example` vervollständigen**: der Agent liest 13
-      Schlüssel, die Beispieldatei dokumentiert 10. Es fehlen `PROFILE_DIR`,
-      `BL_DEVICE` und `STATE_FILE`; besonders `BL_DEVICE` ist nutzerrelevant,
-      wenn die Backlight-Erkennung danebengreift. **S**
+- [ ] **`loxpanel-kiosk.conf.example` vervollständigen**: der Agent liest 15
+      Schlüssel, die Beispieldatei dokumentiert 13. Es fehlen `PROFILE_DIR` und
+      `BL_DEVICE`; besonders `BL_DEVICE` ist nutzerrelevant, wenn die
+      Backlight-Erkennung danebengreift. **S**
 
 ## 7. Tests und CI
 
@@ -916,6 +1018,13 @@ selbst aktuell.
 - [x] **Workflow auch für Pull Requests**: `tests.yml` auf jedem PR und Push auf
       `main`, dazu bei PRs ein Probe-Build des Images (amd64, ohne Push); der
       Multi-Arch-Build mit Push bleibt in `docker-image.yml` auf `main`. **S**
+- [x] **Image nur nach grünen Tests**: `docker-image.yml` veröffentlichte
+      neben den Tests her, meist Minuten bevor sie fertig waren, und bei Tags
+      `v*` ganz ohne Tests; am 04.10.2026 stand so ein `:latest` mit roten
+      Browser-Tests draußen. Jetzt veröffentlicht der Job `veroeffentlichen` in
+      `tests.yml`, der auf beide Test-Jobs desselben Laufs wartet; `tests.yml`
+      läuft dafür auch bei Tags `v*`, `docker-image.yml` ist gelöscht. Wache:
+      `tests/test_workflows.py`. **S**
 
 ## 8. Bausteine: was fehlt
 

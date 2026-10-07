@@ -8,6 +8,7 @@
 use strict;
 use warnings;
 use CGI;
+use Encode qw(encode_utf8);
 use JSON qw(encode_json decode_json);
 use LWP::UserAgent;
 use POSIX qw(strftime);
@@ -19,7 +20,7 @@ my $version = LoxBerry::System::pluginversion() // "";
 my $api     = "http://localhost:8099";
 my $ctl     = "REPLACELBPBINDIR/loxpanel-ctl.sh";
 my $log     = "REPLACELBPDATADIR/last_action.log";   # Verlauf der letzten Container-Aktion
-my $bdir    = "REPLACELBPDATADIR/backups";           # Konfig-Sicherungen (ueberleben Plugin-Updates)
+my $bdir    = "REPLACELBPDATADIR/backups";           # Konfig-Sicherungen (pre-/postroot.sh nehmen sie ueber Plugin-Updates mit)
 my $lbhost  = LoxBerry::System::get_localip() // "localhost";
 
 sub h { my $s = shift; $s = "" unless defined $s; $s =~ s/&/&amp;/g; $s =~ s/</&lt;/g; $s =~ s/>/&gt;/g; $s =~ s/"/&quot;/g; return $s; }
@@ -49,18 +50,30 @@ sub _lox_cred {
 }
 
 # Miniserver-Zugang an den Container weiterreichen und Ergebnis-HTML liefern.
+# Antwort von /api/settings/miniserver: "error" ist ein fester Text, der Fehler
+# des Miniservers steht getrennt in "fehler". "gespeichert" = Miniserver nicht
+# erreichbar, Zugang trotzdem gespeichert -> Warnung statt Fehler. Fehlende
+# Eingaben kommen als 400 mit JSON: der Container laeuft also.
+# decode_json liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als
+# UTF-8-Bytes hinaus (der Text unten steht als Bytes im Skript, lbheader setzt
+# nur charset=utf-8): die Texte des Servers deshalb selbst nach UTF-8, sonst
+# kommt "Port ungueltig" als Latin-1 an.
 sub apply_miniserver {
     my ($data) = @_;
     my $ua = LWP::UserAgent->new(timeout => 25);
     my $r  = $ua->post("$api/api/settings/miniserver",
         'Content-Type' => 'application/json', Content => encode_json($data));
-    if ($r->is_success) {
-        my $j = eval { decode_json($r->decoded_content) };
-        return "<div class='alert alert-success'>Verbunden &ndash; " . ($j->{nControls} // 0) . " Controls geladen.</div>"
-            if $j && $j->{ok};
-        return "<div class='alert alert-danger'>Fehler: " . h($j ? ($j->{error} // 'unbekannt') : 'ungueltige Antwort') . "</div>";
+    my $j = eval { decode_json($r->decoded_content) };
+    if (ref($j) ne 'HASH') {
+        return "<div class='alert alert-danger'>Fehler: ung&uuml;ltige Antwort</div>" if $r->is_success;
+        return "<div class='alert alert-danger'>Container nicht erreichbar &ndash; l&auml;uft er? (unten &bdquo;Starten&ldquo;)</div>";
     }
-    return "<div class='alert alert-danger'>Container nicht erreichbar &ndash; l&auml;uft er? (unten &bdquo;Starten&ldquo;)</div>";
+    return "<div class='alert alert-success'>Verbunden &ndash; " . ($j->{nControls} // 0) . " Controls geladen.</div>"
+        if $j->{ok};
+    my $text = h(encode_utf8($j->{error} // 'unbekannt'));
+    $text .= "<br><small>" . h(encode_utf8($j->{fehler})) . "</small>" if defined $j->{fehler} && $j->{fehler} ne '';
+    return $j->{gespeichert} ? "<div class='alert alert-warning'>$text</div>"
+                             : "<div class='alert alert-danger'>Fehler: $text</div>";
 }
 
 # ---- POST verarbeiten (vor jeder Ausgabe) ----
@@ -84,10 +97,13 @@ elsif ($action eq 'fromlox') {
     my %ms = LoxBerry::System::get_miniservers();
     my $m;
     for my $k (sort { $a <=> $b } keys %ms) { $m = $ms{$k}; last; }
-    if ($m && ($m->{IPAddress} // '') ne '') {
+    my $user = $m ? _lox_cred($m->{Admin_RAW}, $m->{Admin}) : '';
+    if ($m && ($m->{IPAddress} // '') ne '' && $user eq '') {
+        $msg = "<div class='alert alert-danger'>In LoxBerry ist f&uuml;r den Miniserver kein Benutzer eingetragen (Hauptmen&uuml; &rarr; Miniserver).</div>";
+    } elsif ($m && ($m->{IPAddress} // '') ne '') {
         $msg = apply_miniserver({
             host       => $m->{IPAddress},
-            user       => _lox_cred($m->{Admin_RAW}, $m->{Admin}),
+            user       => $user,
             pass       => _lox_cred($m->{Pass_RAW},  $m->{Pass}),
             port       => int($m->{Port} || 443),   # LoxBerry-Port spiegeln (80=Gen1/HTTP, 443=Gen2/HTTPS)
             verify_tls => JSON::false,
@@ -213,6 +229,14 @@ for my $b (@backups) {
           . "<button class='lpbtn lpgrey' style='padding:5px 10px;font-size:13px' type='submit'>&#215;</button></form>"
         . "</td></tr>";
 }
+# Wie viele Sicherungen behalten werden, legt nur loxpanel-ctl.sh fest (KEEP).
+my $keep = '';
+if (-x $ctl && open(my $kf, '-|', $ctl, 'keep')) {
+    $keep = <$kf> // '';
+    close $kf;
+    chomp $keep;
+}
+my $keep_html = $keep =~ /^\d+$/ ? " Behalten werden die letzten $keep." : "";
 my $backups_html = $blist
     ? "<div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse'>"
       . "<tr style='text-align:left;color:#999;font-size:12px'><th style='padding:4px 8px'>Datei</th>"
@@ -285,7 +309,7 @@ print <<"HTML";
 <div class="panel panel-default">
   <div class="panel-heading">Panels sichern &amp; wiederherstellen</div>
   <div class="panel-body">
-    <p style="color:#777;margin-top:0">Sichert die komplette Konfiguration (Panels, Kacheln, Theme &amp; Miniserver-Zugang) als Archiv unter <code>$bdir</code>. Diese Sicherungen bleiben auch bei Plugin-Updates erhalten; nur die letzten 20 werden behalten.</p>
+    <p style="color:#777;margin-top:0">Sichert die komplette Konfiguration (Panels, Kacheln, Theme &amp; Miniserver-Zugang) als Archiv unter <code>$bdir</code>. Plugin-Updates nehmen diese Sicherungen mit; gelingt das nicht, meldet LoxBerry es beim Update.$keep_html</p>
     <form method="post" style="margin-bottom:12px"><input type="hidden" name="action" value="backup"><button class="lpbtn lpgreen" type="submit">Backup jetzt erstellen</button></form>
     $backups_html
   </div>

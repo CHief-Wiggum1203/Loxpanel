@@ -220,6 +220,7 @@
       "Display-Steuerung": "Display control",
       "keine (nur über die Seite)": "none (only via the page)",
       "Passwort (Fully)": "Password (Fully)",
+      "Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:": "Display password not kept because host or driver changed:",
       "Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.": "No panel known yet. As soon as a panel opens the view with an identifier or an agent runs, it appears here.",
       "Für welche Geräte?": "For which devices?",
       "Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.": "No device known yet. A panel must open the view once with ?device=<name> or have an agent.",
@@ -347,6 +348,19 @@
       'Keine Verbindung zu {host}:': 'No connection to {host}:',
       'Host fehlt': 'Host missing',
       'Passwort fehlt': 'Password missing',
+      'Benutzer fehlt': 'User missing',
+      'Port ungültig': 'Invalid port',
+      'Neuer Host oder Benutzer: bitte das Passwort eingeben.': 'New host or user: please enter the password.',
+      'Anmeldung am Miniserver gescheitert. Der Zugang wurde nicht gespeichert.':
+        'Login to the Miniserver failed. The access was not saved.',
+      'Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert: Die bestehende Verbindung bleibt, der neue Zugang gilt ab dem nächsten Verbindungsaufbau.':
+        'Miniserver not reachable. The access was saved anyway: the existing connection stays, the new access applies from the next time the connection is set up.',
+      'Miniserver nicht erreichbar. Der Zugang ist trotzdem gespeichert, LoxPanel versucht es damit weiter.':
+        'Miniserver not reachable. The access was saved anyway, LoxPanel keeps trying with it.',
+      'Miniserver nicht erreichbar, und der Zugang ließ sich nicht speichern. Es bleibt beim bisherigen.':
+        'Miniserver not reachable, and the access could not be saved. Everything stays as before.',
+      'Verbunden, aber der Zugang ließ sich nicht speichern. Nach einem Neustart gilt er nicht mehr.':
+        'Connected, but the access could not be saved. After a restart it no longer applies.',
       'Mit dem Miniserver verbunden': 'Connected to the Miniserver',
       'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
       'Panel einrichten': 'Set up a panel',
@@ -602,6 +616,10 @@
         'For now controls date & clock on the panel. Device names come from the Miniserver.',
       'Horiz. Versatz (px)': 'Horiz. offset (px)',
       'Display aus nach (Sek.)': 'Display off after (sec.)',
+      'Gesicherte Bausteine': 'Secured blocks',
+      'PIN merken (Sek.)': 'Remember PIN (sec.)',
+      'Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.':
+        'After the correct visu PIN the panel does not ask again for secured blocks for this long – only on the same page. Clock page, display off and changing the page forget the PIN at once. 0 = ask every time.',
       'Auto-Neustart alle (Std.)': 'Auto-restart every (hrs.)',
       'nachts um {h} Uhr': 'at night at {h}:00',
       'Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.':
