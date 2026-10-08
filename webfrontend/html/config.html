@@ -878,7 +878,7 @@
 
         <!-- Kamera / Türstation -->
         <section class="spane" data-sub="intercom">
-          <p class="lead" data-i18n>Video-URL (MJPEG) und Login der Türstation(en). Wird für das Kamerabild im Intercom-Popup gebraucht. Die Liste kommt aus dem Miniserver.</p>
+          <p class="lead" data-i18n>Video-URL (MJPEG) und Login der Türstation(en) für das Kamerabild. Leer lassen, dann nimmt LoxPanel die Kamera, die der Miniserver nennt (in Loxone Config am Baustein der Intercom eingetragen). Die Liste kommt aus dem Miniserver.</p>
           <div class="card">
             <div id="ic_list"><div class="muted">…</div></div>
             <div class="actions" style="margin-top:12px"><button class="btn" id="ic_save" data-i18n>Speichern</button><span class="toast" id="ic_toast"></span></div>
@@ -1684,14 +1684,16 @@ function firstEnergyControl(){
   const z=cs.find(c=>c.type==='EFM')||cs.find(c=>c.type==='EnergyManager2');
   return z?z.uuid:'';
 }
-// Kameras = Intercom-Bausteine (Tuerstation/Kamera). Das Live-Bild kommt ueber
-// /mjpeg?id=<uuid>; die Zugangsdaten stehen in Einstellungen -> Intercom.
+// Kameras = Intercom-Bausteine (Tuerstation/Kamera): Tuersteuerung (Intercom) und
+// der Baustein Intercom (IntercomV2). Das Live-Bild kommt ueber /mjpeg?id=<uuid>;
+// die Zugangsdaten stehen in Einstellungen -> Intercom.
+const INTERCOM_TYPEN=['Intercom','IntercomV2'];
 function cameraOptions(sel){
-  return (META.controls||[]).filter(c=>c.type==='Intercom')
+  return (META.controls||[]).filter(c=>INTERCOM_TYPEN.includes(c.type))
     .map(c=>'<option value="'+esc(c.uuid)+'"'+(sel===c.uuid?' selected':'')+'>'+esc(c.name)+(c.roomName?' ('+esc(c.roomName)+')':'')+'</option>').join('');
 }
 function firstCamera(){
-  const z=(META.controls||[]).find(c=>c.type==='Intercom');
+  const z=(META.controls||[]).find(c=>INTERCOM_TYPEN.includes(c.type));
   return z?z.uuid:'';
 }
 
@@ -3410,19 +3412,26 @@ async function sipLaden(){
   catch(e){ box.innerHTML='<div class="muted"><b class="bad">'+esc(T('Fehler'))+'</b> '+esc(String(e))+'</div>'; return; }
   const liste=j.intercoms||[];
   if(!liste.length){ box.innerHTML='<div class="muted">'+esc(T('Keine Intercom-Bausteine gefunden (Miniserver verbunden?).'))+'</div>'; return; }
-  // details.deviceType laut Strukturdoku (Intercom)
+  // details.deviceType laut Strukturdoku 17.0: 0 und 1 bei Intercom und IntercomV2, 2 nur bei Intercom
   const geraet={0:T('Andere oder unbekannte Türstation'),1:'Loxone Intercom',2:'Loxone Intercom XL'};
+  // Baustein in Loxone Config: Intercom ist die Tuersteuerung ("Door Controller"), IntercomV2 der Baustein Intercom
+  const baustein={Intercom:T('Baustein Türsteuerung'),IntercomV2:T('Baustein Intercom')};
   box.innerHTML=liste.map(ic=>{
-    const info=[ic.room,geraet[ic.deviceType]].filter(Boolean).map(esc).join(' · ');
+    const info=[ic.room,geraet[ic.deviceType],baustein[ic.type]].filter(Boolean).map(esc).join(' · ');
+    // Miniserver nennt keinen SIP-Zugang: sagen, wo er in Loxone Config hingehoert.
+    // Fuer die Loxone Intercom am Baustein Intercom beschreibt die Strukturdoku keinen.
+    const hinweis=!ic.ohneSip?''
+      : (ic.type==='IntercomV2'&&ic.deviceType===1)
+        ? T('Für die Loxone Intercom am Baustein Intercom beschreibt die Strukturdoku von Loxone keinen SIP-Zugang.')
+        : T('Ohne SIP-Adresse gibt es nichts zu prüfen. Die Adresse für Audio steht in Loxone Config am Baustein der Intercom (bei einer benutzerdefinierten Intercom „Host für Audio (intern)“); nach dem Speichern in den Miniserver diesen Reiter neu öffnen. Steht sie dort und fehlt hier trotzdem, gibt der Miniserver sie für diesen Baustein nicht heraus.');
     const rumpf=ic.sip
       ? '<dl class="sipzug"><dt>'+esc(T('SIP-Adresse'))+'</dt><dd>'+esc(ic.sip.host)+'</dd>'+
         '<dt>'+esc(T('Benutzer'))+'</dt><dd>'+(ic.sip.user?esc(ic.sip.user):'–')+'</dd>'+
         '<dt>'+esc(T('Passwort'))+'</dt><dd>'+esc(ic.sip.hasPass?T('vorhanden'):T('keins'))+'</dd></dl>'+
         '<div class="actions"><button class="btn ghost sip_pruefen">'+esc(T('Verbindung prüfen'))+'</button></div>'+
         '<div class="sipres"></div>'
-      : '<p class="sipfehl"><b class="bad">'+esc(T(ic.error||'Fehler'))+'</b></p>'+(ic.felder?sipFelder(ic.felder)+
-        // Details lesbar, aber ohne Audio-Adresse: sagen, wo sie hingehoert (Door Controller, Strukturdoku)
-        '<p class="siphinweis">'+esc(T('Ohne SIP-Adresse gibt es nichts zu prüfen. In Loxone Config beim Baustein dieser Intercom die Adresse für Audio eintragen (bei einer benutzerdefinierten Intercom „Host für Audio (lokal)“), in den Miniserver speichern und diesen Reiter neu öffnen.'))+'</p>':'');
+      : '<p class="sipfehl"><b class="bad">'+esc(T(ic.error||'Fehler'))+'</b></p>'+(ic.felder?sipFelder(ic.felder):'')+
+        (hinweis?'<p class="siphinweis">'+esc(hinweis)+'</p>':'');
     return '<div class="ic sip" data-uuid="'+esc(ic.uuid)+'"><div class="icname">'+esc(ic.name)+
       (info?'<span class="sipgeraet">'+info+'</span>':'')+'</div>'+rumpf+'</div>';
   }).join('');

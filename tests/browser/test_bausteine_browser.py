@@ -9,7 +9,7 @@ import json
 import pytest
 
 from lox import (BETRIEBSARTEN, KLINGELN, Miniserver, W, anlage, aufab_baustein, bewaesserung_baustein,
-                 intercom_baustein, neue_app, visu_starten, wecker_baustein)
+                 intercom_baustein, intercom_v2_baustein, neue_app, visu_starten, wecker_baustein)
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -275,6 +275,37 @@ def test_intercom_verpasste_klingeln(tmp_path, miniserver_http):
         await _knopf(pg, "Klingel abstellen").click()
         assert await _befehle(ms, 1) == ["sps/io/IC/answer"]
     asyncio.run(_visu(tmp_path, [intercom_baustein()], schritt, routen=[("GET", "/bellimg", W.bellimg_handler)]))
+
+
+def test_intercom_v2(tmp_path, miniserver_http):
+    """Neue Intercom (IntercomV2): Antwort abspielen (playTts/{idx}), Stumm
+    (mute/1, mute/0; die Taste folgt dem State muted), Klingel abstellen."""
+    async def schritt(pg, ms, app):
+        await _kachel(pg, "Haustür Intercom")
+        assert await pg.locator(".phead").inner_text() == "Antwort abspielen"
+        assert await pg.locator(".brow.wraprow .btn").all_inner_texts() == [
+            "Bin gleich da", "Bitte das Paket vor die Tür legen"]
+        await _knopf(pg, "Bitte das Paket").click()
+        assert await _befehle(ms, 1) == ["sps/io/IC2V/playTts/1"]
+        stumm = _knopf(pg, "Stumm")
+        assert "on" not in (await stumm.get_attribute("class")).split()
+        await stumm.click()
+        assert await _befehle(ms, 2) == ["sps/io/IC2V/playTts/1", "sps/io/IC2V/mute/1"]
+        app.states["ic2-muted"] = 1                  # der Miniserver meldet: stumm
+        app._dirty = True
+        await pg.wait_for_timeout(900)
+        assert "on" in (await stumm.get_attribute("class")).split()
+        await stumm.click()
+        assert (await _befehle(ms, 3))[2] == "sps/io/IC2V/mute/0"
+        app.states["ic2-bell"] = 1                   # es klingelt
+        app._dirty = True
+        await pg.wait_for_timeout(900)
+        assert await pg.locator(".astat").first.inner_text() == "Es klingelt"
+        await pg.screenshot(path=str(tmp_path / "intercom_v2.png"))
+        await _knopf(pg, "Klingel abstellen").click()
+        assert (await _befehle(ms, 4))[3] == "sps/io/IC2V/answer"
+        assert len(ms.io_roh) == 4, ms.io_roh
+    asyncio.run(_visu(tmp_path, [intercom_v2_baustein()], schritt))
 
 
 UEBERLAPPUNG_JS = """() => {

@@ -599,8 +599,13 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
 Zugangsdaten, die zu einem Baustein gehören, gibt der Miniserver nur auf einen
 verschlüsselten Befehl heraus: `jdev/sps/io/{uuid}/securedDetails`. Bei der
 Intercom sind das Kamera (`videoInfo`) und SIP (`audioInfo`: `host`, `user`,
-`pass`). `App.secured_details()` folgt der Loxone-Doku „Communicating with the
-Miniserver“ 16.0, Abschnitt Command Encryption, Variante für HTTP:
+`pass`). Ob ein Baustein welche hat, steht in der Struktur: das Kennzeichen
+`securedDetails` am Control (Strukturdoku, Controls, „indicates that there is
+sensitive information available“). Ohne das Kennzeichen fragt
+`App.secured_details()` gar nicht erst und meldet `OhneGesicherteDetails`
+(eine Unterart von `ZugangFehler`). Sonst folgt es der Loxone-Doku
+„Communicating with the Miniserver“ 16.0, Abschnitt Command Encryption,
+Variante für HTTP:
 
 1. `jdev/sys/getPublicKey` liefert den RSA-Schlüssel des Miniservers, als PEM
    mit der Beschriftung CERTIFICATE, aber mit einem SubjectPublicKeyInfo darin.
@@ -621,16 +626,42 @@ aber nicht öfter als `TOKEN_RENEW_MIN`. Alles andere wird zu `ZugangFehler` mit
 einem Satz, den der Konfigurator zeigt: 403 nennt die Rechte in Loxone Config.
 
 `_sip_zugang()` nimmt daraus `audioInfo` (`App.intercom_sip()` für die
-Prüfung). `/api/sip` nennt davon nur Adresse, Benutzer und `hasPass`, denn die
-Routen haben keine Anmeldung. Steht kein `host` darin, zeigt der Reiter SIP den
-Aufbau der gesicherten Details (`_gesichert_felder()`: Feldnamen und ob sie
-gefüllt sind, nie Werte), etwa „videoInfo: streamUrl, user, pass · audioInfo:
-leer“. Daran sieht man, ob der Miniserver überhaupt Audio kennt. Darunter steht,
-wo die Adresse hingehört: beim Baustein in Loxone Config, bei einer
-benutzerdefinierten Intercom „Host für Audio (lokal)“ (Zieladresse des
-SIP-Anrufs; die Loxone-App nutzt dasselbe Feld).
+Prüfung). Der Reiter SIP listet beide Türsprechstellen-Typen (`INTERCOM_TYPES`):
+`Intercom`, in Loxone Config die Türsteuerung („Door Controller“, auch mit einer
+benutzerdefinierten Intercom), und `IntercomV2`, den Baustein Intercom. `/api/sip`
+nennt den Typ und vom Zugang nur Adresse, Benutzer und `hasPass`, denn die
+Routen haben keine Anmeldung. Hat der Miniserver geantwortet, nennt aber keinen
+SIP-Zugang, steht `ohneSip` in der Antwort; so unterscheidet der Konfigurator
+das von einem Fehler bei Verbindung oder Rechten, ohne Fehlertexte zu
+vergleichen. Hat der Baustein gesicherte Details ohne `host`, zeigt der Reiter
+ihren Aufbau (`_gesichert_felder()`: Feldnamen und ob sie gefüllt sind, nie
+Werte), etwa „videoInfo: streamUrl, user, pass · audioInfo: leer“. Daran sieht
+man, ob der Miniserver überhaupt Audio kennt. Darunter steht, wo die Adresse
+hingehört: am Baustein in Loxone Config, bei einer benutzerdefinierten Intercom
+„Host für Audio (intern)“. Steht sie dort und fehlt trotzdem, gibt der
+Miniserver sie für diesen Baustein nicht heraus, und der Hinweis sagt genau
+das. Für die Loxone Intercom am Baustein Intercom (`IntercomV2`, `deviceType`
+1) beschreibt die Strukturdoku 17.0 keinen SIP-Zugang, also auch keine
+gesicherten Details; der Hinweis sagt auch das.
 `/api/sip/pruefen` nimmt aus der Anfrage nur die `uuid`. Adresse und Zugang
 kommen vom Miniserver, so geht die Anmeldung nur an die Türstation.
+
+Die Kamera der Intercom kommt auf demselben Weg (`App.intercom_video()`, für
+`/mjpeg`): Eine in LoxPanel eingetragene Adresse (Settings → Kamera /
+Türstation, `loxpanel.cfg` `intercom`) hat Vorrang. Sonst nimmt LoxPanel
+`videoInfo` aus den gesicherten Details (`_kamera_aus_details()`: `streamUrl`,
+`user`, `pass`; eine Adresse ohne Schema, wie sie in Loxone Config steht, mit
+`http://`). Das Ergebnis steht in `ms_video`, bis eine neue Struktur kommt
+(nach dem Speichern in Loxone Config); zwei Panels zugleich fragen einmal
+(`_video_sperre`). Ein Fehler bei Verbindung oder Rechten wird nicht gemerkt,
+beim nächsten Mal fragt LoxPanel neu. Steht statt Host „cloudDNS“ oder
+„remoteConnect“ in der `streamUrl`, ersetzt LoxPanel den Platzhalter wie die
+Loxone-App (Strukturdoku 17.0, Intercom): „cloudDNS“ durch die Adresse des
+Miniservers (der Port bleibt), „remoteConnect“ durch Host und Port des
+Miniservers mit `https`; der Miniserver leitet das Kamerabild weiter. Die Detailseite zeigt
+das Video, solange offen ist, ob der Miniserver eine Kamera nennt
+(`_intercom_video_block()`); `/mjpeg` fragt ihn, setzt `_dirty`, und danach
+stehen Bild oder Grund da.
 
 `sip_probe.pruefen()` schickt ein OPTIONS (RFC 3261, Abschnitt 11) über UDP,
 das bei der Türstation keinen Anruf auslöst:
@@ -673,7 +704,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
-| GET | `/api/sip` | `api_sip` | Intercoms der Anlage mit `uuid`, `name`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; fehlt nur der SIP-Teil, dazu `felder`: je Abschnitt der gesicherten Details die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
+| GET | `/api/sip` | `api_sip` | Intercoms der Anlage (Türsteuerung `Intercom` und Baustein Intercom `IntercomV2`) mit `uuid`, `name`, `type`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; `ohneSip`, wenn der Miniserver geantwortet hat, aber keinen nennt; hat der Baustein gesicherte Details ohne SIP-Teil, dazu `felder`: je Abschnitt die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom mit dem Kennzeichen `securedDetails` kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
 | POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
@@ -692,7 +723,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET/POST | `/api/notify` | `api_notify` | Nachricht einblenden | Loxone, extern |
 | GET | `/icon?p=` | `icon_handler` | Loxone-Icon-Proxy, 24 h Cache | Visu, Konfigurator |
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
-| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation | Visu |
+| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation: die in LoxPanel eingetragene Kamera, sonst die aus den gesicherten Details des Miniservers (`App.intercom_video()`, Abschnitt 3.10); 404 ohne Kamera | Visu |
 | GET | `/bellimg?id=&ts=` | `bellimg_handler` | Bild einer verpassten Klingel (`camimage/{uuidAction}/{ts}` vom Miniserver), 24 h Cache, die letzten `BELL_CACHE_MAX` im Speicher | Visu |
 | GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket | Visu |
 
@@ -1031,13 +1062,30 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   in `PARTIAL_TYPES`. Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
   Loxone-Intercoms `pass`) gibt der Miniserver seit 8.1 nur noch in den
   gesicherten Details heraus; `details.audioInfo` ist leer. Lesen und Prüfen:
-  Abschnitt 3.10. Die neue Intercom (Typ `IntercomV2`) ist ein eigener Typ ohne
-  `audioInfo` und hier nicht gemeint.
+  Abschnitt 3.10. Die Kamera kommt aus LoxPanel oder aus denselben gesicherten
+  Details (`videoInfo`), ebenfalls Abschnitt 3.10.
+- **IntercomV2** (Baustein Intercom, Strukturdoku 17.0): Kachel, Klingel-Popup,
+  Kamera-Pane, Ausgänge und `answer` wie bei `Intercom`, die gemeinsamen Stellen
+  fragen `INTERCOM_TYPES` ab. Dazu nur hier: `answers` ist die Liste der
+  Antworten (JSON-Text), `playTts/{idx}` spielt eine an der Tür ab; der Index
+  ist der in der Liste, leere Einträge bekommen keine Taste
+  (`_intercom_antworten()`). `muted` mit `mute/1` und `mute/0` (die Taste nur,
+  wenn der State da ist). `deviceState` 2 (StateRebooting) und 3
+  (StateInitializing) zeigen Kachel und Detailseite als „Startet neu“ und
+  „Startet“; 0 (StateUnknown) sagt nichts Sicheres und bleibt ohne Hinweis
+  (`INTERCOM_V2_ZUSTAND`). `lastBellEvents` und `camimage` nennt die Doku nur
+  bei `Intercom`, die v2 hat darum keine verpassten Klingeln. Video- und
+  SIP-Zugang beschreibt die Doku für die v2 nicht; trägt der Baustein trotzdem
+  `securedDetails` (etwa eine benutzerdefinierte Intercom daran), nutzt
+  LoxPanel sie wie bei `Intercom`. Gegensprechen fehlt bei beiden, darum steht
+  auch `IntercomV2` in `PARTIAL_TYPES`.
 
 Die Bausteine dazu stehen in `tests/lox.py` (`aufab_baustein`,
-`bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`), die Tests in
-`tests/test_auf_ab_wert.py`, `test_bewaesserung.py`, `test_wecker.py`,
-`test_intercom.py` und `tests/browser/test_bausteine_browser.py`.
+`bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`,
+`intercom_v2_baustein`), die Tests in `tests/test_auf_ab_wert.py`,
+`test_bewaesserung.py`, `test_wecker.py`, `test_intercom.py`,
+`test_intercom_v2.py`, `test_intercom_video.py` und
+`tests/browser/test_bausteine_browser.py`.
 
 **Adapter:** `adapters.py` war als Erweiterungsmuster gedacht. Der Server nutzt
 nur die zwei konkreten Klassen als Modul-Globals `LIGHT` und `JAL`. Die Registry

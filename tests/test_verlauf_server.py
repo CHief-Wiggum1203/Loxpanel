@@ -100,15 +100,23 @@ def test_detailseite_v2(miniserver_http):
     asyncio.run(lauf())
 
 
-def test_kachel_stile(miniserver_http):
+def test_kachel_stile(miniserver_http, monkeypatch):
+    # Der Stiltest erwartet vollstaendige Stunden mit 0,8 kWh. Bewusst mitten
+    # im Monat: der letzte Stand vor dem Fenster liegt in derselben Monatsdatei.
+    # Fehlende Vorstaende an Monatsgrenzen sind ein separater Grenzfall.
+    jetzt = datetime(2026, 10, 15, 12, 30)
+
+    class FesteZeit(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return jetzt.replace(tzinfo=tz)
+
+    monkeypatch.setattr(W, "datetime", FesteZeit)
+
     async def lauf():
         ms = await Miniserver().start()
         app = neue_app(ms)
         try:
-            # Aufzeichnung bis zum Start dieses Tests, nicht bis JETZT (Laden der
-            # Datei, im vollen Lauf Minuten frueher): der Mini-Verlauf rechnet ab
-            # der Stunde, in der er gezeichnet wird.
-            jetzt = datetime.now().replace(second=0, microsecond=0)
             app.controls = v1_bausteine(ms, jetzt)
             # reiner Zaehler (nur Zaehlerstand); "Z" hat zusaetzlich die Leistung
             app.controls["K"] = dict(app.controls["Z"], statistic={"frequency": 6, "outputs": [
@@ -121,11 +129,8 @@ def test_kachel_stile(miniserver_http):
             for u, rng, st in faelle:
                 app._stat_spark(c[u], rng, st)
             await asyncio.sleep(0.6)
-            while True:   # Minutenwechsel mitten im Zeichnen: noch einmal zeichnen
-                gezeichnet = datetime.now().replace(second=0, microsecond=0)
-                sp = {(u, st): app._stat_spark(c[u], rng, st) for u, rng, st in faelle}
-                if datetime.now().replace(second=0, microsecond=0) == gezeichnet:
-                    break
+            gezeichnet = jetzt
+            sp = {(u, st): app._stat_spark(c[u], rng, st) for u, rng, st in faelle}
 
             t = sp[("T", "trend")]
             assert t["style"] == "trend" and t["badge"].endswith("in 24 h") and t["lo"] and t["hi"]

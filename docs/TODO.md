@@ -1135,7 +1135,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `currentTemperatures` auf der Anlage gegenprüfen. **S**
 - [ ] `EnergyManager` (Energiemanager, alte Version), `Wallbox2`, `CarCharger`:
       ältere bzw. neuere Varianten der Energie-Bausteine. **M**
-- [ ] `IntercomV2`: neue Türsprechstelle, nach dem Muster von `Intercom`. **M**
+- [x] `IntercomV2` (Baustein Intercom, die neue Türsprechstelle): seit
+      04.10.2026 wie `Intercom` (Kachel, Klingel-Popup, Kamera-Pane, Ausgänge,
+      „Klingel abstellen“), dazu laut Strukturdoku 17.0 die Antworten
+      (`answers`, `playTts/{idx}`), Stumm (`muted`, `mute/1` und `mute/0`) und
+      der Gerätezustand (`deviceState`: „Startet neu“, „Startet“). Verpasste
+      Klingeln nennt die Doku nur bei `Intercom`. Gegensprechen fehlt wie dort
+      (8.4); einen SIP-Zugang beschreibt die Doku für diesen Typ nicht. **M**
 - [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
       Muster von `Daytimer`. **S**
 - [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
@@ -1191,7 +1197,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Tür/Ausgänge öffnen (`pulse` je Sub-Control). Seit 03.10.2026 dazu
       „Klingel abstellen“ (`answer`) und die verpassten Klingeln
       (`lastBellEvents`) mit Bildern (`camimage/{uuidAction}/{Zeitstempel}`
-      über `/bellimg`). Offen: Gegensprechen (SIP). Ziel ist die Loxone
+      über `/bellimg`). Seit 04.10.2026 kommt die Kamera auch direkt vom
+      Miniserver (`videoInfo` aus den gesicherten Details), wenn in LoxPanel
+      keine Adresse eingetragen ist; dasselbe gilt für `IntercomV2`, falls
+      der Miniserver dort gesicherte Details nennt. Offen: Gegensprechen (SIP). Ziel ist die Loxone
       Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
       Loxone-App direkt per SIP anruft; geklingelt wird weiter über `bell` und
       das Klingel-Popup, eine Anmeldung am SIP-Server braucht es nicht. Nur in
@@ -1203,15 +1212,23 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          je Intercom ohne Passwort; „Verbindung prüfen“ schickt ein OPTIONS
          mit Anmeldung (`bin/sip_probe.py`), ohne einen Anruf auszulösen.
          Ablauf in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10.
-         **An der Anlage geprüft (03.10.2026, Test-APK):** Die „Eingang
-         Intercom“ meldet `deviceType` 0 („andere oder unbekannte
-         Türstation“), und ihre gesicherten Details nennen keinen SIP-Zugang.
-         Seitdem zeigt der Reiter in dem Fall, welche Felder der Miniserver
-         liefert (ohne Werte). **Offen:** diese Zeile von der Anlage holen und
-         klären, ob das Audiomodul der Intercom in Loxone Config eingetragen
-         ist (Loxone-KB „Intercom Gen. 1“: eigenes SIP-Audiomodul, die
-         Loxone-App ruft es anonym an). Davon hängt Schritt 2 ab (Adresse,
-         Codec, Anmeldung).
+         **An der Anlage geprüft (03. und 04.10.2026, Test-APK):** Die
+         „Eingang Intercom“ ist eine benutzerdefinierte Intercom an der
+         Türsteuerung (`deviceType` 0): Video von einer UniFi-Kamera, und in
+         Loxone Config sind „Host für Audio (intern)“, der Benutzer und das
+         „Kennwort SIP Audio Modul“ eingetragen. Trotzdem nennen ihre
+         gesicherten Details nur `videoInfo` (`alertImage`, `streamUrl`,
+         `deviceUuid`, `user`, `pass`) und gar kein `audioInfo`.
+         `deviceUuid` kennt die Strukturdoku bei `Intercom` nicht (16.0 und
+         17.0), nur in den Details von `IntercomV2`; das Änderungsprotokoll
+         der 17.0 nennt seit 13.0 nichts zur Intercom. Seit 04.10.2026 sagt
+         der Hinweis im Reiter SIP für diesen Fall, dass der Miniserver die
+         Adresse für den Baustein nicht herausgibt. **Offen:** klären, ob die
+         Loxone-App mit dieser Einrichtung sprechen kann. Wenn nicht, gibt der
+         Miniserver für sie keinen Audio-Zugang heraus, und Schritt 2 braucht
+         einen anderen Weg zur Adresse. Davon hängt Schritt 2 ab (Adresse,
+         Codec, Anmeldung). Für die Loxone Intercom am Baustein Intercom
+         (`IntercomV2`) beschreibt die Doku keinen SIP-Zugang.
       2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
          Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
          Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen

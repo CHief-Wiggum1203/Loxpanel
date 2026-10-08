@@ -267,6 +267,20 @@ nicht unbemerkt entfernt:
   `test_settings_und_health_nennen_die_version` in `tests/test_version.py`;
   für die Ausnahme der Probe-Build des Images in `tests.yml` (ohne sie
   scheitert `COPY loxberry-plugin/plugin.cfg` im `Dockerfile`).
+- Intercom v1 und v2 (Oktober 2026): `IntercomV2` neben `Intercom` überall,
+  wo Türsprechstellen vorkommen (`INTERCOM_TYPES`; Antworten, Stumm und
+  Gerätezustand in `_control_item()` und `_view_control_inner()`), die Kamera
+  vom Miniserver (`intercom_video()`, `_kamera_aus_details()`,
+  `_intercom_video_block()`, `mjpeg_handler()`), das Kennzeichen
+  `securedDetails` in `secured_details()`, `type` und `ohneSip` in `/api/sip`,
+  die Hinweise im Reiter SIP und `INTERCOM_TYPEN` in `config.html`. Baut auf
+  SIP Schritt 1 (#83) auf und ändert dessen Stellen (Kennzeichen, `ohneSip`,
+  Hinweistext mit „Host für Audio (intern)“); geht als Nachtrag zu Lenardo,
+  sobald #83 bei ihm ist. Reibt sich bei Upstream-Merges an `_control_item()`,
+  `_view_control_inner()`, `api_sip()` und `mjpeg_handler()`. Wachen:
+  `tests/test_intercom_v2.py`, `test_intercom_video.py`, `test_sip.py`,
+  `tests/browser/test_sip_browser.py`, `test_intercom_v2` in
+  `tests/browser/test_bausteine_browser.py`.
 
 Seit 0.7.0 in Upstream und deshalb nicht mehr in der Liste (ihre Wachen
 laufen weiter): `type="text"` am `.mzname`, „Spielt in 1 Raum“ und der
