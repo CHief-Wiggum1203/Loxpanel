@@ -295,8 +295,8 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielgröße einer Kachel in px (`gridAuto`, 0 = festes Raster, §7.1), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -599,8 +599,13 @@ beide im Konfigurator einstellbar und beide aus demselben `_stat_blocks()`:
 Zugangsdaten, die zu einem Baustein gehören, gibt der Miniserver nur auf einen
 verschlüsselten Befehl heraus: `jdev/sps/io/{uuid}/securedDetails`. Bei der
 Intercom sind das Kamera (`videoInfo`) und SIP (`audioInfo`: `host`, `user`,
-`pass`). `App.secured_details()` folgt der Loxone-Doku „Communicating with the
-Miniserver“ 16.0, Abschnitt Command Encryption, Variante für HTTP:
+`pass`). Ob ein Baustein welche hat, steht in der Struktur: das Kennzeichen
+`securedDetails` am Control (Strukturdoku, Controls, „indicates that there is
+sensitive information available“). Ohne das Kennzeichen fragt
+`App.secured_details()` gar nicht erst und meldet `OhneGesicherteDetails`
+(eine Unterart von `ZugangFehler`). Sonst folgt es der Loxone-Doku
+„Communicating with the Miniserver“ 16.0, Abschnitt Command Encryption,
+Variante für HTTP:
 
 1. `jdev/sys/getPublicKey` liefert den RSA-Schlüssel des Miniservers, als PEM
    mit der Beschriftung CERTIFICATE, aber mit einem SubjectPublicKeyInfo darin.
@@ -621,16 +626,42 @@ aber nicht öfter als `TOKEN_RENEW_MIN`. Alles andere wird zu `ZugangFehler` mit
 einem Satz, den der Konfigurator zeigt: 403 nennt die Rechte in Loxone Config.
 
 `_sip_zugang()` nimmt daraus `audioInfo` (`App.intercom_sip()` für die
-Prüfung). `/api/sip` nennt davon nur Adresse, Benutzer und `hasPass`, denn die
-Routen haben keine Anmeldung. Steht kein `host` darin, zeigt der Reiter SIP den
-Aufbau der gesicherten Details (`_gesichert_felder()`: Feldnamen und ob sie
-gefüllt sind, nie Werte), etwa „videoInfo: streamUrl, user, pass · audioInfo:
-leer“. Daran sieht man, ob der Miniserver überhaupt Audio kennt. Darunter steht,
-wo die Adresse hingehört: beim Baustein in Loxone Config, bei einer
-benutzerdefinierten Intercom „Host für Audio (lokal)“ (Zieladresse des
-SIP-Anrufs; die Loxone-App nutzt dasselbe Feld).
+Prüfung). Der Reiter SIP listet beide Türsprechstellen-Typen (`INTERCOM_TYPES`):
+`Intercom`, in Loxone Config die Türsteuerung („Door Controller“, auch mit einer
+benutzerdefinierten Intercom), und `IntercomV2`, den Baustein Intercom. `/api/sip`
+nennt den Typ und vom Zugang nur Adresse, Benutzer und `hasPass`, denn die
+Routen haben keine Anmeldung. Hat der Miniserver geantwortet, nennt aber keinen
+SIP-Zugang, steht `ohneSip` in der Antwort; so unterscheidet der Konfigurator
+das von einem Fehler bei Verbindung oder Rechten, ohne Fehlertexte zu
+vergleichen. Hat der Baustein gesicherte Details ohne `host`, zeigt der Reiter
+ihren Aufbau (`_gesichert_felder()`: Feldnamen und ob sie gefüllt sind, nie
+Werte), etwa „videoInfo: streamUrl, user, pass · audioInfo: leer“. Daran sieht
+man, ob der Miniserver überhaupt Audio kennt. Darunter steht, wo die Adresse
+hingehört: am Baustein in Loxone Config, bei einer benutzerdefinierten Intercom
+„Host für Audio (intern)“. Steht sie dort und fehlt trotzdem, gibt der
+Miniserver sie für diesen Baustein nicht heraus, und der Hinweis sagt genau
+das. Für die Loxone Intercom am Baustein Intercom (`IntercomV2`, `deviceType`
+1) beschreibt die Strukturdoku 17.0 keinen SIP-Zugang, also auch keine
+gesicherten Details; der Hinweis sagt auch das.
 `/api/sip/pruefen` nimmt aus der Anfrage nur die `uuid`. Adresse und Zugang
 kommen vom Miniserver, so geht die Anmeldung nur an die Türstation.
+
+Die Kamera der Intercom kommt auf demselben Weg (`App.intercom_video()`, für
+`/mjpeg`): Eine in LoxPanel eingetragene Adresse (Settings → Kamera /
+Türstation, `loxpanel.cfg` `intercom`) hat Vorrang. Sonst nimmt LoxPanel
+`videoInfo` aus den gesicherten Details (`_kamera_aus_details()`: `streamUrl`,
+`user`, `pass`; eine Adresse ohne Schema, wie sie in Loxone Config steht, mit
+`http://`). Das Ergebnis steht in `ms_video`, bis eine neue Struktur kommt
+(nach dem Speichern in Loxone Config); zwei Panels zugleich fragen einmal
+(`_video_sperre`). Ein Fehler bei Verbindung oder Rechten wird nicht gemerkt,
+beim nächsten Mal fragt LoxPanel neu. Steht statt Host „cloudDNS“ oder
+„remoteConnect“ in der `streamUrl`, ersetzt LoxPanel den Platzhalter wie die
+Loxone-App (Strukturdoku 17.0, Intercom): „cloudDNS“ durch die Adresse des
+Miniservers (der Port bleibt), „remoteConnect“ durch Host und Port des
+Miniservers mit `https`; der Miniserver leitet das Kamerabild weiter. Die Detailseite zeigt
+das Video, solange offen ist, ob der Miniserver eine Kamera nennt
+(`_intercom_video_block()`); `/mjpeg` fragt ihn, setzt `_dirty`, und danach
+stehen Bild oder Grund da.
 
 `sip_probe.pruefen()` schickt ein OPTIONS (RFC 3261, Abschnitt 11) über UDP,
 das bei der Türstation keinen Anruf auslöst:
@@ -651,10 +682,28 @@ Getestet wird gegen Nachbauten in `tests/lox.py`: Der Miniserver entschlüsselt
 mit eigenem RSA-Schlüssel, und `SipTuer` rechnet die Anmeldung unabhängig nach.
 Die Digest-Werte stammen aus den Beispielen von RFC 2617 und RFC 7616.
 
+Die native Android-App ergänzt direkte Gen-1-Anrufe: `sip_call.py` führt
+INVITE/Digest/ACK/BYE und SDP, Android übernimmt RTP-G.711 mit
+AudioRecord/AudioTrack. `IntercomTalk` verwaltet eine Sitzung und deren
+15-Sekunden-Lebensfrist. Start/Stop/Status sind nur über Loopback mit dem
+nativen Prozess-Token erreichbar; SIP-Zugangsdaten bleiben im Python-Prozess.
+Die Visu zeigt Sprechen/Auflegen über `LoxKiosk` ausschließlich in der App.
+Die Freigabe betrifft nur den Typ `Intercom`; `deviceType` ist keine
+zuverlässige Generationskennung. `IntercomV2` behält Kamera, Klingel, Tür,
+Antworten und Stummschaltung, bekommt aber keine Sprechbedienung. Ein fehlender
+SIP-Host in `audioInfo` bleibt ein Fehler, auch wenn `videoInfo` eine
+Kameraadresse enthält. Auf der getesteten Anlage fehlt `audioInfo` trotz
+eingetragenem Audio-Host und Zugang in Loxone Config; die Quelle dieses
+Zugangs muss dort noch geklärt werden.
+Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
+[`INTERCOM_GEN1.md`](INTERCOM_GEN1.md).
+
 ## 4. HTTP- und WebSocket-Schnittstelle
 
 Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
-Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
+Authentifizierung, keine Middleware, kein CORS auf den allgemeinen Routen.
+Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
+([`INTERCOM_GEN1.md`](INTERCOM_GEN1.md)).
 
 | Methode | Pfad | Handler | Zweck | Genutzt von |
 |---|---|---|---|---|
@@ -673,7 +722,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
-| GET | `/api/sip` | `api_sip` | Intercoms der Anlage mit `uuid`, `name`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; fehlt nur der SIP-Teil, dazu `felder`: je Abschnitt der gesicherten Details die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
+| GET | `/api/sip` | `api_sip` | Intercoms der Anlage (Türsteuerung `Intercom` und Baustein Intercom `IntercomV2`) mit `uuid`, `name`, `type`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; `ohneSip`, wenn der Miniserver geantwortet hat, aber keinen nennt; hat der Baustein gesicherte Details ohne SIP-Teil, dazu `felder`: je Abschnitt die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom mit dem Kennzeichen `securedDetails` kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
 | POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
@@ -692,7 +741,7 @@ Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
 | GET/POST | `/api/notify` | `api_notify` | Nachricht einblenden | Loxone, extern |
 | GET | `/icon?p=` | `icon_handler` | Loxone-Icon-Proxy, 24 h Cache | Visu, Konfigurator |
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
-| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation | Visu |
+| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation: die in LoxPanel eingetragene Kamera, sonst die aus den gesicherten Details des Miniservers (`App.intercom_video()`, Abschnitt 3.10); 404 ohne Kamera | Visu |
 | GET | `/bellimg?id=&ts=` | `bellimg_handler` | Bild einer verpassten Klingel (`camimage/{uuidAction}/{ts}` vom Miniserver), 24 h Cache, die letzten `BELL_CACHE_MAX` im Speicher | Visu |
 | GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket | Visu |
 
@@ -831,21 +880,30 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
         "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
-        "tileSize": "large",                 // Kachelgröße im automatischen Raster: "small" | "large";
-                                             // fehlt = mittel (KACHEL_ZIEL)
+        "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
+                                             // bis KACHEL_ZIEL_MAX); fehlt = KACHEL_ZIEL_STANDARD; die alten
+                                             // Stufen "small" | "medium" | "large" werden gelesen
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
+        "valueBar": ["favoriten", "room:<uuid>", "raeume"],   // Seiten, deren Anzeige-Bausteine (WERTE_LEISTE_TYPEN)
+                                             // als Werteleiste in EINER Zeile über dem Raster stehen statt
+                                             // als Kacheln; "raeume"/"kategorien" = die Raum- bzw.
+                                             // Kategorie-Seiten darunter; fehlt = alles Kacheln (§7.1)
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>[|<uuid>,…]" (Kamera,
                                              // hinter dem Strich Werte unter dem Bild, `_clean_camera()`) |
                                              // "chart:<uuid>,…" (Verlauf eines oder mehrerer
                                              // Bausteine mit Aufzeichnung, untereinander) |
                                              // "status:<uuid>,…" (frei gewählte
-                                             // Werte); fehlt = Screen füllen
+                                             // Werte) | "header" bzw. "header:<uuid>,…"
+                                             // (Kopfzeile: Uhr, Wetter und bis zu
+                                             // SV_STATUS_MAX Werte in EINER Zeile ÜBER
+                                             // dem Raster statt einer Pane daneben);
+                                             // fehlt = Screen füllen
         "overlay": {"mode": "both", "fill": 16, "bord": 55, "bw": 1,
                     "ibord": 8, "ibw": 1,          // Rahmen inaktiver Kacheln
                     "ring": 100, "rtrk": 18, "rw": 6}  // Positionsring
@@ -858,7 +916,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
           "icon": {"src": "builtin", "id": "bulb"},   // oder {"src":"loxone","p":"..svg"}
           "overlay": {...},
           "chart": "24h",                    // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
-          "chartStyle": "pattern"            // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "chartStyle": "pattern",           // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "w": 2                             // Breite in Spalten: 1 | 2; fehlt = nach Typ (KACHEL_BREIT_TYPEN:
+                                             // Audio, Raumregelung, Energiefluss sind 2, alles andere 1; §7.1)
         }
       }
     }
@@ -869,6 +929,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
                                              // Kennwort verlässt den Server nicht: /api/meta nennt nur hasPass
       "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
+      "tileTarget": 260,                     // optional; Zielkachel des automatischen Rasters für dieses Gerät
+                                             // (Gerät vor Profil, nur im Kachel-Layout „Automatisch“; §7.1)
       "presence": "<control-uuid>"           // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
     }
@@ -1016,17 +1078,36 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
 - **Intercom:** `answer` stellt die Klingel ab. `lastBellEvents` (JJJJMMTTHHMMSS,
   mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
   `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
-  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) fehlt, darum bleibt der Typ
-  in `PARTIAL_TYPES`. Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
+  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) ist ausschließlich in der
+  nativen Android-App verfügbar; im Browser bleibt der Typ in `PARTIAL_TYPES`.
+  Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
   Loxone-Intercoms `pass`) gibt der Miniserver seit 8.1 nur noch in den
   gesicherten Details heraus; `details.audioInfo` ist leer. Lesen und Prüfen:
-  Abschnitt 3.10. Die neue Intercom (Typ `IntercomV2`) ist ein eigener Typ ohne
-  `audioInfo` und hier nicht gemeint.
+  Abschnitt 3.10. Die Kamera kommt aus LoxPanel oder aus denselben gesicherten
+  Details (`videoInfo`), ebenfalls Abschnitt 3.10.
+- **IntercomV2** (Baustein Intercom, Strukturdoku 17.0): Kachel, Klingel-Popup,
+  Kamera-Pane, Ausgänge und `answer` wie bei `Intercom`, die gemeinsamen Stellen
+  fragen `INTERCOM_TYPES` ab. Dazu nur hier: `answers` ist die Liste der
+  Antworten (JSON-Text), `playTts/{idx}` spielt eine an der Tür ab; der Index
+  ist der in der Liste, leere Einträge bekommen keine Taste
+  (`_intercom_antworten()`). `muted` mit `mute/1` und `mute/0` (die Taste nur,
+  wenn der State da ist). `deviceState` 2 (StateRebooting) und 3
+  (StateInitializing) zeigen Kachel und Detailseite als „Startet neu“ und
+  „Startet“; 0 (StateUnknown) sagt nichts Sicheres und bleibt ohne Hinweis
+  (`INTERCOM_V2_ZUSTAND`). `lastBellEvents` und `camimage` nennt die Doku nur
+  bei `Intercom`, die v2 hat darum keine verpassten Klingeln. Video- und
+  SIP-Zugang beschreibt die Doku für die v2 nicht; trägt der Baustein trotzdem
+  `securedDetails` (etwa eine benutzerdefinierte Intercom daran), nutzt
+  LoxPanel sie für Kamera und SIP-Prüfung wie bei `Intercom`. Native
+  Gegensprech-Anrufe werden für `IntercomV2` nicht angeboten, auch wenn es
+  gesicherte Details liefert; darum bleibt es in `PARTIAL_TYPES`.
 
 Die Bausteine dazu stehen in `tests/lox.py` (`aufab_baustein`,
-`bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`), die Tests in
-`tests/test_auf_ab_wert.py`, `test_bewaesserung.py`, `test_wecker.py`,
-`test_intercom.py` und `tests/browser/test_bausteine_browser.py`.
+`bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`,
+`intercom_v2_baustein`), die Tests in `tests/test_auf_ab_wert.py`,
+`test_bewaesserung.py`, `test_wecker.py`, `test_intercom.py`,
+`test_intercom_v2.py`, `test_intercom_video.py` und
+`tests/browser/test_bausteine_browser.py`.
 
 **Adapter:** `adapters.py` war als Erweiterungsmuster gedacht. Der Server nutzt
 nur die zwei konkreten Klassen als Modul-Globals `LIGHT` und `JAL`. Die Registry
@@ -1117,12 +1198,136 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   älteren `theme.json`. Geprüft in `tests/test_kachel_aufbau.py`,
   `tests/browser/test_kachel_aufbau_browser.py` und
   `test_mini_verlauf_im_neuen_aufbau`.
+- Kachelfaktor (Oktober 2026): Der Inhalt einer Kachel wächst mit ihrer
+  Größe. `setzeFaktor()` setzt `--ks` am `.screen`: Kachelbreite durch
+  `KACHEL_REF` (170 px, die mittlere Stufe des automatischen Rasters), die
+  Höhe durch `KACHEL_REF_H` (150 px) begrenzt, das Ganze auf `KS_MIN` 0,85 bis
+  `KS_MAX` 2,0. CSS multipliziert damit Symbol (`--ico-size`), Haupttext,
+  Zweittext, Raum, Messwert, Innenabstand, Radius, Positionsring,
+  Mini-Verlauf, Tastenleiste und die Kopfzeile (`--kopf-h`). Die eingestellten
+  Größen (`--name-size` usw.) gelten damit „bei 170-px-Kachel“: Tablets im
+  automatischen Raster sehen aus wie zuvor, eine 415-px-Kachel trägt 32-px-
+  Schrift und ein 76-px-Symbol statt derselben 16/38 wie eine 122-px-Kachel,
+  die 13,6/32 bekommt. Im automatischen Raster rechnet `autoRaster()` den
+  Faktor aus der Spaltenbreite, bevor es die Zeilen bestimmt (die Kopfzeile
+  wird mit ihm höher); beim festen Raster liest `render()` ihn aus der ersten
+  Kachel, nachdem `renderTabs()` Split und Kopfzeile gesetzt hat, und misst
+  nach, bis er steht (`faktorEinmessen()`): mit Kopfzeile hängt die
+  Kachelhöhe an `--kopf-h` und die wieder am Faktor, einmal gemessen hing er
+  an der Seite davor (Codex-Befund an #122). `setzeFaktor()` passt danach
+  die Kopfzeile neu ein, denn ihre Schrift wächst mit. Ändert sich
+  die Kachelbreite ohne neues Raster (Fenster, Split an/aus), zieht
+  `faktorNachziehen()` nach und `kachelnNeuMessen()` misst die Kacheln neu
+  ein. Zwei Grenzen: Tasten sind Touch-Ziele und schrumpfen nie
+  (`max(1, var(--ks))`), und ein Text, der in seine Zeilen nicht mehr passt
+  (`line-clamp`, im klassischen Aufbau „…“), nimmt den Faktor über die
+  Textstufen `kst1`–`kst3` (`--kst`, in `fitTile()` gemessen, vor und nach
+  den Eng-Stufen) zurück: über Faktor 1 höchstens auf 1, den Stand ohne
+  Faktor, auf kleiner Kachel auch darunter, denn ein kleiner ganzer Text
+  liest sich besser als ein großer mit „…“. Dieselben Stufen nimmt eine
+  Kachel mit Mini-Verlauf über Faktor 1 auch, wenn ein Zustand mit dem
+  Faktor auf zwei Zeilen geht („4,200 kW • 9,1 MWh“ auf 200 px) und der
+  Mitte damit die Höhe für den Verlauf (`SPARK_MIN_H`) fehlt: der Text gibt
+  seinen Zuwachs her, sobald eine Stufe die Zeile wieder einzeilig macht und
+  die Mitte reicht, der Verlauf bleibt dort. Eine Stufe, die nur die Schrift
+  verkleinert, ohne eine Zeile zu lösen, zählt nicht, sie brächte die Mitte
+  höchstens knapp über die Schwelle und einen gequetschten Verlauf. Reicht
+  auch Faktor 1 nicht („0,600 kW • 10,0 MWh“), bleibt der Text groß und
+  `placeSpark()` setzt den Verlauf wie bisher in den Kopf. `sparkFrei()`
+  misst dafür die freie Mitte, `fitTile()` setzt den Verlauf nach den Stufen
+  neu. Im Kopf
+  füllt der Verlauf die Kopfhöhe (das Symbol gibt sie vor), auch im neuen
+  Aufbau: mit Faktor 0,85 blieben ihm mit den Rändern der Mitte sonst 27 px
+  von 36. Gemessen mit 23 Favoriten in acht
+  Bildschirmgrößen: auf 800×480 mit 3×3 und Füllen sank die Zahl
+  abgeschnittener Namen von 15 auf 1, am 4″-Panel mit 3×3 von 8 auf 0, die
+  flache 225×128-Kachel (2×3) läuft nicht mehr über, das 2×2 des 4″-Panels
+  trägt 21-px-Schrift und 50-px-Symbol statt 16/38 in sonst leerer Fläche.
+  Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
+  Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
+  abgeschnitten als ohne, keine Kachel läuft über).
+- Raumnamen aus Kachelnamen (Oktober 2026): Auf einer Raum-Seite (Tab
+  `room:<uuid>`, Raum aus „Räume“ über `_view_group`) nennt der Titel den
+  Raum schon, also fällt er aus den Kachelnamen: `_control_item(…,
+  ohne_raum=<Raumname>)` ruft `_ohne_raum()`, das nur ganze Wörter streicht
+  („Jalousie Wohnzimmer Süd“ → „Jalousie Süd“, „Wohnzimmer: Decke“ →
+  „Decke“, „Wohnzimmerlampe“ bleibt), die Reihenfolge der übrigen Wörter
+  behält, Trenner am Rand mitnimmt und den Namen lässt, wenn nichts übrig
+  bliebe. Seiten über mehrere Räume (Favoriten, Kategorie, freie Auswahl)
+  behalten die vollen Namen und tragen den Raum an der Kachel (`show_room`).
+  In der Messreihe zum Kachelfaktor trugen die meisten abgeschnittenen Namen
+  den Raum. Geprüft in `tests/test_raumname.py`.
+- Werteleiste (Oktober 2026, `ui.valueBar`): Je Seite wählbar stehen die
+  Anzeige-Bausteine (`WERTE_LEISTE_TYPEN`: Messwert, Zähler, Text,
+  Textzustand, Ein/Aus-Anzeige, Präsenz, Betriebsstunden; nicht Rauchmelder
+  und Klimaregelung) als Kette von Werten in **einer** Zeile über dem
+  Raster statt als Kacheln, das Raster bleibt dem Bedienbaren. Der Server
+  trennt (`_leiste_trennen()`, vor dem Gruppieren, damit Anker und
+  Sprungmarken zu den Kacheln im Raster gehören) und schickt sie als
+  `view.leiste` in derselben Form wie `items` (`_leiste_items()`, also mit
+  Wert, Symbol, Farbe, Raum und der Wertseite als `nav`); bliebe im Raster
+  nichts, bleibt alles Kachel. `ui.valueBar` nennt Tab-Kennungen
+  (`_clean_werteleiste()`, auch `raeume`/`kategorien` für die Seiten
+  darunter), `resolve_profile()` gibt sie als `valueBar` weiter. Die Visu
+  (`renderLeiste()`) setzt `.leiste` am `.screen` (eigene Grid-Zeile über
+  dem Raster, unter der Kopfzeile; im Split quer nur über dem Raster, das
+  Widget reicht über beide Zeilen) und baut die Zeile aus denselben Chips
+  wie die Werte der Kopfzeile (`kopfWertHtml()`); was nicht passt, scrollt
+  waagerecht (Mausrad eingeschlossen), denn diese Werte haben keine Kachel
+  mehr. Höhe `--leiste-h` = `LEISTE_H` (48 px) × Faktor (`setzeFaktor()`),
+  `autoRaster()` zieht sie wie die Kopfzeile ab (`leisteHoehe()`). Bei
+  neuen Werten derselben Seite zieht `updateLeiste()` nur Zustand, Symbol
+  und Texte der Chips nach (kein Neuaufbau, die Scroll-Lage bleibt). Ein
+  Tipp öffnet die Wertseite. Konfigurator: Kästchen „Werte als Leiste über
+  den Kacheln“ je Tab im Feld „Widget je Tab“. Geprüft in
+  `tests/test_werteleiste.py` und `tests/browser/test_werteleiste_browser.py`.
+- Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
+  (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
+  EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über
+  `tiles[uuid].w` (1 oder 2, Kachel-Editor „Breite“; der Konfigurator bekommt
+  die Typen als `kachelBreit` aus `/api/meta`). `_apply_tile_style()` setzt
+  `w: 2` nur an die breite Kachel, die Visu macht daraus die Klasse `w2`
+  (`grid-column: span 2`), aber nur, wo das Raster zwei Spalten hat. Das
+  Raster fließt dicht (`grid-auto-flow: row dense`): eine Lücke vor einer
+  breiten Kachel füllt die nächste schmale. Damit Seiten und Rastpunkte
+  stimmen, rechnet `rasterLage()` die Lage nach, wie CSS sie setzt (je
+  Kachel die Zeile, daraus die Seitenzahl): `render()` und `updateGrid()`
+  setzen `snap` auf jede Kachel in der ersten Zeile einer Seite und `snapy`
+  ab der zweiten Seite, `springeZu()` springt zur ersten Kachel dieser Zeile,
+  `autoRaster()` prüft mit derselben Lage, ob alle Kacheln auf eine Seite
+  passen (Wachsen, Punkt 2). `kachelGemessen()` nimmt für den Kachelfaktor
+  eine schmale Kachel, notfalls die halbe Breite einer breiten. Auf der
+  breiten Kachel bleibt ein mehrteiliger Zustand („PV 0,55 kW · Bezug
+  0,15 kW“) auf einer Zeile (`subText()`), statt wie auf der schmalen
+  untereinander zu stehen: untereinander kostete er auf der 126-px-Kachel des
+  4″-Panels die Höhe, und die Eng-Stufe kappte den zweiten Teil. Geprüft in
+  `tests/test_kachel_breit.py` und `tests/browser/test_kachel_breit_browser.py`.
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
-  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielgröße einer
-  Kachel in CSS-Pixeln, die der Server je Stufe schickt (`gridAuto` aus
-  `KACHEL_ZIEL`: klein 150, mittel 170, groß 200). Spalten = Breite durch
-  Zielgröße, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielkachel in
+  CSS-Pixeln, die der Server schickt (`gridAuto`): eine Zahl aus `ui.tileSize`
+  (`KACHEL_ZIEL_MIN` bis `KACHEL_ZIEL_MAX`, fehlt = `KACHEL_ZIEL_STANDARD`;
+  die alten Stufen klein/mittel/groß stehen in `KACHEL_ZIEL` und werden beim
+  Speichern zur Zahl), je Gerät übersteuerbar unter Displays
+  (`devices[name].tileTarget`, Gerät vor Profil wie bei der Skalierung,
+  `effective_grid_auto()`; beim Speichern bekommt jede offene Visu
+  `{t:"gridAuto"}` und baut ihr Raster ohne Neuladen neu). Der Konfigurator
+  schlägt je Gerät einen Wert aus der gemeldeten Größe vor
+  (`_kachel_vorschlag()` in `/api/devices` als `tileSuggest`: Pixeldichte ab
+  1,5 ist ein Tablet in der Hand, dort der Standard; ohne Pixeldichte ein
+  Fünftel der kürzeren Seite, auf Zehner gerundet, mindestens der Standard,
+  höchstens 300 px: FullHD 220, 2560×1600 300). Spalten = Breite durch
+  Zielkachel, gerundet; Zeilen so, dass die Kacheln etwa quadratisch werden.
+  Die Automatik kennt die Kachelanzahl der Seite (`_lastAnzahl` aus
+  `render()`): passen alle Kacheln auf eine Seite, nimmt sie Spalten weg,
+  solange die Seite alle noch fasst und die Kachel nicht breiter als
+  `gridGrow` × Zielkachel wird (`KACHEL_WACHSEN`, 1,4; mit der theme-Nachricht
+  geschickt). Fünf Kacheln auf dem 10″-Tablet quer stehen so in 6 × 3 zu
+  204 px statt in 7 × 4 zu 174 px; mit mehr Kacheln als Zellen bleibt es bei
+  der Zielkachel und dem Blättern. Mit Widget daneben wachsen sie nicht: es
+  belegt ganze Kachelspalten, und mit weniger Spalten ließe sich sein Anteil
+  von rund 40 % nicht halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %,
+  die Wetter-Pane wechselte von „schmal“ auf „breit“).
   Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
   die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
   Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
@@ -1141,7 +1346,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Konfigurator zeigt es unter Displays bei den Geräten. Das feste Raster
   (4″-Panel, jedes Profil ohne `grid`) bleibt unverändert. Der Assistent
   „Neues Panel“ schlägt „Automatisch“ für 2 Panes (Tablet) vor. Geprüft in
-  `tests/test_auto_raster.py` und `tests/browser/test_auto_raster_browser.py`.
+  `tests/test_auto_raster.py` (Prüfer, Standard, Gerät vor Profil, Vorschlag)
+  und `tests/browser/test_auto_raster_browser.py` (Raster je Gerät, Wachsen
+  mit wenigen Kacheln, Zielkachel je Gerät wirkt sofort, Konfigurator).
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
@@ -1276,6 +1483,34 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   einer Spalte gequetscht und die Vorschau seitlich abgeschnitten, hochkant
   unten abgeschnitten. Kalender 30 % leer, die Termine auf Seite 2; zwei Werte
   69 % leer. Geprüft in `tests/browser/test_pane_hoehe_browser.py`.
+- Kopfzeile (Widget `"header"`, Oktober 2026): Statt einer Pane daneben eine
+  Zeile **über** dem Kachelraster mit Uhr, Wetter in Kurzform (Symbol,
+  Temperatur, Lage, „Heute hoch / tief“) und nach Wahl Werten
+  (`"header:<uuid>,…"`, bis `SV_STATUS_MAX`). Das Vorbild ist die Startseite
+  der Loxone-App; auf einem Tablet quer nimmt die Zeile 64 px statt der 40 %
+  eines Widgets. `applyPane()` setzt `.kopf` am `.screen` (dritte Grid-Zeile,
+  volle Breite), nicht `.split`: das Raster bleibt ungeteilt, „Screen füllen“
+  verdoppelt weiter, hochkant ändert sich nichts. Die Höhe steht als
+  `--kopf-h` am `.screen`; `autoRaster()` zieht sie über `kopfHoehe()` von der
+  freien Höhe ab, bevor die Klasse gesetzt ist, damit die Zeilenzahl stimmt.
+  Beim festen Raster geht sie vom Kasten ab (4″ 2×2: Kacheln 225×166 statt
+  225×198). `renderKopfzeile()` baut die Zeile aus `frontData` (Wetter) und
+  `svStatusData` (Werte, angemeldet wie bei „Werte“ per `setsvstatus`, der
+  Server schickt `{t:"svstatus"}` über `status_blocks()`), `tickClock()`
+  stellt die Uhr. Was rechts nicht mehr in die Zeile passt, blendet
+  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Weil sie keine Pane
+  ist, gilt sie auch mit Split „Aus“ (4″-Panel): `paneRawNow()` lässt
+  `header` an `themeSplit` vorbei, der Konfigurator zeigt das Feld „Widget je
+  Tab“ dann mit gesperrter Widget-Gruppe, der Assistent bietet für 1 Pane
+  „Kopfzeile je Tab“ an. Die Kopfzeile gibt es nur je Tab: Widget-Seite
+  (`_clean_widget_tab()`) und Uhr-Seite (`_clean_svpane()`) nehmen sie nicht
+  an, der Konfigurator bietet sie dort nicht an. `ui.panes` wird beim
+  Speichern, im Export und in `resolve_profile()` **normiert** abgelegt
+  (`"header:A, B"` → `"header:A,B"`), nicht roh; vorher hätte das Panel
+  `" B"` als UUID gemeldet. Geprüft in `tests/test_kopfzeile.py` und
+  `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″ mit
+  Split „Aus“, zu viele Werte, Drehen, Konfigurator mit und ohne Split,
+  Assistent).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

@@ -144,20 +144,33 @@ def digest(aufforderung: str, user: str, passwort: str, methode: str, uri: str,
     def H(x: str) -> str:
         return h(x.encode("utf-8")).hexdigest()
     realm, nonce = p.get("realm", ""), p.get("nonce", "")
+    if not nonce:
+        raise ValueError("Digest-Aufforderung ohne Nonce")
+    qops = [q.strip().lower() for q in p.get("qop", "").split(",")]
+    if p.get("qop") and "auth" not in qops:
+        raise ValueError("Digest verlangt ein nicht unterstütztes qop-Verfahren")
+    if any(c in value for value in (user, uri, realm, nonce, p.get("opaque", ""))
+           for c in ("\r", "\n")):
+        raise ValueError("Ungültige Werte für die Digest-Anmeldung")
     cnonce = cnonce or os.urandom(8).hex()
     nc = "00000001"
     ha1 = H(f"{user}:{realm}:{passwort}")
     if sess:
         ha1 = H(f"{ha1}:{nonce}:{cnonce}")
     ha2 = H(f"{methode}:{uri}")
-    qop = "auth" in [q.strip() for q in p.get("qop", "").split(",")]
+    qop = "auth" in qops
     antwort = H(f"{ha1}:{nonce}:{nc}:{cnonce}:auth:{ha2}") if qop else H(f"{ha1}:{nonce}:{ha2}")
-    teile = [f'username="{user}"', f'realm="{realm}"', f'nonce="{nonce}"', f'uri="{uri}"',
+    def quoted(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+    teile = [f'username="{quoted(user)}"', f'realm="{quoted(realm)}"',
+             f'nonce="{quoted(nonce)}"', f'uri="{quoted(uri)}"',
              f'response="{antwort}"', f"algorithm={alg}"]
     if qop:
         teile += [f'cnonce="{cnonce}"', f"nc={nc}", "qop=auth"]
+    elif sess:
+        teile.append(f'cnonce="{cnonce}"')
     if "opaque" in p:
-        teile.append(f'opaque="{p["opaque"]}"')
+        teile.append(f'opaque="{quoted(p["opaque"])}"')
     return "Digest " + ", ".join(teile)
 
 

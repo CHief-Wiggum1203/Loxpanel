@@ -66,7 +66,7 @@ class ServerService : Service() {
                     Python.start(AndroidPlatform(this))
                 }
                 val res = Python.getInstance().getModule("boot")
-                    .callAttr("start_bg", appDir.absolutePath, Visu.PORT)
+                    .callAttr("start_bg", appDir.absolutePath, Visu.PORT, IntercomNative.token)
                 Log.i("LPSERVER", "boot.start_bg -> $res")
             } catch (e: Throwable) {
                 Log.e("LPSERVER", "Serverstart fehlgeschlagen", e)

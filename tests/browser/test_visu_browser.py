@@ -550,7 +550,16 @@ def test_mini_verlauf_im_neuen_aufbau(tmp_path, miniserver_http, raumzeile):
     rechts, die Angabe zum Verlauf als Zeile im Text. Ist die Mitte zu niedrig,
     rueckt der Verlauf in den Kopf; reicht der Text dann noch nicht, weicht die
     Angabe vor dem Namen - der Verlauf bleibt, auch wo der klassische Aufbau
-    (18 Kacheln auf 800 x 480) keinen Platz fuer ihn hat."""
+    (18 Kacheln auf 800 x 480) keinen Platz fuer ihn hat.
+
+    Mit dem Kachelfaktor (1280 x 800, 3 Zeilen: 200 x 206 px, Faktor 1,18) kann
+    ein Zustand wie "4,200 kW • 9,1 MWh" auf zwei Zeilen gehen und dem Verlauf
+    die Mitte nehmen. Dann gibt der Text seinen Zuwachs her (kst, hoechstens bis
+    Faktor 1) und der Verlauf bleibt in der Mitte; braucht der Zustand auch mit
+    Faktor 1 zwei Zeilen, bleibt der Text gross und der Verlauf geht in den
+    Kopf. Wo genau eine Zeile umbricht, haengt von der Schrift ab (die CI hat
+    DejaVu Sans, lokal kann Inter stehen): der Test misst es und leitet daraus
+    je Kachel ab, was die Visu tun muss."""
     faelle = [(1280, 800, 3, "mitte"), (800, 480, 2, "mitte"), (1280, 480, 3, "kopf"), (800, 480, 3, "kopf")]
     tiles = {"T": {"chart": "24h", "chartStyle": "span"}, "Z": {"chart": "24h", "chartStyle": "pattern"},
              "R": {"chart": "7d"}, "P": {"chart": "24h"}}
@@ -564,19 +573,33 @@ def test_mini_verlauf_im_neuen_aufbau(tmp_path, miniserver_http, raumzeile):
                 u.app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"],
                                                                 "ui": {"cols": 3, "rows": zeilen}, "tiles": tiles}})
                 pg = await u.seite(breite, hoehe)
-                info = await pg.evaluate("""() => [...document.querySelectorAll('.tile')].map(t => {
+                info = await pg.evaluate("""() => {
+                    const ks = parseFloat(getComputedStyle(document.querySelector('.screen')).getPropertyValue('--ks')) || 1;
                     const sicht = e => !!e && getComputedStyle(e).display !== 'none';
                     const ganz = e => sicht(e) && e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1;
+                    // Passt der Zustand auf EINE Zeile - mit dem vollen Faktor (ohne Stufe) oder mit
+                    // Textfaktor 1 (kst3)? Mit Bruchteilen gemessen: "0,600 kW • 10,0 MWh" ist bei
+                    // Faktor 1 um 0,2 px zu breit, scrollWidth (ganzzahlig) saehe das nicht.
+                    const einzeilig = (t, stufe) => { const sub = t.querySelector('.sub'); if (!sub) return true;
+                      const alt = [...t.classList].filter(c => /^kst\\d$/.test(c));
+                      t.classList.remove(...alt); if (stufe) t.classList.add(stufe); sub.style.whiteSpace = 'nowrap';
+                      const r = document.createRange(); r.selectNodeContents(sub); const cs = getComputedStyle(sub);
+                      const innen = sub.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+                      const ja = r.getBoundingClientRect().width <= innen;
+                      sub.style.whiteSpace = ''; t.classList.remove('kst3'); t.classList.add(...alt); return ja; };
+                    return [...document.querySelectorAll('.tile')].map(t => {
                     const svg = t.querySelector('.tspark svg'), sp = t.querySelector('.tspark'), tl = t.querySelector('.tsline');
                     return {name: t.querySelector('.name').textContent, nameGanz: ganz(t.querySelector('.name')),
                       zustand: sicht(t.querySelector('.sub')), svg: !!svg, hoehe: svg ? svg.clientHeight : 0,
                       imKopf: !!sp && sp.parentNode.classList.contains('head'), eng: t.classList.contains('sparktight'),
                       stufen: [...t.classList].filter(c => /^eng\\d$/.test(c)).join(' '),
+                      kst: [...t.classList].filter(c => /^kst\\d$/.test(c)).join(' '),
                       ueber: svg ? svg.getBoundingClientRect().bottom - sp.getBoundingClientRect().bottom : 0,
                       ueberlauf: t.scrollHeight - t.clientHeight,
                       zeile: sicht(tl) ? tl.textContent : null, kopfAngabe: sicht(t.querySelector('.tsbadge')),
                       raum: sicht(t.querySelector('.head .room')) ? t.querySelector('.head .room').textContent : null,
-                      angabe: (t.querySelector('.tsline') || {}).textContent || ''}; })""")
+                      angabe: (t.querySelector('.tsline') || {}).textContent || '',
+                      ks, einzeiligVoll: einzeilig(t, null), einzeilig1: einzeilig(t, 'kst3')}; }); }""")
                 await u.bild(pg, f"neu_verlauf_{breite}x{hoehe}_{zeilen}zeilen")
                 k = {i["name"]: i for i in info}
                 mit = [k[n] for n in ("Boiler", "Stromzähler", "Regen", "PV Anlage")]
@@ -590,14 +613,28 @@ def test_mini_verlauf_im_neuen_aufbau(tmp_path, miniserver_http, raumzeile):
                 assert not any(i["kopfAngabe"] for i in info), (fall, info)
                 assert k["Boiler"]["angabe"] and all(i["angabe"] for i in mit), "der Server liefert die Angabe"
                 if ort == "mitte":
-                    # Platz genug: Verlauf in der Mitte, Angabe als Zeile, Raum oben rechts
-                    assert not any(i["eng"] or i["imKopf"] for i in mit), (fall, info)
-                    assert all(i["zeile"] == i["angabe"] for i in mit), (fall, info)
-                    assert all((i["raum"] is not None) == raumzeile for i in mit), (fall, info)
+                    for i in mit:
+                        if i["ks"] > 1 and not i["einzeilig1"]:
+                            # Kachelfaktor: der Zustand braucht auch mit Textfaktor 1 zwei Zeilen
+                            # ("0,600 kW • 10,0 MWh" auf 200 px) - keine Stufe hilft, der Text
+                            # bleibt gross, der Verlauf geht in den Kopf an Stelle des Raums; die
+                            # Angabe bleibt als Zeile (die Kachel laeuft nicht ueber, keine Eng-Stufe)
+                            assert i["eng"] and i["imKopf"] and i["raum"] is None and i["zeile"] == i["angabe"], (fall, i)
+                            assert not i["kst"], (fall, i)
+                            continue
+                        # Platz genug: Verlauf in der Mitte, Angabe als Zeile, Raum oben rechts
+                        assert not (i["eng"] or i["imKopf"]), (fall, i)
+                        assert i["zeile"] == i["angabe"] and (i["raum"] is not None) == raumzeile, (fall, i)
+                        # Zustand erst mit dem Faktor zweizeilig: der Text gibt seinen Zuwachs her
+                        # (kst), damit der Verlauf in der Mitte bleibt; sonst behaelt er den Faktor
+                        assert bool(i["kst"]) == (i["ks"] > 1 and not i["einzeiligVoll"]), (fall, i)
                 else:
-                    # Verlauf im Kopf an Stelle des Raums; die Angabe weicht vor dem Namen
+                    # Verlauf im Kopf an Stelle des Raums. Die Angabe weicht vor dem Namen (eng2),
+                    # wo die Kachel sonst ueberliefe; mit Faktor 0,85 passt sie auf 126 px Hoehe
+                    # oft noch als Zeile unter den Namen
                     assert all(i["eng"] and i["imKopf"] and i["raum"] is None for i in mit), (fall, info)
-                    assert all(i["zeile"] is None for i in mit), (fall, info)
+                    assert all((i["zeile"] is None) == ("eng2" in i["stufen"]) for i in mit), (fall, info)
+                    assert all(i["zeile"] in (None, i["angabe"]) for i in mit), (fall, info)
                 # Live-Aenderung: an Ort und Stelle neu gezeichnet, Darstellung bleibt
                 await pg.evaluate("document.querySelectorAll('.tile').forEach(t => t._alt = true)")
                 u.app.states["sv"] += 0.8

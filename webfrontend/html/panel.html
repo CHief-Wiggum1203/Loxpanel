@@ -304,6 +304,82 @@
   /* Automatisches Raster: Spalten- und Zeilenzahl sind oft ungerade (5 x 3), die
      Mitte laege auf einer Kachel - der Punkt sitzt wie im Split in der Ecke. */
   .screen.auto .conn{place-self:start start;margin:6px;}
+  /* Kopfzeile (Widget "header", applyPane): EINE Zeile ueber dem Kachelraster
+     mit Uhr, Wetter in Kurzform und bis zu SV_STATUS_MAX Werten - statt einer
+     Pane daneben. Der Kasten bekommt eine dritte Zeile, Breite und Raster
+     bleiben wie ohne Widget (keine Teilung; "Screen fuellen" verdoppelt
+     weiter). Die Hoehe steht in --kopf-h, autoRaster() zieht sie von der
+     freien Hoehe ab, BEVOR die Klasse gesetzt ist (kopfHoehe liest die
+     Konfiguration, nicht das Element). Mit dem Kachelfaktor waechst sie
+     (setzeFaktor setzt --kopf-h = KOPF_H * --ks). */
+  .screen{--kopf-h:64px;}
+  .kopfzeile{display:none;}
+  .screen.kopf{grid-template-rows:auto minmax(0,1fr) auto;}
+  .screen.kopf .kopfzeile{display:flex;align-items:center;gap:14px;grid-column:1/-1;grid-row:1;
+    height:var(--kopf-h);box-sizing:border-box;padding:0 16px;min-width:0;overflow:hidden;
+    border-bottom:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
+  .screen.kopf #grid{grid-row:2;grid-column:1/-1;}
+  .screen.kopf #tabs{grid-row:3;}
+  .screen.kopf .conn{grid-row:2;}
+  .kz-uhr{display:flex;flex-direction:column;justify-content:center;flex:none;}
+  .kz-uhr .t{font-size:calc(26px * var(--ks,1));font-weight:600;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .kz-uhr .d{font-size:calc(12px * var(--ks,1));color:var(--muted);margin-top:3px;white-space:nowrap;}
+  .kz-wx{display:flex;align-items:center;gap:8px;flex:none;min-width:0;padding-left:14px;border-left:1px solid var(--line);}
+  .kz-wx .ico{width:calc(28px * var(--ks,1));height:calc(28px * var(--ks,1));flex:none;color:var(--glow);}
+  .kz-wx .ico svg{width:100%;height:100%;}
+  .kz-wx .t{font-size:calc(22px * var(--ks,1));font-weight:600;line-height:1;}
+  .kz-wx .m{display:flex;flex-direction:column;font-size:calc(12px * var(--ks,1));color:var(--muted);line-height:1.2;min-width:0;}
+  .kz-wx .m .c{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+  /* Werte: rechtsbuendig, was nicht mehr passt, blendet kopfEinpassen() aus */
+  .kz-werte{display:flex;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden;}
+  .kz-w{display:grid;grid-template-columns:auto auto;grid-template-areas:"ico vl" "ico nm";column-gap:8px;
+    align-items:center;flex:none;background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
+  .kz-w .ico{grid-area:ico;width:calc(22px * var(--ks,1));height:calc(22px * var(--ks,1));display:grid;place-items:center;color:var(--ico,var(--ink));}
+  .kz-w .ico svg{width:100%;height:100%;}
+  .kz-w .ico img{width:100%;height:100%;object-fit:contain;}
+  .kz-w .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
+    -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .kz-w .vl{grid-area:vl;font-size:calc(15px * var(--ks,1));font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .kz-w .nm{grid-area:nm;font-size:calc(11px * var(--ks,1));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+  .kz-w.on .ico,.kz-w.on .vl{color:var(--ico-fixed,var(--glow));}
+  .kz-w.good .ico,.kz-w.good .vl{color:var(--good);}
+  .kz-w.crit .ico,.kz-w.crit .vl{color:var(--crit-ink,var(--crit));}
+  .kz-w.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+  .kz-w[hidden]{display:none;}   /* kopfEinpassen(): was nicht passt, bleibt weg */
+  /* Werteleiste (ui.valueBar, view.leiste, renderLeiste): die Anzeige-Bausteine
+     einer Seite als Kette von Werten in EINER Zeile ueber dem Raster statt als
+     Kacheln - das Raster bleibt dem Bedienbaren. Dieselben Chips wie die Werte
+     der Kopfzeile; was nicht in die Zeile passt, scrollt waagerecht statt
+     wegzubleiben (diese Werte haben keine Kachel mehr). Hoehe --leiste-h =
+     LEISTE_H * --ks (setzeFaktor), autoRaster() zieht sie wie die Kopfzeile
+     von der freien Hoehe ab. Mit Kopfzeile steht sie darunter; im Split quer
+     nur ueber dem Raster, das Widget daneben reicht ueber beide Zeilen,
+     hochkant liegt sie ueber Raster und Widget. */
+  .screen{--leiste-h:48px;}
+  .werteleiste{display:none;}
+  .screen.leiste{grid-template-rows:auto minmax(0,1fr) auto;}
+  .screen.leiste .werteleiste{display:flex;align-items:center;gap:8px;grid-column:1;grid-row:1;
+    height:var(--leiste-h);box-sizing:border-box;padding:0 10px;min-width:0;
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity;
+    border-bottom:1px solid var(--line);background:var(--tabbar,rgba(0,0,0,.25));}
+  .screen.leiste .werteleiste::-webkit-scrollbar{display:none;}
+  .screen.leiste .werteleiste .kz-w{scroll-snap-align:start;cursor:pointer;}
+  .screen.leiste .werteleiste .kz-w:active{transform:scale(.96);}
+  .screen.leiste #grid{grid-row:2;}
+  .screen.leiste #tabs{grid-row:3;}
+  .screen.leiste .conn{grid-row:2;}
+  .screen.kopf.leiste{grid-template-rows:auto auto minmax(0,1fr) auto;}
+  .screen.kopf.leiste .werteleiste{grid-row:2;}
+  .screen.kopf.leiste #grid{grid-row:3;}
+  .screen.kopf.leiste #tabs{grid-row:4;}
+  .screen.kopf.leiste .conn{grid-row:3;}
+  .screen.split.leiste:not(.hoch) #playerpane,
+  .screen.split.leiste:not(.hoch) #frontpane{grid-row:1/3;}
+  .screen.split.hoch.leiste{grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto;}
+  .screen.split.hoch.auto.leiste{grid-template-rows:auto var(--auto-k,1fr) var(--auto-p,1fr) auto;}
+  .screen.split.hoch.leiste #playerpane,
+  .screen.split.hoch.leiste #frontpane{grid-row:3;}
+  .screen.split.hoch.leiste #tabs{grid-row:4;}
   /* Player-Pane Innenaufbau (Cover gross oben, Titel, Transport, Lautstaerke) */
   /* Cover = zentriertes QUADRAT, passt in die verfuegbare Flaeche (Breite ODER
      Hoehe, je nachdem was kleiner ist) -> kein Abschneiden bei flachem Tablet. */
@@ -328,7 +404,7 @@
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
   .grid{--gap:10px;--pad:10px;grid-area:1/1;
-    display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
+    display:grid;grid-template-columns:repeat(var(--cols,2),1fr);grid-auto-flow:row dense;
     grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:var(--pad);
     overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
   /* Schlanke Scrollleiste im Theme fuer JEDEN scrollenden Bereich. Ohne das
@@ -349,8 +425,19 @@
   .grid.snapy{scroll-snap-type:y mandatory;scroll-padding-top:10px;}
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
+  /* Breite Kachel (it.w = 2: Audio, Raumregelung, Energiefluss, je Kachel
+     einstellbar): zwei Spalten; der dichte Fluss (dense) fuellt die Luecke
+     davor mit der naechsten schmalen Kachel. Seiten und Rastpunkte rechnet
+     rasterLage() genauso nach. */
+  .tile.w2{grid-column:span 2;}
+  /* Kachelfaktor --ks (am .screen, gesetzt in setzeFaktor): Kachelbreite durch
+     KACHEL_REF (170 px), begrenzt auf KS_MIN..KS_MAX. Symbol, Schrift, Tasten,
+     Innenabstand, Radius, Ring, Mini-Verlauf und die Kopfzeile werden damit
+     multipliziert - eine 415-px-Kachel traegt so 32-px-Schrift und ein
+     76-px-Symbol statt derselben 16/38 wie eine 170-px-Kachel. Die eingestellten
+     Groessen (--name-size usw.) gelten als "bei 170-px-Kachel". */
   .tile{background:linear-gradient(180deg,var(--tile),rgba(var(--wash,255,255,255),.015));
-    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:16px;padding:16px;
+    border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));border-radius:calc(16px * var(--ks,1));padding:calc(16px * var(--ks,1));
     display:flex;flex-direction:column;justify-content:space-between;
     cursor:pointer;user-select:none;overflow:hidden;
     transition:background .16s,border-color .16s,transform .07s;}
@@ -364,9 +451,9 @@
     border:var(--ov-bw,1px) solid rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
   .tile .head{display:flex;justify-content:space-between;align-items:flex-start;}
   /* Mini-Verlauf (it.spark): fuellt die freie Mitte zwischen Icon und Text */
-  .tile .tspark{flex:1 1 auto;min-height:0;margin:6px 0 4px;overflow:hidden;}
+  .tile .tspark{flex:1 1 auto;min-height:0;margin:calc(6px * var(--ks,1)) 0 calc(4px * var(--ks,1));overflow:hidden;}
   .tile .tspark svg{display:block;}
-  .tile .tspark .mm{font-size:9.5px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  .tile .tspark .mm{font-size:calc(9.5px * var(--ks,1));fill:var(--muted);font-variant-numeric:tabular-nums;}
   /* Enge Kachel (kleines Panel, viele Zeilen): die Mitte ist zu niedrig -> der
      Verlauf rueckt in die Kopfzeile neben das Icon, die Angabe ersetzt die Raumzeile.
      Schmale Kachel (sparkbadge): die Angabe passt nicht in den Kopf -> ebenfalls
@@ -379,12 +466,12 @@
   .tile.sparktight .tsline,
   .tile.sparkbadge .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Kurzangabe zum Mini-Verlauf im Kopf der Kachel (vom Server formuliert) */
-  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:12px;
+  .tile .tsbadge{flex:1 1 auto;min-width:0;text-align:right;margin:3px 6px 0;font-size:calc(12px * var(--ks,1));
     color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
-  .tile .ico svg{width:var(--ico-size,38px);height:var(--ico-size,38px);}
-  .tile .ico .rawico{width:var(--ico-size,38px);height:var(--ico-size,38px);object-fit:contain;display:block;}
+  .tile .ico svg{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));}
+  .tile .ico .rawico{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));object-fit:contain;display:block;}
   /* Positionsring: Stellung von Rollladen, Tor, Fenster und Dimmer als Bogen
      um das Icon. Der Server schickt "pos" nur fuer diese Bausteine; ohne den
      Wert entsteht gar kein Element und die Kachel sieht aus wie immer.
@@ -393,7 +480,7 @@
      er dem Zustand UND dem Theme folgt, ohne eigene Farbregel. */
   .tile .icowrap{position:relative;display:inline-grid;place-items:center;}
   .tile .posring{position:absolute;left:50%;top:50%;pointer-events:none;
-    width:calc(var(--ico-size,38px) + 18px);height:calc(var(--ico-size,38px) + 18px);
+    width:calc((var(--ico-size,38px) + 18px) * var(--ks,1));height:calc((var(--ico-size,38px) + 18px) * var(--ks,1));
     transform:translate(-50%,-50%);}
   .tile .posring circle{fill:none;stroke:currentColor;stroke-width:var(--posring-w,6);}
   .tile .posring .trk{opacity:var(--posring-trk,.18);}
@@ -470,13 +557,13 @@
      ueber currentColor. Sonst bricht die eingeschraenkte Panel-WebView, sobald
      eine eigene Icon-Farbe (--ico inline) gesetzt ist -> Icon bleibt leer.
      Die Zustaende spiegeln die Farbregeln von .tile .ico (on/good/crit). */
-  .tile .ico.img{display:inline-block;width:var(--ico-size,38px);height:var(--ico-size,38px);background-color:var(--ico,var(--muted));
+  .tile .ico.img{display:inline-block;width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));background-color:var(--ico,var(--muted));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .tile.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
   .tile.good .ico.img{background-color:var(--good);}
   .tile.crit .ico.img{background-color:var(--crit-ink,var(--crit));}
   .tile .chev{color:var(--muted);opacity:.55;}
-  .tile .chev svg{width:20px;height:20px;}
+  .tile .chev svg{width:calc(20px * var(--ks,1));height:calc(20px * var(--ks,1));}
   /* Raumzeile tritt hinter Name und Zustand zurueck - aber TYPOGRAFISCH, nicht
      ueber die Farbe: sie ist leichter (400 statt 500, also leichter als die
      Zustandszeile darunter) und weiter gesperrt, was Versalien als ruhiges
@@ -484,12 +571,18 @@
      KEINE opacity mehr. theme_colors.derive() rechnet --muted so aus, dass es
      auf --tile gerade AA (4.5:1) schafft; die fruehere opacity:.85 drueckte es
      danach wieder darunter - in 9 von 17 geprueften Themes, bis auf 3.75:1. */
-  .tile .room{font-size:var(--room-size,12px);color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
+  /* Textfaktor --kst: wie --ks, aber eine Kachel, deren Name nicht in seine
+     Zeilen passt, nimmt ihn in Stufen zurueck (fitTile: kst1..kst3). */
+  .tile{--kst:var(--ks,1);}
+  .tile.kst1{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.15));}
+  .tile.kst2{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.32));}
+  .tile.kst3{--kst:max(var(--kst-min,1), calc(var(--ks,1) / 1.5));}
+  .tile .room{font-size:calc(var(--room-size,12px) * var(--ks,1));color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
-  .tile .name{font-size:var(--name-size,18px);font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
+  .tile .name{font-size:calc(var(--name-size,18px) * var(--kst,1));font-weight:var(--name-weight,450);color:var(--name-color,inherit);line-height:1.15;letter-spacing:-.01em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tile .sub{font-size:var(--sub-size,15px);color:var(--muted);font-weight:400;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
+  .tile .sub{font-size:calc(var(--sub-size,15px) * var(--kst,1));color:var(--muted);font-weight:400;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:calc(4px * var(--ks,1));}
   .tile.on .sub{color:var(--glow);}
   .tile.good{background:rgba(var(--good-rgb,82,184,129),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--good-rgb,82,184,129),var(--ov-bord,.55));}
@@ -501,11 +594,11 @@
      Gegenfarbe. Ohne --crit-ink/--crit-muted aendert sich nichts. */
   .tile.crit .name{color:var(--crit-ink,var(--name-color,inherit));}
   .tile.crit .room,.tile.crit .chev{color:var(--crit-muted,var(--muted));}
-  .tctrls{display:flex;gap:8px;justify-content:center;margin-top:6px;}
-  .tctrls .tb{width:34px;height:34px;border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
+  .tctrls{display:flex;gap:calc(8px * var(--ks,1));justify-content:center;margin-top:calc(6px * var(--ks,1));}
+  .tctrls .tb{width:calc(34px * max(1, var(--ks,1)));height:calc(34px * max(1, var(--ks,1)));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
-  .tctrls .tb svg{width:17px;height:17px;}
+  .tctrls .tb svg{width:calc(17px * max(1, var(--ks,1)));height:calc(17px * max(1, var(--ks,1)));}
   /* Enge Kachel (kleines Panel, drei Zeilen): unter dem Text ist kein Platz ->
      die Tasten ruecken in die Kopfzeile rechts neben das Icon; reicht dort die
      Breite nicht (3x3, drei Tasten des Players), treten sie an seine Stelle.
@@ -531,12 +624,17 @@
      steht gross, der Name klein darunter. Ein Messwert (Raumregelung, Sauna)
      steht gross an Stelle des Symbols (.bigv). Das Raster bleibt, wie es ist;
      die Listen-Ansicht behaelt ihren Aufbau. */
-  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:14px;}
-  .grid.lx:not(.list) .tile .head{gap:8px;}
+  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:calc(14px * var(--ks,1));}
+  .grid.lx:not(.list) .tile .head{gap:calc(8px * var(--ks,1));}
   .grid.lx:not(.list) .tile .head .room{flex:1 1 auto;min-width:0;text-align:right;margin:2px 0 0;
-    font-size:var(--room-size,13px);text-transform:none;letter-spacing:0;}
-  .grid.lx:not(.list) .tile .tspark{order:2;margin:8px 0 2px;}
-  .grid.lx:not(.list) .tile .body{order:1;margin-top:10px;display:flex;flex-direction:column;}
+    font-size:calc(var(--room-size,13px) * var(--ks,1));text-transform:none;letter-spacing:0;}
+  .grid.lx:not(.list) .tile .tspark{order:2;margin:calc(8px * var(--ks,1)) 0 2px;}
+  /* Im Kopf (sparktight) fuellt der Verlauf die Kopfhoehe wie im klassischen
+     Aufbau: die Zeile darueber ist spezifischer als .tile.sparktight .head
+     .tspark und liesse ihm sonst die senkrechten Raender - mit Faktor 0,85
+     blieben von 36 px Kopf nur 27 px Kurve. Seitlich haelt der Kopf Abstand (gap). */
+  .grid.lx:not(.list) .tile.sparktight .head .tspark{margin:0;}
+  .grid.lx:not(.list) .tile .body{order:1;margin-top:calc(10px * var(--ks,1));display:flex;flex-direction:column;}
   .grid.lx:not(.list) .tile .tsline{display:block;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;}
   /* Haupttext (--name-size) und Zweittext (--sub-size) wie eingestellt; der
      Server schickt fuer diesen Aufbau etwas kleinere Standardwerte. Lange
@@ -544,27 +642,28 @@
      Zustaende ("Soll 22,0° · heizt") stehen untereinander (subText). Farbe,
      Fett und Kursiv aus "Kacheln gestalten" (--tile-txt/-fw/-fst) gelten fuer
      den Haupttext, auch wenn er der Zustand ist. */
-  .grid.lx:not(.list) .tile .name{font-size:var(--name-size,16px);font-weight:max(500,var(--name-weight,450));
+  .grid.lx:not(.list) .tile .name{font-size:calc(var(--name-size,16px) * var(--kst,1));font-weight:max(500,var(--name-weight,450));
     line-height:1.2;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile .sub{font-size:var(--sub-size,14px);white-space:pre-line;
+  .grid.lx:not(.list) .tile .sub{font-size:calc(var(--sub-size,14px) * var(--kst,1));white-space:pre-line;
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.2;
     hyphens:auto;overflow-wrap:break-word;}
-  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:var(--name-size,16px);
+  .grid.lx:not(.list) .tile.zv .sub{order:-1;margin-top:0;font-size:calc(var(--name-size,16px) * var(--kst,1));
     font-weight:var(--tile-fw,max(500,var(--name-weight,450)));font-style:var(--tile-fst,normal);
     color:var(--tile-txt,var(--name-color,inherit));}
-  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:var(--sub-size,14px);font-weight:400;
+  .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:calc(var(--sub-size,14px) * var(--kst,1));font-weight:400;
     color:var(--muted);-webkit-line-clamp:1;}
   .grid.lx:not(.list) .tile.zv.on .sub{color:var(--glow);}
   .grid.lx:not(.list) .tile.zv.good .sub{color:var(--good);}
   .grid.lx:not(.list) .tile.zv.crit .sub{color:var(--crit-ink,var(--crit));}
   .grid.lx:not(.list) .tile.zv.crit .name{color:var(--crit-muted,var(--muted));}
-  .grid.lx:not(.list) .tile .bigv{font-size:var(--big-size,36px);font-weight:500;line-height:1;
+  .grid.lx:not(.list) .tile .bigv{font-size:calc(var(--big-size,36px) * var(--ks,1));font-weight:500;line-height:1;
     letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--name-color,inherit);}
   .grid.lx:not(.list) .tile .bigv small{font-size:.5em;font-weight:400;color:var(--muted);letter-spacing:0;}
-  .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:10px;gap:8px;}
-  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:44px;border-radius:12px;}
-  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:19px;height:19px;}
+  .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:calc(10px * var(--ks,1));gap:calc(8px * var(--ks,1));}
+  /* Tasten sind Touch-Ziele: sie wachsen mit dem Faktor, schrumpfen aber nie */
+  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ks,1)));border-radius:calc(12px * var(--ks,1));}
+  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * max(1, var(--ks,1)));height:calc(19px * max(1, var(--ks,1)));}
   /* Enge Kachel: die Tasten ruecken wie bisher in den Kopf (placeCtrls), der
      Raum macht ihnen Platz. */
   .grid.lx:not(.list) .tile.ctrltight .head .room{display:none;}
@@ -662,6 +761,12 @@
   .btn:active{transform:scale(.97);background:rgba(var(--wash,255,255,255),.09);}
   .btn.on{background:linear-gradient(180deg,rgba(var(--on-rgb,224,162,77),.22),rgba(var(--on-rgb,224,162,77),.05));
     border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--glow);}
+  .intercom-talk{display:flex;flex:0 0 auto;flex-direction:column;gap:4px;}
+  .intercom-talk-button{width:100%;color:var(--ink);font-family:inherit;touch-action:manipulation;}
+  .intercom-talk-button:disabled{opacity:.4;cursor:default;}
+  .intercom-talk-status{color:var(--muted);font-size:12px;text-align:center;overflow-wrap:anywhere;}
+  .intercom-talk.error .intercom-talk-status{color:var(--crit);}
+  .grid.panel.intercom-page>.video,.campage.intercom-page>.video{flex:1 1 auto;min-height:0;}
   /* Aufklappbare Auswahl (z.B. Klima Modus/Fan): Zeile per Toggle ein/aus */
   .brow.collapsed{display:none;}
   .brow.wraprow{flex-wrap:wrap;}
@@ -1170,6 +1275,8 @@
   <div class="conn" id="conn"></div>
   <div class="playerpane" id="playerpane"></div>
   <div class="frontpane" id="frontpane"></div>
+  <div class="kopfzeile" id="kopfzeile" hidden></div>
+  <div class="werteleiste" id="werteleiste" hidden></div>
   <div class="grid" id="grid"></div>
   <div class="tabs" id="tabs"></div>
   <div class="saver hidden" id="saver">
@@ -1269,6 +1376,7 @@ function abosVergessen(){ curEnergyUuid=''; curCameraUuid=''; curPlayerZone=''; 
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
+let gridGrow = 1;        // ... bis zu diesem Vielfachen wachsen die Kacheln, wenn alle auf eine Seite passen (vom Server)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -1358,6 +1466,94 @@ function send(o){ ws && ws.readyState===1 && ws.send(JSON.stringify(o)); }
 function nav(route){ stack.push(route); send({t:'nav',route}); }
 function goTab(tab){ stack=[{view:'tab',tab}]; send({t:'nav',route:stack[0]}); }
 function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stack.length-1]}); } }
+
+// Gegensprechen ist eine native Faehigkeit der LoxPanel-App. Der Server nennt
+// nur die Baustein-UUID; SIP-Zugang und Audio bleiben in der App. Beide Panes
+// teilen einen Status, der ausschliesslich die Sprech-Bedienung aktualisiert.
+function intercomNative(){
+  const b=window.LoxKiosk;
+  return !!(b && typeof b.startIntercom==='function' && typeof b.stopIntercom==='function'
+    && typeof b.intercomStatus==='function'); }
+function intercomBlocks(blocks){ return blocks.filter(b=>
+  !(b.nativeOnly || b.k==='intercom-talk') || intercomNative()); }
+let intercomState={state:'idle',uuid:'',message:''}, intercomReadAt=0;
+const INTERCOM_ACTIVE=['connecting','connected','ending'];
+const INTERCOM_TEXT={idle:'',connecting:'Verbindung wird aufgebaut …',connected:'Gespräch verbunden',
+  ending:'Gespräch wird beendet …',error:'Gegensprechen ist derzeit nicht verfügbar'};
+function intercomRead(force){
+  if(!intercomNative() || (!force && Date.now()-intercomReadAt<500)) return;
+  intercomReadAt=Date.now();
+  try{
+    const s=JSON.parse(LoxKiosk.intercomStatus());
+    if(!s || !Object.prototype.hasOwnProperty.call(INTERCOM_TEXT,s.state)
+      || typeof s.uuid!=='string' || typeof s.message!=='string') throw new Error('Status');
+    intercomState={state:s.state,uuid:s.uuid,message:s.message.slice(0,240)};
+  }catch(e){ intercomState={state:'error',uuid:'',message:INTERCOM_TEXT.error}; }
+}
+function intercomTalkHtml(b){ return '<div class="intercom-talk" data-intercom="'+esc(b.uuid)+'">'+
+  '<button type="button" class="btn intercom-talk-button">Sprechen</button>'+
+  '<div class="intercom-talk-status" role="status" hidden></div></div>'; }
+function intercomPaint(){
+  const s=intercomState, active=INTERCOM_ACTIVE.includes(s.state);
+  document.querySelectorAll('.intercom-talk').forEach(e=>{
+    const own=s.uuid===e.dataset.intercom, other=active&&!own;
+    const btn=e.querySelector('.intercom-talk-button'), status=e.querySelector('.intercom-talk-status');
+    btn.textContent=active&&own?'Auflegen':'Sprechen';
+    btn.disabled=other || (own&&s.state==='ending');
+    btn.classList.toggle('on',active&&own);
+    const text=other?'Gespräch an anderer Türstation':
+      (own || !s.uuid ? s.message||INTERCOM_TEXT[s.state] : '');
+    status.textContent=text; status.hidden=!text;
+    e.classList.toggle('error',s.state==='error'&&(own||!s.uuid));
+  });
+}
+function intercomTalk(uuid){
+  if(!intercomNative()) return;
+  intercomRead(true);
+  const active=INTERCOM_ACTIVE.includes(intercomState.state);
+  if((active&&intercomState.uuid!==uuid) || intercomState.state==='ending'){ intercomPaint(); return; }
+  let accepted=false;
+  try{ accepted=active?LoxKiosk.stopIntercom():LoxKiosk.startIntercom(uuid); }catch(e){}
+  if(accepted===true){
+    // Die Bruecke fuehrt den Auftrag auf dem App-Thread aus. Bis zur naechsten
+    // Statusabfrage bleibt ein zweiter Tipp daher bereits als Auflegen sichtbar.
+    intercomState={state:active?'ending':'connecting',uuid,message:''}; intercomReadAt=Date.now();
+  }else{
+    intercomRead(true);
+    if(INTERCOM_ACTIVE.includes(intercomState.state)){
+      if(intercomState.uuid===uuid) intercomState.message='Gespräch konnte nicht beendet werden';
+    }else if(intercomState.state!=='error') intercomState={state:'error',uuid,message:INTERCOM_TEXT.error};
+  }
+  intercomPaint();
+}
+function intercomBind(container){
+  const talks=container.querySelectorAll('.intercom-talk');
+  if(!talks.length) return;
+  talks.forEach(e=>{
+    const btn=e.querySelector('.intercom-talk-button');
+    if(!btn._intercomBound){ btn._intercomBound=true; btn.addEventListener('click',()=>intercomTalk(e.dataset.intercom)); }
+  });
+  intercomRead(false); intercomPaint();
+}
+setInterval(()=>{
+  if(!document.querySelector('.intercom-talk')) return;
+  intercomRead(true); intercomPaint();
+},500);
+// Die App gibt die Bruecke erst dem fertig geladenen, lokalen Hauptdokument.
+// Bereits laufendes Video bei dieser Freigabe ebenfalls unangetastet lassen.
+window.addEventListener('loxpanel-intercom-ready',()=>{
+  if(!intercomNative()) return;
+  const g=el('grid'), talk=view&&view.blocks&&intercomBlocks(view.blocks).find(b=>b.k==='intercom-talk');
+  if(g && g.classList.contains('panel') && talk && !g.querySelector('.intercom-talk')){
+    const ring=g.querySelector('[data-rowid="klingel"]');
+    if(ring) ring.insertAdjacentHTML('beforebegin',intercomTalkHtml(talk));
+    else g.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
+    g.classList.add('intercom-page'); g.dataset.bsig=blockSig(view.blocks);
+    intercomBind(g); panelEinpassen();
+  }
+  const fp=el('frontpane');
+  if(fp && paneKind(paneRawNow())==='camera') renderCameraPane(fp);
+});
 
 // ---- Befehle und Visu-PIN (gesicherte Bausteine, isSecured) ----
 // Jeder Befehl geht ueber sendCmd(); nur cmdSchicken() baut {t:'cmd'}. Bei
@@ -1624,7 +1820,7 @@ function openMenu(btn, items){
 // lassen. Bei den Favoriten zaehlt der Inhalt (Name, Cover, Befehl): updatePanel
 // patcht sie nicht, und der Tipp haelt den Favoriten vom Aufbau fest.
 function blockSig(blocks){
-  return blocks.filter(b=>b.k!=='more').map(b=>
+  return intercomBlocks(blocks).filter(b=>b.k!=='more').map(b=>
     b.k==='row' ? 'row'+b.cells.length+(b.hidden?'h':'')
     : b.k==='favs' ? 'favs'+JSON.stringify((b.items||[]).map(f=>[f.label,f.cover,f.cmd]))
     : b.k==='alarmlist' ? 'alarm'+JSON.stringify(b.entries||[])
@@ -1632,6 +1828,7 @@ function blockSig(blocks){
     : b.k==='stepper' ? 'stp'+(b.cmd?1:0)+(b.sub?1:0)
     : b.k==='chips' ? 'chips'+(b.multi?'m':'')+(b.items?b.items.length:0)
     : b.k==='gallery' ? 'gal'+(b.items||[]).map(i=>i.src).join(',')
+    : b.k==='intercom-talk' ? 'intercom-talk'+b.uuid
     : b.k).join('|');
 }
 // ---- Verlaufs-Diagramme (Block k:'chart'). Die Daten stammen aus den
@@ -1779,7 +1976,7 @@ function paintChartStack(page,charts){
 //   span     Tagesspanne: je Tag ein Balken Tiefst- bis Hoechstwert, Strich = Mittel
 // Ein Farbton (Akzent) fuer alle Werte, Beschriftung in der Textfarbe (--muted).
 function sparkSvg(sp,W,H){
-  if(!sp || sp.state!=='ok' || W<24 || H<18) return '';
+  if(!sp || sp.state!=='ok' || W<SPARK_MIN_W || H<18) return '';
   const f=n=>n.toFixed(1), dec=sp.dec||0, acc='var(--accent)';
   const txt=(x,y,t,anc,extra)=>'<text class="mm" x="'+f(x)+'" y="'+f(y)+'" text-anchor="'+(anc||'middle')+'"'+(extra||'')+'>'+esc(t)+'</text>';
   let s='';
@@ -1835,6 +2032,68 @@ function sparkSvg(sp,W,H){
 }
 // Mini-Verlauf in seinen Platz zeichnen; nur neu, wenn sich Daten oder Groesse aendern.
 const SPARK_MIN_H=36;   // px: niedrigere Mitte -> Verlauf in die Kopfzeile (enge Kachel)
+// Schmaler zeichnet sparkSvg() keinen Verlauf: sieben Tagesbalken auf 27 px
+// waeren Rauschen (so breit blieb der Kopf einer 120-px-Kachel bei Faktor 0,85,
+// vorher unter 24 px -> keiner). Absolute Pixel wie SPARK_MIN_H.
+const SPARK_MIN_W=40;
+// ---- Kachelfaktor ----
+// Der Inhalt einer Kachel waechst mit ihrer Breite: Faktor = Breite / KACHEL_REF,
+// begrenzt auf KS_MIN..KS_MAX, als --ks am .screen (CSS multipliziert damit
+// Symbol, Schrift, Tasten, Innenabstand, Ring, Mini-Verlauf und Kopfzeile).
+// Vorher standen 16-px-Schrift und 38-px-Symbol auf jeder Kachel, ob 122 oder
+// 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
+// beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
+const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE_H=48;
+let kachelFaktor=1;
+// Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
+// traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
+function kachelFaktorFuer(breite, hoehe){
+  const k=Math.min(breite/KACHEL_REF, (hoehe>0) ? hoehe/KACHEL_REF_H : Infinity);
+  return Math.min(KS_MAX, Math.max(KS_MIN, k)); }
+function setzeFaktor(ks){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  kachelFaktor=ks;
+  sc.style.setProperty('--ks', ks.toFixed(3));
+  sc.style.setProperty('--kst-min', ks>=1 ? '1' : '0.6');   // Untergrenze der Textstufen (s. fitTile)
+  sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
+  sc.style.setProperty('--leiste-h', Math.round(LEISTE_H*ks)+'px');   // Werteleiste waechst mit
+  kopfEinpassen();   // Schrift und Hoehe der Kopfzeile haengen am Faktor: neu einpassen
+}
+function kachelGemessen(){ const g=el('grid');
+  const t=g.querySelector('.tile[data-id]:not(.w2)')||g.querySelector('.tile[data-id]');
+  if(!t) return kachelFaktor;
+  // nur breite Kacheln auf der Seite: eine misst sich als die schmale, die sie ersetzt
+  const gap=parseFloat(getComputedStyle(g).getPropertyValue('--gap'))||0;
+  return kachelFaktorFuer(t.classList.contains('w2') ? (t.clientWidth-gap)/2 : t.clientWidth, t.clientHeight); }
+// Festes Raster: Faktor aus der ersten Kachel. Mit Kopfzeile haengt die
+// Kachelhoehe an --kopf-h und die wieder am Faktor (Codex-Befund: einmal
+// gemessen hing der Faktor an der Seite davor, deren Faktor die Kopfzeile
+// noch hatte). Darum nachmessen, bis er steht: die Kopfzeile wiegt
+// KOPF_H * Faktor auf zwei oder drei Zeilen, zwei Durchgaenge reichen.
+function faktorEinmessen(){
+  for(let i=0;i<4;i++){
+    const ks=kachelGemessen();
+    if(Math.abs(ks-kachelFaktor)<0.005) return;
+    setzeFaktor(ks);
+  }
+}
+// Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
+// neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
+function faktorNachziehen(){
+  if(!view || view.widget || el('grid').classList.contains('panel')) return;
+  const vorher=kachelFaktor;
+  if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
+  else faktorEinmessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01) kachelnNeuMessen();
+}
+function kachelnNeuMessen(){
+  el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
+    n._fitText=null; n._ctrlText=null;
+    if(n._it && n._it.controls) placeCtrls(n);
+    if(n._it && n._it.spark){ const sp=n.querySelector('.tspark'); if(sp) paintSpark(sp, n._it.spark); }
+    fitTile(n);
+  });
+}
 function paintSpark(el,sp){
   if(!el) return;
   const tile=el.closest('.tile');
@@ -1850,15 +2109,20 @@ function paintSpark(el,sp){
     if(vorher!==tile.classList.contains('sparkbadge')) placeSpark(el,sp,tile);
   }
 }
+// Freie Mitte fuer den Verlauf = Innenhoehe der Kachel minus alles ausser dem
+// Verlauf (und seinem Rand). Gleich, ob der Verlauf gerade in der Mitte oder
+// im Kopf steht: dort gibt das Symbol die Hoehe vor, er fuellt sie nur.
+function sparkFrei(tile,el){
+  const cs=getComputedStyle(tile);
+  let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
+  for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
+  return free;
+}
 // Verlauf in die Mitte oder (zu niedrige Mitte) in die Kopfzeile setzen und zeichnen.
 function placeSpark(el,sp,tile){
   const head=tile&&tile.querySelector('.head');
   if(head){
-    // Freie Mitte = Innenhoehe der Kachel minus alles ausser dem Verlauf (und seinem Rand)
-    const cs=getComputedStyle(tile);
-    let free=tile.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-10;
-    for(const ch of tile.children) if(ch!==el) free-=ch.offsetHeight;
-    const tight=free<SPARK_MIN_H;
+    const tight=sparkFrei(tile,el)<SPARK_MIN_H;   // absolute Pixel: eine Kurve braucht Hoehe, nicht den Faktor
     if(tight!==tile.classList.contains('sparktight') || tight!==(el.parentNode===head)){
       tile.classList.toggle('sparktight',tight);
       if(tight) head.insertBefore(el,head.firstElementChild.nextSibling);
@@ -1892,20 +2156,64 @@ function placeCtrls(tile){
 function fitTile(tile){
   if(!tile || !tile.clientHeight) return;
   const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
-  if(tile._fitText===text && tile._fitH===h) return;
-  tile._fitText=text; tile._fitH=h;
-  tile.classList.remove('eng1','eng2','eng3');
-  if(!kachelNeu()) return;
-  for(const stufe of ['eng1','eng2','eng3']){
-    if(tile.scrollHeight<=h+1) return;
-    tile.classList.add(stufe);
+  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor) return;
+  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor;
+  tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
+  // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
+  // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
+  // bekommt der Text Stufe fuer Stufe weniger Faktor (kst1..kst3, CSS). Ueber
+  // Faktor 1 geht es hoechstens auf 1 zurueck, den Stand ohne Faktor; auf
+  // kleiner Kachel (Faktor unter 1) auch darunter: ein kleiner, ganzer Text
+  // liest sich besser als ein grosser mit "...". Symbol und Tasten behalten
+  // ihre Groesse.
+  const texte=[...tile.querySelectorAll('.body .name, .body .sub')];
+  const passt=()=>texte.every(e=>e.scrollHeight<=e.clientHeight+1 && e.scrollWidth<=e.clientWidth+1);
+  const STUFEN=['kst1','kst2','kst3'];
+  const setzeStufe=s=>{ tile.classList.remove(...STUFEN); if(s) tile.classList.add(s); };
+  const textStufen=()=>{ if(!texte.length) return;
+    setzeStufe(null);
+    for(const stufe of STUFEN){
+      if(passt()) break;
+      setzeStufe(stufe);
+    } };
+  // Mini-Verlauf: ueber Faktor 1 gibt der Text seinen Zuwachs her (hoechstens
+  // bis Faktor 1, s. --kst-min), wenn ein Zustand, der mit dem Faktor auf zwei
+  // Zeilen ging ("4,200 kW • 9,1 MWh" auf der 200-px-Kachel), damit wieder in
+  // EINE passt und der Verlauf so seine Mindesthoehe in der Mitte bekommt.
+  // Eine Stufe, die nur die Schrift verkleinert, ohne eine Zeile zu loesen,
+  // zaehlt nicht: sie braechte die Mitte hoechstens knapp ueber die Schwelle
+  // und einen gequetschten Verlauf. Bringt keine Stufe eine Zeile zurueck,
+  // bleibt der Text gross und placeSpark() setzt den Verlauf in den Kopf.
+  const zeilen=()=>texte.reduce((n,e)=>{ const r=document.createRange(); r.selectNodeContents(e); return n+r.getClientRects().length; },0);
+  const sparkStufen=()=>{
+    const sp=tile.querySelector('.tspark');
+    if(!sp || !tile.querySelector('.head') || kachelFaktor<=1 || sparkFrei(tile,sp)>=SPARK_MIN_H) return;
+    const vorher=STUFEN.find(s=>tile.classList.contains(s))||null, z0=zeilen();
+    for(let i=STUFEN.indexOf(vorher)+1; i<STUFEN.length; i++){
+      setzeStufe(STUFEN[i]);
+      if(zeilen()<z0 && sparkFrei(tile,sp)>=SPARK_MIN_H) return;
+    }
+    setzeStufe(vorher);
+  };
+  textStufen();
+  if(kachelNeu()){
+    for(const stufe of ['eng1','eng2','eng3']){
+      if(tile.scrollHeight<=h+1) break;
+      tile.classList.add(stufe);
+    }
+    textStufen();   // eng1 kappt den Text auf eine Zeile: dann lieber kleiner und ganz
   }
+  sparkStufen();
+  // Die Stufen aendern die Hoehe der Mitte: der Verlauf findet seinen Platz neu
+  // (Mitte oder Kopf); ohne Aenderung zeichnet placeSpark() nichts neu.
+  if(tile._it && tile._it.spark) paintSpark(tile.querySelector('.tspark'), tile._it.spark);
 }
 function paintCharts(g,blocks){
   const els=[...g.querySelectorAll('[data-chart]')];
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
 }
 function renderPanel(blocks){
+  blocks=intercomBlocks(blocks);
   stopVideo();
   closeMenu();
   document.querySelectorAll('.galov').forEach(o=>o.remove());
@@ -1915,6 +2223,7 @@ function renderPanel(blocks){
   el('grid').classList.remove('list','snapy','scheme','fronttab','lx');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
+  el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
@@ -1939,6 +2248,7 @@ function renderPanel(blocks){
     if(b.k==='astat') return '<div class="astat'+(b.tone==='crit'?' crit':'')+'">'+esc(b.text||'')+(b.sub?'<div class="astatsub">'+esc(b.sub)+'</div>':'')+'</div>';
     if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span><button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
     if(b.k==='row') return '<div class="brow'+(b.cells.some(c=>c.icon)?' transport':'')+(b.wrap?' wraprow':'')+(b.hidden?' collapsed':'')+'"'+(b.id?' data-rowid="'+esc(b.id)+'"':'')+'>'+b.cells.map(cellHtml).join('')+'</div>';
+    if(b.k==='intercom-talk') return intercomTalkHtml(b);
     if(b.k==='head') return '<div class="phead">'+esc(b.text||'')+'</div>';
     if(b.k==='chart') return chartBoxHtml(b);   // Inhalt zeichnet paintChart nach dem Einfuegen
     if(b.k==='favs') return '<div class="favs'+(b.wrap?' wrap':'')+'">'+b.items.map((f,i)=>'<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+'</div><div class="favn">'+esc(f.label)+'</div></div>').join('')+'</div>';
@@ -2033,6 +2343,7 @@ function renderPanel(blocks){
     // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
     n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,{ok:back}); }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
+  intercomBind(g);
   renderTabs();
   panelEinpassen();
 }
@@ -2042,6 +2353,7 @@ function panelEinpassen(){
   if(g.scrollHeight>g.clientHeight+1) g.classList.add('eng');
 }
 function updatePanel(blocks){
+  blocks=intercomBlocks(blocks);
   const g=el('grid');
   // Struktur anders als zuletzt gerendert (Zeile/Status/Favorit dazu oder weg,
   // Favoriten per roomfav/get nachgeliefert)? Dann komplett neu aufbauen.
@@ -2074,6 +2386,7 @@ function updatePanel(blocks){
   });
   nth('stepper','.stp',(e,b)=>stepperUpdate(e,b));
   formPruefen(g);
+  intercomBind(g);
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
@@ -2165,9 +2478,14 @@ function renderTabs(){
 // ueber dem sichtbaren Bereich).
 function springeZu(d){
   const g=el('grid'), tiles=[...g.querySelectorAll('.tile[data-id]')];
-  const pg=(view && view.layout==='list') ? 4 : gridCols*gridRows;
   const i=tiles.indexOf(d);
-  const ziel=(i>=0 && g.classList.contains('snapy')) ? tiles[Math.floor(i/pg)*pg] : d;
+  let ziel=d;
+  if(i>=0 && g.classList.contains('snapy')){
+    if(view && view.layout==='list') ziel=tiles[Math.floor(i/4)*4];
+    else {   // erste Kachel in der ersten Zeile der Seite (Lage aus rasterLage, breite Kacheln mitgerechnet)
+      const z=g._zeile||[], start=Math.floor((z[i]||0)/gridRows)*gridRows, j=z.findIndex(r=>r===start);
+      if(j>=0) ziel=tiles[j]; }
+  }
   ziel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 // Kacheln der Gruppe kurz hervorheben: auch wenn nichts scrollt (die Gruppe
@@ -2223,20 +2541,106 @@ function applyHoch(){
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
-function paneRawNow(){ return (view && view.widget) ? view.widget : (themeSplit ? paneForTab(activeTab()) : null); }
+function paneRawNow(){ if(view && view.widget) return view.widget;
+  const v=paneForTab(activeTab());
+  // Die Kopfzeile ist keine Pane: sie gilt auch mit Split "Aus" (4"-Panel),
+  // ein Widget daneben nur im 2-Pane-Betrieb.
+  return (themeSplit || paneKind(v)==='header') ? v : null; }
 function paneKind(v){ if(!v) return null;
-  for(const k of ['player','energy','camera','chart','status']) if(v.indexOf(k+':')===0) return k;
+  for(const k of ['player','energy','camera','chart','status','header']) if(v.indexOf(k+':')===0) return k;
   return v; }
+// ---- Kopfzeile (Widget "header") ----
+// Uhr, Wetter kurz und bis zu SV_STATUS_MAX Werte in einer Zeile ueber dem
+// Kachelraster. Kein Split: der Kasten bekommt nur eine Zeile mehr. Die Werte
+// kommen wie bei "status" per {t:'svstatus'} (setsvstatus in applyPane), das
+// Wetter aus {t:'front'}, die Uhr tickt mit tickClock().
+function kopfAktiv(){ return paneKind(paneRawNow())==='header'; }
+function kopfHoehe(ks){ return kopfAktiv() ? Math.round(KOPF_H*(ks||kachelFaktor)) : 0; }
+// Ein Wert als Chip (Symbol, Wert, Name) - Kopfzeile und Werteleiste; attrs:
+// weitere Attribute (data-i, data-id der Werteleiste)
+function kopfWertHtml(it, attrs){
+  const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
+  const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
+    : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+    : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+  return '<div class="kz-w'+ton+'"'+(attrs||'')+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
+    '<span class="vl">'+esc(it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>';
+}
+function kopfWerteHtml(items){ return items.map(it=>kopfWertHtml(it)).join(''); }
+function renderKopfzeile(){
+  const kz=el('kopfzeile'); if(!kz || !kopfAktiv()) return;
+  const d=frontData||{}, w=d.weather;
+  let html='<div class="kz-uhr"><span class="t" id="kzTime">--:--</span><span class="d" id="kzDate"></span></div>';
+  if(w){ html+='<div class="kz-wx"><span class="ico">'+wxSvg(w.icon)+'</span><span class="t">'+tdeg(w.temp)+'</span>'+
+    '<span class="m"><span class="c">'+esc(w.cond||'')+'</span>'+
+    ((w.hi!=null||w.lo!=null)?'<span>Heute '+tdeg(w.hi)+' / '+tdeg(w.lo)+'</span>':'')+'</span></div>'; }
+  // Werte nur, wenn die Kopfzeile welche nennt ("header:<uuid>,…") und der
+  // Server sie schon geschickt hat; solange nicht, steht dort nichts.
+  const items=(svArg(paneRawNow()||'') && Array.isArray(svStatusData)) ? svStatusData : [];
+  if(items.length) html+='<div class="kz-werte">'+kopfWerteHtml(items)+'</div>';
+  kz.innerHTML=html; tickClock(); kopfEinpassen();
+}
+// Was rechts nicht mehr in die Zeile passt, bleibt weg - lieber drei ganze
+// Werte als vier angeschnittene.
+function kopfEinpassen(){
+  const kz=el('kopfzeile'); if(!kz || kz.hidden) return;
+  const box=kz.querySelector('.kz-werte'); if(!box) return;
+  const rechts=box.getBoundingClientRect().right;
+  [...box.children].forEach(c=>{ c.hidden=false; });
+  [...box.children].forEach(c=>{ if(c.getBoundingClientRect().right > rechts+1) c.hidden=true; });
+}
+// ---- Werteleiste (ui.valueBar, view.leiste) ----
+// Die Anzeige-Bausteine einer Seite (Messwerte, Zaehler, Texte, Ein/Aus-
+// Anzeigen) als Kette von Werten in EINER Zeile ueber dem Raster statt als
+// Kacheln; der Server trennt sie (_leiste_trennen), das Raster bleibt dem
+// Bedienbaren. Dieselben Chips wie die Werte der Kopfzeile, ein Tipp oeffnet
+// wie die Kachel die Wertseite. Was nicht in die Zeile passt, scrollt
+// waagerecht - nicht ausblenden wie dort: diese Werte haben keine Kachel mehr.
+function leisteAktiv(){ return !!(view && !view.widget && !view.front && Array.isArray(view.leiste) && view.leiste.length); }
+function leisteHoehe(ks){ return leisteAktiv() ? Math.round(LEISTE_H*(ks||kachelFaktor)) : 0; }
+function leisteChip(it,i){ return kopfWertHtml(it, ' data-i="'+i+'" data-id="'+esc(String(it.id))+'"'); }
+function renderLeiste(){
+  const lz=el('werteleiste'), sc=document.querySelector('.screen'); if(!lz || !sc) return;
+  const an=leisteAktiv();
+  sc.classList.toggle('leiste', an); lz.hidden=!an;
+  if(!an){ lz.innerHTML=''; return; }
+  lz.innerHTML=view.leiste.map(leisteChip).join('');
+  lz.querySelectorAll('.kz-w').forEach(n=>{ n.onclick=()=>{ const it=view.leiste[+n.dataset.i]; if(it&&it.nav) nav(it.nav); }; });
+}
+// Gleiche Seite, neue Werte: nur Zustand, Symbol und Texte der Chips nachziehen,
+// die Zeile bleibt stehen (Scroll-Lage, keine neuen Elemente). Andere Werte
+// oder eine andere Anzahl -> false, dann baut render() neu.
+function updateLeiste(items){
+  const lz=el('werteleiste'); if(!lz) return false;
+  const neu=Array.isArray(items)?items:[];
+  const nodes=lz.hidden?[]:[...lz.querySelectorAll('.kz-w')];
+  if(nodes.length!==neu.length) return false;
+  for(let i=0;i<neu.length;i++){ if(String(neu[i].id)!==nodes[i].dataset.id) return false; }
+  neu.forEach((it,i)=>{
+    const n=nodes[i], tmp=document.createElement('div'); tmp.innerHTML=leisteChip(it,i);
+    const soll=tmp.firstChild;
+    if(n.className!==soll.className) n.className=soll.className;
+    if((n.getAttribute('style')||'')!==(soll.getAttribute('style')||'')) n.setAttribute('style', soll.getAttribute('style')||'');
+    ['.ico','.vl','.nm'].forEach(q=>{ const a=n.querySelector(q), b=soll.querySelector(q); if(a&&b&&a.outerHTML!==b.outerHTML) a.outerHTML=b.outerHTML; });
+  });
+  return true;
+}
+// Mausrad ueber der Zeile scrollt sie waagerecht (am Touch-Panel wischt man)
+{ const lz=el('werteleiste'); if(lz) lz.addEventListener('wheel', e=>{
+    if(Math.abs(e.deltaY)>Math.abs(e.deltaX) && lz.scrollWidth>lz.clientWidth){ lz.scrollLeft+=e.deltaY; e.preventDefault(); } }, {passive:false}); }
 function applyPane(){
   const sc=document.querySelector('.screen'); if(!sc) return;
   // Widget-Seite (Vollbild-Tab): das ganze Tab IST das Widget, kein Kachelgrid,
   // kein Split. Sonst die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb).
   const wt = (view && view.widget) ? view.widget : null;
-  const raw = wt ? wt : (themeSplit?paneForTab(activeTab()):null);
+  const raw = paneRawNow();   // Widget-Seite, Pane 2 (nur mit Split) oder Kopfzeile (immer)
   const kind=paneKind(raw);
   const isPane=(kind==='player'||kind==='weather'||kind==='calendar'||kind==='energy'||kind==='camera'||kind==='chart'||kind==='status');   // Widget in Pane 2
+  const isKopf=(kind==='header' && !wt);   // Kopfzeile ueber dem Raster, kein Split
   sc.classList.toggle('widgettab', !!wt);   // Widget fuellt die ganze Flaeche
   sc.classList.toggle('split', isPane && !wt);   // Widget in Pane 2 -> zweigeteilt
+  sc.classList.toggle('kopf', isKopf);
+  { const kz=el('kopfzeile'); if(kz){ kz.hidden=!isKopf; if(isKopf) renderKopfzeile(); else kz.innerHTML=''; } }
   applyHoch();
   sc.classList.toggle('fill', themeFill || gridAuto>0);  // "Bildschirm fuellen" fuellt Split UND Screen-fuellen
   sc.classList.toggle('auto', gridAuto>0);   // automatisches Raster: Widget auf ganzen Kachelspalten
@@ -2288,8 +2692,11 @@ function applyPane(){
   // pusht {t:'player'} mit Cover/Titel/Transport.
   const zone=qarg(qraw,'player:');
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
-  // Frei gewaehlte Werte (status) ebenso kontextabhaengig — Pane 2 ODER Uhr-Seite.
-  const suu = (svKind(qraw)==='status') ? svArg(qraw) : ((svKind(qraw)==='camera') ? camPaneWerte(svArg(qraw)) : '');
+  // Frei gewaehlte Werte (status) ebenso kontextabhaengig — Pane 2, Kopfzeile
+  // ODER Uhr-Seite; die Kopfzeile nennt ihre Werte als "header:<uuid>,…", die
+  // Kamera-Pane ihre Werte unter dem Bild als "camera:<uuid>|<uuid>,…".
+  const suu = (svKind(qraw)==='status' || svKind(qraw)==='header') ? svArg(qraw)
+            : ((svKind(qraw)==='camera') ? camPaneWerte(svArg(qraw)) : '');
   if(suu!==curSvStatus){ curSvStatus=suu; svStatusData=null;
     try{ send({t:'setsvstatus', uuids: suu?suu.split(','):[]}); }catch(e){} }
 }
@@ -2326,6 +2733,10 @@ function kachelNeu(){ return tileLayout!=='classic' && !(view && view.layout==='
 function subText(it){
   if(!kachelNeu()) return it.sublabel||'';
   const s=(it.big!=null && it.bigSub!=null) ? it.bigSub : (it.sublabel||'');
+  // Breite Kachel (zwei Spalten): die Teile bleiben nebeneinander, dafuer hat
+  // sie die Breite - untereinander kosteten sie auf einer 126-px-Kachel die
+  // Hoehe und die Eng-Stufe kappte den zweiten Teil.
+  if(it.w===2 && gridCols>=2) return s;
   return s.replace(/ · /g,'\n');   // Teile untereinander (white-space:pre-line)
 }
 // Zustand vorn: der Zustand steht gross, der Name klein darunter. Nicht bei
@@ -2378,7 +2789,11 @@ function updateGrid(items){
   const nodes=g.querySelectorAll('.tile[data-id]');
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
-  const _pg=(view.layout==='list'?4:gridCols*gridRows);
+  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
+  g._zeile=lage.zeile;
+  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);
   let ok=true;
   items.forEach((it,i)=>{
     const n=nodes[i];
@@ -2386,8 +2801,8 @@ function updateGrid(items){
     // Klassen, die placeCtrls()/paintSpark() nach dem Messen setzen, bleiben
     // stehen: sonst verloere eine enge Kachel bei jedem Zustandswechsel, der
     // ihren Text nicht aendert (Player: Pause), die Lage ihrer Tasten.
-    const cls='tile'+tileTone(it)+aufbauKlassen(it)+(i%_pg===0?' snap':'')+
-      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^eng\d$/.test(c)).map(c=>' '+c).join('');
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+breit(it)+(snapAt(i)?' snap':'')+
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
     if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
@@ -2453,21 +2868,69 @@ function rasterFuer(widget){
 // Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
 const PANE_ANTEIL = 0.4;
+// Die Automatik kennt die Kacheln der Seite (_lastBreiten: 1 oder 2 Spalten
+// je Kachel, aus render()): passen alle auf eine Seite, wachsen die Kacheln,
+// bis die Seite voll ist, hoechstens auf gridGrow * Zielgroesse
+// (KACHEL_WACHSEN vom Server, mit der theme-Nachricht). Mehr Kacheln als
+// Platz -> Zielgroesse und Blaettern wie bisher. Mit Widget daneben wachsen
+// sie nicht: das Widget belegt ganze Kachelspalten, mit weniger Spalten
+// liesse sich sein Anteil (PANE_ANTEIL) nicht halten (2 von 5 Spalten sind
+// 40 %, 2 von 4 schon 50 %).
+let _lastBreiten = [];
+// Lage der Kacheln im Raster, wie CSS sie setzt (grid-auto-flow: row dense):
+// je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
+// Luecke davor fuellt die naechste schmale Kachel. Daraus die Seitenzahl und
+// die Rastpunkte (jede Kachel in der ersten Zeile einer Seite).
+function rasterLage(breiten, cols, rows){
+  const belegt=[], zeile=[];
+  const frei=(r,c,w)=>{ for(let k=0;k<w;k++) if(belegt[r] && belegt[r][c+k]) return false; return true; };
+  for(const b of breiten){
+    const w=Math.min(b===2?2:1, Math.max(1,cols));
+    let r=0, c=-1;
+    while(c<0){ for(let cc=0; cc+w<=cols; cc++){ if(frei(r,cc,w)){ c=cc; break; } } if(c<0) r++; }
+    belegt[r]=belegt[r]||[]; for(let k=0;k<w;k++) belegt[r][c+k]=true;
+    zeile.push(r);
+  }
+  // Rastpunkte: je Seite die erste Kachel (im DOM) in ihrer ersten Zeile
+  const snaps=new Set(), gesehen=new Set();
+  zeile.forEach((z,i)=>{ if(z%Math.max(1,rows)===0 && !gesehen.has(z)){ gesehen.add(z); snaps.add(i); } });
+  return {zeile:zeile, seiten:Math.max(1, Math.ceil(belegt.length/Math.max(1,rows))), snaps:snaps};
+}
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const vp=vpSize(), w=vp.w, h=Math.max(1, vp.h-(tabs?tabs.offsetHeight:0));
+  const vp=vpSize(), w=vp.w, tabsH=tabs?tabs.offsetHeight:0, hoch=vp.h>vp.w;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
-  const cols=anzahl(w, gridAuto);
-  const rows=anzahl(h, (w-2*pad-(cols-1)*gap)/cols);
-  if(!widget) return {cols:cols, rows:rows, k:1, p:0};
   const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
-  if(vp.h>vp.w){   // hochkant: Widget unter den Kacheln
-    if(rows<2) return {cols:cols, rows:1, k:1, p:1};
-    const p=abgeben(rows); return {cols:cols, rows:rows-p, k:rows-p, p:p};
+  // Raster fuer eine Spaltenzahl (vor dem Abgeben an das Widget): Kachelbreite
+  // -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen. Mit der Zeilenzahl steht
+  // die Hoehe fest; ist die Kachel flach, begrenzt sie den Faktor (die
+  // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
+  const fuer=gesamt=>{
+    const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
+    const h=vp.h-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw);
+    const rows=anzahl(h, kb);
+    const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
+    let r;
+    if(!widget) r={cols:gesamt, rows:rows, k:1, p:0, ks:ks};
+    else if(hoch){   // hochkant: Widget unter den Kacheln
+      if(rows<2) r={cols:gesamt, rows:1, k:1, p:1, ks:ks};
+      else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks}; } }
+    else if(gesamt<2) r={cols:1, rows:rows, k:1, p:1, ks:ks};
+    else { const p=abgeben(gesamt); r={cols:gesamt-p, rows:rows, k:gesamt-p, p:p, ks:ks}; }
+    r.gesamt=gesamt; r.kb=kb;
+    return r;
+  };
+  let r=fuer(anzahl(w, gridAuto));
+  const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
+  if(!widget && passt(r.cols,r.rows)){
+    for(let c=r.gesamt-1; c>=1; c--){
+      const n=fuer(c);
+      if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
+      r=n;
+    }
   }
-  if(cols<2) return {cols:1, rows:rows, k:1, p:1};
-  const p=abgeben(cols); return {cols:cols-p, rows:rows, k:cols-p, p:p};
+  return r;
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
@@ -2484,13 +2947,18 @@ function render(){
   // das 4"-Panel in der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster
   // wie beim Screensaver).
   _lastWidget = _widget;
+  // Kacheln der Seite mit ihrer Breite (fuer das Wachsen im automatischen
+  // Raster): keine auf Widget-, Front- und Listenseiten
+  _lastBreiten = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).map(it=>it.w===2?2:1) : [];
   _lastRaster = rasterKey(_widget);
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
   if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
-    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr'); }
+    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr');
+    setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
+  renderLeiste();   // Werteleiste ueber dem Raster (oder weg) - vor dem Bauen und Messen der Kacheln
   stopVideo();
   closeMenu();
   setMore(null);
@@ -2515,6 +2983,12 @@ function render(){
   const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
+  // Lage im Raster: Rastpunkt auf die erste Kachel jeder Seite (Liste: jede
+  // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind
+  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
+  g._zeile=lage.zeile;
   let html='';
   let _i=-1;
   for(const it of items){
@@ -2549,10 +3023,9 @@ function render(){
     if(ts.weight) nsv.push('font-weight:'+ts.weight);
     if(ts.italic) nsv.push('font-style:italic');
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
-    const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    html += '<div class="tile'+tone+aufbauKlassen(it)+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    html += '<div class="tile'+tone+aufbauKlassen(it)+breit(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
                 (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
@@ -2565,7 +3038,11 @@ function render(){
             '</div>';
   }
   g.innerHTML = html;
-  g.classList.toggle('snapy', items.length > (view.layout==='list'?4:gridCols*gridRows));   // Snapping erst ab >1 Seite
+  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);   // Snapping erst ab >1 Seite
+  // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
+  // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
+  renderTabs();
+  if(!gridAuto) faktorEinmessen();   // festes Raster: aus der ersten Kachel, mit Kopfzeile bis es steht
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
@@ -2591,7 +3068,6 @@ function render(){
   // sobald nur noch ein Raum uebrig ist. Nur Ansichten OHNE den Schluessel
   // (Detailansichten) greifen auf die gemerkten zurueck.
   if(Array.isArray(view.catTabs)) roomCatTabs = view.catTabs.length ? view.catTabs : null;
-  renderTabs();
   // Aus einem Detail zurueck in den Raum gesprungen? Jetzt zur Kategorie scrollen.
   if(pendingCatScroll){ const k=pendingCatScroll; pendingCatScroll=null;
     requestAnimationFrame(()=>{ const d=g.querySelector('.tile[data-cat="'+k+'"]'); if(d){ springeZu(d); leuchte(k); } }); }
@@ -2695,6 +3171,8 @@ function fensterGeaendert(){
   if(view && !el('grid').classList.contains('scheme')
      && rasterKey(_lastWidget) !== _lastRaster) render();
   panelEinpassen();
+  kopfEinpassen();
+  faktorNachziehen();   // Kachelbreite geaendert, Raster nicht: Inhalt nachziehen
 }
 window.addEventListener('resize', fensterGeaendert);
 window.addEventListener('orientationchange', ()=>setTimeout(fensterGeaendert, 50));
@@ -2772,6 +3250,7 @@ function connect(){
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
       gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
+      gridGrow = (typeof msg.gridGrow==='number' && msg.gridGrow>=1) ? msg.gridGrow : 1;
       if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen
@@ -2802,8 +3281,13 @@ function connect(){
       if(svSideOn()){ renderFront(); return; }
       const fp=el('frontpane'); if(fp && paneKind(paneRawNow())==='camera') renderCameraPane(fp); return; }   // Kamera-Pane (Intercom-Vollansicht)
     if(msg.t==='scale'){ uiScaleCfg=scaleCfg(msg.scale); applyScale(); return; }   // Skalierung des Geraets geaendert (ohne Neuladen)
+    if(msg.t==='gridAuto'){   // Zielkachel des Geraets geaendert (Displays gespeichert): Raster neu
+      const g=(typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
+      if(g!==gridAuto){ gridAuto=g; applyScale(); render(); }
+      return; }
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[];
       if(saverOn()){ renderFront(); return; }   // Uhr-Seite oben -> dort
+      if(kopfAktiv()){ renderKopfzeile(); return; }   // Werte in der Kopfzeile
       const fp=el('frontpane');
       if(fp && !svSideOn()){ const pk=paneKind(paneRawNow());
         if(pk==='status') renderWertePane(fp);          // Werte als Pane 2
@@ -2837,14 +3321,14 @@ function connect(){
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
       const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
-      view=msg;
+      view=msg; renderLeiste();
       if(!(sameS && updateScheme(msg))) renderScheme(msg);   // gleiche Seite: nur Werte patchen (Zoom bleibt)
       return;
     }
     if(msg.widget){ view=msg; render(); return; }   // Widget-Seite (Vollbild-Tab)
     const same = view && key(view.route)===key(msg.route);
     if(msg.blocks){
-      view=msg;
+      view=msg; renderLeiste();
       if(same && el('grid').classList.contains('panel')) updatePanel(msg.blocks);
       else renderPanel(msg.blocks);
     } else {
@@ -2853,7 +3337,7 @@ function connect(){
       // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
       // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
       // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
-      if(!(same && updateGrid(katSichtbar(view.items||[])))){ render(); g.scrollTop=st; }
+      if(!(same && updateGrid(katSichtbar(view.items||[])) && updateLeiste(view.leiste))){ render(); g.scrollTop=st; }
     }
   };
 }
@@ -2865,6 +3349,9 @@ function tickClock(){
   const t=el('svTime'), dd=el('svDate');
   if(t) t.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(dd) dd.textContent=d.toLocaleDateString(LANG,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const kt=el('kzTime'), kd=el('kzDate');   // Kopfzeile (Widget "header")
+  if(kt) kt.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
+  if(kd) kd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'short'});
 }
 // ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
 // Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
@@ -3310,7 +3797,7 @@ function renderEnergyPane(elc){ if(!elc) return;
 // ein nacktes MJPEG-<img> nicht rendern). Struktur nur bei Änderung neu bauen, sonst nur
 // Buttons/Klingel in-place aktualisieren -> der Video-Stream läuft ununterbrochen weiter.
 function renderCameraPane(elc){ if(!elc) return;
-  const blocks=(cameraData&&cameraData.blocks)||null;
+  const blocks=cameraData&&cameraData.blocks ? intercomBlocks(cameraData.blocks) : null;
   if(blocks===null){   // Push noch nicht da -> Platzhalter
     if(elc.dataset.cam!=='wait'){ elc.dataset.cam='wait'; delete elc.dataset.camsig;
       elc.innerHTML='<div class="fp-page solo campage"><div class="camwait">'+svg(ICONS.cam)+'<span>Kamera lädt …</span></div></div>'; }
@@ -3318,15 +3805,24 @@ function renderCameraPane(elc){ if(!elc) return;
   }
   const video=blocks.find(b=>b.k==='video'), row=blocks.find(b=>b.k==='row');
   const bell=blocks.find(b=>b.k==='astat'), nostat=blocks.find(b=>b.k==='status');
-  const sig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|'+(camPaneWerte(qargCamNow())?'w':'');
+  const talk=blocks.find(b=>b.k==='intercom-talk');
+  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|'+(camPaneWerte(qargCamNow())?'w':'')+'|';
+  const sig=baseSig+(talk?talk.uuid:'');
+  if(talk && elc.dataset.camsig===baseSig){   // Gegensprechen kommt dazu: vor die Werte unter dem Bild
+    const page=elc.querySelector('.campage'), werte=page&&page.querySelector('.camwerte');
+    if(page){ if(werte) werte.insertAdjacentHTML('beforebegin',intercomTalkHtml(talk));
+      else page.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
+      page.classList.add('intercom-page'); elc.dataset.camsig=sig; }
+  }
   if(elc.dataset.camsig!==sig){          // Struktur -> Neuaufbau
     elc.dataset.camsig=sig; elc.dataset.cam='1';
     let html='<div class="cambell astat crit" hidden></div>';
     html+= video ? '<div class="video"><img alt=""></div>'
                  : '<div class="status">'+esc(nostat?nostat.text:'Kein Video')+'</div>';
     if(row) html+='<div class="brow'+(row.wrap?' wraprow':'')+'">'+row.cells.map(cellHtml).join('')+'</div>';
+    if(talk) html+=intercomTalkHtml(talk);
     if(camPaneWerte(qargCamNow())) html+='<div class="camwerte werte"></div>';   // Werte unter dem Bild
-    elc.innerHTML='<div class="fp-page solo campage">'+html+'</div>';
+    elc.innerHTML='<div class="fp-page solo campage'+(talk?' intercom-page':'')+'">'+html+'</div>';
     renderCameraWerte(elc);
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
@@ -3337,6 +3833,7 @@ function renderCameraPane(elc){ if(!elc) return;
     row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
   }
   const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
+  intercomBind(elc);
 }
 // Der Kamera-Wert der aktiven Pane (Tab-Pane oder Widget-Seite), ohne "camera:"
 function qargCamNow(){ const raw=paneRawNow()||''; return raw.indexOf('camera:')===0 ? raw.slice(7) : ''; }
@@ -3793,6 +4290,7 @@ window.addEventListener('resize', applyScale);
 // neu waehlen und neu einpassen (svFit kuerzt sonst Termine, die jetzt passen).
 function onScreenResize(){
   applyScale();
+  faktorNachziehen();   // Split an/aus, Kopfzeile: andere Kachelbreite
   if(saverOn()){ const vorher=el('saver').className; applySaverSplit();
     if(el('saver').className!==vorher){ applyPane(); }
     renderFront(); }

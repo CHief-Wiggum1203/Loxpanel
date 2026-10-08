@@ -57,9 +57,13 @@ STATES = {
     "ra1": 0, "j1": 0.62, "j2": 0, "j3": 0, "ir1": 21.5, "ir2": 22.0, "ir3": 1, "ir4": 0,
 }
 
-# Je Kachel, was der Aufbau zeigt (Lage, Reihenfolge, Groessen, Ueberlauf)
+# Je Kachel, was der Aufbau zeigt (Lage, Reihenfolge, Groessen, Ueberlauf).
+# Groessen auf den Kachelfaktor (--ks am .screen) zurueckgerechnet: die
+# eingestellte Groesse gilt "bei 170-px-Kachel", die Kachel traegt sie mal Faktor.
 MESSEN = """() => Object.fromEntries([...document.querySelectorAll('#grid .tile[data-id]')].map(t => {
   const q = s => t.querySelector(s), r = e => e ? e.getBoundingClientRect() : null;
+  const ks = parseFloat(getComputedStyle(document.querySelector('.screen')).getPropertyValue('--ks')) || 1;
+  const grund = e => e ? (Math.round(parseFloat(getComputedStyle(e).fontSize) / ks * 10) / 10) + 'px' : null;
   const cs = e => e ? getComputedStyle(e) : null, kopfRaum = q('.head .room'), sub = q('.sub'), name = q('.name');
   const sichtbar = e => !!e && cs(e).display !== 'none';
   const ganz = e => sichtbar(e) ? e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1 : null;
@@ -73,8 +77,7 @@ MESSEN = """() => Object.fromEntries([...document.querySelectorAll('#grid .tile[
     sub: sichtbar(sub) ? sub.innerText : null, name: sichtbar(name) ? name.innerText : null,
     ganz: {sub: ganz(sub), name: ganz(name)},
     subOben: sichtbar(sub) && sichtbar(name) ? r(sub).top < r(name).top : null,
-    groesse: {sub: sub ? cs(sub).fontSize : null, name: name ? cs(name).fontSize : null,
-              raum: kopfRaum ? cs(kopfRaum).fontSize : null, big: q('.bigv') ? cs(q('.bigv')).fontSize : null},
+    groesse: {sub: grund(sub), name: grund(name), raum: grund(kopfRaum), big: grund(q('.bigv'))}, ks,
     subStil: sub ? [cs(sub).color, cs(sub).fontWeight, cs(sub).fontStyle] : null,
     ueberlauf: t.scrollHeight - t.clientHeight,
     textUnten: Math.max(...[sub, name].filter(sichtbar).map(e => r(e).bottom)) - r(t).bottom,
@@ -172,7 +175,8 @@ def test_neuer_aufbau_am_tablet(tmp_path):
     # Messwert gross an Stelle des Symbols, mehrteiliger Zustand untereinander
     ir = k["IR"]
     assert ir["big"] == "21,5°" and not ir["symbol"] and ir["groesse"]["big"] == "36px", ir
-    assert ir["sub"] == "Soll 22,0°\nheizt" and ir["name"] == "Raumregelung Küche", ir
+    # breite Raumregelungs-Kachel: die Teile des Zustands bleiben nebeneinander
+    assert ir["sub"] == "Soll 22,0° · heizt" and ir["name"] == "Raumregelung Küche", ir
     assert k["SA"]["big"] == "25,4°" and k["SA"]["sub"] == "Aus", k["SA"]
     # Tasten als Leiste unten ueber die ganze Breite, gross genug fuer den Finger
     for kid in ("J", "AZ"):
@@ -212,12 +216,14 @@ def test_neuer_aufbau_am_4zoll_panel(tmp_path, request, ui, spalten):
             if klassisch[kid]["ganz"][zeile] and not (zeile == "sub" and "bi" in e["klassen"]):
                 assert e["ganz"][zeile], (kid, zeile, e, klassisch[kid])
     if fall == "3x3":
-        # Enge Kachel: die Beschreibung weicht zuerst, der Name bleibt ganz,
-        # wo der klassische Aufbau ihn abschneidet
+        # Enge Kachel: mit dem Kachelfaktor (147-px-Kachel -> 0,86) passen Name
+        # UND Beschreibung; frueher wich die Beschreibung (eng1) und der
+        # klassische Aufbau schnitt den Namen ab.
         ic = k["IC"]
-        assert {"eng1", "bi"} <= set(ic["klassen"]) and ic["sub"] is None, ic
+        assert "bi" in ic["klassen"] and "eng1" not in ic["klassen"], ic
         assert ic["ganz"]["name"] and ic["name"].replace("\n", " ") == "Eingang Intercom", ic
-        assert klassisch["IC"]["ganz"]["name"] is False, klassisch["IC"]
+        assert ic["sub"] is not None and ic["ganz"]["sub"], ic
+        assert 0.85 <= ic["ks"] <= 0.9, ic["ks"]
     if spalten == 3:
         # Player: die Tasten ruecken wie bisher in den Kopf
         assert k["AZ"]["tastenImKopf"] and "ctrltight" in k["AZ"]["klassen"], k["AZ"]
@@ -236,7 +242,9 @@ def test_enge_kachel_behaelt_die_lage_ihrer_tasten(tmp_path, aufbau):
         await pg.wait_for_function("document.querySelector('.tile[data-id=\"AZ\"]').classList.contains('on') === false")
         await pg.wait_for_timeout(300)
         return vorher, (await pg.evaluate(MESSEN))["AZ"]
-    vorher, nachher = _laufen(ui, 480, 480, schritte, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
+    # Die Audio-Kachel ist seit den breiten Kacheln von Haus aus zwei Spalten
+    # breit; hier geht es um die ENGE Kachel, also eine Spalte (tiles.AZ.w = 1)
+    vorher, nachher = _laufen(ui, 480, 480, schritte, tiles={"AZ": {"w": 1}}, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
 
     assert {"ctrltight", "ctrlnarrow"} <= set(vorher["klassen"]) and vorher["tastenImKopf"], vorher
     assert {"ctrltight", "ctrlnarrow"} <= set(nachher["klassen"]) and nachher["tastenImKopf"], nachher

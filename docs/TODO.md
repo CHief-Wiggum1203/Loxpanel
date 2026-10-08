@@ -1146,7 +1146,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       `currentTemperatures` auf der Anlage gegenprüfen. **S**
 - [ ] `EnergyManager` (Energiemanager, alte Version), `Wallbox2`, `CarCharger`:
       ältere bzw. neuere Varianten der Energie-Bausteine. **M**
-- [ ] `IntercomV2`: neue Türsprechstelle, nach dem Muster von `Intercom`. **M**
+- [x] `IntercomV2` (Baustein Intercom, die neue Türsprechstelle): seit
+      04.10.2026 wie `Intercom` (Kachel, Klingel-Popup, Kamera-Pane, Ausgänge,
+      „Klingel abstellen“), dazu laut Strukturdoku 17.0 die Antworten
+      (`answers`, `playTts/{idx}`), Stumm (`muted`, `mute/1` und `mute/0`) und
+      der Gerätezustand (`deviceState`: „Startet neu“, „Startet“). Verpasste
+      Klingeln nennt die Doku nur bei `Intercom`. Gegensprechen für Gen-2 ist
+      nicht implementiert und gehört nicht zum Gen-1-Feature (8.4); einen
+      SIP-Zugang beschreibt die Doku für diesen Typ nicht. **M**
 - [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
       Muster von `Daytimer`. **S**
 - [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
@@ -1202,37 +1209,57 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Tür/Ausgänge öffnen (`pulse` je Sub-Control). Seit 03.10.2026 dazu
       „Klingel abstellen“ (`answer`) und die verpassten Klingeln
       (`lastBellEvents`) mit Bildern (`camimage/{uuidAction}/{Zeitstempel}`
-      über `/bellimg`). Offen: Gegensprechen (SIP). Ziel ist die Loxone
-      Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
+      über `/bellimg`). Seit 04.10.2026 kommt die Kamera auch direkt vom
+      Miniserver (`videoInfo` aus den gesicherten Details), wenn in LoxPanel
+      keine Adresse eingetragen ist; dasselbe gilt für `IntercomV2`, falls
+      der Miniserver dort gesicherte Details nennt. Gegensprechen (SIP) ist im
+      Feature-Branch implementiert; die Hardware-Abnahme und die fehlende
+      Quelle des SIP-Zugangs an der getesteten Anlage bleiben offen. Ziel ist
+      die Loxone Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
       Loxone-App direkt per SIP anruft; geklingelt wird weiter über `bell` und
       das Klingel-Popup, eine Anmeldung am SIP-Server braucht es nicht. Nur in
       der LoxPanel-App für Android, weil der Browser kein SIP über UDP kann.
-      Drei Schritte: **L**
+      Umsetzung und Abnahme: **L**
       1. [x] *Zugang und Prüfung* (03.10.2026): Den SIP-Zugang gibt der
          Miniserver nur auf einen verschlüsselten Befehl heraus
          (`securedDetails`, `bin/loxone_secure.py`). Settings → SIP zeigt ihn
          je Intercom ohne Passwort; „Verbindung prüfen“ schickt ein OPTIONS
          mit Anmeldung (`bin/sip_probe.py`), ohne einen Anruf auszulösen.
          Ablauf in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10.
-         **An der Anlage geprüft (03.10.2026, Test-APK):** Die „Eingang
-         Intercom“ meldet `deviceType` 0 („andere oder unbekannte
-         Türstation“), und ihre gesicherten Details nennen keinen SIP-Zugang.
-         Seitdem zeigt der Reiter in dem Fall, welche Felder der Miniserver
-         liefert (ohne Werte). **Offen:** diese Zeile von der Anlage holen und
-         klären, ob das Audiomodul der Intercom in Loxone Config eingetragen
-         ist (Loxone-KB „Intercom Gen. 1“: eigenes SIP-Audiomodul, die
-         Loxone-App ruft es anonym an). Davon hängt Schritt 2 ab (Adresse,
-         Codec, Anmeldung).
-      2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
-         Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
-         Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen
-         unter GPL, eingebaut müsste die App unter GPL stehen, LoxPanel steht
-         unter PolyForm Noncommercial; Androids `android.net.sip` ist seit
-         Android 12 abgekündigt. Den Zugang holt der Kotlin-Teil im selben
-         Prozess vom Server (Chaquopy), nicht über eine Route im LAN. **L**
-      3. [ ] *Visu:* „Sprechen“ und „Auflegen“ auf der Intercom-Seite und im
-         Klingel-Popup, über die Brücke `LoxKiosk`; ohne App zeigt die Visu
-         sie nicht. **M**
+         **An der Anlage geprüft (03. und 04.10.2026, Test-APK):** Die
+         „Eingang Intercom“ ist eine benutzerdefinierte Intercom an der
+         Türsteuerung (`deviceType` 0): Video von einer UniFi-Kamera, und in
+         Loxone Config sind „Host für Audio (intern)“, der Benutzer und das
+         „Kennwort SIP Audio Modul“ eingetragen. Trotzdem nennen ihre
+         gesicherten Details nur `videoInfo` (`alertImage`, `streamUrl`,
+         `deviceUuid`, `user`, `pass`) und gar kein `audioInfo`.
+         `deviceUuid` kennt die Strukturdoku bei `Intercom` nicht (16.0 und
+         17.0), nur in den Details von `IntercomV2`; das Änderungsprotokoll
+         der 17.0 nennt seit 13.0 nichts zur Intercom. Seit 04.10.2026 sagt
+         der Hinweis im Reiter SIP für diesen Fall, dass der Miniserver die
+         Adresse für den Baustein nicht herausgibt; er zeigt auch die
+         gelieferten Feldnamen, ohne ihre Werte. **Offen:** klären, ob und
+         wie die Loxone-App mit dieser Einrichtung sprechen kann und woher
+         sie den Audio-Zugang erhält. Der native Client ist implementiert,
+         benötigt aber weiterhin einen SIP-Host aus `audioInfo`; die Ursache
+         des fehlenden Zugangs ist ungeklärt. Eine Kameraadresse wird nicht
+         als SIP-Ziel verwendet. Für die Loxone Intercom am Baustein Intercom
+         (`IntercomV2`) beschreibt die Doku keinen SIP-Zugang.
+      2. [x] *App* (05.10.2026, `feature/intercom-gen1-talk`): eigener kleiner
+         Stack ohne zusätzliche SIP-Bibliothek. Python `sip_call.py` nutzt
+         die vorhandenen SIP-Helfer für INVITE/Digest/ACK/BYE/SDP und
+         Abbruchrennen; Kotlin übernimmt RTP-G.711 mit AudioRecord/AudioTrack,
+         Mikrofonrecht, Audiofokus und optionaler Geräte-Echounterdrückung.
+         Der Zugang bleibt im eingebetteten Python-Prozess. Lokale native
+         Start/Stop/Status-Routen sind auf Loopback und Prozess-Token begrenzt.
+      3. [x] *Visu:* „Sprechen“ und „Auflegen“ auf Gen-1-Detailseite und
+         Kamera-Pane über `LoxKiosk`; der vorhandene Klingel-Flow öffnet die
+         Detailseite. Browser, Fully, alte App und Gen-2 zeigen sie nicht.
+         Neue Unit-, Browser- und Android-nahe Tests sind ergänzt.
+      4. [ ] *Hardware-Abnahme:* echte SIP-URI/SDP/Codecs, gleichzeitiges
+         Audio, Echo, Routing, Mikrofonrechte, Abbruch und WLAN-Verluste am
+         Zielpanel prüfen. Umfang und vollständige Prüfliste stehen in
+         [`INTERCOM_GEN1.md`](INTERCOM_GEN1.md). Noch nicht nach `main` gemergt.
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
 - [x] `UpDownAnalog`: seit 03.10.2026 bedienbar. Laut Strukturdoku
       („UpDownLeftRight analog“) ist der Befehl der Wert selbst, zwischen
@@ -1574,6 +1601,118 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       zeigte Werte, die niemand gewählt hatte. Eine `theme.json` aus der
       früheren Vorlage trägt noch 20/15, für den neuen Standard die Felder
       leeren. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.4. **M**
+- [x] **Kopfzeile statt Pane 2** (06.10.2026). Neues Widget je Tab:
+      `"header"` bzw. `"header:<uuid>,…"` in `ui.panes` legt eine Zeile
+      **über** das Kachelraster mit Uhr, Wetter in Kurzform und nach Wahl bis
+      zu acht Werten (dieselbe Anmeldung wie „Werte“, `setsvstatus`). Vorbild
+      ist die Startseite der Loxone-App: Uhrzeit, Wetter und der Haus-Status
+      auf einen Blick, darunter die Kacheln. Auf einem Tablet quer nimmt die
+      Zeile 64 px statt der 40 % eines Widgets, und das Raster bleibt
+      ungeteilt; „Automatisch“ rechnet die Zeile von der freien Höhe ab, beim
+      festen Raster geht sie vom Kasten ab. Was rechts nicht mehr passt,
+      bleibt weg. Sie gilt auch mit Split „Aus“ (4″-Panel), denn sie ist
+      keine Pane. Widget-Seiten und die Uhr-Seite kennen die Kopfzeile nicht
+      (dort wäre sie doppelt oder leer), der Server meldet sie als
+      `verworfen`. Konfigurator: Auswahlfeld „Widget je Tab“ → „Kopfzeile
+      (Uhr, Wetter, Werte)“ mit Werteliste wie bei „Werte“, ohne Split nur
+      sie; Assistent ebenso (für 1 Pane „Kopfzeile je Tab“). Nebenbei aus
+      dem Codex-Review: `ui.panes` wird jetzt normiert gespeichert und
+      exportiert („header:A, B“ → „header:A,B“), vorher ging der Rohwert
+      durch und ein Leerzeichen wurde Teil der UUID. Tests:
+      `tests/test_kopfzeile.py` (4), `tests/browser/test_kopfzeile_browser.py`
+      (8: quer, hochkant, 10″, 4″ mit Split „Aus“, zu viele Werte, Drehen,
+      Konfigurator mit und ohne Split, Assistent). Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.3 und §7.1. **M**
+- [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
+      Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen
+      (480×480 bis 2560×1600) und fünf Profilvarianten: Die Kachel*anzahl*
+      passt sich dem Schirm an, der Kachel*inhalt* nicht (Symbol 38 px,
+      Schrift 16/14 px von 122- bis 628-px-Kacheln), „Automatisch“ kennt die
+      Zahl der Kacheln nicht (23 auf 112 Zellen), und die Kachelstufen sind
+      CSS-Pixel ohne Bezug zum Gerät. Entschieden am 06.10.2026, alle
+      umsetzen, in dieser Reihenfolge:
+      1. **Kachelinhalt skaliert mit der Kachelbreite:** Faktor Breite ÷ 170,
+         begrenzt auf 0,85 bis 2,0, einmal je Raster gesetzt, multipliziert
+         Symbol, Name, Zweittext, Messwert, Tastenleiste, Innenabstand und
+         `--kopf-h`. Nutzergrößen gelten als „bei 170-px-Kachel“. **M**
+         *Erledigt 06.10.2026:* dazu begrenzt die Höhe den Faktor (flache
+         225×128-Kachel: 0,85 statt 1,32), Tasten schrumpfen nie unter ihr
+         Maß, und Textstufen `kst1`–`kst3` nehmen einen Text zurück, der in
+         seine Zeilen nicht passt (über Faktor 1 nie unter den Stand ohne
+         Faktor). Messreihe: 800×480 mit 3×3 15 → 1 abgeschnittene Namen,
+         4″ 3×3 8 → 0, 415-px-Kachel 32-px-Schrift und 76-px-Symbol.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1, Tests in
+         `tests/browser/test_kachel_faktor_browser.py` (16).
+      2. **Automatik rechnet mit der Kachelanzahl und einem Zielwert je
+         Gerät:** passt alles auf eine Seite, wachsen die Kacheln bis 1,4 ×
+         Ziel; Zielkachel als Zahl statt drei Stufen, je Gerät unter
+         *Displays* übersteuerbar, Vorschlag aus gemeldeter Größe und
+         Pixeldichte (`{t:"screen"}`). **M**
+         *Erledigt 06.10.2026:* `ui.tileSize` ist eine Zahl (100–400 px, die
+         Stufen bleiben lesbar), `devices[name].tileTarget` geht vor und wirkt
+         beim Speichern sofort (`{t:"gridAuto"}`), der Vorschlag kommt vom
+         Server (`tileSuggest`: Tablet 170, Monitor ein Fünftel der kürzeren
+         Seite bis 300), `autoRaster()` lässt wenige Kacheln ohne Widget
+         daneben bis `KACHEL_WACHSEN` (1,4) wachsen. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
+      3. **Breite Kacheln:** Feld `w` je Eintrag (Standard nach Typ: Audio,
+         Raumregelung, Energiefluss 2×1; je Kachel übersteuerbar),
+         `grid-column: span` mit dichtem Fluss, Blättern und `fitTile()`
+         angepasst. **M**
+         *Erledigt 06.10.2026:* `tiles[uuid].w` (1 | 2), Standard aus
+         `KACHEL_BREIT_TYPEN`, Klasse `w2` mit `grid-auto-flow: row dense`,
+         `rasterLage()` rechnet Seiten, Rastpunkte und das Wachsen der
+         Automatik mit, der Kachelfaktor misst sich an einer schmalen Kachel.
+         Kachel-Editor: „Breite“. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
+      4. **Raumnamen aus Kachelnamen streichen,** wenn die Seite den Raum
+         schon nennt („Jalousie Wohnzimmer Süd“ auf der Wohnzimmer-Seite).
+         Trifft die meisten abgeschnittenen Namen der Messung. **S**
+         *Erledigt 06.10.2026:* `_ohne_raum()` auf Raum-Seiten (Tab
+         `room:<uuid>` und Raum aus „Räume“), nur ganze Wörter, Seiten über
+         mehrere Räume behalten den vollen Namen. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
+      5. **Werte als schmale Leiste statt als Kacheln,** je Seite wählbar:
+         Anzeige-Bausteine in eine Zeile, das Raster für Bedienbares. **M**
+         *Erledigt 06.10.2026:* `ui.valueBar` nennt die Seiten, der Server
+         trennt die Anzeige-Bausteine (`WERTE_LEISTE_TYPEN`) als
+         `view.leiste` ab, die Visu zeigt sie als Chips in einer Zeile über
+         dem Raster (scrollt waagerecht, Tipp öffnet die Wertseite), das
+         Raster rechnet die Zeile ab. Kästchen je Tab im Konfigurator.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
+      6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
+         sonst Detailseite; löst das Drei-Zeilen-Problem ohne Sonderfälle. **S**
+      7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt
+         fest 40 %). **S**
+      8. **Seiten waagerecht wischen mit Punkten** auf Tablets, das 4″-Panel
+         bleibt bei senkrechtem Einrasten. **M**
+      9. **Assistent Schritt 1 aus dem Gerät:** Geräteliste aus
+         `/api/devices` mit gemeldeter Größe, „Dieser Browser“ und Katalog
+         als Ausweg; nur passende Anzeigen anbieten, jede mit vorgerechnetem
+         Raster (eine `raster.js` für Visu und Konfigurator); zum Schluss
+         Gerät umschalten und Zielkachel am Gerät merken. **L**
+      10. **Seiten-Editor mit Drag & Drop** als Reiter im Panel-Editor und
+          als Schritt 5 des Assistenten: Palette (Bausteine, Widgets),
+          Arbeitsfläche in Geräteform, Größen 1×1/2×1/2×2, Pointer-Events
+          mit Pfeiltasten als Ersatz; Server: `pickTabs[i].layout`
+          `[{id,w,h}]`, Raum-Gruppierung dort abschaltbar; Entwurfs-Endpunkt
+          für die Vorschau in der echten Visu. **L**
+      11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
+          einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
+      12. **Live-Vorschau am Zielgerät** während des Assistenten (Entwurf an
+          das gewählte Gerät schicken). **M**
+      13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
+          Loxone-Favoriten; drei Pflichtschritte, Rest mit Standardwerten. **M**
+      14. **Profil duplizieren mit Raumtausch.** **S**
+      15. **Profil merkt sich sein Zielgerät,** *Displays* warnt bei
+          Abweichung. **S**
+      16. **Lesbarkeits-Prüfung als Browser-Test:** auf den Standardgeräten
+          kein abgeschnittener Name, keine Seite mehr als ein Drittel leer. **S**
+          *Teil Abschneiden erledigt mit Punkt 1*
+          (`test_lesbarkeit_auf_standardgeraeten`: mit Faktor nicht mehr
+          abgeschnitten als ohne, keine Kachel läuft über); der Teil „keine
+          Seite mehr als ein Drittel leer“ kommt mit Punkt 2.
+      Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
+      Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
       nicht entschieden):
       - Herauslegen: wichtigste Funktion auf die Kachel, nur was die
@@ -1585,7 +1724,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
         („automatisch“/„keine“). Überschneidet sich mit dem nächsten Punkt.
       - Doppelt breite Kacheln für Audio und Energiefluss.
       - Startseite wie die Loxone-App: Uhr und Wetter, darunter Favoriten
-        zum direkten Bedienen.
+        zum direkten Bedienen. *Erledigt als Kopfzeile (Widget „header“),
+        siehe oben.*
       - Ruhigerer Aktiv-Zustand: nur Symbol und Zustand farbig, nicht die
         ganze Kachel (die Einstellung gibt es, es wäre ein neuer Standard).
       - Stabilität in der App: Server über `/api/health` überwachen und neu

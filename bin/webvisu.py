@@ -21,6 +21,7 @@ import copy
 import hashlib
 import hmac
 import io
+import ipaddress
 import json
 import logging
 import math
@@ -71,6 +72,7 @@ import loxone_weather  # noqa: E402  # Wetter vom Loxone-Wetterserver (Vorrang v
 import loxone_secure  # noqa: E402  # verschluesselte Befehle (gesicherte Details der Intercom)
 import audioserver_auth  # noqa: E402  # Audioserver-Anmeldung; hier nur HAVE_CRYPTO (_fehlende_pakete_melden)
 import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anmeldung)
+from intercom_talk import IntercomTalk, TalkBusy  # noqa: E402
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
 
@@ -205,7 +207,7 @@ def _pick_tabs(prof):
                             # Statt Kacheln kann eine freie Seite ein Widget sein
                             # (Wetter/Kalender/Energie/Kamera/Verlauf/Werte/Audio),
                             # als Vollbild-Tab. Leer = Kachelseite (picks).
-                            "widget": _clean_tabpane(e.get("widget"))})
+                            "widget": _clean_widget_tab(e.get("widget"))})
         return out
     if prof.get("picks"):
         return [{"name": str(prof.get("pickName") or "Auswahl"),
@@ -261,6 +263,12 @@ def _is_tab(t) -> bool:
 STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
               "InfoOnlyDigital", "SmokeAlarm", "PresenceDetector",
               "ClimateControllerUS", "Hourcounter"}
+# Werteleiste (ui.valueBar nennt die Seiten): diese Anzeige-Bausteine stehen
+# dort als Kette von Werten in EINER Zeile ueber dem Raster statt als Kacheln,
+# das Raster bleibt dem Bedienbaren (_leiste_trennen). Nicht dabei: der
+# Rauchmelder (ein Alarm gehoert gross auf eine Kachel) und die Klimaregelung
+# (hat Einstellungen, keine reine Anzeige).
+WERTE_LEISTE_TYPEN = frozenset(STATUS_BIG - {"SmokeAlarm", "ClimateControllerUS"})
 # Verlaufs-Diagramme fuer Bausteine mit `statistic` in der Struktur. Die Daten
 # liegen am Miniserver als Monatsdateien /stats/<uuidAction>.<JJJJMM>.xml (so
 # listet sie /stats/, und so fuehrt sie die Loxone-App: STATISTIC-Befehle in
@@ -302,6 +310,14 @@ STAT_KIND = {1: "digital", 2: "counter"}
 # Darstellung des Mini-Verlaufs in der Kachel (tiles.<uuid>.chartStyle). Fehlt der
 # Schluessel, gilt "trend". Tagesmuster und Tagesspanne zeigen immer 7 Tage.
 STAT_TILE_STYLES = ("trend", "pattern", "span")
+# Breite Kacheln (2 x 1): Bausteine, deren Kachel von Haus aus zwei Spalten
+# belegt - Audio (Titel und Tasten), Raumregelung (Soll und Ist) und der
+# Energiefluss. Je Kachel uebersteuerbar: tiles[uuid].w = 1 | 2
+# (KACHEL_BREITEN). Die Visu setzt daraus grid-column: span 2 und rechnet
+# Seiten und Rastpunkte mit (rasterLage in panel.html).
+KACHEL_BREIT_TYPEN = frozenset({"AudioZone", "AudioZoneV2", "IRoomControllerV2", "IRoomController",
+                                "EFM", "EnergyManager2"})
+KACHEL_BREITEN = (1, 2)
 STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "UpDownAnalog", "Meter", "TextState", "InfoOnlyText",
@@ -361,9 +377,19 @@ PROZENT_SCHRITT = 5
 # Bausteintypen, die nur teilweise umgesetzt sind (Anzeige ohne volle Bedienung);
 # Grundlage fuer den Status in /api/types. Vollstaendig = Kachel hat nav/cmd/
 # controls/sublabel, unbekannt = nichts davon (tote Kachel).
-# Intercom: alles ausser Gegensprechen (SIP ueber UDP kann der Browser nicht;
-# Zugang und Pruefung der Tuerstation unter Settings -> SIP, /api/sip).
-PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
+# Intercom und IntercomV2 bleiben im Browser ohne Gegensprechen. Die native
+# Android-Bruecke ergaenzt Audio nur fuer Intercom (Gen-1); SIP-Zugang und
+# Pruefung der Tuerstation bleiben unter Settings -> SIP (/api/sip).
+PARTIAL_TYPES = {"AudioZone", "Intercom", "IntercomV2", "TextInput", "Ventilation"}
+# Tuersprechstellen laut Strukturdoku 17.0: Intercom ("Door Controller", in
+# Loxone Config die Tuersteuerung, auch mit benutzerdefinierter Intercom) und
+# IntercomV2 (der Baustein Intercom). Beide haben bell, answer und Ausgaenge
+# als Pushbutton-Subcontrols; v2 dazu Antworten (playTts), Stumm (mute) und
+# den Geraetezustand (deviceState).
+INTERCOM_TYPES = ("Intercom", "IntercomV2")
+# IntercomV2 deviceState: 1 = StateOk; 0 = StateUnknown sagt nichts Sicheres
+# und bleibt ohne Hinweis.
+INTERCOM_V2_ZUSTAND = {2: "Startet neu", 3: "Startet"}
 # Gesicherte Bausteine (isSecured): Nach richtiger Visu-PIN fragt die Visu so
 # viele Sekunden nicht erneut (Panel-Option ui.pinMerken, 0 = jedes Mal). 30 s
 # reichen fuer eine Bedienung (Helligkeit oder Lautstaerke in Schritten,
@@ -372,10 +398,27 @@ PARTIAL_TYPES = {"AudioZone", "Intercom", "TextInput", "Ventilation"}
 # ohnehin sofort. Obergrenze wie bei "Display aus": eine Stunde.
 PIN_MERKEN_STANDARD = 30
 PIN_MERKEN_MAX = 3600
+# Automatisches Raster (ui.grid "auto", fuer Tablets): Zielgroesse einer Kachel
+# in CSS-Pixeln (ui.tileSize, je Geraet devices[name].tileTarget). Die Visu
+# rechnet daraus Spalten und Zeilen fuer den Schirm, ein groesserer Schirm
+# zeigt so mehr Kacheln statt groesserer; passen alle Kacheln einer Seite auf
+# den Schirm, wachsen sie (KACHEL_WACHSEN unten, autoRaster() in panel.html).
+# Einzige Quelle: effective_grid_auto() schickt den Wert mit der
+# theme-Nachricht (Geraet vor Profil, wie bei der Skalierung). Die drei
+# Stufen sind die alte Schreibweise und bleiben fuer bestehende Dateien lesbar
+# (_clean_kachelziel).
+KACHEL_ZIEL = {"small": 150, "medium": 170, "large": 200}
+KACHEL_ZIEL_STANDARD = KACHEL_ZIEL["medium"]
+KACHEL_ZIEL_MIN, KACHEL_ZIEL_MAX = 100, 400
+# Passen alle Kacheln einer Seite auf den Schirm, duerfen sie bis auf das
+# KACHEL_WACHSEN-Fache der Zielkachel wachsen (autoRaster() in panel.html,
+# geschickt als gridGrow mit der theme-Nachricht).
+KACHEL_WACHSEN = 1.4
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
-# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID).
-PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): "medium",
+# Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
+# ein Tupel nennt mehrere Schreibweisen desselben Standards.
+PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
@@ -443,13 +486,6 @@ GROESSEN_STANDARD = {
     "classic": {"iconSize": 38, "nameSize": 18, "subSize": 15, "roomSize": 12, "bigSize": 36},
 }
 
-# Automatisches Raster (ui.grid "auto", fuer Tablets): Zielgroesse einer Kachel
-# in CSS-Pixeln je Stufe (ui.tileSize; fehlt = "medium"). Die Visu rechnet
-# daraus Spalten und Zeilen fuer den Schirm, ein groesserer Schirm zeigt so
-# mehr Kacheln statt groesserer. Einzige Quelle: resolve_profile() schickt den
-# Wert mit der theme-Nachricht.
-KACHEL_ZIEL = {"small": 150, "medium": 170, "large": 200}
-
 
 def _clean_scale(v):
     """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
@@ -467,6 +503,79 @@ def _clean_scale(v):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
         return None
     return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
+
+
+# Trenner, die nach dem Streichen des Raumnamens am Rand eines Kachelnamens
+# haengen blieben ("Licht - Wohnzimmer" -> "Licht")
+_NAMEN_TRENNER = frozenset({"-", "–", "—", "·", "/", ",", ":", "|"})
+
+
+def _ohne_raum(name: str, raum: str) -> str:
+    """Kachelname ohne den Raumnamen, wenn die Seite den Raum schon nennt
+    ("Jalousie Wohnzimmer Süd" auf der Wohnzimmer-Seite -> "Jalousie Süd").
+    Nur ganze Woerter zaehlen (Gross-/Kleinschreibung egal, ein Satzzeichen
+    am Wort stoert nicht), die uebrigen Woerter bleiben in ihrer Reihenfolge,
+    ein uebrig gebliebener Trenner am Rand faellt weg. Kommt der Raum nicht
+    vor oder bliebe nichts uebrig ("Wohnzimmer"), bleibt der Name."""
+    woerter, rw = (name or "").split(), (raum or "").split()
+    if not woerter or not rw:
+        return name
+    low = [w.lower().strip(",:;") for w in woerter]
+    rlow = [w.lower().strip(",:;") for w in rw]
+    for i in range(len(low) - len(rw) + 1):
+        if low[i:i + len(rw)] == rlow:
+            rest = woerter[:i] + woerter[i + len(rw):]
+            while rest and rest[0] in _NAMEN_TRENNER:
+                rest.pop(0)
+            while rest and rest[-1] in _NAMEN_TRENNER:
+                rest.pop()
+            return " ".join(rest) or name
+    return name
+
+
+def _clean_kachelziel(v) -> int | None:
+    """Zielgroesse einer Kachel (ui.tileSize, devices[name].tileTarget) als
+    Zahl in CSS-Pixeln: Zahl oder Ziffernfolge in [KACHEL_ZIEL_MIN,
+    KACHEL_ZIEL_MAX] (an die Grenze gesetzt, wie die uebrigen Groessen in
+    dieser Datei), oder eine der alten Stufen "small" | "medium" | "large"
+    (KACHEL_ZIEL). Ungueltiges ergibt None = nicht gesetzt."""
+    if isinstance(v, str):
+        v = v.strip().lower()
+        if v in KACHEL_ZIEL:
+            return KACHEL_ZIEL[v]
+        if not v.isdigit():
+            return None
+        v = int(v)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
+        return None
+    return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
+
+
+def _kachel_breite(v) -> int | None:
+    """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
+    Ziffer; True/False und alles andere ergibt None = nach Typ."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, str) and v.strip().isdigit():
+        v = int(v.strip())
+    return int(v) if isinstance(v, (int, float)) and int(v) == v and int(v) in KACHEL_BREITEN else None
+
+
+def _kachel_vorschlag(screen) -> int | None:
+    """Vorschlag fuer die Zielkachel eines Geraets aus seiner Bildschirmmeldung
+    (_clean_screen: vw, vh in CSS-Pixeln, dpr Pixeldichte). Mit Pixeldichte ab
+    1,5 ist es ein Tablet in der Hand, dort passt der Standard. Ohne
+    Pixeldichte (Monitor, Wanddisplay, Linux-Panel) sagt die Groesse in
+    CSS-Pixeln, wie weit weg der Schirm haengt: ein Fuenftel der kuerzeren
+    Seite, auf Zehner gerundet, nicht unter dem Standard und nicht ueber 300
+    px (FullHD 220, 2560 x 1600 300). Nur ein Vorschlag fuer den Konfigurator
+    (Displays), nichts davon steuert den Server."""
+    if not isinstance(screen, dict) or not screen.get("vw") or not screen.get("vh"):
+        return None
+    if (screen.get("dpr") or 1) >= 1.5:
+        return KACHEL_ZIEL_STANDARD
+    kurz = min(screen["vw"], screen["vh"])
+    return int(max(KACHEL_ZIEL_STANDARD, min(300, round(kurz / 5 / 10) * 10)))
 
 
 def _clean_screen(d) -> dict:
@@ -515,12 +624,17 @@ def _clean_tabpane(v) -> str:
     | "energy:<uuid>" | "camera:<uuid>[|<uuid>,...]" (Kamera, dahinter optional
     Werte unter dem Bild, _clean_camera) | "chart:<uuid>,<uuid>,..." (ein oder
     mehrere Verlaufs-Bausteine mit Aufzeichnung, gestapelt) | "status:<uuid>,..."
-    (frei gewaehlte Werte, wie auf der Uhr-Seite). "" heisst "kein Widget".
+    (frei gewaehlte Werte, wie auf der Uhr-Seite) | "header" bzw.
+    "header:<uuid>,..." (Kopfzeile: Uhr, Wetter und bis zu SV_STATUS_MAX Werte
+    in EINER Zeile ueber dem Kachelraster statt einer Pane daneben; ohne
+    Bausteine nur Uhr und Wetter). "" heisst "kein Widget".
 
     Derselbe Widget-Katalog wie die Uhr-Seite (_clean_svpane), damit Zusatz und
-    Screensaver dieselben Inhalte anbieten. Prueft OHNE strip() am Gesamtwert;
-    nur die status-Liste wird (wie dort) je Eintrag getrimmt und begrenzt."""
-    if v in ("weather", "calendar"):
+    Screensaver dieselben Inhalte anbieten; nur die Kopfzeile gibt es dort
+    nicht (die Uhr-Seite IST schon Uhr und Wetter). Prueft OHNE strip() am
+    Gesamtwert; nur die Listen werden (wie dort) je Eintrag getrimmt und
+    begrenzt."""
+    if v in ("weather", "calendar", "header"):
         return v
     if isinstance(v, str):
         if v.startswith("camera:"):
@@ -533,7 +647,33 @@ def _clean_tabpane(v) -> str:
                 uu = [x.strip() for x in v[len(kopf):].split(",") if x.strip()][:SV_STATUS_MAX]
                 if uu:
                     return kopf + ",".join(uu)
+        if v.startswith("header:"):          # Kopfzeile mit Werten; ohne Werte nur Uhr und Wetter
+            uu = [x.strip() for x in v[len("header:"):].split(",") if x.strip()][:SV_STATUS_MAX]
+            return "header:" + ",".join(uu) if uu else "header"
     return ""
+
+
+def _clean_widget_tab(v) -> str:
+    """Widget einer freien Seite (pickTabs[].widget, Vollbild-Tab): dieselbe
+    Grammatik wie eine Tab-Pane, nur die Kopfzeile nicht - sie ist eine Zeile
+    UEBER Kacheln, als ganze Seite bliebe darunter nichts."""
+    w = _clean_tabpane(v)
+    return "" if w == "header" or w.startswith("header:") else w
+
+
+def _clean_werteleiste(v) -> list:
+    """Seiten, deren Anzeige-Bausteine als Werteleiste ueber dem Raster stehen
+    statt als Kacheln (ui.valueBar): Tab-Kennungen wie in "tabs" - auch
+    "raeume" und "kategorien" fuer die Raum- und Kategorie-Seiten darunter -,
+    nur gueltige, jede einmal, in der Reihenfolge der Eingabe. Alles andere
+    ergibt [] = keine Leiste."""
+    if not isinstance(v, list):
+        return []
+    out: list = []
+    for t in v:
+        if isinstance(t, str) and _is_tab(t) and t not in out:
+            out.append(t)
+    return out
 
 
 def _clean_svpane(v) -> str:
@@ -1140,11 +1280,20 @@ class ZugangFehler(Exception):
 
 
 KEIN_SIP = "Die Intercom nennt keinen SIP-Zugang"
+KEINE_GESICHERTEN = "Der Baustein hat keine gesicherten Details"
+
+
+class OhneGesicherteDetails(ZugangFehler):
+    """Der Miniserver hat fuer den Baustein keine gesicherten Details, es liegt
+    also nicht an Verbindung oder Rechten."""
+
+    def __init__(self):
+        super().__init__(KEINE_GESICHERTEN)
 
 
 def _sip_zugang(details: dict) -> dict | None:
     """SIP-Zugang aus den gesicherten Details einer Intercom (audioInfo: host,
-    user und bei Loxone-Intercoms pass; Strukturdoku 16.0, Intercom).
+    user und bei Loxone-Intercoms pass; Strukturdoku 16.0 und 17.0, Intercom).
     -> {"host", "user", "pass"}; None, wenn kein host darin steht."""
     ai = details.get("audioInfo")
     host = str(ai.get("host") or "").strip() if isinstance(ai, dict) else ""
@@ -1159,6 +1308,52 @@ def _gesichert_felder(details: dict) -> dict:
     Fuer die Diagnose im Reiter SIP; Werte und Passwoerter bleiben im Server."""
     return {k: ({f: bool(w) for f, w in v.items()} if isinstance(v, dict) else bool(v))
             for k, v in details.items()}
+
+
+KEIN_VIDEO = "Kein Video eingerichtet"
+
+
+def _mit_miniserver(teile, host: str, port=None) -> str:
+    """netloc einer streamUrl mit dem Miniserver als Host: Anmeldedaten in der
+    Adresse bleiben, der Port ist der uebergebene oder der aus der Adresse."""
+    auth = teile.netloc.rsplit("@", 1)[0] + "@" if "@" in teile.netloc else ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"               # IPv6
+    p = teile.port if port is None else port
+    return auth + host + (f":{p}" if p else "")
+
+
+def _kamera_aus_details(details: dict, ms_host: str = "", ms_port=None) -> dict:
+    """Kamera einer Intercom aus ihren gesicherten Details (videoInfo:
+    streamUrl, user, pass; Strukturdoku 16.0 und 17.0, Intercom).
+    -> {"url", "user", "pass"} oder {"grund"} fuer die Intercom-Seite.
+    Steht statt Host oder IP ein Platzhalter in der streamUrl, ersetzt ihn
+    LoxPanel wie die Loxone-App (Strukturdoku 17.0, Intercom, streamUrl):
+    "cloudDNS" durch die Adresse des Miniservers (Port bleibt),
+    "remoteConnect" durch Host UND Port des Miniservers mit https - der
+    Miniserver leitet das Bild der Kamera weiter. Ohne Miniserver-Adresse
+    (ms_host) bleibt so eine Kamera ohne Video. Eine Adresse ohne Schema (so
+    wie sie in Loxone Config eingetragen wurde) wird mit http:// angesprochen."""
+    vi = details.get("videoInfo")
+    url = str(vi.get("streamUrl") or "").strip() if isinstance(vi, dict) else ""
+    if not url:
+        return {"grund": KEIN_VIDEO}
+    if "://" not in url:
+        url = "http://" + url
+    try:
+        teile = urlsplit(url)
+        host = (teile.hostname or "").lower()
+        teile.port                       # prueft die Port-Angabe mit
+    except ValueError:                   # etwa eine kaputte IPv6-Angabe
+        return {"grund": KEIN_VIDEO}
+    if host in ("clouddns", "remoteconnect"):
+        if not ms_host:
+            return {"grund": KEIN_VIDEO}
+        if host == "clouddns":
+            url = teile._replace(netloc=_mit_miniserver(teile, ms_host)).geturl()
+        else:
+            url = teile._replace(scheme="https", netloc=_mit_miniserver(teile, ms_host, ms_port or 443)).geturl()
+    return {"url": url, "user": str(vi.get("user") or "").strip(), "pass": str(vi.get("pass") or "")}
 
 
 class App:
@@ -1233,6 +1428,10 @@ class App:
         self.jwt: str | None = None
         self.alg: str = "SHA1"
         self._ms_pubkey = None           # RSA-Schluessel des Miniservers fuer verschluesselte Befehle
+        # Kamera je Intercom aus den gesicherten Details (intercom_video): {"url",
+        # "user", "pass"} oder {"grund"}; gilt bis zur naechsten Struktur
+        self.ms_video: dict[str, dict] = {}
+        self._video_sperre = asyncio.Lock()
         self._auth_gen = 0               # zaehlt jede Anmeldung (-> _renew_token)
         self._auth_at = 0.0              # monotonic der letzten Anmeldung
         self._auth_lock = asyncio.Lock()
@@ -1261,6 +1460,7 @@ class App:
         self._zugang_sperre = asyncio.Lock()
         self._zugang_neu: dict | None = None
         self.intercom_cfg = _intercom_config()
+        self.intercom_talk = IntercomTalk(self._talk_credentials)
         # Front (Screensaver): Kalender + Wetter. front_task() laedt periodisch,
         # _front ist die zuletzt gebaute Nachricht ({"t":"front",...}), _front_key
         # ihr Abbild zum Vergleich (nur bei Aenderung neu senden), _front_meta der
@@ -1416,10 +1616,13 @@ class App:
         wsrv = st.get("weatherServer")
         self.weather_cfg = wsrv if isinstance(wsrv, dict) else {}
         self._lox_wx = {}
+        # Neue Struktur heisst meist: in Loxone Config gespeichert. Die Kamera
+        # der Intercoms kann sich geaendert haben, also neu fragen.
+        self.ms_video = {}
         self.playerid_by_action = {}
         self.audiohost_by_action = {}
         for _u, _c in self.controls.items():
-            if _c.get("type") == "Intercom":
+            if _c.get("type") in INTERCOM_TYPES:
                 _bu = (_c.get("states") or {}).get("bell")
                 if _bu:
                     self.bell_map[_bu] = _u
@@ -1653,12 +1856,17 @@ class App:
         verschluesselten Befehl heraus (loxone_secure), die Anmeldung steckt im
         Befehl. Lehnt er ab (HTTP 401: Schluessel nicht mehr gueltig, oder LL-Code
         401: Token abgelaufen), einmal mit frischem Schluessel und Token.
+        Gefragt wird nur, wenn der Baustein in der Struktur das Kennzeichen
+        securedDetails traegt (Strukturdoku, Controls: "indicates that there is
+        sensitive information available").
         -> dict; wirft ZugangFehler mit einem Grund fuer den Konfigurator."""
         if not loxone_secure.HAVE_CRYPTO:
             raise ZugangFehler("Paket 'cryptography' fehlt")
         for versuch in range(2):
             if self.icon_session is None or not self.jwt:
                 raise ZugangFehler("Keine Verbindung zum Miniserver")
+            if not (self.controls.get(uuid) or {}).get("securedDetails"):
+                raise OhneGesicherteDetails()
             gen = self._auth_gen
             try:
                 if self._ms_pubkey is None:
@@ -1706,7 +1914,7 @@ class App:
                 except ValueError as err:
                     raise ZugangFehler("Die gesicherten Details sind kein JSON") from err
             if not isinstance(wert, dict):
-                raise ZugangFehler("Der Baustein hat keine gesicherten Details")
+                raise OhneGesicherteDetails()
             return wert
         raise ZugangFehler("Der Miniserver lehnt die verschlüsselte Anfrage ab")
 
@@ -1717,6 +1925,44 @@ class App:
         if sip is None:
             raise ZugangFehler(KEIN_SIP)
         return sip
+
+    async def _talk_credentials(self, uuid: str) -> dict:
+        """Nur Gen-1 (Door Controller); Gen-2 ist der eigene Typ IntercomV2."""
+        if (self.controls.get(uuid) or {}).get("type") != "Intercom":
+            raise ValueError("Gegensprechen unterstützt nur die Intercom Gen-1")
+        try:
+            return await self.intercom_sip(uuid)
+        except ZugangFehler as err:
+            raise ValueError(str(err)) from err
+
+    async def intercom_video(self, uuid: str) -> dict | None:
+        """Kamera einer Intercom fuer /mjpeg: {"url", "user", "pass"}. Eine in
+        LoxPanel eingetragene Adresse (loxpanel.cfg intercom) hat Vorrang, sonst
+        die aus den gesicherten Details des Miniservers (_kamera_aus_details),
+        gemerkt in ms_video bis zur naechsten Struktur. Scheitert die Anfrage
+        (Verbindung, Rechte), wird nichts gemerkt und beim naechsten Mal neu
+        gefragt. None ohne nutzbare Kamera."""
+        ent = self.intercom_cfg.get(uuid)
+        if isinstance(ent, str):
+            ent = {"url": ent}
+        if isinstance(ent, dict) and isinstance(ent.get("url"), str) and ent["url"].strip():
+            return {"url": ent["url"].strip(), "user": str(ent.get("user") or ""), "pass": str(ent.get("pass") or "")}
+        c = self.controls.get(uuid) or {}
+        if c.get("type") not in INTERCOM_TYPES or not c.get("securedDetails"):
+            return None
+        async with self._video_sperre:   # zwei Panels zugleich: einmal fragen
+            cam = self.ms_video.get(uuid)
+            if cam is None:
+                try:
+                    cam = _kamera_aus_details(await self.secured_details(uuid), self.host, self.port)
+                except OhneGesicherteDetails:
+                    cam = {"grund": KEIN_VIDEO}
+                except ZugangFehler as err:
+                    log.warning("Kamera der Intercom %s vom Miniserver: %s", uuid, err)
+                    return None
+                self.ms_video[uuid] = cam
+                self._dirty = True       # Intercom-Seite neu: Bild oder Grund
+        return cam if cam.get("url") else None
 
     # ---- Zustands-Helfer ----
     def _state(self, control: dict, name: str):
@@ -2262,11 +2508,18 @@ class App:
             "tileLayout": "classic" if ui.get("tileLayout") == "classic" else "",
             # Automatisches Raster: Zielgroesse einer Kachel in px; 0 = festes
             # Raster aus cols/rows (4"-Panel und jedes Profil ohne "auto").
-            "gridAuto": (KACHEL_ZIEL.get(ui.get("tileSize"), KACHEL_ZIEL["medium"])
+            "gridAuto": ((_clean_kachelziel(ui.get("tileSize")) or KACHEL_ZIEL_STANDARD)
                          if ui.get("grid") == "auto" else 0),
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
-            "panes": (ui.get("panes") if isinstance(ui.get("panes"), dict) else {}),
+            # Normiert, denn die Datei wird beim Laden nicht sanitisiert: eine
+            # von Hand geschriebene "status:A, B" kaeme sonst roh ins Panel.
+            "panes": ({str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
+                       if isinstance(k, str) and _clean_tabpane(v)}
+                      if isinstance(ui.get("panes"), dict) else {}),
+            # Seiten (Tab-Kennungen), deren Anzeige-Bausteine als Werteleiste
+            # in einer Zeile ueber dem Raster stehen statt als Kacheln.
+            "valueBar": _clean_werteleiste(ui.get("valueBar")),
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
@@ -2296,16 +2549,19 @@ class App:
         """Volle Intercom-Ansicht (Video + Tuer-/Ausgang-Buttons + Klingel-Banner)
         einer Intercom-UUID fuer die Kamera-Pane. Gleiche Bloecke wie die
         Detailansicht -> das Bild wird wie beim Baustein direkt geladen (robust,
-        auch wo ein nacktes MJPEG-<img> nicht anzeigt). None, wenn kein Intercom."""
+        auch wo ein nacktes MJPEG-<img> nicht anzeigt). None, wenn kein Intercom.
+        Was nur auf die Detailseite gehoert (Klingel-Zeile, Geraetezustand,
+        Antworten und Stumm der v2), bleibt draussen."""
         c = self.controls.get(uuid or "")
-        if not c or c.get("type") != "Intercom":
+        if not c or c.get("type") not in INTERCOM_TYPES:
             return None
         try:
             v = self._view_control_inner(uuid)
         except Exception:
             log.exception("intercom_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if b.get("k") != "more" and b.get("id") != "klingel"]
+        return [b for b in (v.get("blocks") or [])
+                if b.get("k") != "more" and b.get("id") not in ("klingel", "zustand", "antworten", "stumm")]
 
     def status_blocks(self, uuids) -> list:
         """Frei gewaehlte Bausteine als Nur-Lese-Kacheln fuer die rechte Spalte
@@ -2619,6 +2875,20 @@ class App:
                 return sc
         return (prof or {}).get("scale") or "off"
 
+    def effective_grid_auto(self, prof: dict | None, dev: str) -> int:
+        """Zielkachel des automatischen Rasters fuer ein Panel: die des Geraets
+        (devices[name].tileTarget), falls dort eine steht, sonst die des
+        Profils - wie bei der Skalierung. Nur im Kachel-Layout "Automatisch"
+        (gridAuto > 0): ein festes Raster bleibt fest, auch wenn das Geraet
+        eine Zielkachel traegt."""
+        g = int((prof or {}).get("gridAuto") or 0)
+        d = self.devices.get(dev) if dev else None
+        if g and isinstance(d, dict):
+            z = _clean_kachelziel(d.get("tileTarget"))
+            if z is not None:
+                return z
+        return g
+
     def device_list(self) -> dict:
         """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
         Panel-Agenten (Announce), verbundene Browser (?device=) und die in
@@ -2666,6 +2936,7 @@ class App:
             entry(name)["presence"] = on   # nur Geraete mit gekoppeltem Praesenzmelder
         for e in devs.values():
             e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
+            e["tileSuggest"] = _kachel_vorschlag(e["screen"])   # Zielkachel aus der gemeldeten Groesse
             if e["agent"] and not e["profile"]:
                 e["profile"] = e["agent"]["panel"]
         anonymous.sort(key=lambda a: a["ip"])
@@ -2888,10 +3159,14 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
-        # Split-Pane je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert.
+                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken",
+                       "valueBar")}
+        # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
+        # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
+        # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
+        # als Teil der UUID meldete.
         if isinstance(ui.get("panes"), dict):
-            ui["panes"] = {str(k): v for k, v in ui["panes"].items()
+            ui["panes"] = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                            if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
             if not ui["panes"]:
                 ui.pop("panes", None)
@@ -2910,6 +3185,18 @@ class App:
             ui["scale"] = _sc
         else:
             ui.pop("scale", None)
+        # Zielkachel als Zahl, auch wenn die Datei noch eine Stufe nennt
+        _tz = _clean_kachelziel(ui.get("tileSize"))
+        if _tz is not None:
+            ui["tileSize"] = _tz
+        else:
+            ui.pop("tileSize", None)
+        # Werteleiste: nur gueltige Tab-Kennungen, jede einmal
+        _vb = _clean_werteleiste(ui.get("valueBar"))
+        if _vb:
+            ui["valueBar"] = _vb
+        else:
+            ui.pop("valueBar", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -3005,8 +3292,9 @@ class App:
                                    or ic.endswith(".svg") or ic.endswith(".png")):
                         ic = ""
                     # Widget-Seite statt Kacheln (Wetter/Kalender/Energie/Kamera/
-                    # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane.
-                    wdg = _clean_tabpane(it.get("widget"))
+                    # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane,
+                    # nur die Kopfzeile nicht (_clean_widget_tab).
+                    wdg = _clean_widget_tab(it.get("widget"))
                     if ps or nm or ic or wdg:
                         entry = {"name": nm or "Auswahl", "picks": ps}
                         if ic:
@@ -3052,15 +3340,21 @@ class App:
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
             if ui.get("grid") == "auto":
                 cui["grid"] = "auto"            # Raster rechnet die Visu (Tablet), cols/rows gelten dann nicht
-            if ui.get("tileSize") in KACHEL_ZIEL and ui["tileSize"] != "medium":
-                cui["tileSize"] = ui["tileSize"]   # Kachelgroesse im automatischen Raster; fehlt = mittel
+            _tz = _clean_kachelziel(ui.get("tileSize"))
+            if _tz is not None and _tz != KACHEL_ZIEL_STANDARD:
+                cui["tileSize"] = _tz           # Zielkachel px im automatischen Raster; fehlt = Standard
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
-                pn = {str(k): v for k, v in ui["panes"].items()
+                # Gespeichert wird der normierte Wert (getrimmte, begrenzte
+                # Listen), nicht die Eingabe - s. _panel_export.
+                pn = {str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                       if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
-                    cui["panes"] = pn           # Split-Pane je Tab: Wetter/Kalender/Vollbreit
+                    cui["panes"] = pn           # Widget je Tab: Pane 2 oder Kopfzeile ("header")
+            _vb = _clean_werteleiste(ui.get("valueBar"))
+            if _vb:
+                cui["valueBar"] = _vb           # Seiten, deren Anzeige-Bausteine als Werteleiste stehen
             _sp = _clean_svpane(ui.get("svPane"))
             if _sp:
                 cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
@@ -3116,6 +3410,8 @@ class App:
                         e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
                         if ov.get("chartStyle") in STAT_TILE_STYLES and ov["chartStyle"] != "trend":
                             e2["chartStyle"] = ov["chartStyle"]   # Tagesmuster / Tagesspanne
+                    if _kachel_breite(ov.get("w")) is not None:
+                        e2["w"] = _kachel_breite(ov["w"])   # Breite in Spalten (1 | 2); fehlt = nach Typ
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -3143,7 +3439,7 @@ class App:
         def standard(pfad: tuple, v) -> bool:
             for muster, wert in PANEL_STANDARD.items():
                 if len(muster) == len(pfad) and all(m in ("*", p) for m, p in zip(muster, pfad)) \
-                        and v == wert:
+                        and (v == wert or (isinstance(wert, tuple) and v in wert)):
                     return True
             return False
 
@@ -3256,19 +3552,23 @@ class App:
             # uebersteuern). Ein Geraet, das NUR sie traegt, muss bleiben -
             # bisher fiel alles ohne Modi und Display-Treiber still weg.
             scale = _clean_scale(cfg.get("scale"))
+            # Zielkachel des automatischen Rasters je Geraet (effective_grid_auto)
+            ziel = _clean_kachelziel(cfg.get("tileTarget"))
             # Praesenzmelder: solange sein Baustein jemanden meldet, bleibt das
             # Display an (_presence_rebuild). Ob es ihn gibt, entscheidet erst
             # die Struktur - wie bei "hide" bleibt die Kennung erhalten, auch
             # wenn der Miniserver gerade nicht verbunden ist.
             presence = cfg.get("presence")
             presence = presence.strip()[:60] if isinstance(presence, str) else ""
-            if not modes and not display and scale is None and not presence:
+            if not modes and not display and scale is None and ziel is None and not presence:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
                 entry["display"] = display
             if scale is not None:
                 entry["scale"] = scale
+            if ziel is not None:
+                entry["tileTarget"] = ziel
             if presence:
                 entry["presence"] = presence
             out[name.strip()[:60]] = entry
@@ -3776,13 +4076,42 @@ class App:
             "feldtypen": cfg.get("weatherFieldTypes"),
         }
 
+    def _leiste_trennen(self, uuids: list, tab, prof: dict | None) -> tuple[list, list]:
+        """Seite mit Werteleiste (ui.valueBar nennt den Tab): die Anzeige-
+        Bausteine (WERTE_LEISTE_TYPEN) wandern aus dem Raster in die Leiste ->
+        (Raster, Leiste), beide in der Reihenfolge von uuids. Ohne Leiste, und
+        wenn im Raster nichts bliebe (eine Seite nur aus Werten: dann SIND die
+        Kacheln die Seite), bleibt alles im Raster."""
+        if not prof or tab not in (prof.get("valueBar") or []):
+            return uuids, []
+        leiste = [u for u in uuids if (self.controls.get(u) or {}).get("type") in WERTE_LEISTE_TYPEN]
+        if not leiste or len(leiste) == len(uuids):
+            return uuids, []
+        weg = set(leiste)
+        return [u for u in uuids if u not in weg], leiste
+
+    def _leiste_items(self, uuids: list, prof: dict | None, **kw) -> dict:
+        """Die Werteleiste einer Ansicht als {"leiste": [...]}: dieselben
+        Kacheln wie im Raster (_control_item: Name, Wert, Symbol, Farbe,
+        Wertseite), das Panel zeigt sie als Kette ueber dem Raster
+        (renderLeiste). Leer: kein Schluessel, die Ansicht bleibt wie bisher."""
+        if not uuids:
+            return {}
+        return {"leiste": [self._control_item(u, prof, **kw) for u in uuids]}
+
     def _control_item(self, uuid: str, prof: dict | None = None,
-                      show_room: bool = False) -> dict:
+                      show_room: bool = False, ohne_raum: str = "") -> dict:
+        """Kachel eines Bausteins. show_room: Raum an der Kachel (Seite ueber
+        mehrere Raeume). ohne_raum: Name des Raums, den die Seite schon nennt
+        (Raum-Seite) - er faellt aus dem Kachelnamen (_ohne_raum), die
+        meisten abgeschnittenen Namen der Messung trugen ihn."""
         c = self.controls.get(uuid)
         if not c:
             return {"id": uuid, "label": "?", "icon": "info", "on": False}
         t = c.get("type")
         name = _clean(c.get("name"))
+        if ohne_raum:
+            name = _ohne_raum(name, ohne_raum)
         it: dict = {"id": uuid, "label": name, "on": False, "icon": "info"}
         # Raum-Kennzeichnung: nur wenn die Ansicht mehrere Raeume umfasst (z.B.
         # Kategorie Licht ueber alle Raeume). Zentralbausteine haben keinen Raum.
@@ -3859,12 +4188,14 @@ class App:
                 # Symbols, die Zeile darunter nennt nur noch Soll und Taetigkeit.
                 it["big"] = f"{self._fmt_num(ta, '%.1f')}°"
                 it["bigSub"] = " · ".join(([f"Soll {self._fmt_num(tt, '%.1f')}°"] if tt is not None else []) + bits)
-        elif t == "Intercom":
+        elif t in INTERCOM_TYPES:
             ring = bool(self._state(c, "bell"))
-            it.update(icon="cam", on=ring,
-                      sublabel=("Es klingelt" if ring else "Türsprechanlage"),
+            # v2: Geraetezustand und Stumm sind Zustaende, keine Beschreibung
+            sub = "Es klingelt" if ring else (self._intercom_zustand(c) or
+                                              ("Stummgeschaltet" if self._state(c, "muted") else ""))
+            it.update(icon="cam", on=ring, sublabel=sub or "Türsprechanlage",
                       nav={"view": "control", "id": uuid})
-            if not ring:
+            if not sub:
                 it["subInfo"] = True
             if ring:
                 it["tone"] = "crit"
@@ -4192,8 +4523,16 @@ class App:
         return self._apply_tile_style(it, uuid, prof)
 
     def _apply_tile_style(self, it: dict, uuid: str, prof: dict | None) -> dict:
-        """Pro-Kachel-Overrides (Farben/Icon/Schrift) aus dem Panel-Profil."""
+        """Pro-Kachel-Overrides (Farben/Icon/Schrift/Breite) aus dem Panel-Profil."""
         ov = (prof.get("tiles") if prof else {}).get(uuid) if prof else None
+        # Breite: zwei Spalten fuer Audio, Raumregelung und Energiefluss
+        # (KACHEL_BREIT_TYPEN), je Kachel uebersteuerbar (w = 1 | 2); nur die
+        # breite Kachel traegt das Feld, schmal ist der Standard der Visu.
+        w = _kachel_breite(ov.get("w")) if isinstance(ov, dict) else None
+        if w is None:
+            w = 2 if (self.controls.get(uuid) or {}).get("type") in KACHEL_BREIT_TYPEN else 1
+        if w == 2:
+            it["w"] = 2
         if not isinstance(ov, dict):
             return it
         if ov.get("iconColor"):
@@ -4280,7 +4619,7 @@ class App:
             # Kacheln. Das Panel rendert es wie eine Pane, nur ueber die volle
             # Flaeche; der Datenkanal (energy/camera/status/player/chart) laeuft
             # ueber dieselbe set*-Mechanik wie Pane 2.
-            _wdg = _clean_tabpane(_entry.get("widget"))
+            _wdg = _clean_widget_tab(_entry.get("widget"))
             if _wdg:
                 return {"t": "view", "title": _clean(_entry.get("name")) or "",
                         "tab": tab, "widget": _wdg,
@@ -4294,6 +4633,10 @@ class App:
                     continue
                 gesehen.add(u)
                 uuids.append(u)
+            sr = self._spans_rooms(uuids)
+            # Werteleiste statt Anzeige-Kacheln - VOR dem Gruppieren, damit
+            # Anker und Marken zu den Kacheln gehoeren, die im Raster bleiben
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
             # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
             # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
@@ -4308,7 +4651,6 @@ class App:
             for u in uuids:
                 nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
             raeume = [ru for ru in nach_raum if ru in self.rooms]
-            sr = self._spans_rooms(uuids)
             # Sprungmarken ERSETZEN im Panel die ganze untere Leiste. Das ist
             # nur dann richtig, wenn diese Seite die einzige des Panels ist.
             # Steht der Auswahl-Tab dagegen neben anderen Seiten in der
@@ -4346,17 +4688,19 @@ class App:
             title = _entry["name"] or "Auswahl"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
-                    "catTabs": raum_tabs}
+                    "catTabs": raum_tabs, **self._leiste_items(leiste, prof, show_room=sr)}
         if isinstance(tab, str) and tab.startswith("cat:"):
             # Kategorie-Direkt-Tab: dieselben Controls wie im Kategorie-Drilldown
             cu = tab[4:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("cat") == cu and self._room_ok(u, prof) and self._shown(u, prof)]
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             items = [self._control_item(u, prof, show_room=sr) for u in uuids]
             title = _clean(self.cats.get(cu, {}).get("name")) or "Kategorie"
             return {"t": "view", "title": title, "tab": tab,
-                    "route": {"view": "tab", "tab": tab}, "items": items}
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    **self._leiste_items(leiste, prof, show_room=sr)}
         if isinstance(tab, str) and tab.startswith("room:"):
             # Raum-Direkt-Tab: dieselben Controls wie im Raum-Drilldown. Als
             # ERSTER Tab ist er die Startseite - dann weckt das Panel direkt in
@@ -4365,6 +4709,9 @@ class App:
             ru = tab[5:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == ru and self._cat_ok(u, prof) and self._shown(u, prof)]
+            # Werteleiste VOR dem Gruppieren: Anker (catKey) und Marken gehoeren
+            # zu den Kacheln, die im Raster bleiben
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             # Raum-Panel: nach Kategorie gruppieren, damit die untere Leiste die
             # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zur
             # jeweiligen Kachel-Gruppe scrollt (keine Ueberschriften, Kacheln
@@ -4384,10 +4731,12 @@ class App:
             else:
                 order = present
                 tab_cats = present[:4]
+            # Der Raumname steht im Titel der Seite: aus den Kachelnamen faellt er heraus
+            raumname = _clean(self.rooms.get(ru, {}).get("name"))
             items = []
             for cu in order:
                 for j, u in enumerate(by_cat[cu]):
-                    it = self._control_item(u, prof)
+                    it = self._control_item(u, prof, ohne_raum=raumname)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
                     it["grp"] = cu              # Gruppe: Aufleuchten und Filter im Panel
@@ -4397,16 +4746,19 @@ class App:
                          "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""}
                         for cu in tab_cats]
             for u in by_cat.get(None, []):
-                items.append(self._control_item(u, prof))
-            title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"
+                items.append(self._control_item(u, prof, ohne_raum=raumname))
+            title = raumname or "Raum"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
-                    "catTabs": cat_tabs}
+                    "catTabs": cat_tabs, **self._leiste_items(leiste, prof, ohne_raum=raumname)}
+        extra: dict = {}   # Werteleiste der Seite (nur Favoriten; Zentral, Raeume, Kategorien sind Listen)
         if tab == "favoriten":
             uuids = [u for u, c in self.controls.items()
                      if c.get("isFavorite") and self._room_ok(u, prof) and self._shown(u, prof)]
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             items = [self._control_item(u, prof, show_room=sr) for u in uuids]
+            extra = self._leiste_items(leiste, prof, show_room=sr)
             title = "Favoriten"
         elif tab == "zentral":
             items = [self._control_item(u, prof) for u, c in self.controls.items()
@@ -4434,23 +4786,27 @@ class App:
                      for cu in cats]
             title = "Kategorien"
         return {"t": "view", "title": title, "tab": tab, "route": {"view": "tab", "tab": tab},
-                "items": items}
+                "items": items, **extra}
 
     def _view_group(self, route: dict, prof: dict | None = None) -> dict:
         kind, gid = route.get("kind"), route.get("id")
         layout = None
+        ohne_raum = ""   # Raum-Seite: der Raumname steht im Titel, nicht noch in jedem Kachelnamen
         if kind == "cat":
             uuids = [u for u, c in self.controls.items()
                      if c.get("cat") == gid and self._room_ok(u, prof) and self._shown(u, prof)]
             title = _clean(self.cats.get(gid, {}).get("name")); tab = "kategorien"
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             return {"t": "view", "title": title, "tab": tab, "route": route,
                     "layout": layout,
-                    "items": [self._control_item(u, prof, show_room=sr) for u in uuids]}
+                    "items": [self._control_item(u, prof, show_room=sr) for u in uuids],
+                    **self._leiste_items(leiste, prof, show_room=sr)}
         elif kind == "room":
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == gid and self._cat_ok(u, prof) and self._shown(u, prof)]
             title = _clean(self.rooms.get(gid, {}).get("name")); tab = "raeume"
+            ohne_raum = title
         elif kind == "central":
             c = self.controls.get(gid, {})
             members = (c.get("details") or {}).get("controls") or []
@@ -4461,8 +4817,10 @@ class App:
                 layout = "list"
         else:
             uuids, title, tab = [], "", None
+        uuids, leiste = self._leiste_trennen(uuids, tab, prof)
         return {"t": "view", "title": title, "tab": tab, "route": route,
-                "layout": layout, "items": [self._control_item(u, prof) for u in uuids]}
+                "layout": layout, "items": [self._control_item(u, prof, ohne_raum=ohne_raum) for u in uuids],
+                **self._leiste_items(leiste, prof, ohne_raum=ohne_raum)}
 
     def _view_sources(self, uuid: str) -> dict:
         """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).
@@ -4677,6 +5035,39 @@ class App:
         txt = unquote(str(self._state(c, "lastBellEvents") or ""))
         return sorted({t.strip() for t in txt.split("|") if _BELL_TS.fullmatch(t.strip())}, reverse=True)
 
+    def _intercom_video_block(self, uuid: str, c: dict) -> dict:
+        """Video der Intercom-Seite: eine in LoxPanel eingetragene Kamera oder
+        die des Miniservers (intercom_video). Solange offen ist, ob er eine
+        nennt, steht das Video schon da: /mjpeg fragt ihn, und die Seite zeigt
+        danach Bild oder Grund."""
+        ent = self.intercom_cfg.get(uuid)
+        eigene = ent.get("url") if isinstance(ent, dict) else ent
+        cam = self.ms_video.get(uuid)
+        if (isinstance(eigene, str) and eigene.strip()) or \
+                (c.get("securedDetails") and (cam is None or cam.get("url"))):
+            return {"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}
+        return {"k": "status", "text": (cam or {}).get("grund") or KEIN_VIDEO}
+
+    def _intercom_zustand(self, c: dict) -> str:
+        """Hinweis zum Geraetezustand einer IntercomV2 (deviceState, Strukturdoku
+        17.0) wie "Startet neu"; leer, wenn sie bereit ist, ohne State und bei v1."""
+        if c.get("type") != "IntercomV2":
+            return ""
+        try:
+            return INTERCOM_V2_ZUSTAND.get(int(float(self._state(c, "deviceState"))), "")
+        except (TypeError, ValueError):
+            return ""
+
+    def _intercom_antworten(self, c: dict) -> list[tuple[int, str]]:
+        """Antworten einer IntercomV2 als (Index, Text). Laut Strukturdoku 17.0
+        ist der State answers eine Liste, playTts/{idx} spielt die mit dem Index
+        an der Tuer ab, setAnswers/{answer0}/{answer1}/... setzt sie als Texte.
+        Der Index bleibt der in der Liste, auch wenn ein Eintrag leer ist."""
+        liste = self._json_state(c, "answers")
+        if not isinstance(liste, list):
+            return []
+        return [(i, a.strip()) for i, a in enumerate(liste) if isinstance(a, str) and a.strip()]
+
     @staticmethod
     def _bell_text(ts: str, heute: date | None = None) -> str:
         """Zeitpunkt einer Klingel: 'Heute 07:49', 'Gestern 07:49', 'Mo 07:49'
@@ -4703,7 +5094,7 @@ class App:
         Klingel; die Visu holt es ueber /bellimg (camimage)."""
         c = self.controls.get(uuid or "", {})
         route = {"view": "bells", "id": uuid}
-        if c.get("type") != "Intercom":
+        if c.get("type") not in INTERCOM_TYPES:
             return self._gone_view(route, "", "Diese Türsprechstelle gibt es nicht mehr.")
         evs = self._bell_events(c)
         blocks = [{"k": "title", "text": "Verpasste Klingeln", "sub": _clean(c.get("name"))}]
@@ -5515,9 +5906,8 @@ class App:
             ]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route,
                     "anchor": "bottom", "blocks": blocks}
-        if t == "Intercom":
-            ent = self.intercom_cfg.get(uuid)
-            has_url = bool(ent.get("url") if isinstance(ent, dict) else ent)
+        if t in INTERCOM_TYPES:
+            ua = c.get("uuidAction")
             subs = c.get("subControls") or {}
             cells = [{"label": _clean(sc.get("name")),
                       "cmd": {"uuid": sc.get("uuidAction"), "cmd": "pulse"}}
@@ -5525,23 +5915,41 @@ class App:
             blocks = []
             if self._state(c, "bell"):
                 blocks.append({"k": "astat", "text": "Es klingelt", "tone": "crit"})
-            blocks += [{"k": "video", "src": f"/mjpeg?id={quote(uuid)}"}] if has_url else \
-                      [{"k": "status", "text": "Kein Video konfiguriert (loxpanel.cfg → intercom)"}]
+            zustand = self._intercom_zustand(c)
+            if zustand:
+                blocks.append({"k": "status", "id": "zustand", "text": zustand})
+            blocks.append(self._intercom_video_block(uuid, c))
             if cells:
                 blocks.append({"k": "row", "cells": cells})
+            # Die native Bruecke fuehrt Audio; Browser/Fully filtern diesen Block.
+            # deviceType ist keine Generation: auch eine Gen-1 kann 0 melden.
+            if t == "Intercom":
+                blocks.append({"k": "intercom-talk", "uuid": uuid, "nativeOnly": True})
             # Laut Strukturdoku: 'answer' stellt die Klingel ab; lastBellEvents
             # sind die Klingeln, auf die niemand reagiert hat. Eigene Zeile
             # hinter den Ausgaengen - die Kamera-Pane zeigt sie nicht
             # (intercom_blocks).
             extra = []
             if self._state(c, "bell"):
-                extra.append({"label": "Klingel abstellen", "cmd": {"uuid": c.get("uuidAction"), "cmd": "answer"}})
+                extra.append({"label": "Klingel abstellen", "cmd": {"uuid": ua, "cmd": "answer"}})
             n = len(self._bell_events(c))
             if n:
                 extra.append({"label": f"{n} verpasste Klingel" + ("" if n == 1 else "n"),
                               "nav": {"view": "bells", "id": uuid}})
             if extra:
                 blocks.append({"k": "row", "id": "klingel", "cells": extra})
+            # Nur v2 (Strukturdoku 17.0, IntercomV2): Antworten spielt die Intercom
+            # an der Tuer ab (playTts/{idx}); muted ist der Ausgang Qb des
+            # Bausteins, mute/{0/1} schaltet ihn stumm bzw. wieder laut.
+            antworten = [{"label": a, "cmd": {"uuid": ua, "cmd": f"playTts/{i}"}}
+                         for i, a in self._intercom_antworten(c)] if t == "IntercomV2" else []
+            if antworten:
+                blocks += [{"k": "head", "id": "antworten", "text": "Antwort abspielen"},
+                           {"k": "row", "id": "antworten", "wrap": True, "cells": antworten}]
+            if t == "IntercomV2" and "muted" in (c.get("states") or {}):
+                stumm = bool(self._state(c, "muted"))
+                blocks.append({"k": "row", "id": "stumm", "cells": [
+                    {"label": "Stumm", "on": stumm, "cmd": {"uuid": ua, "cmd": "mute/0" if stumm else "mute/1"}}]})
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "Tracker":
             lines = self._tracker_lines(c)
@@ -6958,6 +7366,7 @@ class App:
                 self._front_session = None
 
     async def close(self) -> None:
+        await self.intercom_talk.close()
         if self.ws:
             await self.ws.close()
         if self.icon_session:
@@ -7066,6 +7475,11 @@ async def api_meta(request: web.Request) -> web.Response:
            for ru in app.rooms_with],
         "panels": panels,
         "devices": App._devices_export(app.devices),
+        # Zielkachel des automatischen Rasters: Grenzen, Standard, alte Stufen
+        "kachelZiel": {"min": KACHEL_ZIEL_MIN, "max": KACHEL_ZIEL_MAX, "std": KACHEL_ZIEL_STANDARD,
+                       "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
+        # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
+        "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
@@ -7896,7 +8310,7 @@ async def api_settings(request: web.Request) -> web.Response:
                 "hasPass": bool(e.get("pass"))}
 
     intercoms = [{"uuid": u, "name": _clean(c.get("name")), **icv(u)}
-                 for u, c in app.controls.items() if c.get("type") == "Intercom"]
+                 for u, c in app.controls.items() if c.get("type") in INTERCOM_TYPES]
     am = cfg.get("audiometa", {}) if isinstance(cfg.get("audiometa"), dict) else {}
     cal = cfg.get("calendar", {}) if isinstance(cfg.get("calendar"), dict) else {}
     return web.json_response({
@@ -8143,22 +8557,30 @@ async def api_sip(request: web.Request) -> web.Response:
     """Settings -> SIP: die Intercoms der Anlage mit ihrem SIP-Zugang aus den
     gesicherten Details. Das Passwort verlaesst den Server nie, die Routen haben
     keine Anmeldung; es heisst nur, ob es eines gibt (hasPass wie bei
-    /api/settings). Nennt eine Intercom keinen, steht unter felder, welche
-    Felder ihre gesicherten Details haben und ob sie gefuellt sind, ohne Werte.
-    Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede Intercom kostet
-    eine verschluesselte Anfrage an den Miniserver.
-    deviceType wie im Baustein: 0 andere oder unbekannte Tuerstation, 1 Loxone
-    Intercom, 2 Loxone Intercom XL (Strukturdoku 16.0, Intercom)."""
+    /api/settings). Nennt eine Intercom keinen, steht ohneSip darin und, wenn
+    sie gesicherte Details hat, unter felder, welche Felder diese haben und ob
+    sie gefuellt sind, ohne Werte.
+    Laedt erst, wenn der Konfigurator den Reiter oeffnet: jede Intercom mit
+    gesicherten Details kostet eine verschluesselte Anfrage an den Miniserver.
+    type ist der Bausteintyp (Intercom = Tuersteuerung, IntercomV2 = Baustein
+    Intercom), deviceType wie im Baustein (Strukturdoku 17.0): bei Intercom 0
+    andere oder unbekannte Tuerstation, 1 Loxone Intercom, 2 Loxone Intercom
+    XL; bei IntercomV2 0 andere oder unbekannte, 1 Loxone Intercom."""
     app: App = request.app["app"]
     liste = []
     for uuid, c in app.controls.items():
-        if c.get("type") != "Intercom":
+        if c.get("type") not in INTERCOM_TYPES:
             continue
-        e = {"uuid": uuid, "name": _clean(c.get("name")),
+        e = {"uuid": uuid, "name": _clean(c.get("name")), "type": c.get("type"),
              "room": _clean((app.rooms.get(c.get("room")) or {}).get("name")),
              "deviceType": (c.get("details") or {}).get("deviceType")}
+        # ohneSip: der Miniserver nennt keinen SIP-Zugang (anders als bei einem
+        # Fehler mit Verbindung oder Rechten); der Konfigurator sagt dann, wo er
+        # in Loxone Config hingehoert
         try:
             details = await app.secured_details(uuid)
+        except OhneGesicherteDetails as err:
+            e.update(error=str(err), ohneSip=True)
         except ZugangFehler as err:
             e["error"] = str(err)
         else:
@@ -8166,7 +8588,7 @@ async def api_sip(request: web.Request) -> web.Response:
             if sip:
                 e["sip"] = {"host": sip["host"], "user": sip["user"], "hasPass": bool(sip["pass"])}
             else:
-                e.update(error=KEIN_SIP, felder=_gesichert_felder(details))
+                e.update(error=KEIN_SIP, felder=_gesichert_felder(details), ohneSip=True)
         liste.append(e)
     liste.sort(key=lambda e: (e["name"].lower(), e["room"].lower()))
     return web.json_response({"connected": app.client is not None, "intercoms": liste})
@@ -8184,7 +8606,7 @@ async def api_sip_pruefen(request: web.Request) -> web.Response:
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
     uuid = str(data.get("uuid") or "") if isinstance(data, dict) else ""
-    if (app.controls.get(uuid) or {}).get("type") != "Intercom":
+    if (app.controls.get(uuid) or {}).get("type") not in INTERCOM_TYPES:
         return web.json_response({"ok": False, "error": "Unbekannte Intercom"}, status=404)
     try:
         sip = await app.intercom_sip(uuid)
@@ -8193,6 +8615,64 @@ async def api_sip_pruefen(request: web.Request) -> web.Response:
     erg = await sip_probe.pruefen(sip["host"], sip["user"], sip["pass"])
     log.info("SIP-Prüfung %s: %s", erg.get("ziel"), erg.get("anmeldung") or erg.get("error"))
     return web.json_response({"ok": True, **erg})
+
+
+def _native_talk(request: web.Request) -> None:
+    """Nur die eingebettete App kennt den Prozess-Token; keine LAN-Call-API."""
+    token = os.environ.get("LOXPANEL_INTERCOM_TOKEN", "")
+    try:
+        local = ipaddress.ip_address(request.remote or "").is_loopback
+    except ValueError:
+        local = False
+    if not local or not token or not hmac.compare_digest(
+            request.headers.get("X-LoxPanel-Intercom", ""), token):
+        raise web.HTTPForbidden(text="Gegensprechen ist nur in der nativen LoxPanel-App verfügbar")
+
+
+def _talk_session(data: dict) -> str:
+    session = data.get("session")
+    if not isinstance(session, str) or not re.fullmatch(r"[A-Za-z0-9-]{16,64}", session):
+        raise web.HTTPBadRequest(text="Ungültige Verbindung")
+    return session
+
+
+async def _talk_json(request: web.Request) -> dict:
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        raise web.HTTPBadRequest(text="Kein gültiges JSON") from None
+    if not isinstance(data, dict):
+        raise web.HTTPBadRequest(text="Kein gültiges JSON-Objekt")
+    return data
+
+
+async def api_intercom_talk_start(request: web.Request) -> web.Response:
+    _native_talk(request)
+    data = await _talk_json(request)
+    session = _talk_session(data)
+    uuid, port = data.get("uuid"), data.get("rtpPort")
+    app: App = request.app["app"]
+    if not isinstance(uuid, str) or (app.controls.get(uuid) or {}).get("type") != "Intercom":
+        return web.json_response({"ok": False, "message": "Gegensprechen unterstützt nur die Intercom Gen-1"}, status=400)
+    if type(port) is not int or not 1024 <= port <= 65535:
+        return web.json_response({"ok": False, "message": "Ungültiger RTP-Port"}, status=400)
+    try:
+        result = await app.intercom_talk.start(session, uuid, port)
+    except TalkBusy as err:
+        return web.json_response({"ok": False, "message": str(err)}, status=409)
+    return web.json_response(result)
+
+
+async def api_intercom_talk_status(request: web.Request) -> web.Response:
+    _native_talk(request)
+    session = _talk_session(dict(request.query))
+    return web.json_response(request.app["app"].intercom_talk.status(session))
+
+
+async def api_intercom_talk_stop(request: web.Request) -> web.Response:
+    _native_talk(request)
+    session = _talk_session(await _talk_json(request))
+    return web.json_response(await request.app["app"].intercom_talk.stop(session))
 
 
 async def api_settings_calendar(request: web.Request) -> web.Response:
@@ -8407,6 +8887,9 @@ async def api_save_devices(request: web.Request) -> web.Response:
     # beim Speichern von Profilen noetig ist, hier aber nicht.
     for ws, info in list(app.conn_info.items()):
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
+            app.conn_prof.get(ws), info.get("dev", ""))})
+        # ... und die Zielkachel je Geraet: die Visu baut ihr Raster neu
+        await app._send_or_drop(ws, {"t": "gridAuto", "gridAuto": app.effective_grid_auto(
             app.conn_prof.get(ws), info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": App._devices_export(devices),
                               "kennwortVerworfen": [p[1] for p in verworfen]})
@@ -8685,16 +9168,17 @@ async def cover_handler(request: web.Request) -> web.Response:
 
 
 async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
-    """Relais des MJPEG-Streams der Tuerstation (mit Auth) -> Browser.
+    """Relais des MJPEG-Streams der Tuerstation (mit Auth) -> Browser. Die
+    Kamera kommt aus LoxPanel oder vom Miniserver (App.intercom_video).
 
     Eigene ClientSession (nicht icon_session): mit dem SSL-Connector der
     icon_session liefert die Mobotix nur ein Einzelbild statt des Streams.
     """
     app: App = request.app["app"]
-    ent = app.intercom_cfg.get(request.query.get("id", ""))
-    url = ent.get("url") if isinstance(ent, dict) else ent
-    if not isinstance(url, str) or not url.strip():
+    cam = await app.intercom_video(request.query.get("id", ""))
+    if cam is None:
         return web.Response(status=404)
+    url = cam["url"]
     # Session und Antwort der Kamera werden in jedem Fall freigegeben, auch
     # wenn der Handler mitten im Verbindungsaufbau abgebrochen wird
     # (Herunterfahren) - sonst bleiben Socket und Connector offen.
@@ -8702,9 +9186,7 @@ async def mjpeg_handler(request: web.Request) -> web.StreamResponse:
     upstream = None
     try:
         try:
-            auth = None
-            if isinstance(ent, dict) and ent.get("user"):
-                auth = aiohttp.BasicAuth(ent.get("user", ""), ent.get("pass", ""))
+            auth = aiohttp.BasicAuth(cam["user"], cam["pass"]) if cam["user"] else None
             upstream = await sess.get(url, auth=auth)
         except (aiohttp.ClientError, ValueError):
             # ValueError: unbrauchbarer Host ("cam..lan") oder Benutzer, der nicht
@@ -8774,7 +9256,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
-                        "gridAuto": prof["gridAuto"],      # automatisches Raster: Zielgroesse px, 0 = fest
+                        "gridAuto": app.effective_grid_auto(prof, dev),   # automatisches Raster: Zielkachel px (Geraet vor Profil), 0 = fest
+                        "gridGrow": KACHEL_WACHSEN,   # ... Kacheln wachsen bis dahin, wenn alle auf eine Seite passen
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
@@ -8903,8 +9386,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Client meldet die Bausteine der Status-Spalte seines
                 # Screensavers (oder [] = keine). Antwort sofort, damit die
                 # Spalte beim Einblenden nicht leer bleibt.
-                _uu = tuple(str(x) for x in (data.get("uuids") or [])
-                            if isinstance(x, str))[:SV_STATUS_MAX]
+                _uu = tuple(x.strip() for x in (data.get("uuids") or [])
+                            if isinstance(x, str) and x.strip())[:SV_STATUS_MAX]
                 if _uu:
                     app.conn_status[ws] = _uu
                     try:
@@ -9034,6 +9517,9 @@ def main() -> None:
     a.router.add_post("/api/settings/intercom", api_settings_intercom)
     a.router.add_get("/api/sip", api_sip)
     a.router.add_post("/api/sip/pruefen", api_sip_pruefen)
+    a.router.add_post("/api/intercom/talk/start", api_intercom_talk_start)
+    a.router.add_get("/api/intercom/talk/status", api_intercom_talk_status)
+    a.router.add_post("/api/intercom/talk/stop", api_intercom_talk_stop)
     a.router.add_post("/api/settings/night", api_settings_night)
     a.router.add_post("/api/settings/audiometa", api_settings_audiometa)
     a.router.add_post("/api/settings/calendar", api_settings_calendar)
