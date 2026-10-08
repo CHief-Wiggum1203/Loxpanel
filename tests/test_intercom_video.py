@@ -22,10 +22,9 @@ KAMERA_PASS = "Bild-Kennwort-2"
     ({"videoInfo": {"streamUrl": "192.168.1.99/snap.jpeg"}}, {"url": "http://192.168.1.99/snap.jpeg", "user": "", "pass": ""}),
     ({"videoInfo": {"streamUrl": "https://user@10.0.0.8:8443/live"}},
      {"url": "https://user@10.0.0.8:8443/live", "user": "", "pass": ""}),
-    # laut Doku nur ueber den Fernzugang des Miniservers
-    ({"videoInfo": {"streamUrl": "http://cloudDNS:8081/mjpg/video.mjpg"}}, {"grund": W.NUR_FERNZUGANG}),
-    ({"videoInfo": {"streamUrl": "https://remoteConnect/cam/1"}}, {"grund": W.NUR_FERNZUGANG}),
-    ({"videoInfo": {"streamUrl": "remoteConnect:443/cam/1"}}, {"grund": W.NUR_FERNZUGANG}),
+    # Platzhalter ohne Miniserver-Adresse: kein Video (der Aufrufer gibt sie immer mit)
+    ({"videoInfo": {"streamUrl": "http://cloudDNS:8081/mjpg/video.mjpg"}}, {"grund": W.KEIN_VIDEO}),
+    ({"videoInfo": {"streamUrl": "https://remoteConnect/cam/1"}}, {"grund": W.KEIN_VIDEO}),
     ({"videoInfo": {"streamUrl": "", "user": "kamera"}, "audioInfo": {"host": "10.0.0.9"}}, {"grund": W.KEIN_VIDEO}),
     ({"audioInfo": {"host": "10.0.0.9"}}, {"grund": W.KEIN_VIDEO}),
     ({"videoInfo": "kaputt"}, {"grund": W.KEIN_VIDEO}),
@@ -33,6 +32,28 @@ KAMERA_PASS = "Bild-Kennwort-2"
 ])
 def test_kamera_aus_details(details, soll):
     assert W._kamera_aus_details(details) == soll
+
+
+@pytest.mark.parametrize("stream, soll", [
+    # cloudDNS: Adresse des Miniservers, der Port der Kamera-Adresse bleibt
+    ("http://cloudDNS:8081/mjpg/video.mjpg", "http://192.168.1.5:8081/mjpg/video.mjpg"),
+    ("cloudDNS/snap.jpeg", "http://192.168.1.5/snap.jpeg"),
+    ("http://kamera@CloudDNS:8081/x", "http://kamera@192.168.1.5:8081/x"),
+    # remoteConnect: Host UND Port des Miniservers, https Pflicht
+    ("https://remoteConnect/cam/1", "https://192.168.1.5:8443/cam/1"),
+    ("remoteConnect:443/cam/1", "https://192.168.1.5:8443/cam/1"),
+    ("http://remoteconnect:80/cam/1?x=1", "https://192.168.1.5:8443/cam/1?x=1"),
+    # echter Host: unveraendert
+    ("http://10.0.0.7/mjpg/video.mjpg", "http://10.0.0.7/mjpg/video.mjpg"),
+])
+def test_platzhalter_werden_zum_miniserver(stream, soll):
+    """Strukturdoku 17.0 (Intercom, streamUrl): cloudDNS wird durch die IP des
+    Miniservers ersetzt, remoteConnect durch Host und Port des Miniservers mit
+    https; der Miniserver leitet das Kamerabild weiter (Codex-Befund an #110)."""
+    assert W._kamera_aus_details({"videoInfo": {"streamUrl": stream, "user": "k", "pass": "p"}},
+                                 "192.168.1.5", 8443) == {"url": soll, "user": "k", "pass": "p"}
+    ipv6 = W._kamera_aus_details({"videoInfo": {"streamUrl": "http://cloudDNS:8081/v"}}, "fd00::7", 443)
+    assert ipv6["url"] == "http://[fd00::7]:8081/v"
 
 
 async def _kamera():
@@ -127,7 +148,7 @@ def test_eigene_adresse_hat_vorrang(miniserver_http):
 
 @pytest.mark.parametrize("gesichert, grund", [
     ({"audioInfo": {"host": "10.0.0.9"}}, W.KEIN_VIDEO),
-    ({"videoInfo": {"streamUrl": "http://cloudDNS:8081/mjpg/video.mjpg", "user": "kamera"}}, W.NUR_FERNZUGANG),
+    ({"videoInfo": {"streamUrl": "", "user": "kamera"}}, W.KEIN_VIDEO),
 ])
 def test_ohne_kamera_beim_miniserver(miniserver_http, gesichert, grund):
     """Nennt der Miniserver keine nutzbare Kamera, sagt die Seite warum - auch
@@ -145,6 +166,26 @@ def test_ohne_kamera_beim_miniserver(miniserver_http, gesichert, grund):
         finally:
             await app.icon_session.close()
             await ms.stop()
+    asyncio.run(lauf())
+
+
+def test_clouddns_laeuft_ueber_den_miniserver(miniserver_http):
+    """Nennt der Miniserver "cloudDNS" als Host, holt /mjpeg das Bild von der
+    Adresse des Miniservers mit dem Port aus der streamUrl - im Test ist das
+    die Kamera auf 127.0.0.1."""
+    async def lauf():
+        cam_runner, cam_port, abrufe = await _kamera()
+        ms, app, cl = await _aufbau({"IC": {"videoInfo": {"streamUrl": f"http://cloudDNS:{cam_port}/v",
+                                                           "user": "kamera", "pass": KAMERA_PASS}}})
+        app.host = "127.0.0.1"
+        try:
+            async with cl:
+                assert await _hole(cl) == (200, b"--frame /v")
+                assert app.ms_video["IC"]["url"] == f"http://127.0.0.1:{cam_port}/v" and abrufe == ["/v"]
+        finally:
+            await app.icon_session.close()
+            await ms.stop()
+            await cam_runner.cleanup()
     asyncio.run(lauf())
 
 
