@@ -82,6 +82,8 @@ MESSEN = """() => Object.fromEntries([...document.querySelectorAll('#grid .tile[
     ueberlauf: t.scrollHeight - t.clientHeight,
     textUnten: Math.max(...[sub, name].filter(sichtbar).map(e => r(e).bottom)) - r(t).bottom,
     tastenImKopf: !!(ctrl && ctrl.parentNode.classList.contains('head')),
+    tastenWeg: !!(ctrl && (ctrl.hidden || cs(ctrl).display === 'none')),
+    eigenerKs: parseFloat(t.style.getPropertyValue('--ks')) || null,
     tastenUnten: ctrl && ctrl.parentNode === t ? r(ctrl).top - r(q('.body')).bottom : null,
     tasten: [...t.querySelectorAll('.tctrls .tb')].map(b => [Math.round(r(b).width), Math.round(r(b).height),
              r(b).bottom <= r(t).bottom + 0.5, b.innerHTML]),
@@ -224,16 +226,24 @@ def test_neuer_aufbau_am_4zoll_panel(tmp_path, request, ui, spalten):
         assert ic["ganz"]["name"] and ic["name"].replace("\n", " ") == "Eingang Intercom", ic
         assert ic["sub"] is not None and ic["ganz"]["sub"], ic
         assert 0.85 <= ic["ks"] <= 0.9, ic["ks"]
+    # Player: in drei Zeilen (128 px) ist die Kachel fuer Text UND Tasten zu
+    # niedrig - keine Tasten, die Detailseite hat sie (tastenEinpassen); in
+    # zwei Zeilen stehen sie unter dem Text, die Kachel nimmt dafuer einen
+    # kleineren Faktor als die Seite
     if spalten == 3:
-        # Player: die Tasten ruecken wie bisher in den Kopf
-        assert k["AZ"]["tastenImKopf"] and "ctrltight" in k["AZ"]["klassen"], k["AZ"]
+        assert k["AZ"]["tastenWeg"] and not k["AZ"]["tastenImKopf"] and "ohnetasten" in k["AZ"]["klassen"], k["AZ"]
+    else:
+        assert not k["AZ"]["tastenWeg"] and k["AZ"]["tastenUnten"] >= 0, k["AZ"]
+        assert k["AZ"]["eigenerKs"] and k["AZ"]["eigenerKs"] < k["AZ"]["ks"], k["AZ"]
 
 
 @pytest.mark.parametrize("aufbau", ["neu", "classic"])
-def test_enge_kachel_behaelt_die_lage_ihrer_tasten(tmp_path, aufbau):
-    """Pause aendert Farbe und Symbol, aber nicht den Text: updateGrid() setzte
-    die Klassen neu und warf dabei ctrltight/ctrlnarrow weg, placeCtrls() mass
-    bei gleichem Text nicht nach - die Tasten standen ohne ihre Regeln im Kopf."""
+def test_enge_kachel_hat_keine_tasten(tmp_path, aufbau):
+    """3x3 am 4"-Panel (128 px): fuer Text und Tasten ist die Kachel zu
+    niedrig, also keine Tasten (tastenEinpassen, aus dem Faktor statt
+    gemessen) - ein Tipp auf die Kachel oeffnet die Detailseite, dort sind
+    sie. Ein Zustandswechsel ohne neuen Text (Pause) aendert daran nichts,
+    die Tasten bleiben fuer den naechsten Aufbau aktuell, nichts laeuft ueber."""
     ui = {"split": False, "cols": 3, "rows": 3, **({"tileLayout": "classic"} if aufbau == "classic" else {})}
 
     async def schritte(app, pg):
@@ -241,15 +251,19 @@ def test_enge_kachel_behaelt_die_lage_ihrer_tasten(tmp_path, aufbau):
         app._on_value("az1", 0)
         await pg.wait_for_function("document.querySelector('.tile[data-id=\"AZ\"]').classList.contains('on') === false")
         await pg.wait_for_timeout(300)
-        return vorher, (await pg.evaluate(MESSEN))["AZ"]
+        nachher = (await pg.evaluate(MESSEN))["AZ"]
+        await pg.locator('.tile[data-id="AZ"]').click()
+        await pg.wait_for_timeout(600)
+        return vorher, nachher, await pg.evaluate("view && view.route")
     # Die Audio-Kachel ist seit den breiten Kacheln von Haus aus zwei Spalten
     # breit; hier geht es um die ENGE Kachel, also eine Spalte (tiles.AZ.w = 1)
-    vorher, nachher = _laufen(ui, 480, 480, schritte, tiles={"AZ": {"w": 1}}, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
+    vorher, nachher, route = _laufen(ui, 480, 480, schritte, tiles={"AZ": {"w": 1}}, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
 
-    assert {"ctrltight", "ctrlnarrow"} <= set(vorher["klassen"]) and vorher["tastenImKopf"], vorher
-    assert {"ctrltight", "ctrlnarrow"} <= set(nachher["klassen"]) and nachher["tastenImKopf"], nachher
+    assert vorher["tastenWeg"] and "ohnetasten" in vorher["klassen"] and not vorher["tastenImKopf"], vorher
+    assert nachher["tastenWeg"] and "ohnetasten" in nachher["klassen"] and not nachher["tastenImKopf"], nachher
     assert vorher["tasten"][1][3] != nachher["tasten"][1][3], "Pause wurde zu Play"
-    assert all(drin for _, _, drin, _ in nachher["tasten"]) and nachher["ueberlauf"] <= 1, nachher
+    assert vorher["ueberlauf"] <= 1 and nachher["ueberlauf"] <= 1, nachher
+    assert route == {"view": "control", "id": "AZ"}, route
 
 
 def test_klassischer_aufbau_bleibt_waehlbar(tmp_path):

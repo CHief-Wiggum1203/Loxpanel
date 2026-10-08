@@ -103,6 +103,48 @@ def test_stop_waehrend_gesicherte_details_laden():
     asyncio.run(run())
 
 
+def test_stop_waehrend_altes_gespraech_aufraeumt():
+    """Codex-Befund an #127: Ein Start, der erst das vorige Gespraech aufraeumen
+    muss, gibt dabei den Ablauf frei. Trifft waehrenddessen ein Stop fuer die
+    NEUE Sitzung ein, sieht der noch die alte Sitzung und meldet idle - der
+    Start darf die abgebrochene Sitzung danach nicht mehr aufbauen."""
+    async def run():
+        halt = asyncio.Event()
+        created = []
+
+        async def credentials(uuid):
+            return SIP.copy()
+
+        class LangsamesEnde(AudioCall):
+            async def stop(self):
+                await halt.wait()
+                await super().stop()
+
+        def factory(*args):
+            created.append(args)
+            return LangsamesEnde(*args)
+        manager = IntercomTalk(credentials, factory=factory)
+        try:
+            await manager.start(SESSION, "IC", 12345)
+            await _until(lambda: manager.call is not None)
+            manager.call.release.set()
+            await _until(lambda: manager.state == "connected")
+            manager.call.state = "idle"                       # die Gegenstelle legt auf
+            assert manager.status(SESSION)["state"] == "idle"
+            zweiter = asyncio.create_task(manager.start(OTHER, "IC", 12346))
+            await asyncio.sleep(0.05)                          # haengt im Aufraeumen (stop() wartet)
+            assert not zweiter.done() and manager.session == SESSION
+            assert (await manager.stop(OTHER))["state"] == "idle"
+            halt.set()
+            assert (await zweiter)["state"] == "idle"
+            assert manager.session != OTHER and len(created) == 1, "die abgebrochene Sitzung darf nicht starten"
+            assert manager.state == "idle"
+        finally:
+            halt.set()
+            await manager.close()
+    asyncio.run(run())
+
+
 def test_credential_fehler_verhindert_anruf():
     async def run():
         async def credentials(uuid):

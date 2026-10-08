@@ -595,17 +595,17 @@
   .tile.crit .name{color:var(--crit-ink,var(--name-color,inherit));}
   .tile.crit .room,.tile.crit .chev{color:var(--crit-muted,var(--muted));}
   .tctrls{display:flex;gap:calc(8px * var(--ks,1));justify-content:center;margin-top:calc(6px * var(--ks,1));}
-  .tctrls .tb{width:calc(34px * max(1, var(--ks,1)));height:calc(34px * max(1, var(--ks,1)));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
+  /* Tasten sind Touch-Ziele: sie tragen den Faktor der SEITE (--ksg), auch
+     wenn die Kachel fuer sie ihren eigenen kleineren nimmt (tastenEinpassen),
+     und schrumpfen nie unter ihr Mass. */
+  .tctrls .tb{width:calc(34px * max(1, var(--ksg,1)));height:calc(34px * max(1, var(--ksg,1)));border-radius:50%;background:rgba(var(--wash,255,255,255),.10);
     display:grid;place-items:center;color:var(--ink);flex:0 0 auto;}
   .tctrls .tb:active{transform:scale(.92);background:rgba(var(--wash,255,255,255),.18);}
-  .tctrls .tb svg{width:calc(17px * max(1, var(--ks,1)));height:calc(17px * max(1, var(--ks,1)));}
-  /* Enge Kachel (kleines Panel, drei Zeilen): unter dem Text ist kein Platz ->
-     die Tasten ruecken in die Kopfzeile rechts neben das Icon; reicht dort die
-     Breite nicht (3x3, drei Tasten des Players), treten sie an seine Stelle.
-     Die Entscheidung misst placeCtrls(). */
-  .tile.ctrltight .head .tctrls{margin:0 0 0 8px;align-self:center;}
-  .tile.ctrlnarrow .head .ico,.tile.ctrlnarrow .head .icowrap{display:none;}
-  .tile.ctrlnarrow .head .tctrls{margin:0;gap:4px;}
+  .tctrls .tb svg{width:calc(17px * max(1, var(--ksg,1)));height:calc(17px * max(1, var(--ksg,1)));}
+  /* Tasten nur, wenn die Kachel hoch genug ist (tastenEinpassen): sonst bleiben
+     sie weg, und der Tipp auf die Kachel oeffnet die Detailseite. display:flex
+     schlaegt das hidden-Attribut, darum ausdruecklich. */
+  .tctrls[hidden]{display:none;}
   /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
      Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
      Zeile belegten - jeder Monat begann so am Montag. */
@@ -661,12 +661,9 @@
     letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--name-color,inherit);}
   .grid.lx:not(.list) .tile .bigv small{font-size:.5em;font-weight:400;color:var(--muted);letter-spacing:0;}
   .grid.lx:not(.list) .tile>.tctrls{order:3;margin-top:auto;padding-top:calc(10px * var(--ks,1));gap:calc(8px * var(--ks,1));}
-  /* Tasten sind Touch-Ziele: sie wachsen mit dem Faktor, schrumpfen aber nie */
-  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ks,1)));border-radius:calc(12px * var(--ks,1));}
-  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * max(1, var(--ks,1)));height:calc(19px * max(1, var(--ks,1)));}
-  /* Enge Kachel: die Tasten ruecken wie bisher in den Kopf (placeCtrls), der
-     Raum macht ihnen Platz. */
-  .grid.lx:not(.list) .tile.ctrltight .head .room{display:none;}
+  /* Tasten sind Touch-Ziele: sie wachsen mit dem Faktor der Seite, schrumpfen aber nie */
+  .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ksg,1)));border-radius:calc(12px * var(--ks,1));}
+  .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * max(1, var(--ksg,1)));height:calc(19px * max(1, var(--ksg,1)));}
   /* Enge Kachel (etwa 3x3 auf dem 4"-Panel), gemessen in fitTile(): erst steht
      der Text nur noch einzeilig (eng1), reicht das nicht, faellt die Angabe zum
      Mini-Verlauf weg (eng2, der Verlauf selbst bleibt im Kopf), dann die zweite
@@ -2044,6 +2041,10 @@ const SPARK_MIN_W=40;
 // 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
 // beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
 const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE_H=48;
+// Standardgroessen je Kachel-Aufbau, wie GROESSEN_STANDARD im Server (gelten,
+// wenn der Kasten keine --ico-size usw. traegt)
+const GROESSEN_STANDARD = {neu: {iconSize: 38, nameSize: 16, subSize: 14, roomSize: 13},
+                           classic: {iconSize: 38, nameSize: 18, subSize: 15, roomSize: 12}};
 let kachelFaktor=1;
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
 // traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
@@ -2054,6 +2055,7 @@ function setzeFaktor(ks){
   const sc=document.querySelector('.screen'); if(!sc) return;
   kachelFaktor=ks;
   sc.style.setProperty('--ks', ks.toFixed(3));
+  sc.style.setProperty('--ksg', ks.toFixed(3));   // Faktor der Seite fuer die Tasten, auch wo eine Kachel --ks selbst setzt
   sc.style.setProperty('--kst-min', ks>=1 ? '1' : '0.6');   // Untergrenze der Textstufen (s. fitTile)
   sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
   sc.style.setProperty('--leiste-h', Math.round(LEISTE_H*ks)+'px');   // Werteleiste waechst mit
@@ -2079,17 +2081,23 @@ function faktorEinmessen(){
 }
 // Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
 // neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
+// Kachelhoehe beim letzten Einpassen: im festen, breitenbegrenzten Raster
+// kann sie sich mit dem Fenster aendern, ohne dass der Faktor es tut
+// (Codex-Befund an #128) - dann passen Tasten und Text trotzdem neu.
+let _kachelH=0;
+function kachelHoehe(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientHeight : 0; }
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
   const vorher=kachelFaktor;
   if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
   else faktorEinmessen();
-  if(Math.abs(kachelFaktor-vorher)>=0.01) kachelnNeuMessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelHoehe()!==_kachelH) kachelnNeuMessen();
 }
 function kachelnNeuMessen(){
+  _kachelH=kachelHoehe();
   el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
-    n._fitText=null; n._ctrlText=null;
-    if(n._it && n._it.controls) placeCtrls(n);
+    n._fitText=null;
+    if(n._it && n._it.controls) tastenEinpassen(n);
     if(n._it && n._it.spark){ const sp=n.querySelector('.tspark'); if(sp) paintSpark(sp, n._it.spark); }
     fitTile(n);
   });
@@ -2133,31 +2141,54 @@ function placeSpark(el,sp,tile){
   const W=el.clientWidth, H=el.clientHeight, key=W+'x'+H+JSON.stringify(sp);
   if(el._key!==key){ el._key=key; el.innerHTML=sparkSvg(sp,W,H); }
 }
-// Tasten der Kachel (it.controls) unter den Text, in die Kopfzeile neben das
-// Icon (ctrltight) oder an die Stelle des Icons (ctrlnarrow) - je nachdem, was
-// der gemessene Platz hergibt. Gemessen wird nur bei neuer Kachel oder neuem
-// Text (eine fahrende Jalousie meldet laufend), ohne Groesse (Kachel nicht im
-// Layout) erst beim naechsten Mal.
-function placeCtrls(tile){
-  const tc=tile&&tile.querySelector('.tctrls'), head=tile&&tile.querySelector('.head');
-  const text=(tile&&tile.querySelector('.body')||{}).textContent;
-  if(!tc||!head||tile._ctrlText===text||!tile.clientHeight) return;
-  tile._ctrlText=text;
-  tile.classList.remove('ctrltight','ctrlnarrow');
-  if(tc.parentNode!==tile) tile.appendChild(tc);
-  if(tile.scrollHeight<=tile.clientHeight+1) return;
-  tile.classList.add('ctrltight'); head.appendChild(tc);
-  if(head.scrollWidth>head.clientWidth+1) tile.classList.add('ctrlnarrow');
+// Tasten der Kachel (it.controls) nur, wenn die Kachel hoch genug ist - aus
+// dem Faktor, nicht gemessen: Kopf, zwei Textzeilen, Abstaende und Innenrand
+// brauchen TASTEN.text mal Faktor, die Tastenleiste TASTEN.leiste mal
+// max(1, Faktor der Seite) - Touch-Ziele schrumpfen nie. Die Kachel nimmt den
+// Faktor, bei dem beides in ihre Hoehe passt (hoechstens den der Seite; steht
+// als --ks an der Kachel, die Tasten bleiben ueber --ksg in Seitengroesse).
+// Liegt er unter KS_MIN, bleiben die Tasten weg, und der Tipp auf die Kachel
+// oeffnet die Detailseite (nav). Das loest die flache Kachel (drei Zeilen am
+// 4"-Panel) ohne Sonderfaelle: frueher rueckten die Tasten dort in den Kopf
+// neben das Symbol (ctrltight) oder an seine Stelle (ctrlnarrow), je Text
+// gemessen. Der Platz fuer Kopf und Text kommt aus den EINGESTELLTEN
+// Groessen (Symbol, Haupt-, Zweit- und Raumtext: GROESSEN_STANDARD oder
+// das Profil, als --ico-size usw. am Kasten, Codex-Befund an #128: ein
+// Profil mit 80-px-Symbol braucht mehr), dazu die festen Anteile aus dem CSS
+// bei Faktor 1 - neuer Aufbau: Innenrand 2 x 14, Kopf = Symbol (oder die
+// Raumzeile daneben), Abstand 10, zwei Zeilen mit Zeilenhoehe 1,15 und 1,3,
+// Abstand zur Leiste 10 (mit den Standardgroessen 130 vor 44 Leiste);
+// klassisch: 2 x 16, Symbol, Raumzeile, zwei Zeilen, 6 (122 vor 34).
+// Listen (Zonen einer Zentrale) haben ihre Tasten neben dem Text: immer.
+const TASTEN = {lx: {rand: 55, leiste: 44}, classic: {rand: 30, leiste: 34}};
+function tastenTextHoehe(tile){
+  const cs=getComputedStyle(tile), px=(n,d)=>parseFloat(cs.getPropertyValue(n))||d;
+  const lx=kachelNeu(), g=lx ? GROESSEN_STANDARD.neu : GROESSEN_STANDARD.classic;
+  const ico=px('--ico-size',g.iconSize), name=px('--name-size',g.nameSize), sub=px('--sub-size',g.subSize), raum=px('--room-size',g.roomSize);
+  return lx ? Math.max(ico, 1.2*raum) + 1.15*name + 1.3*sub + TASTEN.lx.rand
+            : ico + 1.2*raum + 1.15*name + 1.3*sub + TASTEN.classic.rand;
+}
+function tastenFaktor(tile){
+  const t = kachelNeu() ? TASTEN.lx : TASTEN.classic;
+  return Math.min(kachelFaktor, (tile.clientHeight - t.leiste*Math.max(1, kachelFaktor)) / tastenTextHoehe(tile));
+}
+function tastenEinpassen(tile){
+  const tc=tile&&tile.querySelector('.tctrls'); if(!tc || !tile.clientHeight) return;
+  if(view && view.layout==='list'){ tc.hidden=false; tile._kt=null; tile.style.removeProperty('--ks'); return; }
+  const kt=tastenFaktor(tile), an=kt>=KS_MIN-0.005;
+  tc.hidden=!an; tile.classList.toggle('ohnetasten', !an);
+  tile._kt = (an && kt<kachelFaktor-0.005) ? +kt.toFixed(3) : null;
+  if(tile._kt) tile.style.setProperty('--ks', String(tile._kt)); else tile.style.removeProperty('--ks');
 }
 // Neuer Aufbau, enge Kachel: laeuft der Text unten aus der Kachel, weicht
 // Stufe fuer Stufe das Unwichtigste - erst steht der Text einzeilig (eng1),
 // dann faellt die Angabe zum Mini-Verlauf weg (eng2), zuletzt die zweite Zeile
-// (eng3). Gemessen wie in placeCtrls() bei neuer Kachel, neuem Text oder neuer Hoehe.
+// (eng3). Gemessen bei neuer Kachel, neuem Text, neuer Hoehe oder neuem Faktor.
 function fitTile(tile){
   if(!tile || !tile.clientHeight) return;
   const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
-  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor) return;
-  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor;
+  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
+  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
   tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
   // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
   // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
@@ -2798,14 +2829,17 @@ function updateGrid(items){
   items.forEach((it,i)=>{
     const n=nodes[i];
     n._it=it;
-    // Klassen, die placeCtrls()/paintSpark() nach dem Messen setzen, bleiben
-    // stehen: sonst verloere eine enge Kachel bei jedem Zustandswechsel, der
-    // ihren Text nicht aendert (Player: Pause), die Lage ihrer Tasten.
+    // Klassen, die tastenEinpassen()/fitTile()/paintSpark() nach dem Messen
+    // setzen, bleiben stehen: sonst verloere eine enge Kachel bei jedem
+    // Zustandswechsel, der ihren Text nicht aendert (Player: Pause), ihre Stufen.
     const cls='tile'+tileTone(it)+aufbauKlassen(it)+breit(it)+(snapAt(i)?' snap':'')+
-      [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
+    // Style der Kachel (Farben, Rahmen): verglichen mit dem zuletzt gesetzten
+    // Text, nicht dem Attribut - dort steht auch der eigene Faktor der Kachel
+    // (--ks aus tastenEinpassen), den der Browser beim Setzen mit umschreibt.
     const stStr=tileVarStyle(it);
-    if((n.getAttribute('style')||'')!==stStr) n.setAttribute('style',stStr);
+    if(n._stStr!==stStr){ n.setAttribute('style',stStr); n._stStr=stStr; if(n._kt) n.style.setProperty('--ks', String(n._kt)); }
     const body=n.querySelector('.body');
     if(body){ let subEl=body.querySelector('.sub'); const sub=subText(it);
       if(sub){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
@@ -2819,7 +2853,7 @@ function updateGrid(items){
       if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; });
-      placeCtrls(n); }   // der Text kann eine Zeile mehr brauchen
+      tastenEinpassen(n); }
     fitTile(n);
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
     // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
@@ -3046,6 +3080,7 @@ function render(){
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
+    n._stStr = tileVarStyle(it);   // Vergleichswert fuer updateGrid (s. dort)
     if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{
@@ -3056,9 +3091,10 @@ function render(){
         b.addEventListener('click', ()=>{
           if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
       });
-      placeCtrls(n);
+      tastenEinpassen(n);
     }
     fitTile(n);
+    _kachelH=n.clientHeight;   // fuer faktorNachziehen: neu einpassen, wenn sich die Hoehe aendert
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });

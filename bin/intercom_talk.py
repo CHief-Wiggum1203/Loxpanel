@@ -61,6 +61,11 @@ class IntercomTalk:
                 raise TalkBusy("Es läuft bereits ein Gespräch")
             # Eine abgeschlossene SIP-Verbindung kann noch UDP-Listener besitzen.
             await self._finish()
+            # Waehrend des Aufraeumens nimmt stop() keine Sperre: ein Stop fuer
+            # DIESE Sitzung kann inzwischen eingetroffen sein (Seite verlassen,
+            # Taste losgelassen) - dann darf sie nicht mehr starten.
+            if session in self._cancelled:
+                return {"ok": True, "session": session, "uuid": uuid, "state": "idle", "message": ""}
             self.session, self.uuid, self.state, self.message = session, uuid, "connecting", ""
             self.call = None
             self._heartbeat = now
