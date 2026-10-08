@@ -91,7 +91,7 @@ MESSEN = """() => {
     leisteMin: kleinste(kacheln.flatMap(k => [...k.querySelectorAll(':scope > .tctrls:not([hidden]) .tb')].map(b => r(b).height))),
     mitTasten: kacheln.filter(k => k.querySelector('.tctrls:not([hidden])')).length,
     ohneTasten: kacheln.filter(k => k.classList.contains('ohnetasten')).length,
-    sichtbar: kacheln.filter(k => { const b = r(k); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1; }).length,
+    sichtbar: kacheln.filter(k => { const b = r(k); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1 && b.left >= gr.left - 1 && b.right <= gr.right + 1; }).length,
     zeile: g._zeile || [],   // Zeile je Kachel (rasterLage: breite Kacheln belegen zwei Spalten)
     kopf: (kz && !kz.hidden) ? {hoehe: Math.round(r(kz).height), uhr: uhr ? parseFloat(cs(uhr).fontSize) : null} : null};
 }"""

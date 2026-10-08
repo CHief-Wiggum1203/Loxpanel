@@ -61,7 +61,8 @@ MESSEN = """() => { const g = document.getElementById('grid'), sc = document.que
     pane: getComputedStyle(fp).display !== 'none' ? [Math.round(r(fp).width), Math.round(r(fp).height)] : null,
     quer: document.documentElement.scrollWidth > innerWidth, klassen: [...sc.classList],
     skala: sc.style.getPropertyValue('--ui-scale'),
-    sichtbar: kacheln.filter(x => { const b = r(x); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1; }).length,
+    sichtbar: kacheln.filter(x => { const b = r(x); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1
+      && b.left >= gr.left - 1 && b.right <= gr.right + 1; }).length,
     punkt: getComputedStyle(punkt).display !== 'none' && pr.width > 0,
     punktAufKachel: kacheln.some(x => ueber(x, pr))};
 }"""
@@ -240,16 +241,18 @@ def test_drehen_rechnet_das_raster_neu():
 
 
 def test_blaettern_seitenweise_wie_bisher():
+    """Seitenweise: auf dem Tablet stehen die Seiten nebeneinander (Punkt 8,
+    tests/browser/test_seiten_wischen_browser.py), je Seite cols x rows Kacheln;
+    ein Scroll um eine Seitenbreite zeigt die naechste Seite von ihrer ersten Kachel an."""
     async def schritte(app, pg):
-        seiten = await pg.evaluate("[...document.querySelectorAll('#grid .tile[data-id]')]"
-                                   ".map((t, i) => t.classList.contains('snap') ? i : -1).filter(i => i >= 0)")
-        await pg.evaluate("const g = document.getElementById('grid'); g.scrollBy(0, g.clientHeight)")
+        seiten = await pg.evaluate("[...document.querySelectorAll('#grid .page')].map(p => p.querySelectorAll('.tile[data-id]').length)")
+        await pg.evaluate("const g = document.getElementById('grid'); g.scrollBy(g.clientWidth, 0)")
         await pg.wait_for_timeout(800)
         erste = await pg.evaluate("""() => { const g = document.getElementById('grid'), gr = g.getBoundingClientRect();
-            return [...g.querySelectorAll('.tile[data-id]')].findIndex(t => t.getBoundingClientRect().top >= gr.top - 1); }""")
+            return [...g.querySelectorAll('.tile[data-id]')].findIndex(t => t.getBoundingClientRect().left >= gr.left - 1); }""")
         return seiten, erste
     seiten, erste = _laufen({"grid": "auto"}, 893, 533, schritte)
-    assert seiten == list(range(0, ANZAHL, 15)) and erste == 15, (seiten, erste)
+    assert seiten == [15, 15, 10] and erste == 15, (seiten, erste)
 
 
 @pytest.mark.parametrize("ui, raster", [({"split": False}, [2, 2]), ({"split": False, "cols": 3, "rows": 3}, [3, 3])],

@@ -44,7 +44,7 @@ MESSEN = """() => {
     raster: [gridCols, gridRows], kachel: t ? [Math.round(r(t).w), Math.round(r(t).h)] : null,
     ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1,
     kopfH: parseFloat(getComputedStyle(sc).getPropertyValue('--kopf-h')) || 0,
-    sichtbar: kacheln.filter(x => { const b = r(x); return b.t >= gr.t - 1 && b.b <= gr.b + 1; }).length,
+    sichtbar: kacheln.filter(x => { const b = r(x); return b.t >= gr.t - 1 && b.b <= gr.b + 1 && b.l >= gr.l - 1 && b.r <= gr.r + 1; }).length,
     angemeldet: typeof curSvStatus === 'string' ? curSvStatus : null,
   };
 }"""
