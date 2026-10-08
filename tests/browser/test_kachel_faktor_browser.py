@@ -88,6 +88,7 @@ MESSEN = """() => {
     tastenMin: Math.min(...kacheln.flatMap(k => [...k.querySelectorAll('.tctrls .tb')].map(b => Math.min(r(b).width, r(b).height)))),
     leisteMin: Math.min(...kacheln.flatMap(k => [...k.querySelectorAll(':scope > .tctrls .tb')].map(b => r(b).height))),
     sichtbar: kacheln.filter(k => { const b = r(k); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1; }).length,
+    zeile: g._zeile || [],   // Zeile je Kachel (rasterLage: breite Kacheln belegen zwei Spalten)
     kopf: (kz && !kz.hidden) ? {hoehe: Math.round(r(kz).height), uhr: uhr ? parseFloat(cs(uhr).fontSize) : null} : null};
 }"""
 
@@ -205,7 +206,8 @@ def test_kopfzeile_waechst_mit():
     assert m["ks"] > 1 and m["kopf"], m
     assert m["kopf"]["hoehe"] == round(KOPF_H * m["ks"]) and abs(m["kopf"]["uhr"] - 26 * m["ks"]) <= 0.5, m["kopf"]
     a = _laufen({"grid": "auto", "tileSize": "large", "panes": {"favoriten": "header"}}, 1280, 800)
-    assert a["kopf"]["hoehe"] == round(KOPF_H * a["ks"]) and a["sichtbar"] == min(a["raster"][0] * a["raster"][1], 23), a
+    # sichtbar sind die Kacheln der ersten Seite - mit den beiden breiten Audio-Kacheln weniger als cols x rows
+    assert a["kopf"]["hoehe"] == round(KOPF_H * a["ks"]) and a["sichtbar"] == sum(1 for z in a["zeile"] if z < a["raster"][1]), a
 
 
 def test_faktor_zieht_bei_groessenaenderung_nach():

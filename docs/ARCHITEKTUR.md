@@ -296,7 +296,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front` | eine komplette Ansicht. `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -870,6 +870,10 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
+        "valueBar": ["favoriten", "room:<uuid>", "raeume"],   // Seiten, deren Anzeige-Bausteine (WERTE_LEISTE_TYPEN)
+                                             // als Werteleiste in EINER Zeile über dem Raster stehen statt
+                                             // als Kacheln; "raeume"/"kategorien" = die Raum- bzw.
+                                             // Kategorie-Seiten darunter; fehlt = alles Kacheln (§7.1)
         "panes": {"favoriten": "chart:<uuid>"},   // zweite Hälfte je Tab (quer rechts, hochkant unten): "weather" | "calendar" |
                                              // "player:<uuid>" | "energy:<uuid>" | "camera:<uuid>" |
                                              // "chart:<uuid>,…" (Verlauf eines oder mehrerer
@@ -892,7 +896,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
           "icon": {"src": "builtin", "id": "bulb"},   // oder {"src":"loxone","p":"..svg"}
           "overlay": {...},
           "chart": "24h",                    // Mini-Verlauf in der Kachel: "24h" | "7d" | "30d"
-          "chartStyle": "pattern"            // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "chartStyle": "pattern",           // Darstellung: fehlt = Trend | "pattern" | "span" (nur mit chart)
+          "w": 2                             // Breite in Spalten: 1 | 2; fehlt = nach Typ (KACHEL_BREIT_TYPEN:
+                                             // Audio, Raumregelung, Energiefluss sind 2, alles andere 1; §7.1)
         }
       }
     }
@@ -1190,6 +1196,62 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
   Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
   abgeschnitten als ohne, keine Kachel läuft über).
+- Raumnamen aus Kachelnamen (Oktober 2026): Auf einer Raum-Seite (Tab
+  `room:<uuid>`, Raum aus „Räume“ über `_view_group`) nennt der Titel den
+  Raum schon, also fällt er aus den Kachelnamen: `_control_item(…,
+  ohne_raum=<Raumname>)` ruft `_ohne_raum()`, das nur ganze Wörter streicht
+  („Jalousie Wohnzimmer Süd“ → „Jalousie Süd“, „Wohnzimmer: Decke“ →
+  „Decke“, „Wohnzimmerlampe“ bleibt), die Reihenfolge der übrigen Wörter
+  behält, Trenner am Rand mitnimmt und den Namen lässt, wenn nichts übrig
+  bliebe. Seiten über mehrere Räume (Favoriten, Kategorie, freie Auswahl)
+  behalten die vollen Namen und tragen den Raum an der Kachel (`show_room`).
+  In der Messreihe zum Kachelfaktor trugen die meisten abgeschnittenen Namen
+  den Raum. Geprüft in `tests/test_raumname.py`.
+- Werteleiste (Oktober 2026, `ui.valueBar`): Je Seite wählbar stehen die
+  Anzeige-Bausteine (`WERTE_LEISTE_TYPEN`: Messwert, Zähler, Text,
+  Textzustand, Ein/Aus-Anzeige, Präsenz, Betriebsstunden; nicht Rauchmelder
+  und Klimaregelung) als Kette von Werten in **einer** Zeile über dem
+  Raster statt als Kacheln, das Raster bleibt dem Bedienbaren. Der Server
+  trennt (`_leiste_trennen()`, vor dem Gruppieren, damit Anker und
+  Sprungmarken zu den Kacheln im Raster gehören) und schickt sie als
+  `view.leiste` in derselben Form wie `items` (`_leiste_items()`, also mit
+  Wert, Symbol, Farbe, Raum und der Wertseite als `nav`); bliebe im Raster
+  nichts, bleibt alles Kachel. `ui.valueBar` nennt Tab-Kennungen
+  (`_clean_werteleiste()`, auch `raeume`/`kategorien` für die Seiten
+  darunter), `resolve_profile()` gibt sie als `valueBar` weiter. Die Visu
+  (`renderLeiste()`) setzt `.leiste` am `.screen` (eigene Grid-Zeile über
+  dem Raster, unter der Kopfzeile; im Split quer nur über dem Raster, das
+  Widget reicht über beide Zeilen) und baut die Zeile aus denselben Chips
+  wie die Werte der Kopfzeile (`kopfWertHtml()`); was nicht passt, scrollt
+  waagerecht (Mausrad eingeschlossen), denn diese Werte haben keine Kachel
+  mehr. Höhe `--leiste-h` = `LEISTE_H` (48 px) × Faktor (`setzeFaktor()`),
+  `autoRaster()` zieht sie wie die Kopfzeile ab (`leisteHoehe()`). Bei
+  neuen Werten derselben Seite zieht `updateLeiste()` nur Zustand, Symbol
+  und Texte der Chips nach (kein Neuaufbau, die Scroll-Lage bleibt). Ein
+  Tipp öffnet die Wertseite. Konfigurator: Kästchen „Werte als Leiste über
+  den Kacheln“ je Tab im Feld „Widget je Tab“. Geprüft in
+  `tests/test_werteleiste.py` und `tests/browser/test_werteleiste_browser.py`.
+- Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
+  (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
+  EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über
+  `tiles[uuid].w` (1 oder 2, Kachel-Editor „Breite“; der Konfigurator bekommt
+  die Typen als `kachelBreit` aus `/api/meta`). `_apply_tile_style()` setzt
+  `w: 2` nur an die breite Kachel, die Visu macht daraus die Klasse `w2`
+  (`grid-column: span 2`), aber nur, wo das Raster zwei Spalten hat. Das
+  Raster fließt dicht (`grid-auto-flow: row dense`): eine Lücke vor einer
+  breiten Kachel füllt die nächste schmale. Damit Seiten und Rastpunkte
+  stimmen, rechnet `rasterLage()` die Lage nach, wie CSS sie setzt (je
+  Kachel die Zeile, daraus die Seitenzahl): `render()` und `updateGrid()`
+  setzen `snap` auf jede Kachel in der ersten Zeile einer Seite und `snapy`
+  ab der zweiten Seite, `springeZu()` springt zur ersten Kachel dieser Zeile,
+  `autoRaster()` prüft mit derselben Lage, ob alle Kacheln auf eine Seite
+  passen (Wachsen, Punkt 2). `kachelGemessen()` nimmt für den Kachelfaktor
+  eine schmale Kachel, notfalls die halbe Breite einer breiten. Auf der
+  breiten Kachel bleibt ein mehrteiliger Zustand („PV 0,55 kW · Bezug
+  0,15 kW“) auf einer Zeile (`subText()`), statt wie auf der schmalen
+  untereinander zu stehen: untereinander kostete er auf der 126-px-Kachel des
+  4″-Panels die Höhe, und die Eng-Stufe kappte den zweiten Teil. Geprüft in
+  `tests/test_kachel_breit.py` und `tests/browser/test_kachel_breit_browser.py`.
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
   `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielkachel in

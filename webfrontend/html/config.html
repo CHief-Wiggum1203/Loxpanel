@@ -1495,7 +1495,7 @@ function renderEditor(){
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Kopfzeile</b> legt stattdessen eine Zeile <b>über</b> die Kacheln: Uhr, Wetter in Kurzform und nach Wahl Werte – nimmt weniger Platz als eine Pane und lässt das Raster ungeteilt. <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter.</div></div>'+
+       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Kopfzeile</b> legt stattdessen eine Zeile <b>über</b> die Kacheln: Uhr, Wetter in Kurzform und nach Wahl Werte – nimmt weniger Platz als eine Pane und lässt das Raster ungeteilt. <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter. <b>Werte als Leiste</b> nimmt die Anzeige-Bausteine der Seite (Messwerte, Zähler, Texte, Ein/Aus-Anzeigen) aus dem Raster in eine schmale Zeile darüber – das Raster bleibt dem Bedienbaren; bei „Räume" und „Kategorien" gilt es für die Raum- bzw. Kategorie-Seiten darunter. Eine Seite nur aus Werten behält ihre Kacheln.</div></div>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
        '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
@@ -1752,6 +1752,7 @@ function renderPanes(p){
   const pf=$('#paneField'); if(pf) pf.style.display='';
   const box=$('#panePerTab'); if(!box) return;
   const tabs=(p.tabs||[]), panes=(p.ui&&p.ui.panes)||{};
+  const leiste=(p.ui&&Array.isArray(p.ui.valueBar))?p.ui.valueBar:[];   // Seiten mit Werteleiste
   box.innerHTML = (splitAus?'<div class="ccmut" style="margin-bottom:6px">'+T('Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.')+'</div>':'')+tabs.map(tk=>{
     const meta=(META.tabs||[]).find(t=>t.tab===tk);
     const label=meta?meta.label:tk;
@@ -1782,6 +1783,11 @@ function renderPanes(p){
     if(isE) row+='<select data-panee="'+esc(tk)+'">'+energyControlOptions(euid)+'</select>';
     if(isC) row+='<select data-panec="'+esc(tk)+'">'+cameraOptions(camu)+'</select>';
     row+='</div>';
+    // Werteleiste: die Anzeige-Bausteine dieser Seite als Zeile ueber dem
+    // Raster statt als Kacheln (ui.valueBar nennt die Seiten)
+    row+='<div class="ccrow" style="margin:2px 0 0 0"><label class="chk" style="margin:0;font-size:13px">'+
+      '<input type="checkbox" data-leiste="'+esc(tk)+'"'+(leiste.indexOf(tk)>-1?' checked':'')+'> '+
+      T('Werte als Leiste über den Kacheln')+'</label></div>';
     if(isS){   // Werte = mehrere Bausteine, wie auf der Uhr-Seite
       row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Bausteine')+'</span>'+
         '<select class="pstat-add" data-pk="'+esc(tk)+'"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
@@ -1834,6 +1840,11 @@ function renderPanes(p){
     else setPane(tk,k);
     renderPanes(p);   // Zonen-/Control-/Kamera-/Werte-Auswahl ein-/ausblenden
   });
+  box.querySelectorAll('input[data-leiste]').forEach(c=>c.onchange=()=>{ p.ui=p.ui||{};
+    const vb=(Array.isArray(p.ui.valueBar)?p.ui.valueBar:[]).filter(t=>t!==c.dataset.leiste);
+    if(c.checked) vb.push(c.dataset.leiste);
+    if(vb.length) p.ui.valueBar=vb; else delete p.ui.valueBar;
+    markDirty(); });
   const paneStatUu=tk=>{ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||''; return cur.indexOf('status:')===0?cur.slice(7).split(',').filter(Boolean):[]; };
   box.querySelectorAll('.pstat-add').forEach(s=>s.onchange=()=>{ const tk=s.dataset.pk, u=s.value; s.value='';
     const uu=paneStatUu(tk); if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
@@ -2680,6 +2691,7 @@ function renderTileEditor(){
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
       (c.stat?chartStyleRows(c,ov):'')+
+      breiteRow(c,ov)+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';
   bindColor('bg'); bindColor('border'); bindColor('iconColor'); bindColor('textColor');
@@ -2697,9 +2709,18 @@ function renderTileEditor(){
   { const tg=$('#tOvOn'); if(tg) tg.onclick=()=>{ const o=tileOv();
       if(o.overlay) delete o.overlay; else o.overlay={}; pruneTile(); renderTileEditor(); renderTileList(); markDirty(); }; }
   { const ts=$('#tChartStyle'); if(ts) ts.onchange=()=>setChartStyle(ts.value); }
+  { const tw=$('#tWidth'); if(tw) tw.onchange=()=>setTile('w', tw.value?parseInt(tw.value):null); }
   { const tr=$('#tChartRange'); if(tr) tr.onchange=()=>setTile('chart', tr.value); }
   $('#tileReset').onclick=()=>{ if(PANELS[cur].tiles) delete PANELS[cur].tiles[tileSel]; renderTileEditor(); renderTileList(); markDirty(); };
   renderIconPick('builtin'); drawPrev();
+}
+// Breite der Kachel in Spalten: zwei fuer Audio, Raumregelung und Energiefluss
+// (Standard nach Typ, Liste vom Server: META.kachelBreit), je Kachel uebersteuerbar
+function breiteRow(c,ov){
+  const breit=(META.kachelBreit||[]).indexOf(c.type)>=0, cur=ov.w?String(ov.w):'';
+  const opts=[['',T('Standard')+' ('+(breit?T('breit'):T('schmal'))+')'],['1',T('1 Spalte')],['2',T('2 Spalten (breit)')]];
+  return '<div class="frow" style="margin-top:4px"><label class="lbl">'+T('Breite')+'</label>'+
+    '<select id="tWidth">'+opts.map(o=>'<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></div>';
 }
 function colorRow(label,key,ov){
   const v=ov[key]||'';

@@ -1638,11 +1638,26 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          Raumregelung, Energiefluss 2×1; je Kachel übersteuerbar),
          `grid-column: span` mit dichtem Fluss, Blättern und `fitTile()`
          angepasst. **M**
+         *Erledigt 06.10.2026:* `tiles[uuid].w` (1 | 2), Standard aus
+         `KACHEL_BREIT_TYPEN`, Klasse `w2` mit `grid-auto-flow: row dense`,
+         `rasterLage()` rechnet Seiten, Rastpunkte und das Wachsen der
+         Automatik mit, der Kachelfaktor misst sich an einer schmalen Kachel.
+         Kachel-Editor: „Breite“. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       4. **Raumnamen aus Kachelnamen streichen,** wenn die Seite den Raum
          schon nennt („Jalousie Wohnzimmer Süd“ auf der Wohnzimmer-Seite).
          Trifft die meisten abgeschnittenen Namen der Messung. **S**
+         *Erledigt 06.10.2026:* `_ohne_raum()` auf Raum-Seiten (Tab
+         `room:<uuid>` und Raum aus „Räume“), nur ganze Wörter, Seiten über
+         mehrere Räume behalten den vollen Namen. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       5. **Werte als schmale Leiste statt als Kacheln,** je Seite wählbar:
          Anzeige-Bausteine in eine Zeile, das Raster für Bedienbares. **M**
+         *Erledigt 06.10.2026:* `ui.valueBar` nennt die Seiten, der Server
+         trennt die Anzeige-Bausteine (`WERTE_LEISTE_TYPEN`) als
+         `view.leiste` ab, die Visu zeigt sie als Chips in einer Zeile über
+         dem Raster (scrollt waagerecht, Tipp öffnet die Wertseite), das
+         Raster rechnet die Zeile ab. Kästchen je Tab im Konfigurator.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
          sonst Detailseite; löst das Drei-Zeilen-Problem ohne Sonderfälle. **S**
       7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt

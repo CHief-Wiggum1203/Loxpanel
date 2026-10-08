@@ -175,7 +175,8 @@ def test_neuer_aufbau_am_tablet(tmp_path):
     # Messwert gross an Stelle des Symbols, mehrteiliger Zustand untereinander
     ir = k["IR"]
     assert ir["big"] == "21,5°" and not ir["symbol"] and ir["groesse"]["big"] == "36px", ir
-    assert ir["sub"] == "Soll 22,0°\nheizt" and ir["name"] == "Raumregelung Küche", ir
+    # breite Raumregelungs-Kachel: die Teile des Zustands bleiben nebeneinander
+    assert ir["sub"] == "Soll 22,0° · heizt" and ir["name"] == "Raumregelung Küche", ir
     assert k["SA"]["big"] == "25,4°" and k["SA"]["sub"] == "Aus", k["SA"]
     # Tasten als Leiste unten ueber die ganze Breite, gross genug fuer den Finger
     for kid in ("J", "AZ"):
@@ -241,7 +242,9 @@ def test_enge_kachel_behaelt_die_lage_ihrer_tasten(tmp_path, aufbau):
         await pg.wait_for_function("document.querySelector('.tile[data-id=\"AZ\"]').classList.contains('on') === false")
         await pg.wait_for_timeout(300)
         return vorher, (await pg.evaluate(MESSEN))["AZ"]
-    vorher, nachher = _laufen(ui, 480, 480, schritte, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
+    # Die Audio-Kachel ist seit den breiten Kacheln von Haus aus zwei Spalten
+    # breit; hier geht es um die ENGE Kachel, also eine Spalte (tiles.AZ.w = 1)
+    vorher, nachher = _laufen(ui, 480, 480, schritte, tiles={"AZ": {"w": 1}}, tmp_path=tmp_path, bild=f"enge_kachel_{aufbau}")
 
     assert {"ctrltight", "ctrlnarrow"} <= set(vorher["klassen"]) and vorher["tastenImKopf"], vorher
     assert {"ctrltight", "ctrlnarrow"} <= set(nachher["klassen"]) and nachher["tastenImKopf"], nachher
