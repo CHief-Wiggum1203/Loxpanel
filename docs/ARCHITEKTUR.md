@@ -976,14 +976,13 @@ geplant). Technisch gibt es zwei Ebenen, beide in `webvisu.py`:
 Auf/Ab der Detailseite (`_jal_fahrt()`): Im Stand startet eine Taste die
 Fahrt, während der Fahrt halten beide an (`Stop`), und die fahrende Richtung
 zeigt ■. Die Visu bindet die Tasten an `click`; ein Wischer, der auf einer
-Taste beginnt, scrollt das Raster. Unter dem Text stehen sie nur, wenn die
-Kachel hoch genug ist. Sonst rücken sie in die Kopfzeile neben das Icon
-(`ctrltight`), und ist auch die zu schmal (3x3, drei Tasten), an seine Stelle
-(`ctrlnarrow`). Das misst `placeCtrls()` wie beim Mini-Verlauf, bei jeder neuen
-Kachel und bei neuem Text, nicht bei jeder Meldung. Geprüft in
-`tests/test_beschattung.py` und `tests/browser/test_kachel_tasten_browser.py`
-(Tippen, Wischen, Stop während der Fahrt, alle vier Raster für Beschattung und
-Player).
+Taste beginnt, scrollt das Raster. Die Tasten gibt es nur, wenn die Kachel
+hoch genug ist, entschieden aus dem Faktor statt gemessen
+(`tastenEinpassen()`, §7.1 „Tasten nur, wenn die Kachel hoch genug ist“);
+sonst bleiben sie weg, und der Tipp auf die Kachel öffnet die Detailseite,
+die dieselben Befehle hat. Geprüft in `tests/test_beschattung.py` und
+`tests/browser/test_kachel_tasten_browser.py` (Tippen, Wischen, Stop während
+der Fahrt, alle vier Raster für Beschattung und Player).
 
 Sonderfälle:
 
@@ -1090,8 +1089,8 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   weg, der Verlauf selbst bleibt im Kopf. `eng3`: Die zweite Zeile fällt weg.
   Der Name geht so vor der Angabe, und der Verlauf hat auch dort Platz, wo
   der klassische Aufbau keinen findet (18 Kacheln auf 800×480). `updateGrid()`
-  behält die gemessenen Klassen (`spark*`, `ctrltight`, `ctrlnarrow`,
-  `eng1`–`eng3`) und setzt `bigv` an Ort und Stelle. Kommt oder geht ein
+  behält die gemessenen Klassen (`spark*`, `ohnetasten`, `eng1`–`eng3`,
+  `kst1`–`kst3`) und setzt `bigv` an Ort und Stelle. Kommt oder geht ein
   Messwert, baut es neu auf. Schriftgrößen: `--name-size` (Haupttext, im
   neuen Aufbau meist der Zustand), `--sub-size` (Zweittext), `--room-size`,
   `--big-size`. Die Schrift einer Kachel aus „Kacheln gestalten“
@@ -1184,6 +1183,30 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Tipp öffnet die Wertseite. Konfigurator: Kästchen „Werte als Leiste über
   den Kacheln“ je Tab im Feld „Widget je Tab“. Geprüft in
   `tests/test_werteleiste.py` und `tests/browser/test_werteleiste_browser.py`.
+- Tasten nur, wenn die Kachel hoch genug ist (Oktober 2026): Die Tasten
+  einer Kachel (Beschattung ▲▼, Player ◀ ⏯ ▶) stehen unter dem Text oder gar
+  nicht, entschieden aus dem Faktor statt gemessen (`tastenEinpassen()`):
+  Kopf, zwei Textzeilen, Abstände und Innenrand brauchen `TASTEN.text` mal
+  Faktor (neuer Aufbau 130 px, klassisch 122 px bei Faktor 1, aus den
+  CSS-Größen), die Tastenleiste `TASTEN.leiste` mal max(1, Faktor der Seite)
+  (44 bzw. 34 px; Touch-Ziele schrumpfen nie, sie tragen den Faktor der
+  Seite als `--ksg`). Die Kachel nimmt den Faktor, bei dem beides in ihre
+  Höhe passt, höchstens den der Seite, als eigenes `--ks` an der Kachel (4″
+  2×2: rund 1,07 statt 1,31). Liegt er unter `KS_MIN`, bleiben die Tasten weg
+  (`hidden`, Klasse `ohnetasten`), und der Tipp auf die Kachel öffnet die
+  Detailseite mit denselben Befehlen (3 Zeilen am 4″-Panel: 128 px hoch; im
+  automatischen Raster etwa 146-px-Kacheln eines 893×533-Tablets). Das löst
+  die flache Kachel ohne die Sonderfälle im Kopf, die es vorher gab (Tasten
+  neben dem Symbol, `ctrltight`, oder an seiner Stelle, `ctrlnarrow`, je
+  Text gemessen von `placeCtrls()`); die Entscheidung hängt nicht mehr am
+  Text, eine fahrende Jalousie mit zwei Zustandszeilen verliert ihre Tasten
+  nicht. `updateGrid()` setzt den Style der Kachel gegen den zuletzt
+  gesetzten Text (`_stStr`) und behält so den eigenen Faktor; Listen (Zonen
+  einer Zentrale) haben ihre Tasten immer. Geprüft in
+  `tests/browser/test_kachel_tasten_browser.py` (vier Raster, Beschattung
+  und Player, Tipp öffnet die Detailseite) und
+  `tests/browser/test_kachel_aufbau_browser.py` (4″ 2×2 und 3×3, beide
+  Aufbauten).
 - Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
   (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
   EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über
