@@ -2345,10 +2345,11 @@ function renderPanel(blocks){
   for(const b of blocks){ if(b.k!=='row') continue; const rowEl=rows[ri++];
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       bindCell(btn,c);
+      btn._secured=!!c.secured;   // gesichertes Ziel (verlinkte Objekte): PIN wie auf seiner eigenen Seite
       btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
         if(btn._menu){ openMenu(btn,btn._menu); return; }
         if(btn._tippen) return;
-        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured,(btn._hold&&btn._release)?{los:btn._release}:null);
+        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,(view&&view.secured)||btn._secured,(btn._hold&&btn._release)?{los:btn._release}:null);
       });
       btn.addEventListener('click',()=>{ if(btn._tippen && !btn._menu) zelleTippen(g,btn); });
     });
@@ -3864,15 +3865,20 @@ function renderCameraPane(elc){ if(!elc) return;
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
         btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,!!(cameraData&&cameraData.secured)); }); }); }
-  } else if(row){                         // gleiche Struktur -> nur Buttons aktualisieren (Video unangetastet)
-    const btns=elc.querySelectorAll('.brow [data-c]');
-    row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
+  } else {                                // gleiche Struktur -> nur Buttons und Werte aktualisieren (Video unangetastet)
+    if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
+      row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } }); }
+    // Werte unter dem Bild: auch hier nachziehen - auf der Uhr-Seite kommt ein
+    // Werte-Push ueber renderFront() hier an, nicht ueber renderCameraWerte()
+    renderCameraWerte(elc);
   }
   const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
   intercomBind(elc);
 }
 // Der Kamera-Wert der aktiven Pane (Tab-Pane oder Widget-Seite), ohne "camera:"
-function qargCamNow(){ const raw=paneRawNow()||''; return raw.indexOf('camera:')===0 ? raw.slice(7) : ''; }
+// Kamera-Angabe der gerade gezeichneten Pane: auf der Uhr-Seite die des
+// Screensavers (svPane), sonst die des Tabs - wie die Anmeldung in applyPane()
+function qargCamNow(){ const raw=(svSideOn() ? svSideRaw() : paneRawNow())||''; return raw.indexOf('camera:')===0 ? raw.slice(7) : ''; }
 // Werte unter dem Kamerabild: nur dieser Block wird neu gezeichnet (bei jedem
 // {t:'svstatus'}-Push), das Video und die Tasten bleiben stehen.
 function renderCameraWerte(elc){

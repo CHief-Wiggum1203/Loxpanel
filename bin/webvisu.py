@@ -5568,7 +5568,7 @@ class App:
                 "sw": sz.get("width") or 1300, "sh": sz.get("height") or 866,
                 "items": items}
 
-    def _view_control(self, uuid: str, rng: str | None = None) -> dict:
+    def _view_control(self, uuid: str, rng: str | None = None, prof: dict | None = None) -> dict:
         v = self._view_control_inner(uuid)
         c = self.controls.get(uuid, {})
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
@@ -5584,19 +5584,23 @@ class App:
         # Muell-Status): unter die Detailseite als Zeile tippbarer Zellen,
         # wie in der Loxone-App. Jede Zelle zeigt Name und Zustand, ein Tipp
         # oeffnet die Detailseite des Ziels oder schaltet es (Kacheln, die
-        # direkt schalten). Nur bekannte Bausteine; nur Block-Seiten.
+        # direkt schalten). Nur bekannte, auf dem Panel nicht ausgeblendete
+        # Bausteine; nur Block-Seiten.
         if isinstance(v.get("blocks"), list):
-            links = self._link_blocks(c, uuid)
+            links = self._link_blocks(c, uuid, prof)
             if links:
                 v["blocks"] = v["blocks"] + links
         return v
 
-    def _link_blocks(self, c: dict, uuid: str) -> list:
+    def _link_blocks(self, c: dict, uuid: str, prof: dict | None = None) -> list:
         """Blocks fuer die verlinkten Objekte eines Bausteins: Ueberschrift und
         eine umbrechende Zeile mit einer Zelle je Ziel. Leer, wenn der
-        Baustein keine (bekannten) Links hat oder nur auf sich selbst zeigt."""
+        Baustein keine (bekannten) Links hat oder nur auf sich selbst zeigt.
+        Auf dem Panel ausgeblendete Ziele (hide) bleiben weg wie ueberall
+        sonst; ein gesichertes Ziel (Visu-PIN) traegt secured an der Zelle,
+        die Visu fragt dann vor dem Schalten die PIN ab (Codex-Befunde)."""
         ziele = [u for u in (c.get("links") or []) if isinstance(u, str)
-                 and u != uuid and u in self.controls]
+                 and u != uuid and u in self.controls and self._shown(u, prof)]
         if not ziele:
             return []
         cells = []
@@ -5610,6 +5614,8 @@ class App:
                 cell["nav"] = it["nav"]
             elif it.get("cmd"):
                 cell["cmd"] = it["cmd"]
+                if it.get("secured"):
+                    cell["secured"] = True
             else:
                 cell["nav"] = {"view": "control", "id": u}
             cells.append(cell)
@@ -6569,7 +6575,7 @@ class App:
         if v == "group":
             return self._view_group(route, prof)
         if v == "control":
-            return self._view_control(route.get("id"), route.get("range"))
+            return self._view_control(route.get("id"), route.get("range"), prof)
         if v == "sources":
             return self._view_sources(route.get("id"))
         if v == "irrzone":

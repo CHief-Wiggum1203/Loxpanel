@@ -43,7 +43,7 @@ def _frische_installation(cfg_ordner):
     shutil.copy(ROOT / "config" / "theme.example.json", cfg_ordner / "theme.example.json")
 
 
-def _laufen(ui, groesse, schritte, init_script=None):
+def _laufen(ui, groesse, schritte, init_script=None, uhrseite=False):
     async def lauf():
         app = W.App({"host": "", "port": 80})
         app._apply_structure(STRUKTUR)
@@ -60,7 +60,7 @@ def _laufen(ui, groesse, schritte, init_script=None):
                     await pg.add_init_script(init_script)
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
                 await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
-                if await pg.locator("#saver:not(.hidden)").count():
+                if not uhrseite and await pg.locator("#saver:not(.hidden)").count():
                     await pg.click("#saver")
                     await pg.wait_for_selector("#saver.hidden", state="attached")
                 await pg.wait_for_timeout(600)
@@ -103,6 +103,22 @@ def test_werte_unter_dem_kamerabild():
     assert vorher["zeilen"] == [["Papier", "morgen", True], ["Boiler", "51,5 °C", False]], vorher
     assert nachher["zeilen"] == [["Papier", "–", False], ["Boiler", "48,0 °C", False]], nachher
     assert nachher["videoSrc"] == vorher["videoSrc"]
+
+
+def test_werte_unter_dem_kamerabild_auf_der_uhrseite():
+    """Codex-Befund an #120: Die Kamera als zweite Spalte der Uhr-Seite
+    (svPane "camera:<uuid>|<werte>") zeigt IHRE Werte unter dem Bild, auch
+    wenn der Tab darunter eine andere oder keine Kamera hat."""
+    async def schritte(app, pg):
+        await pg.wait_for_selector("#svBox .campage .camwerte .sv-st", state="attached", timeout=5000)
+        return await pg.evaluate("""() => { const sv = document.getElementById('svBox');
+          const w = sv.querySelector('.campage .camwerte'), fp = document.getElementById('frontpane');
+          return {zeilen: [...w.querySelectorAll('.sv-st')].map(z => [z.querySelector('.nm').firstChild.textContent, z.querySelector('.vl').textContent]),
+                  saver: !document.getElementById('saver').classList.contains('hidden'),
+                  tabWerte: fp.querySelectorAll('.campage .camwerte .sv-st').length}; }""")
+    m = _laufen({"svPane": "camera:IC|P,T", "panes": {"favoriten": "weather"}, "grid": "auto"}, TAB_A9, schritte, uhrseite=True)
+    assert m["saver"] and m["zeilen"] == [["Papier", "morgen"], ["Boiler", "51,5 °C"]], m
+    assert m["tabWerte"] == 0, "der Tab darunter hat keine Kamera, also auch keine Werte"
 
 
 def test_kamera_ohne_werte_wie_bisher():

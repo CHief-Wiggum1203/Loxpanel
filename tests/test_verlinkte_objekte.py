@@ -55,3 +55,22 @@ def test_ohne_links_unveraendert():
     assert _links(v) is None and not bloecke(v, "head")
     v = _app(["GIBTSNICHT"]).render({"view": "control", "id": "M"})
     assert _links(v) is None
+
+
+def test_versteckte_ziele_bleiben_weg_und_gesicherte_tragen_secured():
+    """Codex-Befunde an #120: Ein auf dem Panel ausgeblendetes Ziel (hide)
+    erscheint nicht unter den verlinkten Objekten - sonst verriete die Zeile
+    Name, Zustand und Befehl. Ein gesichertes Ziel (Visu-PIN) traegt secured
+    an der Zelle, damit die Visu vor dem Schalten die PIN abfragt wie auf
+    seiner eigenen Seite."""
+    app = _app(["P", "B", "S"])
+    app.controls["S"]["isSecured"] = True
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "hide": ["B"]}})
+    prof = app.resolve_profile("p")
+    row = _links(app.render({"view": "control", "id": "M"}, prof))
+    assert [c["label"] for c in row["cells"]] == ["Papier · morgen", "Hoflicht · Ein"]
+    assert row["cells"][1]["cmd"]["uuid"] == "S" and row["cells"][1]["secured"] is True
+    assert "secured" not in row["cells"][0]
+    # ohne Profil wie bisher: alle Ziele
+    assert [c["label"] for c in _links(app.render({"view": "control", "id": "M"}))["cells"]] == \
+        ["Papier · morgen", "Bio · –", "Hoflicht · Ein"]
