@@ -1549,7 +1549,8 @@ function renderEditor(){
        '</div></div></div></section>';
 
   // Speicherleiste: Löschen-Button je Panel
-  $('#delSlot').innerHTML = (cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>';
+  $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>')+
+    '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>';
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
@@ -1607,6 +1608,7 @@ function renderEditor(){
   $('#clrCats').onclick=()=>{ p.cats=[]; renderChecklist(p,'cats'); renderTileList(); markDirty(); };
   $('#saveBtn').onclick=save;
   const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
+  { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
 
   renderSubtabs(); showSub(subPconf);
   if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .note, .hint, option, .stab');
@@ -2859,6 +2861,124 @@ function createBlankPanel(){
   if(PANELS[id]){ alert('Panel „'+id+'" gibt es schon.'); return; }
   PANELS[id]={title:id.charAt(0).toUpperCase()+id.slice(1), tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}, tiles:{}};
   cur=id; tileSel=null; renderList(); setRubric('pconf'); markDirty();
+}
+/* ============================================================
+   Panel duplizieren mit Raumtausch (Punkt 14). Kopie eines Profils, in der
+   jeder Baustein aus dem Quellraum durch den gleichnamigen (gleicher Typ,
+   sonst gleicher Name) aus dem Zielraum ersetzt ist: in Tabs (room:),
+   Raum-Liste, hide, freien Seiten, Kachel-Einstellungen, Widgets je Tab,
+   Werteleiste und Uhr-Seite. Wer im Zielraum kein Gegenstueck hat, faellt
+   weg und wird genannt; Bausteine anderer Raeume bleiben.
+   ============================================================ */
+// Pane-/Widget-Wert mit getauschten UUIDs: uu(uuid) -> neue UUID oder null (weg).
+function paneTausch(v, uu){
+  const m=/^([a-z]+):(.*)$/.exec(v||''); if(!m) return v;   // weather, calendar, header, off, ''
+  const art=m[1], rest=m[2];
+  if(art==='player'||art==='energy'){ const z=uu(rest); return z ? art+':'+z : ''; }
+  if(art==='camera'){ const [bild, werte]=rest.split('|'); const b=uu(bild); if(!b) return '';
+    const w=(werte||'').split(',').filter(Boolean).map(uu).filter(Boolean);
+    return 'camera:'+b+(w.length?('|'+w.join(',')):''); }
+  const l=rest.split(',').filter(Boolean).map(uu).filter(Boolean);   // chart, status, header
+  if(art==='header') return l.length ? 'header:'+l.join(',') : 'header';
+  return l.length ? art+':'+l.join(',') : '';
+}
+function profilMitRaumtausch(p, von, nach, controls){
+  const quelle=controls.filter(c=>c.room===von), ziel=controls.filter(c=>c.room===nach);
+  const map=new Map();
+  quelle.forEach(c=>{ const z=ziel.find(x=>x.name===c.name && x.type===c.type) || ziel.find(x=>x.name===c.name);
+    map.set(c.uuid, z ? z.uuid : null); });
+  const fehlend=[];
+  const uu=u=>{ if(!map.has(u)) return u;   // anderer Raum: bleibt
+    const z=map.get(u); if(z===null){ const c=quelle.find(x=>x.uuid===u); if(c && fehlend.indexOf(c.name)<0) fehlend.push(c.name); }
+    return z; };
+  const liste=xs=>(xs||[]).map(uu).filter(Boolean);
+  const tab=t=> (t==='room:'+von) ? 'room:'+nach : t;
+  const n=JSON.parse(JSON.stringify(p));
+  n.tabs=(n.tabs||[]).map(tab);
+  if(Array.isArray(n.rooms)) n.rooms=n.rooms.map(r=>r===von?nach:r);
+  if(Array.isArray(n.hide)) n.hide=liste(n.hide);
+  if(Array.isArray(n.picks)) n.picks=liste(n.picks);
+  if(Array.isArray(n.pickTabs)) n.pickTabs.forEach(t=>{ if(t){ t.picks=liste(t.picks); if(t.widget) t.widget=paneTausch(t.widget, uu); } });
+  if(n.tiles && typeof n.tiles==='object'){ const t={}; Object.entries(n.tiles).forEach(([u,v])=>{ const z=uu(u); if(z) t[z]=v; }); n.tiles=t; }
+  if(n.ui && typeof n.ui==='object'){
+    if(n.ui.panes && typeof n.ui.panes==='object'){ const ps={};
+      Object.entries(n.ui.panes).forEach(([k,v])=>{ const w=paneTausch(v, uu); if(w) ps[tab(k)]=w; }); n.ui.panes=ps; }
+    if(Array.isArray(n.ui.valueBar)) n.ui.valueBar=n.ui.valueBar.map(tab);
+    if(typeof n.ui.svPane==='string' && n.ui.svPane) n.ui.svPane=paneTausch(n.ui.svPane, uu);
+    if(typeof n.ui.player==='string' && n.ui.player) n.ui.player=uu(n.ui.player)||'';
+  }
+  return {profil:n, fehlend:fehlend, getauscht:[...map.values()].filter(Boolean).length};
+}
+// Raum eines Profils: sein room:-Tab, sonst der erste der Raum-Liste, sonst
+// der Raum, aus dem die meisten gewaehlten Bausteine stammen.
+function profilRaum(p){
+  const t=(p.tabs||[]).find(x=>typeof x==='string' && x.indexOf('room:')===0); if(t) return t.slice(5);
+  if(Array.isArray(p.rooms) && p.rooms.length) return p.rooms[0];
+  const zahl={}, zaehl=u=>{ const c=(META.controls||[]).find(x=>x.uuid===u); if(c&&c.room) zahl[c.room]=(zahl[c.room]||0)+1; return u; };
+  (p.hide||[]).forEach(zaehl); (p.picks||[]).forEach(zaehl);
+  (p.pickTabs||[]).forEach(t=>{ (t&&t.picks||[]).forEach(zaehl); if(t&&t.widget) paneTausch(t.widget, zaehl); });
+  Object.keys(p.tiles||{}).forEach(zaehl);
+  Object.values((p.ui||{}).panes||{}).forEach(v=>paneTausch(v, zaehl));
+  if((p.ui||{}).svPane) paneTausch(p.ui.svPane, zaehl);
+  return Object.keys(zahl).sort((a,b)=>zahl[b]-zahl[a])[0]||'';
+}
+// Panel-ID aus einem Raumnamen: klein, Umlaute ausgeschrieben, Rest Bindestrich; frei (sonst -2, -3 ...)
+function idAusName(name){
+  let id=(name||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'panel';
+  let k=id, n=2; while(PANELS[k]){ k=id+'-'+(n++); } return k;
+}
+let DUP={quelle:''};
+function dupOpen(id){
+  const p=PANELS[id]; if(!p || p.__global) return;
+  DUP.quelle=id;
+  const rooms=META.rooms||[], von=profilRaum(p);
+  const nach=(rooms.find(r=>r.uuid!==von)||{}).uuid||'';
+  const opts=(sel, leer)=>(leer?'<option value="">'+esc(leer)+'</option>':'')+
+    rooms.map(r=>'<option value="'+esc(r.uuid)+'"'+(r.uuid===sel?' selected':'')+'>'+esc(r.name)+'</option>').join('');
+  $('#dupQuelle').textContent=T('Vorlage')+': '+(p.title||id);
+  $('#dupBody').innerHTML='<div class="wzrow">'+
+      '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('Neue ID')+'</label><input id="dupId"></div>'+
+      '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('Titel')+'</label><input id="dupTitle"></div></div>'+
+    '<div class="wzrow" style="margin-top:12px">'+
+      '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('Raum tauschen: von')+'</label><select id="dupVon">'+opts(von,'')+'</select></div>'+
+      '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('nach')+'</label><select id="dupNach">'+opts(nach, T('(kein Raumtausch – reine Kopie)'))+'</select></div></div>'+
+    '<div class="wznote" id="dupInfo" style="margin-top:10px"></div>';
+  const vorschlag=()=>{   // ID und Titel aus dem Zielraum, solange niemand selbst getippt hat
+    const z=$('#dupNach').value, zn=z?roomName(z):'', vn=roomName($('#dupVon').value);
+    if(!$('#dupId')._tippt) $('#dupId').value = z ? idAusName(zn) : idAusName(id+'-kopie');
+    if(!$('#dupTitle')._tippt) $('#dupTitle').value = z ? ((p.title||'').indexOf(vn)>=0 && vn!=='?' ? p.title.split(vn).join(zn) : zn) : ((p.title||id)+' '+T('(Kopie)'));
+    dupInfo(); };
+  ['dupId','dupTitle'].forEach(k=>{ $('#'+k).oninput=()=>{ $('#'+k)._tippt=true; }; });
+  $('#dupVon').onchange=vorschlag; $('#dupNach').onchange=vorschlag;
+  vorschlag();
+  // Die Knoepfe erst hier verdrahten: das Overlay steht im Dokument hinter dem Skript
+  $('#dupX').onclick=dupClose; $('#dupCancel').onclick=dupClose; $('#dupGo').onclick=dupBuild;
+  $('#dupOv').hidden=false;
+  $('#dupId').focus();
+}
+function dupInfo(){
+  const p=PANELS[DUP.quelle], von=$('#dupVon').value, nach=$('#dupNach').value, box=$('#dupInfo');
+  if(!nach){ box.textContent=T('Reine Kopie: alle Tabs, Bausteine und Einstellungen bleiben, wie sie sind.'); return; }
+  if(von===nach){ box.textContent=T('Quell- und Zielraum sind gleich – nichts zu tauschen.'); return; }
+  const r=profilMitRaumtausch(p, von, nach, META.controls||[]);
+  box.textContent=r.getauscht+' '+T('Bausteine aus')+' '+roomName(von)+' '+T('werden durch die gleichnamigen in')+' '+roomName(nach)+' '+T('ersetzt.')+
+    (r.fehlend.length ? ' '+T('Ohne Gegenstück dort (fallen weg):')+' '+r.fehlend.join(', ') : '');
+}
+function dupClose(){ $('#dupOv').hidden=true; }
+function dupBuild(){
+  const p=PANELS[DUP.quelle]; if(!p) return;
+  const id=($('#dupId').value||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  if(!id){ alert(T('Ungültige ID.')); return; }
+  if(PANELS[id]){ alert('Panel „'+id+'" '+T('gibt es schon.')); return; }
+  const von=$('#dupVon').value, nach=$('#dupNach').value;
+  const r=(nach && nach!==von) ? profilMitRaumtausch(p, von, nach, META.controls||[])
+                               : {profil: JSON.parse(JSON.stringify(p)), fehlend: []};
+  r.profil.title=($('#dupTitle').value||'').trim().slice(0,40) || id;
+  PANELS[id]=r.profil;
+  cur=id; tileSel=null; dupClose(); renderList(); setRubric('pconf'); markDirty();
+  flash($('#toast'), 'Panel „'+id+'" '+T('angelegt – Speichern nicht vergessen.')+
+    (r.fehlend.length ? ' '+T('Weggefallen:')+' '+r.fehlend.join(', ') : ''), !r.fehlend.length);
 }
 const WZIC={
   p1:'<svg viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/></svg>',
@@ -4228,6 +4348,18 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
       <div style="display:flex;gap:10px">
         <button class="wzbtn" id="wzBlank" title="Ohne Assistent, nur ID">Leer anlegen</button>
         <button class="wzbtn prim" id="wzNext">Weiter →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="dupOv" class="wzov" hidden>
+  <div class="wzbox">
+    <div class="wzhd"><b data-i18n>Panel duplizieren</b><span class="wzstep" id="dupQuelle"></span><button class="wzx" id="dupX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="wzbody" id="dupBody"></div>
+    <div class="wzft">
+      <button class="wzbtn" id="dupCancel">Abbrechen</button>
+      <div style="display:flex;gap:10px">
+        <button class="wzbtn prim" id="dupGo">Anlegen</button>
       </div>
     </div>
   </div>

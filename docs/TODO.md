@@ -1731,6 +1731,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
           Loxone-Favoriten; drei Pflichtschritte, Rest mit Standardwerten. **M**
       14. **Profil duplizieren mit Raumtausch.** **S**
+          *Erledigt 08.10.2026:* „Duplizieren“ in der Speicherleiste des
+          Panel-Editors: Dialog mit ID- und Titelvorschlag aus dem Zielraum,
+          jeder Baustein des Quellraums wird durch den gleichnamigen im
+          Zielraum ersetzt (Tabs, Raum-Liste, Ausblendungen, freie Seiten,
+          Kachel-Einstellungen, Widgets, Werteleiste, Uhr-Seite), Fehlendes
+          wird genannt, ohne Zielraum reine Kopie. Details in
+          [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6.
       15. **Profil merkt sich sein Zielgerät,** *Displays* warnt bei
           Abweichung. **S**
       16. **Lesbarkeits-Prüfung als Browser-Test:** auf den Standardgeräten
