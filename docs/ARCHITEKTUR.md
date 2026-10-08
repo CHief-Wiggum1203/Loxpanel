@@ -1679,6 +1679,21 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Seite). Ohne Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
   der Server bekommt das neue Profil erst beim Speichern. Geprüft in
   `tests/browser/test_duplizieren_browser.py`.
+- Vorschlag statt leerer Seite (Punkt 13, 08.10.2026): Der Assistent „Neues
+  Panel“ zeigt im ersten Schritt je bekanntem Gerät ohne eigenes Profil
+  (`wzVorschlaege()`: Geräteliste und konfigurierte Geräte, ohne die, auf
+  die schon ein `device` eines Profils zeigt) einen Vorschlag: Passt der
+  Gerätename zu einem Loxone-Raum (`nameSlug()` gleich oder enthalten, ab
+  drei Zeichen), ein Raum-Panel dieses Raums, sonst die klassische Visu mit
+  den Favoriten vorn. Ein Tipp (`wzVorschlagWaehlen()`) füllt die drei
+  Pflichtschritte: Anzeige aus der gemeldeten Größe (quadratisch 1 Pane
+  mit 2 × 2, sonst 2 Panes mit „Automatisch“), Inhalt, Name und ID aus
+  Raum bzw. Gerät, dazu das Gerät als Zielgerät (Punkt 15; `wzBuild()`
+  schreibt `device` mit Größe); der Assistent springt zum Schritt Name.
+  Sobald die drei Pflichtschritte gültig sind (`wzPflichtOk()`), bietet
+  der Fuß „Jetzt anlegen ✓“ an, die übrigen Schritte behalten ihre
+  Standardwerte. Geprüft in
+  `tests/browser/test_assistent_vorschlag_browser.py`.
 - Zielgerät eines Profils (Punkt 15, 08.10.2026): Im Reiter Titel wählt
   „Zielgerät“ eines der bekannten Geräte (`KNOWN_NAMES` aus `/api/devices`
   und die konfigurierten aus `/api/meta`; meldet `/api/devices` ein neues
