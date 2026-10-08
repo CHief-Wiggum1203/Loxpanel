@@ -79,6 +79,8 @@
       "Bausteine": "Blocks",
       "＋ hinzufügen …": "＋ add …",
       "Mehr passt nicht auf die Seite.": "No more fit on the page.",
+      "Werte unter dem Bild": "Values below the image",
+      "Keine – das Bild steht allein.": "None – the image stands alone.",
       "Noch nichts gewählt – oben hinzufügen.": "Nothing selected yet – add above.",
       "Keine Räume verfügbar.": "No rooms available.",
       "Die zusammengestellte Tab-Leiste geht dabei verloren. Fortfahren?": "The assembled tab bar will be lost. Continue?",

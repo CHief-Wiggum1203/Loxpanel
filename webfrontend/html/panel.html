@@ -2,10 +2,24 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- iOS/iPadOS: als Web-App vom Home-Bildschirm im Vollbild starten (Safari-
+     Lesezeichen "Als Web-App oeffnen"). Ohne diese Angaben laeuft die Seite
+     dort in einem Fenster mit Browser-Leisten und meldet zunaechst eine
+     falsche Flaeche. viewport-fit=cover zieht die Visu unter die Geraete-
+     Raender; die Tab-Leiste weicht dem Home-Balken (safe-area unten). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LoxPanel">
+<meta name="theme-color" content="#0d120e">
 <title>LoxPanel</title>
 <style>
   :root{
+    /* Sichtbare Hoehe: 100dvh folgt auf iOS/Android den ein- und ausfahrenden
+       Browser-Leisten, 100vh ist dort die groesste Hoehe und schneidet die
+       Tab-Leiste unten ab. Aeltere Kiosk-Browser kennen nur vh. */
+    --vh:100vh;
     --bg:#0d120e; --screen:#0f1512; --line:rgba(var(--wash,255,255,255),.08);
     --ink:#e7ede7; --muted:#9fb0a4; --glow:#e0a24d; --accent:#52b881;
     --good:#52b881; --crit:#e2695f;
@@ -23,13 +37,14 @@
      pointer-Hand ueber Kacheln. Am Desktop (echte Maus) bleibt der Cursor.
      Zwei Trigger: Media-Query (Touch-Geraet) + .touch-Klasse (erste Beruehrung). */
   @media (hover:none),(pointer:coarse){ *{cursor:none !important;} }
+  @supports (height:100dvh){ :root{--vh:100dvh;} }
   body.touch *{cursor:none !important;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
     font-family:var(--font,"Inter","Roboto","Segoe UI Variable Text",-apple-system,"Segoe UI",system-ui,sans-serif);
     display:grid;place-items:center;-webkit-font-smoothing:antialiased;}
   .screen{
     position:relative;
-    width:100vw;height:100vh;
+    width:100vw;height:var(--vh);
     max-width:calc(var(--cols,2) * 240px);max-height:calc(var(--rows,2) * 240px);
     border-radius:0;overflow:hidden;background:var(--screen);
     box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 60px rgba(0,0,0,.5);
@@ -42,7 +57,7 @@
   /* "Bildschirm fuellen": ganzen Tablet-Schirm nutzen (Voll-Zoom). Die Kacheln
      passen sich der Geraeteform an (koennen leicht rechteckig werden) statt als
      zentrierter cols:rows-Kasten mit Rand zu stehen. Gilt auch fuer Vollbreit. */
-  .screen.fill{max-width:none;max-height:none;width:100vw;height:100vh;}
+  .screen.fill{max-width:none;max-height:none;width:100vw;height:var(--vh);}
   /* Skaliert fuellt der Kasten den Schirm auf den Pixel genau - eine Rundung
      darf keine Scrollleiste erzeugen. NUR auf html (wirkt aufs Fenster), nicht
      auf body: body ist hier Grid-Element mit place-items:center und damit nur
@@ -58,7 +73,7 @@
      2 Panes nebeneinander = 2x Visu-Breite, deshalb --cols*480; Hoehe --rows*240
      (identisch zur nicht-geteilten .screen -> kein Hoehensprung beim Tab-Wechsel). */
   .screen.split{max-width:none;max-height:none;
-    width:min(100vw, calc(var(--cols,2) * 480px));height:min(100vh, calc(var(--rows,2) * 240px));
+    width:min(100vw, calc(var(--cols,2) * 480px));height:min(var(--vh), calc(var(--rows,2) * 240px));
     grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr) auto;}
   /* Split im Hochformat (Klasse "hoch", gesetzt in applyHoch): die beiden
      Haelften UEBEREINANDER statt nebeneinander - oben die Visu, darunter Pane 2,
@@ -66,14 +81,14 @@
      Tablet zwei schmale Streifen mit leerer Flaeche darueber und darunter.
      Masse gespiegelt: Breite --cols*240, Hoehe --rows*480 (zwei Haelften). Steht
      VOR der fill-Regel, damit "Bildschirm fuellen" auch hier den Schirm fuellt. */
-  .screen.split.hoch{width:min(100vw, calc(var(--cols,2) * 240px));height:min(100vh, calc(var(--rows,2) * 480px));
+  .screen.split.hoch{width:min(100vw, calc(var(--cols,2) * 240px));height:min(var(--vh), calc(var(--rows,2) * 480px));
     grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto;}
   .screen.split.hoch #playerpane,
   .screen.split.hoch #frontpane{grid-column:1;grid-row:2;border-left:0;border-top:1px solid var(--line);}
   .screen.split.hoch #tabs{grid-row:3;}
   /* "Bildschirm fuellen" im Split: ganzen Tablet-Schirm nutzen (Kacheln passen
      sich an, statt zentriertem 2:1-Kasten mit Rand). */
-  .screen.split.fill{width:100vw;height:100vh;}
+  .screen.split.fill{width:100vw;height:var(--vh);}
   /* Automatisches Raster (Tablet): der Kasten ist der ganze Schirm (wie "fill"),
      das Widget belegt ganze Kachelspalten bzw. -zeilen (autoRaster) - die
      Kacheln bleiben mit und ohne Widget gleich gross. */
@@ -171,6 +186,13 @@
   #frontpane .camwait{display:flex;flex-direction:column;align-items:center;gap:10px;
     color:var(--muted);padding:24px 0;}
   #frontpane .camwait svg{width:56px;height:56px;opacity:.5;}
+  /* Werte unter dem Kamerabild (camera:<uuid>|<werte>): nehmen den Rest der
+     Pane, die Zeilen teilen sich die Hoehe wie in der Werte-Pane (gleiche
+     .werte-Regeln), scrollen erst, wenn sie nicht mehr passen. Das Video
+     behaelt sein 4:3 oben. */
+  #frontpane .campage .camwerte{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:8px;
+    overflow-y:auto;overflow-x:hidden;}
+  #frontpane .campage .camwerte .fp-h{flex:0 0 auto;}
   /* Pane 2 nutzt ihre Flaeche (wetterEinpassen, kalenderEinpassen, werteEinpassen).
      Wetter: Seite 1 so hoch wie die Flaeche, die Kurve nimmt den Rest und wird in
      genau dieser Groesse gezeichnet. */
@@ -225,20 +247,20 @@
   .screen #frontpane .fp-page.kal.eng2 .fp-mon-wd{padding-bottom:3px;}
   .screen #frontpane .fp-page.kal.eng2 .fp-mon-c{min-height:24px;padding:1px 0 6px;font-size:12px;}
   /* Werte: die Zeilen teilen sich die Hoehe, Symbol und Schrift wachsen mit */
-  .screen #frontpane .fp-page.werte .sv-st{flex:1 0 auto;
+  .screen #frontpane .werte .sv-st{flex:1 0 auto;
     padding:8px clamp(11px,calc(var(--zh,44px)*.18),22px);}
-  .screen #frontpane .fp-page.werte .sv-st .ico{width:clamp(22px,calc(var(--zh,44px)*.34),44px);
+  .screen #frontpane .werte .sv-st .ico{width:clamp(22px,calc(var(--zh,44px)*.34),44px);
     height:clamp(22px,calc(var(--zh,44px)*.34),44px);}
-  .screen #frontpane .fp-page.werte .sv-st .nm{font-size:clamp(14px,calc(var(--zh,44px)*.15),21px);}
-  .screen #frontpane .fp-page.werte .sv-st .nm .rm{font-size:clamp(11px,calc(var(--zh,44px)*.1),15px);}
-  .screen #frontpane .fp-page.werte .sv-st .vl{font-size:clamp(15px,calc(var(--zh,44px)*.28),42px);}
+  .screen #frontpane .werte .sv-st .nm{font-size:clamp(14px,calc(var(--zh,44px)*.15),21px);}
+  .screen #frontpane .werte .sv-st .nm .rm{font-size:clamp(11px,calc(var(--zh,44px)*.1),15px);}
+  .screen #frontpane .werte .sv-st .vl{font-size:clamp(15px,calc(var(--zh,44px)*.28),42px);}
   /* hohe Zeilen: der grosse Wert steht unter Symbol und Name wie auf einer Kachel,
      der Name hat die ganze Breite und bricht an Wortgrenzen um */
-  .screen #frontpane .fp-page.werte.hoch .sv-st{grid-template-columns:auto minmax(0,1fr);
+  .screen #frontpane .werte.hoch .sv-st{grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"ico nm" "vl vl";align-content:center;row-gap:6px;}
-  .screen #frontpane .fp-page.werte.hoch .sv-st .ico{grid-area:ico;}
-  .screen #frontpane .fp-page.werte.hoch .sv-st .nm{grid-area:nm;white-space:normal;overflow-wrap:break-word;}
-  .screen #frontpane .fp-page.werte.hoch .sv-st .vl{grid-area:vl;justify-self:end;}
+  .screen #frontpane .werte.hoch .sv-st .ico{grid-area:ico;}
+  .screen #frontpane .werte.hoch .sv-st .nm{grid-area:nm;white-space:normal;overflow-wrap:break-word;}
+  .screen #frontpane .werte.hoch .sv-st .vl{grid-area:vl;justify-self:end;}
   /* Energiefluss-Pane (Radial, Loxone-Standard). Erzeugung=Akzent, Verbrauch=Glow. */
   .epane{flex:1;display:flex;flex-direction:column;min-height:0;}
   .epane .etop{display:flex;justify-content:center;padding:2px 0 2px;}
@@ -275,6 +297,9 @@
   @keyframes eflowout{0%{transform:translate(0,0);opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
   @keyframes eflowin{0%{transform:translate(var(--dx),var(--dy));opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
   .screen.split #tabs{grid-column:1 / -1;grid-row:2;}   /* Tab-Leiste ueber volle Breite */
+  /* Web-App auf iPhone/iPad ohne Home-Taste: der Home-Balken liegt sonst auf
+     den Tabs. env() ist 0, wo das Geraet keinen Rand meldet (Wandpanel). */
+  #tabs{padding-bottom:env(safe-area-inset-bottom,0px);}
   .screen.split .conn{grid-column:1;grid-row:1;place-self:start start;margin:6px;}
   /* Automatisches Raster: Spalten- und Zeilenzahl sind oft ungerade (5 x 3), die
      Mitte laege auf einer Kachel - der Punkt sitzt wie im Split in der Ecke. */
@@ -2320,10 +2345,11 @@ function renderPanel(blocks){
   for(const b of blocks){ if(b.k!=='row') continue; const rowEl=rows[ri++];
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
       bindCell(btn,c);
+      btn._secured=!!c.secured;   // gesichertes Ziel (verlinkte Objekte): PIN wie auf seiner eigenen Seite
       btn.addEventListener('pointerdown',ev=>{ ev.preventDefault();
         if(btn._menu){ openMenu(btn,btn._menu); return; }
         if(btn._tippen) return;
-        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,view&&view.secured,(btn._hold&&btn._release)?{los:btn._release}:null);
+        if(btn._cmd) sendCmd(btn._cmd.uuid,btn._cmd.cmd,(view&&view.secured)||btn._secured,(btn._hold&&btn._release)?{los:btn._release}:null);
       });
       btn.addEventListener('click',()=>{ if(btn._tippen && !btn._menu) zelleTippen(g,btn); });
     });
@@ -2541,7 +2567,8 @@ function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
 // jedem Fall neu gerendert (z.B. Anlagenschema, Screensaver oben).
 function applyHoch(){
   const sc=document.querySelector('.screen'); if(!sc) return;
-  sc.classList.toggle('hoch', sc.classList.contains('split') && window.innerHeight > window.innerWidth);
+  const vp=vpSize();
+  sc.classList.toggle('hoch', sc.classList.contains('split') && vp.h > vp.w);
 }
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
@@ -2675,7 +2702,8 @@ function applyPane(){
   const euid=qarg(qraw,'energy:');
   if(euid!==curEnergyUuid){ curEnergyUuid=euid; try{ send({t:'setenergy',uuid:euid}); }catch(e){} }
   // Kamera (Intercom) dem Server melden (er pusht dann {t:'camera'} mit Video+Buttons).
-  const cuid=qarg(qraw,'camera:');
+  // "camera:<uuid>|<uuid>,..." - hinter dem Strich stehen Werte unter dem Bild
+  const camArg=qarg(qraw,'camera:'), cuid=camPaneUuid(camArg);
   if(cuid!==curCameraUuid){ curCameraUuid=cuid; cameraData=null;
     if(fp){ delete fp.dataset.cam; delete fp.dataset.camsig; }
     const sb=el('svBox'); if(sb){ delete sb.dataset.cam; delete sb.dataset.camsig; }
@@ -2697,8 +2725,10 @@ function applyPane(){
   const zone=qarg(qraw,'player:');
   if(zone!==curPlayerZone){ curPlayerZone=zone; _playerBuilt=false; try{ send({t:'setplayer',zone:zone}); }catch(e){} }
   // Frei gewaehlte Werte (status) ebenso kontextabhaengig — Pane 2, Kopfzeile
-  // ODER Uhr-Seite; die Kopfzeile nennt ihre Werte als "header:<uuid>,…".
-  const suu = (svKind(qraw)==='status' || svKind(qraw)==='header') ? svArg(qraw) : '';
+  // ODER Uhr-Seite; die Kopfzeile nennt ihre Werte als "header:<uuid>,…", die
+  // Kamera-Pane ihre Werte unter dem Bild als "camera:<uuid>|<uuid>,…".
+  const suu = (svKind(qraw)==='status' || svKind(qraw)==='header') ? svArg(qraw)
+            : ((svKind(qraw)==='camera') ? camPaneWerte(svArg(qraw)) : '');
   if(suu!==curSvStatus){ curSvStatus=suu; svStatusData=null;
     try{ send({t:'setsvstatus', uuids: suu?suu.split(','):[]}); }catch(e){} }
 }
@@ -2844,8 +2874,21 @@ function updateGrid(items){
 // doppeltem Raster: 2x2, 3x2 und 3x3 werden auf einem Hochkant-Tablet
 // verdoppelt, 2x3 ist schon ein Hochformat-Raster und bleibt. Das quadratische
 // 4"-Panel bleibt in jedem Fall bei seinem Raster.
+// Sichtbare Flaeche. innerWidth/innerHeight sind beim Start einer iOS-Web-App
+// (Lesezeichen "Als Web-App oeffnen") und in manchen Kiosk-Browsern kurz 0 oder
+// die Groesse des Safari-Fensters; dann rechnete das Raster 1 Zeile (Kacheln
+// ueber den Schirm, "Uhr-Kachel") und blieb so haengen, weil kein resize
+// mehr kam. Darum: innerWidth/innerHeight, sonst der sichtbare Viewport des
+// Geraets, sonst das Wurzelelement. Null gibt es nicht mehr.
+function vpSize(){
+  let w=window.innerWidth, h=window.innerHeight;
+  const vv=window.visualViewport, de=document.documentElement;
+  if(!(w>0)||!(h>0)){ if(vv&&vv.width>0&&vv.height>0){ w=vv.width; h=vv.height; }
+    else { w=de.clientWidth; h=de.clientHeight; } }
+  return {w:Math.max(1,w), h:Math.max(1,h)};
+}
 function rasterFuer(widget){
-  const w=window.innerWidth, h=window.innerHeight;
+  const {w,h}=vpSize();
   if(gridAuto){ const r=autoRaster(widget); return [r.cols, r.rows]; }
   if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
   if(w>h) return [profCols*2, profRows];
@@ -2891,7 +2934,7 @@ function rasterLage(breiten, cols, rows){
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const w=window.innerWidth, tabsH=tabs?tabs.offsetHeight:0, hoch=window.innerHeight>window.innerWidth;
+  const vp=vpSize(), w=vp.w, tabsH=tabs?tabs.offsetHeight:0, hoch=vp.h>vp.w;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
   const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
   // Raster fuer eine Spaltenzahl (vor dem Abgeben an das Widget): Kachelbreite
@@ -2900,7 +2943,7 @@ function autoRaster(widget){
   // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
   const fuer=gesamt=>{
     const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
-    const h=window.innerHeight-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw);
+    const h=vp.h-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw);
     const rows=anzahl(h, kb);
     const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
     let r;
@@ -2926,7 +2969,7 @@ function autoRaster(widget){
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 function rasterKey(widget){
-  const w=window.innerWidth, h=window.innerHeight, a=gridAuto ? autoRaster(widget) : null;
+  const {w,h}=vpSize(), a=gridAuto ? autoRaster(widget) : null;
   return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '');
 }
 function render(){
@@ -3150,7 +3193,10 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
   // Bild kann nach dem Layout erst die richtige Groesse liefern -> nach Frame fitten
   requestAnimationFrame(fit); const img=stage.querySelector('.schemeimg'); if(img) img.onload=fit;
 }
-window.addEventListener('resize',()=>{
+// Laeuft bei jeder Groessenaenderung. Nicht nur bei 'resize': eine iOS-Web-App
+// meldet die echte Flaeche erst mit 'pageshow' oder ueber visualViewport, und
+// beim Drehen kommt 'orientationchange' teils ohne resize.
+function fensterGeaendert(){
   applyHoch();   // Split beim Drehen zwischen nebeneinander und uebereinander umstellen
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
@@ -3164,7 +3210,11 @@ window.addEventListener('resize',()=>{
   panelEinpassen();
   kopfEinpassen();
   faktorNachziehen();   // Kachelbreite geaendert, Raster nicht: Inhalt nachziehen
-});
+}
+window.addEventListener('resize', fensterGeaendert);
+window.addEventListener('orientationchange', ()=>setTimeout(fensterGeaendert, 50));
+window.addEventListener('pageshow', fensterGeaendert);
+if(window.visualViewport) window.visualViewport.addEventListener('resize', fensterGeaendert);
 
 // Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
 let sx=null, sy=null;
@@ -3275,7 +3325,11 @@ function connect(){
     if(msg.t==='svstatus'){ svStatusData=Array.isArray(msg.items)?msg.items:[];
       if(saverOn()){ renderFront(); return; }   // Uhr-Seite oben -> dort
       if(kopfAktiv()){ renderKopfzeile(); return; }   // Werte in der Kopfzeile
-      const fp=el('frontpane'); if(fp && !svSideOn() && paneKind(paneRawNow())==='status') renderWertePane(fp); return; }   // sonst Werte als Pane 2
+      const fp=el('frontpane');
+      if(fp && !svSideOn()){ const pk=paneKind(paneRawNow());
+        if(pk==='status') renderWertePane(fp);          // Werte als Pane 2
+        else if(pk==='camera') renderCameraWerte(fp); }  // Werte unter dem Kamerabild
+      return; }
     if(msg.t==='chart'){   // Verlaufs-Pane
       // Nur Daten des zuletzt angefragten Stapels: ein Push, der beim Wechsel
       // schon unterwegs war, nennt Bausteine, die die Pane nicht mehr zeigt.
@@ -3444,6 +3498,9 @@ function renderFront(){
 // applySaverSplit) — einspaltig (4"-Panel) gibt es keine Flaeche, die
 // ungenutzt bliebe, dort bleibt es bei Wetter/Uhr/Terminen.
 function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
+// Kamera-Widget: "camera:<uuid>|<uuid>,<uuid>" - Bild-UUID vor, Werte hinter dem Strich
+function camPaneUuid(arg){ return (arg||'').split('|')[0]; }
+function camPaneWerte(arg){ const i=(arg||'').indexOf('|'); return i<0?'':arg.slice(i+1); }
 function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
 function svSideOn(){ const s=el('saver');
   return !!s && !s.classList.contains('hidden') && s.classList.contains('split'); }
@@ -3480,7 +3537,7 @@ function renderWertePane(box){
 // Werte: ab dieser Zeilenhoehe (px) duerfen lange Namen umbrechen
 const WERTE_HOCH = 80;
 function werteEinpassen(box){
-  const s=box && box.querySelector('.fp-page.werte'); if(!s || !s.clientHeight) return;
+  const s=box && (box.classList.contains('werte') ? box : box.querySelector('.werte')); if(!s || !s.clientHeight) return;
   const z=s.querySelector('.sv-st');
   if(z){ s.style.removeProperty('--zh'); s.classList.remove('hoch');
     const zh=z.offsetHeight; s.style.setProperty('--zh', zh+'px'); s.classList.toggle('hoch', zh>=WERTE_HOCH); }
@@ -3786,11 +3843,12 @@ function renderCameraPane(elc){ if(!elc) return;
   const video=blocks.find(b=>b.k==='video'), row=blocks.find(b=>b.k==='row');
   const bell=blocks.find(b=>b.k==='astat'), nostat=blocks.find(b=>b.k==='status');
   const talk=blocks.find(b=>b.k==='intercom-talk');
-  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|';
+  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|'+(camPaneWerte(qargCamNow())?'w':'')+'|';
   const sig=baseSig+(talk?talk.uuid:'');
-  if(talk && elc.dataset.camsig===baseSig){
-    const page=elc.querySelector('.campage');
-    if(page){ page.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
+  if(talk && elc.dataset.camsig===baseSig){   // Gegensprechen kommt dazu: vor die Werte unter dem Bild
+    const page=elc.querySelector('.campage'), werte=page&&page.querySelector('.camwerte');
+    if(page){ if(werte) werte.insertAdjacentHTML('beforebegin',intercomTalkHtml(talk));
+      else page.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
       page.classList.add('intercom-page'); elc.dataset.camsig=sig; }
   }
   if(elc.dataset.camsig!==sig){          // Struktur -> Neuaufbau
@@ -3800,17 +3858,33 @@ function renderCameraPane(elc){ if(!elc) return;
                  : '<div class="status">'+esc(nostat?nostat.text:'Kein Video')+'</div>';
     if(row) html+='<div class="brow'+(row.wrap?' wraprow':'')+'">'+row.cells.map(cellHtml).join('')+'</div>';
     if(talk) html+=intercomTalkHtml(talk);
+    if(camPaneWerte(qargCamNow())) html+='<div class="camwerte werte"></div>';   // Werte unter dem Bild
     elc.innerHTML='<div class="fp-page solo campage'+(talk?' intercom-page':'')+'">'+html+'</div>';
+    renderCameraWerte(elc);
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
         btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,!!(cameraData&&cameraData.secured)); }); }); }
-  } else if(row){                         // gleiche Struktur -> nur Buttons aktualisieren (Video unangetastet)
-    const btns=elc.querySelectorAll('.brow [data-c]');
-    row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
+  } else {                                // gleiche Struktur -> nur Buttons und Werte aktualisieren (Video unangetastet)
+    if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
+      row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } }); }
+    // Werte unter dem Bild: auch hier nachziehen - auf der Uhr-Seite kommt ein
+    // Werte-Push ueber renderFront() hier an, nicht ueber renderCameraWerte()
+    renderCameraWerte(elc);
   }
   const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
   intercomBind(elc);
+}
+// Der Kamera-Wert der aktiven Pane (Tab-Pane oder Widget-Seite), ohne "camera:"
+// Kamera-Angabe der gerade gezeichneten Pane: auf der Uhr-Seite die des
+// Screensavers (svPane), sonst die des Tabs - wie die Anmeldung in applyPane()
+function qargCamNow(){ const raw=(svSideOn() ? svSideRaw() : paneRawNow())||''; return raw.indexOf('camera:')===0 ? raw.slice(7) : ''; }
+// Werte unter dem Kamerabild: nur dieser Block wird neu gezeichnet (bei jedem
+// {t:'svstatus'}-Push), das Video und die Tasten bleiben stehen.
+function renderCameraWerte(elc){
+  const box=elc && elc.querySelector('.campage .camwerte'); if(!box) return;
+  box.innerHTML=svStatusZeilen();
+  werteEinpassen(box);
 }
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.weather;
   if(!w){ elc.innerHTML='<div class="fp-empty">Kein Wetter konfiguriert.</div>'; return; }
@@ -3988,7 +4062,7 @@ function saverOn(){ return !el('saver').classList.contains('hidden'); }
 // nach dem Speichern, erst spaeter wieder einspaltig).
 function applySaverSplit(){
   const s=el('saver'), sc=document.querySelector('.screen');
-  const quer=window.innerWidth > window.innerHeight;
+  const vp=vpSize(), quer=vp.w > vp.h;
   const hoch=!!themeSplit && !quer && !!sc && sc.offsetHeight >= sc.offsetWidth*Math.SQRT2;
   s.classList.toggle('split', (!!themeSplit && quer) || hoch);
   s.classList.toggle('hoch', hoch);
@@ -4219,7 +4293,8 @@ function scaleCfg(v){ return (v==='auto' || (typeof v==='number' && v>0)) ? v : 
 function applyScale(){
   const s=document.querySelector('.screen'); if(!s) return;
   const w=s.offsetWidth, h=s.offsetHeight;          // Layout-Groesse, vom transform unberuehrt
-  const passt=(w&&h) ? Math.min(innerWidth/w, innerHeight/h) : 1;
+  const vp=vpSize();
+  const passt=(w&&h) ? Math.min(vp.w/w, vp.h/h) : 1;
   let k=1;
   if(gridAuto) k=1;                                  // automatisches Raster: Kacheln haben ihre Groesse, der Kasten ist der Schirm
   else if(uiScaleCfg==='auto') k=Math.max(1,passt); // nur vergroessern: kleiner rechnet das Layout selbst

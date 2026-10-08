@@ -727,6 +727,17 @@ selbst aktuell.
       Verbindungspunkt mitten im Widget, jetzt ist er dort aus wie auf der
       Kalender- und Wetter-Seite. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1. **M**
+- [x] **Tablet im Browser und iPad-Web-App** (05.10.2026, Forum #70 von RHC).
+      iOS-Web-App vom Home-Bildschirm startet im Vollbild statt als
+      „Uhr-Kachel“ mit schwarzem Schirm (Kopf-Metas, `100dvh`, Startmessung
+      über `vpSize()` und Nachzug bei `pageshow`). Kamera-Pane zeigt unter
+      dem Bild frei gewählte Werte (`camera:<uuid>|<uuid>,…`, Konfigurator
+      „Werte unter dem Bild“). Verlinkte Objekte aus Loxone Config stehen
+      als tippbare Zeile unter der Detailseite. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1, Tests in
+      `tests/test_verlinkte_objekte.py` und
+      `tests/browser/test_tablet_browser.py`. Offen: Hintergrundbild je Panel
+      (RHCs zweiter Wunsch) und Prüfung am echten iPad. **M**
 - [ ] **Tablet-Ansicht, was noch offen ist:** „Automatisch“ und die
       angepasste Pane 2 am Tab A9 prüfen (Raster quer und hochkant, Widget,
       Drehen). Aus den Ideen offen: eine Listen-Darstellung als Alternative

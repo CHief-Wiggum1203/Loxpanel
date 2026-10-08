@@ -601,9 +601,28 @@ def _clean_screen(d) -> dict:
     return {k: v for k, v in out.items() if v is not None}
 
 
+def _clean_camera(v: str) -> str:
+    """Kamera-Widget pruefen: "camera:<uuid>" oder "camera:<uuid>|<uuid>,<uuid>,..."
+    Hinter dem senkrechten Strich stehen frei gewaehlte Werte (wie "status:"),
+    die das Panel unter dem Kamerabild zeigt - auf einem Tablet bleibt dort
+    sonst die halbe Pane leer. Die Liste wird je Eintrag getrimmt und auf
+    SV_STATUS_MAX begrenzt; ohne Eintraege faellt der Strich weg. "" = ungueltig."""
+    kopf = "camera:"
+    if not (isinstance(v, str) and v.startswith(kopf) and len(v) > len(kopf)):
+        return ""
+    rest = v[len(kopf):]
+    cam, _, werte = rest.partition("|")
+    cam = cam.strip()
+    if not cam:
+        return ""
+    uu = [x.strip() for x in werte.split(",") if x.strip()][:SV_STATUS_MAX]
+    return kopf + cam + ("|" + ",".join(uu) if uu else "")
+
+
 def _clean_tabpane(v) -> str:
     """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
-    | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>,<uuid>,..." (ein oder
+    | "energy:<uuid>" | "camera:<uuid>[|<uuid>,...]" (Kamera, dahinter optional
+    Werte unter dem Bild, _clean_camera) | "chart:<uuid>,<uuid>,..." (ein oder
     mehrere Verlaufs-Bausteine mit Aufzeichnung, gestapelt) | "status:<uuid>,..."
     (frei gewaehlte Werte, wie auf der Uhr-Seite) | "header" bzw.
     "header:<uuid>,..." (Kopfzeile: Uhr, Wetter und bis zu SV_STATUS_MAX Werte
@@ -618,7 +637,9 @@ def _clean_tabpane(v) -> str:
     if v in ("weather", "calendar", "header"):
         return v
     if isinstance(v, str):
-        for kopf in ("player:", "energy:", "camera:"):
+        if v.startswith("camera:"):
+            return _clean_camera(v)
+        for kopf in ("player:", "energy:"):
             if v.startswith(kopf) and len(v) > len(kopf):
                 return v
         for kopf in ("chart:", "status:"):   # mehrere Bausteine, komma-getrennt (Verlauf/Werte)
@@ -669,7 +690,9 @@ def _clean_svpane(v) -> str:
     v = v.strip()
     if v in ("off", "calendar", "weather"):
         return v
-    for kopf in ("player:", "energy:", "camera:"):
+    if v.startswith("camera:"):
+        return _clean_camera(v)
+    for kopf in ("player:", "energy:"):
         if v.startswith(kopf) and len(v) > len(kopf):
             return v
     for kopf in ("chart:", "status:"):   # mehrere Bausteine, komma-getrennt (Verlauf/Werte)
@@ -5545,7 +5568,7 @@ class App:
                 "sw": sz.get("width") or 1300, "sh": sz.get("height") or 866,
                 "items": items}
 
-    def _view_control(self, uuid: str, rng: str | None = None) -> dict:
+    def _view_control(self, uuid: str, rng: str | None = None, prof: dict | None = None) -> dict:
         v = self._view_control_inner(uuid)
         c = self.controls.get(uuid, {})
         # Verlaufs-Diagramme unter die Detailseite haengen, wenn der Baustein eine
@@ -5556,7 +5579,48 @@ class App:
             if charts:
                 v["blocks"] = v["blocks"] + charts
                 v["route"] = dict(v.get("route") or {}, range=rng)
+        # Verlinkte Objekte (Structure File "links": Bausteine, die in Loxone
+        # Config am Baustein verlinkt sind, etwa die Abholtermine am
+        # Muell-Status): unter die Detailseite als Zeile tippbarer Zellen,
+        # wie in der Loxone-App. Jede Zelle zeigt Name und Zustand, ein Tipp
+        # oeffnet die Detailseite des Ziels oder schaltet es (Kacheln, die
+        # direkt schalten). Nur bekannte, auf dem Panel nicht ausgeblendete
+        # Bausteine; nur Block-Seiten.
+        if isinstance(v.get("blocks"), list):
+            links = self._link_blocks(c, uuid, prof)
+            if links:
+                v["blocks"] = v["blocks"] + links
         return v
+
+    def _link_blocks(self, c: dict, uuid: str, prof: dict | None = None) -> list:
+        """Blocks fuer die verlinkten Objekte eines Bausteins: Ueberschrift und
+        eine umbrechende Zeile mit einer Zelle je Ziel. Leer, wenn der
+        Baustein keine (bekannten) Links hat oder nur auf sich selbst zeigt.
+        Auf dem Panel ausgeblendete Ziele (hide) bleiben weg wie ueberall
+        sonst; ein gesichertes Ziel (Visu-PIN) traegt secured an der Zelle,
+        die Visu fragt dann vor dem Schalten die PIN ab (Codex-Befunde)."""
+        ziele = [u for u in (c.get("links") or []) if isinstance(u, str)
+                 and u != uuid and u in self.controls and self._shown(u, prof)]
+        if not ziele:
+            return []
+        cells = []
+        for u in dict.fromkeys(ziele):   # Reihenfolge wie in Loxone Config, ohne Dubletten
+            it = self._control_item(u, show_room=True)
+            label = it.get("label") or "?"
+            if it.get("sublabel"):
+                label = f"{label} · {it['sublabel']}"
+            cell = {"label": label, "on": bool(it.get("on"))}
+            if it.get("nav"):
+                cell["nav"] = it["nav"]
+            elif it.get("cmd"):
+                cell["cmd"] = it["cmd"]
+                if it.get("secured"):
+                    cell["secured"] = True
+            else:
+                cell["nav"] = {"view": "control", "id": u}
+            cells.append(cell)
+        return [{"k": "head", "text": "Verlinkte Objekte"},
+                {"k": "row", "id": f"links:{uuid}", "wrap": True, "cells": cells}]
 
     def _view_control_inner(self, uuid: str) -> dict:
         c = self.controls.get(uuid, {})
@@ -6511,7 +6575,7 @@ class App:
         if v == "group":
             return self._view_group(route, prof)
         if v == "control":
-            return self._view_control(route.get("id"), route.get("range"))
+            return self._view_control(route.get("id"), route.get("range"), prof)
         if v == "sources":
             return self._view_sources(route.get("id"))
         if v == "irrzone":
