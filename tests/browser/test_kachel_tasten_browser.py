@@ -424,13 +424,15 @@ def test_beschattung_auf_ab(tmp_path):
     assert angehalten == [("J0", "Stop")], "auch ▼ haelt die Fahrt an"
 
 
-@pytest.mark.parametrize("ui", [{}, {"cols": 3}, {"rows": 3}, {"cols": 3, "rows": 3}],
+@pytest.mark.parametrize("ui, tasten", [({}, True), ({"cols": 3}, True), ({"rows": 3}, False), ({"cols": 3, "rows": 3}, False)],
                          ids=["2x2", "3x2", "2x3", "3x3"])
 @pytest.mark.parametrize("art", ["rollo", "player"])
-def test_tasten_passen_in_die_kachel(tmp_path, ui, art):
-    """Die Tasten liegen in jedem Raster ganz in der Kachel und verdecken Name
-    und Zustand nicht; nichts wird abgeschnitten. Unter dem Text ist bei drei
-    Zeilen kein Platz, dann stehen sie in der Kopfzeile (placeCtrls)."""
+def test_tasten_nur_wenn_die_kachel_hoch_genug_ist(tmp_path, ui, tasten, art):
+    """Zwei Zeilen (Kachel 198 px hoch): die Tasten stehen unter dem Text, ganz
+    in der Kachel und verdecken nichts; dafuer nimmt die Kachel den Faktor,
+    bei dem Text und Leiste passen (tastenEinpassen), die Tasten selbst
+    bleiben in Seitengroesse. Drei Zeilen (128 px): keine Tasten - ein Tipp
+    auf die Kachel oeffnet die Detailseite, dort sind sie."""
     kachel = {"rollo": "J0", "player": "Z0"}[art]
 
     async def lauf():
@@ -444,24 +446,123 @@ def test_tasten_passen_in_die_kachel(tmp_path, ui, art):
                 pg = await b.new_page(viewport={"width": 480, "height": 480})
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
-                await pg.wait_for_selector(f'.tile[data-id="{kachel}"] .tctrls .tb')
+                await pg.wait_for_selector(f'.tile[data-id="{kachel}"] .tctrls .tb', state="attached")
                 await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(400)
                 raster = f"{ui.get('cols', 2)}x{ui.get('rows', 2)}"
                 await pg.screenshot(path=str(tmp_path / f"tasten_{art}_{raster}.png"))
                 lage = await pg.evaluate("""id => {
                   const k = document.querySelector('.tile[data-id="' + id + '"]'), r = e => e.getBoundingClientRect();
-                  const t = r(k), text = r(k.querySelector('.body'));
+                  const sc = document.querySelector('.screen'), ks = parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1;
+                  const t = r(k), text = r(k.querySelector('.body')), tc = k.querySelector('.tctrls');
+                  const da = !!tc && !tc.hidden && getComputedStyle(tc).display !== 'none';
                   return {abgeschnitten: k.scrollHeight > k.clientHeight + 1,
-                          text: text.bottom <= t.bottom + 1,
-                          tasten: [...k.querySelectorAll('.tctrls .tb')].map(e => { const b = r(e);
-                            return b.left >= t.left - 1 && b.right <= t.right + 1 && b.top >= t.top - 1
-                                && b.bottom <= t.bottom + 1 && b.width >= 30 && b.height >= 30
-                                && (b.bottom <= text.top + 1 || b.top >= text.bottom - 1); })}; }""", kachel)
+                          text: text.bottom <= t.bottom + 1, tasten: da, ks, ksMin: KS_MIN,
+                          eigener: parseFloat(k.style.getPropertyValue('--ks')) || null, klassen: [...k.classList],
+                          lage: da ? [...tc.querySelectorAll('.tb')].map(e => { const b = r(e);
+                            return b.left >= t.left - 1 && b.right <= t.right + 1 && b.top >= text.bottom - 1
+                                && b.bottom <= t.bottom + 1 && b.width >= 30 && b.height >= 30; }) : [],
+                          tasteHoehe: da ? r(tc.querySelector('.tb')).height : null}; }""", kachel)
+                detail = None
+                if not tasten:
+                    await pg.locator(f'.tile[data-id="{kachel}"]').click()
+                    await pg.wait_for_timeout(600)
+                    detail = await pg.evaluate("view && view.route")
                 await b.close()
         finally:
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
-        return lage
-    lage = asyncio.run(lauf())
-    assert lage == {"abgeschnitten": False, "text": True, "tasten": [True] * (2 if art == "rollo" else 3)}, lage
+        return lage, detail
+    lage, detail = asyncio.run(lauf())
+    assert not lage["abgeschnitten"] and lage["text"], lage
+    if tasten:
+        assert lage["tasten"] and lage["lage"] == [True] * (2 if art == "rollo" else 3), lage
+        assert lage["tasteHoehe"] >= 44 * max(1, lage["ks"]) - 1, "Tasten in Seitengroesse"
+        # 2x2: 225 x 198 px bei Faktor 1,31 - fuer Text UND Leiste nimmt die Kachel einen kleineren
+        if lage["ks"] > 1:
+            assert lage["eigener"] and lage["ksMin"] <= lage["eigener"] < lage["ks"], lage
+        else:
+            assert lage["eigener"] is None, lage
+    else:
+        assert not lage["tasten"] and "ohnetasten" in lage["klassen"] and lage["eigener"] is None, lage
+        assert detail == {"view": "control", "id": kachel}, detail
+
+
+MESSEN_TASTEN = """id => {
+  const k = document.querySelector('.tile[data-id="' + id + '"]'), r = e => e.getBoundingClientRect();
+  const sc = document.querySelector('.screen'), tc = k.querySelector('.tctrls');
+  return {ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1,
+          eigener: parseFloat(k.style.getPropertyValue('--ks')) || null,
+          tasten: !!tc && !tc.hidden && getComputedStyle(tc).display !== 'none',
+          hoehe: k.clientHeight, ueberlauf: k.scrollHeight - k.clientHeight,
+          symbol: Math.round(r(k.querySelector('.ico svg')).width)}; }"""
+
+
+@pytest.mark.parametrize("symbol, tasten", [(80, False), (24, True)], ids=["gross", "klein"])
+def test_eingestellte_groessen_zaehlen_mit(symbol, tasten):
+    """Codex-Befund an #128: Der Platz fuer Kopf und Text kommt aus den
+    eingestellten Groessen, nicht aus festen Massen. Am 4"-Panel 2x2 mit
+    80-px-Symbol bleiben die Tasten weg (statt ueberzulaufen), mit 24-px-Symbol
+    stehen sie und die Kachel braucht weniger von ihrem Faktor herzugeben."""
+    async def lauf():
+        app = _app([], ROLLOS, {"iconSize": symbol})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 480, "height": 480})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="J0"] .tctrls .tb', state="attached")
+                await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(400)
+                m = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return m
+    m = asyncio.run(lauf())
+    assert m["ueberlauf"] <= 1 and m["tasten"] == tasten, m
+    if tasten:
+        assert m["eigener"] and 1.1 <= m["eigener"] < m["ks"], m   # mit kleinem Symbol bleibt mehr vom Faktor
+    else:
+        assert m["eigener"] is None and m["symbol"] >= 80, m
+
+
+def test_neue_hoehe_ohne_faktorwechsel():
+    """Codex-Befund an #128: Im festen, breitenbegrenzten Raster waechst die
+    Kachel mit dem Fenster, ohne dass der Faktor sich aendert. Die Tasten
+    und der Text passen sich trotzdem neu ein: vorher gibt die Kachel fuer
+    die Tasten von ihrem Faktor her, nachher braucht sie das nicht mehr."""
+    async def lauf():
+        app = _app([], ROLLOS, {"cols": 2, "rows": 2, "split": False})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 400, "height": 440})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="J0"] .tctrls .tb', state="attached")
+                await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(400)
+                vorher = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await pg.set_viewport_size({"width": 400, "height": 560})
+                await pg.wait_for_timeout(700)
+                nachher = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return vorher, nachher
+    vorher, nachher = asyncio.run(lauf())
+    assert abs(vorher["ks"] - nachher["ks"]) < 0.01, "Vorbedingung: die Breite begrenzt den Faktor, er bleibt"
+    assert nachher["hoehe"] > vorher["hoehe"] + 15, (vorher, nachher)   # der Kasten endet bei 2 x 240 px
+    assert vorher["tasten"] and vorher["eigener"] and vorher["eigener"] < vorher["ks"], vorher
+    assert nachher["tasten"] and nachher["eigener"] is None and nachher["ueberlauf"] <= 1, nachher

@@ -1670,6 +1670,12 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
          sonst Detailseite; löst das Drei-Zeilen-Problem ohne Sonderfälle. **S**
+         *Erledigt 08.10.2026:* `tastenEinpassen()` rechnet aus Kachelhöhe
+         und Faktor, ob Text und Tastenleiste passen; die Kachel nimmt dafür
+         höchstens den Faktor der Seite (4″ 2×2: rund 1,07 statt 1,31, die Tasten
+         bleiben in Seitengröße), darunter bleiben die Tasten weg und der
+         Tipp öffnet die Detailseite. `placeCtrls()`, `ctrltight` und
+         `ctrlnarrow` sind weg. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt
          fest 40 %). **S**
       8. **Seiten waagerecht wischen mit Punkten** auf Tablets, das 4″-Panel

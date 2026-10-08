@@ -54,7 +54,7 @@ def _gemischte_anlage():
                                         "serverState": 2, "clientState": 2, "power": 1, "enableAirPlay": 0,
                                         "enableSpotifyConnect": 0, "shuffle": 0, "repeat": 0})
     add("T1", "Außentemperatur", "InfoOnlyAnalog", {"value": 14.3}, details={"format": "%.1f°C"})
-    add("T2", "Luftfeuchte Bad", "InfoOnlyAnalog", {"value": 61}, details={"format": "%.0f%%"})
+    add("T2", "Luftfeuchte Badezimmer", "InfoOnlyAnalog", {"value": 61}, details={"format": "%.0f%%"})
     add("T3", "PV-Leistung aktuell", "InfoOnlyAnalog", {"value": 3.42}, details={"format": "%.2f kW"})
     add("I1", "Postkasten", "InfoOnlyDigital", {"active": 1}, details={"text": {"on": "Post da", "off": "Leer"}})
     add("I2", "Fenster Bad", "InfoOnlyDigital", {"active": 0}, details={"text": {"on": "Offen", "off": "Zu"}})
@@ -77,16 +77,20 @@ MESSEN = """() => {
     return {breite: k.clientWidth, hoehe: k.clientHeight, klassen: [...k.classList],
             name: nm ? parseFloat(cs(nm).fontSize) : null, nameGanz: ganz(nm), icon: ico ? Math.round(r(ico).width) : null,
             ueberlauf: k.scrollHeight > k.clientHeight + 1,
-            tasten: [...k.querySelectorAll('.tctrls .tb')].map(b => Math.round(Math.min(r(b).width, r(b).height)))}; };
+            tasten: [...k.querySelectorAll('.tctrls:not([hidden]) .tb')].map(b => Math.round(Math.min(r(b).width, r(b).height)))}; };
+  const kleinste = xs => xs.length ? Math.min(...xs) : null;   // null: keine sichtbaren Tasten
   const kz = document.getElementById('kopfzeile'), uhr = kz && kz.querySelector('.kz-uhr .t');
   return {ks: parseFloat(cs(sc).getPropertyValue('--ks')) || 1, raster: [gridCols, gridRows],
-    kurz: kachel(je('S1')), lang: kachel(je('J2')), erste: kachel(kacheln[0]),
+    kurz: kachel(je('S1')), lang: kachel(je('T2')), erste: kachel(kacheln[0]),
     abgeschnitten: kacheln.filter(k => [...k.querySelectorAll('.name,.sub')].some(e => !ganz(e))).length,
     ueberlauf: kacheln.filter(k => k.scrollHeight > k.clientHeight + 1).length,
     eng: kacheln.filter(k => /\\beng[123]\\b/.test(k.className)).length,
     kst: kacheln.filter(k => /\\bkst[123]\\b/.test(k.className)).length,
-    tastenMin: Math.min(...kacheln.flatMap(k => [...k.querySelectorAll('.tctrls .tb')].map(b => Math.min(r(b).width, r(b).height)))),
-    leisteMin: Math.min(...kacheln.flatMap(k => [...k.querySelectorAll(':scope > .tctrls .tb')].map(b => r(b).height))),
+    // Tasten nur, wo die Kachel hoch genug ist (tastenEinpassen): versteckte zaehlen nicht
+    tastenMin: kleinste(kacheln.flatMap(k => [...k.querySelectorAll('.tctrls:not([hidden]) .tb')].map(b => Math.min(r(b).width, r(b).height)))),
+    leisteMin: kleinste(kacheln.flatMap(k => [...k.querySelectorAll(':scope > .tctrls:not([hidden]) .tb')].map(b => r(b).height))),
+    mitTasten: kacheln.filter(k => k.querySelector('.tctrls:not([hidden])')).length,
+    ohneTasten: kacheln.filter(k => k.classList.contains('ohnetasten')).length,
     sichtbar: kacheln.filter(k => { const b = r(k); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1; }).length,
     zeile: g._zeile || [],   // Zeile je Kachel (rasterLage: breite Kacheln belegen zwei Spalten)
     kopf: (kz && !kz.hidden) ? {hoehe: Math.round(r(kz).height), uhr: uhr ? parseFloat(cs(uhr).fontSize) : null} : null};
@@ -171,18 +175,22 @@ def test_grosse_kacheln_fuellen_sich():
 
 def test_flache_kacheln_nehmen_die_hoehe():
     """2 x 3 auf dem 4"-Panel: 225 x 128 px. Die Breite ergaebe 1,32, die Hoehe
-    begrenzt auf 0,85 - sonst liefe jede Kachel unten ueber."""
+    begrenzt auf 0,85 - sonst liefe jede Kachel unten ueber. Fuer Text UND
+    Tasten ist die flache Kachel zu niedrig: Beschattung und Player haben
+    keine Tasten (tastenEinpassen), die Detailseite hat sie."""
     m = _laufen({"cols": 2, "rows": 3}, 480, 480)
     assert m["kurz"]["hoehe"] < 140, m["kurz"]
     assert abs(m["ks"] - KS_MIN) <= 0.01 and m["ueberlauf"] == 0, m
-    assert m["tastenMin"] >= 34, "Tasten schrumpfen nie unter ihr Mass"
+    assert m["tastenMin"] is None and m["mitTasten"] == 0 and m["ohneTasten"] == 5, m   # 3 Jalousien, 2 Audio
 
 
 def test_langer_name_bleibt_ganz():
-    """4"-Panel 2 x 2 (Faktor 1,31): Bei „Rollladen Schlafzimmer“ steht der
-    Zustand vorn und der Name einzeilig darunter - bei 18 px passt er nicht
+    """4"-Panel 2 x 2 (Faktor 1,31): Bei „Luftfeuchte Badezimmer“ steht der
+    Wert vorn und der Name einzeilig darunter - bei 18 px passt er nicht
     mehr in seine Zeile und nimmt den Faktor in Stufen zurueck, bis er ganz
-    steht (nie unter die 14 px ohne Faktor); „Stehlampe“ behaelt die 21 px."""
+    steht (nie unter die 14 px ohne Faktor); „Stehlampe“ behaelt die 21 px.
+    (Eine Beschattung taugt hier nicht mehr als Beispiel: sie nimmt fuer
+    Text und Tasten ihren eigenen, kleineren Faktor, s. tastenEinpassen.)"""
     m = _laufen({"cols": 2, "rows": 2}, 480, 480)
     kurz, lang = m["kurz"], m["lang"]
     assert abs(kurz["name"] - 16 * m["ks"]) <= 0.5 and kurz["nameGanz"], kurz
@@ -191,12 +199,19 @@ def test_langer_name_bleibt_ganz():
 
 
 def test_tasten_schrumpfen_nicht():
-    """Faktor 0,85: Schrift und Symbol werden kleiner, die Tasten (Touch-Ziele)
-    bleiben bei mindestens 44 px in der Leiste bzw. 34 px im Kopf."""
-    m = _laufen({"cols": 3, "rows": 3, "fill": True}, 800, 480)
-    assert m["ks"] == KS_MIN and m["tastenMin"] >= 34, m["tastenMin"]
+    """Faktor 0,85 (3 x 2 auf dem 4"-Panel, 147 x 198 px): Schrift und Symbol
+    werden kleiner, die Tasten (Touch-Ziele) bleiben bei 44 px in der Leiste.
+    Flache Kacheln (3 x 3 auf 800 x 480, 128 px) haben gar keine Tasten. Bei
+    grossem Faktor wachsen die Tasten mit dem Faktor der SEITE, auch wo die
+    Kachel fuer Text und Tasten einen kleineren nimmt (tastenEinpassen)."""
+    m = _laufen({"cols": 3, "rows": 2}, 480, 480)
+    assert abs(m["ks"] - KS_MIN) <= 0.01 and m["mitTasten"] == 5 and m["tastenMin"] >= 34 and m["leisteMin"] >= 44, m
+    flach = _laufen({"cols": 3, "rows": 3, "fill": True}, 800, 480)
+    assert abs(flach["ks"] - KS_MIN) <= 0.01 and flach["mitTasten"] == 0 and flach["ohneTasten"] == 5 \
+        and flach["tastenMin"] is None, flach
     gross = _laufen({"cols": 3, "rows": 3, "fill": True}, 1280, 800)
-    assert gross["ks"] > 1 and gross["leisteMin"] >= 44 * gross["ks"] - 1 and gross["tastenMin"] >= 34, gross
+    assert gross["ks"] > 1 and gross["mitTasten"] == 5 and gross["leisteMin"] >= 44 * gross["ks"] - 1 \
+        and gross["tastenMin"] >= 34, gross
 
 
 def test_kopfzeile_waechst_mit():
