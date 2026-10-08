@@ -38,6 +38,7 @@
       'Kopfzeile': 'Header row',
       'Kopfzeile (Uhr, Wetter, Werte)': 'Header row (clock, weather, values)',
       'Ohne Werte zeigt die Kopfzeile Uhr und Wetter.': 'Without values the header row shows clock and weather.',
+      'Werte als Leiste über den Kacheln': 'Values as a strip above the tiles',
       'Mehr passt nicht in die Zeile.': 'No more fit in the row.',
       'Kopfzeile je Tab': 'Header row per tab',
       'Keine': 'None',
