@@ -584,6 +584,25 @@ def _clean_pane_spalten(v) -> int | None:
     return int(min(PANE_SPALTEN_MAX, int(v)))
 
 
+def _clean_zielgeraet(v) -> dict | None:
+    """Zielgeraet eines Profils (profil.device): {"name": Geraetename, dazu
+    optional "vw"/"vh" = Bildschirm in CSS-Pixeln, wie das Geraet ihn beim
+    Waehlen gemeldet hat}. Ein blosser Name (str) wird zum dict. Ohne Namen
+    None = kein Zielgeraet; eine unbrauchbare Groesse faellt still weg."""
+    if isinstance(v, str):
+        v = {"name": v}
+    if not isinstance(v, dict):
+        return None
+    name = str(v.get("name") or "").strip()[:60]
+    if not name:
+        return None
+    out = {"name": name}
+    vw, vh = v.get("vw"), v.get("vh")
+    if all(isinstance(x, (int, float)) and not isinstance(x, bool) and x == x and 1 <= x <= 10000 for x in (vw, vh)):
+        out["vw"], out["vh"] = int(vw), int(vh)
+    return out
+
+
 def _kachel_breite(v) -> int | None:
     """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
     Ziffer; True/False und alles andere ergibt None = nach Typ."""
@@ -3276,6 +3295,8 @@ class App:
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
             "hide": [u for u in (raw.get("hide") or [])
                      if isinstance(u, str) and u in self.controls],
+            # Zielgeraet (Punkt 15): nur, wenn eines gesetzt ist
+            **({"device": _z} if (_z := _clean_zielgeraet(raw.get("device"))) else {}),
             # Reihenfolge ist die Klickreihenfolge, deshalb NICHT sortieren -
             # anders als rooms/cats, die der Loxone-Reihenfolge folgen.
             "picks": [u for u in (raw.get("picks") or [])
@@ -3328,6 +3349,11 @@ class App:
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
+            # Zielgeraet, fuer das das Profil gemacht ist (Displays warnt bei
+            # Abweichung); fehlt = keines
+            ziel = _clean_zielgeraet(p.get("device"))
+            if ziel:
+                e["device"] = ziel
             # Freie Auswahl (Tab "auswahl"): handverlesene Bausteine in
             # Klickreihenfolge. Hier nur Form pruefen - ob die UUIDs existieren,
             # entscheidet _panel_export gegen self.controls, wie bei "hide".

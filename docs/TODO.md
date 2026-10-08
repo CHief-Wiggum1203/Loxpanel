@@ -1740,6 +1740,11 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6.
       15. **Profil merkt sich sein Zielgerät,** *Displays* warnt bei
           Abweichung. **S**
+          *Erledigt 08.10.2026:* `device` im Profil (Name und gemeldete
+          Größe), wählbar im Reiter Titel; die Geräteliste unter Displays
+          warnt, wenn ein anderes Gerät oder eines mit mehr als 10 %
+          anderer Größe das Profil nutzt. Details in
+          [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6.
       16. **Lesbarkeits-Prüfung als Browser-Test:** auf den Standardgeräten
           kein abgeschnittener Name, keine Seite mehr als ein Drittel leer. **S**
           *Teil Abschneiden erledigt mit Punkt 1*

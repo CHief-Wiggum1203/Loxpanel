@@ -296,6 +296,7 @@
   .ag .dot.on{background:var(--good);}
   .ag .agn{font-weight:600;}
   .ag .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--muted);white-space:nowrap;}
+  .ag .tag.warn{background:rgba(224,162,77,.18);color:var(--warn,#e0a24d);}
   .ag .agip{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace;}
   /* Erkannte Bildschirmgroesse: eigene Zeile unter dem Geraet (flex-basis 100 %),
      eingerueckt auf Hoehe des Namens (Punkt 9 px + Abstand 10 px). */
@@ -1411,7 +1412,10 @@ function renderEditor(){
 
   $('#pconfHost').innerHTML =
    '<section class="spane" data-sub="title"><div class="card"><h3>Titel</h3><p class="note">Fenstertitel des Panels.</p>'+
-     '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div></div></section>'+
+     '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div>'+
+     '<div class="field" style="margin-top:14px"><label class="lbl">'+T('Zielgerät')+'</label>'+
+       '<select id="fZiel">'+zielOptionen((p.device||{}).name)+'</select>'+
+       '<div class="hint" id="fZielHint" style="padding-top:4px">'+esc(zielHinweis(p.device))+'</div></div></div></section>'+
 
    '<section class="spane" data-sub="tabs"><div class="card"><h3>Untere Leiste (Tabs)</h3>'+
      '<div class="segmode" id="tabMode">'+
@@ -1554,6 +1558,11 @@ function renderEditor(){
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
+  // Zielgeraet (Punkt 15): Name und die zuletzt gemeldete Groesse des Geraets
+  { const fz=$('#fZiel'); if(fz) fz.onchange=e=>{ const n=e.target.value;
+      if(!n) delete p.device;
+      else { const sc=DEVICE_SCREENS[n]||{}; p.device=Object.assign({name:n}, (sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:{}); }
+      $('#fZielHint').textContent=zielHinweis(p.device); markDirty(); }; }
   bindAppearance(p);
   { const fl=$('#fLayout'); if(fl) fl.onchange=e=>{ p.ui=p.ui||{}; const v=e.target.value;
       if(v==='auto'){ p.ui.grid='auto'; delete p.ui.cols; delete p.ui.rows; }
@@ -1752,6 +1761,32 @@ function scaleValue(v){ return (v==='auto'||v==='off'||v==='') ? v : parseFloat(
 // Flaeche in CSS-Pixeln und Ausrichtung, die physischen Pixel (Flaeche x
 // Pixeldichte) - und was die Visu daraus macht: Faktor und Anteil des
 // Bildschirms, den sie nutzt.
+// Zielgeraet eines Profils (Punkt 15): fuer welches Geraet es gemacht ist, mit
+// der beim Waehlen gemeldeten Groesse. Displays warnt, wenn ein anderes Geraet
+// oder eines mit deutlich anderer Groesse (ZIEL_TOLERANZ je Seite, Drehung
+// zaehlt nicht) das Profil nutzt.
+const ZIEL_TOLERANZ=0.1;
+function zielOptionen(gewaehlt){
+  const namen=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{}), gewaehlt?[gewaehlt]:[]))].filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b));
+  return '<option value="">'+T('(keines)')+'</option>'+
+    namen.map(n=>'<option value="'+esc(n)+'"'+(n===gewaehlt?' selected':'')+'>'+esc(n)+'</option>').join('');
+}
+function zielHinweis(dev){
+  const erkl=T('Für welches Gerät dieses Profil gemacht ist. Displays warnt, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.');
+  if(!dev||!dev.name) return erkl;
+  return dev.name+((dev.vw&&dev.vh)?(' · '+dev.vw+'×'+dev.vh):'')+' – '+erkl;
+}
+function zielAbweichung(d){
+  const ziel=((PANELS[d.profile]||{}).device)||null; if(!ziel||!ziel.name) return '';
+  if(ziel.name!==d.name) return T('Profil ist für')+' '+ziel.name+' '+T('gemacht');
+  const sc=d.screen||{};
+  if(ziel.vw&&ziel.vh&&sc.vw&&sc.vh){
+    const a=[ziel.vw,ziel.vh].sort((x,y)=>x-y), b=[sc.vw,sc.vh].sort((x,y)=>x-y);
+    if(Math.abs(a[0]-b[0])>ZIEL_TOLERANZ*a[0] || Math.abs(a[1]-b[1])>ZIEL_TOLERANZ*a[1])
+      return T('Profil ist für')+' '+ziel.vw+'×'+ziel.vh+' '+T('gemacht, hier')+' '+sc.vw+'×'+sc.vh; }
+  return '';
+}
 function screenInfo(sc){
   if(!sc||!sc.vw||!sc.vh) return '';
   const lage=sc.vw>sc.vh?T('quer'):(sc.vw<sc.vh?T('hoch'):T('quadratisch'));
@@ -3820,10 +3855,12 @@ function deviceRow(d, sel){
   if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
                     '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
                     '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button>';
+  const warn=zielAbweichung(d);
   return '<div class="ag" data-name="'+esc(d.name)+'" data-ip="'+esc(d.agent?d.agent.ip:'')+'">'+
     '<span class="dot'+(d.online?' on':'')+'"></span>'+
     '<span class="agn">'+esc(d.name)+'</span>'+
     '<span class="tag">'+esc(TYPE_LABEL[d.type]||d.type)+'</span>'+
+    (warn?'<span class="tag warn">⚠ '+esc(warn)+'</span>':'')+
     '<span class="agip">'+esc(info)+'</span>'+
     '<span class="sp"></span>'+profSelect('agsel',cur)+btns+
     (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';

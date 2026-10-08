@@ -567,6 +567,13 @@
       'Ohne Gegenstück dort (fallen weg):': 'Without a counterpart there (dropped):',
       'angelegt – Speichern nicht vergessen.': 'created – remember to save.',
       'Weggefallen:': 'Dropped:',
+      // --- Zielgeraet eines Profils (Punkt 15) ---
+      'Zielgerät': 'Target device',
+      '(keines)': '(none)',
+      'Für welches Gerät dieses Profil gemacht ist. Displays warnt, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.': 'Which device this profile is made for. Displays warns when another device, or one with a clearly different screen size, uses it.',
+      'Profil ist für': 'Profile is made for',
+      'gemacht': '',
+      'gemacht, hier': ', here',
       'Automatisch': 'Automatic',
       'rund': 'about',
       'der Spalten': 'of the columns',

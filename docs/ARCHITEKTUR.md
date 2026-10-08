@@ -874,6 +874,10 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "roomCats": ["<cat-uuid>"],            // Raum-Panel: Kategorien der unteren Leiste, max. 4,
                                              // in Klickreihenfolge; fehlt = die ersten 4 im Raum
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
+      "device": {"name": "tablet", "vw": 1024, "vh": 600},   // Zielgerät: für welches Gerät das Profil gemacht
+                                             // ist, mit der beim Wählen gemeldeten Größe (CSS-px,
+                                             // optional); Displays warnt bei Abweichung (§6); auch ein
+                                             // blosser Name geht; fehlt = keines
       "ui": {
         "iconSize": 38, "nameSize": 18, "subSize": 15,   // px; fehlt = global, sonst Standard des
         "roomSize": 12, "bigSize": 36,       // Kachel-Aufbaus (GROESSEN_STANDARD, §5.4)
@@ -1665,6 +1669,16 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Seite). Ohne Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
   der Server bekommt das neue Profil erst beim Speichern. Geprüft in
   `tests/browser/test_duplizieren_browser.py`.
+- Zielgerät eines Profils (Punkt 15, 08.10.2026): Im Reiter Titel wählt
+  „Zielgerät“ eines der bekannten Geräte (`KNOWN_NAMES` aus `/api/devices`
+  und die konfigurierten aus `/api/meta`); gespeichert wird `device` mit
+  Name und der zuletzt gemeldeten Größe des Geräts (`DEVICE_SCREENS`,
+  `_clean_zielgeraet()` im Server). Die Geräteliste unter Displays zeigt
+  neben dem Typ eine Warnung (`zielAbweichung()`), wenn das Profil eines
+  Geräts für ein anderes Gerät gemacht ist oder die gemeldete Größe je
+  Seite um mehr als `ZIEL_TOLERANZ` (10 %) abweicht, Drehung zählt nicht.
+  Geprüft in `tests/test_zielgeraet.py` und
+  `tests/browser/test_zielgeraet_browser.py`.
 - Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
   dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
   (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
