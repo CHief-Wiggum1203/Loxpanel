@@ -3700,10 +3700,14 @@ function deviceRow(d, sel){
     '<span class="sp"></span>'+profSelect('agsel',cur)+btns+
     (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
 }
+// Geraet ohne Kennung: der Kopplungscode (das Panel zeigt ihn unter "Dieses
+// Geraet einrichten") ist der Schluessel der Zeile, "Namen vergeben" trifft
+// damit genau dieses Geraet - auch bei mehreren hinter einer IP.
+function anonKey(a){ return a.code||a.ip; }
 function anonRow(a, typed){
   const info=[a.ip, TYPE_LABEL[a.kiosk]||T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
-  return '<div class="ag" data-anon="'+esc(a.ip)+'">'+
-    '<span class="dot on"></span><span class="agn">'+T('Ohne Kennung')+'</span>'+
+  return '<div class="ag" data-anon="'+esc(anonKey(a))+'" data-ip="'+esc(a.ip)+'" data-code="'+esc(a.code||'')+'">'+
+    '<span class="dot on"></span><span class="agn">'+(a.code?(T('Code')+' '+esc(a.code)):T('Ohne Kennung'))+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
     '<input type="text" class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
     '<button class="btn sm" data-act="name">'+T('Namen vergeben')+'</button></div>';
@@ -3719,8 +3723,8 @@ function renderDeviceList(j){
   if(!devs.length && !anon.length){
     box.innerHTML='<div class="muted">'+esc(T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.'))+'</div>'; return; }
   let html=devs.map(d=>deviceRow(d,prevSel[d.name])).join('');
-  if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung (nach IP). Einen Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
-    anon.map(a=>anonRow(a,prevName[a.ip])).join('');
+  if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung. Das Panel zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
+    anon.map(a=>anonRow(a,prevName[anonKey(a)])).join('');
   box.innerHTML=html;
   box.querySelectorAll('.ag[data-name] button[data-act]').forEach(b=>{
     const row=b.closest('.ag');
@@ -3728,7 +3732,7 @@ function renderDeviceList(j){
   });
   box.querySelectorAll('.ag[data-anon] button[data-act="name"]').forEach(b=>{
     const row=b.closest('.ag');
-    b.onclick=()=>nameDevice(row.dataset.anon, row.querySelector('.anname').value.trim());
+    b.onclick=()=>nameDevice(row.dataset.ip, row.querySelector('.anname').value.trim(), row.dataset.code);
   });
 }
 async function postJson(url, body){
@@ -3749,10 +3753,10 @@ async function deviceAction(act, name, ip, panel){
     flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Panel nicht erreicht'):('HTTP '+j.status)))), ok);
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
 }
-async function nameDevice(ip,name){
+async function nameDevice(ip,name,code){
   if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return false; }
   try{
-    const j=await postJson('/api/device/name',{ip,name});
+    const j=await postJson('/api/device/name', code?{code,name}:{ip,name});   // Code trifft genau ein Geraet
     flash($('#ag_toast'), j.ok?('✓ '+name):('Fehler: '+(j.error||'')), j.ok);
     if(document.activeElement) document.activeElement.blur();
     setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Kennung neu
@@ -3985,7 +3989,8 @@ function mzRender(){
     MZ._sig=mzGeraeteSig();
     // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
     // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
-    const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(a.ip)+'"><span class="agip">'+esc(a.ip)+' · '+
+    const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(anonKey(a))+'" data-ip="'+esc(a.ip)+'" data-code="'+esc(a.code||'')+'">'+
+      '<span class="agip">'+(a.code?('<b>'+T('Code')+' '+esc(a.code)+'</b> · '):'')+esc(a.ip)+' · '+
       esc(TYPE_LABEL[a.kiosk]||T('Browser'))+'</span><input type="text" class="mzname" placeholder="'+T('Gerätename')+'">'+
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
@@ -4025,7 +4030,7 @@ function mzRender(){
     const inp=row.querySelector('.mzname'), btn=row.querySelector('[data-mzname]');
     const go=async()=>{ const name=inp.value.trim(); if(!name){ inp.focus(); return; }
       btn.disabled=true;
-      if(await nameDevice(row.dataset.mzanon,name)){ MZ.benannt=name; mzRender(); } else btn.disabled=false; };
+      if(await nameDevice(row.dataset.ip,name,row.dataset.code)){ MZ.benannt=name; mzRender(); } else btn.disabled=false; };
     btn.onclick=go; inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } };
   });
   b.querySelectorAll('[data-mzmode]').forEach(el=>el.onclick=()=>{ const k=el.dataset.mzmode, i=MZ.modes.findIndex(x=>x.key===k);

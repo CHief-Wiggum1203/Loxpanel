@@ -901,6 +901,13 @@
   .einrichtung .ei-grund{font-size:13px;color:var(--muted);margin-top:4px;word-break:break-word;}
   .einrichtung .ei-hinweis{font-size:13px;margin-top:10px;}
   .einrichtung .ei-url{font-size:20px;font-weight:700;margin-top:4px;color:var(--accent);word-break:break-all;}
+  /* Kopplungskarte (t:'kopplung'): Browser ohne Kennung und ohne ?panel= -
+     oben, damit sie neben dem Einrichtungshinweis stehen kann; ein Tipp
+     blendet sie bis zum naechsten Laden aus. */
+  .einrichtung.kopplung{top:10px;bottom:auto;pointer-events:auto;cursor:pointer;}
+  .einrichtung .ei-code{font-size:36px;font-weight:800;letter-spacing:.2em;margin:6px 0 2px;color:var(--accent);
+    font-variant-numeric:tabular-nums;}
+  .einrichtung .ei-weg{font-size:12px;color:var(--muted);margin-top:8px;}
   .saver{position:absolute;inset:0;z-index:30;background:var(--bg);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     cursor:pointer;user-select:none;-webkit-user-select:none;}
@@ -1315,6 +1322,7 @@
   </div>
   <div class="frontpage hidden" id="frontPage"></div>
   <div class="einrichtung hidden" id="einrichtung"></div>
+  <div class="einrichtung kopplung hidden" id="kopplung"></div>
 </div>
 
 <script>
@@ -3377,6 +3385,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
+  else if(KOPPLUNG) q.push('code='+encodeURIComponent(KOPPLUNG));   // Kopplungscode behalten (s. zeigeKopplung)
   const kk=kioskKind(); if(kk) q.push('kiosk='+kk);   // Kiosk-App melden -> Typ in der Geraeteliste
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'
                    +(q.length?('?'+q.join('&')):''));
@@ -3458,6 +3467,7 @@ function connect(){
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
     if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
+    if(msg.t==='kopplung'){ zeigeKopplung(msg); return; }                     // Browser ohne Kennung: Code, Karte
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
@@ -3466,7 +3476,7 @@ function connect(){
       if(msg.on) wake(); else { clearTimeout(dpmsTimer); pinVergessen(); screenOff(); }
       return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
-        DEVICE_ID=msg.name; ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
+        DEVICE_ID=msg.name; kopplungVergessen(); ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t!=='view') return;
     if(view && key(view.route)!==key(msg.route)) pinVergessen();   // Seitenwechsel
@@ -4214,6 +4224,33 @@ function einrichtungsUrls(loc, msg){
   if(!(h==='localhost' || h==='::1' || /^127\./.test(h))) return [loc.protocol+'//'+loc.host+pfad];
   const port=loc.port ? ':'+loc.port : '';
   return (msg.adressen||[]).map(a=>loc.protocol+'//'+a+port+pfad);
+}
+// Kopplungscode vom Server (t:'kopplung'): ein Browser ohne Geraetekennung
+// bekommt beim Verbinden einen Code, merkt ihn sich (localStorage) und schickt
+// ihn beim naechsten Verbinden zurueck, damit er gleich bleibt. Ohne ?panel=
+// zeigt die Karte "Dieses Geraet einrichten" den Code und die Adresse des
+// Konfigurators; unter Displays steht derselbe Code, "Namen vergeben" dort
+// schickt setdevice an genau dieses Geraet. Ein Tipp blendet die Karte bis
+// zum naechsten Laden aus.
+let KOPPLUNG='';
+try{ KOPPLUNG=localStorage.getItem('lp_kopplung')||''; }catch(e){}
+let _kopplungWeg=false;
+function zeigeKopplung(msg){
+  const k=el('kopplung'); if(!k) return;
+  if(msg.code){ KOPPLUNG=msg.code; try{ localStorage.setItem('lp_kopplung', msg.code); }catch(e){} }
+  k.textContent='';
+  if(!msg.karte || _kopplungWeg || DEVICE_ID){ k.classList.add('hidden'); return; }
+  const zeile=(cls, text)=>{ const d=document.createElement('div'); d.className=cls; d.textContent=text||''; k.appendChild(d); };
+  zeile('ei-titel', msg.titel); zeile('ei-code', msg.code); zeile('ei-hinweis', msg.hinweis);
+  const urls=einrichtungsUrls(location, msg);
+  if(urls.length) urls.forEach(u=>zeile('ei-url', u)); else zeile('ei-grund', msg.unbekannt);
+  zeile('ei-weg', msg.weg);
+  k.onclick=()=>{ _kopplungWeg=true; k.classList.add('hidden'); };
+  k.classList.remove('hidden');
+}
+function kopplungVergessen(){
+  KOPPLUNG=''; try{ localStorage.removeItem('lp_kopplung'); }catch(e){}
+  const k=el('kopplung'); if(k) k.classList.add('hidden');
 }
 function zeigeEinrichtung(msg){
   const k=el('einrichtung'); if(!k) return;

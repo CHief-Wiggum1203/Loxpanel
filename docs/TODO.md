@@ -1719,6 +1719,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           für die Vorschau in der echten Visu. **L**
       11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
           einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
+          *Erledigt 08.10.2026:* Ein Browser ohne Gerätekennung bekommt beim
+          Verbinden einen vierstelligen Code (Alphabet ohne 0/O/1/I), merkt
+          ihn sich und zeigt ohne `?panel=` die Karte „Dieses Gerät
+          einrichten“ mit Code und Konfigurator-Adresse. Unter *Displays*
+          und im Betriebsmodus-Assistenten steht „Code …“ statt „Ohne
+          Kennung“, „Namen vergeben“ trifft über den Code genau dieses Gerät.
+          Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.2 und §8.
       12. **Live-Vorschau am Zielgerät** während des Assistenten (Entwurf an
           das gewählte Gerät schicken). **M**
       13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
