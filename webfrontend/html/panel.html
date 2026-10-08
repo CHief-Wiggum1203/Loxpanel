@@ -1374,6 +1374,8 @@ let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, k
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
 let gridGrow = 1;        // ... bis zu diesem Vielfachen wachsen die Kacheln, wenn alle auf eine Seite passen (vom Server)
+let paneCols = 0;        // Widget im automatischen Raster: feste Breite in Kachelspalten (hochkant Zeilen), 0 = Automatik (vom Server)
+let paneShare = 0;       // ... Anteil der Spalten in der Automatik (PANE_ANTEIL vom Server)
 
 function svg(inner){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 function svgF(inner){return '<svg viewBox="0 0 24 24" fill="currentColor">'+inner+'</svg>';}
@@ -2899,18 +2901,20 @@ function rasterFuer(widget){
 // der freien Flaeche und der Zielgroesse einer Kachel (gridAuto, vom Server).
 // Ein groesserer Schirm zeigt mehr Kacheln statt groesserer, die Zeilen machen
 // die Kacheln etwa quadratisch. Ein Widget (Pane 2) belegt ganze Kachelspalten
-// (quer) bzw. -zeilen (hochkant), rund PANE_ANTEIL der Flaeche; so bleiben die
-// Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
-// Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
-const PANE_ANTEIL = 0.4;
+// (quer) bzw. -zeilen (hochkant): paneCols davon, wenn das Profil eine feste
+// Breite nennt, sonst rund den Anteil paneShare (beides vom Server, mit der
+// theme-Nachricht); so bleiben die Kacheln mit und ohne Widget gleich gross.
+// k und p sind die Anteile von Kacheln und Widget an der Aufteilung (CSS
+// --auto-k/--auto-p).
 // Die Automatik kennt die Kacheln der Seite (_lastBreiten: 1 oder 2 Spalten
 // je Kachel, aus render()): passen alle auf eine Seite, wachsen die Kacheln,
 // bis die Seite voll ist, hoechstens auf gridGrow * Zielgroesse
 // (KACHEL_WACHSEN vom Server, mit der theme-Nachricht). Mehr Kacheln als
-// Platz -> Zielgroesse und Blaettern wie bisher. Mit Widget daneben wachsen
-// sie nicht: das Widget belegt ganze Kachelspalten, mit weniger Spalten
-// liesse sich sein Anteil (PANE_ANTEIL) nicht halten (2 von 5 Spalten sind
-// 40 %, 2 von 4 schon 50 %).
+// Platz -> Zielgroesse und Blaettern wie bisher. Neben einem Widget mit
+// Anteil wachsen sie nicht: mit weniger Spalten liesse sich der Anteil nicht
+// halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %). Mit fester Breite
+// (paneCols) wachsen sie, das Widget bleibt dabei so viele Kachelspalten breit
+// und waechst mit.
 let _lastBreiten = [];
 // Lage der Kacheln im Raster, wie CSS sie setzt (grid-auto-flow: row dense):
 // je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
@@ -2936,7 +2940,7 @@ function autoRaster(widget){
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
   const vp=vpSize(), w=vp.w, tabsH=tabs?tabs.offsetHeight:0, hoch=vp.h>vp.w;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
-  const abgeben=n=>Math.min(n-1, Math.max(1, Math.round(n*PANE_ANTEIL)));
+  const abgeben=n=>Math.min(n-1, Math.max(1, paneCols>0 ? paneCols : Math.round(n*paneShare)));
   // Raster fuer eine Spaltenzahl (vor dem Abgeben an das Widget): Kachelbreite
   // -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen. Mit der Zeilenzahl steht
   // die Hoehe fest; ist die Kachel flach, begrenzt sie den Faktor (die
@@ -2958,7 +2962,7 @@ function autoRaster(widget){
   };
   let r=fuer(anzahl(w, gridAuto));
   const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
-  if(!widget && passt(r.cols,r.rows)){
+  if((!widget || paneCols>0) && passt(r.cols,r.rows)){
     for(let c=r.gesamt-1; c>=1; c--){
       const n=fuer(c);
       if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
@@ -3288,6 +3292,8 @@ function connect(){
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
       gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
       gridGrow = (typeof msg.gridGrow==='number' && msg.gridGrow>=1) ? msg.gridGrow : 1;
+      paneCols = (typeof msg.paneCols==='number' && msg.paneCols>0) ? Math.round(msg.paneCols) : 0;
+      paneShare = (typeof msg.paneShare==='number' && msg.paneShare>0 && msg.paneShare<1) ? msg.paneShare : 0;
       if(!themeCatFilter) katFilter=null;
       svPaneCfg = (typeof msg.svPane==='string') ? msg.svPane : '';   // rechte Spalte der Uhr-Seite
       if(saverOn()){ applySaverSplit(); renderFront(); }   // Spaltigkeit UND Inhalt der Uhr-Seite nachziehen

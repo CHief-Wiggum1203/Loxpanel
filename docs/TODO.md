@@ -1689,6 +1689,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          `ctrlnarrow` sind weg. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       7. **Widget-Breite im Editor ziehen** (1 bis 3 Kachelspalten statt
          fest 40 %). **S**
+         *Erledigt 08.10.2026:* `ui.paneCols` (1 bis `PANE_SPALTEN_MAX`) legt
+         fest, wie viele Kachelspalten (hochkant Zeilen) das Widget im
+         automatischen Raster belegt; fehlt es, bleibt der Anteil
+         `PANE_ANTEIL`, den der Server jetzt mit der theme-Nachricht schickt.
+         Konfigurator: Schieberegler „Widget-Breite“ unter *Widget (Pane 2)*,
+         nur bei „Automatisch“ mit Split. Mit fester Breite wachsen wenige
+         Kacheln auch neben dem Widget. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       8. **Seiten waagerecht wischen mit Punkten** auf Tablets, das 4″-Panel
          bleibt bei senkrechtem Einrasten. **M**
       9. **Assistent Schritt 1 aus dem Gerät:** Geräteliste aus

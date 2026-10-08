@@ -223,6 +223,8 @@
   .crow input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;}
   .crow .cval{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);flex:1;}
   .frow{display:flex;align-items:center;gap:10px;}
+  .field .frow input[type=range]{flex:1;accent-color:var(--accent);}
+  .field .frow span{white-space:nowrap;font-size:13px;}
   .frow .lbl{width:92px;flex:none;}
   .itabs{display:flex;gap:6px;flex-wrap:wrap;}
   .itab{padding:5px 11px;border:1px solid var(--line);border-radius:4px;cursor:pointer;font-size:13px;color:var(--muted);}
@@ -1492,6 +1494,10 @@ function renderEditor(){
            '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Panel – nur Visu)</option>'+
          '</select>'+
          '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
+       '<div class="field" style="max-width:320px" id="fPaneColsField"><label class="lbl">'+T('Widget-Breite')+'</label>'+
+         '<div class="frow"><input type="range" id="fPaneCols" min="0" max="'+esc(String(paneSpalten().max))+'" step="1" value="'+esc(String(paneColsWert((p.ui||{}).paneCols)))+'">'+
+           '<span id="fPaneColsTxt">'+esc(paneColsText((p.ui||{}).paneCols))+'</span></div>'+
+         '<div class="hint" style="padding-top:4px">'+T('Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Panel aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.')+'</div></div>'+
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
@@ -1559,6 +1565,10 @@ function renderEditor(){
   // Zielkachel im automatischen Raster: eine Zahl in px; leer = Standard (wird nicht gespeichert)
   { const fts=$('#fTileSize'); if(fts) fts.oninput=e=>{ p.ui=p.ui||{};
       const v=parseInt(e.target.value); if(v>0) p.ui.tileSize=v; else delete p.ui.tileSize; markDirty(); }; }
+  // Widget-Breite in Kachelspalten (Schieberegler); 0 = Automatik, wird nicht gespeichert
+  { const fpc=$('#fPaneCols'); if(fpc) fpc.oninput=e=>{ p.ui=p.ui||{};
+      const v=parseInt(e.target.value)||0; if(v>0) p.ui.paneCols=v; else delete p.ui.paneCols;
+      const t=$('#fPaneColsTxt'); if(t) t.textContent=paneColsText(v); markDirty(); }; }
   layoutFelder(p);
   { const fsc=$('#fScale'); if(fsc) fsc.onchange=e=>{ p.ui=p.ui||{};
       const v=scaleValue(e.target.value);
@@ -1577,6 +1587,7 @@ function renderEditor(){
       if(off) p.ui.split=false; else delete p.ui.split;
       renderPanes(p);   // ohne Split bleibt nur die Kopfzeile waehlbar
       const sf=$('#svPaneField'); if(sf) sf.style.display=off?'none':'';
+      layoutFelder(p);  // Widget-Breite nur mit Widget
       markDirty(); }; }
   // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt
   // nachts abgedunkelt wird (sonst wirkungslos).
@@ -1609,16 +1620,24 @@ function tileSizeWert(v){ if(typeof v==='number') return v; return (v&&kachelZie
 function zielkachelHinweis(){ const k=kachelZiel(), st=k.stufen||{};
   return T('Zielkachel: Breite einer Kachel in CSS-Pixeln, aus der das Tablet Spalten und Zeilen rechnet. Leer = Standard')+' '+k.std+
     ' ('+T('die bisherigen Stufen Klein, Mittel und Groß entsprechen')+' '+[st.small,st.medium,st.large].join(', ')+'). '+
-    T('Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben) bis zum')+' '+fmtZahl(k.wachsen)+'-'+T('Fachen')+'. '+
+    T('Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben oder mit fester Widget-Breite) bis zum')+' '+fmtZahl(k.wachsen)+'-'+T('Fachen')+'. '+
     T('Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.'); }
 // Kachel-Layout eines Profils als Wert der Auswahl: "auto" oder Spalten x Zeilen
 function layoutWert(ui){ ui=ui||{};
   return ui.grid==='auto' ? 'auto' : (ui.cols==3?'3':'2')+'x'+(ui.rows==3?'3':'2'); }
 // Im automatischen Raster rechnet das Panel selbst: die Kachelgroesse zaehlt,
 // "Bildschirm fuellen" und Skalierung wirken dann nicht und verschwinden
-function layoutFelder(p){ const auto=layoutWert(p.ui)==='auto';
-  [['#fTileSizeField',auto],['#fTileSizeHint',auto],['#fFillField',!auto],['#fScaleField',!auto],['#fScaleHint',!auto]].forEach(f=>{
+function layoutFelder(p){ const auto=layoutWert(p.ui)==='auto', split=(p.ui||{}).split!==false;
+  [['#fTileSizeField',auto],['#fTileSizeHint',auto],['#fFillField',!auto],['#fScaleField',!auto],['#fScaleHint',!auto],
+   ['#fPaneColsField',auto&&split]].forEach(f=>{
     const e=$(f[0]); if(e) e.style.display=f[1]?'':'none'; }); }
+// Widget-Breite im automatischen Raster: Grenze und Anteil der Automatik vom
+// Server (/api/meta paneCols = PANE_SPALTEN_MAX, PANE_ANTEIL)
+function paneSpalten(){ return (META&&META.paneCols)||{max:1,anteil:0}; }
+function paneColsWert(v){ const n=parseInt(v)||0; return n>0 ? Math.min(n, paneSpalten().max) : 0; }
+function paneColsText(v){ const n=paneColsWert(v);
+  if(!n) return T('Automatisch')+' ('+T('rund')+' '+Math.round(paneSpalten().anteil*100)+' % '+T('der Spalten')+')';
+  return n+' '+(n===1?T('Kachelspalte'):T('Kachelspalten')); }
 // std: was bei leerem Feld gilt, grau im Feld (sizeStd)
 function sizeField(label,key,ui,std){
   const v=(ui||{})[key], ph=(std||{})[key];
