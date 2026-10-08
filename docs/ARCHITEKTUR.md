@@ -1344,7 +1344,10 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Seite „zurück“, wie am 4″-Panel; Sprungmarken springen zur Seite der
   ersten Kachel ihrer Gruppe (`springeZu()`). Beim Drehen zwischen
   quadratisch und rechteckig wechselt die Richtung mit dem nächsten
-  `render()` (`updateGrid()` lehnt den Wechsel ab). Geprüft in
+  `render()` (`updateGrid()` lehnt den Wechsel ab); `rasterKey()` trägt die
+  Richtung mit, damit auch ein Fenster, das quer über die Quadrat-Schwelle
+  wächst (520×480 → 560×480, gleiche Lage, gleiches Raster), sofort umbaut
+  (Codex an #130). Geprüft in
   `tests/browser/test_seiten_wischen_browser.py` (Tablet quer und hochkant,
   festes Raster, 4″ quadratisch, Split aus, Drehen, Live-Wert, Wisch,
   Sprungmarke).

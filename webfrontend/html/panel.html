@@ -3048,9 +3048,13 @@ function autoRaster(widget){
   return r;
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
+// Dazu die Blaetterrichtung (seitenQuer): ein Fenster, das quer ueber die
+// Quadrat-Schwelle waechst (520x480 -> 560x480), aendert weder Lage noch
+// Raster, muss aber von senkrecht auf waagerechte Seiten umbauen.
 function rasterKey(widget){
   const {w,h}=vpSize(), a=gridAuto ? autoRaster(widget) : null;
-  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '');
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '')
+    +(seitenQuer()?':seiten':'');
 }
 function render(){
   if(!view) return;

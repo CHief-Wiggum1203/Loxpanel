@@ -146,6 +146,26 @@ def test_drehen_wechselt_zwischen_quer_und_senkrecht():
     assert quer["hpages"] and quer["punkte"] and quer["raster"] == [4, 2], quer
 
 
+def test_quadrat_schwelle_ohne_drehen():
+    """Codex an #130: Waechst ein Fenster quer ueber die Quadrat-Schwelle
+    (520 x 480 -> 560 x 480, festes 2 x 2 mit Split: beide Male 4 x 2 quer),
+    aendern sich weder Lage noch Raster; die Blaetterrichtung muss trotzdem
+    sofort umschalten, ohne auf eine andere Aktualisierung zu warten."""
+    async def schritte(app, pg, ctx):
+        fast_quadrat = await pg.evaluate(MESSEN)
+        await pg.set_viewport_size({"width": 560, "height": 480})
+        await pg.wait_for_timeout(500)
+        breiter = await pg.evaluate(MESSEN)
+        await pg.set_viewport_size({"width": 520, "height": 480})
+        await pg.wait_for_timeout(500)
+        return fast_quadrat, breiter, await pg.evaluate(MESSEN)
+    fast_quadrat, breiter, zurueck = _laufen({"cols": 2, "rows": 2}, 520, 480, schritte)
+    assert fast_quadrat["raster"] == breiter["raster"] == zurueck["raster"] == [4, 2], (fast_quadrat, breiter, zurueck)
+    assert fast_quadrat["snapy"] and not fast_quadrat["hpages"], fast_quadrat
+    assert breiter["hpages"] and breiter["punkte"] and not breiter["snapy"], breiter
+    assert zurueck["snapy"] and not zurueck["hpages"], zurueck
+
+
 def test_live_wert_haelt_die_seite():
     """Ein Zustandswechsel patcht die Kachel in ihrer Seite (dieselben Knoten),
     die aufgeblaetterte Seite bleibt stehen."""
