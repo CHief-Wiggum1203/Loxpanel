@@ -35,9 +35,10 @@ def test_bedienung_kommt_am_miniserver_an(tmp_path, miniserver_http):
                 await pg.wait_for_timeout(1200)
                 kachel = pg.locator(".tile", has_text="Wohnzimmer Heizung")
                 # Neuer Kachel-Aufbau: Ist-Temperatur gross an Stelle des Symbols,
-                # darunter Soll und Taetigkeit untereinander
+                # darunter Soll und Taetigkeit - auf der breiten Raumregelungs-
+                # Kachel (zwei Spalten) nebeneinander
                 assert await kachel.locator(".bigv").text_content() == "20,5°"
-                assert await kachel.locator(".sub").inner_text() == "Soll 22,0°\nheizt"
+                assert await kachel.locator(".sub").inner_text() == "Soll 22,0° · heizt"
                 await pg.screenshot(path=str(tmp_path / "irc1_kachel.png"))
                 await kachel.click()
                 await pg.wait_for_timeout(800)

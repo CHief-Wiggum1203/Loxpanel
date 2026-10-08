@@ -263,6 +263,12 @@ def _is_tab(t) -> bool:
 STATUS_BIG = {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
               "InfoOnlyDigital", "SmokeAlarm", "PresenceDetector",
               "ClimateControllerUS", "Hourcounter"}
+# Werteleiste (ui.valueBar nennt die Seiten): diese Anzeige-Bausteine stehen
+# dort als Kette von Werten in EINER Zeile ueber dem Raster statt als Kacheln,
+# das Raster bleibt dem Bedienbaren (_leiste_trennen). Nicht dabei: der
+# Rauchmelder (ein Alarm gehoert gross auf eine Kachel) und die Klimaregelung
+# (hat Einstellungen, keine reine Anzeige).
+WERTE_LEISTE_TYPEN = frozenset(STATUS_BIG - {"SmokeAlarm", "ClimateControllerUS"})
 # Verlaufs-Diagramme fuer Bausteine mit `statistic` in der Struktur. Die Daten
 # liegen am Miniserver als Monatsdateien /stats/<uuidAction>.<JJJJMM>.xml (so
 # listet sie /stats/, und so fuehrt sie die Loxone-App: STATISTIC-Befehle in
@@ -304,6 +310,14 @@ STAT_KIND = {1: "digital", 2: "counter"}
 # Darstellung des Mini-Verlaufs in der Kachel (tiles.<uuid>.chartStyle). Fehlt der
 # Schluessel, gilt "trend". Tagesmuster und Tagesspanne zeigen immer 7 Tage.
 STAT_TILE_STYLES = ("trend", "pattern", "span")
+# Breite Kacheln (2 x 1): Bausteine, deren Kachel von Haus aus zwei Spalten
+# belegt - Audio (Titel und Tasten), Raumregelung (Soll und Ist) und der
+# Energiefluss. Je Kachel uebersteuerbar: tiles[uuid].w = 1 | 2
+# (KACHEL_BREITEN). Die Visu setzt daraus grid-column: span 2 und rechnet
+# Seiten und Rastpunkte mit (rasterLage in panel.html).
+KACHEL_BREIT_TYPEN = frozenset({"AudioZone", "AudioZoneV2", "IRoomControllerV2", "IRoomController",
+                                "EFM", "EnergyManager2"})
+KACHEL_BREITEN = (1, 2)
 STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Reine Wert-/Analog-Anzeigen (kein an/aus) -> keine Kategorie-Ampel, neutral.
 _ANALOG = {"InfoOnlyAnalog", "Slider", "UpDownAnalog", "Meter", "TextState", "InfoOnlyText",
@@ -491,6 +505,34 @@ def _clean_scale(v):
     return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
 
 
+# Trenner, die nach dem Streichen des Raumnamens am Rand eines Kachelnamens
+# haengen blieben ("Licht - Wohnzimmer" -> "Licht")
+_NAMEN_TRENNER = frozenset({"-", "–", "—", "·", "/", ",", ":", "|"})
+
+
+def _ohne_raum(name: str, raum: str) -> str:
+    """Kachelname ohne den Raumnamen, wenn die Seite den Raum schon nennt
+    ("Jalousie Wohnzimmer Süd" auf der Wohnzimmer-Seite -> "Jalousie Süd").
+    Nur ganze Woerter zaehlen (Gross-/Kleinschreibung egal, ein Satzzeichen
+    am Wort stoert nicht), die uebrigen Woerter bleiben in ihrer Reihenfolge,
+    ein uebrig gebliebener Trenner am Rand faellt weg. Kommt der Raum nicht
+    vor oder bliebe nichts uebrig ("Wohnzimmer"), bleibt der Name."""
+    woerter, rw = (name or "").split(), (raum or "").split()
+    if not woerter or not rw:
+        return name
+    low = [w.lower().strip(",:;") for w in woerter]
+    rlow = [w.lower().strip(",:;") for w in rw]
+    for i in range(len(low) - len(rw) + 1):
+        if low[i:i + len(rw)] == rlow:
+            rest = woerter[:i] + woerter[i + len(rw):]
+            while rest and rest[0] in _NAMEN_TRENNER:
+                rest.pop(0)
+            while rest and rest[-1] in _NAMEN_TRENNER:
+                rest.pop()
+            return " ".join(rest) or name
+    return name
+
+
 def _clean_kachelziel(v) -> int | None:
     """Zielgroesse einer Kachel (ui.tileSize, devices[name].tileTarget) als
     Zahl in CSS-Pixeln: Zahl oder Ziffernfolge in [KACHEL_ZIEL_MIN,
@@ -507,6 +549,16 @@ def _clean_kachelziel(v) -> int | None:
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
         return None
     return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
+
+
+def _kachel_breite(v) -> int | None:
+    """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
+    Ziffer; True/False und alles andere ergibt None = nach Typ."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, str) and v.strip().isdigit():
+        v = int(v.strip())
+    return int(v) if isinstance(v, (int, float)) and int(v) == v and int(v) in KACHEL_BREITEN else None
 
 
 def _kachel_vorschlag(screen) -> int | None:
@@ -586,6 +638,21 @@ def _clean_widget_tab(v) -> str:
     UEBER Kacheln, als ganze Seite bliebe darunter nichts."""
     w = _clean_tabpane(v)
     return "" if w == "header" or w.startswith("header:") else w
+
+
+def _clean_werteleiste(v) -> list:
+    """Seiten, deren Anzeige-Bausteine als Werteleiste ueber dem Raster stehen
+    statt als Kacheln (ui.valueBar): Tab-Kennungen wie in "tabs" - auch
+    "raeume" und "kategorien" fuer die Raum- und Kategorie-Seiten darunter -,
+    nur gueltige, jede einmal, in der Reihenfolge der Eingabe. Alles andere
+    ergibt [] = keine Leiste."""
+    if not isinstance(v, list):
+        return []
+    out: list = []
+    for t in v:
+        if isinstance(t, str) and _is_tab(t) and t not in out:
+            out.append(t)
+    return out
 
 
 def _clean_svpane(v) -> str:
@@ -2409,6 +2476,9 @@ class App:
             "panes": ({str(k): _clean_tabpane(v) for k, v in ui["panes"].items()
                        if isinstance(k, str) and _clean_tabpane(v)}
                       if isinstance(ui.get("panes"), dict) else {}),
+            # Seiten (Tab-Kennungen), deren Anzeige-Bausteine als Werteleiste
+            # in einer Zeile ueber dem Raster stehen statt als Kacheln.
+            "valueBar": _clean_werteleiste(ui.get("valueBar")),
             # Rechte Spalte der Uhr-Seite: "" = Automatik (Termine, sonst
             # Wetter-Details), sonst off/calendar/weather/energy:/camera:/status:.
             "svPane": _clean_svpane(ui.get("svPane")),
@@ -3048,7 +3118,8 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken")}
+                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken",
+                       "valueBar")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3079,6 +3150,12 @@ class App:
             ui["tileSize"] = _tz
         else:
             ui.pop("tileSize", None)
+        # Werteleiste: nur gueltige Tab-Kennungen, jede einmal
+        _vb = _clean_werteleiste(ui.get("valueBar"))
+        if _vb:
+            ui["valueBar"] = _vb
+        else:
+            ui.pop("valueBar", None)
         return {
             "title": raw.get("title") or "",
             "tabs": tabs or list(VALID_TABS),
@@ -3234,6 +3311,9 @@ class App:
                       if isinstance(k, str) and _is_tab(k) and _clean_tabpane(v)}
                 if pn:
                     cui["panes"] = pn           # Widget je Tab: Pane 2 oder Kopfzeile ("header")
+            _vb = _clean_werteleiste(ui.get("valueBar"))
+            if _vb:
+                cui["valueBar"] = _vb           # Seiten, deren Anzeige-Bausteine als Werteleiste stehen
             _sp = _clean_svpane(ui.get("svPane"))
             if _sp:
                 cui["svPane"] = _sp             # rechte Spalte der Uhr-Seite (Screensaver)
@@ -3289,6 +3369,8 @@ class App:
                         e2["chart"] = ov["chart"]   # Mini-Verlauf in der Kachel, Wert = Zeitraum
                         if ov.get("chartStyle") in STAT_TILE_STYLES and ov["chartStyle"] != "trend":
                             e2["chartStyle"] = ov["chartStyle"]   # Tagesmuster / Tagesspanne
+                    if _kachel_breite(ov.get("w")) is not None:
+                        e2["w"] = _kachel_breite(ov["w"])   # Breite in Spalten (1 | 2); fehlt = nach Typ
                     if e2:
                         ct[cu] = e2
                 if ct:
@@ -3953,13 +4035,42 @@ class App:
             "feldtypen": cfg.get("weatherFieldTypes"),
         }
 
+    def _leiste_trennen(self, uuids: list, tab, prof: dict | None) -> tuple[list, list]:
+        """Seite mit Werteleiste (ui.valueBar nennt den Tab): die Anzeige-
+        Bausteine (WERTE_LEISTE_TYPEN) wandern aus dem Raster in die Leiste ->
+        (Raster, Leiste), beide in der Reihenfolge von uuids. Ohne Leiste, und
+        wenn im Raster nichts bliebe (eine Seite nur aus Werten: dann SIND die
+        Kacheln die Seite), bleibt alles im Raster."""
+        if not prof or tab not in (prof.get("valueBar") or []):
+            return uuids, []
+        leiste = [u for u in uuids if (self.controls.get(u) or {}).get("type") in WERTE_LEISTE_TYPEN]
+        if not leiste or len(leiste) == len(uuids):
+            return uuids, []
+        weg = set(leiste)
+        return [u for u in uuids if u not in weg], leiste
+
+    def _leiste_items(self, uuids: list, prof: dict | None, **kw) -> dict:
+        """Die Werteleiste einer Ansicht als {"leiste": [...]}: dieselben
+        Kacheln wie im Raster (_control_item: Name, Wert, Symbol, Farbe,
+        Wertseite), das Panel zeigt sie als Kette ueber dem Raster
+        (renderLeiste). Leer: kein Schluessel, die Ansicht bleibt wie bisher."""
+        if not uuids:
+            return {}
+        return {"leiste": [self._control_item(u, prof, **kw) for u in uuids]}
+
     def _control_item(self, uuid: str, prof: dict | None = None,
-                      show_room: bool = False) -> dict:
+                      show_room: bool = False, ohne_raum: str = "") -> dict:
+        """Kachel eines Bausteins. show_room: Raum an der Kachel (Seite ueber
+        mehrere Raeume). ohne_raum: Name des Raums, den die Seite schon nennt
+        (Raum-Seite) - er faellt aus dem Kachelnamen (_ohne_raum), die
+        meisten abgeschnittenen Namen der Messung trugen ihn."""
         c = self.controls.get(uuid)
         if not c:
             return {"id": uuid, "label": "?", "icon": "info", "on": False}
         t = c.get("type")
         name = _clean(c.get("name"))
+        if ohne_raum:
+            name = _ohne_raum(name, ohne_raum)
         it: dict = {"id": uuid, "label": name, "on": False, "icon": "info"}
         # Raum-Kennzeichnung: nur wenn die Ansicht mehrere Raeume umfasst (z.B.
         # Kategorie Licht ueber alle Raeume). Zentralbausteine haben keinen Raum.
@@ -4371,8 +4482,16 @@ class App:
         return self._apply_tile_style(it, uuid, prof)
 
     def _apply_tile_style(self, it: dict, uuid: str, prof: dict | None) -> dict:
-        """Pro-Kachel-Overrides (Farben/Icon/Schrift) aus dem Panel-Profil."""
+        """Pro-Kachel-Overrides (Farben/Icon/Schrift/Breite) aus dem Panel-Profil."""
         ov = (prof.get("tiles") if prof else {}).get(uuid) if prof else None
+        # Breite: zwei Spalten fuer Audio, Raumregelung und Energiefluss
+        # (KACHEL_BREIT_TYPEN), je Kachel uebersteuerbar (w = 1 | 2); nur die
+        # breite Kachel traegt das Feld, schmal ist der Standard der Visu.
+        w = _kachel_breite(ov.get("w")) if isinstance(ov, dict) else None
+        if w is None:
+            w = 2 if (self.controls.get(uuid) or {}).get("type") in KACHEL_BREIT_TYPEN else 1
+        if w == 2:
+            it["w"] = 2
         if not isinstance(ov, dict):
             return it
         if ov.get("iconColor"):
@@ -4473,6 +4592,10 @@ class App:
                     continue
                 gesehen.add(u)
                 uuids.append(u)
+            sr = self._spans_rooms(uuids)
+            # Werteleiste statt Anzeige-Kacheln - VOR dem Gruppieren, damit
+            # Anker und Marken zu den Kacheln gehoeren, die im Raster bleiben
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
             # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
             # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
@@ -4487,7 +4610,6 @@ class App:
             for u in uuids:
                 nach_raum.setdefault(self.controls[u].get("room"), []).append(u)
             raeume = [ru for ru in nach_raum if ru in self.rooms]
-            sr = self._spans_rooms(uuids)
             # Sprungmarken ERSETZEN im Panel die ganze untere Leiste. Das ist
             # nur dann richtig, wenn diese Seite die einzige des Panels ist.
             # Steht der Auswahl-Tab dagegen neben anderen Seiten in der
@@ -4525,17 +4647,19 @@ class App:
             title = _entry["name"] or "Auswahl"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
-                    "catTabs": raum_tabs}
+                    "catTabs": raum_tabs, **self._leiste_items(leiste, prof, show_room=sr)}
         if isinstance(tab, str) and tab.startswith("cat:"):
             # Kategorie-Direkt-Tab: dieselben Controls wie im Kategorie-Drilldown
             cu = tab[4:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("cat") == cu and self._room_ok(u, prof) and self._shown(u, prof)]
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             items = [self._control_item(u, prof, show_room=sr) for u in uuids]
             title = _clean(self.cats.get(cu, {}).get("name")) or "Kategorie"
             return {"t": "view", "title": title, "tab": tab,
-                    "route": {"view": "tab", "tab": tab}, "items": items}
+                    "route": {"view": "tab", "tab": tab}, "items": items,
+                    **self._leiste_items(leiste, prof, show_room=sr)}
         if isinstance(tab, str) and tab.startswith("room:"):
             # Raum-Direkt-Tab: dieselben Controls wie im Raum-Drilldown. Als
             # ERSTER Tab ist er die Startseite - dann weckt das Panel direkt in
@@ -4544,6 +4668,9 @@ class App:
             ru = tab[5:]
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == ru and self._cat_ok(u, prof) and self._shown(u, prof)]
+            # Werteleiste VOR dem Gruppieren: Anker (catKey) und Marken gehoeren
+            # zu den Kacheln, die im Raster bleiben
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             # Raum-Panel: nach Kategorie gruppieren, damit die untere Leiste die
             # im Raum vorkommenden Kategorien als Tabs zeigt und ein Tipp zur
             # jeweiligen Kachel-Gruppe scrollt (keine Ueberschriften, Kacheln
@@ -4563,10 +4690,12 @@ class App:
             else:
                 order = present
                 tab_cats = present[:4]
+            # Der Raumname steht im Titel der Seite: aus den Kachelnamen faellt er heraus
+            raumname = _clean(self.rooms.get(ru, {}).get("name"))
             items = []
             for cu in order:
                 for j, u in enumerate(by_cat[cu]):
-                    it = self._control_item(u, prof)
+                    it = self._control_item(u, prof, ohne_raum=raumname)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
                     it["grp"] = cu              # Gruppe: Aufleuchten und Filter im Panel
@@ -4576,16 +4705,19 @@ class App:
                          "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""}
                         for cu in tab_cats]
             for u in by_cat.get(None, []):
-                items.append(self._control_item(u, prof))
-            title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"
+                items.append(self._control_item(u, prof, ohne_raum=raumname))
+            title = raumname or "Raum"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
-                    "catTabs": cat_tabs}
+                    "catTabs": cat_tabs, **self._leiste_items(leiste, prof, ohne_raum=raumname)}
+        extra: dict = {}   # Werteleiste der Seite (nur Favoriten; Zentral, Raeume, Kategorien sind Listen)
         if tab == "favoriten":
             uuids = [u for u, c in self.controls.items()
                      if c.get("isFavorite") and self._room_ok(u, prof) and self._shown(u, prof)]
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             items = [self._control_item(u, prof, show_room=sr) for u in uuids]
+            extra = self._leiste_items(leiste, prof, show_room=sr)
             title = "Favoriten"
         elif tab == "zentral":
             items = [self._control_item(u, prof) for u, c in self.controls.items()
@@ -4613,23 +4745,27 @@ class App:
                      for cu in cats]
             title = "Kategorien"
         return {"t": "view", "title": title, "tab": tab, "route": {"view": "tab", "tab": tab},
-                "items": items}
+                "items": items, **extra}
 
     def _view_group(self, route: dict, prof: dict | None = None) -> dict:
         kind, gid = route.get("kind"), route.get("id")
         layout = None
+        ohne_raum = ""   # Raum-Seite: der Raumname steht im Titel, nicht noch in jedem Kachelnamen
         if kind == "cat":
             uuids = [u for u, c in self.controls.items()
                      if c.get("cat") == gid and self._room_ok(u, prof) and self._shown(u, prof)]
             title = _clean(self.cats.get(gid, {}).get("name")); tab = "kategorien"
             sr = self._spans_rooms(uuids)
+            uuids, leiste = self._leiste_trennen(uuids, tab, prof)
             return {"t": "view", "title": title, "tab": tab, "route": route,
                     "layout": layout,
-                    "items": [self._control_item(u, prof, show_room=sr) for u in uuids]}
+                    "items": [self._control_item(u, prof, show_room=sr) for u in uuids],
+                    **self._leiste_items(leiste, prof, show_room=sr)}
         elif kind == "room":
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == gid and self._cat_ok(u, prof) and self._shown(u, prof)]
             title = _clean(self.rooms.get(gid, {}).get("name")); tab = "raeume"
+            ohne_raum = title
         elif kind == "central":
             c = self.controls.get(gid, {})
             members = (c.get("details") or {}).get("controls") or []
@@ -4640,8 +4776,10 @@ class App:
                 layout = "list"
         else:
             uuids, title, tab = [], "", None
+        uuids, leiste = self._leiste_trennen(uuids, tab, prof)
         return {"t": "view", "title": title, "tab": tab, "route": route,
-                "layout": layout, "items": [self._control_item(u, prof) for u in uuids]}
+                "layout": layout, "items": [self._control_item(u, prof, ohne_raum=ohne_raum) for u in uuids],
+                **self._leiste_items(leiste, prof, ohne_raum=ohne_raum)}
 
     def _view_sources(self, uuid: str) -> dict:
         """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).
@@ -7264,6 +7402,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Zielkachel des automatischen Rasters: Grenzen, Standard, alte Stufen
         "kachelZiel": {"min": KACHEL_ZIEL_MIN, "max": KACHEL_ZIEL_MAX, "std": KACHEL_ZIEL_STANDARD,
                        "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
+        # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
+        "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
