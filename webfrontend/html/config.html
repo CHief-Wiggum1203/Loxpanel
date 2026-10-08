@@ -2678,6 +2678,7 @@ function renderTileEditor(){
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
         '<div class="ovctrl">'+overlayFields(ov.overlay,'tov_')+'</div></div>'+
       (c.stat?chartStyleRows(c,ov):'')+
+      breiteRow(c,ov)+
       '<div class="frow" style="margin-top:4px"><button class="minibtn" id="tileReset">Kachel zurücksetzen</button></div>'+
     '</div></div>';
   bindColor('bg'); bindColor('border'); bindColor('iconColor'); bindColor('textColor');
@@ -2695,9 +2696,18 @@ function renderTileEditor(){
   { const tg=$('#tOvOn'); if(tg) tg.onclick=()=>{ const o=tileOv();
       if(o.overlay) delete o.overlay; else o.overlay={}; pruneTile(); renderTileEditor(); renderTileList(); markDirty(); }; }
   { const ts=$('#tChartStyle'); if(ts) ts.onchange=()=>setChartStyle(ts.value); }
+  { const tw=$('#tWidth'); if(tw) tw.onchange=()=>setTile('w', tw.value?parseInt(tw.value):null); }
   { const tr=$('#tChartRange'); if(tr) tr.onchange=()=>setTile('chart', tr.value); }
   $('#tileReset').onclick=()=>{ if(PANELS[cur].tiles) delete PANELS[cur].tiles[tileSel]; renderTileEditor(); renderTileList(); markDirty(); };
   renderIconPick('builtin'); drawPrev();
+}
+// Breite der Kachel in Spalten: zwei fuer Audio, Raumregelung und Energiefluss
+// (Standard nach Typ, Liste vom Server: META.kachelBreit), je Kachel uebersteuerbar
+function breiteRow(c,ov){
+  const breit=(META.kachelBreit||[]).indexOf(c.type)>=0, cur=ov.w?String(ov.w):'';
+  const opts=[['',T('Standard')+' ('+(breit?T('breit'):T('schmal'))+')'],['1',T('1 Spalte')],['2',T('2 Spalten (breit)')]];
+  return '<div class="frow" style="margin-top:4px"><label class="lbl">'+T('Breite')+'</label>'+
+    '<select id="tWidth">'+opts.map(o=>'<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></div>';
 }
 function colorRow(label,key,ov){
   const v=ov[key]||'';

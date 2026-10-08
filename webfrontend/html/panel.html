@@ -345,7 +345,7 @@
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}
   /* Scrollbarer Kachelbereich: var(--cols) Spalten x var(--rows) Reihen sichtbar */
   .grid{--gap:10px;--pad:10px;grid-area:1/1;
-    display:grid;grid-template-columns:repeat(var(--cols,2),1fr);
+    display:grid;grid-template-columns:repeat(var(--cols,2),1fr);grid-auto-flow:row dense;
     grid-auto-rows:calc((100% - (var(--rows,2) - 1) * var(--gap)) / var(--rows,2));gap:var(--gap);padding:var(--pad);
     overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
   /* Schlanke Scrollleiste im Theme fuer JEDEN scrollenden Bereich. Ohne das
@@ -366,6 +366,11 @@
   .grid.snapy{scroll-snap-type:y mandatory;scroll-padding-top:10px;}
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
+  /* Breite Kachel (it.w = 2: Audio, Raumregelung, Energiefluss, je Kachel
+     einstellbar): zwei Spalten; der dichte Fluss (dense) fuellt die Luecke
+     davor mit der naechsten schmalen Kachel. Seiten und Rastpunkte rechnet
+     rasterLage() genauso nach. */
+  .tile.w2{grid-column:span 2;}
   /* Kachelfaktor --ks (am .screen, gesetzt in setzeFaktor): Kachelbreite durch
      KACHEL_REF (170 px), begrenzt auf KS_MIN..KS_MAX. Symbol, Schrift, Tasten,
      Innenabstand, Radius, Ring, Mini-Verlauf und die Kopfzeile werden damit
@@ -1898,8 +1903,12 @@ function setzeFaktor(ks){
   sc.style.setProperty('--kopf-h', Math.round(KOPF_H*ks)+'px');
   kopfEinpassen();   // Schrift und Hoehe der Kopfzeile haengen am Faktor: neu einpassen
 }
-function kachelGemessen(){ const t=el('grid').querySelector('.tile[data-id]');
-  return t ? kachelFaktorFuer(t.clientWidth, t.clientHeight) : kachelFaktor; }
+function kachelGemessen(){ const g=el('grid');
+  const t=g.querySelector('.tile[data-id]:not(.w2)')||g.querySelector('.tile[data-id]');
+  if(!t) return kachelFaktor;
+  // nur breite Kacheln auf der Seite: eine misst sich als die schmale, die sie ersetzt
+  const gap=parseFloat(getComputedStyle(g).getPropertyValue('--gap'))||0;
+  return kachelFaktorFuer(t.classList.contains('w2') ? (t.clientWidth-gap)/2 : t.clientWidth, t.clientHeight); }
 // Festes Raster: Faktor aus der ersten Kachel. Mit Kopfzeile haengt die
 // Kachelhoehe an --kopf-h und die wieder am Faktor (Codex-Befund: einmal
 // gemessen hing der Faktor an der Seite davor, deren Faktor die Kopfzeile
@@ -2307,9 +2316,14 @@ function renderTabs(){
 // ueber dem sichtbaren Bereich).
 function springeZu(d){
   const g=el('grid'), tiles=[...g.querySelectorAll('.tile[data-id]')];
-  const pg=(view && view.layout==='list') ? 4 : gridCols*gridRows;
   const i=tiles.indexOf(d);
-  const ziel=(i>=0 && g.classList.contains('snapy')) ? tiles[Math.floor(i/pg)*pg] : d;
+  let ziel=d;
+  if(i>=0 && g.classList.contains('snapy')){
+    if(view && view.layout==='list') ziel=tiles[Math.floor(i/4)*4];
+    else {   // erste Kachel in der ersten Zeile der Seite (Lage aus rasterLage, breite Kacheln mitgerechnet)
+      const z=g._zeile||[], start=Math.floor((z[i]||0)/gridRows)*gridRows, j=z.findIndex(r=>r===start);
+      if(j>=0) ziel=tiles[j]; }
+  }
   ziel.scrollIntoView({behavior:'smooth', block:'start'});
 }
 // Kacheln der Gruppe kurz hervorheben: auch wenn nichts scrollt (die Gruppe
@@ -2512,6 +2526,10 @@ function kachelNeu(){ return tileLayout!=='classic' && !(view && view.layout==='
 function subText(it){
   if(!kachelNeu()) return it.sublabel||'';
   const s=(it.big!=null && it.bigSub!=null) ? it.bigSub : (it.sublabel||'');
+  // Breite Kachel (zwei Spalten): die Teile bleiben nebeneinander, dafuer hat
+  // sie die Breite - untereinander kosteten sie auf einer 126-px-Kachel die
+  // Hoehe und die Eng-Stufe kappte den zweiten Teil.
+  if(it.w===2 && gridCols>=2) return s;
   return s.replace(/ · /g,'\n');   // Teile untereinander (white-space:pre-line)
 }
 // Zustand vorn: der Zustand steht gross, der Name klein darunter. Nicht bei
@@ -2564,7 +2582,11 @@ function updateGrid(items){
   const nodes=g.querySelectorAll('.tile[data-id]');
   if(nodes.length!==items.length || !nodes.length) return false;
   for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
-  const _pg=(view.layout==='list'?4:gridCols*gridRows);
+  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
+  g._zeile=lage.zeile;
+  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);
   let ok=true;
   items.forEach((it,i)=>{
     const n=nodes[i];
@@ -2572,7 +2594,7 @@ function updateGrid(items){
     // Klassen, die placeCtrls()/paintSpark() nach dem Messen setzen, bleiben
     // stehen: sonst verloere eine enge Kachel bei jedem Zustandswechsel, der
     // ihren Text nicht aendert (Player: Pause), die Lage ihrer Tasten.
-    const cls='tile'+tileTone(it)+aufbauKlassen(it)+(i%_pg===0?' snap':'')+
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+breit(it)+(snapAt(i)?' snap':'')+
       [...n.classList].filter(c=>c.startsWith('spark')||c==='ctrltight'||c==='ctrlnarrow'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     const stStr=tileVarStyle(it);
@@ -2626,14 +2648,34 @@ function rasterFuer(widget){
 // Kacheln mit und ohne Widget gleich gross. k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung (CSS --auto-k/--auto-p).
 const PANE_ANTEIL = 0.4;
-// Die Automatik kennt die Kachelanzahl der Seite (_lastAnzahl, aus render()):
-// passen alle auf eine Seite, wachsen die Kacheln, bis die Seite voll ist,
-// hoechstens auf gridGrow * Zielgroesse (KACHEL_WACHSEN vom Server, mit der
-// theme-Nachricht). Mehr Kacheln als Zellen -> Zielgroesse und Blaettern wie
-// bisher. Mit Widget daneben wachsen sie nicht: das Widget belegt ganze
-// Kachelspalten, mit weniger Spalten liesse sich sein Anteil (PANE_ANTEIL)
-// nicht halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %).
-let _lastAnzahl = 0;
+// Die Automatik kennt die Kacheln der Seite (_lastBreiten: 1 oder 2 Spalten
+// je Kachel, aus render()): passen alle auf eine Seite, wachsen die Kacheln,
+// bis die Seite voll ist, hoechstens auf gridGrow * Zielgroesse
+// (KACHEL_WACHSEN vom Server, mit der theme-Nachricht). Mehr Kacheln als
+// Platz -> Zielgroesse und Blaettern wie bisher. Mit Widget daneben wachsen
+// sie nicht: das Widget belegt ganze Kachelspalten, mit weniger Spalten
+// liesse sich sein Anteil (PANE_ANTEIL) nicht halten (2 von 5 Spalten sind
+// 40 %, 2 von 4 schon 50 %).
+let _lastBreiten = [];
+// Lage der Kacheln im Raster, wie CSS sie setzt (grid-auto-flow: row dense):
+// je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
+// Luecke davor fuellt die naechste schmale Kachel. Daraus die Seitenzahl und
+// die Rastpunkte (jede Kachel in der ersten Zeile einer Seite).
+function rasterLage(breiten, cols, rows){
+  const belegt=[], zeile=[];
+  const frei=(r,c,w)=>{ for(let k=0;k<w;k++) if(belegt[r] && belegt[r][c+k]) return false; return true; };
+  for(const b of breiten){
+    const w=Math.min(b===2?2:1, Math.max(1,cols));
+    let r=0, c=-1;
+    while(c<0){ for(let cc=0; cc+w<=cols; cc++){ if(frei(r,cc,w)){ c=cc; break; } } if(c<0) r++; }
+    belegt[r]=belegt[r]||[]; for(let k=0;k<w;k++) belegt[r][c+k]=true;
+    zeile.push(r);
+  }
+  // Rastpunkte: je Seite die erste Kachel (im DOM) in ihrer ersten Zeile
+  const snaps=new Set(), gesehen=new Set();
+  zeile.forEach((z,i)=>{ if(z%Math.max(1,rows)===0 && !gesehen.has(z)){ gesehen.add(z); snaps.add(i); } });
+  return {zeile:zeile, seiten:Math.max(1, Math.ceil(belegt.length/Math.max(1,rows))), snaps:snaps};
+}
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
@@ -2660,10 +2702,11 @@ function autoRaster(widget){
     return r;
   };
   let r=fuer(anzahl(w, gridAuto));
-  if(!widget && _lastAnzahl>0 && _lastAnzahl<=r.cols*r.rows){
+  const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
+  if(!widget && passt(r.cols,r.rows)){
     for(let c=r.gesamt-1; c>=1; c--){
       const n=fuer(c);
-      if(n.kb>gridGrow*gridAuto || n.cols*n.rows<_lastAnzahl) break;
+      if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
       r=n;
     }
   }
@@ -2684,9 +2727,9 @@ function render(){
   // das 4"-Panel in der Startmessung 4x2 statt 2x2 haengen - dasselbe Muster
   // wie beim Screensaver).
   _lastWidget = _widget;
-  // Kacheln der Seite (fuer das Wachsen im automatischen Raster): keine auf
-  // Widget-, Front- und Listenseiten
-  _lastAnzahl = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).length : 0;
+  // Kacheln der Seite mit ihrer Breite (fuer das Wachsen im automatischen
+  // Raster): keine auf Widget-, Front- und Listenseiten
+  _lastBreiten = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).map(it=>it.w===2?2:1) : [];
   _lastRaster = rasterKey(_widget);
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -2719,6 +2762,12 @@ function render(){
   const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
   if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
+  // Lage im Raster: Rastpunkt auf die erste Kachel jeder Seite (Liste: jede
+  // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind
+  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
+  g._zeile=lage.zeile;
   let html='';
   let _i=-1;
   for(const it of items){
@@ -2753,10 +2802,9 @@ function render(){
     if(ts.weight) nsv.push('font-weight:'+ts.weight);
     if(ts.italic) nsv.push('font-style:italic');
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
-    const _pg = (view.layout==='list'?4:gridCols*gridRows);   // Snap-Seite: Liste 4 Zeilen, sonst cols x rows
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    html += '<div class="tile'+tone+aufbauKlassen(it)+(_i%_pg===0?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    html += '<div class="tile'+tone+aufbauKlassen(it)+breit(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
                 (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
@@ -2769,7 +2817,7 @@ function render(){
             '</div>';
   }
   g.innerHTML = html;
-  g.classList.toggle('snapy', items.length > (view.layout==='list'?4:gridCols*gridRows));   // Snapping erst ab >1 Seite
+  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);   // Snapping erst ab >1 Seite
   // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
   // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
   renderTabs();

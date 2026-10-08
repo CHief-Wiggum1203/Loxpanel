@@ -83,7 +83,7 @@ VOLL = {
     "states": {"active": "#00ff00", "good": "#00aa00", "warn": "#ffaa00", "crit": "#ff0000"},
     "tiles": {"S1": {"iconColor": "#111111", "textColor": "#222222", "bg": "#333333", "border": "#444444",
                      "font": "Inter", "bold": True, "italic": True, "overlay": OVERLAY_VOLL,
-                     "icon": {"src": "builtin", "id": "lamp"}, "chart": "24h", "chartStyle": "span"}},
+                     "icon": {"src": "builtin", "id": "lamp"}, "chart": "24h", "chartStyle": "span", "w": 2}},
 }
 # Zweige, deren Schluessel Daten sind (Tab-Kennung, Baustein-UUID) statt
 # Feldnamen: nur die darf _sanitize_panels als Ganzes durchlaufen.

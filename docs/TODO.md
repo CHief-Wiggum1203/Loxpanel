@@ -1621,6 +1621,11 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          Raumregelung, Energiefluss 2×1; je Kachel übersteuerbar),
          `grid-column: span` mit dichtem Fluss, Blättern und `fitTile()`
          angepasst. **M**
+         *Erledigt 06.10.2026:* `tiles[uuid].w` (1 | 2), Standard aus
+         `KACHEL_BREIT_TYPEN`, Klasse `w2` mit `grid-auto-flow: row dense`,
+         `rasterLage()` rechnet Seiten, Rastpunkte und das Wachsen der
+         Automatik mit, der Kachelfaktor misst sich an einer schmalen Kachel.
+         Kachel-Editor: „Breite“. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       4. **Raumnamen aus Kachelnamen streichen,** wenn die Seite den Raum
          schon nennt („Jalousie Wohnzimmer Süd“ auf der Wohnzimmer-Seite).
          Trifft die meisten abgeschnittenen Namen der Messung. **S**
