@@ -733,6 +733,12 @@
   .btn:active{transform:scale(.97);background:rgba(var(--wash,255,255,255),.09);}
   .btn.on{background:linear-gradient(180deg,rgba(var(--on-rgb,224,162,77),.22),rgba(var(--on-rgb,224,162,77),.05));
     border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--glow);}
+  .intercom-talk{display:flex;flex:0 0 auto;flex-direction:column;gap:4px;}
+  .intercom-talk-button{width:100%;color:var(--ink);font-family:inherit;touch-action:manipulation;}
+  .intercom-talk-button:disabled{opacity:.4;cursor:default;}
+  .intercom-talk-status{color:var(--muted);font-size:12px;text-align:center;overflow-wrap:anywhere;}
+  .intercom-talk.error .intercom-talk-status{color:var(--crit);}
+  .grid.panel.intercom-page>.video,.campage.intercom-page>.video{flex:1 1 auto;min-height:0;}
   /* Aufklappbare Auswahl (z.B. Klima Modus/Fan): Zeile per Toggle ein/aus */
   .brow.collapsed{display:none;}
   .brow.wraprow{flex-wrap:wrap;}
@@ -1433,6 +1439,94 @@ function nav(route){ stack.push(route); send({t:'nav',route}); }
 function goTab(tab){ stack=[{view:'tab',tab}]; send({t:'nav',route:stack[0]}); }
 function back(){ if(stack.length>1){ stack.pop(); send({t:'nav',route:stack[stack.length-1]}); } }
 
+// Gegensprechen ist eine native Faehigkeit der LoxPanel-App. Der Server nennt
+// nur die Baustein-UUID; SIP-Zugang und Audio bleiben in der App. Beide Panes
+// teilen einen Status, der ausschliesslich die Sprech-Bedienung aktualisiert.
+function intercomNative(){
+  const b=window.LoxKiosk;
+  return !!(b && typeof b.startIntercom==='function' && typeof b.stopIntercom==='function'
+    && typeof b.intercomStatus==='function'); }
+function intercomBlocks(blocks){ return blocks.filter(b=>
+  !(b.nativeOnly || b.k==='intercom-talk') || intercomNative()); }
+let intercomState={state:'idle',uuid:'',message:''}, intercomReadAt=0;
+const INTERCOM_ACTIVE=['connecting','connected','ending'];
+const INTERCOM_TEXT={idle:'',connecting:'Verbindung wird aufgebaut …',connected:'Gespräch verbunden',
+  ending:'Gespräch wird beendet …',error:'Gegensprechen ist derzeit nicht verfügbar'};
+function intercomRead(force){
+  if(!intercomNative() || (!force && Date.now()-intercomReadAt<500)) return;
+  intercomReadAt=Date.now();
+  try{
+    const s=JSON.parse(LoxKiosk.intercomStatus());
+    if(!s || !Object.prototype.hasOwnProperty.call(INTERCOM_TEXT,s.state)
+      || typeof s.uuid!=='string' || typeof s.message!=='string') throw new Error('Status');
+    intercomState={state:s.state,uuid:s.uuid,message:s.message.slice(0,240)};
+  }catch(e){ intercomState={state:'error',uuid:'',message:INTERCOM_TEXT.error}; }
+}
+function intercomTalkHtml(b){ return '<div class="intercom-talk" data-intercom="'+esc(b.uuid)+'">'+
+  '<button type="button" class="btn intercom-talk-button">Sprechen</button>'+
+  '<div class="intercom-talk-status" role="status" hidden></div></div>'; }
+function intercomPaint(){
+  const s=intercomState, active=INTERCOM_ACTIVE.includes(s.state);
+  document.querySelectorAll('.intercom-talk').forEach(e=>{
+    const own=s.uuid===e.dataset.intercom, other=active&&!own;
+    const btn=e.querySelector('.intercom-talk-button'), status=e.querySelector('.intercom-talk-status');
+    btn.textContent=active&&own?'Auflegen':'Sprechen';
+    btn.disabled=other || (own&&s.state==='ending');
+    btn.classList.toggle('on',active&&own);
+    const text=other?'Gespräch an anderer Türstation':
+      (own || !s.uuid ? s.message||INTERCOM_TEXT[s.state] : '');
+    status.textContent=text; status.hidden=!text;
+    e.classList.toggle('error',s.state==='error'&&(own||!s.uuid));
+  });
+}
+function intercomTalk(uuid){
+  if(!intercomNative()) return;
+  intercomRead(true);
+  const active=INTERCOM_ACTIVE.includes(intercomState.state);
+  if((active&&intercomState.uuid!==uuid) || intercomState.state==='ending'){ intercomPaint(); return; }
+  let accepted=false;
+  try{ accepted=active?LoxKiosk.stopIntercom():LoxKiosk.startIntercom(uuid); }catch(e){}
+  if(accepted===true){
+    // Die Bruecke fuehrt den Auftrag auf dem App-Thread aus. Bis zur naechsten
+    // Statusabfrage bleibt ein zweiter Tipp daher bereits als Auflegen sichtbar.
+    intercomState={state:active?'ending':'connecting',uuid,message:''}; intercomReadAt=Date.now();
+  }else{
+    intercomRead(true);
+    if(INTERCOM_ACTIVE.includes(intercomState.state)){
+      if(intercomState.uuid===uuid) intercomState.message='Gespräch konnte nicht beendet werden';
+    }else if(intercomState.state!=='error') intercomState={state:'error',uuid,message:INTERCOM_TEXT.error};
+  }
+  intercomPaint();
+}
+function intercomBind(container){
+  const talks=container.querySelectorAll('.intercom-talk');
+  if(!talks.length) return;
+  talks.forEach(e=>{
+    const btn=e.querySelector('.intercom-talk-button');
+    if(!btn._intercomBound){ btn._intercomBound=true; btn.addEventListener('click',()=>intercomTalk(e.dataset.intercom)); }
+  });
+  intercomRead(false); intercomPaint();
+}
+setInterval(()=>{
+  if(!document.querySelector('.intercom-talk')) return;
+  intercomRead(true); intercomPaint();
+},500);
+// Die App gibt die Bruecke erst dem fertig geladenen, lokalen Hauptdokument.
+// Bereits laufendes Video bei dieser Freigabe ebenfalls unangetastet lassen.
+window.addEventListener('loxpanel-intercom-ready',()=>{
+  if(!intercomNative()) return;
+  const g=el('grid'), talk=view&&view.blocks&&intercomBlocks(view.blocks).find(b=>b.k==='intercom-talk');
+  if(g && g.classList.contains('panel') && talk && !g.querySelector('.intercom-talk')){
+    const ring=g.querySelector('[data-rowid="klingel"]');
+    if(ring) ring.insertAdjacentHTML('beforebegin',intercomTalkHtml(talk));
+    else g.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
+    g.classList.add('intercom-page'); g.dataset.bsig=blockSig(view.blocks);
+    intercomBind(g); panelEinpassen();
+  }
+  const fp=el('frontpane');
+  if(fp && paneKind(paneRawNow())==='camera') renderCameraPane(fp);
+});
+
 // ---- Befehle und Visu-PIN (gesicherte Bausteine, isSecured) ----
 // Jeder Befehl geht ueber sendCmd(); nur cmdSchicken() baut {t:'cmd'}. Bei
 // einem gesicherten Baustein fragt die Visu die PIN ab und schickt sie mit,
@@ -1698,7 +1792,7 @@ function openMenu(btn, items){
 // lassen. Bei den Favoriten zaehlt der Inhalt (Name, Cover, Befehl): updatePanel
 // patcht sie nicht, und der Tipp haelt den Favoriten vom Aufbau fest.
 function blockSig(blocks){
-  return blocks.filter(b=>b.k!=='more').map(b=>
+  return intercomBlocks(blocks).filter(b=>b.k!=='more').map(b=>
     b.k==='row' ? 'row'+b.cells.length+(b.hidden?'h':'')
     : b.k==='favs' ? 'favs'+JSON.stringify((b.items||[]).map(f=>[f.label,f.cover,f.cmd]))
     : b.k==='alarmlist' ? 'alarm'+JSON.stringify(b.entries||[])
@@ -1706,6 +1800,7 @@ function blockSig(blocks){
     : b.k==='stepper' ? 'stp'+(b.cmd?1:0)+(b.sub?1:0)
     : b.k==='chips' ? 'chips'+(b.multi?'m':'')+(b.items?b.items.length:0)
     : b.k==='gallery' ? 'gal'+(b.items||[]).map(i=>i.src).join(',')
+    : b.k==='intercom-talk' ? 'intercom-talk'+b.uuid
     : b.k).join('|');
 }
 // ---- Verlaufs-Diagramme (Block k:'chart'). Die Daten stammen aus den
@@ -2124,6 +2219,7 @@ function paintCharts(g,blocks){
   blocks.filter(b=>b.k==='chart').forEach((b,i)=>{ if(els[i]) paintChart(els[i],b); });
 }
 function renderPanel(blocks){
+  blocks=intercomBlocks(blocks);
   stopVideo();
   closeMenu();
   document.querySelectorAll('.galov').forEach(o=>o.remove());
@@ -2133,6 +2229,7 @@ function renderPanel(blocks){
   el('grid').classList.remove('list','snapy','scheme','fronttab','lx');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
+  el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
@@ -2157,6 +2254,7 @@ function renderPanel(blocks){
     if(b.k==='astat') return '<div class="astat'+(b.tone==='crit'?' crit':'')+'">'+esc(b.text||'')+(b.sub?'<div class="astatsub">'+esc(b.sub)+'</div>':'')+'</div>';
     if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span><button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
     if(b.k==='row') return '<div class="brow'+(b.cells.some(c=>c.icon)?' transport':'')+(b.wrap?' wraprow':'')+(b.hidden?' collapsed':'')+'"'+(b.id?' data-rowid="'+esc(b.id)+'"':'')+'>'+b.cells.map(cellHtml).join('')+'</div>';
+    if(b.k==='intercom-talk') return intercomTalkHtml(b);
     if(b.k==='head') return '<div class="phead">'+esc(b.text||'')+'</div>';
     if(b.k==='chart') return chartBoxHtml(b);   // Inhalt zeichnet paintChart nach dem Einfuegen
     if(b.k==='favs') return '<div class="favs'+(b.wrap?' wrap':'')+'">'+b.items.map((f,i)=>'<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+'</div><div class="favn">'+esc(f.label)+'</div></div>').join('')+'</div>';
@@ -2251,6 +2349,7 @@ function renderPanel(blocks){
     // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
     n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,{ok:back}); }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
+  intercomBind(g);
   renderTabs();
   panelEinpassen();
 }
@@ -2260,6 +2359,7 @@ function panelEinpassen(){
   if(g.scrollHeight>g.clientHeight+1) g.classList.add('eng');
 }
 function updatePanel(blocks){
+  blocks=intercomBlocks(blocks);
   const g=el('grid');
   // Struktur anders als zuletzt gerendert (Zeile/Status/Favorit dazu oder weg,
   // Favoriten per roomfav/get nachgeliefert)? Dann komplett neu aufbauen.
@@ -2292,6 +2392,7 @@ function updatePanel(blocks){
   });
   nth('stepper','.stp',(e,b)=>stepperUpdate(e,b));
   formPruefen(g);
+  intercomBind(g);
 }
 
 function activeTab(){ const b=stack[0]; return b && b.view==='tab' ? b.tab : null; }
@@ -3676,7 +3777,7 @@ function renderEnergyPane(elc){ if(!elc) return;
 // ein nacktes MJPEG-<img> nicht rendern). Struktur nur bei Änderung neu bauen, sonst nur
 // Buttons/Klingel in-place aktualisieren -> der Video-Stream läuft ununterbrochen weiter.
 function renderCameraPane(elc){ if(!elc) return;
-  const blocks=(cameraData&&cameraData.blocks)||null;
+  const blocks=cameraData&&cameraData.blocks ? intercomBlocks(cameraData.blocks) : null;
   if(blocks===null){   // Push noch nicht da -> Platzhalter
     if(elc.dataset.cam!=='wait'){ elc.dataset.cam='wait'; delete elc.dataset.camsig;
       elc.innerHTML='<div class="fp-page solo campage"><div class="camwait">'+svg(ICONS.cam)+'<span>Kamera lädt …</span></div></div>'; }
@@ -3684,14 +3785,22 @@ function renderCameraPane(elc){ if(!elc) return;
   }
   const video=blocks.find(b=>b.k==='video'), row=blocks.find(b=>b.k==='row');
   const bell=blocks.find(b=>b.k==='astat'), nostat=blocks.find(b=>b.k==='status');
-  const sig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'');
+  const talk=blocks.find(b=>b.k==='intercom-talk');
+  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|';
+  const sig=baseSig+(talk?talk.uuid:'');
+  if(talk && elc.dataset.camsig===baseSig){
+    const page=elc.querySelector('.campage');
+    if(page){ page.insertAdjacentHTML('beforeend',intercomTalkHtml(talk));
+      page.classList.add('intercom-page'); elc.dataset.camsig=sig; }
+  }
   if(elc.dataset.camsig!==sig){          // Struktur -> Neuaufbau
     elc.dataset.camsig=sig; elc.dataset.cam='1';
     let html='<div class="cambell astat crit" hidden></div>';
     html+= video ? '<div class="video"><img alt=""></div>'
                  : '<div class="status">'+esc(nostat?nostat.text:'Kein Video')+'</div>';
     if(row) html+='<div class="brow'+(row.wrap?' wraprow':'')+'">'+row.cells.map(cellHtml).join('')+'</div>';
-    elc.innerHTML='<div class="fp-page solo campage">'+html+'</div>';
+    if(talk) html+=intercomTalkHtml(talk);
+    elc.innerHTML='<div class="fp-page solo campage'+(talk?' intercom-page':'')+'">'+html+'</div>';
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
@@ -3701,6 +3810,7 @@ function renderCameraPane(elc){ if(!elc) return;
     row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } });
   }
   const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
+  intercomBind(elc);
 }
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.weather;
   if(!w){ elc.innerHTML='<div class="fp-empty">Kein Wetter konfiguriert.</div>'; return; }

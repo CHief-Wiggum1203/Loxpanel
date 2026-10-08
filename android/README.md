@@ -147,8 +147,11 @@ und „Display an“.
 | `turnScreenOn()` | Visu bei Klingel, Wecker, Notify, Goto und wenn der Server das Display einschaltet | Schoner weg, Leerlaufzeit beginnt neu |
 | `turnScreenOff()` | Visu, wenn der Server das Display abschaltet (*Displays*, `/api/display`) | Schoner an |
 | `isScreenOn()` | Visu vor `turnScreenOn()` | `true`, solange kein Schoner zu sehen ist |
+| `startIntercom(uuid)` | Sprechen auf Gen-1-Detailseite oder Kamera-Pane | Asynchroner SIP-Start mit nativer Mikrofonfreigabe und RTP-Audio; Boolean bestätigt Annahme |
+| `stopIntercom()` | Auflegen | Bricht den Aufbau ab bzw. legt auf; gibt Mikrofon, Lautsprecher und Audiofokus frei |
+| `intercomStatus()` | Visu alle 500 ms bei sichtbarer Sprechbedienung | JSON-String `{state, uuid, message}` ohne SIP-Zugang; Zustände `idle`, `connecting`, `connected`, `ending`, `error` |
 
-Die drei letzten heißen wie bei Fully Kiosk, damit die Visu beide Apps gleich
+Die drei Methoden zur Displaysteuerung heißen wie bei Fully Kiosk, damit die Visu beide Apps gleich
 behandelt.
 
 Hat das Gerät unter *Displays* einen Präsenzmelder, gibt die Visu der App

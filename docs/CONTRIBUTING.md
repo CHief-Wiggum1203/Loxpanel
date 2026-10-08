@@ -281,6 +281,19 @@ nicht unbemerkt entfernt:
   `tests/test_intercom_v2.py`, `test_intercom_video.py`, `test_sip.py`,
   `tests/browser/test_sip_browser.py`, `test_intercom_v2` in
   `tests/browser/test_bausteine_browser.py`.
+- Native Gen-1-Gegensprechen (`feature/intercom-gen1-talk`): baut auf dem
+  aktualisierten PR #110 und `main` auf. `sip_call.py` und `intercom_talk.py`
+  ergänzen SIP und Sitzungsverwaltung, Android übernimmt G.711-RTP mit
+  AudioRecord/AudioTrack. Die native `LoxKiosk`-Brücke zeigt Sprechen/Auflegen
+  nur für `Intercom`; `IntercomV2` bleibt bei der Bedienung aus #110. Beim
+  Zusammenführen `_talk_credentials()`, die `intercom-talk`-Blöcke in
+  Detailseite/Kamera-Pane und deren Signaturen erhalten. Kamera-, Klingel-
+  und Türbefehle dürfen durch Sprechen nicht geändert werden. Fehlendes
+  `audioInfo` bleibt ein Fehler; `videoInfo` liefert keinen SIP-Ersatz.
+  Wachen: `tests/test_sip_call.py`, `test_intercom_talk.py`,
+  `tests/browser/test_intercom_talk_browser.py`, die Intercom-Tests aus #110
+  und Android-JUnit-Tests. Umfang, ursprüngliche Prüfergebnisse und
+  Hardware-Abnahme: [`INTERCOM_GEN1.md`](INTERCOM_GEN1.md).
 
 Seit 0.7.0 in Upstream und deshalb nicht mehr in der Liste (ihre Wachen
 laufen weiter): `type="text"` am `.mzname`, „Spielt in 1 Raum“ und der

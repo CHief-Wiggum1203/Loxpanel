@@ -1140,8 +1140,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       „Klingel abstellen“), dazu laut Strukturdoku 17.0 die Antworten
       (`answers`, `playTts/{idx}`), Stumm (`muted`, `mute/1` und `mute/0`) und
       der Gerätezustand (`deviceState`: „Startet neu“, „Startet“). Verpasste
-      Klingeln nennt die Doku nur bei `Intercom`. Gegensprechen fehlt wie dort
-      (8.4); einen SIP-Zugang beschreibt die Doku für diesen Typ nicht. **M**
+      Klingeln nennt die Doku nur bei `Intercom`. Gegensprechen für Gen-2 ist
+      nicht implementiert und gehört nicht zum Gen-1-Feature (8.4); einen
+      SIP-Zugang beschreibt die Doku für diesen Typ nicht. **M**
 - [ ] `IRCDaytimer`, `IRCV2Daytimer`: Zeitpläne der Raumregelung, nach dem
       Muster von `Daytimer`. **S**
 - [x] `Irrigation` (Bewässerung): Zustand, aktive Zone, Zonenliste,
@@ -1200,12 +1201,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       über `/bellimg`). Seit 04.10.2026 kommt die Kamera auch direkt vom
       Miniserver (`videoInfo` aus den gesicherten Details), wenn in LoxPanel
       keine Adresse eingetragen ist; dasselbe gilt für `IntercomV2`, falls
-      der Miniserver dort gesicherte Details nennt. Offen: Gegensprechen (SIP). Ziel ist die Loxone
-      Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
+      der Miniserver dort gesicherte Details nennt. Gegensprechen (SIP) ist im
+      Feature-Branch implementiert; die Hardware-Abnahme und die fehlende
+      Quelle des SIP-Zugangs an der getesteten Anlage bleiben offen. Ziel ist
+      die Loxone Intercom Gen 1 (Baustein „Door Controller“, Typ `Intercom`), die auch die
       Loxone-App direkt per SIP anruft; geklingelt wird weiter über `bell` und
       das Klingel-Popup, eine Anmeldung am SIP-Server braucht es nicht. Nur in
       der LoxPanel-App für Android, weil der Browser kein SIP über UDP kann.
-      Drei Schritte: **L**
+      Umsetzung und Abnahme: **L**
       1. [x] *Zugang und Prüfung* (03.10.2026): Den SIP-Zugang gibt der
          Miniserver nur auf einen verschlüsselten Befehl heraus
          (`securedDetails`, `bin/loxone_secure.py`). Settings → SIP zeigt ihn
@@ -1223,22 +1226,29 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          17.0), nur in den Details von `IntercomV2`; das Änderungsprotokoll
          der 17.0 nennt seit 13.0 nichts zur Intercom. Seit 04.10.2026 sagt
          der Hinweis im Reiter SIP für diesen Fall, dass der Miniserver die
-         Adresse für den Baustein nicht herausgibt. **Offen:** klären, ob die
-         Loxone-App mit dieser Einrichtung sprechen kann. Wenn nicht, gibt der
-         Miniserver für sie keinen Audio-Zugang heraus, und Schritt 2 braucht
-         einen anderen Weg zur Adresse. Davon hängt Schritt 2 ab (Adresse,
-         Codec, Anmeldung). Für die Loxone Intercom am Baustein Intercom
+         Adresse für den Baustein nicht herausgibt; er zeigt auch die
+         gelieferten Feldnamen, ohne ihre Werte. **Offen:** klären, ob und
+         wie die Loxone-App mit dieser Einrichtung sprechen kann und woher
+         sie den Audio-Zugang erhält. Der native Client ist implementiert,
+         benötigt aber weiterhin einen SIP-Host aus `audioInfo`; die Ursache
+         des fehlenden Zugangs ist ungeklärt. Eine Kameraadresse wird nicht
+         als SIP-Ziel verwendet. Für die Loxone Intercom am Baustein Intercom
          (`IntercomV2`) beschreibt die Doku keinen SIP-Zugang.
-      2. [ ] *App:* SIP-Client in Kotlin: INVITE/ACK/BYE mit derselben
-         Digest-Anmeldung, RTP mit G.711, Echounterdrückung des Geräts,
-         Mikrofon-Recht. Ein eigener kleiner Stack: Linphone und PJSIP stehen
-         unter GPL, eingebaut müsste die App unter GPL stehen, LoxPanel steht
-         unter PolyForm Noncommercial; Androids `android.net.sip` ist seit
-         Android 12 abgekündigt. Den Zugang holt der Kotlin-Teil im selben
-         Prozess vom Server (Chaquopy), nicht über eine Route im LAN. **L**
-      3. [ ] *Visu:* „Sprechen“ und „Auflegen“ auf der Intercom-Seite und im
-         Klingel-Popup, über die Brücke `LoxKiosk`; ohne App zeigt die Visu
-         sie nicht. **M**
+      2. [x] *App* (05.10.2026, `feature/intercom-gen1-talk`): eigener kleiner
+         Stack ohne zusätzliche SIP-Bibliothek. Python `sip_call.py` nutzt
+         die vorhandenen SIP-Helfer für INVITE/Digest/ACK/BYE/SDP und
+         Abbruchrennen; Kotlin übernimmt RTP-G.711 mit AudioRecord/AudioTrack,
+         Mikrofonrecht, Audiofokus und optionaler Geräte-Echounterdrückung.
+         Der Zugang bleibt im eingebetteten Python-Prozess. Lokale native
+         Start/Stop/Status-Routen sind auf Loopback und Prozess-Token begrenzt.
+      3. [x] *Visu:* „Sprechen“ und „Auflegen“ auf Gen-1-Detailseite und
+         Kamera-Pane über `LoxKiosk`; der vorhandene Klingel-Flow öffnet die
+         Detailseite. Browser, Fully, alte App und Gen-2 zeigen sie nicht.
+         Neue Unit-, Browser- und Android-nahe Tests sind ergänzt.
+      4. [ ] *Hardware-Abnahme:* echte SIP-URI/SDP/Codecs, gleichzeitiges
+         Audio, Echo, Routing, Mikrofonrechte, Abbruch und WLAN-Verluste am
+         Zielpanel prüfen. Umfang und vollständige Prüfliste stehen in
+         [`INTERCOM_GEN1.md`](INTERCOM_GEN1.md). Noch nicht nach `main` gemergt.
 - [ ] `TextInput`: nur Anzeige, keine Eingabe. **S**
 - [x] `UpDownAnalog`: seit 03.10.2026 bedienbar. Laut Strukturdoku
       („UpDownLeftRight analog“) ist der Befehl der Wert selbst, zwischen

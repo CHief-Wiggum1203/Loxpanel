@@ -682,10 +682,28 @@ Getestet wird gegen Nachbauten in `tests/lox.py`: Der Miniserver entschlüsselt
 mit eigenem RSA-Schlüssel, und `SipTuer` rechnet die Anmeldung unabhängig nach.
 Die Digest-Werte stammen aus den Beispielen von RFC 2617 und RFC 7616.
 
+Die native Android-App ergänzt direkte Gen-1-Anrufe: `sip_call.py` führt
+INVITE/Digest/ACK/BYE und SDP, Android übernimmt RTP-G.711 mit
+AudioRecord/AudioTrack. `IntercomTalk` verwaltet eine Sitzung und deren
+15-Sekunden-Lebensfrist. Start/Stop/Status sind nur über Loopback mit dem
+nativen Prozess-Token erreichbar; SIP-Zugangsdaten bleiben im Python-Prozess.
+Die Visu zeigt Sprechen/Auflegen über `LoxKiosk` ausschließlich in der App.
+Die Freigabe betrifft nur den Typ `Intercom`; `deviceType` ist keine
+zuverlässige Generationskennung. `IntercomV2` behält Kamera, Klingel, Tür,
+Antworten und Stummschaltung, bekommt aber keine Sprechbedienung. Ein fehlender
+SIP-Host in `audioInfo` bleibt ein Fehler, auch wenn `videoInfo` eine
+Kameraadresse enthält. Auf der getesteten Anlage fehlt `audioInfo` trotz
+eingetragenem Audio-Host und Zugang in Loxone Config; die Quelle dieses
+Zugangs muss dort noch geklärt werden.
+Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
+[`INTERCOM_GEN1.md`](INTERCOM_GEN1.md).
+
 ## 4. HTTP- und WebSocket-Schnittstelle
 
 Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
-Authentifizierung, keine Middleware, kein CORS. Jeder im Netz kann alles.
+Authentifizierung, keine Middleware, kein CORS auf den allgemeinen Routen.
+Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
+([`INTERCOM_GEN1.md`](INTERCOM_GEN1.md)).
 
 | Methode | Pfad | Handler | Zweck | Genutzt von |
 |---|---|---|---|---|
@@ -1058,8 +1076,9 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
 - **Intercom:** `answer` stellt die Klingel ab. `lastBellEvents` (JJJJMMTTHHMMSS,
   mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
   `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
-  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) fehlt, darum bleibt der Typ
-  in `PARTIAL_TYPES`. Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
+  `camimage/{uuidAction}/{ts}`. Gegensprechen (SIP) ist ausschließlich in der
+  nativen Android-App verfügbar; im Browser bleibt der Typ in `PARTIAL_TYPES`.
+  Den SIP-Zugang (`audioInfo`: `host`, `user`, bei
   Loxone-Intercoms `pass`) gibt der Miniserver seit 8.1 nur noch in den
   gesicherten Details heraus; `details.audioInfo` ist leer. Lesen und Prüfen:
   Abschnitt 3.10. Die Kamera kommt aus LoxPanel oder aus denselben gesicherten
@@ -1077,8 +1096,9 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   bei `Intercom`, die v2 hat darum keine verpassten Klingeln. Video- und
   SIP-Zugang beschreibt die Doku für die v2 nicht; trägt der Baustein trotzdem
   `securedDetails` (etwa eine benutzerdefinierte Intercom daran), nutzt
-  LoxPanel sie wie bei `Intercom`. Gegensprechen fehlt bei beiden, darum steht
-  auch `IntercomV2` in `PARTIAL_TYPES`.
+  LoxPanel sie für Kamera und SIP-Prüfung wie bei `Intercom`. Native
+  Gegensprech-Anrufe werden für `IntercomV2` nicht angeboten, auch wenn es
+  gesicherte Details liefert; darum bleibt es in `PARTIAL_TYPES`.
 
 Die Bausteine dazu stehen in `tests/lox.py` (`aufab_baustein`,
 `bewaesserung_baustein`, `wecker_baustein`, `intercom_baustein`,
