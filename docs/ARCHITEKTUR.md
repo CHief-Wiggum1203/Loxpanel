@@ -1145,6 +1145,17 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Geprüft in `tests/browser/test_kachel_faktor_browser.py`, dazu die
   Lesbarkeits-Prüfung auf den Standardgeräten (nichts wird mit Faktor mehr
   abgeschnitten als ohne, keine Kachel läuft über).
+- Raumnamen aus Kachelnamen (Oktober 2026): Auf einer Raum-Seite (Tab
+  `room:<uuid>`, Raum aus „Räume“ über `_view_group`) nennt der Titel den
+  Raum schon, also fällt er aus den Kachelnamen: `_control_item(…,
+  ohne_raum=<Raumname>)` ruft `_ohne_raum()`, das nur ganze Wörter streicht
+  („Jalousie Wohnzimmer Süd“ → „Jalousie Süd“, „Wohnzimmer: Decke“ →
+  „Decke“, „Wohnzimmerlampe“ bleibt), die Reihenfolge der übrigen Wörter
+  behält, Trenner am Rand mitnimmt und den Namen lässt, wenn nichts übrig
+  bliebe. Seiten über mehrere Räume (Favoriten, Kategorie, freie Auswahl)
+  behalten die vollen Namen und tragen den Raum an der Kachel (`show_room`).
+  In der Messreihe zum Kachelfaktor trugen die meisten abgeschnittenen Namen
+  den Raum. Geprüft in `tests/test_raumname.py`.
 - Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
   (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
   EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über

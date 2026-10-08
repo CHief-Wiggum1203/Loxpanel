@@ -487,6 +487,34 @@ def _clean_scale(v):
     return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
 
 
+# Trenner, die nach dem Streichen des Raumnamens am Rand eines Kachelnamens
+# haengen blieben ("Licht - Wohnzimmer" -> "Licht")
+_NAMEN_TRENNER = frozenset({"-", "–", "—", "·", "/", ",", ":", "|"})
+
+
+def _ohne_raum(name: str, raum: str) -> str:
+    """Kachelname ohne den Raumnamen, wenn die Seite den Raum schon nennt
+    ("Jalousie Wohnzimmer Süd" auf der Wohnzimmer-Seite -> "Jalousie Süd").
+    Nur ganze Woerter zaehlen (Gross-/Kleinschreibung egal, ein Satzzeichen
+    am Wort stoert nicht), die uebrigen Woerter bleiben in ihrer Reihenfolge,
+    ein uebrig gebliebener Trenner am Rand faellt weg. Kommt der Raum nicht
+    vor oder bliebe nichts uebrig ("Wohnzimmer"), bleibt der Name."""
+    woerter, rw = (name or "").split(), (raum or "").split()
+    if not woerter or not rw:
+        return name
+    low = [w.lower().strip(",:;") for w in woerter]
+    rlow = [w.lower().strip(",:;") for w in rw]
+    for i in range(len(low) - len(rw) + 1):
+        if low[i:i + len(rw)] == rlow:
+            rest = woerter[:i] + woerter[i + len(rw):]
+            while rest and rest[0] in _NAMEN_TRENNER:
+                rest.pop(0)
+            while rest and rest[-1] in _NAMEN_TRENNER:
+                rest.pop()
+            return " ".join(rest) or name
+    return name
+
+
 def _clean_kachelziel(v) -> int | None:
     """Zielgroesse einer Kachel (ui.tileSize, devices[name].tileTarget) als
     Zahl in CSS-Pixeln: Zahl oder Ziffernfolge in [KACHEL_ZIEL_MIN,
@@ -3871,12 +3899,18 @@ class App:
         }
 
     def _control_item(self, uuid: str, prof: dict | None = None,
-                      show_room: bool = False) -> dict:
+                      show_room: bool = False, ohne_raum: str = "") -> dict:
+        """Kachel eines Bausteins. show_room: Raum an der Kachel (Seite ueber
+        mehrere Raeume). ohne_raum: Name des Raums, den die Seite schon nennt
+        (Raum-Seite) - er faellt aus dem Kachelnamen (_ohne_raum), die
+        meisten abgeschnittenen Namen der Messung trugen ihn."""
         c = self.controls.get(uuid)
         if not c:
             return {"id": uuid, "label": "?", "icon": "info", "on": False}
         t = c.get("type")
         name = _clean(c.get("name"))
+        if ohne_raum:
+            name = _ohne_raum(name, ohne_raum)
         it: dict = {"id": uuid, "label": name, "on": False, "icon": "info"}
         # Raum-Kennzeichnung: nur wenn die Ansicht mehrere Raeume umfasst (z.B.
         # Kategorie Licht ueber alle Raeume). Zentralbausteine haben keinen Raum.
@@ -4486,10 +4520,12 @@ class App:
             else:
                 order = present
                 tab_cats = present[:4]
+            # Der Raumname steht im Titel der Seite: aus den Kachelnamen faellt er heraus
+            raumname = _clean(self.rooms.get(ru, {}).get("name"))
             items = []
             for cu in order:
                 for j, u in enumerate(by_cat[cu]):
-                    it = self._control_item(u, prof)
+                    it = self._control_item(u, prof, ohne_raum=raumname)
                     if j == 0:
                         it["catKey"] = cu       # Scroll-Anker fuer den Kategorie-Tab
                     it["grp"] = cu              # Gruppe: Aufleuchten und Filter im Panel
@@ -4499,8 +4535,8 @@ class App:
                          "iconUrl": self._icon_url(self.cats.get(cu, {}).get("image")) or ""}
                         for cu in tab_cats]
             for u in by_cat.get(None, []):
-                items.append(self._control_item(u, prof))
-            title = _clean(self.rooms.get(ru, {}).get("name")) or "Raum"
+                items.append(self._control_item(u, prof, ohne_raum=raumname))
+            title = raumname or "Raum"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
                     "catTabs": cat_tabs}
@@ -4541,6 +4577,7 @@ class App:
     def _view_group(self, route: dict, prof: dict | None = None) -> dict:
         kind, gid = route.get("kind"), route.get("id")
         layout = None
+        ohne_raum = ""   # Raum-Seite: der Raumname steht im Titel, nicht noch in jedem Kachelnamen
         if kind == "cat":
             uuids = [u for u, c in self.controls.items()
                      if c.get("cat") == gid and self._room_ok(u, prof) and self._shown(u, prof)]
@@ -4553,6 +4590,7 @@ class App:
             uuids = [u for u, c in self.controls.items()
                      if c.get("room") == gid and self._cat_ok(u, prof) and self._shown(u, prof)]
             title = _clean(self.rooms.get(gid, {}).get("name")); tab = "raeume"
+            ohne_raum = title
         elif kind == "central":
             c = self.controls.get(gid, {})
             members = (c.get("details") or {}).get("controls") or []
@@ -4564,7 +4602,7 @@ class App:
         else:
             uuids, title, tab = [], "", None
         return {"t": "view", "title": title, "tab": tab, "route": route,
-                "layout": layout, "items": [self._control_item(u, prof) for u in uuids]}
+                "layout": layout, "items": [self._control_item(u, prof, ohne_raum=ohne_raum) for u in uuids]}
 
     def _view_sources(self, uuid: str) -> dict:
         """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).

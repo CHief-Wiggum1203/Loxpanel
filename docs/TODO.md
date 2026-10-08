@@ -1629,6 +1629,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       4. **Raumnamen aus Kachelnamen streichen,** wenn die Seite den Raum
          schon nennt („Jalousie Wohnzimmer Süd“ auf der Wohnzimmer-Seite).
          Trifft die meisten abgeschnittenen Namen der Messung. **S**
+         *Erledigt 06.10.2026:* `_ohne_raum()` auf Raum-Seiten (Tab
+         `room:<uuid>` und Raum aus „Räume“), nur ganze Wörter, Seiten über
+         mehrere Räume behalten den vollen Namen. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       5. **Werte als schmale Leiste statt als Kacheln,** je Seite wählbar:
          Anzeige-Bausteine in eine Zeile, das Raster für Bedienbares. **M**
       6. **Tasten nur, wenn die Kachel hoch genug ist** (aus dem Faktor),
