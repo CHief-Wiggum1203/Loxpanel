@@ -1405,6 +1405,11 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   schon 50 %, die Wetter-Pane wechselte von „schmal“ auf „breit“). Mit fester
   Breite (`ui.paneCols`, unten) wachsen sie, das Widget bleibt so viele
   Kachelspalten breit und wächst mit.
+  Lesbarkeits-Regel dazu (Punkt 16, `test_keine_seite_mehr_als_ein_drittel_leer`
+  mit den 23 Favoriten der Messreihe): passt alles auf eine Seite, bleibt
+  höchstens ein Drittel der Zellen leer; sonst ist jede Seite bis auf die
+  letzte voll, die den Rest trägt (Tab A9: 15 + 8). Mehr Seiten für eine
+  vollere letzte Seite nimmt die Automatik nicht in Kauf.
   Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
   die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
   Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu

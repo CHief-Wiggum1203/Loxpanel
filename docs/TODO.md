@@ -1749,8 +1749,16 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           kein abgeschnittener Name, keine Seite mehr als ein Drittel leer. **S**
           *Teil Abschneiden erledigt mit Punkt 1*
           (`test_lesbarkeit_auf_standardgeraeten`: mit Faktor nicht mehr
-          abgeschnitten als ohne, keine Kachel läuft über); der Teil „keine
-          Seite mehr als ein Drittel leer“ kommt mit Punkt 2.
+          abgeschnitten als ohne, keine Kachel läuft über).
+          *Teil „ein Drittel“ erledigt 08.10.2026*
+          (`test_keine_seite_mehr_als_ein_drittel_leer`, 23 Favoriten der
+          Messreihe): passt alles auf eine Seite, füllt das Wachsen aus
+          Punkt 2 sie bis auf höchstens ein Drittel (10″ quer 7 × 4: 5 von
+          28 Zellen leer, iPad quer 6 × 4: 1 von 24); sonst ist jede Seite
+          bis auf die letzte voll, die den Rest trägt (Tab A9 quer und
+          hochkant 15 + 8, 4″ 5 × 4 + 3). Eine vollere letzte Seite gäbe es
+          nur mit mehr Seiten (Tab A9: 4 × 2 → 8 + 8 + 7), das nimmt die
+          Automatik bewusst nicht in Kauf.
       Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
       Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
