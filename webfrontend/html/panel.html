@@ -1921,6 +1921,10 @@ const SPARK_MIN_W=40;
 // 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
 // beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
 const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE_H=48;
+// Standardgroessen je Kachel-Aufbau, wie GROESSEN_STANDARD im Server (gelten,
+// wenn der Kasten keine --ico-size usw. traegt)
+const GROESSEN_STANDARD = {neu: {iconSize: 38, nameSize: 16, subSize: 14, roomSize: 13},
+                           classic: {iconSize: 38, nameSize: 18, subSize: 15, roomSize: 12}};
 let kachelFaktor=1;
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
 // traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
@@ -1957,14 +1961,20 @@ function faktorEinmessen(){
 }
 // Nach einer Groessenaenderung ohne neues Raster (Fenster, Split an/aus): Faktor
 // neu, und die Kacheln messen sich mit den neuen Groessen noch einmal ein.
+// Kachelhoehe beim letzten Einpassen: im festen, breitenbegrenzten Raster
+// kann sie sich mit dem Fenster aendern, ohne dass der Faktor es tut
+// (Codex-Befund an #128) - dann passen Tasten und Text trotzdem neu.
+let _kachelH=0;
+function kachelHoehe(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientHeight : 0; }
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
   const vorher=kachelFaktor;
   if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
   else faktorEinmessen();
-  if(Math.abs(kachelFaktor-vorher)>=0.01) kachelnNeuMessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelHoehe()!==_kachelH) kachelnNeuMessen();
 }
 function kachelnNeuMessen(){
+  _kachelH=kachelHoehe();
   el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
     n._fitText=null;
     if(n._it && n._it.controls) tastenEinpassen(n);
@@ -2021,14 +2031,26 @@ function placeSpark(el,sp,tile){
 // oeffnet die Detailseite (nav). Das loest die flache Kachel (drei Zeilen am
 // 4"-Panel) ohne Sonderfaelle: frueher rueckten die Tasten dort in den Kopf
 // neben das Symbol (ctrltight) oder an seine Stelle (ctrlnarrow), je Text
-// gemessen. Die Masse je Aufbau bei Faktor 1, aus den CSS-Groessen (neuer
-// Aufbau: Innenrand 2 x 14, Kopf 41, Abstand 10, zwei Zeilen 38, Abstand zur
-// Leiste 10 -> 130 vor 44 Leiste; klassisch: 2 x 16, 41, 43, 6 -> 122 vor 34).
+// gemessen. Der Platz fuer Kopf und Text kommt aus den EINGESTELLTEN
+// Groessen (Symbol, Haupt-, Zweit- und Raumtext: GROESSEN_STANDARD oder
+// das Profil, als --ico-size usw. am Kasten, Codex-Befund an #128: ein
+// Profil mit 80-px-Symbol braucht mehr), dazu die festen Anteile aus dem CSS
+// bei Faktor 1 - neuer Aufbau: Innenrand 2 x 14, Kopf = Symbol (oder die
+// Raumzeile daneben), Abstand 10, zwei Zeilen mit Zeilenhoehe 1,15 und 1,3,
+// Abstand zur Leiste 10 (mit den Standardgroessen 130 vor 44 Leiste);
+// klassisch: 2 x 16, Symbol, Raumzeile, zwei Zeilen, 6 (122 vor 34).
 // Listen (Zonen einer Zentrale) haben ihre Tasten neben dem Text: immer.
-const TASTEN = {lx: {text: 130, leiste: 44}, classic: {text: 122, leiste: 34}};
+const TASTEN = {lx: {rand: 55, leiste: 44}, classic: {rand: 30, leiste: 34}};
+function tastenTextHoehe(tile){
+  const cs=getComputedStyle(tile), px=(n,d)=>parseFloat(cs.getPropertyValue(n))||d;
+  const lx=kachelNeu(), g=lx ? GROESSEN_STANDARD.neu : GROESSEN_STANDARD.classic;
+  const ico=px('--ico-size',g.iconSize), name=px('--name-size',g.nameSize), sub=px('--sub-size',g.subSize), raum=px('--room-size',g.roomSize);
+  return lx ? Math.max(ico, 1.2*raum) + 1.15*name + 1.3*sub + TASTEN.lx.rand
+            : ico + 1.2*raum + 1.15*name + 1.3*sub + TASTEN.classic.rand;
+}
 function tastenFaktor(tile){
   const t = kachelNeu() ? TASTEN.lx : TASTEN.classic;
-  return Math.min(kachelFaktor, (tile.clientHeight - t.leiste*Math.max(1, kachelFaktor)) / t.text);
+  return Math.min(kachelFaktor, (tile.clientHeight - t.leiste*Math.max(1, kachelFaktor)) / tastenTextHoehe(tile));
 }
 function tastenEinpassen(tile){
   const tc=tile&&tile.querySelector('.tctrls'); if(!tc || !tile.clientHeight) return;
@@ -2929,6 +2951,7 @@ function render(){
       tastenEinpassen(n);
     }
     fitTile(n);
+    _kachelH=n.clientHeight;   // fuer faktorNachziehen: neu einpassen, wenn sich die Hoehe aendert
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });

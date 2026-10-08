@@ -487,3 +487,82 @@ def test_tasten_nur_wenn_die_kachel_hoch_genug_ist(tmp_path, ui, tasten, art):
     else:
         assert not lage["tasten"] and "ohnetasten" in lage["klassen"] and lage["eigener"] is None, lage
         assert detail == {"view": "control", "id": kachel}, detail
+
+
+MESSEN_TASTEN = """id => {
+  const k = document.querySelector('.tile[data-id="' + id + '"]'), r = e => e.getBoundingClientRect();
+  const sc = document.querySelector('.screen'), tc = k.querySelector('.tctrls');
+  return {ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1,
+          eigener: parseFloat(k.style.getPropertyValue('--ks')) || null,
+          tasten: !!tc && !tc.hidden && getComputedStyle(tc).display !== 'none',
+          hoehe: k.clientHeight, ueberlauf: k.scrollHeight - k.clientHeight,
+          symbol: Math.round(r(k.querySelector('.ico svg')).width)}; }"""
+
+
+@pytest.mark.parametrize("symbol, tasten", [(80, False), (24, True)], ids=["gross", "klein"])
+def test_eingestellte_groessen_zaehlen_mit(symbol, tasten):
+    """Codex-Befund an #128: Der Platz fuer Kopf und Text kommt aus den
+    eingestellten Groessen, nicht aus festen Massen. Am 4"-Panel 2x2 mit
+    80-px-Symbol bleiben die Tasten weg (statt ueberzulaufen), mit 24-px-Symbol
+    stehen sie und die Kachel braucht weniger von ihrem Faktor herzugeben."""
+    async def lauf():
+        app = _app([], ROLLOS, {"iconSize": symbol})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 480, "height": 480})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="J0"] .tctrls .tb', state="attached")
+                await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(400)
+                m = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return m
+    m = asyncio.run(lauf())
+    assert m["ueberlauf"] <= 1 and m["tasten"] == tasten, m
+    if tasten:
+        assert m["eigener"] and 1.1 <= m["eigener"] < m["ks"], m   # mit kleinem Symbol bleibt mehr vom Faktor
+    else:
+        assert m["eigener"] is None and m["symbol"] >= 80, m
+
+
+def test_neue_hoehe_ohne_faktorwechsel():
+    """Codex-Befund an #128: Im festen, breitenbegrenzten Raster waechst die
+    Kachel mit dem Fenster, ohne dass der Faktor sich aendert. Die Tasten
+    und der Text passen sich trotzdem neu ein: vorher gibt die Kachel fuer
+    die Tasten von ihrem Faktor her, nachher braucht sie das nicht mehr."""
+    async def lauf():
+        app = _app([], ROLLOS, {"cols": 2, "rows": 2, "split": False})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 400, "height": 440})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="J0"] .tctrls .tb', state="attached")
+                await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(400)
+                vorher = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await pg.set_viewport_size({"width": 400, "height": 560})
+                await pg.wait_for_timeout(700)
+                nachher = await pg.evaluate(MESSEN_TASTEN, "J0")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return vorher, nachher
+    vorher, nachher = asyncio.run(lauf())
+    assert abs(vorher["ks"] - nachher["ks"]) < 0.01, "Vorbedingung: die Breite begrenzt den Faktor, er bleibt"
+    assert nachher["hoehe"] > vorher["hoehe"] + 15, (vorher, nachher)   # der Kasten endet bei 2 x 240 px
+    assert vorher["tasten"] and vorher["eigener"] and vorher["eigener"] < vorher["ks"], vorher
+    assert nachher["tasten"] and nachher["eigener"] is None and nachher["ueberlauf"] <= 1, nachher

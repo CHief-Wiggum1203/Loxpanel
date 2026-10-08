@@ -1186,9 +1186,12 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
 - Tasten nur, wenn die Kachel hoch genug ist (Oktober 2026): Die Tasten
   einer Kachel (Beschattung ▲▼, Player ◀ ⏯ ▶) stehen unter dem Text oder gar
   nicht, entschieden aus dem Faktor statt gemessen (`tastenEinpassen()`):
-  Kopf, zwei Textzeilen, Abstände und Innenrand brauchen `TASTEN.text` mal
-  Faktor (neuer Aufbau 130 px, klassisch 122 px bei Faktor 1, aus den
-  CSS-Größen), die Tastenleiste `TASTEN.leiste` mal max(1, Faktor der Seite)
+  Kopf, zwei Textzeilen, Abstände und Innenrand brauchen `tastenTextHoehe()`
+  mal Faktor: aus den eingestellten Größen (Symbol, Haupt-, Zweit- und
+  Raumtext, `GROESSEN_STANDARD` oder das Profil als `--ico-size` usw.) plus
+  den festen Anteilen aus dem CSS (`TASTEN.rand`; mit den Standardgrößen
+  130 px im neuen, 122 px im klassischen Aufbau bei Faktor 1), die
+  Tastenleiste `TASTEN.leiste` mal max(1, Faktor der Seite)
   (44 bzw. 34 px; Touch-Ziele schrumpfen nie, sie tragen den Faktor der
   Seite als `--ksg`). Die Kachel nimmt den Faktor, bei dem beides in ihre
   Höhe passt, höchstens den der Seite, als eigenes `--ks` an der Kachel (4″
@@ -1201,7 +1204,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Text gemessen von `placeCtrls()`); die Entscheidung hängt nicht mehr am
   Text, eine fahrende Jalousie mit zwei Zustandszeilen verliert ihre Tasten
   nicht. `updateGrid()` setzt den Style der Kachel gegen den zuletzt
-  gesetzten Text (`_stStr`) und behält so den eigenen Faktor; Listen (Zonen
+  gesetzten Text (`_stStr`) und behält so den eigenen Faktor;
+  `faktorNachziehen()` passt neu ein, wenn sich die Kachelhöhe ändert, auch
+  ohne Faktorwechsel (festes, breitenbegrenztes Raster). Listen (Zonen
   einer Zentrale) haben ihre Tasten immer. Geprüft in
   `tests/browser/test_kachel_tasten_browser.py` (vier Raster, Beschattung
   und Player, Tipp öffnet die Detailseite) und
