@@ -425,6 +425,31 @@
   .grid.snapy{scroll-snap-type:y mandatory;scroll-padding-top:10px;}
   .grid.list.snapy{scroll-snap-type:y proximity;}
   .tile.snap{scroll-snap-align:start;}
+  /* Waagerechte Seiten (Tablet: Split an und kein quadratischer Schirm,
+     seitenQuer()): das Raster ist eine Zeile aus Seiten in Schirmbreite, jede
+     Seite ein eigenes Raster aus --cols x --rows Kacheln, eingerastet je
+     Seite. Das 4"-Panel (quadratisch oder Split aus) blaettert weiter
+     senkrecht (.snapy). --punkte-h: Hoehe der Seitenpunkte unter den Kacheln,
+     autoRaster() rechnet sie von der Hoehe ab, sobald es mehr als eine Seite gibt. */
+  .grid{--punkte-h:14px;}
+  .grid.hpages{display:flex;flex-wrap:nowrap;align-items:stretch;gap:0;padding:0;
+    overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;}
+  .grid.hpages::-webkit-scrollbar{display:none;}
+  .grid.hpages .page{flex:0 0 100%;width:100%;height:100%;box-sizing:border-box;padding:var(--pad);
+    display:grid;grid-template-columns:repeat(var(--cols,2),1fr);grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));
+    grid-auto-flow:row dense;gap:var(--gap);scroll-snap-align:start;scroll-snap-stop:always;}
+  .grid.hpages.punkte .page{padding-bottom:calc(var(--pad) + var(--punkte-h));}
+  /* Seitenpunkte: ein Element in Seitenbreite, das am linken Rand des
+     Sichtfensters klebt (sticky) und in der Zeile keinen Platz einnimmt
+     (negativer Rand) - so steht es ueber jeder Seite an derselben Stelle. */
+  .grid.hpages .punkte{position:sticky;left:0;flex:0 0 100%;width:100%;margin-right:-100%;height:100%;
+    box-sizing:border-box;z-index:2;pointer-events:none;display:none;
+    align-items:flex-end;justify-content:center;gap:2px;}
+  .grid.hpages.punkte .punkte{display:flex;}
+  .grid.hpages .punkte i{display:block;width:7px;height:7px;padding:6px 5px 3px;box-sizing:content-box;
+    border-radius:50%;background:var(--muted);background-clip:content-box;opacity:.45;
+    pointer-events:auto;cursor:pointer;transition:opacity .2s;}
+  .grid.hpages .punkte i.on{opacity:1;background-color:var(--accent);}
   /* Breite Kachel (it.w = 2: Audio, Raumregelung, Energiefluss, je Kachel
      einstellbar): zwei Spalten; der dichte Fluss (dense) fuellt die Luecke
      davor mit der naechsten schmalen Kachel. Seiten und Rastpunkte rechnet
@@ -2253,7 +2278,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme','fronttab','lx');
+  el('grid').classList.remove('list','snapy','scheme','fronttab','lx','hpages','punkte');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
@@ -2504,14 +2529,34 @@ function renderTabs(){
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
 }
+// Waagerechte Seiten (Tablet) oder senkrechtes Einrasten (4"-Panel)? Auf
+// einem Tablet mit Split wischt man Seiten wie in der Loxone-App zur Seite,
+// mit Punkten darunter; das quadratische 4"-Panel und ein Profil mit Split
+// "aus" blaettern weiter senkrecht. Listen (layout "list") bleiben immer
+// senkrecht. Quadratisch: Breite und Hoehe weniger als ein Zehntel auseinander.
+function quadratisch(){ const {w,h}=vpSize(); return Math.abs(w-h) < 0.1*Math.max(w,h); }
+function seitenQuer(v){
+  v=v||view;
+  return !!(v && themeSplit && !v.widget && !v.front && v.layout!=='list' && !quadratisch());
+}
+function seiteAktuell(){ const g=el('grid'); return g.clientWidth>0 ? Math.round(g.scrollLeft/g.clientWidth) : 0; }
+function seiteZu(k){ const g=el('grid'); g.scrollTo({left:Math.max(0,k)*g.clientWidth, behavior:'smooth'}); }
+function punkteNachziehen(){
+  const g=el('grid'), s=seiteAktuell();
+  g.querySelectorAll('.punkte i').forEach((d,k)=>d.classList.toggle('on', k===s));
+}
 // Zur SEITE springen, auf der die Kachel steht. Die Kachelflaeche rastet
 // seitenweise ein (scroll-snap mandatory, Rastpunkt = erste Kachel jeder
 // Seite). Ein Sprung direkt auf eine Kachel im unteren Teil einer Seite
 // landete am naechstgelegenen Rastpunkt - oft schon auf der FOLGENDEN Seite,
 // und die Zielkachel verschwand oben (gemessen 2x2 und 2x3: 199 bzw. 210 px
-// ueber dem sichtbaren Bereich).
+// ueber dem sichtbaren Bereich). Waagerechte Seiten: zur Seite der Kachel.
 function springeZu(d){
   const g=el('grid'), tiles=[...g.querySelectorAll('.tile[data-id]')];
+  if(g.classList.contains('hpages')){
+    const p=d.closest('.page'); if(p) seiteZu([...g.querySelectorAll('.page')].indexOf(p));
+    return;
+  }
   const i=tiles.indexOf(d);
   let ziel=d;
   if(i>=0 && g.classList.contains('snapy')){
@@ -2540,7 +2585,7 @@ function katTipp(key){
   katFilter=(katFilter===key) ? null : key;   // zweiter Tipp auf dieselbe Marke: wieder alle
   // Auf der Seite mit den Marken neu zeichnen; aus einer Detailansicht zurueck
   // in den Raum - dort greift der Filter beim Rendern.
-  if(view && Array.isArray(view.catTabs)){ render(); el('grid').scrollTop=0; }
+  if(view && Array.isArray(view.catTabs)){ render(); el('grid').scrollTop=0; el('grid').scrollLeft=0; }
   else { const rt=tabsCfg[0]; if(rt) goTab(rt); }
 }
 // Kacheln, die im Filter-Modus sichtbar sind. Nur auf der Seite mit den Marken
@@ -2820,17 +2865,36 @@ function updateGrid(items){
   const g=el('grid');
   if(g.classList.contains('panel')) return false;
   if(g.classList.contains('lx')!==kachelNeu()) return false;   // Kachel-Aufbau gewechselt
-  const nodes=g.querySelectorAll('.tile[data-id]');
+  const quer=seitenQuer();
+  if(g.classList.contains('hpages')!==quer) return false;      // Blaetterrichtung gewechselt (Drehen)
+  const nodes=[...g.querySelectorAll('.tile[data-id]')];
   if(nodes.length!==items.length || !nodes.length) return false;
-  for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
   const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
-  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const seiteVon=i=>Math.floor(lage.zeile[i]/Math.max(1,gridRows));
+  const byId=new Map(nodes.map(n=>[n.dataset.id, n]));
+  if(quer){
+    // Waagerechte Seiten: dieselben Kacheln auf denselben Seiten in derselben
+    // Reihenfolge je Seite (der dichte Fluss haengt an der Reihenfolge). Im
+    // DOM steht eine schmale Kachel, die in eine Luecke rueckte, vor einer
+    // breiten auf der naechsten Seite - darum je Seite vergleichen.
+    const pages=[...g.querySelectorAll('.page')];
+    if(pages.length!==lage.seiten) return false;
+    const soll=pages.map(()=>[]);
+    items.forEach((it,i)=>soll[seiteVon(i)].push(String(it.id)));
+    for(let k=0;k<pages.length;k++){
+      const ist=[...pages[k].querySelectorAll('.tile[data-id]')].map(n=>n.dataset.id);
+      if(ist.join('\n')!==soll[k].join('\n')) return false;
+    }
+  } else {
+    for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
+  }
+  const snapAt=i=> quer ? false : (view.layout==='list' ? (i%4===0) : lage.snaps.has(i));
   const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
   g._zeile=lage.zeile;
-  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);
+  g.classList.toggle('snapy', !quer && (view.layout==='list' ? items.length>4 : lage.seiten>1));
   let ok=true;
   items.forEach((it,i)=>{
-    const n=nodes[i];
+    const n=quer ? byId.get(String(it.id)) : nodes[i];
     n._it=it;
     // Klassen, die tastenEinpassen()/fitTile()/paintSpark() nach dem Messen
     // setzen, bleiben stehen: sonst verloere eine enge Kachel bei jedem
@@ -2938,6 +3002,7 @@ function rasterLage(breiten, cols, rows){
 function autoRaster(widget){
   const cs=getComputedStyle(el('grid')), tabs=el('tabs');
   const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
+  const punkteH=parseFloat(cs.getPropertyValue('--punkte-h'))||0;
   const vp=vpSize(), w=vp.w, tabsH=tabs?tabs.offsetHeight:0, hoch=vp.h>vp.w;
   const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
   const abgeben=n=>Math.min(n-1, Math.max(1, paneCols>0 ? paneCols : Math.round(n*paneShare)));
@@ -2945,30 +3010,41 @@ function autoRaster(widget){
   // -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen. Mit der Zeilenzahl steht
   // die Hoehe fest; ist die Kachel flach, begrenzt sie den Faktor (die
   // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
-  const fuer=gesamt=>{
+  const fuer=(gesamt, punkte)=>{
     const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
-    const h=vp.h-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw);
-    const rows=anzahl(h, kb);
-    const ks=kachelFaktorFuer(kb, (h-2*pad-(rows-1)*gap)/rows);
+    const h=vp.h-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw)-(punkte?punkteH:0);
+    const rows=anzahl(h, kb), zh=(h-2*pad-(rows-1)*gap)/rows;   // zh: Hoehe einer Kachelzeile
+    const ks=kachelFaktorFuer(kb, zh);
     let r;
     if(!widget) r={cols:gesamt, rows:rows, k:1, p:0, ks:ks};
-    else if(hoch){   // hochkant: Widget unter den Kacheln
+    else if(hoch){   // hochkant: Widget unter den Kacheln. Seine Hoehe in px
+      // (p Zeilen samt Abstand, pPx): ein Anteil (fr) nahm die Hoehe der
+      // Seitenpunkte nur von der Kachelhaelfte, die Kacheln wurden flacher als
+      // ohne Widget; so bleibt der Kachelhaelfte genau k Zeilen plus Rand und Punkte.
       if(rows<2) r={cols:gesamt, rows:1, k:1, p:1, ks:ks};
-      else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks}; } }
+      else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks, pPx:p*(zh+gap)}; } }
     else if(gesamt<2) r={cols:1, rows:rows, k:1, p:1, ks:ks};
     else { const p=abgeben(gesamt); r={cols:gesamt-p, rows:rows, k:gesamt-p, p:p, ks:ks}; }
     r.gesamt=gesamt; r.kb=kb;
     return r;
   };
-  let r=fuer(anzahl(w, gridAuto));
   const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
-  if((!widget || paneCols>0) && passt(r.cols,r.rows)){
-    for(let c=r.gesamt-1; c>=1; c--){
-      const n=fuer(c);
-      if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
-      r=n;
+  const rechne=punkte=>{
+    let r=fuer(anzahl(w, gridAuto), punkte);
+    if((!widget || paneCols>0) && passt(r.cols,r.rows)){
+      for(let c=r.gesamt-1; c>=1; c--){
+        const n=fuer(c, punkte);
+        if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
+        r=n;
+      }
     }
-  }
+    return r;
+  };
+  let r=rechne(false);
+  // Waagerechte Seiten mit Punkten darunter: die Punkte nehmen Hoehe, also
+  // noch einmal rechnen, sobald es mehr als eine Seite gibt (weniger Hoehe
+  // gibt nie weniger Seiten, das Ergebnis steht nach dem zweiten Lauf).
+  if(seitenQuer() && _lastBreiten.length>0 && rasterLage(_lastBreiten, r.cols, r.rows).seiten>1) r=rechne(true);
   return r;
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
@@ -2994,7 +3070,8 @@ function render(){
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
   if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
-    sc.style.setProperty('--auto-k', a.k+'fr'); sc.style.setProperty('--auto-p', a.p+'fr');
+    sc.style.setProperty('--auto-k', a.pPx ? 'minmax(0,1fr)' : a.k+'fr');
+    sc.style.setProperty('--auto-p', a.pPx ? Math.round(a.pPx)+'px' : a.p+'fr');
     setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   renderLeiste();   // Werteleiste ueber dem Raster (oder weg) - vor dem Bauen und Messen der Kacheln
@@ -3011,7 +3088,7 @@ function render(){
     if(!gridAuto){ gridCols=profCols; gridRows=profRows; }   // automatisch: der Kasten ist ohnehin der Schirm
     document.documentElement.style.setProperty('--cols', gridCols);
     document.documentElement.style.setProperty('--rows', gridRows);
-    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx');
+    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx','hpages','punkte');
     renderTabs();
     return;
   }
@@ -3021,13 +3098,16 @@ function render(){
   el('grid').classList.toggle('lx', kachelNeu());
   const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
-  if(!items.length){ g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
+  if(!items.length){ g.classList.remove('hpages','punkte'); g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
   // Lage im Raster: Rastpunkt auf die erste Kachel jeder Seite (Liste: jede
-  // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind
+  // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind. Waagerechte
+  // Seiten (Tablet): je Seite ein eigenes Raster, Rastpunkt ist die Seite.
   const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
-  const snapAt=i=> view.layout==='list' ? (i%4===0) : lage.snaps.has(i);
+  const quer=seitenQuer();
+  const snapAt=i=> quer ? false : (view.layout==='list' ? (i%4===0) : lage.snaps.has(i));
   const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
   g._zeile=lage.zeile;
+  const seiten=quer ? Array.from({length:lage.seiten}, ()=>'') : null;
   let html='';
   let _i=-1;
   for(const it of items){
@@ -3064,7 +3144,7 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    html += '<div class="tile'+tone+aufbauKlassen(it)+breit(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+breit(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
                 (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
@@ -3075,9 +3155,17 @@ function render(){
               (sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
               ctrls+
             '</div>';
+    if(seiten) seiten[Math.floor(lage.zeile[_i]/Math.max(1,gridRows))] += kachel; else html += kachel;
   }
+  if(seiten){
+    html = '<div class="punkte">'+seiten.map((_,k)=>'<i'+(k===0?' class="on"':'')+'></i>').join('')+'</div>'+
+           seiten.map(h=>'<div class="page">'+h+'</div>').join('');
+  }
+  g.classList.toggle('hpages', quer);
+  g.classList.toggle('punkte', quer && lage.seiten>1);
   g.innerHTML = html;
-  g.classList.toggle('snapy', view.layout==='list' ? items.length>4 : lage.seiten>1);   // Snapping erst ab >1 Seite
+  if(quer){ g.querySelectorAll('.punkte i').forEach((d,k)=>d.onclick=()=>seiteZu(k)); punkteNachziehen(); }
+  g.classList.toggle('snapy', !quer && (view.layout==='list' ? items.length>4 : lage.seiten>1));   // Snapping erst ab >1 Seite
   // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
   // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
   renderTabs();
@@ -3127,7 +3215,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx','hpages','punkte');
   g.classList.add('scheme');
   el('conn').classList.remove('vis');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
@@ -3220,15 +3308,32 @@ window.addEventListener('orientationchange', ()=>setTimeout(fensterGeaendert, 50
 window.addEventListener('pageshow', fensterGeaendert);
 if(window.visualViewport) window.visualViewport.addEventListener('resize', fensterGeaendert);
 
-// Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt)
-let sx=null, sy=null;
+// Wisch nach rechts = zurueck (vertikales Scrollen bleibt unberuehrt). Mit
+// waagerechten Seiten blaettert der Wisch ab Seite 2 zurueck zur vorigen
+// Seite (der Browser scrollt, eingerastet); nur auf der ersten Seite heisst
+// er "zurueck" wie am 4"-Panel.
+let sx=null, sy=null, sl=0;
 const g=el('grid');
-g.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+g.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;sl=g.scrollLeft;},{passive:true});
 g.addEventListener('touchend',e=>{
   if(sx==null)return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null;
   if(g.classList.contains('scheme')) return;   // im Schema pant der Finger, kein "zurueck"
+  if(g.classList.contains('hpages') && sl>0) return;   // Seite zurueckgeblaettert, nicht die Ansicht
   if(dx>60 && Math.abs(dy)<45) back();
 });
+// Seitenpunkte folgen dem Scrollen; das Mausrad (Browser am PC, iPad mit
+// Trackpad) blaettert senkrecht gedreht eine Seite weiter, waagerechte
+// Bewegungen scrollt der Browser selbst (eingerastet).
+g.addEventListener('scroll', ()=>{ if(g.classList.contains('hpages')) punkteNachziehen(); }, {passive:true});
+let _radSperre=null;
+g.addEventListener('wheel', e=>{
+  if(!g.classList.contains('hpages') || Math.abs(e.deltaY)<=Math.abs(e.deltaX)) return;
+  e.preventDefault();
+  if(_radSperre) return;
+  _radSperre=setTimeout(()=>{ _radSperre=null; }, 450);
+  const n=g.querySelectorAll('.page').length;
+  seiteZu(Math.max(0, Math.min(n-1, seiteAktuell()+(e.deltaY>0?1:-1))));
+}, {passive:false});
 
 let booted=false;
 const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
@@ -3375,12 +3480,13 @@ function connect(){
       if(same && el('grid').classList.contains('panel')) updatePanel(msg.blocks);
       else renderPanel(msg.blocks);
     } else {
-      const st=same?g.scrollTop:0;
+      const st=same?g.scrollTop:0, sl=same?g.scrollLeft:0;
       view=msg;
       // Gleiche Kachel-Seite: nur die veraenderlichen Teile patchen (kein
       // innerHTML-Neuaufbau -> kein Flackern/Neuladen der Icons, z.B. Fully Kiosk).
-      // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau.
-      if(!(same && updateGrid(katSichtbar(view.items||[])) && updateLeiste(view.leiste))){ render(); g.scrollTop=st; }
+      // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau, die
+      // Seite (senkrecht wie waagerecht) bleibt stehen.
+      if(!(same && updateGrid(katSichtbar(view.items||[])) && updateLeiste(view.leiste))){ render(); g.scrollTop=st; g.scrollLeft=sl; punkteNachziehen(); }
     }
   };
 }
@@ -4029,7 +4135,7 @@ function kalenderEinpassen(elc){
 function renderFrontTab(){
   const g=el('grid'), d=frontData||{}, art=view.front;
   const liste=g.querySelector('.ft-b'), oben=(g.classList.contains('fronttab') && liste) ? liste.scrollTop : 0;
-  g.classList.remove('list','snapy','chartpage','lx');
+  g.classList.remove('list','snapy','chartpage','lx','hpages','punkte');
   g.classList.add('fronttab');
   el('conn').classList.remove('vis');   // der Verbindungspunkt saesse mitten im Inhalt
   if(art==='calendar'){

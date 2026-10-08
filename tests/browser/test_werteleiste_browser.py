@@ -50,7 +50,7 @@ MESSEN = """() => {
     ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1,
     leisteH: parseFloat(getComputedStyle(sc).getPropertyValue('--leiste-h')) || 0,
     scrollBreite: lz.scrollWidth, innenBreite: lz.clientWidth, scrollLinks: lz.scrollLeft,
-    sichtbar: kacheln.filter(x => { const b = r(x); return b.t >= gr.t - 1 && b.b <= gr.b + 1; }).length,
+    sichtbar: kacheln.filter(x => { const b = r(x); return b.t >= gr.t - 1 && b.b <= gr.b + 1 && b.l >= gr.l - 1 && b.r <= gr.r + 1; }).length,
     route: view && view.route, stapel: stack.length,
   };
 }"""

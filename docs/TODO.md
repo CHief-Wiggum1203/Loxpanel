@@ -1699,6 +1699,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       8. **Seiten waagerecht wischen mit Punkten** auf Tablets, das 4″-Panel
          bleibt bei senkrechtem Einrasten. **M**
+         *Erledigt 08.10.2026:* Mit Split und rechteckigem Schirm
+         (`seitenQuer()`) stehen die Kachelseiten nebeneinander, jede ein
+         eigenes Raster, eingerastet je Seite, mit Punkten darunter (Tipp
+         springt zur Seite, Mausrad blättert); das quadratische 4″-Panel und
+         Split „Aus“ blättern senkrecht wie bisher. Der Wisch nach rechts
+         blättert ab Seite 2 zurück und heißt nur auf Seite 1 „zurück“.
+         Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1.
       9. **Assistent Schritt 1 aus dem Gerät:** Geräteliste aus
          `/api/devices` mit gemeldeter Größe, „Dieser Browser“ und Katalog
          als Ausweg; nur passende Anzeigen anbieten, jede mit vorgerechnetem

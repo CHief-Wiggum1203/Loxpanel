@@ -56,7 +56,7 @@ def test_sprung_zeigt_zielkachel_und_leuchtet(breite, hoehe, ui):
             await pg.wait_for_timeout(800)
             sichtbar = await pg.evaluate("""k => { const g = document.getElementById('grid').getBoundingClientRect(),
                 r = document.querySelector('#grid .tile[data-cat="' + k + '"]').getBoundingClientRect();
-                return r.top >= g.top - 1 && r.bottom <= g.bottom + 1; }""", cat)
+                return r.top >= g.top - 1 && r.bottom <= g.bottom + 1 && r.left >= g.left - 1 && r.right <= g.right + 1; }""", cat)
             assert sichtbar, cat
         await pg.wait_for_timeout(1700)
         assert await pg.evaluate("document.querySelectorAll('#grid .tile.katleucht').length") == 0

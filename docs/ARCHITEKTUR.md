@@ -1312,6 +1312,42 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   und Player, Tipp öffnet die Detailseite) und
   `tests/browser/test_kachel_aufbau_browser.py` (4″ 2×2 und 3×3, beide
   Aufbauten).
+- Waagerechte Seiten (Punkt 8, 08.10.2026): Auf einem Tablet wischt man die
+  Kachelseiten zur Seite wie in der Loxone-App, mit Punkten darunter; das
+  4″-Panel blättert weiter senkrecht. Die Regel ist `seitenQuer()`: Split
+  an, kein quadratischer Schirm (Breite und Höhe weniger als ein Zehntel
+  auseinander, `quadratisch()`), keine Liste (`layout: "list"`), keine
+  Widget- oder Front-Seite. Dann ist `#grid` eine Flex-Zeile (`.hpages`)
+  aus `.page`-Elementen in Schirmbreite, jede ein eigenes Raster aus
+  `--cols` × `--rows` mit dichtem Fluss, eingerastet je Seite
+  (`scroll-snap-type: x mandatory`); `render()` verteilt die Kacheln nach
+  der Zeile aus `rasterLage()` (Seite = Zeile ÷ Zeilen) auf die Seiten, die
+  Rastpunkte `.snap` entfallen. Die Punkte (`.punkte`, nur ab zwei Seiten,
+  Klasse `punkte` am Raster) sind ein Element in Seitenbreite, das als
+  `position: sticky; left: 0` mit negativem rechten Rand keinen Platz
+  einnimmt und so über jeder Seite an derselben Stelle steht; sie folgen dem
+  Scrollen (`punkteNachziehen()`), ein Tipp führt zur Seite (`seiteZu()`),
+  das Mausrad senkrecht gedreht blättert eine Seite (waagerechte
+  Rad-Bewegungen scrollt der Browser selbst). `autoRaster()` zieht die Höhe
+  der Punkte (`--punkte-h`) von der freien Höhe ab, sobald die Kacheln der
+  Seite mehr als eine Seite füllen (zweiter Rechenlauf; weniger Höhe gibt
+  nie weniger Seiten). Hochkant mit Widget darunter setzt `render()` die
+  Widget-Höhe deshalb in Pixeln (`pPx`: Zeilen × Zeilenhöhe samt Abstand)
+  statt als Anteil `fr`: ein Anteil nähme die Punkte nur von der
+  Kachelhälfte, die Kacheln würden flacher als ohne Widget. `updateGrid()`
+  patcht die Kacheln in ihren Seiten,
+  wenn jede Seite dieselben Kacheln in derselben Reihenfolge trägt (im DOM
+  steht eine schmale Kachel, die in eine Lücke rückte, vor einer breiten
+  auf der nächsten Seite), sonst baut `render()` neu und stellt die Seite
+  wieder her (`scrollLeft`). Der Wisch nach rechts blättert ab Seite 2
+  zurück (der Browser scrollt eingerastet) und heißt nur auf der ersten
+  Seite „zurück“, wie am 4″-Panel; Sprungmarken springen zur Seite der
+  ersten Kachel ihrer Gruppe (`springeZu()`). Beim Drehen zwischen
+  quadratisch und rechteckig wechselt die Richtung mit dem nächsten
+  `render()` (`updateGrid()` lehnt den Wechsel ab). Geprüft in
+  `tests/browser/test_seiten_wischen_browser.py` (Tablet quer und hochkant,
+  festes Raster, 4″ quadratisch, Split aus, Drehen, Live-Wert, Wisch,
+  Sprungmarke).
 - Breite Kacheln (Oktober 2026): Audio, Raumregelung und Energiefluss
   (`KACHEL_BREIT_TYPEN`: AudioZone, AudioZoneV2, IRoomController(V2), EFM,
   EnergyManager2) belegen zwei Spalten, je Kachel übersteuerbar über
@@ -1379,8 +1415,9 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   gleich groß: am Tab A9 quer 3 × 3 neben dem Widget statt 5 × 3. Der Kasten
   ist der ganze Schirm (Klasse `.fill` mit `.auto`), „Bildschirm füllen“,
   Skalierung und die Verdopplung „Screen füllen“ wirken nicht
-  (`applyScale()` bleibt bei 1). Geblättert wird seitenweise wie bisher (je
-  Seite Spalten × Zeilen Kacheln). Beim Drehen rechnet `rasterKey()` neu, der
+  (`applyScale()` bleibt bei 1). Geblättert wird seitenweise (je Seite
+  Spalten × Zeilen Kacheln), auf dem Tablet waagerecht mit Punkten (unten,
+  „Waagerechte Seiten“). Beim Drehen rechnet `rasterKey()` neu, der
   `resize`-Handler baut dann neu auf. Der Online-Punkt sitzt wie im Split in
   der Ecke, weil die Mitte bei ungeraden Zahlen (5 × 3) auf einer Kachel läge.
   Das Panel meldet das Raster mit seiner Bildschirmgröße (`rc`, `rr`), der
@@ -1560,7 +1597,8 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Gruppe trägt `catKey` als Anker, jede Kachel `grp` (Kategorie bzw. Raum).
   Ein Tipp springt (Standard) oder filtert (`ui.catFilter`, im Konfigurator
   „Tipp auf eine Sprungmarke“). Springen geht auf die **Seite**, auf der die
-  Gruppe beginnt (`springeZu()`): die Kachelfläche rastet seitenweise ein
+  Gruppe beginnt (`springeZu()`, auf dem Tablet die waagerechte Seite, s.
+  „Waagerechte Seiten“): die Kachelfläche rastet seitenweise ein
   (`scroll-snap-type: y mandatory`, Rastpunkt = erste Kachel jeder Seite), und
   ein Sprung direkt auf eine Kachel im unteren Teil einer Seite landete am
   nächstgelegenen Rastpunkt, oft schon auf der folgenden Seite. Die Zielkachel

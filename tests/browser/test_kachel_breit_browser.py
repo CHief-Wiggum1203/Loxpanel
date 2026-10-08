@@ -36,9 +36,12 @@ MESSEN = """() => { const g = document.getElementById('grid'), sc = document.que
   const gap = parseFloat(getComputedStyle(g).getPropertyValue('--gap')) || 0;
   const r = e => e.getBoundingClientRect();
   const tiles = [...g.querySelectorAll('.tile[data-id]')].map(t => { const b = r(t);
-    return {id: t.dataset.id, w2: t.classList.contains('w2'), snap: t.classList.contains('snap'),
+    const pg = t.closest('.page'), seite = pg ? [...g.querySelectorAll('.page')].indexOf(pg) : 0;
+    return {id: t.dataset.id, w2: t.classList.contains('w2'), snap: t.classList.contains('snap'), seite,
             top: Math.round(b.top), left: Math.round(b.left), breite: Math.round(b.width), hoehe: Math.round(b.height)}; });
-  return {tiles, gap, zeile: g._zeile || null, snapy: g.classList.contains('snapy'), raster: [gridCols, gridRows],
+  // blaettert: senkrecht eingerastet (.snapy, 4"-Panel) oder waagerechte Seiten mit Punkten (Tablet)
+  return {tiles, gap, zeile: g._zeile || null, snapy: g.classList.contains('snapy'),
+    blaettert: g.classList.contains('snapy') || g.classList.contains('punkte'), raster: [gridCols, gridRows],
     ks: parseFloat(getComputedStyle(sc).getPropertyValue('--ks')) || 1, scrollTop: g.scrollTop,
     gridTop: Math.round(r(g).top), gridBottom: Math.round(r(g).bottom)}; }"""
 
@@ -96,9 +99,11 @@ def _laufen(ui, breite, hoehe, bausteine, schritte=MESSEN, tiles=None):
 
 
 def _zeilen_gemessen(m):
-    """Zeile je Kachel aus den gemessenen Oberkanten (gleiche Oberkante = gleiche Zeile)."""
-    kanten = sorted({t["top"] for t in m["tiles"]})
-    return [kanten.index(t["top"]) for t in m["tiles"]]
+    """Zeile je Kachel aus den gemessenen Oberkanten (gleiche Oberkante = gleiche
+    Zeile); mit waagerechten Seiten (Tablet) zaehlen die Zeilen seitenweise weiter."""
+    rows = m["raster"][1]
+    kanten = {s: sorted({t["top"] for t in m["tiles"] if t["seite"] == s}) for s in {t["seite"] for t in m["tiles"]}}
+    return [t["seite"] * rows + kanten[t["seite"]].index(t["top"]) for t in m["tiles"]]
 
 
 def test_zwei_spalten_und_dichter_fluss():
@@ -167,7 +172,7 @@ def test_automatik_rechnet_mit_der_breite(schalter, eine_seite):
     erwartet, seiten = _lage([2 if t["w2"] else 1 for t in m["tiles"]], cols, rows)
     assert m["zeile"] == erwartet and _zeilen_gemessen(m) == erwartet, (m["zeile"], erwartet)
     schmal = next(t for t in m["tiles"] if not t["w2"])
-    assert (seiten == 1) == eine_seite and m["snapy"] == (seiten > 1), (seiten, m["snapy"])
+    assert (seiten == 1) == eine_seite and m["blaettert"] == (seiten > 1), (seiten, m["blaettert"])
     if eine_seite:
         assert schmal["breite"] > 1.1 * W.KACHEL_ZIEL_STANDARD, schmal
     else:
