@@ -1286,18 +1286,29 @@ def _gesichert_felder(details: dict) -> dict:
 
 
 KEIN_VIDEO = "Kein Video eingerichtet"
-NUR_FERNZUGANG = "Kamera nur über den Fernzugang erreichbar"
 
 
-def _kamera_aus_details(details: dict) -> dict:
+def _mit_miniserver(teile, host: str, port=None) -> str:
+    """netloc einer streamUrl mit dem Miniserver als Host: Anmeldedaten in der
+    Adresse bleiben, der Port ist der uebergebene oder der aus der Adresse."""
+    auth = teile.netloc.rsplit("@", 1)[0] + "@" if "@" in teile.netloc else ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"               # IPv6
+    p = teile.port if port is None else port
+    return auth + host + (f":{p}" if p else "")
+
+
+def _kamera_aus_details(details: dict, ms_host: str = "", ms_port=None) -> dict:
     """Kamera einer Intercom aus ihren gesicherten Details (videoInfo:
     streamUrl, user, pass; Strukturdoku 16.0 und 17.0, Intercom).
     -> {"url", "user", "pass"} oder {"grund"} fuer die Intercom-Seite.
-    Steht statt Host oder IP "cloudDNS" oder "remoteConnect" in der streamUrl,
-    ist die Kamera laut Doku nur ueber den Fernzugang des Miniservers zu
-    erreichen; LoxPanel arbeitet im Heimnetz und oeffnet den nicht. Eine
-    Adresse ohne Schema (so wie sie in Loxone Config eingetragen wurde) wird
-    mit http:// angesprochen."""
+    Steht statt Host oder IP ein Platzhalter in der streamUrl, ersetzt ihn
+    LoxPanel wie die Loxone-App (Strukturdoku 17.0, Intercom, streamUrl):
+    "cloudDNS" durch die Adresse des Miniservers (Port bleibt),
+    "remoteConnect" durch Host UND Port des Miniservers mit https - der
+    Miniserver leitet das Bild der Kamera weiter. Ohne Miniserver-Adresse
+    (ms_host) bleibt so eine Kamera ohne Video. Eine Adresse ohne Schema (so
+    wie sie in Loxone Config eingetragen wurde) wird mit http:// angesprochen."""
     vi = details.get("videoInfo")
     url = str(vi.get("streamUrl") or "").strip() if isinstance(vi, dict) else ""
     if not url:
@@ -1305,11 +1316,18 @@ def _kamera_aus_details(details: dict) -> dict:
     if "://" not in url:
         url = "http://" + url
     try:
-        host = (urlsplit(url).hostname or "").lower()
+        teile = urlsplit(url)
+        host = (teile.hostname or "").lower()
+        teile.port                       # prueft die Port-Angabe mit
     except ValueError:                   # etwa eine kaputte IPv6-Angabe
         return {"grund": KEIN_VIDEO}
     if host in ("clouddns", "remoteconnect"):
-        return {"grund": NUR_FERNZUGANG}
+        if not ms_host:
+            return {"grund": KEIN_VIDEO}
+        if host == "clouddns":
+            url = teile._replace(netloc=_mit_miniserver(teile, ms_host)).geturl()
+        else:
+            url = teile._replace(scheme="https", netloc=_mit_miniserver(teile, ms_host, ms_port or 443)).geturl()
     return {"url": url, "user": str(vi.get("user") or "").strip(), "pass": str(vi.get("pass") or "")}
 
 
@@ -1901,7 +1919,7 @@ class App:
             cam = self.ms_video.get(uuid)
             if cam is None:
                 try:
-                    cam = _kamera_aus_details(await self.secured_details(uuid))
+                    cam = _kamera_aus_details(await self.secured_details(uuid), self.host, self.port)
                 except OhneGesicherteDetails:
                     cam = {"grund": KEIN_VIDEO}
                 except ZugangFehler as err:

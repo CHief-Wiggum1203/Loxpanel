@@ -655,9 +655,10 @@ Türstation, `loxpanel.cfg` `intercom`) hat Vorrang. Sonst nimmt LoxPanel
 (nach dem Speichern in Loxone Config); zwei Panels zugleich fragen einmal
 (`_video_sperre`). Ein Fehler bei Verbindung oder Rechten wird nicht gemerkt,
 beim nächsten Mal fragt LoxPanel neu. Steht statt Host „cloudDNS“ oder
-„remoteConnect“ in der `streamUrl`, ist die Kamera laut Doku nur über den
-Fernzugang des Miniservers zu erreichen; LoxPanel arbeitet im Heimnetz und
-zeigt dann „Kamera nur über den Fernzugang erreichbar“. Die Detailseite zeigt
+„remoteConnect“ in der `streamUrl`, ersetzt LoxPanel den Platzhalter wie die
+Loxone-App (Strukturdoku 17.0, Intercom): „cloudDNS“ durch die Adresse des
+Miniservers (der Port bleibt), „remoteConnect“ durch Host und Port des
+Miniservers mit `https`; der Miniserver leitet das Kamerabild weiter. Die Detailseite zeigt
 das Video, solange offen ist, ob der Miniserver eine Kamera nennt
 (`_intercom_video_block()`); `/mjpeg` fragt ihn, setzt `_dirty`, und danach
 stehen Bild oder Grund da.
