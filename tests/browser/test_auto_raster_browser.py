@@ -378,3 +378,116 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
     assert assistent.pop("ui") == {"grid": "auto"}, stand
     assert assistent == {"tablet": "auto", "angezeigt": [True, "Automatisch"], "panel4": "2x2",
                          "bleibt": "3x3", "zusammenfassung": True}, assistent
+
+
+@pytest.mark.parametrize("spalten", [1, 2, 3])
+@pytest.mark.parametrize("geraet", ["taba9-quer", "taba9-hoch", "zehn-quer"])
+def test_widget_breite_fest_in_kachelspalten(tmp_path, geraet, spalten):
+    """Punkt 7: ui.paneCols legt fest, wie viele Kachelspalten (hochkant
+    Kachelzeilen) das Widget belegt, statt des Anteils der Automatik. Die
+    Kacheln bleiben so gross wie ohne Widget."""
+    breite, hoehe = GERAETE[geraet]
+    ohne = _laufen({"grid": "auto"}, breite, hoehe)
+    mit = _laufen({"grid": "auto", "panes": {"favoriten": "weather"}, "paneCols": spalten}, breite, hoehe,
+                  tmp_path=tmp_path, bild=f"auto_widget_{spalten}_{geraet}")
+    (c0, r0), (c1, r1) = ohne["raster"], mit["raster"]
+    assert abs(mit["kachel"][0] - ohne["kachel"][0]) <= 3 and abs(mit["kachel"][1] - ohne["kachel"][1]) <= 3, \
+        (ohne, mit)
+    if breite > hoehe:
+        assert r1 == r0 and c0 - c1 == spalten, (ohne, mit)
+        assert abs(mit["pane"][0] - spalten * (ohne["kachel"][0] + ohne["gap"])) <= 12, (ohne, mit)
+    else:
+        assert c1 == c0 and r0 - r1 == spalten, (ohne, mit)
+        assert abs(mit["pane"][1] - spalten * (ohne["kachel"][1] + ohne["gap"])) <= 12, (ohne, mit)
+    assert mit["sichtbar"] == c1 * r1, mit
+
+
+def test_feste_widget_breite_waechst_mit(tmp_path):
+    """Mit fester Breite wachsen wenige Kacheln auch neben dem Widget (mit
+    dem Anteil der Automatik nicht, s. test_wenige_kacheln_wachsen_bis_zur_grenze):
+    das Widget bleibt so viele Kachelspalten breit und waechst mit."""
+    ui = {"grid": "auto", "panes": {"favoriten": "weather"}}
+    anteil = _laufen(ui, 1280, 800, anzahl=5)
+    fest = _laufen({**ui, "paneCols": 2}, 1280, 800, anzahl=5, tmp_path=tmp_path, bild="auto_widget_fest_wachsen")
+    ziel, wachsen = W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN
+    assert 0.8 * ziel <= anteil["kachel"][0] <= 1.25 * ziel, anteil
+    assert 1.1 * ziel < fest["kachel"][0] <= wachsen * ziel + 1, fest
+    cols, rows = fest["raster"]
+    assert cols * rows >= 5 and fest["sichtbar"] == 5, fest
+    assert abs(fest["pane"][0] - 2 * (fest["kachel"][0] + fest["gap"])) <= 12, fest
+
+
+def test_widget_breite_im_konfigurator(cfg_ordner, tmp_path):
+    """Der Regler "Widget-Breite" (Schieberegler, Grenze aus /api/meta) steht
+    nur im Kachel-Layout "Automatisch" und mit Split; 0 = Automatik wird nicht
+    gespeichert, eine Zahl als ui.paneCols."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"tablet": {
+        "title": "Tablet", "tabs": ["favoriten"], "ui": {"grid": "auto"}}}}), encoding="utf-8")
+    routen = [("POST", "/api/panels", W.api_save_panels)]
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = dict(STATES)
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, routen)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+
+                async def oeffnen():
+                    await pg.goto(f"http://127.0.0.1:{port}/config")
+                    await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                    await pg.locator("#plist .pitem", has_text="Tablet").click()
+                    await pg.locator('.stab[data-sub="appearance"]').click()
+
+                async def regler(wert):
+                    await pg.locator("#fPaneCols").evaluate(
+                        "(e, v) => { e.value = String(v); e.dispatchEvent(new Event('input', {bubbles: true})); }", wert)
+                    return await pg.locator("#fPaneColsTxt").text_content()
+
+                async def speichern():
+                    async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                        await pg.locator("#saveBtn").click()
+                    j = await (await antwort.value).json()
+                    assert j["ok"] and j["verworfen"] == [], j
+                    return json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["tablet"]["ui"]
+
+                await oeffnen()
+                stand = {"sichtbar": await pg.locator("#fPaneColsField").is_visible(),
+                         "grenze": await pg.locator("#fPaneCols").get_attribute("max"),
+                         "anfang": await pg.locator("#fPaneColsTxt").text_content()}
+                stand["text2"] = await regler(2)
+                await pg.locator("#fPaneColsField").scroll_into_view_if_needed()
+                await pg.screenshot(path=str(tmp_path / "konfigurator_widget_breite.png"))
+                stand["gespeichert"] = await speichern()
+                await oeffnen()
+                stand["nach_neuladen"] = (await pg.locator("#fPaneCols").input_value(),
+                                          await pg.locator("#fPaneColsTxt").text_content())
+                await pg.locator("#fSplit").select_option("off")
+                stand["ohne_split"] = await pg.locator("#fPaneColsField").is_visible()
+                await pg.locator("#fSplit").select_option("1")
+                stand["mit_split"] = await pg.locator("#fPaneColsField").is_visible()
+                await pg.locator("#fLayout").select_option("3x3")
+                stand["fest"] = await pg.locator("#fPaneColsField").is_visible()
+                await pg.locator("#fLayout").select_option("auto")
+                stand["text0"] = await regler(0)
+                stand["zurueck"] = await speichern()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return stand
+    stand = asyncio.run(lauf())
+
+    assert stand["sichtbar"] and stand["grenze"] == str(W.PANE_SPALTEN_MAX), stand
+    assert stand["anfang"].startswith("Automatisch") and f"{round(W.PANE_ANTEIL * 100)} %" in stand["anfang"], stand
+    assert stand["text2"] == "2 Kachelspalten", stand
+    assert stand["gespeichert"] == {"grid": "auto", "paneCols": 2}, stand
+    assert stand["nach_neuladen"] == ("2", "2 Kachelspalten"), stand
+    assert (stand["ohne_split"], stand["mit_split"], stand["fest"]) == (False, True, False), stand
+    assert stand["text0"].startswith("Automatisch") and stand["zurueck"] == {"grid": "auto"}, stand

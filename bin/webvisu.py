@@ -414,12 +414,20 @@ KACHEL_ZIEL_MIN, KACHEL_ZIEL_MAX = 100, 400
 # KACHEL_WACHSEN-Fache der Zielkachel wachsen (autoRaster() in panel.html,
 # geschickt als gridGrow mit der theme-Nachricht).
 KACHEL_WACHSEN = 1.4
+# Widget (Pane 2) im automatischen Raster: ohne Einstellung belegt es diesen
+# Anteil der Kachelspalten (quer) bzw. -zeilen (hochkant), gerundet
+# (autoRaster() in panel.html, geschickt als paneShare mit der theme-Nachricht).
+# ui.paneCols legt stattdessen eine feste Breite in Kachelspalten fest,
+# 1 bis PANE_SPALTEN_MAX; 0 oder fehlt = Automatik.
+PANE_ANTEIL = 0.4
+PANE_SPALTEN_MAX = 3
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
 # ein Tupel nennt mehrere Schreibweisen desselben Standards.
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
+                  ("ui", "paneCols"): 0,
                   ("tiles", "*", "chartStyle"): "trend"}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
@@ -549,6 +557,22 @@ def _clean_kachelziel(v) -> int | None:
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:   # v != v: NaN
         return None
     return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
+
+
+def _clean_pane_spalten(v) -> int | None:
+    """Feste Breite des Widgets im automatischen Raster (ui.paneCols) in
+    Kachelspalten, hochkant Kachelzeilen: ganze Zahl oder Ziffernfolge ab 1,
+    hoechstens PANE_SPALTEN_MAX (an die Grenze gesetzt wie die uebrigen
+    Groessen). 0, True/False und alles andere ergibt None = Automatik
+    (PANE_ANTEIL), 0 ist zugleich der Standard (PANEL_STANDARD)."""
+    if isinstance(v, str):
+        v = v.strip()
+        if not v.isdigit():
+            return None
+        v = int(v)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v < 1:   # v != v: NaN
+        return None
+    return int(min(PANE_SPALTEN_MAX, int(v)))
 
 
 def _kachel_breite(v) -> int | None:
@@ -2510,6 +2534,9 @@ class App:
             # Raster aus cols/rows (4"-Panel und jedes Profil ohne "auto").
             "gridAuto": ((_clean_kachelziel(ui.get("tileSize")) or KACHEL_ZIEL_STANDARD)
                          if ui.get("grid") == "auto" else 0),
+            # Feste Breite des Widgets im automatischen Raster in Kachelspalten
+            # (hochkant Zeilen); 0 = Automatik, rund PANE_ANTEIL der Spalten.
+            "paneCols": _clean_pane_spalten(ui.get("paneCols")) or 0,
             # Split-Pane pro Tab: Tab-Kennung -> "weather"|"calendar"|"player:<uuid>".
             # Nur wirksam, wenn split an ist. Das Panel rendert die passende Pane.
             # Normiert, denn die Datei wird beim Laden nicht sanitisiert: eine
@@ -3160,7 +3187,7 @@ class App:
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken",
-                       "valueBar")}
+                       "valueBar", "paneCols")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3343,6 +3370,9 @@ class App:
             _tz = _clean_kachelziel(ui.get("tileSize"))
             if _tz is not None and _tz != KACHEL_ZIEL_STANDARD:
                 cui["tileSize"] = _tz           # Zielkachel px im automatischen Raster; fehlt = Standard
+            _ps = _clean_pane_spalten(ui.get("paneCols"))
+            if _ps is not None:
+                cui["paneCols"] = _ps           # Widget-Breite in Kachelspalten (automatisches Raster); fehlt = Automatik
             if isinstance(ui.get("player"), str) and ui.get("player"):
                 cui["player"] = ui["player"]    # Split-Layout: AudioZone-UUID fuer den festen Player
             if isinstance(ui.get("panes"), dict):
@@ -7484,6 +7514,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Zielkachel des automatischen Rasters: Grenzen, Standard, alte Stufen
         "kachelZiel": {"min": KACHEL_ZIEL_MIN, "max": KACHEL_ZIEL_MAX, "std": KACHEL_ZIEL_STANDARD,
                        "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
+        # Widget-Breite im automatischen Raster: groesste feste Spaltenzahl, Anteil der Automatik
+        "paneCols": {"max": PANE_SPALTEN_MAX, "anteil": PANE_ANTEIL},
         # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
         "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
@@ -9264,6 +9296,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
                         "gridAuto": app.effective_grid_auto(prof, dev),   # automatisches Raster: Zielkachel px (Geraet vor Profil), 0 = fest
                         "gridGrow": KACHEL_WACHSEN,   # ... Kacheln wachsen bis dahin, wenn alle auf eine Seite passen
+                        "paneCols": prof["paneCols"],   # Widget-Breite in Kachelspalten (0 = Automatik)
+                        "paneShare": PANE_ANTEIL,       # ... Anteil der Spalten in der Automatik
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)

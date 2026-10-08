@@ -77,7 +77,7 @@ VOLL = {
     "ui": {"iconSize": 30, "nameSize": 20, "subSize": 14, "roomSize": 12, "bigSize": 40, "font": "Inter",
            "nudgeX": 4, "dpmsOff": 60, "reloadHours": 24, "nightDim": 50, "nightWake": 20, "pinMerken": 90,
            "cols": 3, "rows": 3, "fill": True, "split": False, "catFilter": True, "tileLayout": "classic",
-           "grid": "auto", "tileSize": "small", "player": "Z1", "panes": {"room:r1": "weather"},
+           "grid": "auto", "tileSize": "small", "paneCols": 2, "player": "Z1", "panes": {"room:r1": "weather"},
            "valueBar": ["room:r1"],
            "svPane": "calendar", "scale": "auto", "textColor": "#ffffff", "baseColor": "#3a6ea5",
            "bold": True, "lang": "en", "overlay": OVERLAY_VOLL},

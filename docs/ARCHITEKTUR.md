@@ -883,6 +883,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
                                              // bis KACHEL_ZIEL_MAX); fehlt = KACHEL_ZIEL_STANDARD; die alten
                                              // Stufen "small" | "medium" | "large" werden gelesen
+        "paneCols": 2,                       // Widget-Breite im automatischen Raster in Kachelspalten
+                                             // (hochkant Zeilen), 1 bis PANE_SPALTEN_MAX; fehlt = rund
+                                             // PANE_ANTEIL der Spalten (§7.1)
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
@@ -1352,16 +1355,26 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `gridGrow` × Zielkachel wird (`KACHEL_WACHSEN`, 1,4; mit der theme-Nachricht
   geschickt). Fünf Kacheln auf dem 10″-Tablet quer stehen so in 6 × 3 zu
   204 px statt in 7 × 4 zu 174 px; mit mehr Kacheln als Zellen bleibt es bei
-  der Zielkachel und dem Blättern. Mit Widget daneben wachsen sie nicht: es
-  belegt ganze Kachelspalten, und mit weniger Spalten ließe sich sein Anteil
-  von rund 40 % nicht halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %,
-  die Wetter-Pane wechselte von „schmal“ auf „breit“).
+  der Zielkachel und dem Blättern. Neben einem Widget mit Anteil wachsen sie
+  nicht: es belegt ganze Kachelspalten, und mit weniger Spalten ließe sich
+  sein Anteil von rund 40 % nicht halten (2 von 5 Spalten sind 40 %, 2 von 4
+  schon 50 %, die Wetter-Pane wechselte von „schmal“ auf „breit“). Mit fester
+  Breite (`ui.paneCols`, unten) wachsen sie, das Widget bleibt so viele
+  Kachelspalten breit und wächst mit.
   Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
   die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
   Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
   etwa 167 × 146 px, hochkant 3 × 5, am 10″-Tablet (1280×800) quer 7 × 4. Ein
-  Widget belegt ganze Kachelspalten (quer) bzw. -zeilen (hochkant), rund
-  `PANE_ANTEIL` (40 %) der Fläche. Die Aufteilung setzt `render()` als
+  Widget belegt ganze Kachelspalten (quer) bzw. -zeilen (hochkant): ohne
+  Einstellung rund `PANE_ANTEIL` (40 %) der Spalten, gerundet, oder die feste
+  Zahl aus `ui.paneCols` (1 bis `PANE_SPALTEN_MAX`, 3; Punkt 7 vom
+  08.10.2026). Beides schickt der Server mit der theme-Nachricht
+  (`paneShare`, `paneCols`), die Visu hat keine eigene Zahl dafür; der
+  Konfigurator stellt die feste Breite als Schieberegler „Widget-Breite“ ein
+  (Grenze und Anteil aus `/api/meta` `paneCols`), nur im Layout
+  „Automatisch“ und mit Split, 0 = Automatik wird nicht gespeichert
+  (`PANEL_STANDARD`). Das feste Raster kennt die Einstellung nicht, dort
+  bleibt das Widget bei der Hälfte. Die Aufteilung setzt `render()` als
   `--auto-k`/`--auto-p` (fr), die Kacheln bleiben damit mit und ohne Widget
   gleich groß: am Tab A9 quer 3 × 3 neben dem Widget statt 5 × 3. Der Kasten
   ist der ganze Schirm (Klasse `.fill` mit `.auto`), „Bildschirm füllen“,
@@ -1376,7 +1389,8 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   „Neues Panel“ schlägt „Automatisch“ für 2 Panes (Tablet) vor. Geprüft in
   `tests/test_auto_raster.py` (Prüfer, Standard, Gerät vor Profil, Vorschlag)
   und `tests/browser/test_auto_raster_browser.py` (Raster je Gerät, Wachsen
-  mit wenigen Kacheln, Zielkachel je Gerät wirkt sofort, Konfigurator).
+  mit wenigen Kacheln, Zielkachel je Gerät wirkt sofort, Widget-Breite in
+  Kachelspalten, Konfigurator), `tests/test_widget_breite.py`.
 - Eingebaute Icons: `ICONS` (`:273-296`, 22 SVGs). Loxone-Icons als CSS-Maske,
   damit sie die Zustandsfarbe annehmen.
 - Skalierung, Kette global (`theme.json` `ui.scale`) → Profil (`ui.scale`) →
