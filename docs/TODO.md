@@ -1736,8 +1736,12 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           Rechnung wie die Visu), Größen 1 × 1, 2 × 1, 2 × 2, Ziehen mit
           Pointer-Events, Pfeiltasten und Entf als Ersatz, Raumgruppierung
           abschaltbar. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2.
-          Offen: der Entwurfs-Endpunkt für die Vorschau in der echten Visu
-          (Teil 3).
+          *Teil 3 erledigt 09.10.2026 (Vorschau):* `POST /api/entwurf` hält
+          ein ungespeichertes Profil nur im Speicher, die Visu zeigt es unter
+          `?entwurf=<Token>` mit Etikett „Entwurf – nicht gespeichert“; „Vorschau“
+          in der Speicherleiste öffnet sie in der Größe des Vorschaugeräts und
+          zieht Änderungen nach, Speichern beendet den Entwurf. Details in
+          [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2.
       11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
           einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
           *Erledigt 08.10.2026:* Ein Browser ohne Gerätekennung bekommt beim

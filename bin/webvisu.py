@@ -479,6 +479,12 @@ GERAETE_KATALOG = (
 # 1 bis PANE_SPALTEN_MAX; 0 oder fehlt = Automatik.
 PANE_ANTEIL = 0.4
 PANE_SPALTEN_MAX = 3
+# Entwuerfe (Punkt 10 Teil 3): ein Profil, das der Konfigurator noch nicht
+# gespeichert hat, laesst sich in der echten Visu ansehen (?entwurf=<Token>).
+# Er liegt nur im Speicher: so viele gleichzeitig, so lange nach der letzten
+# Nutzung; Speichern verwirft sie alle (die Visu laedt dabei neu).
+ENTWURF_MAX = 8
+ENTWURF_DAUER = 3600
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
@@ -1526,6 +1532,7 @@ class App:
         self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
         self.conn_chart: dict[web.WebSocketResponse, tuple[tuple[str, ...], str]] = {}   # ws -> (Baustein-UUIDs, Zeitraum) der Verlaufs-Pane (via setchart)
         self.panels = load_panels()
+        self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         # Geraete, deren Ansicht unter Displays ausdruecklich gewaehlt wurde: der
@@ -2593,15 +2600,52 @@ class App:
                 pass
         return {k: val for k, val in v.items() if val}
 
-    def resolve_profile(self, pid: str | None) -> dict:
-        """Aufgeloestes Panel-Profil: Theme-Vars, Tabs, Raum-/Kategorie-Filter."""
-        prof = self.panels.get(pid or "") or self.panels.get("default") or {}
+    def entwurf_ablegen(self, pid: str, roh: dict, token: str = "") -> tuple[str, list]:
+        """Entwurf eines Profils (UI-Form, wie der Konfigurator es speichert)
+        im Speicher ablegen -> (Token, nicht uebernommene Angaben). Geprueft wird
+        wie beim Speichern (_sanitize_panels), geschrieben wird nichts. Mit dem
+        Token eines vorhandenen Entwurfs desselben Profils wird dieser ersetzt,
+        sonst entsteht ein neuer; ist der Platz voll, geht der aelteste."""
+        clean = self._sanitize_panels({pid: roh})
+        if pid not in clean:
+            raise ValueError("Profil nicht brauchbar (leere oder mit _ beginnende Kennung?)")
+        weg = self._panels_verworfen({pid: roh}, clean,
+                                     {u: _clean(c.get("name")) or u for u, c in self.controls.items()})
+        now = time.time()
+        for t in [t for t, e in self.entwuerfe.items() if now - e["ts"] > ENTWURF_DAUER]:
+            del self.entwuerfe[t]
+        alt = self.entwuerfe.get(token)
+        if not alt or alt["id"] != pid:
+            token = secrets.token_urlsafe(9)
+            while len(self.entwuerfe) >= ENTWURF_MAX:
+                del self.entwuerfe[min(self.entwuerfe, key=lambda t: self.entwuerfe[t]["ts"])]
+        self.entwuerfe[token] = {"id": pid, "panel": clean[pid], "ts": now}
+        return token, weg
+
+    def entwurf_profil(self, token: str, pid: str | None) -> dict | None:
+        """Der Entwurf zu Token und Profil-Kennung, sonst None (unbekannt,
+        abgelaufen oder fuer ein anderes Profil). Jede Nutzung verlaengert ihn."""
+        e = self.entwuerfe.get(token or "")
+        now = time.time()
+        if not e or e["id"] != (pid or "") or now - e["ts"] > ENTWURF_DAUER:
+            return None
+        e["ts"] = now
+        return e["panel"]
+
+    def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
+        """Aufgeloestes Panel-Profil: Theme-Vars, Tabs, Raum-/Kategorie-Filter.
+        Mit `entwurf` (entwurf_profil) gilt dieses Profil statt des gespeicherten."""
+        prof = entwurf if entwurf is not None else \
+            (self.panels.get(pid or "") or self.panels.get("default") or {})
         ui = {**self.theme.get("ui", {}), **(prof.get("ui") or {})}
         states = {**self.theme.get("states", {}), **(prof.get("states") or {})}
         tabs = [t for t in (prof.get("tabs") or ui.get("tabs") or []) if _is_tab(t)] or \
             ["favoriten", "zentral", "raeume", "kategorien"]
         return {
             "id": pid or "default",
+            # Entwurf (nicht gespeichert): die Visu zeigt es an, die ID-Nachschlager
+            # (panel_dpms, panel_night, panel_reload) lesen dann `roh` statt der Datei
+            **({"entwurf": True, "roh": prof} if entwurf is not None else {}),
             "title": prof.get("title") or "LoxPanel",
             "tabs": list(tabs),
             "rooms": self._resolve_ids(prof.get("rooms"), self.rooms),
@@ -2865,21 +2909,23 @@ class App:
                            "iconUrl": self._icon_url(room.get("image")) or ""}
         return meta
 
-    def panel_dpms(self, pid: str | None):
+    def _ui_roh(self, pid: str | None, roh: dict | None) -> dict:
+        """ui des Profils `pid` aus der Datei, bei einem Entwurf (`roh`) aus ihm."""
+        return (roh if roh is not None else (self.panels.get(pid or "") or {})).get("ui") or {}
+
+    def panel_dpms(self, pid: str | None, roh: dict | None = None):
         """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
         None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Wird dem
         Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
-        ui = {**self.theme.get("ui", {}),
-              **((self.panels.get(pid or "") or {}).get("ui") or {})}
+        ui = {**self.theme.get("ui", {}), **self._ui_roh(pid, roh)}
         v = ui.get("dpmsOff")
         return max(0, min(3600, int(v))) if isinstance(v, (int, float)) else None
 
-    def panel_night(self, pid: str | None) -> dict:
+    def panel_night(self, pid: str | None, roh: dict | None = None) -> dict:
         """Nachtmodus je Panel: `dim` = Abdunklung in Prozent (0 = aus), `wake` =
         Sekunden, die eine Beruehrung wieder voll aufhellt (0 = nicht aufhellen).
         Wie panel_dpms(): Theme-Vorgabe, vom Panel-Profil ueberschreibbar."""
-        ui = {**self.theme.get("ui", {}),
-              **((self.panels.get(pid or "") or {}).get("ui") or {})}
+        ui = {**self.theme.get("ui", {}), **self._ui_roh(pid, roh)}
 
         def _num(key, lo, hi, default):
             v = ui.get(key)
@@ -2951,14 +2997,13 @@ class App:
         hm = now.strftime("%H:%M")
         return hm >= NIGHT_FROM or hm < NIGHT_TO
 
-    def panel_reload(self, pid: str | None):
+    def panel_reload(self, pid: str | None, roh: dict | None = None):
         """Auto-Neustart-Intervall (Stunden) fuer ein Panel aus dem Profil, 0 =
         aus. Gegen Einfrieren: der Agent startet Chromium periodisch neu, ohne
         Agent laedt sich die Visu neu. None = nicht eingestellt: Der Agent nimmt
         seinen Wert aus der kiosk.conf, die Visu laedt nachts neu
         (NEULADEN_STUNDE). Geht in die Announce-Antwort und die theme-Nachricht."""
-        ui = {**self.theme.get("ui", {}),
-              **((self.panels.get(pid or "") or {}).get("ui") or {})}
+        ui = {**self.theme.get("ui", {}), **self._ui_roh(pid, roh)}
         v = ui.get("reloadHours")
         return max(0, min(168, float(v))) if isinstance(v, (int, float)) else None
 
@@ -3684,6 +3729,7 @@ class App:
     def _write_panels(self, panels: dict) -> None:
         self._persist_panels_file(panels, self.devices)
         self.panels = load_panels()
+        self.entwuerfe.clear()   # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu)
 
     def _write_devices(self, devices: dict) -> None:
         # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
@@ -7132,12 +7178,13 @@ class App:
                 pass
             return False
 
-    async def _neu_laden(self, ws) -> bool:
-        """Ein Panel neu laden ({t:"reload"}) und die Verbindung als abgeloest
-        kennzeichnen: die Seite verschwindet gleich, ein weiterer Push an sie
-        (etwa das Umschalten gleich nach dem Speichern) ginge mit ihr verloren
-        und darf in _push() nicht als erreicht zaehlen."""
-        if not await self._send_or_drop(ws, {"t": "reload"}):
+    async def _neu_laden(self, ws, msg: dict | None = None) -> bool:
+        """Ein Panel neu laden ({t:"reload"}, oder `msg`, das die Seite neu laedt,
+        etwa {t:"entwurfEnde"}) und die Verbindung als abgeloest kennzeichnen: die
+        Seite verschwindet gleich, ein weiterer Push an sie (etwa das Umschalten
+        gleich nach dem Speichern) ginge mit ihr verloren und darf in _push()
+        nicht als erreicht zaehlen."""
+        if not await self._send_or_drop(ws, msg or {"t": "reload"}):
             return False
         if ws in self.conn_info:
             self.conn_info[ws]["neuLaden"] = True
@@ -7725,11 +7772,46 @@ async def api_save_panels(request: web.Request) -> web.Response:
         app._write_panels(clean)
     except OSError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=500)
+    # Vorschau-Fenster mit einem Entwurf verlassen ihn: die Entwuerfe sind erledigt, sie
+    # laden das gespeicherte Profil. Ein blosses Neuladen liesse sie auf der Entwurfs-
+    # Adresse, und der Konfigurator koennte sie nicht sicher umlenken (Wettlauf).
+    for ws, info in list(app.conn_info.items()):
+        if info.get("entwurf"):
+            await app._neu_laden(ws, {"t": "entwurfEnde"})
     n = await _push(app, {"t": "reload"})   # offene Panels sofort neu laden
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
     if weg:
         log.warning("panels.json: nicht übernommen: %s", "; ".join(weg))
     return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg})
+
+
+async def api_entwurf(request: web.Request) -> web.Response:
+    """Entwurf eines Profils fuer die Vorschau in der echten Visu: {id, panel,
+    token?}. `panel` ist das Profil in der Form, in der der Konfigurator es
+    speichert; es wird wie dort geprueft (was verworfen wuerde, steht in
+    `verworfen`), aber nur im Speicher gehalten - panels.json bleibt unberuehrt.
+    Antwort: `token` und `url` der Visu (/?panel=<id>&entwurf=<token>). Mit dem
+    Token eines vorhandenen Entwurfs desselben Profils wird er ersetzt, und die
+    Visus, die ihn gerade zeigen, laden neu (`reloaded`)."""
+    app: App = request.app["app"]
+    try:
+        data = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein gültiges JSON"}, status=400)
+    pid, panel = data.get("id"), data.get("panel")
+    if not isinstance(pid, str) or not pid.strip() or not isinstance(panel, dict):
+        return web.json_response({"ok": False, "error": "Felder 'id' und 'panel' fehlen"}, status=400)
+    pid = pid.strip()
+    try:
+        token, weg = app.entwurf_ablegen(pid, panel, str(data.get("token") or ""))
+    except ValueError as err:
+        return web.json_response({"ok": False, "error": str(err)}, status=400)
+    n = 0
+    for ws, info in list(app.conn_info.items()):
+        if info.get("entwurf") == token and await app._neu_laden(ws):
+            n += 1
+    return web.json_response({"ok": True, "token": token, "reloaded": n, "verworfen": weg,
+                              "url": "/?panel=" + quote(pid, safe="") + "&entwurf=" + token})
 
 
 async def api_save_theme(request: web.Request) -> web.Response:
@@ -9459,12 +9541,18 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
                 for a in agenten:
                     app.agent_wunsch[a["ip"]] = mapped
-    prof = app.resolve_profile(pid)
+    # ?entwurf=<Token>: ein noch nicht gespeichertes Profil (Vorschau aus dem
+    # Konfigurator); unbekannt, abgelaufen oder fuer ein anderes Profil: das gespeicherte
+    ent = (request.query.get("entwurf", "") or "")[:64]
+    prof = app.resolve_profile(pid, app.entwurf_profil(ent, pid) if ent else None)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
     kiosk = request.query.get("kiosk", "")
     app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk in KIOSK_APPS else "",
                          "ip": request.remote or "", "ts": time.time()}
+    if prof.get("entwurf"):
+        app.conn_info[ws]["entwurf"] = ent   # api_entwurf laedt diese Vorschau bei Aenderungen neu
+    roh = prof.get("roh")
     if not dev:   # Browser ohne Kennung: Kopplungscode (mitgeschickt oder neu)
         app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
@@ -9487,15 +9575,18 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
-                        "dpmsOff": app.panel_dpms(prof["id"]),
+                        "dpmsOff": app.panel_dpms(prof["id"], roh),
                         "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
-                        "reloadHours": app.panel_reload(prof["id"]),
+                        "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
-                        "night": {**app.panel_night(prof["id"]), "on": app._night_on},
+                        "night": {**app.panel_night(prof["id"], roh), "on": app._night_on},
                         # Meldet der Praesenzmelder des Geraets gerade jemanden,
                         # bleibt das Display an - auch nach einem Neuladen.
                         "presence": app._presence_on.get(dev, False),
-                        "agent": app._has_agent(dev)})
+                        "agent": app._has_agent(dev),
+                        # Vorschau eines ungespeicherten Entwurfs: die Visu kennzeichnet sie;
+                        # ein Token, der nichts mehr trifft (abgelaufen), meldet sie auch
+                        "entwurf": bool(prof.get("entwurf")) if ent else None})
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first
@@ -9738,6 +9829,7 @@ def main() -> None:
     a.router.add_get("/install-agent.sh", install_script)
     a.router.add_get("/api/meta", api_meta)
     a.router.add_post("/api/panels", api_save_panels)
+    a.router.add_post("/api/entwurf", api_entwurf)
     a.router.add_post("/api/theme", api_save_theme)
     a.router.add_get("/api/settings", api_settings)
     a.router.add_get("/api/health", api_health)

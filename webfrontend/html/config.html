@@ -1617,7 +1617,8 @@ function renderEditor(){
 
   // Speicherleiste: Löschen-Button je Panel
   $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>')+
-    '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>';
+    '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>'+
+    '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>';
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
@@ -1681,6 +1682,7 @@ function renderEditor(){
   $('#saveBtn').onclick=save;
   const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
   { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
+  { const vb=$('#vorBtn'); if(vb) vb.onclick=entwurfOeffnen; }
 
   seReiterZeichnen();
   renderSubtabs(); showSub(subPconf);
@@ -2274,7 +2276,54 @@ function renderChecklist(p,kind){
                                     : ('<b>alle</b> '+list.length+' sichtbar');
 }
 
-function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast'; t.textContent=''; } renderList(); }
+function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast'; t.textContent=''; } renderList(); entwurfNachziehen(); }
+
+// ---- Vorschau in der echten Visu (Punkt 10, Teil 3) ----
+// „Vorschau“ schickt das Profil samt allen ungespeicherten Aenderungen als
+// Entwurf an den Server (/api/entwurf, nur im Speicher) und oeffnet die echte
+// Visu damit in einem Fenster in der Groesse des Vorschaugeraets (Seiten-Editor).
+// Solange das Fenster offen ist, zieht jede Aenderung nach; Speichern beendet den
+// Entwurf, das Fenster zeigt dann das gespeicherte Profil.
+const ENTWURF={token:'', id:'', win:null, timer:0};
+async function entwurfSenden(){
+  const p=PANELS[cur]; if(!p || p.__global) return null;
+  const j=await postJson('/api/entwurf', {id:cur, panel:p, token:(ENTWURF.id===cur?ENTWURF.token:'')});
+  if(!j.ok) throw new Error(j.error||'?');
+  ENTWURF.token=j.token; ENTWURF.id=cur;
+  return j;
+}
+// Die Visu im Fenster auf die Adresse bringen; zeigt es sie schon, hat der Server es neu geladen
+function entwurfZiel(w, url){ if(w.location.pathname+w.location.search!==url) w.location.href=url; }
+function entwurfFensterMass(p){
+  const g=seGeraetReiter(p)||wzBrowser();
+  const b=Math.max(320, Math.min(g.vw, screen.availWidth-40)), h=Math.max(320, Math.min(g.vh, screen.availHeight-80));
+  return 'popup=yes,width='+b+',height='+h;
+}
+async function entwurfOeffnen(){
+  const p=PANELS[cur], t=$('#toast'); if(!p || p.__global) return;
+  // Das Fenster gleich beim Klick oeffnen (sonst blockt der Browser es), die Adresse folgt
+  const w=(ENTWURF.win && !ENTWURF.win.closed) ? ENTWURF.win : window.open('', 'loxpanel-entwurf', entwurfFensterMass(p));
+  if(!w){ flash(t, T('Das Vorschaufenster hat der Browser blockiert.'), false); return; }
+  try{
+    const j=await entwurfSenden();
+    ENTWURF.win=w; entwurfZiel(w, j.url); w.focus();
+    if((j.verworfen||[]).length) flash(t, T('Nicht übernommen:')+' '+j.verworfen.join('; '), false);
+  }catch(e){ try{ w.close(); }catch(x){} flash(t, T('Vorschau nicht möglich:')+' '+e.message, false); }
+}
+function entwurfNachziehen(){
+  if(!ENTWURF.win || ENTWURF.win.closed || ENTWURF.id!==cur) return;
+  clearTimeout(ENTWURF.timer);
+  ENTWURF.timer=setTimeout(async()=>{
+    if(!ENTWURF.win || ENTWURF.win.closed || ENTWURF.id!==cur) return;
+    try{ const j=await entwurfSenden(); if(j) entwurfZiel(ENTWURF.win, j.url); }catch(e){}
+  }, 600);
+}
+// Gespeichert: der Entwurf ist erledigt. Das offene Fenster schickt der Server selbst auf
+// das gespeicherte Profil ({t:"entwurfEnde"}); hier nur nichts mehr nachziehen.
+function entwurfBeendet(){
+  clearTimeout(ENTWURF.timer);
+  ENTWURF.token=''; ENTWURF.id='';
+}
 
 async function save(){
   const t=$('#toast');
@@ -2290,7 +2339,7 @@ async function save(){
                             body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
       const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
     }
-    if(j.ok&&okT){ dirty=false;
+    if(j.ok&&okT){ dirty=false; entwurfBeendet();
       // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
       // es still zu verlieren; die Warnung bleibt stehen (siehe unten).
       const weg=j.verworfen||[];
@@ -3054,7 +3103,8 @@ function seMitteHtml(ctx, st, a, r, lage){
   return '<div class="se-info"><span data-se-info>'+esc(seInfoText(ctx, st, r, lage))+'</span>'+nav+'</div>'+
     seFlaecheHtml(ctx, st, a, r, lage)+
     (r.auto?'':'<p class="hint">'+T('Feste Raster: die Kachelgröße hängt am Kasten der Visu und an der Skalierung, die Fläche zeigt Spalten, Zeilen und Lage.')+'</p>')+
-    '<p class="hint">'+T('Ziehen mit Maus oder Finger, in der Liste am Griff. Ohne Ziehen: Kachel antippen, dann mit den Pfeiltasten verschieben, Entf nimmt sie von der Seite.')+'</p>';
+    '<p class="hint">'+T('Ziehen mit Maus oder Finger, in der Liste am Griff. Ohne Ziehen: Kachel antippen, dann mit den Pfeiltasten verschieben, Entf nimmt sie von der Seite.')+'</p>'+
+    (ctx.panel ? '<p class="hint">'+T('„Vorschau“ unten zeigt die Seite in der echten Visu, auch ungespeichert, und zieht Änderungen nach.')+'</p>' : '');
 }
 function seFeldHtml(ctx, st, a, r){
   const e=a.raster.find(x=>x.id===st.sel), m=seZustand(ctx.pkey).meldung;

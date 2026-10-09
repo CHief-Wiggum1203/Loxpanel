@@ -909,6 +909,13 @@
   .einrichtung .ei-code{font-size:36px;font-weight:800;letter-spacing:.2em;margin:6px 0 2px;color:var(--accent);
     font-variant-numeric:tabular-nums;}
   .einrichtung .ei-weg{font-size:12px;color:var(--muted);margin-top:8px;}
+  /* Vorschau eines ungespeicherten Entwurfs (?entwurf=, t:'theme' entwurf): kleines
+     Etikett oben links ueber der Visu. Schwebt, nimmt keinen Platz und faengt
+     keine Beruehrung ab - das Raster misst sich wie ohne Etikett. */
+  .entwurfmarke{position:fixed;top:6px;left:6px;z-index:60;pointer-events:none;padding:3px 9px;border-radius:10px;
+    font-size:11px;font-weight:700;letter-spacing:.3px;background:var(--accent);color:var(--bg);opacity:.92;}
+  .entwurfmarke.hidden{display:none;}
+  .entwurfmarke.alt{background:var(--crit,#e2695f);color:#fff;}
   .saver{position:absolute;inset:0;z-index:30;background:var(--bg);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     cursor:pointer;user-select:none;-webkit-user-select:none;}
@@ -1325,6 +1332,7 @@
   <div class="einrichtung hidden" id="einrichtung"></div>
   <div class="einrichtung kopplung hidden" id="kopplung"></div>
 </div>
+<div class="entwurfmarke hidden" id="entwurfMarke"></div>
 
 <script src="/raster.js"></script>
 <script>
@@ -3324,6 +3332,16 @@ g.addEventListener('wheel', e=>{
 
 let booted=false;
 const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
+// Vorschau aus dem Konfigurator: ein noch nicht gespeichertes Profil, vom Server
+// unter diesem Token im Speicher gehalten (/api/entwurf). Laeuft er ab, zeigt die
+// Visu das gespeicherte Profil und sagt es (entwurfZeigen).
+const ENTWURF = new URLSearchParams(location.search).get('entwurf') || '';
+function entwurfZeigen(gilt){
+  const m=el('entwurfMarke'); if(!m) return;
+  if(!ENTWURF || gilt===undefined || gilt===null){ m.classList.add('hidden'); return; }
+  m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeichertes Profil';
+  m.classList.toggle('alt', !gilt); m.classList.remove('hidden');
+}
 // Geraete-Kennung (physisches Panel). Darueber adressiert der Server dieses
 // Geraet (Betriebsmodus, Display, Ansicht wechseln) und listet es unter
 // Einstellungen -> Panels. Quelle: ?device=<name> in der Kiosk-URL, sonst ein
@@ -3359,6 +3377,7 @@ function posringOverride(){
 function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
+  if(ENTWURF) q.push('entwurf='+encodeURIComponent(ENTWURF));
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
   else if(KOPPLUNG) q.push('code='+encodeURIComponent(KOPPLUNG));   // Kopplungscode behalten (s. zeigeKopplung)
   const kk=kioskKind(); if(kk) q.push('kiosk='+kk);   // Kiosk-App melden -> Typ in der Geraeteliste
@@ -3374,6 +3393,7 @@ function connect(){
     catch(err){ console.warn('LoxPanel: unlesbare Nachricht verworfen', err); return; }
     if(!msg || typeof msg!=='object') return;
     if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
+      entwurfZeigen(msg.entwurf);
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       profRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
@@ -3441,6 +3461,8 @@ function connect(){
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
+    if(msg.t==='entwurfEnde'){ const u=new URL(location.href); u.searchParams.delete('entwurf');
+      location.replace(u.toString()); return; }                              // Entwurf gespeichert -> gespeichertes Profil
     if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='kopplung'){ zeigeKopplung(msg); return; }                     // Browser ohne Kennung: Code, Karte
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
