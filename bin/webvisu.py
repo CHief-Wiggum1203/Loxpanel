@@ -7682,6 +7682,9 @@ async def api_meta(request: web.Request) -> web.Response:
         "geraeteKatalog": [dict(k) for k in GERAETE_KATALOG],
         # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
         "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
+        # Bausteintypen, die auf einer Seite mit Werteleiste aus dem Raster in
+        # die Leiste wandern (Seiten-Editor: zeigt die Seite wie die Visu)
+        "werteLeiste": sorted(WERTE_LEISTE_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
