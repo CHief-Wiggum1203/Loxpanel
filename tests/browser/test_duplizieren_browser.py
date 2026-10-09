@@ -68,6 +68,16 @@ def test_duplizieren_mit_raumtausch(cfg_ordner, tmp_path):
                 assert await pg.evaluate("profilRaum(PANELS.zentral)") == "r1"
                 assert await pg.evaluate("profilRaum({tabs: ['favoriten'], pickTabs: [{picks: ['L2', 'R2', 'Z']}]})") == "r2", \
                     "ohne room:-Tab und Raum-Liste zaehlt der Raum der gewaehlten Bausteine"
+                assert await pg.evaluate("profilRaum({tabs: ['favoriten'], ui: {player: 'L2'}})") == "r2", \
+                    "ein Profil, das nur ueber den festen Player an einem Raum haengt, hat diesen Raum"
+                # War der Zielraum schon im Profil, erzeugt der Tausch keine Dubletten: ein
+                # room:r2-Tab, jeder Baustein einmal, bei den Widgets gewinnt die getauschte Seite
+                doppelt = await pg.evaluate("""() => { const r = profilMitRaumtausch({title: 'Beide', tabs: ['room:r1', 'room:r2', 'favoriten'],
+                    rooms: ['r1', 'r2'], hide: ['L1', 'L2'], pickTabs: [{picks: ['R1', 'R2', 'L2']}], tiles: {},
+                    ui: {panes: {'room:r1': 'status:L1', 'room:r2': 'status:R2'}, valueBar: ['room:r1', 'room:r2'], svPane: ''}},
+                    'r1', 'r2', META.controls); return (%s)(r.profil); }""" % SICHT)
+                assert doppelt == {"title": "Beide", "tabs": ["room:r2", "favoriten"], "rooms": ["r2"], "hide": ["L2"], "picks": [["R2", "L2"]],
+                                   "tiles": {}, "panes": {"room:r2": "status:L2"}, "valueBar": ["room:r2"], "svPane": ""}, doppelt
 
                 # Der Dialog: Vorschlaege aus dem Zielraum, Hinweis auf den fehlenden Baustein
                 await pg.locator("#dupBtn").click()
@@ -84,6 +94,17 @@ def test_duplizieren_mit_raumtausch(cfg_ordner, tmp_path):
                 assert await pg.evaluate("(%s)(PANELS.technikraum)" % SICHT) == ERWARTET
                 assert "Technikraum Panel" in await pg.locator("#plist .pitem .pn").all_text_contents()
                 assert "Weggefallen: Heizung" in (await pg.locator("#toast").text_content())
+
+                # Ein Panel, das nur ueber den festen Player an r2 haengt: der Dialog schlaegt
+                # r2 -> r1 vor statt auf den ersten Raum zu fallen und still zu kopieren
+                await pg.evaluate("PANELS.musik = {title: 'Musik', tabs: ['favoriten'], rooms: [], ui: {player: 'L2'}}; dupOpen('musik')")
+                await pg.wait_for_selector("#dupOv:not([hidden])")
+                stand = {f: await pg.locator(f"#{f}").input_value() for f in ("dupVon", "dupNach")}
+                assert stand == {"dupVon": "r2", "dupNach": "r1"}, stand
+                # (gezaehlt werden die Bausteine des Raumpaars mit Gegenstueck, Licht und Rollo, nicht die des Profils)
+                assert (await pg.locator("#dupInfo").text_content()).startswith("2 Bausteine aus Technikraum werden durch die gleichnamigen in Zentral ersetzt.")
+                await pg.evaluate("dupClose(); delete PANELS.musik")
+                await pg.locator("#plist .pitem", has_text="Technikraum Panel").click()
 
                 # Reine Kopie: kein Zielraum, alles bleibt
                 await pg.locator("#dupBtn").click()

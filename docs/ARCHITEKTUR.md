@@ -1653,14 +1653,16 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   frei oder mit `-2`; der Titel ersetzt den Namen des Quellraums). Die Kopie
   (`profilMitRaumtausch()`) ersetzt jeden Baustein aus dem Quellraum
   (`profilRaum()`: `room:`-Tab, sonst Raum-Liste, sonst der Raum der meisten
-  gewählten Bausteine) durch den gleichnamigen aus dem Zielraum, gleicher Typ
+  gewählten Bausteine, der feste Player zählt mit) durch den gleichnamigen aus dem Zielraum, gleicher Typ
   vor gleichem Namen: in `tabs` und `ui.valueBar` (`room:`), `rooms`, `hide`,
   `picks`/`pickTabs[].picks` und `.widget`, den Schlüsseln von `tiles`,
   `ui.panes` (`paneTausch()`: `player:`, `energy:`, `camera:` samt Werten,
   `chart:`/`status:`/`header:`-Listen), `ui.svPane` und `ui.player`. Wer im
   Zielraum kein Gegenstück hat, fällt weg und wird im Dialog und nach dem
-  Anlegen genannt; Bausteine anderer Räume und ohne Raum bleiben. Ohne
-  Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
+  Anlegen genannt; Bausteine anderer Räume und ohne Raum bleiben. War der
+  Zielraum schon im Profil, fallen die Dubletten des Tauschs weg (ein
+  `room:`-Tab, jeder Baustein einmal; bei `ui.panes` gewinnt die getauschte
+  Seite). Ohne Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
   der Server bekommt das neue Profil erst beim Speichern. Geprüft in
   `tests/browser/test_duplizieren_browser.py`.
 - Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von

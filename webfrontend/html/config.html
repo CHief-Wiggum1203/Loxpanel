@@ -2891,26 +2891,33 @@ function profilMitRaumtausch(p, von, nach, controls){
   const uu=u=>{ if(!map.has(u)) return u;   // anderer Raum: bleibt
     const z=map.get(u); if(z===null){ const c=quelle.find(x=>x.uuid===u); if(c && fehlend.indexOf(c.name)<0) fehlend.push(c.name); }
     return z; };
-  const liste=xs=>(xs||[]).map(uu).filter(Boolean);
+  // War der Zielraum schon im Profil, erzeugt der Tausch Dubletten (zweimal
+  // room:nach, derselbe Baustein zweimal): die zweite faellt weg, die Reihenfolge bleibt.
+  const einmal=xs=>xs.filter((x,i)=>xs.indexOf(x)===i);
+  const liste=xs=>einmal((xs||[]).map(uu).filter(Boolean));
   const tab=t=> (t==='room:'+von) ? 'room:'+nach : t;
   const n=JSON.parse(JSON.stringify(p));
-  n.tabs=(n.tabs||[]).map(tab);
-  if(Array.isArray(n.rooms)) n.rooms=n.rooms.map(r=>r===von?nach:r);
+  n.tabs=einmal((n.tabs||[]).map(tab));
+  if(Array.isArray(n.rooms)) n.rooms=einmal(n.rooms.map(r=>r===von?nach:r));
   if(Array.isArray(n.hide)) n.hide=liste(n.hide);
   if(Array.isArray(n.picks)) n.picks=liste(n.picks);
   if(Array.isArray(n.pickTabs)) n.pickTabs.forEach(t=>{ if(t){ t.picks=liste(t.picks); if(t.widget) t.widget=paneTausch(t.widget, uu); } });
   if(n.tiles && typeof n.tiles==='object'){ const t={}; Object.entries(n.tiles).forEach(([u,v])=>{ const z=uu(u); if(z) t[z]=v; }); n.tiles=t; }
   if(n.ui && typeof n.ui==='object'){
-    if(n.ui.panes && typeof n.ui.panes==='object'){ const ps={};
-      Object.entries(n.ui.panes).forEach(([k,v])=>{ const w=paneTausch(v, uu); if(w) ps[tab(k)]=w; }); n.ui.panes=ps; }
-    if(Array.isArray(n.ui.valueBar)) n.ui.valueBar=n.ui.valueBar.map(tab);
+    if(n.ui.panes && typeof n.ui.panes==='object'){ const ps={}, alle=Object.entries(n.ui.panes);
+      // Treffen zwei Seiten auf denselben Tab, gewinnt die getauschte (die Vorlage, uebertragen auf den Zielraum)
+      [...alle.filter(([k])=>tab(k)!==k), ...alle.filter(([k])=>tab(k)===k)].forEach(([k,v])=>{
+        const z=tab(k); if(z in ps) return; const w=paneTausch(v, uu); if(w) ps[z]=w; });
+      n.ui.panes=ps; }
+    if(Array.isArray(n.ui.valueBar)) n.ui.valueBar=einmal(n.ui.valueBar.map(tab));
     if(typeof n.ui.svPane==='string' && n.ui.svPane) n.ui.svPane=paneTausch(n.ui.svPane, uu);
     if(typeof n.ui.player==='string' && n.ui.player) n.ui.player=uu(n.ui.player)||'';
   }
   return {profil:n, fehlend:fehlend, getauscht:[...map.values()].filter(Boolean).length};
 }
 // Raum eines Profils: sein room:-Tab, sonst der erste der Raum-Liste, sonst
-// der Raum, aus dem die meisten gewaehlten Bausteine stammen.
+// der Raum, aus dem die meisten gewaehlten Bausteine stammen (der feste
+// Player zaehlt mit, sonst bliebe ein reines Musik-Panel ohne Raum).
 function profilRaum(p){
   const t=(p.tabs||[]).find(x=>typeof x==='string' && x.indexOf('room:')===0); if(t) return t.slice(5);
   if(Array.isArray(p.rooms) && p.rooms.length) return p.rooms[0];
@@ -2920,6 +2927,7 @@ function profilRaum(p){
   Object.keys(p.tiles||{}).forEach(zaehl);
   Object.values((p.ui||{}).panes||{}).forEach(v=>paneTausch(v, zaehl));
   if((p.ui||{}).svPane) paneTausch(p.ui.svPane, zaehl);
+  if(typeof (p.ui||{}).player==='string' && p.ui.player) zaehl(p.ui.player);
   return Object.keys(zahl).sort((a,b)=>zahl[b]-zahl[a])[0]||'';
 }
 // Panel-ID aus einem Raumnamen: klein, Umlaute ausgeschrieben, Rest Bindestrich; frei (sonst -2, -3 ...)
