@@ -7132,6 +7132,17 @@ class App:
                 pass
             return False
 
+    async def _neu_laden(self, ws) -> bool:
+        """Ein Panel neu laden ({t:"reload"}) und die Verbindung als abgeloest
+        kennzeichnen: die Seite verschwindet gleich, ein weiterer Push an sie
+        (etwa das Umschalten gleich nach dem Speichern) ginge mit ihr verloren
+        und darf in _push() nicht als erreicht zaehlen."""
+        if not await self._send_or_drop(ws, {"t": "reload"}):
+            return False
+        if ws in self.conn_info:
+            self.conn_info[ws]["neuLaden"] = True
+        return True
+
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
         if self._pending_ring is not None:
@@ -7176,7 +7187,7 @@ class App:
             # neue/umbenannte Controls erscheinen. Nur bei echter Aenderung gesetzt.
             self._pending_reload = False
             for ws in list(self.conn_route):
-                await self._send_or_drop(ws, {"t": "reload"})
+                await self._neu_laden(ws)
         if self._last_sent:
             # Merkzettel von Verbindungen befreien, die es nicht mehr gibt.
             # Selbstheilend, damit nicht an jeder der vier Stellen, die eine
@@ -9203,7 +9214,8 @@ async def api_display(request: web.Request) -> web.Response:
 async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int:
     """Push an offene Visu-Verbindungen (Server -> Browser). Optional gefiltert
     auf ein Panel-Profil (`panel`) oder ein Geraet (`device`, aus ?device=).
-    Gibt die Anzahl erreichter Panels zurueck."""
+    Gibt die Anzahl erreichter Panels zurueck. Ein Panel, das gerade neu laedt
+    (App._neu_laden), zaehlt nicht mehr: erreicht wird erst seine neue Verbindung."""
     panel = (panel or "").strip()
     device = (device or "").strip()
     n = 0
@@ -9212,7 +9224,9 @@ async def _push(app: "App", msg: dict, panel: str = "", device: str = "") -> int
             continue
         if device and app.conn_dev.get(ws) != device:
             continue
-        if await app._send_or_drop(ws, msg):
+        if (app.conn_info.get(ws) or {}).get("neuLaden"):
+            continue
+        if await (app._neu_laden(ws) if msg.get("t") == "reload" else app._send_or_drop(ws, msg)):
             n += 1
     return n
 
