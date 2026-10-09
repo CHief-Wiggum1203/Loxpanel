@@ -413,6 +413,9 @@
   .se-eigen .se-werte-wahl{max-width:none;flex:2 1 300px;}
   .se-werte-wahl .picked{margin:6px 0 2px;}
   .se-icon{flex:0 0 auto;padding-bottom:10px;}
+  .se-kopfwerte{margin-top:6px;}
+  .se-kopfwerte select{width:100%;max-width:none;}
+  .se-kopfwerte .picked{margin:6px 0 2px;}
   .se-icon[open]{flex-basis:100%;padding-bottom:0;}
   .se-icon summary{cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);list-style:none;}
   .se-icon summary::-webkit-details-marker{display:none;}
@@ -2837,6 +2840,7 @@ function seKontextReiter(){
       if(v) p.ui.panes[tab()]=v; else delete p.ui.panes[tab()];
       if(!Object.keys(p.ui.panes).length) delete p.ui.panes;
       markDirty(); renderPanes(p); },
+    setPaneRoh:v=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{}; p.ui.panes[tab()]=v; markDirty(); renderPanes(p); },
     geraete:()=>seGeraeteListe(p), geraet:()=>seGeraetReiter(p),
     setGeraet:x=>{ SE_VORSCHAU[cur]={quelle:x.quelle, name:x.name}; },
     geaendert:()=>{ markDirty(); pickRefresh(); },
@@ -2853,7 +2857,7 @@ function seKontextWz(i){
       return {auto:WZ.grid==='auto', cols:gr[0]===3?3:2, rows:gr[1]===3?3:2, split:WZ.panes==='2', ziel:wzZiel(),
         paneCols:0, pane:wzP2Real(WZ.pane2[key]||''), werteLeiste:false}; },
     hide:()=>[], tiles:()=>({}),
-    setPane:k=>{ if(k) WZ.pane2[key]=k; else delete WZ.pane2[key]; },
+    setPane:k=>{ if(k) WZ.pane2[key]=k; else delete WZ.pane2[key]; }, setPaneRoh:null,
     geraete:null, geraet:()=>WZ.groesse||wzBrowser(), setGeraet:null,
     geaendert:()=>wzUpd(), gestalten:null};
 }
@@ -3006,7 +3010,8 @@ function seFlaecheHtml(ctx, st, a, r, lage){
       seIcon(c)+'<span class="se-tn">'+esc(c.name)+'</span>'+(c.roomName?'<span class="se-tr">'+esc(c.roomName)+'</span>':'')+mass+'</button>';
   });
   if(!a.raster.length) h+='<div class="se-leer" style="'+seKasten(geo.raster, g)+'">'+T('Bausteine aus der Liste hierher ziehen oder antippen')+'</div>';
-  if(geo.kopf) h+='<div class="se-band" style="'+seKasten(geo.kopf, g)+'">'+T('Kopfzeile')+' · '+T('Uhr, Wetter')+'</div>';
+  if(geo.kopf) h+='<div class="se-band" style="'+seKasten(geo.kopf, g)+'">'+T('Kopfzeile')+' · '+
+    esc([T('Uhr, Wetter')].concat(seKopfWerte(ctx.ui().pane).map(u=>(seCtrl(u)||{}).name).filter(Boolean)).join(', '))+'</div>';
   if(geo.leiste) h+='<div class="se-band se-werte" style="'+seKasten(geo.leiste, g)+'">'+
     a.leiste.map(e=>'<span>'+esc(seCtrl(e.id).name)+'</span>').join('')+'</div>';
   if(geo.pane) h+='<div class="se-pane" style="'+seKasten(geo.pane, g)+'"><b>'+esc(T('Widget')+' · '+T(SE_PANE_NAMEN[r.art]||r.art))+'</b>'+
@@ -3069,6 +3074,26 @@ function sePalListeHtml(ctx, a){
     : '<div class="muted">'+T('nichts gefunden')+'</div>')+'</div>'+
     '<p class="hint">'+auf.size+' '+T('von')+' '+alle.length+' '+T('auf dieser Seite')+' · '+T('abgeblendet = schon platziert')+'</p>';
 }
+// Werte der Kopfzeile ("header:<uuid>,..."), wie unter Aussehen (renderPanes)
+function seKopfWerte(pane){ return sePaneArt(pane)==='header' ? wArg(pane).split(',').filter(Boolean) : []; }
+function seKopfWerteHtml(ctx){
+  const uu=seKopfWerte(ctx.ui().pane);
+  return '<div class="se-kopfwerte"><label class="lbl">'+T('Werte der Kopfzeile')+'</label>'+
+    '<select data-se-kopf-neu><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
+    ((svMax()&&uu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht in die Zeile.')+'</span>':'')+
+    '<div class="picked">'+(uu.length
+      ? uu.map(u=>{ const c=seCtrl(u);
+          return '<span class="chip on" data-se-kopf-weg="'+esc(u)+'">'+esc(c?c.name:u)+
+            '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+      : '<span class="none">'+T('Ohne Werte zeigt die Kopfzeile Uhr und Wetter.')+'</span>')+'</div></div>';
+}
+function seKopfWert(ctx, u, dazu){
+  const uu=seKopfWerte(ctx.ui().pane);
+  let neu;
+  if(dazu){ if(!u || uu.indexOf(u)>-1 || (svMax() && uu.length>=svMax())) return; neu=uu.concat([u]); }
+  else neu=uu.filter(x=>x!==u);
+  ctx.setPaneRoh(neu.length ? 'header:'+neu.join(',') : 'header');
+}
 function seWidHtml(ctx){
   const u=ctx.ui(), cur=sePaneArt(u.pane);
   return '<div class="grph">'+T('Widgets')+'</div><div class="se-wl">'+SE_WIDGETS.filter(([k])=>!!wzP2Real(k)).map(([k,n])=>{
@@ -3077,7 +3102,8 @@ function seWidHtml(ctx){
         '<span class="se-grip">'+SE_GRIFF+'</span>'+esc(T(n))+'</button>'; }).join('')+'</div>'+
     '<p class="hint">'+(u.split
       ? T('Ein Widget steht quer rechts neben den Kacheln, hochkant darunter; die Kopfzeile liegt über ihnen. Antippen oder auf die Fläche ziehen, noch einmal antippen nimmt es weg.')
-      : T('Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.'))+'</p>';
+      : T('Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.'))+'</p>'+
+    ((cur==='header' && ctx.setPaneRoh) ? seKopfWerteHtml(ctx) : '');
 }
 // Ganzer Editor in host. Die Filterzeile der Palette steht fest (Fokus und
 // Cursor im Suchfeld bleiben), alles andere zeichnet seZeichnen() neu.
@@ -3139,6 +3165,8 @@ function seKlick(host, ev){
   // Marken in Knoepfen und Chips zuerst: Seite entfernen, Baustein aus dem Werte-/Verlauf-Widget
   const weg=ev.target.closest('[data-se-seite-weg]');
   if(weg && ctx.seiteWeg){ ev.stopPropagation(); ctx.seiteWeg(Number(weg.dataset.seSeiteWeg)); return; }
+  const kw=ev.target.closest('[data-se-kopf-weg]');
+  if(kw){ seKopfWert(ctx, kw.dataset.seKopfWeg, false); seZeichnen(host); return; }
   const ww=ev.target.closest('[data-se-wweg]');
   if(ww){ seWidgetWerte(ctx, ww.dataset.seWweg, false); seEigenNeu(host); seZeichnen(host); return; }
   const b=ev.target.closest('button'); if(!b || !host.contains(b) || b.disabled) return;
@@ -3168,6 +3196,7 @@ function seAenderung(host, ev){
   else if(t.matches('[data-se-inhalt]')){ seInhalt(ctx, t.value); seEigenNeu(host); }
   else if(t.matches('[data-se-warg]')){ const e=ctx.seite(); e.widget=wKind(e.widget||'')+':'+t.value; ctx.geaendert(); }
   else if(t.matches('[data-se-wneu]')){ seWidgetWerte(ctx, t.value, true); seEigenNeu(host); }
+  else if(t.matches('[data-se-kopf-neu]')) seKopfWert(ctx, t.value, true);
   else return;
   seZeichnen(host);
 }
@@ -3781,7 +3810,7 @@ async function wzAmGeraet(id, name, umschalten, ziel){
   if(ziel){
     readDevFromDom();
     DEV[name]=Object.assign({auto:true, modes:[]}, DEV[name]||{}, {tileTarget:ziel});
-    try{ const j=await postJson('/api/devices', {devices:devicesPayload()});
+    try{ const j=await devSpeichern();
       if(!j.ok){ flash(t, j.error||T('Fehler'), false); return; }
       devGespeichert(j, T('✓ Gespeichert')); renderDevices(); }
     catch(e){ flash(t, 'Fehler: '+e, false); return; }
@@ -4641,6 +4670,9 @@ function deviceRow(d, sel){
   if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
                     '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
                     '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button>';
+  // Nur ein Geraet mit gespeicherten Einstellungen laesst sich entfernen: eines
+  // ohne verschwindet von selbst, sobald es nicht mehr verbunden ist
+  if(d.configured) btns+='<button class="btn sm del" data-act="entfernen" data-online="'+(d.online?1:0)+'">'+T('Entfernen')+'</button>';
   const warn=zielAbweichung(d);
   return '<div class="ag" data-name="'+esc(d.name)+'" data-ip="'+esc(d.agent?d.agent.ip:'')+'">'+
     '<span class="dot'+(d.online?' on':'')+'"></span>'+
@@ -4679,7 +4711,8 @@ function renderDeviceList(j){
   box.innerHTML=html;
   box.querySelectorAll('.ag[data-name] button[data-act]').forEach(b=>{
     const row=b.closest('.ag');
-    b.onclick=()=>deviceAction(b.dataset.act, row.dataset.name, row.dataset.ip, row.querySelector('.agsel').value);
+    b.onclick=()=>b.dataset.act==='entfernen' ? devEntfernen(row.dataset.name, b.dataset.online==='1')
+      : deviceAction(b.dataset.act, row.dataset.name, row.dataset.ip, row.querySelector('.agsel').value);
   });
   box.querySelectorAll('.ag[data-anon] button[data-act="name"]').forEach(b=>{
     const row=b.closest('.ag');
@@ -4703,6 +4736,27 @@ async function deviceAction(act, name, ip, panel){
     const ok=!!j.ok && (n===undefined || n>0);
     flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Panel nicht erreicht'):('HTTP '+j.status)))), ok);
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
+}
+// Display entfernen: seine Einstellungen (Betriebsmodi, Display-Steuerung,
+// Skalierung, Zielkachel, Praesenzmelder) fallen weg, gespeichert wird sofort
+// wie mit "Speichern" im Editor darunter (die ganze Liste). Ist es noch
+// verbunden, meldet die naechste Abfrage es wieder - dann ohne Einstellungen.
+async function devEntfernen(name, online){
+  if(!confirm(T('Display entfernen:')+' '+name+'\n\n'+
+      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Displays werden dabei mitgespeichert.')+
+      (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
+  readDevFromDom();
+  const alt=DEV[name]; delete DEV[name];
+  // Zeile gleich aus dem Editor: liest ein weiteres Speichern die Liste, kaeme sie sonst zurueck
+  const zeile=document.querySelector('#dev_list .dev[data-name="'+CSS.escape(name)+'"]'); if(zeile) zeile.remove();
+  try{
+    const j=await devSpeichern();
+    if(!j.ok){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+(j.error||''),false); return; }
+    KNOWN_NAMES=KNOWN_NAMES.filter(n=>n!==name);
+    renderDevices(); devGespeichert(j, T('✓ Gespeichert')); zielAuswahlAuffrischen();
+    flash($('#ag_toast'), '✓ '+T('Entfernt:')+' '+name, true);
+    pollDevices();
+  }catch(e){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+e,false); }
 }
 async function nameDevice(ip,name,code){
   if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return false; }
@@ -4892,6 +4946,15 @@ function devicesPayload(){
   });
   return devices;
 }
+// Die Geraeteliste nacheinander speichern: Jede Anfrage traegt die ganze Liste,
+// eine spaetere darf eine fruehere nicht ueberholen (sonst kaeme ein gerade
+// entferntes Display zurueck). Die Liste entsteht erst, wenn die Anfrage dran ist.
+let DEV_SPEICHERN=Promise.resolve();
+function devSpeichern(){
+  const lauf=DEV_SPEICHERN.then(()=>postJson('/api/devices',{devices:devicesPayload()}));
+  DEV_SPEICHERN=lauf.catch(()=>{});
+  return lauf;
+}
 // Nach dem Speichern: welche Kennwoerter der Server jetzt hat (auch in den
 // Platzhaltern, "Speichern" zeichnet nicht neu); eines, das er wegen eines
 // anderen Ziels verworfen hat, nennen (bleibt stehen).
@@ -4905,11 +4968,9 @@ function devGespeichert(j, text){
 }
 $('#dev_save').onclick=async()=>{
   readDevFromDom();
-  const devices=devicesPayload();
   $('#dev_save').disabled=true;
   try{
-    const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
-    const j=await r.json();
+    const j=await devSpeichern();
     if(j.ok){ devGespeichert(j,T('✓ Gespeichert')); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
   $('#dev_save').disabled=false;
@@ -5033,10 +5094,8 @@ async function mzApply(){
     MZ.modes.forEach(m=>{ if(m.profile) map.set(m.key,m.profile); else map.delete(m.key); });
     d.modes=Array.from(map.entries()); d.auto=true;
   });
-  const devices=devicesPayload();
   try{
-    const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
-    const j=await r.json();
+    const j=await devSpeichern();
     if(j.ok){ mzClose(); devGespeichert(j,T('✓ Betriebsmodus gespeichert')); renderDevices(); }
     else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }

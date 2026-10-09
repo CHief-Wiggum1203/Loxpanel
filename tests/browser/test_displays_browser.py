@@ -117,7 +117,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 flur = liste.locator('.ag[data-name="flur"]')
                 assert await flur.locator(".dot").get_attribute("class") == "dot", "nur konfiguriert: offline"
                 assert await flur.locator(".tag").text_content() == "Browser"
-                assert await flur.locator("button").count() == 0, "offline: nichts zu schalten"
+                assert await flur.locator("button").all_text_contents() == ["Entfernen"], "offline: nichts zu schalten, nur entfernen"
 
                 tab = liste.locator('.ag[data-name="tablet"]')
                 assert await tab.locator(".dot").get_attribute("class") == "dot on"
@@ -379,4 +379,109 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_display_entfernen(cfg_ordner):
+    """"Entfernen" in der Geraeteliste loescht die Einstellungen eines Displays und
+    speichert sofort. Ein Display, das nicht verbunden ist, verschwindet ganz;
+    eines, das verbunden ist, kommt ohne Einstellungen wieder (die Rueckfrage
+    sagt das vorher). Ein verbundenes ohne Einstellungen hat nichts zu entfernen."""
+    panels = copy.deepcopy(PANELS)
+    panels["devices"]["tablet"] = {"auto": True, "modes": {"gaeste": "wohnen"}}
+
+    async def lauf():
+        app = _app(cfg_ordner, panels)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, fragen = [], []
+
+        async def dialog(d):
+            fragen.append(d.message)
+            await d.accept()
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                await _visu(b, port, fehler, *TABLET)
+                await _visu(b, port, fehler, "?panel=wohnen&device=ohne", {"width": 800, "height": 480})
+                await _bis(lambda: _geraet(app, "tablet").get("online") and _geraet(app, "ohne").get("online"),
+                           "Tablets verbunden")
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                pg.on("dialog", dialog)
+                await _displays(pg, port)
+                liste = pg.locator("#ag_list")
+                await liste.locator('.ag[data-name="ohne"]').wait_for()
+                knoepfe = await liste.locator(".ag[data-name]").evaluate_all(
+                    "l => l.map(n => [n.dataset.name, !!n.querySelector('[data-act=entfernen]')])")
+                assert knoepfe == [["flur", True], ["ohne", False], ["tablet", True]], knoepfe
+
+                # flur ist nicht verbunden: weg aus Liste, Editor und panels.json
+                await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
+                await _meldung(pg, "#ag_toast", "✓ Entfernt: flur")
+                assert "flur" in fragen[0] and "verbunden" not in fragen[0], fragen
+                doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                assert sorted(doc["devices"]) == ["tablet"], doc["devices"]
+                assert "flur" not in app.devices
+                await pg.wait_for_function("!document.querySelector('#ag_list .ag[data-name=\"flur\"]')")
+                assert await pg.locator('#dev_list .dev[data-name="flur"]').count() == 0
+
+                # das Tablet ist verbunden: es kommt ohne Einstellungen wieder
+                await liste.locator('.ag[data-name="tablet"] [data-act="entfernen"]').click()
+                await _meldung(pg, "#ag_toast", "✓ Entfernt: tablet")
+                assert "verbunden" in fragen[1], fragen
+                doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                assert "devices" not in doc and app.devices == {}, doc     # ohne Displays faellt der Schluessel weg
+                await pg.wait_for_function("""() => { const n = document.querySelector('#ag_list .ag[data-name="tablet"]');
+                    return n && !n.querySelector('[data-act=entfernen]'); }""")
+                await pg.locator('#dev_list .dev[data-name="tablet"]').wait_for(state="attached")
+                assert await pg.locator('#dev_list .dev[data-name="tablet"] .dm_mode').input_value() == ""
+                assert doc["panels"] == panels["panels"], "die Profile bleiben, wie sie waren"
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_zwei_displays_schnell_hintereinander_entfernen(cfg_ordner):
+    """Das zweite Entfernen kommt, waehrend das erste noch speichert (hier haelt
+    der Test die erste Anfrage eine Sekunde auf). Weder darf das zweite Speichern
+    das erste Display aus dem Editor wieder einlesen, noch eine fruehere Anfrage
+    eine spaetere ueberholen: am Ende sind beide weg."""
+    panels = copy.deepcopy(PANELS)
+    panels["devices"]["kueche-wand"] = {"auto": True, "modes": {"gaeste": "wohnen"}}
+
+    async def lauf():
+        app = _app(cfg_ordner, panels)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, posts = [], []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+
+                async def bremse(route):
+                    if route.request.method == "POST":
+                        posts.append(json.loads(route.request.post_data)["devices"])
+                        if len(posts) == 1:
+                            await asyncio.sleep(1)
+                    await route.continue_()
+                await pg.route("**/api/devices", bremse)
+                await _displays(pg, port)
+                liste = pg.locator("#ag_list")
+                await liste.locator('.ag[data-name="kueche-wand"]').wait_for()
+                await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
+                await liste.locator('.ag[data-name="kueche-wand"] [data-act="entfernen"]').click()
+                await _meldung(pg, "#ag_toast", "✓ Entfernt: kueche-wand")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        assert [sorted(d) for d in posts] == [["kueche-wand"], []], posts
+        doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+        assert "devices" not in doc and app.devices == {}, doc
     asyncio.run(lauf())
