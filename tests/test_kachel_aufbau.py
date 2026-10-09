@@ -73,7 +73,8 @@ VOLL = {
     "title": "Sauna", "tabs": ["room:r1", "auswahl"], "rooms": ["r1"], "cats": ["c1", "c2"],
     "roomCats": ["c4", "c2"],          # Klickreihenfolge, nicht die der Struktur
     "hide": ["S1"], "picks": ["S2"], "pickName": "Morgens", "device": {"name": "wand", "vw": 1280, "vh": 800},
-    "pickTabs": [{"name": "Seite", "picks": ["S3"], "icon": "/icon?n=x", "widget": "weather"}],
+    "pickTabs": [{"name": "Seite", "picks": ["S3"], "icon": "/icon?n=x", "widget": "weather",
+                  "layout": [{"id": "S3", "w": 2, "h": 2}], "byRoom": False}],
     "ui": {"iconSize": 30, "nameSize": 20, "subSize": 14, "roomSize": 12, "bigSize": 40, "font": "Inter",
            "nudgeX": 4, "dpmsOff": 60, "reloadHours": 24, "nightDim": 50, "nightWake": 20, "pinMerken": 90,
            "cols": 3, "rows": 3, "fill": True, "split": False, "catFilter": True, "tileLayout": "classic",

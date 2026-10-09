@@ -1381,6 +1381,18 @@ Assistenten des Konfigurators.
   untereinander zu stehen: untereinander kostete er auf der 126-px-Kachel des
   4″-Panels die Höhe, und die Eng-Stufe kappte den zweiten Teil. Geprüft in
   `tests/test_kachel_breit.py` und `tests/browser/test_kachel_breit_browser.py`.
+- Kacheln 2 × 2 (Seiten-Editor, Punkt 10, 09.10.2026): Auf einer freien
+  Seite kann das Layout (`pickTabs[i].layout`, §7.2) eine Kachel hoch machen
+  (`h: 2`, immer auch breit). Die Visu macht daraus `w2 h2` (`grid-row: span
+  2`), aber nur, wo das Raster zwei Spalten und zwei Zeilen hat
+  (`kachelGroesse()`, `LoxRaster.groesse()`). Eine hohe Kachel belegt zwei
+  Zeilen derselben Seite: `rasterLage()` setzt sie in der letzten Zeile einer
+  Seite auf die nächste, die Lücke füllt die nächste kleine. Den dichten Fluss
+  des Browsers, der keine Seitengrenze kennt, ersetzt die Visu dann durch feste
+  Stellen (`kachelPlatz()`: `grid-row`/`grid-column` je Kachel, waagerecht in
+  ihrer Seite), sobald die Seite eine hohe trägt (`lage.hoch`); `updateGrid()`
+  setzt sie beim Abgleich mit. Geprüft in
+  `tests/browser/test_kachel_hoch_browser.py`.
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
   Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`, die
   Rechnung steht seit Punkt 9 in `raster.js`, §7.5), statt
@@ -1677,6 +1689,15 @@ Assistenten des Konfigurators.
   Editor nach dem Neuladen nur eine Seite und kürzt beim nächsten Speichern
   die Leiste (so geschehen vor #47). Geprüft über Speichern, Neuladen,
   Weiterbearbeiten und die Visu in `tests/browser/test_auswahl_seiten_browser.py`.
+  Seit Punkt 10 (09.10.2026) trägt eine Seite dazu `layout` `[{id, w, h}]`
+  (Reihenfolge und Größe 1 × 1, 2 × 1, 2 × 2; `_seiten_layout()`) und `byRoom`
+  (Standard an: die Visu gruppiert nach Raum und zeigt Sprungmarken; aus:
+  genau die Reihenfolge der Seite). `picks` bestimmt, was auf der Seite steht,
+  das Layout Reihenfolge und Größe (`_layout_mit_picks()`): Einträge, die
+  nicht mehr in `picks` stehen, fallen weg, Bausteine ohne Eintrag kommen
+  hinten an. So bleibt eine Seite stimmig, wenn nur `picks` geändert wird
+  (Bausteinliste, Raumtausch beim Duplizieren). Geprüft in
+  `tests/test_seiten_layout.py`.
 - Panel duplizieren mit Raumtausch (Punkt 14, 08.10.2026): „Duplizieren“ in
   der Speicherleiste öffnet einen Dialog (`dupOpen()`), der ID und Titel aus
   dem Zielraum vorschlägt (`idAusName()`: klein, Umlaute ausgeschrieben,
@@ -1828,8 +1849,9 @@ bleibt, steht in `TODO.md` („Konfigurator auf Englisch vervollständigen“).
 Gemeinsame Rasterrechnung, ausgeliefert unter `/raster.js` (`raster_js`),
 geladen von `panel.html` und `config.html` (Punkt 9, 09.10.2026). Reine
 Rechnung ohne DOM unter `window.LoxRaster`: `kachelFaktorFuer()`
-(Kachelfaktor, `KACHEL_REF` usw.), `quadratisch()`, `rasterLage()` (Lage
-der Kacheln, breite belegen zwei Spalten), `festesRaster()` (Profilraster
+(Kachelfaktor, `KACHEL_REF` usw.), `quadratisch()`, `groesse()` und
+`rasterLage()` (Lage der Kacheln mit Zeile und Spalte: breite belegen zwei
+Spalten, hohe zwei Zeilen derselben Seite), `festesRaster()` (Profilraster
 samt Verdopplung durch den Split) und `autoRaster()` (Spalten und Zeilen aus
 Fläche und Zielkachel, Widget-Spalten, Wachsen und Schrumpfen, zweiter
 Durchgang mit Seitenpunkten). Die Visu misst Fläche, Abstand, Innenrand,

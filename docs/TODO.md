@@ -1727,6 +1727,11 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           mit Pfeiltasten als Ersatz; Server: `pickTabs[i].layout`
           `[{id,w,h}]`, Raum-Gruppierung dort abschaltbar; Entwurfs-Endpunkt
           für die Vorschau in der echten Visu. **L**
+          *Teil 1 erledigt 09.10.2026 (Server und Visu):* `pickTabs[i].layout`
+          `[{id, w, h}]` und `byRoom` im Server samt Sanitizer und Export,
+          Kacheln 2 × 2 in der Visu, die nie über eine Seitengrenze ragen.
+          Offen: der Editor im Konfigurator (Teil 2) und der
+          Entwurfs-Endpunkt (Teil 3).
       11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
           einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
           *Erledigt 08.10.2026:* Ein Browser ohne Gerätekennung bekommt beim

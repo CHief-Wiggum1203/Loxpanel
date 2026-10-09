@@ -455,6 +455,7 @@
      davor mit der naechsten schmalen Kachel. Seiten und Rastpunkte rechnet
      rasterLage() genauso nach. */
   .tile.w2{grid-column:span 2;}
+  .tile.h2{grid-row:span 2;}   /* 2 x 2 aus dem Seiten-Editor (Punkt 10), immer auch w2 */
   /* Kachelfaktor --ks (am .screen, gesetzt in setzeFaktor): Kachelbreite durch
      KACHEL_REF (170 px), begrenzt auf KS_MIN..KS_MAX. Symbol, Schrift, Tasten,
      Innenabstand, Radius, Ring, Mini-Verlauf und die Kopfzeile werden damit
@@ -2876,7 +2877,7 @@ function updateGrid(items){
   if(g.classList.contains('hpages')!==quer) return false;      // Blaetterrichtung gewechselt (Drehen)
   const nodes=[...g.querySelectorAll('.tile[data-id]')];
   if(nodes.length!==items.length || !nodes.length) return false;
-  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const groessen=items.map(kachelGroesse), lage=rasterLage(groessen, gridCols, gridRows);
   const seiteVon=i=>Math.floor(lage.zeile[i]/Math.max(1,gridRows));
   const byId=new Map(nodes.map(n=>[n.dataset.id, n]));
   if(quer){
@@ -2896,7 +2897,6 @@ function updateGrid(items){
     for(let i=0;i<items.length;i++){ if(String(items[i].id)!==nodes[i].dataset.id) return false; }
   }
   const snapAt=i=> quer ? false : (view.layout==='list' ? (i%4===0) : lage.snaps.has(i));
-  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
   g._zeile=lage.zeile;
   g.classList.toggle('snapy', !quer && (view.layout==='list' ? items.length>4 : lage.seiten>1));
   let ok=true;
@@ -2906,13 +2906,13 @@ function updateGrid(items){
     // Klassen, die tastenEinpassen()/fitTile()/paintSpark() nach dem Messen
     // setzen, bleiben stehen: sonst verloere eine enge Kachel bei jedem
     // Zustandswechsel, der ihren Text nicht aendert (Player: Pause), ihre Stufen.
-    const cls='tile'+tileTone(it)+aufbauKlassen(it)+breit(it)+(snapAt(i)?' snap':'')+
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+kachelKlassen(groessen[i])+(snapAt(i)?' snap':'')+
       [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     if(n.className!==cls) n.className=cls;
     // Style der Kachel (Farben, Rahmen): verglichen mit dem zuletzt gesetzten
     // Text, nicht dem Attribut - dort steht auch der eigene Faktor der Kachel
     // (--ks aus tastenEinpassen), den der Browser beim Setzen mit umschreibt.
-    const stStr=tileVarStyle(it);
+    const stStr=tileVarStyle(it)+kachelPlatz(lage, groessen, i, quer);
     if(n._stStr!==stStr){ n.setAttribute('style',stStr); n._stStr=stStr; if(n._kt) n.style.setProperty('--ks', String(n._kt)); }
     const body=n.querySelector('.body');
     if(body){ let subEl=body.querySelector('.sub'); const sub=subText(it);
@@ -2995,7 +2995,23 @@ let _lastBreiten = [];
 // je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
 // Luecke davor fuellt die naechste schmale Kachel. Daraus die Seitenzahl und
 // die Rastpunkte (jede Kachel in der ersten Zeile einer Seite).
-function rasterLage(breiten, cols, rows){ return LoxRaster.rasterLage(breiten, cols, rows); }
+function rasterLage(groessen, cols, rows){ return LoxRaster.rasterLage(groessen, cols, rows); }
+// Groesse einer Kachel im Raster (Punkt 10): breit nur, wo zwei Spalten da sind,
+// hoch (immer auch breit) nur, wo zwei Zeilen da sind; Listen kennen beides nicht
+function kachelGroesse(it){
+  if(view && view.layout==='list') return {w:1, h:1};
+  return LoxRaster.groesse({w:it.w===2?2:1, h:it.h===2?2:1}, gridCols, gridRows);
+}
+function kachelKlassen(g){ return (g.w===2?' w2':'')+(g.h===2?' h2':''); }
+// Feste Stelle einer Kachel, sobald die Seite eine hohe traegt (lage.hoch): der
+// dichte Fluss des Browsers kennt die Seitengrenzen nicht und zoege eine hohe
+// Kachel in der letzten Zeile ueber zwei Seiten. Waagerecht zaehlt die Zeile
+// in ihrer Seite.
+function kachelPlatz(lage, groessen, i, quer){
+  if(!lage.hoch) return '';
+  const g=groessen[i], z=quer ? lage.zeile[i]%Math.max(1,gridRows) : lage.zeile[i];
+  return 'grid-row:'+(z+1)+' / span '+g.h+';grid-column:'+(lage.spalte[i]+1)+' / span '+g.w+';';
+}
 // Die Rechnung steht in raster.js (gemeinsam mit dem Assistenten im
 // Konfigurator); hier misst die Visu, was sie braucht: sichtbare Flaeche,
 // Abstand und Innenrand des Rasters, Hoehe der Seitenpunkte und der
@@ -3030,7 +3046,7 @@ function render(){
   _lastWidget = _widget;
   // Kacheln der Seite mit ihrer Breite (fuer das Wachsen im automatischen
   // Raster): keine auf Widget-, Front- und Listenseiten
-  _lastBreiten = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).map(it=>it.w===2?2:1) : [];
+  _lastBreiten = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).map(it=>({w:it.w===2?2:1, h:it.h===2?2:1})) : [];
   _lastRaster = rasterKey(_widget);
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -3068,10 +3084,9 @@ function render(){
   // Lage im Raster: Rastpunkt auf die erste Kachel jeder Seite (Liste: jede
   // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind. Waagerechte
   // Seiten (Tablet): je Seite ein eigenes Raster, Rastpunkt ist die Seite.
-  const lage=rasterLage(items.map(it=>it.w===2?2:1), gridCols, gridRows);
+  const groessen=items.map(kachelGroesse), lage=rasterLage(groessen, gridCols, gridRows);
   const quer=seitenQuer();
   const snapAt=i=> quer ? false : (view.layout==='list' ? (i%4===0) : lage.snaps.has(i));
-  const breit=it=> (it.w===2 && gridCols>=2 && view.layout!=='list') ? ' w2' : '';
   g._zeile=lage.zeile;
   const seiten=quer ? Array.from({length:lage.seiten}, ()=>'') : null;
   let html='';
@@ -3100,7 +3115,7 @@ function render(){
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
     const tone = tileTone(it);
     const ts=it.style||{};
-    const stStr = tileVarStyle(it);
+    const stStr = tileVarStyle(it)+kachelPlatz(lage, groessen, _i, quer);
     const st = stStr?' style="'+esc(stStr)+'"':'';
     const nsv=[];
     if(ts.txt) nsv.push('color:'+ts.txt);
@@ -3110,7 +3125,7 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+breit(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
                 (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
