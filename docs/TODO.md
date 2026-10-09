@@ -1750,6 +1750,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           Kurzfassung und „Im Seiten-Editor bearbeiten“. Die Bausteinliste und
           der kleine Assistent „Schritt für Schritt“ unter Tabs sind
           entfallen, die Palette des Seiten-Editors kann dasselbe.
+          Dazu: Die Werte der Kopfzeile (Badges neben Uhr und Wetter) lassen
+          sich jetzt auch im Seiten-Editor wählen, und unter Displays lässt
+          sich ein Display mit gespeicherten Einstellungen entfernen.
       11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
           einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
           *Erledigt 08.10.2026:* Ein Browser ohne Gerätekennung bekommt beim

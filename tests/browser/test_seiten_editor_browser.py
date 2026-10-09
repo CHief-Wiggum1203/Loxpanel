@@ -405,6 +405,41 @@ def test_bereich_seite_name_inhalt_und_seiten(cfg_ordner):
     assert [(t["name"], t["picks"], "widget" in t) for t in flur["pickTabs"]] == [("Wohnen unten", ["A", "C"], False)], flur
 
 
+def test_kopfzeile_mit_werten_im_seiten_editor(cfg_ordner):
+    """Die Kopfzeile nimmt ihre Werte (die kleinen Badges) auch im Seiten-Editor:
+    dazu, wieder weg, das Band auf der Flaeche nennt sie. Es sind dieselben
+    Daten wie unter Aussehen (ui.panes), gespeichert ohne Verworfenes."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {}}), encoding="utf-8")
+    panels = {"flur": {"title": "Flur", "tabs": ["auswahl"], "ui": {"grid": "auto"},
+                       "pickTabs": [{"name": "Wohnen", "picks": ["A", "C"]}]}}
+
+    async def schritte(b, port):
+        pg = await _konfigurator(b, port, "flur")
+        leer = await pg.locator("#seHost [data-se-kopf-neu]").count()
+        await pg.locator("#seHost [data-se-w='header']").click()
+        await pg.select_option("#seHost [data-se-kopf-neu]", "T")
+        await pg.select_option("#seHost [data-se-kopf-neu]", "D")
+        band = await pg.text_content("#seHost .se-band")
+        await pg.locator("#seHost [data-se-kopf-weg='T']").click()
+        pane = await pg.evaluate("PANELS.flur.ui.panes.auswahl")
+        band2 = await pg.text_content("#seHost .se-band")
+        await pg.locator(".stab[data-sub='appearance']").click()
+        aussehen = await pg.eval_on_selector_all("#panePerTab .chip[data-hu]", "l => l.map(c => c.dataset.hu)")
+        async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+            await pg.locator("#saveBtn").click()
+        j = await (await antwort.value).json()
+        assert not pg._fehler, pg._fehler
+        return leer, band, pane, band2, aussehen, j
+    leer, band, pane, band2, aussehen, j = _lauf(panels, schritte)
+    assert leer == 0, "ohne Kopfzeile keine Werte-Auswahl"
+    assert band == "Kopfzeile · Uhr, Wetter, Außentemperatur, Garagentor", band
+    assert pane == "header:D" and band2 == "Kopfzeile · Uhr, Wetter, Garagentor", (pane, band2)
+    assert aussehen == ["D"], "dieselben Werte unter Aussehen"
+    assert j["ok"] and j["verworfen"] == [], j
+    flur = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
+    assert flur["ui"]["panes"] == {"auswahl": "header:D"}, flur["ui"]
+
+
 def test_tabs_und_duplizieren_halten_das_layout_stimmig(cfg_ordner):
     """Von der Seite genommen geht der Layout-Eintrag mit (sonst meldete das
     Speichern ihn als verworfen); ohne Raumgruppierung zeigt die Flaeche die

@@ -1735,6 +1735,10 @@ Assistenten des Konfigurators.
   auf eine Sprungmarke“; je Seite steht dort nur eine Kurzfassung
   (`pickKurzHtml()`: Icon, Name, wie viele Bausteine aus wie vielen Räumen
   oder welches Widget, die Sprungmarken) mit „Im Seiten-Editor bearbeiten“.
+  Ist die Kopfzeile gewählt, stehen ihre Werte (die Badges neben Uhr und
+  Wetter) unter den Widgets der Palette (`seKopfWerteHtml()`), dieselben Daten
+  wie unter Aussehen (`ui.panes[tab]` = `header:<uuid>,…`); das Band auf der
+  Fläche nennt sie.
   Im Assistenten rechnet der Editor mit Anzeige, Raster
   und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
   „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
@@ -1883,8 +1887,15 @@ Assistenten des Konfigurators.
   „Passwort (Fully)“, auch gleich nach dem Speichern. Verwirft der Server ein
   Kennwort wegen eines anderen Ziels, bleibt eine Warnung stehen (`flash()`
   blendet eine Leiste mit `warn` nicht aus). Ein gespeichertes Kennwort
-  löschen geht nur über ein anderes Ziel. Geprüft in
-  `tests/browser/test_displays_browser.py` und `tests/test_geraete_kennwort.py`.
+  löschen geht nur über ein anderes Ziel. „Entfernen“ (09.10.2026,
+  `devEntfernen()`) steht nur an Geräten mit gespeicherten Einstellungen
+  (`configured` in `/api/devices`): Nach einer Rückfrage fallen sie aus der
+  Arbeitskopie, gespeichert wird sofort die ganze Liste wie mit „Speichern“.
+  Ein Gerät ohne Einstellungen verschwindet von selbst, sobald es nicht mehr
+  verbunden ist; ein verbundenes kommt nach dem Entfernen ohne Einstellungen
+  wieder, das sagt die Rückfrage vorher. Ohne Geräte fällt `devices` aus
+  `panels.json`. Geprüft in `tests/browser/test_displays_browser.py` und
+  `tests/test_geraete_kennwort.py`.
 - Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
   `input[type=text|number|password]`, ein Feld ohne `type` steht sonst
   browserweiß im dunklen Konfigurator.
