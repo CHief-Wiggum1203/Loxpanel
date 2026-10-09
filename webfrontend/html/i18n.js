@@ -598,6 +598,7 @@
       'die bisherigen Stufen Klein, Mittel und Groß entsprechen': 'the former steps small, medium and large correspond to',
       'Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben oder mit fester Widget-Breite) bis zum': 'If all tiles of a page fit on the screen, they grow (without a widget beside them, or with a fixed widget width) up to',
       'Fachen': 'times the target',
+      'Bliebe bei mehreren Seiten die letzte mehr als ein Drittel leer, werden sie kleiner, wenn das eine Seite spart, höchstens bis zur Zielkachel geteilt durch': 'If, with several pages, the last one would stay more than a third empty, they shrink when that saves a page, at most down to the target tile divided by',
       'Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.': 'A device can get its own value under Displays, with a suggestion from its reported size.',
       'Zielkachel (Automatik)': 'Target tile (automatic grid)',
       'wie im Profil': 'as in the profile',

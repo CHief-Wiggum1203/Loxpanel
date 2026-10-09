@@ -162,11 +162,13 @@ def test_kachelfaktor_aus_schmaler_kachel():
     assert az["w2"] and az["breite"] >= 2 * next(t for t in vorn["tiles"] if not t["w2"])["breite"], vorn["tiles"]
 
 
-@pytest.mark.parametrize("schalter, eine_seite", [(2, True), (30, False)], ids=["wenige", "viele"])
+@pytest.mark.parametrize("schalter, eine_seite", [(2, True), (50, False)], ids=["wenige", "viele"])
 def test_automatik_rechnet_mit_der_breite(schalter, eine_seite):
     """Automatisches Raster: zwei breite und zwei schmale Kacheln passen auf eine
-    Seite und wachsen (Punkt 2); mit dreissig schmalen dazu bleibt es bei der
-    Zielkachel und dem Blaettern. Die Seitenzahl kommt aus rasterLage()."""
+    Seite und wachsen (Punkt 2); mit fuenfzig schmalen dazu (56 Zellen, zwei
+    volle Seiten 7 x 4) bleibt es bei der Zielkachel und dem Blaettern - mit
+    dreissig blieben 28 + 8, und das Schrumpfen naehme eine Seite 8 x 5 (Punkt
+    16, test_schrumpfen_spart_eine_seite). Die Seitenzahl kommt aus rasterLage()."""
     m = _laufen({"grid": "auto"}, 1280, 800, {**BREIT, **_schalter(schalter)})
     cols, rows = m["raster"]
     erwartet, seiten = _lage([2 if t["w2"] else 1 for t in m["tiles"]], cols, rows)

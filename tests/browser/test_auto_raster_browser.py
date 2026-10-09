@@ -133,7 +133,11 @@ def test_raster_aus_der_bildschirmgroesse(tmp_path, geraet):
 
 
 @pytest.mark.parametrize("geraet", ["taba9-quer", "taba9-hoch", "zehn-quer"])
-def test_widget_belegt_ganze_kachelspalten(tmp_path, geraet):
+def test_widget_belegt_ganze_kachelspalten(tmp_path, monkeypatch, geraet):
+    # Geprueft wird, welche Spalten das Widget im Raster der Zielkachel belegt:
+    # ohne Wachsen und Schrumpfen (gridGrow 1), sonst rechnete die Seite ohne
+    # Widget mit 40 Kacheln ein anderes Raster (10" quer: 8 x 5 statt 7 x 4)
+    monkeypatch.setattr(W, "KACHEL_WACHSEN", 1)
     breite, hoehe = GERAETE[geraet]
     ohne = _laufen({"grid": "auto"}, breite, hoehe)
     mit = _laufen({"grid": "auto", "panes": {"favoriten": "weather"}}, breite, hoehe,
@@ -172,7 +176,9 @@ def test_wenige_kacheln_wachsen_bis_zur_grenze(tmp_path, anzahl, widget):
     """Punkt 2: die Automatik kennt die Kachelanzahl der Seite. Passen alle
     auf eine Seite, wachsen die Kacheln, bis die Seite voll ist, hoechstens
     auf KACHEL_WACHSEN x Zielkachel (vom Server, gridGrow); mit mehr Kacheln
-    als Zellen bleibt es bei der Zielgroesse und dem Blaettern. Mit Widget
+    als Zellen bleibt es nahe der Zielgroesse und beim Blaettern (oder etwas
+    kleiner, wenn das eine fast leere letzte Seite spart: 40 auf 10" quer
+    passen in 8 x 5, test_schrumpfen_spart_eine_seite). Mit Widget
     daneben wachsen sie nicht: es belegt ganze Kachelspalten, und mit weniger
     Spalten liesse sich sein Anteil von rund 40 % nicht halten."""
     ui = {"grid": "auto", **({"panes": {"favoriten": "weather"}} if widget else {})}
@@ -385,10 +391,12 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
 
 @pytest.mark.parametrize("spalten", [1, 2, 3])
 @pytest.mark.parametrize("geraet", ["taba9-quer", "taba9-hoch", "zehn-quer"])
-def test_widget_breite_fest_in_kachelspalten(tmp_path, geraet, spalten):
+def test_widget_breite_fest_in_kachelspalten(tmp_path, monkeypatch, geraet, spalten):
     """Punkt 7: ui.paneCols legt fest, wie viele Kachelspalten (hochkant
     Kachelzeilen) das Widget belegt, statt des Anteils der Automatik. Die
-    Kacheln bleiben so gross wie ohne Widget."""
+    Kacheln bleiben so gross wie ohne Widget - im Raster der Zielkachel, ohne
+    Wachsen und Schrumpfen (gridGrow 1); beides prueft je ein eigener Test."""
+    monkeypatch.setattr(W, "KACHEL_WACHSEN", 1)
     breite, hoehe = GERAETE[geraet]
     ohne = _laufen({"grid": "auto"}, breite, hoehe)
     mit = _laufen({"grid": "auto", "panes": {"favoriten": "weather"}, "paneCols": spalten}, breite, hoehe,
@@ -494,3 +502,54 @@ def test_widget_breite_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["nach_neuladen"] == ("2", "2 Kachelspalten"), stand
     assert (stand["ohne_split"], stand["mit_split"], stand["fest"]) == (False, True, False), stand
     assert stand["text0"].startswith("Automatisch") and stand["zurueck"] == {"grid": "auto"}, stand
+
+
+# Schrumpfen (Punkt 16): dieselbe Seite einmal mit, einmal ohne. Ohne heisst
+# gridGrow = 1 - die Schrumpfgrenze ist Zielgroesse / gridGrow, sie faellt
+# damit auf die Zielgroesse selbst. Bei mehreren Seiten waechst ohnehin nichts.
+SCHRUMPFEN = """async () => {
+  const messe = () => { const g = document.getElementById('grid'), zellen = gridCols * gridRows;
+    let seiten;
+    if (g.classList.contains('hpages')) seiten = [...g.querySelectorAll('.page')].map(p => p.querySelectorAll('.tile[data-id]').length);
+    else { seiten = []; (g._zeile || []).forEach(r => { const s = Math.floor(r / gridRows); seiten[s] = (seiten[s] || 0) + 1; }); }
+    return {raster: [gridCols, gridRows], zellen, seiten,
+            kachel: Math.round(g.querySelector('.tile[data-id]').getBoundingClientRect().width)}; };
+  const warte = () => new Promise(r => setTimeout(r, 300));
+  const mit = messe(), wachsen = gridGrow;
+  gridGrow = 1; render(); await warte();
+  const ohne = messe();
+  gridGrow = wachsen; render(); await warte();
+  return {mit, ohne, wieder: messe(), ziel: gridAuto, wachsen}; }"""
+
+
+WETTER = {"panes": {"favoriten": "weather"}}
+
+
+@pytest.mark.parametrize("geraet, anzahl, ui, spart", [
+    ("zehn-quer", 30, {}, True), ("ipad-quer", 30, {}, True), ("taba9-quer", 16, {}, True), ("flach", 16, {}, True),
+    ("taba9-quer", 23, {}, False),   # 15 + 8: sechs Spalten sparen keine Seite, sieben laegen unter der Grenze
+    ("flach", 30, {}, False),        # 10 + 10 + 10: die letzte Seite ist voll
+    ("taba9-quer", 40, {**WETTER, "paneCols": 1}, True),   # feste Widget-Breite: schrumpft wie es waechst
+    ("taba9-quer", 40, WETTER, False),                       # Widget mit Anteil: weder wachsen noch schrumpfen
+], ids=["zehn-quer-30", "ipad-quer-30", "taba9-quer-16", "flach-16", "taba9-quer-23-grenze", "flach-30-voll",
+        "widget-fest", "widget-anteil"])
+def test_schrumpfen_spart_eine_seite(geraet, anzahl, ui, spart):
+    """Bleibt bei mehreren Seiten die letzte mehr als ein Drittel leer, werden
+    die Kacheln kleiner, sobald das eine Seite spart - nie unter Zielgroesse /
+    KACHEL_WACHSEN. Ist die letzte Seite voll genug oder spart keine erlaubte
+    Groesse eine Seite, bleibt das Raster, wie es ohne Schrumpfen waere. Wie
+    beim Wachsen gilt das ohne Widget und neben einem mit fester Breite."""
+    b, h = GERAETE[geraet]
+    m = _laufen({"grid": "auto", **ui}, b, h, SCHRUMPFEN, anzahl=anzahl)
+    mit, ohne = m["mit"], m["ohne"]
+    assert (m["ziel"], m["wachsen"]) == (W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN), m
+    assert m["wieder"] == mit, ("zurueck auf gridGrow: dasselbe Raster wie vorher", m)
+    assert mit["kachel"] >= W.KACHEL_ZIEL_STANDARD / W.KACHEL_WACHSEN - 1, ("nie unter Zielgroesse / Wachsen", m)
+    assert sum(mit["seiten"]) == sum(ohne["seiten"]) == anzahl, m
+    zu_leer = len(ohne["seiten"]) > 1 and 3 * (ohne["zellen"] - ohne["seiten"][-1]) > ohne["zellen"]
+    if spart:
+        assert zu_leer, ("ohne Schrumpfen bliebe die letzte Seite mehr als ein Drittel leer", m)
+        assert len(mit["seiten"]) < len(ohne["seiten"]) and mit["kachel"] < ohne["kachel"], m
+    else:
+        assert (mit["raster"], mit["seiten"]) == (ohne["raster"], ohne["seiten"]), m
+

@@ -2987,6 +2987,12 @@ function rasterFuer(widget){
 // halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %). Mit fester Breite
 // (paneCols) wachsen sie, das Widget bleibt dabei so viele Kachelspalten breit
 // und waechst mit.
+// Umgekehrt (Punkt 16): bleibt bei mehreren Seiten die letzte mehr als ein
+// Drittel leer, werden die Kacheln kleiner, sobald das eine Seite spart -
+// hoechstens so weit unter die Zielgroesse, wie sie darueber wachsen duerfen
+// (Zielgroesse / gridGrow). iPad quer mit 26 belegten Zellen: 6 x 4 gaebe
+// 24 + 2, mit 7 Spalten passt alles auf eine Seite. Wie das Wachsen nur ohne
+// Widget oder neben einem mit fester Breite.
 let _lastBreiten = [];
 // Lage der Kacheln im Raster, wie CSS sie setzt (grid-auto-flow: row dense):
 // je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
@@ -3037,6 +3043,16 @@ function autoRaster(widget){
     return r;
   };
   const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
+  const seitenVon=r=>rasterLage(_lastBreiten, r.cols, r.rows).seiten;
+  // Mehrere Seiten und die letzte mehr als ein Drittel leer (in Zellen, eine
+  // breite Kachel belegt zwei)? Eine einzelne Seite fuellt das Wachsen.
+  const letzteZuLeer=r=>{
+    const l=rasterLage(_lastBreiten, r.cols, r.rows), zellen=r.cols*r.rows;
+    if(l.seiten<2) return false;
+    let belegt=0;
+    l.zeile.forEach((z,i)=>{ if(Math.floor(z/r.rows)===l.seiten-1) belegt+=Math.min(_lastBreiten[i], r.cols); });
+    return 3*(zellen-belegt)>zellen;
+  };
   const rechne=punkte=>{
     let r=fuer(anzahl(w, gridAuto), punkte);
     if((!widget || paneCols>0) && passt(r.cols,r.rows)){
@@ -3044,6 +3060,16 @@ function autoRaster(widget){
         const n=fuer(c, punkte);
         if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
         r=n;
+      }
+    }
+    else if((!widget || paneCols>0) && _lastBreiten.length>0 && letzteZuLeer(r)){
+      // Schrumpfen: je eine Spalte mehr, bis die letzte Seite voll genug ist
+      // oder die Kachel unter Zielgroesse / gridGrow fiele; genommen wird nur,
+      // was eine Seite spart.
+      for(let c=r.gesamt+1; letzteZuLeer(r); c++){
+        const n=fuer(c, punkte);
+        if(n.kb<gridAuto/gridGrow) break;
+        if(seitenVon(n)<seitenVon(r)) r=n;
       }
     }
     return r;

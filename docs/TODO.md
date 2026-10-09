@@ -1763,11 +1763,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           Drittel (10″ quer 7 × 4: 26 von 28); sonst ist jede Seite bis auf
           die letzte voll und die Seitenzahl so klein, wie das Raster hergibt
           (Tab A9 quer und hochkant 15 + 11, 4″ fest 2 × 2 sechsmal 4 + 2).
-          **Offen ist die letzte Seite:** iPad quer 6 × 4 zeigt 24 + 2, die
-          zweite Seite bleibt fast leer. Mit 7 Spalten passte alles auf eine
-          Seite, die Kacheln wären 135 statt 159 px breit (Ziel 170). Ob die
-          Automatik dafür unter die Zielgröße schrumpfen darf, ist zu
-          entscheiden.
+          *Letzte Seite erledigt 09.10.2026:* iPad quer zeigte 24 + 2, die
+          zweite Seite blieb fast leer. Jetzt schrumpft die Automatik: bliebe
+          bei mehreren Seiten die letzte mehr als ein Drittel leer, nimmt sie
+          kleinere Kacheln, sobald das eine Seite spart, nie kleiner als
+          Zielkachel durch `KACHEL_WACHSEN` (121 px bei 170). iPad quer: 7 × 5
+          mit 135 px, alles auf einer Seite. Im automatischen Raster hält
+          damit auch die letzte Seite das Drittel; das feste 4″-Raster nicht,
+          dort entscheidet der Betreiber die Größe
+          (`test_schrumpfen_spart_eine_seite`).
       Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
       Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch
