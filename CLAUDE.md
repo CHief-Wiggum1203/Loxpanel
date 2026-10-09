@@ -28,7 +28,7 @@ sprechen `/api/*`.
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption, HTTP-Variante `jdev/sys/fenc`): RSA-Schlüssel aus `getPublicKey`, AES-256-CBC, Anmeldung im Befehl (`autht`). Damit holt `App.secured_details()` die gesicherten Details, etwa den SIP-Zugang der Intercom. Braucht `cryptography` |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP mit Wiederholung nach RFC 3261, Anmeldung per Digest (MD5, SHA-256, `-sess`), Codecs aus dem SDP. Löst keinen Anruf aus. Nur Standardbibliothek; aufgerufen von `/api/sip/pruefen` |
 | `bin/version_info.py` | Welcher Stand läuft: Version, Commit und Bauzeit aus `bin/version.json`, die APK-Build (`syncLoxpanelAssets`) und Dockerfile schreiben; ohne die Datei Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Konfigurator (Seitenleiste), `/api/settings`, `/api/health` |
-| `webfrontend/html/*.html`, `i18n.js` | Frontend, Vanilla JS, kein Build |
+| `webfrontend/html/*.html`, `i18n.js`, `raster.js` | Frontend, Vanilla JS, kein Build; `raster.js` ist die gemeinsame Rasterrechnung von Visu und Konfigurator (`/raster.js`) |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
 | `android/` | LoxPanel-App für Android (Lenardos #61): Server per Chaquopy im Gerät, Visu in eigener WebView mit der JS-Brücke `LoxKiosk`. Ein Wächter im Server-Dienst startet die App neu, wenn `/api/health` ausfällt (Regeln in `Waechter.kt`). Der Build kopiert `bin/`, `webfrontend/`, `deploy/` und `config/` aus dem Arbeitsbaum in die App (`syncLoxpanelAssets`); Anleitung in `android/README.md` |
 | `packaging/deb/` | Lenardos `.deb`-Paket für Linux-Panels (#62), im Fork nicht weiterentwickelt |

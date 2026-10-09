@@ -12,7 +12,7 @@ import urllib.request
 
 from lox import ROOT
 
-ROUTEN = ["/", "/config", "/settings", "/i18n.js", "/api/settings", "/api/meta", "/api/types",
+ROUTEN = ["/", "/config", "/settings", "/i18n.js", "/raster.js", "/api/settings", "/api/meta", "/api/types",
           "/api/health", "/api/backup"]
 
 

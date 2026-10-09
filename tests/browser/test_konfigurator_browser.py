@@ -39,7 +39,7 @@ def _im_konfigurator(skript: str, struktur: dict | None = None, panels: dict | N
         ui = web.Application()
         ui["app"] = app
         for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/backup", W.api_backup),
-                        ("/api/settings", W.api_settings), ("/i18n.js", W.i18n_js)):
+                        ("/api/settings", W.api_settings), ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js)):
             ui.router.add_get(pfad, h)
         runner, port = await serve(ui)
         fehler = []

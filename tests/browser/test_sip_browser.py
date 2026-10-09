@@ -67,7 +67,7 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
         ui = web.Application()
         ui["app"] = app
         for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/settings", W.api_settings),
-                        ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js), ("/api/sip", W.api_sip)):
+                        ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js), ("/api/sip", W.api_sip)):
             ui.router.add_get(pfad, h)
         ui.router.add_post("/api/sip/pruefen", W.api_sip_pruefen)
         runner, port = await serve(ui)

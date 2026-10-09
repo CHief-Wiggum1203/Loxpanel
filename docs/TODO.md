@@ -1711,6 +1711,16 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          als Ausweg; nur passende Anzeigen anbieten, jede mit vorgerechnetem
          Raster (eine `raster.js` für Visu und Konfigurator); zum Schluss
          Gerät umschalten und Zielkachel am Gerät merken. **L**
+         *Erledigt 09.10.2026:* `raster.js` (`/raster.js`) trägt die reine
+         Rasterrechnung, Visu und Konfigurator laden sie. Schritt 1 fragt
+         „Für welches Gerät?“ (Geräte mit Größe, dieser Browser, Katalog
+         `GERAETE_KATALOG`), rechnet jede Anzeige mit den Standardmaßen der
+         Visu vor und bietet nur passende an; im Schritt Name „Danach auf …
+         anzeigen“ und „Zielkachel … am Gerät merken“, nach dem Anlegen
+         speichert er, schaltet um und merkt sich die Zielkachel. Dabei
+         gefunden: Die Zielkachel je Gerät unter Displays wurde weder geladen
+         noch gespeichert, jedes Speichern löschte sie. Details in
+         [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2 und §7.5.
       10. **Seiten-Editor mit Drag & Drop** als Reiter im Panel-Editor und
           als Schritt 5 des Assistenten: Palette (Bausteine, Widgets),
           Arbeitsfläche in Geräteform, Größen 1×1/2×1/2×2, Pointer-Events

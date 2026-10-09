@@ -39,7 +39,7 @@ kein Frontend-Framework und keine Datenbank.
 | Bereich | Technik |
 |---|---|
 | Server | Python 3.12, `aiohttp`, Bibliothek `loxone-api` (Token-Auth, Struktur), eigener Binär-WebSocket-Parser |
-| Frontend | drei Single-File-HTML-Seiten mit Vanilla JS, eine gemeinsame `i18n.js` |
+| Frontend | drei Single-File-HTML-Seiten mit Vanilla JS, eine gemeinsame `i18n.js` und eine gemeinsame `raster.js` |
 | Panel-Agent | Python-Standardbibliothek, läuft auf dem Wandpanel |
 | Auslieferung | Docker-Image (amd64/arm64/armv7) auf GHCR, LoxBerry-Plugin als Wrapper, Unraid-Template |
 | Persistenz | drei JSON-Dateien im Ordner `config/` (im Container `/app/config`) |
@@ -75,6 +75,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
+| `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
@@ -712,6 +713,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/config` | `config_index` | `config.html` | Konfigurator |
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
+| GET | `/raster.js` | `raster_js` | Rasterrechnung (§7.5) | Visu, Konfigurator |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
@@ -1127,6 +1129,8 @@ nicht in einen Adapter.
 
 Zwei Single-File-Seiten ohne Framework, `settings.html` ist seit Upstream 0.3.2
 nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
+Beide laden `/raster.js` (§7.5): dieselbe Rasterrechnung in der Visu und im
+Assistenten des Konfigurators.
 
 ### 7.1 `panel.html` (Visu, 772 Zeilen)
 
@@ -1378,14 +1382,17 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   4″-Panels die Höhe, und die Eng-Stufe kappte den zweiten Teil. Geprüft in
   `tests/test_kachel_breit.py` und `tests/browser/test_kachel_breit_browser.py`.
 - Automatisches Raster (Kachel-Layout „Automatisch“, `ui.grid = "auto"`, für
-  Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`), statt
+  Tablets): Die Visu rechnet Spalten und Zeilen selbst (`autoRaster()`, die
+  Rechnung steht seit Punkt 9 in `raster.js`, §7.5), statt
   `cols`/`rows` aus dem Profil zu nehmen. Grundlage ist die Zielkachel in
   CSS-Pixeln, die der Server schickt (`gridAuto`): eine Zahl aus `ui.tileSize`
   (`KACHEL_ZIEL_MIN` bis `KACHEL_ZIEL_MAX`, fehlt = `KACHEL_ZIEL_STANDARD`;
   die alten Stufen klein/mittel/groß stehen in `KACHEL_ZIEL` und werden beim
   Speichern zur Zahl), je Gerät übersteuerbar unter Displays
   (`devices[name].tileTarget`, Gerät vor Profil wie bei der Skalierung,
-  `effective_grid_auto()`; beim Speichern bekommt jede offene Visu
+  `effective_grid_auto()`; bis 09.10.2026 lud und speicherte der
+  Konfigurator das Feld nicht, `loadPanelIds()` und `devicesPayload()`
+  tragen es jetzt; beim Speichern bekommt jede offene Visu
   `{t:"gridAuto"}` und baut ihr Raster ohne Neuladen neu). Der Konfigurator
   schlägt je Gerät einen Wert aus der gemeldeten Größe vor
   (`_kachel_vorschlag()` in `/api/devices` als `tileSuggest`: Pixeldichte ab
@@ -1703,6 +1710,33 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   der Fuß „Jetzt anlegen ✓“ an, die übrigen Schritte behalten ihre
   Standardwerte. Geprüft in
   `tests/browser/test_assistent_vorschlag_browser.py`.
+- Assistent Schritt 1 aus dem Gerät (Punkt 9, 09.10.2026): Vor „Anzahl
+  Panes“ fragt der erste Schritt „Für welches Gerät?“: die Geräte mit
+  gemeldeter Größe (`wzGeraete()` aus `DEVICE_SCREENS`), „Dieser Browser“
+  (eigene Fenstergröße) und als Ausweg der Katalog des Servers
+  (`GERAETE_KATALOG` in `/api/meta` als `geraeteKatalog`, dieselben
+  Standardgeräte wie die Messreihe). Mit der Größe rechnet
+  `wzVorrechnung()` jede Anzeige mit `raster.js` und den Standardmaßen der
+  Visu vor: „Automatisch“ mit Spalten, Zeilen und Kachelbreite der Seite
+  ohne Widget, dazu die Spalten (hochkant Zeilen) des Widgets; feste Raster
+  mit Spalten und Zeilen samt Verdopplung durch den Split (ihre
+  Kachelgröße hängt am Kasten und an der Skalierung, darum keine px).
+  Zielkachel ist die des Geräts, sonst sein Vorschlag (`tileSuggest`), sonst
+  der Standard. Angeboten wird nur, was passt (`wzPasst()`): zwei Panes
+  nicht auf einem quadratischen Schirm, ein festes Raster nur, wenn seine
+  Kacheln den Schirm füllen würden, ohne die Grenzen des automatischen
+  Rasters zu verlassen (Zielkachel mal und durch `KACHEL_WACHSEN`; 10″ quer
+  mit 2 Panes: nur 3 × 3 und „Automatisch“). Ohne eigene Wahl schlägt der
+  Wechsel des Geräts Panes und Raster neu vor (`_panesT`, `_gridT`). Bei
+  einem echten Gerät bietet der Schritt Name „Danach auf … anzeigen“ und
+  bei „Automatisch“ „Zielkachel … am Gerät merken“ an; nach dem Anlegen
+  (`wzAmGeraet()`) speichert der Assistent die Zielkachel unter Displays
+  (`/api/devices`), dann alle Panels und schaltet das Gerät um
+  (`/api/device/switch`, erneut, solange es nach dem Neuladen durchs
+  Speichern noch nicht wieder verbunden ist). Geprüft in
+  `tests/browser/test_assistent_geraet_browser.py`: Maße und Vorrechnung
+  gleich der Visu auf fünf Standardgeräten in vier Profilen, der Ablauf bis
+  zum umgeschalteten Gerät und die Zielkachel unter Displays.
 - Zielgerät eines Profils (Punkt 15, 08.10.2026): Im Reiter Titel wählt
   „Zielgerät“ eines der bekannten Geräte (`KNOWN_NAMES` aus `/api/devices`
   und die konfigurierten aus `/api/meta`; meldet `/api/devices` ein neues
@@ -1788,6 +1822,25 @@ ersetzt die Selektor-Liste für die ganze Seite; für einen Teilbaum gibt es
 `data-i18n`-Element in `config.html` einen englischen Eintrag hat und kein
 Schlüssel zwei verschiedene Übersetzungen. Was auf Englisch noch deutsch
 bleibt, steht in `TODO.md` („Konfigurator auf Englisch vervollständigen“).
+
+### 7.5 `raster.js`
+
+Gemeinsame Rasterrechnung, ausgeliefert unter `/raster.js` (`raster_js`),
+geladen von `panel.html` und `config.html` (Punkt 9, 09.10.2026). Reine
+Rechnung ohne DOM unter `window.LoxRaster`: `kachelFaktorFuer()`
+(Kachelfaktor, `KACHEL_REF` usw.), `quadratisch()`, `rasterLage()` (Lage
+der Kacheln, breite belegen zwei Spalten), `festesRaster()` (Profilraster
+samt Verdopplung durch den Split) und `autoRaster()` (Spalten und Zeilen aus
+Fläche und Zielkachel, Widget-Spalten, Wachsen und Schrumpfen, zweiter
+Durchgang mit Seitenpunkten). Die Visu misst Fläche, Abstand, Innenrand,
+Seitenpunkte, Tab-Leiste, Kopfzeile und Werteleiste und übergibt sie; ihre
+Funktionen gleichen Namens reichen nur weiter. Der Assistent rechnet ein
+Gerät mit `VISU_MASSE` vor (Abstand 10, Innenrand 10, Seitenpunkte 14,
+Tab-Leiste 55 px: 2 × 13 Innenabstand, 28 Symbol, 1 Linie); ein Raum-Panel
+mit Sprungmarken ohne Bild hat eine niedrigere Tab-Leiste, dort ist die
+Vorrechnung eine Näherung. `test_vorrechnung_wie_die_visu` vergleicht die
+gemessenen Maße mit `VISU_MASSE` und das vorgerechnete mit dem gebauten
+Raster.
 
 ---
 
