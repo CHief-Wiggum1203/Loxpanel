@@ -27,6 +27,7 @@ import logging
 import math
 import os
 import re
+import secrets
 import socket
 import struct
 import sys
@@ -432,6 +433,14 @@ PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDA
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
 _BELL_TS = re.compile(r"\d{14}")
+# Kopplungscode eines Browsers ohne Geraetekennung: der Server vergibt ihn
+# beim Verbinden (die Visu merkt ihn sich und schickt ihn beim naechsten
+# Verbinden als ?code= zurueck), das Panel zeigt ihn unter "Dieses Geraet
+# einrichten", Displays listet ihn, "Namen vergeben" trifft damit genau dieses
+# Geraet (mehrere hinter einer IP). Alphabet ohne 0/O und 1/I.
+KOPPLUNG_ZEICHEN = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+KOPPLUNG_LAENGE = 4
+_KOPPLUNG_RE = re.compile(r"^[A-HJ-NP-Z2-9]{4,8}$")
 # Tracker-Zeile: fuehrender Zeitstempel (TT.MM.JJ[JJ] HH:MM[:SS]) wird vom Text
 # getrennt, damit er als Untertitel erscheint. Matcht sonst nichts -> ganze Zeile.
 _TS_RE = re.compile(r"^\s*(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}[ ,]+\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$")
@@ -2944,7 +2953,7 @@ class App:
         for ws, info in list(self.conn_info.items()):
             prof = (self.conn_prof.get(ws) or {}).get("id", "")
             if not info.get("dev"):
-                anonymous.append({"ip": info.get("ip", ""), "profile": prof,
+                anonymous.append({"ip": info.get("ip", ""), "code": info.get("code", ""), "profile": prof,
                                   "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0),
                                   "screen": info.get("screen") or {}})
                 continue
@@ -2966,9 +2975,35 @@ class App:
             e["tileSuggest"] = _kachel_vorschlag(e["screen"])   # Zielkachel aus der gemeldeten Groesse
             if e["agent"] and not e["profile"]:
                 e["profile"] = e["agent"]["panel"]
-        anonymous.sort(key=lambda a: a["ip"])
+        anonymous.sort(key=lambda a: (a["ip"], a["code"]))
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
+
+    def kopplungscode(self, wunsch: str) -> str:
+        """Code fuer einen Browser ohne Kennung: der mitgeschickte, wenn er
+        gueltig ist (die Visu hat ihn sich beim letzten Verbinden gemerkt),
+        sonst ein neuer, der gerade keiner anderen Verbindung gehoert."""
+        wunsch = (wunsch or "").strip().upper()
+        if _KOPPLUNG_RE.fullmatch(wunsch):
+            return wunsch
+        vergeben = {i.get("code") for i in self.conn_info.values()}
+        while True:
+            code = "".join(secrets.choice(KOPPLUNG_ZEICHEN) for _ in range(KOPPLUNG_LAENGE))
+            if code not in vergeben:
+                return code
+
+    @staticmethod
+    def _kopplung_msg(code: str, karte: bool) -> dict:
+        """Nachricht an einen Browser ohne Kennung: sein Code, und ob er die
+        Karte "Dieses Geraet einrichten" zeigen soll (ohne ?panel= und ohne
+        Kennung hat niemand dieses Geraet eingerichtet). Die Adresse des
+        Konfigurators setzt das Panel wie beim Einrichtungshinweis zusammen."""
+        return {"t": "kopplung", "code": code, "karte": karte,
+                "titel": "Dieses Gerät einrichten",
+                "hinweis": "Im Konfigurator unter Displays den Namen zu diesem Code vergeben:",
+                "pfad": "/config", "adressen": _lan_adressen(),
+                "unbekannt": "Die Adresse dieses Panels steht in seinen WLAN-Einstellungen.",
+                "weg": "Tippen blendet die Karte bis zum nächsten Laden aus."}
 
     def _presence_rebuild(self) -> None:
         """Praesenzmelder der Geraete (devices[name].presence) auf den active-State
@@ -8986,28 +9021,31 @@ async def api_device_switch(request: web.Request) -> web.Response:
 
 
 async def api_device_name(request: web.Request) -> web.Response:
-    """Gibt einem Browser ohne Kennung einen Geraetenamen: {ip, name}. Die
-    Visu merkt sich den Namen (localStorage) und verbindet sich neu."""
+    """Gibt einem Browser ohne Kennung einen Geraetenamen: {code, name} trifft
+    genau die Verbindung mit diesem Kopplungscode, {ip, name} alle ohne
+    Kennung unter der IP (wie bisher). Die Visu merkt sich den Namen
+    (localStorage) und verbindet sich neu."""
     app: App = request.app["app"]
     try:
         d = await request.json()
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
     ip = str(d.get("ip") or "").strip()
+    code = str(d.get("code") or "").strip().upper()
     name = str(d.get("name") or "").strip()[:60]
-    if not ip or not name:
-        return web.json_response({"ok": False, "error": "ip und name noetig"}, status=400)
+    if not (ip or code) or not name:
+        return web.json_response({"ok": False, "error": "code oder ip und name noetig"}, status=400)
     n = 0
     for ws, info in list(app.conn_info.items()):
-        if info.get("ip") != ip or info.get("dev"):
+        if info.get("dev") or (info.get("code") != code if code else info.get("ip") != ip):
             continue
         try:
             await ws.send_json({"t": "setdevice", "name": name})
             n += 1
         except ConnectionError:
             pass
-    return web.json_response({"ok": n > 0, "sent": n,
-                              **({} if n else {"error": "kein Geraet ohne Kennung unter dieser IP"})})
+    fehler = "kein Geraet ohne Kennung mit diesem Code" if code else "kein Geraet ohne Kennung unter dieser IP"
+    return web.json_response({"ok": n > 0, "sent": n, **({} if n else {"error": fehler})})
 
 
 async def api_display(request: web.Request) -> web.Response:
@@ -9281,6 +9319,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     kiosk = request.query.get("kiosk", "")
     app.conn_info[ws] = {"dev": dev, "kiosk": kiosk if kiosk in KIOSK_APPS else "",
                          "ip": request.remote or "", "ts": time.time()}
+    if not dev:   # Browser ohne Kennung: Kopplungscode (mitgeschickt oder neu)
+        app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}
     log.info("Panel verbunden: '%s' (Tabs %s, Räume %s, Kategorien %s)", prof["id"],
@@ -9315,6 +9355,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     app._last_sent.setdefault(ws, {})["view"] = _first
     # Einrichtungshinweis, solange es keine Struktur vom Miniserver gibt
     await app._einrichtung_melden(neu=ws)
+    # Browser ohne Kennung: Kopplungscode; ohne ?panel= dazu die Karte
+    # "Dieses Geraet einrichten", denn dann hat dieses Geraet niemand eingerichtet
+    if not dev:
+        await ws.send_json(App._kopplung_msg(app.conn_info[ws]["code"], not request.query.get("panel")))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.
     # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)

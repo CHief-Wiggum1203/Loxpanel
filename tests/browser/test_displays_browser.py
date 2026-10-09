@@ -110,7 +110,9 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 await _displays(pg, port)
                 liste = pg.locator("#ag_list")
                 await liste.locator(".ag").nth(2).wait_for()
-                assert await liste.locator(".agn").all_text_contents() == ["flur", "tablet", "Ohne Kennung"]
+                # Das Geraet ohne Kennung steht mit seinem Kopplungscode in der Liste (Punkt 11)
+                code = next(a["code"] for a in app.device_list()["anonymous"])
+                assert await liste.locator(".agn").all_text_contents() == ["flur", "tablet", f"Code {code}"]
 
                 flur = liste.locator('.ag[data-name="flur"]')
                 assert await flur.locator(".dot").get_attribute("class") == "dot", "nur konfiguriert: offline"
@@ -125,13 +127,13 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 assert await tab.locator("button").all_text_contents() == ["Ansicht wechseln", "Neu laden"]
                 assert (await tab.locator(".agscr").text_content()).startswith("1024×600 quer")
 
-                anon = liste.locator('.ag[data-anon="127.0.0.1"]')
+                anon = liste.locator(f'.ag[data-code="{code}"][data-ip="127.0.0.1"]')
                 assert (await anon.locator(".agip").text_content()).startswith(
                     "127.0.0.1 · Browser · Ansicht kueche · 800×1280 hoch")
                 await _wie_textfeld(pg, anon.locator(".anname"))
                 # Auch der Betriebsmodus-Assistent bietet das Geraet zum Benennen an
                 await pg.locator("#mzOpenBtn").click()
-                await _wie_textfeld(pg, pg.locator('#mzOv .mzanon[data-mzanon="127.0.0.1"] .mzname'))
+                await _wie_textfeld(pg, pg.locator(f'#mzOv .mzanon[data-code="{code}"] .mzname'))
                 await pg.locator("#mzX").click()
 
                 # Ansicht wechseln: das Tablet laedt sich mit dem neuen Profil neu
