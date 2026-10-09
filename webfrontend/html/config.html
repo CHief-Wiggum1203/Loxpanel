@@ -405,6 +405,25 @@
   .se-wahl .field{max-width:none;margin:0;}
   .se-wahl select{min-width:300px;}
   .se-wahl .se-raum{margin:0 0 8px;}
+  /* Bereich "Seite": Name, Seiteninhalt, Icon in einer Zeile; die aufgeklappte
+     Icon-Bibliothek nimmt eine eigene Zeile darunter */
+  .se-eigen{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:flex-end;margin:0 0 12px;padding:8px 12px;
+    border:1px solid var(--line);border-radius:6px;background:var(--panel2);}
+  .se-eigen .field{margin:0;max-width:280px;flex:1 1 200px;}
+  .se-eigen .se-werte-wahl{max-width:none;flex:2 1 300px;}
+  .se-werte-wahl .picked{margin:6px 0 2px;}
+  .se-icon{flex:0 0 auto;padding-bottom:10px;}
+  .se-icon[open]{flex-basis:100%;padding-bottom:0;}
+  .se-icon summary{cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);list-style:none;}
+  .se-icon summary::-webkit-details-marker{display:none;}
+  .se-icon summary::before{content:'▸';font-size:11px;}
+  .se-icon[open] summary::before{content:'▾';}
+  .se-icon summary .loxi{width:20px;height:20px;}
+  .se-icon[open] summary{margin-bottom:8px;}
+  /* Kurzfassung einer freien Seite unter Tabs */
+  .pick-kurz{display:flex;gap:12px;align-items:flex-start;margin-top:4px;}
+  .pick-kurz-ic .loxi{width:28px;height:28px;}
+  .pick-kurz .minibtn{margin:8px 0 4px;}
   .se-spalten{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:12px;}
   .se-pal{flex:1 1 220px;max-width:300px;min-width:0;border-radius:6px;padding:2px;}
   .se-pal.drop{outline:2px dashed var(--crit);outline-offset:2px;}
@@ -2486,7 +2505,7 @@ function ensurePickTabs(p){
 }
 function curPT(p){ const t=ensurePickTabs(p); if(curPickIdx>=t.length) curPickIdx=t.length-1; if(curPickIdx<0) curPickIdx=0; return t[curPickIdx]; }
 function pickSyncTabsMode(p){ if(tabMode(p)==='pick') p.tabs=ensurePickTabs(p).map((_,i)=>pickKey(i)); }
-function pickAddTab(p){ const t=ensurePickTabs(p); if(t.length>=4) return; t.push({name:'',picks:[]}); curPickIdx=t.length-1; pickSyncTabsMode(p); pickWiz=0; markDirty(); renderPick(p); renderChips(p); }
+function pickAddTab(p){ const t=ensurePickTabs(p); if(t.length>=4) return; t.push({name:'',picks:[]}); curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
 function pickDelTab(p,i){ const t=ensurePickTabs(p); if(t.length<=1) return; t.splice(i,1); if(curPickIdx>=t.length) curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
 function icoUrl(ic){ return ic ? (ic.charAt(0)==='/' ? ic : '/icon?p='+encodeURIComponent(ic)) : ''; }
 function pickTabBar(p){
@@ -2507,32 +2526,14 @@ function icoGridBody(cur){
   (LOXLIB||[]).forEach(function(n){ g+=icoBtn('/loxlib?n='+encodeURIComponent(n),cur,n.replace(/\.svg$/i,'')); });
   return g;
 }
-function pickIcoFilter(v){ v=(v||'').trim().toLowerCase(); document.querySelectorAll('.picogrid .pgi[data-in]').forEach(function(b){ if(b.classList.contains('none')) return; b.hidden = !!v && (b.getAttribute('data-in')||'').indexOf(v)<0; }); }
-function pickIcoGridHtml(p){
-  const cur=curPT(p).icon||'';
-  // Kommt die Bibliothek nach, nur das Raster neu fuellen statt den ganzen
-  // Editor: sonst verliert das Namensfeld mitten im Tippen Fokus und Buchstaben.
-  if(LOXLIB===null) loadLoxlib(pickIcoGridNeu);
-  return '<input class="pgi-search" oninput="pickIcoFilter(this.value)" placeholder="'+T('Icon suchen…')+'"><div class="picogrid">'+icoGridBody(cur)+'</div>';
-}
-function pickIcoGridNeu(){
-  const g=document.querySelector('#tabPick .picogrid'), p=PANELS[cur];
-  if(!g || !p) return;
-  g.innerHTML=icoGridBody(curPT(p).icon||'');
-  bindPickIcons(p);
-  const s=document.querySelector('#tabPick .pgi-search'); if(s && s.value) pickIcoFilter(s.value);
-}
-function bindPickIcons(p){
-  $('#tabPick').querySelectorAll('.picogrid [data-pic]').forEach(el=>el.onclick=()=>{
-    const v=el.dataset.pic; if(v) curPT(p).icon=v; else delete curPT(p).icon;
-    markDirty(); renderPick(p); renderChips(p); });
-}
+// Suche in einer Icon-Bibliothek (root: das Element um Suchfeld und Raster; ohne
+// root alle). Filtert im DOM, ohne Neuzeichnen.
+function pickIcoFilter(v, root){ v=(v||'').trim().toLowerCase(); (root||document).querySelectorAll('.picogrid .pgi[data-in]').forEach(function(b){ if(b.classList.contains('none')) return; b.hidden = !!v && (b.getAttribute('data-in')||'').indexOf(v)<0; }); }
 
-// Zustand der Rubrik. pickWiz: 0 = noch nicht entschieden, 1..3 = Schritt des
-// Assistenten, -1 = direkter Editor. pickFor merkt sich, zu welchem Panel der
-// Zustand gehoert - beim Panelwechsel faengt alles wieder von vorn an, ohne
-// dass renderEditor() (das auch aus anderen Gruenden laeuft) ihn zuruecksetzt.
-let pickWiz=0, pickQ='', pickRoomF='', pickFor=null;
+// Zu welchem Panel curPickIdx gehoert: beim Panelwechsel beginnt die Rubrik
+// wieder bei der ersten Seite, ohne dass renderEditor() (das auch aus anderen
+// Gruenden laeuft) sie zuruecksetzt.
+let pickFor=null;
 
 // Raeume der Auswahl in derselben Reihenfolge wie der Server sie gruppiert:
 // erstes Vorkommen in picks. Ausgeblendete Bausteine zaehlen nicht mit, weil
@@ -2585,30 +2586,8 @@ function pickOrder(p){
   return out.concat(aus);
 }
 
-// ---- Bausteine der Anlage: Filterzeile und Liste ----
-// Die Liste ist BEWUSST UNGEFILTERT vom Panelfilter (kein panelControls()): der
-// Sinn der Seite ist, ueber den Raum-/Kategoriefilter des Panels hinauszugreifen.
-// Waere sie gefiltert, kaeme man nie an die Bausteine, fuer die man sie anlegt.
-// Der Raumfilter HIER ist etwas anderes - er blaettert nur, er schraenkt nicht ein.
-function pickFilterHtml(){
-  return '<div class="grph">'+T('Bausteine')+'</div>'+
-    '<div class="pickbar">'+
-      '<div class="field"><label class="lbl">'+T('Raum')+'</label><select id="pickRoom">'+
-        '<option value="">'+T('Alle Räume')+'</option>'+
-        (META.rooms||[]).map(r=>'<option value="'+esc(r.uuid)+'"'+
-          (pickRoomF===r.uuid?' selected':'')+'>'+esc(r.name)+'</option>').join('')+
-      '</select></div>'+
-      '<div class="field"><label class="lbl">'+T('Suche')+'</label>'+
-        '<input type="text" id="pickSearch" value="'+esc(pickQ)+'" placeholder="'+T('Baustein suchen…')+'"></div>'+
-    '</div><div class="tlist" id="pickList"></div>';
-}
-function pickChosenHtml(){
-  return '<div class="grph">'+T('Gewählt')+' (<span id="pickCnt">0</span>)'+
-    '<button class="minibtn" id="clrPicks" style="float:right;margin-top:-4px">'+T('Alle entfernen')+'</button></div>'+
-    '<div class="picked" id="picked"></div>';
-}
-// Vorschau der unteren Leiste. Steht im Assistenten (Schritt 3) und im Editor,
-// damit man nicht erst speichern und zum Panel laufen muss.
+// Vorschau der unteren Leiste in der Kurzfassung unter Tabs, damit man nicht erst
+// speichern und zum Panel laufen muss.
 function pickAnchorsInner(p){
   const rs=pickRooms(p);
   if(!pickList(p).length) return '';
@@ -2624,102 +2603,33 @@ function pickAnchorsInner(p){
 }
 function pickAnchorsHtml(p){ return '<div id="pickAnchors">'+pickAnchorsInner(p)+'</div>'; }
 
-// ---- Gefuehrte Einrichtung ----
-function pickWizHtml(p){
-  const S=[T('Name'),T('Bausteine'),T('Fertig')];
-  let h='<div class="grph">'+T('Eigene Auswahl einrichten')+'</div>'+
-    '<div class="wsteps">'+S.map((x,k)=>'<span class="wstep'+(k+1===pickWiz?' on':'')+
-      (k+1<pickWiz?' done':'')+'"><b>'+(k+1<pickWiz?'✓':(k+1))+'</b>'+esc(x)+'</span>').join('')+'</div>';
-  if(pickWiz===1){
-    h+='<p class="note">'+T('Diese Seite stellt Bausteine aus <b>beliebigen Räumen und Kategorien</b> zusammen – etwa alles, was du morgens brauchst. Die untere Leiste am Panel wird dabei zu <b>Sprungmarken auf die Räume</b> deiner Auswahl.')+'</p>'+
-      '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
-        '<input type="text" id="pickName" maxlength="40" value="'+esc(pickNameOf(p))+'" placeholder="'+T('Auswahl')+'"></div>'+
-      '<div class="anchors" id="pickNameEx">'+
-        ['Morgens','Abends','Urlaub','Putzen'].map(x=>'<span class="chip" data-ex="'+esc(x)+'">'+esc(x)+'</span>').join('')+'</div>'+
-      '<p class="hint" style="padding-top:8px">'+T('Ohne Namen heißt die Seite „Auswahl“.')+'</p>'+
-      '<div class="wnav"><span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
-  } else if(pickWiz===2){
-    h+='<p class="note">'+T('Tippe die Bausteine an, die auf die Seite sollen. Am Panel stehen sie <b>nach Räumen gruppiert</b> – ein Raum kommt dorthin, wo du seinen ersten Baustein angeklickt hast, innerhalb des Raums gilt die Klickreihenfolge. Genau diese Gruppen werden unten zu den Sprungmarken.')+'</p>'+
-      pickChosenHtml()+pickFilterHtml()+
-      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
-        '<span class="grow"></span><button class="btn" id="wizNext">'+T('Weiter')+'</button></div>';
-  } else {
-    // Gezaehlt wird, was am Panel ANKOMMT: ausgeblendete Bausteine wirft der
-    // Server vorher weg, sie duerfen die Zahl nicht aufblaehen.
-    const sel=pickSichtbar(p), rs=pickRooms(p), weg=pickList(p).length-sel.length;
-    h+='<p class="wsum">'+T('Die Seite')+' <b>'+esc(pickNameOf(p).trim()||T('Auswahl'))+'</b> '+
-      T('zeigt')+' <b>'+sel.length+'</b> '+(sel.length===1?T('Baustein'):T('Bausteine'))+' '+
-      T('aus')+' <b>'+rs.length+'</b> '+(rs.length===1?T('Raum'):T('Räumen'))+'.</p>'+
-      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.')
-                                             :T('gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.'))+'</p>':'')+
-      pickAnchorsHtml(p)+
-      '<div class="wnav"><button class="minibtn" id="wizBack">'+T('Zurück')+'</button>'+
-        '<span class="grow"></span><button class="btn" id="wizDone">'+T('Fertig')+'</button></div>';
-  }
-  return h;
-}
-
-// ---- Direkter Editor (sobald etwas gewaehlt ist) ----
+// ---- Kurzfassung unter Tabs ----
+// Tabs sagt, welche freien Seiten in der Leiste stehen und was sie zeigen. Name,
+// Icon, Inhalt und Anordnung stellt der Seiten-Editor ein (seEigenHtml).
 // Widget-Wert einer freien Seite (statt Kacheln). Kind/Arg wie eine Tab-Pane.
 function wKind(v){ if(!v) return ''; const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
 function wArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
-// "Seiteninhalt": Bausteine (Kacheln) ODER ein Widget als Vollbild-Tab.
-function pickContentHtml(p){
-  const w=curPT(p).widget||'', k=wKind(w), arg=wArg(w);
-  let h='<div class="field" style="max-width:280px"><label class="lbl">'+T('Seiteninhalt')+'</label>'+
-    '<select id="pickContent">'+
-      '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+
-      '<optgroup label="'+T('Widget (Vollbild)')+'">'+
-        '<option value="weather"'+(k==='weather'?' selected':'')+'>'+T('Wetter')+'</option>'+
-        '<option value="calendar"'+(k==='calendar'?' selected':'')+'>'+T('Kalender')+'</option>'+
-        (firstAudioZone()?'<option value="player"'+(k==='player'?' selected':'')+'>'+T('Audio')+'</option>':'')+
-        (firstEnergyControl()?'<option value="energy"'+(k==='energy'?' selected':'')+'>'+T('Energiefluss')+'</option>':'')+
-        (firstCamera()?'<option value="camera"'+(k==='camera'?' selected':'')+'>'+T('Kamera')+'</option>':'')+
-        (statControls().length?'<option value="chart"'+(k==='chart'?' selected':'')+'>'+T('Verlauf')+'</option>':'')+
-        '<option value="status"'+(k==='status'?' selected':'')+'>'+T('Werte')+'</option>'+
-      '</optgroup>'+
-    '</select></div>';
-  if(k==='player') h+='<div class="field" style="max-width:280px"><label class="lbl">'+T('Musikzone')+'</label><select id="pickWArg">'+audioZoneOptions(arg)+'</select></div>';
-  else if(k==='energy') h+='<div class="field" style="max-width:280px"><label class="lbl">'+T('Baustein')+'</label><select id="pickWArg">'+energyControlOptions(arg)+'</select></div>';
-  else if(k==='camera') h+='<div class="field" style="max-width:280px"><label class="lbl">'+T('Baustein')+'</label><select id="pickWArg">'+cameraOptions(arg)+'</select></div>';
-  else if(k==='chart'){ const vuu=arg?arg.split(',').filter(Boolean):[];   // Verlauf gestapelt (wie Werte)
-    h+='<div class="ccrow" style="margin:4px 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Bausteine')+'</span>'+
-       '<select id="pickWChartAdd">'+chartAddOptions()+'</select>'+
-       ((svMax()&&vuu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+'</div>'+
-       '<div class="picked" style="margin:6px 0 2px">'+(vuu.length
-         ? vuu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
-             return '<span class="chip on" data-wcu="'+esc(u)+'">'+esc(c?c.name:u)+
-               '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
-         : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
+function pickKurzHtml(p){
+  const e=pickSeite(p), w=e.widget||'';
+  const ic=e.icon?'<span class="loxi" style="--u:url(\''+esc(icoUrl(e.icon))+'\')"></span>':'';
+  const name='<b>'+esc(pickNameOf(p).trim()||(T('Seite')+' '+(curPickIdx+1)))+'</b> ';
+  let h;
+  if(w) h='<p class="wsum">'+name+T('zeigt das Widget')+' <b>'+esc(T(SE_PANE_NAMEN[wKind(w)]||wKind(w)))+'</b> '+T('über die ganze Fläche.')+'</p>';
+  else {
+    // Gezaehlt wird, was am Panel ANKOMMT: ausgeblendete Bausteine wirft der
+    // Server vorher weg, sie duerfen die Zahl nicht aufblaehen.
+    const sel=pickSichtbar(p), rs=pickRooms(p), weg=pickList(p).length-sel.length;
+    h='<p class="wsum">'+name+(sel.length
+      ? T('zeigt')+' <b>'+sel.length+'</b> '+(sel.length===1?T('Baustein'):T('Bausteine'))+' '+
+        T('aus')+' <b>'+rs.length+'</b> '+(rs.length===1?T('Raum'):T('Räumen'))+'.'
+      : T('ist noch leer.'))+'</p>'+
+      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.')
+                                             :T('gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.'))+'</p>':'')+
+      pickAnchorsHtml(p);
   }
-  else if(k==='status'){ const suu=arg?arg.split(',').filter(Boolean):[];
-    h+='<div class="ccrow" style="margin:4px 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Bausteine')+'</span>'+
-       '<select id="pickWStatAdd"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
-       ((svMax()&&suu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+'</div>'+
-       '<div class="picked" style="margin:6px 0 2px">'+(suu.length
-         ? suu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
-             return '<span class="chip on" data-wsu="'+esc(u)+'">'+esc(c?c.name:u)+
-               '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
-         : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
-  }
-  return h;
-}
-function pickEditHtml(p){
-  const w=curPT(p).widget||'';
-  const head='<div class="grph">'+T('Eigene Auswahl')+
-      (w?'':'<button class="minibtn" id="wizAgain" style="float:right;margin-top:-4px">'+T('Schritt für Schritt')+'</button>')+'</div>'+
-    '<div class="field" style="max-width:280px"><label class="lbl">'+T('Name der Seite')+'</label>'+
-      '<input type="text" id="pickName" maxlength="40" value="'+esc(pickNameOf(p))+'" placeholder="'+T('Auswahl')+'"></div>'+
-    '<div class="field"><label class="lbl">'+T('Icon der Seite')+'</label>'+pickIcoGridHtml(p)+'</div>'+
-    pickContentHtml(p);
-  if(w) return head+
-    '<p class="note" style="margin:10px 0 0">'+T('Diese Seite zeigt statt Kacheln das gewählte Widget über die ganze Fläche — auch am 1-Pane-Display. Wähle oben „Bausteine (Kacheln)", um wieder Kacheln zu setzen.')+'</p>';
-  return head+
-    '<div style="margin-top:10px">'+pickAnchorsHtml(p)+'</div>'+
-    pickChosenHtml()+
-    '<p class="note" style="margin:8px 0 0">'+T('Tippen auf <b>×</b> nimmt einen Baustein wieder heraus; die Nummern rutschen nach.')+'</p>'+
-    pickFilterHtml()+
-    '<p class="note" style="margin:10px 0 0">'+T('Die Liste zeigt <b>alle</b> Bausteine der Anlage – der Raum- und Kategoriefilter dieses Panels gilt hier bewusst nicht, sonst könntest du nicht über ihn hinausgreifen. Ein auf diesem Panel <b>ausgeblendeter</b> Baustein bleibt ausgeblendet, auch wenn du ihn hier wählst.')+'</p>';
+  return '<div class="pick-kurz">'+(ic?'<span class="pick-kurz-ic">'+ic+'</span>':'')+'<div>'+h+
+    '<button type="button" class="minibtn" id="pickZumEditor">'+T('Im Seiten-Editor bearbeiten')+'</button>'+
+    '<p class="hint">'+T('Name, Icon, Inhalt und Anordnung der Seite stellst du im Seiten-Editor ein.')+'</p></div></div>';
 }
 
 // Der Editor haengt daran, ob die Seite ueberhaupt benutzt wird: im
@@ -2751,151 +2661,32 @@ function renderBarMode(p){
 function renderPick(p){
   renderBarMode(p);
   const box=$('#tabPick'); if(!box) return;
-  if(pickFor!==cur){ pickFor=cur; pickWiz=0; pickQ=''; pickRoomF=''; curPickIdx=0; }
+  if(pickFor!==cur){ pickFor=cur; curPickIdx=0; }
   if(!(p.tabs||[]).some(isPick)){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
-  // Direkt-Editor als Standard: dort steht der „Seiteninhalt"-Wähler (Kacheln
-  // ODER Widget). Der gefuehrte Mini-Assistent ist ueber „Schritt fuer Schritt".
-  if(!pickWiz) pickWiz = -1;
-  const bar = tabMode(p)==='pick' ? pickTabBar(p) : '';
-  box.innerHTML = bar + (pickWiz>0 ? pickWizHtml(p) : pickEditHtml(p));
+  box.innerHTML='<div class="grph">'+T('Eigene Auswahl')+'</div>'+(tabMode(p)==='pick' ? pickTabBar(p) : '')+pickKurzHtml(p);
   bindPick(p);
 }
 
 function bindPick(p){
-  renderPicked(); renderPickList();
-  const pnm=$('#pickName');
-  if(pnm) pnm.oninput=()=>{ curPT(p).name=pnm.value; renderChips(p); markDirty(); };
-  const ex=$('#pickNameEx');
-  if(ex) ex.querySelectorAll('.chip[data-ex]').forEach(n=>n.onclick=()=>{
-    curPT(p).name=n.dataset.ex; markDirty(); renderPick(p); });
-  // Pick-Tab-Leiste (bis 4 Seiten): wechseln / hinzufügen / entfernen
-  $('#tabPick').querySelectorAll('[data-pti]').forEach(el=>el.onclick=(ev)=>{
+  const box=$('#tabPick');
+  // Seitenleiste (bis 4 Seiten): wechseln / hinzufuegen / entfernen
+  box.querySelectorAll('[data-pti]').forEach(el=>el.onclick=(ev)=>{
     if(ev.target && ev.target.hasAttribute('data-ptdel')) return;
-    curPickIdx=+el.dataset.pti; pickWiz=0; renderPick(p); });
-  $('#tabPick').querySelectorAll('[data-ptdel]').forEach(el=>el.onclick=(ev)=>{
+    curPickIdx=+el.dataset.pti; renderPick(p); });
+  box.querySelectorAll('[data-ptdel]').forEach(el=>el.onclick=(ev)=>{
     ev.stopPropagation(); pickDelTab(p,+el.dataset.ptdel); });
   { const pa=$('#ptAdd'); if(pa) pa.onclick=()=>pickAddTab(p); }
-  bindPickIcons(p);
-  // Seiteninhalt: Bausteine (Kacheln) vs Widget
-  { const pc=$('#pickContent'); if(pc) pc.onchange=()=>{ const k=pc.value, e=curPT(p);
-      if(!k) delete e.widget;
-      else if(k==='weather'||k==='calendar') e.widget=k;
-      else if(k==='player') e.widget='player:'+(firstAudioZone()||'');
-      else if(k==='energy') e.widget='energy:'+(firstEnergyControl()||'');
-      else if(k==='camera') e.widget='camera:'+(firstCamera()||'');
-      else if(k==='chart') e.widget='chart:'+(firstChartControl()||'');
-      else if(k==='status') e.widget=(wKind(e.widget||'')==='status'?e.widget:'status:');
-      pickWiz=-1; markDirty(); renderPick(p); renderChips(p); }; }
-  { const wa=$('#pickWArg'); if(wa) wa.onchange=()=>{ const e=curPT(p); e.widget=wKind(e.widget||'')+':'+wa.value; markDirty(); renderPick(p); }; }
-  { const wsAdd=$('#pickWStatAdd'); if(wsAdd) wsAdd.onchange=()=>{ const e=curPT(p), u=wsAdd.value; wsAdd.value='';
-      const uu=(wKind(e.widget||'')==='status'?wArg(e.widget).split(',').filter(Boolean):[]);
-      if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
-      e.widget='status:'+uu.concat([u]).join(','); markDirty(); renderPick(p); }; }
-  $('#tabPick').querySelectorAll('.chip[data-wsu]').forEach(n=>n.onclick=()=>{ const e=curPT(p);
-      const rest=(wKind(e.widget||'')==='status'?wArg(e.widget).split(',').filter(Boolean):[]).filter(x=>x!==n.dataset.wsu);
-      e.widget=rest.length?('status:'+rest.join(',')):'status:'; markDirty(); renderPick(p); });
-  { const wcAdd=$('#pickWChartAdd'); if(wcAdd) wcAdd.onchange=()=>{ const e=curPT(p), u=wcAdd.value; wcAdd.value='';
-      const uu=(wKind(e.widget||'')==='chart'?wArg(e.widget).split(',').filter(Boolean):[]);
-      if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
-      e.widget='chart:'+uu.concat([u]).join(','); markDirty(); renderPick(p); }; }
-  $('#tabPick').querySelectorAll('.chip[data-wcu]').forEach(n=>n.onclick=()=>{ const e=curPT(p);
-      const rest=(wKind(e.widget||'')==='chart'?wArg(e.widget).split(',').filter(Boolean):[]).filter(x=>x!==n.dataset.wcu);
-      e.widget=rest.length?('chart:'+rest.join(',')):'chart:'; markDirty(); renderPick(p); });
-  const psr=$('#pickSearch');
-  if(psr) psr.oninput=()=>{ pickQ=psr.value; renderPickList(); };
-  const prm=$('#pickRoom');
-  if(prm) prm.onchange=()=>{ pickRoomF=prm.value; renderPickList(); };
-  const cpk=$('#clrPicks'); if(cpk) cpk.onclick=clearPicks;
-  const nx=$('#wizNext'); if(nx){
-    nx.onclick=()=>{ pickWiz=Math.min(3,pickWiz+1); renderPick(p); };
-    pickNavUpd();
-  }
-  const bk=$('#wizBack'); if(bk) bk.onclick=()=>{ pickWiz=Math.max(1,pickWiz-1); renderPick(p); };
-  const dn=$('#wizDone'); if(dn) dn.onclick=()=>{ pickWiz=-1; renderPick(p); };
-  const ag=$('#wizAgain'); if(ag) ag.onclick=()=>{ pickWiz=1; renderPick(p); };
+  { const ze=$('#pickZumEditor'); if(ze) ze.onclick=()=>{ subPconf='seiten'; renderSubtabs(); showSub('seiten'); }; }
   // BEWUSST applyChrome, nicht autoChrome: autoChrome setzt in i18n.js den
   // modulweiten Selektor NEU und haengt bei jedem Aufruf einen weiteren
-  // MutationObserver an. Ein enger Aufruf hier wuerde die Uebersetzung der
-  // uebrigen Konfigurationsseite abschalten, sobald der Nutzer hier etwas tut.
-  // applyChrome uebersetzt nur diesen Teilbaum, mit dem breiten Selektor, den
-  // renderEditor ohnehin gesetzt hat.
-  if(window.I18N && I18N.applyChrome) I18N.applyChrome($('#tabPick'));
-}
-// Ohne Baustein ist "Weiter" in Schritt 2 sinnlos - sonst landet man auf einer
-// Zusammenfassung, die nichts zusammenzufassen hat.
-function pickNavUpd(){
-  const nx=$('#wizNext'); if(nx && pickWiz===2) nx.disabled = !pickList(PANELS[cur]).length;
+  // MutationObserver an; applyChrome uebersetzt nur diesen Teilbaum.
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome(box);
 }
 
-function renderPicked(){
-  const box=$('#picked'); if(!box) return;
-  const p=PANELS[cur], sel=pickOrder(p);
-  const cnt=$('#pickCnt'); if(cnt) cnt.textContent=sel.length;
-  if(!sel.length){ box.innerHTML='<span class="none">'+T('Noch nichts gewählt – unten antippen.')+'</span>'; return; }
-  box.innerHTML=sel.map((u,i)=>{
-    const c=(META.controls||[]).find(x=>x.uuid===u);
-    if(!c) return '';                       // Karteileiche: der Server wirft sie ohnehin weg
-    // Ausgeblendete stehen hinten und tragen keine Nummer - sie haben am Panel
-    // keinen Platz, eine Zahl waere eine Zusage, die das Panel nicht einhaelt.
-    const versteckt=pickAus(p,u);
-    return '<span class="chip on'+(versteckt?' dim':'')+'" data-pu="'+esc(u)+'">'+
-           '<span class="pos">'+(versteckt?'–':(i+1))+'</span>'+esc(c.name)+
-           '<span class="rm">'+esc(versteckt?T('ausgeblendet'):(c.roomName||''))+'</span>'+
-           '<span class="x">×</span></span>';
-  }).join('');
-  box.querySelectorAll('.chip[data-pu]').forEach(n=>n.onclick=()=>togglePick(n.dataset.pu));
-}
-
-function renderPickList(){
-  const box=$('#pickList'); if(!box) return;
-  const p=PANELS[cur], sel=pickOrder(p), q=pickQ.toLowerCase();
-  const list=(META.controls||[]).filter(c=>
-    (pickRoomF ? c.room===pickRoomF : true) &&
-    (c.name.toLowerCase().includes(q)||(c.roomName||'').toLowerCase().includes(q)));
-  box.innerHTML='';
-  if(!list.length){ box.innerHTML='<div class="muted">'+T('nichts gefunden')+'</div>'; return; }
-  list.slice(0,400).forEach(c=>{
-    const i=sel.indexOf(c.uuid), on=i>-1;
-    const versteckt=pickAus(p,c.uuid);
-    const d=document.createElement('div');
-    d.className='trow'+(versteckt?' dim':'');
-    const ic=c.iconUrl?'<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>':'<span class="tico gen"></span>';
-    d.innerHTML='<span class="pick'+(on?' on':'')+'">'+((on&&!versteckt)?(i+1):'')+'</span>'+ic+
-      '<span class="tnm">'+esc(c.name)+'</span>'+
-      (versteckt?'<span class="tag">'+T('ausgeblendet')+'</span>':'')+
-      '<span class="trm">'+esc(c.roomName||'')+'</span>';
-    d.onclick=()=>togglePick(c.uuid);
-    box.appendChild(d);
-  });
-}
-
-// NUR pickList liest, NUR hier wird geschrieben: pickList(p) darf p.picks nicht
-// anlegen, sonst braechte jedes Rendern den Schluessel zurueck, den togglePick
-// und clearPicks gerade entfernt haben, und das Panel gaelte als geaendert.
-function togglePick(uuid){
-  const p=PANELS[cur], t=curPT(p), sel=t.picks.slice(), i=sel.indexOf(uuid);
-  if(i>-1){ sel.splice(i,1); layoutOhne(t, uuid); }
-  else { if(sel.length>=60) return; sel.push(uuid); }   // derselbe Deckel wie im Server
-  t.picks=sel; markDirty(); pickRefresh();
-}
-// Verlaesst ein Baustein die Seite, geht sein Eintrag im Layout (Seiten-Editor)
-// mit - sonst meldete das Speichern ihn als verworfen. Ein neuer braucht
-// keinen: ohne Eintrag steht er hinten in seiner Standardgroesse (seFolge).
-function layoutOhne(t, uuid){
-  if(!Array.isArray(t.layout)) return;
-  t.layout=t.layout.filter(e=>e && e.id!==uuid); if(!t.layout.length) delete t.layout;
-}
-
-function clearPicks(){ const p=PANELS[cur], t=curPT(p);
-  if(t.picks.length){ t.picks=[]; delete t.layout; markDirty(); pickRefresh(); } }
-
-// Nach jeder Aenderung an der Auswahl: nur die Teile neu zeichnen, die davon
-// abhaengen. NICHT die ganze Rubrik - das naehme Such- und Namensfeld den Fokus.
-function pickRefresh(){
-  renderPicked(); renderPickList(); pickNavUpd();
-  const a=$('#pickAnchors'); if(a) a.innerHTML=pickAnchorsInner(PANELS[cur]);
-}
+// Nach jeder Aenderung an einer Seite (Seiten-Editor): die Kurzfassung unter
+// Tabs und die Buttons der klassischen Leiste, die den Seitennamen tragen
+function pickRefresh(){ const p=PANELS[cur]; if(!p || p.__global) return; renderPick(p); renderChips(p); }
 // ---- Seiten-Editor (Punkt 10) ----
 // Ordnet eine freie Seite auf einer Arbeitsflaeche in Geraeteform: Bausteine
 // aus der Palette ziehen, Kacheln verschieben (Maus, Finger, in der Liste am
@@ -2919,7 +2710,7 @@ const SE_PANE_NAMEN={weather:'Wetter', calendar:'Kalender', player:'Audio', ener
 const SE_GRIFF='<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><g fill="currentColor">'+
   '<circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/>'+
   '<circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></g></svg>';
-const SE_MAX=60;              // derselbe Deckel wie togglePick und der Server
+const SE_MAX=60;              // derselbe Deckel wie der Server
 const SE_ZUSTAND={};          // je Seite (ctx.key): Auswahl, Blatt; je Panel (ctx.pkey): Filter, Meldung
 const SE_VORSCHAU={};         // Panel-ID -> gewaehltes Vorschaugeraet {quelle, name}
 let SE_ZIEHEN=null;           // laufendes Ziehen (Pointer-Events)
@@ -3029,8 +2820,9 @@ function seKontextReiter(){
   return {key:'r:'+cur+':'+curPickIdx, pkey:'r:'+cur, panel:p,
     seiten:()=>{ const t=p.pickTabs; return (Array.isArray(t)&&t.length) ? t : [{name:p.pickName||'', picks:p.picks||[]}]; },
     idx:()=>curPickIdx,
-    setIdx:i=>{ curPickIdx=i; pickWiz=0; renderPick(p); seReiterZeichnen(); },
+    setIdx:i=>{ curPickIdx=i; renderPick(p); seReiterZeichnen(); },
     neueSeite:()=>{ pickAddTab(p); seReiterZeichnen(); },
+    seiteWeg:i=>{ pickDelTab(p, i); seReiterZeichnen(); },
     seiteLesen:()=>{ const t=p.pickTabs; if(Array.isArray(t)&&t[curPickIdx]) return t[curPickIdx];
       return curPickIdx===0 ? {name:p.pickName||'', picks:p.picks||[]} : null; },
     seite:()=>curPT(p), tab:tab,
@@ -3055,7 +2847,7 @@ function seKontextReiter(){
 function seKontextWz(i){
   const pg=()=>WZ.pickPages[i], key=pickKey(i);
   return {key:'wz:'+i, pkey:'wz', panel:null,
-    seiten:()=>WZ.pickPages, idx:()=>i, setIdx:null, neueSeite:null,
+    seiten:()=>WZ.pickPages, idx:()=>i, setIdx:null, neueSeite:null, seiteWeg:null,
     seiteLesen:pg, seite:pg, tab:()=>key,
     ui:()=>{ const gr=String(WZ.grid||'2x2').split('x').map(Number);
       return {auto:WZ.grid==='auto', cols:gr[0]===3?3:2, rows:gr[1]===3?3:2, split:WZ.panes==='2', ziel:wzZiel(),
@@ -3092,14 +2884,99 @@ function seWidget(ctx, k){ const cur=sePaneArt(ctx.ui().pane), neu=sePaneArt(wzP
 function sePct(v, b){ return (100*v/b).toFixed(3)+'%'; }
 function seKasten(o, g){ return 'left:'+sePct(o.x,g.vw)+';top:'+sePct(o.y,g.vh)+';width:'+sePct(o.w,g.vw)+';height:'+sePct(o.h,g.vh)+';'; }
 function seIcon(c){ return (c && c.iconUrl) ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>' : '<span class="tico gen"></span>'; }
+// Seitenleiste (nur im Panel-Editor): wechseln, hinzufuegen, entfernen
+function seLeisteHtml(ctx){
+  if(!ctx.setIdx) return '';
+  const ss=ctx.seiten();
+  return '<div class="se-seiten">'+ss.map((s,i)=>'<button type="button" class="ptb'+(i===ctx.idx()?' on':'')+'" data-se-seite="'+i+'">'+
+    esc((s.name||'').trim()||(T('Seite')+' '+(i+1)))+
+    (ss.length>1?'<span class="ptx" data-se-seite-weg="'+i+'" title="'+esc(T('Seite entfernen'))+'">✕</span>':'')+'</button>').join('')+
+    (ss.length<4?'<button type="button" class="ptadd" data-se-neu title="'+esc(T('Seite hinzufügen'))+'">＋</button>':'')+'</div>';
+}
+// Seiteninhalt: Bausteine (Kacheln) ODER ein Widget ueber die ganze Flaeche,
+// mit seiner Wahl (Musikzone, Baustein, Werte/Verlauf gestapelt)
+function seInhaltHtml(w){
+  const k=wKind(w), arg=wArg(w);
+  const opt=(v,n)=>'<option value="'+v+'"'+(k===v?' selected':'')+'>'+T(n)+'</option>';
+  let h='<div class="field"><label class="lbl">'+T('Seiteninhalt')+'</label>'+
+    '<select data-se-inhalt>'+
+      '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+
+      '<optgroup label="'+esc(T('Widget (Vollbild)'))+'">'+opt('weather','Wetter')+opt('calendar','Kalender')+
+        (firstAudioZone()?opt('player','Audio'):'')+(firstEnergyControl()?opt('energy','Energiefluss'):'')+
+        (firstCamera()?opt('camera','Kamera'):'')+(statControls().length?opt('chart','Verlauf'):'')+opt('status','Werte')+
+      '</optgroup></select></div>';
+  if(k==='player') h+='<div class="field"><label class="lbl">'+T('Musikzone')+'</label><select data-se-warg>'+audioZoneOptions(arg)+'</select></div>';
+  else if(k==='energy') h+='<div class="field"><label class="lbl">'+T('Baustein')+'</label><select data-se-warg>'+energyControlOptions(arg)+'</select></div>';
+  else if(k==='camera') h+='<div class="field"><label class="lbl">'+T('Baustein')+'</label><select data-se-warg>'+cameraOptions(arg)+'</select></div>';
+  else if(k==='chart' || k==='status'){
+    const uu=arg?arg.split(',').filter(Boolean):[];
+    h+='<div class="field se-werte-wahl"><label class="lbl">'+T('Bausteine')+'</label>'+
+      (k==='chart' ? '<select data-se-wneu="chart">'+chartAddOptions()+'</select>'
+                   : '<select data-se-wneu="status"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>')+
+      ((svMax()&&uu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht auf die Seite.')+'</span>':'')+
+      '<div class="picked">'+(uu.length
+        ? uu.map(u=>{ const c=(META.controls||[]).find(x=>x.uuid===u);
+            return '<span class="chip on" data-se-wweg="'+esc(u)+'">'+esc(c?c.name:u)+
+              '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
+        : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div></div>';
+  }
+  return h;
+}
+// Bereich "Seite" (nur im Panel-Editor; der Assistent hat dafuer eigene
+// Schritte): Name, Seiteninhalt, Icon. seZeichnen() schreibt ihn nicht neu,
+// damit das Namensfeld beim Tippen den Fokus behaelt und die Icon-Bibliothek
+// ihre Suche; das Raster der Bibliothek fuellt sich erst beim Aufklappen.
+function seEigenHtml(ctx){
+  if(!ctx.panel) return '';
+  const e=ctx.seiteLesen()||{};
+  return '<div class="se-eigen">'+
+    '<div class="field"><label class="lbl">'+T('Name der Seite')+'</label>'+
+      '<input type="text" maxlength="40" data-se-name value="'+esc(e.name||'')+'" placeholder="'+esc(T('Auswahl'))+'"></div>'+
+    seInhaltHtml(e.widget||'')+
+    '<details class="se-icon" data-se-icon><summary>'+T('Icon der Seite')+' <span data-se-icon-jetzt>'+seIconJetzt(e.icon)+'</span></summary>'+
+      '<input class="pgi-search" oninput="pickIcoFilter(this.value, this.parentNode)" placeholder="'+esc(T('Icon suchen…'))+'">'+
+      '<div class="picogrid" data-se-icons></div></details></div>';
+}
+function seIconJetzt(ic){ return ic ? '<span class="loxi" style="--u:url(\''+esc(icoUrl(ic))+'\')"></span>' : '<span class="muted">'+T('kein')+'</span>'; }
+function seEigenNeu(host){ const el=host.querySelector('[data-se-eigen]'); if(el) el.innerHTML=seEigenHtml(host._se); }
+// Icon-Bibliothek beim Aufklappen fuellen; kommt die Loxone-Bibliothek nach,
+// nur das Raster neu (die Suche bleibt stehen)
+function seIconsFuellen(host){
+  const d=host.querySelector('[data-se-icon]'), g=d && d.querySelector('[data-se-icons]'); if(!g || !d.open) return;
+  g.innerHTML=icoGridBody((host._se.seiteLesen()||{}).icon||'');
+  const q=d.querySelector('.pgi-search'); if(q && q.value) pickIcoFilter(q.value, d);
+  if(LOXLIB===null) loadLoxlib(()=>{ if(document.body.contains(g)) seIconsFuellen(host); });
+}
+function seIconSetzen(host, v){
+  const ctx=host._se, e=ctx.seite();
+  if(v) e.icon=v; else delete e.icon;
+  host.querySelectorAll('[data-se-icons] .pgi').forEach(b=>b.classList.toggle('on', b.dataset.pic===v));
+  const j=host.querySelector('[data-se-icon-jetzt]'); if(j) j.innerHTML=seIconJetzt(v);
+  ctx.geaendert();
+}
+// Inhalt der Seite setzen: Kacheln ('') oder ein Widget mit seiner Vorgabe
+function seInhalt(ctx, k){
+  const e=ctx.seite();
+  if(!k) delete e.widget;
+  else if(k==='weather'||k==='calendar') e.widget=k;
+  else if(k==='player') e.widget='player:'+(firstAudioZone()||'');
+  else if(k==='energy') e.widget='energy:'+(firstEnergyControl()||'');
+  else if(k==='camera') e.widget='camera:'+(firstCamera()||'');
+  else if(k==='chart') e.widget='chart:'+(firstChartControl()||'');
+  else if(k==='status') e.widget=(wKind(e.widget||'')==='status'?e.widget:'status:');
+  ctx.geaendert();
+}
+// Werte- und Verlauf-Widget: Bausteine gestapelt, hoechstens svMax()
+function seWidgetWerte(ctx, u, dazu){
+  const e=ctx.seite(), art=wKind(e.widget||''), uu=wArg(e.widget||'').split(',').filter(Boolean);
+  if(art!=='status' && art!=='chart') return;
+  let neu;
+  if(dazu){ if(!u || uu.indexOf(u)>-1 || (svMax() && uu.length>=svMax())) return; neu=uu.concat([u]); }
+  else neu=uu.filter(x=>x!==u);
+  e.widget=art+':'+neu.join(','); ctx.geaendert();
+}
 function seKopfHtml(ctx, a){
   let h='';
-  if(ctx.setIdx){
-    const ss=ctx.seiten();
-    h+='<div class="se-seiten">'+ss.map((s,i)=>'<button type="button" class="ptb'+(i===ctx.idx()?' on':'')+'" data-se-seite="'+i+'">'+
-      esc((s.name||'').trim()||(T('Seite')+' '+(i+1)))+'</button>').join('')+
-      (ss.length<4?'<button type="button" class="ptadd" data-se-neu title="'+esc(T('Seite hinzufügen'))+'">＋</button>':'')+'</div>';
-  }
   const g=ctx.geraet();
   h+='<div class="se-wahl">';
   if(ctx.geraete){
@@ -3207,16 +3084,19 @@ function seWidHtml(ctx){
 function seRender(host, ctx){
   if(!host || !ctx) return;
   host._se=ctx; seBinden(host);
-  host.innerHTML='<div data-se-kopf></div><div class="se-spalten">'+
+  host.innerHTML='<div data-se-leiste></div><div data-se-eigen></div><div data-se-kopf></div><div class="se-spalten">'+
     '<div class="se-pal">'+sePalFilterHtml(ctx)+'<div data-se-liste></div><div data-se-wid></div></div>'+
     '<div class="se-mitte" data-se-mitte></div><div class="se-feld" data-se-feld></div></div>';
+  seEigenNeu(host);
   seZeichnen(host);
 }
 function seZeichnen(host){
   const ctx=host._se, st=seZustand(ctx.key), a=seAnsicht(ctx);
   if(st.sel && !a.raster.some(e=>e.id===st.sel)) st.sel=null;
   const teil=k=>host.querySelector('[data-se-'+k+']');
+  teil('leiste').innerHTML=seLeisteHtml(ctx);
   teil('kopf').innerHTML=seKopfHtml(ctx, a);
+  host.querySelector('.se-pal').hidden=!!a.pg.widget;
   teil('liste').innerHTML=a.pg.widget?'':sePalListeHtml(ctx, a);
   teil('wid').innerHTML=a.pg.widget?'':seWidHtml(ctx);
   if(a.pg.widget){ teil('mitte').innerHTML=seMitteHtml(ctx, st, a, null, null); teil('feld').innerHTML=''; host._seLage=null; return; }
@@ -3245,14 +3125,25 @@ function seBinden(host){
   if(host._seGebunden) return; host._seGebunden=true;
   host.addEventListener('click', ev=>seKlick(host, ev));
   host.addEventListener('change', ev=>seAenderung(host, ev));
-  host.addEventListener('input', ev=>{ if(ev.target.matches('[data-se-q]')){ seZustand(host._se.pkey).q=ev.target.value; seZeichnen(host); } });
+  host.addEventListener('input', ev=>{
+    if(ev.target.matches('[data-se-q]')){ seZustand(host._se.pkey).q=ev.target.value; seZeichnen(host); }
+    else if(ev.target.matches('[data-se-name]')){ host._se.seite().name=ev.target.value; host._se.geaendert(); seZeichnen(host); } });
+  // toggle steigt nicht auf: in der Capture-Phase abfangen (Icon-Bibliothek aufgeklappt)
+  host.addEventListener('toggle', ev=>{ if(ev.target.matches && ev.target.matches('[data-se-icon]')) seIconsFuellen(host); }, true);
   host.addEventListener('keydown', ev=>seTaste(host, ev));
   host.addEventListener('pointerdown', ev=>seDown(host, ev));
 }
 function seKlick(host, ev){
   if(host._seSperre){ host._seSperre=false; ev.preventDefault(); return; }   // Klick nach dem Ziehen
+  const ctx=host._se;
+  // Marken in Knoepfen und Chips zuerst: Seite entfernen, Baustein aus dem Werte-/Verlauf-Widget
+  const weg=ev.target.closest('[data-se-seite-weg]');
+  if(weg && ctx.seiteWeg){ ev.stopPropagation(); ctx.seiteWeg(Number(weg.dataset.seSeiteWeg)); return; }
+  const ww=ev.target.closest('[data-se-wweg]');
+  if(ww){ seWidgetWerte(ctx, ww.dataset.seWweg, false); seEigenNeu(host); seZeichnen(host); return; }
   const b=ev.target.closest('button'); if(!b || !host.contains(b) || b.disabled) return;
-  const ctx=host._se, st=seZustand(ctx.key), d=b.dataset;
+  const st=seZustand(ctx.key), d=b.dataset;
+  if(d.pic!==undefined && b.closest('[data-se-icons]')){ seIconSetzen(host, d.pic); return; }
   seZustand(ctx.pkey).meldung='';
   if(d.seT!==undefined) st.sel=d.seT;
   else if(d.seP!==undefined) seUmschalten(ctx, d.seP);
@@ -3274,6 +3165,9 @@ function seAenderung(host, ev){
   if(t.matches('[data-se-geraet]')){ const x=ctx.geraete()[Number(t.value)]; if(x) ctx.setGeraet(x); }
   else if(t.matches('[data-se-raum]')){ const pg=ctx.seite(); if(t.checked) delete pg.byRoom; else pg.byRoom=false; ctx.geaendert(); }
   else if(t.matches('[data-se-raumf]')) seZustand(ctx.pkey).raum=t.value;
+  else if(t.matches('[data-se-inhalt]')){ seInhalt(ctx, t.value); seEigenNeu(host); }
+  else if(t.matches('[data-se-warg]')){ const e=ctx.seite(); e.widget=wKind(e.widget||'')+':'+t.value; ctx.geaendert(); }
+  else if(t.matches('[data-se-wneu]')){ seWidgetWerte(ctx, t.value, true); seEigenNeu(host); }
   else return;
   seZeichnen(host);
 }
@@ -3974,7 +3868,7 @@ function wzIcoGrid(i){
   var g='<button class="pgi none'+(cur?'':' on')+'" data-wpico="'+i+'" data-picv="" data-in="">'+T('kein')+'</button>';
   (((META.icons||{}).loxone)||[]).forEach(function(pth){ g+=btn('/icon?p='+encodeURIComponent(pth),pth); });
   (LOXLIB||[]).forEach(function(n){ g+=btn('/loxlib?n='+encodeURIComponent(n),n.replace(/\.svg$/i,'')); });
-  return '<input class="pgi-search" oninput="pickIcoFilter(this.value)" placeholder="'+T('Icon suchen…')+'" style="width:100%;margin-top:6px"><div class="picogrid" style="width:100%">'+g+'</div>';
+  return '<input class="pgi-search" oninput="pickIcoFilter(this.value, this.parentNode)" placeholder="'+T('Icon suchen…')+'" style="width:100%;margin-top:6px"><div class="picogrid" style="width:100%">'+g+'</div>';
 }
 // Inhalts-Wahl einer freien Seite (Kacheln ODER Widget) — genutzt in der
 // Seiten-Liste UND im Befüll-Editor, damit jede Seite zuerst danach fragt.

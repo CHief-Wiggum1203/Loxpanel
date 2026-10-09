@@ -1,7 +1,8 @@
 """Freie Auswahl mit vier Seiten im Konfigurator (Chromium), bedient wie von
-Hand: je Seite Name, Icon und Inhalt (Kacheln in Klickreihenfolge oder ein
-Widget), speichern, Konfigurator neu laden, weiter bearbeiten und wieder
-speichern. Genau dort gingen frueher die Seiten 2-4 verloren (#47): /api/meta
+Hand: unter Tabs die eigene Auswahl waehlen, im Seiten-Editor je Seite Name,
+Icon und Inhalt (Kacheln aus der Palette in Klickreihenfolge oder ein Widget),
+speichern, Konfigurator neu laden, unter Tabs die Kurzfassung jeder Seite
+pruefen, weiter bearbeiten und wieder speichern. Genau dort gingen frueher die Seiten 2-4 verloren (#47): /api/meta
 lieferte pickTabs nicht mit, nach dem Neuladen kannte der Editor nur eine
 Seite und kuerzte beim naechsten Speichern die Leiste. Am Ende zeigt die Visu
 alle vier Seiten mit Namen, Icon und Inhalt. Der Config-Ordner ist
@@ -58,11 +59,19 @@ def _icon_url(icon):
     return "/icon?p=" + quote(icon, safe="") if icon else ""
 
 
+# Kurzfassung je Seite unter Tabs
+KURZ = ["Morgens zeigt 2 Bausteine aus 1 Raum.", "Abends zeigt 2 Bausteine aus 1 Raum.",
+        "Urlaub zeigt 2 Bausteine aus 2 Räumen.", "Wetter zeigt das Widget Wetter über die ganze Fläche."]
+
+
 def _erwartet(name1):
-    """pickTabs, wie sie in panels.json stehen sollen (Seite 1 heisst name1)."""
+    """pickTabs, wie sie in panels.json stehen sollen (Seite 1 heisst name1). Der
+    Seiten-Editor schreibt zu den picks ihre Folge und Groesse (layout)."""
     seiten = []
     for i, (name, icon, bausteine, widget) in enumerate(SEITEN):
         e = {"name": name1 if i == 0 else name, "picks": [NAME_UUID[n] for n in bausteine]}
+        if bausteine:
+            e["layout"] = [{"id": NAME_UUID[n], "w": 1, "h": 1} for n in bausteine]
         if icon:
             e["icon"] = _icon_url(icon)
         if widget:
@@ -87,14 +96,23 @@ async def _speichern(pg, cfg_ordner):
     return json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
 
 
+async def _icons_auf(pg):
+    """Icon-Bibliothek der Seite im Seiten-Editor aufklappen (sie fuellt sich erst dann)."""
+    if not await pg.locator("#seHost [data-se-icon]").evaluate("d => d.open"):
+        await pg.locator("#seHost [data-se-icon] summary").click()
+    await pg.locator("#seHost [data-se-icons] .pgi").first.wait_for()
+
+
 async def _seite_fuellen(pg, name, icon, bausteine, widget):
-    await pg.locator("#pickName").fill(name)
+    """Eine Seite im Seiten-Editor: Name, Icon, Bausteine aus der Palette, Inhalt."""
+    await pg.locator("#seHost [data-se-name]").fill(name)
     if icon:
-        await pg.locator(f'#tabPick .picogrid .pgi[title="{icon}"]').click()
+        await _icons_auf(pg)
+        await pg.locator(f'#seHost [data-se-icons] .pgi[title="{icon}"]').click()
     for n in bausteine:
-        await pg.locator("#pickList .trow", has_text=n).click()
+        await pg.locator("#seHost .se-p", has_text=n).click()
     if widget:
-        await pg.locator("#pickContent").select_option(widget)
+        await pg.locator("#seHost [data-se-inhalt]").select_option(widget)
 
 
 async def _kacheln(visu, erwartet):
@@ -128,13 +146,16 @@ def test_vier_seiten_ueberstehen_speichern_und_neuladen(cfg_ordner, tmp_path):
                 pg.on("dialog", dialog)
                 await _konfigurator(pg, port)
 
-                # Eigene Auswahl, vier Seiten anlegen; mehr als vier gibt es nicht
+                # Eigene Auswahl unter Tabs, die Seiten im Seiten-Editor: vier anlegen,
+                # mehr als vier gibt es nicht
                 await pg.locator("#tabMode button[data-mode='pick']").click()
+                await pg.locator("#pickZumEditor").click()
+                await pg.locator("#seHost [data-se-name]").wait_for()
                 for i, seite in enumerate(SEITEN):
                     if i:
-                        await pg.locator("#ptAdd").click()
+                        await pg.locator("#seHost [data-se-neu]").click()
                     await _seite_fuellen(pg, *seite)
-                assert await pg.locator("#ptAdd").count() == 0
+                assert await pg.locator("#seHost [data-se-neu]").count() == 0
                 flur = await _speichern(pg, cfg_ordner)
                 assert flur["tabs"] == TABS
                 assert flur["pickTabs"] == _erwartet("Morgens")
@@ -146,17 +167,23 @@ def test_vier_seiten_ueberstehen_speichern_und_neuladen(cfg_ordner, tmp_path):
                 assert [n for n, _ in leiste] == [s[0] for s in SEITEN]
                 for (_, stil), (name, icon, _, _) in zip(leiste, SEITEN):
                     assert (_icon_url(icon) in stil) if icon else stil == "", (name, stil)
-                for i, (name, icon, bausteine, widget) in enumerate(SEITEN):
+                for i in range(len(SEITEN)):
                     await pg.locator(".picktabbar .ptb").nth(i).click()
-                    assert await pg.locator("#pickName").input_value() == name
-                    assert await pg.locator("#tabPick .picogrid .pgi.on").get_attribute("data-pic") == _icon_url(icon)
-                    assert await pg.locator("#pickContent").input_value() == widget
-                    assert await pg.locator("#picked .chip").evaluate_all(TEXT) == bausteine
+                    assert await pg.text_content("#tabPick .wsum") == KURZ[i]
+                await pg.screenshot(path=str(tmp_path / "auswahl_tabs.png"), full_page=True)
+                await pg.locator(".stab[data-sub='seiten']").click()
+                for i, (name, icon, bausteine, widget) in enumerate(SEITEN):
+                    await pg.locator("#seHost .se-seiten .ptb").nth(i).click()
+                    assert await pg.locator("#seHost [data-se-name]").input_value() == name
+                    await _icons_auf(pg)
+                    assert await pg.locator("#seHost [data-se-icons] .pgi.on").get_attribute("data-pic") == _icon_url(icon)
+                    assert await pg.locator("#seHost [data-se-inhalt]").input_value() == widget
+                    assert await pg.locator("#seHost .se-t .se-tn").evaluate_all(TEXT) == bausteine
                 await pg.screenshot(path=str(tmp_path / "auswahl_konfigurator.png"), full_page=True)
 
                 # Weiter bearbeiten und wieder speichern: die Leiste bleibt bei vier Seiten
-                await pg.locator(".picktabbar .ptb").nth(0).click()
-                await pg.locator("#pickName").fill("Früh")
+                await pg.locator("#seHost .se-seiten .ptb").nth(0).click()
+                await pg.locator("#seHost [data-se-name]").fill("Früh")
                 flur = await _speichern(pg, cfg_ordner)
                 assert flur["tabs"] == TABS
                 assert flur["pickTabs"] == _erwartet("Früh")
@@ -194,10 +221,10 @@ def test_vier_seiten_ueberstehen_speichern_und_neuladen(cfg_ordner, tmp_path):
 
 
 def test_name_tippen_waehrend_die_icon_bibliothek_laedt(cfg_ordner):
-    """Der Editor einer freien Seite laedt die Icon-Bibliothek nach. Kommt sie,
-    waehrend jemand den Namen tippt, darf das Feld weder den Fokus noch
-    Buchstaben verlieren (frueher baute sie den ganzen Editor neu auf; auf der
-    CI ging so der Name der ersten Seite verloren)."""
+    """Der Seiten-Editor laedt die Icon-Bibliothek nach, sobald sie aufgeklappt
+    ist. Kommt sie, waehrend jemand den Namen tippt, darf das Feld weder den
+    Fokus noch Buchstaben verlieren (frueher baute sie den ganzen Editor neu
+    auf; auf der CI ging so der Name der ersten Seite verloren)."""
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
         "title": "Flur", "tabs": ["favoriten", "zentral", "raeume", "kategorien"]}}}), encoding="utf-8")
 
@@ -219,20 +246,22 @@ def test_name_tippen_waehrend_die_icon_bibliothek_laedt(cfg_ordner):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await _konfigurator(pg, port)
                 await pg.locator("#tabMode button[data-mode='pick']").click()
-                await pg.locator("#tabPick .pgi-search").fill("sofa")    # Suche laeuft schon
-                await pg.locator("#pickName").click()
+                await pg.locator("#pickZumEditor").click()
+                await _icons_auf(pg)
+                await pg.locator("#seHost [data-se-icon] .pgi-search").fill("sofa")    # Suche laeuft schon
+                await pg.locator("#seHost [data-se-name]").click()
                 await pg.keyboard.type("Mor")
                 freigabe.set()
                 await pg.wait_for_function("LOXLIB !== null")
                 await pg.keyboard.type("gens")
-                assert await pg.evaluate("document.activeElement && document.activeElement.id") == "pickName"
-                assert await pg.locator("#pickName").input_value() == "Morgens"
+                assert await pg.evaluate("document.activeElement.matches('[data-se-name]')")
+                assert await pg.locator("#seHost [data-se-name]").input_value() == "Morgens"
                 assert await pg.evaluate("PANELS.flur.pickTabs[0].name") == "Morgens"
                 # Das neu gefuellte Raster haelt die Suche und nimmt die Wahl an
-                sichtbar = await pg.locator("#tabPick .picogrid .pgi:not(.none)").evaluate_all(
+                sichtbar = await pg.locator("#seHost [data-se-icons] .pgi:not(.none)").evaluate_all(
                     "l => l.filter(b => !b.hidden).map(b => b.title)")
                 assert sichtbar == ["IconsFilled/sofa.svg"]
-                await pg.locator('#tabPick .picogrid .pgi[title="IconsFilled/sofa.svg"]').click()
+                await pg.locator('#seHost [data-se-icons] .pgi[title="IconsFilled/sofa.svg"]').click()
                 assert await pg.evaluate("PANELS.flur.pickTabs[0].icon") == _icon_url("IconsFilled/sofa.svg")
                 assert await pg.evaluate("PANELS.flur.pickTabs[0].name") == "Morgens"
                 await b.close()
