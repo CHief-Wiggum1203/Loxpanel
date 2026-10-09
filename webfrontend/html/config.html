@@ -394,6 +394,76 @@
   .pgi .loxi{width:20px;height:20px;}
   .pgi-search{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;margin-bottom:6px;}
   .pgi-search:focus{outline:none;border-color:var(--accent);}
+  /* ---------- Seiten-Editor (Punkt 10) ----------
+     Palette | Arbeitsflaeche in Geraeteform | Auswahl; schmal untereinander.
+     Die Flaeche liegt im Visu-Look (dunkel, runde Kacheln), jede Kachel und
+     Zelle steht absolut in Prozent der Geraeteflaeche (seKasten). */
+  .se-host{margin-top:10px;}
+  .card.se-karte{max-width:1240px;}
+  .se-seiten{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}   /* wie .picktabbar unter Tabs */
+  .se-wahl{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+  .se-wahl .field{max-width:none;margin:0;}
+  .se-wahl select{min-width:300px;}
+  .se-wahl .se-raum{margin:0 0 8px;}
+  .se-spalten{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:12px;}
+  .se-pal{flex:1 1 220px;max-width:300px;min-width:0;border-radius:6px;padding:2px;}
+  .se-pal.drop{outline:2px dashed var(--crit);outline-offset:2px;}
+  .se-mitte{flex:3 1 380px;min-width:0;}
+  .se-feld{flex:1 1 190px;max-width:260px;min-width:0;}
+  .se-filter{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
+  .se-filter select,.se-filter input{width:100%;max-width:none;}
+  .se-feld .lbl{display:block;}
+  .se-liste{display:flex;flex-direction:column;gap:2px;max-height:360px;overflow-y:auto;}
+  .se-p{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:1px solid transparent;border-radius:4px;
+    background:none;color:var(--fg);font:inherit;font-size:13px;text-align:left;cursor:grab;user-select:none;}
+  .se-p:hover{background:var(--panel2);}
+  .se-p.auf{opacity:.45;}
+  .se-p .tico{width:20px;height:20px;background:var(--muted);flex:none;-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .se-p .tico.gen,.se-t .tico.gen{background:#3a3f49;border-radius:4px;-webkit-mask:none;mask:none;}
+  .se-pn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .se-pr{color:var(--muted);font-size:12px;white-space:nowrap;max-width:40%;overflow:hidden;text-overflow:ellipsis;}
+  .se-grip{flex:none;color:#5c636d;display:grid;place-items:center;padding:4px 2px;touch-action:none;cursor:grab;}
+  .se-wl{display:flex;flex-wrap:wrap;gap:6px;}
+  .se-w{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+    padding:6px 10px;color:var(--fg);font:inherit;font-size:13px;cursor:grab;user-select:none;}
+  .se-w.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);}
+  .se-w:disabled{opacity:.4;cursor:default;}
+  .se-info{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px;color:var(--muted);}
+  .se-blatt{display:inline-flex;gap:4px;}
+  .se-geraet{position:relative;background:#0f1512;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    color:#e7ede7;margin:0 auto;}
+  .se-geraet.drop{outline:2px dashed var(--accent);outline-offset:3px;}
+  .se-zelle{position:absolute;border:1px dashed rgba(255,255,255,.14);border-radius:10px;}
+  .se-t{position:absolute;display:flex;flex-direction:column;justify-content:space-between;gap:2px;padding:6px 7px;min-width:0;
+    background:#1b2420;border:1px solid #2c3631;border-radius:10px;color:inherit;font:inherit;
+    text-align:left;cursor:grab;touch-action:none;user-select:none;overflow:hidden;}
+  .se-t:hover{border-color:#6b5a3c;}
+  .se-t.sel,.se-t:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .se-t .tico{width:22px;height:22px;flex:none;background:#9fb0a4;-webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .se-tn{font-size:12px;font-weight:500;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .se-tr{font-size:10.5px;color:#9fb0a4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .se-mass{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:var(--accent);}
+  .se-leer{position:absolute;display:grid;place-items:center;text-align:center;padding:12px;color:rgba(159,176,164,.75);font-size:13px;}
+  .se-band{position:absolute;display:flex;align-items:center;gap:6px;padding:0 10px;overflow:hidden;white-space:nowrap;
+    font-size:11px;color:#9fb0a4;border-bottom:1px solid rgba(255,255,255,.08);}
+  .se-werte span{background:rgba(255,255,255,.06);border-radius:10px;padding:2px 8px;}
+  .se-pane{position:absolute;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px;
+    border:1px dashed rgba(224,162,77,.55);border-radius:10px;background:rgba(255,255,255,.03);font-size:12px;color:var(--accent);}
+  .se-punkte{position:absolute;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .se-punkte i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25);} .se-punkte i.on{background:var(--accent);}
+  .se-tabs{position:absolute;border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.25);}
+  .se-marke{position:absolute;border:2px dashed var(--accent);border-radius:10px;background:rgba(224,162,77,.14);pointer-events:none;}
+  .se-zieht,.se-zieht *{cursor:grabbing !important;}
+  .se-geist{position:fixed;z-index:200;pointer-events:none;padding:8px 12px;border-radius:8px;background:var(--panel2);
+    border:1px solid var(--accent);color:var(--fg);font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.55);max-width:220px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .se-name{display:flex;flex-direction:column;gap:2px;margin:0 0 10px;} .se-name span{color:var(--muted);font-size:12.5px;}
+  .se-groesse{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:4px 0 10px;}
+  .se-groesse button{background:var(--bg);color:var(--muted);border:0;padding:7px 11px;font:inherit;font-size:13px;cursor:pointer;}
+  .se-groesse button.on{background:rgba(224,162,77,.14);color:var(--fg);}
+  .se-knoepfe{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;}
+  .se-meldung{color:var(--crit);}
+  .wzbox.breit{max-width:1180px;}
   /* ---------- Panel-Assistent (Wizard) ---------- */
   .wzov{position:fixed;inset:0;background:rgba(6,8,11,.72);display:grid;place-items:center;padding:20px;z-index:100;}
   .wzov[hidden]{display:none;}
@@ -419,21 +489,6 @@
   .wzp2sel{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:inherit;font-size:13px;}
   .wztiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:560px){ .wztiles{grid-template-columns:1fr;} }
-  .wztcol{display:flex;flex-direction:column;min-height:0;}
-  .wzchosen{display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto;}
-  .wzci{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12.5px;}
-  .wzci span{flex:1;} .wzci button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;} .wzci button:hover{color:var(--crit);}
-  .wzavail{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;}
-  .wzrg{font-size:10.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.4px;padding:6px 2px 2px;}
-  .wzai{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 10px;color:var(--fg);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
-  .wzai:hover{border-color:var(--accent);} .wzai.on{border-color:#2f5a44;} .wzai .pl{color:var(--accent);} .wzai b{color:var(--good);font-size:11px;}
-  .wztiles3{display:grid;grid-template-columns:minmax(130px,190px) 1fr;gap:12px;}
-  @media(max-width:560px){ .wztiles3{grid-template-columns:1fr;} }
-  .wzrooms{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;}
-  .wzroom{display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--fg);font:inherit;font-size:12.5px;cursor:pointer;text-align:left;}
-  .wzroom:hover{border-color:var(--accent);} .wzroom.on{border-color:var(--accent);background:var(--panel);}
-  .wzroom .rn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .wzroom .rc{color:var(--muted);font-size:11px;} .wzroom .rc b{color:var(--good);}
-  .wzchip{flex-direction:row;flex-wrap:wrap;max-height:120px;}
   .wzo b{display:block;font-size:14px;} .wzo .tx span{color:var(--muted);font-size:12px;display:block;}
   .wzgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
   @media(max-width:520px){ .wzgrid{grid-template-columns:repeat(2,1fr);} }
@@ -1068,7 +1123,7 @@ function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;'
 const PICK_TAB='auswahl';
 const PCONF_TABS=[
   {k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},{k:'cats',label:'Kategorien'},
-  {k:'tiles',label:'Kacheln gestalten'},
+  {k:'tiles',label:'Kacheln gestalten'},{k:'seiten',label:'Seiten-Editor'},
   {k:'appearance',label:'Aussehen'},
   {k:'overlay',label:'Aktiv-Overlay'},{k:'title',label:'Titel'}];
 const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
@@ -1161,6 +1216,7 @@ function showSub(k){
   panes.forEach(p=>{ const on=p.dataset.sub===k; p.classList.toggle('active',on); if(on)found=true; });
   if(!found&&panes.length){ panes[0].classList.add('active'); }
   if(rubric==='settings'&&k==='sip') loadSip();
+  if(rubric==='pconf'&&k==='seiten') seReiterZeichnen();   // Auswahl unter Tabs inzwischen geaendert
 }
 
 // ---- Aktiv-Overlay (Rahmen/Füllung/Deckkraft) ----
@@ -1404,7 +1460,7 @@ function renderEditor(){
   if(!p){ $('#pconfHost').innerHTML='<div class="empty">Kein Panel gewählt.</div>'; $('#phead').innerHTML=''; return; }
   { const ov=$('#openVisu'); if(ov) ov.href = (cur==='default'||cur==='__global__') ? '/' : '/?panel='+encodeURIComponent(cur); }
   if(p.__global){ renderGlobalEditor(p); return; }
-  const ok=['title','tabs','rooms','cats','tiles','appearance','overlay'];
+  const ok=['title','tabs','rooms','cats','tiles','seiten','appearance','overlay'];
   if(!ok.includes(subPconf)) subPconf='tabs';
   const urlTxt = cur==='default' ? '/  (Standard, ohne Parameter)' : '/?panel='+cur;
   $('#phead').innerHTML =
@@ -1459,6 +1515,10 @@ function renderEditor(){
      '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
      '<div class="tlist" id="tiles"></div>'+
      '<div id="tileEditor"></div></div></section>'+
+
+   '<section class="spane" data-sub="seiten"><div class="card se-karte"><h3>'+T('Seiten-Editor')+'</h3>'+
+     '<p class="note">'+T('Ordnet die freien Seiten (Eigene Auswahl) so an, wie das gewählte Gerät sie zeigt: Bausteine aus der Liste auf die Fläche ziehen, Kacheln verschieben, Größe 1 × 1, 2 × 1 oder 2 × 2 wählen, ein Widget daneben setzen.')+'</p>'+
+     '<div id="seHinweis"></div><div class="se-host" id="seHost"></div></div></section>'+
 
    '<section class="spane" data-sub="appearance"><div class="card"><h3>Aussehen &amp; Verhalten (optional)</h3>'+
      '<p class="note">'+T('Überschreibt das globale Theme nur für dieses Panel. Leer = global.')+'</p>'+
@@ -1622,6 +1682,7 @@ function renderEditor(){
   const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
   { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
 
+  seReiterZeichnen();
   renderSubtabs(); showSub(subPconf);
   if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .note, .hint, option, .stab');
 }
@@ -2392,6 +2453,10 @@ function roomName(uuid){ const r=(META.rooms||[]).find(x=>x.uuid===uuid); return
 // weder die Reihenfolge der Raeume noch die Nummern.
 function pickAus(p,uuid){ return !!(p.hide && p.hide.indexOf(uuid)>-1); }
 function pickSichtbar(p){ return pickList(p).filter(u=>!pickAus(p,u)); }
+// Die aktuelle Seite zum Lesen (legt nichts an, wie pickList)
+function pickSeite(p){ const t=p.pickTabs;
+  if(Array.isArray(t)&&t[curPickIdx]) return t[curPickIdx];
+  return curPickIdx===0 ? {picks:p.picks||[]} : {picks:[]}; }
 
 // Die Reihenfolge, in der die Bausteine WIRKLICH am Panel stehen: _view_tab()
 // gruppiert nach Raum, Raumreihenfolge = erstes Vorkommen, innerhalb eines
@@ -2402,6 +2467,11 @@ function pickSichtbar(p){ return pickList(p).filter(u=>!pickAus(p,u)); }
 // ausgeblendeter Baustein jede Nummer dahinter gegenueber dem Panel.
 function pickOrder(p){
   const grp=new Map(), aus=[];
+  // Ohne Gruppierung (Seiten-Editor, byRoom aus) gilt die Folge der Seite
+  if(pickSeite(p).byRoom===false){
+    const an=seFolge(pickSeite(p), p.tiles).map(e=>e.id);
+    return an.filter(u=>!pickAus(p,u)).concat(an.filter(u=>pickAus(p,u)));
+  }
   pickList(p).forEach(u=>{
     if(pickAus(p,u)){ aus.push(u); return; }
     const c=(META.controls||[]).find(x=>x.uuid===u);
@@ -2442,6 +2512,8 @@ function pickChosenHtml(){
 function pickAnchorsInner(p){
   const rs=pickRooms(p);
   if(!pickList(p).length) return '';
+  if(pickSeite(p).byRoom===false) return '<p class="hint">'+
+    T('Die Seite ist nicht nach Räumen gruppiert (Seiten-Editor) – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
   if(rs.length<2) return '<p class="hint">'+
     T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
   return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:')
@@ -2561,8 +2633,9 @@ function pickEditHtml(p){
 function renderBarMode(p){
   const box=$('#tabBarMode'); if(!box) return;
   const t=p.tabs||[];
+  const s0=(p.pickTabs||[])[0]||{};
   const anker=t.length===1 && (String(t[0]).indexOf('room:')===0
-    || (isPick(t[0]) && !(((p.pickTabs||[])[0]||{}).widget)));
+    || (isPick(t[0]) && !s0.widget && s0.byRoom!==false));
   if(!anker){ box.innerHTML=''; return; }
   const an=!!(p.ui&&p.ui.catFilter);
   box.innerHTML='<div class="field" style="max-width:440px;margin-top:14px"><label class="lbl">'+T('Tipp auf eine Sprungmarke')+'</label>'+
@@ -2702,13 +2775,20 @@ function renderPickList(){
 // und clearPicks gerade entfernt haben, und das Panel gaelte als geaendert.
 function togglePick(uuid){
   const p=PANELS[cur], t=curPT(p), sel=t.picks.slice(), i=sel.indexOf(uuid);
-  if(i>-1) sel.splice(i,1);
+  if(i>-1){ sel.splice(i,1); layoutOhne(t, uuid); }
   else { if(sel.length>=60) return; sel.push(uuid); }   // derselbe Deckel wie im Server
   t.picks=sel; markDirty(); pickRefresh();
 }
+// Verlaesst ein Baustein die Seite, geht sein Eintrag im Layout (Seiten-Editor)
+// mit - sonst meldete das Speichern ihn als verworfen. Ein neuer braucht
+// keinen: ohne Eintrag steht er hinten in seiner Standardgroesse (seFolge).
+function layoutOhne(t, uuid){
+  if(!Array.isArray(t.layout)) return;
+  t.layout=t.layout.filter(e=>e && e.id!==uuid); if(!t.layout.length) delete t.layout;
+}
 
 function clearPicks(){ const p=PANELS[cur], t=curPT(p);
-  if(t.picks.length){ t.picks=[]; markDirty(); pickRefresh(); } }
+  if(t.picks.length){ t.picks=[]; delete t.layout; markDirty(); pickRefresh(); } }
 
 // Nach jeder Aenderung an der Auswahl: nur die Teile neu zeichnen, die davon
 // abhaengen. NICHT die ganze Rubrik - das naehme Such- und Namensfeld den Fokus.
@@ -2716,6 +2796,504 @@ function pickRefresh(){
   renderPicked(); renderPickList(); pickNavUpd();
   const a=$('#pickAnchors'); if(a) a.innerHTML=pickAnchorsInner(PANELS[cur]);
 }
+// ---- Seiten-Editor (Punkt 10) ----
+// Ordnet eine freie Seite auf einer Arbeitsflaeche in Geraeteform: Bausteine
+// aus der Palette ziehen, Kacheln verschieben (Maus, Finger, in der Liste am
+// Griff; oder antippen und Pfeiltasten), Groesse 1x1, 2x1 oder 2x2, ein
+// Widget daneben oder die Kopfzeile darueber. Die Flaeche zeigt, was die Visu
+// am gewaehlten Geraet baut: dasselbe Raster aus raster.js (Automatik mit den
+// Kacheln der Seite samt Wachsen und Schrumpfen, sonst fest mit Verdopplung
+// durch den Split), dieselbe Lage (rasterLage) und dieselbe Folge wie der
+// Server (_view_tab): ausgeblendete Bausteine fallen weg, auf einer Seite mit
+// Werteleiste wandern die Anzeige-Bausteine in die Leiste, und mit „Nach
+// Raeumen gruppieren" (byRoom, Standard an) stehen die Kacheln nach Raum.
+// Eine Seite traegt picks (was drauf ist) und layout [{id, w, h}] (Folge und
+// Groesse); der Editor schreibt immer beides (seSchreiben), damit der Server
+// beim Speichern nichts verwerfen muss.
+// Zwei Aufrufer, je mit eigenem Kontext: der Reiter „Seiten-Editor" im
+// Panel-Editor (seKontextReiter) und Schritt 5 des Assistenten (seKontextWz).
+const SE_WIDGETS=[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],
+  ['camera','Kamera'],['chart','Verlauf'],['header','Kopfzeile']];
+const SE_PANE_NAMEN={weather:'Wetter', calendar:'Kalender', player:'Audio', energy:'Energiefluss',
+  camera:'Kamera', chart:'Verlauf', status:'Werte', header:'Kopfzeile'};
+const SE_GRIFF='<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><g fill="currentColor">'+
+  '<circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/>'+
+  '<circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></g></svg>';
+const SE_MAX=60;              // derselbe Deckel wie togglePick und der Server
+const SE_ZUSTAND={};          // je Seite (ctx.key): Auswahl, Blatt; je Panel (ctx.pkey): Filter, Meldung
+const SE_VORSCHAU={};         // Panel-ID -> gewaehltes Vorschaugeraet {quelle, name}
+let SE_ZIEHEN=null;           // laufendes Ziehen (Pointer-Events)
+function seZustand(k){ return SE_ZUSTAND[k]||(SE_ZUSTAND[k]={sel:null, blatt:0, folgen:null, raum:'', q:'', meldung:''}); }
+let _seCtrlQuelle=null, _seCtrlMap=null;
+function seCtrl(u){ const cs=(META&&META.controls)||[];
+  if(_seCtrlQuelle!==cs){ _seCtrlQuelle=cs; _seCtrlMap=new Map(cs.map(c=>[c.uuid,c])); }
+  return _seCtrlMap.get(u); }
+// Breite ohne Eintrag im Layout: tiles[uuid].w, sonst nach Typ (KACHEL_BREIT_TYPEN) wie _control_item()
+function seStdBreite(tiles, u){ const t=(tiles||{})[u], w=t?parseInt(t.w):NaN;
+  if(w===1||w===2) return w;
+  return (META.kachelBreit||[]).indexOf((seCtrl(u)||{}).type)>-1 ? 2 : 1; }
+// Folge einer Seite, wie der Server sie liest (_layout_mit_picks): die
+// Layout-Eintraege der picks in ihrer Folge, dahinter die picks ohne Eintrag
+// mit ihrer Standardbreite. Hoch ist immer auch breit.
+function seFolge(pg, tiles){
+  const picks=(pg&&Array.isArray(pg.picks))?pg.picks:[], drin=new Set(picks), da=new Set(), out=[];
+  ((pg&&Array.isArray(pg.layout))?pg.layout:[]).forEach(e=>{
+    if(!e || typeof e.id!=='string' || !drin.has(e.id) || da.has(e.id)) return;
+    da.add(e.id); const h=(+e.h===2)?2:1;
+    out.push({id:e.id, w:(h===2 || +e.w===2)?2:1, h:h}); });
+  picks.forEach(u=>{ if(typeof u==='string' && !da.has(u)){ da.add(u); out.push({id:u, w:seStdBreite(tiles,u), h:1}); } });
+  return out;
+}
+function seSchreiben(pg, folge){
+  pg.picks=folge.map(e=>e.id);
+  if(folge.length) pg.layout=folge.map(e=>({id:e.id, w:e.w, h:e.h})); else delete pg.layout;
+}
+// Was die Visu von der Seite zeigt (_view_tab): ohne ausgeblendete und
+// unbekannte Bausteine; mit Werteleiste ohne die Anzeige-Bausteine, ausser die
+// Seite bestuende nur aus ihnen (_leiste_trennen); mit byRoom nach Raum in der
+// Folge des ersten Bausteins je Raum, Bausteine ohne bekannten Raum hinten.
+function seAnsicht(ctx){
+  const pg=ctx.seiteLesen()||{}, folge=seFolge(pg, ctx.tiles()), hide=new Set(ctx.hide());
+  let raster=folge.filter(e=>!hide.has(e.id) && seCtrl(e.id)), leiste=[];
+  if(ctx.ui().werteLeiste){
+    const typen=new Set(META.werteLeiste||[]), l=raster.filter(e=>typen.has(seCtrl(e.id).type));
+    if(l.length && l.length<raster.length){ const weg=new Set(l.map(e=>e.id)); leiste=l; raster=raster.filter(e=>!weg.has(e.id)); }
+  }
+  const nachRaum=pg.byRoom!==false;
+  if(nachRaum){
+    const bekannt=new Set((META.rooms||[]).map(r=>r.uuid)), gruppen=new Map(), vorn=[], hinten=[];
+    raster.forEach(e=>{ const c=seCtrl(e.id), r=(c.room==null)?'\u0000':String(c.room);
+      if(!gruppen.has(r)) gruppen.set(r,[]); gruppen.get(r).push(e); });
+    gruppen.forEach((es,r)=>{ (bekannt.has(r)?vorn:hinten).push(...es); });
+    raster=vorn.concat(hinten);
+  }
+  return {pg:pg, folge:folge, raster:raster, leiste:leiste, nachRaum:nachRaum};
+}
+function sePaneArt(v){ if(!v) return ''; const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
+// Raster am Vorschaugeraet, wie rasterFuer()/autoRaster() der Visu es rechnen.
+// Widget nur mit Split (die Kopfzeile ist keines: sie nimmt eine Zeile Hoehe);
+// waagerechte Seiten mit Punkten wie seitenQuer(): Split und kein quadratischer Schirm.
+function seRaster(ctx, a){
+  const u=ctx.ui(), g=ctx.geraet(), M=LoxRaster.VISU_MASSE, art=sePaneArt(u.pane);
+  const kopf=art==='header', widget=u.split && !!art && !kopf, leiste=a.leiste.length>0;
+  const quer=u.split && !LoxRaster.quadratisch(g.vw, g.vh);
+  const basis={art:art, kopf:kopf, widget:widget, leiste:leiste, quer:quer, hoch:g.vh>g.vw};
+  if(u.auto){
+    const r=LoxRaster.autoRaster(Object.assign({}, M, {w:g.vw, h:g.vh, ziel:u.ziel, wachsen:kachelZiel().wachsen||1,
+      widget:widget, paneCols:u.paneCols||0, paneShare:(META.paneCols||{}).anteil||0, seitenQuer:quer,
+      breiten:a.raster.map(e=>({w:e.w, h:e.h})),
+      kopfH:kopf?(ks=>Math.round(LoxRaster.KOPF_H*ks)):null, leisteH:leiste?(ks=>Math.round(LoxRaster.LEISTE_H*ks)):null}));
+    return Object.assign(basis, r, {auto:true});
+  }
+  const [c, rw]=LoxRaster.festesRaster({cols:u.cols, rows:u.rows, w:g.vw, h:g.vh, split:u.split, widget:widget});
+  return Object.assign(basis, {cols:c, rows:rw, k:1, p:widget?1:0, ks:1, auto:false});
+}
+// Flaechen der Visu am Geraet in Geraete-Pixeln: Tab-Leiste unten, Widget
+// rechts (hochkant darunter) mit den Anteilen k:p der Automatik (fest: halb
+// und halb wie .screen.split), Kopfzeile und Werteleiste ueber dem Raster,
+// die Seitenpunkte darunter.
+function seGeometrie(r, g, seiten){
+  const M=LoxRaster.VISU_MASSE, ks=r.ks||1;
+  const kopfH=r.kopf?Math.round(LoxRaster.KOPF_H*ks):0, leisteH=r.leiste?Math.round(LoxRaster.LEISTE_H*ks):0;
+  const punkteH=(r.quer && seiten>1)?M.punkteH:0;
+  let w=g.vw, h=g.vh-M.tabsH, pane=null;
+  if(r.widget){
+    if(r.hoch){ const ph=r.pPx ? r.pPx : h*r.p/(r.k+r.p); pane={x:0, y:h-ph, w:w, h:ph}; h-=ph; }
+    else { const pw=w*r.p/(r.k+r.p); pane={x:w-pw, y:0, w:pw, h:h}; w-=pw; }
+  }
+  const raster={x:0, y:kopfH+leisteH, w:w, h:Math.max(1, h-kopfH-leisteH-punkteH)};
+  return {M:M, pane:pane, raster:raster,
+    kopf:kopfH?{x:0, y:0, w:w, h:kopfH}:null, leiste:leisteH?{x:0, y:kopfH, w:w, h:leisteH}:null,
+    punkte:punkteH?{x:0, y:raster.y+raster.h, w:w, h:punkteH}:null, tabs:{x:0, y:g.vh-M.tabsH, w:g.vw, h:M.tabsH},
+    cw:(raster.w-2*M.pad-(r.cols-1)*M.gap)/r.cols, ch:(raster.h-2*M.pad-(r.rows-1)*M.gap)/r.rows};
+}
+function seZelle(geo, z, s, w, h){ const M=geo.M;
+  return {x:geo.raster.x+M.pad+s*(geo.cw+M.gap), y:geo.raster.y+M.pad+z*(geo.ch+M.gap),
+          w:w*geo.cw+(w-1)*M.gap, h:h*geo.ch+(h-1)*M.gap}; }
+function seGeraeteListe(p){
+  const l=[...wzGeraete(), wzBrowser(), ...wzKatalog()], d=(p&&p.device)||{};
+  if(d.name && d.vw && d.vh && !l.some(x=>x.quelle==='geraet' && x.name===d.name))
+    l.unshift({quelle:'geraet', name:d.name, vw:d.vw, vh:d.vh});
+  return l;
+}
+// Vorschaugeraet im Reiter: das gewaehlte, sonst das Zielgeraet des Profils
+// (Reiter Titel), sonst das erste mit gemeldeter Groesse, sonst dieser Browser
+function seGeraetReiter(p){
+  const l=seGeraeteListe(p), w=SE_VORSCHAU[cur], find=(q,n)=>l.find(x=>x.quelle===q && x.name===n);
+  return (w && find(w.quelle, w.name)) || ((p.device||{}).name && find('geraet', p.device.name))
+    || l.find(x=>x.quelle==='geraet') || l.find(x=>x.quelle==='browser');
+}
+function seKontextReiter(){
+  const p=PANELS[cur]; if(!p || p.__global) return null;
+  const tab=()=>pickKey(curPickIdx);
+  return {key:'r:'+cur+':'+curPickIdx, pkey:'r:'+cur, panel:p,
+    seiten:()=>{ const t=p.pickTabs; return (Array.isArray(t)&&t.length) ? t : [{name:p.pickName||'', picks:p.picks||[]}]; },
+    idx:()=>curPickIdx,
+    setIdx:i=>{ curPickIdx=i; pickWiz=0; renderPick(p); seReiterZeichnen(); },
+    neueSeite:()=>{ pickAddTab(p); seReiterZeichnen(); },
+    seiteLesen:()=>{ const t=p.pickTabs; if(Array.isArray(t)&&t[curPickIdx]) return t[curPickIdx];
+      return curPickIdx===0 ? {name:p.pickName||'', picks:p.picks||[]} : null; },
+    seite:()=>curPT(p), tab:tab,
+    ui:()=>{ const u=Object.assign({}, ((PANELS.__global__||{}).ui)||{}, p.ui||{}), g=seGeraetReiter(p);
+      // Zielkachel wie effective_grid_auto(): die des Geraets (Displays) vor der des Profils
+      const dz=(g && g.quelle==='geraet' && DEV[g.name]) ? (parseInt(DEV[g.name].tileTarget)||0) : 0;
+      return {auto:u.grid==='auto', cols:u.cols==3?3:2, rows:u.rows==3?3:2, split:u.split!==false,
+        ziel:dz||tileSizeWert(u.tileSize)||kachelZiel().std, paneCols:parseInt(u.paneCols)||0,
+        pane:(u.panes||{})[tab()]||'', werteLeiste:Array.isArray(u.valueBar) && u.valueBar.indexOf(tab())>-1}; },
+    hide:()=>p.hide||[], tiles:()=>p.tiles||{},
+    setPane:k=>{ const v=k?wzP2Real(k):''; p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
+      if(v) p.ui.panes[tab()]=v; else delete p.ui.panes[tab()];
+      if(!Object.keys(p.ui.panes).length) delete p.ui.panes;
+      markDirty(); renderPanes(p); },
+    geraete:()=>seGeraeteListe(p), geraet:()=>seGeraetReiter(p),
+    setGeraet:x=>{ SE_VORSCHAU[cur]={quelle:x.quelle, name:x.name}; },
+    geaendert:()=>{ markDirty(); pickRefresh(); },
+    gestalten:u=>{ tileSel=u; subPconf='tiles'; renderSubtabs(); showSub('tiles'); renderTileList(); renderTileEditor(); }};
+}
+// Assistent Schritt 5: die Seite i des Entwurfs, gerechnet mit Anzeige, Raster
+// und Geraet aus Schritt 1 (ohne Geraet: dieser Browser) und dem Widget je Tab
+function seKontextWz(i){
+  const pg=()=>WZ.pickPages[i], key=pickKey(i);
+  return {key:'wz:'+i, pkey:'wz', panel:null,
+    seiten:()=>WZ.pickPages, idx:()=>i, setIdx:null, neueSeite:null,
+    seiteLesen:pg, seite:pg, tab:()=>key,
+    ui:()=>{ const gr=String(WZ.grid||'2x2').split('x').map(Number);
+      return {auto:WZ.grid==='auto', cols:gr[0]===3?3:2, rows:gr[1]===3?3:2, split:WZ.panes==='2', ziel:wzZiel(),
+        paneCols:0, pane:wzP2Real(WZ.pane2[key]||''), werteLeiste:false}; },
+    hide:()=>[], tiles:()=>({}),
+    setPane:k=>{ if(k) WZ.pane2[key]=k; else delete WZ.pane2[key]; },
+    geraete:null, geraet:()=>WZ.groesse||wzBrowser(), setGeraet:null,
+    geaendert:()=>wzUpd(), gestalten:null};
+}
+
+// ---- Aenderungen an der Seite (alle ueber seSchreiben) ----
+// Neue Rasterfolge -> Seite: dahinter, was die Visu nicht im Raster zeigt
+// (Werteleiste, ausgeblendet), in seiner bisherigen Folge.
+function seNeueFolge(ctx, a, raster){ const drin=new Set(raster.map(e=>e.id));
+  seSchreiben(ctx.seite(), raster.concat(a.folge.filter(e=>!drin.has(e.id)))); ctx.geaendert(); }
+function seVerschieben(ctx, id, nach){
+  const a=seAnsicht(ctx), r=a.raster.slice(), i=r.findIndex(e=>e.id===id); if(i<0) return;
+  const [e]=r.splice(i,1); r.splice(Math.max(0, Math.min(nach, r.length)), 0, e); seNeueFolge(ctx, a, r); }
+function seEinfuegen(ctx, id, nach){
+  const a=seAnsicht(ctx);
+  if(a.folge.some(e=>e.id===id)){ seVerschieben(ctx, id, nach); return true; }
+  if(a.folge.length>=SE_MAX){ seZustand(ctx.pkey).meldung=T('Mehr als 60 Bausteine passen nicht auf eine Seite.'); return false; }
+  const r=a.raster.slice(); r.splice(Math.max(0, Math.min(nach, r.length)), 0, {id:id, w:seStdBreite(ctx.tiles(), id), h:1});
+  seNeueFolge(ctx, a, r); return true; }
+function seEntfernen(ctx, id){ const a=seAnsicht(ctx); seSchreiben(ctx.seite(), a.folge.filter(e=>e.id!==id)); ctx.geaendert(); }
+function seUmschalten(ctx, id){ const a=seAnsicht(ctx);
+  if(a.folge.some(e=>e.id===id)) seEntfernen(ctx, id); else if(seEinfuegen(ctx, id, a.raster.length)) seZustand(ctx.key).folgen=id; }
+function seGroesse(ctx, id, w, h){ const a=seAnsicht(ctx);
+  seSchreiben(ctx.seite(), a.folge.map(e=>e.id===id ? {id:e.id, w:h===2?2:w, h:h} : e)); ctx.geaendert(); }
+function seWidget(ctx, k){ const cur=sePaneArt(ctx.ui().pane), neu=sePaneArt(wzP2Real(k));
+  ctx.setPane(cur===neu ? '' : k); }
+
+// ---- Zeichnen ----
+function sePct(v, b){ return (100*v/b).toFixed(3)+'%'; }
+function seKasten(o, g){ return 'left:'+sePct(o.x,g.vw)+';top:'+sePct(o.y,g.vh)+';width:'+sePct(o.w,g.vw)+';height:'+sePct(o.h,g.vh)+';'; }
+function seIcon(c){ return (c && c.iconUrl) ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>' : '<span class="tico gen"></span>'; }
+function seKopfHtml(ctx, a){
+  let h='';
+  if(ctx.setIdx){
+    const ss=ctx.seiten();
+    h+='<div class="se-seiten">'+ss.map((s,i)=>'<button type="button" class="ptb'+(i===ctx.idx()?' on':'')+'" data-se-seite="'+i+'">'+
+      esc((s.name||'').trim()||(T('Seite')+' '+(i+1)))+'</button>').join('')+
+      (ss.length<4?'<button type="button" class="ptadd" data-se-neu title="'+esc(T('Seite hinzufügen'))+'">＋</button>':'')+'</div>';
+  }
+  const g=ctx.geraet();
+  h+='<div class="se-wahl">';
+  if(ctx.geraete){
+    const l=ctx.geraete();
+    h+='<div class="field"><label class="lbl">'+T('Vorschau für')+'</label><select data-se-geraet>'+l.map((x,i)=>
+      '<option value="'+i+'"'+(x.quelle===g.quelle && x.name===g.name?' selected':'')+'>'+esc(x.name+' · '+x.vw+' × '+x.vh+
+        (x.quelle==='geraet'?' · '+T('gemeldet'):''))+'</option>').join('')+'</select></div>';
+  } else h+='<p class="hint">'+esc(T('Vorschau für')+' '+g.name+' · '+g.vw+' × '+g.vh)+'</p>';
+  if(!a.pg.widget) h+='<label class="chk se-raum"><input type="checkbox" data-se-raum'+(a.nachRaum?' checked':'')+'> '+T('Nach Räumen gruppieren')+'</label>';
+  return h+'</div>'+(a.pg.widget?'':'<p class="hint">'+(a.nachRaum
+    ? T('Die Visu ordnet die Kacheln nach Räumen, ein Raum steht dort, wo sein erster Baustein steht; Verschieben ordnet innerhalb eines Raums oder rückt einen ganzen Raum nach vorn. Ohne Gruppierung gilt genau diese Anordnung, ohne Sprungmarken.')
+    : T('Die Visu zeigt genau diese Anordnung, ohne Sprungmarken.'))+'</p>');
+}
+function seFlaecheHtml(ctx, st, a, r, lage){
+  const g=ctx.geraet(), R=Math.max(1, r.rows), seiten=lage.seiten;
+  st.blatt=Math.max(0, Math.min(st.blatt, seiten-1));
+  const geo=seGeometrie(r, g, seiten), st0=st.blatt*R;
+  let h='';
+  for(let z=0; z<R; z++) for(let s=0; s<r.cols; s++)
+    h+='<div class="se-zelle" style="'+seKasten(seZelle(geo, z, s, 1, 1), g)+'"></div>';
+  a.raster.forEach((e,i)=>{
+    const z=lage.zeile[i]; if(Math.floor(z/R)!==st.blatt) return;
+    const gr=LoxRaster.groesse(e, r.cols, r.rows), c=seCtrl(e.id), an=st.sel===e.id;
+    const mass=(gr.w>1||gr.h>1)?'<span class="se-mass">'+gr.w+' × '+gr.h+'</span>':'';
+    h+='<button type="button" class="se-t'+(an?' sel':'')+'" data-se-t="'+esc(e.id)+'" aria-pressed="'+an+'" style="'+
+      seKasten(seZelle(geo, z-st0, lage.spalte[i], gr.w, gr.h), g)+'" title="'+esc(c.name+(c.roomName?' · '+c.roomName:''))+'">'+
+      seIcon(c)+'<span class="se-tn">'+esc(c.name)+'</span>'+(c.roomName?'<span class="se-tr">'+esc(c.roomName)+'</span>':'')+mass+'</button>';
+  });
+  if(!a.raster.length) h+='<div class="se-leer" style="'+seKasten(geo.raster, g)+'">'+T('Bausteine aus der Liste hierher ziehen oder antippen')+'</div>';
+  if(geo.kopf) h+='<div class="se-band" style="'+seKasten(geo.kopf, g)+'">'+T('Kopfzeile')+' · '+T('Uhr, Wetter')+'</div>';
+  if(geo.leiste) h+='<div class="se-band se-werte" style="'+seKasten(geo.leiste, g)+'">'+
+    a.leiste.map(e=>'<span>'+esc(seCtrl(e.id).name)+'</span>').join('')+'</div>';
+  if(geo.pane) h+='<div class="se-pane" style="'+seKasten(geo.pane, g)+'"><b>'+esc(T('Widget')+' · '+T(SE_PANE_NAMEN[r.art]||r.art))+'</b>'+
+    '<button type="button" class="minibtn" data-se-pane-weg>'+T('Entfernen')+'</button></div>';
+  if(geo.punkte) h+='<div class="se-punkte" style="'+seKasten(geo.punkte, g)+'">'+
+    Array.from({length:seiten}, (_,k)=>'<i'+(k===st.blatt?' class="on"':'')+'></i>').join('')+'</div>';
+  h+='<div class="se-tabs" style="'+seKasten(geo.tabs, g)+'"></div><div class="se-marke" hidden></div>';
+  // hoechstens 440 px hoch (hochkant), nie breiter als die Spalte
+  return '<div class="se-geraet" data-se-flaeche style="aspect-ratio:'+g.vw+' / '+g.vh+';width:min(100%, '+Math.round(440*g.vw/g.vh)+'px)">'+h+'</div>';
+}
+function seInfoText(ctx, st, r, lage){
+  const g=ctx.geraet();
+  const neben=r.widget ? ' '+(r.hoch?T('über dem Widget'):T('neben dem Widget')) : '';
+  return (r.auto ? T('Raster am')+' '+g.name+': '+r.cols+' × '+r.rows+neben+' · '+T('Kacheln')+' '+Math.round(r.kb)+' px'
+                 : T('Festes Raster am')+' '+g.name+': '+r.cols+' × '+r.rows+neben)+
+    ' · '+T('Seite')+' '+(st.blatt+1)+' '+T('von')+' '+lage.seiten;
+}
+function seMitteHtml(ctx, st, a, r, lage){
+  if(a.pg.widget) return '<p class="note">'+T('Diese Seite zeigt ein Widget über die ganze Fläche statt Kacheln. Für Kacheln den Seiteninhalt auf „Bausteine (Kacheln)“ stellen.')+'</p>';
+  const nav=lage.seiten>1 ? '<span class="se-blatt"><button type="button" class="minibtn" data-se-blatt="-1"'+(st.blatt?'':' disabled')+' aria-label="'+esc(T('Seite zurück'))+'">‹</button>'+
+    '<button type="button" class="minibtn" data-se-blatt="1"'+(st.blatt<lage.seiten-1?'':' disabled')+' aria-label="'+esc(T('Seite vor'))+'">›</button></span>' : '';
+  return '<div class="se-info"><span data-se-info>'+esc(seInfoText(ctx, st, r, lage))+'</span>'+nav+'</div>'+
+    seFlaecheHtml(ctx, st, a, r, lage)+
+    (r.auto?'':'<p class="hint">'+T('Feste Raster: die Kachelgröße hängt am Kasten der Visu und an der Skalierung, die Fläche zeigt Spalten, Zeilen und Lage.')+'</p>')+
+    '<p class="hint">'+T('Ziehen mit Maus oder Finger, in der Liste am Griff. Ohne Ziehen: Kachel antippen, dann mit den Pfeiltasten verschieben, Entf nimmt sie von der Seite.')+'</p>';
+}
+function seFeldHtml(ctx, st, a, r){
+  const e=a.raster.find(x=>x.id===st.sel), m=seZustand(ctx.pkey).meldung;
+  let h='<div class="grph">'+T('Ausgewählt')+'</div>'+(m?'<p class="hint se-meldung">'+esc(m)+'</p>':'');
+  if(!e) return h+'<p class="hint">'+T('Kachel antippen, um Größe und Reihenfolge zu ändern.')+'</p>';
+  const c=seCtrl(e.id), i=a.raster.indexOf(e), eff=LoxRaster.groesse(e, r.cols, r.rows);
+  h+='<p class="se-name"><b>'+esc(c.name)+'</b><span>'+esc([c.roomName, c.type].filter(Boolean).join(' · '))+'</span></p>'+
+    '<label class="lbl">'+T('Größe')+'</label><div class="seg se-groesse">'+[[1,1],[2,1],[2,2]].map(([w,hh])=>{
+      const an=e.w===w && e.h===hh;
+      return '<button type="button" data-se-gr="'+w+','+hh+'" aria-pressed="'+an+'"'+(an?' class="on"':'')+'>'+w+' × '+hh+'</button>'; }).join('')+'</div>'+
+    ((eff.w!==e.w||eff.h!==e.h)?'<p class="hint">'+esc(T('Auf diesem Gerät zeigt die Visu sie')+' '+eff.w+' × '+eff.h+' – '+T('dafür fehlen Spalten oder Zeilen.'))+'</p>':'')+
+    '<label class="lbl">'+T('Reihenfolge')+'</label><div class="se-knoepfe">'+
+      '<button type="button" class="minibtn" data-se-mv="-1"'+(i>0?'':' disabled')+'>'+T('nach vorn')+'</button>'+
+      '<button type="button" class="minibtn" data-se-mv="1"'+(i<a.raster.length-1?'':' disabled')+'>'+T('nach hinten')+'</button></div>'+
+    '<div class="se-knoepfe"><button type="button" class="minibtn" data-se-weg>'+T('Von der Seite nehmen')+'</button>'+
+      (ctx.gestalten?'<button type="button" class="minibtn" data-se-gest>'+T('Kachel gestalten')+'</button>':'')+'</div>';
+  return h;
+}
+function sePalFilterHtml(ctx){
+  const st=seZustand(ctx.pkey);
+  return '<div class="grph">'+T('Bausteine')+'</div>'+
+    '<div class="se-filter"><select data-se-raumf aria-label="'+esc(T('Raum'))+'"><option value="">'+T('Alle Räume')+'</option>'+
+      (META.rooms||[]).map(r=>'<option value="'+esc(r.uuid)+'"'+(st.raum===r.uuid?' selected':'')+'>'+esc(r.name)+'</option>').join('')+'</select>'+
+    '<input type="text" data-se-q value="'+esc(st.q)+'" placeholder="'+esc(T('Baustein suchen…'))+'"></div>';
+}
+function sePalListeHtml(ctx, a){
+  const st=seZustand(ctx.pkey), auf=new Set(a.folge.map(e=>e.id)), hide=new Set(ctx.hide()), q=st.q.trim().toLowerCase();
+  const alle=META.controls||[], l=alle.filter(c=>(!st.raum || c.room===st.raum) &&
+    (!q || c.name.toLowerCase().includes(q) || (c.roomName||'').toLowerCase().includes(q)));
+  return '<div class="se-liste">'+(l.length ? l.slice(0,400).map(c=>{ const an=auf.has(c.uuid);
+    return '<button type="button" class="se-p'+(an?' auf':'')+'" data-se-p="'+esc(c.uuid)+'" aria-pressed="'+an+'">'+
+      '<span class="se-grip">'+SE_GRIFF+'</span>'+seIcon(c)+'<span class="se-pn">'+esc(c.name)+'</span>'+
+      '<span class="se-pr">'+esc(hide.has(c.uuid)?T('ausgeblendet'):(c.roomName||''))+'</span></button>'; }).join('')
+    : '<div class="muted">'+T('nichts gefunden')+'</div>')+'</div>'+
+    '<p class="hint">'+auf.size+' '+T('von')+' '+alle.length+' '+T('auf dieser Seite')+' · '+T('abgeblendet = schon platziert')+'</p>';
+}
+function seWidHtml(ctx){
+  const u=ctx.ui(), cur=sePaneArt(u.pane);
+  return '<div class="grph">'+T('Widgets')+'</div><div class="se-wl">'+SE_WIDGETS.filter(([k])=>!!wzP2Real(k)).map(([k,n])=>{
+      const an=sePaneArt(wzP2Real(k))===cur, aus=!u.split && k!=='header';
+      return '<button type="button" class="se-w'+(an?' on':'')+'" data-se-w="'+k+'" aria-pressed="'+an+'"'+(aus?' disabled':'')+'>'+
+        '<span class="se-grip">'+SE_GRIFF+'</span>'+esc(T(n))+'</button>'; }).join('')+'</div>'+
+    '<p class="hint">'+(u.split
+      ? T('Ein Widget steht quer rechts neben den Kacheln, hochkant darunter; die Kopfzeile liegt über ihnen. Antippen oder auf die Fläche ziehen, noch einmal antippen nimmt es weg.')
+      : T('Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.'))+'</p>';
+}
+// Ganzer Editor in host. Die Filterzeile der Palette steht fest (Fokus und
+// Cursor im Suchfeld bleiben), alles andere zeichnet seZeichnen() neu.
+function seRender(host, ctx){
+  if(!host || !ctx) return;
+  host._se=ctx; seBinden(host);
+  host.innerHTML='<div data-se-kopf></div><div class="se-spalten">'+
+    '<div class="se-pal">'+sePalFilterHtml(ctx)+'<div data-se-liste></div><div data-se-wid></div></div>'+
+    '<div class="se-mitte" data-se-mitte></div><div class="se-feld" data-se-feld></div></div>';
+  seZeichnen(host);
+}
+function seZeichnen(host){
+  const ctx=host._se, st=seZustand(ctx.key), a=seAnsicht(ctx);
+  if(st.sel && !a.raster.some(e=>e.id===st.sel)) st.sel=null;
+  const teil=k=>host.querySelector('[data-se-'+k+']');
+  teil('kopf').innerHTML=seKopfHtml(ctx, a);
+  teil('liste').innerHTML=a.pg.widget?'':sePalListeHtml(ctx, a);
+  teil('wid').innerHTML=a.pg.widget?'':seWidHtml(ctx);
+  if(a.pg.widget){ teil('mitte').innerHTML=seMitteHtml(ctx, st, a, null, null); teil('feld').innerHTML=''; host._seLage=null; return; }
+  const r=seRaster(ctx, a), lage=LoxRaster.rasterLage(a.raster, r.cols, r.rows);
+  if(st.folgen){ const i=a.raster.findIndex(e=>e.id===st.folgen); if(i>-1) st.blatt=Math.floor(lage.zeile[i]/Math.max(1,r.rows)); st.folgen=null; }
+  teil('mitte').innerHTML=seMitteHtml(ctx, st, a, r, lage);
+  teil('feld').innerHTML=seFeldHtml(ctx, st, a, r);
+  host._seLage={a:a, r:r, lage:lage, geo:seGeometrie(r, ctx.geraet(), lage.seiten)};
+  if(window.I18N && I18N.applyChrome) I18N.applyChrome(host);
+}
+function seFokus(host, id){ const t=host.querySelector('[data-se-t="'+CSS.escape(id)+'"]'); if(t) t.focus(); }
+// Reiter „Seiten-Editor": steht keine freie Seite in der Leiste, zeigt das
+// Panel sie nicht - der Hinweis fuehrt zu Tabs, bearbeiten laesst sie sich trotzdem
+function seReiterZeichnen(){
+  const h=$('#seHost'), p=PANELS[cur]; if(!h || !p || p.__global) return;
+  const hw=$('#seHinweis');
+  if(hw){ hw.innerHTML=(p.tabs||[]).some(isPick) ? '' : '<p class="hint">'+
+      T('Freie Seiten zeigt das Panel erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.')+
+      ' <button type="button" class="minibtn" id="seZuTabs">'+T('Zu Tabs')+'</button></p>';
+    const zt=$('#seZuTabs'); if(zt) zt.onclick=()=>{ subPconf='tabs'; renderSubtabs(); showSub('tabs'); }; }
+  seRender(h, seKontextReiter());
+}
+
+// ---- Bedienung: Tippen, Aendern, Tasten ----
+function seBinden(host){
+  if(host._seGebunden) return; host._seGebunden=true;
+  host.addEventListener('click', ev=>seKlick(host, ev));
+  host.addEventListener('change', ev=>seAenderung(host, ev));
+  host.addEventListener('input', ev=>{ if(ev.target.matches('[data-se-q]')){ seZustand(host._se.pkey).q=ev.target.value; seZeichnen(host); } });
+  host.addEventListener('keydown', ev=>seTaste(host, ev));
+  host.addEventListener('pointerdown', ev=>seDown(host, ev));
+}
+function seKlick(host, ev){
+  if(host._seSperre){ host._seSperre=false; ev.preventDefault(); return; }   // Klick nach dem Ziehen
+  const b=ev.target.closest('button'); if(!b || !host.contains(b) || b.disabled) return;
+  const ctx=host._se, st=seZustand(ctx.key), d=b.dataset;
+  seZustand(ctx.pkey).meldung='';
+  if(d.seT!==undefined) st.sel=d.seT;
+  else if(d.seP!==undefined) seUmschalten(ctx, d.seP);
+  else if(d.seW!==undefined) seWidget(ctx, d.seW);
+  else if(d.seGr){ const [w,h]=d.seGr.split(',').map(Number); seGroesse(ctx, st.sel, w, h); st.folgen=st.sel; }
+  else if(d.seMv){ const a=seAnsicht(ctx), i=a.raster.findIndex(e=>e.id===st.sel); seVerschieben(ctx, st.sel, i+Number(d.seMv)); st.folgen=st.sel; }
+  else if(d.seWeg!==undefined){ seEntfernen(ctx, st.sel); st.sel=null; }
+  else if(d.seGest!==undefined){ ctx.gestalten(st.sel); return; }
+  else if(d.seBlatt) st.blatt+=Number(d.seBlatt);
+  else if(d.sePaneWeg!==undefined) ctx.setPane('');
+  else if(d.seSeite!==undefined){ ctx.setIdx(Number(d.seSeite)); return; }
+  else if(d.seNeu!==undefined){ ctx.neueSeite(); return; }
+  else return;
+  const fokus=(d.seT!==undefined) ? d.seT : null;
+  seZeichnen(host); if(fokus) seFokus(host, fokus);
+}
+function seAenderung(host, ev){
+  const t=ev.target, ctx=host._se;
+  if(t.matches('[data-se-geraet]')){ const x=ctx.geraete()[Number(t.value)]; if(x) ctx.setGeraet(x); }
+  else if(t.matches('[data-se-raum]')){ const pg=ctx.seite(); if(t.checked) delete pg.byRoom; else pg.byRoom=false; ctx.geaendert(); }
+  else if(t.matches('[data-se-raumf]')) seZustand(ctx.pkey).raum=t.value;
+  else return;
+  seZeichnen(host);
+}
+// Pfeiltasten verschieben die gewaehlte Kachel (links/rechts um eine Stelle,
+// hoch/runter um eine Zeile), Entf nimmt sie von der Seite. Nur auf den
+// Kacheln der Flaeche, kein globaler Tasten-Handler.
+function seTaste(host, ev){
+  const t=ev.target.closest && ev.target.closest('[data-se-t]'); if(!t || !host._seLage) return;
+  const ctx=host._se, st=seZustand(ctx.key), id=t.dataset.seT, {a, r}=host._seLage, i=a.raster.findIndex(e=>e.id===id);
+  if(i<0) return;
+  const schritt={ArrowLeft:-1, ArrowRight:1, ArrowUp:-r.cols, ArrowDown:r.cols}[ev.key];
+  if(ev.key==='Delete' || ev.key==='Backspace'){ ev.preventDefault(); seEntfernen(ctx, id); st.sel=null; seZeichnen(host);
+    const n=host.querySelector('[data-se-t]'); if(n) n.focus(); return; }
+  if(!schritt) return;
+  ev.preventDefault();
+  const n=Math.max(0, Math.min(a.raster.length-1, i+schritt));
+  st.sel=id;
+  if(n!==i){ seVerschieben(ctx, id, n); st.folgen=id; }
+  seZeichnen(host); seFokus(host, id);
+}
+
+// ---- Ziehen (Pointer-Events: Maus, Stift, Finger) ----
+// Kacheln der Flaeche lassen sich direkt ziehen (touch-action: none), in der
+// Palette nimmt der Finger den Griff, damit die Liste scrollbar bleibt. Ziel
+// ist die Stelle in der Rasterfolge unter dem Zeiger; die Marke zeigt genau
+// die Zellen, die die Kachel dort belegen wuerde (rasterLage mit der neuen
+// Folge). Zurueck in die Palette gezogen nimmt sie von der Seite, ein Widget
+// auf die Flaeche gezogen setzt es neben die Kacheln.
+function seDown(host, ev){
+  if(ev.button>0 || SE_ZIEHEN) return;
+  const q=ev.target.closest('[data-se-t],[data-se-p],[data-se-w]'); if(!q || q.disabled || !host._seLage) return;
+  const art=q.hasAttribute('data-se-t')?'flaeche':(q.hasAttribute('data-se-p')?'palette':'widget');
+  if(art!=='flaeche' && ev.pointerType==='touch' && !ev.target.closest('.se-grip')) return;
+  SE_ZIEHEN={host:host, art:art, id:q.dataset.seT||q.dataset.seP||q.dataset.seW, x0:ev.clientX, y0:ev.clientY,
+    aktiv:false, ziel:null, geist:null, name:(q.querySelector('.se-tn,.se-pn')||q).textContent, blattUhr:null};
+  document.addEventListener('pointermove', seMove);
+  document.addEventListener('pointerup', seUp);
+  document.addEventListener('pointercancel', seAbbruch);
+}
+function seMove(ev){
+  const z=SE_ZIEHEN; if(!z) return;
+  if(!z.aktiv){
+    if(Math.hypot(ev.clientX-z.x0, ev.clientY-z.y0)<6) return;
+    z.aktiv=true; z.host.classList.add('se-zieht');
+    z.geist=document.createElement('div'); z.geist.className='se-geist'; z.geist.textContent=z.name;
+    document.body.appendChild(z.geist);
+  }
+  ev.preventDefault();
+  z.geist.style.left=(ev.clientX+10)+'px'; z.geist.style.top=(ev.clientY+10)+'px';
+  z.ziel=seZiel(z, ev.clientX, ev.clientY);
+  seMarke(z);
+}
+// Wohin fiele die Kachel? {art:'stelle', i} (Index in der Rasterfolge ohne die
+// gezogene), {art:'palette'}, {art:'widget'} oder null
+function seZiel(z, x, y){
+  const host=z.host, unter=document.elementFromPoint(x, y), fl=host.querySelector('[data-se-flaeche]');
+  clearTimeout(z.blattUhr); z.blattUhr=null;
+  if(!unter || !host.contains(unter)) return null;
+  const blatt=unter.closest('[data-se-blatt]');
+  if(blatt && !blatt.disabled && z.art!=='widget'){   // ueber dem Blaetterknopf kurz verweilen: Seite wechseln
+    z.blattUhr=setTimeout(()=>{ if(SE_ZIEHEN!==z) return; seZustand(host._se.key).blatt+=Number(blatt.dataset.seBlatt);
+      seZeichnen(host); }, 450);
+    return null; }
+  if(unter.closest('.se-pal')) return z.art==='flaeche' ? {art:'palette'} : null;
+  if(!fl || !fl.contains(unter)) return null;
+  if(z.art==='widget') return {art:'widget'};
+  const {a, r, lage, geo}=host._seLage, g=host._se.geraet(), rect=fl.getBoundingClientRect();
+  const dx=(x-rect.left)/rect.width*g.vw, dy=(y-rect.top)/rect.height*g.vh, M=geo.M, R=Math.max(1, r.rows);
+  const s=Math.max(0, Math.min(r.cols-1, Math.floor((dx-geo.raster.x-M.pad+M.gap/2)/(geo.cw+M.gap))));
+  const zr=Math.max(0, Math.min(R-1, Math.floor((dy-geo.raster.y-M.pad+M.gap/2)/(geo.ch+M.gap))));
+  const zeile=seZustand(host._se.key).blatt*R+zr;
+  let i=a.raster.findIndex((e,k)=>{ const gr=LoxRaster.groesse(e, r.cols, r.rows);
+    return zeile>=lage.zeile[k] && zeile<lage.zeile[k]+gr.h && s>=lage.spalte[k] && s<lage.spalte[k]+gr.w; });
+  if(i>-1){ const gr=LoxRaster.groesse(a.raster[i], r.cols, r.rows), mitte=geo.raster.x+M.pad+(lage.spalte[i]+gr.w/2)*(geo.cw+M.gap);
+    if(dx>mitte) i++; }
+  else i=a.raster.filter((e,k)=>lage.zeile[k]<zeile || (lage.zeile[k]===zeile && lage.spalte[k]<s)).length;
+  const alt=a.raster.findIndex(e=>e.id===z.id);
+  if(alt>-1 && alt<i) i--;
+  return {art:'stelle', i:i};
+}
+// Marke: wo die Kachel mit der neuen Folge stuende (nur auf dem sichtbaren Blatt)
+function seMarke(z){
+  const host=z.host, m=host.querySelector('.se-marke'), fl=host.querySelector('[data-se-flaeche]');
+  host.querySelectorAll('.se-pal.drop').forEach(n=>n.classList.remove('drop'));
+  if(fl) fl.classList.toggle('drop', !!z.ziel && z.ziel.art==='widget');
+  if(z.ziel && z.ziel.art==='palette') host.querySelector('.se-pal').classList.add('drop');
+  if(!m) return;
+  if(!z.ziel || z.ziel.art!=='stelle'){ m.hidden=true; return; }
+  const {a, r, geo}=host._seLage, g=host._se.geraet(), R=Math.max(1, r.rows), st=seZustand(host._se.key);
+  const neu=a.raster.filter(e=>e.id!==z.id), e=a.raster.find(x=>x.id===z.id) || {id:z.id, w:seStdBreite(host._se.tiles(), z.id), h:1};
+  neu.splice(z.ziel.i, 0, e);
+  const l=LoxRaster.rasterLage(neu, r.cols, r.rows), k=z.ziel.i, gr=LoxRaster.groesse(e, r.cols, r.rows);
+  if(Math.floor(l.zeile[k]/R)!==st.blatt){ m.hidden=true; return; }
+  m.setAttribute('style', seKasten(seZelle(geo, l.zeile[k]-st.blatt*R, l.spalte[k], gr.w, gr.h), g)); m.hidden=false;
+}
+function seEnde(){
+  const z=SE_ZIEHEN; SE_ZIEHEN=null;
+  document.removeEventListener('pointermove', seMove);
+  document.removeEventListener('pointerup', seUp);
+  document.removeEventListener('pointercancel', seAbbruch);
+  if(!z) return null;
+  clearTimeout(z.blattUhr);
+  if(z.geist) z.geist.remove();
+  z.host.classList.remove('se-zieht');
+  return z;
+}
+function seAbbruch(){ const z=seEnde(); if(z && z.aktiv) seZeichnen(z.host); }
+function seUp(){
+  const z=seEnde(); if(!z || !z.aktiv) return;
+  z.host._seSperre=true; setTimeout(()=>{ z.host._seSperre=false; }, 0);
+  const ctx=z.host._se, st=seZustand(ctx.key), zi=z.ziel;
+  seZustand(ctx.pkey).meldung='';
+  if(zi && zi.art==='stelle'){
+    if(z.art==='flaeche') seVerschieben(ctx, z.id, zi.i); else seEinfuegen(ctx, z.id, zi.i);
+    st.sel=z.id; st.folgen=z.id;
+  }
+  else if(zi && zi.art==='palette'){ seEntfernen(ctx, z.id); if(st.sel===z.id) st.sel=null; }
+  else if(zi && zi.art==='widget'){ if(sePaneArt(ctx.ui().pane)!==sePaneArt(wzP2Real(z.id))) ctx.setPane(z.id); }
+  seZeichnen(z.host);
+}
+
 function tileOv(){ const p=PANELS[cur]; p.tiles=p.tiles||{}; p.tiles[tileSel]=p.tiles[tileSel]||{}; return p.tiles[tileSel]; }
 function pruneTile(){ const p=PANELS[cur]; if(p.tiles&&p.tiles[tileSel]&&!Object.keys(p.tiles[tileSel]).length) delete p.tiles[tileSel]; }
 function setTile(k,v){ const ov=tileOv(); if(v==null||v==='') delete ov[k]; else ov[k]=v; pruneTile(); markDirty(); drawPrev(); renderTileList(); }
@@ -2948,7 +3526,12 @@ function profilMitRaumtausch(p, von, nach, controls){
   if(Array.isArray(n.rooms)) n.rooms=einmal(n.rooms.map(r=>r===von?nach:r));
   if(Array.isArray(n.hide)) n.hide=liste(n.hide);
   if(Array.isArray(n.picks)) n.picks=liste(n.picks);
-  if(Array.isArray(n.pickTabs)) n.pickTabs.forEach(t=>{ if(t){ t.picks=liste(t.picks); if(t.widget) t.widget=paneTausch(t.widget, uu); } });
+  if(Array.isArray(n.pickTabs)) n.pickTabs.forEach(t=>{ if(t){ t.picks=liste(t.picks); if(t.widget) t.widget=paneTausch(t.widget, uu);
+    // Layout aus dem Seiten-Editor: getauscht wie picks, die erste Dublette zaehlt (wie im Server)
+    if(Array.isArray(t.layout)){ const da=new Set();
+      t.layout=t.layout.map(e=>(e && typeof e.id==='string') ? Object.assign({}, e, {id:uu(e.id)}) : null)
+        .filter(e=>e && e.id && !da.has(e.id) && da.add(e.id));
+      if(!t.layout.length) delete t.layout; } } });
   if(n.tiles && typeof n.tiles==='object'){ const t={}; Object.entries(n.tiles).forEach(([u,v])=>{ const z=uu(u); if(z) t[z]=v; }); n.tiles=t; }
   if(n.ui && typeof n.ui==='object'){
     if(n.ui.panes && typeof n.ui.panes==='object'){ const ps={}, alle=Object.entries(n.ui.panes);
@@ -3062,9 +3645,9 @@ function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===
 // Groessen leer = Standard (der Server waehlt ihn passend zum Kachel-Aufbau)
 const WZ_LOOK_DEF={};
 const WZ={panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true};
-let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
+let wzTileFor=-1;
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true}); }
+function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('wz')===0).forEach(k=>delete SE_ZUSTAND[k]); Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true}); }
 /* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
    eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
    Raum-Panel dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
@@ -3313,7 +3896,7 @@ function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg
 // Leiste aus Sprungmarken (Raum-Panel oder genau eine freie Seite mit Kacheln,
 // kein Widget)? Dann gibt es die Wahl Springen/Filtern (ui.catFilter).
 function wzAnker(){ return WZ.content==='room'
-  || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget); }
+  || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget && WZ.pickPages[0].byRoom!==false); }
 function wzCatModeHtml(){
   if(!wzAnker()) return '';
   return '<p class="wzq mt">'+T('Tipp auf eine Sprungmarke')+'</p><div class="wzopts">'+
@@ -3354,41 +3937,18 @@ function wzSetup(){
   h3+=wzCatModeHtml()+wzPaneRows();
   return h3;
 }
+// Eine freie Seite befuellen: der Seiten-Editor (Punkt 10), gerechnet mit
+// Anzeige, Raster und Geraet aus Schritt 1 - dieselbe Flaeche wie spaeter im
+// Reiter Seiten-Editor. Eine Widget-Seite (Vollbild) hat keine Kacheln.
 function wzTileEditor(i){
   var pg=WZ.pickPages[i]; if(!pg.picks) pg.picks=[];
-  var picks=pg.picks, q=(wzTileSearch||'').trim().toLowerCase(), ctrls=(META.controls||[]);
-  function compBtn(c){ var on=picks.indexOf(c.uuid)>=0; return '<button class="wzai'+(on?' on':'')+'" data-wtadd="'+esc(c.uuid)+'"><span>'+esc(c.name)+'</span>'+(on?'<b>✓</b>':'<span class="pl">＋</span>')+'</button>'; }
-  var chosen='<p class="wzq" style="margin:0 0 6px">'+T('Gewählt')+' ('+picks.length+')</p><div class="wzchosen wzchip">'+
-    (picks.length?picks.map(function(u){ var c=ctrls.find(function(x){return x.uuid===u;}); return '<div class="wzci"><span>'+esc(c?((c.room?roomName(c.room)+' · ':'')+c.name):u)+'</span><button data-wtdel="'+esc(u)+'">✕</button></div>'; }).join(''):'<div class="wznote" style="margin:0">'+T('Noch keine Kacheln — links Raum wählen, dann rechts Bausteine.')+'</div>')+'</div>';
-  // Bausteine nach Raum gruppieren
-  var byRoom={}, order=[];
-  ctrls.forEach(function(c){ var r=c.room||''; if(!byRoom[r]){ byRoom[r]=[]; order.push(r); } byRoom[r].push(c); });
-  var cur=wzTileRoom; if(order.indexOf(cur)<0) cur=order.length?order[0]:''; wzTileRoom=cur;
-  // Links: Raumliste
-  var roomList=order.map(function(r){
-    var cin=byRoom[r].filter(function(c){return picks.indexOf(c.uuid)>=0;}).length;
-    return '<button class="wzroom'+(r===cur?' on':'')+'" data-wtroom="'+esc(r)+'"><span class="rn">'+esc(roomName(r)||T('Ohne Raum'))+'</span><span class="rc">'+byRoom[r].length+(cin?' <b>'+cin+'✓</b>':'')+'</span></button>';
-  }).join('');
-  if(!roomList) roomList='<div class="wznote" style="margin:0">'+T('Keine Bausteine gefunden.')+'</div>';
-  // Rechts: Bausteine des gewählten Raums, oder bei Suche raumübergreifend
-  var comps;
-  if(q){
-    var g2={}, o2=[]; ctrls.forEach(function(c){ if(((c.name||'').toLowerCase().indexOf(q)<0)&&((roomName(c.room)||'').toLowerCase().indexOf(q)<0)) return; var r=c.room||''; if(!g2[r]){ g2[r]=[]; o2.push(r); } g2[r].push(c); });
-    comps=o2.map(function(r){ return '<div class="wzrg">'+esc(roomName(r)||T('Ohne Raum'))+'</div>'+g2[r].map(compBtn).join(''); }).join('');
-  } else {
-    comps=(byRoom[cur]||[]).map(compBtn).join('');
-  }
-  if(!comps) comps='<div class="wznote" style="margin:0">'+T('Nichts gefunden.')+'</div>';
   var N=WZ.pickPages.length, last=(i>=N-1);
   var prog='<button class="wzbtn prim" id="wzTileNext" style="width:100%;margin-top:12px;padding:11px">'+(last?(T('Weiter')+' →'):(T('Nächsten Tab befüllen')+' →'))+'</button>';
   var header='<div class="wzq" style="display:flex;align-items:center;gap:10px"><button class="wzbtn" id="wzTileBack" style="padding:4px 10px">← '+T('Übersicht')+'</button><b style="text-transform:none;letter-spacing:0;color:var(--fg)">'+esc(pg.name||T('Seite'))+' <span style="color:var(--muted);font-weight:400">('+(i+1)+'/'+N+')</span></b></div>';
   var content='<div class="wzrow" style="align-items:center;gap:8px;margin:6px 0 4px"><span style="font-size:12px;color:var(--muted)">'+T('Seiteninhalt')+'</span>'+wzPageContentSel(i,220)+(pg.widget?wzPageArgSel(i):'')+'</div>';
   if(pg.widget) return header+content+
     '<div class="wznote" style="margin-top:10px">'+T('Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Display. Baustein/Zone wählst du oben direkt.')+'</div>'+prog;
-  return header+content+
-    chosen+
-    '<div class="wztiles3"><div class="wztcol"><div class="wzq" style="margin:0 0 6px;font-size:11px">'+T('Raum')+'</div><div class="wzrooms">'+roomList+'</div></div>'+
-    '<div class="wztcol"><input id="wzTileSearch" class="wzp2sel" style="width:100%;margin-bottom:8px" placeholder="'+T('Baustein suchen (alle Räume)…')+'" value="'+esc(wzTileSearch)+'"><div class="wzavail">'+comps+'</div></div></div>'+prog;
+  return header+content+'<div class="se-host" id="wzSeHost"></div>'+prog;
 }
 // Aussehen-Steuerung im Assistenten (Farbschema, Größen, Schrift) -> WZ.look,
 // beim Anlegen 1:1 in panel.ui übernommen. Nutzt dieselben Werte/Presets wie
@@ -3504,13 +4064,11 @@ function wzRender(){
     if(!k) delete pg.widget; else if(k==='weather'||k==='calendar') pg.widget=k; else pg.widget=k+':'+(wzWidgetFirst(k)||'');
     wzRender(); }; });
   b.querySelectorAll('[data-pgwarg]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgwarg], k=wKind(pg.widget||''); pg.widget=k+':'+el.value; wzRender(); }; });
-  b.querySelectorAll('[data-pgtiles]').forEach(function(el){ el.onclick=function(){ wzTileFor=+el.dataset.pgtiles; wzTileSearch=''; wzTileRoom=''; wzRender(); }; });
-  b.querySelectorAll('[data-wtroom]').forEach(function(el){ el.onclick=function(){ wzTileRoom=el.dataset.wtroom; wzTileSearch=''; wzRender(); }; });
-  b.querySelectorAll('[data-wtadd]').forEach(function(el){ el.onclick=function(){ var pg=WZ.pickPages[wzTileFor]; if(!pg.picks) pg.picks=[]; var u=el.dataset.wtadd, k=pg.picks.indexOf(u); if(k>=0) pg.picks.splice(k,1); else { if(pg.picks.length>=60) return; pg.picks.push(u); } wzRender(); }; });
-  b.querySelectorAll('[data-wtdel]').forEach(function(el){ el.onclick=function(){ var pg=WZ.pickPages[wzTileFor], k=pg.picks.indexOf(el.dataset.wtdel); if(k>=0){ pg.picks.splice(k,1); wzRender(); } }; });
+  b.querySelectorAll('[data-pgtiles]').forEach(function(el){ el.onclick=function(){ wzTileFor=+el.dataset.pgtiles; wzRender(); }; });
   { var tbk=$('#wzTileBack'); if(tbk) tbk.onclick=function(){ wzTileFor=-1; wzRender(); }; }
-  { var tnx=$('#wzTileNext'); if(tnx) tnx.onclick=function(){ var N=WZ.pickPages.length; if(wzTileFor>=N-1){ wzTileFor=-1; wzNext(); } else { wzTileFor++; wzTileSearch=''; wzTileRoom=''; wzRender(); } }; }
-  { var tsr=$('#wzTileSearch'); if(tsr) tsr.oninput=function(){ wzTileSearch=tsr.value; WZ._sf=true; wzRender(); }; }
+  { var tnx=$('#wzTileNext'); if(tnx) tnx.onclick=function(){ var N=WZ.pickPages.length; if(wzTileFor>=N-1){ wzTileFor=-1; wzNext(); } else { wzTileFor++; wzRender(); } }; }
+  // Seiten-Editor (Schritt 5, freie Seite): der Dialog wird dafuer breiter
+  { var seh=b.querySelector('#wzSeHost'); b.closest('.wzbox').classList.toggle('breit', !!seh); if(seh) seRender(seh, seKontextWz(wzTileFor)); }
   b.querySelectorAll('.wzp2sel[data-p2k]').forEach(function(el){ el.onchange=function(){ WZ.pane2[el.dataset.p2k]=el.value; }; });
   var rm=$('#wzRoom'); if(rm){ if(!WZ.roomTab&&rm.value) WZ.roomTab=rm.value; rm.onchange=function(){ WZ.roomTab=rm.value; WZ.roomCats=[]; WZ.pane2={}; wzRender(); }; }
   var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; if(!WZ._idT){ WZ.id=ti.value.toLowerCase().replace(/[^a-z0-9-]/g,''); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
@@ -3521,7 +4079,6 @@ function wzRender(){
     if(x){ wzGroesseSetzen(x); wzRender(); } }; });
   { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); wzRender(); } }; }
   var idI=$('#wzId'); if(idI) idI.oninput=function(){ WZ._idT=true; WZ.id=idI.value.toLowerCase().replace(/[^a-z0-9-]/g,''); idI.value=WZ.id; wzUpd(); };
-  if(WZ._sf){ WZ._sf=false; var tsx=$('#wzTileSearch'); if(tsx){ tsx.focus(); try{ tsx.setSelectionRange(tsx.value.length,tsx.value.length); }catch(e){} } }
   $('#wzBack').disabled=WZ.step===0;
   $('#wzNext').textContent=(WZ.step===f.length-1)?T('Panel anlegen ✓'):T('Weiter →');
   wzUpd();
@@ -3564,7 +4121,11 @@ function wzBuild(){
     var pages=(WZ.pickPages||[]).filter(function(pg){ return (pg.picks&&pg.picks.length)||pg.widget; });
     if(!pages.length) pages=[WZ.pickPages[0]||{name:'Auswahl'}];
     tabs=pages.map(function(_,i){return pickKey(i);});
-    e.pickTabs=pages.map(function(pg){ var o={name:(pg.name||'').trim()||'Auswahl',picks:(pg.picks||[]).slice()}; if(pg.icon) o.icon=pg.icon; if(pg.widget) o.widget=pg.widget; return o; }); }
+    e.pickTabs=pages.map(function(pg){ var o={name:(pg.name||'').trim()||'Auswahl',picks:(pg.picks||[]).slice()}; if(pg.icon) o.icon=pg.icon; if(pg.widget) o.widget=pg.widget;
+      // Anordnung aus dem Seiten-Editor (Schritt 5)
+      if(!pg.widget && Array.isArray(pg.layout) && pg.layout.length) o.layout=pg.layout.map(function(x){ return {id:x.id, w:x.w, h:x.h}; });
+      if(!pg.widget && pg.byRoom===false) o.byRoom=false;
+      return o; }); }
   else { tabs=WZ.classic.filter(function(t){return t.on;}).map(function(t){return t.key;}); if(!tabs.length) tabs=defaultTabs(); }
   var panes={}; Object.keys(WZ.pane2).forEach(function(k){ var rv=wzP2Real(WZ.pane2[k]); if(rv) panes[k]=rv; });
   if(Object.keys(panes).length) ui.panes=panes;

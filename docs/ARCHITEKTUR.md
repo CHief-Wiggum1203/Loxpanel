@@ -1698,6 +1698,39 @@ Assistenten des Konfigurators.
   hinten an. So bleibt eine Seite stimmig, wenn nur `picks` geändert wird
   (Bausteinliste, Raumtausch beim Duplizieren). Geprüft in
   `tests/test_seiten_layout.py`.
+- Seiten-Editor (Punkt 10, Teil 2, 09.10.2026): eigener Reiter im
+  Panel-Editor und Schritt 5 des Assistenten für eine freie Seite mit
+  Kacheln. Links die Palette (alle Bausteine mit Raumfilter und Suche,
+  abgeblendet, was schon auf der Seite steht; darunter die Widgets für
+  Pane 2 und die Kopfzeile), in der Mitte die Arbeitsfläche in Geräteform,
+  rechts „Ausgewählt“ mit Größe 1 × 1, 2 × 1, 2 × 2, „nach vorn“, „nach
+  hinten“, „Von der Seite nehmen“ und „Kachel gestalten“. Die Fläche zeigt,
+  was die Visu am gewählten Gerät baut (Geräte mit gemeldeter Größe,
+  dieser Browser, Katalog; vorgewählt das Zielgerät des Profils): dieselbe
+  Folge wie der Server (`seAnsicht()`: ohne ausgeblendete, auf einer Seite
+  mit Werteleiste ohne die Anzeige-Bausteine aus `werteLeiste` in
+  `/api/meta`, mit `byRoom` nach Raum gruppiert), dasselbe Raster aus
+  `raster.js` mit den Kacheln der Seite (`seRaster()`: Automatik mit
+  Zielkachel des Geräts vor der des Profils, Widget nur mit Split, Kopfzeile
+  und Werteleiste nehmen Höhe; fest mit Verdopplung durch den Split) und
+  dieselbe Lage (`rasterLage()`), die Flächen in Prozent der Gerätegröße
+  (`seGeometrie()`). Bedienung mit Pointer-Events: Kacheln der Fläche zieht
+  man direkt, in der Palette nimmt der Finger den Griff, damit die Liste
+  scrollbar bleibt; eine Marke zeigt genau die Zellen, die die Kachel an der
+  Stelle belegen würde, zurück in die Palette gezogen verlässt sie die
+  Seite, über dem Blätterknopf kurz verweilt wechselt die Seite. Ohne Ziehen:
+  Kachel antippen, Pfeiltasten verschieben (links/rechts um eine Stelle,
+  hoch/runter um eine Zeile), Entf nimmt sie von der Seite. Jede Änderung
+  schreibt `picks` und `layout` zusammen (`seSchreiben()`); `togglePick()`,
+  „Alle entfernen“ und `profilMitRaumtausch()` halten das Layout stimmig, ohne
+  Gruppierung zeigen die Nummern unter Tabs die Folge der Seite und es gibt
+  keine Sprungmarken. Im Assistenten rechnet der Editor mit Anzeige, Raster
+  und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
+  Geprüft in `tests/browser/test_seiten_editor_browser.py`: Fläche gleich der
+  Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,
+  fest 3 × 3, 4″ mit 2 × 2, Automatik ohne Gruppierung), Ziehen, Tasten,
+  Größe und Speichern ohne Verworfenes, Finger nur am Griff, Widgets, der
+  Assistent und der Abgleich unter Tabs und beim Duplizieren.
 - Panel duplizieren mit Raumtausch (Punkt 14, 08.10.2026): „Duplizieren“ in
   der Speicherleiste öffnet einen Dialog (`dupOpen()`), der ID und Titel aus
   dem Zielraum vorschlägt (`idAusName()`: klein, Umlaute ausgeschrieben,
