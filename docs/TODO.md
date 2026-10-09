@@ -1742,6 +1742,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           in der Speicherleiste öffnet sie in der Größe des Vorschaugeräts und
           zieht Änderungen nach, Speichern beendet den Entwurf. Details in
           [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2.
+          *Nachtrag 09.10.2026 (Tabs und Seiten-Editor entflochten):* Name,
+          Icon und Seiteninhalt (Kacheln oder Vollbild-Widget) einer freien
+          Seite stellt jetzt der Seiten-Editor ein, im Bereich „Seite“ über der
+          Fläche; dort lassen sich Seiten auch entfernen. Unter Tabs bleiben
+          die Leiste, die Seiten und die Sprungmarken, je Seite mit einer
+          Kurzfassung und „Im Seiten-Editor bearbeiten“. Die Bausteinliste und
+          der kleine Assistent „Schritt für Schritt“ unter Tabs sind
+          entfallen, die Palette des Seiten-Editors kann dasselbe.
       11. **Kopplungscode am Panel:** Gerät ohne Profil zeigt „Dieses Gerät
           einrichten“ mit Code, derselbe Code steht unter *Displays*. **S**
           *Erledigt 08.10.2026:* Ein Browser ohne Gerätekennung bekommt beim

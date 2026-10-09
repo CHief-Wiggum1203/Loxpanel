@@ -355,10 +355,60 @@ def test_assistent_schritt5_mit_dem_editor():
     assert vorgerechnet["auto"], vorgerechnet
 
 
+def test_bereich_seite_name_inhalt_und_seiten(cfg_ordner):
+    """Bereich "Seite" ueber der Flaeche: der Name geht beim Tippen in die
+    Seitenleiste und die Kurzfassung unter Tabs, ohne dass das Feld den Fokus
+    verliert; ein Widget als Inhalt blendet die Palette aus, das Werte-Widget
+    nimmt Bausteine und gibt sie wieder her, zurueck bei Kacheln sind die
+    Bausteine der Seite noch da; eine Seite laesst sich entfernen. Gespeichert
+    wird ohne Verworfenes."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {}}), encoding="utf-8")
+    panels = {"flur": {"title": "Flur", "tabs": ["auswahl", "auswahl2"], "ui": {"grid": "auto"},
+                       "pickTabs": [{"name": "Wohnen", "picks": ["A", "C"]}, {"name": "Zwei", "picks": ["B"]}]}}
+
+    async def schritte(b, port):
+        pg = await _konfigurator(b, port, "flur")
+        await pg.locator("#seHost [data-se-name]").click()
+        await pg.keyboard.press("End")
+        await pg.keyboard.type(" unten")
+        leiste = await pg.eval_on_selector_all("#seHost .se-seiten .ptb", "l => l.map(b => b.firstChild.textContent)")
+        fokus = await pg.evaluate("document.activeElement.matches('[data-se-name]')")
+        # Werte-Widget: zwei Bausteine dazu, einer wieder weg; die Palette weicht
+        await pg.select_option("#seHost [data-se-inhalt]", "status")
+        palette = await pg.locator("#seHost .se-pal").is_hidden()
+        await pg.select_option("#seHost [data-se-wneu]", "T")
+        await pg.select_option("#seHost [data-se-wneu]", "D")
+        await pg.locator("#seHost [data-se-wweg='T']").click()
+        widget = (await pg.evaluate(SEITE))["widget"]
+        await pg.select_option("#seHost [data-se-inhalt]", "")
+        kacheln = (await pg.evaluate(EDITOR))["ids"]
+        # zweite Seite entfernen; unter Tabs bleibt eine mit Kurzfassung
+        await pg.locator("#seHost [data-se-seite-weg='1']").click()
+        await pg.locator(".stab[data-sub='tabs']").click()
+        kurz = await pg.text_content("#tabPick .wsum")
+        reiter = await pg.eval_on_selector_all("#tabPick .picktabbar .ptb", "l => l.map(b => b.textContent)")
+        async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+            await pg.locator("#saveBtn").click()
+        j = await (await antwort.value).json()
+        assert not pg._fehler, pg._fehler
+        return leiste, fokus, palette, widget, kacheln, kurz, reiter, j
+    leiste, fokus, palette, widget, kacheln, kurz, reiter, j = _lauf(panels, schritte)
+    assert leiste == ["Wohnen unten", "Zwei"] and fokus, (leiste, fokus)
+    assert palette, "eine Widget-Seite hat keine Bausteine zu waehlen"
+    assert widget == "status:D", widget
+    assert kacheln == ["A", "C"], "der Inhalt laesst die Bausteine der Seite stehen"
+    assert kurz == "Wohnen unten zeigt 2 Bausteine aus 2 Räumen.", kurz
+    assert reiter == ["Wohnen unten"], reiter
+    assert j["ok"] and j["verworfen"] == [], j
+    flur = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
+    assert flur["tabs"] == ["auswahl"], flur
+    assert [(t["name"], t["picks"], "widget" in t) for t in flur["pickTabs"]] == [("Wohnen unten", ["A", "C"], False)], flur
+
+
 def test_tabs_und_duplizieren_halten_das_layout_stimmig(cfg_ordner):
-    """Unter Tabs abgewaehlt geht der Layout-Eintrag mit (sonst meldete das
-    Speichern ihn als verworfen); ohne Raumgruppierung zeigen die Nummern die
-    Folge der Seite und es gibt keine Sprungmarken. Der Raumtausch beim
+    """Von der Seite genommen geht der Layout-Eintrag mit (sonst meldete das
+    Speichern ihn als verworfen); ohne Raumgruppierung zeigt die Flaeche die
+    Folge der Seite, und die Kurzfassung unter Tabs nennt keine Sprungmarken. Der Raumtausch beim
     Duplizieren tauscht die Layout-Eintraege wie picks."""
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {}}), encoding="utf-8")
     panels = {"flur": {"title": "Flur", "tabs": ["auswahl"], "ui": {"grid": "auto"},
@@ -368,9 +418,12 @@ def test_tabs_und_duplizieren_halten_das_layout_stimmig(cfg_ordner):
     async def schritte(b, port):
         pg = await _konfigurator(b, port, "flur")
         await pg.locator(".stab[data-sub='tabs']").click()
-        nummern = await pg.eval_on_selector_all("#picked .chip[data-pu]", "l => l.map(c => c.dataset.pu)")
+        kurz = await pg.text_content("#tabPick .wsum")
         marken = await pg.text_content("#pickAnchors")
-        await pg.locator("#picked .chip[data-pu='A']").click()      # abwaehlen
+        await pg.locator(".stab[data-sub='seiten']").click()
+        await pg.wait_for_selector("#seHost [data-se-flaeche]")
+        nummern = await pg.eval_on_selector_all("#seHost .se-t[data-se-t]", "l => l.map(t => t.dataset.seT)")
+        await pg.locator("#seHost .se-p[data-se-p='A']").click()      # von der Seite nehmen
         seite = await pg.evaluate(SEITE)
         async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
             await pg.locator("#saveBtn").click()
@@ -380,8 +433,9 @@ def test_tabs_und_duplizieren_halten_das_layout_stimmig(cfg_ordner):
             return profilMitRaumtausch(p, 'r2', 'r1', [{uuid: 'C', name: 'Licht', type: 'Switch', room: 'r2'},
               {uuid: 'A', name: 'Licht', type: 'Switch', room: 'r1'}]).profil.pickTabs[0]; }""")
         assert not pg._fehler, pg._fehler
-        return nummern, marken, seite, j, tausch
-    nummern, marken, seite, j, tausch = _lauf(panels, schritte)
+        return kurz, nummern, marken, seite, j, tausch
+    kurz, nummern, marken, seite, j, tausch = _lauf(panels, schritte)
+    assert kurz == "Wohnen zeigt 3 Bausteine aus 2 Räumen.", kurz
     assert nummern == ["C", "A", "B"], "ohne Gruppierung die Folge des Layouts"
     assert "ohne Sprungmarken" in marken, marken
     assert seite["picks"] == ["C", "B"] and [e["id"] for e in seite["layout"]] == ["C", "B"], seite

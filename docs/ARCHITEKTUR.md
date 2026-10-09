@@ -1723,10 +1723,19 @@ Assistenten des Konfigurators.
   Seite, über dem Blätterknopf kurz verweilt wechselt die Seite. Ohne Ziehen:
   Kachel antippen, Pfeiltasten verschieben (links/rechts um eine Stelle,
   hoch/runter um eine Zeile), Entf nimmt sie von der Seite. Jede Änderung
-  schreibt `picks` und `layout` zusammen (`seSchreiben()`); `togglePick()`,
-  „Alle entfernen“ und `profilMitRaumtausch()` halten das Layout stimmig, ohne
-  Gruppierung zeigen die Nummern unter Tabs die Folge der Seite und es gibt
-  keine Sprungmarken. Im Assistenten rechnet der Editor mit Anzeige, Raster
+  schreibt `picks` und `layout` zusammen (`seSchreiben()`); `profilMitRaumtausch()`
+  hält das Layout stimmig, ohne Gruppierung gibt es keine Sprungmarken.
+  Über der Fläche steht im Panel-Editor der Bereich „Seite“ (`seEigenHtml()`,
+  09.10.2026): Name, Seiteninhalt (Kacheln oder ein Widget über die ganze
+  Fläche samt Musikzone, Baustein oder gestapelten Werten) und das Icon aus
+  der Bibliothek, die sich erst beim Aufklappen füllt. `seZeichnen()` schreibt
+  den Bereich nicht neu, damit das Namensfeld beim Tippen den Fokus und die
+  Icon-Suche ihren Text behält; die Seitenleiste darüber legt Seiten an und
+  entfernt sie. Unter Tabs bleiben die Wahl der Leiste, die Seiten und „Tipp
+  auf eine Sprungmarke“; je Seite steht dort nur eine Kurzfassung
+  (`pickKurzHtml()`: Icon, Name, wie viele Bausteine aus wie vielen Räumen
+  oder welches Widget, die Sprungmarken) mit „Im Seiten-Editor bearbeiten“.
+  Im Assistenten rechnet der Editor mit Anzeige, Raster
   und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
   „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
   allen ungespeicherten Änderungen in der echten Visu: `entwurfOeffnen()` schickt
@@ -1785,7 +1794,9 @@ Assistenten des Konfigurators.
   Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,
   fest 3 × 3, 4″ mit 2 × 2, Automatik ohne Gruppierung), Ziehen, Tasten,
   Größe und Speichern ohne Verworfenes, Finger nur am Griff, Widgets, der
-  Assistent und der Abgleich unter Tabs und beim Duplizieren.
+  Assistent, die Kurzfassung unter Tabs und das Duplizieren; Name, Icon und
+  Inhalt von vier Seiten über Speichern und Neuladen in
+  `tests/browser/test_auswahl_seiten_browser.py`.
 - Panel duplizieren mit Raumtausch (Punkt 14, 08.10.2026): „Duplizieren“ in
   der Speicherleiste öffnet einen Dialog (`dupOpen()`), der ID und Titel aus
   dem Zielraum vorschlägt (`idAusName()`: klein, Umlaute ausgeschrieben,
