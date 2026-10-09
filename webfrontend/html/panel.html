@@ -2912,7 +2912,7 @@ function updateGrid(items){
     // Style der Kachel (Farben, Rahmen): verglichen mit dem zuletzt gesetzten
     // Text, nicht dem Attribut - dort steht auch der eigene Faktor der Kachel
     // (--ks aus tastenEinpassen), den der Browser beim Setzen mit umschreibt.
-    const stStr=tileVarStyle(it)+kachelPlatz(lage, groessen, i, quer);
+    const stStr=kachelStil(it, lage, groessen, i, quer);
     if(n._stStr!==stStr){ n.setAttribute('style',stStr); n._stStr=stStr; if(n._kt) n.style.setProperty('--ks', String(n._kt)); }
     const body=n.querySelector('.body');
     if(body){ let subEl=body.querySelector('.sub'); const sub=subText(it);
@@ -3010,7 +3010,13 @@ function kachelKlassen(g){ return (g.w===2?' w2':'')+(g.h===2?' h2':''); }
 function kachelPlatz(lage, groessen, i, quer){
   if(!lage.hoch) return '';
   const g=groessen[i], z=quer ? lage.zeile[i]%Math.max(1,gridRows) : lage.zeile[i];
-  return 'grid-row:'+(z+1)+' / span '+g.h+';grid-column:'+(lage.spalte[i]+1)+' / span '+g.w+';';
+  return 'grid-row:'+(z+1)+' / span '+g.h+';grid-column:'+(lage.spalte[i]+1)+' / span '+g.w;
+}
+// style einer Kachel: ihre Farben (tileVarStyle, ohne Schluss-Semikolon) und
+// ihre feste Stelle als eigene Angaben - aneinandergehaengt schluckte die
+// letzte Farbe grid-row. Derselbe Text in render() und updateGrid().
+function kachelStil(it, lage, groessen, i, quer){
+  return [tileVarStyle(it), kachelPlatz(lage, groessen, i, quer)].filter(Boolean).join(';');
 }
 // Die Rechnung steht in raster.js (gemeinsam mit dem Assistenten im
 // Konfigurator); hier misst die Visu, was sie braucht: sichtbare Flaeche,
@@ -3115,7 +3121,7 @@ function render(){
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
     const tone = tileTone(it);
     const ts=it.style||{};
-    const stStr = tileVarStyle(it)+kachelPlatz(lage, groessen, _i, quer);
+    const stStr = kachelStil(it, lage, groessen, _i, quer);
     const st = stStr?' style="'+esc(stStr)+'"':'';
     const nsv=[];
     if(ts.txt) nsv.push('color:'+ts.txt);
@@ -3154,7 +3160,7 @@ function render(){
   g.querySelectorAll('.tile[data-id]').forEach(n=>{
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
-    n._stStr = tileVarStyle(it);   // Vergleichswert fuer updateGrid (s. dort)
+    n._stStr = kachelStil(it, lage, groessen, items.indexOf(it), quer);   // Vergleichswert fuer updateGrid (s. dort)
     if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
     if(it.controls){
       n.querySelectorAll('.tctrls .tb').forEach(b=>{

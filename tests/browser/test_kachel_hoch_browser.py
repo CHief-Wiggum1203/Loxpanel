@@ -38,7 +38,7 @@ def _layout(picks, hoch):
     return [{"id": u, **({"w": 2, "h": 2} if u == hoch else {})} for u in picks]
 
 
-def _lauf(ui, breite, hoehe, picks, layout, schritte=MESSEN, wachsen=None, monkeypatch=None):
+def _lauf(ui, breite, hoehe, picks, layout, schritte=MESSEN, wachsen=None, monkeypatch=None, tiles=None):
     if wachsen is not None:
         monkeypatch.setattr(W, "KACHEL_WACHSEN", wachsen)
 
@@ -46,8 +46,9 @@ def _lauf(ui, breite, hoehe, picks, layout, schritte=MESSEN, wachsen=None, monke
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(KACHELN))
         app.states = {f"s{i}": 0 for i in range(16)}
-        app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "ui": ui, "pickTabs": [
-            {"name": "Mix", "picks": picks, "layout": layout, "byRoom": False}]}})
+        app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "ui": ui, "tiles": tiles or {},
+                                                   "pickTabs": [{"name": "Mix", "picks": picks, "layout": layout,
+                                                                 "byRoom": False}]}})
         runner, port, bc = await visu_starten(app)
         fehler = []
         try:
@@ -125,3 +126,33 @@ def test_hohe_kachel_auf_waagerechten_seiten(monkeypatch):
     for i, ist in enumerate(m["ist"]):
         assert (ist["zeile"], ist["spalte"]) == (m["lage"]["zeile"][i], m["lage"]["spalte"][i]), (m["ids"][i], ist)
     assert knoten == {"inplace": True, "gleich": True, "stil": "1 / span 2"}, knoten
+
+
+def test_feste_stelle_auch_mit_eigenen_farben():
+    """Eine Kachel mit eigener Symbolfarbe oder eigenem Hintergrund traegt
+    Stilangaben vor ihrer festen Stelle: beide stehen als eigene Angaben im
+    style - sonst schluckte die Farbe grid-row, und die Kachel stuende, wo
+    der Fluss des Browsers sie hinsetzt. Gilt fuer den Aufbau (render) wie
+    fuer den Abgleich (updateGrid), der den Stil dann nicht neu schreibt."""
+    picks = [f"S{i}" for i in range(10)]
+    tiles = {"S5": {"iconColor": "#e2695f"}, "S2": {"bg": "#203040"}, "S7": {"iconColor": "#52b881", "bg": "#302010"}}
+
+    async def schritte(pg):
+        stil = """() => [...document.querySelectorAll('#grid .tile[data-id]')].map(n => ({id: n.dataset.id,
+            zeile: n.style.gridRow, spalte: n.style.gridColumn, ico: n.style.getPropertyValue('--ico').trim(),
+            bg: n.style.backgroundColor}))"""
+        vorher = await pg.evaluate(stil)
+        knoten = await pg.evaluate("""() => { const ns = [...document.querySelectorAll('#grid .tile[data-id]')];
+            const alt = ns.map(n => n.getAttribute('style')); const ok = updateGrid(view.items);
+            return {inplace: ok, gleich: ns.every((n, i) => n.getAttribute('style') === alt[i])}; }""")
+        return await pg.evaluate(MESSEN), vorher, knoten
+    m, stil, knoten = _lauf({"cols": 3, "rows": 3, "split": False}, 480, 480, picks, _layout(picks, "S5"),
+                            schritte=schritte, tiles=tiles)
+    zeilen = {s["id"]: s for s in stil}
+    for i, u in enumerate(m["ids"]):
+        h = 2 if u == "S5" else 1
+        assert zeilen[u]["zeile"] == f"{m['lage']['zeile'][i] + 1} / span {h}", (u, zeilen[u])
+        assert zeilen[u]["spalte"] == f"{m['lage']['spalte'][i] + 1} / span {h}", (u, zeilen[u])
+    assert zeilen["S5"]["ico"] == "#e2695f" and zeilen["S7"]["ico"] == "#52b881", zeilen
+    assert zeilen["S2"]["bg"] == "rgb(32, 48, 64)", zeilen["S2"]
+    assert knoten == {"inplace": True, "gleich": True}, knoten
