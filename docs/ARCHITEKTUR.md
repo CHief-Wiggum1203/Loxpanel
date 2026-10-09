@@ -716,7 +716,8 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/raster.js` | `raster_js` | Rasterrechnung (§7.5) | Visu, Konfigurator |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
-| POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
+| POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
+| POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden) | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`), `version` (`version`, `commit`, `gebaut`; `version_info.lesen()`, Seitenleiste des Konfigurators) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit, `version` wie bei `/api/settings`. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
@@ -1726,6 +1727,31 @@ Assistenten des Konfigurators.
   Gruppierung zeigen die Nummern unter Tabs die Folge der Seite und es gibt
   keine Sprungmarken. Im Assistenten rechnet der Editor mit Anzeige, Raster
   und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
+  „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
+  allen ungespeicherten Änderungen in der echten Visu: `entwurfOeffnen()` schickt
+  es an `POST /api/entwurf` und öffnet `/?panel=<id>&entwurf=<token>` in einem
+  Fenster in der Größe des Vorschaugeräts. Der Server hält den Entwurf nur im
+  Speicher (`App.entwurf_ablegen()`: `_sanitize_panels()` wie beim Speichern,
+  höchstens `ENTWURF_MAX` = 8, `ENTWURF_DAUER` = 1 h nach der letzten Nutzung,
+  `panels.json` bleibt unberührt); `ws_handler` setzt ihn bei `?entwurf=` an die
+  Stelle des gespeicherten Profils (`resolve_profile(pid, entwurf)`, die
+  Nachschlager nach Profil-Kennung lesen dann `prof["roh"]`) und meldet
+  `entwurf` in der `theme`-Nachricht: die Visu kennzeichnet ihn mit einem
+  schwebenden Etikett (`#entwurfMarke`, nimmt keinen Platz), ein Token, der nichts
+  mehr trifft, zeigt das gespeicherte Profil mit rotem Etikett. Jede Änderung im
+  Editor zieht über denselben Token nach (`entwurfNachziehen()`, 600 ms Verzug,
+  `api_entwurf` lässt die Fenster mit diesem Entwurf neu laden). Speichern
+  verwirft alle Entwürfe; Fenster mit einem Entwurf bekommen dabei
+  `{t:"entwurfEnde"}` und laden das gespeicherte Profil (ein bloßes
+  `reload` ließe sie auf der Entwurfs-Adresse, und eine Umleitung durch den
+  Konfigurator liefe gegen das Neuladen). Eine Antwort von `/api/entwurf`, die erst
+  nach dem Speichern eintrifft (die 600 ms waren schon abgelaufen), verwirft der
+  Konfigurator über eine Zählung (`ENTWURF.gen`, beim Start des Speicherns
+  erhöht) und lenkt das Fenster nicht zurück. Ein Entwurf geht der
+  Geräte-Zuordnung vor (Agent-Wunsch, Betriebsmodus): ein Vorschau-Fenster erbt
+  die Gerätekennung aus dem `localStorage` (derselbe Ursprung) und würde sonst auf
+  ein fremdes Profil umgelenkt. Geprüft in `tests/test_entwurf.py` und
+  `tests/browser/test_entwurf_browser.py`.
   Geprüft in `tests/browser/test_seiten_editor_browser.py`: Fläche gleich der
   Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,
   fest 3 × 3, 4″ mit 2 × 2, Automatik ohne Gruppierung), Ziehen, Tasten,
