@@ -1647,6 +1647,24 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   Editor nach dem Neuladen nur eine Seite und kürzt beim nächsten Speichern
   die Leiste (so geschehen vor #47). Geprüft über Speichern, Neuladen,
   Weiterbearbeiten und die Visu in `tests/browser/test_auswahl_seiten_browser.py`.
+- Panel duplizieren mit Raumtausch (Punkt 14, 08.10.2026): „Duplizieren“ in
+  der Speicherleiste öffnet einen Dialog (`dupOpen()`), der ID und Titel aus
+  dem Zielraum vorschlägt (`idAusName()`: klein, Umlaute ausgeschrieben,
+  frei oder mit `-2`; der Titel ersetzt den Namen des Quellraums). Die Kopie
+  (`profilMitRaumtausch()`) ersetzt jeden Baustein aus dem Quellraum
+  (`profilRaum()`: `room:`-Tab, sonst Raum-Liste, sonst der Raum der meisten
+  gewählten Bausteine, der feste Player zählt mit) durch den gleichnamigen aus dem Zielraum, gleicher Typ
+  vor gleichem Namen: in `tabs` und `ui.valueBar` (`room:`), `rooms`, `hide`,
+  `picks`/`pickTabs[].picks` und `.widget`, den Schlüsseln von `tiles`,
+  `ui.panes` (`paneTausch()`: `player:`, `energy:`, `camera:` samt Werten,
+  `chart:`/`status:`/`header:`-Listen), `ui.svPane` und `ui.player`. Wer im
+  Zielraum kein Gegenstück hat, fällt weg und wird im Dialog und nach dem
+  Anlegen genannt; Bausteine anderer Räume und ohne Raum bleiben. War der
+  Zielraum schon im Profil, fallen die Dubletten des Tauschs weg (ein
+  `room:`-Tab, jeder Baustein einmal; bei `ui.panes` gewinnt die getauschte
+  Seite). Ohne Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
+  der Server bekommt das neue Profil erst beim Speichern. Geprüft in
+  `tests/browser/test_duplizieren_browser.py`.
 - Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
   dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
   (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
