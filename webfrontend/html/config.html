@@ -1772,6 +1772,14 @@ function zielOptionen(gewaehlt){
   return '<option value="">'+T('(keines)')+'</option>'+
     namen.map(n=>'<option value="'+esc(n)+'"'+(n===gewaehlt?' selected':'')+'>'+esc(n)+'</option>').join('');
 }
+// Reiter Titel offen, waehrend /api/devices ein neues Geraet meldet: die Auswahl
+// bekommt es dazu, die Wahl des Profils bleibt (auch beim ersten Abruf nach dem
+// Laden, wenn der Editor vor der Geraeteliste stand).
+function zielAuswahlAuffrischen(){
+  const fz=$('#fZiel'); if(!fz) return;
+  const p=PANELS[cur]||{};
+  fz.innerHTML=zielOptionen(((p.device||{}).name)||'');
+}
 function zielHinweis(dev){
   const erkl=T('Für welches Gerät dieses Profil gemacht ist. Displays warnt, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.');
   if(!dev||!dev.name) return erkl;
@@ -3945,6 +3953,7 @@ async function pollDevices(){
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew||vorschlagNeu){ readDevFromDom(); renderDevices(); }   // neues Panel oder neuer Vorschlag -> Editor ergaenzen (Eingaben behalten)
+    if(isNew) zielAuswahlAuffrischen();                             // Reiter Titel: neues Geraet als Zielgeraet anbieten
     mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
   }catch(e){}
 }

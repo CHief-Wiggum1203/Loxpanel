@@ -1671,9 +1671,12 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `tests/browser/test_duplizieren_browser.py`.
 - Zielgerät eines Profils (Punkt 15, 08.10.2026): Im Reiter Titel wählt
   „Zielgerät“ eines der bekannten Geräte (`KNOWN_NAMES` aus `/api/devices`
-  und die konfigurierten aus `/api/meta`); gespeichert wird `device` mit
-  Name und der zuletzt gemeldeten Größe des Geräts (`DEVICE_SCREENS`,
-  `_clean_zielgeraet()` im Server). Die Geräteliste unter Displays zeigt
+  und die konfigurierten aus `/api/meta`; meldet `/api/devices` ein neues
+  Gerät, während der Reiter offen ist, frischt `zielAuswahlAuffrischen()`
+  die Auswahl auf); gespeichert wird `device` mit Name und der zuletzt
+  gemeldeten Größe des Geräts (`DEVICE_SCREENS`, `_clean_zielgeraet()` im
+  Server, dieselbe Obergrenze `BILDSCHIRM_PX_MAX` wie die Bildschirmmeldung
+  in `_clean_screen()`). Die Geräteliste unter Displays zeigt
   neben dem Typ eine Warnung (`zielAbweichung()`), wenn das Profil eines
   Geräts für ein anderes Gerät gemacht ist oder die gemeldete Größe je
   Seite um mehr als `ZIEL_TOLERANZ` (10 %) abweicht, Drehung zählt nicht.

@@ -584,6 +584,13 @@ def _clean_pane_spalten(v) -> int | None:
     return int(min(PANE_SPALTEN_MAX, int(v)))
 
 
+# Groesste Bildschirmkante in CSS-px, die der Server annimmt: fuer die Meldung
+# eines Panels (_clean_screen) und fuer die im Profil gespeicherte Zielgroesse
+# (_clean_zielgeraet) dieselbe Grenze, sonst passt eine gemeldete Groesse nicht
+# in das Profil und der Abgleich unter Displays kann nie warnen.
+BILDSCHIRM_PX_MAX = 20000
+
+
 def _clean_zielgeraet(v) -> dict | None:
     """Zielgeraet eines Profils (profil.device): {"name": Geraetename, dazu
     optional "vw"/"vh" = Bildschirm in CSS-Pixeln, wie das Geraet ihn beim
@@ -598,7 +605,8 @@ def _clean_zielgeraet(v) -> dict | None:
         return None
     out = {"name": name}
     vw, vh = v.get("vw"), v.get("vh")
-    if all(isinstance(x, (int, float)) and not isinstance(x, bool) and x == x and 1 <= x <= 10000 for x in (vw, vh)):
+    if all(isinstance(x, (int, float)) and not isinstance(x, bool) and x == x and 1 <= x <= BILDSCHIRM_PX_MAX
+           for x in (vw, vh)):
         out["vw"], out["vh"] = int(vw), int(vh)
     return out
 
@@ -644,10 +652,11 @@ def _clean_screen(d) -> dict:
         v = max(lo, min(hi, float(v)))
         return round(v, stellen) if stellen else int(round(v))
 
-    out = {"vw": zahl("vw", 1, 20000), "vh": zahl("vh", 1, 20000),     # sichtbare Flaeche (CSS-px)
-           "sw": zahl("sw", 1, 20000), "sh": zahl("sh", 1, 20000),     # Bildschirm laut Geraet (CSS-px)
+    px = BILDSCHIRM_PX_MAX
+    out = {"vw": zahl("vw", 1, px), "vh": zahl("vh", 1, px),           # sichtbare Flaeche (CSS-px)
+           "sw": zahl("sw", 1, px), "sh": zahl("sh", 1, px),           # Bildschirm laut Geraet (CSS-px)
            "dpr": zahl("dpr", 0.25, 8, 2),                              # Pixeldichte
-           "bw": zahl("bw", 1, 20000), "bh": zahl("bh", 1, 20000),     # Kasten der Visu (ungeskaliert)
+           "bw": zahl("bw", 1, px), "bh": zahl("bh", 1, px),           # Kasten der Visu (ungeskaliert)
            "k": zahl("k", 0.1, 10, 3),                                  # wirksamer Faktor
            "rc": zahl("rc", 1, 50), "rr": zahl("rr", 1, 50)}            # Raster der Kachelansicht
     return {k: v for k, v in out.items() if v is not None}

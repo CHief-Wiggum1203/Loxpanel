@@ -19,15 +19,28 @@ def _panels(device) -> dict:
     ("flur", {"name": "flur"}),
     ({"name": "x" * 80}, {"name": "x" * 60}),
     ({"name": "t", "vw": 1024.0, "vh": 600.4}, {"name": "t", "vw": 1024, "vh": 600}),
+    ({"name": "t", "vw": 12000, "vh": 9000}, {"name": "t", "vw": 12000, "vh": 9000}),   # bis zur Grenze der Meldung
+    ({"name": "t", "vw": 20001, "vh": 600}, {"name": "t"}),
     ({"name": "t", "vw": 1024}, {"name": "t"}),                       # halbe Groesse faellt weg
     ({"name": "t", "vw": "1024", "vh": "600"}, {"name": "t"}),
     ({"name": "t", "vw": 0, "vh": 600}, {"name": "t"}),
     ({"name": "t", "vw": True, "vh": 600}, {"name": "t"}),
     ({"vw": 1024, "vh": 600}, None), ({"name": ""}, None), ("", None), (None, None), (5, None), (["t"], None),
-], ids=["voll", "nur-name", "zeichenkette", "gekuerzt", "gerundet", "halb", "ziffern", "null", "wahr",
+], ids=["voll", "nur-name", "zeichenkette", "gekuerzt", "gerundet", "gross", "zu-gross", "halb", "ziffern", "null", "wahr",
         "ohne-name", "leer-name", "leer", "nichts", "zahl", "liste"])
 def test_pruefer(wert, erwartet):
     assert W._clean_zielgeraet(wert) == erwartet
+
+
+def test_gemeldete_groesse_passt_immer_ins_profil():
+    """Was _clean_screen() als Groesse eines Panels durchlaesst, nimmt
+    _clean_zielgeraet() auch an - sonst verliert das Profil die Groesse und
+    Displays kann fuer dieses Geraet nie warnen."""
+    for kante in (1, 4000, 12000, W.BILDSCHIRM_PX_MAX):
+        gemeldet = W._clean_screen({"vw": kante, "vh": 600})
+        assert gemeldet["vw"] == kante
+        assert W._clean_zielgeraet({"name": "t", "vw": gemeldet["vw"], "vh": gemeldet["vh"]}) == \
+            {"name": "t", "vw": kante, "vh": 600}
 
 
 def test_sanitizer_speichert_und_meldet():

@@ -78,6 +78,16 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                 assert await ziel.input_value() == "wand"
                 assert await ziel.locator("option").all_text_contents() == ["(keines)", "flur", "kind", "tablet", "wand"]
                 assert (await pg.locator("#fZielHint").text_content()).startswith("wand · 1024×600 – ")
+                # Ein viertes Geraet meldet sich, waehrend der Reiter offen ist: die naechste
+                # Abfrage der Geraeteliste nimmt es in die Auswahl auf, die Wahl bleibt
+                v = await b.new_page(viewport={"width": 480, "height": 480})
+                v.on("pageerror", lambda e: fehler.append(str(e)))
+                await v.goto(f"http://127.0.0.1:{port}/?panel=kueche&device=neu")
+                await _bis(lambda: len(app.conn_info) == 4, "vierte Visu verbunden")
+                await pg.evaluate("pollDevices()")
+                await pg.wait_for_function("document.querySelectorAll('#fZiel option').length === 6")
+                assert await ziel.locator("option").all_text_contents() == ["(keines)", "flur", "kind", "neu", "tablet", "wand"]
+                assert await ziel.input_value() == "wand"
                 await ziel.select_option("tablet")   # gemeldete Groesse des Tablets kommt mit
                 assert (await pg.locator("#fZielHint").text_content()).startswith("tablet · 1024×600 – ")
 
