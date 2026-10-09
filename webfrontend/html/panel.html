@@ -1325,6 +1325,7 @@
   <div class="einrichtung kopplung hidden" id="kopplung"></div>
 </div>
 
+<script src="/raster.js"></script>
 <script>
 const ICONS = {
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -2075,17 +2076,15 @@ const SPARK_MIN_W=40;
 // Vorher standen 16-px-Schrift und 38-px-Symbol auf jeder Kachel, ob 122 oder
 // 628 px breit. Im automatischen Raster kommt die Breite aus autoRaster(),
 // beim festen Raster aus der ersten Kachel nach dem Aufbau (kachelBreiteGemessen).
-const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE_H=48;
+const {KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H}=LoxRaster;   // raster.js, gemeinsam mit dem Konfigurator
 // Standardgroessen je Kachel-Aufbau, wie GROESSEN_STANDARD im Server (gelten,
 // wenn der Kasten keine --ico-size usw. traegt)
 const GROESSEN_STANDARD = {neu: {iconSize: 38, nameSize: 16, subSize: 14, roomSize: 13},
                            classic: {iconSize: 38, nameSize: 18, subSize: 15, roomSize: 12}};
 let kachelFaktor=1;
-// Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
-// traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
-function kachelFaktorFuer(breite, hoehe){
-  const k=Math.min(breite/KACHEL_REF, (hoehe>0) ? hoehe/KACHEL_REF_H : Infinity);
-  return Math.min(KS_MAX, Math.max(KS_MIN, k)); }
+// Breite UND Hoehe zaehlen (Rechnung in raster.js): eine flache Kachel (2x3 auf
+// dem 4"-Panel: 225 x 128) traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
+function kachelFaktorFuer(breite, hoehe){ return LoxRaster.kachelFaktorFuer(breite, hoehe); }
 function setzeFaktor(ks){
   const sc=document.querySelector('.screen'); if(!sc) return;
   kachelFaktor=ks;
@@ -2542,7 +2541,7 @@ function renderTabs(){
 // mit Punkten darunter; das quadratische 4"-Panel und ein Profil mit Split
 // "aus" blaettern weiter senkrecht. Listen (layout "list") bleiben immer
 // senkrecht. Quadratisch: Breite und Hoehe weniger als ein Zehntel auseinander.
-function quadratisch(){ const {w,h}=vpSize(); return Math.abs(w-h) < 0.1*Math.max(w,h); }
+function quadratisch(){ const {w,h}=vpSize(); return LoxRaster.quadratisch(w, h); }
 function seitenQuer(v){
   v=v||view;
   return !!(v && themeSplit && !v.widget && !v.front && v.layout!=='list' && !quadratisch());
@@ -2964,10 +2963,8 @@ function vpSize(){
 function rasterFuer(widget){
   const {w,h}=vpSize();
   if(gridAuto){ const r=autoRaster(widget); return [r.cols, r.rows]; }
-  if(!themeSplit || widget) return [profCols, profRows];   // Split aus -> nie Verdopplung
-  if(w>h) return [profCols*2, profRows];
-  if(h>w && w/h < (profCols/profRows)/Math.SQRT2) return [profCols, profRows*2];
-  return [profCols, profRows];
+  // Split aus -> nie Verdopplung (raster.js, wie im Assistenten vorgerechnet)
+  return LoxRaster.festesRaster({cols:profCols, rows:profRows, w:w, h:h, split:themeSplit, widget:widget});
 }
 // Automatisches Raster (Profil "Automatisch", Tablet): Spalten und Zeilen aus
 // der freien Flaeche und der Zielgroesse einer Kachel (gridAuto, vom Server).
@@ -2998,88 +2995,19 @@ let _lastBreiten = [];
 // je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
 // Luecke davor fuellt die naechste schmale Kachel. Daraus die Seitenzahl und
 // die Rastpunkte (jede Kachel in der ersten Zeile einer Seite).
-function rasterLage(breiten, cols, rows){
-  const belegt=[], zeile=[];
-  const frei=(r,c,w)=>{ for(let k=0;k<w;k++) if(belegt[r] && belegt[r][c+k]) return false; return true; };
-  for(const b of breiten){
-    const w=Math.min(b===2?2:1, Math.max(1,cols));
-    let r=0, c=-1;
-    while(c<0){ for(let cc=0; cc+w<=cols; cc++){ if(frei(r,cc,w)){ c=cc; break; } } if(c<0) r++; }
-    belegt[r]=belegt[r]||[]; for(let k=0;k<w;k++) belegt[r][c+k]=true;
-    zeile.push(r);
-  }
-  // Rastpunkte: je Seite die erste Kachel (im DOM) in ihrer ersten Zeile
-  const snaps=new Set(), gesehen=new Set();
-  zeile.forEach((z,i)=>{ if(z%Math.max(1,rows)===0 && !gesehen.has(z)){ gesehen.add(z); snaps.add(i); } });
-  return {zeile:zeile, seiten:Math.max(1, Math.ceil(belegt.length/Math.max(1,rows))), snaps:snaps};
-}
+function rasterLage(breiten, cols, rows){ return LoxRaster.rasterLage(breiten, cols, rows); }
+// Die Rechnung steht in raster.js (gemeinsam mit dem Assistenten im
+// Konfigurator); hier misst die Visu, was sie braucht: sichtbare Flaeche,
+// Abstand und Innenrand des Rasters, Hoehe der Seitenpunkte und der
+// Tab-Leiste, Kopfzeile und Werteleiste zum jeweiligen Kachelfaktor, die
+// Kacheln der Seite und ob sie waagerecht blaettert.
 function autoRaster(widget){
-  const cs=getComputedStyle(el('grid')), tabs=el('tabs');
-  const gap=parseFloat(cs.getPropertyValue('--gap'))||0, pad=parseFloat(cs.getPropertyValue('--pad'))||0;
-  const punkteH=parseFloat(cs.getPropertyValue('--punkte-h'))||0;
-  const vp=vpSize(), w=vp.w, tabsH=tabs?tabs.offsetHeight:0, hoch=vp.h>vp.w;
-  const anzahl=(laenge,kachel)=>Math.max(1, Math.round((laenge-2*pad+gap)/(kachel+gap)));
-  const abgeben=n=>Math.min(n-1, Math.max(1, paneCols>0 ? paneCols : Math.round(n*paneShare)));
-  // Raster fuer eine Spaltenzahl (vor dem Abgeben an das Widget): Kachelbreite
-  // -> Kachelfaktor -> Hoehe der Kopfzeile -> Zeilen. Mit der Zeilenzahl steht
-  // die Hoehe fest; ist die Kachel flach, begrenzt sie den Faktor (die
-  // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
-  const fuer=(gesamt, punkte)=>{
-    const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
-    const h=vp.h-tabsH-kopfHoehe(ksw)-leisteHoehe(ksw)-(punkte?punkteH:0);
-    const rows=anzahl(h, kb), zh=(h-2*pad-(rows-1)*gap)/rows;   // zh: Hoehe einer Kachelzeile
-    const ks=kachelFaktorFuer(kb, zh);
-    let r;
-    if(!widget) r={cols:gesamt, rows:rows, k:1, p:0, ks:ks};
-    else if(hoch){   // hochkant: Widget unter den Kacheln. Seine Hoehe in px
-      // (p Zeilen samt Abstand, pPx): ein Anteil (fr) nahm die Hoehe der
-      // Seitenpunkte nur von der Kachelhaelfte, die Kacheln wurden flacher als
-      // ohne Widget; so bleibt der Kachelhaelfte genau k Zeilen plus Rand und Punkte.
-      if(rows<2) r={cols:gesamt, rows:1, k:1, p:1, ks:ks};
-      else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks, pPx:p*(zh+gap)}; } }
-    else if(gesamt<2) r={cols:1, rows:rows, k:1, p:1, ks:ks};
-    else { const p=abgeben(gesamt); r={cols:gesamt-p, rows:rows, k:gesamt-p, p:p, ks:ks}; }
-    r.gesamt=gesamt; r.kb=kb;
-    return r;
-  };
-  const passt=(c,rw)=>_lastBreiten.length>0 && rasterLage(_lastBreiten,c,rw).seiten<=1;
-  const seitenVon=r=>rasterLage(_lastBreiten, r.cols, r.rows).seiten;
-  // Mehrere Seiten und die letzte mehr als ein Drittel leer (in Zellen, eine
-  // breite Kachel belegt zwei)? Eine einzelne Seite fuellt das Wachsen.
-  const letzteZuLeer=r=>{
-    const l=rasterLage(_lastBreiten, r.cols, r.rows), zellen=r.cols*r.rows;
-    if(l.seiten<2) return false;
-    let belegt=0;
-    l.zeile.forEach((z,i)=>{ if(Math.floor(z/r.rows)===l.seiten-1) belegt+=Math.min(_lastBreiten[i], r.cols); });
-    return 3*(zellen-belegt)>zellen;
-  };
-  const rechne=punkte=>{
-    let r=fuer(anzahl(w, gridAuto), punkte);
-    if((!widget || paneCols>0) && passt(r.cols,r.rows)){
-      for(let c=r.gesamt-1; c>=1; c--){
-        const n=fuer(c, punkte);
-        if(n.kb>gridGrow*gridAuto || !passt(n.cols,n.rows)) break;
-        r=n;
-      }
-    }
-    else if((!widget || paneCols>0) && _lastBreiten.length>0 && letzteZuLeer(r)){
-      // Schrumpfen: je eine Spalte mehr, bis die letzte Seite voll genug ist
-      // oder die Kachel unter Zielgroesse / gridGrow fiele; genommen wird nur,
-      // was eine Seite spart.
-      for(let c=r.gesamt+1; letzteZuLeer(r); c++){
-        const n=fuer(c, punkte);
-        if(n.kb<gridAuto/gridGrow) break;
-        if(seitenVon(n)<seitenVon(r)) r=n;
-      }
-    }
-    return r;
-  };
-  let r=rechne(false);
-  // Waagerechte Seiten mit Punkten darunter: die Punkte nehmen Hoehe, also
-  // noch einmal rechnen, sobald es mehr als eine Seite gibt (weniger Hoehe
-  // gibt nie weniger Seiten, das Ergebnis steht nach dem zweiten Lauf).
-  if(seitenQuer() && _lastBreiten.length>0 && rasterLage(_lastBreiten, r.cols, r.rows).seiten>1) r=rechne(true);
-  return r;
+  const cs=getComputedStyle(el('grid')), tabs=el('tabs'), vp=vpSize();
+  return LoxRaster.autoRaster({w:vp.w, h:vp.h, ziel:gridAuto, wachsen:gridGrow,
+    gap:parseFloat(cs.getPropertyValue('--gap'))||0, pad:parseFloat(cs.getPropertyValue('--pad'))||0,
+    punkteH:parseFloat(cs.getPropertyValue('--punkte-h'))||0, tabsH:tabs?tabs.offsetHeight:0,
+    kopfH:kopfHoehe, leisteH:leisteHoehe, widget:widget, paneCols:paneCols, paneShare:paneShare,
+    breiten:_lastBreiten, seitenQuer:seitenQuer()});
 }
 // Lage + Raster als Vergleichswert fuer den resize-Nachzug (s. render()).
 // Dazu die Blaetterrichtung (seitenQuer): ein Fenster, das quer ueber die

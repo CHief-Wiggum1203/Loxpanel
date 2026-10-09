@@ -25,7 +25,7 @@ def test_versionszeile(cfg_ordner, monkeypatch, tmp_path):
         ui = web.Application()
         ui["app"] = app
         for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/settings", W.api_settings),
-                        ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js)):
+                        ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js)):
             ui.router.add_get(pfad, h)
         runner, port = await serve(ui)
         fehler, res = [], {}

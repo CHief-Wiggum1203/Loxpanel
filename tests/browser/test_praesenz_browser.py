@@ -87,7 +87,7 @@ def test_konfigurator_waehlt_und_speichert_den_melder(tmp_path):
         ui["app"] = app
         for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/backup", W.api_backup),
                         ("/api/settings", W.api_settings), ("/api/devices", W.api_devices_get),
-                        ("/i18n.js", W.i18n_js)):
+                        ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js)):
             ui.router.add_get(pfad, h)
         ui.router.add_post("/api/devices", W.api_save_devices)
         runner, port = await serve(ui)

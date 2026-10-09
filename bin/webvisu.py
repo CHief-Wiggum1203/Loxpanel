@@ -85,6 +85,7 @@ HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
 SETTINGS_HTML = _WEB / "settings.html"
 I18N_JS = _WEB / "i18n.js"
+RASTER_JS = _WEB / "raster.js"   # Rasterrechnung fuer Visu und Konfigurator (Punkt 9)
 INSTALL_SH = Path(__file__).resolve().parent.parent / "deploy" / "install-agent.sh"
 _CFGDIR = Path(__file__).resolve().parent.parent / "config"
 PANELS_FILE = _CFGDIR / "panels.json"
@@ -415,6 +416,19 @@ KACHEL_ZIEL_MIN, KACHEL_ZIEL_MAX = 100, 400
 # KACHEL_WACHSEN-Fache der Zielkachel wachsen (autoRaster() in panel.html,
 # geschickt als gridGrow mit der theme-Nachricht).
 KACHEL_WACHSEN = 1.4
+# Katalog fuer den Assistenten (Punkt 9, Schritt 1): Geraete, die noch nicht
+# verbunden sind, mit ihrer sichtbaren Flaeche in CSS-Pixeln - dieselben
+# Standardgeraete wie in der Messreihe vom 06.10.2026 und den Browser-Tests.
+# Der Konfigurator rechnet damit wie mit einer gemeldeten Groesse vor.
+GERAETE_KATALOG = (
+    {"name": "4″-Wandpanel", "vw": 480, "vh": 480},
+    {"name": "Galaxy Tab A9 quer", "vw": 893, "vh": 533},
+    {"name": "Galaxy Tab A9 hochkant", "vw": 533, "vh": 893},
+    {"name": "iPad quer", "vw": 1024, "vh": 768},
+    {"name": "iPad hochkant", "vw": 768, "vh": 1024},
+    {"name": "10″-Tablet quer", "vw": 1280, "vh": 800},
+    {"name": "10″-Tablet hochkant", "vw": 800, "vh": 1280},
+)
 # Widget (Pane 2) im automatischen Raster: ohne Einstellung belegt es diesen
 # Anteil der Kachelspalten (quer) bzw. -zeilen (hochkant), gerundet
 # (autoRaster() in panel.html, geschickt als paneShare mit der theme-Nachricht).
@@ -7521,6 +7535,12 @@ async def i18n_js(request: web.Request) -> web.Response:
     return _web_file(I18N_JS, "application/javascript")
 
 
+async def raster_js(request: web.Request) -> web.Response:
+    """Gemeinsame Rasterrechnung: die Visu baut damit ihr Raster, der
+    Konfigurator rechnet im Assistenten ein Geraet damit vor."""
+    return _web_file(RASTER_JS, "application/javascript")
+
+
 async def api_meta(request: web.Request) -> web.Response:
     """Alle Räume/Kategorien der Anlage + aktuelle Profile (für den Editor)."""
     app: App = request.app["app"]
@@ -7586,6 +7606,8 @@ async def api_meta(request: web.Request) -> web.Response:
                        "stufen": KACHEL_ZIEL, "wachsen": KACHEL_WACHSEN},
         # Widget-Breite im automatischen Raster: groesste feste Spaltenzahl, Anteil der Automatik
         "paneCols": {"max": PANE_SPALTEN_MAX, "anteil": PANE_ANTEIL},
+        # Assistent Schritt 1: Geraete zum Vorrechnen, solange keines verbunden ist
+        "geraeteKatalog": [dict(k) for k in GERAETE_KATALOG],
         # Bausteintypen, deren Kachel von Haus aus zwei Spalten belegt (Kachel-Editor: Breite)
         "kachelBreit": sorted(KACHEL_BREIT_TYPEN),
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
@@ -9623,6 +9645,7 @@ def main() -> None:
     a.router.add_get("/config", config_index)
     a.router.add_get("/settings", settings_index)
     a.router.add_get("/i18n.js", i18n_js)
+    a.router.add_get("/raster.js", raster_js)
     a.router.add_get("/install-agent.sh", install_script)
     a.router.add_get("/api/meta", api_meta)
     a.router.add_post("/api/panels", api_save_panels)

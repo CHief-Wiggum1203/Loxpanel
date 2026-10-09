@@ -698,6 +698,7 @@ async def visu_starten(app: W.App, routen=()) -> tuple[web.AppRunner, int, async
     ui.router.add_get("/api/meta", W.api_meta)
     ui.router.add_get("/api/settings", W.api_settings)
     ui.router.add_get("/i18n.js", W.i18n_js)
+    ui.router.add_get("/raster.js", W.raster_js)
     for methode, pfad, h in routen:
         ui.router.add_route(methode, pfad, h)
     runner, port = await serve(ui)

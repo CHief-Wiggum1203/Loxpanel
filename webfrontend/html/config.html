@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LoxPanel — Konfiguration</title>
 <script src="/i18n.js"></script>
+<script src="/raster.js"></script>
 <style>
   :root{
     --bg:#16181c; --panel:#1c1f24; --panel2:#212530; --line:#2a2e35;
@@ -444,6 +445,8 @@
   .wzfield label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
   .wzfield.mt{margin-top:16px;}
   .wzfield input,.wzfield select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:9px 11px;font:inherit;font-size:14px;}
+  .wzv{color:var(--muted);font-size:11px;text-align:center;}   /* vorgerechnetes Raster (Punkt 9) */
+  .wzchk{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px;cursor:pointer;}
   .wznote{color:var(--muted);font-size:11.5px;margin-top:8px;} .wznote code{background:var(--panel2);border-radius:3px;padding:1px 5px;}
   .wzft{padding:13px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;}
   .wzbtn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;}
@@ -3058,10 +3061,10 @@ function wzRasterName(g){ return g==='auto' ? T('Automatisch') : g.replace('x','
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
 // Groessen leer = Standard (der Server waehlt ihn passend zum Kachel-Aufbau)
 const WZ_LOOK_DEF={};
-const WZ={panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:''};
+const WZ={panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:''}); }
+function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true}); }
 /* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
    eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
    Raum-Panel dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
@@ -3097,6 +3100,7 @@ function wzVorschlagWaehlen(n){
   if(v.raum){ WZ.content='room'; WZ.roomTab='room:'+v.raum.uuid; WZ.title=v.raum.name; }
   else { WZ.content='classic'; WZ.roomTab=''; WZ.title=n.charAt(0).toUpperCase()+n.slice(1); }
   WZ.id=idAusName(n); WZ._idT=true; WZ.device=n;
+  WZ.groesse=(sc.vw&&sc.vh)?{quelle:'geraet', name:n, vw:sc.vw, vh:sc.vh}:null;
   wzInitSetup();
   WZ.step=wzFlow().indexOf('name'); wzRender();
 }
@@ -3108,6 +3112,116 @@ function wzPflichtOk(){
   if(WZ.content==='room') return !!WZ.roomTab;
   if(WZ.content==='classic') return (WZ.classic||[]).some(t=>t.on);
   return (WZ.pickPages||[]).some(pg=>(pg.picks&&pg.picks.length)||pg.widget);
+}
+/* ---- Schritt 1 aus dem Geraet (Punkt 9): fuer welches Geraet? Die Geraete
+   mit gemeldeter Groesse (/api/devices), dieser Browser oder ein Eintrag aus
+   dem Katalog des Servers (/api/meta geraeteKatalog). Mit der Groesse rechnet
+   der Assistent jede Anzeige mit raster.js vor - derselben Rechnung, mit der
+   die Visu am Geraet ihr Raster baut - und bietet nur passende an. Zum Schluss
+   schaltet er ein echtes Geraet auf das neue Panel um und merkt sich dort die
+   Zielkachel, mit der er gerechnet hat. ---- */
+function wzGeraete(){
+  return [...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))]
+    .filter(n=>{ const s=DEVICE_SCREENS[n]; return n && s && s.vw && s.vh; })
+    .sort((a,b)=>a.localeCompare(b))
+    .map(n=>({quelle:'geraet', name:n, vw:DEVICE_SCREENS[n].vw, vh:DEVICE_SCREENS[n].vh}));
+}
+function wzBrowser(){ return {quelle:'browser', name:T('Dieser Browser'), vw:Math.round(window.innerWidth), vh:Math.round(window.innerHeight)}; }
+function wzKatalog(){ return (META.geraeteKatalog||[]).map(k=>({quelle:'katalog', name:T(k.name), vw:k.vw, vh:k.vh})); }
+// Zielkachel, mit der vorgerechnet wird: die des Geraets (Displays), sonst sein
+// Vorschlag aus der gemeldeten Groesse, sonst der Standard
+function wzZiel(){ const d=WZ.device, z=kachelZiel();
+  return (d && DEV[d] && parseInt(DEV[d].tileTarget)>0 && parseInt(DEV[d].tileTarget)) || (d && DEVICE_SUGGEST[d]) || z.std; }
+// Merkt sich das Geraet eine neue Zielkachel? Nur, wenn es noch eine andere hat.
+function wzZielNeu(){ const d=WZ.device; return !!d && parseInt((DEV[d]||{}).tileTarget)!==wzZiel(); }
+function wzQuadrat(){ const g=WZ.groesse; return !!g && LoxRaster.quadratisch(g.vw, g.vh); }
+// Vorgerechnetes Raster einer Anzeige auf WZ.groesse. Automatisch: Spalten,
+// Zeilen und Kachelbreite wie in der Visu (ohne Kacheln der Seite, also ohne
+// Wachsen und Schrumpfen), mit Widget dazu seine Spalten. Fest: Spalten und
+// Zeilen samt Verdopplung durch den Split; die Kachelgroesse haengt dort am
+// Kasten und an der Skalierung, darum nur die Flaeche, die sie fuellen wuerde.
+function wzVorrechnung(panes, grid){
+  const g=WZ.groesse; if(!g) return null;
+  const M=LoxRaster.VISU_MASSE, split=panes==='2';
+  if(grid==='auto'){
+    const basis=Object.assign({w:g.vw, h:g.vh, ziel:wzZiel(), wachsen:kachelZiel().wachsen||1,
+      paneShare:(META.paneCols||{}).anteil||0}, M);
+    const ohne=LoxRaster.autoRaster(Object.assign({}, basis, {widget:false}));
+    const mit=split ? LoxRaster.autoRaster(Object.assign({}, basis, {widget:true})) : null;
+    // mit Widget: das Raster daneben (quer weniger Spalten, hochkant weniger Zeilen)
+    return {cols:ohne.cols, rows:ohne.rows, px:Math.round(ohne.kb), widget:mit?mit.p:0,
+            mit:mit?[mit.cols, mit.rows]:null, hoch:g.vh>g.vw, auto:true};
+  }
+  const [c0,r0]=grid.split('x').map(Number);
+  const [c,r]=LoxRaster.festesRaster({cols:c0, rows:r0, w:g.vw, h:g.vh, split:split, widget:false});
+  return {cols:c, rows:r, kb:(g.vw-2*M.pad-(c-1)*M.gap)/c, kh:(g.vh-M.tabsH-2*M.pad-(r-1)*M.gap)/r, auto:false};
+}
+// Passt die Anzeige zum Schirm? Zwei Panes nicht auf einem quadratischen (dort
+// blaettert die Visu senkrecht und hat keinen Platz fuer ein Widget daneben);
+// ein festes Raster nur, wenn seine Kacheln den Schirm fuellen wuerden, ohne
+// die Grenzen des automatischen Rasters zu verlassen (Zielkachel mal und
+// durch KACHEL_WACHSEN). Ohne Groesse passt alles.
+function wzPasst(panes, grid){
+  if(!WZ.groesse) return true;
+  if(panes==='2' && wzQuadrat()) return false;
+  if(grid==='auto') return true;
+  const v=wzVorrechnung(panes||'1', grid), z=wzZiel(), k=kachelZiel().wachsen||1;
+  return Math.min(v.kb, v.kh)>=z/k && Math.max(v.kb, v.kh)<=z*k;
+}
+function wzVorrechnungText(panes, grid){
+  const v=wzVorrechnung(panes||'1', grid); if(!v) return '';
+  return v.cols+' × '+v.rows+(v.auto?' · '+v.px+' px':'')+
+    (v.widget?' + '+T('Widget')+' '+v.widget+' '+(v.hoch?T('Zeilen'):T('Spalten')):'');
+}
+// Geraet gewaehlt: was nicht passt, abwaehlen; ohne eigene Wahl wie der Vorschlag
+// (quadratisch 1 Pane mit 2 x 2, sonst 2 Panes mit "Automatisch")
+function wzGroesseSetzen(g){
+  WZ.groesse=g; WZ.device=(g && g.quelle==='geraet') ? g.name : '';
+  if(!WZ._panesT || !WZ.panes || !wzPasst(WZ.panes, 'auto')) WZ.panes=wzQuadrat()?'1':'2';
+  if(!WZ._gridT || !wzPasst(WZ.panes, WZ.grid)) WZ.grid=wzQuadrat()?'2x2':'auto';
+  if(!wzPasst(WZ.panes, WZ.grid)) WZ.grid='auto';
+}
+function wzGeraetHtml(){
+  const g=WZ.groesse, an=x=>!!g && g.quelle===x.quelle && g.name===x.name;
+  const knopf=x=>'<button class="wzo'+(an(x)?' on':'')+'" data-wgr="'+esc(x.quelle)+'" data-wgn="'+esc(x.name)+'">'+
+    wzg(x.quelle==='browser'?'ext':(LoxRaster.quadratisch(x.vw, x.vh)?'p1':'p2'))+'<span class="tx"><b>'+esc(x.name)+'</b><span>'+
+    x.vw+' × '+x.vh+(x.quelle==='geraet'?' · '+T('gemeldet'):'')+'</span></span></button>';
+  const kat=wzKatalog();
+  return '<p class="wzq">'+T('Für welches Gerät?')+'</p><div class="wzopts">'+wzGeraete().map(knopf).join('')+knopf(wzBrowser())+'</div>'+
+    (kat.length ? '<div class="wzfield" style="margin-top:8px"><select id="wzKatalog"><option value="">'+T('Aus dem Katalog …')+'</option>'+
+      kat.map((k,i)=>'<option value="'+i+'"'+(g&&g.quelle==='katalog'&&g.name===k.name?' selected':'')+'>'+esc(k.name+' · '+k.vw+' × '+k.vh)+'</option>').join('')+
+      '</select></div>' : '')+
+    '<p class="wznote">'+(g ? esc(T('Vorgerechnet für')+' '+g.name+' ('+g.vw+' × '+g.vh+', '+T('Zielkachel')+' '+wzZiel()+' px)')+' – '+
+        T('angeboten wird nur, was zu diesem Schirm passt.')
+      : T('Mit einem Gerät rechnet der Assistent jede Anzeige vor und bietet nur passende an.'))+'</p>';
+}
+// Zum Schluss: Zielkachel am Geraet merken (/api/devices) und das Geraet auf
+// das neue Panel umschalten (/api/device/switch). Dafuer muss das Panel auf
+// dem Server stehen: erst speichern; scheitert das, meldet es save().
+async function wzAmGeraet(id, name, umschalten, ziel){
+  const t=$('#toast');
+  if(ziel){
+    readDevFromDom();
+    DEV[name]=Object.assign({auto:true, modes:[]}, DEV[name]||{}, {tileTarget:ziel});
+    try{ const j=await postJson('/api/devices', {devices:devicesPayload()});
+      if(!j.ok){ flash(t, j.error||T('Fehler'), false); return; }
+      devGespeichert(j, T('✓ Gespeichert')); renderDevices(); }
+    catch(e){ flash(t, 'Fehler: '+e, false); return; }
+  }
+  if(!umschalten) return;
+  await save();
+  if(dirty) return;
+  // Das Speichern laedt jede offene Visu neu ({t:"reload"}); bis das Geraet
+  // wieder verbunden ist, meldet /api/device/switch "nicht online" - so lange
+  // erneut versuchen, hoechstens etwa zehn Sekunden.
+  let j={ok:false};
+  for(let i=0; i<20 && !j.ok; i++){
+    if(i) await new Promise(r=>setTimeout(r, 500));
+    try{ j=await postJson('/api/device/switch', {device:name, ip:DEVICE_IPS[name]||'', panel:id}); }
+    catch(e){ j={ok:false}; }
+  }
+  flash(t, j.ok ? ('Panel „'+id+'" '+T('gespeichert,')+' '+name+' '+T('schaltet um.'))
+               : (name+' '+T('ist nicht online – das Panel ist gespeichert, umschalten unter Displays.')), !!j.ok);
 }
 function wzOpen(){
   if(EINR) return;                       // Ersteinrichtung: ohne Struktur kein Assistent
@@ -3301,7 +3415,10 @@ function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+  if(WZ.groesse) rows.push([T('Vorgerechnet für'), WZ.groesse.name+' · '+WZ.groesse.vw+' × '+WZ.groesse.vh+' → '+wzVorrechnungText(WZ.panes, WZ.grid)]);
   if(WZ.device) rows.push([T('Zielgerät'),WZ.device]);
+  if(WZ.device) rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
+    ((WZ.grid==='auto' && wzZielNeu() && WZ.zielMerken)?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
   if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
@@ -3314,11 +3431,13 @@ function wzRender(){
   var f=wzFlow(), key=f[WZ.step], b=$('#wzBody');
   $('#wzStep').textContent=T('Schritt')+' '+(WZ.step+1)+' / '+f.length;
   if(key==='anzeige'){
-    b.innerHTML=wzVorschlagHtml()+'<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
-      wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.'))+
-      wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.'))+
-      '</div><p class="wzq mt">'+T('Kachel-Raster — frei wählbar')+'</p><div class="wzgrid">'+
-      ['2x2','3x2','2x3','3x3','auto'].map(function(g){ var x=wzGridCells(g); return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+wzRasterName(g)+'</b></button>'; }).join('')+'</div>'+
+    b.innerHTML=wzVorschlagHtml()+wzGeraetHtml()+'<p class="wzq mt">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
+      (wzPasst('1','auto')?wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.')):'')+
+      (wzPasst('2','auto')?wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.')):'')+
+      '</div><p class="wzq mt">'+(WZ.groesse?T('Kachel-Raster — vorgerechnet'):T('Kachel-Raster — frei wählbar'))+'</p><div class="wzgrid">'+
+      ['2x2','3x2','2x3','3x3','auto'].filter(function(g){ return wzPasst(WZ.panes||'1', g); }).map(function(g){ var x=wzGridCells(g);
+        return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+wzRasterName(g)+'</b>'+
+          (WZ.groesse?'<span class="wzv">'+esc(wzVorrechnungText(WZ.panes||'1', g))+'</span>':'')+'</button>'; }).join('')+'</div>'+
       '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
   } else if(key==='inhalt'){
     b.innerHTML='<p class="wzq">'+T('Wie möchtest du befüllen?')+'</p><div class="wzopts">'+
@@ -3336,7 +3455,12 @@ function wzRender(){
       '<div class="wznote" style="margin-top:8px">'+T('Gilt für das ganze Panel; einzelne Kacheln kannst du später im Editor abweichend einstellen.')+'</div>';
   } else if(key==='name'){
     b.innerHTML='<div class="wzfield"><label>'+T('Anzeigename')+'</label><input id="wzTitleI" value="'+esc(WZ.title)+'" placeholder="'+T('z. B. Wohnzimmer')+'"></div>'+
-      '<div class="wzfield mt"><label>'+T('Panel-ID')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Panel:')+' <code>?panel='+(WZ.id||'wohnzimmer')+'</code></div></div>';
+      '<div class="wzfield mt"><label>'+T('Panel-ID')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Panel:')+' <code>?panel='+(WZ.id||'wohnzimmer')+'</code></div></div>'+
+      (WZ.device ? '<div class="wzfield mt">'+
+        '<label class="wzchk"><input type="checkbox" id="wzUmschalten"'+(WZ.umschalten?' checked':'')+'> '+
+          esc(T('Danach auf')+' '+WZ.device+' '+T('anzeigen – speichert und schaltet das Gerät um'))+'</label>'+
+        (WZ.grid==='auto' && wzZielNeu() ? '<label class="wzchk"><input type="checkbox" id="wzZielMerken"'+(WZ.zielMerken?' checked':'')+'> '+
+          esc(T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'))+'</label>' : '')+'</div>' : '');
   } else if(key==='setup'){
     b.innerHTML=wzSetup();
   } else if(key==='screensaver'){
@@ -3359,7 +3483,8 @@ function wzRender(){
   b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
   b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; }
     // Tablet (2 Panes): automatisches Raster vorschlagen, 4"-Panel: 2 x 2 - solange das Raster nicht selbst gewaehlt ist
-    if(el.dataset.wk==='panes' && !WZ._gridT) WZ.grid=(el.dataset.wo==='2')?'auto':'2x2';
+    if(el.dataset.wk==='panes'){ WZ._panesT=true; if(!WZ._gridT) WZ.grid=(el.dataset.wo==='2')?'auto':'2x2'; }
+    if(el.dataset.wk==='panes' && !wzPasst(WZ.panes, WZ.grid)) WZ.grid='auto';
     wzRender(); }; });
   b.querySelectorAll('[data-wbase]').forEach(function(el){ el.onclick=function(){ var v=el.dataset.wbase; if(v) WZ.look.baseColor=v; else delete WZ.look.baseColor; wzRender(); }; });
   b.querySelectorAll('[data-wsize]').forEach(function(el){ el.oninput=function(){ var k=el.dataset.wsize, v=el.value.trim(); if(v==='') delete WZ.look[k]; else WZ.look[k]=Number(v); }; });
@@ -3389,6 +3514,12 @@ function wzRender(){
   b.querySelectorAll('.wzp2sel[data-p2k]').forEach(function(el){ el.onchange=function(){ WZ.pane2[el.dataset.p2k]=el.value; }; });
   var rm=$('#wzRoom'); if(rm){ if(!WZ.roomTab&&rm.value) WZ.roomTab=rm.value; rm.onchange=function(){ WZ.roomTab=rm.value; WZ.roomCats=[]; WZ.pane2={}; wzRender(); }; }
   var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; if(!WZ._idT){ WZ.id=ti.value.toLowerCase().replace(/[^a-z0-9-]/g,''); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
+  { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
+  { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
+  b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
+    var q=el.dataset.wgr, x=(q==='browser') ? wzBrowser() : wzGeraete().find(function(d){ return d.name===el.dataset.wgn; });
+    if(x){ wzGroesseSetzen(x); wzRender(); } }; });
+  { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); wzRender(); } }; }
   var idI=$('#wzId'); if(idI) idI.oninput=function(){ WZ._idT=true; WZ.id=idI.value.toLowerCase().replace(/[^a-z0-9-]/g,''); idI.value=WZ.id; wzUpd(); };
   if(WZ._sf){ WZ._sf=false; var tsx=$('#wzTileSearch'); if(tsx){ tsx.focus(); try{ tsx.setSelectionRange(tsx.value.length,tsx.value.length); }catch(e){} } }
   $('#wzBack').disabled=WZ.step===0;
@@ -3448,7 +3579,9 @@ function wzBuild(){
   if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
     e.device=Object.assign({name:WZ.device}, (dsc.vw&&dsc.vh)?{vw:dsc.vw, vh:dsc.vh}:{}); }
   PANELS[id]=Object.assign({title:WZ.title.trim()||id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
+  var amGeraet=WZ.device, umschalten=!!WZ.umschalten, zielMerken=WZ.grid==='auto' && WZ.zielMerken && wzZielNeu(), ziel=wzZiel();
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
+  if(amGeraet && (umschalten || zielMerken)) wzAmGeraet(id, amGeraet, umschalten, zielMerken ? ziel : 0);
 }
 $('#addBtn').onclick=wzOpen;
 { const asb=$('#asStartWiz'); if(asb) asb.onclick=wzOpen; }
@@ -3901,7 +4034,8 @@ async function loadPanelIds(){
     Object.entries(m.devices||{}).forEach(([name,d])=>{
       DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
                  scale:(d.scale===undefined?'':d.scale),   // '' = wie im Profil
-                 presence:d.presence||''};                 // '' = kein Praesenzmelder
+                 presence:d.presence||'',                  // '' = kein Praesenzmelder
+                 tileTarget:d.tileTarget||''};              // '' = Zielkachel wie im Profil
     });
   }catch(e){ PANEL_IDS=[]; }
 }
@@ -4158,11 +4292,13 @@ function devicesPayload(){
     const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
     const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie im Profil
     const presence=d.presence||'';
-    if(Object.keys(modes).length || display || scale!==null || presence){
+    const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
+    if(Object.keys(modes).length || display || scale!==null || presence || ziel){
       devices[name]={auto:d.auto!==false, modes};
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;
+      if(ziel) devices[name].tileTarget=ziel;
     }
   });
   return devices;

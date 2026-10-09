@@ -44,7 +44,7 @@ async def _konfigurator(app, schritte):
     ui = web.Application()
     ui["app"] = app
     for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/backup", W.api_backup),
-                    ("/api/settings", W.api_settings), ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js)):
+                    ("/api/settings", W.api_settings), ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js)):
         ui.router.add_get(pfad, h)
     ui.router.add_post("/api/restore", W.api_restore)
     runner, port = await serve(ui)
@@ -228,7 +228,7 @@ async def _konfigurator_mit_sprache(app, schritte, sprache):
     ui = web.Application()
     ui["app"] = app
     for pfad, h in (("/config", W.config_index), ("/api/meta", W.api_meta), ("/api/settings", W.api_settings),
-                    ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js)):
+                    ("/api/devices", W.api_devices_get), ("/i18n.js", W.i18n_js), ("/raster.js", W.raster_js)):
         ui.router.add_get(pfad, h)
     runner, port = await serve(ui)
     fehler = []
