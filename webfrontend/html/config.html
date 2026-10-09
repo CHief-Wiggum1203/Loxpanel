@@ -2974,9 +2974,12 @@ function profilRaum(p){
   return Object.keys(zahl).sort((a,b)=>zahl[b]-zahl[a])[0]||'';
 }
 // Panel-ID aus einem Raumnamen: klein, Umlaute ausgeschrieben, Rest Bindestrich; frei (sonst -2, -3 ...)
+function nameSlug(name){
+  return (name||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
 function idAusName(name){
-  let id=(name||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'panel';
+  const id=nameSlug(name) || 'panel';
   let k=id, n=2; while(PANELS[k]){ k=id+'-'+(n++); } return k;
 }
 let DUP={quelle:''};
@@ -3054,16 +3057,64 @@ function wzRasterName(g){ return g==='auto' ? T('Automatisch') : g.replace('x','
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
 // Groessen leer = Standard (der Server waehlt ihn passend zum Kachel-Aufbau)
 const WZ_LOOK_DEF={};
-const WZ={panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0};
+const WZ={panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:''};
 let wzTileFor=-1, wzTileSearch='', wzTileRoom='';
 function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0}); }
+function wzReset(){ wzTileFor=-1; wzTileSearch=''; wzTileRoom=''; Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:''}); }
+/* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
+   eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
+   Raum-Panel dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
+   Pflichtschritte (Anzeige, Inhalt, Name) und traegt das Geraet als Zielgeraet
+   ein; ab dann kann man gleich anlegen, der Rest behaelt Standardwerte. ---- */
+function wzVorschlaege(){
+  const vergeben=new Set(Object.values(PANELS).map(p=>p&&p.device&&p.device.name).filter(Boolean));
+  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !vergeben.has(n))
+    .sort((a,b)=>a.localeCompare(b));
+  const passt=(a,b)=>{ a=nameSlug(a); b=nameSlug(b); return !!a && !!b && (a===b || (a.length>=3 && b.indexOf(a)>=0) || (b.length>=3 && a.indexOf(b)>=0)); };
+  // Passen mehrere Raeume, gewinnt der, dessen Name in der Laenge am naechsten
+  // am Geraetenamen liegt: der gleiche Name (Abstand 0) immer, sonst etwa
+  // "badezimmer-oben" -> "Badezimmer" vor "Bad"; bei Gleichstand die Reihenfolge der Raeume.
+  const raumFuer=n=>{ const l=nameSlug(n).length;
+    return (META.rooms||[]).filter(r=>passt(n, r.name))
+      .sort((a,b)=>Math.abs(nameSlug(a.name).length-l)-Math.abs(nameSlug(b.name).length-l))[0]||null; };
+  return geraete.map(n=>({geraet:n, raum:raumFuer(n), screen:DEVICE_SCREENS[n]||null}));
+}
+function wzVorschlagHtml(){
+  const vs=wzVorschlaege(); if(!vs.length) return '';
+  return '<p class="wzq">'+T('Vorschlag für ein Gerät')+'</p><div class="wzopts">'+vs.map(v=>
+    '<button class="wzo'+(WZ.device===v.geraet?' on':'')+'" data-wv="'+esc(v.geraet)+'">'+wzg(v.raum?'room':'grid')+'<span class="tx"><b>'+
+      esc(v.raum?(T('Raum-Panel')+' '+v.raum.name):T('Favoriten'))+'</b><span>'+esc(T('für')+' '+v.geraet+
+      ((v.screen&&v.screen.vw&&v.screen.vh)?(' · '+v.screen.vw+'×'+v.screen.vh):''))+'</span></span></button>').join('')+
+    '</div><p class="wznote">'+T('Übernimmt Anzeige, Inhalt und Name und trägt das Gerät als Zielgerät ein – danach gleich anlegen oder weiter verfeinern.')+'</p>'+
+    '<p class="wzq mt">'+T('Oder selbst wählen')+'</p>';
+}
+function wzVorschlagWaehlen(n){
+  const v=wzVorschlaege().find(x=>x.geraet===n); if(!v) return;
+  const sc=v.screen||{}, quadrat=!!(sc.vw&&sc.vh) && Math.abs(sc.vw-sc.vh)<0.1*Math.max(sc.vw,sc.vh);
+  WZ.panes=quadrat?'1':'2'; WZ.grid=quadrat?'2x2':'auto'; WZ._gridT=true;
+  WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; WZ.roomCats=[];
+  if(v.raum){ WZ.content='room'; WZ.roomTab='room:'+v.raum.uuid; WZ.title=v.raum.name; }
+  else { WZ.content='classic'; WZ.roomTab=''; WZ.title=n.charAt(0).toUpperCase()+n.slice(1); }
+  WZ.id=idAusName(n); WZ._idT=true; WZ.device=n;
+  wzInitSetup();
+  WZ.step=wzFlow().indexOf('name'); wzRender();
+}
+// Die drei Pflichtschritte (Anzeige, Inhalt, Name) samt gueltigem Inhalt: dann
+// laesst sich das Panel mit Standardwerten fuer den Rest sofort anlegen.
+function wzPflichtOk(){
+  if(!WZ.panes || !WZ.content || !WZ.title.trim() || !WZ.id) return false;
+  wzInitSetup();
+  if(WZ.content==='room') return !!WZ.roomTab;
+  if(WZ.content==='classic') return (WZ.classic||[]).some(t=>t.on);
+  return (WZ.pickPages||[]).some(pg=>(pg.picks&&pg.picks.length)||pg.widget);
+}
 function wzOpen(){
   if(EINR) return;                       // Ersteinrichtung: ohne Struktur kein Assistent
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
     $('#wzNext').onclick=wzNext;
     $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
+    $('#wzFertig').onclick=wzBuild;
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
     $('#wzX').onclick=wzClose;
   }
@@ -3249,6 +3300,7 @@ function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+  if(WZ.device) rows.push([T('Zielgerät'),WZ.device]);
   if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
   var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
@@ -3261,7 +3313,7 @@ function wzRender(){
   var f=wzFlow(), key=f[WZ.step], b=$('#wzBody');
   $('#wzStep').textContent=T('Schritt')+' '+(WZ.step+1)+' / '+f.length;
   if(key==='anzeige'){
-    b.innerHTML='<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
+    b.innerHTML=wzVorschlagHtml()+'<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
       wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.'))+
       wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.'))+
       '</div><p class="wzq mt">'+T('Kachel-Raster — frei wählbar')+'</p><div class="wzgrid">'+
@@ -3303,6 +3355,7 @@ function wzRender(){
     b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
       '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>';
   }
+  b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
   b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; }
     // Tablet (2 Panes): automatisches Raster vorschlagen, 4"-Panel: 2 x 2 - solange das Raster nicht selbst gewaehlt ist
     if(el.dataset.wk==='panes' && !WZ._gridT) WZ.grid=(el.dataset.wo==='2')?'auto':'2x2';
@@ -3352,6 +3405,9 @@ function wzUpd(){
     else if(WZ.content==='pick'){ ok=(WZ.pickPages||[]).some(function(pg){ return (pg.picks&&pg.picks.length)||pg.widget; }); }   // mind. eine befüllte Seite
   }
   $('#wzNext').disabled=!ok;
+  // Sofort anlegen ab dem Schritt Name, sobald die Pflichtschritte gueltig sind -
+  // auch nach jeder Eingabe in Titel oder ID (dort ruft nur wzUpd, kein wzRender)
+  $('#wzFertig').hidden=!(WZ.step<f.length-1 && WZ.step>=f.indexOf('name') && wzPflichtOk());
 }
 function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzRender(); return; } wzBuild(); }
 function wzBuild(){
@@ -3388,6 +3444,8 @@ function wzBuild(){
   if(L.scale!==undefined && L.scale!=='') ui.scale=L.scale;   // '' = wie global (nicht setzen)
   // Aktiv-Overlay aus Schritt „Overlay" (nur, wenn vom Standard abgewichen)
   if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
+  if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
+    e.device=Object.assign({name:WZ.device}, (dsc.vw&&dsc.vh)?{vw:dsc.vw, vh:dsc.vh}:{}); }
   PANELS[id]=Object.assign({title:WZ.title.trim()||id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
 }
@@ -4401,6 +4459,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
       <button class="wzbtn" id="wzBack">← Zurück</button>
       <div style="display:flex;gap:10px">
         <button class="wzbtn" id="wzBlank" title="Ohne Assistent, nur ID">Leer anlegen</button>
+        <button class="wzbtn" id="wzFertig" hidden title="Die übrigen Schritte behalten ihre Standardwerte">Jetzt anlegen ✓</button>
         <button class="wzbtn prim" id="wzNext">Weiter →</button>
       </div>
     </div>

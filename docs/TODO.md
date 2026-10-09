@@ -1730,6 +1730,12 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           das gewählte Gerät schicken). **M**
       13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
           Loxone-Favoriten; drei Pflichtschritte, Rest mit Standardwerten. **M**
+          *Erledigt 08.10.2026:* Der Assistent bietet je bekanntem Gerät
+          ohne Profil einen Vorschlag an (Name passt zu einem Loxone-Raum →
+          Raum-Panel, sonst Favoriten), füllt Anzeige (aus der gemeldeten
+          Größe), Inhalt und Name vor, trägt das Gerät als Zielgerät ein und
+          bietet ab dem Schritt Name „Jetzt anlegen“ mit Standardwerten für
+          den Rest. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6.
       14. **Profil duplizieren mit Raumtausch.** **S**
           *Erledigt 08.10.2026:* „Duplizieren“ in der Speicherleiste des
           Panel-Editors: Dialog mit ID- und Titelvorschlag aus dem Zielraum,
