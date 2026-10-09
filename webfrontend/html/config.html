@@ -4052,7 +4052,10 @@ function mzRender(){
 function mzNext(){ const f=mzFlow(); if(MZ.step<f.length-1){ MZ.step++; mzRender(); return; } mzApply(); }
 // Neue Geraetenamen aus pollDevices: steht der Assistent bei den Geraeten und
 // wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
-function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(a=>a.ip)]); }
+// Signatur der Geraeteliste fuer den offenen Assistenten: Geraete ohne Kennung
+// ueber ihren Code (anonKey), nicht nur die IP - sonst bliebe nach dem Tausch
+// eines Browsers hinter derselben IP der alte Code stehen (Codex an #131).
+function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(anonKey)]); }
 function mzGeraeteNeu(names){
   if($('#mzOv').hidden || mzFlow()[MZ.step]!=='geraete') return;
   let neu=false;

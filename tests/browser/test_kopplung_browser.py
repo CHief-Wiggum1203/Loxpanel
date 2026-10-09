@@ -118,6 +118,25 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 await dritte.wait_for_selector("#kopplung:not(.hidden)")
                 await dritte.locator("#kopplung").click()
                 assert not (await dritte.evaluate(KARTE))["sichtbar"]
+
+                # Betriebsmodus-Assistent offen, ein Browser ohne Kennung wird durch einen
+                # anderen hinter derselben IP ersetzt: die Liste zeigt den neuen Code, nicht
+                # den alten (Codex an #131: die Signatur kannte nur IPs)
+                code3 = (await dritte.evaluate(KARTE))["gemerkt"]
+                # erst, wenn die Geraeteliste des Konfigurators (alle 6 s) beide kennt
+                await pg.wait_for_function("""erw => [...document.querySelectorAll('#ag_list .ag[data-anon]')]
+                    .map(n => n.dataset.code).sort().join() === erw""", arg=",".join(sorted([k3["gemerkt"], code3])), timeout=15000)
+                await pg.locator("#mzOpenBtn").click()
+                await pg.wait_for_selector("#mzOv:not([hidden])")
+                codes = lambda: pg.locator("#mzOv .mzanon").evaluate_all("l => l.map(n => n.dataset.code).sort()")
+                assert await codes() == sorted([k3["gemerkt"], code3])
+                await mit_profil.close()
+                vierte = await visu("?panel=wohnen")
+                await vierte.wait_for_function("localStorage.getItem('lp_kopplung')")
+                code4 = await vierte.evaluate("localStorage.getItem('lp_kopplung')")
+                await pg.wait_for_function("""erw => [...document.querySelectorAll('#mzOv .mzanon')]
+                    .map(n => n.dataset.code).sort().join() === erw""", arg=",".join(sorted([code3, code4])), timeout=15000)
+                await pg.locator("#mzX").click()
                 await b.close()
         finally:
             bc.cancel()
