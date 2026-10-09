@@ -1754,7 +1754,10 @@ Assistenten des Konfigurators.
   (`wzAmGeraet()`) speichert der Assistent die Zielkachel unter Displays
   (`/api/devices`), dann alle Panels und schaltet das Gerät um
   (`/api/device/switch`, erneut, solange es nach dem Neuladen durchs
-  Speichern noch nicht wieder verbunden ist). Geprüft in
+  Speichern noch nicht wieder verbunden ist). Eine Verbindung, die gerade
+  `{t:"reload"}` bekam (`App._neu_laden()`), zählt `_push()` nicht mehr:
+  das Umschalten ginge mit der alten Seite verloren, erreicht wird erst die
+  neue Verbindung (`tests/test_umschalten_nach_neuladen.py`). Geprüft in
   `tests/browser/test_assistent_geraet_browser.py`: Maße und Vorrechnung
   gleich der Visu auf fünf Standardgeräten in vier Profilen, der Ablauf bis
   zum umgeschalteten Gerät und die Zielkachel unter Displays.
