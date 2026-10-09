@@ -155,3 +155,33 @@ def test_visu_zeigt_den_entwurf_und_nur_ihn(cfg_ordner):
             bc.cancel()
             await runner.cleanup()
     asyncio.run(lauf())
+
+
+def test_entwurf_geht_der_geraete_zuordnung_vor(cfg_ordner):
+    """Ein Vorschau-Fenster erbt die Geraetekennung aus dem localStorage (derselbe
+    Ursprung wie der Konfigurator). Laeuft fuer das Geraet ein Betriebsmodus mit
+    Zuordnung, ersetzte der Server die Profil-Kennung, bevor er den Entwurf prueft -
+    die Vorschau zeigte ein fremdes Profil als abgelaufenen Entwurf. Der Entwurf
+    fuer das angeforderte Profil geht vor; ohne ihn gilt die Zuordnung wie bisher."""
+    async def lauf():
+        app = _app()
+        app.panels = W.App._sanitize_panels({**GESPEICHERT, "q": {"title": "Zugeordnet", "tabs": ["favoriten"]}})
+        app.devices = {"wand": {"auto": True, "modes": {"abend": "q"}}}
+        app.last_mode = "abend"
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        basis = f"http://127.0.0.1:{port}"
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.post(basis + "/api/entwurf", json={"id": "p", "panel": ENTWURF}) as r:
+                    token = (await r.json())["token"]
+                async with s.ws_connect(f"{basis}/ws?panel=p&device=wand") as ohne:
+                    t = await _naechste(ohne, "theme")
+                    assert (t["title"], t["entwurf"]) == ("Zugeordnet", None), "ohne Entwurf gilt die Zuordnung"
+                async with s.ws_connect(f"{basis}/ws?panel=p&device=wand&entwurf={token}") as mit:
+                    t = await _naechste(mit, "theme")
+                    assert (t["title"], t["entwurf"]) == ("Entwurf", True), t
+                    assert app.conn_info[next(iter(app.conn_info))]["dev"] == "wand"
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+    asyncio.run(lauf())

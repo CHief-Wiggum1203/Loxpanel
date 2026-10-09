@@ -9521,17 +9521,23 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await ws.prepare(request)
     dev = (request.query.get("device", "") or "").strip()[:60]
     pid = request.query.get("panel", "")
+    # ?entwurf=<Token>: ein noch nicht gespeichertes Profil (Vorschau aus dem Konfigurator).
+    # Er geht der Geraete-Zuordnung unten vor: ein Vorschau-Fenster erbt die Geraetekennung
+    # aus dem localStorage (derselbe Ursprung) und wuerde sonst auf ein fremdes Profil
+    # umgelenkt. Unbekannt, abgelaufen oder fuer ein anderes Profil: das gespeicherte.
+    ent = (request.query.get("entwurf", "") or "")[:64]
+    roh = app.entwurf_profil(ent, pid) if ent else None
     agenten = app._agenten_der_visu(dev, request.remote or "") if dev else []
     # Wahl, die der Agent noch nicht gemeldet hat: Chromium startete vorher neu
     # (Absturz, Auto-Reload, Neustart des Agenten) und fragt nach der alten
     # Ansicht. Die Visu zeigt schon die, die der Agent gleich uebernimmt.
     offen = next((app.agent_wunsch[a["ip"]] for a in agenten if a["ip"] in app.agent_wunsch), None)
-    if offen is not None:
+    if offen is not None and roh is None:
         pid = offen
     # Frisch verbundenes Geraet direkt auf den aktuell laufenden Betriebsmodus
     # setzen (statt der Start-Ansicht aus ?panel=), falls dafuer eine Zuordnung
     # existiert -> ohne Reload-Flackern gleich die richtige Visu.
-    if dev and app.last_mode and dev not in app.ansicht_gewaehlt:
+    if dev and app.last_mode and dev not in app.ansicht_gewaehlt and roh is None:
         cfg = app.devices.get(dev)
         if cfg and cfg.get("auto", True):
             mapped = (cfg.get("modes") or {}).get(app.last_mode)
@@ -9541,10 +9547,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
                 for a in agenten:
                     app.agent_wunsch[a["ip"]] = mapped
-    # ?entwurf=<Token>: ein noch nicht gespeichertes Profil (Vorschau aus dem
-    # Konfigurator); unbekannt, abgelaufen oder fuer ein anderes Profil: das gespeicherte
-    ent = (request.query.get("entwurf", "") or "")[:64]
-    prof = app.resolve_profile(pid, app.entwurf_profil(ent, pid) if ent else None)
+    prof = app.resolve_profile(pid, roh)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
     kiosk = request.query.get("kiosk", "")
@@ -9552,7 +9555,6 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                          "ip": request.remote or "", "ts": time.time()}
     if prof.get("entwurf"):
         app.conn_info[ws]["entwurf"] = ent   # api_entwurf laedt diese Vorschau bei Aenderungen neu
-    roh = prof.get("roh")
     if not dev:   # Browser ohne Kennung: Kopplungscode (mitgeschickt oder neu)
         app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"

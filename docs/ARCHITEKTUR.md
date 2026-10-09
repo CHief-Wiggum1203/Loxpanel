@@ -1744,7 +1744,13 @@ Assistenten des Konfigurators.
   verwirft alle Entwürfe; Fenster mit einem Entwurf bekommen dabei
   `{t:"entwurfEnde"}` und laden das gespeicherte Profil (ein bloßes
   `reload` ließe sie auf der Entwurfs-Adresse, und eine Umleitung durch den
-  Konfigurator liefe gegen das Neuladen). Geprüft in `tests/test_entwurf.py` und
+  Konfigurator liefe gegen das Neuladen). Eine Antwort von `/api/entwurf`, die erst
+  nach dem Speichern eintrifft (die 600 ms waren schon abgelaufen), verwirft der
+  Konfigurator über eine Zählung (`ENTWURF.gen`, beim Start des Speicherns
+  erhöht) und lenkt das Fenster nicht zurück. Ein Entwurf geht der
+  Geräte-Zuordnung vor (Agent-Wunsch, Betriebsmodus): ein Vorschau-Fenster erbt
+  die Gerätekennung aus dem `localStorage` (derselbe Ursprung) und würde sonst auf
+  ein fremdes Profil umgelenkt. Geprüft in `tests/test_entwurf.py` und
   `tests/browser/test_entwurf_browser.py`.
   Geprüft in `tests/browser/test_seiten_editor_browser.py`: Fläche gleich der
   Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,

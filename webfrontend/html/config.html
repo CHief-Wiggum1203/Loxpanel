@@ -2284,12 +2284,16 @@ function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast
 // Visu damit in einem Fenster in der Groesse des Vorschaugeraets (Seiten-Editor).
 // Solange das Fenster offen ist, zieht jede Aenderung nach; Speichern beendet den
 // Entwurf, das Fenster zeigt dann das gespeicherte Profil.
-const ENTWURF={token:'', id:'', win:null, timer:0};
+// gen zaehlt die Speichervorgaenge: eine Antwort, die erst danach eintrifft, gehoert zu einem
+// Entwurf, den der Server beendet hat, und darf weder ENTWURF aendern noch das Fenster lenken.
+const ENTWURF={token:'', id:'', win:null, timer:0, gen:0};
 async function entwurfSenden(){
   const p=PANELS[cur]; if(!p || p.__global) return null;
-  const j=await postJson('/api/entwurf', {id:cur, panel:p, token:(ENTWURF.id===cur?ENTWURF.token:'')});
+  const gen=ENTWURF.gen, id=cur;
+  const j=await postJson('/api/entwurf', {id:id, panel:p, token:(ENTWURF.id===id?ENTWURF.token:'')});
+  if(gen!==ENTWURF.gen) return null;
   if(!j.ok) throw new Error(j.error||'?');
-  ENTWURF.token=j.token; ENTWURF.id=cur;
+  ENTWURF.token=j.token; ENTWURF.id=id;
   return j;
 }
 // Die Visu im Fenster auf die Adresse bringen; zeigt es sie schon, hat der Server es neu geladen
@@ -2306,6 +2310,7 @@ async function entwurfOeffnen(){
   if(!w){ flash(t, T('Das Vorschaufenster hat der Browser blockiert.'), false); return; }
   try{
     const j=await entwurfSenden();
+    if(!j) return;   // inzwischen gespeichert
     ENTWURF.win=w; entwurfZiel(w, j.url); w.focus();
     if((j.verworfen||[]).length) flash(t, T('Nicht übernommen:')+' '+j.verworfen.join('; '), false);
   }catch(e){ try{ w.close(); }catch(x){} flash(t, T('Vorschau nicht möglich:')+' '+e.message, false); }
@@ -2321,12 +2326,13 @@ function entwurfNachziehen(){
 // Gespeichert: der Entwurf ist erledigt. Das offene Fenster schickt der Server selbst auf
 // das gespeicherte Profil ({t:"entwurfEnde"}); hier nur nichts mehr nachziehen.
 function entwurfBeendet(){
-  clearTimeout(ENTWURF.timer);
+  clearTimeout(ENTWURF.timer); ENTWURF.gen++;
   ENTWURF.token=''; ENTWURF.id='';
 }
 
 async function save(){
   const t=$('#toast');
+  clearTimeout(ENTWURF.timer); ENTWURF.gen++;   // Vorschau: ab jetzt nichts mehr nachziehen, Verspaetetes verwerfen
   try{
     const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=PANELS[k]; }
     const r=await fetch('/api/panels',{method:'POST',headers:{'Content-Type':'application/json'},
