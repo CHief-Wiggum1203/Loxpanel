@@ -3810,7 +3810,7 @@ async function wzAmGeraet(id, name, umschalten, ziel){
   if(ziel){
     readDevFromDom();
     DEV[name]=Object.assign({auto:true, modes:[]}, DEV[name]||{}, {tileTarget:ziel});
-    try{ const j=await postJson('/api/devices', {devices:devicesPayload()});
+    try{ const j=await devSpeichern();
       if(!j.ok){ flash(t, j.error||T('Fehler'), false); return; }
       devGespeichert(j, T('✓ Gespeichert')); renderDevices(); }
     catch(e){ flash(t, 'Fehler: '+e, false); return; }
@@ -4747,14 +4747,16 @@ async function devEntfernen(name, online){
       (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
   readDevFromDom();
   const alt=DEV[name]; delete DEV[name];
+  // Zeile gleich aus dem Editor: liest ein weiteres Speichern die Liste, kaeme sie sonst zurueck
+  const zeile=document.querySelector('#dev_list .dev[data-name="'+CSS.escape(name)+'"]'); if(zeile) zeile.remove();
   try{
-    const j=await postJson('/api/devices',{devices:devicesPayload()});
-    if(!j.ok){ DEV[name]=alt; flash($('#ag_toast'),'Fehler: '+(j.error||''),false); return; }
+    const j=await devSpeichern();
+    if(!j.ok){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+(j.error||''),false); return; }
     KNOWN_NAMES=KNOWN_NAMES.filter(n=>n!==name);
     renderDevices(); devGespeichert(j, T('✓ Gespeichert')); zielAuswahlAuffrischen();
     flash($('#ag_toast'), '✓ '+T('Entfernt:')+' '+name, true);
     pollDevices();
-  }catch(e){ DEV[name]=alt; flash($('#ag_toast'),'Fehler: '+e,false); }
+  }catch(e){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+e,false); }
 }
 async function nameDevice(ip,name,code){
   if(!name){ flash($('#ag_toast'),T('Bitte einen Namen eingeben'),false); return false; }
@@ -4944,6 +4946,15 @@ function devicesPayload(){
   });
   return devices;
 }
+// Die Geraeteliste nacheinander speichern: Jede Anfrage traegt die ganze Liste,
+// eine spaetere darf eine fruehere nicht ueberholen (sonst kaeme ein gerade
+// entferntes Display zurueck). Die Liste entsteht erst, wenn die Anfrage dran ist.
+let DEV_SPEICHERN=Promise.resolve();
+function devSpeichern(){
+  const lauf=DEV_SPEICHERN.then(()=>postJson('/api/devices',{devices:devicesPayload()}));
+  DEV_SPEICHERN=lauf.catch(()=>{});
+  return lauf;
+}
 // Nach dem Speichern: welche Kennwoerter der Server jetzt hat (auch in den
 // Platzhaltern, "Speichern" zeichnet nicht neu); eines, das er wegen eines
 // anderen Ziels verworfen hat, nennen (bleibt stehen).
@@ -4957,11 +4968,9 @@ function devGespeichert(j, text){
 }
 $('#dev_save').onclick=async()=>{
   readDevFromDom();
-  const devices=devicesPayload();
   $('#dev_save').disabled=true;
   try{
-    const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
-    const j=await r.json();
+    const j=await devSpeichern();
     if(j.ok){ devGespeichert(j,T('✓ Gespeichert')); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
   $('#dev_save').disabled=false;
@@ -5085,10 +5094,8 @@ async function mzApply(){
     MZ.modes.forEach(m=>{ if(m.profile) map.set(m.key,m.profile); else map.delete(m.key); });
     d.modes=Array.from(map.entries()); d.auto=true;
   });
-  const devices=devicesPayload();
   try{
-    const r=await fetch('/api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({devices})});
-    const j=await r.json();
+    const j=await devSpeichern();
     if(j.ok){ mzClose(); devGespeichert(j,T('✓ Betriebsmodus gespeichert')); renderDevices(); }
     else flash($('#dev_toast'),j.error||T('Fehler'),false);
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }

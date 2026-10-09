@@ -442,3 +442,46 @@ def test_display_entfernen(cfg_ordner):
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+def test_zwei_displays_schnell_hintereinander_entfernen(cfg_ordner):
+    """Das zweite Entfernen kommt, waehrend das erste noch speichert (hier haelt
+    der Test die erste Anfrage eine Sekunde auf). Weder darf das zweite Speichern
+    das erste Display aus dem Editor wieder einlesen, noch eine fruehere Anfrage
+    eine spaetere ueberholen: am Ende sind beide weg."""
+    panels = copy.deepcopy(PANELS)
+    panels["devices"]["kueche-wand"] = {"auto": True, "modes": {"gaeste": "wohnen"}}
+
+    async def lauf():
+        app = _app(cfg_ordner, panels)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, posts = [], []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+
+                async def bremse(route):
+                    if route.request.method == "POST":
+                        posts.append(json.loads(route.request.post_data)["devices"])
+                        if len(posts) == 1:
+                            await asyncio.sleep(1)
+                    await route.continue_()
+                await pg.route("**/api/devices", bremse)
+                await _displays(pg, port)
+                liste = pg.locator("#ag_list")
+                await liste.locator('.ag[data-name="kueche-wand"]').wait_for()
+                await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
+                await liste.locator('.ag[data-name="kueche-wand"] [data-act="entfernen"]').click()
+                await _meldung(pg, "#ag_toast", "✓ Entfernt: kueche-wand")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        assert [sorted(d) for d in posts] == [["kueche-wand"], []], posts
+        doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+        assert "devices" not in doc and app.devices == {}, doc
+    asyncio.run(lauf())
