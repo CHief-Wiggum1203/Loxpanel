@@ -1750,15 +1750,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           *Teil Abschneiden erledigt mit Punkt 1*
           (`test_lesbarkeit_auf_standardgeraeten`: mit Faktor nicht mehr
           abgeschnitten als ohne, keine Kachel läuft über).
-          *Teil „ein Drittel“ erledigt 08.10.2026*
-          (`test_keine_seite_mehr_als_ein_drittel_leer`, 23 Favoriten der
-          Messreihe): passt alles auf eine Seite, füllt das Wachsen aus
-          Punkt 2 sie bis auf höchstens ein Drittel (10″ quer 7 × 4: 5 von
-          28 Zellen leer, iPad quer 6 × 4: 1 von 24); sonst ist jede Seite
-          bis auf die letzte voll, die den Rest trägt (Tab A9 quer und
-          hochkant 15 + 8, 4″ 5 × 4 + 3). Eine vollere letzte Seite gäbe es
-          nur mit mehr Seiten (Tab A9: 4 × 2 → 8 + 8 + 7), das nimmt die
-          Automatik bewusst nicht in Kauf.
+          *Teil „ein Drittel“ als Test erledigt 09.10.2026*
+          (`test_seiten_voll_bis_auf_die_letzte`, die 23 Favoriten der
+          Messreihe in Zellen, mit drei breiten Kacheln 26): passt alles auf
+          eine Seite, füllt das Wachsen aus Punkt 2 sie bis auf höchstens ein
+          Drittel (10″ quer 7 × 4: 26 von 28); sonst ist jede Seite bis auf
+          die letzte voll und die Seitenzahl so klein, wie das Raster hergibt
+          (Tab A9 quer und hochkant 15 + 11, 4″ fest 2 × 2 sechsmal 4 + 2).
+          **Offen ist die letzte Seite:** iPad quer 6 × 4 zeigt 24 + 2, die
+          zweite Seite bleibt fast leer. Mit 7 Spalten passte alles auf eine
+          Seite, die Kacheln wären 135 statt 159 px breit (Ziel 170). Ob die
+          Automatik dafür unter die Zielgröße schrumpfen darf, ist zu
+          entscheiden.
       Mockup (Seiten-Editor, Assistent, vier Ansichten) im Canvas „LoxPanel
       Seiten-Editor“, Messreihe in der Sitzung vom 06.10.2026.
 - [ ] **Weitere Vorschläge aus der Kachel-Analyse vom 02.10.2026** (noch

@@ -494,34 +494,3 @@ def test_widget_breite_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["nach_neuladen"] == ("2", "2 Kachelspalten"), stand
     assert (stand["ohne_split"], stand["mit_split"], stand["fest"]) == (False, True, False), stand
     assert stand["text0"].startswith("Automatisch") and stand["zurueck"] == {"grid": "auto"}, stand
-
-
-# Lesbarkeits-Pruefung, Teil "keine Seite mehr als ein Drittel leer" (Punkt
-# 16): die 23 Favoriten der Messreihe vom 06.10.2026 auf den Standardgeraeten.
-# Passen alle auf eine Seite, fuellt das Wachsen (Punkt 2) sie bis auf
-# hoechstens ein Drittel; sonst ist jede Seite bis auf die letzte voll, und die
-# letzte traegt den Rest - mehr Seiten fuer eine vollere letzte Seite nimmt die
-# Automatik bewusst nicht in Kauf (Tab A9: 15 + 8 statt 8 + 8 + 7).
-MESSREIHE = 23
-LESBAR = {"taba9-quer": ((893, 533), {"grid": "auto"}), "taba9-hoch": ((533, 893), {"grid": "auto"}),
-          "zehn-quer": ((1280, 800), {"grid": "auto"}), "ipad-quer": ((1024, 768), {"grid": "auto"}),
-          "4zoll": ((480, 480), {"cols": 2, "rows": 2})}
-SEITEN = """() => { const g = document.getElementById('grid');
-  const zellen = gridCols * gridRows;
-  let seiten;
-  if (g.classList.contains('hpages')) seiten = [...g.querySelectorAll('.page')].map(p => p.querySelectorAll('.tile[data-id]').length);
-  else { const z = g._zeile || []; seiten = []; z.forEach(r => { const s = Math.floor(r / gridRows); seiten[s] = (seiten[s] || 0) + 1; }); }
-  return {zellen, seiten, raster: [gridCols, gridRows]}; }"""
-
-
-@pytest.mark.parametrize("geraet", list(LESBAR))
-def test_keine_seite_mehr_als_ein_drittel_leer(geraet):
-    (b, h), ui = LESBAR[geraet]
-    m = _laufen(ui, b, h, SEITEN, anzahl=MESSREIHE)
-    zellen, seiten = m["zellen"], m["seiten"]
-    assert sum(seiten) == MESSREIHE and all(s > 0 for s in seiten), m
-    assert all(s == zellen for s in seiten[:-1]), ("jede Seite bis auf die letzte ist voll", m)
-    if len(seiten) == 1:
-        assert (zellen - seiten[0]) / zellen <= 1 / 3, ("eine Seite: hoechstens ein Drittel leer (Wachsen, Punkt 2)", m)
-    else:
-        assert len(seiten) == -(-MESSREIHE // zellen), ("so wenige Seiten wie das Raster hergibt", m)
