@@ -584,6 +584,33 @@ def _clean_pane_spalten(v) -> int | None:
     return int(min(PANE_SPALTEN_MAX, int(v)))
 
 
+# Groesste Bildschirmkante in CSS-px, die der Server annimmt: fuer die Meldung
+# eines Panels (_clean_screen) und fuer die im Profil gespeicherte Zielgroesse
+# (_clean_zielgeraet) dieselbe Grenze, sonst passt eine gemeldete Groesse nicht
+# in das Profil und der Abgleich unter Displays kann nie warnen.
+BILDSCHIRM_PX_MAX = 20000
+
+
+def _clean_zielgeraet(v) -> dict | None:
+    """Zielgeraet eines Profils (profil.device): {"name": Geraetename, dazu
+    optional "vw"/"vh" = Bildschirm in CSS-Pixeln, wie das Geraet ihn beim
+    Waehlen gemeldet hat}. Ein blosser Name (str) wird zum dict. Ohne Namen
+    None = kein Zielgeraet; eine unbrauchbare Groesse faellt still weg."""
+    if isinstance(v, str):
+        v = {"name": v}
+    if not isinstance(v, dict):
+        return None
+    name = str(v.get("name") or "").strip()[:60]
+    if not name:
+        return None
+    out = {"name": name}
+    vw, vh = v.get("vw"), v.get("vh")
+    if all(isinstance(x, (int, float)) and not isinstance(x, bool) and x == x and 1 <= x <= BILDSCHIRM_PX_MAX
+           for x in (vw, vh)):
+        out["vw"], out["vh"] = int(vw), int(vh)
+    return out
+
+
 def _kachel_breite(v) -> int | None:
     """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
     Ziffer; True/False und alles andere ergibt None = nach Typ."""
@@ -625,10 +652,11 @@ def _clean_screen(d) -> dict:
         v = max(lo, min(hi, float(v)))
         return round(v, stellen) if stellen else int(round(v))
 
-    out = {"vw": zahl("vw", 1, 20000), "vh": zahl("vh", 1, 20000),     # sichtbare Flaeche (CSS-px)
-           "sw": zahl("sw", 1, 20000), "sh": zahl("sh", 1, 20000),     # Bildschirm laut Geraet (CSS-px)
+    px = BILDSCHIRM_PX_MAX
+    out = {"vw": zahl("vw", 1, px), "vh": zahl("vh", 1, px),           # sichtbare Flaeche (CSS-px)
+           "sw": zahl("sw", 1, px), "sh": zahl("sh", 1, px),           # Bildschirm laut Geraet (CSS-px)
            "dpr": zahl("dpr", 0.25, 8, 2),                              # Pixeldichte
-           "bw": zahl("bw", 1, 20000), "bh": zahl("bh", 1, 20000),     # Kasten der Visu (ungeskaliert)
+           "bw": zahl("bw", 1, px), "bh": zahl("bh", 1, px),           # Kasten der Visu (ungeskaliert)
            "k": zahl("k", 0.1, 10, 3),                                  # wirksamer Faktor
            "rc": zahl("rc", 1, 50), "rr": zahl("rr", 1, 50)}            # Raster der Kachelansicht
     return {k: v for k, v in out.items() if v is not None}
@@ -3276,6 +3304,8 @@ class App:
             "tiles": raw.get("tiles") if isinstance(raw.get("tiles"), dict) else {},
             "hide": [u for u in (raw.get("hide") or [])
                      if isinstance(u, str) and u in self.controls],
+            # Zielgeraet (Punkt 15): nur, wenn eines gesetzt ist
+            **({"device": _z} if (_z := _clean_zielgeraet(raw.get("device"))) else {}),
             # Reihenfolge ist die Klickreihenfolge, deshalb NICHT sortieren -
             # anders als rooms/cats, die der Loxone-Reihenfolge folgen.
             "picks": [u for u in (raw.get("picks") or [])
@@ -3328,6 +3358,11 @@ class App:
             hide = [str(x) for x in (p.get("hide") or []) if isinstance(x, str)]
             if hide:
                 e["hide"] = hide           # einzeln ausgeblendete Kacheln (panelweit)
+            # Zielgeraet, fuer das das Profil gemacht ist (Displays warnt bei
+            # Abweichung); fehlt = keines
+            ziel = _clean_zielgeraet(p.get("device"))
+            if ziel:
+                e["device"] = ziel
             # Freie Auswahl (Tab "auswahl"): handverlesene Bausteine in
             # Klickreihenfolge. Hier nur Form pruefen - ob die UUIDs existieren,
             # entscheidet _panel_export gegen self.controls, wie bei "hide".
