@@ -488,6 +488,9 @@ ENTWURF_DAUER = 3600
 # Vorschau am Geraet (Punkt 12): so lange zeigt ein Geraet einen Entwurf, wenn der
 # Konfigurator ihn nicht mehr auffrischt - dann geht es zur vorigen Ansicht zurueck.
 VORSCHAU_GERAET_DAUER = 900
+# Endet die Vorschau, waehrend das Geraet noch zum Entwurf unterwegs ist (es laedt gerade
+# neu), schickt der Server seine neue Verbindung so lange noch zurueck (Sekunden)
+VORSCHAU_UNTERWEGS = 30
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
@@ -1538,6 +1541,8 @@ class App:
         self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
         # Geraet -> {token, id, zurueck (Profil davor), bis}: zeigt gerade einen Entwurf (Punkt 12)
         self.vorschau_geraet: dict[str, dict] = {}
+        # ... beendet, das Geraet aber noch unterwegs zum Entwurf: Geraet -> {token, zurueck, bis}
+        self.vorschau_ende: dict[str, dict] = {}
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         # Geraete, deren Ansicht unter Displays ausdruecklich gewaehlt wurde: der
@@ -2649,13 +2654,25 @@ class App:
     async def vorschau_beenden(self, device: str) -> int:
         """Die Vorschau am Geraet beenden: es kehrt zum Profil davor zurueck
         ({t:"switch"} ohne Entwurf). Nur Verbindungen, die den Entwurf noch zeigen -
-        wurde das Geraet inzwischen anders umgeschaltet, bleibt es dabei. -> Anzahl."""
+        wurde das Geraet inzwischen anders umgeschaltet, bleibt es dabei. Ist eine
+        Verbindung noch unterwegs zum Entwurf (sie bekam das Umschalten und laedt neu),
+        merkt sich der Server das Ende: ws_handler schickt die neue Verbindung zurueck.
+        -> Anzahl (unterwegs zaehlt mit)."""
         e = self.vorschau_geraet.pop(device, None)
+        self.vorschau_ende.pop(device, None)
+        if not e:
+            return 0
         n = 0
         for ws, info in list(self.conn_info.items()):
-            if e and info.get("dev") == device and info.get("entwurf") == e["token"]:
+            if info.get("dev") != device:
+                continue
+            if info.get("entwurf") == e["token"]:
                 if await self._neu_laden(ws, {"t": "switch", "panel": e["zurueck"], "entwurf": ""}):
                     n += 1
+            elif info.get("entwurfKommt") == e["token"]:
+                self.vorschau_ende[device] = {"token": e["token"], "zurueck": e["zurueck"],
+                                              "bis": time.time() + VORSCHAU_UNTERWEGS}
+                n += 1
         return n
 
     def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
@@ -3329,10 +3346,12 @@ class App:
             ws_targets = [ws for ws, dev in self.conn_dev.items() if dev == name]
             if ws_targets:
                 self.vorschau_geraet.pop(name, None)   # der Modus schaltet um: eine Vorschau endet damit
+                self.vorschau_ende.pop(name, None)
                 sent = 0
                 for ws in ws_targets:
-                    if (self.conn_prof.get(ws) or {}).get("id") == profile:
-                        sent += 1            # zeigt bereits das richtige Profil
+                    p = self.conn_prof.get(ws) or {}
+                    if p.get("id") == profile and not p.get("entwurf"):
+                        sent += 1            # zeigt bereits das richtige Profil (ein Entwurf davon nicht)
                         continue
                     if await self._send_or_drop(ws, {"t": "switch", "panel": profile}):
                         sent += 1
@@ -3761,6 +3780,7 @@ class App:
         self.panels = load_panels()
         self.entwuerfe.clear()   # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu)
         self.vorschau_geraet.clear()   # ... auch am Geraet: es zeigt jetzt das gespeicherte Profil
+        self.vorschau_ende.clear()
 
     def _write_devices(self, devices: dict) -> None:
         # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
@@ -9274,12 +9294,17 @@ async def api_device_switch(request: web.Request) -> web.Response:
         if not n:
             return web.json_response({"ok": False, "sent": 0,
                                       "error": "Keine verbundene Visu – eine Vorschau braucht sie"})
+        app.vorschau_ende.pop(device, None)
+        for info in app.conn_info.values():   # unterwegs zum Entwurf (laedt gleich neu): vorschau_beenden
+            if info.get("dev") == device and not info.get("neuLaden") and info.get("entwurf") != tok:
+                info["entwurfKommt"] = tok
         app.vorschau_geraet[device] = {"token": tok, "id": panel, "zurueck": zurueck,
                                        "bis": time.time() + VORSCHAU_GERAET_DAUER}
         return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": "", "zurueck": zurueck})
     if panel and panel not in app.panels:
         return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
     app.vorschau_geraet.pop(device, None)   # eine ausdrueckliche Wahl beendet eine Vorschau am Geraet
+    app.vorschau_ende.pop(device, None)
     n = await _push(app, {"t": "switch", "panel": panel}, "", device)
     a = app.agents.get(str(d.get("ip") or "").strip())
     weg, ok = "", False
@@ -9661,6 +9686,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first
+    # Vorschau am Geraet beendet, waehrend es noch zum Entwurf unterwegs war: gleich zurueck
+    ende = app.vorschau_ende.get(dev) if dev and prof.get("entwurf") else None
+    if ende and ende["token"] == ent:
+        del app.vorschau_ende[dev]
+        if time.time() < ende["bis"]:
+            await app._neu_laden(ws, {"t": "switch", "panel": ende["zurueck"], "entwurf": ""})
     # Einrichtungshinweis, solange es keine Struktur vom Miniserver gibt
     await app._einrichtung_melden(neu=ws)
     # Browser ohne Kennung: Kopplungscode; ohne ?panel= dazu die Karte

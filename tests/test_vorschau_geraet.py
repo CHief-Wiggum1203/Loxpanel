@@ -168,3 +168,78 @@ def test_betriebsmodus_beendet_die_vorschau_des_geraets(cfg_ordner):
             m = await _naechste(wand, "switch")
             assert m["panel"] == "b" and "entwurf" not in m, m
     _lauf(schritte)
+
+
+def test_betriebsmodus_auf_dasselbe_profil_holt_das_geraet_vom_entwurf(cfg_ordner):
+    """Der Modus zeigt auf das Profil, dessen Entwurf das Geraet gerade zeigt: dieselbe
+    Kennung, aber nicht das gespeicherte Profil - es muss trotzdem umschalten, sonst
+    bliebe der Entwurf ohne Frist stehen (die Vorschau ist mit dem Modus vorbei)."""
+    async def schritte(app, s, basis, post):
+        app.devices = {"wand": {"auto": True, "modes": {"morgen": "a"}}}
+        _, j = await post("/api/entwurf", {"id": "a", "panel": ENTWURF})
+        async with s.ws_connect(f"{basis}/ws?panel=a&device=wand&entwurf={j['token']}") as wand, \
+                s.ws_connect(f"{basis}/ws?panel=a&device=wand") as gespeichert:
+            await _naechste(wand, "theme")
+            await _naechste(gespeichert, "theme")
+            app.vorschau_geraet["wand"] = {"token": j["token"], "id": "a", "zurueck": "b", "bis": 1e12}
+            ergebnis = await app.switch_mode("morgen")
+            assert ergebnis == [{"panel": "wand", "profile": "a", "ok": True, "via": "ws"}], ergebnis
+            m = await _naechste(wand, "switch")
+            assert m == {"t": "switch", "panel": "a"}, m
+            assert await _naechste(gespeichert, "switch", 0.5) is None, "zeigt das gespeicherte a schon"
+            assert app.vorschau_geraet == {}
+    _lauf(schritte)
+
+
+def test_beenden_waehrend_das_geraet_noch_zum_entwurf_unterwegs_ist(cfg_ordner):
+    """Beenden gleich nach dem Start: die alte Seite hat das Umschalten bekommen und laedt
+    neu, eine Verbindung mit dem Entwurf gibt es noch nicht. Kommt sie an, schickt der
+    Server sie gleich zurueck - einmal, nur dieses Geraet, nur dieser Token."""
+    async def schritte(app, s, basis, post):
+        _, j = await post("/api/entwurf", {"id": "neu", "panel": ENTWURF})
+        token = j["token"]
+        async with s.ws_connect(f"{basis}/ws?panel=a&device=wand") as alt:
+            await _naechste(alt, "theme")
+            _, j = await post("/api/device/switch", {"device": "wand", "panel": "neu", "entwurf": token})
+            assert j["ok"], j
+            assert await _naechste(alt, "switch")
+            # die Seite laedt noch neu: jetzt beenden
+            _, j = await post("/api/vorschau/beenden", {"device": "wand"})
+            assert j == {"ok": True, "beendet": True}, j
+            assert app.vorschau_geraet == {}
+        async with s.ws_connect(f"{basis}/ws?panel=neu&device=fremd&entwurf={token}") as fremd:
+            assert (await _naechste(fremd, "theme"))["entwurf"] is True
+            assert await _naechste(fremd, "switch", 0.5) is None, "ein anderes Geraet bleibt beim Entwurf"
+        async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as neu:
+            await _naechste(neu, "theme")
+            m = await _naechste(neu, "switch")
+            assert m == {"t": "switch", "panel": "a", "entwurf": ""}, m
+        assert app.vorschau_ende == {}
+        # danach (etwa das Vorschau-Fenster mit derselben Kennung) gilt der Entwurf wieder
+        async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as fenster:
+            await _naechste(fenster, "theme")
+            assert await _naechste(fenster, "switch", 0.5) is None
+    _lauf(schritte)
+
+
+def test_unterwegs_endet_nach_der_frist_und_mit_neuer_vorschau(cfg_ordner, monkeypatch):
+    monkeypatch.setattr(W, "VORSCHAU_UNTERWEGS", 0.2)
+
+    async def schritte(app, s, basis, post):
+        _, j = await post("/api/entwurf", {"id": "neu", "panel": ENTWURF})
+        token = j["token"]
+        async with s.ws_connect(f"{basis}/ws?panel=a&device=wand") as alt:
+            await _naechste(alt, "theme")
+            await post("/api/device/switch", {"device": "wand", "panel": "neu", "entwurf": token})
+            await _naechste(alt, "switch")
+            await post("/api/vorschau/beenden", {"device": "wand"})
+            assert "wand" in app.vorschau_ende
+            # eine neue Vorschau hebt das Ende auf
+            await post("/api/device/switch", {"device": "wand", "panel": "neu", "entwurf": token})
+            assert app.vorschau_ende == {} and "wand" in app.vorschau_geraet
+            await post("/api/vorschau/beenden", {"device": "wand"})
+        await asyncio.sleep(0.3)   # die Seite kam nicht rechtzeitig: kein Zurueckschicken mehr
+        async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as spaet:
+            await _naechste(spaet, "theme")
+            assert await _naechste(spaet, "switch", 0.5) is None
+    _lauf(schritte)

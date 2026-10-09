@@ -1769,7 +1769,13 @@ Assistenten des Konfigurators.
   `api_entwurf` auf und lädt das Gerät neu) und beim Schließen des Assistenten ohne
   Anlegen. Speichern, ein Betriebsmodus oder eine ausdrückliche Wahl unter
   Displays beenden sie ebenfalls (Speichern: das Gerät zeigt das gespeicherte
-  Profil, `entwurfEnde`). Die Visu nimmt bei jedem `switch` den `?entwurf=` aus der
+  Profil, `entwurfEnde`). Ein Betriebsmodus schaltet auch dann um, wenn er auf das
+  Profil des Entwurfs zeigt: dieselbe Kennung ist nicht das gespeicherte Profil.
+  Endet die Vorschau, während das Gerät noch zum Entwurf umlädt (die alte Seite
+  trägt `entwurfKommt`, eine Verbindung mit dem Entwurf gibt es noch nicht), merkt
+  sich der Server das Ende in `App.vorschau_ende`; `ws_handler` schickt die neue
+  Verbindung einmal zurück, höchstens `VORSCHAU_UNTERWEGS` = 30 s lang und nur für
+  dieses Gerät und diesen Token. Die Visu nimmt bei jedem `switch` den `?entwurf=` aus der
   Adresse, sonst setzt sie ihn. `/api/devices` nennt je Gerät `vorschau` `{id, bis}`;
   der Konfigurator gleicht den Knopf damit ab. Die Zielkachel, die der Assistent am
   Gerät merken will, gilt erst beim Anlegen: die Vorschau rechnet mit der
