@@ -29,23 +29,39 @@ function kachelFaktorFuer(breite, hoehe){
 // Quadratischer Schirm (4"-Panel): Breite und Hoehe weniger als ein Zehntel auseinander.
 function quadratisch(w, h){ return Math.abs(w-h) < 0.1*Math.max(w, h); }
 
+// Groesse einer Kachel im Raster: eine Zahl (Breite 1 | 2) oder {w, h} aus dem
+// Seiten-Editor (Punkt 10: 1x1, 2x1, 2x2). Breit nur, wo zwei Spalten da sind,
+// hoch nur, wo sie auch breit ist und zwei Zeilen da sind.
+function groesse(b, cols, rows){
+  const w=Math.min(((typeof b==='number') ? b : (b && b.w))===2 ? 2 : 1, Math.max(1, cols));
+  const h=(w===2 && rows>=2 && typeof b==='object' && b && b.h===2) ? 2 : 1;
+  return {w:w, h:h};
+}
 // Lage der Kacheln im Raster, wie CSS sie setzt (grid-auto-flow: row dense):
-// je Kachel ihre Zeile. Breite Kacheln (w = 2) belegen zwei Spalten, eine
-// Luecke davor fuellt die naechste schmale Kachel. Daraus die Seitenzahl und
+// je Kachel Zeile und Spalte. Breite Kacheln (w = 2) belegen zwei Spalten, eine
+// Luecke davor fuellt die naechste schmale Kachel. Eine hohe (h = 2) belegt zwei
+// Zeilen derselben Seite: in der letzten Zeile einer Seite rueckt sie auf die
+// naechste (hoch: die Visu setzt dann jede Kachel an ihre Stelle, weil der
+// Fluss des Browsers die Seitengrenze nicht kennt). Daraus die Seitenzahl und
 // die Rastpunkte (jede Kachel in der ersten Zeile einer Seite).
-function rasterLage(breiten, cols, rows){
-  const belegt=[], zeile=[];
-  const frei=(r,c,w)=>{ for(let k=0;k<w;k++) if(belegt[r] && belegt[r][c+k]) return false; return true; };
-  for(const b of breiten){
-    const w=Math.min(b===2?2:1, Math.max(1,cols));
+function rasterLage(groessen, cols, rows){
+  const belegt=[], zeile=[], spalte=[], R=Math.max(1,rows);
+  const frei=(r,c,w,h)=>{ for(let y=0;y<h;y++) for(let k=0;k<w;k++) if(belegt[r+y] && belegt[r+y][c+k]) return false; return true; };
+  let hoch=false;
+  for(const b of groessen){
+    const {w, h}=groesse(b, cols, rows);
+    if(h>1) hoch=true;
     let r=0, c=-1;
-    while(c<0){ for(let cc=0; cc+w<=cols; cc++){ if(frei(r,cc,w)){ c=cc; break; } } if(c<0) r++; }
-    belegt[r]=belegt[r]||[]; for(let k=0;k<w;k++) belegt[r][c+k]=true;
-    zeile.push(r);
+    while(c<0){
+      if(r%R<=R-h){ for(let cc=0; cc+w<=cols; cc++){ if(frei(r,cc,w,h)){ c=cc; break; } } }
+      if(c<0) r++;
+    }
+    for(let y=0;y<h;y++){ belegt[r+y]=belegt[r+y]||[]; for(let k=0;k<w;k++) belegt[r+y][c+k]=true; }
+    zeile.push(r); spalte.push(c);
   }
   const snaps=new Set(), gesehen=new Set();
-  zeile.forEach((z,i)=>{ if(z%Math.max(1,rows)===0 && !gesehen.has(z)){ gesehen.add(z); snaps.add(i); } });
-  return {zeile:zeile, seiten:Math.max(1, Math.ceil(belegt.length/Math.max(1,rows))), snaps:snaps};
+  zeile.forEach((z,i)=>{ if(z%R===0 && !gesehen.has(z)){ gesehen.add(z); snaps.add(i); } });
+  return {zeile:zeile, spalte:spalte, hoch:hoch, seiten:Math.max(1, Math.ceil(belegt.length/R)), snaps:snaps};
 }
 
 // Festes Raster aus dem Profil (cols x rows): mit Split verdoppelt es sich quer
@@ -105,12 +121,12 @@ function autoRaster(e){
   const passt=(c,rw)=>breiten.length>0 && rasterLage(breiten,c,rw).seiten<=1;
   const seitenVon=r=>rasterLage(breiten, r.cols, r.rows).seiten;
   // Mehrere Seiten und die letzte mehr als ein Drittel leer (in Zellen, eine
-  // breite Kachel belegt zwei)? Eine einzelne Seite fuellt das Wachsen.
+  // breite Kachel belegt zwei, eine hohe vier)? Eine einzelne Seite fuellt das Wachsen.
   const letzteZuLeer=r=>{
     const l=rasterLage(breiten, r.cols, r.rows), zellen=r.cols*r.rows;
     if(l.seiten<2) return false;
     let belegt=0;
-    l.zeile.forEach((z,i)=>{ if(Math.floor(z/r.rows)===l.seiten-1) belegt+=Math.min(breiten[i], r.cols); });
+    l.zeile.forEach((z,i)=>{ if(Math.floor(z/r.rows)===l.seiten-1){ const g=groesse(breiten[i], r.cols, r.rows); belegt+=g.w*g.h; } });
     return 3*(zellen-belegt)>zellen;
   };
   const rechne=punkte=>{
@@ -142,5 +158,5 @@ function autoRaster(e){
 }
 
 g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE,
-  kachelFaktorFuer, quadratisch, rasterLage, festesRaster, autoRaster};
+  kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster};
 })(typeof window!=='undefined' ? window : globalThis);

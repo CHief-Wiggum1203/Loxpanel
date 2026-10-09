@@ -193,9 +193,46 @@ def _is_pick(t):
     return _pick_index(t) >= 0
 
 
+def _seiten_layout(v) -> list | None:
+    """Anordnung einer freien Seite aus dem Seiten-Editor (pickTabs[i].layout,
+    Punkt 10): [{id, w, h}] in der Reihenfolge der Seite, w und h je 1 oder 2.
+    Eine hohe Kachel ist immer auch breit - die Groessen sind 1x1, 2x1 und 2x2.
+    Doppelte ids fallen weg; kein Layout (None) heisst Groesse nach tiles bzw.
+    Typ und Reihenfolge wie in picks."""
+    if not isinstance(v, list):
+        return None
+    out, gesehen = [], set()
+    for e in v[:60]:
+        if not isinstance(e, dict):
+            continue
+        u = e.get("id")
+        if not isinstance(u, str) or not u or u in gesehen:
+            continue
+        gesehen.add(u)
+        w, h = _kachel_breite(e.get("w")) or 1, _kachel_breite(e.get("h")) or 1
+        out.append({"id": u, "w": 2 if h == 2 else w, "h": h})
+    return out
+
+
+def _layout_mit_picks(layout, picks: list) -> tuple[list, list | None]:
+    """picks bestimmt, was auf der Seite steht, das Layout Reihenfolge und
+    Groesse: Eintraege, die nicht (mehr) in picks stehen, fallen weg, Bausteine
+    ohne Eintrag kommen hinten an (Groesse nach tiles bzw. Typ) - so bleibt
+    eine Seite stimmig, auch wenn nur picks geaendert wurde (Raumtausch beim
+    Duplizieren, Bausteinliste). -> (picks in Seitenfolge, Layout)."""
+    if layout is None:
+        return picks, None
+    drin = set(picks)
+    layout = [e for e in layout if e["id"] in drin]
+    im_layout = {e["id"] for e in layout}
+    return [e["id"] for e in layout] + [u for u in picks if u not in im_layout], layout
+
+
 def _pick_tabs(prof):
     """Freie Seiten eines Profils als [{name, picks}] (max 4). Rueckwaerts-
-    kompatibel: ein altes picks/pickName wird zur ersten Seite."""
+    kompatibel: ein altes picks/pickName wird zur ersten Seite. Mit Layout aus
+    dem Seiten-Editor stehen die picks in dessen Reihenfolge; byRoom (Standard
+    an) gruppiert die Seite in der Visu nach Raum."""
     if not prof:
         return []
     pt = prof.get("pickTabs")
@@ -203,13 +240,19 @@ def _pick_tabs(prof):
         out = []
         for e in pt[:PICK_TABS_MAX]:
             if isinstance(e, dict):
-                out.append({"name": str(e.get("name") or "Auswahl"),
-                            "picks": [u for u in (e.get("picks") or []) if isinstance(u, str)],
-                            "icon": str(e.get("icon") or ""),
-                            # Statt Kacheln kann eine freie Seite ein Widget sein
-                            # (Wetter/Kalender/Energie/Kamera/Verlauf/Werte/Audio),
-                            # als Vollbild-Tab. Leer = Kachelseite (picks).
-                            "widget": _clean_widget_tab(e.get("widget"))})
+                picks, layout = _layout_mit_picks(_seiten_layout(e.get("layout")),
+                                                  [u for u in (e.get("picks") or []) if isinstance(u, str)])
+                seite = {"name": str(e.get("name") or "Auswahl"),
+                         "picks": picks,
+                         "icon": str(e.get("icon") or ""),
+                         # Statt Kacheln kann eine freie Seite ein Widget sein
+                         # (Wetter/Kalender/Energie/Kamera/Verlauf/Werte/Audio),
+                         # als Vollbild-Tab. Leer = Kachelseite (picks).
+                         "widget": _clean_widget_tab(e.get("widget")),
+                         "byRoom": e.get("byRoom") is not False}
+                if layout is not None:
+                    seite["layout"] = layout
+                out.append(seite)
         return out
     if prof.get("picks"):
         return [{"name": str(prof.get("pickName") or "Auswahl"),
@@ -443,7 +486,8 @@ PANE_SPALTEN_MAX = 3
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("ui", "paneCols"): 0,
-                  ("tiles", "*", "chartStyle"): "trend"}
+                  ("tiles", "*", "chartStyle"): "trend",
+                  ("pickTabs", "*", "byRoom"): True}
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 # Zeitstempel einer Klingel (lastBellEvents, camimage): JJJJMMTTHHMMSS
 _BELL_TS = re.compile(r"\d{14}")
@@ -3406,12 +3450,19 @@ class App:
                     # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane,
                     # nur die Kopfzeile nicht (_clean_widget_tab).
                     wdg = _clean_widget_tab(it.get("widget"))
+                    # Seiten-Editor (Punkt 10): Reihenfolge und Groesse je
+                    # Baustein, und ob die Visu die Seite nach Raum gruppiert
+                    ps, lay = _layout_mit_picks(_seiten_layout(it.get("layout")), ps)
                     if ps or nm or ic or wdg:
                         entry = {"name": nm or "Auswahl", "picks": ps}
                         if ic:
                             entry["icon"] = ic
                         if wdg:
                             entry["widget"] = wdg
+                        if lay:
+                            entry["layout"] = lay
+                        if it.get("byRoom") is False:
+                            entry["byRoom"] = False
                         cpt.append(entry)
                 if cpt:
                     e["pickTabs"] = cpt
@@ -4751,6 +4802,28 @@ class App:
             # Werteleiste statt Anzeige-Kacheln - VOR dem Gruppieren, damit
             # Anker und Marken zu den Kacheln gehoeren, die im Raster bleiben
             uuids, leiste = self._leiste_trennen(uuids, tab, prof)
+            # Groessen aus dem Seiten-Editor (Punkt 10): 1x1, 2x1 oder 2x2 je
+            # Baustein, uebersteuern Typ und tiles[uuid].w auf dieser Seite
+            groessen = {e["id"]: e for e in (_entry.get("layout") or [])}
+
+            def kachel(u, **kw):
+                it = self._control_item(u, prof, show_room=sr, **kw)
+                g = groessen.get(u)
+                if g:
+                    if g["w"] == 2:
+                        it["w"] = 2
+                    else:
+                        it.pop("w", None)
+                    if g["h"] == 2:
+                        it["h"] = 2
+                return it
+            title = _entry["name"] or "Auswahl"
+            if not _entry.get("byRoom", True):
+                # Ohne Gruppierung: genau die Reihenfolge der Seite, ohne
+                # Sprungmarken - so, wie der Seiten-Editor sie zeigt
+                return {"t": "view", "title": title, "tab": tab,
+                        "route": {"view": "tab", "tab": tab}, "items": [kachel(u) for u in uuids],
+                        "catTabs": [], **self._leiste_items(leiste, prof, show_room=sr)}
             # Nach RAUM gruppieren, damit die untere Leiste die vorkommenden
             # Raeume als Sprungmarken zeigen kann und ein Tipp zur Gruppe
             # scrollt - dieselbe Bauform wie das Raum-Panel, nur nach Raum
@@ -4778,7 +4851,7 @@ class App:
             items = []
             for ru in raeume:
                 for j, u in enumerate(nach_raum[ru]):
-                    it = self._control_item(u, prof, show_room=sr)
+                    it = kachel(u)
                     if marken and j == 0:
                         # Scroll-Anker fuer die Sprungmarke. Der Schluessel
                         # heisst im Panel catKey, weil dieselbe Mechanik schon
@@ -4794,12 +4867,11 @@ class App:
             # Bausteine ohne bekannten Raum ans Ende, wie im Raum-Panel.
             for ru, us in nach_raum.items():
                 if ru not in self.rooms:
-                    items += [self._control_item(u, prof, show_room=sr) for u in us]
+                    items += [kachel(u) for u in us]
             raum_tabs = ([{"key": ru,
                            "label": _clean(self.rooms[ru].get("name")) or "Raum",
                            "iconUrl": self._icon_url(self.rooms[ru].get("image")) or ""}
                           for ru in raeume[:4]] if marken else [])
-            title = _entry["name"] or "Auswahl"
             return {"t": "view", "title": title, "tab": tab,
                     "route": {"view": "tab", "tab": tab}, "items": items,
                     "catTabs": raum_tabs, **self._leiste_items(leiste, prof, show_room=sr)}
