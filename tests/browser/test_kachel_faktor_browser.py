@@ -276,9 +276,10 @@ def test_seiten_voll_bis_auf_die_letzte(geraet):
     """Die Seiten der Messreihe, in Zellen: passt alles auf eine Seite, bleibt
     hoechstens ein Drittel leer (Wachsen, Punkt 2); sonst ist jede Seite bis
     auf die letzte voll, ohne Luecke durch eine breite Kachel, und es sind so
-    wenige Seiten, wie das Raster hergibt. Die letzte Seite traegt den Rest
-    und ist vom Drittel ausgenommen (iPad quer: 24 + 2 Zellen, siehe
-    docs/TODO.md Punkt 16)."""
+    wenige Seiten, wie das Raster hergibt. Im automatischen Raster haelt auch
+    die letzte Seite das Drittel: das Schrumpfen nimmt kleinere Kacheln, wenn
+    das eine Seite spart (iPad quer: 7 x 5 statt 24 + 2). Das feste Raster
+    des 4" (2 x 2) traegt auf der letzten Seite den Rest, wie er kommt."""
     async def schritte(app, pg):
         return await pg.evaluate(SEITEN)
     (b, h), ui = STANDARD[geraet]
@@ -291,3 +292,5 @@ def test_seiten_voll_bis_auf_die_letzte(geraet):
         assert (zellen - seiten[0]) / zellen <= 1 / 3, ("eine Seite: hoechstens ein Drittel leer", m)
     else:
         assert len(seiten) == -(-sum(seiten) // zellen), ("so wenige Seiten wie das Raster hergibt", m)
+    if ui.get("grid") == "auto":
+        assert 3 * (zellen - seiten[-1]) <= zellen, ("automatisch: auch die letzte Seite hoechstens ein Drittel leer", m)

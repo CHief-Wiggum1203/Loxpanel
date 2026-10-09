@@ -1632,6 +1632,7 @@ function zielkachelHinweis(){ const k=kachelZiel(), st=k.stufen||{};
   return T('Zielkachel: Breite einer Kachel in CSS-Pixeln, aus der das Tablet Spalten und Zeilen rechnet. Leer = Standard')+' '+k.std+
     ' ('+T('die bisherigen Stufen Klein, Mittel und Groß entsprechen')+' '+[st.small,st.medium,st.large].join(', ')+'). '+
     T('Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben oder mit fester Widget-Breite) bis zum')+' '+fmtZahl(k.wachsen)+'-'+T('Fachen')+'. '+
+    T('Bliebe bei mehreren Seiten die letzte mehr als ein Drittel leer, werden sie kleiner, wenn das eine Seite spart, höchstens bis zur Zielkachel geteilt durch')+' '+fmtZahl(k.wachsen)+'. '+
     T('Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.'); }
 // Kachel-Layout eines Profils als Wert der Auswahl: "auto" oder Spalten x Zeilen
 function layoutWert(ui){ ui=ui||{};

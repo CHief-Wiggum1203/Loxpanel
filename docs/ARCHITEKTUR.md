@@ -1399,22 +1399,31 @@ nur noch eine Weiterleitung. Nur `config.html` lädt `/i18n.js`; die Visu nicht.
   `gridGrow` × Zielkachel wird (`KACHEL_WACHSEN`, 1,4; mit der theme-Nachricht
   geschickt). Fünf Kacheln auf dem 10″-Tablet quer stehen so in 6 × 3 zu
   204 px statt in 7 × 4 zu 174 px; mit mehr Kacheln als Zellen bleibt es bei
-  der Zielkachel und dem Blättern. Neben einem Widget mit Anteil wachsen sie
-  nicht: es belegt ganze Kachelspalten, und mit weniger Spalten ließe sich
+  der Zielkachel und dem Blättern. Umgekehrt schrumpft sie (Punkt 16,
+  09.10.2026): bliebe bei mehreren Seiten die letzte mehr als ein Drittel
+  leer, gibt sie je eine Spalte dazu und nimmt das erste Raster, das eine
+  Seite spart, bis die letzte Seite voll genug ist; nie kleiner als
+  Zielkachel durch `gridGrow` (bei 170 px also 121 px). 30 Kacheln auf dem
+  10″ quer stehen so in 8 × 5 zu 149 px statt 28 + 2 in 7 × 4; Tab A9 quer
+  mit 23 Kacheln bleibt bei 15 + 8, weil sechs Spalten keine Seite sparen und
+  sieben unter 121 px lägen. Neben einem Widget mit Anteil wachsen und
+  schrumpfen sie nicht: es belegt ganze Kachelspalten, und mit weniger Spalten ließe sich
   sein Anteil von rund 40 % nicht halten (2 von 5 Spalten sind 40 %, 2 von 4
   schon 50 %, die Wetter-Pane wechselte von „schmal“ auf „breit“). Mit fester
-  Breite (`ui.paneCols`, unten) wachsen sie, das Widget bleibt so viele
-  Kachelspalten breit und wächst mit.
+  Breite (`ui.paneCols`, unten) wachsen und schrumpfen sie, das Widget bleibt
+  so viele Kachelspalten breit und wächst oder schrumpft mit.
   Lesbarkeits-Regel dazu (Punkt 16, `test_seiten_voll_bis_auf_die_letzte`
   in `tests/browser/test_kachel_faktor_browser.py`): die 23 Favoriten der
   Messreihe, gezählt in Zellen (drei breite Kacheln belegen je zwei, zusammen
   26). Passt alles auf eine Seite, bleibt höchstens ein Drittel leer (10″
   quer 7 × 4: 26 von 28); sonst ist jede Seite bis auf die letzte voll, ohne
   Lücke durch eine breite Kachel, und es sind so wenige Seiten, wie das
-  Raster hergibt. Die letzte Seite trägt den Rest und hält das Drittel nicht
-  immer ein: Tab A9 quer und hochkant 15 + 11, iPad quer 6 × 4 aber 24 + 2.
-  Die Automatik lässt Kacheln nur wachsen, wenn alles auf eine Seite passt,
-  und schrumpft sie nicht unter die Zielgröße, um eine Seite zu sparen.
+  Raster hergibt. Im automatischen Raster hält auch die letzte Seite das
+  Drittel (Tab A9 quer und hochkant 15 + 11; iPad quer schrumpft auf 7 × 5,
+  26 von 35, statt 24 + 2 in 6 × 4); das feste Raster des 4″ (2 × 2) trägt
+  auf der letzten Seite den Rest. Das Schrumpfen selbst prüft
+  `test_schrumpfen_spart_eine_seite` in `tests/browser/test_auto_raster_browser.py`
+  mit und ohne (`gridGrow = 1`).
   Abstand und Innenrand liest sie aus dem CSS (`--gap`, `--pad` am Raster),
   die Höhe der Tab-Leiste aus der Seite. Ein größerer Schirm zeigt so mehr
   Kacheln statt größerer: am Tab A9 (893×533 CSS-px) quer 5 × 3 Kacheln zu
