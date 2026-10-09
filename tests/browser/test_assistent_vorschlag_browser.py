@@ -39,8 +39,12 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
 
     async def lauf():
         app = W.App({"host": "", "port": 80})
-        app._apply_structure(anlage(BAUSTEINE))
-        app.states = {"sl": 0}
+        # Dazu "Bad" vor "Badezimmer", je mit einem Schalter (Raeume ohne Baustein meldet der Server nicht)
+        struktur = anlage({**BAUSTEINE, **{u: {"name": f"Licht {n}", "type": "Switch", "uuidAction": u, "room": r, "cat": "c1",
+                                              "states": {"active": u.lower()}} for u, n, r in (("B3", "Bad", "r3"), ("B4", "Badezimmer", "r4"))}})
+        struktur["rooms"].update({"r3": {"name": "Bad"}, "r4": {"name": "Badezimmer"}})
+        app._apply_structure(struktur)
+        app.states = {"sl": 0, "b3": 0, "b4": 0}
         app.panels = W.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler = []
@@ -73,6 +77,11 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 assert st == {"step": st["step"], "schritt": "name", "panes": "2", "grid": "auto", "content": "room",
                               "roomTab": "room:r2", "title": "Technikraum", "id": "technikraum", "device": "technikraum",
                               "fertig": True, "titel": "Technikraum", "idFeld": "technikraum"}, st
+                # Pflichtfeld geleert: "Jetzt anlegen" verschwindet beim Tippen, nicht erst beim Neuzeichnen
+                await pg.locator("#wzTitleI").fill("")
+                assert not (await pg.evaluate(STAND))["fertig"], "ohne Titel kein Sofort-Anlegen"
+                await pg.locator("#wzTitleI").fill("Technikraum")
+                assert (await pg.evaluate(STAND))["fertig"]
                 await pg.locator("#wzFertig").click()
                 await pg.wait_for_selector("#wzOv[hidden]", state="attached")
                 tr = await pg.evaluate("PANELS.technikraum")
@@ -93,6 +102,23 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 ga = await pg.evaluate("PANELS.garage")
                 assert ga["tabs"][0] == "favoriten" and len(ga["tabs"]) == 4 and ga["ui"] == {"split": False} \
                     and ga["device"] == {"name": "garage", "vw": 480, "vh": 480}, ga
+
+                # Selbst gewaehlt (ohne Vorschlag): im Schritt Name erscheint "Jetzt anlegen",
+                # sobald der Titel getippt ist
+                await pg.locator("#addBtn").click()
+                await pg.wait_for_selector("#wzOv:not([hidden])")
+                await pg.evaluate("WZ.panes = '2'; WZ.content = 'classic'; WZ.step = wzFlow().indexOf('name'); wzRender()")
+                assert not (await pg.evaluate(STAND))["fertig"]
+                await pg.locator("#wzTitleI").fill("Flur")
+                st = await pg.evaluate(STAND)
+                assert (st["title"], st["id"], st["fertig"]) == ("Flur", "flur", True), st
+                await pg.evaluate("wzClose()")
+
+                # Mehrere Raeume passen: der mit der naechsten Namenslaenge, der gleiche Name immer
+                raeume = await pg.evaluate("""() => { KNOWN_NAMES.push('bad', 'badezimmer', 'badezimmer-oben');
+                    return Object.fromEntries(wzVorschlaege().map(v => [v.geraet, v.raum && v.raum.name])); }""")
+                assert {k: raeume[k] for k in ("bad", "badezimmer", "badezimmer-oben")} == {
+                    "bad": "Bad", "badezimmer": "Badezimmer", "badezimmer-oben": "Badezimmer"}, raeume
 
                 async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
                     await pg.locator("#saveBtn").click()

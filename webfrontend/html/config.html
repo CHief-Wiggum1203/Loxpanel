@@ -3071,7 +3071,13 @@ function wzVorschlaege(){
   const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !vergeben.has(n))
     .sort((a,b)=>a.localeCompare(b));
   const passt=(a,b)=>{ a=nameSlug(a); b=nameSlug(b); return !!a && !!b && (a===b || (a.length>=3 && b.indexOf(a)>=0) || (b.length>=3 && a.indexOf(b)>=0)); };
-  return geraete.map(n=>({geraet:n, raum:(META.rooms||[]).find(r=>passt(n, r.name))||null, screen:DEVICE_SCREENS[n]||null}));
+  // Passen mehrere Raeume, gewinnt der, dessen Name in der Laenge am naechsten
+  // am Geraetenamen liegt: der gleiche Name (Abstand 0) immer, sonst etwa
+  // "badezimmer-oben" -> "Badezimmer" vor "Bad"; bei Gleichstand die Reihenfolge der Raeume.
+  const raumFuer=n=>{ const l=nameSlug(n).length;
+    return (META.rooms||[]).filter(r=>passt(n, r.name))
+      .sort((a,b)=>Math.abs(nameSlug(a.name).length-l)-Math.abs(nameSlug(b.name).length-l))[0]||null; };
+  return geraete.map(n=>({geraet:n, raum:raumFuer(n), screen:DEVICE_SCREENS[n]||null}));
 }
 function wzVorschlagHtml(){
   const vs=wzVorschlaege(); if(!vs.length) return '';
@@ -3386,7 +3392,6 @@ function wzRender(){
   if(WZ._sf){ WZ._sf=false; var tsx=$('#wzTileSearch'); if(tsx){ tsx.focus(); try{ tsx.setSelectionRange(tsx.value.length,tsx.value.length); }catch(e){} } }
   $('#wzBack').disabled=WZ.step===0;
   $('#wzNext').textContent=(WZ.step===f.length-1)?T('Panel anlegen ✓'):T('Weiter →');
-  $('#wzFertig').hidden=!(WZ.step<f.length-1 && WZ.step>=f.indexOf('name') && wzPflichtOk());
   wzUpd();
 }
 function wzUpd(){
@@ -3400,6 +3405,9 @@ function wzUpd(){
     else if(WZ.content==='pick'){ ok=(WZ.pickPages||[]).some(function(pg){ return (pg.picks&&pg.picks.length)||pg.widget; }); }   // mind. eine befüllte Seite
   }
   $('#wzNext').disabled=!ok;
+  // Sofort anlegen ab dem Schritt Name, sobald die Pflichtschritte gueltig sind -
+  // auch nach jeder Eingabe in Titel oder ID (dort ruft nur wzUpd, kein wzRender)
+  $('#wzFertig').hidden=!(WZ.step<f.length-1 && WZ.step>=f.indexOf('name') && wzPflichtOk());
 }
 function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzRender(); return; } wzBuild(); }
 function wzBuild(){
