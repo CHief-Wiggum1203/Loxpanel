@@ -256,3 +256,38 @@ def test_lesbarkeit_auf_standardgeraeten(geraet):
     mit, ohne = _laufen(ui, b, h, schritte)
     assert mit["ueberlauf"] == 0, mit
     assert mit["abgeschnitten"] <= ohne["abgeschnitten"], (mit["abgeschnitten"], ohne["abgeschnitten"])
+
+
+# Lesbarkeits-Pruefung (Vorschlag 16, Teil "ein Drittel"): die Messreihe auf
+# denselben Standardgeraeten, gezaehlt in belegten Zellen - eine breite Kachel
+# (w2) belegt zwei. Je Seite die Summe ihrer Kacheln: waagerecht je .page,
+# senkrecht ueber die Zeile jeder Kachel (rasterLage).
+SEITEN = """() => { const g = document.getElementById('grid'), zellen = gridCols * gridRows;
+  const ks = [...g.querySelectorAll('.tile[data-id]')], breite = k => k.classList.contains('w2') ? 2 : 1;
+  let seiten;
+  if (g.classList.contains('hpages'))
+    seiten = [...g.querySelectorAll('.page')].map(p => [...p.querySelectorAll('.tile[data-id]')].reduce((n, k) => n + breite(k), 0));
+  else { const z = g._zeile || []; seiten = []; z.forEach((r, i) => { const s = Math.floor(r / gridRows); seiten[s] = (seiten[s] || 0) + breite(ks[i]); }); }
+  return {raster: [gridCols, gridRows], zellen, seiten, kacheln: ks.length, breit: ks.filter(k => k.classList.contains('w2')).length}; }"""
+
+
+@pytest.mark.parametrize("geraet", list(STANDARD))
+def test_seiten_voll_bis_auf_die_letzte(geraet):
+    """Die Seiten der Messreihe, in Zellen: passt alles auf eine Seite, bleibt
+    hoechstens ein Drittel leer (Wachsen, Punkt 2); sonst ist jede Seite bis
+    auf die letzte voll, ohne Luecke durch eine breite Kachel, und es sind so
+    wenige Seiten, wie das Raster hergibt. Die letzte Seite traegt den Rest
+    und ist vom Drittel ausgenommen (iPad quer: 24 + 2 Zellen, siehe
+    docs/TODO.md Punkt 16)."""
+    async def schritte(app, pg):
+        return await pg.evaluate(SEITEN)
+    (b, h), ui = STANDARD[geraet]
+    m = _laufen(ui, b, h, schritte)
+    zellen, seiten = m["zellen"], m["seiten"]
+    assert m["breit"] > 0, ("die Messreihe hat breite Kacheln", m)
+    assert sum(seiten) == m["kacheln"] + m["breit"] and all(s > 0 for s in seiten), m
+    assert all(s == zellen for s in seiten[:-1]), ("jede Seite bis auf die letzte ist voll", m)
+    if len(seiten) == 1:
+        assert (zellen - seiten[0]) / zellen <= 1 / 3, ("eine Seite: hoechstens ein Drittel leer", m)
+    else:
+        assert len(seiten) == -(-sum(seiten) // zellen), ("so wenige Seiten wie das Raster hergibt", m)
