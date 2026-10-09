@@ -485,6 +485,9 @@ PANE_SPALTEN_MAX = 3
 # Nutzung; Speichern verwirft sie alle (die Visu laedt dabei neu).
 ENTWURF_MAX = 8
 ENTWURF_DAUER = 3600
+# Vorschau am Geraet (Punkt 12): so lange zeigt ein Geraet einen Entwurf, wenn der
+# Konfigurator ihn nicht mehr auffrischt - dann geht es zur vorigen Ansicht zurueck.
+VORSCHAU_GERAET_DAUER = 900
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
@@ -1533,6 +1536,8 @@ class App:
         self.conn_chart: dict[web.WebSocketResponse, tuple[tuple[str, ...], str]] = {}   # ws -> (Baustein-UUIDs, Zeitraum) der Verlaufs-Pane (via setchart)
         self.panels = load_panels()
         self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
+        # Geraet -> {token, id, zurueck (Profil davor), bis}: zeigt gerade einen Entwurf (Punkt 12)
+        self.vorschau_geraet: dict[str, dict] = {}
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         # Geraete, deren Ansicht unter Displays ausdruecklich gewaehlt wurde: der
@@ -2632,6 +2637,27 @@ class App:
         e["ts"] = now
         return e["panel"]
 
+    def vorschau_zurueck(self, device: str) -> str:
+        """Profil, zu dem ein Geraet nach der Vorschau zurueckkehrt: das, was es vor
+        der ersten Vorschau zeigte (bleibt bei jeder weiteren Vorschau gleich)."""
+        alt = self.vorschau_geraet.get(device)
+        if alt:
+            return alt["zurueck"]
+        return next((p.get("id", "") for ws, p in self.conn_prof.items()
+                     if self.conn_dev.get(ws) == device and not p.get("entwurf")), "")
+
+    async def vorschau_beenden(self, device: str) -> int:
+        """Die Vorschau am Geraet beenden: es kehrt zum Profil davor zurueck
+        ({t:"switch"} ohne Entwurf). Nur Verbindungen, die den Entwurf noch zeigen -
+        wurde das Geraet inzwischen anders umgeschaltet, bleibt es dabei. -> Anzahl."""
+        e = self.vorschau_geraet.pop(device, None)
+        n = 0
+        for ws, info in list(self.conn_info.items()):
+            if e and info.get("dev") == device and info.get("entwurf") == e["token"]:
+                if await self._neu_laden(ws, {"t": "switch", "panel": e["zurueck"], "entwurf": ""}):
+                    n += 1
+        return n
+
     def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
         """Aufgeloestes Panel-Profil: Theme-Vars, Tabs, Raum-/Kategorie-Filter.
         Mit `entwurf` (entwurf_profil) gilt dieses Profil statt des gespeicherten."""
@@ -3069,7 +3095,7 @@ class App:
             return devs.setdefault(name, {
                 "name": name, "agent": None, "connections": 0, "online": False,
                 "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False,
-                "screen": {}, "presence": None})
+                "screen": {}, "presence": None, "vorschau": None})
 
         for a in self.agents.values():
             if (now - a["ts"]) >= 600:
@@ -3101,6 +3127,9 @@ class App:
             entry(name)["configured"] = True
         for name, on in self._presence_on.items():
             entry(name)["presence"] = on   # nur Geraete mit gekoppeltem Praesenzmelder
+        for name, v in self.vorschau_geraet.items():   # Geraet zeigt einen Entwurf (Punkt 12)
+            if name in devs:
+                devs[name]["vorschau"] = {"id": v["id"], "bis": v["bis"]}
         for e in devs.values():
             e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
             e["tileSuggest"] = _kachel_vorschlag(e["screen"])   # Zielkachel aus der gemeldeten Groesse
@@ -3299,6 +3328,7 @@ class App:
                 continue
             ws_targets = [ws for ws, dev in self.conn_dev.items() if dev == name]
             if ws_targets:
+                self.vorschau_geraet.pop(name, None)   # der Modus schaltet um: eine Vorschau endet damit
                 sent = 0
                 for ws in ws_targets:
                     if (self.conn_prof.get(ws) or {}).get("id") == profile:
@@ -3730,6 +3760,7 @@ class App:
         self._persist_panels_file(panels, self.devices)
         self.panels = load_panels()
         self.entwuerfe.clear()   # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu)
+        self.vorschau_geraet.clear()   # ... auch am Geraet: es zeigt jetzt das gespeicherte Profil
 
     def _write_devices(self, devices: dict) -> None:
         # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
@@ -7192,6 +7223,10 @@ class App:
 
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
+        if self.vorschau_geraet:   # Vorschau am Geraet abgelaufen: zurueck zur vorigen Ansicht
+            jetzt = time.time()
+            for dev in [d for d, e in self.vorschau_geraet.items() if jetzt > e["bis"]]:
+                await self.vorschau_beenden(dev)
         if self._pending_ring is not None:
             rid, self._pending_ring = self._pending_ring, None
             log.info("Klingel → Popup: %s", rid)
@@ -7810,6 +7845,9 @@ async def api_entwurf(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         if info.get("entwurf") == token and await app._neu_laden(ws):
             n += 1
+    for v in app.vorschau_geraet.values():   # der Konfigurator arbeitet noch daran: die Vorschau am Geraet bleibt
+        if v["token"] == token:
+            v["bis"] = time.time() + VORSCHAU_GERAET_DAUER
     return web.json_response({"ok": True, "token": token, "reloaded": n, "verworfen": weg,
                               "url": "/?panel=" + quote(pid, safe="") + "&entwurf=" + token})
 
@@ -9223,8 +9261,25 @@ async def api_device_switch(request: web.Request) -> web.Response:
     panel = str(d.get("panel") or "").strip()
     if not device:
         return web.json_response({"ok": False, "error": "device fehlt"}, status=400)
+    # Vorschau eines Entwurfs am Geraet (Punkt 12): {entwurf: <Token von /api/entwurf>}. Das Profil
+    # muss nicht gespeichert sein (der Assistent zeigt eines, das es noch nicht gibt), der Token
+    # gehoert aber zu ihm. Nur eine verbundene Visu kann ihn zeigen: ein Agent startet den Kiosk
+    # mit einer Adresse ohne Token und wuerde stattdessen das Profil von der Platte zeigen.
+    tok = str(d.get("entwurf") or "").strip()
+    if tok:
+        if not panel or app.entwurf_profil(tok, panel) is None:
+            return web.json_response({"ok": False, "error": "Entwurf unbekannt oder abgelaufen"}, status=400)
+        zurueck = app.vorschau_zurueck(device)
+        n = await _push(app, {"t": "switch", "panel": panel, "entwurf": tok}, "", device)
+        if not n:
+            return web.json_response({"ok": False, "sent": 0,
+                                      "error": "Keine verbundene Visu – eine Vorschau braucht sie"})
+        app.vorschau_geraet[device] = {"token": tok, "id": panel, "zurueck": zurueck,
+                                       "bis": time.time() + VORSCHAU_GERAET_DAUER}
+        return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": "", "zurueck": zurueck})
     if panel and panel not in app.panels:
         return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
+    app.vorschau_geraet.pop(device, None)   # eine ausdrueckliche Wahl beendet eine Vorschau am Geraet
     n = await _push(app, {"t": "switch", "panel": panel}, "", device)
     a = app.agents.get(str(d.get("ip") or "").strip())
     weg, ok = "", False
@@ -9243,6 +9298,20 @@ async def api_device_switch(request: web.Request) -> web.Response:
     if ok:
         return web.json_response({"ok": True, "sent": 1, "via": "agent", "agent": weg})
     return web.json_response({"ok": False, "sent": 0, "error": "Panel nicht online"})
+
+
+async def api_vorschau_beenden(request: web.Request) -> web.Response:
+    """Vorschau am Geraet beenden: {device}. Es kehrt zum Profil zurueck, das es vor
+    der Vorschau zeigte. `beendet` sagt, ob eine Visu zurueckgeschaltet wurde."""
+    app: App = request.app["app"]
+    try:
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
+    device = str(d.get("device") or "").strip()
+    if not device:
+        return web.json_response({"ok": False, "error": "device fehlt"}, status=400)
+    return web.json_response({"ok": True, "beendet": await app.vorschau_beenden(device) > 0})
 
 
 async def api_device_name(request: web.Request) -> web.Response:
@@ -9854,6 +9923,7 @@ def main() -> None:
     a.router.add_post("/api/devices", api_save_devices)
     a.router.add_get("/api/devices", api_devices_get)
     a.router.add_post("/api/device/switch", api_device_switch)
+    a.router.add_post("/api/vorschau/beenden", api_vorschau_beenden)
     a.router.add_post("/api/device/name", api_device_name)
     a.router.add_get("/api/display", api_display)
     a.router.add_post("/api/display", api_display)

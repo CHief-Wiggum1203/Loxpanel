@@ -735,7 +735,8 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl und hebt `last_mode` für das Gerät auf, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
-| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf | Einstellungen |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf. Mit `entwurf` (Token von `/api/entwurf`, Punkt 12) zeigt das Gerät einen ungespeicherten Entwurf: nur über eine verbundene Visu (sonst „Keine verbundene Visu“), das Profil muss nicht gespeichert sein, Antwort `zurueck` = Profil davor | Einstellungen, Konfigurator |
+| POST | `/api/vorschau/beenden` | `api_vorschau_beenden` | Vorschau am Gerät beenden `{device}`: es kehrt zum Profil davor zurück, `beendet` sagt, ob eine Visu zurückgeschaltet wurde | Konfigurator |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen: `{code, name}` trifft genau die Verbindung mit diesem Kopplungscode, `{ip, name}` alle ohne Kennung unter der IP; Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
@@ -1752,6 +1753,28 @@ Assistenten des Konfigurators.
   die Gerätekennung aus dem `localStorage` (derselbe Ursprung) und würde sonst auf
   ein fremdes Profil umgelenkt. Geprüft in `tests/test_entwurf.py` und
   `tests/browser/test_entwurf_browser.py`.
+  Vorschau am Gerät (Punkt 12): „Am Gerät ansehen“ (Speicherleiste, Ziel ist das
+  Vorschaugerät des Seiten-Editors, sonst das Zielgerät des Profils) und im letzten
+  Schritt des Assistenten „Auf … ansehen“ (dort gibt es das Panel noch nicht, der
+  Entwurf trägt es: `wzProfil()` baut das Profil ohne Anlegen) schicken denselben
+  Entwurf an das Gerät: `POST /api/device/switch` mit `entwurf`, als `{t:"switch",
+  panel, entwurf}` nur an die verbundenen Visus des Geräts. Ein Agent ohne offene
+  Visu kann den Token nicht in die Kiosk-URL tragen, dort meldet der Server
+  „Keine verbundene Visu“. Der Server merkt sich je Gerät, was es vorher zeigte
+  (`App.vorschau_geraet`: Token, Profil, `zurueck`, `bis`; bei einer weiteren
+  Vorschau bleibt `zurueck`). Zurück zur vorigen Ansicht (`{t:"switch"}` ohne
+  Entwurf, nur an Verbindungen, die den Entwurf noch zeigen) geht es auf
+  `POST /api/vorschau/beenden`, nach `VORSCHAU_GERAET_DAUER` = 15 min ohne
+  Auffrischen (der Takt prüft; jede Änderung im Editor frischt über
+  `api_entwurf` auf und lädt das Gerät neu) und beim Schließen des Assistenten ohne
+  Anlegen. Speichern, ein Betriebsmodus oder eine ausdrückliche Wahl unter
+  Displays beenden sie ebenfalls (Speichern: das Gerät zeigt das gespeicherte
+  Profil, `entwurfEnde`). Die Visu nimmt bei jedem `switch` den `?entwurf=` aus der
+  Adresse, sonst setzt sie ihn. `/api/devices` nennt je Gerät `vorschau` `{id, bis}`;
+  der Konfigurator gleicht den Knopf damit ab. Die Zielkachel, die der Assistent am
+  Gerät merken will, gilt erst beim Anlegen: die Vorschau rechnet mit der
+  bisherigen. Geprüft in `tests/test_vorschau_geraet.py` und
+  `tests/browser/test_vorschau_geraet_browser.py`.
   Geprüft in `tests/browser/test_seiten_editor_browser.py`: Fläche gleich der
   Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,
   fest 3 × 3, 4″ mit 2 × 2, Automatik ohne Gruppierung), Ziehen, Tasten,

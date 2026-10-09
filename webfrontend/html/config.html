@@ -1618,7 +1618,8 @@ function renderEditor(){
   // Speicherleiste: Löschen-Button je Panel
   $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>')+
     '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>'+
-    '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>';
+    '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>'+
+    '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
@@ -1683,6 +1684,7 @@ function renderEditor(){
   const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
   { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
   { const vb=$('#vorBtn'); if(vb) vb.onclick=entwurfOeffnen; }
+  { const vg=$('#vorGerBtn'); if(vg){ vg.onclick=vorGerKlick; vorGerKnopf(); } }
 
   seReiterZeichnen();
   renderSubtabs(); showSub(subPconf);
@@ -2286,10 +2288,11 @@ function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast
 // Entwurf, das Fenster zeigt dann das gespeicherte Profil.
 // gen zaehlt die Speichervorgaenge: eine Antwort, die erst danach eintrifft, gehoert zu einem
 // Entwurf, den der Server beendet hat, und darf weder ENTWURF aendern noch das Fenster lenken.
-const ENTWURF={token:'', id:'', win:null, timer:0, gen:0};
-async function entwurfSenden(){
-  const p=PANELS[cur]; if(!p || p.__global) return null;
-  const gen=ENTWURF.gen, id=cur;
+// geraet: das Geraet, das den Entwurf gerade zeigt (Punkt 12, sonst '')
+const ENTWURF={token:'', id:'', win:null, timer:0, gen:0, geraet:''};
+async function entwurfSenden(id=cur, p=PANELS[cur]){
+  if(!p || p.__global) return null;
+  const gen=ENTWURF.gen;
   const j=await postJson('/api/entwurf', {id:id, panel:p, token:(ENTWURF.id===id?ENTWURF.token:'')});
   if(gen!==ENTWURF.gen) return null;
   if(!j.ok) throw new Error(j.error||'?');
@@ -2315,19 +2318,61 @@ async function entwurfOeffnen(){
     if((j.verworfen||[]).length) flash(t, T('Nicht übernommen:')+' '+j.verworfen.join('; '), false);
   }catch(e){ try{ w.close(); }catch(x){} flash(t, T('Vorschau nicht möglich:')+' '+e.message, false); }
 }
+function fensterOffen(){ return !!(ENTWURF.win && !ENTWURF.win.closed); }
+function entwurfLaeuft(){ return fensterOffen() || !!ENTWURF.geraet; }   // Fenster offen oder ein Geraet zeigt ihn
 function entwurfNachziehen(){
-  if(!ENTWURF.win || ENTWURF.win.closed || ENTWURF.id!==cur) return;
+  if(!entwurfLaeuft() || ENTWURF.id!==cur) return;
   clearTimeout(ENTWURF.timer);
   ENTWURF.timer=setTimeout(async()=>{
-    if(!ENTWURF.win || ENTWURF.win.closed || ENTWURF.id!==cur) return;
-    try{ const j=await entwurfSenden(); if(j) entwurfZiel(ENTWURF.win, j.url); }catch(e){}
+    if(!entwurfLaeuft() || ENTWURF.id!==cur) return;
+    // der Server laedt Fenster und Geraet mit diesem Entwurf selbst neu; ein Fenster, das auf
+    // einer anderen Adresse steht (neuer Token), lenkt entwurfZiel um
+    try{ const j=await entwurfSenden(); if(j && fensterOffen()) entwurfZiel(ENTWURF.win, j.url); }catch(e){}
   }, 600);
+}
+// ---- Vorschau am Geraet (Punkt 12) ----
+// Derselbe Entwurf laeuft auf dem echten Geraet: /api/device/switch mit dem Token, nur an
+// eine verbundene Visu (ein Agent kann den Token nicht tragen). Das Geraet kehrt zur vorigen
+// Ansicht zurueck, wenn die Vorschau beendet wird oder 15 Minuten niemand mehr daran arbeitet;
+// Speichern beendet sie ebenfalls (das Geraet zeigt dann das gespeicherte Profil).
+async function vorschauAmGeraet(id, p, name){   // -> Fehlertext, '' wenn die Vorschau laeuft
+  const t=$('#toast');
+  try{
+    const j=await entwurfSenden(id, p); if(!j) return T('Vorschau nicht möglich:')+' ?';
+    const k=await postJson('/api/device/switch', {device:name, panel:id, entwurf:j.token, ip:DEVICE_IPS[name]||''});
+    if(!k.ok){ const f=k.error||T('Fehler'); flash(t, f, false); return f; }
+    ENTWURF.geraet=name; ENTWURF.seit=Date.now();
+    if((j.verworfen||[]).length) flash(t, T('Nicht übernommen:')+' '+j.verworfen.join('; '), false);
+    else flash(t, T('Vorschau läuft auf')+' '+name, true);
+    vorGerKnopf();
+    return '';
+  }catch(e){ const f=T('Vorschau nicht möglich:')+' '+e.message; flash(t, f, false); return f; }
+}
+async function vorschauGeraetBeenden(){
+  const name=ENTWURF.geraet; if(!name) return;
+  ENTWURF.geraet=''; vorGerKnopf();
+  try{ await postJson('/api/vorschau/beenden', {device:name}); flash($('#toast'), T('Vorschau am Gerät beendet.'), true); }catch(e){}
+}
+// Welches Geraet? Das Vorschaugeraet des Seiten-Editors, sofern es ein echtes Geraet ist, sonst das
+// Zielgeraet des Profils (seGeraetReiter nimmt es als Vorgabe)
+function vorschauGeraetName(p){ const g=seGeraetReiter(p); return (g && g.quelle==='geraet') ? g.name : ''; }
+function vorGerKnopf(){
+  const b=$('#vorGerBtn'); if(!b) return;
+  b.textContent=(ENTWURF.geraet && ENTWURF.id===cur) ? T('Am Gerät beenden') : T('Am Gerät ansehen');
+}
+async function vorGerKlick(){
+  const p=PANELS[cur], t=$('#toast'); if(!p || p.__global) return;
+  if(ENTWURF.geraet && ENTWURF.id===cur){ await vorschauGeraetBeenden(); return; }
+  const name=vorschauGeraetName(p);
+  if(!name){ flash(t, T('Für die Vorschau am Gerät im Seiten-Editor ein Gerät wählen, das verbunden ist.'), false); return; }
+  if(!(DEVICE_CONN[name]>0)){ flash(t, name+' '+T('hat keine verbundene Visu – eine Vorschau braucht sie.'), false); return; }
+  await vorschauAmGeraet(cur, p, name);
 }
 // Gespeichert: der Entwurf ist erledigt. Das offene Fenster schickt der Server selbst auf
 // das gespeicherte Profil ({t:"entwurfEnde"}); hier nur nichts mehr nachziehen.
 function entwurfBeendet(){
   clearTimeout(ENTWURF.timer); ENTWURF.gen++;
-  ENTWURF.token=''; ENTWURF.id='';
+  ENTWURF.token=''; ENTWURF.id=''; ENTWURF.geraet=''; vorGerKnopf();
 }
 
 async function save(){
@@ -3875,7 +3920,11 @@ function wzOpen(){
   wzReset();
   $('#wzOv').hidden=false; wzRender();
 }
-function wzClose(){ $('#wzOv').hidden=true; }
+function wzClose(){
+  $('#wzOv').hidden=true; wzVorFehler='';
+  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck
+  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]) vorschauGeraetBeenden();
+}
 function wzGridCells(g){ const c={'2x2':[2,2],'3x2':[3,2],'2x3':[2,3],'3x3':[3,3],'auto':[4,3]}[g]||[2,2]; let s=''; for(let i=0;i<c[0]*c[1];i++) s+='<i></i>'; return {c:c[0],r:c[1],s:s}; }
 /* ---- mode-spezifisches Setup + Pane 2 (echte META-Daten) ---- */
 function wzInitSetup(){
@@ -4027,6 +4076,20 @@ function wzLookHtml(){
     '</div>'+
     '<p class="wznote" style="margin-top:6px">'+T('„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.')+'</p>';
 }
+// Vorschau am Geraet im letzten Schritt (Punkt 12): das Panel gibt es noch nicht, der Entwurf
+// traegt es (wzProfil). Nur mit einem echten Geraet aus Schritt 1, das eine Visu verbunden hat.
+let wzVorFehler='';
+function wzVorschauHtml(){
+  if(!WZ.device || !WZ.id) return '';
+  var d=WZ.device, an=(ENTWURF.geraet===d && ENTWURF.id===WZ.id), on=DEVICE_CONN[d]>0;
+  return '<p class="wzq mt">'+T('Auf dem Gerät ansehen')+'</p><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+    '<button class="wzbtn'+(on?' prim':'')+'" id="wzVorschau"'+(on?'':' disabled')+'>'+esc(T('Auf')+' '+d+' '+T('ansehen'))+'</button>'+
+    (an?'<button class="wzbtn" id="wzVorschauEnde">'+T('Vorschau beenden')+'</button>':'')+'</div>'+
+    '<div class="wznote">'+(on ? T('Zeigt das Panel mit diesen Einstellungen auf dem Gerät, bevor es angelegt wird. Ohne Änderungen kehrt es nach 15 Minuten zur vorigen Ansicht zurück.')
+        : esc(d+' '+T('hat keine verbundene Visu – eine Vorschau braucht sie.')))+
+    ((WZ.grid==='auto' && wzZielNeu()) ? ' '+T('Die Zielkachel am Gerät wird erst beim Anlegen gemerkt; die Vorschau rechnet mit der bisherigen.') : '')+'</div>'+
+    (wzVorFehler ? '<div class="wznote" style="color:var(--crit)">'+esc(wzVorFehler)+'</div>' : '');
+}
 function wzSummary(){
   var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
@@ -4094,7 +4157,8 @@ function wzRender(){
       '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
   } else if(key==='review'){
     b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
-      '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>';
+      '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>'+
+      wzVorschauHtml();
   }
   b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
   b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; }
@@ -4129,6 +4193,9 @@ function wzRender(){
   var rm=$('#wzRoom'); if(rm){ if(!WZ.roomTab&&rm.value) WZ.roomTab=rm.value; rm.onchange=function(){ WZ.roomTab=rm.value; WZ.roomCats=[]; WZ.pane2={}; wzRender(); }; }
   var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; if(!WZ._idT){ WZ.id=ti.value.toLowerCase().replace(/[^a-z0-9-]/g,''); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
   { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
+  { var wv=$('#wzVorschau'); if(wv) wv.onclick=async function(){ wv.disabled=true;
+      wzVorFehler=await vorschauAmGeraet(WZ.id, wzProfil(), WZ.device); wzRender(); }; }
+  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ wzVorFehler=''; await vorschauGeraetBeenden(); wzRender(); }; }
   { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
   b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
     var q=el.dataset.wgr, x=(q==='browser') ? wzBrowser() : wzGeraete().find(function(d){ return d.name===el.dataset.wgn; });
@@ -4155,9 +4222,9 @@ function wzUpd(){
   $('#wzFertig').hidden=!(WZ.step<f.length-1 && WZ.step>=f.indexOf('name') && wzPflichtOk());
 }
 function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzRender(); return; } wzBuild(); }
-function wzBuild(){
-  var id=WZ.id; if(!id) return;
-  if(PANELS[id]){ alert('Panel „'+id+'" '+T('gibt es schon.')); return; }
+// Das Profil, das der Assistent anlegen wuerde (UI-Form wie in PANELS), ohne etwas anzulegen:
+// wzBuild() traegt es ein, die Vorschau am Geraet (Punkt 12) schickt es als Entwurf.
+function wzProfil(){
   var ui={};
   if(WZ.grid==='auto') ui.grid='auto';   // Raster rechnet das Tablet selbst
   if(WZ.grid==='3x2'||WZ.grid==='3x3') ui.cols=3;
@@ -4195,7 +4262,12 @@ function wzBuild(){
   if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
   if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
     e.device=Object.assign({name:WZ.device}, (dsc.vw&&dsc.vh)?{vw:dsc.vw, vh:dsc.vh}:{}); }
-  PANELS[id]=Object.assign({title:WZ.title.trim()||id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
+  return Object.assign({title:WZ.title.trim()||WZ.id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
+}
+function wzBuild(){
+  var id=WZ.id; if(!id) return;
+  if(PANELS[id]){ alert('Panel „'+id+'" '+T('gibt es schon.')); return; }
+  PANELS[id]=wzProfil();
   var amGeraet=WZ.device, umschalten=!!WZ.umschalten, zielMerken=WZ.grid==='auto' && WZ.zielMerken && wzZielNeu(), ziel=wzZiel();
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
   if(amGeraet && (umschalten || zielMerken)) wzAmGeraet(id, amGeraet, umschalten, zielMerken ? ziel : 0);
@@ -4630,6 +4702,8 @@ let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?devi
 let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
 let DEVICE_SUGGEST={}; // Geraetename -> Vorschlag Zielkachel px aus der gemeldeten Groesse (/api/devices tileSuggest)
 let DEVICE_SCREENS={}; // Geraetename -> gemeldete Bildschirmgroesse (fuer den Hinweis zum Vorschlag)
+let DEVICE_CONN={};    // Geraetename -> Anzahl verbundener Visus (Vorschau am Geraet braucht eine)
+let DEVICE_VORSCHAU={}; // Geraetename -> {id, bis}, solange das Geraet einen Entwurf zeigt
 let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
 let ACTIVE_OPTS=[];    // Bausteine mit active-State (Auswahl Praesenzmelder), aus /api/meta
 let PRESENCE_NOW={};   // Geraetename -> meldet sein Praesenzmelder gerade jemanden? (aus /api/devices)
@@ -4755,7 +4829,11 @@ async function pollDevices(){
     let vorschlagNeu=false;
     (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip;
       const v=d.tileSuggest||null; if(v!==(DEVICE_SUGGEST[d.name]||null)) vorschlagNeu=true;
-      DEVICE_SUGGEST[d.name]=v; DEVICE_SCREENS[d.name]=d.screen||null; });
+      DEVICE_SUGGEST[d.name]=v; DEVICE_SCREENS[d.name]=d.screen||null;
+      DEVICE_CONN[d.name]=d.connections||0; DEVICE_VORSCHAU[d.name]=d.vorschau||null; });
+    // Das Geraet ist von selbst zurueckgekehrt (abgelaufen, anders umgeschaltet): Knopf nachziehen
+    // (nicht in den ersten Sekunden: die Abfrage kann vor dem Start der Vorschau losgegangen sein)
+    if(ENTWURF.geraet && !DEVICE_VORSCHAU[ENTWURF.geraet] && Date.now()-(ENTWURF.seit||0)>4000){ ENTWURF.geraet=''; vorGerKnopf(); }
     PRESENCE_NOW={};
     (j.devices||[]).forEach(d=>{ if(typeof d.presence==='boolean') PRESENCE_NOW[d.name]=d.presence; });
     document.querySelectorAll('#dev_list .dev').forEach(n=>{

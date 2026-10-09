@@ -1753,6 +1753,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
           Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.2 und §8.
       12. **Live-Vorschau am Zielgerät** während des Assistenten (Entwurf an
           das gewählte Gerät schicken). **M**
+          *Erledigt 09.10.2026:* Der Entwurf aus Punkt 10 läuft auf dem
+          echten Gerät: „Am Gerät ansehen“ im Panel-Editor und im letzten
+          Schritt des Assistenten (dort für ein Panel, das es noch nicht
+          gibt). Nur über eine verbundene Visu; das Gerät zieht Änderungen
+          nach und kehrt auf Knopfdruck, nach 15 Minuten ohne Änderung, beim
+          Schließen des Assistenten ohne Anlegen oder durch einen
+          Betriebsmodus zur vorigen Ansicht zurück, Speichern zeigt das
+          gespeicherte Profil. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2.
       13. **Vorschlag statt leerer Seite:** Gerätename ↔ Loxone-Raum, sonst
           Loxone-Favoriten; drei Pflichtschritte, Rest mit Standardwerten. **M**
           *Erledigt 08.10.2026:* Der Assistent bietet je bekanntem Gerät

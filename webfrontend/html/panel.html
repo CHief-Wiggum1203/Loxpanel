@@ -3459,6 +3459,9 @@ function connect(){
       const fp=el('frontpane'); if(fp && paneKind(paneRawNow())==='chart') renderChartPane(fp); return; }
     if(msg.t==='switch'){ if(msg.panel!==undefined){ const u=new URL(location.href);
         if(msg.panel) u.searchParams.set('panel',msg.panel); else u.searchParams.delete('panel');
+        // Ein Entwurf (Vorschau am Geraet) gilt nur fuer sein Profil: jeder andere Wechsel
+        // nimmt ihn aus der Adresse, sonst zeigte das neue Profil ein "abgelaufen"
+        if(msg.entwurf) u.searchParams.set('entwurf',msg.entwurf); else u.searchParams.delete('entwurf');
         location.replace(u.toString()); } return; }   // Betriebsmodus -> Profil live wechseln
     if(msg.t==='reload'){ location.reload(); return; }                       // Server -> Panel neu laden
     if(msg.t==='entwurfEnde'){ const u=new URL(location.href); u.searchParams.delete('entwurf');
