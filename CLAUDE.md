@@ -111,7 +111,7 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   patcht `updatePanel()` ihn nie und er friert ein. Befehle und State-Bedeutung
   eines Bausteins aus der Loxone-Strukturdoku („Structure File“), nicht
   raten; Unterseiten (Zone, Weckzeit …) sind eigene `view`-Routen in `render()`.
-- `loxpanel.cfg` aus `/config` (Settings → Miniserver) hat Vorrang vor
+- `loxpanel.cfg` aus `/config` (Einstellungen → Miniserver) hat Vorrang vor
   `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und
   den Heredoc in `deploy/install-agent.sh`.
