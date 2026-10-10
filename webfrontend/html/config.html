@@ -569,16 +569,24 @@
   /* Kachel-Set mit Farbton (touch, kachelSetExtraHtml): Regler 0-359 auf dem
      Verlauf der Kachelfarben, Schnellwahl als Farbfelder - Farben und Schrift
      darauf kommen aus /api/meta (theme_colors.touch_satz), nicht von hier. */
-  .ks-hue{width:100%;max-width:320px;-webkit-appearance:none;appearance:none;height:14px;margin:6px 0;
-    border-radius:7px;border:1px solid var(--line);background:var(--ks-verlauf,var(--panel2));cursor:pointer;}
-  .ks-hue::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
-    background:var(--fg);border:2px solid var(--bg);cursor:pointer;}
-  .ks-hue::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--fg);border:2px solid var(--bg);cursor:pointer;}
-  .ks-schnell{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px;}
-  .ks-ton{min-width:72px;height:36px;border-radius:7px;border:1px solid var(--line);padding:0 10px;
-    cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;}
-  .ks-ton.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);}
-  .ks-extra .segmode{margin:0 0 4px;}
+  .ks-extra{max-width:520px;display:flex;flex-direction:column;gap:14px;}
+  .ks-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
+  .ks-kopf .cval{color:var(--muted);}
+  .ks-hue{width:100%;-webkit-appearance:none;appearance:none;height:16px;margin:10px 0;
+    border-radius:8px;border:0;background:var(--ks-verlauf,var(--panel2));cursor:pointer;}
+  .ks-hue::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;
+    background:var(--fg);border:3px solid var(--bg);box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer;}
+  .ks-hue::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--fg);border:3px solid var(--bg);cursor:pointer;}
+  .ks-hue:focus-visible{outline:3px solid var(--accent);outline-offset:6px;}
+  .ks-schnell{display:flex;flex-wrap:wrap;gap:10px;}
+  .ks-ton{height:44px;border-radius:999px;border:1px solid var(--line);padding:0 14px 0 8px;background:var(--panel2);
+    color:var(--fg);display:flex;align-items:center;gap:8px;cursor:pointer;font:inherit;font-size:14px;font-weight:600;}
+  .ks-ton .ks-punkt{width:28px;height:28px;border-radius:50%;flex:none;border:1px solid var(--line);}
+  .ks-ton.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+  .ks-extra .segmode{margin:0;}
+  .ks-pruefung{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px;}
+  .ks-pruefung .ks-zeile{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;}
+  .ks-pruefung .ks-zeile span{color:var(--muted);}
   .wzrow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
   details.discl>summary{cursor:pointer;list-style:none;outline:none;}
   details.discl>summary::-webkit-details-marker{display:none;}
@@ -1296,13 +1304,32 @@ function kachelSetExtraHtml(ui){
   const h=ksFarbton(ui, s), ak=ui.tileActive||s.aktiv.standard, v=s.farbton.verlauf;
   const verlauf='linear-gradient(to right,'+v.concat([v[0]]).join(',')+')';
   return '<div class="ks-extra">'+
-    '<label class="lbl">'+T('Farbton')+' <span data-ks-wert>'+h+'°</span></label>'+
-    '<input type="range" class="ks-hue" min="0" max="359" step="1" value="'+h+'" data-ks-hue aria-label="'+esc(T('Farbton'))+'" style="--ks-verlauf:'+esc(verlauf)+'">'+
-    '<div class="ks-schnell">'+s.farbton.auswahl.map(f=>'<button type="button" class="ks-ton'+(f.wert===h?' on':'')+'" data-ks-ton="'+f.wert+'" '+
-      'style="background:'+esc(f.farbe)+';color:'+esc(f.schrift)+'">'+esc(T(f.label))+'</button>').join('')+'</div>'+
-    '<label class="lbl">'+T('Aktive Kachel')+'</label>'+
-    '<div class="segmode" role="group">'+s.aktiv.auswahl.map(a=>'<button type="button" data-ks-aktiv="'+esc(a.key)+'" aria-pressed="'+(a.key===ak)+'"'+
-      (a.key===ak?' class="on"':'')+'>'+esc(T(a.label))+'</button>').join('')+'</div></div>';
+    '<div><div class="ks-kopf"><label class="lbl" for="ksHue" style="margin:0">'+T('Farbton')+'</label>'+
+      '<span class="cval" data-ks-wert>'+h+'°</span></div>'+
+    '<input type="range" class="ks-hue" id="ksHue" min="0" max="359" step="1" value="'+h+'" data-ks-hue style="--ks-verlauf:'+esc(verlauf)+'"></div>'+
+    '<div><div class="lbl">'+T('Schnellwahl')+'</div><div class="ks-schnell">'+s.farbton.auswahl.map(f=>
+      '<button type="button" class="ks-ton'+(f.wert===h?' on':'')+'" data-ks-ton="'+f.wert+'" aria-pressed="'+(f.wert===h)+'">'+
+      '<span class="ks-punkt" style="background:'+esc(f.farbe)+'"></span>'+esc(T(f.label))+'</button>').join('')+'</div></div>'+
+    '<div><div class="lbl">'+T('Aktive Kachel')+'</div>'+
+    '<div class="segmode" role="group" aria-label="'+esc(T('Aktive Kachel'))+'">'+s.aktiv.auswahl.map(a=>'<button type="button" data-ks-aktiv="'+esc(a.key)+'" aria-pressed="'+(a.key===ak)+'"'+
+      (a.key===ak?' class="on"':'')+'>'+esc(T(a.label))+'</button>').join('')+'</div></div>'+
+    '<div class="ks-pruefung" data-ks-pruefung><div class="lbl" style="margin:0">'+T('Nachgerechnet')+'</div></div></div>';
+}
+// "Nachgerechnet": die Kontraste zu Farbton und aktiver Kachel rechnet der
+// Server (/api/kachelset, theme_colors.kachel_set_pruefung), die Seite zeigt
+// sie nur. Die letzte Antwort gewinnt.
+let _ksAbruf=0;
+async function kachelSetPruefen(host, ui){
+  const box=host && host.querySelector('[data-ks-pruefung]'), s=kachelSetMeta(ui.tileSet);
+  if(!box || !s || !s.farbton) return;
+  const nr=++_ksAbruf, q=new URLSearchParams({set:ui.tileSet, farbton:String(ksFarbton(ui, s)), aktiv:ui.tileActive||s.aktiv.standard});
+  let d=null;
+  try{ const r=await fetch('/api/kachelset?'+q.toString()); if(r.ok) d=await r.json(); }catch(e){ d=null; }
+  if(nr!==_ksAbruf || !d) return;
+  const zahl=x=>String(x.toFixed(1)).replace('.',',')+' : 1';
+  box.innerHTML='<div class="lbl" style="margin:0">'+T('Nachgerechnet')+'</div>'+(d.pruefung||[]).map(k=>
+    '<div class="ks-zeile" data-ks-paar><span>'+esc(T(k.name))+' ('+esc(T('Ziel'))+' '+esc(zahl(k.ziel))+')</span><b>'+esc(zahl(k.wert))+'</b></div>').join('');
+  const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=ksFarbton(ui, s)+'° · '+(d.kachel||'');
 }
 // Bindet kachelSetExtraHtml() in host: ui() ist das ui-Objekt, das sich
 // aendert, fertig() laeuft nach jeder Aenderung. Der Standard wird nicht
@@ -1312,20 +1339,30 @@ function kachelSetExtraBinden(host, ui, fertig){
   const setzeTon=v=>{ const u=ui(); if(v===s.farbton.standard) delete u.tileHue; else u.tileHue=v;
     const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=v+'°';
     const r=host.querySelector('[data-ks-hue]'); if(r && +r.value!==v) r.value=v;
-    host.querySelectorAll('[data-ks-ton]').forEach(b=>b.classList.toggle('on', +b.dataset.ksTon===v)); fertig(); };
+    host.querySelectorAll('[data-ks-ton]').forEach(b=>{ const an=+b.dataset.ksTon===v; b.classList.toggle('on', an); b.setAttribute('aria-pressed', String(an)); });
+    kachelSetPruefen(host, u); fertig(); };
   const r=host.querySelector('[data-ks-hue]'); if(r) r.oninput=()=>setzeTon(+r.value);
   host.querySelectorAll('[data-ks-ton]').forEach(b=>{ b.onclick=()=>setzeTon(+b.dataset.ksTon); });
   host.querySelectorAll('[data-ks-aktiv]').forEach(b=>{ b.onclick=()=>{ const u=ui(), k=b.dataset.ksAktiv;
     if(k===s.aktiv.standard) delete u.tileActive; else u.tileActive=k;
     host.querySelectorAll('[data-ks-aktiv]').forEach(x=>{ const an=x===b; x.classList.toggle('on', an); x.setAttribute('aria-pressed', String(an)); });
-    fertig(); }; });
+    kachelSetPruefen(host, u); fertig(); }; });
+  kachelSetPruefen(host, ui());
 }
-// Masse der Tab-Leiste fuer die Rasterrechnung (raster.js) wie autoRaster()
-// der Visu: die Seitenleiste eines Sets mit Leiste "links" nimmt Breite
-// (railW) statt Hoehe (tabsH); "oben" steht sie ueber statt unter dem Raster.
+// Masse fuer die Rasterrechnung (raster.js) wie autoRaster() der Visu, aus
+// den Massen des Kachel-Sets (/api/meta, schmal oder nicht nach der Breite):
+// Leistenhoehe (tabsH), die Seitenleiste eines Sets mit Leiste "links" nimmt
+// Breite (railW) statt Hoehe, "oben" steht die Leiste ueber dem Raster und
+// ein Rahmen geht ab (rahmenX links und rechts, rahmenY unten), dazu Abstand
+// und Innenrand des Rasters. Ohne Set die Masse der Visu (VISU_MASSE).
 function leisteMasse(setKey, vw){
   const s=kachelSetMeta(setKey), M=LoxRaster.VISU_MASSE, art=(s&&s.leiste)||'';
-  return art==='links' ? {tabsH:0, railW:LoxRaster.railBreite(vw), art:art} : {tabsH:M.tabsH, railW:0, art:art};
+  const mass=(n,r)=>LoxRaster.setMass((s&&s.masse)||{}, n, vw, r);
+  const lm={art:art, gap:mass('--kachel-abstand',M.gap), pad:mass('--feld-innen',M.pad),
+            tabsH:mass('--tabs-hoehe',M.tabsH), railW:0, rahmenX:0, rahmenY:0};
+  if(art==='links'){ lm.railW=mass('--rail-breite',0); lm.tabsH=0; }
+  if(art==='oben'){ lm.rahmenX=2*mass('--rahmen-seite',0); lm.rahmenY=mass('--rahmen-unten',0); }
+  return lm;
 }
 function baseRing(an){ return an?'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);':''; }
 function baseField(ui){
@@ -1461,7 +1498,7 @@ function gesetzt(v){ return v!==undefined && v!==null && v!==''; }
 const GERAET_SCHLUESSEL={scale:'scale', tileSize:'tileTarget'};
 // Was ganz ohne Eintrag gilt; null = das Standard-Aussehen (Schrift, Farben, Sprache)
 function standardWert(k, ui){
-  if(SIZE_KEYS.indexOf(k)>=0) return sizeStd((ui||{}).tileLayout,false)[k];
+  if(SIZE_KEYS.indexOf(k)>=0) return sizeStd((ui||{}).tileLayout,false,(ui||{}).tileSet)[k];
   if(k==='nightDim'||k==='nightWake') return ((META||{}).nightDefaults||{})[k];
   if(k==='scale') return 'off';
   if(k==='tileSize') return kachelZiel().std;
@@ -1733,7 +1770,7 @@ function renderEditor(){
    '<section class="spane" data-sub="aussehen"><div class="card"><h3>'+T('Aussehen')+'</h3>'+
      '<p class="note">'+T('Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.')+'</p>'+
      '<div class="grph">'+T('Farbe und Schrift')+'</div>'+
-     '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true),
+     '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true,(p.ui||{}).tileSet),
        T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'), false)+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:260px"><label class="lbl">'+T('Kachel-Aufbau')+'</label>'+
@@ -1829,7 +1866,7 @@ function renderEditor(){
   // Kachel-Aufbau: nur "classic" wird gespeichert, der neue ist der Standard
   { const ftl=$('#fTileLayout'); if(ftl) ftl.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value==='classic') p.ui.tileLayout='classic'; else delete p.ui.tileLayout;
-      sizePlatzhalter(sizeStd(p.ui.tileLayout,true)); markDirty(); }; }
+      sizePlatzhalter(sizeStd(p.ui.tileLayout,true,p.ui.tileSet)); markDirty(); }; }
   // Kachel-Set: leer = Standard (wird nicht gespeichert), sonst der Name aus /api/meta
   { const fks=$('#fTileSet'), ex=$('#fKsExtra');
     const extra=()=>{ if(!ex) return; ex.innerHTML=kachelSetExtraHtml(p.ui||{}); kachelSetExtraBinden(ex, ()=>p.ui, markDirty); };
@@ -1837,6 +1874,7 @@ function renderEditor(){
       if(e.target.value) p.ui.tileSet=e.target.value; else delete p.ui.tileSet;
       const ftl=$('#fTileLayout'); if(ftl) ftl.disabled=!!p.ui.tileSet;   // das Set bringt seinen Aufbau mit
       const inf=$('#fKsInfo'); if(inf) inf.textContent=kachelSetInfo(p.ui);
+      sizePlatzhalter(sizeStd(p.ui.tileLayout,true,p.ui.tileSet));   // leere Felder zeigen die Groessen des Sets
       extra(); markDirty(); };
     if(ex) kachelSetExtraBinden(ex, ()=>{ p.ui=p.ui||{}; return p.ui; }, markDirty); }
   { const fs=$('#fSplit'); if(fs) fs.onchange=e=>{ p.ui=p.ui||{};
@@ -1911,8 +1949,10 @@ function neuladenStunde(){ return (META||{}).reloadAt; }
 // PIN merken: Standard und Grenze kommen vom Server (/api/meta pinMerken =
 // PIN_MERKEN_STANDARD/PIN_MERKEN_MAX).
 function pinMerkenCfg(){ return (META||{}).pinMerken||{standard:'',max:''}; }
-function sizeStd(layout,mitGlobal){
-  const std=Object.assign({},((META||{}).sizeDefaults||{})[layout==='classic'?'classic':'neu']);
+function sizeStd(layout,mitGlobal,tileSet){
+  // ein Kachel-Set bringt seinen (neuen) Aufbau und eigene Standardgroessen mit (/api/meta)
+  const ks=kachelSetMeta(tileSet);
+  const std=Object.assign({},((META||{}).sizeDefaults||{})[(layout==='classic'&&!ks)?'classic':'neu'], (ks&&ks.groessen)||{});
   const g=mitGlobal?(((PANELS.__global__||{}).ui)||{}):{};
   SIZE_KEYS.forEach(k=>{ if(g[k]!=null&&g[k]!=='') std[k]=g[k]; });
   return std;
@@ -3060,17 +3100,17 @@ function seRaster(ctx, a){
 // Anteilen k:p der Automatik (fest: halb und halb wie .screen.split),
 // Kopfzeile und Werteleiste ueber dem Raster, die Seitenpunkte darunter.
 function seGeometrie(r, g, seiten){
-  const M=LoxRaster.VISU_MASSE, ks=r.ks||1, lm=r.tabLeiste||{tabsH:M.tabsH, railW:0, art:''};
+  const lm=r.tabLeiste||leisteMasse('', g.vw), M=Object.assign({}, LoxRaster.VISU_MASSE, {gap:lm.gap, pad:lm.pad}), ks=r.ks||1;
   const kopfH=r.kopf?Math.round(LoxRaster.KOPF_H*ks):0, leisteH=r.leiste?Math.round(LoxRaster.LEISTE_H*ks):0;
   const punkteH=(r.quer && seiten>1)?M.punkteH:0;
-  const x0=lm.railW, y0=(lm.art==='oben')?lm.tabsH:0;
-  let w=g.vw-lm.railW, h=g.vh-lm.tabsH, pane=null;
+  const rs=lm.rahmenX/2, x0=lm.railW+rs, y0=(lm.art==='oben')?lm.tabsH:0;
+  let w=g.vw-lm.railW-lm.rahmenX, h=g.vh-lm.tabsH-lm.rahmenY, pane=null;
   if(r.widget){
     if(r.hoch){ const ph=r.pPx ? r.pPx : h*r.p/(r.k+r.p); pane={x:x0, y:y0+h-ph, w:w, h:ph}; h-=ph; }
     else { const pw=w*r.p/(r.k+r.p); pane={x:x0+w-pw, y:y0, w:pw, h:h}; w-=pw; }
   }
   const raster={x:x0, y:y0+kopfH+leisteH, w:w, h:Math.max(1, h-kopfH-leisteH-punkteH)};
-  const tabs=lm.railW ? {x:0, y:0, w:lm.railW, h:g.vh} : {x:0, y:(lm.art==='oben')?0:g.vh-lm.tabsH, w:g.vw, h:lm.tabsH};
+  const tabs=lm.railW ? {x:0, y:0, w:lm.railW, h:g.vh} : {x:rs, y:(lm.art==='oben')?0:g.vh-lm.tabsH, w:g.vw-lm.rahmenX, h:lm.tabsH};
   return {M:M, pane:pane, raster:raster,
     kopf:kopfH?{x:x0, y:y0, w:w, h:kopfH}:null, leiste:leisteH?{x:x0, y:y0+kopfH, w:w, h:leisteH}:null,
     punkte:punkteH?{x:x0, y:raster.y+raster.h, w:w, h:punkteH}:null, tabs:tabs,
@@ -4050,7 +4090,8 @@ function wzVorrechnung(panes, grid){
   }
   const [c0,r0]=grid.split('x').map(Number);
   const [c,r]=LoxRaster.festesRaster({cols:c0, rows:r0, w:g.vw, h:g.vh, split:split, widget:false});
-  return {cols:c, rows:r, kb:(g.vw-lm.railW-2*M.pad-(c-1)*M.gap)/c, kh:(g.vh-lm.tabsH-2*M.pad-(r-1)*M.gap)/r, auto:false};
+  return {cols:c, rows:r, kb:(g.vw-lm.railW-lm.rahmenX-2*lm.pad-(c-1)*lm.gap)/c,
+          kh:(g.vh-lm.tabsH-lm.rahmenY-2*lm.pad-(r-1)*lm.gap)/r, auto:false};
 }
 // Passt die Anzeige zum Schirm? Zwei Panes nicht auf einem quadratischen (dort
 // blaettert die Visu senkrecht und hat keinen Platz fuer ein Widget daneben);

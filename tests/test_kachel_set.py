@@ -108,7 +108,8 @@ def test_set_schlaegt_die_grundfarbe_und_den_klassischen_aufbau(name):
     prof = _app({"tileSet": name, "baseColor": "#3a6ea5", "tileLayout": "classic"}).resolve_profile("p")
     assert prof["vars"]["--screen"] == TC.kachel_set(name)["--screen"]
     assert prof["tileLayout"] == "", "das Set bringt seinen eigenen Aufbau mit"
-    assert prof["vars"]["--name-size"] == f"{W.GROESSEN_STANDARD['neu']['nameSize']}px"
+    std = {**W.GROESSEN_STANDARD["neu"], **(TC.KACHEL_SETS[name].get("groessen") or {})}
+    assert prof["vars"]["--name-size"] == f"{std['nameSize']}px", "Groessen des neuen Aufbaus (und des Sets)"
 
 
 @pytest.mark.parametrize("name", SETS)
@@ -128,8 +129,9 @@ def test_vorgabe_zustandsfarbe_ueberschreibt_das_set_nicht(name):
 
 def test_auswahl_fuer_den_konfigurator():
     liste = TC.kachel_set_liste()
-    assert [(s["key"], s["label"], s["info"], s["aufbau"], s["leiste"]) for s in liste] == \
-        [(k, e["label"], e["info"], e["aufbau"], e["leiste"]) for k, e in TC.KACHEL_SETS.items()]
+    assert [(s["key"], s["label"], s["info"], s["aufbau"], s["leiste"], s["masse"], s["groessen"]) for s in liste] == \
+        [(k, e["label"], e["info"], e["aufbau"], e["leiste"], e.get("masse", {}), e.get("groessen", {}))
+         for k, e in TC.KACHEL_SETS.items()]
     for s in liste:
         e = TC.KACHEL_SETS[s["key"]]
         assert ("farbton" in s) == ("satz" in e) == ("aktiv" in s)
@@ -138,15 +140,74 @@ def test_auswahl_fuer_den_konfigurator():
         hell = e["aktiv"]["standard"] == "hell"
         assert s["farbton"]["standard"] == e["farbton"]["standard"] and s["aktiv"] == e["aktiv"]
         # die Farben rechnet der Server, der Konfigurator zeigt sie nur
-        assert [(f["label"], f["wert"], f["farbe"], f["schrift"]) for f in s["farbton"]["auswahl"]] == \
-            [(f["label"], f["wert"], TC.touch_satz(f["wert"], hell)["--tile"], TC.touch_satz(f["wert"], hell)["--ink"])
-             for f in e["farbton"]["auswahl"]]
+        assert [(f["label"], f["wert"], f["farbe"]) for f in s["farbton"]["auswahl"]] == \
+            [(f["label"], f["wert"], TC.touch_satz(f["wert"], hell)["--tile"]) for f in e["farbton"]["auswahl"]]
         assert s["farbton"]["verlauf"] == [TC.touch_satz(h, hell)["--tile"] for h in range(0, 360, TC.VERLAUF_SCHRITT)]
     assert TC.kachel_set("gibtsnicht") is None and TC.kachel_set(None) is None
 
 
 def test_meta_nennt_die_sets():
     assert W.theme_colors.kachel_set_liste() == TC.kachel_set_liste()
+
+
+@pytest.mark.parametrize("name", SETS)
+def test_masse_sind_css_werte(name):
+    """Masse gehen als CSS-Variablen an die Visu und als Zahl in die
+    Rasterrechnung des Konfigurators (raster.js setMass): Laengen in px, ein
+    Mass mit "-schmal" nur zu einem ohne."""
+    masse = TC.KACHEL_SETS[name].get("masse") or {}
+    for k, v in masse.items():
+        assert k.startswith("--") and isinstance(v, str), (k, v)
+        if k.endswith("-schmal"):
+            assert k[:-len("-schmal")] in masse, k
+        if k not in ("--kachel-schatten", "--kreis-anteil"):
+            assert v.endswith("px") and float(v[:-2]) > 0, (k, v)
+
+
+@pytest.mark.parametrize("name", SETS)
+def test_groessen_des_sets(name):
+    """Standardgroessen des Sets gelten ohne eigene Einstellung, eine
+    eingestellte geht vor."""
+    gr = TC.KACHEL_SETS[name].get("groessen") or {}
+    std = {**W.GROESSEN_STANDARD["neu"], **gr}
+    vars_ = _app({"tileSet": name}).resolve_profile("p")["vars"]
+    assert vars_["--ico-size"] == f"{std['iconSize']}px" and vars_["--name-size"] == f"{std['nameSize']}px"
+    assert _app({"tileSet": name, "iconSize": 30}).resolve_profile("p")["vars"]["--ico-size"] == "30px"
+
+
+@pytest.mark.parametrize("name", MIT_SATZ)
+def test_nachgerechnet_fuer_den_konfigurator(name):
+    e = TC.KACHEL_SETS[name]
+    for aktiv in AKTIV[name]:
+        p = TC.kachel_set_pruefung(name, 95, aktiv)
+        v = TC.kachel_set(name, 95, aktiv)
+        assert [k["name"] for k in p] == ["Schrift auf Kachel", "Schrift auf aktiver Kachel", "Symbol auf Taste"]
+        assert p[0]["wert"] == round(TC.kontrast(v["--ink"], v["--tile"]), 2) and p[0]["ziel"] == e["satz"]["kachel"]["ziel"]
+        assert p[1]["wert"] == round(TC.kontrast(v["--kachel-an-ink"], v["--kachel-an"]), 2)
+        assert p[1]["ziel"] == e["satz"]["aktiv"][aktiv]["ziel"] and p[2]["ziel"] == e["satz"]["taste"]["ziel"]
+        assert all(k["wert"] >= k["ziel"] for k in p), p
+    assert TC.kachel_set_pruefung(next(n for n in SETS if n not in MIT_SATZ)) == []
+
+
+def test_route_nachgerechnet():
+    """GET /api/kachelset: nur lesend, Ungueltiges gilt als Standard, ein
+    unbekanntes Set ist 404."""
+    import asyncio
+
+    from aiohttp.test_utils import make_mocked_request
+
+    async def holen(q):
+        r = make_mocked_request("GET", "/api/kachelset?" + q)
+        antwort = await W.api_kachelset(r)
+        return antwort.status, (antwort.body and __import__("json").loads(antwort.body))
+    name = MIT_SATZ[0]
+    std = TC.KACHEL_SETS[name]
+    status, d = asyncio.run(holen(f"set={name}&farbton=160&aktiv=dunkel"))
+    assert status == 200 and d["pruefung"] == TC.kachel_set_pruefung(name, 160, "dunkel")
+    assert d["kachel"] == TC.kachel_set(name, 160, "dunkel")["--tile"]
+    status, d = asyncio.run(holen(f"set={name}&farbton=rot&aktiv=grell"))
+    assert d["pruefung"] == TC.kachel_set_pruefung(name, std["farbton"]["standard"], std["aktiv"]["standard"])
+    assert asyncio.run(holen("set=gibtsnicht"))[0] == 404
 
 
 # ---- Kontraste --------------------------------------------------------------
@@ -159,11 +220,12 @@ def _paare(name: str, v: dict) -> list:
     # Schrift auf Flaeche, Kachel, Taste; Zweitzeile ebenso
     k += [("--ink", "--screen", TC.AAA, "Schrift auf der Flaeche")]
     k += [("--ink", f, TC.AA, "Schrift") for f in ("--tile", "--taste")]
-    k += [("--muted", f, TC.AA, "Zweitzeile") for f in ("--tile", "--screen", "--taste")]
+    k += [("--muted", f, TC.AA, "Zweitzeile") for f in ("--tile", "--screen")]   # auf der Taste nur Symbole
     if aufbau == "mitte":
         # aktive Kachel kippt ganz um: eigene Schrift fuer Text und Symbol
         ziel = TC.KACHEL_SETS[name]["satz"]["aktiv"]["hell" if TC.luminanz(v["--kachel-an"]) > 0.18 else "dunkel"]["ziel"]
-        k += [("--kachel-an-ink", "--kachel-an", ziel, "Schrift auf der aktiven Kachel")]
+        k += [("--kachel-an-ink", "--kachel-an", ziel, "Schrift auf der aktiven Kachel"),
+              ("--kachel-an-muted", "--kachel-an", TC.AA, "Zweitzeile auf der aktiven Kachel")]
     else:
         k += [("--ink", "--kachel-an", TC.AA, "Schrift auf der aktiven Kachel"),
               ("--muted", "--kachel-an", TC.AA, "Zweitzeile auf der aktiven Kachel")]

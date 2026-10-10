@@ -2608,6 +2608,9 @@ class App:
                 v["--accent-rgb"] = _rgb
         # Groessen in px: Panel, sonst global, sonst der Standard des Kachel-Aufbaus
         std = GROESSEN_STANDARD["classic" if _kachel_klassisch(ui) else "neu"]
+        # ... ein Kachel-Set bringt eigene Standardgroessen mit (KACHEL_SETS "groessen")
+        _ks_e = theme_colors.KACHEL_SETS.get(_clean_kachel_set(ui.get("tileSet")) or "") or {}
+        std = {**std, **(_ks_e.get("groessen") or {})}
         for _var, _key in (("--ico-size", "iconSize"), ("--name-size", "nameSize"),
                            ("--sub-size", "subSize"), ("--room-size", "roomSize"),
                            ("--big-size", "bigSize")):
@@ -7804,6 +7807,23 @@ async def raster_js(request: web.Request) -> web.Response:
     return _web_file(RASTER_JS, "application/javascript")
 
 
+async def api_kachelset(request: web.Request) -> web.Response:
+    """Nachgerechnete Kontraste eines Kachel-Sets zu Farbton und aktiver Kachel
+    (?set=touch&farbton=95&aktiv=dunkel), fuer "Nachgerechnet" im
+    Konfigurator. Nur lesend; Ungueltiges gilt als Standard des Sets."""
+    q = request.query
+    name = _clean_kachel_set(q.get("set"))
+    if not name:
+        return web.json_response({"error": "unbekanntes Kachel-Set"}, status=404)
+    try:
+        farbton = _clean_kachel_farbton(int(q.get("farbton", "")))
+    except ValueError:
+        farbton = None
+    aktiv = _clean_kachel_aktiv(q.get("aktiv"))
+    return web.json_response({"set": name, "kachel": theme_colors.kachel_set_kachel(name, farbton, aktiv),
+                              "pruefung": theme_colors.kachel_set_pruefung(name, farbton, aktiv)})
+
+
 async def api_meta(request: web.Request) -> web.Response:
     """Alle Räume/Kategorien der Anlage + aktuelle Profile (für den Editor)."""
     app: App = request.app["app"]
@@ -10021,6 +10041,7 @@ def main() -> None:
     a.router.add_get("/raster.js", raster_js)
     a.router.add_get("/install-agent.sh", install_script)
     a.router.add_get("/api/meta", api_meta)
+    a.router.add_get("/api/kachelset", api_kachelset)
     a.router.add_post("/api/panels", api_save_panels)
     a.router.add_post("/api/entwurf", api_entwurf)
     a.router.add_post("/api/theme", api_save_theme)

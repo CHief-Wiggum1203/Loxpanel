@@ -385,7 +385,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
 
 
 # Kachel-Set "loxone" (ui.tileSet): Farben aus theme_colors.KACHEL_SETS, Regeln
-# in panel.html am Attribut html[data-kachelset]. Gemessen wird die berechnete
+# in panel.html an der Art des Sets (html[data-kachelset-aufbau|-leiste]). Gemessen wird die berechnete
 # Farbe im Browser gegen den Wert des Sets - keine zweite Farbliste im Test.
 SET_MESSEN = """() => {
   const cs = e => getComputedStyle(e), t = id => document.querySelector('#grid .tile[data-id="' + id + '"]');
@@ -446,6 +446,8 @@ def test_kachel_set_loxone_am_tablet(tmp_path):
     assert mit["symbolFest"] == "rgb(255, 0, 0)", mit
     assert mit["taste"] == _rgb(farben["--taste"]), mit
     assert mit["pille"] == _rgb(farben["--tabbar"]), mit
-    # Nur der Look aendert sich: Leiste und Raster bleiben, nichts laeuft ueber
-    assert (mit["leisteH"], mit["zeilen"]) == (ohne["leisteH"], ohne["zeilen"])
+    # Die Leiste hat die Hoehe aus dem Set (Entwurf: 96 px am Tablet), das
+    # Raster rechnet sie mit; nichts laeuft ueber
+    masse = TC.KACHEL_SETS["loxone"]["masse"]
+    assert round(mit["leisteH"]) == int(masse["--tabs-hoehe"].rstrip("px")) != round(ohne["leisteH"]), mit
     assert all(e["ueberlauf"] <= 1 and e["textUnten"] <= 0 for e in k.values()), k

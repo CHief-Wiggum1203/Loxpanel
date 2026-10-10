@@ -1,16 +1,18 @@
 """Kachel-Sets (ui.tileSet) in Chromium: jedes Set aus theme_colors.KACHEL_SETS
 am iPad (1000 x 750, automatisches Raster) und am 4"-Panel (480 x 480, festes
 2 x 2 ohne Split). Gemessen wird gegen die Werte des Sets selbst
-(theme_colors.kachel_set), keine zweite Farbliste im Test: Flaeche, aktive
-Kachel, Symbol, Tab-Leiste je nach Art (pille, oben, links) und Aufbau (lx,
-mitte, kreis). Nichts laeuft ueber, das Raster bleibt wie ohne Set - ausser
-bei der Seitenleiste links, die Breite nimmt: dort duerfen es weniger
-Spalten werden, abgeschnitten wird keine Kachel. Die Leiste "oben" steht in
-jeder Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split quer und
-hochkant) ueber allem anderen, ohne etwas zu verdecken. Dazu der
-Konfigurator (Auswahl, Farbton nur bei touch, Speichern) und der Wechsel des
-Sets bei einer neuen Verbindung. Die Bilder aller Sets landen im tmp_path
-(CI: Artefakt "screenshots")."""
+(theme_colors.kachel_set) und seine Masse (KACHEL_SETS "masse", schmal oder
+nicht), keine zweite Liste im Test: Flaeche, aktive Kachel, Symbol, Kreis,
+Tab-Leiste je nach Art (pille, oben, links) und Aufbau (lx, mitte, kreis),
+der Zustand vorn auch bei Schaltern. Nichts laeuft ueber, keine Kachel wird
+abgeschnitten; Leisten, Rahmen und Seitenleiste nehmen, was der Entwurf
+zeichnet, das Raster rechnet es mit. Die Leiste "oben" steht in jeder
+Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split quer und
+hochkant) ueber allem anderen, ohne etwas zu verdecken, das Feld im Rahmen.
+Dazu der Konfigurator (Auswahl, Farbton nur bei touch, Nachgerechnet,
+Speichern), der Assistent und der Wechsel des Sets bei einer neuen
+Verbindung. Die Bilder aller Sets landen im tmp_path (CI: Artefakt
+"screenshots")."""
 import asyncio
 import json
 
@@ -28,6 +30,7 @@ pytestmark = pytest.mark.browser
 
 SETS = list(TC.KACHEL_SETS)
 TABS = ["favoriten", "zentral", "raeume", "kategorien"]
+SCHMAL_UNTER = 600   # raster.js SCHMAL_UNTER, im Test der Seitenleiste aus der Visu gelesen
 # iPad quer mit automatischem Raster, 4"-Panel mit festem 2 x 2 ohne Split
 GERAETE = {"ipad": (1000, 750, {"grid": "auto"}), "4zoll": (480, 480, {"split": False})}
 
@@ -39,6 +42,7 @@ SET_MESSEN = """() => {
   const tabs = document.getElementById('tabs'), grid = document.getElementById('grid'), sc = document.querySelector('.screen');
   const tab = [...tabs.querySelectorAll('.tab')], an = tabs.querySelector('.tab.active'), aus = tab.find(x => x !== an);
   const kreis = e => e && e.querySelector('.kreis');
+  const back = document.getElementById('tabback');
   return {
     attr: [html.getAttribute('data-kachelset'), html.getAttribute('data-kachelset-aufbau'), html.getAttribute('data-kachelset-leiste')],
     aus: cs(t('MB')).backgroundColor, an: cs(t('FS')).backgroundColor,
@@ -46,6 +50,10 @@ SET_MESSEN = """() => {
     textAn: cs(t('FS').querySelector('.name')).color, zweitAn: cs(t('FS').querySelector('.sub')).color,
     kreisAus: kreis(t('MB')) ? cs(kreis(t('MB'))).backgroundColor : null,
     kreisAn: kreis(t('FS')) ? cs(kreis(t('FS'))).backgroundColor : null,
+    kreisD: kreis(t('MB')) ? r(kreis(t('MB'))).width : null, zv: t('FS').classList.contains('zv'),
+    backSymbol: !!(back && back.querySelector('svg')), backLetzter: !!back && tabs.lastElementChild === back,
+    pilleH: getComputedStyle(tabs, '::before').height, gridFarbe: cs(grid).backgroundColor, schirmFarbe: cs(sc).backgroundColor,
+    rahmen: [cs(sc).paddingLeft, cs(sc).paddingRight, cs(sc).paddingBottom].map(parseFloat),
     raumKopf: !!t('MB').querySelector('.head .room'),
     texte: [t('FS').querySelector('.name').textContent, (t('FS').querySelector('.sub') || {}).textContent],
     radius: cs(t('MB')).borderTopLeftRadius, schatten: cs(t('MB')).boxShadow,
@@ -56,10 +64,18 @@ SET_MESSEN = """() => {
     tabs: r(tabs).toJSON(), grid: r(grid).toJSON(), schirm: r(sc).toJSON(),
     zeilen: cs(sc).getPropertyValue('--rows').trim() || cs(html).getPropertyValue('--rows').trim(),
     spalten: cs(html).getPropertyValue('--cols').trim(),
-    railW: cs(sc).getPropertyValue('--rail-w').trim(), schmal: sc.classList.contains('rail-schmal'),
+    schmal: sc.classList.contains('schmal'),
     kacheln: [...grid.querySelectorAll('.tile[data-id]')].filter(k => r(k).width > 0).map(k => r(k).toJSON()),
   };
 }"""
+
+
+def _mass(name: str, mass: str, breite: int) -> float | None:
+    """Mass eines Sets fuer diese Breite: "-schmal" unter SCHMAL_UNTER, wie
+    raster.js setMass(); None, wenn das Set es nicht nennt."""
+    m = TC.KACHEL_SETS[name].get("masse") or {}
+    wert = m.get(mass + "-schmal") if breite < SCHMAL_UNTER and mass + "-schmal" in m else m.get(mass)
+    return float(wert.rstrip("px")) if wert else None
 
 
 def _rgb(hexwert: str) -> str:
@@ -115,44 +131,53 @@ def test_set_am_geraet(name, geraet, tmp_path):
     assert (mit["schatten"] != "none") == ("--kachel-schatten" in v), mit["schatten"]
     if aufbau == "mitte":
         # die aktive Kachel kippt ganz um; Zustand vorn, "Name · Raum" darunter, kein Raum im Kopf
-        assert mit["textAn"] == mit["zweitAn"] == mit["symbolAn"] == _rgb(v["--kachel-an-ink"]), mit
+        assert mit["textAn"] == mit["symbolAn"] == _rgb(v["--kachel-an-ink"]), mit
+        assert mit["zweitAn"] == _rgb(v["--kachel-an-muted"]), mit
         assert mit["texte"] == ["Ein", "Frostsicherung · Zentral"] and not mit["raumKopf"], mit["texte"]
     else:
-        assert mit["raumKopf"], "Raum oben rechts im Kopf"
-        assert mit["zweitAn"] == _rgb(v.get("--an-text", v["--glow"])), mit
+        # Zustand vorn auch beim Schalter, in der Farbe "an"
+        assert mit["raumKopf"] and mit["zv"], "Raum oben rechts im Kopf, Zustand vorn"
+        assert mit["texte"] == ["Frostsicherung", "Ein"] and mit["zweitAn"] == _rgb(v.get("--an-text", v["--glow"])), mit
     if aufbau == "kreis":
         assert mit["kreisAus"] == _rgb(v["--taste"]) and mit["kreisAn"] == _rgb(v["--glow"]), mit
         assert mit["symbolAn"] == _rgb(v["--kreis-an-symbol"]), mit
+        assert abs(mit["kreisD"] - _mass(name, "--kreis-d", breite)) < 0.6, mit["kreisD"]
     else:
         assert mit["kreisAus"] is None and mit["kreisAn"] is None
+    assert mit["backSymbol"], "Zurueck ist ein Symbol wie die Tabs"
     # Tab-Leiste je nach Art
     s, tb, g = mit["schirm"], mit["tabs"], mit["grid"]
+    assert mit["schmal"] == (breite < SCHMAL_UNTER), "schmale Schirme nehmen die Masse mit -schmal"
+    if leiste in ("pille", "oben"):
+        assert abs(tb["height"] - _mass(name, "--tabs-hoehe", breite)) < 0.6, (tb, name)
     if leiste == "pille":
         assert mit["pille"] == _rgb(v["--tabbar"]) and abs(tb["bottom"] - s["bottom"]) < 1, mit
+        assert abs(float(mit["pilleH"].rstrip("px")) - _mass(name, "--pille-h", breite)) < 0.6, mit["pilleH"]
     if leiste == "oben":
-        assert mit["leisteFarbe"] == _rgb(v["--tabbar"]), mit
+        # Rahmen (--bg) um das Feld der Kacheln (--screen), die Tabs darauf
+        assert mit["schirmFarbe"] == _rgb(v["--bg"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
+        assert mit["rahmen"] == [_mass(name, "--rahmen-seite", breite)] * 2 + [_mass(name, "--rahmen-unten", breite)], mit
         assert mit["tabAn"] == _rgb(v["--tab-an"]) and mit["tabAus"] == _rgb(v["--tab-aus"]), mit
         assert abs(tb["top"] - s["top"]) < 1 and g["top"] >= tb["bottom"] - 0.5, (tb, g)
+        assert g["bottom"] <= s["bottom"] - mit["rahmen"][2] + 0.5, (g, s)
         assert not any(mit["namen"]), "nur Symbole"
     if leiste == "links":
         assert abs(tb["left"] - s["left"]) < 1 and tb["height"] >= s["height"] - 1, tb
         assert mit["leisteFarbe"] == _rgb(v["--tabbar"]), mit
-        assert mit["railW"] == f"{round(tb['width'])}px" and g["left"] >= tb["right"] - 0.5, (mit["railW"], tb, g)
-        assert mit["schmal"] == (breite < 600), "schmale Schirme nur mit Symbol"
-        assert all(n is None for n in mit["namen"]) == (breite < 600), mit["namen"]
+        assert abs(tb["width"] - _mass(name, "--rail-breite", breite)) < 0.6 and g["left"] >= tb["right"] - 0.5, (tb, g)
+        assert all(n is None for n in mit["namen"]) == (breite < SCHMAL_UNTER), mit["namen"]
+        assert mit["backLetzter"], "Zurueck steht unten"
     # Nichts laeuft ueber, keine Kachel abgeschnitten
     assert all(e["ueberlauf"] <= 1 and e["textUnten"] <= 0 for e in k.values()), \
         {i: (e["ueberlauf"], e["textUnten"]) for i, e in k.items()}
     # (waagerechte Seiten: die Kacheln der naechsten Seiten liegen rechts daneben)
     for t in (t for t in mit["kacheln"] if t["left"] < g["right"] - 1):
         assert t["left"] >= g["left"] - 0.5 and t["right"] <= g["right"] + 0.5, (t, g)
-    # Raster wie ohne Set; die Seitenleiste darf Spalten kosten
-    if leiste == "links":
+    # Leiste und Raster liegen im Kasten, ohne sich zu decken; mit weniger
+    # Flaeche (Seitenleiste, Rahmen) werden es hoechstens weniger Spalten
+    assert g["right"] <= s["right"] + 0.5 and g["bottom"] <= s["bottom"] + 0.5, (g, s)
+    if leiste == "links" or "--rahmen-seite" in (TC.KACHEL_SETS[name].get("masse") or {}):
         assert int(mit["spalten"]) <= int(ohne["spalten"]), (mit["spalten"], ohne["spalten"])
-    else:
-        assert (mit["spalten"], mit["zeilen"], round(tb["height"])) == \
-            (ohne["spalten"], ohne["zeilen"], round(ohne["tabs"]["height"])), (mit, ohne)
-        assert abs(g["height"] - ohne["grid"]["height"]) < 1 and abs(g["width"] - ohne["grid"]["width"]) < 1
 
 
 # Zeilen-Varianten des Kastens fuer die Leiste "oben": Kopfzeile, Werteleiste,
@@ -178,6 +203,7 @@ FLAECHEN = """(teile) => {
     return e && getComputedStyle(e).display !== 'none' ? e.getBoundingClientRect().toJSON() : null; };
   return {schirm: document.querySelector('.screen').getBoundingClientRect().toJSON(), tabs: r('tabs'), grid: r('grid'),
           teile: Object.fromEntries(teile.map(t => [t, r(t)])),
+          kacheln: [...document.querySelectorAll('#grid .tile[data-id]')].map(k => k.getBoundingClientRect().toJSON()),
           klassen: [...document.querySelector('.screen').classList]};
 }"""
 
@@ -210,28 +236,33 @@ def test_leiste_oben_in_jeder_zeilen_variante(variante, tmp_path):
             await runner.cleanup()
         assert not fehler, fehler
         return f
-    mit, ohne = asyncio.run(lauf(True)), asyncio.run(lauf(False))
+    mit = asyncio.run(lauf(True))
 
     s, tb = mit["schirm"], mit["tabs"]
-    assert abs(tb["top"] - s["top"]) < 1 and abs(tb["width"] - s["width"]) < 1, (variante, tb, s)
+    seite, unten = _mass(oben, "--rahmen-seite", breite), _mass(oben, "--rahmen-unten", breite)
+    # die Leiste oben im Rahmen, ueber die Breite des Felds
+    assert abs(tb["top"] - s["top"]) < 1 and abs(tb["width"] - (s["width"] - 2 * seite)) < 1, (variante, tb, s)
     flaechen = {"grid": mit["grid"], **mit["teile"]}
     assert all(flaechen.values()), (variante, flaechen, mit["klassen"])
+    g = mit["grid"]
+    for k in (k for k in mit["kacheln"] if k["left"] < g["right"] - 1 and k["top"] < g["bottom"] - 1):
+        assert k["right"] <= g["right"] + 0.5, (variante, k, g)
     for n, f in flaechen.items():
         assert f["top"] >= tb["bottom"] - 0.5 and f["bottom"] <= s["bottom"] + 0.5, (variante, n, f, tb)
     namen = list(flaechen)
     for i, a in enumerate(namen):
         for b in namen[i + 1:]:
             assert not _ueberlappen(flaechen[a], flaechen[b]), (variante, a, b, flaechen[a], flaechen[b])
-    # Dieselben Flaechen wie mit der Leiste unten, nur um die Leiste nach unten verschoben
+    # Alles innerhalb des Rahmens; die Leiste behaelt die Hoehe aus dem Set
     for n, f in flaechen.items():
-        o = ohne["grid"] if n == "grid" else ohne["teile"][n]
-        assert abs(f["height"] - o["height"]) < 1 and abs(f["width"] - o["width"]) < 1, (variante, n, f, o)
-        assert abs((f["top"] - tb["height"]) - o["top"]) < 1, (variante, n, f, o)
+        assert f["left"] >= s["left"] + seite - 0.5 and f["right"] <= s["right"] - seite + 0.5, (variante, n, f)
+        assert f["bottom"] <= s["bottom"] - unten + 0.5, (variante, n, f)
+    assert abs(tb["height"] - _mass(oben, "--tabs-hoehe", breite)) < 0.6, (variante, tb)
 
 
 def test_seitenleiste_folgt_der_breite(tmp_path):
-    """Leiste "links": unter LEISTE_LINKS.schmalUnter nur Symbole und die
-    schmale Breite, darueber Symbol und Name - auch beim Drehen ohne Neuladen."""
+    """Leiste "links": unter SCHMAL_UNTER nur Symbole und die schmale Breite
+    aus dem Set, darueber Symbol und Name - auch beim Drehen ohne Neuladen."""
     links = next(n for n in SETS if TC.kachel_set_art(n)[1] == "links")
 
     async def lauf():
@@ -242,10 +273,10 @@ def test_seitenleiste_folgt_der_breite(tmp_path):
             async with async_playwright() as p:
                 b = await p.chromium.launch()
                 pg = await _visu(b, port, 1000, 750, fehler)
-                masse = await pg.evaluate("LoxRaster.LEISTE_LINKS")
+                unter = await pg.evaluate("LoxRaster.SCHMAL_UNTER")
                 breit = await pg.evaluate(SET_MESSEN)
-                await pg.set_viewport_size({"width": masse["schmalUnter"] - 40, "height": 750})
-                await pg.wait_for_function("document.querySelector('.screen').classList.contains('rail-schmal')")
+                await pg.set_viewport_size({"width": unter - 40, "height": 750})
+                await pg.wait_for_function("document.querySelector('.screen').classList.contains('schmal')")
                 await pg.wait_for_timeout(300)
                 schmal = await pg.evaluate(SET_MESSEN)
                 await pg.screenshot(path=str(tmp_path / "links_schmal.png"))
@@ -254,11 +285,12 @@ def test_seitenleiste_folgt_der_breite(tmp_path):
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
-        return masse, breit, schmal
-    masse, breit, schmal = asyncio.run(lauf())
-    assert breit["railW"] == f"{masse['breit']}px" and round(breit["tabs"]["width"]) == masse["breit"], breit
+        return unter, breit, schmal
+    unter, breit, schmal = asyncio.run(lauf())
+    assert unter == SCHMAL_UNTER
+    assert abs(breit["tabs"]["width"] - _mass(links, "--rail-breite", 1000)) < 0.6, breit
     assert all(breit["namen"]) and not breit["schmal"] and schmal["schmal"], (breit, schmal)
-    assert schmal["railW"] == f"{masse['schmal']}px" and round(schmal["tabs"]["width"]) == masse["schmal"], schmal
+    assert abs(schmal["tabs"]["width"] - _mass(links, "--rail-breite", unter - 40)) < 0.6, schmal
     assert not any(schmal["namen"]), "nur Symbole"
     for t in (t for t in schmal["kacheln"] if t["left"] < schmal["grid"]["right"] - 1):
         assert t["left"] >= schmal["grid"]["left"] - 0.5 and t["right"] <= schmal["grid"]["right"] + 0.5, t
@@ -299,7 +331,8 @@ def test_neue_verbindung_mit_anderem_set():
 
 
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
-          ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/theme", W.api_save_theme)]
+          ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/theme", W.api_save_theme),
+          ("GET", "/api/kachelset", W.api_kachelset)]
 OFFEN = "document.querySelector('#offenTxt').textContent"
 
 
@@ -346,6 +379,9 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
                              await pg.locator("#fKsExtra [data-ks-wert]").text_content(),
                              await pg.locator(f"#fKsExtra [data-ks-ton='{wahl['wert']}']").get_attribute("class")]
                 await pg.locator(f"#fKsExtra [data-ks-aktiv='{anders}']").click()
+                await pg.wait_for_function(f"document.querySelector('#fKsExtra [data-ks-wert]').textContent.includes('{wahl['wert']}° · #')")
+                st["pruefung"] = await pg.eval_on_selector_all("#fKsExtra [data-ks-paar] b", "l => l.map(b => b.textContent)")
+                st["wert"] = await pg.locator("#fKsExtra [data-ks-wert]").text_content()
                 await pg.screenshot(path=str(tmp_path / "konfigurator_kachel_set.png"), full_page=True)
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
@@ -368,7 +404,11 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
     assert st["fest"][:2] == [0, True] and st["fest"][2] == fest["info"], st["fest"]
     assert st["satz"] == [str(satz["farbton"]["standard"]), [f["label"] for f in satz["farbton"]["auswahl"]],
                           [a["label"] for a in satz["aktiv"]["auswahl"]]], st["satz"]
-    assert st["ton"][:2] == [str(wahl["wert"]), f"{wahl['wert']}°"] and "on" in st["ton"][2], st["ton"]
+    assert st["ton"][0] == str(wahl["wert"]) and st["ton"][1].startswith(f"{wahl['wert']}°") and "on" in st["ton"][2], st["ton"]
+    # Nachgerechnet: die Werte des Servers, deutsch mit Komma
+    erwartet = TC.kachel_set_pruefung(satz["key"], wahl["wert"], anders)
+    assert st["pruefung"] == [f"{k['wert']:.1f}".replace(".", ",") + " : 1" for k in erwartet], st["pruefung"]
+    assert st["wert"] == f"{wahl['wert']}° · " + TC.kachel_set_kachel(satz["key"], wahl["wert"], anders), st["wert"]
     assert st["gespeichert"] == {"tileSet": satz["key"], "tileHue": wahl["wert"], "tileActive": anders}, st["gespeichert"]
     assert st["standard"] == {"tileSet": satz["key"], "tileActive": anders}, st["standard"]
 
@@ -391,16 +431,16 @@ def test_assistent_rechnet_die_seitenleiste_mit():
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                erg = await pg.evaluate("""(set) => {
+                erg = await pg.evaluate("""([set, rail]) => {
                   WZ.groesse = {name: 'ipad', vw: 1180, vh: 820, quelle: 'katalog'}; WZ.look = {};
                   const ohne = wzVorrechnung('1', 'auto'), festOhne = wzVorrechnung('1', '3x2');
                   WZ.look.tileSet = set;
                   const mit = wzVorrechnung('1', 'auto'), festMit = wzVorrechnung('1', '3x2');
                   const ref = LoxRaster.autoRaster(Object.assign({}, LoxRaster.VISU_MASSE,
-                    {w: 1180 - LoxRaster.railBreite(1180), h: 820, tabsH: 0, ziel: wzZiel(), wachsen: kachelZiel().wachsen || 1}));
+                    {w: 1180 - rail, h: 820, tabsH: 0, ziel: wzZiel(), wachsen: kachelZiel().wachsen || 1}));
                   return {ohne, mit, festOhne, festMit, ref: [ref.cols, ref.rows, Math.round(ref.kb)],
-                          rail: LoxRaster.railBreite(1180), gap: LoxRaster.VISU_MASSE.gap, tabsH: LoxRaster.VISU_MASSE.tabsH};
-                }""", links)
+                          rail: rail, tabsH: LoxRaster.VISU_MASSE.tabsH};
+                }""", [links, _mass(links, "--rail-breite", 1180)])
                 await b.close()
         finally:
             bc.cancel()

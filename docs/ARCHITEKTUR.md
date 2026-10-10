@@ -715,6 +715,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/raster.js` | `raster_js` | Rasterrechnung (§7.5) | Visu, Konfigurator |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
+| GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden) | Konfigurator |
@@ -1013,8 +1014,14 @@ fertigen Look. Jedes Set steht genau einmal in `theme_colors.KACHEL_SETS`:
 Name und Beschreibung für den Konfigurator, `aufbau` der Kachel (`lx` flach wie
 die Loxone-App, `mitte` mit Symbol mittig und einer aktiven Kachel, die ganz
 umkippt, `kreis` mit dem Symbol in einem Kreis), `leiste` (`pille` unten,
-`oben` nur Symbole über dem Raster, `links` als Seitenleiste), feste `farben`
-und `masse` (Radius, Schatten, Kreis). „touch“ hat statt fester Farben einen
+`oben` nur Symbole über dem Raster, `links` als Seitenleiste), feste `farben`,
+`masse` und `groessen`. Die Maße kommen aus dem Entwurf („LoxPanel Kachel-Set
+Loxone“, Design-Canvas): Radien, Schatten, Kreis, Leistenhöhe, Pille,
+Tab-Symbole, Rahmen und Feld (touch), Seitenleiste (kreide), Abstand und
+Innenrand des Rasters; ein Maß mit `-schmal` gilt unter `SCHMAL_UNTER`
+(`raster.js`, 600 px). `groessen` sind Standardgrößen der Kachel, die das Set
+mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
+`ui.tileLayout` nicht. „touch“ hat statt fester Farben einen
 `satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,
 Taste, aktive Kachel und Tab-Symbole aus dem Farbton (`ui.tileHue`) und lässt
 jede Helligkeit wandern, bis ihr Kontrast erreicht ist. Rollen, die ein Set
@@ -1216,21 +1223,31 @@ Assistenten des Konfigurators.
   `tests/test_verlinkte_objekte.py`.
 - Kachel-Sets (`ui.tileSet`, §5.4): Die `theme`-Nachricht setzt
   `data-kachelset`, `data-kachelset-aufbau` und `data-kachelset-leiste` am
-  `<html>`. Die Regeln hängen an der Art, nie am Namen eines Sets: Für jedes
-  Set (`html[data-kachelset-aufbau]`) flache Kacheln ohne Rahmen, Symbole in
-  der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf `--taste`.
-  `mitte`: `kachelTexte()` stellt den Zustand vorn und darunter „Name · Raum“,
-  die aktive Kachel trägt `--kachel-an-ink`. `kreis`: `render()` legt
-  `.kreis` um das Symbol, aktiv füllt er sich mit `--glow`. Zustandstext in
-  Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leiste `oben`: die
-  Tabs stehen in Zeile 1, jede Zeilen-Variante des Kastens (Kopfzeile,
-  Werteleiste, Split quer und hochkant, Widget-Seite) rückt eine Zeile nach
-  unten, die Höhe der Leiste bleibt. Leiste `links`: `railEinrichten()` setzt
-  `--rail-w` aus `raster.js` (`railBreite()`, unter 600 px nur Symbole,
-  `.rail-schmal`), der Kasten macht ihr mit `padding-left` Platz, die Leiste
-  liegt absolut darin, `autoRaster()` zieht ihre Breite ab und rechnet ohne
-  Leistenhöhe. Wechselt das Set bei einer neuen Verbindung, entfernt die
-  `theme`-Nachricht die Variablen der vorigen. Tests in
+  `<html>`. Die Regeln hängen an der Art, nie am Namen eines Sets. Maße mit
+  `-schmal` lösen die `--k-*` am Kasten auf (`schmalEinrichten()` setzt
+  `.schmal` unter `SCHMAL_UNTER`). Für jedes Set (`html[data-kachelset-aufbau]`)
+  flache Kacheln ohne Rahmen, Abstand und Innenrand des Rasters aus dem Set,
+  Symbole in der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf
+  `--taste`, und der Zustand steht vorn, auch bei Kacheln, die direkt
+  schalten (`zustandVorn()`). `mitte`: `kachelTexte()` stellt den Zustand vorn
+  (neben einem Messwert den, den der Server dazu nennt) und darunter „Name ·
+  Raum“, die aktive Kachel trägt `--kachel-an-ink`, ihre Zweitzeile
+  `--kachel-an-muted`. `kreis`: `render()` legt `.kreis` um das Symbol, aktiv
+  füllt er sich mit `--glow`; Zustand und Name stehen unten, eine breite
+  Kachel ohne Messwert stellt Kreis, Text und Raum in eine Zeile. Zustandstext
+  in Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leisten `pille`
+  und `oben` haben ihre Höhe und Symbolgröße aus dem Set, Zurück ist ein
+  Symbol wie die Tabs. Leiste `oben`: die Tabs stehen in Zeile 1, der Kasten
+  ist der Rahmen (`--bg`, Innenabstand aus dem Set), das Raster darin das
+  abgerundete Feld (`--screen`); Kopfzeile, Werteleiste und Widget stehen auf
+  dem Rahmen; jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
+  quer und hochkant, Widget-Seite) rückt eine Zeile nach unten. Leiste
+  `links`: Breite `--rail-breite` (schmal `--rail-breite-schmal`, nur
+  Symbole), Zurück unten, der aktive Eintrag mit Symbol in der Akzentfarbe;
+  der Kasten macht ihr mit `padding-left` Platz, die Leiste liegt absolut
+  darin. `autoRaster()` misst Leiste, Seitenleiste und Rahmen (Innenabstand
+  des Kastens) und zieht sie ab. Wechselt das Set bei einer neuen Verbindung,
+  entfernt die `theme`-Nachricht die Variablen der vorigen. Tests in
   `tests/browser/test_kachel_set_browser.py` (Bilder aller Sets am iPad und am
   4″-Panel).
 - Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):
@@ -1779,10 +1796,16 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Standard-Seite in `#panePerTab`), Seiten (Seiten-Editor samt `#sePaneBox` für
   die gewählte freie Seite), Raster (Kachel-Layout, Zielkachel, Bildschirm
   füllen, Skalierung, Split, Widget-Breite, Versatz), Aussehen (Grundfarbe,
-  Schrift und Größen, Kachel-Aufbau, Kacheln gestalten, Aktiv-Overlay) und
+  Schrift und Größen, Kachel-Aufbau, Kachel-Set, Kacheln gestalten, Aktiv-Overlay) und
   Verhalten (Screensaver, Display aus, Nacht, Auto-Neustart, PIN merken). Jedes
   Feld steht in genau einem Reiter, die Feld-IDs sind seit Schritt 2 gleich
-  geblieben; `test_reiter_ansicht_browser.py` hält beides fest. `renderPanes()`
+  geblieben; `test_reiter_ansicht_browser.py` hält beides fest. Das Kachel-Set
+  (`#fTileSet`) kommt aus `/api/meta` (`kachelSets`) mit seiner Beschreibung;
+  bei einem Set mit Farbton (touch) erscheinen darunter Regler auf dem Verlauf
+  der Kachelfarben, Schnellwahl, „Aktive Kachel“ hell oder dunkel und
+  „Nachgerechnet“ (`kachelSetExtraHtml()`, Werte von `/api/kachelset`); mit Set
+  ist der Kachel-Aufbau gesperrt, leere Größenfelder zeigen die Größen des Sets
+  (`sizeStd()`). `renderPanes()`
   zeichnet `paneListe()` zweimal: Standard-Seiten unter Inhalt, die freie Seite
   im Seiten-Editor.
 - **Vorgaben als Rubrik** (seit 10.10.2026, Schritt 5): Die Vorgaben stehen nicht
@@ -1844,7 +1867,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
      untere Leiste, Räume oder Seiten samt Seiten-Editor. Beim ersten Besuch ist
      die Raum-Ansicht zum Gerätenamen vorgewählt (`wzInhaltVorschlagen()`).
   5. Aussehen und Verhalten: Kachel-Set (mit Farbton und aktiver Kachel bei
-     „touch“; die Vorrechnung des Rasters nimmt die Seitenleiste mit), Grundfarbe, Größen, Schrift, Skalierung,
+     „touch“; die Vorrechnung des Rasters nimmt Leiste, Seitenleiste und Rahmen
+     des Sets mit), Grundfarbe, Größen, Schrift, Skalierung,
      Aktiv-Overlay, Screensaver und „Display aus“, leere Felder zeigen die
      Vorgaben. Der frühere Schritt „Design“ (einheitlich oder je Kachel) fiel weg,
      er schrieb nichts in die Ansicht.
@@ -2180,11 +2204,13 @@ Tab-Leiste 55 px: 2 × 13 Innenabstand, 28 Symbol, 1 Linie); ein Raum-Panel
 mit Sprungmarken ohne Bild hat eine niedrigere Tab-Leiste, dort ist die
 Vorrechnung eine Näherung. `test_vorrechnung_wie_die_visu` vergleicht die
 gemessenen Maße mit `VISU_MASSE` und das vorgerechnete mit dem gebauten
-Raster. Ein Kachel-Set mit Leiste „links“ nimmt Breite statt Höhe:
-`LEISTE_LINKS` (208 px, unter 600 px Breite 68 px) und `railBreite()` gelten
-für die Visu (`--rail-w`) wie für Assistent und Seiten-Editor
-(`leisteMasse()` in `config.html`), `autoRaster()` zieht `railW` von der
-Breite ab.
+Raster. Ein Kachel-Set bringt eigene Maße mit (§5.4): `SCHMAL_UNTER` (600 px)
+entscheidet für Visu und Konfigurator, ob die Maße mit `-schmal` gelten,
+`setMass()` liest eines aus den Maßen in `/api/meta`. Der Konfigurator
+(`leisteMasse()`) rechnet damit Leistenhöhe, Seitenleiste (`railW`, nimmt
+Breite statt Höhe), Rahmen (`rahmenX`, `rahmenY`), Abstand und Innenrand vor;
+`autoRaster()` zieht Seitenleiste und Rahmen von der Fläche ab, die Visu misst
+sie am Kasten.
 
 ---
 

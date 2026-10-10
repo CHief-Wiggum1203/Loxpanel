@@ -19,14 +19,19 @@ const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE
 // Ein Browser-Test vergleicht die Werte mit der gemessenen Visu.
 const VISU_MASSE={gap:10, pad:10, punkteH:14, tabsH:55};
 
-// Tab-Leiste "links" (Kachel-Set mit leiste "links", panel.html
-// html[data-kachelset-leiste="links"]): Breite der Seitenleiste mit Symbol und
-// Name, auf schmalen Schirmen (Breite unter schmalUnter) nur mit Symbol. Die
-// Visu setzt sie als --rail-w, autoRaster() zieht sie von der Breite ab (railW),
-// und die Leiste nimmt dann keine Hoehe (tabsH 0). Der Konfigurator rechnet
-// ein Geraet damit vor.
-const LEISTE_LINKS={breit:208, schmal:68, schmalUnter:600};
-function railBreite(w){ return w<LEISTE_LINKS.schmalUnter ? LEISTE_LINKS.schmal : LEISTE_LINKS.breit; }
+// Schmaler Schirm (4"-Panel): Breite unter SCHMAL_UNTER. Ein Kachel-Set
+// nimmt dort seine Masse mit "-schmal" (theme_colors.KACHEL_SETS; Visu: Klasse
+// .schmal am Kasten), etwa die Seitenleiste nur mit Symbolen.
+const SCHMAL_UNTER=600;
+function schmal(w){ return w<SCHMAL_UNTER; }
+// Mass eines Kachel-Sets fuer diese Breite: "-schmal", wenn es das gibt und
+// der Schirm schmal ist (masse: CSS-Werte wie "68px" aus /api/meta), sonst
+// das Mass selbst, ohne beides der Rueckfall.
+function setMass(masse, name, w, rueckfall){
+  const m=masse||{}, v=(schmal(w) && m[name+'-schmal']!=null) ? m[name+'-schmal'] : m[name];
+  const n=parseFloat(v);
+  return isFinite(n) ? n : rueckfall;
+}
 
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
 // traegt sonst die Schrift ihrer Breite und laeuft unten ueber.
@@ -98,12 +103,14 @@ function festesRaster(e){
 // halten (2 von 5 Spalten sind 40 %, 2 von 4 schon 50 %).
 // Eine Seitenleiste (railW, Leiste "links") nimmt die Breite, die Kacheln
 // teilen sich den Rest; Spalten werden dabei weniger, keine wird abgeschnitten.
+// Ein Rahmen um das Feld (Leiste "oben": rahmenX links und rechts zusammen,
+// rahmenY unten) geht genauso ab.
 // e: {w, h, ziel, wachsen, gap, pad, tabsH, punkteH, widget, paneCols,
-//     paneShare, breiten, seitenQuer, kopfH(ks), leisteH(ks), railW}
+//     paneShare, breiten, seitenQuer, kopfH(ks), leisteH(ks), railW, rahmenX, rahmenY}
 // -> {cols, rows, k, p, ks, gesamt, kb, pPx?}: k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung, pPx die Hoehe des Widgets hochkant.
 function autoRaster(e){
-  const w=e.w-(e.railW||0), hoehe=e.h, ziel=e.ziel, wachsen=e.wachsen||1;
+  const w=e.w-(e.railW||0)-(e.rahmenX||0), hoehe=e.h-(e.rahmenY||0), ziel=e.ziel, wachsen=e.wachsen||1;
   const gap=e.gap||0, pad=e.pad||0, tabsH=e.tabsH||0, punkteH=e.punkteH||0;
   const widget=!!e.widget, paneCols=e.paneCols||0, paneShare=e.paneShare||0;
   const breiten=e.breiten||[], kopfH=e.kopfH||(()=>0), leisteH=e.leisteH||(()=>0);
@@ -168,6 +175,6 @@ function autoRaster(e){
   return r;
 }
 
-g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, LEISTE_LINKS,
-  kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, railBreite};
+g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, SCHMAL_UNTER,
+  kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass};
 })(typeof window!=='undefined' ? window : globalThis);

@@ -362,7 +362,13 @@ def _derive(grundfarbe: str) -> tuple | None:
 #           dem Raster), "links" (Seitenleiste mit Symbol und Name), Regeln an
 #           html[data-kachelset-leiste].
 #   farben  feste Farben; fehlende Rollen rechnet _ergaenzen() nach.
-#   masse   Radien, Schatten, Kreis: CSS-Variablen ohne Farbe.
+#   masse   Radien, Schatten, Kreis, Leisten, Rahmen: CSS-Variablen ohne Farbe.
+#           Ein Mass mit "-schmal" gilt auf schmalen Schirmen (raster.js
+#           SCHMAL_UNTER, Klasse .schmal am Kasten). Was die Rasterrechnung
+#           braucht (Leistenhoehe, Seitenleiste, Rahmen, Abstand, Innenrand),
+#           liest der Konfigurator aus /api/meta, die Visu aus dem CSS.
+#   groessen  Standardgroessen der Kachel (wie GROESSEN_STANDARD), die das Set
+#           mitbringt; eine eingestellte Groesse geht vor.
 #   satz    statt fester Farben eine Rechnung aus einem Farbton (touch_satz),
 #           dazu farbton (Standard, Schnellwahl) und aktiv (Standard, Auswahl).
 #   label, info  Name und Beschreibung im Konfigurator (i18n.js uebersetzt sie).
@@ -376,8 +382,14 @@ def _derive(grundfarbe: str) -> tuple | None:
 #   --an-text         Zustandstext "an", wo --glow fuer Text zu schwach ist
 #   --taste           Flaeche der Tasten in Kachel und Detailseite (und des Kreises)
 #   --kreis-an-symbol Symbol im Kreis einer aktiven Kachel (Aufbau "kreis")
+#   --kachel-an-muted Zweitzeile auf der aktiven Kachel (Aufbau "mitte")
 #   --tab-an, --tab-aus  Symbole der Leiste "oben"
-#   --kachel-radius, --taste-radius, --kachel-schatten, --kreis-d  (masse)
+#   masse: --kachel-radius (bei 170-px-Kachel), --taste-radius,
+#   --kachel-schatten, --kachel-abstand, --feld-innen (Abstand und Innenrand
+#   des Rasters), --tabs-hoehe, --tab-symbol, --pille-h (Leiste "pille"),
+#   --rahmen-seite, --rahmen-unten, --feld-radius (Leiste "oben": Rahmen um
+#   das Feld der Kacheln), --rail-breite (Leiste "links"), --kreis-d,
+#   --kreis-anteil (Aufbau "kreis": Kreis und Anteil des Symbols daran)
 KACHEL_SETS = {
     "loxone": {
         "label": "Loxone-App (dunkel)",
@@ -393,7 +405,10 @@ KACHEL_SETS = {
             "--crit-fill": "#4d1a16", "--crit-ink": "#ffffff", "--crit-muted": "#ffb3ad",
             "--cool": "#6cb4f0", "--on-glow": "#1f1600", "--on-accent": "#0d1a08",
         },
-        "masse": {"--kachel-radius": "20px"},
+        "masse": {"--kachel-radius": "20px",
+                  "--tabs-hoehe": "96px", "--tabs-hoehe-schmal": "64px",
+                  "--pille-h": "68px", "--pille-h-schmal": "52px",
+                  "--tab-symbol": "28px", "--tab-symbol-schmal": "22px"},
     },
     "touch": {
         "label": "Touch (Farbton wählbar)",
@@ -408,7 +423,7 @@ KACHEL_SETS = {
             {"label": "Rosé", "wert": 345}, {"label": "Sand", "wert": 40}]},
         # Aktive Kachel: hell (fast weiss, Schrift im Farbton) oder dunkel
         "aktiv": {"standard": "hell", "auswahl": [
-            {"key": "hell", "label": "Aktiv hell"}, {"key": "dunkel", "label": "Aktiv dunkel"}]},
+            {"key": "hell", "label": "Hell"}, {"key": "dunkel", "label": "Dunkel"}]},
         # touch_satz(): (Saettigung, Helligkeit) in Prozent wie CSS hsl(), der
         # Farbton ist der gewaehlte. "schritt" ist die Richtung, in der die
         # Helligkeit wandert (+1 heller, -1 dunkler), bis "ziel" erreicht ist.
@@ -423,7 +438,19 @@ KACHEL_SETS = {
                 "dunkel": {"flaeche": (12, 9), "schrift": (55, 82), "schritt": 1, "ziel": AAA},
             },
             "tab_aus": {"s": 8, "l": 62, "schritt": 1, "ziel": AA},  # auf dem Rahmen
+            # Zweitzeile der aktiven Kachel: ihre Schrift mit dieser Deckung
+            # ueber der Flaeche, mehr Deckung, bis sie AA traegt
+            "an_zweit": 0.7,
         },
+        "masse": {"--kachel-radius": "12px",
+                  "--tabs-hoehe": "104px", "--tabs-hoehe-schmal": "82px",
+                  "--tab-symbol": "32px", "--tab-symbol-schmal": "30px",
+                  "--rahmen-seite": "28px", "--rahmen-seite-schmal": "18px",
+                  "--rahmen-unten": "28px", "--rahmen-unten-schmal": "18px",
+                  "--feld-radius": "22px", "--feld-radius-schmal": "16px",
+                  "--feld-innen": "8px", "--feld-innen-schmal": "6px",
+                  "--kachel-abstand": "8px", "--kachel-abstand-schmal": "6px"},
+        "groessen": {"iconSize": 46, "nameSize": 17},
     },
     "kreide": {
         "label": "Kreide (hell)",
@@ -435,7 +462,9 @@ KACHEL_SETS = {
             "--glow": "#c8611c", "--an-text": "#a3500f", "--kreis-an-symbol": "#ffffff",
             "--good": "#2f7d3a", "--crit": "#b3261e", "--crit-fill": "#fbe4e1",
         },
-        "masse": {"--kachel-radius": "20px", "--taste-radius": "14px", "--kreis-d": "52px",
+        "masse": {"--kachel-radius": "20px", "--taste-radius": "14px",
+                  "--kreis-d": "52px", "--kreis-d-schmal": "42px", "--kreis-anteil": "0.54",
+                  "--rail-breite": "208px", "--rail-breite-schmal": "68px",
                   "--kachel-schatten": "0 1px 3px rgba(27,26,23,.08)"},
     },
 }
@@ -478,11 +507,15 @@ def _touch_satz(farbton: int, aktiv_hell: bool) -> tuple:
     a = p["aktiv"]["hell" if aktiv_hell else "dunkel"]
     an = _hsl(farbton, *a["flaeche"])
     an_ink = _wandern(farbton, *a["schrift"], an, a["ziel"], a["schritt"], 0 if a["schritt"] < 0 else 100)
+    deckung = p["an_zweit"]
+    while kontrast(ueber(an_ink, an, deckung), an) < AA and deckung < 1:
+        deckung = min(1, deckung + 0.05)
+    an_muted = ueber(an_ink, an, deckung)
     ta = p["tab_aus"]
     tab_aus = _wandern(farbton, ta["s"], ta["l"], p["rahmen"], ta["ziel"], ta["schritt"], 100)
     return tuple({
         "--ink": ink, "--tile": tile, "--screen": feld, "--taste": taste,
-        "--kachel-an": an, "--kachel-an-ink": an_ink,
+        "--kachel-an": an, "--kachel-an-ink": an_ink, "--kachel-an-muted": an_muted,
         "--bg": p["rahmen"], "--tabbar": p["rahmen"], "--tab-aus": tab_aus,
     }.items())
 
@@ -505,7 +538,9 @@ def _ergaenzen(v: dict, kippt: bool) -> dict:
     v.setdefault("--kachel-an", v["--tile"])
     v.setdefault("--wash", "0,0,0" if hell else "255,255,255")
     v.setdefault("--line", f"rgba({v['--wash']},{LINIE_DECKUNG:g})")
-    flaechen = [v["--tile"], v["--screen"], v["--taste"]] + ([] if kippt else [v["--kachel-an"]])
+    # Text steht auf Kachel und Flaeche (und ohne Umkippen auf der aktiven
+    # Kachel), auf der Taste nur Symbole in --ink
+    flaechen = [v["--tile"], v["--screen"]] + ([] if kippt else [v["--kachel-an"]])
     if "--muted" not in v:
         farbton, _, saettigung = _hls(v["--ink"])
         v["--muted"] = _schiebe(_aus_hls(farbton, basis, min(saettigung, 0.25)), flaechen, AA, richtung)
@@ -583,6 +618,26 @@ def kachel_set(name, farbton=None, aktiv=None) -> dict | None:
     return v
 
 
+def kachel_set_pruefung(name, farbton=None, aktiv=None) -> list[dict]:
+    """Nachgerechnete Kontraste eines Sets mit Rechnung fuer den Konfigurator
+    ("Nachgerechnet"): je Ziel aus dem satz {name, wert, ziel}. Leer fuer ein
+    Set ohne Rechnung (seine festen Farben prueft tests/test_kachel_set.py)."""
+    e = KACHEL_SETS.get(name) if isinstance(name, str) else None
+    if not e or "satz" not in e:
+        return []
+    p, v = e["satz"], kachel_set(name, farbton, aktiv)
+    paare = (("Schrift auf Kachel", "--ink", "--tile", p["kachel"]["ziel"]),
+             ("Schrift auf aktiver Kachel", "--kachel-an-ink", "--kachel-an", p["aktiv"][_aktiv(e, aktiv)]["ziel"]),
+             ("Symbol auf Taste", "--ink", "--taste", p["taste"]["ziel"]))
+    return [{"name": n, "wert": round(kontrast(v[a], v[b]), 2), "ziel": z} for n, a, b, z in paare]
+
+
+def kachel_set_kachel(name, farbton=None, aktiv=None) -> str:
+    """Kachelfarbe eines Sets (zur Anzeige neben dem Farbton), "" ohne Set."""
+    v = kachel_set(name, farbton, aktiv)
+    return v["--tile"] if v else ""
+
+
 def kachel_set_art(name) -> tuple[str, str]:
     """(aufbau, leiste) eines Kachel-Sets, ("", "") ohne Set."""
     eintrag = KACHEL_SETS.get(name) if isinstance(name, str) else None
@@ -595,19 +650,19 @@ VERLAUF_SCHRITT = 30
 
 def kachel_set_liste() -> list[dict]:
     """Auswahl fuer den Konfigurator in Definitionsreihenfolge: {key, label,
-    info, aufbau, leiste}. Ein Set mit Rechnung bringt dazu farbton (Standard,
-    Schnellwahl je mit Kachel- und Schriftfarbe "farbe"/"schrift", "verlauf" als Kachelfarben in
+    info, aufbau, leiste, masse, groessen}. Ein Set mit Rechnung bringt dazu farbton (Standard,
+    Schnellwahl je mit der Kachelfarbe "farbe", "verlauf" als Kachelfarben in
     VERLAUF_SCHRITT-Stufen fuer den Regler) und aktiv (Standard, Auswahl) mit -
     die Farben rechnet touch_satz(), der Konfigurator zeigt sie nur."""
     liste = []
     for k, e in KACHEL_SETS.items():
-        eintrag = {"key": k, "label": e["label"], "info": e["info"], "aufbau": e["aufbau"], "leiste": e["leiste"]}
+        eintrag = {"key": k, "label": e["label"], "info": e["info"], "aufbau": e["aufbau"], "leiste": e["leiste"],
+                   "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {})}
         if "satz" in e:
             hell = e["aktiv"]["standard"] == "hell"
             eintrag["farbton"] = {
                 "standard": e["farbton"]["standard"],
-                "auswahl": [{**a, "farbe": touch_satz(a["wert"], hell)["--tile"],
-                             "schrift": touch_satz(a["wert"], hell)["--ink"]} for a in e["farbton"]["auswahl"]],
+                "auswahl": [{**a, "farbe": touch_satz(a["wert"], hell)["--tile"]} for a in e["farbton"]["auswahl"]],
                 "verlauf": [touch_satz(h, hell)["--tile"] for h in range(0, 360, VERLAUF_SCHRITT)],
             }
             eintrag["aktiv"] = e["aktiv"]
