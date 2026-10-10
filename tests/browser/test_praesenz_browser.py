@@ -110,10 +110,11 @@ def test_konfigurator_waehlt_und_speichert_den_melder(tmp_path):
                 # Melder vom einen Geraet aufs andere legen und speichern
                 await pg.evaluate("""() => { const w = n => document.querySelector(
                         '#dev_list .dev[data-name="' + n + '"] .dp_presence');
-                    w('kueche').value = ''; w('flur').value = 'PM'; }""")
+                    w('kueche').value = ''; w('flur').value = 'PM';
+                    w('flur').dispatchEvent(new Event('change', {bubbles: true})); }""")
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
                                               and r.request.method == "POST") as antwort:
-                    await pg.evaluate("document.getElementById('dev_save').click()")
+                    await pg.evaluate("document.getElementById('saveBtn').click()")
                 assert (await (await antwort.value).json())["ok"]
                 assert gespeichert[-1] == {"flur": {"auto": True, "modes": {}, "scale": "auto", "presence": "PM"}}
                 assert app.presence_map == {"pm_a": ["flur"]}

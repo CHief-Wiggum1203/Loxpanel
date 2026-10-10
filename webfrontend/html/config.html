@@ -155,6 +155,7 @@
   .btn.sm{padding:8px 13px;font-size:13px;}
   .actions{display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;}
   .toast{color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
+  .savebar .offen{color:var(--muted);font-size:13px;}
   .toast.show{opacity:1;}
   .toast.err{color:var(--crit);}
   .toast.warn{color:var(--accent);}
@@ -834,7 +835,7 @@
             <div id="dev_list"><div class="muted" data-i18n>Noch kein Gerät bekannt. Sobald ein Gerät die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
             <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
             <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Geräten mit Agent.</p>
-            <div class="actions"><button class="btn" id="dev_save" data-i18n>Speichern</button><span class="toast" id="dev_toast"></span></div>
+            <div class="actions"><span class="toast" id="dev_toast"></span></div>
           </div>
         </details>
         <details class="card discl">
@@ -845,7 +846,6 @@
               <div class="field" style="max-width:460px"><label class="lbl" data-i18n>Auslöser (optional)</label><select id="nt_control"></select></div>
             </div>
             <p class="note" data-i18n>Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Ansicht unter Ansichten → Aussehen ein.</p>
-            <div class="actions"><button class="btn" id="nt_save" data-i18n>Speichern</button><span class="toast" id="nt_toast"></span></div>
           </div>
         </details>
       </div>
@@ -964,7 +964,6 @@
           <p class="lead" data-i18n>Video-URL (MJPEG) und Login der Türstation(en) für das Kamerabild. Leer lassen, dann nimmt LoxPanel die Kamera, die der Miniserver nennt (in Loxone Config am Baustein der Intercom eingetragen). Die Liste kommt aus dem Miniserver.</p>
           <div class="card">
             <div id="ic_list"><div class="muted">…</div></div>
-            <div class="actions" style="margin-top:12px"><button class="btn" id="ic_save" data-i18n>Speichern</button><span class="toast" id="ic_toast"></span></div>
           </div>
         </section>
 
@@ -994,7 +993,6 @@
             <p class="note" data-i18n>Loxone-Audioserver (Gen 2) liefern Cover/Titel/Interpret und Favoriten über einen eigenen Live-Kanal (Audioprotokoll, Port 7091) — genau wie die Loxone-App. LoxPanel abonniert diesen Kanal und legt die Infos über die passende Zone. Die Audioserver-Adresse wird <b>automatisch</b> aus der Loxone-Struktur erkannt — keine IP-Eingabe nötig. Funktioniert mit dem originalen Loxone-Audioserver ebenso wie mit Nachbauten (Sonn/Audioserver4Home). Musikserver-/MS4H-Zonen bleiben unberührt (die liefern es ohnehin).</p>
             <label class="chk"><input type="checkbox" id="am_enabled"><span data-i18n>Audioserver-Live-Daten abonnieren (automatisch)</span></label>
             <div class="note" id="am_servers" style="margin-top:8px"></div>
-            <div class="actions"><button class="btn" id="am_save" data-i18n>Speichern</button><span class="toast" id="am_toast"></span></div>
           </div>
         </section>
 
@@ -1006,7 +1004,7 @@
             <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.</p>
             <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift in der Visu</label><input type="text" id="cal_name" placeholder="Family"></div>
             <div id="cal_list" style="margin-top:16px"></div>
-            <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button></div>
+            <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button><span class="toast" id="cal_toast"></span></div>
             <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" data-i18n-ph placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
             <p class="note" data-i18n>Optionaler zweiter iCal nur für Feiertage — deren Tage werden im Monatsraster rot markiert (wie Sonntage). Z.B. der Feiertagskalender deines Landes aus Google.</p>
             <div class="note" id="cal_status" style="margin-top:10px"></div>
@@ -1030,7 +1028,6 @@
             <label class="chk" style="margin-top:14px"><input type="checkbox" id="cal_colors" checked><span data-i18n>Kalenderfarben in der Visu zeigen</span></label>
             <p class="note" data-i18n>Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.</p>
             <p class="note" data-i18n>„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Gerät sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.</p>
-            <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
           </div>
         </section>
 
@@ -1085,6 +1082,7 @@
     </div>
     <div class="savebar" id="savebar">
       <button class="btn save" id="saveBtn">Speichern</button>
+      <span class="offen" id="offenTxt"></span>
       <span id="delSlot"></span>
       <span class="toast" id="toast"></span>
     </div>
@@ -1092,7 +1090,10 @@
 </div>
 <script>
 const $ = (s,r=document)=>r.querySelector(s);
-let META=null, PANELS={}, cur=null, dirty=false, tileSel=null;
+let META=null, PANELS={}, cur=null, tileSel=null;
+// Zuletzt gespeicherter Stand der Ansichten (wie an /api/panels geschickt): "Ansicht loeschen"
+// schickt ihn ohne die geloeschte, damit andere offene Aenderungen nicht nebenbei mitgehen.
+let GESPEICHERT={};
 let rubric='overview', subPconf='tabs', subSet='miniserver';
 // Ersteinrichtung (siehe einrichtungAnwenden): Stand aus /api/settings, solange
 // der Server keine Struktur hat, sonst null; dazu der Zugang aus der Config und
@@ -1157,11 +1158,12 @@ const SET_TABS=[
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
   PANELS = JSON.parse(JSON.stringify(META.panels||{}));
+  GESPEICHERT = JSON.parse(JSON.stringify(META.panels||{}));
   if(!PANELS.default) PANELS.default = {title:'LoxPanel', tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}};
   PANELS.__global__ = {title:'Vorgaben (alle Ansichten)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
-  renderList(); setRubric('overview'); verbundenZeigen();
+  renderList(); setRubric('overview'); verbundenZeigen(); leisteZeigen();
 }
 
 function renderList(){
@@ -1197,7 +1199,8 @@ function setRubric(r){
   const ash=$('#assistantHost'); if(ash) ash.style.display = as?'':'none';
   $('#pconfHost').style.display = pc?'':'none';
   $('#setHost').style.display = (ov||pc||dv||dp||as)?'none':'';
-  $('#savebar').style.display = pc?'':'none';
+  $('#savebar').style.display = (ov||dv||as)?'none':'';   // eine Leiste fuer Ansichten, Geraete, Einstellungen
+  $('#delSlot').style.display = pc?'':'none';
   $('#phead').style.display = pc?'':'none';
   $('#subtabs').style.display = (ov||dv||dp||as)?'none':'';
   if(ov||dv||dp||as) return;
@@ -1423,7 +1426,6 @@ function renderGlobalEditor(p){
       markDirty(); }; }
   renderCatColors(p);
   $('#delSlot').innerHTML='';
-  $('#saveBtn').onclick=save;
   renderSubtabs(); showSub(subPconf);
 }
 function renderCatColors(p){
@@ -1702,8 +1704,7 @@ function renderEditor(){
   const tsr=$('#tileSearch'); if(tsr) tsr.oninput=()=>renderTileList();
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
   $('#clrCats').onclick=()=>{ p.cats=[]; renderChecklist(p,'cats'); renderTileList(); markDirty(); };
-  $('#saveBtn').onclick=save;
-  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Ansicht „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
+  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm(T('Ansicht löschen:')+' '+cur+'\n\n'+T('Gilt sofort, ohne „Speichern“. Andere offene Änderungen bleiben offen.'))) ansichtLoeschen(cur); };
   { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
   { const vb=$('#vorBtn'); if(vb) vb.onclick=entwurfOeffnen; }
   { const vg=$('#vorGerBtn'); if(vg){ vg.onclick=vorGerKlick; vorGerKnopf(); } }
@@ -2300,7 +2301,87 @@ function renderChecklist(p,kind){
                                     : ('<b>alle</b> '+list.length+' sichtbar');
 }
 
-function markDirty(){ dirty=true; const t=$('#toast'); if(t){ t.className='toast'; t.textContent=''; } renderList(); entwurfNachziehen(); }
+function markDirty(){ markieren('ansicht:'+cur); renderList(); entwurfNachziehen(); }
+
+// ---- Eine Speicherleiste fuer alles (Konzept "Konfigurator neu ordnen", Schritt 2) ----
+// OFFEN haelt fest, was noch nicht gespeichert ist: je Ansicht 'ansicht:<Kennung>'
+// ('ansicht:__global__' = Vorgaben), dazu die Bereiche ausserhalb der Ansichten. Der Wert
+// ist eine laufende Nummer: Speichern hakt nur ab, was seit dem Absenden nicht wieder
+// geaendert wurde. Ein Rubrikwechsel verliert nichts (alles bleibt in der Arbeitskopie
+// bzw. in den Feldern), nur Neuladen oder Schliessen der Seite fragt nach.
+const OFFEN=new Map();
+let OFFEN_NR=0;
+const BEREICH_NAME={geraete:'Geräte', nacht:'Nachtmodus', intercom:'Kamera / Türstation', audio:'Audio', kalender:'Kalender & Wetter'};
+function markieren(k){
+  OFFEN.set(k, ++OFFEN_NR);
+  const t=$('#toast'); if(t){ t.className='toast'; t.textContent=''; }
+  leisteZeigen();
+}
+function bereichOffen(k){ markieren(k); }
+function ansichtenOffen(){ for(const k of OFFEN.keys()) if(k.indexOf('ansicht:')===0) return true; return false; }
+function allesOffen(){ return OFFEN.size>0; }
+function offenStand(filter){ const m=new Map(); OFFEN.forEach((n,k)=>{ if(filter(k)) m.set(k,n); }); return m; }
+function erledigt(stand){ stand.forEach((n,k)=>{ if(OFFEN.get(k)===n) OFFEN.delete(k); }); }
+function offenNamen(){
+  const n=[];
+  OFFEN.forEach((_,k)=>{
+    if(k.indexOf('ansicht:')!==0) return;
+    const id=k.slice(8);
+    if(id==='__global__') n.push(T('Vorgaben'));
+    else if(PANELS[id]) n.push(T('Ansicht')+' '+(PANELS[id].title||id));
+  });
+  Object.keys(BEREICH_NAME).forEach(k=>{ if(OFFEN.has(k)) n.push(T(BEREICH_NAME[k])); });
+  return n;
+}
+let SPEICHERN_LAEUFT=false;
+function leisteZeigen(){
+  const n=offenNamen(), b=$('#saveBtn'), o=$('#offenTxt');
+  if(b) b.disabled=SPEICHERN_LAEUFT || !n.length;
+  if(o) o.textContent = n.length ? T('Nicht gespeichert:')+' '+n.join(', ') : T('Alles gespeichert');
+}
+// Ergebnisse {ok, text, warn} in der Meldungsleiste; eine Warnung ueber nicht
+// Uebernommenes bleibt bis zur naechsten Aenderung stehen, alles andere geht nach 4 s.
+function meldungZeigen(erg){
+  const t=$('#toast'); if(!t || !erg.length) return;
+  const fehler=erg.some(e=>!e.ok), warn=erg.some(e=>e.warn);
+  t.className='toast show'+(fehler?' err':(warn?' warn':''));
+  t.textContent=erg.map(e=>e.text).join(' · ');
+  setTimeout(()=>{ if(t && !t.classList.contains('warn')) t.classList.remove('show'); }, 4000);
+}
+// Speichert alles Offene nacheinander: erst die Ansichten (Betriebsmodi der Geraete
+// verweisen auf sie), dann die Geraete, dann die Einstellungen. Ein Bereich, der
+// scheitert, bleibt offen; die anderen gelten.
+async function speichernAlles(){
+  if(SPEICHERN_LAEUFT) return;
+  SPEICHERN_LAEUFT=true; leisteZeigen();
+  const erg=[]; let einst=false, kal=false;
+  try{
+    let ansichtenOk=true;
+    if(ansichtenOffen()){ const e=await ansichtenSpeichern(); erg.push(e); ansichtenOk=e.ok; }
+    // Ohne die Ansichten keine Geraete: der Server verwirft Betriebsmodi, deren Ansicht
+    // er nicht kennt (etwa eine gerade neu angelegte), sie blieben dann still weg
+    if(OFFEN.has('geraete') && ansichtenOk) erg.push(await geraeteSpeichern());
+    for(const [k,f] of [['nacht',nachtSpeichern],['intercom',intercomSpeichern],['audio',audioSpeichern],['kalender',kalenderSpeichern]]){
+      if(!OFFEN.has(k)) continue;
+      const stand=offenStand(x=>x===k);
+      const e=await einstellungSpeichern(k, f);
+      erg.push(e);
+      if(e.ok){ erledigt(stand); einst=true; if(k==='kalender') kal=true; }
+    }
+  } finally { SPEICHERN_LAEUFT=false; }
+  meldungZeigen(erg); leisteZeigen();
+  // Erst jetzt neu laden: nach jeder einzelnen Karte wuerde es die noch offenen
+  // ueberschreiben. Den Kalender holt der Server frisch, darum kurz warten.
+  if(einst) setTimeout(loadSettings, kal?1500:0);
+}
+async function einstellungSpeichern(k, f){
+  const name=T(BEREICH_NAME[k]);
+  try{
+    const j=await f();
+    return j.ok ? {ok:true, text:'✓ '+T('Gespeichert:')+' '+name} : {ok:false, text:name+': '+(j.error||T('Fehler'))};
+  }catch(e){ return {ok:false, text:name+': '+e}; }
+}
+window.addEventListener('beforeunload',e=>{ if(allesOffen()){ e.preventDefault(); e.returnValue=''; } });
 
 // ---- Vorschau in der echten Visu (Punkt 10, Teil 3) ----
 // „Vorschau“ schickt das Profil samt allen ungespeicherten Aenderungen als
@@ -2397,9 +2478,9 @@ function entwurfBeendet(){
   ENTWURF.token=''; ENTWURF.id=''; ENTWURF.geraet=''; vorGerKnopf();
 }
 
-async function save(){
-  const t=$('#toast');
+async function ansichtenSpeichern(){
   clearTimeout(ENTWURF.timer); ENTWURF.gen++;   // Vorschau: ab jetzt nichts mehr nachziehen, Verspaetetes verwerfen
+  const stand=offenStand(k=>k.indexOf('ansicht:')===0);
   try{
     const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=PANELS[k]; }
     const r=await fetch('/api/panels',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -2412,21 +2493,39 @@ async function save(){
                             body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
       const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
     }
-    if(j.ok&&okT){ dirty=false; entwurfBeendet();
-      // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
-      // es still zu verlieren; die Warnung bleibt stehen (siehe unten).
-      const weg=j.verworfen||[];
-      t.className='toast show'+(weg.length?' warn':'');
-      t.textContent='✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
-        (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '');
-      // Panel-Liste fuer die Geraete-Zuordnung auffrischen (sonst fehlt ein neues
-      // Panel dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
-      try{ await loadPanelIds(); renderDevices(); }catch(e){} }
-    else { t.className='toast show err'; t.textContent='Fehler: '+(j.error||errT||'?'); }
-  }catch(e){ t.className='toast show err'; t.textContent='Fehler: '+e; }
-  // Eine Warnung ueber nicht Uebernommenes bleibt bis zur naechsten Aenderung
-  // stehen (markDirty leert die Leiste), alles andere geht nach 4 s.
-  setTimeout(()=>{ if(t && !t.classList.contains('warn')) t.classList.remove('show'); }, 4000);
+    if(!(j.ok&&okT)) return {ok:false, text:'Fehler: '+(j.error||errT||'?')};
+    erledigt(stand); entwurfBeendet();
+    GESPEICHERT=JSON.parse(JSON.stringify(panels));
+    // Liste der Ansichten fuer die Geraete-Zuordnung auffrischen (sonst fehlt eine neue
+    // Ansicht dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
+    try{ await loadPanelIds(); renderDevices(); }catch(e){}
+    // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
+    // es still zu verlieren; die Warnung bleibt stehen.
+    const weg=j.verworfen||[];
+    return {ok:true, warn:weg.length>0,
+            text:'✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
+                 (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '')};
+  }catch(e){ return {ok:false, text:'Fehler: '+e}; }
+}
+// Nur die Ansichten und Vorgaben (Assistent, Tests); die Leiste nimmt speichernAlles()
+async function save(){ const e=await ansichtenSpeichern(); meldungZeigen([e]); leisteZeigen(); return e.ok; }
+// "Ansicht loeschen" gilt nach der Rueckfrage sofort. Geschickt wird der zuletzt
+// gespeicherte Stand ohne diese Ansicht; offene Aenderungen an anderen bleiben offen.
+async function ansichtLoeschen(id){
+  const t=$('#toast');
+  if(GESPEICHERT[id]){
+    const panels=JSON.parse(JSON.stringify(GESPEICHERT)); delete panels[id];
+    let j;
+    try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
+    if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
+    delete GESPEICHERT[id];
+  }
+  if(ENTWURF.id===id) entwurfBeendet();
+  delete PANELS[id]; OFFEN.delete('ansicht:'+id);
+  cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
+  meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
+  try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
+  return true;
 }
 
 // ---- Kachel-Editor ----
@@ -3816,8 +3915,7 @@ async function wzAmGeraet(id, name, umschalten, ziel){
     catch(e){ flash(t, 'Fehler: '+e, false); return; }
   }
   if(!umschalten) return;
-  await save();
-  if(dirty) return;
+  if(!(await save())) return;
   // Das Speichern laedt jede offene Visu neu ({t:"reload"}); bis das Geraet
   // wieder verbunden ist, meldet /api/device/switch "nicht online" - so lange
   // erneut versuchen, hoechstens etwa zehn Sekunden.
@@ -4198,7 +4296,6 @@ function wzBuild(){
 $('#addBtn').onclick=wzOpen;
 { const asb=$('#asStartWiz'); if(asb) asb.onclick=wzOpen; }
 
-window.addEventListener('beforeunload',e=>{ if(dirty){ e.preventDefault(); e.returnValue=''; } });
 
 /* ============================================================
    SETTINGS-Rubrik (frühere /settings-Seite als Reiter)
@@ -4228,7 +4325,7 @@ async function loadSettings(){
     else { c.innerHTML=T('Status:')+' <b class="bad">'+T('nicht verbunden')+'</b>'; } }
   versionZeigen(SET.version||{});
   const box=$('#ic_list');
-  if(box){
+  if(box && !OFFEN.has('intercom')){
     if(!(SET.intercoms||[]).length){ box.innerHTML='<div class="muted">'+T('Keine Intercom-Bausteine gefunden (Miniserver verbunden?).')+'</div>'; }
     else {
       box.innerHTML=SET.intercoms.map(ic=>
@@ -4240,7 +4337,7 @@ async function loadSettings(){
     }
   }
   const am=SET.audiometa||{};
-  const ae=$('#am_enabled'); if(ae) ae.checked=am.enabled!==false;
+  const ae=$('#am_enabled'); if(ae && !OFFEN.has('audio')) ae.checked=am.enabled!==false;
   const srv=$('#am_servers');
   if(srv){ const list=am.servers||[];
     srv.innerHTML = list.length
@@ -4248,7 +4345,7 @@ async function loadSettings(){
       : T('Kein Audioserver in der Loxone-Struktur gefunden.'); }
   // Nachtmodus-Ausloeser
   const nt=SET.night||{}, ntSel=$('#nt_control');
-  if(ntSel){
+  if(ntSel && !OFFEN.has('nacht')){
     ntSel.innerHTML='<option value="">'+T('— kein Auslöser (Sonnenuntergang) —')+'</option>'
       + (nt.options||[]).map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===nt.control?' selected':'')+'>'
           + esc((o.room?o.room+' · ':'')+o.name+' ('+o.type+')')+'</option>').join('');
@@ -4256,14 +4353,19 @@ async function loadSettings(){
   // Kalender & Wetter
   const cal=SET.calendar||{};
   if($('#cal_name')){
-    $('#cal_name').value=cal.name||'Family';
-    if($('#cal_holurl')) $('#cal_holurl').value=cal.holiday_url||'';
-    $('#cal_lat').value=(cal.lat==null?'':cal.lat);
-    $('#cal_lon').value=(cal.lon==null?'':cal.lon);
-    $('#cal_days').value=cal.days||14;
-    $('#cal_foredays').value=cal.fore_days||4;
-    if($('#cal_svevents')) $('#cal_svevents').value=cal.sv_events||3;
-    if($('#cal_colors')) $('#cal_colors').checked=cal.colors!==false;
+    // Offene Eingaben bleiben stehen: loadSettings() laeuft auch nach dem Speichern
+    // anderer Bereiche und nach "Verbinden & Speichern" des Miniservers.
+    const kalOffen=OFFEN.has('kalender');
+    if(!kalOffen){
+      $('#cal_name').value=cal.name||'Family';
+      if($('#cal_holurl')) $('#cal_holurl').value=cal.holiday_url||'';
+      $('#cal_lat').value=(cal.lat==null?'':cal.lat);
+      $('#cal_lon').value=(cal.lon==null?'':cal.lon);
+      $('#cal_days').value=cal.days||14;
+      $('#cal_foredays').value=cal.fore_days||4;
+      if($('#cal_svevents')) $('#cal_svevents').value=cal.sv_events||3;
+      if($('#cal_colors')) $('#cal_colors').checked=cal.colors!==false;
+    }
     const st=cal.status||{};
     // Kalenderliste aus der gespeicherten Config aufbauen; der Status kommt je
     // Quelle ueber ihren Schluessel dazu.
@@ -4271,7 +4373,7 @@ async function loadSettings(){
     CAL_MAX=cal.max_sources||CAL_MAX;
     CAL_STAT={}; (st.cal_sources||[]).forEach(q=>{ if(q&&q.key) CAL_STAT[q.key]=q; });
     // Nur uebernehmen, solange nichts Ungespeichertes in der Liste steht.
-    if(!CAL_DIRTY){
+    if(!kalOffen){
       CALS=(cal.sources||[]).map(q=>({name:q.name||'',url:q.url||'',color:q.color||'',key:q.key||''}));
     }
     renderCals();
@@ -4387,7 +4489,7 @@ async function einrichtungNachfragen(){
 function einrichtungFertig(n){
   clearTimeout(EINR_TIMER); EINR_TIMER=null;
   try{ sessionStorage.setItem(EINR_KEY, String(n||0)); }catch(e){}
-  dirty=false; location.reload();
+  OFFEN.clear(); location.reload();
 }
 function verbundenZeigen(){
   let n=null;
@@ -4401,19 +4503,17 @@ function verbundenZeigen(){
 $('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('assistant'); };
 $('#einrSicherung').onclick=()=>{ $('#einrOk').hidden=true; subSet='backup'; setRubric('settings'); };
 
-$('#ic_save').onclick=async()=>{
+// Speichern der Einstellungs-Karten: je eine Funktion, die Speicherleiste ruft sie
+// (speichernAlles) und laedt danach einmal neu.
+function intercomSpeichern(){
   const intercoms={};
   document.querySelectorAll('.ic[data-uuid]').forEach(n=>{
     const e={url:n.querySelector('.ic_url').value.trim(),user:n.querySelector('.ic_user').value.trim()};
     const p=n.querySelector('.ic_pass').value; if(p)e.pass=p;
     intercoms[n.dataset.uuid]=e;
   });
-  try{
-    const r=await fetch('/api/settings/intercom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intercoms})});
-    const j=await r.json();
-    if(j.ok){ flash($('#ic_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#ic_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#ic_toast'),'Fehler: '+e,false); }
-};
+  return postJson('/api/settings/intercom', {intercoms});
+}
 
 // ---- SIP: Zugang je Intercom (gesicherte Details des Miniservers) und Pruefung ----
 // Laedt bei jedem Oeffnen des Reiters neu; jede Intercom kostet eine verschluesselte
@@ -4499,36 +4599,15 @@ function sipErgebnis(j){
     (d.length?'<div class="sipdet">'+d.join(' · ')+'</div>':'');
 }
 
-$('#nt_save').onclick=async()=>{
-  const body={control:$('#nt_control').value||''};
-  $('#nt_save').disabled=true;
-  try{
-    const r=await fetch('/api/settings/night',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const j=await r.json();
-    if(j.ok){ flash($('#nt_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#nt_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#nt_toast'),'Fehler: '+e,false); }
-  $('#nt_save').disabled=false;
-};
-$('#am_save').onclick=async()=>{
-  const body={enabled:$('#am_enabled').checked};
-  $('#am_save').disabled=true;
-  try{
-    const r=await fetch('/api/settings/audiometa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const j=await r.json();
-    if(j.ok){ flash($('#am_toast'),T('✓ Gespeichert'),true); loadSettings(); } else flash($('#am_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#am_toast'),'Fehler: '+e,false); }
-  $('#am_save').disabled=false;
-};
+function nachtSpeichern(){ return postJson('/api/settings/night', {control:$('#nt_control').value||''}); }
+function audioSpeichern(){ return postJson('/api/settings/audiometa', {enabled:$('#am_enabled').checked}); }
 
 // ---- Kalenderliste (mehrere iCal-Abos) ----
 // CALS ist die Arbeitskopie: Eingaben schreiben direkt hinein, damit ein
 // Hinzufuegen oder Loeschen die anderen Zeilen nicht zuruecksetzt.
 let CALS=[], CAL_STAT={}, CAL_MAX=8;
-// Gesetzt, sobald an der Liste etwas geaendert wurde. loadSettings() laeuft
-// auch nach dem Speichern ANDERER Karten (Miniserver, Intercom ...) - ohne das
-// Flag wuerde es die Arbeitskopie ueberschreiben und noch nicht gespeicherte
-// Kalenderzeilen verschwinden lassen.
-let CAL_DIRTY=false;
+// Geaenderte Eingaben melden den Bereich 'kalender' bei der Speicherleiste (OFFEN);
+// solange er offen ist, ueberschreibt loadSettings() die Arbeitskopie nicht.
 let CAL_PALETTE=['#e0a24d','#52b881','#6aa9e0','#c98ad4','#e2695f','#4fc3c3','#b2c94a','#9a8fe0'];
 function calStatHTML(q){
   const st=q.key?CAL_STAT[q.key]:null;
@@ -4557,12 +4636,12 @@ function renderCals(){
   // Eingaben laufen in die Arbeitskopie, ohne die Liste neu zu zeichnen (das
   // wuerde den Cursor aus dem Feld werfen).
   box.querySelectorAll('.cal_n').forEach(inp=>inp.oninput=()=>{
-    const i=+inp.dataset.i; CALS[i].name=inp.value; CAL_DIRTY=true;
+    const i=+inp.dataset.i; CALS[i].name=inp.value; bereichOffen('kalender');
     const n=box.querySelector('.cal[data-i="'+i+'"] .caln');
     if(n) n.textContent=inp.value.trim()||(T('Kalender')+' '+(i+1));
   });
   box.querySelectorAll('.cal_u').forEach(inp=>inp.oninput=()=>{
-    const i=+inp.dataset.i; CALS[i].url=inp.value; CAL_DIRTY=true;
+    const i=+inp.dataset.i; CALS[i].url=inp.value; bereichOffen('kalender');
     // Der Status haengt am Schluessel der ALTEN URL. Bleibt er stehen, behauptet
     // die Zeile weiter "geladen · 14 Termine" fuer einen Kalender, der so gar
     // nicht mehr eingetragen ist.
@@ -4571,12 +4650,12 @@ function renderCals(){
     if(st) st.remove();
   });
   box.querySelectorAll('.cal_c').forEach(inp=>inp.oninput=()=>{
-    const i=+inp.dataset.i; CALS[i].color=inp.value; CAL_DIRTY=true;
+    const i=+inp.dataset.i; CALS[i].color=inp.value; bereichOffen('kalender');
     const d=box.querySelector('.cal[data-i="'+i+'"] .caldot');
     if(d) d.style.background=inp.value;
   });
   box.querySelectorAll('[data-caldel]').forEach(b=>b.onclick=()=>{
-    CALS.splice(+b.dataset.caldel,1); CAL_DIRTY=true; renderCals();
+    CALS.splice(+b.dataset.caldel,1); bereichOffen('kalender'); renderCals();
   });
 }
 // Erste noch freie Farbe der Palette. Ueber die Listenlaenge zu gehen waere
@@ -4589,14 +4668,14 @@ function freieFarbe(){
 }
 if($('#cal_add')) $('#cal_add').onclick=()=>{
   if(CALS.length>=CAL_MAX){ flash($('#cal_toast'),T('Mehr als {max} Kalender gehen nicht.').replace('{max}',CAL_MAX),false); return; }
-  CAL_DIRTY=true;
+  bereichOffen('kalender');
   CALS.push({name:'',url:'',color:freieFarbe(),key:''});
   renderCals();
   const felder=$('#cal_list').querySelectorAll('.cal_n');
   if(felder.length) felder[felder.length-1].focus();
 };
 
-$('#cal_save').onclick=async()=>{
+function kalenderSpeichern(){
   const body={
     name:$('#cal_name').value.trim(),
     sources:CALS.filter(q=>(q.url||'').trim()).map(q=>({name:(q.name||'').trim(),url:q.url.trim(),color:q.color||''})),
@@ -4605,22 +4684,19 @@ $('#cal_save').onclick=async()=>{
     colors:($('#cal_colors')?$('#cal_colors').checked:true),
     sv_events:parseInt($('#cal_svevents')&&$('#cal_svevents').value)||3,
     days:parseInt($('#cal_days').value)||14, fore_days:parseInt($('#cal_foredays').value)||4};
-  $('#cal_save').disabled=true;
-  try{
-    const r=await fetch('/api/settings/calendar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const j=await r.json();
-    if(j.ok){ flash($('#cal_toast'),T('✓ Gespeichert'),true);
-      CAL_DIRTY=false;    // Liste ist jetzt der Serverstand
-      // Kurz warten, damit der Server einmal frisch geladen hat, dann Status zeigen.
-      setTimeout(loadSettings,1500); }
-    else flash($('#cal_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#cal_toast'),T('Fehler:')+' '+e,false); }
-  $('#cal_save').disabled=false;
-};
+  return postJson('/api/settings/calendar', body);
+}
+// Eingaben der Karten melden ihren Bereich bei der Speicherleiste
+[['#nt_control','nacht'],['#ic_list','intercom'],['#am_enabled','audio'],
+ ['section.spane[data-sub="calendar"]','kalender'],['#dev_list','geraete']].forEach(([sel,k])=>{
+  const el=$(sel); if(!el) return;
+  ['input','change'].forEach(ev=>el.addEventListener(ev, ()=>bereichOffen(k)));
+});
 
 // ---- Panels (alle Anzeigegeraete: Agent, Kiosk-App, Browser) ----
 let PANEL_IDS=[];
 let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...], display}  (Arbeitskopie)
+let GER_GESPEICHERT={}; // zuletzt gespeicherte Geraeteliste (Form von devicesPayload) - fuer "Entfernen"
 let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
 let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
 let DEVICE_SUGGEST={}; // Geraetename -> Vorschlag Zielkachel px aus der gemeldeten Groesse (/api/devices tileSuggest)
@@ -4644,14 +4720,21 @@ async function loadPanelIds(){
     PANEL_IDS=Object.keys(m.panels||{});
     ACTIVE_OPTS=Array.isArray(m.activeControls)?m.activeControls:[];
     passZielLesen(m.devices);
-    DEV={};
-    Object.entries(m.devices||{}).forEach(([name,d])=>{
-      DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
-                 scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
-                 presence:d.presence||'',                  // '' = kein Praesenzmelder
-                 tileTarget:d.tileTarget||''};              // '' = Zielkachel wie in der Ansicht
-    });
+    GER_GESPEICHERT=devicesPayload(devAusServer(m.devices));
+    // Offene Eingaben unter Geraete bleiben: nur uebernehmen, was im Editor steht
+    if(OFFEN.has('geraete')) readDevFromDom(); else DEV=devAusServer(m.devices);
   }catch(e){ PANEL_IDS=[]; }
+}
+// Geraete, wie der Server sie liefert (/api/meta, Antwort von /api/devices) -> Arbeitskopie
+function devAusServer(devices){
+  const out={};
+  Object.entries(devices||{}).forEach(([name,d])=>{
+    out[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
+               scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
+               presence:d.presence||'',                  // '' = kein Praesenzmelder
+               tileTarget:d.tileTarget||''};              // '' = Zielkachel wie in der Ansicht
+  });
+  return out;
 }
 const TYPE_LABEL={agent:'Agent', fully:'Fully Kiosk', loxpanel:'LoxPanel-App', browser:'Browser'};
 function profSelect(cls, cur){
@@ -4743,14 +4826,18 @@ async function deviceAction(act, name, ip, panel){
 // verbunden, meldet die naechste Abfrage es wieder - dann ohne Einstellungen.
 async function devEntfernen(name, online){
   if(!confirm(T('Gerät entfernen:')+' '+name+'\n\n'+
-      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Geräten werden dabei mitgespeichert.')+
+      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.')+
       (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
   readDevFromDom();
   const alt=DEV[name]; delete DEV[name];
   // Zeile gleich aus dem Editor: liest ein weiteres Speichern die Liste, kaeme sie sonst zurueck
   const zeile=document.querySelector('#dev_list .dev[data-name="'+CSS.escape(name)+'"]'); if(zeile) zeile.remove();
+  // Offene Aenderungen an anderen Geraeten gehen nicht nebenbei mit: dann den
+  // gespeicherten Stand ohne dieses Geraet schicken, die Arbeitskopie bleibt offen
+  let liste=null;
+  if(OFFEN.has('geraete')){ liste=Object.assign({}, GER_GESPEICHERT); delete liste[name]; }
   try{
-    const j=await devSpeichern();
+    const j=await devSpeichern(liste);
     if(!j.ok){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+(j.error||''),false); return; }
     KNOWN_NAMES=KNOWN_NAMES.filter(n=>n!==name);
     renderDevices(); devGespeichert(j, T('✓ Gespeichert')); zielAuswahlAuffrischen();
@@ -4905,7 +4992,7 @@ function renderDevices(){
   box.innerHTML=names.map(devRow).join('');
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
-    (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); renderDevices();
+    (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); bereichOffen('geraete'); renderDevices();
   });
   box.querySelectorAll('.dd_drv').forEach(sel=>sel.onchange=()=>{
     const row=sel.closest('.dev'), name=row.dataset.name, drv=sel.value;
@@ -4916,20 +5003,20 @@ function renderDevices(){
   box.querySelectorAll('.dd_host').forEach(inp=>inp.oninput=()=>pwHinweisZeigen(inp.closest('.dev')));
   box.querySelectorAll('.dt_nehmen').forEach(b=>b.onclick=()=>{
     const row=b.closest('.dev'), v=DEVICE_SUGGEST[row.dataset.name];
-    if(v) row.querySelector('.dt_ziel').value=v; });
+    if(v){ row.querySelector('.dt_ziel').value=v; bereichOffen('geraete'); } });
   box.querySelectorAll('.dm_del').forEach(b=>b.onclick=()=>{
     const dev=b.closest('.dev'), name=dev.dataset.name;
     const idx=Array.from(dev.querySelectorAll('.dmrow')).indexOf(b.closest('.dmrow'));
-    readDevFromDom(); DEV[name].modes.splice(idx,1); renderDevices();
+    readDevFromDom(); DEV[name].modes.splice(idx,1); bereichOffen('geraete'); renderDevices();
   });
 }
 // Speicher-Daten fuer /api/devices aus der Arbeitskopie DEV - eine Quelle fuer
 // "Speichern" und den Betriebsmodus-Assistenten. Ein Geraet bleibt, sobald es
 // Modi, einen Display-Treiber, eine Skalierung oder einen Praesenzmelder traegt
 // (bisher fiel eines ohne Modi und Display-Treiber still weg).
-function devicesPayload(){
+function devicesPayload(quelle=DEV){
   const devices={};
-  Object.entries(DEV).forEach(([name,d])=>{
+  Object.entries(quelle).forEach(([name,d])=>{
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
     const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
@@ -4949,32 +5036,43 @@ function devicesPayload(){
 // Die Geraeteliste nacheinander speichern: Jede Anfrage traegt die ganze Liste,
 // eine spaetere darf eine fruehere nicht ueberholen (sonst kaeme ein gerade
 // entferntes Display zurueck). Die Liste entsteht erst, wenn die Anfrage dran ist.
+// liste: fertige Liste statt der Arbeitskopie ("Entfernen" bei offenen Aenderungen).
+// Geht die ganze Arbeitskopie durch, ist der Bereich 'geraete' erledigt.
 let DEV_SPEICHERN=Promise.resolve();
-function devSpeichern(){
-  const lauf=DEV_SPEICHERN.then(()=>postJson('/api/devices',{devices:devicesPayload()}));
+function devSpeichern(liste){
+  const stand=liste?null:offenStand(k=>k==='geraete');
+  const lauf=DEV_SPEICHERN.then(()=>postJson('/api/devices',{devices:liste||devicesPayload()})).then(j=>{
+    if(j.ok){ passZielLesen(j.devices); GER_GESPEICHERT=devicesPayload(devAusServer(j.devices));
+      if(stand) erledigt(stand); leisteZeigen(); }
+    return j;
+  });
   DEV_SPEICHERN=lauf.catch(()=>{});
   return lauf;
 }
 // Nach dem Speichern: welche Kennwoerter der Server jetzt hat (auch in den
 // Platzhaltern, "Speichern" zeichnet nicht neu); eines, das er wegen eines
 // anderen Ziels verworfen hat, nennen (bleibt stehen).
-function devGespeichert(j, text){
-  passZielLesen(j.devices);
+function kennwortHinweis(j){
   document.querySelectorAll('#dev_list .dev').forEach(pwHinweisZeigen);
-  const weg=j.kennwortVerworfen||[], t=$('#dev_toast');
-  if(!weg.length){ flash(t,text,true); return; }
-  t.className='toast show warn';
-  t.textContent=text+' · '+T('Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:')+' '+weg.join(', ');
+  const weg=j.kennwortVerworfen||[];
+  return weg.length ? T('Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:')+' '+weg.join(', ') : '';
 }
-$('#dev_save').onclick=async()=>{
+function devGespeichert(j, text){
+  const h=kennwortHinweis(j), t=$('#dev_toast');
+  if(!h){ flash(t,text,true); return; }
+  t.className='toast show warn';
+  t.textContent=text+' · '+h;
+}
+// Bereich 'geraete' der Speicherleiste
+async function geraeteSpeichern(){
   readDevFromDom();
-  $('#dev_save').disabled=true;
   try{
     const j=await devSpeichern();
-    if(j.ok){ devGespeichert(j,T('✓ Gespeichert')); } else flash($('#dev_toast'),j.error||T('Fehler'),false);
-  }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
-  $('#dev_save').disabled=false;
-};
+    if(!j.ok) return {ok:false, text:T('Geräte')+': '+(j.error||T('Fehler'))};
+    const h=kennwortHinweis(j);
+    return {ok:true, warn:!!h, text:'✓ '+T('Gespeichert:')+' '+T('Geräte')+(h?' · '+h:'')};
+  }catch(e){ return {ok:false, text:T('Geräte')+': '+e}; }
+}
 
 // ---- Betriebsmodus-Assistent ----
 // Geführter Weg: Geräte -> Modi -> Ansicht je Modus -> fertige Loxone-Adresse.
@@ -5150,6 +5248,7 @@ function genPanelCmd(){
   $('#np_out').textContent=cmd; $('#np_out').style.display='block'; $('#np_copyrow').style.display='flex';
 }
 $('#np_gen').onclick=genPanelCmd;
+$('#saveBtn').onclick=speichernAlles;
 $('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textContent)
   .then(()=>flash($('#np_toast'),T('✓ kopiert'),true))
   .catch(()=>flash($('#np_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
@@ -5211,7 +5310,7 @@ $('#rs_pick').onclick=()=>{ $('#rs_file').value=''; $('#rs_file').click(); };
 $('#rs_file').onchange=async()=>{
   const f=$('#rs_file').files[0]; if(!f) return;
   const frage=T('Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?')+
-    (dirty?'\n\n'+T('Ungespeicherte Änderungen an Ansichten gehen dabei verloren.'):'');
+    (allesOffen()?'\n\n'+T('Ungespeicherte Änderungen gehen dabei verloren.'):'');
   if(!confirm(frage)) return;
   $('#rs_pick').disabled=true; $('#rs_result').textContent='';
   let j;
@@ -5221,7 +5320,7 @@ $('#rs_file').onchange=async()=>{
   }catch(e){ j={ok:false, error:String(e)}; }
   $('#rs_pick').disabled=false;
   if((j.dateien||[]).length){            // ganz oder teilweise geschrieben: neu laden
-    try{ sessionStorage.setItem(RS_KEY, JSON.stringify(j)); dirty=false; location.reload(); return; }
+    try{ sessionStorage.setItem(RS_KEY, JSON.stringify(j)); OFFEN.clear(); location.reload(); return; }
     catch(e){ rsZeigen(j, true); return; }
   }
   flash($('#rs_toast'), T('Nicht eingespielt'), false);

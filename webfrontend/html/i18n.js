@@ -279,6 +279,18 @@
       'Geräte': 'Devices',
       'Erprobte Hardware': 'Tested hardware',
       'Einrichtungsassistent': 'Setup assistant',
+      'Vorgaben': 'Defaults',
+      // Eine Speicherleiste fuer alles (Schritt 2)
+      'Nicht gespeichert:': 'Not saved:',
+      'Alles gespeichert': 'Everything saved',
+      'Gespeichert:': 'Saved:',
+      'Gelöscht:': 'Deleted:',
+      'Ansicht löschen:': 'Delete view:',
+      'Gilt sofort, ohne „Speichern“. Andere offene Änderungen bleiben offen.':
+        'Takes effect at once, without “Save”. Other open changes stay open.',
+      'Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.':
+        'Its settings (operating modes, display control, scaling, target tile, presence sensor) will be lost. Takes effect at once, without “Save”; other open changes stay open.',
+      'Ungespeicherte Änderungen gehen dabei verloren.': 'Unsaved changes will be lost.',
       'Konfiguration': 'Configuration',
       'Kamera / Türstation': 'Camera / Door station',
       'bald': 'soon',

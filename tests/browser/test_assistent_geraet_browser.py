@@ -208,8 +208,10 @@ def test_zielkachel_unter_displays_bleibt_beim_speichern(cfg_ordner):
                 assert await feld.input_value() == "200"
 
                 async def speichern():
+                    # Speichern ohne Aenderung gibt die Leiste nicht frei: den Bereich offen melden
+                    await pg.evaluate("bereichOffen('geraete')")
                     async with pg.expect_response(lambda r: r.url.endswith("/api/devices") and r.request.method == "POST") as a:
-                        await pg.locator("#dev_save").click()
+                        await pg.locator("#saveBtn").click()
                     assert (await (await a.value).json())["ok"]
                     return json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8")).get("devices", {})
                 assert (await speichern()).get("flur", {}).get("tileTarget") == 200, "unveraendert gespeichert: bleibt"
