@@ -580,6 +580,12 @@ GROESSEN_STANDARD = {
 NACHT_STANDARD = {"nightDim": 0, "nightWake": 20}
 
 
+def _clean_kachel_set(v):
+    """Kachel-Set eines Profils (ui.tileSet): ein Name aus
+    theme_colors.KACHEL_SETS, sonst None (= Standard, Farben aus der Grundfarbe)."""
+    return v if isinstance(v, str) and v in theme_colors.KACHEL_SETS else None
+
+
 def _clean_scale(v):
     """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
     (auf zwei Stellen gerundet, deutsches Komma erlaubt). Ungueltiges ergibt
@@ -2533,7 +2539,13 @@ class App:
         # Grundfarbe zuerst: daraus faellt der ganze Satz ab - Flaechen, Schrift,
         # Zweitzeile, Icon- und Zustandsfarben. Ohne Grundfarbe bleibt v leer und
         # es aendert sich nichts gegenueber frueher.
-        v = dict(theme_colors.derive(ui["baseColor"]) or {}) if ui.get("baseColor") else {}
+        # Ein Kachel-Set bringt seine Farben fertig mit und ersetzt die Herleitung
+        # aus der Grundfarbe; ausdruecklich gewaehlte Zustandsfarben gelten auch dort.
+        _set = theme_colors.kachel_set(_clean_kachel_set(ui.get("tileSet")))
+        if _set:
+            v = _set
+        else:
+            v = dict(theme_colors.derive(ui["baseColor"]) or {}) if ui.get("baseColor") else {}
         # Ausdruecklich eingestellte Zustandsfarben schlagen die Herleitung.
         # Aber: "nicht gesetzt" gibt es bei states gar nicht - load_theme()
         # fuellt sie immer aus DEFAULT_THEME, und theme.example.json liefert
@@ -2722,6 +2734,9 @@ class App:
             # Kachel-Aufbau: "" = neuer (Raum oben rechts, Zustand gross, Bedienleiste
             # unten), "classic" = der bisherige. Das Raster (cols/rows) bleibt davon unberuehrt.
             "tileLayout": "classic" if ui.get("tileLayout") == "classic" else "",
+            # Kachel-Set: "" = Standard, sonst Name aus theme_colors.KACHEL_SETS.
+            # Die Visu setzt ihn als html[data-kachelset], die Farben stehen in vars.
+            "tileSet": _clean_kachel_set(ui.get("tileSet")) or "",
             # Automatisches Raster: Zielgroesse einer Kachel in px; 0 = festes
             # Raster aus cols/rows (4"-Panel und jedes Profil ohne "auto").
             "gridAuto": ((_clean_kachelziel(ui.get("tileSize")) or KACHEL_ZIEL_STANDARD)
@@ -3412,7 +3427,7 @@ class App:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "grid", "tileSize", "pinMerken",
+                       "svPane", "scale", "catFilter", "tileLayout", "tileSet", "grid", "tileSize", "pinMerken",
                        "valueBar", "paneCols")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
@@ -3605,6 +3620,9 @@ class App:
                 cui["catFilter"] = True         # untere Leiste filtert statt zu springen
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
+            _ks = _clean_kachel_set(ui.get("tileSet"))
+            if _ks:
+                cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
             if ui.get("grid") == "auto":
                 cui["grid"] = "auto"            # Raster rechnet die Visu (Tablet), cols/rows gelten dann nicht
             _tz = _clean_kachelziel(ui.get("tileSize"))
@@ -7788,6 +7806,9 @@ async def api_meta(request: web.Request) -> web.Response:
         # Groessen ohne Einstellung je Kachel-Aufbau: der Konfigurator zeigt sie
         # in leeren Feldern an, statt sie ein zweites Mal zu fuehren.
         "sizeDefaults": GROESSEN_STANDARD,
+        # Kachel-Sets [{key, label}]: die Auswahl im Konfigurator, eine Quelle
+        # mit _theme_vars() (theme_colors.KACHEL_SETS).
+        "kachelSets": theme_colors.kachel_set_liste(),
         # Nachtmodus ohne Einstellung (Abdunkelung, Aufhellen): leere Felder
         # unter Vorgaben -> Nacht und Ansicht -> Verhalten zeigen ihn.
         "nightDefaults": NACHT_STANDARD,
@@ -9693,6 +9714,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
                         "tileLayout": prof["tileLayout"],  # Kachel-Aufbau ("" = neu, "classic")
+                        "tileSet": prof["tileSet"],        # Kachel-Set ("" = Standard)
                         "gridAuto": app.effective_grid_auto(prof, dev),   # automatisches Raster: Zielkachel px (Geraet vor Profil), 0 = fest
                         "gridGrow": KACHEL_WACHSEN,   # ... Kacheln wachsen bis dahin, wenn alle auf eine Seite passen
                         "paneCols": prof["paneCols"],   # Widget-Breite in Kachelspalten (0 = Automatik)

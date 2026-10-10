@@ -1678,8 +1678,15 @@ function renderEditor(){
            '<option value=""'+(((p.ui||{}).tileLayout==='classic')?'':' selected')+'>'+T('Neu (wie die Loxone-App)')+'</option>'+
            '<option value="classic"'+(((p.ui||{}).tileLayout==='classic')?' selected':'')+'>'+T('Klassisch')+'</option>'+
          '</select></div>'+
+       '<div class="field" style="max-width:260px"><label class="lbl">'+T('Kachel-Set')+'</label>'+
+         '<select id="fTileSet">'+
+           '<option value=""'+((p.ui||{}).tileSet?'':' selected')+'>'+T('Standard (aus der Grundfarbe)')+'</option>'+
+           ((META&&META.kachelSets)||[]).map(ks=>'<option value="'+esc(ks.key)+'"'+
+             (((p.ui||{}).tileSet===ks.key)?' selected':'')+'>'+esc(T(ks.label))+'</option>').join('')+
+         '</select></div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Kachel-Set: ein fertiger Look statt der Farben aus der Grundfarbe. „Loxone-App (dunkel)“ zeigt flache dunkle Kacheln, weiße Symbole, dunkle Tasten und die Tab-Leiste als Pille, am besten mit dem neuen Kachel-Aufbau. Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.')+'</div>'+
    '</div>'+
    '<div class="card"><h3>Kacheln gestalten</h3>'+
      '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (in dieser Ansicht). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel in dieser Ansicht ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
@@ -1762,6 +1769,10 @@ function renderEditor(){
   { const ftl=$('#fTileLayout'); if(ftl) ftl.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value==='classic') p.ui.tileLayout='classic'; else delete p.ui.tileLayout;
       sizePlatzhalter(sizeStd(p.ui.tileLayout,true)); markDirty(); }; }
+  // Kachel-Set: leer = Standard (wird nicht gespeichert), sonst der Name aus /api/meta
+  { const fks=$('#fTileSet'); if(fks) fks.onchange=e=>{ p.ui=p.ui||{};
+      if(e.target.value) p.ui.tileSet=e.target.value; else delete p.ui.tileSet;
+      markDirty(); }; }
   { const fs=$('#fSplit'); if(fs) fs.onchange=e=>{ p.ui=p.ui||{};
       const off=e.target.value==='off';
       if(off) p.ui.split=false; else delete p.ui.split;

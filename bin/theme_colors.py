@@ -332,3 +332,56 @@ def _derive(grundfarbe: str) -> tuple | None:
         # kraeftige Toenung den Kontrast der Zustandsfarbe auf.
         "--ov-fill": f"{satz['deckung']:.3g}",
     }.items())
+
+
+# ---- Kachel-Sets ----------------------------------------------------------
+# Ein Kachel-Set ist ein fertiger Look statt einer hergeleiteten Grundfarbe:
+# feste Flaechen- und Rollenfarben plus Regeln in panel.html, die am Attribut
+# html[data-kachelset="<name>"] haengen (Symbole einfarbig, flache Kacheln,
+# dunkle Tasten, Tab-Leiste als Pille). Einzige Quelle fuer Name, Anzeige und
+# Farben: _theme_vars() setzt die Farben, /api/meta gibt Name und Anzeige an
+# den Konfigurator, _clean_kachel_set() prueft gegen die Schluessel hier.
+# Die Kontraste rechnet tests/test_kachel_set.py mit kontrast() nach, mit
+# denselben Massstaeben wie derive() (AAA Hauptschrift, AA Rest).
+#
+# Rollen, die panel.html ausser den Theme-Variablen liest:
+#   --kachel-an  Flaeche einer aktiven Kachel (statt der getoenten Auflage)
+#   --taste      Flaeche der Tasten in Kachel und Detailseite
+KACHEL_SETS = {
+    "loxone": {
+        "label": "Loxone-App (dunkel)",
+        "farben": {
+            "--bg": "#0a0a0a", "--screen": "#131313",
+            "--tile": "#1e1e20", "--kachel-an": "#2c2c2f", "--taste": "#111112",
+            "--tabbar": "#1e1e20", "--line": "rgba(255,255,255,.07)", "--wash": "255,255,255",
+            "--ink": "#ffffff", "--muted": "#a1a1a6",
+            "--glow": "#ffdc7a", "--good": "#69c350", "--accent": "#69c350",
+            "--warn": "#f0a640", "--crit": "#ff6a5f", "--crit-dot": "#ff6a5f",
+            "--crit-fill": "#4d1a16", "--crit-ink": "#ffffff", "--crit-muted": "#ffb3ad",
+            "--cool": "#6cb4f0", "--on-glow": "#1f1600", "--on-accent": "#0d1a08",
+        },
+    },
+}
+
+# Rollen, zu denen panel.html zusaetzlich das R,G,B-Tripel braucht (Auflagen
+# mit eigener Deckkraft). Werden aus dem Hex-Wert des Sets gerechnet.
+_SET_TRIPEL = {"--glow": "--on-rgb", "--good": "--good-rgb", "--accent": "--accent-rgb",
+               "--crit": "--crit-rgb", "--warn": "--warn-rgb"}
+
+
+def kachel_set(name) -> dict | None:
+    """CSS-Variablen eines Kachel-Sets, None bei unbekanntem Namen.
+    Jedes Mal ein eigenes dict (der Aufrufer ergaenzt es)."""
+    eintrag = KACHEL_SETS.get(name) if isinstance(name, str) else None
+    if not eintrag:
+        return None
+    v = dict(eintrag["farben"])
+    for rolle, tripel in _SET_TRIPEL.items():
+        if _HEX.match(v.get(rolle, "")):
+            v[tripel] = "%d,%d,%d" % _rgb(v[rolle])
+    return v
+
+
+def kachel_set_liste() -> list[dict]:
+    """Auswahl fuer den Konfigurator: [{key, label}] in Definitionsreihenfolge."""
+    return [{"key": k, "label": e["label"]} for k, e in KACHEL_SETS.items()]

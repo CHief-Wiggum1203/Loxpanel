@@ -700,6 +700,42 @@
   .grid.lx:not(.list) .tile.eng3.bi .name{-webkit-line-clamp:1;}
   .grid.lx:not(.list) .tile.eng1.bi .sub,.grid.lx:not(.list) .tile.eng2 .tsline,
   .grid.lx:not(.list) .tile.eng3.zv .name,.grid.lx:not(.list) .tile.eng3:not(.zv) .sub{display:none;}
+  /* Kachel-Set "loxone" (ui.tileSet, Farben aus theme_colors.KACHEL_SETS):
+     der Look der Loxone-App. Flache Kacheln ohne Rahmen und Verlauf, Symbole
+     einfarbig in der Schriftfarbe statt in der Kategoriefarbe (eine Farbe aus
+     "Kacheln gestalten" bleibt, --ico-fixed), aktive Kachel heller statt
+     getoent, dunkle Tasten, Tab-Leiste als Pille. Die Pille ist nur ein
+     ::before in der Leiste - Hoehe und Rechnung der Leiste (autoRaster)
+     bleiben unveraendert. Zustaende good/crit behalten ihre Regeln. */
+  html[data-kachelset="loxone"] .screen{box-shadow:none;}
+  html[data-kachelset="loxone"] .tile:not(.on):not(.good):not(.crit){background:var(--tile);border-color:transparent;}
+  html[data-kachelset="loxone"] .tile{border-radius:calc(20px * var(--ks,1));}
+  html[data-kachelset="loxone"] .tile.on{background:var(--kachel-an,var(--tile));border-color:transparent;}
+  html[data-kachelset="loxone"] .tile:not(.on):not(.good):not(.crit) .ico,
+  html[data-kachelset="loxone"] .tile:not(.on):not(.good):not(.crit) .icowrap,
+  html[data-kachelset="loxone"] .kz-w:not(.on):not(.good):not(.crit) .ico,
+  html[data-kachelset="loxone"] .sv-st:not(.on):not(.good):not(.crit) .ico{color:var(--ico-fixed,var(--ink));}
+  html[data-kachelset="loxone"] .tile:not(.on):not(.good):not(.crit) .ico.img,
+  html[data-kachelset="loxone"] .kz-w:not(.on):not(.good):not(.crit) .ico.img,
+  html[data-kachelset="loxone"] .sv-st:not(.on):not(.good):not(.crit) .ico.img{background-color:var(--ico-fixed,var(--ink));}
+  html[data-kachelset="loxone"] .grid.lx:not(.list) .tile.zv .sub,
+  html[data-kachelset="loxone"] .grid.lx:not(.list) .tile .name{font-weight:var(--tile-fw,max(600,var(--name-weight,450)));}
+  html[data-kachelset="loxone"] .grid.lx:not(.list) .tile.zv .name{font-weight:400;}
+  html[data-kachelset="loxone"] .tctrls .tb{background:var(--taste,var(--tile));}
+  html[data-kachelset="loxone"] .tctrls .tb:active{background:var(--kachel-an,var(--tile));}
+  html[data-kachelset="loxone"] .btn{background:var(--taste,var(--tile));border-color:transparent;}
+  html[data-kachelset="loxone"] .btn:active{background:var(--kachel-an,var(--tile));}
+  html[data-kachelset="loxone"] .tabs{position:relative;border-top-color:transparent;background:transparent;
+    padding-left:max(12px,calc(50% - 280px));padding-right:max(12px,calc(50% - 280px));}
+  html[data-kachelset="loxone"] .tabs::before{content:"";position:absolute;z-index:0;pointer-events:none;
+    top:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));
+    left:max(12px,calc(50% - 280px));right:max(12px,calc(50% - 280px));
+    border-radius:999px;background:var(--tabbar);}
+  html[data-kachelset="loxone"] .tabs>*{position:relative;z-index:1;}
+  html[data-kachelset="loxone"] .tab.active{color:var(--ink);}
+  html[data-kachelset="loxone"] .tab.active .tico{background-color:var(--ink);}
+  html[data-kachelset="loxone"] .tabback:not(.on){border-color:transparent;background:transparent;}
+  html[data-kachelset="loxone"] .screen.kopf .kopfzeile{background:transparent;border-bottom-color:transparent;}
   /* Detail-Panel (z.B. Jalousie) */
   .grid.panel{display:flex;flex-direction:column;gap:10px;align-items:stretch;grid-auto-rows:initial;}
   /* Anlagenschema (SystemScheme): Titel oben, darunter ein Zoom-/Pan-Viewport.
@@ -3412,6 +3448,10 @@ function connect(){
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
+      // Kachel-Set (fertiger Look): die Farben kamen schon mit vars, die Regeln
+      // fuer Symbole, Tasten und Tab-Leiste haengen am Attribut.
+      if(typeof msg.tileSet==='string' && msg.tileSet) document.documentElement.setAttribute('data-kachelset', msg.tileSet);
+      else document.documentElement.removeAttribute('data-kachelset');
       gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
       gridGrow = (typeof msg.gridGrow==='number' && msg.gridGrow>=1) ? msg.gridGrow : 1;
       paneCols = (typeof msg.paneCols==='number' && msg.paneCols>0) ? Math.round(msg.paneCols) : 0;

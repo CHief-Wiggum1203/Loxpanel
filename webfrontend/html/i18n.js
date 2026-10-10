@@ -571,6 +571,11 @@
       // Skalierung / Bildschirmgroesse
       'Kachel-Aufbau': 'Tile layout',
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
+      'Kachel-Set': 'Tile set',
+      'Standard (aus der Grundfarbe)': 'Standard (from the base colour)',
+      'Loxone-App (dunkel)': 'Loxone app (dark)',
+      'Kachel-Set: ein fertiger Look statt der Farben aus der Grundfarbe. „Loxone-App (dunkel)“ zeigt flache dunkle Kacheln, weiße Symbole, dunkle Tasten und die Tab-Leiste als Pille, am besten mit dem neuen Kachel-Aufbau. Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.':
+        'Tile set: a ready-made look instead of the colours from the base colour. “Loxone app (dark)” shows flat dark tiles, white icons, dark buttons and the tab bar as a pill, best with the new tile layout. Your own state colours and colours from “Style tiles” still apply.',
       'Automatisch (Tablet)': 'Automatic (tablet)',
       'Kachelgröße': 'Tile size',
       'Klein (mehr Kacheln)': 'Small (more tiles)',
