@@ -32,7 +32,7 @@ def test_unbekannt_und_ungueltig_wird_gemeldet():
 
 
 def test_panel_mit_ungueltiger_id():
-    assert _meldung({"_intern": {"tabs": ["favoriten"]}, "ok": {"tabs": ["favoriten"]}}) == ["Panel „_intern“"]
+    assert _meldung({"_intern": {"tabs": ["favoriten"]}, "ok": {"tabs": ["favoriten"]}}) == ["Ansicht „_intern“"]
 
 
 def test_leer_standard_und_begrenzt_ist_kein_verlust():

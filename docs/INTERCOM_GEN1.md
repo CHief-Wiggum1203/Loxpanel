@@ -21,7 +21,7 @@ Der konfigurierte Miniserver muss in `securedDetails.audioInfo` einen SIP-Host
 liefern. LoxPanel verwendet dafür unverändert `App.intercom_sip()`; Host,
 Benutzer und Passwort werden weder aus der Kameraadresse abgeleitet noch im
 Frontend gespeichert. Fehlt der SIP-Zugang, meldet die App den Grund. Die
-vorhandene OPTIONS-Prüfung unter Settings → SIP bleibt nutzbar.
+vorhandene OPTIONS-Prüfung unter Einstellungen → SIP bleibt nutzbar.
 
 App und Audiomodul müssen sich direkt über IPv4/UDP erreichen. Es gibt keinen
 Registrar, REGISTER, STUN/ICE, NAT-Relay, SIP-Proxy, SRTP, TLS oder Gen-2-Audio.
@@ -102,7 +102,7 @@ ersetzt keinen Mikrofon- oder Türstationstest.
 ## Notwendige Hardwaretests und offene Punkte
 
 1. **SIP-Zugang:** echte Gen-1 und Miniserverversion dokumentieren;
-   `audioInfo` unter Settings → SIP prüfen. Bei der am 03. und 04.10.2026
+   `audioInfo` unter Einstellungen → SIP prüfen. Bei der am 03. und 04.10.2026
    getesteten „Eingang Intercom“ (`Intercom`, `deviceType` 0) sind Audio-Host,
    Benutzer und SIP-Passwort bereits in Loxone Config eingetragen. Trotzdem
    liefern ihre gesicherten Details nur `videoInfo`, kein `audioInfo`.

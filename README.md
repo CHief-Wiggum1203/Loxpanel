@@ -103,7 +103,7 @@ im Browser – ganz ohne Programmierung und ohne die Loxone-App.
   Ansicht aufs Panel); beim neuen Baustein dazu Antworten abspielen und Stumm.
   Gegensprechen (SIP) folgt in der LoxPanel-App für Android; den SIP-Zugang
   liest LoxPanel schon verschlüsselt aus dem Miniserver und prüft die
-  Türstation unter *Settings → SIP*.
+  Türstation unter *Einstellungen → SIP*.
 - **Kalender & Wetter auf der Uhr-Startseite (Screensaver):** bis zu **8 iCal-Abos**
   gleichzeitig (Apple/iCloud, Google, Müllabfuhr, Geburtstage, Ferien …) – alle
   Termine laufen zu **einer** Liste zusammen, je Kalender mit eigenem Namen und
@@ -112,7 +112,7 @@ im Browser – ganz ohne Programmierung und ohne die Loxone-App.
   „bis …"-Hinweis. Dazu ein Monatsraster mit Farbpunkten und ein optionaler
   Feiertagskalender. Das Wetter kommt vom Loxone-Wetterdienst, sonst von
   Open-Meteo (kostenlos, ohne API-Schlüssel – nur die Koordinaten eintragen).
-  Pflegbar unter *Settings → Kalender & Wetter*.
+  Pflegbar unter *Einstellungen → Kalender & Wetter*.
 - **Theming:** Kategorie-Farben, Zustandsfarben, Icon-/Schriftgrößen, sichtbare
   Tabs und Schrift zentral einstellbar.
 - **Sicherung an Bord:** Backup & Wiederherstellung der kompletten Konfiguration
@@ -200,7 +200,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><th colspan="4" align="left">Tor / Zutritt</th></tr>
 <tr><td><code>CentralGate</code></td><td>Zentral Tor</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Gate</code></td><td>Tor / Garagentor</td><td align="center">✅</td><td>Position, Auf/Zu</td></tr>
-<tr><td><code>Intercom</code></td><td>Türsprechanlage (Türsteuerung)</td><td align="center">🟡</td><td>Kamera (eigene Adresse oder die des Miniservers), Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern, SIP-Zugang und -Prüfung (Settings → SIP); Gegensprechen fehlt</td></tr>
+<tr><td><code>Intercom</code></td><td>Türsprechanlage (Türsteuerung)</td><td align="center">🟡</td><td>Kamera (eigene Adresse oder die des Miniservers), Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, verpasste Klingeln mit Bildern, SIP-Zugang und -Prüfung (Einstellungen → SIP); Gegensprechen fehlt</td></tr>
 <tr><td><code>IntercomV2</code></td><td>Türsprechanlage (Baustein Intercom)</td><td align="center">🟡</td><td>Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, Antworten abspielen, Stumm, Gerätezustand; Kamera mit eigener Adresse oder vom Miniserver, falls er sie nennt; Gegensprechen fehlt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
@@ -292,7 +292,7 @@ Details: [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 2. **Add Container** → Template **LoxPanel** wählen. Port `8099` und der
    appdata-Pfad `/mnt/user/appdata/loxpanel/config` sind vorbelegt → **Apply**.
 3. **WebUI** öffnen (`/config`), im Reiter **Settings** den Miniserver-Zugang
-   eintragen, unter **Panel Configuration** die Panels gestalten.
+   eintragen, unter **Ansichten** die Ansichten gestalten.
 
 Updates laufen über **Check for Updates** im Docker-Tab, die Sicherung über den
 appdata-Ordner. Details, Wandpanel-Agent und Fehlersuche:
@@ -360,7 +360,7 @@ Diesen Ordner sichern, z. B. mit dem Plugin **Appdata Backup**; zum Wiederherste
 die Dateien zurückkopieren und den Container neu starten.
 
 Ohne LoxBerry (Docker, Android-App) geht es im Konfigurator unter
-**Settings → Sicherung**, auf dem LoxBerry ebenso: **„Einstellungen
+**Einstellungen → Sicherung**, auf dem LoxBerry ebenso: **„Einstellungen
 herunterladen"** liefert eine ZIP-Datei mit Miniserver-Zugang, Kamera, Kalender,
 Panels, Geräten und Design – ohne Kennwörter, weil der Download keine Anmeldung
 braucht. **„ZIP-Datei wählen und einspielen"** spielt sie wieder ein, auch auf
@@ -422,11 +422,11 @@ volumes:
 
 Danach: Visu `http://<host>:8099`, Konfigurator und Einstellungen `…/config`
 (`/settings` leitet dorthin weiter). Zugangsdaten per Env **oder** leer lassen
-und unter *Settings → Miniserver* eintragen; ein unter Settings gespeicherter
+und unter *Einstellungen → Miniserver* eintragen; ein unter Einstellungen gespeicherter
 Zugang hat Vorrang vor den Env-Variablen. Bis der Server zum ersten Mal mit
 dem Miniserver verbunden ist, zeigt jedes Panel, unter welcher Adresse der
 Konfigurator zu öffnen ist – auf einem Panel mit der Android-App dessen
-WLAN-Adresse. Der Konfigurator öffnet dann direkt *Settings → Miniserver*;
+WLAN-Adresse. Der Konfigurator öffnet dann direkt *Einstellungen → Miniserver*;
 die übrigen Bereiche außer der Sicherung sind gesperrt, bis die Verbindung
 steht.
 
@@ -437,7 +437,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python bin/webvisu.py   # -> http://localhost:8099
 ```
 
-Den Miniserver-Zugang unter *Settings → Miniserver* eintragen (der Server legt
+Den Miniserver-Zugang unter *Einstellungen → Miniserver* eintragen (der Server legt
 `config/loxpanel.cfg` dann selbst an) oder vor dem Start per
 `LOXPANEL_MS_HOST/USER/PASS` setzen.
 

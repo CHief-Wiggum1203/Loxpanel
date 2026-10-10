@@ -138,7 +138,7 @@ def test_abgelaufener_entwurf_sagt_es():
                 pg = await b.new_page(viewport={"width": 893, "height": 533})
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=flur&entwurf=abgelaufen")
                 await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
-                assert await pg.evaluate(MARKE) == "Entwurf abgelaufen – gespeichertes Profil"
+                assert await pg.evaluate(MARKE) == "Entwurf abgelaufen – gespeicherte Ansicht"
                 assert await pg.evaluate("document.getElementById('entwurfMarke').classList.contains('alt')")
                 assert await pg.evaluate(VISU) == ["A"]
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=flur")

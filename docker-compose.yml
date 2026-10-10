@@ -12,7 +12,7 @@ services:
     ports:
       - "8099:8099"
     environment:
-      # Miniserver-Zugang (aus .env). Ein unter Settings -> Miniserver gespeicherter
+      # Miniserver-Zugang (aus .env). Ein unter Einstellungen -> Miniserver gespeicherter
       # Zugang (config/loxpanel.cfg im Volume) hat Vorrang vor diesen Variablen.
       LOXPANEL_MS_HOST: "${LOXPANEL_MS_HOST}"
       LOXPANEL_MS_USER: "${LOXPANEL_MS_USER}"
@@ -25,5 +25,5 @@ services:
       TZ: "${TZ:-}"
     volumes:
       # Persistiert panels.json (von /config geschrieben), theme.json und
-      # loxpanel.cfg (von Settings geschrieben). Host-Ordner ./config.
+      # loxpanel.cfg (von den Einstellungen geschrieben). Host-Ordner ./config.
       - ./config:/app/config

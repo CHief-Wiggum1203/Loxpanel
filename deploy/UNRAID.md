@@ -28,7 +28,7 @@ Variablen im Template gesetzt.
 |---|---|---|
 | Web-Port | `8099` | Port für Visu, Konfigurator und Einstellungen (`/config`) |
 | Konfiguration (appdata) | `/mnt/user/appdata/loxpanel/config` | persistente Konfiguration (`loxpanel.cfg`, `panels.json`, `theme.json`) |
-| Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/config` → *Settings → Miniserver* eintragen |
+| Miniserver-Host / -Benutzer / -Passwort | leer | optional; alternativ später unter `/config` → *Einstellungen → Miniserver* eintragen |
 | Miniserver-Port | `443` | Gen2 = 443, Gen1 = 80 (unter *Show more settings*) |
 | Miniserver TLS prüfen | `false` | Gen2 nutzt ein selbstsigniertes Zertifikat, daher `false`. `true` klappt nur, wenn Host ein Name ist, den das Zertifikat nennt, nicht mit der IP-Adresse |
 
@@ -62,13 +62,13 @@ nicht bearbeiten, prüft sie nicht auf Updates, und sie bekommen **keine Zeitzon
 1. Im Docker-Tab auf das LoxPanel-Icon klicken und **WebUI** wählen. Das öffnet
    `http://<unraid-ip>:8099/config`.
 2. Miniserver-Zugang unter `http://<unraid-ip>:8099/config` im Reiter
-   **Settings → Miniserver** eintragen und speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
+   **Einstellungen → Miniserver** eintragen und speichern. LoxPanel verbindet sich und liest die Struktur automatisch ein.
    Ohne Zugang öffnet der Konfigurator direkt diesen Reiter; die übrigen Bereiche außer der Sicherung sind
    gesperrt, bis die Verbindung steht.
 3. Panels unter `/config` anlegen und gestalten. Die Visu läuft dann unter
    `http://<unraid-ip>:8099/?panel=<id>`.
 
-**Vorrang der Zugangsdaten:** Ein unter *Settings → Miniserver* gespeicherter Zugang (liegt in
+**Vorrang der Zugangsdaten:** Ein unter *Einstellungen → Miniserver* gespeicherter Zugang (liegt in
 `loxpanel.cfg` im appdata-Ordner) hat Vorrang vor den Template-Variablen. Die
 Variablen sind dann sinnvoll, wenn der Zugang von Anfang an feststehen soll oder
 der appdata-Ordner leer ist.
@@ -127,7 +127,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 
 - **Sichern:** den Ordner kopieren, oder das Community-Applications-Plugin
   **Appdata Backup** einsetzen, das alle appdata-Ordner regelmäßig sichert.
-- **Schnell zwischendurch:** `/config` → Settings → **Sicherung** →
+- **Schnell zwischendurch:** `/config` → Einstellungen → **Sicherung** →
   *Einstellungen herunterladen* (oder `http://<unraid-ip>:8099/api/backup`) lädt
   die drei Dateien als ZIP. Kennwörter (Miniserver, Kamera, Display-Treiber) sind
   darin leer, weil der Download ohne Anmeldung möglich ist; die `LIESMICH.txt`
@@ -168,8 +168,8 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
 |---|---|
 | Widget: Starten / Stoppen / Neu starten | Docker-Tab, Klick auf das Container-Icon |
 | Widget: „Jetzt updaten" | nächtliche Prüfung, dann *apply update* in der Versionsspalte |
-| Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup**, schnell: Settings → **Sicherung** |
-| Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Settings) oder Template-Variablen |
+| Widget: Backup & Wiederherstellung | appdata-Ordner bzw. **Appdata Backup**, schnell: Einstellungen → **Sicherung** |
+| Widget: „Aus LoxBerry übernehmen" | Zugang unter `/config` (Einstellungen) oder Template-Variablen |
 | Statuslog im Widget | Docker-Tab → Container-Icon → **Logs** |
 | Status im Widget | Docker-Tab: **healthy** / **unhealthy** am Container (`HEALTHCHECK`) |
 | Zeitzone vom LoxBerry (`/etc/localtime`, nach Änderung neu starten) | `TZ` von Unraid (*Settings → Date and Time*) |
@@ -189,7 +189,7 @@ Die komplette Konfiguration liegt in `/mnt/user/appdata/loxpanel/config`:
   Neustart hilft da nicht; `/api/health` meldet ihn als `"miniserver": false`.
 - **Keine Verbindung zum Miniserver:** im Log steht dann
   `Miniserver nicht verbunden (...) — neuer Versuch in 5s`. Zugangsdaten unter
-  `/config` (Settings → Miniserver) prüfen, Port (443 Gen2 / 80 Gen1) und bei Gen2 *TLS prüfen* auf
+  `/config` (Einstellungen → Miniserver) prüfen, Port (443 Gen2 / 80 Gen1) und bei Gen2 *TLS prüfen* auf
   `false` lassen. LoxPanel versucht es selbst erneut, mit wachsendem Abstand
   von 5 bis 60 Sekunden; ein Neustart ist nicht nötig.
 - **Port 8099 belegt:** im Template einen anderen Host-Port wählen (z. B. `8100`).

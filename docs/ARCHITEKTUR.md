@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Panel Configuration" (Panel-Assistent, Panels, Tabs, Räume, Kacheln, Design, Split-Player), „Displays" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Settings" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Panel, Sicherung) und „unterstützte Geräte" |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Assistent, Liste der Ansichten samt „Vorgaben", Tabs, Räume, Kacheln, Seiten-Editor, Aussehen, Split-Player), „Geräte" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Gerät, Sicherung) und „Erprobte Hardware". Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -448,7 +448,7 @@ die UV-Kachel fehlen dann.
 Sonnenauf- und -untergang kommen unabhängig davon aus den globalen States
 (`_ms_sun_hhmm()`), also aus derselben Quelle wie der Nachtmodus.
 
-*Settings → Diagnose* zeigt unter `weatherServer`, was die Anlage meldet: die
+*Einstellungen → Diagnose* zeigt unter `weatherServer`, was die Anlage meldet: die
 State-UUIDs, wie viele Einträge angekommen sind, den aktuellen Rohdatensatz mit
 seinen Werten, die Wetterlage-Texte und die Formatstrings.
 
@@ -649,7 +649,7 @@ gesicherten Details; der Hinweis sagt auch das.
 kommen vom Miniserver, so geht die Anmeldung nur an die Türstation.
 
 Die Kamera der Intercom kommt auf demselben Weg (`App.intercom_video()`, für
-`/mjpeg`): Eine in LoxPanel eingetragene Adresse (Settings → Kamera /
+`/mjpeg`): Eine in LoxPanel eingetragene Adresse (Einstellungen → Kamera /
 Türstation, `loxpanel.cfg` `intercom`) hat Vorrang. Sonst nimmt LoxPanel
 `videoInfo` aus den gesicherten Details (`_kamera_aus_details()`: `streamUrl`,
 `user`, `pass`; eine Adresse ohne Schema, wie sie in Loxone Config steht, mit
@@ -721,13 +721,13 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`), `version` (`version`, `commit`, `gebaut`; `version_info.lesen()`, Seitenleiste des Konfigurators) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit, `version` wie bei `/api/settings`. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
-| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Settings → Sicherung |
-| POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Settings → Sicherung |
+| GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Einstellungen → Sicherung |
+| POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Einstellungen → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
 | POST | `/api/settings/intercom` | `api_settings_intercom` | Kamera-URL/Login je Intercom | Einstellungen |
-| GET | `/api/sip` | `api_sip` | Intercoms der Anlage (Türsteuerung `Intercom` und Baustein Intercom `IntercomV2`) mit `uuid`, `name`, `type`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; `ohneSip`, wenn der Miniserver geantwortet hat, aber keinen nennt; hat der Baustein gesicherte Details ohne SIP-Teil, dazu `felder`: je Abschnitt die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom mit dem Kennzeichen `securedDetails` kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Settings → SIP |
-| POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Settings → SIP |
+| GET | `/api/sip` | `api_sip` | Intercoms der Anlage (Türsteuerung `Intercom` und Baustein Intercom `IntercomV2`) mit `uuid`, `name`, `type`, `room`, `deviceType` und dem SIP-Zugang aus den gesicherten Details (`sip`: `host`, `user`, `hasPass`) oder dem Grund, warum es keinen gibt (`error`; `ohneSip`, wenn der Miniserver geantwortet hat, aber keinen nennt; hat der Baustein gesicherte Details ohne SIP-Teil, dazu `felder`: je Abschnitt die Feldnamen und ob sie gefüllt sind, ohne Werte); dazu `connected`. Das Passwort steht nie darin. Jede Intercom mit dem Kennzeichen `securedDetails` kostet eine verschlüsselte Anfrage an den Miniserver, darum lädt der Konfigurator erst beim Öffnen des Reiters | Einstellungen → SIP |
+| POST | `/api/sip/pruefen` | `api_sip_pruefen` | Body `{uuid}`: OPTIONS an die Türstation mit dem Zugang vom Miniserver (`sip_probe.pruefen()`). Antwort `ok`, `ziel`, `erreichbar`, `antwort`, `anmeldung` (`angenommen`, `abgelehnt`, `nicht verlangt`, `kein Passwort`, `unbekanntes Verfahren`, `keine Antwort`), `gegenstelle`, `methoden`, `codecs`, `ms`, `error`. Adresse und Passwort kommen nie aus der Anfrage; 404 für eine unbekannte Intercom, 400 ohne gültiges JSON | Einstellungen → SIP |
 | POST | `/api/settings/audiometa` | `api_settings_audiometa` | Audioserver-Live-Daten (Gen2-Events) ein/aus | Einstellungen |
 | POST | `/api/settings/calendar` | `api_settings_calendar` | iCal-Abo + Wetter-Koordinaten für die Front speichern, `front_task` lädt sofort neu | Einstellungen |
 | POST | `/api/agent/announce` | `api_agent_announce` | Agent meldet sich (`features: ["panel"]`: kann eine Ansicht übernehmen), Antwort enthält `dpmsOff`, `reloadHours` (`null` ohne Eintrag: der Agent nimmt `RELOAD_HOURS` seiner kiosk.conf) und, wenn für ihn eine Ansicht ansteht (`agent_wunsch`), `panel`; die beiden Werte gelten dann schon für sie | Panel-Agent |
@@ -764,7 +764,7 @@ Wandpanel, ohne Konfigurator:
 Beide **schlagen die Konfiguration**: der Theme-Push setzt dieselben Variablen,
 danach greift `posringOverride()` erneut. Das ist gewollt — der Wert am Gerät
 gewinnt, sonst wäre der Live-Test beim nächsten Push weg. Ohne gemerkten Wert
-gilt wieder, was unter *Panel Configuration → Positionsring* eingestellt ist.
+gilt wieder, was unter *Ansichten → Positionsring* eingestellt ist.
 
 Fehlend: `_apply_tile_style()` erzeugt URLs `/gicon?name=` und `/uicon?f=` für
 Google- und Custom-Icons (`:1598`, `:1601`), aber diese Routen sind nicht
@@ -787,7 +787,7 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
    oder ungültiger Port wird 443
 3. leer, Server startet trotzdem, wartet und zeigt den Panels den
    Einrichtungshinweis (§3, `einrichtung`); der Konfigurator führt dann zuerst
-   zu Settings → Miniserver (§7.3)
+   zu Einstellungen → Miniserver (§7.3)
 
 `loxpanel.cfg.example` gilt nie als Zugang: Ihr `miniserver`-Abschnitt ist ein
 Platzhalter (`192.168.1.50`, `CHANGEME`). Die Android-App bringt die Vorlage
@@ -796,7 +796,7 @@ an. Auch `_load_cfg()` lässt den Abschnitt der Vorlage weg, damit Settings ihn
 nicht vorausfüllt und kein Speichern einer anderen Einstellung ihn in die
 `loxpanel.cfg` schreibt. Die übrigen Abschnitte der Vorlage bleiben Vorgaben.
 
-Ein unter `/config` (Settings → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
+Ein unter `/config` (Einstellungen → Miniserver) gespeicherter Zugang hat also Vorrang vor Docker-Variablen.
 
 Settings zeigt genau diesen Zugang (`/api/settings`), und `api_settings_ms`
 geht von ihm aus. Speichern prüft zuerst und schreibt dann:
@@ -970,7 +970,7 @@ Globale Darstellung: `states` (Zustandsfarben), `categories` (Farbe je
 Kategorie, Teilstring-Match auf den Namen, entweder eine Farbe oder `{on, off}`),
 `ui` (wie oben, gilt für alle Panels). Panel-`ui` überschreibt Theme-`ui`.
 `_write_theme()` löscht `ui`-Keys, die nicht im Payload stehen. Welche Keys
-der Konfigurator unter Global → Darstellung setzt, steht einmal in
+der Konfigurator unter Vorgaben → Darstellung setzt, steht einmal in
 `THEME_UI_KEYS`: `_write_theme()` schreibt genau diese, `/api/meta` liefert
 genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
 sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
@@ -987,7 +987,7 @@ der dann gilt (im Panel erst der globale, sonst der Standard). Weder
 Bis Oktober 2026 taten sie es (18/15 bzw. 20/15). Die Standardwerte wirkten
 deshalb nie, und der Konfigurator zeigte Werte, die niemand gewählt hatte.
 Eine `theme.json` aus jener Zeit trägt noch 20/15, wer den Standard will,
-leert die Felder unter Global → Darstellung.
+leert die Felder unter Vorgaben → Darstellung.
 
 In `ui` steckt auch `baseColor`: die Grundfarbe des Panel-Themes. Steht sie da,
 leitet `theme_colors.derive()` daraus den ganzen Farbsatz ab — Hintergrund,
@@ -1677,13 +1677,29 @@ Assistenten des Konfigurators.
 
 ### 7.2 `config.html` (Konfigurator, 715 Zeilen)
 
+**Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
+ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
+
+| Wort | Bedeutet | Im Code |
+|---|---|---|
+| Ansicht | was ein Gerät zeigt: Leiste, Seiten, Kacheln, Aussehen, Verhalten | ein Profil in `panels.json`, `?panel=` |
+| Gerät | was an der Wand hängt oder als Tablet läuft | `devices` in `panels.json`, `?device=` |
+| Vorgaben | Werte für alle Ansichten, die eine Ansicht überschreiben kann | `__global__`, `theme.json` |
+| Einstellungen | Server und Dienste: Miniserver, Türstation, SIP, Audio, Kalender und Wetter, Sicherung | Rubrik `settings` |
+
+„Panel“ kommt in der Oberfläche nur noch im Produktnamen und als Bauform
+(„4″-Wandpanel“) vor, „Display“ nur für den Bildschirm selbst (Display aus,
+Display-Steuerung, Display-Treiber). Die Rubriken heißen Übersicht,
+Einrichtungsassistent, Ansichten, Geräte, Einstellungen und Erprobte
+Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
+
 - Liest `GET /api/meta`, schreibt `POST /api/panels` und `POST /api/theme`.
 - Die gesamte rechte Seite wird per `innerHTML` neu aufgebaut; Zustand in vier
   Modulvariablen (`META`, `PANELS`, `cur`, `dirty`).
 - Virtuelles Profil `__global__` landet in `theme.json` statt `panels.json`.
   Die Skalierung dort hat keine Erb-Option („Aus" ist das Fehlen des Keys),
-  das Profil bietet „Wie global (…)" mit dem geerbten Wert in Klammern, das
-  Gerät „Wie im Profil".
+  die Ansicht bietet „Wie Vorgabe (…)" mit dem geerbten Wert in Klammern, das
+  Gerät „Wie in der Ansicht".
 - Kachelliste auf 400 Einträge begrenzt.
 - Freie Auswahl: bis zu vier Seiten je Panel (`pickTabs`, Tabs `auswahl` bis
   `auswahl4`), je Seite Name, Icon und Inhalt (Kacheln in Klickreihenfolge
@@ -1906,31 +1922,31 @@ Assistenten des Konfigurators.
 - Overlay-Vorschau rechnet die Alphas selbst nach (`ovPreview()`), parallel zur
   Server-Logik `_overlay_alphas()`.
 
-### 7.3 Rubrik „Settings" in `config.html` (früher `settings.html`)
+### 7.3 Rubrik „Einstellungen" in `config.html` (früher `settings.html`)
 
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
-Speicherleiste unten gilt nur für „Panel Configuration". Sieben Reiter:
+Speicherleiste unten gilt nur für „Ansichten". Sieben Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (Zugang je
 Intercom aus dem Miniserver, „Verbindung prüfen“; lädt erst beim Öffnen,
 `loadSip()`), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
-(iCal-Abos, Wetter der Uhr-Seite), Neues Panel (Start-URL für Kiosk-Apps,
-SSH-Befehl für Linux-Panels), Sicherung (Herunterladen und Einspielen). Die
-Anzeigegeräte stehen in der eigenen Rubrik „Displays". Zu einem Reiter führen
+(iCal-Abos, Wetter der Uhr-Seite), Neues Gerät (Start-URL für Kiosk-Apps,
+SSH-Befehl für Linux-Geräte), Sicherung (Herunterladen und Einspielen). Die
+Anzeigegeräte stehen in der eigenen Rubrik „Geräte". Zu einem Reiter führen
 die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
 Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
-aus, sie öffnet die Übersicht (ohne Struktur Settings → Miniserver, siehe
+aus, sie öffnet die Übersicht (ohne Struktur Einstellungen → Miniserver, siehe
 unten). Kein Dirty-Flag, ungespeicherte Eingaben gehen beim Verlassen verloren.
 
 **Ersteinrichtung.** Solange der Server keine Struktur vom Miniserver hat
 (`einrichtung` aus `/api/settings`), führt der Konfigurator zuerst zum Zugang:
 
-- Er öffnet Settings → Miniserver mit einem Hinweis samt Stand: noch kein
+- Er öffnet Einstellungen → Miniserver mit einem Hinweis samt Stand: noch kein
   Zugang, gespeicherter Zugang nicht verbunden, Verbindung wird aufgebaut,
   Fehler des Servers oder des eigenen letzten Versuchs.
-- Gesperrt sind die übrigen Rubriken, die Profil-Liste, „＋ Neues Panel" und
-  die Settings-Reiter außer Miniserver und Sicherung (`EINR_SUBS`): Profile,
-  Displays und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
-  jeden anderen Weg zu Settings um, `showSub()` und `wzOpen()` lehnen ab.
+- Gesperrt sind die übrigen Rubriken, die Liste der Ansichten, „＋ Neue Ansicht" und
+  die Reiter der Einstellungen außer Miniserver und Sicherung (`EINR_SUBS`): Ansichten,
+  Geräte und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
+  jeden anderen Weg zu den Einstellungen um, `showSub()` und `wzOpen()` lehnen ab.
 - Den Stand fragt er alle `EINR_TAKT_MS` (3 s) nach. Steht die Verbindung, über
   „Verbinden & Speichern" oder von selbst, lädt die Seite neu, damit alles frisch
   vom Server kommt, und zeigt „Mit dem Miniserver verbunden" mit den nächsten

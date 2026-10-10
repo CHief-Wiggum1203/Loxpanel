@@ -67,7 +67,7 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 vorschlaege = pg.locator("#wzBody [data-wv]")
                 assert await vorschlaege.evaluate_all("l => l.map(n => [n.dataset.wv, n.innerText.replace(/\\s+/g, ' ').trim()])") == [
                     ["garage", "Favoriten für garage · 480×480"],
-                    ["technikraum", "Raum-Panel Technikraum für technikraum · 893×533"]]
+                    ["technikraum", "Raum-Ansicht Technikraum für technikraum · 893×533"]]
                 assert not (await pg.evaluate(STAND))["fertig"], "ohne Pflichtschritte kein Sofort-Anlegen"
                 await pg.screenshot(path=str(tmp_path / "assistent_vorschlag.png"))
 

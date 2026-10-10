@@ -2618,7 +2618,7 @@ class App:
         sonst entsteht ein neuer; ist der Platz voll, geht der aelteste."""
         clean = self._sanitize_panels({pid: roh})
         if pid not in clean:
-            raise ValueError("Profil nicht brauchbar (leere oder mit _ beginnende Kennung?)")
+            raise ValueError("Ansicht nicht brauchbar (leere oder mit _ beginnende Kennung?)")
         weg = self._panels_verworfen({pid: roh}, clean,
                                      {u: _clean(c.get("name")) or u for u, c in self.controls.items()})
         now = time.time()
@@ -3181,9 +3181,9 @@ class App:
         Konfigurators setzt das Panel wie beim Einrichtungshinweis zusammen."""
         return {"t": "kopplung", "code": code, "karte": karte,
                 "titel": "Dieses Gerät einrichten",
-                "hinweis": "Im Konfigurator unter Displays den Namen zu diesem Code vergeben:",
+                "hinweis": "Im Konfigurator unter Geräte den Namen zu diesem Code vergeben:",
                 "pfad": "/config", "adressen": _lan_adressen(),
-                "unbekannt": "Die Adresse dieses Panels steht in seinen WLAN-Einstellungen.",
+                "unbekannt": "Die Adresse dieses Geräts steht in seinen WLAN-Einstellungen.",
                 "weg": "Tippen blendet die Karte bis zum nächsten Laden aus."}
 
     def _presence_rebuild(self) -> None:
@@ -3373,7 +3373,7 @@ class App:
                                 "ok": ok, "via": "agent"})
             else:
                 results.append({"panel": name, "profile": profile,
-                                "ok": False, "error": "Panel nicht online"})
+                                "ok": False, "error": "Gerät nicht online"})
         return results
 
     def _room_ok(self, uuid: str, prof: dict | None) -> bool:
@@ -3746,7 +3746,7 @@ class App:
             if leer(p):
                 continue
             if pid not in sauber:
-                out.append(f"Panel „{pid}“")
+                out.append(f"Ansicht „{pid}“")
             else:
                 titel = str(p.get("title") or "").strip() if isinstance(p, dict) else ""
                 vergleich(p, sauber[pid], (), titel or pid)
@@ -7447,7 +7447,7 @@ class App:
         return {"t": "einrichtung", "aktiv": True, "titel": titel, "grund": grund,
                 "hinweis": "Konfigurator im Browser eines Computers oder Handys im selben Netz öffnen:",
                 "pfad": "/config", "adressen": _lan_adressen(),
-                "unbekannt": "Die Adresse dieses Panels steht in seinen WLAN-Einstellungen."}
+                "unbekannt": "Die Adresse dieses Geräts steht in seinen WLAN-Einstellungen."}
 
     async def _einrichtung_melden(self, neu=None) -> None:
         """Einrichtungshinweis an alle Panels, wenn sich der Stand geaendert
@@ -8018,7 +8018,7 @@ def _backup_zip(cfgdir: Path) -> bytes:
             zeilen.append("Nicht enthalten, weil nicht lesbar: " + ", ".join(fehlt))
         zeilen += ["", LIESMICH_KENNWOERTER, "herunterzuladen ist. Entfernt wurden:"]
         zeilen += [f"  - {p}" for p in weg] or ["  (keine gesetzt)"]
-        zeilen += ["", "Zurückspielen: im Konfigurator unter Settings → Sicherung diese",
+        zeilen += ["", "Zurückspielen: im Konfigurator unter Einstellungen → Sicherung diese",
                    "ZIP-Datei einspielen. Kennwörter, die dort schon eingetragen sind,",
                    "bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer,",
                    "Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende",
@@ -8423,7 +8423,7 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
                 raise ValueError(f"panels.json: „{k}“ muss ein Objekt sein.")
         sauber: dict = {}
         for pid, p in panels.items():
-            sauber.update(_profil_pruefen("panels.json", f"Profil „{pid}“", App._sanitize_panels, {pid: p}))
+            sauber.update(_profil_pruefen("panels.json", f"Ansicht „{pid}“", App._sanitize_panels, {pid: p}))
         roh = {"devices": devices}
         pfade = _vermerk_pfade(vermerk, "panels.json", roh)
         behalten, fehlen = _kennwoerter_einsetzen(
@@ -9168,7 +9168,7 @@ async def api_agent_command(request: web.Request) -> web.Response:
     action = str(d.get("action", ""))
     a = app.agents.get(ip)
     if not a:
-        return web.json_response({"ok": False, "error": "Panel nicht bekannt"}, status=404)
+        return web.json_response({"ok": False, "error": "Gerät nicht bekannt"}, status=404)
     if action not in ("start", "reload", "stop"):
         return web.json_response({"ok": False, "error": "unbekannte Aktion"}, status=400)
     payload = {"panel": str(d.get("panel") or "")} if action == "start" else {}
@@ -9306,7 +9306,7 @@ async def api_device_switch(request: web.Request) -> web.Response:
                                        "bis": time.time() + VORSCHAU_GERAET_DAUER}
         return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": "", "zurueck": zurueck})
     if panel and panel not in app.panels:
-        return web.json_response({"ok": False, "error": "unbekanntes Profil"}, status=400)
+        return web.json_response({"ok": False, "error": "unbekannte Ansicht"}, status=400)
     app.vorschau_geraet.pop(device, None)   # eine ausdrueckliche Wahl beendet eine Vorschau am Geraet
     app.vorschau_ende.pop(device, None)
     n = await _push(app, {"t": "switch", "panel": panel}, "", device)
@@ -9326,7 +9326,7 @@ async def api_device_switch(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": weg if ok else ""})
     if ok:
         return web.json_response({"ok": True, "sent": 1, "via": "agent", "agent": weg})
-    return web.json_response({"ok": False, "sent": 0, "error": "Panel nicht online"})
+    return web.json_response({"ok": False, "sent": 0, "error": "Gerät nicht online"})
 
 
 async def api_vorschau_beenden(request: web.Request) -> web.Response:

@@ -56,7 +56,7 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                await pg.locator(".rub", has_text="Displays").click()
+                await pg.locator(".rub", has_text="Geräte").click()
                 liste = pg.locator("#ag_list")
                 await liste.locator('.ag[data-name="wand"]').wait_for()
                 warn = {}
@@ -65,13 +65,13 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                     warn[name] = (await w.text_content()) if await w.count() else ""
                 # tablet: anderes Geraet als im Profil; wand: richtiges Geraet, aber deutlich
                 # andere Groesse; kind: Profil fuer flur; flur: offline, nichts zu warnen
-                assert warn == {"flur": "", "tablet": "⚠ Profil ist für wand gemacht",
-                                "wand": "⚠ Profil ist für 1024×600 gemacht, hier 893×533",
-                                "kind": "⚠ Profil ist für flur gemacht"}, warn
+                assert warn == {"flur": "", "tablet": "⚠ Ansicht ist für wand gemacht",
+                                "wand": "⚠ Ansicht ist für 1024×600 gemacht, hier 893×533",
+                                "kind": "⚠ Ansicht ist für flur gemacht"}, warn
                 await pg.screenshot(path=str(tmp_path / "zielgeraet_displays.png"), full_page=True)
 
                 # Reiter Titel: Zielgeraet waehlen, gemeldete Groesse kommt mit
-                await pg.locator(".rub", has_text="Panel Configuration").click()
+                await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Wohnen").click()
                 await pg.locator('.stab[data-sub="title"]').click()
                 ziel = pg.locator("#fZiel")
@@ -98,12 +98,12 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                     assert j["ok"] and j["verworfen"] == [], j
                     return json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["wohnen"]
                 assert (await speichern())["device"] == {"name": "tablet", "vw": 1024, "vh": 600}
-                await pg.locator(".rub", has_text="Displays").click()
+                await pg.locator(".rub", has_text="Geräte").click()
                 await pg.wait_for_function("""() => { const w = document.querySelector('#ag_list .ag[data-name="wand"] .tag.warn');
                     const t = document.querySelector('#ag_list .ag[data-name="tablet"] .tag.warn'); return !!w && !t; }""")
                 assert (await liste.locator('.ag[data-name="wand"] .tag.warn').text_content()
-                        == "⚠ Profil ist für tablet gemacht")
-                await pg.locator(".rub", has_text="Panel Configuration").click()
+                        == "⚠ Ansicht ist für tablet gemacht")
+                await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Wohnen").click()
                 await pg.locator('.stab[data-sub="title"]').click()
                 await pg.locator("#fZiel").select_option("")

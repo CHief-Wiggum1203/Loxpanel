@@ -119,7 +119,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
             await pg.click("#einrAssistent")
             weiter = await pg.evaluate("rubric")
             # Gemeldet am Tablet: ohne Neuladen blieb die Raumliste leer ("alle 0 sichtbar")
-            await pg.locator(".rub", has_text="Panel Configuration").click()
+            await pg.locator(".rub", has_text="Ansichten").click()
             await pg.locator(".stab", has_text="Räume").click()
             raeume = (await pg.inner_text("#cntRooms"),
                       await pg.evaluate("[...document.querySelectorAll('#rooms .opt .nm')].map(e => e.textContent)"))
@@ -180,7 +180,7 @@ TEXTE = {
            "Erst den Miniserver verbinden",
            "Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.",
            "Verbindung zu 10.0.0.5 wird aufgebaut …", "Keine Verbindung zu 10.0.0.5: timeout",
-           "Mit dem Miniserver verbunden", "Panel einrichten", "Sicherung einspielen",
+           "Mit dem Miniserver verbunden", "Ansicht einrichten", "Sicherung einspielen",
            "Bausteine geladen: 2. Alle Bereiche sind jetzt offen."],
     "en": ["Connect the Miniserver first",
            "Without a connection LoxPanel knows neither rooms nor blocks. Enter address, user and password, "
@@ -188,7 +188,7 @@ TEXTE = {
            "Connect the Miniserver first",
            "The saved access is not connected. Check the entries and “Connect & save” again.",
            "Connecting to 10.0.0.5 …", "No connection to 10.0.0.5: timeout",
-           "Connected to the Miniserver", "Set up a panel", "Restore backup",
+           "Connected to the Miniserver", "Set up a view", "Restore backup",
            "Blocks loaded: 2. All sections are open now."],
 }
 

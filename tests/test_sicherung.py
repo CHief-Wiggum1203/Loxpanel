@@ -462,7 +462,7 @@ KAPUTT = [
     ("kalender-url", _zip({"loxpanel.cfg": {"calendar": {"sources": [{"url": 5}]}}}), "calendar.sources[0]"),
     ("kamera-doppelpunkt", _zip({"loxpanel.cfg": {"intercom": {"IC": {"url": "http://c", "user": "a:b"}}}}),
      "intercom.IC"),
-    ("profil-tabs-zahl", _zip({"panels.json": {"panels": {"wohnen": {"tabs": 5}}}}), "Profil „wohnen“"),
+    ("profil-tabs-zahl", _zip({"panels.json": {"panels": {"wohnen": {"tabs": 5}}}}), "Ansicht „wohnen“"),
     ("geraet-modes-liste", _zip({"panels.json": {"panels": {}, "devices": {"Küche": {"modes": ["Tag"]}}}}),
      "Gerät „Küche“"),
     ("theme-ui-liste", _zip({"theme.json": {"ui": ["x"]}}), "„ui“ muss ein Objekt sein"),

@@ -86,7 +86,7 @@ def test_start_ohne_fehlende_pakete_still(cfg_ordner, monkeypatch, caplog):
 VORRANG_STELLEN = ["README.md", "deploy/DEPLOY.md", "deploy/DOCKER.md", "deploy/UNRAID.md",
                    "docker-compose.yml", "unraid/loxpanel.xml", "docs/ARCHITEKTUR.md", "CLAUDE.md"]
 # "... unter Settings gespeicherter Zugang (loxpanel.cfg) hat Vorrang vor den Variablen"
-DATEI_VOR_UMGEBUNG = re.compile(r"(Settings|loxpanel\.cfg|gespeicherter Zugang)[^.]{0,120}?\bVorrang vor\b[^.]{0,40}?"
+DATEI_VOR_UMGEBUNG = re.compile(r"(Settings|Einstellungen|loxpanel\.cfg|gespeicherter Zugang)[^.]{0,120}?\bVorrang vor\b[^.]{0,40}?"
                                 r"(Variablen|Env|LOXPANEL_MS)")
 # "(Env hat Vorrang)" und Verwandte, nur in Zeilen zum Miniserver-Zugang: beim
 # Panel-Agenten hat die Env tatsaechlich Vorrang (vor der kiosk.conf)
