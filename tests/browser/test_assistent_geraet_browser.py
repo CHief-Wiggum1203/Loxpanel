@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import KONFIGURATOR_GELADEN, W, anlage, karte_auf, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -203,8 +203,8 @@ def test_zielkachel_unter_displays_bleibt_beim_speichern(cfg_ordner):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator(".rub", has_text="Geräte").click()
-                await pg.locator("summary", has_text="Betriebsmodus-Automatik").click()
-                feld = pg.locator('#dev_list .dev[data-name="flur"] .dt_ziel')
+                await karte_auf(pg, "flur")
+                feld = pg.locator('#geraete .dev[data-name="flur"] .dt_ziel')
                 assert await feld.input_value() == "200"
 
                 async def speichern():

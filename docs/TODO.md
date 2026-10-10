@@ -85,10 +85,13 @@ Form, es ist ein Umbau der Oberfläche.
       einstellt (vorher nur unter Aussehen). Duplizieren und Löschen unter
       Allgemein, die Speicherleiste behält die Vorschau. Tests in
       `tests/browser/test_reiter_ansicht_browser.py`. **L**
-- [ ] **Schritt 4, Gerätekarte.** Eine Karte je Gerät mit Ansicht, Steuerung,
-      Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und
-      Display-Steuerung; „Neues Gerät“ und „Erprobte Hardware“ ziehen in die
-      Rubrik Geräte. **L**
+- [x] **Schritt 4, Gerätekarte.** Eine Karte je Gerät: der Kopf mit Zustand,
+      Ansicht und Steuerung folgt der Abfrage, aufgeklappt Betriebsmodi, Am
+      Gerät (Skalierung, Zielkachel), Präsenzmelder und Display-Steuerung. Der
+      zugeklappte Kasten „Betriebsmodus-Automatik & Display-Steuerung“ ist
+      weg; „Neues Gerät einrichten“ (vorher Einstellungen) und „Erprobte
+      Hardware“ (vorher eigene Rubrik) stehen unter Geräte. Tests in
+      `tests/browser/test_geraetekarte_browser.py`. **L**
 - [ ] **Schritt 5, Vorgaben als Rubrik.** „Vorgaben“ verlässt die Liste der
       Ansichten, der Nacht-Auslöser zieht von Geräte dorthin. **M**
 - [ ] **Schritt 6, Vererbung sichtbar.** Jedes Feld nennt, woher sein Wert

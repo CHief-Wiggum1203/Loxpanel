@@ -91,7 +91,7 @@ braucht keinen Schlüssel.
 ## Start-Adresse der Anzeige
 Port und Adresse des eingebetteten Servers stehen in `Visu.kt`. Die Anzeige lädt
 beim Start die zuletzt angezeigte Visu-Adresse, beim allerersten Start die Visu mit
-dem Standardprofil. Wechselt die Ansicht über *Displays* oder die
+dem Standardprofil. Wechselt die Ansicht über *Geräte* oder die
 Betriebsmodus-Automatik, lädt sich die Visu mit neuem `?panel=`. Die App merkt
 sich diese Adresse, nach einem Neustart steht also dieselbe Ansicht da. Welche
 Adressen als Visu gelten, prüft `gradle testDebugUnitTest`.

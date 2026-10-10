@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten samt „Vorgaben", je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Geräte" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Gerät, Sicherung) und „Erprobte Hardware". Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten samt „Vorgaben", je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Geräte" (eine Karte je Gerät, Betriebsmodus-Assistent, Geräte ohne Kennung, Neues Gerät einrichten, Erprobte Hardware, Nachtmodus) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -1690,8 +1690,9 @@ ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
 „Panel“ kommt in der Oberfläche nur noch im Produktnamen und als Bauform
 („4″-Wandpanel“) vor, „Display“ nur für den Bildschirm selbst (Display aus,
 Display-Steuerung, Display-Treiber). Die Rubriken heißen Übersicht,
-Einrichtungsassistent, Ansichten, Geräte, Einstellungen und Erprobte
-Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
+Einrichtungsassistent, Ansichten, Geräte und Einstellungen (die frühere Rubrik
+„unterstützte Geräte“ steht seit Schritt 4 als „Erprobte Hardware“ unter
+Geräte); die interne Kennung (`data-rub`) blieb dabei gleich.
 
 - Liest `GET /api/meta`, schreibt `POST /api/panels` und `POST /api/theme`.
 - Die gesamte rechte Seite wird per `innerHTML` neu aufgebaut; Zustand in vier
@@ -1724,6 +1725,17 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
   zeichnet `paneListe()` zweimal: Standard-Seiten unter Inhalt, die freie Seite
   im Seiten-Editor. Die Vorgaben behalten ihre zwei Reiter (Darstellung samt
   Sprache, Kategorie-Farben).
+- **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
+  eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
+  Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,
+  Display, Agent, Entfernen) folgt der Abfrage alle 6 s (`koepfeZeichnen()`, nicht
+  während dort jemand wählt); der Körper (`.gk-body`, `devRow()`) trägt die
+  Einstellungen in vier Teilen: Betriebsmodi, Am Gerät (Skalierung, Zielkachel),
+  Präsenzmelder, Display-Steuerung. Aufgeklappte Karten merkt `GK_AUF`. Nur
+  Eingaben im Körper melden `geraete` bei der Speicherleiste, die Wahl der Ansicht
+  im Kopf schaltet live. Darunter: Geräte ohne Kennung (`#ag_anon`), „Neues Gerät
+  einrichten“, die Erklärung zu Betriebsmodus und Display-Steuerung, „Erprobte
+  Hardware“ (vorher eigene Rubrik) und der Nachtmodus.
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
   gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
   bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an
@@ -1960,13 +1972,14 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
 ### 7.3 Rubrik „Einstellungen" in `config.html` (früher `settings.html`)
 
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
-Speicherleiste unten gilt für alle Rubriken (§7.2). Sieben Reiter:
+Speicherleiste unten gilt für alle Rubriken (§7.2). Sechs Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (Zugang je
 Intercom aus dem Miniserver, „Verbindung prüfen“; lädt erst beim Öffnen,
 `loadSip()`), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
-(iCal-Abos, Wetter der Uhr-Seite), Neues Gerät (Start-URL für Kiosk-Apps,
-SSH-Befehl für Linux-Geräte), Sicherung (Herunterladen und Einspielen). Die
-Anzeigegeräte stehen in der eigenen Rubrik „Geräte". Zu einem Reiter führen
+(iCal-Abos, Wetter der Uhr-Seite), Sicherung (Herunterladen und Einspielen).
+Die Anzeigegeräte stehen in der eigenen Rubrik „Geräte", dort seit Schritt 4
+auch „Neues Gerät einrichten“ (Start-URL für Kiosk-Apps, SSH-Befehl für
+Linux-Geräte; `data-goto="displays:neuesGeraet"` klappt ihn auf). Zu einem Reiter führen
 die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
 Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
 aus, sie öffnet die Übersicht (ohne Struktur Einstellungen → Miniserver, siehe
