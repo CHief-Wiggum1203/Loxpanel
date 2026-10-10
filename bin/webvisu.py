@@ -557,11 +557,11 @@ SV_STATUS_MAX = 8
 SCALE_MIN, SCALE_MAX = 0.5, 2.0
 
 # Keys der globalen ui (theme.json), die der Konfigurator unter Vorgaben
-# (Darstellung, Nacht) setzt. Einzige Liste: _write_theme() schreibt genau
+# (Darstellung, Verhalten) setzt. Einzige Liste: _write_theme() schreibt genau
 # diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
 THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
-                 "baseColor", "bold", "lang", "scale", "nightDim", "nightWake")
+                 "baseColor", "bold", "lang", "scale", "nightDim", "nightWake", "dpmsOff", "reloadHours")
 
 # Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
 # je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
@@ -3902,12 +3902,17 @@ class App:
         _sc = _clean_scale(ui.get("scale"))
         if _sc not in (None, "off"):
             out["scale"] = _sc          # Skalierung fuer alle Panels; "off" = Fehlen
-        # Nacht-Abdunkelung fuer alle Panels (Vorgaben -> Nacht); panel_night()
-        # nimmt sie, solange das Profil keine eigene setzt. Grenzen wie dort.
+        # Nacht, Display aus und Auto-Neustart fuer alle Panels (Vorgaben ->
+        # Verhalten); panel_night(), panel_dpms() und panel_reload() nehmen sie,
+        # solange das Profil keine eigenen setzt. Grenzen wie dort.
         if isinstance(ui.get("nightDim"), (int, float)):
             out["nightDim"] = max(0, min(90, int(ui["nightDim"])))
         if isinstance(ui.get("nightWake"), (int, float)):
             out["nightWake"] = max(0, min(300, int(ui["nightWake"])))
+        if isinstance(ui.get("dpmsOff"), (int, float)):
+            out["dpmsOff"] = max(0, min(3600, int(ui["dpmsOff"])))
+        if isinstance(ui.get("reloadHours"), (int, float)):
+            out["reloadHours"] = max(0, min(168, float(ui["reloadHours"])))
         return out
 
     @staticmethod
@@ -7786,6 +7791,10 @@ async def api_meta(request: web.Request) -> web.Response:
         # Nachtmodus ohne Einstellung (Abdunkelung, Aufhellen): leere Felder
         # unter Vorgaben -> Nacht und Ansicht -> Verhalten zeigen ihn.
         "nightDefaults": NACHT_STANDARD,
+        # Welche ui-Schluessel eine Vorgabe haben (theme.json): der Konfigurator
+        # zeigt nur bei ihnen "aus den Vorgaben" und zaehlt die Ansichten, die
+        # sie selbst setzen.
+        "themeKeys": list(THEME_UI_KEYS),
         # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
         # der Konfigurator nennt sie im leeren Feld.
         "reloadAt": NEULADEN_STUNDE,

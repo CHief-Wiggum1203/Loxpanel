@@ -975,10 +975,14 @@ der Konfigurator unter Vorgaben → Darstellung setzt, steht einmal in
 genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
 sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
 Skalierung für alle Panels; fehlt sie, ist sie aus. Ebenso `nightDim` und
-`nightWake` (Vorgaben → Nacht, Grenzen wie im Panel 0 bis 90 % und 0 bis
+`nightWake` (Vorgaben → Verhalten, Grenzen wie im Panel 0 bis 90 % und 0 bis
 300 s): `panel_night()` nimmt sie, wo das Panel keine eigenen setzt, sonst gilt
 `NACHT_STANDARD` (aus, 20 s), das `/api/meta` als `nightDefaults` an den
-Konfigurator gibt.
+Konfigurator gibt. Und `dpmsOff` (0 bis 3600 s) und `reloadHours` (0 bis 168 h)
+für `panel_dpms()` und `panel_reload()`: ohne Eintrag in Panel und Vorgaben
+bleibt es bei `None`, dann nimmt der Agent seine `kiosk.conf` (`DPMS_OFF`,
+`RELOAD_HOURS`), die Visu schaltet das Display nicht ab und lädt nachts um
+`NEULADEN_STUNDE` neu.
 
 Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
 nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
@@ -1733,16 +1737,37 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
 - **Vorgaben als Rubrik** (seit 10.10.2026, Schritt 5): Die Vorgaben stehen nicht
   mehr in der Liste der Ansichten, sondern unter der Rubrik Vorgaben mit drei
   Reitern (`VG_TABS`): Darstellung (samt Sprache und Skalierung), Kategorie-Farben
-  und Nacht. Bearbeitet werden sie im selben Editor wie eine Ansicht
+  und Verhalten (bis Schritt 6 „Nacht“). Bearbeitet werden sie im selben Editor wie eine Ansicht
   (`cur='__global__'`, `renderGlobalEditor()`), aber nur in ihrer Rubrik:
   `setRubric()` merkt sich beim Wechsel dorthin die gewählte Ansicht
   (`letzteAnsicht`) und kehrt bei jeder anderen Rubrik zu ihr zurück; der Reiter
-  steht in `subVg`. Nacht trägt den Auslöser (vorher unter Geräte, Arbeitskopie
+  steht in `subVg`. Verhalten trägt den Nacht-Auslöser (vorher unter Geräte, Arbeitskopie
   `NACHT` wie `CALS`, gespeichert über `/api/settings/night`, Bereich `nacht` der
   Speicherleiste) und die Abdunkelung für alle Ansichten (`nightDim`, `nightWake`
-  in `theme.json`). Unter Verhalten zeigt eine Ansicht ohne eigenen Eintrag grau,
+  in `theme.json`), seit Schritt 6 auch Display aus und Auto-Neustart (`dpmsOff`,
+  `reloadHours`, `displayFelder()`). Unter Verhalten zeigt eine Ansicht ohne eigenen Eintrag grau,
   was sie erbt (`nachtVorgabe()`: Vorgabe, sonst `nightDefaults` aus `/api/meta`).
   `test_vorgaben_browser.py` hält das fest.
+- **Vererbung sichtbar** (seit 10.10.2026, Schritt 6): Jedes Feld mit Vorgabe oder
+  Gerätewert trägt eine Zeile `.erbt` (`erbtFeld()`), gefüllt von `erbtZeichnen()`
+  (Ansicht und Vorgaben, nach jedem Zeichnen und in `markDirty()`) und
+  `geraetErbtZeichnen()` (Gerätekarte, nach jeder Eingabe und jeder Abfrage). Die
+  Kette ist die des Servers: Gerät vor Ansicht vor Vorgaben vor Standard
+  (`effective_scale()`, `effective_grid_auto()`, `resolve_profile()`).
+  - In der Ansicht nennt ein leeres Feld, was gilt und woher („19 px · aus den
+    Vorgaben“, „38 px · Standard“). Ein gesetztes zeigt „× zurücksetzen“, der Titel
+    sagt, was danach gilt. Bei Skalierung und Zielkachel stehen dazu die Geräte, die
+    die Ansicht zeigen und den Wert selbst setzen („am Gerät wand: 125 %“).
+  - In den Vorgaben zählt die Zeile, für wie viele Ansichten der Wert gilt, und
+    nennt die mit eigenem Wert.
+  - Auf der Gerätekarte (Am Gerät) steht, was aus der gezeigten Ansicht kommt
+    (`geraetAnsicht()`: die gemeldete, sonst die, deren Zielgerät es ist).
+  - Welche Schlüssel eine Vorgabe haben, liefert `/api/meta` als `themeKeys`
+    (= `THEME_UI_KEYS`); Standardwerte kommen aus `sizeDefaults`, `nightDefaults`
+    und `kachelZiel`. „Zurücksetzen“ löscht den Schlüssel, das ist überall die Form
+    für „erbt“. Damit die Ansicht die Geräte richtig nennt, folgt `DEV` jeder
+    Eingabe auf der Gerätekarte (`readDevFromDom()`).
+  - `test_vererbung_browser.py` hält das fest.
 - **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
   eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
   Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,

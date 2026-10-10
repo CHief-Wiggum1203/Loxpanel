@@ -1,7 +1,8 @@
 """Rubrik Vorgaben im Konfigurator (Konzept "Konfigurator neu ordnen", Schritt 5),
 in Chromium: Die Vorgaben stehen nicht mehr in der Liste der Ansichten, sondern
-als eigene Rubrik mit Darstellung, Kategorie-Farben und Nacht. Unter Nacht steht
-der Ausloeser (vorher unter Geraete) und die Abdunkelung fuer alle Ansichten; die
+als eigene Rubrik mit Darstellung, Kategorie-Farben und Verhalten. Unter Verhalten
+steht der Nacht-Ausloeser (vorher unter Geraete) und die Abdunkelung fuer alle
+Ansichten, dazu Display aus und Auto-Neustart; die
 Ansicht zeigt unter Verhalten grau, was sie davon erbt. Ein Rubrikwechsel verliert
 nichts und fuehrt zur vorher gewaehlten Ansicht zurueck. Der Config-Ordner ist
 umgeleitet (Fixture cfg_ordner)."""
@@ -51,12 +52,12 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 await pg.locator("#plist .pitem", has_text="?panel=flur").click()
                 await pg.locator(".rub", has_text="Vorgaben").click()
                 reiter = await pg.eval_on_selector_all("#subtabs .stab", "l => l.map(b => [b.dataset.sub, b.textContent])")
-                assert reiter == [["appearance", "Darstellung"], ["catcolors", "Kategorie-Farben"], ["nacht", "Nacht"]], reiter
+                assert reiter == [["appearance", "Darstellung"], ["catcolors", "Kategorie-Farben"], ["verhalten", "Verhalten"]], reiter
                 assert await pg.locator("#plist .pitem.active").count() == 0, "keine Ansicht gewaehlt"
                 assert await pg.locator("#fBaseCustom").is_visible(), "Darstellung zuerst"
 
-                # Nacht: Ausloeser und Abdunkelung fuer alle Ansichten
-                await pg.locator(".stab[data-sub='nacht']").click()
+                # Verhalten: Nacht-Ausloeser und Abdunkelung fuer alle Ansichten
+                await pg.locator(".stab[data-sub='verhalten']").click()
                 sel = pg.locator("#nt_control")
                 await pg.wait_for_function("document.querySelectorAll('#nt_control option').length > 1")
                 assert await sel.input_value() == ""
@@ -76,7 +77,7 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 await pg.locator(".rub", has_text="Geräte").click()
                 assert await pg.locator("#displaysHost #nt_control").count() == 0
                 await pg.locator(".rub", has_text="Vorgaben").click()
-                assert await pg.locator(".stab.active").get_attribute("data-sub") == "nacht", "Reiter gemerkt"
+                assert await pg.locator(".stab.active").get_attribute("data-sub") == "verhalten", "Reiter gemerkt"
                 assert await sel.input_value() == "N" and await dim.input_value() == "40"
 
                 # Zurueck zur Ansicht Flur: sie erbt die Abdunkelung und zeigt sie grau
@@ -94,9 +95,9 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 assert app.panel_night("flur")["dim"] == 40, "Vorgabe gilt"
                 assert app.panel_night("kueche")["dim"] == 10, "die Ansicht ueberschreibt sie"
 
-                # Die Uebersicht fuehrt direkt zu Vorgaben -> Nacht
+                # Die Uebersicht fuehrt direkt zu Vorgaben -> Verhalten
                 await pg.locator(".rub", has_text="Übersicht").click()
-                await pg.locator('#overviewHost .ovbox[data-goto="vorgaben:nacht"]').click()
+                await pg.locator('#overviewHost .ovbox[data-goto="vorgaben:verhalten"]').click()
                 assert await sel.is_visible() and await sel.input_value() == "N"
                 await b.close()
         finally:
