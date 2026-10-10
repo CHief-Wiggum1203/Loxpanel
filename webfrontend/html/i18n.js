@@ -574,8 +574,27 @@
       'Kachel-Set': 'Tile set',
       'Standard (aus der Grundfarbe)': 'Standard (from the base colour)',
       'Loxone-App (dunkel)': 'Loxone app (dark)',
-      'Kachel-Set: ein fertiger Look statt der Farben aus der Grundfarbe. „Loxone-App (dunkel)“ zeigt flache dunkle Kacheln, weiße Symbole, dunkle Tasten und die Tab-Leiste als Pille, am besten mit dem neuen Kachel-Aufbau. Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.':
-        'Tile set: a ready-made look instead of the colours from the base colour. “Loxone app (dark)” shows flat dark tiles, white icons, dark buttons and the tab bar as a pill, best with the new tile layout. Your own state colours and colours from “Style tiles” still apply.',
+      'Kachel-Set: ein fertiger Look statt der Farben aus der Grundfarbe, mit eigenem Kachel-Aufbau und eigener Tab-Leiste; der Kachel-Aufbau oben gilt dann nicht. Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.':
+        'Tile set: a ready-made look instead of the colours from the base colour, with its own tile layout and tab bar; the tile layout above then does not apply. Your own state colours and colours from “Style tiles” still apply.',
+      'Flache dunkle Kacheln, weiße Symbole, dunkle Tasten, die Tab-Leiste als Pille.':
+        'Flat dark tiles, white icons, dark buttons, the tab bar as a pill.',
+      'Touch (Farbton wählbar)': 'Touch (choose a hue)',
+      'Kacheln in einem Farbton, Symbol mittig, die aktive Kachel kippt ganz um; die Tab-Leiste steht nur mit Symbolen oben.':
+        'Tiles in one hue, icon centred, the active tile flips completely; the tab bar sits at the top with icons only.',
+      'Kreide (hell)': 'Chalk (light)',
+      'Weiße Kacheln auf hellem Grund, das Symbol im Kreis, die Tabs als Seitenleiste links.':
+        'White tiles on a light background, the icon in a circle, the tabs as a sidebar on the left.',
+      'Farbton': 'Hue',
+      'Aktive Kachel': 'Active tile',
+      'Aktiv hell': 'Active light',
+      'Aktiv dunkel': 'Active dark',
+      'Salbei': 'Sage',
+      'Mint': 'Mint',
+      'Himmel': 'Sky',
+      'Lavendel': 'Lavender',
+      'Rosé': 'Rosé',
+      'Sand': 'Sand',
+      'Grundfarbe und Kachel-Aufbau kommen dann aus dem Set.': 'Base colour and tile layout then come from the set.',
       'Automatisch (Tablet)': 'Automatic (tablet)',
       'Kachelgröße': 'Tile size',
       'Klein (mehr Kacheln)': 'Small (more tiles)',

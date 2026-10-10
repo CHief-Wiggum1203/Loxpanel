@@ -1,8 +1,12 @@
 """Kachel-Set (ui.tileSet): ein fertiger Look statt der Farben aus der
-Grundfarbe. Geprueft werden Speichern (nur bekannte Sets), das aufgeloeste
-Profil (Name und Farben), der Vorrang vor der Grundfarbe, ausdruecklich
-gewaehlte Zustandsfarben, die Auswahl fuer den Konfigurator und die Kontraste
-jedes Sets mit denselben Massstaeben wie theme_colors.derive()."""
+Grundfarbe. Geprueft werden Speichern (nur bekannte Sets, Farbton und aktive
+Kachel des Sets mit Rechnung), das aufgeloeste Profil (Name, Art, Farben und
+Masse), der Vorrang vor der Grundfarbe und dem klassischen Aufbau,
+ausdruecklich gewaehlte Zustandsfarben, die Auswahl fuer den Konfigurator
+und die Kontraste jedes Sets mit denselben Massstaeben wie
+theme_colors.derive() - fuer "touch" ueber alle Farbtoene in 5er-Schritten
+und beide Arten der aktiven Kachel. Was geprueft wird, haengt an der Art des
+Sets (Aufbau, Leiste), so wie panel.html die Farben aufeinander setzt."""
 import pytest
 
 from lox import W, anlage
@@ -12,6 +16,8 @@ import theme_colors as TC
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "states": {"active": "s"}}})
 SETS = sorted(TC.KACHEL_SETS)
+MIT_SATZ = sorted(n for n, e in TC.KACHEL_SETS.items() if "satz" in e)
+AKTIV = {n: [a["key"] for a in TC.KACHEL_SETS[n]["aktiv"]["auswahl"]] for n in MIT_SATZ}
 
 
 def _app(ui: dict, states: dict | None = None):
@@ -24,8 +30,15 @@ def _app(ui: dict, states: dict | None = None):
     return app
 
 
-def test_es_gibt_mindestens_ein_set():
+def _gespeichert(ui: dict) -> dict:
+    return W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "ui": ui}})["p"].get("ui") or {}
+
+
+def test_es_gibt_die_drei_arten():
     assert SETS, "theme_colors.KACHEL_SETS ist leer"
+    arten = {TC.kachel_set_art(n) for n in SETS}
+    assert {a for a, _ in arten} <= {"lx", "mitte", "kreis"} and {lei for _, lei in arten} <= {"pille", "oben", "links"}
+    assert TC.kachel_set_art("gibtsnicht") == ("", "") and TC.kachel_set_art(None) == ("", "")
 
 
 @pytest.mark.parametrize("wert, gespeichert", [
@@ -33,8 +46,7 @@ def test_es_gibt_mindestens_ein_set():
 ])
 def test_nur_bekannte_sets_werden_gespeichert(wert, gespeichert):
     ui = {"tileSet": wert} if wert is not None else {}
-    e = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "ui": ui}})["p"]
-    assert (e.get("ui") or {}).get("tileSet") == gespeichert
+    assert _gespeichert(ui).get("tileSet") == gespeichert
 
 
 def test_unbekanntes_set_wird_gemeldet():
@@ -42,24 +54,61 @@ def test_unbekanntes_set_wird_gemeldet():
     assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh))
 
 
+@pytest.mark.parametrize("name", MIT_SATZ)
+def test_farbton_und_aktive_kachel_speichern(name):
+    e = TC.KACHEL_SETS[name]
+    std_ton, std_aktiv = e["farbton"]["standard"], e["aktiv"]["standard"]
+    anders = next(k for k in AKTIV[name] if k != std_aktiv)
+    ton = next(f["wert"] for f in e["farbton"]["auswahl"] if f["wert"] != std_ton)
+    assert _gespeichert({"tileSet": name, "tileHue": ton, "tileActive": anders}) == \
+        {"tileSet": name, "tileHue": ton, "tileActive": anders}
+    assert _gespeichert({"tileSet": name, "tileHue": 12.7}) == {"tileSet": name, "tileHue": 12}
+    # der Standard wird nicht gespeichert und ist kein Verlust
+    roh = {"p": {"title": "P", "tabs": ["favoriten"], "ui": {"tileSet": name, "tileHue": std_ton, "tileActive": std_aktiv}}}
+    assert W.App._sanitize_panels(roh)["p"]["ui"] == {"tileSet": name}
+    assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh)) == []
+    # Ungueltiges faellt weg und wird gemeldet
+    for falsch in ({"tileHue": 360}, {"tileHue": -1}, {"tileHue": "rot"}, {"tileHue": True}, {"tileActive": "grell"}):
+        roh = {"p": {"title": "P", "tabs": ["favoriten"], "ui": {"tileSet": name, **falsch}}}
+        assert W.App._sanitize_panels(roh)["p"]["ui"] == {"tileSet": name}, falsch
+        assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh)), falsch
+
+
 @pytest.mark.parametrize("name", SETS)
-def test_profil_traegt_name_und_farben_des_sets(name):
+def test_profil_traegt_name_art_und_werte_des_sets(name):
     prof = _app({"tileSet": name}).resolve_profile("p")
-    assert prof["tileSet"] == name
-    for var, wert in TC.KACHEL_SETS[name]["farben"].items():
+    assert (prof["tileSet"], prof["tileSetAufbau"], prof["tileSetLeiste"]) == (name, *TC.kachel_set_art(name))
+    for var, wert in TC.kachel_set(name).items():
         assert prof["vars"][var] == wert, var
+    # feste Farben und Masse aus der Definition kommen unveraendert an
+    for var, wert in {**TC.KACHEL_SETS[name].get("farben", {}), **TC.KACHEL_SETS[name].get("masse", {})}.items():
+        assert prof["vars"][var] == wert, var
+
+
+@pytest.mark.parametrize("name", MIT_SATZ)
+def test_farbton_wirkt_im_profil(name):
+    e = TC.KACHEL_SETS[name]
+    anders = next(k for k in AKTIV[name] if k != e["aktiv"]["standard"])
+    ton = next(f["wert"] for f in e["farbton"]["auswahl"] if f["wert"] != e["farbton"]["standard"])
+    std = _app({"tileSet": name}).resolve_profile("p")["vars"]
+    mit = _app({"tileSet": name, "tileHue": ton, "tileActive": anders}).resolve_profile("p")["vars"]
+    assert std["--tile"] == TC.kachel_set(name)["--tile"]
+    assert mit["--tile"] == TC.kachel_set(name, ton)["--tile"] != std["--tile"]
+    assert mit["--kachel-an"] == TC.kachel_set(name, ton, anders)["--kachel-an"] != TC.kachel_set(name, ton)["--kachel-an"]
 
 
 def test_ohne_set_bleibt_alles_wie_bisher():
     prof = _app({}).resolve_profile("p")
-    assert prof["tileSet"] == ""
-    assert "--kachel-an" not in prof["vars"]
+    assert (prof["tileSet"], prof["tileSetAufbau"], prof["tileSetLeiste"]) == ("", "", "")
+    assert "--kachel-an" not in prof["vars"] and "--kachel-radius" not in prof["vars"]
 
 
 @pytest.mark.parametrize("name", SETS)
-def test_set_schlaegt_die_grundfarbe(name):
-    prof = _app({"tileSet": name, "baseColor": "#3a6ea5"}).resolve_profile("p")
-    assert prof["vars"]["--screen"] == TC.KACHEL_SETS[name]["farben"]["--screen"]
+def test_set_schlaegt_die_grundfarbe_und_den_klassischen_aufbau(name):
+    prof = _app({"tileSet": name, "baseColor": "#3a6ea5", "tileLayout": "classic"}).resolve_profile("p")
+    assert prof["vars"]["--screen"] == TC.kachel_set(name)["--screen"]
+    assert prof["tileLayout"] == "", "das Set bringt seinen eigenen Aufbau mit"
+    assert prof["vars"]["--name-size"] == f"{W.GROESSEN_STANDARD['neu']['nameSize']}px"
 
 
 @pytest.mark.parametrize("name", SETS)
@@ -74,30 +123,111 @@ def test_vorgabe_zustandsfarbe_ueberschreibt_das_set_nicht(name):
     """load_theme() fuellt states immer aus DEFAULT_THEME - diese Vorgabe ist
     keine Wahl und darf die Farben des Sets nicht ueberdecken."""
     prof = _app({"tileSet": name}, dict(W.DEFAULT_THEME["states"])).resolve_profile("p")
-    assert prof["vars"]["--glow"] == TC.KACHEL_SETS[name]["farben"]["--glow"]
+    assert prof["vars"]["--glow"] == TC.kachel_set(name)["--glow"]
 
 
 def test_auswahl_fuer_den_konfigurator():
-    assert TC.kachel_set_liste() == [{"key": k, "label": e["label"]} for k, e in TC.KACHEL_SETS.items()]
+    liste = TC.kachel_set_liste()
+    assert [(s["key"], s["label"], s["info"], s["aufbau"], s["leiste"]) for s in liste] == \
+        [(k, e["label"], e["info"], e["aufbau"], e["leiste"]) for k, e in TC.KACHEL_SETS.items()]
+    for s in liste:
+        e = TC.KACHEL_SETS[s["key"]]
+        assert ("farbton" in s) == ("satz" in e) == ("aktiv" in s)
+        if "satz" not in e:
+            continue
+        hell = e["aktiv"]["standard"] == "hell"
+        assert s["farbton"]["standard"] == e["farbton"]["standard"] and s["aktiv"] == e["aktiv"]
+        # die Farben rechnet der Server, der Konfigurator zeigt sie nur
+        assert [(f["label"], f["wert"], f["farbe"], f["schrift"]) for f in s["farbton"]["auswahl"]] == \
+            [(f["label"], f["wert"], TC.touch_satz(f["wert"], hell)["--tile"], TC.touch_satz(f["wert"], hell)["--ink"])
+             for f in e["farbton"]["auswahl"]]
+        assert s["farbton"]["verlauf"] == [TC.touch_satz(h, hell)["--tile"] for h in range(0, 360, TC.VERLAUF_SCHRITT)]
     assert TC.kachel_set("gibtsnicht") is None and TC.kachel_set(None) is None
+
+
+def test_meta_nennt_die_sets():
+    assert W.theme_colors.kachel_set_liste() == TC.kachel_set_liste()
+
+
+# ---- Kontraste --------------------------------------------------------------
+def _paare(name: str, v: dict) -> list:
+    """(vorn, hinten, Ziel, was) fuer alles, was panel.html bei diesem Set
+    aufeinander setzt. Hauptschrift AAA auf Flaeche und Leiste, sonst AA,
+    Symbole und Kreise 3:1 (WCAG 1.4.11)."""
+    aufbau, leiste = TC.kachel_set_art(name)
+    k = []
+    # Schrift auf Flaeche, Kachel, Taste; Zweitzeile ebenso
+    k += [("--ink", "--screen", TC.AAA, "Schrift auf der Flaeche")]
+    k += [("--ink", f, TC.AA, "Schrift") for f in ("--tile", "--taste")]
+    k += [("--muted", f, TC.AA, "Zweitzeile") for f in ("--tile", "--screen", "--taste")]
+    if aufbau == "mitte":
+        # aktive Kachel kippt ganz um: eigene Schrift fuer Text und Symbol
+        ziel = TC.KACHEL_SETS[name]["satz"]["aktiv"]["hell" if TC.luminanz(v["--kachel-an"]) > 0.18 else "dunkel"]["ziel"]
+        k += [("--kachel-an-ink", "--kachel-an", ziel, "Schrift auf der aktiven Kachel")]
+    else:
+        k += [("--ink", "--kachel-an", TC.AA, "Schrift auf der aktiven Kachel"),
+              ("--muted", "--kachel-an", TC.AA, "Zweitzeile auf der aktiven Kachel")]
+        an_text = "--an-text" if "--an-text" in v else "--glow"
+        k += [(an_text, f, TC.AA, "Zustand an") for f in ("--tile", "--kachel-an")]
+        k += [("--glow", f, TC.GRAFIK, "Symbol an") for f in ("--tile", "--kachel-an")]
+    if aufbau == "kreis":
+        k += [("--ink", "--taste", TC.GRAFIK, "Symbol im Kreis"),
+              ("--kreis-an-symbol", "--glow", TC.GRAFIK, "Symbol im aktiven Kreis"),
+              ("--glow", "--tile", TC.GRAFIK, "aktiver Kreis auf der Kachel")]
+    # Zustandsfarben als Text auf der Kachel, Stoerung gefuellt, Text auf Akzent
+    k += [(r, "--tile", TC.AA, "Zustandsfarbe") for r in ("--good", "--crit", "--cool", "--warn", "--accent")]
+    k += [("--crit-ink", "--crit-fill", TC.AAA, "Stoerung"), ("--crit-muted", "--crit-fill", TC.AA, "Stoerung, Zweitzeile"),
+          ("--on-glow", "--glow", TC.AA, "Text auf Akzent"), ("--on-accent", "--accent", TC.AA, "Text auf OK")]
+    # Tab-Leiste
+    if leiste == "oben":
+        k += [("--tab-an", "--tabbar", TC.AA, "aktiver Tab"), ("--tab-aus", "--tabbar", TC.AA, "Tab")]
+    else:
+        k += [("--ink", "--tabbar", TC.AAA, "Schrift auf der Leiste"), ("--muted", "--tabbar", TC.AA, "Tab")]
+    return k
+
+
+def _pruefen(name: str, v: dict) -> list:
+    fehler = [f"{was}: {vorn} {v[vorn]} auf {hinten} {v[hinten]} = {TC.kontrast(v[vorn], v[hinten]):.2f} < {ziel}"
+              for vorn, hinten, ziel, was in _paare(name, v) if TC.kontrast(v[vorn], v[hinten]) < ziel]
+    # Wo nur die Toenung "aktiv" zeigt (Aufbau lx), muessen sich die Zustaende
+    # auch fuer rot-gruen-blinde Augen unterscheiden; "mitte" (kippt ganz um)
+    # und "kreis" (der Kreis fuellt sich) tragen den Zustand ueber die Form.
+    if TC.kachel_set_art(name)[0] == "lx":
+        for a, b in (("--glow", "--good"), ("--glow", "--muted"), ("--good", "--muted")):
+            if not TC.trennbar(v[a], v[b]):
+                fehler.append(f"nicht trennbar: {a} {v[a]} / {b} {v[b]}")
+    return fehler
 
 
 @pytest.mark.parametrize("name", SETS)
 def test_kontraste_des_sets(name):
     v = TC.kachel_set(name)
-    k = TC.kontrast
-    flaechen = [v["--tile"], v["--kachel-an"], v["--taste"], v["--tabbar"]]
-    assert k(v["--ink"], v["--screen"]) >= TC.AAA
-    assert k(v["--ink"], v["--tabbar"]) >= TC.AAA
-    for f in flaechen:
-        assert k(v["--ink"], f) >= TC.AA, f
-        assert k(v["--muted"], f) >= TC.AA, f
-    for rolle in ("--glow", "--good", "--crit", "--cool", "--warn", "--accent"):
-        for f in (v["--tile"], v["--kachel-an"]):
-            assert k(v[rolle], f) >= TC.AA, (rolle, f)
-    assert k(v["--crit-ink"], v["--crit-fill"]) >= TC.AAA
-    assert k(v["--crit-muted"], v["--crit-fill"]) >= TC.AA
-    assert k(v["--on-glow"], v["--glow"]) >= TC.AA
-    assert k(v["--on-accent"], v["--accent"]) >= TC.AA
-    assert TC.trennbar(v["--glow"], v["--good"])
-    assert TC.trennbar(v["--glow"], v["--muted"]) and TC.trennbar(v["--good"], v["--muted"])
+    assert not _pruefen(name, v), _pruefen(name, v)
+
+
+@pytest.mark.parametrize("aktiv", sorted({a for ks in AKTIV.values() for a in ks}))
+@pytest.mark.parametrize("name", MIT_SATZ)
+def test_kontraste_ueber_alle_farbtoene(name, aktiv):
+    fehler = {h: f for h in range(0, 360, 5) if (f := _pruefen(name, TC.kachel_set(name, h, aktiv)))}
+    assert not fehler, fehler
+
+
+@pytest.mark.parametrize("aktiv_hell", [True, False])
+def test_touch_satz_folgt_der_rechnung(aktiv_hell):
+    """touch_satz(): jede Flaeche wandert nur so weit, bis ihr Ziel erreicht ist
+    - einen Schritt davor war es noch nicht erreicht."""
+    p = TC.KACHEL_SETS["touch"]["satz"]
+    a = p["aktiv"]["hell" if aktiv_hell else "dunkel"]
+    for h in range(0, 360, 5):
+        v = TC.touch_satz(h, aktiv_hell)
+        assert v["--ink"] == TC._hsl(h, *p["ink"])
+        hell = round(TC._hls(v["--tile"])[1] * 100)
+        assert TC.kontrast(v["--ink"], v["--tile"]) >= p["kachel"]["ziel"] or hell >= p["kachel"]["bis"], h
+        assert hell == p["kachel"]["l"] or TC.kontrast(v["--ink"], TC._hsl(h, p["kachel"]["s"], hell - 1)) < p["kachel"]["ziel"], h
+        assert v["--screen"] == TC._hsl(h, p["feld"]["s"], min(p["feld"]["bis"], hell + p["feld"]["plus"])), h
+        assert TC.kontrast(v["--ink"], v["--taste"]) >= p["taste"]["ziel"], h
+        assert v["--kachel-an"] == TC._hsl(h, *a["flaeche"]), h
+        assert TC.kontrast(v["--kachel-an-ink"], v["--kachel-an"]) >= a["ziel"], h
+        assert TC.kontrast(v["--tab-aus"], p["rahmen"]) >= p["tab_aus"]["ziel"], h
+        assert v["--tabbar"] == v["--bg"] == p["rahmen"]
+    assert TC.touch_satz(361, aktiv_hell) == TC.touch_satz(1, aktiv_hell)

@@ -67,7 +67,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
-| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
@@ -296,7 +296,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -888,6 +888,10 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "font": "Inter",
         "textColor": "#e8eaed", "bold": true, "lang": "de",
         "tileLayout": "classic",             // Kachel-Aufbau: nur "classic"; fehlt = der neue (§7.1)
+        "tileSet": "touch",                  // Kachel-Set aus theme_colors.KACHEL_SETS; fehlt = Farben aus
+                                             // der Grundfarbe, "classic" gilt mit Set nicht (§5.4)
+        "tileHue": 160,                      // Farbton des Sets "touch", 0-359; fehlt = 270
+        "tileActive": "dunkel",              // aktive Kachel bei "touch": "hell" | "dunkel"; fehlt = "hell"
         "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
         "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
                                              // bis KACHEL_ZIEL_MAX); fehlt = KACHEL_ZIEL_STANDARD; die alten
@@ -1003,6 +1007,29 @@ Kachel, Leiste, Schrift, Zweitzeile, Icon- und Zustandsfarben — und
 `_theme_vars()` schickt ihn als CSS-Variablen mit. Ohne `baseColor` ändert sich
 nichts: jede Farbe in `panel.html` trägt ihren bisherigen Wert als Rückfall.
 Ausdrücklich gesetzte `states` schlagen die Herleitung.
+
+Ein Kachel-Set (`ui.tileSet`, je Ansicht) ersetzt die Herleitung durch einen
+fertigen Look. Jedes Set steht genau einmal in `theme_colors.KACHEL_SETS`:
+Name und Beschreibung für den Konfigurator, `aufbau` der Kachel (`lx` flach wie
+die Loxone-App, `mitte` mit Symbol mittig und einer aktiven Kachel, die ganz
+umkippt, `kreis` mit dem Symbol in einem Kreis), `leiste` (`pille` unten,
+`oben` nur Symbole über dem Raster, `links` als Seitenleiste), feste `farben`
+und `masse` (Radius, Schatten, Kreis). „touch“ hat statt fester Farben einen
+`satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,
+Taste, aktive Kachel und Tab-Symbole aus dem Farbton (`ui.tileHue`) und lässt
+jede Helligkeit wandern, bis ihr Kontrast erreicht ist. Rollen, die ein Set
+nicht nennt (Zweitzeile, Zustandsfarben, Störung, Text auf dem Akzent),
+rechnet `_ergaenzen()` nach denselben Regeln wie `derive()` gegen die Flächen
+des Sets nach. `_theme_vars()` schickt Farben und Maße als CSS-Variablen,
+`resolve_profile()` die Art als `tileSetAufbau`/`tileSetLeiste`, `/api/meta`
+die Auswahl als `kachelSets` (mit den fertigen Farben der Schnellwahl).
+Ausdrücklich gewählte Zustandsfarben und Farben aus „Kacheln gestalten“
+gelten auch mit Set. `tests/test_kachel_set.py` rechnet jedes Paar nach, das
+die Visu bei der Art des Sets aufeinander setzt, für „touch“ über alle
+Farbtöne in 5er-Schritten. Die Trennbarkeit für rot-grün-blinde Augen
+verlangt er nur beim Aufbau `lx`, wo allein die Tönung „aktiv“ zeigt: Bei
+`mitte` und `kreis` trägt die Form den Zustand, und die festen Farben von
+„Kreide“ (Orange, Grün, Grau) fallen unter Deuteranopie zusammen.
 
 ---
 
@@ -1187,6 +1214,25 @@ Assistenten des Konfigurators.
   Detailseite, bei direkt schaltenden Zielen deren `cmd`. Unbekannte Ziele,
   Dubletten und der Baustein selbst fallen weg. Tests in
   `tests/test_verlinkte_objekte.py`.
+- Kachel-Sets (`ui.tileSet`, §5.4): Die `theme`-Nachricht setzt
+  `data-kachelset`, `data-kachelset-aufbau` und `data-kachelset-leiste` am
+  `<html>`. Die Regeln hängen an der Art, nie am Namen eines Sets: Für jedes
+  Set (`html[data-kachelset-aufbau]`) flache Kacheln ohne Rahmen, Symbole in
+  der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf `--taste`.
+  `mitte`: `kachelTexte()` stellt den Zustand vorn und darunter „Name · Raum“,
+  die aktive Kachel trägt `--kachel-an-ink`. `kreis`: `render()` legt
+  `.kreis` um das Symbol, aktiv füllt er sich mit `--glow`. Zustandstext in
+  Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leiste `oben`: die
+  Tabs stehen in Zeile 1, jede Zeilen-Variante des Kastens (Kopfzeile,
+  Werteleiste, Split quer und hochkant, Widget-Seite) rückt eine Zeile nach
+  unten, die Höhe der Leiste bleibt. Leiste `links`: `railEinrichten()` setzt
+  `--rail-w` aus `raster.js` (`railBreite()`, unter 600 px nur Symbole,
+  `.rail-schmal`), der Kasten macht ihr mit `padding-left` Platz, die Leiste
+  liegt absolut darin, `autoRaster()` zieht ihre Breite ab und rechnet ohne
+  Leistenhöhe. Wechselt das Set bei einer neuen Verbindung, entfernt die
+  `theme`-Nachricht die Variablen der vorigen. Tests in
+  `tests/browser/test_kachel_set_browser.py` (Bilder aller Sets am iPad und am
+  4″-Panel).
 - Kachel-Aufbau (`ui.tileLayout`, mit der `theme`-Nachricht als `tileLayout`):
   Standard ist der neue nach den Kacheln der Loxone-App, `"classic"` der
   bisherige. Das Raster (`cols`/`rows`) ist in beiden gleich, die
@@ -1797,7 +1843,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   4. Inhalt und Seiten: Anzahl Panes und Raster (vorgerechnet wie bisher), die
      untere Leiste, Räume oder Seiten samt Seiten-Editor. Beim ersten Besuch ist
      die Raum-Ansicht zum Gerätenamen vorgewählt (`wzInhaltVorschlagen()`).
-  5. Aussehen und Verhalten: Grundfarbe, Größen, Schrift, Skalierung,
+  5. Aussehen und Verhalten: Kachel-Set (mit Farbton und aktiver Kachel bei
+     „touch“; die Vorrechnung des Rasters nimmt die Seitenleiste mit), Grundfarbe, Größen, Schrift, Skalierung,
      Aktiv-Overlay, Screensaver und „Display aus“, leere Felder zeigen die
      Vorgaben. Der frühere Schritt „Design“ (einheitlich oder je Kachel) fiel weg,
      er schrieb nichts in die Ansicht.
@@ -2133,7 +2180,11 @@ Tab-Leiste 55 px: 2 × 13 Innenabstand, 28 Symbol, 1 Linie); ein Raum-Panel
 mit Sprungmarken ohne Bild hat eine niedrigere Tab-Leiste, dort ist die
 Vorrechnung eine Näherung. `test_vorrechnung_wie_die_visu` vergleicht die
 gemessenen Maße mit `VISU_MASSE` und das vorgerechnete mit dem gebauten
-Raster.
+Raster. Ein Kachel-Set mit Leiste „links“ nimmt Breite statt Höhe:
+`LEISTE_LINKS` (208 px, unter 600 px Breite 68 px) und `railBreite()` gelten
+für die Visu (`--rail-w`) wie für Assistent und Seiten-Editor
+(`leisteMasse()` in `config.html`), `autoRaster()` zieht `railW` von der
+Breite ab.
 
 ---
 
@@ -2505,6 +2556,12 @@ Schlüssel in jeden Sprachblock. Panel-Texte sind davon nicht erfasst, die stehe
 hart im Server.
 
 ### (f) Design
+
+Ein neues Kachel-Set ist ein Eintrag in `theme_colors.KACHEL_SETS` mit einer
+vorhandenen Art (`aufbau`, `leiste`); Auswahl, Speichern, Kontrasttest und
+Browser-Test nehmen es von dort. Eine neue Art braucht Regeln in `panel.html`
+an `html[data-kachelset-aufbau|-leiste]` und eine Zeile in `_paare()` von
+`tests/test_kachel_set.py`.
 
 Visu statisch in `panel.html:8-256`, zur Laufzeit über CSS-Variablen mit
 Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
