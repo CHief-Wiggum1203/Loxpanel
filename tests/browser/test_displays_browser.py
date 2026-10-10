@@ -251,9 +251,9 @@ def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
                 await flur.locator(".dev_auto").uncheck()
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
                                               and r.request.method == "POST") as antwort:
-                    await pg.locator("#dev_save").click()
+                    await pg.locator("#saveBtn").click()
                 assert (await (await antwort.value).json())["ok"]
-                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                await _meldung(pg, "#toast", "✓ Gespeichert: Geräte")
 
                 geraete = {
                     "flur": {"auto": False, "modes": {"nacht": "kueche"}},
@@ -329,9 +329,9 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
                 # Speichern ohne Eingabe: das Kennwort bleibt
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
                                               and r.request.method == "POST") as antwort:
-                    await pg.locator("#dev_save").click()
+                    await pg.locator("#saveBtn").click()
                 assert "geheim" not in await (await antwort.value).text()
-                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                await _meldung(pg, "#toast", "✓ Gespeichert: Geräte")
                 assert kennwort() == "geheim"
 
                 # Anderes Ziel: der Platzhalter sagt es beim Tippen, zurueck
@@ -347,15 +347,15 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
 
                 # Mit anderem Host speichern: verworfen, die Meldung nennt das Geraet
                 await tab.locator(".dd_host").fill("127.0.0.2")
-                await pg.locator("#dev_save").click()
-                await _meldung(pg, "#dev_toast", "✓ Gespeichert · Display-Kennwort nicht übernommen, "
+                await pg.locator("#saveBtn").click()
+                await _meldung(pg, "#toast", "✓ Gespeichert: Geräte · Display-Kennwort nicht übernommen, "
                                                  "weil Host oder Treiber geändert: tablet")
-                assert "warn" in await pg.locator("#dev_toast").get_attribute("class")
+                assert "warn" in await pg.locator("#toast").get_attribute("class")
                 assert kennwort() == ""
                 # Der 4-s-Timer der Meldung vom ersten Speichern blendet die
                 # Warnung nicht aus
                 await pg.wait_for_timeout(4300)
-                assert "show" in await pg.locator("#dev_toast").get_attribute("class")
+                assert "show" in await pg.locator("#toast").get_attribute("class")
                 await pg.screenshot(path=str(tmp_path / "displays_kennwort.png"), full_page=True)
                 await tab.locator(".dm_add").click()
                 assert await pw.get_attribute("placeholder") == "Passwort (Fully)", "kein Kennwort mehr"
@@ -365,14 +365,14 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
                 await pw.fill("neu")
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
                                               and r.request.method == "POST"):
-                    await pg.locator("#dev_save").click()
-                await _meldung(pg, "#dev_toast", "✓ Gespeichert")
+                    await pg.locator("#saveBtn").click()
+                await _meldung(pg, "#toast", "✓ Gespeichert: Geräte")
                 assert kennwort() == "neu"
                 await pw.fill("")
                 assert await pw.get_attribute("placeholder") == "unverändert lassen"
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
                                               and r.request.method == "POST"):
-                    await pg.locator("#dev_save").click()
+                    await pg.locator("#saveBtn").click()
                 assert kennwort() == "neu"
                 await b.close()
         finally:

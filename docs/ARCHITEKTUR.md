@@ -1695,7 +1695,26 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
 
 - Liest `GET /api/meta`, schreibt `POST /api/panels` und `POST /api/theme`.
 - Die gesamte rechte Seite wird per `innerHTML` neu aufgebaut; Zustand in vier
-  Modulvariablen (`META`, `PANELS`, `cur`, `dirty`).
+  Modulvariablen (`META`, `PANELS`, `cur`, `OFFEN`).
+- **Eine Speicherleiste** (seit 10.10.2026, Schritt 2 des Konzepts): Sie steht unter
+  Ansichten, Geräte und Einstellungen und nennt, was offen ist („Nicht gespeichert:
+  Ansicht Flur, Geräte, Kalender & Wetter“). `OFFEN` hält dafür je Ansicht
+  `ansicht:<Kennung>` (`ansicht:__global__` = Vorgaben) und die Bereiche `geraete`,
+  `nacht`, `intercom`, `audio`, `kalender`, jeweils mit einer laufenden Nummer:
+  Speichern hakt nur ab, was seit dem Absenden nicht erneut geändert wurde.
+  `markDirty()` meldet die Ansicht, `bereichOffen()` einen Bereich; die Karten unter
+  Geräte und Einstellungen melden sich über `input`/`change`. `speichernAlles()`
+  schreibt nacheinander Ansichten (`/api/panels`, `/api/theme`), Geräte
+  (`/api/devices`), Nachtmodus, Kamera, Audio und Kalender und lädt erst danach
+  einmal `loadSettings()`. Weder `loadSettings()` noch `loadPanelIds()`
+  überschreiben einen offenen Bereich. Ein Rubrikwechsel verliert nichts, nur
+  Neuladen oder Schließen der Seite fragt nach (`beforeunload`). „Verbinden &
+  Speichern“ des Miniservers bleibt ein eigener Knopf, weil er zuerst die Verbindung
+  prüft.
+- **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
+  gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
+  bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an
+  anderen gehen dabei nicht nebenbei mit, sie bleiben in der Leiste.
 - Virtuelles Profil `__global__` landet in `theme.json` statt `panels.json`.
   Die Skalierung dort hat keine Erb-Option („Aus" ist das Fehlen des Keys),
   die Ansicht bietet „Wie Vorgabe (…)" mit dem geerbten Wert in Klammern, das
@@ -1925,7 +1944,7 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
 ### 7.3 Rubrik „Einstellungen" in `config.html` (früher `settings.html`)
 
 Die frühere Einstellungsseite liegt als zweite Rubrik im Konfigurator; die
-Speicherleiste unten gilt nur für „Ansichten". Sieben Reiter:
+Speicherleiste unten gilt für alle Rubriken (§7.2). Sieben Reiter:
 Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (Zugang je
 Intercom aus dem Miniserver, „Verbindung prüfen“; lädt erst beim Öffnen,
 `loadSip()`), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
@@ -1935,7 +1954,7 @@ Anzeigegeräte stehen in der eigenen Rubrik „Geräte". Zu einem Reiter führen
 die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
 Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
 aus, sie öffnet die Übersicht (ohne Struktur Einstellungen → Miniserver, siehe
-unten). Kein Dirty-Flag, ungespeicherte Eingaben gehen beim Verlassen verloren.
+unten). Ungespeichertes nennt die Speicherleiste; Neuladen oder Schließen der Seite fragt nach.
 
 **Ersteinrichtung.** Solange der Server keine Struktur vom Miniserver hat
 (`einrichtung` aus `/api/settings`), führt der Konfigurator zuerst zum Zugang:

@@ -67,10 +67,16 @@ Form, es ist ein Umbau der Oberfläche.
       Einstellungen, Erprobte Hardware, „Global“ heißt Vorgaben. „Panel“ nur
       noch im Produktnamen und als Bauform. Festgehalten in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2. **M**
-- [ ] **Schritt 2, Speichern vereinheitlichen.** Eine Speicherleiste für alle
-      Rubriken, die nennt, was offen ist; „Ansicht löschen“ und „Gerät
-      entfernen“ gelten nach der Rückfrage sofort; Nachfrage beim Verlassen mit
-      offenen Änderungen. **M**
+- [x] **Schritt 2, Speichern vereinheitlichen.** Eine Speicherleiste unter
+      Ansichten, Geräte und Einstellungen nennt, was offen ist, und speichert
+      alles in einem Zug; die eigenen Knöpfe unter Geräte, Nachtmodus, Kamera,
+      Audio und Kalender sind weg. Nachladen überschreibt keine offene Eingabe
+      mehr (vorher löschte das Speichern einer Karte die übrigen, das Speichern
+      der Ansichten offene Geräte-Eingaben). „Ansicht löschen“ und „Gerät
+      entfernen“ gelten nach der Rückfrage sofort, ohne andere offene
+      Änderungen mitzunehmen. Ein Rubrikwechsel verliert nichts, darum fragt
+      nur Neuladen oder Schließen der Seite nach. Tests in
+      `tests/browser/test_speicherleiste_browser.py`. **M**
 - [ ] **Schritt 3, Reiter der Ansicht neu ordnen.** Acht Reiter werden sechs
       (Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten); Widget,
       Kopfzeile und Werteleiste je Standard-Seite unter Inhalt, für freie
