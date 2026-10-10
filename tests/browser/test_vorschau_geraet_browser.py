@@ -174,7 +174,7 @@ def test_assistent_zeigt_ein_panel_das_es_noch_nicht_gibt(cfg_ordner):
         pg = await _konfigurator(b, port)
         await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
             WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; wzInitSetup();
-            WZ.step = wzFlow().indexOf('review'); wzRender(); }""")
+            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
         assert await pg.locator("#wzVorschau").is_enabled()
         await pg.locator("#wzVorschau").click()
         await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt das neue Panel")
@@ -190,7 +190,7 @@ def test_assistent_zeigt_ein_panel_das_es_noch_nicht_gibt(cfg_ordner):
         # nochmal, diesmal anlegen und speichern: das Geraet zeigt danach das gespeicherte Panel
         await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
             WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; WZ.umschalten = false; wzInitSetup();
-            WZ.step = wzFlow().indexOf('review'); wzRender(); }""")
+            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
         await pg.locator("#wzVorschau").click()
         await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt es wieder")
         await pg.evaluate("wzBuild()")

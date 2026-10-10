@@ -118,9 +118,16 @@ Form, es ist ein Umbau der Oberfläche.
       feste Platzhalter „180“ unter „Display aus nach“ ist weg: Er war die
       Vorgabe des Linux-Agenten, ohne Agent bleibt das Display ohne Eintrag
       an. Tests in `tests/test_vorgaben.py`. **S**
-- [ ] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
-      Schritten ab dem Gerät, die Rubrik Einrichtungsassistent entfällt.
-      Braucht 4. **L**
+- [x] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
+      Schritten ab dem Gerät (Miniserver, Gerät, Ansicht, Inhalt und Seiten,
+      Aussehen und Verhalten, Prüfen), aus Übersicht, Geräte, „＋ Neue Ansicht“
+      und nach der Ersteinrichtung; die Rubrik Einrichtungsassistent entfällt.
+      Im Schritt Ansicht auch eine vorhandene zuweisen oder mit Raumtausch
+      duplizieren, dann entfallen Inhalt und Aussehen. „Neues Gerät
+      verbinden“ (Start-Adresse, Agent, Code am Panel) steht im Schritt Gerät
+      statt als eigener Abschnitt unter Geräte, die Raum-Ansicht zum
+      Gerätenamen ist vorgewählt, Name und Kennung kommen ans Ende. Tests in
+      `tests/browser/test_geraet_einrichten_browser.py`. **L**
 
 ## 0b. Upstream-Abgleich
 

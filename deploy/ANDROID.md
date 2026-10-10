@@ -157,9 +157,11 @@ dort wirkt der Präsenzmelder nicht.
 
 ## Start-URL aus dem Konfigurator
 
-Unter *Geräte → Neues Gerät einrichten* gibt es für Android-Geräte einen
+Unter *Geräte → ＋ Gerät einrichten*, Schritt *Gerät* → *Neues Gerät
+verbinden* → *Start-Adresse oder Agent*, gibt es für Android-Geräte einen
 Generator: Gerätename und Startansicht wählen, „Start-URL erzeugen", kopieren
-und in die Kiosk-App eintragen.
+und in die Kiosk-App eintragen. Sobald sich das Gerät meldet, steht es im
+selben Schritt zur Wahl und der Assistent führt weiter bis zur Ansicht.
 
 ## Testen ohne Kauf
 

@@ -112,6 +112,8 @@ STAND = """() => ({schritt: wzFlow()[WZ.step], panes: WZ.panes, grid: WZ.grid, d
   raster: Object.fromEntries([...document.querySelectorAll('#wzBody [data-wg]')].map(n =>
     [n.dataset.wg, (n.querySelector('.wzv') || {}).textContent || ''])),
   katalog: [...document.querySelectorAll('#wzKatalog option')].slice(1).map(o => o.textContent)})"""
+# Gerät einrichten: Geraet im Schritt Gerät, Panes und Raster im Schritt Inhalt und Seiten
+GEHE = "k => { WZ.step = wzFlow().indexOf(k); wzRender(); }"
 
 
 def test_assistent_aus_dem_geraet(cfg_ordner, tmp_path):
@@ -140,36 +142,50 @@ def test_assistent_aus_dem_geraet(cfg_ordner, tmp_path):
 
                 # Ohne Geraet: alles angeboten, nichts vorgerechnet; dazu Geraete, Browser, Katalog
                 st = await pg.evaluate(STAND)
-                assert st["geraete"] == ["tablet 893 × 533 · gemeldet", "wand 480 × 480 · gemeldet", "Dieser Browser 1280 × 900"], st
+                assert st["schritt"] == "geraet", st
+                assert st["geraete"] == ["tablet 893 × 533 · gemeldet", "wand 480 × 480 · gemeldet", "Dieser Browser 1280 × 900",
+                                         "Ohne Gerät nur eine Ansicht anlegen, ohne Vorrechnung"], st
                 assert st["katalog"] == [f"{k['name']} · {k['vw']} × {k['vh']}" for k in W.GERAETE_KATALOG], st
+                await pg.evaluate(GEHE, "inhalt")
+                st = await pg.evaluate(STAND)
                 assert st["panesAngebot"] == ["1", "2"] and set(st["raster"]) == {"2x2", "3x2", "2x3", "3x3", "auto"} \
                     and not any(st["raster"].values()), st
 
                 # Das 4"-Wandpanel: quadratisch, also nur 1 Pane; vorgerechnet, 2 x 2 vorgeschlagen
+                await pg.evaluate(GEHE, "geraet")
                 await pg.locator('#wzBody [data-wgr="geraet"][data-wgn="wand"]').click()
+                await pg.evaluate(GEHE, "inhalt")
                 st = await pg.evaluate(STAND)
                 assert (st["device"], st["groesse"], st["panesAngebot"], st["panes"], st["grid"]) == (
                     "wand", ["geraet", 480, 480], ["1"], "1", "2x2"), st
                 assert st["raster"]["2x2"] == "2 × 2" and st["raster"]["3x3"] == "3 × 3", st
 
                 # 10"-Tablet aus dem Katalog: mit 2 Panes passen nur 3 x 3 (6 x 3 Kacheln) und "Automatisch"
+                await pg.evaluate(GEHE, "geraet")
                 await pg.locator("#wzKatalog").select_option(label="10″-Tablet quer · 1280 × 800")
+                await pg.evaluate(GEHE, "inhalt")
                 st = await pg.evaluate(STAND)
                 assert (st["device"], st["groesse"], st["panes"], st["grid"]) == ("", ["katalog", 1280, 800], "2", "auto"), st
                 assert st["raster"] == {"3x3": "6 × 3", "auto": st["raster"]["auto"]}, st
                 await pg.screenshot(path=str(tmp_path / "assistent_geraet_katalog.png"))
 
                 # Das Tablet: 2 Panes, automatisch 5 x 3 zu 167 px, Widget 2 Spalten
+                await pg.evaluate(GEHE, "geraet")
                 await pg.locator('#wzBody [data-wgr="geraet"][data-wgn="tablet"]').click()
+                await pg.evaluate(GEHE, "inhalt")
                 st = await pg.evaluate(STAND)
                 assert (st["device"], st["panes"], st["grid"]) == ("tablet", "2", "auto"), st
                 assert st["raster"]["auto"] == "5 × 3 · 167 px + Widget 2 Spalten", st
 
-                # Im Schritt Name: umschalten und Zielkachel merken, dann sofort anlegen
-                await pg.evaluate("WZ.content = 'classic'; WZ.step = wzFlow().indexOf('name'); wzRender()")
+                # Inhalt waehlen, dann gleich zum Pruefen: umschalten und Zielkachel merken, anlegen
+                await pg.locator('#wzBody [data-wk="content"][data-wo="classic"]').click()
+                await pg.locator("#wzFertig").click()
+                assert await pg.evaluate("wzFlow()[WZ.step]") == "pruefen"
+                assert await pg.locator("#wzTitleI").input_value() == "Tablet", "Name aus dem Geraet vorbelegt"
                 assert await pg.locator("#wzUmschalten").is_checked() and await pg.locator("#wzZielMerken").is_checked()
                 await pg.locator("#wzTitleI").fill("Flur")
-                await pg.locator("#wzFertig").click()
+                assert await pg.locator("#wzId").input_value() == "flur"
+                await pg.locator("#wzNext").click()
                 await _bis(lambda: any((app.conn_prof.get(ws) or {}).get("id") == "flur" for ws, i in app.conn_info.items()
                                        if i.get("dev") == "tablet"), "das Tablet zeigt das neue Panel", sekunden=20)
                 assert "flur" in tablet.url, tablet.url

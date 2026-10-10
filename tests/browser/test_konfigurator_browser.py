@@ -169,10 +169,10 @@ def test_sprungmarken_springen_oder_filtern():
         p.tabs = ['room:r1']; p.ui.catFilter = true; renderEditor();
         const bleibt = document.getElementById('fCatFilter').value === '1';
         wzOpen(); WZ.panes = '1'; WZ.content = 'room'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
-        WZ.step = wzFlow().indexOf('setup'); wzRender();
+        WZ.step = wzFlow().indexOf('inhalt'); wzRender();
         const knopf = document.querySelector('#wzBody [data-wk="catMode"][data-wo="filter"]');
         const wahl = !!knopf; knopf.click();
-        WZ.step = wzFlow().indexOf('review'); wzRender();
+        WZ.step = wzFlow().indexOf('pruefen'); wzRender();
         const zusammenfassung = document.getElementById('wzBody').innerText.includes('Filtern');
         wzBuild();
         return {feld, an, aus, klassisch, bleibt, wahl, zusammenfassung,

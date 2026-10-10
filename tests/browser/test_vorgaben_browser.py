@@ -45,7 +45,7 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 rubriken = await pg.eval_on_selector_all(".rub", "l => l.map(b => b.dataset.rub)")
-                assert rubriken == ["overview", "assistant", "pconf", "vorgaben", "displays", "settings"], rubriken
+                assert rubriken == ["overview", "pconf", "vorgaben", "displays", "settings"], rubriken
                 eintraege = await pg.eval_on_selector_all("#plist .pitem .pid", "l => l.map(e => e.textContent)")
                 assert sorted(eintraege) == ["?panel=default", "?panel=flur", "?panel=kueche"], "Vorgaben nicht in der Liste"
 
