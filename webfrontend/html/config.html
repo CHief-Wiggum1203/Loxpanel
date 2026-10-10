@@ -53,11 +53,12 @@
   /* ---------- Main: Rubriken + Reiter + Inhalt + Speicherleiste ---------- */
   .main{display:flex;flex-direction:column;height:100vh;min-width:0;}
   .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:0 30px;}
-  .rubrics{display:flex;gap:2px;}
+  .rubrics{display:flex;flex-wrap:wrap;gap:2px;}
   .rub{padding:16px 24px;background:none;border:none;border-bottom:2px solid transparent;
     color:var(--muted);font:inherit;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.2px;}
   .rub:hover{color:var(--fg);}
   .rub.active{color:var(--fg);border-bottom-color:var(--accent);}
+  @media(max-width:1200px){ .rub{padding:14px 12px;} }   /* sechs Rubriken passen auch neben der Seitenleiste bei 1024 px */
   #phead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0 14px;}
   #phead h2{margin:0;font-size:21px;font-weight:600;}
   #phead .badge{font-family:ui-monospace,monospace;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:2px 8px;border-radius:4px;}
@@ -659,6 +660,7 @@
         <button class="rub active" data-rub="overview">Übersicht</button>
         <button class="rub" data-rub="assistant">Einrichtungsassistent</button>
         <button class="rub" data-rub="pconf">Ansichten</button>
+        <button class="rub" data-rub="vorgaben">Vorgaben</button>
         <button class="rub" data-rub="displays">Geräte</button>
         <button class="rub" data-rub="settings">Einstellungen</button>
       </div>
@@ -717,7 +719,9 @@
             <button class="ovbox" data-goto="pconf:aussehen"><b>Aussehen</b><span>Grundfarbe, Schrift und Größen, Kachel-Aufbau, einzelne Kacheln gestalten oder ausblenden, Aktiv-Overlay.</span></button>
             <button class="ovbox" data-goto="pconf:verhalten"><b>Verhalten</b><span>Screensaver (Uhr-Seite), Display aus, nachts abdunkeln, Auto-Neustart, PIN merken.</span></button>
           </div>
-          <div class="ovcol"><h4>Geräte &amp; Einstellungen</h4>
+          <div class="ovcol"><h4>Vorgaben, Geräte &amp; Einstellungen</h4>
+            <button class="ovbox" data-goto="vorgaben:appearance"><b>Vorgaben</b><span>Grundfarbe, Schrift und Größen, Skalierung und Kategorie-Farben für alle Ansichten, die sie nicht selbst setzen.</span></button>
+            <button class="ovbox" data-goto="vorgaben:nacht"><b>Nacht</b><span>Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang) und wie stark.</span></button>
             <button class="ovbox" data-goto="settings:miniserver"><b>Miniserver</b><span>Zugang zum Loxone Miniserver (Host, Benutzer, Passwort). HTTPS/443.</span></button>
             <button class="ovbox" data-goto="settings:calendar"><b>Kalender &amp; Wetter</b><span>iCal-Abo + Feiertags-iCal, Wetter (Loxone-Wetterserver, sonst Open-Meteo mit dem Standort des Miniservers).</span></button>
             <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
@@ -881,16 +885,6 @@
 
         </div>
                 </div>
-        </details>
-        <details class="card discl">
-          <summary><b data-i18n>Nachtmodus</b><span class="note" style="display:block;margin-top:2px" data-i18n>Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang).</span></summary>
-          <div class="discl-body">
-            <p class="note" data-i18n>Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.</p>
-            <div class="row2">
-              <div class="field" style="max-width:460px"><label class="lbl" data-i18n>Auslöser (optional)</label><select id="nt_control"></select></div>
-            </div>
-            <p class="note" data-i18n>Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Ansicht unter Ansichten → Aussehen ein.</p>
-          </div>
         </details>
             </div>
 
@@ -1107,7 +1101,10 @@ let META=null, PANELS={}, cur=null, tileSel=null;
 // Zuletzt gespeicherter Stand der Ansichten (wie an /api/panels geschickt): "Ansicht loeschen"
 // schickt ihn ohne die geloeschte, damit andere offene Aenderungen nicht nebenbei mitgehen.
 let GESPEICHERT={};
-let rubric='overview', subPconf='inhalt', subSet='miniserver';
+let rubric='overview', subPconf='inhalt', subSet='miniserver', subVg='appearance';
+// Die Vorgaben bearbeitet derselbe Editor wie eine Ansicht (cur='__global__'), aber nur in
+// ihrer Rubrik; jede andere Rubrik kehrt zu der Ansicht zurueck, die vorher gewaehlt war.
+let letzteAnsicht=null;
 // Ersteinrichtung (siehe einrichtungAnwenden): Stand aus /api/settings, solange
 // der Server keine Struktur hat, sonst null; dazu der Zugang aus der Config und
 // der Fehler des letzten eigenen Verbindungsversuchs.
@@ -1164,7 +1161,7 @@ const PICK_TAB='auswahl';
 const PCONF_TABS=[
   {k:'allgemein',label:'Allgemein'},{k:'inhalt',label:'Inhalt'},{k:'seiten',label:'Seiten'},
   {k:'raster',label:'Raster'},{k:'aussehen',label:'Aussehen'},{k:'verhalten',label:'Verhalten'}];
-const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
+const VG_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'},{k:'nacht',label:'Nacht'}];
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'audio',label:'Audio'},
@@ -1183,13 +1180,6 @@ async function load(){
 
 function renderList(){
   const box=$('#plist'); box.innerHTML='';
-  if(PANELS.__global__){
-    const g=document.createElement('div');
-    g.className='pitem'+('__global__'===cur?' active':'');
-    g.innerHTML='<span class="pn">🌐 Vorgaben</span><span class="pid">für alle Ansichten</span>';
-    g.onclick=()=>{ cur='__global__'; tileSel=null; renderList(); setRubric('pconf'); };
-    box.appendChild(g);
-  }
   for(const id of Object.keys(PANELS)){
     if(id==='__global__') continue;
     const p=PANELS[id];
@@ -1206,25 +1196,28 @@ function setRubric(r){
   // Ersteinrichtung: ohne Struktur fuehrt jeder Weg zu Settings -> Miniserver
   if(EINR){ r='settings'; if(!EINR_SUBS.includes(subSet)) subSet='miniserver'; }
   rubric=r;
+  if(r==='vorgaben'){ if(cur!=='__global__'){ letzteAnsicht=cur; cur='__global__'; tileSel=null; renderList(); } }
+  else if(cur==='__global__'){ cur=(letzteAnsicht&&PANELS[letzteAnsicht])?letzteAnsicht:ersteAnsicht(); tileSel=null; renderList(); }
   document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
-  const ov=r==='overview', pc=r==='pconf', dv=r==='devices', dp=r==='displays', as=r==='assistant';
+  const ov=r==='overview', pc=r==='pconf', vg=r==='vorgaben', dv=r==='devices', dp=r==='displays', as=r==='assistant';
   const oh=$('#overviewHost'); if(oh) oh.style.display = ov?'':'none';
   const dph=$('#displaysHost'); if(dph) dph.style.display = dp?'':'none';
   const ash=$('#assistantHost'); if(ash) ash.style.display = as?'':'none';
-  $('#pconfHost').style.display = pc?'':'none';
-  $('#setHost').style.display = (ov||pc||dv||dp||as)?'none':'';
+  $('#pconfHost').style.display = (pc||vg)?'':'none';
+  $('#setHost').style.display = (ov||pc||vg||dv||dp||as)?'none':'';
   $('#savebar').style.display = (ov||dv||as)?'none':'';   // eine Leiste fuer Ansichten, Geraete, Einstellungen
   $('#delSlot').style.display = pc?'':'none';
-  $('#phead').style.display = pc?'':'none';
+  $('#phead').style.display = (pc||vg)?'':'none';
   $('#subtabs').style.display = (ov||dv||dp||as)?'none':'';
   if(ov||dv||dp||as) return;
-  if(pc){ renderEditor(); }
+  if(pc||vg){ renderEditor(); }
   else { renderSubtabs(); showSub(subSet); }
 }
+function ersteAnsicht(){ return PANELS.default ? 'default' : (Object.keys(PANELS).find(k=>k!=='__global__')||null); }
 document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.rub));
 document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
   const g=(b.dataset.goto||'').split(':'), r=g[0], sub=g[1];
-  if(r==='pconf'||r==='settings'){ if(r==='pconf') subPconf=sub; else subSet=sub;
+  if(r==='pconf'||r==='vorgaben'||r==='settings'){ subMerken(r,sub);
     setRubric(r); renderSubtabs(); showSub(sub); }
   else { setRubric(r);   // overview/displays: keine Subtabs
     const d=sub && document.getElementById(sub);   // displays:<Abschnitt> klappt ihn auf
@@ -1233,16 +1226,18 @@ document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
 
 function subTabs(){
   if(rubric==='settings') return SET_TABS;
-  return (PANELS[cur]&&PANELS[cur].__global) ? GLOBAL_TABS : PCONF_TABS;
+  return rubric==='vorgaben' ? VG_TABS : PCONF_TABS;
 }
+function subAktiv(){ return rubric==='settings' ? subSet : (rubric==='vorgaben' ? subVg : subPconf); }
+function subMerken(r,k){ if(r==='settings') subSet=k; else if(r==='vorgaben') subVg=k; else subPconf=k; }
 function renderSubtabs(){
-  const tabs=subTabs(), active=(rubric==='settings')?subSet:subPconf;
+  const tabs=subTabs(), active=subAktiv();
   const bar=$('#subtabs');
   const zu=' disabled title="'+esc(T('Erst den Miniserver verbinden'))+'"';
   bar.innerHTML=tabs.map(t=>'<button class="stab'+(t.k===active?' active':'')+'" data-sub="'+t.k+'"'+
     (einrichtungGesperrt(t.k)?zu:'')+'>'+esc(t.label)+'</button>').join('');
   bar.querySelectorAll('.stab').forEach(b=>b.onclick=()=>{
-    if(rubric==='settings') subSet=b.dataset.sub; else subPconf=b.dataset.sub;
+    subMerken(rubric,b.dataset.sub);
     bar.querySelectorAll('.stab').forEach(x=>x.classList.toggle('active',x===b));
     showSub(b.dataset.sub);
   });
@@ -1419,9 +1414,10 @@ function appearanceFields(ui,std,leer,mitSprache=true){
 }
 
 function renderGlobalEditor(p){
-  if(subPconf!=='appearance'&&subPconf!=='catcolors') subPconf='appearance';
+  if(!VG_TABS.some(t=>t.k===subVg)) subVg='appearance';
+  const ui=p.ui||{}, nstd=META.nightDefaults||{};
   $('#phead').innerHTML='<h2>🌐 Vorgaben</h2><span class="badge">für alle Ansichten</span>'+
-    '<span class="kurl">'+T('Standard-Aussehen für alle Ansichten. Einzelne Ansichten überschreiben es unter „Aussehen".')+'</span>';
+    '<span class="kurl">'+T('Werte für alle Ansichten, die sie nicht selbst setzen. Eine Ansicht überschreibt sie unter Raster, Aussehen und Verhalten.')+'</span>';
   $('#pconfHost').innerHTML =
     '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt für alle Ansichten.</p>'+
@@ -1430,19 +1426,55 @@ function renderGlobalEditor(p){
       '<div class="grph">'+T('Skalierung')+'</div>'+
       '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Ansichten')+'</label>'+
         '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
-      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</p>'+
+      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät auf seiner Karte unter Geräte → Am Gerät.')+'</p>'+
       '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
-      '<div class="cclist" id="catcolors"></div></div></section>';
+      '<div class="cclist" id="catcolors"></div></div></section>'+
+    '<section class="spane" data-sub="nacht"><div class="card"><h3>'+T('Nacht')+'</h3>'+
+      '<p class="note">'+T('Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.')+'</p>'+
+      '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Auslöser (optional)')+'</label><select id="nt_control"></select></div></div>'+
+      '<div class="grph">'+T('Abdunkelung')+'</div>'+
+      '<div class="sizes">'+nachtFelder(ui, nstd.nightDim, nstd.nightWake)+'</div>'+
+      '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
+    '</div></section>';
   bindAppearance(p);
+  nachtZeichnen();
+  { const s=$('#nt_control'); if(s) s.onchange=()=>{ NACHT.control=s.value; bereichOffen('nacht'); }; }
+  aufhellenZeigen(nstd.nightDim);
   { const gs=$('#gScale'); if(gs) gs.onchange=e=>{ p.ui=p.ui||{};
       const v=scaleValue(e.target.value);
       if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // global ist "Aus" das Fehlen
       markDirty(); }; }
   renderCatColors(p);
   $('#delSlot').innerHTML='';
-  renderSubtabs(); showSub(subPconf);
+  renderSubtabs(); showSub(subVg);
+}
+// Felder "Nachts abdunkeln" und "Aufhellen bei Beruehrung" (Vorgaben -> Nacht und
+// Ansicht -> Verhalten). Ein leeres Feld zeigt grau, was ohne Eintrag gilt.
+function nachtPlatzhalter(k,v){
+  if(v==null) return '';
+  return (k==='nightDim' && Number(v)===0) ? T('0 = aus') : String(v);
+}
+function nachtFelder(ui, dimLeer, wakeLeer){
+  const wert=k=>(ui[k]==null)?'':ui[k];
+  return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nachts abdunkeln (%)')+'</label>'+
+      '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+esc(wert('nightDim'))+'" placeholder="'+esc(nachtPlatzhalter('nightDim',dimLeer))+'"></div>'+
+    '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">'+T('Aufhellen bei Berührung (Sek.)')+'</label>'+
+      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'"></div>';
+}
+// Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt nachts
+// abgedunkelt wird (sonst wirkungslos); ein leeres Feld zaehlt mit dem Wert, der dann gilt.
+function aufhellenZeigen(dimLeer){
+  const nd=$('[data-ui="nightDim"]'), nw=$('#nightWakeField');
+  if(!nd || !nw) return;
+  const upd=()=>{ const v=(nd.value==='')?Number(dimLeer||0):Number(nd.value); nw.style.display=(v>0)?'':'none'; };
+  nd.addEventListener('input', upd); upd();
+}
+// Was in einer Ansicht ohne eigenen Eintrag gilt: die Vorgabe, sonst der Standard des Servers.
+function nachtVorgabe(k){
+  const g=((PANELS.__global__||{}).ui)||{};
+  return (g[k]!=null) ? g[k] : (META.nightDefaults||{})[k];
 }
 function renderCatColors(p){
   const box=$('#catcolors'); if(!box) return;
@@ -1589,7 +1621,7 @@ function renderEditor(){
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.')+'</div>'+
      '<div class="hint" style="padding-top:4px" id="fTileSizeHint">'+zielkachelHinweis()+'</div>'+
-     '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</div>'+
+     '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar auf seiner Karte unter Geräte → Am Gerät.')+'</div>'+
      '<div class="grph">'+T('Widget (Pane 2)')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
@@ -1655,12 +1687,7 @@ function renderEditor(){
        '<div class="field" style="max-width:180px"><label class="lbl">Auto-Neustart alle (Std.)</label>'+
          '<input type="number" min="0" max="168" step="1" data-ui="reloadHours" value="'+
          (((p.ui||{}).reloadHours==null)?'':(p.ui||{}).reloadHours)+'" placeholder="'+esc(T('nachts um {h} Uhr').replace('{h}',neuladenStunde()))+'"></div>'+
-       '<div class="field" style="max-width:180px"><label class="lbl">Nachts abdunkeln (%)</label>'+
-         '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+
-         (((p.ui||{}).nightDim==null)?'':(p.ui||{}).nightDim)+'" placeholder="0 = aus"></div>'+
-       '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">Aufhellen bei Berührung (Sek.)</label>'+
-         '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+
-         (((p.ui||{}).nightWake==null)?'':(p.ui||{}).nightWake)+'" placeholder="20"></div>'+
+       nachtFelder(p.ui||{}, nachtVorgabe('nightDim'), nachtVorgabe('nightWake'))+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Geräte mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
@@ -1723,11 +1750,7 @@ function renderEditor(){
       const sf=$('#svPaneField'); if(sf) sf.style.display=off?'none':'';
       layoutFelder(p);  // Widget-Breite nur mit Widget
       markDirty(); }; }
-  // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt
-  // nachts abgedunkelt wird (sonst wirkungslos).
-  { const nd=$('[data-ui="nightDim"]'), nw=$('#nightWakeField');
-    const upd=()=>{ if(nw) nw.style.display=(nd&&Number(nd.value)>0)?'':'none'; };
-    if(nd) nd.addEventListener('input', upd); upd(); }
+  aufhellenZeigen(nachtVorgabe('nightDim'));
 
   bindOverlay('ov_', ()=>{ p.ui=p.ui||{}; p.ui.overlay=p.ui.overlay||{}; return p.ui.overlay; },
               ()=>{ pruneOverlay(p.ui); ovPreview('ovPrev',(p.ui||{}).overlay); markDirty(); });
@@ -4399,13 +4422,11 @@ async function loadSettings(){
     srv.innerHTML = list.length
       ? T('Erkannte Audioserver:')+' '+list.map(esc).join(', ')
       : T('Kein Audioserver in der Loxone-Struktur gefunden.'); }
-  // Nachtmodus-Ausloeser
-  const nt=SET.night||{}, ntSel=$('#nt_control');
-  if(ntSel && !OFFEN.has('nacht')){
-    ntSel.innerHTML='<option value="">'+T('— kein Auslöser (Sonnenuntergang) —')+'</option>'
-      + (nt.options||[]).map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===nt.control?' selected':'')+'>'
-          + esc((o.room?o.room+' · ':'')+o.name+' ('+o.type+')')+'</option>').join('');
-  }
+  // Nacht-Ausloeser (Vorgaben -> Nacht)
+  { const nt=SET.night||{};
+    NACHT.options=nt.options||[];
+    if(!OFFEN.has('nacht')) NACHT.control=nt.control||'';
+    nachtZeichnen(); }
   // Kalender & Wetter
   const cal=SET.calendar||{};
   if($('#cal_name')){
@@ -4655,7 +4676,19 @@ function sipErgebnis(j){
     (d.length?'<div class="sipdet">'+d.join(' · ')+'</div>':'');
 }
 
-function nachtSpeichern(){ return postJson('/api/settings/night', {control:$('#nt_control').value||''}); }
+// Nacht-Ausloeser: Arbeitskopie wie CALS. Das Feld steht unter Vorgaben -> Nacht und wird
+// mit dem Editor neu gezeichnet; solange 'nacht' offen ist, ueberschreibt loadSettings()
+// die Wahl nicht.
+let NACHT={control:'', options:[]};
+function nachtZeichnen(){
+  const sel=$('#nt_control'); if(!sel) return;
+  const c=NACHT.control||'', bekannt=NACHT.options.some(o=>o.uuid===c);
+  sel.innerHTML='<option value="">'+T('— kein Auslöser (Sonnenuntergang) —')+'</option>'
+    + (c && !bekannt ? '<option value="'+esc(c)+'" selected>'+esc(T('Baustein nicht mehr in der Anlage'))+' ('+esc(c)+')</option>' : '')
+    + NACHT.options.map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===c?' selected':'')+'>'
+        + esc((o.room?o.room+' · ':'')+o.name+' ('+o.type+')')+'</option>').join('');
+}
+function nachtSpeichern(){ return postJson('/api/settings/night', {control:NACHT.control||''}); }
 function audioSpeichern(){ return postJson('/api/settings/audiometa', {enabled:$('#am_enabled').checked}); }
 
 // ---- Kalenderliste (mehrere iCal-Abos) ----
@@ -4743,7 +4776,7 @@ function kalenderSpeichern(){
   return postJson('/api/settings/calendar', body);
 }
 // Eingaben der Karten melden ihren Bereich bei der Speicherleiste
-[['#nt_control','nacht'],['#ic_list','intercom'],['#am_enabled','audio'],
+[['#ic_list','intercom'],['#am_enabled','audio'],
  ['section.spane[data-sub="calendar"]','kalender']].forEach(([sel,k])=>{
   const el=$(sel); if(!el) return;
   ['input','change'].forEach(ev=>el.addEventListener(ev, ()=>bereichOffen(k)));

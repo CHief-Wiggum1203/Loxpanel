@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten samt „Vorgaben", je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Geräte" (eine Karte je Gerät, Betriebsmodus-Assistent, Geräte ohne Kennung, Neues Gerät einrichten, Erprobte Hardware, Nachtmodus) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Nacht), „Geräte" (eine Karte je Gerät, Betriebsmodus-Assistent, Geräte ohne Kennung, Neues Gerät einrichten, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -974,7 +974,11 @@ der Konfigurator unter Vorgaben → Darstellung setzt, steht einmal in
 `THEME_UI_KEYS`: `_write_theme()` schreibt genau diese, `/api/meta` liefert
 genau diese. Was `_sanitize_theme_ui()` neu erlaubt, muss auch dort stehen,
 sonst geht es beim Speichern still verloren. Dazu gehört `scale`, die
-Skalierung für alle Panels; fehlt sie, ist sie aus.
+Skalierung für alle Panels; fehlt sie, ist sie aus. Ebenso `nightDim` und
+`nightWake` (Vorgaben → Nacht, Grenzen wie im Panel 0 bis 90 % und 0 bis
+300 s): `panel_night()` nimmt sie, wo das Panel keine eigenen setzt, sonst gilt
+`NACHT_STANDARD` (aus, 20 s), das `/api/meta` als `nightDefaults` an den
+Konfigurator gibt.
 
 Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
 nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
@@ -1690,9 +1694,11 @@ ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
 „Panel“ kommt in der Oberfläche nur noch im Produktnamen und als Bauform
 („4″-Wandpanel“) vor, „Display“ nur für den Bildschirm selbst (Display aus,
 Display-Steuerung, Display-Treiber). Die Rubriken heißen Übersicht,
-Einrichtungsassistent, Ansichten, Geräte und Einstellungen (die frühere Rubrik
-„unterstützte Geräte“ steht seit Schritt 4 als „Erprobte Hardware“ unter
-Geräte); die interne Kennung (`data-rub`) blieb dabei gleich.
+Einrichtungsassistent, Ansichten, Vorgaben (seit Schritt 5, `data-rub="vorgaben"`),
+Geräte und Einstellungen (die frühere Rubrik „unterstützte Geräte“ steht seit
+Schritt 4 als „Erprobte Hardware“ unter Geräte); die interne Kennung der übrigen
+(`data-rub`) blieb dabei gleich. Unter 1200 px Breite rücken die Rubriken enger,
+noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
 
 - Liest `GET /api/meta`, schreibt `POST /api/panels` und `POST /api/theme`.
 - Die gesamte rechte Seite wird per `innerHTML` neu aufgebaut; Zustand in vier
@@ -1723,8 +1729,20 @@ Geräte); die interne Kennung (`data-rub`) blieb dabei gleich.
   Feld steht in genau einem Reiter, die Feld-IDs sind seit Schritt 2 gleich
   geblieben; `test_reiter_ansicht_browser.py` hält beides fest. `renderPanes()`
   zeichnet `paneListe()` zweimal: Standard-Seiten unter Inhalt, die freie Seite
-  im Seiten-Editor. Die Vorgaben behalten ihre zwei Reiter (Darstellung samt
-  Sprache, Kategorie-Farben).
+  im Seiten-Editor.
+- **Vorgaben als Rubrik** (seit 10.10.2026, Schritt 5): Die Vorgaben stehen nicht
+  mehr in der Liste der Ansichten, sondern unter der Rubrik Vorgaben mit drei
+  Reitern (`VG_TABS`): Darstellung (samt Sprache und Skalierung), Kategorie-Farben
+  und Nacht. Bearbeitet werden sie im selben Editor wie eine Ansicht
+  (`cur='__global__'`, `renderGlobalEditor()`), aber nur in ihrer Rubrik:
+  `setRubric()` merkt sich beim Wechsel dorthin die gewählte Ansicht
+  (`letzteAnsicht`) und kehrt bei jeder anderen Rubrik zu ihr zurück; der Reiter
+  steht in `subVg`. Nacht trägt den Auslöser (vorher unter Geräte, Arbeitskopie
+  `NACHT` wie `CALS`, gespeichert über `/api/settings/night`, Bereich `nacht` der
+  Speicherleiste) und die Abdunkelung für alle Ansichten (`nightDim`, `nightWake`
+  in `theme.json`). Unter Verhalten zeigt eine Ansicht ohne eigenen Eintrag grau,
+  was sie erbt (`nachtVorgabe()`: Vorgabe, sonst `nightDefaults` aus `/api/meta`).
+  `test_vorgaben_browser.py` hält das fest.
 - **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
   eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
   Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,
@@ -1734,8 +1752,9 @@ Geräte); die interne Kennung (`data-rub`) blieb dabei gleich.
   Präsenzmelder, Display-Steuerung. Aufgeklappte Karten merkt `GK_AUF`. Nur
   Eingaben im Körper melden `geraete` bei der Speicherleiste, die Wahl der Ansicht
   im Kopf schaltet live. Darunter: Geräte ohne Kennung (`#ag_anon`), „Neues Gerät
-  einrichten“, die Erklärung zu Betriebsmodus und Display-Steuerung, „Erprobte
-  Hardware“ (vorher eigene Rubrik) und der Nachtmodus.
+  einrichten“, die Erklärung zu Betriebsmodus und Display-Steuerung und „Erprobte
+  Hardware“ (vorher eigene Rubrik). Der Nachtmodus steht seit Schritt 5 unter
+  Vorgaben → Nacht.
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
   gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
   bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an

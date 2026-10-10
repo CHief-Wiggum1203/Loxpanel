@@ -92,11 +92,21 @@ Form, es ist ein Umbau der Oberfläche.
       weg; „Neues Gerät einrichten“ (vorher Einstellungen) und „Erprobte
       Hardware“ (vorher eigene Rubrik) stehen unter Geräte. Tests in
       `tests/browser/test_geraetekarte_browser.py`. **L**
-- [ ] **Schritt 5, Vorgaben als Rubrik.** „Vorgaben“ verlässt die Liste der
-      Ansichten, der Nacht-Auslöser zieht von Geräte dorthin. **M**
+- [x] **Schritt 5, Vorgaben als Rubrik.** „Vorgaben“ verlässt die Liste der
+      Ansichten und wird eine eigene Rubrik mit Darstellung, Kategorie-Farben
+      und Nacht. Der Nacht-Auslöser zieht von Geräte dorthin, dazu die
+      Abdunkelung für alle Ansichten (`nightDim`, `nightWake` jetzt auch in
+      `theme.json`, Standard einmal in `NACHT_STANDARD`); eine Ansicht zeigt
+      unter Verhalten grau, was sie erbt. Ein Rubrikwechsel führt zur vorher
+      gewählten Ansicht zurück. Nebenbei: Die sechs Rubriken laufen bei
+      1024 px nicht mehr über den Rand (vorher schon mit fünf knapp), und zwei
+      Hinweise zur Skalierung nannten noch den Kasten von vor Schritt 4. Tests
+      in `tests/browser/test_vorgaben_browser.py` und `tests/test_vorgaben.py`.
+      **M**
 - [ ] **Schritt 6, Vererbung sichtbar.** Jedes Feld nennt, woher sein Wert
-      kommt (Gerät vor Ansicht vor Vorgaben), mit „zurücksetzen“. Braucht 3
-      bis 5. **M**
+      kommt (Gerät vor Ansicht vor Vorgaben), mit „zurücksetzen“; die
+      Vorgaben nennen je Wert, wie viele Ansichten ihn überschreiben („gilt
+      für 3 von 4 Ansichten“). Braucht 3 bis 5. **M**
 - [ ] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
       Schritten ab dem Gerät, die Rubrik Einrichtungsassistent entfällt.
       Braucht 4. **L**
