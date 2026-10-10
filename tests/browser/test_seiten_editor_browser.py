@@ -106,7 +106,11 @@ async def _visu(b, port, panel, breite, hoehe):
 
 
 async def _ziehen(pg, von, nach, dx=0.25, dy=0.5):
-    """Maus: von der Mitte von `von` zu einem Punkt in `nach` (Anteil der Breite/Hoehe)."""
+    """Maus: von der Mitte von `von` zu einem Punkt in `nach` (Anteil der Breite/Hoehe).
+    `von` erst knapp ins Bild rollen, wie von Hand (zentrieren schoebe die Flaeche
+    oben hinaus): unter der Flaeche steht die Zeile der Seite, die Palette kann
+    darum unter dem Rand liegen."""
+    await von.evaluate("e => e.scrollIntoView({block: 'nearest'})")
     a, z = await von.bounding_box(), await nach.bounding_box()
     await pg.mouse.move(a["x"] + a["width"] / 2, a["y"] + a["height"] / 2)
     await pg.mouse.down()

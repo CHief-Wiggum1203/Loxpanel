@@ -1931,7 +1931,8 @@ function renderPanes(p){
 }
 function sePaneZeichnen(p){
   if(!p || p.__global) return;   // ohne ensurePickTabs: Zeichnen allein aendert die Ansicht nicht
-  paneListe(p, $('#sePaneBox'), [pickKey(curPickIdx)], '', ()=>seReiterZeichnen());
+  // die Werte der Kopfzeile waehlt der Seiten-Editor auf seiner Flaeche, hier nicht noch einmal
+  paneListe(p, $('#sePaneBox'), [pickKey(curPickIdx)], '', ()=>seReiterZeichnen(), {kopfWerte:false});
 }
 // Name einer Seite der Leiste: Standard-Seite aus META.tabs, freie Seite ihr eigener
 function seitenName(p, tk){
@@ -1939,8 +1940,9 @@ function seitenName(p, tk){
     return (t.name||'').trim() || (T('Seite')+' '+(i+1)); }
   const meta=(META.tabs||[]).find(t=>t.tab===tk); return meta?meta.label:tk;
 }
-// nachher: nach jeder Aenderung (Seiten-Editor: Flaeche neu zeichnen)
-function paneListe(p, box, tabs, leer, nachher){
+// nachher: nach jeder Aenderung (Seiten-Editor: Flaeche neu zeichnen);
+// opt.kopfWerte:false laesst die Werte-Auswahl der Kopfzeile weg
+function paneListe(p, box, tabs, leer, nachher, opt={}){
   if(!box) return;
   // Split "Aus" (4"-Panel): keine Pane daneben, die Kopfzeile ueber den
   // Kacheln aber schon - das Feld bleibt, die Widget-Gruppe ist gesperrt.
@@ -2003,7 +2005,7 @@ function paneListe(p, box, tabs, leer, nachher){
                 '<span class="rm">'+esc((c&&c.roomName)||'')+'</span><span class="x">×</span></span>'; }).join('')
           : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
     }
-    if(isH){   // Kopfzeile: Werte nach Wahl, ohne bleibt es bei Uhr und Wetter
+    if(isH && opt.kopfWerte!==false){   // Kopfzeile: Werte nach Wahl, ohne bleibt es bei Uhr und Wetter
       row+='<div class="ccrow" style="margin:4px 0 0 0;flex-wrap:wrap"><span class="ccnm">'+T('Werte')+'</span>'+
         '<select class="pkopf-add" data-pk="'+esc(tk)+'"><option value="">'+T('＋ hinzufügen …')+'</option>'+controlOptions()+'</select>'+
         ((svMax()&&huu.length>=svMax())?'<span class="ccmut">'+T('Mehr passt nicht in die Zeile.')+'</span>':'')+'</div>'+
