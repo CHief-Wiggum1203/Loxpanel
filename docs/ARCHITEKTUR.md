@@ -1894,7 +1894,10 @@ Assistenten des Konfigurators.
   Ein Gerät ohne Einstellungen verschwindet von selbst, sobald es nicht mehr
   verbunden ist; ein verbundenes kommt nach dem Entfernen ohne Einstellungen
   wieder, das sagt die Rückfrage vorher. Ohne Geräte fällt `devices` aus
-  `panels.json`. Geprüft in `tests/browser/test_displays_browser.py` und
+  `panels.json`. Die Ansicht je Gerät ist das Profil, das die Visu wirklich
+  zeigt: Fragt sie nach einem unbekannten (gelöscht, vertippt), nennt
+  `resolve_profile()` es `default`, wie das Standardprofil, das sie bekommt;
+  nur ein Entwurf behält seinen Namen (`tests/test_profil_geloescht.py`). Geprüft in `tests/browser/test_displays_browser.py` und
   `tests/test_geraete_kennwort.py`.
 - Textfelder brauchen `type="text"`: Der dunkle Feldstil hängt an
   `input[type=text|number|password]`, ein Feld ohne `type` steht sonst

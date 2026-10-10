@@ -2677,15 +2677,19 @@ class App:
 
     def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
         """Aufgeloestes Panel-Profil: Theme-Vars, Tabs, Raum-/Kategorie-Filter.
-        Mit `entwurf` (entwurf_profil) gilt dieses Profil statt des gespeicherten."""
+        Mit `entwurf` (entwurf_profil) gilt dieses Profil statt des gespeicherten.
+        Ein unbekanntes Profil (geloescht, vertippt) zeigt das Standardprofil und
+        heisst auch so: sonst nennte die Geraeteliste eine Ansicht, die es nicht
+        mehr gibt."""
         prof = entwurf if entwurf is not None else \
             (self.panels.get(pid or "") or self.panels.get("default") or {})
+        pid = pid if pid and (entwurf is not None or pid in self.panels) else "default"
         ui = {**self.theme.get("ui", {}), **(prof.get("ui") or {})}
         states = {**self.theme.get("states", {}), **(prof.get("states") or {})}
         tabs = [t for t in (prof.get("tabs") or ui.get("tabs") or []) if _is_tab(t)] or \
             ["favoriten", "zentral", "raeume", "kategorien"]
         return {
-            "id": pid or "default",
+            "id": pid,
             # Entwurf (nicht gespeichert): die Visu zeigt es an, die ID-Nachschlager
             # (panel_dpms, panel_night, panel_reload) lesen dann `roh` statt der Datei
             **({"entwurf": True, "roh": prof} if entwurf is not None else {}),
