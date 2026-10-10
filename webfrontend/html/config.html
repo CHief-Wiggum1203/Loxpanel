@@ -2356,8 +2356,11 @@ async function speichernAlles(){
   SPEICHERN_LAEUFT=true; leisteZeigen();
   const erg=[]; let einst=false, kal=false;
   try{
-    if(ansichtenOffen()) erg.push(await ansichtenSpeichern());
-    if(OFFEN.has('geraete')) erg.push(await geraeteSpeichern());
+    let ansichtenOk=true;
+    if(ansichtenOffen()){ const e=await ansichtenSpeichern(); erg.push(e); ansichtenOk=e.ok; }
+    // Ohne die Ansichten keine Geraete: der Server verwirft Betriebsmodi, deren Ansicht
+    // er nicht kennt (etwa eine gerade neu angelegte), sie blieben dann still weg
+    if(OFFEN.has('geraete') && ansichtenOk) erg.push(await geraeteSpeichern());
     for(const [k,f] of [['nacht',nachtSpeichern],['intercom',intercomSpeichern],['audio',audioSpeichern],['kalender',kalenderSpeichern]]){
       if(!OFFEN.has(k)) continue;
       const stand=offenStand(x=>x===k);

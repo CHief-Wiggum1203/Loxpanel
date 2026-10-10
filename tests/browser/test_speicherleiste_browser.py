@@ -240,3 +240,43 @@ def test_geraet_entfernen_nimmt_offene_aenderungen_nicht_mit(cfg_ordner):
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+def test_geraete_warten_auf_die_ansichten(cfg_ordner):
+    """Scheitert das Speichern der Ansichten, bleiben die Geraete offen: Ihre
+    Betriebsmodi koennen auf eine Ansicht zeigen, die der Server noch nicht
+    kennt und darum verwerfen wuerde. Die Leiste nennt beides weiter."""
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, geraete_post = [], []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _konfigurator(b, port, fehler)
+                await pg.route("**/api/panels", lambda r: r.fulfill(
+                    status=500, content_type="application/json", body=json.dumps({"ok": False, "error": "Platte voll"})))
+                pg.on("request", lambda r: geraete_post.append(r.url)
+                      if r.url.endswith("/api/devices") and r.method == "POST" else None)
+                await _titel_aendern(pg, "Wohnen", "Wohnzimmer")
+                await pg.locator(".rub", has_text="Geräte").click()
+                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
+                await pg.locator('#dev_list .dev[data-name="flur"] .dev_auto').uncheck()
+                await pg.locator("#saveBtn").click()
+                await pg.wait_for_function("document.querySelector('#toast').textContent.includes('Platte voll')")
+                assert geraete_post == []
+                assert await _offen(pg) == "Nicht gespeichert: Ansicht Wohnzimmer, Geräte"
+                assert "err" in await pg.locator("#toast").get_attribute("class")
+                assert _datei(cfg_ordner, "panels.json")["devices"]["flur"]["auto"] is True
+
+                await pg.unroute("**/api/panels")
+                await pg.locator("#saveBtn").click()
+                await pg.wait_for_function("document.querySelector('#offenTxt').textContent === 'Alles gespeichert'")
+                doc = _datei(cfg_ordner, "panels.json")
+                assert doc["panels"]["wohnen"]["title"] == "Wohnzimmer" and doc["devices"]["flur"]["auto"] is False
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
