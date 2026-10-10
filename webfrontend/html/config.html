@@ -560,82 +560,16 @@
   .mzml{flex:1;min-width:140px;font-size:13px;}
   .mzrow code,.mzml code{background:var(--bg);border-radius:3px;padding:1px 5px;font-size:12px;color:var(--accent);}
   .mzprof{min-width:150px;}
-  /* ---- Einrichtungsassistent-Reiter ---- */
+  /* ---- Gerät einrichten: grosser Start-Knopf (Übersicht) und Leiste der Schritte ---- */
   .as-start{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#161018;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;}
   .as-start:hover{filter:brightness(1.06);}
-  .as-lead{color:var(--muted);margin:12px 0 0;max-width:64ch;}
-  .as-concepts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
-  @media(max-width:560px){.as-concepts{grid-template-columns:1fr;}}
-  .as-def{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
-  .as-def .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-bottom:8px;}
-  .as-def.blocks .tag{background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
-  .as-def.widget .tag{background:rgba(82,184,129,.14);color:var(--good);}
-  .as-def b{font-size:15px;display:block;}
-  .as-def p{margin:5px 0 0;color:var(--muted);font-size:13px;}
-  .as-steps{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
-  .as-step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;}
-  .as-h{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;}
-  .as-num{font-family:inherit;font-size:28px;font-weight:800;line-height:1;color:var(--accent);min-width:1.3ch;font-variant-numeric:tabular-nums;}
-  .as-of{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
-  .as-step h4{margin:2px 0 0;font-size:17px;font-weight:600;color:var(--fg);}
-  .as-body{display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:center;}
-  @media(max-width:640px){.as-body{grid-template-columns:1fr;}}
-  .as-desc{color:var(--muted);margin:0;font-size:13.5px;line-height:1.55;}
-  .as-desc strong{color:var(--fg);font-weight:600;}
-  .as-desc em{color:var(--fg);font-style:normal;border-bottom:1.5px solid var(--accent);}
-  .as-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-  .as-chip{font-size:12px;padding:4px 9px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);white-space:nowrap;}
-  .as-chip.k{background:rgba(224,162,77,.14);border-color:transparent;color:var(--accent);font-weight:600;}
-  .as-chip.w{background:rgba(82,184,129,.14);border-color:transparent;color:var(--good);font-weight:600;}
-  .as-fig{--sc:#0f1319;--st:#1d222b;--stl:#232935;--sl:#2c333f;--sa:#e0a24d;--sg:#52b881;--sm:#8b929c;--stx:#cfd3d8;
-    background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:14px;display:flex;align-items:center;justify-content:center;min-height:130px;}
-  .as-scr{background:var(--sc);border:1px solid var(--sl);border-radius:9px;padding:7px;width:100%;}
-  .as-tiles{display:grid;gap:5px;}
-  .as-tiles i{background:var(--st);border-radius:5px;display:block;aspect-ratio:1;}
-  .as-tiles i.a{box-shadow:inset 0 0 0 1.5px var(--sa);background:rgba(224,162,77,.22);}
-  .as-tabs{display:flex;gap:4px;margin-top:6px;}
-  .as-tabs u{flex:1;height:9px;background:var(--st);border-radius:3px;display:block;}
-  .as-tabs u.on{background:var(--sa);}
-  .as-row2{display:flex;gap:8px;width:100%;}
-  .as-row2>div{flex:1;}
-  .as-cap{font-size:10px;color:var(--sm);text-align:center;margin-top:4px;}
-  .as-p2{background:var(--st);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--sa);}
-  .as-p2 small{font-size:8px;color:var(--sm);}
-  .as-fld{background:var(--st);border:1px solid var(--sl);border-radius:6px;height:19px;display:flex;align-items:center;padding:0 7px;color:var(--stx);font-size:9px;}
-  .as-fld.mono{font-family:ui-monospace,monospace;color:var(--sa);}
-  .as-sw{display:flex;gap:5px;margin-bottom:8px;}
-  .as-sw span{width:15px;height:15px;border-radius:4px;}
-  .as-sld{height:5px;border-radius:3px;background:var(--st);margin:5px 0;position:relative;}
-  .as-sld::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--v,55%);background:var(--sa);border-radius:3px;}
-  .as-lab{font-size:9px;color:var(--sm);margin-bottom:2px;}
-  .as-sel{display:flex;align-items:center;gap:5px;background:var(--st);border:1px solid var(--sl);border-radius:6px;padding:5px 6px;margin-bottom:5px;}
-  .as-sel:last-child{margin-bottom:0;}
-  .as-sel .ic{width:14px;height:14px;border-radius:4px;background:var(--stl);flex:none;display:grid;place-items:center;color:var(--sa);}
-  .as-sel .nm{flex:1;height:7px;background:var(--stl);border-radius:2px;}
-  .as-sel .dd{font-size:8px;background:var(--stl);border-radius:4px;padding:3px 6px;white-space:nowrap;color:var(--stx);}
-  .as-sel .dd.k{color:var(--sa);} .as-sel .dd.w{color:var(--sg);}
-  .as-clock{display:flex;gap:8px;}
-  .as-clock .t{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--stx);}
-  .as-clock .t b{font-size:20px;font-weight:700;line-height:1;}
-  .as-clock .t span{font-size:8px;color:var(--sm);margin-top:3px;}
-  .as-clock .w{flex:1;background:var(--st);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--sg);padding:8px 0;}
-  .as-clock .w small{font-size:8px;color:var(--sm);}
-  .as-sum .r0{display:flex;justify-content:space-between;padding:5px 2px;border-bottom:1px solid var(--stl);font-size:9px;}
-  .as-sum .r0:last-child{border-bottom:0;}
-  .as-sum .l{color:var(--sm);} .as-sum .r{color:var(--stx);font-weight:600;}
-  .as-band{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:12px;}
-  .as-band h4{margin:0;font-size:16px;font-weight:600;color:var(--fg);display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
-  .as-band h4 .pin{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:rgba(224,162,77,.14);padding:3px 8px;border-radius:999px;}
-  .as-band p{color:var(--muted);font-size:13px;margin:8px 0 0;}
-  .as-band code{background:var(--bg);border-radius:3px;padding:1px 5px;font-size:12px;color:var(--accent);}
-  .as-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
-  @media(max-width:560px){.as-split{grid-template-columns:1fr;}}
-  .as-mini{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
-  .as-mini b{font-size:14px;color:var(--fg);} .as-mini p{margin:5px 0 0;}
-  .as-cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:12px;}
-  .as-wc{display:flex;gap:9px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;}
-  .as-wc .ic{color:var(--good);flex:none;margin-top:1px;}
-  .as-wc b{font-size:13px;color:var(--fg);display:block;} .as-wc span{font-size:12px;color:var(--muted);}
+  .wzleiste{display:flex;flex-wrap:wrap;gap:4px 14px;list-style:none;margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);}
+  .wzleiste li{display:flex;align-items:center;gap:5px;}
+  .wzleiste li span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);font-size:11px;}
+  .wzleiste li.erledigt span{background:var(--good);border-color:var(--good);color:#101319;}
+  .wzleiste li.jetzt{color:var(--fg);font-weight:600;} .wzleiste li.jetzt span{background:var(--accent);border-color:var(--accent);color:#161018;}
+  .wzleiste li.entfaellt{opacity:.45;text-decoration:line-through;}
+  .wzo[disabled]{opacity:.45;cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -662,7 +596,6 @@
     <div class="topbar">
       <div class="rubrics">
         <button class="rub active" data-rub="overview">Übersicht</button>
-        <button class="rub" data-rub="assistant">Einrichtungsassistent</button>
         <button class="rub" data-rub="pconf">Ansichten</button>
         <button class="rub" data-rub="vorgaben">Vorgaben</button>
         <button class="rub" data-rub="displays">Geräte</button>
@@ -674,6 +607,8 @@
     <div class="scroll" id="scroll">
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
+        <button class="as-start" id="ovGeraetEinrichten" data-i18n>＋ Gerät einrichten</button>
+        <p class="lead" style="margin-top:6px" data-i18n>Vom Gerät bis zur fertigen Ansicht in sechs Schritten: Miniserver, Gerät, Ansicht, Inhalt und Seiten, Aussehen und Verhalten, Prüfen.</p>
         <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Wandpanel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
         <h3><span class="n">A</span>Geräteklassen</h3>
@@ -731,18 +666,19 @@
             <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
             <button class="ovbox" data-goto="settings:intercom"><b>Kamera / Türstation</b><span>Kamerabilder und Klingel-Popup je Intercom-Baustein.</span></button>
             <button class="ovbox" data-goto="displays"><b>Geräte</b><span>Welche Ansicht welches Gerät zeigt: Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
-            <button class="ovbox" data-goto="displays:neuesGeraet"><b>Neues Gerät</b><span>Start-URL für ein Android-Wandpanel oder Tablet erzeugen oder Agent per SSH auf ein Linux-Gerät.</span></button>
+            <button class="ovbox" data-goto="wizard"><b>Gerät einrichten</b><span>Ein Gerät verbinden (Start-URL für App oder Tablet, Agent per SSH für Linux) und ihm eine Ansicht geben.</span></button>
           </div>
         </div>
       </div>
 
       <!-- Geraete: eine Karte je Geraet (Konzept "Konfigurator neu ordnen", Schritt 4) -->
       <div id="displaysHost" class="ovw" style="display:none">
-        <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät einrichten: unten unter <b>Neues Gerät einrichten</b>.</p>
+        <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät verbindet und bestückt <b>＋ Gerät einrichten</b>.</p>
         <div class="card">
           <h3 data-i18n>Geräte</h3>
           <p class="note" data-i18n>Eine Karte je Gerät: oben Zustand, Ansicht und Steuerung, aufgeklappt Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und Display-Steuerung. Änderungen speichert die Leiste unten.</p>
-          <div class="actions" style="margin-top:0"><button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
+          <div class="actions" style="margin-top:0"><button class="btn prim" id="geraetEinrichtenBtn" data-i18n>＋ Gerät einrichten</button>
+            <button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
             <span class="note" style="margin-left:10px" data-i18n>Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.</span></div>
           <div id="geraete"><div class="muted" data-i18n>Suche Geräte…</div></div>
           <div class="toast" id="ag_toast" style="margin-top:8px"></div>
@@ -753,40 +689,43 @@
           <p class="note" data-i18n>Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.</p>
           <div id="ag_anon"></div>
         </div>
-        <details class="card discl" id="neuesGeraet">
-          <summary><b data-i18n>Neues Gerät einrichten</b><span class="note" style="display:block;margin-top:2px" data-i18n>Start-Adresse für App oder Tablet, Agent per SSH für Linux.</span></summary>
-          <div class="discl-body">
-          <p class="lead" data-i18n>Zwei Wege: ein Android-Wandpanel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Gerät bekommt den Agenten per SSH.</p>
-          <div class="card">
-            <h3 data-i18n>Android-Wandpanel oder Tablet (Kiosk-App)</h3>
-            <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Geräte erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
-            <div class="row2">
-              <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
-              <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="nk_panel"></select></div>
-            </div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
-            <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
-            <pre id="nk_out" class="cmdout" style="display:none"></pre>
-            <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
-          </div>
-          <div class="card">
-            <h3 data-i18n>Linux-Gerät mit Agent (SSH)</h3>
-            <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Gerät überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Geräts.</p>
-            <div class="row2">
-              <div class="field"><label class="lbl" data-i18n>Geräte-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
-              <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
-            </div>
-            <div class="row2" style="margin-top:12px">
-              <div class="field"><label class="lbl" data-i18n>Anzeigename</label><input type="text" id="np_name" placeholder="Wohnzimmer"></div>
-              <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="np_panel"></select></div>
-            </div>
-            <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="np_server" placeholder="10.0.0.55:8099"></div>
-            <div class="actions"><button class="btn" id="np_gen" data-i18n>Befehl erzeugen</button></div>
-            <pre id="np_out" class="cmdout" style="display:none"></pre>
-            <div class="actions" id="np_copyrow" style="display:none"><button class="btn ghost sm" id="np_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="np_toast"></span></div>
-          </div>
+<!-- Zuhause von "Neues Gerät verbinden": Gerät einrichten, Schritt Gerät, leiht ihn sich (wzLeihen) -->
+        <div id="wzHeim" hidden>
+                <details class="card discl" id="neuesGeraet">
+                  <summary><b data-i18n>Start-Adresse oder Agent</b><span class="note" style="display:block;margin-top:2px" data-i18n>Start-Adresse für App oder Tablet, Agent per SSH für Linux.</span></summary>
+                  <div class="discl-body">
+                  <p class="lead" data-i18n>Zwei Wege: ein Android-Wandpanel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Gerät bekommt den Agenten per SSH.</p>
+                  <div class="card">
+                    <h3 data-i18n>Android-Wandpanel oder Tablet (Kiosk-App)</h3>
+                    <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Geräte erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
+                    <div class="row2">
+                      <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
+                      <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="nk_panel"></select></div>
+                    </div>
+                    <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
+                    <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
+                    <pre id="nk_out" class="cmdout" style="display:none"></pre>
+                    <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
                   </div>
-        </details>
+                  <div class="card">
+                    <h3 data-i18n>Linux-Gerät mit Agent (SSH)</h3>
+                    <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Gerät überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Geräts.</p>
+                    <div class="row2">
+                      <div class="field"><label class="lbl" data-i18n>Geräte-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
+                      <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
+                    </div>
+                    <div class="row2" style="margin-top:12px">
+                      <div class="field"><label class="lbl" data-i18n>Anzeigename</label><input type="text" id="np_name" placeholder="Wohnzimmer"></div>
+                      <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="np_panel"></select></div>
+                    </div>
+                    <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="np_server" placeholder="10.0.0.55:8099"></div>
+                    <div class="actions"><button class="btn" id="np_gen" data-i18n>Befehl erzeugen</button></div>
+                    <pre id="np_out" class="cmdout" style="display:none"></pre>
+                    <div class="actions" id="np_copyrow" style="display:none"><button class="btn ghost sm" id="np_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="np_toast"></span></div>
+                  </div>
+                          </div>
+                </details>
+        </div>
         <details class="card discl" id="modusHilfe">
           <summary><b data-i18n>So schaltet Loxone die Ansicht um</b><span class="note" style="display:block;margin-top:2px" data-i18n>Betriebsmodus, Display-Steuerung und Präsenzmelder erklärt.</span></summary>
           <div class="discl-body">
@@ -892,81 +831,6 @@
         </details>
             </div>
 
-      <!-- Einrichtungsassistent: Start-Button + Schritt-für-Schritt-Erklärung -->
-      <div id="assistantHost" class="ovw" style="display:none">
-        <button class="as-start" id="asStartWiz">＋ Neue Ansicht einrichten</button>
-        <p class="as-lead">In acht Schritten von der leeren Ansicht zur fertigen Visu — geführt, mit Sofort-Vorschau. Danach lässt sich jedes Detail unter <b>Ansichten</b> nachjustieren.</p>
-
-        <div class="as-concepts">
-          <div class="as-def blocks"><span class="tag">Bausteine</span><b>Deine Loxone-Controls</b><p>Licht, Beschattung, Taster, Sensoren … als einzelne <strong>Kacheln</strong> im Raster.</p></div>
-          <div class="as-def widget"><span class="tag">Widget</span><b>Fertige Inhaltsfläche</b><p>Wetter, Kalender, Audio, Energiefluss, Kamera, Verlauf oder Werte — eine ganze Ansicht statt einzelner Kacheln.</p></div>
-        </div>
-
-        <div class="as-steps">
-
-          <section class="as-step"><div class="as-h"><div class="as-num">1</div><div><div class="as-of">Schritt 1 / 8</div><h4>Anzeige &amp; Kachel-Raster</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Zuerst die Bauform: ein einzelnes 4″-Wandpanel oder ein breites 2-Pane-Gerät. Darunter das Kachel-Raster (2×2 · 3×2 · 2×3 · 3×3) — es bestimmt nur, wie viele Kacheln je Seite passen.</p></div>
-              <div class="as-fig"><div class="as-row2">
-                <div><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr)"><i></i><i></i><i></i><i></i></div></div><div class="as-cap">1 Pane</div></div>
-                <div><div class="as-scr"><div style="display:flex;gap:5px"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr);flex:1"><i></i><i></i><i></i><i></i></div><div class="as-p2" style="flex:1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><small>Widget</small></div></div></div><div class="as-cap">2 Panes</div></div>
-              </div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">2</div><div><div class="as-of">Schritt 2 / 8</div><h4>Inhalt</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Wie die Ansicht befüllt wird.</p><div class="as-opts"><span class="as-chip">Raum-Ansicht</span><span class="as-chip">Klassische Visu</span><span class="as-chip k">Freie Auswahl — bis 4 Seiten</span></div></div>
-              <div class="as-fig"><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="as-tabs"><u class="on"></u><u></u><u></u><u></u></div></div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">3</div><div><div class="as-of">Schritt 3 / 8</div><h4>Design</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Aussehen für die ganze Ansicht — später je Kachel übersteuerbar.</p><div class="as-opts"><span class="as-chip">Grundfarbe</span><span class="as-chip">Icon 38 · Name 20 · Sub 16</span><span class="as-chip">Schriftart</span><span class="as-chip">Skalierung</span></div></div>
-              <div class="as-fig"><div class="as-scr" style="padding:11px"><div class="as-sw"><span style="background:#e0a24d"></span><span style="background:#b0344a"></span><span style="background:#3e4468"></span><span style="background:#3e5240"></span><span style="background:#cedcdd"></span></div><div class="as-lab">Icon-Größe</div><div class="as-sld" style="--v:60%"></div><div class="as-lab">Skalierung</div><div class="as-sld" style="--v:40%"></div></div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">4</div><div><div class="as-of">Schritt 4 / 8</div><h4>Name &amp; ID</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Anzeigename und Kennung. Die Kennung ist der Aufruf am Gerät: <code>?panel=wohnzimmer</code>.</p></div>
-              <div class="as-fig"><div class="as-scr" style="padding:12px;display:flex;flex-direction:column;gap:7px"><div class="as-lab" style="margin:0">Anzeigename</div><div class="as-fld">Wohnzimmer</div><div class="as-lab" style="margin:0">Kennung</div><div class="as-fld mono">?panel=wohnzimmer</div></div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">5</div><div><div class="as-of">Schritt 5 / 8</div><h4>Seiten befüllen</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Bei <strong>Freier Auswahl</strong>: bis zu 4 Seiten sind offen — ungenutzte mit <strong>✕</strong> entfernen. Je Seite Name, Icon und der Inhalt:</p><div class="as-opts"><span class="as-chip k">Bausteine (Kacheln)</span><span class="as-chip w">Widget</span></div><p class="as-desc" style="margin-top:10px"><strong>Kacheln:</strong> links Raum, rechts die Bausteine — mit Suche. <em>Nächsten Tab befüllen</em> führt weiter.<br><strong>Widget:</strong> gleich daneben der konkrete Baustein — <em>welcher</em> Verlauf, <em>welche</em> Kamera, <em>welche</em> Zone.</p></div>
-              <div class="as-fig"><div class="as-scr" style="padding:10px">
-                <div class="as-sel"><span class="ic"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="nm"></span><span class="dd k">Kacheln ▾</span></div>
-                <div class="as-sel"><span class="ic"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><span class="nm"></span><span class="dd w">Widget ▾</span></div>
-                <div class="as-sel"><span class="ic"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="m17 10 5-3v10l-5-3z"/></svg></span><span class="nm"></span><span class="dd w">Kamera ▾</span></div>
-              </div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">6</div><div><div class="as-of">Schritt 6 / 8</div><h4>Screensaver — Uhr-Seite</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Auf dem Tablet steht neben bzw. unter der Uhr Platz für ein Widget (die zweite Spalte): quer rechts, hochkant unter Uhr und Wetter.</p><div class="as-opts"><span class="as-chip">Automatik</span><span class="as-chip">Aus</span><span class="as-chip w">Kalender</span><span class="as-chip w">Wetter</span><span class="as-chip w">Audio</span><span class="as-chip w">Energiefluss</span><span class="as-chip w">Kamera</span><span class="as-chip w">Verlauf</span><span class="as-chip w">Werte</span></div></div>
-              <div class="as-fig"><div class="as-scr" style="padding:10px"><div class="as-clock"><div class="t"><b>20:45</b><span>Sa · 27. Sep</span></div><div class="w"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><small>Widget</small></div></div></div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">7</div><div><div class="as-of">Schritt 7 / 8</div><h4>Aktiv-Overlay</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Wie eine <strong>aktive</strong> Kachel hervorgehoben wird — Rahmen, Füllung, Deckkraft — und der Rahmen der inaktiven Kacheln und rechten Panes.</p><div class="as-opts"><span class="as-chip">Rahmen + Füllung</span><span class="as-chip">Deckkraft</span><span class="as-chip">Positionsring</span></div></div>
-              <div class="as-fig"><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr)"><i class="a"></i><i></i><i></i><i></i></div></div></div></div></section>
-
-          <section class="as-step"><div class="as-h"><div class="as-num">8</div><div><div class="as-of">Schritt 8 / 8</div><h4>Zusammenfassung</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Alle Einstellungen auf einen Blick, dann <strong>„Ansicht anlegen ✓"</strong>. Danach im Editor für den Feinschliff und jederzeit über <em>„Visu öffnen"</em> testbar.</p></div>
-              <div class="as-fig"><div class="as-scr as-sum" style="padding:11px 12px"><div class="r0"><span class="l">Anzeige</span><span class="r">1 Pane · 4″</span></div><div class="r0"><span class="l">Inhalt</span><span class="r">Freie Auswahl</span></div><div class="r0"><span class="l">Seiten</span><span class="r">3</span></div><div class="r0"><span class="l">Skalierung</span><span class="r">Automatisch</span></div></div></div></div></section>
-
-        </div>
-
-        <div class="as-band"><h4><span class="pin">2 Panes</span> Was am Breitbild anders ist</h4>
-          <p>Der Ablauf ist derselbe — nur bekommt die zweite Spalte einen eigenen Inhalt:</p>
-          <div class="as-split">
-            <div class="as-mini"><b>Widget je Tab</b><p>Statt „nur Visu" hat jeder Tab ein eigenes Widget (quer rechts, hochkant darunter) — <code>Kein Widget (Screen füllen)</code> oder Wetter/Kalender/Audio/Energiefluss/Kamera/Verlauf. Pro Tab getrennt wählbar.</p></div>
-            <div class="as-mini"><b>Screensaver-Widget</b><p>Dieselbe Widget-Auswahl steht als zweite Spalte der Uhr-Seite — quer neben der Uhr, hochkant darunter.</p></div>
-          </div>
-        </div>
-
-        <div class="as-band"><h4>Der Widget-Katalog</h4>
-          <p>Ein Widget ist eine fertige Inhaltsfläche. Dieselben sieben stehen an drei Orten zur Wahl: <b>Pane 2</b> (Breitbild), <b>Screensaver</b> (Uhr-Seite) und <b>eigener Vollbild-Tab</b> (auch am 1-Pane-Gerät).</p>
-          <div class="as-cat">
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg></span><div><b>Wetter</b><span>Kurve &amp; Vorschau</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span><div><b>Kalender</b><span>Monat + Termine</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span><div><b>Audio</b><span>Now Playing</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><div><b>Energiefluss</b><span>Radial, live</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="15" height="12" rx="2"/><path d="m17 10 5-3v10l-5-3z"/></svg></span><div><b>Kamera</b><span>Türstation live</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 3 3 5-6"/><path d="M4 20h16"/></svg></span><div><b>Verlauf</b><span>Aufzeichnung</span></div></div>
-            <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16"/><path d="M8 14h3M8 10h6"/></svg></span><div><b>Werte</b><span>Frei gewählte Bausteine</span></div></div>
-          </div>
-        </div>
-      </div>
-
       <!-- Panel Configuration -->
       <div id="pconfHost" style="display:none"><div class="empty">lädt …</div></div>
 
@@ -983,7 +847,7 @@
           <div class="einr ok" id="einrOk" hidden>
             <h3><span class="einr-n">✓</span><span data-i18n>Mit dem Miniserver verbunden</span></h3>
             <p id="einrOkText"></p>
-            <div class="actions"><button class="btn" id="einrAssistent" data-i18n>Ansicht einrichten</button><button class="btn ghost" id="einrSicherung" data-i18n>Sicherung einspielen</button></div>
+            <div class="actions"><button class="btn" id="einrAssistent" data-i18n>Gerät einrichten</button><button class="btn ghost" id="einrSicherung" data-i18n>Sicherung einspielen</button></div>
           </div>
           <p class="lead" data-i18n>Zugang zum Loxone Miniserver. Nach dem Speichern verbindet der Server sofort neu.</p>
           <div class="card">
@@ -1203,17 +1067,16 @@ function setRubric(r){
   if(r==='vorgaben'){ if(cur!=='__global__'){ letzteAnsicht=cur; cur='__global__'; tileSel=null; renderList(); } }
   else if(cur==='__global__'){ cur=(letzteAnsicht&&PANELS[letzteAnsicht])?letzteAnsicht:ersteAnsicht(); tileSel=null; renderList(); }
   document.querySelectorAll('.rub').forEach(b=>b.classList.toggle('active',b.dataset.rub===r));
-  const ov=r==='overview', pc=r==='pconf', vg=r==='vorgaben', dv=r==='devices', dp=r==='displays', as=r==='assistant';
+  const ov=r==='overview', pc=r==='pconf', vg=r==='vorgaben', dv=r==='devices', dp=r==='displays';
   const oh=$('#overviewHost'); if(oh) oh.style.display = ov?'':'none';
   const dph=$('#displaysHost'); if(dph) dph.style.display = dp?'':'none';
-  const ash=$('#assistantHost'); if(ash) ash.style.display = as?'':'none';
   $('#pconfHost').style.display = (pc||vg)?'':'none';
-  $('#setHost').style.display = (ov||pc||vg||dv||dp||as)?'none':'';
-  $('#savebar').style.display = (ov||dv||as)?'none':'';   // eine Leiste fuer Ansichten, Geraete, Einstellungen
+  $('#setHost').style.display = (ov||pc||vg||dv||dp)?'none':'';
+  $('#savebar').style.display = (ov||dv)?'none':'';   // eine Leiste fuer Ansichten, Geraete, Einstellungen
   $('#delSlot').style.display = pc?'':'none';
   $('#phead').style.display = (pc||vg)?'':'none';
-  $('#subtabs').style.display = (ov||dv||dp||as)?'none':'';
-  if(ov||dv||dp||as) return;
+  $('#subtabs').style.display = (ov||dv||dp)?'none':'';
+  if(ov||dv||dp) return;
   if(pc||vg){ renderEditor(); }
   else { renderSubtabs(); showSub(subSet); }
 }
@@ -1221,6 +1084,7 @@ function ersteAnsicht(){ return PANELS.default ? 'default' : (Object.keys(PANELS
 document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.rub));
 document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
   const g=(b.dataset.goto||'').split(':'), r=g[0], sub=g[1];
+  if(r==='wizard'){ wzOpen(); return; }
   if(r==='pconf'||r==='vorgaben'||r==='settings'){ subMerken(r,sub);
     setRubric(r); renderSubtabs(); showSub(sub); }
   else { setRubric(r);   // overview/displays: keine Subtabs
@@ -3981,12 +3845,21 @@ const WZIC={
 function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
 function wzRasterName(g){ return g==='auto' ? T('Automatisch') : g.replace('x','×'); }
 function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
-// Groessen leer = Standard (der Server waehlt ihn passend zum Kachel-Aufbau)
-const WZ_LOOK_DEF={};
-const WZ={panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true};
+// Gerät einrichten (Konzept "Konfigurator neu ordnen", Schritt 7): EIN Weg vom Geraet bis
+// zur fertigen Ansicht, aus der Uebersicht, unter Geraete und ueber "＋ Neue Ansicht". Sechs
+// Schritte; der erste (Miniserver) ist erledigt, sobald der Assistent aufgeht - ohne
+// Struktur fuehrt jeder Weg zu Einstellungen -> Miniserver (wzOpen). art: neu = eine
+// Ansicht anlegen, zuweisen = dem Geraet eine vorhandene zeigen, kopie = eine vorhandene
+// mit Raumtausch duplizieren; die beiden letzten brauchen Inhalt und Aussehen nicht.
+const WZ_START={art:'neu',quelle:'',von:'',nach:'',_inhaltT:false,
+  panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,look:{},overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,_titelT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true};
+const WZ=JSON.parse(JSON.stringify(WZ_START));
 let wzTileFor=-1;
-function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensaver','overlay','review']; }
-function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('wz')===0).forEach(k=>delete SE_ZUSTAND[k]); Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true}); }
+const WZ_SCHRITTE=[{k:'miniserver',label:'Miniserver'},{k:'geraet',label:'Gerät'},{k:'ansicht',label:'Ansicht'},
+  {k:'inhalt',label:'Inhalt und Seiten'},{k:'aussehen',label:'Aussehen und Verhalten'},{k:'pruefen',label:'Prüfen'}];
+function wzFlow(){ return WZ.art==='neu' ? ['geraet','ansicht','inhalt','aussehen','pruefen'] : ['geraet','ansicht','pruefen']; }
+function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('wz')===0).forEach(k=>delete SE_ZUSTAND[k]);
+  Object.keys(WZ).forEach(k=>{ if(k!=='_wired') delete WZ[k]; }); Object.assign(WZ, JSON.parse(JSON.stringify(WZ_START))); }
 /* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
    eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
    Raum-Ansicht dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
@@ -3996,14 +3869,16 @@ function wzVorschlaege(){
   const vergeben=new Set(Object.values(PANELS).map(p=>p&&p.device&&p.device.name).filter(Boolean));
   const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !vergeben.has(n))
     .sort((a,b)=>a.localeCompare(b));
+  return geraete.map(n=>({geraet:n, raum:wzRaumFuer(n), screen:DEVICE_SCREENS[n]||null}));
+}
+// Raum zum Geraetenamen. Passen mehrere, gewinnt der, dessen Name in der Laenge am
+// naechsten am Geraetenamen liegt: der gleiche Name (Abstand 0) immer, sonst etwa
+// "badezimmer-oben" -> "Badezimmer" vor "Bad"; bei Gleichstand die Reihenfolge der Raeume.
+function wzRaumFuer(n){
   const passt=(a,b)=>{ a=nameSlug(a); b=nameSlug(b); return !!a && !!b && (a===b || (a.length>=3 && b.indexOf(a)>=0) || (b.length>=3 && a.indexOf(b)>=0)); };
-  // Passen mehrere Raeume, gewinnt der, dessen Name in der Laenge am naechsten
-  // am Geraetenamen liegt: der gleiche Name (Abstand 0) immer, sonst etwa
-  // "badezimmer-oben" -> "Badezimmer" vor "Bad"; bei Gleichstand die Reihenfolge der Raeume.
-  const raumFuer=n=>{ const l=nameSlug(n).length;
-    return (META.rooms||[]).filter(r=>passt(n, r.name))
-      .sort((a,b)=>Math.abs(nameSlug(a.name).length-l)-Math.abs(nameSlug(b.name).length-l))[0]||null; };
-  return geraete.map(n=>({geraet:n, raum:raumFuer(n), screen:DEVICE_SCREENS[n]||null}));
+  const l=nameSlug(n).length;
+  return (META.rooms||[]).filter(r=>passt(n, r.name))
+    .sort((a,b)=>Math.abs(nameSlug(a.name).length-l)-Math.abs(nameSlug(b.name).length-l))[0]||null;
 }
 function wzVorschlagHtml(){
   const vs=wzVorschlaege(); if(!vs.length) return '';
@@ -4011,7 +3886,7 @@ function wzVorschlagHtml(){
     '<button class="wzo'+(WZ.device===v.geraet?' on':'')+'" data-wv="'+esc(v.geraet)+'">'+wzg(v.raum?'room':'grid')+'<span class="tx"><b>'+
       esc(v.raum?(T('Raum-Ansicht')+' '+v.raum.name):T('Favoriten'))+'</b><span>'+esc(T('für')+' '+v.geraet+
       ((v.screen&&v.screen.vw&&v.screen.vh)?(' · '+v.screen.vw+'×'+v.screen.vh):''))+'</span></span></button>').join('')+
-    '</div><p class="wznote">'+T('Übernimmt Anzeige, Inhalt und Name und trägt das Gerät als Zielgerät ein – danach gleich anlegen oder weiter verfeinern.')+'</p>'+
+    '</div><p class="wznote">'+T('Übernimmt Anzeige, Inhalt und Name und trägt das Gerät als Zielgerät ein – danach gleich prüfen und anlegen oder zurück und verfeinern.')+'</p>'+
     '<p class="wzq mt">'+T('Oder selbst wählen')+'</p>';
 }
 function wzVorschlagWaehlen(n){
@@ -4021,15 +3896,15 @@ function wzVorschlagWaehlen(n){
   WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; WZ.roomCats=[];
   if(v.raum){ WZ.content='room'; WZ.roomTab='room:'+v.raum.uuid; WZ.title=v.raum.name; }
   else { WZ.content='classic'; WZ.roomTab=''; WZ.title=n.charAt(0).toUpperCase()+n.slice(1); }
-  WZ.id=idAusName(n); WZ._idT=true; WZ.device=n;
+  WZ.id=idAusName(n); WZ._idT=true; WZ._titelT=true; WZ.device=n; WZ.art='neu'; WZ._inhaltT=true;
   WZ.groesse=(sc.vw&&sc.vh)?{quelle:'geraet', name:n, vw:sc.vw, vh:sc.vh}:null;
   wzInitSetup();
-  WZ.step=wzFlow().indexOf('name'); wzRender();
+  WZ.step=wzFlow().indexOf('pruefen'); wzRender();
 }
-// Die drei Pflichtschritte (Anzeige, Inhalt, Name) samt gueltigem Inhalt: dann
-// laesst sich das Panel mit Standardwerten fuer den Rest sofort anlegen.
+// Anzeige und Inhalt samt gueltigem Inhalt: dann geht es mit Standardwerten fuer das
+// Aussehen gleich zum Pruefen (#wzFertig).
 function wzPflichtOk(){
-  if(!WZ.panes || !WZ.content || !WZ.title.trim() || !WZ.id) return false;
+  if(!WZ.panes || !WZ.content) return false;
   wzInitSetup();
   if(WZ.content==='room') return !!WZ.roomTab;
   if(WZ.content==='classic') return (WZ.classic||[]).some(t=>t.on);
@@ -4109,7 +3984,9 @@ function wzGeraetHtml(){
     wzg(x.quelle==='browser'?'ext':(LoxRaster.quadratisch(x.vw, x.vh)?'p1':'p2'))+'<span class="tx"><b>'+esc(x.name)+'</b><span>'+
     x.vw+' × '+x.vh+(x.quelle==='geraet'?' · '+T('gemeldet'):'')+'</span></span></button>';
   const kat=wzKatalog();
-  return '<p class="wzq">'+T('Für welches Gerät?')+'</p><div class="wzopts">'+wzGeraete().map(knopf).join('')+knopf(wzBrowser())+'</div>'+
+  return '<p class="wzq">'+T('Für welches Gerät?')+'</p><div class="wzopts">'+wzGeraete().map(knopf).join('')+knopf(wzBrowser())+
+    '<button class="wzo'+(g?'':' on')+'" data-wgr="keins">'+wzg('grid')+'<span class="tx"><b>'+T('Ohne Gerät')+'</b><span>'+
+      T('nur eine Ansicht anlegen, ohne Vorrechnung')+'</span></span></button></div>'+
     (kat.length ? '<div class="wzfield" style="margin-top:8px"><select id="wzKatalog"><option value="">'+T('Aus dem Katalog …')+'</option>'+
       kat.map((k,i)=>'<option value="'+i+'"'+(g&&g.quelle==='katalog'&&g.name===k.name?' selected':'')+'>'+esc(k.name+' · '+k.vw+' × '+k.vh)+'</option>').join('')+
       '</select></div>' : '')+
@@ -4131,7 +4008,8 @@ async function wzAmGeraet(id, name, umschalten, ziel){
     catch(e){ flash(t, 'Fehler: '+e, false); return; }
   }
   if(!umschalten) return;
-  if(!(await save())) return;
+  // Speichern nur, wenn die Ansicht noch nicht (so) auf dem Server steht: es laedt jede Visu neu
+  if(!GESPEICHERT[id] || OFFEN.has('ansicht:'+id)){ if(!(await save())) return; }
   // Das Speichern laedt jede offene Visu neu ({t:"reload"}); bis das Geraet
   // wieder verbunden ist, meldet /api/device/switch "nicht online" - so lange
   // erneut versuchen, hoechstens etwa zehn Sekunden.
@@ -4145,12 +4023,13 @@ async function wzAmGeraet(id, name, umschalten, ziel){
                : (name+' '+T('ist nicht online – die Ansicht ist gespeichert, umschalten unter Geräte.')), !!j.ok);
 }
 function wzOpen(){
-  if(EINR) return;                       // Ersteinrichtung: ohne Struktur kein Assistent
+  // Schritt 1 (Miniserver): ohne Struktur beginnt der Weg dort
+  if(EINR){ setRubric('settings'); flash($('#toast'), T('Erst den Miniserver verbinden'), false); return; }
   if(!WZ._wired){ WZ._wired=true;
-    $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzRender(); } };
+    $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzTileFor=-1; wzRender(); } };
     $('#wzNext').onclick=wzNext;
     $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
-    $('#wzFertig').onclick=wzBuild;
+    $('#wzFertig').onclick=function(){ WZ.step=wzFlow().indexOf('pruefen'); wzTileFor=-1; wzRender(); };
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
     $('#wzX').onclick=wzClose;
   }
@@ -4158,9 +4037,30 @@ function wzOpen(){
   $('#wzOv').hidden=false; wzRender();
 }
 function wzClose(){
+  wzZurueckgeben();
   $('#wzOv').hidden=true; wzVorFehler='';
   // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck
   if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]) vorschauGeraetBeenden();
+}
+// Schritt Gerät leiht sich "Neues Gerät einrichten" (Start-Adresse, Agent) und die Geraete
+// ohne Kennung (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
+// kommen sie dorthin zurueck. Die Knoten bleiben dieselben, Eingaben und Ereignisse auch.
+const WZ_LEIH={};
+function wzLeihen(id, ziel){
+  const el=WZ_LEIH[id]||document.getElementById(id); if(!el || !ziel) return;
+  if(!WZ_LEIH[id]){ WZ_LEIH[id]=el; el._heim=document.createComment('heim:'+id); el.parentNode.insertBefore(el._heim, el); }
+  ziel.appendChild(el);
+}
+function wzZurueckgeben(){
+  Object.values(WZ_LEIH).forEach(el=>{ const h=el._heim; if(h && h.parentNode && el.previousSibling!==h) h.parentNode.insertBefore(el, h.nextSibling); });
+}
+// Welche Geraete der Schritt Gerät anbietet; aendert sich das (ein neues meldet sich), zeichnet
+// die Abfrage den Schritt neu (renderDeviceList)
+function wzGeraeteSig(){ return JSON.stringify(wzGeraete().map(g=>[g.name,g.vw,g.vh]).concat(wzVorschlaege().map(v=>v.geraet))); }
+let WZ_GERAETE_SIG='';
+function wzGeraeteNachziehen(){
+  const o=$('#wzOv'); if(!o || o.hidden || wzFlow()[WZ.step]!=='geraet') return;
+  const sig=wzGeraeteSig(); if(sig!==WZ_GERAETE_SIG) wzRender();
 }
 function wzGridCells(g){ const c={'2x2':[2,2],'3x2':[3,2],'2x3':[2,3],'3x3':[3,3],'auto':[4,3]}[g]||[2,2]; let s=''; for(let i=0;i<c[0]*c[1];i++) s+='<i></i>'; return {c:c[0],r:c[1],s:s}; }
 /* ---- mode-spezifisches Setup + Pane 2 (echte META-Daten) ---- */
@@ -4328,87 +4228,195 @@ function wzVorschauHtml(){
     (wzVorFehler ? '<div class="wznote" style="color:var(--crit)">'+esc(wzVorFehler)+'</div>' : '');
 }
 function wzSummary(){
-  var cmap={room:T('Raum-Ansicht'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
-  var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
-  if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
-  if(WZ.groesse) rows.push([T('Vorgerechnet für'), WZ.groesse.name+' · '+WZ.groesse.vw+' × '+WZ.groesse.vh+' → '+wzVorrechnungText(WZ.panes, WZ.grid)]);
-  if(WZ.device) rows.push([T('Zielgerät'),WZ.device]);
-  if(WZ.device) rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
-    ((WZ.grid==='auto' && wzZielNeu() && WZ.zielMerken)?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
-  if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
-  var L=WZ.look||{}; rows.push([T('Grundfarbe'),L.baseColor||T('Standard')]);
-  if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
-  rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie Vorgabe'):scaleName(L.scale)]);
-  rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
-  if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
+  var rows=[];
+  if(WZ.groesse) rows.push([T('Gerät'), WZ.groesse.name+' · '+WZ.groesse.vw+' × '+WZ.groesse.vh]);
+  else rows.push([T('Gerät'), T('Ohne Gerät')]);
+  if(WZ.art==='zuweisen'){
+    var q=PANELS[WZ.quelle]||{};
+    rows.push([T('Zeigt künftig'), (q.title||WZ.quelle)+' (?panel='+WZ.quelle+')']);
+    if(wzZielMerkbar()) rows.push([T('Danach'), T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken')]);
+  } else if(WZ.art==='kopie'){
+    var k=PANELS[WZ.quelle]||{};
+    rows.push([T('Vorlage'), k.title||WZ.quelle]);
+    rows.push([T('Raumtausch'), WZ.nach ? roomName(WZ.von)+' → '+roomName(WZ.nach) : T('(kein Raumtausch – reine Kopie)')]);
+  } else {
+    var cmap={room:T('Raum-Ansicht'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
+    rows.push([T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)+(WZ.groesse?' → '+wzVorrechnungText(WZ.panes, WZ.grid):'')],[T('Inhalt'),cmap[WZ.content]||'']);
+    if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
+    if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
+    var L=WZ.look||{}; rows.push([T('Grundfarbe'),L.baseColor||T('Standard')]);
+    if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
+    rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie Vorgabe'):scaleName(L.scale)]);
+    rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
+    if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
+    rows.push([T('Display aus nach'), gesetzt(L.dpmsOff) ? wertText('dpmsOff', L.dpmsOff) : giltText('dpmsOff', wasGiltOhneEigenen('dpmsOff', {}))]);
+  }
+  if(WZ.device && WZ.art!=='zuweisen') rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
+    ((WZ.art==='neu' && wzZielMerkbar())?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
   return '<div class="wzopts">'+rows.map(function(r){return '<div class="wzo" style="cursor:default;padding:9px 14px"><span class="tx" style="flex:1;color:var(--muted);font-size:12.5px">'+r[0]+'</span><b style="font-size:13px">'+esc(r[1]||'—')+'</b></div>';}).join('')+'</div>';
 }
+// Merkt sich das Geraet eine neue Zielkachel? Nur im Kachel-Layout "Automatisch" und nur,
+// wenn das Geraet noch eine andere hat.
+function wzZielMerkbar(){
+  var auto = WZ.art==='zuweisen' ? layoutWert((PANELS[WZ.quelle]||{}).ui)==='auto' : (WZ.art==='neu' && WZ.grid==='auto');
+  return !!WZ.device && auto && wzZielNeu();
+}
+// Leiste der sechs Schritte: erledigt, jetzt, offen, entfaellt (zuweisen und kopie)
+function wzLeisteHtml(key){
+  var f=wzFlow(), jetzt=WZ_SCHRITTE.findIndex(function(x){ return x.k===key; });
+  return '<ol class="wzleiste">'+WZ_SCHRITTE.map(function(x,i){
+    var cls = x.k===key ? 'jetzt' : (x.k!=='miniserver' && f.indexOf(x.k)<0 ? 'entfaellt' : (i<jetzt ? 'erledigt' : ''));
+    var titel = x.k==='miniserver' ? T('Miniserver verbunden') : (cls==='entfaellt' ? T('entfällt hier') : '');
+    return '<li class="'+cls+'"'+(titel?' title="'+esc(titel)+'"':'')+'><span>'+(i+1)+'</span>'+esc(T(x.label))+'</li>'; }).join('')+'</ol>';
+}
+// Name und Kennung vorbelegen, solange niemand selbst getippt hat: aus dem Raum, dem
+// Zielraum der Kopie oder dem Geraet. Ersetzt wird nur ein leerer Name oder der eigene
+// fruehere Vorschlag (nach "Zurück" und anderem Raum), nie ein anders gesetzter.
+function wzNameVorschlagen(){
+  if(WZ._titelT || (WZ.title && WZ.title!==WZ._titelVorschlag)) return;
+  var t='';
+  if(WZ.art==='kopie'){ var q=PANELS[WZ.quelle]||{};
+    t = WZ.nach ? roomName(WZ.nach) : ((q.title||WZ.quelle)+' '+T('(Kopie)')); }
+  else if(WZ.content==='room' && WZ.roomTab){ var r=(META.tabs||[]).find(function(x){ return x.tab===WZ.roomTab; }); t=(r&&r.label)||''; }
+  if(!t && WZ.device) t=WZ.device.charAt(0).toUpperCase()+WZ.device.slice(1);
+  WZ.title=t; WZ._titelVorschlag=t; if(!WZ._idT) WZ.id=t?idAusName(t):'';
+}
+// Inhalt beim ersten Besuch aus dem Geraetenamen: passt er zu einem Raum, die Raum-Ansicht
+function wzInhaltVorschlagen(){
+  if(WZ._inhaltT) return; WZ._inhaltT=true;
+  var raum=WZ.device ? wzRaumFuer(WZ.device) : null;
+  if(!WZ.panes && WZ.groesse) wzGroesseSetzen(WZ.groesse);
+  if(raum && !WZ.content){ WZ.content='room'; WZ.roomTab='room:'+raum.uuid; WZ._raumVorschlag=raum.name; }
+}
+function wzAnsichtOptionen(sel){
+  return ansichtIds().map(function(id){ return '<option value="'+esc(id)+'"'+(sel===id?' selected':'')+'>'+esc(ansichtName(id)+' · ?panel='+id)+'</option>'; }).join('');
+}
+function wzRaumOptionen(sel, leer){
+  return (leer?'<option value="">'+esc(leer)+'</option>':'')+(META.rooms||[]).map(function(r){ return '<option value="'+esc(r.uuid)+'"'+(r.uuid===sel?' selected':'')+'>'+esc(r.name)+'</option>'; }).join('');
+}
+function wzKopieInfo(){
+  var p=PANELS[WZ.quelle]; if(!p) return '';
+  if(!WZ.nach) return T('Reine Kopie: alle Tabs, Bausteine und Einstellungen bleiben, wie sie sind.');
+  if(WZ.von===WZ.nach) return T('Quell- und Zielraum sind gleich – nichts zu tauschen.');
+  var r=profilMitRaumtausch(p, WZ.von, WZ.nach, META.controls||[]);
+  return r.getauscht+' '+T('Bausteine aus')+' '+roomName(WZ.von)+' '+T('werden durch die gleichnamigen in')+' '+roomName(WZ.nach)+' '+T('ersetzt.')+
+    (r.fehlend.length ? ' '+T('Ohne Gegenstück dort (fallen weg):')+' '+r.fehlend.join(', ') : '');
+}
+function wzQuelleSetzen(id){
+  WZ.quelle=id;
+  if(WZ.art==='kopie'){ var p=PANELS[id]; WZ.von=p?profilRaum(p):'';
+    var raum=WZ.device ? wzRaumFuer(WZ.device) : null;   // Zielraum aus dem Geraetenamen
+    WZ.nach=(raum && raum.uuid!==WZ.von) ? raum.uuid : ''; }
+}
+function wzAnzeigeHtml(){
+  return '<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
+    (wzPasst('1','auto')?wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.')):'')+
+    (wzPasst('2','auto')?wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.')):'')+
+    '</div><p class="wzq mt">'+(WZ.groesse?T('Kachel-Raster — vorgerechnet'):T('Kachel-Raster — frei wählbar'))+'</p><div class="wzgrid">'+
+    ['2x2','3x2','2x3','3x3','auto'].filter(function(g){ return wzPasst(WZ.panes||'1', g); }).map(function(g){ var x=wzGridCells(g);
+      return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+wzRasterName(g)+'</b>'+
+        (WZ.groesse?'<span class="wzv">'+esc(wzVorrechnungText(WZ.panes||'1', g))+'</span>':'')+'</button>'; }).join('')+'</div>'+
+    '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
+}
+function wzVerhaltenHtml(){
+  var L=WZ.look||{}, v=vorgabeWert('dpmsOff');
+  return '<p class="wzq mt">'+T('Verhalten')+'</p><div class="wzrow">'+
+    '<div class="wzfield" style="max-width:200px"><label>'+T('Display aus nach (Sek.)')+'</label><input type="number" min="0" max="3600" step="30" data-wdpms value="'+
+      (L.dpmsOff==null?'':esc(L.dpmsOff))+'" placeholder="'+esc(gesetzt(v)?String(v):T('Standard'))+'"></div></div>'+
+    '<p class="wznote" style="margin-top:6px">'+esc(T('Leer gilt:')+' '+giltText('dpmsOff', wasGiltOhneEigenen('dpmsOff', {})))+'</p>';
+}
+function wzScreensaverHtml(){
+  if(WZ.panes!=='2') return '<p class="wzq mt">'+T('Screensaver')+'</p><div class="wznote">'+T('Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>';
+  var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
+  return '<p class="wzq mt">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
+    wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
+    wzOpt('svPane','off','clock',T('Aus — nur Uhr'),'')+
+    wzOpt('svPane','calendar','cal',T('Kalender'),'')+
+    wzOpt('svPane','weather','wx',T('Wetter'),'')+
+    (svHasA?wzOpt('svPane','player','audio',T('Audio'),''):'')+
+    (svHasE?wzOpt('svPane','energy','energy',T('Energiefluss'),''):'')+
+    (svHasC?wzOpt('svPane','camera','camera',T('Kamera'),''):'')+
+    (svHasV?wzOpt('svPane','chart','status',T('Verlauf'),''):'')+
+    '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>';
+}
 function wzRender(){
-  var f=wzFlow(), key=f[WZ.step], b=$('#wzBody');
-  $('#wzStep').textContent=T('Schritt')+' '+(WZ.step+1)+' / '+f.length;
-  if(key==='anzeige'){
-    b.innerHTML=wzVorschlagHtml()+wzGeraetHtml()+'<p class="wzq mt">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
-      (wzPasst('1','auto')?wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.')):'')+
-      (wzPasst('2','auto')?wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.')):'')+
-      '</div><p class="wzq mt">'+(WZ.groesse?T('Kachel-Raster — vorgerechnet'):T('Kachel-Raster — frei wählbar'))+'</p><div class="wzgrid">'+
-      ['2x2','3x2','2x3','3x3','auto'].filter(function(g){ return wzPasst(WZ.panes||'1', g); }).map(function(g){ var x=wzGridCells(g);
-        return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+wzRasterName(g)+'</b>'+
-          (WZ.groesse?'<span class="wzv">'+esc(wzVorrechnungText(WZ.panes||'1', g))+'</span>':'')+'</button>'; }).join('')+'</div>'+
-      '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
+  wzZurueckgeben();
+  var f=wzFlow(); if(WZ.step>=f.length) WZ.step=f.length-1;
+  var key=f[WZ.step], b=$('#wzBody'), h='';
+  $('#wzStep').textContent=T('Schritt')+' '+(WZ_SCHRITTE.findIndex(function(x){ return x.k===key; })+1)+' / '+WZ_SCHRITTE.length;
+  if(key==='geraet'){
+    WZ_GERAETE_SIG=wzGeraeteSig();
+    h=wzVorschlagHtml()+wzGeraetHtml()+
+      '<p class="wzq mt">'+T('Neues Gerät verbinden')+'</p>'+
+      '<div class="wznote" style="margin-bottom:8px">'+T('Ein Gerät, das die Visu schon zeigt, aber noch keinen Namen hat, steht mit seinem Code darunter. Ein neues bekommt die Start-Adresse oder den Agenten; sobald es sich meldet, steht es oben zur Wahl.')+'</div>'+
+      '<div id="wzNeuHost"></div>';
+  } else if(key==='ansicht'){
+    var dn=WZ.device||'', mitG=!!dn;
+    h='<p class="wzq">'+esc(mitG ? T('Was soll {g} zeigen?').replace('{g}',dn) : T('Welche Ansicht?'))+'</p><div class="wzopts">'+
+      wzOpt('art','neu','pick',T('Neue Ansicht anlegen'),T('Inhalt, Seiten und Aussehen in den nächsten Schritten.'))+
+      '<button class="wzo'+(WZ.art==='zuweisen'?' on':'')+'" data-wk="art" data-wo="zuweisen"'+(mitG&&ansichtIds().length?'':' disabled')+'>'+wzg('grid')+'<span class="tx"><b>'+T('Vorhandene Ansicht zeigen')+'</b><span>'+
+        (mitG ? T('Das Gerät schaltet auf eine Ansicht, die es schon gibt.') : T('Braucht ein Gerät aus Schritt 2.'))+'</span></span></button>'+
+      '<button class="wzo'+(WZ.art==='kopie'?' on':'')+'" data-wk="art" data-wo="kopie"'+(ansichtIds().length?'':' disabled')+'>'+wzg('ext')+'<span class="tx"><b>'+T('Vorhandene duplizieren')+'</b><span>'+
+        T('Mit Raumtausch: die Bausteine eines Raums durch die gleichnamigen eines anderen ersetzen.')+'</span></span></button></div>';
+    if(WZ.art!=='neu'){
+      if(!PANELS[WZ.quelle]) wzQuelleSetzen(ansichtIds()[0]||'');
+      h+='<div class="wzfield mt"><label>'+(WZ.art==='kopie'?T('Vorlage'):T('Ansicht'))+'</label><select id="wzQuelle">'+wzAnsichtOptionen(WZ.quelle)+'</select></div>';
+      if(WZ.art==='kopie') h+='<div class="wzrow" style="margin-top:12px">'+
+          '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('Raum tauschen: von')+'</label><select id="wzVon">'+wzRaumOptionen(WZ.von,'')+'</select></div>'+
+          '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('nach')+'</label><select id="wzNach">'+wzRaumOptionen(WZ.nach, T('(kein Raumtausch – reine Kopie)'))+'</select></div></div>'+
+        '<div class="wznote" style="margin-top:10px">'+esc(wzKopieInfo())+'</div>';
+      h+='<div class="wznote" style="margin-top:8px">'+T('Inhalt und Aussehen entfallen hier: Die Ansicht hat sie schon, den Feinschliff machst du danach unter Ansichten.')+'</div>';
+    }
   } else if(key==='inhalt'){
-    b.innerHTML='<p class="wzq">'+T('Wie möchtest du befüllen?')+'</p><div class="wzopts">'+
-      wzOpt('content','room','room',T('Raum-Ansicht'),T('Ein Raum aus Loxone + Kategorien als Sprungtabs.'))+
-      wzOpt('content','classic','grid',T('Klassische Visu'),T('Standard-Tabs (Favoriten/Zentral/Räume/Kategorien).'))+
-      wzOpt('content','pick','pick',T('Freie Auswahl'),T('Eigene Seiten mit handverlesenen Kacheln (bis 4).'))+'</div>';
-  } else if(key==='design'){
-    b.innerHTML='<p class="wzq">'+T('Wie sollen die Kacheln aussehen?')+'</p><div class="wzopts">'+
-      wzOpt('design','global','paint',T('Einheitliches Design'),T('Kachelgrößen und Schrift aus den Vorgaben. Später einzeln übersteuerbar.'))+
-      wzOpt('design','individual','brush',T('Individuell je Kachel'),T('Farbe, Schrift & Icon je Kachel — im Editor.'))+'</div>'+
-      wzLookHtml();
-  } else if(key==='overlay'){
-    b.innerHTML='<p class="wzq">'+T('Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird')+'</p>'+
+    wzInhaltVorschlagen();
+    if(WZ.content==='pick' && wzTileFor>=0 && wzTileFor<(WZ.pickPages||[]).length){ h=wzTileEditor(wzTileFor); }
+    else {
+      h=wzAnzeigeHtml()+'<p class="wzq mt">'+T('Wie möchtest du befüllen?')+'</p>'+
+        (WZ._raumVorschlag && WZ.content==='room' ? '<div class="wznote" style="margin-bottom:6px">'+esc(T('Vorschlag aus dem Gerätenamen: Raum-Ansicht {r}').replace('{r}',WZ._raumVorschlag))+'</div>' : '')+
+        '<div class="wzopts">'+
+        wzOpt('content','room','room',T('Raum-Ansicht'),T('Ein Raum aus Loxone + Kategorien als Sprungtabs.'))+
+        wzOpt('content','classic','grid',T('Klassische Visu'),T('Standard-Tabs (Favoriten/Zentral/Räume/Kategorien).'))+
+        wzOpt('content','pick','pick',T('Freie Auswahl'),T('Eigene Seiten mit handverlesenen Kacheln (bis 4).'))+'</div>'+
+        (WZ.content ? '<div class="mt">'+wzSetup()+'</div>' : '');
+    }
+  } else if(key==='aussehen'){
+    h='<div class="wznote" style="margin:0 0 6px">'+T('Leere Felder nehmen die Vorgaben; einzelne Kacheln stellst du danach im Editor ein.')+'</div>'+
+      wzLookHtml()+
+      '<p class="wzq mt">'+T('Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird')+'</p>'+
       '<div class="ovctrl">'+overlayFields(WZ.overlay,'wzov_')+'</div>'+
-      '<div class="wznote" style="margin-top:8px">'+T('Gilt für die ganze Ansicht; einzelne Kacheln kannst du später im Editor abweichend einstellen.')+'</div>';
-  } else if(key==='name'){
-    b.innerHTML='<div class="wzfield"><label>'+T('Anzeigename')+'</label><input id="wzTitleI" value="'+esc(WZ.title)+'" placeholder="'+T('z. B. Wohnzimmer')+'"></div>'+
-      '<div class="wzfield mt"><label>'+T('Kennung')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Gerät:')+' <code>?panel='+(WZ.id||'wohnzimmer')+'</code></div></div>'+
-      (WZ.device ? '<div class="wzfield mt">'+
+      wzScreensaverHtml()+wzVerhaltenHtml();
+  } else if(key==='pruefen'){
+    wzNameVorschlagen();
+    if(WZ.art!=='zuweisen') h+='<div class="wzrow">'+
+        '<div class="wzfield" style="flex:1;min-width:180px"><label>'+T('Anzeigename')+'</label><input id="wzTitleI" value="'+esc(WZ.title)+'" placeholder="'+T('z. B. Wohnzimmer')+'"></div>'+
+        '<div class="wzfield" style="flex:1;min-width:180px"><label>'+T('Kennung')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Gerät:')+' <code>?panel='+esc(WZ.id||'wohnzimmer')+'</code></div></div></div>'+
+        (PANELS[WZ.id] ? '<div class="wznote" style="color:var(--crit)">'+esc('Ansicht „'+WZ.id+'" '+T('gibt es schon.'))+'</div>' : '');
+    if(WZ.device && WZ.art!=='zuweisen') h+='<div class="wzfield mt">'+
         '<label class="wzchk"><input type="checkbox" id="wzUmschalten"'+(WZ.umschalten?' checked':'')+'> '+
-          esc(T('Danach auf')+' '+WZ.device+' '+T('anzeigen – speichert und schaltet das Gerät um'))+'</label>'+
-        (WZ.grid==='auto' && wzZielNeu() ? '<label class="wzchk"><input type="checkbox" id="wzZielMerken"'+(WZ.zielMerken?' checked':'')+'> '+
-          esc(T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'))+'</label>' : '')+'</div>' : '');
-  } else if(key==='setup'){
-    b.innerHTML=wzSetup();
-  } else if(key==='screensaver'){
-    if(WZ.panes!=='2'){ b.innerHTML='<div class="wznote">'+T('Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>'; }
-    else { var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
-      b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
-      wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
-      wzOpt('svPane','off','clock',T('Aus — nur Uhr'),'')+
-      wzOpt('svPane','calendar','cal',T('Kalender'),'')+
-      wzOpt('svPane','weather','wx',T('Wetter'),'')+
-      (svHasA?wzOpt('svPane','player','audio',T('Audio'),''):'')+
-      (svHasE?wzOpt('svPane','energy','energy',T('Energiefluss'),''):'')+
-      (svHasC?wzOpt('svPane','camera','camera',T('Kamera'),''):'')+
-      (svHasV?wzOpt('svPane','chart','status',T('Verlauf'),''):'')+
-      '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
-  } else if(key==='review'){
-    b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
-      '<div class="wznote">'+T('Nach „Ansicht anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst die Ansicht über „Visu öffnen" testen.')+'</div>'+
-      wzVorschauHtml();
+          esc(T('Danach auf')+' '+WZ.device+' '+T('anzeigen – speichert und schaltet das Gerät um'))+'</label></div>';
+    if(wzZielMerkbar()) h+='<div class="wzfield"><label class="wzchk"><input type="checkbox" id="wzZielMerken"'+(WZ.zielMerken?' checked':'')+'> '+
+          esc(T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'))+'</label></div>';
+    h+='<p class="wzq mt">'+T('Zusammenfassung')+'</p>'+wzSummary()+
+      '<div class="wznote">'+(WZ.art==='zuweisen' ? T('„Zuweisen" schaltet das Gerät gleich um; Betriebsmodi unter Geräte gelten weiter.')
+        : T('Nach „Ansicht anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst die Ansicht über „Visu öffnen" testen.'))+'</div>'+
+      (WZ.art!=='zuweisen' ? wzVorschauHtml() : '');
   }
+  b.innerHTML=wzLeisteHtml(key)+h;
+  if(key==='geraet'){ var nh=$('#wzNeuHost'); wzLeihen('ag_anon_karte', nh); wzLeihen('neuesGeraet', nh); }
   b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
-  b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; }
+  b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ if(el.disabled) return; WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; wzTileFor=-1; }
     // Tablet (2 Panes): automatisches Raster vorschlagen, 4"-Panel: 2 x 2 - solange das Raster nicht selbst gewaehlt ist
     if(el.dataset.wk==='panes'){ WZ._panesT=true; if(!WZ._gridT) WZ.grid=(el.dataset.wo==='2')?'auto':'2x2'; }
     if(el.dataset.wk==='panes' && !wzPasst(WZ.panes, WZ.grid)) WZ.grid='auto';
+    if(el.dataset.wk==='art' && WZ.art!=='neu') wzQuelleSetzen(PANELS[WZ.quelle]?WZ.quelle:(ansichtIds()[0]||''));
     wzRender(); }; });
   b.querySelectorAll('[data-wbase]').forEach(function(el){ el.onclick=function(){ var v=el.dataset.wbase; if(v) WZ.look.baseColor=v; else delete WZ.look.baseColor; wzRender(); }; });
   b.querySelectorAll('[data-wsize]').forEach(function(el){ el.oninput=function(){ var k=el.dataset.wsize, v=el.value.trim(); if(v==='') delete WZ.look[k]; else WZ.look[k]=Number(v); }; });
   { var wcb=b.querySelector('#wzBaseCustom'); if(wcb) wcb.oninput=function(){ WZ.look.baseColor=wcb.value; var lv=$('#wzBaseVal'); if(lv) lv.textContent=wcb.value; }; }
   { var wf=b.querySelector('[data-wfont]'); if(wf) wf.onchange=function(){ if(wf.value) WZ.look.font=wf.value; else delete WZ.look.font; }; }
   { var ws=b.querySelector('[data-wscale]'); if(ws) ws.onchange=function(){ var v=scaleValue(ws.value); if(v==='') delete WZ.look.scale; else WZ.look.scale=v; }; }
-  if(key==='overlay'){ bindOverlay('wzov_', function(){ return WZ.overlay; }, function(){}); }
+  { var wd=b.querySelector('[data-wdpms]'); if(wd) wd.oninput=function(){ var v=wd.value.trim(); if(v==='') delete WZ.look.dpmsOff; else WZ.look.dpmsOff=Number(v); }; }
+  if(key==='aussehen'){ bindOverlay('wzov_', function(){ return WZ.overlay; }, function(){}); }
   b.querySelectorAll('[data-wg]').forEach(function(el){ el.onclick=function(){ WZ.grid=el.dataset.wg; WZ._gridT=true; wzRender(); }; });
   b.querySelectorAll('[data-rc]').forEach(function(el){ el.onclick=function(){ var u=el.dataset.rc, i=WZ.roomCats.indexOf(u); if(i>=0) WZ.roomCats.splice(i,1); else { if(WZ.roomCats.length>=4) return; WZ.roomCats.push(u); } wzRender(); }; });
   b.querySelectorAll('[data-std]').forEach(function(el){ el.onclick=function(){ var t=WZ.classic[+el.dataset.std]; t.on=!t.on; wzRender(); }; });
@@ -4424,43 +4432,57 @@ function wzRender(){
   b.querySelectorAll('[data-pgtiles]').forEach(function(el){ el.onclick=function(){ wzTileFor=+el.dataset.pgtiles; wzRender(); }; });
   { var tbk=$('#wzTileBack'); if(tbk) tbk.onclick=function(){ wzTileFor=-1; wzRender(); }; }
   { var tnx=$('#wzTileNext'); if(tnx) tnx.onclick=function(){ var N=WZ.pickPages.length; if(wzTileFor>=N-1){ wzTileFor=-1; wzNext(); } else { wzTileFor++; wzRender(); } }; }
-  // Seiten-Editor (Schritt 5, freie Seite): der Dialog wird dafuer breiter
+  // Seiten-Editor (freie Seite): der Dialog wird dafuer breiter
   { var seh=b.querySelector('#wzSeHost'); b.closest('.wzbox').classList.toggle('breit', !!seh); if(seh) seRender(seh, seKontextWz(wzTileFor)); }
   b.querySelectorAll('.wzp2sel[data-p2k]').forEach(function(el){ el.onchange=function(){ WZ.pane2[el.dataset.p2k]=el.value; }; });
   var rm=$('#wzRoom'); if(rm){ if(!WZ.roomTab&&rm.value) WZ.roomTab=rm.value; rm.onchange=function(){ WZ.roomTab=rm.value; WZ.roomCats=[]; WZ.pane2={}; wzRender(); }; }
-  var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; if(!WZ._idT){ WZ.id=ti.value.toLowerCase().replace(/[^a-z0-9-]/g,''); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
+  { var wq=$('#wzQuelle'); if(wq) wq.onchange=function(){ wzQuelleSetzen(wq.value); wzRender(); }; }
+  { var wvn=$('#wzVon'); if(wvn) wvn.onchange=function(){ WZ.von=wvn.value; wzRender(); }; }
+  { var wnc=$('#wzNach'); if(wnc) wnc.onchange=function(){ WZ.nach=wnc.value; wzRender(); }; }
+  var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; WZ._titelT=true; if(!WZ._idT){ WZ.id=idAusName(ti.value); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
   { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
   { var wv=$('#wzVorschau'); if(wv) wv.onclick=async function(){ wv.disabled=true;
-      wzVorFehler=await vorschauAmGeraet(WZ.id, wzProfil(), WZ.device); wzRender(); }; }
+      wzVorFehler=await vorschauAmGeraet(WZ.id, wzEntwurf(), WZ.device); wzRender(); }; }
   { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ wzVorFehler=''; await vorschauGeraetBeenden(); wzRender(); }; }
   { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
   b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
-    var q=el.dataset.wgr, x=(q==='browser') ? wzBrowser() : wzGeraete().find(function(d){ return d.name===el.dataset.wgn; });
-    if(x){ wzGroesseSetzen(x); wzRender(); } }; });
-  { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); wzRender(); } }; }
+    var q=el.dataset.wgr;
+    if(q==='keins'){ WZ.groesse=null; WZ.device=''; if(WZ.art==='zuweisen') WZ.art='neu'; wzRender(); return; }
+    var x=(q==='browser') ? wzBrowser() : wzGeraete().find(function(d){ return d.name===el.dataset.wgn; });
+    // Zuweisen braucht ein echtes Geraet: ohne eines bleibt nur das Anlegen
+    if(x){ wzGroesseSetzen(x); if(!WZ.device && WZ.art==='zuweisen') WZ.art='neu'; wzRender(); } }; });
+  { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); if(WZ.art==='zuweisen') WZ.art='neu'; wzRender(); } }; }
   var idI=$('#wzId'); if(idI) idI.oninput=function(){ WZ._idT=true; WZ.id=idI.value.toLowerCase().replace(/[^a-z0-9-]/g,''); idI.value=WZ.id; wzUpd(); };
   $('#wzBack').disabled=WZ.step===0;
-  $('#wzNext').textContent=(WZ.step===f.length-1)?T('Ansicht anlegen ✓'):T('Weiter →');
+  $('#wzNext').textContent=(WZ.step===f.length-1)?(WZ.art==='zuweisen'?T('Zuweisen ✓'):T('Ansicht anlegen ✓')):T('Weiter →');
   wzUpd();
 }
 function wzUpd(){
   var f=wzFlow(), key=f[WZ.step], ok=true;
-  if(key==='anzeige') ok=!!WZ.panes;
-  if(key==='inhalt') ok=!!WZ.content;
-  if(key==='name') ok=!!WZ.title.trim() && !!WZ.id;
-  if(key==='setup'){
-    if(WZ.content==='room') ok=!!WZ.roomTab;
-    else if(WZ.content==='classic') ok=(WZ.classic||[]).some(function(t){return t.on;});
-    else if(WZ.content==='pick'){ ok=(WZ.pickPages||[]).some(function(pg){ return (pg.picks&&pg.picks.length)||pg.widget; }); }   // mind. eine befüllte Seite
-  }
+  if(key==='ansicht') ok = WZ.art==='neu' || (!!PANELS[WZ.quelle] && (WZ.art!=='zuweisen' || !!WZ.device));
+  if(key==='inhalt'){ ok=wzPflichtOk(); if(WZ.content==='pick' && wzTileFor>=0) ok=true; }   // im Befuell-Editor fuehrt dessen Knopf weiter
+  if(key==='pruefen' && WZ.art!=='zuweisen') ok=!!WZ.title.trim() && !!WZ.id && !PANELS[WZ.id];
   $('#wzNext').disabled=!ok;
-  // Sofort anlegen ab dem Schritt Name, sobald die Pflichtschritte gueltig sind -
-  // auch nach jeder Eingabe in Titel oder ID (dort ruft nur wzUpd, kein wzRender)
-  $('#wzFertig').hidden=!(WZ.step<f.length-1 && WZ.step>=f.indexOf('name') && wzPflichtOk());
+  // Inhalt fertig: das Aussehen darf bei den Vorgaben bleiben, gleich zum Pruefen
+  $('#wzFertig').hidden=!(WZ.art==='neu' && (key==='inhalt'||key==='aussehen') && wzTileFor<0 && wzPflichtOk());
+  $('#wzBlank').hidden=WZ.art!=='neu';   // eine leere Ansicht ist nur beim Anlegen ein Ausweg
+  { var wi=$('#wzId'), c=wi && wi.parentNode.querySelector('code'); if(c) c.textContent='?panel='+(WZ.id||'wohnzimmer'); }
 }
-function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzRender(); return; } wzBuild(); }
-// Das Profil, das der Assistent anlegen wuerde (UI-Form wie in PANELS), ohne etwas anzulegen:
-// wzBuild() traegt es ein, die Vorschau am Geraet (Punkt 12) schickt es als Entwurf.
+function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzTileFor=-1; wzRender(); return; } wzBuild(); }
+// Was der Assistent anlegen wuerde (UI-Form wie in PANELS), ohne etwas anzulegen: wzBuild()
+// traegt es ein, die Vorschau am Geraet (Punkt 12) schickt es als Entwurf.
+function wzEntwurf(){
+  if(WZ.art==='kopie'){
+    var p=PANELS[WZ.quelle]; if(!p) return null;
+    var r=(WZ.nach && WZ.nach!==WZ.von) ? profilMitRaumtausch(p, WZ.von, WZ.nach, META.controls||[]).profil : JSON.parse(JSON.stringify(p));
+    r.title=WZ.title.trim()||WZ.id;
+    if(WZ.device){ var sc=DEVICE_SCREENS[WZ.device]||{}; r.device=Object.assign({name:WZ.device}, (sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:{}); }
+    return r;
+  }
+  return wzProfil();
+}
+
+// Die neue Ansicht aus den Schritten Inhalt und Aussehen (art 'neu', siehe wzEntwurf)
 function wzProfil(){
   var ui={};
   if(WZ.grid==='auto') ui.grid='auto';   // Raster rechnet das Tablet selbst
@@ -4495,6 +4517,7 @@ function wzProfil(){
   ['iconSize','nameSize','subSize'].forEach(function(k){ if(L[k]!=null && L[k]!=='') ui[k]=Number(L[k]); });
   if(L.font) ui.font=L.font;
   if(L.scale!==undefined && L.scale!=='') ui.scale=L.scale;   // '' = wie global (nicht setzen)
+  if(gesetzt(L.dpmsOff)) ui.dpmsOff=Number(L.dpmsOff);   // leer = wie Vorgabe
   // Aktiv-Overlay aus Schritt „Overlay" (nur, wenn vom Standard abgewichen)
   if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
   if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
@@ -4502,15 +4525,23 @@ function wzProfil(){
   return Object.assign({title:WZ.title.trim()||WZ.id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
 }
 function wzBuild(){
+  var amGeraet=WZ.device, ziel=wzZiel(), zielMerken=WZ.zielMerken && wzZielMerkbar();
+  if(WZ.art==='zuweisen'){
+    var q=WZ.quelle; if(!PANELS[q] || !amGeraet) return;
+    wzClose(); setRubric('displays');
+    wzAmGeraet(q, amGeraet, true, zielMerken ? ziel : 0);
+    return;
+  }
   var id=WZ.id; if(!id) return;
   if(PANELS[id]){ alert('Ansicht „'+id+'" '+T('gibt es schon.')); return; }
-  PANELS[id]=wzProfil();
-  var amGeraet=WZ.device, umschalten=!!WZ.umschalten, zielMerken=WZ.grid==='auto' && WZ.zielMerken && wzZielNeu(), ziel=wzZiel();
+  var p=wzEntwurf(); if(!p) return;
+  PANELS[id]=p;
+  var umschalten=!!amGeraet && !!WZ.umschalten;
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
   if(amGeraet && (umschalten || zielMerken)) wzAmGeraet(id, amGeraet, umschalten, zielMerken ? ziel : 0);
 }
 $('#addBtn').onclick=wzOpen;
-{ const asb=$('#asStartWiz'); if(asb) asb.onclick=wzOpen; }
+['#geraetEinrichtenBtn','#ovGeraetEinrichten'].forEach(sel=>{ const k=$(sel); if(k) k.onclick=wzOpen; });
 
 
 /* ============================================================
@@ -4714,7 +4745,8 @@ function verbundenZeigen(){
   $('#einrOk').hidden=false;
   subSet='miniserver'; setRubric('settings');
 }
-$('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('assistant'); };
+// Schritt 1 (Miniserver) ist erledigt: weiter mit Gerät einrichten
+$('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('overview'); wzOpen(); };
 $('#einrSicherung').onclick=()=>{ $('#einrOk').hidden=true; subSet='backup'; setRubric('settings'); };
 
 // Speichern der Einstellungs-Karten: je eine Funktion, die Speicherleiste ruft sie
@@ -5076,7 +5108,7 @@ function koepfeZeichnen(){
 }
 function renderDeviceList(j){
   GERAETE_LISTE=j.devices||[];
-  geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen();
+  geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen(); wzGeraeteNachziehen();
   // Geraete ohne Kennung: eigener Abschnitt unter den Karten
   const anon=j.anonymous||[], ab=$('#ag_anon'), ak=$('#ag_anon_karte');
   if(ak) ak.hidden=!anon.length;
@@ -5626,13 +5658,13 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </script>
 <div id="wzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>＋ Neue Ansicht — Assistent</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="wzhd"><b data-i18n>＋ Gerät einrichten</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="wzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="wzBack">← Zurück</button>
       <div style="display:flex;gap:10px">
         <button class="wzbtn" id="wzBlank" title="Ohne Assistent, nur ID">Leer anlegen</button>
-        <button class="wzbtn" id="wzFertig" hidden title="Die übrigen Schritte behalten ihre Standardwerte">Jetzt anlegen ✓</button>
+        <button class="wzbtn" id="wzFertig" hidden title="Das Aussehen behält die Vorgaben">Weiter zu Prüfen →</button>
         <button class="wzbtn prim" id="wzNext">Weiter →</button>
       </div>
     </div>

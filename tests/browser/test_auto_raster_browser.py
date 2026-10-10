@@ -353,7 +353,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 stand["assistent"] = await pg.evaluate("""() => {
                     const wahl = (k, v) => document.querySelector('#wzBody [data-wk="' + k + '"][data-wo="' + v + '"]').click();
                     const raster = g => document.querySelector('#wzBody [data-wg="' + g + '"]').click();
-                    wzOpen(); WZ.step = wzFlow().indexOf('anzeige'); wzRender();
+                    wzOpen(); WZ.step = wzFlow().indexOf('inhalt'); wzRender();
                     wahl('panes', '2'); const tablet = WZ.grid;
                     const knopf = document.querySelector('#wzBody [data-wg="auto"]');
                     const angezeigt = [knopf.classList.contains('on'), knopf.innerText];
@@ -361,7 +361,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                     wahl('panes', '2'); raster('3x3'); wahl('panes', '1'); const bleibt = WZ.grid;
                     wahl('panes', '2'); raster('auto');
                     WZ.content = 'classic'; WZ.title = 'Flur'; WZ.id = 'flur'; wzInitSetup();
-                    WZ.step = wzFlow().indexOf('review'); wzRender();
+                    WZ.step = wzFlow().indexOf('pruefen'); wzRender();
                     const zusammenfassung = document.getElementById('wzBody').innerText.includes('Automatisch');
                     wzBuild();
                     return {tablet, angezeigt, panel4, bleibt, zusammenfassung,

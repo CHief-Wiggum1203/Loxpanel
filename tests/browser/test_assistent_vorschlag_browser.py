@@ -2,8 +2,9 @@
 je bekanntem Geraet ohne Profil einen Vorschlag - Geraetename passt zu einem
 Loxone-Raum: Raum-Panel, sonst Favoriten -, fuellt Anzeige (aus der
 gemeldeten Groesse), Inhalt und Name, traegt das Geraet als Zielgeraet ein
-und laesst mit "Jetzt anlegen" sofort anlegen; der Rest behaelt Standardwerte.
-Ein Geraet, auf das schon ein Profil zeigt, wird nicht mehr vorgeschlagen."""
+und springt in "Gerät einrichten" gleich zum Schritt Pruefen; der Rest behaelt
+Standardwerte. Ein Geraet, auf das schon ein Profil zeigt, wird nicht mehr
+vorgeschlagen."""
 import asyncio
 import json
 
@@ -22,7 +23,7 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/panels", W.api_save_panels)]
 STAND = """() => ({step: WZ.step, schritt: wzFlow()[WZ.step], panes: WZ.panes, grid: WZ.grid, content: WZ.content,
   roomTab: WZ.roomTab, title: WZ.title, id: WZ.id, device: WZ.device,
-  fertig: !document.getElementById('wzFertig').hidden,
+  fertig: !document.getElementById('wzFertig').hidden, anlegen: !document.getElementById('wzNext').disabled,
   titel: (document.getElementById('wzTitleI') || {}).value, idFeld: (document.getElementById('wzId') || {}).value})"""
 
 
@@ -74,15 +75,15 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 # Tablet im Technikraum: Raum-Panel, 2 Panes automatisch, Name und ID aus Raum und Geraet
                 await vorschlaege.nth(1).click()
                 st = await pg.evaluate(STAND)
-                assert st == {"step": st["step"], "schritt": "name", "panes": "2", "grid": "auto", "content": "room",
+                assert st == {"step": st["step"], "schritt": "pruefen", "panes": "2", "grid": "auto", "content": "room",
                               "roomTab": "room:r2", "title": "Technikraum", "id": "technikraum", "device": "technikraum",
-                              "fertig": True, "titel": "Technikraum", "idFeld": "technikraum"}, st
-                # Pflichtfeld geleert: "Jetzt anlegen" verschwindet beim Tippen, nicht erst beim Neuzeichnen
+                              "fertig": False, "anlegen": True, "titel": "Technikraum", "idFeld": "technikraum"}, st
+                # Pflichtfeld geleert: "Ansicht anlegen" sperrt beim Tippen, nicht erst beim Neuzeichnen
                 await pg.locator("#wzTitleI").fill("")
-                assert not (await pg.evaluate(STAND))["fertig"], "ohne Titel kein Sofort-Anlegen"
+                assert not (await pg.evaluate(STAND))["anlegen"], "ohne Titel kein Anlegen"
                 await pg.locator("#wzTitleI").fill("Technikraum")
-                assert (await pg.evaluate(STAND))["fertig"]
-                await pg.locator("#wzFertig").click()
+                assert (await pg.evaluate(STAND))["anlegen"]
+                await pg.locator("#wzNext").click()
                 await pg.wait_for_selector("#wzOv[hidden]", state="attached")
                 tr = await pg.evaluate("PANELS.technikraum")
                 assert (tr["title"], tr["tabs"], tr["ui"], tr["device"]) == (
@@ -95,23 +96,29 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 assert await vorschlaege.evaluate_all("l => l.map(n => n.dataset.wv)") == ["garage"]
                 await vorschlaege.first.click()
                 st = await pg.evaluate(STAND)
-                assert (st["panes"], st["grid"], st["content"], st["title"], st["id"], st["device"], st["fertig"]) == (
-                    "1", "2x2", "classic", "Garage", "garage", "garage", True), st
-                await pg.locator("#wzFertig").click()
+                assert (st["schritt"], st["panes"], st["grid"], st["content"], st["title"], st["id"], st["device"], st["anlegen"]) == (
+                    "pruefen", "1", "2x2", "classic", "Garage", "garage", "garage", True), st
+                await pg.locator("#wzNext").click()
                 await pg.wait_for_selector("#wzOv[hidden]", state="attached")
                 ga = await pg.evaluate("PANELS.garage")
                 assert ga["tabs"][0] == "favoriten" and len(ga["tabs"]) == 4 and ga["ui"] == {"split": False} \
                     and ga["device"] == {"name": "garage", "vw": 480, "vh": 480}, ga
 
-                # Selbst gewaehlt (ohne Vorschlag): im Schritt Name erscheint "Jetzt anlegen",
-                # sobald der Titel getippt ist
+                # Selbst gewaehlt (ohne Vorschlag): ist der Inhalt fertig, fuehrt "Weiter zu Prüfen"
+                # dorthin; anlegen laesst sich, sobald der Titel getippt ist
                 await pg.locator("#addBtn").click()
                 await pg.wait_for_selector("#wzOv:not([hidden])")
-                await pg.evaluate("WZ.panes = '2'; WZ.content = 'classic'; WZ.step = wzFlow().indexOf('name'); wzRender()")
-                assert not (await pg.evaluate(STAND))["fertig"]
+                await pg.evaluate("WZ._inhaltT = true; WZ.step = wzFlow().indexOf('inhalt'); wzRender()")
+                assert not (await pg.evaluate(STAND))["fertig"], "ohne Inhalt nicht zum Pruefen"
+                await pg.locator('#wzBody [data-wk="panes"][data-wo="2"]').click()
+                await pg.locator('#wzBody [data-wk="content"][data-wo="classic"]').click()
+                assert (await pg.evaluate(STAND))["fertig"]
+                await pg.locator("#wzFertig").click()
+                st = await pg.evaluate(STAND)
+                assert (st["schritt"], st["title"], st["anlegen"]) == ("pruefen", "", False), st
                 await pg.locator("#wzTitleI").fill("Flur")
                 st = await pg.evaluate(STAND)
-                assert (st["title"], st["id"], st["fertig"]) == ("Flur", "flur", True), st
+                assert (st["title"], st["id"], st["anlegen"]) == ("Flur", "flur", True), st
                 await pg.evaluate("wzClose()")
 
                 # Mehrere Raeume passen: der mit der naechsten Namenslaenge, der gleiche Name immer

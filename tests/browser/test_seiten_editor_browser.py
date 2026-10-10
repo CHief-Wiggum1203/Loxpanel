@@ -333,7 +333,7 @@ def test_assistent_schritt5_mit_dem_editor():
         pg = await _konfigurator(b, port, "flur")
         await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen(wzKatalog().find(k => k.name === 'Galaxy Tab A9 quer'));
             WZ.content = 'pick'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
-            WZ.step = wzFlow().indexOf('setup'); wzRender(); }""")
+            WZ.step = wzFlow().indexOf('inhalt'); wzRender(); }""")
         await pg.locator("#wzBody [data-pgtiles='0']").click()
         breit = await pg.evaluate("document.querySelector('#wzOv .wzbox').classList.contains('breit')")
         info = await pg.text_content("#wzSeHost [data-se-info]")

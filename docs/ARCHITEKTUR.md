@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Nacht), „Geräte" (eine Karte je Gerät, Betriebsmodus-Assistent, Geräte ohne Kennung, Neues Gerät einrichten, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Kennung, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -1698,10 +1698,11 @@ ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
 „Panel“ kommt in der Oberfläche nur noch im Produktnamen und als Bauform
 („4″-Wandpanel“) vor, „Display“ nur für den Bildschirm selbst (Display aus,
 Display-Steuerung, Display-Treiber). Die Rubriken heißen Übersicht,
-Einrichtungsassistent, Ansichten, Vorgaben (seit Schritt 5, `data-rub="vorgaben"`),
+Ansichten, Vorgaben (seit Schritt 5, `data-rub="vorgaben"`),
 Geräte und Einstellungen (die frühere Rubrik „unterstützte Geräte“ steht seit
 Schritt 4 als „Erprobte Hardware“ unter Geräte); die interne Kennung der übrigen
-(`data-rub`) blieb dabei gleich. Unter 1200 px Breite rücken die Rubriken enger,
+(`data-rub`) blieb dabei gleich. Die Rubrik „Einrichtungsassistent“ gibt es seit
+Schritt 7 nicht mehr, ihr Weg ist „Gerät einrichten“. Unter 1200 px Breite rücken die Rubriken enger,
 noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
 
 - Liest `GET /api/meta`, schreibt `POST /api/panels` und `POST /api/theme`.
@@ -1768,6 +1769,40 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
     für „erbt“. Damit die Ansicht die Geräte richtig nennt, folgt `DEV` jeder
     Eingabe auf der Gerätekarte (`readDevFromDom()`).
   - `test_vererbung_browser.py` hält das fest.
+- **Gerät einrichten** (seit 10.10.2026, Schritt 7): ein Weg vom Gerät bis zur
+  fertigen Ansicht, der Assistent `wz*` in neuer Ordnung. Er öffnet sich aus der
+  Übersicht (`#ovGeraetEinrichten`, Kasten „Gerät einrichten“), unter Geräte
+  (`#geraetEinrichtenBtn`), über „＋ Neue Ansicht“ und nach der Ersteinrichtung
+  („Gerät einrichten“ in `#einrOk`). Sechs Schritte (`WZ_SCHRITTE`), die Leiste
+  oben zeigt erledigte, den jetzigen und die entfallenden:
+  1. Miniserver: erledigt, sobald der Assistent aufgeht; ohne Struktur führt
+     `wzOpen()` zu Einstellungen → Miniserver.
+  2. Gerät: ein gemeldetes, dieser Browser, ein Katalogeintrag oder „Ohne Gerät“,
+     dazu die Vorschläge je Gerät ohne Ansicht. „Neues Gerät verbinden“ leiht sich
+     die Geräte ohne Kennung (`#ag_anon_karte`, Code am Panel) und Start-Adresse
+     oder Agent (`#neuesGeraet`, zu Hause in `#wzHeim` unter Geräte, unsichtbar)
+     mit `wzLeihen()`; `wzZurueckgeben()` stellt sie vor jedem Neuzeichnen und beim
+     Schließen zurück, dieselben Knoten, Eingaben und Ereignisse bleiben. Meldet
+     sich ein neues Gerät, zeichnet die Abfrage den Schritt neu
+     (`wzGeraeteNachziehen()`).
+  3. Ansicht (`WZ.art`): neu anlegen, eine vorhandene zuweisen (braucht ein Gerät;
+     „Zuweisen“ schaltet es um, ohne eine Ansicht zu speichern, wenn sie schon auf
+     dem Server steht) oder eine vorhandene mit Raumtausch duplizieren
+     (`profilMitRaumtausch()`, Zielraum aus dem Gerätenamen, `wzRaumFuer()`). Bei
+     zuweisen und duplizieren entfallen 4 und 5 (`wzFlow()`).
+  4. Inhalt und Seiten: Anzahl Panes und Raster (vorgerechnet wie bisher), die
+     untere Leiste, Räume oder Seiten samt Seiten-Editor. Beim ersten Besuch ist
+     die Raum-Ansicht zum Gerätenamen vorgewählt (`wzInhaltVorschlagen()`).
+  5. Aussehen und Verhalten: Grundfarbe, Größen, Schrift, Skalierung,
+     Aktiv-Overlay, Screensaver und „Display aus“, leere Felder zeigen die
+     Vorgaben. Der frühere Schritt „Design“ (einheitlich oder je Kachel) fiel weg,
+     er schrieb nichts in die Ansicht.
+  6. Prüfen: Name und Kennung (vorbelegt aus Raum, Zielraum oder Gerät,
+     `wzNameVorschlagen()`), Umschalten und Zielkachel merken, Zusammenfassung,
+     „Auf … ansehen“ (`wzEntwurf()` baut neu oder Kopie ohne Anlegen), dann
+     „Ansicht anlegen“ oder „Zuweisen“ (`wzBuild()`).
+  „Weiter zu Prüfen“ (`#wzFertig`) überspringt das Aussehen, sobald der Inhalt
+  steht. `test_geraet_einrichten_browser.py` hält die drei Wege fest.
 - **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
   eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
   Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,
@@ -1846,8 +1881,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   dieselbe `paneListe()` wie unter Inhalt): Widget daneben samt Wahl (Zone,
   Kamera, Bausteine) und Werteleiste; die Kopfzeilen-Werte lässt sie weg, die
   stehen schon auf der Fläche.
-  Im Assistenten rechnet der Editor mit Anzeige, Raster
-  und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
+  Im Assistenten (Schritt Inhalt und Seiten) rechnet der Editor mit Anzeige, Raster
+  und Gerät, `wzBuild()` übernimmt Layout und `byRoom`.
   „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
   allen ungespeicherten Änderungen in der echten Visu: `entwurfOeffnen()` schickt
   es an `POST /api/entwurf` und öffnet `/?panel=<id>&entwurf=<token>` in einem
@@ -1876,7 +1911,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Vorschau am Gerät (Punkt 12): „Am Gerät ansehen“ (Speicherleiste, Ziel ist das
   Vorschaugerät des Seiten-Editors, sonst das Zielgerät des Profils) und im letzten
   Schritt des Assistenten „Auf … ansehen“ (dort gibt es das Panel noch nicht, der
-  Entwurf trägt es: `wzProfil()` baut das Profil ohne Anlegen) schicken denselben
+  Entwurf trägt es: `wzEntwurf()` baut das Profil ohne Anlegen) schicken denselben
   Entwurf an das Gerät: `POST /api/device/switch` mit `entwurf`, als `{t:"switch",
   panel, entwurf}` nur an die verbundenen Visus des Geräts. Ein Agent ohne offene
   Visu kann den Token nicht in die Kiosk-URL tragen, dort meldet der Server
@@ -1936,13 +1971,13 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Pflichtschritte: Anzeige aus der gemeldeten Größe (quadratisch 1 Pane
   mit 2 × 2, sonst 2 Panes mit „Automatisch“), Inhalt, Name und ID aus
   Raum bzw. Gerät, dazu das Gerät als Zielgerät (Punkt 15; `wzBuild()`
-  schreibt `device` mit Größe); der Assistent springt zum Schritt Name.
-  Sobald die drei Pflichtschritte gültig sind (`wzPflichtOk()`), bietet
-  der Fuß „Jetzt anlegen ✓“ an, die übrigen Schritte behalten ihre
-  Standardwerte. Geprüft in
+  schreibt `device` mit Größe); der Assistent springt seit Schritt 7 gleich
+  zum Schritt Prüfen. Steht der Inhalt (`wzPflichtOk()`), bietet der Fuß
+  „Weiter zu Prüfen“ an, das Aussehen behält die Vorgaben. Geprüft in
   `tests/browser/test_assistent_vorschlag_browser.py`.
-- Assistent Schritt 1 aus dem Gerät (Punkt 9, 09.10.2026): Vor „Anzahl
-  Panes“ fragt der erste Schritt „Für welches Gerät?“: die Geräte mit
+- Assistent Schritt 1 aus dem Gerät (Punkt 9, 09.10.2026; seit Schritt 7 ist das
+  der Schritt Gerät, Panes und Raster stehen unter Inhalt und Seiten): Er fragt
+  „Für welches Gerät?“: die Geräte mit
   gemeldeter Größe (`wzGeraete()` aus `DEVICE_SCREENS`), „Dieser Browser“
   (eigene Fenstergröße) und als Ausweg der Katalog des Servers
   (`GERAETE_KATALOG` in `/api/meta` als `geraeteKatalog`, dieselben
@@ -1959,7 +1994,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Rasters zu verlassen (Zielkachel mal und durch `KACHEL_WACHSEN`; 10″ quer
   mit 2 Panes: nur 3 × 3 und „Automatisch“). Ohne eigene Wahl schlägt der
   Wechsel des Geräts Panes und Raster neu vor (`_panesT`, `_gridT`). Bei
-  einem echten Gerät bietet der Schritt Name „Danach auf … anzeigen“ und
+  einem echten Gerät bietet der Schritt Prüfen „Danach auf … anzeigen“ und
   bei „Automatisch“ „Zielkachel … am Gerät merken“ an; nach dem Anlegen
   (`wzAmGeraet()`) speichert der Assistent die Zielkachel unter Displays
   (`/api/devices`), dann alle Panels und schaltet das Gerät um

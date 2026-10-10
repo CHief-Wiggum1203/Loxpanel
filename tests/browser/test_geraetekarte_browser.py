@@ -76,16 +76,21 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 await flur.locator(".gk-kopf .agsel").select_option("kueche")
                 assert await pg.locator("#offenTxt").text_content() == "Alles gespeichert"
 
-                # Neues Geraet und Erprobte Hardware unter Geraete, nicht unter Einstellungen
-                for sel in ("#neuesGeraet #nk_gen", "#neuesGeraet #np_gen", "#erprobteHardware .devcat"):
-                    assert await pg.locator("#displaysHost " + sel).count() >= 1, sel
+                # Erprobte Hardware unter Geraete; ein neues Geraet verbindet seit Schritt 7
+                # "Gerät einrichten" (Schritt Gerät), weder Einstellungen noch Geraete selbst
+                assert await pg.locator("#displaysHost #erprobteHardware .devcat").count() >= 1
+                assert not await pg.locator("#nk_gen").is_visible()
+                await pg.locator("#geraetEinrichtenBtn").click()
+                await pg.locator("#wzBody #neuesGeraet summary").click()
+                assert await pg.locator("#wzBody #neuesGeraet #nk_gen").is_visible()
+                await pg.evaluate("wzClose()")
+                assert await pg.locator("#wzHeim #neuesGeraet").count() == 1, "zurueck an seinem Platz"
                 await pg.locator(".rub", has_text="Einstellungen").click()
                 reiter = await pg.eval_on_selector_all("#subtabs .stab", "l => l.map(b => b.dataset.sub)")
                 assert "newpanel" not in reiter, reiter
                 await pg.locator(".rub", has_text="Übersicht").click()
-                await pg.locator('#overviewHost .ovbox[data-goto="displays:neuesGeraet"]').click()
-                assert await pg.locator("#neuesGeraet").get_attribute("open") is not None
-                assert await pg.locator("#nk_gen").is_visible()
+                await pg.locator('#overviewHost .ovbox[data-goto="wizard"]').click()
+                assert await pg.locator("#wzBody #neuesGeraet").count() == 1
                 await b.close()
         finally:
             bc.cancel()

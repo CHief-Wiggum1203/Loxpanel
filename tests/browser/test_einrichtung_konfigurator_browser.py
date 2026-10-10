@@ -29,7 +29,7 @@ BAUSTEINE = {
 # Was der Konfigurator ohne Struktur sperrt: alle Rubriken ausser Einstellungen
 # und dort alle Reiter ausser Miniserver und Sicherung. "Neues Gerät" und
 # "Erprobte Hardware" stehen seit Schritt 4 unter Geräte und sind damit mit gesperrt.
-GESPERRT = ["overview", "assistant", "pconf", "vorgaben", "displays"]
+GESPERRT = ["overview", "pconf", "vorgaben", "displays"]
 REITER_GESPERRT = ["intercom", "sip", "audio", "calendar"]
 
 ZUSTAND = """() => {
@@ -117,8 +117,9 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
             await pg.wait_for_selector("#einrOk:not([hidden])")
             verbunden = await pg.evaluate(ZUSTAND)
             await pg.screenshot(path=str(tmp_path / "einrichtung_verbunden.png"))
-            await pg.click("#einrAssistent")
-            weiter = await pg.evaluate("rubric")
+            await pg.click("#einrAssistent")     # Schritt 1 erledigt: weiter mit Gerät einrichten
+            weiter = await pg.evaluate("[document.getElementById('wzOv').hidden, wzFlow()[WZ.step]]")
+            await pg.evaluate("wzClose()")
             # Gemeldet am Tablet: ohne Neuladen blieb die Raumliste leer ("alle 0 sichtbar")
             await pg.locator(".rub", has_text="Ansichten").click()
             await pg.locator(".stab", has_text="Inhalt").click()
@@ -143,7 +144,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
                          "neuesPanel": False, "liste": False, "hinweis": False, "stand": "",
                          "weiter": "Bausteine geladen: 2. Alle Bereiche sind jetzt offen.",
                          "pane": ["miniserver"]}
-    assert weiter == "assistant"
+    assert weiter == [False, "geraet"], weiter
     assert raeume == ("alle 2 sichtbar", ["Technikraum", "Zentral"]), "Raeume frisch vom Server"
 
 
@@ -181,7 +182,7 @@ TEXTE = {
            "Erst den Miniserver verbinden",
            "Der gespeicherte Zugang ist nicht verbunden. Angaben prüfen und erneut „Verbinden & Speichern“.",
            "Verbindung zu 10.0.0.5 wird aufgebaut …", "Keine Verbindung zu 10.0.0.5: timeout",
-           "Mit dem Miniserver verbunden", "Ansicht einrichten", "Sicherung einspielen",
+           "Mit dem Miniserver verbunden", "Gerät einrichten", "Sicherung einspielen",
            "Bausteine geladen: 2. Alle Bereiche sind jetzt offen."],
     "en": ["Connect the Miniserver first",
            "Without a connection LoxPanel knows neither rooms nor blocks. Enter address, user and password, "
@@ -189,7 +190,7 @@ TEXTE = {
            "Connect the Miniserver first",
            "The saved access is not connected. Check the entries and “Connect & save” again.",
            "Connecting to 10.0.0.5 …", "No connection to 10.0.0.5: timeout",
-           "Connected to the Miniserver", "Set up a view", "Restore backup",
+           "Connected to the Miniserver", "Set up device", "Restore backup",
            "Blocks loaded: 2. All sections are open now."],
 }
 
