@@ -304,7 +304,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                     await pg.goto(f"http://127.0.0.1:{port}/config")
                     await pg.wait_for_function(KONFIGURATOR_GELADEN)
                     await pg.locator("#plist .pitem", has_text="Tablet").click()
-                    await pg.locator('.stab[data-sub="appearance"]').click()
+                    await pg.locator('.stab[data-sub="raster"]').click()
 
                 async def felder():
                     return {f: await pg.locator(f"#{f}").is_visible()
@@ -343,7 +343,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 stand["geraet"] = await pg.locator('#ag_list .ag[data-name="tab"] .agscr').text_content()
                 await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Tablet").click()
-                await pg.locator('.stab[data-sub="appearance"]').click()
+                await pg.locator('.stab[data-sub="raster"]').click()
                 await pg.locator("#fLayout").select_option("3x3")
                 stand["fest"] = await felder()
                 stand["zurueck"] = (await speichern())["ui"]
@@ -453,7 +453,7 @@ def test_widget_breite_im_konfigurator(cfg_ordner, tmp_path):
                     await pg.goto(f"http://127.0.0.1:{port}/config")
                     await pg.wait_for_function(KONFIGURATOR_GELADEN)
                     await pg.locator("#plist .pitem", has_text="Tablet").click()
-                    await pg.locator('.stab[data-sub="appearance"]').click()
+                    await pg.locator('.stab[data-sub="raster"]').click()
 
                 async def regler(wert):
                     await pg.locator("#fPaneCols").evaluate(

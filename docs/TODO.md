@@ -77,10 +77,14 @@ Form, es ist ein Umbau der Oberfläche.
       Änderungen mitzunehmen. Ein Rubrikwechsel verliert nichts, darum fragt
       nur Neuladen oder Schließen der Seite nach. Tests in
       `tests/browser/test_speicherleiste_browser.py`. **M**
-- [ ] **Schritt 3, Reiter der Ansicht neu ordnen.** Acht Reiter werden sechs
-      (Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten); Widget,
-      Kopfzeile und Werteleiste je Standard-Seite unter Inhalt, für freie
-      Seiten nur im Seiten-Editor. **L**
+- [x] **Schritt 3, Reiter der Ansicht neu ordnen.** Acht Reiter werden sechs
+      (Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), jedes Feld in
+      genau einem. Widget, Kopfzeile und Werteleiste je Standard-Seite unter
+      Inhalt; für die freie Seite steht dieselbe Zeile im Seiten-Editor, der
+      damit auch Zone, Kamera, Bausteine des Widgets und die Werteleiste
+      einstellt (vorher nur unter Aussehen). Duplizieren und Löschen unter
+      Allgemein, die Speicherleiste behält die Vorschau. Tests in
+      `tests/browser/test_reiter_ansicht_browser.py`. **L**
 - [ ] **Schritt 4, Gerätekarte.** Eine Karte je Gerät mit Ansicht, Steuerung,
       Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und
       Display-Steuerung; „Neues Gerät“ und „Erprobte Hardware“ ziehen in die

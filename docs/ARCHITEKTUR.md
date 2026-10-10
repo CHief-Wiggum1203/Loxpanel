@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Assistent, Liste der Ansichten samt „Vorgaben", Tabs, Räume, Kacheln, Seiten-Editor, Aussehen, Split-Player), „Geräte" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Gerät, Sicherung) und „Erprobte Hardware". Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Einrichtungsassistent", „Ansichten" (Liste der Ansichten samt „Vorgaben", je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Geräte" (Geräte & Ansicht, Betriebsmodus-Assistent und -Automatik, Display-Steuerung, Nachtmodus), „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Neues Gerät, Sicherung) und „Erprobte Hardware". Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -764,7 +764,7 @@ Wandpanel, ohne Konfigurator:
 Beide **schlagen die Konfiguration**: der Theme-Push setzt dieselben Variablen,
 danach greift `posringOverride()` erneut. Das ist gewollt — der Wert am Gerät
 gewinnt, sonst wäre der Live-Test beim nächsten Push weg. Ohne gemerkten Wert
-gilt wieder, was unter *Ansichten → Positionsring* eingestellt ist.
+gilt wieder, was unter *Ansichten → Aussehen → Aktiv-Overlay* (Positionsring) eingestellt ist.
 
 Fehlend: `_apply_tile_style()` erzeugt URLs `/gicon?name=` und `/uicon?f=` für
 Google- und Custom-Icons (`:1598`, `:1601`), aber diese Routen sind nicht
@@ -1711,6 +1711,19 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
   Neuladen oder Schließen der Seite fragt nach (`beforeunload`). „Verbinden &
   Speichern“ des Miniservers bleibt ein eigener Knopf, weil er zuerst die Verbindung
   prüft.
+- **Sechs Reiter je Ansicht** (seit 10.10.2026, Schritt 3): `PCONF_TABS` =
+  Allgemein (Titel, Zielgerät, Sprache, Kennung mit Duplizieren und Löschen),
+  Inhalt (untere Leiste, Räume, Kategorien, Widget/Kopfzeile/Werteleiste je
+  Standard-Seite in `#panePerTab`), Seiten (Seiten-Editor samt `#sePaneBox` für
+  die gewählte freie Seite), Raster (Kachel-Layout, Zielkachel, Bildschirm
+  füllen, Skalierung, Split, Widget-Breite, Versatz), Aussehen (Grundfarbe,
+  Schrift und Größen, Kachel-Aufbau, Kacheln gestalten, Aktiv-Overlay) und
+  Verhalten (Screensaver, Display aus, Nacht, Auto-Neustart, PIN merken). Jedes
+  Feld steht in genau einem Reiter, die Feld-IDs sind seit Schritt 2 gleich
+  geblieben; `test_reiter_ansicht_browser.py` hält beides fest. `renderPanes()`
+  zeichnet `paneListe()` zweimal: Standard-Seiten unter Inhalt, die freie Seite
+  im Seiten-Editor. Die Vorgaben behalten ihre zwei Reiter (Darstellung samt
+  Sprache, Kategorie-Farben).
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
   gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
   bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an
@@ -1771,9 +1784,12 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
   (`pickKurzHtml()`: Icon, Name, wie viele Bausteine aus wie vielen Räumen
   oder welches Widget, die Sprungmarken) mit „Im Seiten-Editor bearbeiten“.
   Ist die Kopfzeile gewählt, stehen ihre Werte (die Badges neben Uhr und
-  Wetter) unter den Widgets der Palette (`seKopfWerteHtml()`), dieselben Daten
-  wie unter Aussehen (`ui.panes[tab]` = `header:<uuid>,…`); das Band auf der
-  Fläche nennt sie.
+  Wetter) unter den Widgets der Palette (`seKopfWerteHtml()`) (`ui.panes[tab]` =
+  `header:<uuid>,…`); das Band auf der Fläche nennt sie. Unter der Fläche steht
+  die Zeile „Widget, Kopfzeile, Werteleiste dieser Seite“ (`sePaneZeichnen()`,
+  dieselbe `paneListe()` wie unter Inhalt): Widget daneben samt Wahl (Zone,
+  Kamera, Bausteine) und Werteleiste; die Kopfzeilen-Werte lässt sie weg, die
+  stehen schon auf der Fläche.
   Im Assistenten rechnet der Editor mit Anzeige, Raster
   und Gerät aus Schritt 1, `wzBuild()` übernimmt Layout und `byRoom`.
   „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
@@ -1833,7 +1849,7 @@ Hardware; die interne Kennung (`data-rub`) blieb dabei gleich.
   Visu in neun Fällen (Widget quer und hochkant, Kopfzeile mit Werteleiste,
   fest 3 × 3, 4″ mit 2 × 2, Automatik ohne Gruppierung), Ziehen, Tasten,
   Größe und Speichern ohne Verworfenes, Finger nur am Griff, Widgets, der
-  Assistent, die Kurzfassung unter Tabs und das Duplizieren; Name, Icon und
+  Assistent, die Kurzfassung unter Inhalt und das Duplizieren; Name, Icon und
   Inhalt von vier Seiten über Speichern und Neuladen in
   `tests/browser/test_auswahl_seiten_browser.py`.
 - Panel duplizieren mit Raumtausch (Punkt 14, 08.10.2026): „Duplizieren“ in

@@ -323,7 +323,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
                     await pg.goto(f"http://127.0.0.1:{port}/config")
                     await pg.wait_for_function(KONFIGURATOR_GELADEN)
                     await pg.locator("#plist .pitem", has_text="Flur").click()
-                    await pg.locator('.stab[data-sub="appearance"]').click()
+                    await pg.locator('.stab[data-sub="aussehen"]').click()
 
                 async def grau():
                     """Was die leeren Groessenfelder grau zeigen"""
@@ -360,7 +360,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
                 stand["grau_global"] = await grau()
                 await pg.locator('#pconfHost input[data-ui="nameSize"]').fill("19")
                 await pg.locator("#plist .pitem", has_text="Flur").click()
-                await pg.locator('.stab[data-sub="appearance"]').click()
+                await pg.locator('.stab[data-sub="aussehen"]').click()
                 stand["grau_erbt"] = await grau()
                 await b.close()
         finally:
