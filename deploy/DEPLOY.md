@@ -54,11 +54,11 @@ rustup installieren (dessen `cargo` muss auch fuer `sudo pip3` im `PATH` liegen)
 
 ## 3) Miniserver-Zugang
 Nach Schritt 4 im Browser `http://<px30-ip>:8099/config` oeffnen und den Zugang
-unter **Settings → Miniserver** eintragen. Der Server prueft die Anmeldung und
+unter **Einstellungen → Miniserver** eintragen. Der Server prueft die Anmeldung und
 legt `config/loxpanel.cfg` selbst an; bis dahin wartet er und zeigt jedem Panel,
 wo der Konfigurator zu oeffnen ist. Alternativ in der `.service` unter
 `[Service]` je eine Zeile `Environment=LOXPANEL_MS_HOST=<ip>` (ebenso `_USER`,
-`_PASS`, `_PORT`, `_VERIFY_TLS`); ein unter Settings gespeicherter Zugang hat
+`_PASS`, `_PORT`, `_VERIFY_TLS`); ein unter Einstellungen gespeicherter Zugang hat
 Vorrang vor diesen Variablen.
 
 ## 4) Server als Dienst

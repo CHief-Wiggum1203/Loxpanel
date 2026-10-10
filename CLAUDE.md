@@ -11,9 +11,10 @@ priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
 `bin/webvisu.py` (aiohttp) verbindet sich per WebSocket mit dem Miniserver, rendert
 alle Ansichten serverseitig als JSON und schickt sie per WebSocket an
 `webfrontend/html/panel.html`, das nur noch anzeigt. Konfigurator und Einstellungen
-liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Rubriken „Panel
-Configuration", „Displays" und „Settings"), `settings.html` leitet nur noch weiter; beide
-sprechen `/api/*`.
+liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Rubriken „Ansichten",
+„Geräte" und „Einstellungen"), `settings.html` leitet nur noch weiter; beide
+sprechen `/api/*`. Die Wörter der Oberfläche (Ansicht, Gerät, Vorgaben,
+Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 
 ## Wichtige Dateien
 
@@ -110,7 +111,7 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   patcht `updatePanel()` ihn nie und er friert ein. Befehle und State-Bedeutung
   eines Bausteins aus der Loxone-Strukturdoku („Structure File“), nicht
   raten; Unterseiten (Zone, Weckzeit …) sind eigene `view`-Routen in `render()`.
-- `loxpanel.cfg` aus `/config` (Settings → Miniserver) hat Vorrang vor
+- `loxpanel.cfg` aus `/config` (Einstellungen → Miniserver) hat Vorrang vor
   `LOXPANEL_MS_*`-Variablen.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und
   den Heredoc in `deploy/install-agent.sh`.

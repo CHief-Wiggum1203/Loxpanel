@@ -67,7 +67,7 @@ abweichen.
 
 ## Gerät benennen und steuern
 
-Ein Gerät erscheint unter *Displays → Geräte & Ansicht*, sobald es die Visu mit
+Ein Gerät erscheint unter *Geräte → Geräte & Ansicht*, sobald es die Visu mit
 `?device=<name>` öffnet. Fehlt die Kennung in der URL, steht das Gerät dort
 unter „Ohne Kennung" mit seiner IP. Dort einen Namen eintragen und „Namen
 vergeben" klicken: Die Visu merkt sich den Namen im Browser und verbindet sich
@@ -92,7 +92,7 @@ gemeint. Die Antwort nennt, wie viele Verbindungen erreicht wurden.
 
 Alternativ oder zusätzlich zur JavaScript-Schnittstelle: In Fully unter *Remote
 Administration (PLUS)* die Fernverwaltung einschalten und ein Passwort setzen.
-Dann in LoxPanel unter *Displays → Betriebsmodus-Automatik & Display-Steuerung*
+Dann in LoxPanel unter *Geräte → Betriebsmodus-Automatik & Display-Steuerung*
 beim Gerät den Display-Treiber „Fully Kiosk (Remote Admin)" wählen, IP des
 Geräts, Port 2323 und das Passwort eintragen, speichern. Der Server ruft dann
 `http://<ip>:2323/?cmd=screenOn` bzw. `screenOff` auf.
@@ -123,7 +123,7 @@ ausgesetzt. Wird der Raum leer, geht es aus, kommt jemand, geht es wieder an.
 1. Das Gerät braucht eine Kennung (`?device=<name>`, siehe oben) und eine der
    Display-Steuerungen: die JavaScript-Schnittstelle von Fully Kiosk, Fully
    Remote Admin oder WallPanel.
-2. In LoxPanel unter *Displays → Betriebsmodus-Automatik & Display-Steuerung*
+2. In LoxPanel unter *Geräte → Betriebsmodus-Automatik & Display-Steuerung*
    beim Gerät unter „Präsenzmelder" den Baustein wählen und speichern. Zur
    Auswahl stehen alle Bausteine mit einem Zustand „aktiv", neben dem
    Präsenzmelder also auch Schalter oder digitale Statusbausteine – nützlich,
@@ -157,7 +157,7 @@ dort wirkt der Präsenzmelder nicht.
 
 ## Start-URL aus den Einstellungen
 
-Unter *Einstellungen → Neues Panel* gibt es für Android-Geräte einen
+Unter *Einstellungen → Neues Gerät* gibt es für Android-Geräte einen
 Generator: Gerätename und Startansicht wählen, „Start-URL erzeugen", kopieren
 und in die Kiosk-App eintragen.
 

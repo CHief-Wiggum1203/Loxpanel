@@ -88,7 +88,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                await pg.locator(".rub", has_text="Displays").click()
+                await pg.locator(".rub", has_text="Geräte").click()
                 liste = pg.locator("#ag_list")
                 zeile = liste.locator(f'.ag[data-code="{code}"]')
                 await zeile.wait_for()

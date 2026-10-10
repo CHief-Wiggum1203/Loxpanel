@@ -90,7 +90,7 @@ async def _displays(pg, port=None):
     else:
         await pg.goto(f"http://127.0.0.1:{port}/config")
     await pg.wait_for_function(KONFIGURATOR_GELADEN)
-    await pg.locator(".rub", has_text="Displays").click()
+    await pg.locator(".rub", has_text="Geräte").click()
 
 
 def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):

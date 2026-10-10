@@ -51,6 +51,43 @@ Agent. Der Agent bleibt für Linux erhalten. Hintergrund und Bewertung in
       WallPanel), danach ggf. Feinschliff an den Bezeichnungen der
       App-Einstellungen in der Anleitung. **S**
 
+## 0a. Konfigurator neu ordnen
+
+Konzept vom 10.10.2026 (Claude-Dokument „LoxPanel Konfigurator neu ordnen“):
+vier Bereiche mit festen Begriffen, jede Einstellung an genau einem Ort,
+sichtbare Vererbung, ein einziger Einrichtungsweg. Entschieden: „Ansicht“ statt
+„Profil“, Rubrik „Einstellungen“ statt „System“, Löschen gilt nach der
+Rückfrage sofort, Reihenfolge wie unten, der Umbau wird Lenardo angeboten (je
+Schritt ein eigener, für sich nutzbarer PR). Gespeicherte Daten behalten ihre
+Form, es ist ein Umbau der Oberfläche.
+
+- [x] **Schritt 1, Begriffe und Rubriknamen.** Ansicht, Gerät, Vorgaben,
+      Einstellungen in allen Texten des Konfigurators, in `i18n.js`, in den
+      Meldungen des Servers und in der Doku; Rubriken Ansichten, Geräte,
+      Einstellungen, Erprobte Hardware, „Global“ heißt Vorgaben. „Panel“ nur
+      noch im Produktnamen und als Bauform. Festgehalten in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.2. **M**
+- [ ] **Schritt 2, Speichern vereinheitlichen.** Eine Speicherleiste für alle
+      Rubriken, die nennt, was offen ist; „Ansicht löschen“ und „Gerät
+      entfernen“ gelten nach der Rückfrage sofort; Nachfrage beim Verlassen mit
+      offenen Änderungen. **M**
+- [ ] **Schritt 3, Reiter der Ansicht neu ordnen.** Acht Reiter werden sechs
+      (Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten); Widget,
+      Kopfzeile und Werteleiste je Standard-Seite unter Inhalt, für freie
+      Seiten nur im Seiten-Editor. **L**
+- [ ] **Schritt 4, Gerätekarte.** Eine Karte je Gerät mit Ansicht, Steuerung,
+      Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und
+      Display-Steuerung; „Neues Gerät“ und „Erprobte Hardware“ ziehen in die
+      Rubrik Geräte. **L**
+- [ ] **Schritt 5, Vorgaben als Rubrik.** „Vorgaben“ verlässt die Liste der
+      Ansichten, der Nacht-Auslöser zieht von Geräte dorthin. **M**
+- [ ] **Schritt 6, Vererbung sichtbar.** Jedes Feld nennt, woher sein Wert
+      kommt (Gerät vor Ansicht vor Vorgaben), mit „zurücksetzen“. Braucht 3
+      bis 5. **M**
+- [ ] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
+      Schritten ab dem Gerät, die Rubrik Einrichtungsassistent entfällt.
+      Braucht 4. **L**
+
 ## 0b. Upstream-Abgleich
 
 Zuletzt eingepflegt am **04.10.2026** (`upstream/main` @ `e8acd1a`,

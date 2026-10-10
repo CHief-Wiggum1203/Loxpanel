@@ -356,7 +356,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
                     "[document.getElementById('grid').classList.contains('lx'),"
                     " getComputedStyle(document.documentElement).getPropertyValue('--room-size').trim()]")
                 # Global eingestellt: das Panel zeigt grau, was es davon erbt
-                await pg.locator("#plist .pitem", has_text="Global").click()
+                await pg.locator("#plist .pitem", has_text="Vorgaben").click()
                 stand["grau_global"] = await grau()
                 await pg.locator('#pconfHost input[data-ui="nameSize"]').fill("19")
                 await pg.locator("#plist .pitem", has_text="Flur").click()

@@ -339,9 +339,9 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 await oeffnen()
                 stand["nach_neuladen"] = (await pg.locator("#fLayout").input_value(),
                                           await pg.locator("#fTileSize").input_value(), await felder())
-                await pg.locator(".rub", has_text="Displays").click()
+                await pg.locator(".rub", has_text="Geräte").click()
                 stand["geraet"] = await pg.locator('#ag_list .ag[data-name="tab"] .agscr').text_content()
-                await pg.locator(".rub", has_text="Panel Configuration").click()
+                await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Tablet").click()
                 await pg.locator('.stab[data-sub="appearance"]').click()
                 await pg.locator("#fLayout").select_option("3x3")

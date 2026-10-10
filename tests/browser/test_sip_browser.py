@@ -79,7 +79,7 @@ def test_sip_reiter(cfg_ordner, miniserver_http, tmp_path):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                await pg.locator(".rub", has_text="Settings").click()
+                await pg.locator(".rub", has_text="Einstellungen").click()
                 assert ms.fenc == [], "der Reiter laedt erst, wenn er offen ist"
                 await pg.locator(".stab", has_text="SIP").click()
                 await pg.wait_for_function("document.querySelectorAll('#sip_list .sip').length === 4")

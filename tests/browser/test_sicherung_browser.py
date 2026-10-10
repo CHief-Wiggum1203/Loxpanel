@@ -56,7 +56,7 @@ async def _konfigurator(app, schritte):
             pg.on("pageerror", lambda e: fehler.append(str(e)))
             await pg.goto(f"http://127.0.0.1:{port}/config")
             await pg.wait_for_function(KONFIGURATOR_GELADEN)
-            await pg.locator(".rub", has_text="Settings").click()
+            await pg.locator(".rub", has_text="Einstellungen").click()
             await pg.locator(".stab", has_text="Sicherung").click()
             res = await schritte(pg)
             await b.close()
@@ -149,7 +149,7 @@ def test_abbrechen_und_kaputte_datei(cfg_ordner, tmp_path):
 @pytest.mark.parametrize("sprache, erwartet", [
     ("de-DE", ["✓ Eingespielt: loxpanel.cfg",
                "Miniserver: Für 10.9.9.9 (vi$&su) aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt.",
-               "Kennwort fehlt, bitte unter Settings eintragen: Kamera „Haustür“, Display-Treiber „Flur“",
+               "Kennwort fehlt, bitte unter Einstellungen eintragen: Kamera „Haustür“, Display-Treiber „Flur“",
                "Nicht übernommen: Darstellung: states.active"]),
     ("en-US", ["✓ Restored: loxpanel.cfg",
                "Miniserver: the password for 10.9.9.9 (vi$&su) from the backup is missing, the current access stays.",

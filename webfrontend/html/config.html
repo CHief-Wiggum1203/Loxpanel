@@ -100,7 +100,7 @@
   /* Gruppen-Ueberschrift innerhalb einer Einstellungs-Karte (Aufraeumen) */
   .grph{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line);}
   .grph:first-of-type{margin-top:4px;}
-  /* Modus-Umschalter (z. B. Tabs: Raum-Panel / Klassisch) */
+  /* Modus-Umschalter (z. B. Tabs: Raum-Ansicht / Klassisch) */
   .segmode{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:2px 0 14px;}
   .segmode button{border:0;background:transparent;color:var(--muted);padding:7px 16px;cursor:pointer;font-size:13px;font-family:inherit;}
   .segmode button.on{background:rgba(224,162,77,.16);color:var(--fg);}
@@ -629,13 +629,13 @@
 <div class="wrap">
   <aside class="side">
     <div class="brand">LoxPanel<small>Konfiguration</small></div>
-    <div class="sectlbl">Panels</div>
+    <div class="sectlbl">Ansichten</div>
     <div class="plist" id="plist"></div>
-    <button class="addbtn" id="addBtn">＋ Neues Panel</button>
+    <button class="addbtn" id="addBtn">＋ Neue Ansicht</button>
     <div class="navacts">
       <a class="navbtn" href="/" target="_blank" id="openVisu">
         <span class="nbico">↗</span>
-        <span class="nbtx"><span class="nbt">Visu öffnen</span><span class="nbs">Panel-Ansicht anzeigen</span></span>
+        <span class="nbtx"><span class="nbt">Visu öffnen</span><span class="nbs">Visu im Browser anzeigen</span></span>
         <span class="nbarrow">›</span></a>
     </div>
     <div class="hint">Auf jedem Wandpanel die Visu mit <code>?panel=&lt;id&gt;</code> öffnen.</div>
@@ -650,10 +650,10 @@
       <div class="rubrics">
         <button class="rub active" data-rub="overview">Übersicht</button>
         <button class="rub" data-rub="assistant">Einrichtungsassistent</button>
-        <button class="rub" data-rub="pconf">Panel Configuration</button>
-        <button class="rub" data-rub="displays">Displays</button>
-        <button class="rub" data-rub="settings">Settings</button>
-        <button class="rub" data-rub="devices">unterstützte Geräte</button>
+        <button class="rub" data-rub="pconf">Ansichten</button>
+        <button class="rub" data-rub="displays">Geräte</button>
+        <button class="rub" data-rub="settings">Einstellungen</button>
+        <button class="rub" data-rub="devices">Erprobte Hardware</button>
       </div>
       <div id="phead"></div>
     </div>
@@ -661,7 +661,7 @@
     <div class="scroll" id="scroll">
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
-        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
+        <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Wandpanel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
         <h3><span class="n">A</span>Geräteklassen</h3>
         <div class="dev">
@@ -687,7 +687,7 @@
 
         <h3><span class="n">C</span>Widget (Pane 2, Screensaver oder eigener Tab)</h3>
         <p class="lead" style="font-size:13.5px">Ein <b>Widget</b> ist eine fertige Inhaltsfläche — kein Kachelraster aus <b>Bausteinen</b>, sondern eine eigene Ansicht: <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Kamera</b> (Türstation), <b>Verlauf</b> (Aufzeichnung eines Bausteins), <b>Werte</b> (frei gewählte Bausteine als Liste) oder <b>Audio</b> (Now Playing der Musikzone).</p>
-        <p class="lead" style="font-size:13.5px;margin-top:6px">Dasselbe Widget lässt sich an <b>drei Stellen</b> einsetzen: im <b>Pane 2</b> eines 2-Pane-Panels (quer rechts neben der Visu, hochkant darunter, je Tab), in der <b>zweiten Spalte des Screensavers</b> (Uhr-Seite quer rechts, hochkant unten) und — <b>bald</b> — als <b>eigener Vollbild-Tab</b> in der unteren Leiste (auch am 1-Pane-Panel). Welche Widgets erscheinen, hängt von der Anlage ab: <b>Werte</b> braucht ausgewählte Bausteine, <b>Audio/Energiefluss/Kamera/Verlauf</b> je einen passenden Baustein.</p>
+        <p class="lead" style="font-size:13.5px;margin-top:6px">Dasselbe Widget lässt sich an <b>drei Stellen</b> einsetzen: im <b>Pane 2</b> eines 2-Pane-Geräts (quer rechts neben der Visu, hochkant darunter, je Tab), in der <b>zweiten Spalte des Screensavers</b> (Uhr-Seite quer rechts, hochkant unten) und — <b>bald</b> — als <b>eigener Vollbild-Tab</b> in der unteren Leiste (auch am 1-Pane-Gerät). Welche Widgets erscheinen, hängt von der Anlage ab: <b>Werte</b> braucht ausgewählte Bausteine, <b>Audio/Energiefluss/Kamera/Verlauf</b> je einen passenden Baustein.</p>
         <div class="row">
           <figure><div class="pane"><div class="p2"><div class="p2h">Audio · Zone</div><div class="cover"></div><div class="ppb"><span></span><span class="m"></span><span></span></div></div></div><figcaption><b>Audio</b>Musikzone je Tab</figcaption></figure>
           <figure><div class="pane"><div class="p2"><div class="p2h">Wetter</div><div class="wxr"><svg viewBox="0 0 24 24" fill="none" stroke="#5aa9e6" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><b>13°</b></div><div class="fore"><span></span><span></span><span></span><span></span></div></div></div><figcaption><b>Wetter</b>Kurve &amp; Vorschau</figcaption></figure>
@@ -702,29 +702,29 @@
         <p class="lead" style="margin-top:16px;font-size:13.5px">Ohne Widget: <b>„Screen füllen"</b> verdoppelt die Kacheln bei gleicher Kachelgröße – quer nach rechts (aus 2×2 wird 2×2 | 2×2 = 4×2), hochkant nach unten (aus 2×2 wird 2×4; das Hochformat-Raster 2×3 bleibt). <b>„Bildschirm füllen"</b> zoomt zusätzlich auf die echte Tablet-Auflösung.</p>
 
         <div class="ovcols">
-          <div class="ovcol"><h4>Panel-Konfiguration</h4>
-            <button class="ovbox" data-goto="pconf:appearance"><b>Aussehen &amp; Verhalten</b><span>Panel-Farbe &amp; Schrift, Kachel-Layout, Widget (Pane 2), Display &amp; Nacht (Abdunkeln, Auto-Neustart), Feinjustierung.</span></button>
+          <div class="ovcol"><h4>Ansichten</h4>
+            <button class="ovbox" data-goto="pconf:appearance"><b>Aussehen &amp; Verhalten</b><span>Grundfarbe &amp; Schrift, Kachel-Layout, Widget (Pane 2), Display &amp; Nacht (Abdunkeln, Auto-Neustart), Feinjustierung.</span></button>
             <button class="ovbox" data-goto="pconf:tabs"><b>Tabs</b><span>Untere Leiste: bis 4 Buttons – Standard-Tabs und/oder einzelne Kategorien bzw. Räume als Abkürzung. Der erste ist die Startseite.</span></button>
-            <button class="ovbox" data-goto="pconf:rooms"><b>Räume</b><span>Welche Räume dieses Panel zeigt. Nichts angehakt = alle.</span></button>
+            <button class="ovbox" data-goto="pconf:rooms"><b>Räume</b><span>Welche Räume diese Ansicht zeigt. Nichts angehakt = alle.</span></button>
             <button class="ovbox" data-goto="pconf:cats"><b>Kategorien</b><span>Welche Kategorien im Tab „Kategorien" erscheinen.</span></button>
             <button class="ovbox" data-goto="pconf:tiles"><b>Kacheln gestalten</b><span>Einzelne Kacheln umbenennen, färben, Icon setzen oder ausblenden.</span></button>
-            <button class="ovbox" data-goto="pconf:title"><b>Titel</b><span>Name/Fenstertitel dieses Panel-Profils.</span></button>
+            <button class="ovbox" data-goto="pconf:title"><b>Titel</b><span>Name/Fenstertitel dieser Ansicht.</span></button>
             <button class="ovbox" data-goto="pconf:overlay"><b>Aktiv-Overlay</b><span>Wie eine aktive Kachel hervorgehoben wird (Rahmen, Füllung, Deckkraft).</span></button>
           </div>
-          <div class="ovcol"><h4>Grundeinstellungen</h4>
+          <div class="ovcol"><h4>Geräte &amp; Einstellungen</h4>
             <button class="ovbox" data-goto="settings:miniserver"><b>Miniserver</b><span>Zugang zum Loxone Miniserver (Host, Benutzer, Passwort). HTTPS/443.</span></button>
             <button class="ovbox" data-goto="settings:calendar"><b>Kalender &amp; Wetter</b><span>iCal-Abo + Feiertags-iCal, Wetter (Loxone-Wetterserver, sonst Open-Meteo mit dem Standort des Miniservers).</span></button>
             <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
             <button class="ovbox" data-goto="settings:intercom"><b>Kamera / Türstation</b><span>Kamerabilder und Klingel-Popup je Intercom-Baustein.</span></button>
-            <button class="ovbox" data-goto="displays"><b>Displays</b><span>Welche Visu welches Gerät zeigt: Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
-            <button class="ovbox" data-goto="settings:newpanel"><b>Neues Panel</b><span>Start-URL für ein Android/Tablet erzeugen oder Agent per SSH aufs Linux-Panel.</span></button>
+            <button class="ovbox" data-goto="displays"><b>Geräte</b><span>Welche Ansicht welches Gerät zeigt: Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
+            <button class="ovbox" data-goto="settings:newpanel"><b>Neues Gerät</b><span>Start-URL für ein Android-Wandpanel oder Tablet erzeugen oder Agent per SSH auf ein Linux-Gerät.</span></button>
           </div>
         </div>
       </div>
 
       <!-- unterstützte Geräte -->
       <div id="devicesHost" class="ovw" style="display:none">
-        <p class="lead">LoxPanel läuft auf <b>Android-Wandpanels</b> (Fully Kiosk per <code>adb</code>) im Zielformat <b>480×480</b>. Diese Geräte sind erprobt – 4″-Panels 1:1, höher aufgelöste oder größere per Zoom, breite Geräte als zwei Panes.</p>
+        <p class="lead">LoxPanel läuft auf <b>Android-Wandpanels</b> (Fully Kiosk per <code>adb</code>) im Zielformat <b>480×480</b>. Diese Geräte sind erprobt – 4″-Wandpanels 1:1, höher aufgelöste oder größere per Zoom, breite Geräte als zwei Panes.</p>
         <h3>Wandpanels · ein Pane</h3>
         <div class="devcat">
 
@@ -756,7 +756,7 @@
             </div>
             <div class="nm">Sonoff NSPanel Pro 120 <span class="badge">1 Pane · Zoom</span></div>
             <div class="spec">4,7″ · Hochformat 76×120 mm</div>
-            <div class="desc">Anderer Formfaktor als die quadratischen 4″-Panels: höher als breit. Ein Pane, gezoomt.</div>
+            <div class="desc">Anderer Formfaktor als die quadratischen 4″-Wandpanels: höher als breit. Ein Pane, gezoomt.</div>
           </figure>
 
         </div>
@@ -816,11 +816,11 @@
 
       <!-- Displays: welches Gerät zeigt welche Visu -->
       <div id="displaysHost" class="ovw" style="display:none">
-        <p class="lead" data-i18n>Welche Visu welches Gerät zeigt. Linux-Panels mit Agent melden sich automatisch; Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät einrichten: <b>Settings → Neues Panel</b>.</p>
+        <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät einrichten: <b>Einstellungen → Neues Gerät</b>.</p>
         <div class="card">
           <h3 data-i18n>Geräte &amp; Ansicht</h3>
-          <p class="note" data-i18n>Je Gerät die Ansicht (Profil) wählen und live umschalten. Geräte ohne Kennung stehen unten und bekommen hier einen Namen.</p>
-          <div id="ag_list"><div class="muted" data-i18n>Suche Panels…</div></div>
+          <p class="note" data-i18n>Je Gerät die Ansicht wählen und live umschalten. Geräte ohne Kennung stehen unten und bekommen hier einen Namen.</p>
+          <div id="ag_list"><div class="muted" data-i18n>Suche Geräte…</div></div>
           <div class="toast" id="ag_toast" style="margin-top:8px"></div>
           <div class="actions" style="margin-top:12px"><button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
             <span class="note" style="margin-left:10px" data-i18n>Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.</span></div>
@@ -828,23 +828,23 @@
         <details class="card discl">
           <summary><b data-i18n>Betriebsmodus-Automatik &amp; Display-Steuerung</b><span class="note" style="display:block;margin-top:2px" data-i18n>Ansicht je Loxone-Betriebsmodus automatisch wechseln; Fully/WallPanel-Display schalten.</span></summary>
           <div class="discl-body">
-            <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Panel fest, welche Ansicht bei welchem Modus erscheint. Panel ohne Eintrag für einen Modus bleibt unverändert.</p>
+            <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Gerät fest, welche Ansicht bei welchem Modus erscheint. Ein Gerät ohne Eintrag für einen Modus bleibt unverändert.</p>
             <pre class="cmdout" id="mode_hint">GET http://<span id="mode_host">…</span>/api/mode/&lt;modus&gt;</pre>
-            <p class="note" data-i18n>Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).</p>
-            <div id="dev_list"><div class="muted" data-i18n>Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
+            <p class="note" data-i18n>Geräte mit Agent (Linux) erscheinen automatisch. Ein Gerät ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuer Ansicht neu, kein Agent nötig).</p>
+            <div id="dev_list"><div class="muted" data-i18n>Noch kein Gerät bekannt. Sobald ein Gerät die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.</div></div>
             <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
-            <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Panels mit Agent.</p>
+            <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Geräten mit Agent.</p>
             <div class="actions"><button class="btn" id="dev_save" data-i18n>Speichern</button><span class="toast" id="dev_toast"></span></div>
           </div>
         </details>
         <details class="card discl">
-          <summary><b data-i18n>Nachtmodus</b><span class="note" style="display:block;margin-top:2px" data-i18n>Wann die Panels abdunkeln (Auslöser oder Sonnenuntergang).</span></summary>
+          <summary><b data-i18n>Nachtmodus</b><span class="note" style="display:block;margin-top:2px" data-i18n>Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang).</span></summary>
           <div class="discl-body">
-            <p class="note" data-i18n>Wann die Panels abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.</p>
+            <p class="note" data-i18n>Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.</p>
             <div class="row2">
               <div class="field" style="max-width:460px"><label class="lbl" data-i18n>Auslöser (optional)</label><select id="nt_control"></select></div>
             </div>
-            <p class="note" data-i18n>Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Panel unter Panel Configuration → Darstellung ein.</p>
+            <p class="note" data-i18n>Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Ansicht unter Ansichten → Aussehen ein.</p>
             <div class="actions"><button class="btn" id="nt_save" data-i18n>Speichern</button><span class="toast" id="nt_toast"></span></div>
           </div>
         </details>
@@ -852,8 +852,8 @@
 
       <!-- Einrichtungsassistent: Start-Button + Schritt-für-Schritt-Erklärung -->
       <div id="assistantHost" class="ovw" style="display:none">
-        <button class="as-start" id="asStartWiz">＋ Neues Panel einrichten starten</button>
-        <p class="as-lead">In acht Schritten vom leeren Panel zur fertigen Visu — geführt, mit Sofort-Vorschau. Danach lässt sich jedes Detail unter <b>Panel Configuration</b> nachjustieren.</p>
+        <button class="as-start" id="asStartWiz">＋ Neue Ansicht einrichten</button>
+        <p class="as-lead">In acht Schritten von der leeren Ansicht zur fertigen Visu — geführt, mit Sofort-Vorschau. Danach lässt sich jedes Detail unter <b>Ansichten</b> nachjustieren.</p>
 
         <div class="as-concepts">
           <div class="as-def blocks"><span class="tag">Bausteine</span><b>Deine Loxone-Controls</b><p>Licht, Beschattung, Taster, Sensoren … als einzelne <strong>Kacheln</strong> im Raster.</p></div>
@@ -863,23 +863,23 @@
         <div class="as-steps">
 
           <section class="as-step"><div class="as-h"><div class="as-num">1</div><div><div class="as-of">Schritt 1 / 8</div><h4>Anzeige &amp; Kachel-Raster</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Zuerst die Bauform: ein einzelnes 4″-Panel oder ein breites 2-Pane-Gerät. Darunter das Kachel-Raster (2×2 · 3×2 · 2×3 · 3×3) — es bestimmt nur, wie viele Kacheln je Seite passen.</p></div>
+            <div class="as-body"><div><p class="as-desc">Zuerst die Bauform: ein einzelnes 4″-Wandpanel oder ein breites 2-Pane-Gerät. Darunter das Kachel-Raster (2×2 · 3×2 · 2×3 · 3×3) — es bestimmt nur, wie viele Kacheln je Seite passen.</p></div>
               <div class="as-fig"><div class="as-row2">
                 <div><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr)"><i></i><i></i><i></i><i></i></div></div><div class="as-cap">1 Pane</div></div>
                 <div><div class="as-scr"><div style="display:flex;gap:5px"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr);flex:1"><i></i><i></i><i></i><i></i></div><div class="as-p2" style="flex:1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg><small>Widget</small></div></div></div><div class="as-cap">2 Panes</div></div>
               </div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">2</div><div><div class="as-of">Schritt 2 / 8</div><h4>Inhalt</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Wie das Panel befüllt wird.</p><div class="as-opts"><span class="as-chip">Raum-Panel</span><span class="as-chip">Klassische Visu</span><span class="as-chip k">Freie Auswahl — bis 4 Seiten</span></div></div>
+            <div class="as-body"><div><p class="as-desc">Wie die Ansicht befüllt wird.</p><div class="as-opts"><span class="as-chip">Raum-Ansicht</span><span class="as-chip">Klassische Visu</span><span class="as-chip k">Freie Auswahl — bis 4 Seiten</span></div></div>
               <div class="as-fig"><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="as-tabs"><u class="on"></u><u></u><u></u><u></u></div></div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">3</div><div><div class="as-of">Schritt 3 / 8</div><h4>Design</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Aussehen für das ganze Panel — später je Kachel übersteuerbar.</p><div class="as-opts"><span class="as-chip">Panel-Farbe</span><span class="as-chip">Icon 38 · Name 20 · Sub 16</span><span class="as-chip">Schriftart</span><span class="as-chip">Skalierung</span></div></div>
+            <div class="as-body"><div><p class="as-desc">Aussehen für die ganze Ansicht — später je Kachel übersteuerbar.</p><div class="as-opts"><span class="as-chip">Grundfarbe</span><span class="as-chip">Icon 38 · Name 20 · Sub 16</span><span class="as-chip">Schriftart</span><span class="as-chip">Skalierung</span></div></div>
               <div class="as-fig"><div class="as-scr" style="padding:11px"><div class="as-sw"><span style="background:#e0a24d"></span><span style="background:#b0344a"></span><span style="background:#3e4468"></span><span style="background:#3e5240"></span><span style="background:#cedcdd"></span></div><div class="as-lab">Icon-Größe</div><div class="as-sld" style="--v:60%"></div><div class="as-lab">Skalierung</div><div class="as-sld" style="--v:40%"></div></div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">4</div><div><div class="as-of">Schritt 4 / 8</div><h4>Name &amp; ID</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Anzeigename und Panel-ID. Die ID ist der Aufruf am Gerät: <code>?panel=wohnzimmer</code>.</p></div>
-              <div class="as-fig"><div class="as-scr" style="padding:12px;display:flex;flex-direction:column;gap:7px"><div class="as-lab" style="margin:0">Anzeigename</div><div class="as-fld">Wohnzimmer</div><div class="as-lab" style="margin:0">Panel-ID</div><div class="as-fld mono">?panel=wohnzimmer</div></div></div></div></section>
+            <div class="as-body"><div><p class="as-desc">Anzeigename und Kennung. Die Kennung ist der Aufruf am Gerät: <code>?panel=wohnzimmer</code>.</p></div>
+              <div class="as-fig"><div class="as-scr" style="padding:12px;display:flex;flex-direction:column;gap:7px"><div class="as-lab" style="margin:0">Anzeigename</div><div class="as-fld">Wohnzimmer</div><div class="as-lab" style="margin:0">Kennung</div><div class="as-fld mono">?panel=wohnzimmer</div></div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">5</div><div><div class="as-of">Schritt 5 / 8</div><h4>Seiten befüllen</h4></div></div>
             <div class="as-body"><div><p class="as-desc">Bei <strong>Freier Auswahl</strong>: bis zu 4 Seiten sind offen — ungenutzte mit <strong>✕</strong> entfernen. Je Seite Name, Icon und der Inhalt:</p><div class="as-opts"><span class="as-chip k">Bausteine (Kacheln)</span><span class="as-chip w">Widget</span></div><p class="as-desc" style="margin-top:10px"><strong>Kacheln:</strong> links Raum, rechts die Bausteine — mit Suche. <em>Nächsten Tab befüllen</em> führt weiter.<br><strong>Widget:</strong> gleich daneben der konkrete Baustein — <em>welcher</em> Verlauf, <em>welche</em> Kamera, <em>welche</em> Zone.</p></div>
@@ -898,7 +898,7 @@
               <div class="as-fig"><div class="as-scr"><div class="as-tiles" style="grid-template-columns:repeat(2,1fr)"><i class="a"></i><i></i><i></i><i></i></div></div></div></div></section>
 
           <section class="as-step"><div class="as-h"><div class="as-num">8</div><div><div class="as-of">Schritt 8 / 8</div><h4>Zusammenfassung</h4></div></div>
-            <div class="as-body"><div><p class="as-desc">Alle Einstellungen auf einen Blick, dann <strong>„Panel anlegen ✓"</strong>. Danach im Editor für den Feinschliff und jederzeit über <em>„Visu öffnen"</em> testbar.</p></div>
+            <div class="as-body"><div><p class="as-desc">Alle Einstellungen auf einen Blick, dann <strong>„Ansicht anlegen ✓"</strong>. Danach im Editor für den Feinschliff und jederzeit über <em>„Visu öffnen"</em> testbar.</p></div>
               <div class="as-fig"><div class="as-scr as-sum" style="padding:11px 12px"><div class="r0"><span class="l">Anzeige</span><span class="r">1 Pane · 4″</span></div><div class="r0"><span class="l">Inhalt</span><span class="r">Freie Auswahl</span></div><div class="r0"><span class="l">Seiten</span><span class="r">3</span></div><div class="r0"><span class="l">Skalierung</span><span class="r">Automatisch</span></div></div></div></div></section>
 
         </div>
@@ -912,7 +912,7 @@
         </div>
 
         <div class="as-band"><h4>Der Widget-Katalog</h4>
-          <p>Ein Widget ist eine fertige Inhaltsfläche. Dieselben sieben stehen an drei Orten zur Wahl: <b>Pane 2</b> (Breitbild), <b>Screensaver</b> (Uhr-Seite) und <b>eigener Vollbild-Tab</b> (auch am 1-Pane-Panel).</p>
+          <p>Ein Widget ist eine fertige Inhaltsfläche. Dieselben sieben stehen an drei Orten zur Wahl: <b>Pane 2</b> (Breitbild), <b>Screensaver</b> (Uhr-Seite) und <b>eigener Vollbild-Tab</b> (auch am 1-Pane-Gerät).</p>
           <div class="as-cat">
             <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.5A4 4 0 0 0 6.5 19z"/></svg></span><div><b>Wetter</b><span>Kurve &amp; Vorschau</span></div></div>
             <div class="as-wc"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span><div><b>Kalender</b><span>Monat + Termine</span></div></div>
@@ -941,7 +941,7 @@
           <div class="einr ok" id="einrOk" hidden>
             <h3><span class="einr-n">✓</span><span data-i18n>Mit dem Miniserver verbunden</span></h3>
             <p id="einrOkText"></p>
-            <div class="actions"><button class="btn" id="einrAssistent" data-i18n>Panel einrichten</button><button class="btn ghost" id="einrSicherung" data-i18n>Sicherung einspielen</button></div>
+            <div class="actions"><button class="btn" id="einrAssistent" data-i18n>Ansicht einrichten</button><button class="btn ghost" id="einrSicherung" data-i18n>Sicherung einspielen</button></div>
           </div>
           <p class="lead" data-i18n>Zugang zum Loxone Miniserver. Nach dem Speichern verbindet der Server sofort neu.</p>
           <div class="card">
@@ -983,9 +983,9 @@
           <p class="lead" data-i18n>Weckton-Test und Audioserver-Live-Daten (Cover/Titel/Favoriten).</p>
           <div class="card">
             <h3 data-i18n>Test-Ton</h3>
-            <p class="note" data-i18n>Sendet 3 kurze Pieptöne an das/die gewählte(n) Panel(s). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).</p>
+            <p class="note" data-i18n>Sendet 3 kurze Pieptöne an das/die gewählte(n) Gerät(e). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).</p>
             <div class="row2">
-              <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Ziel-Panel</label><select id="at_panel"></select></div>
+              <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Zielgerät</label><select id="at_panel"></select></div>
             </div>
             <div class="actions"><button class="btn" id="at_send" data-i18n>🔊 Test-Ton senden</button><span class="toast" id="at_toast"></span></div>
           </div>
@@ -1000,11 +1000,11 @@
 
         <!-- Kalender & Wetter (Front / Screensaver) -->
         <section class="spane" data-sub="calendar">
-          <p class="lead" data-i18n>Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.</p>
+          <p class="lead" data-i18n>Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Geräte. Serverweit — der Server holt die Daten und schickt sie an die Geräte.</p>
           <div class="card">
             <h3 data-i18n>iCal-Kalender</h3>
             <p class="note" data-i18n>Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.</p>
-            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift am Panel</label><input type="text" id="cal_name" placeholder="Family"></div>
+            <div class="field" style="max-width:280px"><label class="lbl" data-i18n>Überschrift in der Visu</label><input type="text" id="cal_name" placeholder="Family"></div>
             <div id="cal_list" style="margin-top:16px"></div>
             <div class="actions" style="margin-top:4px"><button class="btn ghost sm" id="cal_add" data-i18n>＋ Kalender hinzufügen</button></div>
             <div class="field" style="max-width:none;margin-top:16px"><label class="lbl" data-i18n>Feiertags-iCal (optional)</label><input type="text" id="cal_holurl" data-i18n-ph placeholder="z.B. österr. Feiertage aus Google Kalender (basic.ics)"></div>
@@ -1027,16 +1027,16 @@
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Wetter-Vorschau (Tage)</label><input type="number" id="cal_foredays" min="1" max="7" value="4"></div>
               <div class="field" style="max-width:200px"><label class="lbl" data-i18n>Termine auf der Uhr-Seite (max.)</label><input type="number" id="cal_svevents" min="1" max="10" value="3"></div>
             </div>
-            <label class="chk" style="margin-top:14px"><input type="checkbox" id="cal_colors" checked><span data-i18n>Kalenderfarben am Panel zeigen</span></label>
+            <label class="chk" style="margin-top:14px"><input type="checkbox" id="cal_colors" checked><span data-i18n>Kalenderfarben in der Visu zeigen</span></label>
             <p class="note" data-i18n>Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.</p>
-            <p class="note" data-i18n>„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.</p>
+            <p class="note" data-i18n>„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Gerät sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.</p>
             <div class="actions" style="margin-top:14px"><button class="btn" id="cal_save" data-i18n>Speichern</button><span class="toast" id="cal_toast"></span></div>
           </div>
         </section>
 
         <!-- Neues Panel -->
         <section class="spane" data-sub="backup">
-          <p class="lead" data-i18n>Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.</p>
+          <p class="lead" data-i18n>Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Ansichten, Geräte und Design.</p>
           <div class="card">
             <div class="actions" style="margin-top:0"><a class="btn" id="bk_dl" href="/api/backup" download data-i18n>Einstellungen herunterladen</a></div>
             <p class="note" style="margin-top:14px" data-i18n>Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.</p>
@@ -1051,13 +1051,13 @@
         </section>
 
         <section class="spane" data-sub="newpanel">
-          <p class="lead" data-i18n>Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.</p>
+          <p class="lead" data-i18n>Zwei Wege: ein Android-Wandpanel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Gerät bekommt den Agenten per SSH.</p>
           <div class="card">
-            <h3 data-i18n>Android-Panel oder Tablet (Kiosk-App)</h3>
-            <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
+            <h3 data-i18n>Android-Wandpanel oder Tablet (Kiosk-App)</h3>
+            <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Geräte erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
             <div class="row2">
               <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
-              <div class="field"><label class="lbl" data-i18n>Startansicht (Profil)</label><select id="nk_panel"></select></div>
+              <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="nk_panel"></select></div>
             </div>
             <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
             <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
@@ -1065,15 +1065,15 @@
             <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
           </div>
           <div class="card">
-            <h3 data-i18n>Linux-Panel mit Agent (SSH)</h3>
-            <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.</p>
+            <h3 data-i18n>Linux-Gerät mit Agent (SSH)</h3>
+            <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Gerät überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Geräts.</p>
             <div class="row2">
-              <div class="field"><label class="lbl" data-i18n>Panel-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
+              <div class="field"><label class="lbl" data-i18n>Geräte-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
               <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
             </div>
             <div class="row2" style="margin-top:12px">
               <div class="field"><label class="lbl" data-i18n>Anzeigename</label><input type="text" id="np_name" placeholder="Wohnzimmer"></div>
-              <div class="field"><label class="lbl" data-i18n>Startansicht (Profil)</label><select id="np_panel"></select></div>
+              <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="np_panel"></select></div>
             </div>
             <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="np_server" placeholder="10.0.0.55:8099"></div>
             <div class="actions"><button class="btn" id="np_gen" data-i18n>Befehl erzeugen</button></div>
@@ -1122,7 +1122,7 @@ const BICONS = {
   cam:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/>',
 };
 const FONTS = [
-  {label:'Standard (global)', v:''},
+  {label:'Standard (Vorgabe)', v:''},
   {label:'Inter', v:'Inter, sans-serif'},
   {label:'Roboto', v:'Roboto, sans-serif'},
   {label:'System (Sans)', v:'system-ui, sans-serif'},
@@ -1152,13 +1152,13 @@ const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Ka
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'audio',label:'Audio'},
-  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Panel'},{k:'backup',label:'Sicherung'}];
+  {k:'calendar',label:'Kalender & Wetter'},{k:'newpanel',label:'Neues Gerät'},{k:'backup',label:'Sicherung'}];
 
 async function load(){
   const r = await fetch('/api/meta'); META = await r.json();
   PANELS = JSON.parse(JSON.stringify(META.panels||{}));
   if(!PANELS.default) PANELS.default = {title:'LoxPanel', tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}};
-  PANELS.__global__ = {title:'Global (alle Panels)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
+  PANELS.__global__ = {title:'Vorgaben (alle Ansichten)', ui: JSON.parse(JSON.stringify((META.theme||{}).ui||{})),
                        catColors: JSON.parse(JSON.stringify((META.theme||{}).categories||{})), __global:true};
   cur = PANELS.default ? 'default' : Object.keys(PANELS)[0];
   renderList(); setRubric('overview'); verbundenZeigen();
@@ -1169,7 +1169,7 @@ function renderList(){
   if(PANELS.__global__){
     const g=document.createElement('div');
     g.className='pitem'+('__global__'===cur?' active':'');
-    g.innerHTML='<span class="pn">🌐 Global</span><span class="pid">alle Panels</span>';
+    g.innerHTML='<span class="pn">🌐 Vorgaben</span><span class="pid">für alle Ansichten</span>';
     g.onclick=()=>{ cur='__global__'; tileSel=null; renderList(); setRubric('pconf'); };
     box.appendChild(g);
   }
@@ -1366,7 +1366,7 @@ const BASE_COLORS = [
 function baseRing(an){ return an?'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);':''; }
 function baseField(ui){
   const cur=String(ui.baseColor||'').toLowerCase();
-  return '<div class="field" style="max-width:none"><label class="lbl">Panel-Farbe</label>'+
+  return '<div class="field" style="max-width:none"><label class="lbl">Grundfarbe</label>'+
     '<p class="note" style="margin:0 0 8px">'+T('Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift, Icons und Zustandsfarben werden daraus berechnet. Eigene Zustandsfarben behalten Vorrang.')+'</p>'+
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
       BASE_COLORS.map(c=>'<button type="button" class="baseSw" data-base="'+esc(c.v)+'" '+
@@ -1401,20 +1401,20 @@ function appearanceFields(ui,std,leer){
 
 function renderGlobalEditor(p){
   if(subPconf!=='appearance'&&subPconf!=='catcolors') subPconf='appearance';
-  $('#phead').innerHTML='<h2>🌐 Globale Darstellung</h2><span class="badge">alle Panels</span>'+
-    '<span class="kurl">'+T('Standard-Aussehen für alle Panels. Einzelne Panels überschreiben es unter „Darstellung".')+'</span>';
+  $('#phead').innerHTML='<h2>🌐 Vorgaben</h2><span class="badge">für alle Ansichten</span>'+
+    '<span class="kurl">'+T('Standard-Aussehen für alle Ansichten. Einzelne Ansichten überschreiben es unter „Aussehen".')+'</span>';
   $('#pconfHost').innerHTML =
     '<section class="spane" data-sub="appearance"><div class="card"><h3>Darstellung</h3>'+
-      '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.</p>'+
+      '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt für alle Ansichten.</p>'+
       '<div class="sizes">'+appearanceFields(p.ui,sizeStd('',false),
         T('Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.'))+'</div>'+
       '<div class="grph">'+T('Skalierung')+'</div>'+
-      '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Panels')+'</label>'+
+      '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Ansichten')+'</label>'+
         '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
-      '<p class="note">'+T('Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Displays → Betriebsmodus-Automatik & Display-Steuerung.')+'</p>'+
+      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</p>'+
       '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
-      '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
+      '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
       '<div class="cclist" id="catcolors"></div></div></section>';
   bindAppearance(p);
   { const gs=$('#gScale'); if(gs) gs.onchange=e=>{ p.ui=p.ui||{};
@@ -1479,7 +1479,7 @@ function renderCatColors(p){
 
 function renderEditor(){
   const p=PANELS[cur];
-  if(!p){ $('#pconfHost').innerHTML='<div class="empty">Kein Panel gewählt.</div>'; $('#phead').innerHTML=''; return; }
+  if(!p){ $('#pconfHost').innerHTML='<div class="empty">Keine Ansicht gewählt.</div>'; $('#phead').innerHTML=''; return; }
   { const ov=$('#openVisu'); if(ov) ov.href = (cur==='default'||cur==='__global__') ? '/' : '/?panel='+encodeURIComponent(cur); }
   if(p.__global){ renderGlobalEditor(p); return; }
   const ok=['title','tabs','rooms','cats','tiles','seiten','appearance','overlay'];
@@ -1492,7 +1492,7 @@ function renderEditor(){
     '<span class="kurl">'+T('Kiosk-URL:')+' <code>'+esc(urlTxt)+'</code></span>';
 
   $('#pconfHost').innerHTML =
-   '<section class="spane" data-sub="title"><div class="card"><h3>Titel</h3><p class="note">Fenstertitel des Panels.</p>'+
+   '<section class="spane" data-sub="title"><div class="card"><h3>Titel</h3><p class="note">Fenstertitel der Ansicht.</p>'+
      '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div>'+
      '<div class="field" style="margin-top:14px"><label class="lbl">'+T('Zielgerät')+'</label>'+
        '<select id="fZiel">'+zielOptionen((p.device||{}).name)+'</select>'+
@@ -1500,12 +1500,12 @@ function renderEditor(){
 
    '<section class="spane" data-sub="tabs"><div class="card"><h3>Untere Leiste (Tabs)</h3>'+
      '<div class="segmode" id="tabMode">'+
-       '<button type="button" data-mode="room">'+T('Raum-Panel')+'</button>'+
+       '<button type="button" data-mode="room">'+T('Raum-Ansicht')+'</button>'+
        '<button type="button" data-mode="classic">'+T('Klassisch')+'</button>'+
        '<button type="button" data-mode="pick">'+T('Eigene Auswahl')+'</button>'+
      '</div>'+
      '<div id="tabRoom">'+
-       '<p class="note">'+T('Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).')+'</p>'+
+       '<p class="note">'+T('Ein Raum ist die Startseite — das Gerät wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Wandpanels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).')+'</p>'+
        '<div class="field" style="max-width:340px"><label class="lbl">'+T('Dieser Raum')+'</label>'+
          '<select id="tabRoomSel"></select></div>'+
        '<div class="field" style="max-width:none" id="tabRoomCatWrap"><label class="lbl">'+T('Kategorie-Tabs (unten)')+
@@ -1521,7 +1521,7 @@ function renderEditor(){
      '</div></section>'+
 
    '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
-     '<p class="note">'+T('Welche Räume dieses Panel zeigt. <b>Nichts angehakt = alle Räume.</b>')+'</p>'+
+     '<p class="note">'+T('Welche Räume diese Ansicht zeigt. <b>Nichts angehakt = alle Räume.</b>')+'</p>'+
      '<div class="toolbar"><span class="count" id="cntRooms"></span>'+
        '<button class="minibtn" id="clrRooms">Alle abwählen</button></div>'+
      '<div class="grid" id="rooms"></div></div></section>'+
@@ -1533,7 +1533,7 @@ function renderEditor(){
      '<div class="grid" id="cats"></div></div></section>'+
 
    '<section class="spane" data-sub="tiles"><div class="card"><h3>Kacheln gestalten</h3>'+
-     '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (auf diesem Panel). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel auf diesem Panel ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
+     '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (in dieser Ansicht). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel in dieser Ansicht ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
      '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
      '<div class="tlist" id="tiles"></div>'+
      '<div id="tileEditor"></div></div></section>'+
@@ -1543,14 +1543,14 @@ function renderEditor(){
      '<div id="seHinweis"></div><div class="se-host" id="seHost"></div></div></section>'+
 
    '<section class="spane" data-sub="appearance"><div class="card"><h3>Aussehen &amp; Verhalten (optional)</h3>'+
-     '<p class="note">'+T('Überschreibt das globale Theme nur für dieses Panel. Leer = global.')+'</p>'+
+     '<p class="note">'+T('Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.')+'</p>'+
      '<div class="grph">'+T('Aussehen')+'</div>'+
      '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true),
-       T('Ein leeres Feld übernimmt die globale Darstellung, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+'</div>'+
+       T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+'</div>'+
      '<div class="grph">'+T('Layout')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Kachel-Layout</label>'+
-         '<select id="fLayout">'+[['2x2','2 × 2 (4″-Panel)'],['3x2','3 × 2 (Tablet)'],['2x3','2 × 3 (Tablet hoch)'],
+         '<select id="fLayout">'+[['2x2','2 × 2 (4″-Wandpanel)'],['3x2','3 × 2 (Tablet)'],['2x3','2 × 3 (Tablet hoch)'],
              ['3x3','3 × 3 (großes Tablet)'],['auto',T('Automatisch (Tablet)')]]
            .map(o=>'<option value="'+o[0]+'"'+(layoutWert(p.ui)===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
          '</select></div>'+
@@ -1569,24 +1569,24 @@ function renderEditor(){
          '</select></div>'+
        '<div class="field" style="max-width:320px" id="fScaleField"><label class="lbl">'+T('Skalierung')+'</label>'+
          '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
-            T('Wie global')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
+            T('Wie Vorgabe')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Displays bei den Geräten.')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.')+'</div>'+
      '<div class="hint" style="padding-top:4px" id="fTileSizeHint">'+zielkachelHinweis()+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.')+'</div>'+
-     '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Displays → Betriebsmodus-Automatik & Display-Steuerung.')+'</div>'+
+     '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</div>'+
      '<div class="grph">'+T('Widget (Pane 2)')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
          '<select id="fSplit">'+
            '<option value="1"'+(((p.ui||{}).split===false)?'':' selected')+'>An (Tablet – 2 Panes)</option>'+
-           '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Panel – nur Visu)</option>'+
+           '<option value="off"'+(((p.ui||{}).split===false)?' selected':'')+'>Aus (4″-Wandpanel – nur Visu)</option>'+
          '</select>'+
-         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Panel nur die Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
+         '<div class="hint" style="padding-top:4px">Bei „Aus" zeigt das Gerät nur die Visu im Kachel-Layout – keine Pane 2, keine Verdopplung. Für 4″-Wandpanels.</div></div>'+
        '<div class="field" style="max-width:320px" id="fPaneColsField"><label class="lbl">'+T('Widget-Breite')+'</label>'+
          '<div class="frow"><input type="range" id="fPaneCols" min="0" max="'+esc(String(paneSpalten().max))+'" step="1" value="'+esc(String(paneColsWert((p.ui||{}).paneCols)))+'">'+
            '<span id="fPaneColsTxt">'+esc(paneColsText((p.ui||{}).paneCols))+'</span></div>'+
-         '<div class="hint" style="padding-top:4px">'+T('Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Panel aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.')+'</div></div>'+
+         '<div class="hint" style="padding-top:4px">'+T('Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Gerät aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.')+'</div></div>'+
      '</div>'+
      '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
        '<div class="cclist" id="panePerTab"></div>'+
@@ -1595,7 +1595,7 @@ function renderEditor(){
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
        '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
        '<div id="svPaneBox"></div>'+
-       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Panel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
+       '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Wandpanel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
@@ -1611,7 +1611,7 @@ function renderEditor(){
          '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+
          (((p.ui||{}).nightWake==null)?'':(p.ui||{}).nightWake)+'" placeholder="20"></div>'+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Geräte mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
      '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
      '<div class="sizes">'+
@@ -1619,7 +1619,7 @@ function renderEditor(){
          '<input type="number" min="0" max="'+esc(String(pinMerkenCfg().max))+'" step="5" data-ui="pinMerken" value="'+
          (((p.ui||{}).pinMerken==null)?'':(p.ui||{}).pinMerken)+'" placeholder="'+esc(String(pinMerkenCfg().standard))+'"></div>'+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt die Visu bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
      '<div class="grph">'+T('Feinjustierung')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
@@ -1629,7 +1629,7 @@ function renderEditor(){
    '</div></section>'+
 
    '<section class="spane" data-sub="overlay"><div class="card"><h3>Aktiv-Overlay</h3>'+
-     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.')+'</p>'+
+     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für diese Ansicht — einzelne Kacheln können unten abweichen.')+'</p>'+
      '<div class="ovwrap">'+
        '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div>'+
          '<div class="ovtile off" id="ovPrevOff">Aus</div></div>'+
@@ -1638,10 +1638,10 @@ function renderEditor(){
        '</div></div></div></section>';
 
   // Speicherleiste: Löschen-Button je Panel
-  $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Panel löschen</button>')+
+  $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Ansicht löschen</button>')+
     '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>'+
-    '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>'+
-    '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt dieses Profil mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
+    '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>'+
+    '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
@@ -1703,7 +1703,7 @@ function renderEditor(){
   $('#clrRooms').onclick=()=>{ p.rooms=[]; renderChecklist(p,'rooms'); renderTileList(); markDirty(); };
   $('#clrCats').onclick=()=>{ p.cats=[]; renderChecklist(p,'cats'); renderTileList(); markDirty(); };
   $('#saveBtn').onclick=save;
-  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Panel „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
+  const del=$('#delBtn'); if(del) del.onclick=()=>{ if(confirm('Ansicht „'+cur+'" löschen?')){ delete PANELS[cur]; cur='default'; renderList(); setRubric('pconf'); markDirty(); } };
   { const db=$('#dupBtn'); if(db) db.onclick=()=>dupOpen(cur); }
   { const vb=$('#vorBtn'); if(vb) vb.onclick=entwurfOeffnen; }
   { const vg=$('#vorGerBtn'); if(vg){ vg.onclick=vorGerKlick; vorGerKnopf(); } }
@@ -1723,7 +1723,7 @@ function zielkachelHinweis(){ const k=kachelZiel(), st=k.stufen||{};
     ' ('+T('die bisherigen Stufen Klein, Mittel und Groß entsprechen')+' '+[st.small,st.medium,st.large].join(', ')+'). '+
     T('Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben oder mit fester Widget-Breite) bis zum')+' '+fmtZahl(k.wachsen)+'-'+T('Fachen')+'. '+
     T('Bliebe bei mehreren Seiten die letzte mehr als ein Drittel leer, werden sie kleiner, wenn das eine Seite spart, höchstens bis zur Zielkachel geteilt durch')+' '+fmtZahl(k.wachsen)+'. '+
-    T('Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.'); }
+    T('Ein Gerät kann unter Geräte einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.'); }
 // Kachel-Layout eines Profils als Wert der Auswahl: "auto" oder Spalten x Zeilen
 function layoutWert(ui){ ui=ui||{};
   return ui.grid==='auto' ? 'auto' : (ui.cols==3?'3':'2')+'x'+(ui.rows==3?'3':'2'); }
@@ -1771,7 +1771,7 @@ function langField(ui){
   const cur=(ui||{}).lang||'';
   return '<div class="field" style="max-width:220px"><label class="lbl">Sprache</label>'+
     '<select id="fLang">'+LANGS.map(l=>'<option value="'+l[0]+'"'+(cur===l[0]?' selected':'')+'>'+esc(l[1])+'</option>').join('')+'</select>'+
-    '<div class="hint" style="padding-top:4px">Steuert vorerst Datum &amp; Uhr am Panel. Gerätenamen kommen aus dem Miniserver.</div></div>';
+    '<div class="hint" style="padding-top:4px">Steuert vorerst Datum &amp; Uhr in der Visu. Gerätenamen kommen aus dem Miniserver.</div></div>';
 }
 function audioZoneOptions(sel){
   return (META.controls||[]).filter(c=>c.type==='AudioZone'||c.type==='AudioZoneV2')
@@ -1824,7 +1824,7 @@ function firstCamera(){
 const SCALE_STEPS=[0.8,0.9,1.1,1.25,1.5,1.75,2];
 function fmtZahl(v){ try{ return Number(v).toLocaleString((window.I18N&&I18N.lang)||'de',{maximumFractionDigits:2}); }catch(e){ return String(v); } }
 // Kette: Global -> Profil -> Geraet. erbe = Text der Option "erbt von oben"
-// (Profil: "Wie global", Geraet: "Wie im Profil"); ohne erbe (global) ist das
+// (Profil: "Wie Vorgabe", Geraet: "Wie in der Ansicht"); ohne erbe (global) ist das
 // Fehlen gleich "Aus".
 function scaleName(v){
   if(v==='auto') return T('Automatisch');
@@ -1872,18 +1872,18 @@ function zielAuswahlAuffrischen(){
   fz.innerHTML=zielOptionen(((p.device||{}).name)||'');
 }
 function zielHinweis(dev){
-  const erkl=T('Für welches Gerät dieses Profil gemacht ist. Displays warnt, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.');
+  const erkl=T('Für welches Gerät diese Ansicht gemacht ist. Unter Geräte steht eine Warnung, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.');
   if(!dev||!dev.name) return erkl;
   return dev.name+((dev.vw&&dev.vh)?(' · '+dev.vw+'×'+dev.vh):'')+' – '+erkl;
 }
 function zielAbweichung(d){
   const ziel=((PANELS[d.profile]||{}).device)||null; if(!ziel||!ziel.name) return '';
-  if(ziel.name!==d.name) return T('Profil ist für')+' '+ziel.name+' '+T('gemacht');
+  if(ziel.name!==d.name) return T('Ansicht ist für')+' '+ziel.name+' '+T('gemacht');
   const sc=d.screen||{};
   if(ziel.vw&&ziel.vh&&sc.vw&&sc.vh){
     const a=[ziel.vw,ziel.vh].sort((x,y)=>x-y), b=[sc.vw,sc.vh].sort((x,y)=>x-y);
     if(Math.abs(a[0]-b[0])>ZIEL_TOLERANZ*a[0] || Math.abs(a[1]-b[1])>ZIEL_TOLERANZ*a[1])
-      return T('Profil ist für')+' '+ziel.vw+'×'+ziel.vh+' '+T('gemacht, hier')+' '+sc.vw+'×'+sc.vh; }
+      return T('Ansicht ist für')+' '+ziel.vw+'×'+ziel.vh+' '+T('gemacht, hier')+' '+sc.vw+'×'+sc.vh; }
   return '';
 }
 function screenInfo(sc){
@@ -2190,7 +2190,7 @@ function renderChips(p){
 // Tabs-Modus. Drei Bauformen, und der Umschalter wechselt in Wahrheit die
 // BEDEUTUNG der unteren Leiste:
 //   "Klassisch"      - die Leiste sind bis zu 4 SEITEN (p.tabs).
-//   "Raum-Panel"     - eine Seite (ein Raum), die Leiste sind SPRUNGMARKEN auf
+//   "Raum-Ansicht"     - eine Seite (ein Raum), die Leiste sind SPRUNGMARKEN auf
 //                      die Kategorien des Raums.
 //   "Eigene Auswahl" - eine Seite (handverlesene Bausteine), die Leiste sind
 //                      SPRUNGMARKEN auf die Raeume der Auswahl.
@@ -2226,7 +2226,7 @@ function renderTabMode(p){
       if(ziel==='room') p.tabs=[rooms[0].tab];
       else if(ziel==='pick'){ curPickIdx=0; ensurePickTabs(p); p.tabs=p.pickTabs.map((_,i)=>pickKey(i)); }
       else p.tabs=defaultTabs();
-      delete p.roomCats;   // Kategorie-Auswahl galt dem alten Raum-Panel, wie beim Raumwechsel unten
+      delete p.roomCats;   // Kategorie-Auswahl galt der alten Raum-Ansicht, wie beim Raumwechsel unten
       markDirty(); renderTabMode(p); renderPanes(p);
     };
   });
@@ -2249,7 +2249,7 @@ function roomCatList(roomTab){
   const ru=String(roomTab||'').slice(5);
   return (META.cats||[]).filter(cat=>(META.controls||[]).some(c=>c.room===ru && c.cat===cat.uuid));
 }
-// Auswahl der unteren Kategorie-Tabs im Raum-Panel: die Auto-4 sind vorgewaehlt,
+// Auswahl der unteren Kategorie-Tabs in der Raum-Ansicht: die Auto-4 sind vorgewaehlt,
 // aenderbar (max 4). Ohne eigene Auswahl bleibt p.roomCats leer = automatisch.
 function renderRoomCats(p){
   const box=$('#tabRoomCats'); if(!box) return;
@@ -2417,7 +2417,7 @@ async function save(){
       // es still zu verlieren; die Warnung bleibt stehen (siehe unten).
       const weg=j.verworfen||[];
       t.className='toast show'+(weg.length?' warn':'');
-      t.textContent='✓ Gespeichert ('+j.count+' Profile) — Panels wurden automatisch neu geladen'+
+      t.textContent='✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
         (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '');
       // Panel-Liste fuer die Geraete-Zuordnung auffrischen (sonst fehlt ein neues
       // Panel dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
@@ -2598,8 +2598,8 @@ function pickAnchorsInner(p){
     T('Die Seite ist nicht nach Räumen gruppiert (Seiten-Editor) – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
   if(rs.length<2) return '<p class="hint">'+
     T('Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.')+'</p>';
-  return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:')
-                                                    : T('Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:'))+'</p>'+
+  return '<p class="hint">'+((p.ui&&p.ui.catFilter) ? T('Untere Leiste in der Visu – ein Tipp zeigt nur diese Gruppe:')
+                                                    : T('Untere Leiste in der Visu – ein Tipp scrollt zur Gruppe:'))+'</p>'+
     '<div class="anchors">'+rs.slice(0,4).map(ru=>'<span class="chip on">'+esc(roomName(ru))+'</span>').join('')+'</div>'+
     (rs.length>4 ? '<p class="hint" style="padding-top:6px">'+
       T('In die Leiste passen 4 Sprungmarken – die Bausteine der weiteren Räume stehen trotzdem auf der Seite.')+'</p>' : '');
@@ -2626,8 +2626,8 @@ function pickKurzHtml(p){
       ? T('zeigt')+' <b>'+sel.length+'</b> '+(sel.length===1?T('Baustein'):T('Bausteine'))+' '+
         T('aus')+' <b>'+rs.length+'</b> '+(rs.length===1?T('Raum'):T('Räumen'))+'.'
       : T('ist noch leer.'))+'</p>'+
-      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.')
-                                             :T('gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.'))+'</p>':'')+
+      (weg?'<p class="hint">'+weg+' '+(weg===1?T('gewählter Baustein ist in dieser Ansicht ausgeblendet und erscheint nicht.')
+                                             :T('gewählte Bausteine sind in dieser Ansicht ausgeblendet und erscheinen nicht.'))+'</p>':'')+
       pickAnchorsHtml(p);
   }
   return '<div class="pick-kurz">'+(ic?'<span class="pick-kurz-ic">'+ic+'</span>':'')+'<div>'+h+
@@ -2639,7 +2639,7 @@ function pickKurzHtml(p){
 // Auswahl-Modus immer, im klassischen Modus sobald der Chip in der Leiste ist.
 // Damit liegen Zusammenstellen und Sichtbarmachen an EINER Stelle.
 // Sprungmarken der unteren Leiste: springen (Standard) oder filtern. Nur fuer
-// Panels, deren Leiste aus Sprungmarken besteht - ein Raum-Panel oder eine
+// Panels, deren Leiste aus Sprungmarken besteht - eine Raum-Ansicht oder eine
 // einzige freie Seite mit Kacheln (wie isRoomPanel() im Panel; eine Widget-Seite
 // hat keine Marken). Haengt an renderPick, weil das bei jedem Wechsel der
 // Leiste laeuft (Modus, Seiten hinzu/weg, Kacheln/Widget).
@@ -2715,7 +2715,7 @@ const SE_GRIFF='<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="tru
   '<circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></g></svg>';
 const SE_MAX=60;              // derselbe Deckel wie der Server
 const SE_ZUSTAND={};          // je Seite (ctx.key): Auswahl, Blatt; je Panel (ctx.pkey): Filter, Meldung
-const SE_VORSCHAU={};         // Panel-ID -> gewaehltes Vorschaugeraet {quelle, name}
+const SE_VORSCHAU={};         // Kennung -> gewaehltes Vorschaugeraet {quelle, name}
 let SE_ZIEHEN=null;           // laufendes Ziehen (Pointer-Events)
 function seZustand(k){ return SE_ZUSTAND[k]||(SE_ZUSTAND[k]={sel:null, blatt:0, folgen:null, raum:'', q:'', meldung:''}); }
 let _seCtrlQuelle=null, _seCtrlMap=null;
@@ -3140,7 +3140,7 @@ function seReiterZeichnen(){
   const h=$('#seHost'), p=PANELS[cur]; if(!h || !p || p.__global) return;
   const hw=$('#seHinweis');
   if(hw){ hw.innerHTML=(p.tabs||[]).some(isPick) ? '' : '<p class="hint">'+
-      T('Freie Seiten zeigt das Panel erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.')+
+      T('Freie Seiten zeigt die Visu erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.')+
       ' <button type="button" class="minibtn" id="seZuTabs">'+T('Zu Tabs')+'</button></p>';
     const zt=$('#seZuTabs'); if(zt) zt.onclick=()=>{ subPconf='tabs'; renderSubtabs(); showSub('tabs'); }; }
   seRender(h, seKontextReiter());
@@ -3380,7 +3380,7 @@ function renderTileEditor(){
       '<div class="ipick" id="ipick"></div>'+
       '<div class="frow" style="margin-top:8px"><label class="lbl">Aktiv-Overlay</label>'+
         '<span class="tgl'+(ov.overlay?' on':'')+'" id="tOvOn" title="Für diese Kachel abweichend">◐</span>'+
-        '<span style="color:var(--muted);font-size:12.5px">abweichend vom Panel</span></div>'+
+        '<span style="color:var(--muted);font-size:12.5px">abweichend von der Ansicht</span></div>'+
       '<div class="ovwrap" id="tOvBox"'+(ov.overlay?'':' style="display:none"')+'>'+
         '<div class="ovprev"><div class="ovtile on" id="tovPrev">An</div>'+
           '<div class="ovtile off" id="tovPrevOff">Aus</div></div>'+
@@ -3504,15 +3504,15 @@ function paintLoxlib(box){
    uebergibt an den normalen Editor (der Panes je Tab, Kacheln, Icons kann).
    ============================================================ */
 function createBlankPanel(){
-  let id=prompt(T('ID des neuen Panels (klein, ohne Leerzeichen), z. B. wohnzimmer:'));
+  let id=prompt(T('Kennung der neuen Ansicht (klein, ohne Leerzeichen), z. B. wohnzimmer:'));
   if(!id) return; id=id.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(!id){ alert(T('Ungültige ID.')); return; }
-  if(PANELS[id]){ alert('Panel „'+id+'" gibt es schon.'); return; }
+  if(PANELS[id]){ alert('Ansicht „'+id+'" gibt es schon.'); return; }
   PANELS[id]={title:id.charAt(0).toUpperCase()+id.slice(1), tabs:defaultTabs(), rooms:[], cats:[], ui:{}, states:{}, tiles:{}};
   cur=id; tileSel=null; renderList(); setRubric('pconf'); markDirty();
 }
 /* ============================================================
-   Panel duplizieren mit Raumtausch (Punkt 14). Kopie eines Profils, in der
+   Ansicht duplizieren mit Raumtausch (Punkt 14). Kopie eines Profils, in der
    jeder Baustein aus dem Quellraum durch den gleichnamigen (gleicher Typ,
    sonst gleicher Name) aus dem Zielraum ersetzt ist: in Tabs (room:),
    Raum-Liste, hide, freien Seiten, Kachel-Einstellungen, Widgets je Tab,
@@ -3584,7 +3584,7 @@ function profilRaum(p){
   if(typeof (p.ui||{}).player==='string' && p.ui.player) zaehl(p.ui.player);
   return Object.keys(zahl).sort((a,b)=>zahl[b]-zahl[a])[0]||'';
 }
-// Panel-ID aus einem Raumnamen: klein, Umlaute ausgeschrieben, Rest Bindestrich; frei (sonst -2, -3 ...)
+// Kennung aus einem Raumnamen: klein, Umlaute ausgeschrieben, Rest Bindestrich; frei (sonst -2, -3 ...)
 function nameSlug(name){
   return (name||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -3635,14 +3635,14 @@ function dupBuild(){
   const p=PANELS[DUP.quelle]; if(!p) return;
   const id=($('#dupId').value||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(!id){ alert(T('Ungültige ID.')); return; }
-  if(PANELS[id]){ alert('Panel „'+id+'" '+T('gibt es schon.')); return; }
+  if(PANELS[id]){ alert('Ansicht „'+id+'" '+T('gibt es schon.')); return; }
   const von=$('#dupVon').value, nach=$('#dupNach').value;
   const r=(nach && nach!==von) ? profilMitRaumtausch(p, von, nach, META.controls||[])
                                : {profil: JSON.parse(JSON.stringify(p)), fehlend: []};
   r.profil.title=($('#dupTitle').value||'').trim().slice(0,40) || id;
   PANELS[id]=r.profil;
   cur=id; tileSel=null; dupClose(); renderList(); setRubric('pconf'); markDirty();
-  flash($('#toast'), 'Panel „'+id+'" '+T('angelegt – Speichern nicht vergessen.')+
+  flash($('#toast'), 'Ansicht „'+id+'" '+T('angelegt – Speichern nicht vergessen.')+
     (r.fehlend.length ? ' '+T('Weggefallen:')+' '+r.fehlend.join(', ') : ''), !r.fehlend.length);
 }
 const WZIC={
@@ -3674,7 +3674,7 @@ function wzFlow(){ return ['anzeige','inhalt','design','name','setup','screensav
 function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('wz')===0).forEach(k=>delete SE_ZUSTAND[k]); Object.assign(WZ,{panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,design:'global',look:Object.assign({},WZ_LOOK_DEF),overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true}); }
 /* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
    eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
-   Raum-Panel dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
+   Raum-Ansicht dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
    Pflichtschritte (Anzeige, Inhalt, Name) und traegt das Geraet als Zielgeraet
    ein; ab dann kann man gleich anlegen, der Rest behaelt Standardwerte. ---- */
 function wzVorschlaege(){
@@ -3694,7 +3694,7 @@ function wzVorschlagHtml(){
   const vs=wzVorschlaege(); if(!vs.length) return '';
   return '<p class="wzq">'+T('Vorschlag für ein Gerät')+'</p><div class="wzopts">'+vs.map(v=>
     '<button class="wzo'+(WZ.device===v.geraet?' on':'')+'" data-wv="'+esc(v.geraet)+'">'+wzg(v.raum?'room':'grid')+'<span class="tx"><b>'+
-      esc(v.raum?(T('Raum-Panel')+' '+v.raum.name):T('Favoriten'))+'</b><span>'+esc(T('für')+' '+v.geraet+
+      esc(v.raum?(T('Raum-Ansicht')+' '+v.raum.name):T('Favoriten'))+'</b><span>'+esc(T('für')+' '+v.geraet+
       ((v.screen&&v.screen.vw&&v.screen.vh)?(' · '+v.screen.vw+'×'+v.screen.vh):''))+'</span></span></button>').join('')+
     '</div><p class="wznote">'+T('Übernimmt Anzeige, Inhalt und Name und trägt das Gerät als Zielgerät ein – danach gleich anlegen oder weiter verfeinern.')+'</p>'+
     '<p class="wzq mt">'+T('Oder selbst wählen')+'</p>';
@@ -3827,8 +3827,8 @@ async function wzAmGeraet(id, name, umschalten, ziel){
     try{ j=await postJson('/api/device/switch', {device:name, ip:DEVICE_IPS[name]||'', panel:id}); }
     catch(e){ j={ok:false}; }
   }
-  flash(t, j.ok ? ('Panel „'+id+'" '+T('gespeichert,')+' '+name+' '+T('schaltet um.'))
-               : (name+' '+T('ist nicht online – das Panel ist gespeichert, umschalten unter Displays.')), !!j.ok);
+  flash(t, j.ok ? ('Ansicht „'+id+'" '+T('gespeichert,')+' '+name+' '+T('schaltet um.'))
+               : (name+' '+T('ist nicht online – die Ansicht ist gespeichert, umschalten unter Geräte.')), !!j.ok);
 }
 function wzOpen(){
   if(EINR) return;                       // Ersteinrichtung: ohne Struktur kein Assistent
@@ -3887,7 +3887,7 @@ function wzPaneRows(){
   return '<p class="wzq mt">'+T(nurKopf?'Kopfzeile je Tab':'Widget je Tab')+'</p><div class="wzopts">'+v.map(function(x){
     return '<div class="wzo" style="cursor:default"><span class="tx" style="flex:1"><b>'+esc(x.label)+'</b></span><select class="wzp2sel" data-p2k="'+esc(x.key)+'" style="max-width:170px">'+wzP2Opts(WZ.pane2[x.key],nurKopf)+'</select></div>';
   }).join('')+'</div><div class="wznote">'+T(nurKopf
-    ? 'Am 1-Pane-Panel gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).'
+    ? 'Am 1-Pane-Gerät gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).'
     : 'Audio/Energie/Kamera/Verlauf nehmen automatisch den ersten passenden Baustein — den genauen wählst du bei Bedarf im Editor.')+'</div>';
 }
 function wzIcoGrid(i){
@@ -3921,7 +3921,7 @@ function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg
   else if(k==='camera') o=cameraOptions(a); else if(k==='chart') o=chartControlOptions(a); else return '';
   return o?'<select class="wzp2sel" data-pgwarg="'+i+'" style="max-width:180px">'+o+'</select>':'<span class="wznote" style="margin:0">'+T('Kein passender Baustein')+'</span>';
 }
-// Leiste aus Sprungmarken (Raum-Panel oder genau eine freie Seite mit Kacheln,
+// Leiste aus Sprungmarken (Raum-Ansicht oder genau eine freie Seite mit Kacheln,
 // kein Widget)? Dann gibt es die Wahl Springen/Filtern (ui.catFilter).
 function wzAnker(){ return WZ.content==='room'
   || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget && WZ.pickPages[0].byRoom!==false); }
@@ -3975,7 +3975,7 @@ function wzTileEditor(i){
   var header='<div class="wzq" style="display:flex;align-items:center;gap:10px"><button class="wzbtn" id="wzTileBack" style="padding:4px 10px">← '+T('Übersicht')+'</button><b style="text-transform:none;letter-spacing:0;color:var(--fg)">'+esc(pg.name||T('Seite'))+' <span style="color:var(--muted);font-weight:400">('+(i+1)+'/'+N+')</span></b></div>';
   var content='<div class="wzrow" style="align-items:center;gap:8px;margin:6px 0 4px"><span style="font-size:12px;color:var(--muted)">'+T('Seiteninhalt')+'</span>'+wzPageContentSel(i,220)+(pg.widget?wzPageArgSel(i):'')+'</div>';
   if(pg.widget) return header+content+
-    '<div class="wznote" style="margin-top:10px">'+T('Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Display. Baustein/Zone wählst du oben direkt.')+'</div>'+prog;
+    '<div class="wznote" style="margin-top:10px">'+T('Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Gerät. Baustein/Zone wählst du oben direkt.')+'</div>'+prog;
   return header+content+'<div class="se-host" id="wzSeHost"></div>'+prog;
 }
 // Aussehen-Steuerung im Assistenten (Farbschema, Größen, Schrift) -> WZ.look,
@@ -3990,14 +3990,14 @@ function wzLookHtml(){
   var sizes=[['iconSize',T('Icon-Größe')],['nameSize',T('Haupttext-Größe')],['subSize',T('Zweittext-Größe')]].map(function(s){
     return '<div class="wzfield" style="max-width:120px"><label>'+s[1]+'</label><input type="number" min="8" max="80" data-wsize="'+s[0]+'" value="'+(L[s[0]]==null?'':L[s[0]])+'" placeholder="'+esc(String(std[s[0]]==null?'—':std[s[0]]))+'"></div>'; }).join('');
   var font='<div class="wzfield" style="max-width:220px"><label>'+T('Schriftart')+'</label><select data-wfont>'+FONTS.map(function(f){ return '<option value="'+esc(f.v)+'"'+(String(L.font||'')===f.v?' selected':'')+'>'+esc(f.label)+'</option>'; }).join('')+'</select></div>';
-  return '<p class="wzq mt">'+T('Panel-Farbe')+'</p>'+
+  return '<p class="wzq mt">'+T('Grundfarbe')+'</p>'+
     '<p class="wznote" style="margin:0 0 8px">'+T('Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift und Icons werden daraus berechnet. Leer = Standard.')+'</p>'+
     '<div class="wzsww">'+sw+custom+none+'</div>'+
     '<p class="wznote" id="wzBaseVal" style="margin-top:6px">'+esc(L.baseColor||T('Standard-Farbschema'))+'</p>'+
     '<p class="wzq mt">'+T('Größen & Schrift')+'</p><div class="wzrow">'+sizes+font+
-      '<div class="wzfield" style="max-width:220px"><label>'+T('Skalierung')+'</label><select data-wscale class="skal">'+scaleOptions(L.scale,T('Wie global'))+'</select></div>'+
+      '<div class="wzfield" style="max-width:220px"><label>'+T('Skalierung')+'</label><select data-wscale class="skal">'+scaleOptions(L.scale,T('Wie Vorgabe'))+'</select></div>'+
     '</div>'+
-    '<p class="wznote" style="margin-top:6px">'+T('„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.')+'</p>';
+    '<p class="wznote" style="margin-top:6px">'+T('„Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand geht. „Wie Vorgabe" erbt den Wert aus den Vorgaben.')+'</p>';
 }
 // Vorschau am Geraet im letzten Schritt (Punkt 12): das Panel gibt es noch nicht, der Entwurf
 // traegt es (wzProfil). Nur mit einem echten Geraet aus Schritt 1, das eine Visu verbunden hat.
@@ -4008,13 +4008,13 @@ function wzVorschauHtml(){
   return '<p class="wzq mt">'+T('Auf dem Gerät ansehen')+'</p><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
     '<button class="wzbtn'+(on?' prim':'')+'" id="wzVorschau"'+(on?'':' disabled')+'>'+esc(T('Auf')+' '+d+' '+T('ansehen'))+'</button>'+
     (an?'<button class="wzbtn" id="wzVorschauEnde">'+T('Vorschau beenden')+'</button>':'')+'</div>'+
-    '<div class="wznote">'+(on ? T('Zeigt das Panel mit diesen Einstellungen auf dem Gerät, bevor es angelegt wird. Ohne Änderungen kehrt es nach 15 Minuten zur vorigen Ansicht zurück.')
+    '<div class="wznote">'+(on ? T('Zeigt die Ansicht mit diesen Einstellungen auf dem Gerät, bevor sie angelegt wird. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.')
         : esc(d+' '+T('hat keine verbundene Visu – eine Vorschau braucht sie.')))+
     ((WZ.grid==='auto' && wzZielNeu()) ? ' '+T('Die Zielkachel am Gerät wird erst beim Anlegen gemerkt; die Vorschau rechnet mit der bisherigen.') : '')+'</div>'+
     (wzVorFehler ? '<div class="wznote" style="color:var(--crit)">'+esc(wzVorFehler)+'</div>' : '');
 }
 function wzSummary(){
-  var cmap={room:T('Raum-Panel'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
+  var cmap={room:T('Raum-Ansicht'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
   var rows=[[T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)],[T('Inhalt'),cmap[WZ.content]||''],[T('Design'),WZ.design==='global'?T('Einheitlich'):T('Individuell')]];
   if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
   if(WZ.groesse) rows.push([T('Vorgerechnet für'), WZ.groesse.name+' · '+WZ.groesse.vw+' × '+WZ.groesse.vh+' → '+wzVorrechnungText(WZ.panes, WZ.grid)]);
@@ -4022,9 +4022,9 @@ function wzSummary(){
   if(WZ.device) rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
     ((WZ.grid==='auto' && wzZielNeu() && WZ.zielMerken)?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
   if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
-  var L=WZ.look||{}; rows.push([T('Panel-Farbe'),L.baseColor||T('Standard')]);
+  var L=WZ.look||{}; rows.push([T('Grundfarbe'),L.baseColor||T('Standard')]);
   if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
-  rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie global'):scaleName(L.scale)]);
+  rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie Vorgabe'):scaleName(L.scale)]);
   rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
   if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
   return '<div class="wzopts">'+rows.map(function(r){return '<div class="wzo" style="cursor:default;padding:9px 14px"><span class="tx" style="flex:1;color:var(--muted);font-size:12.5px">'+r[0]+'</span><b style="font-size:13px">'+esc(r[1]||'—')+'</b></div>';}).join('')+'</div>';
@@ -4043,21 +4043,21 @@ function wzRender(){
       '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
   } else if(key==='inhalt'){
     b.innerHTML='<p class="wzq">'+T('Wie möchtest du befüllen?')+'</p><div class="wzopts">'+
-      wzOpt('content','room','room',T('Raum-Panel'),T('Ein Raum aus Loxone + Kategorien als Sprungtabs.'))+
+      wzOpt('content','room','room',T('Raum-Ansicht'),T('Ein Raum aus Loxone + Kategorien als Sprungtabs.'))+
       wzOpt('content','classic','grid',T('Klassische Visu'),T('Standard-Tabs (Favoriten/Zentral/Räume/Kategorien).'))+
       wzOpt('content','pick','pick',T('Freie Auswahl'),T('Eigene Seiten mit handverlesenen Kacheln (bis 4).'))+'</div>';
   } else if(key==='design'){
     b.innerHTML='<p class="wzq">'+T('Wie sollen die Kacheln aussehen?')+'</p><div class="wzopts">'+
-      wzOpt('design','global','paint',T('Einheitliches Design'),T('Globale Kachelgrößen/Schrift. Später einzeln übersteuerbar.'))+
+      wzOpt('design','global','paint',T('Einheitliches Design'),T('Kachelgrößen und Schrift aus den Vorgaben. Später einzeln übersteuerbar.'))+
       wzOpt('design','individual','brush',T('Individuell je Kachel'),T('Farbe, Schrift & Icon je Kachel — im Editor.'))+'</div>'+
       wzLookHtml();
   } else if(key==='overlay'){
     b.innerHTML='<p class="wzq">'+T('Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird')+'</p>'+
       '<div class="ovctrl">'+overlayFields(WZ.overlay,'wzov_')+'</div>'+
-      '<div class="wznote" style="margin-top:8px">'+T('Gilt für das ganze Panel; einzelne Kacheln kannst du später im Editor abweichend einstellen.')+'</div>';
+      '<div class="wznote" style="margin-top:8px">'+T('Gilt für die ganze Ansicht; einzelne Kacheln kannst du später im Editor abweichend einstellen.')+'</div>';
   } else if(key==='name'){
     b.innerHTML='<div class="wzfield"><label>'+T('Anzeigename')+'</label><input id="wzTitleI" value="'+esc(WZ.title)+'" placeholder="'+T('z. B. Wohnzimmer')+'"></div>'+
-      '<div class="wzfield mt"><label>'+T('Panel-ID')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Panel:')+' <code>?panel='+(WZ.id||'wohnzimmer')+'</code></div></div>'+
+      '<div class="wzfield mt"><label>'+T('Kennung')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Gerät:')+' <code>?panel='+(WZ.id||'wohnzimmer')+'</code></div></div>'+
       (WZ.device ? '<div class="wzfield mt">'+
         '<label class="wzchk"><input type="checkbox" id="wzUmschalten"'+(WZ.umschalten?' checked':'')+'> '+
           esc(T('Danach auf')+' '+WZ.device+' '+T('anzeigen – speichert und schaltet das Gerät um'))+'</label>'+
@@ -4066,7 +4066,7 @@ function wzRender(){
   } else if(key==='setup'){
     b.innerHTML=wzSetup();
   } else if(key==='screensaver'){
-    if(WZ.panes!=='2'){ b.innerHTML='<div class="wznote">'+T('Am 4″-Panel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>'; }
+    if(WZ.panes!=='2'){ b.innerHTML='<div class="wznote">'+T('Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>'; }
     else { var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
       b.innerHTML='<p class="wzq">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
       wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
@@ -4080,7 +4080,7 @@ function wzRender(){
       '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>'; }
   } else if(key==='review'){
     b.innerHTML='<p class="wzq">'+T('Zusammenfassung')+'</p>'+wzSummary()+
-      '<div class="wznote">'+T('Nach „Panel anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen" testen.')+'</div>'+
+      '<div class="wznote">'+T('Nach „Ansicht anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst die Ansicht über „Visu öffnen" testen.')+'</div>'+
       wzVorschauHtml();
   }
   b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
@@ -4126,7 +4126,7 @@ function wzRender(){
   { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); wzRender(); } }; }
   var idI=$('#wzId'); if(idI) idI.oninput=function(){ WZ._idT=true; WZ.id=idI.value.toLowerCase().replace(/[^a-z0-9-]/g,''); idI.value=WZ.id; wzUpd(); };
   $('#wzBack').disabled=WZ.step===0;
-  $('#wzNext').textContent=(WZ.step===f.length-1)?T('Panel anlegen ✓'):T('Weiter →');
+  $('#wzNext').textContent=(WZ.step===f.length-1)?T('Ansicht anlegen ✓'):T('Weiter →');
   wzUpd();
 }
 function wzUpd(){
@@ -4189,7 +4189,7 @@ function wzProfil(){
 }
 function wzBuild(){
   var id=WZ.id; if(!id) return;
-  if(PANELS[id]){ alert('Panel „'+id+'" '+T('gibt es schon.')); return; }
+  if(PANELS[id]){ alert('Ansicht „'+id+'" '+T('gibt es schon.')); return; }
   PANELS[id]=wzProfil();
   var amGeraet=WZ.device, umschalten=!!WZ.umschalten, zielMerken=WZ.grid==='auto' && WZ.zielMerken && wzZielNeu(), ziel=wzZiel();
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
@@ -4283,7 +4283,7 @@ async function loadSettings(){
       // Ganzer Satz statt zusammengesetzter Fragmente: im Englischen steht die
       // Uhrzeit an anderer Stelle im Satz, und "Uhr." hat dort keine Entsprechung.
       const stale=st.events_stale?'<br><span class="ccmut">'
-        +T('Das Panel zeigt weiter den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.events_stale))
+        +T('Die Visu zeigt weiter den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.events_stale))
         +'</span>':'';
       const qs=st.cal_sources||[], kaputt=qs.filter(q=>q&&q.error).length;
       if(!CALS.length) cs.innerHTML='<span class="ccmut">'+T('Kein Kalender konfiguriert.')+'</span>';
@@ -4534,7 +4534,7 @@ function calStatHTML(q){
   const st=q.key?CAL_STAT[q.key]:null;
   if(!st) return q.url?'<span class="calst">'+T('noch nicht geladen')+'</span>':'';
   if(st.error) return '<span class="calst err"><b class="bad">'+T('Fehler:')+'</b> '+esc(st.error)
-    +(st.stale?' · '+T('Panel zeigt den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.stale)):'')+'</span>';
+    +(st.stale?' · '+T('Visu zeigt den Stand von {zeit} Uhr.').replace('{zeit}',esc(st.stale)):'')+'</span>';
   return '<span class="calst"><b class="ok">'+T('geladen')+'</b> · '+(st.count||0)+' '+T('Termine')+'</span>';
 }
 function renderCals(){
@@ -4647,9 +4647,9 @@ async function loadPanelIds(){
     DEV={};
     Object.entries(m.devices||{}).forEach(([name,d])=>{
       DEV[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
-                 scale:(d.scale===undefined?'':d.scale),   // '' = wie im Profil
+                 scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
                  presence:d.presence||'',                  // '' = kein Praesenzmelder
-                 tileTarget:d.tileTarget||''};              // '' = Zielkachel wie im Profil
+                 tileTarget:d.tileTarget||''};              // '' = Zielkachel wie in der Ansicht
     });
   }catch(e){ PANEL_IDS=[]; }
 }
@@ -4704,9 +4704,9 @@ function renderDeviceList(j){
   box.querySelectorAll('.ag[data-anon]').forEach(n=>{ const i=n.querySelector('.anname'); if(i) prevName[n.dataset.anon]=i.value; });
   const devs=j.devices||[], anon=j.anonymous||[];
   if(!devs.length && !anon.length){
-    box.innerHTML='<div class="muted">'+esc(T('Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.'))+'</div>'; return; }
+    box.innerHTML='<div class="muted">'+esc(T('Noch kein Gerät gefunden. Ein Gerät erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.'))+'</div>'; return; }
   let html=devs.map(d=>deviceRow(d,prevSel[d.name])).join('');
-  if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung. Das Panel zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
+  if(anon.length) html+='<div class="note" style="margin-top:10px">'+T('Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.')+'</div>'+
     anon.map(a=>anonRow(a,prevName[anonKey(a)])).join('');
   box.innerHTML=html;
   box.querySelectorAll('.ag[data-name] button[data-act]').forEach(b=>{
@@ -4734,16 +4734,16 @@ async function deviceAction(act, name, ip, panel){
     else return;
     const n=(j.sent!==undefined)?j.sent:j.reloaded;
     const ok=!!j.ok && (n===undefined || n>0);
-    flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Panel nicht erreicht'):('HTTP '+j.status)))), ok);
+    flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Gerät nicht erreicht'):('HTTP '+j.status)))), ok);
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
 }
-// Display entfernen: seine Einstellungen (Betriebsmodi, Display-Steuerung,
+// Gerät entfernen: seine Einstellungen (Betriebsmodi, Display-Steuerung,
 // Skalierung, Zielkachel, Praesenzmelder) fallen weg, gespeichert wird sofort
 // wie mit "Speichern" im Editor darunter (die ganze Liste). Ist es noch
 // verbunden, meldet die naechste Abfrage es wieder - dann ohne Einstellungen.
 async function devEntfernen(name, online){
-  if(!confirm(T('Display entfernen:')+' '+name+'\n\n'+
-      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Displays werden dabei mitgespeichert.')+
+  if(!confirm(T('Gerät entfernen:')+' '+name+'\n\n'+
+      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Geräten werden dabei mitgespeichert.')+
       (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
   readDevFromDom();
   const alt=DEV[name]; delete DEV[name];
@@ -4819,11 +4819,11 @@ function devRow(name){
     displayRow(d.display, name)+
     '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
-      '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie im Profil'))+'</select>'+
+      '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie in der Ansicht'))+'</select>'+
     '</div>'+
     '<div class="dtrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Zielkachel (Automatik)')+'</span>'+
-      '<input type="number" class="dt_ziel" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+T('wie im Profil')+'" value="'+(d.tileTarget||'')+'" style="width:90px">'+
+      '<input type="number" class="dt_ziel" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+T('wie in der Ansicht')+'" value="'+(d.tileTarget||'')+'" style="width:90px">'+
       '<span style="font-size:13px;opacity:.85">px</span>'+
       '<span class="note dt_hinweis">'+esc(vorschlagText(name))+'</span>'+
       (DEVICE_SUGGEST[name]?'<button class="btn sm ghost dt_nehmen" type="button">'+T('übernehmen')+'</button>':'')+
@@ -4901,7 +4901,7 @@ function readDevFromDom(){
 function renderDevices(){
   const box=$('#dev_list'); if(!box) return;
   const names=Array.from(new Set(KNOWN_NAMES.concat(Object.keys(DEV)))).sort();
-  if(!names.length){ box.innerHTML='<div class="muted">'+T('Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.')+'</div>'; return; }
+  if(!names.length){ box.innerHTML='<div class="muted">'+T('Noch kein Gerät bekannt. Sobald ein Gerät die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.')+'</div>'; return; }
   box.innerHTML=names.map(devRow).join('');
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
@@ -4933,7 +4933,7 @@ function devicesPayload(){
     const modes={};
     (d.modes||[]).forEach(([m,p])=>{ m=(m||'').trim(); if(m&&p) modes[m]=p; });
     const display=(d.display&&d.display.driver&&d.display.host)?d.display:null;
-    const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie im Profil
+    const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie in der Ansicht
     const presence=d.presence||'';
     const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
     if(Object.keys(modes).length || display || scale!==null || presence || ziel){
@@ -5014,7 +5014,7 @@ function mzRender(){
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'
-        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.'))+'</div>'))+
+        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.'))+'</div>'))+
       (anon ? '<div class="wznote" style="margin-top:10px">'+T('Verbunden, aber noch ohne Namen – erst benennen, dann auswählen:')+'</div>'+anon : '')+
       (MZ.benannt ? '<div class="wznote" style="margin-top:8px">'+esc(T('✓ Name vergeben – das Gerät verbindet sich neu und erscheint gleich oben:')+' '+MZ.benannt)+'</div>' : '')+
       '<div class="wznote" style="margin-top:10px">'+T('Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.')+'</div>';
@@ -5031,7 +5031,7 @@ function mzRender(){
       MZ.modes.map(m=>'<div class="mzrow"><span class="mzml"><b>'+esc(m.label)+'</b> <code>'+esc(m.key)+'</code></span>'+
         '<select class="mzprof" data-mzk="'+esc(m.key)+'"><option value="">'+T('unverändert lassen')+'</option>'+
         PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(m.profile===id?' selected':'')+'>'+esc(id)+'</option>').join('')+'</select></div>').join('')+'</div>'+
-      '<div class="wznote" style="margin-top:10px">'+T('„Unverändert lassen" heißt: dieser Modus schaltet das Panel nicht um.')+'</div>';
+      '<div class="wznote" style="margin-top:10px">'+T('„Unverändert lassen" heißt: dieser Modus schaltet das Gerät nicht um.')+'</div>';
   } else {
     const host=location.host;
     const lines=MZ.modes.map(m=>'http://'+host+'/api/mode/'+m.key).join('\n');
@@ -5110,7 +5110,7 @@ document.addEventListener('keydown',e=>{
 // ---- Audio: Test-Ton ----
 function fillAudioPanels(){
   const sel=$('#at_panel'); if(!sel) return;
-  sel.innerHTML='<option value="">'+T('Alle Panels')+'</option>'+
+  sel.innerHTML='<option value="">'+T('Alle Geräte')+'</option>'+
     PANEL_IDS.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
 }
 $('#at_send').onclick=async()=>{
@@ -5119,7 +5119,7 @@ $('#at_send').onclick=async()=>{
   try{
     const r=await fetch('/api/testtone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({panel})});
     const j=await r.json();
-    if(j.ok){ flash($('#at_toast'), j.sent? ('✓ an '+j.sent+' Panel'+(j.sent>1?'s':'')+' gesendet') : 'Kein Panel verbunden (Kiosk offen?)', j.sent>0); }
+    if(j.ok){ flash($('#at_toast'), j.sent? ('✓ an '+j.sent+' '+(j.sent>1?'Geräte':'Gerät')+' gesendet') : 'Kein Gerät verbunden (Kiosk offen?)', j.sent>0); }
     else flash($('#at_toast'), j.error||'Fehler', false);
   }catch(e){ flash($('#at_toast'),'Fehler: '+e,false); }
   $('#at_send').disabled=false;
@@ -5144,7 +5144,7 @@ $('#nk_copy').onclick=()=>{ navigator.clipboard.writeText($('#nk_out').textConte
 function genPanelCmd(){
   const ip=$('#np_ip').value.trim(), user=($('#np_user').value.trim()||'linaro');
   const name=$('#np_name').value.trim(), panel=$('#np_panel').value, server=$('#np_server').value.trim();
-  if(!ip||!server){ flash($('#np_toast'),T('Panel-IP und Server-Adresse nötig'),false); return; }
+  if(!ip||!server){ flash($('#np_toast'),T('Geräte-IP und Server-Adresse nötig'),false); return; }
   const cmd="ssh -t "+user+"@"+ip+" \"curl -fsSL http://"+server+"/install-agent.sh -o /tmp/lp-install.sh && "+
     "SERVER='"+server+"' AGENT_NAME='"+name+"' PANEL='"+panel+"' bash /tmp/lp-install.sh\"";
   $('#np_out').textContent=cmd; $('#np_out').style.display='block'; $('#np_copyrow').style.display='flex';
@@ -5163,13 +5163,13 @@ const RS_KEY='lp_einspiel_ergebnis';
 const RS_MS={
   verbunden:'Miniserver: mit dem eingespielten Zugang neu verbunden.',
   unveraendert:'Miniserver: Zugang unverändert, die Verbindung bleibt.',
-  kein_kennwort:'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.',
+  kein_kennwort:'Miniserver: Kennwort fehlt – unter Einstellungen → Miniserver eintragen.',
   behalten:'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.',
   umgebung:'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.',
-  keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.',
-  kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.',
-  unvollstaendig:'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.',
-  unvollstaendig_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.',
+  keiner:'Miniserver: weder in der Sicherung noch hier eingetragen – unter Einstellungen → Miniserver eintragen.',
+  kein_kennwort_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Einstellungen → Miniserver mit Kennwort eintragen.',
+  unvollstaendig:'Miniserver: Benutzer fehlt – unter Einstellungen → Miniserver eintragen.',
+  unvollstaendig_behalten:'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Einstellungen → Miniserver vollständig eintragen.',
   fehler:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:',
   fehler_behalten:'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:'};
 function rsZiel(z){
@@ -5190,7 +5190,7 @@ function rsZeigen(j, nichtNeuGeladen){
     z.push(esc(T(RS_MS[j.miniserver]||j.miniserver).replace('{ziel}', ()=>(ziel.host||'')+(ziel.user?' ('+ziel.user+')':'')))+
            (j.miniserverFehler?' '+esc(j.miniserverFehler):''));
   }
-  if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Settings eintragen:'))+'</b> '+
+  if((kw.fehlen||[]).length) z.push('<b class="bad">'+esc(T('Kennwort fehlt, bitte unter Einstellungen eintragen:'))+'</b> '+
                                     esc(kw.fehlen.map(rsZiel).join(', ')));
   if((kw.behalten||[]).length) z.push(esc(T('Kennwort von diesem Server übernommen:'))+' '+esc(kw.behalten.map(rsZiel).join(', ')));
   if((j.nichtEnthalten||[]).length) z.push(esc(T('Nicht in der Sicherung, unverändert:'))+' '+esc(j.nichtEnthalten.join(', ')));
@@ -5211,7 +5211,7 @@ $('#rs_pick').onclick=()=>{ $('#rs_file').value=''; $('#rs_file').click(); };
 $('#rs_file').onchange=async()=>{
   const f=$('#rs_file').files[0]; if(!f) return;
   const frage=T('Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?')+
-    (dirty?'\n\n'+T('Ungespeicherte Änderungen an Panels gehen dabei verloren.'):'');
+    (dirty?'\n\n'+T('Ungespeicherte Änderungen an Ansichten gehen dabei verloren.'):'');
   if(!confirm(frage)) return;
   $('#rs_pick').disabled=true; $('#rs_result').textContent='';
   let j;
@@ -5238,7 +5238,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </script>
 <div id="wzOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b>＋ Neues Panel — Assistent</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="wzhd"><b>＋ Neue Ansicht — Assistent</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="wzBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="wzBack">← Zurück</button>
@@ -5252,7 +5252,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .addbtn, .na
 </div>
 <div id="dupOv" class="wzov" hidden>
   <div class="wzbox">
-    <div class="wzhd"><b data-i18n>Panel duplizieren</b><span class="wzstep" id="dupQuelle"></span><button class="wzx" id="dupX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="wzhd"><b data-i18n>Ansicht duplizieren</b><span class="wzstep" id="dupQuelle"></span><button class="wzx" id="dupX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
     <div class="wzbody" id="dupBody"></div>
     <div class="wzft">
       <button class="wzbtn" id="dupCancel">Abbrechen</button>

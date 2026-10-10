@@ -807,7 +807,7 @@ def test_betriebsmodus_beim_verbinden_erreicht_den_agenten(panel, cfg_ordner, vo
             w.app.agents["127.0.0.1"]["ts"] -= W.AGENT_ONLINE + 1
         async with w.s.get(w.basis + "/api/mode/tag") as r:
             assert (await r.json())["switched"] == [
-                {"panel": "wand", "profile": "day", "ok": False, "error": "Panel nicht online"}]
+                {"panel": "wand", "profile": "day", "ok": False, "error": "Gerät nicht online"}]
         await w.melden()   # Agent wieder da, sein Chromium verbindet
         assert "panel=night" in w.panel.starts()[-1]["url"]
         ws, theme = await w.verbinden(_adresse(w.panel.starts()[-1]["url"]))

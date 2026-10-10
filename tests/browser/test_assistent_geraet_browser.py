@@ -202,7 +202,7 @@ def test_zielkachel_unter_displays_bleibt_beim_speichern(cfg_ordner):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                await pg.locator(".rub", has_text="Displays").click()
+                await pg.locator(".rub", has_text="Geräte").click()
                 await pg.locator("summary", has_text="Betriebsmodus-Automatik").click()
                 feld = pg.locator('#dev_list .dev[data-name="flur"] .dt_ziel')
                 assert await feld.input_value() == "200"

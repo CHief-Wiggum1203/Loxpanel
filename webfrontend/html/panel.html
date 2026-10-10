@@ -3339,7 +3339,7 @@ const ENTWURF = new URLSearchParams(location.search).get('entwurf') || '';
 function entwurfZeigen(gilt){
   const m=el('entwurfMarke'); if(!m) return;
   if(!ENTWURF || gilt===undefined || gilt===null){ m.classList.add('hidden'); return; }
-  m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeichertes Profil';
+  m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeicherte Ansicht';
   m.classList.toggle('alt', !gilt); m.classList.remove('hidden');
 }
 // Geraete-Kennung (physisches Panel). Darueber adressiert der Server dieses
@@ -4164,7 +4164,7 @@ function renderFrontTab(){
     g.innerHTML = w
       ? '<div class="ft ft-wx"><div class="ft-a"><div class="fp-h" data-i18n>Wetter</div>'+fpNowHTML(w)
         +fpWeatherDetailHTML(w)+'</div><div class="ft-b">'+fpCurveHTML(w)+fpForeHTML(w)+'</div></div>'
-      : '<div class="ft ft-leer"><div class="fp-empty">Kein Wetter eingerichtet (Konfigurator → Settings → Kalender &amp; Wetter).</div></div>';
+      : '<div class="ft ft-leer"><div class="fp-empty">Kein Wetter eingerichtet (Konfigurator → Einstellungen → Kalender &amp; Wetter).</div></div>';
   }
   const b=g.querySelector('.ft-b'); if(b && oben) b.scrollTop=oben;
   renderTabs();

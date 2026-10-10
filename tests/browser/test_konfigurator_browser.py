@@ -137,7 +137,7 @@ def test_kachel_verlauf_stil_und_zeitraum():
 
 def test_sicherung_herunterladen(tmp_path):
     async def klick(pg):
-        await pg.locator(".rub", has_text="Settings").click()
+        await pg.locator(".rub", has_text="Einstellungen").click()
         await pg.locator(".stab", has_text="Sicherung").click()
         await pg.screenshot(path=str(tmp_path / "sicherung.png"))
         async with pg.expect_download() as dl:

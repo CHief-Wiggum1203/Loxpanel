@@ -71,7 +71,7 @@ def test_einrichtung_je_zustand(monkeypatch):
                       "grund": "Noch kein Miniserver eingetragen.",
                       "hinweis": "Konfigurator im Browser eines Computers oder Handys im selben Netz öffnen:",
                       "pfad": "/config", "adressen": ["192.168.1.37"],
-                      "unbekannt": "Die Adresse dieses Panels steht in seinen WLAN-Einstellungen."}
+                      "unbekannt": "Die Adresse dieses Geräts steht in seinen WLAN-Einstellungen."}
     assert _app("10.0.0.5")._einrichtung_stand() is None, "der erste Versuch laeuft noch: kein Aufblitzen"
     assert _app("10.0.0.5", "Anmeldung abgelehnt")._einrichtung_stand() == \
         ("Keine Verbindung zum Miniserver", "10.0.0.5: Anmeldung abgelehnt")

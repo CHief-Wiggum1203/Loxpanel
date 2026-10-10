@@ -26,7 +26,7 @@
       'Baustein': 'Block',
       'Musikzone': 'Music zone',
       'Keine Musikzone in der Anlage.': 'No music zone in the system.',
-      'Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Display. Baustein/Zone wählst du oben direkt.':
+      'Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Gerät. Baustein/Zone wählst du oben direkt.':
         'This page shows the widget across the whole area (full-screen tab) — on a 1-pane display too. You pick the block/zone directly above.',
       'Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.':
         'Audio/energy flow/camera/history only appear here if a matching block exists.',
@@ -40,23 +40,23 @@
       'Mehr passt nicht in die Zeile.': 'No more fit in the row.',
       'Kopfzeile je Tab': 'Header row per tab',
       'Keine': 'None',
-      'Am 1-Pane-Panel gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).': 'A 1-pane panel has no widget beside the tiles, but it can have the header row above them: clock, weather and optional values (pick the values in the editor).',
+      'Am 1-Pane-Gerät gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).': 'A 1-pane device has no widget beside the tiles, but it can have the header row above them: clock, weather and optional values (pick the values in the editor).',
       'Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.': 'Split is off: there is no widget beside the tiles, but the header row above them is available.',
       'Audio': 'Audio',
       'Miniserver': 'Miniserver',
-      '„Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand geht. „Wie global" erbt die globale Einstellung.':
-        '“Automatic” enlarges the view on each display as far as it goes without a border. “Like global” inherits the global setting.',
+      '„Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand geht. „Wie Vorgabe" erbt den Wert aus den Vorgaben.':
+        '“Automatic” enlarges the visu on each device as far as it goes without a border. “Same as default” inherits the value from the defaults.',
       // --- Nachgezogen: Assistent, Displays, Betriebsmodus, restliche Admin-UI ---
       "Standard-Farbschema": "Default color scheme",
       "Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift, Icons und Zustandsfarben werden daraus berechnet. Eigene Zustandsfarben behalten Vorrang.": "Pick a color — background, tiles, bar, text, icons and state colors are derived from it. Custom state colors keep priority.",
       "Eigene Farbe": "Custom color",
       "Keine": "None",
-      "Standard-Aussehen für alle Panels. Einzelne Panels überschreiben es unter „Darstellung\".": "Default look for all panels. Individual panels override it under „Appearance“.",
+      "Standard-Aussehen für alle Ansichten. Einzelne Ansichten überschreiben es unter „Aussehen\".": "Default look for all views. Individual views override it under „Appearance“.",
       "Du bearbeitest": "You are editing",
-      "Raum-Panel": "Room panel",
+      "Raum-Ansicht": "Room view",
       "Klassisch": "Classic",
       "Eigene Auswahl": "Custom selection",
-      "Ein Raum ist die Startseite — das Panel wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Panels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).": "A room is the start page — the panel wakes up directly in this room (light &amp; shading usable at once), without choosing first. Ideal for small 4″ panels. The bottom bar automatically shows the categories present in the room — a tap scrolls to the matching blocks or shows only them (setting below).",
+      "Ein Raum ist die Startseite — das Gerät wacht direkt in diesem Raum auf (Licht &amp; Beschattung sofort bedienbar), ohne vorher zu wählen. Ideal für kleine 4″-Wandpanels. Die untere Leiste zeigt automatisch die im Raum vorkommenden Kategorien — ein Tipp scrollt zu den passenden Bausteinen oder zeigt nur sie (Einstellung unten).": "A room is the start page — the device wakes up directly in this room (light &amp; shading usable at once), without choosing first. Ideal for small 4″ wall panels. The bottom bar automatically shows the categories present in the room — a tap scrolls to the matching blocks or shows only them (setting below).",
       "Dieser Raum": "This room",
       "Kategorie-Tabs (unten)": "Category tabs (bottom)",
       "Automatisch": "Automatic",
@@ -69,7 +69,7 @@
       "Display &amp; Nacht": "Display &amp; night",
       "Feinjustierung": "Fine-tuning",
       "In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.": "In the LoxPanel app, “Dim at night” lowers the real display brightness instead of darkening the picture – with the same effect, but without black glowing grey. If automatic brightness is on in the device, the view dims as in a browser.",
-      "Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.": "How a tile is highlighted in the <b>active state</b> (on = accent, ok = green, critical = red): border, fill and opacity. The <b>color</b> comes from the theme per state, here you set the <b>look</b>. Below, the border of the <b>inactive</b> tiles <b>and the right panes</b> (pane 2, e.g. energy flow monitor, weather, calendar) – turn opacity and width up if it is barely visible on bright displays (e.g. Shelly). Applies to this panel — individual tiles can differ below.",
+      "Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für diese Ansicht — einzelne Kacheln können unten abweichen.": "How a tile is highlighted in the <b>active state</b> (on = accent, ok = green, critical = red): border, fill and opacity. The <b>color</b> comes from the theme per state, here you set the <b>look</b>. Below, the border of the <b>inactive</b> tiles <b>and the right panes</b> (pane 2, e.g. energy flow monitor, weather, calendar) – turn opacity and width up if it is barely visible on bright displays (e.g. Shelly). Applies to this view — individual tiles can differ below.",
       "Inhalt": "Content",
       "Kein Energieflussmonitor in der Anlage.": "No energy flow monitor in the system.",
       "Kein Intercom-Baustein in der Anlage.": "No intercom block in the system.",
@@ -93,12 +93,12 @@
       "Suche": "Search",
       "Baustein suchen…": "Search block…",
       "Alle Bausteine liegen im selben Raum – die untere Leiste bleibt darum ohne Sprungmarken.": "All blocks are in the same room – the bottom bar therefore stays without jump marks.",
-      "Untere Leiste am Panel – ein Tipp scrollt zur Gruppe:": "Bottom bar on the panel – a tap scrolls to the group:",
+      "Untere Leiste in der Visu – ein Tipp scrollt zur Gruppe:": "Bottom bar in the visu – a tap scrolls to the group:",
       "Tipp auf eine Sprungmarke": "Tapping a jump mark",
       "Springen – zur Gruppe scrollen": "Jump – scroll to the group",
       "Filtern – nur diese Gruppe zeigen": "Filter – show only this group",
       "Springen: die Kacheln der Gruppe leuchten kurz auf. Filtern: ein zweiter Tipp auf dieselbe Marke zeigt wieder alle, ebenso eine Minute ohne Bedienung.": "Jump: the group's tiles light up briefly. Filter: a second tap on the same mark shows everything again, as does a minute without use.",
-      "Untere Leiste am Panel – ein Tipp zeigt nur diese Gruppe:": "Bottom bar on the panel – a tap shows only this group:",
+      "Untere Leiste in der Visu – ein Tipp zeigt nur diese Gruppe:": "Bottom bar in the visu – a tap shows only this group:",
       "Springen": "Jump",
       "Filtern": "Filter",
       "Zur Gruppe scrollen, die Kacheln leuchten kurz auf.": "Scroll to the group, its tiles light up briefly.",
@@ -114,8 +114,8 @@
       "zeigt": "shows",
       "aus": "from",
       "Räumen": "rooms",
-      "gewählter Baustein ist auf diesem Panel ausgeblendet und erscheint nicht.": "selected block is hidden on this panel and does not appear.",
-      "gewählte Bausteine sind auf diesem Panel ausgeblendet und erscheinen nicht.": "selected blocks are hidden on this panel and do not appear.",
+      "gewählter Baustein ist in dieser Ansicht ausgeblendet und erscheint nicht.": "selected block is hidden in this view and does not appear.",
+      "gewählte Bausteine sind in dieser Ansicht ausgeblendet und erscheinen nicht.": "selected blocks are hidden in this view and do not appear.",
       "Icon der Seite": "Page icon",
       "ausgeblendet": "hidden",
       "Bibliothek": "Library",
@@ -138,7 +138,7 @@
       "Nächsten Tab befüllen": "Fill next tab",
       "Übersicht": "Overview",
       "Baustein suchen (alle Räume)…": "Search block (all rooms)…",
-      "Panel-Farbe": "Panel color",
+      "Grundfarbe": "Base color",
       "Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift und Icons werden daraus berechnet. Leer = Standard.": "Pick a color — background, tiles, bar, text and icons are derived from it. Empty = default.",
       "Größen & Schrift": "Sizes & font",
       "Klassische Visu": "Classic view",
@@ -168,23 +168,23 @@
       "Eigene Seiten mit handverlesenen Kacheln (bis 4).": "Custom pages with hand-picked tiles (up to 4).",
       "Wie sollen die Kacheln aussehen?": "How should the tiles look?",
       "Einheitliches Design": "Uniform design",
-      "Globale Kachelgrößen/Schrift. Später einzeln übersteuerbar.": "Global tile sizes/font. Overridable individually later.",
+      "Kachelgrößen und Schrift aus den Vorgaben. Später einzeln übersteuerbar.": "Tile sizes and font from the defaults. Overridable individually later.",
       "Individuell je Kachel": "Individual per tile",
       "Farbe, Schrift & Icon je Kachel — im Editor.": "Color, font & icon per tile — in the editor.",
       "Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird": "Active overlay — how an active tile is highlighted",
-      "Gilt für das ganze Panel; einzelne Kacheln kannst du später im Editor abweichend einstellen.": "Applies to the whole panel; individual tiles can differ later in the editor.",
+      "Gilt für die ganze Ansicht; einzelne Kacheln kannst du später im Editor abweichend einstellen.": "Applies to the whole view; individual tiles can differ later in the editor.",
       "z. B. Wohnzimmer": "e.g. Living room",
-      "Panel-ID": "Panel ID",
-      "Aufruf am Panel:": "Open on the panel:",
-      "Am 4″-Panel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.": "On the 4″ panel the clock page is single-column (clock + automatic events/weather) — no second column.",
+      "Kennung": "Identifier",
+      "Aufruf am Gerät:": "Open on the device:",
+      "Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.": "On the 4″ wall panel the clock page is single-column (clock + automatic events/weather) — no second column.",
       "Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)": "Clock page — second area (right in landscape, below in portrait)",
       "Automatik (Termine/Wetter)": "Automatic (events/weather)",
       "Aus — nur Uhr": "Off — clock only",
       "Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.": "Status values (multiple blocks) for this area are set afterwards in the editor.",
       "Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.": "Energy flow/camera/history appear here only if a matching block exists.",
       "Zusammenfassung": "Summary",
-      "Nach „Panel anlegen\" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst das Panel über „Visu öffnen\" testen.": "After „Create panel“ you are in the editor for fine-tuning (tiles, pane 2, icons) and can test the panel via „Open view“.",
-      "Panel anlegen ✓": "Create panel ✓",
+      "Nach „Ansicht anlegen\" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst die Ansicht über „Visu öffnen\" testen.": "After „Create view“ you are in the editor for fine-tuning (tiles, pane 2, icons) and can test the view via „Open view“.",
+      "Ansicht anlegen ✓": "Create view ✓",
       "Weiter →": "Next →",
       "gibt es schon.": "already exists.",
       "Erkannte Audioserver:": "Detected audio servers:",
@@ -210,10 +210,10 @@
       "Ohne Kennung": "No identifier",
       "Gerätename": "Device name",
       "Namen vergeben": "Assign name",
-      "Noch kein Panel gefunden. Ein Panel erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.": "No panel found yet. A panel appears as soon as it opens the view with ?device=<name> or the agent runs on it.",
-      "Geräte ohne Kennung. Das Panel zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.": "Devices without an identifier. The panel shows its code under \"Set up this device\" – enter the name next to it here so the device is listed permanently and can be switched by operating mode.",
+      "Noch kein Gerät gefunden. Ein Gerät erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.": "No device found yet. A device appears as soon as it opens the view with ?device=<name> or the agent runs on it.",
+      "Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.": "Devices without an identifier. The device shows its code under \"Set up this device\" – enter the name next to it here so the device is listed permanently and can be switched by operating mode.",
       "Code": "Code",
-      "Panel nicht erreicht": "Panel not reached",
+      "Gerät nicht erreicht": "Device not reached",
       "Bitte einen Namen eingeben": "Please enter a name",
       "Schließen": "Close",
       "Verbunden, aber noch ohne Namen – erst benennen, dann auswählen:": "Connected but not named yet – name it first, then select it:",
@@ -222,9 +222,9 @@
       "keine (nur über die Seite)": "none (only via the page)",
       "Passwort (Fully)": "Password (Fully)",
       "Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:": "Display password not kept because host or driver changed:",
-      "Noch kein Panel bekannt. Sobald ein Panel die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.": "No panel known yet. As soon as a panel opens the view with an identifier or an agent runs, it appears here.",
+      "Noch kein Gerät bekannt. Sobald ein Gerät die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.": "No device known yet. As soon as a device opens the view with an identifier or an agent runs, it appears here.",
       "Für welche Geräte?": "For which devices?",
-      "Noch kein Gerät bekannt. Ein Panel muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.": "No device known yet. A panel must open the view once with ?device=<name> or have an agent.",
+      "Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.": "No device known yet. A device must open the visu once with ?device=<name> or have an agent.",
       "Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.": "The mode assignment applies equally to all selected devices. Fine-tune per device afterwards in the detail table.",
       "Welche Betriebsmodi?": "Which operating modes?",
       "Loxone sendet": "Loxone sends",
@@ -232,7 +232,7 @@
       "z. B. Kino": "e.g. Cinema",
       "Hinzufügen": "Add",
       "Welche Ansicht bei welchem Modus?": "Which view for which mode?",
-      "„Unverändert lassen\" heißt: dieser Modus schaltet das Panel nicht um.": "„Leave unchanged“ means: this mode does not switch the panel.",
+      "„Unverändert lassen\" heißt: dieser Modus schaltet das Gerät nicht um.": "„Leave unchanged“ means: this mode does not switch the device.",
       "Keine Zuordnung gewählt — es würde nichts umgeschaltet.": "No assignment chosen — nothing would be switched.",
       "Fertig — in Loxone einrichten": "Done — set up in Loxone",
       "Lege in Loxone Config je Betriebsart einen virtuellen HTTP-Ausgang mit dieser Adresse an (der Modusname am Ende zählt):": "In Loxone Config, create a virtual HTTP output per operating mode with this address (the mode name at the end matters):",
@@ -243,9 +243,9 @@
       "Übernehmen ✓": "Apply ✓",
       "✓ Betriebsmodus gespeichert": "✓ Operating mode saved",
       "Gerätename und Server-Adresse nötig": "Device name and server address required",
-      "Welche Visu welches Gerät zeigt. Linux-Panels mit Agent melden sich automatisch; Android-Panels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?panel=<start>&device=<name>). Ein neues Gerät einrichten: Settings → Neues Panel.": "Which view each device shows. Linux panels with an agent register automatically; Android panels and tablets appear as soon as they open the view with a device identifier (?panel=<start>&device=<name>). Set up a new device: Settings → New panel.",
+      "Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?panel=<start>&device=<name>). Ein neues Gerät einrichten: Einstellungen → Neues Gerät.": "Which view each device shows. Linux devices with an agent register automatically; Android wall panels and tablets appear as soon as they open the view with a device identifier (?panel=<start>&device=<name>). Set up a new device: Settings → New device.",
       "Geräte & Ansicht": "Devices & view",
-      "Je Gerät die Ansicht (Profil) wählen und live umschalten. Geräte ohne Kennung stehen unten und bekommen hier einen Namen.": "Pick the view (profile) per device and switch live. Devices without an identifier are listed below and get a name here.",
+      "Je Gerät die Ansicht wählen und live umschalten. Geräte ohne Kennung stehen unten und bekommen hier einen Namen.": "Pick the view per device and switch live. Devices without an identifier are listed below and get a name here.",
       "🧭 Betriebsmodus-Assistent": "🧭 Operating-mode assistant",
       "Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.": "Guided: modes → view per device, with a ready Loxone address.",
       "Betriebsmodus-Automatik & Display-Steuerung": "Operating-mode automation & display control",
@@ -256,32 +256,37 @@
       "nicht in der Struktur": "not in the structure",
       "gerade: jemand da": "now: someone present",
       "gerade: Raum leer": "now: room empty",
-      "Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Panels mit Agent.": "Presence sensor per device: while the chosen block reports someone (e.g. the room's presence sensor), the display stays bright and the idle timeout is suspended; when the room is empty, it turns off. Works with the LoxPanel app, Fully Kiosk (JavaScript interface or Remote Admin) and WallPanel, not on Linux panels with an agent.",
+      "Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Geräten mit Agent.": "Presence sensor per device: while the chosen block reports someone (e.g. the room's presence sensor), the display stays bright and the idle timeout is suspended; when the room is empty, it turns off. Works with the LoxPanel app, Fully Kiosk (JavaScript interface or Remote Admin) and WallPanel, not on Linux devices with an agent.",
       "Nachtmodus": "Night mode",
-      "Wann die Panels abdunkeln (Auslöser oder Sonnenuntergang).": "When the panels dim (trigger or sunset).",
-      "Wann die Panels abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.": "When the panels dim. Without a trigger, sunset decides — the times come from the Miniserver, or from the weather service as a fallback. Any block with an on/off state can be a trigger; its on state means night. That includes a Loxone operating mode, once it is mapped in Loxone Config to a status block with room and category — the mode itself is not in the view.",
+      "Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang).": "When the devices dim (trigger or sunset).",
+      "Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.": "When the devices dim. Without a trigger, sunset decides — the times come from the Miniserver, or from the weather service as a fallback. Any block with an on/off state can be a trigger; its on state means night. That includes a Loxone operating mode, once it is mapped in Loxone Config to a status block with room and category — the mode itself is not in the view.",
       "Auslöser (optional)": "Trigger (optional)",
-      "Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Panel unter Panel Configuration → Darstellung ein.": "How much it dims and whether a touch briefly brightens is set per panel under Panel Configuration → Appearance.",
+      "Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Ansicht unter Ansichten → Aussehen ein.": "How much it dims and whether a touch briefly brightens is set per view under Views → Appearance.",
       "Port": "Port",
       "Weckton-Test und Audioserver-Live-Daten (Cover/Titel/Favoriten).": "Alarm-tone test and audio-server live data (cover/title/favorites).",
       "Audioserver (Cover / Titel / Favoriten)": "Audio server (cover / title / favorites)",
       "Loxone-Audioserver (Gen 2) liefern Cover/Titel/Interpret und Favoriten über einen eigenen Live-Kanal (Audioprotokoll, Port 7091) — genau wie die Loxone-App. LoxPanel abonniert diesen Kanal und legt die Infos über die passende Zone. Die Audioserver-Adresse wird automatisch aus der Loxone-Struktur erkannt — keine IP-Eingabe nötig. Funktioniert mit dem originalen Loxone-Audioserver ebenso wie mit Nachbauten (Sonn/Audioserver4Home). Musikserver-/MS4H-Zonen bleiben unberührt (die liefern es ohnehin).": "Loxone audio servers (Gen 2) deliver cover/title/artist and favorites over their own live channel (audio protocol, port 7091) — just like the Loxone app. LoxPanel subscribes to this channel and overlays the info onto the matching zone. The audio-server address is detected automatically from the Loxone structure — no IP entry needed. Works with the original Loxone audio server as well as with clones (Sonn/Audioserver4Home). Music-server/MS4H zones stay untouched (they deliver it anyway).",
       "Audioserver-Live-Daten abonnieren (automatisch)": "Subscribe to audio-server live data (automatic)",
-      "Zwei Wege: ein Android-Panel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Panel bekommt den Agenten per SSH.": "Two ways: an Android panel or tablet with a kiosk app only gets a start URL; a Linux panel gets the agent via SSH.",
-      "Android-Panel oder Tablet (Kiosk-App)": "Android panel or tablet (kiosk app)",
-      "Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Panels erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.": "Enter the start URL in Fully Kiosk Browser or WallPanel. The device name ensures the device appears under Panels and can be switched by operating mode. Display shutoff: with Fully enable the JavaScript interface or enter a display driver above. Details in deploy/ANDROID.md.",
+      "Zwei Wege: ein Android-Wandpanel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Gerät bekommt den Agenten per SSH.": "Two ways: an Android wall panel or tablet with a kiosk app only gets a start URL; a Linux device gets the agent via SSH.",
+      "Android-Wandpanel oder Tablet (Kiosk-App)": "Android wall panel or tablet (kiosk app)",
+      "Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Geräte erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.": "Enter the start URL in Fully Kiosk Browser or WallPanel. The device name ensures the device appears under Devices and can be switched by operating mode. Display shutoff: with Fully enable the JavaScript interface or enter a display driver above. Details in deploy/ANDROID.md.",
       "Start-URL erzeugen": "Generate start URL",
-      "Linux-Panel mit Agent (SSH)": "Linux panel with agent (SSH)",
+      "Linux-Gerät mit Agent (SSH)": "Linux device with agent (SSH)",
       // Rahmen / Navigation
       'Einstellungen': 'Settings',
+      // Rubriken und Seitenleiste: Ansicht = was ein Geraet zeigt, Geraet = das Geraet selbst
+      'Ansichten': 'Views',
+      'Geräte': 'Devices',
+      'Erprobte Hardware': 'Tested hardware',
+      'Einrichtungsassistent': 'Setup assistant',
       'Konfiguration': 'Configuration',
       'Kamera / Türstation': 'Camera / Door station',
       'bald': 'soon',
-      'Neues Panel': 'New panel',
+      'Neues Gerät': 'New device',
       'Sicherung': 'Backup',
       'Einstellungen herunterladen': 'Download settings',
-      'Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Panels, Geräte und Design.':
-        'All settings of this server as a ZIP file: Miniserver access, camera, calendar, panels, devices and design.',
+      'Alle Einstellungen dieses Servers als ZIP-Datei: Miniserver-Zugang, Kamera, Kalender, Ansichten, Geräte und Design.':
+        'All settings of this server as a ZIP file: Miniserver access, camera, calendar, views, devices and design.',
       'Kennwörter (Miniserver, Kamera, Display-Treiber) sind nicht enthalten, weil der Download ohne Anmeldung möglich ist.':
         'Passwords (Miniserver, camera, display driver) are not included because the download needs no login.',
       'Sicherung einspielen': 'Restore backup',
@@ -290,7 +295,7 @@
       'ZIP-Datei wählen und einspielen': 'Choose ZIP file and restore',
       'Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?':
         'The backup replaces the settings of this server. Best “Download settings” first. Continue?',
-      'Ungespeicherte Änderungen an Panels gehen dabei verloren.': 'Unsaved changes to panels will be lost.',
+      'Ungespeicherte Änderungen an Ansichten gehen dabei verloren.': 'Unsaved changes to views will be lost.',
       '✓ Eingespielt:': '✓ Restored:',
       'Nur teilweise eingespielt:': 'Only partly restored:',
       'Nicht eingespielt': 'Not restored',
@@ -302,31 +307,31 @@
         'Not a LoxPanel backup: the ZIP file contains neither loxpanel.cfg nor panels.json nor theme.json.',
       'Miniserver: mit dem eingespielten Zugang neu verbunden.': 'Miniserver: reconnected with the restored access.',
       'Miniserver: Zugang unverändert, die Verbindung bleibt.': 'Miniserver: access unchanged, the connection stays.',
-      'Miniserver: Kennwort fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: password missing – enter it under Settings → Miniserver.',
+      'Miniserver: Kennwort fehlt – unter Einstellungen → Miniserver eintragen.': 'Miniserver: password missing – enter it under Settings → Miniserver.',
       'Miniserver: Die Sicherung enthält keinen Zugang, der bisherige bleibt.': 'Miniserver: the backup holds no access, the current one stays.',
       'Miniserver: Der Zugang kommt hier aus den Umgebungsvariablen und bleibt.': 'Miniserver: access comes from the environment variables here and stays.',
       'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen:': 'Miniserver: connecting with the restored access failed:',
-      'Miniserver: weder in der Sicherung noch hier eingetragen – unter Settings → Miniserver eintragen.':
+      'Miniserver: weder in der Sicherung noch hier eingetragen – unter Einstellungen → Miniserver eintragen.':
         'Miniserver: neither in the backup nor set up here – enter it under Settings → Miniserver.',
-      'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver mit Kennwort eintragen.':
+      'Miniserver: Für {ziel} aus der Sicherung fehlt das Kennwort, der bisherige Zugang bleibt. Zum Wechseln unter Einstellungen → Miniserver mit Kennwort eintragen.':
         'Miniserver: the password for {ziel} from the backup is missing, the current access stays. To switch, enter it with its password under Settings → Miniserver.',
       'Miniserver: Verbindung mit dem eingespielten Zugang fehlgeschlagen, der bisherige Zugang bleibt:':
         'Miniserver: connecting with the restored access failed, the current access stays:',
-      'Miniserver: Benutzer fehlt – unter Settings → Miniserver eintragen.': 'Miniserver: user missing – enter it under Settings → Miniserver.',
-      'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Settings → Miniserver vollständig eintragen.':
+      'Miniserver: Benutzer fehlt – unter Einstellungen → Miniserver eintragen.': 'Miniserver: user missing – enter it under Settings → Miniserver.',
+      'Miniserver: Für {ziel} aus der Sicherung fehlt der Benutzer, der bisherige Zugang bleibt. Zum Wechseln unter Einstellungen → Miniserver vollständig eintragen.':
         'Miniserver: the user for {ziel} from the backup is missing, the current access stays. To switch, enter the complete access under Settings → Miniserver.',
-      'Kennwort fehlt, bitte unter Settings eintragen:': 'Password missing, please enter it under Settings:',
+      'Kennwort fehlt, bitte unter Einstellungen eintragen:': 'Password missing, please enter it under Settings:',
       'Kennwort von diesem Server übernommen:': 'Password kept from this server:',
       'Nicht in der Sicherung, unverändert:': 'Not in the backup, unchanged:',
       'Bitte die Seite neu laden, damit der Konfigurator den eingespielten Stand zeigt.': 'Please reload the page so the configurator shows the restored settings.',
       'Kamera': 'Camera',
       'Display-Treiber': 'Display driver',
-      '＋ Neues Panel': '＋ New panel',
+      '＋ Neue Ansicht': '＋ New view',
       'Panels & Kacheln': 'Panels & tiles',
       'Ansichten gestalten': 'Design views',
       'Panels · Miniserver · Intercom': 'Panels · Miniserver · Intercom',
       'Visu öffnen': 'Open visu',
-      'Panel-Ansicht anzeigen': 'Show panel view',
+      'Visu im Browser anzeigen': 'Show the visu in the browser',
       // Miniserver
       'Zugang zum Loxone Miniserver. Nach dem Speichern verbindet der Server sofort neu.':
         'Access to the Loxone Miniserver. Reconnects immediately after saving.',
@@ -364,7 +369,7 @@
         'Connected, but the access could not be saved. After a restart it no longer applies.',
       'Mit dem Miniserver verbunden': 'Connected to the Miniserver',
       'Bausteine geladen: {n}. Alle Bereiche sind jetzt offen.': 'Blocks loaded: {n}. All sections are open now.',
-      'Panel einrichten': 'Set up a panel',
+      'Ansicht einrichten': 'Set up a view',
       // Kamera / Tuerstation
       'Video-URL (MJPEG) und Login der Türstation(en) für das Kamerabild. Leer lassen, dann nimmt LoxPanel die Kamera, die der Miniserver nennt (in Loxone Config am Baustein der Intercom eingetragen). Die Liste kommt aus dem Miniserver.':
         'Video URL (MJPEG) and login of the door station(s) for the camera image. Leave empty to use the camera the Miniserver provides (set in Loxone Config at the intercom block). The list comes from the Miniserver.',
@@ -417,7 +422,7 @@
       'Port geschlossen: an dieser Adresse läuft kein SIP-Dienst': 'Port closed: no SIP service runs at this address',
       'Keine Antwort auf die Anmeldung': 'No response to the login',
       // Panels
-      'Suche Panels…': 'Searching for panels…',
+      'Suche Geräte…': 'Searching for devices…',
       '(Standard)': '(Default)',
       'Start': 'Start',
       'Reload': 'Reload',
@@ -426,22 +431,22 @@
       'Status:': 'Status:',
       'Video-URL (MJPEG)': 'Video URL (MJPEG)',
       // Audio
-      'Der Weckton (Loxone-Wecker) wird direkt im Kiosk-Browser des Panels erzeugt. Mit dem Test-Ton prüfst du, ob am Panel wirklich etwas zu hören ist — falls nicht, liegt es meist an der Lautstärke/Ausgabe am Gerät (ALSA/PulseAudio), nicht am Browser.':
-        'The alarm tone (Loxone alarm clock) is generated directly in the panel’s kiosk browser. Use the test tone to check whether the panel actually plays sound — if not, it is usually the volume/output on the device (ALSA/PulseAudio), not the browser.',
+      'Der Weckton (Loxone-Wecker) wird direkt im Kiosk-Browser des Geräts erzeugt. Mit dem Test-Ton prüfst du, ob am Gerät wirklich etwas zu hören ist — falls nicht, liegt es meist an der Lautstärke/Ausgabe am Gerät (ALSA/PulseAudio), nicht am Browser.':
+        'The alarm tone (Loxone alarm clock) is generated directly in the device’s kiosk browser. Use the test tone to check whether the device actually plays sound — if not, it is usually the volume/output on the device (ALSA/PulseAudio), not the browser.',
       'Test-Ton': 'Test tone',
-      'Sendet 3 kurze Pieptöne an das/die gewählte(n) Panel(s). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).':
-        'Sends 3 short beeps to the selected panel(s). They must be open (kiosk running and showing the visu).',
-      'Ziel-Panel': 'Target panel',
+      'Sendet 3 kurze Pieptöne an das/die gewählte(n) Gerät(e). Es müssen dafür geöffnet sein (Kiosk läuft und zeigt die Visu).':
+        'Sends 3 short beeps to the selected device(s). They must be open (kiosk running and showing the visu).',
+      'Zielgerät': 'Target device',
       '🔊 Test-Ton senden': '🔊 Send test tone',
-      'Alle Panels': 'All panels',
+      'Alle Geräte': 'All devices',
       // Kalender & Wetter (Front / Screensaver)
       'Kalender & Wetter': 'Calendar & weather',
-      'Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Panels. Serverweit — der Server holt die Daten und schickt sie an die Panels.':
-        'Shows events from your iCal subscriptions and the weather on the clock start page (screensaver) of all panels. Server-wide — the server fetches the data and pushes it to the panels.',
+      'Zeigt Termine aus deinen iCal-Abos und das Wetter auf der Uhr-Startseite (Screensaver) aller Geräte. Serverweit — der Server holt die Daten und schickt sie an die Geräte.':
+        'Shows events from your iCal subscriptions and the weather on the clock start page (screensaver) of all devices. Server-wide — the server fetches the data and pushes it to the devices.',
       'iCal-Kalender': 'iCal calendars',
       'Abo-Link aus Apple/iCloud (Kalender → Teilen → Öffentlicher Kalender), Google oder anderen Diensten. webcal:// oder https://. Nur Lesen, kein Login. Mehrere Kalender möglich — Geburtstage, Müllabfuhr, Ferien und die Familientermine landen gemeinsam auf einer Liste.':
         'Subscription link from Apple/iCloud (Calendar → Share → Public calendar), Google or other services. webcal:// or https://. Read-only, no login. Several calendars are possible — birthdays, waste collection, school holidays and family appointments all end up in one list.',
-      'Überschrift am Panel': 'Heading on the panel',
+      'Überschrift in der Visu': 'Heading in the visu',
       '＋ Kalender hinzufügen': '＋ Add calendar',
       'Feiertags-iCal (optional)': 'Holiday iCal (optional)',
       'z.B. österr. Feiertage aus Google Kalender (basic.ics)':
@@ -465,9 +470,9 @@
       '{n} von {gesamt} Kalendern nicht geladen': '{n} of {gesamt} calendars not loaded',
       'Grund steht oben beim jeweiligen Kalender.':
         'The reason is shown above, at the calendar concerned.',
-      'Das Panel zeigt weiter den Stand von {zeit} Uhr.':
-        'The panel still shows the data from {zeit}.',
-      'Panel zeigt den Stand von {zeit} Uhr.': 'Panel is showing the data from {zeit}.',
+      'Die Visu zeigt weiter den Stand von {zeit} Uhr.':
+        'The visu still shows the data from {zeit}.',
+      'Visu zeigt den Stand von {zeit} Uhr.': 'Visu is showing the data from {zeit}.',
       // Wetter
       'Wetter': 'Weather',
       'Hat die Anlage den Loxone-Wetterdienst, kommt das Wetter von dort — die Koordinaten bleiben dann unbenutzt. Sonst von Open-Meteo: kostenlos, ohne API-Schlüssel und ohne Konto, nur die Koordinaten deines Standorts eintragen (Dezimalgrad, z.B. 47.071 / 15.439). Leer lassen schaltet das Wetter aus, solange kein Wetterserver liefert.':
@@ -479,11 +484,11 @@
       'Termine der nächsten … Tage': 'Events for the next … days',
       'Wetter-Vorschau (Tage)': 'Weather forecast (days)',
       'Termine auf der Uhr-Seite (max.)': 'Events on the clock page (max.)',
-      'Kalenderfarben am Panel zeigen': 'Show calendar colors on the panel',
+      'Kalenderfarben in der Visu zeigen': 'Show calendar colors in the visu',
       'Aus = schlicht: alle Termine einfarbig, nur der Kalendername steht daneben. An = jeder Kalender bekommt seinen Farbpunkt, auch im Monatsraster.':
         'Off = plain: all events in a single color, only the calendar name beside them. On = every calendar gets its color dot, in the month grid too.',
-      '„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Panel sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.':
-        '“Events on the clock page” is an upper limit — whatever no longer fits on the screen next to the weather and the clock is left out (on a 480×480 panel that is about three). The full list is in the calendar pane.',
+      '„Termine auf der Uhr-Seite" ist eine Obergrenze — was neben Wetter und Uhr nicht mehr auf den Schirm passt, bleibt weg (auf einem 480×480-Gerät sind das etwa drei). Die vollständige Liste steht im Kalender-Pane.':
+        '“Events on the clock page” is an upper limit — whatever no longer fits on the screen next to the weather and the clock is left out (on a 480×480 device that is about three). The full list is in the calendar pane.',
       // Verlaufs-Diagramme (Detailseite, Split-Haelfte, Kachel)
       'Verlauf': 'History',
       'Zeitraum': 'Period',
@@ -498,17 +503,17 @@
       '7 Tage': '7 days',
       '30 Tage': '30 days',
       // Neues Panel
-      'Neues Panel einrichten': 'Set up a new panel',
-      'Erzeugt den Befehl, der Agent + Config aufs Panel überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Panels.':
-        'Generates the command that copies agent + config to the panel, sets up autostart and quiets Chromium (no translate bar / sign-in). Run once in a terminal — it asks for the panel’s SSH/sudo password.',
-      'Panel-IP': 'Panel IP',
+      'Neue Ansicht einrichten': 'Set up a new view',
+      'Erzeugt den Befehl, der Agent + Config aufs Gerät überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Geräts.':
+        'Generates the command that copies agent + config to the device, sets up autostart and quiets Chromium (no translate bar / sign-in). Run once in a terminal — it asks for the device’s SSH/sudo password.',
+      'Geräte-IP': 'Device IP',
       'SSH-Benutzer': 'SSH user',
       'Anzeigename': 'Display name',
-      'Startansicht (Profil)': 'Start view (profile)',
+      'Startansicht': 'Start view',
       'Server-Adresse (dieser Server)': 'Server address (this server)',
       'Befehl erzeugen': 'Generate command',
       'In Zwischenablage kopieren': 'Copy to clipboard',
-      'Panel-IP und Server-Adresse nötig': 'Panel IP and server address required',
+      'Geräte-IP und Server-Adresse nötig': 'Device IP and server address required',
       '✓ kopiert': '✓ copied',
       'Kopieren nicht möglich – bitte manuell markieren': 'Copy failed – please select manually',
       'Fehler': 'Error',
@@ -524,10 +529,10 @@
 
       // ---- Betriebsmodus-Automatik (/settings) ----
       'Betriebsmodus-Automatik': 'Operating-mode automation',
-      'Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Panel fest, welche Ansicht bei welchem Modus erscheint. Panel ohne Eintrag für einen Modus bleibt unverändert.':
-        'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per panel, which view appears for which mode. A panel without an entry for a mode stays unchanged.',
-      'Panels mit Agent (Linux) erscheinen automatisch. Ein Panel ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuem Profil neu, kein Agent nötig).':
-        'Panels with an agent (Linux) appear automatically. A panel without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new profile, no agent needed).',
+      'Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Gerät fest, welche Ansicht bei welchem Modus erscheint. Ein Gerät ohne Eintrag für einen Modus bleibt unverändert.':
+        'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per device, which view appears for which mode. A device without an entry for a mode stays unchanged.',
+      'Geräte mit Agent (Linux) erscheinen automatisch. Ein Gerät ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuer Ansicht neu, kein Agent nötig).':
+        'Devices with an agent (Linux) appear automatically. A device without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new view, no agent needed).',
       // Skalierung / Bildschirmgroesse
       'Kachel-Aufbau': 'Tile layout',
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
@@ -538,9 +543,9 @@
       'Groß (weniger Kacheln)': 'Large (fewer tiles)',
       'Zielkachel (px)': 'Target tile (px)',
       'Widget-Breite': 'Widget width',
-      // --- Panel duplizieren mit Raumtausch (Punkt 14) ---
+      // --- Ansicht duplizieren mit Raumtausch (Punkt 14) ---
       'Duplizieren': 'Duplicate',
-      'Panel duplizieren': 'Duplicate panel',
+      'Ansicht duplizieren': 'Duplicate view',
       'Vorlage': 'Template',
       'Neue ID': 'New ID',
       'Raum tauschen: von': 'Swap room: from',
@@ -558,8 +563,8 @@
       // --- Zielgeraet eines Profils (Punkt 15) ---
       'Zielgerät': 'Target device',
       '(keines)': '(none)',
-      'Für welches Gerät dieses Profil gemacht ist. Displays warnt, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.': 'Which device this profile is made for. Displays warns when another device, or one with a clearly different screen size, uses it.',
-      'Profil ist für': 'Profile is made for',
+      'Für welches Gerät diese Ansicht gemacht ist. Unter Geräte steht eine Warnung, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.': 'Which device this view is made for. Devices shows a warning when another device, or one with a clearly different screen size, uses it.',
+      'Ansicht ist für': 'View is made for',
       'gemacht': '',
       'gemacht, hier': ', here',
       // --- Vorschlag statt leerer Seite (Punkt 13) ---
@@ -575,8 +580,8 @@
       'der Spalten': 'of the columns',
       'Kachelspalte': 'tile column',
       'Kachelspalten': 'tile columns',
-      'Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Panel aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.':
-        'How many tile columns the widget takes to the right of the tiles, in portrait tile rows below them – the tiles stay the same size. "Automatic" takes the share the panel works out from its grid. With a fixed width, a few tiles grow next to the widget too, and it grows with them. Only in the "Automatic" tile layout.',
+      'Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Gerät aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.':
+        'How many tile columns the widget takes to the right of the tiles, in portrait tile rows below them – the tiles stay the same size. "Automatic" takes the share the device works out from its grid. With a fixed width, a few tiles grow next to the widget too, and it grows with them. Only in the "Automatic" tile layout.',
       'Breite': 'Width',
       'breit': 'wide',
       'schmal': 'narrow',
@@ -605,14 +610,14 @@
       'schaltet um.': 'is switching.',
       'Spalten': 'columns',
       'Zeilen': 'rows',
-      'ist nicht online – das Panel ist gespeichert, umschalten unter Displays.': 'is not online – the panel is saved, switch it under Displays.',
+      'ist nicht online – die Ansicht ist gespeichert, umschalten unter Geräte.': 'is not online – the view is saved, switch it under Devices.',
       'Vorschau': 'Preview',
-      'Zeigt dieses Profil mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.': 'Shows this profile with all changes in the real visu, even unsaved. The window follows your changes.',
+      'Zeigt diese Ansicht mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.': 'Shows this view with all changes in the real visu, even unsaved. The window follows your changes.',
       'Das Vorschaufenster hat der Browser blockiert.': 'The browser blocked the preview window.',
       'Vorschau nicht möglich:': 'Preview not possible:',
       'Am Gerät ansehen': 'View on device',
       'Am Gerät beenden': 'End on device',
-      'Zeigt dieses Profil mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.': 'Shows this profile with all changes on the device (preview device in the page editor, otherwise the target device) and follows your changes. Without changes the device returns to its previous view after 15 minutes.',
+      'Zeigt diese Ansicht mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.': 'Shows this view with all changes on the device (preview device in the page editor, otherwise the target device) and follows your changes. Without changes the device returns to its previous view after 15 minutes.',
       'Für die Vorschau am Gerät im Seiten-Editor ein Gerät wählen, das verbunden ist.': 'For the preview on a device choose a connected device in the page editor.',
       'hat keine verbundene Visu – eine Vorschau braucht sie.': 'has no connected visu – a preview needs one.',
       'Vorschau läuft auf': 'Preview running on',
@@ -621,15 +626,15 @@
       'Auf': 'On',
       'ansehen': 'view',
       'Vorschau beenden': 'End preview',
-      'Zeigt das Panel mit diesen Einstellungen auf dem Gerät, bevor es angelegt wird. Ohne Änderungen kehrt es nach 15 Minuten zur vorigen Ansicht zurück.': 'Shows the panel with these settings on the device before it is created. Without changes it returns to its previous view after 15 minutes.',
-      'Die Zielkachel am Gerät wird erst beim Anlegen gemerkt; die Vorschau rechnet mit der bisherigen.': 'The target tile on the device is only remembered when the panel is created; the preview uses the previous one.',
+      'Zeigt die Ansicht mit diesen Einstellungen auf dem Gerät, bevor sie angelegt wird. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.': 'Shows the view with these settings on the device before it is created. Without changes the device returns to its previous view after 15 minutes.',
+      'Die Zielkachel am Gerät wird erst beim Anlegen gemerkt; die Vorschau rechnet mit der bisherigen.': 'The target tile on the device is only remembered when the view is created; the preview uses the previous one.',
       'Im Seiten-Editor bearbeiten': 'Edit in the page editor',
       'Name, Icon, Inhalt und Anordnung der Seite stellst du im Seiten-Editor ein.': 'Set the name, icon, content and layout of the page in the page editor.',
       'Seite entfernen': 'Remove page',
-      'Display entfernen:': 'Remove display:',
+      'Gerät entfernen:': 'Remove device:',
       'Entfernt:': 'Removed:',
       'Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.': 'It is connected right now and will reappear afterwards, without settings.',
-      'Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Displays werden dabei mitgespeichert.': 'Its settings (operating modes, display control, scaling, target tile, presence sensor) will be lost. Unsaved changes to the other displays are saved along with it.',
+      'Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Ungespeicherte Änderungen an den übrigen Geräten werden dabei mitgespeichert.': 'Its settings (operating modes, display control, scaling, target tile, presence sensor) will be lost. Unsaved changes to the other devices are saved along with it.',
       'Werte der Kopfzeile': 'Header values',
       'ist noch leer.': 'is still empty.',
       'zeigt das Widget': 'shows the widget',
@@ -637,7 +642,7 @@
       '„Vorschau“ unten zeigt die Seite in der echten Visu, auch ungespeichert, und zieht Änderungen nach.': 'The “Preview” button below shows the page in the real visu, even unsaved, and follows your changes.',
       'Seiten-Editor': 'Page editor',
       'Ordnet die freien Seiten (Eigene Auswahl) so an, wie das gewählte Gerät sie zeigt: Bausteine aus der Liste auf die Fläche ziehen, Kacheln verschieben, Größe 1 × 1, 2 × 1 oder 2 × 2 wählen, ein Widget daneben setzen.': 'Arranges the free pages (own selection) the way the chosen device shows them: drag blocks from the list onto the area, move tiles, choose size 1 × 1, 2 × 1 or 2 × 2, put a widget next to them.',
-      'Freie Seiten zeigt das Panel erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.': 'The panel only shows free pages once they are in the bar: choose “Own selection” under Tabs or add the selection as a button to the classic bar.',
+      'Freie Seiten zeigt die Visu erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.': 'The visu only shows free pages once they are in the bar: choose “Own selection” under Tabs or add the selection as a button to the classic bar.',
       'Zu Tabs': 'Go to Tabs',
       'Vorschau für': 'Preview for',
       'Nach Räumen gruppieren': 'Group by room',
@@ -679,21 +684,21 @@
       '10″-Tablet quer': '10″ tablet landscape',
       '10″-Tablet hochkant': '10″ tablet portrait',
       'Bliebe bei mehreren Seiten die letzte mehr als ein Drittel leer, werden sie kleiner, wenn das eine Seite spart, höchstens bis zur Zielkachel geteilt durch': 'If, with several pages, the last one would stay more than a third empty, they shrink when that saves a page, at most down to the target tile divided by',
-      'Ein Gerät kann unter Displays einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.': 'A device can get its own value under Displays, with a suggestion from its reported size.',
+      'Ein Gerät kann unter Geräte einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.': 'A device can get its own value under Devices, with a suggestion from its reported size.',
       'Zielkachel (Automatik)': 'Target tile (automatic grid)',
-      'wie im Profil': 'as in the profile',
+      'wie in der Ansicht': 'as in the view',
       'Vorschlag': 'Suggestion',
       'Pixeldichte': 'pixel density',
       'übernehmen': 'apply',
       'kein Vorschlag: das Gerät hat noch keine Größe gemeldet': 'no suggestion: the device has not reported a size yet',
-      'Kachel-Layout „Automatisch“ (Tablet): Das Panel rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Displays bei den Geräten.':
-        'Tile grid “Automatic” (tablet): the panel works out columns and rows from its screen size itself – a larger screen shows more tiles, not larger ones. A widget takes whole tile columns, in portrait whole rows; the tiles keep their size. “Fill screen” and scaling are not needed then. What a device makes of it is shown under Displays with the devices.',
+      'Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.':
+        'Tile grid “Automatic” (tablet): the device works out columns and rows from its screen size itself – a larger screen shows more tiles, not larger ones. A widget takes whole tile columns, in portrait whole rows; the tiles keep their size. “Fill screen” and scaling are not needed then. What a device makes of it is shown under Devices.',
       '„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.':
         '“Automatic” works out the grid from the tablet’s screen size: a larger screen shows more tiles, not larger ones.',
       'Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.':
         'Tile layout “New”: room small at the top right, the state large with the name below, temperatures large in place of the symbol, buttons as a bar at the bottom. “Classic” is the previous layout. The tile grid stays the same in both.',
       'Skalierung': 'Scaling',
-      'Wie im Profil': 'Same as profile',
+      'Wie in der Ansicht': 'Same as the view',
       'Aus (feste Größe)': 'Off (fixed size)',
       'Automatisch (Bildschirm ausnutzen)': 'Automatic (use the screen)',
       'Fest': 'Fixed',
@@ -703,13 +708,13 @@
       'physisch': 'physical',
       'Visu': 'visu',
       'nutzt': 'uses',
-      'Skalierung „Automatisch": Jedes Display vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie global" übernimmt die Einstellung unter Global → Darstellung; pro Gerät übersteuerbar unter Displays → Betriebsmodus-Automatik & Display-Steuerung.':
-        'Scaling "Automatic": each display enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as global" takes the setting under Global → Appearance; can be overridden per device under Displays → Operating-mode automation & display control.',
-      'Wie global': 'Same as global',
-      'Standard für alle Panels': 'Default for all panels',
+      'Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.':
+        'Scaling "Automatic": each device enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as default" takes the setting under Defaults → Appearance; can be overridden per device under Devices → Operating-mode automation & display control.',
+      'Wie Vorgabe': 'Same as default',
+      'Standard für alle Ansichten': 'Default for all views',
       'Aus': 'Off',
-      'Gilt für alle Panels, deren Profil „Wie global" eingestellt hat. „Automatisch" vergrößert die Visu auf jedem Display so weit, wie es ohne Rand und ohne Verzerrung geht. Ein Profil kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Displays → Betriebsmodus-Automatik & Display-Steuerung.':
-        'Applies to all panels whose profile is set to "Same as global". "Automatic" enlarges the visu on every display as far as it can without borders or distortion. A profile can override this under Appearance, a single device under Displays → Operating-mode automation & display control.',
+      'Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.':
+        'Applies to all views set to "Same as default". "Automatic" enlarges the visu on every device as far as it can without borders or distortion. A view can override this under Appearance, a single device under Devices → Operating-mode automation & display control.',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',
@@ -718,7 +723,7 @@
 
       // ---- /config (Panel-Editor) ----
       'Titel': 'Title',
-      'Fenstertitel des Panels.': 'Window title of the panel.',
+      'Fenstertitel der Ansicht.': 'Window title of the view.',
       'Kiosk-URL:': 'Kiosk URL:',
       'Standard-Aussehen für <b>alle</b> Panels. Einzelne Panels können es unter „Darstellung" überschreiben (leer = erbt global).':
         'Default look for <b>all</b> panels. Individual panels can override it under "Appearance" (empty = inherits global).',
@@ -726,24 +731,24 @@
       'Bis zu <b>4 Buttons</b> — die 4 Standard-Tabs und/oder einzelne Kategorien als Abkürzung. Der <b>erste aktive</b> ist die Startseite (★). ':
         'Up to <b>4 buttons</b> — the 4 standard tabs and/or individual categories as shortcuts. The <b>first active</b> one is the start page (★). ',
       'Räume': 'Rooms',
-      'Welche Räume dieses Panel zeigt. <b>Nichts angehakt = alle Räume.</b>':
-        'Which rooms this panel shows. <b>Nothing checked = all rooms.</b>',
+      'Welche Räume diese Ansicht zeigt. <b>Nichts angehakt = alle Räume.</b>':
+        'Which rooms this view shows. <b>Nothing checked = all rooms.</b>',
       'Alle abwählen': 'Deselect all',
       'Kategorien': 'Categories',
       'Welche Kategorien im Tab „Kategorien" erscheinen. <b>Nichts angehakt = alle.</b> Bei gesetzter Raum-Auswahl werden Kategorien zusätzlich auf diese Räume gefiltert.':
         'Which categories appear in the "Categories" tab. <b>Nothing checked = all.</b> If a room selection is set, categories are additionally filtered to those rooms.',
       'Kacheln gestalten': 'Style tiles',
-      'Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (auf diesem Panel). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel auf diesem Panel ganz aus. ':
-        'Click a tile and change <b>colors, font and icon for this tile only</b> (on this panel). Colored dot = already customized. Use the <b>eye</b> on the right to hide a tile entirely on this panel. ',
+      'Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (in dieser Ansicht). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel in dieser Ansicht ganz aus. ':
+        'Click a tile and change <b>colors, font and icon for this tile only</b> (in this view). Colored dot = already customized. Use the <b>eye</b> on the right to hide a tile entirely in this view. ',
       'Kachel suchen…': 'Search tile…',
       'Darstellung (optional)': 'Appearance (optional)',
-      'Überschreibt das globale Theme nur für dieses Panel. Leer = global.':
-        'Overrides the global theme for this panel only. Empty = global.',
+      'Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.':
+        'Overrides the defaults for this view only. Empty = default.',
       'Aktiv-Overlay': 'Active overlay',
-      'Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Gilt für dieses Panel — einzelne Kacheln können unten abweichen.':
-        'How a tile is highlighted in its <b>active state</b> (on = accent, ok = green, critical = red): border, fill and opacity. The <b>color</b> per state comes from the theme; here you set the <b>look</b>. Applies to this panel — individual tiles can differ below.',
-      'Panel löschen': 'Delete panel',
-      'Kein Panel gewählt.': 'No panel selected.',
+      'Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Gilt für diese Ansicht — einzelne Kacheln können unten abweichen.':
+        'How a tile is highlighted in its <b>active state</b> (on = accent, ok = green, critical = red): border, fill and opacity. The <b>color</b> per state comes from the theme; here you set the <b>look</b>. Applies to this view — individual tiles can differ below.',
+      'Ansicht löschen': 'Delete view',
+      'Keine Ansicht gewählt.': 'No view selected.',
       'keine Kacheln im gewählten Raum-/Kategorie-Filter': 'no tiles in the selected room/category filter',
       'nichts gefunden': 'nothing found',
       // Labels
@@ -758,23 +763,23 @@
         'Main text is the large line of a tile, the second line the small one below it. In the classic layout that is the name with the state below; in the new one the state is mostly large and the name small. Room is the room label, value the large temperature in place of the symbol.',
       'Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.':
         'An empty field takes the default of the tile layout; shown in grey is the one of the new layout.',
-      'Ein leeres Feld übernimmt die globale Darstellung, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.':
-        'An empty field takes the global appearance, otherwise the default of the tile layout; shown in grey is what then applies.',
+      'Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.':
+        'An empty field takes the default, otherwise the default of the tile layout; shown in grey is what then applies.',
       'Schriftart': 'Font',
       'Schriftfarbe (Haupttext)': 'Text color (main text)',
       'Sprache': 'Language',
-      'Steuert vorerst Datum & Uhr am Panel. Gerätenamen kommen aus dem Miniserver.':
-        'For now controls date & clock on the panel. Device names come from the Miniserver.',
+      'Steuert vorerst Datum & Uhr in der Visu. Gerätenamen kommen aus dem Miniserver.':
+        'For now controls date & clock in the visu. Device names come from the Miniserver.',
       'Horiz. Versatz (px)': 'Horiz. offset (px)',
       'Display aus nach (Sek.)': 'Display off after (sec.)',
       'Gesicherte Bausteine': 'Secured blocks',
       'PIN merken (Sek.)': 'Remember PIN (sec.)',
-      'Nach der richtigen Visu-PIN fragt das Panel bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.':
-        'After the correct visu PIN the panel does not ask again for secured blocks for this long – only on the same page. Clock page, display off and changing the page forget the PIN at once. 0 = ask every time.',
+      'Nach der richtigen Visu-PIN fragt die Visu bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.':
+        'After the correct visu PIN the visu does not ask again for secured blocks for this long – only on the same page. Clock page, display off and changing the page forget the PIN at once. 0 = ask every time.',
       'Auto-Neustart alle (Std.)': 'Auto-restart every (hrs.)',
       'nachts um {h} Uhr': 'at night at {h}:00',
-      'Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Panels mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.':
-        'Auto-restart against freezing: empty reloads the visu every night at {h}:00, a number every that many hours, 0 never. It only reloads while the clock page is showing; a dark display stays dark. Linux panels with the agent restart the browser instead: per the number here, without an entry per RELOAD_HOURS in their kiosk.conf.',
+      'Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Geräte mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.':
+        'Auto-restart against freezing: empty reloads the visu every night at {h}:00, a number every that many hours, 0 never. It only reloads while the clock page is showing; a dark display stays dark. Linux devices with the agent restart the browser instead: per the number here, without an entry per RELOAD_HOURS in their kiosk.conf.',
       'Kacheln pro Zeile': 'Tiles per row',
       'Füllung': 'Fill',
       'Rahmen': 'Border',
@@ -785,13 +790,13 @@
       'Textfarbe': 'Text color',
       'Schrift': 'Font',
       // Optionen
-      'Standard (global)': 'Default (global)',
+      'Standard (Vorgabe)': 'Default (preset)',
       'System (Sans)': 'System (Sans)',
       'Eigene…': 'Custom…',
       'Rahmen + Füllung': 'Border + fill',
       'Nur Rahmen': 'Border only',
       'Nur Füllung': 'Fill only',
-      '2 × 2 (4″-Panel)': '2 × 2 (4″ panel)',
+      '2 × 2 (4″-Wandpanel)': '2 × 2 (4″ wall panel)',
       '3 × 2 (Tablet)': '3 × 2 (tablet)',
       'Standard (Deutsch)': 'Default (German)',
       // Icon-Reiter / Kachel-Editor
@@ -804,15 +809,15 @@
       'neutral': 'neutral',
       'Aktiv': 'Active',
       // Global-Editor
-      '🌐 Globale Darstellung': '🌐 Global appearance',
-      'Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt global für alle Panels.':
-        'Font, size, color and weight of the tile labels — applies globally to all panels.',
+      '🌐 Vorgaben': '🌐 Defaults',
+      'Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt für alle Ansichten.':
+        'Font, size, color and weight of the tile labels — applies to all views.',
       'Kategorie-Farben (Ampel)': 'Category colors (traffic light)',
-      'Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt systemweit auf allen Panels (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.':
-        'Per category an <b>active</b> and an <b>OK</b> color for tile background and border — applies system-wide on all panels (recognizability). Turn on ◐ = state traffic light (e.g. alarm red/green, gate yellow/green). Off = neutral. Analog readings always stay neutral.',
+      'Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.':
+        'Per category an <b>active</b> and an <b>OK</b> color for tile background and border — applies on all devices (recognizability). Turn on ◐ = state traffic light (e.g. alarm red/green, gate yellow/green). Off = neutral. Analog readings always stay neutral.',
       // Dialoge
-      'ID des neuen Panels (klein, ohne Leerzeichen), z. B. wohnzimmer:':
-        'ID of the new panel (lowercase, no spaces), e.g. livingroom:',
+      'Kennung der neuen Ansicht (klein, ohne Leerzeichen), z. B. wohnzimmer:':
+        'Identifier of the new view (lowercase, no spaces), e.g. livingroom:',
       'Ungültige ID.': 'Invalid ID.'
     }
   };
