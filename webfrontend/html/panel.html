@@ -341,7 +341,8 @@
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .kz-w .vl{grid-area:vl;font-size:calc(15px * var(--ks,1));font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .kz-w .nm{grid-area:nm;font-size:calc(11px * var(--ks,1));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
-  .kz-w.on .ico,.kz-w.on .vl{color:var(--ico-fixed,var(--glow));}
+  .kz-w.on .ico{color:var(--ico-fixed,var(--glow));}
+  .kz-w.on .vl{color:var(--ico-fixed,var(--an-text,var(--glow)));}   /* Text: --an-text, wo ein Kachel-Set ihn nennt */
   .kz-w.good .ico,.kz-w.good .vl{color:var(--good);}
   .kz-w.crit .ico,.kz-w.crit .vl{color:var(--crit-ink,var(--crit));}
   .kz-w.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
@@ -559,7 +560,7 @@
     background:var(--tile);font-weight:600;font-size:14px;text-align:center;cursor:pointer;
     user-select:none;-webkit-user-select:none;}
   .chipset .chp.on{background:linear-gradient(180deg,rgba(var(--on-rgb,224,162,77),.22),rgba(var(--on-rgb,224,162,77),.05));
-    border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--glow);}
+    border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--an-text,var(--glow));}
   .btn.dis{opacity:.4;pointer-events:none;}
   .btn.arm{border-color:var(--crit);color:var(--crit);}
   /* Antippen oeffnet eine Unterseite: Wischen darueber scrollt die Seite */
@@ -609,7 +610,7 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .tile .sub{font-size:calc(var(--sub-size,15px) * var(--kst,1));color:var(--muted);font-weight:400;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:calc(4px * var(--ks,1));}
-  .tile.on .sub{color:var(--glow);}
+  .tile.on .sub{color:var(--an-text,var(--glow));}
   .tile.good{background:rgba(var(--good-rgb,82,184,129),var(--ov-fill,.16));
     border:var(--ov-bw,1px) solid rgba(var(--good-rgb,82,184,129),var(--ov-bord,.55));}
   .tile.good .ico,.tile.good .icowrap,.tile.good .sub{color:var(--good);}
@@ -679,7 +680,7 @@
     color:var(--tile-txt,var(--name-color,inherit));}
   .grid.lx:not(.list) .tile.zv .name{order:0;margin-top:3px;font-size:calc(var(--sub-size,14px) * var(--kst,1));font-weight:400;
     color:var(--muted);-webkit-line-clamp:1;}
-  .grid.lx:not(.list) .tile.zv.on .sub{color:var(--glow);}
+  .grid.lx:not(.list) .tile.zv.on .sub{color:var(--an-text,var(--glow));}
   .grid.lx:not(.list) .tile.zv.good .sub{color:var(--good);}
   .grid.lx:not(.list) .tile.zv.crit .sub{color:var(--crit-ink,var(--crit));}
   .grid.lx:not(.list) .tile.zv.crit .name{color:var(--crit-muted,var(--muted));}
@@ -700,6 +701,247 @@
   .grid.lx:not(.list) .tile.eng3.bi .name{-webkit-line-clamp:1;}
   .grid.lx:not(.list) .tile.eng1.bi .sub,.grid.lx:not(.list) .tile.eng2 .tsline,
   .grid.lx:not(.list) .tile.eng3.zv .name,.grid.lx:not(.list) .tile.eng3:not(.zv) .sub{display:none;}
+  /* Kachel-Sets (ui.tileSet, theme_colors.KACHEL_SETS): ein fertiger Look.
+     Farben und Masse kommen als Variablen mit der theme-Nachricht, die Regeln
+     haengen an der Art des Sets, nie an seinem Namen: html[data-kachelset-
+     aufbau] (Kachel: lx, mitte, kreis) und html[data-kachelset-leiste]
+     (Tab-Leiste: pille, oben, links). Ohne Set fehlen beide Attribute.
+     Masse mit "-schmal" gelten auf schmalen Schirmen (.schmal am Kasten,
+     schmalEinrichten); die --k-* am Kasten loesen das auf (ein Mass, das
+     sich selbst als Rueckfall naennte, waere ungueltig).
+     Jeder Aufbau: flache Kacheln ohne Rahmen und Verlauf (Radius und
+     Schatten --kachel-radius/--kachel-schatten), Abstand und Innenrand des
+     Rasters aus dem Set (autoRaster misst sie wie sonst), Symbole einfarbig
+     in der Schriftfarbe statt in der Kategoriefarbe (eine Farbe aus "Kacheln
+     gestalten" bleibt, --ico-fixed), aktive Kachel auf --kachel-an statt
+     getoent, Tasten auf --taste. Zustaende good/crit behalten ihre Regeln. */
+  html[data-kachelset-aufbau] .screen{box-shadow:none;
+    --k-abstand:var(--kachel-abstand,10px);--k-innen:var(--feld-innen,10px);
+    --k-tabs-h:var(--tabs-hoehe,auto);--k-tab-symbol:var(--tab-symbol,28px);--k-pille-h:var(--pille-h,43px);
+    --k-rahmen-seite:var(--rahmen-seite,0px);--k-rahmen-unten:var(--rahmen-unten,0px);--k-feld-radius:var(--feld-radius,0px);
+    --k-rail:var(--rail-breite,0px);--k-kreis:var(--kreis-d,52px);}
+  html[data-kachelset-aufbau] .screen.schmal{
+    --k-abstand:var(--kachel-abstand-schmal,var(--kachel-abstand,10px));--k-innen:var(--feld-innen-schmal,var(--feld-innen,10px));
+    --k-tabs-h:var(--tabs-hoehe-schmal,var(--tabs-hoehe,auto));--k-tab-symbol:var(--tab-symbol-schmal,var(--tab-symbol,28px));
+    --k-pille-h:var(--pille-h-schmal,var(--pille-h,43px));
+    --k-rahmen-seite:var(--rahmen-seite-schmal,var(--rahmen-seite,0px));--k-rahmen-unten:var(--rahmen-unten-schmal,var(--rahmen-unten,0px));
+    --k-feld-radius:var(--feld-radius-schmal,var(--feld-radius,0px));
+    --k-rail:var(--rail-breite-schmal,var(--rail-breite,0px));--k-kreis:var(--kreis-d-schmal,var(--kreis-d,52px));}
+  html[data-kachelset-aufbau] .grid{--gap:var(--k-abstand,10px);--pad:var(--k-innen,10px);}
+  html[data-kachelset-aufbau] .tile:not(.on):not(.good):not(.crit){background:var(--tile);border-color:transparent;}
+  html[data-kachelset-aufbau] .tile{border-radius:calc(var(--kachel-radius,16px) * var(--ks,1));box-shadow:var(--kachel-schatten,none);}
+  html[data-kachelset-aufbau] .tile.on{background:var(--kachel-an,var(--tile));border-color:transparent;}
+  html[data-kachelset-aufbau] .tile:not(.on):not(.good):not(.crit) .ico,
+  html[data-kachelset-aufbau] .tile:not(.on):not(.good):not(.crit) .icowrap,
+  html[data-kachelset-aufbau] .kz-w:not(.on):not(.good):not(.crit) .ico,
+  html[data-kachelset-aufbau] .sv-st:not(.on):not(.good):not(.crit) .ico{color:var(--ico-fixed,var(--ink));}
+  html[data-kachelset-aufbau] .tile:not(.on):not(.good):not(.crit) .ico.img,
+  html[data-kachelset-aufbau] .kz-w:not(.on):not(.good):not(.crit) .ico.img,
+  html[data-kachelset-aufbau] .sv-st:not(.on):not(.good):not(.crit) .ico.img{background-color:var(--ico-fixed,var(--ink));}
+  html[data-kachelset-aufbau] .tctrls .tb{background:var(--taste,var(--tile));}
+  html[data-kachelset-aufbau] .tctrls .tb:active{background:var(--kachel-an,var(--tile));}
+  html[data-kachelset-aufbau] .grid.lx:not(.list) .tile>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
+  html[data-kachelset-aufbau] .btn{background:var(--taste,var(--tile));border-color:transparent;border-radius:var(--taste-radius,12px);}
+  html[data-kachelset-aufbau] .btn:active{background:var(--kachel-an,var(--tile));}
+  /* Aufbau "lx" und "kreis": Name und Zustand vorn kraeftiger, der Name
+     unter dem Zustand bleibt leicht (wie die Loxone-App). */
+  html[data-kachelset-aufbau="lx"] .grid.lx:not(.list) .tile.zv .sub,
+  html[data-kachelset-aufbau="lx"] .grid.lx:not(.list) .tile .name,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.zv .sub,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile .name{font-weight:var(--tile-fw,max(600,var(--name-weight,450)));}
+  html[data-kachelset-aufbau="lx"] .grid.lx:not(.list) .tile.zv .name,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.zv .name{font-weight:400;}
+  /* Aufbau "kreis": wie lx, das Symbol steht in einem Kreis (--kreis-d, auf
+     schmalen Schirmen --kreis-d-schmal) auf der Tastenflaeche (render() legt
+     .kreis darum), das Symbol nimmt --kreis-anteil davon. Aktiv fuellt sich
+     der Kreis mit --glow, das Symbol wird --kreis-an-symbol, der Zustand
+     --an-text; die Kachel selbst bleibt (--kachel-an faellt auf --tile).
+     Zustand und Name stehen unten in der Kachel (ueber den Tasten, wo es
+     welche gibt); eine breite Kachel ohne Messwert stellt Kreis und Text
+     nebeneinander, die Tasten darunter. */
+  html[data-kachelset-aufbau="kreis"] .tile .kreis{display:inline-grid;place-items:center;flex:none;
+    width:var(--k-kreis,52px);height:var(--k-kreis,52px);border-radius:50%;background:var(--taste,var(--tile));}
+  html[data-kachelset-aufbau="kreis"] .tile .kreis .ico svg,
+  html[data-kachelset-aufbau="kreis"] .tile .kreis .ico .rawico,
+  html[data-kachelset-aufbau="kreis"] .tile .kreis .ico.img{
+    width:calc(var(--k-kreis,52px) * var(--kreis-anteil,.54));height:calc(var(--k-kreis,52px) * var(--kreis-anteil,.54));}
+  html[data-kachelset-aufbau="kreis"] .tile.on .kreis{background:var(--glow);}
+  html[data-kachelset-aufbau="kreis"] .tile.on .kreis .ico,
+  html[data-kachelset-aufbau="kreis"] .tile.on .kreis .icowrap{color:var(--kreis-an-symbol,var(--on-glow));}
+  html[data-kachelset-aufbau="kreis"] .tile.on .kreis .ico.img{background-color:var(--kreis-an-symbol,var(--on-glow));}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile>.body:last-child,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.ohnetasten>.body{margin-top:auto;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk){flex-direction:row;flex-wrap:wrap;
+    align-items:center;align-content:space-between;column-gap:calc(16px * var(--ks,1));}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.body{flex:1 1 0;min-width:0;margin-top:0;}
+  /* ... der Kopf loest sich dort auf: Kreis, Text und Raum stehen in einer
+     Zeile, der Raum rechts oben, der Text endet vor ihm */
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.head{display:contents;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.head .room{order:2;flex:0 1 auto;
+    align-self:flex-start;max-width:35%;margin:0;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tspark{order:3;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tctrls{order:4;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tspark,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tctrls{flex:0 0 100%;}
+  /* Aufbau "mitte": Symbol mittig, darunter der Haupttext (der Zustand, sonst
+     der Name) und eine Zeile "Name · Raum" (kachelTexte); kein Raum im Kopf.
+     Kopf und Text stehen mittig in der Flaeche ueber den Tasten. Die aktive
+     Kachel kippt ganz um: Flaeche --kachel-an, Schrift und Symbole
+     --kachel-an-ink, die Zweitzeile --kachel-an-muted. */
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile{align-items:center;text-align:center;}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .head{justify-content:center;margin-top:auto;}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .body{align-items:center;margin-bottom:auto;max-width:100%;}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .name{white-space:pre-line;font-weight:var(--tile-fw,max(600,var(--name-weight,450)));}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile>.tctrls{align-self:stretch;}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .name,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .bigv,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .ico,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .icowrap{color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .sub,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .room,
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .bigv small{color:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .ico.img{background-color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .tspark .mm{fill:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  /* Leisten pille und oben: Hoehe und Symbole aus dem Set (--tabs-hoehe,
+     --tab-symbol); autoRaster misst die Leiste, rechnet also mit. Der
+     Zurueck-Knopf ist ein Symbol wie die Tabs (renderTabs). */
+  html[data-kachelset-leiste="pille"] #tabs,
+  html[data-kachelset-leiste="oben"] #tabs{height:var(--k-tabs-h,auto);align-items:stretch;}
+  html[data-kachelset-leiste="pille"] .tab,
+  html[data-kachelset-leiste="oben"] .tab{padding:0;}
+  html[data-kachelset-leiste="pille"] .tab svg,html[data-kachelset-leiste="pille"] .tab .tico,
+  html[data-kachelset-leiste="oben"] .tab svg,html[data-kachelset-leiste="oben"] .tab .tico,
+  html[data-kachelset-leiste="pille"] .tabback svg,html[data-kachelset-leiste="oben"] .tabback svg{
+    width:var(--k-tab-symbol,28px);height:var(--k-tab-symbol,28px);}
+  html[data-kachelset-leiste="pille"] .tabback,
+  html[data-kachelset-leiste="oben"] .tabback{flex:1;align-self:stretch;width:auto;height:auto;margin:0;border:0;border-radius:0;
+    background:transparent;}
+  /* Leiste "pille": unten, als Pille (--pille-h) mittig in der Leiste. Die
+     Pille ist nur ein ::before - die Leiste selbst hat ihre Hoehe. */
+  html[data-kachelset-leiste="pille"] .tabs{position:relative;border-top-color:transparent;background:transparent;
+    padding-left:max(12px,calc(50% - 280px));padding-right:max(12px,calc(50% - 280px));}
+  html[data-kachelset-leiste="pille"] .tabs::before{content:"";position:absolute;z-index:0;pointer-events:none;
+    top:calc((var(--k-tabs-h,55px) - var(--k-pille-h,43px) - env(safe-area-inset-bottom,0px)) / 2);
+    height:var(--k-pille-h,43px);
+    left:max(12px,calc(50% - 280px));right:max(12px,calc(50% - 280px));
+    border-radius:999px;background:var(--tabbar);}
+  html[data-kachelset-leiste="pille"] .tabs>*{position:relative;z-index:1;}
+  html[data-kachelset-leiste="pille"] .tab.active{color:var(--ink);}
+  html[data-kachelset-leiste="pille"] .tab.active .tico{background-color:var(--ink);}
+  html[data-kachelset-leiste="pille"] .tabback{color:var(--muted);}
+  html[data-kachelset-leiste="pille"] .tabback.on{color:var(--ink);}
+  html[data-kachelset-leiste="pille"] .screen.kopf .kopfzeile{background:transparent;border-bottom-color:transparent;}
+  /* Leiste "oben": die Tab-Leiste steht in der ersten Zeile des Kastens, nur
+     Symbole: aktiv --tab-an, sonst --tab-aus. Der Kasten ist der Rahmen
+     (--bg, --rahmen-seite und -unten), das Raster darin das Feld der Kacheln
+     (--screen, --feld-radius); autoRaster zieht den Rahmen ab. Kopfzeile,
+     Werteleiste und Widget stehen auf dem Rahmen, Schrift in den Farben der
+     Tabs. Jede Zeilen-Variante (kopf, leiste, split, hoch, Widget-Seite)
+     rueckt um eine Zeile nach unten. */
+  html[data-kachelset-leiste="oben"] .screen{background:var(--bg);
+    padding:0 var(--k-rahmen-seite,0px) var(--k-rahmen-unten,0px);}
+  html[data-kachelset-leiste="oben"] #grid{background:var(--screen);border-radius:var(--k-feld-radius,0px);}
+  html[data-kachelset-leiste="oben"] #tabs{border-top:0;background:transparent;
+    padding-bottom:0;padding-top:env(safe-area-inset-top,0px);}
+  html[data-kachelset-leiste="oben"] .tab{color:var(--tab-aus,var(--muted));}
+  html[data-kachelset-leiste="oben"] .tab .tico{background-color:var(--tab-aus,var(--muted));}
+  html[data-kachelset-leiste="oben"] .tab.active{color:var(--tab-an,var(--ink));}
+  html[data-kachelset-leiste="oben"] .tab.active .tico{background-color:var(--tab-an,var(--ink));}
+  html[data-kachelset-leiste="oben"] .tabback{color:var(--tab-aus,var(--muted));}
+  html[data-kachelset-leiste="oben"] .tabback.on{color:var(--tab-an,var(--ink));}
+  html[data-kachelset-leiste="oben"] .screen.kopf .kopfzeile,
+  html[data-kachelset-leiste="oben"] .screen.leiste .werteleiste{background:transparent;border-bottom-color:transparent;
+    color:var(--tab-an,var(--ink));}
+  html[data-kachelset-leiste="oben"] .kz-uhr .d,html[data-kachelset-leiste="oben"] .kz-wx .m{color:var(--tab-aus,var(--muted));}
+  html[data-kachelset-leiste="oben"] .kz-wx .m .c{color:var(--tab-an,var(--ink));}
+  html[data-kachelset-leiste="oben"] .kz-wx{border-left-color:transparent;}
+  html[data-kachelset-leiste="oben"] .screen.split #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split #frontpane{border-left-color:transparent;border-top-color:transparent;}
+  html[data-kachelset-leiste="oben"] .screen{grid-template-rows:auto minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen #grid,
+  html[data-kachelset-leiste="oben"] .screen .conn,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #frontpane,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #playerpane{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.split{grid-template-rows:auto minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.split #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.split #grid,
+  html[data-kachelset-leiste="oben"] .screen.split .conn,
+  html[data-kachelset-leiste="oben"] .screen.split #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split #frontpane{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch{grid-template-rows:auto minmax(0,1fr) minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.auto{grid-template-rows:auto var(--auto-k,1fr) var(--auto-p,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #grid{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #frontpane{grid-row:3;}
+  html[data-kachelset-leiste="oben"] .screen.kopf{grid-template-rows:auto auto minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.kopf #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.kopf .kopfzeile{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.kopf #grid,
+  html[data-kachelset-leiste="oben"] .screen.kopf .conn{grid-row:3;}
+  html[data-kachelset-leiste="oben"] .screen.leiste{grid-template-rows:auto auto minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.leiste #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.leiste .werteleiste{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.leiste #grid,
+  html[data-kachelset-leiste="oben"] .screen.leiste .conn{grid-row:3;}
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste{grid-template-rows:auto auto auto minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste .kopfzeile{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste .werteleiste{grid-row:3;}
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste #grid,
+  html[data-kachelset-leiste="oben"] .screen.kopf.leiste .conn{grid-row:4;}
+  html[data-kachelset-leiste="oben"] .screen.split.leiste:not(.hoch) #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split.leiste:not(.hoch) #frontpane{grid-row:2/4;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste{grid-template-rows:auto auto minmax(0,1fr) minmax(0,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.auto.leiste{grid-template-rows:auto auto var(--auto-k,1fr) var(--auto-p,1fr);}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste #tabs{grid-row:1;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste .werteleiste{grid-row:2;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste #grid{grid-row:3;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split.hoch.leiste #frontpane{grid-row:4;}
+  /* Leiste "links": die Tab-Leiste ist eine Spalte am linken Rand (Breite
+     --rail-breite, auf schmalen Schirmen --rail-breite-schmal), mit Symbol und
+     Name; schmal nur das Symbol. Aktiv: Flaeche der Kachel, Symbol in der
+     Akzentfarbe; Zurueck steht unten. Der Kasten macht ihr mit padding-left
+     Platz, sie liegt absolut darin und belegt keine Zeile - jede
+     Zeilen-Variante (kopf, leiste, split, hoch) bleibt, nur ihre Tab-Zeile ist
+     leer. Ohne grid-row/-column waere die Leiste an diese leere Zeile gebunden
+     (Bezugsrahmen eines absoluten Rasterkinds), darum ausdruecklich auto, auch
+     gegen die Varianten. Das feste Raster wird um die Leiste breiter;
+     autoRaster() zieht sie von der Flaeche ab (railW). */
+  html[data-kachelset-leiste="links"] .screen{padding-left:var(--k-rail,0px);
+    max-width:calc(var(--cols,2) * 240px + var(--k-rail,0px));}
+  html[data-kachelset-leiste="links"] .screen.split{width:min(100vw, calc(var(--cols,2) * 480px + var(--k-rail,0px)));}
+  html[data-kachelset-leiste="links"] .screen.split.hoch{width:min(100vw, calc(var(--cols,2) * 240px + var(--k-rail,0px)));}
+  html[data-kachelset-leiste="links"] .screen.fill,
+  html[data-kachelset-leiste="links"] .screen.split.fill{max-width:none;width:100vw;}
+  html[data-kachelset-leiste="links"] #tabs{position:absolute;left:0;top:0;bottom:0;width:var(--k-rail,0px);
+    grid-row:auto !important;grid-column:auto !important;z-index:7;
+    flex-direction:column;align-items:stretch;gap:6px;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;
+    padding:28px 14px calc(28px + env(safe-area-inset-bottom,0px));border-top:0;}
+  html[data-kachelset-leiste="links"] .screen.schmal #tabs{padding:12px 8px calc(12px + env(safe-area-inset-bottom,0px));}
+  html[data-kachelset-leiste="links"] #tabs::-webkit-scrollbar{display:none;}
+  html[data-kachelset-leiste="links"] .tab,
+  html[data-kachelset-leiste="links"] .tabback{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start;
+    gap:14px;height:56px;padding:0 16px;border-radius:var(--taste-radius,12px);min-width:0;color:var(--muted);}
+  html[data-kachelset-leiste="links"] .screen.schmal .tab,
+  html[data-kachelset-leiste="links"] .screen.schmal .tabback{height:52px;justify-content:center;padding:0;}
+  html[data-kachelset-leiste="links"] .tab svg,html[data-kachelset-leiste="links"] .tab .tico,
+  html[data-kachelset-leiste="links"] .tabback svg{flex:none;width:24px;height:24px;}
+  html[data-kachelset-leiste="links"] .tab .tnm,
+  html[data-kachelset-leiste="links"] .tabback .tnm{font-size:17px;font-weight:500;color:inherit;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  html[data-kachelset-leiste="links"] .screen:not(.schmal) .tab .tlbl{display:none;}   /* der Name steht daneben (.tnm) */
+  html[data-kachelset-leiste="links"] .screen.schmal .tab .tnm,
+  html[data-kachelset-leiste="links"] .screen.schmal .tabback .tnm{display:none;}
+  html[data-kachelset-leiste="links"] .tab.active{background:var(--tile);color:var(--glow);}
+  html[data-kachelset-leiste="links"] .tab.active .tico{background-color:var(--glow);}
+  html[data-kachelset-leiste="links"] .tab.active .tnm{color:var(--ink);font-weight:600;}
+  html[data-kachelset-leiste="links"] .tabspacer{display:none;}
+  html[data-kachelset-leiste="links"] .tabback{margin:auto 0 0;width:auto;border:0;background:transparent;font-size:inherit;}
+  html[data-kachelset-leiste="links"] .tabback.on{color:var(--ink);}
   /* Detail-Panel (z.B. Jalousie) */
   .grid.panel{display:flex;flex-direction:column;gap:10px;align-items:stretch;grid-auto-rows:initial;}
   /* Anlagenschema (SystemScheme): Titel oben, darunter ein Zoom-/Pan-Viewport.
@@ -783,7 +1025,7 @@
     transition:background .12s,transform .06s;}
   .btn:active{transform:scale(.97);background:rgba(var(--wash,255,255,255),.09);}
   .btn.on{background:linear-gradient(180deg,rgba(var(--on-rgb,224,162,77),.22),rgba(var(--on-rgb,224,162,77),.05));
-    border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--glow);}
+    border-color:rgba(var(--on-rgb,224,162,77),.55);color:var(--an-text,var(--glow));}
   .intercom-talk{display:flex;flex:0 0 auto;flex-direction:column;gap:4px;}
   .intercom-talk-button{width:100%;color:var(--ink);font-family:inherit;touch-action:manipulation;}
   .intercom-talk-button:disabled{opacity:.4;cursor:default;}
@@ -803,7 +1045,7 @@
   .menuitem{padding:7px 16px;border-radius:7px;font-size:15px;line-height:1.15;white-space:nowrap;
     cursor:pointer;user-select:none;-webkit-user-select:none;color:var(--ink);}
   .menuitem:active{background:rgba(var(--wash,255,255,255),.13);}
-  .menuitem.on{color:var(--glow);background:rgba(var(--on-rgb,224,162,77),.15);}
+  .menuitem.on{color:var(--an-text,var(--glow));background:rgba(var(--on-rgb,224,162,77),.15);}
   /* Musik-Player */
   /* Cover = zentriertes Quadrat, das in Breite UND Hoehe der Flaeche passt.
      Ohne Hoehen-Cap ueberdeckt/verdraengt es auf flachen bzw. quadratischen
@@ -1118,7 +1360,8 @@
   .sv-st .nm{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sv-st .nm .rm{display:block;font-size:11px;font-weight:400;color:var(--muted);}
   .sv-st .vl{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .sv-st.on .ico,.sv-st.on .vl{color:var(--ico-fixed,var(--glow));}
+  .sv-st.on .ico{color:var(--ico-fixed,var(--glow));}
+  .sv-st.on .vl{color:var(--ico-fixed,var(--an-text,var(--glow)));}
   .sv-st.good .ico,.sv-st.good .vl{color:var(--good);}
   .sv-st.crit .ico,.sv-st.crit .vl{color:var(--crit-ink,var(--crit));}
   .sv-st.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
@@ -1415,6 +1658,11 @@ let curChartKey = '', chartData = null, chartRange = '24h';
 function abosVergessen(){ curEnergyUuid=''; curCameraUuid=''; curPlayerZone=''; curSvStatus=''; curChartKey=''; }
 let themeSplit = true;   // Split-Screen an/aus (aus = 4"-Panel: nur die Visu, keine Pane 2)
 let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der bisherige
+// Kachel-Set (theme-Nachricht): Art der Kachel ('lx'|'mitte'|'kreis') und der
+// Tab-Leiste ('pille'|'oben'|'links'), '' ohne Set. Als data-kachelset-aufbau
+// und data-kachelset-leiste am <html>; daran haengen die Regeln im CSS.
+let kachelAufbau = '', kachelLeiste = '';
+let _themeVars = [];     // Variablen der letzten theme-Nachricht (s. dort)
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
 let gridGrow = 1;        // ... bis zu diesem Vielfachen wachsen die Kacheln, wenn alle auf eine Seite passen (vom Server)
 let paneCols = 0;        // Widget im automatischen Raster: feste Breite in Kachelspalten (hochkant Zeilen), 0 = Automatik (vom Server)
@@ -2207,7 +2455,9 @@ const TASTEN = {lx: {rand: 55, leiste: 44}, classic: {rand: 30, leiste: 34}};
 function tastenTextHoehe(tile){
   const cs=getComputedStyle(tile), px=(n,d)=>parseFloat(cs.getPropertyValue(n))||d;
   const lx=kachelNeu(), g=lx ? GROESSEN_STANDARD.neu : GROESSEN_STANDARD.classic;
-  const ico=px('--ico-size',g.iconSize), name=px('--name-size',g.nameSize), sub=px('--sub-size',g.subSize), raum=px('--room-size',g.roomSize);
+  const name=px('--name-size',g.nameSize), sub=px('--sub-size',g.subSize), raum=px('--room-size',g.roomSize);
+  // Aufbau "kreis" (Kachel-Set): der Kopf ist so hoch wie der Kreis um das Symbol
+  const ico=Math.max(px('--ico-size',g.iconSize), kachelAufbau==='kreis' ? px('--k-kreis',0) : 0);
   return lx ? Math.max(ico, 1.2*raum) + 1.15*name + 1.3*sub + TASTEN.lx.rand
             : ico + 1.2*raum + 1.15*name + 1.3*sub + TASTEN.classic.rand;
 }
@@ -2495,7 +2745,12 @@ function renderTabs(){
            : (view && Array.isArray(view.catTabs))
              ? (view.catTabs.length ? view.catTabs : null)
              : (roomCatTabs && roomCatTabs.length ? roomCatTabs : null);
-  const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">‹</div>';
+  // Seitenleiste (Kachel-Set "links"): Symbol und Name, Zurueck steht unten.
+  // Mit Kachel-Set ist Zurueck ein Symbol wie die Tabs, ohne den Kreis.
+  const links = kachelLeiste==='links';
+  const nm = t => links ? '<span class="tnm">'+esc(t||'')+'</span>' : '';
+  const backHtml = '<div class="tabback'+(stack.length>1?' on':'')+'" id="tabback">'+
+    (kachelLeiste ? svg('<path d="M15 5l-7 7 7 7"/>')+nm('Zurück') : '‹')+'</div>';
   let items;
   if(ct){
     const tabsHtml = ct.map(c => {
@@ -2505,20 +2760,23 @@ function renderTabs(){
       const ico = c.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(c.iconUrl)+'\')"></span>'
         : '<span class="tlbl">'+esc(c.label||'')+'</span>';
-      return '<div class="tab'+(katFilter===c.key?' active':'')+'" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+'</div>';
+      return '<div class="tab'+(katFilter===c.key?' active':'')+'" data-cat="'+esc(c.key)+'" title="'+esc(c.label||'')+'">'+ico+nm(c.label)+'</div>';
     });
     // Zurueck-Button IMMER mittig: links ceil(N/2), rechts floor(N/2) Tabs; die
     // fehlende Zelle rechts mit einem leeren Spacer auffuellen, damit beide
     // Seiten gleich breit sind (1->links, 2->je einer, 3->2+1, 4->symmetrisch).
     const N=tabsHtml.length, leftN=Math.ceil(N/2), pad=leftN-(N-leftN);
-    items = tabsHtml.slice(0,leftN).concat([backHtml]).concat(tabsHtml.slice(leftN));
-    for(let s=0;s<pad;s++) items.push('<div class="tabspacer" aria-hidden="true"></div>');
+    if(links) items = tabsHtml.concat([backHtml]);
+    else {
+      items = tabsHtml.slice(0,leftN).concat([backHtml]).concat(tabsHtml.slice(leftN));
+      for(let s=0;s<pad;s++) items.push('<div class="tabspacer" aria-hidden="true"></div>');
+    }
   } else {
     const at = activeTab();
     items = tabsCfg.map(tk => {
       const cls = 'tab'+(tk===at?' active':'');
       const t = TABS.find(x => x.tab===tk);
-      if(t) return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(t.label)+'">'+svg(t.icon)+'</div>';
+      if(t) return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(t.label)+'">'+svg(t.icon)+nm(t.label)+'</div>';
       const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
       // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
       // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
@@ -2535,9 +2793,9 @@ function renderTabs(){
       const ico = m.iconUrl
         ? '<span class="tico" style="--u:url(\''+esc(m.iconUrl)+'\')"></span>'
         : svg(fallback);
-      return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m.label||'')+'">'+ico+'</div>';
+      return '<div class="'+cls+'" data-tab="'+esc(tk)+'" title="'+esc(m.label||'')+'">'+ico+nm(m.label)+'</div>';
     }).filter(Boolean);
-    items.splice(Math.floor(items.length/2), 0, backHtml);
+    items.splice(links ? items.length : Math.floor(items.length/2), 0, backHtml);
   }
   el('tabs').innerHTML = items.join('');
   if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>katTipp(n.dataset.cat));
@@ -2844,14 +3102,31 @@ function subText(it){
   return s.replace(/ · /g,'\n');   // Teile untereinander (white-space:pre-line)
 }
 // Zustand vorn: der Zustand steht gross, der Name klein darunter. Nicht bei
-// Kacheln, die direkt schalten (dort zeigt die Hervorhebung den Zustand), und
-// nicht, wenn die Zeile nur beschreibt (it.subInfo, etwa "Tuersprechanlage").
-function zustandVorn(it){ return kachelNeu() && !it.cmd && !it.subInfo && !!subText(it); }
+// Kacheln, die direkt schalten (dort zeigt die Hervorhebung den Zustand) -
+// ausser mit Kachel-Set, dort steht auch "An"/"Aus" vorn -, und nicht, wenn
+// die Zeile nur beschreibt (it.subInfo, etwa "Tuersprechanlage").
+function zustandVorn(it){ return kachelNeu() && (!it.cmd || !!kachelAufbau) && !it.subInfo && !!subText(it); }
 // Klassen des neuen Aufbaus fuer render() und updateGrid(): Zustand vorn (zv),
-// zweite Zeile ist nur eine Beschreibung (bi, weicht in enger Kachel zuerst)
+// zweite Zeile ist nur eine Beschreibung (bi, weicht in enger Kachel zuerst),
+// Messwert an Stelle des Symbols (bigk)
 function aufbauKlassen(it){
   if(!kachelNeu()) return '';
-  return (zustandVorn(it)?' zv':'')+(it.subInfo && subText(it)?' bi':'');
+  const bigk=it.big!=null ? ' bigk' : '';   // Messwert an Stelle des Symbols (Aufbau "kreis": breite Kachel)
+  if(kachelAufbau==='mitte') return bigk;   // "mitte" ordnet seine Texte selbst (kachelTexte)
+  return (zustandVorn(it)?' zv':'')+(it.subInfo && subText(it)?' bi':'')+bigk;
+}
+// Texte der Kachel fuer render() und updateGrid(): Haupttext (.name) und
+// Zweitzeile (.sub). Aufbau "mitte" (Kachel-Set): Haupttext ist der Zustand
+// (neben einem Messwert der, den der Server dazu nennt: "Soll 22,0°"), sonst
+// der Name; die Zweitzeile nennt "Name · Raum" ohne den Teil, der schon
+// Haupttext ist. Beschreibt die Zeile nur (subInfo), bleibt der Name vorn.
+function kachelTexte(it){
+  const sub=subText(it);
+  if(kachelAufbau!=='mitte' || !kachelNeu()) return {name:it.label, sub:sub};
+  const zustand=(!it.subInfo && sub) ? sub : '';
+  const zweit=zustand ? [it.label, it.room] : [sub ? sub.replace(/\n/g,' · ') : '', it.room];
+  // jeder Teil einmal: heisst die Kachel wie ihr Raum, steht er nicht doppelt da
+  return {name:zustand||it.label, sub:[...new Set(zweit.filter(Boolean))].join(' · ')};
 }
 // Messwert: ganze Zahl gross, Nachkommastellen und Einheit klein ("25" ",4°")
 function bigHtml(v){ const m=/^(-?\d+)(.*)$/.exec(String(v)); return m ? esc(m[1])+'<small>'+esc(m[2])+'</small>' : esc(v); }
@@ -2890,6 +3165,7 @@ function updateGrid(items){
   const g=el('grid');
   if(g.classList.contains('panel')) return false;
   if(g.classList.contains('lx')!==kachelNeu()) return false;   // Kachel-Aufbau gewechselt
+  if((g.dataset.aufbau||'')!==kachelAufbau) return false;       // ... oder der des Kachel-Sets
   const quer=seitenQuer();
   if(g.classList.contains('hpages')!==quer) return false;      // Blaetterrichtung gewechselt (Drehen)
   const nodes=[...g.querySelectorAll('.tile[data-id]')];
@@ -2932,7 +3208,9 @@ function updateGrid(items){
     const stStr=kachelStil(it, lage, groessen, i, quer);
     if(n._stStr!==stStr){ n.setAttribute('style',stStr); n._stStr=stStr; if(n._kt) n.style.setProperty('--ks', String(n._kt)); }
     const body=n.querySelector('.body');
-    if(body){ let subEl=body.querySelector('.sub'); const sub=subText(it);
+    if(body){ let subEl=body.querySelector('.sub'); const tx=kachelTexte(it), sub=tx.sub;
+      const nameEl=body.querySelector('.name');   // Aufbau "mitte": dort steht der Zustand
+      if(nameEl && nameEl.textContent!==tx.name) nameEl.textContent=tx.name;
       if(sub){ if(!subEl){ subEl=document.createElement('div'); subEl.className='sub'; body.appendChild(subEl); }
         if(subEl.textContent!==sub) subEl.textContent=sub; }
       else if(subEl){ subEl.remove(); } }
@@ -2976,6 +3254,14 @@ function vpSize(){
   if(!(w>0)||!(h>0)){ if(vv&&vv.width>0&&vv.height>0){ w=vv.width; h=vv.height; }
     else { w=de.clientWidth; h=de.clientHeight; } }
   return {w:Math.max(1,w), h:Math.max(1,h)};
+}
+// Schmaler Schirm (raster.js SCHMAL_UNTER): .schmal am Kasten. Ein
+// Kachel-Set nimmt dort seine Masse mit "-schmal" (CSS --k-*), die
+// Seitenleiste zeigt nur Symbole. Vor jeder Rasterrechnung, weil Leiste,
+// Rahmen und Abstaende daran haengen.
+function schmalEinrichten(){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  sc.classList.toggle('schmal', LoxRaster.schmal(vpSize().w));
 }
 function rasterFuer(widget){
   const {w,h}=vpSize();
@@ -3041,10 +3327,17 @@ function kachelStil(it, lage, groessen, i, quer){
 // Tab-Leiste, Kopfzeile und Werteleiste zum jeweiligen Kachelfaktor, die
 // Kacheln der Seite und ob sie waagerecht blaettert.
 function autoRaster(widget){
-  const cs=getComputedStyle(el('grid')), tabs=el('tabs'), vp=vpSize();
+  const cs=getComputedStyle(el('grid')), tabs=el('tabs'), vp=vpSize(), links=kachelLeiste==='links';
+  // Kachel-Set: die Seitenleiste ("links") nimmt Breite statt Hoehe, ein
+  // Rahmen um das Feld ("oben") Breite und Hoehe - beides als Innenabstand
+  // des Kastens; die Leiste "links" ist dessen linker Teil.
+  const sc=document.querySelector('.screen'), scs=sc ? getComputedStyle(sc) : null, px=v=>parseFloat(v)||0;
+  const railW=links&&tabs ? tabs.offsetWidth : 0;
   return LoxRaster.autoRaster({w:vp.w, h:vp.h, ziel:gridAuto, wachsen:gridGrow,
     gap:parseFloat(cs.getPropertyValue('--gap'))||0, pad:parseFloat(cs.getPropertyValue('--pad'))||0,
-    punkteH:parseFloat(cs.getPropertyValue('--punkte-h'))||0, tabsH:tabs?tabs.offsetHeight:0,
+    punkteH:parseFloat(cs.getPropertyValue('--punkte-h'))||0,
+    tabsH:links ? 0 : (tabs?tabs.offsetHeight:0), railW:railW,
+    rahmenX:scs ? px(scs.paddingLeft)+px(scs.paddingRight)-railW : 0, rahmenY:scs ? px(scs.paddingTop)+px(scs.paddingBottom) : 0,
     kopfH:kopfHoehe, leisteH:leisteHoehe, widget:widget, paneCols:paneCols, paneShare:paneShare,
     breiten:_lastBreiten, seitenQuer:seitenQuer()});
 }
@@ -3070,6 +3363,7 @@ function render(){
   // Kacheln der Seite mit ihrer Breite (fuer das Wachsen im automatischen
   // Raster): keine auf Widget-, Front- und Listenseiten
   _lastBreiten = (!view.widget && !view.front && view.layout!=='list') ? katSichtbar(view.items||[]).map(it=>({w:it.w===2?2:1, h:it.h===2?2:1})) : [];
+  schmalEinrichten();   // Masse fuer schmale Schirme (Kachel-Set) vor der Rasterrechnung
   _lastRaster = rasterKey(_widget);
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
@@ -3132,8 +3426,10 @@ function render(){
             (posv>0 ? '<circle class="val" cx="50" cy="50" r="46" stroke-dasharray="'+
               ringDash(posv)+'"/>' : '')+
           '</g></svg>'+icoHtml+'</span>';
-    const lx = kachelNeu(), sub = subText(it);
-    const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>' : icoCell;
+    const lx = kachelNeu(), tx = kachelTexte(it), sub = tx.sub;
+    // Aufbau "kreis" (Kachel-Set): das Symbol steht in einem Kreis
+    const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>'
+      : (lx && kachelAufbau==='kreis') ? '<span class="kreis">'+icoCell+'</span>' : icoCell;
     const chev = (!lx && it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
     const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
     const tone = tileTone(it);
@@ -3150,12 +3446,12 @@ function render(){
     // im Text (im Kopf stuende sie neben dem Raum).
     const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
-                (lx&&it.room?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
+                (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
               (!lx&&it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
               (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
-              '<div class="name"'+nst+'>'+esc(it.label)+'</div>'+
+              '<div class="name"'+nst+'>'+esc(tx.name)+'</div>'+
               (sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
               ctrls+
             '</div>';
@@ -3167,6 +3463,7 @@ function render(){
   }
   g.classList.toggle('hpages', quer);
   g.classList.toggle('punkte', quer && lage.seiten>1);
+  g.dataset.aufbau = kachelAufbau;   // updateGrid baut neu, wenn das Kachel-Set einen anderen Aufbau bringt
   g.innerHTML = html;
   if(quer){ g.querySelectorAll('.punkte i').forEach((d,k)=>d.onclick=()=>seiteZu(k)); punkteNachziehen(); }
   g.classList.toggle('snapy', !quer && (view.layout==='list' ? items.length>4 : lage.seiten>1));   // Snapping erst ab >1 Seite
@@ -3293,6 +3590,7 @@ function setupSchemeZoom(viewEl, stage, sw, sh){
 // meldet die echte Flaeche erst mit 'pageshow' oder ueber visualViewport, und
 // beim Drehen kommt 'orientationchange' teils ohne resize.
 function fensterGeaendert(){
+  schmalEinrichten();   // Masse fuer schmale Schirme (Kachel-Set), etwa die Seitenleiste
   applyHoch();   // Split beim Drehen zwischen nebeneinander und uebereinander umstellen
   if(el('grid').classList.contains('scheme')&&schemeFit) schemeFit();
   // Screensaver-Spaltigkeit nachziehen, wenn das Fenster (Kiosk-Start, Rotation,
@@ -3401,7 +3699,13 @@ function connect(){
     try{ msg=JSON.parse(e.data); }
     catch(err){ console.warn('LoxPanel: unlesbare Nachricht verworfen', err); return; }
     if(!msg || typeof msg!=='object') return;
-    if(msg.t==='theme'){ const v=msg.vars||{}; for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
+    if(msg.t==='theme'){ const v=msg.vars||{};
+      // Was die vorige Nachricht setzte und diese nicht mehr nennt (anderes
+      // Kachel-Set, keine Grundfarbe mehr), faellt weg - sonst bliebe etwa
+      // --kachel-an oder --an-text des vorigen Sets bis zum Neuladen stehen.
+      for(const k of _themeVars) if(!v[k]) document.documentElement.style.removeProperty(k);
+      _themeVars = Object.keys(v).filter(k=>v[k]);
+      for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
       entwurfZeigen(msg.entwurf);
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
@@ -3412,6 +3716,15 @@ function connect(){
       themeSplit = (msg.split !== false);   // Default an; nur explizit aus (4"-Panel)
       themeCatFilter = !!msg.catFilter;     // Sprungmarken filtern statt springen
       tileLayout = (msg.tileLayout==='classic') ? 'classic' : '';
+      // Kachel-Set (fertiger Look): die Farben kamen schon mit vars, die Regeln
+      // fuer Symbole, Tasten und Tab-Leiste haengen am Attribut.
+      if(typeof msg.tileSet==='string' && msg.tileSet) document.documentElement.setAttribute('data-kachelset', msg.tileSet);
+      else document.documentElement.removeAttribute('data-kachelset');
+      kachelAufbau = (typeof msg.tileSetAufbau==='string') ? msg.tileSetAufbau : '';
+      kachelLeiste = (typeof msg.tileSetLeiste==='string') ? msg.tileSetLeiste : '';
+      for(const [attr, wert] of [['data-kachelset-aufbau', kachelAufbau], ['data-kachelset-leiste', kachelLeiste]]){
+        if(wert) document.documentElement.setAttribute(attr, wert); else document.documentElement.removeAttribute(attr); }
+      schmalEinrichten();
       gridAuto = (typeof msg.gridAuto==='number' && msg.gridAuto>0) ? msg.gridAuto : 0;
       gridGrow = (typeof msg.gridGrow==='number' && msg.gridGrow>=1) ? msg.gridGrow : 1;
       paneCols = (typeof msg.paneCols==='number' && msg.paneCols>0) ? Math.round(msg.paneCols) : 0;

@@ -382,3 +382,72 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["nach_neuladen"] == ("classic", "15"), stand
     assert stand["zurueck"] == {"roomSize": 15}, "der neue Aufbau ist der Standard und wird nicht gespeichert"
     assert stand["visu"] == [True, "15px"], stand
+
+
+# Kachel-Set "loxone" (ui.tileSet): Farben aus theme_colors.KACHEL_SETS, Regeln
+# in panel.html an der Art des Sets (html[data-kachelset-aufbau|-leiste]). Gemessen wird die berechnete
+# Farbe im Browser gegen den Wert des Sets - keine zweite Farbliste im Test.
+SET_MESSEN = """() => {
+  const cs = e => getComputedStyle(e), t = id => document.querySelector('#grid .tile[data-id="' + id + '"]');
+  const tabs = document.getElementById('tabs');
+  const tb = document.querySelector('#grid .tile .tctrls .tb');
+  return {
+    attr: document.documentElement.getAttribute('data-kachelset'),
+    aus: cs(t('MB')).backgroundColor, an: cs(t('FS')).backgroundColor,
+    symbolAus: cs(t('MB').querySelector('.ico')).color,
+    symbolFest: cs(t('TS').querySelector('.ico')).color,
+    taste: tb ? cs(tb).backgroundColor : null,
+    pille: getComputedStyle(tabs, '::before').backgroundColor, leisteH: tabs.getBoundingClientRect().height,
+    zeilen: cs(document.querySelector('.screen')).getPropertyValue('--rows').trim(),
+  };
+}"""
+
+
+def _rgb(hexwert: str) -> str:
+    h = hexwert.lstrip("#")
+    return "rgb(%d, %d, %d)" % tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _set_laufen(ui, tiles, tmp_path, bild):
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = dict(STATES)
+        app.panels = W.App._sanitize_panels({"test": {"title": "Test", "ui": ui, "tiles": tiles,
+                                                      "tabs": ["favoriten", "zentral", "raeume", "kategorien"]}})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _visu(b, port, 1000, 750, fehler)
+                werte, kacheln = await pg.evaluate(SET_MESSEN), await pg.evaluate(MESSEN)
+                await pg.screenshot(path=str(tmp_path / f"{bild}.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return werte, kacheln
+    return asyncio.run(lauf())
+
+
+def test_kachel_set_loxone_am_tablet(tmp_path):
+    import theme_colors as TC
+    farben = TC.KACHEL_SETS["loxone"]["farben"]
+    fest = {"TS": {"iconColor": "#ff0000"}}       # Farbe aus "Kacheln gestalten" bleibt
+    mit, k = _set_laufen({"grid": "auto", "tileSet": "loxone"}, fest, tmp_path, "set_loxone")
+    ohne, _ = _set_laufen({"grid": "auto"}, fest, tmp_path, "set_standard")
+
+    assert mit["attr"] == "loxone" and ohne["attr"] is None
+    assert mit["aus"] == _rgb(farben["--tile"]), mit
+    assert mit["an"] == _rgb(farben["--kachel-an"]), mit
+    assert mit["symbolAus"] == _rgb(farben["--ink"]), mit
+    assert mit["symbolFest"] == "rgb(255, 0, 0)", mit
+    assert mit["taste"] == _rgb(farben["--taste"]), mit
+    assert mit["pille"] == _rgb(farben["--tabbar"]), mit
+    # Die Leiste hat die Hoehe aus dem Set (Entwurf: 96 px am Tablet), das
+    # Raster rechnet sie mit; nichts laeuft ueber
+    masse = TC.KACHEL_SETS["loxone"]["masse"]
+    assert round(mit["leisteH"]) == int(masse["--tabs-hoehe"].rstrip("px")) != round(ohne["leisteH"]), mit
+    assert all(e["ueberlauf"] <= 1 and e["textUnten"] <= 0 for e in k.values()), k
