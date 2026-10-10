@@ -704,13 +704,12 @@
 
         <div class="ovcols">
           <div class="ovcol"><h4>Ansichten</h4>
-            <button class="ovbox" data-goto="pconf:appearance"><b>Aussehen &amp; Verhalten</b><span>Grundfarbe &amp; Schrift, Kachel-Layout, Widget (Pane 2), Display &amp; Nacht (Abdunkeln, Auto-Neustart), Feinjustierung.</span></button>
-            <button class="ovbox" data-goto="pconf:tabs"><b>Tabs</b><span>Untere Leiste: bis 4 Buttons – Standard-Tabs und/oder einzelne Kategorien bzw. Räume als Abkürzung. Der erste ist die Startseite.</span></button>
-            <button class="ovbox" data-goto="pconf:rooms"><b>Räume</b><span>Welche Räume diese Ansicht zeigt. Nichts angehakt = alle.</span></button>
-            <button class="ovbox" data-goto="pconf:cats"><b>Kategorien</b><span>Welche Kategorien im Tab „Kategorien" erscheinen.</span></button>
-            <button class="ovbox" data-goto="pconf:tiles"><b>Kacheln gestalten</b><span>Einzelne Kacheln umbenennen, färben, Icon setzen oder ausblenden.</span></button>
-            <button class="ovbox" data-goto="pconf:title"><b>Titel</b><span>Name/Fenstertitel dieser Ansicht.</span></button>
-            <button class="ovbox" data-goto="pconf:overlay"><b>Aktiv-Overlay</b><span>Wie eine aktive Kachel hervorgehoben wird (Rahmen, Füllung, Deckkraft).</span></button>
+            <button class="ovbox" data-goto="pconf:allgemein"><b>Allgemein</b><span>Titel, Zielgerät, Sprache und Kennung der Ansicht; duplizieren oder löschen.</span></button>
+            <button class="ovbox" data-goto="pconf:inhalt"><b>Inhalt</b><span>Untere Leiste (Raum-Ansicht, klassisch oder eigene Auswahl), Räume, Kategorien und Widget, Kopfzeile oder Werteleiste je Standard-Seite.</span></button>
+            <button class="ovbox" data-goto="pconf:seiten"><b>Seiten</b><span>Freie Seiten im Seiten-Editor: Name, Icon, Bausteine anordnen, Größen, Widget und Kopfzeile der Seite.</span></button>
+            <button class="ovbox" data-goto="pconf:raster"><b>Raster</b><span>Kachel-Layout und Zielkachel, Bildschirm füllen, Skalierung, Split-Screen, Widget-Breite, Feinjustierung.</span></button>
+            <button class="ovbox" data-goto="pconf:aussehen"><b>Aussehen</b><span>Grundfarbe, Schrift und Größen, Kachel-Aufbau, einzelne Kacheln gestalten oder ausblenden, Aktiv-Overlay.</span></button>
+            <button class="ovbox" data-goto="pconf:verhalten"><b>Verhalten</b><span>Screensaver (Uhr-Seite), Display aus, nachts abdunkeln, Auto-Neustart, PIN merken.</span></button>
           </div>
           <div class="ovcol"><h4>Geräte &amp; Einstellungen</h4>
             <button class="ovbox" data-goto="settings:miniserver"><b>Miniserver</b><span>Zugang zum Loxone Miniserver (Host, Benutzer, Passwort). HTTPS/443.</span></button>
@@ -1094,7 +1093,7 @@ let META=null, PANELS={}, cur=null, tileSel=null;
 // Zuletzt gespeicherter Stand der Ansichten (wie an /api/panels geschickt): "Ansicht loeschen"
 // schickt ihn ohne die geloeschte, damit andere offene Aenderungen nicht nebenbei mitgehen.
 let GESPEICHERT={};
-let rubric='overview', subPconf='tabs', subSet='miniserver';
+let rubric='overview', subPconf='inhalt', subSet='miniserver';
 // Ersteinrichtung (siehe einrichtungAnwenden): Stand aus /api/settings, solange
 // der Server keine Struktur hat, sonst null; dazu der Zugang aus der Config und
 // der Fehler des letzten eigenen Verbindungsversuchs.
@@ -1144,11 +1143,13 @@ function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;'
 // im Server und im Panel. Sie hat KEINEN eigenen Unterreiter mehr: der Editor
 // lebt unter "Tabs", wo die Seite auch sichtbar geschaltet wird.
 const PICK_TAB='auswahl';
+// Reiter einer Ansicht, nach der Frage, die man gerade hat (Konzept "Konfigurator neu
+// ordnen", Schritt 3): Was zu EINER Seite gehoert, steht bei der Seite (Inhalt fuer die
+// Standard-Seiten, Seiten-Editor fuer die freien); was fuer die ganze Ansicht gilt, in
+// Raster, Aussehen oder Verhalten.
 const PCONF_TABS=[
-  {k:'tabs',label:'Tabs'},{k:'rooms',label:'Räume'},{k:'cats',label:'Kategorien'},
-  {k:'tiles',label:'Kacheln gestalten'},{k:'seiten',label:'Seiten-Editor'},
-  {k:'appearance',label:'Aussehen'},
-  {k:'overlay',label:'Aktiv-Overlay'},{k:'title',label:'Titel'}];
+  {k:'allgemein',label:'Allgemein'},{k:'inhalt',label:'Inhalt'},{k:'seiten',label:'Seiten'},
+  {k:'raster',label:'Raster'},{k:'aussehen',label:'Aussehen'},{k:'verhalten',label:'Verhalten'}];
 const GLOBAL_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'}];
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
@@ -1241,7 +1242,7 @@ function showSub(k){
   panes.forEach(p=>{ const on=p.dataset.sub===k; p.classList.toggle('active',on); if(on)found=true; });
   if(!found&&panes.length){ panes[0].classList.add('active'); }
   if(rubric==='settings'&&k==='sip') loadSip();
-  if(rubric==='pconf'&&k==='seiten') seReiterZeichnen();   // Auswahl unter Tabs inzwischen geaendert
+  if(rubric==='pconf'&&k==='seiten') seReiterZeichnen();   // Auswahl unter Inhalt inzwischen geaendert
 }
 
 // ---- Aktiv-Overlay (Rahmen/Füllung/Deckkraft) ----
@@ -1384,9 +1385,9 @@ function baseField(ui){
     '<span class="cval" id="fBaseVal" style="display:block;margin-top:6px">'+
       esc(ui.baseColor||T('Standard-Farbschema'))+'</span></div>';
 }
-function appearanceFields(ui,std,leer){
+function appearanceFields(ui,std,leer,mitSprache=true){
   ui=ui||{};
-  return baseField(ui)+langField(ui)+sizeField('Icon-Größe','iconSize',ui,std)+sizeField(T('Haupttext-Größe'),'nameSize',ui,std)+
+  return baseField(ui)+(mitSprache?langField(ui):'')+sizeField('Icon-Größe','iconSize',ui,std)+sizeField(T('Haupttext-Größe'),'nameSize',ui,std)+
     sizeField(T('Zweittext-Größe'),'subSize',ui,std)+sizeField(T('Raum-Größe'),'roomSize',ui,std)+sizeField(T('Messwert-Größe'),'bigSize',ui,std)+
     '<div class="field" style="max-width:none;flex-basis:100%"><div class="hint">'+T('Haupttext ist die große Zeile der Kachel, Zweittext die kleine darunter. Im klassischen Aufbau ist das der Name und darunter der Zustand, im neuen steht meist der Zustand groß und der Name klein. Raum ist die Raumangabe, Messwert die große Temperatur an Stelle des Symbols.')+' '+leer+'</div></div>'+
     '<div class="field" style="max-width:220px"><label class="lbl">Schriftart</label>'+
@@ -1414,7 +1415,7 @@ function renderGlobalEditor(p){
       '<div class="grph">'+T('Skalierung')+'</div>'+
       '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Ansichten')+'</label>'+
         '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
-      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Aussehen übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</p>'+
+      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</p>'+
       '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
@@ -1484,8 +1485,7 @@ function renderEditor(){
   if(!p){ $('#pconfHost').innerHTML='<div class="empty">Keine Ansicht gewählt.</div>'; $('#phead').innerHTML=''; return; }
   { const ov=$('#openVisu'); if(ov) ov.href = (cur==='default'||cur==='__global__') ? '/' : '/?panel='+encodeURIComponent(cur); }
   if(p.__global){ renderGlobalEditor(p); return; }
-  const ok=['title','tabs','rooms','cats','tiles','seiten','appearance','overlay'];
-  if(!ok.includes(subPconf)) subPconf='tabs';
+  if(!PCONF_TABS.some(t=>t.k===subPconf)) subPconf='inhalt';
   const urlTxt = cur==='default' ? '/  (Standard, ohne Parameter)' : '/?panel='+cur;
   $('#phead').innerHTML =
     '<span class="phlead">'+T('Du bearbeitest')+'</span>'+
@@ -1494,13 +1494,20 @@ function renderEditor(){
     '<span class="kurl">'+T('Kiosk-URL:')+' <code>'+esc(urlTxt)+'</code></span>';
 
   $('#pconfHost').innerHTML =
-   '<section class="spane" data-sub="title"><div class="card"><h3>Titel</h3><p class="note">Fenstertitel der Ansicht.</p>'+
+   '<section class="spane" data-sub="allgemein">'+
+   '<div class="card"><h3>Titel</h3><p class="note">Fenstertitel der Ansicht.</p>'+
      '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div>'+
      '<div class="field" style="margin-top:14px"><label class="lbl">'+T('Zielgerät')+'</label>'+
        '<select id="fZiel">'+zielOptionen((p.device||{}).name)+'</select>'+
-       '<div class="hint" id="fZielHint" style="padding-top:4px">'+esc(zielHinweis(p.device))+'</div></div></div></section>'+
+       '<div class="hint" id="fZielHint" style="padding-top:4px">'+esc(zielHinweis(p.device))+'</div></div>'+
+     langField(p.ui)+'</div>'+
+   '<div class="card"><h3>'+T('Kennung')+'</h3>'+
+     '<p class="note">'+T('Mit dieser Kennung öffnet ein Gerät die Ansicht:')+' <code>'+esc(urlTxt)+'</code></p>'+
+     '<div class="actions" id="kennungAktionen"></div></div>'+
+   '</section>'+
 
-   '<section class="spane" data-sub="tabs"><div class="card"><h3>Untere Leiste (Tabs)</h3>'+
+   '<section class="spane" data-sub="inhalt">'+
+   '<div class="card"><h3>'+T('Untere Leiste')+'</h3>'+
      '<div class="segmode" id="tabMode">'+
        '<button type="button" data-mode="room">'+T('Raum-Ansicht')+'</button>'+
        '<button type="button" data-mode="classic">'+T('Klassisch')+'</button>'+
@@ -1520,36 +1527,33 @@ function renderEditor(){
        '<div class="chips" id="chips"></div></div>'+
      '<div id="tabPick"></div>'+
      '<div id="tabBarMode"></div>'+
-     '</div></section>'+
-
-   '<section class="spane" data-sub="rooms"><div class="card"><h3>Räume</h3>'+
+     '</div>'+
+   '<div class="card"><h3>Räume</h3>'+
      '<p class="note">'+T('Welche Räume diese Ansicht zeigt. <b>Nichts angehakt = alle Räume.</b>')+'</p>'+
      '<div class="toolbar"><span class="count" id="cntRooms"></span>'+
        '<button class="minibtn" id="clrRooms">Alle abwählen</button></div>'+
-     '<div class="grid" id="rooms"></div></div></section>'+
-
-   '<section class="spane" data-sub="cats"><div class="card"><h3>Kategorien</h3>'+
+     '<div class="grid" id="rooms"></div></div>'+
+   '<div class="card"><h3>Kategorien</h3>'+
      '<p class="note">'+T('Welche Kategorien im Tab „Kategorien" erscheinen. <b>Nichts angehakt = alle.</b> Bei gesetzter Raum-Auswahl werden Kategorien zusätzlich auf diese Räume gefiltert.')+'</p>'+
      '<div class="toolbar"><span class="count" id="cntCats"></span>'+
        '<button class="minibtn" id="clrCats">Alle abwählen</button></div>'+
-     '<div class="grid" id="cats"></div></div></section>'+
-
-   '<section class="spane" data-sub="tiles"><div class="card"><h3>Kacheln gestalten</h3>'+
-     '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (in dieser Ansicht). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel in dieser Ansicht ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
-     '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
-     '<div class="tlist" id="tiles"></div>'+
-     '<div id="tileEditor"></div></div></section>'+
+     '<div class="grid" id="cats"></div></div>'+
+   '<div class="card"><h3>'+T('Widget, Kopfzeile, Werteleiste')+'</h3>'+
+     '<div class="field" style="max-width:none" id="paneField"><label class="lbl">'+T('Widget je Standard-Seite')+'</label>'+
+       '<div class="cclist" id="panePerTab"></div>'+
+       '<div class="hint" style="padding-top:4px">'+T('Freie Seiten (Eigene Auswahl) stellst du im Seiten-Editor ein.')+' Je Seite ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Kopfzeile</b> legt stattdessen eine Zeile <b>über</b> die Kacheln: Uhr, Wetter in Kurzform und nach Wahl Werte – nimmt weniger Platz als eine Pane und lässt das Raster ungeteilt. <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter. <b>Werte als Leiste</b> nimmt die Anzeige-Bausteine der Seite (Messwerte, Zähler, Texte, Ein/Aus-Anzeigen) aus dem Raster in eine schmale Zeile darüber – das Raster bleibt dem Bedienbaren; bei „Räume" und „Kategorien" gilt es für die Raum- bzw. Kategorie-Seiten darunter. Eine Seite nur aus Werten behält ihre Kacheln.</div></div>'+
+   '</div>'+
+   '</section>'+
 
    '<section class="spane" data-sub="seiten"><div class="card se-karte"><h3>'+T('Seiten-Editor')+'</h3>'+
      '<p class="note">'+T('Ordnet die freien Seiten (Eigene Auswahl) so an, wie das gewählte Gerät sie zeigt: Bausteine aus der Liste auf die Fläche ziehen, Kacheln verschieben, Größe 1 × 1, 2 × 1 oder 2 × 2 wählen, ein Widget daneben setzen.')+'</p>'+
-     '<div id="seHinweis"></div><div class="se-host" id="seHost"></div></div></section>'+
+     '<div id="seHinweis"></div><div class="se-host" id="seHost"></div>'+
+     '<div class="grph">'+T('Widget, Kopfzeile, Werteleiste dieser Seite')+'</div>'+
+     '<div class="cclist" id="sePaneBox"></div></div></section>'+
 
-   '<section class="spane" data-sub="appearance"><div class="card"><h3>Aussehen &amp; Verhalten (optional)</h3>'+
+   '<section class="spane" data-sub="raster"><div class="card"><h3>'+T('Raster')+'</h3>'+
      '<p class="note">'+T('Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.')+'</p>'+
-     '<div class="grph">'+T('Aussehen')+'</div>'+
-     '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true),
-       T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+'</div>'+
-     '<div class="grph">'+T('Layout')+'</div>'+
+     '<div class="grph">'+T('Kachel-Layout')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Kachel-Layout</label>'+
          '<select id="fLayout">'+[['2x2','2 × 2 (4″-Wandpanel)'],['3x2','3 × 2 (Tablet)'],['2x3','2 × 3 (Tablet hoch)'],
@@ -1559,11 +1563,6 @@ function renderEditor(){
        '<div class="field" style="max-width:220px" id="fTileSizeField"><label class="lbl">'+T('Zielkachel (px)')+'</label>'+
          '<input type="number" id="fTileSize" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+kachelZiel().std+'"'+
            ' value="'+(tileSizeWert((p.ui||{}).tileSize)||'')+'"></div>'+
-       '<div class="field" style="max-width:260px"><label class="lbl">'+T('Kachel-Aufbau')+'</label>'+
-         '<select id="fTileLayout">'+
-           '<option value=""'+(((p.ui||{}).tileLayout==='classic')?'':' selected')+'>'+T('Neu (wie die Loxone-App)')+'</option>'+
-           '<option value="classic"'+(((p.ui||{}).tileLayout==='classic')?' selected':'')+'>'+T('Klassisch')+'</option>'+
-         '</select></div>'+
        '<div class="field" style="max-width:220px" id="fFillField"><label class="lbl">Bildschirm füllen</label>'+
          '<select id="fFill">'+
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
@@ -1575,7 +1574,6 @@ function renderEditor(){
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.')+'</div>'+
      '<div class="hint" style="padding-top:4px" id="fTileSizeHint">'+zielkachelHinweis()+'</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.')+'</div>'+
      '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.')+'</div>'+
      '<div class="grph">'+T('Widget (Pane 2)')+'</div>'+
      '<div class="sizes">'+
@@ -1590,9 +1588,45 @@ function renderEditor(){
            '<span id="fPaneColsTxt">'+esc(paneColsText((p.ui||{}).paneCols))+'</span></div>'+
          '<div class="hint" style="padding-top:4px">'+T('Wie viele Kachelspalten das Widget rechts neben den Kacheln belegt, hochkant Kachelzeilen darunter – die Kacheln bleiben gleich groß. „Automatisch“ nimmt den Anteil, den das Gerät aus seinem Raster rechnet. Mit fester Breite wachsen wenige Kacheln auch neben dem Widget, es wächst dann mit. Nur im Kachel-Layout „Automatisch“.')+'</div></div>'+
      '</div>'+
-     '<div class="field" style="max-width:none" id="paneField"><label class="lbl">Widget je Tab</label>'+
-       '<div class="cclist" id="panePerTab"></div>'+
-       '<div class="hint" style="padding-top:4px">Je Tab ein <b>Widget</b> – quer rechts neben der Visu, hochkant darunter: <b>Audio</b> (Musikzone – Zone daneben wählbar), <b>Kamera</b> (Intercom-Live-Bild – Kamera daneben wählbar, Zugang unter Einstellungen → Intercom), <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Verlauf</b> (Baustein mit Aufzeichnung) oder <b>Werte</b> (frei gewählte Bausteine). <b>Kopfzeile</b> legt stattdessen eine Zeile <b>über</b> die Kacheln: Uhr, Wetter in Kurzform und nach Wahl Werte – nimmt weniger Platz als eine Pane und lässt das Raster ungeteilt. <b>Screen füllen</b> = kein Widget, die Visu weitet sich aus – quer nach rechts (doppelte Spalten), hochkant nach unten (doppelte Zeilen; das Hochformat-Raster 2 × 3 bleibt). „Bildschirm füllen" zoomt alles auf den ganzen Schirm. Wetter/Kalender-Quelle: Einstellungen → Kalender &amp; Wetter. <b>Werte als Leiste</b> nimmt die Anzeige-Bausteine der Seite (Messwerte, Zähler, Texte, Ein/Aus-Anzeigen) aus dem Raster in eine schmale Zeile darüber – das Raster bleibt dem Bedienbaren; bei „Räume" und „Kategorien" gilt es für die Raum- bzw. Kategorie-Seiten darunter. Eine Seite nur aus Werten behält ihre Kacheln.</div></div>'+
+     '<div class="grph">'+T('Feinjustierung')+'</div>'+
+     '<div class="sizes">'+
+       '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
+         '<input type="number" min="-40" max="40" step="2" data-ui="nudgeX" value="'+
+         (((p.ui||{}).nudgeX==null)?'':(p.ui||{}).nudgeX)+'" placeholder="0"></div>'+
+     '</div>'+
+   '</div></section>'+
+
+   '<section class="spane" data-sub="aussehen"><div class="card"><h3>'+T('Aussehen')+'</h3>'+
+     '<p class="note">'+T('Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.')+'</p>'+
+     '<div class="grph">'+T('Farbe und Schrift')+'</div>'+
+     '<div class="sizes">'+appearanceFields(p.ui,sizeStd((p.ui||{}).tileLayout,true),
+       T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'), false)+'</div>'+
+     '<div class="sizes">'+
+       '<div class="field" style="max-width:260px"><label class="lbl">'+T('Kachel-Aufbau')+'</label>'+
+         '<select id="fTileLayout">'+
+           '<option value=""'+(((p.ui||{}).tileLayout==='classic')?'':' selected')+'>'+T('Neu (wie die Loxone-App)')+'</option>'+
+           '<option value="classic"'+(((p.ui||{}).tileLayout==='classic')?' selected':'')+'>'+T('Klassisch')+'</option>'+
+         '</select></div>'+
+     '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Kachel-Aufbau „Neu“: Raum klein oben rechts, der Zustand groß und der Name darunter, Temperaturen groß an Stelle des Symbols, Tasten als Leiste unten. „Klassisch“ ist der bisherige Aufbau. Das Kachel-Layout bleibt in beiden gleich.')+'</div>'+
+   '</div>'+
+   '<div class="card"><h3>Kacheln gestalten</h3>'+
+     '<p class="note">'+T('Klicke eine Kachel an und ändere <b>Farben, Schrift und Icon nur für diese Kachel</b> (in dieser Ansicht). Farbiger Punkt = schon angepasst. Mit dem <b>Auge</b> rechts blendest du eine Kachel in dieser Ansicht ganz aus. ')+'<span id="tileHidden" class="thidden"></span></p>'+
+     '<input type="text" id="tileSearch" placeholder="'+T('Kachel suchen…')+'" style="max-width:280px;margin-bottom:10px">'+
+     '<div class="tlist" id="tiles"></div>'+
+     '<div id="tileEditor"></div></div>'+
+   '<div class="card"><h3>Aktiv-Overlay</h3>'+
+     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für diese Ansicht — einzelne Kacheln können unten abweichen.')+'</p>'+
+     '<div class="ovwrap">'+
+       '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div>'+
+         '<div class="ovtile off" id="ovPrevOff">Aus</div></div>'+
+       '<div class="ovctrl">'+overlayFields((p.ui||{}).overlay,'ov_')+
+         '<div class="frow"><button class="minibtn" id="ovReset">Auf Standard zurücksetzen</button></div>'+
+       '</div></div></div>'+
+   '</section>'+
+
+   '<section class="spane" data-sub="verhalten"><div class="card"><h3>'+T('Verhalten')+'</h3>'+
+     '<p class="note">'+T('Überschreibt die Vorgaben nur für diese Ansicht. Leer = Vorgabe.')+'</p>'+
      '<div id="svPaneField">'+
        '<div class="grph">'+T('Screensaver (Uhr-Seite)')+'</div>'+
        '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
@@ -1622,26 +1656,12 @@ function renderEditor(){
          (((p.ui||{}).pinMerken==null)?'':(p.ui||{}).pinMerken)+'" placeholder="'+esc(String(pinMerkenCfg().standard))+'"></div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt die Visu bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
-     '<div class="grph">'+T('Feinjustierung')+'</div>'+
-     '<div class="sizes">'+
-       '<div class="field" style="max-width:180px"><label class="lbl">Horiz. Versatz (px)</label>'+
-         '<input type="number" min="-40" max="40" step="2" data-ui="nudgeX" value="'+
-         (((p.ui||{}).nudgeX==null)?'':(p.ui||{}).nudgeX)+'" placeholder="0"></div>'+
-     '</div>'+
-   '</div></section>'+
+   '</div></section>';
 
-   '<section class="spane" data-sub="overlay"><div class="card"><h3>Aktiv-Overlay</h3>'+
-     '<p class="note">'+T('Wie eine Kachel im <b>aktiven Zustand</b> hervorgehoben wird (an = Akzent, ok = grün, kritisch = rot): Rahmen, Füllung und Deckkraft. Die <b>Farbe</b> kommt je Zustand aus dem Theme, hier stellst du das <b>Aussehen</b> ein. Darunter der Rahmen der <b>inaktiven</b> Kacheln <b>und der rechten Panes</b> (Pane 2, z. B. Energieflussmonitor, Wetter, Kalender) – Deckkraft und Breite hochdrehen, falls er auf hellen Displays (z. B. Shelly) kaum sichtbar ist. Gilt für diese Ansicht — einzelne Kacheln können unten abweichen.')+'</p>'+
-     '<div class="ovwrap">'+
-       '<div class="ovprev"><div class="ovtile on" id="ovPrev">An</div>'+
-         '<div class="ovtile off" id="ovPrevOff">Aus</div></div>'+
-       '<div class="ovctrl">'+overlayFields((p.ui||{}).overlay,'ov_')+
-         '<div class="frow"><button class="minibtn" id="ovReset">Auf Standard zurücksetzen</button></div>'+
-       '</div></div></div></section>';
-
-  // Speicherleiste: Löschen-Button je Panel
-  $('#delSlot').innerHTML = ((cur==='default')?'' : '<button class="btn del" id="delBtn">Ansicht löschen</button>')+
-    '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>'+
+  // Allgemein: Duplizieren und Loeschen der Ansicht; die Speicherleiste behaelt die Vorschau
+  $('#kennungAktionen').innerHTML = '<button class="btn ghost" id="dupBtn">'+T('Duplizieren')+'</button>'+
+    ((cur==='default')?'' : '<button class="btn del" id="delBtn">'+T('Ansicht löschen')+'</button>');
+  $('#delSlot').innerHTML =
     '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>'+
     '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
 
@@ -1901,17 +1921,34 @@ function screenInfo(sc){
   return teile.join(' · ');
 }
 
+// Widget, Kopfzeile und Werteleiste je Seite: die Standard-Seiten der Leiste unter
+// Inhalt, die gewaehlte freie Seite im Seiten-Editor - dieselbe Zeile, jede Seite an
+// genau einem Ort.
 function renderPanes(p){
+  paneListe(p, $('#panePerTab'), (p.tabs||[]).filter(t=>!isPick(t)),
+    T('Keine Standard-Seite in der Leiste. Freie Seiten stellst du im Seiten-Editor ein.'));
+  sePaneZeichnen(p);
+}
+function sePaneZeichnen(p){
+  if(!p || p.__global) return;   // ohne ensurePickTabs: Zeichnen allein aendert die Ansicht nicht
+  paneListe(p, $('#sePaneBox'), [pickKey(curPickIdx)], '', ()=>seReiterZeichnen());
+}
+// Name einer Seite der Leiste: Standard-Seite aus META.tabs, freie Seite ihr eigener
+function seitenName(p, tk){
+  if(isPick(tk)){ const i=tk===PICK_TAB?0:(parseInt(tk.slice(PICK_TAB.length))||1)-1, t=(p.pickTabs||[])[i]||{};
+    return (t.name||'').trim() || (T('Seite')+' '+(i+1)); }
+  const meta=(META.tabs||[]).find(t=>t.tab===tk); return meta?meta.label:tk;
+}
+// nachher: nach jeder Aenderung (Seiten-Editor: Flaeche neu zeichnen)
+function paneListe(p, box, tabs, leer, nachher){
+  if(!box) return;
   // Split "Aus" (4"-Panel): keine Pane daneben, die Kopfzeile ueber den
   // Kacheln aber schon - das Feld bleibt, die Widget-Gruppe ist gesperrt.
   const splitAus=((p.ui||{}).split===false);
-  const pf=$('#paneField'); if(pf) pf.style.display='';
-  const box=$('#panePerTab'); if(!box) return;
-  const tabs=(p.tabs||[]), panes=(p.ui&&p.ui.panes)||{};
+  const panes=(p.ui&&p.ui.panes)||{};
   const leiste=(p.ui&&Array.isArray(p.ui.valueBar))?p.ui.valueBar:[];   // Seiten mit Werteleiste
   box.innerHTML = (splitAus?'<div class="ccmut" style="margin-bottom:6px">'+T('Split ist aus: ein Widget daneben gibt es nicht, die Kopfzeile über den Kacheln schon.')+'</div>':'')+tabs.map(tk=>{
-    const meta=(META.tabs||[]).find(t=>t.tab===tk);
-    const label=meta?meta.label:tk;
+    const label=seitenName(p, tk);
     const v=panes[tk]||'';
     const isP=v.indexOf('player:')===0, isE=v.indexOf('energy:')===0, isC=v.indexOf('camera:')===0, isV=v.indexOf('chart:')===0, isS=v.indexOf('status:')===0;
     const isH=(v==='header'||v.indexOf('header:')===0);   // Kopfzeile: Uhr, Wetter, dazu Werte nach Wahl
@@ -1987,10 +2024,10 @@ function renderPanes(p){
           : '<span class="none">'+T('Noch nichts gewählt – oben hinzufügen.')+'</span>')+'</div>';
     }
     return row;
-  }).join('') || '<div class="ccmut">Keine Tabs.</div>';
+  }).join('') || (leer?'<div class="ccmut">'+esc(leer)+'</div>':'');
   const setPane=(tk,val)=>{ p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
     if(val) p.ui.panes[tk]=val; else delete p.ui.panes[tk];
-    if(!Object.keys(p.ui.panes).length) delete p.ui.panes; markDirty(); };
+    if(!Object.keys(p.ui.panes).length) delete p.ui.panes; markDirty(); if(nachher) nachher(); };
   box.querySelectorAll('select[data-pane]').forEach(s=>s.onchange=()=>{
     const tk=s.dataset.pane, k=s.value;
     if(k==='player'){ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||'';
@@ -2012,7 +2049,7 @@ function renderPanes(p){
     const vb=(Array.isArray(p.ui.valueBar)?p.ui.valueBar:[]).filter(t=>t!==c.dataset.leiste);
     if(c.checked) vb.push(c.dataset.leiste);
     if(vb.length) p.ui.valueBar=vb; else delete p.ui.valueBar;
-    markDirty(); });
+    markDirty(); if(nachher) nachher(); });
   const paneStatUu=tk=>{ const cur=(p.ui&&p.ui.panes&&p.ui.panes[tk])||''; return cur.indexOf('status:')===0?cur.slice(7).split(',').filter(Boolean):[]; };
   box.querySelectorAll('.pstat-add').forEach(s=>s.onchange=()=>{ const tk=s.dataset.pk, u=s.value; s.value='';
     const uu=paneStatUu(tk); if(!u||uu.indexOf(u)>-1||(svMax()&&uu.length>=svMax())) return;
@@ -2943,7 +2980,8 @@ function seKontextReiter(){
     geraete:()=>seGeraeteListe(p), geraet:()=>seGeraetReiter(p),
     setGeraet:x=>{ SE_VORSCHAU[cur]={quelle:x.quelle, name:x.name}; },
     geaendert:()=>{ markDirty(); pickRefresh(); },
-    gestalten:u=>{ tileSel=u; subPconf='tiles'; renderSubtabs(); showSub('tiles'); renderTileList(); renderTileEditor(); }};
+    gestalten:u=>{ tileSel=u; subPconf='aussehen'; renderSubtabs(); showSub('aussehen'); renderTileList(); renderTileEditor();
+      const k=$('#tiles'); if(k) k.scrollIntoView({block:'nearest'}); }};
 }
 // Assistent Schritt 5: die Seite i des Entwurfs, gerechnet mit Anzeige, Raster
 // und Geraet aus Schritt 1 (ohne Geraet: dieser Browser) und dem Widget je Tab
@@ -3173,7 +3211,7 @@ function sePalListeHtml(ctx, a){
     : '<div class="muted">'+T('nichts gefunden')+'</div>')+'</div>'+
     '<p class="hint">'+auf.size+' '+T('von')+' '+alle.length+' '+T('auf dieser Seite')+' · '+T('abgeblendet = schon platziert')+'</p>';
 }
-// Werte der Kopfzeile ("header:<uuid>,..."), wie unter Aussehen (renderPanes)
+// Werte der Kopfzeile ("header:<uuid>,..."), wie in paneListe()
 function seKopfWerte(pane){ return sePaneArt(pane)==='header' ? wArg(pane).split(',').filter(Boolean) : []; }
 function seKopfWerteHtml(ctx){
   const uu=seKopfWerte(ctx.ui().pane);
@@ -3239,10 +3277,11 @@ function seReiterZeichnen(){
   const h=$('#seHost'), p=PANELS[cur]; if(!h || !p || p.__global) return;
   const hw=$('#seHinweis');
   if(hw){ hw.innerHTML=(p.tabs||[]).some(isPick) ? '' : '<p class="hint">'+
-      T('Freie Seiten zeigt die Visu erst, wenn sie in der Leiste stehen: unter Tabs „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.')+
-      ' <button type="button" class="minibtn" id="seZuTabs">'+T('Zu Tabs')+'</button></p>';
-    const zt=$('#seZuTabs'); if(zt) zt.onclick=()=>{ subPconf='tabs'; renderSubtabs(); showSub('tabs'); }; }
+      T('Freie Seiten zeigt die Visu erst, wenn sie in der Leiste stehen: unter Inhalt „Eigene Auswahl“ wählen oder die Auswahl als Button in die klassische Leiste nehmen.')+
+      ' <button type="button" class="minibtn" id="seZuTabs">'+T('Zu Inhalt')+'</button></p>';
+    const zt=$('#seZuTabs'); if(zt) zt.onclick=()=>{ subPconf='inhalt'; renderSubtabs(); showSub('inhalt'); }; }
   seRender(h, seKontextReiter());
+  sePaneZeichnen(p);
 }
 
 // ---- Bedienung: Tippen, Aendern, Tasten ----
@@ -4876,7 +4915,7 @@ async function pollDevices(){
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew||vorschlagNeu){ readDevFromDom(); renderDevices(); }   // neues Panel oder neuer Vorschlag -> Editor ergaenzen (Eingaben behalten)
-    if(isNew) zielAuswahlAuffrischen();                             // Reiter Titel: neues Geraet als Zielgeraet anbieten
+    if(isNew) zielAuswahlAuffrischen();                             // Reiter Allgemein: neues Geraet als Zielgeraet anbieten
     mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
   }catch(e){}
 }

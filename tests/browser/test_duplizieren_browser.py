@@ -80,6 +80,7 @@ def test_duplizieren_mit_raumtausch(cfg_ordner, tmp_path):
                                    "tiles": {}, "panes": {"room:r2": "status:L2"}, "valueBar": ["room:r2"], "svPane": ""}, doppelt
 
                 # Der Dialog: Vorschlaege aus dem Zielraum, Hinweis auf den fehlenden Baustein
+                await pg.locator('.stab[data-sub="allgemein"]').click()    # Duplizieren steht unter Allgemein
                 await pg.locator("#dupBtn").click()
                 await pg.wait_for_selector("#dupOv:not([hidden])")
                 stand = {f: await pg.locator(f"#{f}").input_value() for f in ("dupId", "dupTitle", "dupVon", "dupNach")}

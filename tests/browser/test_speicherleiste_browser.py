@@ -55,7 +55,7 @@ async def _konfigurator(b, port, fehler):
 async def _titel_aendern(pg, ansicht, titel):
     await pg.locator(".rub", has_text="Ansichten").click()
     await pg.locator("#plist .pitem", has_text=ansicht).click()
-    await pg.locator("#subtabs .stab", has_text="Titel").click()
+    await pg.locator("#subtabs .stab", has_text="Allgemein").click()
     await pg.locator("#fTitle").fill(titel)
 
 

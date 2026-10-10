@@ -120,7 +120,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
             weiter = await pg.evaluate("rubric")
             # Gemeldet am Tablet: ohne Neuladen blieb die Raumliste leer ("alle 0 sichtbar")
             await pg.locator(".rub", has_text="Ansichten").click()
-            await pg.locator(".stab", has_text="Räume").click()
+            await pg.locator(".stab", has_text="Inhalt").click()
             raeume = (await pg.inner_text("#cntRooms"),
                       await pg.evaluate("[...document.querySelectorAll('#rooms .opt .nm')].map(e => e.textContent)"))
             return frisch, umweg, assistent, sicherung, falsch, verbunden, weiter, raeume

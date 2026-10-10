@@ -199,7 +199,7 @@ def test_konfigurator_nennt_die_stunde(sprache, grau, hinweis):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator("#plist .pitem", has_text="Test").click()
-                await pg.locator('.stab[data-sub="appearance"]').click()
+                await pg.locator('.stab[data-sub="verhalten"]').click()
                 feld = pg.locator('#pconfHost input[data-ui="reloadHours"]')
                 assert await feld.get_attribute("placeholder") == grau
                 assert await feld.input_value() == ""

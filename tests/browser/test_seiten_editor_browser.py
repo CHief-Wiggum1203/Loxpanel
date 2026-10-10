@@ -384,7 +384,7 @@ def test_bereich_seite_name_inhalt_und_seiten(cfg_ordner):
         kacheln = (await pg.evaluate(EDITOR))["ids"]
         # zweite Seite entfernen; unter Tabs bleibt eine mit Kurzfassung
         await pg.locator("#seHost [data-se-seite-weg='1']").click()
-        await pg.locator(".stab[data-sub='tabs']").click()
+        await pg.locator(".stab[data-sub='inhalt']").click()
         kurz = await pg.text_content("#tabPick .wsum")
         reiter = await pg.eval_on_selector_all("#tabPick .picktabbar .ptb", "l => l.map(b => b.textContent)")
         async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
@@ -408,7 +408,8 @@ def test_bereich_seite_name_inhalt_und_seiten(cfg_ordner):
 def test_kopfzeile_mit_werten_im_seiten_editor(cfg_ordner):
     """Die Kopfzeile nimmt ihre Werte (die kleinen Badges) auch im Seiten-Editor:
     dazu, wieder weg, das Band auf der Flaeche nennt sie. Es sind dieselben
-    Daten wie unter Aussehen (ui.panes), gespeichert ohne Verworfenes."""
+    Daten wie in der Zeile unter der Flaeche (ui.panes), gespeichert ohne
+    Verworfenes."""
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {}}), encoding="utf-8")
     panels = {"flur": {"title": "Flur", "tabs": ["auswahl"], "ui": {"grid": "auto"},
                        "pickTabs": [{"name": "Wohnen", "picks": ["A", "C"]}]}}
@@ -423,8 +424,11 @@ def test_kopfzeile_mit_werten_im_seiten_editor(cfg_ordner):
         await pg.locator("#seHost [data-se-kopf-weg='T']").click()
         pane = await pg.evaluate("PANELS.flur.ui.panes.auswahl")
         band2 = await pg.text_content("#seHost .se-band")
-        await pg.locator(".stab[data-sub='appearance']").click()
-        aussehen = await pg.eval_on_selector_all("#panePerTab .chip[data-hu]", "l => l.map(c => c.dataset.hu)")
+        # Die Zeile unter der Flaeche zeigt dieselbe Kopfzeile; ihre Werte nennt nur die
+        # Flaeche, und unter Inhalt steht die freie Seite gar nicht (jedes Feld einmal)
+        aussehen = [await pg.locator("#sePaneBox select[data-pane='auswahl']").input_value(),
+                    await pg.locator("#sePaneBox .pkopf-add").count(),
+                    await pg.locator("#panePerTab select[data-pane='auswahl']").count()]
         async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
             await pg.locator("#saveBtn").click()
         j = await (await antwort.value).json()
@@ -434,7 +438,7 @@ def test_kopfzeile_mit_werten_im_seiten_editor(cfg_ordner):
     assert leer == 0, "ohne Kopfzeile keine Werte-Auswahl"
     assert band == "Kopfzeile · Uhr, Wetter, Außentemperatur, Garagentor", band
     assert pane == "header:D" and band2 == "Kopfzeile · Uhr, Wetter, Garagentor", (pane, band2)
-    assert aussehen == ["D"], "dieselben Werte unter Aussehen"
+    assert aussehen == ["header", 0, 0], aussehen
     assert j["ok"] and j["verworfen"] == [], j
     flur = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
     assert flur["ui"]["panes"] == {"auswahl": "header:D"}, flur["ui"]
@@ -452,7 +456,7 @@ def test_tabs_und_duplizieren_halten_das_layout_stimmig(cfg_ordner):
 
     async def schritte(b, port):
         pg = await _konfigurator(b, port, "flur")
-        await pg.locator(".stab[data-sub='tabs']").click()
+        await pg.locator(".stab[data-sub='inhalt']").click()
         kurz = await pg.text_content("#tabPick .wsum")
         marken = await pg.text_content("#pickAnchors")
         await pg.locator(".stab[data-sub='seiten']").click()

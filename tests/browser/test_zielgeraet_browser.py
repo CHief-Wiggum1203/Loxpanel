@@ -73,7 +73,7 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                 # Reiter Titel: Zielgeraet waehlen, gemeldete Groesse kommt mit
                 await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Wohnen").click()
-                await pg.locator('.stab[data-sub="title"]').click()
+                await pg.locator('.stab[data-sub="allgemein"]').click()
                 ziel = pg.locator("#fZiel")
                 assert await ziel.input_value() == "wand"
                 assert await ziel.locator("option").all_text_contents() == ["(keines)", "flur", "kind", "tablet", "wand"]
@@ -105,7 +105,7 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                         == "⚠ Ansicht ist für tablet gemacht")
                 await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Wohnen").click()
-                await pg.locator('.stab[data-sub="title"]').click()
+                await pg.locator('.stab[data-sub="allgemein"]').click()
                 await pg.locator("#fZiel").select_option("")
                 assert "device" not in await speichern()
                 await b.close()
