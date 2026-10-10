@@ -725,7 +725,7 @@
           </div>
           <div class="ovcol"><h4>Vorgaben, Geräte &amp; Einstellungen</h4>
             <button class="ovbox" data-goto="vorgaben:appearance"><b>Vorgaben</b><span>Grundfarbe, Schrift und Größen, Skalierung und Kategorie-Farben für alle Ansichten, die sie nicht selbst setzen.</span></button>
-            <button class="ovbox" data-goto="vorgaben:nacht"><b>Nacht</b><span>Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang) und wie stark.</span></button>
+            <button class="ovbox" data-goto="vorgaben:verhalten"><b>Verhalten</b><span>Wann die Geräte nachts abdunkeln (Auslöser oder Sonnenuntergang) und wie stark, Display aus und Auto-Neustart für alle Ansichten.</span></button>
             <button class="ovbox" data-goto="settings:miniserver"><b>Miniserver</b><span>Zugang zum Loxone Miniserver (Host, Benutzer, Passwort). HTTPS/443.</span></button>
             <button class="ovbox" data-goto="settings:calendar"><b>Kalender &amp; Wetter</b><span>iCal-Abo + Feiertags-iCal, Wetter (Loxone-Wetterserver, sonst Open-Meteo mit dem Standort des Miniservers).</span></button>
             <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
@@ -1165,7 +1165,7 @@ const PICK_TAB='auswahl';
 const PCONF_TABS=[
   {k:'allgemein',label:'Allgemein'},{k:'inhalt',label:'Inhalt'},{k:'seiten',label:'Seiten'},
   {k:'raster',label:'Raster'},{k:'aussehen',label:'Aussehen'},{k:'verhalten',label:'Verhalten'}];
-const VG_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'},{k:'nacht',label:'Nacht'}];
+const VG_TABS=[{k:'appearance',label:'Darstellung'},{k:'catcolors',label:'Kategorie-Farben'},{k:'verhalten',label:'Verhalten'}];
 const SET_TABS=[
   {k:'miniserver',label:'Miniserver'},{k:'intercom',label:'Kamera / Türstation'},
   {k:'sip',label:'SIP'},{k:'audio',label:'Audio'},
@@ -1435,11 +1435,15 @@ function renderGlobalEditor(p){
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
       '<div class="cclist" id="catcolors"></div></div></section>'+
-    '<section class="spane" data-sub="nacht"><div class="card"><h3>'+T('Nacht')+'</h3>'+
+    '<section class="spane" data-sub="verhalten"><div class="card"><h3>'+T('Nacht')+'</h3>'+
       '<p class="note">'+T('Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.')+'</p>'+
       '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Auslöser (optional)')+'</label><select id="nt_control"></select></div></div>'+
       '<div class="grph">'+T('Abdunkelung')+'</div>'+
       '<div class="sizes">'+nachtFelder(ui, nstd.nightDim, nstd.nightWake)+'</div>'+
+      '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
+    '</div><div class="card"><h3>'+T('Display &amp; Neustart')+'</h3>'+
+      '<div class="sizes">'+displayFelder(ui, null, null)+'</div>'+
+      '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
       '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
     '</div></section>';
   bindAppearance(p);
@@ -1468,6 +1472,22 @@ function nachtFelder(ui, dimLeer, wakeLeer){
     '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">'+T('Aufhellen bei Berührung (Sek.)')+'</label>'+
       '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>';
 }
+// Felder "Display aus nach" und "Auto-Neustart alle" (Vorgaben -> Verhalten und Ansicht ->
+// Verhalten). Ein leeres Feld zeigt grau die Vorgabe, ohne sie, was dann gilt.
+function displayFelder(ui, dpmsLeer, reloadLeer){
+  const wert=k=>(ui[k]==null)?'':ui[k];
+  return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Display aus nach (Sek.)')+'</label>'+
+      '<input type="number" min="0" max="3600" step="30" data-ui="dpmsOff" value="'+esc(wert('dpmsOff'))+'" placeholder="'+
+        esc(gesetzt(dpmsLeer)?String(dpmsLeer):T('Standard'))+'">'+erbtFeld('dpmsOff')+'</div>'+
+    '<div class="field" style="max-width:180px"><label class="lbl">'+T('Auto-Neustart alle (Std.)')+'</label>'+
+      '<input type="number" min="0" max="168" step="1" data-ui="reloadHours" value="'+esc(wert('reloadHours'))+'" placeholder="'+
+        esc(gesetzt(reloadLeer)?String(reloadLeer):T('nachts um {h} Uhr').replace('{h}',neuladenStunde()))+'">'+erbtFeld('reloadHours')+'</div>';
+}
+function autoNeustartHinweis(){
+  return T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Geräte mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde());
+}
+// Vorgabe eines Werts (Vorgaben -> ...), ohne Standard dahinter
+function vorgabeWert(k){ return (((PANELS.__global__||{}).ui)||{})[k]; }
 // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt nachts
 // abgedunkelt wird (sonst wirkungslos); ein leeres Feld zaehlt mit dem Wert, der dann gilt.
 function aufhellenZeigen(dimLeer){
@@ -1502,7 +1522,15 @@ function standardWert(k, ui){
   return null;
 }
 function wertText(k, v){
-  if(!gesetzt(v)) return k==='baseColor' ? T('Standard-Farbschema') : T('Standard');
+  if(!gesetzt(v)){
+    if(k==='baseColor') return T('Standard-Farbschema');
+    // Ohne jeden Eintrag: der Agent nach seiner kiosk.conf, die Visu nach dem Server
+    if(k==='dpmsOff') return T('Linux-Agent nach seiner kiosk.conf, sonst nie');
+    if(k==='reloadHours') return T('nachts um {h} Uhr').replace('{h}',neuladenStunde());
+    return T('Standard');
+  }
+  if(k==='dpmsOff') return Number(v)===0 ? T('nie') : fmtZahl(v)+' s';
+  if(k==='reloadHours') return Number(v)===0 ? T('nie') : fmtZahl(v)+' h';
   if(SIZE_KEYS.indexOf(k)>=0) return fmtZahl(v)+' px';
   if(k==='tileSize') return fmtZahl(tileSizeWert(v))+' px';
   if(k==='nightDim') return Number(v)===0 ? T('Aus') : fmtZahl(v)+' %';
@@ -1794,15 +1822,10 @@ function renderEditor(){
        '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Wandpanel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
-       '<div class="field" style="max-width:180px"><label class="lbl">Display aus nach (Sek.)</label>'+
-         '<input type="number" min="0" max="3600" step="30" data-ui="dpmsOff" value="'+
-         (((p.ui||{}).dpmsOff==null)?'':(p.ui||{}).dpmsOff)+'" placeholder="180"></div>'+
-       '<div class="field" style="max-width:180px"><label class="lbl">Auto-Neustart alle (Std.)</label>'+
-         '<input type="number" min="0" max="168" step="1" data-ui="reloadHours" value="'+
-         (((p.ui||{}).reloadHours==null)?'':(p.ui||{}).reloadHours)+'" placeholder="'+esc(T('nachts um {h} Uhr').replace('{h}',neuladenStunde()))+'"></div>'+
+       displayFelder(p.ui||{}, vorgabeWert('dpmsOff'), vorgabeWert('reloadHours'))+
        nachtFelder(p.ui||{}, nachtVorgabe('nightDim'), nachtVorgabe('nightWake'))+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+esc(T('Auto-Neustart gegen Einfrieren: Leer lädt die Visu jede Nacht um {h} Uhr neu, eine Zahl alle so viele Stunden, 0 nie. Neu geladen wird nur, während die Uhr-Seite steht; ein dunkles Display bleibt dabei dunkel. Linux-Geräte mit Agent starten stattdessen den Browser neu: nach der Zahl hier, ohne Eintrag nach RELOAD_HOURS in ihrer kiosk.conf.').replace('{h}',neuladenStunde()))+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
      '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
      '<div class="sizes">'+

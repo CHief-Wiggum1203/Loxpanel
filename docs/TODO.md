@@ -111,6 +111,13 @@ Form, es ist ein Umbau der Oberfläche.
       Zielkachel überstimmen; die Gerätekarte, was aus der Ansicht kommt.
       Welche Schlüssel eine Vorgabe haben, sagt `/api/meta` (`themeKeys`).
       Tests in `tests/browser/test_vererbung_browser.py`. **M**
+- [x] **Vorgaben für Display aus und Auto-Neustart.** Das Konzept sah sie
+      in der Vererbung vor, einstellbar waren sie nur je Ansicht. Jetzt
+      stehen sie unter Vorgaben → Verhalten (vorher „Nacht“) neben Auslöser
+      und Abdunkelung; `theme.json` nimmt `dpmsOff` und `reloadHours`. Der
+      feste Platzhalter „180“ unter „Display aus nach“ ist weg: Er war die
+      Vorgabe des Linux-Agenten, ohne Agent bleibt das Display ohne Eintrag
+      an. Tests in `tests/test_vorgaben.py`. **S**
 - [ ] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
       Schritten ab dem Gerät, die Rubrik Einrichtungsassistent entfällt.
       Braucht 4. **L**

@@ -22,7 +22,7 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
 PANELS = {"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"], "device": {"name": "wand"}},
                      "kueche": {"title": "Küche", "tabs": ["favoriten"], "ui": {"nameSize": 22, "scale": 1.1}}},
           "devices": {"wand": {"auto": True, "modes": {}, "scale": 1.25}}}
-THEME = {"ui": {"nameSize": 19, "scale": "auto"}}
+THEME = {"ui": {"nameSize": 19, "scale": "auto", "dpmsOff": 60}}
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
           ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/theme", W.api_save_theme)]
 OFFEN = "document.querySelector('#offenTxt').textContent"
@@ -59,6 +59,8 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 assert await _zeile(pg, "iconSize").text_content() == \
                     f"{icon_std} px · Standard · gilt für 3 von 3 Ansichten"
                 assert (await _zeile(pg, "font").text_content()).startswith("Standard · gilt"), "nicht doppelt"
+                assert await _zeile(pg, "reloadHours").text_content() == \
+                    f"nachts um {W.NEULADEN_STUNDE} Uhr · gilt für 3 von 3 Ansichten"
                 await pg.screenshot(path=str(tmp_path / "vorgaben_herkunft.png"), full_page=True)
 
                 # Ansicht Flur: leer = Vorgabe oder Standard; das Geraet ueberstimmt die Skalierung
@@ -66,6 +68,10 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 await pg.locator(".stab[data-sub='aussehen']").click()
                 assert await _zeile(pg, "nameSize").text_content() == "19 px · aus den Vorgaben"
                 assert await _zeile(pg, "iconSize").text_content() == f"{icon_std} px · Standard"
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                assert await _zeile(pg, "dpmsOff").text_content() == "60 s · aus den Vorgaben"
+                assert await pg.locator("#pconfHost input[data-ui='dpmsOff']").get_attribute("placeholder") == "60"
+                assert await _zeile(pg, "reloadHours").text_content() == f"nachts um {W.NEULADEN_STUNDE} Uhr"
                 await pg.locator(".stab[data-sub='raster']").click()
                 assert await _zeile(pg, "scale").text_content() == \
                     "Automatisch · aus den Vorgaben · am Gerät wand: 125 %"
