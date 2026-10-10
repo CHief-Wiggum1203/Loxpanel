@@ -2012,7 +2012,7 @@ unten). Ungespeichertes nennt die Speicherleiste; Neuladen oder Schließen der S
   Fehler des Servers oder des eigenen letzten Versuchs.
 - Gesperrt sind die übrigen Rubriken, die Liste der Ansichten, „＋ Neue Ansicht" und
   die Reiter der Einstellungen außer Miniserver und Sicherung (`EINR_SUBS`): Ansichten,
-  Geräte und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
+  Vorgaben, Geräte und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
   jeden anderen Weg zu den Einstellungen um, `showSub()` und `wzOpen()` lehnen ab.
 - Den Stand fragt er alle `EINR_TAKT_MS` (3 s) nach. Steht die Verbindung, über
   „Verbinden & Speichern" oder von selbst, lädt die Seite neu, damit alles frisch

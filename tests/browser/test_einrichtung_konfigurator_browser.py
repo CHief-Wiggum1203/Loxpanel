@@ -29,7 +29,7 @@ BAUSTEINE = {
 # Was der Konfigurator ohne Struktur sperrt: alle Rubriken ausser Einstellungen
 # und dort alle Reiter ausser Miniserver und Sicherung. "Neues Gerät" und
 # "Erprobte Hardware" stehen seit Schritt 4 unter Geräte und sind damit mit gesperrt.
-GESPERRT = ["overview", "assistant", "pconf", "displays"]
+GESPERRT = ["overview", "assistant", "pconf", "vorgaben", "displays"]
 REITER_GESPERRT = ["intercom", "sip", "audio", "calendar"]
 
 ZUSTAND = """() => {
