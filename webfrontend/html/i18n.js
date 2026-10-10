@@ -258,10 +258,8 @@
       "gerade: Raum leer": "now: room empty",
       "Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Geräten mit Agent.": "Presence sensor per device: while the chosen block reports someone (e.g. the room's presence sensor), the display stays bright and the idle timeout is suspended; when the room is empty, it turns off. Works with the LoxPanel app, Fully Kiosk (JavaScript interface or Remote Admin) and WallPanel, not on Linux devices with an agent.",
       "Nachtmodus": "Night mode",
-      "Wann die Geräte abdunkeln (Auslöser oder Sonnenuntergang).": "When the devices dim (trigger or sunset).",
       "Wann die Geräte abdunkeln. Ohne Auslöser entscheidet der Sonnenuntergang — die Zeiten kommen vom Miniserver, ersatzweise vom Wetterdienst. Als Auslöser lässt sich jeder Baustein mit Ein/Aus-Zustand wählen; sein Ein-Zustand bedeutet Nacht. Damit auch ein Loxone-Betriebsmodus, sobald er in Loxone Config auf einen Status-Baustein mit Raum und Kategorie gelegt ist — der Modus selbst steht nicht in der Visu.": "When the devices dim. Without a trigger, sunset decides — the times come from the Miniserver, or from the weather service as a fallback. Any block with an on/off state can be a trigger; its on state means night. That includes a Loxone operating mode, once it is mapped in Loxone Config to a status block with room and category — the mode itself is not in the view.",
       "Auslöser (optional)": "Trigger (optional)",
-      "Wie stark abgedunkelt wird und ob eine Berührung kurz aufhellt, stellst du je Ansicht unter Ansichten → Aussehen ein.": "How much it dims and whether a touch briefly brightens is set per view under Views → Appearance.",
       "Port": "Port",
       "Weckton-Test und Audioserver-Live-Daten (Cover/Titel/Favoriten).": "Alarm-tone test and audio-server live data (cover/title/favorites).",
       "Audioserver (Cover / Titel / Favoriten)": "Audio server (cover / title / favorites)",
@@ -744,13 +742,23 @@
       'physisch': 'physical',
       'Visu': 'visu',
       'nutzt': 'uses',
-      'Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.':
-        'Scaling "Automatic": each device enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as default" takes the setting under Defaults → Appearance; can be overridden per device under Devices → Operating-mode automation & display control.',
+      'Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar auf seiner Karte unter Geräte → Am Gerät.':
+        'Scaling "Automatic": each device enlarges the visu as far as it can without borders or distortion – text, icons, clock page and panes grow along. A fixed factor never exceeds what the screen allows. Has no effect together with "Fill screen", which already fills the screen. "Same as default" takes the setting under Defaults → Appearance; can be overridden per device on its card under Devices → On the device.',
       'Wie Vorgabe': 'Same as default',
       'Standard für alle Ansichten': 'Default for all views',
       'Aus': 'Off',
-      'Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät unter Geräte → Betriebsmodus-Automatik & Display-Steuerung.':
-        'Applies to all views set to "Same as default". "Automatic" enlarges the visu on every device as far as it can without borders or distortion. A view can override this under Grid, a single device under Devices → Operating-mode automation & display control.',
+      'Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät auf seiner Karte unter Geräte → Am Gerät.':
+        'Applies to all views set to "Same as default". "Automatic" enlarges the visu on every device as far as it can without borders or distortion. A view can override this under Grid, a single device on its card under Devices → On the device.',
+      'Werte für alle Ansichten, die sie nicht selbst setzen. Eine Ansicht überschreibt sie unter Raster, Aussehen und Verhalten.':
+        'Values for all views that do not set them themselves. A view overrides them under Grid, Appearance and Behaviour.',
+      'Nacht': 'Night',
+      'Kategorie-Farben': 'Category colors',
+      'Abdunkelung': 'Dimming',
+      'Nachts abdunkeln (%)': 'Dim at night (%)',
+      'Aufhellen bei Berührung (Sek.)': 'Brighten on touch (s)',
+      '0 = aus': '0 = off',
+      'Gilt für alle Ansichten, die unter Verhalten nichts eintragen.': 'Applies to all views that leave it empty under Behaviour.',
+      'Baustein nicht mehr in der Anlage': 'Block no longer in the installation',
       '— Ansicht wählen —': '— choose view —',
       'Modus (z.B. gaeste)': 'Mode (e.g. guests)',
       'Automatik aktiv': 'Automation active',

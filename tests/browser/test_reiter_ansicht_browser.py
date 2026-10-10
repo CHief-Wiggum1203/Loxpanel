@@ -89,7 +89,7 @@ def test_sechs_reiter_jedes_feld_einmal(cfg_ordner, tmp_path):
                 await pg.locator("#overviewHost .ovbox[data-goto='pconf:verhalten']").click()
                 assert await pg.locator("[data-ui='dpmsOff']").is_visible()
                 # Die Vorgaben behalten die Sprache unter Darstellung
-                await pg.locator("#plist .pitem", has_text="Vorgaben").click()
+                await pg.locator('.rub[data-rub="vorgaben"]').click()
                 assert await pg.evaluate(WO, "#fLang") == ["appearance"]
                 await b.close()
         finally:

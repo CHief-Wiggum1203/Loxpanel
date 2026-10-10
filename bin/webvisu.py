@@ -556,12 +556,12 @@ SV_STATUS_MAX = 8
 # Grenzen stehen nur hier, der Konfigurator liest sie ueber /api/meta.
 SCALE_MIN, SCALE_MAX = 0.5, 2.0
 
-# Darstellungs-Keys der globalen ui (theme.json), die der Konfigurator unter
-# Global -> Darstellung setzt. Einzige Liste: _write_theme() schreibt genau
+# Keys der globalen ui (theme.json), die der Konfigurator unter Vorgaben
+# (Darstellung, Nacht) setzt. Einzige Liste: _write_theme() schreibt genau
 # diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
 THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
-                 "baseColor", "bold", "lang", "scale")
+                 "baseColor", "bold", "lang", "scale", "nightDim", "nightWake")
 
 # Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
 # je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
@@ -572,6 +572,12 @@ GROESSEN_STANDARD = {
     "neu": {"iconSize": 38, "nameSize": 16, "subSize": 14, "roomSize": 13, "bigSize": 36},
     "classic": {"iconSize": 38, "nameSize": 18, "subSize": 15, "roomSize": 12, "bigSize": 36},
 }
+
+# Nachtmodus ohne Einstellung in Ansicht und Vorgaben: Abdunkelung in Prozent
+# (0 = aus) und Sekunden, die eine Beruehrung voll aufhellt. Einzige Quelle:
+# panel_night() rechnet damit, /api/meta gibt sie dem Konfigurator, der sie in
+# leeren Feldern anzeigt.
+NACHT_STANDARD = {"nightDim": 0, "nightWake": 20}
 
 
 def _clean_scale(v):
@@ -2978,7 +2984,8 @@ class App:
             v = ui.get(key)
             return max(lo, min(hi, int(v))) if isinstance(v, (int, float)) else default
 
-        return {"dim": _num("nightDim", 0, 90, 0), "wake": _num("nightWake", 0, 300, 20)}
+        return {"dim": _num("nightDim", 0, 90, NACHT_STANDARD["nightDim"]),
+                "wake": _num("nightWake", 0, 300, NACHT_STANDARD["nightWake"])}
 
     def night_control_options(self) -> list:
         """Bausteine, die als Nacht-Ausloeser oder Praesenzmelder eines Geraets
@@ -3895,6 +3902,12 @@ class App:
         _sc = _clean_scale(ui.get("scale"))
         if _sc not in (None, "off"):
             out["scale"] = _sc          # Skalierung fuer alle Panels; "off" = Fehlen
+        # Nacht-Abdunkelung fuer alle Panels (Vorgaben -> Nacht); panel_night()
+        # nimmt sie, solange das Profil keine eigene setzt. Grenzen wie dort.
+        if isinstance(ui.get("nightDim"), (int, float)):
+            out["nightDim"] = max(0, min(90, int(ui["nightDim"])))
+        if isinstance(ui.get("nightWake"), (int, float)):
+            out["nightWake"] = max(0, min(300, int(ui["nightWake"])))
         return out
 
     @staticmethod
@@ -7770,6 +7783,9 @@ async def api_meta(request: web.Request) -> web.Response:
         # Groessen ohne Einstellung je Kachel-Aufbau: der Konfigurator zeigt sie
         # in leeren Feldern an, statt sie ein zweites Mal zu fuehren.
         "sizeDefaults": GROESSEN_STANDARD,
+        # Nachtmodus ohne Einstellung (Abdunkelung, Aufhellen): leere Felder
+        # unter Vorgaben -> Nacht und Ansicht -> Verhalten zeigen ihn.
+        "nightDefaults": NACHT_STANDARD,
         # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
         # der Konfigurator nennt sie im leeren Feld.
         "reloadAt": NEULADEN_STUNDE,
