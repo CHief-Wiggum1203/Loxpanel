@@ -411,7 +411,7 @@
      Palette | Arbeitsflaeche in Geraeteform | Auswahl; schmal untereinander.
      Die Flaeche liegt im Visu-Look (dunkel, runde Kacheln), jede Kachel und
      Zelle steht absolut in Prozent der Geraeteflaeche (seKasten). */
-  .se-host{margin-top:10px;}
+  .se-host{margin-top:10px;container-type:inline-size;}
   .card.se-karte{max-width:1240px;}
   .se-seiten{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}   /* wie .picktabbar unter Tabs */
   .se-wahl{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
@@ -440,11 +440,30 @@
   .pick-kurz{display:flex;gap:12px;align-items:flex-start;margin-top:4px;}
   .pick-kurz-ic .loxi{width:28px;height:28px;}
   .pick-kurz .minibtn{margin:8px 0 4px;}
-  .se-spalten{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-top:12px;}
-  .se-pal{flex:1 1 220px;max-width:300px;min-width:0;border-radius:6px;padding:2px;}
+  .se-spalten{display:grid;gap:16px;align-items:start;margin-top:12px;
+    grid-template-columns:minmax(200px,280px) minmax(0,1fr) minmax(180px,240px);}
+  /* Palette: Widgets oben, Bausteine darunter, eine eigene Scrollflaeche, die beim Scrollen der
+     Seite neben der Arbeitsflaeche stehen bleibt - sonst liegen Palette und Flaeche am Tablet nie
+     zugleich im Bild und das Ziehen geht nicht. Ist der Editor zu schmal fuer beide nebeneinander,
+     dockt sie unten an und die Flaeche scrollt darueber. */
+  .se-pal{grid-column:1;grid-row:1 / span 2;min-width:0;border-radius:6px;padding:2px;background:var(--panel);z-index:1;
+    position:sticky;top:8px;max-height:calc(100vh - 280px);overflow-y:auto;overscroll-behavior:contain;}
+  .se-pal .se-liste{max-height:none;overflow:visible;}
   .se-pal.drop{outline:2px dashed var(--crit);outline-offset:2px;}
-  .se-mitte{flex:3 1 380px;min-width:0;}
-  .se-feld{flex:1 1 190px;max-width:260px;min-width:0;}
+  .se-mitte{grid-column:2;grid-row:1;min-width:0;}
+  .se-feld{grid-column:3;grid-row:1;min-width:0;}
+  /* mittel: "Ausgewählt" unter die Flaeche, nicht unter die stehende Palette */
+  @container (max-width: 900px){
+    .se-spalten{grid-template-columns:minmax(200px,260px) minmax(0,1fr);}
+    .se-feld{grid-column:2;grid-row:2;}
+  }
+  /* schmal: untereinander, die Palette dockt unten an */
+  @container (max-width: 640px){
+    .se-spalten{grid-template-columns:minmax(0,1fr);}
+    .se-mitte{grid-column:1;grid-row:1;} .se-feld{grid-column:1;grid-row:2;}
+    .se-spalten > .se-pal{grid-column:1;grid-row:3;top:auto;bottom:0;max-height:30vh;z-index:2;
+      border-top:1px solid var(--line);border-radius:0;padding:8px 2px 4px;box-shadow:0 -8px 18px rgba(0,0,0,.35);}
+  }
   .se-filter{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
   .se-filter select,.se-filter input{width:100%;max-width:none;}
   .se-feld .lbl{display:block;}
@@ -3289,7 +3308,7 @@ function seRender(host, ctx){
   if(!host || !ctx) return;
   host._se=ctx; seBinden(host);
   host.innerHTML='<div data-se-leiste></div><div data-se-eigen></div><div data-se-kopf></div><div class="se-spalten">'+
-    '<div class="se-pal">'+sePalFilterHtml(ctx)+'<div data-se-liste></div><div data-se-wid></div></div>'+
+    '<div class="se-pal"><div data-se-wid></div>'+sePalFilterHtml(ctx)+'<div data-se-liste></div></div>'+
     '<div class="se-mitte" data-se-mitte></div><div class="se-feld" data-se-feld></div></div>';
   seEigenNeu(host);
   seZeichnen(host);

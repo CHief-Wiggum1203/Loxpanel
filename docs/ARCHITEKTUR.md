@@ -1633,7 +1633,11 @@ Assistenten des Konfigurators.
   `svStatusData` (Werte, angemeldet wie bei „Werte“ per `setsvstatus`, der
   Server schickt `{t:"svstatus"}` über `status_blocks()`), `tickClock()`
   stellt die Uhr. Was rechts nicht mehr in die Zeile passt, blendet
-  `kopfEinpassen()` aus, bei jeder Größenänderung neu. Weil sie keine Pane
+  `kopfEinpassen()` aus, bei jeder Größenänderung neu; fiele ein Wert weg,
+  geht zuerst der Wettertext (Lage, Hoch/Tief), Symbol und Temperatur bleiben
+  (seit 10.10.2026). Als Wert zeigt ein Chip (`kopfWertHtml()`, auch in der
+  Werteleiste) den Messwert der Kachel (`big`, bei der Raumregelung die
+  Ist-Temperatur), sonst die Zweitzeile. Weil sie keine Pane
   ist, gilt sie auch mit Split „Aus“ (4″-Panel): `paneRawNow()` lässt
   `header` an `themeSplit` vorbei, der Konfigurator zeigt das Feld „Widget je
   Tab“ dann mit gesperrter Widget-Gruppe, der Assistent bietet für 1 Pane
@@ -1839,11 +1843,19 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   hinten an. So bleibt eine Seite stimmig, wenn nur `picks` geändert wird
   (Bausteinliste, Raumtausch beim Duplizieren). Geprüft in
   `tests/test_seiten_layout.py`.
+- Seiten-Editor am Tablet (10.10.2026): Palette und Fläche müssen zugleich im
+  Bild sein, sonst geht das Ziehen nicht. `.se-spalten` ist ein Raster, die
+  Palette (`.se-pal`) eine eigene Scrollfläche, die beim Scrollen der Seite
+  neben der Fläche stehen bleibt (`position: sticky`). Eine Container-Abfrage auf
+  `.se-host` ordnet nach der Breite des Editors: breit drei Spalten, bis 900 px
+  steht „Ausgewählt“ unter der Fläche (nie unter der Palette), bis 640 px alles
+  untereinander und die Palette unten angedockt. Geprüft in
+  `tests/browser/test_tablet_rueckmeldung_browser.py`.
 - Seiten-Editor (Punkt 10, Teil 2, 09.10.2026): eigener Reiter im
   Panel-Editor und Schritt 5 des Assistenten für eine freie Seite mit
-  Kacheln. Links die Palette (alle Bausteine mit Raumfilter und Suche,
-  abgeblendet, was schon auf der Seite steht; darunter die Widgets für
-  Pane 2 und die Kopfzeile), in der Mitte die Arbeitsfläche in Geräteform,
+  Kacheln. Links die Palette (oben die Widgets für Pane 2 und die Kopfzeile,
+  darunter alle Bausteine mit Raumfilter und Suche, abgeblendet, was schon auf
+  der Seite steht), in der Mitte die Arbeitsfläche in Geräteform,
   rechts „Ausgewählt“ mit Größe 1 × 1, 2 × 1, 2 × 2, „nach vorn“, „nach
   hinten“, „Von der Seite nehmen“ und „Kachel gestalten“. Die Fläche zeigt,
   was die Visu am gewählten Gerät baut (Geräte mit gemeldeter Größe,

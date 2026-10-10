@@ -2652,14 +2652,16 @@ function paneKind(v){ if(!v) return null;
 function kopfAktiv(){ return paneKind(paneRawNow())==='header'; }
 function kopfHoehe(ks){ return kopfAktiv() ? Math.round(KOPF_H*(ks||kachelFaktor)) : 0; }
 // Ein Wert als Chip (Symbol, Wert, Name) - Kopfzeile und Werteleiste; attrs:
-// weitere Attribute (data-i, data-id der Werteleiste)
+// weitere Attribute (data-i, data-id der Werteleiste). Als Wert der Messwert, den
+// die Kachel gross zeigt (big, etwa die Ist-Temperatur der Raumregelung), sonst
+// die Zweitzeile: "21,0°" passt in die Zeile, "21,0° → 22,5° · heizt" oft nicht.
 function kopfWertHtml(it, attrs){
   const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
   const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
     : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
     : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
   return '<div class="kz-w'+ton+'"'+(attrs||'')+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
-    '<span class="vl">'+esc(it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>';
+    '<span class="vl">'+esc(it.big||it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>';
 }
 function kopfWerteHtml(items){ return items.map(it=>kopfWertHtml(it)).join(''); }
 function renderKopfzeile(){
@@ -2676,13 +2678,20 @@ function renderKopfzeile(){
   kz.innerHTML=html; tickClock(); kopfEinpassen();
 }
 // Was rechts nicht mehr in die Zeile passt, bleibt weg - lieber drei ganze
-// Werte als vier angeschnittene.
+// Werte als vier angeschnittene. Die gewaehlten Werte gehen dem Wettertext vor
+// (Lage, Hoch/Tief): fiele sonst ein Wert weg, bleiben vom Wetter Symbol und
+// Temperatur.
 function kopfEinpassen(){
   const kz=el('kopfzeile'); if(!kz || kz.hidden) return;
   const box=kz.querySelector('.kz-werte'); if(!box) return;
-  const rechts=box.getBoundingClientRect().right;
-  [...box.children].forEach(c=>{ c.hidden=false; });
-  [...box.children].forEach(c=>{ if(c.getBoundingClientRect().right > rechts+1) c.hidden=true; });
+  const wxText=kz.querySelector('.kz-wx .m');
+  const passen=()=>{ const rechts=box.getBoundingClientRect().right;
+    [...box.children].forEach(c=>{ c.hidden=false; });
+    let weg=false;
+    [...box.children].forEach(c=>{ if(c.getBoundingClientRect().right > rechts+1){ c.hidden=true; weg=true; } });
+    return weg; };
+  if(wxText) wxText.hidden=false;
+  if(passen() && wxText){ wxText.hidden=true; passen(); }
 }
 // ---- Werteleiste (ui.valueBar, view.leiste) ----
 // Die Anzeige-Bausteine einer Seite (Messwerte, Zaehler, Texte, Ein/Aus-
