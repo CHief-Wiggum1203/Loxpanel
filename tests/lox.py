@@ -45,6 +45,17 @@ KONFIGURATOR_GELADEN = ("typeof META !== 'undefined' && META !== null"
                         " && Array.isArray(META.controls) && META.controls.length > 0")
 
 
+async def karte_auf(pg, *namen):
+    """Konfigurator, Rubrik Geraete: die Karte jedes Geraets aufklappen, wie von
+    Hand ("Einstellungen"). Wartet, bis die Karte da ist (sie kommt mit der
+    Abfrage der Geraeteliste); eine offene bleibt offen."""
+    for name in namen:
+        knopf = pg.locator(f'#geraete .gk[data-gk="{name}"] .gk-auf')
+        await knopf.wait_for()
+        if await knopf.get_attribute("aria-expanded") != "true":
+            await knopf.click()
+
+
 async def serve(app: web.Application, port: int = 0,
                 ssl_context: ssl.SSLContext | None = None) -> tuple[web.AppRunner, int]:
     """aiohttp-App auf einem freien Port (oder auf `port`) starten -> (runner, port).

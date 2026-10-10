@@ -15,7 +15,7 @@ import json
 import aiohttp
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import KONFIGURATOR_GELADEN, W, anlage, karte_auf, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -108,7 +108,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await _displays(pg, port)
-                liste = pg.locator("#ag_list")
+                liste = pg.locator("#displaysHost")
                 await liste.locator(".ag").nth(2).wait_for()
                 # Das Geraet ohne Kennung steht mit seinem Kopplungscode in der Liste (Punkt 11)
                 code = next(a["code"] for a in app.device_list()["anonymous"])
@@ -155,7 +155,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 assert await liste.locator(".agn").all_text_contents() == ["flur", "kinderzimmer", "tablet"]
                 assert await kind.locator(".dot").get_attribute("class") == "dot on"
                 assert await kind.locator(".agsel").input_value() == "kueche"
-                assert await pg.locator("#dev_list .dev").evaluate_all("l => l.map(n => n.dataset.name)") == [
+                assert await pg.locator("#geraete .dev").evaluate_all("l => l.map(n => n.dataset.name)") == [
                     "flur", "kinderzimmer", "tablet"]
                 assert await ohne.evaluate("localStorage.getItem('lp_device')") == "kinderzimmer"
                 assert await tablet.evaluate("localStorage.getItem('lp_device')") is None, \
@@ -197,7 +197,7 @@ def test_ansicht_wechseln_erreicht_den_agenten(cfg_ordner, tmp_path):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await _displays(pg, port)
-                zeile = pg.locator('#ag_list .ag[data-name="wand"]')
+                zeile = pg.locator('#geraete .ag[data-name="wand"]')
                 await zeile.wait_for()
                 assert await zeile.locator(".tag").text_content() == "Agent"
                 await zeile.locator(".agsel").select_option("kueche")
@@ -230,8 +230,8 @@ def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await _displays(pg, port)
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
-                editor = pg.locator("#dev_list")
+                await karte_auf(pg, "flur", "tablet")   # die Karte des Tablets kommt mit der ersten Abfrage
+                editor = pg.locator("#geraete")
                 flur, tab = editor.locator('.dev[data-name="flur"]'), editor.locator('.dev[data-name="tablet"]')
                 await tab.wait_for()          # kommt mit der ersten Abfrage der Geraeteliste dazu
                 assert await editor.locator(".dev").evaluate_all("l => l.map(n => n.dataset.name)") == [
@@ -269,7 +269,7 @@ def test_display_treiber_speichern_und_neu_laden(cfg_ordner, tmp_path):
                 # Konfigurator neu laden: alles steht wieder da, nur das
                 # Kennwort nicht - das Feld sagt, dass es gespeichert ist
                 await _displays(pg)
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
+                await karte_auf(pg, "flur", "tablet")
                 await tab.wait_for()
                 assert [await tab.locator(s).input_value() for s in (
                     ".dd_drv", ".dd_host", ".dd_port", ".dd_pw", ".dm_mode", ".dm_prof", ".dp_presence")] == [
@@ -314,8 +314,8 @@ def test_display_kennwort_bleibt_beim_server(cfg_ordner, tmp_path):
                 async with pg.expect_response(lambda r: r.url.endswith("/api/meta")) as meta:
                     await _displays(pg, port)
                 assert "geheim" not in await (await meta.value).text()
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
-                tab = pg.locator('#dev_list .dev[data-name="tablet"]')
+                await karte_auf(pg, "tablet")
+                tab = pg.locator('#geraete .dev[data-name="tablet"]')
                 await tab.wait_for()
                 pw = tab.locator(".dd_pw")
                 assert await pw.input_value() == ""
@@ -409,7 +409,7 @@ def test_display_entfernen(cfg_ordner):
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 pg.on("dialog", dialog)
                 await _displays(pg, port)
-                liste = pg.locator("#ag_list")
+                liste = pg.locator("#displaysHost")
                 await liste.locator('.ag[data-name="ohne"]').wait_for()
                 knoepfe = await liste.locator(".ag[data-name]").evaluate_all(
                     "l => l.map(n => [n.dataset.name, !!n.querySelector('[data-act=entfernen]')])")
@@ -422,8 +422,8 @@ def test_display_entfernen(cfg_ordner):
                 doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
                 assert sorted(doc["devices"]) == ["tablet"], doc["devices"]
                 assert "flur" not in app.devices
-                await pg.wait_for_function("!document.querySelector('#ag_list .ag[data-name=\"flur\"]')")
-                assert await pg.locator('#dev_list .dev[data-name="flur"]').count() == 0
+                await pg.wait_for_function("!document.querySelector('#geraete .ag[data-name=\"flur\"]')")
+                assert await pg.locator('#geraete .dev[data-name="flur"]').count() == 0
 
                 # das Tablet ist verbunden: es kommt ohne Einstellungen wieder
                 await liste.locator('.ag[data-name="tablet"] [data-act="entfernen"]').click()
@@ -431,10 +431,10 @@ def test_display_entfernen(cfg_ordner):
                 assert "verbunden" in fragen[1], fragen
                 doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
                 assert "devices" not in doc and app.devices == {}, doc     # ohne Displays faellt der Schluessel weg
-                await pg.wait_for_function("""() => { const n = document.querySelector('#ag_list .ag[data-name="tablet"]');
+                await pg.wait_for_function("""() => { const n = document.querySelector('#geraete .ag[data-name="tablet"]');
                     return n && !n.querySelector('[data-act=entfernen]'); }""")
-                await pg.locator('#dev_list .dev[data-name="tablet"]').wait_for(state="attached")
-                assert await pg.locator('#dev_list .dev[data-name="tablet"] .dm_mode').input_value() == ""
+                await pg.locator('#geraete .dev[data-name="tablet"]').wait_for(state="attached")
+                assert await pg.locator('#geraete .dev[data-name="tablet"] .dm_mode').input_value() == ""
                 assert doc["panels"] == panels["panels"], "die Profile bleiben, wie sie waren"
                 await b.close()
         finally:
@@ -471,7 +471,7 @@ def test_zwei_displays_schnell_hintereinander_entfernen(cfg_ordner):
                     await route.continue_()
                 await pg.route("**/api/devices", bremse)
                 await _displays(pg, port)
-                liste = pg.locator("#ag_list")
+                liste = pg.locator("#displaysHost")
                 await liste.locator('.ag[data-name="kueche-wand"]').wait_for()
                 await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
                 await liste.locator('.ag[data-name="kueche-wand"] [data-act="entfernen"]').click()

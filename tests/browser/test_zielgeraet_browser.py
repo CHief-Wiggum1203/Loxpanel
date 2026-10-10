@@ -57,7 +57,7 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator(".rub", has_text="Geräte").click()
-                liste = pg.locator("#ag_list")
+                liste = pg.locator("#displaysHost")
                 await liste.locator('.ag[data-name="wand"]').wait_for()
                 warn = {}
                 for name in ("flur", "kind", "tablet", "wand"):
@@ -99,8 +99,8 @@ def test_zielgeraet_waehlen_und_warnung(cfg_ordner, tmp_path):
                     return json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["wohnen"]
                 assert (await speichern())["device"] == {"name": "tablet", "vw": 1024, "vh": 600}
                 await pg.locator(".rub", has_text="Geräte").click()
-                await pg.wait_for_function("""() => { const w = document.querySelector('#ag_list .ag[data-name="wand"] .tag.warn');
-                    const t = document.querySelector('#ag_list .ag[data-name="tablet"] .tag.warn'); return !!w && !t; }""")
+                await pg.wait_for_function("""() => { const w = document.querySelector('#geraete .ag[data-name="wand"] .tag.warn');
+                    const t = document.querySelector('#geraete .ag[data-name="tablet"] .tag.warn'); return !!w && !t; }""")
                 assert (await liste.locator('.ag[data-name="wand"] .tag.warn').text_content()
                         == "⚠ Ansicht ist für tablet gemacht")
                 await pg.locator(".rub", has_text="Ansichten").click()

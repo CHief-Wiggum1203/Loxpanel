@@ -89,7 +89,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator(".rub", has_text="Geräte").click()
-                liste = pg.locator("#ag_list")
+                liste = pg.locator("#displaysHost")
                 zeile = liste.locator(f'.ag[data-code="{code}"]')
                 await zeile.wait_for()
                 assert await zeile.locator(".agn").text_content() == f"Code {code}"
@@ -124,7 +124,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 # den alten (Codex an #131: die Signatur kannte nur IPs)
                 code3 = (await dritte.evaluate(KARTE))["gemerkt"]
                 # erst, wenn die Geraeteliste des Konfigurators (alle 6 s) beide kennt
-                await pg.wait_for_function("""erw => [...document.querySelectorAll('#ag_list .ag[data-anon]')]
+                await pg.wait_for_function("""erw => [...document.querySelectorAll('#ag_anon .ag[data-anon]')]
                     .map(n => n.dataset.code).sort().join() === erw""", arg=",".join(sorted([k3["gemerkt"], code3])), timeout=15000)
                 await pg.locator("#mzOpenBtn").click()
                 await pg.wait_for_selector("#mzOv:not([hidden])")

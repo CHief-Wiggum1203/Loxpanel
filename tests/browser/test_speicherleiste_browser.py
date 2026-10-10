@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import KONFIGURATOR_GELADEN, W, anlage, karte_auf, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -83,8 +83,8 @@ def test_eine_leiste_speichert_alles(cfg_ordner, tmp_path):
                 await _titel_aendern(pg, "Wohnen", "Wohnzimmer")
                 await pg.locator(".rub", has_text="Geräte").click()
                 assert await pg.locator("#savebar").is_visible(), "die Leiste steht auch unter Geräte"
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
-                await pg.locator('#dev_list .dev[data-name="flur"] .dev_auto').uncheck()
+                await karte_auf(pg, "flur")
+                await pg.locator('#geraete .dev[data-name="flur"] .dev_auto').uncheck()
                 await pg.locator(".rub", has_text="Einstellungen").click()
                 await pg.locator("#subtabs .stab", has_text="Kalender & Wetter").click()
                 await pg.locator("#cal_name").fill("Familie")
@@ -219,16 +219,16 @@ def test_geraet_entfernen_nimmt_offene_aenderungen_nicht_mit(cfg_ordner):
                 pg = await _konfigurator(b, port, fehler)
                 pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
                 await pg.locator(".rub", has_text="Geräte").click()
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
-                await pg.locator('#dev_list .dev[data-name="tablet"] .dev_auto').uncheck()
+                await karte_auf(pg, "tablet")
+                await pg.locator('#geraete .dev[data-name="tablet"] .dev_auto').uncheck()
                 assert await _offen(pg) == "Nicht gespeichert: Geräte"
-                await pg.locator('#ag_list .ag[data-name="flur"] [data-act="entfernen"]').click()
+                await pg.locator('#geraete .ag[data-name="flur"] [data-act="entfernen"]').click()
                 await pg.wait_for_function("document.querySelector('#ag_toast').textContent === '✓ Entfernt: flur'")
                 doc = _datei(cfg_ordner, "panels.json")
                 assert sorted(doc["devices"]) == ["tablet"]
                 assert doc["devices"]["tablet"]["auto"] is True, "die offene Eingabe ging nicht mit"
                 assert await _offen(pg) == "Nicht gespeichert: Geräte"
-                assert not await pg.locator('#dev_list .dev[data-name="tablet"] .dev_auto').is_checked()
+                assert not await pg.locator('#geraete .dev[data-name="tablet"] .dev_auto').is_checked()
 
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function("document.querySelector('#offenTxt').textContent === 'Alles gespeichert'")
@@ -260,8 +260,8 @@ def test_geraete_warten_auf_die_ansichten(cfg_ordner):
                       if r.url.endswith("/api/devices") and r.method == "POST" else None)
                 await _titel_aendern(pg, "Wohnen", "Wohnzimmer")
                 await pg.locator(".rub", has_text="Geräte").click()
-                await pg.locator("#displaysHost summary", has_text="Betriebsmodus-Automatik").click()
-                await pg.locator('#dev_list .dev[data-name="flur"] .dev_auto').uncheck()
+                await karte_auf(pg, "flur")
+                await pg.locator('#geraete .dev[data-name="flur"] .dev_auto').uncheck()
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function("document.querySelector('#toast').textContent.includes('Platte voll')")
                 assert geraete_post == []

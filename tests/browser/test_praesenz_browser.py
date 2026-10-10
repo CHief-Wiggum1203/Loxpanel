@@ -100,16 +100,16 @@ def test_konfigurator_waehlt_und_speichert_den_melder(tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.evaluate("async () => { await loadPanelIds(); renderDevices(); await pollDevices(); }")
-                kueche = pg.locator('#dev_list .dev[data-name="kueche"]')
+                kueche = pg.locator('#geraete .dev[data-name="kueche"]')
                 assert await kueche.locator(".dp_presence").input_value() == "PM"
                 assert await kueche.locator(".dp_state").text_content() == "gerade: jemand da"
                 assert await kueche.locator(".dp_presence option").all_text_contents() == [
                     "— keiner (Display nach der Leerlaufzeit aus) —",
                     "Zentral · Licht (Switch)", "Zentral · Präsenz Küche (PresenceDetector)"]
-                assert await pg.locator('#dev_list .dev[data-name="flur"] .dp_state').text_content() == ""
+                assert await pg.locator('#geraete .dev[data-name="flur"] .dp_state').text_content() == ""
                 # Melder vom einen Geraet aufs andere legen und speichern
                 await pg.evaluate("""() => { const w = n => document.querySelector(
-                        '#dev_list .dev[data-name="' + n + '"] .dp_presence');
+                        '#geraete .dev[data-name="' + n + '"] .dp_presence');
                     w('kueche').value = ''; w('flur').value = 'PM';
                     w('flur').dispatchEvent(new Event('change', {bubbles: true})); }""")
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices")
