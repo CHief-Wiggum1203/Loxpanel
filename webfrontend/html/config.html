@@ -114,6 +114,10 @@
   .segmode button.on{background:rgba(224,162,77,.16);color:var(--fg);}
   .sizes .field{max-width:120px;}
   .row2{display:flex;gap:12px;flex-wrap:wrap;}
+  /* Herkunft eines Werts (Schritt 6): was gilt und woher, "× zurücksetzen" */
+  .erbt{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;font-size:12px;color:var(--muted);line-height:1.35;}
+  .erbt:empty{display:none;}
+  .erbt .minibtn{padding:1px 7px;font-size:11.5px;}
   .row2 .field{flex:1;min-width:140px;max-width:none;}
   .chk{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;margin-bottom:6px;}
   .chk input{width:18px;height:18px;accent-color:var(--accent);}
@@ -1393,7 +1397,7 @@ function baseField(ui){
       '<button type="button" class="minibtn" id="fBaseClr" style="height:46px">'+T('Keine')+'</button>'+
     '</div>'+
     '<span class="cval" id="fBaseVal" style="display:block;margin-top:6px">'+
-      esc(ui.baseColor||T('Standard-Farbschema'))+'</span></div>';
+      esc(ui.baseColor||T('Standard-Farbschema'))+'</span>'+erbtFeld('baseColor')+'</div>';
 }
 function appearanceFields(ui,std,leer,mitSprache=true){
   ui=ui||{};
@@ -1403,14 +1407,14 @@ function appearanceFields(ui,std,leer,mitSprache=true){
     '<div class="field" style="max-width:220px"><label class="lbl">Schriftart</label>'+
       '<select id="fFontSel">'+FONTS.map(f=>'<option value="'+esc(f.v)+'"'+(sameFont(ui.font,f.v)?' selected':'')+'>'+esc(f.label)+'</option>').join('')+
         '<option value="__custom"'+(customFont(ui.font)?' selected':'')+'>Eigene…</option></select>'+
-      '<input type="text" id="fFontCustom" value="'+esc(customFont(ui.font)?ui.font:'')+'" placeholder="z. B. Pacifico, cursive"'+(customFont(ui.font)?'':' style="display:none"')+'></div>'+
+      '<input type="text" id="fFontCustom" value="'+esc(customFont(ui.font)?ui.font:'')+'" placeholder="z. B. Pacifico, cursive"'+(customFont(ui.font)?'':' style="display:none"')+'>'+erbtFeld('font')+'</div>'+
     '<div class="field" style="max-width:230px"><label class="lbl">'+T('Schriftfarbe (Haupttext)')+'</label>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
         '<input type="color" id="fTextColor" value="'+esc(ui.textColor&&String(ui.textColor)[0]==="#"?ui.textColor:"#e8eaed")+'" style="width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer">'+
         '<span class="cval" id="fTextColorVal" style="flex:1">'+esc(ui.textColor||"Standard")+'</span>'+
-        '<button class="minibtn" id="fTextColorClr">Standard</button></div></div>'+
+        '<button class="minibtn" id="fTextColorClr">Standard</button></div>'+erbtFeld('textColor')+'</div>'+
     '<div class="field" style="max-width:150px"><label class="lbl">Schriftstärke</label>'+
-      '<select id="fBold"><option value="">Normal</option><option value="1"'+(ui.bold?' selected':'')+'>Fett</option></select></div>';
+      '<select id="fBold"><option value="">Normal</option><option value="1"'+(ui.bold?' selected':'')+'>Fett</option></select>'+erbtFeld('bold')+'</div>';
 }
 
 function renderGlobalEditor(p){
@@ -1425,7 +1429,7 @@ function renderGlobalEditor(p){
         T('Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.'))+'</div>'+
       '<div class="grph">'+T('Skalierung')+'</div>'+
       '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Ansichten')+'</label>'+
-        '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select></div></div>'+
+        '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select>'+erbtFeld('scale')+'</div></div>'+
       '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät auf seiner Karte unter Geräte → Am Gerät.')+'</p>'+
       '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
@@ -1448,6 +1452,7 @@ function renderGlobalEditor(p){
       markDirty(); }; }
   renderCatColors(p);
   $('#delSlot').innerHTML='';
+  erbtZeichnen();
   renderSubtabs(); showSub(subVg);
 }
 // Felder "Nachts abdunkeln" und "Aufhellen bei Beruehrung" (Vorgaben -> Nacht und
@@ -1459,9 +1464,9 @@ function nachtPlatzhalter(k,v){
 function nachtFelder(ui, dimLeer, wakeLeer){
   const wert=k=>(ui[k]==null)?'':ui[k];
   return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nachts abdunkeln (%)')+'</label>'+
-      '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+esc(wert('nightDim'))+'" placeholder="'+esc(nachtPlatzhalter('nightDim',dimLeer))+'"></div>'+
+      '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+esc(wert('nightDim'))+'" placeholder="'+esc(nachtPlatzhalter('nightDim',dimLeer))+'">'+erbtFeld('nightDim')+'</div>'+
     '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">'+T('Aufhellen bei Berührung (Sek.)')+'</label>'+
-      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'"></div>';
+      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>';
 }
 // Progressive Disclosure: "Aufhellen bei Beruehrung" nur zeigen, wenn ueberhaupt nachts
 // abgedunkelt wird (sonst wirkungslos); ein leeres Feld zaehlt mit dem Wert, der dann gilt.
@@ -1476,6 +1481,114 @@ function nachtVorgabe(k){
   const g=((PANELS.__global__||{}).ui)||{};
   return (g[k]!=null) ? g[k] : (META.nightDefaults||{})[k];
 }
+// ---- Vererbung sichtbar (Konzept "Konfigurator neu ordnen", Schritt 6) ----
+// Kette wie im Server: Geraet vor Ansicht vor Vorgaben vor Standard (effective_scale,
+// effective_grid_auto, resolve_profile). Jedes Feld mit Vorgabe oder Geraetewert traegt
+// eine Zeile .erbt: leer nennt sie, was gilt und woher; gesetzt bietet sie
+// "× zurücksetzen" und nennt die Geraete, die den Wert ueberstimmen. In den Vorgaben
+// zaehlt sie die Ansichten, fuer die der Wert gilt. Welche Schluessel eine Vorgabe haben,
+// sagt der Server (/api/meta themeKeys = THEME_UI_KEYS).
+function erbtFeld(k){ return '<div class="erbt" data-erbt="'+k+'"></div>'; }
+function hatVorgabe(k){ return ((META||{}).themeKeys||[]).indexOf(k)>=0; }
+function gesetzt(v){ return v!==undefined && v!==null && v!==''; }
+// Dieselbe Einstellung heisst am Geraet anders als in der Ansicht
+const GERAET_SCHLUESSEL={scale:'scale', tileSize:'tileTarget'};
+// Was ganz ohne Eintrag gilt; null = das Standard-Aussehen (Schrift, Farben, Sprache)
+function standardWert(k, ui){
+  if(SIZE_KEYS.indexOf(k)>=0) return sizeStd((ui||{}).tileLayout,false)[k];
+  if(k==='nightDim'||k==='nightWake') return ((META||{}).nightDefaults||{})[k];
+  if(k==='scale') return 'off';
+  if(k==='tileSize') return kachelZiel().std;
+  return null;
+}
+function wertText(k, v){
+  if(!gesetzt(v)) return k==='baseColor' ? T('Standard-Farbschema') : T('Standard');
+  if(SIZE_KEYS.indexOf(k)>=0) return fmtZahl(v)+' px';
+  if(k==='tileSize') return fmtZahl(tileSizeWert(v))+' px';
+  if(k==='nightDim') return Number(v)===0 ? T('Aus') : fmtZahl(v)+' %';
+  if(k==='nightWake') return fmtZahl(v)+' s';
+  if(k==='scale') return scaleName(v);
+  if(k==='font') return (FONTS.find(x=>sameFont(x.v,v))||{label:String(v)}).label;
+  if(k==='baseColor') return (BASE_COLORS.find(c=>c.v.toLowerCase()===String(v).toLowerCase())||{n:String(v)}).n;
+  if(k==='bold') return v ? T('Fett') : T('Normal');
+  if(k==='lang') return (LANGS.find(l=>l[0]===v)||[v,String(v)])[1];
+  return String(v);
+}
+function ansichtIds(){ return Object.keys(PANELS).filter(k=>k!=='__global__'); }
+function ansichtName(id){ return (PANELS[id]||{}).title||id; }
+// Was in einer Ansicht ohne ihren eigenen Eintrag gilt: Vorgabe, sonst Standard
+function wasGiltOhneEigenen(k, ui){
+  const g=((PANELS.__global__||{}).ui)||{};
+  if(hatVorgabe(k) && gesetzt(g[k])) return {v:g[k], quelle:T('aus den Vorgaben')};
+  return {v:standardWert(k,ui), quelle:T('Standard')};
+}
+// Was in einer Ansicht gilt, ihr eigener Eintrag eingeschlossen
+function wasGiltInAnsicht(id, k){
+  const ui=(PANELS[id]||{}).ui||{};
+  if(gesetzt(ui[k])) return {v:ui[k], quelle:T('aus der Ansicht {a}').replace('{a}',ansichtName(id)), eigen:true};
+  return wasGiltOhneEigenen(k, ui);
+}
+// Welche Ansicht ein Geraet zeigt: gerade verbunden die gemeldete, sonst die, deren
+// Zielgeraet es ist
+function geraetAnsicht(name){
+  const live=(GERAETE_LISTE.find(d=>d.name===name)||{}).profile;
+  if(live && PANELS[live]) return live;
+  return ansichtIds().find(id=>((PANELS[id].device||{}).name)===name)||'';
+}
+// Geraete, die eine Ansicht zeigen oder in einem Betriebsmodus zeigen wuerden
+function geraeteDerAnsicht(id){
+  return alleGeraeteNamen().filter(n=>geraetAnsicht(n)===id || ((DEV[n]||{}).modes||[]).some(m=>m[1]===id));
+}
+// "19 px · aus den Vorgaben"; ganz ohne Eintrag nur "Standard" (nicht doppelt)
+function giltText(k, w){ return gesetzt(w.v) ? wertText(k,w.v)+' · '+w.quelle : wertText(k,null); }
+function zurueckKnopf(attr, k, dann){
+  return '<button type="button" class="minibtn" '+attr+'="'+esc(k)+'" title="'+
+    esc(T('Dann gilt: {w}').replace('{w}',dann))+'">'+esc(T('× zurücksetzen'))+'</button>';
+}
+function erbtZeichnen(){
+  const p=PANELS[cur]; if(!p) return;
+  const ui=p.ui||{};
+  document.querySelectorAll('#pconfHost .erbt[data-erbt]').forEach(el=>{
+    const k=el.dataset.erbt, teile=[];
+    let knopf='';
+    if(p.__global){
+      const ids=ansichtIds(), eigene=ids.filter(id=>gesetzt(((PANELS[id]||{}).ui||{})[k]));
+      const std=giltText(k,{v:standardWert(k,{}), quelle:T('Standard')});
+      if(gesetzt(ui[k])) knopf=zurueckKnopf('data-erbt-zurueck',k,std);
+      else teile.push(std);
+      teile.push(T('gilt für {n} von {m} Ansichten').replace('{n}',ids.length-eigene.length).replace('{m}',ids.length));
+      if(eigene.length) teile.push(T('eigener Wert in {liste}').replace('{liste}',eigene.map(ansichtName).join(', ')));
+    } else {
+      const w=wasGiltOhneEigenen(k,ui), dann=giltText(k,w);
+      if(gesetzt(ui[k])) knopf=zurueckKnopf('data-erbt-zurueck',k,dann);
+      else teile.push(dann);
+      const gk=GERAET_SCHLUESSEL[k];
+      if(gk && (k!=='tileSize' || layoutWert(ui)==='auto'))
+        geraeteDerAnsicht(cur).forEach(n=>{ const v=(DEV[n]||{})[gk];
+          if(gesetzt(v)) teile.push(T('am Gerät {g}: {w}').replace('{g}',n).replace('{w}',wertText(k,v))); });
+    }
+    el.innerHTML=knopf+(teile.length?'<span>'+esc(teile.join(' · '))+'</span>':'');
+  });
+}
+// Gerätekarte, Teil "Am Gerät": leer gilt, was die gezeigte Ansicht sagt
+function geraetErbtZeichnen(){
+  document.querySelectorAll('#geraete .dev').forEach(row=>{
+    const name=row.dataset.name, id=geraetAnsicht(name);
+    row.querySelectorAll('.erbt[data-gerbt]').forEach(el=>{
+      const gk=el.dataset.gerbt, k=(gk==='tileTarget')?'tileSize':'scale';
+      const inp=row.querySelector(gk==='tileTarget'?'.dt_ziel':'.ds_scale');
+      const eigen=!!inp && (gk==='tileTarget' ? parseInt(inp.value)>0 : inp.value!=='');
+      let dann;
+      if(!id) dann=T('zeigt gerade keine Ansicht');
+      else if(k==='tileSize' && layoutWert((PANELS[id]||{}).ui)!=='auto')
+        dann=T('wirkt nur bei Kachel-Layout „Automatisch“ (Ansicht {a})').replace('{a}',ansichtName(id));
+      else { const w=wasGiltInAnsicht(id,k);
+        dann=giltText(k,w)+(w.eigen?'':' ('+T('Ansicht {a}').replace('{a}',ansichtName(id))+')'); }
+      el.innerHTML=eigen ? zurueckKnopf('data-gerbt-zurueck',gk,dann) : '<span>'+esc(dann)+'</span>';
+    });
+  });
+}
+
 function renderCatColors(p){
   const box=$('#catcolors'); if(!box) return;
   const cc=p.catColors||(p.catColors={});
@@ -1609,7 +1722,7 @@ function renderEditor(){
          '</select></div>'+
        '<div class="field" style="max-width:220px" id="fTileSizeField"><label class="lbl">'+T('Zielkachel (px)')+'</label>'+
          '<input type="number" id="fTileSize" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+kachelZiel().std+'"'+
-           ' value="'+(tileSizeWert((p.ui||{}).tileSize)||'')+'"></div>'+
+           ' value="'+(tileSizeWert((p.ui||{}).tileSize)||'')+'">'+erbtFeld('tileSize')+'</div>'+
        '<div class="field" style="max-width:220px" id="fFillField"><label class="lbl">Bildschirm füllen</label>'+
          '<select id="fFill">'+
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
@@ -1617,7 +1730,7 @@ function renderEditor(){
          '</select></div>'+
        '<div class="field" style="max-width:320px" id="fScaleField"><label class="lbl">'+T('Skalierung')+'</label>'+
          '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
-            T('Wie Vorgabe')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select></div>'+
+            T('Wie Vorgabe')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select>'+erbtFeld('scale')+'</div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.')+'</div>'+
      '<div class="hint" style="padding-top:4px" id="fTileSizeHint">'+zielkachelHinweis()+'</div>'+
@@ -1768,6 +1881,7 @@ function renderEditor(){
   { const vg=$('#vorGerBtn'); if(vg){ vg.onclick=vorGerKlick; vorGerKnopf(); } }
 
   seReiterZeichnen();
+  erbtZeichnen();
   renderSubtabs(); showSub(subPconf);
   if(window.I18N) I18N.autoChrome('h2, h3, label.lbl, .btn, .minibtn, .note, .hint, option, .stab');
 }
@@ -1803,7 +1917,7 @@ function paneColsText(v){ const n=paneColsWert(v);
 function sizeField(label,key,ui,std){
   const v=(ui||{})[key], ph=(std||{})[key];
   return '<div class="field"><label class="lbl">'+label+'</label>'+
-    '<input type="number" min="8" max="80" data-ui="'+key+'" value="'+(v==null?'':v)+'" placeholder="'+(ph==null?'—':esc(String(ph)))+'"></div>';
+    '<input type="number" min="8" max="80" data-ui="'+key+'" value="'+(v==null?'':v)+'" placeholder="'+(ph==null?'—':esc(String(ph)))+'">'+erbtFeld(key)+'</div>';
 }
 // Groessen, die bei leerem Feld gelten: der Standard des Kachel-Aufbaus vom
 // Server (/api/meta sizeDefaults), fuer ein Panel davor die globale Einstellung
@@ -1830,7 +1944,7 @@ function langField(ui){
   const cur=(ui||{}).lang||'';
   return '<div class="field" style="max-width:220px"><label class="lbl">Sprache</label>'+
     '<select id="fLang">'+LANGS.map(l=>'<option value="'+l[0]+'"'+(cur===l[0]?' selected':'')+'>'+esc(l[1])+'</option>').join('')+'</select>'+
-    '<div class="hint" style="padding-top:4px">Steuert vorerst Datum &amp; Uhr in der Visu. Gerätenamen kommen aus dem Miniserver.</div></div>';
+    '<div class="hint" style="padding-top:4px">Steuert vorerst Datum &amp; Uhr in der Visu. Gerätenamen kommen aus dem Miniserver.</div>'+erbtFeld('lang')+'</div>';
 }
 function audioZoneOptions(sel){
   return (META.controls||[]).filter(c=>c.type==='AudioZone'||c.type==='AudioZoneV2')
@@ -2378,7 +2492,7 @@ function renderChecklist(p,kind){
                                     : ('<b>alle</b> '+list.length+' sichtbar');
 }
 
-function markDirty(){ markieren('ansicht:'+cur); renderList(); entwurfNachziehen(); }
+function markDirty(){ markieren('ansicht:'+cur); renderList(); entwurfNachziehen(); erbtZeichnen(); }
 
 // ---- Eine Speicherleiste fuer alles (Konzept "Konfigurator neu ordnen", Schritt 2) ----
 // OFFEN haelt fest, was noch nicht gespeichert ist: je Ansicht 'ansicht:<Kennung>'
@@ -4783,8 +4897,19 @@ function kalenderSpeichern(){
 });
 // Unter Geraete zaehlen nur die Einstellungen der Karte (.dev), nicht die Wahl der
 // Ansicht im Kopf (die schaltet live um) und nicht der Name eines Geraets ohne Kennung
+// DEV folgt jeder Eingabe, damit die Ansicht nennen kann, welches Geraet sie ueberstimmt.
 { const g=$('#geraete');
-  if(g) ['input','change'].forEach(ev=>g.addEventListener(ev, e=>{ if(e.target.closest('.dev')) bereichOffen('geraete'); })); }
+  if(g){ ['input','change'].forEach(ev=>g.addEventListener(ev, e=>{ if(!e.target.closest('.dev')) return;
+      readDevFromDom(); bereichOffen('geraete'); geraetErbtZeichnen(); }));
+    g.addEventListener('click', e=>{ const b=e.target.closest('[data-gerbt-zurueck]'); if(!b) return;
+      const row=b.closest('.dev'), inp=row&&row.querySelector(b.dataset.gerbtZurueck==='tileTarget'?'.dt_ziel':'.ds_scale');
+      if(!inp) return;
+      inp.value=''; inp.dispatchEvent(new Event('change',{bubbles:true})); }); } }
+// "× zurücksetzen" in Ansicht und Vorgaben: der eigene Eintrag faellt weg, es gilt wieder der geerbte
+{ const h=$('#pconfHost');
+  if(h) h.addEventListener('click', e=>{ const b=e.target.closest('[data-erbt-zurueck]'); if(!b) return;
+    const p=PANELS[cur]; if(!p||!p.ui) return;
+    delete p.ui[b.dataset.erbtZurueck]; markDirty(); renderEditor(); }); }
 
 // ---- Panels (alle Anzeigegeraete: Agent, Kiosk-App, Browser) ----
 let PANEL_IDS=[];
@@ -4928,7 +5053,7 @@ function koepfeZeichnen(){
 }
 function renderDeviceList(j){
   GERAETE_LISTE=j.devices||[];
-  geraeteKarten(); koepfeZeichnen();
+  geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen();
   // Geraete ohne Kennung: eigener Abschnitt unter den Karten
   const anon=j.anonymous||[], ab=$('#ag_anon'), ak=$('#ag_anon_karte');
   if(ak) ak.hidden=!anon.length;
@@ -5047,14 +5172,14 @@ function devRow(name){
     '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
       '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie in der Ansicht'))+'</select>'+
-    '</div>'+
+    '</div>'+'<div class="erbt" data-gerbt="scale"></div>'+
     '<div class="dtrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<span style="font-size:13px;opacity:.85">'+T('Zielkachel (Automatik)')+'</span>'+
       '<input type="number" class="dt_ziel" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+T('wie in der Ansicht')+'" value="'+(d.tileTarget||'')+'" style="width:90px">'+
       '<span style="font-size:13px;opacity:.85">px</span>'+
       '<span class="note dt_hinweis">'+esc(vorschlagText(name))+'</span>'+
       (DEVICE_SUGGEST[name]?'<button class="btn sm ghost dt_nehmen" type="button">'+T('übernehmen')+'</button>':'')+
-    '</div>'+
+    '</div>'+'<div class="erbt" data-gerbt="tileTarget"></div>'+
     '<div class="gk-teil">'+T('Präsenzmelder')+'</div>'+
     '<div class="dprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
       '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
@@ -5130,7 +5255,7 @@ function renderDevices(){
   const box=$('#geraete'); if(!box) return;
   geraeteKarten();
   box.querySelectorAll(':scope > .gk').forEach(k=>{ k.querySelector('.gk-body').innerHTML=devRow(k.dataset.gk); });
-  koepfeZeichnen();
+  koepfeZeichnen(); geraetErbtZeichnen();
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
     (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); bereichOffen('geraete'); renderDevices();

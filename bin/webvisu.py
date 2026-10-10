@@ -7786,6 +7786,10 @@ async def api_meta(request: web.Request) -> web.Response:
         # Nachtmodus ohne Einstellung (Abdunkelung, Aufhellen): leere Felder
         # unter Vorgaben -> Nacht und Ansicht -> Verhalten zeigen ihn.
         "nightDefaults": NACHT_STANDARD,
+        # Welche ui-Schluessel eine Vorgabe haben (theme.json): der Konfigurator
+        # zeigt nur bei ihnen "aus den Vorgaben" und zaehlt die Ansichten, die
+        # sie selbst setzen.
+        "themeKeys": list(THEME_UI_KEYS),
         # Stunde des naechtlichen Neuladens ohne Einstellung "Auto-Neustart":
         # der Konfigurator nennt sie im leeren Feld.
         "reloadAt": NEULADEN_STUNDE,

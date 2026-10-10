@@ -103,10 +103,14 @@ Form, es ist ein Umbau der Oberfläche.
       Hinweise zur Skalierung nannten noch den Kasten von vor Schritt 4. Tests
       in `tests/browser/test_vorgaben_browser.py` und `tests/test_vorgaben.py`.
       **M**
-- [ ] **Schritt 6, Vererbung sichtbar.** Jedes Feld nennt, woher sein Wert
-      kommt (Gerät vor Ansicht vor Vorgaben), mit „zurücksetzen“; die
-      Vorgaben nennen je Wert, wie viele Ansichten ihn überschreiben („gilt
-      für 3 von 4 Ansichten“). Braucht 3 bis 5. **M**
+- [x] **Schritt 6, Vererbung sichtbar.** Jedes Feld mit Vorgabe oder
+      Gerätewert nennt, was gilt und woher (Gerät vor Ansicht vor Vorgaben vor
+      Standard), ein gesetztes hat „× zurücksetzen“. Die Vorgaben zählen je
+      Wert, für wie viele Ansichten er gilt („gilt für 2 von 3 Ansichten ·
+      eigener Wert in Küche“); die Ansicht nennt Geräte, die Skalierung oder
+      Zielkachel überstimmen; die Gerätekarte, was aus der Ansicht kommt.
+      Welche Schlüssel eine Vorgabe haben, sagt `/api/meta` (`themeKeys`).
+      Tests in `tests/browser/test_vererbung_browser.py`. **M**
 - [ ] **Schritt 7, ein Einrichtungsweg.** „Gerät einrichten“ in sechs
       Schritten ab dem Gerät, die Rubrik Einrichtungsassistent entfällt.
       Braucht 4. **L**

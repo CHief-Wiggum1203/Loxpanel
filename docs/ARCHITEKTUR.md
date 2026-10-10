@@ -1743,6 +1743,26 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   in `theme.json`). Unter Verhalten zeigt eine Ansicht ohne eigenen Eintrag grau,
   was sie erbt (`nachtVorgabe()`: Vorgabe, sonst `nightDefaults` aus `/api/meta`).
   `test_vorgaben_browser.py` hält das fest.
+- **Vererbung sichtbar** (seit 10.10.2026, Schritt 6): Jedes Feld mit Vorgabe oder
+  Gerätewert trägt eine Zeile `.erbt` (`erbtFeld()`), gefüllt von `erbtZeichnen()`
+  (Ansicht und Vorgaben, nach jedem Zeichnen und in `markDirty()`) und
+  `geraetErbtZeichnen()` (Gerätekarte, nach jeder Eingabe und jeder Abfrage). Die
+  Kette ist die des Servers: Gerät vor Ansicht vor Vorgaben vor Standard
+  (`effective_scale()`, `effective_grid_auto()`, `resolve_profile()`).
+  - In der Ansicht nennt ein leeres Feld, was gilt und woher („19 px · aus den
+    Vorgaben“, „38 px · Standard“). Ein gesetztes zeigt „× zurücksetzen“, der Titel
+    sagt, was danach gilt. Bei Skalierung und Zielkachel stehen dazu die Geräte, die
+    die Ansicht zeigen und den Wert selbst setzen („am Gerät wand: 125 %“).
+  - In den Vorgaben zählt die Zeile, für wie viele Ansichten der Wert gilt, und
+    nennt die mit eigenem Wert.
+  - Auf der Gerätekarte (Am Gerät) steht, was aus der gezeigten Ansicht kommt
+    (`geraetAnsicht()`: die gemeldete, sonst die, deren Zielgerät es ist).
+  - Welche Schlüssel eine Vorgabe haben, liefert `/api/meta` als `themeKeys`
+    (= `THEME_UI_KEYS`); Standardwerte kommen aus `sizeDefaults`, `nightDefaults`
+    und `kachelZiel`. „Zurücksetzen“ löscht den Schlüssel, das ist überall die Form
+    für „erbt“. Damit die Ansicht die Geräte richtig nennt, folgt `DEV` jeder
+    Eingabe auf der Gerätekarte (`readDevFromDom()`).
+  - `test_vererbung_browser.py` hält das fest.
 - **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
   eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
   Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,
