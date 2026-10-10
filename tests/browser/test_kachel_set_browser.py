@@ -347,6 +347,9 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
     fest = next(s for s in liste if "farbton" not in s)
     wahl = next(f for f in satz["farbton"]["auswahl"] if f["wert"] != satz["farbton"]["standard"])
     anders = next(a["key"] for a in satz["aktiv"]["auswahl"] if a["key"] != satz["aktiv"]["standard"])
+    # Nachgerechnet: die Werte des Servers, deutsch mit Komma
+    nachgerechnet = [f"{k['wert']:.1f}".replace(".", ",") + " : 1"
+                     for k in TC.kachel_set_pruefung(satz["key"], wahl["wert"], anders)]
 
     async def lauf():
         app = W.App({"host": "", "port": 80})
@@ -379,7 +382,10 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
                              await pg.locator("#fKsExtra [data-ks-wert]").text_content(),
                              await pg.locator(f"#fKsExtra [data-ks-ton='{wahl['wert']}']").get_attribute("class")]
                 await pg.locator(f"#fKsExtra [data-ks-aktiv='{anders}']").click()
-                await pg.wait_for_function(f"document.querySelector('#fKsExtra [data-ks-wert]').textContent.includes('{wahl['wert']}° · #')")
+                # auf die Antwort zu genau dieser Wahl warten (die zur Schnellwahl kam vorher)
+                await pg.wait_for_function("(soll) => JSON.stringify([...document.querySelectorAll("
+                                           "'#fKsExtra [data-ks-paar] b')].map(b => b.textContent)) === soll",
+                                           arg=json.dumps(nachgerechnet, ensure_ascii=False, separators=(",", ":")))
                 st["pruefung"] = await pg.eval_on_selector_all("#fKsExtra [data-ks-paar] b", "l => l.map(b => b.textContent)")
                 st["wert"] = await pg.locator("#fKsExtra [data-ks-wert]").text_content()
                 await pg.screenshot(path=str(tmp_path / "konfigurator_kachel_set.png"), full_page=True)
@@ -405,9 +411,7 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
     assert st["satz"] == [str(satz["farbton"]["standard"]), [f["label"] for f in satz["farbton"]["auswahl"]],
                           [a["label"] for a in satz["aktiv"]["auswahl"]]], st["satz"]
     assert st["ton"][0] == str(wahl["wert"]) and st["ton"][1].startswith(f"{wahl['wert']}°") and "on" in st["ton"][2], st["ton"]
-    # Nachgerechnet: die Werte des Servers, deutsch mit Komma
-    erwartet = TC.kachel_set_pruefung(satz["key"], wahl["wert"], anders)
-    assert st["pruefung"] == [f"{k['wert']:.1f}".replace(".", ",") + " : 1" for k in erwartet], st["pruefung"]
+    assert st["pruefung"] == nachgerechnet, st["pruefung"]
     assert st["wert"] == f"{wahl['wert']}° · " + TC.kachel_set_kachel(satz["key"], wahl["wert"], anders), st["wert"]
     assert st["gespeichert"] == {"tileSet": satz["key"], "tileHue": wahl["wert"], "tileActive": anders}, st["gespeichert"]
     assert st["standard"] == {"tileSet": satz["key"], "tileActive": anders}, st["standard"]
