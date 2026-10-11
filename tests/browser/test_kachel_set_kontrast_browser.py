@@ -1,6 +1,6 @@
 """Lesbarkeit der Kachel-Sets in Chromium: Jeder sichtbare Text jeder Ansicht
 (Raster, Uhr-Seite mit Wetter und Terminen, Kalender- und Wetter-Tab, Front
-und Player neben den Kacheln, Detailseite, PIN) wird gegen die Flaeche
+und Player neben den Kacheln, Detailseite, PIN, Hausuebersicht) wird gegen die Flaeche
 gemessen, auf der er wirklich steht - Schriftfarbe, Deckkraft und alle
 Hintergruende darunter, wie der Browser sie rechnet. Text muss AA (4,5:1)
 tragen, grosse Schrift (ab 24 px oder 18,66 px fett) 3:1, wie WCAG 1.4.3.
@@ -83,6 +83,8 @@ ANSICHTEN = {
     "kopfzeile": (TABS, {"panes": {"favoriten": "header"}}, []),
     "detail": (TABS, {}, ["nav({view:'control', id:'IR'})"]),
     "pin": (TABS, {}, ["askPin(() => {}, 'PIN')"]),
+    # Hausuebersicht: Karten, aktive Geraete und Spieler auf den Flaechen des Sets
+    "haus": (TABS + ["haus"], {}, ["goTab('haus')"]),
 }
 
 

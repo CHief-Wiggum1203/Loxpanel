@@ -297,7 +297,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `raeume[]`, `aktiv[]`, `zentral[]`, `spieler`, `energie` und auf der Unterseite `liste:"aktiv"` |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -323,8 +323,9 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
 | `t` | Inhalt |
 |---|---|
-| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
+| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste:"aktiv"` (Unterseite „Gerade aktiv“). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
+| `hausaus` | `art` (`licht` \| `audio`) — Zentral-Taste der Hausübersicht: jeder Baustein dieser Art auf der Seite, der an ist, bekommt seinen Aus-Befehl (`haus_aus_befehle()`, `HAUS_ZENTRAL`/`HAUS_AUS`); gesicherte (Visu-PIN) nicht. Antwort nur bei Fehlern (`notify`) |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
@@ -865,7 +866,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // `cat:`/`room:` = Direkt-Tab in eine
                                              // Kategorie bzw. einen Raum,
                                              // `kalender`/`wetter` = eigene Seite
-                                             // aus der Front (FRONT_TABS). Der ERSTE
+                                             // aus der Front (FRONT_TABS), `haus` =
+                                             // Hausuebersicht (HAUS_TAB). Der ERSTE
                                              // Tab ist die Startseite: das Panel
                                              // verbindet sich dorthin und kehrt nach
                                              // 60 s Leerlauf dorthin zurueck -> ein
@@ -1749,6 +1751,60 @@ Assistenten des Konfigurators.
   `tests/browser/test_kopfzeile_browser.py` (quer, hochkant, 10″, 4″ mit
   Split „Aus“, zu viele Werte, Drehen, Konfigurator mit und ohne Split,
   Assistent).
+- Hausübersicht (Tab `haus`, 11.10.2026, Entwurf im Design-Canvas „LoxPanel
+  Kachel-Set Loxone“, Boards „iPad quer – Hausübersicht B“ und „iPad hochkant
+  – Hausübersicht“): eine eigene Seite ohne Kachelraster für Tablets und große
+  Displays. Der Server rechnet sie in `_view_haus()` (`layout:"haus"`), die
+  Visu zeichnet sie in `renderHaus()`.
+  - **Kopf:** Uhr, Wetter mit der Vorschau für morgen (`forecast[1]`) und der
+    nächste Termin kommen aus der Front. Die Energie stammt vom ersten
+    Energieflussmonitor bzw. Energiemanager der Seite, sonst der Anlage
+    (`_haus_energie()`): Verbrauch groß, Erzeugung klein, in Watt aus
+    `energy_blocks()["totals"]`, ein Tipp öffnet ihn.
+  - **„Gerade aktiv“:** alle Bausteine der Seite, die an sind **und** sich
+    abschalten lassen. Was als abschaltbar gilt, steht einmal in `HAUS_AUS`
+    (Befehl und Beschriftung der Taste: Switch, TimedSwitch, Dimmer `off`,
+    LightControllerV2 `changeTo/778`, Audio-Zonen `pause`, Sauna `off`). Die
+    Lüftung hat keinen Aus-Befehl und bleibt Anzeige. Die Zeile scrollt nie
+    waagerecht, dort blättert der Wisch die Seiten: Sie zeigt so viele Karten
+    wie Spalten passen (`hausLage()`, Mindestbreite `HS_AKTIV_MIN`), bei mehr
+    wird die letzte Stelle „+n weitere“. Ein Tipp darauf öffnet die
+    Unterseite (`liste:"aktiv"` in der Route) mit allen untereinander, ist
+    dort nichts mehr an, geht es zurück. Daneben die Zentral-Tasten „Lichter
+    aus“ und „Zonen aus“ (`HAUS_ZENTRAL`), nur wenn die Seite solche Bausteine
+    zeigt. Sie schicken `hausaus`; der Server schaltet jeden, der an ist, ohne
+    gesicherte.
+  - **Raumkarten:** je Raum mit sichtbaren Bausteinen eine Karte (Raumfilter
+    der Ansicht wie beim Tab „Räume“). Der Hauptwert kommt aus
+    `_haus_hauptwert()`: die Ist-Temperatur der Raumregelung bzw. Sauna
+    (`big`), sonst der Zustand des ersten Bausteins, der an ist, sonst der
+    erste Zustand. Darunter bis zu `HAUS_SYMBOLE` Symbole, abschaltbare zuerst,
+    und „n an“. Ein Tipp öffnet die Raumseite (`group`/`room`). Die
+    Spaltenzahl wählt `hausLage()`: die, deren Karten dem Seitenverhältnis
+    `HS_RAUM_SEITE` am nächsten kommen, ohne unter `HS_RAUM_HOCH` zu
+    schrumpfen; passt das nicht, scrollen die Karten senkrecht.
+  - **Spieler:** die gewählte Zone (Route `zone`), sonst die erste, die
+    spielt. Inhalt aus `player_blocks()`, also dieselben Befehle wie auf der
+    Detailseite. Quer ab 860 px Breite steht er als Spalte rechts mit
+    Zonenliste, sonst als Leiste unten, die eine Taste durch die Zonen
+    schaltet. Ein Zonenwechsel ersetzt die Route, statt eine Seite auf den
+    Stapel zu legen.
+  - **Maßstab:** `--hk` aus der kleineren Seite der Fläche (iPad 1, großes
+    Display bis 1,5, 4″ nicht unter 0,7). Tasten sind nie kleiner als 44 px.
+  - **Farben:** wie die Kacheln des Sets. Eine aktive Karte bekommt
+    `--kachel-an` (ohne Set getönt), ihr Zustand `--an-text`, das Symbol
+    `--glow`. Im Aufbau „mitte“ kippt sie mit `--kachel-an-ink`/`-muted`, im
+    Aufbau „kreis“ steht ein aktives Symbol im `--glow`-Kreis.
+  - **Live:** Die Seite besteht aus benannten Blöcken (`data-hb`). Kommt
+    dieselbe Seite neu, tauscht `updateHaus()` nur die Blöcke, deren HTML sich
+    geändert hat, solange Lage und Blockfolge (`hausSig()`) gleich bleiben;
+    bedient wird über einen Klick-Verteiler (`hausKlick()`).
+  - Geprüft in `tests/test_haus.py` (Anlage `lox.haus_anlage()`) und
+    `tests/browser/test_haus_browser.py`: iPad quer und hochkant und großes
+    Display, ohne Set und in jedem Set; kein waagerechtes Scrollen, Tasten ab
+    44 px, nichts abgeschnitten; Bedienen am Miniserver-Nachbau, Tausch nur
+    des geänderten Blocks. Die Lesbarkeit aller Texte in allen Sets misst
+    `test_kachel_set_kontrast_browser.py` (Ansicht `haus`).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;
