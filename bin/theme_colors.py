@@ -384,6 +384,10 @@ def _derive(grundfarbe: str) -> tuple | None:
 #   --kreis-an-symbol Symbol im Kreis einer aktiven Kachel (Aufbau "kreis")
 #   --kachel-an-muted Zweitzeile auf der aktiven Kachel (Aufbau "mitte")
 #   --tab-an, --tab-aus  Symbole der Leiste "oben"
+#   --rahmen          Rahmen um das Feld (Leiste "oben") und Grund ausserhalb
+#                     des Kastens. Nur Flaeche, nie Grund von Text: Text steht
+#                     auf --bg (Uhr-Seite, PIN), und --bg traegt --ink wie
+#                     --screen. Fehlt --rahmen, ist es --bg.
 #   masse: --kachel-radius (bei 170-px-Kachel), --taste-radius,
 #   --kachel-schatten, --kachel-abstand, --feld-innen (Abstand und Innenrand
 #   des Rasters), --tabs-hoehe, --tab-symbol, --pille-h (Leiste "pille"),
@@ -428,7 +432,7 @@ KACHEL_SETS = {
         # Farbton ist der gewaehlte. "schritt" ist die Richtung, in der die
         # Helligkeit wandert (+1 heller, -1 dunkler), bis "ziel" erreicht ist.
         "satz": {
-            "rahmen": "#0b0b0b",                                  # Tab-Leiste und Rand
+            "rahmen": "#0b0b0b",                                  # Tab-Leiste und Rand (--rahmen)
             "ink": (35, 12),
             "kachel": {"s": 42, "l": 70, "bis": 93, "ziel": AAA},  # ink darauf
             "feld": {"s": 42, "plus": 5, "bis": 95},                # Flaeche hinter den Kacheln
@@ -516,7 +520,7 @@ def _touch_satz(farbton: int, aktiv_hell: bool) -> tuple:
     return tuple({
         "--ink": ink, "--tile": tile, "--screen": feld, "--taste": taste,
         "--kachel-an": an, "--kachel-an-ink": an_ink, "--kachel-an-muted": an_muted,
-        "--bg": p["rahmen"], "--tabbar": p["rahmen"], "--tab-aus": tab_aus,
+        "--rahmen": p["rahmen"], "--tabbar": p["rahmen"], "--tab-aus": tab_aus,
     }.items())
 
 
@@ -534,7 +538,8 @@ def _ergaenzen(v: dict, kippt: bool) -> dict:
     eigene Schrift (Aufbau "mitte"), dort steht keine Zweitzeile."""
     hell = luminanz(v["--tile"]) > 0.18           # helle Kacheln -> dunkle Schrift
     richtung, basis = (-1, 0.55) if hell else (1, 0.45)
-    v.setdefault("--bg", v["--screen"])
+    v.setdefault("--bg", v["--screen"])       # Grund der Uhr-Seite: traegt dieselbe Schrift
+    v.setdefault("--rahmen", v["--bg"])
     v.setdefault("--kachel-an", v["--tile"])
     v.setdefault("--wash", "0,0,0" if hell else "255,255,255")
     v.setdefault("--line", f"rgba({v['--wash']},{LINIE_DECKUNG:g})")
@@ -572,12 +577,12 @@ def _ergaenzen(v: dict, kippt: bool) -> dict:
     if "--crit-muted" not in v:
         v["--crit-muted"] = v["--muted"] if kontrast(v["--muted"], v["--crit-fill"]) >= AA \
             else _schiebe(v["--muted"], [v["--crit-fill"]], AA, f_richtung)
-    v.setdefault("--on-glow", _schrift_auf(v["--glow"]))
-    v.setdefault("--on-accent", _schrift_auf(v["--accent"]))
+    v.setdefault("--on-glow", schrift_auf(v["--glow"]))
+    v.setdefault("--on-accent", schrift_auf(v["--accent"]))
     return v
 
 
-def _schrift_auf(flaeche: str) -> str:
+def schrift_auf(flaeche: str) -> str:
     """Text auf einer Rollenfarbe (OK-Taste der PIN auf --glow): die Gegenfarbe,
     nachgeregelt, bis sie AA traegt - _gegenfarbe() kennt nur zwei Helligkeiten."""
     schrift = _gegenfarbe(flaeche)
@@ -638,6 +643,17 @@ def kachel_set_kachel(name, farbton=None, aktiv=None) -> str:
     return v["--tile"] if v else ""
 
 
+def kachel_set_vorschau(name, farbton=None, aktiv=None) -> dict:
+    """Farben fuer die Vorschau eines Sets im Konfigurator (Auswahlkarte):
+    Rahmen, Flaeche, Kachel, aktive Kachel und Akzent, wie die Visu sie
+    zeigt. {} ohne Set."""
+    v = kachel_set(name, farbton, aktiv)
+    if not v:
+        return {}
+    return {"rahmen": v["--rahmen"], "flaeche": v["--screen"], "kachel": v["--tile"],
+            "an": v["--kachel-an"], "akzent": v["--glow"]}
+
+
 def kachel_set_art(name) -> tuple[str, str]:
     """(aufbau, leiste) eines Kachel-Sets, ("", "") ohne Set."""
     eintrag = KACHEL_SETS.get(name) if isinstance(name, str) else None
@@ -650,14 +666,15 @@ VERLAUF_SCHRITT = 30
 
 def kachel_set_liste() -> list[dict]:
     """Auswahl fuer den Konfigurator in Definitionsreihenfolge: {key, label,
-    info, aufbau, leiste, masse, groessen}. Ein Set mit Rechnung bringt dazu farbton (Standard,
+    info, aufbau, leiste, masse, groessen, vorschau}. Ein Set mit Rechnung bringt dazu farbton (Standard,
     Schnellwahl je mit der Kachelfarbe "farbe", "verlauf" als Kachelfarben in
     VERLAUF_SCHRITT-Stufen fuer den Regler) und aktiv (Standard, Auswahl) mit -
     die Farben rechnet touch_satz(), der Konfigurator zeigt sie nur."""
     liste = []
     for k, e in KACHEL_SETS.items():
         eintrag = {"key": k, "label": e["label"], "info": e["info"], "aufbau": e["aufbau"], "leiste": e["leiste"],
-                   "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {})}
+                   "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {}),
+                   "vorschau": kachel_set_vorschau(k)}
         if "satz" in e:
             hell = e["aktiv"]["standard"] == "hell"
             eintrag["farbton"] = {

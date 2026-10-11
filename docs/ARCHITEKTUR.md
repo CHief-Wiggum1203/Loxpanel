@@ -1038,6 +1038,20 @@ verlangt er nur beim Aufbau `lx`, wo allein die Tönung „aktiv“ zeigt: Bei
 `mitte` und `kreis` trägt die Form den Zustand, und die festen Farben von
 „Kreide“ (Orange, Grün, Grau) fallen unter Deuteranopie zusammen.
 
+Text steht nie auf dem Rahmen. `--bg` ist der Grund der Uhr-Seite, der PIN
+und der Seite außerhalb der Kacheln und trägt dieselbe Schrift wie `--screen`
+(`_paare()`: Schrift AAA, Zweitzeile AA). Der dunkle Rand um das Feld bei
+„touch“ ist eine eigene Rolle, `--rahmen` (fehlt sie, gilt `--bg`), die nur
+Kasten, Seitengrund und Leiste färbt. Vorher war der Rand `--bg`, und die
+Uhr-Seite stand mit dunkler Schrift auf Schwarz. `--on-accent` gilt nur auf
+vollem `--accent`; zu einer eingestellten OK-Farbe rechnet `_theme_vars()`
+es mit `schrift_auf()` nach. `tests/browser/test_kachel_set_kontrast_browser.py`
+misst im Browser jeden sichtbaren Text jeder Ansicht (Raster, Uhr-Seite,
+Kalender- und Wetter-Tab, Front daneben, Kopfzeile, Detailseite, PIN) gegen
+die Fläche, auf der er wirklich steht: ohne Set, mit jedem festen Set und mit
+„touch“ in jedem Farbton der Schnellwahl und beiden Arten der aktiven Kachel.
+Verlangt sind AA, für große Schrift 3:1.
+
 ---
 
 ## 6. Loxone-Bausteine
@@ -1238,9 +1252,10 @@ Assistenten des Konfigurators.
   in Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leisten `pille`
   und `oben` haben ihre Höhe und Symbolgröße aus dem Set, Zurück ist ein
   Symbol wie die Tabs. Leiste `oben`: die Tabs stehen in Zeile 1, der Kasten
-  ist der Rahmen (`--bg`, Innenabstand aus dem Set), das Raster darin das
-  abgerundete Feld (`--screen`); Kopfzeile, Werteleiste und Widget stehen auf
-  dem Rahmen; jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
+  ist der Rahmen (`--rahmen`, Innenabstand aus dem Set), das Raster darin das
+  abgerundete Feld (`--screen`), die Uhr-Seite ein Feld im selben Rahmen;
+  Kopfzeile, Werteleiste und Widget stehen auf dem Rahmen, in den Farben der
+  Tabs; jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
   quer und hochkant, Widget-Seite) rückt eine Zeile nach unten. Leiste
   `links`: Breite `--rail-breite` (schmal `--rail-breite-schmal`, nur
   Symbole), Zurück unten, der aktive Eintrag mit Symbol in der Akzentfarbe;
@@ -1795,17 +1810,27 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Inhalt (untere Leiste, Räume, Kategorien, Widget/Kopfzeile/Werteleiste je
   Standard-Seite in `#panePerTab`), Seiten (Seiten-Editor samt `#sePaneBox` für
   die gewählte freie Seite), Raster (Kachel-Layout, Zielkachel, Bildschirm
-  füllen, Skalierung, Split, Widget-Breite, Versatz), Aussehen (Grundfarbe,
-  Schrift und Größen, Kachel-Aufbau, Kachel-Set, Kacheln gestalten, Aktiv-Overlay) und
+  füllen, Skalierung, Split, Widget-Breite, Versatz), Aussehen (Kachel-Set,
+  Farbe und Aufbau, Schrift, Größen, Kacheln gestalten, Aktiv-Overlay) und
   Verhalten (Screensaver, Display aus, Nacht, Auto-Neustart, PIN merken). Jedes
   Feld steht in genau einem Reiter, die Feld-IDs sind seit Schritt 2 gleich
-  geblieben; `test_reiter_ansicht_browser.py` hält beides fest. Das Kachel-Set
-  (`#fTileSet`) kommt aus `/api/meta` (`kachelSets`) mit seiner Beschreibung;
-  bei einem Set mit Farbton (touch) erscheinen darunter Regler auf dem Verlauf
-  der Kachelfarben, Schnellwahl, „Aktive Kachel“ hell oder dunkel und
-  „Nachgerechnet“ (`kachelSetExtraHtml()`, Werte von `/api/kachelset`); mit Set
-  ist der Kachel-Aufbau gesperrt, leere Größenfelder zeigen die Größen des Sets
-  (`sizeStd()`). `renderPanes()`
+  geblieben; `test_reiter_ansicht_browser.py` hält beides fest. Aussehen ist in
+  Gruppen gegliedert (`aussehenGruppe()`: Überschrift, Felder, ein kurzer
+  Hinweis, Erklärungen zum Aufklappen), zuerst das Kachel-Set, weil es Farben,
+  Aufbau und Standardgrößen bestimmt. Es wird über Karten gewählt
+  (`kachelSetKarten()`, `data-ks-set`): „Eigene Farben“ ohne Set und jedes Set aus
+  `/api/meta` (`kachelSets`) mit Name, Beschreibung und einer Vorschau in den
+  Farben, die die Visu malt (`kachel_set_vorschau()`: Rahmen, Fläche, Kachel,
+  aktive Kachel, Akzent). Bei einem Set mit Farbton (touch) erscheinen darunter
+  Regler auf dem Verlauf der Kachelfarben, Schnellwahl, „Aktive Kachel“ hell oder
+  dunkel und „Nachgerechnet“ (`kachelSetExtraHtml()`, Werte von `/api/kachelset`,
+  das auch die Vorschau der Karte nachzieht). Mit Set weicht die Gruppe „Farbe und
+  Aufbau“ (Grundfarbe, Kachel-Aufbau, `#fAgFarbe`) einem Hinweis (`#fAgAusSet`),
+  der Kachel-Aufbau ist gesperrt, leere Größenfelder zeigen die Größen des Sets
+  (`sizeStd()`). Vorgaben → Darstellung gliedert dasselbe in Grundfarbe, Sprache,
+  Schrift und Größen (`appearanceFields()`), der Assistent zeigt dieselben Karten.
+  `test_aussehen_reiter_browser.py` prüft Reihenfolge, Ausblenden, Überlappung
+  und Überlauf am iPad quer und hochkant. `renderPanes()`
   zeichnet `paneListe()` zweimal: Standard-Seiten unter Inhalt, die freie Seite
   im Seiten-Editor.
 - **Vorgaben als Rubrik** (seit 10.10.2026, Schritt 5): Die Vorgaben stehen nicht

@@ -154,8 +154,8 @@ def test_set_am_geraet(name, geraet, tmp_path):
         assert mit["pille"] == _rgb(v["--tabbar"]) and abs(tb["bottom"] - s["bottom"]) < 1, mit
         assert abs(float(mit["pilleH"].rstrip("px")) - _mass(name, "--pille-h", breite)) < 0.6, mit["pilleH"]
     if leiste == "oben":
-        # Rahmen (--bg) um das Feld der Kacheln (--screen), die Tabs darauf
-        assert mit["schirmFarbe"] == _rgb(v["--bg"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
+        # Rahmen (--rahmen) um das Feld der Kacheln (--screen), die Tabs darauf
+        assert mit["schirmFarbe"] == _rgb(v["--rahmen"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
         assert mit["rahmen"] == [_mass(name, "--rahmen-seite", breite)] * 2 + [_mass(name, "--rahmen-unten", breite)], mit
         assert mit["tabAn"] == _rgb(v["--tab-an"]) and mit["tabAus"] == _rgb(v["--tab-aus"]), mit
         assert abs(tb["top"] - s["top"]) < 1 and g["top"] >= tb["bottom"] - 0.5, (tb, g)
@@ -337,9 +337,11 @@ OFFEN = "document.querySelector('#offenTxt').textContent"
 
 
 def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
-    """Auswahl aus /api/meta, Farbton und aktive Kachel nur beim Set mit
-    Rechnung, Schnellwahl und Regler, der Kachel-Aufbau gilt mit Set nicht.
-    Gespeichert wird nur, was vom Standard abweicht."""
+    """Auswahl als Karten aus /api/meta (Beschreibung, Vorschau), Farbton und
+    aktive Kachel nur beim Set mit Rechnung, Schnellwahl und Regler; mit Set
+    weicht die Gruppe Grundfarbe und Kachel-Aufbau einem Hinweis, die
+    Vorschau der Karte zieht mit dem Farbton mit. Gespeichert wird nur, was
+    vom Standard abweicht."""
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"]}}}),
                                             encoding="utf-8")
     liste = TC.kachel_set_liste()
@@ -367,13 +369,18 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.locator("#plist .pitem", has_text="?panel=flur").click()
                 await pg.locator(".stab[data-sub='aussehen']").click()
-                st["optionen"] = await pg.eval_on_selector_all("#fTileSet option", "l => l.map(o => o.value)")
+
+                async def sichtbar():
+                    return [await pg.locator("#fAgFarbe").is_visible(), await pg.locator("#fAgAusSet").is_visible()]
+                st["optionen"] = await pg.eval_on_selector_all("#pconfHost [data-ks-set]", "l => l.map(o => o.dataset.ksSet)")
                 st["ohne"] = [await pg.locator("#fKsExtra [data-ks-hue]").count(),
-                              await pg.locator("#fTileLayout").is_disabled()]
-                await pg.select_option("#fTileSet", fest["key"])
+                              await pg.locator("#fTileLayout").is_disabled(), *await sichtbar()]
+                await pg.locator(f"#pconfHost [data-ks-set='{fest['key']}']").click()
                 st["fest"] = [await pg.locator("#fKsExtra [data-ks-hue]").count(),
-                              await pg.locator("#fTileLayout").is_disabled(), await pg.locator("#fKsInfo").text_content()]
-                await pg.select_option("#fTileSet", satz["key"])
+                              await pg.locator("#fTileLayout").is_disabled(), *await sichtbar(),
+                              await pg.locator(f"#pconfHost [data-ks-set='{fest['key']}'] .ks-info").text_content(),
+                              await pg.locator(f"#pconfHost [data-ks-set='{fest['key']}']").get_attribute("aria-pressed")]
+                await pg.locator(f"#pconfHost [data-ks-set='{satz['key']}']").click()
                 st["satz"] = [await pg.locator("#fKsExtra [data-ks-hue]").input_value(),
                               await pg.eval_on_selector_all("#fKsExtra [data-ks-ton]", "l => l.map(b => b.textContent)"),
                               await pg.eval_on_selector_all("#fKsExtra [data-ks-aktiv]", "l => l.map(b => b.textContent)")]
@@ -388,6 +395,9 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
                                            arg=json.dumps(nachgerechnet, ensure_ascii=False, separators=(",", ":")))
                 st["pruefung"] = await pg.eval_on_selector_all("#fKsExtra [data-ks-paar] b", "l => l.map(b => b.textContent)")
                 st["wert"] = await pg.locator("#fKsExtra [data-ks-wert]").text_content()
+                # die Karte zeigt den gewaehlten Farbton (Kachel der Vorschau)
+                st["mini"] = await pg.eval_on_selector(f"#pconfHost [data-ks-set='{satz['key']}'] [data-ks-mini] i",
+                                                       "i => getComputedStyle(i).backgroundColor")
                 await pg.screenshot(path=str(tmp_path / "konfigurator_kachel_set.png"), full_page=True)
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
@@ -406,12 +416,13 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
         return st
     st = asyncio.run(lauf())
     assert st["optionen"] == [""] + [s["key"] for s in liste], st["optionen"]
-    assert st["ohne"] == [0, False], "ohne Set kein Farbton, Kachel-Aufbau waehlbar"
-    assert st["fest"][:2] == [0, True] and st["fest"][2] == fest["info"], st["fest"]
+    assert st["ohne"] == [0, False, True, False], "ohne Set kein Farbton, Grundfarbe und Kachel-Aufbau waehlbar"
+    assert st["fest"] == [0, True, False, True, fest["info"], "true"], st["fest"]
     assert st["satz"] == [str(satz["farbton"]["standard"]), [f["label"] for f in satz["farbton"]["auswahl"]],
                           [a["label"] for a in satz["aktiv"]["auswahl"]]], st["satz"]
     assert st["ton"][0] == str(wahl["wert"]) and st["ton"][1].startswith(f"{wahl['wert']}°") and "on" in st["ton"][2], st["ton"]
     assert st["pruefung"] == nachgerechnet, st["pruefung"]
+    assert st["mini"] == _rgb(TC.kachel_set_vorschau(satz["key"], wahl["wert"], anders)["kachel"]), st["mini"]
     assert st["wert"] == f"{wahl['wert']}° · " + TC.kachel_set_kachel(satz["key"], wahl["wert"], anders), st["wert"]
     assert st["gespeichert"] == {"tileSet": satz["key"], "tileHue": wahl["wert"], "tileActive": anders}, st["gespeichert"]
     assert st["standard"] == {"tileSet": satz["key"], "tileActive": anders}, st["standard"]
