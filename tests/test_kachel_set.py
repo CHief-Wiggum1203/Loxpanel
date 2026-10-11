@@ -219,6 +219,8 @@ def _paare(name: str, v: dict) -> list:
     k = []
     # Schrift auf Flaeche, Kachel, Taste; Zweitzeile ebenso
     k += [("--ink", "--screen", TC.AAA, "Schrift auf der Flaeche")]
+    # Grund der Uhr-Seite und der PIN; der Rahmen (--rahmen) traegt keinen Text
+    k += [("--ink", "--bg", TC.AAA, "Schrift auf dem Grund"), ("--muted", "--bg", TC.AA, "Zweitzeile auf dem Grund")]
     k += [("--ink", f, TC.AA, "Schrift") for f in ("--tile", "--taste")]
     k += [("--muted", f, TC.AA, "Zweitzeile") for f in ("--tile", "--screen")]   # auf der Taste nur Symbole
     if aufbau == "mitte":
@@ -291,5 +293,17 @@ def test_touch_satz_folgt_der_rechnung(aktiv_hell):
         assert v["--kachel-an"] == TC._hsl(h, *a["flaeche"]), h
         assert TC.kontrast(v["--kachel-an-ink"], v["--kachel-an"]) >= a["ziel"], h
         assert TC.kontrast(v["--tab-aus"], p["rahmen"]) >= p["tab_aus"]["ziel"], h
-        assert v["--tabbar"] == v["--bg"] == p["rahmen"]
+        assert v["--tabbar"] == v["--rahmen"] == p["rahmen"]
+        # Text steht nie auf dem Rahmen: der Grund (Uhr-Seite, PIN) ist das Feld
+        assert TC.kachel_set("touch", h, "hell" if aktiv_hell else "dunkel")["--bg"] == v["--screen"], h
     assert TC.touch_satz(361, aktiv_hell) == TC.touch_satz(1, aktiv_hell)
+
+
+@pytest.mark.parametrize("ui", [{}, {"baseColor": "#f4efe6"}, {"tileSet": "touch"}, {"tileSet": "kreide"}])
+@pytest.mark.parametrize("farbe", ["#1f6d3c", "#9fe0b0"])
+def test_schrift_auf_eingestellter_ok_farbe(ui, farbe):
+    """Eine eingestellte OK-Farbe zieht den Akzent mit (Kalender "heute",
+    Entwurfsmarke) - und die Schrift darauf mit ihr, mit oder ohne Set."""
+    v = W.App._theme_vars({**W.DEFAULT_THEME["states"], "good": farbe}, ui)
+    assert v["--accent"] == farbe
+    assert TC.kontrast(v["--on-accent"], farbe) >= TC.AA, (ui, farbe, v["--on-accent"])

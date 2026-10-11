@@ -154,8 +154,8 @@ def test_set_am_geraet(name, geraet, tmp_path):
         assert mit["pille"] == _rgb(v["--tabbar"]) and abs(tb["bottom"] - s["bottom"]) < 1, mit
         assert abs(float(mit["pilleH"].rstrip("px")) - _mass(name, "--pille-h", breite)) < 0.6, mit["pilleH"]
     if leiste == "oben":
-        # Rahmen (--bg) um das Feld der Kacheln (--screen), die Tabs darauf
-        assert mit["schirmFarbe"] == _rgb(v["--bg"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
+        # Rahmen (--rahmen) um das Feld der Kacheln (--screen), die Tabs darauf
+        assert mit["schirmFarbe"] == _rgb(v["--rahmen"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
         assert mit["rahmen"] == [_mass(name, "--rahmen-seite", breite)] * 2 + [_mass(name, "--rahmen-unten", breite)], mit
         assert mit["tabAn"] == _rgb(v["--tab-an"]) and mit["tabAus"] == _rgb(v["--tab-aus"]), mit
         assert abs(tb["top"] - s["top"]) < 1 and g["top"] >= tb["bottom"] - 0.5, (tb, g)

@@ -21,7 +21,7 @@
        Tab-Leiste unten ab. Aeltere Kiosk-Browser kennen nur vh. */
     --vh:100vh;
     --bg:#0d120e; --screen:#0f1512; --line:rgba(var(--wash,255,255,255),.08);
-    --ink:#e7ede7; --muted:#9fb0a4; --glow:#e0a24d; --accent:#52b881;
+    --ink:#e7ede7; --muted:#9fb0a4; --glow:#e0a24d; --accent:#52b881; --on-accent:#08130c;
     --good:#52b881; --crit:#e2695f;
     --tile:rgba(var(--wash,255,255,255),.045);
     /* Deckfarbe der Auflagen: Weiss hebt auf dunklem Grund ab, Schwarz auf
@@ -39,7 +39,7 @@
   @media (hover:none),(pointer:coarse){ *{cursor:none !important;} }
   @supports (height:100dvh){ :root{--vh:100dvh;} }
   body.touch *{cursor:none !important;}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  html,body{margin:0;height:100%;background:var(--rahmen,var(--bg));color:var(--ink);
     font-family:var(--font,"Inter","Roboto","Segoe UI Variable Text",-apple-system,"Segoe UI",system-ui,sans-serif);
     display:grid;place-items:center;-webkit-font-smoothing:antialiased;}
   .screen{
@@ -834,14 +834,17 @@
   html[data-kachelset-leiste="pille"] .screen.kopf .kopfzeile{background:transparent;border-bottom-color:transparent;}
   /* Leiste "oben": die Tab-Leiste steht in der ersten Zeile des Kastens, nur
      Symbole: aktiv --tab-an, sonst --tab-aus. Der Kasten ist der Rahmen
-     (--bg, --rahmen-seite und -unten), das Raster darin das Feld der Kacheln
-     (--screen, --feld-radius); autoRaster zieht den Rahmen ab. Kopfzeile,
+     (--rahmen, --rahmen-seite und -unten), das Raster darin das Feld der Kacheln
+     (--screen, --feld-radius); autoRaster zieht den Rahmen ab. Die Uhr-Seite
+     liegt als Feld im selben Rahmen, ihr Text auf --bg. Kopfzeile,
      Werteleiste und Widget stehen auf dem Rahmen, Schrift in den Farben der
      Tabs. Jede Zeilen-Variante (kopf, leiste, split, hoch, Widget-Seite)
      rueckt um eine Zeile nach unten. */
-  html[data-kachelset-leiste="oben"] .screen{background:var(--bg);
+  html[data-kachelset-leiste="oben"] .screen{background:var(--rahmen,var(--bg));
     padding:0 var(--k-rahmen-seite,0px) var(--k-rahmen-unten,0px);}
   html[data-kachelset-leiste="oben"] #grid{background:var(--screen);border-radius:var(--k-feld-radius,0px);}
+  html[data-kachelset-leiste="oben"] .saver{border-radius:var(--k-feld-radius,0px);
+    inset:var(--k-rahmen-seite,0px) var(--k-rahmen-seite,0px) var(--k-rahmen-unten,0px);}
   html[data-kachelset-leiste="oben"] #tabs{border-top:0;background:transparent;
     padding-bottom:0;padding-top:env(safe-area-inset-top,0px);}
   html[data-kachelset-leiste="oben"] .tab{color:var(--tab-aus,var(--muted));}
@@ -1101,7 +1104,8 @@
     display:grid;place-items:center;border-radius:50%;cursor:pointer;font-size:32px;line-height:1;
     color:var(--muted);border:2px solid var(--line);background:rgba(var(--wash,255,255,255),.04);
     transition:color .15s,border-color .15s,background .15s;}
-  .tabback.on{color:var(--on-accent,#fff);border-color:var(--accent);background:rgba(var(--accent-rgb,82,184,129),.14);}
+  /* Schrift wie auf der Leiste: --on-accent gilt nur auf vollem --accent, hier liegt eine Toenung */
+  .tabback.on{color:var(--ink);border-color:var(--accent);background:rgba(var(--accent-rgb,82,184,129),.14);}
   .tabback:active{transform:scale(.94);}
   .back:active{background:rgba(0,0,0,.65);}
   /* Tabs */
@@ -1155,7 +1159,7 @@
      Etikett oben links ueber der Visu. Schwebt, nimmt keinen Platz und faengt
      keine Beruehrung ab - das Raster misst sich wie ohne Etikett. */
   .entwurfmarke{position:fixed;top:6px;left:6px;z-index:60;pointer-events:none;padding:3px 9px;border-radius:10px;
-    font-size:11px;font-weight:700;letter-spacing:.3px;background:var(--accent);color:var(--bg);opacity:.92;}
+    font-size:11px;font-weight:700;letter-spacing:.3px;background:var(--accent);color:var(--on-accent,var(--bg));opacity:.92;}
   .entwurfmarke.hidden{display:none;}
   .entwurfmarke.alt{background:var(--crit,#e2695f);color:#fff;}
   .saver{position:absolute;inset:0;z-index:30;background:var(--bg);
@@ -1305,8 +1309,9 @@
   .sv-ev .when .day{font-size:12px;color:var(--muted);}
   .sv-ev .when .tm{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1;}
   .sv-ev .ttl{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* Ohne Toenung: --accent ist gegen --tile nachgerechnet, nicht gegen eine Auflage */
   .sv-ev .tag{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
-    border:1px solid rgba(var(--accent-rgb,82,184,129),.4);background:rgba(var(--accent-rgb,82,184,129),.10);
+    border:1px solid rgba(var(--accent-rgb,82,184,129),.4);
     border-radius:999px;padding:2px 8px;white-space:nowrap;}
   /* Zweite Spalte, wenn dort nicht die Termine stehen: Wetter-Details,
      Energiefluss, Kamera oder frei gewaehlte Bausteine. Eigener Container neben

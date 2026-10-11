@@ -2606,6 +2606,9 @@ class App:
             _rgb = _hex_rgb(_gewaehlt("good"))
             if _rgb:
                 v["--accent-rgb"] = _rgb
+                # Schrift auf dem Akzent (Kalender "heute", Entwurfsmarke)
+                # zieht mit, sonst bleibt sie fuer den alten Akzent gerechnet
+                v["--on-accent"] = theme_colors.schrift_auf(_gewaehlt("good"))
         # Groessen in px: Panel, sonst global, sonst der Standard des Kachel-Aufbaus
         std = GROESSEN_STANDARD["classic" if _kachel_klassisch(ui) else "neu"]
         # ... ein Kachel-Set bringt eigene Standardgroessen mit (KACHEL_SETS "groessen")
