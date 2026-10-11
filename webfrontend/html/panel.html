@@ -2981,7 +2981,10 @@ function renderTabs(){
       const m = tabMeta[tk]; if(!m) return '';   // dynamischer Tab (Kategorie/Raum)
       // Ohne Bild aus Loxone: Raum bekommt das Raum-Symbol, Kategorie den Wuerfel -
       // sonst sehen ein Raum- und ein Kategorie-Tab identisch aus.
-      const fallback = isPick(tk)
+      const fallback = m.haus
+        // freie Seite mit der Hausuebersicht: dasselbe Haus wie der Tab "haus"
+        ? TABS.find(x => x.tab==='haus').icon
+        : isPick(tk)
         // Checkliste: klar unterscheidbar von Favoriten-Stern, Haus, Raum und
         // Kategorie-Wuerfel. Die freie Auswahl hat kein Bild aus Loxone, weil
         // sie weder Raum noch Kategorie ist - dieses Symbol gilt immer.
@@ -3096,6 +3099,8 @@ function applyHoch(){
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
 function paneRawNow(){ if(view && view.widget) return view.widget;
+  // Die Hausuebersicht bringt Kopf und Spieler selbst mit: keine Pane, keine Kopfzeile
+  if(view && view.layout==='haus') return null;
   const v=paneForTab(activeTab());
   // Die Kopfzeile ist keine Pane: sie gilt auch mit Split "Aus" (4"-Panel),
   // ein Widget daneben nur im 2-Pane-Betrieb.

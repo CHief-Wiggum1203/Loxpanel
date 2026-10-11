@@ -127,3 +127,25 @@ def test_energie_im_kopf():
     e = _haus(_app())["energie"]
     assert e["id"] == "F" and e["label"] == "Energieflussmonitor"
     assert e["wert"] == "PV 0,00 kW · Bezug 0,80 kW" and e["nav"] == {"view": "control", "id": "F"}
+
+
+def test_freie_seite_als_hausuebersicht():
+    """Eine Seite der eigenen Auswahl kann die Hausuebersicht sein (Seiten-
+    Editor, Seiteninhalt "Hausuebersicht"): sie bleibt beim Speichern und im
+    Export, ihre Route samt Zone und Unterseite fuehrt zur Hausseite, die
+    Leiste zeigt ohne eigenes Symbol das Haus."""
+    app = _app()
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl", "auswahl2"], "pickTabs": [
+        {"name": "Licht", "picks": ["LA"]}, {"name": "Unser Haus", "picks": [], "widget": "haus"}]}})
+    seiten = app.panels["p"]["pickTabs"]
+    assert seiten[1] == {"name": "Unser Haus", "picks": [], "widget": "haus"}
+    assert app._panel_export(app.panels["p"])["pickTabs"][1]["widget"] == "haus"
+    prof = app.resolve_profile("p")
+    v = app.render({"view": "tab", "tab": "auswahl2", "zone": "AB", "liste": "aktiv"}, prof)
+    assert (v["layout"], v["title"], v["tab"], v["liste"]) == ("haus", "Unser Haus", "auswahl2", "aktiv")
+    assert v["spieler"]["zone"] == "AB" and len(v["aktiv"]) == 4
+    assert app._view_tab("auswahl2", prof)["layout"] == "haus"
+    # die andere Seite bleibt eine Kachelseite
+    assert app.render({"view": "tab", "tab": "auswahl"}, prof).get("layout") is None
+    meta = app._tab_meta(["auswahl", "auswahl2"], prof)
+    assert meta["auswahl2"]["haus"] is True and "haus" not in meta["auswahl"]

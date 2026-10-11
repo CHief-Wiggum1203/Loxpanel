@@ -1795,7 +1795,7 @@ function renderEditor(){
    '<section class="spane" data-sub="seiten"><div class="card se-karte"><h3>'+T('Seiten-Editor')+'</h3>'+
      '<p class="note">'+T('Ordnet die freien Seiten (Eigene Auswahl) so an, wie das gewählte Gerät sie zeigt: Bausteine aus der Liste auf die Fläche ziehen, Kacheln verschieben, Größe 1 × 1, 2 × 1 oder 2 × 2 wählen, ein Widget daneben setzen.')+'</p>'+
      '<div id="seHinweis"></div><div class="se-host" id="seHost"></div>'+
-     '<div class="grph">'+T('Widget, Kopfzeile, Werteleiste dieser Seite')+'</div>'+
+     '<div class="grph" id="sePaneKopf">'+T('Widget, Kopfzeile, Werteleiste dieser Seite')+'</div>'+
      '<div class="cclist" id="sePaneBox"></div></div></section>'+
 
    '<section class="spane" data-sub="raster"><div class="card"><h3>'+T('Raster')+'</h3>'+
@@ -2183,8 +2183,13 @@ function renderPanes(p){
 }
 function sePaneZeichnen(p){
   if(!p || p.__global) return;   // ohne ensurePickTabs: Zeichnen allein aendert die Ansicht nicht
+  // Hausuebersicht: Kopf und Spieler hat sie selbst, ein Widget daneben,
+  // Kopfzeile oder Werteleiste gibt es fuer sie nicht
+  const haus=((p.pickTabs||[])[curPickIdx]||{}).widget==='haus', kopf=$('#sePaneKopf'), box=$('#sePaneBox');
+  if(kopf) kopf.hidden=haus;
+  if(haus){ if(box) box.innerHTML=''; return; }
   // die Werte der Kopfzeile waehlt der Seiten-Editor auf seiner Flaeche, hier nicht noch einmal
-  paneListe(p, $('#sePaneBox'), [pickKey(curPickIdx)], '', ()=>seReiterZeichnen(), {kopfWerte:false});
+  paneListe(p, box, [pickKey(curPickIdx)], '', ()=>seReiterZeichnen(), {kopfWerte:false});
 }
 // Name einer Seite der Leiste: Standard-Seite aus META.tabs, freie Seite ihr eigener
 function seitenName(p, tk){
@@ -2921,7 +2926,8 @@ function ensurePickTabs(p){
 }
 function curPT(p){ const t=ensurePickTabs(p); if(curPickIdx>=t.length) curPickIdx=t.length-1; if(curPickIdx<0) curPickIdx=0; return t[curPickIdx]; }
 function pickSyncTabsMode(p){ if(tabMode(p)==='pick') p.tabs=ensurePickTabs(p).map((_,i)=>pickKey(i)); }
-function pickAddTab(p){ const t=ensurePickTabs(p); if(t.length>=4) return; t.push({name:'',picks:[]}); curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
+// vorgabe: Felder der neuen Seite (Hausuebersicht: Name und Inhalt)
+function pickAddTab(p,vorgabe){ const t=ensurePickTabs(p); if(t.length>=4) return; t.push(Object.assign({name:'',picks:[]}, vorgabe||{})); curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
 function pickDelTab(p,i){ const t=ensurePickTabs(p); if(t.length<=1) return; t.splice(i,1); if(curPickIdx>=t.length) curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
 function icoUrl(ic){ return ic ? (ic.charAt(0)==='/' ? ic : '/icon?p='+encodeURIComponent(ic)) : ''; }
 function pickTabBar(p){
@@ -3122,7 +3128,7 @@ function pickRefresh(){ const p=PANELS[cur]; if(!p || p.__global) return; render
 const SE_WIDGETS=[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],
   ['camera','Kamera'],['chart','Verlauf'],['header','Kopfzeile']];
 const SE_PANE_NAMEN={weather:'Wetter', calendar:'Kalender', player:'Audio', energy:'Energiefluss',
-  camera:'Kamera', chart:'Verlauf', status:'Werte', header:'Kopfzeile'};
+  camera:'Kamera', chart:'Verlauf', status:'Werte', header:'Kopfzeile', haus:'Hausübersicht'};
 const SE_GRIFF='<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true"><g fill="currentColor">'+
   '<circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/>'+
   '<circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></g></svg>';
@@ -3240,6 +3246,16 @@ function seKontextReiter(){
     idx:()=>curPickIdx,
     setIdx:i=>{ curPickIdx=i; renderPick(p); seReiterZeichnen(); },
     neueSeite:()=>{ pickAddTab(p); seReiterZeichnen(); },
+    // Hausuebersicht mit einem Tipp: in der eigenen Auswahl eine fertige
+    // Seite, in der klassischen Leiste der Tab "haus" (eine freie Seite
+    // zeigte die Visu dort nicht). Nur solange noch keine da ist und Platz ist.
+    hausMoeglich:()=>tabMode(p)==='pick'
+      ? ensurePickTabs(p).length<4 && !ensurePickTabs(p).some(x=>x.widget==='haus')
+      : (p.tabs||[]).indexOf('haus')<0 && (p.tabs||[]).length<4,
+    hausDazu:()=>{
+      if(tabMode(p)==='pick') pickAddTab(p, {name:T('Haus'), widget:'haus'});
+      else { p.tabs=(p.tabs||[]).concat(['haus']); markDirty(); renderChips(p); renderPanes(p); }
+      seReiterZeichnen(); },
     seiteWeg:i=>{ pickDelTab(p, i); seReiterZeichnen(); },
     seiteLesen:()=>{ const t=p.pickTabs; if(Array.isArray(t)&&t[curPickIdx]) return t[curPickIdx];
       return curPickIdx===0 ? {name:p.pickName||'', picks:p.picks||[]} : null; },
@@ -3318,7 +3334,10 @@ function seLeisteHtml(ctx){
   return '<div class="se-seiten">'+ss.map((s,i)=>'<button type="button" class="ptb'+(i===ctx.idx()?' on':'')+'" data-se-seite="'+i+'">'+
     esc((s.name||'').trim()||(T('Seite')+' '+(i+1)))+
     (ss.length>1?'<span class="ptx" data-se-seite-weg="'+i+'" title="'+esc(T('Seite entfernen'))+'">✕</span>':'')+'</button>').join('')+
-    (ss.length<4?'<button type="button" class="ptadd" data-se-neu title="'+esc(T('Seite hinzufügen'))+'">＋</button>':'')+'</div>';
+    (ss.length<4?'<button type="button" class="ptadd" data-se-neu title="'+esc(T('Seite hinzufügen'))+'">＋</button>':'')+
+    // Hausuebersicht mit einem Tipp (ctx.hausMoeglich/hausDazu, nur im Panel-Editor)
+    (ctx.hausMoeglich && ctx.hausMoeglich()?'<button type="button" class="ptadd" data-se-neu-haus title="'+
+      esc(T('Hausübersicht als Seite hinzufügen'))+'">＋ '+T('Haus')+'</button>':'')+'</div>';
 }
 // Seiteninhalt: Bausteine (Kacheln) ODER ein Widget ueber die ganze Flaeche,
 // mit seiner Wahl (Musikzone, Baustein, Werte/Verlauf gestapelt)
@@ -3327,7 +3346,7 @@ function seInhaltHtml(w){
   const opt=(v,n)=>'<option value="'+v+'"'+(k===v?' selected':'')+'>'+T(n)+'</option>';
   let h='<div class="field"><label class="lbl">'+T('Seiteninhalt')+'</label>'+
     '<select data-se-inhalt>'+
-      '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+
+      '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+opt('haus','Hausübersicht')+
       '<optgroup label="'+esc(T('Widget (Vollbild)'))+'">'+opt('weather','Wetter')+opt('calendar','Kalender')+
         (firstAudioZone()?opt('player','Audio'):'')+(firstEnergyControl()?opt('energy','Energiefluss'):'')+
         (firstCamera()?opt('camera','Kamera'):'')+(statControls().length?opt('chart','Verlauf'):'')+opt('status','Werte')+
@@ -3385,7 +3404,7 @@ function seIconSetzen(host, v){
 function seInhalt(ctx, k){
   const e=ctx.seite();
   if(!k) delete e.widget;
-  else if(k==='weather'||k==='calendar') e.widget=k;
+  else if(k==='weather'||k==='calendar'||k==='haus') e.widget=k;
   else if(k==='player') e.widget='player:'+(firstAudioZone()||'');
   else if(k==='energy') e.widget='energy:'+(firstEnergyControl()||'');
   else if(k==='camera') e.widget='camera:'+(firstCamera()||'');
@@ -3456,6 +3475,7 @@ function seInfoText(ctx, st, r, lage){
     ' · '+T('Seite')+' '+(st.blatt+1)+' '+T('von')+' '+lage.seiten;
 }
 function seMitteHtml(ctx, st, a, r, lage){
+  if(a.pg.widget==='haus') return '<p class="note">'+T('Diese Seite zeigt die Hausübersicht: Räume, was gerade an ist, Audio, Uhr, Wetter und Energie. Sie stellt sich aus der Anlage selbst zusammen, hier gibt es nichts anzuordnen.')+'</p>';
   if(a.pg.widget) return '<p class="note">'+T('Diese Seite zeigt ein Widget über die ganze Fläche statt Kacheln. Für Kacheln den Seiteninhalt auf „Bausteine (Kacheln)“ stellen.')+'</p>';
   const nav=lage.seiten>1 ? '<span class="se-blatt"><button type="button" class="minibtn" data-se-blatt="-1"'+(st.blatt?'':' disabled')+' aria-label="'+esc(T('Seite zurück'))+'">‹</button>'+
     '<button type="button" class="minibtn" data-se-blatt="1"'+(st.blatt<lage.seiten-1?'':' disabled')+' aria-label="'+esc(T('Seite vor'))+'">›</button></span>' : '';
@@ -3611,6 +3631,7 @@ function seKlick(host, ev){
   else if(d.sePaneWeg!==undefined) ctx.setPane('');
   else if(d.seSeite!==undefined){ ctx.setIdx(Number(d.seSeite)); return; }
   else if(d.seNeu!==undefined){ ctx.neueSeite(); return; }
+  else if(d.seNeuHaus!==undefined){ ctx.hausDazu(); return; }
   else return;
   const fokus=(d.seT!==undefined) ? d.seT : null;
   seZeichnen(host); if(fokus) seFokus(host, fokus);
@@ -3620,7 +3641,7 @@ function seAenderung(host, ev){
   if(t.matches('[data-se-geraet]')){ const x=ctx.geraete()[Number(t.value)]; if(x) ctx.setGeraet(x); }
   else if(t.matches('[data-se-raum]')){ const pg=ctx.seite(); if(t.checked) delete pg.byRoom; else pg.byRoom=false; ctx.geaendert(); }
   else if(t.matches('[data-se-raumf]')) seZustand(ctx.pkey).raum=t.value;
-  else if(t.matches('[data-se-inhalt]')){ seInhalt(ctx, t.value); seEigenNeu(host); }
+  else if(t.matches('[data-se-inhalt]')){ seInhalt(ctx, t.value); seEigenNeu(host); if(host.id==='seHost') sePaneZeichnen(PANELS[cur]); }
   else if(t.matches('[data-se-warg]')){ const e=ctx.seite(); e.widget=wKind(e.widget||'')+':'+t.value; ctx.geaendert(); }
   else if(t.matches('[data-se-wneu]')){ seWidgetWerte(ctx, t.value, true); seEigenNeu(host); }
   else if(t.matches('[data-se-kopf-neu]')) seKopfWert(ctx, t.value, true);
@@ -4377,6 +4398,7 @@ function wzPageContentSel(i,maxw){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''
   var opts=wzWidgetKinds().map(function(x){ return '<option value="'+x[0]+'"'+(k===x[0]?' selected':'')+'>'+T(x[1])+'</option>'; }).join('');
   return '<select class="wzp2sel" data-pgw="'+i+'" style="max-width:'+(maxw||200)+'px">'+
     '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+
+    '<option value="haus"'+(k==='haus'?' selected':'')+'>'+T('Hausübersicht')+'</option>'+
     '<optgroup label="'+T('Widget (Vollbild)')+'">'+opts+'</optgroup></select>';
 }
 function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg(pg.widget||''), o='';
@@ -4684,7 +4706,7 @@ function wzRender(){
   b.querySelectorAll('[data-pgdel]').forEach(function(el){ el.onclick=function(){ WZ.pickPages.splice(+el.dataset.pgdel,1); if(WZ.icoPage>=WZ.pickPages.length) WZ.icoPage=-1; wzRender(); }; });
   { var pa=$('#wzPgAdd'); if(pa) pa.onclick=function(){ if(WZ.pickPages.length<4){ WZ.pickPages.push({name:'',icon:'',picks:[]}); wzRender(); } }; }
   b.querySelectorAll('[data-pgw]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgw], k=el.value;
-    if(!k) delete pg.widget; else if(k==='weather'||k==='calendar') pg.widget=k; else pg.widget=k+':'+(wzWidgetFirst(k)||'');
+    if(!k) delete pg.widget; else if(k==='weather'||k==='calendar'||k==='haus') pg.widget=k; else pg.widget=k+':'+(wzWidgetFirst(k)||'');
     wzRender(); }; });
   b.querySelectorAll('[data-pgwarg]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgwarg], k=wKind(pg.widget||''); pg.widget=k+':'+el.value; wzRender(); }; });
   b.querySelectorAll('[data-pgtiles]').forEach(function(el){ el.onclick=function(){ wzTileFor=+el.dataset.pgtiles; wzRender(); }; });

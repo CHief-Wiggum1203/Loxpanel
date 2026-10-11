@@ -1756,6 +1756,17 @@ Assistenten des Konfigurators.
   – Hausübersicht“): eine eigene Seite ohne Kachelraster für Tablets und große
   Displays. Der Server rechnet sie in `_view_haus()` (`layout:"haus"`), die
   Visu zeichnet sie in `renderHaus()`.
+  - **Wo sie steht:** als Tab `haus` der klassischen Leiste oder als freie
+    Seite der eigenen Auswahl mit dem Inhalt `haus` (`pickTabs[].widget`,
+    `_clean_widget_tab()`; `_haus_seite()` erkennt beides, auch für die Route
+    mit Zone und Unterseite). Im Seiten-Editor steht die Hausübersicht beim
+    „Seiteninhalt“, und die Taste „＋ Haus“ neben dem „＋“ legt sie mit einem
+    Tipp an: in der eigenen Auswahl als Seite „Haus“, in der klassischen
+    Leiste als Tab `haus` (eine freie Seite zeigte die Visu dort nicht).
+    Eine Hausseite hat kein Widget daneben, keine Kopfzeile und keine
+    Werteleiste (`paneRawNow()` in der Visu, `sePaneZeichnen()` im
+    Konfigurator); ohne eigenes Symbol zeigt die Leiste das Haus
+    (`_tab_meta()` meldet `haus`).
   - **Kopf:** Uhr, Wetter mit der Vorschau für morgen (`forecast[1]`) und der
     nächste Termin kommen aus der Front. Die Energie stammt vom ersten
     Energieflussmonitor bzw. Energiemanager der Seite, sonst der Anlage
