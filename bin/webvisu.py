@@ -7812,8 +7812,8 @@ async def raster_js(request: web.Request) -> web.Response:
 
 async def api_kachelset(request: web.Request) -> web.Response:
     """Nachgerechnete Kontraste eines Kachel-Sets zu Farbton und aktiver Kachel
-    (?set=touch&farbton=95&aktiv=dunkel), fuer "Nachgerechnet" im
-    Konfigurator. Nur lesend; Ungueltiges gilt als Standard des Sets."""
+    (?set=touch&farbton=95&aktiv=dunkel), fuer "Nachgerechnet" und die
+    Vorschau der Auswahlkarte im Konfigurator. Nur lesend; Ungueltiges gilt als Standard des Sets."""
     q = request.query
     name = _clean_kachel_set(q.get("set"))
     if not name:
@@ -7824,6 +7824,7 @@ async def api_kachelset(request: web.Request) -> web.Response:
         farbton = None
     aktiv = _clean_kachel_aktiv(q.get("aktiv"))
     return web.json_response({"set": name, "kachel": theme_colors.kachel_set_kachel(name, farbton, aktiv),
+                              "vorschau": theme_colors.kachel_set_vorschau(name, farbton, aktiv),
                               "pruefung": theme_colors.kachel_set_pruefung(name, farbton, aktiv)})
 
 

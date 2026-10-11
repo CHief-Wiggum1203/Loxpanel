@@ -643,6 +643,17 @@ def kachel_set_kachel(name, farbton=None, aktiv=None) -> str:
     return v["--tile"] if v else ""
 
 
+def kachel_set_vorschau(name, farbton=None, aktiv=None) -> dict:
+    """Farben fuer die Vorschau eines Sets im Konfigurator (Auswahlkarte):
+    Rahmen, Flaeche, Kachel, aktive Kachel und Akzent, wie die Visu sie
+    zeigt. {} ohne Set."""
+    v = kachel_set(name, farbton, aktiv)
+    if not v:
+        return {}
+    return {"rahmen": v["--rahmen"], "flaeche": v["--screen"], "kachel": v["--tile"],
+            "an": v["--kachel-an"], "akzent": v["--glow"]}
+
+
 def kachel_set_art(name) -> tuple[str, str]:
     """(aufbau, leiste) eines Kachel-Sets, ("", "") ohne Set."""
     eintrag = KACHEL_SETS.get(name) if isinstance(name, str) else None
@@ -655,14 +666,15 @@ VERLAUF_SCHRITT = 30
 
 def kachel_set_liste() -> list[dict]:
     """Auswahl fuer den Konfigurator in Definitionsreihenfolge: {key, label,
-    info, aufbau, leiste, masse, groessen}. Ein Set mit Rechnung bringt dazu farbton (Standard,
+    info, aufbau, leiste, masse, groessen, vorschau}. Ein Set mit Rechnung bringt dazu farbton (Standard,
     Schnellwahl je mit der Kachelfarbe "farbe", "verlauf" als Kachelfarben in
     VERLAUF_SCHRITT-Stufen fuer den Regler) und aktiv (Standard, Auswahl) mit -
     die Farben rechnet touch_satz(), der Konfigurator zeigt sie nur."""
     liste = []
     for k, e in KACHEL_SETS.items():
         eintrag = {"key": k, "label": e["label"], "info": e["info"], "aufbau": e["aufbau"], "leiste": e["leiste"],
-                   "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {})}
+                   "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {}),
+                   "vorschau": kachel_set_vorschau(k)}
         if "satz" in e:
             hell = e["aktiv"]["standard"] == "hell"
             eintrag["farbton"] = {

@@ -175,6 +175,17 @@ def test_groessen_des_sets(name):
     assert _app({"tileSet": name, "iconSize": 30}).resolve_profile("p")["vars"]["--ico-size"] == "30px"
 
 
+@pytest.mark.parametrize("name", SETS)
+def test_vorschau_fuer_die_auswahlkarte(name):
+    """Die Auswahlkarte im Konfigurator zeigt die Farben, die die Visu malt:
+    Rahmen, Flaeche, Kachel, aktive Kachel, Akzent (im Standard des Sets)."""
+    v = TC.kachel_set(name)
+    eintrag = next(e for e in TC.kachel_set_liste() if e["key"] == name)
+    assert eintrag["vorschau"] == {"rahmen": v["--rahmen"], "flaeche": v["--screen"], "kachel": v["--tile"],
+                                   "an": v["--kachel-an"], "akzent": v["--glow"]}
+    assert TC.kachel_set_vorschau("gibtsnicht") == {}
+
+
 @pytest.mark.parametrize("name", MIT_SATZ)
 def test_nachgerechnet_fuer_den_konfigurator(name):
     e = TC.KACHEL_SETS[name]
@@ -205,6 +216,7 @@ def test_route_nachgerechnet():
     status, d = asyncio.run(holen(f"set={name}&farbton=160&aktiv=dunkel"))
     assert status == 200 and d["pruefung"] == TC.kachel_set_pruefung(name, 160, "dunkel")
     assert d["kachel"] == TC.kachel_set(name, 160, "dunkel")["--tile"]
+    assert d["vorschau"] == TC.kachel_set_vorschau(name, 160, "dunkel")
     status, d = asyncio.run(holen(f"set={name}&farbton=rot&aktiv=grell"))
     assert d["pruefung"] == TC.kachel_set_pruefung(name, std["farbton"]["standard"], std["aktiv"]["standard"])
     assert asyncio.run(holen("set=gibtsnicht"))[0] == 404

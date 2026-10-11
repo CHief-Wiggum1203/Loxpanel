@@ -294,7 +294,6 @@
       'Verhalten': 'Behaviour',
       'Untere Leiste': 'Bottom bar',
       'Kachel-Layout': 'Tile layout',
-      'Farbe und Schrift': 'Color and font',
       'Mit dieser Kennung öffnet ein Gerät die Ansicht:': 'A device opens the view with this identifier:',
       'Widget, Kopfzeile, Werteleiste': 'Widget, header row, value strip',
       'Widget, Kopfzeile, Werteleiste dieser Seite': 'Widget, header row and value strip of this page',
@@ -572,10 +571,12 @@
       'Kachel-Aufbau': 'Tile layout',
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
       'Kachel-Set': 'Tile set',
-      'Standard (aus der Grundfarbe)': 'Standard (from the base colour)',
+      'Eigene Farben': 'Own colours',
+      'Ohne Set: Farben aus der Grundfarbe, Kachel-Aufbau frei wählbar.':
+        'Without a set: colours from the base colour, tile layout freely selectable.',
       'Loxone-App (dunkel)': 'Loxone app (dark)',
-      'Kachel-Set: ein fertiger Look statt der Farben aus der Grundfarbe, mit eigenem Kachel-Aufbau und eigener Tab-Leiste; der Kachel-Aufbau oben gilt dann nicht. Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.':
-        'Tile set: a ready-made look instead of the colours from the base colour, with its own tile layout and tab bar; the tile layout above then does not apply. Your own state colours and colours from “Style tiles” still apply.',
+      'Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.':
+        'Your own state colours and colours from “Style tiles” still apply.',
       'Flache dunkle Kacheln, weiße Symbole, dunkle Tasten, die Tab-Leiste als Pille.':
         'Flat dark tiles, white icons, dark buttons, the tab bar as a pill.',
       'Touch (Farbton wählbar)': 'Touch (choose a hue)',
@@ -600,7 +601,10 @@
       'Lavendel': 'Lavender',
       'Rosé': 'Rosé',
       'Sand': 'Sand',
-      'Grundfarbe und Kachel-Aufbau kommen dann aus dem Set.': 'Base colour and tile layout then come from the set.',
+      'Grundfarbe und Kachel-Aufbau kommen aus dem gewählten Set.': 'Base colour and tile layout come from the chosen set.',
+      'Farbe und Aufbau': 'Colour and layout',
+      'Größen': 'Sizes',
+      'Was bedeuten die Größen?': 'What do the sizes mean?',
       'Automatisch (Tablet)': 'Automatic (tablet)',
       'Kachelgröße': 'Tile size',
       'Klein (mehr Kacheln)': 'Small (more tiles)',
