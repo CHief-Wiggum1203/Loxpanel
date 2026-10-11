@@ -651,7 +651,7 @@
      steht gross, der Name klein darunter. Ein Messwert (Raumregelung, Sauna)
      steht gross an Stelle des Symbols (.bigv). Das Raster bleibt, wie es ist;
      die Listen-Ansicht behaelt ihren Aufbau. */
-  .grid.lx:not(.list) .tile{justify-content:flex-start;padding:calc(14px * var(--ks,1));}
+  .grid.lx:not(.list) .tile{justify-content:flex-start;--kpad:calc(14px * var(--ks,1));padding:var(--kpad);}
   .grid.lx:not(.list) .tile .head{gap:calc(8px * var(--ks,1));}
   .grid.lx:not(.list) .tile .head .room{flex:1 1 auto;min-width:0;text-align:right;margin:2px 0 0;
     font-size:calc(var(--room-size,13px) * var(--ks,1));text-transform:none;letter-spacing:0;}
@@ -691,6 +691,30 @@
   /* Tasten sind Touch-Ziele: sie wachsen mit dem Faktor der Seite, schrumpfen aber nie */
   .grid.lx:not(.list) .tile>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ksg,1)));border-radius:calc(12px * var(--ks,1));}
   .grid.lx:not(.list) .tile>.tctrls .tb svg{width:calc(19px * max(1, var(--ksg,1)));height:calc(19px * max(1, var(--ksg,1)));}
+  /* Breite Kachel mit Tasten (spielerKachel(), etwa Audio): die rechte Haelfte
+     ist die Spieler-Spalte - oben Sender-Logo bzw. Cover (it.cover), darunter
+     die Tasten; Kopf und Text stehen links. So brauchen die Tasten keine Hoehe
+     unter dem Text und haben auch auf der flachen 2x1-Kachel am 4"-Panel Platz.
+     Ohne Cover, oder wenn es zu klein wuerde (tastenEinpassen: .ohnecover),
+     stehen die Tasten mittig in der Spalte. */
+  .grid.lx:not(.list) .tile.spieler{position:relative;--spgap:calc(10px * var(--ks,1));}
+  .grid.lx:not(.list) .tile.spieler>.head,
+  .grid.lx:not(.list) .tile.spieler>.body,
+  .grid.lx:not(.list) .tile.spieler>.tspark{margin-right:calc(50% + var(--spgap));}
+  .grid.lx:not(.list) .tile.spieler>.tplay{position:absolute;top:var(--kpad);bottom:var(--kpad);right:var(--kpad);left:50%;
+    display:flex;flex-direction:column;justify-content:center;gap:var(--spgap);min-height:0;}
+  .grid.lx:not(.list) .tile.spieler .tcover{flex:1 1 0;min-height:0;max-width:100%;aspect-ratio:1/1;align-self:center;
+    object-fit:cover;border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
+  .grid.lx:not(.list) .tile.spieler.ohnecover .tcover{display:none;}
+  /* ... reicht die halbe Kachel nicht fuer die Tasten in Mindestgroesse,
+     wird die Spalte so breit wie noetig (--spw, spielerEinpassen) */
+  .grid.lx:not(.list) .tile.spieler.spbreit>.tplay{left:auto;width:var(--spw);}
+  .grid.lx:not(.list) .tile.spieler.spbreit>.head,
+  .grid.lx:not(.list) .tile.spieler.spbreit>.body,
+  .grid.lx:not(.list) .tile.spieler.spbreit>.tspark{margin-right:calc(var(--spw) + var(--spgap));}
+  .grid.lx:not(.list) .tile.spieler .tplay>.tctrls{margin:0;padding:0;gap:calc(8px * var(--ks,1));}
+  .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{flex:1 1 0;width:auto;height:calc(44px * max(1, var(--ksg,1)));border-radius:calc(12px * var(--ks,1));}
+  .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb svg{width:calc(19px * max(1, var(--ksg,1)));height:calc(19px * max(1, var(--ksg,1)));}
   /* Enge Kachel (etwa 3x3 auf dem 4"-Panel), gemessen in fitTile(): erst steht
      der Text nur noch einzeilig (eng1), reicht das nicht, faellt die Angabe zum
      Mini-Verlauf weg (eng2, der Verlauf selbst bleibt im Kopf), dann die zweite
@@ -740,7 +764,8 @@
   html[data-kachelset-aufbau] .sv-st:not(.on):not(.good):not(.crit) .ico.img{background-color:var(--ico-fixed,var(--ink));}
   html[data-kachelset-aufbau] .tctrls .tb{background:var(--taste,var(--tile));}
   html[data-kachelset-aufbau] .tctrls .tb:active{background:var(--kachel-an,var(--tile));}
-  html[data-kachelset-aufbau] .grid.lx:not(.list) .tile>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
+  html[data-kachelset-aufbau] .grid.lx:not(.list) .tile>.tctrls .tb,
+  html[data-kachelset-aufbau] .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
   html[data-kachelset-aufbau] .btn{background:var(--taste,var(--tile));border-color:transparent;border-radius:var(--taste-radius,12px);}
   html[data-kachelset-aufbau] .btn:active{background:var(--kachel-an,var(--tile));}
   /* Aufbau "lx" und "kreis": Name und Zustand vorn kraeftiger, der Name
@@ -771,18 +796,18 @@
   html[data-kachelset-aufbau="kreis"] .tile.on .kreis .ico.img{background-color:var(--kreis-an-symbol,var(--on-glow));}
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile>.body:last-child,
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.ohnetasten>.body{margin-top:auto;}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk){flex-direction:row;flex-wrap:wrap;
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler){flex-direction:row;flex-wrap:wrap;
     align-items:center;align-content:space-between;column-gap:calc(16px * var(--ks,1));}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.body{flex:1 1 0;min-width:0;margin-top:0;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.body{flex:1 1 0;min-width:0;margin-top:0;}
   /* ... der Kopf loest sich dort auf: Kreis, Text und Raum stehen in einer
      Zeile, der Raum rechts oben, der Text endet vor ihm */
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.head{display:contents;}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.head .room{order:2;flex:0 1 auto;
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.head{display:contents;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.head .room{order:2;flex:0 1 auto;
     align-self:flex-start;max-width:35%;margin:0;}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tspark{order:3;}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tctrls{order:4;}
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tspark,
-  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk)>.tctrls{flex:0 0 100%;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tspark{order:3;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tctrls{order:4;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tspark,
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tctrls{flex:0 0 100%;}
   /* Aufbau "mitte": Symbol mittig, darunter der Haupttext (der Zustand, sonst
      der Name) und eine Zeile "Name · Raum" (kachelTexte); kein Raum im Kopf.
      Kopf und Text stehen mittig in der Flaeche ueber den Tasten. Die aktive
@@ -2481,9 +2506,31 @@ function tastenFaktor(tile){
   const t = kachelNeu() ? TASTEN.lx : TASTEN.classic;
   return Math.min(kachelFaktor, (tile.clientHeight - t.leiste*Math.max(1, kachelFaktor)) / tastenTextHoehe(tile));
 }
+// Spieler-Spalte (.spieler): die Tasten stehen neben dem Text, die Kachel
+// braucht nur die Hoehe einer Tastenleiste, das Cover darueber mindestens
+// SPIELER_COVER_MIN mal Faktor, sonst faellt es weg (.ohnecover). Die Spalte
+// ist die halbe Kachel; passen die Tasten dort nicht in ihrer Mindestbreite
+// (TASTE_MIN wie .tctrls .tb, mal max(1, Faktor der Seite), dazu die Abstaende
+// der Leiste), wird sie so breit wie noetig (.spbreit, --spw) - Touch-Ziele
+// schrumpfen nie.
+const SPIELER_COVER_MIN = 36, TASTE_MIN = 34;
+function spielerEinpassen(tile, tc){
+  const cs=getComputedStyle(tile), pad=parseFloat(cs.paddingTop);
+  const innen=tile.clientHeight-pad-parseFloat(cs.paddingBottom);
+  const n=tc.querySelectorAll('.tb').length, abstand=parseFloat(getComputedStyle(tc).columnGap)||0;
+  const noetig=n*TASTE_MIN*Math.max(1, kachelFaktor)+(n-1)*abstand, halb=tile.clientWidth/2-parseFloat(cs.paddingRight);
+  tile.classList.toggle('spbreit', noetig>halb+0.5);
+  if(noetig>halb+0.5) tile.style.setProperty('--spw', noetig.toFixed(1)+'px'); else tile.style.removeProperty('--spw');
+  const leiste=TASTEN.lx.leiste*Math.max(1, kachelFaktor), gap=parseFloat(cs.getPropertyValue('--spgap'))||0;
+  const an=innen>=leiste-0.5;
+  tc.hidden=!an; tile.classList.toggle('ohnetasten', !an);
+  tile.classList.toggle('ohnecover', !an || innen-leiste-gap < SPIELER_COVER_MIN*kachelFaktor);
+  tile._kt=null; tile.style.removeProperty('--ks');
+}
 function tastenEinpassen(tile){
   const tc=tile&&tile.querySelector('.tctrls'); if(!tc || !tile.clientHeight) return;
   if(view && view.layout==='list'){ tc.hidden=false; tile._kt=null; tile.style.removeProperty('--ks'); return; }
+  if(tile.classList.contains('spieler')){ spielerEinpassen(tile, tc); return; }
   const kt=tastenFaktor(tile), an=kt>=KS_MIN-0.005;
   tc.hidden=!an; tile.classList.toggle('ohnetasten', !an);
   tile._kt = (an && kt<kachelFaktor-0.005) ? +kt.toFixed(3) : null;
@@ -3215,8 +3262,13 @@ function updateGrid(items){
     // Klassen, die tastenEinpassen()/fitTile()/paintSpark() nach dem Messen
     // setzen, bleiben stehen: sonst verloere eine enge Kachel bei jedem
     // Zustandswechsel, der ihren Text nicht aendert (Player: Pause), ihre Stufen.
-    const cls='tile'+tileTone(it)+aufbauKlassen(it)+kachelKlassen(groessen[i])+(snapAt(i)?' snap':'')+
-      [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+kachelKlassen(groessen[i])+spielerKlasse(it, groessen[i])+(snapAt(i)?' snap':'')+
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||c==='ohnecover'||c==='spbreit'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
+    // Spieler-Spalte: kommt sie oder ihr Cover hinzu oder fallen sie weg, aendert
+    // sich der Aufbau der Kachel; sonst nur das Bild nachziehen
+    const spieler=spielerKachel(it, groessen[i]), coverEl=n.querySelector('.tcover');
+    if(spieler!==n.classList.contains('spieler') || (spieler && !!it.cover!==!!coverEl)) ok=false;
+    else if(coverEl && coverEl.getAttribute('src')!==it.cover) coverEl.setAttribute('src', it.cover);
     if(n.className!==cls) n.className=cls;
     // Style der Kachel (Farben, Rahmen): verglichen mit dem zuletzt gesetzten
     // Text, nicht dem Attribut - dort steht auch der eigene Faktor der Kachel
@@ -3322,6 +3374,10 @@ function kachelGroesse(it){
   return LoxRaster.groesse({w:it.w===2?2:1, h:it.h===2?2:1}, gridCols, gridRows);
 }
 function kachelKlassen(g){ return (g.w===2?' w2':'')+(g.h===2?' h2':''); }
+// Breite Kachel mit Tasten im neuen Aufbau: rechts die Spieler-Spalte (Cover
+// und Tasten, CSS .spieler), nicht in der Liste und nicht im klassischen Aufbau
+function spielerKachel(it, g){ return kachelNeu() && view.layout!=='list' && g.w===2 && !!(it.controls && it.controls.length); }
+function spielerKlasse(it, g){ return spielerKachel(it, g) ? ' spieler' : ''; }
 // Feste Stelle einer Kachel, sobald die Seite eine hohe traegt (lage.hoch): der
 // dichte Fluss des Browsers kennt die Seitengrenzen nicht und zoege eine hohe
 // Kachel in der letzten Zeile ueber zwei Seiten. Waagerecht zaehlt die Zeile
@@ -3447,7 +3503,9 @@ function render(){
     const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>'
       : (lx && kachelAufbau==='kreis') ? '<span class="kreis">'+icoCell+'</span>' : icoCell;
     const chev = (!lx && it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
-    const ctrls = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
+    const tasten = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
+    const ctrls = spielerKachel(it, groessen[_i])
+      ? '<div class="tplay">'+(it.cover?'<img class="tcover" src="'+esc(it.cover)+'" alt="">':'')+tasten+'</div>' : tasten;
     const tone = tileTone(it);
     const ts=it.style||{};
     const stStr = kachelStil(it, lage, groessen, _i, quer);
@@ -3460,7 +3518,7 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+spielerKlasse(it, groessen[_i])+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
                 (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+

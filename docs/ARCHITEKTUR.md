@@ -1409,6 +1409,27 @@ Assistenten des Konfigurators.
   und Player, Tipp öffnet die Detailseite) und
   `tests/browser/test_kachel_aufbau_browser.py` (4″ 2×2 und 3×3, beide
   Aufbauten).
+- Spieler-Spalte der breiten Kachel (11.10.2026): Eine 2×1-Kachel mit Tasten
+  (`spielerKachel()`: neuer Aufbau, keine Liste, `w2`, `it.controls`; heute
+  die Audiozonen) teilt sich: links Kopf und Text, rechts die Spalte
+  `.tplay` mit Sender-Logo bzw. Cover (`it.cover`) oben und den Tasten darunter.
+  Die Tasten brauchen dort nur die Höhe einer Tastenleiste
+  (`spielerEinpassen()`), sie stehen also auch auf der flachen 2×1-Kachel am
+  4″-Panel, wo `tastenEinpassen()` sie unter dem Text weglassen müsste. Das
+  Cover braucht über den Tasten mindestens `SPIELER_COVER_MIN` (36 px) mal
+  Faktor, sonst fällt es weg (`ohnecover`), und ohne Cover stehen die Tasten
+  mittig. Das Bild kommt aus `_audio_cover()`, das auch die Detailseite nimmt:
+  Gen1 der State `cover`; Gen2 das Album-Cover zum laufenden Titel
+  (`_song_cover()`), sonst das Sender-Logo vom Audioserver oder von Sonn.
+  Ausgeliefert wird es über `/cover`. `updateGrid()` baut die Kachel neu, wenn
+  Spalte oder Cover kommen oder gehen, und zieht sonst nur das Bild nach. Der
+  klassische Aufbau bleibt, wie er ist. Der Aufbau „kreis“ legt seine Zeile
+  der breiten Kachel (Kreis, Text, Raum) nicht über die Spieler-Spalte. Der
+  Seiten-Editor zeigt dieselbe Aufteilung (`seSpieler()`); `/api/meta` nennt
+  dafür je Baustein `tasten` (Zahl der Kacheltasten) und `cover`, beide aus
+  `_control_item()`. Tests: `tests/browser/test_spieler_kachel_browser.py`
+  (jeder Aufbau am 4″-Panel und iPad, flache Kachel, ohne Cover, Taste
+  schaltet, klassisch, Editor).
 - Waagerechte Seiten (Punkt 8, 08.10.2026): Auf einem Tablet wischt man die
   Kachelseiten zur Seite wie in der Loxone-App, mit Punkten darunter; das
   4″-Panel blättert weiter senkrecht. Die Regel ist `seitenQuer()`: Split

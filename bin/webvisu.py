@@ -4639,6 +4639,10 @@ class App:
                            "cmd": {"uuid": ua, "cmd": "pause" if playing else "play"}},
                           {"icon": "next", "cmd": {"uuid": ua, "cmd": "queueplus"}},
                       ])
+            # Sender-Logo bzw. Cover: die breite Kachel zeigt es neben den Tasten
+            cover = self._audio_cover(c)
+            if cover:
+                it["cover"] = cover
         elif t == "AudioZoneV2":
             # Audioserver Gen 2: wird ueber den Miniserver gesteuert (play/pause/
             # prev/next/volume) — nicht ueber das Gen-1-Audio-Backend (kein playerid).
@@ -4657,6 +4661,9 @@ class App:
                            "cmd": {"uuid": ua, "cmd": "pause" if playing else "play"}},
                           {"icon": "next", "cmd": {"uuid": ua, "cmd": "next"}},
                       ])
+            cover = self._audio_cover(c)
+            if cover:
+                it["cover"] = cover
         elif t == "Pushbutton":
             it.update(icon="switch", sublabel="Taster",
                       cmd={"uuid": c.get("uuidAction"), "cmd": "pulse"})
@@ -6100,10 +6107,8 @@ class App:
             title = self._song(c) or "Radio"
             sub = self._text(c, "artist") or self._text(c, "album")
             vol = int(self._state(c, "volume") or 0)
-            cover = self._state(c, "cover")
-            blocks = []
-            if cover:
-                blocks.append({"k": "cover", "src": "/cover?u=" + quote(str(cover), safe="")})
+            cover = self._audio_cover(c)
+            blocks = [{"k": "cover", "src": cover}] if cover else []
             blocks += [
                 {"k": "title", "text": title, "sub": sub},
                 {"k": "row", "cells": [
@@ -6128,44 +6133,23 @@ class App:
             title = self._song(c)
             sub = self._text(c, "artist") or self._text(c, "album")
             vol = int(self._state(c, "volume") or 0)
-            cover = self._state(c, "cover")
             # Sonn/Audioserver4Home reicht Track-Metadaten NICHT ueber das
             # Loxone-Protokoll durch -> per Namensabgleich aus der Sonn-API
-            # ergaenzen (nur wo Loxone leer ist).
+            # ergaenzen (nur wo Loxone leer ist). Das Bild: _audio_cover().
             sm = self._sonn_for(c)
             if sm:
                 playing = playing or bool(sm.get("playing"))
                 title = title or sm.get("title") or ""
                 sub = sub or sm.get("artist") or sm.get("album") or ""
-                cover = cover or sm.get("cover")
                 if not vol and sm.get("volume") is not None:
                     try:
                         vol = int(sm.get("volume"))
                     except (TypeError, ValueError):
                         pass
-            # Dynamisches Song-Cover: Der Audioserver (Sonn) liefert bei Radio oft
-            # nur das Sender-Logo. Laeuft ein echter Titel, das passende Album-
-            # Cover (iTunes) nachschlagen und statt des Logos zeigen. Bei
-            # Wortbeitraegen (kein Treffer) bleibt das Sender-Logo.
-            art = (self._text(c, "artist") or (sm.get("artist") if sm else "") or "").strip()
-            if playing and title and art:
-                dyn = self._song_cover(art, title)
-                if dyn:
-                    blocks_cover_dyn = dyn
-                    cover = None  # dyn ist bereits eine fertige /cover-URL
-                else:
-                    blocks_cover_dyn = None
-            else:
-                blocks_cover_dyn = None
+            cover = self._audio_cover(c)
             if not title:
                 title = "Spielt" if playing else "Aus"
-            blocks = []
-            if blocks_cover_dyn:
-                blocks.append({"k": "cover", "src": blocks_cover_dyn})
-            elif cover:
-                blocks.append({"k": "cover", "src": "/cover?u=" + quote(str(cover), safe="")})
-            else:
-                blocks.append({"k": "hero", "icon": "music"})
+            blocks = [{"k": "cover", "src": cover} if cover else {"k": "hero", "icon": "music"}]
             blocks += [
                 {"k": "title", "text": title, "sub": sub},
                 {"k": "row", "cells": [
@@ -7034,6 +7018,28 @@ class App:
         host = hp.split(":")[0].strip()
         return self.audio_clients.get(host), pid
 
+    def _audio_cover(self, c: dict) -> str | None:
+        """Bild einer Audiozone als fertige /cover-URL, None ohne Bild - fuer
+        Detailseite und breite Kachel dasselbe. AudioZone (Gen1): der State
+        "cover". AudioZoneV2: der Audioserver (oder Sonn, wo Loxone leer ist)
+        liefert bei Radio oft nur das Sender-Logo; laeuft ein echter Titel,
+        gilt das passende Album-Cover (_song_cover), sonst das Logo."""
+        t = c.get("type")
+        cover = self._state(c, "cover")
+        if t == "AudioZoneV2":
+            sm = self._sonn_for(c)
+            playing = self._state(c, "playState") == 2 or bool(sm and sm.get("playing"))
+            title = self._song(c) or (sm.get("title") if sm else "") or ""
+            cover = cover or (sm.get("cover") if sm else None)
+            art = (self._text(c, "artist") or (sm.get("artist") if sm else "") or "").strip()
+            if playing and title and art:
+                dyn = self._song_cover(art, title)
+                if dyn:
+                    return dyn   # schon eine fertige /cover-URL
+        elif t != "AudioZone":
+            return None
+        return ("/cover?u=" + quote(str(cover), safe="")) if cover else None
+
     def _sonn_for(self, c: dict) -> dict | None:
         """Now-Playing zur Zone `c` aus dem passenden Audioserver-Event-Client."""
         cl, pid = self._audio_client_for(c)
@@ -7849,6 +7855,9 @@ async def api_meta(request: web.Request) -> web.Response:
         if not c.get("name"):
             continue
         room = c.get("room")
+        # Was die Kachel zeigt, fuer die Vorschau im Seiten-Editor: ihre Tasten
+        # (Anzahl) und ein Cover - dieselbe Rechnung wie in der Visu
+        kachel = app._control_item(u)
         controls.append({
             "uuid": u, "name": _clean(c.get("name")), "type": c.get("type"),
             "room": room,
@@ -7861,6 +7870,8 @@ async def api_meta(request: web.Request) -> web.Response:
             # Art der Reihe, die die Kachel zeigt (line/digital/counter): die
             # Tagesspanne gibt es nur fuer Linien.
             "statKind": (app._stat_primary(c) or (None, None))[1],
+            "tasten": len(kachel.get("controls") or []),
+            "cover": kachel.get("cover") or "",
         })
     return web.json_response({
         "rooms": rooms, "cats": cats, "controls": controls,
