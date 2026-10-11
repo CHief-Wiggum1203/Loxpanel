@@ -1701,6 +1701,25 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (8: quer, hochkant, 10″, 4″ mit Split „Aus“, zu viele Werte, Drehen,
       Konfigurator mit und ohne Split, Assistent). Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §5.3 und §7.1. **M**
+- [x] **Hausübersicht als eigene Seite** (11.10.2026, Teil 1). Neuer Tab
+      `haus` nach dem Entwurf im Design-Canvas (iPad quer und hochkant): Kopf
+      mit Uhr, Wetter, nächstem Termin und Energie, „Gerade aktiv“ mit
+      Aus-Taste je Gerät und den Zentral-Tasten „Lichter aus“/„Zonen aus“,
+      je Raum eine Karte mit Hauptwert und Symbolen, der Spieler einer
+      Audio-Zone als Spalte (quer) oder Leiste (hochkant). Nichts scrollt
+      waagerecht; was nicht in die Zeile passt, steht hinter „+n weitere“ auf
+      einer Unterseite. Gilt in jedem Kachel-Set. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. Tests:
+      `tests/test_haus.py`, `tests/browser/test_haus_browser.py`, Ansicht
+      `haus` im Kontrast-Test. **L**
+- [ ] **Hausübersicht Teil 2: Schwerpunkt „Räume direkt“.** Runde Tasten in
+      der Raumkarte, die Licht, Audio, Sauna (mit Rückfrage), Timer direkt
+      schalten; „Licht an“ schaltet die erste Stimmung der Lichtsteuerung.
+      Optionen je Ansicht `ui.haus = {schwerpunkt, aktivZeile, energie}`
+      (`_sanitize_panels`, `_panel_export`, `PANEL_STANDARD`). **M**
+- [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Gruppe
+      „Hausübersicht“ im Aussehen-Reiter (Schwerpunkt, Zeile „Gerade aktiv“,
+      Energie-Quelle), im Assistenten „Hausübersicht als erste Seite“. **M**
 - [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
       Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen
       (480×480 bis 2560×1600) und fünf Profilvarianten: Die Kachel*anzahl*

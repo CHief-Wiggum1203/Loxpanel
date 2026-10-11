@@ -1458,6 +1458,142 @@
     .ft{height:auto;display:flex;flex-direction:column;}
     .ft-a,.ft-b{overflow:visible;}
   }
+  /* ---- Hausuebersicht (Tab "haus", renderHaus) ----
+     Ganze Flaeche ohne Kachelraster: Kopf (Uhr, Wetter, Termin, Energie),
+     "Gerade aktiv", Raumkarten und der Spieler - quer als Spalte rechts,
+     hochkant als Leiste unten. --hk ist der Massstab der Seite (renderHaus,
+     aus der kleineren Seite der Flaeche). Farben wie die Kacheln: eine aktive
+     Karte bekommt --kachel-an (ohne Set getoent), ihr Zustand --an-text, das
+     Symbol --glow; Tasten sind .btn. Nichts scrollt waagerecht: dort blaettert
+     der Wisch die Seiten. Tasten nie unter 44 px. */
+  .grid.haus{display:block;overflow:hidden;--hk:1;--hs-g:calc(12px * var(--hk));--hs-t:max(44px, calc(56px * var(--hk)));}
+  .hs{height:100%;display:grid;grid-template-columns:minmax(0,1fr);gap:calc(16px * var(--hk));}
+  .hs.spalte{grid-template-columns:minmax(0,1fr) calc(280px * var(--hk));}
+  .hs-main{min-width:0;min-height:0;display:flex;flex-direction:column;gap:calc(14px * var(--hk));}
+  .hs-c{background:var(--tile);border:var(--tile-bw,1px) solid var(--tile-bord,var(--line));color:var(--ink);
+    border-radius:calc(var(--kachel-radius,16px) * var(--hk));box-shadow:var(--kachel-schatten,none);box-sizing:border-box;min-width:0;}
+  .hs-c.on{background:rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16));border-color:rgba(var(--on-rgb,224,162,77),var(--ov-bord,.55));}
+  html[data-kachelset-aufbau] .hs-c{border-color:transparent;}
+  html[data-kachelset-aufbau] .hs-c.on{background:var(--kachel-an,var(--tile));}
+  button.hs-c{font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  button.hs-c:active{transform:scale(.98);}
+  .hs-i{width:calc(30px * var(--hk));height:calc(30px * var(--hk));flex:none;display:grid;place-items:center;color:var(--ink);}
+  .hs-i svg,.hs-i img{width:100%;height:100%;object-fit:contain;}
+  .hs-i.img{display:inline-block;background-color:currentColor;
+    -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+  .hs-c.on .hs-i{color:var(--glow);}
+  .hs-i.ok{color:var(--good);}
+  .hs .tx{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .hs .tx>*{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs .z{font-size:calc(18px * var(--hk));font-weight:600;line-height:1.2;}
+  .hs .w{font-size:calc(14px * var(--hk));color:var(--muted);line-height:1.3;}
+  .hs-c.on .z{color:var(--an-text,var(--glow));}
+  html[data-kachelset-aufbau="mitte"] .hs-c.on,html[data-kachelset-aufbau="mitte"] .hs-c.on .z,
+  html[data-kachelset-aufbau="mitte"] .hs-c.on .hs-i{color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .hs-c.on .w{color:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  .hs .btn.hs-b{flex:none;height:var(--hs-t);min-width:var(--hs-t);padding:0 calc(16px * var(--hk));display:inline-flex;align-items:center;
+    justify-content:center;gap:8px;font-size:calc(15px * var(--hk));color:var(--ink);touch-action:manipulation;}
+  .hs .btn.hs-b svg{width:calc(22px * var(--hk));height:calc(22px * var(--hk));flex:none;}
+  /* Kopf */
+  .hs-kopf{flex:none;display:flex;gap:var(--hs-g);height:calc(72px * var(--hk));}
+  .hs-uhr{flex:none;display:flex;flex-direction:column;justify-content:center;padding-right:calc(6px * var(--hk));}
+  .hs-uhr .t{font-size:calc(44px * var(--hk));font-weight:600;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;}
+  .hs-uhr .d{margin-top:4px;font-size:calc(15px * var(--hk));color:var(--muted);white-space:nowrap;}
+  .hs-k{flex:1;display:flex;align-items:center;gap:calc(10px * var(--hk));padding:0 calc(16px * var(--hk));}
+  .hs-k .z{font-size:calc(20px * var(--hk));}
+  /* Gerade aktiv */
+  .hs-zeile{flex:none;display:flex;align-items:center;gap:calc(10px * var(--hk));min-height:var(--hs-t);min-width:0;}
+  .hs-zeile h2{margin:0;font-size:calc(22px * var(--hk));font-weight:700;letter-spacing:-.01em;white-space:nowrap;}
+  .hs-zeile .n{font-size:calc(15px * var(--hk));color:var(--muted);white-space:nowrap;}
+  .hs-zeile .rechts{margin-left:auto;display:flex;gap:calc(8px * var(--hk));min-width:0;}
+  .hs .hs-zeile .btn.hs-b{background:var(--tile);}
+  .hs .hs-zeile .btn.hs-rund{padding:0;width:var(--hs-t);border-radius:50%;}
+  .hs-aktiv{flex:none;display:grid;grid-template-columns:repeat(var(--hs-sp,3),minmax(0,1fr));gap:var(--hs-g);}
+  .hs-a{height:max(64px, calc(80px * var(--hk)));display:flex;align-items:center;gap:calc(12px * var(--hk));
+    padding:0 calc(10px * var(--hk)) 0 calc(16px * var(--hk));}
+  .hs-mehr{justify-content:center;font-size:calc(17px * var(--hk));font-weight:600;}
+  .hs-mehr svg{width:calc(20px * var(--hk));height:calc(20px * var(--hk));}
+  .hs-liste{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:calc(10px * var(--hk));}
+  .hs-liste .hs-a{flex:none;}
+  /* Raumkarten */
+  .hs-raeume{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--hs-rc,3),minmax(0,1fr));
+    grid-auto-rows:var(--hs-rh,minmax(0,1fr));gap:var(--hs-g);overflow-y:auto;overflow-x:hidden;}
+  .hs-r{min-height:0;overflow:hidden;padding:calc(16px * var(--hk)) calc(18px * var(--hk));display:flex;flex-direction:column;gap:2px;}
+  .hs-r .kopf{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .hs-r .nm{font-size:calc(18px * var(--hk));font-weight:700;line-height:1.2;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .hs-r .chev{width:calc(20px * var(--hk));height:calc(20px * var(--hk));flex:none;color:var(--muted);}
+  .hs-r .chev svg{width:100%;height:100%;}
+  .hs-r .chev.rund{width:max(44px, calc(44px * var(--hk)));height:max(44px, calc(44px * var(--hk)));border-radius:50%;
+    display:grid;place-items:center;background:var(--taste,rgba(var(--wash,255,255,255),.07));color:var(--ink);}
+  .hs-r .chev.rund svg{width:45%;height:45%;}
+  .hs-r .kopf:has(.chev.rund) .nm{padding-top:calc(10px * var(--hk));}
+  .hs-r .wt{margin-top:2px;font-size:calc(36px * var(--hk));font-weight:500;letter-spacing:-.03em;line-height:1.15;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-r .wt.lang{font-size:calc(24px * var(--hk));}
+  .hs-r .sb{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-r .sym{margin-top:auto;padding-top:calc(6px * var(--hk));display:flex;align-items:center;gap:calc(8px * var(--hk));min-width:0;}
+  .hs-r .s{width:calc(34px * var(--hk));height:calc(34px * var(--hk));flex:none;border-radius:50%;display:grid;place-items:center;
+    background:var(--taste,rgba(var(--wash,255,255,255),.07));color:var(--muted);}
+  .hs-r .s .hs-i{width:56%;height:56%;color:inherit;}
+  .hs-r .s.on{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));color:var(--glow);}
+  html[data-kachelset-aufbau="kreis"] .hs-r .s.on{background:var(--glow);color:var(--kreis-an-symbol,var(--on-glow));}
+  html[data-kachelset-aufbau="mitte"] .hs-r .s.on{color:var(--kachel-an-ink,var(--ink));}
+  .hs-r .an{margin-left:auto;font-size:calc(14px * var(--hk));font-weight:600;color:var(--an-text,var(--glow));white-space:nowrap;}
+  /* Spieler: Spalte (quer) oder Leiste (hochkant) */
+  .hs-sp{min-height:0;display:flex;flex-direction:column;gap:var(--hs-g);padding:calc(18px * var(--hk));}
+  .hs-spk{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;}
+  .hs-spk b{font-size:calc(18px * var(--hk));}
+  .hs-spk span{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-cv{display:flex;flex-direction:column;gap:calc(10px * var(--hk));border-radius:calc(var(--taste-radius,12px) * var(--hk));
+    background:var(--taste,rgba(var(--wash,255,255,255),.05));padding:calc(16px * var(--hk));}
+  .hs-cov{width:calc(84px * var(--hk));height:calc(84px * var(--hk));flex:none;border-radius:calc(14px * var(--hk));object-fit:cover;
+    display:grid;place-items:center;background:var(--tile);color:var(--muted);}
+  .hs-cov svg{width:46%;height:46%;}
+  .hs-sp .ti{font-size:calc(21px * var(--hk));font-weight:700;line-height:1.2;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .hs-sp .w{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-sp.spielt:not(.leiste) .w.st{color:var(--an-text,var(--glow));}
+  /* Aufbau "mitte": die Leuchtfarbe traegt auf der Tastenflaeche nicht */
+  html[data-kachelset-aufbau="mitte"] .hs-sp.spielt:not(.leiste) .w.st{color:var(--ink);font-weight:700;}
+  /* Aufbau "mitte" kippt die ganze aktive Karte: Titel und Zustand stehen
+     dann auf ihr, nicht auf einer Tastenflaeche (dort traegt --kachel-an-ink nicht) */
+  html[data-kachelset-aufbau="mitte"] .hs-sp.on .hs-cv{background:transparent;}
+  .hs-tasten{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8px * var(--hk));}
+  .hs-tasten .btn.hs-b{width:100%;padding:0;}
+  .hs-tasten .btn.hs-b svg{width:calc(20px * var(--hk));height:calc(20px * var(--hk));}
+  .hs-laut{display:grid;grid-template-columns:var(--hs-t) minmax(0,1fr) var(--hs-t);gap:calc(8px * var(--hk));align-items:center;}
+  .hs-laut .btn.hs-b{padding:0;}
+  .hs-laut .v{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:calc(20px * var(--hk));font-weight:600;
+    font-variant-numeric:tabular-nums;min-width:0;}
+  .hs-laut .bar{width:100%;height:6px;border-radius:3px;background:var(--taste,rgba(var(--wash,255,255,255),.16));overflow:hidden;}
+  .hs-laut .bar i{display:block;height:100%;border-radius:3px;background:var(--ink);}
+  .hs-zonen{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px;}
+  .hs-zonen .lbl{font-size:calc(14px * var(--hk));color:var(--muted);}
+  .hs .btn.hs-zone{flex:none;justify-content:flex-start;text-align:left;padding:0 12px;height:auto;min-height:max(44px, calc(52px * var(--hk)));}
+  .hs .btn.hs-zone.akt{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));}
+  .hs .btn.hs-zone .w{font-size:calc(13px * var(--hk));}
+  /* Die Spieler-Karte ist "an", ihre Zonen-Tasten nicht: nur die Zone, die
+     spielt, zeigt ihr Symbol leuchtend */
+  .hs .btn.hs-zone .z{color:var(--ink);}
+  .hs .btn.hs-zone .w,.hs .btn.hs-zone .hs-i{color:var(--muted);}
+  .hs .btn.hs-zone .hs-i.wx{color:var(--glow);}
+  /* Aufbau "mitte": --muted traegt auf der Tastenflaeche nicht, die gewaehlte
+     Zone kippt wie eine aktive Kachel */
+  html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone .w{color:var(--ink);}
+  html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .z,
+  html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .hs-i{color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .w{color:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  .hs-sp.leiste{flex:none;padding:calc(14px * var(--hk)) calc(16px * var(--hk));}
+  .hs-sp.leiste .r1{display:flex;align-items:center;gap:calc(12px * var(--hk));min-width:0;}
+  .hs-sp.leiste .hs-cov{width:calc(64px * var(--hk));height:calc(64px * var(--hk));}
+  .hs-sp.leiste .ti{font-size:calc(20px * var(--hk));-webkit-line-clamp:1;}
+  .hs-sp.leiste .r2{display:flex;align-items:center;gap:calc(8px * var(--hk));min-width:0;}
+  .hs-sp.leiste .hs-tasten{flex:none;display:flex;}
+  .hs-sp.leiste .hs-tasten .btn.hs-b{width:var(--hs-t);}
+  .hs-sp.leiste .hs-laut{flex:0 1 calc(300px * var(--hk));margin-left:auto;min-width:0;}
+  .hs-sp.leiste .btn.hs-zw{max-width:40%;}
+  .hs-sp.leiste .btn.hs-zw span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .frontpage.hidden{display:none;}
   .frontpage{position:absolute;inset:0;z-index:5;background:var(--screen);
     display:flex;flex-direction:column;gap:14px;padding:16px;overflow-y:auto;}
@@ -1645,6 +1781,8 @@ const TABS = [
   // Kalender/Wetter als eigene Seite (FRONT_TABS im Server); Inhalt aus frontData
   {tab:'kalender',  label:'Kalender',  icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/>'},
   {tab:'wetter',    label:'Wetter',    get icon(){ return WXI.sun; }},
+  // Hausuebersicht (HAUS_TAB im Server, renderHaus)
+  {tab:'haus',      label:'Haus',      icon:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/>'},
 ];
 
 // Freie Bausteinauswahl: eine Seite je Panel, Name kommt per tabMeta vom
@@ -2607,7 +2745,7 @@ function renderPanel(blocks){
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('conn').classList.remove('vis');
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme','fronttab','lx','hpages','punkte');
+  el('grid').classList.remove('list','snapy','scheme','fronttab','lx','hpages','punkte','haus');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
@@ -3459,11 +3597,12 @@ function render(){
     if(!gridAuto){ gridCols=profCols; gridRows=profRows; }   // automatisch: der Kasten ist ohnehin der Schirm
     document.documentElement.style.setProperty('--cols', gridCols);
     document.documentElement.style.setProperty('--rows', gridRows);
-    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx','hpages','punkte');
+    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx','hpages','punkte','haus');
     renderTabs();
     return;
   }
-  el('grid').classList.remove('panel','bigpage','anchorbot','scheme','fronttab');
+  if(view.layout==='haus'){ renderHaus(); return; }
+  el('grid').classList.remove('panel','bigpage','anchorbot','scheme','fronttab','haus');
   if(view.front){ renderFrontTab(); return; }
   el('grid').classList.toggle('list', view.layout==='list');
   el('grid').classList.toggle('lx', kachelNeu());
@@ -3590,7 +3729,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx','hpages','punkte');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx','hpages','punkte','haus');
   g.classList.add('scheme');
   el('conn').classList.remove('vis');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
@@ -3673,7 +3812,10 @@ function fensterGeaendert(){
   // Kachel-Grid nur neu rendern, wenn Lage (quer/hoch/quadratisch) oder Raster
   // tatsaechlich kippen (kein Neuzeichnen bei jedem Pixel) -> 4"-Panel bleibt
   // 2x2 statt in der Startmessung 4x2 haengenzubleiben.
-  if(view && !el('grid').classList.contains('scheme')
+  // Hausuebersicht: Lage (Spieler als Spalte oder Leiste, Spalten) neu
+  // rechnen; nur wenn sie kippt, baut renderHaus neu
+  if(view && view.layout==='haus' && el('grid').classList.contains('haus')){ if(!updateHaus()) render(); }
+  else if(view && !el('grid').classList.contains('scheme')
      && rasterKey(_lastWidget) !== _lastRaster) render();
   panelEinpassen();
   kopfEinpassen();
@@ -3823,7 +3965,9 @@ function connect(){
     if(msg.t==='alarm'){ if(msg.on){ wake(); startAlarmTone(); if(msg.id) nav({view:'control',id:msg.id}); } else { stopAlarmTone(); } return; }
     if(msg.t==='testtone'){ playTestTone(); return; }
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane();
-      if(view && view.front && el('grid').classList.contains('fronttab')) renderFrontTab(); return; }   // Kalender/Wetter fuer die Uhr-Seite
+      if(view && view.front && el('grid').classList.contains('fronttab')) renderFrontTab();
+      if(view && view.layout==='haus' && el('grid').classList.contains('haus') && !updateHaus()) render();   // Kopf: Wetter, Termin
+      return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[]; playerSecured=!!msg.secured;
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> Audio als zweite Uhr-Spalte
       renderPlayer(playerData); return; }   // sonst fester Player in Pane 2
@@ -3884,6 +4028,12 @@ function connect(){
       if(!(sameS && updateScheme(msg))) renderScheme(msg);   // gleiche Seite: nur Werte patchen (Zoom bleibt)
       return;
     }
+    if(msg.layout==='haus'){   // Hausuebersicht: gleiche Seite -> nur geaenderte Bloecke tauschen
+      const sameH = view && key(view.route)===key(msg.route);
+      view=msg; renderLeiste();
+      if(!(sameH && updateHaus())) render();
+      return;
+    }
     if(msg.widget){ view=msg; render(); return; }   // Widget-Seite (Vollbild-Tab)
     const same = view && key(view.route)===key(msg.route);
     if(msg.blocks){
@@ -3912,6 +4062,9 @@ function tickClock(){
   const kt=el('kzTime'), kd=el('kzDate');   // Kopfzeile (Widget "header")
   if(kt) kt.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(kd) kd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'short'});
+  const ht=el('hsTime'), hd=el('hsDate');   // Kopf der Hausuebersicht
+  if(ht) ht.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
+  if(hd) hd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'long'});
 }
 // ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
 // Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
@@ -4546,7 +4699,7 @@ function kalenderEinpassen(elc){
 function renderFrontTab(){
   const g=el('grid'), d=frontData||{}, art=view.front;
   const liste=g.querySelector('.ft-b'), oben=(g.classList.contains('fronttab') && liste) ? liste.scrollTop : 0;
-  g.classList.remove('list','snapy','chartpage','lx','hpages','punkte');
+  g.classList.remove('list','snapy','chartpage','lx','hpages','punkte','haus');
   g.classList.add('fronttab');
   el('conn').classList.remove('vis');   // der Verbindungspunkt saesse mitten im Inhalt
   if(art==='calendar'){
@@ -4565,6 +4718,202 @@ function renderFrontTab(){
   }
   const b=g.querySelector('.ft-b'); if(b && oben) b.scrollTop=oben;
   renderTabs();
+}
+// ---- Hausuebersicht (Tab "haus", Server: _view_haus) ----
+// Die Seite besteht aus benannten Bloecken (data-hb: Kopf, Zeile, je
+// aktivem Geraet, je Raum, Spieler). renderHaus baut alles; kommt dieselbe
+// Seite mit neuen Zustaenden, ersetzt updateHaus nur die Bloecke, deren HTML
+// sich geaendert hat - solange Lage und Blockfolge (Signatur) gleich bleiben.
+// Bedient wird ueber einen Klick-Verteiler am Raster (hausKlick), deshalb
+// brauchen ersetzte Bloecke keine eigenen Handler.
+const HS_PFEIL='<path d="m9 6 6 6-6 6"/>', HS_ZURUECK='<path d="M15 5l-7 7 7 7"/>';
+const HS_LEISER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5"/>';
+const HS_LAUTER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5M18.5 9.5v5"/>';
+const HS_ENERGIE='<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', HS_RUHIG='<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+const HS_TASTE={prev:'Zurück', play:'Wiedergabe', pause:'Pause', next:'Weiter'};
+const HS_ZENTRAL_ICO={licht:'bulb', audio:'music'};
+// Mindestbreite einer Karte unter "Gerade aktiv" und einer Raumkarte, die
+// Hoehe, ab der Raumkarten scrollen statt schrumpfen, und das Seitenverhaeltnis,
+// das die Spaltenzahl der Raeume anstrebt (alles bei --hk 1)
+const HS_AKTIV_MIN=260, HS_RAUM_MIN=200, HS_RAUM_HOCH=150, HS_RAUM_SEITE=1.4;
+function hsIco(s, extra){
+  const k='hs-i'+(extra?' '+extra:'');
+  if(s.iconImg) return '<span class="'+k+'"><img src="'+esc(s.iconImg)+'" alt=""></span>';
+  if(s.iconUrl) return '<span class="'+k+' img" style="--u:url(\''+esc(s.iconUrl)+'\')"></span>';
+  return '<span class="'+k+'">'+svg(ICONS[s.icon]||ICONS.info)+'</span>';
+}
+function hsWo(a){ return a.label && a.label!==a.raum ? a.label+' · '+a.raum : (a.raum||a.label||''); }
+// Masse der Flaeche: Massstab --hk aus der kleineren Seite (iPad quer 1, das
+// grosse Display mehr, das 4"-Panel weniger), dazu die Lage: Spieler als
+// Spalte rechts, wenn die Flaeche breit genug und quer ist, sonst als Leiste.
+function hausLage(v){
+  const g=el('grid'), cs=getComputedStyle(g);
+  const w=g.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const h=g.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+  const hk=Math.max(.7, Math.min(1.5, Math.min(w,h)/740)), gap=12*hk;
+  const spalte=!!v.spieler && w>=860 && w>h*1.1;
+  const mainW=spalte ? w-280*hk-16*hk : w;
+  const zeile=!!(v.aktiv.length || v.zentral.length) && !v.liste;
+  const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
+  // Hoehe fuer die Raumkarten: Flaeche minus Kopf, Zeile "Gerade aktiv" und
+  // (hochkant) die Spieler-Leiste
+  const tH=Math.max(44,56*hk), abst=14*hk;
+  let raumH=h-72*hk-abst;
+  if(zeile) raumH-=Math.max(44,48*hk)+10*hk+Math.max(64,80*hk)+abst;
+  if(v.spieler && !spalte) raumH-=28*hk+64*hk+12*hk+tH+abst;
+  // Spalten der Raeume: die, deren Karten dem Seitenverhaeltnis am naechsten
+  // kommen, ohne zu scrollen; scrollt jede Wahl, die mit den meisten Spalten
+  // ueber der Mindestbreite und feste Kartenhoehe
+  const n=Math.max(1, v.raeume.length);
+  let best=null;
+  for(let c=1;c<=4;c++){
+    const cw=(mainW-(c-1)*gap)/c; if(c>1 && cw<HS_RAUM_MIN*hk) break;
+    const rows=Math.ceil(n/c), ch=(raumH-(rows-1)*gap)/rows;
+    const scroll=ch<HS_RAUM_HOCH*hk;
+    const wert=(scroll?10:0)+Math.abs(Math.log((cw/Math.max(1,ch))/HS_RAUM_SEITE));
+    if(!best || wert<best.wert) best={c, wert, scroll};
+  }
+  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(HS_RAUM_HOCH*1.15*hk)+'px' : '', zeile};
+}
+function hausBloecke(v, L){
+  const B=[], d=frontData||{}, w=d.weather, ev=(Array.isArray(d.events)?d.events:[])[0];
+  let kopf='<div class="hs-kopf" data-hb="kopf"><div class="hs-uhr"><span class="t" id="hsTime">--:--</span><span class="d" id="hsDate"></span></div>';
+  // zweite Zeile: die Vorschau fuer morgen, ohne sie Lage und Hoch/Tief von heute
+  const mo=(Array.isArray(w&&w.forecast)?w.forecast:[])[1];
+  if(w) kopf+='<div class="hs-c hs-k">'+'<span class="hs-i wx">'+wxSvg(w.icon)+'</span><span class="tx"><span class="z">'+tdeg(w.temp)+'</span>'+
+    '<span class="w">'+esc(mo ? [mo.day, tdeg(mo.hi)+' / '+tdeg(mo.lo)].filter(Boolean).join(' ')
+      : [w.cond, (w.hi!=null||w.lo!=null) ? tdeg(w.hi)+' / '+tdeg(w.lo) : ''].filter(Boolean).join(' · '))+'</span></span></div>';
+  if(ev) kopf+='<div class="hs-c hs-k"><span class="tx"><span class="w">'+esc([ev.day, ev.time].filter(Boolean).join(', '))+'</span>'+
+    '<span class="z">'+esc(ev.title||'')+'</span></span></div>';
+  const e=v.energie, summen=e && e.cons!=null;
+  if(e) kopf+='<button type="button" class="hs-c hs-k" data-hs="energie" aria-label="'+esc(e.label)+'">'+
+    '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
+    '<span class="w">'+esc(summen ? 'Verbrauch · PV '+fmtPower(e.prod) : e.label)+'</span></span></button>';
+  B.push(['kopf','main',kopf+'</div>']);
+  const zentral=v.zentral.map(z=>'<button type="button" class="btn hs-b" data-hs="zentral" data-art="'+esc(z.art)+'">'+
+    svg(ICONS[HS_ZENTRAL_ICO[z.art]]||ICONS.switch)+esc(z.label)+'</button>').join('');
+  const anzahl=v.aktiv.length===1 ? '1 Gerät' : v.aktiv.length+' Geräte';
+  const karte=(a,i)=>'<div class="hs-c hs-a on" data-hb="a:'+esc(a.id)+'">'+hsIco(a)+
+    '<span class="tx"><span class="z">'+esc(a.zustand||a.label)+'</span><span class="w">'+esc(hsWo(a))+'</span></span>'+
+    '<button type="button" class="btn hs-b" data-hs="aus" data-i="'+i+'" aria-label="'+esc(a.taste+': '+hsWo(a))+'">'+esc(a.taste)+'</button></div>';
+  if(v.liste){
+    B.push(['lkopf','main','<div class="hs-zeile" data-hb="lkopf"><button type="button" class="btn hs-b hs-rund" data-hs="zurueck" aria-label="Zurück">'+
+      svg(HS_ZURUECK)+'</button><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span>'+
+      (zentral?'<span class="rechts">'+zentral+'</span>':'')+'</div>']);
+    v.aktiv.forEach((a,i)=>B.push(['a:'+a.id,'liste',karte(a,i)]));
+  } else {
+    if(L.zeile){
+      B.push(['akopf','main','<div class="hs-zeile" data-hb="akopf"><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span>'+
+        (zentral?'<span class="rechts">'+zentral+'</span>':'')+'</div>']);
+      // So viele Karten wie Spalten; mehr -> die letzte Stelle wird "+n weitere"
+      const zeigen = v.aktiv.length>L.sp ? L.sp-1 : v.aktiv.length;
+      v.aktiv.slice(0,zeigen).forEach((a,i)=>B.push(['a:'+a.id,'aktiv',karte(a,i)]));
+      if(v.aktiv.length>zeigen) B.push(['mehr','aktiv','<button type="button" class="hs-c hs-a hs-mehr" data-hb="mehr" data-hs="mehr" '+
+        'aria-label="Alle '+v.aktiv.length+' aktiven Geräte zeigen">+'+(v.aktiv.length-zeigen)+' weitere'+svg(HS_PFEIL)+'</button>']);
+      if(!v.aktiv.length) B.push(['ruhig','aktiv','<div class="hs-c hs-a" data-hb="ruhig"><span class="hs-i ok">'+svg(HS_RUHIG)+'</span>'+
+        '<span class="tx"><span class="z">Alles ruhig</span><span class="w">Kein Licht an, keine Musik</span></span></div>']);
+    }
+    v.raeume.forEach((r,i)=>{
+      const sym=r.symbole.map(s=>'<span class="s'+(s.on?' on':'')+'">'+hsIco(s)+'</span>').join('');
+      B.push(['r:'+r.id,'raeume','<button type="button" class="hs-c hs-r" data-hb="r:'+esc(r.id)+'" data-hs="raum" data-i="'+i+'" aria-label="'+esc('Raum '+r.name+' öffnen')+'">'+
+        '<span class="kopf"><span class="nm">'+esc(r.name)+'</span><span class="chev'+(L.spalte?'':' rund')+'">'+svg(HS_PFEIL)+'</span></span>'+
+        '<span class="wt'+((r.wert||'').length>8?' lang':'')+'">'+esc(r.wert||'')+'</span>'+
+        '<span class="sb">'+esc(r.sub || (r.anzahl===1 ? '1 Baustein' : r.anzahl+' Bausteine'))+'</span>'+
+        '<span class="sym">'+sym+(r.an?'<span class="an">'+r.an+' an</span>':'')+'</span></button>']);
+    });
+  }
+  const sp=v.spieler;
+  if(sp){
+    const cover=sp.cover ? '<img class="hs-cov" src="'+esc(sp.cover)+'" alt="">' : '<span class="hs-cov">'+svg(ICONS.music)+'</span>';
+    const zustand=sp.sub || (sp.spielt ? 'Spielt' : 'Pausiert');
+    const tasten='<div class="hs-tasten">'+sp.tasten.map((t,i)=>'<button type="button" class="btn hs-b" data-hs="sp" data-i="'+i+'" aria-label="'+
+      esc(HS_TASTE[t.icon]||t.icon)+'">'+svgF(ICONS[t.icon]||ICONS.info)+'</button>').join('')+'</div>';
+    const l=sp.laut, pct=l ? Math.round(100*(l.wert-l.min)/Math.max(1,l.max-l.min)) : 0;
+    const laut=l ? '<div class="hs-laut"><button type="button" class="btn hs-b" data-hs="laut" data-d="-1" aria-label="Leiser">'+svg(HS_LEISER)+'</button>'+
+      '<span class="v"><span>'+l.wert+'</span><span class="bar"><i style="width:'+pct+'%"></i></span></span>'+
+      '<button type="button" class="btn hs-b" data-hs="laut" data-d="1" aria-label="Lauter">'+svg(HS_LAUTER)+'</button></div>' : '';
+    const kl=' class="hs-c hs-sp'+(sp.spielt?' spielt':'')+(L.spalte?'':' leiste'+(sp.spielt?' on':''))+'" data-hb="sp"';
+    if(L.spalte){
+      const zonen=sp.zonen.length>1 ? '<div class="hs-zonen"><span class="lbl">Zonen</span>'+sp.zonen.map(z=>
+        '<button type="button" class="btn hs-b hs-zone'+(z.id===sp.zone?' akt':'')+'" data-hs="zone" data-id="'+esc(z.id)+'" aria-pressed="'+(z.id===sp.zone)+'">'+
+        '<span class="hs-i'+(z.spielt?' wx':'')+'">'+svg(ICONS.music)+'</span><span class="tx"><span class="z">'+esc(z.name)+'</span>'+
+        '<span class="w">'+esc(z.spielt ? ['Spielt', z.titel].filter(Boolean).join(' · ') : 'Aus')+'</span></span></button>').join('')+'</div>' : '';
+      B.push(['sp','seite','<div'+kl+'><div class="hs-spk"><b>Audio</b><span>'+esc(sp.name)+'</span></div>'+
+        '<div class="hs-cv">'+cover+'<span class="ti">'+esc(sp.titel)+'</span><span class="w st">'+esc(zustand)+'</span></div>'+
+        tasten+laut+zonen+'</div>']);
+    } else {
+      const i=sp.zonen.findIndex(z=>z.id===sp.zone), weiter=sp.zonen[(i+1)%sp.zonen.length];
+      const zw=sp.zonen.length>1 ? '<button type="button" class="btn hs-b hs-zw" data-hs="zone" data-id="'+esc(weiter.id)+'" aria-label="'+
+        esc('Zone wechseln, jetzt '+sp.name+', weiter zu '+weiter.name)+'">'+svg('<path d="M4 8h13l-3-3M20 16H7l3 3"/>')+'<span>'+esc(sp.name)+'</span></button>' : '';
+      B.push(['sp','unten','<div'+kl+'><div class="r1">'+cover+'<span class="tx"><span class="ti">'+esc(sp.titel)+'</span>'+
+        '<span class="w st">'+esc(zustand+(sp.zonen.length>1?'':' · '+sp.name))+'</span></span>'+zw+'</div>'+
+        '<div class="r2">'+tasten+laut+'</div></div>']);
+    }
+  }
+  return B;
+}
+// Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
+function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, L.rh, L.zeile, B.map(b=>b[0])]); }
+function renderHaus(){
+  const g=el('grid'), v=view;
+  g.classList.remove('list','snapy','lx','hpages','punkte','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
+  g.classList.add('haus');
+  el('conn').classList.remove('vis');   // der Verbindungspunkt saesse mitten im Inhalt
+  // Unterseite "Gerade aktiv", aber nichts mehr an: zurueck zur Uebersicht
+  if(v.liste && !v.aktiv.length){ if(stack.length>1) back(); }
+  const L=hausLage(v);
+  g.style.setProperty('--hk', L.hk.toFixed(3));
+  g.style.setProperty('--hs-sp', L.sp);
+  g.style.setProperty('--hs-rc', L.rc);
+  if(L.rh) g.style.setProperty('--hs-rh', L.rh); else g.style.removeProperty('--hs-rh');
+  const B=hausBloecke(v, L), teil=o=>B.filter(b=>b[1]===o).map(b=>b[2]).join('');
+  let main=teil('main');
+  if(v.liste) main+='<div class="hs-liste">'+teil('liste')+'</div>';
+  else { main+=(L.zeile?'<div class="hs-aktiv">'+teil('aktiv')+'</div>':'')+'<div class="hs-raeume">'+teil('raeume')+'</div>'; }
+  main+=teil('unten');
+  g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+'"><div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
+  B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
+  g._hsSig=hausSig(L, B);
+  if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); }
+  tickClock();
+  renderTabs();
+}
+// Gleiche Seite, neue Zustaende: nur geaenderte Bloecke tauschen. false ->
+// Lage oder Blockfolge anders, renderHaus baut neu.
+function updateHaus(){
+  const g=el('grid'), v=view;
+  if(!v || v.layout!=='haus' || !g.classList.contains('haus')) return false;
+  if(v.liste && !v.aktiv.length) return false;
+  const L=hausLage(v), B=hausBloecke(v, L);
+  if(g._hsSig!==hausSig(L, B)) return false;
+  B.forEach(([k,,h])=>{
+    const n=g.querySelector('[data-hb="'+CSS.escape(k)+'"]');
+    if(!n || n._h===h) return;
+    const t=document.createElement('template'); t.innerHTML=h;
+    const m=t.content.firstElementChild; m._h=h; n.replaceWith(m);
+  });
+  tickClock();
+  return true;
+}
+function hausZone(id){
+  const r=Object.assign({}, view.route, {zone:id});
+  stack[stack.length-1]=r; send({t:'nav', route:r});
+}
+function hausKlick(e){
+  const v=view; if(!v || v.layout!=='haus') return;
+  const b=e.target.closest('[data-hs]'); if(!b) return;
+  const art=b.dataset.hs, i=+b.dataset.i, sp=v.spieler;
+  if(art==='raum'){ const r=v.raeume[i]; if(r) nav(r.nav); }
+  else if(art==='aus'){ const a=v.aktiv[i]; if(a) sendCmd(a.aus.uuid, a.aus.cmd, a.secured); }
+  else if(art==='zentral') send({t:'hausaus', art:b.dataset.art});
+  else if(art==='mehr') nav(Object.assign({}, v.route, {liste:'aktiv'}));
+  else if(art==='zurueck') back();
+  else if(art==='energie'){ if(v.energie) nav(v.energie.nav); }
+  else if(art==='sp'){ const t=sp && sp.tasten[i]; if(t) sendCmd(t.cmd.uuid, t.cmd.cmd, sp.secured); }
+  else if(art==='laut' && sp && sp.laut){
+    const l=sp.laut, neu=Math.max(l.min, Math.min(l.max, l.wert+(+b.dataset.d)*l.schritt));
+    if(neu!==l.wert) sendCmd(l.cmd.uuid, l.cmd.tmpl.replace('{v}', neu), sp.secured); }
+  else if(art==='zone' && b.dataset.id) hausZone(b.dataset.id);
 }
 // Test-/Vorschau-Schalter: ?front=1 zeigt die ausfuehrliche Ansicht als Vollseite.
 const FRONT_TEST=new URLSearchParams(location.search).has('front');

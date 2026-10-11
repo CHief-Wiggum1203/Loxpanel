@@ -817,6 +817,51 @@ EM2 = {"name": "Energiemanager", "type": "EnergyManager2", "uuidAction": "M", "r
        "details": {}, "states": {"Ppwr": "m-p", "Gpwr": "m-g", "Spwr": "m-s", "Ssoc": "m-soc"}}
 
 
+def haus_anlage() -> tuple[dict, dict]:
+    """-> (Struktur, States) eines ganzen Hauses fuer die Hausuebersicht (Tab
+    "haus"): sieben Raeume mit Licht, Audio-Zonen, Sauna, Raumregelung,
+    Lueftung, Postkasten, Tuersprechanlage, Energiefluss und Zentralen.
+    An sind das Licht im Abstellraum, die Zone Essen-Kochen-Wohnen, die
+    Frostsicherung und das gesicherte Aussenlicht (Visu-PIN); die Lueftung
+    laeuft, hat aber keinen Aus-Befehl."""
+    def b(uuid, name, typ, raum, states, **extra):
+        return {"name": name, "type": typ, "uuidAction": uuid, "room": raum, "cat": "c1",
+                "states": states, **extra}
+    moods = json.dumps([{"id": 778, "name": "Aus"}, {"id": 1, "name": "Hell"}])
+    controls = {
+        "F": dict(EFM),
+        "FS": b("FS", "Frostsicherung", "Switch", "r1", {"active": "fs"}),
+        "LU": b("LU", "Lüftung", "Ventilation", "r1", {"speed": "lu"}),
+        "CA": b("CA", "Audio Zentral", "CentralAudioZone", "r1", {},
+                details={"controls": [{"uuid": "AZ"}, {"uuid": "AB"}]}),
+        "CL": b("CL", "Licht Zentral", "CentralLightController", "r1", {},
+                details={"controls": [{"uuid": "LC"}, {"uuid": "LA"}]}),
+        "MB": b("MB", "Postkasten", "MailBox", "r2", {"mailReceived": "mb1", "packetReceived": "mb2"}),
+        "IC": b("IC", "Eingang Intercom", "Intercom", "r2", {"bell": "ic"}),
+        "AL": b("AL", "Außenlicht", "Dimmer", "r2", {"position": "al"}, isSecured=True),
+        "TS": b("TS", "Timer IR Heizung", "TimedSwitch", "r3", {"deactivationDelay": "ts"}),
+        "AZ": b("AZ", "Essen-Kochen-Wohnen", "AudioZoneV2", "r4",
+                {"playState": "az1", "songName": "az2", "volume": "az3"}),
+        "SA": b("SA", "Saunasteuerung", "Sauna", "r5", {"active": "sa1", "tempActual": "sa2"}),
+        "LC": b("LC", "Sauna", "LightControllerV2", "r5", {"activeMoods": "lc1", "moodList": "lc2"}),
+        "IR": b("IR", "Raumregelung Küche", "IRoomControllerV2", "r6",
+                {"tempActual": "ir1", "tempTarget": "ir2", "prepareState": "ir3", "openWindow": "ir4"}),
+        "LA": b("LA", "Licht", "LightControllerV2", "r7", {"activeMoods": "la1", "moodList": "la2"}),
+        "AB": b("AB", "Audio-Zone", "AudioZone", "r7", {"playState": "ab1", "volume": "ab2"}),
+    }
+    states = {
+        "f-p": 0.0, "f-g": 0.8, "f-s": 0.0, **{f"f-a{i}": 0.1 for i in range(len(EFM_NODES))},
+        "fs": 1, "lu": 40, "mb1": 0, "mb2": 0, "ic": 0, "al": 50, "ts": 0,
+        "az1": 2, "az2": "Hitradio Ö3", "az3": 24, "sa1": 0, "sa2": 25.4,
+        "lc1": json.dumps([778]), "lc2": moods, "ir1": 21.5, "ir2": 22.0, "ir3": 1, "ir4": 0,
+        "la1": json.dumps([1]), "la2": moods, "ab1": 0, "ab2": 10,
+    }
+    rooms = {"r1": "Zentral", "r2": "Eingang", "r3": "Bad", "r4": "Essen-Kochen-Wohnen",
+             "r5": "Sauna", "r6": "Küche", "r7": "Abstellraum"}
+    return ({"rooms": {k: {"name": v} for k, v in rooms.items()}, "cats": {"c1": {"name": "Allgemein"}},
+             "controls": controls}, states)
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)
