@@ -80,6 +80,14 @@ import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.js
 log = logging.getLogger("loxpanel.webvisu")
 # Welcher Stand laeuft (Seitenleiste des Konfigurators); einmal beim Start gelesen
 VERSION = version_info.lesen()
+
+
+def server_stand() -> str:
+    """Kennung des laufenden Stands fuer Visu und Konfigurator (theme-Nachricht,
+    /api/devices): der Commit, ohne ihn leer. Meldet ein neu gestarteter Server
+    einen anderen, laden offene Seiten neu, statt altes HTML/JS gegen den
+    neuen Server laufen zu lassen."""
+    return VERSION.get("commit") or ""
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -9365,9 +9373,11 @@ async def api_save_devices(request: web.Request) -> web.Response:
 
 async def api_devices_get(request: web.Request) -> web.Response:
     """Alle Anzeigegeraete (Agent, Kiosk-App, Browser) mit Online-Status,
-    Ansicht und Typ; Browser ohne Kennung getrennt nach IP."""
+    Ansicht und Typ; Browser ohne Kennung getrennt nach IP. Dazu der Stand des
+    Servers: der Konfigurator fragt hier alle paar Sekunden nach und laedt
+    nach einem Update neu."""
     app: App = request.app["app"]
-    return web.json_response(app.device_list())
+    return web.json_response({**app.device_list(), "stand": server_stand()})
 
 
 async def api_device_switch(request: web.Request) -> web.Response:
@@ -9797,7 +9807,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "agent": app._has_agent(dev),
                         # Vorschau eines ungespeicherten Entwurfs: die Visu kennzeichnet sie;
                         # ein Token, der nichts mehr trifft (abgelaufen), meldet sie auch
-                        "entwurf": bool(prof.get("entwurf")) if ent else None})
+                        "entwurf": bool(prof.get("entwurf")) if ent else None,
+                        "stand": server_stand()})   # anderer Stand als beim Laden: Seite neu laden
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first

@@ -1668,6 +1668,17 @@ let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der 
 // und data-kachelset-leiste am <html>; daran haengen die Regeln im CSS.
 let kachelAufbau = '', kachelLeiste = '';
 let _themeVars = [];     // Variablen der letzten theme-Nachricht (s. dort)
+// Stand des Servers (Commit, theme-Nachricht "stand"), den die erste
+// Verbindung meldet. Meldet ein neu gestarteter Server nach dem Wiederverbinden
+// einen anderen, laeuft hier noch HTML/JS des alten: die Seite laedt neu.
+let serverStand = null;
+function serverStandPruefen(st){
+  if(!st) return false;
+  if(serverStand===null){ serverStand=st; return false; }
+  if(st===serverStand) return false;
+  location.reload();
+  return true;
+}
 let gridAuto = 0;        // automatisches Raster: Zielgroesse einer Kachel in px (vom Server), 0 = festes Raster
 let gridGrow = 1;        // ... bis zu diesem Vielfachen wachsen die Kacheln, wenn alle auf eine Seite passen (vom Server)
 let paneCols = 0;        // Widget im automatischen Raster: feste Breite in Kachelspalten (hochkant Zeilen), 0 = Automatik (vom Server)
@@ -3704,7 +3715,8 @@ function connect(){
     try{ msg=JSON.parse(e.data); }
     catch(err){ console.warn('LoxPanel: unlesbare Nachricht verworfen', err); return; }
     if(!msg || typeof msg!=='object') return;
-    if(msg.t==='theme'){ const v=msg.vars||{};
+    if(msg.t==='theme'){ if(serverStandPruefen(msg.stand)) return;
+      const v=msg.vars||{};
       // Was die vorige Nachricht setzte und diese nicht mehr nennt (anderes
       // Kachel-Set, keine Grundfarbe mehr), faellt weg - sonst bliebe etwa
       // --kachel-an oder --an-text des vorigen Sets bis zum Neuladen stehen.
