@@ -858,7 +858,11 @@ def _clean_tabpane(v) -> str:
 def _clean_widget_tab(v) -> str:
     """Widget einer freien Seite (pickTabs[].widget, Vollbild-Tab): dieselbe
     Grammatik wie eine Tab-Pane, nur die Kopfzeile nicht - sie ist eine Zeile
-    UEBER Kacheln, als ganze Seite bliebe darunter nichts."""
+    UEBER Kacheln, als ganze Seite bliebe darunter nichts. Dazu die
+    Hausuebersicht (HAUS_TAB): eine freie Seite kann sie sein, statt dass die
+    Ansicht den Tab "haus" in der klassischen Leiste braucht."""
+    if v == HAUS_TAB:
+        return v
     w = _clean_tabpane(v)
     return "" if w == "header" or w.startswith("header:") else w
 
@@ -3039,6 +3043,8 @@ class App:
                 # Loxone-Pfad ueber _icon_url aufloesen (rueckwaertskompatibel).
                 _url = _ic if (isinstance(_ic, str) and _ic.startswith("/")) else (self._icon_url(_ic) or "")
                 meta[t] = {"label": (_e.get("name") or "Auswahl"), "iconUrl": _url}
+                if _e.get("widget") == HAUS_TAB:
+                    meta[t]["haus"] = True   # ohne eigenes Symbol das Haus der Leiste
             elif isinstance(t, str) and t.startswith("cat:"):
                 cat = self.cats.get(t[4:], {})
                 meta[t] = {"label": _clean(cat.get("name")) or "Kategorie",
@@ -4991,6 +4997,8 @@ class App:
                     "route": {"view": "tab", "tab": tab}, "items": [], "front": teil}
         ar = prof.get("rooms") if prof else None
         ac = prof.get("cats") if prof else None
+        if self._haus_seite(tab, prof):
+            return self._view_haus({"view": "tab", "tab": tab}, prof)
         if _is_pick(tab):
             # Freie Auswahl: genau die handverlesenen Bausteine, in der
             # gespeicherten Reihenfolge (= Klickreihenfolge in der Konfig).
@@ -5234,6 +5242,17 @@ class App:
                 **self._leiste_items(leiste, prof, ohne_raum=ohne_raum)}
 
     # ---- Hausuebersicht (Tab "haus") ----
+    @staticmethod
+    def _haus_seite(tab, prof: dict | None) -> bool:
+        """Zeigt dieser Tab die Hausuebersicht? Der Tab "haus" der klassischen
+        Leiste oder eine freie Seite, deren Inhalt sie ist (pickTabs[].widget)."""
+        if tab == HAUS_TAB:
+            return True
+        if not _is_pick(tab):
+            return False
+        seiten, i = _pick_tabs(prof), _pick_index(tab)
+        return 0 <= i < len(seiten) and seiten[i].get("widget") == HAUS_TAB
+
     def _haus_raeume(self, prof: dict | None) -> list:
         """Raeume der Hausseite mit ihren sichtbaren Bausteinen, in der Folge der
         Raumliste (rooms_with) und mit dem Raumfilter der Ansicht wie der Tab
@@ -5394,7 +5413,14 @@ class App:
         typen = {self.controls[u].get("type") for u in alle}
         zentral = [{"art": art, "label": label} for art, (label, ts) in HAUS_ZENTRAL.items()
                    if typen.intersection(ts)]
-        out = {"t": "view", "title": HAUS_TITEL, "tab": HAUS_TAB, "route": route, "layout": "haus",
+        tab = (route or {}).get("tab") or HAUS_TAB
+        if _is_pick(tab):
+            # freie Seite: ihr Name ist der Titel
+            seiten, i = _pick_tabs(prof), _pick_index(tab)
+            titel = (seiten[i].get("name") if 0 <= i < len(seiten) else "") or HAUS_TITEL
+        else:
+            titel = HAUS_TITEL
+        out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus",
                "raeume": raeume, "aktiv": aktiv, "zentral": zentral,
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
                "energie": self._haus_energie(alle, prof)}
@@ -7143,7 +7169,7 @@ class App:
             return self._view_alarm_settings(route.get("id"))
         if v == "bells":
             return self._view_bells(route.get("id"))
-        if route and route.get("tab") == HAUS_TAB:
+        if v == "tab" and self._haus_seite((route or {}).get("tab"), prof):
             # Hausuebersicht braucht die ganze Route (gewaehlte Zone, Unterseite)
             return self._view_haus(route, prof)
         return self._view_tab(route.get("tab", "favoriten"), prof)

@@ -181,3 +181,110 @@ def test_bedienen(tmp_path, miniserver_http):
     assert erg["zone_route"] == ["AB", 1], erg
     assert erg["play"] == ["sps/io/AB/play"], erg
     assert erg["raum"] == [{"view": "group", "kind": "room", "id": "r5"}, False], erg
+
+
+def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):
+    """Eigene Auswahl: im Seiten-Editor legt "＋ Haus" eine Seite mit der
+    Hausuebersicht an (danach gibt es die Taste nicht mehr), sie wird
+    gespeichert, und die Visu zeigt sie als Hausseite mit dem Haus in der
+    Leiste. Wer die Ansicht nicht auf "Klassisch" stellt, findet sie so."""
+    import json
+    from lox import KONFIGURATOR_GELADEN
+    from test_auswahl_seiten_browser import ROUTEN
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["auswahl"], "pickTabs": [{"name": "Licht", "picks": ["LA"]}]}}}),
+        encoding="utf-8")
+
+    async def lauf():
+        struktur, states = haus_anlage()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator(".stab[data-sub='seiten']").click()
+                await pg.locator("#seHost [data-se-neu-haus]").click()
+                erg["inhalt"] = await pg.locator("#seHost [data-se-inhalt]").input_value()
+                erg["taste_weg"] = await pg.locator("#seHost [data-se-neu-haus]").count()
+                await pg.screenshot(path=str(tmp_path / "seiten_editor_haus.png"), full_page=True)
+                async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                    await pg.locator("#saveBtn").click()
+                erg["antwort"] = await (await antwort.value).json()
+                erg["flur"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
+                app.panels = W.load_panels()
+                visu = await b.new_page(viewport={"width": 820, "height": 1180}, locale="de-DE")
+                visu.on("pageerror", lambda e: fehler.append(str(e)))
+                await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
+                await visu.wait_for_selector("#tabs .tab[data-tab='auswahl2']", state="attached")
+                await visu.evaluate("wake()")
+                await visu.locator("#tabs .tab[data-tab='auswahl2']").click()
+                await visu.wait_for_selector("#grid.haus .hs-r")
+                erg["visu"] = await visu.evaluate("""() => [view.layout, view.title,
+                  document.querySelector("#tabs .tab[data-tab='auswahl2'] svg").innerHTML.includes('M10 20v-6h4v6')]""")
+                await visu.screenshot(path=str(tmp_path / "haus_als_freie_seite.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["inhalt"] == "haus" and erg["taste_weg"] == 0, erg
+    assert erg["antwort"]["ok"] and erg["antwort"]["verworfen"] == [], erg["antwort"]
+    assert erg["flur"]["tabs"] == ["auswahl", "auswahl2"], erg["flur"]
+    assert erg["flur"]["pickTabs"][1] == {"name": "Haus", "picks": [], "widget": "haus"}, erg["flur"]
+    assert erg["visu"] == ["haus", "Haus", True], erg
+
+
+def test_haus_taste_in_der_klassischen_leiste(cfg_ordner):
+    """Steht die Ansicht auf "Klassisch", zeigte die Visu eine freie Seite
+    nicht: "＋ Haus" setzt dann den Tab "haus" in die Leiste, danach ist die
+    Taste weg."""
+    import json
+    from lox import KONFIGURATOR_GELADEN
+    from test_auswahl_seiten_browser import ROUTEN
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["favoriten", "raeume"]}}}), encoding="utf-8")
+
+    async def lauf():
+        struktur, states = haus_anlage()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator(".stab[data-sub='seiten']").click()
+                await pg.locator("#seHost [data-se-neu-haus]").click()
+                erg["taste_weg"] = await pg.locator("#seHost [data-se-neu-haus]").count()
+                async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                    await pg.locator("#saveBtn").click()
+                erg["antwort"] = await (await antwort.value).json()
+                erg["flur"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["taste_weg"] == 0 and erg["antwort"]["ok"], erg
+    assert erg["flur"]["tabs"] == ["favoriten", "raeume", "haus"], erg["flur"]
+    assert "pickTabs" not in erg["flur"] or not any(s.get("widget") == "haus" for s in erg["flur"]["pickTabs"]), erg

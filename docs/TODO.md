@@ -1712,6 +1712,11 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. Tests:
       `tests/test_haus.py`, `tests/browser/test_haus_browser.py`, Ansicht
       `haus` im Kontrast-Test. **L**
+- [x] **Hausübersicht auch in der eigenen Auswahl** (11.10.2026). Im
+      Seiten-Editor beim „Seiteninhalt“ wählbar, dazu die Taste „＋ Haus“, die
+      sie mit einem Tipp anlegt (eigene Auswahl: Seite, klassisch: Tab).
+      Vorher gab es sie nur als Chip der klassischen Leiste, und wer seine
+      Ansicht mit dem Seiten-Editor baut, fand sie nicht. **S**
 - [ ] **Hausübersicht Teil 2: Schwerpunkt „Räume direkt“.** Runde Tasten in
       der Raumkarte, die Licht, Audio, Sauna (mit Rückfrage), Timer direkt
       schalten; „Licht an“ schaltet die erste Stimmung der Lichtsteuerung.

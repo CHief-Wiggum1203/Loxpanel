@@ -489,6 +489,12 @@
         'An optional second iCal for public holidays only — those days are marked red in the month grid (like Sundays). For example your country’s holiday calendar from Google.',
       // Kalenderzeile
       'Kalender': 'Calendar',
+      // Hausuebersicht als Seite (Seiten-Editor, Assistent)
+      'Hausübersicht': 'House overview',
+      'Hausübersicht als Seite hinzufügen': 'Add the house overview as a page',
+      'Haus': 'House',
+      'Diese Seite zeigt die Hausübersicht: Räume, was gerade an ist, Audio, Uhr, Wetter und Energie. Sie stellt sich aus der Anlage selbst zusammen, hier gibt es nichts anzuordnen.':
+        'This page shows the house overview: rooms, what is on right now, audio, clock, weather and energy. It builds itself from your installation, there is nothing to arrange here.',
       'Name': 'Name',
       'Farbe': 'Color',
       'Entfernen': 'Remove',
