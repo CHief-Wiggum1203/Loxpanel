@@ -572,6 +572,9 @@
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',
       'Kachel-Set': 'Tile set',
       'Eigene Farben': 'Own colours',
+      'Neuer Stand auf dem Server – nach dem Speichern lädt die Seite neu.':
+        'New version on the server – the page reloads after saving.',
+      'Jetzt neu laden': 'Reload now',
       'Ohne Set: Farben aus der Grundfarbe, Kachel-Aufbau frei wählbar.':
         'Without a set: colours from the base colour, tile layout freely selectable.',
       'Loxone-App (dunkel)': 'Loxone app (dark)',

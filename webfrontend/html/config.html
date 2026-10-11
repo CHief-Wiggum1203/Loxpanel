@@ -168,6 +168,8 @@
   .actions{display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;}
   .toast{color:var(--good);font-size:14px;opacity:0;transition:opacity .25s;}
   .savebar .offen{color:var(--muted);font-size:13px;}
+  .savebar .standneu{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--warn,#e0a24d);}
+  .savebar .standneu[hidden]{display:none;}
   .toast.show{opacity:1;}
   .toast.err{color:var(--crit);}
   .toast.warn{color:var(--accent);}
@@ -1026,6 +1028,7 @@
     <div class="savebar" id="savebar">
       <button class="btn save" id="saveBtn">Speichern</button>
       <span class="offen" id="offenTxt"></span>
+      <span class="standneu" id="standNeu" hidden></span>
       <span id="delSlot"></span>
       <span class="toast" id="toast"></span>
     </div>
@@ -2651,6 +2654,7 @@ async function speichernAlles(){
     }
   } finally { SPEICHERN_LAEUFT=false; }
   meldungZeigen(erg); leisteZeigen();
+  standNeuNachziehen();
   // Erst jetzt neu laden: nach jeder einzelnen Karte wuerde es die noch offenen
   // ueberschreiben. Den Kalender holt der Server frisch, darum kurz warten.
   if(einst) setTimeout(loadSettings, kal?1500:0);
@@ -2663,6 +2667,28 @@ async function einstellungSpeichern(k, f){
   }catch(e){ return {ok:false, text:name+': '+e}; }
 }
 window.addEventListener('beforeunload',e=>{ if(allesOffen()){ e.preventDefault(); e.returnValue=''; } });
+
+// Stand des Servers (/api/devices "stand", der Commit): den der ersten Abfrage
+// merkt sich die Seite. Meldet ein neu gestarteter Server einen anderen, laeuft
+// hier noch der alte Konfigurator - ohne offene Aenderungen laedt er neu, sonst
+// sagt es die Speicherleiste und er laedt nach dem Speichern neu.
+let SERVER_STAND=null, STAND_NEU=false;
+function serverStandPruefen(st){
+  if(!st) return;
+  if(SERVER_STAND===null){ SERVER_STAND=st; return; }
+  if(st===SERVER_STAND) return;
+  STAND_NEU=true;
+  standNeuNachziehen();
+}
+function standNeuNachziehen(){
+  if(!STAND_NEU) return;
+  if(!allesOffen() && !SPEICHERN_LAEUFT){ location.reload(); return; }
+  const h=$('#standNeu'); if(!h || !h.hidden) return;
+  h.innerHTML=esc(T('Neuer Stand auf dem Server – nach dem Speichern lädt die Seite neu.'))+
+    ' <button type="button" class="minibtn" id="standNeuJetzt">'+esc(T('Jetzt neu laden'))+'</button>';
+  h.hidden=false;
+  $('#standNeuJetzt').onclick=()=>location.reload();
+}
 
 // ---- Vorschau in der echten Visu (Punkt 10, Teil 3) ----
 // „Vorschau“ schickt das Profil samt allen ungespeicherten Aenderungen als
@@ -5398,6 +5424,7 @@ async function nameDevice(ip,name,code){
 async function pollDevices(){
   try{
     const r=await fetch('/api/devices'); const j=await r.json();
+    serverStandPruefen(j.stand);
     renderDeviceList(j);
     ANON_DEVICES=Array.isArray(j.anonymous)?j.anonymous:[];
     const names=(j.devices||[]).map(d=>d.name).filter(Boolean);

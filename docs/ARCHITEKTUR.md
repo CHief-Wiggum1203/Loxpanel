@@ -2545,6 +2545,18 @@ Commit als Build-Argument `LOXPANEL_COMMIT` herein, der APK-Build nimmt ihn aus
 derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
 `versionName` der App (App-Info in Android).
 
+Nach einem Update laden offene Seiten von selbst neu. Sonst liefe in einem Tab,
+der vor dem Update offen war, altes HTML und JavaScript gegen den neuen Server,
+und auch die Versionszeile bliebe alt. Der Server nennt seinen Stand
+(`server_stand()`, der Commit; ohne Commit leer, dann lädt nichts neu) in der
+`theme`-Nachricht und in `/api/devices`. Die Visu merkt sich den Stand der ersten
+Verbindung (`serverStandPruefen()`); meldet der Server nach dem Wiederverbinden
+einen anderen, lädt sie einmal neu. Der Konfigurator prüft ihn bei jeder
+Geräte-Abfrage (alle 6 s). Ohne offene Änderungen lädt er neu, mit offenen zeigt
+die Speicherleiste „Neuer Stand auf dem Server“ (`#standNeu`, „Jetzt neu laden“)
+und lädt nach dem Speichern neu. Tests: `tests/test_neuer_stand.py`,
+`tests/browser/test_neuer_stand_browser.py`.
+
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
 Plugin-Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
 `loxberry-plugin/release.cfg` gemeinsam hochzählen, nach `main` pushen,
