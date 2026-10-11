@@ -181,11 +181,16 @@ def test_neuer_aufbau_am_tablet(tmp_path):
     assert ir["sub"] == "Soll 22,0° · heizt" and ir["name"] == "Raumregelung Küche", ir
     assert k["SA"]["big"] == "25,4°" and k["SA"]["sub"] == "Aus", k["SA"]
     # Tasten als Leiste unten ueber die ganze Breite, gross genug fuer den Finger
-    for kid in ("J", "AZ"):
-        e = k[kid]
-        assert not e["tastenImKopf"] and e["tastenUnten"] >= 0, e
-        assert all(h >= 44 and drin for _, h, drin, _ in e["tasten"]), e
-        assert sum(w for w, _, _, _ in e["tasten"]) >= 0.85 * e["innenBreite"], e
+    e = k["J"]
+    assert not e["tastenImKopf"] and e["tastenUnten"] >= 0, e
+    assert all(h >= 44 and drin for _, h, drin, _ in e["tasten"]), e
+    assert sum(w for w, _, _, _ in e["tasten"]) >= 0.85 * e["innenBreite"], e
+    # ... die breite Audio-Kachel traegt sie in ihrer Spieler-Spalte, der
+    # rechten Haelfte (test_spieler_kachel_browser.py)
+    e = k["AZ"]
+    assert "spieler" in e["klassen"] and not e["tastenImKopf"], e
+    assert all(h >= 44 and drin for _, h, drin, _ in e["tasten"]), e
+    assert 0.4 * e["innenBreite"] <= sum(w for w, _, _, _ in e["tasten"]) <= 0.5 * e["innenBreite"], e
     # Live: neuer Messwert an Ort und Stelle; der Wert macht aus der Beschreibung einen Zustand
     assert alt, "aktualisiert ohne neuen Aufbau"
     assert nachher["IR"]["big"] == "22,3°"
@@ -226,15 +231,12 @@ def test_neuer_aufbau_am_4zoll_panel(tmp_path, request, ui, spalten):
         assert ic["ganz"]["name"] and ic["name"].replace("\n", " ") == "Eingang Intercom", ic
         assert ic["sub"] is not None and ic["ganz"]["sub"], ic
         assert 0.85 <= ic["ks"] <= 0.9, ic["ks"]
-    # Player: in drei Zeilen (128 px) ist die Kachel fuer Text UND Tasten zu
-    # niedrig - keine Tasten, die Detailseite hat sie (tastenEinpassen); in
-    # zwei Zeilen stehen sie unter dem Text, die Kachel nimmt dafuer einen
-    # kleineren Faktor als die Seite
-    if spalten == 3:
-        assert k["AZ"]["tastenWeg"] and not k["AZ"]["tastenImKopf"] and "ohnetasten" in k["AZ"]["klassen"], k["AZ"]
-    else:
-        assert not k["AZ"]["tastenWeg"] and k["AZ"]["tastenUnten"] >= 0, k["AZ"]
-        assert k["AZ"]["eigenerKs"] and k["AZ"]["eigenerKs"] < k["AZ"]["ks"], k["AZ"]
+    # Player (breit): die Tasten stehen in der Spieler-Spalte neben dem Text,
+    # in zwei wie in drei Zeilen - unter dem Text haetten sie in drei Zeilen
+    # (128 px) keinen Platz. Die Kachel braucht dafuer keinen eigenen Faktor.
+    az = k["AZ"]
+    assert "spieler" in az["klassen"] and not az["tastenWeg"] and "ohnetasten" not in az["klassen"], az
+    assert len(az["tasten"]) == 3 and az["eigenerKs"] is None, az
 
 
 @pytest.mark.parametrize("aufbau", ["neu", "classic"])

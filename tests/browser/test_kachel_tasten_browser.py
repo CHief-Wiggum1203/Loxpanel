@@ -32,12 +32,13 @@ ROLLOS = {f"J{i}": {"name": f"Rollo {i}", "type": "Jalousie", "uuidAction": f"J{
           for i in range(12)}
 
 
-def _app(befehle: list, bausteine=ZONEN, ui=None):
+def _app(befehle: list, bausteine=ZONEN, ui=None, tiles=None):
     app = W.App({"host": "", "port": 80})
     app._apply_structure(anlage(bausteine))
     app.states = {**{f"ps{i}": 0 for i in range(12)}, "sl0": SENDER,
                   **{f"{s}{i}": 0 for i in range(12) for s in ("jp", "ju", "jd")}}
-    app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui or {}}})
+    app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["favoriten"], "ui": ui or {},
+                                                  **({"tiles": tiles} if tiles else {})}})
 
     async def command(uuid, cmd, pin=None):
         befehle.append((uuid, cmd))
@@ -432,11 +433,13 @@ def test_tasten_nur_wenn_die_kachel_hoch_genug_ist(tmp_path, ui, tasten, art):
     in der Kachel und verdecken nichts; dafuer nimmt die Kachel den Faktor,
     bei dem Text und Leiste passen (tastenEinpassen), die Tasten selbst
     bleiben in Seitengroesse. Drei Zeilen (128 px): keine Tasten - ein Tipp
-    auf die Kachel oeffnet die Detailseite, dort sind sie."""
+    auf die Kachel oeffnet die Detailseite, dort sind sie. Der Player ist hier
+    eine Spalte breit; breit traegt er die Tasten neben dem Text
+    (test_spieler_kachel_browser.py)."""
     kachel = {"rollo": "J0", "player": "Z0"}[art]
 
     async def lauf():
-        app = _app([], ROLLOS if art == "rollo" else ZONEN, ui)
+        app = _app([], ROLLOS if art == "rollo" else ZONEN, ui, tiles={"Z0": {"w": 1}} if art == "player" else None)
         app.states.update({"jp0": 0.62, "ps0": 2})
         runner, port, bc = await visu_starten(app)
         fehler = []

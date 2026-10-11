@@ -176,12 +176,13 @@ def test_grosse_kacheln_fuellen_sich():
 def test_flache_kacheln_nehmen_die_hoehe():
     """2 x 3 auf dem 4"-Panel: 225 x 128 px. Die Breite ergaebe 1,32, die Hoehe
     begrenzt auf 0,85 - sonst liefe jede Kachel unten ueber. Fuer Text UND
-    Tasten ist die flache Kachel zu niedrig: Beschattung und Player haben
-    keine Tasten (tastenEinpassen), die Detailseite hat sie."""
+    Tasten darunter ist die flache Kachel zu niedrig: die Beschattungen haben
+    keine Tasten (tastenEinpassen), die Detailseite hat sie. Die beiden
+    breiten Audio-Kacheln tragen sie neben dem Text (Spieler-Spalte)."""
     m = _laufen({"cols": 2, "rows": 3}, 480, 480)
     assert m["kurz"]["hoehe"] < 140, m["kurz"]
     assert abs(m["ks"] - KS_MIN) <= 0.01 and m["ueberlauf"] == 0, m
-    assert m["tastenMin"] is None and m["mitTasten"] == 0 and m["ohneTasten"] == 5, m   # 3 Jalousien, 2 Audio
+    assert m["mitTasten"] == 2 and m["ohneTasten"] == 3 and m["tastenMin"] >= 34, m   # 3 Jalousien, 2 Audio
 
 
 def test_langer_name_bleibt_ganz():
@@ -201,14 +202,15 @@ def test_langer_name_bleibt_ganz():
 def test_tasten_schrumpfen_nicht():
     """Faktor 0,85 (3 x 2 auf dem 4"-Panel, 147 x 198 px): Schrift und Symbol
     werden kleiner, die Tasten (Touch-Ziele) bleiben bei 44 px in der Leiste.
-    Flache Kacheln (3 x 3 auf 800 x 480, 128 px) haben gar keine Tasten. Bei
+    Flache Kacheln (3 x 3 auf 800 x 480, 128 px) haben keine Tasten unter dem
+    Text, nur die breiten Audio-Kacheln daneben (Spieler-Spalte). Bei
     grossem Faktor wachsen die Tasten mit dem Faktor der SEITE, auch wo die
     Kachel fuer Text und Tasten einen kleineren nimmt (tastenEinpassen)."""
     m = _laufen({"cols": 3, "rows": 2}, 480, 480)
     assert abs(m["ks"] - KS_MIN) <= 0.01 and m["mitTasten"] == 5 and m["tastenMin"] >= 34 and m["leisteMin"] >= 44, m
     flach = _laufen({"cols": 3, "rows": 3, "fill": True}, 800, 480)
-    assert abs(flach["ks"] - KS_MIN) <= 0.01 and flach["mitTasten"] == 0 and flach["ohneTasten"] == 5 \
-        and flach["tastenMin"] is None, flach
+    assert abs(flach["ks"] - KS_MIN) <= 0.01 and flach["mitTasten"] == 2 and flach["ohneTasten"] == 3 \
+        and flach["tastenMin"] >= 34, flach
     gross = _laufen({"cols": 3, "rows": 3, "fill": True}, 1280, 800)
     assert gross["ks"] > 1 and gross["mitTasten"] == 5 and gross["leisteMin"] >= 44 * gross["ks"] - 1 \
         and gross["tastenMin"] >= 34, gross
