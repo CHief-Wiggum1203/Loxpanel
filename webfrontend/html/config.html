@@ -4868,11 +4868,12 @@ function versionZeigen(v){
   const el=$('#lpver'); if(!el) return;
   const teile=[v.version?'LoxPanel '+v.version:T('Version unbekannt')];
   if(v.commit) teile.push(v.commit.slice(0,7));
+  else if(v.inhalt) teile.push(T('Stand')+' '+v.inhalt.slice(0,7));   // lokaler Build ohne Git
   const d=v.gebaut?new Date(v.gebaut):null;
   if(d&&!isNaN(d)) teile.push(T('gebaut')+' '+d.toLocaleString(undefined,
     {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}));
   el.textContent=teile.join(' · ');
-  el.title=v.commit||'';
+  el.title=v.commit||v.inhalt||'';
 }
 async function loadSettings(){
   const r=await fetch('/api/settings'); SET=await r.json();

@@ -84,10 +84,11 @@ VERSION = version_info.lesen()
 
 def server_stand() -> str:
     """Kennung des laufenden Stands fuer Visu und Konfigurator (theme-Nachricht,
-    /api/devices): der Commit, ohne ihn leer. Meldet ein neu gestarteter Server
-    einen anderen, laden offene Seiten neu, statt altes HTML/JS gegen den
-    neuen Server laufen zu lassen."""
-    return VERSION.get("commit") or ""
+    /api/devices): der Commit, ohne ihn die Kennung des Inhalts (lokaler Build
+    ohne Git), sonst leer. Meldet ein neu gestarteter Server einen anderen,
+    laden offene Seiten neu, statt altes HTML/JS gegen den neuen Server laufen
+    zu lassen."""
+    return VERSION.get("commit") or VERSION.get("inhalt") or ""
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"

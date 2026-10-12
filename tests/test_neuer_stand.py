@@ -11,10 +11,20 @@ from lox import W
 
 
 def test_stand_ist_der_commit(monkeypatch):
+    monkeypatch.setitem(W.VERSION, "inhalt", "")
     monkeypatch.setitem(W.VERSION, "commit", "abc123")
     assert W.server_stand() == "abc123"
     monkeypatch.setitem(W.VERSION, "commit", "")
     assert W.server_stand() == ""
+
+
+def test_ohne_commit_die_kennung_des_inhalts(monkeypatch):
+    """Lokaler Build ohne Git (docker compose up --build): der Pruefwert des Codes."""
+    monkeypatch.setitem(W.VERSION, "commit", "")
+    monkeypatch.setitem(W.VERSION, "inhalt", "0123456789abcdef")
+    assert W.server_stand() == "0123456789abcdef"
+    monkeypatch.setitem(W.VERSION, "commit", "abc123")
+    assert W.server_stand() == "abc123", "ein Commit geht vor"
 
 
 def test_geraeteliste_nennt_den_stand(monkeypatch):

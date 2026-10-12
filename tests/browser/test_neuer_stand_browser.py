@@ -1,7 +1,8 @@
 """Nach einem Server-Update in Chromium: Die Visu merkt sich den Stand
 (Commit, theme-Nachricht "stand") der ersten Verbindung. Meldet der Server
 nach dem Wiederverbinden einen anderen, laedt sie neu - einmal, nicht in
-Schleife; derselbe Stand und ein Server ohne Commit laden nie neu. Der
+Schleife; derselbe Stand und ein Server ganz ohne Kennung laden nie neu. Ohne
+Commit (lokaler Build ohne Git) gilt die Kennung des Inhalts genauso. Der
 Konfigurator fragt den Stand ueber /api/devices ab: ohne offene Aenderungen
 laedt er neu, mit offenen sagt es die Speicherleiste und er laedt erst nach
 dem Speichern. Das Update stellt der Test nach, indem er W.VERSION aendert
@@ -42,9 +43,12 @@ async def _bis(pg, ausdruck, ms=6000):
     await pg.wait_for_function(ausdruck, timeout=ms)
 
 
-@pytest.mark.parametrize("commit", ["alt-1234", ""])
-def test_visu_laedt_nach_update_neu(commit, monkeypatch):
-    monkeypatch.setitem(W.VERSION, "commit", commit)
+@pytest.mark.parametrize("feld, commit", [("commit", "alt-1234"), ("inhalt", "alt-1234"), ("commit", "")],
+                         ids=["commit", "inhalt-ohne-git", "ohne-kennung"])
+def test_visu_laedt_nach_update_neu(feld, commit, monkeypatch):
+    monkeypatch.setitem(W.VERSION, "commit", "")
+    monkeypatch.setitem(W.VERSION, "inhalt", "")
+    monkeypatch.setitem(W.VERSION, feld, commit)
 
     async def lauf():
         app = _app()
@@ -69,7 +73,7 @@ def test_visu_laedt_nach_update_neu(commit, monkeypatch):
                 erg["gleich"] = [await pg.evaluate("window.__alteSeite === true"), len(ladungen)]
 
                 # neuer Stand
-                monkeypatch.setitem(W.VERSION, "commit", commit and "neu-5678")
+                monkeypatch.setitem(W.VERSION, feld, commit and "neu-5678")
                 await _trennen(app)
                 await pg.wait_for_timeout(3500)
                 await pg.wait_for_selector(".tile[data-id]", state="attached")
@@ -97,10 +101,13 @@ def test_visu_laedt_nach_update_neu(commit, monkeypatch):
         assert erg["neu"][:2] == [True, 1] and erg["danach"] == 1, erg
 
 
-def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch):
+@pytest.mark.parametrize("feld", ["commit", "inhalt"], ids=["commit", "inhalt-ohne-git"])
+def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"]}}}),
                                             encoding="utf-8")
-    monkeypatch.setitem(W.VERSION, "commit", "alt-1234")
+    monkeypatch.setitem(W.VERSION, "commit", "")
+    monkeypatch.setitem(W.VERSION, "inhalt", "")
+    monkeypatch.setitem(W.VERSION, feld, "alt-1234")
 
     async def lauf():
         app = _app()
@@ -118,7 +125,7 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch):
                 await _bis(pg, "SERVER_STAND === 'alt-1234'")
 
                 # ohne offene Aenderungen: neu laden
-                monkeypatch.setitem(W.VERSION, "commit", "neu-5678")
+                monkeypatch.setitem(W.VERSION, feld, "neu-5678")
                 await pg.evaluate("pollDevices()")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await _bis(pg, "SERVER_STAND === 'neu-5678'")
@@ -128,7 +135,7 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch):
                 await pg.locator("#plist .pitem", has_text="?panel=flur").click()
                 await pg.locator(".stab[data-sub='aussehen']").click()
                 await pg.fill("#pconfHost input[data-ui='iconSize']", "40")
-                monkeypatch.setitem(W.VERSION, "commit", "neu-9999")
+                monkeypatch.setitem(W.VERSION, feld, "neu-9999")
                 await pg.evaluate("pollDevices()")
                 await _bis(pg, "!document.getElementById('standNeu').hidden")
                 erg["hinweis"] = [len(ladungen), await pg.locator("#standNeu").inner_text(), await pg.evaluate(OFFEN)]
