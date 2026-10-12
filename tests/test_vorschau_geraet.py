@@ -222,9 +222,9 @@ def test_beenden_waehrend_das_geraet_noch_zum_entwurf_unterwegs_ist(cfg_ordner):
     _lauf(schritte)
 
 
-def test_unterwegs_endet_nach_der_frist_und_mit_neuer_vorschau(cfg_ordner, monkeypatch):
-    monkeypatch.setattr(W, "VORSCHAU_UNTERWEGS", 0.2)
-
+def test_unterwegs_bleibt_bis_zur_ankunft_und_neue_vorschau_hebt_es_auf(cfg_ordner):
+    """Die Seite des Geraets kommt erst spaet an (langsames WLAN): Sie wird trotzdem
+    zurueckgeschickt, eine Frist gibt es nicht. Eine neue Vorschau hebt das Ende auf."""
     async def schritte(app, s, basis, post):
         _, j = await post("/api/entwurf", {"id": "neu", "panel": ENTWURF})
         token = j["token"]
@@ -238,8 +238,90 @@ def test_unterwegs_endet_nach_der_frist_und_mit_neuer_vorschau(cfg_ordner, monke
             await post("/api/device/switch", {"device": "wand", "panel": "neu", "entwurf": token})
             assert app.vorschau_ende == {} and "wand" in app.vorschau_geraet
             await post("/api/vorschau/beenden", {"device": "wand"})
-        await asyncio.sleep(0.3)   # die Seite kam nicht rechtzeitig: kein Zurueckschicken mehr
+        await asyncio.sleep(0.3)
         async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as spaet:
             await _naechste(spaet, "theme")
-            assert await _naechste(spaet, "switch", 0.5) is None
+            m = await _naechste(spaet, "switch")
+            assert m == {"t": "switch", "panel": "a", "entwurf": ""}, m
+        assert app.vorschau_ende == {}
+    _lauf(schritte)
+
+
+async def _vorschau_dann_offline(app, s, basis, post):
+    """Vorschau von "neu" auf wand (vorher "a"); das Geraet zeigt sie und verliert dann
+    die Verbindung ganz (WebSocket zu). -> Token"""
+    _, j = await post("/api/entwurf", {"id": "neu", "panel": ENTWURF})
+    token = j["token"]
+    async with s.ws_connect(f"{basis}/ws?panel=a&device=wand") as alt:
+        await _naechste(alt, "theme")
+        _, j = await post("/api/device/switch", {"device": "wand", "panel": "neu", "entwurf": token})
+        assert j["ok"], j
+        await _naechste(alt, "switch")
+    async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as wand:
+        assert (await _naechste(wand, "theme"))["entwurf"] is True
+    for _ in range(50):   # der Server hat die Verbindung abgemeldet
+        if not any(i.get("dev") == "wand" for i in app.conn_info.values()):
+            break
+        await asyncio.sleep(0.02)
+    assert "wand" in app.vorschau_geraet
+    return token
+
+
+async def _kommt_zurueck_auf(s, basis, token, panel):
+    async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as wand:
+        await _naechste(wand, "theme")
+        m = await _naechste(wand, "switch")
+        assert m == {"t": "switch", "panel": panel, "entwurf": ""}, m
+
+
+def test_ablauf_waehrend_das_geraet_offline_ist(cfg_ordner):
+    """Die Frist laeuft ab, waehrend das Geraet keine Verbindung hat. Kommt es wieder,
+    mit derselben Adresse samt Entwurf, geht es zur Ansicht davor zurueck. Ein anderes
+    Fenster mit demselben Entwurf (Vorschau im Konfigurator) zeigt ihn weiter."""
+    async def schritte(app, s, basis, post):
+        token = await _vorschau_dann_offline(app, s, basis, post)
+        app.vorschau_geraet["wand"]["bis"] = 0   # 15 Minuten ohne Aenderung vorbei
+        await app._broadcast_tick()
+        assert app.vorschau_geraet == {} and app.vorschau_ende["wand"]["token"] == token
+        async with s.ws_connect(f"{basis}/ws?panel=neu&entwurf={token}") as fenster, \
+                s.ws_connect(f"{basis}/ws?panel=neu&device=buero&entwurf={token}") as buero:
+            assert (await _naechste(fenster, "theme"))["entwurf"] is True
+            assert (await _naechste(buero, "theme"))["entwurf"] is True
+            assert await _naechste(fenster, "switch", 0.3) is None
+            assert await _naechste(buero, "switch", 0.3) is None
+        await _kommt_zurueck_auf(s, basis, token, "a")
+        assert app.vorschau_ende == {}
+    _lauf(schritte)
+
+
+def test_beenden_von_hand_waehrend_das_geraet_offline_ist(cfg_ordner):
+    async def schritte(app, s, basis, post):
+        token = await _vorschau_dann_offline(app, s, basis, post)
+        _, j = await post("/api/vorschau/beenden", {"device": "wand"})
+        assert j == {"ok": True, "beendet": True}, j
+        # Speichern dazwischen (die Entwuerfe verfallen): das Ende bleibt vorgemerkt
+        _, j = await post("/api/panels", {"panels": {"a": {"title": "Vorher", "tabs": ["favoriten"]},
+                                                     "b": {"title": "Anderes", "tabs": ["favoriten"]}}})
+        assert j["ok"] and app.entwuerfe == {}
+        await _kommt_zurueck_auf(s, basis, token, "a")
+    _lauf(schritte)
+
+
+def test_ende_mit_abgelaufenem_token_und_spaetere_wahl(cfg_ordner):
+    """Laenger offline als der Entwurf gilt: das Geraet kehrt trotzdem zur Ansicht davor
+    zurueck, nicht zum Profil des Entwurfs. Eine ausdrueckliche Wahl in der Zwischenzeit
+    gilt dagegen: dann schickt der Server nichts zurueck."""
+    async def schritte(app, s, basis, post):
+        token = await _vorschau_dann_offline(app, s, basis, post)
+        await post("/api/vorschau/beenden", {"device": "wand"})
+        app.entwuerfe.clear()   # Entwurf abgelaufen
+        await _kommt_zurueck_auf(s, basis, token, "a")
+
+        token = await _vorschau_dann_offline(app, s, basis, post)
+        await post("/api/vorschau/beenden", {"device": "wand"})
+        _, j = await post("/api/device/switch", {"device": "wand", "panel": "b"})   # offline: nichts gesendet
+        assert app.vorschau_ende == {}
+        async with s.ws_connect(f"{basis}/ws?panel=neu&device=wand&entwurf={token}") as wand:
+            await _naechste(wand, "theme")
+            assert await _naechste(wand, "switch", 0.5) is None
     _lauf(schritte)
