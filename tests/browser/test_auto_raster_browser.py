@@ -582,3 +582,64 @@ def test_hochkant_widget_folgt_der_hoehe_ohne_neuaufbau():
     for m in (start, gross, zurueck):
         assert m["css"] == f'{m["pPx"]}px' and abs(m["pane"] - m["pPx"]) <= 1, m
     assert gross["alt"] and zurueck["alt"], "gleiches Raster: kein Neuaufbau der Kacheln"
+
+
+# Rechnung (raster.js) gegen das, was das CSS daraus macht: echte Kachelbreite und
+# wo das Widget steht (unter den Kacheln oder daneben)
+ACHSE = """() => { const a = autoRaster(_lastWidget), r = e => e.getBoundingClientRect();
+  const g = r(document.getElementById('grid')), p = r(document.getElementById('frontpane'));
+  const t = r(document.querySelector('#grid .tile[data-id]'));
+  return {rechnung: a.hoch ? 'unter' : 'daneben', css: p.top >= g.bottom - 1 ? 'unter' : (p.left >= g.right - 1 ? 'daneben' : 'ueber'),
+          kb: Math.round(a.kb * 10) / 10, kachel: [Math.round(t.width * 10) / 10, Math.round(t.height * 10) / 10],
+          klasse: document.querySelector('.screen').classList.contains('hoch')}; }"""
+
+
+@pytest.mark.parametrize("kset, breite, hoehe", [
+    ("kreide", 900, 750), ("kreide", 960, 750), ("kreide", 1000, 750), ("kreide", 940, 760),
+    ("touch", 780, 750), ("touch", 760, 760), ("touch", 750, 780),
+])
+def test_widget_achse_wie_die_rechnung(kset, breite, hoehe):
+    """Punkt 5 der Pruefliste: Mit Seitenleiste (Kreide) oder Rahmen (Touch) ist die
+    Flaeche des Rasters schmaler als das Fenster. Nahe Breite minus Leiste = Hoehe
+    rechnet raster.js das Widget unter die Kacheln, das CSS muss es dann auch dort
+    hinstellen - sonst nimmt es die Hoehe des Widgets (pPx) als Spaltenbreite und
+    quetscht die Kacheln (900 x 750: 69,75 statt 160,5 px breit)."""
+    m = _laufen({"grid": "auto", "tileSet": kset, "panes": {"favoriten": "weather"}}, breite, hoehe, ACHSE)
+    assert m["css"] == m["rechnung"], m
+    assert m["klasse"] == (m["rechnung"] == "unter"), m
+    # quer teilt das CSS die Flaeche nach den Anteilen k:p, die Rechnung nach ganzen Spalten:
+    # bis 3 px wie in test_widget_belegt_ganze_kachelspalten
+    assert abs(m["kachel"][0] - m["kb"]) <= 3, m
+
+
+def test_vorrechnung_im_konfigurator_nimmt_dieselbe_achse(cfg_ordner):
+    """Die Vorrechnung des Assistenten (wzVorrechnung) und das Bild des Seiten-Editors
+    (seRaster) stellen das Widget dorthin, wo die Visu es zeigt: mit Kreide-
+    Seitenleiste bei 900 x 750 unter die Kacheln, obwohl das Fenster quer ist."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = dict(STATES)
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                erg = await pg.evaluate("""() => {
+                  WZ.groesse = {name: 'Test', vw: 900, vh: 750}; WZ.look = {tileSet: 'kreide'};
+                  const lm = leisteMasse('kreide', 900);
+                  return {vorrechnung: wzVorrechnung('2', 'auto').hoch, rail: lm.railW,
+                          ohneSet: (WZ.look = {}, wzVorrechnung('2', 'auto').hoch)}; }""")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["rail"] > 0 and erg["vorrechnung"] is True, erg
+    assert erg["ohneSet"] is False, "ohne Seitenleiste ist 900 x 750 quer"

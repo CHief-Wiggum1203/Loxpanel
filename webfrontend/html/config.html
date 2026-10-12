@@ -4259,7 +4259,7 @@ function wzVorrechnung(panes, grid){
     const mit=split ? LoxRaster.autoRaster(Object.assign({}, basis, {widget:true})) : null;
     // mit Widget: das Raster daneben (quer weniger Spalten, hochkant weniger Zeilen)
     return {cols:ohne.cols, rows:ohne.rows, px:Math.round(ohne.kb), widget:mit?mit.p:0,
-            mit:mit?[mit.cols, mit.rows]:null, hoch:g.vh>g.vw, auto:true};
+            mit:mit?[mit.cols, mit.rows]:null, hoch:(mit||ohne).hoch, auto:true};   // Achse wie die Visu (raster.js)
   }
   const [c0,r0]=grid.split('x').map(Number);
   const [c,r]=LoxRaster.festesRaster({cols:c0, rows:r0, w:g.vw, h:g.vh, split:split, widget:false});
