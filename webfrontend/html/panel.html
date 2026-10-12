@@ -332,8 +332,10 @@
   .kz-wx .m .c{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
   /* Werte: rechtsbuendig, was nicht mehr passt, blendet kopfEinpassen() aus */
   .kz-werte{display:flex;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden;}
+  /* Wert-Chip: eigene Flaeche (--tile), also die Schrift dazu (--ink) - nicht die der Leiste
+     darunter, die ein Kachel-Set dunkel und mit heller Schrift zeigt (Touch: --tab-an) */
   .kz-w{display:grid;grid-template-columns:auto auto;grid-template-areas:"ico vl" "ico nm";column-gap:8px;
-    align-items:center;flex:none;background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
+    align-items:center;flex:none;background:var(--tile);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
   .kz-w .ico{grid-area:ico;width:calc(22px * var(--ks,1));height:calc(22px * var(--ks,1));display:grid;place-items:center;color:var(--ico,var(--ink));}
   .kz-w .ico svg{width:100%;height:100%;}
   .kz-w .ico img{width:100%;height:100%;object-fit:contain;}

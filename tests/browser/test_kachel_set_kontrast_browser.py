@@ -71,8 +71,17 @@ TEXTE = """(wurzel) => {
   return raus;
 }"""
 
-# Was gemessen wird: Name -> (Tabs der Ansicht, ui, Schritte in der Visu).
-# Am iPad quer mit automatischem Raster, wie test_kachel_set_browser.
+# Messwerte fuer Werteleiste und Kopfzeile: ihre Chips haben eine eigene Flaeche
+# (--tile) auf der Leiste, die Schrift muss zu ihr passen, nicht zur Leiste
+WERTE = {"T0": {"name": "Außentemperatur", "type": "InfoOnlyAnalog", "uuidAction": "T0", "room": "r1", "cat": "c1",
+                "isFavorite": True, "states": {"value": "t0"}, "details": {"format": "%.1f°C"}},
+         "T1": {"name": "Strom", "type": "Meter", "uuidAction": "T1", "room": "r1", "cat": "c1",
+                "isFavorite": True, "states": {"actual": "t1", "total": "t2"},
+                "details": {"actualFormat": "%.2fkW", "totalFormat": "%.1fkWh"}}}
+WERTE_STATES = {"t0": 12.4, "t1": 0.82, "t2": 1234.5}
+
+# Was gemessen wird: Name -> (Tabs der Ansicht, ui, Schritte in der Visu[, mit
+# Messwerten]). Am iPad quer mit automatischem Raster, wie test_kachel_set_browser.
 TABS = ["favoriten", "kalender", "wetter"]
 ANSICHTEN = {
     "raster": (TABS, {}, []),
@@ -81,6 +90,8 @@ ANSICHTEN = {
     "wetter": (TABS, {}, ["nav({view:'tab', tab:'wetter'})"]),
     "front_daneben": (TABS, {"panes": {"favoriten": "calendar"}}, []),
     "kopfzeile": (TABS, {"panes": {"favoriten": "header"}}, []),
+    "kopfzeile_werte": (TABS, {"panes": {"favoriten": "header:T0,T1"}}, [], True),
+    "werteleiste": (TABS, {"valueBar": ["favoriten"]}, [], True),
     "detail": (TABS, {}, ["nav({view:'control', id:'IR'})"]),
     "pin": (TABS, {}, ["askPin(() => {}, 'PIN')"]),
     # Hausuebersicht: Karten, aktive Geraete und Spieler auf den Flaechen des Sets
@@ -101,10 +112,10 @@ def _faelle():
                     {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
 
 
-def _app(ui, tabs, daten):
+def _app(ui, tabs, daten, werte=False):
     app = W.App({"host": "", "port": 80})
-    app._apply_structure(STRUKTUR)
-    app.states = dict(STATES)
+    app._apply_structure({**STRUKTUR, "controls": {**STRUKTUR["controls"], **WERTE}} if werte else STRUKTUR)
+    app.states = {**STATES, **WERTE_STATES} if werte else dict(STATES)
     app.panels = W.App._sanitize_panels({"test": {"title": "Test", "ui": {"grid": "auto", **ui}, "tabs": tabs}})
     app._front = app._front_payload(daten)
     return app
@@ -116,8 +127,8 @@ def _messen(ui, monkeypatch, tmp_path, bild):
         raus, fehler = {}, []
         async with async_playwright() as p:
             b = await p.chromium.launch()
-            for ansicht, (tabs, extra, schritte) in ANSICHTEN.items():
-                runner, port, bc = await visu_starten(_app({**ui, **extra}, tabs, daten))
+            for ansicht, (tabs, extra, schritte, *werte) in ANSICHTEN.items():
+                runner, port, bc = await visu_starten(_app({**ui, **extra}, tabs, daten, bool(werte and werte[0])))
                 try:
                     pg = await b.new_page(viewport={"width": 1000, "height": 750}, locale="de-DE")
                     pg.on("pageerror", lambda e: fehler.append(str(e)))
@@ -147,4 +158,6 @@ def test_jeder_text_ist_lesbar(fall, ui, monkeypatch, tmp_path):
                 for a, texte in raus.items()}
     for a, texte in raus.items():
         assert texte, (fall, a, "kein Text gemessen")
+    for a in ("kopfzeile_werte", "werteleiste"):   # die Werte der Chips sind dabei
+        assert sum(".vl" in t["wo"] for t in raus[a]) >= 2, (fall, a, raus[a])
     assert not any(schlecht.values()), (fall, {a: t for a, t in schlecht.items() if t})
