@@ -733,8 +733,9 @@
      aufbau] (Kachel: lx, mitte, kreis) und html[data-kachelset-leiste]
      (Tab-Leiste: pille, oben, links). Ohne Set fehlen beide Attribute.
      Masse mit "-schmal" gelten auf schmalen Schirmen (.schmal am Kasten,
-     schmalEinrichten); die --k-* am Kasten loesen das auf (ein Mass, das
-     sich selbst als Rueckfall naennte, waere ungueltig).
+     schmalEinrichten), die der Tab-Leiste auch auf niedrigen (.niedrig);
+     die --k-* am Kasten loesen das auf (ein Mass, das sich selbst als
+     Rueckfall naennte, waere ungueltig).
      Jeder Aufbau: flache Kacheln ohne Rahmen und Verlauf (Radius und
      Schatten --kachel-radius/--kachel-schatten), Abstand und Innenrand des
      Rasters aus dem Set (autoRaster misst sie wie sonst), Symbole einfarbig
@@ -753,6 +754,9 @@
     --k-rahmen-seite:var(--rahmen-seite-schmal,var(--rahmen-seite,0px));--k-rahmen-unten:var(--rahmen-unten-schmal,var(--rahmen-unten,0px));
     --k-feld-radius:var(--feld-radius-schmal,var(--feld-radius,0px));
     --k-rail:var(--rail-breite-schmal,var(--rail-breite,0px));--k-kreis:var(--kreis-d-schmal,var(--kreis-d,52px));}
+  html[data-kachelset-aufbau] .screen.niedrig{
+    --k-tabs-h:var(--tabs-hoehe-schmal,var(--tabs-hoehe,auto));--k-tab-symbol:var(--tab-symbol-schmal,var(--tab-symbol,28px));
+    --k-pille-h:var(--pille-h-schmal,var(--pille-h,43px));}
   html[data-kachelset-aufbau] .grid{--gap:var(--k-abstand,10px);--pad:var(--k-innen,10px);}
   html[data-kachelset-aufbau] .tile:not(.on):not(.good):not(.crit){background:var(--tile);border-color:transparent;}
   html[data-kachelset-aufbau] .tile{border-radius:calc(var(--kachel-radius,16px) * var(--ks,1));box-shadow:var(--kachel-schatten,none);}
@@ -1526,7 +1530,7 @@
   .hs-r .nm{font-size:calc(18px * var(--hk));font-weight:700;line-height:1.2;overflow:hidden;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
   .hs-r .chev{width:calc(20px * var(--hk));height:calc(20px * var(--hk));flex:none;color:var(--muted);}
-  .hs-r .chev svg{width:100%;height:100%;}
+  .hs-r .chev svg{display:block;width:100%;height:100%;}   /* nicht in der Textzeile: sonst ragt er bei kleinem --hk heraus */
   .hs-r .chev.rund{width:max(44px, calc(44px * var(--hk)));height:max(44px, calc(44px * var(--hk)));border-radius:50%;
     display:grid;place-items:center;background:var(--taste,rgba(var(--wash,255,255,255),.07));color:var(--ink);}
   .hs-r .chev.rund svg{width:45%;height:45%;}
@@ -3485,9 +3489,13 @@ function vpSize(){
 // Kachel-Set nimmt dort seine Masse mit "-schmal" (CSS --k-*), die
 // Seitenleiste zeigt nur Symbole. Vor jeder Rasterrechnung, weil Leiste,
 // Rahmen und Abstaende daran haengen.
+// Niedrig (breit genug, Hoehe darunter, raster.js leisteSchmal): .niedrig,
+// dort nimmt nur die Tab-Leiste die "-schmal"-Masse.
 function schmalEinrichten(){
   const sc=document.querySelector('.screen'); if(!sc) return;
-  sc.classList.toggle('schmal', LoxRaster.schmal(vpSize().w));
+  const {w,h}=vpSize(), s=LoxRaster.schmal(w);
+  sc.classList.toggle('schmal', s);
+  sc.classList.toggle('niedrig', !s && LoxRaster.leisteSchmal(w, h));
 }
 function rasterFuer(widget){
   const {w,h}=vpSize();

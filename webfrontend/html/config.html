@@ -1407,14 +1407,15 @@ function kachelSetExtraBinden(host, ui, fertig){
   kachelSetPruefen(host, ui());
 }
 // Masse fuer die Rasterrechnung (raster.js) wie autoRaster() der Visu, aus
-// den Massen des Kachel-Sets (/api/meta, schmal oder nicht nach der Breite):
+// den Massen des Kachel-Sets (/api/meta, schmal oder nicht nach der Breite,
+// die Tab-Leiste auch nach der Hoehe: LoxRaster.leisteMass):
 // Leistenhoehe (tabsH), die Seitenleiste eines Sets mit Leiste "links" nimmt
 // Breite (railW) statt Hoehe, "oben" steht die Leiste ueber dem Raster und
 // ein Rahmen geht ab (rahmenX links und rechts, rahmenY unten), dazu Abstand
 // und Innenrand des Rasters. Ohne Set die Masse der Visu (VISU_MASSE).
-function leisteMasse(setKey, vw){
+function leisteMasse(setKey, vw, vh){
   const s=kachelSetMeta(setKey), M=LoxRaster.VISU_MASSE, art=(s&&s.leiste)||'';
-  const mass=(n,r)=>LoxRaster.setMass((s&&s.masse)||{}, n, vw, r);
+  const mass=(n,r)=>LoxRaster.leisteMass((s&&s.masse)||{}, n, vw, vh, r);
   const lm={art:art, gap:mass('--kachel-abstand',M.gap), pad:mass('--feld-innen',M.pad),
             tabsH:mass('--tabs-hoehe',M.tabsH), railW:0, rahmenX:0, rahmenY:0};
   if(art==='links'){ lm.railW=mass('--rail-breite',0); lm.tabsH=0; }
@@ -3232,7 +3233,7 @@ function sePaneArt(v){ if(!v) return ''; const i=v.indexOf(':'); return i>0?v.sl
 function seRaster(ctx, a){
   const u=ctx.ui(), g=ctx.geraet(), M=LoxRaster.VISU_MASSE, art=sePaneArt(u.pane);
   const kopf=art==='header', widget=u.split && !!art && !kopf, leiste=a.leiste.length>0;
-  const quer=u.split && !LoxRaster.quadratisch(g.vw, g.vh), lm=leisteMasse(u.tileSet, g.vw);
+  const quer=u.split && !LoxRaster.quadratisch(g.vw, g.vh), lm=leisteMasse(u.tileSet, g.vw, g.vh);
   const basis={art:art, kopf:kopf, widget:widget, leiste:leiste, quer:quer, hoch:g.vh>g.vw, tabLeiste:lm};
   if(u.auto){
     const r=LoxRaster.autoRaster(Object.assign({}, M, lm, {w:g.vw, h:g.vh, ziel:u.ziel, wachsen:kachelZiel().wachsen||1,
@@ -3249,7 +3250,7 @@ function seRaster(ctx, a){
 // Anteilen k:p der Automatik (fest: halb und halb wie .screen.split),
 // Kopfzeile und Werteleiste ueber dem Raster, die Seitenpunkte darunter.
 function seGeometrie(r, g, seiten){
-  const lm=r.tabLeiste||leisteMasse('', g.vw), M=Object.assign({}, LoxRaster.VISU_MASSE, {gap:lm.gap, pad:lm.pad}), ks=r.ks||1;
+  const lm=r.tabLeiste||leisteMasse('', g.vw, g.vh), M=Object.assign({}, LoxRaster.VISU_MASSE, {gap:lm.gap, pad:lm.pad}), ks=r.ks||1;
   const kopfH=r.kopf?Math.round(LoxRaster.KOPF_H*ks):0, leisteH=r.leiste?Math.round(LoxRaster.LEISTE_H*ks):0;
   const punkteH=(r.quer && seiten>1)?M.punkteH:0;
   const rs=lm.rahmenX/2, x0=lm.railW+rs, y0=(lm.art==='oben')?lm.tabsH:0;
@@ -4251,7 +4252,7 @@ function wzQuadrat(){ const g=WZ.groesse; return !!g && LoxRaster.quadratisch(g.
 // Kasten und an der Skalierung, darum nur die Flaeche, die sie fuellen wuerde.
 function wzVorrechnung(panes, grid){
   const g=WZ.groesse; if(!g) return null;
-  const M=LoxRaster.VISU_MASSE, split=panes==='2', lm=leisteMasse((WZ.look||{}).tileSet, g.vw);
+  const M=LoxRaster.VISU_MASSE, split=panes==='2', lm=leisteMasse((WZ.look||{}).tileSet, g.vw, g.vh);
   if(grid==='auto'){
     const basis=Object.assign({w:g.vw, h:g.vh, ziel:wzZiel(), wachsen:kachelZiel().wachsen||1,
       paneShare:(META.paneCols||{}).anteil||0}, M, lm);

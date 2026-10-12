@@ -1021,7 +1021,10 @@ umkippt, `kreis` mit dem Symbol in einem Kreis), `leiste` (`pille` unten,
 Loxone“, Design-Canvas): Radien, Schatten, Kreis, Leistenhöhe, Pille,
 Tab-Symbole, Rahmen und Feld (touch), Seitenleiste (kreide), Abstand und
 Innenrand des Rasters; ein Maß mit `-schmal` gilt unter `SCHMAL_UNTER`
-(`raster.js`, 600 px). `groessen` sind Standardgrößen der Kachel, die das Set
+(`raster.js`, 600 px) Breite, die der Tab-Leiste (`--tabs-hoehe`, `--pille-h`,
+`--tab-symbol`) auch unter 600 px Höhe: Auf einem breiten, niedrigen Schirm
+(Fenster am Mac, flaches Display) nähme die 96-px-Leiste sonst ein Fünftel der
+Höhe. `groessen` sind Standardgrößen der Kachel, die das Set
 mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
 `ui.tileLayout` nicht. „touch“ hat statt fester Farben einen
 `satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,
@@ -1241,7 +1244,8 @@ Assistenten des Konfigurators.
   `data-kachelset`, `data-kachelset-aufbau` und `data-kachelset-leiste` am
   `<html>`. Die Regeln hängen an der Art, nie am Namen eines Sets. Maße mit
   `-schmal` lösen die `--k-*` am Kasten auf (`schmalEinrichten()` setzt
-  `.schmal` unter `SCHMAL_UNTER`). Für jedes Set (`html[data-kachelset-aufbau]`)
+  `.schmal` unter `SCHMAL_UNTER` Breite, `.niedrig` bei genug Breite, aber
+  weniger Höhe; dort gelten nur die Leistenmaße mit `-schmal`). Für jedes Set (`html[data-kachelset-aufbau]`)
   flache Kacheln ohne Rahmen, Abstand und Innenrand des Rasters aus dem Set,
   Symbole in der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf
   `--taste`, und der Zustand steht vorn, auch bei Kacheln, die direkt
@@ -2323,7 +2327,9 @@ Vorrechnung eine Näherung. `test_vorrechnung_wie_die_visu` vergleicht die
 gemessenen Maße mit `VISU_MASSE` und das vorgerechnete mit dem gebauten
 Raster. Ein Kachel-Set bringt eigene Maße mit (§5.4): `SCHMAL_UNTER` (600 px)
 entscheidet für Visu und Konfigurator, ob die Maße mit `-schmal` gelten,
-`setMass()` liest eines aus den Maßen in `/api/meta`. Der Konfigurator
+`setMass()` liest eines aus den Maßen in `/api/meta`, `leisteMass()` dasselbe
+für die Maße der Tab-Leiste (`LEISTE_MASSE`), die auch nach der Höhe gehen
+(`leisteSchmal()`). Der Konfigurator
 (`leisteMasse()`) rechnet damit Leistenhöhe, Seitenleiste (`railW`, nimmt
 Breite statt Höhe), Rahmen (`rahmenX`, `rahmenY`), Abstand und Innenrand vor;
 `autoRaster()` zieht Seitenleiste und Rahmen von der Fläche ab, die Visu misst

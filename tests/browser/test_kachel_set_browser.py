@@ -296,6 +296,47 @@ def test_seitenleiste_folgt_der_breite(tmp_path):
         assert t["left"] >= schmal["grid"]["left"] - 0.5 and t["right"] <= schmal["grid"]["right"] + 0.5, t
 
 
+
+@pytest.mark.parametrize("name", [n for n in SETS if TC.kachel_set_art(n)[1] in ("pille", "oben")])
+def test_leiste_auf_niedrigem_schirm(name, tmp_path):
+    """Breit, aber niedrig (Fenster am Mac, flaches Display): die Tab-Leiste
+    nimmt ihre "-schmal"-Masse, sonst nichts - der Schirm bleibt nicht
+    schmal. Der Konfigurator rechnet dieselbe Hoehe vor (raster.js leisteMass)."""
+    m = TC.KACHEL_SETS[name]["masse"]
+    breite, hoehe = 920, SCHMAL_UNTER - 140
+    mit, _ = _messen({"grid": "auto", "tileSet": name}, breite, hoehe, tmp_path, f"niedrig_{name}")
+    hoch, _ = _messen({"grid": "auto", "tileSet": name}, breite, SCHMAL_UNTER, tmp_path, f"hoch_{name}")
+
+    async def vorrechnung():
+        app = _app({"grid": "auto", "tileSet": name})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _visu(b, port, breite, hoehe, fehler)
+                werte = await pg.evaluate("([m, w, h]) => ({tabs: LoxRaster.leisteMass(m, '--tabs-hoehe', w, h, 0),"
+                                          " rahmen: LoxRaster.leisteMass(m, '--rahmen-seite', w, h, 0),"
+                                          " niedrig: document.querySelector('.screen').classList.contains('niedrig')})",
+                                          [m, breite, hoehe])
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return werte
+    v = asyncio.run(vorrechnung())
+    klein = float(m["--tabs-hoehe-schmal"].rstrip("px"))
+    assert not mit["schmal"] and v["niedrig"], (mit["schmal"], v)
+    assert abs(mit["tabs"]["height"] - klein) < 0.6 and v["tabs"] == klein, (mit["tabs"], v)
+    assert abs(hoch["tabs"]["height"] - float(m["--tabs-hoehe"].rstrip("px"))) < 0.6, hoch["tabs"]
+    if "--pille-h-schmal" in m:
+        assert abs(float(mit["pilleH"].rstrip("px")) - float(m["--pille-h-schmal"].rstrip("px"))) < 0.6, mit["pilleH"]
+    if "--rahmen-seite" in m:
+        # der Rahmen haengt weiter an der Breite
+        assert mit["rahmen"][0] == float(m["--rahmen-seite"].rstrip("px")) == v["rahmen"], (mit["rahmen"], v)
+    assert mit["grid"]["bottom"] <= mit["tabs"]["top"] + 0.5 or mit["tabs"]["bottom"] <= mit["grid"]["top"] + 0.5, mit
+
 def test_neue_verbindung_mit_anderem_set():
     """Kommt bei einer neuen Verbindung ein anderes Set (oder keins), bleibt
     nichts vom vorigen stehen: weder seine Attribute noch seine Variablen."""
