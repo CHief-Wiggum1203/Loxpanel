@@ -382,3 +382,36 @@ def test_schrift_folgt_dem_fenster_ohne_neuaufbau(von, nach):
     assert vorher["frisch"] != nachher["frisch"], (vorher, nachher)
     assert nachher["css"] == nachher["frisch"], nachher
     assert nachher["schrift"] == neu["schrift"] != vorher["schrift"], (vorher, nachher, neu)
+
+
+def test_niedriges_fenster(tmp_path):
+    """Breites, niedriges Fenster (Mac, flaches Display) im Set loxone: die
+    Leiste nimmt ihre kleinen Masse (raster.js leisteSchmal), keine Raumkarte
+    laesst etwas herausragen - auch nicht den Pfeil bei kleinem --hk. Die
+    Zonenliste im Spieler scrollt dort selbst und zaehlt nicht."""
+    m = TC.KACHEL_SETS["loxone"]["masse"]
+
+    async def lauf():
+        app = _app(ui={"tileSet": "loxone"})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 920, 460, fehler)
+                lage = await pg.evaluate(LAGE)
+                lage["leiste"] = await pg.evaluate("document.getElementById('tabs').offsetHeight")
+                lage["zonen"] = await pg.evaluate("(z => z && z.scrollHeight > z.clientHeight"
+                                                  " && getComputedStyle(z).overflowY)(document.querySelector('.hs-zonen'))")
+                await pg.screenshot(path=str(tmp_path / "haus_niedrig_loxone.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return lage
+    lage = asyncio.run(lauf())
+    assert lage["leiste"] == float(m["--tabs-hoehe-schmal"].rstrip("px")), lage["leiste"]
+    assert not lage["quer"] and not lage["klein"], lage
+    assert [a for a in lage["ab"] if a != "sp"] == [], lage["ab"]
+    assert "sp" not in lage["ab"] or lage["zonen"] == "auto", lage

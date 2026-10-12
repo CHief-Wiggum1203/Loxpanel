@@ -27,10 +27,20 @@ function schmal(w){ return w<SCHMAL_UNTER; }
 // Mass eines Kachel-Sets fuer diese Breite: "-schmal", wenn es das gibt und
 // der Schirm schmal ist (masse: CSS-Werte wie "68px" aus /api/meta), sonst
 // das Mass selbst, ohne beides der Rueckfall.
-function setMass(masse, name, w, rueckfall){
-  const m=masse||{}, v=(schmal(w) && m[name+'-schmal']!=null) ? m[name+'-schmal'] : m[name];
+function setMass(masse, name, w, rueckfall, klein){
+  const m=masse||{}, k=(klein===undefined) ? schmal(w) : klein;
+  const v=(k && m[name+'-schmal']!=null) ? m[name+'-schmal'] : m[name];
   const n=parseFloat(v);
   return isFinite(n) ? n : rueckfall;
+}
+// Niedriger Schirm (breit genug, aber Hoehe unter SCHMAL_UNTER, etwa ein
+// Fenster am Mac oder ein flaches Display): die Tab-Leiste nimmt ihre
+// "-schmal"-Masse (Hoehe, Pille, Symbol), sonst frisst sie bei 96 px Leiste
+// ein Fuenftel der Hoehe. Alles andere bleibt bei der Breite (schmal()).
+const LEISTE_MASSE=['--tabs-hoehe', '--pille-h', '--tab-symbol'];
+function leisteSchmal(w, h){ return schmal(w) || (h>0 && h<SCHMAL_UNTER); }
+function leisteMass(masse, name, w, h, rueckfall){
+  return setMass(masse, name, w, rueckfall, LEISTE_MASSE.includes(name) ? leisteSchmal(w, h) : undefined);
 }
 
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
@@ -180,5 +190,6 @@ function autoRaster(e){
 }
 
 g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, SCHMAL_UNTER,
-  kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass};
+  LEISTE_MASSE, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass,
+  leisteSchmal, leisteMass};
 })(typeof window!=='undefined' ? window : globalThis);
