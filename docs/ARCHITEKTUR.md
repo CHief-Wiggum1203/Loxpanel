@@ -71,6 +71,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
+| `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Kennung, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
@@ -256,6 +257,43 @@ Wichtige Felder:
   die über 5 Minuten nichts senden; an der eigenen Anlage hielt der WebSocket
   aber auch ohne `keepalive` tagelang. `/api/health` bleibt dabei, wie es ist:
   Ein fehlender Miniserver ist kein Fehler (§4).
+- **Verbindungszustand an den Panels** (Oktober 2026): Früher sah ein Panel
+  nicht, dass der Miniserver weg war, sobald einmal eine Struktur geladen war.
+  Die Werte blieben ohne Hinweis stehen, Tipps gingen ins Leere, und der
+  Online-Punkt zeigte nur die Verbindung Panel ↔ Server. Jetzt merkt sich
+  `stream_task` beim Abriss, seit wann der Miniserver weg ist
+  (`_ms_weg_seit`), und rechnet die letzte Nachricht der Verbindung
+  (`LoxoneWS.letzte_nachricht`, auch die Antwort auf `keepalive`) in eine
+  Uhrzeit um (`_ms_bestaetigt`). Weitere Fehlversuche verschieben den
+  Zeitpunkt nicht. Gelöscht wird er nach der Anmeldung, unmittelbar bevor
+  der Datenstrom beginnt. `_verbindung_stand()` liefert daraus
+  (erreichbar, seit, bestätigt). Ohne Struktur gilt der Miniserver als
+  erreichbar, dann zeigt das Panel die Einrichtungskarte. Die Nachricht
+  `verbindung` geht beim Verbinden an das Panel, bei jeder Änderung an alle
+  und alle `VERBINDUNG_TAKT` (15 s) als Lebenszeichen (`_verbindung_melden()`
+  im Broadcaster). Die Visu sperrt jeden Befehl, sobald eine der beiden
+  Verbindungen fehlt (`verbindungGesperrt()` in `sendCmd()` und vor
+  `hausaus`). Die Leiste `#verbindung` mit „seit“ und letztem bestätigtem
+  Stand und die blasse Darstellung (`.screen.verbweg`) kommen nach
+  `VERBINDUNG_HINWEIS` (8 s), damit ein Neustart des Miniservers nach dem
+  Speichern in Loxone Config oder ein kurzer WLAN-Aussetzer nicht jedes Mal
+  aufblitzt. Ein gesperrter Tipp zeigt sie sofort. Fehlt der Server, nennt
+  die Leiste ihn; als Stand gilt dann die letzte Nachricht, die kam, solange
+  der Miniserver erreichbar war (`verbBestaetigt`). Schweigt der Server
+  `VERBINDUNG_STUMM` (40 s), gibt die Visu den WebSocket auf und verbindet
+  neu (`verbAbgerissen()`): Ein still verschwundener Server (WLAN, Strom)
+  schloss ihn sonst nie. Takt, Fristen und Texte (`VERBINDUNG_TEXTE`) stehen
+  einmal im Server und kommen mit der Nachricht. Kommt der Miniserver
+  zurück, schickt er nach der Anmeldung alle Werte, und der Broadcaster
+  liefert die Ansichten neu. Die Leiste steht in der Zeile des Rasters über
+  allen Spalten, wie früher der Punkt je Layout (Kopfzeile, Werteleiste,
+  Split, Leiste „oben“). Sie hat die Flächen der gefüllten Störungskachel
+  (`--crit-fill`/`-ink`/`-muted`), ohne Set eine Auflage in `--crit-rgb` auf
+  einem Kasten in `--bg`. Tests: `tests/test_verbindung.py` (Nachbau trennt
+  und kommt zurück, Lebenszeichen) und
+  `tests/browser/test_verbindung_browser.py` (Sperre, Frist, Server weg und
+  zurück, stummer Server); die Lesbarkeit misst
+  `test_kachel_set_kontrast_browser.py` (Ansicht `verbindung`).
 - **Token-Erneuerung für HTTP-Anfragen:** Die WebSocket-Verbindung braucht das
   Token nur beim Anmelden, die HTTP-Anfragen (Befehle `sps/io`, gesicherte
   Befehle, Icons, Verläufe) tragen es bei jedem Aufruf als Bearer. Läuft es ab,
@@ -305,6 +343,7 @@ Server → Browser (`panel.html:700`):
 | `reload` | | `location.reload()` |
 | `goto` | `route` | auf eine Seite springen |
 | `notify` | `text`, `level`, `secs` | Einblendung |
+| `verbindung` | `ms`, `seit`, `stand` (ms seit 1970, `null` bei erreichbarem Miniserver), `takt`, `stumm`, `hinweis` (s), `texte` (`ms`, `server`, `stand`, `gesperrt`, mit `{seit}`/`{stand}`) | Verbindungszustand und Lebenszeichen (§3.4, `_verbindung_melden()`): beim Verbinden, bei jeder Änderung und alle `VERBINDUNG_TAKT` s |
 | `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
 | `cmdresult` | `ok`, `code`, `uuid`, `cmd` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“ |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
@@ -724,6 +763,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`), `version` (`version`, `commit`, `gebaut`; `version_info.lesen()`, Seitenleiste des Konfigurators) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`), Miniserver verbunden, Zahl der Panels, Laufzeit, `version` wie bei `/api/settings`. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
 | GET | `/api/backup` | `api_backup` | ZIP mit `loxpanel.cfg`, `panels.json`, `theme.json`, Kennwörter (`pass`, `password`) leer, dazu `LIESMICH.txt` und `sicherung.json` (je Datei die Pfade der entfernten Kennwörter, für `/api/restore`). Nicht lesbares JSON bleibt draußen | Einstellungen → Sicherung |
+| GET | `/api/diagnose` | `api_diagnose` | Diagnosepaket als ZIP (`bin/diagnose.py`): `?device=` für ein Gerät (Zustand aus `device_list()`, seine Einstellungen, die gezeigte Ansicht), sonst der Server mit allen Geräten. Immer dabei: Version, Laufzeit, Hintergrundaufgaben (`_aufgaben_stand()`, wie `/api/health`), Miniserver (verbunden seit, weg seit, letzte Nachricht, letzter Fehler, Struktur mit Typ, Name und Projekt aus `msInfo`), Audioserver (verbunden, gekoppelt, angemeldet), die Einstellungsdateien und die letzten Log-Zeilen. Geheimnisse entfernt (§9.2). 404 für ein unbekanntes Gerät | Geräte → Diagnose, Einstellungen → Sicherung |
 | POST | `/api/restore` | `api_restore` | Sicherung einspielen, Body = ZIP aus `/api/backup`. Immer nur eine zur Zeit. Erst alles prüfen, in einem Thread, damit die Visu bedienbar bleibt (`_sicherung_lesen`, `_sicherung_pruefen`: nur Deflate oder ungepackt, je Datei höchstens 2 MiB – auch so, wie sie danach geschrieben wird, damit sich der Stand wieder einspielen lässt –, höchstens 32 Ebenen tief und 200.000 Einträge, nur endliche Zahlen und gültiges Unicode, Typen der gelesenen Abschnitte von `loxpanel.cfg`, Profile, Geräte und globale `ui` durch dieselben Sanitizer wie beim Speichern), dann schreiben (vorher `.bak`) und ohne Neustart auffrischen (`_sicherung_schreiben`). Ein vorhandenes Kennwort bleibt nur bei gleichem Ziel (Host, URL, Benutzer, Treiber). Wo eines entfernt wurde, sagt `sicherung.json`, bei älteren Sicherungen die Liste in `LIESMICH.txt`. Ein laufender Zugang bleibt stehen, wenn die Sicherung keinen Miniserver hat oder ihrem Zugang Benutzer oder Kennwort fehlt, ebenso einer aus `LOXPANEL_MS_*`; neu verbunden wird nur bei geändertem Zugang, scheitert das, bleibt der alte (auch der aus `LOXPANEL_MS_*`). Antwort: `dateien`, `nichtEnthalten`, `nichtEingespielt` (nach einem Schreibfehler), `kennwoerter` (`behalten`, `fehlen`), `verworfen`, `miniserver`, `miniserverZiel`, `miniserverFehler`, `reloaded`; 400 bei kaputter Sicherung (nichts geschrieben), 500 nach einem Schreibfehler (Teilergebnis mit `error` und `nichtEingespielt`), 413 über 1 MiB | Einstellungen → Sicherung |
 | GET | `/api/types` | `api_types` | Diagnose: Bausteintypen der Anlage mit Status (voll/teilweise/keine), Anzahl, Beispielen, State-Namen, `details`-Schlüsseln und Liste der toten Kacheln; `?format=text` als Tabelle | Einstellungen, Entwicklung |
 | POST | `/api/settings/miniserver` | `api_settings_ms` | Zugang erst prüfen (`reconnect(ms)`), dann speichern. Abgelehnt: nichts gespeichert. Nicht erreichbar: gespeichert, `gespeichert: true` mit Warnung, eine bestehende Verbindung bleibt bis zum nächsten Aufbau. `error` ist ein fester Text, der Fehler des Miniservers steht in `fehler`. Nacheinander, auch mit `/api/restore` (`_zugang_sperre`) | Einstellungen, LoxBerry-Widget |
@@ -1588,8 +1628,9 @@ Assistenten des Konfigurators.
   (`applyScale()` bleibt bei 1). Geblättert wird seitenweise (je Seite
   Spalten × Zeilen Kacheln), auf dem Tablet waagerecht mit Punkten (unten,
   „Waagerechte Seiten“). Beim Drehen rechnet `rasterKey()` neu, der
-  `resize`-Handler baut dann neu auf. Der Online-Punkt sitzt wie im Split in
-  der Ecke, weil die Mitte bei ungeraden Zahlen (5 × 3) auf einer Kachel läge.
+  `resize`-Handler baut dann neu auf. Über dem Raster steht nichts, solange
+  beide Verbindungen stehen (die Verbindungsleiste, §3.4, ersetzt den
+  früheren Online-Punkt, der bei 5 × 3 auf einer Kachel lag).
   Das Panel meldet das Raster mit seiner Bildschirmgröße (`rc`, `rr`), der
   Konfigurator zeigt es unter Displays bei den Geräten. Das feste Raster
   (4″-Panel, jedes Profil ohne `grid`) bleibt unverändert. Der Assistent
@@ -1688,8 +1729,8 @@ Assistenten des Konfigurators.
   Widget über die ganze Fläche; `paneRawNow()` liefert es den Push-Handlern
   (Energie, Kamera, Verlauf, Werte, Audio) wie eine Pane 2. Das Raster bleibt
   beim Profil (keine Verdopplung, auch nicht hochkant), eine Widget-Seite hat
-  keine Sprungmarken. Den Verbindungspunkt blendet sie aus wie die Kalender-
-  und Wetter-Seite, er säße sonst mitten im Widget. Geprüft in
+  keine Sprungmarken. Verbunden steht über dem Widget nichts; die
+  Verbindungsleiste (§3.4) erscheint nur ohne Verbindung. Geprüft in
   `test_widget_seite_quer_und_hochkant` (quer, hochkant, quadratisch).
 - Pane 2 nutzt ihre Fläche (Oktober 2026): Wie groß die zweite Fläche ist,
   hängt von Split, Raster, Lage und Gerät ab (gemessen von 240×403 bis
@@ -2633,6 +2674,20 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
   ein optionales Paket aus `requirements.txt` (`icalendar`, `python-dateutil`,
   `cryptography`), läuft der Server ohne die Funktion dahinter weiter und nennt
   beides einmal beim Start als Warnung (`_fehlende_pakete_melden()`).
+- **Diagnose:** Die letzten Log-Zeilen hält außerdem ein Puffer im Speicher
+  (`diagnose.LOG`, höchstens `LOG_ZEILEN`, davon die der letzten
+  `LOG_MINUTEN`). Das Diagnosepaket (`/api/diagnose`, Konfigurator: je Gerät
+  unter Geräte, für den Server unter Einstellungen → Sicherung) legt sie mit
+  Version, Verbindungen, Geräten und Einstellungen in ein ZIP, oben in
+  `diagnose.md` ein Satz je Verbindung. Die Route hat keine Anmeldung, darum
+  ist es strenger als die Sicherung: Neben `pass` und `password` fallen
+  `token`, `jwt` und `secret`, die Kalender-Abos behalten nur Schema und Host
+  (ihr Pfad ist der Zugang), Benutzer:Kennwort in Adressen wird gestrichen
+  und der Standort (`lat`/`lon`) entfernt. Jeder gefundene Wert, dazu Kennwort
+  und Token aus dem Speicher, wird anschließend in allen Texten des Pakets
+  geschwärzt, auch URL-kodiert (`diagnose.kodierungen()`), damit er nicht
+  über das Log hinausgeht. `tests/test_diagnose.py` legt jede Art Geheimnis an
+  und sucht sie in jeder Datei des Pakets.
 - **Image:** `.dockerignore` hält Altlasten (`webfrontend/htmlauth`,
   `config/visu.*`, `daemon/` …) und Test-/Entwicklungsdateien aus dem Image.
 

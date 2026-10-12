@@ -26,6 +26,7 @@ import json
 import logging
 import math
 import os
+import platform
 import re
 import secrets
 import socket
@@ -76,6 +77,7 @@ import sip_probe  # noqa: E402  # SIP-Pruefung der Tuerstation (OPTIONS mit Anme
 from intercom_talk import IntercomTalk, TalkBusy  # noqa: E402
 import theme_colors  # noqa: E402  # Panel-Theme aus einer Grundfarbe herleiten
 import version_info  # noqa: E402  # Version, Commit und Bauzeit (bin/version.json)
+import diagnose  # noqa: E402  # Diagnosepaket (/api/diagnose) und Log-Puffer
 
 log = logging.getLogger("loxpanel.webvisu")
 # Welcher Stand laeuft (Seitenleiste des Konfigurators); einmal beim Start gelesen
@@ -377,7 +379,28 @@ MS_RETRY = (5, 10, 20, 40, 60)   # s: Wartezeiten zwischen Verbindungsversuchen 
 # der Miniserver Clients, die ueber 5 Minuten nichts senden; ein Ausfall faellt
 # so nach gut einer Minute auf, und 8 Byte je Minute belasten niemanden.
 MS_KEEPALIVE = 60        # s: Abstand der keepalive an den Miniserver
+# Verbindungszustand fuer die Panels ({t:"verbindung"}, _verbindung_msg): ob der
+# Server den Miniserver erreicht, seit wann nicht und wann er zuletzt von ihm
+# hoerte. Die Nachricht geht bei jeder Aenderung und alle VERBINDUNG_TAKT s an
+# jedes Panel; so bemerkt die Visu auch einen Server, der still verschwindet
+# (WLAN, Strom), und baut nach VERBINDUNG_STUMM s ohne jede Nachricht neu auf.
+# Die Bedienung sperrt sie sofort, die Leiste zeigt sie erst nach
+# VERBINDUNG_HINWEIS s: der Neustart des Miniservers nach dem Speichern in
+# Loxone Config oder ein kurzer WLAN-Aussetzer soll nicht jedes Mal aufblitzen.
+VERBINDUNG_TAKT = 15     # s: Lebenszeichen an jedes Panel
+VERBINDUNG_STUMM = 40    # s: ohne Nachricht gilt der Server als weg (mehr als zwei Takte)
+VERBINDUNG_HINWEIS = 8   # s: so lange fehlt eine Verbindung, bevor die Leiste erscheint
+# Texte der Leiste; {seit} und {stand} setzt die Visu als Uhrzeit ein
+VERBINDUNG_TEXTE = {
+    "ms": "Miniserver seit {seit} nicht erreichbar",
+    "server": "Keine Verbindung zum LoxPanel-Server seit {seit}",
+    "stand": "Letzter bestätigter Stand: {stand}",
+    "gesperrt": "Bedienung gesperrt",
+}
 EINRICHTUNG_FEHLER_MAX = 160     # Zeichen des Verbindungsfehlers im Einrichtungshinweis (Panel 480 px)
+# msInfo.miniserverType laut Strukturdoku (Structure File 17.1, msInfo)
+MS_TYPEN = {0: "Miniserver (Gen 1)", 1: "Miniserver Go (Gen 1)", 2: "Miniserver (Gen 2)",
+            3: "Miniserver Go (Gen 2)", 4: "Miniserver Compact"}
 ICON_CACHE_MAX = 500     # Icons im Speicher (Loxone-SVGs, je wenige KB)
 COVER_TIMEOUT = 10       # s: Albumcover vom Audioserver/aus dem Netz (sonst haengt die Anfrage offen)
 BELL_CACHE_MAX = 30      # Bilder verpasster Klingeln im Speicher (JPEG, je um 100 KB)
@@ -1572,6 +1595,14 @@ class App:
         # beim Verbinden mit dem Miniserver, und welcher Stand zuletzt rausging.
         self._ms_fehler = ""
         self._einrichtung_gemeldet: tuple | None = None
+        # Verbindungszustand (_verbindung_stand): seit wann der Miniserver weg
+        # ist (Unix-Sekunden, None = verbunden oder noch nie versucht), wann er
+        # zuletzt etwas schickte, was zuletzt an die Panels ging und wann.
+        self._ms_weg_seit: float | None = None
+        self._ms_bestaetigt: float | None = None
+        self._ms_verbunden_seit: float | None = None   # Datenstrom laeuft seit (Diagnose)
+        self._verbindung_gemeldet: tuple | None = None
+        self._verbindung_zuletzt = 0.0
 
         self.audio_cfg = audio or {}
         self.audio: AudioBackend | None = make_backend(self.audio_cfg)
@@ -1687,6 +1718,7 @@ class App:
         self.ms_lat: float | None = None
         self.ms_lon: float | None = None
         self.ms_location: str = ""
+        self.ms_struktur: dict = {}   # msInfo fuer das Diagnosepaket (_apply_structure)
         self._front: dict | None = None
         self._front_key: str | None = None
         self._front_meta: dict = {}
@@ -1804,6 +1836,11 @@ class App:
         except (TypeError, ValueError, KeyError):
             self.ms_lat = self.ms_lon = None
         self.ms_location = str(info.get("location") or "").strip()
+        # Fuer das Diagnosepaket: was die Struktur ueber den Miniserver sagt
+        # (msInfo laut Strukturdoku; eine Firmware-Version nennt sie nicht)
+        self.ms_struktur = {"typ": MS_TYPEN.get(info.get("miniserverType"), info.get("miniserverType")),
+                            "name": info.get("msName") or "", "projekt": info.get("projectName") or "",
+                            "stand": st.get("lastModified") or ""}
         self.rooms_with = sorted(
             {c.get("room") for c in self.controls.values() if c.get("room") in self.rooms},
             key=lambda r: self.rooms[r].get("name", ""))
@@ -3302,6 +3339,54 @@ class App:
         anonymous.sort(key=lambda a: (a["ip"], a["code"]))
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
+
+    def diagnose_daten(self, geraet: str = "", aufgaben: dict | None = None,
+                       gestartet: float | None = None) -> tuple[dict, set]:
+        """Angaben fuer das Diagnosepaket (diagnose.paket) -> (daten, Werte, die
+        zusaetzlich geschwaerzt werden: Kennwort und Token im Speicher). Mit
+        `geraet` dessen Zustand und Ansicht, sonst alle Geraete in Kurzform.
+        KeyError, wenn es das Geraet nicht gibt. Zeiten als Unix-Sekunden."""
+        liste = self.device_list()["devices"]
+        ok, seit, bestaetigt = self._verbindung_stand()
+        daten = {
+            "erstellt": datetime.now().isoformat(timespec="seconds"),
+            "version": dict(VERSION),
+            "server": {"python": platform.python_version(), "system": platform.platform(),
+                       "laufzeit_s": round(time.monotonic() - gestartet) if gestartet is not None else None,
+                       "aufgaben": aufgaben or {}, "panels": len(self.conn_route),
+                       "log_level": logging.getLevelName(logging.getLogger().level)},
+            "miniserver": {"host": self.host, "port": self.port, "benutzer": self.user,
+                           "verbunden": self._ms_verbunden_seit is not None,
+                           "verbunden_seit": self._ms_verbunden_seit,
+                           "weg_seit": seit, "bestaetigt": bestaetigt, "fehler": self._ms_fehler,
+                           "struktur": bool(self.controls), "bausteine": len(self.controls),
+                           "raeume": len(self.rooms), "kategorien": len(self.cats), **self.ms_struktur},
+            "audioserver": [{"host": h, "port": c.port, "verbunden": c.verbunden,
+                             "gekoppelt": c.paired, "angemeldet": c.authed}
+                            for h, c in sorted(self.audio_clients.items())],
+        }
+        if geraet:
+            e = next((x for x in liste if x["name"] == geraet), None)
+            if e is None:
+                raise KeyError(geraet)
+            daten["geraet"] = {"name": e["name"], "typ": e["type"], "online": e["online"],
+                               "ansicht": e["profile"], "verbindungen": e["connections"], "ip": e["ip"],
+                               "zuletzt": e["lastSeen"] or None, "bildschirm": e["screen"],
+                               "agent": e["agent"], "praesenz": e["presence"],
+                               "eingerichtet": e["configured"], "einstellungen": self.devices.get(geraet) or {}}
+            roh = self.panels.get(e["profile"]) if e["profile"] else None
+            if roh is not None:
+                exp = self._panel_export(roh)
+                ui = exp.get("ui") or {}
+                daten["ansicht"] = {"id": e["profile"], "titel": exp.get("title") or "", "tabs": exp.get("tabs"),
+                                    "kachelSet": ui.get("tileSet") or "", "farbton": ui.get("tileHue"),
+                                    "aktiv": ui.get("tileActive"), "raster": ui.get("grid") or
+                                    ([ui.get("cols"), ui.get("rows")] if ui.get("cols") else None)}
+                daten["ansicht_einstellungen"] = exp
+        else:
+            daten["geraete"] = [{"name": e["name"], "typ": e["type"], "online": e["online"],
+                                 "ansicht": e["profile"]} for e in liste]
+        return daten, {g for g in (self.password, self.jwt) if g}
 
     def kopplungscode(self, wunsch: str) -> str:
         """Code fuer einen Browser ohne Kennung: der mitgeschickte, wenn er
@@ -7553,6 +7638,8 @@ class App:
                     await self._connect_ws()    # WS neu (Settings-Reconnect / nach Abriss)
                 verbunden = self.ws
                 self._ms_fehler = ""
+                self._ms_weg_seit = None   # angemeldet, der Voll-Dump kommt gleich
+                self._ms_verbunden_seit = time.time()
                 await self.ws.stream(self._on_value, self._on_weather)
                 raise ConnectionError("WS-Stream regulär beendet")
             except asyncio.CancelledError:
@@ -7560,6 +7647,12 @@ class App:
             except Exception as err:
                 if verbunden is not None and verbunden.lebenszeit() >= MS_RETRY[-1]:
                     retry = 0
+                if verbunden is not None and verbunden.letzte_nachricht is not None:
+                    # letzte Nachricht (monotone Uhr) als Uhrzeit fuer die Panels
+                    self._ms_bestaetigt = time.time() - (time.monotonic() - verbunden.letzte_nachricht)
+                if self._ms_weg_seit is None:
+                    self._ms_weg_seit = time.time()
+                self._ms_verbunden_seit = None
                 verbunden = None
                 wait = MS_RETRY[min(retry, len(MS_RETRY) - 1)]
                 retry += 1
@@ -7621,6 +7714,7 @@ class App:
 
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
+        await self._verbindung_melden()
         if self.vorschau_geraet:   # Vorschau am Geraet abgelaufen: zurueck zur vorigen Ansicht
             jetzt = time.time()
             for dev in [d for d, e in self.vorschau_geraet.items() if jetzt > e["bis"]]:
@@ -7837,6 +7931,45 @@ class App:
             ziele = [neu] if neu is not None else []
         if ziele:
             msg = self._einrichtung_msg(stand)
+            for ws in ziele:
+                await self._send_or_drop(ws, msg)
+
+    def _verbindung_stand(self) -> tuple[bool, float | None, float | None]:
+        """(Miniserver erreichbar, seit wann nicht, wann zuletzt von ihm
+        gehoert) als Unix-Sekunden. Ohne Struktur gilt er als erreichbar: dann
+        zeigen die Panels die Einrichtungskarte (_einrichtung_stand), und es
+        gibt keine Werte, die veralten koennten."""
+        if self._ms_weg_seit is None or not self.controls:
+            return (True, None, None)
+        return (False, self._ms_weg_seit, self._ms_bestaetigt)
+
+    @staticmethod
+    def _verbindung_msg(stand: tuple) -> dict:
+        """Nachricht an die Panels zum Stand aus _verbindung_stand, Zeiten in
+        Millisekunden (Date der Visu), dazu Takt, Fristen und Texte der Leiste."""
+        ok, seit, bestaetigt = stand
+        return {"t": "verbindung", "ms": ok,
+                "seit": round(seit * 1000) if seit is not None else None,
+                "stand": round(bestaetigt * 1000) if bestaetigt is not None else None,
+                "takt": VERBINDUNG_TAKT, "stumm": VERBINDUNG_STUMM,
+                "hinweis": VERBINDUNG_HINWEIS, "texte": VERBINDUNG_TEXTE}
+
+    async def _verbindung_melden(self, neu=None) -> None:
+        """Verbindungszustand an alle Panels, wenn er sich geaendert hat oder
+        die letzte Meldung VERBINDUNG_TAKT s her ist (Lebenszeichen, an dem die
+        Visu einen still verschwundenen Server erkennt); sonst nur an das neu
+        verbundene Panel `neu`."""
+        stand = self._verbindung_stand()
+        jetzt = time.monotonic()
+        if stand != self._verbindung_gemeldet or jetzt - self._verbindung_zuletzt >= VERBINDUNG_TAKT:
+            if self._verbindung_gemeldet is not None and stand[0] != self._verbindung_gemeldet[0]:
+                log.info("Panels: Miniserver %s", "wieder erreichbar" if stand[0] else "nicht erreichbar")
+            self._verbindung_gemeldet, self._verbindung_zuletzt = stand, jetzt
+            ziele = list(self.conn_route)
+        else:
+            ziele = [neu] if neu is not None else []
+        if ziele:
+            msg = self._verbindung_msg(stand)
             for ws in ziele:
                 await self._send_or_drop(ws, msg)
 
@@ -8323,6 +8456,20 @@ async def install_script(request: web.Request) -> web.Response:
     return web.Response(text=txt, content_type="text/plain")
 
 
+def _aufgaben_stand(a: web.Application) -> tuple[dict, bool]:
+    """Hintergrundaufgaben (on_startup) -> ({Name: "läuft" | "beendet[: Fehler]"},
+    alle laufen). Fuer /api/health und das Diagnosepaket."""
+    tasks, ok = {}, True
+    for name, t in (a.get("tasks") or {}).items():
+        if not t.done():
+            tasks[name] = "läuft"
+            continue
+        ok = False
+        err = None if t.cancelled() else t.exception()
+        tasks[name] = f"beendet: {err!r}" if err else "beendet"
+    return tasks, ok
+
+
 async def api_health(request: web.Request) -> web.Response:
     """Zustand fuer den Docker-HEALTHCHECK (Unraid zeigt ihn im Docker-Tab) und
     den Waechter der LoxPanel-App, der die App bei 503 neu startet.
@@ -8332,14 +8479,7 @@ async def api_health(request: web.Request) -> web.Response:
     Miniserver-Verbindung wird nur gemeldet - ist der Miniserver weg, hilft ein
     Neustart nicht, stream_task verbindet von selbst neu."""
     app: App = request.app["app"]
-    tasks, ok = {}, True
-    for name, t in (request.app.get("tasks") or {}).items():
-        if not t.done():
-            tasks[name] = "läuft"
-            continue
-        ok = False
-        err = None if t.cancelled() else t.exception()
-        tasks[name] = f"beendet: {err!r}" if err else "beendet"
+    tasks, ok = _aufgaben_stand(request.app)
     started = request.app.get("started")
     return web.json_response({
         "ok": ok, "tasks": tasks,
@@ -8443,6 +8583,42 @@ def _backup_zip(cfgdir: Path) -> bytes:
              "dateien": drin, "kennwoerter_entfernt": vermerk},
             ensure_ascii=False, indent=2) + "\n")
     return buf.getvalue()
+
+
+# Dateiname des Diagnosepakets: nur, was jeder Browser und jedes Dateisystem nimmt
+_DATEINAME_RE = re.compile(r"[^A-Za-z0-9_-]+")
+
+
+async def api_diagnose(request: web.Request) -> web.Response:
+    """Diagnosepaket als ZIP (bin/diagnose.py): ?device= fuer ein Geraet
+    (Konfigurator: Geraete -> Diagnose), sonst der Server mit allen Geraeten
+    (Einstellungen -> Sicherung). 404 fuer ein unbekanntes Geraet. Die
+    Einstellungsdateien wie in der Sicherung; eine unlesbare bleibt draussen,
+    ungeprueft koennte sie ein Kennwort enthalten."""
+    app: App = request.app["app"]
+    geraet = (request.query.get("device") or "").strip()
+    aufgaben, _ok = _aufgaben_stand(request.app)
+    try:
+        daten, geheim = app.diagnose_daten(geraet, aufgaben, request.app.get("started"))
+    except KeyError:
+        return web.json_response({"ok": False, "error": f"Gerät {geraet!r} unbekannt"}, status=404)
+    einstellungen, fehlen = {}, []
+    for name in BACKUP_FILES:
+        f = _CFGDIR / name
+        if not f.is_file():
+            continue
+        try:
+            einstellungen[name] = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            log.warning("Diagnose: %s nicht lesbar (%s) - nicht enthalten", name, err)
+            fehlen.append(name)
+    if fehlen:
+        daten["einstellungen_unlesbar"] = fehlen
+    body = diagnose.paket(daten, einstellungen, diagnose.LOG.zeilen(), geheim)
+    teil = _DATEINAME_RE.sub("_", geraet).strip("_") or "server"
+    name = f"loxpanel-diagnose-{teil}-{datetime.now():%Y-%m-%d_%H%M}.zip"
+    return web.Response(body=body, content_type="application/zip",
+                        headers={**_NOCACHE, "Content-Disposition": f'attachment; filename="{name}"'})
 
 
 async def api_backup(request: web.Request) -> web.Response:
@@ -10115,6 +10291,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         await app._neu_laden(ws, {"t": "switch", "panel": ende["zurueck"], "entwurf": ""})
     # Einrichtungshinweis, solange es keine Struktur vom Miniserver gibt
     await app._einrichtung_melden(neu=ws)
+    # Verbindungszustand (Miniserver erreichbar?) und Takt des Lebenszeichens
+    await app._verbindung_melden(neu=ws)
     # Browser ohne Kennung: Kopplungscode; ohne ?panel= dazu die Karte
     # "Dieses Geraet einrichten", denn dann hat dieses Geraet niemand eingerichtet
     if not dev:
@@ -10321,6 +10499,9 @@ def _logging_einrichten() -> int:
     level, warnung = _log_level()
     logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
     logging.getLogger().setLevel(level)
+    # die letzten Zeilen auch im Speicher, fuer das Diagnosepaket
+    if diagnose.LOG not in logging.getLogger().handlers:
+        logging.getLogger().addHandler(diagnose.LOG)
     logging.getLogger("aiohttp.access").setLevel(logging.DEBUG if level <= logging.DEBUG else logging.WARNING)
     if warnung:
         log.warning(warnung)
@@ -10368,6 +10549,7 @@ def main() -> None:
     a.router.add_get("/api/settings", api_settings)
     a.router.add_get("/api/health", api_health)
     a.router.add_get("/api/backup", api_backup)
+    a.router.add_get("/api/diagnose", api_diagnose)
     a.router.add_post("/api/restore", api_restore)
     a.router.add_get("/api/types", api_types)
     a.router.add_post("/api/settings/miniserver", api_settings_ms)

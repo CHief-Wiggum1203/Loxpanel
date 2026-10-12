@@ -1007,10 +1007,12 @@ selbst aktuell.
       Text nicht nach. Die Tasten standen danach ohne ihre Regeln im Kopf.
       Jetzt bleiben die gemessenen Klassen stehen, in beiden Kachel-Aufbauten
       geprüft. **S**
-- [ ] **Online-Punkt bei 3×3:** Der Verbindungspunkt sitzt in der Mitte des
-      Rasters. Bei 2×2 liegt er in der Fuge, bei 3×3 mitten auf der mittleren
-      Kachel und überdeckt dort Text. Gehört zum Vorschlag „Verbindung“ in
-      Block 9 (Vorschläge aus der Kachel-Analyse). **S**
+- [x] **Online-Punkt bei 3×3:** Der Verbindungspunkt saß in der Mitte des
+      Rasters, bei 3×3 mitten auf der mittleren Kachel. Erledigt mit dem
+      Verbindungszustand (Oktober 2026): Die Verbindungsleiste ersetzt den
+      Punkt, steht nur ohne Verbindung und meldet auch den Miniserver, nicht
+      nur den Server; Bedienung gesperrt, Lebenszeichen alle 15 s
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.4). **S**
 
 ## 4. Performance
 
@@ -1346,6 +1348,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 - [ ] `Ventilation` (Lüftung): nur Stufe anzeigen, kein Umschalten. **S**
 
 ## 9. Weitere Funktionen
+
+- [x] **Diagnosepaket** (Oktober 2026): Unter Geräte je Gerät und unter
+      Einstellungen → Sicherung für den Server ein ZIP mit `diagnose.md`
+      (Zusammenfassung oben), `diagnose.json`, Einstellungen und den letzten
+      Log-Zeilen; Geheimnisse entfernt und im Log geschwärzt
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §9.2, `bin/diagnose.py`). Erster
+      Umfang: Version, Konfiguration, Verbindungen, Log. **M**
+- [ ] **Diagnosepaket erweitern:** das Ergebnis der letzten SIP-Prüfung
+      (`/api/sip/pruefen`) merken und beilegen; ein Bildschirmfoto des Panels
+      (die Visu müsste es auf Anfrage schicken); in der LoxPanel-App die
+      Meldungen des Wächters (`Waechter.kt`) und des Server-Dienstes. **M**
 
 - [x] **Positionsring: eingefroren, zu kräftig, und die Kachel schwieg zur
       Fahrt.** Drei Befunde aus einer Messung am echten Code, nicht aus dem
