@@ -199,3 +199,111 @@ def test_assistent_zeigt_ein_panel_das_es_noch_nicht_gibt(cfg_ordner):
         assert "neu" in app.panels and app.vorschau_geraet == {}
         assert not pg._fehler, pg._fehler
     _lauf(schritte)
+
+
+async def _editor_vorschau(pg, wand):
+    """Panel-Editor: flur mit einer ungespeicherten Aenderung auf wand zeigen."""
+    await pg.locator("#plist .pitem", has_text="?panel=flur").click()
+    await pg.locator(".stab[data-sub='seiten']").click()
+    await pg.wait_for_selector("#seHost [data-se-flaeche]")
+    opts = await pg.eval_on_selector_all("#seHost [data-se-geraet] option", "l => l.map(o => o.textContent)")
+    await pg.select_option("#seHost [data-se-geraet]", str(next(i for i, o in enumerate(opts) if o.startswith("wand ·"))))
+    await pg.locator("#seHost .se-p", has_text="Stehlampe").click()
+    await pg.locator("#vorGerBtn").click()
+    await _bis(wand, "location.search.includes('entwurf=')", True, "das Geraet schaltet auf den Entwurf")
+    assert await pg.locator("#vorGerBtn").text_content() == "Am Gerät beenden"
+
+
+def test_beenden_gilt_erst_wenn_der_server_es_bestaetigt(cfg_ordner):
+    """Die Anfrage zum Beenden geht verloren oder der Server meldet einen Fehler: Der
+    Konfigurator sagt es, der Knopf bleibt "Am Gerät beenden", und ein zweiter Versuch
+    holt das Geraet zurueck."""
+    async def schritte(app, b, port):
+        wand = await _geraet(b, port)
+        pg = await _konfigurator(b, port)
+        await _editor_vorschau(pg, wand)
+
+        await pg.route("**/api/vorschau/beenden", lambda r: r.abort())
+        await pg.locator("#vorGerBtn").click()
+        await pg.wait_for_function("document.querySelector('#toast').textContent.startsWith('Vorschau am Gerät nicht beendet:')")
+        assert await pg.locator("#vorGerBtn").text_content() == "Am Gerät beenden"
+        assert "wand" in app.vorschau_geraet and "entwurf=" in await wand.evaluate("location.search")
+
+        await pg.unroute("**/api/vorschau/beenden")
+        await pg.route("**/api/vorschau/beenden", lambda r: r.fulfill(
+            content_type="application/json", body='{"ok": false, "error": "Server beschäftigt"}'))
+        await pg.locator("#vorGerBtn").click()
+        await pg.wait_for_function("document.querySelector('#toast').textContent === 'Vorschau am Gerät nicht beendet: Server beschäftigt'")
+        assert await pg.locator("#vorGerBtn").text_content() == "Am Gerät beenden"
+        assert "wand" in app.vorschau_geraet
+
+        await pg.unroute("**/api/vorschau/beenden")
+        await pg.locator("#vorGerBtn").click()
+        await _bis(wand, "location.search", "?panel=a&device=wand", "der zweite Versuch holt es zurueck")
+        await pg.wait_for_function("document.querySelector('#toast').textContent === 'Vorschau am Gerät beendet.'")
+        assert await pg.locator("#vorGerBtn").text_content() == "Am Gerät ansehen"
+        assert app.vorschau_geraet == {}
+        assert not pg._fehler, pg._fehler
+    _lauf(schritte)
+
+
+def test_vorschau_auf_einem_zweiten_geraet_beendet_die_erste(cfg_ordner):
+    """Ansicht flur auf wand ansehen, dann Ansicht a auf tuer: wand kehrt zuerst zurueck,
+    es bleibt keine Vorschau uebrig, von der der Konfigurator nichts mehr weiss. Scheitert
+    das Beenden auf wand, startet die zweite nicht."""
+    async def schritte(app, b, port):
+        wand = await _geraet(b, port)
+        tuer = await b.new_page(viewport={"width": 893, "height": 533})
+        await tuer.goto(f"http://127.0.0.1:{port}/?panel=flur&device=tuer")
+        await tuer.wait_for_selector("#grid .tile[data-id]", state="attached")
+        pg = await _konfigurator(b, port)
+        await pg.wait_for_function("DEVICE_CONN['tuer'] > 0")
+        await _editor_vorschau(pg, wand)
+
+        await pg.route("**/api/vorschau/beenden", lambda r: r.abort())
+        f = await pg.evaluate("vorschauAmGeraet('a', PANELS.a, 'tuer')")
+        assert f.startswith("Vorschau am Gerät nicht beendet:"), f
+        assert sorted(app.vorschau_geraet) == ["wand"], "tuer startet nicht, solange wand nicht zurueck ist"
+        assert await pg.evaluate("ENTWURF.geraet") == "wand"
+        await pg.unroute("**/api/vorschau/beenden")
+
+        assert await pg.evaluate("vorschauAmGeraet('a', PANELS.a, 'tuer')") == ""
+        await _bis(wand, "location.search", "?panel=a&device=wand", "wand kehrt zurueck")
+        await _bis(tuer, "location.search.includes('panel=a') && location.search.includes('entwurf=')", True,
+                   "tuer zeigt den Entwurf von a")
+        assert sorted(app.vorschau_geraet) == ["tuer"] and app.vorschau_geraet["tuer"]["zurueck"] == "flur"
+        assert await pg.evaluate("ENTWURF.geraet") == "tuer"
+
+        assert await pg.evaluate("vorschauGeraetBeenden()") == ""
+        await _bis(tuer, "location.search", "?panel=flur&device=tuer", "tuer kehrt zurueck")
+        assert app.vorschau_geraet == {} and app.vorschau_ende == {}
+        assert not pg._fehler, pg._fehler
+    _lauf(schritte)
+
+
+def test_assistent_bleibt_offen_wenn_das_beenden_scheitert(cfg_ordner):
+    """Die Vorschau eines nie angelegten Panels laesst sich nur im Assistenten beenden:
+    scheitert das beim Schliessen, bleibt er offen und nennt den Fehler."""
+    async def schritte(app, b, port):
+        wand = await _geraet(b, port)
+        pg = await _konfigurator(b, port)
+        await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
+            WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; wzInitSetup();
+            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
+        await pg.locator("#wzVorschau").click()
+        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt das neue Panel")
+
+        await pg.route("**/api/vorschau/beenden", lambda r: r.abort())
+        assert await pg.evaluate("wzClose()") is False
+        assert await pg.locator("#wzOv").is_visible()
+        assert "nicht beendet" in await pg.locator("#wzOv").text_content()
+        assert await pg.locator("#wzVorschauEnde").count() == 1
+        assert "wand" in app.vorschau_geraet
+
+        await pg.unroute("**/api/vorschau/beenden")
+        assert await pg.evaluate("wzClose()") is True
+        assert not await pg.locator("#wzOv").is_visible()
+        await _bis(wand, "location.search", "?panel=a&device=wand", "das Geraet kehrt zurueck")
+        assert app.vorschau_geraet == {}
+        assert not pg._fehler, pg._fehler
+    _lauf(schritte)

@@ -2757,8 +2757,11 @@ function entwurfNachziehen(){
 // eine verbundene Visu (ein Agent kann den Token nicht tragen). Das Geraet kehrt zur vorigen
 // Ansicht zurueck, wenn die Vorschau beendet wird oder 15 Minuten niemand mehr daran arbeitet;
 // Speichern beendet sie ebenfalls (das Geraet zeigt dann das gespeicherte Profil).
+// Es laeuft hoechstens eine Vorschau am Geraet: vor einer auf einem anderen Geraet endet die
+// bisherige (gelingt das nicht, startet die neue nicht - sonst liefe die alte unbemerkt weiter).
 async function vorschauAmGeraet(id, p, name){   // -> Fehlertext, '' wenn die Vorschau laeuft
   const t=$('#toast');
+  if(ENTWURF.geraet && ENTWURF.geraet!==name){ const f=await vorschauGeraetBeenden(); if(f) return f; }
   try{
     const j=await entwurfSenden(id, p); if(!j) return T('Vorschau nicht möglich:')+' ?';
     const k=await postJson('/api/device/switch', {device:name, panel:id, entwurf:j.token, ip:DEVICE_IPS[name]||''});
@@ -2770,10 +2773,18 @@ async function vorschauAmGeraet(id, p, name){   // -> Fehlertext, '' wenn die Vo
     return '';
   }catch(e){ const f=T('Vorschau nicht möglich:')+' '+e.message; flash(t, f, false); return f; }
 }
+// Erst wenn der Server das Ende bestaetigt, gilt sie als beendet; sonst bleibt der Knopf
+// "Am Gerät beenden" stehen, damit es sich wiederholen laesst. -> Fehlertext, '' wenn beendet
 async function vorschauGeraetBeenden(){
-  const name=ENTWURF.geraet; if(!name) return;
-  ENTWURF.geraet=''; vorGerKnopf();
-  try{ await postJson('/api/vorschau/beenden', {device:name}); flash($('#toast'), T('Vorschau am Gerät beendet.'), true); }catch(e){}
+  const name=ENTWURF.geraet; if(!name) return '';
+  const t=$('#toast');
+  let f='';
+  try{ const j=await postJson('/api/vorschau/beenden', {device:name}); if(!j.ok) f=j.error||T('Fehler'); }
+  catch(e){ f=e.message||String(e); }
+  if(f){ f=T('Vorschau am Gerät nicht beendet:')+' '+f; flash(t, f, false); return f; }
+  if(ENTWURF.geraet===name){ ENTWURF.geraet=''; vorGerKnopf(); }
+  flash(t, T('Vorschau am Gerät beendet.'), true);
+  return '';
 }
 // Welches Geraet? Das Vorschaugeraet des Seiten-Editors, sofern es ein echtes Geraet ist, sonst das
 // Zielgeraet des Profils (seGeraetReiter nimmt es als Vorgabe)
@@ -4311,7 +4322,7 @@ function wzOpen(){
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzTileFor=-1; wzRender(); } };
     $('#wzNext').onclick=wzNext;
-    $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
+    $('#wzBlank').onclick=async function(){ if(await wzClose()) createBlankPanel(); };
     $('#wzFertig').onclick=function(){ WZ.step=wzFlow().indexOf('pruefen'); wzTileFor=-1; wzRender(); };
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
     $('#wzX').onclick=wzClose;
@@ -4319,11 +4330,17 @@ function wzOpen(){
   wzReset();
   $('#wzOv').hidden=false; wzRender();
 }
-function wzClose(){
+// -> true, wenn der Assistent zu ist
+async function wzClose(){
+  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck.
+  // Gelingt das nicht, bleibt der Assistent offen - nur dort laesst sie sich noch beenden.
+  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]){
+    const f=await vorschauGeraetBeenden();
+    if(f){ wzVorFehler=f; wzRender(); return false; }
+  }
   wzZurueckgeben();
   $('#wzOv').hidden=true; wzVorFehler='';
-  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck
-  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]) vorschauGeraetBeenden();
+  return true;
 }
 // Schritt Gerät leiht sich "Neues Gerät einrichten" (Start-Adresse, Agent) und die Geraete
 // ohne Kennung (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
@@ -4736,7 +4753,7 @@ function wzRender(){
   { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
   { var wv=$('#wzVorschau'); if(wv) wv.onclick=async function(){ wv.disabled=true;
       wzVorFehler=await vorschauAmGeraet(WZ.id, wzEntwurf(), WZ.device); wzRender(); }; }
-  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ wzVorFehler=''; await vorschauGeraetBeenden(); wzRender(); }; }
+  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ we.disabled=true; wzVorFehler=await vorschauGeraetBeenden(); wzRender(); }; }
   { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
   b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
     var q=el.dataset.wgr;
