@@ -1519,6 +1519,7 @@
   .hs-raeume{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--hs-rc,3),minmax(0,1fr));
     grid-auto-rows:var(--hs-rh,minmax(0,1fr));gap:var(--hs-g);overflow-y:auto;overflow-x:hidden;}
   .hs-r{min-height:0;overflow:hidden;padding:calc(16px * var(--hk)) calc(18px * var(--hk));display:flex;flex-direction:column;gap:2px;}
+  .hs-r>*{flex-shrink:0;}   /* nicht quetschen: passt der Inhalt nicht, wachsen die Reihen (renderHaus) */
   .hs-r .kopf{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .hs-r .nm{font-size:calc(18px * var(--hk));font-weight:700;line-height:1.2;overflow:hidden;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
@@ -1571,7 +1572,7 @@
   .hs-zonen{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px;}
   .hs-zonen .lbl{font-size:calc(14px * var(--hk));color:var(--muted);}
   .hs .btn.hs-zone{flex:none;justify-content:flex-start;text-align:left;padding:0 12px;height:auto;min-height:max(44px, calc(52px * var(--hk)));}
-  .hs .btn.hs-zone.akt{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));}
+  .hs .btn.hs-zone.akt{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));box-shadow:inset 0 0 0 2px var(--glow);}
   .hs .btn.hs-zone .w{font-size:calc(13px * var(--hk));}
   /* Die Spieler-Karte ist "an", ihre Zonen-Tasten nicht: nur die Zone, die
      spielt, zeigt ihr Symbol leuchtend */
@@ -4878,6 +4879,12 @@ function renderHaus(){
   main+=teil('unten');
   g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+'"><div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
+  // Raumkarten, die ihren Inhalt nicht fassen (zweizeiliger Name, langer
+  // Zustand): die Reihen so hoch, wie die hoechste Karte braucht - dann
+  // scrollt die Liste senkrecht, statt dass eine Zeile abgeschnitten wird
+  const karten=[...g.querySelectorAll('.hs-r')];
+  if(karten.some(k=>k.scrollHeight>k.clientHeight+1))
+    g.style.setProperty('--hs-rh', Math.ceil(Math.max(...karten.map(k=>k.scrollHeight)))+'px');
   g._hsSig=hausSig(L, B);
   if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); }
   tickClock();

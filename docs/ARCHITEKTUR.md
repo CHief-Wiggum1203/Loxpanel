@@ -1793,7 +1793,11 @@ Assistenten des Konfigurators.
     und „n an“. Ein Tipp öffnet die Raumseite (`group`/`room`). Die
     Spaltenzahl wählt `hausLage()`: die, deren Karten dem Seitenverhältnis
     `HS_RAUM_SEITE` am nächsten kommen, ohne unter `HS_RAUM_HOCH` zu
-    schrumpfen; passt das nicht, scrollen die Karten senkrecht.
+    schrumpfen; passt das nicht, scrollen die Karten senkrecht. Nach dem
+    Zeichnen misst `renderHaus()` nach: Fasst eine Karte ihren Inhalt nicht
+    (zweizeiliger Name, lange Zeile), werden die Reihen so hoch wie die
+    höchste Karte; ihre Zeilen schrumpfen nie (`.hs-r>*`), sonst lägen
+    Hauptwert und Zeile darunter übereinander.
   - **Spieler:** die gewählte Zone (Route `zone`), sonst die erste, die
     spielt. Inhalt aus `player_blocks()`, also dieselben Befehle wie auf der
     Detailseite. Quer ab 860 px Breite steht er als Spalte rechts mit
