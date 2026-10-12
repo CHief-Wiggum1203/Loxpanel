@@ -553,3 +553,32 @@ def test_schrumpfen_spart_eine_seite(geraet, anzahl, ui, spart):
     else:
         assert (mit["raster"], mit["seiten"]) == (ohne["raster"], ohne["seiten"]), m
 
+
+
+# Widget hochkant im automatischen Raster: Schluessel, frisch gerechnete und angewandte Hoehe
+HOCH_WIDGET = """() => { const a = autoRaster(_lastWidget), sc = document.querySelector('.screen');
+  return {schluessel: _lastRaster, jetzt: rasterKey(_lastWidget), pPx: Math.round(a.pPx),
+    css: sc.style.getPropertyValue('--auto-p'),
+    pane: Math.round(document.getElementById('frontpane').getBoundingClientRect().height),
+    alt: document.querySelector('#grid .tile[data-id]').__alt === true}; }"""
+
+
+def test_hochkant_widget_folgt_der_hoehe_ohne_neuaufbau():
+    """Punkt 12 der Pruefliste: hochkant 533 x 893 auf 533 x 933 und zurueck. Das
+    Raster bleibt 3 x 3 (gleicher rasterKey), die Hoehe des Widgets (pPx) aendert
+    sich aber - sie muss sofort gelten, ohne die Kacheln neu aufzubauen."""
+    async def schritte(app, pg):
+        erg = [await pg.evaluate(HOCH_WIDGET)]
+        await pg.evaluate("document.querySelector('#grid .tile[data-id]').__alt = true")
+        for hoehe in (933, 893):
+            await pg.set_viewport_size({"width": 533, "height": hoehe})
+            await pg.wait_for_timeout(300)
+            erg.append(await pg.evaluate(HOCH_WIDGET))
+        return erg
+    ui = {"grid": "auto", "panes": {"favoriten": "weather"}, "paneCols": 2}
+    start, gross, zurueck = _laufen(ui, 533, 893, schritte)
+    assert start["schluessel"] == gross["schluessel"] == gross["jetzt"] == zurueck["jetzt"], (start, gross)
+    assert gross["pPx"] > start["pPx"], (start, gross)
+    for m in (start, gross, zurueck):
+        assert m["css"] == f'{m["pPx"]}px' and abs(m["pane"] - m["pPx"]) <= 1, m
+    assert gross["alt"] and zurueck["alt"], "gleiches Raster: kein Neuaufbau der Kacheln"

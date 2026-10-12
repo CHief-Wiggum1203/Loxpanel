@@ -3560,6 +3560,14 @@ function autoRaster(widget){
 // Dazu die Blaetterrichtung (seitenQuer): ein Fenster, das quer ueber die
 // Quadrat-Schwelle waechst (520x480 -> 560x480), aendert weder Lage noch
 // Raster, muss aber von senkrecht auf waagerechte Seiten umbauen.
+// Masse des automatischen Rasters als CSS-Variablen. Ein Hochkant-Widget hat eine Hoehe in px
+// (pPx), die mit dem Fenster waechst und schrumpft, auch wenn Spalten, Zeilen, k und p bleiben
+// (rasterKey also gleich): fensterGeaendert setzt sie dann ohne Neuaufbau nach.
+function autoMasseSetzen(a){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  sc.style.setProperty('--auto-k', a.pPx ? 'minmax(0,1fr)' : a.k+'fr');
+  sc.style.setProperty('--auto-p', a.pPx ? Math.round(a.pPx)+'px' : a.p+'fr');
+}
 function rasterKey(widget){
   const {w,h}=vpSize(), a=gridAuto ? autoRaster(widget) : null;
   return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '')
@@ -3583,9 +3591,8 @@ function render(){
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
-  if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
-    sc.style.setProperty('--auto-k', a.pPx ? 'minmax(0,1fr)' : a.k+'fr');
-    sc.style.setProperty('--auto-p', a.pPx ? Math.round(a.pPx)+'px' : a.p+'fr');
+  if(gridAuto){ const a=autoRaster(_widget);
+    autoMasseSetzen(a);
     setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   renderLeiste();   // Werteleiste ueber dem Raster (oder weg) - vor dem Bauen und Messen der Kacheln
@@ -3820,8 +3827,10 @@ function fensterGeaendert(){
   // Hausuebersicht: Lage (Spieler als Spalte oder Leiste, Spalten) neu
   // rechnen; nur wenn sie kippt, baut renderHaus neu
   if(view && view.layout==='haus' && el('grid').classList.contains('haus')){ if(!updateHaus()) render(); }
-  else if(view && !el('grid').classList.contains('scheme')
-     && rasterKey(_lastWidget) !== _lastRaster) render();
+  else if(view && !el('grid').classList.contains('scheme')){
+    if(rasterKey(_lastWidget) !== _lastRaster) render();
+    else if(gridAuto) autoMasseSetzen(autoRaster(_lastWidget));   // gleiches Raster, andere Pixel (Hochkant-Widget)
+  }
   panelEinpassen();
   kopfEinpassen();
   faktorNachziehen();   // Kachelbreite geaendert, Raster nicht: Inhalt nachziehen
