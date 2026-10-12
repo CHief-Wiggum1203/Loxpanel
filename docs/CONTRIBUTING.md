@@ -88,7 +88,9 @@ git checkout main && git pull origin main
 git merge upstream/main
 #    Konflikte fast nur in den Identitäts-Dateien (release.cfg ARCHIVEURL,
 #    plugin.cfg VERSION, Image-Name): Fork-Identität behalten, Upstream-Code
-#    und -Version übernehmen.
+#    übernehmen. Die Version bleibt die des Forks: Seit 1.0.0 zählt er
+#    eigenständig (VERSION in plugin.cfg und release.cfg, Version in
+#    packaging/deb/control).
 #    Ausnahme .github/workflows/docker-image.yml („deleted in HEAD and
 #    modified in upstream/main“): gelöscht lassen (git rm), sonst
 #    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
