@@ -2797,54 +2797,67 @@ function entwurfBeendet(){
   ENTWURF.token=''; ENTWURF.id=''; ENTWURF.geraet=''; vorGerKnopf();
 }
 
+// Alles, was die ganze Liste der Ansichten an den Server schickt (Speichern, auch ueber
+// den Assistenten, und "Ansicht loeschen"), laeuft nacheinander. Jeder Auftrag nimmt
+// seinen Stand erst, wenn er dran ist, und als tiefe Kopie: Was waehrenddessen getippt
+// wird, geht nicht mit, und ein zweiter Auftrag baut auf dem Ergebnis des ersten auf.
+let ANSICHTEN_KETTE=Promise.resolve();
+function ansichtenAuftrag(f){
+  const r=ANSICHTEN_KETTE.then(f);
+  ANSICHTEN_KETTE=r.catch(()=>{});
+  return r;
+}
+function tiefKopie(o){ return JSON.parse(JSON.stringify(o)); }
+// Antwort von /api/panels: `panels` ist, was der Server tatsaechlich gespeichert hat
+// (ohne Verworfenes); ohne das Feld gilt der abgeschickte Stand.
+function gespeichertSetzen(j, gesendet){ GESPEICHERT=(j.panels && typeof j.panels==='object') ? j.panels : gesendet; }
+
 async function ansichtenSpeichern(){
   clearTimeout(ENTWURF.timer); ENTWURF.gen++;   // Vorschau: ab jetzt nichts mehr nachziehen, Verspaetetes verwerfen
-  const stand=offenStand(k=>k.indexOf('ansicht:')===0);
-  try{
-    const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=PANELS[k]; }
-    const r=await fetch('/api/panels',{method:'POST',headers:{'Content-Type':'application/json'},
-                          body:JSON.stringify({panels})});
-    const j=await r.json();
-    let okT=true, errT='';
-    if(PANELS.__global__){
-      const g=PANELS.__global__;
-      const r2=await fetch('/api/theme',{method:'POST',headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
-      const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
-    }
-    if(!(j.ok&&okT)) return {ok:false, text:'Fehler: '+(j.error||errT||'?')};
-    erledigt(stand); entwurfBeendet();
-    GESPEICHERT=JSON.parse(JSON.stringify(panels));
-    // Liste der Ansichten fuer die Geraete-Zuordnung auffrischen (sonst fehlt eine neue
-    // Ansicht dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
-    try{ await loadPanelIds(); renderDevices(); }catch(e){}
-    // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
-    // es still zu verlieren; die Warnung bleibt stehen.
-    const weg=j.verworfen||[];
-    return {ok:true, warn:weg.length>0,
-            text:'✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
-                 (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '')};
-  }catch(e){ return {ok:false, text:'Fehler: '+e}; }
+  return ansichtenAuftrag(async()=>{
+    const stand=offenStand(k=>k.indexOf('ansicht:')===0);
+    const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=tiefKopie(PANELS[k]); }
+    const g=PANELS.__global__;
+    const vorgaben=g ? {ui:tiefKopie(g.ui||{}), categories:tiefKopie(g.catColors||{})} : null;
+    try{
+      const j=await postJson('/api/panels', {panels});
+      if(j.ok) gespeichertSetzen(j, panels);   // steht in der Datei, auch wenn die Vorgaben scheitern
+      let okT=true, errT='';
+      if(vorgaben){ const j2=await postJson('/api/theme', vorgaben); okT=j2.ok; errT=j2.error||''; }
+      if(!(j.ok&&okT)) return {ok:false, text:'Fehler: '+(j.error||errT||'?')};
+      erledigt(stand); entwurfBeendet();
+      // Liste der Ansichten fuer die Geraete-Zuordnung auffrischen (sonst fehlt eine neue
+      // Ansicht dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
+      try{ await loadPanelIds(); renderDevices(); }catch(e){}
+      // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
+      // es still zu verlieren; die Warnung bleibt stehen.
+      const weg=j.verworfen||[];
+      return {ok:true, warn:weg.length>0,
+              text:'✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
+                   (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '')};
+    }catch(e){ return {ok:false, text:'Fehler: '+e}; }
+  });
 }
 // Nur die Ansichten und Vorgaben (Assistent, Tests); die Leiste nimmt speichernAlles()
 async function save(){ const e=await ansichtenSpeichern(); meldungZeigen([e]); leisteZeigen(); return e.ok; }
 // "Ansicht loeschen" gilt nach der Rueckfrage sofort. Geschickt wird der zuletzt
 // gespeicherte Stand ohne diese Ansicht; offene Aenderungen an anderen bleiben offen.
 async function ansichtLoeschen(id){
-  const t=$('#toast');
-  if(GESPEICHERT[id]){
-    const panels=JSON.parse(JSON.stringify(GESPEICHERT)); delete panels[id];
-    let j;
-    try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
-    if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
-    delete GESPEICHERT[id];
-  }
-  if(ENTWURF.id===id) entwurfBeendet();
-  delete PANELS[id]; OFFEN.delete('ansicht:'+id);
-  cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
-  meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
-  try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
-  return true;
+  return ansichtenAuftrag(async()=>{
+    if(GESPEICHERT[id]){
+      const panels=tiefKopie(GESPEICHERT); delete panels[id];
+      let j;
+      try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
+      if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
+      gespeichertSetzen(j, panels);
+    }
+    if(ENTWURF.id===id) entwurfBeendet();
+    delete PANELS[id]; OFFEN.delete('ansicht:'+id);
+    cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
+    meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
+    try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
+    return true;
+  });
 }
 
 // ---- Kachel-Editor ----

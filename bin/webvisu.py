@@ -8196,7 +8196,10 @@ async def api_save_panels(request: web.Request) -> web.Response:
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
     if weg:
         log.warning("panels.json: nicht übernommen: %s", "; ".join(weg))
-    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg})
+    # `panels`: was jetzt tatsaechlich in der Datei steht, in der Form von /api/meta.
+    # Der Konfigurator fuehrt das als gespeicherten Stand (ohne Verworfenes, normiert).
+    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg,
+                              "panels": {pid: app._panel_export(raw) for pid, raw in app.panels.items()}})
 
 
 async def api_entwurf(request: web.Request) -> web.Response:

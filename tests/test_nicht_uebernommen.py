@@ -85,3 +85,29 @@ def test_speichern_antwortet_mit_verworfen():
         assert geschrieben == [{"wz": {"title": "Wohnzimmer", "tabs": ["favoriten"], "rooms": [], "cats": [],
                                        "tiles": {"U1": {"bold": True}}}}]
     asyncio.run(lauf())
+
+
+def test_speichern_antwortet_mit_dem_gespeicherten_stand(cfg_ordner):
+    """Die Antwort nennt unter `panels`, was jetzt in der Datei steht, in der Form
+    von /api/meta: ohne das Verworfene und normiert. Das fuehrt der Konfigurator als
+    gespeicherten Stand; ein spaeteres "Ansicht loeschen" baut darauf auf."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(anlage({"U1": {"name": "Licht Küche", "type": "Switch", "uuidAction": "U1",
+                                            "room": "r1", "cat": "c1", "states": {"active": "s1"}}}))
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_post("/api/panels", W.api_save_panels)
+        async with TestClient(TestServer(ui)) as cl:
+            r = await cl.post("/api/panels", json={"panels": {
+                "wz": {"title": "Wohnzimmer", "tabs": ["favoriten", "quatsch"], "ui": {"neuOption": 1},
+                       "tiles": {"U1": {"bold": True, "blinken": True}}}}})
+            j = await r.json()
+        assert j["ok"] is True
+        assert j["panels"] == {pid: app._panel_export(raw) for pid, raw in app.panels.items()}
+        wz = j["panels"]["wz"]
+        assert wz["title"] == "Wohnzimmer" and wz["tabs"] == ["favoriten"]
+        assert "neuOption" not in wz.get("ui", {}) and wz["tiles"] == {"U1": {"bold": True}}
+        doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+        assert sorted(doc["panels"]) == sorted(j["panels"])
+    asyncio.run(lauf())

@@ -280,3 +280,141 @@ def test_geraete_warten_auf_die_ansichten(cfg_ordner):
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+class _Halten:
+    """Haelt Anfragen an /api/panels zurueck, bis der Test sie freigibt: so laesst
+    sich zwischen Absenden und Antwort weiter tippen, loeschen oder speichern.
+    `bodies` sammelt, was der Konfigurator geschickt hat (in Reihenfolge)."""
+    def __init__(self, anzahl=1):
+        self.anzahl, self.bodies, self.da, self.frei = anzahl, [], asyncio.Event(), asyncio.Event()
+
+    async def __call__(self, route):
+        self.bodies.append(json.loads(route.request.post_data or "{}"))
+        if len(self.bodies) <= self.anzahl:
+            self.da.set()
+            await self.frei.wait()
+        await route.continue_()
+
+
+async def _loeschen(pg, ansicht):
+    await pg.locator(".rub", has_text="Ansichten").click()
+    await pg.locator("#plist .pitem", has_text=ansicht).click()
+    await pg.locator("#subtabs .stab", has_text="Allgemein").click()
+    await pg.locator("#delBtn").click()
+
+
+async def _gespeichert(pg):
+    return await pg.evaluate("JSON.parse(JSON.stringify(GESPEICHERT))")
+
+
+def test_spaete_eingabe_gilt_nicht_als_gespeichert(cfg_ordner):
+    """Waehrend die Antwort auf "Speichern" aussteht, geht die Eingabe weiter.
+    Gespeichert ist nur der abgeschickte Stand; die spaetere Eingabe bleibt offen,
+    und ein anschliessendes "Ansicht loeschen" nimmt sie nicht mit."""
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _konfigurator(b, port, fehler)
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+                halten = _Halten()
+                await pg.route("**/api/panels", halten)
+                await _titel_aendern(pg, "Küche", "Gespeicherte Küche")
+                await pg.locator("#saveBtn").click()
+                await halten.da.wait()
+                await pg.locator("#fTitle").fill("Noch nicht gespeicherte Küche")
+                halten.frei.set()
+                await pg.wait_for_function("document.querySelector('#toast').textContent.startsWith('✓ Gespeichert')")
+
+                assert halten.bodies[0]["panels"]["kueche"]["title"] == "Gespeicherte Küche"
+                assert _datei(cfg_ordner, "panels.json")["panels"]["kueche"]["title"] == "Gespeicherte Küche"
+                assert (await _gespeichert(pg))["kueche"]["title"] == "Gespeicherte Küche"
+                assert await _offen(pg) == "Nicht gespeichert: Ansicht Noch nicht gespeicherte Küche"
+
+                await _loeschen(pg, "Wohnen")
+                await pg.wait_for_function("document.querySelector('#toast').textContent === '✓ Gelöscht: wohnen'")
+                doc = _datei(cfg_ordner, "panels.json")
+                assert sorted(doc["panels"]) == ["default", "kueche"], doc["panels"]   # „default“ kam mit dem Speichern
+                assert doc["panels"]["kueche"]["title"] == "Gespeicherte Küche", "die offene Eingabe ging nicht mit"
+                assert await _offen(pg) == "Nicht gespeichert: Ansicht Noch nicht gespeicherte Küche"
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_zwei_loeschvorgaenge_kurz_nacheinander(cfg_ordner):
+    """Wohnen loeschen, und bevor der Server antwortet, Kueche loeschen: Am Ende
+    fehlen beide in der Datei, in der Arbeitskopie und im gespeicherten Stand.
+    Der zweite Auftrag darf Wohnen nicht aus einem veralteten Stand zurueckholen."""
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _konfigurator(b, port, fehler)
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+                halten = _Halten()
+                await pg.route("**/api/panels", halten)
+                await _loeschen(pg, "Wohnen")
+                await halten.da.wait()
+                await _loeschen(pg, "Küche")
+                halten.frei.set()
+                await pg.wait_for_function("document.querySelector('#toast').textContent === '✓ Gelöscht: kueche'")
+
+                assert all("wohnen" not in body["panels"] for body in halten.bodies[1:]), halten.bodies
+                assert _datei(cfg_ordner, "panels.json")["panels"] == {}
+                assert await _gespeichert(pg) == {}
+                assert await pg.evaluate("'wohnen' in PANELS || 'kueche' in PANELS") is False
+                assert await pg.locator("#plist .pitem", has_text="Wohnen").count() == 0
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
+
+
+def test_loeschen_waehrend_gespeichert_wird(cfg_ordner):
+    """Waehrend "Speichern" noch laeuft, wird Kueche geloescht: Der Titel von Wohnen
+    ist gespeichert, Kueche bleibt weg. Das Speichern darf die geloeschte Ansicht
+    nicht nachtraeglich wieder in die Datei schreiben."""
+    async def lauf():
+        app = _app(cfg_ordner)
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _konfigurator(b, port, fehler)
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+                halten = _Halten()
+                await pg.route("**/api/panels", halten)
+                await _titel_aendern(pg, "Wohnen", "Wohnzimmer")
+                await pg.locator("#saveBtn").click()
+                await halten.da.wait()
+                await _loeschen(pg, "Küche")
+                halten.frei.set()
+                await pg.wait_for_function("document.querySelector('#toast').textContent === '✓ Gelöscht: kueche'")
+
+                doc = _datei(cfg_ordner, "panels.json")
+                assert "kueche" not in doc["panels"], doc["panels"]
+                assert doc["panels"]["wohnen"]["title"] == "Wohnzimmer"
+                gespeichert = await _gespeichert(pg)
+                assert "kueche" not in gespeichert and gespeichert["wohnen"]["title"] == "Wohnzimmer"
+                assert await pg.evaluate("'kueche' in PANELS") is False
+                assert await _offen(pg) == "Alles gespeichert"
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
