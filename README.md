@@ -477,10 +477,11 @@ und ohne LoxBerry.
 
 ## Changelog
 
-- **Unveröffentlicht** – iPad/iPhone als Web-App vom Home-Bildschirm (Vollbild, kein schwarzer Schirm mehr), Kamera-Widget mit Werten unter dem Bild, verlinkte Objekte unter der Detailseite.
+- **1.0.0** – Erste eigene Version des Forks. **Kachel-Sets** (loxone, touch, kreide), **Hausübersicht** als eigene Seite, **Seiten-Editor** mit freien Seiten per Drag & Drop, **Vorschau** ungespeicherter Ansichten im Browser und am echten Gerät, **Kopfzeile** und **Werteleiste** über dem Raster, automatisches Raster für Tablets (Kacheln wachsen und schrumpfen mit dem Schirm, Seiten waagerecht wischen), **Intercom Gen-1 und Gen-2** samt Kamera vom Miniserver, für Gen-1 **Gegensprechen** in der Android-App, iPad/iPhone als Web-App vom Home-Bildschirm. Konfigurator neu geordnet (Ansichten, Vorgaben, Geräte, Einstellungen, eine Speicherleiste), Gerät einrichten in sechs Schritten, Kopplungscode am Panel. Offene Seiten laden nach einem Update von selbst neu. Dazu die Prüfberichte der Stufen 1 bis 6 und die Prüfliste vom 12.10.2026 mit 15 behobenen Fehlern, jeder mit Regressionstest. Die Android-App ist jetzt fest signiert: Updates installieren sich über die vorhandene App.
 
-Vollständige Release-Notes: [GitHub Releases des Originals](https://github.com/Lenardo1/Loxpanel/releases);
-der Fork trägt dieselben Versionsnummern.
+Release-Notes bis 0.7.0: [GitHub Releases des Originals](https://github.com/Lenardo1/Loxpanel/releases).
+Bis 0.7.0 trug der Fork dieselben Versionsnummern wie das Original, ab 1.0.0
+zählt er eigenständig.
 
 - **0.7.0** – Direkt aufs Gerät: **Android-App (APK, inkl. 32-bit/armeabi-v7a)** und **Linux-.deb** mit eingebautem Server (ohne LoxBerry/Docker). Verlauf-Widget stapelbar, Neu-Laden gegen Einfrieren, Version/Commit/Bauzeit sichtbar; diverse Detailkorrekturen.
 - **0.6.0** – Einheitliches **Widget-Konzept** (Pane 2 / Screensaver / eigener Tab), freie Tab-Inhalte, **Panel-Assistent**, Displays-Reiter + Betriebsmodus-Automatik, Verlaufs-Diagramme, Anzeige-Skalierung.

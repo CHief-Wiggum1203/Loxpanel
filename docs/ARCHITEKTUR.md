@@ -2671,8 +2671,10 @@ und lädt nach dem Speichern neu. Tests: `tests/test_neuer_stand.py`,
 `tests/browser/test_neuer_stand_browser.py`.
 
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
-Plugin-Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
-`loxberry-plugin/release.cfg` gemeinsam hochzählen, nach `main` pushen,
+Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
+`loxberry-plugin/release.cfg` sowie `Version` in `packaging/deb/control`
+gemeinsam hochzählen (`test_versionen_gleich` in `tests/test_version.py`), nach
+`main` bringen,
 GitHub-Release mit Tag `v<version>` anlegen. Das Image `v<version>` erscheint erst
 nach den Tests des Tags, also rund zehn Minuten später. `NAME`, `FOLDER` und
 `AUTHOR` nie ändern. Das GHCR-Package muss einmalig auf public stehen (bereits

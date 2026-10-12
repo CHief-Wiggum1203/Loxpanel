@@ -142,3 +142,15 @@ def test_ohne_datei_und_ohne_git_die_kennung_des_inhalts(tmp_path):
         shutil.copytree(ROOT / ordner, tmp_path / ordner, ignore=shutil.ignore_patterns("__pycache__", "version.json"))
     info = V.lesen(tmp_path / "bin")
     assert info["commit"] == "" and info["inhalt"] == V.inhalt_kennung(tmp_path) != ""
+
+
+def test_versionen_gleich():
+    """Eine Version, drei Stellen: LoxBerry-Plugin (plugin.cfg), Auto-Update von
+    LoxBerry (release.cfg) und das .deb (packaging/deb/control). Ein Release
+    zaehlt alle drei gemeinsam hoch; die APK nimmt plugin.cfg."""
+    def lies(pfad, muster):
+        return re.search(muster, (ROOT / pfad).read_text(encoding="utf-8"), re.M).group(1)
+    plugin = lies("loxberry-plugin/plugin.cfg", r"^VERSION=(\S+)")
+    assert re.fullmatch(r"\d+\.\d+\.\d+", plugin), plugin
+    assert lies("loxberry-plugin/release.cfg", r"^VERSION=(\S+)") == plugin
+    assert lies("packaging/deb/control", r"^Version:\s*(\S+)") == plugin

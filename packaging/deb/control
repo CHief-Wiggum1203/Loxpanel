@@ -1,5 +1,5 @@
 Package: loxpanel-server
-Version: 0.7.0
+Version: 1.0.0
 Architecture: all
 Maintainer: Lenardo1 <noreply@users.noreply.github.com>
 Depends: systemd, curl, ca-certificates
