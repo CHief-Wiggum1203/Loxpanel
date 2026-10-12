@@ -1024,7 +1024,13 @@ Innenrand des Rasters; ein Maß mit `-schmal` gilt unter `SCHMAL_UNTER`
 (`raster.js`, 600 px) Breite, die der Tab-Leiste (`--tabs-hoehe`, `--pille-h`,
 `--tab-symbol`) auch unter 600 px Höhe: Auf einem breiten, niedrigen Schirm
 (Fenster am Mac, flaches Display) nähme die 96-px-Leiste sonst ein Fünftel der
-Höhe. `groessen` sind Standardgrößen der Kachel, die das Set
+Höhe. Nennt ein Set `--leiste-voll-ab` (loxone: 820 px, iPad quer), gelten
+Leistenhöhe und Pille erst ab dieser Schirmhöhe voll, darunter schrumpfen sie
+mit der Höhe bis zu ihren `-schmal`-Maßen (`raster.js` `leisteMass()`, die
+Visu setzt das Ergebnis in `schmalEinrichten()` als `--k-tabs-h`/`--k-pille-h`
+am Kasten). `--pille-tab-breite` macht die Pille je Eintrag so breit, höchstens
+560 px wie ohne das Maß; `renderTabs()` setzt die Zahl der Einträge
+(`--tab-n`). `groessen` sind Standardgrößen der Kachel, die das Set
 mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
 `ui.tileLayout` nicht. „touch“ hat statt fester Farben einen
 `satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,

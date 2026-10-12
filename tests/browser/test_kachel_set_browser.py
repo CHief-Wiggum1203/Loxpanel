@@ -70,12 +70,25 @@ SET_MESSEN = """() => {
 }"""
 
 
-def _mass(name: str, mass: str, breite: int) -> float | None:
-    """Mass eines Sets fuer diese Breite: "-schmal" unter SCHMAL_UNTER, wie
-    raster.js setMass(); None, wenn das Set es nicht nennt."""
-    m = TC.KACHEL_SETS[name].get("masse") or {}
-    wert = m.get(mass + "-schmal") if breite < SCHMAL_UNTER and mass + "-schmal" in m else m.get(mass)
+def _px(wert):
     return float(wert.rstrip("px")) if wert else None
+
+
+def _mass(name: str, mass: str, breite: int, hoehe: int = 0) -> float | None:
+    """Mass eines Sets fuer diesen Schirm wie raster.js setMass()/leisteMass():
+    "-schmal" unter SCHMAL_UNTER Breite; Leiste und Pille (mit Hoehe) nennt
+    das Set --leiste-voll-ab, wachsen sie mit der Hoehe von ihrem "-schmal"-Mass
+    bis zum vollen, sonst nehmen sie unter SCHMAL_UNTER Hoehe ihr "-schmal"-Mass.
+    None, wenn das Set es nicht nennt."""
+    m = TC.KACHEL_SETS[name].get("masse") or {}
+    klein = m.get(mass + "-schmal", m.get(mass))
+    if breite < SCHMAL_UNTER:
+        return _px(klein)
+    if hoehe and mass in ("--tabs-hoehe", "--pille-h") and "--leiste-voll-ab" in m and mass in m:
+        return max(_px(klein), _px(m[mass]) * min(1, hoehe / _px(m["--leiste-voll-ab"])))
+    if hoehe and mass in ("--tabs-hoehe", "--pille-h", "--tab-symbol") and hoehe < SCHMAL_UNTER:
+        return _px(klein)
+    return _px(m.get(mass))
 
 
 def _rgb(hexwert: str) -> str:
@@ -149,10 +162,10 @@ def test_set_am_geraet(name, geraet, tmp_path):
     s, tb, g = mit["schirm"], mit["tabs"], mit["grid"]
     assert mit["schmal"] == (breite < SCHMAL_UNTER), "schmale Schirme nehmen die Masse mit -schmal"
     if leiste in ("pille", "oben"):
-        assert abs(tb["height"] - _mass(name, "--tabs-hoehe", breite)) < 0.6, (tb, name)
+        assert abs(tb["height"] - _mass(name, "--tabs-hoehe", breite, hoehe)) < 0.6, (tb, name)
     if leiste == "pille":
         assert mit["pille"] == _rgb(v["--tabbar"]) and abs(tb["bottom"] - s["bottom"]) < 1, mit
-        assert abs(float(mit["pilleH"].rstrip("px")) - _mass(name, "--pille-h", breite)) < 0.6, mit["pilleH"]
+        assert abs(float(mit["pilleH"].rstrip("px")) - _mass(name, "--pille-h", breite, hoehe)) < 0.6, mit["pilleH"]
     if leiste == "oben":
         # Rahmen (--rahmen) um das Feld der Kacheln (--screen), die Tabs darauf
         assert mit["schirmFarbe"] == _rgb(v["--rahmen"]) and mit["gridFarbe"] == _rgb(v["--screen"]), mit
@@ -257,7 +270,7 @@ def test_leiste_oben_in_jeder_zeilen_variante(variante, tmp_path):
     for n, f in flaechen.items():
         assert f["left"] >= s["left"] + seite - 0.5 and f["right"] <= s["right"] - seite + 0.5, (variante, n, f)
         assert f["bottom"] <= s["bottom"] - unten + 0.5, (variante, n, f)
-    assert abs(tb["height"] - _mass(oben, "--tabs-hoehe", breite)) < 0.6, (variante, tb)
+    assert abs(tb["height"] - _mass(oben, "--tabs-hoehe", breite, hoehe)) < 0.6, (variante, tb)
 
 
 def test_seitenleiste_folgt_der_breite(tmp_path):
@@ -329,13 +342,59 @@ def test_leiste_auf_niedrigem_schirm(name, tmp_path):
     klein = float(m["--tabs-hoehe-schmal"].rstrip("px"))
     assert not mit["schmal"] and v["niedrig"], (mit["schmal"], v)
     assert abs(mit["tabs"]["height"] - klein) < 0.6 and v["tabs"] == klein, (mit["tabs"], v)
-    assert abs(hoch["tabs"]["height"] - float(m["--tabs-hoehe"].rstrip("px"))) < 0.6, hoch["tabs"]
+    assert abs(hoch["tabs"]["height"] - _mass(name, "--tabs-hoehe", breite, SCHMAL_UNTER)) < 0.6, hoch["tabs"]
     if "--pille-h-schmal" in m:
         assert abs(float(mit["pilleH"].rstrip("px")) - float(m["--pille-h-schmal"].rstrip("px"))) < 0.6, mit["pilleH"]
     if "--rahmen-seite" in m:
         # der Rahmen haengt weiter an der Breite
         assert mit["rahmen"][0] == float(m["--rahmen-seite"].rstrip("px")) == v["rahmen"], (mit["rahmen"], v)
     assert mit["grid"]["bottom"] <= mit["tabs"]["top"] + 0.5 or mit["tabs"]["bottom"] <= mit["grid"]["top"] + 0.5, mit
+
+
+@pytest.mark.parametrize("tabs", [TABS, ["favoriten"]], ids=["vier_tabs", "ein_tab"])
+def test_leiste_waechst_mit_der_hoehe(tabs, tmp_path):
+    """Set mit --leiste-voll-ab (loxone): ab dieser Schirmhoehe (iPad quer)
+    die vollen Masse, darunter schrumpfen Leiste und Pille mit der Hoehe bis
+    zu ihren "-schmal"-Massen - auch beim Aendern der Fenstergroesse. Die
+    Pille ist je Eintrag --pille-tab-breite breit, hoechstens 560 px; der
+    Konfigurator rechnet dieselbe Hoehe vor."""
+    name = next(n for n in SETS if "--leiste-voll-ab" in (TC.KACHEL_SETS[n].get("masse") or {}))
+    m = TC.KACHEL_SETS[name]["masse"]
+    voll_ab, breite = int(_px(m["--leiste-voll-ab"])), 1256
+    hoehen = [voll_ab, 633, SCHMAL_UNTER - 140]
+    messen = """() => { const t = document.getElementById('tabs'), p = getComputedStyle(t, '::before');
+      return {h: t.offsetHeight, pille: parseFloat(p.height), breite: parseFloat(p.width),
+              n: t.querySelectorAll(':scope > .tab, :scope > .tabback, :scope > .tabspacer').length}; }"""
+
+    async def lauf():
+        app = _app({"grid": "auto", "tileSet": name}, tabs)
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _visu(b, port, breite, hoehen[0], fehler)
+                for h in hoehen:
+                    await pg.set_viewport_size({"width": breite, "height": h})
+                    await pg.wait_for_timeout(300)
+                    erg[h] = await pg.evaluate(messen)
+                    erg[h]["vor"] = await pg.evaluate("([m, w, h]) => LoxRaster.leisteMass(m, '--tabs-hoehe', w, h, 0)",
+                                                      [m, breite, h])
+                await pg.screenshot(path=str(tmp_path / f"leiste_{len(tabs)}_niedrig.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg[voll_ab]["h"] == _px(m["--tabs-hoehe"]) and erg[voll_ab]["pille"] == _px(m["--pille-h"]), erg
+    assert erg[hoehen[-1]]["h"] == _px(m["--tabs-hoehe-schmal"]) and erg[hoehen[-1]]["pille"] == _px(m["--pille-h-schmal"]), erg
+    for h, e in erg.items():
+        assert abs(e["h"] - _mass(name, "--tabs-hoehe", breite, h)) < 1 and abs(e["vor"] - _mass(name, "--tabs-hoehe", breite, h)) < 0.01, (h, e)
+        assert abs(e["pille"] - _mass(name, "--pille-h", breite, h)) < 0.6, (h, e)
+        assert abs(e["breite"] - min(560, e["n"] * _px(m["--pille-tab-breite"]))) < 1, (h, e)
+    assert _px(m["--tabs-hoehe-schmal"]) < erg[633]["h"] < _px(m["--tabs-hoehe"]), erg
 
 def test_neue_verbindung_mit_anderem_set():
     """Kommt bei einer neuen Verbindung ein anderes Set (oder keins), bleibt

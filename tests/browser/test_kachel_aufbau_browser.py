@@ -448,8 +448,10 @@ def test_kachel_set_loxone_am_tablet(tmp_path):
     assert mit["symbolFest"] == "rgb(255, 0, 0)", mit
     assert mit["taste"] == _rgb(farben["--taste"]), mit
     assert mit["pille"] == _rgb(farben["--tabbar"]), mit
-    # Die Leiste hat die Hoehe aus dem Set (Entwurf: 96 px am Tablet), das
-    # Raster rechnet sie mit; nichts laeuft ueber
-    masse = TC.KACHEL_SETS["loxone"]["masse"]
-    assert round(mit["leisteH"]) == int(masse["--tabs-hoehe"].rstrip("px")) != round(ohne["leisteH"]), mit
+    # Die Leiste hat die Hoehe aus dem Set (Entwurf: 96 px am iPad quer, auf
+    # diesem niedrigeren Tablet anteilig, raster.js leisteMass), das Raster
+    # rechnet sie mit; nichts laeuft ueber
+    from test_kachel_set_browser import _mass
+    soll = _mass("loxone", "--tabs-hoehe", 1000, 750)
+    assert abs(mit["leisteH"] - soll) < 0.6 and round(mit["leisteH"]) != round(ohne["leisteH"]), (mit["leisteH"], soll)
     assert all(e["ueberlauf"] <= 1 and e["textUnten"] <= 0 for e in k.values()), k

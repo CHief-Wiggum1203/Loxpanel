@@ -849,13 +849,15 @@
   html[data-kachelset-leiste="oben"] .tabback{flex:1;align-self:stretch;width:auto;height:auto;margin:0;border:0;border-radius:0;
     background:transparent;}
   /* Leiste "pille": unten, als Pille (--pille-h) mittig in der Leiste. Die
-     Pille ist nur ein ::before - die Leiste selbst hat ihre Hoehe. */
+     Pille ist nur ein ::before - die Leiste selbst hat ihre Hoehe. Breit je
+     Eintrag --pille-tab-breite (--tab-n aus renderTabs), hoechstens 560 px. */
   html[data-kachelset-leiste="pille"] .tabs{position:relative;border-top-color:transparent;background:transparent;
-    padding-left:max(12px,calc(50% - 280px));padding-right:max(12px,calc(50% - 280px));}
+    --pille-rand:max(12px,calc(50% - min(280px, var(--tab-n,99) * var(--pille-tab-breite,999px) / 2)));
+    padding-left:var(--pille-rand);padding-right:var(--pille-rand);}
   html[data-kachelset-leiste="pille"] .tabs::before{content:"";position:absolute;z-index:0;pointer-events:none;
     top:calc((var(--k-tabs-h,55px) - var(--k-pille-h,43px) - env(safe-area-inset-bottom,0px)) / 2);
     height:var(--k-pille-h,43px);
-    left:max(12px,calc(50% - 280px));right:max(12px,calc(50% - 280px));
+    left:var(--pille-rand);right:var(--pille-rand);
     border-radius:999px;background:var(--tabbar);}
   html[data-kachelset-leiste="pille"] .tabs>*{position:relative;z-index:1;}
   html[data-kachelset-leiste="pille"] .tab.active{color:var(--ink);}
@@ -1837,6 +1839,7 @@ let tileLayout = '';     // Kachel-Aufbau: '' = neu (Standard), 'classic' = der 
 // Tab-Leiste ('pille'|'oben'|'links'), '' ohne Set. Als data-kachelset-aufbau
 // und data-kachelset-leiste am <html>; daran haengen die Regeln im CSS.
 let kachelAufbau = '', kachelLeiste = '';
+let kachelMasse = {};   // Variablen der theme-Nachricht (Masse des Sets fuer raster.js leisteMass)
 let _themeVars = [];     // Variablen der letzten theme-Nachricht (s. dort)
 // Stand des Servers (Commit, theme-Nachricht "stand"), den die erste
 // Verbindung meldet. Meldet ein neu gestarteter Server nach dem Wiederverbinden
@@ -3014,6 +3017,7 @@ function renderTabs(){
     items.splice(links ? items.length : Math.floor(items.length/2), 0, backHtml);
   }
   el('tabs').innerHTML = items.join('');
+  el('tabs').style.setProperty('--tab-n', items.length);   // Pille so breit wie ihre Eintraege (--pille-tab-breite)
   if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>katTipp(n.dataset.cat));
   else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
@@ -3496,6 +3500,12 @@ function schmalEinrichten(){
   const {w,h}=vpSize(), s=LoxRaster.schmal(w);
   sc.classList.toggle('schmal', s);
   sc.classList.toggle('niedrig', !s && LoxRaster.leisteSchmal(w, h));
+  // Leiste und Pille mit der Hoehe (Set nennt --leiste-voll-ab), dieselbe
+  // Rechnung wie der Konfigurator; sonst gelten die Regeln am Kasten
+  for(const [mass, k] of LoxRaster.LEISTE_ANTEILIG.map(n=>[n, n==='--tabs-hoehe'?'--k-tabs-h':'--k-pille-h'])){
+    if(kachelMasse['--leiste-voll-ab'] && kachelMasse[mass] && !s) sc.style.setProperty(k, LoxRaster.leisteMass(kachelMasse, mass, w, h, 0)+'px');
+    else sc.style.removeProperty(k);
+  }
 }
 function rasterFuer(widget){
   const {w,h}=vpSize();
@@ -3954,6 +3964,7 @@ function connect(){
     if(!msg || typeof msg!=='object') return;
     if(msg.t==='theme'){ if(serverStandPruefen(msg.stand)) return;
       const v=msg.vars||{};
+      kachelMasse=v;
       // Was die vorige Nachricht setzte und diese nicht mehr nennt (anderes
       // Kachel-Set, keine Grundfarbe mehr), faellt weg - sonst bliebe etwa
       // --kachel-an oder --an-text des vorigen Sets bis zum Neuladen stehen.

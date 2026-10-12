@@ -39,8 +39,15 @@ function setMass(masse, name, w, rueckfall, klein){
 // ein Fuenftel der Hoehe. Alles andere bleibt bei der Breite (schmal()).
 const LEISTE_MASSE=['--tabs-hoehe', '--pille-h', '--tab-symbol'];
 function leisteSchmal(w, h){ return schmal(w) || (h>0 && h<SCHMAL_UNTER); }
+// Nennt das Set --leiste-voll-ab (Schirmhoehe, ab der die vollen Masse
+// gelten), schrumpfen Leiste und Pille darunter mit der Hoehe, nie unter ihre
+// "-schmal"-Masse; ein schmaler Schirm (Breite) nimmt die "-schmal"-Masse.
+const LEISTE_ANTEILIG=['--tabs-hoehe', '--pille-h'];
 function leisteMass(masse, name, w, h, rueckfall){
-  return setMass(masse, name, w, rueckfall, LEISTE_MASSE.includes(name) ? leisteSchmal(w, h) : undefined);
+  const m=masse||{}, ab=parseFloat(m['--leiste-voll-ab']), voll=parseFloat(m[name]);
+  if(LEISTE_ANTEILIG.includes(name) && ab>0 && h>0 && !schmal(w) && isFinite(voll))
+    return Math.max(setMass(m, name, w, voll, true), voll*Math.min(1, h/ab));
+  return setMass(m, name, w, rueckfall, LEISTE_MASSE.includes(name) ? leisteSchmal(w, h) : undefined);
 }
 
 // Breite UND Hoehe zaehlen: eine flache Kachel (2x3 auf dem 4"-Panel: 225 x 128)
@@ -190,6 +197,6 @@ function autoRaster(e){
 }
 
 g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, SCHMAL_UNTER,
-  LEISTE_MASSE, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass,
+  LEISTE_MASSE, LEISTE_ANTEILIG, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass,
   leisteSchmal, leisteMass};
 })(typeof window!=='undefined' ? window : globalThis);

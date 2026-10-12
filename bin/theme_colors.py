@@ -391,6 +391,10 @@ def _derive(grundfarbe: str) -> tuple | None:
 #   masse: --kachel-radius (bei 170-px-Kachel), --taste-radius,
 #   --kachel-schatten, --kachel-abstand, --feld-innen (Abstand und Innenrand
 #   des Rasters), --tabs-hoehe, --tab-symbol, --pille-h (Leiste "pille"),
+#   --leiste-voll-ab (Schirmhoehe, ab der Leiste und Pille ihre vollen Masse
+#   haben; darunter schrumpfen sie mit der Hoehe bis zu ihren -schmal-Massen,
+#   raster.js leisteMass), --pille-tab-breite (Breite der Pille je Eintrag,
+#   hoechstens so breit wie ohne das Mass),
 #   --rahmen-seite, --rahmen-unten, --feld-radius (Leiste "oben": Rahmen um
 #   das Feld der Kacheln), --rail-breite (Leiste "links"), --kreis-d,
 #   --kreis-anteil (Aufbau "kreis": Kreis und Anteil des Symbols daran)
@@ -412,6 +416,7 @@ KACHEL_SETS = {
         "masse": {"--kachel-radius": "20px",
                   "--tabs-hoehe": "96px", "--tabs-hoehe-schmal": "64px",
                   "--pille-h": "68px", "--pille-h-schmal": "52px",
+                  "--leiste-voll-ab": "820px", "--pille-tab-breite": "130px",
                   "--tab-symbol": "28px", "--tab-symbol-schmal": "22px"},
     },
     "touch": {
