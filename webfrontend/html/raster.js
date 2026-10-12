@@ -107,8 +107,12 @@ function festesRaster(e){
 // rahmenY unten) geht genauso ab.
 // e: {w, h, ziel, wachsen, gap, pad, tabsH, punkteH, widget, paneCols,
 //     paneShare, breiten, seitenQuer, kopfH(ks), leisteH(ks), railW, rahmenX, rahmenY}
-// -> {cols, rows, k, p, ks, gesamt, kb, pPx?}: k und p sind die Anteile von
+// -> {cols, rows, k, p, ks, gesamt, kb, hoch, pPx?}: k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung, pPx die Hoehe des Widgets hochkant.
+// hoch: das Widget steht unter den Kacheln, entschieden nach der Flaeche des
+// Rasters (ohne Seitenleiste und Rahmen), nicht nach dem Fenster - Visu (CSS
+// .hoch) und Konfigurator muessen dieselbe Achse nehmen, sonst wird pPx, eine
+// Hoehe, zur Spaltenbreite.
 function autoRaster(e){
   const w=e.w-(e.railW||0)-(e.rahmenX||0), hoehe=e.h-(e.rahmenY||0), ziel=e.ziel, wachsen=e.wachsen||1;
   const gap=e.gap||0, pad=e.pad||0, tabsH=e.tabsH||0, punkteH=e.punkteH||0;
@@ -133,7 +137,7 @@ function autoRaster(e){
       else { const p=abgeben(rows); r={cols:gesamt, rows:rows-p, k:rows-p, p:p, ks:ks, pPx:p*(zh+gap)}; } }
     else if(gesamt<2) r={cols:1, rows:rows, k:1, p:1, ks:ks};
     else { const p=abgeben(gesamt); r={cols:gesamt-p, rows:rows, k:gesamt-p, p:p, ks:ks}; }
-    r.gesamt=gesamt; r.kb=kb;
+    r.gesamt=gesamt; r.kb=kb; r.hoch=hoch;
     return r;
   };
   const passt=(c,rw)=>breiten.length>0 && rasterLage(breiten,c,rw).seiten<=1;

@@ -24,7 +24,10 @@ COPY agent/ ./agent/
 
 # Welcher Stand im Image steckt: bin/version.json fuer die Anzeige im
 # Konfigurator (bin/version_info.py); die Version steht in plugin.cfg, den
-# Commit reicht der Workflow herein (tests.yml, Job veroeffentlichen).
+# Commit reicht der Workflow herein (tests.yml, Job veroeffentlichen). Ohne ihn
+# (docker compose up --build; .git kommt nicht ins Image) kennzeichnet ein
+# Pruefwert ueber den kopierten Code den Stand, damit offene Seiten nach einem
+# Update neu laden. Darum erst nach den COPY-Zeilen oben.
 ARG LOXPANEL_COMMIT=""
 COPY loxberry-plugin/plugin.cfg ./loxberry-plugin/plugin.cfg
 RUN python bin/version_info.py schreiben "$LOXPANEL_COMMIT"

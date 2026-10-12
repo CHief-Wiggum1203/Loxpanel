@@ -700,6 +700,8 @@
       'hat keine verbundene Visu – eine Vorschau braucht sie.': 'has no connected visu – a preview needs one.',
       'Vorschau läuft auf': 'Preview running on',
       'Vorschau am Gerät beendet.': 'Preview on the device ended.',
+      'Stand': 'Build',
+      'Vorschau am Gerät nicht beendet:': 'Preview on the device not ended:',
       'Auf dem Gerät ansehen': 'View on the device',
       'Auf': 'On',
       'ansehen': 'view',

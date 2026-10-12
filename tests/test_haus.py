@@ -5,10 +5,12 @@ Aus-Befehl aus HAUS_AUS), die Zentral-Tasten mit ihren Befehlen
 der Detailseite und die Energie fuer den Kopf. Anlage: lox.haus_anlage()."""
 import asyncio
 import json
+import math
 
+import pytest
 from aiohttp.test_utils import make_mocked_request
 
-from lox import W, haus_anlage
+from lox import EM2, W, anlage, haus_anlage
 
 
 def _app(**states):
@@ -149,3 +151,61 @@ def test_freie_seite_als_hausuebersicht():
     assert app.render({"view": "tab", "tab": "auswahl"}, prof).get("layout") is None
     meta = app._tab_meta(["auswahl", "auswahl2"], prof)
     assert meta["auswahl2"]["haus"] is True and "haus" not in meta["auswahl"]
+
+
+UNENDLICH = [math.nan, math.inf, -math.inf]
+
+
+@pytest.mark.parametrize("wert", UNENDLICH, ids=["nan", "inf", "-inf"])
+@pytest.mark.parametrize("state", ["f-a1", "f-p", "f-a3", "f-g"],
+                         ids=["pv-knoten", "ppwr", "verbraucher", "netz"])
+def test_energie_nan_und_unendlich(state, wert):
+    """Ein Energiewert ist NaN oder unendlich (als Binaer-Double gueltig): Die
+    Hausseite zeigt trotzdem alle Raumkarten und Tasten, der Wert gilt als
+    unbekannt - keine erfundene Null, kein "nan kW", kein NaN im JSON."""
+    app = _app(**{state: wert})
+    for v in (_haus(app), app.render({"view": "control", "id": "F"}, None)):
+        json.dumps(v, allow_nan=False)
+        assert "nan" not in json.dumps(v).lower() and "inf " not in json.dumps(v).lower()
+    v = _haus(app)
+    assert len(v["raeume"]) == 7 and v["zentral"] and v["spieler"]
+    e = v["energie"]
+    assert e["id"] == "F" and all(isinstance(e.get(k), (int, type(None))) for k in ("prod", "cons"))
+    if state == "f-g":
+        assert e["cons"] == 100, "der Verbrauch kommt vom Verbraucher-Knoten, nicht aus der Bilanz"
+        assert "Bezug" not in e["wert"] and "Einspeisung" not in e["wert"], e["wert"]
+    if state == "f-p":
+        assert e["prod"] == 100, "die Erzeugung kommt vom PV-Knoten"
+        assert not e["wert"].startswith("PV"), e["wert"]
+
+
+def test_erzeugung_unbekannt_ist_keine_null():
+    """PV-Knoten und Ppwr ohne endlichen Wert: Die Erzeugung fehlt, statt als
+    0 W zu erscheinen; der Verbrauch aus den Verbraucher-Knoten bleibt."""
+    app = _app(**{"f-a1": math.nan, "f-p": math.inf})
+    assert app.energy_blocks("F")["totals"]["prod"] is None
+    e = _haus(app)["energie"]
+    assert "prod" not in e and e["cons"] == 100, e
+
+
+@pytest.mark.parametrize("wert", UNENDLICH, ids=["nan", "inf", "-inf"])
+def test_energiemanager_nan_und_unendlich(wert):
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage({"M": EM2}))
+    app.states = {"m-p": wert, "m-g": 0.5, "m-s": wert, "m-soc": wert}
+    eb = app.energy_blocks("M")
+    assert eb["totals"]["prod"] is None and eb["totals"]["cons"] is None, eb["totals"]
+    assert app._control_item("M", None)["sublabel"] == "Energiemanager"
+    for v in (eb, app.render({"view": "control", "id": "M"}, None), app._haus_energie(["M"], None)):
+        json.dumps(v, allow_nan=False)
+    e = app._haus_energie(["M"], None)
+    assert "prod" not in e and "cons" not in e
+
+
+def test_freie_haus_seite_mit_nan():
+    app = _app(**{"f-a1": math.nan, "f-p": math.nan})
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "pickTabs": [
+        {"name": "Unser Haus", "picks": [], "widget": "haus"}]}})
+    v = app.render({"view": "tab", "tab": "auswahl"}, app.resolve_profile("p"))
+    json.dumps(v, allow_nan=False)
+    assert v["layout"] == "haus" and len(v["raeume"]) == 7 and "prod" not in v["energie"]

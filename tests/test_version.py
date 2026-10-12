@@ -31,23 +31,23 @@ def _baum(tmp_path, version="1.2.3"):
 def test_aus_der_datei(tmp_path):
     b = _baum(tmp_path)
     (b / "version.json").write_text(json.dumps({**STAND, "anderes": 1}), encoding="utf-8")
-    assert V.lesen(b) == STAND
+    assert V.lesen(b) == {**STAND, "inhalt": ""}, "eine aeltere Datei (APK) hat kein inhalt"
 
 
 def test_ohne_datei_aus_plugin_cfg(tmp_path):
-    assert V.lesen(_baum(tmp_path)) == {"version": "1.2.3", "commit": "", "gebaut": ""}
+    assert V.lesen(_baum(tmp_path)) == {"version": "1.2.3", "commit": "", "gebaut": "", "inhalt": ""}
 
 
 @pytest.mark.parametrize("inhalt", ["kein json", "[1, 2]", ""])
 def test_kaputte_datei_wie_ohne(tmp_path, inhalt):
     b = _baum(tmp_path)
     (b / "version.json").write_text(inhalt, encoding="utf-8")
-    assert V.lesen(b) == {"version": "1.2.3", "commit": "", "gebaut": ""}
+    assert V.lesen(b) == {"version": "1.2.3", "commit": "", "gebaut": "", "inhalt": ""}
 
 
 def test_nichts_bekannt(tmp_path):
     (tmp_path / "bin").mkdir()
-    assert V.lesen(tmp_path / "bin") == {"version": "", "commit": "", "gebaut": ""}
+    assert V.lesen(tmp_path / "bin") == {"version": "", "commit": "", "gebaut": "", "inhalt": ""}
 
 
 def _git(cwd, *args):
@@ -60,7 +60,7 @@ def test_commit_aus_git(tmp_path):
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
          "commit", "-q", "-m", "x")
-    assert V.lesen(b) == {"version": "1.2.3", "commit": _git(tmp_path, "rev-parse", "HEAD"), "gebaut": ""}
+    assert V.lesen(b) == {"version": "1.2.3", "commit": _git(tmp_path, "rev-parse", "HEAD"), "gebaut": "", "inhalt": ""}
 
 
 def test_schreiben_wie_im_dockerfile(tmp_path):
@@ -72,7 +72,7 @@ def test_schreiben_wie_im_dockerfile(tmp_path):
                        capture_output=True, text=True, check=True)
     datei = json.loads((b / "version.json").read_text(encoding="utf-8"))
     assert json.loads(r.stdout) == datei
-    assert datei["version"] == "0.7.1" and datei["commit"] == "0123abc"
+    assert datei["version"] == "0.7.1" and datei["commit"] == "0123abc" and datei["inhalt"] == ""
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", datei["gebaut"])
     assert V.lesen(b) == datei
     falsch = subprocess.run([sys.executable, str(b / "version_info.py")], capture_output=True, text=True)
@@ -100,3 +100,45 @@ def test_settings_und_health_nennen_die_version(cfg_ordner, monkeypatch):
             return ((await (await cl.get("/api/settings")).json())["version"],
                     (await (await cl.get("/api/health")).json())["version"])
     assert asyncio.run(lauf()) == (STAND, STAND)
+
+
+def _git_freier_build(ziel, aenderung=""):
+    """Wie `docker compose up --build`: der Code (CODE_ORDNER) ohne .git, dann
+    `python bin/version_info.py schreiben` ohne Commit. -> bin/version.json"""
+    for ordner in V.CODE_ORDNER:
+        shutil.copytree(ROOT / ordner, ziel / ordner, ignore=shutil.ignore_patterns("__pycache__", "version.json"))
+    (ziel / "loxberry-plugin").mkdir()
+    shutil.copy(ROOT / "loxberry-plugin" / "plugin.cfg", ziel / "loxberry-plugin")
+    if aenderung:
+        with open(ziel / "webfrontend" / "html" / "panel.html", "a", encoding="utf-8") as fh:
+            fh.write(aenderung)
+    subprocess.run([sys.executable, str(ziel / "bin" / "version_info.py"), "schreiben"],
+                   capture_output=True, text=True, check=True, cwd=ziel)
+    return json.loads((ziel / "bin" / "version.json").read_text(encoding="utf-8"))
+
+
+def test_lokaler_build_ohne_git_hat_eine_kennung(tmp_path):
+    """Zwei Git-freie Builds desselben Codes: andere Bauzeit, dieselbe Kennung
+    (ein Neustart oder erneuter Build laedt nichts neu). Eine Aenderung am Code
+    ergibt eine neue. Ein liegengebliebener Cache aendert nichts."""
+    a = _git_freier_build(tmp_path / "a")
+    import time
+    time.sleep(1.1)   # andere Bauzeit
+    b = _git_freier_build(tmp_path / "b")
+    (tmp_path / "b" / "bin" / "__pycache__").mkdir()
+    (tmp_path / "b" / "bin" / "__pycache__" / "x.pyc").write_bytes(b"cache")
+    c = _git_freier_build(tmp_path / "c", aenderung="<!-- geaendert -->\n")
+    assert a["commit"] == b["commit"] == c["commit"] == ""
+    assert a["gebaut"] != b["gebaut"]
+    assert re.fullmatch(r"[0-9a-f]{16}", a["inhalt"]), a
+    assert a["inhalt"] == b["inhalt"] == V.inhalt_kennung(tmp_path / "b")
+    assert c["inhalt"] != a["inhalt"]
+    assert V.lesen(tmp_path / "a" / "bin") == a
+
+
+def test_ohne_datei_und_ohne_git_die_kennung_des_inhalts(tmp_path):
+    """Entpacktes Archiv ohne version.json: lesen() bildet die Kennung beim Start."""
+    for ordner in V.CODE_ORDNER:
+        shutil.copytree(ROOT / ordner, tmp_path / ordner, ignore=shutil.ignore_patterns("__pycache__", "version.json"))
+    info = V.lesen(tmp_path / "bin")
+    assert info["commit"] == "" and info["inhalt"] == V.inhalt_kennung(tmp_path) != ""

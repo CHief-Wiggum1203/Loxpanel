@@ -867,3 +867,69 @@ def test_gescheiterter_befehl_behaelt_die_wahl(panel, cfg_ordner):
         assert (w.m._cur_panel, w.xset_aus()) == ("day", 300)
         assert len(w.panel.starts()) == 1
     asyncio.run(_wand(panel, cfg_ordner, lauf))
+
+
+# Standardprofil mit eigenem Verhalten, Vorgaben mit anderem; "weg" ist geloescht,
+# steht aber noch in der Zuordnung des Betriebsmodus "abend"
+MIT_STANDARD = {"panels": {"default": {"title": "Standard", "tabs": ["favoriten"],
+                                       "ui": {"dpmsOff": 60, "reloadHours": 2}},
+                           "day": {"title": "Tag", "tabs": ["favoriten"], "ui": {"dpmsOff": 300}}},
+                "devices": {"wand": {"auto": True, "modes": {"abend": "weg", "tag": "day"}}}}
+
+
+@pytest.mark.parametrize("panel, erwartet", [("", (60, 2)), ("weg", (60, 2)), ("default", (60, 2)),
+                                             ("day", (300, 12))],
+                         ids=["leer", "geloescht", "default", "andere"])
+def test_agent_bekommt_das_verhalten_der_angezeigten_ansicht(cfg_ordner, panel, erwartet):
+    """Meldet der Agent keine oder eine geloeschte Ansicht, zeigt seine Visu das
+    Standardprofil; Abschaltzeit und Neustartintervall muessen dann auch von dort
+    kommen, nicht aus den Vorgaben. Eine andere Ansicht erbt nur, was sie nicht setzt."""
+    async def lauf(w: Wand):
+        w.app.theme.setdefault("ui", {}).update(dpmsOff=900, reloadHours=12)
+        _, theme = await w.verbinden(f"?panel={panel}&device=wand")
+        visu = (theme["dpmsOff"], theme["reloadHours"])
+        j = await w.post("/api/agent/announce", _meldung("10.0.0.11", "wand", panel=panel))
+        assert (j["dpmsOff"], j["reloadHours"]) == erwartet == visu, (j, visu)
+    asyncio.run(_server(cfg_ordner, lauf, MIT_STANDARD))
+
+
+def test_betriebsmodus_auf_eine_geloeschte_ansicht(cfg_ordner):
+    """Der Modus "abend" zeigt auf die geloeschte Ansicht "weg". Agent, Visu und
+    Geraeteliste nehmen dann wie die Visu das Standardprofil; die Zuordnung selbst
+    bleibt (wird "weg" wieder angelegt, gilt sie wieder)."""
+    async def lauf(w: Wand):
+        gestartet = []
+
+        async def start(agent, profil):
+            gestartet.append(profil)
+            return True
+        w.app._agent_start = start
+        # nur der Agent (Kiosk ohne offene Visu): Fernstart mit dem Standardprofil
+        await w.post("/api/agent/announce", _meldung("10.0.0.11", "wand", panel="day", features=[]))
+        async with w.s.get(w.basis + "/api/mode/abend") as r:
+            j = await r.json()
+        assert gestartet == ["default"], gestartet
+        assert j["switched"] == [{"panel": "wand", "profile": "default", "ok": True, "via": "agent", "statt": "weg"}], j
+        # die Agent-Karte nennt, was die Visu zeigt
+        await w.post("/api/agent/announce", _meldung("10.0.0.11", "wand", panel="weg", features=[]))
+        geraete = {d["name"]: d for d in w.app.device_list()["devices"]}
+        assert geraete["wand"]["profile"] == "default" and geraete["wand"]["agent"]["panel"] == "weg"
+
+        # mit offener Visu, die schon das Standardprofil zeigt: kein Neuladen, Agent uebernimmt default
+        await w.post("/api/agent/announce", _meldung("10.0.0.11", "wand", panel="default"))
+        ws, theme = await w.verbinden("?panel=weg&device=wand")
+        assert theme["title"] == "Standard"
+        async with w.s.get(w.basis + "/api/mode/abend") as r:
+            j = await r.json()
+        assert j["switched"] == [{"panel": "wand", "profile": "default", "ok": True, "via": "ws", "statt": "weg"}], j
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(_switch_empfangen(ws), 0.5)
+        assert w.app.agent_wunsch.get("10.0.0.11", "default") == "default"
+        await ws.close()
+        # beim Verbinden waehrend "abend": Visu und Agent bekommen das Standardprofil
+        w.app.agent_wunsch.clear()
+        ws, theme = await w.verbinden("?panel=day&device=wand")
+        assert theme["title"] == "Standard" and w.app.agent_wunsch.get("10.0.0.11") == "default"
+        await ws.close()
+        assert w.app.devices["wand"]["modes"] == {"abend": "weg", "tag": "day"}, "Zuordnung bleibt"
+    asyncio.run(_server(cfg_ordner, lauf, MIT_STANDARD))
