@@ -2554,17 +2554,19 @@ function faktorEinmessen(){
 // Kachelhoehe beim letzten Einpassen: im festen, breitenbegrenzten Raster
 // kann sie sich mit dem Fenster aendern, ohne dass der Faktor es tut
 // (Codex-Befund an #128) - dann passen Tasten und Text trotzdem neu.
-let _kachelH=0;
-function kachelHoehe(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientHeight : 0; }
+// Mass der ersten Kachel (Breite x Hoehe): aendert es sich, misst faktorNachziehen neu - auch
+// bei reiner Breitenaenderung (Tasten der Spieler-Spalte, Textumbruch), wo Faktor und Hoehe bleiben
+let _kachelM='';
+function kachelMass(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientWidth+'x'+t.clientHeight : ''; }
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
   const vorher=kachelFaktor;
   if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
   else faktorEinmessen();
-  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelHoehe()!==_kachelH) kachelnNeuMessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelMass()!==_kachelM) kachelnNeuMessen();
 }
 function kachelnNeuMessen(){
-  _kachelH=kachelHoehe();
+  _kachelM=kachelMass();
   el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
     n._fitText=null;
     if(n._it && n._it.controls) tastenEinpassen(n);
@@ -2677,12 +2679,12 @@ function tastenEinpassen(tile){
 // Neuer Aufbau, enge Kachel: laeuft der Text unten aus der Kachel, weicht
 // Stufe fuer Stufe das Unwichtigste - erst steht der Text einzeilig (eng1),
 // dann faellt die Angabe zum Mini-Verlauf weg (eng2), zuletzt die zweite Zeile
-// (eng3). Gemessen bei neuer Kachel, neuem Text, neuer Hoehe oder neuem Faktor.
+// (eng3). Gemessen bei neuer Kachel, neuem Text, neuer Groesse oder neuem Faktor.
 function fitTile(tile){
   if(!tile || !tile.clientHeight) return;
-  const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
-  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
-  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
+  const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight, w=tile.clientWidth;
+  if(tile._fitText===text && tile._fitH===h && tile._fitW===w && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
+  tile._fitText=text; tile._fitH=h; tile._fitW=w; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
   tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
   // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
   // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
@@ -3713,7 +3715,7 @@ function render(){
       tastenEinpassen(n);
     }
     fitTile(n);
-    _kachelH=n.clientHeight;   // fuer faktorNachziehen: neu einpassen, wenn sich die Hoehe aendert
+    _kachelM=kachelMass();   // fuer faktorNachziehen: neu einpassen, wenn sich das Mass aendert
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });

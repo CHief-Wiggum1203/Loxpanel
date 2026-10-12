@@ -240,3 +240,48 @@ def test_seiten_editor_zeigt_die_spieler_spalte(klassisch, cfg_ordner, tmp_path)
     assert az["cover"] == "/cover?u=" + __import__("urllib.parse").parse.quote(COVER_URL, safe=""), az
     assert abs(s["left"] - (k["left"] + k["width"] / 2)) < 1 and s["right"] <= k["right"], az
     assert az["name"]["right"] <= k["left"] + k["width"] / 2, az
+
+
+TASTEN = """() => { const t = document.querySelector('#grid .tile[data-id="AZ"]');
+  return {breite: Math.min(...[...t.querySelectorAll('.tctrls .tb')].map(b => b.getBoundingClientRect().width)),
+          spbreit: t.classList.contains('spbreit'), raster: [gridCols, gridRows], ks: kachelFaktor,
+          hoehe: t.clientHeight}; }"""
+
+
+def test_tasten_folgen_einer_reinen_breitenaenderung():
+    """1000 x 480 auf 700 x 480 und zurueck, 3 x 3 mit Fuellen: Raster, Faktor
+    und Kachelhoehe bleiben, nur die Breite aendert sich. Die Spieler-Spalte muss
+    sofort neu eingepasst sein (Tasten nie unter dem Touch-Ziel), ohne dass sich
+    am Audiozustand etwas aendert - genau wie ein frisches Nachmessen."""
+    async def lauf():
+        app, _ = _app({"cols": 3, "rows": 3, "fill": True})
+        runner, port, bc = await visu_starten(app, [("GET", "/cover", W.cover_handler)])
+        fehler, erg = [], []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1000, "height": 480})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('#grid .tile[data-id="AZ"]', state="attached")
+                await pg.evaluate("wake()")
+                await pg.wait_for_timeout(500)
+                erg.append(await pg.evaluate(TASTEN))
+                for breite in (700, 1000):
+                    await pg.set_viewport_size({"width": breite, "height": 480})
+                    await pg.wait_for_timeout(300)
+                    sofort = await pg.evaluate(TASTEN)
+                    await pg.evaluate("kachelnNeuMessen()")
+                    erg.append((sofort, await pg.evaluate(TASTEN)))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    start, (schmal, schmal_frisch), (zurueck, zurueck_frisch) = asyncio.run(lauf())
+    assert start["raster"] == schmal["raster"] and start["hoehe"] == schmal["hoehe"], (start, schmal)
+    assert abs(start["ks"] - schmal["ks"]) < 0.01, (start, schmal)
+    assert schmal == schmal_frisch and zurueck == zurueck_frisch, (schmal, schmal_frisch, zurueck, zurueck_frisch)
+    assert schmal["spbreit"] and schmal["breite"] >= 34 - 0.5, schmal
+    assert zurueck["spbreit"] == start["spbreit"] and zurueck["breite"] >= 34 - 0.5, (start, zurueck)
