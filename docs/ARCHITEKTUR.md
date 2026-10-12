@@ -81,7 +81,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
 | `loxberry-plugin/` | LoxBerry-Plugin (Docker-Starter, Widget, Backup) |
 | `unraid/loxpanel.xml` | Unraid-Docker-Template |
-| `android/` | LoxPanel-App für Android (Lenardos #61, Paket `com.loxpanel.spike`): Kotlin mit Chaquopy, der Server läuft im Gerät (`ServerService`), die Visu in einer eigenen Vollbild-WebView (`KioskActivity`) mit der JS-Brücke `LoxKiosk` (siehe Abschnitt 8). Der Gradle-Task `syncLoxpanelAssets` kopiert vor jedem Build `bin/`, `webfrontend/`, `deploy/` und `config/` (ohne die echten Config-Dateien) aus dem Arbeitsbaum in die App. Bauen, Signieren und Einrichten: `android/README.md` |
+| `android/` | LoxPanel-App für Android (Lenardos #61, Paket `com.loxpanel.spike`): Kotlin mit Chaquopy, der Server läuft im Gerät (`ServerService`), die Visu in einer eigenen Vollbild-WebView (`KioskActivity`) mit der JS-Brücke `LoxKiosk` (siehe Abschnitt 8). Der Gradle-Task `syncLoxpanelAssets` kopiert vor jedem Build `bin/`, `webfrontend/` und `deploy/` aus dem Arbeitsbaum in die App, aus `config/` nur die Vorlagen (`*.example`, `*.example.json`, `*.schema.json`): Zugang, Ansichten, Farben und ihre Sicherungen (`*.bak`) kommen nie hinein, auch nicht bei einem lokalen Build (`tests/test_apk_inhalt.py`). Bauen, Signieren und Einrichten: `android/README.md` |
 | `packaging/deb/` | `.deb`-Paket für Linux-Panels (Lenardos #62): Server als systemd-Dienst, Kiosk-Start mit Chromium oder Cog, Display-Abschaltung. Im Fork nicht weiterentwickelt ([`TODO.md`](TODO.md), Block 0c) |
 | `Dockerfile`, `docker-compose.yml`, `.github/workflows/` | Build und Release |
 
