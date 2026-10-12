@@ -327,6 +327,12 @@
       'Eine ZIP-Datei aus „Einstellungen herunterladen" wählen, auch von einem anderen LoxPanel. Sie ersetzt die Einstellungen dieses Servers; was nicht in der Sicherung steckt, bleibt. Eingetragene Kennwörter bleiben, solange ihr Ziel gleich bleibt (Miniserver: Host und Benutzer, Kamera: Adresse und Benutzer, Display: Host und Treiber); fehlende nennt das Ergebnis.':
         'Choose a ZIP file from “Download settings”, also from another LoxPanel. It replaces the settings of this server; whatever is not in the backup stays. Passwords already entered stay as long as their target stays the same (Miniserver: host and user, camera: address and user, display: host and driver); missing ones are listed in the result.',
       'ZIP-Datei wählen und einspielen': 'Choose ZIP file and restore',
+      'Diagnose': 'Diagnostics',
+      'Diagnose herunterladen': 'Download diagnostics',
+      'Für die Fehlersuche: Version, Verbindungen zu Miniserver und Audioserver, alle Geräte, die Einstellungen und die letzten Log-Zeilen als ZIP-Datei, mit einer lesbaren Zusammenfassung (diagnose.md). Je Gerät gibt es das Paket auch unter Geräte.':
+        'For troubleshooting: version, connections to Miniserver and Audio Server, all devices, the settings and the latest log lines as a ZIP file, with a readable summary (diagnose.md). Per device the package is also available under Devices.',
+      'Kennwörter, Tokens, Kalender-Abos (bis auf den Host), Zugangsdaten in Adressen und der Standort sind entfernt.':
+        'Passwords, tokens, calendar subscriptions (except the host), credentials in addresses and the location are removed.',
       'Die Sicherung ersetzt die Einstellungen dieses Servers. Am besten vorher „Einstellungen herunterladen“. Fortfahren?':
         'The backup replaces the settings of this server. Best “Download settings” first. Continue?',
       'Ungespeicherte Änderungen an Ansichten gehen dabei verloren.': 'Unsaved changes to views will be lost.',

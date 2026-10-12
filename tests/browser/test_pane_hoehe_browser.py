@@ -377,11 +377,12 @@ def test_uhrseite_und_wetter_tab_wie_bisher(monkeypatch):
     _ansehen(monkeypatch, QUER, schritt, {"svPane": "status:T,L"}, tabs=("favoriten", "wetter"))
 
 
-def test_widget_seite_ohne_verbindungspunkt(monkeypatch):
-    """Auf einer Widget-Seite saesse der Punkt mitten im Wetter."""
+def test_widget_seite_ohne_verbindungsleiste(monkeypatch):
+    """Verbunden steht auf einer Widget-Seite nichts ueber dem Wetter (frueher
+    sass dort der Online-Punkt, heute erscheint die Leiste nur ohne Verbindung)."""
     async def schritt(pg):
         assert await pg.evaluate("document.querySelector('.screen').classList.contains('widgettab')")
-        assert not await pg.evaluate("document.getElementById('conn').classList.contains('vis')")
+        assert await pg.evaluate("document.getElementById('verbindung').hidden")
         m = await pg.evaluate(MESSEN)
         _passt(m)
         assert m["leerUnten"] <= 2

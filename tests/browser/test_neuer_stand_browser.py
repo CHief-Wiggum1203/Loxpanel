@@ -68,7 +68,7 @@ def test_visu_laedt_nach_update_neu(feld, commit, monkeypatch):
 
                 # derselbe Stand: wiederverbinden, nicht neu laden
                 await _trennen(app)
-                await _bis(pg, "document.getElementById('conn').classList.contains('ok')")
+                await _bis(pg, "verb.server")
                 await pg.wait_for_timeout(2500)
                 erg["gleich"] = [await pg.evaluate("window.__alteSeite === true"), len(ladungen)]
 

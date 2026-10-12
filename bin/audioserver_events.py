@@ -425,6 +425,11 @@ class AudioEventClient:
                 continue
             await asyncio.sleep(self.neu_versuch_s)
 
+    @property
+    def verbunden(self) -> bool:
+        """Steht die Ereignis-Verbindung gerade (Diagnosepaket)?"""
+        return self._ws is not None and not self._ws.closed
+
     async def close(self) -> None:
         self._stop = True
         try:

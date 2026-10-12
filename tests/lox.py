@@ -696,9 +696,10 @@ def bloecke(view: dict, art: str) -> list:
     return [b for b in view.get("blocks") or [] if b.get("k") == art]
 
 
-async def visu_starten(app: W.App, routen=()) -> tuple[web.AppRunner, int, asyncio.Task]:
+async def visu_starten(app: W.App, routen=(), port: int = 0) -> tuple[web.AppRunner, int, asyncio.Task]:
     """Panel-Seite und /ws wie im Betrieb, dazu der Broadcaster.
     routen: weitere (Methode, Pfad, Handler), etwa die des Reiters Displays.
+    port: fester Port (etwa derselbe nach einem simulierten Server-Neustart).
     -> (runner, port, broadcaster); Aufrufer bricht den Broadcaster ab und
     raeumt den runner auf."""
     ui = web.Application()
@@ -712,7 +713,7 @@ async def visu_starten(app: W.App, routen=()) -> tuple[web.AppRunner, int, async
     ui.router.add_get("/raster.js", W.raster_js)
     for methode, pfad, h in routen:
         ui.router.add_route(methode, pfad, h)
-    runner, port = await serve(ui)
+    runner, port = await serve(ui, port)
     return runner, port, asyncio.create_task(app.broadcaster())
 
 

@@ -47,14 +47,7 @@ GERAETE = {"taba9-quer": (893, 533), "taba9-hoch": (533, 893), "zehn-quer": (128
 MESSEN = """() => { const g = document.getElementById('grid'), sc = document.querySelector('.screen');
   const r = e => e.getBoundingClientRect(), gr = r(g);
   const kacheln = [...g.querySelectorAll('.tile[data-id]')], t = kacheln[0];
-  const fp = document.getElementById('frontpane'), punkt = document.getElementById('conn');
-  // Punkt (Kreis) gegen Kachel (Rechteck mit abgerundeten Ecken): schneidet,
-  // wenn sein Mittelpunkt dem um den Eckradius verkleinerten Rechteck naeher
-  // kommt als Eckradius plus Punktradius
-  const pr = r(punkt), ueber = (k, p) => { const b = r(k), rr = parseFloat(getComputedStyle(k).borderTopLeftRadius) || 0;
-    const cx = p.left + p.width / 2, cy = p.top + p.height / 2;
-    const qx = Math.max(b.left + rr, Math.min(cx, b.right - rr)), qy = Math.max(b.top + rr, Math.min(cy, b.bottom - rr));
-    return Math.hypot(cx - qx, cy - qy) < rr + p.width / 2; };
+  const fp = document.getElementById('frontpane'), leiste = document.getElementById('verbindung');
   return {raster: [gridCols, gridRows], kachel: [Math.round(r(t).width), Math.round(r(t).height)],
     gap: parseFloat(getComputedStyle(g).getPropertyValue('--gap')),
     grid: [Math.round(gr.width), Math.round(gr.height)], screen: [Math.round(r(sc).width), Math.round(r(sc).height)],
@@ -63,8 +56,7 @@ MESSEN = """() => { const g = document.getElementById('grid'), sc = document.que
     skala: sc.style.getPropertyValue('--ui-scale'),
     sichtbar: kacheln.filter(x => { const b = r(x); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1
       && b.left >= gr.left - 1 && b.right <= gr.right + 1; }).length,
-    punkt: getComputedStyle(punkt).display !== 'none' && pr.width > 0,
-    punktAufKachel: kacheln.some(x => ueber(x, pr))};
+    leiste: getComputedStyle(leiste).display !== 'none' && r(leiste).width > 0};
 }"""
 
 
@@ -276,10 +268,12 @@ def test_skalierung_wirkt_im_automatischen_raster_nicht(skalierung):
     assert m["skala"] == "1" and m["screen"] == [893, 533] and m["raster"] == [5, 3], m
 
 
-def test_online_punkt_liegt_auf_keiner_kachel():
-    """5 x 3 hat keine Fuge in der Mitte: der Punkt sitzt in der Ecke."""
+def test_verbunden_liegt_nichts_auf_den_kacheln():
+    """Der fruehere Online-Punkt sass in der Mitte des Rasters, bei 5 x 3 auf
+    einer Kachel. Die Verbindungsleiste, die ihn ersetzt, steht nur da, wenn
+    eine Verbindung fehlt."""
     m = _laufen({"grid": "auto"}, 893, 533)
-    assert m["punkt"] and not m["punktAufKachel"], m
+    assert not m["leiste"], m
 
 
 def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):

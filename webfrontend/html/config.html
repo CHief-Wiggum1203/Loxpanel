@@ -1028,6 +1028,12 @@
             <div class="actions" style="margin-top:0"><button class="btn" id="rs_pick" data-i18n>ZIP-Datei wählen und einspielen</button><span class="toast" id="rs_toast"></span></div>
             <div class="note" id="rs_result" style="margin-top:10px"></div>
           </div>
+          <div class="card">
+            <h3 data-i18n>Diagnose</h3>
+            <p class="note" data-i18n>Für die Fehlersuche: Version, Verbindungen zu Miniserver und Audioserver, alle Geräte, die Einstellungen und die letzten Log-Zeilen als ZIP-Datei, mit einer lesbaren Zusammenfassung (diagnose.md). Je Gerät gibt es das Paket auch unter Geräte.</p>
+            <div class="actions" style="margin-top:0"><a class="btn" id="dg_dl" href="/api/diagnose" download data-i18n>Diagnose herunterladen</a></div>
+            <p class="note" style="margin-top:14px" data-i18n>Kennwörter, Tokens, Kalender-Abos (bis auf den Host), Zugangsdaten in Adressen und der Standort sind entfernt.</p>
+          </div>
         </section>
 
       </div>
@@ -5367,6 +5373,8 @@ function deviceRow(d, sel){
   if(d.agent) btns+='<button class="btn sm'+(d.connections?' ghost':'')+'" data-act="start">'+T('Start')+'</button>'+
                     '<button class="btn sm ghost" data-act="reload">'+T('Reload')+'</button>'+
                     '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button>';
+  // Diagnosepaket dieses Geraets (ZIP, /api/diagnose) - auch offline
+  btns+='<a class="btn sm ghost" data-diagnose href="/api/diagnose?device='+encodeURIComponent(d.name)+'" download>'+T('Diagnose')+'</a>';
   // Nur ein Geraet mit gespeicherten Einstellungen laesst sich entfernen: eines
   // ohne verschwindet von selbst, sobald es nicht mehr verbunden ist
   if(d.configured) btns+='<button class="btn sm del" data-act="entfernen" data-online="'+(d.online?1:0)+'">'+T('Entfernen')+'</button>';

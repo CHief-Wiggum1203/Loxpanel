@@ -96,6 +96,9 @@ def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
     class Verbindung:
         def __init__(self, dauer):
             self.dauer = dauer
+            # wie LoxoneWS: Zeitpunkt der letzten Nachricht (stream_task nennt ihn
+            # den Panels als letzten bestaetigten Stand); hier kam keine
+            self.letzte_nachricht = None
 
         async def stream(self, *_):
             pass

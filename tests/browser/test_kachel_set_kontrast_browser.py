@@ -1,9 +1,9 @@
 """Lesbarkeit der Kachel-Sets in Chromium: Jeder sichtbare Text jeder Ansicht
 (Raster, Uhr-Seite mit Wetter und Terminen, Kalender- und Wetter-Tab, Front
 und Player neben den Kacheln, Detailseite, Liste mit aktiver Zeile, PIN,
-Hausuebersicht) wird gegen die Flaeche gemessen, auf der er wirklich steht -
-Schriftfarbe, Deckkraft und alle
-Hintergruende darunter, wie der Browser sie rechnet. Text muss AA (4,5:1)
+Hausuebersicht, Verbindungsleiste) wird gegen die Flaeche gemessen, auf der er
+wirklich steht - Schriftfarbe, Deckkraft und alle Hintergruende darunter, wie
+der Browser sie rechnet. Text muss AA (4,5:1)
 tragen, grosse Schrift (ab 24 px oder 18,66 px fett) 3:1, wie WCAG 1.4.3.
 Das Set "touch" laeuft dazu ueber die Farbtoene der Schnellwahl und beide
 Arten der aktiven Kachel: seine Farben sind gerechnet, nicht ausgesucht, und
@@ -100,7 +100,14 @@ ANSICHTEN = {
     "pin": (TABS, {}, ["askPin(() => {}, 'PIN')"]),
     # Hausuebersicht: Karten, aktive Geraete und Spieler auf den Flaechen des Sets
     "haus": (TABS + ["haus"], {}, ["goTab('haus')"]),
+    # Verbindungsleiste: Miniserver weg, mit den Texten, die der Server schickte
+    "verbindung": (TABS, {}, ["verbMiniserver({ms: false, seit: Date.now() - 60000, stand: Date.now() - 61000,"
+                              " takt: verb.takt, stumm: verb.stumm, hinweis: 0, texte: verb.texte})"]),
 }
+# Ansichten, in denen nur ein Teil zaehlt: die Leiste. Die Kacheln darunter
+# sind dann gesperrt und absichtlich blass (WCAG 1.4.3 nimmt inaktive
+# Bedienelemente aus).
+WURZEL = {"verbindung": "#verbindung"}
 
 
 def _faelle():
@@ -143,7 +150,7 @@ def _messen(ui, monkeypatch, tmp_path, bild):
                     for s in schritte:
                         await pg.evaluate(s)
                         await pg.wait_for_timeout(500)
-                    raus[ansicht] = await pg.evaluate(TEXTE, None)
+                    raus[ansicht] = await pg.evaluate(TEXTE, WURZEL.get(ansicht))
                     await pg.screenshot(path=str(tmp_path / f"{bild}_{ansicht}.png"))
                     await pg.close()
                 finally:
