@@ -4859,6 +4859,14 @@ function hausBloecke(v, L){
 }
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
 function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, L.rh, L.zeile, B.map(b=>b[0])]); }
+// Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
+// Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
+function hausMasse(g, L){
+  g.style.setProperty('--hk', L.hk.toFixed(3));
+  g.style.setProperty('--hs-sp', L.sp);
+  g.style.setProperty('--hs-rc', L.rc);
+  if(L.rh) g.style.setProperty('--hs-rh', L.rh); else g.style.removeProperty('--hs-rh');
+}
 function renderHaus(){
   const g=el('grid'), v=view;
   g.classList.remove('list','snapy','lx','hpages','punkte','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
@@ -4867,10 +4875,7 @@ function renderHaus(){
   // Unterseite "Gerade aktiv", aber nichts mehr an: zurueck zur Uebersicht
   if(v.liste && !v.aktiv.length){ if(stack.length>1) back(); }
   const L=hausLage(v);
-  g.style.setProperty('--hk', L.hk.toFixed(3));
-  g.style.setProperty('--hs-sp', L.sp);
-  g.style.setProperty('--hs-rc', L.rc);
-  if(L.rh) g.style.setProperty('--hs-rh', L.rh); else g.style.removeProperty('--hs-rh');
+  hausMasse(g, L);
   const B=hausBloecke(v, L), teil=o=>B.filter(b=>b[1]===o).map(b=>b[2]).join('');
   let main=teil('main');
   if(v.liste) main+='<div class="hs-liste">'+teil('liste')+'</div>';
@@ -4891,6 +4896,7 @@ function updateHaus(){
   if(v.liste && !v.aktiv.length) return false;
   const L=hausLage(v), B=hausBloecke(v, L);
   if(g._hsSig!==hausSig(L, B)) return false;
+  hausMasse(g, L);
   B.forEach(([k,,h])=>{
     const n=g.querySelector('[data-hb="'+CSS.escape(k)+'"]');
     if(!n || n._h===h) return;
