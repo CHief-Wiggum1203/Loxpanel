@@ -4793,7 +4793,7 @@ function hausBloecke(v, L){
   const e=v.energie, summen=e && e.cons!=null;
   if(e) kopf+='<button type="button" class="hs-c hs-k" data-hs="energie" aria-label="'+esc(e.label)+'">'+
     '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
-    '<span class="w">'+esc(summen ? 'Verbrauch · PV '+fmtPower(e.prod) : e.label)+'</span></span></button>';
+    '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
   B.push(['kopf','main',kopf+'</div>']);
   const zentral=v.zentral.map(z=>'<button type="button" class="btn hs-b" data-hs="zentral" data-art="'+esc(z.art)+'">'+
     svg(ICONS[HS_ZENTRAL_ICO[z.art]]||ICONS.switch)+esc(z.label)+'</button>').join('');
