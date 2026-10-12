@@ -818,7 +818,15 @@
      der Name) und eine Zeile "Name · Raum" (kachelTexte); kein Raum im Kopf.
      Kopf und Text stehen mittig in der Flaeche ueber den Tasten. Die aktive
      Kachel kippt ganz um: Flaeche --kachel-an, Schrift und Symbole
-     --kachel-an-ink, die Zweitzeile --kachel-an-muted. */
+     --kachel-an-ink, die Zweitzeile --kachel-an-muted. Ebenso die aktive
+     Zeile einer Liste (Stimmungen, Ausgaenge): ihre Flaeche ist dieselbe
+     --kachel-an, die Schrift darf nicht --ink bleiben (aktiv dunkel). */
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .name,
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .ico,
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .icowrap{color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .sub,
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .room{color:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  html[data-kachelset-aufbau="mitte"] .grid.list .tile.on .ico.img{background-color:var(--kachel-an-ink,var(--ink));}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile{align-items:center;text-align:center;}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .head{justify-content:center;margin-top:auto;}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .body{align-items:center;margin-bottom:auto;max-width:100%;}
