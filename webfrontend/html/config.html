@@ -2757,8 +2757,11 @@ function entwurfNachziehen(){
 // eine verbundene Visu (ein Agent kann den Token nicht tragen). Das Geraet kehrt zur vorigen
 // Ansicht zurueck, wenn die Vorschau beendet wird oder 15 Minuten niemand mehr daran arbeitet;
 // Speichern beendet sie ebenfalls (das Geraet zeigt dann das gespeicherte Profil).
+// Es laeuft hoechstens eine Vorschau am Geraet: vor einer auf einem anderen Geraet endet die
+// bisherige (gelingt das nicht, startet die neue nicht - sonst liefe die alte unbemerkt weiter).
 async function vorschauAmGeraet(id, p, name){   // -> Fehlertext, '' wenn die Vorschau laeuft
   const t=$('#toast');
+  if(ENTWURF.geraet && ENTWURF.geraet!==name){ const f=await vorschauGeraetBeenden(); if(f) return f; }
   try{
     const j=await entwurfSenden(id, p); if(!j) return T('Vorschau nicht möglich:')+' ?';
     const k=await postJson('/api/device/switch', {device:name, panel:id, entwurf:j.token, ip:DEVICE_IPS[name]||''});
@@ -2770,10 +2773,18 @@ async function vorschauAmGeraet(id, p, name){   // -> Fehlertext, '' wenn die Vo
     return '';
   }catch(e){ const f=T('Vorschau nicht möglich:')+' '+e.message; flash(t, f, false); return f; }
 }
+// Erst wenn der Server das Ende bestaetigt, gilt sie als beendet; sonst bleibt der Knopf
+// "Am Gerät beenden" stehen, damit es sich wiederholen laesst. -> Fehlertext, '' wenn beendet
 async function vorschauGeraetBeenden(){
-  const name=ENTWURF.geraet; if(!name) return;
-  ENTWURF.geraet=''; vorGerKnopf();
-  try{ await postJson('/api/vorschau/beenden', {device:name}); flash($('#toast'), T('Vorschau am Gerät beendet.'), true); }catch(e){}
+  const name=ENTWURF.geraet; if(!name) return '';
+  const t=$('#toast');
+  let f='';
+  try{ const j=await postJson('/api/vorschau/beenden', {device:name}); if(!j.ok) f=j.error||T('Fehler'); }
+  catch(e){ f=e.message||String(e); }
+  if(f){ f=T('Vorschau am Gerät nicht beendet:')+' '+f; flash(t, f, false); return f; }
+  if(ENTWURF.geraet===name){ ENTWURF.geraet=''; vorGerKnopf(); }
+  flash(t, T('Vorschau am Gerät beendet.'), true);
+  return '';
 }
 // Welches Geraet? Das Vorschaugeraet des Seiten-Editors, sofern es ein echtes Geraet ist, sonst das
 // Zielgeraet des Profils (seGeraetReiter nimmt es als Vorgabe)
@@ -2797,54 +2808,67 @@ function entwurfBeendet(){
   ENTWURF.token=''; ENTWURF.id=''; ENTWURF.geraet=''; vorGerKnopf();
 }
 
+// Alles, was die ganze Liste der Ansichten an den Server schickt (Speichern, auch ueber
+// den Assistenten, und "Ansicht loeschen"), laeuft nacheinander. Jeder Auftrag nimmt
+// seinen Stand erst, wenn er dran ist, und als tiefe Kopie: Was waehrenddessen getippt
+// wird, geht nicht mit, und ein zweiter Auftrag baut auf dem Ergebnis des ersten auf.
+let ANSICHTEN_KETTE=Promise.resolve();
+function ansichtenAuftrag(f){
+  const r=ANSICHTEN_KETTE.then(f);
+  ANSICHTEN_KETTE=r.catch(()=>{});
+  return r;
+}
+function tiefKopie(o){ return JSON.parse(JSON.stringify(o)); }
+// Antwort von /api/panels: `panels` ist, was der Server tatsaechlich gespeichert hat
+// (ohne Verworfenes); ohne das Feld gilt der abgeschickte Stand.
+function gespeichertSetzen(j, gesendet){ GESPEICHERT=(j.panels && typeof j.panels==='object') ? j.panels : gesendet; }
+
 async function ansichtenSpeichern(){
   clearTimeout(ENTWURF.timer); ENTWURF.gen++;   // Vorschau: ab jetzt nichts mehr nachziehen, Verspaetetes verwerfen
-  const stand=offenStand(k=>k.indexOf('ansicht:')===0);
-  try{
-    const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=PANELS[k]; }
-    const r=await fetch('/api/panels',{method:'POST',headers:{'Content-Type':'application/json'},
-                          body:JSON.stringify({panels})});
-    const j=await r.json();
-    let okT=true, errT='';
-    if(PANELS.__global__){
-      const g=PANELS.__global__;
-      const r2=await fetch('/api/theme',{method:'POST',headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify({ui:g.ui||{}, categories:g.catColors||{}})});
-      const j2=await r2.json(); okT=j2.ok; errT=j2.error||'';
-    }
-    if(!(j.ok&&okT)) return {ok:false, text:'Fehler: '+(j.error||errT||'?')};
-    erledigt(stand); entwurfBeendet();
-    GESPEICHERT=JSON.parse(JSON.stringify(panels));
-    // Liste der Ansichten fuer die Geraete-Zuordnung auffrischen (sonst fehlt eine neue
-    // Ansicht dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
-    try{ await loadPanelIds(); renderDevices(); }catch(e){}
-    // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
-    // es still zu verlieren; die Warnung bleibt stehen.
-    const weg=j.verworfen||[];
-    return {ok:true, warn:weg.length>0,
-            text:'✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
-                 (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '')};
-  }catch(e){ return {ok:false, text:'Fehler: '+e}; }
+  return ansichtenAuftrag(async()=>{
+    const stand=offenStand(k=>k.indexOf('ansicht:')===0);
+    const panels={}; for(const k in PANELS){ if(k!=='__global__') panels[k]=tiefKopie(PANELS[k]); }
+    const g=PANELS.__global__;
+    const vorgaben=g ? {ui:tiefKopie(g.ui||{}), categories:tiefKopie(g.catColors||{})} : null;
+    try{
+      const j=await postJson('/api/panels', {panels});
+      if(j.ok) gespeichertSetzen(j, panels);   // steht in der Datei, auch wenn die Vorgaben scheitern
+      let okT=true, errT='';
+      if(vorgaben){ const j2=await postJson('/api/theme', vorgaben); okT=j2.ok; errT=j2.error||''; }
+      if(!(j.ok&&okT)) return {ok:false, text:'Fehler: '+(j.error||errT||'?')};
+      erledigt(stand); entwurfBeendet();
+      // Liste der Ansichten fuer die Geraete-Zuordnung auffrischen (sonst fehlt eine neue
+      // Ansicht dort bis zum Reload - PANEL_IDS wird sonst nur beim Start geladen).
+      try{ await loadPanelIds(); renderDevices(); }catch(e){}
+      // Was der Server nicht uebernommen hat (unbekannt/ungueltig), nennen statt
+      // es still zu verlieren; die Warnung bleibt stehen.
+      const weg=j.verworfen||[];
+      return {ok:true, warn:weg.length>0,
+              text:'✓ Gespeichert ('+j.count+' Ansichten) — die Geräte haben automatisch neu geladen'+
+                   (weg.length? ' · '+T('Nicht übernommen:')+' '+weg.join('; ') : '')};
+    }catch(e){ return {ok:false, text:'Fehler: '+e}; }
+  });
 }
 // Nur die Ansichten und Vorgaben (Assistent, Tests); die Leiste nimmt speichernAlles()
 async function save(){ const e=await ansichtenSpeichern(); meldungZeigen([e]); leisteZeigen(); return e.ok; }
 // "Ansicht loeschen" gilt nach der Rueckfrage sofort. Geschickt wird der zuletzt
 // gespeicherte Stand ohne diese Ansicht; offene Aenderungen an anderen bleiben offen.
 async function ansichtLoeschen(id){
-  const t=$('#toast');
-  if(GESPEICHERT[id]){
-    const panels=JSON.parse(JSON.stringify(GESPEICHERT)); delete panels[id];
-    let j;
-    try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
-    if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
-    delete GESPEICHERT[id];
-  }
-  if(ENTWURF.id===id) entwurfBeendet();
-  delete PANELS[id]; OFFEN.delete('ansicht:'+id);
-  cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
-  meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
-  try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
-  return true;
+  return ansichtenAuftrag(async()=>{
+    if(GESPEICHERT[id]){
+      const panels=tiefKopie(GESPEICHERT); delete panels[id];
+      let j;
+      try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
+      if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
+      gespeichertSetzen(j, panels);
+    }
+    if(ENTWURF.id===id) entwurfBeendet();
+    delete PANELS[id]; OFFEN.delete('ansicht:'+id);
+    cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
+    meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
+    try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
+    return true;
+  });
 }
 
 // ---- Kachel-Editor ----
@@ -2907,6 +2931,22 @@ function clearHide(){ const p=PANELS[cur]; if(p.hide){ delete p.hide; markDirty(
 let curPickIdx=0;
 function isPick(t){ if(t===PICK_TAB) return true; if(typeof t==='string' && t.indexOf(PICK_TAB)===0){ const s=t.slice(PICK_TAB.length); return /^[2-4]$/.test(s); } return false; }
 function pickKey(i){ return i===0?PICK_TAB:PICK_TAB+(i+1); }
+// Kennung einer freien Seite -> ihr Index (auswahl -> 0, auswahl3 -> 2), sonst -1
+function pickIdx(k){ return !isPick(k) ? -1 : (k===PICK_TAB ? 0 : parseInt(k.slice(PICK_TAB.length),10)-1); }
+// Fallen freie Seiten weg oder ruecken nach, haengt an ihrer Kennung (auswahl, auswahl2 ...)
+// noch mehr: der Eintrag in der Leiste, das Widget (ui.panes) und die Werteleiste (ui.valueBar).
+// neu(i) = neuer Index der Seite i, -1 = sie ist weg. -> Funktion alte Kennung -> neue ('' = weg);
+// andere Kennungen bleiben.
+function pickKennungNeu(neu){ return k=>{ const i=pickIdx(k); if(i<0) return k; const j=neu(i); return j<0 ? '' : pickKey(j); }; }
+function pickNachLoeschen(weg){ return pickKennungNeu(i=>i===weg ? -1 : (i>weg ? i-1 : i)); }
+function panesUmbenennen(panes, f){ const ps={}; Object.entries(panes||{}).forEach(([k,v])=>{ const z=f(k); if(z && !(z in ps)) ps[z]=v; }); return ps; }
+// Leiste, Widgets und Werteleiste eines Profils auf die neuen Kennungen bringen
+function pickBezuegeNeu(p, f){
+  if(Array.isArray(p.tabs)) p.tabs=p.tabs.map(f).filter(Boolean);   // auch die klassische Leiste mit einzelnen auswahlN
+  const u=p.ui; if(!u) return;
+  if(u.panes && typeof u.panes==='object'){ const ps=panesUmbenennen(u.panes, f); if(Object.keys(ps).length) u.panes=ps; else delete u.panes; }
+  if(Array.isArray(u.valueBar)){ const vb=u.valueBar.map(f).filter(Boolean); if(vb.length) u.valueBar=vb; else delete u.valueBar; }
+}
 // LESEN: legt nichts an (siehe alter Kommentar - kein Zuruecksetzen entfernter Keys).
 function pickList(p){ const t=p.pickTabs;
   if(Array.isArray(t)&&t[curPickIdx]) return t[curPickIdx].picks||[];
@@ -2928,7 +2968,10 @@ function curPT(p){ const t=ensurePickTabs(p); if(curPickIdx>=t.length) curPickId
 function pickSyncTabsMode(p){ if(tabMode(p)==='pick') p.tabs=ensurePickTabs(p).map((_,i)=>pickKey(i)); }
 // vorgabe: Felder der neuen Seite (Hausuebersicht: Name und Inhalt)
 function pickAddTab(p,vorgabe){ const t=ensurePickTabs(p); if(t.length>=4) return; t.push(Object.assign({name:'',picks:[]}, vorgabe||{})); curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
-function pickDelTab(p,i){ const t=ensurePickTabs(p); if(t.length<=1) return; t.splice(i,1); if(curPickIdx>=t.length) curPickIdx=t.length-1; pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); }
+function pickDelTab(p,i){ const t=ensurePickTabs(p); if(t.length<=1) return;
+  t.splice(i,1); pickBezuegeNeu(p, pickNachLoeschen(i));
+  if(curPickIdx>i || curPickIdx>=t.length) curPickIdx=Math.max(0, curPickIdx-1);   // dieselbe Seite bleibt gewaehlt
+  pickSyncTabsMode(p); markDirty(); renderPick(p); renderChips(p); renderPanes(p); }
 function icoUrl(ic){ return ic ? (ic.charAt(0)==='/' ? ic : '/icon?p='+encodeURIComponent(ic)) : ''; }
 function pickTabBar(p){
   const t=ensurePickTabs(p);
@@ -4216,7 +4259,7 @@ function wzVorrechnung(panes, grid){
     const mit=split ? LoxRaster.autoRaster(Object.assign({}, basis, {widget:true})) : null;
     // mit Widget: das Raster daneben (quer weniger Spalten, hochkant weniger Zeilen)
     return {cols:ohne.cols, rows:ohne.rows, px:Math.round(ohne.kb), widget:mit?mit.p:0,
-            mit:mit?[mit.cols, mit.rows]:null, hoch:g.vh>g.vw, auto:true};
+            mit:mit?[mit.cols, mit.rows]:null, hoch:(mit||ohne).hoch, auto:true};   // Achse wie die Visu (raster.js)
   }
   const [c0,r0]=grid.split('x').map(Number);
   const [c,r]=LoxRaster.festesRaster({cols:c0, rows:r0, w:g.vw, h:g.vh, split:split, widget:false});
@@ -4298,7 +4341,7 @@ function wzOpen(){
   if(!WZ._wired){ WZ._wired=true;
     $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzTileFor=-1; wzRender(); } };
     $('#wzNext').onclick=wzNext;
-    $('#wzBlank').onclick=function(){ wzClose(); createBlankPanel(); };
+    $('#wzBlank').onclick=async function(){ if(await wzClose()) createBlankPanel(); };
     $('#wzFertig').onclick=function(){ WZ.step=wzFlow().indexOf('pruefen'); wzTileFor=-1; wzRender(); };
     $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
     $('#wzX').onclick=wzClose;
@@ -4306,11 +4349,17 @@ function wzOpen(){
   wzReset();
   $('#wzOv').hidden=false; wzRender();
 }
-function wzClose(){
+// -> true, wenn der Assistent zu ist
+async function wzClose(){
+  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck.
+  // Gelingt das nicht, bleibt der Assistent offen - nur dort laesst sie sich noch beenden.
+  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]){
+    const f=await vorschauGeraetBeenden();
+    if(f){ wzVorFehler=f; wzRender(); return false; }
+  }
   wzZurueckgeben();
   $('#wzOv').hidden=true; wzVorFehler='';
-  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck
-  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]) vorschauGeraetBeenden();
+  return true;
 }
 // Schritt Gerät leiht sich "Neues Gerät einrichten" (Start-Adresse, Agent) und die Geraete
 // ohne Kennung (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
@@ -4703,7 +4752,9 @@ function wzRender(){
   b.querySelectorAll('[data-pgn]').forEach(function(el){ el.oninput=function(){ WZ.pickPages[+el.dataset.pgn].name=el.value; wzUpd(); }; });
   b.querySelectorAll('[data-pgico]').forEach(function(el){ el.onclick=function(){ var i=+el.dataset.pgico; WZ.icoPage=WZ.icoPage===i?-1:i; wzRender(); }; });
   b.querySelectorAll('[data-wpico]').forEach(function(el){ el.onclick=function(){ WZ.pickPages[+el.dataset.wpico].icon=el.dataset.picv; WZ.icoPage=-1; wzRender(); }; });
-  b.querySelectorAll('[data-pgdel]').forEach(function(el){ el.onclick=function(){ WZ.pickPages.splice(+el.dataset.pgdel,1); if(WZ.icoPage>=WZ.pickPages.length) WZ.icoPage=-1; wzRender(); }; });
+  b.querySelectorAll('[data-pgdel]').forEach(function(el){ el.onclick=function(){ var i=+el.dataset.pgdel;
+    WZ.pickPages.splice(i,1); WZ.pane2=panesUmbenennen(WZ.pane2, pickNachLoeschen(i));   // Widgets ruecken mit
+    if(WZ.icoPage>=WZ.pickPages.length) WZ.icoPage=-1; wzRender(); }; });
   { var pa=$('#wzPgAdd'); if(pa) pa.onclick=function(){ if(WZ.pickPages.length<4){ WZ.pickPages.push({name:'',icon:'',picks:[]}); wzRender(); } }; }
   b.querySelectorAll('[data-pgw]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgw], k=el.value;
     if(!k) delete pg.widget; else if(k==='weather'||k==='calendar'||k==='haus') pg.widget=k; else pg.widget=k+':'+(wzWidgetFirst(k)||'');
@@ -4723,7 +4774,7 @@ function wzRender(){
   { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
   { var wv=$('#wzVorschau'); if(wv) wv.onclick=async function(){ wv.disabled=true;
       wzVorFehler=await vorschauAmGeraet(WZ.id, wzEntwurf(), WZ.device); wzRender(); }; }
-  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ wzVorFehler=''; await vorschauGeraetBeenden(); wzRender(); }; }
+  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ we.disabled=true; wzVorFehler=await vorschauGeraetBeenden(); wzRender(); }; }
   { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
   b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
     var q=el.dataset.wgr;
@@ -4779,9 +4830,13 @@ function wzProfil(){
   var tabs, e={};
   if(WZ.content==='room'){ tabs=[WZ.roomTab]; if(WZ.roomCats&&WZ.roomCats.length) e.roomCats=WZ.roomCats.slice(0,4); }
   else if(WZ.content==='pick'){
-    // Nur befüllte Seiten (Kacheln ODER Widget) werden zu Tabs; leere fallen weg.
-    var pages=(WZ.pickPages||[]).filter(function(pg){ return (pg.picks&&pg.picks.length)||pg.widget; });
-    if(!pages.length) pages=[WZ.pickPages[0]||{name:'Auswahl'}];
+    // Nur befüllte Seiten (Kacheln ODER Widget) werden zu Tabs; leere fallen weg. Ihre Widgets
+    // (WZ.pane2 nach Kennung) ruecken mit: alt = urspruenglicher Index jeder bleibenden Seite.
+    var alt=[];
+    (WZ.pickPages||[]).forEach(function(pg,i){ if((pg.picks&&pg.picks.length)||pg.widget) alt.push(i); });
+    if(!alt.length) alt=[0];
+    var pages=alt.map(function(i){ return WZ.pickPages[i]||{name:'Auswahl'}; });
+    var seiteNeu=pickKennungNeu(function(i){ return alt.indexOf(i); });
     tabs=pages.map(function(_,i){return pickKey(i);});
     e.pickTabs=pages.map(function(pg){ var o={name:(pg.name||'').trim()||'Auswahl',picks:(pg.picks||[]).slice()}; if(pg.icon) o.icon=pg.icon; if(pg.widget) o.widget=pg.widget;
       // Anordnung aus dem Seiten-Editor (Schritt 5)
@@ -4789,7 +4844,8 @@ function wzProfil(){
       if(!pg.widget && pg.byRoom===false) o.byRoom=false;
       return o; }); }
   else { tabs=WZ.classic.filter(function(t){return t.on;}).map(function(t){return t.key;}); if(!tabs.length) tabs=defaultTabs(); }
-  var panes={}; Object.keys(WZ.pane2).forEach(function(k){ var rv=wzP2Real(WZ.pane2[k]); if(rv) panes[k]=rv; });
+  var panes={}, kennung=(WZ.content==='pick') ? seiteNeu : function(k){ return k; };
+  Object.keys(WZ.pane2).forEach(function(k){ var z=kennung(k), rv=wzP2Real(WZ.pane2[k]); if(z && rv) panes[z]=rv; });
   if(Object.keys(panes).length) ui.panes=panes;
   // Aussehen (Farbschema, Größen, Schrift) aus Schritt „Design"
   var L=WZ.look||{};
@@ -4838,11 +4894,12 @@ function versionZeigen(v){
   const el=$('#lpver'); if(!el) return;
   const teile=[v.version?'LoxPanel '+v.version:T('Version unbekannt')];
   if(v.commit) teile.push(v.commit.slice(0,7));
+  else if(v.inhalt) teile.push(T('Stand')+' '+v.inhalt.slice(0,7));   // lokaler Build ohne Git
   const d=v.gebaut?new Date(v.gebaut):null;
   if(d&&!isNaN(d)) teile.push(T('gebaut')+' '+d.toLocaleString(undefined,
     {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}));
   el.textContent=teile.join(' · ');
-  el.title=v.commit||'';
+  el.title=v.commit||v.inhalt||'';
 }
 async function loadSettings(){
   const r=await fetch('/api/settings'); SET=await r.json();

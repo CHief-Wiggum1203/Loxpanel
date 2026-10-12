@@ -332,8 +332,10 @@
   .kz-wx .m .c{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
   /* Werte: rechtsbuendig, was nicht mehr passt, blendet kopfEinpassen() aus */
   .kz-werte{display:flex;gap:8px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden;}
+  /* Wert-Chip: eigene Flaeche (--tile), also die Schrift dazu (--ink) - nicht die der Leiste
+     darunter, die ein Kachel-Set dunkel und mit heller Schrift zeigt (Touch: --tab-an) */
   .kz-w{display:grid;grid-template-columns:auto auto;grid-template-areas:"ico vl" "ico nm";column-gap:8px;
-    align-items:center;flex:none;background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
+    align-items:center;flex:none;background:var(--tile);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
   .kz-w .ico{grid-area:ico;width:calc(22px * var(--ks,1));height:calc(22px * var(--ks,1));display:grid;place-items:center;color:var(--ico,var(--ink));}
   .kz-w .ico svg{width:100%;height:100%;}
   .kz-w .ico img{width:100%;height:100%;object-fit:contain;}
@@ -2555,17 +2557,19 @@ function faktorEinmessen(){
 // Kachelhoehe beim letzten Einpassen: im festen, breitenbegrenzten Raster
 // kann sie sich mit dem Fenster aendern, ohne dass der Faktor es tut
 // (Codex-Befund an #128) - dann passen Tasten und Text trotzdem neu.
-let _kachelH=0;
-function kachelHoehe(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientHeight : 0; }
+// Mass der ersten Kachel (Breite x Hoehe): aendert es sich, misst faktorNachziehen neu - auch
+// bei reiner Breitenaenderung (Tasten der Spieler-Spalte, Textumbruch), wo Faktor und Hoehe bleiben
+let _kachelM='';
+function kachelMass(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientWidth+'x'+t.clientHeight : ''; }
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
   const vorher=kachelFaktor;
   if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
   else faktorEinmessen();
-  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelHoehe()!==_kachelH) kachelnNeuMessen();
+  if(Math.abs(kachelFaktor-vorher)>=0.01 || kachelMass()!==_kachelM) kachelnNeuMessen();
 }
 function kachelnNeuMessen(){
-  _kachelH=kachelHoehe();
+  _kachelM=kachelMass();
   el('grid').querySelectorAll('.tile[data-id]').forEach(n=>{
     n._fitText=null;
     if(n._it && n._it.controls) tastenEinpassen(n);
@@ -2654,17 +2658,20 @@ function tastenFaktor(tile){
 // schrumpfen nie.
 const SPIELER_COVER_MIN = 36, TASTE_MIN = 34;
 function spielerEinpassen(tile, tc){
+  tile._kt=null; tile.style.removeProperty('--ks');   // gemessen wird mit dem Faktor der Seite
   const cs=getComputedStyle(tile), pad=parseFloat(cs.paddingTop);
   const innen=tile.clientHeight-pad-parseFloat(cs.paddingBottom);
   const n=tc.querySelectorAll('.tb').length, abstand=parseFloat(getComputedStyle(tc).columnGap)||0;
   const noetig=n*TASTE_MIN*Math.max(1, kachelFaktor)+(n-1)*abstand, halb=tile.clientWidth/2-parseFloat(cs.paddingRight);
   tile.classList.toggle('spbreit', noetig>halb+0.5);
   if(noetig>halb+0.5) tile.style.setProperty('--spw', noetig.toFixed(1)+'px'); else tile.style.removeProperty('--spw');
-  const leiste=TASTEN.lx.leiste*Math.max(1, kachelFaktor), gap=parseFloat(cs.getPropertyValue('--spgap'))||0;
+  // Abstand zwischen Cover und Tasten, wie ihn die Spalte tatsaechlich hat: --spgap ist ein
+  // calc() (10px mal Faktor), das parseFloat nicht liest - der aufgeloeste row-gap schon
+  const sp=tile.querySelector('.tplay'), gap=sp ? (parseFloat(getComputedStyle(sp).rowGap)||0) : 0;
+  const leiste=TASTEN.lx.leiste*Math.max(1, kachelFaktor);
   const an=innen>=leiste-0.5;
   tc.hidden=!an; tile.classList.toggle('ohnetasten', !an);
   tile.classList.toggle('ohnecover', !an || innen-leiste-gap < SPIELER_COVER_MIN*kachelFaktor);
-  tile._kt=null; tile.style.removeProperty('--ks');
 }
 function tastenEinpassen(tile){
   const tc=tile&&tile.querySelector('.tctrls'); if(!tc || !tile.clientHeight) return;
@@ -2678,12 +2685,12 @@ function tastenEinpassen(tile){
 // Neuer Aufbau, enge Kachel: laeuft der Text unten aus der Kachel, weicht
 // Stufe fuer Stufe das Unwichtigste - erst steht der Text einzeilig (eng1),
 // dann faellt die Angabe zum Mini-Verlauf weg (eng2), zuletzt die zweite Zeile
-// (eng3). Gemessen bei neuer Kachel, neuem Text, neuer Hoehe oder neuem Faktor.
+// (eng3). Gemessen bei neuer Kachel, neuem Text, neuer Groesse oder neuem Faktor.
 function fitTile(tile){
   if(!tile || !tile.clientHeight) return;
-  const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight;
-  if(tile._fitText===text && tile._fitH===h && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
-  tile._fitText=text; tile._fitH=h; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
+  const text=(tile.querySelector('.body')||{}).textContent, h=tile.clientHeight, w=tile.clientWidth;
+  if(tile._fitText===text && tile._fitH===h && tile._fitW===w && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
+  tile._fitText=text; tile._fitH=h; tile._fitW=w; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
   tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
   // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
   // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
@@ -3088,13 +3095,20 @@ function scrollToCat(key){
 // ---- Split-Pane pro Tab: entscheidet je aktuellem Tab, was in Pane 2 steht (quer rechts, hochkant unten) ----
 // Wert je Tab: "weather" | "calendar" | "player:<zone>" | "energy:<uuid>" | "camera:<uuid>" | "chart:<uuid>" | "status:<uuid>,...".
 function paneForTab(tk){ return tk ? (panesCfg[tk]||null) : null; }
+// Split hochkant (Widget unter den Kacheln) oder quer (daneben). Im automatischen Raster
+// entscheidet raster.js nach der Flaeche des Rasters, ohne Seitenleiste und Rahmen eines
+// Kachel-Sets; das CSS muss dieselbe Achse nehmen (900 x 750 mit Seitenleiste ist ein Raster
+// von 692 x 750, also hochkant). Sonst nach dem Fenster, wie festesRaster().
+function splitHoch(){
+  if(gridAuto) return autoRaster(_lastWidget).hoch;
+  const vp=vpSize(); return vp.h > vp.w;
+}
 // Split im Hochformat: Visu und Pane 2 uebereinander (CSS .screen.split.hoch).
 // Eigene Funktion, weil sie auch beim Drehen laufen muss - dort wird nicht in
 // jedem Fall neu gerendert (z.B. Anlagenschema, Screensaver oben).
 function applyHoch(){
   const sc=document.querySelector('.screen'); if(!sc) return;
-  const vp=vpSize();
-  sc.classList.toggle('hoch', sc.classList.contains('split') && vp.h > vp.w);
+  sc.classList.toggle('hoch', sc.classList.contains('split') && splitHoch());
 }
 // Der aktuell gezeigte Pane-Wert: eine Widget-Seite (Vollbild-Tab, view.widget)
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
@@ -3561,9 +3575,17 @@ function autoRaster(widget){
 // Dazu die Blaetterrichtung (seitenQuer): ein Fenster, das quer ueber die
 // Quadrat-Schwelle waechst (520x480 -> 560x480), aendert weder Lage noch
 // Raster, muss aber von senkrecht auf waagerechte Seiten umbauen.
+// Masse des automatischen Rasters als CSS-Variablen. Ein Hochkant-Widget hat eine Hoehe in px
+// (pPx), die mit dem Fenster waechst und schrumpft, auch wenn Spalten, Zeilen, k und p bleiben
+// (rasterKey also gleich): fensterGeaendert setzt sie dann ohne Neuaufbau nach.
+function autoMasseSetzen(a){
+  const sc=document.querySelector('.screen'); if(!sc) return;
+  sc.style.setProperty('--auto-k', a.pPx ? 'minmax(0,1fr)' : a.k+'fr');
+  sc.style.setProperty('--auto-p', a.pPx ? Math.round(a.pPx)+'px' : a.p+'fr');
+}
 function rasterKey(widget){
   const {w,h}=vpSize(), a=gridAuto ? autoRaster(widget) : null;
-  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p : '')
+  return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p+(a.hoch?':unter':'') : '')
     +(seitenQuer()?':seiten':'');
 }
 function render(){
@@ -3584,9 +3606,8 @@ function render(){
   [gridCols, gridRows] = rasterFuer(_widget);
   document.documentElement.style.setProperty('--cols', gridCols);
   document.documentElement.style.setProperty('--rows', gridRows);
-  if(gridAuto){ const a=autoRaster(_widget), sc=document.querySelector('.screen');
-    sc.style.setProperty('--auto-k', a.pPx ? 'minmax(0,1fr)' : a.k+'fr');
-    sc.style.setProperty('--auto-p', a.pPx ? Math.round(a.pPx)+'px' : a.p+'fr');
+  if(gridAuto){ const a=autoRaster(_widget);
+    autoMasseSetzen(a);
     setzeFaktor(a.ks); }   // Kachelfaktor aus der Spaltenbreite, vor dem Aufbau
   reportScreen();   // Raster der Kachelansicht melden (entprellt, nur bei Aenderung)
   renderLeiste();   // Werteleiste ueber dem Raster (oder weg) - vor dem Bauen und Messen der Kacheln
@@ -3707,7 +3728,7 @@ function render(){
       tastenEinpassen(n);
     }
     fitTile(n);
-    _kachelH=n.clientHeight;   // fuer faktorNachziehen: neu einpassen, wenn sich die Hoehe aendert
+    _kachelM=kachelMass();   // fuer faktorNachziehen: neu einpassen, wenn sich das Mass aendert
     n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
       if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
@@ -3821,8 +3842,10 @@ function fensterGeaendert(){
   // Hausuebersicht: Lage (Spieler als Spalte oder Leiste, Spalten) neu
   // rechnen; nur wenn sie kippt, baut renderHaus neu
   if(view && view.layout==='haus' && el('grid').classList.contains('haus')){ if(!updateHaus()) render(); }
-  else if(view && !el('grid').classList.contains('scheme')
-     && rasterKey(_lastWidget) !== _lastRaster) render();
+  else if(view && !el('grid').classList.contains('scheme')){
+    if(rasterKey(_lastWidget) !== _lastRaster) render();
+    else if(gridAuto) autoMasseSetzen(autoRaster(_lastWidget));   // gleiches Raster, andere Pixel (Hochkant-Widget)
+  }
   panelEinpassen();
   kopfEinpassen();
   faktorNachziehen();   // Kachelbreite geaendert, Raster nicht: Inhalt nachziehen
@@ -4794,7 +4817,7 @@ function hausBloecke(v, L){
   const e=v.energie, summen=e && e.cons!=null;
   if(e) kopf+='<button type="button" class="hs-c hs-k" data-hs="energie" aria-label="'+esc(e.label)+'">'+
     '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
-    '<span class="w">'+esc(summen ? 'Verbrauch · PV '+fmtPower(e.prod) : e.label)+'</span></span></button>';
+    '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
   B.push(['kopf','main',kopf+'</div>']);
   const zentral=v.zentral.map(z=>'<button type="button" class="btn hs-b" data-hs="zentral" data-art="'+esc(z.art)+'">'+
     svg(ICONS[HS_ZENTRAL_ICO[z.art]]||ICONS.switch)+esc(z.label)+'</button>').join('');
@@ -4860,6 +4883,23 @@ function hausBloecke(v, L){
 }
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
 function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, L.rh, L.zeile, B.map(b=>b[0])]); }
+// Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
+// Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
+function hausMasse(g, L){
+  g.style.setProperty('--hk', L.hk.toFixed(3));
+  g.style.setProperty('--hs-sp', L.sp);
+  g.style.setProperty('--hs-rc', L.rc);
+  if(L.rh) g.style.setProperty('--hs-rh', L.rh); else g.style.removeProperty('--hs-rh');
+}
+// Raumkarten, die ihren Inhalt nicht fassen (zweizeiliger Name, langer
+// Zustand): die Reihen so hoch, wie die hoechste Karte braucht - dann
+// scrollt die Liste senkrecht, statt dass eine Zeile abgeschnitten wird.
+// Nach hausMasse, das --hs-rh auf die gerechnete Hoehe zuruecksetzt
+function hausReihen(g){
+  const karten=[...g.querySelectorAll('.hs-r')];
+  if(karten.some(k=>k.scrollHeight>k.clientHeight+1))
+    g.style.setProperty('--hs-rh', Math.ceil(Math.max(...karten.map(k=>k.scrollHeight)))+'px');
+}
 function renderHaus(){
   const g=el('grid'), v=view;
   g.classList.remove('list','snapy','lx','hpages','punkte','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
@@ -4868,10 +4908,7 @@ function renderHaus(){
   // Unterseite "Gerade aktiv", aber nichts mehr an: zurueck zur Uebersicht
   if(v.liste && !v.aktiv.length){ if(stack.length>1) back(); }
   const L=hausLage(v);
-  g.style.setProperty('--hk', L.hk.toFixed(3));
-  g.style.setProperty('--hs-sp', L.sp);
-  g.style.setProperty('--hs-rc', L.rc);
-  if(L.rh) g.style.setProperty('--hs-rh', L.rh); else g.style.removeProperty('--hs-rh');
+  hausMasse(g, L);
   const B=hausBloecke(v, L), teil=o=>B.filter(b=>b[1]===o).map(b=>b[2]).join('');
   let main=teil('main');
   if(v.liste) main+='<div class="hs-liste">'+teil('liste')+'</div>';
@@ -4879,12 +4916,7 @@ function renderHaus(){
   main+=teil('unten');
   g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+'"><div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
-  // Raumkarten, die ihren Inhalt nicht fassen (zweizeiliger Name, langer
-  // Zustand): die Reihen so hoch, wie die hoechste Karte braucht - dann
-  // scrollt die Liste senkrecht, statt dass eine Zeile abgeschnitten wird
-  const karten=[...g.querySelectorAll('.hs-r')];
-  if(karten.some(k=>k.scrollHeight>k.clientHeight+1))
-    g.style.setProperty('--hs-rh', Math.ceil(Math.max(...karten.map(k=>k.scrollHeight)))+'px');
+  hausReihen(g);
   g._hsSig=hausSig(L, B);
   if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); }
   tickClock();
@@ -4898,12 +4930,14 @@ function updateHaus(){
   if(v.liste && !v.aktiv.length) return false;
   const L=hausLage(v), B=hausBloecke(v, L);
   if(g._hsSig!==hausSig(L, B)) return false;
+  hausMasse(g, L);
   B.forEach(([k,,h])=>{
     const n=g.querySelector('[data-hb="'+CSS.escape(k)+'"]');
     if(!n || n._h===h) return;
     const t=document.createElement('template'); t.innerHTML=h;
     const m=t.content.firstElementChild; m._h=h; n.replaceWith(m);
   });
+  hausReihen(g);
   tickClock();
   return true;
 }

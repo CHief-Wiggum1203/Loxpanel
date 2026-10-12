@@ -326,13 +326,59 @@ def test_lange_raumnamen_schneiden_nichts_ab(tmp_path):
                 lage = await pg.evaluate(LAGE)
                 ring = await pg.evaluate("getComputedStyle(document.querySelector('.hs-zone.akt')).boxShadow")
                 await pg.screenshot(path=str(tmp_path / "haus_kreide_lange_namen.png"))
+                # neue Zustaende bei gleicher Lage: updateHaus statt Neuaufbau, das die
+                # Masse neu setzt - auch danach ist nichts gequetscht
+                ohne_neuaufbau = await pg.evaluate("updateHaus()")
+                lage2 = await pg.evaluate(LAGE)
+                lage2["ohne_neuaufbau"] = ohne_neuaufbau
                 await b.close()
         finally:
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
-        return lage, ring
-    lage, ring = asyncio.run(lauf())
+        return lage, ring, lage2
+    lage, ring, lage2 = asyncio.run(lauf())
     assert lage["raeume"] == 13 and not lage["ab"], lage
+    assert lage2["ohne_neuaufbau"] and not lage2["ab"], lage2
     assert not lage["quer"] and not lage["klein"], lage
     assert lage["spalte"] and ring not in ("", "none"), ring
+
+
+# --hk wie angewandt und wie frisch gerechnet, Schrift des ersten Raumnamens, Signatur
+HK = """() => { const g = document.getElementById('grid'), n = g.querySelector('.hs-r .nm');
+  return {css: parseFloat(g.style.getPropertyValue('--hk')), frisch: +hausLage(view).hk.toFixed(3),
+          schrift: parseFloat(getComputedStyle(n).fontSize), sig: g._hsSig}; }"""
+
+
+@pytest.mark.parametrize("von, nach", [((1460, 1120), (1500, 1150)), ((1500, 1150), (1460, 1120))],
+                         ids=["groesser", "kleiner"])
+def test_schrift_folgt_dem_fenster_ohne_neuaufbau(von, nach):
+    """Groessenaenderung, bei der die Lage nicht kippt (gleiche Signatur): Die
+    Schrift-Skalierung --hk zieht trotzdem nach, ohne die Seite neu aufzubauen."""
+    async def lauf():
+        app = _app()
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, *von, fehler)
+                vorher = await pg.evaluate(HK)
+                await pg.evaluate("document.querySelector('#grid .hs').__alt = true")
+                await pg.set_viewport_size({"width": nach[0], "height": nach[1]})
+                await pg.wait_for_timeout(300)
+                nachher = await pg.evaluate(HK)
+                gleich = await pg.evaluate("document.querySelector('#grid .hs').__alt === true")
+                await pg.evaluate("renderHaus()")
+                neu = await pg.evaluate(HK)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return vorher, nachher, gleich, neu
+    vorher, nachher, gleich, neu = asyncio.run(lauf())
+    assert vorher["sig"] == nachher["sig"] and gleich, "dieselbe Lage: kein Neuaufbau"
+    assert vorher["frisch"] != nachher["frisch"], (vorher, nachher)
+    assert nachher["css"] == nachher["frisch"], nachher
+    assert nachher["schrift"] == neu["schrift"] != vorher["schrift"], (vorher, nachher, neu)

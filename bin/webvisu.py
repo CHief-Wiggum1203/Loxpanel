@@ -84,10 +84,11 @@ VERSION = version_info.lesen()
 
 def server_stand() -> str:
     """Kennung des laufenden Stands fuer Visu und Konfigurator (theme-Nachricht,
-    /api/devices): der Commit, ohne ihn leer. Meldet ein neu gestarteter Server
-    einen anderen, laden offene Seiten neu, statt altes HTML/JS gegen den
-    neuen Server laufen zu lassen."""
-    return VERSION.get("commit") or ""
+    /api/devices): der Commit, ohne ihn die Kennung des Inhalts (lokaler Build
+    ohne Git), sonst leer. Meldet ein neu gestarteter Server einen anderen,
+    laden offene Seiten neu, statt altes HTML/JS gegen den neuen Server laufen
+    zu lassen."""
+    return VERSION.get("commit") or VERSION.get("inhalt") or ""
 _WEB = Path(__file__).resolve().parent.parent / "webfrontend" / "html"
 HTML = _WEB / "panel.html"
 CONFIG_HTML = _WEB / "config.html"
@@ -523,9 +524,6 @@ ENTWURF_DAUER = 3600
 # Vorschau am Geraet (Punkt 12): so lange zeigt ein Geraet einen Entwurf, wenn der
 # Konfigurator ihn nicht mehr auffrischt - dann geht es zur vorigen Ansicht zurueck.
 VORSCHAU_GERAET_DAUER = 900
-# Endet die Vorschau, waehrend das Geraet noch zum Entwurf unterwegs ist (es laedt gerade
-# neu), schickt der Server seine neue Verbindung so lange noch zurueck (Sekunden)
-VORSCHAU_UNTERWEGS = 30
 # Panel-Angaben, die _sanitize_panels bewusst NICHT speichert, weil sie der
 # Standard sind - beim Speichern kein Verlust (siehe _panels_verworfen).
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
@@ -1616,7 +1614,8 @@ class App:
         self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
         # Geraet -> {token, id, zurueck (Profil davor), bis}: zeigt gerade einen Entwurf (Punkt 12)
         self.vorschau_geraet: dict[str, dict] = {}
-        # ... beendet, das Geraet aber noch unterwegs zum Entwurf: Geraet -> {token, zurueck, bis}
+        # ... beendet, als keine Verbindung des Geraets den Entwurf zeigte (es lud gerade neu
+        # oder war offline): Geraet -> {token, zurueck}. Gilt, bis es mit dem Token wiederkommt
         self.vorschau_ende: dict[str, dict] = {}
         self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
@@ -2180,6 +2179,15 @@ class App:
         su = (control.get("states") or {}).get(name)
         return self.states.get(su) if su else None
 
+    def _endlich(self, control: dict, name: str) -> float | None:
+        """Zahl-State als endliche Zahl; None, wenn er fehlt, keine Zahl ist oder
+        NaN/unendlich (als Binaer-Double gueltig): dann ist der Wert unbekannt."""
+        try:
+            v = float(self._state(control, name))
+        except (TypeError, ValueError):
+            return None
+        return v if math.isfinite(v) else None
+
     def _text(self, control: dict, name: str) -> str:
         """Text-State, URL-dekodiert (Loxone liefert songName/artist prozentkodiert)."""
         v = self._state(control, name)
@@ -2227,6 +2235,8 @@ class App:
         try:
             v = float(value)
         except (TypeError, ValueError):
+            return ""
+        if not math.isfinite(v):   # NaN/unendlich (gueltige Binaer-Doubles): unbekannt
             return ""
         text = zero if (zero and v == 0) else (pos if v >= 0 else neg)
         return f"{text} {self._fmt_num(abs(v), fmt)}"
@@ -2743,15 +2753,16 @@ class App:
     async def vorschau_beenden(self, device: str) -> int:
         """Die Vorschau am Geraet beenden: es kehrt zum Profil davor zurueck
         ({t:"switch"} ohne Entwurf). Nur Verbindungen, die den Entwurf noch zeigen -
-        wurde das Geraet inzwischen anders umgeschaltet, bleibt es dabei. Ist eine
-        Verbindung noch unterwegs zum Entwurf (sie bekam das Umschalten und laedt neu),
-        merkt sich der Server das Ende: ws_handler schickt die neue Verbindung zurueck.
-        -> Anzahl (unterwegs zaehlt mit)."""
+        wurde das Geraet inzwischen anders umgeschaltet, bleibt es dabei. Zeigt ihn
+        gerade keine (die Seite laedt noch neu, oder das Geraet ist offline), merkt
+        sich der Server das Ende ohne Frist: ws_handler schickt die naechste Verbindung
+        des Geraets mit diesem Token zurueck, auch nach einem langen WLAN-Ausfall.
+        -> Anzahl (ein vorgemerktes Ende zaehlt mit)."""
         e = self.vorschau_geraet.pop(device, None)
         self.vorschau_ende.pop(device, None)
         if not e:
             return 0
-        n = 0
+        n, unterwegs = 0, False
         for ws, info in list(self.conn_info.items()):
             if info.get("dev") != device:
                 continue
@@ -2759,9 +2770,10 @@ class App:
                 if await self._neu_laden(ws, {"t": "switch", "panel": e["zurueck"], "entwurf": ""}):
                     n += 1
             elif info.get("entwurfKommt") == e["token"]:
-                self.vorschau_ende[device] = {"token": e["token"], "zurueck": e["zurueck"],
-                                              "bis": time.time() + VORSCHAU_UNTERWEGS}
-                n += 1
+                unterwegs = True
+        if unterwegs or not n:
+            self.vorschau_ende[device] = {"token": e["token"], "zurueck": e["zurueck"]}
+            n += 1
         return n
 
     def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
@@ -2920,11 +2932,14 @@ class App:
         to_w = 1000.0 if "kw" in fmt.lower() else 1.0   # States meist in kW -> Watt
 
         def watt(key):
+            """Leistung in W; None, solange sie fehlt - auch bei NaN/unendlich, die als
+            Binaer-Double gueltig sind: unbekannt, nicht 0 und nicht in Summen."""
             v = self._state(c, key)
             try:
-                return float(v) * to_w
+                w = float(v) * to_w
             except (TypeError, ValueError):
                 return None
+            return w if math.isfinite(w) else None
 
         def classify(nt, v):
             """Richtung (flow: in/out/None) UND Farbe/Rolle (kind) je Knoten aus
@@ -2953,6 +2968,8 @@ class App:
         try:
             soc = float(self._state(c, "Ssoc"))
         except (TypeError, ValueError):
+            soc = None
+        if soc is not None and not math.isfinite(soc):
             soc = None
 
         def agg_nodes():
@@ -2995,33 +3012,49 @@ class App:
 
         cons = []
         prod_sum = cons_sum = 0.0
-        hat_verbraucher = False
+        hat_verbraucher = prod_knoten = prod_fehlt = False
         if c.get("type") == "EFM":
             for i, (label, nd) in enumerate(self._named_items(det.get("nodes"))[:max_cons]):
                 v = watt(f"actual{i}")
-                if v is None:
-                    continue
                 nt = nd.get("nodeType") if isinstance(nd, dict) else None
+                if v is None:
+                    if (nt or "").lower() == "production":
+                        prod_fehlt = True
+                    continue
                 flow, kind = classify(nt, v)
                 cons.append({"name": label or f"Knoten {i + 1}", "icon": "load",
                              "iconUrl": self._node_icon_url(nd),
                              "w": abs(v), "flow": flow, "kind": kind})
                 ntl = (nt or "").lower()
                 if ntl == "production":
+                    prod_knoten = True
                     prod_sum += abs(v)
                 elif ntl in ("load", "group"):
                     hat_verbraucher = True
                     if v > 0:
                         cons_sum += abs(v)
+        def erzeugung():
+            """Erzeugung in W: die Erzeugungs-Knoten, sonst Ppwr. None, wenn eine
+            Erzeugung angelegt ist, aber keinen Wert hat - keine erfundene Null."""
+            if prod_sum:
+                return prod_sum
+            if pv is not None:
+                return abs(pv)
+            if prod_knoten:
+                return 0.0
+            if prod_fehlt or "Ppwr" in (c.get("states") or {}):
+                return None
+            return 0.0
+
         if cons:
             cons.sort(key=lambda n: (n["flow"] is None, -n["w"]))   # aktiv zuerst, 0 W ans Ende
             nodes = cons
-            prod_total = prod_sum or (abs(pv) if pv else 0.0)
+            prod_total = erzeugung()
             # gemessene Verbraucher-Knoten, sonst die Bilanz
             cons_total = cons_sum if hat_verbraucher else bilanz()
         else:
             nodes = agg_nodes()   # EM2 oder EFM ohne eigene Knoten
-            prod_total = abs(pv) if pv else 0.0
+            prod_total = erzeugung()
             cons_total = bilanz()
         return {"control": uuid, "name": _clean(c.get("name")) or "Energiefluss",
                 "nodes": nodes,
@@ -3055,9 +3088,18 @@ class App:
                            "iconUrl": self._icon_url(room.get("image")) or ""}
         return meta
 
+    def ansicht_wirksam(self, pid: str | None) -> str:
+        """Die Ansicht, die die Visu fuer `pid` tatsaechlich zeigt (wie resolve_profile):
+        eine leere, geloeschte oder vertippte Kennung zeigt das Standardprofil."""
+        return pid if pid and pid in self.panels else "default"
+
     def _ui_roh(self, pid: str | None, roh: dict | None) -> dict:
-        """ui des Profils `pid` aus der Datei, bei einem Entwurf (`roh`) aus ihm."""
-        return (roh if roh is not None else (self.panels.get(pid or "") or {})).get("ui") or {}
+        """ui des Profils `pid` aus der Datei, bei einem Entwurf (`roh`) aus ihm. Eine
+        unbekannte Kennung gilt wie in der Visu als Standardprofil (ansicht_wirksam):
+        sonst bekaeme ein Agent mit ?panel= leer oder geloescht nur die Vorgaben."""
+        if roh is None:
+            roh = self.panels.get(self.ansicht_wirksam(pid)) or {}
+        return roh.get("ui") or {}
 
     def panel_dpms(self, pid: str | None, roh: dict | None = None):
         """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
@@ -3255,7 +3297,8 @@ class App:
             e["type"] = "agent" if e["agent"] else (e["kiosk"] if e["kiosk"] in KIOSK_APPS else "browser")
             e["tileSuggest"] = _kachel_vorschlag(e["screen"])   # Zielkachel aus der gemeldeten Groesse
             if e["agent"] and not e["profile"]:
-                e["profile"] = e["agent"]["panel"]
+                # was die Visu des Agenten zeigt: eine geloeschte Ansicht ist dort das Standardprofil
+                e["profile"] = self.ansicht_wirksam(e["agent"]["panel"])
         anonymous.sort(key=lambda a: (a["ip"], a["code"]))
         return {"devices": sorted(devs.values(), key=lambda e: e["name"].lower()),
                 "anonymous": anonymous, "profiles": sorted(self.panels)}
@@ -3431,7 +3474,9 @@ class App:
         Ein Agent, der das kann (AGENT_KANN_PANEL), uebernimmt das Profil im
         ersten Fall mit seiner naechsten Meldung (Abschaltzeit, Neustart-
         intervall, naechster Kiosk-Start). Ausdrueckliche Wahlen unter
-        Displays gelten ab hier nicht mehr.
+        Displays gelten ab hier nicht mehr. Zeigt die Zuordnung auf eine Ansicht,
+        die es nicht (mehr) gibt, gilt wie in der Visu das Standardprofil; die
+        Zuordnung selbst bleibt (`statt` nennt sie im Ergebnis).
         """
         mode = (mode or "").strip()
         results: list = []
@@ -3444,9 +3489,11 @@ class App:
         for name, cfg in self.devices.items():
             if not cfg.get("auto", True):
                 continue
-            profile = (cfg.get("modes") or {}).get(mode)
-            if not profile:
+            zugeordnet = (cfg.get("modes") or {}).get(mode)
+            if not zugeordnet:
                 continue
+            profile = self.ansicht_wirksam(zugeordnet)
+            statt = {} if profile == zugeordnet else {"statt": zugeordnet}
             ws_targets = [ws for ws, dev in self.conn_dev.items() if dev == name]
             if ws_targets:
                 self.vorschau_geraet.pop(name, None)   # der Modus schaltet um: eine Vorschau endet damit
@@ -3464,16 +3511,16 @@ class App:
                             and (now - a["ts"]) < AGENT_ONLINE):
                         self.agent_wunsch[a["ip"]] = profile
                 results.append({"panel": name, "profile": profile,
-                                "ok": sent > 0, "via": "ws"})
+                                "ok": sent > 0, "via": "ws", **statt})
                 continue
             agent = by_name.get(name)
             if agent:
                 ok = await self._agent_start(agent, profile)
                 results.append({"panel": name, "profile": profile,
-                                "ok": ok, "via": "agent"})
+                                "ok": ok, "via": "agent", **statt})
             else:
                 results.append({"panel": name, "profile": profile,
-                                "ok": False, "error": "Gerät nicht online"})
+                                "ok": False, "error": "Gerät nicht online", **statt})
         return results
 
     def _room_ok(self, uuid: str, prof: dict | None) -> bool:
@@ -3894,7 +3941,7 @@ class App:
         self.panels = load_panels()
         self.entwuerfe.clear()   # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu)
         self.vorschau_geraet.clear()   # ... auch am Geraet: es zeigt jetzt das gespeicherte Profil
-        self.vorschau_ende.clear()
+        # vorschau_ende bleibt: eine schon beendete Vorschau kehrt weiter zur Ansicht davor zurueck
 
     def _write_devices(self, devices: dict) -> None:
         # Erst schreiben, dann uebernehmen: scheitert das Schreiben, laeuft der
@@ -4800,7 +4847,7 @@ class App:
             # Spwr Speicher (+Entladen/-Laden), actual0..5 = Knoten aus details.nodes
             fmt = (c.get("details") or {}).get("actualFormat") or "%.2f kW"
             bits = []
-            p = self._state(c, "Ppwr")
+            p = self._endlich(c, "Ppwr")
             if p is not None:
                 bits.append("PV " + self._fmt_num(p, fmt))
             g = self._flow_text(self._state(c, "Gpwr"), fmt, "Bezug", "Einspeisung")
@@ -4812,10 +4859,10 @@ class App:
                 it["subInfo"] = True
         elif t == "EnergyManager2":
             bits = []
-            p = self._state(c, "Ppwr")
+            p = self._endlich(c, "Ppwr")
             if p is not None:
                 bits.append("PV " + self._fmt_num(p, "%.2f kW"))
-            soc = self._state(c, "Ssoc")
+            soc = self._endlich(c, "Ssoc")
             if soc is not None and (c.get("details") or {}).get("HasSsoc", True):
                 bits.append("Speicher " + self._fmt_num(soc, "%.0f") + " %")
             it.update(icon="central", nav={"view": "control", "id": uuid},
@@ -5353,8 +5400,14 @@ class App:
         e = {"id": u, "label": it.get("label") or "", "wert": it.get("sublabel") or "",
              "nav": it.get("nav") or {"view": "control", "id": u}}
         summen = (self.energy_blocks(u) or {}).get("totals") or {}
-        if summen.get("cons") is not None:
-            e.update(prod=round(summen.get("prod") or 0), cons=round(summen["cons"]))
+
+        def watt(v):   # gerundet; unbekannt (None, NaN, unendlich) bleibt weg
+            return round(v) if isinstance(v, (int, float)) and math.isfinite(v) else None
+        cons, prod = watt(summen.get("cons")), watt(summen.get("prod"))
+        if cons is not None:
+            e["cons"] = cons
+            if prod is not None:
+                e["prod"] = prod
         return e
 
     def haus_aus_befehle(self, art: str, prof: dict | None) -> list:
@@ -6919,7 +6972,7 @@ class App:
         if t == "EFM":
             det = c.get("details") or {}
             fmt = det.get("actualFormat") or "%.2f kW"
-            p = self._state(c, "Ppwr")
+            p = self._endlich(c, "Ppwr")
             rows = []
             g = self._flow_text(self._state(c, "Gpwr"), fmt, "Netzbezug", "Einspeisung")
             if g:
@@ -6929,7 +6982,7 @@ class App:
             if sp:
                 rows.append({"k": "status", "text": sp})
             nodes = self._named_items(det.get("nodes"))
-            vals = [(label, self._state(c, f"actual{i}")) for i, (label, _n) in enumerate(nodes[:6])]
+            vals = [(label, self._endlich(c, f"actual{i}")) for i, (label, _n) in enumerate(nodes[:6])]
             vals = [(label, v) for label, v in vals if v is not None]
             if vals:
                 rows.append({"k": "head", "text": "Verbraucher und Quellen"})
@@ -6944,7 +6997,7 @@ class App:
             return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
         if t == "EnergyManager2":
             det = c.get("details") or {}
-            p = self._state(c, "Ppwr")
+            p = self._endlich(c, "Ppwr")
             rows = []
             g = self._flow_text(self._state(c, "Gpwr"), "%.2f kW", "Netzbezug", "Einspeisung")
             if g:
@@ -6953,10 +7006,10 @@ class App:
                 sp = self._flow_text(self._state(c, "Spwr"), "%.2f kW", "Speicher entlädt", "Speicher lädt", "Speicher")
                 if sp:
                     rows.append({"k": "status", "text": sp})
-            soc = self._state(c, "Ssoc")
+            soc = self._endlich(c, "Ssoc")
             if soc is not None and det.get("HasSsoc", True):
                 txt = f"Speicher {self._fmt_num(soc, '%.0f')} %"
-                mn = self._state(c, "MinSoc")
+                mn = self._endlich(c, "MinSoc")
                 if mn is not None:
                     txt += f" (Reserve {self._fmt_num(mn, '%.0f')} %)"
                 rows.append({"k": "status", "text": txt})
@@ -8196,7 +8249,10 @@ async def api_save_panels(request: web.Request) -> web.Response:
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
     if weg:
         log.warning("panels.json: nicht übernommen: %s", "; ".join(weg))
-    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg})
+    # `panels`: was jetzt tatsaechlich in der Datei steht, in der Form von /api/meta.
+    # Der Konfigurator fuehrt das als gespeicherten Stand (ohne Verworfenes, normiert).
+    return web.json_response({"ok": True, "count": len(clean), "reloaded": n, "verworfen": weg,
+                              "panels": {pid: app._panel_export(raw) for pid, raw in app.panels.items()}})
 
 
 async def api_entwurf(request: web.Request) -> web.Response:
@@ -9997,7 +10053,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         if cfg and cfg.get("auto", True):
             mapped = (cfg.get("modes") or {}).get(app.last_mode)
             if mapped:
-                pid = mapped
+                mapped = pid = app.ansicht_wirksam(mapped)
                 # auch dem Agenten, sonst meldete er weiter ?panel= (dessen
                 # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
                 for a in agenten:
@@ -10051,12 +10107,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first
-    # Vorschau am Geraet beendet, waehrend es noch zum Entwurf unterwegs war: gleich zurueck
-    ende = app.vorschau_ende.get(dev) if dev and prof.get("entwurf") else None
+    # Vorschau am Geraet beendet, waehrend es neu lud oder offline war: gleich zurueck. Auch
+    # mit einem inzwischen abgelaufenen Token - sonst zeigte es das Profil des Entwurfs
+    ende = app.vorschau_ende.get(dev) if dev and ent else None
     if ende and ende["token"] == ent:
         del app.vorschau_ende[dev]
-        if time.time() < ende["bis"]:
-            await app._neu_laden(ws, {"t": "switch", "panel": ende["zurueck"], "entwurf": ""})
+        await app._neu_laden(ws, {"t": "switch", "panel": ende["zurueck"], "entwurf": ""})
     # Einrichtungshinweis, solange es keine Struktur vom Miniserver gibt
     await app._einrichtung_melden(neu=ws)
     # Browser ohne Kennung: Kopplungscode; ohne ?panel= dazu die Karte

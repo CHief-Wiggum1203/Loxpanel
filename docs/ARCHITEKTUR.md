@@ -2635,12 +2635,18 @@ Welcher Stand läuft, steht in der Seitenleiste des Konfigurators und in
 `loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `tests.yml` reicht den
 Commit als Build-Argument `LOXPANEL_COMMIT` herein, der APK-Build nimmt ihn aus
 derselben Umgebungsvariablen oder aus Git und hängt ihn auch an den
-`versionName` der App (App-Info in Android).
+`versionName` der App (App-Info in Android). Ohne Commit, etwa beim lokalen
+`docker compose up -d --build` (die Compose-Datei reicht keinen herein, `.git`
+fehlt im Image) oder aus einem entpackten Archiv, steht unter `inhalt` ein
+Prüfwert über `bin/`, `webfrontend/`, `deploy/` und `agent/`
+(`inhalt_kennung()`): Derselbe Code ergibt dieselbe Kennung, auch beim Neustart
+oder erneuten Bauen; jede Änderung ergibt eine neue.
 
 Nach einem Update laden offene Seiten von selbst neu. Sonst liefe in einem Tab,
 der vor dem Update offen war, altes HTML und JavaScript gegen den neuen Server,
 und auch die Versionszeile bliebe alt. Der Server nennt seinen Stand
-(`server_stand()`, der Commit; ohne Commit leer, dann lädt nichts neu) in der
+(`server_stand()`, der Commit, ohne ihn die Kennung des Inhalts; nur wenn beides
+fehlt leer, dann lädt nichts neu) in der
 `theme`-Nachricht und in `/api/devices`. Die Visu merkt sich den Stand der ersten
 Verbindung (`serverStandPruefen()`); meldet der Server nach dem Wiederverbinden
 einen anderen, lädt sie einmal neu. Der Konfigurator prüft ihn bei jeder
