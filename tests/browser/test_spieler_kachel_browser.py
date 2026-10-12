@@ -51,7 +51,9 @@ MESSEN = """() => {
           tasten: sicht(tc) ? [...tc.querySelectorAll('.tb')].map(b => r(b)) : [],
           cover: sicht(cv) ? r(cv) : null, coverGeladen: !!cv && cv.complete && cv.naturalWidth > 0,
           spalte: r(t.querySelector('.tplay')), ks: parseFloat(getComputedStyle(document.querySelector('.screen')).getPropertyValue('--ks')) || 1,
-          pad: parseFloat(getComputedStyle(t).paddingTop), gap: parseFloat(getComputedStyle(t).getPropertyValue('--spgap')) || 0};
+          pad: parseFloat(getComputedStyle(t).paddingTop),
+          // der Abstand, den die Spalte wirklich hat (--spgap ist ein calc(), das parseFloat nicht liest)
+          gap: t.querySelector('.tplay') ? parseFloat(getComputedStyle(t.querySelector('.tplay')).rowGap) : 0};
 }"""
 
 
@@ -285,3 +287,22 @@ def test_tasten_folgen_einer_reinen_breitenaenderung():
     assert schmal == schmal_frisch and zurueck == zurueck_frisch, (schmal, schmal_frisch, zurueck, zurueck_frisch)
     assert schmal["spbreit"] and schmal["breite"] >= 34 - 0.5, schmal
     assert zurueck["spbreit"] == start["spbreit"] and zurueck["breite"] >= 34 - 0.5, (start, zurueck)
+
+
+@pytest.mark.parametrize("hoehe", [380, 400, 420, 440, 460, 480])
+def test_cover_nie_unter_der_mindestgroesse(hoehe):
+    """3 x 3 mit Fuellen, 800 breit, Hoehe rund um die Grenze: Ein sichtbares
+    Cover ist mindestens SPIELER_COVER_MIN mal Faktor hoch - gerechnet mit dem
+    Abstand, den die Spalte wirklich hat (bei Faktor 0,85: 8,5 px, nicht 0).
+    Reicht der Platz nicht, faellt es weg; die Tasten bleiben und stehen mittig."""
+    m = _laufen({"cols": 3, "rows": 3, "fill": True}, 800, hoehe)
+    mindest = 36 * m["ks"]
+    assert m["gap"] > 0, m["gap"]
+    assert len(m["tasten"]) == 3, m
+    if m["cover"]:
+        assert m["cover"]["height"] >= mindest - 0.5, (hoehe, m["cover"], mindest)
+    else:
+        assert "ohnecover" in m["klassen"], m["klassen"]
+        sp, t = m["spalte"], m["tasten"][0]
+        oben, unten = t["top"] - sp["top"], sp["bottom"] - t["bottom"]
+        assert abs(oben - unten) <= 1, ("Tasten mittig", hoehe, oben, unten)

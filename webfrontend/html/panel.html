@@ -2655,17 +2655,20 @@ function tastenFaktor(tile){
 // schrumpfen nie.
 const SPIELER_COVER_MIN = 36, TASTE_MIN = 34;
 function spielerEinpassen(tile, tc){
+  tile._kt=null; tile.style.removeProperty('--ks');   // gemessen wird mit dem Faktor der Seite
   const cs=getComputedStyle(tile), pad=parseFloat(cs.paddingTop);
   const innen=tile.clientHeight-pad-parseFloat(cs.paddingBottom);
   const n=tc.querySelectorAll('.tb').length, abstand=parseFloat(getComputedStyle(tc).columnGap)||0;
   const noetig=n*TASTE_MIN*Math.max(1, kachelFaktor)+(n-1)*abstand, halb=tile.clientWidth/2-parseFloat(cs.paddingRight);
   tile.classList.toggle('spbreit', noetig>halb+0.5);
   if(noetig>halb+0.5) tile.style.setProperty('--spw', noetig.toFixed(1)+'px'); else tile.style.removeProperty('--spw');
-  const leiste=TASTEN.lx.leiste*Math.max(1, kachelFaktor), gap=parseFloat(cs.getPropertyValue('--spgap'))||0;
+  // Abstand zwischen Cover und Tasten, wie ihn die Spalte tatsaechlich hat: --spgap ist ein
+  // calc() (10px mal Faktor), das parseFloat nicht liest - der aufgeloeste row-gap schon
+  const sp=tile.querySelector('.tplay'), gap=sp ? (parseFloat(getComputedStyle(sp).rowGap)||0) : 0;
+  const leiste=TASTEN.lx.leiste*Math.max(1, kachelFaktor);
   const an=innen>=leiste-0.5;
   tc.hidden=!an; tile.classList.toggle('ohnetasten', !an);
   tile.classList.toggle('ohnecover', !an || innen-leiste-gap < SPIELER_COVER_MIN*kachelFaktor);
-  tile._kt=null; tile.style.removeProperty('--ks');
 }
 function tastenEinpassen(tile){
   const tc=tile&&tile.querySelector('.tctrls'); if(!tc || !tile.clientHeight) return;
