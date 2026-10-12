@@ -1,7 +1,8 @@
 """Lesbarkeit der Kachel-Sets in Chromium: Jeder sichtbare Text jeder Ansicht
 (Raster, Uhr-Seite mit Wetter und Terminen, Kalender- und Wetter-Tab, Front
-und Player neben den Kacheln, Detailseite, PIN, Hausuebersicht) wird gegen die Flaeche
-gemessen, auf der er wirklich steht - Schriftfarbe, Deckkraft und alle
+und Player neben den Kacheln, Detailseite, Liste mit aktiver Zeile, PIN,
+Hausuebersicht) wird gegen die Flaeche gemessen, auf der er wirklich steht -
+Schriftfarbe, Deckkraft und alle
 Hintergruende darunter, wie der Browser sie rechnet. Text muss AA (4,5:1)
 tragen, grosse Schrift (ab 24 px oder 18,66 px fett) 3:1, wie WCAG 1.4.3.
 Das Set "touch" laeuft dazu ueber die Farbtoene der Schnellwahl und beide
@@ -93,6 +94,9 @@ ANSICHTEN = {
     "kopfzeile_werte": (TABS, {"panes": {"favoriten": "header:T0,T1"}}, [], True),
     "werteleiste": (TABS, {"valueBar": ["favoriten"]}, [], True),
     "detail": (TABS, {}, ["nav({view:'control', id:'IR'})"]),
+    # Liste mit aktiver Zeile (Stimmungen der Lichtsteuerung, "Aus" ist an):
+    # die Zeile kippt um wie eine aktive Kachel, ihre Schrift muss mitziehen
+    "liste": (TABS, {}, ["nav({view:'control', id:'LC'})"]),
     "pin": (TABS, {}, ["askPin(() => {}, 'PIN')"]),
     # Hausuebersicht: Karten, aktive Geraete und Spieler auf den Flaechen des Sets
     "haus": (TABS + ["haus"], {}, ["goTab('haus')"]),

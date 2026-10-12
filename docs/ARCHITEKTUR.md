@@ -1258,8 +1258,11 @@ Assistenten des Konfigurators.
   schalten (`zustandVorn()`). `mitte`: `kachelTexte()` stellt den Zustand vorn
   (neben einem Messwert den, den der Server dazu nennt) und darunter „Name ·
   Raum“, die aktive Kachel trägt `--kachel-an-ink`, ihre Zweitzeile
-  `--kachel-an-muted`. `kreis`: `render()` legt `.kreis` um das Symbol, aktiv
-  füllt er sich mit `--glow`; Zustand und Name stehen unten, eine breite
+  `--kachel-an-muted`. Dasselbe gilt für die aktive Zeile einer Liste
+  (`layout: "list"`, etwa die Stimmungen der Lichtsteuerung): Ihre Fläche ist
+  ebenfalls `--kachel-an`, ohne die Schrift des Sets stünde dort bei „aktiv
+  dunkel“ `--ink` auf fast Schwarz. `kreis`: `render()` legt `.kreis` um das
+  Symbol, aktiv füllt er sich mit `--glow`; Zustand und Name stehen unten, eine breite
   Kachel ohne Messwert stellt Kreis, Text und Raum in eine Zeile. Zustandstext
   in Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leisten `pille`
   und `oben` haben ihre Höhe und Symbolgröße aus dem Set, Zurück ist ein
