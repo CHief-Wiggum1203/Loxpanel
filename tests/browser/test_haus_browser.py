@@ -32,8 +32,12 @@ LAGE = """() => {
     && !['hidden', 'clip'].includes(getComputedStyle(e).overflowX)).map(e => e.className);
   const klein = [...g.querySelectorAll('button')].filter(sicht).filter(b => r(b).width < 44 || r(b).height < 44)
     .map(b => b.className + ' ' + Math.round(r(b).width) + 'x' + Math.round(r(b).height));
+  // ragt etwas unten heraus, oder sind die Zeilen einer Raumkarte gequetscht (liegen
+  // uebereinander oder ihr Text laeuft aus dem Kasten; 3 px Rundung von Pfeil und Name)?
   const ab = [...g.querySelectorAll('.hs-c')].filter(sicht).filter(c => [...c.querySelectorAll('*')]
-    .some(k => sicht(k) && r(k).bottom > r(c).bottom + 1)).map(c => c.dataset.hb);
+    .some(k => sicht(k) && r(k).bottom > r(c).bottom + 1)
+    || (c.classList.contains('hs-r') && [...c.children].filter(sicht)
+        .some((k, i, l) => (i > 0 && r(k).top < r(l[i - 1]).bottom - 1) || k.scrollHeight > k.clientHeight + 3))).map(c => c.dataset.hb);
   const kopf = [...g.querySelectorAll('.hs-kopf .hs-k')].map(k => k.innerText.split(String.fromCharCode(10)).join(' '));
   return {quer, klein, ab, kopf, spalte: !!g.querySelector('.hs.spalte'), leiste: !!g.querySelector('.hs-sp.leiste'),
           raeume: g.querySelectorAll('.hs-r').length, aktiv: g.querySelectorAll('.hs-aktiv .hs-a.on').length,
@@ -288,6 +292,56 @@ def test_haus_taste_in_der_klassischen_leiste(cfg_ordner):
     assert erg["taste_weg"] == 0 and erg["antwort"]["ok"], erg
     assert erg["flur"]["tabs"] == ["favoriten", "raeume", "haus"], erg["flur"]
     assert "pickTabs" not in erg["flur"] or not any(s.get("widget") == "haus" for s in erg["flur"]["pickTabs"]), erg
+
+
+def test_lange_raumnamen_schneiden_nichts_ab(tmp_path):
+    """Viele Raeume mit langen Namen (zwei Zeilen) und Raumregelung, Set
+    Kreide in einem Fenster wie am Mac: keine Raumkarte schneidet ihre
+    Zeilen ab, die Liste scrollt dafuer senkrecht; die gewaehlte Zone ist
+    auch dort zu erkennen, wo --kachel-an der Kachel gleicht (Ring)."""
+    struktur, states = haus_anlage()
+    for i, name in enumerate(["Essen-Kochen-Wohnen Ost", "Gang Vorzimmer Nord", "Gästezimmer Dachgeschoss",
+                              "Hauswirtschaftsraum", "Kinderzimmer Anna", "Schlafzimmer Eltern"]):
+        ru = f"x{i}"
+        struktur["rooms"][ru] = {"name": name}
+        struktur["controls"][f"R{i}"] = {"name": "Raumregelung", "type": "IRoomControllerV2", "uuidAction": f"R{i}",
+                                         "room": ru, "cat": "c1",
+                                         "states": {"tempActual": f"r{i}a", "tempTarget": f"r{i}t", "prepareState": f"r{i}p"}}
+        struktur["controls"][f"S{i}"] = {"name": "Licht", "type": "Switch", "uuidAction": f"S{i}", "room": ru,
+                                         "cat": "c1", "states": {"active": f"s{i}"}}
+        states.update({f"r{i}a": 23.2, f"r{i}t": 23.0, f"r{i}p": 0, f"s{i}": 0})
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"haus": {"title": "Haus", "tabs": ["haus"],
+                                                      "ui": {"grid": "auto", "tileSet": "kreide"}}})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1440, 820, fehler)
+                lage = await pg.evaluate(LAGE)
+                ring = await pg.evaluate("getComputedStyle(document.querySelector('.hs-zone.akt')).boxShadow")
+                await pg.screenshot(path=str(tmp_path / "haus_kreide_lange_namen.png"))
+                # neue Zustaende bei gleicher Lage: updateHaus statt Neuaufbau, das die
+                # Masse neu setzt - auch danach ist nichts gequetscht
+                ohne_neuaufbau = await pg.evaluate("updateHaus()")
+                lage2 = await pg.evaluate(LAGE)
+                lage2["ohne_neuaufbau"] = ohne_neuaufbau
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return lage, ring, lage2
+    lage, ring, lage2 = asyncio.run(lauf())
+    assert lage["raeume"] == 13 and not lage["ab"], lage
+    assert lage2["ohne_neuaufbau"] and not lage2["ab"], lage2
+    assert not lage["quer"] and not lage["klein"], lage
+    assert lage["spalte"] and ring not in ("", "none"), ring
 
 
 # --hk wie angewandt und wie frisch gerechnet, Schrift des ersten Raumnamens, Signatur
