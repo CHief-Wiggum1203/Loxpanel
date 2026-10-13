@@ -1298,6 +1298,11 @@ function bindAppearance(p){
   document.querySelectorAll('input[data-ui]').forEach(inp=>{
     inp.oninput=()=>{ p.ui=p.ui||{}; const k=inp.dataset.ui;
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); }; });
+  // An/Aus mit "leer = geerbt" (Nacht-Uhr): an -> true, aus -> false, leer -> fehlt
+  document.querySelectorAll('select[data-ui-wahl]').forEach(sel=>{
+    sel.onchange=()=>{ p.ui=p.ui||{}; const k=sel.dataset.uiWahl;
+      if(sel.value==='an') p.ui[k]=true; else if(sel.value==='aus') p.ui[k]=false; else delete p.ui[k];
+      markDirty(); erbtZeichnen(); }; });
   { const fs=$('#fFontSel'), fc=$('#fFontCustom');
     if(fs) fs.onchange=()=>{ p.ui=p.ui||{};
       if(fs.value==='__custom'){ fc.style.display=''; const v=fc.value.trim(); v?p.ui.font=v:delete p.ui.font; }
@@ -1506,12 +1511,13 @@ function renderGlobalEditor(p){
       '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Auslöser (optional)')+'</label><select id="nt_control"></select></div></div>'+
       '<div class="grph">'+T('Abdunkelung')+'</div>'+
       '<div class="sizes">'+nachtFelder(ui, nstd.nightDim, nstd.nightWake)+'</div>'+
+      '<p class="note">'+T('Nacht-Uhr: Nachts zeigt die Uhr-Seite nur die Uhrzeit, gedimmt auf Schwarz, wie die Nachtanzeige der Loxone-Taster. Sind Gesten an, stehen oben die Symbole ihrer Spalten. „Nachts abdunkeln“ wirkt zusätzlich.')+'</p>'+
       '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
     '</div><div class="card"><h3>'+T('Display &amp; Neustart')+'</h3>'+
       '<div class="sizes">'+displayFelder(ui, null, null)+'</div>'+
       '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
       '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
-    '</div></section>';
+    '</div>'+gestenVorgabenKarte(ui)+'</section>';
   bindAppearance(p);
   nachtZeichnen();
   { const s=$('#nt_control'); if(s) s.onchange=()=>{ NACHT.control=s.value; bereichOffen('nacht'); }; }
@@ -1521,9 +1527,65 @@ function renderGlobalEditor(p){
       if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // global ist "Aus" das Fehlen
       markDirty(); }; }
   renderCatColors(p);
+  gestenVorgabenBinden(p);
   $('#delSlot').innerHTML='';
   erbtZeichnen();
   renderSubtabs(); showSub(subVg);
+}
+// ---- Gesten (Loxone-Standard wie auf den Tastern) ----
+// Vorgaben -> Verhalten: an/aus fuer alle Ansichten, Taster fuer "Haus aus"
+// (Dreifachtipp) und je Raum fuer "Raum verlassen" (Doppeltipp). Die Taster
+// listet der Server (/api/meta gestenTaster: nur Pushbutton, nur er nimmt einen
+// Impuls). Ansicht -> Verhalten: an/aus und der Raum ausserhalb von Raumseiten.
+function gestenWahl(id, wert, leer){
+  return '<select id="'+id+'"><option value="">'+esc(leer)+'</option>'+
+    '<option value="an"'+(wert===true?' selected':'')+'>'+T('An')+'</option>'+
+    '<option value="aus"'+(wert===false?' selected':'')+'>'+T('Aus')+'</option></select>';
+}
+function tasterOptionen(sel, leer){
+  const opts=((META||{}).gestenTaster||[]).slice();
+  if(sel && !opts.some(o=>o.uuid===sel)) opts.unshift({uuid:sel, name:sel+' ('+T('nicht in der Struktur')+')', room:''});
+  return '<option value="">'+esc(leer)+'</option>'+
+    opts.map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===sel?' selected':'')+'>'+
+      esc((o.room?o.room+' · ':'')+o.name)+'</option>').join('');
+}
+function gestenRaumOptionen(sel){
+  const raeume=((META||{}).rooms||[]).slice();
+  if(sel && !raeume.some(r=>r.uuid===sel)) raeume.unshift({uuid:sel, name:sel+' ('+T('nicht in der Struktur')+')'});
+  return '<option value="">'+T('— keiner (nur auf Raumseiten) —')+'</option>'+
+    raeume.map(r=>'<option value="'+esc(r.uuid)+'"'+(r.uuid===sel?' selected':'')+'>'+esc(r.name)+'</option>').join('');
+}
+function gestenVorgabenKarte(ui){
+  const rv=ui.raumVerlassen||{};
+  return '<div class="card"><h3>'+T('Gesten')+'</h3>'+
+    '<p class="note">'+T('Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster: Mitte Licht (hoch/runter dimmt, ein Tipp schaltet ein bzw. zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Ein Finger bedient die Visu wie bisher.')+'</p>'+
+    '<div class="row2"><div class="field" style="max-width:320px"><label class="lbl">'+T('Gesten für alle Ansichten')+'</label>'+
+      gestenWahl('gGesten', ui.gesten, T('Standard ({w})').replace('{w}', wertText('gesten', standardWert('gesten'))))+
+      erbtFeld('gesten')+'</div></div>'+
+    '<div class="grph">'+T('Haus aus (Dreifachtipp)')+'</div>'+
+    '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Taster aus Loxone Config')+'</label>'+
+      '<select id="gHausAus">'+tasterOptionen(ui.hausAus, T('— keiner (Dreifachtipp wirkt nicht) —'))+'</select></div></div>'+
+    '<div class="grph">'+T('Raum verlassen (Doppeltipp)')+'</div>'+
+    '<p class="note">'+T('Je Raum ein Taster aus Loxone Config, dann regelt die Loxone-Logik alles, auch das Raumklima. Ohne Taster schaltet LoxPanel aus, was im Raum an ist und sich abschalten lässt; das Raumklima bleibt dann unberührt.')+'</p>'+
+    '<div class="sizes">'+((META||{}).rooms||[]).map(r=>
+      '<div class="field" style="max-width:320px"><label class="lbl">'+esc(r.name)+'</label>'+
+      '<select data-gv-raum="'+esc(r.uuid)+'">'+tasterOptionen(rv[r.uuid]||'', T('— ohne Taster: ausschalten, was an ist —'))+'</select></div>').join('')+'</div>'+
+    '<p class="note">'+T('Zur Auswahl stehen Taster (virtueller Eingang): nur sie nehmen laut Loxone einen Impuls an. Bausteine mit Visu-Passwort fehlen, denn eine Geste kann keine PIN abfragen.')+'</p>'+
+  '</div>';
+}
+function gestenVorgabenBinden(p){
+  const ui=()=>{ p.ui=p.ui||{}; return p.ui; };
+  const gg=$('#gGesten');
+  if(gg) gg.onchange=()=>{ const u=ui();
+    if(gg.value==='an') u.gesten=true; else if(gg.value==='aus') u.gesten=false; else delete u.gesten;
+    markDirty(); erbtZeichnen(); };
+  const ha=$('#gHausAus');
+  if(ha) ha.onchange=()=>{ const u=ui(); if(ha.value) u.hausAus=ha.value; else delete u.hausAus; markDirty(); };
+  document.querySelectorAll('#pconfHost [data-gv-raum]').forEach(sel=>sel.onchange=()=>{
+    const u=ui(), rv=Object.assign({}, u.raumVerlassen||{});
+    if(sel.value) rv[sel.dataset.gvRaum]=sel.value; else delete rv[sel.dataset.gvRaum];
+    if(Object.keys(rv).length) u.raumVerlassen=rv; else delete u.raumVerlassen;
+    markDirty(); });
 }
 // Felder "Nachts abdunkeln" und "Aufhellen bei Beruehrung" (Vorgaben -> Nacht und
 // Ansicht -> Verhalten). Ein leeres Feld zeigt grau, was ohne Eintrag gilt.
@@ -1536,7 +1598,24 @@ function nachtFelder(ui, dimLeer, wakeLeer){
   return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nachts abdunkeln (%)')+'</label>'+
       '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+esc(wert('nightDim'))+'" placeholder="'+esc(nachtPlatzhalter('nightDim',dimLeer))+'">'+erbtFeld('nightDim')+'</div>'+
     '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">'+T('Aufhellen bei Berührung (Sek.)')+'</label>'+
-      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>';
+      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>'+
+    nachtUhrFelder(ui);
+}
+// Nacht-Uhr (Vorgaben -> Nacht und Ansicht -> Verhalten): nachts statt der Uhr-Seite
+// nur die Uhrzeit, gedimmt auf Schwarz, mit den Symbolen der Gesten-Spalten. Leer
+// = Vorgabe bzw. Standard (/api/meta nightDefaults = NACHT_STANDARD).
+function nachtUhrFelder(ui){
+  const vg=((PANELS[cur]||{}).__global), std=(META.nightDefaults||{});
+  const leer=vg ? T('Standard ({w})').replace('{w}', wertText('nightClock', std.nightClock))
+                : T('Wie Vorgabe');
+  const hellLeer=vg ? std.nightClockBright : nachtVorgabe('nightClockBright');
+  return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nacht-Uhr')+'</label>'+
+      '<select data-ui-wahl="nightClock"><option value="">'+esc(leer)+'</option>'+
+      '<option value="an"'+(ui.nightClock===true?' selected':'')+'>'+T('An')+'</option>'+
+      '<option value="aus"'+(ui.nightClock===false?' selected':'')+'>'+T('Aus')+'</option></select>'+erbtFeld('nightClock')+'</div>'+
+    '<div class="field" style="max-width:180px"><label class="lbl">'+T('Helligkeit der Nacht-Uhr (%)')+'</label>'+
+      '<input type="number" min="5" max="100" step="5" data-ui="nightClockBright" value="'+esc(ui.nightClockBright==null?'':ui.nightClockBright)+
+        '" placeholder="'+esc(hellLeer==null?'':String(hellLeer))+'">'+erbtFeld('nightClockBright')+'</div>';
 }
 // Felder "Display aus nach" und "Auto-Neustart alle" (Vorgaben -> Verhalten und Ansicht ->
 // Verhalten). Ein leeres Feld zeigt grau die Vorgabe, ohne sie, was dann gilt.
@@ -1585,6 +1664,8 @@ function standardWert(k, ui){
   if(k==='nightDim'||k==='nightWake') return ((META||{}).nightDefaults||{})[k];
   if(k==='scale') return 'off';
   if(k==='tileSize') return kachelZiel().std;
+  if(k==='gesten') return !!(META||{}).gestenStandard;
+  if(k==='nightClock'||k==='nightClockBright') return ((META||{}).nightDefaults||{})[k];
   return null;
 }
 function wertText(k, v){
@@ -1605,6 +1686,8 @@ function wertText(k, v){
   if(k==='font') return (FONTS.find(x=>sameFont(x.v,v))||{label:String(v)}).label;
   if(k==='baseColor') return (BASE_COLORS.find(c=>c.v.toLowerCase()===String(v).toLowerCase())||{n:String(v)}).n;
   if(k==='bold') return v ? T('Fett') : T('Normal');
+  if(k==='gesten'||k==='nightClock') return v ? T('An') : T('Aus');
+  if(k==='nightClockBright') return fmtZahl(v)+' %';
   if(k==='lang') return (LANGS.find(l=>l[0]===v)||[v,String(v)])[1];
   return String(v);
 }
@@ -1904,6 +1987,14 @@ function renderEditor(){
          (((p.ui||{}).pinMerken==null)?'':(p.ui||{}).pinMerken)+'" placeholder="'+esc(String(pinMerkenCfg().standard))+'"></div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Nach der richtigen Visu-PIN fragt die Visu bei gesicherten Bausteinen so lange nicht erneut – nur auf derselben Seite. Uhr-Seite, Display aus und Seitenwechsel vergessen die PIN sofort. 0 = jedes Mal fragen.')+'</div>'+
+     '<div class="grph">'+T('Gesten')+'</div>'+
+     '<div class="sizes">'+
+       '<div class="field" style="max-width:240px"><label class="lbl">'+T('Zwei-Finger-Gesten')+'</label>'+
+         gestenWahl('fGesten', (p.ui||{}).gesten, T('Wie Vorgabe'))+erbtFeld('gesten')+'</div>'+
+       '<div class="field" style="max-width:320px"><label class="lbl">'+T('Raum außerhalb von Raumseiten')+'</label>'+
+         '<select id="fGestenRaum">'+gestenRaumOptionen((p.ui||{}).gestenRaum)+'</select></div>'+
+     '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Auf einer Raumseite gelten die Gesten diesem Raum. Auf anderen Seiten (Favoriten, Hausübersicht …) gelten sie dem hier gewählten Raum, ohne Auswahl dort gar nicht. Was Doppel- und Dreifachtipp auslösen, steht unter Vorgaben → Verhalten.')+'</div>'+
    '</div></section>';
 
   // Allgemein: Duplizieren und Loeschen der Ansicht; die Speicherleiste behaelt die Vorschau
@@ -1969,6 +2060,11 @@ function renderEditor(){
       layoutFelder(p);  // Widget-Breite nur mit Widget
       markDirty(); }; }
   aufhellenZeigen(nachtVorgabe('nightDim'));
+  { const fg=$('#fGesten'); if(fg) fg.onchange=()=>{ p.ui=p.ui||{};
+      if(fg.value==='an') p.ui.gesten=true; else if(fg.value==='aus') p.ui.gesten=false; else delete p.ui.gesten;
+      markDirty(); erbtZeichnen(); }; }
+  { const fr=$('#fGestenRaum'); if(fr) fr.onchange=()=>{ p.ui=p.ui||{};
+      if(fr.value) p.ui.gestenRaum=fr.value; else delete p.ui.gestenRaum; markDirty(); }; }
 
   bindOverlay('ov_', ()=>{ p.ui=p.ui||{}; p.ui.overlay=p.ui.overlay||{}; return p.ui.overlay; },
               ()=>{ pruneOverlay(p.ui); ovPreview('ovPrev',(p.ui||{}).overlay); markDirty(); });
@@ -5324,6 +5420,7 @@ let DEVICE_SCREENS={}; // Geraetename -> gemeldete Bildschirmgroesse (fuer den H
 let DEVICE_CONN={};    // Geraetename -> Anzahl verbundener Visus (Vorschau am Geraet braucht eine)
 let DEVICE_VORSCHAU={}; // Geraetename -> {id, bis}, solange das Geraet einen Entwurf zeigt
 let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
+let LICHT_OPTS=[];     // Lichtsteuerungen mit Stimmungen (Stimmung beim Einschalten), aus /api/meta
 let ACTIVE_OPTS=[];    // Bausteine mit active-State (Auswahl Praesenzmelder), aus /api/meta
 let PRESENCE_NOW={};   // Geraetename -> meldet sein Praesenzmelder gerade jemanden? (aus /api/devices)
 let PASS_ZIEL={};      // Geraetename -> {driver, host}, fuer das der Server ein Display-Kennwort hat
@@ -5339,6 +5436,7 @@ async function loadPanelIds(){
     const r=await fetch('/api/meta'); const m=await r.json();
     PANEL_IDS=Object.keys(m.panels||{});
     ACTIVE_OPTS=Array.isArray(m.activeControls)?m.activeControls:[];
+    LICHT_OPTS=Array.isArray(m.lichtStimmungen)?m.lichtStimmungen:[];
     passZielLesen(m.devices);
     GER_GESPEICHERT=devicesPayload(devAusServer(m.devices));
     // Offene Eingaben unter Geraete bleiben: nur uebernehmen, was im Editor steht
@@ -5352,7 +5450,8 @@ function devAusServer(devices){
     out[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
                scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
                presence:d.presence||'',                  // '' = kein Praesenzmelder
-               tileTarget:d.tileTarget||''};              // '' = Zielkachel wie in der Ansicht
+               tileTarget:d.tileTarget||'',               // '' = Zielkachel wie in der Ansicht
+               lichtStart:lichtStartWert(d.lichtStart)};  // '' = erste Stimmung im Raum
   });
   return out;
 }
@@ -5590,6 +5689,12 @@ function devRow(name){
       '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
       '<span class="note dp_state">'+esc(presenceText(name))+'</span>'+
     '</div>'+
+    '<div class="gk-teil">'+T('Gesten')+'</div>'+
+    '<div class="dlrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+      '<span style="font-size:13px;opacity:.85">'+T('Stimmung beim Einschalten')+'</span>'+
+      '<select class="dl_start" style="max-width:100%">'+lichtStartOptionen(d.lichtStart)+'</select>'+
+    '</div>'+
+    '<div class="note">'+T('Was zwei Finger in der Mitte einschalten, wenn im Raum alles aus ist; ihre Lichtsteuerung ist die, durch deren Stimmungen ein Tipp schaltet. Leer: die erste Stimmung der ersten Lichtsteuerung im Raum.')+'</div>'+
     '<div class="gk-teil">'+T('Display-Steuerung')+'</div>'+
     displayRow(d.display, name)+
   '</div>';
@@ -5604,6 +5709,24 @@ function presenceOptions(sel){
   return '<option value="">'+T('— keiner (Display nach der Leerlaufzeit aus) —')+'</option>'+
     opts.map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===sel?' selected':'')+'>'+
       esc((o.room?o.room+' · ':'')+o.name+' ('+o.type+')')+'</option>').join('');
+}
+// Stimmung beim Einschalten (Gesten): Wert im Feld "Lichtsteuerung|Stimmungs-ID",
+// gespeichert als {lc, mood}. Die Auswahl listet der Server (/api/meta
+// lichtStimmungen); eine gewaehlte, die die Struktur gerade nicht kennt, bleibt.
+function lichtStartWert(ls){ return (ls && ls.lc && ls.mood!=null) ? ls.lc+'|'+ls.mood : ''; }
+function lichtStartAusWert(v){
+  const i=String(v||'').lastIndexOf('|'); if(i<1) return null;
+  const mood=parseInt(String(v).slice(i+1)); return isNaN(mood) ? null : {lc:String(v).slice(0,i), mood};
+}
+function lichtStartOptionen(sel){
+  sel=sel||'';
+  const bekannt=LICHT_OPTS.some(o=>(o.moods||[]).some(m=>o.uuid+'|'+m.id===sel));
+  return '<option value="">'+T('— erste Stimmung im Raum —')+'</option>'+
+    (sel && !bekannt ? '<option value="'+esc(sel)+'" selected>'+esc(sel+' ('+T('nicht in der Struktur')+')')+'</option>' : '')+
+    LICHT_OPTS.map(o=>'<optgroup label="'+esc((o.room?o.room+' · ':'')+o.name)+'">'+
+      (o.moods||[]).map(m=>{ const v=o.uuid+'|'+m.id;
+        return '<option value="'+esc(v)+'"'+(v===sel?' selected':'')+'>'+esc(m.name)+'</option>'; }).join('')+
+    '</optgroup>').join('');
 }
 function presenceText(name){
   const p=PRESENCE_NOW[name];
@@ -5651,9 +5774,11 @@ function readDevFromDom(){
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
     const sc=n.querySelector('.ds_scale'), pr=n.querySelector('.dp_presence'), tz=n.querySelector('.dt_ziel');
+    const ls=n.querySelector('.dl_start');
     DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
                          scale:sc?scaleValue(sc.value):'', presence:pr?pr.value:'',
-                         tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):''};
+                         tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):'',
+                         lichtStart:ls?ls.value:''};
   });
 }
 function renderDevices(){
@@ -5694,12 +5819,14 @@ function devicesPayload(quelle=DEV){
     const scale=(d.scale===''||d.scale===undefined||d.scale===null)?null:d.scale;   // null = wie in der Ansicht
     const presence=d.presence||'';
     const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
-    if(Object.keys(modes).length || display || scale!==null || presence || ziel){
+    const lichtStart=lichtStartAusWert(d.lichtStart);   // Stimmung beim Einschalten (Gesten)
+    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart){
       devices[name]={auto:d.auto!==false, modes};
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;
       if(ziel) devices[name].tileTarget=ziel;
+      if(lichtStart) devices[name].lichtStart=lichtStart;
     }
   });
   return devices;

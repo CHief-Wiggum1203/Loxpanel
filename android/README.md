@@ -166,3 +166,14 @@ mit der Fläche: 70 % abdunkeln ergibt 7 % der eingestellten Helligkeit. Die
 App setzt nur die Helligkeit ihres Fensters, die Einstellung des Geräts
 bleibt. Bei automatischer Helligkeit kennt sie die tatsächliche Helligkeit
 nicht und lehnt ab; dann dunkelt die Visu wie im Browser ab.
+
+Berührungen im Schoner (Uhr-Seite der Visu oder dunkles Display) hält die App
+kurz zurück (`SchonerBeruehrung`, `WARTE_MS` = 120 ms): Ein Finger weckt wie
+bisher, nach der Wartezeit oder beim Loslassen, und erreicht keine Kachel.
+Setzt in dieser Zeit ein zweiter Finger auf, ist es eine Geste wie auf den
+Loxone-Tastern (Licht dimmen, Stimmung, Beschattung, Raum verlassen): Die App
+reicht die ganze Berührung samt dem zurückgehaltenen ersten Ereignis an die
+Visu weiter und lässt das Display dunkel. Ob Gesten an sind, entscheidet die
+Visu; ohne Gesten weckt sie selbst (`setSaver(false)`). Die Entscheidung steht
+ohne Android in `SchonerBeruehrung.kt` und ist in `SchonerBeruehrungTest`
+geprüft.

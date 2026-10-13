@@ -89,6 +89,12 @@ class KioskActivity : Activity(), SensorEventListener {
     // im Nachtmodus der Visu, ein Teil davon (setDisplayBrightness).
     private var helligkeit = Helligkeit.SYSTEM
     private val goDark = Runnable { enterScreensaver() }
+    // Berührung im Schoner: ein Finger weckt, zwei Finger gehen als Geste an die
+    // Visu (Gesten im Dunkeln). Das erste Ereignis hält die Anzeige zurück, bis
+    // feststeht, ob ein zweiter Finger kommt (SchonerBeruehrung).
+    private val beruehrung = SchonerBeruehrung()
+    private var gehalten: MotionEvent? = null
+    private val fristAb = Runnable { if (beruehrung.frist() == SchonerBeruehrung.Tun.WECKEN) schonerWecken() }
 
     private val sensorManager by lazy { getSystemService(Context.SENSOR_SERVICE) as? SensorManager }
     // Näherungssensor (falls vorhanden). Am Shelly ist er ein Wake-up-Sensor, den
@@ -308,6 +314,8 @@ class KioskActivity : Activity(), SensorEventListener {
         intercomPageCapability = null
         intercom.destroy()
         ui.removeCallbacksAndMessages(null)
+        gehalten?.recycle()
+        gehalten = null
         web.removeJavascriptInterface("LoxKiosk")
         web.removeJavascriptInterface("LoxKioskNative")
         web.destroy()
@@ -321,16 +329,70 @@ class KioskActivity : Activity(), SensorEventListener {
         }
     }
 
-    // Berührung: im dunklen Screensaver weckt sie nur (Tap wird geschluckt, löst
-    // keine Kachel aus) und holt den 1. Tab; sonst normal an die Visu weiterreichen.
+    // Berührung: im Screensaver weckt ein Finger nur (Tap wird geschluckt, löst
+    // keine Kachel aus) und holt den 1. Tab; zwei Finger gehen als Geste an die
+    // Visu und lassen das Display dunkel. Sonst normal an die Visu weiterreichen.
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // Wecken, solange IRGENDEIN Saver läuft — der native Dunkel-Modus ODER
+        // Im Schoner, solange IRGENDEIN Saver läuft — der native Dunkel-Modus ODER
         // der Visu-Uhr-Saver (visuSaver). So weckt Tippen auch in der Uhr-Phase,
         // in der das Display noch hell ist, auf den 1. Tab (statt nur aus dem
-        // Dunkeln). Der Tap wird dabei geschluckt (löst keine Kachel aus).
-        if (saverOn || visuSaver) { userWake(); return true }
+        // Dunkeln). Eine Berührung, die im Schoner begann, endet auch dort, sonst
+        // bekäme die Visu Ereignisse ohne Anfang.
+        if (saverOn || visuSaver || beruehrung.laeuft) return imSchoner(ev)
         wake()
         return super.dispatchTouchEvent(ev)
+    }
+
+    /** Berührung im Schoner nach [SchonerBeruehrung]: Ein Finger weckt nach
+     *  WARTE_MS oder beim Loslassen, zwei Finger reichen die ganze Berührung samt
+     *  dem zurückgehaltenen ersten Ereignis an die Visu weiter. Ob sie Gesten
+     *  erlaubt, entscheidet die Visu; ohne Gesten weckt sie selbst. */
+    private fun imSchoner(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gehalten?.recycle()
+                gehalten = MotionEvent.obtain(ev)
+                beruehrung.runter(ev.eventTime)
+                ui.removeCallbacks(fristAb)
+                ui.postDelayed(fristAb, SchonerBeruehrung.WARTE_MS)
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> nachTun(beruehrung.weitererFinger(ev.eventTime), ev)
+            MotionEvent.ACTION_UP -> nachTun(beruehrung.hoch(), ev)
+            MotionEvent.ACTION_CANCEL -> nachTun(beruehrung.abbruch(), ev)
+            else -> nachTun(beruehrung.weiter(), ev)
+        }
+        return true
+    }
+
+    private fun nachTun(tun: SchonerBeruehrung.Tun, ev: MotionEvent) {
+        when (tun) {
+            SchonerBeruehrung.Tun.NACHREICHEN -> {
+                ui.removeCallbacks(fristAb)
+                val erstes = gehalten
+                gehalten = null
+                if (erstes != null) {
+                    super.dispatchTouchEvent(erstes)
+                    erstes.recycle()
+                }
+                super.dispatchTouchEvent(ev)
+            }
+            SchonerBeruehrung.Tun.DURCHREICHEN -> super.dispatchTouchEvent(ev)
+            SchonerBeruehrung.Tun.WECKEN -> schonerWecken()
+            SchonerBeruehrung.Tun.HALTEN, SchonerBeruehrung.Tun.SCHLUCKEN -> Unit
+        }
+        if (!beruehrung.laeuft) {
+            ui.removeCallbacks(fristAb)
+            gehalten?.recycle()
+            gehalten = null
+        }
+    }
+
+    /** Ein Finger im Schoner: zurückgehaltenes Ereignis verwerfen, wecken. */
+    private fun schonerWecken() {
+        ui.removeCallbacks(fristAb)
+        gehalten?.recycle()
+        gehalten = null
+        userWake()
     }
 
     // Annäherung weckt aus jedem Saver (nativ dunkel ODER Visu-Uhr) und holt den 1. Tab.

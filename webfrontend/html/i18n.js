@@ -12,6 +12,29 @@
 
   var CAT = {
     en: {
+      // --- /config: Gesten (Loxone-Standard wie auf den Tastern) ---
+      'Gesten': 'Gestures',
+      'An': 'On',
+      'Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster: Mitte Licht (hoch/runter dimmt, ein Tipp schaltet ein bzw. zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Ein Finger bedient die Visu wie bisher.': 'Two fingers control the room of the page like a Loxone switch: middle light (up/down dims, a tap switches on or to the next mood), left shading, right music, double tap leave room, triple tap house off. One finger operates the view as before.',
+      'Gesten für alle Ansichten': 'Gestures for all views',
+      'Standard ({w})': 'Default ({w})',
+      'Haus aus (Dreifachtipp)': 'House off (triple tap)',
+      'Taster aus Loxone Config': 'Push button from Loxone Config',
+      '— keiner (Dreifachtipp wirkt nicht) —': '— none (triple tap does nothing) —',
+      'Raum verlassen (Doppeltipp)': 'Leave room (double tap)',
+      'Je Raum ein Taster aus Loxone Config, dann regelt die Loxone-Logik alles, auch das Raumklima. Ohne Taster schaltet LoxPanel aus, was im Raum an ist und sich abschalten lässt; das Raumklima bleibt dann unberührt.': 'One push button from Loxone Config per room, then the Loxone logic handles everything, including the room climate. Without a push button LoxPanel switches off whatever is on in the room and can be switched off; the room climate is left untouched.',
+      '— ohne Taster: ausschalten, was an ist —': '— no push button: switch off what is on —',
+      'Zur Auswahl stehen Taster (virtueller Eingang): nur sie nehmen laut Loxone einen Impuls an. Bausteine mit Visu-Passwort fehlen, denn eine Geste kann keine PIN abfragen.': 'Push buttons (virtual input) are offered: according to Loxone only they accept a pulse. Blocks with a visualisation password are missing because a gesture cannot ask for a PIN.',
+      'Zwei-Finger-Gesten': 'Two-finger gestures',
+      'Raum außerhalb von Raumseiten': 'Room outside room pages',
+      '— keiner (nur auf Raumseiten) —': '— none (room pages only) —',
+      'Auf einer Raumseite gelten die Gesten diesem Raum. Auf anderen Seiten (Favoriten, Hausübersicht …) gelten sie dem hier gewählten Raum, ohne Auswahl dort gar nicht. Was Doppel- und Dreifachtipp auslösen, steht unter Vorgaben → Verhalten.': 'On a room page the gestures apply to that room. On other pages (favourites, house overview …) they apply to the room chosen here, without a choice not at all. What double and triple tap trigger is set under Defaults → Behaviour.',
+      'Stimmung beim Einschalten': 'Mood when switching on',
+      'Was zwei Finger in der Mitte einschalten, wenn im Raum alles aus ist; ihre Lichtsteuerung ist die, durch deren Stimmungen ein Tipp schaltet. Leer: die erste Stimmung der ersten Lichtsteuerung im Raum.': 'What two fingers in the middle switch on when everything in the room is off; its lighting controller is the one whose moods a tap steps through. Empty: the first mood of the first lighting controller in the room.',
+      '— erste Stimmung im Raum —': '— first mood in the room —',
+      'Nacht-Uhr': 'Night clock',
+      'Helligkeit der Nacht-Uhr (%)': 'Night clock brightness (%)',
+      'Nacht-Uhr: Nachts zeigt die Uhr-Seite nur die Uhrzeit, gedimmt auf Schwarz, wie die Nachtanzeige der Loxone-Taster. Sind Gesten an, stehen oben die Symbole ihrer Spalten. „Nachts abdunkeln“ wirkt zusätzlich.': 'Night clock: at night the clock page shows only the time, dimmed on black, like the night display of the Loxone switches. With gestures on, the symbols of their columns appear at the top. “Dim at night” applies in addition.',
       // --- /config: Uebersicht / unterstuetzte Geraete / Assistent (EN, 2026-10-05) ---
       'LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Panel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.': 'LoxPanel is built on a square <b>480×480 pane</b> — the size of a 4″ wall panel. The 4″ panel shows one, the tablet two — side by side (view left, widget right), stacked in portrait (view top, widget bottom). Here is an overview, with the configurable areas below.',
       'Ein <b>Widget</b> ist eine fertige Inhaltsfläche — kein Kachelraster aus <b>Bausteinen</b>, sondern eine eigene Ansicht: <b>Wetter</b>, <b>Kalender</b>, <b>Energiefluss</b>, <b>Kamera</b> (Türstation), <b>Verlauf</b> (Aufzeichnung eines Bausteins), <b>Werte</b> (frei gewählte Bausteine als Liste) oder <b>Audio</b> (Now Playing der Musikzone).': 'A <b>widget</b> is a ready-made content area — not a tile grid of <b>blocks</b>, but a view of its own: <b>weather</b>, <b>calendar</b>, <b>energy flow</b>, <b>camera</b> (door station), <b>history</b> (recording of a block), <b>values</b> (freely chosen blocks as a list) or <b>audio</b> (now playing of the music zone).',
