@@ -2803,6 +2803,12 @@ class App:
                 v["--nudge-x"] = f"{float(nudge):g}px"
             except (TypeError, ValueError):
                 pass
+        # Nacht-Uhr: ihr Grund und eine Schrift, die darauf traegt. Ohne
+        # Schrift aus Set oder Grundfarbe gelten die Standardfarben der Visu
+        # (dunkel, helle Schrift), dort nimmt sie --ink.
+        v["--nacht-grund"] = theme_colors.NACHT_GRUND
+        if v.get("--ink"):
+            v["--nacht-ink"] = theme_colors.nacht_schrift(v["--ink"])
         return {k: val for k, val in v.items() if val}
 
     def entwurf_ablegen(self, pid: str, roh: dict, token: str = "") -> tuple[str, list]:

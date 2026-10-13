@@ -15,6 +15,8 @@ import pytest
 
 from lox import Miniserver, W, gesten_anlage, neue_app, visu_starten
 
+import theme_colors as TC
+
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
 
@@ -58,9 +60,11 @@ async def _warten(ms, anzahl, sekunden=3.0):
     return list(ms.io)
 
 
-def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None):
+def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None):
     """uhr: die Uhr-Seite (Bildschirmschoner) stehen lassen; nacht: Nacht ist
-    schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke)."""
+    schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke);
+    front: Wetter und Termine wie vom Server geladen (dann ist die Uhr-Seite
+    quer in zwei Spalten geteilt)."""
     async def lauf():
         ms = Miniserver()
         await ms.start()
@@ -68,6 +72,8 @@ def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None):
         struktur, states = gesten_anlage()
         app._apply_structure(struktur)
         app.states = states
+        if front:
+            app._front = app._front_payload(front)
         if nacht:
             app._night_now = lambda: True
             app._night_on = True
@@ -356,8 +362,10 @@ def test_in_der_app_bleibt_der_schoner_bei_einer_geste():
 NACHT_UHR = """() => { const s = document.getElementById('saver'), n = document.getElementById('svNacht');
   const r = s.getBoundingClientRect();
   return {nacht: s.classList.contains('nacht'), sichtbar: !n.hidden,
+          klassen: (s.className + ' ' + s.querySelector('.sv-wrap').className).split(' '),
           wrap: getComputedStyle(s.querySelector('.sv-wrap')).display,
           hell: +getComputedStyle(n).opacity, zeit: document.getElementById('nuZeit').textContent,
+          farbe: getComputedStyle(n).color,
           zonen: [...document.querySelectorAll('#nuZonen span')].map(e => {
             const b = e.getBoundingClientRect(); return Math.round((b.left + b.width / 2 - r.left) / r.width * 100); }),
           grund: getComputedStyle(s).backgroundColor}; }"""
@@ -376,9 +384,46 @@ def test_nacht_uhr(ui, gesten, zonen, tmp_path):
         return await pg.evaluate(NACHT_UHR)
     m = _laufen(schritte, ui={**ui, "gesten": gesten}, uhr=True, nacht=True)
     assert m["nacht"] and m["sichtbar"] and m["wrap"] == "none", m
-    assert abs(m["hell"] - 0.3) < 0.01 and m["grund"] == "rgb(0, 0, 0)", m
+    assert abs(m["hell"] - 0.3) < 0.01 and _hex(m["grund"]) == TC.NACHT_GRUND, m
     assert len(m["zeit"]) == 5 and m["zeit"][2] == ":", m
     assert m["zonen"] == zonen, m
+
+
+def test_nacht_uhr_ersetzt_auch_die_geteilte_uhr_seite(monkeypatch, tmp_path):
+    """Mit Wetter und Terminen teilt sich die Uhr-Seite quer in zwei Spalten
+    (Raster aus .saver.split .sv-wrap.rich). Diese Regel war spezifischer als
+    die, die nachts den Inhalt ausblendet: die Nacht-Uhr lag dann ueber Uhr,
+    Wetter und Terminen, statt sie zu ersetzen."""
+    from test_front_tabs_browser import _front
+    daten = asyncio.run(_front(monkeypatch))
+
+    async def schritte(ms, pg, cdp):
+        await pg.screenshot(path=str(tmp_path / "nacht_uhr_geteilt.png"))
+        return await pg.evaluate(NACHT_UHR)
+    m = _laufen(schritte, ui={"nightClock": True}, uhr=True, nacht=True, front=daten)
+    assert {"split", "rich"} <= set(m["klassen"]), m
+    assert m["nacht"] and m["sichtbar"] and m["wrap"] == "none", m
+    tags = _laufen(lambda ms, pg, cdp: pg.evaluate(NACHT_UHR), ui={"nightClock": True}, uhr=True, front=daten)
+    assert {"split", "rich"} <= set(tags["klassen"]) and tags["wrap"] == "grid" and not tags["sichtbar"], tags
+
+
+def _hex(rgb: str) -> str:
+    return "#%02x%02x%02x" % tuple(int(x) for x in rgb[rgb.index("(") + 1:rgb.index(")")].split(",")[:3])
+
+
+@pytest.mark.parametrize("tile_set", [None, *TC.KACHEL_SETS])
+def test_nacht_uhr_in_jedem_kachel_set_lesbar(tile_set, tmp_path):
+    """Grund und Schrift der Nacht-Uhr kommen aus dem Theme. Vorher nahmen die
+    Ziffern --ink: in hellen Sets (Kreide, Touch) dunkel auf Schwarz, nur dort
+    zu sehen, wo sie ueber helle Flaechen liefen. Gemessen bei voller
+    Helligkeit (die eingestellte wirkt als Deckkraft obendrauf)."""
+    async def schritte(ms, pg, cdp):
+        await pg.screenshot(path=str(tmp_path / f"nacht_uhr_{tile_set or 'ohne_set'}.png"))
+        return await pg.evaluate(NACHT_UHR)
+    ui = {"nightClock": True, "nightClockBright": 100, **({"tileSet": tile_set} if tile_set else {})}
+    m = _laufen(schritte, ui=ui, uhr=True, nacht=True)
+    assert m["nacht"] and m["sichtbar"] and _hex(m["grund"]) == TC.NACHT_GRUND, m
+    assert TC.kontrast(_hex(m["farbe"]), TC.NACHT_GRUND) >= TC.AAA, (tile_set, m)
 
 
 def test_nacht_uhr_nur_nachts_und_wenn_eingeschaltet():

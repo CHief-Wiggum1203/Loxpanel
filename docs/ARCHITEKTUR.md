@@ -67,7 +67,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
-| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
@@ -1318,14 +1318,18 @@ Assistenten des Konfigurators.
   weniger Höhe; dort gelten nur die Leistenmaße mit `-schmal`). Für jedes Set (`html[data-kachelset-aufbau]`)
   flache Kacheln ohne Rahmen, Abstand und Innenrand des Rasters aus dem Set,
   Symbole in der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf
-  `--taste`, und der Zustand steht vorn, auch bei Kacheln, die direkt
+  `--taste` (auch die −/+ an einem Schieber, `.sbtn`), und der Zustand steht vorn, auch bei Kacheln, die direkt
   schalten (`zustandVorn()`). `mitte`: `kachelTexte()` stellt den Zustand vorn
   (neben einem Messwert den, den der Server dazu nennt) und darunter „Name ·
   Raum“, die aktive Kachel trägt `--kachel-an-ink`, ihre Zweitzeile
   `--kachel-an-muted`. Dasselbe gilt für die aktive Zeile einer Liste
   (`layout: "list"`, etwa die Stimmungen der Lichtsteuerung): Ihre Fläche ist
   ebenfalls `--kachel-an`, ohne die Schrift des Sets stünde dort bei „aktiv
-  dunkel“ `--ink` auf fast Schwarz. `kreis`: `render()` legt `.kreis` um das
+  dunkel“ `--ink` auf fast Schwarz. Die große Taste (Play) kippt ebenso
+  (`--kachel-an` mit `--kachel-an-ink`), der Schieber füllt sich in `--ink`.
+  `--glow` gehört nicht zur Farbsprache von `mitte`: Das Set rechnet es nur
+  für seine hellen Flächen nach, beim Farbton Lavendel ergibt das `#553602`,
+  also Braun. `kreis`: `render()` legt `.kreis` um das
   Symbol, aktiv füllt er sich mit `--glow`; Zustand und Name stehen unten, eine breite
   Kachel ohne Messwert stellt Kreis, Text und Raum in eine Zeile. Zustandstext
   in Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leisten `pille`
@@ -1334,7 +1338,11 @@ Assistenten des Konfigurators.
   ist der Rahmen (`--rahmen`, Innenabstand aus dem Set), das Raster darin das
   abgerundete Feld (`--screen`), die Uhr-Seite ein Feld im selben Rahmen;
   Kopfzeile, Werteleiste und Widget stehen auf dem Rahmen, in den Farben der
-  Tabs; jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
+  Tabs. Pane 2 steht wie das Feld auf dem Rahmen, ihre Seiten sind deshalb
+  flach in seiner Fläche (`--screen`, Radius des Feldes) und oben und unten
+  bündig mit ihm. Der Verlauf von `--tile` ins Durchsichtige, den sie sonst
+  haben, lief auf dem dunklen Rahmen ins Dunkle, und Schrift und Zweitzeile
+  des Sets verschwanden darin. Jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
   quer und hochkant, Widget-Seite) rückt eine Zeile nach unten. Leiste
   `links`: Breite `--rail-breite` (schmal `--rail-breite-schmal`, nur
   Symbole), Zurück unten, der aktive Eintrag mit Symbol in der Akzentfarbe;
@@ -1729,6 +1737,13 @@ Assistenten des Konfigurators.
   Box rechts wirkte übergroß, jetzt 70 %. Die Energiegrafik behält dabei ihre
   392 px, weil sie von der Höhe begrenzt wird, nicht von der Breite. Ohne
   Wetter steht die Uhr allein mittig.
+  In einem hohen Fenster ist es umgekehrt: Dort begrenzt die Spaltenbreite
+  die quadratische Energiegrafik. Bei voller Höhe blieben über und unter dem
+  Kreis leere Streifen, und der Kasten ragte weit über Uhr und Wetter hinaus.
+  Gemessen bei 1457×900 war der Kasten 846 px hoch, die Grafik darin 418 px
+  breit in 784 px Höhe. `svFit()` kürzt den Kasten dann um diese Streifen
+  (`--sv-kasten`, das Seitenverhältnis kommt aus der `viewBox`), und er steht
+  mittig neben Uhr und Wetter.
   Hochkant setzt `applySaverSplit()` neben `.split` die Klasse `.hoch`, sobald
   der Kasten mindestens √2-mal so hoch wie breit ist (gemessen am Kasten, denn
   in ihm liegt der Screensaver; dieselbe Grenze wie bei der Verdopplung nach
@@ -1966,7 +1981,17 @@ Assistenten des Konfigurators.
     oben über der Mitte jeder Gesten-Spalte ihr Symbol (`NACHT_UHR_SYMBOLE`:
     Beschattung, Licht, Musik). Wetter, Termine und die zweite Spalte ruhen
     (`svSideOn()` ist dann aus), keine Kamera läuft die ganze Nacht. Die
-    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen.
+    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen. Grund und
+    Schrift kommen aus dem Theme (`--nacht-grund` aus
+    `theme_colors.NACHT_GRUND`, `--nacht-ink` aus `nacht_schrift()`): Trägt
+    die Schrift des Themes auf Schwarz AAA, bleibt sie, sonst nimmt ihr
+    Farbton die Helligkeit, die `derive()` für helle Schrift setzt
+    (`HELLE_SCHRIFT`). In 1.1.0 nahmen die Ziffern `--ink`, in hellen Sets
+    (Kreide, Touch) also dunkel auf Schwarz, unsichtbar. Die Regel,
+    die den Inhalt ausblendet, muss das Raster der geteilten Uhr-Seite
+    (`.saver.split .sv-wrap.rich`) schlagen. In 1.1.0 tat sie das nicht: Mit
+    Wetter und Terminen lag die Nacht-Uhr quer über dem Inhalt, statt ihn zu
+    ersetzen.
   - Geprüft in `tests/test_gesten.py` (Befehle am Miniserver-Nachbau,
     Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr),
     `tests/browser/test_gesten_browser.py` (zwei Finger über das
