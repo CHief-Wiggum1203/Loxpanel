@@ -1219,7 +1219,11 @@
      Gesten-Spalten (wie die Nachtanzeige der Loxone-Taster). --nu-hell ist die
      Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen. */
   .saver.nacht{background:#000;container-type:size;}
-  .saver.nacht .sv-wrap{display:none;}
+  /* Die zweite Zeile schlaegt das Raster der geteilten Uhr-Seite
+     (.saver.split .sv-wrap.rich), sonst laege die Nacht-Uhr ueber Uhr, Wetter
+     und Terminen, statt sie zu ersetzen. */
+  .saver.nacht .sv-wrap,
+  .saver.split.nacht .sv-wrap.rich{display:none;}
   .sv-nacht{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--ink);opacity:var(--nu-hell,.4);pointer-events:none;}
   .sv-nacht[hidden]{display:none;}
@@ -1391,8 +1395,10 @@
      Screensavers abzueglich Rand (--sv-frei, gesetzt in svFit; die Uhr steht
      in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
      am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
-     preserveAspectRatio, Bild per object-fit), statt zu strecken. */
-  .saver .sv-box.solo{height:var(--sv-frei,auto);}
+     preserveAspectRatio, Bild per object-fit), statt zu strecken. Begrenzt
+     beim Energiefluss die Spaltenbreite, kuerzt svFit den Kasten auf die
+     Grafik (--sv-kasten), statt leere Streifen darueber und darunter zu lassen. */
+  .saver .sv-box.solo{height:var(--sv-kasten,var(--sv-frei,auto));}
   .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
   .saver .sv-box.solo .video{max-height:100%;}
   /* Audio-Karte (Now Playing) in der Uhr-Spalte: Cover + Titel + Interpret, passiv. */
@@ -4449,8 +4455,23 @@ function svFit(){
   // Uhr steht dann links, der Grafik gehoert die ganze Hoehe bis auf den Rand.
   // Der Rand ist derselbe Anteil wie seitlich (Breite 94 % -> je 3 %), damit
   // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
-  const rand=Math.round(platz*0.03);
-  wrap.style.setProperty('--sv-frei', Math.max(120,platz-2*rand)+'px');
+  const rand=Math.round(platz*0.03), frei=Math.max(120,platz-2*rand);
+  wrap.style.setProperty('--sv-frei', frei+'px');
+  // Ist die Spalte schmaler, als die Grafik bei dieser Hoehe breit waere
+  // (hohes Browserfenster, grosses Tablet), begrenzt die BREITE: ueber und
+  // unter dem Energiefluss blieben leere Streifen, und der Kasten ragte weit
+  // ueber Uhr und Wetter hinaus (gemessen bei 1457x900: Kasten 846 px, Grafik
+  // 418 px breit in 784 px Hoehe). Dann kuerzt er sich um diese Streifen
+  // (--sv-kasten). Am 960x480-Panel begrenzt die Hoehe, dort bleibt es bei --sv-frei.
+  // Hochkant gilt eigenes (.hoch): der Kasten nimmt, was unter Uhr und Wetter bleibt.
+  wrap.style.removeProperty('--sv-kasten');
+  const ew=(wrap.classList.contains('tall') && !saver.classList.contains('hoch'))
+    ? saver.querySelector('#svBox.solo .ewrap') : null, esvg=ew && ew.querySelector('svg');
+  const vb=esvg && esvg.viewBox && esvg.viewBox.baseVal;
+  if(vb && vb.width>0 && vb.height>0){
+    const leer=Math.floor(ew.clientHeight - ew.clientWidth*vb.height/vb.width);
+    if(leer>0) wrap.style.setProperty('--sv-kasten', (frei-leer)+'px');
+  }
   // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
   // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
   // Kamera haben keine solchen Zeilen und bleiben unangetastet.

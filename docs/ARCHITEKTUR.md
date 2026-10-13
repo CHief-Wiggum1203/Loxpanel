@@ -1729,6 +1729,13 @@ Assistenten des Konfigurators.
   Box rechts wirkte übergroß, jetzt 70 %. Die Energiegrafik behält dabei ihre
   392 px, weil sie von der Höhe begrenzt wird, nicht von der Breite. Ohne
   Wetter steht die Uhr allein mittig.
+  In einem hohen Fenster ist es umgekehrt: Dort begrenzt die Spaltenbreite
+  die quadratische Energiegrafik. Bei voller Höhe blieben über und unter dem
+  Kreis leere Streifen, und der Kasten ragte weit über Uhr und Wetter hinaus.
+  Gemessen bei 1457×900 war der Kasten 846 px hoch, die Grafik darin 418 px
+  breit in 784 px Höhe. `svFit()` kürzt den Kasten dann um diese Streifen
+  (`--sv-kasten`, das Seitenverhältnis kommt aus der `viewBox`), und er steht
+  mittig neben Uhr und Wetter.
   Hochkant setzt `applySaverSplit()` neben `.split` die Klasse `.hoch`, sobald
   der Kasten mindestens √2-mal so hoch wie breit ist (gemessen am Kasten, denn
   in ihm liegt der Screensaver; dieselbe Grenze wie bei der Verdopplung nach
@@ -1966,7 +1973,11 @@ Assistenten des Konfigurators.
     oben über der Mitte jeder Gesten-Spalte ihr Symbol (`NACHT_UHR_SYMBOLE`:
     Beschattung, Licht, Musik). Wetter, Termine und die zweite Spalte ruhen
     (`svSideOn()` ist dann aus), keine Kamera läuft die ganze Nacht. Die
-    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen.
+    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen. Die Regel,
+    die den Inhalt ausblendet, muss das Raster der geteilten Uhr-Seite
+    (`.saver.split .sv-wrap.rich`) schlagen. In 1.1.0 tat sie das nicht: Mit
+    Wetter und Terminen lag die Nacht-Uhr quer über dem Inhalt, statt ihn zu
+    ersetzen.
   - Geprüft in `tests/test_gesten.py` (Befehle am Miniserver-Nachbau,
     Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr),
     `tests/browser/test_gesten_browser.py` (zwei Finger über das

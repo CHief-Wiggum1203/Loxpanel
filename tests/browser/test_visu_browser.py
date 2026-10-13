@@ -317,6 +317,51 @@ def test_uhrseite_hochkant_zweite_flaeche_unten(tmp_path, miniserver_http, monke
     asyncio.run(lauf())
 
 
+UHR_ENERGIE = """() => { const r = e => { const b = e.getBoundingClientRect(); return {t: b.top, b: b.bottom, h: b.height}; };
+  const s = el('saver'), ew = document.querySelector('#svBox .ewrap');
+  return {wrap: s.querySelector('.sv-wrap').className, saver: r(s), box: r(el('svBox')),
+          clock: r(s.querySelector('.sv-clock')), wx: r(el('svWx')), ewrap: {w: ew.clientWidth, h: ew.clientHeight}}; }"""
+
+
+@pytest.mark.parametrize("breite, hoehe", [(1457, 900), (960, 480)], ids=["browserfenster", "wandpanel"])
+def test_uhrseite_energiefluss_so_hoch_wie_die_grafik(tmp_path, miniserver_http, monkeypatch, breite, hoehe):
+    """Energiefluss rechts auf der Uhr-Seite: Im hohen Fenster begrenzt die
+    Spaltenbreite die quadratische Grafik. Der Kasten nahm trotzdem die volle
+    Hoehe, ragte weit ueber Uhr und Wetter, und ueber und unter dem Kreis
+    blieben leere Streifen. Jetzt ist er so hoch wie die Grafik und steht mittig
+    neben Uhr und Wetter. Am 960x480-Panel begrenzt die Hoehe: dort behaelt er
+    die volle Hoehe bis auf den Rand."""
+    from test_front_tabs_browser import _front
+
+    from lox import EM2
+
+    async def lauf():
+        daten = await _front(monkeypatch)
+        async with Umgebung(tmp_path, {"ui": {"svPane": "energy:M", "grid": "auto"}}) as u:
+            u.app._apply_structure(anlage(dict(u.controls, M=EM2)))
+            u.app.states.update({"m-p": 3.2, "m-g": 0.3, "m-s": 2.0, "m-soc": 64})
+            u.app._front = u.app._front_payload(daten)
+            pg = await u.seite(breite, hoehe)
+            await pg.evaluate("showSaver()")
+            await pg.wait_for_function("!!document.querySelector('#svBox .ewrap svg')", timeout=15000)
+            await pg.wait_for_timeout(600)
+            m = await pg.evaluate(UHR_ENERGIE)
+            await u.bild(pg, f"uhrseite_energie_{breite}x{hoehe}")
+            assert "tall" in m["wrap"].split(), m
+            # kein leerer Streifen ueber und unter der quadratischen Grafik
+            assert m["ewrap"]["h"] <= m["ewrap"]["w"] + 1, m
+            rand = round(m["saver"]["h"] * 0.03)
+            if (breite, hoehe) == (960, 480):
+                assert abs(m["box"]["h"] - (m["saver"]["h"] - 2 * rand)) <= 2, m   # volle Hoehe wie bisher
+            else:
+                assert m["box"]["h"] < m["saver"]["h"] - 2 * rand - 100, m
+                oben, unten = m["box"]["t"] - m["saver"]["t"], m["saver"]["b"] - m["box"]["b"]
+                assert abs(oben - unten) <= 2, m                                    # mittig
+                assert m["box"]["t"] - 1 <= m["clock"]["t"] and m["wx"]["b"] <= m["box"]["b"] + 1, m
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
 # Zaehler mit drei Diagrammen (Leistung, Zaehlerstand, Kosten): mehr, als die
 # Uhr-Seite quer im Seitenverhaeltnis der Zeichnung unterbringt
 NETZ_GRUPPEN = [
