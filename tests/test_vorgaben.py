@@ -25,13 +25,16 @@ def test_vorgabe_gilt_wo_die_ansicht_nichts_setzt(cfg_ordner):
                                          "kueche": {"title": "Küche", "tabs": ["favoriten"],
                                                     "ui": {"nightDim": 10}}})
     std = W.NACHT_STANDARD
-    assert app.panel_night("flur") == {"dim": std["nightDim"], "wake": std["nightWake"]}
+
+    def nacht(pid):   # Abdunkeln und Aufhellen; die Nacht-Uhr prueft test_gesten.py
+        return {k: app.panel_night(pid)[k] for k in ("dim", "wake")}
+    assert nacht("flur") == {"dim": std["nightDim"], "wake": std["nightWake"]}
     app._write_theme(W.App._sanitize_theme_ui({"nightDim": 40, "nightWake": 5}))
     assert app.theme["ui"]["nightDim"] == 40
-    assert app.panel_night("flur") == {"dim": 40, "wake": 5}
-    assert app.panel_night("kueche") == {"dim": 10, "wake": 5}
+    assert nacht("flur") == {"dim": 40, "wake": 5}
+    assert nacht("kueche") == {"dim": 10, "wake": 5}
     app._write_theme(W.App._sanitize_theme_ui({}))     # Feld geleert: wieder der Standard
-    assert app.panel_night("flur") == {"dim": std["nightDim"], "wake": std["nightWake"]}
+    assert nacht("flur") == {"dim": std["nightDim"], "wake": std["nightWake"]}
     assert set(W.NACHT_STANDARD) <= set(W.THEME_UI_KEYS), "sonst schreibt _write_theme sie nicht"
 
 

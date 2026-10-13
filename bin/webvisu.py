@@ -640,7 +640,7 @@ SCALE_MIN, SCALE_MAX = 0.5, 2.0
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
 THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
                  "baseColor", "bold", "lang", "scale", "nightDim", "nightWake", "dpmsOff", "reloadHours",
-                 "gesten", "hausAus", "raumVerlassen")
+                 "gesten", "hausAus", "raumVerlassen", "nightClock", "nightClockBright")
 
 # Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
 # je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
@@ -656,7 +656,12 @@ GROESSEN_STANDARD = {
 # (0 = aus) und Sekunden, die eine Beruehrung voll aufhellt. Einzige Quelle:
 # panel_night() rechnet damit, /api/meta gibt sie dem Konfigurator, der sie in
 # leeren Feldern anzeigt.
-NACHT_STANDARD = {"nightDim": 0, "nightWake": 20}
+NACHT_STANDARD = {"nightDim": 0, "nightWake": 20, "nightClock": False, "nightClockBright": 40}
+# Nacht-Uhr: nachts zeigt die Uhr-Seite nur die Uhrzeit, gedimmt auf Schwarz,
+# und die Symbole der Gesten-Spalten (wie die Nachtanzeige der Loxone-Taster).
+# Helligkeit der Ziffern und Symbole in Prozent, zusaetzlich zu "Nachts
+# abdunkeln"; unter NACHT_UHR_HELL_MIN waere sie nicht mehr zu lesen.
+NACHT_UHR_HELL_MIN = 5
 
 
 def _clean_kachel_set(v):
@@ -3215,8 +3220,12 @@ class App:
             v = ui.get(key)
             return max(lo, min(hi, int(v))) if isinstance(v, (int, float)) else default
 
+        uhr = ui.get("nightClock")
         return {"dim": _num("nightDim", 0, 90, NACHT_STANDARD["nightDim"]),
-                "wake": _num("nightWake", 0, 300, NACHT_STANDARD["nightWake"])}
+                "wake": _num("nightWake", 0, 300, NACHT_STANDARD["nightWake"]),
+                # Nacht-Uhr statt der Uhr-Seite und ihre Helligkeit in Prozent
+                "uhr": uhr if isinstance(uhr, bool) else NACHT_STANDARD["nightClock"],
+                "uhrHell": _num("nightClockBright", NACHT_UHR_HELL_MIN, 100, NACHT_STANDARD["nightClockBright"])}
 
     def night_control_options(self) -> list:
         """Bausteine, die als Nacht-Ausloeser oder Praesenzmelder eines Geraets
@@ -3721,7 +3730,7 @@ class App:
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
-                       "valueBar", "paneCols", "gesten", "gestenRaum")}
+                       "valueBar", "paneCols", "gesten", "gestenRaum", "nightClock", "nightClockBright")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3898,6 +3907,10 @@ class App:
                 cui["nightDim"] = max(0, min(90, int(ui["nightDim"])))    # Nachts abdunkeln in %
             if isinstance(ui.get("nightWake"), (int, float)):
                 cui["nightWake"] = max(0, min(300, int(ui["nightWake"])))  # Aufhellen bei Beruehrung, Sek.
+            if isinstance(ui.get("nightClock"), bool):
+                cui["nightClock"] = ui["nightClock"]   # Nacht-Uhr an/aus; fehlt = wie Vorgaben
+            if isinstance(ui.get("nightClockBright"), (int, float)) and not isinstance(ui["nightClockBright"], bool):
+                cui["nightClockBright"] = max(NACHT_UHR_HELL_MIN, min(100, int(ui["nightClockBright"])))   # Helligkeit %
             if isinstance(ui.get("pinMerken"), (int, float)) and \
                     _pin_merken(ui["pinMerken"]) != PIN_MERKEN_STANDARD:
                 cui["pinMerken"] = _pin_merken(ui["pinMerken"])   # PIN merken, Sek.; fehlt = Standard
@@ -4240,6 +4253,12 @@ class App:
             out["dpmsOff"] = max(0, min(3600, int(ui["dpmsOff"])))
         if isinstance(ui.get("reloadHours"), (int, float)):
             out["reloadHours"] = max(0, min(168, float(ui["reloadHours"])))
+        # Nacht-Uhr fuer alle Panels (an/aus nur, wenn es vom Standard abweicht)
+        # und ihre Helligkeit, Grenzen wie im Panel
+        if isinstance(ui.get("nightClock"), bool) and ui["nightClock"] != NACHT_STANDARD["nightClock"]:
+            out["nightClock"] = ui["nightClock"]
+        if isinstance(ui.get("nightClockBright"), (int, float)) and not isinstance(ui["nightClockBright"], bool):
+            out["nightClockBright"] = max(NACHT_UHR_HELL_MIN, min(100, int(ui["nightClockBright"])))
         # Gesten fuer alle Ansichten (eine Ansicht kann sie selbst an- oder
         # ausschalten); fehlt = GESTEN_STANDARD
         if isinstance(ui.get("gesten"), bool) and ui["gesten"] != GESTEN_STANDARD:

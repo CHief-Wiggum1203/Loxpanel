@@ -2103,10 +2103,19 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       ebenso. Ohne Einstellung sind die Gesten aus (`GESTEN_STANDARD`).
       Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Gesten“, Tests in
       `tests/test_gesten.py` und `tests/browser/test_gesten_browser.py`.
-      Offen: Stufe 5, und an der Anlage prüfen: ob die Lichtsteuerung beim
-      Dimmen „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg,
-      Wartezeit des Tipps, Spaltenteilung) und ob das Scrollen am 4″-Panel
-      ruckelt. Gesamtaufwand **L**.
+      *Erledigt 13.10.2026: Stufe 5* (Gesten im Dunkeln): Visu und
+      LoxPanel-App (`SchonerBeruehrung.kt`) warten nach dem ersten Finger
+      120 ms auf einen zweiten; zwei Finger bleiben dunkel, einer weckt wie
+      bisher. Dazu auf Wunsch die **Nacht-Uhr** (nachts nur die Uhrzeit,
+      gedimmt auf Schwarz, mit den Symbolen der Gesten-Spalten, Helligkeit
+      einstellbar; `ui.nightClock`, `ui.nightClockBright`). Fully Kiosk und
+      der Linux-Agent schalten das Display selbst ab: ist es dort ganz aus,
+      weckt jede Berührung wie bisher.
+      Offen, an der Anlage prüfen: ob die Lichtsteuerung beim Dimmen
+      „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg, Wartezeit
+      des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am
+      4″-Panel ruckelt und wie die Nacht-Uhr im dunklen Raum wirkt.
+      Gesamtaufwand **L**.
 
 ## 10. Sicherheit (zurückgestuft)
 

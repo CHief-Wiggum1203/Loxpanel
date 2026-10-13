@@ -949,6 +949,9 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "gesten": true,                      // Zwei-Finger-Gesten an/aus; fehlt = wie Vorgaben (§7.1 „Gesten“)
         "gestenRaum": "<room-uuid>",         // Raum der Gesten außerhalb von Raumseiten; fehlt = dort keine
+        "nightClock": true,                  // Nacht-Uhr an/aus; fehlt = wie Vorgaben (§7.1 „Gesten“, Stufe 5)
+        "nightClockBright": 30,              // ihre Helligkeit in %, NACHT_UHR_HELL_MIN bis 100;
+                                             // fehlt = Vorgabe, sonst NACHT_STANDARD
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
@@ -1045,6 +1048,12 @@ Dreifachtipp) und `raumVerlassen` (`{Raum-UUID: Taster-UUID}` für den
 Doppeltipp). Beide Taster sind Bausteine vom Typ `Pushbutton` ohne
 Visu-Passwort (`geste_taster_optionen()`, `/api/meta` `gestenTaster`): Laut
 Strukturdoku nimmt nur der Taster einen Impuls (`pulse`).
+
+Die Nacht-Uhr hat zwei Einträge neben „Nachts abdunkeln“: `nightClock`
+(an/aus, gespeichert nur abweichend vom Standard) und `nightClockBright`
+(Helligkeit in Prozent, `NACHT_UHR_HELL_MIN` bis 100). `panel_night()` gibt
+sie mit `dim` und `wake` als `uhr` und `uhrHell` an die Visu (`theme`
+`night`), ohne Eintrag gilt `NACHT_STANDARD` (aus, 40 %).
 
 Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
 nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
@@ -1937,9 +1946,33 @@ Assistenten des Konfigurators.
     was an ist und sich abschalten lässt (`HAUS_AUS`, wie „Gerade aktiv“;
     das Raumklima bleibt dann unberührt). Haus aus wirkt nur mit dem Taster
     aus `ui.hausAus`. Ein laufendes Dimmen hält `conn_geste` je Verbindung.
+  - **Im Dunkeln (Stufe 5):** Auf der Uhr-Seite und im abgedunkelten
+    Nachtmodus weckt ein Finger wie bisher, zwei Finger sind eine Geste, die
+    das Panel dunkel lässt: keine Uhr weg, kein Aufhellen, die Einblendung
+    `leise`. Ob ein zweiter Finger kommt, steht erst kurz nach dem ersten
+    fest, so lange wartet das Wecken (`GESTE_ZWEITER_FINGER_MS`,
+    `weckenAufschieben()`); losgelassen weckt er sofort. Ohne Gesten weckt
+    jede Berührung ohne Wartezeit wie bisher. Die Geste gilt der Seite unter
+    der Uhr, nach der Ruhe der Startseite. Die LoxPanel-App gibt Berührungen
+    im Schoner erst bei einem zweiten Finger an die Visu weiter
+    (`SchonerBeruehrung.kt`, gleiche Wartezeit, `android/README.md`). Fully
+    Kiosk und der Linux-Agent schalten das Display selbst ab; ist es dort
+    ganz aus, weckt jede Berührung wie bisher.
+  - **Nacht-Uhr:** Nachts zeigt die Uhr-Seite auf Wunsch (`ui.nightClock`)
+    nur die Uhrzeit, gedimmt auf Schwarz wie die Nachtanzeige der
+    Loxone-Taster (`.saver.nacht`, `#svNacht`). Die Helligkeit
+    (`ui.nightClockBright`, Prozent) setzt die Deckkraft von Ziffern und
+    Symbolen; „Nachts abdunkeln“ wirkt zusätzlich. Sind Gesten an, steht
+    oben über der Mitte jeder Gesten-Spalte ihr Symbol (`NACHT_UHR_SYMBOLE`:
+    Beschattung, Licht, Musik). Wetter, Termine und die zweite Spalte ruhen
+    (`svSideOn()` ist dann aus), keine Kamera läuft die ganze Nacht. Die
+    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen.
   - Geprüft in `tests/test_gesten.py` (Befehle am Miniserver-Nachbau,
-    Anlage `lox.gesten_anlage()`) und `tests/browser/test_gesten_browser.py`
-    (zwei Finger über das DevTools-Protokoll, `Input.dispatchTouchEvent`).
+    Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr),
+    `tests/browser/test_gesten_browser.py` (zwei Finger über das
+    DevTools-Protokoll, `Input.dispatchTouchEvent`; Uhr-Seite, Nacht,
+    nachgebaute App-Brücke, Nacht-Uhr) und
+    `android/.../SchonerBeruehrungTest.kt`.
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;

@@ -1298,6 +1298,11 @@ function bindAppearance(p){
   document.querySelectorAll('input[data-ui]').forEach(inp=>{
     inp.oninput=()=>{ p.ui=p.ui||{}; const k=inp.dataset.ui;
       if(inp.value==='') delete p.ui[k]; else p.ui[k]=Number(inp.value); markDirty(); }; });
+  // An/Aus mit "leer = geerbt" (Nacht-Uhr): an -> true, aus -> false, leer -> fehlt
+  document.querySelectorAll('select[data-ui-wahl]').forEach(sel=>{
+    sel.onchange=()=>{ p.ui=p.ui||{}; const k=sel.dataset.uiWahl;
+      if(sel.value==='an') p.ui[k]=true; else if(sel.value==='aus') p.ui[k]=false; else delete p.ui[k];
+      markDirty(); erbtZeichnen(); }; });
   { const fs=$('#fFontSel'), fc=$('#fFontCustom');
     if(fs) fs.onchange=()=>{ p.ui=p.ui||{};
       if(fs.value==='__custom'){ fc.style.display=''; const v=fc.value.trim(); v?p.ui.font=v:delete p.ui.font; }
@@ -1506,6 +1511,7 @@ function renderGlobalEditor(p){
       '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Auslöser (optional)')+'</label><select id="nt_control"></select></div></div>'+
       '<div class="grph">'+T('Abdunkelung')+'</div>'+
       '<div class="sizes">'+nachtFelder(ui, nstd.nightDim, nstd.nightWake)+'</div>'+
+      '<p class="note">'+T('Nacht-Uhr: Nachts zeigt die Uhr-Seite nur die Uhrzeit, gedimmt auf Schwarz, wie die Nachtanzeige der Loxone-Taster. Sind Gesten an, stehen oben die Symbole ihrer Spalten. „Nachts abdunkeln“ wirkt zusätzlich.')+'</p>'+
       '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
     '</div><div class="card"><h3>'+T('Display &amp; Neustart')+'</h3>'+
       '<div class="sizes">'+displayFelder(ui, null, null)+'</div>'+
@@ -1592,7 +1598,24 @@ function nachtFelder(ui, dimLeer, wakeLeer){
   return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nachts abdunkeln (%)')+'</label>'+
       '<input type="number" min="0" max="90" step="5" data-ui="nightDim" value="'+esc(wert('nightDim'))+'" placeholder="'+esc(nachtPlatzhalter('nightDim',dimLeer))+'">'+erbtFeld('nightDim')+'</div>'+
     '<div class="field" style="max-width:180px" id="nightWakeField"><label class="lbl">'+T('Aufhellen bei Berührung (Sek.)')+'</label>'+
-      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>';
+      '<input type="number" min="0" max="300" step="5" data-ui="nightWake" value="'+esc(wert('nightWake'))+'" placeholder="'+esc(nachtPlatzhalter('nightWake',wakeLeer))+'">'+erbtFeld('nightWake')+'</div>'+
+    nachtUhrFelder(ui);
+}
+// Nacht-Uhr (Vorgaben -> Nacht und Ansicht -> Verhalten): nachts statt der Uhr-Seite
+// nur die Uhrzeit, gedimmt auf Schwarz, mit den Symbolen der Gesten-Spalten. Leer
+// = Vorgabe bzw. Standard (/api/meta nightDefaults = NACHT_STANDARD).
+function nachtUhrFelder(ui){
+  const vg=((PANELS[cur]||{}).__global), std=(META.nightDefaults||{});
+  const leer=vg ? T('Standard ({w})').replace('{w}', wertText('nightClock', std.nightClock))
+                : T('Wie Vorgabe');
+  const hellLeer=vg ? std.nightClockBright : nachtVorgabe('nightClockBright');
+  return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Nacht-Uhr')+'</label>'+
+      '<select data-ui-wahl="nightClock"><option value="">'+esc(leer)+'</option>'+
+      '<option value="an"'+(ui.nightClock===true?' selected':'')+'>'+T('An')+'</option>'+
+      '<option value="aus"'+(ui.nightClock===false?' selected':'')+'>'+T('Aus')+'</option></select>'+erbtFeld('nightClock')+'</div>'+
+    '<div class="field" style="max-width:180px"><label class="lbl">'+T('Helligkeit der Nacht-Uhr (%)')+'</label>'+
+      '<input type="number" min="5" max="100" step="5" data-ui="nightClockBright" value="'+esc(ui.nightClockBright==null?'':ui.nightClockBright)+
+        '" placeholder="'+esc(hellLeer==null?'':String(hellLeer))+'">'+erbtFeld('nightClockBright')+'</div>';
 }
 // Felder "Display aus nach" und "Auto-Neustart alle" (Vorgaben -> Verhalten und Ansicht ->
 // Verhalten). Ein leeres Feld zeigt grau die Vorgabe, ohne sie, was dann gilt.
@@ -1642,6 +1665,7 @@ function standardWert(k, ui){
   if(k==='scale') return 'off';
   if(k==='tileSize') return kachelZiel().std;
   if(k==='gesten') return !!(META||{}).gestenStandard;
+  if(k==='nightClock'||k==='nightClockBright') return ((META||{}).nightDefaults||{})[k];
   return null;
 }
 function wertText(k, v){
@@ -1662,7 +1686,8 @@ function wertText(k, v){
   if(k==='font') return (FONTS.find(x=>sameFont(x.v,v))||{label:String(v)}).label;
   if(k==='baseColor') return (BASE_COLORS.find(c=>c.v.toLowerCase()===String(v).toLowerCase())||{n:String(v)}).n;
   if(k==='bold') return v ? T('Fett') : T('Normal');
-  if(k==='gesten') return v ? T('An') : T('Aus');
+  if(k==='gesten'||k==='nightClock') return v ? T('An') : T('Aus');
+  if(k==='nightClockBright') return fmtZahl(v)+' %';
   if(k==='lang') return (LANGS.find(l=>l[0]===v)||[v,String(v)])[1];
   return String(v);
 }

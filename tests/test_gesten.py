@@ -334,3 +334,25 @@ def test_ueber_den_websocket():
     (an, start, jal), io = _mit_nachbau(schritte)
     assert an is True and start["wert"] == 80 and jal["text"] == "Beschattung ab"
     assert io == ["sps/io/LK-1/40", "sps/io/LK-2/30", "sps/io/J1/FullDown", "sps/io/J2/FullDown"]
+
+
+# ---- Nacht-Uhr (Stufe 5) ---------------------------------------------------
+
+def test_nacht_uhr_speichern():
+    ui = W.App._sanitize_theme_ui({"nightClock": True, "nightClockBright": 2})
+    assert ui == {"nightClock": True, "nightClockBright": W.NACHT_UHR_HELL_MIN}
+    # der Standard wird nicht gespeichert, ein Wahrheitswert ist keine Helligkeit
+    assert W.App._sanitize_theme_ui({"nightClock": W.NACHT_STANDARD["nightClock"], "nightClockBright": True}) == {}
+    p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"nightClock": False, "nightClockBright": 150}}})
+    assert p["p"]["ui"] == {"nightClock": False, "nightClockBright": 100}
+
+
+@pytest.mark.parametrize("vorgabe, ansicht, uhr, hell", [
+    ({}, {}, W.NACHT_STANDARD["nightClock"], W.NACHT_STANDARD["nightClockBright"]),
+    ({"nightClock": True, "nightClockBright": 30}, {}, True, 30),
+    ({"nightClock": True, "nightClockBright": 30}, {"nightClock": False, "nightClockBright": 60}, False, 60),
+], ids=["standard", "vorgabe", "ansicht-vor-vorgabe"])
+def test_nacht_uhr_geht_mit_der_nacht_an_die_visu(vorgabe, ansicht, uhr, hell):
+    app = _app(ui=ansicht, theme_ui=vorgabe)
+    nacht = app.panel_night("test")
+    assert (nacht["uhr"], nacht["uhrHell"]) == (uhr, hell)

@@ -58,7 +58,9 @@ async def _warten(ms, anzahl, sekunden=3.0):
     return list(ms.io)
 
 
-def _laufen(schritte, ui=None):
+def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None):
+    """uhr: die Uhr-Seite (Bildschirmschoner) stehen lassen; nacht: Nacht ist
+    schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke)."""
     async def lauf():
         ms = Miniserver()
         await ms.start()
@@ -66,6 +68,9 @@ def _laufen(schritte, ui=None):
         struktur, states = gesten_anlage()
         app._apply_structure(struktur)
         app.states = states
+        if nacht:
+            app._night_now = lambda: True
+            app._night_on = True
         app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["room:r1"],
                                                       "ui": {"grid": "auto", "gesten": True, **(ui or {})}}})
         runner, port, bc = await visu_starten(app)
@@ -74,11 +79,16 @@ def _laufen(schritte, ui=None):
             async with async_playwright() as p:
                 b = await p.chromium.launch()
                 ctx = await b.new_context(viewport={"width": BREITE, "height": HOEHE}, has_touch=True)
+                if init:
+                    await ctx.add_init_script(init)
                 pg = await ctx.new_page()
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
                 await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
-                if await pg.locator("#saver:not(.hidden)").count():
+                if uhr:
+                    await pg.evaluate("showSaver()")
+                    await pg.wait_for_selector("#saver:not(.hidden)", state="attached")
+                elif await pg.locator("#saver:not(.hidden)").count():
                     await pg.evaluate("hideSaver()")
                     await pg.wait_for_selector("#saver.hidden", state="attached")
                 await pg.wait_for_timeout(500)
@@ -256,3 +266,123 @@ def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
     assert datei["panels"]["test"]["ui"] == {"gestenRaum": "r3"}
     theme = json.loads((cfg_ordner / "theme.json").read_text(encoding="utf-8"))["ui"]
     assert (theme["gesten"], theme["hausAus"], theme["raumVerlassen"]) == (True, "TH", {"r1": "TV"})
+
+
+# ---- Gesten im Dunkeln und Nacht-Uhr (Stufe 5) ------------------------------
+
+def _dunkel(pg):
+    """Uhr-Seite sichtbar, Nacht-Uhr, Auflage der Nacht (inline gesetzt, ohne
+    Uebergang) und ob die Einblendung leise ist."""
+    return pg.evaluate("""() => { const n = document.getElementById('geste'), d = document.getElementById('nightdim');
+      return {uhr: !document.getElementById('saver').classList.contains('hidden'),
+              nacht: document.getElementById('saver').classList.contains('nacht'),
+              auflage: d ? +d.style.opacity : null, leise: !!n && n.classList.contains('leise')}; }""")
+
+
+def test_auf_der_uhr_seite_dimmen_zwei_finger_ohne_zu_wecken():
+    """Zwei Finger auf der Uhr-Seite: das Licht wird dunkler, die Uhr bleibt,
+    die Einblendung ist leise. Ein Finger weckt danach wie bisher und loest
+    nichts aus."""
+    async def schritte(ms, pg, cdp):
+        await zwei_finger(cdp, BREITE / 2, HOEHE * 0.3, HOEHE * 0.6)
+        io = await _warten(ms, 2)
+        nach_geste = await _dunkel(pg)
+        await _finger(cdp, "touchStart", [(BREITE / 2, HOEHE / 2)])
+        await _finger(cdp, "touchEnd", [])
+        await asyncio.sleep(0.5)
+        return io, nach_geste, await _dunkel(pg), list(ms.io)
+    io, nach_geste, nach_tipp, alles = _laufen(schritte, uhr=True)
+    assert io and all(c.split("/")[2] in ("LK-1", "LK-2") for c in io), io
+    assert nach_geste["uhr"] and nach_geste["leise"], nach_geste
+    assert not nach_tipp["uhr"], "ein Finger weckt"
+    assert alles == io, "der weckende Finger loest nichts aus"
+
+
+def test_ein_finger_der_liegen_bleibt_weckt_nach_der_wartezeit():
+    async def schritte(ms, pg, cdp):
+        await _finger(cdp, "touchStart", [(BREITE / 2, HOEHE / 2)])
+        await asyncio.sleep(0.4)            # laenger als GESTE_ZWEITER_FINGER_MS
+        noch = await _dunkel(pg)
+        await _finger(cdp, "touchEnd", [])
+        await asyncio.sleep(0.4)
+        return noch, list(ms.io)
+    noch, io = _laufen(schritte, uhr=True)
+    assert not noch["uhr"] and io == []
+
+
+def test_nachts_hellt_eine_geste_nicht_auf():
+    """Nachts abgedunkelt: zwei Finger schalten die Stimmung, die Auflage
+    bleibt; ein Finger hellt wie bisher auf."""
+    async def schritte(ms, pg, cdp):
+        vorher = await _dunkel(pg)
+        await zwei_finger(cdp, BREITE / 2, HOEHE / 2, HOEHE / 2, schritte=1)
+        io = await _warten(ms, 1)
+        nach_geste = await _dunkel(pg)
+        await ein_finger(cdp, BREITE / 2, HOEHE * 0.6, HOEHE * 0.4)
+        await asyncio.sleep(0.4)
+        return vorher, io, nach_geste, await _dunkel(pg)
+    vorher, io, nach_geste, nach_finger = _laufen(schritte, nacht=True, ui={"nightDim": 70, "nightWake": 20})
+    assert vorher["auflage"] == 0.7 and io == ["sps/io/LK/changeTo/2"]
+    assert nach_geste["auflage"] == 0.7 and nach_geste["leise"], nach_geste
+    assert nach_finger["auflage"] == 0, nach_finger
+
+
+# Bruecke der LoxPanel-App (KioskActivity.KioskBridge), nachgebaut: setSaver meldet
+# die Uhr-Seite, die App weckt bei setSaver(false)
+APP_JS = """window.__lox = []; window.LoxKiosk = { _an: true, setDisplayOff(s) {},
+  setSaver(on) { window.__lox.push('saver:' + on); },
+  turnScreenOff() { this._an = false; }, turnScreenOn() { this._an = true; window.__lox.push('an'); },
+  isScreenOn() { return this._an; } };"""
+
+
+def test_in_der_app_bleibt_der_schoner_bei_einer_geste():
+    """Mit der LoxPanel-App: Eine Geste auf der Uhr-Seite meldet der App nicht
+    setSaver(false) - sonst holte sie das Display aus dem Dunkeln. (Dass die
+    App zwei Finger ueberhaupt weiterreicht, prueft SchonerBeruehrungTest.)"""
+    async def schritte(ms, pg, cdp):
+        await pg.evaluate("window.__lox.length = 0")
+        await zwei_finger(cdp, BREITE / 2, HOEHE / 2, HOEHE / 2, schritte=1)
+        io = await _warten(ms, 1)
+        nach_geste = await pg.evaluate("window.__lox.slice()")
+        await _finger(cdp, "touchStart", [(BREITE / 2, HOEHE / 2)])
+        await _finger(cdp, "touchEnd", [])
+        await asyncio.sleep(0.4)
+        return io, nach_geste, await pg.evaluate("window.__lox.slice()")
+    io, nach_geste, nach_tipp = _laufen(schritte, uhr=True, init=APP_JS)
+    assert io == ["sps/io/LK/changeTo/2"] and nach_geste == [], nach_geste
+    assert "saver:false" in nach_tipp, nach_tipp
+
+
+NACHT_UHR = """() => { const s = document.getElementById('saver'), n = document.getElementById('svNacht');
+  const r = s.getBoundingClientRect();
+  return {nacht: s.classList.contains('nacht'), sichtbar: !n.hidden,
+          wrap: getComputedStyle(s.querySelector('.sv-wrap')).display,
+          hell: +getComputedStyle(n).opacity, zeit: document.getElementById('nuZeit').textContent,
+          zonen: [...document.querySelectorAll('#nuZonen span')].map(e => {
+            const b = e.getBoundingClientRect(); return Math.round((b.left + b.width / 2 - r.left) / r.width * 100); }),
+          grund: getComputedStyle(s).backgroundColor}; }"""
+
+
+@pytest.mark.parametrize("ui, gesten, zonen", [
+    ({"nightClock": True, "nightClockBright": 30}, True, [17, 50, 83]),
+    ({"nightClock": True, "nightClockBright": 30}, False, []),
+], ids=["mit-gesten", "ohne-gesten"])
+def test_nacht_uhr(ui, gesten, zonen, tmp_path):
+    """Nachts mit Nacht-Uhr: nur die Uhrzeit auf Schwarz in der eingestellten
+    Helligkeit, Wetter und Termine ruhen; mit Gesten oben je Spalte ihr Symbol,
+    mittig ueber der Spalte."""
+    async def schritte(ms, pg, cdp):
+        await pg.screenshot(path=str(tmp_path / f"nacht_uhr_{'gesten' if gesten else 'ohne'}.png"))
+        return await pg.evaluate(NACHT_UHR)
+    m = _laufen(schritte, ui={**ui, "gesten": gesten}, uhr=True, nacht=True)
+    assert m["nacht"] and m["sichtbar"] and m["wrap"] == "none", m
+    assert abs(m["hell"] - 0.3) < 0.01 and m["grund"] == "rgb(0, 0, 0)", m
+    assert len(m["zeit"]) == 5 and m["zeit"][2] == ":", m
+    assert m["zonen"] == zonen, m
+
+
+def test_nacht_uhr_nur_nachts_und_wenn_eingeschaltet():
+    tags = _laufen(lambda ms, pg, cdp: pg.evaluate(NACHT_UHR), ui={"nightClock": True}, uhr=True)
+    aus = _laufen(lambda ms, pg, cdp: pg.evaluate(NACHT_UHR), uhr=True, nacht=True)
+    assert not tags["nacht"] and not tags["sichtbar"] and tags["wrap"] != "none", tags
+    assert not aus["nacht"] and not aus["sichtbar"], aus
