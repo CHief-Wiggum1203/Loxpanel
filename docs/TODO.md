@@ -2111,6 +2111,10 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       einstellbar; `ui.nightClock`, `ui.nightClockBright`). Fully Kiosk und
       der Linux-Agent schalten das Display selbst ab: ist es dort ganz aus,
       weckt jede Berührung wie bisher.
+      *Erledigt 13.10.2026: Hinweis-Symbol* rechts unter dem Kachelfeld auf
+      Seiten, auf denen Gesten wirken; ein Tipp zeigt die drei Spalten und
+      was Doppel- und Dreifachtipp dort auslösen (`ui.gestenHinweis`, ohne
+      Eintrag an; nicht auf schmalen Schirmen).
       Offen, an der Anlage prüfen: ob die Lichtsteuerung beim Dimmen
       „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg, Wartezeit
       des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am

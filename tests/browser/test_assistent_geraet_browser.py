@@ -36,7 +36,8 @@ PROFILE = {"auto1": ({"grid": "auto", "split": False}, "1", "auto"),
 MESSEN = """() => { const g = document.getElementById('grid'), cs = getComputedStyle(g);
   return {raster: [gridCols, gridRows], kachel: Math.round(g.querySelector('.tile[data-id]').getBoundingClientRect().width),
           masse: {gap: parseFloat(cs.getPropertyValue('--gap')), pad: parseFloat(cs.getPropertyValue('--pad')),
-                  punkteH: parseFloat(cs.getPropertyValue('--punkte-h')), tabsH: document.getElementById('tabs').offsetHeight},
+                  punkteH: parseFloat(cs.getPropertyValue('--punkte-h')), hinweisH: parseFloat(cs.getPropertyValue('--hinweis-h')),
+                  tabsH: document.getElementById('tabs').offsetHeight},
           vorgabe: LoxRaster.VISU_MASSE}; }"""
 
 

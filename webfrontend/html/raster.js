@@ -14,16 +14,23 @@ const KACHEL_REF=170, KACHEL_REF_H=150, KS_MIN=0.85, KS_MAX=2, KOPF_H=64, LEISTE
 // Masse der Visu im automatischen Raster, in CSS-Pixeln (dort wirkt keine
 // Skalierung): Abstand und Innenrand des Rasters und die Hoehe der
 // Seitenpunkte wie im CSS von panel.html (.grid --gap, --pad, --punkte-h),
-// die Tab-Leiste aus .tab (2 x 13 px Innenabstand, 28 px Symbol, 1 px Linie
-// oben). Die Visu misst selbst; der Konfigurator rechnet ein Geraet damit vor.
-// Ein Browser-Test vergleicht die Werte mit der gemessenen Visu.
-const VISU_MASSE={gap:10, pad:10, punkteH:14, tabsH:55};
+// die Fusszeile mit dem Hinweis-Symbol der Gesten (--hinweis-h, ein Tippziel
+// nach WCAG 2.5.8), die Tab-Leiste aus .tab (2 x 13 px Innenabstand, 28 px
+// Symbol, 1 px Linie oben). Die Visu misst selbst; der Konfigurator rechnet ein
+// Geraet damit vor. Ein Browser-Test vergleicht die Werte mit der gemessenen Visu.
+const VISU_MASSE={gap:10, pad:10, punkteH:14, hinweisH:24, tabsH:55};
 
 // Schmaler Schirm (4"-Panel): Breite unter SCHMAL_UNTER. Ein Kachel-Set
 // nimmt dort seine Masse mit "-schmal" (theme_colors.KACHEL_SETS; Visu: Klasse
 // .schmal am Kasten), etwa die Seitenleiste nur mit Symbolen.
 const SCHMAL_UNTER=600;
 function schmal(w){ return w<SCHMAL_UNTER; }
+// Fusszeile unter dem Kachelfeld (waagerechte Seiten, quer): Seitenpunkte und
+// rechts das Hinweis-Symbol der Gesten. Mit Symbol hat sie dessen Hoehe auf
+// JEDER Seite der Ansicht, auch wo Gesten nichts treffen - sonst waeren die
+// Kacheln von Seite zu Seite verschieden gross. Nicht auf schmalen Schirmen.
+// -> Hoehe, die autoRaster (fussH) abzieht; 0 ohne Symbol.
+function fussH(hinweis, quer, w, hinweisH){ return hinweis && quer && !schmal(w) ? hinweisH : 0; }
 // Mass eines Kachel-Sets fuer diese Breite: "-schmal", wenn es das gibt und
 // der Schirm schmal ist (masse: CSS-Werte wie "68px" aus /api/meta), sonst
 // das Mass selbst, ohne beides der Rueckfall.
@@ -122,8 +129,9 @@ function festesRaster(e){
 // teilen sich den Rest; Spalten werden dabei weniger, keine wird abgeschnitten.
 // Ein Rahmen um das Feld (Leiste "oben": rahmenX links und rechts zusammen,
 // rahmenY unten) geht genauso ab.
-// e: {w, h, ziel, wachsen, gap, pad, tabsH, punkteH, widget, paneCols,
+// e: {w, h, ziel, wachsen, gap, pad, tabsH, punkteH, fussH, widget, paneCols,
 //     paneShare, breiten, seitenQuer, kopfH(ks), leisteH(ks), railW, rahmenX, rahmenY}
+// fussH: Fusszeile mit Hinweis-Symbol (fussH()), die Seitenpunkte stehen darin.
 // -> {cols, rows, k, p, ks, gesamt, kb, hoch, pPx?}: k und p sind die Anteile von
 // Kacheln und Widget an der Aufteilung, pPx die Hoehe des Widgets hochkant.
 // hoch: das Widget steht unter den Kacheln, entschieden nach der Flaeche des
@@ -132,7 +140,7 @@ function festesRaster(e){
 // Hoehe, zur Spaltenbreite.
 function autoRaster(e){
   const w=e.w-(e.railW||0)-(e.rahmenX||0), hoehe=e.h-(e.rahmenY||0), ziel=e.ziel, wachsen=e.wachsen||1;
-  const gap=e.gap||0, pad=e.pad||0, tabsH=e.tabsH||0, punkteH=e.punkteH||0;
+  const gap=e.gap||0, pad=e.pad||0, tabsH=e.tabsH||0, punkteH=e.punkteH||0, fuss=e.fussH||0;
   const widget=!!e.widget, paneCols=e.paneCols||0, paneShare=e.paneShare||0;
   const breiten=e.breiten||[], kopfH=e.kopfH||(()=>0), leisteH=e.leisteH||(()=>0);
   const hoch=hoehe>w;
@@ -144,7 +152,7 @@ function autoRaster(e){
   // Kopfzeile wird dann hoechstens ein paar Pixel niedriger).
   const fuer=(gesamt, punkte)=>{
     const kb=(w-2*pad-(gesamt-1)*gap)/gesamt, ksw=kachelFaktorFuer(kb);
-    const h=hoehe-tabsH-kopfH(ksw)-leisteH(ksw)-(punkte?punkteH:0);
+    const h=hoehe-tabsH-kopfH(ksw)-leisteH(ksw)-Math.max(punkte?punkteH:0, fuss);
     const rows=anzahl(h, kb), zh=(h-2*pad-(rows-1)*gap)/rows;   // zh: Hoehe einer Kachelzeile
     const ks=kachelFaktorFuer(kb, zh);
     let r;
@@ -197,6 +205,6 @@ function autoRaster(e){
 }
 
 g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, SCHMAL_UNTER,
-  LEISTE_MASSE, LEISTE_ANTEILIG, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, setMass,
+  LEISTE_MASSE, LEISTE_ANTEILIG, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, fussH, setMass,
   leisteSchmal, leisteMass};
 })(typeof window!=='undefined' ? window : globalThis);
