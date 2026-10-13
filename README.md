@@ -90,6 +90,16 @@ im Browser – ganz ohne Programmierung und ohne die Loxone-App.
   Aktiv-Overlay (Farbe/Transparenz von Füllung und Rahmen), global oder pro Kachel.
 - **Ein Design für alle Geräte:** dieselbe Oberfläche skaliert auf Wandpanel,
   Tablet und Smartphone.
+- **Gesten wie auf den Loxone-Tastern:** zwei Finger bedienen den Raum der
+  Seite – Mitte Licht (hoch/runter dimmt, was leuchtet; Tipp schaltet ein bzw.
+  zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp „Raum
+  verlassen“, Dreifachtipp „Haus aus“ (beide auf Wunsch über Taster aus
+  Loxone Config). Das geht auch im Dunkeln auf der Uhr-Seite und nachts, ohne
+  dass das Panel aufleuchtet. Ein Finger bedient die Visu wie bisher;
+  einschalten unter *Vorgaben → Verhalten*.
+- **Nacht-Uhr:** nachts auf Wunsch nur die Uhrzeit, gedimmt auf Schwarz wie die
+  Nachtanzeige der Loxone-Taster, mit den Symbolen der Gesten-Spalten;
+  Helligkeit einstellbar.
 - **Display nach Anwesenheit:** auf Android-Panels (LoxPanel-App, Fully Kiosk,
   WallPanel) hält ein Loxone-Präsenzmelder das Display hell, solange jemand im
   Raum ist, und schaltet es aus, wenn der Raum leer wird – je Gerät einstellbar
@@ -477,6 +487,7 @@ und ohne LoxBerry.
 
 ## Changelog
 
+- **1.1.0** – **Gesten wie auf den Loxone-Tastern:** Zwei Finger bedienen den Raum der Seite – Mitte Licht (hoch/runter dimmt anteilig, was leuchtet, auch bei mehreren Lichtsteuerungen in einem offenen Raum; ganz unten aus; Tipp schaltet ein bzw. zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp „Raum verlassen“, Dreifachtipp „Haus aus“ über Taster aus Loxone Config. Je Gerät eine „Stimmung beim Einschalten“. **Gesten im Dunkeln:** auf der Uhr-Seite und nachts, ohne dass das Panel aufleuchtet, auch in der LoxPanel-App. **Nacht-Uhr:** nachts nur die gedimmte Uhrzeit auf Schwarz mit den Symbolen der Gesten-Spalten, Helligkeit einstellbar. Beides ist ohne Einstellung aus. Dazu das `.deb` mit gzip (läuft auf Debian 11) und mit Version, Commit und Bauzeit im Paket, und mehr englische Texte im Konfigurator.
 - **1.0.0** – Erste eigene Version des Forks. **Kachel-Sets** (loxone, touch, kreide), **Hausübersicht** als eigene Seite, **Seiten-Editor** mit freien Seiten per Drag & Drop, **Vorschau** ungespeicherter Ansichten im Browser und am echten Gerät, **Kopfzeile** und **Werteleiste** über dem Raster, automatisches Raster für Tablets (Kacheln wachsen und schrumpfen mit dem Schirm, Seiten waagerecht wischen), **Intercom Gen-1 und Gen-2** samt Kamera vom Miniserver, für Gen-1 **Gegensprechen** in der Android-App, iPad/iPhone als Web-App vom Home-Bildschirm. Konfigurator neu geordnet (Ansichten, Vorgaben, Geräte, Einstellungen, eine Speicherleiste), Gerät einrichten in sechs Schritten, Kopplungscode am Panel. Offene Seiten laden nach einem Update von selbst neu. **Verbindungszustand** an jedem Panel: Fällt der Miniserver aus, sperrt die Visu Befehle sofort und zeigt nach 8 s eine Leiste mit „seit“ und dem letzten bestätigten Stand. **Diagnosepaket** je Gerät und für den Server als ZIP (Einstellungen und letzte Log-Zeilen, Geheimnisse geschwärzt). Dazu die Prüfberichte der Stufen 1 bis 6 und die Prüfliste vom 12.10.2026 mit 15 behobenen Fehlern, jeder mit Regressionstest. Die Android-App ist jetzt fest signiert: Updates installieren sich über die vorhandene App.
 
 Release-Notes bis 0.7.0: [GitHub Releases des Originals](https://github.com/Lenardo1/Loxpanel/releases).
