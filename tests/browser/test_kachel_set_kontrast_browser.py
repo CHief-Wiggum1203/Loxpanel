@@ -90,6 +90,10 @@ ANSICHTEN = {
     "kalender": (TABS, {}, ["nav({view:'tab', tab:'kalender'})"]),
     "wetter": (TABS, {}, ["nav({view:'tab', tab:'wetter'})"]),
     "front_daneben": (TABS, {"panes": {"favoriten": "calendar"}}, []),
+    # Player als Pane 2: seine Seite hatte einen Verlauf, den TEXTE nicht
+    # nachrechnen kann - Titel und Sender blieben ungemessen und waren im
+    # Set "touch" auf dem dunklen Rahmen unlesbar
+    "player_daneben": (TABS, {"panes": {"favoriten": "player:AZ"}}, []),
     "kopfzeile": (TABS, {"panes": {"favoriten": "header"}}, []),
     "kopfzeile_werte": (TABS, {"panes": {"favoriten": "header:T0,T1"}}, [], True),
     "werteleiste": (TABS, {"valueBar": ["favoriten"]}, [], True),
@@ -171,4 +175,6 @@ def test_jeder_text_ist_lesbar(fall, ui, monkeypatch, tmp_path):
         assert texte, (fall, a, "kein Text gemessen")
     for a in ("kopfzeile_werte", "werteleiste"):   # die Werte der Chips sind dabei
         assert sum(".vl" in t["wo"] for t in raus[a]) >= 2, (fall, a, raus[a])
+    if TC.kachel_set_art(ui.get("tileSet"))[1] == "oben":   # Pane 2 flach auf dem Feld: ihr Text zaehlt mit
+        assert any("pptitle" in t["wo"] for t in raus["player_daneben"]), (fall, raus["player_daneben"])
     assert not any(schlecht.values()), (fall, {a: t for a, t in schlecht.items() if t})

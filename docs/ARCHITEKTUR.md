@@ -1318,14 +1318,18 @@ Assistenten des Konfigurators.
   weniger Höhe; dort gelten nur die Leistenmaße mit `-schmal`). Für jedes Set (`html[data-kachelset-aufbau]`)
   flache Kacheln ohne Rahmen, Abstand und Innenrand des Rasters aus dem Set,
   Symbole in der Schriftfarbe, aktive Kachel auf `--kachel-an`, Tasten auf
-  `--taste`, und der Zustand steht vorn, auch bei Kacheln, die direkt
+  `--taste` (auch die −/+ an einem Schieber, `.sbtn`), und der Zustand steht vorn, auch bei Kacheln, die direkt
   schalten (`zustandVorn()`). `mitte`: `kachelTexte()` stellt den Zustand vorn
   (neben einem Messwert den, den der Server dazu nennt) und darunter „Name ·
   Raum“, die aktive Kachel trägt `--kachel-an-ink`, ihre Zweitzeile
   `--kachel-an-muted`. Dasselbe gilt für die aktive Zeile einer Liste
   (`layout: "list"`, etwa die Stimmungen der Lichtsteuerung): Ihre Fläche ist
   ebenfalls `--kachel-an`, ohne die Schrift des Sets stünde dort bei „aktiv
-  dunkel“ `--ink` auf fast Schwarz. `kreis`: `render()` legt `.kreis` um das
+  dunkel“ `--ink` auf fast Schwarz. Die große Taste (Play) kippt ebenso
+  (`--kachel-an` mit `--kachel-an-ink`), der Schieber füllt sich in `--ink`.
+  `--glow` gehört nicht zur Farbsprache von `mitte`: Das Set rechnet es nur
+  für seine hellen Flächen nach, beim Farbton Lavendel ergibt das `#553602`,
+  also Braun. `kreis`: `render()` legt `.kreis` um das
   Symbol, aktiv füllt er sich mit `--glow`; Zustand und Name stehen unten, eine breite
   Kachel ohne Messwert stellt Kreis, Text und Raum in eine Zeile. Zustandstext
   in Akzentfarbe läuft über `--an-text` (Rückfall `--glow`). Leisten `pille`
@@ -1334,7 +1338,11 @@ Assistenten des Konfigurators.
   ist der Rahmen (`--rahmen`, Innenabstand aus dem Set), das Raster darin das
   abgerundete Feld (`--screen`), die Uhr-Seite ein Feld im selben Rahmen;
   Kopfzeile, Werteleiste und Widget stehen auf dem Rahmen, in den Farben der
-  Tabs; jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
+  Tabs. Pane 2 steht wie das Feld auf dem Rahmen, ihre Seiten sind deshalb
+  flach in seiner Fläche (`--screen`, Radius des Feldes) und oben und unten
+  bündig mit ihm. Der Verlauf von `--tile` ins Durchsichtige, den sie sonst
+  haben, lief auf dem dunklen Rahmen ins Dunkle, und Schrift und Zweitzeile
+  des Sets verschwanden darin. Jede Zeilen-Variante des Kastens (Kopfzeile, Werteleiste, Split
   quer und hochkant, Widget-Seite) rückt eine Zeile nach unten. Leiste
   `links`: Breite `--rail-breite` (schmal `--rail-breite-schmal`, nur
   Symbole), Zurück unten, der aktive Eintrag mit Symbol in der Akzentfarbe;

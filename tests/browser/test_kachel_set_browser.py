@@ -273,6 +273,60 @@ def test_leiste_oben_in_jeder_zeilen_variante(variante, tmp_path):
     assert abs(tb["height"] - _mass(oben, "--tabs-hoehe", breite, hoehe)) < 0.6, (variante, tb)
 
 
+PANE_MESSEN = """() => {
+  const cs = e => getComputedStyle(e), r = e => { const b = e.getBoundingClientRect();
+    return {top: b.top, bottom: b.bottom}; };
+  const seite = document.querySelector('#playerpane .fp-page'), gross = document.querySelector('#pptrans .btn.icon.big');
+  const minus = document.querySelector('#playerpane .ppvol .sbtn');
+  return {grid: r(document.getElementById('grid')), seite: r(seite),
+          seiteFarbe: cs(seite).backgroundColor, seiteBild: cs(seite).backgroundImage,
+          gross: [cs(gross).backgroundColor, cs(gross).color], minus: [cs(minus).backgroundColor, cs(minus).color],
+          schieber: cs(document.getElementById('ppsld')).backgroundImage};
+}"""
+
+
+@pytest.mark.parametrize("name", SETS)
+def test_pane_neben_den_kacheln_in_den_farben_des_sets(name, tmp_path):
+    """Pane 2 (hier der Player) neben den Kacheln. Leiste "oben": ihre Seite
+    steht wie das Feld auf dem Rahmen, flach in dessen Farbe und oben und unten
+    buendig mit ihm. Vorher lief ein Verlauf von der Kachelfarbe ins Dunkle,
+    Titel und Sender verschwanden darin. Aufbau "mitte": die Play-Taste kippt
+    wie die aktive Kachel, der Schieber nimmt die Schrift statt --glow (das
+    dort braun ist). Die -/+ an der Lautstaerke sind in jedem Set Tasten des Sets."""
+    aufbau, leiste = TC.kachel_set_art(name)
+    v = TC.kachel_set(name)
+
+    async def lauf():
+        app = _app({"grid": "auto", "tileSet": name, "panes": {"favoriten": "player:AZ"}})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _visu(b, port, 1000, 750, fehler)
+                await pg.wait_for_selector("#pptrans .btn.icon.big", state="attached")
+                m = await pg.evaluate(PANE_MESSEN)
+                await pg.screenshot(path=str(tmp_path / f"pane_{name}.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return m
+    m = asyncio.run(lauf())
+
+    assert m["minus"] == [_rgb(v["--taste"]), _rgb(v["--ink"])], (name, m)
+    if leiste == "oben":
+        assert m["seiteBild"] == "none" and m["seiteFarbe"] == _rgb(v["--screen"]), (name, m)
+        assert abs(m["seite"]["top"] - m["grid"]["top"]) < 1 and abs(m["seite"]["bottom"] - m["grid"]["bottom"]) < 1, \
+            (name, m)
+    if aufbau == "mitte":
+        assert m["gross"] == [_rgb(v["--kachel-an"]), _rgb(v["--kachel-an-ink"])], (name, m)
+        assert _rgb(v["--ink"]) in m["schieber"], (name, m)
+    else:
+        assert m["gross"][0] == _rgb(v["--glow"]), (name, m)    # die anderen Sets behalten ihre Akzentfarbe
+
+
 def test_seitenleiste_folgt_der_breite(tmp_path):
     """Leiste "links": unter SCHMAL_UNTER nur Symbole und die schmale Breite
     aus dem Set, darueber Symbol und Name - auch beim Drehen ohne Neuladen."""

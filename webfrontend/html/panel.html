@@ -770,6 +770,9 @@
   html[data-kachelset-aufbau] .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
   html[data-kachelset-aufbau] .btn{background:var(--taste,var(--tile));border-color:transparent;border-radius:var(--taste-radius,12px);}
   html[data-kachelset-aufbau] .btn:active{background:var(--kachel-an,var(--tile));}
+  /* -/+ neben einem Schieber (Lautstaerke im Player) sind Tasten wie alle anderen */
+  html[data-kachelset-aufbau] .sbtn{background:var(--taste,var(--tile));border-color:transparent;color:var(--ink);}
+  html[data-kachelset-aufbau] .sbtn:active{background:var(--kachel-an,var(--tile));color:var(--kachel-an-ink,var(--ink));}
   /* Aufbau "lx" und "kreis": Name und Zustand vorn kraeftiger, der Name
      unter dem Zustand bleibt leicht (wie die Loxone-App). */
   html[data-kachelset-aufbau="lx"] .grid.lx:not(.list) .tile.zv .sub,
@@ -898,6 +901,22 @@
   html[data-kachelset-leiste="oben"] .kz-wx{border-left-color:transparent;}
   html[data-kachelset-leiste="oben"] .screen.split #playerpane,
   html[data-kachelset-leiste="oben"] .screen.split #frontpane{border-left-color:transparent;border-top-color:transparent;}
+  /* Pane 2 steht wie das Feld der Kacheln auf dem Rahmen. Ihre Seiten bekommen
+     deshalb dessen Flaeche (--screen, flach, sein Radius) statt des Verlaufs
+     von der Kachelfarbe ins Durchsichtige: auf dem dunklen Rahmen lief der nach
+     unten ins Dunkle, und Schrift und Zweitzeile des Sets (gegen Kachel und
+     Feld gerechnet) verschwanden darin. Oben und unten buendig mit dem Feld. */
+  html[data-kachelset-leiste="oben"] .screen.split #playerpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.split #frontpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #playerpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #frontpane .fp-page{background:var(--screen);
+    border-color:transparent;border-radius:var(--k-feld-radius,0px);}
+  html[data-kachelset-leiste="oben"] .screen.split:not(.hoch) #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split:not(.hoch) #frontpane{padding:0 0 0 10px;scroll-padding-top:0;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #frontpane{padding:10px 0 0;scroll-padding-top:10px;}
+  html[data-kachelset-leiste="oben"] .screen.widgettab #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #frontpane{padding:0;scroll-padding-top:0;}
   html[data-kachelset-leiste="oben"] .screen{grid-template-rows:auto minmax(0,1fr);}
   html[data-kachelset-leiste="oben"] .screen #tabs{grid-row:1;}
   html[data-kachelset-leiste="oben"] .screen #grid,
@@ -1136,6 +1155,18 @@
   .sld::-moz-range-progress{height:6px;border-radius:4px;background:var(--glow);}
   .sld::-moz-range-thumb{width:16px;height:16px;border:2px solid var(--bg);border-radius:50%;
     background:var(--glow);cursor:pointer;}
+  /* Aufbau "mitte": Hervorgehobenes kippt um wie die aktive Kachel. Die grosse
+     Taste (Play) nimmt deshalb deren Farben, der Schieber die Schrift. --glow
+     gehoert nicht zu seiner Farbsprache: das Set rechnet es nur fuer seine
+     hellen Flaechen nach (Farbton Lavendel: #553602, braun). Die -moz-Regeln
+     einzeln, ein unbekanntes Pseudo-Element verwirft sonst die ganze Liste. */
+  html[data-kachelset-aufbau="mitte"] .btn.icon.big{background:var(--kachel-an,var(--taste));
+    color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .sld{background:linear-gradient(to right,
+      var(--ink) var(--p,0%),rgba(var(--wash,255,255,255),.22) var(--p,0%));}
+  html[data-kachelset-aufbau="mitte"] .sld::-webkit-slider-thumb{background:var(--ink);}
+  html[data-kachelset-aufbau="mitte"] .sld::-moz-range-progress{background:var(--ink);}
+  html[data-kachelset-aufbau="mitte"] .sld::-moz-range-thumb{background:var(--ink);}
   /* Schwebender Zurück-Pfeil (nur beim Reinnavigieren) */
   .tabback{flex:0 0 auto;align-self:center;width:50px;height:50px;margin:0 14px;
     display:grid;place-items:center;border-radius:50%;cursor:pointer;font-size:32px;line-height:1;
