@@ -1561,7 +1561,11 @@ function gestenVorgabenKarte(ui){
     '<p class="note">'+T('Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster: Mitte Licht (hoch/runter dimmt, ein Tipp schaltet ein bzw. zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Ein Finger bedient die Visu wie bisher.')+'</p>'+
     '<div class="row2"><div class="field" style="max-width:320px"><label class="lbl">'+T('Gesten für alle Ansichten')+'</label>'+
       gestenWahl('gGesten', ui.gesten, T('Standard ({w})').replace('{w}', wertText('gesten', standardWert('gesten'))))+
-      erbtFeld('gesten')+'</div></div>'+
+      erbtFeld('gesten')+'</div>'+
+      '<div class="field" style="max-width:320px"><label class="lbl">'+T('Hinweis-Symbol')+'</label>'+
+      gestenWahl('gHinweis', ui.gestenHinweis, T('Standard ({w})').replace('{w}', wertText('gestenHinweis', standardWert('gestenHinweis'))))+
+      erbtFeld('gestenHinweis')+'</div></div>'+
+    '<p class="note">'+T('Hinweis-Symbol: rechts unter dem Kachelfeld, auf Seiten, auf denen Gesten wirken. Ein Tipp darauf zeigt, was zwei Finger dort tun. Es braucht eine Zeile unter den Kacheln, auf jeder Seite der Ansicht, damit die Kacheln gleich groß bleiben. Nicht auf kleinen Schirmen (4″-Panel).')+'</p>'+
     '<div class="grph">'+T('Haus aus (Dreifachtipp)')+'</div>'+
     '<div class="row2"><div class="field" style="max-width:460px"><label class="lbl">'+T('Taster aus Loxone Config')+'</label>'+
       '<select id="gHausAus">'+tasterOptionen(ui.hausAus, T('— keiner (Dreifachtipp wirkt nicht) —'))+'</select></div></div>'+
@@ -1578,6 +1582,10 @@ function gestenVorgabenBinden(p){
   const gg=$('#gGesten');
   if(gg) gg.onchange=()=>{ const u=ui();
     if(gg.value==='an') u.gesten=true; else if(gg.value==='aus') u.gesten=false; else delete u.gesten;
+    markDirty(); erbtZeichnen(); };
+  const gh=$('#gHinweis');
+  if(gh) gh.onchange=()=>{ const u=ui();
+    if(gh.value==='an') u.gestenHinweis=true; else if(gh.value==='aus') u.gestenHinweis=false; else delete u.gestenHinweis;
     markDirty(); erbtZeichnen(); };
   const ha=$('#gHausAus');
   if(ha) ha.onchange=()=>{ const u=ui(); if(ha.value) u.hausAus=ha.value; else delete u.hausAus; markDirty(); };
@@ -1665,6 +1673,7 @@ function standardWert(k, ui){
   if(k==='scale') return 'off';
   if(k==='tileSize') return kachelZiel().std;
   if(k==='gesten') return !!(META||{}).gestenStandard;
+  if(k==='gestenHinweis') return !!(META||{}).gestenHinweisStandard;
   if(k==='nightClock'||k==='nightClockBright') return ((META||{}).nightDefaults||{})[k];
   return null;
 }
@@ -1686,7 +1695,7 @@ function wertText(k, v){
   if(k==='font') return (FONTS.find(x=>sameFont(x.v,v))||{label:String(v)}).label;
   if(k==='baseColor') return (BASE_COLORS.find(c=>c.v.toLowerCase()===String(v).toLowerCase())||{n:String(v)}).n;
   if(k==='bold') return v ? T('Fett') : T('Normal');
-  if(k==='gesten'||k==='nightClock') return v ? T('An') : T('Aus');
+  if(k==='gesten'||k==='gestenHinweis'||k==='nightClock') return v ? T('An') : T('Aus');
   if(k==='nightClockBright') return fmtZahl(v)+' %';
   if(k==='lang') return (LANGS.find(l=>l[0]===v)||[v,String(v)])[1];
   return String(v);
@@ -1993,6 +2002,8 @@ function renderEditor(){
          gestenWahl('fGesten', (p.ui||{}).gesten, T('Wie Vorgabe'))+erbtFeld('gesten')+'</div>'+
        '<div class="field" style="max-width:320px"><label class="lbl">'+T('Raum außerhalb von Raumseiten')+'</label>'+
          '<select id="fGestenRaum">'+gestenRaumOptionen((p.ui||{}).gestenRaum)+'</select></div>'+
+       '<div class="field" style="max-width:240px"><label class="lbl">'+T('Hinweis-Symbol')+'</label>'+
+         gestenWahl('fHinweis', (p.ui||{}).gestenHinweis, T('Wie Vorgabe'))+erbtFeld('gestenHinweis')+'</div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Auf einer Raumseite gelten die Gesten diesem Raum. Auf anderen Seiten (Favoriten, Hausübersicht …) gelten sie dem hier gewählten Raum, ohne Auswahl dort gar nicht. Was Doppel- und Dreifachtipp auslösen, steht unter Vorgaben → Verhalten.')+'</div>'+
    '</div></section>';
@@ -2065,6 +2076,9 @@ function renderEditor(){
       markDirty(); erbtZeichnen(); }; }
   { const fr=$('#fGestenRaum'); if(fr) fr.onchange=()=>{ p.ui=p.ui||{};
       if(fr.value) p.ui.gestenRaum=fr.value; else delete p.ui.gestenRaum; markDirty(); }; }
+  { const fh=$('#fHinweis'); if(fh) fh.onchange=()=>{ p.ui=p.ui||{};
+      if(fh.value==='an') p.ui.gestenHinweis=true; else if(fh.value==='aus') p.ui.gestenHinweis=false; else delete p.ui.gestenHinweis;
+      markDirty(); erbtZeichnen(); }; }
 
   bindOverlay('ov_', ()=>{ p.ui=p.ui||{}; p.ui.overlay=p.ui.overlay||{}; return p.ui.overlay; },
               ()=>{ pruneOverlay(p.ui); ovPreview('ovPrev',(p.ui||{}).overlay); markDirty(); });
@@ -3329,6 +3343,13 @@ function seAnsicht(ctx){
   return {pg:pg, folge:folge, raster:raster, leiste:leiste, nachRaum:nachRaum};
 }
 function sePaneArt(v){ if(!v) return ''; const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
+// Zeigt die Visu das Hinweis-Symbol der Gesten (Vorgaben und Ansicht gemischt,
+// ohne Eintrag der Standard aus /api/meta)? Dann reserviert sie die Fusszeile
+// unter dem Kachelfeld (raster.js fussH), die Vorrechnung zieht sie genauso ab.
+function gestenHinweisGilt(u){
+  const an=(k, std)=>typeof u[k]==='boolean' ? u[k] : !!(META||{})[std];
+  return an('gesten', 'gestenStandard') && an('gestenHinweis', 'gestenHinweisStandard');
+}
 // Raster am Vorschaugeraet, wie rasterFuer()/autoRaster() der Visu es rechnen.
 // Widget nur mit Split (die Kopfzeile ist keines: sie nimmt eine Zeile Hoehe);
 // waagerechte Seiten mit Punkten wie seitenQuer(): Split und kein quadratischer Schirm.
@@ -3340,6 +3361,7 @@ function seRaster(ctx, a){
   if(u.auto){
     const r=LoxRaster.autoRaster(Object.assign({}, M, lm, {w:g.vw, h:g.vh, ziel:u.ziel, wachsen:kachelZiel().wachsen||1,
       widget:widget, paneCols:u.paneCols||0, paneShare:(META.paneCols||{}).anteil||0, seitenQuer:quer,
+      fussH:LoxRaster.fussH(u.hinweis, quer, g.vw, M.hinweisH),
       breiten:a.raster.map(e=>({w:e.w, h:e.h})),
       kopfH:kopf?(ks=>Math.round(LoxRaster.KOPF_H*ks)):null, leisteH:leiste?(ks=>Math.round(LoxRaster.LEISTE_H*ks)):null}));
     return Object.assign(basis, r, {auto:true});
@@ -3412,7 +3434,7 @@ function seKontextReiter(){
       return {auto:u.grid==='auto', cols:u.cols==3?3:2, rows:u.rows==3?3:2, split:u.split!==false,
         ziel:dz||tileSizeWert(u.tileSize)||kachelZiel().std, paneCols:parseInt(u.paneCols)||0,
         pane:(u.panes||{})[tab()]||'', werteLeiste:Array.isArray(u.valueBar) && u.valueBar.indexOf(tab())>-1,
-        tileSet:u.tileSet||'', klassisch:u.tileLayout==='classic' && !u.tileSet}; },
+        tileSet:u.tileSet||'', klassisch:u.tileLayout==='classic' && !u.tileSet, hinweis:gestenHinweisGilt(u)}; },
     hide:()=>p.hide||[], tiles:()=>p.tiles||{},
     setPane:k=>{ const v=k?wzP2Real(k):''; p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
       if(v) p.ui.panes[tab()]=v; else delete p.ui.panes[tab()];
@@ -3435,7 +3457,7 @@ function seKontextWz(i){
     ui:()=>{ const gr=String(WZ.grid||'2x2').split('x').map(Number);
       return {auto:WZ.grid==='auto', cols:gr[0]===3?3:2, rows:gr[1]===3?3:2, split:WZ.panes==='2', ziel:wzZiel(),
         paneCols:0, pane:wzP2Real(WZ.pane2[key]||''), werteLeiste:false, tileSet:(WZ.look||{}).tileSet||'',
-        klassisch:false}; },   // der Assistent legt Ansichten im neuen Aufbau an
+        klassisch:false, hinweis:gestenHinweisGilt(((PANELS.__global__||{}).ui)||{})}; },   // der Assistent legt Ansichten im neuen Aufbau an
     hide:()=>[], tiles:()=>({}),
     setPane:k=>{ if(k) WZ.pane2[key]=k; else delete WZ.pane2[key]; }, setPaneRoh:null,
     geraete:null, geraet:()=>WZ.groesse||wzBrowser(), setGeraet:null,
@@ -4357,7 +4379,9 @@ function wzVorrechnung(panes, grid){
   const M=LoxRaster.VISU_MASSE, split=panes==='2', lm=leisteMasse((WZ.look||{}).tileSet, g.vw, g.vh);
   if(grid==='auto'){
     const basis=Object.assign({w:g.vw, h:g.vh, ziel:wzZiel(), wachsen:kachelZiel().wachsen||1,
-      paneShare:(META.paneCols||{}).anteil||0}, M, lm);
+      paneShare:(META.paneCols||{}).anteil||0,
+      fussH:LoxRaster.fussH(gestenHinweisGilt(((PANELS.__global__||{}).ui)||{}), split && !LoxRaster.quadratisch(g.vw, g.vh),
+                            g.vw, M.hinweisH)}, M, lm);
     const ohne=LoxRaster.autoRaster(Object.assign({}, basis, {widget:false}));
     const mit=split ? LoxRaster.autoRaster(Object.assign({}, basis, {widget:true})) : null;
     // mit Widget: das Raster daneben (quer weniger Spalten, hochkant weniger Zeilen)

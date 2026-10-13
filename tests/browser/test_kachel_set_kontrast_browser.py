@@ -94,6 +94,8 @@ ANSICHTEN = {
     # nachrechnen kann - Titel und Sender blieben ungemessen und waren im
     # Set "touch" auf dem dunklen Rahmen unlesbar
     "player_daneben": (TABS, {"panes": {"favoriten": "player:AZ"}}, []),
+    # Hilfe zum Hinweis-Symbol der Gesten: Karten ueber abgedunkeltem Grund
+    "gesten_hilfe": (["room:r4"] + TABS, {"gesten": True}, ["gestenHilfeZeigen()"]),
     "kopfzeile": (TABS, {"panes": {"favoriten": "header"}}, []),
     "kopfzeile_werte": (TABS, {"panes": {"favoriten": "header:T0,T1"}}, [], True),
     "werteleiste": (TABS, {"valueBar": ["favoriten"]}, [], True),
@@ -111,7 +113,7 @@ ANSICHTEN = {
 # Ansichten, in denen nur ein Teil zaehlt: die Leiste. Die Kacheln darunter
 # sind dann gesperrt und absichtlich blass (WCAG 1.4.3 nimmt inaktive
 # Bedienelemente aus).
-WURZEL = {"verbindung": "#verbindung"}
+WURZEL = {"verbindung": "#verbindung", "gesten_hilfe": "#gestenHilfe"}
 
 
 def _faelle():

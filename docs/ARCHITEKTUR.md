@@ -334,8 +334,8 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `raeume[]`, `aktiv[]`, `zentral[]`, `spieler`, `energie` und auf der Unterseite `liste:"aktiv"` |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `raeume[]`, `aktiv[]`, `zentral[]`, `spieler`, `energie` und auf der Unterseite `liste:"aktiv"` |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -949,6 +949,7 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
         "gesten": true,                      // Zwei-Finger-Gesten an/aus; fehlt = wie Vorgaben (§7.1 „Gesten“)
         "gestenRaum": "<room-uuid>",         // Raum der Gesten außerhalb von Raumseiten; fehlt = dort keine
+        "gestenHinweis": true,               // Hinweis-Symbol der Gesten an/aus; fehlt = wie Vorgaben
         "nightClock": true,                  // Nacht-Uhr an/aus; fehlt = wie Vorgaben (§7.1 „Gesten“, Stufe 5)
         "nightClockBright": 30,              // ihre Helligkeit in %, NACHT_UHR_HELL_MIN bis 100;
                                              // fehlt = Vorgabe, sonst NACHT_STANDARD
@@ -1041,9 +1042,10 @@ bleibt es bei `None`, dann nimmt der Agent seine `kiosk.conf` (`DPMS_OFF`,
 `RELOAD_HOURS`), die Visu schaltet das Display nicht ab und lädt nachts um
 `NEULADEN_STUNDE` neu.
 
-Die Gesten (§7.1) haben drei Einträge unter Vorgaben → Verhalten: `gesten`
+Die Gesten (§7.1) haben vier Einträge unter Vorgaben → Verhalten: `gesten`
 (an/aus für alle Ansichten, gespeichert nur, wenn es vom `GESTEN_STANDARD`
-abweicht; eine Ansicht kann es selbst setzen), `hausAus` (Taster für den
+abweicht; eine Ansicht kann es selbst setzen), `gestenHinweis` (Hinweis-Symbol,
+ebenso gegen `GESTEN_HINWEIS_STANDARD`), `hausAus` (Taster für den
 Dreifachtipp) und `raumVerlassen` (`{Raum-UUID: Taster-UUID}` für den
 Doppeltipp). Beide Taster sind Bausteine vom Typ `Pushbutton` ohne
 Visu-Passwort (`geste_taster_optionen()`, `/api/meta` `gestenTaster`): Laut
@@ -1979,6 +1981,24 @@ Assistenten des Konfigurators.
     (`SchonerBeruehrung.kt`, gleiche Wartezeit, `android/README.md`). Fully
     Kiosk und der Linux-Agent schalten das Display selbst ab; ist es dort
     ganz aus, weckt jede Berührung wie bisher.
+  - **Hinweis-Symbol:** Rechts unter dem Kachelfeld steht auf Seiten, auf
+    denen Gesten wirken, ein kleines Symbol (zwei Finger mit Doppelpfeil,
+    `ICONS.zweiFinger`, in `--muted`). Ein Tipp öffnet die Hilfe
+    (`gestenHilfeZeigen()`): die drei Spalten genau dort, wo sie wirken, mit
+    Symbol, Titel und was hoch/runter und ein Tipp tun (`GESTE_ARTEN`, aus
+    derselben Liste lesen Erkennung und Nacht-Uhr), darunter Doppel- und
+    Dreifachtipp mit den Tastern aus den Vorgaben. Diese Zeilen baut der
+    Server (`view.gestenHilfe`, `gesten_hilfe()`), denn nur er kennt die
+    Taster. Das Symbol steht in einer Fußzeile, in der auch die Seitenpunkte
+    sitzen: 24 px hoch (`--hinweis-h`, ein Tippziel nach WCAG 2.5.8). Sie
+    gilt auf jeder Seite der Ansicht, sobald Gesten und Hinweis an sind,
+    auch wo das Symbol fehlt, damit die Kacheln von Seite zu Seite gleich
+    groß bleiben. `raster.js` zieht sie ab (`fussH()`, Maß `hinweisH`), Visu
+    und Konfigurator gleich. Nur bei waagerechten Seiten, nicht auf
+    schmalen Schirmen (`SCHMAL_UNTER`). Die Hausübersicht hat keine
+    Fußzeile und damit kein Symbol. Abschaltbar unter Vorgaben →
+    Verhalten → Gesten und je Ansicht (`ui.gestenHinweis`); ohne Eintrag
+    an (`GESTEN_HINWEIS_STANDARD`).
   - **Nacht-Uhr:** Nachts zeigt die Uhr-Seite auf Wunsch (`ui.nightClock`)
     nur die Uhrzeit, gedimmt auf Schwarz wie die Nachtanzeige der
     Loxone-Taster (`.saver.nacht`, `#svNacht`). Die Helligkeit

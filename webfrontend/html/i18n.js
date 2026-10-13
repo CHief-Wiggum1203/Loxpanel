@@ -17,6 +17,8 @@
       'An': 'On',
       'Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster: Mitte Licht (hoch/runter dimmt, ein Tipp schaltet ein bzw. zur nächsten Stimmung), links Beschattung, rechts Musik, Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Ein Finger bedient die Visu wie bisher.': 'Two fingers control the room of the page like a Loxone switch: middle light (up/down dims, a tap switches on or to the next mood), left shading, right music, double tap leave room, triple tap house off. One finger operates the view as before.',
       'Gesten für alle Ansichten': 'Gestures for all views',
+      'Hinweis-Symbol': 'Hint symbol',
+      'Hinweis-Symbol: rechts unter dem Kachelfeld, auf Seiten, auf denen Gesten wirken. Ein Tipp darauf zeigt, was zwei Finger dort tun. Es braucht eine Zeile unter den Kacheln, auf jeder Seite der Ansicht, damit die Kacheln gleich groß bleiben. Nicht auf kleinen Schirmen (4″-Panel).': 'Hint symbol: at the right below the tiles, on pages where gestures work. A tap on it shows what two fingers do there. It needs a row below the tiles on every page of the view, so the tiles keep their size. Not on small screens (4″ panel).',
       'Standard ({w})': 'Default ({w})',
       'Haus aus (Dreifachtipp)': 'House off (triple tap)',
       'Taster aus Loxone Config': 'Push button from Loxone Config',

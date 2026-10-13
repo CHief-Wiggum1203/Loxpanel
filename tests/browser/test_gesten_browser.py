@@ -60,11 +60,12 @@ async def _warten(ms, anzahl, sekunden=3.0):
     return list(ms.io)
 
 
-def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None):
+def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, groesse=(BREITE, HOEHE),
+            tabs=("room:r1",), vorgaben=None):
     """uhr: die Uhr-Seite (Bildschirmschoner) stehen lassen; nacht: Nacht ist
     schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke);
     front: Wetter und Termine wie vom Server geladen (dann ist die Uhr-Seite
-    quer in zwei Spalten geteilt)."""
+    quer in zwei Spalten geteilt); vorgaben: ui der Vorgaben (theme.json)."""
     async def lauf():
         ms = Miniserver()
         await ms.start()
@@ -74,17 +75,20 @@ def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None):
         app.states = states
         if front:
             app._front = app._front_payload(front)
-        if nacht:
-            app._night_now = lambda: True
-            app._night_on = True
-        app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["room:r1"],
+        if vorgaben:
+            app.theme = {**app.theme, "ui": {**(app.theme.get("ui") or {}), **W.App._sanitize_theme_ui(vorgaben)}}
+        # Tag oder Nacht fest, nicht nach der Uhr: mit Front-Daten rechnete der
+        # Server sonst aus dem echten Sonnenuntergang
+        app._night_now = lambda: nacht
+        app._night_on = nacht
+        app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": list(tabs),
                                                       "ui": {"grid": "auto", "gesten": True, **(ui or {})}}})
         runner, port, bc = await visu_starten(app)
         fehler = []
         try:
             async with async_playwright() as p:
                 b = await p.chromium.launch()
-                ctx = await b.new_context(viewport={"width": BREITE, "height": HOEHE}, has_touch=True)
+                ctx = await b.new_context(viewport={"width": groesse[0], "height": groesse[1]}, has_touch=True)
                 if init:
                     await ctx.add_init_script(init)
                 pg = await ctx.new_page()
@@ -245,6 +249,7 @@ def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
                 await pg.locator(".stab[data-sub='verhalten']").click()
                 taster = await pg.eval_on_selector_all("#gHausAus option", "l => l.map(o => o.value)")
                 await pg.locator("#gGesten").select_option("an")
+                await pg.locator("#gHinweis").select_option("aus")
                 await pg.locator("#gHausAus").select_option("TH")
                 await pg.locator("[data-gv-raum='r1']").select_option("TV")
                 await pg.screenshot(path=str(tmp_path / "gesten_vorgaben.png"), full_page=True)
@@ -252,7 +257,9 @@ def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
                 await pg.locator("#plist .pitem", has_text="?panel=test").click()
                 await pg.locator(".stab[data-sub='verhalten']").click()
                 erbt = await pg.locator(".erbt[data-erbt='gesten']").text_content()
+                erbt_hinweis = await pg.locator(".erbt[data-erbt='gestenHinweis']").text_content()
                 await pg.locator("#fGestenRaum").select_option("r3")
+                await pg.locator("#fHinweis").select_option("an")
 
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function(f"{OFFEN} === 'Alles gespeichert'")
@@ -261,17 +268,19 @@ def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
-        return gruppen, taster, erbt
-    gruppen, taster, erbt = asyncio.run(lauf())
+        return gruppen, taster, erbt, erbt_hinweis
+    gruppen, taster, erbt, erbt_hinweis = asyncio.run(lauf())
     assert gruppen == ["Abstellraum · Licht Abstellraum", "Essen-Kochen-Wohnen · Licht Kochen",
                        "Essen-Kochen-Wohnen · Licht Wohnen"], gruppen
     assert taster == ["", "TV", "TH"], "nur Taster, ohne Visu-Passwort"
     assert "An" in erbt and "Vorgaben" in erbt, erbt
+    assert "Aus" in erbt_hinweis and "Vorgaben" in erbt_hinweis, erbt_hinweis
     datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
     assert datei["devices"]["kueche"]["lichtStart"] == {"lc": "LW", "mood": 4}
-    assert datei["panels"]["test"]["ui"] == {"gestenRaum": "r3"}
+    assert datei["panels"]["test"]["ui"] == {"gestenRaum": "r3", "gestenHinweis": True}
     theme = json.loads((cfg_ordner / "theme.json").read_text(encoding="utf-8"))["ui"]
     assert (theme["gesten"], theme["hausAus"], theme["raumVerlassen"]) == (True, "TH", {"r1": "TV"})
+    assert theme["gestenHinweis"] is False
 
 
 # ---- Gesten im Dunkeln und Nacht-Uhr (Stufe 5) ------------------------------
@@ -431,3 +440,57 @@ def test_nacht_uhr_nur_nachts_und_wenn_eingeschaltet():
     aus = _laufen(lambda ms, pg, cdp: pg.evaluate(NACHT_UHR), uhr=True, nacht=True)
     assert not tags["nacht"] and not tags["sichtbar"] and tags["wrap"] != "none", tags
     assert not aus["nacht"] and not aus["sichtbar"], aus
+
+
+HINWEIS = """() => { const r = e => { if (!e) return null; const b = e.getBoundingClientRect();
+    return {l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height}; };
+  const g = document.getElementById('grid'), h = g.querySelector('.ghinweis'), seite = g.querySelector('.page');
+  return {fuss: g.classList.contains('fuss'), sichtbar: !!h && !h.hidden && h.offsetParent !== null,
+          symbol: r(h), kacheln: seite ? [...seite.querySelectorAll('.tile[data-id]')].map(r) : []}; }"""
+
+HILFE = """() => { const n = document.getElementById('gestenHilfe'); if (!n) return null;
+  const s = document.querySelector('.screen').getBoundingClientRect();
+  return {spalten: [...n.querySelectorAll('.gh-sp')].map(e => { const b = e.getBoundingClientRect();
+            return [(b.left - s.left) / s.width, (b.right - s.left) / s.width]; }),
+          titel: [...n.querySelectorAll('.gh-titel')].map(e => e.textContent),
+          tipps: n.querySelector('.gh-tipps').innerText}; }"""
+
+
+def test_hinweis_symbol_und_hilfe(tmp_path):
+    """Auf der Raumseite steht rechts unter den Kacheln das Hinweis-Symbol, in
+    der Fusszeile, ohne eine Kachel zu verdecken. Ein Tipp zeigt die drei
+    Spalten genau dort, wo sie wirken, und was Doppel- und Dreifachtipp hier
+    ausloesen (mit den Tastern aus den Vorgaben). Solange die Hilfe offen ist,
+    loesen zwei Finger nichts aus; ein Tipp schliesst sie."""
+    async def schritte(ms, pg, cdp):
+        m = await pg.evaluate(HINWEIS)
+        await pg.click(".ghinweis")
+        await pg.wait_for_selector("#gestenHilfe")
+        hilfe = await pg.evaluate(HILFE)
+        await pg.screenshot(path=str(tmp_path / "gesten_hilfe.png"))
+        await zwei_finger(cdp, BREITE / 2, 300, 150)
+        io = await _warten(ms, 1, 1.0)
+        await pg.click("#gestenHilfe")
+        return m, hilfe, io, await pg.evaluate("!document.getElementById('gestenHilfe')")
+    m, hilfe, io, weg = _laufen(schritte, vorgaben={"hausAus": "TH", "raumVerlassen": {"r1": "TV"}})
+    assert m["fuss"] and m["sichtbar"], m
+    rechts, unten = max(k["r"] for k in m["kacheln"]), max(k["b"] for k in m["kacheln"])
+    assert abs(m["symbol"]["r"] - rechts) <= 1 and m["symbol"]["t"] >= unten - 0.5, m   # rechts buendig, unter den Kacheln
+    assert m["symbol"]["h"] >= 24, m                                                    # Tippziel (WCAG 2.5.8)
+    soll = [[0, 1 / 3], [1 / 3, 2 / 3], [2 / 3, 1]]
+    assert all(abs(a - b) < 0.01 for sp, ziel in zip(hilfe["spalten"], soll) for a, b in zip(sp, ziel)), hilfe
+    assert hilfe["titel"] == ["Beschattung", "Licht", "Musik"], hilfe
+    assert "Zwei Finger in Essen-Kochen-Wohnen" in hilfe["tipps"], hilfe
+    assert "Essen-Kochen-Wohnen verlassen: Taster „EKW verlassen“" in hilfe["tipps"], hilfe
+    assert "Haus aus: Taster „Haus aus“" in hilfe["tipps"], hilfe
+    assert io == [] and weg, (io, weg)
+
+
+@pytest.mark.parametrize("ui, tabs, groesse, fuss", [
+    ({}, ("raeume", "room:r1"), (BREITE, HOEHE), True),          # Seite ohne Raum: Zeile bleibt, Symbol nicht
+    ({"gestenHinweis": False}, ("room:r1",), (BREITE, HOEHE), False),
+    ({}, ("room:r1",), (480, 480), False),                        # 4"-Panel: blaettert senkrecht, keine Zeile
+], ids=["seite-ohne-raum", "hinweis-aus", "vier-zoll"])
+def test_kein_symbol_wo_es_nichts_hilft(ui, tabs, groesse, fuss):
+    m = _laufen(lambda ms, pg, cdp: pg.evaluate(HINWEIS), ui=ui, tabs=tabs, groesse=groesse)
+    assert m["fuss"] is fuss and not m["sichtbar"], m

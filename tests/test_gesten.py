@@ -419,3 +419,48 @@ def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
     assert hell_geworden >= 3, "helle Themes muessen dabei sein, sonst prueft der Test nichts"
     standard = W.App._theme_vars(dict(W.DEFAULT_THEME["states"]), {})
     assert standard["--nacht-grund"] == tc.NACHT_GRUND and "--nacht-ink" not in standard
+
+
+def test_hinweis_symbol_speichern_und_mischen():
+    """Hinweis-Symbol der Gesten: in Vorgaben nur gespeichert, was vom Standard
+    abweicht, in der Ansicht jeder Wahrheitswert; die Ansicht geht vor."""
+    assert W.App._sanitize_theme_ui({"gestenHinweis": not W.GESTEN_HINWEIS_STANDARD}) == \
+        {"gestenHinweis": not W.GESTEN_HINWEIS_STANDARD}
+    assert W.App._sanitize_theme_ui({"gestenHinweis": W.GESTEN_HINWEIS_STANDARD}) == {}
+    assert W.App._sanitize_theme_ui({"gestenHinweis": "ja"}) == {}
+    assert "gestenHinweis" in W.THEME_UI_KEYS
+    p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"gestenHinweis": True}}})
+    assert p["p"]["ui"]["gestenHinweis"] is True
+    app = _app(ui={"gestenHinweis": False})
+    assert app._panel_export(app.panels["test"])["ui"]["gestenHinweis"] is False
+    assert app.resolve_profile("test")["gestenHinweis"] is False                # Ansicht
+    assert _app(theme_ui={"gestenHinweis": False}).resolve_profile("test")["gestenHinweis"] is False   # Vorgabe
+    assert _app().resolve_profile("test")["gestenHinweis"] is W.GESTEN_HINWEIS_STANDARD                # Standard
+
+
+@pytest.mark.parametrize("route, ui, theme_ui, erwartet", [
+    ({"view": "tab", "tab": "room:r1"}, {}, {},
+     {"raum": "Essen-Kochen-Wohnen", "doppel": "Essen-Kochen-Wohnen verlassen: aus, was an ist und sich abschalten lässt",
+      "dreifach": "Haus aus: nicht eingerichtet (Vorgaben → Verhalten)"}),
+    ({"view": "tab", "tab": "room:r1"}, {}, {"hausAus": "TH", "raumVerlassen": {"r1": "TV"}},
+     {"raum": "Essen-Kochen-Wohnen", "doppel": "Essen-Kochen-Wohnen verlassen: Taster „EKW verlassen“",
+      "dreifach": "Haus aus: Taster „Haus aus“"}),
+    # gesicherter Taster: die Geste loest ihn nicht aus (keine PIN), also auch kein Name
+    ({"view": "group", "kind": "room", "id": "r1"}, {}, {"hausAus": "TA"},
+     {"raum": "Essen-Kochen-Wohnen", "doppel": "Essen-Kochen-Wohnen verlassen: aus, was an ist und sich abschalten lässt",
+      "dreifach": "Haus aus: Taster nicht gefunden"}),
+    ({"view": "tab", "tab": "favoriten"}, {}, {}, None),                      # kein Raum
+    ({"view": "tab", "tab": "favoriten"}, {"gestenRaum": "r2"}, {}, {
+        "raum": "Bad", "doppel": "Bad verlassen: aus, was an ist und sich abschalten lässt",
+        "dreifach": "Haus aus: nicht eingerichtet (Vorgaben → Verhalten)"}),
+    ({"view": "tab", "tab": "room:r1"}, {"gestenHinweis": False}, {}, None),  # Hinweis aus
+    ({"view": "tab", "tab": "room:r1"}, {"gesten": False}, {}, None),         # Gesten aus
+    ({"view": "control", "id": "DL"}, {}, {}, None),                          # Detailseite
+], ids=["raum", "mit-tastern", "gesicherter-taster", "favoriten", "fester-raum", "hinweis-aus", "gesten-aus",
+        "detailseite"])
+def test_hilfe_nur_wo_gesten_wirken(route, ui, theme_ui, erwartet):
+    """Die Ansicht bringt, was zwei Finger auf dieser Seite tun (gestenHilfe):
+    nur dort, wo Gesten wirken und ihr Hinweis an ist, mit den Tastern aus den
+    Vorgaben wie geste() sie ausloest."""
+    app = _app(ui=ui, theme_ui=theme_ui)
+    assert app.render(route, app.resolve_profile("test")).get("gestenHilfe") == erwartet

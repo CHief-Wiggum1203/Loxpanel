@@ -430,7 +430,7 @@
      Seite. Das 4"-Panel (quadratisch oder Split aus) blaettert weiter
      senkrecht (.snapy). --punkte-h: Hoehe der Seitenpunkte unter den Kacheln,
      autoRaster() rechnet sie von der Hoehe ab, sobald es mehr als eine Seite gibt. */
-  .grid{--punkte-h:14px;}
+  .grid{--punkte-h:14px;--hinweis-h:24px;}
   .grid.hpages{display:flex;flex-wrap:nowrap;align-items:stretch;gap:0;padding:0;
     overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;}
   .grid.hpages::-webkit-scrollbar{display:none;}
@@ -449,6 +449,18 @@
     border-radius:50%;background:var(--muted);background-clip:content-box;opacity:.45;
     pointer-events:auto;cursor:pointer;transition:opacity .2s;}
   .grid.hpages .punkte i.on{opacity:1;background-color:var(--accent);}
+  /* Fusszeile mit dem Hinweis-Symbol der Gesten (raster.js fussH): auf jeder
+     Seite der Ansicht so hoch wie das Symbol, die Seitenpunkte stehen mittig
+     darin (Punkt 7 px, darunter 3 px Innenabstand), das Symbol rechts buendig
+     mit den Kacheln. Zu sehen ist es nur, wo Gesten wirken (view.gestenHilfe). */
+  .grid.hpages.fuss .page{padding-bottom:calc(var(--pad) + var(--hinweis-h));}
+  .grid.hpages.fuss .punkte{display:flex;}
+  .grid.hpages.fuss .punkte i{margin-bottom:calc((var(--hinweis-h) - 7px) / 2 - 3px);}
+  .grid.hpages .punkte .ghinweis{position:absolute;right:var(--pad);bottom:0;
+    width:var(--hinweis-h);height:var(--hinweis-h);display:grid;place-items:center;
+    color:var(--muted);pointer-events:auto;cursor:pointer;}
+  .grid.hpages .punkte .ghinweis[hidden]{display:none;}
+  .grid.hpages .punkte .ghinweis svg{width:20px;height:20px;}
   /* Breite Kachel (it.w = 2: Audio, Raumregelung, Energiefluss, je Kachel
      einstellbar): zwei Spalten; der dichte Fluss (dense) fuellt die Luecke
      davor mit der naechsten schmalen Kachel. Seiten und Rastpunkte rechnet
@@ -1774,6 +1786,25 @@
   .moreb:active{transform:scale(.92);}
   .pinov{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.6);display:grid;place-items:center;}
   /* Gesten (Loxone-Standard): Einblendung in der Mitte; beruehrt nichts, die Finger liegen darueber */
+  /* Hilfe des Hinweis-Symbols: ueber dem Kasten, unter der Uhr-Seite. Die drei
+     Gesten-Spalten genau dort, wo sie wirken (GESTE_SPALTEN), darunter Doppel-
+     und Dreifachtipp. Text nur auf Kachelflaeche (Schrift und Zweitzeile des
+     Themes tragen dort), nie auf dem abgedunkelten Grund. Die Kachelfarbe ist
+     ohne Set nur ein Schleier: darunter liegt deckend der Grund der Kacheln
+     (.gh-flaeche, --screen), wie sonst unter jeder Kachel. Ein Tipp schliesst. */
+  .ghilfe{position:absolute;inset:0;z-index:29;display:flex;flex-direction:column;justify-content:center;
+    gap:12px;padding:16px 0;background:rgba(0,0,0,.6);cursor:pointer;}
+  .ghilfe .gh-spalten{display:flex;}
+  .ghilfe .gh-sp{box-sizing:border-box;padding:0 8px;display:flex;}
+  .ghilfe .gh-flaeche{flex:1;display:flex;background:var(--screen);border-radius:14px;}
+  .ghilfe .gh-karte,.ghilfe .gh-tipps{flex:1;background:var(--tile);color:var(--ink);border-radius:14px;}
+  .ghilfe .gh-karte{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;text-align:center;}
+  .ghilfe .gh-karte svg{width:32px;height:32px;}
+  .ghilfe .gh-titel{font-weight:650;font-size:17px;}
+  .ghilfe .gh-text{font-size:14px;color:var(--muted);}
+  .ghilfe .gh-unten{flex:0 0 auto;margin:0 8px;}
+  .ghilfe .gh-tipps{padding:12px 16px;display:flex;flex-direction:column;gap:4px;font-size:14px;}
+  .ghilfe .gh-tipps b{font-weight:650;}
   .geste{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;min-width:180px;max-width:80%;
     padding:16px 22px;border-radius:18px;background:var(--screen);border:1px solid var(--line);color:var(--ink);
     box-shadow:0 20px 50px rgba(0,0,0,.6);text-align:center;pointer-events:none;
@@ -1854,6 +1885,8 @@ const ICONS = {
   triup:'<path d="M12 6.5 19.5 17h-15z"/>',
   tridown:'<path d="M12 17.5 4.5 7h15z"/>',
   music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  // zwei Finger, daneben hoch/runter: Hinweis-Symbol der Gesten
+  zweiFinger:'<path d="M7 21v-9.5a1.5 1.5 0 0 1 3 0V21"/><path d="M10 21V8.5a1.5 1.5 0 0 1 3 0V21"/><path d="M18 3v10M16 5l2-2 2 2M16 11l2 2 2-2"/>',
   vol:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8a5 5 0 0 1 0 8"/>',
   prev:'<path d="M6 6h2v12H6zM20 6v12l-9-6z"/>',
   next:'<path d="M16 6h2v12h-2zM4 6l9 6-9 6z"/>',
@@ -2845,7 +2878,7 @@ function renderPanel(blocks){
   document.querySelectorAll('.galov').forEach(o=>o.remove());
   setMore((blocks.find(b=>b.k==='more')||{}).route||null);
   el('grid').classList.add('panel');
-  el('grid').classList.remove('list','snapy','scheme','fronttab','lx','hpages','punkte','haus');
+  el('grid').classList.remove('list','snapy','scheme','fronttab','lx','hpages','punkte','fuss','haus');
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
@@ -3669,6 +3702,7 @@ function autoRaster(widget){
   return LoxRaster.autoRaster({w:vp.w, h:vp.h, ziel:gridAuto, wachsen:gridGrow,
     gap:parseFloat(cs.getPropertyValue('--gap'))||0, pad:parseFloat(cs.getPropertyValue('--pad'))||0,
     punkteH:parseFloat(cs.getPropertyValue('--punkte-h'))||0,
+    fussH:LoxRaster.fussH(gestenAn && gestenHinweis, seitenQuer(), vp.w, parseFloat(cs.getPropertyValue('--hinweis-h'))||0),
     tabsH:links ? 0 : (tabs?tabs.offsetHeight:0), railW:railW,
     rahmenX:scs ? px(scs.paddingLeft)+px(scs.paddingRight)-railW : 0, rahmenY:scs ? px(scs.paddingTop)+px(scs.paddingBottom) : 0,
     kopfH:kopfHoehe, leisteH:leisteHoehe, widget:widget, paneCols:paneCols, paneShare:paneShare,
@@ -3724,7 +3758,7 @@ function render(){
     if(!gridAuto){ gridCols=profCols; gridRows=profRows; }   // automatisch: der Kasten ist ohnehin der Schirm
     document.documentElement.style.setProperty('--cols', gridCols);
     document.documentElement.style.setProperty('--rows', gridRows);
-    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx','hpages','punkte','haus');
+    el('grid').classList.remove('panel','bigpage','anchorbot','scheme','list','fronttab','lx','hpages','punkte','fuss','haus');
     renderTabs();
     return;
   }
@@ -3735,7 +3769,7 @@ function render(){
   el('grid').classList.toggle('lx', kachelNeu());
   const items = katSichtbar(view.items || []);   // Filter-Modus der Sprungmarken
   const g = el('grid');
-  if(!items.length){ g.classList.remove('hpages','punkte'); g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
+  if(!items.length){ g.classList.remove('hpages','punkte','fuss'); g.innerHTML='<div class="empty">nichts hier</div>'; renderTabs(); return; }
   // Lage im Raster: Rastpunkt auf die erste Kachel jeder Seite (Liste: jede
   // 4.), breite Kacheln (w2) nur, wo zwei Spalten da sind. Waagerechte
   // Seiten (Tablet): je Seite ein eigenes Raster, Rastpunkt ist die Seite.
@@ -3797,15 +3831,20 @@ function render(){
             '</div>';
     if(seiten) seiten[Math.floor(lage.zeile[_i]/Math.max(1,gridRows))] += kachel; else html += kachel;
   }
+  const fuss=quer && hinweisFuss();
   if(seiten){
-    html = '<div class="punkte">'+seiten.map((_,k)=>'<i'+(k===0?' class="on"':'')+'></i>').join('')+'</div>'+
+    html = '<div class="punkte">'+(lage.seiten>1 ? seiten.map((_,k)=>'<i'+(k===0?' class="on"':'')+'></i>').join('') : '')+
+           (fuss ? '<b class="ghinweis" role="button" aria-label="Gesten"'+(view.gestenHilfe ? '' : ' hidden')+'>'+
+                   svg(ICONS.zweiFinger)+'</b>' : '')+'</div>'+
            seiten.map(h=>'<div class="page">'+h+'</div>').join('');
   }
   g.classList.toggle('hpages', quer);
   g.classList.toggle('punkte', quer && lage.seiten>1);
+  g.classList.toggle('fuss', fuss);
   g.dataset.aufbau = kachelAufbau;   // updateGrid baut neu, wenn das Kachel-Set einen anderen Aufbau bringt
   g.innerHTML = html;
   if(quer){ g.querySelectorAll('.punkte i').forEach((d,k)=>d.onclick=()=>seiteZu(k)); punkteNachziehen(); }
+  { const gh=g.querySelector('.ghinweis'); if(gh) gh.onclick=e=>{ e.stopPropagation(); gestenHilfeZeigen(); }; }
   g.classList.toggle('snapy', !quer && (view.layout==='list' ? items.length>4 : lage.seiten>1));   // Snapping erst ab >1 Seite
   // Erst die Leiste und damit applyPane() (Split, Kopfzeile): dann hat das
   // Raster seine endgueltige Breite, und die Kacheln messen sich richtig ein.
@@ -3856,7 +3895,7 @@ function schemeValHtml(it,i){
 }
 function renderScheme(v){
   const g=el('grid');
-  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx','hpages','punkte','haus');
+  g.classList.remove('panel','list','bigpage','anchorbot','snapy','fronttab','lx','hpages','punkte','fuss','haus');
   g.classList.add('scheme');
   const sw=v.sw||1300, sh=v.sh||866, items=v.items||[];
   let html='<div class="schemetitle">'+esc(v.title||'')+'</div>'+
@@ -4000,7 +4039,15 @@ const GESTE_KLICKSPERRE_MS=400;   // nach einer Geste so lange keinen Klick auf 
 const GESTE_ANZEIGE_MS=1500;      // Einblendung nach dem Ende so lange stehen lassen
 const GESTE_TITEL={licht:'Licht', musik:'Musik', beschattung:'Beschattung', stimmung:'Licht',
                    verlassen:'Raum verlassen', hausaus:'Haus aus'};
+// Die drei Spalten von links (Grenzen GESTE_SPALTEN): was zwei Finger dort
+// bedienen, ihr Symbol (Nacht-Uhr, Hilfe des Hinweises) und was hoch/runter
+// und ein Tipp dort tun (Hilfe). Umgesetzt wird es in App.geste().
+const GESTE_ARTEN=[
+  {spalte:'links', art:'beschattung', ico:'blind', hilfe:'Hoch: auf · Runter: ab · Fährt sie, hält sie an'},
+  {spalte:'mitte', art:'licht', ico:'bulb', hilfe:'Hoch/runter: dimmen, ganz unten aus · Tipp: an bzw. nächste Stimmung'},
+  {spalte:'rechts', art:'musik', ico:'music', hilfe:'Hoch: lauter · Runter: leiser'}];
 let gestenAn=false;        // kommt mit dem theme (Vorgaben/Ansicht)
+let gestenHinweis=false;   // ... mit Hinweis-Symbol unter dem Kachelfeld
 let geste=null;            // laufende Beruehrung mit zwei Fingern
 let gesteSequenz=false;    // seit zwei Finger lagen, bis alle oben sind: kein Scrollen, kein "zurueck"
 let gesteNach=null;        // Wisch zu Ende, bevor der Server den Startwert schickte
@@ -4013,8 +4060,28 @@ function gesteErlaubt(){
   if(!gestenAn || !view || !view.route) return false;
   if(view.route.view!=='tab' && view.route.view!=='group') return false;   // Detailseiten nicht
   if(g.classList.contains('scheme') || g.classList.contains('panel')) return false;   // Grundriss zoomt mit zwei Fingern
-  return !gesteFlaeche.querySelector('.pinov, .menuov');
+  return !gesteFlaeche.querySelector('.pinov, .menuov, .ghilfe');
 }
+// Fusszeile mit Hinweis-Symbol (raster.js fussH): Gesten und Hinweis an,
+// waagerechte Seiten, kein schmaler Schirm. Das Raster zieht sie ab.
+function hinweisFuss(){ return LoxRaster.fussH(gestenAn && gestenHinweis, seitenQuer(), vpSize().w, 1)>0; }
+// Hilfe zum Hinweis-Symbol: was zwei Finger in welcher Spalte tun und was
+// Doppel- und Dreifachtipp hier ausloesen (view.gestenHilfe vom Server)
+function gestenHilfeZeigen(){
+  const h=view && view.gestenHilfe; if(!h) return;
+  gestenHilfeWeg();
+  const grenzen=[0, ...GESTE_SPALTEN, 1], n=document.createElement('div');
+  n.className='ghilfe'; n.id='gestenHilfe';
+  n.innerHTML='<div class="gh-spalten">'+GESTE_ARTEN.map((a, i)=>
+      '<div class="gh-sp" style="width:'+((grenzen[i+1]-grenzen[i])*100)+'%"><div class="gh-flaeche"><div class="gh-karte">'+
+      svg(ICONS[a.ico])+'<div class="gh-titel">'+esc(GESTE_TITEL[a.art])+'</div><div class="gh-text">'+esc(a.hilfe)+'</div>'+
+      '</div></div></div>').join('')+
+    '</div><div class="gh-flaeche gh-unten"><div class="gh-tipps"><b>'+esc('Zwei Finger in '+h.raum)+'</b>'+
+      '<span>'+esc(h.doppel)+'</span><span>'+esc(h.dreifach)+'</span></div></div>';
+  n.addEventListener('click', e=>{ e.stopPropagation(); gestenHilfeWeg(); });
+  gesteFlaeche.appendChild(n);
+}
+function gestenHilfeWeg(){ const n=el('gestenHilfe'); if(n) n.remove(); }
 function gesteFinger(t){
   return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2,
           d:Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY)}; }
@@ -4102,7 +4169,7 @@ gesteFlaeche.addEventListener('touchmove', e=>{
     if(Math.abs(f.d-gs.d0)>GESTE_KNEIFEN*weg || Math.abs(dx)>Math.abs(dy)){ gs.abgebrochen=true; return; }
     gs.wisch=true; gs.yWisch=f.y;
     clearTimeout(gesteTippT); gesteTipps=0;   // ein Wisch beendet eine Tippfolge
-    gs.art = gs.spalte==='mitte' ? 'licht' : (gs.spalte==='rechts' ? 'musik' : 'beschattung');
+    gs.art = GESTE_ARTEN.find(a=>a.spalte===gs.spalte).art;
     if(gs.art==='beschattung') gesteZeigen(GESTE_TITEL.beschattung, dy<0 ? '▲' : '▼');
     else if(gesteSenden({art:gs.art, phase:'start'})) gesteZeigen(GESTE_TITEL[gs.art], '…');
     else gs.abgebrochen=true;
@@ -4332,6 +4399,7 @@ function connect(){
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
       pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
       gestenAn=(msg.gesten===true);   // Zwei-Finger-Gesten (Vorgaben/Ansicht)
+      gestenHinweis=(msg.gestenHinweis===true);   // ... mit Hinweis-Symbol
       nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
@@ -4398,7 +4466,7 @@ function connect(){
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t==='geste'){ gesteAntwort(msg); return; }   // Zwei-Finger-Geste: Startwert, Text oder Fehler
     if(msg.t!=='view') return;
-    if(view && key(view.route)!==key(msg.route)) pinVergessen();   // Seitenwechsel
+    if(view && key(view.route)!==key(msg.route)){ pinVergessen(); gestenHilfeWeg(); }   // Seitenwechsel
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
     if(msg.layout==='scheme'){
       const sameS = view && key(view.route)===key(msg.route) && el('grid').classList.contains('scheme');
@@ -4426,6 +4494,7 @@ function connect(){
       // Struktur geaendert (andere/mehr Kacheln) -> voller Neuaufbau, die
       // Seite (senkrecht wie waagerecht) bleibt stehen.
       if(!(same && updateGrid(katSichtbar(view.items||[])) && updateLeiste(view.leiste))){ render(); g.scrollTop=st; g.scrollLeft=sl; punkteNachziehen(); }
+      else { const gh=g.querySelector('.ghinweis'); if(gh) gh.hidden=!view.gestenHilfe; }   // Hinweis-Symbol nachziehen
     }
   };
 }
@@ -5114,7 +5183,7 @@ function kalenderEinpassen(elc){
 function renderFrontTab(){
   const g=el('grid'), d=frontData||{}, art=view.front;
   const liste=g.querySelector('.ft-b'), oben=(g.classList.contains('fronttab') && liste) ? liste.scrollTop : 0;
-  g.classList.remove('list','snapy','chartpage','lx','hpages','punkte','haus');
+  g.classList.remove('list','snapy','chartpage','lx','hpages','punkte','fuss','haus');
   g.classList.add('fronttab');
   if(art==='calendar'){
     g.innerHTML='<div class="ft ft-cal"><div class="ft-a">'+fpMonthHTML(d.events, d.holidays, d.calColors)
@@ -5287,7 +5356,7 @@ function hausReihen(g){
 }
 function renderHaus(){
   const g=el('grid'), v=view;
-  g.classList.remove('list','snapy','lx','hpages','punkte','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
+  g.classList.remove('list','snapy','lx','hpages','punkte','fuss','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
   g.classList.add('haus');
   // Unterseite "Gerade aktiv", aber nichts mehr an: zurueck zur Uebersicht
   if(v.liste && !v.aktiv.length){ if(stack.length>1) back(); }
@@ -5371,6 +5440,7 @@ function applySaverSplit(){
 }
 function showSaver(){
   pinVergessen();   // Uhr-Seite: gemerkte PIN weg
+  gestenHilfeWeg(); // ... und die Hilfe der Gesten
   // Native Kiosk-App (LoxPanel): nur EIN sichtbarer Screensaver — diese Uhr.
   // Der App sagen, dass ihr Saver läuft; sie dunkelt nur noch das Backlight
   // (nach dpmsOff) und weckt per Annäherung/Berührung auf den 1. Tab.
@@ -5577,7 +5647,6 @@ function setNight(on){ const vorher=NIGHT.on; NIGHT.on=!!on; clearTimeout(nightW
 // Mitte jeder Spalte (GESTE_SPALTEN). Wetter, Termine und die zweite Spalte
 // ruhen dann: keine Kamera laeuft die ganze Nacht. "Nachts abdunkeln" wirkt
 // zusaetzlich wie auf jeder Seite.
-const NACHT_UHR_SYMBOLE=['blind', 'bulb', 'music'];   // je Gesten-Spalte von links
 function nachtUhrAn(){ return NIGHT.on && NIGHT.uhr; }
 function nachtUhrSetzen(){
   const s=el('saver'), n=el('svNacht'); if(!s || !n) return;
@@ -5586,8 +5655,8 @@ function nachtUhrSetzen(){
   s.style.setProperty('--nu-hell', String(Math.max(0, Math.min(100, NIGHT.uhrHell))/100));
   const z=el('nuZonen');
   if(z){ const grenzen=[0, ...GESTE_SPALTEN, 1];
-    z.innerHTML=gestenAn ? NACHT_UHR_SYMBOLE.map((k, i)=>'<span style="left:'+((grenzen[i]+grenzen[i+1])/2*100)+'%">'+
-      svg(ICONS[k])+'</span>').join('') : ''; }
+    z.innerHTML=gestenAn ? GESTE_ARTEN.map((a, i)=>'<span style="left:'+((grenzen[i]+grenzen[i+1])/2*100)+'%">'+
+      svg(ICONS[a.ico])+'</span>').join('') : ''; }
   tickClock();
   // Wechsel, waehrend die Uhr-Seite steht: zweite Spalte an- oder abmelden, neu zeichnen
   if(an!==vorher && saverOn()){ applySaverSplit(); applyPane(); renderFront(); }

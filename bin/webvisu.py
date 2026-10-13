@@ -308,6 +308,10 @@ HAUS_SYMBOLE = 4
 # Geste; welche Bausteine sie trifft und welche Befehle gehen, entscheidet
 # App.geste(). Ohne Einstellung in Vorgaben und Ansicht aus.
 GESTEN_STANDARD = False
+# Hinweis-Symbol der Gesten: rechts in der Fusszeile unter dem Kachelfeld, auf
+# Seiten, auf denen Gesten wirken; ein Tipp zeigt, was zwei Finger dort tun.
+# An, sobald Gesten an sind, wenn weder Vorgaben noch Ansicht etwas sagen.
+GESTEN_HINWEIS_STANDARD = True
 # Raum verlassen und Haus aus loesen einen Taster aus Loxone Config aus. Laut
 # Strukturdoku nimmt nur der Taster (Pushbutton, virtueller Eingang) einen
 # Impuls (`pulse`); ein Schalter kennt nur on/off.
@@ -640,7 +644,7 @@ SCALE_MIN, SCALE_MAX = 0.5, 2.0
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
 THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
                  "baseColor", "bold", "lang", "scale", "nightDim", "nightWake", "dpmsOff", "reloadHours",
-                 "gesten", "hausAus", "raumVerlassen", "nightClock", "nightClockBright")
+                 "gesten", "gestenHinweis", "hausAus", "raumVerlassen", "nightClock", "nightClockBright")
 
 # Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
 # je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
@@ -2958,6 +2962,9 @@ class App:
             # Raumseiten ("" = dort keine Wirkung)
             "gesten": ui["gesten"] if isinstance(ui.get("gesten"), bool) else GESTEN_STANDARD,
             "gestenRaum": _clean_kennung(ui.get("gestenRaum")),
+            # ... und ihr Hinweis-Symbol (Vorgaben und Ansicht gemischt wie oben)
+            "gestenHinweis": (ui["gestenHinweis"] if isinstance(ui.get("gestenHinweis"), bool)
+                              else GESTEN_HINWEIS_STANDARD),
         }
 
     def player_blocks(self, uuid: str):
@@ -3736,7 +3743,8 @@ class App:
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
-                       "valueBar", "paneCols", "gesten", "gestenRaum", "nightClock", "nightClockBright")}
+                       "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
+                       "nightClock", "nightClockBright")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3934,6 +3942,8 @@ class App:
                 cui["gesten"] = ui["gesten"]    # Gesten an/aus; fehlt = wie Vorgaben
             if _clean_kennung(ui.get("gestenRaum")):
                 cui["gestenRaum"] = _clean_kennung(ui["gestenRaum"])   # Raum der Gesten ausserhalb von Raumseiten
+            if isinstance(ui.get("gestenHinweis"), bool):
+                cui["gestenHinweis"] = ui["gestenHinweis"]   # Hinweis-Symbol an/aus; fehlt = wie Vorgaben
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
             _ks = _clean_kachel_set(ui.get("tileSet"))
@@ -4269,6 +4279,9 @@ class App:
         # ausschalten); fehlt = GESTEN_STANDARD
         if isinstance(ui.get("gesten"), bool) and ui["gesten"] != GESTEN_STANDARD:
             out["gesten"] = ui["gesten"]
+        # ... und ihr Hinweis-Symbol; fehlt = GESTEN_HINWEIS_STANDARD
+        if isinstance(ui.get("gestenHinweis"), bool) and ui["gestenHinweis"] != GESTEN_HINWEIS_STANDARD:
+            out["gestenHinweis"] = ui["gestenHinweis"]
         # Taster fuer "Haus aus" (Dreifachtipp) und je Raum fuer "Raum verlassen"
         # (Doppeltipp): die Logik dahinter steht in Loxone Config
         _ha = _clean_kennung(ui.get("hausAus"))
@@ -5656,6 +5669,30 @@ class App:
         if not ru:
             ru = (prof or {}).get("gestenRaum")
         return ru if isinstance(ru, str) and ru in self.rooms else None
+
+    def gesten_hilfe(self, route: dict | None, prof: dict | None) -> dict | None:
+        """Was zwei Finger auf dieser Seite tun, fuer das Hinweis-Symbol der Visu
+        und seine Hilfe: der Raum der Seite (geste_raum), Doppel- und
+        Dreifachtipp mit den Tastern aus den Vorgaben, so wie geste() sie
+        ausloest. None, wo Gesten oder ihr Hinweis aus sind oder kein Raum gilt."""
+        if not (prof or {}).get("gesten") or not (prof or {}).get("gestenHinweis"):
+            return None
+        ru = self.geste_raum(route, prof)
+        if not ru:
+            return None
+        ui = self.theme.get("ui") or {}
+        raum = _clean(self.rooms[ru].get("name")) or "diesem Raum"
+
+        def taster(uuid) -> str:
+            c = self.controls.get(uuid or "")
+            ok = c and c.get("type") in GESTEN_TASTER_TYPEN and not c.get("isSecured")
+            return f"Taster „{_clean(c.get('name')) or uuid}“" if ok else "Taster nicht gefunden"
+        verlassen = (ui.get("raumVerlassen") or {}).get(ru)
+        haus = ui.get("hausAus")
+        return {"raum": raum,
+                "doppel": f"{raum} verlassen: " + (taster(verlassen) if verlassen
+                                                    else "aus, was an ist und sich abschalten lässt"),
+                "dreifach": "Haus aus: " + (taster(haus) if haus else "nicht eingerichtet (Vorgaben → Verhalten)")}
 
     def _geste_bausteine(self, ru: str, prof: dict | None, typen: tuple) -> list:
         """Bausteine dieser Typen im Raum, so wie seine Raumseite sie zeigt
@@ -7706,6 +7743,11 @@ class App:
 
     def render(self, route: dict, prof: dict | None = None) -> dict:
         out = self._render_seite(route, prof)
+        # Seiten, auf denen Gesten wirken: was zwei Finger hier tun (Hinweis-Symbol)
+        if (route or {}).get("view", "tab") in ("tab", "group"):
+            hilfe = self.gesten_hilfe(route, prof)
+            if hilfe:
+                out["gestenHilfe"] = hilfe
         # Jede Seite eines gesicherten Bausteins, auch seine Unterseiten (Zone,
         # Weckzeit, Musikauswahl ...): die Visu fragt vor jedem Befehl die
         # Visu-PIN ab. Gruppe und Tab nicht - dort zaehlt die einzelne Kachel.
@@ -8776,6 +8818,7 @@ async def api_meta(request: web.Request) -> web.Response:
         "gestenTaster": app.geste_taster_optionen(),
         "lichtStimmungen": app.licht_stimmung_optionen(),
         "gestenStandard": GESTEN_STANDARD,
+        "gestenHinweisStandard": GESTEN_HINWEIS_STANDARD,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
@@ -10700,6 +10743,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "dpmsOff": app.panel_dpms(prof["id"], roh),
                         "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
                         "gesten": prof["gesten"],         # Zwei-Finger-Gesten (Loxone-Standard) an
+                        # ... mit Hinweis-Symbol (reserviert die Fusszeile unter dem Kachelfeld)
+                        "gestenHinweis": prof["gesten"] and prof["gestenHinweis"],
                         "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"], roh), "on": app._night_on},
