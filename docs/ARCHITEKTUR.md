@@ -67,7 +67,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
-| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
@@ -1981,7 +1981,13 @@ Assistenten des Konfigurators.
     oben über der Mitte jeder Gesten-Spalte ihr Symbol (`NACHT_UHR_SYMBOLE`:
     Beschattung, Licht, Musik). Wetter, Termine und die zweite Spalte ruhen
     (`svSideOn()` ist dann aus), keine Kamera läuft die ganze Nacht. Die
-    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen. Die Regel,
+    Ziffern driften wie die Uhr der Uhr-Seite gegen Einbrennen. Grund und
+    Schrift kommen aus dem Theme (`--nacht-grund` aus
+    `theme_colors.NACHT_GRUND`, `--nacht-ink` aus `nacht_schrift()`): Trägt
+    die Schrift des Themes auf Schwarz AAA, bleibt sie, sonst nimmt ihr
+    Farbton die Helligkeit, die `derive()` für helle Schrift setzt
+    (`HELLE_SCHRIFT`). In 1.1.0 nahmen die Ziffern `--ink`, in hellen Sets
+    (Kreide, Touch) also dunkel auf Schwarz, unsichtbar. Die Regel,
     die den Inhalt ausblendet, muss das Raster der geteilten Uhr-Seite
     (`.saver.split .sv-wrap.rich`) schlagen. In 1.1.0 tat sie das nicht: Mit
     Wetter und Terminen lag die Nacht-Uhr quer über dem Inhalt, statt ihn zu

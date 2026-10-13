@@ -198,13 +198,19 @@ def _stoerung(helle_schrift: bool) -> tuple[str, str | None, str | None]:
             _schiebe(_aus_hls(rot, 0.74, 0.28), [fuellung], AA, 1))
 
 
+# Helle Schrift auf dunklem Grund: Helligkeit und hoechste Saettigung (HLS) im
+# Farbton der Grundfarbe. derive() setzt sie auf dunkle Bildschirme,
+# nacht_schrift() auf den Grund der Nacht-Uhr.
+HELLE_SCHRIFT = (0.965, 0.30)
+
+
 def _versuch(screen: str, grundfarbe: str, helle_schrift: bool) -> dict | None:
     """Vollstaendigen Satz fuer EINE Bildschirmfarbe versuchen."""
     farbton, _, saettigung = _hls(grundfarbe)
     wash = "#ffffff" if helle_schrift else "#000000"
     wash_deckung = 0.08 if helle_schrift else 0.055
 
-    ink = (_aus_hls(farbton, 0.965, min(saettigung, 0.30)) if helle_schrift
+    ink = (_aus_hls(farbton, HELLE_SCHRIFT[0], min(saettigung, HELLE_SCHRIFT[1])) if helle_schrift
            else _aus_hls(farbton, 0.11, min(saettigung, 0.45)))
     tile = ueber(wash, screen, wash_deckung)
     if kontrast(ink, screen) < AAA or kontrast(ink, tile) < AA:
@@ -296,6 +302,24 @@ def derive(grundfarbe: str) -> dict | None:
         return None
     satz = _derive(grundfarbe.strip().lower())
     return dict(satz) if satz is not None else None
+
+
+# Grund der Nacht-Uhr: Schwarz wie die Nachtanzeige der Loxone-Taster, dort
+# leuchtet das Display nicht. panel.html bekommt ihn als --nacht-grund.
+NACHT_GRUND = "#000000"
+
+
+def nacht_schrift(ink: str) -> str:
+    """Ziffern und Symbole der Nacht-Uhr auf NACHT_GRUND: die Schrift des
+    Themes, wenn sie dort AAA traegt (dunkle Themes). Sonst ihr Farbton als
+    helle Schrift nach derselben Regel wie derive() fuer dunkle Bildschirme -
+    helle Themes (Kreide, Touch) haben dunkle Schrift, die auf Schwarz
+    verschwindet. Die eingestellte Helligkeit der Nacht-Uhr wirkt danach als
+    Deckkraft, in jedem Theme von einer hellen Schrift aus."""
+    if kontrast(ink, NACHT_GRUND) >= AAA:
+        return ink
+    farbton, _, saettigung = _hls(ink)
+    return _aus_hls(farbton, HELLE_SCHRIFT[0], min(saettigung, HELLE_SCHRIFT[1]))
 
 
 # So viele Grundfarben bleiben gemerkt - mehr als ein Haus je an Profilen hat.

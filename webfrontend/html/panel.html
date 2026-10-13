@@ -1248,15 +1248,17 @@
   .saver.hidden{display:none;}
   /* Nacht-Uhr: nachts nur die Uhrzeit, gedimmt auf Schwarz, oben die Symbole der
      Gesten-Spalten (wie die Nachtanzeige der Loxone-Taster). --nu-hell ist die
-     Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen. */
-  .saver.nacht{background:#000;container-type:size;}
+     Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen.
+     Grund und Schrift kommen aus dem Theme (theme_colors.NACHT_GRUND und
+     nacht_schrift): --ink allein waere in hellen Sets dunkel auf Schwarz. */
+  .saver.nacht{background:var(--nacht-grund);container-type:size;}
   /* Die zweite Zeile schlaegt das Raster der geteilten Uhr-Seite
      (.saver.split .sv-wrap.rich), sonst laege die Nacht-Uhr ueber Uhr, Wetter
      und Terminen, statt sie zu ersetzen. */
   .saver.nacht .sv-wrap,
   .saver.split.nacht .sv-wrap.rich{display:none;}
   .sv-nacht{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:var(--ink);opacity:var(--nu-hell,.4);pointer-events:none;}
+    color:var(--nacht-ink,var(--ink));opacity:var(--nu-hell,.4);pointer-events:none;}
   .sv-nacht[hidden]{display:none;}
   .sv-nacht .nu-zeit{font-size:120px;font-size:min(30cqw,42cqh);font-weight:300;line-height:1;letter-spacing:1px;
     font-variant-numeric:tabular-nums;animation:svdrift 90s linear infinite;}

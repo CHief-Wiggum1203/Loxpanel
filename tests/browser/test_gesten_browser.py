@@ -15,6 +15,8 @@ import pytest
 
 from lox import Miniserver, W, gesten_anlage, neue_app, visu_starten
 
+import theme_colors as TC
+
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
 
@@ -363,6 +365,7 @@ NACHT_UHR = """() => { const s = document.getElementById('saver'), n = document.
           klassen: (s.className + ' ' + s.querySelector('.sv-wrap').className).split(' '),
           wrap: getComputedStyle(s.querySelector('.sv-wrap')).display,
           hell: +getComputedStyle(n).opacity, zeit: document.getElementById('nuZeit').textContent,
+          farbe: getComputedStyle(n).color,
           zonen: [...document.querySelectorAll('#nuZonen span')].map(e => {
             const b = e.getBoundingClientRect(); return Math.round((b.left + b.width / 2 - r.left) / r.width * 100); }),
           grund: getComputedStyle(s).backgroundColor}; }"""
@@ -381,7 +384,7 @@ def test_nacht_uhr(ui, gesten, zonen, tmp_path):
         return await pg.evaluate(NACHT_UHR)
     m = _laufen(schritte, ui={**ui, "gesten": gesten}, uhr=True, nacht=True)
     assert m["nacht"] and m["sichtbar"] and m["wrap"] == "none", m
-    assert abs(m["hell"] - 0.3) < 0.01 and m["grund"] == "rgb(0, 0, 0)", m
+    assert abs(m["hell"] - 0.3) < 0.01 and _hex(m["grund"]) == TC.NACHT_GRUND, m
     assert len(m["zeit"]) == 5 and m["zeit"][2] == ":", m
     assert m["zonen"] == zonen, m
 
@@ -402,6 +405,25 @@ def test_nacht_uhr_ersetzt_auch_die_geteilte_uhr_seite(monkeypatch, tmp_path):
     assert m["nacht"] and m["sichtbar"] and m["wrap"] == "none", m
     tags = _laufen(lambda ms, pg, cdp: pg.evaluate(NACHT_UHR), ui={"nightClock": True}, uhr=True, front=daten)
     assert {"split", "rich"} <= set(tags["klassen"]) and tags["wrap"] == "grid" and not tags["sichtbar"], tags
+
+
+def _hex(rgb: str) -> str:
+    return "#%02x%02x%02x" % tuple(int(x) for x in rgb[rgb.index("(") + 1:rgb.index(")")].split(",")[:3])
+
+
+@pytest.mark.parametrize("tile_set", [None, *TC.KACHEL_SETS])
+def test_nacht_uhr_in_jedem_kachel_set_lesbar(tile_set, tmp_path):
+    """Grund und Schrift der Nacht-Uhr kommen aus dem Theme. Vorher nahmen die
+    Ziffern --ink: in hellen Sets (Kreide, Touch) dunkel auf Schwarz, nur dort
+    zu sehen, wo sie ueber helle Flaechen liefen. Gemessen bei voller
+    Helligkeit (die eingestellte wirkt als Deckkraft obendrauf)."""
+    async def schritte(ms, pg, cdp):
+        await pg.screenshot(path=str(tmp_path / f"nacht_uhr_{tile_set or 'ohne_set'}.png"))
+        return await pg.evaluate(NACHT_UHR)
+    ui = {"nightClock": True, "nightClockBright": 100, **({"tileSet": tile_set} if tile_set else {})}
+    m = _laufen(schritte, ui=ui, uhr=True, nacht=True)
+    assert m["nacht"] and m["sichtbar"] and _hex(m["grund"]) == TC.NACHT_GRUND, m
+    assert TC.kontrast(_hex(m["farbe"]), TC.NACHT_GRUND) >= TC.AAA, (tile_set, m)
 
 
 def test_nacht_uhr_nur_nachts_und_wenn_eingeschaltet():

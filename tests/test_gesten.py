@@ -380,3 +380,42 @@ def test_nacht_uhr_geht_mit_der_nacht_an_die_visu(vorgabe, ansicht, uhr, hell):
     app = _app(ui=ansicht, theme_ui=vorgabe)
     nacht = app.panel_night("test")
     assert (nacht["uhr"], nacht["uhrHell"]) == (uhr, hell)
+
+
+def _themes():
+    """Jedes Kachel-Set (touch in jedem Farbton der Schnellwahl und beiden Arten
+    der aktiven Kachel) und Grundfarben ueber Farbkreis und Helligkeit."""
+    for name, e in W.theme_colors.KACHEL_SETS.items():
+        if "farbton" not in e:
+            yield {"tileSet": name}
+            continue
+        for wahl in e["farbton"]["auswahl"]:
+            for aktiv in e["aktiv"]["auswahl"]:
+                yield {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
+    for farbton in range(0, 360, 45):
+        for hell in (12, 50, 92):
+            yield {"baseColor": W.theme_colors._aus_hls(farbton / 360, hell / 100, 0.4)}
+
+
+def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
+    """Die Nacht-Uhr steht auf Schwarz. Mit der Schrift des Themes waren ihre
+    Ziffern in hellen Sets (Kreide, Touch) dunkel auf Schwarz und unsichtbar.
+    Jedes Theme bringt deshalb eine Schrift fuer die Nacht-Uhr mit, die dort AAA
+    traegt; dunkle Themes behalten ihre Schrift. Ohne Set und Grundfarbe gelten
+    die Standardfarben der Visu (helle Schrift), dann kommt keine eigene mit."""
+    tc = W.theme_colors
+    hell_geworden = 0
+    for ui in _themes():
+        v = W.App._theme_vars(dict(W.DEFAULT_THEME["states"]), ui)
+        assert v["--nacht-grund"] == tc.NACHT_GRUND, ui
+        if "--ink" not in v:            # Grundfarbe ohne tragfaehiges Theme: Standardfarben
+            assert "--nacht-ink" not in v, ui
+            continue
+        assert tc.kontrast(v["--nacht-ink"], tc.NACHT_GRUND) >= tc.AAA, (ui, v["--ink"], v["--nacht-ink"])
+        if tc.kontrast(v["--ink"], tc.NACHT_GRUND) >= tc.AAA:
+            assert v["--nacht-ink"] == v["--ink"], ui
+        else:
+            hell_geworden += 1
+    assert hell_geworden >= 3, "helle Themes muessen dabei sein, sonst prueft der Test nichts"
+    standard = W.App._theme_vars(dict(W.DEFAULT_THEME["states"]), {})
+    assert standard["--nacht-grund"] == tc.NACHT_GRUND and "--nacht-ink" not in standard
