@@ -9,6 +9,7 @@ Raum; ein Finger scrollt und tippt wie bisher, eine Zwei-Finger-Geste ueber
 einer Kachel oeffnet sie nicht, und ausgeschaltete Gesten tun nichts.
 Anlage: lox.gesten_anlage()."""
 import asyncio
+import json
 
 import pytest
 
@@ -189,3 +190,69 @@ def test_ausgeschaltet_tun_zwei_finger_nichts():
         await asyncio.sleep(0.8)
         return list(ms.io), await _einblendung(pg)
     assert _laufen(schritte, ui={"gesten": False}) == ([], None)
+
+
+def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
+    """Geraete: Stimmung beim Einschalten aus den Stimmungen der Anlage.
+    Vorgaben -> Verhalten: Gesten an, Taster fuer Haus aus und je Raum fuer
+    Raum verlassen - zur Auswahl nur Taster ohne Visu-Passwort. Ansicht ->
+    Verhalten: Gesten und Raum ausserhalb von Raumseiten. Ein Speichern
+    schreibt alles in panels.json bzw. theme.json."""
+    from lox import KONFIGURATOR_GELADEN, karte_auf
+    from test_kachel_set_browser import ROUTEN, OFFEN
+
+    async def lauf():
+        (cfg_ordner / "panels.json").write_text(json.dumps({
+            "panels": {"test": {"title": "Test", "tabs": ["room:r1"]}},
+            "devices": {"kueche": {"auto": True, "modes": {"nacht": "test"}}}}), encoding="utf-8")
+        app = W.App({"host": "", "port": 80})
+        struktur, states = gesten_anlage()
+        app._apply_structure(struktur)
+        app.states = states
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+
+                await pg.locator(".rub", has_text="Geräte").click()
+                await karte_auf(pg, "kueche")
+                start = pg.locator('#geraete .gk[data-gk="kueche"] .dl_start')
+                gruppen = await start.evaluate("s => [...s.querySelectorAll('optgroup')].map(g => g.label)")
+                await start.select_option("LW|4")
+
+                await pg.locator(".rub", has_text="Vorgaben").click()
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                taster = await pg.eval_on_selector_all("#gHausAus option", "l => l.map(o => o.value)")
+                await pg.locator("#gGesten").select_option("an")
+                await pg.locator("#gHausAus").select_option("TH")
+                await pg.locator("[data-gv-raum='r1']").select_option("TV")
+                await pg.screenshot(path=str(tmp_path / "gesten_vorgaben.png"), full_page=True)
+
+                await pg.locator("#plist .pitem", has_text="?panel=test").click()
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                erbt = await pg.locator(".erbt[data-erbt='gesten']").text_content()
+                await pg.locator("#fGestenRaum").select_option("r3")
+
+                await pg.locator("#saveBtn").click()
+                await pg.wait_for_function(f"{OFFEN} === 'Alles gespeichert'")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return gruppen, taster, erbt
+    gruppen, taster, erbt = asyncio.run(lauf())
+    assert gruppen == ["Abstellraum · Licht Abstellraum", "Essen-Kochen-Wohnen · Licht Kochen",
+                       "Essen-Kochen-Wohnen · Licht Wohnen"], gruppen
+    assert taster == ["", "TV", "TH"], "nur Taster, ohne Visu-Passwort"
+    assert "An" in erbt and "Vorgaben" in erbt, erbt
+    datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+    assert datei["devices"]["kueche"]["lichtStart"] == {"lc": "LW", "mood": 4}
+    assert datei["panels"]["test"]["ui"] == {"gestenRaum": "r3"}
+    theme = json.loads((cfg_ordner / "theme.json").read_text(encoding="utf-8"))["ui"]
+    assert (theme["gesten"], theme["hausAus"], theme["raumVerlassen"]) == (True, "TH", {"r1": "TV"})
