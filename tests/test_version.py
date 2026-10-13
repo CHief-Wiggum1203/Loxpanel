@@ -3,11 +3,14 @@ bin/version.json, die APK- und Docker-Build schreiben; ohne die Datei aus
 loxberry-plugin/plugin.cfg und Git. /api/settings und /api/health liefern sie,
 der Konfigurator zeigt sie in der Seitenleiste."""
 import asyncio
+import io
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 
 import pytest
 from aiohttp import web
@@ -145,12 +148,67 @@ def test_ohne_datei_und_ohne_git_die_kennung_des_inhalts(tmp_path):
 
 
 def test_versionen_gleich():
-    """Eine Version, drei Stellen: LoxBerry-Plugin (plugin.cfg), Auto-Update von
-    LoxBerry (release.cfg) und das .deb (packaging/deb/control). Ein Release
-    zaehlt alle drei gemeinsam hoch; die APK nimmt plugin.cfg."""
+    """Eine Version, eine Quelle: loxberry-plugin/plugin.cfg. release.cfg (Auto-Update
+    von LoxBerry) traegt sie mit; APK und .deb lesen sie beim Bauen, darum hat
+    packaging/deb/control keine eigene (build.sh setzt sie ein, test_deb_paket)."""
     def lies(pfad, muster):
         return re.search(muster, (ROOT / pfad).read_text(encoding="utf-8"), re.M).group(1)
     plugin = lies("loxberry-plugin/plugin.cfg", r"^VERSION=(\S+)")
     assert re.fullmatch(r"\d+\.\d+\.\d+", plugin), plugin
     assert lies("loxberry-plugin/release.cfg", r"^VERSION=(\S+)") == plugin
-    assert lies("packaging/deb/control", r"^Version:\s*(\S+)") == plugin
+    control = (ROOT / "packaging" / "deb" / "control").read_text(encoding="utf-8")
+    assert not re.search(r"^Version:", control, re.M), "Version gehoert nach plugin.cfg"
+
+
+def _deb_bauen(ziel, version="7.8.9", control_zusatz=""):
+    """packaging/deb/build.sh in einer Kopie des Repos laufen lassen (das Paket
+    landet in der Repo-Wurzel, also hier in `ziel`). -> (Ergebnis, Pfad .deb)."""
+    for teil in ("bin", "webfrontend", "deploy", "config", "packaging/deb"):
+        shutil.copytree(ROOT / teil, ziel / teil,
+                        ignore=shutil.ignore_patterns("__pycache__", "version.json", "*.cfg", "*.json.bak"))
+    shutil.copy(ROOT / "requirements.txt", ziel / "requirements.txt")
+    (ziel / "loxberry-plugin").mkdir()
+    (ziel / "loxberry-plugin" / "plugin.cfg").write_text(f"NAME=loxpanel\r\nVERSION={version}\r\n")
+    if control_zusatz:
+        c = ziel / "packaging" / "deb" / "control"
+        c.write_text(c.read_text(encoding="utf-8") + control_zusatz, encoding="utf-8")
+    env = {**os.environ, "LOXPANEL_COMMIT": "abcdef0123456789abcdef0123456789abcdef01"}
+    r = subprocess.run(["sh", str(ziel / "packaging" / "deb" / "build.sh")], env=env,
+                       capture_output=True, text=True, timeout=180)
+    return r, ziel / f"loxpanel-server_{version}_all.deb"
+
+
+@pytest.mark.skipif(not (shutil.which("dpkg-deb") and shutil.which("ar")), reason="dpkg-deb/ar fehlt")
+def test_deb_paket(tmp_path):
+    """Das .deb nimmt die Version aus plugin.cfg, traegt Version, Commit und
+    Bauzeit in bin/version.json (sonst zeigte ein installiertes Paket „Version
+    unbekannt“) und ist mit gzip gepackt: dpkg 1.20 (Debian 11) kennt kein zstd."""
+    r, deb = _deb_bauen(tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert subprocess.run(["dpkg-deb", "-f", str(deb), "Version"], capture_output=True,
+                          text=True, check=True).stdout.strip() == "7.8.9"
+    teile = subprocess.run(["ar", "t", str(deb)], capture_output=True, text=True, check=True).stdout.split()
+    assert "control.tar.gz" in teile and "data.tar.gz" in teile, teile
+    roh = subprocess.run(["dpkg-deb", "--fsys-tarfile", str(deb)], capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(roh)) as tar:
+        stand = json.load(tar.extractfile("./opt/loxpanel/app/bin/version.json"))
+        namen = tar.getnames()
+    assert stand["version"] == "7.8.9" and stand["commit"] == "abcdef0123456789abcdef0123456789abcdef01"
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", stand["gebaut"]), stand
+    # Im Paket liest version_info dieselbe Datei
+    paket = tmp_path / "paket"
+    paket.mkdir()
+    (paket / "version.json").write_text(json.dumps(stand))
+    assert V.lesen(paket)["version"] == "7.8.9"
+    # aus config/ nur Vorlagen, nie Laufzeitdateien
+    cfg = [n.rsplit("/", 1)[1] for n in namen if n.startswith("./opt/loxpanel/app/config/") and not n.endswith("/")]
+    assert cfg and all(n.endswith((".example", ".example.json", ".schema.json")) for n in cfg), cfg
+
+
+@pytest.mark.skipif(not shutil.which("dpkg-deb"), reason="dpkg-deb fehlt")
+def test_deb_control_ohne_eigene_version(tmp_path):
+    """Stuende in control doch wieder eine Version, bricht der Bau mit Hinweis ab,
+    statt ein Paket mit zwei Versionen zu bauen."""
+    r, deb = _deb_bauen(tmp_path, control_zusatz="Version: 0.0.1\n")
+    assert r.returncode != 0 and not deb.exists()
+    assert "keine eigene Zeile Version:" in r.stderr

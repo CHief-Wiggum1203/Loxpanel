@@ -131,7 +131,17 @@ Form, es ist ein Umbau der Oberfläche.
 
 ## 0b. Upstream-Abgleich
 
-Zuletzt eingepflegt am **04.10.2026** (`upstream/main` @ `e8acd1a`,
+Zuletzt eingepflegt am **13.10.2026** (`upstream/main` @ `c34320c`), als echter
+Merge-Commit: unsere Beiträge #85–#93, die Lenardo am 07.10.2026 übernommen
+hat, dazu sein `.deb` mit gzip (dpkg 1.20 in Debian 11 kennt kein zstd) und
+die erweiterte englische Übersetzung des Konfigurators. Die 18 Commits mit
+unseren Beiträgen standen inhaltlich schon im Fork (jede hinzugefügte Zeile
+geprüft); in allen 40 Konfliktstellen in 14 Dateien blieb die Fork-Fassung.
+Neu ist nur #93: Das `.deb` nimmt die Version aus `plugin.cfg` und trägt
+`bin/version.json` (`test_deb_paket`). Git fügte den Import `audioserver_auth`
+still doppelt ein, `ruff` (F811) fand ihn.
+
+Davor eingepflegt am **04.10.2026** (`upstream/main` @ `e8acd1a`,
 **Release 0.7.0**), als echter Merge-Commit. Lenardo hatte an dem Tag unsere
 Beiträge #80, #81, #82 und #84 per Squash gemergt, jeden patch-gleich mit dem
 eingereichten Zweig, dazu seinen #77 (Verlauf-Widget mit mehreren Bausteinen)
@@ -412,64 +422,38 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 04.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
-#34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`). **Eingereicht und
-offen** ist noch ein Beitrag vom 03.10.2026, ein Commit auf `main`
-(`415ffd5`). Er sagt Lenardo im Text, was als Schritt 2 und 3 kommt. Gegen
-seinen Stand vom 03.10.2026 bestanden die SIP-Tests aus dem Fork.
+Stand 13.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
+#34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`).
 
-| PR | Zweig | Inhalt |
-|---|---|---|
-| [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`e424371`) | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP* statt „Coming soon“ mit Diagnose und Hinweis |
+Lenardo hat die Geschichte seines Repos am 04.10.2026 neu begonnen; sein
+`main` beginnt seitdem mit `83966b5`. Zweige, die davor abgingen, haben keine
+gemeinsame Basis mehr mit seinem `main`, ein PR daraus lässt sich nicht
+mergen. Neue Zweige deshalb immer von `upstream/main` (Ablauf A in
+`CONTRIBUTING.md`).
 
-- [ ] **#83 auf 0.7.0 neu aufsetzen:** Seit Lenardos README-Commit
-      `e8acd1a` geht `up/sip-zugang` nicht mehr konfliktfrei auf seinen
-      `main`: Beide ändern die Roadmap-Zeile zum Gegensprechen (Probe mit
-      `git merge-tree upstream/main e424371`, nur `README.md` im Konflikt;
-      Server, Konfigurator und Übersetzungen gehen ohne). Den Commit auf
-      `upstream/main` neu aufsetzen, die Zeile wie im Fork („SIP-Client in der
-      LoxPanel-App für Android; Zugang und Prüfung der Türstation gibt es
-      schon“, die Bausteinzeile wie bei Lenardo ohne AudioZoneV2), die
-      SIP-Tests aus dem Fork gegen den neuen Zweig laufen lassen und ihn mit
-      `--force-with-lease` pushen; der PR folgt dem Zweig. **S**
+**Eingereicht und offen** (13.10.2026), jeder auf `upstream/main`
+(`c34320c`) und gegen Lenardos Code geprüft: die Fork-Tests lagen
+vorübergehend auf dem Zweig, mit der Änderung grün, ohne sie rot; wo Lenardo
+dafür keinen Testaufbau hat, mit dem echten Server bzw. Konfigurator in
+Chromium vorher gegen nachher. Alle acht vertragen sich untereinander
+(`git merge-tree`), die Reihenfolge ist egal.
 
-**Vorbereitet, noch nicht eingereicht** (04.10.2026): elf Zweige, jeder auf
-`upstream/main` (`e8acd1a`, 0.7.0) und im Fork auf GitHub. Sie stammen aus Fork
-#107 und den Korrekturen des Prüfberichts (Fork #111–#116). Was nur der Fork
-hat, fehlt darin: Tests, `docs/ARCHITEKTUR.md`, Unraid, „PIN merken“ und die
-fork-eigenen Bausteine. Jeder Zweig ist gegen Lenardos Code gegengeprüft: Die
-Fork-Tests lagen vorübergehend auf dem Zweig, mit der Änderung grün, ohne sie
-rot, keiner neu rot; das `.deb` prüfte ein Bau-Skript mit dem echten
-`build.sh`. Der PR geht vom Fork-Zweig gegen `Lenardo1/Loxpanel:main`;
-Titel und Text hat der Besitzer.
+| PR | Zweig | Fork | Inhalt |
+|---|---|---|---|
+| [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`99a661e`) | – | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP*. Am 13.10.2026 neu aufgesetzt (vorher ohne gemeinsame Basis), dazu die Absicherung der Digest-Anmeldung aus #127 |
+| [#94](https://github.com/Lenardo1/loxpanel/pull/94) | `up/apk-vorlagen` (`f8d176b`) | #166 | Die APK nimmt aus `config/` nur die Vorlagen, nie Laufzeitdateien samt Sicherungen (`loxpanel.cfg.bak` mit dem Miniserver-Zugang) |
+| [#95](https://github.com/Lenardo1/loxpanel/pull/95) | `up/energie-nan` (`45c40d8`) | #161 | Energiefluss: NaN und unendliche Werte gelten als unbekannt (sonst ungültiges JSON, Ladestand 100 %, „nan kW“) |
+| [#96](https://github.com/Lenardo1/loxpanel/pull/96) | `up/seiten-loeschen` (`2f77776`) | #161 | Freie Seiten löschen: Widgets (`ui.panes`, `WZ.pane2`) rücken mit der Seite nach, im Editor, beim ✕ und in `wzBuild()` |
+| [#97](https://github.com/Lenardo1/loxpanel/pull/97) | `up/agent-standardansicht` (`73c7b92`) | #146, #161 | Unbekannte Ansicht gilt überall als Standardprofil: Abschaltzeit, Nachtmodus und Neustartintervall des Agenten, Geräteliste, Betriebsmodus |
+| [#98](https://github.com/Lenardo1/loxpanel/pull/98) | `up/speichern-waehrend-anfrage` (`427ef63`) | – | Speichern: was während der Anfrage geändert wird, gilt nicht als gespeichert (nur bei Lenardo; der Fork hat die Speicherleiste) |
+| [#99](https://github.com/Lenardo1/loxpanel/pull/99) | `up/visu-neuverbindung` (`5c02315`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine PIN-Abfrage gehört zur Seite, auf der getippt wurde |
+| [#100](https://github.com/Lenardo1/loxpanel/pull/100) | `up/miniserver-verbindung` (`fae9d0c`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
 
-| Zweig | Fork | Inhalt |
-|---|---|---|
-| `up/saver-wegtippen` (`9c27852`) | #107 | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus: Loslassen, `click` und Langdruck derselben Berührung werden bis zur nächsten verschluckt (iPad/Safari, wenn der Finger kurz liegen bleibt) |
-| `up/konfig-speichern` (`7aeae0d`) | #111 | Kategorie-Tabs eines Raum-Panels (`roomCats`) im Export an den Konfigurator, Geräte erst nach erfolgreichem Schreiben übernehmen, Display-Kennwort verlässt den Server nicht |
-| `up/miniserver-zugang` (`ed064f3`) | #111, #116 | Miniserver-Zugang erst prüfen, dann speichern (abgelehnt: nichts gespeichert, nicht erreichbar: gespeichert mit Warnung), `miniserver.response_timeout`; das LoxBerry-Widget zeigt die Antwort richtig an |
-| `up/visu-neuverbindung` (`635ea4c`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine PIN-Abfrage und ihr Ergebnis gehören zur Seite, auf der getippt wurde |
-| `up/miniserver-verbindung` (`2337507`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
-| `up/audioserver-kopplung` (`b026632`) | #113 | Ein HTTP-Fehler gilt nicht dauerhaft als ungekoppelt, der Raumfavorit meldet Sendefehler |
-| `up/kalender-ausnahmen` (`377b340`) | #113 | Ein verschobener Serientermin ersetzt das Original, eine Serie ohne Zeitzone bleibt nach der Zeitumstellung in Ortszeit |
-| `up/installdoku` (`bdc7fcd`) | #114 | Pakete aus `requirements.txt`, Vorrang des gespeicherten Zugangs, keine feste glibc-Grenze für `cryptography` |
-| `up/agent-ansicht` (`5f6f34d`) | #115 | „Ansicht wechseln“ erreicht den Linux-Agenten, die Ansicht übersteht Neustarts, ein abgestürztes Chromium startet neu |
-| `up/loxberry-sicherung` (`61bfd1d`) | #116 | Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, der Container übernimmt die Zeitzone des LoxBerry |
-| `up/deb-version` (`4f2f1b7`) | – | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` statt fest aus `control` (Tag-Prüfung, Aufräumen bei Abbruch) und zeigt Version, Commit und Bauzeit im Konfigurator (`build.sh` schreibt `bin/version.json` ohne Python). Nur bei Lenardo, der Fork entwickelt das `.deb` nicht weiter |
-
-Beim Einreichen auf die Reihenfolge achten:
-- `up/miniserver-zugang` und `up/miniserver-verbindung` bringen beide
-  `_ms_antwortfrist()` und `response_timeout` mit. Git meldet Konflikte in
-  `reconnect()` und `loxpanel.cfg.example`, fügt die Funktion aber still
-  doppelt ein. Wer als Zweiter gemergt wird, auf den neuen `upstream/main`
-  setzen, nur die Fassung mit `_ms_sekunden()` behalten und
-  `ruff check --select F,E9 bin` laufen lassen; Lenardo hat keine Lint-CI.
-- `up/installdoku` und `up/miniserver-verbindung` ändern denselben
-  README-Absatz („Zugangsdaten per Env …“). Der Konflikt ist rein textlich,
-  beide Sätze bleiben.
-- Alle anderen Paare gehen konfliktfrei auf seinen `main` (`git merge-tree`).
-
-- [ ] **Vor `up/visu-neuverbindung` an der Anlage prüfen:** Unter PIN geht ein
+- [x] **#83 neu aufsetzen** (13.10.2026): Der Commit liegt jetzt auf
+      `c34320c`, die Roadmap-Zeile wie bei Lenardo plus der SIP-Hinweis,
+      `bin/sip_probe.py` gleich wie im Fork. SIP-Tests aus dem Fork: grün bis
+      auf den Gen-2-Nachtrag, der nicht dazugehört.
+- [ ] **Vor dem Merge von #99 an der Anlage prüfen:** Unter PIN geht ein
       Musik-Favorit als `sps/ios/…/roomfav/play/{n}` über den Miniserver,
       nicht über die Verbindung zum Audioserver; bei Favoriten aus dem
       Audioserver-Kanal ist `n` die Item-id. Geprüft ist das nur gegen den
@@ -535,6 +519,15 @@ vorschlagen) und die Icon-Bibliothek (oben).
 | [#81](https://github.com/Lenardo1/loxpanel/pull/81) | Detailseiten: volle Seiten überlappen nicht mehr (Sauna bei 480 × 480), halbe Schritte an Schiebereglern, Weckzeiten-Liste folgt Änderungen |
 | [#82](https://github.com/Lenardo1/loxpanel/pull/82) | Neu laden gegen Einfrieren: ohne Eintrag jede Nacht um 3 Uhr, nur auf der Uhr-Seite |
 | [#84](https://github.com/Lenardo1/loxpanel/pull/84) | Version, Commit und Bauzeit in der Seitenleiste des Konfigurators und als `versionName` der APK (`bin/version.json` aus Gradle und Dockerfile) |
+| [#85](https://github.com/Lenardo1/loxpanel/pull/85) | Uhr-Seite wegtippen löst die Kachel darunter nicht mehr aus (Fork #107) |
+| [#86](https://github.com/Lenardo1/loxpanel/pull/86) | Kategorie-Tabs eines Raum-Panels (`roomCats`) im Export, Geräte erst nach erfolgreichem Schreiben übernehmen, Display-Kennwort verlässt den Server nicht (Fork #111) |
+| [#87](https://github.com/Lenardo1/loxpanel/pull/87) | Miniserver-Zugang erst prüfen, dann speichern, `miniserver.response_timeout`; das LoxBerry-Widget zeigt die Antwort richtig an (Fork #111, #116) |
+| [#88](https://github.com/Lenardo1/loxpanel/pull/88) | Audioserver: ein HTTP-Fehler gilt nicht dauerhaft als ungekoppelt, der Raumfavorit meldet Sendefehler (Fork #113) |
+| [#89](https://github.com/Lenardo1/loxpanel/pull/89) | Kalender: ein verschobener Serientermin ersetzt das Original, eine Serie ohne Zeitzone bleibt nach der Zeitumstellung in Ortszeit (Fork #113) |
+| [#90](https://github.com/Lenardo1/loxpanel/pull/90) | Installationsdoku: Pakete aus `requirements.txt`, Vorrang des gespeicherten Zugangs, keine feste glibc-Grenze für `cryptography` (Fork #114) |
+| [#91](https://github.com/Lenardo1/loxpanel/pull/91) | „Ansicht wechseln“ und Betriebsmodus erreichen den Linux-Agenten, die Ansicht übersteht Neustarts (Fork #115) |
+| [#92](https://github.com/Lenardo1/loxpanel/pull/92) | LoxBerry: Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, Zeitzone des LoxBerry im Container (Fork #116) |
+| [#93](https://github.com/Lenardo1/loxpanel/pull/93) | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` und trägt Version, Commit und Bauzeit in `bin/version.json` |
 
 #52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
 30.09.2026 kamen sie patch-gleich zurück. #63–#76 hat er am 02.10.2026
@@ -542,7 +535,11 @@ gemergt, #65 und #67–#70 über seinen Zweig `ci/android-apk-pipeline` (#61);
 beim Abgleich am selben Tag kamen alle patch-gleich zurück. #80–#82 und #84
 hat er am 04.10.2026 per Squash gemergt, #79 zuvor in seinen Zweig von #77,
 der als #77 nach `main` ging; beim Abgleich am selben Tag kamen #80–#82 und
-#84 patch-gleich zurück, #77 baum-gleich mit `up/verlauf-stapel`.
+#84 patch-gleich zurück, #77 baum-gleich mit `up/verlauf-stapel`. #85–#93 hat
+er am 07.10.2026 als Merge-Commits übernommen; beim Abgleich am 13.10.2026
+(echter Merge von `upstream/main` bis `c34320c`) stand ihr Inhalt im Fork
+schon, die Fork-Fassung blieb. Neu kamen nur #93 sowie von Lenardo das `.deb`
+mit gzip und die erweiterte englische Übersetzung des Konfigurators.
 
 Über #45 übernommen:
 
@@ -599,8 +596,7 @@ vermerken, auf welchem PR er aufsetzt. Hängen mehrere offene Beiträge an
 denselben Stellen, hat sich ein Sammel-PR wie #45 bewährt: die Zweige
 nacheinander auf einen Zweig bringen, Konflikte dort einmal auflösen.
 
-Der Fork ist mit `upstream/main` gleichgezogen (`e8acd1a`, Release 0.7.0,
-Stand 04.10.2026).
+Der Fork ist mit `upstream/main` gleichgezogen (`c34320c`, Stand 13.10.2026).
 
 ## 0c. Ohne Unraid: Lenardos Android-App mitentwickeln
 
