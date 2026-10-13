@@ -2117,6 +2117,78 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       4″-Panel ruckelt und wie die Nacht-Uhr im dunklen Raum wirkt.
       Gesamtaufwand **L**.
 
+- [ ] **„Jetzt wichtig“: Zeile mit gelernter Nutzung** (Konzept vom
+      13.10.2026, zurückgestellt am 13.10.2026). Über dem Raster steht eine
+      schmale Zeile mit zwei bis vier Bausteinen, die an *diesem* Gerät zu
+      *dieser* Tageszeit oft bedient werden: morgens die Jalousien Küche,
+      abends die Lichtsteuerung Wohnen. Ein Tipp wirkt wie auf der Kachel.
+      Das Panel rät nichts, es zählt nur. Die Zeile erweitert „Gerade aktiv“
+      aus der Hausübersicht Teil 2.
+      1. *Was zählt:* jeder Befehl aus `t:"cmd"` (WebSocket-Handler, das
+         Gerät aus `conn_dev`), dazu die Gesten und „Haus aus“
+         (`t:"hausaus"`). Unterbausteine zählen für ihren Baustein. Mehrere
+         Befehle an denselben Baustein kurz hintereinander sind eine
+         Nutzung, etwa bei Halten-Tasten oder `−`/`+`. Das Öffnen einer
+         Detailseite zählt schwächer. Nicht gezählt wird, was Taster, die
+         Loxone-App oder die Automatik schalten, denn eine Automatikjalousie
+         ist keine Gewohnheit. Das wäre eine mögliche spätere Stufe, aber
+         nur, wenn sich Mensch und Logik sauber trennen lassen.
+      2. *Wie:* je Gerät, ohne Gerätekennung je Ansicht. Gezählt wird je
+         Wochentag und Abschnitt der Tageszeit (etwa halbe Stunden). Alte
+         Nutzung verblasst mit einer Halbwertszeit, so zieht die Zeile bei
+         neuen Gewohnheiten von selbst nach. Der Wert für jetzt setzt sich
+         zusammen aus:
+         - dem Abschnitt und seinen Nachbarn,
+         - dem gleichen Wochentag in voller Stärke,
+         - ähnlichen Tagen (Werktag, Wochenende) schwächer.
+
+         Es erscheint nur, was oft genug genutzt wurde. Sonst bleibt die
+         Zeile weg, es gibt keine Beispiel-Einträge zum Start. Halbwertszeit,
+         Abschnittslänge, Gewichte und Mindestzahl stehen je einmal als
+         benannte Konstante.
+      3. *Was hinein darf:* nur, was die Ansicht zeigen darf (`rooms`,
+         `cats`, `hide`). Eine Kinder-Ansicht schlägt also nie die Sauna vor.
+         Gesicherte Bausteine fragen wie gewohnt nach der PIN.
+      4. *Wo:* je Seite wählbar wie die Werteleiste (`ui.jetzt`). Das Raster
+         zieht die Zeile ab wie bei `view.leiste`. Am wertvollsten ist sie
+         auf der Startseite, wenn der Präsenzmelder oder eine Berührung das
+         Panel weckt.
+      5. *Speicherung:* `config/nutzung.json` enthält zusammengezählte
+         Werte, kein Protokoll einzelner Bedienungen. Geschrieben wird
+         gebündelt über `_atomic_write()`, Werte nahe null fallen heraus. Die
+         LoxPanel-App zählt in ihrem eigenen Server, die Daten bleiben auf
+         dem Tablet. Die Fixture `cfg_ordner` muss die Datei mit umleiten.
+      6. *Datenschutz:* Die Zahlen zeigen, wann jemand in welchem Raum ist,
+         und die Routen haben keine Anmeldung (§10). Die Datei kommt deshalb
+         nicht ins Diagnosepaket. Unter *Geräte* zeigt jedes Gerät „Gelernte
+         Nutzung“ mit den häufigsten Bausteinen je Tageszeit und einem Knopf
+         „Zurücksetzen“, so sieht man, warum etwas vorgeschlagen wird.
+
+      Stufen:
+      1. Zählen und speichern (Server, Datei, Abklingen, Wert für jetzt).
+         Getestet wird mit eingespeister Uhr statt der echten Zeit. **M**
+      2. Zeile in der Visu (Rendern, Raster abziehen, Aufwachen auf der
+         Startseite). **M**
+      3. Konfigurator: Lernen an/aus, die Seiten mit der Zeile je Ansicht
+         und „Gelernte Nutzung“ unter *Geräte*. Dazu die Pflichtstellen
+         `_sanitize_panels()`, `_panel_export()`, `PANEL_STANDARD` und
+         `THEME_UI_KEYS`. **M**
+      4. Aktionen statt Kacheln: „Kochen“ statt „Lichtsteuerung Küche“, ein
+         Tipp schaltet genau diese Stimmung. Das geht nur für Befehle, die
+         sich wörtlich wiederholen (`changeTo/<id>`, `roomfav/play/<id>`,
+         `FullDown`) und deren Zustand bekannt ist. Was schon gilt, wird
+         nicht vorgeschlagen. **M**
+
+      Vor dem Start zu entscheiden:
+      1. Kacheln zuerst und Aktionen als Stufe 4 (Vorschlag) oder gleich
+         Aktionen?
+      2. Lernen standardmäßig aus, solange die Routen keine Anmeldung haben?
+         Vorschlag: ja, einschalten unter *Vorgaben → Verhalten*.
+      3. Was schon auf der Seite steht: weglassen (Vorschlag) oder die
+         Kachel dort nur hervorheben, statt sie oben zu wiederholen?
+
+      Gesamtaufwand **L**.
+
 ## 10. Sicherheit (zurückgestuft)
 
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird
