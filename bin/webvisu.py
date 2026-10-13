@@ -5863,6 +5863,7 @@ class App:
         Einblendung, wenn es einen gibt. Jeder Kreis bekommt nur einen Befehl,
         wenn sich sein Wert aendert."""
         befehle = []
+        danach = []     # erst, wenn die Befehle davor beim Miniserver angekommen sind
         text = ""
         if lauf["art"] == "musik":
             v = round(wert)
@@ -5889,13 +5890,17 @@ class App:
                     befehle.append((k["ziel"], str(v)))
             if ende and wert <= 0:
                 # Ganz unten: Lichtsteuerungen sauber auf "Aus", statt mit
-                # dunklen Kreisen auf "Manuell" stehen zu bleiben
-                befehle += [(self.controls[u].get("uuidAction") or u,
-                             f"changeTo/{LightControllerV2Adapter.OFF_MOOD}") for u in lauf.get("lcs", ())]
+                # dunklen Kreisen auf "Manuell" stehen zu bleiben. Erst nach den
+                # Kreisen: _geste_befehle schickt gleichzeitig (je Befehl eine
+                # HTTP-Anfrage), und ein Kreis, der nach dem "Aus" ankommt,
+                # stellte die Lichtsteuerung wieder auf "Manuell".
+                danach = [(self.controls[u].get("uuidAction") or u,
+                           f"changeTo/{LightControllerV2Adapter.OFF_MOOD}") for u in lauf.get("lcs", ())]
                 text = "Aus"
-        if befehle and await self._geste_befehle(befehle):
-            return "Nicht alle Befehle ausgeführt"
-        return text
+        fehl = await self._geste_befehle(befehle) if befehle else 0
+        if danach:
+            fehl += await self._geste_befehle(danach)
+        return "Nicht alle Befehle ausgeführt" if fehl else text
 
     async def _geste_stimmung(self, ru: str, prof: dict | None, dev: str, raum: str) -> dict:
         """Tipp Mitte: aus -> Stimmung beim Einschalten, an -> naechste Stimmung
