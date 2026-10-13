@@ -302,6 +302,25 @@ HAUS_ZENTRAL = {
 }
 # Symbole je Raumkarte (schaltbare zuerst)
 HAUS_SYMBOLE = 4
+# Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
+# bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
+# Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt die
+# Geste; welche Bausteine sie trifft und welche Befehle gehen, entscheidet
+# App.geste(). Ohne Einstellung in Vorgaben und Ansicht aus.
+GESTEN_STANDARD = False
+# Raum verlassen und Haus aus loesen einen Taster aus Loxone Config aus. Laut
+# Strukturdoku nimmt nur der Taster (Pushbutton, virtueller Eingang) einen
+# Impuls (`pulse`); ein Schalter kennt nur on/off.
+GESTEN_TASTER_TYPEN = ("Pushbutton",)
+# Lichtgruppen eines Raums: jede Lichtsteuerung mit ihren Lichtkreisen und
+# jeder einzelne Dimmer. Gedimmt werden die Kreise selbst, nicht die
+# Master-Helligkeit: wie sie sich nach einem Stimmungswechsel verhaelt, sagt
+# weder die Strukturdoku noch die Wissensdatenbank, die Stimmung dagegen setzt
+# jeden Kreis wieder aus ihren eigenen Werten.
+GESTEN_LICHT_TYPEN = ("LightControllerV2",)
+GESTEN_DIMMER_TYPEN = ("Dimmer", "EIBDimmer")
+GESTEN_AUDIO_TYPEN = ("AudioZone", "AudioZoneV2")
+GESTEN_BESCHATTUNG_TYPEN = ("Jalousie",)
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 # Kiosk-Apps, die die Visu beim Verbinden meldet (?kiosk=): Fully Kiosk und die
@@ -620,7 +639,8 @@ SCALE_MIN, SCALE_MAX = 0.5, 2.0
 # diese, /api/meta liefert genau diese; was _sanitize_theme_ui() neu erlaubt,
 # muss auch hier stehen, sonst geht es beim Speichern still verloren.
 THEME_UI_KEYS = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "textColor",
-                 "baseColor", "bold", "lang", "scale", "nightDim", "nightWake", "dpmsOff", "reloadHours")
+                 "baseColor", "bold", "lang", "scale", "nightDim", "nightWake", "dpmsOff", "reloadHours",
+                 "gesten", "hausAus", "raumVerlassen")
 
 # Groessen (px), wenn weder das Panel noch die globale Darstellung eine setzt,
 # je Kachel-Aufbau. Der neue stellt meist den Zustand gross und den Namen klein
@@ -901,6 +921,39 @@ def _clean_werteleiste(v) -> list:
         if isinstance(t, str) and _is_tab(t) and t not in out:
             out.append(t)
     return out
+
+
+def _clean_kennung(v) -> str:
+    """UUID eines Bausteins oder Raums aus einer Einstellung: getrimmt, hoechstens
+    60 Zeichen, sonst "". Ob es ihn gibt, entscheidet erst die Struktur - wie bei
+    presence und hide bleibt die Kennung, auch wenn der Miniserver gerade fehlt."""
+    return v.strip()[:60] if isinstance(v, str) else ""
+
+
+def _clean_raum_verlassen(v) -> dict:
+    """Taster je Raum fuer "Raum verlassen" (Vorgaben, ui.raumVerlassen):
+    {Raum-UUID: Taster-UUID}, nur Paare mit beiden Kennungen."""
+    if not isinstance(v, dict):
+        return {}
+    out = {}
+    for ru, tu in v.items():
+        ru, tu = _clean_kennung(ru), _clean_kennung(tu)
+        if ru and tu:
+            out[ru] = tu
+    return out
+
+
+def _clean_licht_start(v) -> dict | None:
+    """Stimmung beim Einschalten eines Geraets (devices[name].lichtStart):
+    {lc: Lichtsteuerung, mood: Stimmungs-ID aus ihrer moodList}, sonst None."""
+    if not isinstance(v, dict) or isinstance(v.get("mood"), bool):
+        return None
+    lc = _clean_kennung(v.get("lc"))
+    try:
+        mood = int(v.get("mood"))
+    except (TypeError, ValueError):
+        return None
+    return {"lc": lc, "mood": mood} if lc and mood >= 0 else None
 
 
 def _clean_svpane(v) -> str:
@@ -1641,6 +1694,7 @@ class App:
         self.conn_camera: dict[web.WebSocketResponse, str] = {}   # ws -> Intercom-UUID der aktiven Kamera-Pane (via setcamera)
         self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
         self.conn_chart: dict[web.WebSocketResponse, tuple[tuple[str, ...], str]] = {}   # ws -> (Baustein-UUIDs, Zeitraum) der Verlaufs-Pane (via setchart)
+        self.conn_geste: dict[web.WebSocketResponse, dict] = {}   # ws -> laufende Geste (Dimmen, Lautstaerke), App.geste()
         self.panels = load_panels()
         self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
         # Geraet -> {token, id, zurueck (Profil davor), bis}: zeigt gerade einen Entwurf (Punkt 12)
@@ -2888,6 +2942,11 @@ class App:
             "scale": _clean_scale(ui.get("scale")) or "off",
             # Visu-PIN gesicherter Bausteine so viele Sekunden behalten (0 = nie)
             "pinMerken": _pin_merken(ui.get("pinMerken")),
+            # Gesten wie auf den Loxone-Tastern (ui ist aus Vorgaben und Ansicht
+            # gemischt: die Ansicht geht vor) und ihr Raum ausserhalb von
+            # Raumseiten ("" = dort keine Wirkung)
+            "gesten": ui["gesten"] if isinstance(ui.get("gesten"), bool) else GESTEN_STANDARD,
+            "gestenRaum": _clean_kennung(ui.get("gestenRaum")),
         }
 
     def player_blocks(self, uuid: str):
@@ -3174,6 +3233,29 @@ class App:
                 continue
             out.append({"uuid": u, "name": name, "type": c.get("type"),
                         "room": _clean((self.rooms.get(c.get("room")) or {}).get("name"))})
+        return sorted(out, key=lambda d: (d["room"], d["name"]))
+
+    def geste_taster_optionen(self) -> list:
+        """Taster, die "Raum verlassen" und "Haus aus" ausloesen koennen
+        (GESTEN_TASTER_TYPEN, ohne Visu-PIN): [{uuid, name, room}]."""
+        out = []
+        for u, c in self.controls.items():
+            name = _clean(c.get("name"))
+            if c.get("type") in GESTEN_TASTER_TYPEN and not c.get("isSecured") and name:
+                out.append({"uuid": u, "name": name,
+                            "room": _clean((self.rooms.get(c.get("room")) or {}).get("name"))})
+        return sorted(out, key=lambda d: (d["room"], d["name"]))
+
+    def licht_stimmung_optionen(self) -> list:
+        """Lichtsteuerungen mit ihren Stimmungen fuer "Stimmung beim Einschalten"
+        je Geraet: [{uuid, name, room, moods: [{id, name}]}]."""
+        out = []
+        for u, c in self.controls.items():
+            if c.get("type") not in GESTEN_LICHT_TYPEN:
+                continue
+            out.append({"uuid": u, "name": _clean(c.get("name")),
+                        "room": _clean((self.rooms.get(c.get("room")) or {}).get("name")),
+                        "moods": [{"id": m, "name": n} for m, n in self._geste_stimmungen(u)]})
         return sorted(out, key=lambda d: (d["room"], d["name"]))
 
     def _sun_minutes(self) -> tuple[int, int] | None:
@@ -3639,7 +3721,7 @@ class App:
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
-                       "valueBar", "paneCols")}
+                       "valueBar", "paneCols", "gesten", "gestenRaum")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3829,6 +3911,10 @@ class App:
                 cui["split"] = False            # Split-Screen aus (4"-Panel: nur Visu)
             if ui.get("catFilter") is True:
                 cui["catFilter"] = True         # untere Leiste filtert statt zu springen
+            if isinstance(ui.get("gesten"), bool):
+                cui["gesten"] = ui["gesten"]    # Gesten an/aus; fehlt = wie Vorgaben
+            if _clean_kennung(ui.get("gestenRaum")):
+                cui["gestenRaum"] = _clean_kennung(ui["gestenRaum"])   # Raum der Gesten ausserhalb von Raumseiten
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
             _ks = _clean_kachel_set(ui.get("tileSet"))
@@ -4068,7 +4154,11 @@ class App:
             # wenn der Miniserver gerade nicht verbunden ist.
             presence = cfg.get("presence")
             presence = presence.strip()[:60] if isinstance(presence, str) else ""
-            if not modes and not display and scale is None and ziel is None and not presence:
+            # Stimmung beim Einschalten (Gesten): was angeht, wenn im Raum alles
+            # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
+            licht_start = _clean_licht_start(cfg.get("lichtStart"))
+            if not modes and not display and scale is None and ziel is None and not presence \
+                    and not licht_start:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if display:
@@ -4079,6 +4169,8 @@ class App:
                 entry["tileTarget"] = ziel
             if presence:
                 entry["presence"] = presence
+            if licht_start:
+                entry["lichtStart"] = licht_start
             out[name.strip()[:60]] = entry
         return out
 
@@ -4148,6 +4240,18 @@ class App:
             out["dpmsOff"] = max(0, min(3600, int(ui["dpmsOff"])))
         if isinstance(ui.get("reloadHours"), (int, float)):
             out["reloadHours"] = max(0, min(168, float(ui["reloadHours"])))
+        # Gesten fuer alle Ansichten (eine Ansicht kann sie selbst an- oder
+        # ausschalten); fehlt = GESTEN_STANDARD
+        if isinstance(ui.get("gesten"), bool) and ui["gesten"] != GESTEN_STANDARD:
+            out["gesten"] = ui["gesten"]
+        # Taster fuer "Haus aus" (Dreifachtipp) und je Raum fuer "Raum verlassen"
+        # (Doppeltipp): die Logik dahinter steht in Loxone Config
+        _ha = _clean_kennung(ui.get("hausAus"))
+        if _ha:
+            out["hausAus"] = _ha
+        _rv = _clean_raum_verlassen(ui.get("raumVerlassen"))
+        if _rv:
+            out["raumVerlassen"] = _rv
         return out
 
     @staticmethod
@@ -5512,6 +5616,295 @@ class App:
                         and self._control_item(u, prof).get("on"):
                     out.append((aus["uuid"], aus["cmd"]))
         return out
+
+    # ---- Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9) ----
+    def geste_raum(self, route: dict | None, prof: dict | None) -> str | None:
+        """Raum, den eine Geste trifft: der der Seite (Raum-Tab oder Raum unter
+        "Raeume"), sonst der feste Raum der Ansicht (gestenRaum). None, wenn es
+        keinen gibt oder der Miniserver ihn nicht kennt."""
+        r = route or {}
+        ru = None
+        if r.get("view") == "group" and r.get("kind") == "room":
+            ru = r.get("id")
+        elif r.get("view") == "tab" and isinstance(r.get("tab"), str) and r["tab"].startswith("room:"):
+            ru = r["tab"][5:]
+        if not ru:
+            ru = (prof or {}).get("gestenRaum")
+        return ru if isinstance(ru, str) and ru in self.rooms else None
+
+    def _geste_bausteine(self, ru: str, prof: dict | None, typen: tuple) -> list:
+        """Bausteine dieser Typen im Raum, so wie seine Raumseite sie zeigt
+        (Kategorie-Filter und Ausblendungen der Ansicht). Gesicherte bleiben
+        aussen vor wie bei haus_aus_befehle(): eine PIN-Abfrage mitten in einer
+        Geste geht nicht."""
+        return [u for u, c in self.controls.items()
+                if c.get("room") == ru and c.get("type") in typen and not c.get("isSecured")
+                and self._cat_ok(u, prof) and self._shown(u, prof)]
+
+    def _geste_kreis(self, d: dict, uuid: str) -> dict | None:
+        """Dimmbarer Kreis (Dimmer oder Lichtkreis einer Lichtsteuerung) mit den
+        States der Strukturdoku: {ziel, wert, min, max}; None ohne Stellung."""
+        wert = self._endlich(d, "position")
+        if wert is None:
+            return None
+        mn = self._endlich(d, "min")
+        mx = self._endlich(d, "max")
+        mn = 0.0 if mn is None else mn
+        mx = 100.0 if mx is None or mx <= mn else mx
+        return {"ziel": d.get("uuidAction") or uuid, "wert": wert, "min": mn, "max": mx}
+
+    def licht_gruppen(self, ru: str, prof: dict | None) -> list:
+        """Lichtgruppen eines Raums: jede Lichtsteuerung mit ihren dimmbaren
+        Lichtkreisen (Unterbausteine vom Typ Dimmer ohne die Master-Helligkeit,
+        details.masterValue) und jeder einzelne Dimmer als Gruppe mit einem
+        Kreis. So gelten dieselben Regeln fuer eine Lichtsteuerung mit vielen
+        Kreisen, mehrere in einem offenen Raum und lauter einzelne Dimmer.
+        Je Gruppe: {uuid, typ, an, kreise}."""
+        out = []
+        for u in self._geste_bausteine(ru, prof, GESTEN_LICHT_TYPEN + GESTEN_DIMMER_TYPEN):
+            c = self.controls[u]
+            if c.get("type") in GESTEN_LICHT_TYPEN:
+                master = (c.get("details") or {}).get("masterValue")
+                kreise = [self._geste_kreis(s, su) for su, s in (c.get("subControls") or {}).items()
+                          if isinstance(s, dict) and s.get("type") in GESTEN_DIMMER_TYPEN
+                          and master not in (su, s.get("uuidAction"))]
+                an = LIGHT.render(self._with_uuid(u), self.states)["on"]
+            else:
+                kreise = [self._geste_kreis(c, u)]
+                an = None
+            kreise = [k for k in kreise if k]
+            out.append({"uuid": u, "typ": c.get("type"), "kreise": kreise,
+                        "an": any(k["wert"] > 0 for k in kreise) if an is None else an})
+        return out
+
+    def _geste_stimmungen(self, uuid: str) -> list:
+        """Stimmungen einer Lichtsteuerung ohne "Aus", in der Folge ihrer
+        moodList: [(id, name)]."""
+        out = []
+        for m in LIGHT.moods(self._with_uuid(uuid), self.states):
+            try:
+                mid = int(m.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if mid != LightControllerV2Adapter.OFF_MOOD:
+                out.append((mid, _clean(m.get("name")) or str(mid)))
+        return out
+
+    def _geste_lichtsteuerung(self, gruppen: list, dev: str) -> tuple:
+        """Lichtsteuerung des Geraets und ihre Stimmung beim Einschalten
+        (devices[dev].lichtStart), wenn sie in diesem Raum liegt, sonst die
+        erste des Raums mit ihrer ersten Stimmung: (gruppe, stimmungs_id) oder
+        (None, None)."""
+        lcs = [g for g in gruppen if g["typ"] in GESTEN_LICHT_TYPEN]
+        start = (self.devices.get(dev) or {}).get("lichtStart") if dev else None
+        for g in lcs:
+            if start and g["uuid"] == start.get("lc"):
+                ids = [m for m, _n in self._geste_stimmungen(g["uuid"])]
+                return g, (start.get("mood") if start.get("mood") in ids else (ids[0] if ids else None))
+        if lcs:
+            ids = [m for m, _n in self._geste_stimmungen(lcs[0]["uuid"])]
+            return lcs[0], (ids[0] if ids else None)
+        return None, None
+
+    async def _geste_befehle(self, befehle: list) -> int:
+        """Befehle einer Geste gleichzeitig schicken; Zahl der fehlgeschlagenen."""
+        codes = await asyncio.gather(*(self.command(u, c) for u, c in befehle))
+        return sum(1 for code in codes if code != "200")
+
+    async def _geste_taster(self, uuid: str, text: str, fehlt: str) -> dict:
+        """Taster aus Loxone Config ausloesen (pulse): Raum verlassen, Haus aus."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") not in GESTEN_TASTER_TYPEN or c.get("isSecured"):
+            return {"fehler": fehlt}
+        if await self._geste_befehle([(c.get("uuidAction") or uuid, "pulse")]):
+            return {"fehler": "Miniserver hat nicht ausgelöst"}
+        return {"text": text}
+
+    async def geste(self, ws, data: dict) -> dict | None:
+        """Geste der Visu ausfuehren ({t:"geste", art, ...}) und die Antwort fuer
+        ihre Einblendung liefern ({t:"geste", art, raum, wert|text|fehler}).
+        None: nichts zu melden (Zwischenwert beim Dimmen) oder Gesten aus.
+
+        art: "licht" und "musik" mit phase start/wert/ende (Mitte bzw. rechts
+        hoch/runter), "stimmung" (Tipp Mitte), "beschattung" mit richtung
+        auf/ab (links hoch/runter), "verlassen" (Doppeltipp), "hausaus"
+        (Dreifachtipp)."""
+        prof = self.conn_prof.get(ws) or {}
+        art = str(data.get("art") or "")
+        if not prof.get("gesten"):
+            return None
+        if art == "hausaus":
+            ziel = (self.theme.get("ui") or {}).get("hausAus")
+            if not ziel:
+                return {"t": "geste", "art": art,
+                        "fehler": "„Haus aus“ ist nicht eingerichtet (Vorgaben → Verhalten)"}
+            return {"t": "geste", "art": art, **await self._geste_taster(
+                ziel, "Haus aus", "Taster für „Haus aus“ nicht gefunden")}
+        ru = self.geste_raum(self.conn_route.get(ws), prof)
+        if not ru:
+            return {"t": "geste", "art": art, "fehler": "Kein Raum auf dieser Seite"}
+        antwort = {"t": "geste", "art": art, "raum": _clean(self.rooms[ru].get("name"))}
+        raum = antwort["raum"] or "diesem Raum"
+        if art in ("licht", "musik"):
+            phase = data.get("phase")
+            if phase == "start":
+                lauf, start = (self._geste_licht_start(ru, prof, self.conn_dev.get(ws, ""))
+                               if art == "licht" else self._geste_musik_start(ru, prof))
+                if not lauf:
+                    self.conn_geste.pop(ws, None)
+                    return {**antwort, "fehler": start}
+                self.conn_geste[ws] = lauf
+                return {**antwort, "phase": "start", **start}
+            lauf = self.conn_geste.get(ws)
+            if not lauf or lauf["art"] != art:
+                return None
+            try:
+                wert = max(0.0, min(100.0, float(data.get("wert"))))
+            except (TypeError, ValueError):
+                return None
+            if phase == "ende":
+                self.conn_geste.pop(ws, None)
+            text = await self._geste_wert(lauf, wert, phase == "ende")
+            return {**antwort, "text": text} if text else None
+        if art == "stimmung":
+            return {**antwort, **await self._geste_stimmung(ru, prof, self.conn_dev.get(ws, ""), raum)}
+        if art == "beschattung":
+            jal = self._geste_bausteine(ru, prof, GESTEN_BESCHATTUNG_TYPEN)
+            if not jal:
+                return {**antwort, "fehler": f"Keine Beschattung in {raum}"}
+            fahrend = [u for u in jal if any(self._jal_fahrt(self.controls[u])[:2])]
+            if fahrend:
+                befehle = [(self.controls[u].get("uuidAction") or u, "Stop") for u in fahrend]
+                text = "Beschattung gestoppt"
+            else:
+                auf = data.get("richtung") == "auf"
+                befehle = [(self.controls[u].get("uuidAction") or u, "FullUp" if auf else "FullDown") for u in jal]
+                text = "Beschattung auf" if auf else "Beschattung ab"
+            fehl = await self._geste_befehle(befehle)
+            return {**antwort, **({"fehler": f"{fehl} von {len(befehle)} Befehlen nicht ausgeführt"}
+                                  if fehl else {"text": text})}
+        if art == "verlassen":
+            ziel = ((self.theme.get("ui") or {}).get("raumVerlassen") or {}).get(ru)
+            if ziel:
+                return {**antwort, **await self._geste_taster(
+                    ziel, f"{raum} verlassen", f"Taster für „{raum} verlassen“ nicht gefunden")}
+            # Ohne Taster aus Loxone: aus, was im Raum an ist und sich abschalten
+            # laesst (wie "Gerade aktiv"). Das Raumklima bleibt unberuehrt.
+            befehle = []
+            for u in self._geste_bausteine(ru, prof, tuple(HAUS_AUS)):
+                aus = self._haus_aus(u)
+                if aus and self._control_item(u, prof).get("on"):
+                    befehle.append((aus["uuid"], aus["cmd"]))
+            if not befehle:
+                return {**antwort, "text": f"In {raum} ist nichts an"}
+            fehl = await self._geste_befehle(befehle)
+            return {**antwort, **({"fehler": f"{fehl} von {len(befehle)} Befehlen nicht ausgeführt"}
+                                  if fehl else {"text": f"{raum}: {len(befehle)} aus"})}
+        return None
+
+    def _geste_licht_start(self, ru: str, prof: dict | None, dev: str) -> tuple:
+        """Beginn von Mitte hoch/runter: (lauf, antwort) oder (None, fehler).
+        Leuchtet etwas, wird es anteilig gedimmt (Startwert der hellste Kreis).
+        Ist alles aus, schaltet die Bewegung nach oben die Stimmung des Geraets
+        ein (lichtStart) bzw. setzt die einzelnen Dimmer des Raums."""
+        gruppen = self.licht_gruppen(ru, prof)
+        an = [(g, k) for g in gruppen for k in g["kreise"] if k["wert"] > 0]
+        if an:
+            start = max(k["wert"] for _g, k in an)
+            return ({"art": "licht", "modus": "dimmen", "start": start,
+                     "kreise": [dict(k) for _g, k in an],
+                     "lcs": sorted({g["uuid"] for g, _k in an if g["typ"] in GESTEN_LICHT_TYPEN}),
+                     "gesendet": {}},
+                    {"wert": round(start)})
+        g, mood = self._geste_lichtsteuerung(gruppen, dev)
+        if g and not g["an"] and mood is not None:
+            name = dict(self._geste_stimmungen(g["uuid"])).get(mood, "")
+            return ({"art": "licht", "modus": "stimmung", "lc": g["uuid"], "mood": mood, "name": name,
+                     "gesendet": {}},
+                    {"wert": 0, "text": name})
+        kreise = [k for gr in gruppen if gr["typ"] in GESTEN_DIMMER_TYPEN for k in gr["kreise"]]
+        if kreise:
+            return ({"art": "licht", "modus": "neu", "kreise": kreise, "gesendet": {}}, {"wert": 0})
+        return None, "Kein dimmbares Licht in " + (_clean(self.rooms[ru].get("name")) or "diesem Raum")
+
+    def _geste_musik_start(self, ru: str, prof: dict | None) -> tuple:
+        """Beginn von rechts hoch/runter: Lautstaerke der Audio-Zonen des Raums,
+        Startwert die der ersten, die spielt (sonst der ersten)."""
+        zonen = self._geste_bausteine(ru, prof, GESTEN_AUDIO_TYPEN)
+        if not zonen:
+            return None, "Keine Musik in " + (_clean(self.rooms[ru].get("name")) or "diesem Raum")
+        erste = next((u for u in zonen if self._state(self.controls[u], "playState") == 2), zonen[0])
+        start = self._endlich(self.controls[erste], "volume") or 0.0
+        return ({"art": "musik", "zonen": [self.controls[u].get("uuidAction") or u for u in zonen],
+                 "gesendet": {}},
+                {"wert": round(start)})
+
+    async def _geste_wert(self, lauf: dict, wert: float, ende: bool) -> str:
+        """Zwischen- oder Endwert einer laufenden Geste umsetzen; Text fuer die
+        Einblendung, wenn es einen gibt. Jeder Kreis bekommt nur einen Befehl,
+        wenn sich sein Wert aendert."""
+        befehle = []
+        text = ""
+        if lauf["art"] == "musik":
+            v = round(wert)
+            befehle = [(z, f"volume/{v}") for z in lauf["zonen"] if lauf["gesendet"].get(z) != v]
+            for z, _c in befehle:
+                lauf["gesendet"][z] = v
+        elif lauf["modus"] == "stimmung":
+            # Erst die Bewegung nach oben schaltet ein, genau einmal; weiter
+            # gedimmt wird mit der naechsten Geste, wenn die Kreise leuchten
+            if wert > 0 and not lauf["gesendet"]:
+                lauf["gesendet"]["mood"] = lauf["mood"]
+                befehle = [(self.controls[lauf["lc"]].get("uuidAction") or lauf["lc"],
+                            f"changeTo/{lauf['mood']}")]
+                text = lauf["name"]
+        else:
+            # Anteilig: jeder Kreis um denselben Faktor, das Verhaeltnis (das
+            # Lichtbild der Stimmung) bleibt. "neu": alle auf den Wert.
+            faktor = wert / lauf["start"] if lauf["modus"] == "dimmen" else None
+            for k in lauf["kreise"]:
+                v = round(k["wert"] * faktor) if faktor is not None else round(wert)
+                v = 0 if v <= 0 else max(round(k["min"]), min(round(k["max"]), v))
+                if lauf["gesendet"].get(k["ziel"]) != v:
+                    lauf["gesendet"][k["ziel"]] = v
+                    befehle.append((k["ziel"], str(v)))
+            if ende and wert <= 0:
+                # Ganz unten: Lichtsteuerungen sauber auf "Aus", statt mit
+                # dunklen Kreisen auf "Manuell" stehen zu bleiben
+                befehle += [(self.controls[u].get("uuidAction") or u,
+                             f"changeTo/{LightControllerV2Adapter.OFF_MOOD}") for u in lauf.get("lcs", ())]
+                text = "Aus"
+        if befehle and await self._geste_befehle(befehle):
+            return "Nicht alle Befehle ausgeführt"
+        return text
+
+    async def _geste_stimmung(self, ru: str, prof: dict | None, dev: str, raum: str) -> dict:
+        """Tipp Mitte: aus -> Stimmung beim Einschalten, an -> naechste Stimmung
+        derselben Lichtsteuerung (changeTo, "Aus" uebersprungen). Ohne
+        Lichtsteuerung schaltet er die einzelnen Dimmer ein."""
+        gruppen = self.licht_gruppen(ru, prof)
+        g, mood = self._geste_lichtsteuerung(gruppen, dev)
+        if g:
+            stimmungen = self._geste_stimmungen(g["uuid"])
+            if not stimmungen:
+                return {"fehler": f"Keine Stimmungen in {raum}"}
+            ids = [m for m, _n in stimmungen]
+            if g["an"]:
+                aktiv = [m for m in LIGHT.active_moods(self._with_uuid(g["uuid"]), self.states) if m in ids]
+                mood = ids[(ids.index(aktiv[0]) + 1) % len(ids)] if aktiv else ids[0]
+            ua = self.controls[g["uuid"]].get("uuidAction") or g["uuid"]
+            if await self._geste_befehle([(ua, f"changeTo/{mood}")]):
+                return {"fehler": "Miniserver hat nicht umgeschaltet"}
+            return {"text": dict(stimmungen)[mood]}
+        dimmer = [gr for gr in gruppen if gr["typ"] in GESTEN_DIMMER_TYPEN]
+        if not dimmer:
+            return {"fehler": f"Kein Licht in {raum}"}
+        if any(gr["an"] for gr in dimmer):
+            return {"text": "Licht ist an"}
+        befehle = [(k["ziel"], "on") for gr in dimmer for k in gr["kreise"]]
+        if await self._geste_befehle(befehle):
+            return {"fehler": "Nicht alle Befehle ausgeführt"}
+        return {"text": "Licht an"}
 
     def _view_haus(self, route: dict, prof: dict | None = None) -> dict:
         """Hausuebersicht: je Raum eine Karte (Hauptwert, Symbole, wie viel an
@@ -7694,6 +8087,7 @@ class App:
             self.conn_chart.pop(ws, None)
             self.conn_camera.pop(ws, None)
             self.conn_status.pop(ws, None)
+            self.conn_geste.pop(ws, None)
             try:
                 await ws.close()
             except Exception:
@@ -8346,6 +8740,12 @@ async def api_meta(request: web.Request) -> web.Response:
         # Bausteine mit active-State: Auswahl fuer den Praesenzmelder je Geraet
         # (dieselbe Liste wie beim Nacht-Ausloeser)
         "activeControls": app.night_control_options(),
+        # Gesten: Taster fuer "Raum verlassen" (je Raum) und "Haus aus"
+        # (Vorgaben), Lichtsteuerungen mit Stimmungen fuer "Stimmung beim
+        # Einschalten" (Geraete) und der Standard ohne Einstellung
+        "gestenTaster": app.geste_taster_optionen(),
+        "lichtStimmungen": app.licht_stimmung_optionen(),
+        "gestenStandard": GESTEN_STANDARD,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
@@ -10269,6 +10669,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
                         "dpmsOff": app.panel_dpms(prof["id"], roh),
                         "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
+                        "gesten": prof["gesten"],         # Zwei-Finger-Gesten (Loxone-Standard) an
                         "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"], roh), "on": app._night_on},
@@ -10361,6 +10762,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 if fehl:
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
                                         f"{fehl} von {len(codes)} Befehlen nicht ausgeführt"})
+            elif data.get("t") == "geste":
+                # Zwei-Finger-Geste (Loxone-Standard): der Server sucht Raum,
+                # Bausteine und Befehle, die Visu blendet die Antwort ein
+                antwort = await app.geste(ws, data)
+                if antwort:
+                    await ws.send_json(antwort)
             elif data.get("t") == "setplayer":
                 # Client meldet die AudioZone der aktiven Player-Pane (oder "" = keine).
                 zone = str(data.get("zone") or "").strip()
@@ -10455,6 +10862,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_chart.pop(ws, None)
         app.conn_camera.pop(ws, None)
         app.conn_status.pop(ws, None)
+        app.conn_geste.pop(ws, None)
     return ws
 
 

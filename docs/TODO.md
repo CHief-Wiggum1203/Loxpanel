@@ -2017,11 +2017,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
         begrenzt auf `min`/`max` der Kreise. Ganz unten gehen die leuchtenden
         Kreise aus; wieder hoch in derselben Geste bringt das alte Verhältnis
         zurück (Startwerte gemerkt). Groß angezeigt wird der hellste Kreis.
-      - *Master-Helligkeit:* Hat die Lichtsteuerung eine (laut Strukturdoku
-        ein Eintrag in `details`), genügt ein Befehl je Gruppe und die
-        Stimmung bleibt. Ohne sie bekommt jeder leuchtende Kreis seinen Wert
-        (`{v}` wie beim Dimmer); ob die Lichtsteuerung dann „Manuell“ zeigt,
-        an der Anlage prüfen. Welche `details` kommen, zeigt `/api/types`.
+      - *Master-Helligkeit:* Laut Strukturdoku (12.0) hat jede
+        Lichtsteuerung eine (`details.masterValue`). Gedimmt werden trotzdem
+        die Kreise selbst (`{v}` wie beim Dimmer): Wie sich die
+        Master-Helligkeit nach einem Stimmungswechsel verhält, sagen weder
+        Strukturdoku noch Wissensdatenbank. Bliebe sie gedimmt, ginge die
+        nächste Stimmung zu dunkel an. Ob die Lichtsteuerung beim Dimmen
+        „Manuell“ zeigt, an der Anlage prüfen.
       - *Alles aus, dann hoch:* je Gerät „Stimmung beim Einschalten“, gewählt
         aus den Stimmungen der Anlage (`devices[name]`, wie der
         Präsenzmelder: es geht um den Ort, dieselbe Ansicht kann auf zwei
@@ -2093,9 +2095,18 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          aufzuwecken, mit nur einer schwachen Zahl. Greift in Schoner und
          Nachtmodus ein, deshalb nach Stufe 1. **M**
 
-      Vor dem Bau an der Anlage klären: `details` von `LightControllerV2` in
-      `/api/types` (Master-Helligkeit) und die Form der Lichtkreise in der
-      Struktur (`bin/dump_lights.py`). Gesamtaufwand **L**.
+      *Erledigt 13.10.2026: Stufen 1 bis 4* (Visu, Server, Konfigurator,
+      Tests). Die Form der Lichtkreise steht in der Strukturdoku 12.0
+      (Unterbausteine Dimmer, ColorPickerV2, Switch; Master in
+      `details.masterValue`), die Befehle (`changeTo`, Dimmer `{pos}`,
+      Jalousie `FullUp`/`FullDown`, Audio `volume/{n}`, Taster `pulse`)
+      ebenso. Ohne Einstellung sind die Gesten aus (`GESTEN_STANDARD`).
+      Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Gesten“, Tests in
+      `tests/test_gesten.py` und `tests/browser/test_gesten_browser.py`.
+      Offen: Stufe 5, und an der Anlage prüfen: ob die Lichtsteuerung beim
+      Dimmen „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg,
+      Wartezeit des Tipps, Spaltenteilung) und ob das Scrollen am 4″-Panel
+      ruckelt. Gesamtaufwand **L**.
 
 ## 10. Sicherheit (zurückgestuft)
 

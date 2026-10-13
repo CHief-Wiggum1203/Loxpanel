@@ -334,7 +334,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]` | eine komplette Ansicht. `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `raeume[]`, `aktiv[]`, `zentral[]`, `spieler`, `energie` und auf der Unterseite `liste:"aktiv"` |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
@@ -353,6 +353,7 @@ Server → Browser (`panel.html:700`):
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
 | `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
+| `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen bzw. für die Lautstärke, der Name der eingeschalteten Stimmung, „Beschattung ab“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Die Visu blendet sie in der Mitte ein |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -365,6 +366,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste:"aktiv"` (Unterseite „Gerade aktiv“). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `hausaus` | `art` (`licht` \| `audio`) — Zentral-Taste der Hausübersicht: jeder Baustein dieser Art auf der Seite, der an ist, bekommt seinen Aus-Befehl (`haus_aus_befehle()`, `HAUS_ZENTRAL`/`HAUS_AUS`); gesicherte (Visu-PIN) nicht. Antwort nur bei Fehlern (`notify`) |
+| `geste` | `art` (`licht` \| `musik` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
@@ -945,6 +947,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
         "nudgeX": -6, "dpmsOff": 180, "reloadHours": 12,
         "pinMerken": 60,                     // Sek., die die Visu eine bestätigte Visu-PIN behält;
                                              // 0 = jedes Mal fragen, fehlt = PIN_MERKEN_STANDARD
+        "gesten": true,                      // Zwei-Finger-Gesten an/aus; fehlt = wie Vorgaben (§7.1 „Gesten“)
+        "gestenRaum": "<room-uuid>",         // Raum der Gesten außerhalb von Raumseiten; fehlt = dort keine
         "cols": 4, "rows": 3, "fill": true,
         "scale": "auto",                     // "off" | "auto" | Faktor 0.5–2.0; fehlt = wie global
         "catFilter": true,                   // Sprungmarken filtern statt springen (nur true, fehlt = springen)
@@ -990,8 +994,11 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
       "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
       "tileTarget": 260,                     // optional; Zielkachel des automatischen Rasters für dieses Gerät
                                              // (Gerät vor Profil, nur im Kachel-Layout „Automatisch“; §7.1)
-      "presence": "<control-uuid>"           // optional; Präsenzmelder (Baustein mit active-State):
+      "presence": "<control-uuid>",          // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
+      "lichtStart": {"lc": "<uuid>", "mood": 1}   // optional; Stimmung beim Einschalten (Gesten, §7.1):
+                                             // was zwei Finger einschalten, wenn im Raum alles aus ist,
+                                             // und zu welcher Lichtsteuerung das Gerät gehört
     }
   }
 }
@@ -1030,6 +1037,14 @@ für `panel_dpms()` und `panel_reload()`: ohne Eintrag in Panel und Vorgaben
 bleibt es bei `None`, dann nimmt der Agent seine `kiosk.conf` (`DPMS_OFF`,
 `RELOAD_HOURS`), die Visu schaltet das Display nicht ab und lädt nachts um
 `NEULADEN_STUNDE` neu.
+
+Die Gesten (§7.1) haben drei Einträge unter Vorgaben → Verhalten: `gesten`
+(an/aus für alle Ansichten, gespeichert nur, wenn es vom `GESTEN_STANDARD`
+abweicht; eine Ansicht kann es selbst setzen), `hausAus` (Taster für den
+Dreifachtipp) und `raumVerlassen` (`{Raum-UUID: Taster-UUID}` für den
+Doppeltipp). Beide Taster sind Bausteine vom Typ `Pushbutton` ohne
+Visu-Passwort (`geste_taster_optionen()`, `/api/meta` `gestenTaster`): Laut
+Strukturdoku nimmt nur der Taster einen Impuls (`pulse`).
 
 Die Größen (`iconSize`, `nameSize`, `subSize`, `roomSize`, `bigSize`) stehen
 nur drin, wenn sie eingestellt sind. Fehlt eine im Panel und global, gilt der
@@ -1874,6 +1889,57 @@ Assistenten des Konfigurators.
     44 px, nichts abgeschnitten; Bedienen am Miniserver-Nachbau, Tausch nur
     des geänderten Blocks. Die Lesbarkeit aller Texte in allen Sets misst
     `test_kachel_set_kontrast_browser.py` (Ansicht `haus`).
+- Gesten (13.10.2026, Konzept in `docs/TODO.md` §9 „Loxone-Standard als
+  Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster.
+  Die Fläche (`.screen`) ist in drei Spalten geteilt (`GESTE_SPALTEN`):
+  Mitte Licht (hoch/runter dimmt, Tipp schaltet ein bzw. zur nächsten
+  Stimmung), links Beschattung (hoch/runter: ganz auf/ab, fährt sie schon,
+  hält sie an), rechts Musik (hoch/runter: Lautstärke); Doppeltipp Raum
+  verlassen, Dreifachtipp Haus aus, beide egal wo. Ein Finger bleibt, wie er
+  war.
+  - **Visu:** Touch-Events, nicht Pointer-Events: Nur `touchstart` und
+    `touchmove` mit `preventDefault()` (nicht passiv, auf `.screen`) halten
+    Scrollen und Klick an. Die Geste springt an bei genau zwei Fingern, die
+    sich gemeinsam um `GESTE_MINDESTWEG` (Anteil der Höhe) bewegen, ohne zu
+    kneifen (`GESTE_KNEIFEN`); waagerecht ist nicht belegt. Scrollt der erste
+    Finger schon (`cancelable === false`), gibt es keine Geste statt einer
+    halben. Ein Tipp sind zwei Finger, die nicht wandern und nach höchstens
+    `GESTE_TIPP_MS` oben sind; er wartet `GESTE_MEHRFACH_MS` auf den
+    nächsten, der dritte löst sofort aus. Solange zwei Finger lagen
+    (`gesteSequenz`), gibt es kein „zurück“ und danach `GESTE_KLICKSPERRE_MS`
+    keinen Klick auf Kacheln. Aus bleiben die Gesten im Grundriss (dort
+    zoomen zwei Finger), auf Detailseiten, im PIN-Feld, in Menüs und auf der
+    Uhr-Seite (`gesteErlaubt()`). Die Einblendung `#geste` zeigt Art und
+    Raum, beim Dimmen Prozent und Balken; ein Fingerweg über die ganze Höhe
+    sind 0 → 100 %, Zwischenwerte gehen höchstens alle `GESTE_TAKT_MS`.
+  - **Server:** `App.geste()` sucht Raum, Bausteine und Befehle selbst, die
+    Visu nennt nur Art und Wert. Raum ist der der Seite (Raum-Tab oder Raum
+    unter „Räume“), sonst `ui.gestenRaum` der Ansicht (`geste_raum()`). Die
+    Bausteine sind die der Raumseite (Kategorie-Filter, Ausblendungen),
+    ohne Visu-Passwort, denn eine PIN-Abfrage mitten in der Geste geht nicht.
+    Licht rechnet mit **Lichtgruppen** (`licht_gruppen()`): jede
+    Lichtsteuerung mit ihren dimmbaren Lichtkreisen (Unterbausteine vom Typ
+    Dimmer ohne die Master-Helligkeit `details.masterValue`) und jeder
+    einzelne Dimmer. So gilt dasselbe für eine Lichtsteuerung mit vielen
+    Kreisen, mehrere in einem offenen Raum und lauter einzelne Dimmer.
+    Gedimmt wird, was leuchtet, anteilig (Startwert der hellste Kreis, jeder
+    Kreis mit demselben Faktor; ein Kreis bekommt nur bei geändertem Wert
+    einen Befehl); ganz unten gehen die Kreise aus und die Lichtsteuerung auf
+    „Aus“ (`changeTo/778`), statt dunkel auf „Manuell“ zu stehen. Die
+    Master-Helligkeit bleibt unberührt: Wie sie sich nach einem
+    Stimmungswechsel verhält, sagen weder Strukturdoku noch
+    Wissensdatenbank. Leuchtet nichts, schaltet die Bewegung nach oben die
+    Stimmung des Geräts ein (`devices[name].lichtStart`, sonst die erste der
+    ersten Lichtsteuerung im Raum), genau einmal; weiter gedimmt wird mit der
+    nächsten Geste. Der Tipp schaltet aus → diese Stimmung, an → die nächste
+    derselben Lichtsteuerung (`moodList`-Folge, „Aus“ übersprungen). Raum
+    verlassen löst den Taster aus `ui.raumVerlassen` aus, ohne ihn alles,
+    was an ist und sich abschalten lässt (`HAUS_AUS`, wie „Gerade aktiv“;
+    das Raumklima bleibt dann unberührt). Haus aus wirkt nur mit dem Taster
+    aus `ui.hausAus`. Ein laufendes Dimmen hält `conn_geste` je Verbindung.
+  - Geprüft in `tests/test_gesten.py` (Befehle am Miniserver-Nachbau,
+    Anlage `lox.gesten_anlage()`) und `tests/browser/test_gesten_browser.py`
+    (zwei Finger über das DevTools-Protokoll, `Input.dispatchTouchEvent`).
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs
   durch Marken (Raum-Panel: Kategorien des Raums, freie Auswahl: ihre Räume;
