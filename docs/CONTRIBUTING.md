@@ -55,6 +55,12 @@ Lenardo1, Compare = dieser Branch). Das funktioniert unabhängig von
 Schreibrechten – der klassische Fork-→-Upstream-Weg. Mit Schreibrechten kann der
 Branch auch direkt nach `upstream` gepusht werden; nötig ist das nicht.
 
+Lenardo hat die Geschichte seines Repos am 04.10.2026 neu begonnen. Ein Zweig,
+der davor von `upstream/main` abging, hat mit seinem heutigen `main` keine
+gemeinsame Basis mehr, und GitHub kann einen PR daraus nicht mergen. So einen
+Zweig auf `upstream/main` neu aufsetzen (die eigenen Commits per
+`git cherry-pick`), wie am 13.10.2026 bei #83 geschehen.
+
 Ist die PR bei Upstream gemergt → **Ablauf C** holt sie in den Fork zurück.
 
 ## Ablauf B – Etwas rein Fork-eigenes (Identität / Unraid)
@@ -89,8 +95,8 @@ git merge upstream/main
 #    Konflikte fast nur in den Identitäts-Dateien (release.cfg ARCHIVEURL,
 #    plugin.cfg VERSION, Image-Name): Fork-Identität behalten, Upstream-Code
 #    übernehmen. Die Version bleibt die des Forks: Seit 1.0.0 zählt er
-#    eigenständig (VERSION in plugin.cfg und release.cfg, Version in
-#    packaging/deb/control).
+#    eigenständig (VERSION in plugin.cfg und release.cfg; das .deb nimmt
+#    sie beim Bauen aus plugin.cfg).
 #    Ausnahme .github/workflows/docker-image.yml („deleted in HEAD and
 #    modified in upstream/main“): gelöscht lassen (git rm), sonst
 #    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
@@ -160,15 +166,6 @@ nicht unbemerkt entfernt:
   mitten im Tippen Fokus und Buchstaben. Geht es zu Lenardo, sobald der
   Panel-Assistent (`wzIcoGrid()`) dasselbe kann. Geht es verloren, schlägt
   `test_name_tippen_waehrend_die_icon_bibliothek_laedt` an.
-- `roomCats` in `_panel_export()`: ohne zeigt der Editor bei einem Raum-Panel
-  die automatische Kategorie-Auswahl, und das nächste Speichern, auch eines
-  anderen Profils, löscht die gewählte. Dazu setzt der Moduswechsel in
-  `renderTabMode()` (`config.html`) die Auswahl zurück wie der Raumwechsel.
-  Beides auch bei Lenardo: In 0.7.0 steht `catFilter` im Export (#80),
-  `roomCats` fehlt. Vorbereitet als Zweig `up/konfig-speichern` (mit den
-  übrigen Korrekturen aus Fork #111), noch nicht eingereicht. Wachen:
-  `test_jede_gespeicherte_option_kommt_beim_konfigurator_an`,
-  `test_raum_panel_kategorie_tabs_im_editor`.
 - Neuer Kachel-Aufbau und Schriftgrößen je Aufbau (`.lx` in `panel.html`,
   `subInfo`/`big`/`bigSub` in `_control_item()`, `ui.tileLayout`,
   `GROESSEN_STANDARD`, `sizeDefaults` in `/api/meta`, `theme.example.json` ohne
@@ -199,9 +196,10 @@ nicht unbemerkt entfernt:
   `tests/browser/test_pane_hoehe_browser.py` (`test_wetter_eng_langes_datum`).
 - Uhr-Seite wegtippen löst die Kachel darunter nicht aus (`saverGeste` und
   die Capture-Abfänger auf `window` vor `el('saver')` in `panel.html`, Fork
-  #107): bei Lenardo vorbereitet als Zweig `up/saver-wegtippen` (auf 0.7.0),
-  noch nicht eingereicht. Reibt sich bei Upstream-Merges an der Zeile
-  darunter, die im Fork zusätzlich auf `input` lauscht. Wache:
+  #107): seit dem Abgleich vom 13.10.2026 auch in Upstream (#85). Nur im
+  Fork lauscht die Zeile darunter zusätzlich auf `input` (Android-Tastaturen
+  melden nicht jedes Zeichen als `keydown`); bei Upstream-Merges dort die
+  Fork-Fassung behalten. Wache:
   `tests/browser/test_saver_wecken_browser.py`.
 - Die vier Bausteine nach der Loxone-Strukturdoku (Oktober 2026): Wecker mit
   Weckzeiten bearbeiten, Bewässerung mit Einzelzonen und Laufzeit, verpasste
@@ -226,9 +224,9 @@ nicht unbemerkt entfernt:
   die übrigen Bedienwege geben `secured` und den Abbruch an `sendCmd()`
   weiter, `ui.pinMerken` steht in `_panel_export()` und `/api/meta`, und
   `blockSig()` vergleicht die Favoriten nach Name, Cover und Befehl statt nur
-  nach ihrer Anzahl. Auch bei Lenardo betroffen: vorbereitet als Zweig
-  `up/visu-neuverbindung` (mit den Widget-Abos aus Fork #112, ohne „PIN
-  merken“), noch nicht eingereicht. Beim Abgleich auf 0.7.0 gab es an
+  nach ihrer Anzahl. Auch bei Lenardo betroffen: eingereicht als #99 (Zweig
+  `up/visu-neuverbindung` mit den Widget-Abos aus Fork #112, ohne „PIN
+  merken“, am 13.10.2026 auf Lenardos Stand gesetzt). Beim Abgleich auf 0.7.0 gab es an
   `nudgeSld()`, `blockSig()` und der Schlüsselliste in `_panel_export()`
   Konflikte mit #80 und #81. Kommt der Beitrag zurück, reibt sich der
   PIN-Block in `panel.html`: Im Fork stehen dort `pinMerk`, weitere Auslöser
@@ -239,13 +237,14 @@ nicht unbemerkt entfernt:
   gleich.
   Wachen: `tests/test_pin.py`, `tests/browser/test_pin_browser.py`,
   `test_favoriten_folgen_dem_server`, `test_abo_neuverbindung_browser.py`.
-- Weitere Korrekturen des Prüfberichts (Fork #111, #113–#116): bei Lenardo
-  vorbereitet als `up/miniserver-zugang`, `up/miniserver-verbindung`,
-  `up/audioserver-kopplung`, `up/kalender-ausnahmen`, `up/installdoku`,
-  `up/agent-ansicht` und `up/loxberry-sicherung`, noch nicht eingereicht
-  (TODO §0b). Kommen sie zurück: In `bin/webvisu.py` gibt es
-  `_ms_antwortfrist()` danach nur einmal, die Fassung mit `_ms_sekunden()`.
-  Git meldet eine Doppelung nicht, `ruff check --select F,E9` schon (F811).
+- Weitere Korrekturen des Prüfberichts (Fork #111, #113–#116): seit dem
+  Abgleich vom 13.10.2026 in Upstream (#86–#92), bis auf
+  `up/miniserver-verbindung` (stumme Verbindung erkennen, Zertifikat mit den
+  CAs des Systems), eingereicht als #100. Kommt #100 zurück: In
+  `bin/webvisu.py` gibt es `_ms_antwortfrist()` danach nur einmal, die
+  Fassung mit `_ms_sekunden()`. Git meldet eine Doppelung nicht immer,
+  `ruff check --select F,E9` schon (F811); beim Abgleich vom 13.10.2026 kam
+  so der Import `audioserver_auth` doppelt herein.
   In `reconnect()` und `config/loxpanel.cfg.example` die Fork-Fassung
   behalten. README und `deploy/DEPLOY.md` haben die Absätze im Fork in
   anderer Umgebung (Unraid, Intercom), dort sind kleine Textkonflikte zu
@@ -257,9 +256,26 @@ nicht unbemerkt entfernt:
   `test_loxberry_widget.py`, `test_loxberry_zeitzone.py`,
   `tests/browser/test_kachel_tasten_browser.py`.
 
+- Korrekturen aus der Prüfliste vom 12.10.2026 (Fork #161, dazu #146 und
+  #166): bei Lenardo eingereicht als #94 (APK nur mit Vorlagen), #95
+  (Energiefluss mit NaN und unendlichen Werten), #96 (freie Seiten löschen),
+  #97 (unbekannte Ansicht gilt als Standardprofil) und #98 (Speichern während
+  einer laufenden Anfrage; nur bei Lenardo, der Fork speichert über die
+  Speicherleiste mit `ansichtenSpeichern()`). Kommen sie zurück, die
+  Fork-Fassung behalten: `ansicht_wirksam()` steht im Fork neben `_ui_roh()`
+  mit Entwurf, bei Lenardo neben `_ui_profil()` (das im Fork entfällt);
+  `pickBezuegeNeu()` nummeriert im Fork auch `ui.valueBar` um; der Kommentar
+  in `syncLoxpanelAssets` nennt im Fork die Wache. Wachen:
+  `tests/test_apk_inhalt.py`, `tests/test_haus.py`, `tests/test_agent.py`,
+  `tests/test_profil_geloescht.py`,
+  `tests/browser/test_seiten_loeschen_browser.py`,
+  `tests/browser/test_speicherleiste_browser.py`.
 - SIP Schritt 1 (`bin/loxone_secure.py`, `bin/sip_probe.py`,
   `secured_details()`, `/api/sip`, Reiter SIP): bei Lenardo eingereicht als
-  #83 (Zweig `up/sip-zugang`), noch offen, TODO §0b. Die Stellen im Fork sind
+  #83 (Zweig `up/sip-zugang`), noch offen, TODO §0b. Am 13.10.2026 auf
+  Lenardos Stand nach seinem Neuanfang gesetzt (vorher ohne gemeinsame Basis,
+  nicht mergebar), mit der Absicherung der Digest-Anmeldung aus #127; seitdem
+  ist `bin/sip_probe.py` dort und im Fork gleich. Die Stellen im Fork sind
   dieselben wie im Beitrag, damit ein Abgleich keine Konflikte bringt. Wachen:
   `tests/test_loxone_secure.py`, `test_sip_probe.py`, `test_sip.py`,
   `tests/browser/test_sip_browser.py`.
@@ -303,7 +319,16 @@ Ruhe-Text der Radiotasten, `catFilter` in `_panel_export()` und
 `ctrltight`/`ctrlnarrow` in `updateGrid()` (#80); die allgemeinen Teile der
 Detailseiten (#81); Neu laden gegen Einfrieren ohne Eintrag jede Nacht (#82);
 die zwei Korrekturen zum Verlauf-Stapel (#79, von Lenardo in den Zweig von
-#77 übernommen und mit #77 gemergt); die Versionsnummer (#84).
+#77 übernommen und mit #77 gemergt); die Versionsnummer (#84). Seit dem
+Abgleich vom 13.10.2026 (Lenardos `main` bis `c34320c`): Uhr-Seite wegtippen
+(#85); `roomCats` im Export und das Zurücksetzen beim Moduswechsel in
+`renderTabMode()`, Geräte erst nach dem Schreiben übernehmen, das
+Display-Kennwort bleibt auf dem Server (#86); Miniserver-Zugang erst prüfen,
+dann speichern (#87); Audioserver-Kopplung (#88); Kalender-Ausnahmen (#89);
+Installationsdoku (#90); Ansicht und Betriebsmodus am Linux-Agenten (#91);
+LoxBerry-Sicherung und Zeitzone (#92); die `.deb`-Version aus `plugin.cfg` samt
+`bin/version.json` (#93); dazu von Lenardo das `.deb` mit gzip und die
+erweiterte englische Übersetzung des Konfigurators.
 
 Bewusst nur im Fork, nicht zum Einreichen gedacht (mit Test, damit ein Sync sie
 nicht still entfernt):

@@ -2698,7 +2698,7 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
 | `tests.yml` („Tests und Image“) | jeder PR, Push auf `main`, Tags `v*`, manuell | Syntax (alle `bin/*.py`, Workflows, Unraid-Vorlage), `ruff` mit Fehlerregeln (`F`, `E9`), pytest ohne Browser inkl. Rauchtest, Browser-Tests in Chromium (Screenshots als Artefakt), bei PRs Probe-Build des Images für amd64 ohne Push. Danach, nur auf `main` und bei Tags `v*` und nur, wenn beide Test-Jobs desselben Laufs grün sind, der Job `veroeffentlichen`: `ghcr.io/chief-wiggum1203/loxpanel` mit Tags `latest` (nur `main`), `v<tag>`, `sha-<kurz>`; Plattformen amd64, arm64, arm/v7. Ein eigenes `docker-image.yml` gibt es im Fork nicht mehr, es veröffentlichte neben den Tests her (`tests/test_workflows.py`) |
 | `plugin-release.yml` | Tags `v*`, manuell | `loxpanel-plugin.zip` aus `loxberry-plugin/` am Release, dazu als Release-Notizen der Eintrag der Version im Changelog der README |
 | `android-apk.yml` | Tags `v*`, manuell | `LoxPanel-Server.apk`, signiert mit dem festen Schlüssel aus den Secrets `LOXPANEL_KEYSTORE_B64`, `LOXPANEL_KEYSTORE_PASSWORD`, `LOXPANEL_KEY_ALIAS` und `LOXPANEL_KEY_PASSWORD`; ohne sie bricht der Lauf mit einem Hinweis ab, die übrigen Workflows hängen nicht daran |
-| `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release |
+| `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release: Version aus `loxberry-plugin/plugin.cfg` (der Tag muss dazu passen), `bin/version.json` mit Version, Commit und Bauzeit im Paket, gepackt mit gzip, weil dpkg 1.20 (Debian 11) kein zstd kennt (`test_deb_paket` in `tests/test_version.py`) |
 
 Welcher Stand läuft, steht in der Seitenleiste des Konfigurators und in
 `/api/health` (`bin/version.json`, `bin/version_info.py`): Version aus
@@ -2727,8 +2727,9 @@ und lädt nach dem Speichern neu. Tests: `tests/test_neuer_stand.py`,
 
 Ein App-Update braucht keinen Plugin-Bump, weil `:latest` rollend ist. Für ein
 Release: `VERSION` in `loxberry-plugin/plugin.cfg` und
-`loxberry-plugin/release.cfg` sowie `Version` in `packaging/deb/control`
-gemeinsam hochzählen (`test_versionen_gleich` in `tests/test_version.py`), im
+`loxberry-plugin/release.cfg` gemeinsam hochzählen (`test_versionen_gleich` in
+`tests/test_version.py`). APK und `.deb` nehmen die Version beim Bauen aus
+`plugin.cfg`, `packaging/deb/control` hat keine eigene. Dazu im
 Changelog der README einen Eintrag `- **<version>** – …` anlegen, nach `main`
 bringen und den Tag `v<version>` pushen. Ein Release in der GitHub-Oberfläche mit
 neuem Tag `v<version>` tut dasselbe, weil es den Tag anlegt. APK, `.deb` und
