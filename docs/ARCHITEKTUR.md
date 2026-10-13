@@ -1741,9 +1741,15 @@ Assistenten des Konfigurators.
   die quadratische Energiegrafik. Bei voller Höhe blieben über und unter dem
   Kreis leere Streifen, und der Kasten ragte weit über Uhr und Wetter hinaus.
   Gemessen bei 1457×900 war der Kasten 846 px hoch, die Grafik darin 418 px
-  breit in 784 px Höhe. `svFit()` kürzt den Kasten dann um diese Streifen
-  (`--sv-kasten`, das Seitenverhältnis kommt aus der `viewBox`), und er steht
-  mittig neben Uhr und Wetter.
+  breit in 784 px Höhe. Die Kamera ist fast immer durch die Breite begrenzt,
+  auch am 960×480-Panel (dort blieben 24 px über und unter Bild und Tasten,
+  bei 1457×900 221 px). `svFit()` kürzt den Kasten um diese Streifen
+  (`--sv-kasten`), und er steht mittig neben Uhr und Wetter. Den freien Platz
+  rechnet `svKastenLeer()`: beim Energiefluss aus der `viewBox`, bei der
+  Kamera aus dem Seitenverhältnis des Bildes (`.video`, `aspect-ratio`) und
+  der Höhe von Tasten, Gegensprechen und Werten. Ein Bild, das sich beim
+  Gegensprechen in die Höhe streckt, zählt mit seiner Höhe aus dem
+  Seitenverhältnis.
   Hochkant setzt `applySaverSplit()` neben `.split` die Klasse `.hoch`, sobald
   der Kasten mindestens √2-mal so hoch wie breit ist (gemessen am Kasten, denn
   in ihm liegt der Screensaver; dieselbe Grenze wie bei der Verdopplung nach

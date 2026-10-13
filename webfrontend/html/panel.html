@@ -1429,8 +1429,9 @@
      in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
      am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
      preserveAspectRatio, Bild per object-fit), statt zu strecken. Begrenzt
-     beim Energiefluss die Spaltenbreite, kuerzt svFit den Kasten auf die
-     Grafik (--sv-kasten), statt leere Streifen darueber und darunter zu lassen. */
+     die Spaltenbreite (Energiefluss in hohen Fenstern, Kamera fast immer),
+     kuerzt svFit den Kasten auf seinen Inhalt (--sv-kasten, svKastenLeer),
+     statt leere Streifen darueber und darunter zu lassen. */
   .saver .sv-box.solo{height:var(--sv-kasten,var(--sv-frei,auto));}
   .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
   .saver .sv-box.solo .video{max-height:100%;}
@@ -4490,21 +4491,14 @@ function svFit(){
   // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
   const rand=Math.round(platz*0.03), frei=Math.max(120,platz-2*rand);
   wrap.style.setProperty('--sv-frei', frei+'px');
-  // Ist die Spalte schmaler, als die Grafik bei dieser Hoehe breit waere
-  // (hohes Browserfenster, grosses Tablet), begrenzt die BREITE: ueber und
-  // unter dem Energiefluss blieben leere Streifen, und der Kasten ragte weit
-  // ueber Uhr und Wetter hinaus (gemessen bei 1457x900: Kasten 846 px, Grafik
-  // 418 px breit in 784 px Hoehe). Dann kuerzt er sich um diese Streifen
-  // (--sv-kasten). Am 960x480-Panel begrenzt die Hoehe, dort bleibt es bei --sv-frei.
-  // Hochkant gilt eigenes (.hoch): der Kasten nimmt, was unter Uhr und Wetter bleibt.
+  // Bleibt bei dieser Hoehe im Kasten Platz ueber und unter dem Inhalt
+  // (svKastenLeer), kuerzt er sich darum (--sv-kasten) und steht mittig neben
+  // Uhr und Wetter, statt weit ueber sie hinauszuragen. Hochkant gilt eigenes
+  // (.hoch): der Kasten nimmt, was unter Uhr und Wetter bleibt.
   wrap.style.removeProperty('--sv-kasten');
-  const ew=(wrap.classList.contains('tall') && !saver.classList.contains('hoch'))
-    ? saver.querySelector('#svBox.solo .ewrap') : null, esvg=ew && ew.querySelector('svg');
-  const vb=esvg && esvg.viewBox && esvg.viewBox.baseVal;
-  if(vb && vb.width>0 && vb.height>0){
-    const leer=Math.floor(ew.clientHeight - ew.clientWidth*vb.height/vb.width);
-    if(leer>0) wrap.style.setProperty('--sv-kasten', (frei-leer)+'px');
-  }
+  const leer=(wrap.classList.contains('tall') && !saver.classList.contains('hoch'))
+    ? svKastenLeer(saver.querySelector('#svBox.solo')) : 0;
+  if(leer>0) wrap.style.setProperty('--sv-kasten', (frei-leer)+'px');
   // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
   // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
   // Kamera haben keine solchen Zeilen und bleiben unangetastet.
@@ -4518,6 +4512,33 @@ function svFit(){
       zeilen[i].remove();
     }
   });
+}
+// Leerer Platz im Kasten der zweiten Spalte (svFit), in Layout-px; 0, wenn
+// nichts frei ist. Energiefluss: die quadratische Grafik (Seitenverhaeltnis aus
+// ihrer viewBox) ist in hohen Fenstern durch die Spaltenbreite begrenzt, der
+// Rest bleibt ueber und unter ihr (gemessen bei 1457x900: Kasten 846 px,
+// Grafik 418 px breit in 784 px Hoehe). Am 960x480-Panel begrenzt die Hoehe.
+// Kamera: das Bild hat sein Seitenverhaeltnis aus dem CSS (.video,
+// aspect-ratio), Tasten, Gegensprechen und Werte ihre Hoehe; die Seite
+// zentriert sie, der Rest bleibt darueber und darunter. Beim Gegensprechen
+// streckt sich das Bild in die Hoehe (flex-grow), gezaehlt wird es mit der
+// Hoehe aus seinem Seitenverhaeltnis.
+function svKastenLeer(box){
+  if(!box) return 0;
+  const ew=box.querySelector('.ewrap'), esvg=ew && ew.querySelector('svg');
+  const vb=esvg && esvg.viewBox && esvg.viewBox.baseVal;
+  if(vb && vb.width>0 && vb.height>0) return Math.floor(ew.clientHeight - ew.clientWidth*vb.height/vb.width);
+  const seite=box.querySelector('.campage');
+  if(!seite) return 0;
+  const cs=getComputedStyle(seite), px=v=>parseFloat(v)||0;
+  const teile=[...seite.children].map(e=>[e, getComputedStyle(e)]).filter(([, s])=>s.display!=='none');
+  if(!teile.length) return 0;
+  let inhalt=px(cs.rowGap)*(teile.length-1);
+  for(const [e, s] of teile){
+    const vh=/([\d.]+)\s*\/\s*([\d.]+)/.exec(s.aspectRatio||'');
+    inhalt+=(vh && +vh[1]>0 ? e.clientWidth*vh[2]/vh[1] : e.offsetHeight) + px(s.marginTop) + px(s.marginBottom);
+  }
+  return Math.floor(seite.clientHeight - px(cs.paddingTop) - px(cs.paddingBottom) - inhalt);
 }
 // Legende: nur wenn es mehrere Kalender gibt UND die Farben an sind.
 function fpLegendHTML(d){

@@ -362,6 +362,52 @@ def test_uhrseite_energiefluss_so_hoch_wie_die_grafik(tmp_path, miniserver_http,
     asyncio.run(lauf())
 
 
+UHR_KAMERA = """() => { const r = e => { const b = e.getBoundingClientRect();
+    return {t: b.top, b: b.bottom, w: b.width, h: b.height}; };
+  const s = el('saver'), seite = document.querySelector('#svBox .campage'), cs = getComputedStyle(seite);
+  const teile = [...seite.children].filter(e => getComputedStyle(e).display !== 'none');
+  return {wrap: s.querySelector('.sv-wrap').className, saver: r(s), box: r(el('svBox')), seite: r(seite),
+          innen: [parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth),
+                  parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth)],
+          erstes: r(teile[0]), letztes: r(teile[teile.length - 1]), video: r(seite.querySelector('.video'))}; }"""
+
+
+@pytest.mark.parametrize("breite, hoehe", [(1457, 900), (960, 480)], ids=["browserfenster", "wandpanel"])
+def test_uhrseite_kamera_so_hoch_wie_ihr_inhalt(tmp_path, miniserver_http, monkeypatch, breite, hoehe):
+    """Kamera rechts auf der Uhr-Seite: Das Bild (4:3) ist durch die
+    Spaltenbreite begrenzt, auch am 960x480-Panel. Der Kasten nahm trotzdem die
+    volle Hoehe, und die Seite zentrierte Bild und Tasten mit leeren Streifen
+    darueber und darunter. Jetzt ist er so hoch wie Bild, Tasten und Abstaende
+    und steht mittig neben Uhr und Wetter."""
+    from test_front_tabs_browser import _front
+
+    from lox import intercom_baustein
+
+    async def lauf():
+        daten = await _front(monkeypatch)
+        ic, ic_states = intercom_baustein()
+        async with Umgebung(tmp_path, {"ui": {"svPane": "camera:IC", "grid": "auto"}}) as u:
+            u.app._apply_structure(anlage(dict(u.controls, IC=ic)))
+            u.app.states.update(ic_states)
+            u.app.intercom_cfg = {"IC": f"http://127.0.0.1:{u.port}/kein-bild"}   # eigene Adresse, wie loxpanel.cfg
+            u.app._front = u.app._front_payload(daten)
+            pg = await u.seite(breite, hoehe)
+            await pg.evaluate("showSaver()")
+            await pg.wait_for_function("!!document.querySelector('#svBox .campage .video')", timeout=15000)
+            await pg.wait_for_timeout(600)
+            m = await pg.evaluate(UHR_KAMERA)
+            await u.bild(pg, f"uhrseite_kamera_{breite}x{hoehe}")
+            assert "tall" in m["wrap"].split(), m
+            assert abs(m["video"]["h"] - m["video"]["w"] * 3 / 4) <= 1, m          # Bild in seinem Format
+            # kein leerer Streifen ueber dem ersten und unter dem letzten Teil der Seite
+            assert m["erstes"]["t"] - m["seite"]["t"] - m["innen"][0] <= 2, m
+            assert m["seite"]["b"] - m["letztes"]["b"] - m["innen"][1] <= 2, m
+            oben, unten = m["box"]["t"] - m["saver"]["t"], m["saver"]["b"] - m["box"]["b"]
+            assert abs(oben - unten) <= 2, m                                        # mittig
+            assert not u.fehler, u.fehler
+    asyncio.run(lauf())
+
+
 # Zaehler mit drei Diagrammen (Leistung, Zaehlerstand, Kosten): mehr, als die
 # Uhr-Seite quer im Seitenverhaeltnis der Zeichnung unterbringt
 NETZ_GRUPPEN = [
