@@ -128,6 +128,30 @@ def test_ganz_unten_geht_die_lichtsteuerung_aus():
     assert io == ["sps/io/LK-1/0", "sps/io/LK-2/0", "sps/io/LK/changeTo/778"]
 
 
+def test_aus_erst_nach_den_kreisen():
+    """Jeder Befehl ist eine eigene HTTP-Anfrage, die Kreise gehen gleichzeitig
+    raus. "Aus" darf erst danach ankommen: ein spaeterer Kreis stellte die
+    Lichtsteuerung sonst wieder auf "Manuell". Nachgestellt mit Kreis-Anfragen,
+    die laenger brauchen als die an die Lichtsteuerung."""
+    async def lauf():
+        app = _app()
+        angekommen = []
+
+        async def command(uuid, cmd, pin=None):
+            if not cmd.startswith("changeTo/"):
+                await asyncio.sleep(0.05)
+            angekommen.append(f"{uuid}/{cmd}")
+            return "200"
+        app.command = command
+        s = Sitzung(app, RAUM)
+        await s(art="licht", phase="start")
+        antwort = await s(art="licht", phase="ende", wert=0)
+        return antwort, angekommen
+    antwort, angekommen = asyncio.run(lauf())
+    assert antwort["text"] == "Aus"
+    assert sorted(angekommen[:2]) == ["LK-1/0", "LK-2/0"] and angekommen[2:] == ["LK/changeTo/778"], angekommen
+
+
 AUS = {"LK-am": json.dumps([778]), "LK-1-p": 0, "LK-2-p": 0}
 
 
