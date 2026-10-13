@@ -770,6 +770,9 @@
   html[data-kachelset-aufbau] .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
   html[data-kachelset-aufbau] .btn{background:var(--taste,var(--tile));border-color:transparent;border-radius:var(--taste-radius,12px);}
   html[data-kachelset-aufbau] .btn:active{background:var(--kachel-an,var(--tile));}
+  /* -/+ neben einem Schieber (Lautstaerke im Player) sind Tasten wie alle anderen */
+  html[data-kachelset-aufbau] .sbtn{background:var(--taste,var(--tile));border-color:transparent;color:var(--ink);}
+  html[data-kachelset-aufbau] .sbtn:active{background:var(--kachel-an,var(--tile));color:var(--kachel-an-ink,var(--ink));}
   /* Aufbau "lx" und "kreis": Name und Zustand vorn kraeftiger, der Name
      unter dem Zustand bleibt leicht (wie die Loxone-App). */
   html[data-kachelset-aufbau="lx"] .grid.lx:not(.list) .tile.zv .sub,
@@ -898,6 +901,22 @@
   html[data-kachelset-leiste="oben"] .kz-wx{border-left-color:transparent;}
   html[data-kachelset-leiste="oben"] .screen.split #playerpane,
   html[data-kachelset-leiste="oben"] .screen.split #frontpane{border-left-color:transparent;border-top-color:transparent;}
+  /* Pane 2 steht wie das Feld der Kacheln auf dem Rahmen. Ihre Seiten bekommen
+     deshalb dessen Flaeche (--screen, flach, sein Radius) statt des Verlaufs
+     von der Kachelfarbe ins Durchsichtige: auf dem dunklen Rahmen lief der nach
+     unten ins Dunkle, und Schrift und Zweitzeile des Sets (gegen Kachel und
+     Feld gerechnet) verschwanden darin. Oben und unten buendig mit dem Feld. */
+  html[data-kachelset-leiste="oben"] .screen.split #playerpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.split #frontpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #playerpane .fp-page,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #frontpane .fp-page{background:var(--screen);
+    border-color:transparent;border-radius:var(--k-feld-radius,0px);}
+  html[data-kachelset-leiste="oben"] .screen.split:not(.hoch) #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split:not(.hoch) #frontpane{padding:0 0 0 10px;scroll-padding-top:0;}
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.split.hoch #frontpane{padding:10px 0 0;scroll-padding-top:10px;}
+  html[data-kachelset-leiste="oben"] .screen.widgettab #playerpane,
+  html[data-kachelset-leiste="oben"] .screen.widgettab #frontpane{padding:0;scroll-padding-top:0;}
   html[data-kachelset-leiste="oben"] .screen{grid-template-rows:auto minmax(0,1fr);}
   html[data-kachelset-leiste="oben"] .screen #tabs{grid-row:1;}
   html[data-kachelset-leiste="oben"] .screen #grid,
@@ -1136,6 +1155,18 @@
   .sld::-moz-range-progress{height:6px;border-radius:4px;background:var(--glow);}
   .sld::-moz-range-thumb{width:16px;height:16px;border:2px solid var(--bg);border-radius:50%;
     background:var(--glow);cursor:pointer;}
+  /* Aufbau "mitte": Hervorgehobenes kippt um wie die aktive Kachel. Die grosse
+     Taste (Play) nimmt deshalb deren Farben, der Schieber die Schrift. --glow
+     gehoert nicht zu seiner Farbsprache: das Set rechnet es nur fuer seine
+     hellen Flaechen nach (Farbton Lavendel: #553602, braun). Die -moz-Regeln
+     einzeln, ein unbekanntes Pseudo-Element verwirft sonst die ganze Liste. */
+  html[data-kachelset-aufbau="mitte"] .btn.icon.big{background:var(--kachel-an,var(--taste));
+    color:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .sld{background:linear-gradient(to right,
+      var(--ink) var(--p,0%),rgba(var(--wash,255,255,255),.22) var(--p,0%));}
+  html[data-kachelset-aufbau="mitte"] .sld::-webkit-slider-thumb{background:var(--ink);}
+  html[data-kachelset-aufbau="mitte"] .sld::-moz-range-progress{background:var(--ink);}
+  html[data-kachelset-aufbau="mitte"] .sld::-moz-range-thumb{background:var(--ink);}
   /* Schwebender Zurück-Pfeil (nur beim Reinnavigieren) */
   .tabback{flex:0 0 auto;align-self:center;width:50px;height:50px;margin:0 14px;
     display:grid;place-items:center;border-radius:50%;cursor:pointer;font-size:32px;line-height:1;
@@ -1217,11 +1248,17 @@
   .saver.hidden{display:none;}
   /* Nacht-Uhr: nachts nur die Uhrzeit, gedimmt auf Schwarz, oben die Symbole der
      Gesten-Spalten (wie die Nachtanzeige der Loxone-Taster). --nu-hell ist die
-     Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen. */
-  .saver.nacht{background:#000;container-type:size;}
-  .saver.nacht .sv-wrap{display:none;}
+     Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen.
+     Grund und Schrift kommen aus dem Theme (theme_colors.NACHT_GRUND und
+     nacht_schrift): --ink allein waere in hellen Sets dunkel auf Schwarz. */
+  .saver.nacht{background:var(--nacht-grund);container-type:size;}
+  /* Die zweite Zeile schlaegt das Raster der geteilten Uhr-Seite
+     (.saver.split .sv-wrap.rich), sonst laege die Nacht-Uhr ueber Uhr, Wetter
+     und Terminen, statt sie zu ersetzen. */
+  .saver.nacht .sv-wrap,
+  .saver.split.nacht .sv-wrap.rich{display:none;}
   .sv-nacht{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:var(--ink);opacity:var(--nu-hell,.4);pointer-events:none;}
+    color:var(--nacht-ink,var(--ink));opacity:var(--nu-hell,.4);pointer-events:none;}
   .sv-nacht[hidden]{display:none;}
   .sv-nacht .nu-zeit{font-size:120px;font-size:min(30cqw,42cqh);font-weight:300;line-height:1;letter-spacing:1px;
     font-variant-numeric:tabular-nums;animation:svdrift 90s linear infinite;}
@@ -1391,8 +1428,10 @@
      Screensavers abzueglich Rand (--sv-frei, gesetzt in svFit; die Uhr steht
      in diesem Fall links, siehe .tall). Mit dieser Hoehe laeuft innen alles wie
      am Hauptschirm ueber Flex, und beide Grafiken zentrieren sich (SVG per
-     preserveAspectRatio, Bild per object-fit), statt zu strecken. */
-  .saver .sv-box.solo{height:var(--sv-frei,auto);}
+     preserveAspectRatio, Bild per object-fit), statt zu strecken. Begrenzt
+     beim Energiefluss die Spaltenbreite, kuerzt svFit den Kasten auf die
+     Grafik (--sv-kasten), statt leere Streifen darueber und darunter zu lassen. */
+  .saver .sv-box.solo{height:var(--sv-kasten,var(--sv-frei,auto));}
   .saver .sv-box.solo .fp-page{flex:1 1 0;min-height:0;}
   .saver .sv-box.solo .video{max-height:100%;}
   /* Audio-Karte (Now Playing) in der Uhr-Spalte: Cover + Titel + Interpret, passiv. */
@@ -4449,8 +4488,23 @@ function svFit(){
   // Uhr steht dann links, der Grafik gehoert die ganze Hoehe bis auf den Rand.
   // Der Rand ist derselbe Anteil wie seitlich (Breite 94 % -> je 3 %), damit
   // sie nicht wie zuvor mit 4 px an Ober- und Unterkante klebt.
-  const rand=Math.round(platz*0.03);
-  wrap.style.setProperty('--sv-frei', Math.max(120,platz-2*rand)+'px');
+  const rand=Math.round(platz*0.03), frei=Math.max(120,platz-2*rand);
+  wrap.style.setProperty('--sv-frei', frei+'px');
+  // Ist die Spalte schmaler, als die Grafik bei dieser Hoehe breit waere
+  // (hohes Browserfenster, grosses Tablet), begrenzt die BREITE: ueber und
+  // unter dem Energiefluss blieben leere Streifen, und der Kasten ragte weit
+  // ueber Uhr und Wetter hinaus (gemessen bei 1457x900: Kasten 846 px, Grafik
+  // 418 px breit in 784 px Hoehe). Dann kuerzt er sich um diese Streifen
+  // (--sv-kasten). Am 960x480-Panel begrenzt die Hoehe, dort bleibt es bei --sv-frei.
+  // Hochkant gilt eigenes (.hoch): der Kasten nimmt, was unter Uhr und Wetter bleibt.
+  wrap.style.removeProperty('--sv-kasten');
+  const ew=(wrap.classList.contains('tall') && !saver.classList.contains('hoch'))
+    ? saver.querySelector('#svBox.solo .ewrap') : null, esvg=ew && ew.querySelector('svg');
+  const vb=esvg && esvg.viewBox && esvg.viewBox.baseVal;
+  if(vb && vb.width>0 && vb.height>0){
+    const leer=Math.floor(ew.clientHeight - ew.clientWidth*vb.height/vb.width);
+    if(leer>0) wrap.style.setProperty('--sv-kasten', (frei-leer)+'px');
+  }
   // Von unten wegnehmen, bis es passt — erst die Werte, dann die Termine. Bei
   // beiden ist die letzte Zeile die, die am wenigsten fehlt. Energiefluss und
   // Kamera haben keine solchen Zeilen und bleiben unangetastet.
