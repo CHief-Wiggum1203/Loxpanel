@@ -863,6 +863,67 @@ def haus_anlage() -> tuple[dict, dict]:
              "controls": controls}, states)
 
 
+def gesten_anlage() -> tuple[dict, dict]:
+    """-> (Struktur, States) fuer die Gesten (Loxone-Standard wie auf den Tastern).
+
+    "Essen-Kochen-Wohnen" (r1) ist ein offener Raum mit zwei Lichtsteuerungen,
+    deren Unterbausteine wie in der Strukturdoku (12.0, LightControllerV2): die
+    Master-Helligkeit (details.masterValue), dimmbare Lichtkreise (Dimmer) und
+    ein schaltbarer (Switch). Dazu ein einzelner Dimmer, eine Leuchte mit
+    Visu-Passwort, zwei Jalousien, eine Audio-Zone und der Taster "EKW
+    verlassen". "Bad" (r2) hat nur einen Dimmer, "Zentral" (r3) die Taster
+    "Haus aus" und "Alarm scharf" (mit Visu-Passwort), "Abstellraum" (r4) eine
+    Lichtsteuerung ohne Lichtkreis-Werte.
+    An: Lichtsteuerung Kochen mit "Kochen" (Kochinsel 80 %, Arbeitsplatte
+    60 %), die Audio-Zone (Lautstaerke 30). Aus: Lichtsteuerung Wohnen, die
+    Leselampe."""
+    def b(uuid, name, typ, raum, states, **extra):
+        return {"name": name, "type": typ, "uuidAction": uuid, "room": raum, "cat": "c1",
+                "states": states, **extra}
+
+    def kreis(uuid, name, typ="Dimmer"):
+        st = {"active": f"{uuid}-a"} if typ == "Switch" else \
+            {"position": f"{uuid}-p", "min": f"{uuid}-min", "max": f"{uuid}-max", "step": f"{uuid}-st"}
+        return {"name": name, "type": typ, "uuidAction": uuid, "states": st}
+
+    def lichtsteuerung(uuid, name, raum, kreise):
+        subs = {f"{uuid}-M": kreis(f"{uuid}-M", "Master-Helligkeit")}
+        subs.update({u: kreis(u, n, t) for u, n, t in kreise})
+        return b(uuid, name, "LightControllerV2", raum, {"activeMoods": f"{uuid}-am", "moodList": f"{uuid}-ml"},
+                 details={"masterValue": f"{uuid}-M"}, subControls=subs)
+
+    controls = {
+        "LK": lichtsteuerung("LK", "Licht Kochen", "r1", [("LK-1", "Kochinsel", "Dimmer"),
+                                                           ("LK-2", "Arbeitsplatte", "Dimmer"),
+                                                           ("LK-3", "Unterbau", "Switch")]),
+        "LW": lichtsteuerung("LW", "Licht Wohnen", "r1", [("LW-1", "Esstisch", "Dimmer"),
+                                                           ("LW-2", "Sofa", "Dimmer")]),
+        "DL": b("DL", "Leselampe", "Dimmer", "r1", {"position": "dl-p"}),
+        "DV": b("DV", "Vitrine", "Dimmer", "r1", {"position": "dv-p"}, isSecured=True),
+        "J1": b("J1", "Jalousie Terrasse", "Jalousie", "r1", {"up": "j1-u", "down": "j1-d", "position": "j1-p"}),
+        "J2": b("J2", "Jalousie Küche", "Jalousie", "r1", {"up": "j2-u", "down": "j2-d", "position": "j2-p"}),
+        "AZ": b("AZ", "Musik Wohnen", "AudioZoneV2", "r1", {"playState": "az-ps", "volume": "az-v"}),
+        "TV": b("TV", "EKW verlassen", "Pushbutton", "r1", {"active": "tv-a"}),
+        "DB": b("DB", "Licht Bad", "Dimmer", "r2", {"position": "db-p"}),
+        "TH": b("TH", "Haus aus", "Pushbutton", "r3", {"active": "th-a"}),
+        "TA": b("TA", "Alarm scharf", "Pushbutton", "r3", {"active": "ta-a"}, isSecured=True),
+        "LA": lichtsteuerung("LA", "Licht Abstellraum", "r4", []),
+    }
+    stimmungen = {"LK": [{"id": 778, "name": "Aus"}, {"id": 1, "name": "Kochen"}, {"id": 2, "name": "Putzen"}],
+                  "LW": [{"id": 778, "name": "Aus"}, {"id": 3, "name": "Essen"}, {"id": 4, "name": "Fernsehen"}],
+                  "LA": [{"id": 778, "name": "Aus"}, {"id": 5, "name": "Hell"}]}
+    states = {"LK-am": json.dumps([1]), "LW-am": json.dumps([778]), "LA-am": json.dumps([778]),
+              **{f"{u}-ml": json.dumps(m) for u, m in stimmungen.items()},
+              "dl-p": 0, "dv-p": 50, "j1-u": 0, "j1-d": 0, "j1-p": 0.0, "j2-u": 0, "j2-d": 0, "j2-p": 0.3,
+              "az-ps": 2, "az-v": 30, "tv-a": 0, "db-p": 0, "th-a": 0, "ta-a": 0, "LK-3-a": 1}
+    for u, wert in (("LK-M", 100), ("LK-1", 80), ("LK-2", 60), ("LW-M", 100), ("LW-1", 0), ("LW-2", 0),
+                    ("LA-M", 100)):
+        states.update({f"{u}-p": wert, f"{u}-min": 0, f"{u}-max": 100, f"{u}-st": 1})
+    rooms = {"r1": "Essen-Kochen-Wohnen", "r2": "Bad", "r3": "Zentral", "r4": "Abstellraum"}
+    return ({"rooms": {k: {"name": v} for k, v in rooms.items()}, "cats": {"c1": {"name": "Allgemein"}},
+             "controls": controls}, states)
+
+
 def _zaehler_zeile(jetzt):
     """Echter Zaehler: 0,8 kWh je Stunde aufsummiert, dazu die Leistung als V2."""
     start = jetzt - timedelta(hours=24 * 31)

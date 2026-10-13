@@ -1972,6 +1972,151 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Dazu Browser-Tests (Tippen schaltet, Wischen nicht), danach als Beitrag
       zu Lenardo. **M**
 
+- [ ] **Loxone-Standard als Gesten** (Konzept vom 13.10.2026). Das Panel
+      bedient den Raum blind wie ein Loxone-Taster, ohne Kachel zu treffen und
+      ohne Einweisung: dieselbe Belegung, die man von den Schaltern kennt
+      (Mitte Licht, links Beschattung, rechts Musik, Doppelklick Raum
+      verlassen, Dreifachklick Haus aus). Gesten statt Sprache: kein
+      Fehlauslösen durch Gespräche, kein Mikrofon an Routen ohne Anmeldung,
+      geht auch nachts.
+
+      **Belegung.** Immer mit zwei Fingern, damit der Ein-Finger-Tipp auf
+      Kacheln, das Scrollen und das Blättern bleiben, wie sie sind. Die Fläche
+      ist in drei Spalten geteilt wie der Taster:
+
+      | | Links | Mitte | Rechts |
+      |---|---|---|---|
+      | Tipp | – | Licht an bzw. nächste Stimmung | – |
+      | hoch/runter wischen | Beschattung auf/ab, nochmal = Stopp | dimmen | Musik lauter/leiser |
+      | Doppeltipp, egal wo | Raum verlassen | | |
+      | Dreifachtipp, egal wo | Haus aus | | |
+
+      Ein einfacher Tipp wirkt erst, wenn kein zweiter oder dritter mehr
+      folgen kann, wie am Taster. Die Wartezeit, die Spaltenteilung, der
+      Mindestweg (Anteil der Flächenhöhe, nicht Pixel) und der Sendetakt
+      beim Dimmen stehen je einmal als benannte Konstante.
+
+      **Für welchen Raum.** Auf einer Raumseite dieser Raum (Route aus
+      `app.conn_route[ws]`), sonst ein fester Raum der Ansicht. Ohne Raum
+      (Favoriten, Hausübersicht) keine Wirkung, nur der Hinweis „Kein Raum
+      auf dieser Seite“. Aus bleiben die Gesten im Grundriss (dort zoomen zwei
+      Finger, `setupSchemeZoom()`), auf Detailseiten, im PIN-Feld und in
+      offenen Menüs.
+
+      **Lichtgruppen statt fester Annahmen.** Allgemein nutzbar wird es, wenn
+      der Server je Raum aus der Struktur Lichtgruppen bildet: jede
+      Lichtsteuerung (`LightControllerV2`) eine Gruppe mit ihren Lichtkreisen
+      (`subControls`), jeder einzelne Dimmer eine Gruppe mit einem Kreis. So
+      gelten dieselben Regeln für eine Lichtsteuerung mit vier Kreisen, zwei
+      Lichtsteuerungen in einem offenen Raum (Essen-Kochen-Wohnen) und lauter
+      einzelne Dimmer. Die Lichtkreise wertet LoxPanel heute nirgends aus,
+      die Detailseite kennt nur Stimmungen.
+      - *Dimmen (Mitte, hoch/runter):* gedimmt wird, was leuchtet, über alle
+        Gruppen des Raums, anteilig (Verhältnis bleibt, das Lichtbild der
+        Stimmung auch); ein Fingerweg über die ganze Flächenhöhe sind 0 → 100 %,
+        begrenzt auf `min`/`max` der Kreise. Ganz unten gehen die leuchtenden
+        Kreise aus; wieder hoch in derselben Geste bringt das alte Verhältnis
+        zurück (Startwerte gemerkt). Groß angezeigt wird der hellste Kreis.
+      - *Master-Helligkeit:* Laut Strukturdoku (12.0) hat jede
+        Lichtsteuerung eine (`details.masterValue`). Gedimmt werden trotzdem
+        die Kreise selbst (`{v}` wie beim Dimmer): Wie sich die
+        Master-Helligkeit nach einem Stimmungswechsel verhält, sagen weder
+        Strukturdoku noch Wissensdatenbank. Bliebe sie gedimmt, ginge die
+        nächste Stimmung zu dunkel an. Ob die Lichtsteuerung beim Dimmen
+        „Manuell“ zeigt, an der Anlage prüfen.
+      - *Alles aus, dann hoch:* je Gerät „Stimmung beim Einschalten“, gewählt
+        aus den Stimmungen der Anlage (`devices[name]`, wie der
+        Präsenzmelder: es geht um den Ort, dieselbe Ansicht kann auf zwei
+        Panels laufen). Sie legt auch fest, zu welcher Lichtsteuerung das
+        Gerät gehört. Ohne Einstellung die erste Stimmung wie heute
+        (`_first_on_mood()`).
+      - *Tipp Mitte:* aus → diese Stimmung, an → nächste Stimmung derselben
+        Lichtsteuerung (`changeTo/<id>`, „Aus“ übersprungen).
+
+      **Beschattung und Musik.** Links `FullUp`/`FullDown`, während der Fahrt
+      `Stop` (wie `_jal_fahrt()`), für alle Beschattungen des Raums, die die
+      Ansicht zeigt. Rechts die Lautstärke der Audio-Zone des Raums
+      (`volume/{v}` wie der Spieler); ohne Zone im Raum keine Wirkung.
+
+      **Raum verlassen und Haus aus kommen aus Loxone.** Die Logik dahinter
+      gehört in Loxone Config, nicht in eine zweite Liste in LoxPanel, sonst
+      tun Taster und Panel Verschiedenes.
+      - *Haus aus (Dreifachtipp):* unter *Vorgaben* ein Baustein wählbar, den
+        auch die Taster auslösen (virtueller Eingang, Zentralbaustein); LoxPanel
+        schickt ihm `pulse`. Muster wie der frei wählbare Nacht-Auslöser.
+        Ohne Auswahl wirkt der Dreifachtipp nicht, der Konfigurator sagt das:
+        ein selbst gebautes „alles aus“ wüsste nicht, was laufen muss (Pumpen,
+        Sauna, Lüftung).
+      - *Raum verlassen (Doppeltipp):* je Raum ebenfalls ein Baustein
+        wählbar, dann regelt die Loxone-Logik alles, auch das Raumklima.
+        Ohne Auswahl schaltet LoxPanel aus, was im Raum an ist und sich
+        abschalten lässt (`HAUS_AUS`, `_haus_aus()`, wie „Gerade aktiv“); das
+        Raumklima fasst es dann nicht an.
+      - Gesicherte Bausteine (`isSecured`) bleiben außen vor, wie bei
+        `haus_aus_befehle()`: eine PIN-Abfrage mitten in der Geste geht
+        nicht. Gesperrte (`jLocked`, 8.1) ebenso, sobald das umgesetzt ist.
+
+      **Umsetzung.**
+      1. *Erkennung in der Visu* (`panel.html`): Touch-Events, nicht
+         Pointer-Events, weil nur `touchmove` mit `preventDefault()` (nicht
+         passiv) das Scrollen des Rasters anhalten kann. Die Geste springt an
+         bei genau zwei Fingern, die sich in dieselbe Richtung bewegen, bei
+         etwa gleichem Abstand (kein Kneifen). Hat ein Finger schon zu
+         scrollen begonnen (`cancelable === false`), wird die Geste verworfen
+         statt halb ausgeführt. Bei einem Finger kehrt der Handler sofort
+         zurück; am 4″-Panel messen, ob das Scrollen ruckelt. „Wisch nach
+         rechts = zurück“ (Raster-`touchend`) und der Kachel-Tipp unter den
+         Fingern dürfen danach nicht auslösen. Einblendung in der Mitte:
+         Raum bzw. Stimmung, große Zahl, Balken. **M**
+      2. *Server* (`webvisu.py`): Nachricht `{t:'geste', art, phase:
+         'start'|'wert'|'ende', wert}` neben `hausaus`; der Server sucht die
+         Bausteine selbst (Vorbild `haus_aus_befehle()`), die Visu nennt nur
+         Art und Wert. Die Antwort auf `start` nennt Raum, aktuellen Wert und
+         Grenzen oder den Grund, warum nichts geht. Lichtgruppen aus der
+         Struktur, Rechnen der Dimmwerte, Befehle wie oben. **M**
+      3. *Konfigurator:* Ansicht → Verhalten „Gesten“ (an/aus, fester Raum),
+         Vorgaben → Verhalten (dieselben Felder als Standard, dazu der
+         Haus-aus-Baustein), Geräte („Stimmung beim Einschalten“), je Raum der
+         Raum-verlassen-Baustein. Pflichtstellen: `_sanitize_panels()`,
+         `_panel_export()`, `PANEL_STANDARD`, `THEME_UI_KEYS` und
+         `_sanitize_theme_ui()`, das Testprofil `VOLL`. **M**
+      4. *Tests:* Server: Lichtgruppen (eine Lichtsteuerung mit mehreren
+         Kreisen, zwei Lichtsteuerungen in einem Raum, einzelne Dimmer),
+         anteiliges Dimmen, `hide`, `isSecured`, mit und ohne Master, ohne
+         gewählten Haus-aus-Baustein keine Befehle; gegen den Nachbau in
+         `tests/lox.py` (Lichtkreise dort erst nach dem Blick in eine echte
+         Struktur ergänzen). Browser: Zwei-Finger-Gesten über CDP
+         (`Input.dispatchTouchEvent`, Playwright selbst kann nur einen
+         Finger), Befehl kommt am Nachbau an; ein Finger scrollt und „zurück“
+         geht wie bisher; im Grundriss geht nichts raus. **M**
+      5. *Zweite Stufe, Gesten auf dem dunklen Panel:* Heute weckt jede
+         Berührung den Bildschirmschoner sofort (`pointerdown` auf `#saver`).
+         Erkennt die Visu zwei Finger, dimmt sie das Licht, ohne das Display
+         aufzuwecken, mit nur einer schwachen Zahl. Greift in Schoner und
+         Nachtmodus ein, deshalb nach Stufe 1. **M**
+
+      *Erledigt 13.10.2026: Stufen 1 bis 4* (Visu, Server, Konfigurator,
+      Tests). Die Form der Lichtkreise steht in der Strukturdoku 12.0
+      (Unterbausteine Dimmer, ColorPickerV2, Switch; Master in
+      `details.masterValue`), die Befehle (`changeTo`, Dimmer `{pos}`,
+      Jalousie `FullUp`/`FullDown`, Audio `volume/{n}`, Taster `pulse`)
+      ebenso. Ohne Einstellung sind die Gesten aus (`GESTEN_STANDARD`).
+      Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Gesten“, Tests in
+      `tests/test_gesten.py` und `tests/browser/test_gesten_browser.py`.
+      *Erledigt 13.10.2026: Stufe 5* (Gesten im Dunkeln): Visu und
+      LoxPanel-App (`SchonerBeruehrung.kt`) warten nach dem ersten Finger
+      120 ms auf einen zweiten; zwei Finger bleiben dunkel, einer weckt wie
+      bisher. Dazu auf Wunsch die **Nacht-Uhr** (nachts nur die Uhrzeit,
+      gedimmt auf Schwarz, mit den Symbolen der Gesten-Spalten, Helligkeit
+      einstellbar; `ui.nightClock`, `ui.nightClockBright`). Fully Kiosk und
+      der Linux-Agent schalten das Display selbst ab: ist es dort ganz aus,
+      weckt jede Berührung wie bisher.
+      Offen, an der Anlage prüfen: ob die Lichtsteuerung beim Dimmen
+      „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg, Wartezeit
+      des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am
+      4″-Panel ruckelt und wie die Nacht-Uhr im dunklen Raum wirkt.
+      Gesamtaufwand **L**.
+
 ## 10. Sicherheit (zurückgestuft)
 
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird

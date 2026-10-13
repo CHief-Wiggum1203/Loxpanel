@@ -1,6 +1,6 @@
 """Rubrik Geraete im Konfigurator (Konzept "Konfigurator neu ordnen", Schritt 4),
 in Chromium: eine Karte je Geraet. Der Kopf (Zustand, Ansicht, Steuerung) folgt
-der Abfrage der Geraeteliste, aufgeklappt stehen die Einstellungen in vier
+der Abfrage der Geraeteliste, aufgeklappt stehen die Einstellungen in fuenf
 Teilen; eine offene Karte und eine Eingabe darin ueberstehen jede Abfrage. Die
 Wahl der Ansicht im Kopf schaltet live und ist keine offene Aenderung. "Neues
 Gerät einrichten" und "Erprobte Hardware" stehen unter Geraete, nicht mehr unter
@@ -55,7 +55,7 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
 
                 await karte_auf(pg, "flur")
                 teile = await flur.locator(".gk-teil").all_text_contents()
-                assert teile == ["Betriebsmodi", "Am Gerät", "Präsenzmelder", "Display-Steuerung"], teile
+                assert teile == ["Betriebsmodi", "Am Gerät", "Präsenzmelder", "Gesten", "Display-Steuerung"], teile
                 assert await flur.locator(".ds_scale").input_value() == "1.2"
                 await flur.locator(".dm_mode").fill("gaeste")
                 assert await pg.locator("#offenTxt").text_content() == "Nicht gespeichert: Geräte"

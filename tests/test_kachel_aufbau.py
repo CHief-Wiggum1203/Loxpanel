@@ -80,7 +80,7 @@ VOLL = {
            "cols": 3, "rows": 3, "fill": True, "split": False, "catFilter": True, "tileLayout": "classic", "tileSet": "loxone",
            "tileHue": 95, "tileActive": "dunkel",
            "grid": "auto", "tileSize": "small", "paneCols": 2, "player": "Z1", "panes": {"room:r1": "weather"},
-           "valueBar": ["room:r1"],
+           "valueBar": ["room:r1"], "gesten": True, "gestenRaum": "r1", "nightClock": True, "nightClockBright": 30,
            "svPane": "calendar", "scale": "auto", "textColor": "#ffffff", "baseColor": "#3a6ea5",
            "bold": True, "lang": "en", "overlay": OVERLAY_VOLL},
     "states": {"active": "#00ff00", "good": "#00aa00", "warn": "#ffaa00", "crit": "#ff0000"},

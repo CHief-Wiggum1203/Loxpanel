@@ -1215,6 +1215,19 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     cursor:pointer;user-select:none;-webkit-user-select:none;}
   .saver.hidden{display:none;}
+  /* Nacht-Uhr: nachts nur die Uhrzeit, gedimmt auf Schwarz, oben die Symbole der
+     Gesten-Spalten (wie die Nachtanzeige der Loxone-Taster). --nu-hell ist die
+     Helligkeit aus den Einstellungen; die Uhr driftet gegen Einbrennen. */
+  .saver.nacht{background:#000;container-type:size;}
+  .saver.nacht .sv-wrap{display:none;}
+  .sv-nacht{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--ink);opacity:var(--nu-hell,.4);pointer-events:none;}
+  .sv-nacht[hidden]{display:none;}
+  .sv-nacht .nu-zeit{font-size:120px;font-size:min(30cqw,42cqh);font-weight:300;line-height:1;letter-spacing:1px;
+    font-variant-numeric:tabular-nums;animation:svdrift 90s linear infinite;}
+  .sv-nacht .nu-zonen{position:absolute;left:0;right:0;top:9%;}
+  .sv-nacht .nu-zonen span{position:absolute;top:0;transform:translateX(-50%);width:30px;height:30px;}
+  .sv-nacht .nu-zonen svg{width:100%;height:100%;}
   .saver .sv-time{font-size:78px;font-weight:300;line-height:1;letter-spacing:1px;
     font-variant-numeric:tabular-nums;color:var(--ink);}
   .saver .sv-date{font-size:20px;color:var(--muted);margin-top:8px;text-transform:capitalize;}
@@ -1720,6 +1733,20 @@
     background:rgba(var(--wash,255,255,255),.06);}
   .moreb:active{transform:scale(.92);}
   .pinov{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.6);display:grid;place-items:center;}
+  /* Gesten (Loxone-Standard): Einblendung in der Mitte; beruehrt nichts, die Finger liegen darueber */
+  .geste{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;min-width:180px;max-width:80%;
+    padding:16px 22px;border-radius:18px;background:var(--screen);border:1px solid var(--line);color:var(--ink);
+    box-shadow:0 20px 50px rgba(0,0,0,.6);text-align:center;pointer-events:none;
+    display:flex;flex-direction:column;gap:8px;}
+  .geste.hidden{display:none;}
+  .geste .gs-titel{font-size:14px;color:var(--muted);}
+  .geste .gs-wert{font-size:40px;font-weight:600;line-height:1.1;word-break:break-word;}
+  .geste .gs-balken{height:6px;border-radius:3px;background:rgba(var(--wash,255,255,255),.12);overflow:hidden;}
+  .geste .gs-balken i{display:block;height:100%;background:var(--accent);}
+  .geste .gs-balken[hidden]{display:none;}
+  .geste.fehl .gs-wert{font-size:18px;color:var(--crit);}
+  /* Im Dunkeln (Uhr-Seite, Nacht): schwach, damit das Panel nicht aufleuchtet */
+  .geste.leise{background:#000;border-color:transparent;box-shadow:none;opacity:.55;}
   .pinbox{background:var(--screen);border:1px solid var(--line);border-radius:16px;padding:20px;width:78%;max-width:300px;
     box-shadow:0 20px 50px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px;}
   .pinttl{font-weight:600;font-size:16px;text-align:center;}
@@ -1761,6 +1788,7 @@
       <div class="sv-box" id="svBox" hidden></div>
       <div class="sv-hint">Zum Öffnen tippen</div>
     </div>
+    <div class="sv-nacht" id="svNacht" hidden><div class="nu-zonen" id="nuZonen"></div><div class="nu-zeit" id="nuZeit">--:--</div></div>
   </div>
   <div class="frontpage hidden" id="frontPage"></div>
   <div class="einrichtung hidden" id="einrichtung"></div>
@@ -3894,6 +3922,7 @@ let sx=null, sy=null, sl=0;
 const g=el('grid');
 g.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;sl=g.scrollLeft;},{passive:true});
 g.addEventListener('touchend',e=>{
+  if(gesteSequenz){ sx=null; return; }   // zwei Finger: eine Geste, kein "zurueck"
   if(sx==null)return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null;
   if(g.classList.contains('scheme')) return;   // im Schema pant der Finger, kein "zurueck"
   if(g.classList.contains('hpages') && sl>0) return;   // Seite zurueckgeblaettert, nicht die Ansicht
@@ -3912,6 +3941,184 @@ g.addEventListener('wheel', e=>{
   const n=g.querySelectorAll('.page').length;
   seiteZu(Math.max(0, Math.min(n-1, seiteAktuell()+(e.deltaY>0?1:-1))));
 }, {passive:false});
+
+// ---- Gesten wie auf den Loxone-Tastern (docs/TODO.md §9) ----
+// Zwei Finger bedienen den Raum der Seite: Mitte Licht (hoch/runter dimmt, ein
+// Tipp schaltet ein bzw. zur naechsten Stimmung), links Beschattung, rechts
+// Musik; Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt nur
+// die Geste - welche Bausteine sie trifft und welche Befehle gehen, entscheidet
+// der Server ({t:'geste'}, App.geste). Touch-Events statt Pointer-Events: nur
+// touchstart/touchmove mit preventDefault halten Scrollen und Klick an. Ein
+// Finger bleibt, wie er war: Kacheln, Scrollen, Blaettern, "zurueck".
+const GESTE_SPALTEN=[1/3, 2/3];   // Grenzen links | Mitte | rechts als Anteil der Breite, wie am Taster
+const GESTE_MINDESTWEG=0.04;      // ab diesem Weg (Anteil der Hoehe) wischen zwei Finger statt zu tippen
+const GESTE_KNEIFEN=0.5;          // aendert sich der Fingerabstand um mehr als diesen Anteil des Wegs: Kneifen
+const GESTE_TIPP_MS=400;          // laenger liegen zwei Finger fuer einen Tipp nicht
+const GESTE_MEHRFACH_MS=350;      // so lange wartet ein Tipp auf den naechsten (Doppel-, Dreifachtipp)
+const GESTE_TAKT_MS=150;          // beim Dimmen hoechstens so oft einen Zwischenwert schicken
+const GESTE_KLICKSPERRE_MS=400;   // nach einer Geste so lange keinen Klick auf Kacheln durchlassen
+const GESTE_ANZEIGE_MS=1500;      // Einblendung nach dem Ende so lange stehen lassen
+const GESTE_TITEL={licht:'Licht', musik:'Musik', beschattung:'Beschattung', stimmung:'Licht',
+                   verlassen:'Raum verlassen', hausaus:'Haus aus'};
+let gestenAn=false;        // kommt mit dem theme (Vorgaben/Ansicht)
+let geste=null;            // laufende Beruehrung mit zwei Fingern
+let gesteSequenz=false;    // seit zwei Finger lagen, bis alle oben sind: kein Scrollen, kein "zurueck"
+let gesteNach=null;        // Wisch zu Ende, bevor der Server den Startwert schickte
+let gesteTipps=0, gesteTippT=null, gesteTippSpalte='';
+let gesteKlickSperre=0;
+const gesteFlaeche=document.querySelector('.screen');
+function gesteErlaubt(){
+  // Auch auf der Uhr-Seite (Gesten im Dunkeln): sie gelten der Seite darunter,
+  // nach der Ruhe der Startseite
+  if(!gestenAn || !view || !view.route) return false;
+  if(view.route.view!=='tab' && view.route.view!=='group') return false;   // Detailseiten nicht
+  if(g.classList.contains('scheme') || g.classList.contains('panel')) return false;   // Grundriss zoomt mit zwei Fingern
+  return !gesteFlaeche.querySelector('.pinov, .menuov');
+}
+function gesteFinger(t){
+  return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2,
+          d:Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY)}; }
+function gesteSenden(m){
+  if(verbindungGesperrt()){ verbindungZeigen(true); return false; }
+  send({t:'geste', ...m}); return true; }
+function gesteZeigen(titel, text, wert, fehler){
+  let n=el('geste');
+  if(!n){ n=document.createElement('div'); n.id='geste'; n.className='geste hidden';
+    n.innerHTML='<div class="gs-titel"></div><div class="gs-wert"></div><div class="gs-balken"><i></i></div>';
+    gesteFlaeche.appendChild(n); }
+  n.querySelector('.gs-titel').textContent=titel||'';
+  n.querySelector('.gs-wert').textContent=text||'';
+  const b=n.querySelector('.gs-balken'); b.hidden=(wert==null);
+  if(wert!=null) b.firstChild.style.width=Math.max(0,Math.min(100,wert))+'%';
+  n.classList.toggle('fehl', !!fehler); n.classList.toggle('leise', imDunkeln());
+  n.classList.remove('hidden'); clearTimeout(n._t);
+}
+function gesteAusblenden(){ const n=el('geste'); if(!n) return; clearTimeout(n._t);
+  n._t=setTimeout(()=>n.classList.add('hidden'), GESTE_ANZEIGE_MS); }
+function gesteTitel(art, raum){ return (GESTE_TITEL[art]||'')+(raum?' · '+raum:''); }
+// Wert aus dem Weg seit Beginn des Wischens: die ganze Hoehe sind 0 -> 100 %
+function gesteWert(gs, y){ return Math.max(0, Math.min(100, gs.start+(gs.yWisch-y)/gs.h*100)); }
+function gesteWertZeigen(gs){
+  const w=Math.round(gs.wert);
+  const text=(gs.art==='licht' && gs.stimmung) ? (w>0 ? gs.stimmung : '▲ '+gs.stimmung)
+           : (gs.art==='licht' && w<=0 ? 'Aus' : w+' %');
+  gesteZeigen(gesteTitel(gs.art, gs.raum), text, gs.stimmung?null:gs.wert);
+}
+function gesteWertSchicken(gs, phase){
+  clearTimeout(gs.timer); gs.timer=null; gs.zuletzt=Date.now();
+  gesteSenden({art:gs.art, phase, wert:Math.round(gs.wert)});
+}
+function gesteBewegt(gs, y){
+  if(gs.start==null) return;   // Startwert vom Server steht noch aus
+  gs.wert=gesteWert(gs, y); gesteWertZeigen(gs);
+  const warte=GESTE_TAKT_MS-(Date.now()-(gs.zuletzt||0));
+  if(warte<=0) gesteWertSchicken(gs, 'wert');
+  else if(!gs.timer) gs.timer=setTimeout(()=>{ if(geste===gs) gesteWertSchicken(gs, 'wert'); }, warte);
+}
+function gesteTipp(spalte){
+  gesteTipps++; if(gesteTipps===1) gesteTippSpalte=spalte;
+  clearTimeout(gesteTippT);
+  const los=()=>{ const n=gesteTipps, sp=gesteTippSpalte; gesteTipps=0; gesteTippT=null;
+    const art = n>=3 ? 'hausaus' : (n===2 ? 'verlassen' : (sp==='mitte' ? 'stimmung' : ''));
+    if(art && gesteSenden({art})) gesteZeigen(GESTE_TITEL[art], '…'); };
+  // Mehr als drei gibt es nicht: der dritte Tipp loest sofort aus
+  if(gesteTipps>=3) los(); else gesteTippT=setTimeout(los, GESTE_MEHRFACH_MS);
+}
+// Ende der Geste: der erste Finger ist oben (oder ein dritter kam dazu)
+function gesteFertig(gs){
+  geste=null; clearTimeout(gs.timer);
+  if(gs.wisch && !gs.abgebrochen){
+    if(gs.art==='beschattung') gesteSenden({art:'beschattung', richtung: gs.dy<0 ? 'auf' : 'ab'});
+    else if(gs.start!=null){ gesteWertSchicken(gs, 'ende'); gesteAusblenden(); }
+    else gesteNach=gs;          // der Startwert kommt noch: dann das Ende schicken
+  } else if(!gs.wisch && !gs.abgebrochen && Date.now()-gs.t0<=GESTE_TIPP_MS){
+    gesteTipp(gs.spalte);
+  } else if(gs.wisch){
+    gesteAusblenden();          // abgebrochen (dritter Finger): Einblendung weg
+  }
+}
+gesteFlaeche.addEventListener('touchstart', e=>{
+  if(geste && e.touches.length>2){ geste.abgebrochen=true; gesteFertig(geste); return; }
+  if(e.touches.length!==2 || geste || !gesteErlaubt()) return;
+  // Scrollt der erste Finger schon, laesst sich das nicht mehr anhalten:
+  // dann keine Geste statt einer halben
+  if(!e.cancelable) return;
+  e.preventDefault();
+  const f=gesteFinger(e.touches), r=gesteFlaeche.getBoundingClientRect(), anteil=(f.x-r.left)/(r.width||1);
+  geste={x0:f.x, y0:f.y, d0:f.d, t0:Date.now(), h:r.height||window.innerHeight||1, dy:0,
+         spalte: anteil<GESTE_SPALTEN[0] ? 'links' : (anteil>GESTE_SPALTEN[1] ? 'rechts' : 'mitte'),
+         art:'', wisch:false, abgebrochen:false, start:null, wert:null, raum:'', stimmung:'', timer:null, zuletzt:0};
+  gesteSequenz=true;
+  weckenAbsagen();   // im Dunkeln: zwei Finger wecken nicht
+}, {passive:false});
+gesteFlaeche.addEventListener('touchmove', e=>{
+  if(gesteSequenz && e.cancelable) e.preventDefault();
+  const gs=geste; if(!gs || gs.abgebrochen || e.touches.length!==2) return;
+  const f=gesteFinger(e.touches), dx=f.x-gs.x0, dy=f.y-gs.y0, weg=Math.hypot(dx, dy);
+  gs.dy=dy; gs.yLetzt=f.y;
+  if(!gs.wisch){
+    if(weg<GESTE_MINDESTWEG*gs.h) return;
+    // Kneifen oder waagerecht: keine Geste (waagerecht ist nicht belegt)
+    if(Math.abs(f.d-gs.d0)>GESTE_KNEIFEN*weg || Math.abs(dx)>Math.abs(dy)){ gs.abgebrochen=true; return; }
+    gs.wisch=true; gs.yWisch=f.y;
+    clearTimeout(gesteTippT); gesteTipps=0;   // ein Wisch beendet eine Tippfolge
+    gs.art = gs.spalte==='mitte' ? 'licht' : (gs.spalte==='rechts' ? 'musik' : 'beschattung');
+    if(gs.art==='beschattung') gesteZeigen(GESTE_TITEL.beschattung, dy<0 ? '▲' : '▼');
+    else if(gesteSenden({art:gs.art, phase:'start'})) gesteZeigen(GESTE_TITEL[gs.art], '…');
+    else gs.abgebrochen=true;
+    return;
+  }
+  if(gs.art==='beschattung') gesteZeigen(GESTE_TITEL.beschattung, dy<0 ? '▲' : '▼');
+  else gesteBewegt(gs, f.y);
+}, {passive:false});
+function gesteLos(e){
+  if(!gesteSequenz) return;
+  if(e.cancelable) e.preventDefault();   // aus zwei Fingern wird kein Klick
+  if(geste && e.touches.length<2) gesteFertig(geste);
+  if(e.touches.length===0){ gesteSequenz=false; gesteKlickSperre=Date.now()+GESTE_KLICKSPERRE_MS; }
+}
+gesteFlaeche.addEventListener('touchend', gesteLos, {passive:false});
+gesteFlaeche.addEventListener('touchcancel', gesteLos, {passive:false});
+// ---- Gesten im Dunkeln (Stufe 5) ----
+// Auf der Uhr-Seite und im abgedunkelten Nachtmodus weckt ein Finger wie bisher,
+// zwei Finger sind eine Geste, die das Panel dunkel laesst (keine Uhr weg, kein
+// Aufhellen). Ob ein zweiter kommt, steht erst kurz nach dem ersten fest: so
+// lange wartet das Wecken. Wird der Finger vorher losgelassen, weckt er sofort.
+// Ohne Gesten weckt jede Beruehrung wie bisher ohne Wartezeit. Dieselbe Zeit
+// nimmt die LoxPanel-App (SchonerBeruehrung.WARTE_MS): Sie gibt Beruehrungen im
+// Schoner erst an die Visu weiter, wenn ein zweiter Finger kommt.
+const GESTE_ZWEITER_FINGER_MS=120;
+let weckenWartet=null;     // {wecken, timer}: aufgeschobenes Wecken des ersten Fingers
+function imDunkeln(){ return saverOn() || nachtGedimmt(); }
+function gestenImDunkeln(e){ return gestenAn && !!e && e.pointerType==='touch' && imDunkeln() && gesteErlaubt(); }
+function weckenAufschieben(wecken){
+  if(weckenWartet) return;   // weiterer Finger derselben Beruehrung: es wartet schon
+  weckenWartet={wecken, timer:setTimeout(weckenJetzt, GESTE_ZWEITER_FINGER_MS)}; }
+function weckenJetzt(){ const w=weckenWartet; if(!w) return; weckenWartet=null; clearTimeout(w.timer); w.wecken(); }
+function weckenAbsagen(){ if(weckenWartet){ clearTimeout(weckenWartet.timer); weckenWartet=null; } }
+// Losgelassen, bevor die Zeit um ist: jetzt wecken. Capture und vor der Sperre
+// der Uhr-Seite (saverGeste) registriert, damit sie das Loslassen schon schluckt.
+window.addEventListener('pointerup', ()=>{ if(weckenWartet && !geste) weckenJetzt(); }, true);
+// Ein Klick, den der Browser trotzdem aus der Geste macht, erreicht keine Kachel
+document.addEventListener('click', e=>{
+  if(Date.now()<gesteKlickSperre){ e.preventDefault(); e.stopPropagation(); } }, true);
+// Antwort des Servers: Startwert zum Dimmen, Text (Stimmung, "Raum verlassen") oder Fehler
+function gesteAntwort(msg){
+  const gs = (geste && geste.art===msg.art) ? geste : ((gesteNach && gesteNach.art===msg.art) ? gesteNach : null);
+  if(msg.fehler){
+    if(gs) gs.abgebrochen=true;
+    if(gs===gesteNach) gesteNach=null;
+    gesteZeigen(gesteTitel(msg.art, msg.raum), msg.fehler, null, true); gesteAusblenden(); return; }
+  if(msg.phase==='start' && gs && gs.start==null){
+    gs.start=+msg.wert||0; gs.raum=msg.raum||''; gs.stimmung=msg.text||'';
+    gs.wert=(gs.yLetzt!=null && gs.yWisch!=null) ? gesteWert(gs, gs.yLetzt) : gs.start;   // Weg bis hierher zaehlt
+    if(gs===gesteNach){ gesteNach=null; gesteWertSchicken(gs, 'ende'); gesteWertZeigen(gs); gesteAusblenden(); return; }
+    gesteWertZeigen(gs); return; }
+  // Waehrend des Wischens (Stimmung eingeschaltet, Befehl fehlgeschlagen): Text, die Geste laeuft weiter
+  if(gs && gs===geste && gs.wisch && msg.text){ gesteZeigen(gesteTitel(msg.art, msg.raum), msg.text); return; }
+  gesteZeigen(gesteTitel(msg.art, msg.raum), msg.text||'');
+  if(!geste) gesteAusblenden();
+}
 
 let booted=false;
 const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
@@ -4079,10 +4286,13 @@ function connect(){
       if(msg.lang){ LANG=msg.lang; tickClock(); }   // Panel-Sprache -> Datum/Uhr sofort aktualisieren
       if(msg.title) document.title=msg.title;
       if(msg.tabMeta) tabMeta=msg.tabMeta;
-      if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0; setNight(msg.night.on); }
+      if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0;
+        NIGHT.uhr=(msg.night.uhr===true); NIGHT.uhrHell=+msg.night.uhrHell||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
       pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
+      gestenAn=(msg.gesten===true);   // Zwei-Finger-Gesten (Vorgaben/Ansicht)
+      nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
       applyScale();
@@ -4146,6 +4356,7 @@ function connect(){
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; kopplungVergessen(); ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
+    if(msg.t==='geste'){ gesteAntwort(msg); return; }   // Zwei-Finger-Geste: Startwert, Text oder Fehler
     if(msg.t!=='view') return;
     if(view && key(view.route)!==key(msg.route)) pinVergessen();   // Seitenwechsel
     if(!booted){ booted=true; if(msg.route&&msg.route.view==='tab') stack=[msg.route]; }
@@ -4186,6 +4397,8 @@ function tickClock(){
   const t=el('svTime'), dd=el('svDate');
   if(t) t.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(dd) dd.textContent=d.toLocaleDateString(LANG,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const nu=el('nuZeit');                       // Nacht-Uhr
+  if(nu) nu.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   const kt=el('kzTime'), kd=el('kzDate');   // Kopfzeile (Widget "header")
   if(kt) kt.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(kd) kd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'short'});
@@ -4305,8 +4518,8 @@ function svKind(v){ const i=v.indexOf(':'); return i>0?v.slice(0,i):v; }
 function camPaneUuid(arg){ return (arg||'').split('|')[0]; }
 function camPaneWerte(arg){ const i=(arg||'').indexOf('|'); return i<0?'':arg.slice(i+1); }
 function svArg(v){ const i=v.indexOf(':'); return i>0?v.slice(i+1):''; }
-function svSideOn(){ const s=el('saver');
-  return !!s && !s.classList.contains('hidden') && s.classList.contains('split'); }
+function svSideOn(){ const s=el('saver');   // Nacht-Uhr: die zweite Spalte ruht (keine Kamera die ganze Nacht)
+  return !!s && !s.classList.contains('hidden') && s.classList.contains('split') && !s.classList.contains('nacht'); }
 function svSideRaw(){ return svSideOn() ? (svPaneCfg||'') : ''; }
 // Terminliste — aus renderFront herausgeloest, seit sie nicht mehr die einzige
 // moegliche Fuellung der Spalte ist.
@@ -5236,16 +5449,22 @@ window.addEventListener('pointerdown', ()=>{ saverGeste=false; }, true);
 window.addEventListener('keydown', ()=>{ saverGeste=false; }, true);
 ['pointerup','click','dblclick','contextmenu'].forEach(ev=>window.addEventListener(ev, e=>{
   if(!saverGeste) return; e.preventDefault(); e.stopImmediatePropagation(); }, true));
-el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); saverGeste=true; nightWake(); hideSaver(); resetIdle(); });
+el('saver').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation();
+  const wecken=()=>{ saverGeste=true; nightWake(); hideSaver(); resetIdle(); };
+  if(gestenImDunkeln(e)) weckenAufschieben(wecken); else wecken(); });   // zwei Finger: Geste im Dunkeln
 // input: Android-Tastaturen melden nicht jedes Zeichen als keydown (Name einer Weckzeit)
-['pointerdown','keydown','input','wheel'].forEach(ev=>document.addEventListener(ev, ()=>{ nightWake(); if(!saverOn()) resetIdle(); }, {passive:true}));
+// Nachts abgedunkelt: das Aufhellen wartet wie das Wecken, ob ein zweiter Finger kommt
+['pointerdown','keydown','input','wheel'].forEach(ev=>document.addEventListener(ev, e=>{
+  if(ev==='pointerdown' && gestenImDunkeln(e)) weckenAufschieben(nightWake); else nightWake();
+  if(!saverOn()) resetIdle(); }, {passive:true}));
 // ---- Nachtmodus: Panel abdunkeln ----
 // Tag/Nacht meldet der Server ({t:"night"}), Staerke und Aufhelldauer kommen je
 // Panel im theme. Gedimmt wird ueber eine schwarze Auflage statt per CSS-Filter:
 // ein Filter auf dem Seitenrumpf zerschiesst die Positionierung von
 // position:fixed-Elementen, und die Auflage wirkt wie heruntergeregelte
 // Hintergrundbeleuchtung (Weiss wird grau, nicht nur dunkler).
-const NIGHT = { on:false, dim:0, wake:20 };
+// hell: nach einer Beruehrung aufgehellt; uhr/uhrHell: Nacht-Uhr und ihre Helligkeit in %
+const NIGHT = { on:false, dim:0, wake:20, hell:false, uhr:false, uhrHell:0 };
 let nightEl=null, nightWakeTimer=null;
 function nightLayer(){
   if(!nightEl){
@@ -5268,11 +5487,38 @@ function appHelligkeit(dim){
   try{ return !!(window.LoxKiosk && typeof LoxKiosk.setDisplayBrightness==='function'
                  && LoxKiosk.setDisplayBrightness(prozent)); }catch(e){ return false; } }
 function applyNight(awake){
+  NIGHT.hell=!!awake;
   const dim = (NIGHT.on && NIGHT.dim>0 && !awake) ? Math.min(90,NIGHT.dim) : 0;
   nightLayer().style.opacity = appHelligkeit(dim) ? 0 : dim/100;
 }
 function setNight(on){ const vorher=NIGHT.on; NIGHT.on=!!on; clearTimeout(nightWakeTimer); applyNight(false);
-  if(NIGHT.on && !vorher) pinVergessen(); }   // Nacht beginnt: gemerkte PIN weg
+  if(NIGHT.on && !vorher) pinVergessen();   // Nacht beginnt: gemerkte PIN weg
+  nachtUhrSetzen(); }
+// ---- Nacht-Uhr ----
+// Nachts zeigt die Uhr-Seite auf Wunsch nur die Uhrzeit, gedimmt auf Schwarz
+// (night.uhr, Helligkeit night.uhrHell in Prozent, vom Server je Panel), wie die
+// Nachtanzeige der Loxone-Taster. Oben stehen, wenn Gesten an sind, die Symbole
+// ihrer Spalten (links Beschattung, Mitte Licht, rechts Musik), genau ueber der
+// Mitte jeder Spalte (GESTE_SPALTEN). Wetter, Termine und die zweite Spalte
+// ruhen dann: keine Kamera laeuft die ganze Nacht. "Nachts abdunkeln" wirkt
+// zusaetzlich wie auf jeder Seite.
+const NACHT_UHR_SYMBOLE=['blind', 'bulb', 'music'];   // je Gesten-Spalte von links
+function nachtUhrAn(){ return NIGHT.on && NIGHT.uhr; }
+function nachtUhrSetzen(){
+  const s=el('saver'), n=el('svNacht'); if(!s || !n) return;
+  const an=nachtUhrAn(), vorher=s.classList.contains('nacht');
+  s.classList.toggle('nacht', an); n.hidden=!an;
+  s.style.setProperty('--nu-hell', String(Math.max(0, Math.min(100, NIGHT.uhrHell))/100));
+  const z=el('nuZonen');
+  if(z){ const grenzen=[0, ...GESTE_SPALTEN, 1];
+    z.innerHTML=gestenAn ? NACHT_UHR_SYMBOLE.map((k, i)=>'<span style="left:'+((grenzen[i]+grenzen[i+1])/2*100)+'%">'+
+      svg(ICONS[k])+'</span>').join('') : ''; }
+  tickClock();
+  // Wechsel, waehrend die Uhr-Seite steht: zweite Spalte an- oder abmelden, neu zeichnen
+  if(an!==vorher && saverOn()){ applySaverSplit(); applyPane(); renderFront(); }
+}
+// Nachts abgedunkelt und nicht gerade aufgehellt (Gesten im Dunkeln)
+function nachtGedimmt(){ return NIGHT.on && NIGHT.dim>0 && !NIGHT.hell; }
 function nightWake(){          // Beruehrung -> kurz voll aufhellen, dann zurueck
   if(!NIGHT.on || NIGHT.dim<=0 || NIGHT.wake<=0) return;
   clearTimeout(nightWakeTimer);
