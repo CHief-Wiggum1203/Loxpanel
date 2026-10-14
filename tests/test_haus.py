@@ -153,6 +153,84 @@ def test_schnellaktionen_nur_mit_zentral_baustein():
     assert s["audio"]["secured"] is True and "secured" not in s["licht"]
 
 
+def _aufbau(aufbau, **states):
+    app = _app(**states)
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "ui": {"hausAufbau": aufbau}}})
+    return app, _haus(app, app.resolve_profile("p"))
+
+
+def test_aufbau_je_ansicht():
+    """ui.hausAufbau: "raeume" und "spalte" bleiben beim Speichern und im
+    Export, der Standard ("status") und Unbekanntes werden nicht gespeichert;
+    ohne Einstellung gilt der Standard. /api/meta nennt Auswahl und Standard."""
+    p = W.App._sanitize_panels({"a": {"title": "A", "ui": {"hausAufbau": "raeume"}},
+                                "b": {"title": "B", "ui": {"hausAufbau": "spalte"}},
+                                "c": {"title": "C", "ui": {"hausAufbau": "status"}},
+                                "d": {"title": "D", "ui": {"hausAufbau": "quer"}}})
+    assert [(p[k].get("ui") or {}).get("hausAufbau") for k in "abcd"] == ["raeume", "spalte", None, None]
+    assert W.PANEL_STANDARD[("ui", "hausAufbau")] == W.HAUS_AUFBAU_STANDARD == "status"
+    app = _app()
+    app.panels = p
+    assert app._panel_export(p["a"])["ui"]["hausAufbau"] == "raeume"
+    assert [app.resolve_profile(k)["hausAufbau"] for k in "abcd"] == ["raeume", "spalte", "status", "status"]
+    assert _haus(app)["aufbau"] == "status" and "blick" not in _haus(app)
+    r = make_mocked_request("GET", "/api/meta", app={"app": app})
+    meta = json.loads(asyncio.run(W.api_meta(r)).body)
+    assert [a["key"] for a in meta["hausAufbauten"]] == ["status", "raeume", "spalte"]
+    assert meta["hausAufbauStandard"] == "status"
+
+
+def test_raeume_direkt():
+    """Aufbau "raeume": je Raumkarte bis zu HAUS_TASTEN Tasten fuer Bausteine,
+    die sich ab- und einschalten lassen, mit dem Befehl, der ihren Zustand
+    umkehrt (Strukturdoku): Licht an -> Aus-Stimmung, Licht aus -> erste
+    Stimmung, Zone -> play/pause, Treppenlicht -> pulse, Sauna -> on mit
+    Rueckfrage. Raeume ohne schaltbaren Baustein haben keine Tasten."""
+    _app_, v = _aufbau("raeume")
+    assert v["aufbau"] == "raeume" and "blick" not in v
+    t = {r["name"]: [(x["id"], x["an"], x["cmd"], x.get("frage")) for x in r["tasten"]] for r in v["raeume"]}
+    assert t["Abstellraum"] == [("LA", True, {"uuid": "LA", "cmd": "changeTo/778"}, None),
+                                ("AB", False, {"uuid": "AB", "cmd": "play"}, None)]
+    assert t["Bad"] == [("TS", False, {"uuid": "TS", "cmd": "pulse"}, None)]
+    assert t["Sauna"] == [("SA", False, {"uuid": "SA", "cmd": "on"}, "Einschalten?"),
+                          ("LC", False, {"uuid": "LC", "cmd": "changeTo/1"}, None)]
+    assert t["Küche"] == [] and t["Zentral"] == [("FS", True, {"uuid": "FS", "cmd": "off"}, None)]
+    eingang = next(r for r in v["raeume"] if r["name"] == "Eingang")["tasten"]
+    assert eingang[0]["secured"] is True and eingang[0]["name"] == "Außenlicht"
+    # an: keine Rueckfrage, der Befehl schaltet ab
+    _app_, v = _aufbau("raeume", sa1=1)
+    sauna = next(r for r in v["raeume"] if r["name"] == "Sauna")["tasten"][0]
+    assert sauna["cmd"] == {"uuid": "SA", "cmd": "off"} and "frage" not in sauna
+    # hoechstens HAUS_TASTEN
+    struktur, st = haus_anlage()
+    for i in range(5):
+        struktur["controls"][f"S{i}"] = {"name": f"Steckdose {i}", "type": "Switch", "uuidAction": f"S{i}",
+                                         "room": "r6", "cat": "c1", "states": {"active": f"s{i}"}}
+        st[f"s{i}"] = 0
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(struktur)
+    app.states = st
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "ui": {"hausAufbau": "raeume"}}})
+    kueche = next(r for r in _haus(app, app.resolve_profile("p"))["raeume"] if r["name"] == "Küche")
+    assert [x["id"] for x in kueche["tasten"]] == ["S0", "S1", "S2"] == [f"S{i}" for i in range(W.HAUS_TASTEN)]
+
+
+def test_spalte_auf_einen_blick():
+    """Aufbau "spalte": "Auf einen Blick" nennt, was einen Zustand meldet,
+    sich aber nicht abschalten laesst, in der Folge der Raeume; ohne den
+    Energie-Baustein (steht darueber), ohne Raumregelung und Sauna (Hauptwert
+    der Raumkarte) und ohne Schaltbares (Gerade aktiv, Schnellaktionen)."""
+    _app_, v = _aufbau("spalte")
+    assert v["aufbau"] == "spalte" and all("tasten" not in r for r in v["raeume"])
+    assert [(b["id"], b["zustand"], b["name"]) for b in v["blick"]] == [
+        ("MB", "Leer", "Postkasten · Eingang"), ("LU", "40 %", "Lüftung · Zentral"),
+        ("CA", "Spielt in 1 Raum", "Audio · Zentral"), ("CL", "In 1 Raum aktiv", "Licht · Zentral")]
+    assert v["blick"][0]["nav"] == {"view": "control", "id": "MB"}
+    # Post da: der Zustand kommt frisch aus den States
+    _app_, v = _aufbau("spalte", mb1=1)
+    assert v["blick"][0]["zustand"] == "Post da"
+
+
 def test_spieler():
     app = _app()
     sp = _haus(app)["spieler"]

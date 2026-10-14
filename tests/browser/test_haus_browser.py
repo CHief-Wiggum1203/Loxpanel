@@ -575,3 +575,201 @@ def test_niedriges_fenster(tmp_path):
     assert not lage["quer"] and not lage["klein"], lage
     assert [a for a in lage["ab"] if a != "sp"] == [], lage["ab"]
     assert "sp" not in lage["ab"] or lage["zonen"] == "auto", lage
+
+
+# Aufbau, den die Visu wirklich zeigt ("spalte" faellt dort, wo sie nicht passt, auf "status")
+AUFBAU = """() => { const L = hausLage(view), g = document.getElementById('grid');
+  return {aufbau: L.aufbau, links: !!g.querySelector('.hs.links'), tasten: g.querySelectorAll('.hs-r.direkt .hs-t').length,
+          blick: g.querySelectorAll('.hs-links .hs-bz').length, schnellLinks: g.querySelectorAll('.hs-links [data-hs=schnell]').length,
+          aktiv: !!g.querySelector('.hs-aktiv'), titel: (g.querySelector('[data-hb=rkopf]') || {}).innerText || ''}; }"""
+
+
+@pytest.mark.parametrize("aufbau", ["raeume", "spalte"])
+@pytest.mark.parametrize("kset", SETS)
+def test_aufbauten_auf_tablet_und_display(aufbau, kset, tmp_path):
+    """Die beiden weiteren Aufbauten in jedem Set auf iPad quer und hochkant
+    und dem grossen Display: nichts scrollt waagerecht, keine Taste unter
+    44 px, keine Karte schneidet ab. "raeume" hat statt "Gerade aktiv" die
+    Titelzeile und die Tasten in den Raumkarten; "spalte" steht quer links
+    mit "Auf einen Blick" und den Schnellaktionen. Wo sie nicht passt
+    (hochkant, iPad quer neben der Leiste links), zeigt die Seite "Status
+    zuerst"."""
+    async def lauf():
+        app = _app(ui={"hausAufbau": aufbau, **({"tileSet": kset} if kset else {})})
+        runner, port, bc = await visu_starten(app)
+        erg, fehler = {}, []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for name, (w, h) in GERAETE.items():
+                    pg = await _seite(b, port, w, h, fehler)
+                    erg[name] = {**await pg.evaluate(LAGE), **await pg.evaluate(AUFBAU)}
+                    await pg.screenshot(path=str(tmp_path / f"haus_{aufbau}_{kset or 'ohne'}_{name}.png"))
+                    await pg.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name, m in erg.items():
+        wo = (aufbau, kset, name)
+        assert not m["quer"], (wo, "scrollt waagerecht", m["quer"])
+        assert not m["klein"], (wo, "Taste unter 44 px", m["klein"])
+        assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
+        assert m["raeume"] == 7, (wo, m)
+        # "spalte" braucht quer Platz fuer sich, zwei Raumspalten und den Spieler:
+        # hochkant nie, auf dem iPad quer nicht neben der Leiste links (Kreide)
+        erwartet = aufbau
+        if aufbau == "spalte" and (name == "ipad_hoch" or (name == "ipad_quer" and kset == "kreide")):
+            erwartet = "status"
+        assert m["aufbau"] == erwartet, (wo, m)
+        if erwartet == "raeume":
+            assert m["tasten"] == 8 and not m["aktiv"] and m["titel"].startswith("Räume"), (wo, m)
+        if erwartet == "spalte":
+            assert m["links"] and m["blick"] == 4 and m["schnellLinks"] == 2 and not m["aktiv"], (wo, m)
+        if erwartet == "status":
+            assert m["aktiv"] and not m["links"] and m["schnell"] == 2, (wo, m)
+
+
+def test_raeume_direkt_bedienen(tmp_path, miniserver_http):
+    """Aufbau "raeume" am Miniserver-Nachbau: eine Taste schaltet ab, was an
+    ist, und ein, was aus ist; die Sauna fragt zuerst nach (erster Tipp ohne
+    Befehl, die Frage steht an der Taste), erst der zweite schaltet. Der Pfeil
+    oeffnet den Raum."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"hausAufbau": "raeume"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                raum = lambda n: pg.locator(".hs-r.direkt", has_text=n)  # noqa: E731
+                await raum("Abstellraum").locator(".hs-t").nth(0).click()
+                erg["licht"] = await _befehle(ms, 1)
+                await raum("Abstellraum").locator(".hs-t").nth(1).click()
+                erg["zone"] = (await _befehle(ms, 2))[1:]
+                sauna = raum("Sauna").locator(".hs-t").nth(0)
+                await sauna.click()
+                await pg.wait_for_timeout(300)
+                erg["frage"] = [await sauna.locator(".l").inner_text(), await sauna.get_attribute("class"),
+                                len(ms.io_roh)]
+                await pg.screenshot(path=str(tmp_path / "haus_raeume_frage.png"))
+                await raum("Sauna").locator(".hs-t").nth(0).click()
+                erg["sauna"] = (await _befehle(ms, 3))[2:]
+                erg["nach_frage"] = await raum("Sauna").locator(".hs-t").nth(0).locator(".l").inner_text()
+                await raum("Küche").locator('[data-hs="raum"]').click()
+                await pg.wait_for_selector("#grid .tile[data-id='IR']")
+                erg["raum"] = await pg.evaluate("view.route")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["licht"] == ["sps/io/LA/changeTo/778"], erg
+    assert erg["zone"] == ["sps/io/AB/play"], erg
+    assert erg["frage"][0] == "Einschalten?" and "arm" in erg["frage"][1] and erg["frage"][2] == 2, erg
+    assert erg["sauna"] == ["sps/io/SA/on"] and erg["nach_frage"] == "Saunasteuerung", erg
+    assert erg["raum"] == {"view": "group", "kind": "room", "id": "r6"}, erg
+
+
+def test_spalte_bedienen(tmp_path, miniserver_http):
+    """Aufbau "spalte" am grossen Display: ein Eintrag unter "Auf einen Blick"
+    oeffnet seinen Baustein, die Schnellaktion links schickt ihren Befehl an
+    den Zentral-Baustein, die Energie oeffnet den Energiefluss."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"hausAufbau": "spalte"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1920, 1080, fehler)
+                await pg.screenshot(path=str(tmp_path / "haus_spalte.png"))
+                await pg.locator(".hs-links .hs-bz", has_text="Postkasten").click()
+                await pg.wait_for_function("view && view.route && view.route.view === 'control'")
+                erg["blick"] = await pg.evaluate("view.route")
+                await pg.locator("#tabback").click()
+                await pg.wait_for_selector("#grid.haus .hs-links")
+                await pg.locator('.hs-links [data-hs="schnell"][data-art="licht"]').click()
+                erg["schnell"] = await _befehle(ms, 1)
+                await pg.locator('.hs-links [data-hs="energie"]').click()
+                await pg.wait_for_function("view && view.route && view.route.id === 'F'")
+                erg["energie"] = await pg.evaluate("view.route")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["blick"] == {"view": "control", "id": "MB"}, erg
+    assert erg["schnell"] == ["sps/io/CL/reset"], erg
+    assert erg["energie"] == {"view": "control", "id": "F"}, erg
+
+
+def test_aufbau_im_konfigurator(cfg_ordner):
+    """Aussehen der Ansicht: die Gruppe "Hausübersicht" waehlt den Aufbau aus
+    /api/meta; gespeichert wird nur, was vom Standard abweicht, und die Visu
+    zeigt danach den gewaehlten Aufbau."""
+    from lox import KONFIGURATOR_GELADEN
+    from test_auswahl_seiten_browser import ROUTEN
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["haus"]}}}), encoding="utf-8")
+
+    async def lauf():
+        struktur, states = haus_anlage()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator(".stab[data-sub='aussehen']").click()
+                feld = pg.locator("#fHausAufbau")
+                erg["optionen"] = await feld.locator("option").evaluate_all("o => o.map(x => [x.value, x.textContent])")
+                erg["vorher"] = await feld.input_value()
+                for wert in ("raeume", "status"):
+                    await feld.select_option(wert)
+                    async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                        await pg.locator("#saveBtn").click()
+                    erg[wert] = [(await (await antwort.value).json())["ok"],
+                                 json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]]
+                    if wert == "raeume":
+                        app.panels = W.load_panels()
+                        visu = await b.new_page(viewport={"width": 1180, "height": 820}, locale="de-DE")
+                        visu.on("pageerror", lambda e: fehler.append(str(e)))
+                        await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
+                        await visu.wait_for_selector("#grid.haus .hs-r.direkt", state="attached")
+                        erg["visu"] = await visu.evaluate("view.aufbau")
+                        await visu.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["optionen"] == [["status", "Status zuerst"], ["raeume", "Räume direkt"], ["spalte", "Spalte links"]], erg
+    assert erg["vorher"] == "status", erg
+    assert erg["raeume"][0] and erg["raeume"][1]["ui"]["hausAufbau"] == "raeume", erg["raeume"]
+    assert erg["visu"] == "raeume", erg
+    assert erg["status"][0] and "hausAufbau" not in (erg["status"][1].get("ui") or {}), erg["status"]

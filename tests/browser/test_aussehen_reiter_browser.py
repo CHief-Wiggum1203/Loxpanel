@@ -1,6 +1,6 @@
 """Aussehen im Konfigurator (Chromium, iPad quer und hochkant): Die
 Einstellungen stehen in Gruppen mit Ueberschrift - in der Ansicht Kachel-Set,
-Farbe und Aufbau, Schrift, Groessen; unter Vorgaben Grundfarbe, Sprache,
+Farbe und Aufbau, Schrift, Hausuebersicht, Groessen; unter Vorgaben Grundfarbe, Sprache,
 Schrift, Groessen. Das Kachel-Set steht vorn als Karten aus /api/meta (Name,
 Beschreibung, Vorschau); mit Set weicht die Gruppe Grundfarbe und
 Kachel-Aufbau einem Hinweis, weil beides dann aus dem Set kommt. Kein Feld
@@ -109,7 +109,7 @@ def test_ansicht_in_gruppen(cfg_ordner, tmp_path):
         for name in ansichten:
             m, wo = erg[(name, breite)], (name, breite)
             _ohne_ueberlappung(m, wo)
-            assert m["titel"] == ["Kachel-Set", "Farbe und Aufbau", "Schrift", "Größen"], (wo, m["titel"])
+            assert m["titel"] == ["Kachel-Set", "Farbe und Aufbau", "Schrift", "Hausübersicht", "Größen"], (wo, m["titel"])
             # Karten aus /api/meta, die gewaehlte gedrueckt
             assert [k[0] for k in m["karten"]] == [""] + [s["key"] for s in liste], (wo, m["karten"])
             assert [k[1:3] for k in m["karten"][1:]] == [[s["label"], s["info"]] for s in liste], (wo, m["karten"])

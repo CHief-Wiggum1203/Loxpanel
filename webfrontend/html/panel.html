@@ -1640,6 +1640,61 @@
   html[data-kachelset-aufbau="kreis"] .hs-r .s.on{background:var(--glow);color:var(--kreis-an-symbol,var(--on-glow));}
   html[data-kachelset-aufbau="mitte"] .hs-r .s.on{color:var(--kachel-an-ink,var(--ink));}
   .hs-r .an{margin-left:auto;font-size:calc(14px * var(--hk));font-weight:600;color:var(--an-text,var(--glow));white-space:nowrap;}
+  /* Aufbau "raeume": die Karte selbst ist keine Taste, oben rechts oeffnet
+     der Pfeil den Raum, unten schalten runde Tasten direkt (Entwurf
+     "Hausübersicht C"): Kreis --taste, an --kachel-an mit Symbol --glow */
+  .hs-r.direkt{padding:calc(14px * var(--hk)) calc(14px * var(--hk)) calc(14px * var(--hk)) calc(18px * var(--hk));}
+  .hs-r.direkt .chev{border:0;padding:0;font:inherit;cursor:pointer;touch-action:manipulation;}
+  .hs-r.direkt .tasten{margin-top:auto;padding-top:calc(6px * var(--hk));display:flex;align-items:flex-end;gap:calc(6px * var(--hk));min-width:0;}
+  .hs-t{flex:0 1 calc(68px * var(--hk));min-width:44px;display:flex;flex-direction:column;align-items:center;gap:4px;
+    background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  .hs-t .k{width:max(44px, calc(52px * var(--hk)));height:max(44px, calc(52px * var(--hk)));border-radius:50%;display:grid;place-items:center;
+    background:var(--taste,rgba(var(--wash,255,255,255),.07));color:var(--ink);}
+  .hs-t .k .hs-i{width:46%;height:46%;color:inherit;}
+  .hs-t .l{max-width:100%;font-size:calc(13px * var(--hk));font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-t:active .k{transform:scale(.94);}
+  .hs-t.on .k{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));color:var(--glow);}
+  .hs-t.on .l{color:var(--an-text,var(--glow));}
+  html[data-kachelset-aufbau="kreis"] .hs-t.on .k{background:var(--glow);color:var(--kreis-an-symbol,var(--on-glow));}
+  html[data-kachelset-aufbau="mitte"] .hs-t.on .k{color:var(--kachel-an-ink,var(--ink));}
+  /* Rueckfrage: Ring um den Kreis, die Frage statt der Beschriftung */
+  .hs-t.arm .k{box-shadow:inset 0 0 0 2px var(--glow);}
+  .hs-t.arm .l{color:var(--ink);}
+  /* Aufbau "spalte": links Uhr mit Wetter, Energie, "Auf einen Blick" und
+     die Schnellaktionen (Entwurf "Großes Display", dort 440 px breit) */
+  .hs.links{grid-template-columns:calc(320px * var(--hk)) minmax(0,1fr);}
+  .hs.links.spalte{grid-template-columns:calc(320px * var(--hk)) minmax(0,1fr) calc(280px * var(--hk));}
+  .hs-links{min-width:0;min-height:0;display:flex;flex-direction:column;gap:calc(14px * var(--hk));}
+  .hs-luhr{flex:none;display:flex;flex-direction:column;padding:calc(4px * var(--hk)) calc(6px * var(--hk)) 0;min-width:0;}
+  .hs-luhr .t{font-size:calc(80px * var(--hk));font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;}
+  .hs-luhr .d{margin-top:calc(8px * var(--hk));font-size:calc(16px * var(--hk));color:var(--muted);white-space:nowrap;}
+  .hs-luhr .wx{margin-top:calc(14px * var(--hk));display:flex;align-items:center;gap:calc(10px * var(--hk));min-width:0;}
+  .hs-luhr .wx .hs-i{width:calc(34px * var(--hk));height:calc(34px * var(--hk));}
+  .hs-luhr .wx .z{font-size:calc(32px * var(--hk));font-weight:600;white-space:nowrap;}
+  .hs-luhr .wx .w{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-len{flex:none;display:flex;flex-direction:column;gap:calc(10px * var(--hk));padding:calc(16px * var(--hk));}
+  .hs-len .kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;}
+  .hs-len .kopf b{font-size:calc(16px * var(--hk));}
+  .hs-len .kopf span{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-len .werte{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10px * var(--hk));}
+  .hs-len .wt{display:flex;flex-direction:column;padding:calc(12px * var(--hk));border-radius:calc(var(--taste-radius,12px) * var(--hk));
+    background:var(--taste,rgba(var(--wash,255,255,255),.05));min-width:0;}
+  .hs-len .wt .z{font-size:calc(24px * var(--hk));white-space:nowrap;}
+  /* Aufbau "mitte": --muted traegt auf der Tastenflaeche nicht (wie bei den Zonen) */
+  html[data-kachelset-aufbau="mitte"] .hs-len .wt .w{color:var(--ink);}
+  .hs-blick{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(16px * var(--hk)) calc(16px * var(--hk)) calc(6px * var(--hk));}
+  .hs-blick h2{flex:none;margin:0 0 calc(4px * var(--hk));font-size:calc(16px * var(--hk));font-weight:600;}
+  .hs-blick .liste{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;}
+  .hs-blick .liste>.w{padding:calc(10px * var(--hk)) 0;}
+  .hs-bz{flex:none;min-height:44px;display:flex;align-items:center;gap:calc(12px * var(--hk));padding:calc(10px * var(--hk)) 0;
+    background:none;border:0;border-bottom:1px solid var(--line);font:inherit;color:inherit;text-align:left;cursor:pointer;touch-action:manipulation;}
+  .hs-bz:last-child{border-bottom:0;}
+  .hs-bz:disabled{cursor:default;}
+  .hs-bz .hs-i{width:calc(24px * var(--hk));height:calc(24px * var(--hk));}
+  .hs-bz .z{font-size:calc(16px * var(--hk));}
+  /* in der Spalte untereinander: nebeneinander reichte die halbe Breite nicht
+     fuer "Alle Lichter aus" und die Anzahl */
+  .hs-links .hs-schnell{grid-template-columns:minmax(0,1fr);}
   /* Spieler: Spalte (quer) oder Leiste (hochkant) */
   .hs-sp{min-height:0;display:flex;flex-direction:column;gap:var(--hs-g);padding:calc(18px * var(--hk));}
   .hs-spk{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;}
@@ -5236,6 +5291,10 @@ const HS_SCHNELL_ICO={licht:'bulb', audio:'music'};
 // Hoehe, ab der Raumkarten scrollen statt schrumpfen, und das Seitenverhaeltnis,
 // das die Spaltenzahl der Raeume anstrebt (alles bei --hk 1)
 const HS_AKTIV_MIN=260, HS_RAUM_MIN=200, HS_RAUM_HOCH=150, HS_RAUM_SEITE=1.4;
+// Aufbau "raeume": Mindesthoehe einer Raumkarte mit Tasten (Kopfzeile 44,
+// Hauptwert, Zeile darunter, Taste 52 mit Beschriftung, Rand); Aufbau
+// "spalte": Breite der linken Spalte (Entwurf: 440 px am grossen Display)
+const HS_RAUM_HOCH_TASTEN=200, HS_LINKS=320;
 function hsIco(s, extra){
   const k='hs-i'+(extra?' '+extra:'');
   if(s.iconImg) return '<span class="'+k+'"><img src="'+esc(s.iconImg)+'" alt=""></span>';
@@ -5252,49 +5311,107 @@ function hausLage(v){
   const h=g.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
   const hk=Math.max(.7, Math.min(1.5, Math.min(w,h)/740)), gap=12*hk;
   const spalte=!!v.spieler && w>=860 && w>h*1.1;
-  const mainW=spalte ? w-280*hk-16*hk : w;
-  const schnell=v.schnell.length>0;
-  const zeile=(v.aktiv.length>0 || schnell) && !v.liste;
+  const seiteW=spalte ? 280*hk+16*hk : 0, linksW=HS_LINKS*hk+16*hk;
+  // Aufbau der Ansicht (Server: HAUS_AUFBAUTEN). "spalte" nur quer und nur,
+  // wo neben ihr (und dem Spieler) noch zwei Raumspalten passen, sonst wie
+  // "status"; die Unterseite "Gerade aktiv" gehoert zu "status"
+  let aufbau=v.liste ? 'status' : (v.aufbau||'status');
+  if(aufbau==='spalte' && !(w>h*1.1 && w-seiteW-linksW>=2*HS_RAUM_MIN*hk+gap)) aufbau='status';
+  const links=aufbau==='spalte';
+  const mainW=w-seiteW-(links?linksW:0);
+  // Schnellaktionen: als Zeile ueber den Raumkarten, in "spalte" links unten
+  const schnell=v.schnell.length>0 && !links;
+  const zeile=aufbau==='status' && (v.aktiv.length>0 || v.schnell.length>0) && !v.liste;
   const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
-  // Hoehe fuer die Raumkarten: Flaeche minus Kopf, Zeile "Gerade aktiv",
+  // Hoehe fuer die Raumkarten: Flaeche minus Kopf (in "spalte" nur die
+  // Titelzeile), Zeile "Gerade aktiv" bzw. Titelzeile "Raeume",
   // Schnellaktionen und (hochkant) die Spieler-Leiste
   const tH=Math.max(44,56*hk), abst=14*hk;
-  let raumH=h-72*hk-abst;
+  let raumH=h-(links ? Math.max(44,48*hk) : 72*hk)-abst;
   if(zeile) raumH-=Math.max(44,48*hk)+10*hk+Math.max(64,80*hk)+abst;
+  if(aufbau==='raeume') raumH-=Math.max(44,48*hk)+abst;
   if(schnell) raumH-=Math.max(44,72*hk)+abst;
   if(v.spieler && !spalte) raumH-=28*hk+64*hk+12*hk+tH+abst;
   // Spalten der Raeume: die, deren Karten dem Seitenverhaeltnis am naechsten
   // kommen, ohne zu scrollen; scrollt jede Wahl, die mit den meisten Spalten
-  // ueber der Mindestbreite und feste Kartenhoehe
+  // ueber der Mindestbreite und feste Kartenhoehe. Karten mit Tasten
+  // ("raeume") brauchen mehr Hoehe
+  const hoch=(aufbau==='raeume' ? HS_RAUM_HOCH_TASTEN : HS_RAUM_HOCH)*hk;
   const n=Math.max(1, v.raeume.length);
   let best=null;
   for(let c=1;c<=4;c++){
     const cw=(mainW-(c-1)*gap)/c; if(c>1 && cw<HS_RAUM_MIN*hk) break;
     const rows=Math.ceil(n/c), ch=(raumH-(rows-1)*gap)/rows;
-    const scroll=ch<HS_RAUM_HOCH*hk;
+    const scroll=ch<hoch;
     const wert=(scroll?10:0)+Math.abs(Math.log((cw/Math.max(1,ch))/HS_RAUM_SEITE));
     if(!best || wert<best.wert) best={c, wert, scroll};
   }
-  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(HS_RAUM_HOCH*1.15*hk)+'px' : '', zeile, schnell};
+  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(hoch*1.15)+'px' : '', zeile, schnell, aufbau, links};
+}
+// Wetter in einer Zeile: die Vorschau fuer morgen, ohne sie Lage und Hoch/Tief von heute
+function hsWetter(w){
+  const mo=(Array.isArray(w.forecast)?w.forecast:[])[1];
+  return mo ? [mo.day, tdeg(mo.hi)+' / '+tdeg(mo.lo)].filter(Boolean).join(' ')
+    : [w.cond, (w.hi!=null||w.lo!=null) ? tdeg(w.hi)+' / '+tdeg(w.lo) : ''].filter(Boolean).join(' · ');
+}
+// Raumkarte "status"/"spalte": die ganze Karte oeffnet den Raum
+function hsRaumKarte(r, i, L){
+  const sym=r.symbole.map(s=>'<span class="s'+(s.on?' on':'')+'">'+hsIco(s)+'</span>').join('');
+  return '<button type="button" class="hs-c hs-r" data-hb="r:'+esc(r.id)+'" data-hs="raum" data-i="'+i+'" aria-label="'+esc('Raum '+r.name+' öffnen')+'">'+
+    '<span class="kopf"><span class="nm">'+esc(r.name)+'</span><span class="chev'+(L.spalte?'':' rund')+'">'+svg(HS_PFEIL)+'</span></span>'+
+    '<span class="wt'+((r.wert||'').length>8?' lang':'')+'">'+esc(r.wert||'')+'</span>'+
+    '<span class="sb">'+esc(r.sub || (r.anzahl===1 ? '1 Baustein' : r.anzahl+' Bausteine'))+'</span>'+
+    '<span class="sym">'+sym+(r.an?'<span class="an">'+r.an+' an</span>':'')+'</span></button>';
+}
+// Raumkarte "raeume": runde Tasten schalten direkt (Server: _haus_tasten), die
+// Taste oben rechts oeffnet den Raum. Eine Taste mit Rueckfrage (frage) zeigt
+// nach dem ersten Tipp die Frage, erst der zweite schaltet (hsFrage)
+function hsRaumTasten(r, i){
+  const tasten=(r.tasten||[]).map((t,j)=>{
+    const frage=hsFrage===t.id && t.frage;
+    return '<button type="button" class="hs-t'+(t.an?' on':'')+(frage?' arm':'')+'" data-hs="taste" data-r="'+i+'" data-t="'+j+'" aria-pressed="'+t.an+'" '+
+      'aria-label="'+esc(t.name+' '+r.name+', '+(frage||t.zustand))+'"><span class="k">'+hsIco(t)+'</span><span class="l">'+esc(frage||t.name)+'</span></button>';
+  }).join('');
+  return '<div class="hs-c hs-r direkt" data-hb="r:'+esc(r.id)+'">'+
+    '<span class="kopf"><span class="nm">'+esc(r.name)+'</span><button type="button" class="chev rund" data-hs="raum" data-i="'+i+'" aria-label="'+
+      esc('Raum '+r.name+' öffnen')+'">'+svg(HS_PFEIL)+'</button></span>'+
+    '<span class="wt'+((r.wert||'').length>8?' lang':'')+'">'+esc(r.wert||'')+'</span>'+
+    '<span class="sb">'+esc(r.sub || (r.anzahl===1 ? '1 Baustein' : r.anzahl+' Bausteine'))+'</span>'+
+    (tasten ? '<span class="tasten">'+tasten+'</span>' : '')+'</div>';
 }
 function hausBloecke(v, L){
   const B=[], d=frontData||{}, w=d.weather, ev=(Array.isArray(d.events)?d.events:[])[0];
-  let kopf='<div class="hs-kopf" data-hb="kopf"><div class="hs-uhr"><span class="t" id="hsTime">--:--</span><span class="d" id="hsDate"></span></div>';
-  // zweite Zeile: die Vorschau fuer morgen, ohne sie Lage und Hoch/Tief von heute
-  const mo=(Array.isArray(w&&w.forecast)?w.forecast:[])[1];
-  if(w) kopf+='<div class="hs-c hs-k">'+'<span class="hs-i wx">'+wxSvg(w.icon)+'</span><span class="tx"><span class="z">'+tdeg(w.temp)+'</span>'+
-    '<span class="w">'+esc(mo ? [mo.day, tdeg(mo.hi)+' / '+tdeg(mo.lo)].filter(Boolean).join(' ')
-      : [w.cond, (w.hi!=null||w.lo!=null) ? tdeg(w.hi)+' / '+tdeg(w.lo) : ''].filter(Boolean).join(' · '))+'</span></span></div>';
-  if(ev) kopf+='<div class="hs-c hs-k"><span class="tx"><span class="w">'+esc([ev.day, ev.time].filter(Boolean).join(', '))+'</span>'+
-    '<span class="z">'+esc(ev.title||'')+'</span></span></div>';
   const e=v.energie, summen=e && e.cons!=null;
-  if(e) kopf+='<button type="button" class="hs-c hs-k" data-hs="energie" aria-label="'+esc(e.label)+'">'+
-    '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
-    '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
-  B.push(['kopf','main',kopf+'</div>']);
+  if(L.links){
+    // Spalte links: Uhr mit Wetter, Energie, "Auf einen Blick" (Server:
+    // _haus_blick), darunter die Schnellaktionen
+    B.push(['luhr','links','<div class="hs-luhr" data-hb="luhr"><span class="t" id="hsTime">--:--</span><span class="d" id="hsDate"></span>'+
+      (w ? '<span class="wx"><span class="hs-i">'+wxSvg(w.icon)+'</span><span class="z">'+tdeg(w.temp)+'</span><span class="w">'+esc(hsWetter(w))+'</span></span>' : '')+'</div>']);
+    if(e) B.push(['lenergie','links','<button type="button" class="hs-c hs-len" data-hb="lenergie" data-hs="energie" aria-label="'+esc(e.label)+'">'+
+      '<span class="kopf"><b>Energie</b><span>'+esc(e.label)+'</span></span>'+
+      (summen ? '<span class="werte">'+(e.prod!=null ? '<span class="wt"><span class="w">Produktion</span><span class="z">'+esc(fmtPower(e.prod))+'</span></span>' : '')+
+        '<span class="wt"><span class="w">Verbrauch</span><span class="z">'+esc(fmtPower(e.cons))+'</span></span></span>'
+       : '<span class="z">'+esc(e.wert||e.label)+'</span>')+'</button>']);
+    const blick=v.blick||[];
+    B.push(['blick','links','<div class="hs-c hs-blick" data-hb="blick"><h2>Auf einen Blick</h2><div class="liste">'+
+      (blick.length ? blick.map((x,i)=>'<button type="button" class="hs-bz" data-hs="blick" data-i="'+i+'"'+(x.nav?'':' disabled')+'>'+hsIco(x)+
+        '<span class="tx"><span class="z">'+esc(x.zustand)+'</span><span class="w">'+esc(x.name)+'</span></span></button>').join('')
+       : '<span class="w">Nichts zu melden</span>')+'</div></div>']);
+  } else {
+    let kopf='<div class="hs-kopf" data-hb="kopf"><div class="hs-uhr"><span class="t" id="hsTime">--:--</span><span class="d" id="hsDate"></span></div>';
+    if(w) kopf+='<div class="hs-c hs-k">'+'<span class="hs-i wx">'+wxSvg(w.icon)+'</span><span class="tx"><span class="z">'+tdeg(w.temp)+'</span>'+
+      '<span class="w">'+esc(hsWetter(w))+'</span></span></div>';
+    if(ev) kopf+='<div class="hs-c hs-k"><span class="tx"><span class="w">'+esc([ev.day, ev.time].filter(Boolean).join(', '))+'</span>'+
+      '<span class="z">'+esc(ev.title||'')+'</span></span></div>';
+    if(e) kopf+='<button type="button" class="hs-c hs-k" data-hs="energie" aria-label="'+esc(e.label)+'">'+
+      '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
+      '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
+    B.push(['kopf','main',kopf+'</div>']);
+  }
   // Schnellaktionen (Zentral-Bausteine der Anlage): rechts, wie viele an sind,
-  // leer, wenn nichts laeuft; die Zahl kommt mit jeder Zustandsaenderung neu
-  if(v.schnell.length) B.push(['schnell','schnell','<div class="hs-schnell" data-hb="schnell">'+v.schnell.map((s,i)=>{
+  // leer, wenn nichts laeuft; die Zahl kommt mit jeder Zustandsaenderung neu.
+  // In "spalte" stehen sie links unter "Auf einen Blick"
+  if(v.schnell.length) B.push(['schnell',L.links?'links':'schnell','<div class="hs-schnell" data-hb="schnell">'+v.schnell.map((s,i)=>{
     const n=s.an ? s.an+' an' : '';
     return '<button type="button" class="hs-c hs-s" data-hs="schnell" data-art="'+esc(s.art)+'" data-i="'+i+'" aria-label="'+
       esc(s.label+(n ? ', '+n : ''))+'"><span class="hs-i">'+svg(ICONS[HS_SCHNELL_ICO[s.art]]||ICONS.switch)+'</span>'+
@@ -5319,14 +5436,10 @@ function hausBloecke(v, L){
       if(!v.aktiv.length) B.push(['ruhig','aktiv','<div class="hs-c hs-a" data-hb="ruhig"><span class="hs-i ok">'+svg(HS_RUHIG)+'</span>'+
         '<span class="tx"><span class="z">Alles ruhig</span><span class="w">Kein Licht an, keine Musik</span></span></div>']);
     }
-    v.raeume.forEach((r,i)=>{
-      const sym=r.symbole.map(s=>'<span class="s'+(s.on?' on':'')+'">'+hsIco(s)+'</span>').join('');
-      B.push(['r:'+r.id,'raeume','<button type="button" class="hs-c hs-r" data-hb="r:'+esc(r.id)+'" data-hs="raum" data-i="'+i+'" aria-label="'+esc('Raum '+r.name+' öffnen')+'">'+
-        '<span class="kopf"><span class="nm">'+esc(r.name)+'</span><span class="chev'+(L.spalte?'':' rund')+'">'+svg(HS_PFEIL)+'</span></span>'+
-        '<span class="wt'+((r.wert||'').length>8?' lang':'')+'">'+esc(r.wert||'')+'</span>'+
-        '<span class="sb">'+esc(r.sub || (r.anzahl===1 ? '1 Baustein' : r.anzahl+' Bausteine'))+'</span>'+
-        '<span class="sym">'+sym+(r.an?'<span class="an">'+r.an+' an</span>':'')+'</span></button>']);
-    });
+    // "raeume" und "spalte": statt "Gerade aktiv" eine Titelzeile mit der Zahl
+    if(L.aufbau!=='status') B.push(['rkopf','main','<div class="hs-zeile" data-hb="rkopf"><h2>Räume</h2><span class="n">'+
+      (v.aktiv.length===1 ? '1 Gerät an' : v.aktiv.length+' Geräte an')+'</span></div>']);
+    v.raeume.forEach((r,i)=>B.push(['r:'+r.id,'raeume', L.aufbau==='raeume' ? hsRaumTasten(r,i) : hsRaumKarte(r,i,L)]));
   }
   const sp=v.spieler;
   if(sp){
@@ -5363,7 +5476,7 @@ function hausBloecke(v, L){
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
 // Zur Lage gehoert, ob die Raumkarten scrollen, nicht ihre Hoehe: die waechst
 // mit --hk und kommt wie die anderen Masse aus hausMasse
-function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, !!L.rh, L.zeile, B.map(b=>b[0])]); }
+function hausSig(L, B){ return JSON.stringify([L.aufbau, L.links, L.spalte, L.sp, L.rc, !!L.rh, L.zeile, B.map(b=>b[0])]); }
 // Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
 // Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
 function hausMasse(g, L){
@@ -5394,7 +5507,8 @@ function renderHaus(){
   if(v.liste) main+=teil('schnell')+'<div class="hs-liste">'+teil('liste')+'</div>';
   else { main+=(L.zeile?'<div class="hs-aktiv">'+teil('aktiv')+'</div>':'')+teil('schnell')+'<div class="hs-raeume">'+teil('raeume')+'</div>'; }
   main+=teil('unten');
-  g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+'"><div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
+  const links=L.links ? '<div class="hs-links">'+teil('links')+'</div>' : '';
+  g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+(L.links?' links':'')+'">'+links+'<div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
   hausReihen(g);
   g._hsSig=hausSig(L, B);
@@ -5421,6 +5535,10 @@ function updateHaus(){
   tickClock();
   return true;
 }
+// Aufbau "raeume": Taste mit Rueckfrage nach dem ersten Tipp (id des
+// Bausteins) und ihr Zeitlimit; renderHaus/updateHaus zeichnen sie danach
+let hsFrage=null, hsFrageT=null;
+function hausNeu(){ if(view && view.layout==='haus' && !updateHaus()) renderHaus(); }
 function hausZone(id){
   const r=Object.assign({}, view.route, {zone:id});
   stack[stack.length-1]=r; send({t:'nav', route:r});
@@ -5441,6 +5559,17 @@ function hausKlick(e){
     if(neu!==l.wert) sendCmd(l.cmd.uuid, l.cmd.tmpl.replace('{v}', neu), sp.secured); }
   else if(art==='zone' && b.dataset.id) hausZone(b.dataset.id);
   else if(art==='quellen'){ if(sp && sp.mehr) nav(sp.mehr); }
+  else if(art==='blick'){ const x=v.blick && v.blick[i]; if(x && x.nav) nav(x.nav); }
+  else if(art==='taste'){
+    const r=v.raeume[+b.dataset.r], t=r && r.tasten && r.tasten[+b.dataset.t]; if(!t) return;
+    clearTimeout(hsFrageT);
+    if(t.frage && hsFrage!==t.id){
+      // erster Tipp: nachfragen, nach ZELLE_BESTAETIGEN_MS ohne zweiten zurueck
+      hsFrage=t.id; hsFrageT=setTimeout(()=>{ hsFrage=null; hausNeu(); }, ZELLE_BESTAETIGEN_MS); hausNeu(); return;
+    }
+    if(hsFrage){ hsFrage=null; hausNeu(); }
+    sendCmd(t.cmd.uuid, t.cmd.cmd, t.secured);
+  }
 }
 // Test-/Vorschau-Schalter: ?front=1 zeigt die ausfuehrliche Ansicht als Vollseite.
 const FRONT_TEST=new URLSearchParams(location.search).has('front');

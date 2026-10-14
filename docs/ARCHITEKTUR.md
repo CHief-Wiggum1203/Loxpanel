@@ -1868,6 +1868,33 @@ Assistenten des Konfigurators.
     Werteleiste (`paneRawNow()` in der Visu, `sePaneZeichnen()` im
     Konfigurator); ohne eigenes Symbol zeigt die Leiste das Haus
     (`_tab_meta()` meldet `haus`).
+  - **Aufbau je Ansicht** (14.10.2026, `ui.hausAufbau`, Auswahl und
+    Beschriftung in `HAUS_AUFBAUTEN`, ohne Einstellung `HAUS_AUFBAU_STANDARD`
+    = „Status zuerst“; Konfigurator: Aussehen → „Hausübersicht“, Optionen aus
+    `/api/meta` `hausAufbauten`). Der Server rechnet je Aufbau dazu, was die
+    Visu braucht (`aufbau` in der Ansicht), die Visu wählt in `hausLage()`:
+    - *Status zuerst* (`status`, Entwurf „Hausübersicht B“): wie unten
+      beschrieben, mit „Gerade aktiv“.
+    - *Räume direkt* (`raeume`, Entwurf „Hausübersicht C“): statt „Gerade
+      aktiv“ die Titelzeile „Räume · n Geräte an“; die Raumkarte ist keine
+      Taste, oben rechts öffnet der Pfeil den Raum, unten schalten bis zu
+      `HAUS_TASTEN` runde Tasten direkt (`_haus_tasten()`): Bausteine mit Aus-
+      (`HAUS_AUS`) und Ein-Befehl (`_haus_ein()`, `HAUS_EIN` laut
+      Strukturdoku; Treppenlicht `pulse`, Lichtsteuerung die erste Stimmung
+      ohne „Aus“). Was `HAUS_RUECKFRAGE` nennt (Sauna), fragt vor dem
+      Einschalten nach: der erste Tipp zeigt die Frage an der Taste
+      (`hsFrage`), erst ein zweiter innerhalb von `ZELLE_BESTAETIGEN_MS`
+      schaltet. Die Karte braucht mehr Höhe (`HS_RAUM_HOCH_TASTEN`).
+    - *Spalte links* (`spalte`, Entwurf „Großes Display – Hausübersicht“):
+      links (`HS_LINKS`) große Uhr mit Wetter, Energie mit Produktion und
+      Verbrauch, „Auf einen Blick“ (`_haus_blick()`: was einen Zustand
+      meldet, sich aber nicht abschalten lässt, etwa Postkasten, Lüftung,
+      Zentral-Bausteine; ohne Energie-Baustein und ohne Raumregelung/Sauna,
+      ein Tipp öffnet den Baustein) und die Schnellaktionen untereinander;
+      in der Mitte die Raumkarten unter „Räume · n Geräte an“, rechts der
+      Spieler. Nur quer und nur, wo neben Spalte und Spieler zwei
+      Raumspalten passen (nicht hochkant, nicht auf dem iPad quer neben der
+      Leiste links des Sets Kreide), sonst zeigt das Gerät „Status zuerst“.
   - **Kopf:** Uhr, Wetter mit der Vorschau für morgen (`forecast[1]`) und der
     nächste Termin kommen aus der Front. Die Energie stammt vom ersten
     Energieflussmonitor bzw. Energiemanager der Seite, sonst der Anlage
@@ -1946,7 +1973,9 @@ Assistenten des Konfigurators.
     `tests/browser/test_haus_browser.py`: iPad quer und hochkant und großes
     Display, ohne Set und in jedem Set; kein waagerechtes Scrollen, Tasten ab
     44 px, nichts abgeschnitten; Bedienen am Miniserver-Nachbau, Tausch nur
-    des geänderten Blocks; Schnellaktionen im Set Loxone (Maße gegen die
+    des geänderten Blocks; beide weiteren Aufbauten in jedem Set und jeder
+    Größe, Bedienen (Tasten, Rückfrage, „Auf einen Blick“) und ihre Wahl im
+    Konfigurator; Schnellaktionen im Set Loxone (Maße gegen die
     Tokens, Befehl an den Zentral-Baustein, Anzahl verschwindet über
     `_on_value()` und kommt wieder) und ohne Zentral-Baustein kein Knopf.
     Die Lesbarkeit aller Texte in allen Sets misst

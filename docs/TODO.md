@@ -1737,14 +1737,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Baustein der Seite einzeln abschalteten (`hausaus`). Die linke Spalte
       des Entwurfs mit „Auf einen Blick“ ist nicht gebaut. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. **S**
-- [ ] **Hausübersicht Teil 2: Schwerpunkt „Räume direkt“.** Runde Tasten in
-      der Raumkarte, die Licht, Audio, Sauna (mit Rückfrage), Timer direkt
-      schalten; „Licht an“ schaltet die erste Stimmung der Lichtsteuerung.
-      Optionen je Ansicht `ui.haus = {schwerpunkt, aktivZeile, energie}`
-      (`_sanitize_panels`, `_panel_export`, `PANEL_STANDARD`). **M**
-- [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Gruppe
-      „Hausübersicht“ im Aussehen-Reiter (Schwerpunkt, Zeile „Gerade aktiv“,
-      Energie-Quelle), im Assistenten „Hausübersicht als erste Seite“. **M**
+- [x] **Hausübersicht Teil 2: Aufbau je Ansicht** (14.10.2026). Statt
+      eines „Schwerpunkts“ wählt die Ansicht einen von drei Aufbauten
+      (`ui.hausAufbau`, `HAUS_AUFBAUTEN`): „Status zuerst“ (bisher),
+      „Räume direkt“ (Entwurf „Hausübersicht C“: runde Tasten in der
+      Raumkarte schalten Licht, Audio, Sauna mit Rückfrage, Treppenlicht und
+      Schalter; „Licht an“ schaltet die erste Stimmung) und „Spalte links“
+      (Entwurf „Großes Display“: Uhr, Wetter, Energie, „Auf einen Blick“ und
+      die Schnellaktionen links; wo sie nicht passt, „Status zuerst“). Dazu
+      im Spieler die drei Punkte zur Musikauswahl wie auf der Detailseite.
+      Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. **M**
+- [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Die Gruppe
+      „Hausübersicht“ im Aussehen-Reiter gibt es seit 14.10.2026 mit dem
+      Aufbau. Offen: Zeile „Gerade aktiv“ und Energie-Quelle wählbar, im
+      Assistenten „Hausübersicht als erste Seite“. **M**
 - [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
       Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen
       (480×480 bis 2560×1600) und fünf Profilvarianten: Die Kachel*anzahl*

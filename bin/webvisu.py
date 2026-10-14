@@ -306,6 +306,31 @@ HAUS_SCHNELL = {
 }
 # Symbole je Raumkarte (schaltbare zuerst)
 HAUS_SYMBOLE = 4
+# Aufbau der Hausseite je Ansicht (ui.hausAufbau), Name -> Beschriftung im
+# Konfigurator (i18n.js uebersetzt sie): "status" stellt "Gerade aktiv" nach
+# oben (Entwurf "Hausübersicht B"), "raeume" schaltet in jeder Raumkarte
+# direkt (Entwurf "Hausübersicht C"), "spalte" hat links eine Spalte mit Uhr,
+# Wetter, Energie, "Auf einen Blick" und den Schnellaktionen (Entwurf "Großes
+# Display"). Ohne Einstellung "status" (PANEL_STANDARD).
+HAUS_AUFBAUTEN = {"status": "Status zuerst", "raeume": "Räume direkt", "spalte": "Spalte links"}
+HAUS_AUFBAU_STANDARD = "status"
+# Aufbau "raeume": Ein-Befehl je Bausteintyp laut Strukturdoku, aus schaltet
+# HAUS_AUS. Der Treppenlichtschalter (TimedSwitch) startet seinen Ablauf
+# (pulse) statt dauerhaft (on). Die Lichtsteuerung schaltet ihre erste
+# Stimmung ein (_haus_ein). Was beides nicht hat, bekommt keine Taste.
+HAUS_EIN = {
+    "Switch": "on",
+    "TimedSwitch": "pulse",
+    "Dimmer": "on",
+    "EIBDimmer": "on",
+    "AudioZone": "play",
+    "AudioZoneV2": "play",
+    "Sauna": "on",
+}
+# ... vor dem Einschalten fragt die Taste nach (erst der zweite Tipp schaltet)
+HAUS_RUECKFRAGE = {"Sauna": "Einschalten?"}
+# ... und so viele Tasten hat eine Raumkarte hoechstens
+HAUS_TASTEN = 3
 # Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
 # bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
 # Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt die
@@ -579,6 +604,7 @@ VORSCHAU_GERAET_DAUER = 900
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
 # ein Tupel nennt mehrere Schreibweisen desselben Standards.
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
+                  ("ui", "hausAufbau"): HAUS_AUFBAU_STANDARD,
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("ui", "paneCols"): 0,
                   # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch)
@@ -2969,6 +2995,8 @@ class App:
             # ... und ihr Hinweis-Symbol (Vorgaben und Ansicht gemischt wie oben)
             "gestenHinweis": (ui["gestenHinweis"] if isinstance(ui.get("gestenHinweis"), bool)
                               else GESTEN_HINWEIS_STANDARD),
+            # Aufbau der Hausseite (HAUS_AUFBAUTEN)
+            "hausAufbau": ui["hausAufbau"] if ui.get("hausAufbau") in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD,
         }
 
     def player_blocks(self, uuid: str, mehr: bool = False):
@@ -3749,7 +3777,7 @@ class App:
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
                        "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
-                       "nightClock", "nightClockBright")}
+                       "nightClock", "nightClockBright", "hausAufbau")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3951,6 +3979,8 @@ class App:
                 cui["gestenHinweis"] = ui["gestenHinweis"]   # Hinweis-Symbol an/aus; fehlt = wie Vorgaben
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
+            if ui.get("hausAufbau") in HAUS_AUFBAUTEN and ui["hausAufbau"] != HAUS_AUFBAU_STANDARD:
+                cui["hausAufbau"] = ui["hausAufbau"]   # Aufbau der Hausseite; fehlt = HAUS_AUFBAU_STANDARD
             _ks = _clean_kachel_set(ui.get("tileSet"))
             if _ks:
                 cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
@@ -5593,6 +5623,61 @@ class App:
             return None
         return {"uuid": c["uuidAction"], "cmd": e[0], "taste": e[1]}
 
+    def _haus_ein(self, uuid: str) -> dict | None:
+        """Ein-Befehl eines Bausteins fuer die Tasten der Raumkarte (Aufbau
+        "raeume", HAUS_EIN) oder None. Die Lichtsteuerung schaltet ihre erste
+        Stimmung ohne "Aus" ein; ohne Stimmung hat sie keinen."""
+        c = self.controls.get(uuid) or {}
+        if not c.get("uuidAction"):
+            return None
+        if c.get("type") == "LightControllerV2":
+            stimmungen = self._geste_stimmungen(uuid)
+            return {"uuid": c["uuidAction"], "cmd": f"changeTo/{stimmungen[0][0]}"} if stimmungen else None
+        cmd = HAUS_EIN.get(c.get("type"))
+        return {"uuid": c["uuidAction"], "cmd": cmd} if cmd else None
+
+    def _haus_tasten(self, uuids: list, items: list) -> list:
+        """Tasten einer Raumkarte im Aufbau "raeume": die ersten HAUS_TASTEN
+        Bausteine, die sich ab- und einschalten lassen (HAUS_AUS, _haus_ein),
+        mit dem Befehl, der ihren Zustand umkehrt. Was HAUS_RUECKFRAGE nennt,
+        fragt vor dem Einschalten nach (frage)."""
+        out = []
+        for u, it in zip(uuids, items):
+            aus, ein = self._haus_aus(u), self._haus_ein(u)
+            if not (aus and ein):
+                continue
+            an = bool(it.get("on"))
+            t = {"id": u, "name": it.get("label") or "", "an": an, "zustand": it.get("sublabel") or "",
+                 "cmd": {"uuid": aus["uuid"], "cmd": aus["cmd"]} if an else ein, **self._haus_symbol(it)}
+            frage = HAUS_RUECKFRAGE.get(self.controls[u].get("type"))
+            if frage and not an:
+                t["frage"] = frage
+            if it.get("secured"):
+                t["secured"] = True
+            out.append(t)
+            if len(out) == HAUS_TASTEN:
+                break
+        return out
+
+    def _haus_blick(self, uuids: list, items: list, raum: str, energie: str | None) -> list:
+        """"Auf einen Blick" im Aufbau "spalte": Bausteine, die einen Zustand
+        melden, sich aber nicht abschalten lassen (nicht in HAUS_AUS, etwa
+        Postkasten, Lueftung, Zentral-Bausteine). Was einen grossen Wert hat
+        (Raumregelung, Sauna), steht schon auf der Raumkarte, der Energie-
+        Baustein im Kopf der Spalte; beschreibende Zeilen (subInfo) zaehlen
+        nicht. Ein Tipp oeffnet den Baustein."""
+        out = []
+        for u, it in zip(uuids, items):
+            if self._haus_aus(u) or it.get("big") is not None or u == energie \
+                    or not it.get("sublabel") or it.get("subInfo"):
+                continue
+            b = {"id": u, "zustand": str(it["sublabel"]), "name": " · ".join(x for x in (it.get("label"), raum) if x),
+                 **self._haus_symbol(it)}
+            if it.get("nav"):
+                b["nav"] = it["nav"]
+            out.append(b)
+        return out
+
     def _haus_spieler(self, zonen: list, wahl, prof: dict | None) -> dict | None:
         """Spieler der Hausseite: die gewaehlte Zone (Route "zone"), sonst die
         erste, die spielt, sonst die erste. Inhalt aus den Bloecken der
@@ -6001,8 +6086,13 @@ class App:
         abschalten laesst, mit Aus-Taste), die Schnellaktionen (_haus_schnell),
         der Spieler einer Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter
         und Termine kommen in der Visu aus der Front. Route: zone (gewaehlte
-        Zone), liste="aktiv" (Unterseite mit allen aktiven Geraeten)."""
-        raeume, aktiv, zonen, alle = [], [], [], []
+        Zone), liste="aktiv" (Unterseite mit allen aktiven Geraeten).
+        Der Aufbau der Ansicht (HAUS_AUFBAUTEN) bringt dazu: "raeume" je
+        Raumkarte ihre Tasten (_haus_tasten), "spalte" "Auf einen Blick"
+        (_haus_blick)."""
+        aufbau = (prof or {}).get("hausAufbau")
+        aufbau = aufbau if aufbau in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD
+        raeume, aktiv, zonen, alle, blick_roh = [], [], [], [], []
         for ru, uuids in self._haus_raeume(prof):
             name = _clean(self.rooms[ru].get("name")) or "Raum"
             items = [self._control_item(u, prof, ohne_raum=name) for u in uuids]
@@ -6027,9 +6117,15 @@ class App:
                     aktiv.append(a)
             symbole = [dict(self._haus_symbol(it), on=bool(it.get("on")))
                        for it in (schaltbar + sonst)[:HAUS_SYMBOLE]]
-            raeume.append({"id": ru, "name": name, "wert": wert, "sub": sub, "an": an,
-                           "anzahl": len(uuids), "symbole": symbole,
-                           "nav": {"view": "group", "kind": "room", "id": ru}})
+            raum = {"id": ru, "name": name, "wert": wert, "sub": sub, "an": an,
+                    "anzahl": len(uuids), "symbole": symbole,
+                    "nav": {"view": "group", "kind": "room", "id": ru}}
+            if aufbau == "raeume":
+                raum["tasten"] = self._haus_tasten(uuids, items)
+            elif aufbau == "spalte":
+                blick_roh.append((uuids, items, name))
+            raeume.append(raum)
+        energie = self._haus_energie(alle, prof)
         tab = (route or {}).get("tab") or HAUS_TAB
         if _is_pick(tab):
             # freie Seite: ihr Name ist der Titel
@@ -6037,10 +6133,13 @@ class App:
             titel = (seiten[i].get("name") if 0 <= i < len(seiten) else "") or HAUS_TITEL
         else:
             titel = HAUS_TITEL
-        out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus",
+        out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus", "aufbau": aufbau,
                "raeume": raeume, "aktiv": aktiv, "schnell": self._haus_schnell(prof),
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
-               "energie": self._haus_energie(alle, prof)}
+               "energie": energie}
+        if aufbau == "spalte":
+            eid = (energie or {}).get("id")
+            out["blick"] = [b for uuids, items, name in blick_roh for b in self._haus_blick(uuids, items, name, eid)]
         if (route or {}).get("liste") == "aktiv":
             out["liste"] = "aktiv"
         return out
@@ -8838,6 +8937,9 @@ async def api_meta(request: web.Request) -> web.Response:
         "lichtStimmungen": app.licht_stimmung_optionen(),
         "gestenStandard": GESTEN_STANDARD,
         "gestenHinweisStandard": GESTEN_HINWEIS_STANDARD,
+        # Aufbau der Hausseite: Auswahl je Ansicht (Aussehen) und ihr Standard
+        "hausAufbauten": [{"key": k, "label": v} for k, v in HAUS_AUFBAUTEN.items()],
+        "hausAufbauStandard": HAUS_AUFBAU_STANDARD,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
