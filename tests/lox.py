@@ -824,7 +824,10 @@ def haus_anlage() -> tuple[dict, dict]:
     Lueftung, Postkasten, Tuersprechanlage, Energiefluss und Zentralen.
     An sind das Licht im Abstellraum, die Zone Essen-Kochen-Wohnen, die
     Frostsicherung und das gesicherte Aussenlicht (Visu-PIN); die Lueftung
-    laeuft, hat aber keinen Aus-Befehl."""
+    laeuft, hat aber keinen Aus-Befehl. Fuer die Hinweise: Klingel (ic),
+    Fenster offen an der Raumregelung (ir4), Post (mb1/mb2), Wassermangel
+    (sa3, die Sauna hat einen Verdampfer) und Stoerung (sa4) der Sauna, alle
+    aus."""
     def b(uuid, name, typ, raum, states, **extra):
         return {"name": name, "type": typ, "uuidAction": uuid, "room": raum, "cat": "c1",
                 "states": states, **extra}
@@ -843,7 +846,9 @@ def haus_anlage() -> tuple[dict, dict]:
         "TS": b("TS", "Timer IR Heizung", "TimedSwitch", "r3", {"deactivationDelay": "ts"}),
         "AZ": b("AZ", "Essen-Kochen-Wohnen", "AudioZoneV2", "r4",
                 {"playState": "az1", "songName": "az2", "volume": "az3"}),
-        "SA": b("SA", "Saunasteuerung", "Sauna", "r5", {"active": "sa1", "tempActual": "sa2"}),
+        "SA": b("SA", "Saunasteuerung", "Sauna", "r5",
+                {"active": "sa1", "tempActual": "sa2", "lessWater": "sa3", "error": "sa4"},
+                details={"hasVaporizer": True}),
         "LC": b("LC", "Sauna", "LightControllerV2", "r5", {"activeMoods": "lc1", "moodList": "lc2"}),
         "IR": b("IR", "Raumregelung Küche", "IRoomControllerV2", "r6",
                 {"tempActual": "ir1", "tempTarget": "ir2", "prepareState": "ir3", "openWindow": "ir4"}),
@@ -853,7 +858,7 @@ def haus_anlage() -> tuple[dict, dict]:
     states = {
         "f-p": 0.0, "f-g": 0.8, "f-s": 0.0, **{f"f-a{i}": 0.1 for i in range(len(EFM_NODES))},
         "fs": 1, "lu": 40, "mb1": 0, "mb2": 0, "ic": 0, "al": 50, "ts": 0,
-        "az1": 2, "az2": "Hitradio Ö3", "az3": 24, "sa1": 0, "sa2": 25.4,
+        "az1": 2, "az2": "Hitradio Ö3", "az3": 24, "sa1": 0, "sa2": 25.4, "sa3": 0, "sa4": 0,
         "lc1": json.dumps([778]), "lc2": moods, "ir1": 21.5, "ir2": 22.0, "ir3": 1, "ir4": 0,
         "la1": json.dumps([1]), "la2": moods, "ab1": 0, "ab2": 10,
     }

@@ -109,10 +109,19 @@ ANSICHTEN = {
     # ... ihre weiteren Aufbauten: Tasten in der Raumkarte, Spalte links
     "haus_raeume": (TABS + ["haus"], {"hausAufbau": "raeume"}, ["goTab('haus')"]),
     "haus_spalte": (TABS + ["haus"], {"hausAufbau": "spalte"}, ["goTab('haus')"]),
+    # ... mit Hinweisen (ZUSTAENDE): als Leiste unter dem Kopf und oben in
+    # "Auf einen Blick"
+    "haus_hinweise": (TABS + ["haus"], {}, ["goTab('haus')"]),
+    "haus_spalte_hinweise": (TABS + ["haus"], {"hausAufbau": "spalte"}, ["goTab('haus')"]),
     # Verbindungsleiste: Miniserver weg, mit den Texten, die der Server schickte
     "verbindung": (TABS, {}, ["verbMiniserver({ms: false, seit: Date.now() - 60000, stand: Date.now() - 61000,"
                               " takt: verb.takt, stumm: verb.stumm, hinweis: 0, texte: verb.texte})"]),
 }
+# Zustaende, die eine Ansicht dazu braucht: die Hinweise der Hausuebersicht in
+# allen drei Stufen - Klingel (dringend, gefuellte Stoerungsflaeche), Fenster
+# offen, ohne dass der Raum heizt (Warnung), Post (an)
+HINWEISE = {"ic1": 1, "ir3": 0, "ir4": 1, "mb1": 1}
+ZUSTAENDE = {"haus_hinweise": HINWEISE, "haus_spalte_hinweise": HINWEISE}
 # Ansichten, in denen nur ein Teil zaehlt: die Leiste. Die Kacheln darunter
 # sind dann gesperrt und absichtlich blass (WCAG 1.4.3 nimmt inaktive
 # Bedienelemente aus).
@@ -132,10 +141,11 @@ def _faelle():
                     {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
 
 
-def _app(ui, tabs, daten, werte=False):
+def _app(ui, tabs, daten, werte=False, zustaende=None):
     app = W.App({"host": "", "port": 80})
     app._apply_structure({**STRUKTUR, "controls": {**STRUKTUR["controls"], **WERTE}} if werte else STRUKTUR)
     app.states = {**STATES, **WERTE_STATES} if werte else dict(STATES)
+    app.states.update(zustaende or {})
     app.panels = W.App._sanitize_panels({"test": {"title": "Test", "ui": {"grid": "auto", **ui}, "tabs": tabs}})
     app._front = app._front_payload(daten)
     return app
@@ -148,7 +158,8 @@ def _messen(ui, monkeypatch, tmp_path, bild):
         async with async_playwright() as p:
             b = await p.chromium.launch()
             for ansicht, (tabs, extra, schritte, *werte) in ANSICHTEN.items():
-                runner, port, bc = await visu_starten(_app({**ui, **extra}, tabs, daten, bool(werte and werte[0])))
+                runner, port, bc = await visu_starten(_app({**ui, **extra}, tabs, daten, bool(werte and werte[0]),
+                                                           ZUSTAENDE.get(ansicht)))
                 try:
                     pg = await b.new_page(viewport={"width": 1000, "height": 750}, locale="de-DE")
                     pg.on("pageerror", lambda e: fehler.append(str(e)))
@@ -180,6 +191,8 @@ def test_jeder_text_ist_lesbar(fall, ui, monkeypatch, tmp_path):
         assert texte, (fall, a, "kein Text gemessen")
     for a in ("kopfzeile_werte", "werteleiste"):   # die Werte der Chips sind dabei
         assert sum(".vl" in t["wo"] for t in raus[a]) >= 2, (fall, a, raus[a])
+    for a in ZUSTAENDE:   # die Hinweise sind dabei, auch der gefuellte
+        assert {"Es klingelt", "Fenster offen", "Post da"} <= {t["text"] for t in raus[a]}, (fall, a, raus[a])
     if TC.kachel_set_art(ui.get("tileSet"))[1] == "oben":   # Pane 2 flach auf dem Feld: ihr Text zaehlt mit
         assert any("pptitle" in t["wo"] for t in raus["player_daneben"]), (fall, raus["player_daneben"])
     assert not any(schlecht.values()), (fall, {a: t for a, t in schlecht.items() if t})

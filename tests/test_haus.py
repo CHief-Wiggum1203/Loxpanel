@@ -1,9 +1,9 @@
 """Hausuebersicht (Tab "haus", App._view_haus) im Server: Tab und Route, je
 Raum eine Karte mit Hauptwert und Symbolen, "Gerade aktiv" (an UND mit
 Aus-Befehl aus HAUS_AUS), die Schnellaktionen (Befehl an den Zentral-Baustein
-der Anlage und wie viele seiner Mitglieder an sind), der Spieler aus den
-Bloecken der Detailseite und die Energie fuer den Kopf. Anlage:
-lox.haus_anlage()."""
+der Anlage und wie viele seiner Mitglieder an sind), die Hinweise (was
+Aufmerksamkeit braucht), der Spieler aus den Bloecken der Detailseite und die
+Energie fuer den Kopf. Anlage: lox.haus_anlage()."""
 import asyncio
 import json
 import math
@@ -226,9 +226,57 @@ def test_spalte_auf_einen_blick():
         ("MB", "Leer", "Postkasten · Eingang"), ("LU", "40 %", "Lüftung · Zentral"),
         ("CA", "Spielt in 1 Raum", "Audio · Zentral"), ("CL", "In 1 Raum aktiv", "Licht · Zentral")]
     assert v["blick"][0]["nav"] == {"view": "control", "id": "MB"}
-    # Post da: der Zustand kommt frisch aus den States
+    # Post da: ein Hinweis (steht darueber), nicht noch einmal unter "Status"
     _app_, v = _aufbau("spalte", mb1=1)
-    assert v["blick"][0]["zustand"] == "Post da"
+    assert [h["id"] for h in v["hinweise"]] == ["MB"] and [b["id"] for b in v["blick"]] == ["LU", "CA", "CL"]
+
+
+def _hinweise(v):
+    return [(h["id"], h["stufe"], h["titel"], h["wo"], h["icon"]) for h in v["hinweise"]]
+
+
+def test_hinweise():
+    """Hinweise der Hausseite: was die Kachel rot (Stoerung, tone crit) oder
+    orange (Warnung, tone warn) zeigt, offene Fenster an der Raumregelung und
+    Post im Postkasten - nach Stufe, darin in der Folge der Raeume. Der Text
+    nennt, was los ist: der Zustand der Kachel oder, wo der es nicht sagt,
+    ihr Hinweis (Sauna: dieselben Texte wie ihre Detailseite). Ein Tipp
+    oeffnet den Baustein. Nichts los: keine Hinweise."""
+    assert _haus(_app())["hinweise"] == []
+    v = _haus(_app(ic=1, ir4=1, mb1=1, sa3=1))
+    assert _hinweise(v) == [
+        ("IC", "dringend", "Es klingelt", "Intercom · Eingang", "cam"),
+        ("IR", "dringend", "Fenster offen", "Raumregelung · Küche · heizt", "window"),
+        ("SA", "warnung", "Wasser nachfüllen", "Saunasteuerung · Sauna", "thermo"),
+        ("MB", "an", "Post da", "Postkasten · Eingang", "mail")]
+    assert [h["nav"] for h in v["hinweise"]] == [{"view": "control", "id": u} for u in ("IC", "IR", "SA", "MB")]
+    # Fenster offen, ohne dass der Raum heizt oder kuehlt: nur eine Warnung
+    assert _hinweise(_haus(_app(ir4=1, ir3=0))) == [("IR", "warnung", "Fenster offen", "Raumregelung · Küche", "window")]
+    assert _hinweise(_haus(_app(ir4=1, ir3=-1)))[0][1:4] == ("dringend", "Fenster offen", "Raumregelung · Küche · kühlt")
+    # Stoerung der Sauna geht dem Wassermangel vor; Text wie auf der Detailseite
+    assert _hinweise(_haus(_app(sa3=1, sa4=1))) == [("SA", "dringend", W.SAUNA_STOERUNG, "Saunasteuerung · Sauna", "thermo")]
+    detail = [b.get("text") for b in _app(sa3=1, sa4=1).render({"view": "control", "id": "SA"}, None)["blocks"]]
+    assert W.SAUNA_WASSER in detail and W.SAUNA_STOERUNG in detail
+    # Wassermangel nur mit Verdampfer
+    app = _app(sa3=1)
+    app.controls["SA"]["details"] = {}
+    assert _haus(app)["hinweise"] == []
+    # Paket: der Zustand der Kachel ist der Text
+    assert _hinweise(_haus(_app(mb1=1, mb2=1)))[0][2] == "Post da · Paket da"
+
+
+def test_hinweise_in_jedem_aufbau_und_als_unterseite():
+    """Jeder Aufbau hat die Hinweise; die Route liste="hinweise" ist ihre
+    Unterseite, eine unbekannte Liste keine. Was die Ansicht ausblendet,
+    meldet auch keinen Hinweis."""
+    for aufbau in W.HAUS_AUFBAUTEN:
+        _app_, v = _aufbau(aufbau, ic=1)
+        assert [h["id"] for h in v["hinweise"]] == ["IC"], aufbau
+    app = _app(ic=1)
+    assert _haus(app, liste="hinweise")["liste"] == "hinweise"
+    assert "liste" not in _haus(app, liste="quatsch")
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "hide": ["IC"]}})
+    assert _haus(app, app.resolve_profile("p"))["hinweise"] == []
 
 
 def test_spieler():

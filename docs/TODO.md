@@ -1735,7 +1735,7 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Objects) und erscheinen nur, wenn es den Baustein gibt. Sie ersetzen
       die Zentral-Tasten in der Kopfzeile von „Gerade aktiv“, die jeden
       Baustein der Seite einzeln abschalteten (`hausaus`). Die linke Spalte
-      des Entwurfs mit „Auf einen Blick“ ist nicht gebaut. Details in
+      des Entwurfs mit „Auf einen Blick“ kam mit Teil 2. Details in
       [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. **S**
 - [x] **Hausübersicht Teil 2: Aufbau je Ansicht** (14.10.2026). Statt
       eines „Schwerpunkts“ wählt die Ansicht einen von drei Aufbauten
@@ -1747,6 +1747,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       die Schnellaktionen links; wo sie nicht passt, „Status zuerst“). Dazu
       im Spieler die drei Punkte zur Musikauswahl wie auf der Detailseite.
       Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. **M**
+- [x] **Hausübersicht: Hinweise** (14.10.2026, Entwurf „Auf einen Blick –
+      mit Hinweisen“). Was Aufmerksamkeit braucht, in jedem Aufbau: dringend
+      (Klingel, Alarm, Rauchmelder, Wecker, Störung der Sauna, offenes
+      Fenster, während der Raum heizt oder kühlt), Warnung (Sauna: Wasser
+      nachfüllen, offenes Fenster sonst) und „an“ (Post). Der Server nimmt
+      sie aus den Kacheln (Ton oder `hinweis` der Kachel), die Bedingung
+      steht also nur einmal. Als Leiste unter dem Kopf mit „+n“ und
+      Unterseite, in „Spalte links“ oben in „Auf einen Blick“ (sonst „Alles
+      in Ordnung“), dort mit den Terminen von heute und morgen, die noch
+      kommen. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1
+      „Hausübersicht“. **M**
 - [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Die Gruppe
       „Hausübersicht“ im Aussehen-Reiter gibt es seit 14.10.2026 mit dem
       Aufbau. Offen: Zeile „Gerade aktiv“ und Energie-Quelle wählbar, im

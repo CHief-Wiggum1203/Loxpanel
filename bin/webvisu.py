@@ -331,6 +331,15 @@ HAUS_EIN = {
 HAUS_RUECKFRAGE = {"Sauna": "Einschalten?"}
 # ... und so viele Tasten hat eine Raumkarte hoechstens
 HAUS_TASTEN = 3
+# Hinweise der Hausseite (_haus_hinweise): was Aufmerksamkeit braucht, in
+# dieser Folge. "dringend" und "warnung" folgen dem Ton der Kachel
+# (HINWEIS_TON, ihr Zustand ist der Text), "an" meldet, dass etwas da ist
+# (Post). Eine Kachel nennt ihren Hinweis selbst (hinweis: stufe, text, dazu
+# symbol und zusatz), wo ihr Zustand ihn nicht benennt.
+HINWEIS_STUFEN = ("dringend", "warnung", "an")
+HINWEIS_TON = {"crit": "dringend", "warn": "warnung"}
+# Unterseiten der Hausseite (Route liste): alle aktiven Geraete, alle Hinweise
+HAUS_LISTEN = ("aktiv", "hinweise")
 # Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
 # bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
 # Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt die
@@ -482,6 +491,9 @@ _ANALOG = {"InfoOnlyAnalog", "Slider", "UpDownAnalog", "Meter", "TextState", "In
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
                3: "Finnische Sauna", 4: "Kräutersauna", 5: "Sanftdampfbad", 6: "Warmluftbad"}
+# ... was die Sauna meldet (States lessWater bzw. error/saunaError), auf der
+# Detailseite und als Hinweis der Hausseite
+SAUNA_WASSER, SAUNA_STOERUNG = "Wasser nachfüllen", "Störung"
 # Alte Raumregelung (IRoomController, v1) laut Loxone-Strukturdoku: Nummern der
 # Temperaturen fuer settemp/starttimer und currHeatTempIx/currCoolTempIx. Die
 # Struktur liefert dazu je Nummer einen State (Liste "temperatures") und in
@@ -4886,7 +4898,14 @@ class App:
             # heizt/kuehlt: V2 meldet es in prepareState, die alte Raumregelung
             # ueber ihre Ventile (siehe _irc1)
             prep = self._state(c, "prepareState") if t == "IRoomControllerV2" else self._irc1(c)["prep"]
-            bits = self._irc_activity(prep, self._state(c, "openWindow"))
+            fenster = self._state(c, "openWindow")
+            bits = self._irc_activity(prep, fenster)
+            if fenster:
+                # Hinweis der Hausseite: dringend, solange der Raum dabei
+                # heizt oder kuehlt
+                taetig = self._irc_activity(prep, None)
+                it["hinweis"] = {"stufe": "dringend" if taetig else "warnung", "text": "Fenster offen",
+                                 "symbol": "window", "zusatz": " · ".join(taetig)}
             sub = (f"{self._fmt_num(ta, '%.1f')}° → {self._fmt_num(tt, '%.1f')}°"
                    if ta is not None else "Heizung")
             if bits:
@@ -5168,6 +5187,8 @@ class App:
             pk = bool(self._state(c, "packetReceived"))
             sub = " · ".join(x for x, f in (("Post da", mail), ("Paket da", pk)) if f) or "Leer"
             it.update(icon="info", on=(mail or pk), nav={"view": "control", "id": uuid}, sublabel=sub)
+            if mail or pk:
+                it["hinweis"] = {"stufe": "an", "symbol": "mail"}
         elif t == "Sauna":
             act = bool(self._state(c, "active"))
             ta = self._state(c, "tempActual")
@@ -5188,8 +5209,10 @@ class App:
                 it["bigSub"] = zustand + rest
             if (c.get("details") or {}).get("hasVaporizer") and self._state(c, "lessWater"):
                 it["tone"] = "warn"
+                it["hinweis"] = {"text": SAUNA_WASSER}
             if self._state(c, "error") or self._state(c, "saunaError"):
                 it["tone"] = "crit"
+                it["hinweis"] = {"text": SAUNA_STOERUNG}
             it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
         elif t == "SteakThermo":
             act = bool(self._state(c, "isActive"))
@@ -5659,16 +5682,17 @@ class App:
                 break
         return out
 
-    def _haus_blick(self, uuids: list, items: list, raum: str, energie: str | None) -> list:
+    def _haus_blick(self, uuids: list, items: list, raum: str, energie: str | None, hinweise: set) -> list:
         """"Auf einen Blick" im Aufbau "spalte": Bausteine, die einen Zustand
         melden, sich aber nicht abschalten lassen (nicht in HAUS_AUS, etwa
         Postkasten, Lueftung, Zentral-Bausteine). Was einen grossen Wert hat
         (Raumregelung, Sauna), steht schon auf der Raumkarte, der Energie-
-        Baustein im Kopf der Spalte; beschreibende Zeilen (subInfo) zaehlen
-        nicht. Ein Tipp oeffnet den Baustein."""
+        Baustein im Kopf der Spalte, ein Baustein mit Hinweis darueber unter
+        den Hinweisen; beschreibende Zeilen (subInfo) zaehlen nicht. Ein Tipp
+        oeffnet den Baustein."""
         out = []
         for u, it in zip(uuids, items):
-            if self._haus_aus(u) or it.get("big") is not None or u == energie \
+            if self._haus_aus(u) or it.get("big") is not None or u == energie or u in hinweise \
                     or not it.get("sublabel") or it.get("subInfo"):
                 continue
             b = {"id": u, "zustand": str(it["sublabel"]), "name": " · ".join(x for x in (it.get("label"), raum) if x),
@@ -5676,6 +5700,30 @@ class App:
             if it.get("nav"):
                 b["nav"] = it["nav"]
             out.append(b)
+        return out
+
+    def _haus_hinweise(self, kacheln: list) -> list:
+        """Hinweise der Hausseite aus den Kacheln ihrer Raeume [(uuid, kachel,
+        raum)]: was die Kachel selbst nennt (hinweis), sonst ihr Ton
+        (HINWEIS_TON) mit ihrem Zustand als Text. Nach Stufe (HINWEIS_STUFEN),
+        innerhalb einer Stufe in der Folge der Raeume. Ein Tipp oeffnet den
+        Baustein. Die Bedingung steht damit nur an der Kachel; die Seite kommt
+        mit jeder Zustandsaenderung neu (broadcaster)."""
+        out = []
+        for u, it, raum in kacheln:
+            h = it.get("hinweis") or {}
+            stufe = h.get("stufe") or HINWEIS_TON.get(it.get("tone"))
+            text = h.get("text") or it.get("sublabel")
+            if stufe not in HINWEIS_STUFEN or not text:
+                continue
+            label = it.get("label") or ""
+            wo = [label] + ([raum] if raum != label else []) + [h.get("zusatz")]
+            x = {"id": u, "stufe": stufe, "titel": str(text), "wo": " · ".join(w for w in wo if w),
+                 **({"icon": h["symbol"]} if h.get("symbol") else self._haus_symbol(it))}
+            if it.get("nav"):
+                x["nav"] = it["nav"]
+            out.append(x)
+        out.sort(key=lambda x: HINWEIS_STUFEN.index(x["stufe"]))
         return out
 
     def _haus_spieler(self, zonen: list, wahl, prof: dict | None) -> dict | None:
@@ -6086,13 +6134,14 @@ class App:
         abschalten laesst, mit Aus-Taste), die Schnellaktionen (_haus_schnell),
         der Spieler einer Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter
         und Termine kommen in der Visu aus der Front. Route: zone (gewaehlte
-        Zone), liste="aktiv" (Unterseite mit allen aktiven Geraeten).
+        Zone), liste (HAUS_LISTEN: Unterseite mit allen aktiven Geraeten bzw.
+        allen Hinweisen). Die Hinweise (_haus_hinweise) hat jeder Aufbau.
         Der Aufbau der Ansicht (HAUS_AUFBAUTEN) bringt dazu: "raeume" je
         Raumkarte ihre Tasten (_haus_tasten), "spalte" "Auf einen Blick"
         (_haus_blick)."""
         aufbau = (prof or {}).get("hausAufbau")
         aufbau = aufbau if aufbau in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD
-        raeume, aktiv, zonen, alle, blick_roh = [], [], [], [], []
+        raeume, aktiv, zonen, alle, blick_roh, kacheln = [], [], [], [], [], []
         for ru, uuids in self._haus_raeume(prof):
             name = _clean(self.rooms[ru].get("name")) or "Raum"
             items = [self._control_item(u, prof, ohne_raum=name) for u in uuids]
@@ -6100,6 +6149,7 @@ class App:
             schaltbar, sonst, an = [], [], 0
             for u, it in zip(uuids, items):
                 alle.append(u)
+                kacheln.append((u, it, name))
                 t = self.controls[u].get("type")
                 if t in ("AudioZone", "AudioZoneV2"):
                     zonen.append(u)
@@ -6133,15 +6183,17 @@ class App:
             titel = (seiten[i].get("name") if 0 <= i < len(seiten) else "") or HAUS_TITEL
         else:
             titel = HAUS_TITEL
+        hinweise = self._haus_hinweise(kacheln)
         out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus", "aufbau": aufbau,
-               "raeume": raeume, "aktiv": aktiv, "schnell": self._haus_schnell(prof),
+               "raeume": raeume, "aktiv": aktiv, "hinweise": hinweise, "schnell": self._haus_schnell(prof),
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
                "energie": energie}
         if aufbau == "spalte":
-            eid = (energie or {}).get("id")
-            out["blick"] = [b for uuids, items, name in blick_roh for b in self._haus_blick(uuids, items, name, eid)]
-        if (route or {}).get("liste") == "aktiv":
-            out["liste"] = "aktiv"
+            eid, mit = (energie or {}).get("id"), {h["id"] for h in hinweise}
+            out["blick"] = [b for uuids, items, name in blick_roh
+                            for b in self._haus_blick(uuids, items, name, eid, mit)]
+        if (route or {}).get("liste") in HAUS_LISTEN:
+            out["liste"] = route["liste"]
         return out
 
     def _view_sources(self, uuid: str) -> dict:
@@ -7798,9 +7850,9 @@ class App:
             if self._state(c, "timer"):
                 rows.append({"k": "status", "text": "Timer läuft"})
             if det.get("hasVaporizer") and self._state(c, "lessWater"):
-                rows.append({"k": "status", "text": "Wasser nachfüllen"})
+                rows.append({"k": "status", "text": SAUNA_WASSER})
             if err:
-                rows.append({"k": "status", "text": "Störung"})
+                rows.append({"k": "status", "text": SAUNA_STOERUNG})
             # Steuerung. Befehle an der Anlage verifiziert (bin/sauna_probe.py):
             # Solltemperatur temp/<wert>, Betriebsart mode/<0..6>, Ein/Aus on/off.
             # Solltemperatur relativ (der Miniserver begrenzt auf die Sauna-Grenzen);
