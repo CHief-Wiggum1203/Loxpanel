@@ -5,8 +5,8 @@ waagerecht (dort blaettert der Wisch die Seiten), jede Taste ist mindestens
 als Spalte und hochkant als Leiste. Bedient am Miniserver-Nachbau: Aus-Taste,
 "+n weitere" mit Unterseite, Schnellaktionen, Lautstaerke, Zonenwechsel, Raum
 oeffnen. Neue Zustaende tauschen nur ihren Block. Die Hinweise als Leiste und
-in "Auf einen Blick", mit Unterseite und den Terminen des Tages. Anlage:
-lox.haus_anlage().
+in "Auf einen Blick", mit Unterseite und den Terminen des Tages; die Sender
+im Spieler als grosse Cover. Anlage: lox.haus_anlage().
 Bilder im tmp_path (CI: Artefakt "screenshots")."""
 import asyncio
 import json
@@ -15,7 +15,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lox import Miniserver, W, haus_anlage, neue_app, visu_starten
+from aiohttp import web
+
+from lox import HAUS_FAVORITEN, Miniserver, W, haus_anlage, neue_app, serve, visu_starten
 from test_front_tabs_browser import _front
 
 import theme_colors as TC
@@ -170,7 +172,9 @@ def test_bedienen(tmp_path, miniserver_http):
                 await pg.wait_for_function("view.spieler && view.spieler.zone === 'AB'")
                 erg["zone_route"] = await pg.evaluate("[view.route.zone, stack.length]")
                 await pg.locator('.hs-sp [data-hs="sp"][aria-label="Wiedergabe"]').click()
-                erg["play"] = (await _befehle(ms, 4))[3:]
+                # die Zone Abstellraum hat noch keine Favoriten: der Server fordert
+                # sie fuer ihre Sender an (roomfav/get), dazu der Befehl der Taste
+                erg["play"] = sorted((await _befehle(ms, 5))[3:])
                 # Raum oeffnen: die Raumseite des Servers, zurueck zur Hausseite
                 await pg.locator(".hs-r", has_text="Sauna").click()
                 await pg.wait_for_selector("#grid .tile[data-id='SA']")
@@ -194,7 +198,7 @@ def test_bedienen(tmp_path, miniserver_http):
     assert erg["patch"] == [True, False], erg
     # Zonenwechsel ersetzt die Route, statt eine Seite auf den Stapel zu legen
     assert erg["zone_route"] == ["AB", 1], erg
-    assert erg["play"] == ["sps/io/AB/play"], erg
+    assert erg["play"] == ["sps/io/AB/play", "sps/io/AB/roomfav/get/0/20"], erg
     assert erg["raum"] == [{"view": "group", "kind": "room", "id": "r5"}, False], erg
 
 
@@ -293,10 +297,10 @@ def test_musikauswahl_im_spieler(tmp_path):
                 for name, (w, h) in (("quer", (1180, 820)), ("hoch", (820, 1180))):
                     pg = await _seite(b, port, w, h, fehler)
                     e = erg[name] = {"lage": await pg.evaluate(LAGE)}
-                    knopf = pg.locator('.hs-sp [data-hs="quellen"]')
+                    knopf = pg.locator('.hs-sp .hs-drei')
                     e["aria"] = await knopf.get_attribute("aria-label")
                     # rechts oben im Spieler: rechter Rand wie der Spieler, oberste Zeile
-                    e["ort"] = await pg.evaluate("""() => { const k = document.querySelector('.hs-sp [data-hs=quellen]')
+                    e["ort"] = await pg.evaluate("""() => { const k = document.querySelector('.hs-sp .hs-drei')
                       .getBoundingClientRect(), s = document.querySelector('.hs-sp').getBoundingClientRect();
                       return [Math.round(s.right - k.right), Math.round(k.top - s.top)]; }""")
                     await pg.screenshot(path=str(tmp_path / f"haus_musikauswahl_{name}.png"))
@@ -984,3 +988,97 @@ def test_termine_in_auf_einen_blick(tmp_path):
                             ["Müllabfuhr", "Morgen, ganztägig"]], v["termine"]
     assert erg["nachher"]["termine"] == [["Schulfrei", "Heute, ganztägig"], ["Müllabfuhr", "Morgen, ganztägig"],
                                          ["Training", "Morgen, 19:00"]], erg["nachher"]["termine"]
+
+
+# Sender im Spieler: je Kachel Name, ob gedrueckt und mit Ring, ob das Bild
+# geladen ist oder das Musik-Symbol steht, die Kantenlaenge des Covers; dazu
+# "Alle"/"Mehr" und ob der Spieler als Leiste steht
+SENDER = """() => { const g = document.getElementById('grid');
+  return {kacheln: [...g.querySelectorAll('.hs-f')].map(k => { const img = k.querySelector('.fc img');
+      return {name: k.querySelector('.n').textContent, gedrueckt: k.getAttribute('aria-pressed') === 'true',
+              ring: getComputedStyle(k).boxShadow !== 'none', bild: img ? img.naturalWidth > 0 : false,
+              cover: Math.round(k.querySelector('.fc').getBoundingClientRect().width)}; }),
+    alle: !!g.querySelector('.hs-alle'), mehr: !!g.querySelector('.hs-fmehr'), leiste: !!g.querySelector('.hs-sp.leiste')};
+}"""
+# ... bis jedes Bild geladen oder (laedt nicht) entfernt ist
+BILDER_DA = "[...document.querySelectorAll('.hs-f .fc img')].every(i => i.complete && i.naturalWidth > 0)"
+
+
+def test_sender_im_spieler(tmp_path, miniserver_http):
+    """Die Favoriten der Zone als grosse Cover im Spieler (Entwurf "Variante
+    grosse Cover"): quer in der Spalte unter "Favoriten · Alle" drei
+    Kacheln, hochkant in der Leiste so viele, wie passen, dahinter "Mehr".
+    Die Cover sind mindestens 60 px gross. Der laufende Sender ist markiert
+    (Ring, aria-pressed). Ein Tipp spielt den Favoriten (roomfav/play am
+    Miniserver-Nachbau); meldet die Zone den neuen Sender, wandert die
+    Markierung. Ohne Cover oder wenn es nicht laedt, steht das Musik-Symbol
+    statt eines kaputten Bildes; "Alle" und "Mehr" oeffnen die Musikauswahl."""
+    async def bild(r):
+        return web.Response(text='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">'
+                                 '<rect width="120" height="120" fill="#0060a8"/></svg>', content_type="image/svg+xml")
+
+    async def lauf():
+        netz = web.Application()
+        netz.router.add_get("/bild.svg", bild)
+        nr, nport = await serve(netz)
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms))
+        # FM4 ohne Cover, Bayern 3 mit einem, das es nicht gibt
+        covers = {"FM4": "", "Bayern 3": f"http://127.0.0.1:{nport}/fehlt.svg"}
+        app.states["az4"] = json.dumps({"getroomfavs_result": [{"items": [
+            {"slot": i, "name": n, "coverurl": covers.get(n, f"http://127.0.0.1:{nport}/bild.svg")}
+            for i, n in enumerate(HAUS_FAVORITEN, 1)]}]})
+        runner, port, bc = await visu_starten(app, [("GET", "/cover", W.cover_handler)])
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                await pg.wait_for_function(BILDER_DA)
+                erg["quer"] = await pg.evaluate(SENDER)
+                erg["quer_lage"] = await pg.evaluate(LAGE)
+                await pg.screenshot(path=str(tmp_path / "haus_sender_quer.png"))
+                await pg.locator(".hs-alle").click()
+                await pg.wait_for_function("view && view.route && view.route.view === 'sources'")
+                erg["alle"] = await pg.evaluate("view.route")
+                await pg.close()
+                pg = await _seite(b, port, 820, 1180, fehler)
+                await pg.wait_for_function(BILDER_DA)
+                erg["hoch"] = await pg.evaluate(SENDER)
+                erg["hoch_lage"] = await pg.evaluate(LAGE)
+                await pg.screenshot(path=str(tmp_path / "haus_sender_hoch.png"))
+                await pg.locator(".hs-f", has_text="FM4").click()
+                # davor: "Alle" oeffnete die Musikauswahl, die die Favoriten frisch anfordert
+                erg["befehle"] = await _befehle(ms, 2)
+                app._on_value("az2", "FM4")
+                await pg.wait_for_function("document.querySelector('.hs-f[aria-pressed=true] .n').textContent === 'FM4'")
+                erg["danach"] = await pg.evaluate(SENDER)
+                await pg.locator(".hs-fmehr").click()
+                await pg.wait_for_function("view && view.route && view.route.view === 'sources'")
+                erg["mehr"] = await pg.evaluate("view.route")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+            await nr.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name in ("quer", "hoch"):
+        lage = erg[name + "_lage"]
+        assert not lage["quer"] and not lage["klein"] and not lage["ab"], (name, lage)
+    q, h = erg["quer"], erg["hoch"]
+    assert not q["leiste"] and q["alle"] and not q["mehr"], q
+    assert [k["name"] for k in q["kacheln"]] == HAUS_FAVORITEN[:3], q
+    assert h["leiste"] and h["mehr"] and len(h["kacheln"]) >= 4, h
+    assert [k["name"] for k in h["kacheln"]] == HAUS_FAVORITEN[:len(h["kacheln"])], h
+    for k in q["kacheln"] + h["kacheln"]:
+        assert k["cover"] >= 60, ("Cover zu klein", k)
+        # nur der laufende markiert; Bild nur, wo es eines gibt und es laedt
+        assert k["gedrueckt"] == k["ring"] == (k["name"] == "Hitradio Ö3"), k
+        assert k["bild"] == (k["name"] not in ("FM4", "Bayern 3")), k
+    assert erg["befehle"] == ["sps/io/AZ/roomfav/get/0/20", "sps/io/AZ/roomfav/play/2"], erg
+    assert [k["name"] for k in erg["danach"]["kacheln"] if k["gedrueckt"]] == ["FM4"], erg["danach"]
+    assert erg["alle"] == erg["mehr"] == {"view": "sources", "id": "AZ"}, erg

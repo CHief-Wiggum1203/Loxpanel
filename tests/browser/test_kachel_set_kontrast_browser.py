@@ -9,10 +9,11 @@ Das Set "touch" laeuft dazu ueber die Farbtoene der Schnellwahl und beide
 Arten der aktiven Kachel: seine Farben sind gerechnet, nicht ausgesucht, und
 ein Fehler steckt dann in der Rechnung, nicht in einer Farbe."""
 import asyncio
+import json
 
 import pytest
 
-from lox import W, visu_starten
+from lox import HAUS_FAVORITEN, W, visu_starten
 from test_front_tabs_browser import _front
 from test_kachel_aufbau_browser import STATES, STRUKTUR
 
@@ -117,11 +118,15 @@ ANSICHTEN = {
     "verbindung": (TABS, {}, ["verbMiniserver({ms: false, seit: Date.now() - 60000, stand: Date.now() - 61000,"
                               " takt: verb.takt, stumm: verb.stumm, hinweis: 0, texte: verb.texte})"]),
 }
-# Zustaende, die eine Ansicht dazu braucht: die Hinweise der Hausuebersicht in
-# allen drei Stufen - Klingel (dringend, gefuellte Stoerungsflaeche), Fenster
-# offen, ohne dass der Raum heizt (Warnung), Post (an)
+# Zustaende, die eine Ansicht dazu braucht: in der Hausuebersicht die
+# Favoriten der Zone als Sender im Spieler (der erste laeuft), dazu die
+# Hinweise in allen drei Stufen - Klingel (dringend, gefuellte
+# Stoerungsflaeche), Fenster offen, ohne dass der Raum heizt (Warnung), Post (an)
+SENDER = {"az4": json.dumps({"getroomfavs_result": [{"items": [
+    {"slot": i, "name": n} for i, n in enumerate(HAUS_FAVORITEN, 1)]}]})}
 HINWEISE = {"ic1": 1, "ir3": 0, "ir4": 1, "mb1": 1}
-ZUSTAENDE = {"haus_hinweise": HINWEISE, "haus_spalte_hinweise": HINWEISE}
+ZUSTAENDE = {"haus": SENDER, "haus_raeume": SENDER, "haus_spalte": SENDER,
+             "haus_hinweise": {**SENDER, **HINWEISE}, "haus_spalte_hinweise": {**SENDER, **HINWEISE}}
 # Ansichten, in denen nur ein Teil zaehlt: die Leiste. Die Kacheln darunter
 # sind dann gesperrt und absichtlich blass (WCAG 1.4.3 nimmt inaktive
 # Bedienelemente aus).
@@ -191,7 +196,9 @@ def test_jeder_text_ist_lesbar(fall, ui, monkeypatch, tmp_path):
         assert texte, (fall, a, "kein Text gemessen")
     for a in ("kopfzeile_werte", "werteleiste"):   # die Werte der Chips sind dabei
         assert sum(".vl" in t["wo"] for t in raus[a]) >= 2, (fall, a, raus[a])
-    for a in ZUSTAENDE:   # die Hinweise sind dabei, auch der gefuellte
+    for a in ZUSTAENDE:   # die Sender sind dabei, auch der laufende ...
+        assert set(HAUS_FAVORITEN[:3]) <= {t["text"] for t in raus[a]}, (fall, a, raus[a])
+    for a in ("haus_hinweise", "haus_spalte_hinweise"):   # ... und die Hinweise, auch der gefuellte
         assert {"Es klingelt", "Fenster offen", "Post da"} <= {t["text"] for t in raus[a]}, (fall, a, raus[a])
     if TC.kachel_set_art(ui.get("tileSet"))[1] == "oben":   # Pane 2 flach auf dem Feld: ihr Text zaehlt mit
         assert any("pptitle" in t["wo"] for t in raus["player_daneben"]), (fall, raus["player_daneben"])

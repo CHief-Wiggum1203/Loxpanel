@@ -340,6 +340,11 @@ HINWEIS_STUFEN = ("dringend", "warnung", "an")
 HINWEIS_TON = {"crit": "dringend", "warn": "warnung"}
 # Unterseiten der Hausseite (Route liste): alle aktiven Geraete, alle Hinweise
 HAUS_LISTEN = ("aktiv", "hinweise")
+# Spieler der Hausseite: so viele Favoriten der Zone schickt der Server mit
+# (die Visu zeigt, was in eine Zeile passt, der Rest liegt hinter "Mehr" in der
+# Musikauswahl), und wie oft er sie hoechstens anfordert, solange keine da sind
+HAUS_SENDER = 8
+HAUS_SENDER_NEU_S = 300
 # Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
 # bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
 # Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt die
@@ -1870,6 +1875,9 @@ class App:
         # liefern (z.B. Sonn/Audioserver): "artist\ntitle" -> (url|None, expiry).
         self._cover_cache: dict[str, tuple[str | None, float]] = {}
         self._cover_pending: set[str] = set()
+        # Spieler der Hausseite: wann die Favoriten je Zone zuletzt angefordert
+        # wurden (_haus_sender_anfordern)
+        self._haus_sender_zeit: dict[str, float] = {}
 
     def _spawn(self, coro) -> None:
         """Hintergrund-Task starten und sauber referenziert halten."""
@@ -5730,8 +5738,9 @@ class App:
         """Spieler der Hausseite: die gewaehlte Zone (Route "zone"), sonst die
         erste, die spielt, sonst die erste. Inhalt aus den Bloecken der
         Detailseite (player_blocks: Cover, Titel, Transport, Lautstaerke), damit
-        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten und
-        wie auf der Detailseite das ⋮ zur Musikauswahl (Route des more-Blocks)."""
+        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten,
+        wie auf der Detailseite das ⋮ zur Musikauswahl (Route des more-Blocks)
+        und die ersten HAUS_SENDER Favoriten der Zone (_haus_sender)."""
         if not zonen:
             return None
         kacheln = {u: self._control_item(u, prof) for u in zonen}
@@ -5760,9 +5769,52 @@ class App:
                           "schritt": PROZENT_SCHRITT}
         if block("more").get("route"):
             sp["mehr"] = block("more")["route"]
+        sp["sender"] = self._haus_sender(zone, spielt[zone], (sp["titel"], sp["sub"]))
         if self._gesichert(zone):
             sp["secured"] = True
         return sp
+
+    def _haus_sender(self, zone: str, spielt: bool, texte: tuple) -> list:
+        """Favoriten der Zone fuer den Spieler der Hausseite, dieselben wie in
+        der Musikauswahl (_zonen_favoriten): [{name, cover, cmd}], hoechstens
+        HAUS_SENDER. Welcher laeuft (laeuft), sagt der Miniserver nicht; die
+        Zone nennt nur Titel und Sender. Ein Favorit gilt als laufend, wenn
+        die Zone spielt und er genau so heisst wie einer dieser Texte (oder
+        der Name, den der Audioserver-Kanal meldet), sonst ist keiner markiert.
+        Sind noch keine Favoriten da, fordert der Server sie an
+        (_haus_sender_anfordern)."""
+        favs, _ = self._zonen_favoriten(zone)
+        if not favs:
+            self._haus_sender_anfordern(zone)
+            return []
+        jetzt = set()
+        if spielt:
+            sm = self._sonn_for(self.controls.get(zone) or {}) or {}
+            jetzt = {str(t).strip().casefold() for t in (*texte, sm.get("name"), sm.get("album")) if t}
+        out = []
+        for f in favs[:HAUS_SENDER]:
+            x = {"name": f["label"], "cover": f["cover"], "cmd": f["cmd"]}
+            if str(f["label"]).strip().casefold() in jetzt:
+                x["laeuft"] = True
+            out.append(x)
+        return out
+
+    def _haus_sender_anfordern(self, zone: str) -> None:
+        """Favoriten einer Zone im Hintergrund anfordern (prime_favs), wie es
+        die Musikauswahl beim Oeffnen tut: hoechstens alle HAUS_SENDER_NEU_S je
+        Zone, denn die Hausseite wird bei jeder Zustandsaenderung neu
+        gerechnet. Das Ergebnis kommt ueber _dirty mit dem naechsten Rendern.
+        Ohne laufende Ereignisschleife (Aufruf ausserhalb des Servers) nichts."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        jetzt = time.monotonic()
+        zuletzt = self._haus_sender_zeit.get(zone)
+        if zuletzt is not None and jetzt - zuletzt < HAUS_SENDER_NEU_S:
+            return
+        self._haus_sender_zeit[zone] = jetzt
+        self._spawn(self.prime_favs(zone))
 
     def _haus_energie(self, uuids: list, prof: dict | None) -> dict | None:
         """Energie fuer den Kopf der Hausseite: der erste Energieflussmonitor bzw.
@@ -6196,32 +6248,42 @@ class App:
             out["liste"] = route["liste"]
         return out
 
-    def _view_sources(self, uuid: str) -> dict:
-        """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).
+    def _zonen_favoriten(self, uuid: str) -> tuple[list, bool]:
+        """Favoriten einer Audio-Zone fuer die Musikauswahl und den Spieler der
+        Hausseite: ([{label, cmd, cover}], ob sie vom Audioserver-Kanal kommen).
 
-        'Favoriten' = die Zonen-Favoriten (roomfavs, vom Miniserver). 'Playlisten'
-        ist vorerst ein Platzhalter (Bibliothek/Playlisten liegen im Audioserver
-        und werden noch nicht abgefragt).
-        """
+        Zuerst aus dem Audioserver-Event-Kanal (Port 7091) - fuer Gen1
+        (Musikserver) UND Gen2 (Audioserver/Sonn). Der Loxone-sourceList-State
+        ist bei vielen Setups leer, dies ist der zuverlaessige Weg. Der
+        Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
+        Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
+        Nur wenn der Kanal die Favoriten auch liefern darf: ein gekoppelter
+        Audioserver ohne geglueckte Anmeldung (oder unklare Kopplung) schickt
+        keine (dieselbe Bedingung wie beim Anfordern in prime_favs) -> dann
+        die des Miniservers (_audio_favs)."""
         c = self.controls.get(uuid, {})
         ua = c.get("uuidAction")
 
-        # Favoriten aus dem Audioserver-Event-Kanal (Port 7091) — fuer Gen1
-        # (Musikserver) UND Gen2 (Audioserver/Sonn). Der Loxone-sourceList-State
-        # ist bei vielen Setups leer, dies ist der zuverlaessige Weg. Der
-        # Abspiel-Index (`play`) beruecksichtigt, dass Musikserver per `slot` und
-        # Sonn per Item-`id` adressiert (siehe AudioEventClient._apply_favs).
-        # Nur wenn der Kanal die Favoriten auch liefern darf: ein gekoppelter
-        # Audioserver ohne geglueckte Anmeldung (oder unklare Kopplung) schickt
-        # keine (dieselbe Bedingung wie beim Anfordern in prime_favs) -> dann
-        # die des Miniservers.
-        _cl, _pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
-        if _cl is not None and _pid is not None and (_cl.paired is False or _cl.authed):
-            favs = _cl.favs.get(_pid, [])
-            items = [{"label": f["name"],
-                      "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
-                      "cover": ("/cover?u=" + quote(f["cover"], safe="")) if f["cover"] else ""}
-                     for f in favs if f.get("slot") is not None]
+        def cover(url):
+            return ("/cover?u=" + quote(url, safe="")) if url else ""
+        cl, pid = self._audio_client_for(c) if c.get("type") in ("AudioZone", "AudioZoneV2") else (None, None)
+        if cl is not None and pid is not None and (cl.paired is False or cl.authed):
+            return ([{"label": f["name"], "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f.get('play', f['slot'])}"},
+                      "cover": cover(f["cover"])}
+                     for f in cl.favs.get(pid, []) if f.get("slot") is not None], True)
+        return ([{"label": f["name"], "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f['slot']}"},
+                  "cover": cover(f["cover"])} for f in self._audio_favs(c)], False)
+
+    def _view_sources(self, uuid: str) -> dict:
+        """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).
+
+        'Favoriten' = die Zonen-Favoriten (_zonen_favoriten). 'Playlisten' ist
+        vorerst ein Platzhalter (Bibliothek/Playlisten liegen im Audioserver
+        und werden noch nicht abgefragt).
+        """
+        c = self.controls.get(uuid, {})
+        items, vom_kanal = self._zonen_favoriten(uuid)
+        if vom_kanal:
             body = ({"k": "favs", "wrap": True, "items": items} if items else
                     {"k": "status", "text": "noch keine – in der App/am Tablet anlegen"})
             return {"t": "view", "title": _clean(c.get("name")),
@@ -6229,18 +6291,10 @@ class App:
                     "blocks": [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
                                {"k": "head", "text": "Favoriten"}, body]}
 
-        favs = self._audio_favs(c)
-
-        def strip(items):
-            return {"k": "favs", "wrap": True, "items": [
-                {"label": f["name"], "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f['slot']}"},
-                 "cover": ("/cover?u=" + quote(f["cover"], safe="")) if f["cover"] else ""}
-                for f in items]}
-
         empty = {"k": "status", "text": "noch keine – im Tablet / der App anlegen"}
         blocks = [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
                   {"k": "head", "text": "Favoriten"},
-                  strip(favs) if favs else dict(empty),
+                  {"k": "favs", "wrap": True, "items": items} if items else dict(empty),
                   {"k": "head", "text": "Playlisten"},
                   dict(empty)]
         return {"t": "view", "title": _clean(c.get("name")),
