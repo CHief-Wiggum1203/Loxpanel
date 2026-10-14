@@ -11,7 +11,7 @@ import math
 import pytest
 from aiohttp.test_utils import make_mocked_request
 
-from lox import EM2, W, anlage, haus_anlage
+from lox import EM2, HAUS_FAVORITEN, W, anlage, haus_anlage
 
 
 def _app(**states):
@@ -300,6 +300,75 @@ def test_spieler():
     assert [t["icon"] for t in sp["tasten"]] == ["prev", "play", "next"]
     # unbekannte Zone: wie ohne Wahl
     assert _haus(app, zone="XX")["spieler"]["zone"] == "AZ"
+
+
+def _sender(app, **route):
+    return [(s["name"], s["cmd"]["cmd"], s.get("laeuft", False)) for s in _haus(app, **route)["spieler"]["sender"]]
+
+
+def test_sender_im_spieler():
+    """Die Favoriten der Zone stehen im Spieler, dieselben wie in ihrer
+    Musikauswahl (Name, Cover, Befehl roomfav/play). Welcher laeuft, sagt
+    der Miniserver nicht: markiert ist der, der genau so heisst wie das, was
+    die Zone gerade nennt - nur solange sie spielt. Hoechstens HAUS_SENDER,
+    der Rest in der Musikauswahl. Eine Zone ohne Favoriten hat keine."""
+    app = _app()
+    assert _sender(app) == [(n, f"roomfav/play/{i}", i == 1) for i, n in enumerate(HAUS_FAVORITEN, 1)]
+    quelle = next(b for b in app._view_sources("AZ")["blocks"] if b["k"] == "favs")["items"]
+    assert [(s["name"], s["cmd"], s["cover"]) for s in _haus(app)["spieler"]["sender"]] == \
+        [(f["label"], f["cmd"], f["cover"]) for f in quelle]
+    # anderer Titel: keiner markiert; pausiert: keiner, auch wenn er passt
+    assert not any(x[2] for x in _sender(_app(az2="Nachrichten")))
+    assert not any(x[2] for x in _sender(_app(az1=0)))
+    # Gross-/Kleinschreibung und Leerzeichen am Rand zaehlen nicht
+    assert _sender(_app(az2="  hitradio ö3 "))[0][2]
+    # hoechstens HAUS_SENDER
+    viele = json.dumps({"getroomfavs_result": [{"items": [{"slot": i, "name": f"Sender {i}"} for i in range(1, 13)]}]})
+    assert len(_sender(_app(az4=viele))) == W.HAUS_SENDER < 12
+    # die Zone Abstellraum hat keine Favoriten (ohne Ereignisschleife fordert
+    # der Server auch keine an)
+    assert _sender(app, zone="AB") == []
+
+
+def test_sender_vom_audioserver():
+    """Kommen die Favoriten vom Audioserver-Kanal (Port 7091), nimmt der
+    Spieler dessen Abspiel-Index (play) wie die Musikauswahl und erkennt den
+    laufenden auch am Namen, den der Kanal meldet."""
+    app = _app(az2="")
+
+    class Kanal:
+        favs = {1: [{"name": "Radio 7091", "slot": 1, "play": 4, "cover": "http://bild/1.png"},
+                    {"name": "FM4", "slot": 2, "play": 5, "cover": ""}]}
+        now = {1: {"name": "Radio 7091", "playing": True}}
+        paired, authed = False, False
+    app._audio_client_for = lambda c: (Kanal(), 1)
+    sender = _haus(app)["spieler"]["sender"]
+    assert [(s["name"], s["cmd"]["cmd"], s.get("laeuft", False)) for s in sender] == [
+        ("Radio 7091", "roomfav/play/4", True), ("FM4", "roomfav/play/5", False)]
+    assert sender[0]["cover"] == "/cover?u=" + W.quote("http://bild/1.png", safe="") and sender[1]["cover"] == ""
+
+
+def test_sender_anfordern():
+    """Hat die Zone noch keine Favoriten, fordert der Server sie an wie beim
+    Oeffnen der Musikauswahl (prime_favs) - aber nicht bei jedem Rendern,
+    sondern hoechstens alle HAUS_SENDER_NEU_S je Zone."""
+    app = _app(az4="")
+    gefragt = []
+
+    async def prime(zone):
+        gefragt.append(zone)
+    app.prime_favs = prime
+
+    async def lauf():
+        for _ in range(3):
+            assert _haus(app)["spieler"]["sender"] == []
+            await asyncio.sleep(0)
+        assert gefragt == ["AZ"]
+        app._haus_sender_zeit["AZ"] -= W.HAUS_SENDER_NEU_S
+        _haus(app)
+        await asyncio.sleep(0)
+        assert gefragt == ["AZ", "AZ"]
+    asyncio.run(lauf())
 
 
 def test_energie_im_kopf():

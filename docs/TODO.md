@@ -1758,6 +1758,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       in Ordnung“), dort mit den Terminen von heute und morgen, die noch
       kommen. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1
       „Hausübersicht“. **M**
+- [x] **Hausübersicht: Sender im Spieler** (14.10.2026, Entwurf „Variante
+      große Cover“). Die Favoriten der Zone als große Cover-Kacheln: quer in
+      der Spalte unter „Favoriten · Alle“ drei, hochkant in der Leiste so
+      viele, wie passen, dahinter „Mehr“. Gleiche Quelle und gleicher Befehl
+      wie die Musikauswahl; der laufende ist markiert, wenn sein Name zu dem
+      passt, was die Zone gerade nennt. Ein Cover, das nicht lädt, zeigt das
+      Musik-Symbol. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1
+      „Hausübersicht“. **S**
 - [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Die Gruppe
       „Hausübersicht“ im Aussehen-Reiter gibt es seit 14.10.2026 mit dem
       Aufbau. Offen: Zeile „Gerade aktiv“ und Energie-Quelle wählbar, im

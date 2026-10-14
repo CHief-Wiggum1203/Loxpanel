@@ -9,10 +9,11 @@ Das Set "touch" laeuft dazu ueber die Farbtoene der Schnellwahl und beide
 Arten der aktiven Kachel: seine Farben sind gerechnet, nicht ausgesucht, und
 ein Fehler steckt dann in der Rechnung, nicht in einer Farbe."""
 import asyncio
+import json
 
 import pytest
 
-from lox import W, visu_starten
+from lox import HAUS_FAVORITEN, W, visu_starten
 from test_front_tabs_browser import _front
 from test_kachel_aufbau_browser import STATES, STRUKTUR
 
@@ -82,7 +83,8 @@ WERTE = {"T0": {"name": "Außentemperatur", "type": "InfoOnlyAnalog", "uuidActio
 WERTE_STATES = {"t0": 12.4, "t1": 0.82, "t2": 1234.5}
 
 # Was gemessen wird: Name -> (Tabs der Ansicht, ui, Schritte in der Visu[, mit
-# Messwerten]). Am iPad quer mit automatischem Raster, wie test_kachel_set_browser.
+# Messwerten]). Am iPad quer mit automatischem Raster, wie test_kachel_set_browser
+# (Ausnahmen in GROESSE).
 TABS = ["favoriten", "kalender", "wetter"]
 ANSICHTEN = {
     "raster": (TABS, {}, []),
@@ -113,15 +115,24 @@ ANSICHTEN = {
     # "Auf einen Blick"
     "haus_hinweise": (TABS + ["haus"], {}, ["goTab('haus')"]),
     "haus_spalte_hinweise": (TABS + ["haus"], {"hausAufbau": "spalte"}, ["goTab('haus')"]),
+    # ... hochkant (GROESSE): der Spieler als Leiste mit den Sendern, auch
+    # dort, wo quer die Hoehe dafuer fehlt (Kreide mit Leiste links)
+    "haus_hoch": (TABS + ["haus"], {}, ["goTab('haus')"]),
     # Verbindungsleiste: Miniserver weg, mit den Texten, die der Server schickte
     "verbindung": (TABS, {}, ["verbMiniserver({ms: false, seit: Date.now() - 60000, stand: Date.now() - 61000,"
                               " takt: verb.takt, stumm: verb.stumm, hinweis: 0, texte: verb.texte})"]),
 }
-# Zustaende, die eine Ansicht dazu braucht: die Hinweise der Hausuebersicht in
-# allen drei Stufen - Klingel (dringend, gefuellte Stoerungsflaeche), Fenster
-# offen, ohne dass der Raum heizt (Warnung), Post (an)
+# Zustaende, die eine Ansicht dazu braucht: in der Hausuebersicht die
+# Favoriten der Zone als Sender im Spieler (der erste laeuft), dazu die
+# Hinweise in allen drei Stufen - Klingel (dringend, gefuellte
+# Stoerungsflaeche), Fenster offen, ohne dass der Raum heizt (Warnung), Post (an)
+SENDER = {"az4": json.dumps({"getroomfavs_result": [{"items": [
+    {"slot": i, "name": n} for i, n in enumerate(HAUS_FAVORITEN, 1)]}]})}
 HINWEISE = {"ic1": 1, "ir3": 0, "ir4": 1, "mb1": 1}
-ZUSTAENDE = {"haus_hinweise": HINWEISE, "haus_spalte_hinweise": HINWEISE}
+ZUSTAENDE = {"haus": SENDER, "haus_raeume": SENDER, "haus_spalte": SENDER, "haus_hoch": SENDER,
+             "haus_hinweise": {**SENDER, **HINWEISE}, "haus_spalte_hinweise": {**SENDER, **HINWEISE}}
+# Ansichten, die nicht am iPad quer (1000x750) gemessen werden: Breite, Hoehe
+GROESSE = {"haus_hoch": (820, 1180)}
 # Ansichten, in denen nur ein Teil zaehlt: die Leiste. Die Kacheln darunter
 # sind dann gesperrt und absichtlich blass (WCAG 1.4.3 nimmt inaktive
 # Bedienelemente aus).
@@ -161,7 +172,8 @@ def _messen(ui, monkeypatch, tmp_path, bild):
                 runner, port, bc = await visu_starten(_app({**ui, **extra}, tabs, daten, bool(werte and werte[0]),
                                                            ZUSTAENDE.get(ansicht)))
                 try:
-                    pg = await b.new_page(viewport={"width": 1000, "height": 750}, locale="de-DE")
+                    w, h = GROESSE.get(ansicht, (1000, 750))
+                    pg = await b.new_page(viewport={"width": w, "height": h}, locale="de-DE")
                     pg.on("pageerror", lambda e: fehler.append(str(e)))
                     await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
                     await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
@@ -191,7 +203,10 @@ def test_jeder_text_ist_lesbar(fall, ui, monkeypatch, tmp_path):
         assert texte, (fall, a, "kein Text gemessen")
     for a in ("kopfzeile_werte", "werteleiste"):   # die Werte der Chips sind dabei
         assert sum(".vl" in t["wo"] for t in raus[a]) >= 2, (fall, a, raus[a])
-    for a in ZUSTAENDE:   # die Hinweise sind dabei, auch der gefuellte
+    # die Sender sind dabei, auch der laufende (quer stehen sie, wo die Hoehe
+    # reicht, hochkant immer) ...
+    assert set(HAUS_FAVORITEN[:3]) <= {t["text"] for t in raus["haus_hoch"]}, (fall, raus["haus_hoch"])
+    for a in ("haus_hinweise", "haus_spalte_hinweise"):   # ... und die Hinweise, auch der gefuellte
         assert {"Es klingelt", "Fenster offen", "Post da"} <= {t["text"] for t in raus[a]}, (fall, a, raus[a])
     if TC.kachel_set_art(ui.get("tileSet"))[1] == "oben":   # Pane 2 flach auf dem Feld: ihr Text zaehlt mit
         assert any("pptitle" in t["wo"] for t in raus["player_daneben"]), (fall, raus["player_daneben"])

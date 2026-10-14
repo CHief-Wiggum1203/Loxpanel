@@ -818,6 +818,10 @@ EM2 = {"name": "Energiemanager", "type": "EnergyManager2", "uuidAction": "M", "r
        "details": {}, "states": {"Ppwr": "m-p", "Gpwr": "m-g", "Spwr": "m-s", "Ssoc": "m-soc"}}
 
 
+# Favoriten der Zone Essen-Kochen-Wohnen in haus_anlage() (Slot = Stelle + 1)
+HAUS_FAVORITEN = ["Hitradio Ö3", "FM4", "Bayern 3", "ANTENNE BAYERN", "Ö1"]
+
+
 def haus_anlage() -> tuple[dict, dict]:
     """-> (Struktur, States) eines ganzen Hauses fuer die Hausuebersicht (Tab
     "haus"): sieben Raeume mit Licht, Audio-Zonen, Sauna, Raumregelung,
@@ -827,7 +831,8 @@ def haus_anlage() -> tuple[dict, dict]:
     laeuft, hat aber keinen Aus-Befehl. Fuer die Hinweise: Klingel (ic),
     Fenster offen an der Raumregelung (ir4), Post (mb1/mb2), Wassermangel
     (sa3, die Sauna hat einen Verdampfer) und Stoerung (sa4) der Sauna, alle
-    aus."""
+    aus. Die Zone Essen-Kochen-Wohnen hat fuenf Favoriten (HAUS_FAVORITEN,
+    sourceList wie nach roomfav/get), der erste laeuft gerade."""
     def b(uuid, name, typ, raum, states, **extra):
         return {"name": name, "type": typ, "uuidAction": uuid, "room": raum, "cat": "c1",
                 "states": states, **extra}
@@ -845,7 +850,7 @@ def haus_anlage() -> tuple[dict, dict]:
         "AL": b("AL", "Außenlicht", "Dimmer", "r2", {"position": "al"}, isSecured=True),
         "TS": b("TS", "Timer IR Heizung", "TimedSwitch", "r3", {"deactivationDelay": "ts"}),
         "AZ": b("AZ", "Essen-Kochen-Wohnen", "AudioZoneV2", "r4",
-                {"playState": "az1", "songName": "az2", "volume": "az3"}),
+                {"playState": "az1", "songName": "az2", "volume": "az3", "sourceList": "az4"}),
         "SA": b("SA", "Saunasteuerung", "Sauna", "r5",
                 {"active": "sa1", "tempActual": "sa2", "lessWater": "sa3", "error": "sa4"},
                 details={"hasVaporizer": True}),
@@ -858,7 +863,10 @@ def haus_anlage() -> tuple[dict, dict]:
     states = {
         "f-p": 0.0, "f-g": 0.8, "f-s": 0.0, **{f"f-a{i}": 0.1 for i in range(len(EFM_NODES))},
         "fs": 1, "lu": 40, "mb1": 0, "mb2": 0, "ic": 0, "al": 50, "ts": 0,
-        "az1": 2, "az2": "Hitradio Ö3", "az3": 24, "sa1": 0, "sa2": 25.4, "sa3": 0, "sa4": 0,
+        "az1": 2, "az2": "Hitradio Ö3", "az3": 24,
+        "az4": json.dumps({"getroomfavs_result": [{"items": [
+            {"slot": i, "name": n, "coverurl": ""} for i, n in enumerate(HAUS_FAVORITEN, 1)]}]}),
+        "sa1": 0, "sa2": 25.4, "sa3": 0, "sa4": 0,
         "lc1": json.dumps([778]), "lc2": moods, "ir1": 21.5, "ir2": 22.0, "ir3": 1, "ir4": 0,
         "la1": json.dumps([1]), "la2": moods, "ab1": 0, "ab2": 10,
     }

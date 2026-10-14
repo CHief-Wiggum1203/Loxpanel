@@ -1990,6 +1990,30 @@ Assistenten des Konfigurators.
     hochkant am Ende der ersten Zeile der Leiste. Die Route kommt aus dem
     `more`-Block der Detailseite (`player_blocks(mehr=True)`, im Spieler
     `mehr`), zurück führt zur Hausseite (14.10.2026).
+    **Sender** (14.10.2026, Entwurf „Variante große Cover“): die Favoriten
+    der Zone als große Cover-Kacheln (`_haus_sender()`, im Spieler
+    `sender`, höchstens `HAUS_SENDER`). Sie kommen aus derselben Quelle wie
+    die Musikauswahl (`_zonen_favoriten()`: Audioserver-Kanal 7091, sonst
+    der `sourceList`-State des Miniservers), mit demselben Befehl
+    (`roomfav/play/…`) und Cover über den Proxy `/cover`. Sind noch keine
+    da, fordert der Server sie an wie die Musikauswahl beim Öffnen
+    (`prime_favs()`), aber höchstens alle `HAUS_SENDER_NEU_S` je Zone
+    (`_haus_sender_anfordern()`), denn die Seite wird bei jeder
+    Zustandsänderung neu gerechnet. Welcher Favorit läuft, meldet der
+    Miniserver nicht: markiert (`laeuft`, Ring wie die gewählte Zone) ist der,
+    der genau so heißt wie Titel oder Sender, die die Zone gerade nennt
+    (beim Audioserver-Kanal auch dessen Name), und nur solange sie spielt;
+    passt keiner, ist keiner markiert. Quer in der Spalte steht die
+    Jetzt-läuft-Karte dafür quer (Cover 72 px links, Titel daneben), darunter
+    „Favoriten · Alle“ und drei Kacheln (`HS_SENDER_SPALTE`), wenn die
+    Spalte die Höhe hat (`hausLage()`). Hochkant hat die Leiste eine dritte
+    Zeile mit so vielen Kacheln, wie in der Mindestbreite `HS_SENDER_MIN`
+    passen, dahinter „Mehr“; sie kostet die Raumkarten `HS_SENDER_HOCH` und
+    steht nur, wenn danach noch eine Reihe Raumkarten Platz hat (kleiner
+    oder niedriger Schirm), sonst bleibt die Musikauswahl über ⋮.
+    „Alle“ und „Mehr“ öffnen die Musikauswahl. Cover (auch das große des
+    Spielers) liegen über dem Musik-Symbol; lädt eines nicht, entfernt
+    `hsCoverFehlt()` das Bild und das Symbol bleibt.
   - **Maßstab:** `--hk` aus der kleineren Seite der Fläche (iPad 1, großes
     Display bis 1,5, 4″ nicht unter 0,7). Tasten sind nie kleiner als 44 px.
   - **Farben:** wie die Kacheln des Sets. Eine aktive Karte bekommt
@@ -2014,10 +2038,14 @@ Assistenten des Konfigurators.
     `_on_value()` und kommt wieder) und ohne Zentral-Baustein kein Knopf;
     Hinweise in jedem Aufbau, Set und Gerät (Leiste mit „+n“, Spalte mit
     Zahl, Farben gegen die Tokens), Bedienen mit Unterseite und Wegfall
-    über `_on_value()`, Termine bei festgestellter Browser-Uhr.
+    über `_on_value()`, Termine bei festgestellter Browser-Uhr; Sender quer
+    und hochkant (Cover ab 60 px, Bild über einen Nachbau, fehlendes und
+    nicht ladendes Cover, Abspielen am Miniserver-Nachbau, Markierung wandert
+    über `_on_value()`, „Alle“/„Mehr“).
     Die Lesbarkeit aller Texte in allen Sets misst
     `test_kachel_set_kontrast_browser.py` (Ansichten `haus`, `haus_raeume`,
-    `haus_spalte` und mit Hinweisen `haus_hinweise`, `haus_spalte_hinweise`).
+    `haus_spalte` und mit Hinweisen `haus_hinweise`, `haus_spalte_hinweise`;
+    in allen die Sender im Spieler).
 - Gesten (13.10.2026, Konzept in `docs/TODO.md` §9 „Loxone-Standard als
   Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster.
   Die Fläche (`.screen`) ist in drei Spalten geteilt (`GESTE_SPALTEN`):
