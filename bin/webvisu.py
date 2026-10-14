@@ -277,7 +277,7 @@ def _pick_tabs(prof):
 # nur, welcher Teil gezeigt wird. Schluessel -> (Titel, Teil der Front).
 FRONT_TABS = {"kalender": ("Kalender", "calendar"), "wetter": ("Wetter", "weather")}
 # Hausuebersicht als eigene Seite (_view_haus): Raeume mit Hauptwert, was gerade
-# an ist (mit Aus-Taste), Zentral-Tasten und der Spieler einer Audio-Zone.
+# an ist (mit Aus-Taste), Schnellaktionen und der Spieler einer Audio-Zone.
 HAUS_TAB = "haus"
 HAUS_TITEL = "Haus"
 # Aus-Befehl je Bausteintyp (Loxone-Strukturdoku) und die Beschriftung seiner
@@ -294,14 +294,43 @@ HAUS_AUS = {
     "AudioZoneV2": ("pause", "Pause"),
     "Sauna": ("off", "Aus"),
 }
-# Zentral-Tasten der Hausseite: welche Typen sie abschalten. Die Taste steht
-# nur da, wenn die Seite einen Baustein dieser Art zeigt.
-HAUS_ZENTRAL = {
-    "licht": ("Lichter aus", ("LightControllerV2", "Dimmer", "EIBDimmer")),
-    "audio": ("Zonen aus", ("AudioZone", "AudioZoneV2")),
+# Schnellaktionen der Hausseite: ein Befehl an den Zentral-Baustein der
+# Anlage, Art -> (Typ, Beschriftung, Befehl). Befehle laut Strukturdoku
+# (Central Objects): CentralLightController kennt "on" und "reset", "reset"
+# ist der Eingang "Off" des Bausteins ("Outputs are reset / switched off",
+# Wissensdatenbank "Licht Zentral"); CentralAudioZone "pause". Ohne den
+# Baustein gibt es die Taste nicht.
+HAUS_SCHNELL = {
+    "licht": ("CentralLightController", "Alle Lichter aus", "reset"),
+    "audio": ("CentralAudioZone", "Alle Zonen aus", "pause"),
 }
 # Symbole je Raumkarte (schaltbare zuerst)
 HAUS_SYMBOLE = 4
+# Aufbau der Hausseite je Ansicht (ui.hausAufbau), Name -> Beschriftung im
+# Konfigurator (i18n.js uebersetzt sie): "status" stellt "Gerade aktiv" nach
+# oben (Entwurf "Hausübersicht B"), "raeume" schaltet in jeder Raumkarte
+# direkt (Entwurf "Hausübersicht C"), "spalte" hat links eine Spalte mit Uhr,
+# Wetter, Energie, "Auf einen Blick" und den Schnellaktionen (Entwurf "Großes
+# Display"). Ohne Einstellung "status" (PANEL_STANDARD).
+HAUS_AUFBAUTEN = {"status": "Status zuerst", "raeume": "Räume direkt", "spalte": "Spalte links"}
+HAUS_AUFBAU_STANDARD = "status"
+# Aufbau "raeume": Ein-Befehl je Bausteintyp laut Strukturdoku, aus schaltet
+# HAUS_AUS. Der Treppenlichtschalter (TimedSwitch) startet seinen Ablauf
+# (pulse) statt dauerhaft (on). Die Lichtsteuerung schaltet ihre erste
+# Stimmung ein (_haus_ein). Was beides nicht hat, bekommt keine Taste.
+HAUS_EIN = {
+    "Switch": "on",
+    "TimedSwitch": "pulse",
+    "Dimmer": "on",
+    "EIBDimmer": "on",
+    "AudioZone": "play",
+    "AudioZoneV2": "play",
+    "Sauna": "on",
+}
+# ... vor dem Einschalten fragt die Taste nach (erst der zweite Tipp schaltet)
+HAUS_RUECKFRAGE = {"Sauna": "Einschalten?"}
+# ... und so viele Tasten hat eine Raumkarte hoechstens
+HAUS_TASTEN = 3
 # Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
 # bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
 # Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt die
@@ -575,6 +604,7 @@ VORSCHAU_GERAET_DAUER = 900
 # Pfad-Muster, "*" steht fuer einen beliebigen Schluessel (z. B. Kachel-UUID);
 # ein Tupel nennt mehrere Schreibweisen desselben Standards.
 PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDARD, "medium"),
+                  ("ui", "hausAufbau"): HAUS_AUFBAU_STANDARD,
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("ui", "paneCols"): 0,
                   # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch)
@@ -2965,12 +2995,15 @@ class App:
             # ... und ihr Hinweis-Symbol (Vorgaben und Ansicht gemischt wie oben)
             "gestenHinweis": (ui["gestenHinweis"] if isinstance(ui.get("gestenHinweis"), bool)
                               else GESTEN_HINWEIS_STANDARD),
+            # Aufbau der Hausseite (HAUS_AUFBAUTEN)
+            "hausAufbau": ui["hausAufbau"] if ui.get("hausAufbau") in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD,
         }
 
-    def player_blocks(self, uuid: str):
+    def player_blocks(self, uuid: str, mehr: bool = False):
         """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
         AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
-        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt."""
+        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt,
+        ausser mit mehr=True (Spieler der Hausseite: ⋮ zur Musikauswahl)."""
         c = self.controls.get(uuid or "")
         if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
             return None
@@ -2979,7 +3012,7 @@ class App:
         except Exception:
             log.exception("player_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+        return [b for b in (v.get("blocks") or []) if mehr or b.get("k") != "more"]
 
     def intercom_blocks(self, uuid: str):
         """Volle Intercom-Ansicht (Video + Tuer-/Ausgang-Buttons + Klingel-Banner)
@@ -3744,7 +3777,7 @@ class App:
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
                        "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
-                       "nightClock", "nightClockBright")}
+                       "nightClock", "nightClockBright", "hausAufbau")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst
@@ -3946,6 +3979,8 @@ class App:
                 cui["gestenHinweis"] = ui["gestenHinweis"]   # Hinweis-Symbol an/aus; fehlt = wie Vorgaben
             if ui.get("tileLayout") == "classic":
                 cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
+            if ui.get("hausAufbau") in HAUS_AUFBAUTEN and ui["hausAufbau"] != HAUS_AUFBAU_STANDARD:
+                cui["hausAufbau"] = ui["hausAufbau"]   # Aufbau der Hausseite; fehlt = HAUS_AUFBAU_STANDARD
             _ks = _clean_kachel_set(ui.get("tileSet"))
             if _ks:
                 cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
@@ -4760,6 +4795,22 @@ class App:
             return {}
         return {"leiste": [self._control_item(u, prof, **kw) for u in uuids]}
 
+    def _zentral_an(self, c: dict) -> int:
+        """Wie viele Mitglieder eines Zentral-Bausteins (details.controls) an
+        sind: Lichtsteuerungen mit aktiver Stimmung, Audio-Zonen, die spielen,
+        Tore und Fenster, die offen stehen. Andere Zentralen: 0. Dieselbe Zahl
+        zeigen seine Kachel und die Schnellaktion der Hausseite."""
+        t = c.get("type")
+        muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
+                  if m.get("uuid") in self.controls]
+        if t == "CentralLightController":
+            return sum(1 for mu in muuids if LIGHT.render(self._with_uuid(mu), self.states)["on"])
+        if t == "CentralAudioZone":
+            return sum(1 for mu in muuids if self._state(self.controls[mu], "playState") == 2)
+        if t in ("CentralGate", "CentralWindow"):
+            return sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
+        return 0
+
     def _control_item(self, uuid: str, prof: dict | None = None,
                       show_room: bool = False, ohne_raum: str = "") -> dict:
         """Kachel eines Bausteins. show_room: Raum an der Kachel (Seite ueber
@@ -5148,18 +5199,13 @@ class App:
                 it["tone"] = "good"
             it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
         elif (t or "").startswith("Central"):
-            muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
-                      if m.get("uuid") in self.controls]
-            n = 0
+            n = self._zentral_an(c)
             # Einzahl bei genau einem: "Spielt in 1 Raum", nicht "in 1 Räumen"
             if t == "CentralLightController":
-                n = sum(1 for mu in muuids if LIGHT.render(self._with_uuid(mu), self.states)["on"])
                 it["sublabel"] = f"In {n} {'Raum' if n == 1 else 'Räumen'} aktiv" if n else "Aus"
             elif t == "CentralAudioZone":
-                n = sum(1 for mu in muuids if self._state(self.controls[mu], "playState") == 2)
                 it["sublabel"] = f"Spielt in {n} {'Raum' if n == 1 else 'Räumen'}" if n else "Aus"
             elif t in ("CentralGate", "CentralWindow"):
-                n = sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
                 it["sublabel"] = f"{n} offen" if n else "Alle geschlossen"
             elif t == "CentralJalousie":
                 it.update(sublabel="Beschattung", subInfo=True)
@@ -5577,17 +5623,73 @@ class App:
             return None
         return {"uuid": c["uuidAction"], "cmd": e[0], "taste": e[1]}
 
+    def _haus_ein(self, uuid: str) -> dict | None:
+        """Ein-Befehl eines Bausteins fuer die Tasten der Raumkarte (Aufbau
+        "raeume", HAUS_EIN) oder None. Die Lichtsteuerung schaltet ihre erste
+        Stimmung ohne "Aus" ein; ohne Stimmung hat sie keinen."""
+        c = self.controls.get(uuid) or {}
+        if not c.get("uuidAction"):
+            return None
+        if c.get("type") == "LightControllerV2":
+            stimmungen = self._geste_stimmungen(uuid)
+            return {"uuid": c["uuidAction"], "cmd": f"changeTo/{stimmungen[0][0]}"} if stimmungen else None
+        cmd = HAUS_EIN.get(c.get("type"))
+        return {"uuid": c["uuidAction"], "cmd": cmd} if cmd else None
+
+    def _haus_tasten(self, uuids: list, items: list) -> list:
+        """Tasten einer Raumkarte im Aufbau "raeume": die ersten HAUS_TASTEN
+        Bausteine, die sich ab- und einschalten lassen (HAUS_AUS, _haus_ein),
+        mit dem Befehl, der ihren Zustand umkehrt. Was HAUS_RUECKFRAGE nennt,
+        fragt vor dem Einschalten nach (frage)."""
+        out = []
+        for u, it in zip(uuids, items):
+            aus, ein = self._haus_aus(u), self._haus_ein(u)
+            if not (aus and ein):
+                continue
+            an = bool(it.get("on"))
+            t = {"id": u, "name": it.get("label") or "", "an": an, "zustand": it.get("sublabel") or "",
+                 "cmd": {"uuid": aus["uuid"], "cmd": aus["cmd"]} if an else ein, **self._haus_symbol(it)}
+            frage = HAUS_RUECKFRAGE.get(self.controls[u].get("type"))
+            if frage and not an:
+                t["frage"] = frage
+            if it.get("secured"):
+                t["secured"] = True
+            out.append(t)
+            if len(out) == HAUS_TASTEN:
+                break
+        return out
+
+    def _haus_blick(self, uuids: list, items: list, raum: str, energie: str | None) -> list:
+        """"Auf einen Blick" im Aufbau "spalte": Bausteine, die einen Zustand
+        melden, sich aber nicht abschalten lassen (nicht in HAUS_AUS, etwa
+        Postkasten, Lueftung, Zentral-Bausteine). Was einen grossen Wert hat
+        (Raumregelung, Sauna), steht schon auf der Raumkarte, der Energie-
+        Baustein im Kopf der Spalte; beschreibende Zeilen (subInfo) zaehlen
+        nicht. Ein Tipp oeffnet den Baustein."""
+        out = []
+        for u, it in zip(uuids, items):
+            if self._haus_aus(u) or it.get("big") is not None or u == energie \
+                    or not it.get("sublabel") or it.get("subInfo"):
+                continue
+            b = {"id": u, "zustand": str(it["sublabel"]), "name": " · ".join(x for x in (it.get("label"), raum) if x),
+                 **self._haus_symbol(it)}
+            if it.get("nav"):
+                b["nav"] = it["nav"]
+            out.append(b)
+        return out
+
     def _haus_spieler(self, zonen: list, wahl, prof: dict | None) -> dict | None:
         """Spieler der Hausseite: die gewaehlte Zone (Route "zone"), sonst die
         erste, die spielt, sonst die erste. Inhalt aus den Bloecken der
         Detailseite (player_blocks: Cover, Titel, Transport, Lautstaerke), damit
-        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten."""
+        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten und
+        wie auf der Detailseite das ⋮ zur Musikauswahl (Route des more-Blocks)."""
         if not zonen:
             return None
         kacheln = {u: self._control_item(u, prof) for u in zonen}
         spielt = {u: bool(kacheln[u].get("on")) for u in zonen}
         zone = wahl if wahl in zonen else next((u for u in zonen if spielt[u]), zonen[0])
-        bloecke = self.player_blocks(zone) or []
+        bloecke = self.player_blocks(zone, mehr=True) or []
 
         def block(k):
             return next((b for b in bloecke if b.get("k") == k), {})
@@ -5608,6 +5710,8 @@ class App:
             sp["laut"] = {"wert": int(regler.get("value") or 0), "cmd": regler["cmd"],
                           "min": int(regler.get("min") or 0), "max": int(regler.get("max") or 100),
                           "schritt": PROZENT_SCHRITT}
+        if block("more").get("route"):
+            sp["mehr"] = block("more")["route"]
         if self._gesichert(zone):
             sp["secured"] = True
         return sp
@@ -5637,22 +5741,26 @@ class App:
                 e["prod"] = prod
         return e
 
-    def haus_aus_befehle(self, art: str, prof: dict | None) -> list:
-        """Befehle einer Zentral-Taste der Hausseite: (uuidAction, Befehl) fuer
-        jeden Baustein dieser Art (HAUS_ZENTRAL) auf der Seite, der an ist.
-        Gesicherte Bausteine (Visu-PIN) bleiben aussen vor - sie schaltet nur,
-        wer ihre PIN eingibt, auf ihrer eigenen Kachel."""
-        e = HAUS_ZENTRAL.get(art)
-        if not e:
-            return []
+    def _haus_schnell(self, prof: dict | None) -> list:
+        """Schnellaktionen der Hausseite (HAUS_SCHNELL): je Art der erste
+        Zentral-Baustein der Anlage, den die Ansicht nicht ausblendet, mit
+        seinem Befehl und wie viele seiner Mitglieder an sind (_zentral_an).
+        Ohne den Baustein keine Taste. Die Anzahl kommt mit jeder
+        Zustandsaenderung neu (broadcaster rendert die Seite), die Visu fragt
+        nicht nach. Ein gesicherter Baustein (Visu-PIN) fragt in der Visu nach
+        der PIN wie jede Taste."""
         out = []
-        for _ru, uuids in self._haus_raeume(prof):
-            for u in uuids:
-                c = self.controls[u]
-                aus = self._haus_aus(u)
-                if c.get("type") in e[1] and aus and not c.get("isSecured") \
-                        and self._control_item(u, prof).get("on"):
-                    out.append((aus["uuid"], aus["cmd"]))
+        for art, (typ, label, cmd) in HAUS_SCHNELL.items():
+            u = next((x for x, c in self.controls.items()
+                      if c.get("type") == typ and c.get("uuidAction") and self._shown(x, prof)), None)
+            if u is None:
+                continue
+            c = self.controls[u]
+            s = {"art": art, "id": u, "label": label, "an": self._zentral_an(c),
+                 "cmd": {"uuid": c["uuidAction"], "cmd": cmd}}
+            if c.get("isSecured"):
+                s["secured"] = True
+            out.append(s)
         return out
 
     # ---- Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9) ----
@@ -5697,8 +5805,7 @@ class App:
     def _geste_bausteine(self, ru: str, prof: dict | None, typen: tuple) -> list:
         """Bausteine dieser Typen im Raum, so wie seine Raumseite sie zeigt
         (Kategorie-Filter und Ausblendungen der Ansicht). Gesicherte bleiben
-        aussen vor wie bei haus_aus_befehle(): eine PIN-Abfrage mitten in einer
-        Geste geht nicht."""
+        aussen vor: eine PIN-Abfrage mitten in einer Geste geht nicht."""
         return [u for u, c in self.controls.items()
                 if c.get("room") == ru and c.get("type") in typen and not c.get("isSecured")
                 and self._cat_ok(u, prof) and self._shown(u, prof)]
@@ -5976,11 +6083,16 @@ class App:
     def _view_haus(self, route: dict, prof: dict | None = None) -> dict:
         """Hausuebersicht: je Raum eine Karte (Hauptwert, Symbole, wie viel an
         ist; ein Tipp oeffnet den Raum), "Gerade aktiv" (was an ist und sich
-        abschalten laesst, mit Aus-Taste), die Zentral-Tasten, der Spieler einer
-        Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter und Termine kommen
-        in der Visu aus der Front. Route: zone (gewaehlte Zone), liste="aktiv"
-        (Unterseite mit allen aktiven Geraeten)."""
-        raeume, aktiv, zonen, alle = [], [], [], []
+        abschalten laesst, mit Aus-Taste), die Schnellaktionen (_haus_schnell),
+        der Spieler einer Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter
+        und Termine kommen in der Visu aus der Front. Route: zone (gewaehlte
+        Zone), liste="aktiv" (Unterseite mit allen aktiven Geraeten).
+        Der Aufbau der Ansicht (HAUS_AUFBAUTEN) bringt dazu: "raeume" je
+        Raumkarte ihre Tasten (_haus_tasten), "spalte" "Auf einen Blick"
+        (_haus_blick)."""
+        aufbau = (prof or {}).get("hausAufbau")
+        aufbau = aufbau if aufbau in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD
+        raeume, aktiv, zonen, alle, blick_roh = [], [], [], [], []
         for ru, uuids in self._haus_raeume(prof):
             name = _clean(self.rooms[ru].get("name")) or "Raum"
             items = [self._control_item(u, prof, ohne_raum=name) for u in uuids]
@@ -6005,12 +6117,15 @@ class App:
                     aktiv.append(a)
             symbole = [dict(self._haus_symbol(it), on=bool(it.get("on")))
                        for it in (schaltbar + sonst)[:HAUS_SYMBOLE]]
-            raeume.append({"id": ru, "name": name, "wert": wert, "sub": sub, "an": an,
-                           "anzahl": len(uuids), "symbole": symbole,
-                           "nav": {"view": "group", "kind": "room", "id": ru}})
-        typen = {self.controls[u].get("type") for u in alle}
-        zentral = [{"art": art, "label": label} for art, (label, ts) in HAUS_ZENTRAL.items()
-                   if typen.intersection(ts)]
+            raum = {"id": ru, "name": name, "wert": wert, "sub": sub, "an": an,
+                    "anzahl": len(uuids), "symbole": symbole,
+                    "nav": {"view": "group", "kind": "room", "id": ru}}
+            if aufbau == "raeume":
+                raum["tasten"] = self._haus_tasten(uuids, items)
+            elif aufbau == "spalte":
+                blick_roh.append((uuids, items, name))
+            raeume.append(raum)
+        energie = self._haus_energie(alle, prof)
         tab = (route or {}).get("tab") or HAUS_TAB
         if _is_pick(tab):
             # freie Seite: ihr Name ist der Titel
@@ -6018,10 +6133,13 @@ class App:
             titel = (seiten[i].get("name") if 0 <= i < len(seiten) else "") or HAUS_TITEL
         else:
             titel = HAUS_TITEL
-        out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus",
-               "raeume": raeume, "aktiv": aktiv, "zentral": zentral,
+        out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus", "aufbau": aufbau,
+               "raeume": raeume, "aktiv": aktiv, "schnell": self._haus_schnell(prof),
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
-               "energie": self._haus_energie(alle, prof)}
+               "energie": energie}
+        if aufbau == "spalte":
+            eid = (energie or {}).get("id")
+            out["blick"] = [b for uuids, items, name in blick_roh for b in self._haus_blick(uuids, items, name, eid)]
         if (route or {}).get("liste") == "aktiv":
             out["liste"] = "aktiv"
         return out
@@ -8819,6 +8937,9 @@ async def api_meta(request: web.Request) -> web.Response:
         "lichtStimmungen": app.licht_stimmung_optionen(),
         "gestenStandard": GESTEN_STANDARD,
         "gestenHinweisStandard": GESTEN_HINWEIS_STANDARD,
+        # Aufbau der Hausseite: Auswahl je Ansicht (Aussehen) und ihr Standard
+        "hausAufbauten": [{"key": k, "label": v} for k, v in HAUS_AUFBAUTEN.items()],
+        "hausAufbauStandard": HAUS_AUFBAU_STANDARD,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
@@ -10827,16 +10948,6 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
                                         "Befehl nicht ausgeführt – Miniserver antwortet nicht" if code is None
                                         else f"Befehl nicht ausgeführt (Miniserver meldet {code})"})
-            elif data.get("t") == "hausaus":
-                # Zentral-Taste der Hausseite ("Lichter aus", "Zonen aus"): jeder
-                # Baustein dieser Art auf der Seite, der an ist, bekommt seinen
-                # Aus-Befehl. Kein Treffer ist kein Fehler (schon alles aus).
-                befehle = app.haus_aus_befehle(str(data.get("art") or ""), app.conn_prof.get(ws, prof))
-                codes = await asyncio.gather(*(app.command(u, c) for u, c in befehle))
-                fehl = sum(1 for code in codes if code != "200")
-                if fehl:
-                    await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
-                                        f"{fehl} von {len(codes)} Befehlen nicht ausgeführt"})
             elif data.get("t") == "geste":
                 # Zwei-Finger-Geste (Loxone-Standard): der Server sucht Raum,
                 # Bausteine und Befehle, die Visu blendet die Antwort ein

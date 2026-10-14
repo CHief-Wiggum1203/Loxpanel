@@ -1458,6 +1458,14 @@ function aussehenGruppe(titel, felder, hinweis, mehr, attr){
     (hinweis?'<div class="hint agr-hint">'+hinweis+'</div>':'')+
     (mehr?'<details class="agr-mehr"><summary>'+mehr[0]+'</summary><p>'+mehr[1]+'</p></details>':'')+'</div>';
 }
+// Aufbau der Hausuebersicht (ui.hausAufbau): Auswahl und Standard aus /api/meta
+// (HAUS_AUFBAUTEN im Server), der Standard wird nicht gespeichert
+function hausAufbauFeld(ui){
+  const std=(META&&META.hausAufbauStandard)||'', wert=ui.hausAufbau||std;
+  return '<div class="sizes"><div class="field" style="max-width:none;min-width:280px"><label class="lbl">'+T('Aufbau')+'</label>'+
+    '<select id="fHausAufbau" style="width:100%;max-width:none">'+((META&&META.hausAufbauten)||[]).map(a=>
+      '<option value="'+esc(a.key)+'"'+(a.key===wert?' selected':'')+'>'+esc(T(a.label))+'</option>').join('')+'</select></div></div>';
+}
 function schriftFelder(ui){
   return '<div class="sizes">'+
     '<div class="field" style="max-width:220px"><label class="lbl">'+T('Schriftart')+'</label>'+
@@ -1957,6 +1965,8 @@ function renderEditor(){
        T('Grundfarbe und Kachel-Aufbau kommen aus dem gewählten Set.')+' '+T('Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.'),
        null, ' id="fAgAusSet"'+((p.ui||{}).tileSet?'':' hidden'))+
      aussehenGruppe(T('Schrift'), schriftFelder(p.ui||{}))+
+     aussehenGruppe(T('Hausübersicht'), hausAufbauFeld(p.ui||{}),
+       T('Wie die Hausübersicht dieser Ansicht aufgebaut ist. „Status zuerst“: oben, was gerade an ist, mit Aus-Taste. „Räume direkt“: jede Raumkarte schaltet Licht, Musik und Co. mit runden Tasten. „Spalte links“: Uhr, Energie, „Auf einen Blick“ und die Schnellaktionen in einer Spalte links, für breite Schirme; wo sie nicht passt (hochkant, schmal), zeigt das Gerät „Status zuerst“.'))+
      groessenGruppe(p.ui||{}, sizeStd((p.ui||{}).tileLayout,true,(p.ui||{}).tileSet),
        T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+
    '</div>'+
@@ -2047,6 +2057,10 @@ function renderEditor(){
       markDirty(); }; }
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
+  // Aufbau der Hausuebersicht: der Standard wird nicht gespeichert
+  { const fh=$('#fHausAufbau'); if(fh) fh.onchange=e=>{ p.ui=p.ui||{};
+      if(e.target.value && e.target.value!==(META&&META.hausAufbauStandard)) p.ui.hausAufbau=e.target.value; else delete p.ui.hausAufbau;
+      markDirty(); }; }
   // Kachel-Aufbau: nur "classic" wird gespeichert, der neue ist der Standard
   { const ftl=$('#fTileLayout'); if(ftl) ftl.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value==='classic') p.ui.tileLayout='classic'; else delete p.ui.tileLayout;

@@ -106,6 +106,9 @@ ANSICHTEN = {
     "pin": (TABS, {}, ["askPin(() => {}, 'PIN')"]),
     # Hausuebersicht: Karten, aktive Geraete und Spieler auf den Flaechen des Sets
     "haus": (TABS + ["haus"], {}, ["goTab('haus')"]),
+    # ... ihre weiteren Aufbauten: Tasten in der Raumkarte, Spalte links
+    "haus_raeume": (TABS + ["haus"], {"hausAufbau": "raeume"}, ["goTab('haus')"]),
+    "haus_spalte": (TABS + ["haus"], {"hausAufbau": "spalte"}, ["goTab('haus')"]),
     # Verbindungsleiste: Miniserver weg, mit den Texten, die der Server schickte
     "verbindung": (TABS, {}, ["verbMiniserver({ms: false, seit: Date.now() - 60000, stand: Date.now() - 61000,"
                               " takt: verb.takt, stumm: verb.stumm, hinweis: 0, texte: verb.texte})"]),

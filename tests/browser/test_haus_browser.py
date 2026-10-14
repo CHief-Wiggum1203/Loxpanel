@@ -3,10 +3,11 @@ dem grossen Display, ohne Kachel-Set und in jedem Set. Nichts scrollt
 waagerecht (dort blaettert der Wisch die Seiten), jede Taste ist mindestens
 44 px gross, keine Karte schneidet ihren Inhalt ab, der Spieler steht quer
 als Spalte und hochkant als Leiste. Bedient am Miniserver-Nachbau: Aus-Taste,
-"+n weitere" mit Unterseite, Zentral-Taste, Lautstaerke, Zonenwechsel, Raum
+"+n weitere" mit Unterseite, Schnellaktionen, Lautstaerke, Zonenwechsel, Raum
 oeffnen. Neue Zustaende tauschen nur ihren Block. Anlage: lox.haus_anlage().
 Bilder im tmp_path (CI: Artefakt "screenshots")."""
 import asyncio
+import json
 
 import pytest
 
@@ -42,6 +43,7 @@ LAGE = """() => {
   return {quer, klein, ab, kopf, spalte: !!g.querySelector('.hs.spalte'), leiste: !!g.querySelector('.hs-sp.leiste'),
           raeume: g.querySelectorAll('.hs-r').length, aktiv: g.querySelectorAll('.hs-aktiv .hs-a.on').length,
           mehr: g.querySelector('.hs-mehr') ? g.querySelector('.hs-mehr').textContent : null,
+          schnell: g.querySelectorAll('.hs-schnell [data-hs="schnell"]').length,
           spalten: getComputedStyle(g).getPropertyValue('--hs-sp').trim()};
 }"""
 
@@ -95,6 +97,7 @@ def test_lage_auf_tablet_und_display(kset, tmp_path, monkeypatch):
         assert not m["klein"], (wo, "Taste unter 44 px", m["klein"])
         assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
         assert m["raeume"] == 7, (wo, m)
+        assert m["schnell"] == 2, (wo, "Schnellaktionen", m)
         # vier Geraete an: so viele Karten wie Spalten, die letzte Stelle "+n weitere"
         sp = int(m["spalten"])
         assert m["aktiv"] == min(4, sp - 1 if sp < 4 else 4), (wo, m)
@@ -140,9 +143,9 @@ def test_bedienen(tmp_path, miniserver_http):
                 await pg.screenshot(path=str(tmp_path / "haus_liste.png"))
                 await pg.locator('[data-hs="zurueck"]').click()
                 await pg.wait_for_selector("#grid .hs-raeume")
-                # Zentral-Taste
-                await pg.locator('[data-hs="zentral"][data-art="audio"]').click()
-                erg["zentral"] = (await _befehle(ms, 2))[1:]
+                # Schnellaktion "Alle Zonen aus"
+                await pg.locator('[data-hs="schnell"][data-art="audio"]').click()
+                erg["schnell"] = (await _befehle(ms, 2))[1:]
                 # Lautstaerke +, dann meldet der Miniserver den neuen Wert: nur der
                 # Spieler-Block wird getauscht, der Kopf bleibt dasselbe Element
                 await pg.locator('[data-hs="laut"][data-d="1"]').click()
@@ -178,13 +181,170 @@ def test_bedienen(tmp_path, miniserver_http):
     assert erg["aus"] == ["sps/io/LA/changeTo/778"], erg
     assert erg["liste"] == 4 and erg["liste_route"] == {"view": "tab", "tab": "haus", "liste": "aktiv"}, erg
     assert not erg["liste_lage"]["quer"] and not erg["liste_lage"]["klein"], erg["liste_lage"]
-    assert erg["zentral"] == ["sps/io/AZ/pause"], erg
+    assert erg["schnell"] == ["sps/io/CA/pause"], erg
     assert erg["laut"] == ["sps/io/AZ/volume/29"], erg
     assert erg["patch"] == [True, False], erg
     # Zonenwechsel ersetzt die Route, statt eine Seite auf den Stapel zu legen
     assert erg["zone_route"] == ["AB", 1], erg
     assert erg["play"] == ["sps/io/AB/play"], erg
     assert erg["raum"] == [{"view": "group", "kind": "room", "id": "r5"}, False], erg
+
+
+# Schnellaktionen: je Knopf Text, Anzahl, Vorlesetext, Hoehe, Radius, Flaeche
+# und Farbe der Anzahl; dazu die Werte der Tokens (--tile, --glow, Radius der
+# Karten) zum Vergleich und die Folge der Zeilen der Seite
+SCHNELL = """() => {
+  const g = document.getElementById('grid'), hk = parseFloat(g.style.getPropertyValue('--hk'));
+  const probe = st => { const p = document.createElement('span'); Object.assign(p.style, st); g.appendChild(p);
+    const s = getComputedStyle(p), w = {farbe: s.color, grund: s.backgroundColor}; p.remove(); return w; };
+  return {hk, glow: probe({color: 'var(--glow)'}).farbe, tile: probe({background: 'var(--tile)'}).grund,
+    karteRadius: getComputedStyle(g.querySelector('.hs-r')).borderTopLeftRadius,
+    folge: [...g.querySelector('.hs-main').children].map(e => e.classList[0]),
+    knoepfe: [...g.querySelectorAll('[data-hs="schnell"]')].map(b => { const s = getComputedStyle(b);
+      return {art: b.dataset.art, text: b.querySelector('.z').textContent, n: b.querySelector('.n').textContent,
+              aria: b.getAttribute('aria-label'), hoehe: b.getBoundingClientRect().height,
+              radius: s.borderTopLeftRadius, grund: s.backgroundColor, farbe: getComputedStyle(b.querySelector('.n')).color}; })};
+}"""
+
+
+def _anzahl(art):
+    return f"document.querySelector('[data-hs=schnell][data-art={art}] .n').textContent"
+
+
+def test_schnellaktionen(tmp_path, miniserver_http):
+    """"Alle Lichter aus" und "Alle Zonen aus" unter "Gerade aktiv" im Set
+    Loxone: so hoch wie im Entwurf (72 px bei --hk 1), Radius und Flaeche der
+    Karten des Sets, rechts die Anzahl ("1 an") in --glow. Ein Tipp schickt
+    den Befehl an den Zentral-Baustein; meldet der Miniserver die Mitglieder
+    aus, verschwindet die Anzahl von selbst (live ueber die States), und
+    sie kommt wieder, sobald eine Zone spielt."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"tileSet": "loxone"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                erg["vorher"] = await pg.evaluate(SCHNELL)
+                await pg.screenshot(path=str(tmp_path / "haus_schnell_vorher.png"))
+                await pg.locator('[data-hs="schnell"][data-art="licht"]').click()
+                erg["licht"] = await _befehle(ms, 1)
+                # der Miniserver meldet die Lichtsteuerung aus, wie nach "reset"
+                app._on_value("la1", json.dumps([778]))
+                await pg.wait_for_function(_anzahl("licht") + " === ''")
+                await pg.locator('[data-hs="schnell"][data-art="audio"]').click()
+                erg["audio"] = (await _befehle(ms, 2))[1:]
+                app._on_value("az1", 0)
+                await pg.wait_for_function(_anzahl("audio") + " === ''")
+                erg["nachher"] = await pg.evaluate(SCHNELL)
+                await pg.screenshot(path=str(tmp_path / "haus_schnell_nachher.png"))
+                # eine Zone spielt wieder: die Anzahl kommt zurueck
+                app._on_value("ab1", 2)
+                await pg.wait_for_function(_anzahl("audio") + " === '1 an'")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    v = erg["vorher"]
+    assert v["folge"] == ["hs-kopf", "hs-zeile", "hs-aktiv", "hs-schnell", "hs-raeume"], v["folge"]
+    knopf = {k["art"]: k for k in v["knoepfe"]}
+    assert list(knopf) == ["licht", "audio"], v
+    assert (knopf["licht"]["text"], knopf["licht"]["n"]) == ("Alle Lichter aus", "1 an"), knopf
+    assert (knopf["audio"]["text"], knopf["audio"]["n"]) == ("Alle Zonen aus", "1 an"), knopf
+    assert knopf["licht"]["aria"] == "Alle Lichter aus, 1 an", knopf
+    radius = float(TC.KACHEL_SETS["loxone"]["masse"]["--kachel-radius"].rstrip("px"))
+    for k in knopf.values():
+        assert abs(k["hoehe"] - max(44, 72 * v["hk"])) < 0.5, (k, v["hk"])
+        assert k["radius"] == v["karteRadius"] and abs(float(k["radius"].rstrip("px")) - radius * v["hk"]) < 0.5, k
+        assert k["grund"] == v["tile"] and k["farbe"] == v["glow"], (k, v["tile"], v["glow"])
+    assert erg["licht"] == ["sps/io/CL/reset"], erg
+    assert erg["audio"] == ["sps/io/CA/pause"], erg
+    nachher = {k["art"]: k for k in erg["nachher"]["knoepfe"]}
+    assert [k["n"] for k in nachher.values()] == ["", ""], nachher
+    assert nachher["licht"]["aria"] == "Alle Lichter aus", nachher
+
+
+def test_musikauswahl_im_spieler(tmp_path):
+    """Die drei Punkte rechts oben im Spieler oeffnen wie auf der Detailseite
+    der Audio-Zone ihre Musikauswahl (Sender, Favoriten), quer in der Spalte
+    und hochkant in der Leiste; zurueck fuehrt zur Hausseite."""
+    async def lauf():
+        app = _app()
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for name, (w, h) in (("quer", (1180, 820)), ("hoch", (820, 1180))):
+                    pg = await _seite(b, port, w, h, fehler)
+                    e = erg[name] = {"lage": await pg.evaluate(LAGE)}
+                    knopf = pg.locator('.hs-sp [data-hs="quellen"]')
+                    e["aria"] = await knopf.get_attribute("aria-label")
+                    # rechts oben im Spieler: rechter Rand wie der Spieler, oberste Zeile
+                    e["ort"] = await pg.evaluate("""() => { const k = document.querySelector('.hs-sp [data-hs=quellen]')
+                      .getBoundingClientRect(), s = document.querySelector('.hs-sp').getBoundingClientRect();
+                      return [Math.round(s.right - k.right), Math.round(k.top - s.top)]; }""")
+                    await pg.screenshot(path=str(tmp_path / f"haus_musikauswahl_{name}.png"))
+                    await knopf.click()
+                    await pg.wait_for_function("view && view.route && view.route.view === 'sources'")
+                    e["route"] = await pg.evaluate("view.route")
+                    await pg.locator("#tabback").click()
+                    await pg.wait_for_selector("#grid.haus .hs-r")
+                    e["zurueck"] = await pg.evaluate("view.layout")
+                    await pg.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name, e in erg.items():
+        assert not e["lage"]["klein"] and not e["lage"]["quer"] and not e["lage"]["ab"], (name, e["lage"])
+        assert e["aria"] == "Musikauswahl Essen-Kochen-Wohnen", (name, e)
+        assert e["route"] == {"view": "sources", "id": "AZ"} and e["zurueck"] == "haus", (name, e)
+    # quer oben in der Spalte (Kopfzeile des Spielers), hochkant in der ersten Zeile der Leiste
+    assert all(0 <= v <= 40 for v in erg["quer"]["ort"]), erg["quer"]["ort"]
+    assert all(0 <= v <= 40 for v in erg["hoch"]["ort"]), erg["hoch"]["ort"]
+
+
+def test_ohne_zentral_baustein_kein_knopf(tmp_path):
+    """Ohne Zentral-Licht und Audio-Zentral gibt es keine Schnellaktion, auch
+    wenn Licht und Musik an sind; "Gerade aktiv" bleibt, nichts ist zu klein
+    oder abgeschnitten."""
+    struktur, states = haus_anlage()
+    del struktur["controls"]["CL"], struktur["controls"]["CA"]
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"haus": {"title": "Haus", "tabs": ["haus"], "ui": {"grid": "auto"}}})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                lage = await pg.evaluate(LAGE)
+                lage["zeile"] = await pg.locator(".hs-schnell").count()
+                await pg.screenshot(path=str(tmp_path / "haus_ohne_zentral.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return lage
+    lage = asyncio.run(lauf())
+    assert lage["schnell"] == 0 and lage["zeile"] == 0, lage
+    assert lage["aktiv"] >= 1 and not lage["klein"] and not lage["ab"] and not lage["quer"], lage
 
 
 def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):
@@ -415,3 +575,201 @@ def test_niedriges_fenster(tmp_path):
     assert not lage["quer"] and not lage["klein"], lage
     assert [a for a in lage["ab"] if a != "sp"] == [], lage["ab"]
     assert "sp" not in lage["ab"] or lage["zonen"] == "auto", lage
+
+
+# Aufbau, den die Visu wirklich zeigt ("spalte" faellt dort, wo sie nicht passt, auf "status")
+AUFBAU = """() => { const L = hausLage(view), g = document.getElementById('grid');
+  return {aufbau: L.aufbau, links: !!g.querySelector('.hs.links'), tasten: g.querySelectorAll('.hs-r.direkt .hs-t').length,
+          blick: g.querySelectorAll('.hs-links .hs-bz').length, schnellLinks: g.querySelectorAll('.hs-links [data-hs=schnell]').length,
+          aktiv: !!g.querySelector('.hs-aktiv'), titel: (g.querySelector('[data-hb=rkopf]') || {}).innerText || ''}; }"""
+
+
+@pytest.mark.parametrize("aufbau", ["raeume", "spalte"])
+@pytest.mark.parametrize("kset", SETS)
+def test_aufbauten_auf_tablet_und_display(aufbau, kset, tmp_path):
+    """Die beiden weiteren Aufbauten in jedem Set auf iPad quer und hochkant
+    und dem grossen Display: nichts scrollt waagerecht, keine Taste unter
+    44 px, keine Karte schneidet ab. "raeume" hat statt "Gerade aktiv" die
+    Titelzeile und die Tasten in den Raumkarten; "spalte" steht quer links
+    mit "Auf einen Blick" und den Schnellaktionen. Wo sie nicht passt
+    (hochkant, iPad quer neben der Leiste links), zeigt die Seite "Status
+    zuerst"."""
+    async def lauf():
+        app = _app(ui={"hausAufbau": aufbau, **({"tileSet": kset} if kset else {})})
+        runner, port, bc = await visu_starten(app)
+        erg, fehler = {}, []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for name, (w, h) in GERAETE.items():
+                    pg = await _seite(b, port, w, h, fehler)
+                    erg[name] = {**await pg.evaluate(LAGE), **await pg.evaluate(AUFBAU)}
+                    await pg.screenshot(path=str(tmp_path / f"haus_{aufbau}_{kset or 'ohne'}_{name}.png"))
+                    await pg.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name, m in erg.items():
+        wo = (aufbau, kset, name)
+        assert not m["quer"], (wo, "scrollt waagerecht", m["quer"])
+        assert not m["klein"], (wo, "Taste unter 44 px", m["klein"])
+        assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
+        assert m["raeume"] == 7, (wo, m)
+        # "spalte" braucht quer Platz fuer sich, zwei Raumspalten und den Spieler:
+        # hochkant nie, auf dem iPad quer nicht neben der Leiste links (Kreide)
+        erwartet = aufbau
+        if aufbau == "spalte" and (name == "ipad_hoch" or (name == "ipad_quer" and kset == "kreide")):
+            erwartet = "status"
+        assert m["aufbau"] == erwartet, (wo, m)
+        if erwartet == "raeume":
+            assert m["tasten"] == 8 and not m["aktiv"] and m["titel"].startswith("Räume"), (wo, m)
+        if erwartet == "spalte":
+            assert m["links"] and m["blick"] == 4 and m["schnellLinks"] == 2 and not m["aktiv"], (wo, m)
+        if erwartet == "status":
+            assert m["aktiv"] and not m["links"] and m["schnell"] == 2, (wo, m)
+
+
+def test_raeume_direkt_bedienen(tmp_path, miniserver_http):
+    """Aufbau "raeume" am Miniserver-Nachbau: eine Taste schaltet ab, was an
+    ist, und ein, was aus ist; die Sauna fragt zuerst nach (erster Tipp ohne
+    Befehl, die Frage steht an der Taste), erst der zweite schaltet. Der Pfeil
+    oeffnet den Raum."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"hausAufbau": "raeume"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                raum = lambda n: pg.locator(".hs-r.direkt", has_text=n)  # noqa: E731
+                await raum("Abstellraum").locator(".hs-t").nth(0).click()
+                erg["licht"] = await _befehle(ms, 1)
+                await raum("Abstellraum").locator(".hs-t").nth(1).click()
+                erg["zone"] = (await _befehle(ms, 2))[1:]
+                sauna = raum("Sauna").locator(".hs-t").nth(0)
+                await sauna.click()
+                await pg.wait_for_timeout(300)
+                erg["frage"] = [await sauna.locator(".l").inner_text(), await sauna.get_attribute("class"),
+                                len(ms.io_roh)]
+                await pg.screenshot(path=str(tmp_path / "haus_raeume_frage.png"))
+                await raum("Sauna").locator(".hs-t").nth(0).click()
+                erg["sauna"] = (await _befehle(ms, 3))[2:]
+                erg["nach_frage"] = await raum("Sauna").locator(".hs-t").nth(0).locator(".l").inner_text()
+                await raum("Küche").locator('[data-hs="raum"]').click()
+                await pg.wait_for_selector("#grid .tile[data-id='IR']")
+                erg["raum"] = await pg.evaluate("view.route")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["licht"] == ["sps/io/LA/changeTo/778"], erg
+    assert erg["zone"] == ["sps/io/AB/play"], erg
+    assert erg["frage"][0] == "Einschalten?" and "arm" in erg["frage"][1] and erg["frage"][2] == 2, erg
+    assert erg["sauna"] == ["sps/io/SA/on"] and erg["nach_frage"] == "Saunasteuerung", erg
+    assert erg["raum"] == {"view": "group", "kind": "room", "id": "r6"}, erg
+
+
+def test_spalte_bedienen(tmp_path, miniserver_http):
+    """Aufbau "spalte" am grossen Display: ein Eintrag unter "Auf einen Blick"
+    oeffnet seinen Baustein, die Schnellaktion links schickt ihren Befehl an
+    den Zentral-Baustein, die Energie oeffnet den Energiefluss."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"hausAufbau": "spalte"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1920, 1080, fehler)
+                await pg.screenshot(path=str(tmp_path / "haus_spalte.png"))
+                await pg.locator(".hs-links .hs-bz", has_text="Postkasten").click()
+                await pg.wait_for_function("view && view.route && view.route.view === 'control'")
+                erg["blick"] = await pg.evaluate("view.route")
+                await pg.locator("#tabback").click()
+                await pg.wait_for_selector("#grid.haus .hs-links")
+                await pg.locator('.hs-links [data-hs="schnell"][data-art="licht"]').click()
+                erg["schnell"] = await _befehle(ms, 1)
+                await pg.locator('.hs-links [data-hs="energie"]').click()
+                await pg.wait_for_function("view && view.route && view.route.id === 'F'")
+                erg["energie"] = await pg.evaluate("view.route")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["blick"] == {"view": "control", "id": "MB"}, erg
+    assert erg["schnell"] == ["sps/io/CL/reset"], erg
+    assert erg["energie"] == {"view": "control", "id": "F"}, erg
+
+
+def test_aufbau_im_konfigurator(cfg_ordner):
+    """Aussehen der Ansicht: die Gruppe "Hausübersicht" waehlt den Aufbau aus
+    /api/meta; gespeichert wird nur, was vom Standard abweicht, und die Visu
+    zeigt danach den gewaehlten Aufbau."""
+    from lox import KONFIGURATOR_GELADEN
+    from test_auswahl_seiten_browser import ROUTEN
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["haus"]}}}), encoding="utf-8")
+
+    async def lauf():
+        struktur, states = haus_anlage()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator(".stab[data-sub='aussehen']").click()
+                feld = pg.locator("#fHausAufbau")
+                erg["optionen"] = await feld.locator("option").evaluate_all("o => o.map(x => [x.value, x.textContent])")
+                erg["vorher"] = await feld.input_value()
+                for wert in ("raeume", "status"):
+                    await feld.select_option(wert)
+                    async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                        await pg.locator("#saveBtn").click()
+                    erg[wert] = [(await (await antwort.value).json())["ok"],
+                                 json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]]
+                    if wert == "raeume":
+                        app.panels = W.load_panels()
+                        visu = await b.new_page(viewport={"width": 1180, "height": 820}, locale="de-DE")
+                        visu.on("pageerror", lambda e: fehler.append(str(e)))
+                        await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
+                        await visu.wait_for_selector("#grid.haus .hs-r.direkt", state="attached")
+                        erg["visu"] = await visu.evaluate("view.aufbau")
+                        await visu.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["optionen"] == [["status", "Status zuerst"], ["raeume", "Räume direkt"], ["spalte", "Spalte links"]], erg
+    assert erg["vorher"] == "status", erg
+    assert erg["raeume"][0] and erg["raeume"][1]["ui"]["hausAufbau"] == "raeume", erg["raeume"]
+    assert erg["visu"] == "raeume", erg
+    assert erg["status"][0] and "hausAufbau" not in (erg["status"][1].get("ui") or {}), erg["status"]

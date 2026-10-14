@@ -625,6 +625,13 @@
       'Hausübersicht': 'House overview',
       'Hausübersicht als Seite hinzufügen': 'Add the house overview as a page',
       'Haus': 'House',
+      // Aufbau der Hausuebersicht je Ansicht (Aussehen, HAUS_AUFBAUTEN)
+      'Aufbau': 'Layout',
+      'Status zuerst': 'Status first',
+      'Räume direkt': 'Rooms direct',
+      'Spalte links': 'Left column',
+      'Wie die Hausübersicht dieser Ansicht aufgebaut ist. „Status zuerst“: oben, was gerade an ist, mit Aus-Taste. „Räume direkt“: jede Raumkarte schaltet Licht, Musik und Co. mit runden Tasten. „Spalte links“: Uhr, Energie, „Auf einen Blick“ und die Schnellaktionen in einer Spalte links, für breite Schirme; wo sie nicht passt (hochkant, schmal), zeigt das Gerät „Status zuerst“.':
+        'How the house overview of this view is laid out. “Status first”: at the top, what is on right now, with an off button. “Rooms direct”: every room card switches lights, music and more with round buttons. “Left column”: clock, energy, “At a glance” and the quick actions in a column on the left, for wide screens; where it does not fit (portrait, narrow), the device shows “Status first”.',
       'Diese Seite zeigt die Hausübersicht: Räume, was gerade an ist, Audio, Uhr, Wetter und Energie. Sie stellt sich aus der Anlage selbst zusammen, hier gibt es nichts anzuordnen.':
         'This page shows the house overview: rooms, what is on right now, audio, clock, weather and energy. It builds itself from your installation, there is nothing to arrange here.',
       'Name': 'Name',
