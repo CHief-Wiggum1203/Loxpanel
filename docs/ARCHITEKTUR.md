@@ -2009,8 +2009,8 @@ Assistenten des Konfigurators.
     Spalte die Höhe hat (`hausLage()`). Hochkant hat die Leiste eine dritte
     Zeile mit so vielen Kacheln, wie in der Mindestbreite `HS_SENDER_MIN`
     passen, dahinter „Mehr“; sie kostet die Raumkarten `HS_SENDER_HOCH` und
-    steht nur, wenn danach noch eine Reihe Raumkarten Platz hat (nicht auf
-    dem 4″-Panel), sonst bleibt die Musikauswahl über ⋮.
+    steht nur, wenn danach noch eine Reihe Raumkarten Platz hat (kleiner
+    oder niedriger Schirm), sonst bleibt die Musikauswahl über ⋮.
     „Alle“ und „Mehr“ öffnen die Musikauswahl. Cover (auch das große des
     Spielers) liegen über dem Musik-Symbol; lädt eines nicht, entfernt
     `hsCoverFehlt()` das Bild und das Symbol bleibt.

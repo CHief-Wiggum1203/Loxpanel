@@ -5423,7 +5423,7 @@ function hausLage(v){
   // Transport, Lautstaerke und einer Zone in die Hoehe passt; in der Leiste
   // so viele, wie neben "Mehr" in die Breite passen - sie kostet die
   // Raumkarten eine Zeile und steht nur, wenn danach noch eine Reihe Raeume
-  // Platz hat (4"-Panel, niedriges Fenster). Sonst bleibt die Musikauswahl (⋮)
+  // Platz hat (kleiner oder niedriger Schirm). Sonst bleibt die Musikauswahl (⋮)
   const sn=v.spieler && v.spieler.sender ? v.spieler.sender.length : 0, senderH=HS_SENDER_HOCH*hk+gap;
   let fc=0;
   if(sn && spalte){
