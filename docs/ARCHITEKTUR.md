@@ -336,7 +336,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `raeume[]`, `aktiv[]`, `zentral[]`, `spieler`, `energie` und auf der Unterseite `liste:"aktiv"` |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`) |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -364,7 +364,7 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
 | `t` | Inhalt |
 |---|---|
-| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste:"aktiv"` (Unterseite „Gerade aktiv“). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
+| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste` (`"aktiv"`: Unterseite „Gerade aktiv“, `"hinweise"`: alle Hinweise). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `geste` | `art` (`licht` \| `musik` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
@@ -1887,10 +1887,12 @@ Assistenten des Konfigurators.
       schaltet. Die Karte braucht mehr Höhe (`HS_RAUM_HOCH_TASTEN`).
     - *Spalte links* (`spalte`, Entwurf „Großes Display – Hausübersicht“):
       links (`HS_LINKS`) große Uhr mit Wetter, Energie mit Produktion und
-      Verbrauch, „Auf einen Blick“ (`_haus_blick()`: was einen Zustand
+      Verbrauch, „Auf einen Blick“ (oben die Hinweise und die Termine, siehe
+      „Hinweise“; darunter unter „Status“ `_haus_blick()`: was einen Zustand
       meldet, sich aber nicht abschalten lässt, etwa Postkasten, Lüftung,
-      Zentral-Bausteine; ohne Energie-Baustein und ohne Raumregelung/Sauna,
-      ein Tipp öffnet den Baustein) und die Schnellaktionen untereinander;
+      Zentral-Bausteine; ohne Energie-Baustein, ohne Raumregelung/Sauna und
+      ohne, was oben schon als Hinweis steht, ein Tipp öffnet den Baustein)
+      und die Schnellaktionen untereinander;
       in der Mitte die Raumkarten unter „Räume · n Geräte an“, rechts der
       Spieler. Nur quer und nur, wo neben Spalte und Spieler zwei
       Raumspalten passen (nicht hochkant, nicht auf dem iPad quer neben der
@@ -1930,6 +1932,38 @@ Assistenten des Konfigurators.
     Text nachschärft (wie „n an“ auf den Raumkarten). Die Zeile kostet die
     Raumkarten Höhe; passen sie dann nicht mehr, scrollen sie wie sonst
     auch (etwa bei 1460×1120, nicht auf iPad und großem Display).
+  - **Hinweise** (14.10.2026, Entwurf „Auf einen Blick – mit Hinweisen“):
+    was Aufmerksamkeit braucht, in jedem Aufbau. Der Server sammelt sie aus
+    den Kacheln der Seite (`_haus_hinweise()`): Eine Kachel mit dem Ton
+    `crit` (Klingel, Alarm, Rauchmelder, Wecker, Störung der Sauna) ist
+    *dringend*, mit `warn` eine *Warnung* (`HINWEIS_TON`), der Text ist ihr
+    Zustand. Wo der nicht sagt, was los ist, nennt die Kachel ihren Hinweis
+    selbst (`hinweis`: Stufe, Text, Symbol, Zusatz): die Sauna dieselben
+    Texte wie ihre Detailseite (`SAUNA_WASSER`, `SAUNA_STOERUNG`), die
+    Raumregelung bei offenem Fenster „Fenster offen“ (dringend, solange der
+    Raum dabei heizt oder kühlt, sonst eine Warnung), der Postkasten mit
+    Post die Stufe *an*. Die Bedingung steht so nur an der Kachel. Folge
+    nach Stufe (`HINWEIS_STUFEN`), darin nach Räumen; ein Tipp öffnet den
+    Baustein; was die Ansicht ausblendet, meldet nichts; live wie alles auf
+    der Seite.
+    In „Status zuerst“ und „Räume direkt“ stehen sie als Leiste gleich unter
+    dem Kopf: so viele, wie in der Mindestbreite `HS_HINWEIS_MIN`
+    nebeneinander passen, der Rest hinter „+n“ (Unterseite
+    `liste:"hinweise"`; ist dort keiner mehr, geht es zurück). Ohne Hinweis
+    gibt es keine Leiste. In „Spalte links“ stehen sie oben in „Auf einen
+    Blick“ mit ihrer Zahl, ohne Hinweis steht dort „Alles in Ordnung“.
+    Darunter folgen die Termine von heute und morgen, die noch kommen
+    (`hsTermine()` aus der Front, höchstens so viele, wie die Uhr-Seite
+    zeigt, `svEvents`); die Spalte hat keinen Kopf mit dem nächsten Termin.
+    `tickClock()` zeichnet sie jede Minute neu, ein vergangener Termin fällt
+    von selbst weg. Passt die Liste nicht, scrollt sie senkrecht.
+    Farben: *dringend* ist die gefüllte Störungsfläche (`--crit-fill`,
+    `--crit-ink`, `--crit-muted`), *Warnung* und *an* zeigen es nur am
+    Symbol (`--warn`, `--glow`). Das Symbol steht in einem Kreis auf der
+    jeweils anderen Grundfläche (Karte `--tile` auf dem Grund, in der Spalte
+    umgekehrt): Nur auf `--tile` und `--screen` sind Schrift und
+    Rollenfarben gegen AA gerechnet (`theme_colors`), auf `--taste` nur
+    Symbole in `--ink`.
   - **Raumkarten:** je Raum mit sichtbaren Bausteinen eine Karte (Raumfilter
     der Ansicht wie beim Tab „Räume“). Der Hauptwert kommt aus
     `_haus_hauptwert()`: die Ist-Temperatur der Raumregelung bzw. Sauna
@@ -1977,9 +2011,13 @@ Assistenten des Konfigurators.
     Größe, Bedienen (Tasten, Rückfrage, „Auf einen Blick“) und ihre Wahl im
     Konfigurator; Schnellaktionen im Set Loxone (Maße gegen die
     Tokens, Befehl an den Zentral-Baustein, Anzahl verschwindet über
-    `_on_value()` und kommt wieder) und ohne Zentral-Baustein kein Knopf.
+    `_on_value()` und kommt wieder) und ohne Zentral-Baustein kein Knopf;
+    Hinweise in jedem Aufbau, Set und Gerät (Leiste mit „+n“, Spalte mit
+    Zahl, Farben gegen die Tokens), Bedienen mit Unterseite und Wegfall
+    über `_on_value()`, Termine bei festgestellter Browser-Uhr.
     Die Lesbarkeit aller Texte in allen Sets misst
-    `test_kachel_set_kontrast_browser.py` (Ansicht `haus`).
+    `test_kachel_set_kontrast_browser.py` (Ansichten `haus`, `haus_raeume`,
+    `haus_spalte` und mit Hinweisen `haus_hinweise`, `haus_spalte_hinweise`).
 - Gesten (13.10.2026, Konzept in `docs/TODO.md` §9 „Loxone-Standard als
   Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster.
   Die Fläche (`.screen`) ist in drei Spalten geteilt (`GESTE_SPALTEN`):

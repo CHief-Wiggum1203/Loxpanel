@@ -4,10 +4,14 @@ waagerecht (dort blaettert der Wisch die Seiten), jede Taste ist mindestens
 44 px gross, keine Karte schneidet ihren Inhalt ab, der Spieler steht quer
 als Spalte und hochkant als Leiste. Bedient am Miniserver-Nachbau: Aus-Taste,
 "+n weitere" mit Unterseite, Schnellaktionen, Lautstaerke, Zonenwechsel, Raum
-oeffnen. Neue Zustaende tauschen nur ihren Block. Anlage: lox.haus_anlage().
+oeffnen. Neue Zustaende tauschen nur ihren Block. Die Hinweise als Leiste und
+in "Auf einen Blick", mit Unterseite und den Terminen des Tages. Anlage:
+lox.haus_anlage().
 Bilder im tmp_path (CI: Artefakt "screenshots")."""
 import asyncio
 import json
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -35,8 +39,12 @@ LAGE = """() => {
     .map(b => b.className + ' ' + Math.round(r(b).width) + 'x' + Math.round(r(b).height));
   // ragt etwas unten heraus, oder sind die Zeilen einer Raumkarte gequetscht (liegen
   // uebereinander oder ihr Text laeuft aus dem Kasten; 3 px Rundung von Pfeil und Name)?
+  // In einer Liste, die senkrecht scrollt ("Auf einen Blick"), ist nichts
+  // abgeschnitten; die Liste selbst muss in die Karte passen
+  const rollt = (k, c) => { for (let e = k.parentElement; e && e !== c; e = e.parentElement)
+    if (['auto', 'scroll'].includes(getComputedStyle(e).overflowY)) return true; return false; };
   const ab = [...g.querySelectorAll('.hs-c')].filter(sicht).filter(c => [...c.querySelectorAll('*')]
-    .some(k => sicht(k) && r(k).bottom > r(c).bottom + 1)
+    .some(k => sicht(k) && r(k).bottom > r(c).bottom + 1 && !rollt(k, c))
     || (c.classList.contains('hs-r') && [...c.children].filter(sicht)
         .some((k, i, l) => (i > 0 && r(k).top < r(l[i - 1]).bottom - 1) || k.scrollHeight > k.clientHeight + 3))).map(c => c.dataset.hb);
   const kopf = [...g.querySelectorAll('.hs-kopf .hs-k')].map(k => k.innerText.split(String.fromCharCode(10)).join(' '));
@@ -773,3 +781,206 @@ def test_aufbau_im_konfigurator(cfg_ordner):
     assert erg["raeume"][0] and erg["raeume"][1]["ui"]["hausAufbau"] == "raeume", erg["raeume"]
     assert erg["visu"] == "raeume", erg
     assert erg["status"][0] and "hausAufbau" not in (erg["status"][1].get("ui") or {}), erg["status"]
+
+
+# Vier Hinweise, je Stufe einer: Klingel und Fenster offen, waehrend die Kueche
+# heizt (dringend), Wassermangel der Sauna (Warnung), Post (an)
+HINWEIS_STATES = {"ic": 1, "ir4": 1, "sa3": 1, "mb1": 1}
+HINWEIS_TITEL = ["Es klingelt", "Fenster offen", "Wasser nachfüllen", "Post da"]
+HINWEIS_STUFEN = ["dringend", "dringend", "warnung", "an"]
+
+# Hinweise der Seite: Karten der Leiste und in "Auf einen Blick" (Stufe, Text,
+# Vorlesetext, Flaeche, Farbe von Schrift und Symbol), die Taste "+n", die
+# Zahl, die Zeilen unter "Status", die Folge der Hauptspalte und die Tokens
+HINWEISE = """() => {
+  const g = document.getElementById('grid');
+  const probe = st => { const p = document.createElement('span'); Object.assign(p.style, st); g.appendChild(p);
+    const s = getComputedStyle(p), w = {farbe: s.color, grund: s.backgroundColor}; p.remove(); return w; };
+  const karte = h => ({stufe: h.classList[1], titel: h.querySelector('.z').textContent,
+    wo: (h.querySelector('.w') || {}).textContent || '', aria: h.getAttribute('aria-label'),
+    grund: getComputedStyle(h).backgroundColor, schrift: getComputedStyle(h.querySelector('.z')).color,
+    symbol: getComputedStyle(h.querySelector('.hs-i')).color});
+  const text = q => { const e = g.querySelector(q); return e ? e.textContent : null; };
+  return {links: !!g.querySelector('.hs.links'),
+    leiste: [...g.querySelectorAll('.hs-hw [data-hs=hinweis]')].map(karte), plus: text('.hs-hplus'),
+    blick: [...g.querySelectorAll('.hs-blick [data-hs=hinweis]')].map(karte), zahl: text('.hs-blick .kopf .n'),
+    ok: text('.hs-blick .hs-h.ok .z'),
+    termine: [...g.querySelectorAll('.hs-blick .hs-h.termin')].map(h => [h.querySelector('.z').textContent,
+      h.querySelector('.w').textContent]),
+    status: g.querySelectorAll('.hs-blick .hs-bz').length,
+    folge: [...g.querySelector('.hs-main').children].map(e => e.classList[0]),
+    warn: probe({color: 'var(--warn)'}).farbe, glow: probe({color: 'var(--glow)'}).farbe,
+    critFill: probe({background: 'var(--crit-fill)'}).grund, critInk: probe({color: 'var(--crit-ink)'}).farbe};
+}"""
+
+
+@pytest.mark.parametrize("aufbau", ["status", "raeume", "spalte"])
+@pytest.mark.parametrize("kset", SETS)
+def test_hinweise_auf_tablet_und_display(kset, aufbau, tmp_path, monkeypatch):
+    """Vier Hinweise in jedem Aufbau, Set und Geraet: Mit der Spalte links
+    stehen alle oben in "Auf einen Blick" (mit Zahl; die Post nicht noch
+    einmal unter "Status"), sonst als Leiste gleich unter dem Kopf - so viele,
+    wie nebeneinander passen, der Rest hinter "+n". Folge nach Stufe;
+    dringend ist die gefuellte Stoerungsflaeche des Sets, Warnung und "an"
+    zeigen es am Symbol (--warn, --glow). Nichts scrollt waagerecht, keine
+    Taste unter 44 px, keine Karte schneidet ab."""
+    async def lauf():
+        app = _app(ui={"hausAufbau": aufbau, **({"tileSet": kset} if kset else {})})
+        app.states.update(HINWEIS_STATES)
+        app._front = app._front_payload(await _front(monkeypatch))
+        runner, port, bc = await visu_starten(app)
+        erg, fehler = {}, []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for name, (w, h) in GERAETE.items():
+                    pg = await _seite(b, port, w, h, fehler)
+                    erg[name] = (await pg.evaluate(LAGE), await pg.evaluate(HINWEISE))
+                    await pg.screenshot(path=str(tmp_path / f"haus_hinweise_{aufbau}_{kset or 'ohne'}_{name}.png"))
+                    await pg.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name, (m, h) in erg.items():
+        wo = (kset, aufbau, name)
+        assert not m["quer"], (wo, "scrollt waagerecht", m["quer"])
+        assert not m["klein"], (wo, "Taste unter 44 px", m["klein"])
+        assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
+        if h["links"]:
+            karten = h["blick"]
+            assert [k["titel"] for k in karten] == HINWEIS_TITEL and h["zahl"] == "4 Hinweise", (wo, h)
+            assert h["leiste"] == [] and h["plus"] is None and h["ok"] is None, (wo, h)
+            assert h["status"] == 3, (wo, "Lueftung und die Zentralen, die Post steht oben", h)
+        else:
+            karten = h["leiste"]
+            n = len(karten)
+            assert 2 <= n <= 4 and [k["titel"] for k in karten] == HINWEIS_TITEL[:n], (wo, h)
+            assert h["plus"] == (f"+{4 - n}" if n < 4 else None), (wo, h)
+            assert h["folge"][:2] == ["hs-kopf", "hs-hw"], (wo, h["folge"])
+        assert [k["stufe"] for k in karten] == HINWEIS_STUFEN[:len(karten)], (wo, karten)
+        assert karten[0]["aria"] == "Es klingelt, Intercom · Eingang", (wo, karten[0])
+        assert karten[1]["wo"] == "Raumregelung · Küche · heizt", (wo, karten[1])
+        if kset:
+            for k in karten:
+                if k["stufe"] == "dringend":
+                    assert k["grund"] == h["critFill"] and k["schrift"] == k["symbol"] == h["critInk"], (wo, k, h)
+                else:
+                    assert k["symbol"] == h["warn" if k["stufe"] == "warnung" else "glow"], (wo, k, h)
+    if aufbau == "spalte":
+        assert erg["display"][1]["links"], "am grossen Display steht die Spalte"
+
+
+def test_hinweise_bedienen(tmp_path):
+    """Hochkant: ein Tipp auf einen Hinweis oeffnet seinen Baustein, "+n"
+    die Unterseite mit allen. Die Zustaende kommen live: ist ein Hinweis
+    erledigt, faellt er weg und die Unterseite zaehlt mit; ist keiner mehr
+    da, geht es zurueck zur Uebersicht und die Leiste ist weg - kommt Post,
+    ist sie wieder da."""
+    async def lauf():
+        app = _app()
+        app.states.update(HINWEIS_STATES)
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 820, 1180, fehler)
+                erg["vorher"] = await pg.evaluate(HINWEISE)
+                await pg.locator(".hs-hw [data-hs=hinweis]", has_text="Fenster offen").click()
+                await pg.wait_for_function("view && view.route && view.route.view === 'control'")
+                erg["detail"] = await pg.evaluate("view.route")
+                await pg.locator("#tabback").click()
+                await pg.wait_for_selector("#grid.haus .hs-hw")
+                await pg.locator(".hs-hplus").click()
+                await pg.wait_for_selector("#grid .hs-liste [data-hs=hinweis]")
+                erg["route"] = await pg.evaluate("view.route")
+                erg["liste"] = await pg.locator(".hs-liste [data-hs=hinweis] .z").all_text_contents()
+                erg["kopf"] = await pg.locator(".hs-zeile h2, .hs-zeile .n").all_text_contents()
+                erg["lage"] = await pg.evaluate(LAGE)
+                await pg.screenshot(path=str(tmp_path / "haus_hinweise_liste.png"))
+                # die Tuer hat ausgeklingelt, das Fenster ist zu
+                app._on_value("ic", 0)
+                app._on_value("ir4", 0)
+                await pg.wait_for_function("document.querySelectorAll('.hs-liste [data-hs=hinweis]').length === 2")
+                erg["liste2"] = await pg.locator(".hs-liste [data-hs=hinweis] .z").all_text_contents()
+                erg["kopf2"] = await pg.locator(".hs-zeile .n").text_content()
+                # alles erledigt: zurueck, ohne Leiste
+                app._on_value("sa3", 0)
+                app._on_value("mb1", 0)
+                await pg.wait_for_function("view && !view.liste && !!document.querySelector('#grid.haus .hs-raeume')")
+                erg["ohne"] = await pg.evaluate("[document.querySelectorAll('.hs-hw').length, stack.length]")
+                app._on_value("mb1", 1)
+                await pg.wait_for_selector(".hs-hw [data-hs=hinweis]")
+                erg["post"] = await pg.locator(".hs-hw [data-hs=hinweis] .z").all_text_contents()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert [k["titel"] for k in erg["vorher"]["leiste"]] == HINWEIS_TITEL[:2] and erg["vorher"]["plus"] == "+2", erg
+    assert erg["detail"] == {"view": "control", "id": "IR"}, erg
+    assert erg["route"] == {"view": "tab", "tab": "haus", "liste": "hinweise"}, erg
+    assert erg["liste"] == HINWEIS_TITEL and erg["kopf"] == ["Hinweise", "4 Hinweise"], erg
+    assert not erg["lage"]["quer"] and not erg["lage"]["klein"], erg["lage"]
+    assert erg["liste2"] == ["Wasser nachfüllen", "Post da"] and erg["kopf2"] == "2 Hinweise", erg
+    assert erg["ohne"] == [0, 1], erg
+    assert erg["post"] == ["Post da"], erg
+
+
+def test_termine_in_auf_einen_blick(tmp_path):
+    """Spalte links ohne Hinweis: "Alles in Ordnung" (ohne Zahl), darunter die
+    Termine von heute und morgen, die noch kommen - der von heute frueh
+    nicht, der von uebermorgen nicht -, hoechstens so viele, wie die
+    Uhr-Seite zeigt (svEvents). Laeuft die Uhr ueber einen Termin, faellt er
+    von selbst weg und der naechste rueckt nach. Die Uhr des Browsers steht
+    fest, damit es nicht von der Tageszeit abhaengt."""
+    jetzt = datetime(2026, 3, 10, 17, 58, tzinfo=ZoneInfo("Europe/Vienna"))
+    heute = jetzt.date()
+
+    def termin(tage, titel, zeit=None):
+        d = heute + timedelta(days=tage)
+        return {"day": W.front_info.day_label(d, heute), "date": d.isoformat(), "time": zeit or "ganztägig",
+                "title": titel, "note": "", "allday": zeit is None, "cal": "Familie", "color": "#52b881", "ck": "f"}
+    events = [termin(0, "Schulfrei"), termin(0, "Frühstück", "7:00"), termin(0, "Elternabend", "18:00"),
+              termin(1, "Müllabfuhr"), termin(1, "Training", "19:00"), termin(2, "Arzt", "9:00")]
+
+    async def lauf():
+        app = _app(ui={"hausAufbau": "spalte", "tileSet": "kreide"})
+        app._front = app._front_payload({"events": events, "sv_events": 3})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1920, "height": 1080}, locale="de-DE",
+                                      timezone_id="Europe/Vienna")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.clock.install(time=jetzt)
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=haus")
+                await pg.wait_for_selector("#grid.haus .hs-blick .hs-h.termin", state="attached")
+                await pg.evaluate("wake()")
+                erg["vorher"] = await pg.evaluate(HINWEISE)
+                await pg.screenshot(path=str(tmp_path / "haus_termine.png"))
+                await pg.clock.run_for(3 * 60 * 1000)
+                await pg.wait_for_function("![...document.querySelectorAll('.hs-blick .hs-h.termin .z')]"
+                                           ".some(z => z.textContent === 'Elternabend')")
+                erg["nachher"] = await pg.evaluate(HINWEISE)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    v = erg["vorher"]
+    assert v["links"] and v["ok"] == "Alles in Ordnung" and v["zahl"] is None and v["blick"] == [], v
+    assert v["termine"] == [["Schulfrei", "Heute, ganztägig"], ["Elternabend", "Heute, 18:00"],
+                            ["Müllabfuhr", "Morgen, ganztägig"]], v["termine"]
+    assert erg["nachher"]["termine"] == [["Schulfrei", "Heute, ganztägig"], ["Müllabfuhr", "Morgen, ganztägig"],
+                                         ["Training", "Morgen, 19:00"]], erg["nachher"]["termine"]
