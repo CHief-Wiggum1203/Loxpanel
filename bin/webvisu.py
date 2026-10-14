@@ -277,7 +277,7 @@ def _pick_tabs(prof):
 # nur, welcher Teil gezeigt wird. Schluessel -> (Titel, Teil der Front).
 FRONT_TABS = {"kalender": ("Kalender", "calendar"), "wetter": ("Wetter", "weather")}
 # Hausuebersicht als eigene Seite (_view_haus): Raeume mit Hauptwert, was gerade
-# an ist (mit Aus-Taste), Zentral-Tasten und der Spieler einer Audio-Zone.
+# an ist (mit Aus-Taste), Schnellaktionen und der Spieler einer Audio-Zone.
 HAUS_TAB = "haus"
 HAUS_TITEL = "Haus"
 # Aus-Befehl je Bausteintyp (Loxone-Strukturdoku) und die Beschriftung seiner
@@ -294,11 +294,15 @@ HAUS_AUS = {
     "AudioZoneV2": ("pause", "Pause"),
     "Sauna": ("off", "Aus"),
 }
-# Zentral-Tasten der Hausseite: welche Typen sie abschalten. Die Taste steht
-# nur da, wenn die Seite einen Baustein dieser Art zeigt.
-HAUS_ZENTRAL = {
-    "licht": ("Lichter aus", ("LightControllerV2", "Dimmer", "EIBDimmer")),
-    "audio": ("Zonen aus", ("AudioZone", "AudioZoneV2")),
+# Schnellaktionen der Hausseite: ein Befehl an den Zentral-Baustein der
+# Anlage, Art -> (Typ, Beschriftung, Befehl). Befehle laut Strukturdoku
+# (Central Objects): CentralLightController kennt "on" und "reset", "reset"
+# ist der Eingang "Off" des Bausteins ("Outputs are reset / switched off",
+# Wissensdatenbank "Licht Zentral"); CentralAudioZone "pause". Ohne den
+# Baustein gibt es die Taste nicht.
+HAUS_SCHNELL = {
+    "licht": ("CentralLightController", "Alle Lichter aus", "reset"),
+    "audio": ("CentralAudioZone", "Alle Zonen aus", "pause"),
 }
 # Symbole je Raumkarte (schaltbare zuerst)
 HAUS_SYMBOLE = 4
@@ -4760,6 +4764,22 @@ class App:
             return {}
         return {"leiste": [self._control_item(u, prof, **kw) for u in uuids]}
 
+    def _zentral_an(self, c: dict) -> int:
+        """Wie viele Mitglieder eines Zentral-Bausteins (details.controls) an
+        sind: Lichtsteuerungen mit aktiver Stimmung, Audio-Zonen, die spielen,
+        Tore und Fenster, die offen stehen. Andere Zentralen: 0. Dieselbe Zahl
+        zeigen seine Kachel und die Schnellaktion der Hausseite."""
+        t = c.get("type")
+        muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
+                  if m.get("uuid") in self.controls]
+        if t == "CentralLightController":
+            return sum(1 for mu in muuids if LIGHT.render(self._with_uuid(mu), self.states)["on"])
+        if t == "CentralAudioZone":
+            return sum(1 for mu in muuids if self._state(self.controls[mu], "playState") == 2)
+        if t in ("CentralGate", "CentralWindow"):
+            return sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
+        return 0
+
     def _control_item(self, uuid: str, prof: dict | None = None,
                       show_room: bool = False, ohne_raum: str = "") -> dict:
         """Kachel eines Bausteins. show_room: Raum an der Kachel (Seite ueber
@@ -5148,18 +5168,13 @@ class App:
                 it["tone"] = "good"
             it.update(icon="thermo", on=act, nav={"view": "control", "id": uuid}, sublabel=sub)
         elif (t or "").startswith("Central"):
-            muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
-                      if m.get("uuid") in self.controls]
-            n = 0
+            n = self._zentral_an(c)
             # Einzahl bei genau einem: "Spielt in 1 Raum", nicht "in 1 Räumen"
             if t == "CentralLightController":
-                n = sum(1 for mu in muuids if LIGHT.render(self._with_uuid(mu), self.states)["on"])
                 it["sublabel"] = f"In {n} {'Raum' if n == 1 else 'Räumen'} aktiv" if n else "Aus"
             elif t == "CentralAudioZone":
-                n = sum(1 for mu in muuids if self._state(self.controls[mu], "playState") == 2)
                 it["sublabel"] = f"Spielt in {n} {'Raum' if n == 1 else 'Räumen'}" if n else "Aus"
             elif t in ("CentralGate", "CentralWindow"):
-                n = sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
                 it["sublabel"] = f"{n} offen" if n else "Alle geschlossen"
             elif t == "CentralJalousie":
                 it.update(sublabel="Beschattung", subInfo=True)
@@ -5637,22 +5652,26 @@ class App:
                 e["prod"] = prod
         return e
 
-    def haus_aus_befehle(self, art: str, prof: dict | None) -> list:
-        """Befehle einer Zentral-Taste der Hausseite: (uuidAction, Befehl) fuer
-        jeden Baustein dieser Art (HAUS_ZENTRAL) auf der Seite, der an ist.
-        Gesicherte Bausteine (Visu-PIN) bleiben aussen vor - sie schaltet nur,
-        wer ihre PIN eingibt, auf ihrer eigenen Kachel."""
-        e = HAUS_ZENTRAL.get(art)
-        if not e:
-            return []
+    def _haus_schnell(self, prof: dict | None) -> list:
+        """Schnellaktionen der Hausseite (HAUS_SCHNELL): je Art der erste
+        Zentral-Baustein der Anlage, den die Ansicht nicht ausblendet, mit
+        seinem Befehl und wie viele seiner Mitglieder an sind (_zentral_an).
+        Ohne den Baustein keine Taste. Die Anzahl kommt mit jeder
+        Zustandsaenderung neu (broadcaster rendert die Seite), die Visu fragt
+        nicht nach. Ein gesicherter Baustein (Visu-PIN) fragt in der Visu nach
+        der PIN wie jede Taste."""
         out = []
-        for _ru, uuids in self._haus_raeume(prof):
-            for u in uuids:
-                c = self.controls[u]
-                aus = self._haus_aus(u)
-                if c.get("type") in e[1] and aus and not c.get("isSecured") \
-                        and self._control_item(u, prof).get("on"):
-                    out.append((aus["uuid"], aus["cmd"]))
+        for art, (typ, label, cmd) in HAUS_SCHNELL.items():
+            u = next((x for x, c in self.controls.items()
+                      if c.get("type") == typ and c.get("uuidAction") and self._shown(x, prof)), None)
+            if u is None:
+                continue
+            c = self.controls[u]
+            s = {"art": art, "id": u, "label": label, "an": self._zentral_an(c),
+                 "cmd": {"uuid": c["uuidAction"], "cmd": cmd}}
+            if c.get("isSecured"):
+                s["secured"] = True
+            out.append(s)
         return out
 
     # ---- Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9) ----
@@ -5697,8 +5716,7 @@ class App:
     def _geste_bausteine(self, ru: str, prof: dict | None, typen: tuple) -> list:
         """Bausteine dieser Typen im Raum, so wie seine Raumseite sie zeigt
         (Kategorie-Filter und Ausblendungen der Ansicht). Gesicherte bleiben
-        aussen vor wie bei haus_aus_befehle(): eine PIN-Abfrage mitten in einer
-        Geste geht nicht."""
+        aussen vor: eine PIN-Abfrage mitten in einer Geste geht nicht."""
         return [u for u, c in self.controls.items()
                 if c.get("room") == ru and c.get("type") in typen and not c.get("isSecured")
                 and self._cat_ok(u, prof) and self._shown(u, prof)]
@@ -5976,10 +5994,10 @@ class App:
     def _view_haus(self, route: dict, prof: dict | None = None) -> dict:
         """Hausuebersicht: je Raum eine Karte (Hauptwert, Symbole, wie viel an
         ist; ein Tipp oeffnet den Raum), "Gerade aktiv" (was an ist und sich
-        abschalten laesst, mit Aus-Taste), die Zentral-Tasten, der Spieler einer
-        Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter und Termine kommen
-        in der Visu aus der Front. Route: zone (gewaehlte Zone), liste="aktiv"
-        (Unterseite mit allen aktiven Geraeten)."""
+        abschalten laesst, mit Aus-Taste), die Schnellaktionen (_haus_schnell),
+        der Spieler einer Audio-Zone und die Energie fuer den Kopf. Uhr, Wetter
+        und Termine kommen in der Visu aus der Front. Route: zone (gewaehlte
+        Zone), liste="aktiv" (Unterseite mit allen aktiven Geraeten)."""
         raeume, aktiv, zonen, alle = [], [], [], []
         for ru, uuids in self._haus_raeume(prof):
             name = _clean(self.rooms[ru].get("name")) or "Raum"
@@ -6008,9 +6026,6 @@ class App:
             raeume.append({"id": ru, "name": name, "wert": wert, "sub": sub, "an": an,
                            "anzahl": len(uuids), "symbole": symbole,
                            "nav": {"view": "group", "kind": "room", "id": ru}})
-        typen = {self.controls[u].get("type") for u in alle}
-        zentral = [{"art": art, "label": label} for art, (label, ts) in HAUS_ZENTRAL.items()
-                   if typen.intersection(ts)]
         tab = (route or {}).get("tab") or HAUS_TAB
         if _is_pick(tab):
             # freie Seite: ihr Name ist der Titel
@@ -6019,7 +6034,7 @@ class App:
         else:
             titel = HAUS_TITEL
         out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus",
-               "raeume": raeume, "aktiv": aktiv, "zentral": zentral,
+               "raeume": raeume, "aktiv": aktiv, "schnell": self._haus_schnell(prof),
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
                "energie": self._haus_energie(alle, prof)}
         if (route or {}).get("liste") == "aktiv":
@@ -10827,16 +10842,6 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
                                         "Befehl nicht ausgeführt – Miniserver antwortet nicht" if code is None
                                         else f"Befehl nicht ausgeführt (Miniserver meldet {code})"})
-            elif data.get("t") == "hausaus":
-                # Zentral-Taste der Hausseite ("Lichter aus", "Zonen aus"): jeder
-                # Baustein dieser Art auf der Seite, der an ist, bekommt seinen
-                # Aus-Befehl. Kein Treffer ist kein Fehler (schon alles aus).
-                befehle = app.haus_aus_befehle(str(data.get("art") or ""), app.conn_prof.get(ws, prof))
-                codes = await asyncio.gather(*(app.command(u, c) for u, c in befehle))
-                fehl = sum(1 for code in codes if code != "200")
-                if fehl:
-                    await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text":
-                                        f"{fehl} von {len(codes)} Befehlen nicht ausgeführt"})
             elif data.get("t") == "geste":
                 # Zwei-Finger-Geste (Loxone-Standard): der Server sucht Raum,
                 # Bausteine und Befehle, die Visu blendet die Antwort ein

@@ -272,8 +272,9 @@ Wichtige Felder:
   `verbindung` geht beim Verbinden an das Panel, bei jeder Änderung an alle
   und alle `VERBINDUNG_TAKT` (15 s) als Lebenszeichen (`_verbindung_melden()`
   im Broadcaster). Die Visu sperrt jeden Befehl, sobald eine der beiden
-  Verbindungen fehlt (`verbindungGesperrt()` in `sendCmd()` und vor
-  `hausaus`). Die Leiste `#verbindung` mit „seit“ und letztem bestätigtem
+  Verbindungen fehlt (`verbindungGesperrt()` in `sendCmd()`, über das auch
+  die Schnellaktionen der Hausseite gehen, und vor jeder Geste,
+  `gesteSenden()`). Die Leiste `#verbindung` mit „seit“ und letztem bestätigtem
   Stand und die blasse Darstellung (`.screen.verbweg`) kommen nach
   `VERBINDUNG_HINWEIS` (8 s), damit ein Neustart des Miniservers nach dem
   Speichern in Loxone Config oder ein kurzer WLAN-Aussetzer nicht jedes Mal
@@ -365,7 +366,6 @@ Browser → Server (`ws_handler`, `webvisu.py:2991`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste:"aktiv"` (Unterseite „Gerade aktiv“). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
-| `hausaus` | `art` (`licht` \| `audio`) — Zentral-Taste der Hausübersicht: jeder Baustein dieser Art auf der Seite, der an ist, bekommt seinen Aus-Befehl (`haus_aus_befehle()`, `HAUS_ZENTRAL`/`HAUS_AUS`); gesicherte (Visu-PIN) nicht. Antwort nur bei Fehlern (`notify`) |
 | `geste` | `art` (`licht` \| `musik` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
@@ -1882,16 +1882,35 @@ Assistenten des Konfigurators.
     wie Spalten passen (`hausLage()`, Mindestbreite `HS_AKTIV_MIN`), bei mehr
     wird die letzte Stelle „+n weitere“. Ein Tipp darauf öffnet die
     Unterseite (`liste:"aktiv"` in der Route) mit allen untereinander, ist
-    dort nichts mehr an, geht es zurück. Daneben die Zentral-Tasten „Lichter
-    aus“ und „Zonen aus“ (`HAUS_ZENTRAL`), nur wenn die Seite solche Bausteine
-    zeigt. Sie schicken `hausaus`; der Server schaltet jeden, der an ist, ohne
-    gesicherte.
+    dort nichts mehr an, geht es zurück.
+  - **Schnellaktionen** (14.10.2026, Entwurf „Großes Display – Hausübersicht“,
+    dort unter „Auf einen Blick“): „Alle Lichter aus“ und „Alle Zonen aus“
+    als eigene Zeile unter „Gerade aktiv“, auf der Unterseite unter ihrem
+    Kopf. Sie schalten über den Zentral-Baustein der Anlage (`HAUS_SCHNELL`,
+    `_haus_schnell()`): je Art der erste, den die Ansicht nicht ausblendet
+    (`hide`); der Raumfilter gilt nicht, wie beim Tab „Zentral“. Ohne den
+    Baustein gibt es die Taste nicht. Befehle laut Strukturdoku (Central
+    Objects): `CentralLightController` `reset` (der Eingang „Off“ des
+    Bausteins: „Outputs are reset / switched off“), `CentralAudioZone`
+    `pause`. Die Visu schickt sie als gewöhnlichen `cmd` (`sendCmd()`), ein
+    gesicherter Baustein fragt also nach der PIN. Rechts steht, wie viele
+    Mitglieder an sind (`an`, „1 an“, leer bei 0): dieselbe Zahl wie auf
+    der Kachel des Zentral-Bausteins (`_zentral_an()`), live, weil jede
+    Zustandsänderung die Seite neu rendert (`broadcaster`), die Visu fragt
+    nicht nach. Maße wie im Entwurf: 72 px hoch bei `--hk` 1, Fläche und
+    Radius der Karten des Sets (`--tile`, `--kachel-radius`, im Set Loxone
+    20 px), die Anzahl in `--glow` bzw. `--an-text`, wo ein Set ihn für
+    Text nachschärft (wie „n an“ auf den Raumkarten). Die Zeile kostet die
+    Raumkarten Höhe; passen sie dann nicht mehr, scrollen sie wie sonst
+    auch (etwa bei 1460×1120, nicht auf iPad und großem Display).
   - **Raumkarten:** je Raum mit sichtbaren Bausteinen eine Karte (Raumfilter
     der Ansicht wie beim Tab „Räume“). Der Hauptwert kommt aus
     `_haus_hauptwert()`: die Ist-Temperatur der Raumregelung bzw. Sauna
     (`big`), sonst der Zustand des ersten Bausteins, der an ist, sonst der
     erste Zustand. Darunter bis zu `HAUS_SYMBOLE` Symbole, abschaltbare zuerst,
-    und „n an“. Ein Tipp öffnet die Raumseite (`group`/`room`). Die
+    und „n an“; in einer schmalen Karte werden die Symbole gemeinsam kleiner
+    (`.hs-r .s`), statt mit „n an“ herauszulaufen. Ein Tipp öffnet die
+    Raumseite (`group`/`room`). Die
     Spaltenzahl wählt `hausLage()`: die, deren Karten dem Seitenverhältnis
     `HS_RAUM_SEITE` am nächsten kommen, ohne unter `HS_RAUM_HOCH` zu
     schrumpfen; passt das nicht, scrollen die Karten senkrecht. Nach dem
@@ -1914,12 +1933,18 @@ Assistenten des Konfigurators.
   - **Live:** Die Seite besteht aus benannten Blöcken (`data-hb`). Kommt
     dieselbe Seite neu, tauscht `updateHaus()` nur die Blöcke, deren HTML sich
     geändert hat, solange Lage und Blockfolge (`hausSig()`) gleich bleiben;
-    bedient wird über einen Klick-Verteiler (`hausKlick()`).
+    zur Lage zählt, ob die Raumkarten scrollen, nicht ihre Höhe in Pixeln
+    (die zieht `hausMasse()` mit `--hk` nach, sonst baute im Scroll-Fall jede
+    Größenänderung die Seite neu). Bedient wird über einen Klick-Verteiler
+    (`hausKlick()`).
   - Geprüft in `tests/test_haus.py` (Anlage `lox.haus_anlage()`) und
     `tests/browser/test_haus_browser.py`: iPad quer und hochkant und großes
     Display, ohne Set und in jedem Set; kein waagerechtes Scrollen, Tasten ab
     44 px, nichts abgeschnitten; Bedienen am Miniserver-Nachbau, Tausch nur
-    des geänderten Blocks. Die Lesbarkeit aller Texte in allen Sets misst
+    des geänderten Blocks; Schnellaktionen im Set Loxone (Maße gegen die
+    Tokens, Befehl an den Zentral-Baustein, Anzahl verschwindet über
+    `_on_value()` und kommt wieder) und ohne Zentral-Baustein kein Knopf.
+    Die Lesbarkeit aller Texte in allen Sets misst
     `test_kachel_set_kontrast_browser.py` (Ansicht `haus`).
 - Gesten (13.10.2026, Konzept in `docs/TODO.md` §9 „Loxone-Standard als
   Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster.

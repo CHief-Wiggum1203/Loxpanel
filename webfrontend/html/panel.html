@@ -1549,7 +1549,7 @@
   }
   /* ---- Hausuebersicht (Tab "haus", renderHaus) ----
      Ganze Flaeche ohne Kachelraster: Kopf (Uhr, Wetter, Termin, Energie),
-     "Gerade aktiv", Raumkarten und der Spieler - quer als Spalte rechts,
+     "Gerade aktiv", Schnellaktionen, Raumkarten und der Spieler - quer als Spalte rechts,
      hochkant als Leiste unten. --hk ist der Massstab der Seite (renderHaus,
      aus der kleineren Seite der Flaeche). Farben wie die Kacheln: eine aktive
      Karte bekommt --kachel-an (ohne Set getoent), ihr Zustand --an-text, das
@@ -1594,7 +1594,6 @@
   .hs-zeile{flex:none;display:flex;align-items:center;gap:calc(10px * var(--hk));min-height:var(--hs-t);min-width:0;}
   .hs-zeile h2{margin:0;font-size:calc(22px * var(--hk));font-weight:700;letter-spacing:-.01em;white-space:nowrap;}
   .hs-zeile .n{font-size:calc(15px * var(--hk));color:var(--muted);white-space:nowrap;}
-  .hs-zeile .rechts{margin-left:auto;display:flex;gap:calc(8px * var(--hk));min-width:0;}
   .hs .hs-zeile .btn.hs-b{background:var(--tile);}
   .hs .hs-zeile .btn.hs-rund{padding:0;width:var(--hs-t);border-radius:50%;}
   .hs-aktiv{flex:none;display:grid;grid-template-columns:repeat(var(--hs-sp,3),minmax(0,1fr));gap:var(--hs-g);}
@@ -1604,6 +1603,15 @@
   .hs-mehr svg{width:calc(20px * var(--hk));height:calc(20px * var(--hk));}
   .hs-liste{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:calc(10px * var(--hk));}
   .hs-liste .hs-a{flex:none;}
+  /* Schnellaktionen: Zentral-Bausteine der Anlage, Flaeche und Radius der
+     Karten des Sets, rechts wie viele an sind (Zustandstext "an" wie auf
+     den Raumkarten: --glow, wo ein Set es nicht als --an-text nachschaerft) */
+  .hs-schnell{flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--hs-g);}
+  .hs-s{height:max(44px, calc(72px * var(--hk)));display:flex;align-items:center;gap:calc(12px * var(--hk));
+    padding:0 calc(18px * var(--hk));touch-action:manipulation;}
+  .hs-s .hs-i{width:calc(26px * var(--hk));height:calc(26px * var(--hk));}
+  .hs-s .z{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs-s .n{flex:none;font-size:calc(15px * var(--hk));font-weight:600;color:var(--an-text,var(--glow));white-space:nowrap;}
   /* Raumkarten */
   .hs-raeume{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--hs-rc,3),minmax(0,1fr));
     grid-auto-rows:var(--hs-rh,minmax(0,1fr));gap:var(--hs-g);overflow-y:auto;overflow-x:hidden;}
@@ -1623,7 +1631,9 @@
   .hs-r .wt.lang{font-size:calc(24px * var(--hk));}
   .hs-r .sb{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .hs-r .sym{margin-top:auto;padding-top:calc(6px * var(--hk));display:flex;align-items:center;gap:calc(8px * var(--hk));min-width:0;}
-  .hs-r .s{width:calc(34px * var(--hk));height:calc(34px * var(--hk));flex:none;border-radius:50%;display:grid;place-items:center;
+  /* In einer schmalen Karte werden die Symbole gemeinsam kleiner (rund
+     bleiben sie), statt mit "n an" aus der Karte zu laufen */
+  .hs-r .s{flex:0 1 calc(34px * var(--hk));min-width:0;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
     background:var(--taste,rgba(var(--wash,255,255,255),.07));color:var(--muted);}
   .hs-r .s .hs-i{width:56%;height:56%;color:inherit;}
   .hs-r .s.on{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));color:var(--glow);}
@@ -5214,7 +5224,7 @@ const HS_LEISER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5"/>';
 const HS_LAUTER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5M18.5 9.5v5"/>';
 const HS_ENERGIE='<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', HS_RUHIG='<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const HS_TASTE={prev:'Zurück', play:'Wiedergabe', pause:'Pause', next:'Weiter'};
-const HS_ZENTRAL_ICO={licht:'bulb', audio:'music'};
+const HS_SCHNELL_ICO={licht:'bulb', audio:'music'};
 // Mindestbreite einer Karte unter "Gerade aktiv" und einer Raumkarte, die
 // Hoehe, ab der Raumkarten scrollen statt schrumpfen, und das Seitenverhaeltnis,
 // das die Spaltenzahl der Raeume anstrebt (alles bei --hk 1)
@@ -5236,13 +5246,15 @@ function hausLage(v){
   const hk=Math.max(.7, Math.min(1.5, Math.min(w,h)/740)), gap=12*hk;
   const spalte=!!v.spieler && w>=860 && w>h*1.1;
   const mainW=spalte ? w-280*hk-16*hk : w;
-  const zeile=!!(v.aktiv.length || v.zentral.length) && !v.liste;
+  const schnell=v.schnell.length>0;
+  const zeile=(v.aktiv.length>0 || schnell) && !v.liste;
   const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
-  // Hoehe fuer die Raumkarten: Flaeche minus Kopf, Zeile "Gerade aktiv" und
-  // (hochkant) die Spieler-Leiste
+  // Hoehe fuer die Raumkarten: Flaeche minus Kopf, Zeile "Gerade aktiv",
+  // Schnellaktionen und (hochkant) die Spieler-Leiste
   const tH=Math.max(44,56*hk), abst=14*hk;
   let raumH=h-72*hk-abst;
   if(zeile) raumH-=Math.max(44,48*hk)+10*hk+Math.max(64,80*hk)+abst;
+  if(schnell) raumH-=Math.max(44,72*hk)+abst;
   if(v.spieler && !spalte) raumH-=28*hk+64*hk+12*hk+tH+abst;
   // Spalten der Raeume: die, deren Karten dem Seitenverhaeltnis am naechsten
   // kommen, ohne zu scrollen; scrollt jede Wahl, die mit den meisten Spalten
@@ -5256,7 +5268,7 @@ function hausLage(v){
     const wert=(scroll?10:0)+Math.abs(Math.log((cw/Math.max(1,ch))/HS_RAUM_SEITE));
     if(!best || wert<best.wert) best={c, wert, scroll};
   }
-  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(HS_RAUM_HOCH*1.15*hk)+'px' : '', zeile};
+  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(HS_RAUM_HOCH*1.15*hk)+'px' : '', zeile, schnell};
 }
 function hausBloecke(v, L){
   const B=[], d=frontData||{}, w=d.weather, ev=(Array.isArray(d.events)?d.events:[])[0];
@@ -5273,21 +5285,25 @@ function hausBloecke(v, L){
     '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
     '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
   B.push(['kopf','main',kopf+'</div>']);
-  const zentral=v.zentral.map(z=>'<button type="button" class="btn hs-b" data-hs="zentral" data-art="'+esc(z.art)+'">'+
-    svg(ICONS[HS_ZENTRAL_ICO[z.art]]||ICONS.switch)+esc(z.label)+'</button>').join('');
+  // Schnellaktionen (Zentral-Bausteine der Anlage): rechts, wie viele an sind,
+  // leer, wenn nichts laeuft; die Zahl kommt mit jeder Zustandsaenderung neu
+  if(v.schnell.length) B.push(['schnell','schnell','<div class="hs-schnell" data-hb="schnell">'+v.schnell.map((s,i)=>{
+    const n=s.an ? s.an+' an' : '';
+    return '<button type="button" class="hs-c hs-s" data-hs="schnell" data-art="'+esc(s.art)+'" data-i="'+i+'" aria-label="'+
+      esc(s.label+(n ? ', '+n : ''))+'"><span class="hs-i">'+svg(ICONS[HS_SCHNELL_ICO[s.art]]||ICONS.switch)+'</span>'+
+      '<span class="z">'+esc(s.label)+'</span><span class="n">'+esc(n)+'</span></button>';
+  }).join('')+'</div>']);
   const anzahl=v.aktiv.length===1 ? '1 Gerät' : v.aktiv.length+' Geräte';
   const karte=(a,i)=>'<div class="hs-c hs-a on" data-hb="a:'+esc(a.id)+'">'+hsIco(a)+
     '<span class="tx"><span class="z">'+esc(a.zustand||a.label)+'</span><span class="w">'+esc(hsWo(a))+'</span></span>'+
     '<button type="button" class="btn hs-b" data-hs="aus" data-i="'+i+'" aria-label="'+esc(a.taste+': '+hsWo(a))+'">'+esc(a.taste)+'</button></div>';
   if(v.liste){
     B.push(['lkopf','main','<div class="hs-zeile" data-hb="lkopf"><button type="button" class="btn hs-b hs-rund" data-hs="zurueck" aria-label="Zurück">'+
-      svg(HS_ZURUECK)+'</button><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span>'+
-      (zentral?'<span class="rechts">'+zentral+'</span>':'')+'</div>']);
+      svg(HS_ZURUECK)+'</button><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span></div>']);
     v.aktiv.forEach((a,i)=>B.push(['a:'+a.id,'liste',karte(a,i)]));
   } else {
     if(L.zeile){
-      B.push(['akopf','main','<div class="hs-zeile" data-hb="akopf"><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span>'+
-        (zentral?'<span class="rechts">'+zentral+'</span>':'')+'</div>']);
+      B.push(['akopf','main','<div class="hs-zeile" data-hb="akopf"><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span></div>']);
       // So viele Karten wie Spalten; mehr -> die letzte Stelle wird "+n weitere"
       const zeigen = v.aktiv.length>L.sp ? L.sp-1 : v.aktiv.length;
       v.aktiv.slice(0,zeigen).forEach((a,i)=>B.push(['a:'+a.id,'aktiv',karte(a,i)]));
@@ -5336,7 +5352,9 @@ function hausBloecke(v, L){
   return B;
 }
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
-function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, L.rh, L.zeile, B.map(b=>b[0])]); }
+// Zur Lage gehoert, ob die Raumkarten scrollen, nicht ihre Hoehe: die waechst
+// mit --hk und kommt wie die anderen Masse aus hausMasse
+function hausSig(L, B){ return JSON.stringify([L.spalte, L.sp, L.rc, !!L.rh, L.zeile, B.map(b=>b[0])]); }
 // Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
 // Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
 function hausMasse(g, L){
@@ -5364,8 +5382,8 @@ function renderHaus(){
   hausMasse(g, L);
   const B=hausBloecke(v, L), teil=o=>B.filter(b=>b[1]===o).map(b=>b[2]).join('');
   let main=teil('main');
-  if(v.liste) main+='<div class="hs-liste">'+teil('liste')+'</div>';
-  else { main+=(L.zeile?'<div class="hs-aktiv">'+teil('aktiv')+'</div>':'')+'<div class="hs-raeume">'+teil('raeume')+'</div>'; }
+  if(v.liste) main+=teil('schnell')+'<div class="hs-liste">'+teil('liste')+'</div>';
+  else { main+=(L.zeile?'<div class="hs-aktiv">'+teil('aktiv')+'</div>':'')+teil('schnell')+'<div class="hs-raeume">'+teil('raeume')+'</div>'; }
   main+=teil('unten');
   g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+'"><div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
@@ -5404,7 +5422,7 @@ function hausKlick(e){
   const art=b.dataset.hs, i=+b.dataset.i, sp=v.spieler;
   if(art==='raum'){ const r=v.raeume[i]; if(r) nav(r.nav); }
   else if(art==='aus'){ const a=v.aktiv[i]; if(a) sendCmd(a.aus.uuid, a.aus.cmd, a.secured); }
-  else if(art==='zentral'){ if(verbindungGesperrt()) verbindungZeigen(true); else send({t:'hausaus', art:b.dataset.art}); }
+  else if(art==='schnell'){ const s=v.schnell[i]; if(s) sendCmd(s.cmd.uuid, s.cmd.cmd, s.secured); }
   else if(art==='mehr') nav(Object.assign({}, v.route, {liste:'aktiv'}));
   else if(art==='zurueck') back();
   else if(art==='energie'){ if(v.energie) nav(v.energie.nav); }

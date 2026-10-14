@@ -1726,6 +1726,17 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       sie mit einem Tipp anlegt (eigene Auswahl: Seite, klassisch: Tab).
       Vorher gab es sie nur als Chip der klassischen Leiste, und wer seine
       Ansicht mit dem Seiten-Editor baut, fand sie nicht. **S**
+- [x] **Hausübersicht: Schnellaktionen über die Zentral-Bausteine**
+      (14.10.2026, Entwurf „Großes Display – Hausübersicht“). „Alle Lichter
+      aus“ und „Alle Zonen aus“ als eigene Zeile unter „Gerade aktiv“
+      (72 px bei `--hk` 1, Fläche und Radius der Karten des Sets), rechts
+      „n an“ in `--glow`, live über die States. Sie schicken `reset` an das
+      Zentral-Licht bzw. `pause` an die Audio-Zentral (Strukturdoku, Central
+      Objects) und erscheinen nur, wenn es den Baustein gibt. Sie ersetzen
+      die Zentral-Tasten in der Kopfzeile von „Gerade aktiv“, die jeden
+      Baustein der Seite einzeln abschalteten (`hausaus`). Die linke Spalte
+      des Entwurfs mit „Auf einen Blick“ ist nicht gebaut. Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“. **S**
 - [ ] **Hausübersicht Teil 2: Schwerpunkt „Räume direkt“.** Runde Tasten in
       der Raumkarte, die Licht, Audio, Sauna (mit Rückfrage), Timer direkt
       schalten; „Licht an“ schaltet die erste Stimmung der Lichtsteuerung.
@@ -2070,7 +2081,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
          Raum bzw. Stimmung, große Zahl, Balken. **M**
       2. *Server* (`webvisu.py`): Nachricht `{t:'geste', art, phase:
          'start'|'wert'|'ende', wert}` neben `hausaus`; der Server sucht die
-         Bausteine selbst (Vorbild `haus_aus_befehle()`), die Visu nennt nur
+         Bausteine selbst (Vorbild `haus_aus_befehle()`, seit 14.10.2026
+         durch die Schnellaktionen über die Zentral-Bausteine ersetzt), die Visu nennt nur
          Art und Wert. Die Antwort auf `start` nennt Raum, aktuellen Wert und
          Grenzen oder den Grund, warum nichts geht. Lichtgruppen aus der
          Struktur, Rechnen der Dimmwerte, Befehle wie oben. **M**
@@ -2129,8 +2141,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Das Panel rät nichts, es zählt nur. Die Zeile erweitert „Gerade aktiv“
       aus der Hausübersicht Teil 2.
       1. *Was zählt:* jeder Befehl aus `t:"cmd"` (WebSocket-Handler, das
-         Gerät aus `conn_dev`), dazu die Gesten und „Haus aus“
-         (`t:"hausaus"`). Unterbausteine zählen für ihren Baustein. Mehrere
+         Gerät aus `conn_dev`, darüber laufen auch die Schnellaktionen der
+         Hausseite), dazu die Gesten (`t:"geste"`). Unterbausteine zählen für ihren Baustein. Mehrere
          Befehle an denselben Baustein kurz hintereinander sind eine
          Nutzung, etwa bei Halten-Tasten oder `−`/`+`. Das Öffnen einer
          Detailseite zählt schwächer. Nicht gezählt wird, was Taster, die

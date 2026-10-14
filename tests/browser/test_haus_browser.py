@@ -3,10 +3,11 @@ dem grossen Display, ohne Kachel-Set und in jedem Set. Nichts scrollt
 waagerecht (dort blaettert der Wisch die Seiten), jede Taste ist mindestens
 44 px gross, keine Karte schneidet ihren Inhalt ab, der Spieler steht quer
 als Spalte und hochkant als Leiste. Bedient am Miniserver-Nachbau: Aus-Taste,
-"+n weitere" mit Unterseite, Zentral-Taste, Lautstaerke, Zonenwechsel, Raum
+"+n weitere" mit Unterseite, Schnellaktionen, Lautstaerke, Zonenwechsel, Raum
 oeffnen. Neue Zustaende tauschen nur ihren Block. Anlage: lox.haus_anlage().
 Bilder im tmp_path (CI: Artefakt "screenshots")."""
 import asyncio
+import json
 
 import pytest
 
@@ -42,6 +43,7 @@ LAGE = """() => {
   return {quer, klein, ab, kopf, spalte: !!g.querySelector('.hs.spalte'), leiste: !!g.querySelector('.hs-sp.leiste'),
           raeume: g.querySelectorAll('.hs-r').length, aktiv: g.querySelectorAll('.hs-aktiv .hs-a.on').length,
           mehr: g.querySelector('.hs-mehr') ? g.querySelector('.hs-mehr').textContent : null,
+          schnell: g.querySelectorAll('.hs-schnell [data-hs="schnell"]').length,
           spalten: getComputedStyle(g).getPropertyValue('--hs-sp').trim()};
 }"""
 
@@ -95,6 +97,7 @@ def test_lage_auf_tablet_und_display(kset, tmp_path, monkeypatch):
         assert not m["klein"], (wo, "Taste unter 44 px", m["klein"])
         assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
         assert m["raeume"] == 7, (wo, m)
+        assert m["schnell"] == 2, (wo, "Schnellaktionen", m)
         # vier Geraete an: so viele Karten wie Spalten, die letzte Stelle "+n weitere"
         sp = int(m["spalten"])
         assert m["aktiv"] == min(4, sp - 1 if sp < 4 else 4), (wo, m)
@@ -140,9 +143,9 @@ def test_bedienen(tmp_path, miniserver_http):
                 await pg.screenshot(path=str(tmp_path / "haus_liste.png"))
                 await pg.locator('[data-hs="zurueck"]').click()
                 await pg.wait_for_selector("#grid .hs-raeume")
-                # Zentral-Taste
-                await pg.locator('[data-hs="zentral"][data-art="audio"]').click()
-                erg["zentral"] = (await _befehle(ms, 2))[1:]
+                # Schnellaktion "Alle Zonen aus"
+                await pg.locator('[data-hs="schnell"][data-art="audio"]').click()
+                erg["schnell"] = (await _befehle(ms, 2))[1:]
                 # Lautstaerke +, dann meldet der Miniserver den neuen Wert: nur der
                 # Spieler-Block wird getauscht, der Kopf bleibt dasselbe Element
                 await pg.locator('[data-hs="laut"][data-d="1"]').click()
@@ -178,13 +181,126 @@ def test_bedienen(tmp_path, miniserver_http):
     assert erg["aus"] == ["sps/io/LA/changeTo/778"], erg
     assert erg["liste"] == 4 and erg["liste_route"] == {"view": "tab", "tab": "haus", "liste": "aktiv"}, erg
     assert not erg["liste_lage"]["quer"] and not erg["liste_lage"]["klein"], erg["liste_lage"]
-    assert erg["zentral"] == ["sps/io/AZ/pause"], erg
+    assert erg["schnell"] == ["sps/io/CA/pause"], erg
     assert erg["laut"] == ["sps/io/AZ/volume/29"], erg
     assert erg["patch"] == [True, False], erg
     # Zonenwechsel ersetzt die Route, statt eine Seite auf den Stapel zu legen
     assert erg["zone_route"] == ["AB", 1], erg
     assert erg["play"] == ["sps/io/AB/play"], erg
     assert erg["raum"] == [{"view": "group", "kind": "room", "id": "r5"}, False], erg
+
+
+# Schnellaktionen: je Knopf Text, Anzahl, Vorlesetext, Hoehe, Radius, Flaeche
+# und Farbe der Anzahl; dazu die Werte der Tokens (--tile, --glow, Radius der
+# Karten) zum Vergleich und die Folge der Zeilen der Seite
+SCHNELL = """() => {
+  const g = document.getElementById('grid'), hk = parseFloat(g.style.getPropertyValue('--hk'));
+  const probe = st => { const p = document.createElement('span'); Object.assign(p.style, st); g.appendChild(p);
+    const s = getComputedStyle(p), w = {farbe: s.color, grund: s.backgroundColor}; p.remove(); return w; };
+  return {hk, glow: probe({color: 'var(--glow)'}).farbe, tile: probe({background: 'var(--tile)'}).grund,
+    karteRadius: getComputedStyle(g.querySelector('.hs-r')).borderTopLeftRadius,
+    folge: [...g.querySelector('.hs-main').children].map(e => e.classList[0]),
+    knoepfe: [...g.querySelectorAll('[data-hs="schnell"]')].map(b => { const s = getComputedStyle(b);
+      return {art: b.dataset.art, text: b.querySelector('.z').textContent, n: b.querySelector('.n').textContent,
+              aria: b.getAttribute('aria-label'), hoehe: b.getBoundingClientRect().height,
+              radius: s.borderTopLeftRadius, grund: s.backgroundColor, farbe: getComputedStyle(b.querySelector('.n')).color}; })};
+}"""
+
+
+def _anzahl(art):
+    return f"document.querySelector('[data-hs=schnell][data-art={art}] .n').textContent"
+
+
+def test_schnellaktionen(tmp_path, miniserver_http):
+    """"Alle Lichter aus" und "Alle Zonen aus" unter "Gerade aktiv" im Set
+    Loxone: so hoch wie im Entwurf (72 px bei --hk 1), Radius und Flaeche der
+    Karten des Sets, rechts die Anzahl ("1 an") in --glow. Ein Tipp schickt
+    den Befehl an den Zentral-Baustein; meldet der Miniserver die Mitglieder
+    aus, verschwindet die Anzahl von selbst (live ueber die States), und
+    sie kommt wieder, sobald eine Zone spielt."""
+    async def lauf():
+        ms = await Miniserver().start()
+        app = _app(neue_app(ms), ui={"tileSet": "loxone"})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                erg["vorher"] = await pg.evaluate(SCHNELL)
+                await pg.screenshot(path=str(tmp_path / "haus_schnell_vorher.png"))
+                await pg.locator('[data-hs="schnell"][data-art="licht"]').click()
+                erg["licht"] = await _befehle(ms, 1)
+                # der Miniserver meldet die Lichtsteuerung aus, wie nach "reset"
+                app._on_value("la1", json.dumps([778]))
+                await pg.wait_for_function(_anzahl("licht") + " === ''")
+                await pg.locator('[data-hs="schnell"][data-art="audio"]').click()
+                erg["audio"] = (await _befehle(ms, 2))[1:]
+                app._on_value("az1", 0)
+                await pg.wait_for_function(_anzahl("audio") + " === ''")
+                erg["nachher"] = await pg.evaluate(SCHNELL)
+                await pg.screenshot(path=str(tmp_path / "haus_schnell_nachher.png"))
+                # eine Zone spielt wieder: die Anzahl kommt zurueck
+                app._on_value("ab1", 2)
+                await pg.wait_for_function(_anzahl("audio") + " === '1 an'")
+                await b.close()
+        finally:
+            bc.cancel()
+            await app.icon_session.close()
+            await runner.cleanup()
+            await ms.stop()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    v = erg["vorher"]
+    assert v["folge"] == ["hs-kopf", "hs-zeile", "hs-aktiv", "hs-schnell", "hs-raeume"], v["folge"]
+    knopf = {k["art"]: k for k in v["knoepfe"]}
+    assert list(knopf) == ["licht", "audio"], v
+    assert (knopf["licht"]["text"], knopf["licht"]["n"]) == ("Alle Lichter aus", "1 an"), knopf
+    assert (knopf["audio"]["text"], knopf["audio"]["n"]) == ("Alle Zonen aus", "1 an"), knopf
+    assert knopf["licht"]["aria"] == "Alle Lichter aus, 1 an", knopf
+    radius = float(TC.KACHEL_SETS["loxone"]["masse"]["--kachel-radius"].rstrip("px"))
+    for k in knopf.values():
+        assert abs(k["hoehe"] - max(44, 72 * v["hk"])) < 0.5, (k, v["hk"])
+        assert k["radius"] == v["karteRadius"] and abs(float(k["radius"].rstrip("px")) - radius * v["hk"]) < 0.5, k
+        assert k["grund"] == v["tile"] and k["farbe"] == v["glow"], (k, v["tile"], v["glow"])
+    assert erg["licht"] == ["sps/io/CL/reset"], erg
+    assert erg["audio"] == ["sps/io/CA/pause"], erg
+    nachher = {k["art"]: k for k in erg["nachher"]["knoepfe"]}
+    assert [k["n"] for k in nachher.values()] == ["", ""], nachher
+    assert nachher["licht"]["aria"] == "Alle Lichter aus", nachher
+
+
+def test_ohne_zentral_baustein_kein_knopf(tmp_path):
+    """Ohne Zentral-Licht und Audio-Zentral gibt es keine Schnellaktion, auch
+    wenn Licht und Musik an sind; "Gerade aktiv" bleibt, nichts ist zu klein
+    oder abgeschnitten."""
+    struktur, states = haus_anlage()
+    del struktur["controls"]["CL"], struktur["controls"]["CA"]
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"haus": {"title": "Haus", "tabs": ["haus"], "ui": {"grid": "auto"}}})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, 1180, 820, fehler)
+                lage = await pg.evaluate(LAGE)
+                lage["zeile"] = await pg.locator(".hs-schnell").count()
+                await pg.screenshot(path=str(tmp_path / "haus_ohne_zentral.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return lage
+    lage = asyncio.run(lauf())
+    assert lage["schnell"] == 0 and lage["zeile"] == 0, lage
+    assert lage["aktiv"] >= 1 and not lage["klein"] and not lage["ab"] and not lage["quer"], lage
 
 
 def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):

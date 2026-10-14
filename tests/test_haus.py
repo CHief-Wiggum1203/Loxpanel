@@ -1,8 +1,9 @@
 """Hausuebersicht (Tab "haus", App._view_haus) im Server: Tab und Route, je
 Raum eine Karte mit Hauptwert und Symbolen, "Gerade aktiv" (an UND mit
-Aus-Befehl aus HAUS_AUS), die Zentral-Tasten mit ihren Befehlen
-(haus_aus_befehle, ohne gesicherte Bausteine), der Spieler aus den Bloecken
-der Detailseite und die Energie fuer den Kopf. Anlage: lox.haus_anlage()."""
+Aus-Befehl aus HAUS_AUS), die Schnellaktionen (Befehl an den Zentral-Baustein
+der Anlage und wie viele seiner Mitglieder an sind), der Spieler aus den
+Bloecken der Detailseite und die Energie fuer den Kopf. Anlage:
+lox.haus_anlage()."""
 import asyncio
 import json
 import math
@@ -74,9 +75,11 @@ def test_raumfilter_der_ansicht():
     app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "rooms": ["r5", "r6"]}})
     v = _haus(app, app.resolve_profile("p"))
     assert [r["name"] for r in v["raeume"]] == ["Küche", "Sauna"]
-    # ohne Zonen und Licht, das an ist: kein Spieler, keine Audio-Taste
+    # ohne Zonen und Licht, das an ist: kein Spieler
     assert v["spieler"] is None and v["aktiv"] == []
-    assert [z["art"] for z in v["zentral"]] == ["licht"]
+    # die Schnellaktionen haengen an den Zentral-Bausteinen der Anlage, nicht
+    # am Raumfilter (wie der Tab "Zentral")
+    assert [s["art"] for s in v["schnell"]] == ["licht", "audio"]
 
 
 def test_gerade_aktiv():
@@ -95,15 +98,59 @@ def test_gerade_aktiv():
     assert sauna["aus"] == {"uuid": "SA", "cmd": "off"} and _raum(v, "Sauna")["an"] == 1
 
 
-def test_zentral_tasten():
+def _schnell(app, prof=None):
+    return {s["art"]: s for s in _haus(app, prof)["schnell"]}
+
+
+def test_schnellaktionen():
+    """"Alle Lichter aus" und "Alle Zonen aus" schicken den Befehl der
+    Strukturdoku an den Zentral-Baustein (CentralLightController reset,
+    CentralAudioZone pause); dazu, wie viele seiner Mitglieder an sind -
+    dieselbe Zahl wie auf seiner Kachel, frisch aus den States."""
     app = _app()
-    # nur was an ist; das gesicherte Aussenlicht (Visu-PIN) bleibt aussen vor
-    assert app.haus_aus_befehle("licht", None) == [("LA", "changeTo/778")]
-    assert app.haus_aus_befehle("audio", None) == [("AZ", "pause")]
+    s = _schnell(app)
+    assert list(s) == ["licht", "audio"]
+    assert s["licht"] == {"art": "licht", "id": "CL", "label": "Alle Lichter aus", "an": 1,
+                          "cmd": {"uuid": "CL", "cmd": "reset"}}
+    assert s["audio"] == {"art": "audio", "id": "CA", "label": "Alle Zonen aus", "an": 1,
+                          "cmd": {"uuid": "CA", "cmd": "pause"}}
+    # mehr an: die Zahl steigt, wie auf der Kachel des Zentral-Bausteins
     app.states.update({"lc1": json.dumps([1]), "ab1": 2})
-    assert sorted(app.haus_aus_befehle("licht", None)) == [("LA", "changeTo/778"), ("LC", "changeTo/778")]
-    assert sorted(app.haus_aus_befehle("audio", None)) == [("AB", "pause"), ("AZ", "pause")]
-    assert app.haus_aus_befehle("unbekannt", None) == []
+    s = _schnell(app)
+    assert (s["licht"]["an"], s["audio"]["an"]) == (2, 2)
+    assert app._control_item("CL")["sublabel"] == "In 2 Räumen aktiv"
+    assert app._control_item("CA")["sublabel"] == "Spielt in 2 Räumen"
+    # alles aus: 0, die Visu zeigt dann keine Zahl
+    app.states.update({"lc1": json.dumps([778]), "la1": json.dumps([778]), "ab1": 0, "az1": 0})
+    s = _schnell(app)
+    assert (s["licht"]["an"], s["audio"]["an"]) == (0, 0)
+
+
+def test_schnellaktionen_nur_mit_zentral_baustein():
+    """Ohne Zentral-Baustein keine Taste - auch wenn die Seite Licht und
+    Musik hat. Blendet die Ansicht den Baustein aus, gibt es sie dort auch
+    nicht; ein gesicherter (Visu-PIN) fragt in der Visu nach der PIN."""
+    struktur, st = haus_anlage()
+    del struktur["controls"]["CL"], struktur["controls"]["CA"]
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(struktur)
+    app.states = st
+    v = _haus(app)
+    assert v["schnell"] == [] and v["aktiv"], v["schnell"]
+    # nur Audio-Zentral: nur "Alle Zonen aus"
+    struktur, st = haus_anlage()
+    del struktur["controls"]["CL"]
+    app._apply_structure(struktur)
+    assert list(_schnell(app)) == ["audio"]
+    # in der Ansicht ausgeblendet
+    app = _app()
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "hide": ["CL"]}})
+    assert list(_schnell(app, app.resolve_profile("p"))) == ["audio"]
+    # gesichert
+    app = _app()
+    app.controls["CA"]["isSecured"] = True
+    s = _schnell(app)
+    assert s["audio"]["secured"] is True and "secured" not in s["licht"]
 
 
 def test_spieler():
@@ -168,7 +215,7 @@ def test_energie_nan_und_unendlich(state, wert):
         json.dumps(v, allow_nan=False)
         assert "nan" not in json.dumps(v).lower() and "inf " not in json.dumps(v).lower()
     v = _haus(app)
-    assert len(v["raeume"]) == 7 and v["zentral"] and v["spieler"]
+    assert len(v["raeume"]) == 7 and v["schnell"] and v["spieler"]
     e = v["energie"]
     assert e["id"] == "F" and all(isinstance(e.get(k), (int, type(None))) for k in ("prod", "cons"))
     if state == "f-g":
