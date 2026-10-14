@@ -1924,6 +1924,11 @@ Assistenten des Konfigurators.
     Zonenliste, sonst als Leiste unten, die eine Taste durch die Zonen
     schaltet. Ein Zonenwechsel ersetzt die Route, statt eine Seite auf den
     Stapel zu legen.
+    Wie auf der Detailseite der Zone öffnen die drei Punkte (⋮) die
+    Musikauswahl mit Sendern und Favoriten: quer rechts oben in der Spalte,
+    hochkant am Ende der ersten Zeile der Leiste. Die Route kommt aus dem
+    `more`-Block der Detailseite (`player_blocks(mehr=True)`, im Spieler
+    `mehr`), zurück führt zur Hausseite (14.10.2026).
   - **Maßstab:** `--hk` aus der kleineren Seite der Fläche (iPad 1, großes
     Display bis 1,5, 4″ nicht unter 0,7). Tasten sind nie kleiner als 44 px.
   - **Farben:** wie die Kacheln des Sets. Eine aktive Karte bekommt

@@ -164,9 +164,13 @@ def test_spieler():
                           "schritt": W.PROZENT_SCHRITT}
     assert [(z["id"], z["name"], z["spielt"]) for z in sp["zonen"]] == [
         ("AB", "Abstellraum", False), ("AZ", "Essen-Kochen-Wohnen", True)]
+    # ⋮ wie auf der Detailseite: Musikauswahl der Zone; der Split-Spieler bleibt ohne
+    assert sp["mehr"] == {"view": "sources", "id": "AZ"}
+    assert all(b["k"] != "more" for b in app.player_blocks("AZ"))
     # gewaehlte Zone aus der Route
     sp = _haus(app, zone="AB")["spieler"]
     assert sp["zone"] == "AB" and not sp["spielt"] and sp["laut"]["wert"] == 10
+    assert sp["mehr"] == {"view": "sources", "id": "AB"}
     assert [t["icon"] for t in sp["tasten"]] == ["prev", "play", "next"]
     # unbekannte Zone: wie ohne Wahl
     assert _haus(app, zone="XX")["spieler"]["zone"] == "AZ"

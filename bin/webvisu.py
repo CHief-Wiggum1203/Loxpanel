@@ -2971,10 +2971,11 @@ class App:
                               else GESTEN_HINWEIS_STANDARD),
         }
 
-    def player_blocks(self, uuid: str):
+    def player_blocks(self, uuid: str, mehr: bool = False):
         """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
         AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
-        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt."""
+        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt,
+        ausser mit mehr=True (Spieler der Hausseite: ⋮ zur Musikauswahl)."""
         c = self.controls.get(uuid or "")
         if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
             return None
@@ -2983,7 +2984,7 @@ class App:
         except Exception:
             log.exception("player_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if b.get("k") != "more"]
+        return [b for b in (v.get("blocks") or []) if mehr or b.get("k") != "more"]
 
     def intercom_blocks(self, uuid: str):
         """Volle Intercom-Ansicht (Video + Tuer-/Ausgang-Buttons + Klingel-Banner)
@@ -5596,13 +5597,14 @@ class App:
         """Spieler der Hausseite: die gewaehlte Zone (Route "zone"), sonst die
         erste, die spielt, sonst die erste. Inhalt aus den Bloecken der
         Detailseite (player_blocks: Cover, Titel, Transport, Lautstaerke), damit
-        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten."""
+        Befehle und Texte dieselben sind; dazu alle Zonen zum Umschalten und
+        wie auf der Detailseite das ⋮ zur Musikauswahl (Route des more-Blocks)."""
         if not zonen:
             return None
         kacheln = {u: self._control_item(u, prof) for u in zonen}
         spielt = {u: bool(kacheln[u].get("on")) for u in zonen}
         zone = wahl if wahl in zonen else next((u for u in zonen if spielt[u]), zonen[0])
-        bloecke = self.player_blocks(zone) or []
+        bloecke = self.player_blocks(zone, mehr=True) or []
 
         def block(k):
             return next((b for b in bloecke if b.get("k") == k), {})
@@ -5623,6 +5625,8 @@ class App:
             sp["laut"] = {"wert": int(regler.get("value") or 0), "cmd": regler["cmd"],
                           "min": int(regler.get("min") or 0), "max": int(regler.get("max") or 100),
                           "schritt": PROZENT_SCHRITT}
+        if block("more").get("route"):
+            sp["mehr"] = block("more")["route"]
         if self._gesichert(zone):
             sp["secured"] = True
         return sp

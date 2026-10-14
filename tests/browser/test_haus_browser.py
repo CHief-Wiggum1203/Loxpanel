@@ -271,6 +271,50 @@ def test_schnellaktionen(tmp_path, miniserver_http):
     assert nachher["licht"]["aria"] == "Alle Lichter aus", nachher
 
 
+def test_musikauswahl_im_spieler(tmp_path):
+    """Die drei Punkte rechts oben im Spieler oeffnen wie auf der Detailseite
+    der Audio-Zone ihre Musikauswahl (Sender, Favoriten), quer in der Spalte
+    und hochkant in der Leiste; zurueck fuehrt zur Hausseite."""
+    async def lauf():
+        app = _app()
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for name, (w, h) in (("quer", (1180, 820)), ("hoch", (820, 1180))):
+                    pg = await _seite(b, port, w, h, fehler)
+                    e = erg[name] = {"lage": await pg.evaluate(LAGE)}
+                    knopf = pg.locator('.hs-sp [data-hs="quellen"]')
+                    e["aria"] = await knopf.get_attribute("aria-label")
+                    # rechts oben im Spieler: rechter Rand wie der Spieler, oberste Zeile
+                    e["ort"] = await pg.evaluate("""() => { const k = document.querySelector('.hs-sp [data-hs=quellen]')
+                      .getBoundingClientRect(), s = document.querySelector('.hs-sp').getBoundingClientRect();
+                      return [Math.round(s.right - k.right), Math.round(k.top - s.top)]; }""")
+                    await pg.screenshot(path=str(tmp_path / f"haus_musikauswahl_{name}.png"))
+                    await knopf.click()
+                    await pg.wait_for_function("view && view.route && view.route.view === 'sources'")
+                    e["route"] = await pg.evaluate("view.route")
+                    await pg.locator("#tabback").click()
+                    await pg.wait_for_selector("#grid.haus .hs-r")
+                    e["zurueck"] = await pg.evaluate("view.layout")
+                    await pg.close()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    for name, e in erg.items():
+        assert not e["lage"]["klein"] and not e["lage"]["quer"] and not e["lage"]["ab"], (name, e["lage"])
+        assert e["aria"] == "Musikauswahl Essen-Kochen-Wohnen", (name, e)
+        assert e["route"] == {"view": "sources", "id": "AZ"} and e["zurueck"] == "haus", (name, e)
+    # quer oben in der Spalte (Kopfzeile des Spielers), hochkant in der ersten Zeile der Leiste
+    assert all(0 <= v <= 40 for v in erg["quer"]["ort"]), erg["quer"]["ort"]
+    assert all(0 <= v <= 40 for v in erg["hoch"]["ort"]), erg["hoch"]["ort"]
+
+
 def test_ohne_zentral_baustein_kein_knopf(tmp_path):
     """Ohne Zentral-Licht und Audio-Zentral gibt es keine Schnellaktion, auch
     wenn Licht und Musik an sind; "Gerade aktiv" bleibt, nichts ist zu klein

@@ -1645,6 +1645,11 @@
   .hs-spk{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;}
   .hs-spk b{font-size:calc(18px * var(--hk));}
   .hs-spk span{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* ⋮ zur Musikauswahl, rechts oben wie auf der Detailseite der Zone */
+  .hs-spk:has(.hs-drei){align-items:center;}
+  .hs-spk:has(.hs-drei) span{flex:1;min-width:0;text-align:right;}
+  .hs .btn.hs-drei{padding:0;width:var(--hs-t);border-radius:50%;}
+  .hs .btn.hs-drei svg{width:calc(20px * var(--hk));height:calc(20px * var(--hk));}
   .hs-cv{display:flex;flex-direction:column;gap:calc(10px * var(--hk));border-radius:calc(var(--taste-radius,12px) * var(--hk));
     background:var(--taste,rgba(var(--wash,255,255,255),.05));padding:calc(16px * var(--hk));}
   .hs-cov{width:calc(84px * var(--hk));height:calc(84px * var(--hk));flex:none;border-radius:calc(14px * var(--hk));object-fit:cover;
@@ -5224,6 +5229,8 @@ const HS_LEISER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5"/>';
 const HS_LAUTER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5M18.5 9.5v5"/>';
 const HS_ENERGIE='<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', HS_RUHIG='<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const HS_TASTE={prev:'Zurück', play:'Wiedergabe', pause:'Pause', next:'Weiter'};
+// ⋮ wie auf der Detailseite der Audio-Zone: oeffnet die Musikauswahl
+const HS_DREI='<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>';
 const HS_SCHNELL_ICO={licht:'bulb', audio:'music'};
 // Mindestbreite einer Karte unter "Gerade aktiv" und einer Raumkarte, die
 // Hoehe, ab der Raumkarten scrollen statt schrumpfen, und das Seitenverhaeltnis,
@@ -5332,12 +5339,14 @@ function hausBloecke(v, L){
       '<span class="v"><span>'+l.wert+'</span><span class="bar"><i style="width:'+pct+'%"></i></span></span>'+
       '<button type="button" class="btn hs-b" data-hs="laut" data-d="1" aria-label="Lauter">'+svg(HS_LAUTER)+'</button></div>' : '';
     const kl=' class="hs-c hs-sp'+(sp.spielt?' spielt':'')+(L.spalte?'':' leiste'+(sp.spielt?' on':''))+'" data-hb="sp"';
+    const drei=sp.mehr ? '<button type="button" class="btn hs-b hs-drei" data-hs="quellen" aria-label="'+
+      esc('Musikauswahl '+sp.name)+'">'+svgF(HS_DREI)+'</button>' : '';
     if(L.spalte){
       const zonen=sp.zonen.length>1 ? '<div class="hs-zonen"><span class="lbl">Zonen</span>'+sp.zonen.map(z=>
         '<button type="button" class="btn hs-b hs-zone'+(z.id===sp.zone?' akt':'')+'" data-hs="zone" data-id="'+esc(z.id)+'" aria-pressed="'+(z.id===sp.zone)+'">'+
         '<span class="hs-i'+(z.spielt?' wx':'')+'">'+svg(ICONS.music)+'</span><span class="tx"><span class="z">'+esc(z.name)+'</span>'+
         '<span class="w">'+esc(z.spielt ? ['Spielt', z.titel].filter(Boolean).join(' · ') : 'Aus')+'</span></span></button>').join('')+'</div>' : '';
-      B.push(['sp','seite','<div'+kl+'><div class="hs-spk"><b>Audio</b><span>'+esc(sp.name)+'</span></div>'+
+      B.push(['sp','seite','<div'+kl+'><div class="hs-spk"><b>Audio</b><span>'+esc(sp.name)+'</span>'+drei+'</div>'+
         '<div class="hs-cv">'+cover+'<span class="ti">'+esc(sp.titel)+'</span><span class="w st">'+esc(zustand)+'</span></div>'+
         tasten+laut+zonen+'</div>']);
     } else {
@@ -5345,7 +5354,7 @@ function hausBloecke(v, L){
       const zw=sp.zonen.length>1 ? '<button type="button" class="btn hs-b hs-zw" data-hs="zone" data-id="'+esc(weiter.id)+'" aria-label="'+
         esc('Zone wechseln, jetzt '+sp.name+', weiter zu '+weiter.name)+'">'+svg('<path d="M4 8h13l-3-3M20 16H7l3 3"/>')+'<span>'+esc(sp.name)+'</span></button>' : '';
       B.push(['sp','unten','<div'+kl+'><div class="r1">'+cover+'<span class="tx"><span class="ti">'+esc(sp.titel)+'</span>'+
-        '<span class="w st">'+esc(zustand+(sp.zonen.length>1?'':' · '+sp.name))+'</span></span>'+zw+'</div>'+
+        '<span class="w st">'+esc(zustand+(sp.zonen.length>1?'':' · '+sp.name))+'</span></span>'+zw+drei+'</div>'+
         '<div class="r2">'+tasten+laut+'</div></div>']);
     }
   }
@@ -5431,6 +5440,7 @@ function hausKlick(e){
     const l=sp.laut, neu=Math.max(l.min, Math.min(l.max, l.wert+(+b.dataset.d)*l.schritt));
     if(neu!==l.wert) sendCmd(l.cmd.uuid, l.cmd.tmpl.replace('{v}', neu), sp.secured); }
   else if(art==='zone' && b.dataset.id) hausZone(b.dataset.id);
+  else if(art==='quellen'){ if(sp && sp.mehr) nav(sp.mehr); }
 }
 // Test-/Vorschau-Schalter: ?front=1 zeigt die ausfuehrliche Ansicht als Vollseite.
 const FRONT_TEST=new URLSearchParams(location.search).has('front');
