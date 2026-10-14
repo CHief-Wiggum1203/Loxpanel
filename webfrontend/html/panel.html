@@ -1692,6 +1692,41 @@
   .hs-bz:disabled{cursor:default;}
   .hs-bz .hs-i{width:calc(24px * var(--hk));height:calc(24px * var(--hk));}
   .hs-bz .z{font-size:calc(16px * var(--hk));}
+  /* Hinweise (Server: _haus_hinweise): als Leiste unter dem Kopf, auf ihrer
+     Unterseite und oben in "Auf einen Blick". Das Symbol steht in einem Kreis
+     auf der jeweils anderen Grundflaeche (Karte --tile auf dem Grund, in der
+     Spalte umgekehrt): auf beiden sind Schrift und Rollenfarben gerechnet
+     (theme_colors). Stufe "warnung" und "an" zeigt nur das Symbol (--warn,
+     --glow), "dringend" ist die gefuellte Stoerungskachel (--crit-fill/-ink/
+     -muted); "ok" ist "Alles in Ordnung", "termin" ein Termin von heute
+     oder morgen. */
+  .hs-hw{flex:none;display:grid;gap:var(--hs-g);}
+  .hs-h{min-width:0;min-height:max(52px, calc(60px * var(--hk)));display:flex;align-items:center;gap:calc(12px * var(--hk));
+    padding:calc(8px * var(--hk)) calc(14px * var(--hk)) calc(8px * var(--hk)) calc(10px * var(--hk));box-sizing:border-box;
+    background:var(--tile);color:var(--ink);border:0;border-radius:calc(var(--taste-radius,12px) * var(--hk) + 2px);
+    font:inherit;text-align:left;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  .hs-h:disabled,div.hs-h{cursor:default;}
+  button.hs-h:not(:disabled):active{transform:scale(.98);}
+  .hs-h .kr{flex:none;width:max(36px, calc(40px * var(--hk)));height:max(36px, calc(40px * var(--hk)));border-radius:50%;
+    display:grid;place-items:center;background:var(--screen);}
+  .hs-h .kr .hs-i{width:55%;height:55%;}
+  .hs .hs-h .z{font-size:calc(16px * var(--hk));font-weight:700;}
+  .hs .hs-h .w{font-size:calc(13px * var(--hk));}
+  .hs-hplus{flex-direction:row;justify-content:center;gap:6px;padding:0 calc(18px * var(--hk));font-size:calc(16px * var(--hk));font-weight:600;}
+  .hs-hplus svg{width:calc(18px * var(--hk));height:calc(18px * var(--hk));flex:none;}
+  .hs-liste .hs-h{flex:none;}
+  .hs-blick .kopf{flex:none;display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0;}
+  .hs-blick .kopf .n{font-size:calc(14px * var(--hk));color:var(--muted);white-space:nowrap;}
+  .hs-blick .hs-h{flex:none;margin-bottom:calc(8px * var(--hk));background:var(--screen);}
+  .hs-blick .hs-h .kr{background:var(--tile);}
+  .hs-blick .lbl{flex:none;margin:calc(8px * var(--hk)) 0 calc(2px * var(--hk));font-size:calc(12px * var(--hk));font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .hs-h.warnung .hs-i{color:var(--warn);}
+  .hs-h.an .hs-i{color:var(--glow);}
+  .hs .hs-h.dringend{background:var(--crit-fill,rgba(var(--crit-rgb,226,107,95),.28));color:var(--crit-ink,var(--ink));}
+  .hs .hs-h.dringend .kr{background:rgba(var(--wash,255,255,255),.12);}
+  .hs .hs-h.dringend .hs-i{color:var(--crit-ink,var(--ink));}
+  .hs .hs-h.dringend .w{color:var(--crit-muted,var(--muted));}
   /* in der Spalte untereinander: nebeneinander reichte die halbe Breite nicht
      fuer "Alle Lichter aus" und die Anzahl */
   .hs-links .hs-schnell{grid-template-columns:minmax(0,1fr);}
@@ -1967,6 +2002,9 @@ const ICONS = {
   thermo:'<path d="M14 14.76V5a2 2 0 0 0-4 0v9.76a4 4 0 1 0 4 0Z"/>',
   fan:'<path d="M10.83 16.38a6.08 6.08 0 0 1-8.62-7l5.41 1.45a6.08 6.08 0 0 1 7-8.62l-1.45 5.41a6.08 6.08 0 0 1 8.62 7l-5.41-1.45a6.08 6.08 0 0 1-7 8.62l1.45-5.41Z"/><path d="M12 12v.01"/>',
   cam:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/>',
+  // Hinweise der Hausseite (Server: _haus_hinweise, symbol): Fenster offen, Post da
+  window:'<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M12 3v18M5 12h14"/>',
+  mail:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="m3 8 9 6 9-6"/>',
   list:'<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
 };
 const TABS = [
@@ -4571,6 +4609,8 @@ function connect(){
 // ---- Screensaver: Uhr als Startseite, Tippen -> Favoriten ----
 const SAVER_IDLE_MS = 60000;   // nach 60 s Inaktivitaet zurueck zur Uhr
 let idleTimer=null;
+// Minute, in der tickClock die Hausuebersicht zuletzt neu gezeichnet hat
+let hsMinute='';
 function tickClock(){
   const d=new Date();
   const t=el('svTime'), dd=el('svDate');
@@ -4584,6 +4624,10 @@ function tickClock(){
   const ht=el('hsTime'), hd=el('hsDate');   // Kopf der Hausuebersicht
   if(ht) ht.textContent=d.toLocaleTimeString(LANG,{hour:'2-digit',minute:'2-digit'});
   if(hd) hd.textContent=d.toLocaleDateString(LANG,{weekday:'short',day:'numeric',month:'long'});
+  // Termine in "Auf einen Blick" (hsTermine) laufen mit der Uhr ab; updateHaus
+  // tauscht nur, was sich geaendert hat, und ruft tickClock in derselben Minute
+  const minute=d.toDateString()+' '+d.getHours()+':'+d.getMinutes();
+  if(minute!==hsMinute){ hsMinute=minute; if(document.querySelector('#grid.haus .hs-blick')) hausNeu(); }
 }
 // ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
 // Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
@@ -5295,6 +5339,9 @@ const HS_AKTIV_MIN=260, HS_RAUM_MIN=200, HS_RAUM_HOCH=150, HS_RAUM_SEITE=1.4;
 // Hauptwert, Zeile darunter, Taste 52 mit Beschriftung, Rand); Aufbau
 // "spalte": Breite der linken Spalte (Entwurf: 440 px am grossen Display)
 const HS_RAUM_HOCH_TASTEN=200, HS_LINKS=320;
+// Hinweise: Mindestbreite einer Karte in der Leiste, Breite der Taste "+n"
+// dahinter und die Hoehe der Leiste (wie .hs-h)
+const HS_HINWEIS_MIN=240, HS_HINWEIS_PLUS=72, HS_HINWEIS_HOCH=60;
 function hsIco(s, extra){
   const k='hs-i'+(extra?' '+extra:'');
   if(s.iconImg) return '<span class="'+k+'"><img src="'+esc(s.iconImg)+'" alt=""></span>';
@@ -5323,6 +5370,13 @@ function hausLage(v){
   const schnell=v.schnell.length>0 && !links;
   const zeile=aufbau==='status' && (v.aktiv.length>0 || v.schnell.length>0) && !v.liste;
   const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
+  // Hinweise als Leiste unter dem Kopf ("spalte": oben in "Auf einen Blick"):
+  // so viele Spalten, wie Karten in der Mindestbreite passen; sind es mehr
+  // Hinweise, ruecken sie fuer die Taste "+n" zusammen
+  const hn=(v.hinweise||[]).length, leiste=hn>0 && !links && !v.liste;
+  const passen=breite=>Math.max(1, Math.floor((breite+gap)/(HS_HINWEIS_MIN*hk+gap)));
+  let hc=passen(mainW);
+  if(hn>hc) hc=passen(mainW-HS_HINWEIS_PLUS*hk-gap);
   // Hoehe fuer die Raumkarten: Flaeche minus Kopf (in "spalte" nur die
   // Titelzeile), Zeile "Gerade aktiv" bzw. Titelzeile "Raeume",
   // Schnellaktionen und (hochkant) die Spieler-Leiste
@@ -5331,6 +5385,7 @@ function hausLage(v){
   if(zeile) raumH-=Math.max(44,48*hk)+10*hk+Math.max(64,80*hk)+abst;
   if(aufbau==='raeume') raumH-=Math.max(44,48*hk)+abst;
   if(schnell) raumH-=Math.max(44,72*hk)+abst;
+  if(leiste) raumH-=Math.max(52,HS_HINWEIS_HOCH*hk)+abst;
   if(v.spieler && !spalte) raumH-=28*hk+64*hk+12*hk+tH+abst;
   // Spalten der Raeume: die, deren Karten dem Seitenverhaeltnis am naechsten
   // kommen, ohne zu scrollen; scrollt jede Wahl, die mit den meisten Spalten
@@ -5346,7 +5401,7 @@ function hausLage(v){
     const wert=(scroll?10:0)+Math.abs(Math.log((cw/Math.max(1,ch))/HS_RAUM_SEITE));
     if(!best || wert<best.wert) best={c, wert, scroll};
   }
-  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(hoch*1.15)+'px' : '', zeile, schnell, aufbau, links};
+  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(hoch*1.15)+'px' : '', zeile, schnell, aufbau, links, leiste, hc};
 }
 // Wetter in einer Zeile: die Vorschau fuer morgen, ohne sie Lage und Hoch/Tief von heute
 function hsWetter(w){
@@ -5379,8 +5434,33 @@ function hsRaumTasten(r, i){
     '<span class="sb">'+esc(r.sub || (r.anzahl===1 ? '1 Baustein' : r.anzahl+' Bausteine'))+'</span>'+
     (tasten ? '<span class="tasten">'+tasten+'</span>' : '')+'</div>';
 }
+// Hinweis als Karte (Leiste, Unterseite, "Auf einen Blick"); ein Tipp oeffnet den Baustein
+function hsHinweis(h, i){
+  return '<button type="button" class="hs-h '+esc(h.stufe)+'" data-hs="hinweis" data-i="'+i+'"'+(h.nav?'':' disabled')+
+    ' aria-label="'+esc(h.titel+', '+h.wo)+'"><span class="kr">'+hsIco(h)+'</span>'+
+    '<span class="tx"><span class="z">'+esc(h.titel)+'</span><span class="w">'+esc(h.wo)+'</span></span></button>';
+}
+function hsHinweise(n){ return n===1 ? '1 Hinweis' : n+' Hinweise'; }
+// Termine von heute und morgen aus der Front, die noch kommen (heute mit
+// Uhrzeit: ab jetzt), hoechstens so viele, wie die Uhr-Seite zeigt
+// (svCount): in "Auf einen Blick" der Spalte, die keinen Kopf mit dem
+// naechsten Termin hat. tickClock zeichnet sie jede Minute neu
+function hsTermine(d){
+  const jetzt=new Date(), nun=jetzt.getHours()*60+jetzt.getMinutes();
+  const tag=plus=>{ const t=new Date(jetzt); t.setDate(t.getDate()+plus);
+    return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); };
+  const heute=tag(0), morgen=tag(1);
+  return (Array.isArray(d.events)?d.events:[]).filter(e=>{
+    if(e.date===morgen || (e.date===heute && e.allday)) return true;
+    const m=e.date===heute && /^(\d{1,2}):(\d{2})$/.exec(e.time||'');
+    return !!m && +m[1]*60 + +m[2] >= nun;
+  }).slice(0, svCount(d));
+}
+// Unterseite ohne Inhalt (nichts mehr an bzw. kein Hinweis mehr): zurueck
+function hsListeLeer(v){ return v.liste==='hinweise' ? !(v.hinweise||[]).length : !v.aktiv.length; }
 function hausBloecke(v, L){
   const B=[], d=frontData||{}, w=d.weather, ev=(Array.isArray(d.events)?d.events:[])[0];
+  const hw=v.hinweise||[];
   const e=v.energie, summen=e && e.cons!=null;
   if(L.links){
     // Spalte links: Uhr mit Wetter, Energie, "Auf einen Blick" (Server:
@@ -5392,11 +5472,19 @@ function hausBloecke(v, L){
       (summen ? '<span class="werte">'+(e.prod!=null ? '<span class="wt"><span class="w">Produktion</span><span class="z">'+esc(fmtPower(e.prod))+'</span></span>' : '')+
         '<span class="wt"><span class="w">Verbrauch</span><span class="z">'+esc(fmtPower(e.cons))+'</span></span></span>'
        : '<span class="z">'+esc(e.wert||e.label)+'</span>')+'</button>']);
-    const blick=v.blick||[];
-    B.push(['blick','links','<div class="hs-c hs-blick" data-hb="blick"><h2>Auf einen Blick</h2><div class="liste">'+
-      (blick.length ? blick.map((x,i)=>'<button type="button" class="hs-bz" data-hs="blick" data-i="'+i+'"'+(x.nav?'':' disabled')+'>'+hsIco(x)+
-        '<span class="tx"><span class="z">'+esc(x.zustand)+'</span><span class="w">'+esc(x.name)+'</span></span></button>').join('')
-       : '<span class="w">Nichts zu melden</span>')+'</div></div>']);
+    // oben die Hinweise (ohne: "Alles in Ordnung"), dann die Termine von
+    // heute und morgen, darunter unter "Status" die Bausteine (_haus_blick)
+    const blick=v.blick||[], termine=hsTermine(d), kal=(TABS.find(t=>t.tab==='kalender')||{}).icon||ICONS.info;
+    B.push(['blick','links','<div class="hs-c hs-blick" data-hb="blick"><div class="kopf"><h2>Auf einen Blick</h2>'+
+      (hw.length ? '<span class="n">'+hsHinweise(hw.length)+'</span>' : '')+'</div><div class="liste">'+
+      (hw.length ? hw.map(hsHinweis).join('')
+       : '<div class="hs-h ok"><span class="kr"><span class="hs-i ok">'+svg(HS_RUHIG)+'</span></span>'+
+         '<span class="tx"><span class="z">Alles in Ordnung</span></span></div>')+
+      termine.map(t=>'<div class="hs-h termin"><span class="kr"><span class="hs-i">'+svg(kal)+'</span></span>'+
+        '<span class="tx"><span class="z">'+esc(t.title||'')+'</span><span class="w">'+esc([t.day, t.time].filter(Boolean).join(', '))+'</span></span></div>').join('')+
+      (blick.length ? '<span class="lbl">Status</span>'+blick.map((x,i)=>'<button type="button" class="hs-bz" data-hs="blick" data-i="'+i+'"'+(x.nav?'':' disabled')+'>'+hsIco(x)+
+        '<span class="tx"><span class="z">'+esc(x.zustand)+'</span><span class="w">'+esc(x.name)+'</span></span></button>').join('') : '')+
+      '</div></div>']);
   } else {
     let kopf='<div class="hs-kopf" data-hb="kopf"><div class="hs-uhr"><span class="t" id="hsTime">--:--</span><span class="d" id="hsDate"></span></div>';
     if(w) kopf+='<div class="hs-c hs-k">'+'<span class="hs-i wx">'+wxSvg(w.icon)+'</span><span class="tx"><span class="z">'+tdeg(w.temp)+'</span>'+
@@ -5407,6 +5495,14 @@ function hausBloecke(v, L){
       '<span class="hs-i">'+svg(HS_ENERGIE)+'</span><span class="tx"><span class="z">'+esc(summen ? fmtPower(e.cons) : (e.wert||e.label))+'</span>'+
       '<span class="w">'+esc(summen ? 'Verbrauch'+(e.prod!=null ? ' · PV '+fmtPower(e.prod) : '') : e.label)+'</span></span></button>';
     B.push(['kopf','main',kopf+'</div>']);
+    // Hinweise als Leiste; passen nicht alle, fuehrt "+n" zur Unterseite
+    if(L.leiste){
+      const zeigen=Math.min(hw.length, L.hc), rest=hw.length-zeigen;
+      B.push(['hinweise','main','<div class="hs-hw" data-hb="hinweise" style="grid-template-columns:repeat('+L.hc+',minmax(0,1fr))'+(rest?' auto':'')+'">'+
+        hw.slice(0,zeigen).map(hsHinweis).join('')+
+        (rest ? '<button type="button" class="hs-h hs-hplus" data-hs="hinweise" aria-label="Alle '+hsHinweise(hw.length)+' zeigen">+'+rest+svg(HS_PFEIL)+'</button>' : '')+
+        '</div>']);
+    }
   }
   // Schnellaktionen (Zentral-Bausteine der Anlage): rechts, wie viele an sind,
   // leer, wenn nichts laeuft; die Zahl kommt mit jeder Zustandsaenderung neu.
@@ -5422,9 +5518,11 @@ function hausBloecke(v, L){
     '<span class="tx"><span class="z">'+esc(a.zustand||a.label)+'</span><span class="w">'+esc(hsWo(a))+'</span></span>'+
     '<button type="button" class="btn hs-b" data-hs="aus" data-i="'+i+'" aria-label="'+esc(a.taste+': '+hsWo(a))+'">'+esc(a.taste)+'</button></div>';
   if(v.liste){
+    const hinweise=v.liste==='hinweise';
     B.push(['lkopf','main','<div class="hs-zeile" data-hb="lkopf"><button type="button" class="btn hs-b hs-rund" data-hs="zurueck" aria-label="Zurück">'+
-      svg(HS_ZURUECK)+'</button><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span></div>']);
-    v.aktiv.forEach((a,i)=>B.push(['a:'+a.id,'liste',karte(a,i)]));
+      svg(HS_ZURUECK)+'</button><h2>'+(hinweise ? 'Hinweise' : 'Gerade aktiv')+'</h2><span class="n">'+(hinweise ? hsHinweise(hw.length) : anzahl)+'</span></div>']);
+    if(hinweise) hw.forEach((h,i)=>B.push(['h:'+h.id,'liste',hsHinweis(h,i)]));
+    else v.aktiv.forEach((a,i)=>B.push(['a:'+a.id,'liste',karte(a,i)]));
   } else {
     if(L.zeile){
       B.push(['akopf','main','<div class="hs-zeile" data-hb="akopf"><h2>Gerade aktiv</h2><span class="n">'+anzahl+'</span></div>']);
@@ -5476,7 +5574,7 @@ function hausBloecke(v, L){
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
 // Zur Lage gehoert, ob die Raumkarten scrollen, nicht ihre Hoehe: die waechst
 // mit --hk und kommt wie die anderen Masse aus hausMasse
-function hausSig(L, B){ return JSON.stringify([L.aufbau, L.links, L.spalte, L.sp, L.rc, !!L.rh, L.zeile, B.map(b=>b[0])]); }
+function hausSig(L, B){ return JSON.stringify([L.aufbau, L.links, L.spalte, L.sp, L.rc, !!L.rh, L.zeile, L.leiste, B.map(b=>b[0])]); }
 // Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
 // Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
 function hausMasse(g, L){
@@ -5498,8 +5596,8 @@ function renderHaus(){
   const g=el('grid'), v=view;
   g.classList.remove('list','snapy','lx','hpages','punkte','fuss','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
   g.classList.add('haus');
-  // Unterseite "Gerade aktiv", aber nichts mehr an: zurueck zur Uebersicht
-  if(v.liste && !v.aktiv.length){ if(stack.length>1) back(); }
+  // Unterseite "Gerade aktiv" bzw. "Hinweise", aber nichts mehr da: zurueck zur Uebersicht
+  if(v.liste && hsListeLeer(v)){ if(stack.length>1) back(); }
   const L=hausLage(v);
   hausMasse(g, L);
   const B=hausBloecke(v, L), teil=o=>B.filter(b=>b[1]===o).map(b=>b[2]).join('');
@@ -5521,7 +5619,7 @@ function renderHaus(){
 function updateHaus(){
   const g=el('grid'), v=view;
   if(!v || v.layout!=='haus' || !g.classList.contains('haus')) return false;
-  if(v.liste && !v.aktiv.length) return false;
+  if(v.liste && hsListeLeer(v)) return false;
   const L=hausLage(v), B=hausBloecke(v, L);
   if(g._hsSig!==hausSig(L, B)) return false;
   hausMasse(g, L);
@@ -5560,6 +5658,8 @@ function hausKlick(e){
   else if(art==='zone' && b.dataset.id) hausZone(b.dataset.id);
   else if(art==='quellen'){ if(sp && sp.mehr) nav(sp.mehr); }
   else if(art==='blick'){ const x=v.blick && v.blick[i]; if(x && x.nav) nav(x.nav); }
+  else if(art==='hinweis'){ const h=v.hinweise && v.hinweise[i]; if(h && h.nav) nav(h.nav); }
+  else if(art==='hinweise') nav(Object.assign({}, v.route, {liste:'hinweise'}));
   else if(art==='taste'){
     const r=v.raeume[+b.dataset.r], t=r && r.tasten && r.tasten[+b.dataset.t]; if(!t) return;
     clearTimeout(hsFrageT);
