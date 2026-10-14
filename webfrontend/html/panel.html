@@ -1740,11 +1740,18 @@
   .hs-spk:has(.hs-drei) span{flex:1;min-width:0;text-align:right;}
   .hs .btn.hs-drei{padding:0;width:var(--hs-t);border-radius:50%;}
   .hs .btn.hs-drei svg{width:calc(20px * var(--hk));height:calc(20px * var(--hk));}
-  .hs-cv{display:flex;flex-direction:column;gap:calc(10px * var(--hk));border-radius:calc(var(--taste-radius,12px) * var(--hk));
-    background:var(--taste,rgba(var(--wash,255,255,255),.05));padding:calc(16px * var(--hk));}
-  .hs-cov{width:calc(84px * var(--hk));height:calc(84px * var(--hk));flex:none;border-radius:calc(14px * var(--hk));object-fit:cover;
+  /* Was laeuft: Cover links, Titel und Zustand daneben (Entwurf "Variante
+     grosse Cover"), damit unter Transport und Lautstaerke die Sender Platz haben */
+  .hs-cv{flex:none;display:flex;align-items:center;gap:calc(14px * var(--hk));border-radius:calc(var(--taste-radius,12px) * var(--hk));
+    background:var(--taste,rgba(var(--wash,255,255,255),.05));padding:calc(16px * var(--hk));min-width:0;}
+  .hs-cv .cvt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .hs-cov{width:calc(72px * var(--hk));height:calc(72px * var(--hk));flex:none;border-radius:calc(14px * var(--hk));object-fit:cover;
     display:grid;place-items:center;background:var(--tile);color:var(--muted);}
   .hs-cov svg{width:46%;height:46%;}
+  /* Cover ueber dem Musik-Symbol: laedt es nicht, blendet hsCoverFehlt() es
+     aus und das Symbol bleibt (kein Zeichen fuer ein kaputtes Bild) */
+  .hs-cov,.hs-f .fc{position:relative;overflow:hidden;}
+  .hs-cov>img,.hs-f .fc>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
   .hs-sp .ti{font-size:calc(21px * var(--hk));font-weight:700;line-height:1.2;overflow:hidden;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
   .hs-sp .w{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1779,6 +1786,25 @@
   html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .z,
   html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .hs-i{color:var(--kachel-an-ink,var(--ink));}
   html[data-kachelset-aufbau="mitte"] .hs .btn.hs-zone.akt .w{color:var(--kachel-an-muted,var(--kachel-an-ink,var(--ink)));}
+  /* Sender: die Favoriten der Zone als Cover-Kacheln (Server: _haus_sender),
+     ein Tipp spielt den Sender; der laufende wie die gewaehlte Zone mit
+     --kachel-an und Ring. Spalte: Kopfzeile mit "Alle" zur Musikauswahl und
+     drei Kacheln, Leiste: so viele, wie passen, dahinter "Mehr" */
+  .hs-fk{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;}
+  .hs-fk .lbl{font-size:calc(14px * var(--hk));color:var(--muted);}
+  .hs .btn.hs-b.hs-alle{flex:none;height:44px;background:none;padding:0 4px;font-size:calc(14px * var(--hk));font-weight:600;gap:4px;}
+  .hs .btn.hs-b.hs-alle svg{width:calc(16px * var(--hk));height:calc(16px * var(--hk));}
+  .hs-fav{flex:none;display:grid;gap:calc(8px * var(--hk));min-width:0;}
+  .hs .btn.hs-b.hs-f{min-width:0;height:auto;flex-direction:column;align-items:center;justify-content:flex-start;gap:calc(6px * var(--hk));
+    padding:calc(8px * var(--hk)) calc(6px * var(--hk)) calc(10px * var(--hk));}
+  .hs-f .fc{width:min(100%, calc(72px * var(--hk)));aspect-ratio:1;flex:none;border-radius:calc(12px * var(--hk));object-fit:cover;
+    display:grid;place-items:center;background:var(--tile);color:var(--muted);}
+  .hs-sp.leiste .hs-f .fc{width:min(100%, calc(64px * var(--hk)));}
+  .hs-f .fc svg{width:46%;height:46%;}
+  .hs-f .n{max-width:100%;font-size:calc(13px * var(--hk));font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hs .btn.hs-b.hs-f.akt{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),.2));box-shadow:inset 0 0 0 2px var(--glow);}
+  html[data-kachelset-aufbau="mitte"] .hs-f.akt .n{color:var(--kachel-an-ink,var(--ink));}
+  .hs .btn.hs-b.hs-fmehr{height:auto;flex-direction:column;gap:6px;font-size:calc(14px * var(--hk));}
   .hs-sp.leiste{flex:none;padding:calc(14px * var(--hk)) calc(16px * var(--hk));}
   .hs-sp.leiste .r1{display:flex;align-items:center;gap:calc(12px * var(--hk));min-width:0;}
   .hs-sp.leiste .hs-cov{width:calc(64px * var(--hk));height:calc(64px * var(--hk));}
@@ -5342,6 +5368,10 @@ const HS_RAUM_HOCH_TASTEN=200, HS_LINKS=320;
 // Hinweise: Mindestbreite einer Karte in der Leiste, Breite der Taste "+n"
 // dahinter und die Hoehe der Leiste (wie .hs-h)
 const HS_HINWEIS_MIN=240, HS_HINWEIS_PLUS=72, HS_HINWEIS_HOCH=60;
+// Sender im Spieler: Mindestbreite einer Cover-Kachel in der Leiste, Breite
+// der Kachel "Mehr", Hoehe einer Kachel (Rand 8+10, Cover 64, Abstand 6,
+// Name) und wie viele die Spalte nebeneinander zeigt
+const HS_SENDER_MIN=104, HS_SENDER_MEHR=96, HS_SENDER_HOCH=108, HS_SENDER_SPALTE=3;
 function hsIco(s, extra){
   const k='hs-i'+(extra?' '+extra:'');
   if(s.iconImg) return '<span class="'+k+'"><img src="'+esc(s.iconImg)+'" alt=""></span>';
@@ -5387,11 +5417,26 @@ function hausLage(v){
   if(schnell) raumH-=Math.max(44,72*hk)+abst;
   if(leiste) raumH-=Math.max(52,HS_HINWEIS_HOCH*hk)+abst;
   if(v.spieler && !spalte) raumH-=28*hk+64*hk+12*hk+tH+abst;
+  // Karten mit Tasten ("raeume") brauchen mehr Hoehe
+  const hoch=(aufbau==='raeume' ? HS_RAUM_HOCH_TASTEN : HS_RAUM_HOCH)*hk;
+  // Sender im Spieler: in der Spalte eine Zeile, wenn sie neben Kopf, Karte,
+  // Transport, Lautstaerke und einer Zone in die Hoehe passt; in der Leiste
+  // so viele, wie neben "Mehr" in die Breite passen - sie kostet die
+  // Raumkarten eine Zeile und steht nur, wenn danach noch eine Reihe Raeume
+  // Platz hat (kleiner oder niedriger Schirm). Sonst bleibt die Musikauswahl (⋮)
+  const sn=v.spieler && v.spieler.sender ? v.spieler.sender.length : 0, senderH=HS_SENDER_HOCH*hk+gap;
+  let fc=0;
+  if(sn && spalte){
+    const bedarf=36*hk+3*tH+104*hk+Math.max(44,HS_SENDER_HOCH*hk)+44+Math.max(44,52*hk)+6*gap;
+    if(h>=bedarf) fc=HS_SENDER_SPALTE;
+  } else if(sn && raumH-senderH>=hoch){
+    const frei=mainW-32*hk-(v.spieler.mehr ? HS_SENDER_MEHR*hk+gap : 0);
+    fc=Math.max(1, Math.floor((frei+gap)/(HS_SENDER_MIN*hk+gap)));
+    raumH-=senderH;
+  }
   // Spalten der Raeume: die, deren Karten dem Seitenverhaeltnis am naechsten
   // kommen, ohne zu scrollen; scrollt jede Wahl, die mit den meisten Spalten
-  // ueber der Mindestbreite und feste Kartenhoehe. Karten mit Tasten
-  // ("raeume") brauchen mehr Hoehe
-  const hoch=(aufbau==='raeume' ? HS_RAUM_HOCH_TASTEN : HS_RAUM_HOCH)*hk;
+  // ueber der Mindestbreite und feste Kartenhoehe
   const n=Math.max(1, v.raeume.length);
   let best=null;
   for(let c=1;c<=4;c++){
@@ -5401,7 +5446,7 @@ function hausLage(v){
     const wert=(scroll?10:0)+Math.abs(Math.log((cw/Math.max(1,ch))/HS_RAUM_SEITE));
     if(!best || wert<best.wert) best={c, wert, scroll};
   }
-  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(hoch*1.15)+'px' : '', zeile, schnell, aufbau, links, leiste, hc};
+  return {hk, spalte, sp, rc:best.c, rh:best.scroll ? Math.round(hoch*1.15)+'px' : '', zeile, schnell, aufbau, links, leiste, hc, fc};
 }
 // Wetter in einer Zeile: die Vorschau fuer morgen, ohne sie Lage und Hoch/Tief von heute
 function hsWetter(w){
@@ -5455,6 +5500,18 @@ function hsTermine(d){
     const m=e.date===heute && /^(\d{1,2}):(\d{2})$/.exec(e.time||'');
     return !!m && +m[1]*60 + +m[2] >= nun;
   }).slice(0, svCount(d));
+}
+// Cover (Spieler, Sender): das Bild liegt ueber dem Musik-Symbol, damit ein
+// Bild, das nicht laedt, nur verschwindet (hsCoverFehlt)
+function hsCover(k, src){ return '<span class="'+k+'">'+svg(ICONS.music)+(src ? '<img src="'+esc(src)+'" alt="">' : '')+'</span>'; }
+function hsCoverFehlt(e){
+  const i=e.target;
+  if(i && i.tagName==='IMG' && i.parentElement && i.parentElement.matches('.hs-cov,.hs-f .fc')) i.remove();
+}
+// Sender im Spieler (Server: _haus_sender): Cover und Name, ein Tipp spielt ihn
+function hsSender(s, i){
+  return '<button type="button" class="btn hs-b hs-f'+(s.laeuft?' akt':'')+'" data-hs="sender" data-i="'+i+'" aria-pressed="'+!!s.laeuft+'" '+
+    'aria-label="'+esc(s.name+(s.laeuft ? ', läuft' : ', abspielen'))+'">'+hsCover('fc', s.cover)+'<span class="n">'+esc(s.name)+'</span></button>';
 }
 // Unterseite ohne Inhalt (nichts mehr an bzw. kein Hinweis mehr): zurueck
 function hsListeLeer(v){ return v.liste==='hinweise' ? !(v.hinweise||[]).length : !v.aktiv.length; }
@@ -5541,7 +5598,7 @@ function hausBloecke(v, L){
   }
   const sp=v.spieler;
   if(sp){
-    const cover=sp.cover ? '<img class="hs-cov" src="'+esc(sp.cover)+'" alt="">' : '<span class="hs-cov">'+svg(ICONS.music)+'</span>';
+    const cover=hsCover('hs-cov', sp.cover);
     const zustand=sp.sub || (sp.spielt ? 'Spielt' : 'Pausiert');
     const tasten='<div class="hs-tasten">'+sp.tasten.map((t,i)=>'<button type="button" class="btn hs-b" data-hs="sp" data-i="'+i+'" aria-label="'+
       esc(HS_TASTE[t.icon]||t.icon)+'">'+svgF(ICONS[t.icon]||ICONS.info)+'</button>').join('')+'</div>';
@@ -5552,21 +5609,29 @@ function hausBloecke(v, L){
     const kl=' class="hs-c hs-sp'+(sp.spielt?' spielt':'')+(L.spalte?'':' leiste'+(sp.spielt?' on':''))+'" data-hb="sp"';
     const drei=sp.mehr ? '<button type="button" class="btn hs-b hs-drei" data-hs="quellen" aria-label="'+
       esc('Musikauswahl '+sp.name)+'">'+svgF(HS_DREI)+'</button>' : '';
+    // Sender: so viele, wie die Lage vorsieht (L.fc), der Rest in der Musikauswahl
+    const sender=(sp.sender||[]).slice(0, L.fc), alle=sp.mehr ? 'aria-label="'+esc('Alle Sender und Favoriten, '+sp.name)+'"' : '';
     if(L.spalte){
       const zonen=sp.zonen.length>1 ? '<div class="hs-zonen"><span class="lbl">Zonen</span>'+sp.zonen.map(z=>
         '<button type="button" class="btn hs-b hs-zone'+(z.id===sp.zone?' akt':'')+'" data-hs="zone" data-id="'+esc(z.id)+'" aria-pressed="'+(z.id===sp.zone)+'">'+
         '<span class="hs-i'+(z.spielt?' wx':'')+'">'+svg(ICONS.music)+'</span><span class="tx"><span class="z">'+esc(z.name)+'</span>'+
         '<span class="w">'+esc(z.spielt ? ['Spielt', z.titel].filter(Boolean).join(' · ') : 'Aus')+'</span></span></button>').join('')+'</div>' : '';
+      const favs=sender.length ? '<div class="hs-fk"><span class="lbl">Favoriten</span>'+
+        (sp.mehr ? '<button type="button" class="btn hs-b hs-alle" data-hs="quellen" '+alle+'>Alle'+svg(HS_PFEIL)+'</button>' : '')+'</div>'+
+        '<div class="hs-fav" style="grid-template-columns:repeat('+L.fc+',minmax(0,1fr))">'+sender.map(hsSender).join('')+'</div>' : '';
       B.push(['sp','seite','<div'+kl+'><div class="hs-spk"><b>Audio</b><span>'+esc(sp.name)+'</span>'+drei+'</div>'+
-        '<div class="hs-cv">'+cover+'<span class="ti">'+esc(sp.titel)+'</span><span class="w st">'+esc(zustand)+'</span></div>'+
-        tasten+laut+zonen+'</div>']);
+        '<div class="hs-cv">'+cover+'<span class="cvt"><span class="ti">'+esc(sp.titel)+'</span><span class="w st">'+esc(zustand)+'</span></span></div>'+
+        tasten+laut+favs+zonen+'</div>']);
     } else {
       const i=sp.zonen.findIndex(z=>z.id===sp.zone), weiter=sp.zonen[(i+1)%sp.zonen.length];
       const zw=sp.zonen.length>1 ? '<button type="button" class="btn hs-b hs-zw" data-hs="zone" data-id="'+esc(weiter.id)+'" aria-label="'+
         esc('Zone wechseln, jetzt '+sp.name+', weiter zu '+weiter.name)+'">'+svg('<path d="M4 8h13l-3-3M20 16H7l3 3"/>')+'<span>'+esc(sp.name)+'</span></button>' : '';
+      const favs=sender.length ? '<div class="hs-fav" style="grid-template-columns:repeat('+L.fc+',minmax(0,1fr))'+
+        (sp.mehr ? ' calc('+HS_SENDER_MEHR+'px * var(--hk))' : '')+'">'+sender.map(hsSender).join('')+
+        (sp.mehr ? '<button type="button" class="btn hs-b hs-fmehr" data-hs="quellen" '+alle+'>'+svg(HS_PFEIL)+'Mehr</button>' : '')+'</div>' : '';
       B.push(['sp','unten','<div'+kl+'><div class="r1">'+cover+'<span class="tx"><span class="ti">'+esc(sp.titel)+'</span>'+
         '<span class="w st">'+esc(zustand+(sp.zonen.length>1?'':' · '+sp.name))+'</span></span>'+zw+drei+'</div>'+
-        '<div class="r2">'+tasten+laut+'</div></div>']);
+        '<div class="r2">'+tasten+laut+'</div>'+favs+'</div>']);
     }
   }
   return B;
@@ -5574,7 +5639,7 @@ function hausBloecke(v, L){
 // Signatur: Lage und Blockfolge. Gleich -> updateHaus darf Bloecke tauschen.
 // Zur Lage gehoert, ob die Raumkarten scrollen, nicht ihre Hoehe: die waechst
 // mit --hk und kommt wie die anderen Masse aus hausMasse
-function hausSig(L, B){ return JSON.stringify([L.aufbau, L.links, L.spalte, L.sp, L.rc, !!L.rh, L.zeile, L.leiste, B.map(b=>b[0])]); }
+function hausSig(L, B){ return JSON.stringify([L.aufbau, L.links, L.spalte, L.sp, L.rc, !!L.rh, L.zeile, L.leiste, L.fc, B.map(b=>b[0])]); }
 // Masse der Lage als CSS-Variablen; auch bei gleicher Signatur, denn --hk (Schrift-
 // Skalierung) waechst und schrumpft mit dem Fenster, ohne dass die Lage kippt
 function hausMasse(g, L){
@@ -5610,7 +5675,7 @@ function renderHaus(){
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
   hausReihen(g);
   g._hsSig=hausSig(L, B);
-  if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); }
+  if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); g.addEventListener('error', hsCoverFehlt, true); }
   tickClock();
   renderTabs();
 }
@@ -5657,6 +5722,7 @@ function hausKlick(e){
     if(neu!==l.wert) sendCmd(l.cmd.uuid, l.cmd.tmpl.replace('{v}', neu), sp.secured); }
   else if(art==='zone' && b.dataset.id) hausZone(b.dataset.id);
   else if(art==='quellen'){ if(sp && sp.mehr) nav(sp.mehr); }
+  else if(art==='sender'){ const s=sp && sp.sender && sp.sender[i]; if(s) sendCmd(s.cmd.uuid, s.cmd.cmd, sp.secured); }
   else if(art==='blick'){ const x=v.blick && v.blick[i]; if(x && x.nav) nav(x.nav); }
   else if(art==='hinweis'){ const h=v.hinweise && v.hinweise[i]; if(h && h.nav) nav(h.nav); }
   else if(art==='hinweise') nav(Object.assign({}, v.route, {liste:'hinweise'}));
