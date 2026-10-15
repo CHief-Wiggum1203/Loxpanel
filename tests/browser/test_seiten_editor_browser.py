@@ -1,5 +1,5 @@
 """Seiten-Editor (Punkt 10, Teil 2) in Chromium: der Reiter „Seiten-Editor"
-im Panel-Editor und Schritt 5 des Assistenten.
+im Panel-Editor.
 
 - Die Arbeitsflaeche zeigt, was die Visu am Geraet baut: dasselbe Raster
   (Spalten x Zeilen), dieselbe Folge und dieselben Groessen wie die echte
@@ -10,7 +10,6 @@ im Panel-Editor und Schritt 5 des Assistenten.
   und Finger am Griff), Pfeiltasten und Entf, Groesse 2 x 2, Widget aus der
   Palette; gespeichert stehen picks, layout und byRoom so in panels.json,
   ohne dass der Server etwas verwirft, und die Visu zeigt genau diese Folge.
-- Der Assistent uebernimmt Folge, Groessen und Raumgruppierung ins Profil.
 - Unter Tabs abgewaehlt oder beim Duplizieren getauscht bleibt das Layout
   stimmig."""
 import asyncio
@@ -321,42 +320,6 @@ def test_widget_aus_der_palette():
     assert weg == "" and kalender == "calendar", (weg, kalender)
     # Audio gibt es (Audiozone in der Anlage), Energiefluss, Kamera und Verlauf nicht
     assert dict(gesperrt) == {"weather": True, "calendar": True, "audio": True, "header": False}, gesperrt
-
-
-def test_assistent_schritt5_mit_dem_editor():
-    """Freie Auswahl im Assistenten: Schritt 5 zeigt fuer die Seite den Editor
-    (Dialog breit), gerechnet mit dem Geraet aus Schritt 1; Folge, Groesse und
-    Raumgruppierung landen im neuen Profil."""
-    panels = {"flur": {"title": "Flur", "tabs": ["favoriten"]}}
-
-    async def schritte(b, port):
-        pg = await _konfigurator(b, port, "flur")
-        await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen(wzKatalog().find(k => k.name === 'Galaxy Tab A9 quer'));
-            WZ.content = 'pick'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
-            WZ.step = wzFlow().indexOf('inhalt'); wzRender(); }""")
-        await pg.locator("#wzBody [data-pgtiles='0']").click()
-        breit = await pg.evaluate("document.querySelector('#wzOv .wzbox').classList.contains('breit')")
-        info = await pg.text_content("#wzSeHost [data-se-info]")
-        for name in ("Deckenlicht", "Dimmer Küche", "Audio Wohnzimmer"):
-            await pg.locator("#wzSeHost .se-p", has_text=name).click()
-        await _ziehen(pg, pg.locator("#wzSeHost .se-t[data-se-t='C']"), pg.locator("#wzSeHost .se-t[data-se-t='A']"), dx=0.2)
-        await pg.locator("#wzSeHost .se-t[data-se-t='Z']").click()
-        await pg.locator("#wzSeHost [data-se-gr='1,1']").click()
-        await pg.locator("#wzSeHost [data-se-raum]").uncheck()
-        await pg.locator("#wzTileBack").click()
-        schmal = await pg.evaluate("document.querySelector('#wzOv .wzbox').classList.contains('breit')")
-        await pg.evaluate("wzBuild()")
-        neu = await pg.evaluate("JSON.parse(JSON.stringify(PANELS.sauna.pickTabs))")
-        vorgerechnet = await pg.evaluate("wzVorrechnung(WZ.panes, WZ.grid)")
-        assert not pg._fehler, pg._fehler
-        return breit, info, schmal, neu, vorgerechnet
-    breit, info, schmal, neu, vorgerechnet = _lauf(panels, schritte)
-    assert breit and not schmal
-    assert info.startswith("Raster am Galaxy Tab A9 quer"), info
-    assert neu[0]["picks"] == ["C", "A", "Z"] and neu[0]["byRoom"] is False, neu
-    assert neu[0]["layout"] == [{"id": "C", "w": 1, "h": 1}, {"id": "A", "w": 1, "h": 1},
-                                {"id": "Z", "w": 1, "h": 1}], neu
-    assert vorgerechnet["auto"], vorgerechnet
 
 
 def test_bereich_seite_name_inhalt_und_seiten(cfg_ordner):

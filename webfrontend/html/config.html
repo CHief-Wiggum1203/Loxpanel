@@ -316,7 +316,7 @@
   .cal input[type=color]{padding:2px;height:38px;width:56px;cursor:pointer;}
   .calempty{color:var(--muted);font-size:14px;padding:4px 0 10px;}
   /* Neues Geraet gefunden (Einrichtung Schritt 1): ein Banner ueber dem Inhalt
-     jeder Rubrik, solange ein Geraet ohne Kennung (Code) oder ein frisch
+     jeder Rubrik, solange ein Geraet ohne Namen (Code) oder ein frisch
      verbundenes ohne Zuordnung da ist */
   .neu-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#1b2a1c;border:1px solid #2f5a33;
     border-radius:10px;padding:12px 16px;margin:0 0 18px;max-width:1100px;}
@@ -819,8 +819,8 @@
           <div class="actions"><span class="toast" id="dev_toast"></span></div>
         </div>
         <div class="card" id="ag_anon_karte" hidden>
-          <h3 data-i18n>Geräte ohne Kennung</h3>
-          <p class="note" data-i18n>Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.</p>
+          <h3 data-i18n>Geräte ohne Namen</h3>
+          <p class="note" data-i18n>Geräte ohne Namen. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.</p>
           <div id="ag_anon"></div>
         </div>
         <details class="card discl" id="modusHilfe">
@@ -4512,7 +4512,7 @@ async function wzClose(){
   return true;
 }
 // Schritt Gerät leiht sich "Neues Gerät einrichten" (Start-Adresse, Agent) und die Geraete
-// ohne Kennung (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
+// ohne Namen (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
 // kommen sie dorthin zurueck. Die Knoten bleiben dieselben, Eingaben und Ereignisse auch.
 const WZ_LEIH={};
 function wzLeihen(id, ziel){
@@ -5243,7 +5243,7 @@ function geOpen(name){
 }
 // Schliessen ersetzt den iframe: ein src='about:blank' kaeme zu spaet, wenn die Visu darin
 // gerade selbst navigiert (Speichern beendet den Entwurf, sie laedt /?panel= ohne Token) -
-// die Verbindung ohne Kennung bliebe stehen und staende im Banner als neues Geraet.
+// die Verbindung ohne Namen bliebe stehen und staende im Banner als neues Geraet.
 function geClose(){
   clearTimeout(GE.timer); GE.url='';
   const f=$('#geFrame'), n=document.createElement('iframe'); n.id='geFrame'; n.title=f.title; f.replaceWith(n);
@@ -5679,7 +5679,7 @@ function kalenderSpeichern(){
 });
 // Unter Geraete zaehlen nur die Einstellungen der Karte (.dev), nicht die Wahl der
 // Ansicht in der Zeile Zeigt (.agsel, die schaltet live um) und nicht der Name eines
-// Geraets ohne Kennung. DEV folgt jeder Eingabe, damit die Ansicht nennen kann, welches
+// Geraets ohne Namen. DEV folgt jeder Eingabe, damit die Ansicht nennen kann, welches
 // Geraet sie ueberstimmt.
 { const g=$('#geraete');
   if(g){ ['input','change'].forEach(ev=>g.addEventListener(ev, e=>{ if(!e.target.closest('.dev') || e.target.classList.contains('agsel')) return;
@@ -5705,7 +5705,7 @@ let DEVICE_SUGGEST={}; // Geraetename -> Vorschlag Zielkachel px aus der gemelde
 let DEVICE_SCREENS={}; // Geraetename -> gemeldete Bildschirmgroesse (fuer den Hinweis zum Vorschlag)
 let DEVICE_CONN={};    // Geraetename -> Anzahl verbundener Visus (Vorschau am Geraet braucht eine)
 let DEVICE_VORSCHAU={}; // Geraetename -> {id, bis}, solange das Geraet einen Entwurf zeigt
-let ANON_DEVICES=[];   // verbundene Geraete ohne Kennung (nach IP), zuletzt von /api/devices
+let ANON_DEVICES=[];   // verbundene Geraete ohne Namen (nach IP), zuletzt von /api/devices
 let LICHT_OPTS=[];     // Lichtsteuerungen mit Stimmungen (Stimmung beim Einschalten), aus /api/meta
 let ACTIVE_OPTS=[];    // Bausteine mit active-State (Auswahl Praesenzmelder), aus /api/meta
 let PRESENCE_NOW={};   // Geraetename -> meldet sein Praesenzmelder gerade jemanden? (aus /api/devices)
@@ -5837,14 +5837,14 @@ function entfernenHtml(name, d){
   return gzZeile('entfernen', T('Entfernen'), esc(T('Gerät aus der Liste nehmen')), woher,
     d.configured ? '<button class="btn sm del" data-act="entfernen" data-online="'+(d.online?1:0)+'">'+T('Entfernen')+'</button>' : '');
 }
-// Geraet ohne Kennung: der Kopplungscode (das Panel zeigt ihn unter "Dieses
+// Geraet ohne Namen: der Kopplungscode (das Panel zeigt ihn unter "Dieses
 // Geraet einrichten") ist der Schluessel der Zeile, "Namen vergeben" trifft
 // damit genau dieses Geraet - auch bei mehreren hinter einer IP.
 function anonKey(a){ return a.code||a.ip; }
 function anonRow(a, typed){
   const info=[a.ip, TYPE_LABEL[a.kiosk]||T('Browser'), a.profile?(T('Ansicht')+' '+a.profile):'', screenInfo(a.screen)].filter(Boolean).join(' · ');
   return '<div class="ag" data-anon="'+esc(anonKey(a))+'" data-ip="'+esc(a.ip)+'" data-code="'+esc(a.code||'')+'">'+
-    '<span class="dot on"></span><span class="agn">'+(a.code?(T('Code')+' '+esc(a.code)):T('Ohne Kennung'))+'</span>'+
+    '<span class="dot on"></span><span class="agn">'+(a.code?(T('Code')+' '+esc(a.code)):T('Ohne Namen'))+'</span>'+
     '<span class="agip">'+esc(info)+'</span><span class="sp"></span>'+
     '<input type="text" class="anname" placeholder="'+T('Gerätename')+'" value="'+esc(typed||'')+'" style="max-width:180px">'+
     '<button class="btn sm" data-act="name">'+T('Namen vergeben')+'</button></div>';
@@ -5907,7 +5907,7 @@ function koepfeZeichnen(){
 function renderDeviceList(j){
   GERAETE_LISTE=j.devices||[];
   geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen(); wzGeraeteNachziehen();
-  // Geraete ohne Kennung: eigener Abschnitt unter den Karten
+  // Geraete ohne Namen: eigener Abschnitt unter den Karten
   const anon=j.anonymous||[], ab=$('#ag_anon'), ak=$('#ag_anon_karte');
   if(ak) ak.hidden=!anon.length;
   if(!ab) return;
@@ -5971,13 +5971,13 @@ async function nameDevice(ip,name,code){
     const j=await postJson('/api/device/name', code?{code,name}:{ip,name});   // Code trifft genau ein Geraet
     flash($('#ag_toast'), j.ok?('✓ '+name):('Fehler: '+(j.error||'')), j.ok);
     if(document.activeElement) document.activeElement.blur();
-    setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Kennung neu
+    setTimeout(pollDevices,2500);   // Geraet verbindet sich mit Namen neu
     return !!j.ok;
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); return false; }
 }
 // ---- Neues Geraet gefunden (Einrichtung neu, Schritt 1) ----
-// Ein Geraet ohne Kennung (es zeigt seinen Code) oder ein frisch verbundenes
-// mit Kennung, das noch keine Zuordnung hat und die Standardansicht zeigt,
+// Ein Geraet ohne Namen (es zeigt seinen Code) oder ein frisch verbundenes
+// mit Namen, das noch keine Zuordnung hat und die Standardansicht zeigt,
 // meldet der Konfigurator oben in jeder Rubrik. "Benennen und einrichten"
 // vergibt den Namen (das Geraet verbindet sich damit neu) und oeffnet dann
 // "Geraet einrichten" mit diesem Geraet; "Spaeter" merkt sich das Geraet im
@@ -6372,7 +6372,7 @@ function mzRender(){
   if(key==='geraete'){
     const names=mzDevNames();
     MZ._sig=mzGeraeteSig();
-    // Verbundene Geraete ohne Kennung gleich hier benennen: vorher hiess es nur
+    // Verbundene Geraete ohne Namen gleich hier benennen: vorher hiess es nur
     // "Noch kein Gerät bekannt", obwohl eines verbunden war, und man sass fest.
     const anon=ANON_DEVICES.map(a=>'<div class="mzanon" data-mzanon="'+esc(anonKey(a))+'" data-ip="'+esc(a.ip)+'" data-code="'+esc(a.code||'')+'">'+
       '<span class="agip">'+(a.code?('<b>'+T('Code')+' '+esc(a.code)+'</b> · '):'')+esc(a.ip)+' · '+
@@ -6380,7 +6380,7 @@ function mzRender(){
       '<button class="wzbtn" data-mzname>'+T('Namen vergeben')+'</button></div>').join('');
     b.innerHTML='<p class="wzq">'+T('Für welche Geräte?')+'</p>'+
       (names.length? '<div class="mzchips">'+names.map(n=>'<button class="chip'+(MZ.devices.indexOf(n)>=0?' on':'')+'" data-mzdev="'+esc(n)+'">'+esc(n)+'</button>').join('')+'</div>'
-        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.'))+'</div>'))+
+        : (anon ? '' : '<div class="wznote">'+esc(T('Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal öffnen und im Konfigurator einen Namen bekommen, oder einen Agent haben.'))+'</div>'))+
       (anon ? '<div class="wznote" style="margin-top:10px">'+T('Verbunden, aber noch ohne Namen – erst benennen, dann auswählen:')+'</div>'+anon : '')+
       (MZ.benannt ? '<div class="wznote" style="margin-top:8px">'+esc(T('✓ Name vergeben – das Gerät verbindet sich neu und erscheint gleich oben:')+' '+MZ.benannt)+'</div>' : '')+
       '<div class="wznote" style="margin-top:10px">'+T('Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.')+'</div>';
@@ -6437,7 +6437,7 @@ function mzRender(){
 function mzNext(){ const f=mzFlow(); if(MZ.step<f.length-1){ MZ.step++; mzRender(); return; } mzApply(); }
 // Neue Geraetenamen aus pollDevices: steht der Assistent bei den Geraeten und
 // wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
-// Signatur der Geraeteliste fuer den offenen Assistenten: Geraete ohne Kennung
+// Signatur der Geraeteliste fuer den offenen Assistenten: Geraete ohne Namen
 // ueber ihren Code (anonKey), nicht nur die IP - sonst bliebe nach dem Tausch
 // eines Browsers hinter derselben IP der alte Code stehen (Codex an #131).
 function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(anonKey)]); }

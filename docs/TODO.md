@@ -142,7 +142,7 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
 - [x] **Schritt 1, das Gerät meldet sich.** Die Kopplungskarte „Dieses Gerät
       einrichten“ bleibt bei Browsern ohne `?panel=` (mit `?panel=` nur der
       Code, sonst läge sie nach jedem Neustart über der Visu). Der
-      Konfigurator meldet ein Gerät ohne Kennung
+      Konfigurator meldet ein Gerät ohne Namen
       und ein frisch verbundenes ohne Zuordnung oben in jeder Rubrik als
       Banner mit Klasse (4″-Wandpanel, Tablet, Display), Größe und Code;
       „Benennen und einrichten“ vergibt den Namen und öffnet „Gerät
@@ -210,8 +210,20 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       Sekunden auf der Uhr-Seite oder „Server ändern“ auf der eigenen
       Fehlerseite der Anzeige. Alte Installationen laufen ohne Frage mit dem
       eigenen Server weiter. Tests: `VisuTest`, `ServerPruefungTest`.
-- [ ] Danach: Doku und Begriffe nachziehen („Kennung“ nur noch für die
+- [x] Danach: Doku und Begriffe nachziehen („Kennung“ nur noch für die
       Ansicht), Tests des alten Assistenten durch die des neuen Wegs ersetzen.
+      Umgesetzt (15.10.2026): „Geräte ohne Namen“ statt „ohne Kennung“ in
+      Oberfläche, Server-Antwort, Kommentaren und Doku, der Begriff steht in
+      `docs/ARCHITEKTUR.md` §7.2. `test_assistent_geraet_browser.py` und
+      `test_assistent_vorschlag_browser.py` sind weg; an ihre Stelle treten
+      `test_raster_am_geraet_browser.py` (Seiten-Editor rechnet wie die Visu,
+      Zielkachel am Gerät), der Raumvorschlag in
+      `test_geraet_einrichten_browser.py` und die Vorschau einer ungespeicherten
+      Ansicht in `test_vorschau_geraet_browser.py`. Die Assistenten-Teile in
+      Aussehen, Auto-Raster, Einrichtung, Sprungmarken, Seiten-Editor, Seiten
+      löschen und Vorschau sind durch den Editor unter Ansichten ersetzt. Nur
+      die Übergabe aus „Selbst zusammenstellen“ und „Gerät verbinden“ im
+      Assistenten bleiben geprüft; ihn abzubauen ist der nächste Schritt.
 
 ## 0b. Upstream-Abgleich
 

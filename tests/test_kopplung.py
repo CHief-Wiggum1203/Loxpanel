@@ -1,7 +1,7 @@
 """Kopplungscode fuer Browser ohne Geraetekennung (Punkt 11): Der Server
 vergibt beim Verbinden einen Code (t:"kopplung"), nimmt einen gueltigen
 zurueckgeschickten (?code=) wieder an, listet ihn unter /api/devices bei den
-Geraeten ohne Kennung, und "Namen vergeben" trifft ueber den Code genau diese
+Geraeten ohne Namen, und "Namen vergeben" trifft ueber den Code genau diese
 Verbindung; ueber die IP weiterhin alle darunter. Ohne Kennung verlangt die
 Nachricht die Karte "Dieses Geraet einrichten", auch mit ?panel= (Einrichtung
 Schritt 1); nur ein Vorschaufenster (?entwurf=) und ein Geraet mit Kennung
@@ -47,7 +47,7 @@ def test_code_kommt_beim_verbinden_und_bleibt():
         basis = f"http://127.0.0.1:{port}"
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.ws_connect(f"{basis}/ws") as ws:                     # ohne Kennung, ohne Profil
+                async with s.ws_connect(f"{basis}/ws") as ws:                     # ohne Namen, ohne Profil
                     m = await _naechste(ws, "kopplung", 3)
                     assert m and W._KOPPLUNG_RE.fullmatch(m["code"]) and len(m["code"]) == W.KOPPLUNG_LAENGE, m
                     assert set(m["code"]) <= set(W.KOPPLUNG_ZEICHEN)
@@ -78,7 +78,7 @@ def test_code_kommt_beim_verbinden_und_bleibt():
 
 
 def test_namen_vergeben_trifft_den_code():
-    """Zwei Browser ohne Kennung hinter derselben IP: der Code trifft genau
+    """Zwei Browser ohne Namen hinter derselben IP: der Code trifft genau
     einen, die IP wie bisher alle; ein unbekannter Code benennt niemanden."""
     async def lauf():
         app = _app()

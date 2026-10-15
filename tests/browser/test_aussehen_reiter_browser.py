@@ -5,8 +5,7 @@ Schrift, Groessen. Das Kachel-Set steht vorn als Karten aus /api/meta (Name,
 Beschreibung, Vorschau); mit Set weicht die Gruppe Grundfarbe und
 Kachel-Aufbau einem Hinweis, weil beides dann aus dem Set kommt. Kein Feld
 liegt auf einem anderen, nichts laeuft ueber den Rand, die Erklaerung der
-Groessen ist zugeklappt. Der Assistent zeigt dieselben Karten. Bilder im
-tmp_path (CI: Artefakt "screenshots")."""
+Groessen ist zugeklappt. Bilder im tmp_path (CI: Artefakt "screenshots")."""
 import asyncio
 import json
 
@@ -124,23 +123,13 @@ def test_ansicht_in_gruppen(cfg_ordner, tmp_path):
         assert erg[("aufgeklappt", breite)]
 
 
-def test_vorgaben_und_assistent(cfg_ordner, tmp_path):
+def test_vorgaben(cfg_ordner, tmp_path):
     async def schritte(pg, breite, erg):
         await pg.locator(".rub", has_text="Vorgaben").click()
         karte = ".spane[data-sub='appearance'] .card"
         await pg.wait_for_selector(karte + " .agr")
         erg[("vorgaben", breite)] = await pg.evaluate(GRUPPEN, karte)
         await pg.locator(karte).screenshot(path=str(tmp_path / f"vorgaben_{breite}.png"))
-        # Assistent, Schritt Aussehen: dieselben Karten, mit Set keine Grundfarbe
-        await pg.evaluate("() => { setRubric('pconf'); wzOpen(); WZ.art = 'neu'; WZ.step = wzFlow().indexOf('aussehen'); wzRender(); }")
-        erg[("assistent", breite)] = await pg.evaluate(
-            "() => [[...document.querySelectorAll('#wzBody [data-ks-set]')].map(b => b.dataset.ksSet),"
-            " !!document.querySelector('#wzBody [data-wbase]')]")
-        await pg.locator(f"#wzBody [data-ks-set='{SETS[0]}']").click()
-        erg[("assistent_set", breite)] = await pg.evaluate(
-            "() => [WZ.look.tileSet, !!document.querySelector('#wzBody [data-wbase]'),"
-            " document.querySelector('#wzBody [data-ks-set].on').dataset.ksSet]")
-        await pg.locator("#wzBody").screenshot(path=str(tmp_path / f"assistent_aussehen_{breite}.png"))
     erg = _laufen(cfg_ordner, tmp_path, {"flur": {}}, schritte)
 
     for breite in BREITEN:
@@ -148,5 +137,3 @@ def test_vorgaben_und_assistent(cfg_ordner, tmp_path):
         _ohne_ueberlappung(m, ("vorgaben", breite))
         assert m["titel"] == ["Grundfarbe", "Sprache", "Schrift", "Größen"], m["titel"]
         assert m["grundfarbe"] and m["mehrZu"] and not m["karten"], m
-        assert erg[("assistent", breite)] == [[""] + SETS, True], erg[("assistent", breite)]
-        assert erg[("assistent_set", breite)] == [SETS[0], False, SETS[0]], erg[("assistent_set", breite)]

@@ -193,3 +193,45 @@ def test_ein_bildschirm_vom_geraet_bis_zur_ansicht(cfg_ordner, tmp_path):
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+def test_raum_zum_geraetenamen(cfg_ordner):
+    """Der Vorschlag fuer Raum und Name kommt aus dem Geraetenamen: passt er zu
+    einem Raum, ist es der Raum - bei mehreren der, dessen Name in der Laenge am
+    naechsten liegt, der gleiche Name immer -, sonst keiner."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {}}), encoding="utf-8")
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        # dazu "Bad" vor "Badezimmer", je mit einem Schalter (Raeume ohne Baustein meldet der Server nicht)
+        struktur = anlage({**BAUSTEINE, **{u: {"name": f"Licht {n}", "type": "Switch", "uuidAction": u, "room": r, "cat": "c1",
+                                              "states": {"active": u.lower()}} for u, n, r in (("B3", "Bad", "r3"), ("B4", "Badezimmer", "r4"))}})
+        struktur["rooms"].update({"r3": {"name": "Bad"}, "r4": {"name": "Badezimmer"}})
+        app._apply_structure(struktur)
+        app.states = {"l1": 0, "l2": 0, "b3": 0, "b4": 0}
+        app.panels = W.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                raeume = await pg.evaluate("""() => Object.fromEntries(['bad', 'badezimmer', 'badezimmer-oben', 'technikraum', 'garage']
+                    .map(n => { GE.device = n; const r = geRaumVorschlag(); return [n, r ? roomName(r) : '']; }))""")
+                assert raeume == {"bad": "Bad", "badezimmer": "Badezimmer", "badezimmer-oben": "Badezimmer",
+                                  "technikraum": "Technikraum", "garage": ""}, raeume
+                # im Dialog: Raum, Name und Kennung folgen dem Vorschlag
+                await pg.evaluate("geOpen('badezimmer-oben')")
+                st = await pg.evaluate(STAND)
+                assert (st["art"], st["name"], st["id"], st["kopf"]) == ("raum", "Badezimmer", "badezimmer", "badezimmer-oben · Gerät"), st
+                assert await pg.evaluate("roomName(document.getElementById('geRaum').value)") == "Badezimmer"
+                await pg.evaluate("geClose()")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+    asyncio.run(lauf())
