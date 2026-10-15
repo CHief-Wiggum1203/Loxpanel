@@ -222,7 +222,7 @@ def test_geraet_entfernen_nimmt_offene_aenderungen_nicht_mit(cfg_ordner):
                 await karte_auf(pg, "tablet")
                 await pg.locator('#geraete .dev[data-name="tablet"] .dev_auto').uncheck()
                 assert await _offen(pg) == "Nicht gespeichert: Geräte"
-                await pg.locator('#geraete .ag[data-name="flur"] [data-act="entfernen"]').click()
+                await pg.locator('#geraete .gk[data-gk="flur"] [data-act="entfernen"]').click()
                 await pg.wait_for_function("document.querySelector('#ag_toast').textContent === '✓ Entfernt: flur'")
                 doc = _datei(cfg_ordner, "panels.json")
                 assert sorted(doc["devices"]) == ["tablet"]

@@ -1,11 +1,12 @@
-"""Rubrik Geraete im Konfigurator (Konzept "Konfigurator neu ordnen", Schritt 4),
-in Chromium: eine Karte je Geraet. Der Kopf (Zustand, Ansicht, Steuerung) folgt
-der Abfrage der Geraeteliste, aufgeklappt stehen die Einstellungen in fuenf
-Teilen; eine offene Karte und eine Eingabe darin ueberstehen jede Abfrage. Die
-Wahl der Ansicht im Kopf schaltet live und ist keine offene Aenderung. "Neues
-Gerät einrichten" und "Erprobte Hardware" stehen unter Geraete, nicht mehr unter
-Einstellungen bzw. als eigene Rubrik. Der Config-Ordner ist umgeleitet
-(Fixture cfg_ordner)."""
+"""Rubrik Geraete im Konfigurator, in Chromium: eine Karte je Geraet mit fuenf
+Zeilen (Einrichtung neu, Schritt 4): Zeigt, Display, Betriebsmodi, Technik,
+Entfernen. Der Kopf (Zustand, Typ, Steuerung) und die Zeile Zeigt folgen der
+Abfrage der Geraeteliste; "Aendern" klappt den Editor einer Zeile auf, ein
+offener Editor und eine Eingabe darin ueberstehen jede Abfrage; Wert und Herkunft
+der Zeilen folgen den Eingaben. "Display aus nach" steht am Geraet (vor Ansicht
+und Vorgaben). Die Wahl der Ansicht in Zeigt schaltet live, ist keine offene
+Aenderung und ordnet auch ein Geraet zu, das nicht verbunden ist. Der
+Config-Ordner ist umgeleitet (Fixture cfg_ordner)."""
 import asyncio
 import json
 
@@ -21,11 +22,13 @@ pytestmark = pytest.mark.browser
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
                    "isFavorite": True, "states": {"active": "sl"}}}
 PANELS = {"panels": {"wohnen": {"title": "Wohnen", "tabs": ["favoriten"]},
-                     "kueche": {"title": "Küche", "tabs": ["favoriten"]}},
+                     "kueche": {"title": "Küche", "tabs": ["favoriten"], "ui": {"grid": "auto"}}},
           "devices": {"wand": {"auto": True, "modes": {"nacht": "kueche"}},
                       "flur": {"auto": True, "modes": {}, "scale": 1.2}}}
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
-          ("POST", "/api/panels", W.api_save_panels)]
+          ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/device/switch", W.api_device_switch)]
+ZEILEN = """k => [...k.querySelectorAll('.gz')].map(z => [z.dataset.gz, z.querySelector('.gz-wert').innerText.replace(/\\s+/g, ' ').trim(),
+                                                        z.querySelector('.gz-woher').textContent])"""
 
 
 def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
@@ -51,43 +54,73 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 assert karten == ["flur", "wand"], karten
                 flur = pg.locator('#geraete .gk[data-gk="flur"]')
                 assert await flur.locator(".gk-kopf .agn").text_content() == "flur"
-                assert not await flur.locator(".gk-body").is_visible(), "zugeklappt eine Zeile"
+                assert await flur.locator(".gk-kopf .agsel").count() == 0, "die Ansicht steht in der Zeile Zeigt"
+                zeilen = await flur.evaluate(ZEILEN)
+                assert [z[0] for z in zeilen] == ["zeigt", "display", "modi", "technik", "entfernen"], zeilen
+                werte = {z[0]: (z[1], z[2]) for z in zeilen}
+                assert werte["zeigt"][1] == "noch nicht gemeldet", werte
+                assert werte["display"] == ("Linux-Agent nach seiner kiosk.conf, sonst nie · nachts nicht abgedunkelt",
+                                            "Display aus: Standard · Nacht: Standard · kein Präsenzmelder"), werte
+                assert werte["modi"][0] == "Keine", werte
+                assert werte["technik"] == ("Browser · kein Display-Treiber", "Skalierung 120 % (am Gerät) · Zielkachel nur bei Raster „Automatisch“"), werte
+                assert werte["entfernen"][0] == "Gerät aus der Liste nehmen" and await flur.locator('[data-act="entfernen"]').count() == 1
+                assert await flur.locator(".gz-editor:not([hidden])").count() == 0, "alle Editoren zu"
+                wand = {z[0]: z[1] for z in await pg.locator('#geraete .gk[data-gk="wand"]').evaluate(ZEILEN)}
+                assert wand["modi"] == "nacht → Küche", wand
 
+                # Editoren auf: Wert und Herkunft folgen den Eingaben, "Display aus" steht am Geraet
                 await karte_auf(pg, "flur")
-                teile = await flur.locator(".gk-teil").all_text_contents()
-                assert teile == ["Betriebsmodi", "Am Gerät", "Präsenzmelder", "Gesten", "Display-Steuerung"], teile
+                assert await flur.locator(".gz-editor:not([hidden])").count() == 4
                 assert await flur.locator(".ds_scale").input_value() == "1.2"
                 await flur.locator(".dm_mode").fill("gaeste")
                 assert await pg.locator("#offenTxt").text_content() == "Nicht gespeichert: Geräte"
+                await flur.locator(".dd_dpms").fill("120")
+                await flur.locator(".dd_dim").fill("25")
+                werte = {z[0]: (z[1], z[2]) for z in await flur.evaluate(ZEILEN)}
+                assert werte["display"] == ("Aus nach 120 s · nachts 25 % dunkler", "Display aus: am Gerät · Nacht: am Gerät · kein Präsenzmelder"), werte
                 await pg.screenshot(path=str(tmp_path / "geraetekarte.png"), full_page=True)
 
-                # Die Abfrage zeichnet die Koepfe neu; Karte und Eingabe bleiben
+                # Die Abfrage zeichnet Kopf und Zeigt neu; Editoren und Eingaben bleiben
                 await pg.evaluate("pollDevices()")
                 await pg.wait_for_timeout(300)
-                assert await flur.locator(".gk-body").is_visible()
+                assert await flur.locator(".gz-editor:not([hidden])").count() == 4
                 assert await flur.locator(".dm_mode").input_value() == "gaeste"
-                assert not await pg.locator('#geraete .gk[data-gk="wand"] .gk-body').is_visible()
+                assert await flur.locator(".dd_dpms").input_value() == "120"
+                assert await pg.locator('#geraete .gk[data-gk="wand"] .gz-editor:not([hidden])').count() == 0
 
-                # Ansicht im Kopf waehlen ist keine Einstellung der Karte
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function("document.querySelector('#offenTxt').textContent === 'Alles gespeichert'")
-                assert json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["flur"]["modes"] == {}, \
-                    "ein Modus ohne Ansicht wird nicht gespeichert"
-                await flur.locator(".gk-kopf .agsel").select_option("kueche")
-                assert await pg.locator("#offenTxt").text_content() == "Alles gespeichert"
+                datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["flur"]
+                assert datei["modes"] == {} and datei["dpmsOff"] == 120 and datei["nightDim"] == 25 and datei["scale"] == 1.2, datei
+                assert app.panel_dpms("wohnen", dev="flur") == 120 and app.panel_dpms("wohnen", dev="wand") is None
+                assert app.panel_night("wohnen", dev="flur")["dim"] == 25
 
-                # Erprobte Hardware unter Geraete; ein neues Geraet verbindet seit Schritt 7
-                # "Gerät einrichten" (Schritt Gerät), weder Einstellungen noch Geraete selbst
+                # Ansicht in Zeigt waehlen ist keine offene Aenderung; "Ansicht wechseln" ordnet
+                # auch ein Geraet zu, das nicht verbunden ist (Schritt 2), die Zeile sagt es
+                await flur.locator(".agsel").select_option("kueche")
+                assert await pg.locator("#offenTxt").text_content() == "Alles gespeichert"
+                await flur.get_by_role("button", name="Ansicht wechseln").click()
+                await pg.wait_for_function("document.querySelector('#ag_toast').textContent.startsWith('✓ zugeordnet')")
+                assert json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["flur"]["panel"] == "kueche"
+                await pg.evaluate("pollDevices()")
+                await pg.wait_for_function("""document.querySelector('#geraete .gk[data-gk="flur"] .gz[data-gz="zeigt"] .gz-woher')
+                    .textContent.startsWith('Ansicht „kueche“ · Raster automatisch')""")
+                werte = {z[0]: (z[1], z[2]) for z in await flur.evaluate(ZEILEN)}
+                assert werte["technik"][1].startswith("Skalierung 120 % (am Gerät) · Zielkachel "), werte
+                assert "Ansicht „Küche“ bleibt bestehen" in werte["entfernen"][1], werte
+                await flur.locator(".gz-fein").click()
+                assert await pg.evaluate("[cur, rubric]") == ["kueche", "pconf"]
+                assert await pg.locator("#pconfHost [data-ui='dpmsOff']").count() == 0, "Display aus steht nicht mehr in der Ansicht"
+
+                # Erprobte Hardware unter Geraete; "Neues Geraet verbinden" lebt im ausfuehrlichen Assistenten
+                await pg.locator(".rub", has_text="Geräte").click()
                 assert await pg.locator("#displaysHost #erprobteHardware .devcat").count() >= 1
                 assert not await pg.locator("#nk_gen").is_visible()
-                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
+                await pg.evaluate("wzOpen()")
                 await pg.locator("#wzBody #neuesGeraet summary").click()
                 assert await pg.locator("#wzBody #neuesGeraet #nk_gen").is_visible()
                 await pg.evaluate("wzClose()")
                 assert await pg.locator("#wzHeim #neuesGeraet").count() == 1, "zurueck an seinem Platz"
-                await pg.locator(".rub", has_text="Einstellungen").click()
-                reiter = await pg.eval_on_selector_all("#subtabs .stab", "l => l.map(b => b.dataset.sub)")
-                assert "newpanel" not in reiter, reiter
                 await pg.locator(".rub", has_text="Übersicht").click()
                 await pg.locator('#overviewHost .ovbox[data-goto="wizard"]').click()
                 assert await pg.locator("#geOv:not([hidden])").count() == 1, "Gerät einrichten (Schritt 3), ein Bildschirm"

@@ -27,13 +27,12 @@ ROUTEN = [("POST", "/api/panels", W.api_save_panels), ("POST", "/api/theme", W.a
           ("GET", "/api/devices", W.api_devices_get)]
 # Feld (Selektor in #pconfHost) -> Reiter, in dem es steht
 FELDER = {
-    "allgemein": ["#fTitle", "#fZiel", "#fLang", "#dupBtn", "#delBtn"],
+    "allgemein": ["#fTitle", "#fLang", "#dupBtn", "#delBtn"],
     "inhalt": ["#tabMode", "#tabRoomSel", "#chips", "#rooms", "#cats", "#panePerTab"],
     "seiten": ["#seHost", "#sePaneBox"],
-    "raster": ["#fLayout", "#fTileSize", "#fFill", "#fScale", "#fSplit", "#fPaneCols", "[data-ui='nudgeX']"],
+    "raster": ["#fLayout", "#fFill", "#fSplit", "#fPaneCols", "[data-ui='nudgeX']"],
     "aussehen": [".baseSw", "#fFontSel", "#fTextColor", "[data-ui='iconSize']", "#fTileLayout", "#tiles", "#ovPrev"],
-    "verhalten": ["#svPaneBox", "[data-ui='dpmsOff']", "[data-ui='reloadHours']", "[data-ui='nightDim']",
-                  "[data-ui='nightWake']", "[data-ui='pinMerken']"],
+    "verhalten": ["#svPaneBox", "[data-ui='reloadHours']", "[data-ui='pinMerken']"],
 }
 # Wo steht ein Selektor: Liste der Reiter-Kennungen aller Treffer
 WO = """sel => [...document.querySelectorAll('#pconfHost ' + sel)]
@@ -79,7 +78,7 @@ def test_sechs_reiter_jedes_feld_einmal(cfg_ordner, tmp_path):
                 # Ein Reiter zeigt nur sich: Raster offen, Verhalten nicht
                 await pg.locator(".stab[data-sub='raster']").click()
                 assert await pg.locator("#fLayout").is_visible()
-                assert not await pg.locator("[data-ui='dpmsOff']").is_visible()
+                assert not await pg.locator("[data-ui='reloadHours']").is_visible()
                 await pg.screenshot(path=str(tmp_path / "reiter_raster.png"))
                 # Uebersicht fuehrt in jeden der sechs
                 await pg.locator(".rub", has_text="Übersicht").click()
@@ -87,7 +86,7 @@ def test_sechs_reiter_jedes_feld_einmal(cfg_ordner, tmp_path):
                                                       "l => l.map(b => b.dataset.goto.slice(6))")
                 assert ziele == ["allgemein", "inhalt", "seiten", "raster", "aussehen", "verhalten"], ziele
                 await pg.locator("#overviewHost .ovbox[data-goto='pconf:verhalten']").click()
-                assert await pg.locator("[data-ui='dpmsOff']").is_visible()
+                assert await pg.locator("[data-ui='reloadHours']").is_visible()
                 # Die Vorgaben behalten die Sprache unter Darstellung
                 await pg.locator('.rub[data-rub="vorgaben"]').click()
                 assert await pg.evaluate(WO, "#fLang") == ["appearance"]

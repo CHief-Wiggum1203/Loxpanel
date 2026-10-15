@@ -114,17 +114,19 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 code = next(a["code"] for a in app.device_list()["anonymous"])
                 assert await liste.locator(".agn").all_text_contents() == ["flur", "tablet", f"Code {code}"]
 
-                flur = liste.locator('.ag[data-name="flur"]')
+                flur = liste.locator('.gk[data-gk="flur"]')
                 assert await flur.locator(".dot").get_attribute("class") == "dot", "nur konfiguriert: offline"
                 assert await flur.locator(".tag").text_content() == "Browser"
-                assert await flur.locator("button").all_text_contents() == ["Entfernen"], "offline: nichts zu schalten, nur entfernen"
+                assert await flur.locator(".gk-kopf button").all_text_contents() == [], "offline: nichts zu schalten"
+                assert await flur.locator('[data-act="entfernen"]').count() == 1, "... nur entfernen (letzte Zeile)"
 
-                tab = liste.locator('.ag[data-name="tablet"]')
+                tab = liste.locator('.gk[data-gk="tablet"]')
                 assert await tab.locator(".dot").get_attribute("class") == "dot on"
                 assert await tab.locator(".tag").text_content() == "Browser"
                 assert await tab.locator(".agip").text_content() == "127.0.0.1 · Visu offen"
                 assert await tab.locator(".agsel").input_value() == "wohnen"
-                assert await tab.locator("button").all_text_contents() == ["Ansicht wechseln", "Neu laden"]
+                assert await tab.locator(".gk-kopf button").all_text_contents() == ["Neu laden"]
+                assert (await tab.locator('.gz[data-gz="zeigt"] button').all_text_contents())[0] == "Ansicht wechseln"
                 assert (await tab.locator(".agscr").text_content()).startswith("1024×600 quer")
 
                 anon = liste.locator(f'.ag[data-code="{code}"][data-ip="127.0.0.1"]')
@@ -150,7 +152,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 await anon.locator(".anname").fill("kinderzimmer")
                 await anon.get_by_role("button", name="Namen vergeben").click()
                 await _meldung(pg, "#ag_toast", "✓ kinderzimmer")
-                kind = liste.locator('.ag[data-name="kinderzimmer"]')
+                kind = liste.locator('.gk[data-gk="kinderzimmer"]')
                 await kind.wait_for(timeout=15000)
                 assert await liste.locator(".agn").all_text_contents() == ["flur", "kinderzimmer", "tablet"]
                 assert await kind.locator(".dot").get_attribute("class") == "dot on"
@@ -197,7 +199,7 @@ def test_ansicht_wechseln_erreicht_den_agenten(cfg_ordner, tmp_path):
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await _displays(pg, port)
-                zeile = pg.locator('#geraete .ag[data-name="wand"]')
+                zeile = pg.locator('#geraete .gk[data-gk="wand"]')
                 await zeile.wait_for()
                 assert await zeile.locator(".tag").text_content() == "Agent"
                 await zeile.locator(".agsel").select_option("kueche")
@@ -411,12 +413,12 @@ def test_display_entfernen(cfg_ordner):
                 await _displays(pg, port)
                 liste = pg.locator("#displaysHost")
                 await liste.locator('.ag[data-name="ohne"]').wait_for()
-                knoepfe = await liste.locator(".ag[data-name]").evaluate_all(
-                    "l => l.map(n => [n.dataset.name, !!n.querySelector('[data-act=entfernen]')])")
+                knoepfe = await liste.locator(".gk[data-gk]").evaluate_all(
+                    "l => l.map(n => [n.dataset.gk, !!n.querySelector('[data-act=entfernen]')])")
                 assert knoepfe == [["flur", True], ["ohne", False], ["tablet", True]], knoepfe
 
                 # flur ist nicht verbunden: weg aus Liste, Editor und panels.json
-                await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
+                await liste.locator('.gk[data-gk="flur"] [data-act="entfernen"]').click()
                 await _meldung(pg, "#ag_toast", "✓ Entfernt: flur")
                 assert "flur" in fragen[0] and "verbunden" not in fragen[0], fragen
                 doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
@@ -426,12 +428,12 @@ def test_display_entfernen(cfg_ordner):
                 assert await pg.locator('#geraete .dev[data-name="flur"]').count() == 0
 
                 # das Tablet ist verbunden: es kommt ohne Einstellungen wieder
-                await liste.locator('.ag[data-name="tablet"] [data-act="entfernen"]').click()
+                await liste.locator('.gk[data-gk="tablet"] [data-act="entfernen"]').click()
                 await _meldung(pg, "#ag_toast", "✓ Entfernt: tablet")
                 assert "verbunden" in fragen[1], fragen
                 doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
                 assert "devices" not in doc and app.devices == {}, doc     # ohne Displays faellt der Schluessel weg
-                await pg.wait_for_function("""() => { const n = document.querySelector('#geraete .ag[data-name="tablet"]');
+                await pg.wait_for_function("""() => { const n = document.querySelector('#geraete .gk[data-gk="tablet"]');
                     return n && !n.querySelector('[data-act=entfernen]'); }""")
                 await pg.locator('#geraete .dev[data-name="tablet"]').wait_for(state="attached")
                 assert await pg.locator('#geraete .dev[data-name="tablet"] .dm_mode').input_value() == ""
@@ -473,8 +475,8 @@ def test_zwei_displays_schnell_hintereinander_entfernen(cfg_ordner):
                 await _displays(pg, port)
                 liste = pg.locator("#displaysHost")
                 await liste.locator('.ag[data-name="kueche-wand"]').wait_for()
-                await liste.locator('.ag[data-name="flur"] [data-act="entfernen"]').click()
-                await liste.locator('.ag[data-name="kueche-wand"] [data-act="entfernen"]').click()
+                await liste.locator('.gk[data-gk="flur"] [data-act="entfernen"]').click()
+                await liste.locator('.gk[data-gk="kueche-wand"] [data-act="entfernen"]').click()
                 await _meldung(pg, "#ag_toast", "✓ Entfernt: kueche-wand")
                 await b.close()
         finally:

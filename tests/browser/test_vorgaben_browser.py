@@ -80,12 +80,13 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 assert await pg.locator(".stab.active").get_attribute("data-sub") == "verhalten", "Reiter gemerkt"
                 assert await sel.input_value() == "N" and await dim.input_value() == "40"
 
-                # Zurueck zur Ansicht Flur: sie erbt die Abdunkelung und zeigt sie grau
+                # Zurueck zur Ansicht Flur: Nacht steht nicht mehr in der Ansicht (Schritt 4b),
+                # nur in den Vorgaben und am Geraet; der Reiter sagt, wo
                 await pg.locator(".rub", has_text="Ansichten").click()
                 assert "?panel=flur" in await pg.locator("#plist .pitem.active").text_content()
                 await pg.locator(".stab[data-sub='verhalten']").click()
-                assert await dim.input_value() == "" and await dim.get_attribute("placeholder") == "40"
-                assert await pg.locator("#nightWakeField").is_visible(), "geerbte Abdunkelung zaehlt"
+                assert await pg.locator("#pconfHost [data-ui='nightDim'], #pconfHost [data-ui='nightWake']").count() == 0
+                assert "Nachts abdunkeln und Aufhellen stehen in den Vorgaben" in await pg.locator("#pconfHost").inner_text()
 
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
