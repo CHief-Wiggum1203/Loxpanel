@@ -2931,9 +2931,34 @@ Verbindung setzte die Frist zurück. Geprüft mit gestellter Uhr in
 `tests/browser/test_neuladen_browser.py`, Server-Seite in
 `tests/test_neuladen.py`.
 
-**Stabilität der App:** Der Server-Dienst (`ServerService`) startet Server und
-Wächter je Prozess einmal (Anzeige, BootReceiver und Android starten den Dienst
-mehrfach). Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
+**Server der App (Schritt 6 des Umbaus):** Beim ersten Start fragt die App
+(`ServerActivity`), wo der Server läuft, bevor die Anzeige etwas lädt: *auf
+diesem Gerät* (eingebetteter Server wie bisher) oder *im Netz* (`host[:port]`,
+ohne Port 8099; die Zeile aus „Gerät verbinden“ darf samt `http://` hinein,
+`Visu.serverEingabe`). „Weiter“ fragt `/api/health` des Servers
+(`ServerPruefung`: JSON mit `version`, 200 oder 503 ist ein LoxPanel-Server),
+bei Fehlschlag steht der Grund da und „Trotzdem übernehmen“. Die Wahl liegt in
+den SharedPreferences `visu` (`server`, leer = dieses Gerät); `Visu.basis(ctx)`
+ersetzt die feste Basis-Adresse, daran hängen Start-Adresse, gemerkte
+Visu-Adresse (fällt beim Serverwechsel weg), die Herkunftsprüfung der
+JS-Brücke und die Statusseite. Mit einem Server im Netz startet die App weder
+Dienst noch Python noch Wächter (`ServerService.starten` prüft
+`Visu.eigenerServer`); fällt er aus, zeigt die Anzeige eine eigene Fehlerseite
+mit „Server ändern“ und lädt alle 2 s neu. Die App verhält sich dann wie Fully
+Kiosk: Visu ohne Parameter, Kopplungscode, Banner im Konfigurator; die
+Sprechfunktionen fehlen dann in `LoxKiosk`, weil der Gesprächsdienst
+(`IntercomCallClient`, Prozess-Token) zum eingebetteten Server gehört. Später
+erreichbar ist die Einrichtung mit einem langen Druck auf der Uhr-Seite
+(`KioskActivity.LANGER_DRUCK_MS`, 3 s; das Wecken nach 120 ms bleibt) und über
+die Fehlerseite. Ein Wechsel vom eigenen Server weg startet den Prozess neu,
+weil sich der eingebettete Server nicht beenden lässt. Installationen von vor
+dieser Einstellung (ausgerolltes `loxpanel/config` in `filesDir`) gelten als
+„dieses Gerät“ und fragen nicht. Unit-Tests: `VisuTest`,
+`ServerPruefungTest`.
+
+**Stabilität der App:** Der Server-Dienst (`ServerService`, nur mit dem Server
+auf diesem Gerät) startet den Server je Prozess einmal (Anzeige, BootReceiver
+und Android starten den Dienst mehrfach), den Wächter je Dienst. Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
 Folge (keine Antwort oder 503, weil eine Hintergrund-Aufgabe endete) beendet er
 den Prozess; Android startet Dienst (`START_STICKY`) und Anzeige
 (`stateNotNeeded`) neu. Hat der Server seit dem Start noch nie geantwortet,

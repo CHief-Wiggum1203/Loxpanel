@@ -37,6 +37,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Einrichtung „Wo läuft der Server?“: beim ersten Start und über
+             „Server ändern“ aus der Anzeige. -->
+        <activity
+            android:name=".ServerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Status-/Debug-Screen (kein Launcher mehr): via 'adb am start .MainActivity'. -->
         <activity
             android:name=".MainActivity"

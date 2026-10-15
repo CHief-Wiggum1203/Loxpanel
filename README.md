@@ -395,10 +395,13 @@ Artefakte hängen am
 [jeweils neuesten Release](https://github.com/CHief-Wiggum1203/Loxpanel/releases/latest).
 
 **Android (App / APK):** die `LoxPanel-Server.apk` herunterladen und auf Tablet
-oder Wandpanel installieren. Der Server läuft **in der App** (Autostart nach dem
-Booten, Vollbild-Kiosk, eigener Bildschirmschoner mit Display-Abschaltung),
-inklusive 32-bit-Geräte (armeabi-v7a). Danach `http://<geräte-ip>:8099/config`
-im Browser öffnen und den Miniserver eintragen.
+oder Wandpanel installieren. Beim ersten Start fragt die App, wo der Server
+läuft: **auf diesem Gerät** (der Server läuft in der App, Autostart nach dem
+Booten, Vollbild-Kiosk, eigener Bildschirmschoner mit Display-Abschaltung,
+inklusive 32-bit-Geräte, armeabi-v7a; danach `http://<geräte-ip>:8099/config`
+im Browser öffnen und den Miniserver eintragen) oder **im Netz** (die App
+zeigt die Visu eines vorhandenen Servers, etwa in Docker, und wird im
+Konfigurator wie jedes andere Gerät benannt und eingerichtet).
 
 **Linux-Panel (.deb):** das Paket `loxpanel-server_*_all.deb` herunterladen und
 mit `sudo apt install ./loxpanel-server_*_all.deb` installieren – richtet den

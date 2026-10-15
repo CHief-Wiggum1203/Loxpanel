@@ -5,6 +5,15 @@ Aufgaben, und die Visu selbst steuert das Display. Damit eignen sich
 Android-Wandpanels, Tablets in einer Wandhalterung und das SONOFF NSPanel Pro
 als Anzeigegeräte.
 
+Der einfachste Weg ist die **LoxPanel-App** (APK vom Release): Sie fragt beim
+ersten Start, wo der Server läuft. „Auf diesem Gerät“ startet ihn in der App,
+„Im Netz“ zeigt die Visu eines vorhandenen Servers; die Adresse dafür steht im
+Konfigurator unter *Geräte → Gerät verbinden*. Danach meldet der Konfigurator
+das Gerät unter „Neues Gerät gefunden“ und vergibt Namen und Ansicht; Display
+und Nachtmodus regelt die App selbst, Gegensprechen nur mit dem Server auf dem
+Gerät (`android/README.md`). Der Rest dieser Seite beschreibt Fully Kiosk,
+WallPanel und einen normalen Browser.
+
 ## Was ohne Agent funktioniert
 
 | Funktion | Android mit Kiosk-App | Linux mit Agent |
@@ -159,11 +168,12 @@ dort wirkt der Präsenzmelder nicht.
 
 ## Start-URL aus dem Konfigurator
 
-Unter *Geräte → ＋ Gerät einrichten*, Schritt *Gerät* → *Neues Gerät
-verbinden* → *Start-Adresse oder Agent*, gibt es für Android-Geräte einen
-Generator: Gerätename und Startansicht wählen, „Start-URL erzeugen", kopieren
-und in die Kiosk-App eintragen. Sobald sich das Gerät meldet, steht es im
-selben Schritt zur Wahl und der Assistent führt weiter bis zur Ansicht.
+Unter *Geräte → Gerät verbinden* steht je Weg eine Zeile zum Kopieren: die
+Server-Adresse für das Feld der LoxPanel-App, die Start-URL ohne Parameter für
+Fully Kiosk, WallPanel oder einen Browser, der Installationsbefehl für ein
+Linux-Panel mit Agent. Sobald sich das Gerät meldet, zeigt der Konfigurator
+es als „Neues Gerät gefunden“ mit dem Code, den das Gerät zeigt; „Benennen
+und einrichten“ vergibt Namen und Ansicht.
 
 ## Testen ohne Kauf
 

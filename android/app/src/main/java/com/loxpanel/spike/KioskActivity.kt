@@ -16,8 +16,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.provider.Settings
 import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -30,13 +33,22 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebViewRenderProcess
 import android.webkit.WebViewRenderProcessClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import org.json.JSONObject
 
 /**
- * Eingebauter Kiosk: Vollbild-WebView auf den lokalen LoxPanel-Server. Ersetzt
- * Fully Kiosk — die App kontrolliert die Anzeige selbst. Lädt die Panel-URL und
- * lädt bei jedem Fehler (Server noch nicht bereit / neu gestartet) alle 2 s neu.
+ * Eingebauter Kiosk: Vollbild-WebView auf den eingestellten LoxPanel-Server
+ * (Visu.basis: der eigene auf dem Gerät oder einer im Netz). Ersetzt Fully
+ * Kiosk — die App kontrolliert die Anzeige selbst. Lädt die Panel-URL und lädt
+ * bei jedem Fehler (Server noch nicht bereit / neu gestartet) alle 2 s neu;
+ * solange steht eine eigene Fehlerseite mit „Server ändern“ über der WebView.
+ *
+ * Einrichtung: Solange nicht feststeht, wo der Server läuft, zeigt die Anzeige
+ * statt der Visu die ServerActivity. Später erreicht man sie mit einem langen
+ * Druck (LANGER_DRUCK_MS) auf der Uhr-Seite oder über die Fehlerseite.
  *
  * Bildschirmschoner: Nach Inaktivität zeigt die App selbst einen schwarzen
  * Screen mit großer Uhr und dimmt das Backlight auf Minimum. Aufwecken per
@@ -64,9 +76,16 @@ class KioskActivity : Activity(), SensorEventListener {
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
     private lateinit var saver: View
+    private lateinit var fehler: View
+    private lateinit var fehlerText: TextView
     private val ui = Handler(Looper.getMainLooper())
     private var errored = false
     private var reloadPending = false
+    // Basis-Adresse des Servers, für den show() zuletzt geladen hat: Nach
+    // „Server ändern“ lädt die Anzeige beim Zurückkommen den neuen.
+    private var geladenFuer: String? = null
+    // Langer Druck auf der Uhr-Seite öffnet die Einrichtung (Server ändern).
+    private val langerDruck = Runnable { einrichtungOeffnen() }
     private val intercom by lazy { IntercomAudio(this, ui) }
     private val intercomCapability = IntercomCapability()
     private var intercomPageCapability: String? = null
@@ -109,10 +128,6 @@ class KioskActivity : Activity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Server sicherstellen (idempotent — läuft als Foreground-Service)
-        val svc = Intent(this, ServerService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(svc) else startService(svc)
-
         // Bildschirm anlassen: Wir dimmen im Screensaver selbst, damit die App
         // aktiv bleibt und den Näherungssensor auswerten kann (sofortiges Wecken).
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -126,14 +141,63 @@ class KioskActivity : Activity(), SensorEventListener {
             visibility = View.GONE
         }
 
+        fehler = fehlerSeite()
+
         root = FrameLayout(this)
         root.addView(web, vollbild())
+        root.addView(fehler, vollbild())
         root.addView(saver, vollbild())
         setContentView(root)
 
-        show()
         wake()
+        // Laden erst in onResume: Ohne Einrichtung kommt zuerst die ServerActivity.
     }
+
+    /** Eigene Fehlerseite statt der des Browsers, solange der Server nicht
+     *  antwortet: sagt, welcher Server fehlt, und führt zur Einrichtung. */
+    private fun fehlerSeite(): View {
+        val spalte = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#0b1020"))
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            visibility = View.GONE
+        }
+        fehlerText = TextView(this).apply {
+            setTextColor(Color.parseColor("#c9d1e4"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            gravity = Gravity.CENTER
+        }
+        spalte.addView(fehlerText)
+        spalte.addView(Button(this).apply {
+            text = "Server ändern"
+            setOnClickListener { einrichtungOeffnen() }
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(16) })
+        return spalte
+    }
+
+    /** Text der Fehlerseite: Der eigene Server braucht nach einem Update
+     *  Minuten, ein Server im Netz fehlt oder ist nicht erreichbar. */
+    private fun fehlerZeigen() {
+        fehlerText.text = if (Visu.eigenerServer(this)) {
+            "Der LoxPanel-Server auf diesem Gerät antwortet noch nicht.\n\n" +
+                "Nach dem ersten Start oder einem Update kann das einige Minuten dauern; " +
+                "die Anzeige versucht es weiter."
+        } else {
+            "Der LoxPanel-Server unter ${Visu.server(this)} antwortet nicht.\n\n" +
+                "Läuft er, und ist dieses Gerät im selben Netz? Die Anzeige versucht es weiter."
+        }
+        fehler.visibility = View.VISIBLE
+    }
+
+    private fun einrichtungOeffnen() {
+        startActivity(Intent(this, ServerActivity::class.java))
+    }
+
+    private fun dp(wert: Int): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, wert.toFloat(), resources.displayMetrics).toInt()
 
     /** Die WebView der Anzeige mit Einstellungen und JS-Brücke: beim Start und
      *  wenn sie neu aufgebaut wird, weil ihr Renderer beendet ist. */
@@ -161,7 +225,7 @@ class KioskActivity : Activity(), SensorEventListener {
         w.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean = false
             override fun onPageStarted(v: WebView, adresse: String?, favicon: android.graphics.Bitmap?) {
-                intercomPage = adresse?.let { Visu.istVisu(it) } == true
+                intercomPage = adresse?.let { Visu.istVisu(Visu.basis(this@KioskActivity), it) } == true
                 intercomPageCapability = if (intercomPage) intercomCapability.rotate() else {
                     intercomCapability.clear()
                     null
@@ -174,7 +238,12 @@ class KioskActivity : Activity(), SensorEventListener {
                     intercomCapability.clear()
                     intercomPageCapability = null
                     intercom.stop()
+                    // Die Seite ist weg, mit ihr ihr Schoner: Berührungen gehören
+                    // jetzt der Fehlerseite.
+                    visuSaver = false
+                    ui.removeCallbacks(goDark)
                     errored = true
+                    fehlerZeigen()
                     scheduleReload()
                 }
             }
@@ -182,7 +251,8 @@ class KioskActivity : Activity(), SensorEventListener {
             // per ?panel=), damit die App nach einem Neustart dort weitermacht.
             override fun onPageFinished(v: WebView, adresse: String?) {
                 Visu.merken(this@KioskActivity, adresse)
-                if (v === web && adresse == v.url && adresse?.let { Visu.istVisu(it) } == true) {
+                if (!errored) fehler.visibility = View.GONE
+                if (v === web && adresse == v.url && adresse?.let { Visu.istVisu(Visu.basis(this@KioskActivity), it) } == true) {
                     intercomBruecke(v)
                 }
             }
@@ -253,9 +323,14 @@ class KioskActivity : Activity(), SensorEventListener {
      *  die rohen Methoden verlangen ihn und verraten ihn niemals. */
     private fun intercomBruecke(v: WebView) {
         val capability = JSONObject.quote(intercomPageCapability ?: return)
-        val origin = JSONObject.quote(Visu.BASIS.removeSuffix("/"))
+        val origin = JSONObject.quote(Visu.basis(this).removeSuffix("/"))
+        // Gegensprechen läuft über den Gesprächsdienst des eigenen Servers
+        // (IntercomCallClient, Prozess-Token). Mit einem Server im Netz fehlt
+        // er, dann bekommt die Visu die Sprechfunktionen nicht und zeigt
+        // keine Sprechbedienung (intercomNative() in panel.html).
+        val sprechen = Visu.eigenerServer(this)
         v.evaluateJavascript("""
-            (function(n, key) {
+            (function(n, key, sprechen) {
               if (window !== window.top || location.origin !== $origin || location.pathname !== '/') return;
               if (!n || typeof n.startIntercomNative !== 'function') return;
               window.LoxKiosk = {
@@ -264,18 +339,44 @@ class KioskActivity : Activity(), SensorEventListener {
                 turnScreenOn: function() { return n.turnScreenOn(); },
                 turnScreenOff: function() { return n.turnScreenOff(); },
                 isScreenOn: function() { return n.isScreenOn(); },
-                setDisplayBrightness: function(p) { return n.setDisplayBrightness(p); },
-                startIntercom: function(uuid) { return n.startIntercomNative(uuid, key); },
-                stopIntercom: function() { return n.stopIntercomNative(key); },
-                intercomStatus: function() { return n.intercomStatusNative(key); }
+                setDisplayBrightness: function(p) { return n.setDisplayBrightness(p); }
               };
+              if (sprechen) {
+                window.LoxKiosk.startIntercom = function(uuid) { return n.startIntercomNative(uuid, key); };
+                window.LoxKiosk.stopIntercom = function() { return n.stopIntercomNative(key); };
+                window.LoxKiosk.intercomStatus = function() { return n.intercomStatusNative(key); };
+              }
               window.dispatchEvent(new Event('loxpanel-intercom-ready'));
-            })(window.LoxKioskNative, $capability);
+            })(window.LoxKioskNative, $capability, $sprechen);
         """.trimIndent(), null)
     }
 
-    /** Lädt die Visu: die zuletzt angezeigte Adresse, sonst das Standardprofil. */
-    private fun show() { errored = false; web.loadUrl(Visu.startAdresse(this)) }
+    /** Lädt die Visu des eingestellten Servers: die zuletzt angezeigte
+     *  Adresse, sonst das Standardprofil. */
+    private fun show() {
+        errored = false
+        geladenFuer = Visu.basis(this)
+        web.loadUrl(Visu.startAdresse(this))
+    }
+
+    /** Beim Vorkommen: ohne Einrichtung erst fragen, wo der Server läuft; mit
+     *  einem Server im Netz, während der eigene noch läuft, den Prozess neu
+     *  starten (Android holt die Anzeige zurück, stateNotNeeded); sonst den
+     *  eigenen Server sicherstellen und laden, wenn der Server gewechselt hat
+     *  oder die Seite im Fehler steht. */
+    private fun serverUndSeite() {
+        if (!Visu.eingerichtet(this)) {
+            einrichtungOeffnen()
+            return
+        }
+        if (!Visu.eigenerServer(this) && ServerService.serverLaeuft) {
+            Log.i("LPANZEIGE", "Server jetzt im Netz (${Visu.server(this)}), App startet neu, damit der eigene Server endet")
+            Process.killProcess(Process.myPid())
+            return
+        }
+        ServerService.starten(this)
+        if (geladenFuer != Visu.basis(this) || errored) show()
+    }
 
     /** Nach 2 s erneut laden (entprellt, wiederholt sich bei anhaltendem Fehler). */
     private fun scheduleReload() {
@@ -293,7 +394,7 @@ class KioskActivity : Activity(), SensorEventListener {
         // sparsam, daher unkritisch für den Verbrauch).
         proximity?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_FASTEST) }
         wake()
-        if (errored) show()   // beim Zurückkommen sicher neu laden, falls Fehlerzustand
+        serverUndSeite()
     }
 
     override fun onPause() {
@@ -355,13 +456,33 @@ class KioskActivity : Activity(), SensorEventListener {
                 beruehrung.runter(ev.eventTime)
                 ui.removeCallbacks(fristAb)
                 ui.postDelayed(fristAb, SchonerBeruehrung.WARTE_MS)
+                // Bleibt der eine Finger liegen, öffnet sich die Einrichtung;
+                // das Wecken nach WARTE_MS läuft davon unberührt.
+                ui.removeCallbacks(langerDruck)
+                ui.postDelayed(langerDruck, LANGER_DRUCK_MS)
             }
-            MotionEvent.ACTION_POINTER_DOWN -> nachTun(beruehrung.weitererFinger(ev.eventTime), ev)
-            MotionEvent.ACTION_UP -> nachTun(beruehrung.hoch(), ev)
-            MotionEvent.ACTION_CANCEL -> nachTun(beruehrung.abbruch(), ev)
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                ui.removeCallbacks(langerDruck)
+                nachTun(beruehrung.weitererFinger(ev.eventTime), ev)
+            }
+            MotionEvent.ACTION_UP -> {
+                ui.removeCallbacks(langerDruck)
+                nachTun(beruehrung.hoch(), ev)
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                ui.removeCallbacks(langerDruck)
+                nachTun(beruehrung.abbruch(), ev)
+            }
             else -> nachTun(beruehrung.weiter(), ev)
         }
         return true
+    }
+
+    companion object {
+        /** So lange muss ein Finger auf der Uhr-Seite liegen bleiben, bis die
+         *  Einrichtung („Wo läuft der Server?“) aufgeht. Deutlich länger als
+         *  jedes Tippen zum Wecken, das nach SchonerBeruehrung.WARTE_MS greift. */
+        const val LANGER_DRUCK_MS = 3_000L
     }
 
     private fun nachTun(tun: SchonerBeruehrung.Tun, ev: MotionEvent) {

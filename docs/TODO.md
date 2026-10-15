@@ -199,9 +199,17 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       das neue Gerät und führt zum Banner. Der alte Block mit Start-URL- und
       SSH-Generator ist weg. Test: `tests/browser/test_geraet_verbinden_browser.py`.
       **S**
-- [ ] **Schritt 6, die App bekommt ein Server-Feld.** Erster Start: eigener
+- [x] **Schritt 6, die App bekommt ein Server-Feld.** Erster Start: eigener
       Server auf dem Gerät oder Server im Netz; dann verhält sich die App wie
       jedes andere Gerät. Android, eigener PR. **M**
+      Umgesetzt: `ServerActivity` „Wo läuft der Server?“ vor dem ersten Laden,
+      Feld nimmt `host[:port]` oder die Zeile aus „Gerät verbinden“, „Weiter“
+      prüft `/api/health` (`ServerPruefung`), „Trotzdem übernehmen“ bei
+      Fehlschlag. `Visu.basis(ctx)` statt fester `BASIS`; mit Server im Netz
+      kein Dienst, kein Python, kein Wächter. Später erreichbar: Finger drei
+      Sekunden auf der Uhr-Seite oder „Server ändern“ auf der eigenen
+      Fehlerseite der Anzeige. Alte Installationen laufen ohne Frage mit dem
+      eigenen Server weiter. Tests: `VisuTest`, `ServerPruefungTest`.
 - [ ] Danach: Doku und Begriffe nachziehen („Kennung“ nur noch für die
       Ansicht), Tests des alten Assistenten durch die des neuen Wegs ersetzen.
 

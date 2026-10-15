@@ -88,20 +88,56 @@ braucht keinen Schlüssel.
 - **ABI**: Für ein ARM-Tablet reicht `arm64-v8a`; `x86_64` nur für Emulator.
   In `app/build.gradle.kts` unter `ndk.abiFilters` reduzieren = schnellerer Build.
 
+## Wo läuft der Server? (Einrichtung)
+Beim ersten Start fragt die App (`ServerActivity`), wo der LoxPanel-Server
+läuft, bevor die Anzeige etwas lädt:
+
+- **Auf diesem Gerät:** Die App startet den eingebetteten Server
+  (`ServerService`, Chaquopy). Der Konfigurator ist im Heimnetz unter
+  `http://<IP des Geräts>:8099/config` erreichbar; die Seite zeigt die
+  Adresse gleich mit an.
+- **Im Netz:** Die App zeigt die Visu eines anderen LoxPanel-Servers (Docker,
+  LoxBerry, ein anderes Panel). Ins Feld kommt `host` oder `host:port`, ohne
+  Port gilt 8099; die Zeile aus dem Konfigurator (*Geräte → Gerät verbinden*)
+  darf samt `http://` eingefügt werden. „Weiter“ fragt `/api/health` des
+  Servers; antwortet dort kein LoxPanel, nennt die Seite den Grund und bietet
+  „Trotzdem übernehmen“ an (der Server läuft vielleicht gerade nicht). Der
+  eigene Server startet dann gar nicht erst, es gibt keinen Dienst und keinen
+  Wächter; fällt der Server im Netz aus, lädt die Anzeige alle 2 s neu. Die
+  App verhält sich wie Fully Kiosk: Der Konfigurator meldet sie unter „Neues
+  Gerät gefunden“ und vergibt Namen und Ansicht.
+
+Später ändern: auf der Uhr-Seite den Finger drei Sekunden liegen lassen
+(`KioskActivity.LANGER_DRUCK_MS`; das Display wacht dabei wie bei jedem Tippen
+auf), oder „Server ändern“ auf der Fehlerseite, die die App zeigt, solange der
+Server nicht antwortet. Wechselt die App vom eigenen Server auf einen im Netz,
+startet sie ihren Prozess neu, weil sich der eingebettete Server nicht beenden
+lässt; Android holt die Anzeige zurück. Eine App, die vor dieser Einstellung
+installiert war, läuft mit ihrem eigenen Server weiter, ohne zu fragen
+(`Visu.eingerichtet`).
+
+Die Einstellung liegt in den SharedPreferences `visu` (`server`, leer = dieses
+Gerät). Port und Adressen stehen in `Visu.kt`; `Visu.basis(ctx)` ist die
+Basis-Adresse des eingestellten Servers, daran hängen Anzeige, JS-Brücke
+(nur die Visu dieses Servers bekommt `LoxKiosk`) und Statusseite. Was das
+Server-Feld annimmt und woran die Prüfung einen LoxPanel-Server erkennt,
+prüft `gradle testDebugUnitTest` (`VisuTest`, `ServerPruefungTest`).
+
 ## Start-Adresse der Anzeige
-Port und Adresse des eingebetteten Servers stehen in `Visu.kt`. Die Anzeige lädt
-beim Start die zuletzt angezeigte Visu-Adresse, beim allerersten Start die Visu mit
-dem Standardprofil. Wechselt die Ansicht über *Geräte* oder die
+Die Anzeige lädt beim Start die zuletzt angezeigte Visu-Adresse des
+eingestellten Servers, beim allerersten Start dessen Visu mit dem
+Standardprofil. Wechselt die Ansicht über *Geräte* oder die
 Betriebsmodus-Automatik, lädt sich die Visu mit neuem `?panel=`. Die App merkt
-sich diese Adresse, nach einem Neustart steht also dieselbe Ansicht da. Welche
-Adressen als Visu gelten, prüft `gradle testDebugUnitTest`.
+sich diese Adresse, nach einem Neustart steht also dieselbe Ansicht da; wechselt
+der Server, fällt die gemerkte Adresse weg. Welche Adressen als Visu gelten,
+prüft `gradle testDebugUnitTest`.
 
 ## Stabilität: Wächter und Absturz der Anzeige
 Ein Wandpanel soll wochenlang ohne Eingriff laufen. Drei Teile sorgen dafür,
 die Werte stehen in `Waechter.kt`:
 
-- **Server-Wächter** (`ServerService`): Der Dienst fragt den eingebetteten
-  Server alle 30 s nach `/api/health`. Antwortet er dreimal hintereinander
+- **Server-Wächter** (`ServerService`, nur mit dem Server auf diesem Gerät):
+  Der Dienst fragt den eingebetteten Server alle 30 s nach `/api/health`. Antwortet er dreimal hintereinander
   nicht oder meldet er eine beendete Hintergrund-Aufgabe (503), beendet der
   Dienst den Prozess der App. Android startet sie gleich wieder: den Dienst,
   weil er `START_STICKY` ist, die Anzeige, wenn sie vorn war (`stateNotNeeded`
@@ -152,7 +188,10 @@ und „Display an“.
 | `intercomStatus()` | Visu alle 500 ms bei sichtbarer Sprechbedienung | JSON-String `{state, uuid, message}` ohne SIP-Zugang; Zustände `idle`, `connecting`, `connected`, `ending`, `error` |
 
 Die drei Methoden zur Displaysteuerung heißen wie bei Fully Kiosk, damit die Visu beide Apps gleich
-behandelt.
+behandelt. Die drei Sprechfunktionen gibt es nur mit dem Server auf diesem
+Gerät: Der Gesprächsdienst (`/api/intercom/talk/*`) gehört zum eingebetteten
+Server und verlangt das Prozess-Token der App. Mit einem Server im Netz fehlen
+sie in `LoxKiosk`, und die Visu zeigt keine Sprechbedienung.
 
 Hat das Gerät unter *Displays* einen Präsenzmelder, gibt die Visu der App
 `setDisplayOff(0)`, solange er jemanden meldet: Der Schoner wartet, bis der
