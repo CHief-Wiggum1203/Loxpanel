@@ -19,6 +19,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -37,26 +38,60 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ServerService : Service() {
 
     companion object {
-        /** Server und Wächter laufen je Prozess einmal. Anzeige, BootReceiver
-         *  und der Neustart durch Android starten den Dienst, jeder Start ruft
+        /** Der Server läuft je Prozess einmal. Anzeige, BootReceiver und der
+         *  Neustart durch Android starten den Dienst, jeder Start ruft
          *  onStartCommand. */
         private val gestartet = AtomicBoolean(false)
+
+        /** Ob der eingebettete Server in diesem Prozess gestartet wurde. Er
+         *  lässt sich nicht beenden; wer ihn loswerden will, startet den
+         *  Prozess neu (KioskActivity nach einem Wechsel auf einen Server im
+         *  Netz). */
+        val serverLaeuft: Boolean get() = gestartet.get()
 
         /** Einstellungen des Wächters: die Zeitpunkte seiner Neustarts für die
          *  Bremse. Sie müssen den Neustart überdauern. */
         private const val WAECHTER = "waechter"
         private const val NEUSTARTS = "neustarts"
+
+        /** Startet den Dienst, wenn der Server auf diesem Gerät laufen soll.
+         *  Mit einem Server im Netz gibt es nichts zu starten. */
+        fun starten(ctx: Context) {
+            if (!Visu.eingerichtet(ctx) || !Visu.eigenerServer(ctx)) return
+            val svc = Intent(ctx, ServerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(svc) else ctx.startService(svc)
+        }
+
+        /** Nach einer geänderten Server-Einstellung: Dienst starten oder
+         *  beenden, je nachdem, wo der Server jetzt läuft. */
+        fun anpassen(ctx: Context) {
+            if (Visu.eigenerServer(ctx)) starten(ctx)
+            else ctx.stopService(Intent(ctx, ServerService::class.java))
+        }
     }
+
+    /** Der Wächter dieses Dienstes; endet mit ihm (onDestroy). */
+    private var waechter: ScheduledExecutorService? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, buildNotification())
+        // Ein Server im Netz braucht keinen Dienst. Hierher kommt nur der
+        // Neustart durch Android (START_STICKY) nach einem Wechsel der
+        // Einstellung; startForeground muss trotzdem vorher stehen.
+        if (!Visu.eigenerServer(this)) {
+            Log.i("LPSERVER", "Server im Netz (${Visu.server(this)}), Dienst endet")
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // Die Anzeige startet der BootReceiver bzw. der Nutzer (KioskActivity);
         // der Dienst kümmert sich nur um den Server.
-        if (!gestartet.compareAndSet(false, true)) return START_STICKY
         val start = SystemClock.elapsedRealtime()
-        waechterStarten(start)
+        if (waechter == null) waechter = waechterStarten(start)
+        if (!gestartet.compareAndSet(false, true)) return START_STICKY
         Thread {
             try {
                 val appDir = File(filesDir, "loxpanel")
@@ -76,14 +111,21 @@ class ServerService : Service() {
         return START_STICKY
     }
 
+    override fun onDestroy() {
+        waechter?.shutdownNow()
+        waechter = null
+        super.onDestroy()
+    }
+
     /** Prüft den Server ab [start] (elapsedRealtime) in festem Abstand und
-     *  startet die App neu, wenn er gestört ist. */
-    private fun waechterStarten(start: Long) {
+     *  startet die App neu, wenn er gestört ist. Liefert den Executor, damit
+     *  der Dienst ihn mit sich beenden kann. */
+    private fun waechterStarten(start: Long): ScheduledExecutorService {
         val ctx = applicationContext
         val stand = Waechter.Stand(start)
         var gebremst = false
-        Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "loxpanel-waechter").apply { isDaemon = true } }
-            .scheduleWithFixedDelay({
+        return Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "loxpanel-waechter").apply { isDaemon = true } }
+            .also { it.scheduleWithFixedDelay({
                 // Ein Fehler darf den Wächter nicht beenden: Der Executor führte
                 // die Prüfung danach nie wieder aus.
                 try {
@@ -100,13 +142,13 @@ class ServerService : Service() {
                 } catch (e: Throwable) {
                     Log.e("LPSERVER", "Wächter: Prüfung fehlgeschlagen", e)
                 }
-            }, Waechter.PRUEF_ABSTAND_MS, Waechter.PRUEF_ABSTAND_MS, TimeUnit.MILLISECONDS)
+            }, Waechter.PRUEF_ABSTAND_MS, Waechter.PRUEF_ABSTAND_MS, TimeUnit.MILLISECONDS) }
     }
 
-    /** Ob der Server antwortet und alle seine Hintergrund-Aufgaben laufen:
-     *  /api/health meldet dann 200, sonst 503. */
+    /** Ob der eigene Server antwortet und alle seine Hintergrund-Aufgaben
+     *  laufen: /api/health meldet dann 200, sonst 503. */
     private fun gesund(): Boolean {
-        val con = URL(Visu.BASIS + "api/health").openConnection() as HttpURLConnection
+        val con = URL(Visu.EIGENER + "api/health").openConnection() as HttpURLConnection
         return try {
             con.connectTimeout = Waechter.VERBINDEN_MS
             con.readTimeout = Waechter.ANTWORT_MS

@@ -669,6 +669,20 @@
   .wzleiste li.jetzt{color:var(--fg);font-weight:600;} .wzleiste li.jetzt span{background:var(--accent);border-color:var(--accent);color:#161018;}
   .wzleiste li.entfaellt{opacity:.45;text-decoration:line-through;}
   .wzo[disabled],.wzo.aus{opacity:.45;cursor:not-allowed;}
+  /* ---- Gerät verbinden (Einrichtung neu, Schritt 5): drei Wege, je eine Zeile zum Kopieren ---- */
+  .wzbox.gv{max-width:860px;}
+  .gv-weg{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;padding:14px 16px;border-radius:10px;background:var(--panel2);margin-bottom:12px;}
+  .gv-weg .ic{width:44px;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);display:grid;place-items:center;}
+  .gv-weg .ic svg{width:24px;height:24px;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  .gv-weg b{display:block;font-size:15px;margin-bottom:4px;} .gv-weg .gv-text{font-size:13px;color:var(--fg);line-height:1.45;}
+  .gv-zeile{display:flex;gap:8px;align-items:center;margin-top:8px;}
+  .gv-zeile code{flex:1;min-width:0;padding:9px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--line);font-size:13px;color:var(--good);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gv-klein{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .gv-server{padding:12px 16px;border-radius:10px;border:1px dashed var(--line);font-size:13px;color:var(--muted);}
+  .gv-server b{color:var(--fg);}
+  .gv-stand{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap;}
+  .gv-stand .punkt{width:10px;height:10px;border-radius:50%;background:var(--accent);flex:none;}
+  .gv-stand .punkt.an{background:var(--good);}
   /* ---- Gerät einrichten (Einrichtung neu, Schritt 3): EIN Bildschirm - links Name und die
      Frage "Was soll es zeigen?", rechts die echte Visu als Vorschau in Geraetegroesse ---- */
   .wzbox.ge{max-width:1120px;height:min(92vh,840px);}
@@ -785,17 +799,19 @@
             <button class="ovbox" data-goto="settings:intercom"><b>Kamera / Türstation</b><span>Kamerabilder und Klingel-Popup je Intercom-Baustein.</span></button>
             <button class="ovbox" data-goto="displays"><b>Geräte</b><span>Welche Ansicht welches Gerät zeigt: Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
             <button class="ovbox" data-goto="wizard"><b>Gerät einrichten</b><span>Einem Gerät sagen, was es zeigt: ein Raum, das ganze Haus oder wie ein anderes Gerät – mit Vorschau in seiner Größe.</span></button>
+            <button class="ovbox" data-goto="verbinden"><b>Gerät verbinden</b><span>Drei Wege, je eine Zeile zum Kopieren: LoxPanel-App, Kiosk-Browser oder Linux-Agent. Das Gerät meldet sich dann von selbst.</span></button>
           </div>
         </div>
       </div>
 
       <!-- Geraete: eine Karte je Geraet (Konzept "Konfigurator neu ordnen", Schritt 4) -->
       <div id="displaysHost" class="ovw" style="display:none">
-        <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät verbindet und bestückt <b>＋ Gerät einrichten</b>.</p>
+        <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Ein Gerät erscheint hier, sobald es die Visu öffnet oder sein Agent sich meldet; „Gerät verbinden“ zeigt die drei Wege dorthin, „Gerät einrichten“ sagt ihm, was es zeigt.</p>
         <div class="card">
           <h3 data-i18n>Geräte</h3>
           <p class="note" data-i18n>Eine Karte je Gerät mit fünf Zeilen: Zeigt, Display, Betriebsmodi, Technik, Entfernen. „Ändern“ klappt den Editor der Zeile auf; Änderungen speichert die Leiste unten.</p>
           <div class="actions" style="margin-top:0"><button class="btn prim" id="geraetEinrichtenBtn" data-i18n>＋ Gerät einrichten</button>
+            <button class="btn" id="geraetVerbindenBtn" data-i18n>＋ Gerät verbinden</button>
             <button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
             <span class="note" style="margin-left:10px" data-i18n>Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.</span></div>
           <div id="geraete"><div class="muted" data-i18n>Suche Geräte…</div></div>
@@ -807,49 +823,12 @@
           <p class="note" data-i18n>Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.</p>
           <div id="ag_anon"></div>
         </div>
-<!-- Zuhause von "Neues Gerät verbinden": Gerät einrichten, Schritt Gerät, leiht ihn sich (wzLeihen) -->
-        <div id="wzHeim" hidden>
-                <details class="card discl" id="neuesGeraet">
-                  <summary><b data-i18n>Start-Adresse oder Agent</b><span class="note" style="display:block;margin-top:2px" data-i18n>Start-Adresse für App oder Tablet, Agent per SSH für Linux.</span></summary>
-                  <div class="discl-body">
-                  <p class="lead" data-i18n>Zwei Wege: ein Android-Wandpanel oder Tablet mit Kiosk-App bekommt nur eine Start-URL; ein Linux-Gerät bekommt den Agenten per SSH.</p>
-                  <div class="card">
-                    <h3 data-i18n>Android-Wandpanel oder Tablet (Kiosk-App)</h3>
-                    <p class="note" data-i18n>Start-URL in Fully Kiosk Browser oder WallPanel eintragen. Der Gerätename sorgt dafür, dass das Gerät unter Geräte erscheint und per Betriebsmodus umgeschaltet werden kann. Display-Abschaltung: bei Fully die JavaScript-Schnittstelle einschalten oder oben einen Display-Treiber eintragen. Details in deploy/ANDROID.md.</p>
-                    <div class="row2">
-                      <div class="field"><label class="lbl" data-i18n>Gerätename</label><input type="text" id="nk_name" placeholder="Tablet Küche"></div>
-                      <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="nk_panel"></select></div>
-                    </div>
-                    <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="nk_server" placeholder="10.0.0.55:8099"></div>
-                    <div class="actions"><button class="btn" id="nk_gen" data-i18n>Start-URL erzeugen</button></div>
-                    <pre id="nk_out" class="cmdout" style="display:none"></pre>
-                    <div class="actions" id="nk_copyrow" style="display:none"><button class="btn ghost sm" id="nk_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="nk_toast"></span></div>
-                  </div>
-                  <div class="card">
-                    <h3 data-i18n>Linux-Gerät mit Agent (SSH)</h3>
-                    <p class="note" data-i18n>Erzeugt den Befehl, der Agent + Config aufs Gerät überträgt, den Autostart einrichtet und Chromium still stellt (keine Übersetzen-Leiste / Anmeldung). Einmal im Terminal ausführen — fragt nach dem SSH-/sudo-Passwort des Geräts.</p>
-                    <div class="row2">
-                      <div class="field"><label class="lbl" data-i18n>Geräte-IP</label><input type="text" id="np_ip" placeholder="10.0.0.77"></div>
-                      <div class="field"><label class="lbl" data-i18n>SSH-Benutzer</label><input type="text" id="np_user" value="linaro"></div>
-                    </div>
-                    <div class="row2" style="margin-top:12px">
-                      <div class="field"><label class="lbl" data-i18n>Anzeigename</label><input type="text" id="np_name" placeholder="Wohnzimmer"></div>
-                      <div class="field"><label class="lbl" data-i18n>Startansicht</label><select id="np_panel"></select></div>
-                    </div>
-                    <div class="field" style="max-width:none;margin-top:12px"><label class="lbl" data-i18n>Server-Adresse (dieser Server)</label><input type="text" id="np_server" placeholder="10.0.0.55:8099"></div>
-                    <div class="actions"><button class="btn" id="np_gen" data-i18n>Befehl erzeugen</button></div>
-                    <pre id="np_out" class="cmdout" style="display:none"></pre>
-                    <div class="actions" id="np_copyrow" style="display:none"><button class="btn ghost sm" id="np_copy" data-i18n>In Zwischenablage kopieren</button><span class="toast" id="np_toast"></span></div>
-                  </div>
-                          </div>
-                </details>
-        </div>
         <details class="card discl" id="modusHilfe">
           <summary><b data-i18n>So schaltet Loxone die Ansicht um</b><span class="note" style="display:block;margin-top:2px" data-i18n>Betriebsmodus, Display-Steuerung und Präsenzmelder erklärt.</span></summary>
           <div class="discl-body">
             <p class="note" data-i18n>Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Gerät fest, welche Ansicht bei welchem Modus erscheint. Ein Gerät ohne Eintrag für einen Modus bleibt unverändert.</p>
             <pre class="cmdout" id="mode_hint">GET http://<span id="mode_host">…</span>/api/mode/&lt;modus&gt;</pre>
-            <p class="note" data-i18n>Geräte mit Agent (Linux) erscheinen automatisch. Ein Gerät ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=&lt;start&gt;&amp;device=&lt;name&gt; — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuer Ansicht neu, kein Agent nötig).</p>
+            <p class="note" data-i18n>Geräte mit Agent (Linux) erscheinen automatisch. Ein Gerät ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu öffnen; der Konfigurator meldet es oben, „Benennen und einrichten“ vergibt den Namen – dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuer Ansicht neu, kein Agent nötig).</p>
             <p class="note" data-i18n>Display-Steuerung je Gerät: Bei Fully Kiosk die Remote-Admin-Schnittstelle einschalten (Port 2323, Passwort), bei WallPanel den HTTP-Server (Port 2971). Der Server schaltet das Display dann auch bei Klingel, Wecker, Notify und Goto ein und nach der Abschaltzeit aus, unabhängig von der Seite.</p>
             <p class="note" data-i18n>Präsenzmelder je Gerät: Solange der gewählte Baustein jemanden meldet (z.B. der Präsenzmelder des Raums), bleibt das Display hell und die Leerlaufzeit ist ausgesetzt; wird der Raum leer, geht es aus. Wirkt mit der LoxPanel-App, mit Fully Kiosk (JavaScript-Schnittstelle oder Remote Admin) und WallPanel, nicht bei Linux-Geräten mit Agent.</p>
           </div>
@@ -1210,6 +1189,7 @@ document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.r
 document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
   const g=(b.dataset.goto||'').split(':'), r=g[0], sub=g[1];
   if(r==='wizard'){ geOpen(); return; }
+  if(r==='verbinden'){ gvOpen(); return; }
   if(r==='pconf'||r==='vorgaben'||r==='settings'){ subMerken(r,sub);
     setRubric(r); renderSubtabs(); showSub(sub); }
   else { setRubric(r);   // overview/displays: keine Subtabs
@@ -4834,8 +4814,9 @@ function wzRender(){
     WZ_GERAETE_SIG=wzGeraeteSig();
     h=wzVorschlagHtml()+wzGeraetHtml()+
       '<p class="wzq mt">'+T('Neues Gerät verbinden')+'</p>'+
-      '<div class="wznote" style="margin-bottom:8px">'+T('Ein Gerät, das die Visu schon zeigt, aber noch keinen Namen hat, steht mit seinem Code darunter. Ein neues bekommt die Start-Adresse oder den Agenten; sobald es sich meldet, steht es oben zur Wahl.')+'</div>'+
-      '<div id="wzNeuHost"></div>';
+      '<div class="wznote" style="margin-bottom:8px">'+T('Ein Gerät, das die Visu schon zeigt, aber noch keinen Namen hat, steht mit seinem Code darunter. Ein neues verbindet sich über die Adresse oder den Agenten; sobald es sich meldet, steht es oben zur Wahl.')+'</div>'+
+      '<div id="wzNeuHost"></div>'+
+      '<button type="button" class="btn" id="wzVerbinden" style="margin-top:8px">'+T('＋ Gerät verbinden')+'</button>';
   } else if(key==='ansicht'){
     var dn=WZ.device||'', mitG=!!dn;
     h='<p class="wzq">'+esc(mitG ? T('Was soll {g} zeigen?').replace('{g}',dn) : T('Welche Ansicht?'))+'</p><div class="wzopts">'+
@@ -4888,7 +4869,7 @@ function wzRender(){
       (WZ.art!=='zuweisen' ? wzVorschauHtml() : '');
   }
   b.innerHTML=wzLeisteHtml(key)+h;
-  if(key==='geraet'){ var nh=$('#wzNeuHost'); wzLeihen('ag_anon_karte', nh); wzLeihen('neuesGeraet', nh); }
+  if(key==='geraet'){ var nh=$('#wzNeuHost'); wzLeihen('ag_anon_karte', nh); var wv=$('#wzVerbinden'); if(wv) wv.onclick=gvOpen; }
   b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
   b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ if(el.disabled) return; WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; wzTileFor=-1; }
     // Tablet (2 Panes): automatisches Raster vorschlagen, 4"-Panel: 2 x 2 - solange das Raster nicht selbst gewaehlt ist
@@ -5049,6 +5030,73 @@ function wzBuild(){
    vierte Karte fuehrt in den ausfuehrlichen Assistenten (wzOpen: klassische Leiste,
    freie Seiten, eigenes Aussehen), mit dem Geraet schon gewaehlt.
    ============================================================ */
+/* ============================================================
+   Gerät verbinden (Einrichtung neu, Schritt 5): drei Wege, je eine Zeile zum Kopieren.
+   LoxPanel-App (Server-Adresse), Kiosk-Browser (Start-Adresse ohne Parameter: Namen und
+   Ansicht vergibt der Konfigurator, sobald sich das Geraet meldet) und Linux-Agent (ein
+   Befehl per SSH, ohne PANEL und AGENT_NAME: Ansicht und Display kommen vom Server). Die
+   Server-Adresse ist immer die LAN-Adresse (/api/meta adressen), auch wenn der Konfigurator
+   ueber 127.0.0.1 laeuft. Der Fuss wartet auf ein neues Geraet (neueGeraete) und fuehrt
+   zum Banner "Neues Geraet gefunden".
+   ============================================================ */
+const GV={_wired:false};
+function gvHost(){
+  const lan=((META&&META.adressen)||[])[0]||'';
+  const host=lan || location.hostname;
+  const port=location.port && !((location.protocol==='http:' && location.port==='80') || (location.protocol==='https:' && location.port==='443')) ? ':'+location.port : '';
+  return {host:host+port, lan:!!lan, url:location.protocol+'//'+host+port+'/'};
+}
+function gvWeg(icon, titel, text, zeile, knopf, klein){
+  return '<div class="gv-weg"><span class="ic">'+icon+'</span><div><b>'+esc(titel)+'</b><div class="gv-text">'+esc(text)+'</div>'+
+    '<div class="gv-zeile"><code>'+esc(zeile)+'</code><button type="button" class="btn sm" data-gv-copy="'+esc(zeile)+'">'+esc(knopf)+'</button></div>'+
+    '<div class="gv-klein">'+esc(klein)+'</div></div></div>';
+}
+function gvRender(){
+  const b=$('#gvBody'), a=gvHost();
+  const ic={app:'<svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+            kiosk:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>',
+            agent:'<svg viewBox="0 0 24 24"><path d="M4 17l6-5-6-5M12 19h8"/></svg>'};
+  b.innerHTML=
+    gvWeg(ic.app, T('LoxPanel-App auf Android'),
+      T('App installieren und öffnen. Sie fragt „Wo läuft der Server?“: „Im Netz“ wählen und diese Adresse eintragen. Die App zeigt dann die Visu dieses Servers und meldet sich mit Code.'),
+      a.host, T('Adresse kopieren'),
+      T('Später ändern: auf der Uhr-Seite den Finger drei Sekunden liegen lassen, dann „Server ändern“. Antwortet der Server nicht, steht der Knopf auf der Fehlerseite der App.'))+
+    gvWeg(ic.kiosk, T('Fully Kiosk, WallPanel oder ein Browser'),
+      T('Diese Adresse als Start-URL eintragen, mehr nicht: Namen und Ansicht vergibt der Konfigurator, sobald sich das Gerät meldet.'),
+      a.url, T('Adresse kopieren'),
+      T('Fully: JavaScript-Schnittstelle und Launch on Boot einschalten (deploy/ANDROID.md). Ein Gerät, das schon eine Adresse mit ?panel= hat, darf sie behalten.'))+
+    gvWeg(ic.agent, T('Linux-Wandpanel mit Agent'),
+      T('Einmal per SSH auf dem Panel ausführen, als dessen Login-Benutzer. Der Agent startet Chromium im Kiosk, meldet das Panel hier und übernimmt Display und Neustart.'),
+      'curl -fsSL '+a.url+'install-agent.sh | SERVER='+a.host+' bash', T('Befehl kopieren'),
+      T('Fragt nach dem sudo-Passwort des Panels. Das Panel heißt wie sein Hostname (AGENT_NAME=… davor ändert das); Ansicht und Display-Abschaltung kommen vom Konfigurator, nicht aus der kiosk.conf.'))+
+    '<div class="gv-server">'+esc(T('Server-Adresse im Heimnetz:'))+' <b>'+esc(a.host)+'</b>. '+
+      esc(a.lan ? T('Sie steht in jeder Zeile schon drin, auch wenn der Konfigurator über eine andere Adresse geöffnet ist.')
+                : T('Der Server kennt keine eigene Adresse im Netz; die Zeilen nehmen die Adresse dieses Fensters.'))+'</div>';
+  b.querySelectorAll('[data-gv-copy]').forEach(k=>k.onclick=()=>{
+    navigator.clipboard.writeText(k.dataset.gvCopy).then(()=>flash($('#gvToast'), T('✓ kopiert'), true))
+      .catch(()=>flash($('#gvToast'), T('Kopieren nicht möglich – bitte manuell markieren'), false)); });
+  gvStandZeichnen();
+}
+// Fuss: warten, oder das gefundene Geraet (dieselbe Quelle wie das Banner) und der Weg dorthin
+let NEU_LETZTE=[];
+function gvStandZeichnen(){
+  const s=$('#gvStand'); if(!s || $('#gvOv').hidden) return;
+  const g=NEU_LETZTE[0];
+  if(!g){ s.innerHTML='<span class="punkt"></span>'+esc(T('Warte auf ein neues Gerät …')); return; }
+  const was=(g.art==='code' ? T('Neues Gerät gefunden:') : T('Neues Gerät verbunden:'))+' '+(g.art==='code' ? geraeteKlasse(g.screen) : g.name)+
+    (g.screen&&g.screen.vw ? ' · '+g.screen.vw+'×'+g.screen.vh : '')+(g.code ? ' · '+T('Code')+' '+g.code : '');
+  s.innerHTML='<span class="punkt an"></span>'+esc(was)+' <button type="button" class="btn sm prim" id="gvWeiter">'+esc(T('Weiter mit Einrichten →'))+'</button>';
+  $('#gvWeiter').onclick=()=>{ gvClose(); const b=$('#neuGeraet'); if(b && !b.hidden){ b.scrollIntoView({block:'start'}); const n=b.querySelector('.nb-name'); if(n) n.focus(); } };
+}
+function gvOpen(){
+  if(!GV._wired){ GV._wired=true;
+    $('#gvOv').onclick=e=>{ if(e.target===$('#gvOv')) gvClose(); };
+    $('#gvX').onclick=gvClose; $('#gvZu').onclick=gvClose; }
+  $('#gvOv').hidden=false; gvRender();
+}
+function gvClose(){ $('#gvOv').hidden=true; }
+$('#geraetVerbindenBtn').onclick=gvOpen;
+
 const GE={device:'', screen:null, name:'', _nameT:false, art:'raum', raum:'', aufbau:'', quelle:'', nach:'', token:'', url:'', timer:0, _wired:false};
 function geQuadrat(){ const s=GE.screen; return !!s && LoxRaster.quadratisch(s.vw, s.vh); }
 function geRaumVorschlag(){ const r=GE.device ? wzRaumFuer(GE.device) : null; return r ? r.uuid : ''; }
@@ -5957,6 +6005,7 @@ function neuBannerZeichnen(j){
   if(NEU_NACH && (j.devices||[]).some(d=>d.name===NEU_NACH && d.online)){
     const n=NEU_NACH; NEU_NACH=''; neuWegMerken('name:'+n); neuGeraetEinrichten(n); }
   const liste=EINR?[]:neueGeraete(j);
+  NEU_LETZTE=liste; gvStandZeichnen();
   const sig=JSON.stringify(liste.map(x=>[x.key, x.screen&&x.screen.vw, x.screen&&x.screen.vh]));
   if(sig===NEU_SIG) return;
   NEU_SIG=sig;
@@ -6421,7 +6470,7 @@ async function mzApply(){
 // Esc schliesst den offenen Assistenten (Betriebsmodus liegt ueber allem).
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(!$('#mzOv').hidden) mzClose(); else if(!$('#geOv').hidden) geClose(); else if(!$('#wzOv').hidden) wzClose();
+  if(!$('#mzOv').hidden) mzClose(); else if(!$('#gvOv').hidden) gvClose(); else if(!$('#geOv').hidden) geClose(); else if(!$('#wzOv').hidden) wzClose();
 });
 
 // ---- Audio: Test-Ton ----
@@ -6443,34 +6492,7 @@ $('#at_send').onclick=async()=>{
 };
 
 // ---- Neues Panel: Befehl-Generator ----
-function fillNewPanel(){
-  ['#np_server','#nk_server'].forEach(id=>{ const srv=$(id); if(srv && !srv.value) srv.value=location.host; });
-  ['#np_panel','#nk_panel'].forEach(id=>{ const sel=$(id); if(sel) sel.innerHTML='<option value="">'+T('(Standard)')+'</option>'+
-    PANEL_IDS.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join(''); });
-}
-function genKioskUrl(){
-  const name=$('#nk_name').value.trim(), panel=$('#nk_panel').value, server=$('#nk_server').value.trim();
-  if(!name||!server){ flash($('#nk_toast'),T('Gerätename und Server-Adresse nötig'),false); return; }
-  const q=[]; if(panel) q.push('panel='+encodeURIComponent(panel)); q.push('device='+encodeURIComponent(name));
-  $('#nk_out').textContent='http://'+server+'/?'+q.join('&'); $('#nk_out').style.display='block'; $('#nk_copyrow').style.display='flex';
-}
-$('#nk_gen').onclick=genKioskUrl;
-$('#nk_copy').onclick=()=>{ navigator.clipboard.writeText($('#nk_out').textContent)
-  .then(()=>flash($('#nk_toast'),T('✓ kopiert'),true))
-  .catch(()=>flash($('#nk_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
-function genPanelCmd(){
-  const ip=$('#np_ip').value.trim(), user=($('#np_user').value.trim()||'linaro');
-  const name=$('#np_name').value.trim(), panel=$('#np_panel').value, server=$('#np_server').value.trim();
-  if(!ip||!server){ flash($('#np_toast'),T('Geräte-IP und Server-Adresse nötig'),false); return; }
-  const cmd="ssh -t "+user+"@"+ip+" \"curl -fsSL http://"+server+"/install-agent.sh -o /tmp/lp-install.sh && "+
-    "SERVER='"+server+"' AGENT_NAME='"+name+"' PANEL='"+panel+"' bash /tmp/lp-install.sh\"";
-  $('#np_out').textContent=cmd; $('#np_out').style.display='block'; $('#np_copyrow').style.display='flex';
-}
-$('#np_gen').onclick=genPanelCmd;
 $('#saveBtn').onclick=speichernAlles;
-$('#np_copy').onclick=()=>{ navigator.clipboard.writeText($('#np_out').textContent)
-  .then(()=>flash($('#np_toast'),T('✓ kopiert'),true))
-  .catch(()=>flash($('#np_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); };
 
 // ---- Sicherung einspielen ----
 // Nach dem Einspielen laedt die Seite neu: Profile, Geraete und Einstellungen im
@@ -6550,7 +6572,7 @@ $('#rs_file').onchange=async()=>{
 load().then(einspielErgebnisZeigen).catch(e=>{ $('#pconfHost').innerHTML='<div class="empty">Konnte Daten nicht laden: '+esc(e)+'</div>'; });
 loadSettings().catch(e=>{ const c=$('#conn'); if(c) c.innerHTML='Konnte Einstellungen nicht laden: '+esc(e); });
 { const mh=$('#mode_host'); if(mh) mh.textContent=location.host; }
-loadPanelIds().then(()=>{ fillNewPanel(); fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });
+loadPanelIds().then(()=>{ fillAudioPanels(); renderDevices(); pollDevices(); setInterval(pollDevices,6000); });
 
 if(window.I18N) I18N.autoChrome('h2, h3, h4, label.lbl, .btn, .minibtn, .addbtn, .navbtn .nbt, .navbtn .nbs, .brand small, .itab, .cclbl, .ccmut, .empty, .muted, .note, .lead, .hint, .rub, .stab, .sectlbl, option, figcaption, .nm, .spec, .desc, .badge, .ovbox b, .ovbox span, .as-lead, .as-desc, .as-of, .as-chip, .as-def .tag, .as-def b, .as-def p, .as-start, [data-i18n]');
 </script>
@@ -6565,6 +6587,17 @@ if(window.I18N) I18N.autoChrome('h2, h3, h4, label.lbl, .btn, .minibtn, .addbtn,
         <button class="wzbtn" id="wzFertig" hidden title="Das Aussehen behält die Vorgaben">Weiter zu Prüfen →</button>
         <button class="wzbtn prim" id="wzNext">Weiter →</button>
       </div>
+    </div>
+  </div>
+</div>
+<!-- Gerät verbinden (Einrichtung neu, Schritt 5): gvOpen(), drei Wege mit je einer Zeile zum Kopieren -->
+<div id="gvOv" class="wzov" hidden>
+  <div class="wzbox gv">
+    <div class="wzhd"><b data-i18n>Gerät verbinden</b><span class="wzstep" data-i18n>Sobald das Gerät die Visu öffnet, meldet es der Konfigurator oben. Dann geht es mit „Einrichten“ weiter.</span><button class="wzx" id="gvX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="wzbody" id="gvBody"></div>
+    <div class="wzft">
+      <span class="gv-stand" id="gvStand"></span>
+      <div style="display:flex;gap:10px;align-items:center"><span class="toast" id="gvToast"></span><button class="wzbtn" id="gvZu" data-i18n>Schließen</button></div>
     </div>
   </div>
 </div>

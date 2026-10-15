@@ -9115,6 +9115,9 @@ async def api_meta(request: web.Request) -> web.Response:
         "hausAufbauten": [{"key": k, "label": v} for k, v in HAUS_AUFBAUTEN.items()],
         "hausAufbauStandard": HAUS_AUFBAU_STANDARD,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
+        # LAN-Adresse dieses Servers fuer "Geraet verbinden" (auch wenn der
+        # Konfigurator ueber 127.0.0.1 laeuft); leer ohne Route ins Netz
+        "adressen": _lan_adressen(),
         "theme": {"ui": {k: v for k, v in (app.theme.get("ui") or {}).items()
                          if k in THEME_UI_KEYS},
                   "categories": {k: v for k, v in (app.theme.get("categories") or {}).items()

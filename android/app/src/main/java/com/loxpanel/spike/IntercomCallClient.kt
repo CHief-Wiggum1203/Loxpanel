@@ -43,7 +43,9 @@ class IntercomCallClient : IntercomCalls {
     }
 
     private fun request(path: String, body: JSONObject? = null): JSONObject {
-        val con = URL(Visu.BASIS + "api/intercom/talk/" + path).openConnection() as HttpURLConnection
+        // Immer der eigene Server: Nur er kennt das Prozess-Token der App. Mit
+        // einem Server im Netz bietet die Brücke kein Gegensprechen an.
+        val con = URL(Visu.EIGENER + "api/intercom/talk/" + path).openConnection() as HttpURLConnection
         try {
             con.connectTimeout = 3000
             con.readTimeout = 5000
