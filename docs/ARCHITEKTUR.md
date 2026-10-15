@@ -2304,17 +2304,16 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   „＋ Neue Ansicht“ (`#addBtn`, dann ohne Gerät: „Ansicht anlegen“ statt
   „Fertig – auf … anzeigen“, danach der Editor). Der Kopf nennt Gerät, Klasse
   (`geraeteKlasse()`) und Größe aus `DEVICE_SCREENS`. Links der Name der Ansicht
-  (`geNameVorschlag()`: der Raum zum Gerätenamen über `wzRaumFuer()`, sonst
+  (`geNameVorschlag()`: der Raum zum Gerätenamen über `raumZumGeraet()`, sonst
   „Haus“, bei der Kopie der Zielraum oder die Vorlage, sonst das Gerät; die
   Kennung folgt mit `idAusName()`, also eindeutig) und die Frage „Was soll es
-  zeigen?“ mit vier Karten (`geKarte()`, `GE.art`): *Einen Raum* (Raum-Auswahl,
+  zeigen?“ mit drei Karten (`geKarte()`, `GE.art`): *Einen Raum* (Raum-Auswahl,
   Ansicht `tabs: ["room:<uuid>"]`), *Das ganze Haus* (Aufbau aus
   `META.hausAufbauten`, Ansicht `tabs: ["haus","favoriten"]`; am 4″-Wandpanel,
   `LoxRaster.quadratisch`, gesperrt), *Wie ein anderes Gerät* (Vorlage = jede
   Ansicht, beschriftet mit den Geräten, die sie zeigen, aus `DEVICE_ZUORDNUNG`;
   Raumtausch nach dem Raum zum Gerätenamen, `profilMitRaumtausch()`,
-  `geKopieInfo()`) und *Selbst zusammenstellen* (`geSelbst()`: der ausführliche
-  Assistent `wzOpen()`, das Gerät schon gewählt, beim Schritt Ansicht).
+  `geKopieInfo()`).
   `geProfil()` baut die Ansicht: am quadratischen Gerät `ui.split=false` (ein
   Pane, festes 2 × 2), sonst `ui.grid="auto"`, dazu `device` mit Größe; alles
   Weitere kommt aus den Vorgaben. Rechts die echte Visu als Vorschau: `geVorschau()`
@@ -2326,60 +2325,28 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Vorschaufenster ist kein Gerät (`conn_info.vorschau`, kein Code, nicht unter
   `anonymous`), und die Visu startet dort mit dem Inhalt statt der Uhr-Seite
   (`panel.html`, `ENTWURF`). „Fertig – auf … anzeigen“ (`geFertig()`) trägt die
-  Ansicht in `PANELS` ein und ruft `wzAmGeraet()`: speichern, dann
+  Ansicht in `PANELS` ein und ruft `ansichtAmGeraet()`: speichern, dann
   `/api/device/switch` (die Zuordnung, Schritt 2; ein Gerät, das nicht verbunden
   ist, zeigt sie beim Verbinden). Schließen (`geClose()`, ✕, Abbrechen, Esc,
   Klick daneben) ersetzt den iframe, damit keine Verbindung ohne Namen stehen
   bleibt, wenn die Visu darin gerade selbst navigiert. „Leer anlegen“ bleibt
   (`createBlankPanel()`). `test_geraet_einrichten_browser.py` hält den Weg fest:
   Tablet aus dem Banner, Raum, Haus, Kopie mit Raumtausch, Fertig mit Zuordnung,
-  4″-Panel ohne Haus, „＋ Neue Ansicht“, die vierte Karte.
-- **Selbst zusammenstellen, der ausführliche Assistent** (seit 10.10.2026 als
-  „Gerät einrichten“ Schritt 7, seit 15.10.2026 nur noch über die vierte Karte
-  des Bildschirms oben, `geSelbst()` → `wzOpen()`): der Assistent `wz*` mit
-  sechs Schritten (`WZ_SCHRITTE`), die Leiste oben zeigt erledigte, den jetzigen
-  und die entfallenden:
-  1. Miniserver: erledigt, sobald der Assistent aufgeht; ohne Struktur führt
-     `wzOpen()` zu Einstellungen → Miniserver.
-  2. Gerät: ein gemeldetes, dieser Browser, ein Katalogeintrag oder „Ohne Gerät“,
-     dazu die Vorschläge je Gerät ohne Ansicht. „Neues Gerät verbinden“ leiht sich
-     die Geräte ohne Namen (`#ag_anon_karte`, Code am Panel) mit `wzLeihen()`;
-     `wzZurueckgeben()` stellt sie vor jedem Neuzeichnen und beim Schließen
-     zurück, dieselben Knoten, Eingaben und Ereignisse bleiben; „＋ Gerät
-     verbinden“ (`#wzVerbinden`) öffnet den Bogen `gvOpen()`. Meldet
-     sich ein neues Gerät, zeichnet die Abfrage den Schritt neu
-     (`wzGeraeteNachziehen()`).
-  3. Ansicht (`WZ.art`): neu anlegen, eine vorhandene zuweisen (braucht ein Gerät;
-     „Zuweisen“ schaltet es um, ohne eine Ansicht zu speichern, wenn sie schon auf
-     dem Server steht) oder eine vorhandene mit Raumtausch duplizieren
-     (`profilMitRaumtausch()`, Zielraum aus dem Gerätenamen, `wzRaumFuer()`). Bei
-     zuweisen und duplizieren entfallen 4 und 5 (`wzFlow()`).
-  4. Inhalt und Seiten: Anzahl Panes und Raster (vorgerechnet wie bisher), die
-     untere Leiste, Räume oder Seiten samt Seiten-Editor. Beim ersten Besuch ist
-     die Raum-Ansicht zum Gerätenamen vorgewählt (`wzInhaltVorschlagen()`).
-  5. Aussehen und Verhalten: Kachel-Set (mit Farbton und aktiver Kachel bei
-     „touch“; die Vorrechnung des Rasters nimmt Leiste, Seitenleiste und Rahmen
-     des Sets mit), Grundfarbe, Größen, Schrift, Skalierung,
-     Aktiv-Overlay, Screensaver und „Display aus“, leere Felder zeigen die
-     Vorgaben. Der frühere Schritt „Design“ (einheitlich oder je Kachel) fiel weg,
-     er schrieb nichts in die Ansicht.
-  6. Prüfen: Name und Kennung (vorbelegt aus Raum, Zielraum oder Gerät,
-     `wzNameVorschlagen()`), Umschalten und Zielkachel merken, Zusammenfassung,
-     „Auf … ansehen“ (`wzEntwurf()` baut neu oder Kopie ohne Anlegen), dann
-     „Ansicht anlegen“ oder „Zuweisen“ (`wzBuild()`).
-  „Weiter zu Prüfen“ (`#wzFertig`) überspringt das Aussehen, sobald der Inhalt
-  steht. Seit dem Nachlauf der Einrichtung neu (15.10.2026) prüft ihn kein
-  eigener Test mehr: `test_geraet_einrichten_browser.py` prüft nur die Übergabe
-  aus der Karte „Selbst zusammenstellen“, `test_geraetekarte_browser.py` den
-  Knopf „Gerät verbinden“ darin. Was die früheren Assistenten-Tests prüften,
-  prüfen die Tests des neuen Wegs: das Raster je Gerät über den Seiten-Editor
-  (`test_raster_am_geraet_browser.py`), den Raumvorschlag aus dem Gerätenamen
-  (`test_geraet_einrichten_browser.py`), die Vorschau einer noch ungespeicherten
-  Ansicht am Gerät (`test_vorschau_geraet_browser.py`), die Kachel-Sets je
-  Ansicht (`test_aussehen_reiter_browser.py`), Springen/Filtern im Editor
-  (`test_konfigurator_browser.py`) und das Löschen freier Seiten im Editor
-  (`test_seiten_loeschen_browser.py`). Damit lässt er sich abbauen, sobald die
-  Karte „Selbst zusammenstellen“ nicht mehr gebraucht wird.
+  4″-Panel ohne Haus, „＋ Neue Ansicht“ mit genau diesen drei Karten.
+- **Der frühere sechsstufige Assistent** (`wz*`, „Selbst zusammenstellen“)
+  ist seit 15.10.2026 abgebaut: Was er konnte, leisten „Gerät einrichten“
+  (Raum, Haus, Kopie mit Raumtausch, Vorschau, Fertig mit Zuordnung) und der
+  Editor unter Ansichten (klassische Leiste, freie Seiten mit Seiten-Editor,
+  Aussehen, Springen/Filtern, Vorschau am Gerät auch für eine ungespeicherte
+  Ansicht). Geblieben sind seine Dialog-Klassen (`.wzov`, `.wzbox`, `.wzbtn`,
+  `.wznote`, `.wzq`, `.wzopts`, `.wzo`, `.wzfield` …), die auch „Gerät
+  einrichten“, „Gerät verbinden“, Duplizieren und der Betriebsmodus-Assistent
+  tragen, und ein Abschnitt gemeinsamer Helfer: die Icons (`IKONEN`,
+  `ikon()`), `geraeteMitGroesse()`, `dieserBrowser()`, `geraeteKatalog()`
+  (Vorschaugeräte des Seiten-Editors), `raumZumGeraet()` (Raumvorschlag),
+  `raumOptionen()`, `paneWert()` (Widget-Wahl → `ui.panes`) und
+  `ansichtAmGeraet()` (speichern und umschalten). „Leer anlegen“
+  (`createBlankPanel()`) bleibt.
 - **Eine Karte je Gerät, fünf Zeilen** (seit 10.10.2026 Schritt 4, seit
   15.10.2026 in der Form der Einrichtung neu, Schritt 4): `#geraete` hält je
   Gerät eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`,
@@ -2418,11 +2385,10 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Gerät mit). Die Ansicht hat das Feld nicht mehr (Reiter Verhalten:
   `neustartFeld()` statt `displayFelder()`); trägt sie noch einen Wert aus einer
   älteren Fassung, nennt der Reiter ihn mit „Eintrag entfernen“, und die
-  Gerätekarte nennt ihn als Herkunft. Der ausführliche Assistent schreibt kein
-  `dpmsOff` mehr. `tests/test_display_geraet.py`.
+  Gerätekarte nennt ihn als Herkunft. `tests/test_display_geraet.py`.
 - **Gerät verbinden, drei Wege** (seit 15.10.2026, Einrichtung neu Schritt 5):
   `#gvOv`, `gvOpen()`, aus Geräte (`#geraetVerbindenBtn`), der Übersicht
-  (`data-goto="verbinden"`) und dem ausführlichen Assistenten (`#wzVerbinden`).
+  (`data-goto="verbinden"`).
   Drei Karten (`gvWeg()`), je eine Zeile zum Kopieren (`data-gv-copy`,
   Zwischenablage): die Server-Adresse für die LoxPanel-App, die Start-Adresse
   `http://<host>/` ohne Parameter für Fully Kiosk, WallPanel oder einen
@@ -2451,8 +2417,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   `altEintragHtml()` nennt ihn im Reiter als „älterer Eintrag“ mit „Eintrag
   entfernen“ (`ALT_NAMEN`), `wasGiltInAnsicht()` sagt es als Herkunft auf der
   Gerätekarte (`geraetGilt()`), und die Vorgaben zählen Geräte mit eigenem Wert
-  auf (`GERAET_SCHLUESSEL`, `erbtZeichnen()`). Der ausführliche Assistent
-  schreibt keine Skalierung mehr. Das Automatisch-Raster rechnet ohne Wert
+  auf (`GERAET_SCHLUESSEL`, `erbtZeichnen()`). Das Automatisch-Raster rechnet ohne Wert
   mit `KACHEL_ZIEL_STANDARD`; `test_automatisch_im_konfigurator` setzt die
   Zielkachel am Gerät. `tests/test_display_geraet.py` (Nacht).
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
@@ -2529,8 +2494,6 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   dieselbe `paneListe()` wie unter Inhalt): Widget daneben samt Wahl (Zone,
   Kamera, Bausteine) und Werteleiste; die Kopfzeilen-Werte lässt sie weg, die
   stehen schon auf der Fläche.
-  Im Assistenten (Schritt Inhalt und Seiten) rechnet der Editor mit Anzeige, Raster
-  und Gerät, `wzBuild()` übernimmt Layout und `byRoom`.
   „Vorschau“ in der Speicherleiste (Punkt 10, Teil 3) zeigt das Profil mit
   allen ungespeicherten Änderungen in der echten Visu: `entwurfOeffnen()` schickt
   es an `POST /api/entwurf` und öffnet `/?panel=<id>&entwurf=<token>` in einem
@@ -2557,10 +2520,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   ein fremdes Profil umgelenkt. Geprüft in `tests/test_entwurf.py` und
   `tests/browser/test_entwurf_browser.py`.
   Vorschau am Gerät (Punkt 12): „Am Gerät ansehen“ (Speicherleiste, Ziel ist das
-  Vorschaugerät des Seiten-Editors, sonst das Zielgerät des Profils) und im letzten
-  Schritt des Assistenten „Auf … ansehen“ (dort gibt es das Panel noch nicht, der
-  Entwurf trägt es: `wzEntwurf()` baut das Profil ohne Anlegen) schicken denselben
-  Entwurf an das Gerät: `POST /api/device/switch` mit `entwurf`, als `{t:"switch",
+  Vorschaugerät des Seiten-Editors, sonst das Zielgerät des Profils; auch für eine
+  neu angelegte, noch ungespeicherte Ansicht) schickt den Entwurf an das Gerät: `POST /api/device/switch` mit `entwurf`, als `{t:"switch",
   panel, entwurf}` nur an die verbundenen Visus des Geräts. Ein Agent ohne offene
   Visu kann den Token nicht in die Kiosk-URL tragen, dort meldet der Server
   „Keine verbundene Visu“. Der Server merkt sich je Gerät, was es vorher zeigte
@@ -2609,56 +2570,24 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Seite). Ohne Zielraum entsteht eine reine Kopie („… (Kopie)“). Alles im Konfigurator,
   der Server bekommt das neue Profil erst beim Speichern. Geprüft in
   `tests/browser/test_duplizieren_browser.py`.
-- Vorschlag statt leerer Seite (Punkt 13, 08.10.2026): Der Assistent „Neues
-  Panel“ zeigt im ersten Schritt je bekanntem Gerät ohne eigenes Profil
-  (`wzVorschlaege()`: Geräteliste und konfigurierte Geräte, ohne die, auf
-  die schon ein `device` eines Profils zeigt) einen Vorschlag: Passt der
-  Gerätename zu einem Loxone-Raum (`nameSlug()` gleich oder enthalten, ab
-  drei Zeichen), ein Raum-Panel dieses Raums, sonst die klassische Visu mit
-  den Favoriten vorn. Ein Tipp (`wzVorschlagWaehlen()`) füllt die drei
-  Pflichtschritte: Anzeige aus der gemeldeten Größe (quadratisch 1 Pane
-  mit 2 × 2, sonst 2 Panes mit „Automatisch“), Inhalt, Name und ID aus
-  Raum bzw. Gerät, dazu das Gerät als Zielgerät (Punkt 15; `wzBuild()`
-  schreibt `device` mit Größe); der Assistent springt seit Schritt 7 gleich
-  zum Schritt Prüfen. Steht der Inhalt (`wzPflichtOk()`), bietet der Fuß
-  „Weiter zu Prüfen“ an, das Aussehen behält die Vorgaben. Der Raumvorschlag
-  (`wzRaumFuer()`, über `geRaumVorschlag()` auch in „Gerät einrichten“) ist in
-  `tests/browser/test_geraet_einrichten_browser.py` geprüft.
-- Assistent Schritt 1 aus dem Gerät (Punkt 9, 09.10.2026; seit Schritt 7 ist das
-  der Schritt Gerät, Panes und Raster stehen unter Inhalt und Seiten): Er fragt
-  „Für welches Gerät?“: die Geräte mit
-  gemeldeter Größe (`wzGeraete()` aus `DEVICE_SCREENS`), „Dieser Browser“
-  (eigene Fenstergröße) und als Ausweg der Katalog des Servers
-  (`GERAETE_KATALOG` in `/api/meta` als `geraeteKatalog`, dieselben
-  Standardgeräte wie die Messreihe). Mit der Größe rechnet
-  `wzVorrechnung()` jede Anzeige mit `raster.js` und den Standardmaßen der
-  Visu vor: „Automatisch“ mit Spalten, Zeilen und Kachelbreite der Seite
-  ohne Widget, dazu die Spalten (hochkant Zeilen) des Widgets; feste Raster
-  mit Spalten und Zeilen samt Verdopplung durch den Split (ihre
-  Kachelgröße hängt am Kasten und an der Skalierung, darum keine px).
-  Zielkachel ist die des Geräts, sonst sein Vorschlag (`tileSuggest`), sonst
-  der Standard. Angeboten wird nur, was passt (`wzPasst()`): zwei Panes
-  nicht auf einem quadratischen Schirm, ein festes Raster nur, wenn seine
-  Kacheln den Schirm füllen würden, ohne die Grenzen des automatischen
-  Rasters zu verlassen (Zielkachel mal und durch `KACHEL_WACHSEN`; 10″ quer
-  mit 2 Panes: nur 3 × 3 und „Automatisch“). Ohne eigene Wahl schlägt der
-  Wechsel des Geräts Panes und Raster neu vor (`_panesT`, `_gridT`). Bei
-  einem echten Gerät bietet der Schritt Prüfen „Danach auf … anzeigen“ und
-  bei „Automatisch“ „Zielkachel … am Gerät merken“ an; nach dem Anlegen
-  (`wzAmGeraet()`) speichert der Assistent die Zielkachel unter Displays
-  (`/api/devices`), dann alle Panels und schaltet das Gerät um
-  (`/api/device/switch`, erneut, solange es nach dem Neuladen durchs
-  Speichern noch nicht wieder verbunden ist). Eine Verbindung, die gerade
-  `{t:"reload"}` bekam (`App._neu_laden()`), zählt `_push()` nicht mehr:
-  das Umschalten ginge mit der alten Seite verloren, erreicht wird erst die
-  neue Verbindung (`tests/test_umschalten_nach_neuladen.py`). Dass Maße und
-  Raster auf fünf Standardgeräten in vier Profilen gleich der Visu sind, prüft
-  `tests/browser/test_raster_am_geraet_browser.py` über den Seiten-Editor
-  (`seRaster()`, dieselbe `raster.js` wie `wzVorrechnung()`), dazu die
-  Zielkachel am Gerät; den Ablauf bis zum umgeschalteten Gerät
-  `test_geraet_einrichten_browser.py`.
+- Raumvorschlag aus dem Gerätenamen (seit Punkt 13, 09.10.2026; seit 15.10.2026
+  in „Gerät einrichten“): `raumZumGeraet()` nimmt den Raum, dessen Name den
+  Gerätenamen enthält oder darin steckt, bei mehreren den mit der nächsten
+  Namenslänge (der gleiche Name immer, sonst etwa `badezimmer-oben` → Badezimmer
+  vor Bad), `geRaumVorschlag()` setzt ihn als Raum, Zielraum und Namen.
+  Geprüft in `tests/browser/test_geraet_einrichten_browser.py`. Die frühere
+  Vorrechnung je Gerät (`wzVorrechnung()`, Katalog des Servers
+  `GERAETE_KATALOG`, `/api/meta` `geraeteKatalog`) lebt im Seiten-Editor weiter:
+  `seRaster()` rechnet mit derselben `raster.js` und denselben Maßen wie die
+  Visu, der Katalog steht dort als Vorschaugerät. Dass Maße und Raster auf fünf
+  Standardgeräten in vier Profilen gleich der Visu sind, prüft
+  `tests/browser/test_raster_am_geraet_browser.py`, dazu die Zielkachel am
+  Gerät; den Ablauf bis zum umgeschalteten Gerät `test_geraet_einrichten_browser.py`.
+  Eine Verbindung, die gerade `{t:"reload"}` bekam (`App._neu_laden()`), zählt
+  `_push()` nicht mehr: das Umschalten ginge mit der alten Seite verloren,
+  erreicht wird erst die neue Verbindung (`tests/test_umschalten_nach_neuladen.py`).
 - Gerät eines Profils (`device`, Punkt 15, 08.10.2026; seit 15.10.2026 ohne
-  Feld und Warnung): „Gerät einrichten“ und der ausführliche Assistent schreiben
+  Feld und Warnung): „Gerät einrichten“ schreibt
   `device` mit Name und der zuletzt gemeldeten Größe des Geräts
   (`DEVICE_SCREENS`, `_clean_zielgeraet()` im Server, dieselbe Obergrenze
   `BILDSCHIRM_PX_MAX` wie die Bildschirmmeldung in `_clean_screen()`). Der
@@ -2720,7 +2649,7 @@ unten). Ungespeichertes nennt die Speicherleiste; Neuladen oder Schließen der S
 - Gesperrt sind die übrigen Rubriken, die Liste der Ansichten, „＋ Neue Ansicht" und
   die Reiter der Einstellungen außer Miniserver und Sicherung (`EINR_SUBS`): Ansichten,
   Vorgaben, Geräte und der Assistent brauchen Räume und Bausteine. `setRubric()` leitet
-  jeden anderen Weg zu den Einstellungen um, `showSub()` und `wzOpen()` lehnen ab.
+  jeden anderen Weg zu den Einstellungen um, `showSub()` und `geOpen()` lehnen ab.
 - Den Stand fragt er alle `EINR_TAKT_MS` (3 s) nach. Steht die Verbindung, über
   „Verbinden & Speichern" oder von selbst, lädt die Seite neu, damit alles frisch
   vom Server kommt, und zeigt „Mit dem Miniserver verbunden" mit den nächsten

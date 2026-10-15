@@ -224,6 +224,16 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       löschen und Vorschau sind durch den Editor unter Ansichten ersetzt. Nur
       die Übergabe aus „Selbst zusammenstellen“ und „Gerät verbinden“ im
       Assistenten bleiben geprüft; ihn abzubauen ist der nächste Schritt.
+- [x] **Abbau des sechsstufigen Assistenten** (15.10.2026). Die Karte „Selbst
+      zusammenstellen“, der Dialog `#wzOv`, der Zustand `WZ` samt Schritten,
+      Vorrechnung, Entwurf und `wzBuild()`, der Assistenten-Kontext des
+      Seiten-Editors, 87 nur dort gebrauchte Texte in `i18n.js` und die
+      zugehörigen CSS-Regeln sind weg (868 Zeilen). Geblieben sind die
+      Dialog-Klassen und ein Abschnitt gemeinsamer Helfer mit neuen Namen:
+      `IKONEN`/`ikon()`, `geraeteMitGroesse()`, `dieserBrowser()`,
+      `geraeteKatalog()`, `raumZumGeraet()`, `raumOptionen()`, `paneWert()`,
+      `ansichtAmGeraet()`. „Gerät einrichten“ hat drei Karten; Tests zu
+      Kopfzeile und Kachel-Set rechnen über `seRaster()`.
 
 ## 0b. Upstream-Abgleich
 

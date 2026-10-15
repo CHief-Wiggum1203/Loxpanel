@@ -208,21 +208,19 @@ def test_konfigurator_bietet_die_kopfzeile_an():
         const wiederOhne = p.ui.panes.favoriten;
         document.querySelector('select[data-pane="favoriten"]').value = 'weather';
         document.querySelector('select[data-pane="favoriten"]').onchange();
-        return {arten, ohne, mit, erste, wiederOhne, danach: p.ui.panes.favoriten, assistent: wzP2Real('header'),
-                assistentOptionen: wzP2Opts('').indexOf('value="header"') > -1};
+        return {arten, ohne, mit, erste, wiederOhne, danach: p.ui.panes.favoriten, helfer: paneWert('header')};
     }""")
     assert "header" in res["arten"] and res["ohne"] == "header"
     assert res["mit"] == "header:" + res["erste"] and res["wiederOhne"] == "header"
     assert res["danach"] == "weather"
-    assert res["assistent"] == "header" and res["assistentOptionen"]
+    assert res["helfer"] == "header", "die Widget-Wahl der Seite kennt die Kopfzeile"
     # Was der Konfigurator schreibt, nimmt der Server unveraendert
     assert W._clean_tabpane(res["mit"]) == res["mit"]
 
 
 def test_konfigurator_ohne_split_nur_die_kopfzeile():
     """Split "Aus" (4"-Panel): das Feld bleibt sichtbar, die Widget-Gruppe ist
-    gesperrt, die Kopfzeile waehlbar. Der Assistent bietet sie fuer 1 Pane
-    ebenfalls an, ohne die Widgets daneben."""
+    gesperrt, die Kopfzeile waehlbar."""
     from test_konfigurator_browser import _im_konfigurator
     res = _im_konfigurator("""async () => {
         cur = 'test'; const p = PANELS[cur]; p.ui = {split: false};
@@ -233,16 +231,8 @@ def test_konfigurator_ohne_split_nur_die_kopfzeile():
         const gesperrt = [...sel.options].filter(o => o.closest('optgroup') && o.closest('optgroup').disabled).map(o => o.value);
         const frei = [...sel.options].filter(o => !(o.closest('optgroup') && o.closest('optgroup').disabled)).map(o => o.value);
         sel.value = 'header'; sel.onchange();
-        // Assistent: 1 Pane, klassische Tabs
-        wzReset(); WZ.panes = '1'; WZ.content = 'classic';
-        WZ.classic = [{key: 'favoriten', label: 'Favoriten', on: true}, {key: 'zentral', label: 'Zentral', on: false}];
-        const zeilen = wzPaneRows();
-        const tmp = document.createElement('div'); tmp.innerHTML = zeilen;
-        const wzOpts = [...tmp.querySelectorAll('select[data-p2k="favoriten"] option')].map(o => o.value);
-        return {sichtbar: feld.style.display !== 'none', gesperrt, frei, gewaehlt: p.ui.panes.favoriten,
-                wzOpts, wzZeilen: tmp.querySelectorAll('select').length};
+        return {sichtbar: feld.style.display !== 'none', gesperrt, frei, gewaehlt: p.ui.panes.favoriten};
     }""")
     assert res["sichtbar"] and res["gewaehlt"] == "header"
     assert "header" in res["frei"] and "" in res["frei"], res
     assert "weather" in res["gesperrt"] and "status" in res["gesperrt"], res
-    assert res["wzZeilen"] == 1 and res["wzOpts"] == ["", "header"], res
