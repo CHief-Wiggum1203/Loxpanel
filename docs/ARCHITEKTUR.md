@@ -77,6 +77,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
+| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
@@ -756,6 +757,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/settings` | `settings_index` | Weiterleitung nach `/config` (Anker bleibt) | alte Links |
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/raster.js` | `raster_js` | Rasterrechnung (§7.5) | Visu, Konfigurator |
+| GET | `/config.css`, `/config/{name}` | `config_css`, `config_js` | Stylesheet und Skriptteile des Konfigurators (`webfrontend/html/config/<name>.js`, nur schlichte Namen) | Konfigurator |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
@@ -2191,7 +2193,31 @@ Assistenten des Konfigurators.
   deutsch, sowohl im Frontend als auch in den vom Server erzeugten Texten
   („Offen", „Heizt", „Heute", Wochentage, Button-Beschriftungen).
 
-### 7.2 `config.html` (Konfigurator, 715 Zeilen)
+### 7.2 Konfigurator: `config.html`, `config.css` und `config/*.js`
+
+**Aufteilung** (seit 15.10.2026, Schritt 1 des Zerlegens der großen Dateien):
+`config.html` hält nur noch das Markup (rund 450 Zeilen) und lädt `config.css`
+und elf Skriptteile aus `webfrontend/html/config/` per `<script src>` an der
+Stelle, an der vorher das eine Skript stand, in dieser Reihenfolge: `kern`
+(Zustand, Helfer, Rubriken), `ansicht-aussehen` (Aktiv-Overlay, Kachel-Set,
+Gesten), `ansicht-editor` (Vererbung, Skalierung, der Editor je Ansicht),
+`speichern` (Speicherleiste, Vorschau in der Visu und am Gerät), `kacheln`
+(Kachel-Editor, eigene Auswahl, Kurzfassung), `seiten-editor`, `einrichten`
+(Leer anlegen, Duplizieren, gemeinsame Helfer, Gerät einrichten, Gerät
+verbinden), `einstellungen` (Rubrik Einstellungen, Ersteinrichtung, SIP,
+Kalender), `geraete` (Karten, neues Gerät, Betriebsmodus), `sicherung`
+(Testton, Speichern-Knopf, Sicherung einspielen), `start`. Kein Build, keine
+ES-Module: Alle Funktionen bleiben global, die Browser-Tests rufen sie weiter
+beim Namen; was ein Teil beim Laden ausführt, darf nur Funktionen früherer
+Teile rufen (eine spätere Funktionsdeklaration ist dann noch nicht gehoben).
+Der Server liefert `/config.css` (`config_css`) und `/config/{name}`
+(`config_js`, nur `[a-z0-9-]+.js`, sonst 404) wie die anderen
+Oberflächen-Dateien mit `no-cache`. Der Übersetzungstest durchsucht auch die
+per `script src` geladenen Teile, der Rauchtest ruft `/config.css` und
+`/config/kern.js` ab; APK-Sync, Dockerfile und `.deb` nehmen `webfrontend/`
+ganz. `tests/test_dateigroessen.py` wacht, dass keine Quelldatei über 1.500
+Zeilen wächst (die noch zu zerlegenden `webvisu.py` und `panel.html` stehen
+als Ausnahmen mit ihrem jetzigen Stand drin und dürfen nur schrumpfen).
 
 **Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
 ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
