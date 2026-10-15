@@ -1794,8 +1794,11 @@ function geraetGilt(name, k){
 function geraetAnsicht(name){
   const live=(GERAETE_LISTE.find(d=>d.name===name)||{}).profile;
   if(live && PANELS[live]) return live;
-  const z=DEVICE_ZUORDNUNG[name]||''; return PANELS[z] ? z : '';
+  const z=DEVICE_ZUORDNUNG[name]||''; return PANELS[z] ? z : ansichtFuerGeraet(name);
 }
+// Die Ansicht, die fuer ein Geraet angelegt wurde (device.name, "Geraet einrichten" und
+// der Assistent schreiben es) - bis die Abfrage die Zuordnung meldet, auch ungespeichert
+function ansichtFuerGeraet(name){ return ansichtIds().find(id=>((PANELS[id].device||{}).name)===name)||''; }
 // Geraete, die eine Ansicht zeigen oder in einem Betriebsmodus zeigen wuerden
 function geraeteDerAnsicht(id){
   return alleGeraeteNamen().filter(n=>geraetAnsicht(n)===id || ((DEV[n]||{}).modes||[]).some(m=>m[1]===id));
@@ -4342,7 +4345,9 @@ function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('w
    Pflichtschritte (Anzeige, Inhalt, Name) und traegt das Geraet als Zielgeraet
    ein; ab dann kann man gleich anlegen, der Rest behaelt Standardwerte. ---- */
 function wzVorschlaege(){
-  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !DEVICE_ZUORDNUNG[n])   // ohne Zuordnung (Schritt 2)
+  // ohne Zuordnung (Schritt 2); eine gerade angelegte, noch nicht gespeicherte Ansicht fuer das
+  // Geraet (device.name) zaehlt schon, bevor die Abfrage die Zuordnung meldet
+  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !DEVICE_ZUORDNUNG[n] && !ansichtFuerGeraet(n))
     .sort((a,b)=>a.localeCompare(b));
   return geraete.map(n=>({geraet:n, raum:wzRaumFuer(n), screen:DEVICE_SCREENS[n]||null}));
 }
