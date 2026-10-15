@@ -58,7 +58,7 @@ def test_code_kommt_beim_verbinden_und_bleibt():
                 async with s.ws_connect(f"{basis}/ws?panel=test&code={code.lower()}") as ws:   # zurueckgeschickt
                     m = await _naechste(ws, "kopplung", 3)
                     assert m["code"] == code, "ein gueltiger Code bleibt (gross geschrieben)"
-                    assert m["karte"] is True, "auch mit ?panel= hat ohne Kennung niemand dieses Geraet eingerichtet"
+                    assert m["karte"] is False, "mit ?panel= nur der Code, keine Karte ueber der Visu"
                 async with s.ws_connect(f"{basis}/ws?panel=test&entwurf=abc&code={code}") as ws:   # Vorschaufenster
                     m = await _naechste(ws, "kopplung", 3)
                     assert m["karte"] is False, "ein Vorschaufenster des Konfigurators bekommt keine Karte"

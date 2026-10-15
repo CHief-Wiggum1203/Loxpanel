@@ -358,7 +358,7 @@ Server → Browser (`panel.html:700`):
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
-| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` immer, außer im Vorschaufenster des Konfigurators (`?entwurf=`): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026) |
+| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026) |
 
 Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
@@ -2783,9 +2783,9 @@ konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
 eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
 Neu laden, Display aus/an). Browser ohne Kennung werden mit ihrem
 Kopplungscode gelistet (Nachricht `kopplung`, §3.2): Das Panel zeigt ihn unter
-„Dieses Gerät einrichten“, seit der Einrichtung neu (Schritt 1) auch mit
-`?panel=` in der Adresse (nur ein Vorschaufenster, `?entwurf=`, bleibt ohne
-Karte), und „Namen vergeben“ neben dem Code trifft genau dieses Gerät, auch
+„Dieses Gerät einrichten“ (nur ohne `?panel=` in der Adresse; mit `?panel=`
+behält es den Code, zeigt aber keine Karte über der Visu), und „Namen
+vergeben“ neben dem Code trifft genau dieses Gerät, auch
 bei mehreren hinter einer IP. Der Konfigurator wartet nicht, bis jemand unter
 Geräte nachsieht: `neuBannerZeichnen()` meldet ein Gerät ohne Kennung und ein
 frisch verbundenes ohne Zuordnung, das die Standardansicht zeigt, oben in

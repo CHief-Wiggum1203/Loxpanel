@@ -2,10 +2,9 @@
 ?panel= zeigt "Dieses Geraet einrichten" mit seinem Code und der Adresse des
 Konfigurators, der Code bleibt ueber ein Neuladen, unter Displays steht
 dieselbe Zeile "Code ...", "Namen vergeben" dort benennt genau dieses Geraet
-(die Karte und der Code verschwinden), ein Browser mit ?panel= bekommt Code und
-Karte ebenso (Einrichtung Schritt 1: ohne Kennung hat ihn niemand eingerichtet),
-ein Tipp blendet die Karte aus, der Betriebsmodus-Assistent nennt den Code
-ebenfalls. Der Konfigurator meldet ein Geraet ohne Kennung oben als Banner, in
+(die Karte und der Code verschwinden), ein Browser mit ?panel= bekommt nur den
+Code ohne Karte (sie laege sonst ueber der Visu), ein Tipp blendet die Karte
+aus, der Betriebsmodus-Assistent nennt den Code ebenfalls. Der Konfigurator meldet ein Geraet ohne Kennung oben als Banner, in
 jeder Rubrik; "Benennen und einrichten" vergibt den Namen und oeffnet "Geraet
 einrichten" mit dem Geraet; "Spaeter" blendet das Banner fuer dieses Geraet aus."""
 import asyncio
@@ -82,9 +81,8 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
 
                 mit_profil = await visu("?panel=wohnen")               # ohne Kennung, aber mit Profil
                 await mit_profil.wait_for_function("localStorage.getItem('lp_kopplung')")
-                await mit_profil.wait_for_selector("#kopplung:not(.hidden)")
                 k3 = await mit_profil.evaluate(KARTE)
-                assert k3["sichtbar"] and CODE.match(k3["gemerkt"]) and k3["gemerkt"] != code, k3
+                assert not k3["sichtbar"] and CODE.match(k3["gemerkt"]) and k3["gemerkt"] != code, k3
                 await _bis(lambda: sorted(a["code"] for a in app.device_list()["anonymous"]) == sorted([code, k3["gemerkt"]]),
                            "beide Codes in der Geraeteliste")
 

@@ -140,8 +140,9 @@ am Gerät, eine Frage („Was soll es zeigen?“), alles Weitere aus den Vorgabe
 oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
 
 - [x] **Schritt 1, das Gerät meldet sich.** Die Kopplungskarte „Dieses Gerät
-      einrichten“ kommt auch mit `?panel=` in der Adresse (nur ein
-      Vorschaufenster nicht). Der Konfigurator meldet ein Gerät ohne Kennung
+      einrichten“ bleibt bei Browsern ohne `?panel=` (mit `?panel=` nur der
+      Code, sonst läge sie nach jedem Neustart über der Visu). Der
+      Konfigurator meldet ein Gerät ohne Kennung
       und ein frisch verbundenes ohne Zuordnung oben in jeder Rubrik als
       Banner mit Klasse (4″-Wandpanel, Tablet, Display), Größe und Code;
       „Benennen und einrichten“ vergibt den Namen und öffnet „Gerät

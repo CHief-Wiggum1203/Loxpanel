@@ -11064,12 +11064,14 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await app._einrichtung_melden(neu=ws)
     # Verbindungszustand (Miniserver erreichbar?) und Takt des Lebenszeichens
     await app._verbindung_melden(neu=ws)
-    # Browser ohne Kennung: Kopplungscode und die Karte "Dieses Geraet
-    # einrichten" - auch mit ?panel= in der Adresse, denn ohne Kennung hat
-    # dieses Geraet niemand eingerichtet (Einrichtung Schritt 1); nur ein
-    # Vorschaufenster des Konfigurators (?entwurf=) bleibt ohne Karte
+    # Browser ohne Kennung: Kopplungscode, und die Karte "Dieses Geraet
+    # einrichten" nur ohne ?panel= in der Adresse. Mit ?panel= hat jemand das
+    # Geraet bewusst eingerichtet (Fully, WallPanel, alte Start-Adresse): die
+    # Karte laege sonst nach jedem Neustart ueber der Visu und fienge die
+    # Tipps ab. Der Konfigurator meldet das Geraet mit seinem Code trotzdem
+    # (Banner "Neues Geraet gefunden", device_list anonymous[].code).
     if not dev:
-        await ws.send_json(App._kopplung_msg(app.conn_info[ws]["code"], not ent))
+        await ws.send_json(App._kopplung_msg(app.conn_info[ws]["code"], not request.query.get("panel")))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.
     # Kalender/Wetter fuer die Uhr-Startseite sofort mitschicken (falls schon geladen)
