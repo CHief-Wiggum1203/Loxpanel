@@ -81,13 +81,15 @@ def test_ein_weg_fuer_neu_zuweisen_und_kopie(cfg_ordner, tmp_path):
                 assert await pg.locator("#wzNext").text_content() == "Zuweisen ✓"
                 assert await pg.locator("#wzTitleI").count() == 0, "kein Name beim Zuweisen"
                 await pg.screenshot(path=str(tmp_path / "zuweisen_pruefen.png"))
-                vorher = (cfg_ordner / "panels.json").stat().st_mtime_ns
+                vorher = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]
                 await pg.locator("#wzNext").click()
                 await pg.wait_for_selector("#wzOv[hidden]", state="attached")
                 await _bis(lambda: any((app.conn_prof.get(ws) or {}).get("id") == "zentral" for ws, i in app.conn_info.items()
                                        if i.get("dev") == "technikraum"), "das Tablet schaltet um", sekunden=15)
                 assert await pg.evaluate("rubric") == "displays"
-                assert (cfg_ordner / "panels.json").stat().st_mtime_ns == vorher, "Zuweisen speichert keine Ansicht"
+                datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                assert datei["panels"] == vorher, "Zuweisen speichert keine Ansicht"
+                assert datei["devices"]["technikraum"]["panel"] == "zentral", "... aber die Zuordnung des Geraets (Schritt 2)"
 
                 # 2) Vorhandene duplizieren, Zielraum aus dem Geraetenamen
                 await pg.locator("#addBtn").click()

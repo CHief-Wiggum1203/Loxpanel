@@ -306,6 +306,19 @@
   .cal .field{max-width:none;margin-bottom:10px;}
   .cal input[type=color]{padding:2px;height:38px;width:56px;cursor:pointer;}
   .calempty{color:var(--muted);font-size:14px;padding:4px 0 10px;}
+  /* Neues Geraet gefunden (Einrichtung Schritt 1): ein Banner ueber dem Inhalt
+     jeder Rubrik, solange ein Geraet ohne Kennung (Code) oder ein frisch
+     verbundenes ohne Zuordnung da ist */
+  .neu-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#1b2a1c;border:1px solid #2f5a33;
+    border-radius:10px;padding:12px 16px;margin:0 0 18px;max-width:1100px;}
+  .neu-banner[hidden]{display:none;}
+  .neu-banner .nb-sym{width:40px;height:40px;flex:none;border-radius:50%;background:var(--good);color:#0f1512;display:grid;place-items:center;}
+  .neu-banner .nb-tx{flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px;}
+  .neu-banner .nb-tx b{font-size:15px;}
+  .neu-banner .nb-tx span{font-size:13px;color:var(--muted);}
+  .neu-banner .nb-code{color:var(--good);letter-spacing:.1em;font-weight:700;}
+  .neu-banner input{min-height:40px;max-width:200px;}
+  .neu-banner .nb-mehr{font-size:12.5px;color:var(--muted);}
   .ag{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:12px 0;}
   .ag:first-child{border-top:none;}
   .ag .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);flex:none;}
@@ -682,6 +695,8 @@
     </div>
     <div class="subtabs" id="subtabs"></div>
     <div class="scroll" id="scroll">
+      <!-- Neues Geraet gefunden (Einrichtung Schritt 1): in jeder Rubrik, neuBannerZeichnen() -->
+      <div class="neu-banner" id="neuGeraet" hidden></div>
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
         <button class="as-start" id="ovGeraetEinrichten" data-i18n>＋ Gerät einrichten</button>
@@ -2289,6 +2304,14 @@ function zielAbweichung(d){
     if(Math.abs(a[0]-b[0])>ZIEL_TOLERANZ*a[0] || Math.abs(a[1]-b[1])>ZIEL_TOLERANZ*a[1])
       return T('Ansicht ist für')+' '+ziel.vw+'×'+ziel.vh+' '+T('gemacht, hier')+' '+sc.vw+'×'+sc.vh; }
   return '';
+}
+// Geraeteklasse aus der gemeldeten Groesse: das quadratische 4"-Wandpanel
+// (480x480, mit Rahmen etwas mehr), ein grosses Display, sonst ein Tablet
+function geraeteKlasse(sc){
+  if(!sc||!sc.vw||!sc.vh) return T('Gerät');
+  if(Math.abs(sc.vw-sc.vh)<=16 && sc.vw<=600) return T('4″-Wandpanel');
+  if(Math.min(sc.vw,sc.vh)>=1000 && Math.max(sc.vw,sc.vh)>=1600) return T('Display');
+  return T('Tablet');
 }
 function screenInfo(sc){
   if(!sc||!sc.vw||!sc.vh) return '';
@@ -5662,6 +5685,68 @@ async function nameDevice(ip,name,code){
     return !!j.ok;
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); return false; }
 }
+// ---- Neues Geraet gefunden (Einrichtung neu, Schritt 1) ----
+// Ein Geraet ohne Kennung (es zeigt seinen Code) oder ein frisch verbundenes
+// mit Kennung, das noch keine Zuordnung hat und die Standardansicht zeigt,
+// meldet der Konfigurator oben in jeder Rubrik. "Benennen und einrichten"
+// vergibt den Namen (das Geraet verbindet sich damit neu) und oeffnet dann
+// "Geraet einrichten" mit diesem Geraet; "Spaeter" merkt sich das Geraet im
+// Browser. Neu zeichnen nur, wenn sich die Geraete aendern (NEU_SIG), sonst
+// faehrt die Abfrage in das Namensfeld.
+let NEU_WEG=new Set(), NEU_SIG='', NEU_NACH='';
+try{ NEU_WEG=new Set(JSON.parse(localStorage.getItem('lp_neu_weg')||'[]')); }catch(e){}
+function neuWegMerken(key){ NEU_WEG.add(key); try{ localStorage.setItem('lp_neu_weg', JSON.stringify([...NEU_WEG])); }catch(e){} }
+function neueGeraete(j){
+  const aus=[];
+  (j.anonymous||[]).forEach(a=>{ if(a.code && !NEU_WEG.has('code:'+a.code))
+    aus.push({key:'code:'+a.code, art:'code', code:a.code, ip:a.ip, screen:a.screen||null, kiosk:a.kiosk||''}); });
+  (j.devices||[]).forEach(d=>{ if(d.online && !d.configured && !d.zugeordnet && (!d.profile || d.profile==='default')
+    && !NEU_WEG.has('name:'+d.name)) aus.push({key:'name:'+d.name, art:'name', name:d.name, screen:d.screen||null, kiosk:d.kiosk||''}); });
+  return aus;
+}
+function neuGeraetEinrichten(name){
+  // "Geraet einrichten" mit diesem Geraet vorgewaehlt (wzGeraete kennt nur gemeldete Groessen)
+  if(EINR) return;
+  wzOpen();
+  const g=wzGeraete().find(x=>x.name===name);
+  if(g){ wzGroesseSetzen(g); wzRender(); }
+}
+function neuBannerZeichnen(j){
+  const box=$('#neuGeraet'); if(!box) return;
+  // der benannte Browser ist wieder da: gleich einrichten, und nicht noch einmal melden
+  if(NEU_NACH && (j.devices||[]).some(d=>d.name===NEU_NACH && d.online)){
+    const n=NEU_NACH; NEU_NACH=''; neuWegMerken('name:'+n); neuGeraetEinrichten(n); }
+  const liste=EINR?[]:neueGeraete(j);
+  const sig=JSON.stringify(liste.map(x=>[x.key, x.screen&&x.screen.vw, x.screen&&x.screen.vh]));
+  if(sig===NEU_SIG) return;
+  NEU_SIG=sig;
+  box.hidden=!liste.length;
+  if(!liste.length){ box.innerHTML=''; return; }
+  const g=liste[0], klasse=geraeteKlasse(g.screen), masse=screenInfo(g.screen), app=TYPE_LABEL[g.kiosk]||'';
+  const wo=[klasse, masse, app].filter(Boolean).join(' · ');
+  const mehr=liste.length>1 ? '<span class="nb-mehr">+'+(liste.length-1)+' '+T('weitere')+'</span>' : '';
+  const sym='<span class="nb-sym"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/></svg></span>';
+  if(g.art==='code'){
+    box.innerHTML=sym+'<div class="nb-tx"><b>'+T('Neues Gerät gefunden:')+' '+esc(wo)+'</b><span>'+T('Zeigt den Code')+
+      ' <span class="nb-code">'+esc(g.code)+'</span> · '+esc(g.ip)+'</span></div>'+
+      '<input type="text" class="nb-name" placeholder="'+T('Gerätename, z. B. Bad')+'" aria-label="'+T('Gerätename')+'">'+
+      '<button class="btn" data-nb="benennen">'+T('Benennen und einrichten')+'</button>'+
+      '<button class="btn ghost" data-nb="spaeter">'+T('Später')+'</button>'+mehr;
+    const inp=box.querySelector('.nb-name'), los=async()=>{
+      const name=inp.value.trim(); if(!name){ inp.focus(); return; }
+      if(await nameDevice(g.ip, name, g.code)){ NEU_NACH=name; neuWegMerken(g.key); NEU_SIG=''; }
+    };
+    box.querySelector('[data-nb="benennen"]').onclick=los;
+    inp.onkeydown=e=>{ if(e.key==='Enter') los(); };
+  } else {
+    box.innerHTML=sym+'<div class="nb-tx"><b>'+T('Neues Gerät verbunden:')+' '+esc(g.name)+'</b><span>'+esc(wo)+' · '+
+      T('zeigt die Standardansicht, noch keine zugeordnet')+'</span></div>'+
+      '<button class="btn" data-nb="einrichten">'+T('Einrichten')+'</button>'+
+      '<button class="btn ghost" data-nb="spaeter">'+T('Später')+'</button>'+mehr;
+    box.querySelector('[data-nb="einrichten"]').onclick=()=>neuGeraetEinrichten(g.name);
+  }
+  box.querySelector('[data-nb="spaeter"]').onclick=()=>{ neuWegMerken(g.key); NEU_SIG=''; neuBannerZeichnen(j); };
+}
 async function pollDevices(){
   try{
     const r=await fetch('/api/devices'); const j=await r.json();
@@ -5686,6 +5771,7 @@ async function pollDevices(){
     if(isNew||vorschlagNeu){ readDevFromDom(); renderDevices(); }   // neues Panel oder neuer Vorschlag -> Editor ergaenzen (Eingaben behalten)
     if(isNew) zielAuswahlAuffrischen();                             // Reiter Allgemein: neues Geraet als Zielgeraet anbieten
     mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
+    neuBannerZeichnen(j);  // nach DEVICE_SCREENS: "Geraet einrichten" braucht die Groesse des Geraets
   }catch(e){}
 }
 
@@ -5816,7 +5902,8 @@ function readDevFromDom(){
     DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
                          scale:sc?scaleValue(sc.value):'', presence:pr?pr.value:'',
                          tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):'',
-                         lichtStart:ls?ls.value:''};
+                         lichtStart:ls?ls.value:'',
+                         panel:(DEV[n.dataset.name]||{}).panel||''};   // Zuordnung (Schritt 2): setzt nur "Ansicht wechseln"
   });
 }
 function renderDevices(){
@@ -5858,8 +5945,9 @@ function devicesPayload(quelle=DEV){
     const presence=d.presence||'';
     const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
     const lichtStart=lichtStartAusWert(d.lichtStart);   // Stimmung beim Einschalten (Gesten)
-    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart){
+    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel){
       devices[name]={auto:d.auto!==false, modes};
+      if(d.panel) devices[name].panel=d.panel;
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;

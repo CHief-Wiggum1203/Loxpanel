@@ -2,9 +2,12 @@
 ?panel= zeigt "Dieses Geraet einrichten" mit seinem Code und der Adresse des
 Konfigurators, der Code bleibt ueber ein Neuladen, unter Displays steht
 dieselbe Zeile "Code ...", "Namen vergeben" dort benennt genau dieses Geraet
-(die Karte und der Code verschwinden), ein Browser mit ?panel= bekommt nur den
-Code ohne Karte, ein Tipp blendet die Karte aus, der Betriebsmodus-Assistent
-nennt den Code ebenfalls."""
+(die Karte und der Code verschwinden), ein Browser mit ?panel= bekommt Code und
+Karte ebenso (Einrichtung Schritt 1: ohne Kennung hat ihn niemand eingerichtet),
+ein Tipp blendet die Karte aus, der Betriebsmodus-Assistent nennt den Code
+ebenfalls. Der Konfigurator meldet ein Geraet ohne Kennung oben als Banner, in
+jeder Rubrik; "Benennen und einrichten" vergibt den Namen und oeffnet "Geraet
+einrichten" mit dem Geraet; "Spaeter" blendet das Banner fuer dieses Geraet aus."""
 import asyncio
 import json
 import re
@@ -79,8 +82,9 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
 
                 mit_profil = await visu("?panel=wohnen")               # ohne Kennung, aber mit Profil
                 await mit_profil.wait_for_function("localStorage.getItem('lp_kopplung')")
+                await mit_profil.wait_for_selector("#kopplung:not(.hidden)")
                 k3 = await mit_profil.evaluate(KARTE)
-                assert not k3["sichtbar"] and CODE.match(k3["gemerkt"]) and k3["gemerkt"] != code, k3
+                assert k3["sichtbar"] and CODE.match(k3["gemerkt"]) and k3["gemerkt"] != code, k3
                 await _bis(lambda: sorted(a["code"] for a in app.device_list()["anonymous"]) == sorted([code, k3["gemerkt"]]),
                            "beide Codes in der Geraeteliste")
 
@@ -143,3 +147,86 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
             await runner.cleanup()
         assert not fehler, fehler
     asyncio.run(lauf())
+
+
+BANNER = """() => { const b = document.getElementById('neuGeraet');
+  return {sichtbar: !b.hidden, text: b.innerText.replace(/\\s+/g, ' ').trim(),
+          code: (b.querySelector('.nb-code') || {}).textContent || '', rubrik: document.querySelector('.rub.active').dataset.rub}; }"""
+
+
+def test_banner_neues_geraet(cfg_ordner, tmp_path):
+    """Einrichtung neu, Schritt 1: Ein Tablet oeffnet die Visu ohne Kennung. Der
+    Konfigurator meldet es oben als Banner mit Klasse, Groesse und Code, in jeder
+    Rubrik. "Benennen und einrichten" vergibt den Namen; sobald das Tablet damit
+    zurueck ist, oeffnet sich "Geraet einrichten" mit dem Tablet als Geraet.
+    "Spaeter" blendet das Banner fuer dieses Geraet aus, auch nach dem Neuladen."""
+    (cfg_ordner / "panels.json").write_text(json.dumps(PANELS), encoding="utf-8")
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(anlage(BAUSTEINE))
+        app.states = {"sl": 0}
+        runner, port, bc = await visu_starten(app, ROUTEN + [("POST", "/api/panels", W.api_save_panels),
+                                                             ("POST", "/api/device/switch", W.api_device_switch)])
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                ctx = await b.new_context(viewport={"width": 1180, "height": 820})
+                tablet = await ctx.new_page()
+                tablet.on("pageerror", lambda e: fehler.append(str(e)))
+                await tablet.goto(f"http://127.0.0.1:{port}/")
+                await tablet.wait_for_selector("#kopplung:not(.hidden)")
+                code = (await tablet.evaluate(KARTE))["code"]
+                await _bis(lambda: any(i.get("screen") for i in app.conn_info.values()), "Tablet mit gemeldeter Groesse")
+
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.wait_for_selector("#neuGeraet:not([hidden])")
+                erg["uebersicht"] = await pg.evaluate(BANNER)
+                await pg.locator(".rub", has_text="Ansichten").click()
+                erg["ansichten"] = await pg.evaluate(BANNER)
+                await pg.screenshot(path=str(tmp_path / "banner_neues_geraet.png"))
+                await pg.locator("#neuGeraet .nb-name").fill("bad")
+                await pg.get_by_role("button", name="Benennen und einrichten").click()
+                await _bis(lambda: any(i.get("dev") == "bad" for i in app.conn_info.values()), "als bad neu verbunden")
+                await pg.wait_for_selector("#wzOv:not([hidden])", timeout=15000)
+                await pg.wait_for_function("WZ.device === 'bad'")
+                erg["wz"] = await pg.evaluate("[WZ.device, WZ.groesse && WZ.groesse.vw, wzFlow()[WZ.step],"
+                                              " !!document.querySelector('#wzBody [data-wgr=geraet][data-wgn=bad].on')]")
+                erg["nach_benennen"] = await pg.evaluate(BANNER)
+                await pg.screenshot(path=str(tmp_path / "banner_einrichten.png"))
+                await pg.locator("#wzX").click()
+                await pg.wait_for_selector("#wzOv", state="hidden")
+
+                # zweites Geraet ohne Kennung: "Spaeter" blendet es aus, auch nach dem Neuladen
+                ctx2 = await b.new_context(viewport={"width": 480, "height": 480})
+                klein = await ctx2.new_page()
+                await klein.goto(f"http://127.0.0.1:{port}/")
+                await klein.wait_for_selector("#kopplung:not(.hidden)")
+                await pg.wait_for_function("!document.getElementById('neuGeraet').hidden", timeout=15000)
+                erg["klein"] = await pg.evaluate(BANNER)
+                await pg.get_by_role("button", name="Später").click()
+                erg["spaeter"] = await pg.evaluate(BANNER)
+                await pg.reload()
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.wait_for_function("typeof NEU_SIG === 'string' && document.querySelectorAll('#ag_anon .ag[data-anon]').length === 1", timeout=15000)
+                erg["neu_geladen"] = await pg.evaluate(BANNER)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return code, erg
+    code, erg = asyncio.run(lauf())
+    u = erg["uebersicht"]
+    assert u["sichtbar"] and u["code"] == code and u["rubrik"] == "overview", u
+    assert u["text"].startswith("Neues Gerät gefunden: Tablet · 1180×820 quer"), u["text"]
+    assert erg["ansichten"]["sichtbar"] and erg["ansichten"]["rubrik"] == "pconf", erg["ansichten"]
+    assert erg["wz"] == ["bad", 1180, "geraet", True], erg["wz"]
+    assert not erg["nach_benennen"]["sichtbar"], erg["nach_benennen"]
+    assert erg["klein"]["sichtbar"] and erg["klein"]["text"].startswith("Neues Gerät gefunden: 4″-Wandpanel · 480×480 quadratisch"), erg["klein"]
+    assert not erg["spaeter"]["sichtbar"] and not erg["neu_geladen"]["sichtbar"], erg
