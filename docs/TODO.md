@@ -129,6 +129,54 @@ Form, es ist ein Umbau der Oberfläche.
       Gerätenamen ist vorgewählt, Name und Kennung kommen ans Ende. Tests in
       `tests/browser/test_geraet_einrichten_browser.py`. **L**
 
+## 0a2. Einrichtung neu
+
+Konzept vom 15.10.2026 (Analyse und Mockup „LoxPanel Einrichtung“): Der Weg
+„Gerät einrichten“ fragt auf fünf Bildschirmen 23 Wahlkarten, 19 Felder und
+10 Auswahllisten ab, bevor ein Gerät etwas zeigt; welche Ansicht ein Gerät
+zeigt, entscheiden sieben Orte. Beschlossen: drei Stationen, der Weg beginnt
+am Gerät, eine Frage („Was soll es zeigen?“), alles Weitere aus den Vorgaben,
+„Fertig“ heißt: es läuft. Das 4″-Panel bleibt ein eigener Fall (nur Raum
+oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
+
+- [x] **Schritt 1, das Gerät meldet sich.** Die Kopplungskarte „Dieses Gerät
+      einrichten“ bleibt bei Browsern ohne `?panel=` (mit `?panel=` nur der
+      Code, sonst läge sie nach jedem Neustart über der Visu). Der
+      Konfigurator meldet ein Gerät ohne Kennung
+      und ein frisch verbundenes ohne Zuordnung oben in jeder Rubrik als
+      Banner mit Klasse (4″-Wandpanel, Tablet, Display), Größe und Code;
+      „Benennen und einrichten“ vergibt den Namen und öffnet „Gerät
+      einrichten“ mit dem Gerät, „Später“ merkt es sich im Browser. Tests in
+      `tests/browser/test_kopplung_browser.py`. **S**
+- [x] **Schritt 2, eine Stelle entscheidet, was ein Gerät zeigt.**
+      `devices[name].panel` in `panels.json`; „Ansicht wechseln“ und „Start“
+      mit Ansicht schreiben sie, `ws_handler` zieht das Gerät beim Verbinden
+      darauf (egal was `?panel=` oder die kiosk.conf sagen), der Agent bekommt
+      sie mit seiner Meldung, ein Betriebsmodus überlagert sie nur, das
+      Speichern der Geräte lässt sie stehen. Tests in `tests/test_zuordnung.py`.
+      **M**
+- [ ] **Schritt 3, der eine Bildschirm „Was soll es zeigen?“.** Name (aus dem
+      Raum vorgeschlagen, zugleich Kennung), drei Karten (Raum, Haus, wie ein
+      anderes Gerät mit Raumtausch), Vorschau in echter Gerätegröße über
+      `/api/entwurf`; am 4″-Panel ohne Haus. „Fertig“ legt die Ansicht an,
+      speichert und ordnet zu, in einem Zug. Der sechsstufige Assistent
+      entfällt, „Leer anlegen“ und der Betriebsmodus-Assistent bleiben als
+      Nebenwege. **L**
+- [ ] **Schritt 4, die Gerätekarte auf fünf Zeilen.** Zeigt (Feinschliff),
+      Display, Betriebsmodi, Technik, Entfernen. Display-Regeln nur in den
+      Vorgaben und am Gerät, Skalierung und Zielkachel nur am Gerät; die
+      kiosk.conf verliert `PANEL` und `DPMS_OFF` als Pflicht; „Zielgerät“ der
+      Ansicht entfällt. **M**
+- [ ] **Schritt 5, „Gerät verbinden“ mit drei Wegen.** Eigener Bogen, je Weg
+      eine Zeile zum Kopieren (App, Kiosk-Browser, Linux-Agent), Start-Adresse
+      ohne Parameter, Agent-Befehl ohne `PANEL`/`AGENT_NAME`, Server-Adresse
+      immer die LAN-Adresse. **S**
+- [ ] **Schritt 6, die App bekommt ein Server-Feld.** Erster Start: eigener
+      Server auf dem Gerät oder Server im Netz; dann verhält sich die App wie
+      jedes andere Gerät. Android, eigener PR. **M**
+- [ ] Danach: Doku und Begriffe nachziehen („Kennung“ nur noch für die
+      Ansicht), Tests des alten Assistenten durch die des neuen Wegs ersetzen.
+
 ## 0b. Upstream-Abgleich
 
 Zuletzt eingepflegt am **13.10.2026** (`upstream/main` @ `c34320c`), als echter

@@ -189,9 +189,10 @@ def test_assistent_aus_dem_geraet(cfg_ordner, tmp_path):
                 await pg.locator("#wzNext").click()
                 await _bis(lambda: any((app.conn_prof.get(ws) or {}).get("id") == "flur" for ws, i in app.conn_info.items()
                                        if i.get("dev") == "tablet"), "das Tablet zeigt das neue Panel", sekunden=20)
-                assert "flur" in tablet.url, tablet.url
                 datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
                 assert datei["panels"]["flur"]["device"] == {"name": "tablet", "vw": 893, "vh": 533}, datei["panels"]["flur"]
+                # die Zuordnung des Geraets (Schritt 2), nicht die Adresse des Tablets, sagt, was es zeigt
+                assert datei["devices"]["tablet"]["panel"] == "flur", datei.get("devices")
                 assert datei["devices"]["tablet"]["tileTarget"] == W.KACHEL_ZIEL_STANDARD, datei.get("devices")
                 await pg.screenshot(path=str(tmp_path / "assistent_geraet_fertig.png"))
                 await b.close()

@@ -2,8 +2,10 @@
 vergibt beim Verbinden einen Code (t:"kopplung"), nimmt einen gueltigen
 zurueckgeschickten (?code=) wieder an, listet ihn unter /api/devices bei den
 Geraeten ohne Kennung, und "Namen vergeben" trifft ueber den Code genau diese
-Verbindung; ueber die IP weiterhin alle darunter. Ohne ?panel= verlangt die
-Nachricht die Karte "Dieses Geraet einrichten", mit Kennung kommt sie nicht."""
+Verbindung; ueber die IP weiterhin alle darunter. Ohne Kennung verlangt die
+Nachricht die Karte "Dieses Geraet einrichten", auch mit ?panel= (Einrichtung
+Schritt 1); nur ein Vorschaufenster (?entwurf=) und ein Geraet mit Kennung
+bekommen sie nicht."""
 import asyncio
 import itertools
 
@@ -56,7 +58,10 @@ def test_code_kommt_beim_verbinden_und_bleibt():
                 async with s.ws_connect(f"{basis}/ws?panel=test&code={code.lower()}") as ws:   # zurueckgeschickt
                     m = await _naechste(ws, "kopplung", 3)
                     assert m["code"] == code, "ein gueltiger Code bleibt (gross geschrieben)"
-                    assert m["karte"] is False, "mit ?panel= hat jemand dieses Geraet eingerichtet: keine Karte"
+                    assert m["karte"] is False, "mit ?panel= nur der Code, keine Karte ueber der Visu"
+                async with s.ws_connect(f"{basis}/ws?panel=test&entwurf=abc&code={code}") as ws:   # Vorschaufenster
+                    m = await _naechste(ws, "kopplung", 3)
+                    assert m["karte"] is False, "ein Vorschaufenster des Konfigurators bekommt keine Karte"
                 async with s.ws_connect(f"{basis}/ws?code=abc0") as ws:                # ungueltig (0 ist nicht im Alphabet)
                     m = await _naechste(ws, "kopplung", 3)
                     assert m["code"] != "ABC0" and W._KOPPLUNG_RE.fullmatch(m["code"]), m

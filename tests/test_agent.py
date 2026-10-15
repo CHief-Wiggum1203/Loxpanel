@@ -699,18 +699,22 @@ def _meldung(ip: str, name: str = "linaro", **mehr) -> dict:
 
 
 def test_agent_wird_ueber_die_ip_zugeordnet(cfg_ordner):
-    """Geklonte Panels melden denselben Hostnamen. Die Wahl gilt dem Agenten
-    der Zeile unter Displays (ihre IP), nicht irgendeinem mit dem Namen."""
+    """Geklonte Panels melden denselben Hostnamen. Der Befehl geht an den Agenten
+    der Zeile unter Geraete (ihre IP); die Wahl ist aber die Zuordnung des
+    Geraets (Einrichtung Schritt 2), und die haengt am Namen: der zweite Agent
+    mit demselben Namen bekommt sie mit seiner naechsten Meldung ebenso. Zwei
+    Panels, die verschieden zeigen sollen, brauchen verschiedene Namen."""
     async def lauf(w: Wand):
         for ip in ("10.0.0.11", "10.0.0.12"):
             await w.post("/api/agent/announce", _meldung(ip))
         ws, _ = await w.verbinden("?panel=day&device=linaro")
         j = await w.post("/api/device/switch", {"device": "linaro", "ip": "10.0.0.12", "panel": "night"})
         assert j["agent"] == "announce"
+        assert w.app.agent_wunsch == {"10.0.0.12": "night"}, "der Befehl gilt der Zeile"
         r12 = await w.post("/api/agent/announce", _meldung("10.0.0.12"))
         r11 = await w.post("/api/agent/announce", _meldung("10.0.0.11"))
         assert (r12.get("panel"), r12["dpmsOff"], r12["reloadHours"]) == ("night", 30, 1)
-        assert ("panel" in r11, r11["dpmsOff"]) == (False, 300)
+        assert (r11.get("panel"), r11["dpmsOff"]) == ("night", 30), "die Zuordnung gilt dem Namen"
         await ws.close()
     asyncio.run(_server(cfg_ordner, lauf))
 

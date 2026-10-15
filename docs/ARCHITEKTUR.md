@@ -358,7 +358,7 @@ Server → Browser (`panel.html:700`):
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
-| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=`: dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026) |
+| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026) |
 
 Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
@@ -779,7 +779,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl und hebt `last_mode` für das Gerät auf, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
 | GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
-| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf. Mit `entwurf` (Token von `/api/entwurf`, Punkt 12) zeigt das Gerät einen ungespeicherten Entwurf: nur über eine verbundene Visu (sonst „Keine verbundene Visu“), das Profil muss nicht gespeichert sein, Antwort `zurueck` = Profil davor | Einstellungen, Konfigurator |
+| POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`) – das ist die Zuordnung des Geräts (`devices[name].panel`, gespeichert; leer = Standardansicht, ein Gerät ohne andere Einstellungen entsteht dabei; nicht online: `ok` mit `offline`, es zeigt sie beim Verbinden): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf. Mit `entwurf` (Token von `/api/entwurf`, Punkt 12) zeigt das Gerät einen ungespeicherten Entwurf: nur über eine verbundene Visu (sonst „Keine verbundene Visu“), das Profil muss nicht gespeichert sein, Antwort `zurueck` = Profil davor | Einstellungen, Konfigurator |
 | POST | `/api/vorschau/beenden` | `api_vorschau_beenden` | Vorschau am Gerät beenden `{device}`: es kehrt zum Profil davor zurück, `beendet` sagt, ob eine Visu zurückgeschaltet wurde | Konfigurator |
 | POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen: `{code, name}` trifft genau die Verbindung mit diesem Kopplungscode, `{ip, name}` alle ohne Kennung unter der IP; Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
@@ -992,7 +992,12 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
   },
   "devices": {
     "<Gerätename>": {
-      "auto": true, "modes": {"<Modusname>": "<panel-id>"},
+      "panel": "<panel-id>",                 // die Ansicht, die das Gerät zeigt (Einrichtung neu, Schritt 2):
+                                             // die eine Stelle dafür. Schreibt „Ansicht wechseln“ und „Start“
+                                             // mit Ansicht; ws_handler zieht das Gerät beim Verbinden darauf,
+                                             // egal was ?panel= oder die kiosk.conf sagen; der Agent bekommt
+                                             // sie mit seiner Meldung. Fehlt = das Gerät folgt seiner Adresse
+      "auto": true, "modes": {"<Modusname>": "<panel-id>"},   // Betriebsmodi überlagern die Zuordnung nur
       "display": {"driver": "fully", "host": "192.168.1.60", "port": 2323, "password": "..."},  // optional; auch "wallpanel" (Port 2971)
                                              // Kennwort verlässt den Server nicht: /api/meta nennt nur hasPass
       "scale": "off",                        // optional; übersteuert Profil und global ("off" | "auto" | Faktor)
@@ -2677,7 +2682,13 @@ mit `{name, panel, ip, port, kiosk, features}`. Die Antwort trägt `dpmsOff` und
 `reloadHours` aus dem Panel-Profil, die der Agent lokal anwendet. Steht `panel`
 darin, übernimmt der Agent diese Ansicht ohne Chromium-Neustart in `_cur_panel`
 und die State-Datei und meldet sie ab dann; `features: ["panel"]` sagt dem
-Server, dass er das kann.
+Server, dass er das kann. Seit der Einrichtung neu (Schritt 2) nennt die
+Antwort `panel` auch ohne offene Wahl, sobald der Agent etwas anderes meldet
+als die Ansicht, die dem Gerät zusteht (`ansicht_fuer_geraet()`: laufender
+Betriebsmodus, sonst die Zuordnung `devices[name].panel`): Ein Panel, das mit
+altem `PANEL` in der kiosk.conf neu startet, landet so wieder auf seiner
+Ansicht. Die Zuordnung hängt am Namen; zwei geklonte Panels mit demselben
+Hostnamen zeigen deshalb dasselbe und brauchen verschiedene `AGENT_NAME`.
 
 **Ansicht wechseln unter Displays:** Die Visu wechselt per WebSocket-Push (lädt
 sich mit `?panel=` neu). Bis Oktober 2026 erfuhr der Agent davon nichts: Er
@@ -2771,9 +2782,18 @@ Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
 konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
 eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
 Neu laden, Display aus/an). Browser ohne Kennung werden mit ihrem
-Kopplungscode gelistet (Nachricht `kopplung`, §3.2): Das Panel zeigt ihn ohne
-`?panel=` unter „Dieses Gerät einrichten“, und „Namen vergeben“ neben dem
-Code trifft genau dieses Gerät, auch bei mehreren hinter einer IP. Die Visu
+Kopplungscode gelistet (Nachricht `kopplung`, §3.2): Das Panel zeigt ihn unter
+„Dieses Gerät einrichten“ (nur ohne `?panel=` in der Adresse; mit `?panel=`
+behält es den Code, zeigt aber keine Karte über der Visu), und „Namen
+vergeben“ neben dem Code trifft genau dieses Gerät, auch
+bei mehreren hinter einer IP. Der Konfigurator wartet nicht, bis jemand unter
+Geräte nachsieht: `neuBannerZeichnen()` meldet ein Gerät ohne Kennung und ein
+frisch verbundenes ohne Zuordnung, das die Standardansicht zeigt, oben in
+jeder Rubrik als Banner „Neues Gerät gefunden“ mit Klasse (`geraeteKlasse()`:
+480×480 = 4″-Wandpanel, groß = Display, sonst Tablet), Größe und Code.
+„Benennen und einrichten“ vergibt den Namen und öffnet „Gerät einrichten“ mit
+dem Gerät, sobald es damit zurück ist; „Später“ merkt sich das Gerät im Browser
+(`lp_neu_weg`). Die Visu
 meldet ihre Kiosk-App in der WebSocket-URL,
 `kiosk=fully` in Fully Kiosk und `kiosk=loxpanel` in der LoxPanel-App; der
 Server übernimmt nur diese beiden (`KIOSK_APPS`), alles andere gilt als
