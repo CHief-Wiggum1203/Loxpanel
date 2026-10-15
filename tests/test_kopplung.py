@@ -60,8 +60,9 @@ def test_code_kommt_beim_verbinden_und_bleibt():
                     assert m["code"] == code, "ein gueltiger Code bleibt (gross geschrieben)"
                     assert m["karte"] is False, "mit ?panel= nur der Code, keine Karte ueber der Visu"
                 async with s.ws_connect(f"{basis}/ws?panel=test&entwurf=abc&code={code}") as ws:   # Vorschaufenster
-                    m = await _naechste(ws, "kopplung", 3)
-                    assert m["karte"] is False, "ein Vorschaufenster des Konfigurators bekommt keine Karte"
+                    assert await _naechste(ws, "theme", 3)
+                    assert await _naechste(ws, "kopplung", 0.5) is None, "ein Vorschaufenster des Konfigurators ist kein Geraet"
+                    assert [a["code"] for a in app.device_list()["anonymous"]] == [], "... und steht nicht in der Geraeteliste"
                 async with s.ws_connect(f"{basis}/ws?code=abc0") as ws:                # ungueltig (0 ist nicht im Alphabet)
                     m = await _naechste(ws, "kopplung", 3)
                     assert m["code"] != "ABC0" and W._KOPPLUNG_RE.fullmatch(m["code"]), m

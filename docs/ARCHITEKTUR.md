@@ -358,7 +358,7 @@ Server → Browser (`panel.html:700`):
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
-| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026) |
+| `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026). Ein Vorschaufenster des Konfigurators (`?entwurf=`, auch mit abgelaufenem Token) bekommt keine Nachricht und keinen Code und steht nicht unter `anonymous` (`conn_info.vorschau`) |
 
 Browser → Server (`ws_handler`, `webvisu.py:2991`):
 
@@ -2293,12 +2293,49 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
     für „erbt“. Damit die Ansicht die Geräte richtig nennt, folgt `DEV` jeder
     Eingabe auf der Gerätekarte (`readDevFromDom()`).
   - `test_vererbung_browser.py` hält das fest.
-- **Gerät einrichten** (seit 10.10.2026, Schritt 7): ein Weg vom Gerät bis zur
-  fertigen Ansicht, der Assistent `wz*` in neuer Ordnung. Er öffnet sich aus der
-  Übersicht (`#ovGeraetEinrichten`, Kasten „Gerät einrichten“), unter Geräte
-  (`#geraetEinrichtenBtn`), über „＋ Neue Ansicht“ und nach der Ersteinrichtung
-  („Gerät einrichten“ in `#einrOk`). Sechs Schritte (`WZ_SCHRITTE`), die Leiste
-  oben zeigt erledigte, den jetzigen und die entfallenden:
+- **Gerät einrichten, ein Bildschirm** (seit 15.10.2026, Einrichtung neu
+  Schritt 3): `#geOv`, `geOpen(name)`, Zustand `GE`. Öffnet sich aus dem Banner
+  „Neues Gerät gefunden“ (mit dem Gerät), aus der Übersicht
+  (`#ovGeraetEinrichten`, Kasten „Gerät einrichten“), unter Geräte
+  (`#geraetEinrichtenBtn`), nach der Ersteinrichtung (`#einrAssistent`) und über
+  „＋ Neue Ansicht“ (`#addBtn`, dann ohne Gerät: „Ansicht anlegen“ statt
+  „Fertig – auf … anzeigen“, danach der Editor). Der Kopf nennt Gerät, Klasse
+  (`geraeteKlasse()`) und Größe aus `DEVICE_SCREENS`. Links der Name der Ansicht
+  (`geNameVorschlag()`: der Raum zum Gerätenamen über `wzRaumFuer()`, sonst
+  „Haus“, bei der Kopie der Zielraum oder die Vorlage, sonst das Gerät; die
+  Kennung folgt mit `idAusName()`, also eindeutig) und die Frage „Was soll es
+  zeigen?“ mit vier Karten (`geKarte()`, `GE.art`): *Einen Raum* (Raum-Auswahl,
+  Ansicht `tabs: ["room:<uuid>"]`), *Das ganze Haus* (Aufbau aus
+  `META.hausAufbauten`, Ansicht `tabs: ["haus","favoriten"]`; am 4″-Wandpanel,
+  `LoxRaster.quadratisch`, gesperrt), *Wie ein anderes Gerät* (Vorlage = jede
+  Ansicht, beschriftet mit den Geräten, die sie zeigen, aus `DEVICE_ZUORDNUNG`;
+  Raumtausch nach dem Raum zum Gerätenamen, `profilMitRaumtausch()`,
+  `geKopieInfo()`) und *Selbst zusammenstellen* (`geSelbst()`: der ausführliche
+  Assistent `wzOpen()`, das Gerät schon gewählt, beim Schritt Ansicht).
+  `geProfil()` baut die Ansicht: am quadratischen Gerät `ui.split=false` (ein
+  Pane, festes 2 × 2), sonst `ui.grid="auto"`, dazu `device` mit Größe; alles
+  Weitere kommt aus den Vorgaben. Rechts die echte Visu als Vorschau: `geVorschau()`
+  schickt den Entwurf an `POST /api/entwurf` (eigener Token in `GE.token`, 350 ms
+  nach der letzten Änderung), der iframe `#geFrame` zeigt `/?panel=<id>&entwurf=…`
+  in der gemeldeten Größe und `geVorschauMass()` verkleinert ihn per `transform`
+  auf den Platz (die Visu rechnet ihr Raster für die echte Größe); gleicher Token
+  und gleiche Kennung: der Server lädt die Visu im iframe selbst neu. Ein
+  Vorschaufenster ist kein Gerät (`conn_info.vorschau`, kein Code, nicht unter
+  `anonymous`), und die Visu startet dort mit dem Inhalt statt der Uhr-Seite
+  (`panel.html`, `ENTWURF`). „Fertig – auf … anzeigen“ (`geFertig()`) trägt die
+  Ansicht in `PANELS` ein und ruft `wzAmGeraet()`: speichern, dann
+  `/api/device/switch` (die Zuordnung, Schritt 2; ein Gerät, das nicht verbunden
+  ist, zeigt sie beim Verbinden). Schließen (`geClose()`, ✕, Abbrechen, Esc,
+  Klick daneben) ersetzt den iframe, damit keine Verbindung ohne Kennung stehen
+  bleibt, wenn die Visu darin gerade selbst navigiert. „Leer anlegen“ bleibt
+  (`createBlankPanel()`). `test_geraet_einrichten_browser.py` hält den Weg fest:
+  Tablet aus dem Banner, Raum, Haus, Kopie mit Raumtausch, Fertig mit Zuordnung,
+  4″-Panel ohne Haus, „＋ Neue Ansicht“, die vierte Karte.
+- **Selbst zusammenstellen, der ausführliche Assistent** (seit 10.10.2026 als
+  „Gerät einrichten“ Schritt 7, seit 15.10.2026 nur noch über die vierte Karte
+  des Bildschirms oben, `geSelbst()` → `wzOpen()`): der Assistent `wz*` mit
+  sechs Schritten (`WZ_SCHRITTE`), die Leiste oben zeigt erledigte, den jetzigen
+  und die entfallenden:
   1. Miniserver: erledigt, sobald der Assistent aufgeht; ohne Struktur führt
      `wzOpen()` zu Einstellungen → Miniserver.
   2. Gerät: ein gemeldetes, dieser Browser, ein Katalogeintrag oder „Ohne Gerät“,
@@ -2328,7 +2365,9 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
      „Auf … ansehen“ (`wzEntwurf()` baut neu oder Kopie ohne Anlegen), dann
      „Ansicht anlegen“ oder „Zuweisen“ (`wzBuild()`).
   „Weiter zu Prüfen“ (`#wzFertig`) überspringt das Aussehen, sobald der Inhalt
-  steht. `test_geraet_einrichten_browser.py` hält die drei Wege fest.
+  steht. Die Tests öffnen ihn direkt (`wzOpen()`): `test_assistent_geraet_browser.py`,
+  `test_assistent_vorschlag_browser.py`, `test_seiten_editor_browser.py`,
+  `test_vorschau_geraet_browser.py` u. a.
 - **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
   eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
   Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,

@@ -255,13 +255,13 @@ def test_betriebsmodus_assistent_ausweg_und_benennen():
         await pg.locator("#mzOpenBtn").click()
         assert "?device=<name>" in await pg.locator("#mzBody").inner_text()
         await pg.locator("#mzX").click()
-        # Neues Panel: ✕ und Esc
-        wz = """() => !document.getElementById('wzOv').hidden"""
+        # Neue Ansicht ("Gerät einrichten" ohne Geraet): ✕ und Esc
+        ge = """() => !document.getElementById('geOv').hidden"""
         await pg.locator("#addBtn").click()
-        assert await pg.evaluate(wz)
-        await pg.locator("#wzX").click()
-        assert not await pg.evaluate(wz)
+        assert await pg.evaluate(ge)
+        await pg.locator("#geX").click()
+        assert not await pg.evaluate(ge)
         await pg.locator("#addBtn").click()
         await pg.keyboard.press("Escape")
-        assert not await pg.evaluate(wz)
+        assert not await pg.evaluate(ge)
     _im_konfigurator(ablauf)

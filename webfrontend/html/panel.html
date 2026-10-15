@@ -6131,7 +6131,9 @@ setInterval(neuladenPruefen, 60*1000);
 // Server-Ereignis, das Aufmerksamkeit braucht: Display an, Uhr weg, Timer neu.
 function wake(){ screenOn(); nightWake(); hideSaver(); resetIdle(); }
 setInterval(tickClock, 1000);
-showSaver();     // Startseite = Uhr
+// Startseite = Uhr; ein Vorschaufenster (?entwurf=, Konfigurator "Geraet einrichten"
+// und Editor) zeigt gleich den Inhalt - dort will jemand die Ansicht sehen, nicht die Uhr
+if(ENTWURF) hideSaver(); else showSaver();
 resetIdle();
 
 connect();

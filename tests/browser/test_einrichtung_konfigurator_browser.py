@@ -118,8 +118,8 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
             verbunden = await pg.evaluate(ZUSTAND)
             await pg.screenshot(path=str(tmp_path / "einrichtung_verbunden.png"))
             await pg.click("#einrAssistent")     # Schritt 1 erledigt: weiter mit Gerät einrichten
-            weiter = await pg.evaluate("[document.getElementById('wzOv').hidden, wzFlow()[WZ.step]]")
-            await pg.evaluate("wzClose()")
+            weiter = await pg.evaluate("[document.getElementById('geOv').hidden, rubric]")
+            await pg.evaluate("geClose()")
             # Gemeldet am Tablet: ohne Neuladen blieb die Raumliste leer ("alle 0 sichtbar")
             await pg.locator(".rub", has_text="Ansichten").click()
             await pg.locator(".stab", has_text="Inhalt").click()
@@ -144,7 +144,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
                          "neuesPanel": False, "liste": False, "hinweis": False, "stand": "",
                          "weiter": "Bausteine geladen: 2. Alle Bereiche sind jetzt offen.",
                          "pane": ["miniserver"]}
-    assert weiter == [False, "geraet"], weiter
+    assert weiter == [False, "overview"], weiter
     assert raeume == ("alle 2 sichtbar", ["Technikraum", "Zentral"]), "Raeume frisch vom Server"
 
 

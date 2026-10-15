@@ -155,13 +155,21 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       sie mit seiner Meldung, ein Betriebsmodus überlagert sie nur, das
       Speichern der Geräte lässt sie stehen. Tests in `tests/test_zuordnung.py`.
       **M**
-- [ ] **Schritt 3, der eine Bildschirm „Was soll es zeigen?“.** Name (aus dem
-      Raum vorgeschlagen, zugleich Kennung), drei Karten (Raum, Haus, wie ein
-      anderes Gerät mit Raumtausch), Vorschau in echter Gerätegröße über
-      `/api/entwurf`; am 4″-Panel ohne Haus. „Fertig“ legt die Ansicht an,
-      speichert und ordnet zu, in einem Zug. Der sechsstufige Assistent
-      entfällt, „Leer anlegen“ und der Betriebsmodus-Assistent bleiben als
-      Nebenwege. **L**
+- [x] **Schritt 3, der eine Bildschirm „Was soll es zeigen?“.** `#geOv`
+      (`geOpen()`): Name (aus dem Raum zum Gerätenamen vorgeschlagen, die
+      Kennung folgt), drei Karten (Raum, Haus, wie ein anderes Gerät mit
+      Raumtausch), die echte Visu als Vorschau in der gemeldeten Gerätegröße
+      über `/api/entwurf` im skalierten iframe; am 4″-Panel ohne Haus, dort ein
+      Pane mit festem 2 × 2, sonst rechnet das Gerät das Raster selbst. „Fertig –
+      auf … anzeigen“ legt die Ansicht an, speichert und ordnet zu, in einem Zug.
+      Alle Einstiege (Banner, Übersicht, Geräte, Ersteinrichtung, „＋ Neue
+      Ansicht“) führen dorthin; „Leer anlegen“ und der Betriebsmodus-Assistent
+      bleiben. Der sechsstufige Assistent hängt als vierte Karte „Selbst
+      zusammenstellen“ daran (klassische Leiste, freie Seiten, eigenes
+      Aussehen) – zwölf Browser-Tests prüfen darüber Vorrechnung,
+      Seiten-Editor und Vorschau am Gerät; ihn ganz abzubauen ist ein eigener
+      Schritt, sobald diese Wege im Editor unter Ansichten geprüft sind. Test:
+      `tests/browser/test_geraet_einrichten_browser.py`. **L**
 - [ ] **Schritt 4, die Gerätekarte auf fünf Zeilen.** Zeigt (Feinschliff),
       Display, Betriebsmodi, Technik, Entfernen. Display-Regeln nur in den
       Vorgaben und am Gerät, Skalierung und Zielkachel nur am Gerät; die
