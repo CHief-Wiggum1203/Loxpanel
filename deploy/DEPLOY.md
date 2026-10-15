@@ -73,12 +73,14 @@ curl -s localhost:8099 | head -c 60        # liefert HTML?
 
 ## 5) Kiosk-Autostart
 
-Erst Server-Adresse + Panel-ID in die panel-lokale Konfig (keine IP im Startbefehl):
+Erst die Server-Adresse in die panel-lokale Konfig (keine IP im Startbefehl;
+`PANEL` ist nur noch die Startansicht, bis der Konfigurator dem Gerät eine
+Ansicht zuordnet):
 ```bash
 cp /opt/loxpanel/deploy/loxpanel-kiosk.conf.example /opt/loxpanel/deploy/loxpanel-kiosk.conf
-nano /opt/loxpanel/deploy/loxpanel-kiosk.conf   # SERVER=<ip:port>, PANEL=<profil-id>
+nano /opt/loxpanel/deploy/loxpanel-kiosk.conf   # SERVER=<ip:port>
 ```
-`kiosk.sh` liest daraus die URL (`http://<SERVER>/?panel=<PANEL>`). Server-IP
+`kiosk.sh` liest daraus die URL (`http://<SERVER>/`, mit `PANEL` `?panel=<PANEL>`). Server-IP
 aendern = nur diese Datei anpassen, Autostart bleibt unveraendert. Test von Hand:
 ```bash
 DISPLAY=:0 bash /opt/loxpanel/deploy/kiosk.sh

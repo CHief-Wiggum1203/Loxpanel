@@ -5,6 +5,15 @@ Aufgaben, und die Visu selbst steuert das Display. Damit eignen sich
 Android-Wandpanels, Tablets in einer Wandhalterung und das SONOFF NSPanel Pro
 als Anzeigegeräte.
 
+Der einfachste Weg ist die **LoxPanel-App** (APK vom Release): Sie fragt beim
+ersten Start, wo der Server läuft. „Auf diesem Gerät“ startet ihn in der App,
+„Im Netz“ zeigt die Visu eines vorhandenen Servers; die Adresse dafür steht im
+Konfigurator unter *Geräte → Gerät verbinden*. Danach meldet der Konfigurator
+das Gerät unter „Neues Gerät gefunden“ und vergibt Namen und Ansicht; Display
+und Nachtmodus regelt die App selbst, Gegensprechen nur mit dem Server auf dem
+Gerät (`android/README.md`). Der Rest dieser Seite beschreibt Fully Kiosk,
+WallPanel und einen normalen Browser.
+
 ## Was ohne Agent funktioniert
 
 | Funktion | Android mit Kiosk-App | Linux mit Agent |
@@ -42,10 +51,12 @@ JavaScript-Schnittstelle und die Fernverwaltung brauchen die kostenpflichtige
 PLUS-Lizenz (einmalig pro Gerät), ohne sie läuft die Visu trotzdem, nur ohne
 Display-Steuerung.
 
-1. **Start-URL** setzen:
-   `http://<server-ip>:8099/?panel=<profil-id>&device=<gerätename>`
-   Der Gerätename ist frei wählbar und erscheint unter *Displays*.
-   Ohne `panel=` startet das Profil `default`.
+1. **Start-URL** setzen: `http://<server-ip>:8099/` – ohne Parameter. Der
+   Konfigurator meldet das Gerät oben („Neues Gerät gefunden“, mit dem Code,
+   den das Gerät zeigt); „Benennen und einrichten“ vergibt den Namen und
+   die Ansicht. Die fertige Zeile zum Kopieren steht im Konfigurator unter
+   Geräte → „Gerät verbinden“. Eine ältere Adresse mit
+   `?panel=<kennung>&device=<name>` funktioniert weiter.
 2. **JavaScript-Schnittstelle aktivieren:** *Advanced Web Settings → Enable
    JavaScript Interface (PLUS)*. Ohne diesen Schalter gibt es kein
    `window.fully`, und die Seite kann das Display nicht schalten.
@@ -105,7 +116,7 @@ JavaScript-Schnittstelle in der Seite, dafür einen HTTP-Server. Einrichtung:
 1. In WallPanel unter *Einstellungen → HTTP* den Server einschalten (Port
    2971) und unter *Bildschirmschoner* die gewünschte Abschaltung nach
    Inaktivität wählen (Dimmen oder Schwarz).
-2. Start-URL wie oben mit `?panel=&device=` eintragen.
+2. Start-URL wie oben eintragen (`http://<server-ip>:8099/`).
 3. In LoxPanel beim Gerät den Display-Treiber „WallPanel (HTTP)" mit IP und
    Port 2971 eintragen.
 
@@ -157,11 +168,12 @@ dort wirkt der Präsenzmelder nicht.
 
 ## Start-URL aus dem Konfigurator
 
-Unter *Geräte → ＋ Gerät einrichten*, Schritt *Gerät* → *Neues Gerät
-verbinden* → *Start-Adresse oder Agent*, gibt es für Android-Geräte einen
-Generator: Gerätename und Startansicht wählen, „Start-URL erzeugen", kopieren
-und in die Kiosk-App eintragen. Sobald sich das Gerät meldet, steht es im
-selben Schritt zur Wahl und der Assistent führt weiter bis zur Ansicht.
+Unter *Geräte → Gerät verbinden* steht je Weg eine Zeile zum Kopieren: die
+Server-Adresse für das Feld der LoxPanel-App, die Start-URL ohne Parameter für
+Fully Kiosk, WallPanel oder einen Browser, der Installationsbefehl für ein
+Linux-Panel mit Agent. Sobald sich das Gerät meldet, zeigt der Konfigurator
+es als „Neues Gerät gefunden“ mit dem Code, den das Gerät zeigt; „Benennen
+und einrichten“ vergibt Namen und Ansicht.
 
 ## Testen ohne Kauf
 

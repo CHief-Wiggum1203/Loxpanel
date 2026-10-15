@@ -2340,10 +2340,10 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
      `wzOpen()` zu Einstellungen → Miniserver.
   2. Gerät: ein gemeldetes, dieser Browser, ein Katalogeintrag oder „Ohne Gerät“,
      dazu die Vorschläge je Gerät ohne Ansicht. „Neues Gerät verbinden“ leiht sich
-     die Geräte ohne Kennung (`#ag_anon_karte`, Code am Panel) und Start-Adresse
-     oder Agent (`#neuesGeraet`, zu Hause in `#wzHeim` unter Geräte, unsichtbar)
-     mit `wzLeihen()`; `wzZurueckgeben()` stellt sie vor jedem Neuzeichnen und beim
-     Schließen zurück, dieselben Knoten, Eingaben und Ereignisse bleiben. Meldet
+     die Geräte ohne Kennung (`#ag_anon_karte`, Code am Panel) mit `wzLeihen()`;
+     `wzZurueckgeben()` stellt sie vor jedem Neuzeichnen und beim Schließen
+     zurück, dieselben Knoten, Eingaben und Ereignisse bleiben; „＋ Gerät
+     verbinden“ (`#wzVerbinden`) öffnet den Bogen `gvOpen()`. Meldet
      sich ein neues Gerät, zeichnet die Abfrage den Schritt neu
      (`wzGeraeteNachziehen()`).
   3. Ansicht (`WZ.art`): neu anlegen, eine vorhandene zuweisen (braucht ein Gerät;
@@ -2395,8 +2395,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   jemand wählt), die Werte der übrigen Zeilen folgen der Abfrage und jeder
   Eingabe (`gzWerteZeichnen()`). Nur Eingaben in den Editoren melden `geraete`
   bei der Speicherleiste, die Auswahl der Ansicht schaltet live. Darunter:
-  Geräte ohne Kennung (`#ag_anon`), „Neues Gerät verbinden“ (zu Hause in
-  `#wzHeim`, geliehen vom ausführlichen Assistenten) und „Erprobte Hardware“.
+  Geräte ohne Kennung (`#ag_anon`) und „Erprobte Hardware“; „＋ Gerät
+  verbinden“ (`#geraetVerbindenBtn`) öffnet den Bogen mit den drei Wegen.
   Der Nachtmodus steht unter Vorgaben → Nacht. `test_geraetekarte_browser.py`
   hält die fünf Zeilen fest.
 - **„Display aus nach“ in den Vorgaben und am Gerät** (seit 15.10.2026,
@@ -2408,6 +2408,25 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   älteren Fassung, nennt der Reiter ihn mit „Eintrag entfernen“, und die
   Gerätekarte nennt ihn als Herkunft. Der ausführliche Assistent schreibt kein
   `dpmsOff` mehr. `tests/test_display_geraet.py`.
+- **Gerät verbinden, drei Wege** (seit 15.10.2026, Einrichtung neu Schritt 5):
+  `#gvOv`, `gvOpen()`, aus Geräte (`#geraetVerbindenBtn`), der Übersicht
+  (`data-goto="verbinden"`) und dem ausführlichen Assistenten (`#wzVerbinden`).
+  Drei Karten (`gvWeg()`), je eine Zeile zum Kopieren (`data-gv-copy`,
+  Zwischenablage): die Server-Adresse für die LoxPanel-App, die Start-Adresse
+  `http://<host>/` ohne Parameter für Fully Kiosk, WallPanel oder einen
+  Browser (Namen und Ansicht vergibt der Konfigurator über das Banner), und
+  `curl -fsSL http://<host>/install-agent.sh | SERVER=<host> bash` für ein
+  Linux-Panel, ohne `PANEL` und `AGENT_NAME` (Ansicht und Display kommen vom
+  Server, der Name vom Hostnamen). `gvHost()` nimmt die LAN-Adresse aus
+  `/api/meta` `adressen` (`_lan_adressen()`) und den Port dieses Fensters,
+  damit die Zeilen auch stimmen, wenn der Konfigurator über 127.0.0.1 läuft;
+  ohne Route ins Netz die Adresse des Fensters, mit Hinweis. Der Fuß
+  (`gvStandZeichnen()`) wartet auf ein neues Gerät: dieselbe Quelle wie das
+  Banner (`neueGeraete()`, gemerkt in `NEU_LETZTE`), „Weiter mit Einrichten“
+  schließt den Bogen und setzt den Fokus ins Namensfeld des Banners. Der
+  frühere Block „Neues Gerät verbinden“ (Start-URL-Generator mit Gerätename
+  und Startansicht, SSH-Befehl mit `PANEL`/`AGENT_NAME`, `#wzHeim`) ist weg.
+  `tests/browser/test_geraet_verbinden_browser.py`.
 - **Skalierung, Zielkachel und Nacht nur am Gerät** (seit 15.10.2026,
   Einrichtung neu Schritt 4b): Die Felder Skalierung (Vorgaben → Darstellung,
   Ansicht → Raster), Zielkachel (Ansicht → Raster) und Nacht (Ansicht →
@@ -2670,9 +2689,8 @@ Miniserver (mit Link auf `/api/types`), Kamera/Türstation, SIP (Zugang je
 Intercom aus dem Miniserver, „Verbindung prüfen“; lädt erst beim Öffnen,
 `loadSip()`), Audio (Testton, Audioserver-Live-Daten), Kalender & Wetter
 (iCal-Abos, Wetter der Uhr-Seite), Sicherung (Herunterladen und Einspielen).
-Die Anzeigegeräte stehen in der eigenen Rubrik „Geräte", dort seit Schritt 4
-auch „Neues Gerät einrichten“ (Start-URL für Kiosk-Apps, SSH-Befehl für
-Linux-Geräte; `data-goto="displays:neuesGeraet"` klappt ihn auf). Zu einem Reiter führen
+Die Anzeigegeräte stehen in der eigenen Rubrik „Geräte", dort auch „Gerät
+verbinden“ (Bogen mit drei Wegen, `data-goto="verbinden"` aus der Übersicht). Zu einem Reiter führen
 die Kacheln der Übersicht (`data-goto="settings:<reiter>"`) oder die
 Reiterleiste; einen Anker in der URL (`/config#panels`) wertet die Seite nicht
 aus, sie öffnet die Übersicht (ohne Struktur Einstellungen → Miniserver, siehe
@@ -2913,9 +2931,34 @@ Verbindung setzte die Frist zurück. Geprüft mit gestellter Uhr in
 `tests/browser/test_neuladen_browser.py`, Server-Seite in
 `tests/test_neuladen.py`.
 
-**Stabilität der App:** Der Server-Dienst (`ServerService`) startet Server und
-Wächter je Prozess einmal (Anzeige, BootReceiver und Android starten den Dienst
-mehrfach). Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
+**Server der App (Schritt 6 des Umbaus):** Beim ersten Start fragt die App
+(`ServerActivity`), wo der Server läuft, bevor die Anzeige etwas lädt: *auf
+diesem Gerät* (eingebetteter Server wie bisher) oder *im Netz* (`host[:port]`,
+ohne Port 8099; die Zeile aus „Gerät verbinden“ darf samt `http://` hinein,
+`Visu.serverEingabe`). „Weiter“ fragt `/api/health` des Servers
+(`ServerPruefung`: JSON mit `version`, 200 oder 503 ist ein LoxPanel-Server),
+bei Fehlschlag steht der Grund da und „Trotzdem übernehmen“. Die Wahl liegt in
+den SharedPreferences `visu` (`server`, leer = dieses Gerät); `Visu.basis(ctx)`
+ersetzt die feste Basis-Adresse, daran hängen Start-Adresse, gemerkte
+Visu-Adresse (fällt beim Serverwechsel weg), die Herkunftsprüfung der
+JS-Brücke und die Statusseite. Mit einem Server im Netz startet die App weder
+Dienst noch Python noch Wächter (`ServerService.starten` prüft
+`Visu.eigenerServer`); fällt er aus, zeigt die Anzeige eine eigene Fehlerseite
+mit „Server ändern“ und lädt alle 2 s neu. Die App verhält sich dann wie Fully
+Kiosk: Visu ohne Parameter, Kopplungscode, Banner im Konfigurator; die
+Sprechfunktionen fehlen dann in `LoxKiosk`, weil der Gesprächsdienst
+(`IntercomCallClient`, Prozess-Token) zum eingebetteten Server gehört. Später
+erreichbar ist die Einrichtung mit einem langen Druck auf der Uhr-Seite
+(`KioskActivity.LANGER_DRUCK_MS`, 3 s; das Wecken nach 120 ms bleibt) und über
+die Fehlerseite. Ein Wechsel vom eigenen Server weg startet den Prozess neu,
+weil sich der eingebettete Server nicht beenden lässt. Installationen von vor
+dieser Einstellung (ausgerolltes `loxpanel/config` in `filesDir`) gelten als
+„dieses Gerät“ und fragen nicht. Unit-Tests: `VisuTest`,
+`ServerPruefungTest`.
+
+**Stabilität der App:** Der Server-Dienst (`ServerService`, nur mit dem Server
+auf diesem Gerät) startet den Server je Prozess einmal (Anzeige, BootReceiver
+und Android starten den Dienst mehrfach), den Wächter je Dienst. Der Wächter fragt `/api/health` alle 30 s. Nach drei Fehlschlägen in
 Folge (keine Antwort oder 503, weil eine Hintergrund-Aufgabe endete) beendet er
 den Prozess; Android startet Dienst (`START_STICKY`) und Anzeige
 (`stateNotNeeded`) neu. Hat der Server seit dem Start noch nie geantwortet,
