@@ -165,7 +165,7 @@ def test_pin_merken_ungueltig_wird_gemeldet(wert):
 def test_pin_merken_standard_ist_begruendet_klein():
     """Der Standard reicht fuer eine Bedienung und laesst das Panel nicht
     offen stehen: kuerzer als die Ruhe, nach der die Visu zur Uhr-Seite geht."""
-    src = (ROOT / "webfrontend/html/panel.html").read_text(encoding="utf-8")
+    src = _visu_quelltext()
     ruhe_ms = int(re.search(r"const SAVER_IDLE_MS\s*=\s*(\d+)", src).group(1))
     assert 0 < W.PIN_MERKEN_STANDARD <= W.PIN_MERKEN_MAX
     assert W.PIN_MERKEN_STANDARD * 1000 < ruhe_ms
@@ -203,6 +203,14 @@ def test_pin_merken_im_konfigurator():
 
 # ---- Ein Befehlsweg in der Visu
 
+def _visu_quelltext() -> str:
+    """panel.html und die Skriptteile panel/*.js, in der Reihenfolge, in der die Seite sie laedt."""
+    html = (ROOT / "webfrontend/html/panel.html").read_text(encoding="utf-8")
+    teile = re.findall(r'<script src="/panel/([a-z0-9-]+\.js)">', html)
+    assert teile, "panel.html laedt keine Teile aus panel/"
+    return html + "\n" + "\n".join((ROOT / "webfrontend/html/panel" / t).read_text(encoding="utf-8") for t in teile)
+
+
 def _funktion_an(src: str, pos: int) -> str:
     """Name der Funktion, in der die Stelle pos steht (letzte Deklaration davor)."""
     namen = re.findall(r"function\s+(\w+)\s*\(", src[:pos])
@@ -214,7 +222,7 @@ def test_ein_befehlsweg_in_der_visu():
     PIN-Weg und das Loslassen einer Halten-Taste. Jeder andere Bedienweg muss
     ueber sendCmd() mit der richtigen secured-Angabe gehen - sonst umgeht er
     die PIN-Abfrage (Regler, -/+, Player, Favoriten hatten eigene Wege)."""
-    src = (ROOT / "webfrontend/html/panel.html").read_text(encoding="utf-8")
+    src = _visu_quelltext()
     src = re.sub(r"(?m)^\s*//.*$", "", src)      # Kommentarzeilen zaehlen nicht
     bauen = [_funktion_an(src, m.start()) for m in re.finditer(r"""t\s*:\s*['"]cmd['"]""", src)]
     assert bauen == ["cmdSchicken"], bauen

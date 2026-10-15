@@ -12,7 +12,7 @@ import urllib.request
 
 from lox import ROOT
 
-ROUTEN = ["/", "/config", "/settings", "/i18n.js", "/raster.js", "/config.css", "/config/kern.js", "/api/settings", "/api/meta", "/api/types",
+ROUTEN = ["/", "/config", "/settings", "/i18n.js", "/raster.js", "/config.css", "/config/kern.js", "/panel/grund.css", "/panel/kern.js", "/api/settings", "/api/meta", "/api/types",
           "/api/health", "/api/backup"]
 
 
@@ -61,6 +61,9 @@ def test_server_startet_ohne_miniserver(tmp_path):
         assert proc.poll() is None, "Server beendet sich:\n" + log.read_text()
         antworten = {r: _get(basis + r) for r in ROUTEN}
         assert antworten == {r: 200 for r in ROUTEN}, antworten
+        # Teile nur mit schlichtem Namen und passender Endung, sonst 404 (kein Pfad aus dem Ordner heraus)
+        falsch = {r: _get(basis + r) for r in ("/panel/grund.txt", "/panel/fehlt.js", "/panel/Kern.js", "/config/fehlt.js", "/config/kern.css")}
+        assert falsch == {r: 404 for r in falsch}, falsch
         hc = subprocess.run(_healthcheck_befehl(), env=env, timeout=10, capture_output=True, text=True)
         assert hc.returncode == 0, f"HEALTHCHECK aus dem Dockerfile scheitert: {hc.stderr}"
         time.sleep(6)   # ein Verbindungsversuch zum Miniserver scheitert in der Zeit sicher

@@ -72,7 +72,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
-| `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
+| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` zwei Stylesheets und zwölf Skriptteile in fester Reihenfolge (§7.1) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
@@ -758,6 +758,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/i18n.js` | `i18n_js` | Übersetzungskatalog | Konfigurator, Einstellungen |
 | GET | `/raster.js` | `raster_js` | Rasterrechnung (§7.5) | Visu, Konfigurator |
 | GET | `/config.css`, `/config/{name}` | `config_css`, `config_js` | Stylesheet und Skriptteile des Konfigurators (`webfrontend/html/config/<name>.js`, nur schlichte Namen) | Konfigurator |
+| GET | `/panel/{name}` | `panel_teil` | Stylesheets und Skriptteile der Visu (`webfrontend/html/panel/<name>.css|.js`, nur schlichte Namen) | Visu |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
@@ -1275,6 +1276,38 @@ Beide laden `/raster.js` (§7.5): dieselbe Rasterrechnung in der Visu und im
 Assistenten des Konfigurators.
 
 ### 7.1 `panel.html` (Visu, 772 Zeilen)
+
+**Aufteilung** (seit 15.10.2026, Schritt 2 des Zerlegens der großen Dateien):
+`panel.html` hält nur noch das Markup (rund 60 Zeilen) und lädt aus
+`webfrontend/html/panel/` zwei Stylesheets und zwölf Skriptteile per `<link>`
+und `<script src>` an den Stellen, an denen vorher Stylesheet und Skript
+standen. Stylesheets: `grund.css` (Kasten, Panes, Kopfzeile und Werteleiste,
+Kachelfeld, Kacheln, Kachel-Sets, Leisten) und `seiten.css` (Detailseite,
+Spieler, Tabs, Verbindung und Einrichtung, Uhr-Seite, Wetter und Kalender,
+Hausübersicht, Gesten), in dieser Reihenfolge, damit die Kaskade bleibt.
+Skriptteile in Ladefolge: `kern` (Symbole, Tabs, Zustand, Helfer, Weckton,
+Navigation, Intercom), `bedienung` (Befehle und Visu-PIN, Zellen und Tasten,
+Formular, Wert mit -/+, Bild groß, Menü, `blockSig()`), `kacheln`
+(Verlaufsdiagramme und Mini-Verläufe, Kachelfaktor, Kachel einpassen,
+Detailseite mit `renderPanel()` und `updatePanel()`), `seiten` (Tabs, Seiten
+blättern, Kategorien, Split-Pane, Kopfzeile, Werteleiste, `applyPane()`),
+`kachelfeld` (Kachel-Darstellung, Raster und `render()`, Anlagenschema,
+Fenster, Wischen im Kachelfeld), `gesten`, `verbindung` (Kennung, Entwurf,
+Gerät, Sprache, Regler am Gerät, Verbindungszustand, `connect()` und die
+Nachrichten des Servers), `front` (Uhr, Screensaver-Inhalte, Kalender, Wetter,
+Energie, Kamera, Pane 2), `haus` (Hausübersicht), `startseite` (Uhr-Seite an
+und aus, Einrichtung und Kopplung, Hinweise, fester Spieler, Ruhe-Timer),
+`display` (Nachtmodus, Nacht-Uhr, Kiosk-App, Skalierung, Bildschirm melden,
+Display-Einstellungen, Neuladen), `start` (Uhren, Uhr-Seite, `connect()`).
+Wie beim Konfigurator (§7.2): kein Build, keine ES-Module, alle Funktionen
+bleiben global, was ein Teil beim Laden ausführt, ruft nur Funktionen
+früherer Teile; der Code ist nur verschoben. Der Server liefert
+`/panel/{name}` (`panel_teil`, nur `[a-z0-9-]+.js` oder `.css`, sonst 404)
+mit `no-cache`. `tests/test_pin.py` liest den Quelltext der Visu aus
+`panel.html` und den dort geladenen Teilen (`_visu_quelltext()`), der
+Rauchtest ruft `/panel/grund.css` und `/panel/kern.js` ab und prüft, dass
+falsche Namen 404 geben. Die Zeilenangaben weiter unten in diesem Abschnitt
+stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
 
 - Spricht ausschließlich über den WebSocket, kein einziger `fetch`. Bilder kommen
   über `/icon`, `/cover`, `/mjpeg`, `/bellimg`.
@@ -2216,8 +2249,9 @@ Oberflächen-Dateien mit `no-cache`. Der Übersetzungstest durchsucht auch die
 per `script src` geladenen Teile, der Rauchtest ruft `/config.css` und
 `/config/kern.js` ab; APK-Sync, Dockerfile und `.deb` nehmen `webfrontend/`
 ganz. `tests/test_dateigroessen.py` wacht, dass keine Quelldatei über 1.500
-Zeilen wächst (die noch zu zerlegenden `webvisu.py` und `panel.html` stehen
-als Ausnahmen mit ihrem jetzigen Stand drin und dürfen nur schrumpfen).
+Zeilen wächst (die noch zu zerlegende `webvisu.py` steht als Ausnahme mit
+ihrem jetzigen Stand drin und darf nur schrumpfen; `panel.html` ist seit
+Schritt 2 aufgeteilt, §7.1).
 
 **Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
 ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:

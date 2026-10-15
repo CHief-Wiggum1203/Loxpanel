@@ -1160,8 +1160,11 @@ selbst aktuell.
         Stylesheet liegt in `config.css` (`/config.css`), das Skript in elf
         Teilen `config/*.js` (`/config/{name}`), die nacheinander laden; alle
         Funktionen bleiben global. Aufteilung in `ARCHITEKTUR.md` §7.2.
-  - [ ] Schritt 2, Visu: `panel.html` genauso in `panel.css` und `panel/*.js`
-        (Verbindung, Kacheln, Detailseiten, Front, Kiosk-Brücke).
+  - [x] Schritt 2, Visu: `panel.html` hält nur das Markup (rund 60 Zeilen), in
+        `panel/` liegen zwei Stylesheets (`grund.css`, `seiten.css`) und zwölf
+        Skriptteile (kern, bedienung, kacheln, seiten, kachelfeld, gesten,
+        verbindung, front, haus, startseite, display, start), Route
+        `/panel/{name}`. Aufteilung in `ARCHITEKTUR.md` §7.1.
   - [ ] Schritt 3, Server: die Bausteinketten `_control_item()` und
         `_view_control_inner()` aus `webvisu.py` in ein Modul je
         Bausteinfamilie, siehe „Bausteinketten aufteilen" unten.
