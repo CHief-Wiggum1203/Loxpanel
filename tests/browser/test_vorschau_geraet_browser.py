@@ -1,7 +1,7 @@
 """Vorschau am Geraet (Punkt 12) in Chromium: Das "Geraet" ist eine zweite Seite
 mit ?device=wand, die Visu zeigt. Der Konfigurator schaltet sie auf einen
-Entwurf um - aus dem Panel-Editor ("Am Geraet ansehen") und aus dem letzten
-Schritt des Assistenten, wo das Panel noch gar nicht existiert. Das Geraet zeigt
+Entwurf um - aus dem Panel-Editor ("Am Geraet ansehen"), auch fuer eine neu
+angelegte Ansicht, die noch nicht gespeichert ist. Das Geraet zeigt
 genau die Kacheln des Seiten-Editors, zieht Aenderungen nach und kehrt zur vorigen
 Ansicht zurueck, wenn die Vorschau beendet wird; Speichern beendet sie ebenfalls."""
 import asyncio
@@ -165,42 +165,6 @@ def test_ohne_verbundenes_geraet_sagt_der_knopf_warum(cfg_ordner):
     _lauf(schritte)
 
 
-def test_assistent_zeigt_ein_panel_das_es_noch_nicht_gibt(cfg_ordner):
-    """Letzter Schritt des Assistenten: das Panel ist noch nicht angelegt, die Vorschau
-    am Geraet zeigt es trotzdem. Schliesst man den Assistenten ohne Anlegen, kehrt das
-    Geraet gleich zurueck; Speichern beendet die Vorschau ebenfalls."""
-    async def schritte(app, b, port):
-        wand = await _geraet(b, port)
-        pg = await _konfigurator(b, port)
-        await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
-            WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; wzInitSetup();
-            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
-        assert await pg.locator("#wzVorschau").is_enabled()
-        await pg.locator("#wzVorschau").click()
-        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt das neue Panel")
-        await _bis(wand, MARKE, "Entwurf – nicht gespeichert", "mit Etikett")
-        assert "neu" not in app.panels and not (cfg_ordner / "panels.json").exists()
-        assert await pg.locator("#wzVorschauEnde").count() == 1
-
-        # Assistent zu, nichts angelegt: zurueck zur vorigen Ansicht
-        await pg.evaluate("wzClose()")
-        await _bis(wand, "location.search", "?panel=a&device=wand", "das Geraet kehrt zurueck")
-        assert app.vorschau_geraet == {}
-
-        # nochmal, diesmal anlegen und speichern: das Geraet zeigt danach das gespeicherte Panel
-        await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
-            WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; WZ.umschalten = false; wzInitSetup();
-            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
-        await pg.locator("#wzVorschau").click()
-        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt es wieder")
-        await pg.evaluate("wzBuild()")
-        await pg.locator("#saveBtn").click()
-        await _bis(wand, "location.search", "?panel=neu&device=wand", "gespeichert: dasselbe Panel ohne Entwurf")
-        assert "neu" in app.panels and app.vorschau_geraet == {}
-        assert not pg._fehler, pg._fehler
-    _lauf(schritte)
-
-
 async def _editor_vorschau(pg, wand):
     """Panel-Editor: flur mit einer ungespeicherten Aenderung auf wand zeigen."""
     await pg.locator("#plist .pitem", has_text="?panel=flur").click()
@@ -281,29 +245,36 @@ def test_vorschau_auf_einem_zweiten_geraet_beendet_die_erste(cfg_ordner):
     _lauf(schritte)
 
 
-def test_assistent_bleibt_offen_wenn_das_beenden_scheitert(cfg_ordner):
-    """Die Vorschau eines nie angelegten Panels laesst sich nur im Assistenten beenden:
-    scheitert das beim Schliessen, bleibt er offen und nennt den Fehler."""
+def test_neue_ansicht_vor_dem_speichern_am_geraet(cfg_ordner):
+    """Eine neu angelegte, noch nicht gespeicherte Ansicht ("Leer anlegen") laesst
+    sich am Geraet ansehen. Beenden holt das Geraet zurueck; Speichern beendet die
+    Vorschau ebenfalls, das Geraet zeigt dann die gespeicherte Ansicht."""
     async def schritte(app, b, port):
         wand = await _geraet(b, port)
         pg = await _konfigurator(b, port)
-        await pg.evaluate("""() => { wzOpen(); wzGroesseSetzen({quelle: 'geraet', name: 'wand', vw: 893, vh: 533});
-            WZ.content = 'classic'; WZ.title = 'Neu'; WZ.id = 'neu'; wzInitSetup();
-            WZ.step = wzFlow().indexOf('pruefen'); wzRender(); }""")
-        await pg.locator("#wzVorschau").click()
-        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt das neue Panel")
+        pg.on("dialog", lambda d: asyncio.ensure_future(d.accept("neu")))
+        await pg.evaluate("createBlankPanel()")
+        assert await pg.evaluate("[cur, rubric, 'neu' in PANELS]") == ["neu", "pconf", True]
+        await pg.locator(".stab[data-sub='seiten']").click()
+        await pg.wait_for_selector("#seHost [data-se-flaeche]")
+        opts = await pg.eval_on_selector_all("#seHost [data-se-geraet] option", "l => l.map(o => o.textContent)")
+        await pg.select_option("#seHost [data-se-geraet]", str(next(i for i, o in enumerate(opts) if o.startswith("wand ·"))))
+        await pg.locator("#vorGerBtn").click()
+        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt die neue Ansicht")
+        await _bis(wand, MARKE, "Entwurf – nicht gespeichert", "mit Etikett")
+        assert "neu" not in app.panels and not (cfg_ordner / "panels.json").exists()
+        assert await pg.locator("#vorGerBtn").text_content() == "Am Gerät beenden"
 
-        await pg.route("**/api/vorschau/beenden", lambda r: r.abort())
-        assert await pg.evaluate("wzClose()") is False
-        assert await pg.locator("#wzOv").is_visible()
-        assert "nicht beendet" in await pg.locator("#wzOv").text_content()
-        assert await pg.locator("#wzVorschauEnde").count() == 1
-        assert "wand" in app.vorschau_geraet
-
-        await pg.unroute("**/api/vorschau/beenden")
-        assert await pg.evaluate("wzClose()") is True
-        assert not await pg.locator("#wzOv").is_visible()
+        # beenden, nichts gespeichert: zurueck zur vorigen Ansicht
+        await pg.locator("#vorGerBtn").click()
         await _bis(wand, "location.search", "?panel=a&device=wand", "das Geraet kehrt zurueck")
         assert app.vorschau_geraet == {}
+
+        # nochmal ansehen, dann speichern: das Geraet zeigt danach die gespeicherte Ansicht
+        await pg.locator("#vorGerBtn").click()
+        await _bis(wand, "location.search.includes('panel=neu')", True, "das Geraet zeigt sie wieder")
+        await pg.locator("#saveBtn").click()
+        await _bis(wand, "location.search", "?panel=neu&device=wand", "gespeichert: dieselbe Ansicht ohne Entwurf")
+        assert "neu" in app.panels and app.vorschau_geraet == {}
         assert not pg._fehler, pg._fehler
     _lauf(schritte)

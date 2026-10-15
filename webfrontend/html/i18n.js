@@ -333,11 +333,11 @@
       "Display an": "Display on",
       "Browser": "Browser",
       "Ansicht": "View",
-      "Ohne Kennung": "No identifier",
+      "Ohne Namen": "No name",
       "Gerätename": "Device name",
       "Namen vergeben": "Assign name",
       "Noch kein Gerät gefunden. Ein Gerät erscheint, sobald es die Visu mit ?device=<name> öffnet oder der Agent darauf läuft.": "No device found yet. A device appears as soon as it opens the view with ?device=<name> or the agent runs on it.",
-      "Geräte ohne Kennung. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.": "Devices without an identifier. The device shows its code under \"Set up this device\" – enter the name next to it here so the device is listed permanently and can be switched by operating mode.",
+      "Geräte ohne Namen. Das Gerät zeigt seinen Code unter „Dieses Gerät einrichten“ – hier daneben den Namen vergeben, damit das Gerät dauerhaft gelistet und per Betriebsmodus umgeschaltet werden kann.": "Devices without a name. The device shows its code under \"Set up this device\" – enter the name next to it here so the device is listed permanently and can be switched by operating mode.",
       "Code": "Code",
       "Gerät nicht erreicht": "Device not reached",
       "Bitte einen Namen eingeben": "Please enter a name",
@@ -348,9 +348,8 @@
       "keine (nur über die Seite)": "none (only via the page)",
       "Passwort (Fully)": "Password (Fully)",
       "Display-Kennwort nicht übernommen, weil Host oder Treiber geändert:": "Display password not kept because host or driver changed:",
-      "Noch kein Gerät bekannt. Sobald ein Gerät die Visu mit Kennung öffnet oder ein Agent läuft, erscheint es hier.": "No device known yet. As soon as a device opens the view with an identifier or an agent runs, it appears here.",
       "Für welche Geräte?": "For which devices?",
-      "Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal mit ?device=<name> öffnen oder einen Agent haben.": "No device known yet. A device must open the visu once with ?device=<name> or have an agent.",
+      "Noch kein Gerät bekannt. Ein Gerät muss die Visu einmal öffnen und im Konfigurator einen Namen bekommen, oder einen Agent haben.": "No device known yet. A device must open the visu once and get a name in the configurator, or have an agent.",
       "Die Modus-Zuordnung gilt für alle gewählten Geräte gleich. Feinabstimmung je Gerät danach in der Detail-Tabelle.": "The mode assignment applies equally to all selected devices. Fine-tune per device afterwards in the detail table.",
       "Welche Betriebsmodi?": "Which operating modes?",
       "Loxone sendet": "Loxone sends",
@@ -371,7 +370,6 @@
       "Gerätename und Server-Adresse nötig": "Device name and server address required",
       "Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (?panel=<start>&device=<name>). Ein neues Gerät verbindet und bestückt ＋ Gerät einrichten.": "Which view each device shows. Linux devices with an agent register automatically; Android wall panels and tablets appear as soon as they open the view with a device ID (?panel=<start>&device=<name>). ＋ Set up device connects and fills a new device.",
       "Geräte & Ansicht": "Devices & view",
-      "Je Gerät die Ansicht wählen und live umschalten. Geräte ohne Kennung stehen unten und bekommen hier einen Namen.": "Pick the view per device and switch live. Devices without an identifier are listed below and get a name here.",
       "🧭 Betriebsmodus-Assistent": "🧭 Operating-mode assistant",
       "Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.": "Guided: modes → view per device, with a ready Loxone address.",
       "Betriebsmodus-Automatik & Display-Steuerung": "Operating-mode automation & display control",
@@ -430,7 +428,7 @@
       // Geraetekarte (Schritt 4)
       'Eine Karte je Gerät: oben Zustand, Ansicht und Steuerung, aufgeklappt Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und Display-Steuerung. Änderungen speichert die Leiste unten.':
         'One card per device: state, view and controls at the top, expanded the operating modes, scaling, target tile, presence sensor and display control. The bar at the bottom saves changes.',
-      'Geräte ohne Kennung': 'Devices without an identifier',
+      'Geräte ohne Namen': 'Devices without a name',
       // Neues Geraet gefunden (Einrichtung neu, Schritt 1)
       'Neues Gerät gefunden:': 'New device found:',
       'Neues Gerät verbunden:': 'New device connected:',
@@ -828,8 +826,6 @@
       'Betriebsmodus-Automatik': 'Operating-mode automation',
       'Loxone schaltet die Ansicht automatisch um: in Loxone Config einen virtuellen HTTP-Ausgang anlegen, der pro Betriebsart einen Modusnamen an diesen Server schickt. Hier legst du je Gerät fest, welche Ansicht bei welchem Modus erscheint. Ein Gerät ohne Eintrag für einen Modus bleibt unverändert.':
         'Loxone switches the view automatically: in Loxone Config create a virtual HTTP output that sends a mode name to this server per operating mode. Here you define, per device, which view appears for which mode. A device without an entry for a mode stays unchanged.',
-      'Geräte mit Agent (Linux) erscheinen automatisch. Ein Gerät ohne Agent (z.B. NSPanel Pro, Tablet) muss nur die Visu mit einer Geräte-Kennung öffnen: ?panel=<start>&device=<name> — dann wird es hier gelistet und live umgeschaltet (Browser lädt sich mit neuer Ansicht neu, kein Agent nötig).':
-        'Devices with an agent (Linux) appear automatically. A device without an agent (e.g. NSPanel Pro, tablet) just opens the visu with a device id: ?panel=<start>&device=<name> — then it is listed here and switched live (the browser reloads with the new view, no agent needed).',
       // Skalierung / Bildschirmgroesse
       'Kachel-Aufbau': 'Tile layout',
       'Neu (wie die Loxone-App)': 'New (like the Loxone app)',

@@ -110,7 +110,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 await _displays(pg, port)
                 liste = pg.locator("#displaysHost")
                 await liste.locator(".ag").nth(2).wait_for()
-                # Das Geraet ohne Kennung steht mit seinem Kopplungscode in der Liste (Punkt 11)
+                # Das Geraet ohne Namen steht mit seinem Kopplungscode in der Liste (Punkt 11)
                 code = next(a["code"] for a in app.device_list()["anonymous"])
                 assert await liste.locator(".agn").all_text_contents() == ["flur", "tablet", f"Code {code}"]
 
@@ -147,7 +147,7 @@ def test_geraeteliste_umschalten_und_benennen(cfg_ordner, tmp_path):
                 await _bis(lambda: _geraet(app, "tablet").get("profile") == "kueche"
                            and _geraet(app, "tablet").get("connections") == 1, "Tablet mit kueche verbunden")
 
-                # Namen vergeben: das Geraet ohne Kennung verbindet sich als
+                # Namen vergeben: das Geraet ohne Namen verbindet sich als
                 # "kinderzimmer" neu, erscheint in der Liste und im Editor
                 await anon.locator(".anname").fill("kinderzimmer")
                 await anon.get_by_role("button", name="Namen vergeben").click()

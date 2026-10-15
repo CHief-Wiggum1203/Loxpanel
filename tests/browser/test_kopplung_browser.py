@@ -1,10 +1,10 @@
-"""Kopplungscode in Chromium (Punkt 11): Ein Browser ohne Kennung und ohne
+"""Kopplungscode in Chromium (Punkt 11): Ein Browser ohne Namen und ohne
 ?panel= zeigt "Dieses Geraet einrichten" mit seinem Code und der Adresse des
 Konfigurators, der Code bleibt ueber ein Neuladen, unter Displays steht
 dieselbe Zeile "Code ...", "Namen vergeben" dort benennt genau dieses Geraet
 (die Karte und der Code verschwinden), ein Browser mit ?panel= bekommt nur den
 Code ohne Karte (sie laege sonst ueber der Visu), ein Tipp blendet die Karte
-aus, der Betriebsmodus-Assistent nennt den Code ebenfalls. Der Konfigurator meldet ein Geraet ohne Kennung oben als Banner, in
+aus, der Betriebsmodus-Assistent nennt den Code ebenfalls. Der Konfigurator meldet ein Geraet ohne Namen oben als Banner, in
 jeder Rubrik; "Benennen und einrichten" vergibt den Namen und oeffnet "Geraet
 einrichten" mit dem Geraet; "Spaeter" blendet das Banner fuer dieses Geraet aus."""
 import asyncio
@@ -64,7 +64,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                     await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
                     return pg
 
-                neu = await visu("")                                   # ohne Kennung, ohne Profil
+                neu = await visu("")                                   # ohne Namen, ohne Profil
                 await neu.wait_for_selector("#kopplung:not(.hidden)")
                 k1 = await neu.evaluate(KARTE)
                 assert k1["sichtbar"] and CODE.match(k1["code"]) and k1["titel"] == "Dieses Gerät einrichten", k1
@@ -79,7 +79,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 k2 = await neu.evaluate(KARTE)
                 assert k2["code"] == code, "nach dem Neuladen derselbe Code"
 
-                mit_profil = await visu("?panel=wohnen")               # ohne Kennung, aber mit Profil
+                mit_profil = await visu("?panel=wohnen")               # ohne Namen, aber mit Profil
                 await mit_profil.wait_for_function("localStorage.getItem('lp_kopplung')")
                 k3 = await mit_profil.evaluate(KARTE)
                 assert not k3["sichtbar"] and CODE.match(k3["gemerkt"]) and k3["gemerkt"] != code, k3
@@ -113,7 +113,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 k5 = await mit_profil.evaluate(KARTE)
                 assert k5["geraet"] is None and k5["gemerkt"] == k3["gemerkt"], "der andere Browser bleibt, wie er war"
                 await _bis(lambda: [a["code"] for a in app.device_list()["anonymous"]] == [k3["gemerkt"]],
-                           "nur noch ein Geraet ohne Kennung")
+                           "nur noch ein Geraet ohne Namen")
 
                 # Ein Tipp auf die Karte blendet sie bis zum naechsten Laden aus
                 dritte = await visu("")
@@ -121,7 +121,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 await dritte.locator("#kopplung").click()
                 assert not (await dritte.evaluate(KARTE))["sichtbar"]
 
-                # Betriebsmodus-Assistent offen, ein Browser ohne Kennung wird durch einen
+                # Betriebsmodus-Assistent offen, ein Browser ohne Namen wird durch einen
                 # anderen hinter derselben IP ersetzt: die Liste zeigt den neuen Code, nicht
                 # den alten (Codex an #131: die Signatur kannte nur IPs)
                 code3 = (await dritte.evaluate(KARTE))["gemerkt"]
@@ -153,7 +153,7 @@ BANNER = """() => { const b = document.getElementById('neuGeraet');
 
 
 def test_banner_neues_geraet(cfg_ordner, tmp_path):
-    """Einrichtung neu, Schritt 1: Ein Tablet oeffnet die Visu ohne Kennung. Der
+    """Einrichtung neu, Schritt 1: Ein Tablet oeffnet die Visu ohne Namen. Der
     Konfigurator meldet es oben als Banner mit Klasse, Groesse und Code, in jeder
     Rubrik. "Benennen und einrichten" vergibt den Namen; sobald das Tablet damit
     zurueck ist, oeffnet sich "Geraet einrichten" mit dem Tablet als Geraet.
@@ -200,7 +200,7 @@ def test_banner_neues_geraet(cfg_ordner, tmp_path):
                 await pg.locator("#geX").click()
                 await pg.wait_for_selector("#geOv", state="hidden")
 
-                # zweites Geraet ohne Kennung: "Spaeter" blendet es aus, auch nach dem Neuladen
+                # zweites Geraet ohne Namen: "Spaeter" blendet es aus, auch nach dem Neuladen
                 ctx2 = await b.new_context(viewport={"width": 480, "height": 480})
                 klein = await ctx2.new_page()
                 await klein.goto(f"http://127.0.0.1:{port}/")

@@ -1742,7 +1742,7 @@ class App:
         self.cats_with: list[str] = []
         self.conn_route: dict[web.WebSocketResponse, dict] = {}
         self.conn_prof: dict[web.WebSocketResponse, dict] = {}
-        self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraete-Kennung (?device=)
+        self.conn_dev: dict[web.WebSocketResponse, str] = {}   # ws -> Geraetename (?device=)
         self.conn_info: dict[web.WebSocketResponse, dict] = {}  # ws -> {dev, kiosk, ip, ts} (Geraeteverwaltung)
         self._drv_session: aiohttp.ClientSession | None = None   # HTTP-Session fuer Display-Treiber (Kiosk-Apps)
         self.conn_player: dict[web.WebSocketResponse, str] = {}   # ws -> AudioZone-UUID der aktiven Player-Pane (via setplayer)
@@ -3487,7 +3487,7 @@ class App:
         """Alle bekannten Anzeigegeraete, zusammengefuehrt ueber den Namen:
         Panel-Agenten (Announce), verbundene Browser (?device=) und die in
         panels.json konfigurierten Geraete (Betriebsmodus-Automatik). Browser
-        ohne Kennung stehen getrennt unter `anonymous` (nach IP) und koennen
+        ohne Namen stehen getrennt unter `anonymous` (nach IP) und koennen
         aus den Einstellungen benannt werden (`/api/device/name`)."""
         now = time.time()
         devs: dict[str, dict] = {}
@@ -3594,7 +3594,7 @@ class App:
         return daten, {g for g in (self.password, self.jwt) if g}
 
     def kopplungscode(self, wunsch: str) -> str:
-        """Code fuer einen Browser ohne Kennung: der mitgeschickte, wenn er
+        """Code fuer einen Browser ohne Namen: der mitgeschickte, wenn er
         gueltig ist (die Visu hat ihn sich beim letzten Verbinden gemerkt),
         sonst ein neuer, der gerade keiner anderen Verbindung gehoert."""
         wunsch = (wunsch or "").strip().upper()
@@ -3608,9 +3608,9 @@ class App:
 
     @staticmethod
     def _kopplung_msg(code: str, karte: bool) -> dict:
-        """Nachricht an einen Browser ohne Kennung: sein Code, und ob er die
+        """Nachricht an einen Browser ohne Namen: sein Code, und ob er die
         Karte "Dieses Geraet einrichten" zeigen soll (ohne ?panel= und ohne
-        Kennung hat niemand dieses Geraet eingerichtet). Die Adresse des
+        Namen hat niemand dieses Geraet eingerichtet). Die Adresse des
         Konfigurators setzt das Panel wie beim Einrichtungshinweis zusammen."""
         return {"t": "kopplung", "code": code, "karte": karte,
                 "titel": "Dieses Gerät einrichten",
@@ -10635,7 +10635,7 @@ async def api_save_devices(request: web.Request) -> web.Response:
 
 async def api_devices_get(request: web.Request) -> web.Response:
     """Alle Anzeigegeraete (Agent, Kiosk-App, Browser) mit Online-Status,
-    Ansicht und Typ; Browser ohne Kennung getrennt nach IP. Dazu der Stand des
+    Ansicht und Typ; Browser ohne Namen getrennt nach IP. Dazu der Stand des
     Servers: der Konfigurator fragt hier alle paar Sekunden nach und laedt
     nach einem Update neu."""
     app: App = request.app["app"]
@@ -10731,9 +10731,9 @@ async def api_vorschau_beenden(request: web.Request) -> web.Response:
 
 
 async def api_device_name(request: web.Request) -> web.Response:
-    """Gibt einem Browser ohne Kennung einen Geraetenamen: {code, name} trifft
+    """Gibt einem Browser ohne Namen einen Geraetenamen: {code, name} trifft
     genau die Verbindung mit diesem Kopplungscode, {ip, name} alle ohne
-    Kennung unter der IP (wie bisher). Die Visu merkt sich den Namen
+    Namen unter der IP (wie bisher). Die Visu merkt sich den Namen
     (localStorage) und verbindet sich neu."""
     app: App = request.app["app"]
     try:
@@ -10754,7 +10754,7 @@ async def api_device_name(request: web.Request) -> web.Response:
             n += 1
         except ConnectionError:
             pass
-    fehler = "kein Geraet ohne Kennung mit diesem Code" if code else "kein Geraet ohne Kennung unter dieser IP"
+    fehler = "kein Gerät ohne Namen mit diesem Code" if code else "kein Gerät ohne Namen unter dieser IP"
     return web.json_response({"ok": n > 0, "sent": n, **({} if n else {"error": fehler})})
 
 
@@ -11042,7 +11042,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_info[ws]["entwurf"] = ent   # api_entwurf laedt diese Vorschau bei Aenderungen neu
     if ent:
         app.conn_info[ws]["vorschau"] = True   # Vorschaufenster, auch mit abgelaufenem Token: kein Geraet
-    if not dev:   # Browser ohne Kennung: Kopplungscode (mitgeschickt oder neu)
+    if not dev:   # Browser ohne Namen: Kopplungscode (mitgeschickt oder neu)
         app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}
@@ -11096,7 +11096,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await app._einrichtung_melden(neu=ws)
     # Verbindungszustand (Miniserver erreichbar?) und Takt des Lebenszeichens
     await app._verbindung_melden(neu=ws)
-    # Browser ohne Kennung: Kopplungscode, und die Karte "Dieses Geraet
+    # Browser ohne Namen: Kopplungscode, und die Karte "Dieses Geraet
     # einrichten" nur ohne ?panel= in der Adresse. Mit ?panel= hat jemand das
     # Geraet bewusst eingerichtet (Fully, WallPanel, alte Start-Adresse): die
     # Karte laege sonst nach jedem Neustart ueber der Visu und fienge die

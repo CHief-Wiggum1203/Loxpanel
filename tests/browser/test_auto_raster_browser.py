@@ -350,24 +350,6 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 stand["fest"] = await felder()
                 stand["zurueck"] = (await speichern())["ui"]
 
-                # Assistent "Neues Panel": fuer ein Tablet (2 Panes) schlaegt er
-                # "Automatisch" vor, fuer das 4"-Panel 2 x 2; selbst Gewaehltes bleibt
-                stand["assistent"] = await pg.evaluate("""() => {
-                    const wahl = (k, v) => document.querySelector('#wzBody [data-wk="' + k + '"][data-wo="' + v + '"]').click();
-                    const raster = g => document.querySelector('#wzBody [data-wg="' + g + '"]').click();
-                    wzOpen(); WZ.step = wzFlow().indexOf('inhalt'); wzRender();
-                    wahl('panes', '2'); const tablet = WZ.grid;
-                    const knopf = document.querySelector('#wzBody [data-wg="auto"]');
-                    const angezeigt = [knopf.classList.contains('on'), knopf.innerText];
-                    wahl('panes', '1'); const panel4 = WZ.grid;
-                    wahl('panes', '2'); raster('3x3'); wahl('panes', '1'); const bleibt = WZ.grid;
-                    wahl('panes', '2'); raster('auto');
-                    WZ.content = 'classic'; WZ.title = 'Flur'; WZ.id = 'flur'; wzInitSetup();
-                    WZ.step = wzFlow().indexOf('pruefen'); wzRender();
-                    const zusammenfassung = document.getElementById('wzBody').innerText.includes('Automatisch');
-                    wzBuild();
-                    return {tablet, angezeigt, panel4, bleibt, zusammenfassung,
-                            ui: JSON.parse(JSON.stringify(PANELS['flur'].ui))}; }""")
                 await b.close()
         finally:
             bc.cancel()
@@ -387,10 +369,6 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["tablet_ziel"] == [W.KACHEL_ZIEL["large"], 4, 2], stand
     assert stand["geraet_datei"]["tileTarget"] == W.KACHEL_ZIEL["large"], stand
     assert stand["fest"] == aus and stand["zurueck"] == {"cols": 3, "rows": 3}, stand
-    assistent = stand["assistent"]
-    assert assistent.pop("ui") == {"grid": "auto"}, stand
-    assert assistent == {"tablet": "auto", "angezeigt": [True, "Automatisch"], "panel4": "2x2",
-                         "bleibt": "3x3", "zusammenfassung": True}, assistent
 
 
 @pytest.mark.parametrize("spalten", [1, 2, 3])
@@ -616,10 +594,10 @@ def test_widget_achse_wie_die_rechnung(kset, breite, hoehe):
     assert abs(m["kachel"][0] - m["kb"]) <= 3, m
 
 
-def test_vorrechnung_im_konfigurator_nimmt_dieselbe_achse(cfg_ordner):
-    """Die Vorrechnung des Assistenten (wzVorrechnung) und das Bild des Seiten-Editors
-    (seRaster) stellen das Widget dorthin, wo die Visu es zeigt: mit Kreide-
-    Seitenleiste bei 900 x 750 unter die Kacheln, obwohl das Fenster quer ist."""
+def test_seiten_editor_nimmt_dieselbe_achse(cfg_ordner):
+    """Das Bild des Seiten-Editors (seRaster) stellt das Widget dorthin, wo die
+    Visu es zeigt: mit Kreide-Seitenleiste bei 900 x 750 unter die Kacheln,
+    obwohl das Fenster quer ist."""
     async def lauf():
         app = W.App({"host": "", "port": 80})
         app._apply_structure(STRUKTUR)
@@ -634,10 +612,13 @@ def test_vorrechnung_im_konfigurator_nimmt_dieselbe_achse(cfg_ordner):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 erg = await pg.evaluate("""() => {
-                  WZ.groesse = {name: 'Test', vw: 900, vh: 750}; WZ.look = {tileSet: 'kreide'};
-                  const lm = leisteMasse('kreide', 900);
-                  return {vorrechnung: wzVorrechnung('2', 'auto').hoch, rail: lm.railW,
-                          ohneSet: (WZ.look = {}, wzVorrechnung('2', 'auto').hoch)}; }""")
+                  // der Kontext des Reiters Seiten, auf eine Anzeige mit Widget und Geraet 900 x 750 gestellt
+                  const ctx = set => ({ui: () => ({auto: true, split: true, pane: 'weather', ziel: kachelZiel().std,
+                                                   cols: 2, rows: 2, paneCols: 0, tileSet: set, hinweis: false}),
+                                       geraet: () => ({quelle: 'katalog', name: 'Test', vw: 900, vh: 750})});
+                  const lm = leisteMasse('kreide', 900, 750);
+                  return {vorrechnung: seRaster(ctx('kreide'), {leiste: [], raster: []}).hoch, rail: lm.railW,
+                          ohneSet: seRaster(ctx(''), {leiste: [], raster: []}).hoch}; }""")
                 await b.close()
         finally:
             bc.cancel()

@@ -154,8 +154,8 @@ def test_sicherung_herunterladen(tmp_path):
 
 def test_sprungmarken_springen_oder_filtern():
     """Die Wahl Springen/Filtern gibt es nur bei einer Leiste aus Sprungmarken
-    (Raum-Panel, eine freie Seite). Editor und Assistent speichern sie als
-    ui.catFilter, der Server behaelt sie."""
+    (Raum-Panel, eine freie Seite). Der Editor speichert sie als ui.catFilter,
+    der Server behaelt sie."""
     res = _im_konfigurator("""async () => {
         cur = 'test'; const p = PANELS[cur]; p.tabs = ['room:r1']; renderEditor();
         const sel = document.getElementById('fCatFilter');
@@ -168,20 +168,11 @@ def test_sprungmarken_springen_oder_filtern():
         const klassisch = !!document.getElementById('fCatFilter');
         p.tabs = ['room:r1']; p.ui.catFilter = true; renderEditor();
         const bleibt = document.getElementById('fCatFilter').value === '1';
-        wzOpen(); WZ.panes = '1'; WZ.content = 'room'; WZ.title = 'Sauna'; WZ.id = 'sauna'; wzInitSetup();
-        WZ.step = wzFlow().indexOf('inhalt'); wzRender();
-        const knopf = document.querySelector('#wzBody [data-wk="catMode"][data-wo="filter"]');
-        const wahl = !!knopf; knopf.click();
-        WZ.step = wzFlow().indexOf('pruefen'); wzRender();
-        const zusammenfassung = document.getElementById('wzBody').innerText.includes('Filtern');
-        wzBuild();
-        return {feld, an, aus, klassisch, bleibt, wahl, zusammenfassung,
-                panel: JSON.parse(JSON.stringify(PANELS['sauna']))}; }""")
+        return {feld, an, aus, klassisch, bleibt, panel: JSON.parse(JSON.stringify(p))}; }""")
     panel = res.pop("panel")
-    assert res == {"feld": True, "an": True, "aus": True, "klassisch": False, "bleibt": True,
-                   "wahl": True, "zusammenfassung": True}, res
-    assert panel["ui"]["catFilter"] is True and len(panel["tabs"]) == 1 and panel["tabs"][0].startswith("room:")
-    assert W.App._sanitize_panels({"sauna": panel})["sauna"]["ui"]["catFilter"] is True
+    assert res == {"feld": True, "an": True, "aus": True, "klassisch": False, "bleibt": True}, res
+    assert panel["ui"]["catFilter"] is True and panel["tabs"] == ["room:r1"]
+    assert W.App._sanitize_panels({"test": panel})["test"]["ui"]["catFilter"] is True
 
 
 def test_raum_panel_kategorie_tabs_im_editor():
@@ -248,12 +239,12 @@ def test_betriebsmodus_assistent_ausweg_und_benennen():
         assert chips == ["Sauna*"], chips
         assert not await pg.evaluate("document.getElementById('mzNext').disabled")
         await pg.keyboard.press("Escape")
-        # Ohne jedes Geraet: der Hinweis nennt ?device=<name> woertlich
+        # Ohne jedes Geraet: der Hinweis sagt, wie ein Geraet zu einem Namen kommt
         stand.update(name=None, leer=True)
         await pg.evaluate("KNOWN_NAMES=[]; DEV={}; pollDevices()")
         await pg.wait_for_timeout(200)
         await pg.locator("#mzOpenBtn").click()
-        assert "?device=<name>" in await pg.locator("#mzBody").inner_text()
+        assert "im Konfigurator einen Namen bekommen" in await pg.locator("#mzBody").inner_text()
         await pg.locator("#mzX").click()
         # Neue Ansicht ("Gerät einrichten" ohne Geraet): ✕ und Esc
         ge = """() => !document.getElementById('geOv').hidden"""

@@ -95,10 +95,10 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
         async def schritte(pg):
             frisch = await pg.evaluate(ZUSTAND)
             await pg.screenshot(path=str(tmp_path / "einrichtung_konfigurator.png"))
-            # Jeder andere Weg fuehrt zurueck, auch der Assistent oeffnet nicht
-            await pg.evaluate("() => { setRubric('pconf'); wzOpen(); }")
+            # Jeder andere Weg fuehrt zurueck, auch "Geraet einrichten" oeffnet nicht
+            await pg.evaluate("() => { setRubric('pconf'); geOpen(); }")
             umweg = await pg.evaluate(ZUSTAND)
-            assistent = await pg.evaluate("document.getElementById('wzOv').hidden")
+            assistent = await pg.evaluate("document.getElementById('geOv').hidden")
             await pg.locator(".stab", has_text="Sicherung").click()
             sicherung = await pg.evaluate(ZUSTAND)
             await pg.locator(".stab", has_text="Miniserver").click()
@@ -133,7 +133,7 @@ def test_fuehrt_zuerst_zum_miniserver(cfg_ordner, tmp_path):
                       "reiterGesperrt": REITER_GESPERRT, "neuesPanel": True, "liste": True,
                       "hinweis": True, "stand": "Noch kein Miniserver eingetragen.", "weiter": None,
                       "pane": ["miniserver"]}
-    assert umweg == frisch and assistent, "Profile, Displays und Assistent warten auf die Struktur"
+    assert umweg == frisch and assistent, "Ansichten, Geraete und 'Geraet einrichten' warten auf die Struktur"
     assert sicherung["pane"] == ["backup"], "eine Sicherung einspielen geht auch vorher"
     assert falsch["stand"] == ("Anmeldung am Miniserver gescheitert. Der Zugang wurde nicht gespeichert. "
                                "(Anmeldung abgelehnt)")

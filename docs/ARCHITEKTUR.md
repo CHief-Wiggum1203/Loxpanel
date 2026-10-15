@@ -73,7 +73,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
 | `webfrontend/html/panel.html` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Kennung, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
@@ -778,10 +778,10 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/api/agents` | `api_agents` | bekannte Agenten (`online` < `AGENT_ONLINE` = 60 s, gelistet < 600 s) | Einstellungen |
 | POST | `/api/agent/command` | `api_agent_command` | `start`/`reload`/`stop` an einen Agenten weiterleiten (Zeitlimit `AGENT_BEFEHL_TIMEOUT`). `start` verwirft eine offene Wahl und hebt `last_mode` für das Gerät auf, `reload` mit offener Wahl wird zu `start` mit ihr | Einstellungen |
 | POST | `/api/devices` | `api_save_devices` | Betriebsmodus-Zuordnung je Gerät. Ein leeres Display-Kennwort heißt „unverändert“, aber nur bei gleichem Ziel wie beim Einspielen (`_KENNWORT_ZIEL`: Host und Treiber, genau verglichen, auch Groß-/Kleinschreibung; der Port zählt nicht). Antwort: `devices` (Kennwort nur als `hasPass`) und `kennwortVerworfen` (Geräte, deren Kennwort wegen eines anderen Ziels verworfen wurde, der Konfigurator warnt) | Einstellungen |
-| GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Kennung nach IP | Einstellungen |
+| GET | `/api/devices` | `api_devices_get` | alle Anzeigegeräte (Agent, Kiosk-App, Browser) mit Online-Status, Ansicht, Typ und Präsenzstand (`presence`, nur mit gekoppeltem Präsenzmelder); Browser ohne Namen nach IP | Einstellungen |
 | POST | `/api/device/switch` | `api_device_switch` | Ansicht eines Geräts wechseln (`{device, panel, ip}`) – das ist die Zuordnung des Geräts (`devices[name].panel`, gespeichert; leer = Standardansicht, ein Gerät ohne andere Einstellungen entsteht dabei; nicht online: `ok` mit `offline`, es zeigt sie beim Verbinden): offene Visu per WebSocket-Push; der Agent der Zeile (über `ip`, nicht den Namen, online) bekommt die Wahl über die nächste Meldung (`agent: "announce"`), ein älterer Agent oder ein Kiosk ohne offene Visu `/start` (`agent: "start"`; scheitert es bei einem Agenten mit `features`, `"announce"`). Hebt `last_mode` für das Gerät auf. Mit `entwurf` (Token von `/api/entwurf`, Punkt 12) zeigt das Gerät einen ungespeicherten Entwurf: nur über eine verbundene Visu (sonst „Keine verbundene Visu“), das Profil muss nicht gespeichert sein, Antwort `zurueck` = Profil davor | Einstellungen, Konfigurator |
 | POST | `/api/vorschau/beenden` | `api_vorschau_beenden` | Vorschau am Gerät beenden `{device}`: es kehrt zum Profil davor zurück, `beendet` sagt, ob eine Visu zurückgeschaltet wurde | Konfigurator |
-| POST | `/api/device/name` | `api_device_name` | Browser ohne Kennung benennen: `{code, name}` trifft genau die Verbindung mit diesem Kopplungscode, `{ip, name}` alle ohne Kennung unter der IP; Visu merkt sich den Namen und verbindet neu | Einstellungen |
+| POST | `/api/device/name` | `api_device_name` | Browser ohne Namen benennen: `{code, name}` trifft genau die Verbindung mit diesem Kopplungscode, `{ip, name}` alle ohne Namen unter der IP; Visu merkt sich den Namen und verbindet neu | Einstellungen |
 | GET/POST | `/api/display` | `api_display` | Display schalten (`on=1|0`), Filter `panel`/`device`; wirkt bei Kiosk-Apps. `drivers[].error` nennt die Adresse nicht (bei Fully stünde das Kennwort darin); das Kennwort ersetzt der Server nur im Text der Gegenstelle, nicht in selbst gebildeten Meldungen wie „Cannot connect to host Host:Port“, sonst verriete die Ersetzung über den frei wählbaren Port eine PIN | Einstellungen, Loxone, extern |
 | GET/POST | `/api/mode`, `/api/mode/{mode}` | `api_mode` | Betriebsmodus umschalten | Loxone-Ausgang, extern |
 | POST | `/api/testtone` | `api_testtone` | Testton an Panels | Einstellungen |
@@ -2202,7 +2202,10 @@ ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
 | Gerät | was an der Wand hängt oder als Tablet läuft | `devices` in `panels.json`, `?device=` |
 | Vorgaben | Werte für alle Ansichten, die eine Ansicht überschreiben kann | `__global__`, `theme.json` |
 | Einstellungen | Server und Dienste: Miniserver, Türstation, SIP, Audio, Kalender und Wetter, Sicherung | Rubrik `settings` |
+| Kennung | der feste Schlüssel einer Ansicht, mit dem ein Gerät sie öffnet; ein Gerät hat keine Kennung, sondern einen Namen (ohne Namen zeigt es seinen Kopplungscode) | Schlüssel in `panels`, `?panel=<kennung>` |
 
+„Kennung“ meint seit dem Nachlauf der Einrichtung neu (15.10.2026) nur noch
+die Ansicht; ein Gerät heißt „ohne Namen“, nicht „ohne Kennung“.
 „Panel“ kommt in der Oberfläche nur noch im Produktnamen und als Bauform
 („4″-Wandpanel“) vor, „Display“ nur für den Bildschirm selbst (Display aus,
 Display-Steuerung, Display-Treiber). Die Rubriken heißen Übersicht,
@@ -2326,7 +2329,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Ansicht in `PANELS` ein und ruft `wzAmGeraet()`: speichern, dann
   `/api/device/switch` (die Zuordnung, Schritt 2; ein Gerät, das nicht verbunden
   ist, zeigt sie beim Verbinden). Schließen (`geClose()`, ✕, Abbrechen, Esc,
-  Klick daneben) ersetzt den iframe, damit keine Verbindung ohne Kennung stehen
+  Klick daneben) ersetzt den iframe, damit keine Verbindung ohne Namen stehen
   bleibt, wenn die Visu darin gerade selbst navigiert. „Leer anlegen“ bleibt
   (`createBlankPanel()`). `test_geraet_einrichten_browser.py` hält den Weg fest:
   Tablet aus dem Banner, Raum, Haus, Kopie mit Raumtausch, Fertig mit Zuordnung,
@@ -2340,7 +2343,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
      `wzOpen()` zu Einstellungen → Miniserver.
   2. Gerät: ein gemeldetes, dieser Browser, ein Katalogeintrag oder „Ohne Gerät“,
      dazu die Vorschläge je Gerät ohne Ansicht. „Neues Gerät verbinden“ leiht sich
-     die Geräte ohne Kennung (`#ag_anon_karte`, Code am Panel) mit `wzLeihen()`;
+     die Geräte ohne Namen (`#ag_anon_karte`, Code am Panel) mit `wzLeihen()`;
      `wzZurueckgeben()` stellt sie vor jedem Neuzeichnen und beim Schließen
      zurück, dieselben Knoten, Eingaben und Ereignisse bleiben; „＋ Gerät
      verbinden“ (`#wzVerbinden`) öffnet den Bogen `gvOpen()`. Meldet
@@ -2365,9 +2368,18 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
      „Auf … ansehen“ (`wzEntwurf()` baut neu oder Kopie ohne Anlegen), dann
      „Ansicht anlegen“ oder „Zuweisen“ (`wzBuild()`).
   „Weiter zu Prüfen“ (`#wzFertig`) überspringt das Aussehen, sobald der Inhalt
-  steht. Die Tests öffnen ihn direkt (`wzOpen()`): `test_assistent_geraet_browser.py`,
-  `test_assistent_vorschlag_browser.py`, `test_seiten_editor_browser.py`,
-  `test_vorschau_geraet_browser.py` u. a.
+  steht. Seit dem Nachlauf der Einrichtung neu (15.10.2026) prüft ihn kein
+  eigener Test mehr: `test_geraet_einrichten_browser.py` prüft nur die Übergabe
+  aus der Karte „Selbst zusammenstellen“, `test_geraetekarte_browser.py` den
+  Knopf „Gerät verbinden“ darin. Was die früheren Assistenten-Tests prüften,
+  prüfen die Tests des neuen Wegs: das Raster je Gerät über den Seiten-Editor
+  (`test_raster_am_geraet_browser.py`), den Raumvorschlag aus dem Gerätenamen
+  (`test_geraet_einrichten_browser.py`), die Vorschau einer noch ungespeicherten
+  Ansicht am Gerät (`test_vorschau_geraet_browser.py`), die Kachel-Sets je
+  Ansicht (`test_aussehen_reiter_browser.py`), Springen/Filtern im Editor
+  (`test_konfigurator_browser.py`) und das Löschen freier Seiten im Editor
+  (`test_seiten_loeschen_browser.py`). Damit lässt er sich abbauen, sobald die
+  Karte „Selbst zusammenstellen“ nicht mehr gebraucht wird.
 - **Eine Karte je Gerät, fünf Zeilen** (seit 10.10.2026 Schritt 4, seit
   15.10.2026 in der Form der Einrichtung neu, Schritt 4): `#geraete` hält je
   Gerät eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`,
@@ -2395,7 +2407,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   jemand wählt), die Werte der übrigen Zeilen folgen der Abfrage und jeder
   Eingabe (`gzWerteZeichnen()`). Nur Eingaben in den Editoren melden `geraete`
   bei der Speicherleiste, die Auswahl der Ansicht schaltet live. Darunter:
-  Geräte ohne Kennung (`#ag_anon`) und „Erprobte Hardware“; „＋ Gerät
+  Geräte ohne Namen (`#ag_anon`) und „Erprobte Hardware“; „＋ Gerät
   verbinden“ (`#geraetVerbindenBtn`) öffnet den Bogen mit den drei Wegen.
   Der Nachtmodus steht unter Vorgaben → Nacht. `test_geraetekarte_browser.py`
   hält die fünf Zeilen fest.
@@ -2609,8 +2621,9 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Raum bzw. Gerät, dazu das Gerät als Zielgerät (Punkt 15; `wzBuild()`
   schreibt `device` mit Größe); der Assistent springt seit Schritt 7 gleich
   zum Schritt Prüfen. Steht der Inhalt (`wzPflichtOk()`), bietet der Fuß
-  „Weiter zu Prüfen“ an, das Aussehen behält die Vorgaben. Geprüft in
-  `tests/browser/test_assistent_vorschlag_browser.py`.
+  „Weiter zu Prüfen“ an, das Aussehen behält die Vorgaben. Der Raumvorschlag
+  (`wzRaumFuer()`, über `geRaumVorschlag()` auch in „Gerät einrichten“) ist in
+  `tests/browser/test_geraet_einrichten_browser.py` geprüft.
 - Assistent Schritt 1 aus dem Gerät (Punkt 9, 09.10.2026; seit Schritt 7 ist das
   der Schritt Gerät, Panes und Raster stehen unter Inhalt und Seiten): Er fragt
   „Für welches Gerät?“: die Geräte mit
@@ -2638,10 +2651,12 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Speichern noch nicht wieder verbunden ist). Eine Verbindung, die gerade
   `{t:"reload"}` bekam (`App._neu_laden()`), zählt `_push()` nicht mehr:
   das Umschalten ginge mit der alten Seite verloren, erreicht wird erst die
-  neue Verbindung (`tests/test_umschalten_nach_neuladen.py`). Geprüft in
-  `tests/browser/test_assistent_geraet_browser.py`: Maße und Vorrechnung
-  gleich der Visu auf fünf Standardgeräten in vier Profilen, der Ablauf bis
-  zum umgeschalteten Gerät und die Zielkachel unter Displays.
+  neue Verbindung (`tests/test_umschalten_nach_neuladen.py`). Dass Maße und
+  Raster auf fünf Standardgeräten in vier Profilen gleich der Visu sind, prüft
+  `tests/browser/test_raster_am_geraet_browser.py` über den Seiten-Editor
+  (`seRaster()`, dieselbe `raster.js` wie `wzVorrechnung()`), dazu die
+  Zielkachel am Gerät; den Ablauf bis zum umgeschalteten Gerät
+  `test_geraet_einrichten_browser.py`.
 - Gerät eines Profils (`device`, Punkt 15, 08.10.2026; seit 15.10.2026 ohne
   Feld und Warnung): „Gerät einrichten“ und der ausführliche Assistent schreiben
   `device` mit Name und der zuletzt gemeldeten Größe des Geräts
@@ -2883,13 +2898,13 @@ Kiosk-URL, damit der Server Agent-Panels am WebSocket erkennt
 (`App._has_agent`). `App.device_list()` führt Agenten, verbundene Browser und
 konfigurierte Geräte über den Namen zusammen; die Einstellungen zeigen daraus
 eine Liste mit Typ, Online-Status, Ansicht und Aktionen (Ansicht wechseln,
-Neu laden, Display aus/an). Browser ohne Kennung werden mit ihrem
+Neu laden, Display aus/an). Browser ohne Namen werden mit ihrem
 Kopplungscode gelistet (Nachricht `kopplung`, §3.2): Das Panel zeigt ihn unter
 „Dieses Gerät einrichten“ (nur ohne `?panel=` in der Adresse; mit `?panel=`
 behält es den Code, zeigt aber keine Karte über der Visu), und „Namen
 vergeben“ neben dem Code trifft genau dieses Gerät, auch
 bei mehreren hinter einer IP. Der Konfigurator wartet nicht, bis jemand unter
-Geräte nachsieht: `neuBannerZeichnen()` meldet ein Gerät ohne Kennung und ein
+Geräte nachsieht: `neuBannerZeichnen()` meldet ein Gerät ohne Namen und ein
 frisch verbundenes ohne Zuordnung, das die Standardansicht zeigt, oben in
 jeder Rubrik als Banner „Neues Gerät gefunden“ mit Klasse (`geraeteKlasse()`:
 480×480 = 4″-Wandpanel, groß = Display, sonst Tablet), Größe und Code.
