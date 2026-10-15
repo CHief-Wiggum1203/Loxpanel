@@ -3,7 +3,8 @@ webfrontend/html/ wird laenger als GRENZE Zeilen. Die Altlasten, die heute
 darueber liegen, stehen mit ihrem jetzigen Stand in AUSNAHMEN und duerfen nur
 schrumpfen - wer eine Ausnahme braucht, senkt die Zahl, wenn er die Datei
 kleiner gemacht hat, und hebt sie nie an. Hintergrund: das Zerlegen der grossen
-Dateien (docs/ARCHITEKTUR.md Abschnitt 7.2, Konfigurator in config/*.js, Visu in panel/*.js)."""
+Dateien (docs/ARCHITEKTUR.md Abschnitt 7.2, Konfigurator in config/*.js, Visu in panel/*.js,
+Bausteine in bin/bausteine/)."""
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ ENDUNGEN = {".py", ".js", ".html", ".css"}
 GRENZE = 1500
 # Noch zu zerlegen (Zeilenzahl beim Anlegen der Wache, 15.10.2026); nur nach unten aendern
 AUSNAHMEN = {
-    "bin/webvisu.py": 11500,
+    "bin/webvisu.py": 10100,
 }
 
 

@@ -10,6 +10,8 @@ import pytest
 
 from lox import W, anlage, bewaesserung_baustein, bloecke
 
+from bausteine.gemeinsam import _dauer_text  # noqa: E402  # bin/ liegt durch lox auf dem Pfad
+
 
 def _app(**werte) -> W.App:
     control, states = bewaesserung_baustein(**werte)
@@ -113,4 +115,4 @@ def test_status_voll():
 @pytest.mark.parametrize("sek, text", [(0, "0 min"), (45, "45 s"), (600, "10 min"), (90, "1 min 30 s"),
                                        (5400, "1 h 30 min"), (3600, "1 h"), ("x", "")])
 def test_dauer_text(sek, text):
-    assert W._dauer_text(sek) == text
+    assert _dauer_text(sek) == text

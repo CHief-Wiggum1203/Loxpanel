@@ -61,6 +61,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
+| `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
@@ -1166,13 +1167,40 @@ ihn in Loxone Config an einen Status-Baustein mit Raum und Kategorie — danach
 sieht LoxPanel ihn ohne jede Codeänderung.
 
 Die Liste der unterstützten Typen steht im README (39 voll, 6 teilweise, 16
-geplant). Technisch gibt es zwei Ebenen, beide in `webvisu.py`:
+geplant). Technisch gibt es zwei Ebenen; seit Schritt 3 des Zerlegens
+(15.10.2026) liegen sie je Bausteinfamilie in `bin/bausteine/`:
 
-- **Kachel:** `_control_item()` (`:1292-1559`), eine ~270 Zeilen lange `elif`-Kette
-  über den Typ. Setzt `icon`, `on`/`tone`, `sublabel` und entweder `nav`
-  (Detailseite) oder `cmd` (Direktschaltung) oder `controls[]` (Mini-Buttons).
-- **Detailseite:** `_view_control_inner()` (`:1731-2308`), eine ~580 Zeilen lange
-  `if`-Kette, die `blocks[]` zusammenstellt.
+- **Kachel:** `App._control_item()` baut den Kopf (Name ohne Raum, Raum,
+  `secured`, Icon-URL, Kategoriefarbe), ruft dann die Kachel-Funktion des Typs
+  aus der Tabelle `bausteine.KACHEL` (`kachel_fuer(t)`, `fn(app, uuid, c, it)`
+  ergänzt `icon`, `on`/`tone`, `sublabel` und entweder `nav` (Detailseite) oder
+  `cmd` (Direktschaltung) oder `controls[]` (Mini-Buttons)) und schließt mit dem
+  Fuß (Status-Bausteine antippbar, Kategorie-Ampel, `_apply_tile_style()`).
+- **Detailseite:** `App._view_control_inner()` ruft die Detail-Funktion des Typs
+  aus `bausteine.DETAIL` (`detail_fuer(t)`, `fn(app, uuid, c, route)` liefert die
+  `view`-Nachricht mit `blocks[]`); `_view_control()` hängt Verlauf und
+  verlinkte Objekte an.
+
+Die Familien (je ein Modul): `licht` (LightControllerV2, LightController,
+Dimmer, Colorpicker), `schalten` (Switch, TimedSwitch, Daytimer, Pushbutton,
+UpDownDigital, Radio), `beschattung` (Jalousie, Gate, Window), `klima`
+(IRoomControllerV2, IRoomController, AcControl, ClimateControllerUS,
+Ventilation), `audio` (AudioZone, AudioZoneV2), `intercom`, `werte`
+(ValueSelector, UpDownAnalog, Slider, TextInput, InfoOnly*, TextState, Meter,
+Hourcounter, Tracker, Webpage, SystemScheme), `sicherheit` (Alarm, SmokeAlarm,
+PresenceDetector, WindowMonitor, MailBox), `wecker` (AlarmClock), `energie`
+(Fronius, EFM, EnergyManager2, PvProductionForecast), `garten` (Irrigation),
+`wellness` (Sauna, SteakThermo), `zentral` (Präfix `Central`, nur Kachel, die
+Detailseite ist die Gruppe). Jede Funktion trägt sich mit `@kachel("Typ", …)`
+bzw. `@detail("Typ", …)` ein, ein Typ höchstens einmal je Tabelle (ein zweiter
+Eintrag ist ein Fehler beim Import). Die Helfer der Bausteine (`_state`,
+`_fmt_num`, `_jal_fahrt`, `_alarm_entries` …) sind weiter Methoden von `App`
+und werden über `app.` gerufen; Typmengen, Konstanten der Strukturdoku (Sauna,
+Raumregelung v1/v2, Bewässerung, Intercom), die Adapter `LIGHT`/`JAL` und die
+reinen Helfer `_clean()`, `_pos_pct()`, `_dauer_text()` liegen in
+`bausteine/gemeinsam.py`, `webvisu.py` importiert, was es selbst braucht.
+`tests/test_bausteine.py` kennt die Typen je Familie und prüft Tabellen,
+Signaturen, Doppeleinträge und den Rückfall für unbekannte Typen.
 
 **Tasten auf der Kachel** (`controls[]`, je `icon` und `cmd`) haben der Player
 (◀ ⏯ ▶) und die Beschattung (▲ ▼). Die Beschattung sendet dieselben Befehle wie
@@ -1194,11 +1222,10 @@ Sonderfälle:
   Großansicht über `_big_view()`.
 - Analoge Werte ohne An/Aus stehen in `_ANALOG` (`:102`), damit die
   Kategorie-Ampel neutral bleibt.
-- Zentralbausteine werden über den Präfix `Central` am Ende der Kette gefangen.
-- Die Reihenfolge der Kette ist semantisch relevant (z. B. `SWITCHY` vor
-  `TimedSwitch`).
+- Zentralbausteine laufen über den Präfix `Central` (`kachel_praefix`), erst
+  nach der genauen Tabelle.
 
-**Unbekannte Typen:** Es gibt keinen `else`-Zweig. Die Kachel bleibt bei
+**Unbekannte Typen:** Steht der Typ in keiner Tabelle, bleibt die Kachel bei
 `{"label": name, "icon": "info", "on": false}` ohne `nav` und ohne `cmd`, ist also
 sichtbar, aber tot. Welche Typen der eigenen Anlage betroffen sind, zeigt
 `/api/types` (`App.types_overview()`, Status aus dem Rendering abgeleitet,
@@ -3174,13 +3201,18 @@ erledigt).
 
 ### (a) Neuen Loxone-Bausteintyp unterstützen
 
-1. Kachel: neuer `elif t == "<Typ>":`-Zweig in `_control_item()`
-   (`webvisu.py:1314-1537`). States lesen über `self._state(c, "<name>")`, Zahlen
-   formatieren über `self._fmt_num()`, Texte über `self._text()`.
-2. Detailseite: neuer `if t == "<Typ>":`-Zweig in `_view_control_inner()`
-   (`:1731-2308`) vor dem Fallback. Blöcke aus dem Vokabular in Abschnitt 3.7.
-   Für reine Anzeigen reicht `self._big_view()` plus ein Eintrag in `STATUS_BIG`.
-3. Optional: `SWITCHY`, `_ANALOG`, Flanken-Erkennung in `_apply_structure()`.
+1. Kachel: Funktion `@kachel("<Typ>")` mit `(app, uuid, c, it)` in der
+   passenden Familie unter `bin/bausteine/` (oder einer neuen, die
+   `bausteine/__init__.py` unten importiert). States lesen über
+   `app._state(c, "<name>")`, Zahlen formatieren über `app._fmt_num()`, Texte
+   über `app._text()`; `it` bekommt `icon`, `on`, `sublabel` und `nav`, `cmd`
+   oder `controls`.
+2. Detailseite: Funktion `@detail("<Typ>")` mit `(app, uuid, c, route)`, die
+   die `view`-Nachricht liefert. Blöcke aus dem Vokabular in Abschnitt 3.7.
+   Für reine Anzeigen reicht `app._big_view()` plus ein Eintrag in `STATUS_BIG`.
+3. Den Typ in `tests/test_bausteine.py` bei seiner Familie eintragen; optional
+   `SWITCHY` (`bausteine/gemeinsam.py`), `_ANALOG`, Flanken-Erkennung in
+   `_apply_structure()`.
 4. Neues Icon: `ICONS` in `panel.html:273` und, falls im Konfigurator wählbar,
    `BICONS` in `config.html:191`.
 5. Neuer Blocktyp: Zweig in `bh()` (`panel.html:486`), ggf. `updatePanel()` und CSS.
@@ -3282,8 +3314,9 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 
 ### Wartbarkeit
 
-- W1: `_control_item()` und `_view_control_inner()` sind zusammen rund 850 Zeilen
-  `if/elif`-Kette, Reihenfolge semantisch relevant.
+- W1: ~~`_control_item()` und `_view_control_inner()` sind zusammen rund 850 Zeilen
+  `if/elif`-Kette, Reihenfolge semantisch relevant.~~ Erledigt 15.10.2026:
+  Tabellen je Typ in `bin/bausteine/` (§6).
 - W2: Agent-Quelltext doppelt (Datei und Heredoc im Installer), Kommentare
   bereits divergiert.
 - W3: `esc()` dreifach mit unterschiedlichem Verhalten; Icon-Maps doppelt
@@ -3372,6 +3405,6 @@ Priorisiert nach Nutzen für einen eigenen Betrieb auf Unraid:
    größere Umbauten beginnen.~~ Erledigt, `tests/` und `tests.yml`.
 9. **Altlasten entfernen** (Abschnitt 12), sobald klar ist, wie eng der Fork dem
    Upstream folgen soll.
-10. **Bausteinketten aufteilen** (W1). Eine Tabelle `Typ → (kachel_fn,
+10. ~~**Bausteinketten aufteilen** (W1). Eine Tabelle `Typ → (kachel_fn,
     detail_fn)` statt der `elif`-Kette macht neue Bausteine zu einer Datei pro
-    Typ, ohne das Protokoll zu ändern.
+    Typ, ohne das Protokoll zu ändern.~~ Erledigt, `bin/bausteine/` (§6).

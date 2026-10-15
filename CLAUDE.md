@@ -22,7 +22,8 @@ Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 
 | Datei | Inhalt |
 |---|---|
-| `bin/webvisu.py` | gesamter Server, 3.000 Zeilen, Routen in `main()` am Ende |
+| `bin/webvisu.py` | gesamter Server (rund 10.000 Zeilen, wird zerlegt), Routen in `main()` am Ende |
+| `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie (licht, schalten, beschattung, klima, audio, intercom, werte, sicherheit, wecker, energie, garten, wellness, zentral); `@kachel("Typ")` und `@detail("Typ")` tragen die Funktionen in die Tabellen ein, `gemeinsam.py` hält die Typmengen, Konstanten der Strukturdoku, Adapter und reine Helfer |
 | `bin/loxone_ws.py` | Loxone-WebSocket und Binärparser |
 | `bin/audioserver.py`, `bin/audioserver_events.py`, `bin/audioserver_auth.py` | Audioserver-Backends: Gen1/MS4H, Gen2-Events (Port 7091) und die App-Anmeldung am gekoppelten Audioserver (RSA/AES, braucht `cryptography`) |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`): jeder Wert eines Sets steht nur dort, die Visu hängt ihre Regeln an die Art (`data-kachelset-aufbau`/`-leiste`), nie an den Namen. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
@@ -62,7 +63,7 @@ jedem PR, jedem Push auf `main` und jedem `v*`-Tag aus. Lokal dasselbe:
 ```bash
 .venv/bin/pip install -r requirements-dev.txt     # einmalig, dazu für Browser-Tests:
 .venv/bin/python -m playwright install chromium    # einmalig
-python3 -m py_compile bin/*.py agent/loxpanel-agent.py
+python3 -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
 .venv/bin/ruff check --select F,E9 bin agent tests
 .venv/bin/pytest                  # alles; -m "not browser" ohne Chromium (~15 s)
 ```
@@ -103,9 +104,15 @@ python3 -m py_compile bin/*.py agent/loxpanel-agent.py
   `PANEL_STANDARD`, sonst gibt es einen Fehlalarm. Dazu muss die Option in
   `_panel_export()` stehen: Der Konfigurator schickt beim Speichern zurück, was
   er von dort bekam, sonst geht sie beim nächsten Speichern still verloren.
-- Neue Bausteintypen kommen in die beiden Ketten `_control_item()` und
-  `_view_control_inner()`, nicht in `adapters.py`. Reihenfolge der Zweige ist
-  relevant. Nennt die zweite Zeile der Kachel keinen Zustand, sondern
+- Neue Bausteintypen bekommen eine Kachel-Funktion `@kachel("Typ")` mit
+  `(app, uuid, c, it)` und eine Detailseiten-Funktion `@detail("Typ")` mit
+  `(app, uuid, c, route)` in der passenden Familie unter `bin/bausteine/`,
+  nicht in `webvisu.py` und nicht in `adapters.py`; `App._control_item()` baut
+  Kopf und Fuß der Kachel, `App._view_control()` hängt Verlauf und verlinkte
+  Objekte an. Ein Typ darf nur einmal eingetragen sein (sonst Fehler beim
+  Import), `tests/test_bausteine.py` kennt die Liste. Die Helfer (`_state`,
+  `_fmt_num`, `_jal_fahrt` …) sind Methoden von `App`, aufgerufen über `app.`.
+  Nennt die zweite Zeile der Kachel keinen Zustand, sondern
   beschreibt nur („Türsprechanlage“), `subInfo=True` setzen, sonst steht sie
   im neuen Kachel-Aufbau groß vorn. Schriftgrößen ohne Einstellung stehen
   einmal in `GROESSEN_STANDARD`, nicht in `load_theme()` oder der Vorlage.

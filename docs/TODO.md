@@ -1165,9 +1165,13 @@ selbst aktuell.
         Skriptteile (kern, bedienung, kacheln, seiten, kachelfeld, gesten,
         verbindung, front, haus, startseite, display, start), Route
         `/panel/{name}`. Aufteilung in `ARCHITEKTUR.md` §7.1.
-  - [ ] Schritt 3, Server: die Bausteinketten `_control_item()` und
-        `_view_control_inner()` aus `webvisu.py` in ein Modul je
-        Bausteinfamilie, siehe „Bausteinketten aufteilen" unten.
+  - [x] Schritt 3, Server: die Bausteinketten `_control_item()` und
+        `_view_control_inner()` liegen in `bin/bausteine/`, ein Modul je
+        Familie mit `@kachel`/`@detail` in die Tabellen `KACHEL`/`DETAIL`;
+        `webvisu.py` ruft `kachel_fuer(t)`/`detail_fuer(t)`. Gemeinsame
+        Konstanten, Adapter und reine Helfer in `bausteine/gemeinsam.py`.
+        Die Helfer der Bausteine bleiben vorerst Methoden von `App`
+        (Schritt 4). `ARCHITEKTUR.md` §6 und §10 (a).
   - [ ] Schritt 4, Server: den Rest der `App`-Klasse nach Themen trennen
         (Konfigurator-API, Audioserver, Intercom, Front, Diagnose).
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
@@ -1180,9 +1184,10 @@ selbst aktuell.
 - [ ] **Magische Zahlen als Konstanten** am Dateianfang: Broadcaster-Takt,
       Reconnect-Pausen, Agent-Timeouts, Ports, Daytimer-Dauern,
       Farbtemperaturen. (W5) **S**
-- [ ] **Bausteinketten aufteilen**: Tabelle `Typ → (kachel_fn, detail_fn)`
-      statt der `elif`-Ketten, ein Modul pro Bausteinfamilie. Protokoll bleibt
-      gleich. (W1) **L**
+- [x] **Bausteinketten aufteilen**: Tabellen `KACHEL`/`DETAIL` (Typ →
+      Funktion) statt der `elif`-Ketten, ein Modul pro Bausteinfamilie in
+      `bin/bausteine/`. Protokoll unverändert. (W1) Erledigt mit Schritt 3
+      des Zerlegens, 15.10.2026.
 - [ ] **Kategorie-Farben exakt statt per Teilstring** zuordnen, mit
       Rückwärtskompatibilität für bestehende `theme.json`. (W6) **S**
 - [ ] **`_irc_modes`-Filter** nicht über den Text „schutz", sondern über die

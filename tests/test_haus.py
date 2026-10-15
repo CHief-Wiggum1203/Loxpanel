@@ -13,6 +13,8 @@ from aiohttp.test_utils import make_mocked_request
 
 from lox import EM2, HAUS_FAVORITEN, W, anlage, haus_anlage
 
+from bausteine.gemeinsam import SAUNA_STOERUNG, SAUNA_WASSER  # noqa: E402  # bin/ liegt durch lox auf dem Pfad
+
 
 def _app(**states):
     struktur, st = haus_anlage()
@@ -254,9 +256,9 @@ def test_hinweise():
     assert _hinweise(_haus(_app(ir4=1, ir3=0))) == [("IR", "warnung", "Fenster offen", "Raumregelung · Küche", "window")]
     assert _hinweise(_haus(_app(ir4=1, ir3=-1)))[0][1:4] == ("dringend", "Fenster offen", "Raumregelung · Küche · kühlt")
     # Stoerung der Sauna geht dem Wassermangel vor; Text wie auf der Detailseite
-    assert _hinweise(_haus(_app(sa3=1, sa4=1))) == [("SA", "dringend", W.SAUNA_STOERUNG, "Saunasteuerung · Sauna", "thermo")]
+    assert _hinweise(_haus(_app(sa3=1, sa4=1))) == [("SA", "dringend", SAUNA_STOERUNG, "Saunasteuerung · Sauna", "thermo")]
     detail = [b.get("text") for b in _app(sa3=1, sa4=1).render({"view": "control", "id": "SA"}, None)["blocks"]]
-    assert W.SAUNA_WASSER in detail and W.SAUNA_STOERUNG in detail
+    assert SAUNA_WASSER in detail and SAUNA_STOERUNG in detail
     # Wassermangel nur mit Verdampfer
     app = _app(sa3=1)
     app.controls["SA"]["details"] = {}
