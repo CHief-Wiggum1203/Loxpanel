@@ -21,7 +21,7 @@ import pytest
 from aiohttp import web
 from icalendar import Calendar
 
-from lox import W, serve
+from lox import W, serve, ersetzen
 
 front_info = W.front_info
 QUELLE = {"name": "Familie", "url": "https://kalender.invalid/familie.ics", "color": "#e0a24d"}
@@ -124,9 +124,9 @@ def test_nach_wetter_push_nur_restzeit_warten(abrufe, monkeypatch):
 
 def test_speichern_holt_kalender_sofort(abrufe, monkeypatch):
     gespeichert: dict = {}
-    monkeypatch.setattr(W, "_load_cfg", lambda: {})
-    monkeypatch.setattr(W, "_write_cfg", gespeichert.update)
-    monkeypatch.setattr(W, "_calendar_config", lambda: gespeichert.get("calendar", {}))
+    ersetzen(monkeypatch, "_load_cfg", lambda: {})
+    ersetzen(monkeypatch, "_write_cfg", gespeichert.update)
+    ersetzen(monkeypatch, "_calendar_config", lambda: gespeichert.get("calendar", {}))
 
     async def lauf():
         async with _front({"temp": 5.0}) as app:

@@ -13,7 +13,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import W, anlage, visu_starten
+from lox import W, anlage, visu_starten, ersetzen
 
 BAUSTEINE = {
     "PM": {"name": "Präsenz Küche", "type": "PresenceDetector", "uuidAction": "PM", "room": "r1", "cat": "c1",
@@ -173,7 +173,7 @@ def test_gescheitertes_speichern_laesst_den_laufenden_stand(cfg_ordner, monkeypa
             if pfad == W.PANELS_FILE:
                 raise fehler
             echt(pfad, text)
-        monkeypatch.setattr(W, "_atomic_write", schreiben)
+        ersetzen(monkeypatch, "_atomic_write", schreiben)
         ui = web.Application()
         ui["app"] = app
         ui.router.add_post("/api/devices", W.api_save_devices)

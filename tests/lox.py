@@ -37,6 +37,22 @@ if str(ROOT / "bin") not in sys.path:
     sys.path.insert(0, str(ROOT / "bin"))
 
 import webvisu as W  # noqa: E402
+import konfig  # noqa: E402
+import sicherung  # noqa: E402
+
+SERVER_MODULE = (W, konfig, sicherung)
+
+
+def ersetzen(monkeypatch, name: str, wert) -> None:
+    """Einen Namen in jedem Server-Modul ersetzen, das ihn kennt: webvisu.py
+    importiert Konstanten und Helfer aus konfig.py und sicherung.py (eigene
+    Bindung je Modul), ein Patch nur an W traefe den Aufrufer dort nicht."""
+    getroffen = False
+    for modul in SERVER_MODULE:
+        if hasattr(modul, name):
+            monkeypatch.setattr(modul, name, wert)
+            getroffen = True
+    assert getroffen, f"{name} gibt es in keinem Server-Modul"
 
 # Wartebedingung fuer Browser-Tests: Konfigurator hat /api/meta geladen. META
 # ist bis zur Antwort null; die Bedingung darf dann nicht werfen, sonst bricht

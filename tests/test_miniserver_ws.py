@@ -21,7 +21,7 @@ import time
 
 import pytest
 
-from lox import Miniserver, W, neue_app
+from lox import konfig, Miniserver, neue_app, W
 
 UUID = "0f1e2d3c-0001-0002-0102030405060708"
 FRIST, ABSTAND = 0.3, 0.2      # s: response_timeout und keepalive_interval im Test
@@ -213,6 +213,6 @@ def test_keepalive_abstand_einstellung(cfg_ordner, caplog, wert, erwartet):
     """miniserver.keepalive_interval: Zahl > 0, sonst der Standard (mit Warnung)."""
     ms = {} if wert is None else {"keepalive_interval": wert}
     (cfg_ordner / "loxpanel.cfg").write_text(json.dumps({"miniserver": ms}), encoding="utf-8")
-    assert W._ms_keepalive_abstand() == (W.MS_KEEPALIVE if erwartet is None else erwartet)
+    assert W._ms_keepalive_abstand() == (konfig.MS_KEEPALIVE if erwartet is None else erwartet)
     warnt = "keepalive_interval" in caplog.text
     assert warnt == (wert is not None and erwartet is None)

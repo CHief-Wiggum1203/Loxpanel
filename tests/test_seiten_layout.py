@@ -4,7 +4,7 @@ nach Raum gruppiert (byRoom, Standard an). picks bestimmt, was auf der Seite
 steht, das Layout Reihenfolge und Groesse."""
 import pytest
 
-from lox import W, anlage
+from lox import anlage, konfig, W
 
 
 def _schalter(u, raum):
@@ -27,15 +27,15 @@ BAUSTEINE = {"A": _schalter("A", "r1"), "B": _schalter("B", "r2"), "C": _schalte
     ("A", None), (None, None), ({"id": "A"}, None),
 ], ids=["voll", "hoch-ist-breit", "ziffern", "ausserhalb", "doppelt", "unbrauchbar", "text", "nichts", "dict"])
 def test_layout_pruefer(wert, erwartet):
-    assert W._seiten_layout(wert) == erwartet
+    assert konfig._seiten_layout(wert) == erwartet
 
 
 def test_picks_bestimmt_den_inhalt_das_layout_die_folge():
     lay = [{"id": "C", "w": 2, "h": 2}, {"id": "X", "w": 1, "h": 1}, {"id": "A", "w": 1, "h": 1}]
-    picks, layout = W._layout_mit_picks(lay, ["A", "B", "C"])
+    picks, layout = konfig._layout_mit_picks(lay, ["A", "B", "C"])
     assert picks == ["C", "A", "B"], "Layout-Folge, was ohne Eintrag ist, hinten"
     assert layout == [{"id": "C", "w": 2, "h": 2}, {"id": "A", "w": 1, "h": 1}], "X steht nicht mehr in picks"
-    assert W._layout_mit_picks(None, ["A", "B"]) == (["A", "B"], None)
+    assert konfig._layout_mit_picks(None, ["A", "B"]) == (["A", "B"], None)
 
 
 def test_sanitizer_export_rundweg():

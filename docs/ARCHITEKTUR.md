@@ -61,6 +61,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | Pfad | Rolle |
 |---|---|
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
+| `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
+| `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `webvisu.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
@@ -827,7 +829,7 @@ Pfade sind Modul-Globals in `webvisu.py:67-70`.
 
 ### 5.1 Miniserver-Zugang, Priorität
 
-`_config()` (`:200`), dahinter `_ms_zugang()`, das auch die Quelle nennt:
+`_config()` (`konfig.py`), dahinter `_ms_zugang()`, das auch die Quelle nennt:
 
 1. `loxpanel.cfg` → `miniserver` (nur wenn `host` gesetzt, dann gilt der
    Abschnitt ganz)
@@ -1017,7 +1019,8 @@ Gelesen von `load_panels()` und `load_devices()`, geschrieben über
 }
 ```
 
-Die Validierung in `_sanitize_panels()` ist eine Whitelist, die unbekannte
+Die Validierung in `_sanitize_panels()` (`konfig.py`, als `App._sanitize_panels()`
+erreichbar) ist eine Whitelist, die unbekannte
 oder falsch getypte Felder verwirft. Die Antwort nennt das Verworfene
 (`verworfen`), der Konfigurator zeigt es als Warnung. Wer eine neue Option
 ergänzt, muss sie dort eintragen und zusätzlich in `_panel_export()`, das die
@@ -2278,7 +2281,12 @@ per `script src` geladenen Teile, der Rauchtest ruft `/config.css` und
 ganz. `tests/test_dateigroessen.py` wacht, dass keine Quelldatei über 1.500
 Zeilen wächst (die noch zu zerlegende `webvisu.py` steht als Ausnahme mit
 ihrem jetzigen Stand drin und darf nur schrumpfen; `panel.html` ist seit
-Schritt 2 aufgeteilt, §7.1).
+Schritt 2 aufgeteilt, §7.1; Schritt 3 hat die Bausteine nach `bausteine/`
+gebracht, §6, Schritt 4a Konfiguration und Sicherung nach `konfig.py` und
+`sicherung.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
+importieren `webvisu` nie, `webvisu` importiert sie; wer in Tests eine
+Konstante oder einen Helfer ersetzt, nimmt `ersetzen()` aus `tests/lox.py`,
+das in jedem Server-Modul mit diesem Namen patcht (`tests/test_schichten.py`).
 
 **Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
 ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
@@ -3228,7 +3236,7 @@ für GET+POST `_json_or_empty()` und `_push_filter()`, für Pushes `_push()`.
 
 ### (c) Neue Einstellung in `loxpanel.cfg`
 
-Leser nach dem Muster `_audio_config()` (`:232`), Feld in `App.__init__`, bei
+Leser nach dem Muster `_audio_config()` (`konfig.py`), Feld in `App.__init__`, bei
 Verbindungsrelevanz auch in `reconnect()` neu einlesen. Schreiben über
 `_load_cfg()` + Mutation + `_write_cfg()`. Für die UI: Feld in `api_settings`,
 neuer POST-Handler, Rubrik „Settings" in `config.html`, `i18n.js`. Bei Env-Override zusätzlich

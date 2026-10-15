@@ -3,7 +3,7 @@ Waehlen gemeldete Groesse. Pruefer, Sanitizer (gespeichert oder verworfen),
 Export fuer den Konfigurator."""
 import pytest
 
-from lox import W, anlage
+from lox import anlage, konfig, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "states": {"active": "s"}}})
@@ -36,7 +36,7 @@ def test_gemeldete_groesse_passt_immer_ins_profil():
     """Was _clean_screen() als Groesse eines Panels durchlaesst, nimmt
     _clean_zielgeraet() auch an - sonst verliert das Profil die Groesse und
     Displays kann fuer dieses Geraet nie warnen."""
-    for kante in (1, 4000, 12000, W.BILDSCHIRM_PX_MAX):
+    for kante in (1, 4000, 12000, konfig.BILDSCHIRM_PX_MAX):
         gemeldet = W._clean_screen({"vw": kante, "vh": 600})
         assert gemeldet["vw"] == kante
         assert W._clean_zielgeraet({"name": "t", "vw": gemeldet["vw"], "vh": gemeldet["vh"]}) == \

@@ -1172,8 +1172,25 @@ selbst aktuell.
         Konstanten, Adapter und reine Helfer in `bausteine/gemeinsam.py`.
         Die Helfer der Bausteine bleiben vorerst Methoden von `App`
         (Schritt 4). `ARCHITEKTUR.md` §6 und §10 (a).
-  - [ ] Schritt 4, Server: den Rest der `App`-Klasse nach Themen trennen
-        (Konfigurator-API, Audioserver, Intercom, Front, Diagnose).
+  - [ ] Schritt 4, Server: den Rest von `webvisu.py` nach Themen trennen, in
+        mehreren PRs. Regel: die herausgelösten Module importieren `webvisu`
+        nie, `webvisu` importiert sie (`tests/test_schichten.py`).
+    - [x] 4a: `konfig.py` (Pfade, Laden und Schreiben, Leser der
+          `loxpanel.cfg`, Optionskonstanten, Wertprüfer, Sanitizer; `App`
+          behält die Sanitizer als statische Methoden) und `sicherung.py`
+          (Backup und Einspielen; die Routen bleiben). `App.push()` ersetzt
+          `_push()` als Methode, die Hülle bleibt für die Routen. Tests
+          ersetzen Server-Namen über `ersetzen()` in allen Server-Modulen.
+    - [ ] 4b: Statistik (`_stat_*`, `_parse_stat_*`, Verlaufsblöcke) und die
+          Helfer der Bausteine (`_state`, `_fmt_num`, `_alarm_*`, `_irc*`,
+          `_jal_*`, `_irr_*` …) aus `App` zu den Familien in `bausteine/`.
+    - [ ] 4c: Hausübersicht und Gesten (`_haus_*`, `_geste*`, `licht_gruppen`)
+          als eigene Module.
+    - [ ] 4d: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,
+          Geräte und Agent, Audio, Intercom und SIP, Diagnose), `main()`
+          registriert je Modul.
+    - [ ] 4e: Front (Uhr, Kalender, Wetter), Audioserver, Intercom, Diagnose
+          und die Miniserver-Verbindung aus `App` in eigene Module.
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
       unter `/loxpanel-agent.py` aus, `install-agent.sh` holt die Datei per
       `curl` statt sie als Heredoc zu enthalten. (W2) **S**

@@ -14,7 +14,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import W, anlage
+from lox import anlage, ersetzen, konfig, sicherung, W
 
 BAUSTEINE = {
     "PM": {"name": "Präsenz Küche", "type": "PresenceDetector", "uuidAction": "PM", "room": "r1", "cat": "c1",
@@ -380,7 +380,7 @@ def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner, monkeypatch):
         while time.perf_counter() < ende:
             pass
         return echt(*args)
-    monkeypatch.setattr(W, "_sicherung_pruefen", langsam)
+    ersetzen(monkeypatch, "_sicherung_pruefen", langsam)
 
     async def lauf():
         ui = web.Application()
@@ -428,8 +428,8 @@ def test_zwei_einspielen_laufen_nacheinander(cfg_ordner, tmp_path, monkeypatch):
             return await schreiben(app, plan)
         finally:
             ablauf.append("fertig")
-    monkeypatch.setattr(W, "_sicherung_pruefen", gepruefter)
-    monkeypatch.setattr(W, "_sicherung_schreiben", geschriebener)
+    ersetzen(monkeypatch, "_sicherung_pruefen", gepruefter)
+    ersetzen(monkeypatch, "_sicherung_schreiben", geschriebener)
 
     async def lauf():
         ui = web.Application()
@@ -475,7 +475,7 @@ KAPUTT = [
      "panels.json: panels.wohnen.title enthält ungültige Zeichen"),
     # 400 KB, gepackt 1 KB - jeder Eintrag kostet Zeit, in der der Server steht
     ("zu-viele-eintraege",
-     _zip({"loxpanel.cfg": '{"x": [' + ",".join(["0"] * W.RESTORE_MAX_EINTRAEGE) + "]}"}),
+     _zip({"loxpanel.cfg": '{"x": [' + ",".join(["0"] * sicherung.RESTORE_MAX_EINTRAEGE) + "]}"}),
      "loxpanel.cfg hat mehr als 200.000 Einträge, mehr als eine LoxPanel-Sicherung haben kann"),
     # 1,3 MiB kompakt, eingerueckt geschrieben 2,7 MiB: die naechste Sicherung
     # liesse sich nicht mehr einspielen
@@ -504,7 +504,7 @@ def test_kaputte_sicherung_wird_abgelehnt_und_schreibt_nichts(cfg_ordner, daten,
 
 
 def test_zu_grosse_datei_in_der_zip(cfg_ordner):
-    daten = _zip({"loxpanel.cfg": " " * (W.RESTORE_MAX_DATEI + 1)})
+    daten = _zip({"loxpanel.cfg": " " * (sicherung.RESTORE_MAX_DATEI + 1)})
     with pytest.raises(ValueError, match="zu groß"):
         W._sicherung_lesen(daten)
 
@@ -544,16 +544,16 @@ def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, monkeypa
                                              "password": ""}}
     _schreiben(cfg_ordner, cfg={**CFG, "mqtt": {"host": "127.0.0.1", "pass": ""}}, panels=panels)
     with zipfile.ZipFile(io.BytesIO(W._backup_zip(cfg_ordner))) as z:
-        weg = (W.BACKUP_VERMERK,) + (() if liesmich else (W.BACKUP_LIESMICH,))
+        weg = (sicherung.BACKUP_VERMERK,) + (() if liesmich else (sicherung.BACKUP_LIESMICH,))
         alt = _zip({**{n: z.read(n) for n in z.namelist() if n not in weg},
-                    **({W.BACKUP_VERMERK: vermerk} if vermerk else {})})
+                    **({sicherung.BACKUP_VERMERK: vermerk} if vermerk else {})})
     rueckfall = []
-    echt = W._leere_kennwoerter
+    echt = sicherung._leere_kennwoerter
 
     def gezaehlt(obj, datei):
         rueckfall.append(datei)
         return echt(obj, datei)
-    monkeypatch.setattr(W, "_leere_kennwoerter", gezaehlt)
+    ersetzen(monkeypatch, "_leere_kennwoerter", gezaehlt)
 
     async def lauf():
         app = _app()
@@ -690,7 +690,7 @@ def test_schreibfehler_wird_gemeldet(cfg_ordner, tmp_path, monkeypatch):
 
     def voll(cfg):
         raise OSError("Kein Platz auf dem Gerät")
-    monkeypatch.setattr(W, "_write_cfg", voll)
+    ersetzen(monkeypatch, "_write_cfg", voll)
 
     async def lauf():
         app = _app()
@@ -715,10 +715,10 @@ def test_teilweise_geschrieben_nennt_nur_geschriebenes(cfg_ordner, tmp_path, mon
     echt = W._atomic_write
 
     def schreiben(pfad, text):
-        if pfad == W.THEME_FILE:
+        if pfad == konfig.THEME_FILE:
             raise fehler
         echt(pfad, text)
-    monkeypatch.setattr(W, "_atomic_write", schreiben)
+    ersetzen(monkeypatch, "_atomic_write", schreiben)
 
     async def lauf():
         app = _app()
