@@ -659,7 +659,24 @@
   .wzleiste li.erledigt span{background:var(--good);border-color:var(--good);color:#101319;}
   .wzleiste li.jetzt{color:var(--fg);font-weight:600;} .wzleiste li.jetzt span{background:var(--accent);border-color:var(--accent);color:#161018;}
   .wzleiste li.entfaellt{opacity:.45;text-decoration:line-through;}
-  .wzo[disabled]{opacity:.45;cursor:not-allowed;}
+  .wzo[disabled],.wzo.aus{opacity:.45;cursor:not-allowed;}
+  /* ---- Gerät einrichten (Einrichtung neu, Schritt 3): EIN Bildschirm - links Name und die
+     Frage "Was soll es zeigen?", rechts die echte Visu als Vorschau in Geraetegroesse ---- */
+  .wzbox.ge{max-width:1120px;height:min(92vh,840px);}
+  .ge-body{display:grid;grid-template-columns:400px minmax(0,1fr);flex:1;min-height:0;}
+  .ge-links{padding:20px;overflow-y:auto;border-right:1px solid var(--line);}
+  .ge-rechts{padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;}
+  .ge-vorkopf{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .ge-vor{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:12px;background:#000;border:1px solid var(--line);}
+  .ge-vor iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000;}
+  .wzo.ge-karte{align-items:flex-start;} .wzo.ge-karte .ic{margin-top:2px;}
+  .wzo .ge-innen{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .wzo .ge-innen label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .wzo .ge-innen select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:8px 10px;font:inherit;font-size:13.5px;}
+  .wzo .ge-innen .ge-info{font-size:12px;color:var(--muted);}
+  .wznote code{background:var(--panel2);border-radius:3px;padding:1px 5px;}
+  @media(max-width:900px){ .wzbox.ge{height:auto;} .ge-body{grid-template-columns:1fr;} .ge-links{border-right:0;border-bottom:1px solid var(--line);}
+    .ge-vor{height:320px;flex:none;} }
 </style>
 </head>
 <body>
@@ -700,7 +717,7 @@
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
         <button class="as-start" id="ovGeraetEinrichten" data-i18n>＋ Gerät einrichten</button>
-        <p class="lead" style="margin-top:6px" data-i18n>Vom Gerät bis zur fertigen Ansicht in sechs Schritten: Miniserver, Gerät, Ansicht, Inhalt und Seiten, Aussehen und Verhalten, Prüfen.</p>
+        <p class="lead" style="margin-top:6px" data-i18n>Ein Gerät, das die Visu öffnet, meldet sich oben von selbst. „Gerät einrichten“ fragt nur, was es zeigen soll – einen Raum, das ganze Haus oder dasselbe wie ein anderes Gerät – und zeigt es sofort.</p>
         <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Wandpanel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
         <h3><span class="n">A</span>Geräteklassen</h3>
@@ -758,7 +775,7 @@
             <button class="ovbox" data-goto="settings:audio"><b>Audio</b><span>Audioserver-Live-Daten (Cover/Titel/Favoriten), Direktkanal-Option.</span></button>
             <button class="ovbox" data-goto="settings:intercom"><b>Kamera / Türstation</b><span>Kamerabilder und Klingel-Popup je Intercom-Baustein.</span></button>
             <button class="ovbox" data-goto="displays"><b>Geräte</b><span>Welche Ansicht welches Gerät zeigt: Online-Status, Ansicht wechseln, Betriebsmodus-Automatik.</span></button>
-            <button class="ovbox" data-goto="wizard"><b>Gerät einrichten</b><span>Ein Gerät verbinden (Start-URL für App oder Tablet, Agent per SSH für Linux) und ihm eine Ansicht geben.</span></button>
+            <button class="ovbox" data-goto="wizard"><b>Gerät einrichten</b><span>Einem Gerät sagen, was es zeigt: ein Raum, das ganze Haus oder wie ein anderes Gerät – mit Vorschau in seiner Größe.</span></button>
           </div>
         </div>
       </div>
@@ -1183,7 +1200,7 @@ function ersteAnsicht(){ return PANELS.default ? 'default' : (Object.keys(PANELS
 document.querySelectorAll('.rub').forEach(b=>b.onclick=()=>setRubric(b.dataset.rub));
 document.querySelectorAll('.ovbox').forEach(b=>b.onclick=()=>{
   const g=(b.dataset.goto||'').split(':'), r=g[0], sub=g[1];
-  if(r==='wizard'){ wzOpen(); return; }
+  if(r==='wizard'){ geOpen(); return; }
   if(r==='pconf'||r==='vorgaben'||r==='settings'){ subMerken(r,sub);
     setRubric(r); renderSubtabs(); showSub(sub); }
   else { setRubric(r);   // overview/displays: keine Subtabs
@@ -4496,7 +4513,7 @@ async function wzAmGeraet(id, name, umschalten, ziel){
     try{ j=await postJson('/api/device/switch', {device:name, ip:DEVICE_IPS[name]||'', panel:id}); }
     catch(e){ j={ok:false}; }
   }
-  flash(t, j.ok ? ('Ansicht „'+id+'" '+T('gespeichert,')+' '+name+' '+T('schaltet um.'))
+  flash(t, j.ok ? ('Ansicht „'+id+'" '+T('gespeichert,')+' '+name+' '+(j.offline ? T('zeigt sie, sobald es verbindet.') : T('schaltet um.')))
                : (name+' '+T('ist nicht online – die Ansicht ist gespeichert, umschalten unter Geräte.')), !!j.ok);
 }
 function wzOpen(){
@@ -5043,8 +5060,190 @@ function wzBuild(){
   cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
   if(amGeraet && (umschalten || zielMerken)) wzAmGeraet(id, amGeraet, umschalten, zielMerken ? ziel : 0);
 }
-$('#addBtn').onclick=wzOpen;
-['#geraetEinrichtenBtn','#ovGeraetEinrichten'].forEach(sel=>{ const k=$(sel); if(k) k.onclick=wzOpen; });
+/* ============================================================
+   Gerät einrichten (Einrichtung neu, Schritt 3): EIN Bildschirm. Name der Ansicht
+   (aus dem Raum zum Geraetenamen vorgeschlagen, die Kennung folgt daraus), die Frage
+   "Was soll es zeigen?" mit drei Karten - ein Raum, das ganze Haus, wie ein anderes
+   Geraet (mit Raumtausch) - und rechts die echte Visu als Vorschau in der gemeldeten
+   Groesse des Geraets (/api/entwurf, skalierter iframe; jede Aenderung zieht nach).
+   "Fertig" legt die Ansicht an, speichert und ordnet sie dem Geraet zu
+   (/api/device/switch, Schritt 2) - in einem Zug. Raster, Farben, Schrift und
+   Display kommen aus den Vorgaben; am 4"-Wandpanel (quadratisch) gibt es kein Haus
+   und ein festes 2 x 2. Ohne Geraet ("+ Neue Ansicht") dasselbe ohne Zuordnung. Die
+   vierte Karte fuehrt in den ausfuehrlichen Assistenten (wzOpen: klassische Leiste,
+   freie Seiten, eigenes Aussehen), mit dem Geraet schon gewaehlt.
+   ============================================================ */
+const GE={device:'', screen:null, name:'', _nameT:false, art:'raum', raum:'', aufbau:'', quelle:'', nach:'', token:'', url:'', timer:0, _wired:false};
+function geQuadrat(){ const s=GE.screen; return !!s && LoxRaster.quadratisch(s.vw, s.vh); }
+function geRaumVorschlag(){ const r=GE.device ? wzRaumFuer(GE.device) : null; return r ? r.uuid : ''; }
+function geId(){ return idAusName(GE.name.trim() || GE.device || 'ansicht'); }
+// Name, solange niemand einen getippt hat: der Raum, "Haus", bei der Kopie der Zielraum oder die Vorlage, sonst das Geraet
+function geNameVorschlag(){
+  if(GE._nameT) return;
+  let t='';
+  if(GE.art==='raum' && GE.raum && roomName(GE.raum)!=='?') t=roomName(GE.raum);
+  else if(GE.art==='haus') t=T('Haus');
+  else if(GE.art==='wie'){ const q=PANELS[GE.quelle]; if(q) t=GE.nach ? roomName(GE.nach) : ((q.title||GE.quelle)+' '+T('(Kopie)')); }
+  if(!t && GE.device) t=GE.device.charAt(0).toUpperCase()+GE.device.slice(1);
+  GE.name=t;
+}
+// Vorlagen fuer "Wie ein anderes Geraet": jede Ansicht, mit den Geraeten, die sie zeigen
+function geVorlagen(){
+  return ansichtIds().map(id=>{
+    const zeigt=[...new Set(Object.keys(DEVICE_ZUORDNUNG).filter(n=>DEVICE_ZUORDNUNG[n]===id)
+      .concat(((PANELS[id]||{}).device||{}).name||[]))].filter(n=>n && n!==GE.device);
+    return {id:id, label:ansichtName(id)+(zeigt.length ? ' · '+T('zeigt')+' '+zeigt.join(', ') : '')}; });
+}
+function geKopieInfo(){
+  const q=PANELS[GE.quelle]; if(!q) return '';
+  const von=profilRaum(q);
+  if(!GE.nach) return T('Reine Kopie: alle Tabs, Bausteine und Einstellungen bleiben, wie sie sind.');
+  if(!von) return T('Die Vorlage hat keinen Raum – es bleibt bei der reinen Kopie.');
+  if(von===GE.nach) return T('Quell- und Zielraum sind gleich – nichts zu tauschen.');
+  const r=profilMitRaumtausch(q, von, GE.nach, META.controls||[]);
+  return r.getauscht+' '+T('Bausteine aus')+' '+roomName(von)+' '+T('werden durch die gleichnamigen in')+' '+roomName(GE.nach)+' '+T('ersetzt.')+
+    (r.fehlend.length ? ' '+T('Ohne Gegenstück dort (fallen weg):')+' '+r.fehlend.join(', ') : '');
+}
+// Die Ansicht, die "Fertig" anlegt (UI-Form wie in PANELS); null, solange etwas fehlt
+function geProfil(){
+  const sc=GE.screen||{}, id=geId(), name=GE.name.trim()||id;
+  const geraet=GE.device ? {device:Object.assign({name:GE.device}, (sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:{})} : {};
+  let p;
+  if(GE.art==='wie'){
+    const q=PANELS[GE.quelle]; if(!q) return null;
+    const von=profilRaum(q);
+    p=(GE.nach && von && GE.nach!==von) ? profilMitRaumtausch(q, von, GE.nach, META.controls||[]).profil : JSON.parse(JSON.stringify(q));
+    delete p.device; p.title=name;
+  } else {
+    if(GE.art==='raum' && !GE.raum) return null;
+    if(GE.art==='haus' && geQuadrat()) return null;
+    const ui={};
+    if(geQuadrat()) ui.split=false; else ui.grid='auto';   // 4"-Panel: ein Pane, festes 2 x 2; sonst rechnet das Geraet das Raster selbst
+    if(GE.art==='haus' && GE.aufbau && GE.aufbau!==((META&&META.hausAufbauStandard)||'')) ui.hausAufbau=GE.aufbau;
+    p={title:name, tabs:(GE.art==='haus' ? ['haus','favoriten'] : ['room:'+GE.raum]), rooms:[], cats:[], ui:ui, states:{}, tiles:{}};
+  }
+  return Object.assign(p, geraet);
+}
+// Vorschau: iframe in Geraetegroesse, verkleinert auf den Platz rechts (die Visu rechnet ihr Raster fuer die echte Groesse)
+function geVorschauMass(){
+  const box=$('#geVor'), f=$('#geFrame'); if(!box||!f) return;
+  const g=(GE.screen&&GE.screen.vw&&GE.screen.vh) ? GE.screen : wzBrowser(), vw=g.vw, vh=g.vh;
+  const s=Math.min(1, (box.clientWidth-16)/vw, (box.clientHeight-16)/vh);
+  f.style.width=vw+'px'; f.style.height=vh+'px'; f.style.transform='scale('+s+')';
+  f.style.left=Math.round((box.clientWidth-vw*s)/2)+'px'; f.style.top=Math.round((box.clientHeight-vh*s)/2)+'px';
+  const m=$('#geVorMass'); if(m) m.textContent=vw+' × '+vh+(s<1 ? ' · '+Math.round(s*100)+' %' : '');
+}
+// Entwurf an den Server; der iframe folgt der Adresse. Gleicher Token und gleiche
+// Kennung: der Server laedt die Visu im iframe selbst neu (api_entwurf reloaded).
+function geVorschau(){
+  clearTimeout(GE.timer);
+  GE.timer=setTimeout(async()=>{
+    const p=geProfil(), f=$('#geFrame'), h=$('#geVorHinweis'), id=geId(); if(!f) return;
+    if(!p){ if(h) h.textContent=T('Für die Vorschau fehlt noch eine Wahl.'); return; }
+    try{ const j=await postJson('/api/entwurf', {id:id, panel:p, token:GE.token});
+      if(!j.ok || $('#geOv').hidden) return;
+      GE.token=j.token;
+      if(j.url!==GE.url){ GE.url=j.url; f.src=j.url; }
+      if(h) h.textContent=(j.verworfen||[]).length ? T('Nicht übernommen:')+' '+j.verworfen.join('; ')
+        : T('Die Vorschau ist die echte Visu mit den Vorgaben, in der gemeldeten Größe des Geräts.');
+    }catch(e){ if(h) h.textContent=T('Vorschau nicht möglich:')+' '+e.message; }
+  }, 350);
+}
+function geKarte(art, icon, titel, text, innen, sperre){
+  const an=GE.art===art;
+  return '<div class="wzo ge-karte'+(an?' on':'')+(sperre?' aus':'')+'" role="button" tabindex="0" data-ge-art="'+art+'"'+(sperre?' aria-disabled="true"':'')+'>'+
+    wzg(icon)+'<span class="tx"><b>'+esc(titel)+'</b><span>'+esc(sperre||text)+'</span>'+(an&&innen ? '<span class="ge-innen">'+innen+'</span>' : '')+'</span></div>';
+}
+function geKopf(){
+  if(!GE.device) return T('ohne Gerät');
+  const sc=GE.screen; return GE.device+' · '+geraeteKlasse(sc)+((sc&&sc.vw&&sc.vh) ? ' · '+sc.vw+'×'+sc.vh+' '+(sc.vw>sc.vh?T('quer'):(sc.vw<sc.vh?T('hoch'):T('quadratisch'))) : '');
+}
+function geRender(){
+  const b=$('#geLinks'); if(!b) return;
+  geNameVorschlag();
+  const quadrat=geQuadrat(), vorlagen=geVorlagen(), g=GE.device;
+  if(GE.art==='haus' && quadrat) GE.art='raum';
+  $('#geKopf').textContent=geKopf();
+  $('#geVorTitel').textContent=g ? T('So sieht es auf {g} aus').replace('{g}', g) : T('So sieht es aus');
+  $('#geFuss').textContent=g ? T('Nach „Fertig“ zeigt {g} diese Ansicht sofort.').replace('{g}', g) : T('Danach bist du im Editor zum Feinschliff.');
+  $('#geFertig').textContent=g ? T('Fertig – auf {g} anzeigen').replace('{g}', g) : T('Ansicht anlegen');
+  const raumSel='<label>'+T('Raum')+'</label><select id="geRaum">'+wzRaumOptionen(GE.raum,'')+'</select>';
+  const aufbauSel='<label>'+T('Aufbau')+'</label><select id="geAufbau">'+((META&&META.hausAufbauten)||[]).map(a=>
+    '<option value="'+esc(a.key)+'"'+(a.key===GE.aufbau?' selected':'')+'>'+esc(T(a.label))+'</option>').join('')+'</select>';
+  const wieSel='<label>'+T('Vorlage')+'</label><select id="geQuelle">'+vorlagen.map(v=>'<option value="'+esc(v.id)+'"'+(v.id===GE.quelle?' selected':'')+'>'+esc(v.label)+'</option>').join('')+'</select>'+
+    '<label>'+T('Raum tauschen nach')+'</label><select id="geNach">'+wzRaumOptionen(GE.nach, T('(kein Raumtausch – reine Kopie)'))+'</select>'+
+    '<span class="ge-info">'+esc(geKopieInfo())+'</span>';
+  b.innerHTML='<div class="wzfield"><label>'+T('Name der Ansicht')+'</label><input id="geName" value="'+esc(GE.name)+'" placeholder="'+esc(T('z. B. Bad'))+'">'+
+      '<div class="wznote">'+(GE._nameT ? '' : esc(T('Vorgeschlagen.'))+' ')+T('Kennung')+' <code id="geIdText">'+esc(geId())+'</code></div></div>'+
+    '<p class="wzq mt">'+esc(g ? T('Was soll {g} zeigen?').replace('{g}', g) : T('Was soll die Ansicht zeigen?'))+'</p><div class="wzopts">'+
+    geKarte('raum','room',T('Einen Raum'),T('Alles aus einem Loxone-Raum, die Kategorien als Sprungmarken. Die übliche Wahl für ein Gerät im Raum.'),
+      raumSel, (META.rooms||[]).length ? '' : T('Die Anlage hat keine Räume.'))+
+    geKarte('haus','grid',T('Das ganze Haus'),T('Hausübersicht: Räume, was gerade an ist, Hinweise, Musik. Für Flur, Küche oder ein großes Display.'),
+      aufbauSel, quadrat ? T('Auf einem 4″-Wandpanel zu klein – dort einen Raum oder eine Kopie.') : '')+
+    geKarte('wie','ext',T('Wie ein anderes Gerät'),T('Dieselbe Ansicht wie ein vorhandenes Gerät, auf Wunsch mit getauschtem Raum.'),
+      wieSel, vorlagen.length ? '' : T('Es gibt noch keine Ansicht zum Kopieren.'))+
+    geKarte('selbst','pick',T('Selbst zusammenstellen'),T('Klassische Leiste, freie Seiten, eigenes Aussehen – der ausführliche Assistent.'),'','')+
+    '</div><p class="wznote" style="margin-top:14px">'+T('Raster, Farben, Schrift, Screensaver und Display aus kommen aus den Vorgaben und passen zur Bildschirmgröße. Änderbar danach unter Ansichten.')+'</p>';
+  const ni=$('#geName'); ni.oninput=()=>{ GE.name=ni.value; GE._nameT=true; $('#geIdText').textContent=geId(); geVorschau(); };
+  b.querySelectorAll('[data-ge-art]').forEach(el=>{ el.onclick=e=>{
+    if(el.classList.contains('aus') || e.target.closest('select,label')) return;
+    const art=el.dataset.geArt;
+    if(art==='selbst'){ geSelbst(); return; }
+    if(GE.art!==art){ GE.art=art; geRender(); } };
+    el.onkeydown=e=>{ if((e.key==='Enter'||e.key===' ') && e.target===el){ e.preventDefault(); el.click(); } }; });
+  { const r=$('#geRaum'); if(r) r.onchange=()=>{ GE.raum=r.value; geRender(); }; }
+  { const a=$('#geAufbau'); if(a) a.onchange=()=>{ GE.aufbau=a.value; geVorschau(); }; }
+  { const q=$('#geQuelle'); if(q) q.onchange=()=>{ GE.quelle=q.value; geRender(); }; }
+  { const n=$('#geNach'); if(n) n.onchange=()=>{ GE.nach=n.value; geRender(); }; }
+  $('#geFertig').disabled=!geProfil();
+  geVorschauMass(); geVorschau();
+}
+function geOpen(name){
+  // ohne Struktur beginnt der Weg beim Miniserver (wie wzOpen)
+  if(EINR){ setRubric('settings'); flash($('#toast'), T('Erst den Miniserver verbinden'), false); return; }
+  if(!GE._wired){ GE._wired=true;
+    $('#geOv').onclick=e=>{ if(e.target===$('#geOv')) geClose(); };
+    $('#geX').onclick=geClose; $('#geAbbrechen').onclick=geClose;
+    $('#geLeer').onclick=()=>{ geClose(); createBlankPanel(); };
+    $('#geFertig').onclick=geFertig;
+    window.addEventListener('resize', ()=>{ if(!$('#geOv').hidden) geVorschauMass(); });
+  }
+  const sc=(name && DEVICE_SCREENS[name]) || null;
+  Object.assign(GE, {device:name||'', screen:(sc&&sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:null, name:'', _nameT:false, art:'raum', raum:'',
+    aufbau:(META&&META.hausAufbauStandard)||'', quelle:ansichtIds()[0]||'', nach:'', token:'', url:''});
+  GE.raum=geRaumVorschlag()||(((META.rooms||[])[0]||{}).uuid||'');
+  GE.nach=geRaumVorschlag();
+  if(!GE.raum) GE.art=(ansichtIds().length ? 'wie' : 'haus');   // eine Anlage ohne Raeume
+  $('#geOv').hidden=false; geRender();
+  setTimeout(()=>{ const ni=$('#geName'); if(ni){ ni.focus(); ni.select(); } }, 30);
+}
+// Schliessen ersetzt den iframe: ein src='about:blank' kaeme zu spaet, wenn die Visu darin
+// gerade selbst navigiert (Speichern beendet den Entwurf, sie laedt /?panel= ohne Token) -
+// die Verbindung ohne Kennung bliebe stehen und staende im Banner als neues Geraet.
+function geClose(){
+  clearTimeout(GE.timer); GE.url='';
+  const f=$('#geFrame'), n=document.createElement('iframe'); n.id='geFrame'; n.title=f.title; f.replaceWith(n);
+  $('#geOv').hidden=true;
+}
+// Vierte Karte: der ausfuehrliche Assistent, das Geraet schon gewaehlt, beim Schritt Ansicht
+function geSelbst(){
+  const name=GE.device; geClose(); wzOpen();
+  const g=name ? wzGeraete().find(x=>x.name===name) : null;
+  if(g){ wzGroesseSetzen(g); WZ.step=wzFlow().indexOf('ansicht'); wzRender(); }
+}
+// Fertig: Ansicht anlegen, speichern und dem Geraet zuordnen (wzAmGeraet: /api/device/switch
+// schreibt die Zuordnung, Schritt 2 - auch wenn das Geraet gerade nicht verbunden ist)
+async function geFertig(){
+  const p=geProfil(); if(!p) return;
+  const id=geId(), name=GE.device, btn=$('#geFertig'); btn.disabled=true;
+  PANELS[id]=p; cur=id; tileSel=null; curPickIdx=0; renderList(); markDirty();
+  geClose();
+  if(name){ setRubric('displays'); await wzAmGeraet(id, name, true, 0); }
+  else setRubric('pconf');
+  btn.disabled=false;
+}
+$('#addBtn').onclick=()=>geOpen();
+['#geraetEinrichtenBtn','#ovGeraetEinrichten'].forEach(sel=>{ const k=$(sel); if(k) k.onclick=()=>geOpen(); });
 
 
 /* ============================================================
@@ -5250,7 +5449,7 @@ function verbundenZeigen(){
   subSet='miniserver'; setRubric('settings');
 }
 // Schritt 1 (Miniserver) ist erledigt: weiter mit Gerät einrichten
-$('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('overview'); wzOpen(); };
+$('#einrAssistent').onclick=()=>{ $('#einrOk').hidden=true; setRubric('overview'); geOpen(); };
 $('#einrSicherung').onclick=()=>{ $('#einrOk').hidden=true; subSet='backup'; setRubric('settings'); };
 
 // Speichern der Einstellungs-Karten: je eine Funktion, die Speicherleiste ruft sie
@@ -5476,6 +5675,7 @@ let DEV={};            // Panel-Name -> {auto, modes:[[modus,profil],...], displ
 let GER_GESPEICHERT={}; // zuletzt gespeicherte Geraeteliste (Form von devicesPayload) - fuer "Entfernen"
 let KNOWN_NAMES=[];    // bisher gesehene Geraetenamen (Agent ODER Browser ?device=)
 let DEVICE_IPS={};     // Geraetename -> zuletzt gesehene IP (Vorbelegung Display-Treiber)
+let DEVICE_ZUORDNUNG={}; // Geraetename -> zugeordnete Ansicht (devices[name].panel, Schritt 2)
 let DEVICE_SUGGEST={}; // Geraetename -> Vorschlag Zielkachel px aus der gemeldeten Groesse (/api/devices tileSuggest)
 let DEVICE_SCREENS={}; // Geraetename -> gemeldete Bildschirmgroesse (fuer den Hinweis zum Vorschlag)
 let DEVICE_CONN={};    // Geraetename -> Anzahl verbundener Visus (Vorschau am Geraet braucht eine)
@@ -5705,11 +5905,9 @@ function neueGeraete(j){
   return aus;
 }
 function neuGeraetEinrichten(name){
-  // "Geraet einrichten" mit diesem Geraet vorgewaehlt (wzGeraete kennt nur gemeldete Groessen)
+  // "Geraet einrichten" mit diesem Geraet (Schritt 3: ein Bildschirm, Vorschau in seiner Groesse)
   if(EINR) return;
-  wzOpen();
-  const g=wzGeraete().find(x=>x.name===name);
-  if(g){ wzGroesseSetzen(g); wzRender(); }
+  geOpen(name);
 }
 function neuBannerZeichnen(j){
   const box=$('#neuGeraet'); if(!box) return;
@@ -5758,7 +5956,8 @@ async function pollDevices(){
     (j.devices||[]).forEach(d=>{ if(d.ip) DEVICE_IPS[d.name]=d.ip;
       const v=d.tileSuggest||null; if(v!==(DEVICE_SUGGEST[d.name]||null)) vorschlagNeu=true;
       DEVICE_SUGGEST[d.name]=v; DEVICE_SCREENS[d.name]=d.screen||null;
-      DEVICE_CONN[d.name]=d.connections||0; DEVICE_VORSCHAU[d.name]=d.vorschau||null; });
+      DEVICE_CONN[d.name]=d.connections||0; DEVICE_VORSCHAU[d.name]=d.vorschau||null;
+      DEVICE_ZUORDNUNG[d.name]=d.zugeordnet||''; });
     // Das Geraet ist von selbst zurueckgekehrt (abgelaufen, anders umgeschaltet): Knopf nachziehen
     // (nicht in den ersten Sekunden: die Abfrage kann vor dem Start der Vorschau losgegangen sein)
     if(ENTWURF.geraet && !DEVICE_VORSCHAU[ENTWURF.geraet] && Date.now()-(ENTWURF.seit||0)>4000){ ENTWURF.geraet=''; vorGerKnopf(); }
@@ -6126,7 +6325,7 @@ async function mzApply(){
 // Esc schliesst den offenen Assistenten (Betriebsmodus liegt ueber allem).
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(!$('#mzOv').hidden) mzClose(); else if(!$('#wzOv').hidden) wzClose();
+  if(!$('#mzOv').hidden) mzClose(); else if(!$('#geOv').hidden) geClose(); else if(!$('#wzOv').hidden) wzClose();
 });
 
 // ---- Audio: Test-Ton ----
@@ -6269,6 +6468,28 @@ if(window.I18N) I18N.autoChrome('h2, h3, h4, label.lbl, .btn, .minibtn, .addbtn,
         <button class="wzbtn" id="wzBlank" title="Ohne Assistent, nur ID">Leer anlegen</button>
         <button class="wzbtn" id="wzFertig" hidden title="Das Aussehen behält die Vorgaben">Weiter zu Prüfen →</button>
         <button class="wzbtn prim" id="wzNext">Weiter →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Gerät einrichten (Einrichtung neu, Schritt 3): geOpen(), ein Bildschirm -->
+<div id="geOv" class="wzov" hidden>
+  <div class="wzbox ge">
+    <div class="wzhd"><b data-i18n>Gerät einrichten</b><span class="wzstep" id="geKopf"></span><button class="wzx" id="geX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="ge-body">
+      <div class="ge-links" id="geLinks"></div>
+      <div class="ge-rechts">
+        <div class="ge-vorkopf"><span class="wzq" style="margin:0" id="geVorTitel"></span><span class="wznote" style="margin:0" id="geVorMass"></span></div>
+        <div class="ge-vor" id="geVor"><iframe id="geFrame" title="Vorschau" data-i18n-title="Vorschau"></iframe></div>
+        <div class="wznote" id="geVorHinweis"></div>
+      </div>
+    </div>
+    <div class="wzft">
+      <span class="wznote" style="margin:0" id="geFuss"></span>
+      <div style="display:flex;gap:10px">
+        <button class="wzbtn" id="geAbbrechen" data-i18n>Abbrechen</button>
+        <button class="wzbtn" id="geLeer" title="Ohne Assistent, nur Kennung" data-i18n>Leer anlegen</button>
+        <button class="wzbtn prim" id="geFertig"></button>
       </div>
     </div>
   </div>

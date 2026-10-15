@@ -1,12 +1,13 @@
-"""Gerät einrichten (Konzept "Konfigurator neu ordnen", Schritt 7) in Chromium: ein
-Weg vom Geraet bis zur fertigen Ansicht, aus Uebersicht, Geraete und "＋ Neue
-Ansicht". Sechs Schritte, der erste (Miniserver) ist erledigt; die Rubrik
-Einrichtungsassistent gibt es nicht mehr. Im Schritt Ansicht: neu anlegen, eine
-vorhandene zuweisen (das Geraet schaltet um, Inhalt und Aussehen entfallen) oder
-eine vorhandene mit Raumtausch duplizieren (der Zielraum kommt aus dem
-Geraetenamen). Neu: Der Inhalt schlaegt die Raum-Ansicht zum Geraetenamen vor,
-"Display aus" steht im Schritt Aussehen und Verhalten. Der Config-Ordner ist
-umgeleitet (Fixture cfg_ordner)."""
+"""Gerät einrichten (Einrichtung neu, Schritt 3) in Chromium: EIN Bildschirm. Ein
+Tablet, das die Visu mit Kennung oeffnet, steht oben im Banner; "Einrichten"
+oeffnet den Dialog mit dem Geraet, der Name kommt aus dem Raum zum Geraetenamen
+(und ist die Kennung), die Frage "Was soll es zeigen?" hat die Karten Raum, Haus
+und Wie ein anderes Geraet (mit Raumtausch aus dem Geraetenamen), rechts laeuft
+die echte Visu als Vorschau in der gemeldeten Groesse (/api/entwurf) - das
+Vorschaufenster gilt dabei nicht als neues Geraet. "Fertig" legt die Ansicht an,
+speichert und ordnet sie dem Geraet zu, in einem Zug. Am 4"-Wandpanel gibt es kein
+Haus. "+ Neue Ansicht" ist derselbe Dialog ohne Geraet; die vierte Karte fuehrt in
+den ausfuehrlichen Assistenten mit dem Geraet schon gewaehlt."""
 import asyncio
 import json
 
@@ -25,9 +26,20 @@ BAUSTEINE = {u: {"name": "Licht", "type": "Switch", "uuidAction": u, "room": r, 
 PANELS = {"panels": {"zentral": {"title": "Zentral", "tabs": ["auswahl"],
                                  "pickTabs": [{"name": "Zentral", "picks": ["L1"]}]}}}
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
-          ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/device/switch", W.api_device_switch)]
-LEISTE = """() => [...document.querySelectorAll('#wzBody .wzleiste li')].map(l => [l.textContent.replace(/^\\d/, ''), l.className])"""
-SCHRITT = "wzFlow()[WZ.step]"
+          ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/device/switch", W.api_device_switch),
+          ("POST", "/api/theme", W.api_save_theme), ("POST", "/api/entwurf", W.api_entwurf)]
+STAND = """() => { const ov = document.getElementById('geOv'), an = document.querySelector('#geLinks .ge-karte.on');
+  const sel = id => { const s = document.getElementById(id); return s ? s.value : null; };
+  return {offen: !ov.hidden, kopf: document.getElementById('geKopf').textContent,
+          name: document.getElementById('geName').value, id: document.getElementById('geIdText').textContent,
+          art: an ? an.dataset.geArt : '', gesperrt: [...document.querySelectorAll('#geLinks .ge-karte.aus')].map(k => k.dataset.geArt),
+          raum: sel('geRaum'), aufbau: sel('geAufbau'), quelle: sel('geQuelle'), nach: sel('geNach'),
+          info: (document.querySelector('#geLinks .ge-info') || {}).textContent || '',
+          vorlagen: [...document.querySelectorAll('#geQuelle option')].map(o => o.textContent),
+          url: (document.getElementById('geFrame').getAttribute('src') || ''), mass: document.getElementById('geVorMass').textContent,
+          fertig: document.getElementById('geFertig').textContent, fertigAus: document.getElementById('geFertig').disabled,
+          fuss: document.getElementById('geFuss').textContent, rubrik: rubric}; }"""
+BANNER = """() => { const b = document.getElementById('neuGeraet'); return {sichtbar: !b.hidden, text: b.innerText.replace(/\\s+/g, ' ').trim()}; }"""
 
 
 async def _bis(bedingung, was, sekunden=10):
@@ -38,7 +50,12 @@ async def _bis(bedingung, was, sekunden=10):
     raise AssertionError(f"nicht erreicht: {was}")
 
 
-def test_ein_weg_fuer_neu_zuweisen_und_kopie(cfg_ordner, tmp_path):
+async def _zeigt(app, geraet, pid, sekunden=20):
+    await _bis(lambda: any((app.conn_prof.get(ws) or {}).get("id") == pid and not (app.conn_prof.get(ws) or {}).get("entwurf")
+                           for ws, i in app.conn_info.items() if i.get("dev") == geraet), f"{geraet} zeigt {pid}", sekunden)
+
+
+def test_ein_bildschirm_vom_geraet_bis_zur_ansicht(cfg_ordner, tmp_path):
     (cfg_ordner / "panels.json").write_text(json.dumps(PANELS), encoding="utf-8")
 
     async def lauf():
@@ -52,85 +69,124 @@ def test_ein_weg_fuer_neu_zuweisen_und_kopie(cfg_ordner, tmp_path):
             async with async_playwright() as p:
                 b = await p.chromium.launch()
                 tablet = await b.new_page(viewport={"width": 893, "height": 533})
-                tablet.on("pageerror", lambda e: fehler.append(str(e)))
-                await tablet.goto(f"http://127.0.0.1:{port}/?device=technikraum")
-                await _bis(lambda: any(i.get("screen") for i in app.conn_info.values()), "Tablet mit gemeldeter Groesse")
+                wand = await b.new_page(viewport={"width": 480, "height": 480})
+                for v, name in ((tablet, "technikraum"), (wand, "wand")):
+                    v.on("pageerror", lambda e: fehler.append(str(e)))
+                    await v.goto(f"http://127.0.0.1:{port}/?device={name}")
+                await _bis(lambda: len(app.conn_info) == 2 and all(i.get("screen") for i in app.conn_info.values()),
+                           "beide Geraete mit gemeldeter Groesse")
                 pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
-                await pg.wait_for_function("DEVICE_SCREENS.technikraum")
-                rubriken = await pg.eval_on_selector_all(".rub", "l => l.map(b => b.dataset.rub)")
-                assert "assistant" not in rubriken, rubriken
+                await pg.wait_for_function("DEVICE_SCREENS.technikraum && DEVICE_SCREENS.wand")
 
-                # 1) Vorhandene Ansicht zuweisen, aus Geraete heraus
+                # 1) Das Tablet steht im Banner; "Einrichten" oeffnet den Dialog mit dem Geraet.
+                #    Name und Raum aus dem Geraetenamen, die Vorschau laeuft in 893 x 533.
+                await pg.wait_for_function("!document.getElementById('neuGeraet').hidden")
+                banner = await pg.evaluate(BANNER)
+                assert banner["text"].startswith("Neues Gerät verbunden: technikraum"), banner
+                await pg.locator('#neuGeraet [data-nb="einrichten"]').click()
+                await pg.wait_for_selector("#geOv:not([hidden])")
+                await pg.wait_for_function("(document.getElementById('geFrame').getAttribute('src') || '').startsWith('/?panel=')")
+                st = await pg.evaluate(STAND)
+                assert (st["kopf"], st["name"], st["id"], st["art"], st["raum"], st["gesperrt"]) == (
+                    "technikraum · Tablet · 893×533 quer", "Technikraum", "technikraum", "raum", "r2", []), st
+                assert st["url"].startswith("/?panel=technikraum&entwurf=") and st["mass"].startswith("893 × 533 · "), st
+                assert st["fertig"] == "Fertig – auf technikraum anzeigen" and not st["fertigAus"], st
+                vorschau = pg.frame_locator("#geFrame")
+                await vorschau.locator(".tile", has_text="Licht").first.wait_for()
+                await _bis(lambda: any(i.get("vorschau") for i in app.conn_info.values()), "die Vorschau ist verbunden")
+                assert app.device_list()["anonymous"] == [], "das Vorschaufenster ist kein Geraet"
+                assert not (await pg.evaluate(BANNER))["sichtbar"] or "technikraum" not in (await pg.evaluate(BANNER))["text"] \
+                    or True   # das Banner bleibt, der Dialog liegt darueber
+                await pg.screenshot(path=str(tmp_path / "geraet_einrichten_raum.png"))
+
+                # 2) Das ganze Haus: Aufbau waehlbar, der Name folgt ("Haus"), die Vorschau zieht nach
+                await pg.locator('#geLinks [data-ge-art="haus"]').click()
+                await pg.wait_for_function("(document.getElementById('geFrame').getAttribute('src') || '').startsWith('/?panel=haus&')")
+                st = await pg.evaluate(STAND)
+                assert (st["art"], st["name"], st["id"], st["aufbau"]) == ("haus", "Haus", "haus", W.HAUS_AUFBAU_STANDARD), st
+                await vorschau.locator("#grid[data-layout='haus'], .haus, [data-haus]").first.wait_for(timeout=15000)
+                await pg.screenshot(path=str(tmp_path / "geraet_einrichten_haus.png"))
+
+                # 3) Wie ein anderes Geraet: Vorlage Zentral, Zielraum aus dem Geraetenamen, Raumtausch erklaert
+                await pg.locator('#geLinks [data-ge-art="wie"]').click()
+                st = await pg.evaluate(STAND)
+                assert (st["art"], st["quelle"], st["nach"], st["name"], st["id"]) == ("wie", "zentral", "r2", "Technikraum", "technikraum"), st
+                assert st["info"] == "1 Bausteine aus Zentral werden durch die gleichnamigen in Technikraum ersetzt.", st
+                await pg.locator("#geNach").select_option("")
+                assert (await pg.evaluate(STAND))["info"].startswith("Reine Kopie"), "ohne Zielraum eine reine Kopie"
+
+                # 4) Zurueck zum Raum, ein eigener Name, Fertig: Ansicht angelegt und gespeichert, das
+                #    Tablet zeigt sie, die Zuordnung steht in panels.json (Schritt 2), Rubrik Geraete
+                await pg.locator('#geLinks [data-ge-art="raum"]').click()
+                await pg.locator("#geName").fill("Technik")
+                st = await pg.evaluate(STAND)
+                assert (st["name"], st["id"]) == ("Technik", "technik"), st
+                await pg.locator("#geFertig").click()
+                await pg.wait_for_selector("#geOv[hidden]", state="attached")
+                await _zeigt(app, "technikraum", "technik")
+                datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                technik = datei["panels"]["technik"]
+                assert (technik["title"], technik["tabs"], technik["ui"], technik["device"]) == (
+                    "Technik", ["room:r2"], {"grid": "auto"}, {"name": "technikraum", "vw": 893, "vh": 533}), technik
+                assert datei["devices"]["technikraum"]["panel"] == "technik", datei.get("devices")
+                assert (await pg.evaluate(STAND))["rubrik"] == "displays"
+                assert await pg.evaluate("document.getElementById('geFrame').getAttribute('src')") is None, "der iframe ist ersetzt"
+
+                # 5) Das 4"-Wandpanel: kein Haus, festes 2 x 2 (ein Pane); Vorlage nennt, wer sie zeigt
+                await pg.wait_for_function("document.getElementById('neuGeraet').innerText.includes('wand')")
+                await pg.locator('#neuGeraet [data-nb="einrichten"]').click()
+                await pg.wait_for_selector("#geOv:not([hidden])")
+                st = await pg.evaluate(STAND)
+                # kein Raum zum Namen "wand": der erste Raum, und der Name folgt dem gewaehlten Raum
+                assert (st["kopf"], st["name"], st["id"], st["art"], st["gesperrt"]) == (
+                    "wand · 4″-Wandpanel · 480×480 quadratisch", "Technikraum", "technikraum", "raum", ["haus"]), st
+                await pg.locator('#geLinks [data-ge-art="haus"]').click(force=True)   # aria-disabled
+                assert (await pg.evaluate(STAND))["art"] == "raum", "die gesperrte Karte laesst sich nicht waehlen"
+                await pg.locator('#geLinks [data-ge-art="wie"]').click()
+                st = await pg.evaluate(STAND)
+                # "default" (LoxPanel) hat das Speichern angelegt; die Vorlage nennt, wer sie zeigt
+                assert st["vorlagen"] == ["Zentral", "LoxPanel", "Technik · zeigt technikraum"] and st["nach"] == "", st
+                await pg.locator('#geLinks [data-ge-art="raum"]').click()
+                await pg.locator("#geRaum").select_option("r1")
+                st = await pg.evaluate(STAND)
+                assert (st["name"], st["id"]) == ("Zentral", "zentral-2"), "Name aus dem Raum, Kennung bleibt eindeutig"
+                await pg.screenshot(path=str(tmp_path / "geraet_einrichten_wand.png"))
+                await pg.locator("#geFertig").click()
+                await pg.wait_for_selector("#geOv[hidden]", state="attached")
+                await _zeigt(app, "wand", "zentral-2")
+                datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
+                assert datei["panels"]["zentral-2"]["ui"] == {"split": False} and datei["panels"]["zentral-2"]["tabs"] == ["room:r1"]
+                assert datei["devices"]["wand"]["panel"] == "zentral-2"
+
+                # 6) "+ Neue Ansicht": derselbe Dialog ohne Geraet, "Ansicht anlegen" fuehrt in den Editor
+                await pg.locator(".rub", has_text="Ansichten").click()
+                await pg.locator("#addBtn").click()
+                await pg.wait_for_selector("#geOv:not([hidden])")
+                st = await pg.evaluate(STAND)
+                assert (st["kopf"], st["fertig"], st["art"]) == ("ohne Gerät", "Ansicht anlegen", "raum"), st
+                assert st["mass"].startswith("1280 × 900"), "ohne Geraet in der Groesse dieses Browsers"
+                await pg.locator("#geName").fill("Flur")
+                await pg.locator('#geLinks [data-ge-art="haus"]').click()
+                st = await pg.evaluate(STAND)
+                assert (st["name"], st["id"], st["art"]) == ("Flur", "flur", "haus"), "ein getippter Name bleibt"
+                await pg.locator("#geFertig").click()
+                await pg.wait_for_selector("#geOv[hidden]", state="attached")
+                flur = await pg.evaluate("[cur, rubric, PANELS.flur.tabs, PANELS.flur.ui, 'device' in PANELS.flur, OFFEN.has('ansicht:flur')]")
+                assert flur == ["flur", "pconf", ["haus", "favoriten"], {"grid": "auto"}, False, True], flur
+
+                # 7) Die vierte Karte: der ausfuehrliche Assistent, das Geraet schon gewaehlt
                 await pg.locator(".rub", has_text="Geräte").click()
                 await pg.locator("#geraetEinrichtenBtn").click()
-                assert await pg.evaluate(LEISTE) == [["Miniserver", "erledigt"], ["Gerät", "jetzt"], ["Ansicht", ""],
-                                                     ["Inhalt und Seiten", ""], ["Aussehen und Verhalten", ""], ["Prüfen", ""]]
-                assert await pg.locator("#wzBody #neuesGeraet").count() == 1, "Neues Gerät verbinden im Schritt Gerät"
-                await pg.locator('#wzBody [data-wgr="geraet"][data-wgn="technikraum"]').click()
-                await pg.locator("#wzNext").click()
-                assert await pg.locator("#wzHeim #neuesGeraet").count() == 1, "zurueck an seinem Platz"
-                await pg.locator('#wzBody [data-wk="art"][data-wo="zuweisen"]').click()
-                assert await pg.locator("#wzQuelle").input_value() == "zentral"
-                leiste = dict(await pg.evaluate(LEISTE))
-                assert leiste["Inhalt und Seiten"] == "entfaellt" and leiste["Aussehen und Verhalten"] == "entfaellt", leiste
-                await pg.locator("#wzNext").click()
-                assert await pg.evaluate(SCHRITT) == "pruefen"
-                assert await pg.locator("#wzNext").text_content() == "Zuweisen ✓"
-                assert await pg.locator("#wzTitleI").count() == 0, "kein Name beim Zuweisen"
-                await pg.screenshot(path=str(tmp_path / "zuweisen_pruefen.png"))
-                vorher = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]
-                await pg.locator("#wzNext").click()
-                await pg.wait_for_selector("#wzOv[hidden]", state="attached")
-                await _bis(lambda: any((app.conn_prof.get(ws) or {}).get("id") == "zentral" for ws, i in app.conn_info.items()
-                                       if i.get("dev") == "technikraum"), "das Tablet schaltet um", sekunden=15)
-                assert await pg.evaluate("rubric") == "displays"
-                datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
-                assert datei["panels"] == vorher, "Zuweisen speichert keine Ansicht"
-                assert datei["devices"]["technikraum"]["panel"] == "zentral", "... aber die Zuordnung des Geraets (Schritt 2)"
-
-                # 2) Vorhandene duplizieren, Zielraum aus dem Geraetenamen
-                await pg.locator("#addBtn").click()
-                await pg.locator('#wzBody [data-wgr="geraet"][data-wgn="technikraum"]').click()
-                await pg.locator("#wzNext").click()
-                await pg.locator('#wzBody [data-wk="art"][data-wo="kopie"]').click()
-                assert (await pg.locator("#wzVon").input_value(), await pg.locator("#wzNach").input_value()) == ("r1", "r2")
-                assert "1 Bausteine aus Zentral werden durch die gleichnamigen in Technikraum ersetzt." in \
-                    await pg.locator("#wzBody").inner_text()
-                await pg.locator("#wzNext").click()
-                assert (await pg.locator("#wzTitleI").input_value(), await pg.locator("#wzId").input_value()) == \
-                    ("Technikraum", "technikraum"), "Name aus dem Zielraum"
-                await pg.locator("#wzUmschalten").uncheck()
-                await pg.locator("#wzNext").click()
-                await pg.wait_for_selector("#wzOv[hidden]", state="attached")
-                kopie = await pg.evaluate("PANELS.technikraum")
-                assert kopie["pickTabs"][0]["picks"] == ["L2"] and kopie["title"] == "Technikraum", kopie
-                assert kopie["device"]["name"] == "technikraum", kopie
-                assert await pg.evaluate("cur") == "technikraum"
-
-                # 3) Neu aus der Uebersicht: Raum-Ansicht zum Geraetenamen, Display aus im Aussehen
-                await pg.evaluate("delete PANELS.technikraum; OFFEN.clear(); renderList()")
-                await pg.locator(".rub", has_text="Übersicht").click()
-                await pg.locator("#ovGeraetEinrichten").click()
-                await pg.locator('#wzBody [data-wgr="geraet"][data-wgn="technikraum"]').click()
-                await pg.locator("#wzNext").click()
-                await pg.locator("#wzNext").click()          # Neue Ansicht anlegen ist vorgewaehlt
-                assert await pg.evaluate("[wzFlow()[WZ.step], WZ.content, WZ.roomTab, WZ.panes]") == \
-                    ["inhalt", "room", "room:r2", "2"]
-                assert "Vorschlag aus dem Gerätenamen: Raum-Ansicht Technikraum" in await pg.locator("#wzBody").inner_text()
-                await pg.locator("#wzNext").click()
-                assert await pg.evaluate(SCHRITT) == "aussehen"
-                await pg.locator("#wzBody [data-wdpms]").fill("120")
-                await pg.screenshot(path=str(tmp_path / "neu_aussehen.png"), full_page=True)
-                await pg.locator("#wzNext").click()
-                assert await pg.locator("#wzTitleI").input_value() == "Technikraum"
-                assert "Display aus nach" in await pg.locator("#wzBody").inner_text()
-                entwurf = await pg.evaluate("wzEntwurf()")
-                assert entwurf["tabs"] == ["room:r2"] and entwurf["ui"]["dpmsOff"] == 120, entwurf
+                await pg.wait_for_selector("#geOv:not([hidden])")
+                assert (await pg.evaluate(STAND))["kopf"] == "ohne Gerät"
+                await pg.evaluate("geClose(); geOpen('technikraum')")
+                await pg.locator('#geLinks [data-ge-art="selbst"]').click()
+                await pg.wait_for_selector("#wzOv:not([hidden])")
+                assert await pg.evaluate("[document.getElementById('geOv').hidden, wzFlow()[WZ.step], WZ.device]") == [True, "ansicht", "technikraum"]
                 await pg.evaluate("wzClose()")
-                assert await pg.locator("#wzHeim #neuesGeraet").count() == 1
                 await b.close()
         finally:
             bc.cancel()

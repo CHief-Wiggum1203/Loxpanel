@@ -3500,6 +3500,8 @@ class App:
         for ws, info in list(self.conn_info.items()):
             prof = (self.conn_prof.get(ws) or {}).get("id", "")
             if not info.get("dev"):
+                if info.get("vorschau"):   # Vorschaufenster des Konfigurators: kein Geraet
+                    continue
                 anonymous.append({"ip": info.get("ip", ""), "code": info.get("code", ""), "profile": prof,
                                   "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0),
                                   "screen": info.get("screen") or {}})
@@ -11010,6 +11012,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                          "ip": request.remote or "", "ts": time.time()}
     if prof.get("entwurf"):
         app.conn_info[ws]["entwurf"] = ent   # api_entwurf laedt diese Vorschau bei Aenderungen neu
+    if ent:
+        app.conn_info[ws]["vorschau"] = True   # Vorschaufenster, auch mit abgelaufenem Token: kein Geraet
     if not dev:   # Browser ohne Kennung: Kopplungscode (mitgeschickt oder neu)
         app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
@@ -11069,8 +11073,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # Geraet bewusst eingerichtet (Fully, WallPanel, alte Start-Adresse): die
     # Karte laege sonst nach jedem Neustart ueber der Visu und fienge die
     # Tipps ab. Der Konfigurator meldet das Geraet mit seinem Code trotzdem
-    # (Banner "Neues Geraet gefunden", device_list anonymous[].code).
-    if not dev:
+    # (Banner "Neues Geraet gefunden", device_list anonymous[].code). Ein
+    # Vorschaufenster des Konfigurators (?entwurf=) ist kein Geraet: kein Code.
+    if not dev and not ent:
         await ws.send_json(App._kopplung_msg(app.conn_info[ws]["code"], not request.query.get("panel")))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.

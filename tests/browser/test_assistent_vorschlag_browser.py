@@ -63,7 +63,7 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.wait_for_function("KNOWN_NAMES.length >= 2")
-                await pg.locator("#addBtn").click()
+                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
                 await pg.wait_for_selector("#wzOv:not([hidden])")
                 vorschlaege = pg.locator("#wzBody [data-wv]")
                 assert await vorschlaege.evaluate_all("l => l.map(n => [n.dataset.wv, n.innerText.replace(/\\s+/g, ' ').trim()])") == [
@@ -91,7 +91,7 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
 
                 # Quadratisches Geraet ohne passenden Raum: Favoriten (klassische Visu), 1 Pane 2 x 2;
                 # das Technikraum-Tablet hat jetzt ein Profil und wird nicht mehr vorgeschlagen
-                await pg.locator("#addBtn").click()
+                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
                 await pg.wait_for_selector("#wzOv:not([hidden])")
                 assert await vorschlaege.evaluate_all("l => l.map(n => n.dataset.wv)") == ["garage"]
                 await vorschlaege.first.click()
@@ -106,7 +106,7 @@ def test_vorschlag_aus_dem_geraet(cfg_ordner, tmp_path):
 
                 # Selbst gewaehlt (ohne Vorschlag): ist der Inhalt fertig, fuehrt "Weiter zu Prüfen"
                 # dorthin; anlegen laesst sich, sobald der Titel getippt ist
-                await pg.locator("#addBtn").click()
+                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
                 await pg.wait_for_selector("#wzOv:not([hidden])")
                 await pg.evaluate("WZ._inhaltT = true; WZ.step = wzFlow().indexOf('inhalt'); wzRender()")
                 assert not (await pg.evaluate(STAND))["fertig"], "ohne Inhalt nicht zum Pruefen"

@@ -80,7 +80,7 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 # "Gerät einrichten" (Schritt Gerät), weder Einstellungen noch Geraete selbst
                 assert await pg.locator("#displaysHost #erprobteHardware .devcat").count() >= 1
                 assert not await pg.locator("#nk_gen").is_visible()
-                await pg.locator("#geraetEinrichtenBtn").click()
+                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
                 await pg.locator("#wzBody #neuesGeraet summary").click()
                 assert await pg.locator("#wzBody #neuesGeraet #nk_gen").is_visible()
                 await pg.evaluate("wzClose()")
@@ -90,7 +90,7 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 assert "newpanel" not in reiter, reiter
                 await pg.locator(".rub", has_text="Übersicht").click()
                 await pg.locator('#overviewHost .ovbox[data-goto="wizard"]').click()
-                assert await pg.locator("#wzBody #neuesGeraet").count() == 1
+                assert await pg.locator("#geOv:not([hidden])").count() == 1, "Gerät einrichten (Schritt 3), ein Bildschirm"
                 await b.close()
         finally:
             bc.cancel()

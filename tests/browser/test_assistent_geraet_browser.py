@@ -138,7 +138,7 @@ def test_assistent_aus_dem_geraet(cfg_ordner, tmp_path):
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await pg.wait_for_function("KNOWN_NAMES.length >= 2 && DEVICE_SCREENS.tablet && DEVICE_SCREENS.wand")
-                await pg.locator("#addBtn").click()
+                await pg.evaluate("wzOpen()")          # der ausfuehrliche Assistent (Karte "Selbst zusammenstellen")
                 await pg.wait_for_selector("#wzOv:not([hidden])")
 
                 # Ohne Geraet: alles angeboten, nichts vorgerechnet; dazu Geraete, Browser, Katalog
