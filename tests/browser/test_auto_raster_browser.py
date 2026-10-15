@@ -19,7 +19,7 @@ import shutil
 import aiohttp
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, ROOT, W, anlage, visu_starten
+from lox import karte_auf, KONFIGURATOR_GELADEN, ROOT, W, anlage, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -279,7 +279,8 @@ def test_verbunden_liegt_nichts_auf_den_kacheln():
 def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"tablet": {
         "title": "Tablet", "tabs": ["favoriten"], "ui": {"cols": 3, "rows": 3}}}}), encoding="utf-8")
-    routen = [("POST", "/api/panels", W.api_save_panels), ("GET", "/api/devices", W.api_devices_get)]
+    routen = [("POST", "/api/panels", W.api_save_panels), ("GET", "/api/devices", W.api_devices_get),
+              ("POST", "/api/devices", W.api_save_devices)]
 
     async def lauf():
         app = W.App({"host": "", "port": 80})
@@ -301,8 +302,7 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                     await pg.locator('.stab[data-sub="raster"]').click()
 
                 async def felder():
-                    return {f: await pg.locator(f"#{f}").is_visible()
-                            for f in ("fTileSizeField", "fFillField", "fScaleField", "fScaleHint")}
+                    return {f: await pg.locator(f"#{f}").is_visible() for f in ("fFillField", "fPaneColsField")}
 
                 async def speichern():
                     async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
@@ -315,26 +315,34 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 stand = {"anfang": (await pg.locator("#fLayout").input_value(), await felder())}
                 await pg.locator("#fLayout").select_option("auto")
                 stand["auto"] = await felder()
-                await pg.locator("#fTileSize").fill(str(W.KACHEL_ZIEL["large"]))   # Zielkachel als Zahl
+                # Zielkachel und Skalierung stehen seit der Einrichtung neu (Schritt 4b) am Geraet
+                stand["ohne_felder"] = await pg.locator("#pconfHost #fTileSize, #pconfHost #fScale").count()
                 stand["gespeichert"] = (await speichern())["ui"]
                 await pg.screenshot(path=str(tmp_path / "konfigurator_automatisch.png"))
 
-                # Das Tablet meldet, was es daraus macht; die Geraeteliste zeigt es
+                # Das Tablet meldet, was es daraus macht (Standard-Zielkachel); die Geraeteliste zeigt es
                 tablet = await b.new_page(viewport={"width": 893, "height": 533})
                 tablet.on("pageerror", lambda e: fehler.append(str(e)))
                 await tablet.goto(f"http://127.0.0.1:{port}/?panel=tablet&device=tab")
                 await tablet.wait_for_selector("#grid .tile[data-id]", state="attached")
-                stand["tablet"] = await tablet.evaluate("[gridAuto, gridCols, gridRows]")
+                stand["tablet"] = await tablet.evaluate("gridAuto")
                 for _ in range(100):
                     scr = next((i.get("screen") for i in app.conn_info.values() if i.get("dev") == "tab"), None)
                     if scr and scr.get("rc"):
                         break
                     await asyncio.sleep(0.05)
                 await oeffnen()
-                stand["nach_neuladen"] = (await pg.locator("#fLayout").input_value(),
-                                          await pg.locator("#fTileSize").input_value(), await felder())
+                stand["nach_neuladen"] = (await pg.locator("#fLayout").input_value(), await felder())
+                # Zielkachel am Geraet (Zeile Technik): das Tablet rechnet sofort damit
                 await pg.locator(".rub", has_text="Geräte").click()
-                stand["geraet"] = await pg.locator('#geraete .ag[data-name="tab"] .agscr').text_content()
+                stand["geraet"] = await pg.locator('#geraete .gk[data-gk="tab"] .agscr').text_content()
+                await karte_auf(pg, "tab")
+                await pg.locator('#geraete .gk[data-gk="tab"] .dt_ziel').fill(str(W.KACHEL_ZIEL["large"]))
+                async with pg.expect_response(lambda r: r.url.endswith("/api/devices") and r.request.method == "POST"):
+                    await pg.locator("#saveBtn").click()
+                await tablet.wait_for_function(f"gridAuto === {W.KACHEL_ZIEL['large']}")
+                stand["tablet_ziel"] = await tablet.evaluate("[gridAuto, gridCols, gridRows]")
+                stand["geraet_datei"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["tab"]
                 await pg.locator(".rub", has_text="Ansichten").click()
                 await pg.locator("#plist .pitem", has_text="Tablet").click()
                 await pg.locator('.stab[data-sub="raster"]').click()
@@ -368,14 +376,16 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
         return stand
     stand = asyncio.run(lauf())
 
-    aus = {"fTileSizeField": False, "fFillField": True, "fScaleField": True, "fScaleHint": True}
-    an = {"fTileSizeField": True, "fFillField": False, "fScaleField": False, "fScaleHint": False}
+    aus = {"fFillField": True, "fPaneColsField": False}
+    an = {"fFillField": False, "fPaneColsField": True}
     assert stand["anfang"] == ("3x3", aus), stand
-    assert stand["auto"] == an, "Kachelgroesse statt Bildschirm fuellen und Skalierung"
-    assert stand["gespeichert"] == {"grid": "auto", "tileSize": W.KACHEL_ZIEL["large"]}, "cols/rows gelten nicht mehr"
-    assert stand["tablet"] == [W.KACHEL_ZIEL["large"], 4, 2], stand
-    assert stand["nach_neuladen"] == ("auto", str(W.KACHEL_ZIEL["large"]), an), stand
-    assert stand["geraet"].startswith("893×533 quer") and "Raster 4 × 2" in stand["geraet"], stand
+    assert stand["auto"] == an and stand["ohne_felder"] == 0, "Widget-Breite statt Bildschirm fuellen; Zielkachel und Skalierung am Geraet"
+    assert stand["gespeichert"] == {"grid": "auto"}, "cols/rows gelten nicht mehr"
+    assert stand["tablet"] == W.KACHEL_ZIEL_STANDARD, stand
+    assert stand["nach_neuladen"] == ("auto", an), stand
+    assert stand["geraet"].startswith("893×533 quer"), stand
+    assert stand["tablet_ziel"] == [W.KACHEL_ZIEL["large"], 4, 2], stand
+    assert stand["geraet_datei"]["tileTarget"] == W.KACHEL_ZIEL["large"], stand
     assert stand["fest"] == aus and stand["zurueck"] == {"cols": 3, "rows": 3}, stand
     assistent = stand["assistent"]
     assert assistent.pop("ui") == {"grid": "auto"}, stand

@@ -2235,7 +2235,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Allgemein (Titel, Sprache, Kennung mit Duplizieren und Löschen),
   Inhalt (untere Leiste, Räume, Kategorien, Widget/Kopfzeile/Werteleiste je
   Standard-Seite in `#panePerTab`), Seiten (Seiten-Editor samt `#sePaneBox` für
-  die gewählte freie Seite), Raster (Kachel-Layout, Zielkachel, Bildschirm
+  die gewählte freie Seite), Raster (Kachel-Layout, Bildschirm
   füllen, Skalierung, Split, Widget-Breite, Versatz), Aussehen (Kachel-Set,
   Farbe und Aufbau, Schrift, Größen, Kacheln gestalten, Aktiv-Overlay) und
   Verhalten (Screensaver, Display aus, Nacht, Auto-Neustart, PIN merken). Jedes
@@ -2407,8 +2407,23 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   `neustartFeld()` statt `displayFelder()`); trägt sie noch einen Wert aus einer
   älteren Fassung, nennt der Reiter ihn mit „Eintrag entfernen“, und die
   Gerätekarte nennt ihn als Herkunft. Der ausführliche Assistent schreibt kein
-  `dpmsOff` mehr. Nacht (Abdunkeln, Aufhellen, Nacht-Uhr) bleibt vorerst in
-  Vorgaben und Ansicht. `tests/test_display_geraet.py`.
+  `dpmsOff` mehr. `tests/test_display_geraet.py`.
+- **Skalierung, Zielkachel und Nacht nur am Gerät** (seit 15.10.2026,
+  Einrichtung neu Schritt 4b): Die Felder Skalierung (Vorgaben → Darstellung,
+  Ansicht → Raster), Zielkachel (Ansicht → Raster) und Nacht (Ansicht →
+  Verhalten: Abdunkeln, Aufhellen, Nacht-Uhr) sind weg; der eine Ort ist die
+  Gerätekarte (Technik: Skalierung, Zielkachel; Display: Nachts abdunkeln,
+  Aufhellen bei Berührung, `devices[name].nightDim`/`nightWake`,
+  `panel_night(pid, roh, dev)`). Die Nacht-Uhr und der Nacht-Auslöser bleiben
+  allein in den Vorgaben. Der Server rechnet weiter Gerät vor Ansicht vor
+  Vorgaben, ein gespeicherter Wert in Ansicht oder Vorgaben gilt also weiter:
+  `altEintragHtml()` nennt ihn im Reiter als „älterer Eintrag“ mit „Eintrag
+  entfernen“ (`ALT_NAMEN`), `wasGiltInAnsicht()` sagt es als Herkunft auf der
+  Gerätekarte (`geraetGilt()`), und die Vorgaben zählen Geräte mit eigenem Wert
+  auf (`GERAET_SCHLUESSEL`, `erbtZeichnen()`). Der ausführliche Assistent
+  schreibt keine Skalierung mehr. Das Automatisch-Raster rechnet ohne Wert
+  mit `KACHEL_ZIEL_STANDARD`; `test_automatisch_im_konfigurator` setzt die
+  Zielkachel am Gerät. `tests/test_display_geraet.py` (Nacht).
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
   gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
   bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an

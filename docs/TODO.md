@@ -181,13 +181,16 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       unter Geräte sind weg; `device` bleibt als Vorschaugerät. Tests:
       `tests/browser/test_geraetekarte_browser.py`, `tests/test_display_geraet.py`.
       **M**
-- [ ] **Schritt 4b, Skalierung und Zielkachel nur am Gerät.** Die Felder in
-      Vorgaben → Darstellung und Ansicht → Raster entfallen, die Gerätekarte
-      (Technik) ist der eine Ort; gespeicherte Werte in Ansicht und Vorgaben
-      gelten bis dahin weiter (Server: Gerät vor Ansicht vor Vorgaben). Nacht
-      (Abdunkeln, Aufhellen, Nacht-Uhr) ebenso aus der Ansicht nehmen. Hängt
-      an `test_vererbung_browser.py`, `test_vorgaben_browser.py`,
-      `test_auto_raster_browser.py`. **M**
+- [x] **Schritt 4b, Skalierung, Zielkachel und Nacht nur am Gerät.** Die
+      Felder in Vorgaben → Darstellung (Skalierung), Ansicht → Raster
+      (Zielkachel, Skalierung) und Ansicht → Verhalten (Nacht) sind weg; die
+      Gerätekarte ist der eine Ort (Technik: Skalierung, Zielkachel; Display:
+      Abdunkeln, Aufhellen, `devices[name].nightDim`/`nightWake`). Die
+      Nacht-Uhr und der Auslöser bleiben in den Vorgaben. Gespeicherte Werte
+      in Ansicht und Vorgaben gelten weiter (Server: Gerät vor Ansicht vor
+      Vorgaben) und lassen sich im Reiter als „älterer Eintrag“ entfernen.
+      Tests: `test_geraetekarte_browser.py`, `test_auto_raster_browser.py`,
+      `test_vererbung_browser.py`, `tests/test_display_geraet.py`. **M**
 - [ ] **Schritt 5, „Gerät verbinden“ mit drei Wegen.** Eigener Bogen, je Weg
       eine Zeile zum Kopieren (App, Kiosk-Browser, Linux-Agent), Start-Adresse
       ohne Parameter, Agent-Befehl ohne `PANEL`/`AGENT_NAME`, Server-Adresse

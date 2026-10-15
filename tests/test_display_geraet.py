@@ -70,3 +70,27 @@ def test_visu_und_agent_bekommen_den_wert_des_geraets(cfg_ordner):
             bc.cancel()
             await runner.cleanup()
     asyncio.run(lauf())
+
+
+def test_nacht_am_geraet(cfg_ordner):
+    """Nacht (Abdunkeln %, Aufhellen Sek.) am Geraet: der Sanitizer nimmt die
+    Zahlen, panel_night() stellt das Geraet vor einen aelteren Eintrag der
+    Ansicht und vor die Vorgaben; die Nacht-Uhr bleibt die der Vorgaben."""
+    clean = W.App._sanitize_devices({"a": {"nightDim": 35, "nightWake": 400}, "b": {"nightDim": "35"},
+                                     "c": {"nightDim": 0, "nightWake": 0}}, {"day"})
+    assert clean == {"a": {"auto": True, "modes": {}, "nightDim": 35, "nightWake": 300},
+                     "c": {"auto": True, "modes": {}, "nightDim": 0, "nightWake": 0}}, clean
+    (cfg_ordner / "panels.json").write_text(json.dumps({
+        "panels": {"alt": {"title": "Alt", "tabs": ["favoriten"], "ui": {"nightDim": 50, "nightClock": True}},
+                   "neu": {"title": "Neu", "tabs": ["favoriten"]}},
+        "devices": {"wand": {"auto": True, "modes": {}, "nightDim": 20, "nightWake": 5}}}), encoding="utf-8")
+    app = W.App({"host": "", "port": 80})
+    app.theme["ui"].update(nightDim=70, nightWake=60)
+    n = app.panel_night("neu")
+    assert (n["dim"], n["wake"], n["uhr"]) == (70, 60, False), "Vorgabe"
+    n = app.panel_night("alt")
+    assert (n["dim"], n["wake"], n["uhr"]) == (50, 60, True), "ein aelterer Eintrag der Ansicht gilt weiter"
+    n = app.panel_night("alt", dev="wand")
+    assert (n["dim"], n["wake"], n["uhr"]) == (20, 5, True), "das Geraet zuerst, die Nacht-Uhr aus der Ansicht/Vorgabe"
+    n = app.panel_night("neu", dev="anderes")
+    assert (n["dim"], n["wake"]) == (70, 60)

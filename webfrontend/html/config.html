@@ -1547,10 +1547,7 @@ function renderGlobalEditor(p){
       '<p class="note">Schrift, Größe, Farbe und Stärke der Kachel-Beschriftung — gilt für alle Ansichten.</p>'+
       appearanceFields(p.ui,sizeStd('',false),
         T('Ein leeres Feld nimmt den Standard des Kachel-Aufbaus; grau steht der des neuen Aufbaus.'))+
-      '<div class="grph">'+T('Skalierung')+'</div>'+
-      '<div class="sizes"><div class="field" style="max-width:320px"><label class="lbl">'+T('Standard für alle Ansichten')+'</label>'+
-        '<select id="gScale" class="skal">'+scaleOptions((p.ui||{}).scale,null)+'</select>'+erbtFeld('scale')+'</div></div>'+
-      '<p class="note">'+T('Gilt für alle Ansichten, die „Wie Vorgabe" eingestellt haben. „Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand und ohne Verzerrung geht. Eine Ansicht kann das unter Raster übersteuern, ein einzelnes Gerät auf seiner Karte unter Geräte → Am Gerät.')+'</p>'+
+      altEintragHtml(p, ['scale'], 'gAlt')+
       '</div></section>'+
     '<section class="spane" data-sub="catcolors"><div class="card"><h3>Kategorie-Farben (Ampel)</h3>'+
       '<p class="note">'+T('Pro Kategorie eine <b>Aktiv-</b> und <b>OK-Farbe</b> für Kachel-Hintergrund und Rahmen — gilt auf allen Geräten (Wiedererkennung). ◐ einschalten = Zustands-Ampel (z. B. Alarm rot/grün, Tor gelb/grün). Aus = neutral. Analoge Messwerte bleiben immer neutral.')+'</p>'+
@@ -1561,20 +1558,17 @@ function renderGlobalEditor(p){
       '<div class="grph">'+T('Abdunkelung')+'</div>'+
       '<div class="sizes">'+nachtFelder(ui, nstd.nightDim, nstd.nightWake)+'</div>'+
       '<p class="note">'+T('Nacht-Uhr: Nachts zeigt die Uhr-Seite nur die Uhrzeit, gedimmt auf Schwarz, wie die Nachtanzeige der Loxone-Taster. Sind Gesten an, stehen oben die Symbole ihrer Spalten. „Nachts abdunkeln“ wirkt zusätzlich.')+'</p>'+
-      '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
+      '<p class="note">'+T('Abdunkeln und Aufhellen gelten für jedes Gerät ohne eigenen Wert (Karte des Geräts, Zeile Display), die Nacht-Uhr für alle Geräte.')+'</p>'+
     '</div><div class="card"><h3>'+T('Display &amp; Neustart')+'</h3>'+
       '<div class="sizes">'+displayFelder(ui, null, null)+'</div>'+
       '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
-      '<p class="note">'+T('Gilt für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
+      '<p class="note">'+T('„Display aus nach“ gilt für jedes Gerät ohne eigenen Wert (Zeile Display), der Auto-Neustart für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
     '</div>'+gestenVorgabenKarte(ui)+'</section>';
   bindAppearance(p);
   nachtZeichnen();
   { const s=$('#nt_control'); if(s) s.onchange=()=>{ NACHT.control=s.value; bereichOffen('nacht'); }; }
   aufhellenZeigen(nstd.nightDim);
-  { const gs=$('#gScale'); if(gs) gs.onchange=e=>{ p.ui=p.ui||{};
-      const v=scaleValue(e.target.value);
-      if(v==='off'||v==='') delete p.ui.scale; else p.ui.scale=v;   // global ist "Aus" das Fehlen
-      markDirty(); }; }
+  altEintragBinden(p);
   renderCatColors(p);
   gestenVorgabenBinden(p);
   $('#delSlot').innerHTML='';
@@ -1682,9 +1676,26 @@ function displayFelder(ui, dpmsLeer, reloadLeer){
       '<input type="number" min="0" max="3600" step="30" data-ui="dpmsOff" value="'+esc(wert('dpmsOff'))+'" placeholder="'+
         esc(gesetzt(dpmsLeer)?String(dpmsLeer):T('Standard'))+'">'+erbtFeld('dpmsOff')+'</div>'+neustartFeld(ui, reloadLeer);
 }
-// Nur "Auto-Neustart alle": "Display aus nach" steht seit der Einrichtung neu (Schritt 4) in den
-// Vorgaben und am Geraet, nicht mehr in der Ansicht. Ein aelterer Eintrag der Ansicht gilt
-// weiter (Server: Geraet vor Ansicht vor Vorgaben) und wird hier genannt, mit Weg zum Loeschen.
+// Werte, die seit der Einrichtung neu (Schritt 4 und 4b) am Geraet stehen: "Display aus nach",
+// Nacht (Abdunkeln, Aufhellen), Skalierung, Zielkachel; die Nacht-Uhr nur in den Vorgaben.
+// Ein aelterer Eintrag in Ansicht oder Vorgaben gilt weiter (Server: Geraet vor Ansicht vor
+// Vorgaben), der Reiter nennt ihn mit "Eintrag entfernen".
+const ALT_NAMEN={scale:'Skalierung', tileSize:'Zielkachel', dpmsOff:'Display aus nach', nightDim:'Nachts abdunkeln',
+  nightWake:'Aufhellen bei Berührung', nightClock:'Nacht-Uhr', nightClockBright:'Helligkeit der Nacht-Uhr'};
+function altEintragHtml(p, keys, id){
+  const ui=p.ui||{}, da=keys.filter(k=>gesetzt(ui[k])); if(!da.length) return '';
+  const w=da.map(k=>T(ALT_NAMEN[k])+' '+wertText(k, ui[k])).join(', ');
+  return '<div class="hint" style="padding-top:4px"><span id="'+id+'">'+esc((p.__global
+      ? T('Die Vorgaben tragen noch {w} aus einer älteren Fassung; das gilt für Geräte ohne eigenen Wert.')
+      : T('Diese Ansicht trägt noch {w} aus einer älteren Fassung; das gilt für Geräte ohne eigenen Wert.')).replace('{w}', w))+
+    ' <button type="button" class="minibtn" data-alt-weg="'+esc(keys.join(','))+'" data-alt-span="'+id+'">'+T('Eintrag entfernen')+'</button></span></div>';
+}
+function altEintragBinden(p){
+  document.querySelectorAll('#pconfHost [data-alt-weg]').forEach(b=>b.onclick=()=>{
+    p.ui=p.ui||{}; b.dataset.altWeg.split(',').forEach(k=>delete p.ui[k]);
+    const s=document.getElementById(b.dataset.altSpan); if(s) s.remove(); markDirty(); erbtZeichnen(); });
+}
+// Nur "Auto-Neustart alle" (Ansicht -> Verhalten)
 function neustartFeld(ui, reloadLeer){
   const wert=k=>(ui[k]==null)?'':ui[k];
   return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Auto-Neustart alle (Std.)')+'</label>'+
@@ -1720,7 +1731,7 @@ function erbtFeld(k){ return '<div class="erbt" data-erbt="'+k+'"></div>'; }
 function hatVorgabe(k){ return ((META||{}).themeKeys||[]).indexOf(k)>=0; }
 function gesetzt(v){ return v!==undefined && v!==null && v!==''; }
 // Dieselbe Einstellung heisst am Geraet anders als in der Ansicht
-const GERAET_SCHLUESSEL={scale:'scale', tileSize:'tileTarget'};
+const GERAET_SCHLUESSEL={scale:'scale', tileSize:'tileTarget', dpmsOff:'dpmsOff', nightDim:'nightDim', nightWake:'nightWake'};
 // Was ganz ohne Eintrag gilt; null = das Standard-Aussehen (Schrift, Farben, Sprache)
 function standardWert(k, ui){
   if(SIZE_KEYS.indexOf(k)>=0) return sizeStd((ui||{}).tileLayout,false,(ui||{}).tileSet)[k];
@@ -1766,8 +1777,17 @@ function wasGiltOhneEigenen(k, ui){
 // Was in einer Ansicht gilt, ihr eigener Eintrag eingeschlossen
 function wasGiltInAnsicht(id, k){
   const ui=(PANELS[id]||{}).ui||{};
-  if(gesetzt(ui[k])) return {v:ui[k], quelle:T('aus der Ansicht {a}').replace('{a}',ansichtName(id)), eigen:true};
+  if(gesetzt(ui[k])) return {v:ui[k], eigen:true, quelle:(GERAET_SCHLUESSEL[k]
+    ? T('aus der Ansicht {a} (älterer Eintrag)') : T('aus der Ansicht {a}')).replace('{a}',ansichtName(id))};   // Werte, die am Geraet stehen
   return wasGiltOhneEigenen(k, ui);
+}
+// Was fuer ein Geraet gilt (Display aus, Nacht): am Geraet, sonst (ein aelterer Eintrag) der
+// Ansicht, die es zeigt, sonst Vorgaben, sonst Standard
+function geraetGilt(name, k){
+  const d=DEV[name]||{};
+  if(gesetzt(d[k])) return {v:d[k], quelle:T('am Gerät'), eigen:true};
+  const id=geraetAnsicht(name);
+  return id ? wasGiltInAnsicht(id, k) : wasGiltOhneEigenen(k, {});
 }
 // Welche Ansicht ein Geraet zeigt: gerade verbunden die gemeldete, sonst die ihm
 // zugeordnete (devices[name].panel, Schritt 2)
@@ -1799,6 +1819,9 @@ function erbtZeichnen(){
       else teile.push(std);
       teile.push(T('gilt für {n} von {m} Ansichten').replace('{n}',ids.length-eigene.length).replace('{m}',ids.length));
       if(eigene.length) teile.push(T('eigener Wert in {liste}').replace('{liste}',eigene.map(ansichtName).join(', ')));
+      const gk=GERAET_SCHLUESSEL[k];   // Geraete mit eigenem Wert (Display aus, Nacht, Skalierung, Zielkachel)
+      if(gk) alleGeraeteNamen().forEach(n=>{ const v=(DEV[n]||{})[gk];
+        if(gesetzt(v)) teile.push(T('am Gerät {g}: {w}').replace('{g}',n).replace('{w}',wertText(k,v))); });
     } else {
       const w=wasGiltOhneEigenen(k,ui), dann=giltText(k,w);
       if(gesetzt(ui[k])) knopf=zurueckKnopf('data-erbt-zurueck',k,dann);
@@ -1958,21 +1981,15 @@ function renderEditor(){
              ['3x3','3 × 3 (großes Tablet)'],['auto',T('Automatisch (Tablet)')]]
            .map(o=>'<option value="'+o[0]+'"'+(layoutWert(p.ui)===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
          '</select></div>'+
-       '<div class="field" style="max-width:220px" id="fTileSizeField"><label class="lbl">'+T('Zielkachel (px)')+'</label>'+
-         '<input type="number" id="fTileSize" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+kachelZiel().std+'"'+
-           ' value="'+(tileSizeWert((p.ui||{}).tileSize)||'')+'">'+erbtFeld('tileSize')+'</div>'+
        '<div class="field" style="max-width:220px" id="fFillField"><label class="lbl">Bildschirm füllen</label>'+
          '<select id="fFill">'+
            '<option value=""'+(((p.ui||{}).fill)?'':' selected')+'>Aus (feste Kachelgröße)</option>'+
            '<option value="1"'+(((p.ui||{}).fill)?' selected':'')+'>An (füllt große Screens)</option>'+
          '</select></div>'+
-       '<div class="field" style="max-width:320px" id="fScaleField"><label class="lbl">'+T('Skalierung')+'</label>'+
-         '<select id="fScale" class="skal">'+scaleOptions((p.ui||{}).scale,
-            T('Wie Vorgabe')+' ('+scaleName(((PANELS.__global__||{}).ui||{}).scale)+')')+'</select>'+erbtFeld('scale')+'</div>'+
      '</div>'+
      '<div class="hint" style="padding-top:4px">'+T('Kachel-Layout „Automatisch“ (Tablet): Das Gerät rechnet Spalten und Zeilen selbst aus seiner Bildschirmgröße – ein größerer Schirm zeigt mehr Kacheln, nicht größere. Ein Widget belegt ganze Kachelspalten, hochkant ganze Zeilen; die Kacheln bleiben dabei gleich groß. „Bildschirm füllen“ und Skalierung braucht es dann nicht. Was ein Gerät daraus macht, steht unter Geräte.')+'</div>'+
-     '<div class="hint" style="padding-top:4px" id="fTileSizeHint">'+zielkachelHinweis()+'</div>'+
-     '<div class="hint" style="padding-top:4px" id="fScaleHint">'+T('Skalierung „Automatisch": Jedes Gerät vergrößert die Visu so weit, wie es ohne Rand und ohne Verzerrung geht – Schrift, Icons, Uhr-Seite und Panes wachsen mit. Ein fester Faktor wird nie größer, als der Bildschirm hergibt. Wirkt nicht zusammen mit „Bildschirm füllen", das den Schirm schon ausfüllt. „Wie Vorgabe" übernimmt die Einstellung unter Vorgaben → Darstellung; pro Gerät übersteuerbar auf seiner Karte unter Geräte → Am Gerät.')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('Zielkachel und Skalierung stehen auf der Karte des Geräts (Geräte, Zeile Technik): jedes Gerät bekommt seinen Wert, mit Vorschlag aus der gemeldeten Größe.')+'</div>'+
+     altEintragHtml(p, ['tileSize','scale'], 'fRasterAlt')+
      '<div class="grph">'+T('Widget (Pane 2)')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:220px"><label class="lbl">Split-Screen</label>'+
@@ -2036,16 +2053,13 @@ function renderEditor(){
        '<div class="field" style="max-width:none"><label class="lbl">Zweite Fläche (quer rechts, hochkant unten)</label>'+
        '<div id="svPaneBox"></div>'+
        '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Wandpanel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
-     '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
+     '<div class="grph">'+T('Display &amp; Neustart')+'</div>'+
      '<div class="sizes">'+
        neustartFeld(p.ui||{}, vorgabeWert('reloadHours'))+
-       nachtFelder(p.ui||{}, nachtVorgabe('nightDim'), nachtVorgabe('nightWake'))+
      '</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('„Display aus nach“ steht in den Vorgaben und auf der Karte jedes Geräts (Zeile Display).')+
-       (gesetzt((p.ui||{}).dpmsOff) ? ' <span id="fDpmsAlt">'+esc(T('Diese Ansicht trägt noch einen eigenen Wert ({w}) aus einer älteren Fassung; er gilt für Geräte ohne eigenen.').replace('{w}', wertText('dpmsOff', p.ui.dpmsOff)))+
-         ' <button type="button" class="minibtn" id="fDpmsWeg">'+T('Eintrag entfernen')+'</button></span>' : '')+'</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('„Display aus nach“, Nachts abdunkeln und Aufhellen stehen in den Vorgaben und auf der Karte jedes Geräts (Zeile Display), die Nacht-Uhr in den Vorgaben.')+'</div>'+
+     altEintragHtml(p, ['dpmsOff','nightDim','nightWake','nightClock','nightClockBright'], 'fVerhaltenAlt')+
      '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
-     '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
      '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
      '<div class="sizes">'+
        '<div class="field" style="max-width:180px"><label class="lbl">PIN merken (Sek.)</label>'+
@@ -2075,7 +2089,6 @@ function renderEditor(){
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
   bindAppearance(p);
-  { const fw=$('#fDpmsWeg'); if(fw) fw.onclick=()=>{ delete p.ui.dpmsOff; const s=$('#fDpmsAlt'); if(s) s.remove(); markDirty(); }; }
   { const fl=$('#fLayout'); if(fl) fl.onchange=e=>{ p.ui=p.ui||{}; const v=e.target.value;
       if(v==='auto'){ p.ui.grid='auto'; delete p.ui.cols; delete p.ui.rows; }
       else { delete p.ui.grid; delete p.ui.tileSize;
@@ -2084,20 +2097,12 @@ function renderEditor(){
         else if(v==='3x2'){ p.ui.cols=3; delete p.ui.rows; }
         else { delete p.ui.cols; delete p.ui.rows; } }   // 2x2
       layoutFelder(p); markDirty(); }; }
-  // Zielkachel im automatischen Raster: eine Zahl in px; leer = Standard (wird nicht gespeichert)
-  { const fts=$('#fTileSize'); if(fts) fts.oninput=e=>{ p.ui=p.ui||{};
-      const v=parseInt(e.target.value); if(v>0) p.ui.tileSize=v; else delete p.ui.tileSize; markDirty(); }; }
   // Widget-Breite in Kachelspalten (Schieberegler); 0 = Automatik, wird nicht gespeichert
   { const fpc=$('#fPaneCols'); if(fpc) fpc.oninput=e=>{ p.ui=p.ui||{};
       const v=parseInt(e.target.value)||0; if(v>0) p.ui.paneCols=v; else delete p.ui.paneCols;
       const t=$('#fPaneColsTxt'); if(t) t.textContent=paneColsText(v); markDirty(); }; }
   layoutFelder(p);
-  { const fsc=$('#fScale'); if(fsc) fsc.onchange=e=>{ p.ui=p.ui||{};
-      const v=scaleValue(e.target.value);
-      // leer = wie global; "off" ausdruecklich speichern, sonst liesse sich ein
-      // globales "Automatisch" im Profil nicht abschalten
-      if(v==='') delete p.ui.scale; else p.ui.scale=v;
-      markDirty(); }; }
+  altEintragBinden(p);
   { const ff=$('#fFill'); if(ff) ff.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value) p.ui.fill=true; else delete p.ui.fill; markDirty(); }; }
   // Aufbau der Hausuebersicht: der Standard wird nicht gespeichert
@@ -2127,7 +2132,6 @@ function renderEditor(){
       const sf=$('#svPaneField'); if(sf) sf.style.display=off?'none':'';
       layoutFelder(p);  // Widget-Breite nur mit Widget
       markDirty(); }; }
-  aufhellenZeigen(nachtVorgabe('nightDim'));
   { const fg=$('#fGesten'); if(fg) fg.onchange=()=>{ p.ui=p.ui||{};
       if(fg.value==='an') p.ui.gesten=true; else if(fg.value==='aus') p.ui.gesten=false; else delete p.ui.gesten;
       markDirty(); erbtZeichnen(); }; }
@@ -2168,15 +2172,14 @@ function zielkachelHinweis(){ const k=kachelZiel(), st=k.stufen||{};
     ' ('+T('die bisherigen Stufen Klein, Mittel und Groß entsprechen')+' '+[st.small,st.medium,st.large].join(', ')+'). '+
     T('Passen alle Kacheln einer Seite auf den Schirm, wachsen sie (ohne Widget daneben oder mit fester Widget-Breite) bis zum')+' '+fmtZahl(k.wachsen)+'-'+T('Fachen')+'. '+
     T('Bliebe bei mehreren Seiten die letzte mehr als ein Drittel leer, werden sie kleiner, wenn das eine Seite spart, höchstens bis zur Zielkachel geteilt durch')+' '+fmtZahl(k.wachsen)+'. '+
-    T('Ein Gerät kann unter Geräte einen eigenen Wert bekommen, mit Vorschlag aus seiner gemeldeten Größe.'); }
+    T('Leer gilt, was die Ansicht aus einer älteren Fassung noch trägt, sonst der Standard.'); }
 // Kachel-Layout eines Profils als Wert der Auswahl: "auto" oder Spalten x Zeilen
 function layoutWert(ui){ ui=ui||{};
   return ui.grid==='auto' ? 'auto' : (ui.cols==3?'3':'2')+'x'+(ui.rows==3?'3':'2'); }
 // Im automatischen Raster rechnet das Panel selbst: die Kachelgroesse zaehlt,
 // "Bildschirm fuellen" und Skalierung wirken dann nicht und verschwinden
 function layoutFelder(p){ const auto=layoutWert(p.ui)==='auto', split=(p.ui||{}).split!==false;
-  [['#fTileSizeField',auto],['#fTileSizeHint',auto],['#fFillField',!auto],['#fScaleField',!auto],['#fScaleHint',!auto],
-   ['#fPaneColsField',auto&&split]].forEach(f=>{
+  [['#fFillField',!auto],['#fPaneColsField',auto&&split]].forEach(f=>{
     const e=$(f[0]); if(e) e.style.display=f[1]?'':'none'; }); }
 // Widget-Breite im automatischen Raster: Grenze und Anteil der Automatik vom
 // Server (/api/meta paneCols = PANE_SPALTEN_MAX, PANE_ANTEIL)
@@ -4694,7 +4697,7 @@ function wzLookHtml(){
     '<div class="wzsww">'+sw+custom+none+'</div>'+
     '<p class="wznote" id="wzBaseVal" style="margin-top:6px">'+esc(L.baseColor||T('Standard-Farbschema'))+'</p>')+
     '<p class="wzq mt">'+T('Größen & Schrift')+'</p><div class="wzrow">'+sizes+font+
-      '<div class="wzfield" style="max-width:220px"><label>'+T('Skalierung')+'</label><select data-wscale class="skal">'+scaleOptions(L.scale,T('Wie Vorgabe'))+'</select></div>'+
+
     '</div>'+
     '<p class="wznote" style="margin-top:6px">'+T('„Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand geht. „Wie Vorgabe" erbt den Wert aus den Vorgaben.')+'</p>';
 }
@@ -4733,7 +4736,6 @@ function wzSummary(){
     if(ksm) rows.push([T('Kachel-Set'), T(ksm.label)+(ksm.farbton ? ' · '+ksFarbton(L, ksm)+'°' : '')]);
     rows.push([T('Grundfarbe'),L.baseColor||T('Standard')]);
     if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
-    rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie Vorgabe'):scaleName(L.scale)]);
     rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
     if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
   }
@@ -4893,7 +4895,6 @@ function wzRender(){
   b.querySelectorAll('[data-wsize]').forEach(function(el){ el.oninput=function(){ var k=el.dataset.wsize, v=el.value.trim(); if(v==='') delete WZ.look[k]; else WZ.look[k]=Number(v); }; });
   { var wcb=b.querySelector('#wzBaseCustom'); if(wcb) wcb.oninput=function(){ WZ.look.baseColor=wcb.value; var lv=$('#wzBaseVal'); if(lv) lv.textContent=wcb.value; }; }
   { var wf=b.querySelector('[data-wfont]'); if(wf) wf.onchange=function(){ if(wf.value) WZ.look.font=wf.value; else delete WZ.look.font; }; }
-  { var ws=b.querySelector('[data-wscale]'); if(ws) ws.onchange=function(){ var v=scaleValue(ws.value); if(v==='') delete WZ.look.scale; else WZ.look.scale=v; }; }
   // Kachel-Set: neu zeichnen (Farbton nur bei einem Set mit Rechnung)
   b.querySelectorAll('[data-ks-set]').forEach(function(el){ el.onclick=function(){ WZ.look=WZ.look||{};
       if(el.dataset.ksSet) WZ.look.tileSet=el.dataset.ksSet; else delete WZ.look.tileSet; wzRender(); }; });
@@ -5008,7 +5009,6 @@ function wzProfil(){
     if(L.tileActive) ui.tileActive=L.tileActive; }
   ['iconSize','nameSize','subSize'].forEach(function(k){ if(L[k]!=null && L[k]!=='') ui[k]=Number(L[k]); });
   if(L.font) ui.font=L.font;
-  if(L.scale!==undefined && L.scale!=='') ui.scale=L.scale;   // '' = wie global (nicht setzen)
   // Aktiv-Overlay aus Schritt „Overlay" (nur, wenn vom Standard abgewichen)
   if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
   if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
@@ -5685,6 +5685,8 @@ function devAusServer(devices){
                presence:d.presence||'',                  // '' = kein Praesenzmelder
                tileTarget:d.tileTarget||'',               // '' = Zielkachel wie in der Ansicht
                dpmsOff:(d.dpmsOff===undefined||d.dpmsOff===null)?'':d.dpmsOff,   // '' = Ansicht oder Vorgaben (Schritt 4)
+               nightDim:(d.nightDim===undefined||d.nightDim===null)?'':d.nightDim,   // Nacht am Geraet (Schritt 4b)
+               nightWake:(d.nightWake===undefined||d.nightWake===null)?'':d.nightWake,
                lichtStart:lichtStartWert(d.lichtStart)};  // '' = erste Stimmung im Raum
   });
   return out;
@@ -5743,20 +5745,17 @@ function zeigtHtml(name, d, sel){
     teile.join(' · '), (p?'<button type="button" class="btn sm gz-fein" data-fein="'+esc(id)+'">'+T('Feinschliff ›')+'</button>':'')+gzAufKnopf('zeigt', T('Gesten'), GK_AUF.has(name+'/zeigt')));
 }
 // Was fuer "Display aus nach" am Geraet gilt: Geraet, sonst die Ansicht, sonst Vorgaben, sonst Standard
-function displayGilt(name){
-  const d=DEV[name]||{};
-  if(gesetzt(d.dpmsOff)) return {v:d.dpmsOff, quelle:T('am Gerät'), eigen:true};
-  const id=geraetAnsicht(name);
-  if(id) { const w=wasGiltInAnsicht(id, 'dpmsOff'); if(w.eigen) return {v:w.v, quelle:T('aus der Ansicht {a} (älterer Eintrag)').replace('{a}', ansichtName(id))}; return w; }
-  return wasGiltOhneEigenen('dpmsOff', {});
-}
+function displayGilt(name){ return geraetGilt(name, 'dpmsOff'); }
 function presenceName(uuid){
   const o=ACTIVE_OPTS.find(x=>x.uuid===uuid); return o ? ((o.room?o.room+' · ':'')+o.name) : uuid;
 }
 function displayHtml(name){
-  const d=DEV[name]||{}, w=displayGilt(name);
-  const wert=gesetzt(w.v) ? (Number(w.v)===0 ? T('Display bleibt an') : T('Aus nach {s} s').replace('{s}', fmtZahl(w.v))) : wertText('dpmsOff', null);
-  const woher=[w.quelle, d.presence ? T('Präsenzmelder')+' '+presenceName(d.presence)+(presenceText(name)?' ('+presenceText(name)+')':'') : T('kein Präsenzmelder')].join(' · ');
+  const d=DEV[name]||{}, w=displayGilt(name), n=geraetGilt(name, 'nightDim');
+  const aus=gesetzt(w.v) ? (Number(w.v)===0 ? T('Display bleibt an') : T('Aus nach {s} s').replace('{s}', fmtZahl(w.v))) : wertText('dpmsOff', null);
+  const nacht=(gesetzt(n.v) && Number(n.v)>0) ? T('nachts {p} % dunkler').replace('{p}', fmtZahl(n.v)) : T('nachts nicht abgedunkelt');
+  const wert=aus+' · '+nacht;
+  const woher=[T('Display aus')+': '+w.quelle, T('Nacht')+': '+n.quelle,
+    d.presence ? T('Präsenzmelder')+' '+presenceName(d.presence)+(presenceText(name)?' ('+presenceText(name)+')':'') : T('kein Präsenzmelder')].join(' · ');
   return gzZeile('display', T('Display'), esc(wert), woher, gzAufKnopf('display', T('Ändern'), GK_AUF.has(name+'/display')));
 }
 function modiHtml(name){
@@ -5894,7 +5893,7 @@ async function deviceAction(act, name, ip, panel){
 // verbunden, meldet die naechste Abfrage es wieder - dann ohne Einstellungen.
 async function devEntfernen(name, online){
   if(!confirm(T('Gerät entfernen:')+' '+name+'\n\n'+
-      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder, Display aus, Zuordnung) gehen verloren; die Ansicht bleibt. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.')+
+      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder, Display aus, Nacht, Zuordnung) gehen verloren; die Ansicht bleibt. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.')+
       (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
   readDevFromDom();
   const alt=DEV[name]; delete DEV[name];
@@ -6028,6 +6027,7 @@ function devRow(name){
     '</div>').join('');
   const editor=(key, inhalt)=>'<div class="gz-editor" data-gze="'+key+'"'+(GK_AUF.has(name+'/'+key)?'':' hidden')+'>'+inhalt+'</div>';
   const w=displayGilt(name), leer=gesetzt(w.v) ? wertText('dpmsOff', w.v)+' · '+w.quelle : wertText('dpmsOff', null);
+  const nd=geraetGilt(name, 'nightDim'), nw=geraetGilt(name, 'nightWake');
   // Fuenf Zeilen: Zeigt, Display, Betriebsmodi, Technik, Entfernen; "Aendern" klappt den Editor darunter auf
   return '<div class="dev" data-name="'+esc(name)+'">'+
     zeigtHtml(name, g)+
@@ -6045,6 +6045,15 @@ function devRow(name){
         '<input type="number" class="dd_dpms" min="0" max="3600" step="30" placeholder="'+esc(gesetzt(w.v)?String(w.v):'')+'" value="'+esc(gesetzt(d.dpmsOff)?d.dpmsOff:'')+'" style="width:90px">'+
         '<span class="note">'+esc(T('Leer gilt:')+' '+leer+'. '+T('0 = Display bleibt an.'))+'</span>'+
       '</div>'+
+      '<div class="gk-teil">'+T('Nacht')+'</div>'+
+      '<div class="dnrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Nachts abdunkeln (%)')+'</span>'+
+        '<input type="number" class="dd_dim" min="0" max="90" step="5" placeholder="'+esc(nachtPlatzhalter('nightDim', nd.v))+'" value="'+esc(gesetzt(d.nightDim)?d.nightDim:'')+'" style="width:80px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Aufhellen bei Berührung (Sek.)')+'</span>'+
+        '<input type="number" class="dd_wake" min="0" max="300" step="5" placeholder="'+esc(nachtPlatzhalter('nightWake', nw.v))+'" value="'+esc(gesetzt(d.nightWake)?d.nightWake:'')+'" style="width:80px">'+
+      '</div>'+
+      '<div class="note">'+esc(T('Leer gilt:')+' '+giltText('nightDim', nd)+', '+giltText('nightWake', nw)+'. ')+
+        T('Wann es Nacht ist und ob die Nacht-Uhr läuft, steht in den Vorgaben. In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln.')+'</div>'+
       '<div class="gk-teil">'+T('Präsenzmelder')+'</div>'+
       '<div class="dprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
         '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
@@ -6069,6 +6078,7 @@ function devRow(name){
         '<span class="note dt_hinweis">'+esc(vorschlagText(name))+'</span>'+
         (DEVICE_SUGGEST[name]?'<button class="btn sm ghost dt_nehmen" type="button">'+T('übernehmen')+'</button>':'')+
       '</div>'+'<div class="erbt" data-gerbt="tileTarget"></div>'+
+      '<div class="note">'+esc(zielkachelHinweis())+'</div>'+
       '<div class="gk-teil">'+T('Display-Steuerung')+'</div>'+
       '<div class="note">'+T('Nur für Fully Kiosk oder WallPanel nötig; die LoxPanel-App und der Linux-Agent schalten das Display selbst.')+'</div>'+
       displayRow(d.display, name))+
@@ -6150,11 +6160,12 @@ function readDevFromDom(){
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
     const sc=n.querySelector('.ds_scale'), pr=n.querySelector('.dp_presence'), tz=n.querySelector('.dt_ziel');
-    const ls=n.querySelector('.dl_start'), dp=n.querySelector('.dd_dpms');
+    const ls=n.querySelector('.dl_start'), dp=n.querySelector('.dd_dpms'), dn=n.querySelector('.dd_dim'), dw=n.querySelector('.dd_wake');
+    const zahl=(el, max)=>(el&&el.value.trim()!=='')?Math.max(0, Math.min(max, Number(el.value))):'';
     DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
                          scale:sc?scaleValue(sc.value):'', presence:pr?pr.value:'',
                          tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):'',
-                         dpmsOff:(dp&&dp.value.trim()!=='')?Math.max(0, Math.min(3600, Number(dp.value))):'',
+                         dpmsOff:zahl(dp, 3600), nightDim:zahl(dn, 90), nightWake:zahl(dw, 300),
                          lichtStart:ls?ls.value:'',
                          panel:(DEV[n.dataset.name]||{}).panel||''};   // Zuordnung (Schritt 2): setzt nur "Ansicht wechseln"
   });
@@ -6170,7 +6181,7 @@ function renderDevices(){
     ed.hidden=!auf; if(auf) GK_AUF.add(k.dataset.gk+'/'+key); else GK_AUF.delete(k.dataset.gk+'/'+key);
     b.setAttribute('aria-expanded', String(auf)); b.textContent=b.textContent.replace(/[▾▸]$/, auf?'▾':'▸'); });
   // Wert und Herkunft der Zeilen Display, Betriebsmodi und Technik folgen den Eingaben
-  box.querySelectorAll('.dd_dpms, .dp_presence, .dm_mode, .dm_prof, .dev_auto, .ds_scale, .dt_ziel, .dd_drv').forEach(el=>{
+  box.querySelectorAll('.dd_dpms, .dd_dim, .dd_wake, .dp_presence, .dm_mode, .dm_prof, .dev_auto, .ds_scale, .dt_ziel, .dd_drv').forEach(el=>{
     el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input', ()=>{ readDevFromDom(); gzWerteZeichnen(el.closest('.gk')); }); });
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
@@ -6219,11 +6230,14 @@ function devicesPayload(quelle=DEV){
     const presence=d.presence||'';
     const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
     const lichtStart=lichtStartAusWert(d.lichtStart);   // Stimmung beim Einschalten (Gesten)
-    const dpms=(d.dpmsOff===''||d.dpmsOff===undefined||d.dpmsOff===null||isNaN(Number(d.dpmsOff)))?null:Number(d.dpmsOff);   // Display aus nach Sek.
-    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel || dpms!==null){
+    const zahl=v=>(v===''||v===undefined||v===null||isNaN(Number(v)))?null:Number(v);
+    const dpms=zahl(d.dpmsOff), dim=zahl(d.nightDim), wake=zahl(d.nightWake);   // Display aus nach Sek., Nacht
+    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel || dpms!==null || dim!==null || wake!==null){
       devices[name]={auto:d.auto!==false, modes};
       if(d.panel) devices[name].panel=d.panel;
       if(dpms!==null) devices[name].dpmsOff=dpms;
+      if(dim!==null) devices[name].nightDim=dim;
+      if(wake!==null) devices[name].nightWake=wake;
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;

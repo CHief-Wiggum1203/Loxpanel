@@ -59,7 +59,8 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 assert [z[0] for z in zeilen] == ["zeigt", "display", "modi", "technik", "entfernen"], zeilen
                 werte = {z[0]: (z[1], z[2]) for z in zeilen}
                 assert werte["zeigt"][1] == "noch nicht gemeldet", werte
-                assert werte["display"] == ("Linux-Agent nach seiner kiosk.conf, sonst nie", "Standard · kein Präsenzmelder"), werte
+                assert werte["display"] == ("Linux-Agent nach seiner kiosk.conf, sonst nie · nachts nicht abgedunkelt",
+                                            "Display aus: Standard · Nacht: Standard · kein Präsenzmelder"), werte
                 assert werte["modi"][0] == "Keine", werte
                 assert werte["technik"] == ("Browser · kein Display-Treiber", "Skalierung 120 % (am Gerät) · Zielkachel nur bei Raster „Automatisch“"), werte
                 assert werte["entfernen"][0] == "Gerät aus der Liste nehmen" and await flur.locator('[data-act="entfernen"]').count() == 1
@@ -74,8 +75,9 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 await flur.locator(".dm_mode").fill("gaeste")
                 assert await pg.locator("#offenTxt").text_content() == "Nicht gespeichert: Geräte"
                 await flur.locator(".dd_dpms").fill("120")
+                await flur.locator(".dd_dim").fill("25")
                 werte = {z[0]: (z[1], z[2]) for z in await flur.evaluate(ZEILEN)}
-                assert werte["display"] == ("Aus nach 120 s", "am Gerät · kein Präsenzmelder"), werte
+                assert werte["display"] == ("Aus nach 120 s · nachts 25 % dunkler", "Display aus: am Gerät · Nacht: am Gerät · kein Präsenzmelder"), werte
                 await pg.screenshot(path=str(tmp_path / "geraetekarte.png"), full_page=True)
 
                 # Die Abfrage zeichnet Kopf und Zeigt neu; Editoren und Eingaben bleiben
@@ -89,8 +91,9 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function("document.querySelector('#offenTxt').textContent === 'Alles gespeichert'")
                 datei = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["flur"]
-                assert datei["modes"] == {} and datei["dpmsOff"] == 120 and datei["scale"] == 1.2, datei
+                assert datei["modes"] == {} and datei["dpmsOff"] == 120 and datei["nightDim"] == 25 and datei["scale"] == 1.2, datei
                 assert app.panel_dpms("wohnen", dev="flur") == 120 and app.panel_dpms("wohnen", dev="wand") is None
+                assert app.panel_night("wohnen", dev="flur")["dim"] == 25
 
                 # Ansicht in Zeigt waehlen ist keine offene Aenderung; "Ansicht wechseln" ordnet
                 # auch ein Geraet zu, das nicht verbunden ist (Schritt 2), die Zeile sagt es

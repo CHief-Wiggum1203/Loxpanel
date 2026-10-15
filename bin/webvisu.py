@@ -3281,11 +3281,17 @@ class App:
         v = ui.get("dpmsOff")
         return max(0, min(3600, int(v))) if isinstance(v, (int, float)) else None
 
-    def panel_night(self, pid: str | None, roh: dict | None = None) -> dict:
+    def panel_night(self, pid: str | None, roh: dict | None = None, dev: str = "") -> dict:
         """Nachtmodus je Panel: `dim` = Abdunklung in Prozent (0 = aus), `wake` =
         Sekunden, die eine Beruehrung wieder voll aufhellt (0 = nicht aufhellen).
-        Wie panel_dpms(): Theme-Vorgabe, vom Panel-Profil ueberschreibbar."""
+        Wie panel_dpms(): am Geraet (devices[name].nightDim/nightWake, Einrichtung
+        Schritt 4b), sonst ein aelterer Eintrag des Profils, sonst die Vorgabe.
+        Die Nacht-Uhr hat keinen Wert je Geraet."""
         ui = {**self.theme.get("ui", {}), **self._ui_roh(pid, roh)}
+        d = self.devices.get(dev) if dev else None
+        if isinstance(d, dict):
+            ui = {**ui, **{k: d[k] for k in ("nightDim", "nightWake")
+                           if isinstance(d.get(k), (int, float)) and not isinstance(d.get(k), bool)}}
 
         def _num(key, lo, hi, default):
             v = ui.get(key)
@@ -4252,7 +4258,8 @@ class App:
         """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
         (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
         Skalierung, Praesenzmelder (`presence` = Control-UUID), "Display aus nach"
-        (`dpmsOff`, Sek., Einrichtung Schritt 4: vor Ansicht und Vorgaben) und die
+        (`dpmsOff`, Sek.) und Nacht (`nightDim` %, `nightWake` Sek.; Einrichtung
+        Schritt 4 und 4b: vor Ansicht und Vorgaben) und die
         zugeordnete Ansicht (`panel`, Einrichtung Schritt 2: die eine Stelle,
         die sagt, was das Geraet zeigt). Nur existierende Profile werden
         uebernommen; leere Geraete fallen weg."""
@@ -4288,11 +4295,14 @@ class App:
             # Stimmung beim Einschalten (Gesten): was angeht, wenn im Raum alles
             # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
             licht_start = _clean_licht_start(cfg.get("lichtStart"))
-            # Display aus nach Sek. am Geraet (panel_dpms: Geraet vor Ansicht vor Vorgaben)
-            dpms = cfg.get("dpmsOff")
-            dpms = max(0, min(3600, int(dpms))) if isinstance(dpms, (int, float)) and not isinstance(dpms, bool) else None
+            # Display aus nach Sek. und Nacht (Abdunkeln %, Aufhellen Sek.) am Geraet
+            # (panel_dpms, panel_night: Geraet vor Ansicht vor Vorgaben)
+            def _zahl(key, lo, hi):
+                v = cfg.get(key)
+                return max(lo, min(hi, int(v))) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+            dpms, dim, wake = _zahl("dpmsOff", 0, 3600), _zahl("nightDim", 0, 90), _zahl("nightWake", 0, 300)
             if not modes and not display and scale is None and ziel is None and not presence \
-                    and not licht_start and not panel and dpms is None:
+                    and not licht_start and not panel and dpms is None and dim is None and wake is None:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if panel:
@@ -4309,6 +4319,10 @@ class App:
                 entry["lichtStart"] = licht_start
             if dpms is not None:
                 entry["dpmsOff"] = dpms
+            if dim is not None:
+                entry["nightDim"] = dim
+            if wake is not None:
+                entry["nightWake"] = wake
             out[name.strip()[:60]] = entry
         return out
 
@@ -11057,7 +11071,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "gestenHinweis": prof["gesten"] and prof["gestenHinweis"],
                         "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
-                        "night": {**app.panel_night(prof["id"], roh), "on": app._night_on},
+                        "night": {**app.panel_night(prof["id"], roh, dev), "on": app._night_on},
                         # Meldet der Praesenzmelder des Geraets gerade jemanden,
                         # bleibt das Display an - auch nach einem Neuladen.
                         "presence": app._presence_on.get(dev, False),

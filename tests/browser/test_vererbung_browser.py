@@ -73,8 +73,8 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                     "Display aus steht in den Vorgaben und am Geraet (Schritt 4), nicht in der Ansicht"
                 assert await _zeile(pg, "reloadHours").text_content() == f"nachts um {W.NEULADEN_STUNDE} Uhr"
                 await pg.locator(".stab[data-sub='raster']").click()
-                assert await _zeile(pg, "scale").text_content() == \
-                    "Automatisch · aus den Vorgaben · am Gerät wand: 125 %"
+                assert await pg.locator("#pconfHost #fScale, #pconfHost #fTileSize").count() == 0, \
+                    "Skalierung und Zielkachel stehen am Geraet (Schritt 4b), nicht in der Ansicht"
 
                 # Ansicht Kueche: gesetzt -> zuruecksetzen, dann gilt die Vorgabe
                 await pg.locator("#plist .pitem", has_text="?panel=kueche").click()
@@ -94,8 +94,9 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 await pg.locator(".rub", has_text="Geräte").click()
                 await karte_auf(pg, "wand")
                 assert await pg.locator('#geraete .gk[data-gk="wand"] .gz[data-gz="display"] .gz-woher').text_content() \
-                    == "aus den Vorgaben · kein Präsenzmelder"
-                assert await pg.locator('#geraete .gk[data-gk="wand"] .gz[data-gz="display"] .gz-wert').text_content() == "Aus nach 60 s"
+                    == "Display aus: aus den Vorgaben · Nacht: Standard · kein Präsenzmelder"
+                assert await pg.locator('#geraete .gk[data-gk="wand"] .gz[data-gz="display"] .gz-wert').text_content() \
+                    == "Aus nach 60 s · nachts nicht abgedunkelt"
                 skal = pg.locator('#geraete .dev[data-name="wand"] .erbt[data-gerbt="scale"]')
                 ziel = pg.locator('#geraete .dev[data-name="wand"] .erbt[data-gerbt="tileTarget"]')
                 knopf = skal.locator("[data-gerbt-zurueck]")
@@ -107,11 +108,6 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 assert await skal.text_content() == "Automatisch · aus den Vorgaben (Ansicht Flur)"
                 assert await pg.evaluate(OFFEN) == "Nicht gespeichert: Ansicht Küche, Geräte"
                 await pg.screenshot(path=str(tmp_path / "geraet_herkunft.png"), full_page=True)
-
-                # Die Ansicht nennt das Geraet nicht mehr
-                await pg.locator("#plist .pitem", has_text="?panel=flur").click()
-                await pg.locator(".stab[data-sub='raster']").click()
-                assert await _zeile(pg, "scale").text_content() == "Automatisch · aus den Vorgaben"
 
                 await pg.locator("#saveBtn").click()
                 await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")

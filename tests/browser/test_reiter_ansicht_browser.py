@@ -30,10 +30,9 @@ FELDER = {
     "allgemein": ["#fTitle", "#fLang", "#dupBtn", "#delBtn"],
     "inhalt": ["#tabMode", "#tabRoomSel", "#chips", "#rooms", "#cats", "#panePerTab"],
     "seiten": ["#seHost", "#sePaneBox"],
-    "raster": ["#fLayout", "#fTileSize", "#fFill", "#fScale", "#fSplit", "#fPaneCols", "[data-ui='nudgeX']"],
+    "raster": ["#fLayout", "#fFill", "#fSplit", "#fPaneCols", "[data-ui='nudgeX']"],
     "aussehen": [".baseSw", "#fFontSel", "#fTextColor", "[data-ui='iconSize']", "#fTileLayout", "#tiles", "#ovPrev"],
-    "verhalten": ["#svPaneBox", "[data-ui='reloadHours']", "[data-ui='nightDim']",
-                  "[data-ui='nightWake']", "[data-ui='pinMerken']"],
+    "verhalten": ["#svPaneBox", "[data-ui='reloadHours']", "[data-ui='pinMerken']"],
 }
 # Wo steht ein Selektor: Liste der Reiter-Kennungen aller Treffer
 WO = """sel => [...document.querySelectorAll('#pconfHost ' + sel)]
