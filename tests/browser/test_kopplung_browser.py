@@ -193,7 +193,7 @@ def test_banner_neues_geraet(cfg_ordner, tmp_path):
                 await _bis(lambda: any(i.get("dev") == "bad" for i in app.conn_info.values()), "als bad neu verbunden")
                 await pg.wait_for_selector("#geOv:not([hidden])", timeout=15000)
                 await pg.wait_for_function("GE.device === 'bad'")
-                erg["wz"] = await pg.evaluate("[GE.device, GE.screen && GE.screen.vw, document.getElementById('geKopf').textContent,"
+                erg["ge"] = await pg.evaluate("[GE.device, GE.screen && GE.screen.vw, document.getElementById('geKopf').textContent,"
                                               " document.getElementById('geFertig').textContent]")
                 erg["nach_benennen"] = await pg.evaluate(BANNER)
                 await pg.screenshot(path=str(tmp_path / "banner_einrichten.png"))
@@ -224,7 +224,7 @@ def test_banner_neues_geraet(cfg_ordner, tmp_path):
     assert u["sichtbar"] and u["code"] == code and u["rubrik"] == "overview", u
     assert u["text"].startswith("Neues Gerät gefunden: Tablet · 1180×820 quer"), u["text"]
     assert erg["ansichten"]["sichtbar"] and erg["ansichten"]["rubrik"] == "pconf", erg["ansichten"]
-    assert erg["wz"] == ["bad", 1180, "bad · Tablet · 1180×820 quer", "Fertig – auf bad anzeigen"], erg["wz"]
+    assert erg["ge"] == ["bad", 1180, "bad · Tablet · 1180×820 quer", "Fertig – auf bad anzeigen"], erg["ge"]
     assert not erg["nach_benennen"]["sichtbar"], erg["nach_benennen"]
     assert erg["klein"]["sichtbar"] and erg["klein"]["text"].startswith("Neues Gerät gefunden: 4″-Wandpanel · 480×480 quadratisch"), erg["klein"]
     assert not erg["spaeter"]["sichtbar"] and not erg["neu_geladen"]["sichtbar"], erg

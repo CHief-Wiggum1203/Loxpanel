@@ -582,9 +582,9 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
     assert st["standard"] == {"tileSet": satz["key"], "tileActive": anders}, st["standard"]
 
 
-def test_assistent_rechnet_die_seitenleiste_mit():
-    """Gerät einrichten, Schritt Aussehen: ein Set mit Seitenleiste links nimmt
-    dem Raster Breite statt Hoehe, die Vorrechnung zeigt das (raster.js railW)."""
+def test_seiten_editor_rechnet_die_seitenleiste_mit():
+    """Seiten-Editor: ein Set mit Seitenleiste links nimmt dem Raster Breite statt
+    Hoehe, das Bild des Editors (seRaster, seGeometrie) zeigt das (raster.js railW)."""
     links = next(n for n in SETS if TC.kachel_set_art(n)[1] == "links")
 
     async def lauf():
@@ -601,12 +601,16 @@ def test_assistent_rechnet_die_seitenleiste_mit():
                 await pg.goto(f"http://127.0.0.1:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 erg = await pg.evaluate("""([set, rail]) => {
-                  WZ.groesse = {name: 'ipad', vw: 1180, vh: 820, quelle: 'katalog'}; WZ.look = {};
-                  const ohne = wzVorrechnung('1', 'auto'), festOhne = wzVorrechnung('1', '3x2');
-                  WZ.look.tileSet = set;
-                  const mit = wzVorrechnung('1', 'auto'), festMit = wzVorrechnung('1', '3x2');
+                  // der Kontext des Reiters Seiten: 1 Pane (kein Split), Geraet 1180 x 820 aus dem Katalog
+                  const g = {quelle: 'katalog', name: 'ipad', vw: 1180, vh: 820}, leer = {leiste: [], raster: []};
+                  const ctx = (set, auto) => ({ui: () => ({auto, split: false, pane: '', ziel: kachelZiel().std, cols: 3, rows: 2,
+                                                          paneCols: 0, tileSet: set, hinweis: false}), geraet: () => g});
+                  const auto = set => seRaster(ctx(set, true), leer);
+                  const fest = set => { const r = seRaster(ctx(set, false), leer), geo = seGeometrie(r, g, 1);
+                                        return {cols: r.cols, rows: r.rows, kb: geo.cw, kh: geo.ch}; };
+                  const ohne = auto(''), mit = auto(set), festOhne = fest(''), festMit = fest(set);
                   const ref = LoxRaster.autoRaster(Object.assign({}, LoxRaster.VISU_MASSE,
-                    {w: 1180 - rail, h: 820, tabsH: 0, ziel: wzZiel(), wachsen: kachelZiel().wachsen || 1}));
+                    {w: 1180 - rail, h: 820, tabsH: 0, ziel: kachelZiel().std, wachsen: kachelZiel().wachsen || 1}));
                   return {ohne, mit, festOhne, festMit, ref: [ref.cols, ref.rows, Math.round(ref.kb)],
                           rail: rail, tabsH: LoxRaster.VISU_MASSE.tabsH};
                 }""", [links, _mass(links, "--rail-breite", 1180)])
@@ -617,7 +621,7 @@ def test_assistent_rechnet_die_seitenleiste_mit():
         assert not fehler, fehler
         return erg
     e = asyncio.run(lauf())
-    assert [e["mit"]["cols"], e["mit"]["rows"], e["mit"]["px"]] == e["ref"], e
+    assert [e["mit"]["cols"], e["mit"]["rows"], round(e["mit"]["kb"])] == e["ref"], e
     assert e["mit"]["cols"] <= e["ohne"]["cols"], e
     # festes Raster: die Kacheln werden um die Leiste schmaler und um die fehlende Tab-Zeile hoeher
     assert abs(e["festOhne"]["kb"] - e["festMit"]["kb"] - e["rail"] / e["festMit"]["cols"]) < 0.01, e

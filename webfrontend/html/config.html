@@ -548,15 +548,13 @@
   .se-groesse button.on{background:rgba(224,162,77,.14);color:var(--fg);}
   .se-knoepfe{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;}
   .se-meldung{color:var(--crit);}
-  .wzbox.breit{max-width:1180px;}
-  /* ---------- Panel-Assistent (Wizard) ---------- */
+  /* ---------- Dialoge: Gerät einrichten, Gerät verbinden, Duplizieren, Betriebsmodus-Assistent ---------- */
   .wzov{position:fixed;inset:0;background:rgba(6,8,11,.72);display:grid;place-items:center;padding:20px;z-index:100;}
   .wzov[hidden]{display:none;}
   .wzbox{width:100%;max-width:640px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:92vh;}
   .wzhd{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
   .wzhd b{font-size:16px;} .wzhd .wzstep{margin-left:auto;color:var(--muted);font-size:12px;}
-  /* Schliessen: ohne ihn kam man aus einem Assistenten nur per Klick neben das
-     Fenster heraus - in Schritt 1 sind Zurueck und (ohne Auswahl) Weiter gesperrt. */
+  /* Schliessen: ohne ihn kaeme man aus einem Dialog nur per Klick neben das Fenster heraus. */
   .wzhd .wzx{background:none;border:0;color:var(--muted);font:inherit;font-size:18px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:5px;}
   .wzhd .wzx:hover,.wzhd .wzx:focus-visible{color:var(--fg);background:var(--panel2);outline:none;}
   .mzanon{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;}
@@ -571,32 +569,19 @@
   .wzo .ic{flex:none;width:38px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--bg);display:grid;place-items:center;}
   .wzo .ic svg{width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
   .wzo .ic .loxi{width:22px;height:22px;}
-  .wzp2sel{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:inherit;font-size:13px;}
-  .wztiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  @media(max-width:560px){ .wztiles{grid-template-columns:1fr;} }
   .wzo b{display:block;font-size:14px;} .wzo .tx span{color:var(--muted);font-size:12px;display:block;}
-  .wzgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
-  @media(max-width:520px){ .wzgrid{grid-template-columns:repeat(2,1fr);} }
-  .wzg{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 8px;cursor:pointer;color:var(--fg);font:inherit;display:flex;flex-direction:column;align-items:center;gap:8px;transition:.12s;}
-  .wzg:hover{border-color:#3a3f49;} .wzg.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);}
-  .wzgm{display:grid;gap:3px;width:44px;height:44px;grid-template-columns:repeat(var(--c),1fr);grid-template-rows:repeat(var(--r),1fr);}
-  .wzgm i{background:#1b2430;border:1px solid #2a3a4a;border-radius:2px;}
-  .wzg b{font-size:12.5px;font-weight:600;}
+  .ikon{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 8px;cursor:pointer;color:var(--fg);font:inherit;display:flex;flex-direction:column;align-items:center;gap:8px;transition:.12s;}
+  .ikon:hover{border-color:#3a3f49;} .ikon.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);}
+  .ikon b{font-size:12.5px;font-weight:600;}
   .wzfield label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
   .wzfield.mt{margin-top:16px;}
   .wzfield input,.wzfield select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:9px 11px;font:inherit;font-size:14px;}
-  .wzv{color:var(--muted);font-size:11px;text-align:center;}   /* vorgerechnetes Raster (Punkt 9) */
-  .wzchk{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:6px;cursor:pointer;}
   .wznote{color:var(--muted);font-size:11.5px;margin-top:8px;} .wznote code{background:var(--panel2);border-radius:3px;padding:1px 5px;}
   .wzft{padding:13px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;}
   .wzbtn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;}
   .wzbtn:hover{border-color:#3a3f49;} .wzbtn:disabled{opacity:.4;cursor:default;}
   .wzbtn.prim{background:var(--accent);border-color:var(--accent);color:#161018;font-weight:700;}
   .wzbtn.prim:disabled{filter:none;}
-  .wzsww{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-  .wzsw{width:40px;height:40px;border-radius:7px;padding:0;border:1px solid var(--line);cursor:pointer;background:var(--panel2);}
-  .wzsw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);}
-  .wzsw.none{width:auto;padding:0 12px;color:var(--muted);font:inherit;font-size:12px;}
   /* Kachel-Set mit Farbton (touch, kachelSetExtraHtml): Regler 0-359 auf dem
      Verlauf der Kachelfarben, Schnellwahl als Farbfelder - Farben und Schrift
      darauf kommen aus /api/meta (theme_colors.touch_satz), nicht von hier. */
@@ -662,12 +647,6 @@
   /* ---- Gerät einrichten: grosser Start-Knopf (Übersicht) und Leiste der Schritte ---- */
   .as-start{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#161018;border:0;border-radius:9px;padding:12px 20px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;}
   .as-start:hover{filter:brightness(1.06);}
-  .wzleiste{display:flex;flex-wrap:wrap;gap:4px 14px;list-style:none;margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);}
-  .wzleiste li{display:flex;align-items:center;gap:5px;}
-  .wzleiste li span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);font-size:11px;}
-  .wzleiste li.erledigt span{background:var(--good);border-color:var(--good);color:#101319;}
-  .wzleiste li.jetzt{color:var(--fg);font-weight:600;} .wzleiste li.jetzt span{background:var(--accent);border-color:var(--accent);color:#161018;}
-  .wzleiste li.entfaellt{opacity:.45;text-decoration:line-through;}
   .wzo[disabled],.wzo.aus{opacity:.45;cursor:not-allowed;}
   /* ---- Gerät verbinden (Einrichtung neu, Schritt 5): drei Wege, je eine Zeile zum Kopieren ---- */
   .wzbox.gv{max-width:860px;}
@@ -1776,8 +1755,8 @@ function geraetAnsicht(name){
   if(live && PANELS[live]) return live;
   const z=DEVICE_ZUORDNUNG[name]||''; return PANELS[z] ? z : ansichtFuerGeraet(name);
 }
-// Die Ansicht, die fuer ein Geraet angelegt wurde (device.name, "Geraet einrichten" und
-// der Assistent schreiben es) - bis die Abfrage die Zuordnung meldet, auch ungespeichert
+// Die Ansicht, die fuer ein Geraet angelegt wurde (device.name, "Geraet einrichten"
+// schreibt es) - bis die Abfrage die Zuordnung meldet, auch ungespeichert
 function ansichtFuerGeraet(name){ return ansichtIds().find(id=>((PANELS[id].device||{}).name)===name)||''; }
 // Geraete, die eine Ansicht zeigen oder in einem Betriebsmodus zeigen wuerden
 function geraeteDerAnsicht(id){
@@ -2863,7 +2842,7 @@ async function entwurfSenden(id=cur, p=PANELS[cur]){
 // Die Visu im Fenster auf die Adresse bringen; zeigt es sie schon, hat der Server es neu geladen
 function entwurfZiel(w, url){ if(w.location.pathname+w.location.search!==url) w.location.href=url; }
 function entwurfFensterMass(p){
-  const g=seGeraetReiter(p)||wzBrowser();
+  const g=seGeraetReiter(p)||dieserBrowser();
   const b=Math.max(320, Math.min(g.vw, screen.availWidth-40)), h=Math.max(320, Math.min(g.vh, screen.availHeight-80));
   return 'popup=yes,width='+b+',height='+h;
 }
@@ -2948,7 +2927,7 @@ function entwurfBeendet(){
 }
 
 // Alles, was die ganze Liste der Ansichten an den Server schickt (Speichern, auch ueber
-// den Assistenten, und "Ansicht loeschen"), laeuft nacheinander. Jeder Auftrag nimmt
+// "Geraet einrichten", und "Ansicht loeschen"), laeuft nacheinander. Jeder Auftrag nimmt
 // seinen Stand erst, wenn er dran ist, und als tiefe Kopie: Was waehrenddessen getippt
 // wird, geht nicht mit, und ein zweiter Auftrag baut auf dem Ergebnis des ersten auf.
 let ANSICHTEN_KETTE=Promise.resolve();
@@ -2988,7 +2967,7 @@ async function ansichtenSpeichern(){
     }catch(e){ return {ok:false, text:'Fehler: '+e}; }
   });
 }
-// Nur die Ansichten und Vorgaben (Assistent, Tests); die Leiste nimmt speichernAlles()
+// Nur die Ansichten und Vorgaben (Geraet einrichten, Tests); die Leiste nimmt speichernAlles()
 async function save(){ const e=await ansichtenSpeichern(); meldungZeigen([e]); leisteZeigen(); return e.ok; }
 // "Ansicht loeschen" gilt nach der Rueckfrage sofort. Geschickt wird der zuletzt
 // gespeicherte Stand ohne diese Ansicht; offene Aenderungen an anderen bleiben offen.
@@ -3306,7 +3285,7 @@ function pickRefresh(){ const p=PANELS[cur]; if(!p || p.__global) return; render
 // Groesse); der Editor schreibt immer beides (seSchreiben), damit der Server
 // beim Speichern nichts verwerfen muss.
 // Zwei Aufrufer, je mit eigenem Kontext: der Reiter „Seiten-Editor" im
-// Panel-Editor (seKontextReiter) und Schritt 5 des Assistenten (seKontextWz).
+// Panel-Editor (seKontextReiter).
 const SE_WIDGETS=[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],
   ['camera','Kamera'],['chart','Verlauf'],['header','Kopfzeile']];
 const SE_PANE_NAMEN={weather:'Wetter', calendar:'Kalender', player:'Audio', energy:'Energiefluss',
@@ -3416,7 +3395,7 @@ function seZelle(geo, z, s, w, h){ const M=geo.M;
   return {x:geo.raster.x+M.pad+s*(geo.cw+M.gap), y:geo.raster.y+M.pad+z*(geo.ch+M.gap),
           w:w*geo.cw+(w-1)*M.gap, h:h*geo.ch+(h-1)*M.gap}; }
 function seGeraeteListe(p){
-  const l=[...wzGeraete(), wzBrowser(), ...wzKatalog()], d=(p&&p.device)||{};
+  const l=[...geraeteMitGroesse(), dieserBrowser(), ...geraeteKatalog()], d=(p&&p.device)||{};
   if(d.name && d.vw && d.vh && !l.some(x=>x.quelle==='geraet' && x.name===d.name))
     l.unshift({quelle:'geraet', name:d.name, vw:d.vw, vh:d.vh});
   return l;
@@ -3458,7 +3437,7 @@ function seKontextReiter(){
         pane:(u.panes||{})[tab()]||'', werteLeiste:Array.isArray(u.valueBar) && u.valueBar.indexOf(tab())>-1,
         tileSet:u.tileSet||'', klassisch:u.tileLayout==='classic' && !u.tileSet, hinweis:gestenHinweisGilt(u)}; },
     hide:()=>p.hide||[], tiles:()=>p.tiles||{},
-    setPane:k=>{ const v=k?wzP2Real(k):''; p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
+    setPane:k=>{ const v=k?paneWert(k):''; p.ui=p.ui||{}; p.ui.panes=p.ui.panes||{};
       if(v) p.ui.panes[tab()]=v; else delete p.ui.panes[tab()];
       if(!Object.keys(p.ui.panes).length) delete p.ui.panes;
       markDirty(); renderPanes(p); },
@@ -3469,23 +3448,6 @@ function seKontextReiter(){
     gestalten:u=>{ tileSel=u; subPconf='aussehen'; renderSubtabs(); showSub('aussehen'); renderTileList(); renderTileEditor();
       const k=$('#tiles'); if(k) k.scrollIntoView({block:'nearest'}); }};
 }
-// Assistent Schritt 5: die Seite i des Entwurfs, gerechnet mit Anzeige, Raster
-// und Geraet aus Schritt 1 (ohne Geraet: dieser Browser) und dem Widget je Tab
-function seKontextWz(i){
-  const pg=()=>WZ.pickPages[i], key=pickKey(i);
-  return {key:'wz:'+i, pkey:'wz', panel:null,
-    seiten:()=>WZ.pickPages, idx:()=>i, setIdx:null, neueSeite:null, seiteWeg:null,
-    seiteLesen:pg, seite:pg, tab:()=>key,
-    ui:()=>{ const gr=String(WZ.grid||'2x2').split('x').map(Number);
-      return {auto:WZ.grid==='auto', cols:gr[0]===3?3:2, rows:gr[1]===3?3:2, split:WZ.panes==='2', ziel:wzZiel(),
-        paneCols:0, pane:wzP2Real(WZ.pane2[key]||''), werteLeiste:false, tileSet:(WZ.look||{}).tileSet||'',
-        klassisch:false, hinweis:gestenHinweisGilt(((PANELS.__global__||{}).ui)||{})}; },   // der Assistent legt Ansichten im neuen Aufbau an
-    hide:()=>[], tiles:()=>({}),
-    setPane:k=>{ if(k) WZ.pane2[key]=k; else delete WZ.pane2[key]; }, setPaneRoh:null,
-    geraete:null, geraet:()=>WZ.groesse||wzBrowser(), setGeraet:null,
-    geaendert:()=>wzUpd(), gestalten:null};
-}
-
 // ---- Aenderungen an der Seite (alle ueber seSchreiben) ----
 // Neue Rasterfolge -> Seite: dahinter, was die Visu nicht im Raster zeigt
 // (Werteleiste, ausgeblendet), in seiner bisherigen Folge.
@@ -3505,7 +3467,7 @@ function seUmschalten(ctx, id){ const a=seAnsicht(ctx);
   if(a.folge.some(e=>e.id===id)) seEntfernen(ctx, id); else if(seEinfuegen(ctx, id, a.raster.length)) seZustand(ctx.key).folgen=id; }
 function seGroesse(ctx, id, w, h){ const a=seAnsicht(ctx);
   seSchreiben(ctx.seite(), a.folge.map(e=>e.id===id ? {id:e.id, w:h===2?2:w, h:h} : e)); ctx.geaendert(); }
-function seWidget(ctx, k){ const cur=sePaneArt(ctx.ui().pane), neu=sePaneArt(wzP2Real(k));
+function seWidget(ctx, k){ const cur=sePaneArt(ctx.ui().pane), neu=sePaneArt(paneWert(k));
   ctx.setPane(cur===neu ? '' : k); }
 
 // ---- Zeichnen ----
@@ -3558,8 +3520,7 @@ function seInhaltHtml(w){
   }
   return h;
 }
-// Bereich "Seite" (nur im Panel-Editor; der Assistent hat dafuer eigene
-// Schritte): Name, Seiteninhalt, Icon. seZeichnen() schreibt ihn nicht neu,
+// Bereich "Seite": Name, Seiteninhalt, Icon. seZeichnen() schreibt ihn nicht neu,
 // damit das Namensfeld beim Tippen den Fokus behaelt und die Icon-Bibliothek
 // ihre Suche; das Raster der Bibliothek fuellt sich erst beim Aufklappen.
 function seEigenHtml(ctx){
@@ -3732,8 +3693,8 @@ function seKopfWert(ctx, u, dazu){
 }
 function seWidHtml(ctx){
   const u=ctx.ui(), cur=sePaneArt(u.pane);
-  return '<div class="grph">'+T('Widgets')+'</div><div class="se-wl">'+SE_WIDGETS.filter(([k])=>!!wzP2Real(k)).map(([k,n])=>{
-      const an=sePaneArt(wzP2Real(k))===cur, aus=!u.split && k!=='header';
+  return '<div class="grph">'+T('Widgets')+'</div><div class="se-wl">'+SE_WIDGETS.filter(([k])=>!!paneWert(k)).map(([k,n])=>{
+      const an=sePaneArt(paneWert(k))===cur, aus=!u.split && k!=='header';
       return '<button type="button" class="se-w'+(an?' on':'')+'" data-se-w="'+k+'" aria-pressed="'+an+'"'+(aus?' disabled':'')+'>'+
         '<span class="se-grip">'+SE_GRIFF+'</span>'+esc(T(n))+'</button>'; }).join('')+'</div>'+
     '<p class="hint">'+(u.split
@@ -3952,7 +3913,7 @@ function seUp(){
     st.sel=z.id; st.folgen=z.id;
   }
   else if(zi && zi.art==='palette'){ seEntfernen(ctx, z.id); if(st.sel===z.id) st.sel=null; }
-  else if(zi && zi.art==='widget'){ if(sePaneArt(ctx.ui().pane)!==sePaneArt(wzP2Real(z.id))) ctx.setPane(z.id); }
+  else if(zi && zi.art==='widget'){ if(sePaneArt(ctx.ui().pane)!==sePaneArt(paneWert(z.id))) ctx.setPane(z.id); }
   seZeichnen(z.host);
 }
 
@@ -4137,9 +4098,8 @@ function paintLoxlib(box){
 }
 
 /* ============================================================
-   Panel-Assistent (Wizard) — geführtes „Neues Panel". Setzt das Grundgeruest
-   (Panes/Raster/Modus/Name + Screensaver-Spalte) mit den realen Keys und
-   uebergibt an den normalen Editor (der Panes je Tab, Kacheln, Icons kann).
+   Leere Ansicht anlegen ("Leer anlegen" in Gerät einrichten): nur die Kennung,
+   der Rest im Editor unter Ansichten.
    ============================================================ */
 function createBlankPanel(){
   let id=prompt(T('Kennung der neuen Ansicht (klein, ohne Leerzeichen), z. B. wohnzimmer:'));
@@ -4283,7 +4243,14 @@ function dupBuild(){
   flash($('#toast'), 'Ansicht „'+id+'" '+T('angelegt – Speichern nicht vergessen.')+
     (r.fehlend.length ? ' '+T('Weggefallen:')+' '+r.fehlend.join(', ') : ''), !r.fehlend.length);
 }
-const WZIC={
+/* ============================================================
+   Gemeinsame Helfer der Dialoge (Gerät einrichten, Gerät verbinden, Seiten-Editor,
+   Betriebsmodus-Assistent): Icons, Geraete mit gemeldeter Groesse, dieser Browser,
+   der Katalog des Servers, der Raum zum Geraetenamen, die Raum-Auswahl und der
+   Weg "Ansicht speichern und am Geraet zeigen". Sie stammen aus dem frueheren
+   sechsstufigen Assistenten, der seit dem 15.10.2026 abgebaut ist.
+   ============================================================ */
+const IKONEN={
   p1:'<svg viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/></svg>',
   p2:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="9" height="14" rx="1.5"/><rect x="13" y="5" width="9" height="14" rx="1.5"/></svg>',
   room:'<svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><rect x="10" y="14" width="4" height="6"/></svg>',
@@ -4301,166 +4268,30 @@ const WZIC={
   photo:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5-9 9"/></svg>',
   audio:'<svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>'
 };
-function wzg(k){ return '<span class="ic">'+(WZIC[k]||WZIC.grid)+'</span>'; }
-function wzRasterName(g){ return g==='auto' ? T('Automatisch') : g.replace('x','×'); }
-function wzOpt(key,val,icon,title,desc){ return '<button class="wzo'+(WZ[key]===val?' on':'')+'" data-wk="'+key+'" data-wo="'+esc(val)+'">'+wzg(icon)+'<span class="tx"><b>'+title+'</b>'+(desc?'<span>'+desc+'</span>':'')+'</span></button>'; }
-// Gerät einrichten (Konzept "Konfigurator neu ordnen", Schritt 7): EIN Weg vom Geraet bis
-// zur fertigen Ansicht, aus der Uebersicht, unter Geraete und ueber "＋ Neue Ansicht". Sechs
-// Schritte; der erste (Miniserver) ist erledigt, sobald der Assistent aufgeht - ohne
-// Struktur fuehrt jeder Weg zu Einstellungen -> Miniserver (wzOpen). art: neu = eine
-// Ansicht anlegen, zuweisen = dem Geraet eine vorhandene zeigen, kopie = eine vorhandene
-// mit Raumtausch duplizieren; die beiden letzten brauchen Inhalt und Aussehen nicht.
-const WZ_START={art:'neu',quelle:'',von:'',nach:'',_inhaltT:false,
-  panes:null,grid:'2x2',_gridT:false,_panesT:false,content:null,look:{},overlay:{},roomTab:'',roomCats:[],catMode:'jump',classic:null,pickPages:null,pane2:{},title:'',id:'',_idT:false,_titelT:false,svPane:'',icoPage:-1,step:0,device:'',groesse:null,umschalten:true,zielMerken:true};
-const WZ=JSON.parse(JSON.stringify(WZ_START));
-let wzTileFor=-1;
-const WZ_SCHRITTE=[{k:'miniserver',label:'Miniserver'},{k:'geraet',label:'Gerät'},{k:'ansicht',label:'Ansicht'},
-  {k:'inhalt',label:'Inhalt und Seiten'},{k:'aussehen',label:'Aussehen und Verhalten'},{k:'pruefen',label:'Prüfen'}];
-function wzFlow(){ return WZ.art==='neu' ? ['geraet','ansicht','inhalt','aussehen','pruefen'] : ['geraet','ansicht','pruefen']; }
-function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('wz')===0).forEach(k=>delete SE_ZUSTAND[k]);
-  Object.keys(WZ).forEach(k=>{ if(k!=='_wired') delete WZ[k]; }); Object.assign(WZ, JSON.parse(JSON.stringify(WZ_START))); }
-/* ---- Vorschlag statt leerer Seite (Punkt 13): je bekanntem Geraet ohne
-   eigenes Profil ein Vorschlag - passt sein Name zu einem Loxone-Raum, ein
-   Raum-Ansicht dieses Raums, sonst die Favoriten. Der Vorschlag fuellt die drei
-   Pflichtschritte (Anzeige, Inhalt, Name) und traegt das Geraet als Zielgeraet
-   ein; ab dann kann man gleich anlegen, der Rest behaelt Standardwerte. ---- */
-function wzVorschlaege(){
-  // ohne Zuordnung (Schritt 2); eine gerade angelegte, noch nicht gespeicherte Ansicht fuer das
-  // Geraet (device.name) zaehlt schon, bevor die Abfrage die Zuordnung meldet
-  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !DEVICE_ZUORDNUNG[n] && !ansichtFuerGeraet(n))
-    .sort((a,b)=>a.localeCompare(b));
-  return geraete.map(n=>({geraet:n, raum:wzRaumFuer(n), screen:DEVICE_SCREENS[n]||null}));
-}
+function ikon(k){ return '<span class="ic">'+(IKONEN[k]||IKONEN.grid)+'</span>'; }
 // Raum zum Geraetenamen. Passen mehrere, gewinnt der, dessen Name in der Laenge am
 // naechsten am Geraetenamen liegt: der gleiche Name (Abstand 0) immer, sonst etwa
 // "badezimmer-oben" -> "Badezimmer" vor "Bad"; bei Gleichstand die Reihenfolge der Raeume.
-function wzRaumFuer(n){
+function raumZumGeraet(n){
   const passt=(a,b)=>{ a=nameSlug(a); b=nameSlug(b); return !!a && !!b && (a===b || (a.length>=3 && b.indexOf(a)>=0) || (b.length>=3 && a.indexOf(b)>=0)); };
   const l=nameSlug(n).length;
   return (META.rooms||[]).filter(r=>passt(n, r.name))
     .sort((a,b)=>Math.abs(nameSlug(a.name).length-l)-Math.abs(nameSlug(b.name).length-l))[0]||null;
 }
-function wzVorschlagHtml(){
-  const vs=wzVorschlaege(); if(!vs.length) return '';
-  return '<p class="wzq">'+T('Vorschlag für ein Gerät')+'</p><div class="wzopts">'+vs.map(v=>
-    '<button class="wzo'+(WZ.device===v.geraet?' on':'')+'" data-wv="'+esc(v.geraet)+'">'+wzg(v.raum?'room':'grid')+'<span class="tx"><b>'+
-      esc(v.raum?(T('Raum-Ansicht')+' '+v.raum.name):T('Favoriten'))+'</b><span>'+esc(T('für')+' '+v.geraet+
-      ((v.screen&&v.screen.vw&&v.screen.vh)?(' · '+v.screen.vw+'×'+v.screen.vh):''))+'</span></span></button>').join('')+
-    '</div><p class="wznote">'+T('Übernimmt Anzeige, Inhalt und Name und trägt das Gerät als Zielgerät ein – danach gleich prüfen und anlegen oder zurück und verfeinern.')+'</p>'+
-    '<p class="wzq mt">'+T('Oder selbst wählen')+'</p>';
-}
-function wzVorschlagWaehlen(n){
-  const v=wzVorschlaege().find(x=>x.geraet===n); if(!v) return;
-  const sc=v.screen||{}, quadrat=!!(sc.vw&&sc.vh) && Math.abs(sc.vw-sc.vh)<0.1*Math.max(sc.vw,sc.vh);
-  WZ.panes=quadrat?'1':'2'; WZ.grid=quadrat?'2x2':'auto'; WZ._gridT=true;
-  WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; WZ.roomCats=[];
-  if(v.raum){ WZ.content='room'; WZ.roomTab='room:'+v.raum.uuid; WZ.title=v.raum.name; }
-  else { WZ.content='classic'; WZ.roomTab=''; WZ.title=n.charAt(0).toUpperCase()+n.slice(1); }
-  WZ.id=idAusName(n); WZ._idT=true; WZ._titelT=true; WZ.device=n; WZ.art='neu'; WZ._inhaltT=true;
-  WZ.groesse=(sc.vw&&sc.vh)?{quelle:'geraet', name:n, vw:sc.vw, vh:sc.vh}:null;
-  wzInitSetup();
-  WZ.step=wzFlow().indexOf('pruefen'); wzRender();
-}
-// Anzeige und Inhalt samt gueltigem Inhalt: dann geht es mit Standardwerten fuer das
-// Aussehen gleich zum Pruefen (#wzFertig).
-function wzPflichtOk(){
-  if(!WZ.panes || !WZ.content) return false;
-  wzInitSetup();
-  if(WZ.content==='room') return !!WZ.roomTab;
-  if(WZ.content==='classic') return (WZ.classic||[]).some(t=>t.on);
-  return (WZ.pickPages||[]).some(pg=>(pg.picks&&pg.picks.length)||pg.widget);
-}
-/* ---- Schritt 1 aus dem Geraet (Punkt 9): fuer welches Geraet? Die Geraete
-   mit gemeldeter Groesse (/api/devices), dieser Browser oder ein Eintrag aus
-   dem Katalog des Servers (/api/meta geraeteKatalog). Mit der Groesse rechnet
-   der Assistent jede Anzeige mit raster.js vor - derselben Rechnung, mit der
-   die Visu am Geraet ihr Raster baut - und bietet nur passende an. Zum Schluss
-   schaltet er ein echtes Geraet auf das neue Panel um und merkt sich dort die
-   Zielkachel, mit der er gerechnet hat. ---- */
-function wzGeraete(){
+// Geraete mit gemeldeter Groesse (Vorschaugeraete), dieser Browser und der Katalog des Servers
+function geraeteMitGroesse(){
   return [...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))]
     .filter(n=>{ const s=DEVICE_SCREENS[n]; return n && s && s.vw && s.vh; })
     .sort((a,b)=>a.localeCompare(b))
     .map(n=>({quelle:'geraet', name:n, vw:DEVICE_SCREENS[n].vw, vh:DEVICE_SCREENS[n].vh}));
 }
-function wzBrowser(){ return {quelle:'browser', name:T('Dieser Browser'), vw:Math.round(window.innerWidth), vh:Math.round(window.innerHeight)}; }
-function wzKatalog(){ return (META.geraeteKatalog||[]).map(k=>({quelle:'katalog', name:T(k.name), vw:k.vw, vh:k.vh})); }
-// Zielkachel, mit der vorgerechnet wird: die des Geraets (Displays), sonst sein
-// Vorschlag aus der gemeldeten Groesse, sonst der Standard
-function wzZiel(){ const d=WZ.device, z=kachelZiel();
-  return (d && DEV[d] && parseInt(DEV[d].tileTarget)>0 && parseInt(DEV[d].tileTarget)) || (d && DEVICE_SUGGEST[d]) || z.std; }
-// Merkt sich das Geraet eine neue Zielkachel? Nur, wenn es noch eine andere hat.
-function wzZielNeu(){ const d=WZ.device; return !!d && parseInt((DEV[d]||{}).tileTarget)!==wzZiel(); }
-function wzQuadrat(){ const g=WZ.groesse; return !!g && LoxRaster.quadratisch(g.vw, g.vh); }
-// Vorgerechnetes Raster einer Anzeige auf WZ.groesse. Automatisch: Spalten,
-// Zeilen und Kachelbreite wie in der Visu (ohne Kacheln der Seite, also ohne
-// Wachsen und Schrumpfen), mit Widget dazu seine Spalten. Fest: Spalten und
-// Zeilen samt Verdopplung durch den Split; die Kachelgroesse haengt dort am
-// Kasten und an der Skalierung, darum nur die Flaeche, die sie fuellen wuerde.
-function wzVorrechnung(panes, grid){
-  const g=WZ.groesse; if(!g) return null;
-  const M=LoxRaster.VISU_MASSE, split=panes==='2', lm=leisteMasse((WZ.look||{}).tileSet, g.vw, g.vh);
-  if(grid==='auto'){
-    const basis=Object.assign({w:g.vw, h:g.vh, ziel:wzZiel(), wachsen:kachelZiel().wachsen||1,
-      paneShare:(META.paneCols||{}).anteil||0,
-      fussH:LoxRaster.fussH(gestenHinweisGilt(((PANELS.__global__||{}).ui)||{}), split && !LoxRaster.quadratisch(g.vw, g.vh),
-                            g.vw, M.hinweisH)}, M, lm);
-    const ohne=LoxRaster.autoRaster(Object.assign({}, basis, {widget:false}));
-    const mit=split ? LoxRaster.autoRaster(Object.assign({}, basis, {widget:true})) : null;
-    // mit Widget: das Raster daneben (quer weniger Spalten, hochkant weniger Zeilen)
-    return {cols:ohne.cols, rows:ohne.rows, px:Math.round(ohne.kb), widget:mit?mit.p:0,
-            mit:mit?[mit.cols, mit.rows]:null, hoch:(mit||ohne).hoch, auto:true};   // Achse wie die Visu (raster.js)
-  }
-  const [c0,r0]=grid.split('x').map(Number);
-  const [c,r]=LoxRaster.festesRaster({cols:c0, rows:r0, w:g.vw, h:g.vh, split:split, widget:false});
-  return {cols:c, rows:r, kb:(g.vw-lm.railW-lm.rahmenX-2*lm.pad-(c-1)*lm.gap)/c,
-          kh:(g.vh-lm.tabsH-lm.rahmenY-2*lm.pad-(r-1)*lm.gap)/r, auto:false};
-}
-// Passt die Anzeige zum Schirm? Zwei Panes nicht auf einem quadratischen (dort
-// blaettert die Visu senkrecht und hat keinen Platz fuer ein Widget daneben);
-// ein festes Raster nur, wenn seine Kacheln den Schirm fuellen wuerden, ohne
-// die Grenzen des automatischen Rasters zu verlassen (Zielkachel mal und
-// durch KACHEL_WACHSEN). Ohne Groesse passt alles.
-function wzPasst(panes, grid){
-  if(!WZ.groesse) return true;
-  if(panes==='2' && wzQuadrat()) return false;
-  if(grid==='auto') return true;
-  const v=wzVorrechnung(panes||'1', grid), z=wzZiel(), k=kachelZiel().wachsen||1;
-  return Math.min(v.kb, v.kh)>=z/k && Math.max(v.kb, v.kh)<=z*k;
-}
-function wzVorrechnungText(panes, grid){
-  const v=wzVorrechnung(panes||'1', grid); if(!v) return '';
-  return v.cols+' × '+v.rows+(v.auto?' · '+v.px+' px':'')+
-    (v.widget?' + '+T('Widget')+' '+v.widget+' '+(v.hoch?T('Zeilen'):T('Spalten')):'');
-}
-// Geraet gewaehlt: was nicht passt, abwaehlen; ohne eigene Wahl wie der Vorschlag
-// (quadratisch 1 Pane mit 2 x 2, sonst 2 Panes mit "Automatisch")
-function wzGroesseSetzen(g){
-  WZ.groesse=g; WZ.device=(g && g.quelle==='geraet') ? g.name : '';
-  if(!WZ._panesT || !WZ.panes || !wzPasst(WZ.panes, 'auto')) WZ.panes=wzQuadrat()?'1':'2';
-  if(!WZ._gridT || !wzPasst(WZ.panes, WZ.grid)) WZ.grid=wzQuadrat()?'2x2':'auto';
-  if(!wzPasst(WZ.panes, WZ.grid)) WZ.grid='auto';
-}
-function wzGeraetHtml(){
-  const g=WZ.groesse, an=x=>!!g && g.quelle===x.quelle && g.name===x.name;
-  const knopf=x=>'<button class="wzo'+(an(x)?' on':'')+'" data-wgr="'+esc(x.quelle)+'" data-wgn="'+esc(x.name)+'">'+
-    wzg(x.quelle==='browser'?'ext':(LoxRaster.quadratisch(x.vw, x.vh)?'p1':'p2'))+'<span class="tx"><b>'+esc(x.name)+'</b><span>'+
-    x.vw+' × '+x.vh+(x.quelle==='geraet'?' · '+T('gemeldet'):'')+'</span></span></button>';
-  const kat=wzKatalog();
-  return '<p class="wzq">'+T('Für welches Gerät?')+'</p><div class="wzopts">'+wzGeraete().map(knopf).join('')+knopf(wzBrowser())+
-    '<button class="wzo'+(g?'':' on')+'" data-wgr="keins">'+wzg('grid')+'<span class="tx"><b>'+T('Ohne Gerät')+'</b><span>'+
-      T('nur eine Ansicht anlegen, ohne Vorrechnung')+'</span></span></button></div>'+
-    (kat.length ? '<div class="wzfield" style="margin-top:8px"><select id="wzKatalog"><option value="">'+T('Aus dem Katalog …')+'</option>'+
-      kat.map((k,i)=>'<option value="'+i+'"'+(g&&g.quelle==='katalog'&&g.name===k.name?' selected':'')+'>'+esc(k.name+' · '+k.vw+' × '+k.vh)+'</option>').join('')+
-      '</select></div>' : '')+
-    '<p class="wznote">'+(g ? esc(T('Vorgerechnet für')+' '+g.name+' ('+g.vw+' × '+g.vh+', '+T('Zielkachel')+' '+wzZiel()+' px)')+' – '+
-        T('angeboten wird nur, was zu diesem Schirm passt.')
-      : T('Mit einem Gerät rechnet der Assistent jede Anzeige vor und bietet nur passende an.'))+'</p>';
-}
-// Zum Schluss: Zielkachel am Geraet merken (/api/devices) und das Geraet auf
-// das neue Panel umschalten (/api/device/switch). Dafuer muss das Panel auf
-// dem Server stehen: erst speichern; scheitert das, meldet es save().
-async function wzAmGeraet(id, name, umschalten, ziel){
+function dieserBrowser(){ return {quelle:'browser', name:T('Dieser Browser'), vw:Math.round(window.innerWidth), vh:Math.round(window.innerHeight)}; }
+function geraeteKatalog(){ return (META.geraeteKatalog||[]).map(k=>({quelle:'katalog', name:T(k.name), vw:k.vw, vh:k.vh})); }
+// Ansicht speichern und am Geraet zeigen ("Fertig" in Gerät einrichten): ziel > 0 merkt
+// die Zielkachel am Geraet (Displays); umschalten speichert die Ansicht, wenn sie noch nicht
+// (so) auf dem Server steht, und schaltet das Geraet per /api/device/switch um (die
+// Zuordnung, Einrichtung neu Schritt 2) - auch wenn es gerade nicht verbunden ist.
+async function ansichtAmGeraet(id, name, umschalten, ziel){
   const t=$('#toast');
   if(ziel){
     readDevFromDom();
@@ -4485,78 +4316,9 @@ async function wzAmGeraet(id, name, umschalten, ziel){
   flash(t, j.ok ? ('Ansicht „'+id+'" '+T('gespeichert,')+' '+name+' '+(j.offline ? T('zeigt sie, sobald es verbindet.') : T('schaltet um.')))
                : (name+' '+T('ist nicht online – die Ansicht ist gespeichert, umschalten unter Geräte.')), !!j.ok);
 }
-function wzOpen(){
-  // Schritt 1 (Miniserver): ohne Struktur beginnt der Weg dort
-  if(EINR){ setRubric('settings'); flash($('#toast'), T('Erst den Miniserver verbinden'), false); return; }
-  if(!WZ._wired){ WZ._wired=true;
-    $('#wzBack').onclick=function(){ if(WZ.step>0){ WZ.step--; wzTileFor=-1; wzRender(); } };
-    $('#wzNext').onclick=wzNext;
-    $('#wzBlank').onclick=async function(){ if(await wzClose()) createBlankPanel(); };
-    $('#wzFertig').onclick=function(){ WZ.step=wzFlow().indexOf('pruefen'); wzTileFor=-1; wzRender(); };
-    $('#wzOv').onclick=function(e){ if(e.target===this) wzClose(); };
-    $('#wzX').onclick=wzClose;
-  }
-  wzReset();
-  $('#wzOv').hidden=false; wzRender();
-}
-// -> true, wenn der Assistent zu ist
-async function wzClose(){
-  // Vorschau am Geraet fuer ein Panel, das nie angelegt wurde: das Geraet kehrt gleich zurueck.
-  // Gelingt das nicht, bleibt der Assistent offen - nur dort laesst sie sich noch beenden.
-  if(ENTWURF.geraet && ENTWURF.id && !PANELS[ENTWURF.id]){
-    const f=await vorschauGeraetBeenden();
-    if(f){ wzVorFehler=f; wzRender(); return false; }
-  }
-  wzZurueckgeben();
-  $('#wzOv').hidden=true; wzVorFehler='';
-  return true;
-}
-// Schritt Gerät leiht sich "Neues Gerät einrichten" (Start-Adresse, Agent) und die Geraete
-// ohne Namen (Code am Panel) von ihrem Platz; vor jedem Neuzeichnen und beim Schliessen
-// kommen sie dorthin zurueck. Die Knoten bleiben dieselben, Eingaben und Ereignisse auch.
-const WZ_LEIH={};
-function wzLeihen(id, ziel){
-  const el=WZ_LEIH[id]||document.getElementById(id); if(!el || !ziel) return;
-  if(!WZ_LEIH[id]){ WZ_LEIH[id]=el; el._heim=document.createComment('heim:'+id); el.parentNode.insertBefore(el._heim, el); }
-  ziel.appendChild(el);
-}
-function wzZurueckgeben(){
-  Object.values(WZ_LEIH).forEach(el=>{ const h=el._heim; if(h && h.parentNode && el.previousSibling!==h) h.parentNode.insertBefore(el, h.nextSibling); });
-}
-// Welche Geraete der Schritt Gerät anbietet; aendert sich das (ein neues meldet sich), zeichnet
-// die Abfrage den Schritt neu (renderDeviceList)
-function wzGeraeteSig(){ return JSON.stringify(wzGeraete().map(g=>[g.name,g.vw,g.vh]).concat(wzVorschlaege().map(v=>v.geraet))); }
-let WZ_GERAETE_SIG='';
-function wzGeraeteNachziehen(){
-  const o=$('#wzOv'); if(!o || o.hidden || wzFlow()[WZ.step]!=='geraet') return;
-  const sig=wzGeraeteSig(); if(sig!==WZ_GERAETE_SIG) wzRender();
-}
-function wzGridCells(g){ const c={'2x2':[2,2],'3x2':[3,2],'2x3':[2,3],'3x3':[3,3],'auto':[4,3]}[g]||[2,2]; let s=''; for(let i=0;i<c[0]*c[1];i++) s+='<i></i>'; return {c:c[0],r:c[1],s:s}; }
-/* ---- mode-spezifisches Setup + Pane 2 (echte META-Daten) ---- */
-function wzInitSetup(){
-  if(WZ.content==='room' && !WZ.roomTab){ var rr=(META.tabs||[]).filter(function(t){return t.room;}); if(rr[0]) WZ.roomTab=rr[0].tab; }
-  if(WZ.content==='classic' && !WZ.classic) WZ.classic=defaultTabs().map(function(k){ var m=(META.tabs||[]).find(function(t){return t.tab===k;}); return {key:k,label:(m&&m.label)||k,on:true}; });
-  // Standardmäßig alle 4 Seiten offen — man sieht sofort, dass bis zu 4 Tabs
-  // befüllbar sind; ungenutzte entfernt man mit dem ✕. Leere Seiten (keine
-  // Kacheln, kein Widget) werden beim Anlegen ohnehin verworfen (wzBuild).
-  if(WZ.content==='pick' && !WZ.pickPages) WZ.pickPages=[{name:'Favoriten',icon:''},{name:'',icon:''},{name:'',icon:''},{name:'',icon:''}];
-}
-function wzRoomCats(roomTab){ var ru=(roomTab||'').indexOf('room:')===0?roomTab.slice(5):''; return (META.cats||[]).filter(function(cat){ return (META.controls||[]).some(function(c){return c.room===ru && c.cat===cat.uuid;}); }); }
-// Tabs, die ein Widget (2 Panes) bzw. eine Kopfzeile (auch 1 Pane) tragen koennen
-function wzViews(){ return WZ.panes==='2' ? wzViewsAlle() : []; }
-function wzViewsAlle(){
-  if(WZ.content==='room'){ if(!WZ.roomTab) return []; var r=(META.tabs||[]).find(function(t){return t.tab===WZ.roomTab;}); return [{key:WZ.roomTab,label:(r&&r.label)||'Raum'}]; }
-  if(WZ.content==='classic') return (WZ.classic||[]).filter(function(t){return t.on;}).map(function(t){return {key:t.key,label:t.label};});
-  return (WZ.pickPages||[]).map(function(pg,i){return {key:pickKey(i),label:(pg.name||'').trim()||(T('Seite')+' '+(i+1))};});
-}
-function wzP2Opts(sel,nurKopf){
-  // nurKopf (1 Pane, 4"-Panel): kein Widget daneben, nur die Kopfzeile ueber den Kacheln
-  var o=nurKopf?[]:[['weather','Wetter'],['calendar','Kalender'],['audio','Audio'],['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf']];
-  var opt=function(x){return '<option value="'+x[0]+'"'+((sel||'')===x[0]?' selected':'')+'>'+T(x[1])+'</option>';};
-  return '<option value=""'+((sel||'')===''?' selected':'')+'>'+T(nurKopf?'Keine':'Kein Widget (Screen füllen)')+'</option>'+
-    (o.length?'<optgroup label="'+T('Widget')+'">'+o.map(opt).join('')+'</optgroup>':'')+
-    '<optgroup label="'+T('Über den Kacheln')+'">'+opt(['header','Kopfzeile'])+'</optgroup>'; }
-function wzP2Real(v){
+// Widget-Wahl der Seite (weather, calendar, header, audio, energy, camera, chart) -> der
+// Wert in ui.panes, mit dem ersten passenden Baustein der Anlage
+function paneWert(v){
   if(v==='weather'||v==='calendar'||v==='header') return v;
   if(v==='audio'){ var z=firstAudioZone(); return z?'player:'+z:''; }
   if(v==='energy'){ var u=firstEnergyControl(); return u?'energy:'+u:''; }
@@ -4564,459 +4326,10 @@ function wzP2Real(v){
   if(v==='chart'){ var u=firstChartControl(); return u?'chart:'+u:''; }
   return '';
 }
-function wzPaneRows(){
-  var nurKopf=(WZ.panes!=='2');   // 1 Pane: kein Widget daneben, aber die Kopfzeile
-  var v=nurKopf?wzViewsAlle():wzViews(); if(!v.length) return '';
-  return '<p class="wzq mt">'+T(nurKopf?'Kopfzeile je Tab':'Widget je Tab')+'</p><div class="wzopts">'+v.map(function(x){
-    return '<div class="wzo" style="cursor:default"><span class="tx" style="flex:1"><b>'+esc(x.label)+'</b></span><select class="wzp2sel" data-p2k="'+esc(x.key)+'" style="max-width:170px">'+wzP2Opts(WZ.pane2[x.key],nurKopf)+'</select></div>';
-  }).join('')+'</div><div class="wznote">'+T(nurKopf
-    ? 'Am 1-Pane-Gerät gibt es kein Widget daneben, aber die Kopfzeile über den Kacheln: Uhr, Wetter und nach Wahl Werte (Werte wählst du im Editor).'
-    : 'Audio/Energie/Kamera/Verlauf nehmen automatisch den ersten passenden Baustein — den genauen wählst du bei Bedarf im Editor.')+'</div>';
-}
-function wzIcoGrid(i){
-  var cur=WZ.pickPages[i].icon||'';
-  if(LOXLIB===null) loadLoxlib(function(){ var o=$('#wzOv'); if(o && !o.hidden) wzRender(); });
-  var btn=function(url,title){ return '<button class="pgi'+(cur===url?' on':'')+'" data-wpico="'+i+'" data-picv="'+esc(url)+'" data-in="'+esc((title||'').toLowerCase())+'" title="'+esc(title)+'"><span class="loxi" style="--u:url(\''+esc(url)+'\')"></span></button>'; };
-  var g='<button class="pgi none'+(cur?'':' on')+'" data-wpico="'+i+'" data-picv="" data-in="">'+T('kein')+'</button>';
-  (((META.icons||{}).loxone)||[]).forEach(function(pth){ g+=btn('/icon?p='+encodeURIComponent(pth),pth); });
-  (LOXLIB||[]).forEach(function(n){ g+=btn('/loxlib?n='+encodeURIComponent(n),n.replace(/\.svg$/i,'')); });
-  return '<input class="pgi-search" oninput="pickIcoFilter(this.value, this.parentNode)" placeholder="'+T('Icon suchen…')+'" style="width:100%;margin-top:6px"><div class="picogrid" style="width:100%">'+g+'</div>';
-}
-// Inhalts-Wahl einer freien Seite (Kacheln ODER Widget) — genutzt in der
-// Seiten-Liste UND im Befüll-Editor, damit jede Seite zuerst danach fragt.
-// pg.widget speichert den FERTIGEN Wert (weather|calendar|player:zone|
-// energy:uuid|camera:uuid|chart:uuid); die Detailauswahl steht direkt daneben.
-function wzWidgetKinds(){ var o=[['weather','Wetter'],['calendar','Kalender']];
-  if(firstAudioZone()) o.push(['player','Audio']);
-  if(firstEnergyControl()) o.push(['energy','Energiefluss']);
-  if(firstCamera()) o.push(['camera','Kamera']);
-  if(statControls().length) o.push(['chart','Verlauf']);
-  return o; }
-function wzWidgetFirst(k){ return k==='player'?firstAudioZone():k==='energy'?firstEnergyControl():k==='camera'?firstCamera():k==='chart'?firstChartControl():''; }
-function wzPageContentSel(i,maxw){ var pg=WZ.pickPages[i], k=wKind(pg.widget||'');
-  var opts=wzWidgetKinds().map(function(x){ return '<option value="'+x[0]+'"'+(k===x[0]?' selected':'')+'>'+T(x[1])+'</option>'; }).join('');
-  return '<select class="wzp2sel" data-pgw="'+i+'" style="max-width:'+(maxw||200)+'px">'+
-    '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+
-    '<option value="haus"'+(k==='haus'?' selected':'')+'>'+T('Hausübersicht')+'</option>'+
-    '<optgroup label="'+T('Widget (Vollbild)')+'">'+opts+'</optgroup></select>';
-}
-function wzPageArgSel(i){ var pg=WZ.pickPages[i], k=wKind(pg.widget||''), a=wArg(pg.widget||''), o='';
-  if(k==='player') o=audioZoneOptions(a); else if(k==='energy') o=energyControlOptions(a);
-  else if(k==='camera') o=cameraOptions(a); else if(k==='chart') o=chartControlOptions(a); else return '';
-  return o?'<select class="wzp2sel" data-pgwarg="'+i+'" style="max-width:180px">'+o+'</select>':'<span class="wznote" style="margin:0">'+T('Kein passender Baustein')+'</span>';
-}
-// Leiste aus Sprungmarken (Raum-Ansicht oder genau eine freie Seite mit Kacheln,
-// kein Widget)? Dann gibt es die Wahl Springen/Filtern (ui.catFilter).
-function wzAnker(){ return WZ.content==='room'
-  || (WZ.content==='pick' && (WZ.pickPages||[]).length===1 && !WZ.pickPages[0].widget && WZ.pickPages[0].byRoom!==false); }
-function wzCatModeHtml(){
-  if(!wzAnker()) return '';
-  return '<p class="wzq mt">'+T('Tipp auf eine Sprungmarke')+'</p><div class="wzopts">'+
-    wzOpt('catMode','jump','grid',T('Springen'),T('Zur Gruppe scrollen, die Kacheln leuchten kurz auf.'))+
-    wzOpt('catMode','filter','pick',T('Filtern'),T('Nur die Kacheln dieser Gruppe zeigen, ein zweiter Tipp zeigt wieder alle.'))+'</div>';
-}
-function wzSetup(){
-  wzInitSetup();
-  if(WZ.content==='room'){
-    var rooms=(META.tabs||[]).filter(function(t){return t.room;});
-    var cats=wzRoomCats(WZ.roomTab), auto=!(WZ.roomCats&&WZ.roomCats.length);
-    var h='<div class="wzfield"><label>'+T('Raum')+'</label><select id="wzRoom">'+(rooms.length?rooms.map(function(r){return '<option value="'+esc(r.tab)+'"'+(WZ.roomTab===r.tab?' selected':'')+'>'+esc(r.label||r.tab)+'</option>';}).join(''):'<option value="">'+T('Keine Räume gefunden')+'</option>')+'</select></div>';
-    h+='<p class="wzq mt">'+T('Sprungtabs — Kategorien des Raums')+' <span style="text-transform:none;letter-spacing:0">('+T('max 4, leer = automatisch')+')</span></p><div class="wzopts">';
-    h+=(cats.length?cats.slice(0,10).map(function(c){ var on=!auto&&WZ.roomCats.indexOf(c.uuid)>=0; return '<button class="wzo'+(on?' on':'')+'" data-rc="'+esc(c.uuid)+'"><span class="tx" style="flex:1"><b>'+esc(c.name||'Kategorie')+'</b></span></button>'; }).join(''):'<div class="wznote">'+T('Für diesen Raum sind keine Kategorien hinterlegt.')+'</div>');
-    return h+'</div>'+wzCatModeHtml()+wzPaneRows();
-  }
-  if(WZ.content==='classic'){
-    var h2='<p class="wzq">'+T('Standard-Tabs — an/aus')+'</p><div class="wzopts">';
-    h2+=WZ.classic.map(function(t,i){ return '<button class="wzo'+(t.on?' on':'')+'" data-std="'+i+'"><span class="tx" style="flex:1"><b>'+esc(t.label)+'</b></span></button>'; }).join('');
-    return h2+'</div>'+wzPaneRows();
-  }
-  if(wzTileFor>=0 && wzTileFor<WZ.pickPages.length) return wzTileEditor(wzTileFor);
-  var h3='<p class="wzq">'+T('Freie Seiten — bis 4, je Name, Icon & Inhalt (Kacheln oder Widget)')+'</p><div class="wzopts">';
-  h3+=WZ.pickPages.map(function(pg,i){
-    var ic=pg.icon?'<span class="loxi" style="--u:url(\''+esc(icoUrl(pg.icon))+'\')"></span>':WZIC.pick;
-    var del=WZ.pickPages.length>1?'<button class="wzbtn" data-pgdel="'+i+'" style="padding:5px 9px">✕</button>':'';
-    var n=(pg.picks||[]).length, wk=pg.widget||'';
-    var wsel=wzPageContentSel(i,150), argsel=wk?wzPageArgSel(i):'';
-    var tiles=wk?'':'<button class="wzbtn'+(n?' prim':'')+'" data-pgtiles="'+i+'" style="padding:6px 11px">▦ '+T('Kacheln')+' ('+n+')</button>';
-    var row='<div class="wzo" style="cursor:default;flex-wrap:wrap;gap:8px"><button class="ic" data-pgico="'+i+'" style="cursor:pointer;padding:0">'+ic+'</button>'+
-      '<input class="wzp2sel" data-pgn="'+i+'" value="'+esc(pg.name)+'" placeholder="'+T('Seitenname')+'" style="flex:1;min-width:120px">'+
-      wsel+argsel+tiles+del+'</div>';
-    if(WZ.icoPage===i) row+=wzIcoGrid(i);
-    return row;
-  }).join('');
-  h3+='</div>';
-  if(WZ.pickPages.length<4) h3+='<button class="wzbtn" id="wzPgAdd" style="margin-top:8px">＋ '+T('Seite hinzufügen')+'</button>';
-  h3+=wzCatModeHtml()+wzPaneRows();
-  return h3;
-}
-// Eine freie Seite befuellen: der Seiten-Editor (Punkt 10), gerechnet mit
-// Anzeige, Raster und Geraet aus Schritt 1 - dieselbe Flaeche wie spaeter im
-// Reiter Seiten-Editor. Eine Widget-Seite (Vollbild) hat keine Kacheln.
-function wzTileEditor(i){
-  var pg=WZ.pickPages[i]; if(!pg.picks) pg.picks=[];
-  var N=WZ.pickPages.length, last=(i>=N-1);
-  var prog='<button class="wzbtn prim" id="wzTileNext" style="width:100%;margin-top:12px;padding:11px">'+(last?(T('Weiter')+' →'):(T('Nächsten Tab befüllen')+' →'))+'</button>';
-  var header='<div class="wzq" style="display:flex;align-items:center;gap:10px"><button class="wzbtn" id="wzTileBack" style="padding:4px 10px">← '+T('Übersicht')+'</button><b style="text-transform:none;letter-spacing:0;color:var(--fg)">'+esc(pg.name||T('Seite'))+' <span style="color:var(--muted);font-weight:400">('+(i+1)+'/'+N+')</span></b></div>';
-  var content='<div class="wzrow" style="align-items:center;gap:8px;margin:6px 0 4px"><span style="font-size:12px;color:var(--muted)">'+T('Seiteninhalt')+'</span>'+wzPageContentSel(i,220)+(pg.widget?wzPageArgSel(i):'')+'</div>';
-  if(pg.widget) return header+content+
-    '<div class="wznote" style="margin-top:10px">'+T('Diese Seite zeigt das Widget über die ganze Fläche (Vollbild-Tab) — auch am 1-Pane-Gerät. Baustein/Zone wählst du oben direkt.')+'</div>'+prog;
-  return header+content+'<div class="se-host" id="wzSeHost"></div>'+prog;
-}
-// Aussehen-Steuerung im Assistenten (Farbschema, Größen, Schrift) -> WZ.look,
-// beim Anlegen 1:1 in panel.ui übernommen. Nutzt dieselben Werte/Presets wie
-// der Editor-Reiter „Aussehen", damit die Reiter danach genau das zeigen.
-function wzLookHtml(){
-  var L=WZ.look||{}, curc=String(L.baseColor||'').toLowerCase();
-  var sw=BASE_COLORS.map(function(c){ return '<button type="button" class="wzsw'+(curc===c.v.toLowerCase()?' on':'')+'" data-wbase="'+esc(c.v)+'" title="'+esc(c.n)+'" style="background:'+esc(c.v)+'"></button>'; }).join('');
-  var custom='<input type="color" id="wzBaseCustom" title="'+T('Eigene Farbe')+'" value="'+esc(curc&&curc[0]==='#'?L.baseColor:'#3e4468')+'" class="wzsw" style="padding:0">';
-  var none='<button type="button" class="wzsw none'+(L.baseColor?'':' on')+'" data-wbase="" title="'+T('Standard-Farbschema')+'">'+T('Keine')+'</button>';
-  var std=sizeStd('',true);
-  var sizes=[['iconSize',T('Icon-Größe')],['nameSize',T('Haupttext-Größe')],['subSize',T('Zweittext-Größe')]].map(function(s){
-    return '<div class="wzfield" style="max-width:120px"><label>'+s[1]+'</label><input type="number" min="8" max="80" data-wsize="'+s[0]+'" value="'+(L[s[0]]==null?'':L[s[0]])+'" placeholder="'+esc(String(std[s[0]]==null?'—':std[s[0]]))+'"></div>'; }).join('');
-  var font='<div class="wzfield" style="max-width:220px"><label>'+T('Schriftart')+'</label><select data-wfont>'+FONTS.map(function(f){ return '<option value="'+esc(f.v)+'"'+(String(L.font||'')===f.v?' selected':'')+'>'+esc(f.label)+'</option>'; }).join('')+'</select></div>';
-  return '<p class="wzq mt">'+T('Kachel-Set')+'</p>'+kachelSetKarten(L)+
-    '<div id="wzKsExtra" style="margin-top:12px">'+kachelSetExtraHtml(L)+'</div>'+
-    (L.tileSet ? '<p class="wznote" style="margin:8px 0 0">'+T('Grundfarbe und Kachel-Aufbau kommen aus dem gewählten Set.')+'</p>' :
-    '<p class="wzq mt">'+T('Grundfarbe')+'</p>'+
-    '<p class="wznote" style="margin:0 0 8px">'+T('Eine Farbe wählen — Hintergrund, Kacheln, Leiste, Schrift und Icons werden daraus berechnet. Leer = Standard.')+'</p>'+
-    '<div class="wzsww">'+sw+custom+none+'</div>'+
-    '<p class="wznote" id="wzBaseVal" style="margin-top:6px">'+esc(L.baseColor||T('Standard-Farbschema'))+'</p>')+
-    '<p class="wzq mt">'+T('Größen & Schrift')+'</p><div class="wzrow">'+sizes+font+
-
-    '</div>'+
-    '<p class="wznote" style="margin-top:6px">'+T('„Automatisch" vergrößert die Visu auf jedem Gerät so weit, wie es ohne Rand geht. „Wie Vorgabe" erbt den Wert aus den Vorgaben.')+'</p>';
-}
-// Vorschau am Geraet im letzten Schritt (Punkt 12): das Panel gibt es noch nicht, der Entwurf
-// traegt es (wzProfil). Nur mit einem echten Geraet aus Schritt 1, das eine Visu verbunden hat.
-let wzVorFehler='';
-function wzVorschauHtml(){
-  if(!WZ.device || !WZ.id) return '';
-  var d=WZ.device, an=(ENTWURF.geraet===d && ENTWURF.id===WZ.id), on=DEVICE_CONN[d]>0;
-  return '<p class="wzq mt">'+T('Auf dem Gerät ansehen')+'</p><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-    '<button class="wzbtn'+(on?' prim':'')+'" id="wzVorschau"'+(on?'':' disabled')+'>'+esc(T('Auf')+' '+d+' '+T('ansehen'))+'</button>'+
-    (an?'<button class="wzbtn" id="wzVorschauEnde">'+T('Vorschau beenden')+'</button>':'')+'</div>'+
-    '<div class="wznote">'+(on ? T('Zeigt die Ansicht mit diesen Einstellungen auf dem Gerät, bevor sie angelegt wird. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.')
-        : esc(d+' '+T('hat keine verbundene Visu – eine Vorschau braucht sie.')))+
-    ((WZ.grid==='auto' && wzZielNeu()) ? ' '+T('Die Zielkachel am Gerät wird erst beim Anlegen gemerkt; die Vorschau rechnet mit der bisherigen.') : '')+'</div>'+
-    (wzVorFehler ? '<div class="wznote" style="color:var(--crit)">'+esc(wzVorFehler)+'</div>' : '');
-}
-function wzSummary(){
-  var rows=[];
-  if(WZ.groesse) rows.push([T('Gerät'), WZ.groesse.name+' · '+WZ.groesse.vw+' × '+WZ.groesse.vh]);
-  else rows.push([T('Gerät'), T('Ohne Gerät')]);
-  if(WZ.art==='zuweisen'){
-    var q=PANELS[WZ.quelle]||{};
-    rows.push([T('Zeigt künftig'), (q.title||WZ.quelle)+' (?panel='+WZ.quelle+')']);
-    if(wzZielMerkbar()) rows.push([T('Danach'), T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken')]);
-  } else if(WZ.art==='kopie'){
-    var k=PANELS[WZ.quelle]||{};
-    rows.push([T('Vorlage'), k.title||WZ.quelle]);
-    rows.push([T('Raumtausch'), WZ.nach ? roomName(WZ.von)+' → '+roomName(WZ.nach) : T('(kein Raumtausch – reine Kopie)')]);
-  } else {
-    var cmap={room:T('Raum-Ansicht'),classic:T('Klassische Visu'),pick:T('Freie Auswahl')};
-    rows.push([T('Anzeige'),WZ.panes==='2'?T('2 Panes'):T('1 Pane · 4″')],[T('Raster'),wzRasterName(WZ.grid)+(WZ.groesse?' → '+wzVorrechnungText(WZ.panes, WZ.grid):'')],[T('Inhalt'),cmap[WZ.content]||'']);
-    if(WZ.content==='pick') rows.push([T('Seiten'),String((WZ.pickPages||[]).length)]);
-    if(wzAnker()) rows.push([T('Sprungmarken'),WZ.catMode==='filter'?T('Filtern'):T('Springen')]);
-    var L=WZ.look||{}, ksm=kachelSetMeta(L.tileSet);
-    if(ksm) rows.push([T('Kachel-Set'), T(ksm.label)+(ksm.farbton ? ' · '+ksFarbton(L, ksm)+'°' : '')]);
-    rows.push([T('Grundfarbe'),L.baseColor||T('Standard')]);
-    if(L.iconSize||L.nameSize||L.subSize||L.font){ var det=[]; if(L.iconSize)det.push('Icon '+L.iconSize); if(L.nameSize)det.push(T('Haupttext')+' '+L.nameSize); if(L.subSize)det.push(T('Zweittext')+' '+L.subSize); if(L.font)det.push((FONTS.find(function(f){return f.v===L.font;})||{label:L.font}).label); rows.push([T('Größen & Schrift'),det.join(' · ')]); }
-    rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
-    if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
-  }
-  if(WZ.device && WZ.art!=='zuweisen') rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
-    ((WZ.art==='neu' && wzZielMerkbar())?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
-  return '<div class="wzopts">'+rows.map(function(r){return '<div class="wzo" style="cursor:default;padding:9px 14px"><span class="tx" style="flex:1;color:var(--muted);font-size:12.5px">'+r[0]+'</span><b style="font-size:13px">'+esc(r[1]||'—')+'</b></div>';}).join('')+'</div>';
-}
-// Merkt sich das Geraet eine neue Zielkachel? Nur im Kachel-Layout "Automatisch" und nur,
-// wenn das Geraet noch eine andere hat.
-function wzZielMerkbar(){
-  var auto = WZ.art==='zuweisen' ? layoutWert((PANELS[WZ.quelle]||{}).ui)==='auto' : (WZ.art==='neu' && WZ.grid==='auto');
-  return !!WZ.device && auto && wzZielNeu();
-}
-// Leiste der sechs Schritte: erledigt, jetzt, offen, entfaellt (zuweisen und kopie)
-function wzLeisteHtml(key){
-  var f=wzFlow(), jetzt=WZ_SCHRITTE.findIndex(function(x){ return x.k===key; });
-  return '<ol class="wzleiste">'+WZ_SCHRITTE.map(function(x,i){
-    var cls = x.k===key ? 'jetzt' : (x.k!=='miniserver' && f.indexOf(x.k)<0 ? 'entfaellt' : (i<jetzt ? 'erledigt' : ''));
-    var titel = x.k==='miniserver' ? T('Miniserver verbunden') : (cls==='entfaellt' ? T('entfällt hier') : '');
-    return '<li class="'+cls+'"'+(titel?' title="'+esc(titel)+'"':'')+'><span>'+(i+1)+'</span>'+esc(T(x.label))+'</li>'; }).join('')+'</ol>';
-}
-// Name und Kennung vorbelegen, solange niemand selbst getippt hat: aus dem Raum, dem
-// Zielraum der Kopie oder dem Geraet. Ersetzt wird nur ein leerer Name oder der eigene
-// fruehere Vorschlag (nach "Zurück" und anderem Raum), nie ein anders gesetzter.
-function wzNameVorschlagen(){
-  if(WZ._titelT || (WZ.title && WZ.title!==WZ._titelVorschlag)) return;
-  var t='';
-  if(WZ.art==='kopie'){ var q=PANELS[WZ.quelle]||{};
-    t = WZ.nach ? roomName(WZ.nach) : ((q.title||WZ.quelle)+' '+T('(Kopie)')); }
-  else if(WZ.content==='room' && WZ.roomTab){ var r=(META.tabs||[]).find(function(x){ return x.tab===WZ.roomTab; }); t=(r&&r.label)||''; }
-  if(!t && WZ.device) t=WZ.device.charAt(0).toUpperCase()+WZ.device.slice(1);
-  WZ.title=t; WZ._titelVorschlag=t; if(!WZ._idT) WZ.id=t?idAusName(t):'';
-}
-// Inhalt beim ersten Besuch aus dem Geraetenamen: passt er zu einem Raum, die Raum-Ansicht
-function wzInhaltVorschlagen(){
-  if(WZ._inhaltT) return; WZ._inhaltT=true;
-  var raum=WZ.device ? wzRaumFuer(WZ.device) : null;
-  if(!WZ.panes && WZ.groesse) wzGroesseSetzen(WZ.groesse);
-  if(raum && !WZ.content){ WZ.content='room'; WZ.roomTab='room:'+raum.uuid; WZ._raumVorschlag=raum.name; }
-}
-function wzAnsichtOptionen(sel){
-  return ansichtIds().map(function(id){ return '<option value="'+esc(id)+'"'+(sel===id?' selected':'')+'>'+esc(ansichtName(id)+' · ?panel='+id)+'</option>'; }).join('');
-}
-function wzRaumOptionen(sel, leer){
+function raumOptionen(sel, leer){
   return (leer?'<option value="">'+esc(leer)+'</option>':'')+(META.rooms||[]).map(function(r){ return '<option value="'+esc(r.uuid)+'"'+(r.uuid===sel?' selected':'')+'>'+esc(r.name)+'</option>'; }).join('');
 }
-function wzKopieInfo(){
-  var p=PANELS[WZ.quelle]; if(!p) return '';
-  if(!WZ.nach) return T('Reine Kopie: alle Tabs, Bausteine und Einstellungen bleiben, wie sie sind.');
-  if(WZ.von===WZ.nach) return T('Quell- und Zielraum sind gleich – nichts zu tauschen.');
-  var r=profilMitRaumtausch(p, WZ.von, WZ.nach, META.controls||[]);
-  return r.getauscht+' '+T('Bausteine aus')+' '+roomName(WZ.von)+' '+T('werden durch die gleichnamigen in')+' '+roomName(WZ.nach)+' '+T('ersetzt.')+
-    (r.fehlend.length ? ' '+T('Ohne Gegenstück dort (fallen weg):')+' '+r.fehlend.join(', ') : '');
-}
-function wzQuelleSetzen(id){
-  WZ.quelle=id;
-  if(WZ.art==='kopie'){ var p=PANELS[id]; WZ.von=p?profilRaum(p):'';
-    var raum=WZ.device ? wzRaumFuer(WZ.device) : null;   // Zielraum aus dem Geraetenamen
-    WZ.nach=(raum && raum.uuid!==WZ.von) ? raum.uuid : ''; }
-}
-function wzAnzeigeHtml(){
-  return '<p class="wzq">'+T('Anzahl Panes')+'</p><div class="wzopts">'+
-    (wzPasst('1','auto')?wzOpt('panes','1','p1',T('1 Pane — 4″ Wandpanel'),T('Ein Pane, nur die Visu.')):'')+
-    (wzPasst('2','auto')?wzOpt('panes','2','p2',T('2 Panes — Tablet / Breitbild'),T('Visu + Widget je Tab – quer rechts, hochkant darunter.')):'')+
-    '</div><p class="wzq mt">'+(WZ.groesse?T('Kachel-Raster — vorgerechnet'):T('Kachel-Raster — frei wählbar'))+'</p><div class="wzgrid">'+
-    ['2x2','3x2','2x3','3x3','auto'].filter(function(g){ return wzPasst(WZ.panes||'1', g); }).map(function(g){ var x=wzGridCells(g);
-      return '<button class="wzg'+(WZ.grid===g?' on':'')+'" data-wg="'+g+'"><span class="wzgm" style="--c:'+x.c+';--r:'+x.r+'">'+x.s+'</span><b>'+wzRasterName(g)+'</b>'+
-        (WZ.groesse?'<span class="wzv">'+esc(wzVorrechnungText(WZ.panes||'1', g))+'</span>':'')+'</button>'; }).join('')+'</div>'+
-    '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
-}
-function wzScreensaverHtml(){
-  if(WZ.panes!=='2') return '<p class="wzq mt">'+T('Screensaver')+'</p><div class="wznote">'+T('Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>';
-  var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
-  return '<p class="wzq mt">'+T('Uhr-Seite — zweite Fläche (quer rechts, hochkant unten)')+'</p><div class="wzopts">'+
-    wzOpt('svPane','','clock',T('Automatik (Termine/Wetter)'),'')+
-    wzOpt('svPane','off','clock',T('Aus — nur Uhr'),'')+
-    wzOpt('svPane','calendar','cal',T('Kalender'),'')+
-    wzOpt('svPane','weather','wx',T('Wetter'),'')+
-    (svHasA?wzOpt('svPane','player','audio',T('Audio'),''):'')+
-    (svHasE?wzOpt('svPane','energy','energy',T('Energiefluss'),''):'')+
-    (svHasC?wzOpt('svPane','camera','camera',T('Kamera'),''):'')+
-    (svHasV?wzOpt('svPane','chart','status',T('Verlauf'),''):'')+
-    '</div><div class="wznote">'+T('Statuswerte (mehrere Bausteine) für diese Fläche legst du danach im Editor fest.')+((!svHasE||!svHasC||!svHasV||!svHasA)?' '+T('Audio/Energiefluss/Kamera/Verlauf erscheinen hier nur, wenn ein passender Baustein vorhanden ist.'):'')+'</div>';
-}
-function wzRender(){
-  wzZurueckgeben();
-  var f=wzFlow(); if(WZ.step>=f.length) WZ.step=f.length-1;
-  var key=f[WZ.step], b=$('#wzBody'), h='';
-  $('#wzStep').textContent=T('Schritt')+' '+(WZ_SCHRITTE.findIndex(function(x){ return x.k===key; })+1)+' / '+WZ_SCHRITTE.length;
-  if(key==='geraet'){
-    WZ_GERAETE_SIG=wzGeraeteSig();
-    h=wzVorschlagHtml()+wzGeraetHtml()+
-      '<p class="wzq mt">'+T('Neues Gerät verbinden')+'</p>'+
-      '<div class="wznote" style="margin-bottom:8px">'+T('Ein Gerät, das die Visu schon zeigt, aber noch keinen Namen hat, steht mit seinem Code darunter. Ein neues verbindet sich über die Adresse oder den Agenten; sobald es sich meldet, steht es oben zur Wahl.')+'</div>'+
-      '<div id="wzNeuHost"></div>'+
-      '<button type="button" class="btn" id="wzVerbinden" style="margin-top:8px">'+T('＋ Gerät verbinden')+'</button>';
-  } else if(key==='ansicht'){
-    var dn=WZ.device||'', mitG=!!dn;
-    h='<p class="wzq">'+esc(mitG ? T('Was soll {g} zeigen?').replace('{g}',dn) : T('Welche Ansicht?'))+'</p><div class="wzopts">'+
-      wzOpt('art','neu','pick',T('Neue Ansicht anlegen'),T('Inhalt, Seiten und Aussehen in den nächsten Schritten.'))+
-      '<button class="wzo'+(WZ.art==='zuweisen'?' on':'')+'" data-wk="art" data-wo="zuweisen"'+(mitG&&ansichtIds().length?'':' disabled')+'>'+wzg('grid')+'<span class="tx"><b>'+T('Vorhandene Ansicht zeigen')+'</b><span>'+
-        (mitG ? T('Das Gerät schaltet auf eine Ansicht, die es schon gibt.') : T('Braucht ein Gerät aus Schritt 2.'))+'</span></span></button>'+
-      '<button class="wzo'+(WZ.art==='kopie'?' on':'')+'" data-wk="art" data-wo="kopie"'+(ansichtIds().length?'':' disabled')+'>'+wzg('ext')+'<span class="tx"><b>'+T('Vorhandene duplizieren')+'</b><span>'+
-        T('Mit Raumtausch: die Bausteine eines Raums durch die gleichnamigen eines anderen ersetzen.')+'</span></span></button></div>';
-    if(WZ.art!=='neu'){
-      if(!PANELS[WZ.quelle]) wzQuelleSetzen(ansichtIds()[0]||'');
-      h+='<div class="wzfield mt"><label>'+(WZ.art==='kopie'?T('Vorlage'):T('Ansicht'))+'</label><select id="wzQuelle">'+wzAnsichtOptionen(WZ.quelle)+'</select></div>';
-      if(WZ.art==='kopie') h+='<div class="wzrow" style="margin-top:12px">'+
-          '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('Raum tauschen: von')+'</label><select id="wzVon">'+wzRaumOptionen(WZ.von,'')+'</select></div>'+
-          '<div class="wzfield" style="flex:1;min-width:160px"><label>'+T('nach')+'</label><select id="wzNach">'+wzRaumOptionen(WZ.nach, T('(kein Raumtausch – reine Kopie)'))+'</select></div></div>'+
-        '<div class="wznote" style="margin-top:10px">'+esc(wzKopieInfo())+'</div>';
-      h+='<div class="wznote" style="margin-top:8px">'+T('Inhalt und Aussehen entfallen hier: Die Ansicht hat sie schon, den Feinschliff machst du danach unter Ansichten.')+'</div>';
-    }
-  } else if(key==='inhalt'){
-    wzInhaltVorschlagen();
-    if(WZ.content==='pick' && wzTileFor>=0 && wzTileFor<(WZ.pickPages||[]).length){ h=wzTileEditor(wzTileFor); }
-    else {
-      h=wzAnzeigeHtml()+'<p class="wzq mt">'+T('Wie möchtest du befüllen?')+'</p>'+
-        (WZ._raumVorschlag && WZ.content==='room' ? '<div class="wznote" style="margin-bottom:6px">'+esc(T('Vorschlag aus dem Gerätenamen: Raum-Ansicht {r}').replace('{r}',WZ._raumVorschlag))+'</div>' : '')+
-        '<div class="wzopts">'+
-        wzOpt('content','room','room',T('Raum-Ansicht'),T('Ein Raum aus Loxone + Kategorien als Sprungtabs.'))+
-        wzOpt('content','classic','grid',T('Klassische Visu'),T('Standard-Tabs (Favoriten/Zentral/Räume/Kategorien).'))+
-        wzOpt('content','pick','pick',T('Freie Auswahl'),T('Eigene Seiten mit handverlesenen Kacheln (bis 4).'))+'</div>'+
-        (WZ.content ? '<div class="mt">'+wzSetup()+'</div>' : '');
-    }
-  } else if(key==='aussehen'){
-    h='<div class="wznote" style="margin:0 0 6px">'+T('Leere Felder nehmen die Vorgaben; einzelne Kacheln stellst du danach im Editor ein.')+'</div>'+
-      wzLookHtml()+
-      '<p class="wzq mt">'+T('Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird')+'</p>'+
-      '<div class="ovctrl">'+overlayFields(WZ.overlay,'wzov_')+'</div>'+
-      wzScreensaverHtml();
-  } else if(key==='pruefen'){
-    wzNameVorschlagen();
-    if(WZ.art!=='zuweisen') h+='<div class="wzrow">'+
-        '<div class="wzfield" style="flex:1;min-width:180px"><label>'+T('Anzeigename')+'</label><input id="wzTitleI" value="'+esc(WZ.title)+'" placeholder="'+T('z. B. Wohnzimmer')+'"></div>'+
-        '<div class="wzfield" style="flex:1;min-width:180px"><label>'+T('Kennung')+'</label><input id="wzId" value="'+esc(WZ.id)+'" placeholder="wohnzimmer"><div class="wznote">'+T('Aufruf am Gerät:')+' <code>?panel='+esc(WZ.id||'wohnzimmer')+'</code></div></div></div>'+
-        (PANELS[WZ.id] ? '<div class="wznote" style="color:var(--crit)">'+esc('Ansicht „'+WZ.id+'" '+T('gibt es schon.'))+'</div>' : '');
-    if(WZ.device && WZ.art!=='zuweisen') h+='<div class="wzfield mt">'+
-        '<label class="wzchk"><input type="checkbox" id="wzUmschalten"'+(WZ.umschalten?' checked':'')+'> '+
-          esc(T('Danach auf')+' '+WZ.device+' '+T('anzeigen – speichert und schaltet das Gerät um'))+'</label></div>';
-    if(wzZielMerkbar()) h+='<div class="wzfield"><label class="wzchk"><input type="checkbox" id="wzZielMerken"'+(WZ.zielMerken?' checked':'')+'> '+
-          esc(T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'))+'</label></div>';
-    h+='<p class="wzq mt">'+T('Zusammenfassung')+'</p>'+wzSummary()+
-      '<div class="wznote">'+(WZ.art==='zuweisen' ? T('„Zuweisen" schaltet das Gerät gleich um; Betriebsmodi unter Geräte gelten weiter.')
-        : T('Nach „Ansicht anlegen" bist du im Editor zum Feinschliff (Kacheln, Pane 2, Icons) und kannst die Ansicht über „Visu öffnen" testen.'))+'</div>'+
-      (WZ.art!=='zuweisen' ? wzVorschauHtml() : '');
-  }
-  b.innerHTML=wzLeisteHtml(key)+h;
-  if(key==='geraet'){ var nh=$('#wzNeuHost'); wzLeihen('ag_anon_karte', nh); var wv=$('#wzVerbinden'); if(wv) wv.onclick=gvOpen; }
-  b.querySelectorAll('[data-wv]').forEach(function(el){ el.onclick=function(){ wzVorschlagWaehlen(el.dataset.wv); }; });
-  b.querySelectorAll('[data-wo]').forEach(function(el){ el.onclick=function(){ if(el.disabled) return; WZ[el.dataset.wk]=el.dataset.wo; if(el.dataset.wk==='content'){ WZ.classic=null; WZ.pickPages=null; WZ.pane2={}; wzTileFor=-1; }
-    // Tablet (2 Panes): automatisches Raster vorschlagen, 4"-Panel: 2 x 2 - solange das Raster nicht selbst gewaehlt ist
-    if(el.dataset.wk==='panes'){ WZ._panesT=true; if(!WZ._gridT) WZ.grid=(el.dataset.wo==='2')?'auto':'2x2'; }
-    if(el.dataset.wk==='panes' && !wzPasst(WZ.panes, WZ.grid)) WZ.grid='auto';
-    if(el.dataset.wk==='art' && WZ.art!=='neu') wzQuelleSetzen(PANELS[WZ.quelle]?WZ.quelle:(ansichtIds()[0]||''));
-    wzRender(); }; });
-  b.querySelectorAll('[data-wbase]').forEach(function(el){ el.onclick=function(){ var v=el.dataset.wbase; if(v) WZ.look.baseColor=v; else delete WZ.look.baseColor; wzRender(); }; });
-  b.querySelectorAll('[data-wsize]').forEach(function(el){ el.oninput=function(){ var k=el.dataset.wsize, v=el.value.trim(); if(v==='') delete WZ.look[k]; else WZ.look[k]=Number(v); }; });
-  { var wcb=b.querySelector('#wzBaseCustom'); if(wcb) wcb.oninput=function(){ WZ.look.baseColor=wcb.value; var lv=$('#wzBaseVal'); if(lv) lv.textContent=wcb.value; }; }
-  { var wf=b.querySelector('[data-wfont]'); if(wf) wf.onchange=function(){ if(wf.value) WZ.look.font=wf.value; else delete WZ.look.font; }; }
-  // Kachel-Set: neu zeichnen (Farbton nur bei einem Set mit Rechnung)
-  b.querySelectorAll('[data-ks-set]').forEach(function(el){ el.onclick=function(){ WZ.look=WZ.look||{};
-      if(el.dataset.ksSet) WZ.look.tileSet=el.dataset.ksSet; else delete WZ.look.tileSet; wzRender(); }; });
-  kachelSetExtraBinden(b.querySelector('#wzKsExtra'), function(){ WZ.look=WZ.look||{}; return WZ.look; }, function(){});
-  if(key==='aussehen'){ bindOverlay('wzov_', function(){ return WZ.overlay; }, function(){}); }
-  b.querySelectorAll('[data-wg]').forEach(function(el){ el.onclick=function(){ WZ.grid=el.dataset.wg; WZ._gridT=true; wzRender(); }; });
-  b.querySelectorAll('[data-rc]').forEach(function(el){ el.onclick=function(){ var u=el.dataset.rc, i=WZ.roomCats.indexOf(u); if(i>=0) WZ.roomCats.splice(i,1); else { if(WZ.roomCats.length>=4) return; WZ.roomCats.push(u); } wzRender(); }; });
-  b.querySelectorAll('[data-std]').forEach(function(el){ el.onclick=function(){ var t=WZ.classic[+el.dataset.std]; t.on=!t.on; wzRender(); }; });
-  b.querySelectorAll('[data-pgn]').forEach(function(el){ el.oninput=function(){ WZ.pickPages[+el.dataset.pgn].name=el.value; wzUpd(); }; });
-  b.querySelectorAll('[data-pgico]').forEach(function(el){ el.onclick=function(){ var i=+el.dataset.pgico; WZ.icoPage=WZ.icoPage===i?-1:i; wzRender(); }; });
-  b.querySelectorAll('[data-wpico]').forEach(function(el){ el.onclick=function(){ WZ.pickPages[+el.dataset.wpico].icon=el.dataset.picv; WZ.icoPage=-1; wzRender(); }; });
-  b.querySelectorAll('[data-pgdel]').forEach(function(el){ el.onclick=function(){ var i=+el.dataset.pgdel;
-    WZ.pickPages.splice(i,1); WZ.pane2=panesUmbenennen(WZ.pane2, pickNachLoeschen(i));   // Widgets ruecken mit
-    if(WZ.icoPage>=WZ.pickPages.length) WZ.icoPage=-1; wzRender(); }; });
-  { var pa=$('#wzPgAdd'); if(pa) pa.onclick=function(){ if(WZ.pickPages.length<4){ WZ.pickPages.push({name:'',icon:'',picks:[]}); wzRender(); } }; }
-  b.querySelectorAll('[data-pgw]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgw], k=el.value;
-    if(!k) delete pg.widget; else if(k==='weather'||k==='calendar'||k==='haus') pg.widget=k; else pg.widget=k+':'+(wzWidgetFirst(k)||'');
-    wzRender(); }; });
-  b.querySelectorAll('[data-pgwarg]').forEach(function(el){ el.onchange=function(){ var pg=WZ.pickPages[+el.dataset.pgwarg], k=wKind(pg.widget||''); pg.widget=k+':'+el.value; wzRender(); }; });
-  b.querySelectorAll('[data-pgtiles]').forEach(function(el){ el.onclick=function(){ wzTileFor=+el.dataset.pgtiles; wzRender(); }; });
-  { var tbk=$('#wzTileBack'); if(tbk) tbk.onclick=function(){ wzTileFor=-1; wzRender(); }; }
-  { var tnx=$('#wzTileNext'); if(tnx) tnx.onclick=function(){ var N=WZ.pickPages.length; if(wzTileFor>=N-1){ wzTileFor=-1; wzNext(); } else { wzTileFor++; wzRender(); } }; }
-  // Seiten-Editor (freie Seite): der Dialog wird dafuer breiter
-  { var seh=b.querySelector('#wzSeHost'); b.closest('.wzbox').classList.toggle('breit', !!seh); if(seh) seRender(seh, seKontextWz(wzTileFor)); }
-  b.querySelectorAll('.wzp2sel[data-p2k]').forEach(function(el){ el.onchange=function(){ WZ.pane2[el.dataset.p2k]=el.value; }; });
-  var rm=$('#wzRoom'); if(rm){ if(!WZ.roomTab&&rm.value) WZ.roomTab=rm.value; rm.onchange=function(){ WZ.roomTab=rm.value; WZ.roomCats=[]; WZ.pane2={}; wzRender(); }; }
-  { var wq=$('#wzQuelle'); if(wq) wq.onchange=function(){ wzQuelleSetzen(wq.value); wzRender(); }; }
-  { var wvn=$('#wzVon'); if(wvn) wvn.onchange=function(){ WZ.von=wvn.value; wzRender(); }; }
-  { var wnc=$('#wzNach'); if(wnc) wnc.onchange=function(){ WZ.nach=wnc.value; wzRender(); }; }
-  var ti=$('#wzTitleI'); if(ti){ ti.oninput=function(){ WZ.title=ti.value; WZ._titelT=true; if(!WZ._idT){ WZ.id=idAusName(ti.value); var e=$('#wzId'); if(e) e.value=WZ.id; } wzUpd(); }; setTimeout(function(){ti.focus();},30); }
-  { var wu=$('#wzUmschalten'); if(wu) wu.onchange=function(){ WZ.umschalten=wu.checked; }; }
-  { var wv=$('#wzVorschau'); if(wv) wv.onclick=async function(){ wv.disabled=true;
-      wzVorFehler=await vorschauAmGeraet(WZ.id, wzEntwurf(), WZ.device); wzRender(); }; }
-  { var we=$('#wzVorschauEnde'); if(we) we.onclick=async function(){ we.disabled=true; wzVorFehler=await vorschauGeraetBeenden(); wzRender(); }; }
-  { var wzm=$('#wzZielMerken'); if(wzm) wzm.onchange=function(){ WZ.zielMerken=wzm.checked; }; }
-  b.querySelectorAll('[data-wgr]').forEach(function(el){ el.onclick=function(){
-    var q=el.dataset.wgr;
-    if(q==='keins'){ WZ.groesse=null; WZ.device=''; if(WZ.art==='zuweisen') WZ.art='neu'; wzRender(); return; }
-    var x=(q==='browser') ? wzBrowser() : wzGeraete().find(function(d){ return d.name===el.dataset.wgn; });
-    // Zuweisen braucht ein echtes Geraet: ohne eines bleibt nur das Anlegen
-    if(x){ wzGroesseSetzen(x); if(!WZ.device && WZ.art==='zuweisen') WZ.art='neu'; wzRender(); } }; });
-  { var kt=$('#wzKatalog'); if(kt) kt.onchange=function(){ var x=wzKatalog()[+kt.value]; if(kt.value!=='' && x){ wzGroesseSetzen(x); if(WZ.art==='zuweisen') WZ.art='neu'; wzRender(); } }; }
-  var idI=$('#wzId'); if(idI) idI.oninput=function(){ WZ._idT=true; WZ.id=idI.value.toLowerCase().replace(/[^a-z0-9-]/g,''); idI.value=WZ.id; wzUpd(); };
-  $('#wzBack').disabled=WZ.step===0;
-  $('#wzNext').textContent=(WZ.step===f.length-1)?(WZ.art==='zuweisen'?T('Zuweisen ✓'):T('Ansicht anlegen ✓')):T('Weiter →');
-  wzUpd();
-}
-function wzUpd(){
-  var f=wzFlow(), key=f[WZ.step], ok=true;
-  if(key==='ansicht') ok = WZ.art==='neu' || (!!PANELS[WZ.quelle] && (WZ.art!=='zuweisen' || !!WZ.device));
-  if(key==='inhalt'){ ok=wzPflichtOk(); if(WZ.content==='pick' && wzTileFor>=0) ok=true; }   // im Befuell-Editor fuehrt dessen Knopf weiter
-  if(key==='pruefen' && WZ.art!=='zuweisen') ok=!!WZ.title.trim() && !!WZ.id && !PANELS[WZ.id];
-  $('#wzNext').disabled=!ok;
-  // Inhalt fertig: das Aussehen darf bei den Vorgaben bleiben, gleich zum Pruefen
-  $('#wzFertig').hidden=!(WZ.art==='neu' && (key==='inhalt'||key==='aussehen') && wzTileFor<0 && wzPflichtOk());
-  $('#wzBlank').hidden=WZ.art!=='neu';   // eine leere Ansicht ist nur beim Anlegen ein Ausweg
-  { var wi=$('#wzId'), c=wi && wi.parentNode.querySelector('code'); if(c) c.textContent='?panel='+(WZ.id||'wohnzimmer'); }
-}
-function wzNext(){ var f=wzFlow(); if(WZ.step<f.length-1){ WZ.step++; wzTileFor=-1; wzRender(); return; } wzBuild(); }
-// Was der Assistent anlegen wuerde (UI-Form wie in PANELS), ohne etwas anzulegen: wzBuild()
-// traegt es ein, die Vorschau am Geraet (Punkt 12) schickt es als Entwurf.
-function wzEntwurf(){
-  if(WZ.art==='kopie'){
-    var p=PANELS[WZ.quelle]; if(!p) return null;
-    var r=(WZ.nach && WZ.nach!==WZ.von) ? profilMitRaumtausch(p, WZ.von, WZ.nach, META.controls||[]).profil : JSON.parse(JSON.stringify(p));
-    r.title=WZ.title.trim()||WZ.id;
-    if(WZ.device){ var sc=DEVICE_SCREENS[WZ.device]||{}; r.device=Object.assign({name:WZ.device}, (sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:{}); }
-    return r;
-  }
-  return wzProfil();
-}
 
-// Die neue Ansicht aus den Schritten Inhalt und Aussehen (art 'neu', siehe wzEntwurf)
-function wzProfil(){
-  var ui={};
-  if(WZ.grid==='auto') ui.grid='auto';   // Raster rechnet das Tablet selbst
-  if(WZ.grid==='3x2'||WZ.grid==='3x3') ui.cols=3;
-  if(WZ.grid==='2x3'||WZ.grid==='3x3') ui.rows=3;
-  if(WZ.panes==='1') ui.split=false;
-  if(wzAnker() && WZ.catMode==='filter') ui.catFilter=true;   // Sprungmarken filtern statt springen
-  if(WZ.panes==='2' && WZ.svPane){ var sv=WZ.svPane;
-    if(sv==='player'){ var az=firstAudioZone(); sv=az?'player:'+az:''; }
-    else if(sv==='energy'){ var eu=firstEnergyControl(); sv=eu?'energy:'+eu:''; }
-    else if(sv==='camera'){ var cu=firstCamera(); sv=cu?'camera:'+cu:''; }
-    else if(sv==='chart'){ var vu=firstChartControl(); sv=vu?'chart:'+vu:''; }
-    if(sv) ui.svPane=sv; }
-  var tabs, e={};
-  if(WZ.content==='room'){ tabs=[WZ.roomTab]; if(WZ.roomCats&&WZ.roomCats.length) e.roomCats=WZ.roomCats.slice(0,4); }
-  else if(WZ.content==='pick'){
-    // Nur befüllte Seiten (Kacheln ODER Widget) werden zu Tabs; leere fallen weg. Ihre Widgets
-    // (WZ.pane2 nach Kennung) ruecken mit: alt = urspruenglicher Index jeder bleibenden Seite.
-    var alt=[];
-    (WZ.pickPages||[]).forEach(function(pg,i){ if((pg.picks&&pg.picks.length)||pg.widget) alt.push(i); });
-    if(!alt.length) alt=[0];
-    var pages=alt.map(function(i){ return WZ.pickPages[i]||{name:'Auswahl'}; });
-    var seiteNeu=pickKennungNeu(function(i){ return alt.indexOf(i); });
-    tabs=pages.map(function(_,i){return pickKey(i);});
-    e.pickTabs=pages.map(function(pg){ var o={name:(pg.name||'').trim()||'Auswahl',picks:(pg.picks||[]).slice()}; if(pg.icon) o.icon=pg.icon; if(pg.widget) o.widget=pg.widget;
-      // Anordnung aus dem Seiten-Editor (Schritt 5)
-      if(!pg.widget && Array.isArray(pg.layout) && pg.layout.length) o.layout=pg.layout.map(function(x){ return {id:x.id, w:x.w, h:x.h}; });
-      if(!pg.widget && pg.byRoom===false) o.byRoom=false;
-      return o; }); }
-  else { tabs=WZ.classic.filter(function(t){return t.on;}).map(function(t){return t.key;}); if(!tabs.length) tabs=defaultTabs(); }
-  var panes={}, kennung=(WZ.content==='pick') ? seiteNeu : function(k){ return k; };
-  Object.keys(WZ.pane2).forEach(function(k){ var z=kennung(k), rv=wzP2Real(WZ.pane2[k]); if(z && rv) panes[z]=rv; });
-  if(Object.keys(panes).length) ui.panes=panes;
-  // Aussehen (Farbschema, Größen, Schrift) aus Schritt „Design"
-  var L=WZ.look||{};
-  if(L.baseColor) ui.baseColor=L.baseColor;
-  if(L.tileSet){ ui.tileSet=L.tileSet;   // Kachel-Set, dazu Farbton und aktive Kachel (Standard bleibt weg)
-    if(L.tileHue!=null) ui.tileHue=L.tileHue;
-    if(L.tileActive) ui.tileActive=L.tileActive; }
-  ['iconSize','nameSize','subSize'].forEach(function(k){ if(L[k]!=null && L[k]!=='') ui[k]=Number(L[k]); });
-  if(L.font) ui.font=L.font;
-  // Aktiv-Overlay aus Schritt „Overlay" (nur, wenn vom Standard abgewichen)
-  if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
-  if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
-    e.device=Object.assign({name:WZ.device}, (dsc.vw&&dsc.vh)?{vw:dsc.vw, vh:dsc.vh}:{}); }
-  return Object.assign({title:WZ.title.trim()||WZ.id, tabs:tabs, rooms:[], cats:[], ui:ui, states:{}, tiles:{}}, e);
-}
-function wzBuild(){
-  var amGeraet=WZ.device, ziel=wzZiel(), zielMerken=WZ.zielMerken && wzZielMerkbar();
-  if(WZ.art==='zuweisen'){
-    var q=WZ.quelle; if(!PANELS[q] || !amGeraet) return;
-    wzClose(); setRubric('displays');
-    wzAmGeraet(q, amGeraet, true, zielMerken ? ziel : 0);
-    return;
-  }
-  var id=WZ.id; if(!id) return;
-  if(PANELS[id]){ alert('Ansicht „'+id+'" '+T('gibt es schon.')); return; }
-  var p=wzEntwurf(); if(!p) return;
-  PANELS[id]=p;
-  var umschalten=!!amGeraet && !!WZ.umschalten;
-  cur=id; tileSel=null; curPickIdx=0; wzClose(); renderList(); setRubric('pconf'); markDirty();
-  if(amGeraet && (umschalten || zielMerken)) wzAmGeraet(id, amGeraet, umschalten, zielMerken ? ziel : 0);
-}
 /* ============================================================
    Gerät einrichten (Einrichtung neu, Schritt 3): EIN Bildschirm. Name der Ansicht
    (aus dem Raum zum Geraetenamen vorgeschlagen, die Kennung folgt daraus), die Frage
@@ -5026,9 +4339,7 @@ function wzBuild(){
    "Fertig" legt die Ansicht an, speichert und ordnet sie dem Geraet zu
    (/api/device/switch, Schritt 2) - in einem Zug. Raster, Farben, Schrift und
    Display kommen aus den Vorgaben; am 4"-Wandpanel (quadratisch) gibt es kein Haus
-   und ein festes 2 x 2. Ohne Geraet ("+ Neue Ansicht") dasselbe ohne Zuordnung. Die
-   vierte Karte fuehrt in den ausfuehrlichen Assistenten (wzOpen: klassische Leiste,
-   freie Seiten, eigenes Aussehen), mit dem Geraet schon gewaehlt.
+   und ein festes 2 x 2. Ohne Geraet ("+ Neue Ansicht") dasselbe ohne Zuordnung.
    ============================================================ */
 /* ============================================================
    Gerät verbinden (Einrichtung neu, Schritt 5): drei Wege, je eine Zeile zum Kopieren.
@@ -5099,7 +4410,7 @@ $('#geraetVerbindenBtn').onclick=gvOpen;
 
 const GE={device:'', screen:null, name:'', _nameT:false, art:'raum', raum:'', aufbau:'', quelle:'', nach:'', token:'', url:'', timer:0, _wired:false};
 function geQuadrat(){ const s=GE.screen; return !!s && LoxRaster.quadratisch(s.vw, s.vh); }
-function geRaumVorschlag(){ const r=GE.device ? wzRaumFuer(GE.device) : null; return r ? r.uuid : ''; }
+function geRaumVorschlag(){ const r=GE.device ? raumZumGeraet(GE.device) : null; return r ? r.uuid : ''; }
 function geId(){ return idAusName(GE.name.trim() || GE.device || 'ansicht'); }
 // Name, solange niemand einen getippt hat: der Raum, "Haus", bei der Kopie der Zielraum oder die Vorlage, sonst das Geraet
 function geNameVorschlag(){
@@ -5151,7 +4462,7 @@ function geProfil(){
 // Vorschau: iframe in Geraetegroesse, verkleinert auf den Platz rechts (die Visu rechnet ihr Raster fuer die echte Groesse)
 function geVorschauMass(){
   const box=$('#geVor'), f=$('#geFrame'); if(!box||!f) return;
-  const g=(GE.screen&&GE.screen.vw&&GE.screen.vh) ? GE.screen : wzBrowser(), vw=g.vw, vh=g.vh;
+  const g=(GE.screen&&GE.screen.vw&&GE.screen.vh) ? GE.screen : dieserBrowser(), vw=g.vw, vh=g.vh;
   const s=Math.min(1, (box.clientWidth-16)/vw, (box.clientHeight-16)/vh);
   f.style.width=vw+'px'; f.style.height=vh+'px'; f.style.transform='scale('+s+')';
   f.style.left=Math.round((box.clientWidth-vw*s)/2)+'px'; f.style.top=Math.round((box.clientHeight-vh*s)/2)+'px';
@@ -5176,7 +4487,7 @@ function geVorschau(){
 function geKarte(art, icon, titel, text, innen, sperre){
   const an=GE.art===art;
   return '<div class="wzo ge-karte'+(an?' on':'')+(sperre?' aus':'')+'" role="button" tabindex="0" data-ge-art="'+art+'"'+(sperre?' aria-disabled="true"':'')+'>'+
-    wzg(icon)+'<span class="tx"><b>'+esc(titel)+'</b><span>'+esc(sperre||text)+'</span>'+(an&&innen ? '<span class="ge-innen">'+innen+'</span>' : '')+'</span></div>';
+    ikon(icon)+'<span class="tx"><b>'+esc(titel)+'</b><span>'+esc(sperre||text)+'</span>'+(an&&innen ? '<span class="ge-innen">'+innen+'</span>' : '')+'</span></div>';
 }
 function geKopf(){
   if(!GE.device) return T('ohne Gerät');
@@ -5191,11 +4502,11 @@ function geRender(){
   $('#geVorTitel').textContent=g ? T('So sieht es auf {g} aus').replace('{g}', g) : T('So sieht es aus');
   $('#geFuss').textContent=g ? T('Nach „Fertig“ zeigt {g} diese Ansicht sofort.').replace('{g}', g) : T('Danach bist du im Editor zum Feinschliff.');
   $('#geFertig').textContent=g ? T('Fertig – auf {g} anzeigen').replace('{g}', g) : T('Ansicht anlegen');
-  const raumSel='<label>'+T('Raum')+'</label><select id="geRaum">'+wzRaumOptionen(GE.raum,'')+'</select>';
+  const raumSel='<label>'+T('Raum')+'</label><select id="geRaum">'+raumOptionen(GE.raum,'')+'</select>';
   const aufbauSel='<label>'+T('Aufbau')+'</label><select id="geAufbau">'+((META&&META.hausAufbauten)||[]).map(a=>
     '<option value="'+esc(a.key)+'"'+(a.key===GE.aufbau?' selected':'')+'>'+esc(T(a.label))+'</option>').join('')+'</select>';
   const wieSel='<label>'+T('Vorlage')+'</label><select id="geQuelle">'+vorlagen.map(v=>'<option value="'+esc(v.id)+'"'+(v.id===GE.quelle?' selected':'')+'>'+esc(v.label)+'</option>').join('')+'</select>'+
-    '<label>'+T('Raum tauschen nach')+'</label><select id="geNach">'+wzRaumOptionen(GE.nach, T('(kein Raumtausch – reine Kopie)'))+'</select>'+
+    '<label>'+T('Raum tauschen nach')+'</label><select id="geNach">'+raumOptionen(GE.nach, T('(kein Raumtausch – reine Kopie)'))+'</select>'+
     '<span class="ge-info">'+esc(geKopieInfo())+'</span>';
   b.innerHTML='<div class="wzfield"><label>'+T('Name der Ansicht')+'</label><input id="geName" value="'+esc(GE.name)+'" placeholder="'+esc(T('z. B. Bad'))+'">'+
       '<div class="wznote">'+(GE._nameT ? '' : esc(T('Vorgeschlagen.'))+' ')+T('Kennung')+' <code id="geIdText">'+esc(geId())+'</code></div></div>'+
@@ -5206,13 +4517,11 @@ function geRender(){
       aufbauSel, quadrat ? T('Auf einem 4″-Wandpanel zu klein – dort einen Raum oder eine Kopie.') : '')+
     geKarte('wie','ext',T('Wie ein anderes Gerät'),T('Dieselbe Ansicht wie ein vorhandenes Gerät, auf Wunsch mit getauschtem Raum.'),
       wieSel, vorlagen.length ? '' : T('Es gibt noch keine Ansicht zum Kopieren.'))+
-    geKarte('selbst','pick',T('Selbst zusammenstellen'),T('Klassische Leiste, freie Seiten, eigenes Aussehen – der ausführliche Assistent.'),'','')+
     '</div><p class="wznote" style="margin-top:14px">'+T('Raster, Farben, Schrift, Screensaver und Display aus kommen aus den Vorgaben und passen zur Bildschirmgröße. Änderbar danach unter Ansichten.')+'</p>';
   const ni=$('#geName'); ni.oninput=()=>{ GE.name=ni.value; GE._nameT=true; $('#geIdText').textContent=geId(); geVorschau(); };
   b.querySelectorAll('[data-ge-art]').forEach(el=>{ el.onclick=e=>{
     if(el.classList.contains('aus') || e.target.closest('select,label')) return;
     const art=el.dataset.geArt;
-    if(art==='selbst'){ geSelbst(); return; }
     if(GE.art!==art){ GE.art=art; geRender(); } };
     el.onkeydown=e=>{ if((e.key==='Enter'||e.key===' ') && e.target===el){ e.preventDefault(); el.click(); } }; });
   { const r=$('#geRaum'); if(r) r.onchange=()=>{ GE.raum=r.value; geRender(); }; }
@@ -5223,7 +4532,7 @@ function geRender(){
   geVorschauMass(); geVorschau();
 }
 function geOpen(name){
-  // ohne Struktur beginnt der Weg beim Miniserver (wie wzOpen)
+  // ohne Struktur beginnt der Weg beim Miniserver
   if(EINR){ setRubric('settings'); flash($('#toast'), T('Erst den Miniserver verbinden'), false); return; }
   if(!GE._wired){ GE._wired=true;
     $('#geOv').onclick=e=>{ if(e.target===$('#geOv')) geClose(); };
@@ -5249,20 +4558,14 @@ function geClose(){
   const f=$('#geFrame'), n=document.createElement('iframe'); n.id='geFrame'; n.title=f.title; f.replaceWith(n);
   $('#geOv').hidden=true;
 }
-// Vierte Karte: der ausfuehrliche Assistent, das Geraet schon gewaehlt, beim Schritt Ansicht
-function geSelbst(){
-  const name=GE.device; geClose(); wzOpen();
-  const g=name ? wzGeraete().find(x=>x.name===name) : null;
-  if(g){ wzGroesseSetzen(g); WZ.step=wzFlow().indexOf('ansicht'); wzRender(); }
-}
-// Fertig: Ansicht anlegen, speichern und dem Geraet zuordnen (wzAmGeraet: /api/device/switch
+// Fertig: Ansicht anlegen, speichern und dem Geraet zuordnen (ansichtAmGeraet: /api/device/switch
 // schreibt die Zuordnung, Schritt 2 - auch wenn das Geraet gerade nicht verbunden ist)
 async function geFertig(){
   const p=geProfil(); if(!p) return;
   const id=geId(), name=GE.device, btn=$('#geFertig'); btn.disabled=true;
   PANELS[id]=p; cur=id; tileSel=null; curPickIdx=0; renderList(); markDirty();
   geClose();
-  if(name){ setRubric('displays'); await wzAmGeraet(id, name, true, 0); }
+  if(name){ setRubric('displays'); await ansichtAmGeraet(id, name, true, 0); }
   else setRubric('pconf');
   btn.disabled=false;
 }
@@ -5421,8 +4724,8 @@ $('#ms_save').onclick=async()=>{
 // ---- Ersteinrichtung ----
 // Solange der Server keine Struktur vom Miniserver hat (einrichtung aus
 // /api/settings), fuehrt der Konfigurator zuerst zum Zugang: offen sind nur
-// Settings -> Miniserver und Sicherung (EINR_SUBS), denn Profile, Displays und
-// Assistent brauchen Raeume und Bausteine. Er fragt den Stand alle
+// Settings -> Miniserver und Sicherung (EINR_SUBS), denn Ansichten, Geraete und
+// "Geraet einrichten" brauchen Raeume und Bausteine. Er fragt den Stand alle
 // EINR_TAKT_MS nach. Steht die Verbindung - ueber "Verbinden & Speichern" oder
 // von selbst -, laedt die Seite neu, damit alles frisch vom Server kommt, und
 // zeigt danach den naechsten Schritt (verbundenZeigen).
@@ -5906,7 +5209,7 @@ function koepfeZeichnen(){
 }
 function renderDeviceList(j){
   GERAETE_LISTE=j.devices||[];
-  geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen(); wzGeraeteNachziehen();
+  geraeteKarten(); koepfeZeichnen(); geraetErbtZeichnen();
   // Geraete ohne Namen: eigener Abschnitt unter den Karten
   const anon=j.anonymous||[], ab=$('#ag_anon'), ak=$('#ag_anon_karte');
   if(ak) ak.hidden=!anon.length;
@@ -6387,7 +5690,7 @@ function mzRender(){
   } else if(key==='modi'){
     b.innerHTML='<p class="wzq">'+T('Welche Betriebsmodi?')+'</p><div class="wzopts">'+
       MZ_PRESETS.map(m=>{ const on=MZ.modes.some(x=>x.key===m.key);
-        return '<button class="wzo'+(on?' on':'')+'" data-mzmode="'+esc(m.key)+'" data-mzlabel="'+esc(m.label)+'">'+wzg('grid')+
+        return '<button class="wzo'+(on?' on':'')+'" data-mzmode="'+esc(m.key)+'" data-mzlabel="'+esc(m.label)+'">'+ikon('grid')+
           '<span class="tx"><b>'+esc(m.label)+'</b><span>'+T('Loxone sendet')+' <code>'+esc(m.key)+'</code></span></span></button>'; }).join('')+'</div>'+
       '<div class="wzrow" style="margin-top:12px"><div class="wzfield" style="flex:1;max-width:240px"><label>'+T('Eigener Modus')+'</label>'+
         '<input id="mzCustomIn" placeholder="'+T('z. B. Kino')+'"></div><button class="wzbtn" id="mzAdd" style="align-self:flex-end">＋ '+T('Hinzufügen')+'</button></div>'+
@@ -6435,9 +5738,9 @@ function mzRender(){
   $('#mzNext').disabled=!ok;
 }
 function mzNext(){ const f=mzFlow(); if(MZ.step<f.length-1){ MZ.step++; mzRender(); return; } mzApply(); }
-// Neue Geraetenamen aus pollDevices: steht der Assistent bei den Geraeten und
-// wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
-// Signatur der Geraeteliste fuer den offenen Assistenten: Geraete ohne Namen
+// Neue Geraetenamen aus pollDevices: steht der Betriebsmodus-Assistent bei den Geraeten
+// und wurde darin gerade eines benannt, erscheint es als Chip und ist gewaehlt.
+// Signatur der Geraeteliste fuer den offenen Betriebsmodus-Assistenten: Geraete ohne Namen
 // ueber ihren Code (anonKey), nicht nur die IP - sonst bliebe nach dem Tausch
 // eines Browsers hinter derselben IP der alte Code stehen (Codex an #131).
 function mzGeraeteSig(){ return JSON.stringify([mzDevNames(), ANON_DEVICES.map(anonKey)]); }
@@ -6467,10 +5770,10 @@ async function mzApply(){
   }catch(e){ flash($('#dev_toast'),'Fehler: '+e,false); }
 }
 { const mo=$('#mzOpenBtn'); if(mo) mo.onclick=mzOpen; }
-// Esc schliesst den offenen Assistenten (Betriebsmodus liegt ueber allem).
+// Esc schliesst den offenen Dialog (der Betriebsmodus-Assistent liegt ueber allem).
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(!$('#mzOv').hidden) mzClose(); else if(!$('#gvOv').hidden) gvClose(); else if(!$('#geOv').hidden) geClose(); else if(!$('#wzOv').hidden) wzClose();
+  if(!$('#mzOv').hidden) mzClose(); else if(!$('#gvOv').hidden) gvClose(); else if(!$('#geOv').hidden) geClose();
 });
 
 // ---- Audio: Test-Ton ----
@@ -6576,20 +5879,6 @@ loadPanelIds().then(()=>{ fillAudioPanels(); renderDevices(); pollDevices(); set
 
 if(window.I18N) I18N.autoChrome('h2, h3, h4, label.lbl, .btn, .minibtn, .addbtn, .navbtn .nbt, .navbtn .nbs, .brand small, .itab, .cclbl, .ccmut, .empty, .muted, .note, .lead, .hint, .rub, .stab, .sectlbl, option, figcaption, .nm, .spec, .desc, .badge, .ovbox b, .ovbox span, .as-lead, .as-desc, .as-of, .as-chip, .as-def .tag, .as-def b, .as-def p, .as-start, [data-i18n]');
 </script>
-<div id="wzOv" class="wzov" hidden>
-  <div class="wzbox">
-    <div class="wzhd"><b data-i18n>＋ Gerät einrichten</b><span class="wzstep" id="wzStep"></span><button class="wzx" id="wzX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
-    <div class="wzbody" id="wzBody"></div>
-    <div class="wzft">
-      <button class="wzbtn" id="wzBack">← Zurück</button>
-      <div style="display:flex;gap:10px">
-        <button class="wzbtn" id="wzBlank" title="Ohne Assistent, nur ID">Leer anlegen</button>
-        <button class="wzbtn" id="wzFertig" hidden title="Das Aussehen behält die Vorgaben">Weiter zu Prüfen →</button>
-        <button class="wzbtn prim" id="wzNext">Weiter →</button>
-      </div>
-    </div>
-  </div>
-</div>
 <!-- Gerät verbinden (Einrichtung neu, Schritt 5): gvOpen(), drei Wege mit je einer Zeile zum Kopieren -->
 <div id="gvOv" class="wzov" hidden>
   <div class="wzbox gv">
@@ -6617,7 +5906,7 @@ if(window.I18N) I18N.autoChrome('h2, h3, h4, label.lbl, .btn, .minibtn, .addbtn,
       <span class="wznote" style="margin:0" id="geFuss"></span>
       <div style="display:flex;gap:10px">
         <button class="wzbtn" id="geAbbrechen" data-i18n>Abbrechen</button>
-        <button class="wzbtn" id="geLeer" title="Ohne Assistent, nur Kennung" data-i18n>Leer anlegen</button>
+        <button class="wzbtn" id="geLeer" title="Ohne Vorschlag, nur Kennung" data-i18n>Leer anlegen</button>
         <button class="wzbtn prim" id="geFertig"></button>
       </div>
     </div>

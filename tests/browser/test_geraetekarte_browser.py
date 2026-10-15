@@ -112,13 +112,9 @@ def test_eine_karte_je_geraet(cfg_ordner, tmp_path):
                 assert await pg.evaluate("[cur, rubric]") == ["kueche", "pconf"]
                 assert await pg.locator("#pconfHost [data-ui='dpmsOff']").count() == 0, "Display aus steht nicht mehr in der Ansicht"
 
-                # Erprobte Hardware unter Geraete; "Geraet verbinden" (Schritt 5) auch aus dem ausfuehrlichen Assistenten
+                # Erprobte Hardware unter Geraete
                 await pg.locator(".rub", has_text="Geräte").click()
                 assert await pg.locator("#displaysHost #erprobteHardware .devcat").count() >= 1
-                await pg.evaluate("wzOpen()")
-                await pg.locator("#wzBody #wzVerbinden").click()
-                assert await pg.locator("#gvOv:not([hidden])").count() == 1
-                await pg.evaluate("gvClose(); wzClose()")
                 await pg.locator(".rub", has_text="Übersicht").click()
                 await pg.locator('#overviewHost .ovbox[data-goto="wizard"]').click()
                 assert await pg.locator("#geOv:not([hidden])").count() == 1, "Gerät einrichten (Schritt 3), ein Bildschirm"

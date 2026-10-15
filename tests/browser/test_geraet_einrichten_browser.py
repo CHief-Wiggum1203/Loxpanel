@@ -6,8 +6,8 @@ und Wie ein anderes Geraet (mit Raumtausch aus dem Geraetenamen), rechts laeuft
 die echte Visu als Vorschau in der gemeldeten Groesse (/api/entwurf) - das
 Vorschaufenster gilt dabei nicht als neues Geraet. "Fertig" legt die Ansicht an,
 speichert und ordnet sie dem Geraet zu, in einem Zug. Am 4"-Wandpanel gibt es kein
-Haus. "+ Neue Ansicht" ist derselbe Dialog ohne Geraet; die vierte Karte fuehrt in
-den ausfuehrlichen Assistenten mit dem Geraet schon gewaehlt."""
+Haus. "+ Neue Ansicht" ist derselbe Dialog ohne Geraet, mit genau diesen drei
+Karten (der fruehere sechsstufige Assistent ist abgebaut)."""
 import asyncio
 import json
 
@@ -177,16 +177,14 @@ def test_ein_bildschirm_vom_geraet_bis_zur_ansicht(cfg_ordner, tmp_path):
                 flur = await pg.evaluate("[cur, rubric, PANELS.flur.tabs, PANELS.flur.ui, 'device' in PANELS.flur, OFFEN.has('ansicht:flur')]")
                 assert flur == ["flur", "pconf", ["haus", "favoriten"], {"grid": "auto"}, False, True], flur
 
-                # 7) Die vierte Karte: der ausfuehrliche Assistent, das Geraet schon gewaehlt
+                # 7) Unter Geraete derselbe Dialog ohne Geraet, mit genau drei Karten
                 await pg.locator(".rub", has_text="Geräte").click()
                 await pg.locator("#geraetEinrichtenBtn").click()
                 await pg.wait_for_selector("#geOv:not([hidden])")
                 assert (await pg.evaluate(STAND))["kopf"] == "ohne Gerät"
-                await pg.evaluate("geClose(); geOpen('technikraum')")
-                await pg.locator('#geLinks [data-ge-art="selbst"]').click()
-                await pg.wait_for_selector("#wzOv:not([hidden])")
-                assert await pg.evaluate("[document.getElementById('geOv').hidden, wzFlow()[WZ.step], WZ.device]") == [True, "ansicht", "technikraum"]
-                await pg.evaluate("wzClose()")
+                karten = await pg.evaluate("[...document.querySelectorAll('#geLinks .ge-karte')].map(k => k.dataset.geArt)")
+                assert karten == ["raum", "haus", "wie"], karten
+                await pg.evaluate("geClose()")
                 await b.close()
         finally:
             bc.cancel()
