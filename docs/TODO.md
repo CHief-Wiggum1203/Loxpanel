@@ -191,10 +191,14 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       Vorgaben) und lassen sich im Reiter als „älterer Eintrag“ entfernen.
       Tests: `test_geraetekarte_browser.py`, `test_auto_raster_browser.py`,
       `test_vererbung_browser.py`, `tests/test_display_geraet.py`. **M**
-- [ ] **Schritt 5, „Gerät verbinden“ mit drei Wegen.** Eigener Bogen, je Weg
-      eine Zeile zum Kopieren (App, Kiosk-Browser, Linux-Agent), Start-Adresse
-      ohne Parameter, Agent-Befehl ohne `PANEL`/`AGENT_NAME`, Server-Adresse
-      immer die LAN-Adresse. **S**
+- [x] **Schritt 5, „Gerät verbinden“ mit drei Wegen.** Eigener Bogen
+      (`#gvOv`, aus Geräte, Übersicht und Assistent), je Weg eine Zeile zum
+      Kopieren: Server-Adresse für die App, Start-Adresse ohne Parameter für
+      Kiosk-Browser, Agent-Befehl ohne `PANEL`/`AGENT_NAME` für Linux; die
+      Server-Adresse ist die LAN-Adresse aus `/api/meta`. Der Fuß wartet auf
+      das neue Gerät und führt zum Banner. Der alte Block mit Start-URL- und
+      SSH-Generator ist weg. Test: `tests/browser/test_geraet_verbinden_browser.py`.
+      **S**
 - [ ] **Schritt 6, die App bekommt ein Server-Feld.** Erster Start: eigener
       Server auf dem Gerät oder Server im Netz; dann verhält sich die App wie
       jedes andere Gerät. Android, eigener PR. **M**

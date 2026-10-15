@@ -42,10 +42,12 @@ JavaScript-Schnittstelle und die Fernverwaltung brauchen die kostenpflichtige
 PLUS-Lizenz (einmalig pro Gerät), ohne sie läuft die Visu trotzdem, nur ohne
 Display-Steuerung.
 
-1. **Start-URL** setzen:
-   `http://<server-ip>:8099/?panel=<profil-id>&device=<gerätename>`
-   Der Gerätename ist frei wählbar und erscheint unter *Displays*.
-   Ohne `panel=` startet das Profil `default`.
+1. **Start-URL** setzen: `http://<server-ip>:8099/` – ohne Parameter. Der
+   Konfigurator meldet das Gerät oben („Neues Gerät gefunden“, mit dem Code,
+   den das Gerät zeigt); „Benennen und einrichten“ vergibt den Namen und
+   die Ansicht. Die fertige Zeile zum Kopieren steht im Konfigurator unter
+   Geräte → „Gerät verbinden“. Eine ältere Adresse mit
+   `?panel=<kennung>&device=<name>` funktioniert weiter.
 2. **JavaScript-Schnittstelle aktivieren:** *Advanced Web Settings → Enable
    JavaScript Interface (PLUS)*. Ohne diesen Schalter gibt es kein
    `window.fully`, und die Seite kann das Display nicht schalten.
@@ -105,7 +107,7 @@ JavaScript-Schnittstelle in der Seite, dafür einen HTTP-Server. Einrichtung:
 1. In WallPanel unter *Einstellungen → HTTP* den Server einschalten (Port
    2971) und unter *Bildschirmschoner* die gewünschte Abschaltung nach
    Inaktivität wählen (Dimmen oder Schwarz).
-2. Start-URL wie oben mit `?panel=&device=` eintragen.
+2. Start-URL wie oben eintragen (`http://<server-ip>:8099/`).
 3. In LoxPanel beim Gerät den Display-Treiber „WallPanel (HTTP)" mit IP und
    Port 2971 eintragen.
 
