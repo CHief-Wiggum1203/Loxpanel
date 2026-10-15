@@ -3413,6 +3413,39 @@ class App:
                   or [a for a in gleich if now - a["ts"] < AGENT_ONLINE])
         return [a for a in gleich if AGENT_KANN_PANEL in a.get("features", ())]
 
+    def geraet_ansicht(self, dev: str) -> str | None:
+        """Die dem Geraet zugeordnete Ansicht (devices[dev].panel, Einrichtung
+        Schritt 2), wirksam wie in der Visu (eine geloeschte zeigt das
+        Standardprofil); None, wenn dem Geraet keine zugeordnet ist."""
+        pid = (self.devices.get(dev) or {}).get("panel") if dev else None
+        return self.ansicht_wirksam(pid) if pid else None
+
+    def ansicht_fuer_geraet(self, dev: str) -> str | None:
+        """Was ein Geraet zeigen soll, aus einer Stelle: laeuft ein Betriebsmodus
+        mit Zuordnung fuer das Geraet (und hat niemand seitdem ausdruecklich
+        gewaehlt), dessen Profil, sonst die zugeordnete Ansicht; None, wenn
+        weder noch (dann gilt, was die Visu mit ?panel= verlangt)."""
+        if not dev:
+            return None
+        cfg = self.devices.get(dev) or {}
+        if self.last_mode and dev not in self.ansicht_gewaehlt and cfg.get("auto", True):
+            mapped = (cfg.get("modes") or {}).get(self.last_mode)
+            if mapped:
+                return self.ansicht_wirksam(mapped)
+        return self.geraet_ansicht(dev)
+
+    def geraet_zuordnen(self, dev: str, panel: str) -> None:
+        """Ansicht `panel` dem Geraet zuordnen und speichern (leer = Standard-
+        ansicht, der Schluessel faellt weg). Die uebrigen Einstellungen des
+        Geraets bleiben; ein Geraet ohne andere Einstellungen entsteht damit."""
+        devices = {n: dict(c) for n, c in self.devices.items()}
+        cfg = devices.setdefault(dev, {"auto": True, "modes": {}})
+        if panel:
+            cfg["panel"] = panel
+        else:
+            cfg.pop("panel", None)
+        self._write_devices(self._sanitize_devices(devices, set(self.panels)))
+
     def effective_scale(self, prof: dict | None, dev: str) -> str | float:
         """Wirksame Skalierung eines Panels: die des Geraets, falls dort eine
         gesetzt ist, sonst die des Profils (resolve_profile() hat dort schon
@@ -3452,7 +3485,7 @@ class App:
             return devs.setdefault(name, {
                 "name": name, "agent": None, "connections": 0, "online": False,
                 "profile": "", "kiosk": "", "ip": "", "lastSeen": 0.0, "configured": False,
-                "screen": {}, "presence": None, "vorschau": None})
+                "zugeordnet": "", "screen": {}, "presence": None, "vorschau": None})
 
         for a in self.agents.values():
             if (now - a["ts"]) >= 600:
@@ -3480,8 +3513,10 @@ class App:
             e["lastSeen"] = max(e["lastSeen"], info.get("ts", 0))
             if info.get("screen"):
                 e["screen"] = info["screen"]   # zuletzt gemeldete Groesse (bei mehreren Fenstern das letzte)
-        for name in self.devices:
-            entry(name)["configured"] = True
+        for name, cfg in self.devices.items():
+            e = entry(name)
+            e["configured"] = True
+            e["zugeordnet"] = cfg.get("panel") or ""   # die eine Stelle: was das Geraet zeigen soll
         for name, on in self._presence_on.items():
             entry(name)["presence"] = on   # nur Geraete mit gekoppeltem Praesenzmelder
         for name, v in self.vorschau_geraet.items():   # Geraet zeigt einen Entwurf (Punkt 12)
@@ -3566,7 +3601,7 @@ class App:
         Konfigurators setzt das Panel wie beim Einrichtungshinweis zusammen."""
         return {"t": "kopplung", "code": code, "karte": karte,
                 "titel": "Dieses Gerät einrichten",
-                "hinweis": "Im Konfigurator unter Geräte den Namen zu diesem Code vergeben:",
+                "hinweis": "Der Konfigurator meldet dieses Gerät von selbst – dort Namen vergeben und einrichten:",
                 "pfad": "/config", "adressen": _lan_adressen(),
                 "unbekannt": "Die Adresse dieses Geräts steht in seinen WLAN-Einstellungen.",
                 "weg": "Tippen blendet die Karte bis zum nächsten Laden aus."}
@@ -4209,14 +4244,18 @@ class App:
     def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
         (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
-        Skalierung und Praesenzmelder (`presence` = Control-UUID). Nur
-        existierende Profile werden uebernommen; leere Geraete fallen weg."""
+        Skalierung und Praesenzmelder (`presence` = Control-UUID) und die
+        zugeordnete Ansicht (`panel`, Einrichtung Schritt 2: die eine Stelle,
+        die sagt, was das Geraet zeigt). Nur existierende Profile werden
+        uebernommen; leere Geraete fallen weg."""
         out: dict = {}
         if not isinstance(devices, dict):
             return out
         for name, cfg in devices.items():
             if not isinstance(name, str) or not name.strip() or not isinstance(cfg, dict):
                 continue
+            panel = cfg.get("panel")
+            panel = panel.strip() if isinstance(panel, str) and panel.strip() in panel_ids else ""
             modes = {}
             for mode, prof in (cfg.get("modes") or {}).items():
                 if not isinstance(mode, str) or not isinstance(prof, str):
@@ -4242,9 +4281,11 @@ class App:
             # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
             licht_start = _clean_licht_start(cfg.get("lichtStart"))
             if not modes and not display and scale is None and ziel is None and not presence \
-                    and not licht_start:
+                    and not licht_start and not panel:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
+            if panel:
+                entry["panel"] = panel
             if display:
                 entry["display"] = display
             if scale is not None:
@@ -10426,6 +10467,13 @@ async def api_agent_announce(request: web.Request) -> web.Response:
     if wunsch is not None and (wunsch == panel or AGENT_KANN_PANEL not in feats):
         app.agent_wunsch.pop(ip, None)   # gemeldet, also uebernommen
         wunsch = None
+    # Keine offene Wahl: meldet der Agent eine andere Ansicht als die, die dem
+    # Geraet zusteht (Zuordnung oder Betriebsmodus, Schritt 2), bekommt er sie -
+    # so gilt sie auch nach einem Neustart des Panels mit altem PANEL in der kiosk.conf
+    if wunsch is None and AGENT_KANN_PANEL in feats:
+        soll = app.ansicht_fuer_geraet(app.agents[ip]["name"])
+        if soll is not None and soll != app.ansicht_wirksam(panel):
+            wunsch = soll
     pid = panel if wunsch is None else wunsch
     # Panel-spezifische Geraeteeinstellungen an den Agenten zurueckgeben
     # (der wendet sie am Geraet an, z.B. Display-Abschaltung per xset).
@@ -10464,6 +10512,12 @@ async def api_agent_command(request: web.Request) -> web.Response:
     wahl = action == "start"
     if wahl:
         app.agent_wunsch.pop(ip, None)   # neuer als eine noch offene Wahl
+        if payload["panel"] and payload["panel"] not in app.panels:
+            return web.json_response({"ok": False, "error": "unbekannte Ansicht"}, status=400)
+        try:
+            app.geraet_zuordnen(a["name"], payload["panel"])   # die Wahl ist die Zuordnung (Schritt 2)
+        except Exception as err:
+            return web.json_response({"ok": False, "error": f"Zuordnung nicht gespeichert: {err}"}, status=500)
     elif action == "reload" and ip in app.agent_wunsch:
         # Wahl noch nicht gemeldet: mit ihr neu starten, sonst oeffnete der
         # Agent die alte Ansicht und uebernaehme die neue erst danach. Sie
@@ -10516,7 +10570,14 @@ async def api_save_devices(request: web.Request) -> web.Response:
         d = await request.json()
     except (ValueError, aiohttp.ContentTypeError):
         return web.json_response({"ok": False, "error": "kein JSON"}, status=400)
-    devices = App._sanitize_devices(d.get("devices") or {}, set(app.panels))
+    roh = d.get("devices") or {}
+    # Die Zuordnung Gerät -> Ansicht (panel) setzt nur /api/device/switch; nennt
+    # ein Geraet sie nicht, bleibt die gespeicherte (wie das Display-Kennwort)
+    if isinstance(roh, dict):
+        for name, cfg in roh.items():
+            if isinstance(cfg, dict) and "panel" not in cfg and (app.devices.get(name) or {}).get("panel"):
+                cfg["panel"] = app.devices[name]["panel"]
+    devices = App._sanitize_devices(roh, set(app.panels))
     # Leeres Display-Kennwort = unveraendert (/api/meta gibt es nicht heraus),
     # aber nur beim selben Ziel wie beim Einspielen (_KENNWORT_ZIEL), sonst
     # ginge das gespeicherte an einen anderen Host. "verworfen": eines war da,
@@ -10598,6 +10659,13 @@ async def api_device_switch(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "unbekannte Ansicht"}, status=400)
     app.vorschau_geraet.pop(device, None)   # eine ausdrueckliche Wahl beendet eine Vorschau am Geraet
     app.vorschau_ende.pop(device, None)
+    # Die Wahl ist die Zuordnung des Geraets (Einrichtung Schritt 2): gespeichert,
+    # damit sie jeden Neustart, jede Start-Adresse und die kiosk.conf ueberlebt.
+    # Ein Geraet, das gerade nicht online ist, zieht ws_handler beim Verbinden darauf.
+    try:
+        app.geraet_zuordnen(device, panel)
+    except Exception as err:
+        return web.json_response({"ok": False, "error": f"Zuordnung nicht gespeichert: {err}"}, status=500)
     n = await _push(app, {"t": "switch", "panel": panel}, "", device)
     a = app.agents.get(str(d.get("ip") or "").strip())
     weg, ok = "", False
@@ -10609,13 +10677,13 @@ async def api_device_switch(request: web.Request) -> web.Response:
             weg, ok = "start", await app._agent_start(a, panel)
             if not ok and AGENT_KANN_PANEL in a.get("features", ()):
                 weg, ok = "announce", True   # Wahl liegt in agent_wunsch (_agent_start)
-    if n or ok:
-        app.ansicht_gewaehlt.add(device)
+    app.ansicht_gewaehlt.add(device)
     if n:
         return web.json_response({"ok": True, "sent": n, "via": "ws", "agent": weg if ok else ""})
     if ok:
         return web.json_response({"ok": True, "sent": 1, "via": "agent", "agent": weg})
-    return web.json_response({"ok": False, "sent": 0, "error": "Gerät nicht online"})
+    # nicht online: die Zuordnung steht, das Geraet zeigt sie, sobald es verbindet
+    return web.json_response({"ok": True, "sent": 0, "via": "", "agent": "", "offline": True})
 
 
 async def api_vorschau_beenden(request: web.Request) -> web.Response:
@@ -10921,19 +10989,19 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     offen = next((app.agent_wunsch[a["ip"]] for a in agenten if a["ip"] in app.agent_wunsch), None)
     if offen is not None and roh is None:
         pid = offen
-    # Frisch verbundenes Geraet direkt auf den aktuell laufenden Betriebsmodus
-    # setzen (statt der Start-Ansicht aus ?panel=), falls dafuer eine Zuordnung
-    # existiert -> ohne Reload-Flackern gleich die richtige Visu.
-    if dev and app.last_mode and dev not in app.ansicht_gewaehlt and roh is None:
-        cfg = app.devices.get(dev)
-        if cfg and cfg.get("auto", True):
-            mapped = (cfg.get("modes") or {}).get(app.last_mode)
-            if mapped:
-                mapped = pid = app.ansicht_wirksam(mapped)
-                # auch dem Agenten, sonst meldete er weiter ?panel= (dessen
-                # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
-                for a in agenten:
-                    app.agent_wunsch[a["ip"]] = mapped
+    # Frisch verbundenes Geraet direkt auf die Ansicht setzen, die ihm zusteht
+    # (ansicht_fuer_geraet: laufender Betriebsmodus, sonst die zugeordnete),
+    # statt der Start-Ansicht aus ?panel= -> ohne Reload-Flackern gleich die
+    # richtige Visu. Was in der Start-Adresse oder der kiosk.conf steht, gilt
+    # nur noch fuer ein Geraet ohne Zuordnung.
+    if dev and roh is None and offen is None:
+        soll = app.ansicht_fuer_geraet(dev)
+        if soll is not None and soll != app.ansicht_wirksam(pid):
+            pid = soll
+            # auch dem Agenten, sonst meldete er weiter ?panel= (dessen
+            # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
+            for a in agenten:
+                app.agent_wunsch[a["ip"]] = soll
     prof = app.resolve_profile(pid, roh)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
@@ -10996,8 +11064,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await app._einrichtung_melden(neu=ws)
     # Verbindungszustand (Miniserver erreichbar?) und Takt des Lebenszeichens
     await app._verbindung_melden(neu=ws)
-    # Browser ohne Kennung: Kopplungscode; ohne ?panel= dazu die Karte
-    # "Dieses Geraet einrichten", denn dann hat dieses Geraet niemand eingerichtet
+    # Browser ohne Kennung: Kopplungscode, und die Karte "Dieses Geraet
+    # einrichten" nur ohne ?panel= in der Adresse. Mit ?panel= hat jemand das
+    # Geraet bewusst eingerichtet (Fully, WallPanel, alte Start-Adresse): die
+    # Karte laege sonst nach jedem Neustart ueber der Visu und fienge die
+    # Tipps ab. Der Konfigurator meldet das Geraet mit seinem Code trotzdem
+    # (Banner "Neues Geraet gefunden", device_list anonymous[].code).
     if not dev:
         await ws.send_json(App._kopplung_msg(app.conn_info[ws]["code"], not request.query.get("panel")))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
