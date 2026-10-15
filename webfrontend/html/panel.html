@@ -1240,7 +1240,7 @@
   .einrichtung .ei-grund{font-size:13px;color:var(--muted);margin-top:4px;word-break:break-word;}
   .einrichtung .ei-hinweis{font-size:13px;margin-top:10px;}
   .einrichtung .ei-url{font-size:20px;font-weight:700;margin-top:4px;color:var(--accent);word-break:break-all;}
-  /* Kopplungskarte (t:'kopplung'): Browser ohne Kennung und ohne ?panel= -
+  /* Kopplungskarte (t:'kopplung'): Browser ohne Namen (?device=) und ohne ?panel= -
      oben, damit sie neben dem Einrichtungshinweis stehen kann; ein Tipp
      blendet sie bis zum naechsten Laden aus. */
   .einrichtung.kopplung{top:10px;bottom:auto;pointer-events:auto;cursor:pointer;}
@@ -4373,7 +4373,7 @@ function entwurfZeigen(gilt){
   m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeicherte Ansicht';
   m.classList.toggle('alt', !gilt); m.classList.remove('hidden');
 }
-// Geraete-Kennung (physisches Panel). Darueber adressiert der Server dieses
+// Geraetename (physisches Panel, ?device=). Darueber adressiert der Server dieses
 // Geraet (Betriebsmodus, Display, Ansicht wechseln) und listet es unter
 // Einstellungen -> Panels. Quelle: ?device=<name> in der Kiosk-URL, sonst ein
 // unter Einstellungen -> Panels vergebener Name (t:'setdevice', localStorage).
@@ -4587,7 +4587,7 @@ function connect(){
       location.replace(u.toString()); return; }                              // Entwurf gespeichert -> gespeichertes Profil
     if(msg.t==='einrichtung'){ zeigeEinrichtung(msg); return; }               // noch kein Miniserver
     if(msg.t==='verbindung'){ verbMiniserver(msg); return; }                 // Miniserver erreichbar? Lebenszeichen
-    if(msg.t==='kopplung'){ zeigeKopplung(msg); return; }                     // Browser ohne Kennung: Code, Karte
+    if(msg.t==='kopplung'){ zeigeKopplung(msg); return; }                     // Browser ohne Namen: Code, Karte
     if(msg.t==='night'){ setNight(msg.on); return; }                         // Tag/Nacht gewechselt
     if(msg.t==='goto'){ if(msg.route){ wake(); nav(msg.route); } return; }  // auf Seite springen
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
@@ -4596,7 +4596,7 @@ function connect(){
       if(msg.on) wake(); else { clearTimeout(dpmsTimer); pinVergessen(); screenOff(); }
       return; }
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
-        DEVICE_ID=msg.name; kopplungVergessen(); ws.close(); } return; }   // in den Einstellungen benannt -> mit Kennung neu verbinden
+        DEVICE_ID=msg.name; kopplungVergessen(); ws.close(); } return; }   // in den Einstellungen benannt -> mit Namen neu verbinden
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
     if(msg.t==='geste'){ gesteAntwort(msg); return; }   // Zwei-Finger-Geste: Startwert, Text oder Fehler
     if(msg.t!=='view') return;

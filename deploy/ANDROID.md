@@ -79,10 +79,12 @@ abweichen.
 ## Gerät benennen und steuern
 
 Ein Gerät bekommt unter *Geräte* eine eigene Karte, sobald es die Visu mit
-`?device=<name>` öffnet. Fehlt die Kennung in der URL, steht das Gerät dort
-unter „Ohne Kennung" mit seiner IP. Dort einen Namen eintragen und „Namen
-vergeben" klicken: Die Visu merkt sich den Namen im Browser und verbindet sich
-neu, ab dann ist das Gerät dauerhaft gelistet und per Betriebsmodus schaltbar.
+`?device=<name>` öffnet. Fehlt der Name in der URL, steht das Gerät dort
+unter „Geräte ohne Namen" mit seinem Code und seiner IP, und der Konfigurator
+meldet es oben als „Neues Gerät gefunden". Dort einen Namen eintragen und
+„Namen vergeben" bzw. „Benennen und einrichten" klicken: Die Visu merkt sich
+den Namen im Browser und verbindet sich neu, ab dann ist das Gerät dauerhaft
+gelistet und per Betriebsmodus schaltbar.
 Der Name bleibt auch ohne `?device=` in der URL erhalten, solange die
 Browserdaten der Kiosk-App nicht gelöscht werden.
 
@@ -131,7 +133,7 @@ Statt nach fester Leerlaufzeit kann ein Präsenzmelder aus Loxone das Display
 steuern: Solange er jemanden meldet, bleibt es hell, und die Leerlaufzeit ist
 ausgesetzt. Wird der Raum leer, geht es aus, kommt jemand, geht es wieder an.
 
-1. Das Gerät braucht eine Kennung (`?device=<name>`, siehe oben) und eine der
+1. Das Gerät braucht einen Namen (`?device=<name>` oder im Konfigurator vergeben, siehe oben) und eine der
    Display-Steuerungen: die JavaScript-Schnittstelle von Fully Kiosk, Fully
    Remote Admin oder WallPanel.
 2. In LoxPanel unter *Geräte* die Karte des Geräts aufklappen und unter
