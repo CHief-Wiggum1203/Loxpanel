@@ -170,11 +170,24 @@ oder Kopie, kein Haus), alle anderen Geräte rechnen das Raster selbst.
       Seiten-Editor und Vorschau am Gerät; ihn ganz abzubauen ist ein eigener
       Schritt, sobald diese Wege im Editor unter Ansichten geprüft sind. Test:
       `tests/browser/test_geraet_einrichten_browser.py`. **L**
-- [ ] **Schritt 4, die Gerätekarte auf fünf Zeilen.** Zeigt (Feinschliff),
-      Display, Betriebsmodi, Technik, Entfernen. Display-Regeln nur in den
-      Vorgaben und am Gerät, Skalierung und Zielkachel nur am Gerät; die
-      kiosk.conf verliert `PANEL` und `DPMS_OFF` als Pflicht; „Zielgerät“ der
-      Ansicht entfällt. **M**
+- [x] **Schritt 4, die Gerätekarte auf fünf Zeilen.** Zeigt (Auswahl der
+      Ansicht, Feinschliff), Display, Betriebsmodi, Technik, Entfernen, je
+      Zeile Wert, Herkunft und „Ändern“ mit Editor darunter. „Display aus
+      nach“ steht in den Vorgaben und am Gerät (`devices[name].dpmsOff`, vor
+      Ansicht und Vorgaben), die Ansicht hat das Feld nicht mehr (ein alter
+      Eintrag gilt weiter und lässt sich dort entfernen). `PANEL` und
+      `DPMS_OFF` sind in der kiosk.conf keine Pflicht mehr (der Installer
+      schreibt sie nur, wenn gesetzt). „Zielgerät“ der Ansicht und die Warnung
+      unter Geräte sind weg; `device` bleibt als Vorschaugerät. Tests:
+      `tests/browser/test_geraetekarte_browser.py`, `tests/test_display_geraet.py`.
+      **M**
+- [ ] **Schritt 4b, Skalierung und Zielkachel nur am Gerät.** Die Felder in
+      Vorgaben → Darstellung und Ansicht → Raster entfallen, die Gerätekarte
+      (Technik) ist der eine Ort; gespeicherte Werte in Ansicht und Vorgaben
+      gelten bis dahin weiter (Server: Gerät vor Ansicht vor Vorgaben). Nacht
+      (Abdunkeln, Aufhellen, Nacht-Uhr) ebenso aus der Ansicht nehmen. Hängt
+      an `test_vererbung_browser.py`, `test_vorgaben_browser.py`,
+      `test_auto_raster_browser.py`. **M**
 - [ ] **Schritt 5, „Gerät verbinden“ mit drei Wegen.** Eigener Bogen, je Weg
       eine Zeile zum Kopieren (App, Kiosk-Browser, Linux-Agent), Start-Adresse
       ohne Parameter, Agent-Befehl ohne `PANEL`/`AGENT_NAME`, Server-Adresse

@@ -21,7 +21,7 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
                    "isFavorite": True, "states": {"active": "sl"}}}
 PANELS = {"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"], "device": {"name": "wand"}},
                      "kueche": {"title": "Küche", "tabs": ["favoriten"], "ui": {"nameSize": 22, "scale": 1.1}}},
-          "devices": {"wand": {"auto": True, "modes": {}, "scale": 1.25}}}
+          "devices": {"wand": {"auto": True, "modes": {}, "scale": 1.25, "panel": "flur"}}}   # wand zeigt flur (Zuordnung)
 THEME = {"ui": {"nameSize": 19, "scale": "auto", "dpmsOff": 60}}
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
           ("POST", "/api/panels", W.api_save_panels), ("POST", "/api/theme", W.api_save_theme)]
@@ -69,8 +69,8 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 assert await _zeile(pg, "nameSize").text_content() == "19 px · aus den Vorgaben"
                 assert await _zeile(pg, "iconSize").text_content() == f"{icon_std} px · Standard"
                 await pg.locator(".stab[data-sub='verhalten']").click()
-                assert await _zeile(pg, "dpmsOff").text_content() == "60 s · aus den Vorgaben"
-                assert await pg.locator("#pconfHost input[data-ui='dpmsOff']").get_attribute("placeholder") == "60"
+                assert await pg.locator("#pconfHost input[data-ui='dpmsOff']").count() == 0, \
+                    "Display aus steht in den Vorgaben und am Geraet (Schritt 4), nicht in der Ansicht"
                 assert await _zeile(pg, "reloadHours").text_content() == f"nachts um {W.NEULADEN_STUNDE} Uhr"
                 await pg.locator(".stab[data-sub='raster']").click()
                 assert await _zeile(pg, "scale").text_content() == \
@@ -93,6 +93,9 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 # Geraetekarte: eigener Wert zuruecksetzbar, leer gilt die Ansicht
                 await pg.locator(".rub", has_text="Geräte").click()
                 await karte_auf(pg, "wand")
+                assert await pg.locator('#geraete .gk[data-gk="wand"] .gz[data-gz="display"] .gz-woher').text_content() \
+                    == "aus den Vorgaben · kein Präsenzmelder"
+                assert await pg.locator('#geraete .gk[data-gk="wand"] .gz[data-gz="display"] .gz-wert').text_content() == "Aus nach 60 s"
                 skal = pg.locator('#geraete .dev[data-name="wand"] .erbt[data-gerbt="scale"]')
                 ziel = pg.locator('#geraete .dev[data-name="wand"] .erbt[data-gerbt="tileTarget"]')
                 knopf = skal.locator("[data-gerbt-zurueck]")

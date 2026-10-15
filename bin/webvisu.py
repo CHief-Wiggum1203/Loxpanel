@@ -3268,10 +3268,15 @@ class App:
             roh = self.panels.get(self.ansicht_wirksam(pid)) or {}
         return roh.get("ui") or {}
 
-    def panel_dpms(self, pid: str | None, roh: dict | None = None):
-        """Display-Abschaltzeit (Sek.) fuer ein Panel aus dem Profil (0=nie,
-        None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default). Wird dem
-        Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
+    def panel_dpms(self, pid: str | None, roh: dict | None = None, dev: str = ""):
+        """Display-Abschaltzeit (Sek.) fuer ein Panel: am Geraet (devices[name].dpmsOff,
+        Einrichtung Schritt 4: Display-Regeln stehen in den Vorgaben und am Geraet),
+        sonst aus dem Profil (ein aelterer Eintrag ui.dpmsOff gilt weiter), sonst die
+        Vorgabe (0=nie, None=nicht gesetzt -> Agent nutzt seinen kiosk.conf-Default).
+        Wird dem Panel-Agenten in der Announce-Antwort mitgegeben (er fuehrt xset aus)."""
+        d = self.devices.get(dev) if dev else None
+        if isinstance(d, dict) and isinstance(d.get("dpmsOff"), (int, float)) and not isinstance(d.get("dpmsOff"), bool):
+            return max(0, min(3600, int(d["dpmsOff"])))
         ui = {**self.theme.get("ui", {}), **self._ui_roh(pid, roh)}
         v = ui.get("dpmsOff")
         return max(0, min(3600, int(v))) if isinstance(v, (int, float)) else None
@@ -4246,7 +4251,8 @@ class App:
     def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
         (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
-        Skalierung und Praesenzmelder (`presence` = Control-UUID) und die
+        Skalierung, Praesenzmelder (`presence` = Control-UUID), "Display aus nach"
+        (`dpmsOff`, Sek., Einrichtung Schritt 4: vor Ansicht und Vorgaben) und die
         zugeordnete Ansicht (`panel`, Einrichtung Schritt 2: die eine Stelle,
         die sagt, was das Geraet zeigt). Nur existierende Profile werden
         uebernommen; leere Geraete fallen weg."""
@@ -4282,8 +4288,11 @@ class App:
             # Stimmung beim Einschalten (Gesten): was angeht, wenn im Raum alles
             # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
             licht_start = _clean_licht_start(cfg.get("lichtStart"))
+            # Display aus nach Sek. am Geraet (panel_dpms: Geraet vor Ansicht vor Vorgaben)
+            dpms = cfg.get("dpmsOff")
+            dpms = max(0, min(3600, int(dpms))) if isinstance(dpms, (int, float)) and not isinstance(dpms, bool) else None
             if not modes and not display and scale is None and ziel is None and not presence \
-                    and not licht_start and not panel:
+                    and not licht_start and not panel and dpms is None:
                 continue
             entry = {"auto": bool(cfg.get("auto", True)), "modes": modes}
             if panel:
@@ -4298,6 +4307,8 @@ class App:
                 entry["presence"] = presence
             if licht_start:
                 entry["lichtStart"] = licht_start
+            if dpms is not None:
+                entry["dpmsOff"] = dpms
             out[name.strip()[:60]] = entry
         return out
 
@@ -10479,7 +10490,7 @@ async def api_agent_announce(request: web.Request) -> web.Response:
     pid = panel if wunsch is None else wunsch
     # Panel-spezifische Geraeteeinstellungen an den Agenten zurueckgeben
     # (der wendet sie am Geraet an, z.B. Display-Abschaltung per xset).
-    out = {"ok": True, "dpmsOff": app.panel_dpms(pid), "reloadHours": app.panel_reload(pid)}
+    out = {"ok": True, "dpmsOff": app.panel_dpms(pid, dev=app.agents[ip]["name"]), "reloadHours": app.panel_reload(pid)}
     if wunsch is not None:
         out["panel"] = wunsch
     return web.json_response(out)
@@ -11039,7 +11050,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "panes": prof.get("panes") or {},
                         "svPane": prof.get("svPane") or "",   # rechte Spalte der Uhr-Seite
                         "scale": app.effective_scale(prof, dev),  # Skalierung (Geraet vor Profil)
-                        "dpmsOff": app.panel_dpms(prof["id"], roh),
+                        "dpmsOff": app.panel_dpms(prof["id"], roh, dev),
                         "pinMerken": prof["pinMerken"],   # Visu-PIN behalten, Sek. (0 = jedes Mal)
                         "gesten": prof["gesten"],         # Zwei-Finger-Gesten (Loxone-Standard) an
                         # ... mit Hinweis-Symbol (reserviert die Fusszeile unter dem Kachelfeld)

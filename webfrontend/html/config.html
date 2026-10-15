@@ -90,12 +90,21 @@
   .savebar{display:flex;gap:12px;align-items:center;padding:14px 30px;border-top:1px solid var(--line);background:var(--panel);}
   /* ---------- Karten & Formfelder ---------- */
   .card.gk{padding:10px 14px;margin:8px 0 0;max-width:none;}
-  .gk-zeile{display:flex;align-items:flex-start;gap:8px;}
-  .gk-kopf{flex:1;min-width:0;}
   .gk-kopf .ag{border:0;padding:4px 0;}
-  .gk-auf{flex:none;margin-top:4px;}
-  .gk-body{border-top:1px solid var(--line);margin-top:8px;padding-top:4px;}
-  .gk-teil{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px;}
+  .gk-body{margin-top:4px;}
+  /* Fuenf Zeilen je Geraet (Einrichtung neu, Schritt 4): Zeigt, Display, Betriebsmodi,
+     Technik, Entfernen - links der Name der Zeile, in der Mitte Wert und Herkunft,
+     rechts die Aktion; "Aendern" klappt den Editor der Zeile darunter auf. */
+  .gz{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:6px 14px;align-items:center;padding:9px 0;border-top:1px solid var(--line);}
+  .gz-name{font-size:13px;font-weight:700;}
+  .gz-mitte{min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .gz-wert{font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .gz-woher{font-size:12px;color:var(--muted);line-height:1.4;}
+  .gz-neben{font-size:12px;color:var(--muted);}
+  .gz-aktion{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .gz-editor{padding:4px 0 10px 134px;}
+  .gz-editor .gk-teil{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px;}
+  @media(max-width:700px){ .gz{grid-template-columns:1fr auto;} .gz-name{grid-column:1/-1;} .gz-editor{padding-left:0;} }
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;max-width:760px;}
   .card h3{margin:0 0 4px;font-size:15px;font-weight:600;}
   .card .note{color:var(--muted);font-size:13px;margin:0 0 14px;}
@@ -760,7 +769,7 @@
 
         <div class="ovcols">
           <div class="ovcol"><h4>Ansichten</h4>
-            <button class="ovbox" data-goto="pconf:allgemein"><b>Allgemein</b><span>Titel, Zielgerät, Sprache und Kennung der Ansicht; duplizieren oder löschen.</span></button>
+            <button class="ovbox" data-goto="pconf:allgemein"><b>Allgemein</b><span>Titel, Sprache und Kennung der Ansicht; duplizieren oder löschen.</span></button>
             <button class="ovbox" data-goto="pconf:inhalt"><b>Inhalt</b><span>Untere Leiste (Raum-Ansicht, klassisch oder eigene Auswahl), Räume, Kategorien und Widget, Kopfzeile oder Werteleiste je Standard-Seite.</span></button>
             <button class="ovbox" data-goto="pconf:seiten"><b>Seiten</b><span>Freie Seiten im Seiten-Editor: Name, Icon, Bausteine anordnen, Größen, Widget und Kopfzeile der Seite.</span></button>
             <button class="ovbox" data-goto="pconf:raster"><b>Raster</b><span>Kachel-Layout und Zielkachel, Bildschirm füllen, Skalierung, Split-Screen, Widget-Breite, Feinjustierung.</span></button>
@@ -785,7 +794,7 @@
         <p class="lead" data-i18n>Welche Ansicht welches Gerät zeigt. Linux-Geräte mit Agent melden sich automatisch; Android-Wandpanels und Tablets erscheinen, sobald sie die Visu mit einer Gerätekennung öffnen (<code>?panel=&lt;start&gt;&amp;device=&lt;name&gt;</code>). Ein neues Gerät verbindet und bestückt <b>＋ Gerät einrichten</b>.</p>
         <div class="card">
           <h3 data-i18n>Geräte</h3>
-          <p class="note" data-i18n>Eine Karte je Gerät: oben Zustand, Ansicht und Steuerung, aufgeklappt Betriebsmodi, Skalierung, Zielkachel, Präsenzmelder und Display-Steuerung. Änderungen speichert die Leiste unten.</p>
+          <p class="note" data-i18n>Eine Karte je Gerät mit fünf Zeilen: Zeigt, Display, Betriebsmodi, Technik, Entfernen. „Ändern“ klappt den Editor der Zeile auf; Änderungen speichert die Leiste unten.</p>
           <div class="actions" style="margin-top:0"><button class="btn prim" id="geraetEinrichtenBtn" data-i18n>＋ Gerät einrichten</button>
             <button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
             <span class="note" style="margin-left:10px" data-i18n>Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.</span></div>
@@ -1671,8 +1680,14 @@ function displayFelder(ui, dpmsLeer, reloadLeer){
   const wert=k=>(ui[k]==null)?'':ui[k];
   return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Display aus nach (Sek.)')+'</label>'+
       '<input type="number" min="0" max="3600" step="30" data-ui="dpmsOff" value="'+esc(wert('dpmsOff'))+'" placeholder="'+
-        esc(gesetzt(dpmsLeer)?String(dpmsLeer):T('Standard'))+'">'+erbtFeld('dpmsOff')+'</div>'+
-    '<div class="field" style="max-width:180px"><label class="lbl">'+T('Auto-Neustart alle (Std.)')+'</label>'+
+        esc(gesetzt(dpmsLeer)?String(dpmsLeer):T('Standard'))+'">'+erbtFeld('dpmsOff')+'</div>'+neustartFeld(ui, reloadLeer);
+}
+// Nur "Auto-Neustart alle": "Display aus nach" steht seit der Einrichtung neu (Schritt 4) in den
+// Vorgaben und am Geraet, nicht mehr in der Ansicht. Ein aelterer Eintrag der Ansicht gilt
+// weiter (Server: Geraet vor Ansicht vor Vorgaben) und wird hier genannt, mit Weg zum Loeschen.
+function neustartFeld(ui, reloadLeer){
+  const wert=k=>(ui[k]==null)?'':ui[k];
+  return '<div class="field" style="max-width:180px"><label class="lbl">'+T('Auto-Neustart alle (Std.)')+'</label>'+
       '<input type="number" min="0" max="168" step="1" data-ui="reloadHours" value="'+esc(wert('reloadHours'))+'" placeholder="'+
         esc(gesetzt(reloadLeer)?String(reloadLeer):T('nachts um {h} Uhr').replace('{h}',neuladenStunde()))+'">'+erbtFeld('reloadHours')+'</div>';
 }
@@ -1754,12 +1769,12 @@ function wasGiltInAnsicht(id, k){
   if(gesetzt(ui[k])) return {v:ui[k], quelle:T('aus der Ansicht {a}').replace('{a}',ansichtName(id)), eigen:true};
   return wasGiltOhneEigenen(k, ui);
 }
-// Welche Ansicht ein Geraet zeigt: gerade verbunden die gemeldete, sonst die, deren
-// Zielgeraet es ist
+// Welche Ansicht ein Geraet zeigt: gerade verbunden die gemeldete, sonst die ihm
+// zugeordnete (devices[name].panel, Schritt 2)
 function geraetAnsicht(name){
   const live=(GERAETE_LISTE.find(d=>d.name===name)||{}).profile;
   if(live && PANELS[live]) return live;
-  return ansichtIds().find(id=>((PANELS[id].device||{}).name)===name)||'';
+  const z=DEVICE_ZUORDNUNG[name]||''; return PANELS[z] ? z : '';
 }
 // Geraete, die eine Ansicht zeigen oder in einem Betriebsmodus zeigen wuerden
 function geraeteDerAnsicht(id){
@@ -1883,9 +1898,6 @@ function renderEditor(){
    '<section class="spane" data-sub="allgemein">'+
    '<div class="card"><h3>Titel</h3><p class="note">Fenstertitel der Ansicht.</p>'+
      '<div class="field"><input type="text" id="fTitle" value="'+esc(p.title||'')+'" placeholder="'+esc(cur)+'"></div>'+
-     '<div class="field" style="margin-top:14px"><label class="lbl">'+T('Zielgerät')+'</label>'+
-       '<select id="fZiel">'+zielOptionen((p.device||{}).name)+'</select>'+
-       '<div class="hint" id="fZielHint" style="padding-top:4px">'+esc(zielHinweis(p.device))+'</div></div>'+
      langField(p.ui)+'</div>'+
    '<div class="card"><h3>'+T('Kennung')+'</h3>'+
      '<p class="note">'+T('Mit dieser Kennung öffnet ein Gerät die Ansicht:')+' <code>'+esc(urlTxt)+'</code></p>'+
@@ -2026,9 +2038,12 @@ function renderEditor(){
        '<div class="hint" style="padding-top:4px">Die Uhr-Startseite hat auf dem Tablet neben bzw. unter der Uhr Platz: im <b>Querformat</b> rechts, <b>hochkant</b> unter Uhr und Wetter. <b>Automatisch</b> zeigt dort die nächsten Termine und, sobald keine anstehen, die Wetter-Details – so bleibt die Fläche nie leer. Als <b>Widget</b> fest wählbar sind <b>Termine</b>, <b>Wetter-Details</b> (Stundenverlauf, Luftfeuchte, Wind, Sonne), <b>Audio</b> (Now Playing), <b>Energiefluss</b>, <b>Kamera</b>, <b>Verlauf</b> oder <b>Werte</b> aus frei gewählten Bausteinen. <b>Nichts</b> rückt Uhr und Wetter auf die volle Breite. Auf dem quadratischen 4″-Wandpanel bleibt es unverändert bei Wetter, Uhr und Terminen. Bedenke bei <b>Kamera</b> und <b>Energiefluss</b>: die Uhr-Seite steht auf einem Wandpanel stundenlang still – ein weitgehend unveränderliches Bild begünstigt Einbrennen. Das Kamerabild läuft nur, solange die Uhr-Seite zu sehen ist.</div></div></div>'+
      '<div class="grph">'+T('Display &amp; Nacht')+'</div>'+
      '<div class="sizes">'+
-       displayFelder(p.ui||{}, vorgabeWert('dpmsOff'), vorgabeWert('reloadHours'))+
+       neustartFeld(p.ui||{}, vorgabeWert('reloadHours'))+
        nachtFelder(p.ui||{}, nachtVorgabe('nightDim'), nachtVorgabe('nightWake'))+
      '</div>'+
+     '<div class="hint" style="padding-top:4px">'+T('„Display aus nach“ steht in den Vorgaben und auf der Karte jedes Geräts (Zeile Display).')+
+       (gesetzt((p.ui||{}).dpmsOff) ? ' <span id="fDpmsAlt">'+esc(T('Diese Ansicht trägt noch einen eigenen Wert ({w}) aus einer älteren Fassung; er gilt für Geräte ohne eigenen.').replace('{w}', wertText('dpmsOff', p.ui.dpmsOff)))+
+         ' <button type="button" class="minibtn" id="fDpmsWeg">'+T('Eintrag entfernen')+'</button></span>' : '')+'</div>'+
      '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
      '<div class="hint" style="padding-top:4px">'+T('In der LoxPanel-App senkt „Nachts abdunkeln“ die echte Display-Helligkeit, statt das Bild abzudunkeln – mit derselben Wirkung, aber ohne grau leuchtendes Schwarz. Ist am Gerät die automatische Helligkeit an, dunkelt die Visu wie im Browser ab.')+'</div>'+
      '<div class="grph">'+T('Gesicherte Bausteine')+'</div>'+
@@ -2055,16 +2070,12 @@ function renderEditor(){
     ((cur==='default')?'' : '<button class="btn del" id="delBtn">'+T('Ansicht löschen')+'</button>');
   $('#delSlot').innerHTML =
     '<button class="btn ghost" id="vorBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen in der echten Visu, auch ungespeichert. Das Fenster zieht Änderungen nach.'))+'">'+T('Vorschau')+'</button>'+
-    '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Zielgerät) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
+    '<button class="btn ghost" id="vorGerBtn" title="'+esc(T('Zeigt diese Ansicht mit allen Änderungen auf dem Gerät (Vorschaugerät im Seiten-Editor, sonst das Gerät, für das sie angelegt wurde) und zieht Änderungen nach. Ohne Änderungen kehrt das Gerät nach 15 Minuten zur vorigen Ansicht zurück.'))+'"></button>';
 
   // Titel live
   $('#fTitle').oninput=e=>{ p.title=e.target.value; const h=$('#hTitle'); if(h)h.textContent=e.target.value||cur; markDirty(); };
-  // Zielgeraet (Punkt 15): Name und die zuletzt gemeldete Groesse des Geraets
-  { const fz=$('#fZiel'); if(fz) fz.onchange=e=>{ const n=e.target.value;
-      if(!n) delete p.device;
-      else { const sc=DEVICE_SCREENS[n]||{}; p.device=Object.assign({name:n}, (sc.vw&&sc.vh)?{vw:sc.vw, vh:sc.vh}:{}); }
-      $('#fZielHint').textContent=zielHinweis(p.device); markDirty(); }; }
   bindAppearance(p);
+  { const fw=$('#fDpmsWeg'); if(fw) fw.onclick=()=>{ delete p.ui.dpmsOff; const s=$('#fDpmsAlt'); if(s) s.remove(); markDirty(); }; }
   { const fl=$('#fLayout'); if(fl) fl.onchange=e=>{ p.ui=p.ui||{}; const v=e.target.value;
       if(v==='auto'){ p.ui.grid='auto'; delete p.ui.cols; delete p.ui.rows; }
       else { delete p.ui.grid; delete p.ui.tileSize;
@@ -2293,35 +2304,6 @@ function scaleValue(v){ return (v==='auto'||v==='off'||v==='') ? v : parseFloat(
 // oder eines mit deutlich anderer Groesse (ZIEL_TOLERANZ je Seite, Drehung
 // zaehlt nicht) das Profil nutzt.
 const ZIEL_TOLERANZ=0.1;
-function zielOptionen(gewaehlt){
-  const namen=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{}), gewaehlt?[gewaehlt]:[]))].filter(Boolean)
-    .sort((a,b)=>a.localeCompare(b));
-  return '<option value="">'+T('(keines)')+'</option>'+
-    namen.map(n=>'<option value="'+esc(n)+'"'+(n===gewaehlt?' selected':'')+'>'+esc(n)+'</option>').join('');
-}
-// Reiter Titel offen, waehrend /api/devices ein neues Geraet meldet: die Auswahl
-// bekommt es dazu, die Wahl des Profils bleibt (auch beim ersten Abruf nach dem
-// Laden, wenn der Editor vor der Geraeteliste stand).
-function zielAuswahlAuffrischen(){
-  const fz=$('#fZiel'); if(!fz) return;
-  const p=PANELS[cur]||{};
-  fz.innerHTML=zielOptionen(((p.device||{}).name)||'');
-}
-function zielHinweis(dev){
-  const erkl=T('Für welches Gerät diese Ansicht gemacht ist. Unter Geräte steht eine Warnung, wenn ein anderes Gerät oder eines mit deutlich anderer Bildschirmgröße es nutzt.');
-  if(!dev||!dev.name) return erkl;
-  return dev.name+((dev.vw&&dev.vh)?(' · '+dev.vw+'×'+dev.vh):'')+' – '+erkl;
-}
-function zielAbweichung(d){
-  const ziel=((PANELS[d.profile]||{}).device)||null; if(!ziel||!ziel.name) return '';
-  if(ziel.name!==d.name) return T('Ansicht ist für')+' '+ziel.name+' '+T('gemacht');
-  const sc=d.screen||{};
-  if(ziel.vw&&ziel.vh&&sc.vw&&sc.vh){
-    const a=[ziel.vw,ziel.vh].sort((x,y)=>x-y), b=[sc.vw,sc.vh].sort((x,y)=>x-y);
-    if(Math.abs(a[0]-b[0])>ZIEL_TOLERANZ*a[0] || Math.abs(a[1]-b[1])>ZIEL_TOLERANZ*a[1])
-      return T('Ansicht ist für')+' '+ziel.vw+'×'+ziel.vh+' '+T('gemacht, hier')+' '+sc.vw+'×'+sc.vh; }
-  return '';
-}
 // Geraeteklasse aus der gemeldeten Groesse: das quadratische 4"-Wandpanel
 // (480x480, mit Rahmen etwas mehr), ein grosses Display, sonst ein Tablet
 function geraeteKlasse(sc){
@@ -3037,7 +3019,7 @@ async function ansichtLoeschen(id){
     delete PANELS[id]; OFFEN.delete('ansicht:'+id);
     cur='default'; tileSel=null; renderList(); setRubric('pconf'); leisteZeigen();
     meldungZeigen([{ok:true, text:'✓ '+T('Gelöscht:')+' '+id}]);
-    try{ await loadPanelIds(); renderDevices(); zielAuswahlAuffrischen(); }catch(e){}
+    try{ await loadPanelIds(); renderDevices(); }catch(e){}
     return true;
   });
 }
@@ -4357,8 +4339,7 @@ function wzReset(){ wzTileFor=-1; Object.keys(SE_ZUSTAND).filter(k=>k.indexOf('w
    Pflichtschritte (Anzeige, Inhalt, Name) und traegt das Geraet als Zielgeraet
    ein; ab dann kann man gleich anlegen, der Rest behaelt Standardwerte. ---- */
 function wzVorschlaege(){
-  const vergeben=new Set(Object.values(PANELS).map(p=>p&&p.device&&p.device.name).filter(Boolean));
-  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !vergeben.has(n))
+  const geraete=[...new Set([].concat(KNOWN_NAMES, Object.keys(DEV||{})))].filter(n=>n && !DEVICE_ZUORDNUNG[n])   // ohne Zuordnung (Schritt 2)
     .sort((a,b)=>a.localeCompare(b));
   return geraete.map(n=>({geraet:n, raum:wzRaumFuer(n), screen:DEVICE_SCREENS[n]||null}));
 }
@@ -4755,7 +4736,6 @@ function wzSummary(){
     rows.push([T('Skalierung'),(L.scale===undefined||L.scale==='')?T('Wie Vorgabe'):scaleName(L.scale)]);
     rows.push([T('Aktiv-Overlay'),(WZ.overlay&&Object.keys(WZ.overlay).length)?T('Angepasst'):T('Standard')]);
     if(WZ.panes==='2'){ var svm={'':T('Automatik'),off:T('Aus'),calendar:T('Kalender'),weather:T('Wetter'),player:T('Audio'),energy:T('Energiefluss'),camera:T('Kamera'),chart:T('Verlauf')}; rows.push([T('Screensaver'),svm[WZ.svPane]||WZ.svPane]); }
-    rows.push([T('Display aus nach'), gesetzt(L.dpmsOff) ? wertText('dpmsOff', L.dpmsOff) : giltText('dpmsOff', wasGiltOhneEigenen('dpmsOff', {}))]);
   }
   if(WZ.device && WZ.art!=='zuweisen') rows.push([T('Danach'), (WZ.umschalten?T('Gerät umschalten'):T('nur anlegen'))+
     ((WZ.art==='neu' && wzZielMerkbar())?' · '+T('Zielkachel')+' '+wzZiel()+' px '+T('am Gerät merken'):'')]);
@@ -4824,13 +4804,6 @@ function wzAnzeigeHtml(){
         (WZ.groesse?'<span class="wzv">'+esc(wzVorrechnungText(WZ.panes||'1', g))+'</span>':'')+'</button>'; }).join('')+'</div>'+
     '<p class="wznote" style="margin-top:8px">'+T('„Automatisch“ rechnet das Raster aus der Bildschirmgröße des Tablets: ein größerer Schirm zeigt mehr Kacheln, nicht größere.')+'</p>';
 }
-function wzVerhaltenHtml(){
-  var L=WZ.look||{}, v=vorgabeWert('dpmsOff');
-  return '<p class="wzq mt">'+T('Verhalten')+'</p><div class="wzrow">'+
-    '<div class="wzfield" style="max-width:200px"><label>'+T('Display aus nach (Sek.)')+'</label><input type="number" min="0" max="3600" step="30" data-wdpms value="'+
-      (L.dpmsOff==null?'':esc(L.dpmsOff))+'" placeholder="'+esc(gesetzt(v)?String(v):T('Standard'))+'"></div></div>'+
-    '<p class="wznote" style="margin-top:6px">'+esc(T('Leer gilt:')+' '+giltText('dpmsOff', wasGiltOhneEigenen('dpmsOff', {})))+'</p>';
-}
 function wzScreensaverHtml(){
   if(WZ.panes!=='2') return '<p class="wzq mt">'+T('Screensaver')+'</p><div class="wznote">'+T('Am 4″-Wandpanel ist die Uhr-Seite einspaltig (Uhr + automatisch Termine/Wetter) — keine zweite Spalte.')+'</div>';
   var svHasE=!!firstEnergyControl(), svHasC=!!firstCamera(), svHasV=!!firstChartControl(), svHasA=!!firstAudioZone();
@@ -4890,7 +4863,7 @@ function wzRender(){
       wzLookHtml()+
       '<p class="wzq mt">'+T('Aktiv-Overlay — wie eine aktive Kachel hervorgehoben wird')+'</p>'+
       '<div class="ovctrl">'+overlayFields(WZ.overlay,'wzov_')+'</div>'+
-      wzScreensaverHtml()+wzVerhaltenHtml();
+      wzScreensaverHtml();
   } else if(key==='pruefen'){
     wzNameVorschlagen();
     if(WZ.art!=='zuweisen') h+='<div class="wzrow">'+
@@ -4921,7 +4894,6 @@ function wzRender(){
   { var wcb=b.querySelector('#wzBaseCustom'); if(wcb) wcb.oninput=function(){ WZ.look.baseColor=wcb.value; var lv=$('#wzBaseVal'); if(lv) lv.textContent=wcb.value; }; }
   { var wf=b.querySelector('[data-wfont]'); if(wf) wf.onchange=function(){ if(wf.value) WZ.look.font=wf.value; else delete WZ.look.font; }; }
   { var ws=b.querySelector('[data-wscale]'); if(ws) ws.onchange=function(){ var v=scaleValue(ws.value); if(v==='') delete WZ.look.scale; else WZ.look.scale=v; }; }
-  { var wd=b.querySelector('[data-wdpms]'); if(wd) wd.oninput=function(){ var v=wd.value.trim(); if(v==='') delete WZ.look.dpmsOff; else WZ.look.dpmsOff=Number(v); }; }
   // Kachel-Set: neu zeichnen (Farbton nur bei einem Set mit Rechnung)
   b.querySelectorAll('[data-ks-set]').forEach(function(el){ el.onclick=function(){ WZ.look=WZ.look||{};
       if(el.dataset.ksSet) WZ.look.tileSet=el.dataset.ksSet; else delete WZ.look.tileSet; wzRender(); }; });
@@ -5037,7 +5009,6 @@ function wzProfil(){
   ['iconSize','nameSize','subSize'].forEach(function(k){ if(L[k]!=null && L[k]!=='') ui[k]=Number(L[k]); });
   if(L.font) ui.font=L.font;
   if(L.scale!==undefined && L.scale!=='') ui.scale=L.scale;   // '' = wie global (nicht setzen)
-  if(gesetzt(L.dpmsOff)) ui.dpmsOff=Number(L.dpmsOff);   // leer = wie Vorgabe
   // Aktiv-Overlay aus Schritt „Overlay" (nur, wenn vom Standard abgewichen)
   if(WZ.overlay && Object.keys(WZ.overlay).length) ui.overlay=Object.assign({},WZ.overlay);
   if(WZ.device){ var dsc=DEVICE_SCREENS[WZ.device]||{};   // Zielgeraet (Punkt 15) aus dem Vorschlag
@@ -5654,10 +5625,11 @@ function kalenderSpeichern(){
   ['input','change'].forEach(ev=>el.addEventListener(ev, ()=>bereichOffen(k)));
 });
 // Unter Geraete zaehlen nur die Einstellungen der Karte (.dev), nicht die Wahl der
-// Ansicht im Kopf (die schaltet live um) und nicht der Name eines Geraets ohne Kennung
-// DEV folgt jeder Eingabe, damit die Ansicht nennen kann, welches Geraet sie ueberstimmt.
+// Ansicht in der Zeile Zeigt (.agsel, die schaltet live um) und nicht der Name eines
+// Geraets ohne Kennung. DEV folgt jeder Eingabe, damit die Ansicht nennen kann, welches
+// Geraet sie ueberstimmt.
 { const g=$('#geraete');
-  if(g){ ['input','change'].forEach(ev=>g.addEventListener(ev, e=>{ if(!e.target.closest('.dev')) return;
+  if(g){ ['input','change'].forEach(ev=>g.addEventListener(ev, e=>{ if(!e.target.closest('.dev') || e.target.classList.contains('agsel')) return;
       readDevFromDom(); bereichOffen('geraete'); geraetErbtZeichnen(); }));
     g.addEventListener('click', e=>{ const b=e.target.closest('[data-gerbt-zurueck]'); if(!b) return;
       const row=b.closest('.dev'), inp=row&&row.querySelector(b.dataset.gerbtZurueck==='tileTarget'?'.dt_ziel':'.ds_scale');
@@ -5712,6 +5684,7 @@ function devAusServer(devices){
                scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
                presence:d.presence||'',                  // '' = kein Praesenzmelder
                tileTarget:d.tileTarget||'',               // '' = Zielkachel wie in der Ansicht
+               dpmsOff:(d.dpmsOff===undefined||d.dpmsOff===null)?'':d.dpmsOff,   // '' = Ansicht oder Vorgaben (Schritt 4)
                lichtStart:lichtStartWert(d.lichtStart)};  // '' = erste Stimmung im Raum
   });
   return out;
@@ -5721,12 +5694,13 @@ function profSelect(cls, cur){
   return '<select class="'+cls+'"><option value="">'+T('(Standard)')+'</option>'+
     PANEL_IDS.map(id=>'<option value="'+esc(id)+'"'+(cur===id?' selected':'')+'>'+esc(id)+'</option>').join('')+'</select>';
 }
-function deviceRow(d, sel){
-  const cur=(sel!==undefined)?sel:(d.profile||'');
+// Kopf der Karte: Zustand, Name, Typ, Adresse und die Steuerung des Geraets. Welche
+// Ansicht es zeigt, steht in der Zeile "Zeigt" darunter (zeigtHtml), Entfernen in der
+// letzten Zeile (Einrichtung neu, Schritt 4).
+function deviceRow(d){
   const info=[d.ip, (d.agent&&d.agent.kiosk)?T('Kiosk läuft'):'', d.connections?T('Visu offen'):''].filter(Boolean).join(' · ');
   let btns='';
-  if(d.connections) btns+='<button class="btn sm" data-act="switch">'+T('Ansicht wechseln')+'</button>'+
-                          '<button class="btn sm ghost" data-act="wsreload">'+T('Neu laden')+'</button>';
+  if(d.connections) btns+='<button class="btn sm ghost" data-act="wsreload">'+T('Neu laden')+'</button>';
   // Kiosk-Apps schalten das Display aus der Seite heraus (Fully Kiosk, LoxPanel-App)
   if(d.type==='fully'||d.type==='loxpanel') btns+='<button class="btn sm ghost" data-act="dispoff">'+T('Display aus')+'</button>'+
                              '<button class="btn sm ghost" data-act="dispon">'+T('Display an')+'</button>';
@@ -5735,18 +5709,81 @@ function deviceRow(d, sel){
                     '<button class="btn sm ghost" data-act="stop">'+T('Stop')+'</button>';
   // Diagnosepaket dieses Geraets (ZIP, /api/diagnose) - auch offline
   btns+='<a class="btn sm ghost" data-diagnose href="/api/diagnose?device='+encodeURIComponent(d.name)+'" download>'+T('Diagnose')+'</a>';
-  // Nur ein Geraet mit gespeicherten Einstellungen laesst sich entfernen: eines
-  // ohne verschwindet von selbst, sobald es nicht mehr verbunden ist
-  if(d.configured) btns+='<button class="btn sm del" data-act="entfernen" data-online="'+(d.online?1:0)+'">'+T('Entfernen')+'</button>';
-  const warn=zielAbweichung(d);
   return '<div class="ag" data-name="'+esc(d.name)+'" data-ip="'+esc(d.agent?d.agent.ip:'')+'">'+
     '<span class="dot'+(d.online?' on':'')+'"></span>'+
     '<span class="agn">'+esc(d.name)+'</span>'+
     '<span class="tag">'+esc(TYPE_LABEL[d.type]||d.type)+'</span>'+
-    (warn?'<span class="tag warn">⚠ '+esc(warn)+'</span>':'')+
     '<span class="agip">'+esc(info)+'</span>'+
-    '<span class="sp"></span>'+profSelect('agsel',cur)+btns+
+    '<span class="sp"></span>'+btns+
     (screenInfo(d.screen)?'<div class="agscr">'+esc(screenInfo(d.screen))+'</div>':'')+'</div>';
+}
+// Das Geraet der letzten Abfrage, sonst ein Platzhalter (steht in panels.json, hat sich nie gemeldet)
+function geraetDaten(name){
+  return GERAETE_LISTE.find(d=>d.name===name) || {name:name, online:false, configured:!!GER_GESPEICHERT[name], profile:'',
+    zugeordnet:(DEVICE_ZUORDNUNG[name]||''), type:'browser', connections:0, agent:null, ip:'', screen:null};
+}
+// ---- Die fuenf Zeilen der Karte (Einrichtung neu, Schritt 4) ----
+function gzZeile(key, name, wert, woher, aktion){
+  return '<div class="gz" data-gz="'+key+'"><div class="gz-name">'+esc(name)+'</div><div class="gz-mitte">'+
+    '<div class="gz-wert">'+wert+'</div><div class="gz-woher">'+esc(woher)+'</div></div><div class="gz-aktion">'+aktion+'</div></div>';
+}
+function gzAufKnopf(key, name, auf){
+  return '<button type="button" class="btn sm ghost gz-auf" data-gz="'+key+'" aria-expanded="'+(auf?'true':'false')+'">'+esc(name)+' '+(auf?'▾':'▸')+'</button>';
+}
+// Zeile "Zeigt": Auswahl der Ansicht (schaltet live, Zuordnung nach Schritt 2) und Feinschliff
+function zeigtHtml(name, d, sel){
+  const cur=(sel!==undefined)?sel:(d.profile||d.zugeordnet||'');
+  const id=geraetAnsicht(name), p=PANELS[id]||null, teile=[];
+  if(p){ teile.push(T('Ansicht')+' „'+id+'“');
+    const ui=p.ui||{}; teile.push(T('Raster')+' '+(layoutWert(ui)==='auto'?T('automatisch'):layoutWert(ui).replace('x',' × ')));
+    const ks=kachelSetMeta(ui.tileSet||vorgabeWert('tileSet')); teile.push(T('Set')+' '+(ks?T(ks.label):T('Standard'))+(ui.tileSet?'':' · '+T('aus den Vorgaben'))); }
+  else teile.push(d.online ? T('zeigt die Standardansicht, noch keine zugeordnet') : T('noch nicht gemeldet'));
+  if(d.profile && d.zugeordnet && d.profile!==d.zugeordnet) teile.push(T('gerade durch einen Betriebsmodus: {a}').replace('{a}', ansichtName(d.profile)));
+  return gzZeile('zeigt', T('Zeigt'), profSelect('agsel', cur)+'<button class="btn sm" data-act="switch">'+T('Ansicht wechseln')+'</button>',
+    teile.join(' · '), (p?'<button type="button" class="btn sm gz-fein" data-fein="'+esc(id)+'">'+T('Feinschliff ›')+'</button>':'')+gzAufKnopf('zeigt', T('Gesten'), GK_AUF.has(name+'/zeigt')));
+}
+// Was fuer "Display aus nach" am Geraet gilt: Geraet, sonst die Ansicht, sonst Vorgaben, sonst Standard
+function displayGilt(name){
+  const d=DEV[name]||{};
+  if(gesetzt(d.dpmsOff)) return {v:d.dpmsOff, quelle:T('am Gerät'), eigen:true};
+  const id=geraetAnsicht(name);
+  if(id) { const w=wasGiltInAnsicht(id, 'dpmsOff'); if(w.eigen) return {v:w.v, quelle:T('aus der Ansicht {a} (älterer Eintrag)').replace('{a}', ansichtName(id))}; return w; }
+  return wasGiltOhneEigenen('dpmsOff', {});
+}
+function presenceName(uuid){
+  const o=ACTIVE_OPTS.find(x=>x.uuid===uuid); return o ? ((o.room?o.room+' · ':'')+o.name) : uuid;
+}
+function displayHtml(name){
+  const d=DEV[name]||{}, w=displayGilt(name);
+  const wert=gesetzt(w.v) ? (Number(w.v)===0 ? T('Display bleibt an') : T('Aus nach {s} s').replace('{s}', fmtZahl(w.v))) : wertText('dpmsOff', null);
+  const woher=[w.quelle, d.presence ? T('Präsenzmelder')+' '+presenceName(d.presence)+(presenceText(name)?' ('+presenceText(name)+')':'') : T('kein Präsenzmelder')].join(' · ');
+  return gzZeile('display', T('Display'), esc(wert), woher, gzAufKnopf('display', T('Ändern'), GK_AUF.has(name+'/display')));
+}
+function modiHtml(name){
+  const d=DEV[name]||{auto:true, modes:[]}, modi=(d.modes||[]).filter(([m,p])=>m&&p);
+  const wert=modi.length ? modi.map(([m,p])=>m+' → '+ansichtName(p)).join(' · ')+(d.auto===false?' ('+T('Automatik aus')+')':'') : T('Keine');
+  const woher=modi.length ? T('Loxone schaltet die Ansicht über /api/mode/<modus> um; „Ansicht wechseln“ hebt den Modus für dieses Gerät auf.')
+    : T('Erst nötig, wenn Loxone die Ansicht umschalten soll (Gäste, Nacht, Urlaub).');
+  return gzZeile('modi', T('Betriebsmodi'), esc(wert), woher, gzAufKnopf('modi', modi.length?T('Ändern'):T('Einrichten'), GK_AUF.has(name+'/modi')));
+}
+function technikHtml(name, d){
+  const e=DEV[name]||{}, disp=e.display||{};
+  const typ=TYPE_LABEL[d.type]||d.type||T('Browser');
+  const ueber=disp.driver==='fully' ? T('Display über Fully Kiosk (Remote Admin)') : disp.driver==='wallpanel' ? T('Display über WallPanel (HTTP)')
+    : d.type==='loxpanel' ? T('Display über die App') : d.type==='agent' ? T('Display über den Agenten') : d.type==='fully' ? T('Display über die Seite (JavaScript-Schnittstelle)') : T('kein Display-Treiber');
+  const id=geraetAnsicht(name), auto=!!id && layoutWert((PANELS[id]||{}).ui)==='auto';
+  const skal=gesetzt(e.scale) ? scaleName(e.scale)+' ('+T('am Gerät')+')' : (id ? giltText('scale', wasGiltInAnsicht(id,'scale')) : T('wie in der Ansicht'));
+  const ziel=parseInt(e.tileTarget)>0 ? fmtZahl(e.tileTarget)+' px ('+T('am Gerät')+')' : (auto ? giltText('tileSize', wasGiltInAnsicht(id,'tileSize')) : T('nur bei Raster „Automatisch“'));
+  return gzZeile('technik', T('Technik'), esc(typ)+' <span class="gz-neben">· '+esc(ueber)+'</span>',
+    T('Skalierung')+' '+skal+' · '+T('Zielkachel')+' '+ziel, gzAufKnopf('technik', T('Ändern'), GK_AUF.has(name+'/technik')));
+}
+function entfernenHtml(name, d){
+  const id=DEVICE_ZUORDNUNG[name]||'';
+  const woher=d.configured ? (id ? T('Die Ansicht „{a}“ bleibt bestehen.').replace('{a}', ansichtName(id))+' ' : '')+
+      T('Betriebsmodi, Display-Treiber, Skalierung, Zielkachel und Präsenzmelder gehen verloren; gilt sofort.')
+    : T('Ein Gerät ohne Einstellungen verschwindet von selbst, sobald es nicht mehr verbunden ist.');
+  return gzZeile('entfernen', T('Entfernen'), esc(T('Gerät aus der Liste nehmen')), woher,
+    d.configured ? '<button class="btn sm del" data-act="entfernen" data-online="'+(d.online?1:0)+'">'+T('Entfernen')+'</button>' : '');
 }
 // Geraet ohne Kennung: der Kopplungscode (das Panel zeigt ihn unter "Dieses
 // Geraet einrichten") ist der Schluessel der Zeile, "Namen vergeben" trifft
@@ -5765,13 +5802,9 @@ function anonRow(a, typed){
 // stehen aufklappbar die Einstellungen (renderDevices). Beide zeichnen getrennt,
 // so faehrt die Abfrage nie in ein Feld, in dem jemand tippt.
 let GERAETE_LISTE=[];     // benannte Geraete der letzten Abfrage von /api/devices
-const GK_AUF=new Set();   // aufgeklappte Karten, bleiben beim Neuzeichnen offen
+const GK_AUF=new Set();   // aufgeklappte Editoren ("<geraet>/<zeile>"), bleiben beim Neuzeichnen offen
 function alleGeraeteNamen(){
   return Array.from(new Set(GERAETE_LISTE.map(d=>d.name).filter(Boolean).concat(KNOWN_NAMES, Object.keys(DEV)))).sort();
-}
-function gkKnopf(k, auf){
-  const t=k.querySelector('.gk-auf');
-  t.setAttribute('aria-expanded', String(auf)); t.textContent=T('Einstellungen')+' '+(auf?'▾':'▸');
 }
 // Karten in Namensfolge: fehlende anlegen, weggefallene entfernen -> Namen
 function geraeteKarten(){
@@ -5783,11 +5816,7 @@ function geraeteKarten(){
     let k=box.querySelector(':scope > .gk[data-gk="'+CSS.escape(n)+'"]');
     if(!k){
       k=document.createElement('div'); k.className='card gk'; k.dataset.gk=n;
-      k.innerHTML='<div class="gk-zeile"><div class="gk-kopf"></div><button type="button" class="btn sm ghost gk-auf"></button></div>'+
-        '<div class="gk-body"'+(GK_AUF.has(n)?'':' hidden')+'></div>';
-      gkKnopf(k, GK_AUF.has(n));
-      k.querySelector('.gk-auf').onclick=()=>{ const b=k.querySelector('.gk-body'), auf=b.hidden;
-        b.hidden=!auf; if(auf) GK_AUF.add(n); else GK_AUF.delete(n); gkKnopf(k, auf); };
+      k.innerHTML='<div class="gk-kopf"></div><div class="gk-body"></div>';
     }
     if(box.children[i]!==k) box.insertBefore(k, box.children[i]||null);
   });
@@ -5799,20 +5828,28 @@ function kopfOhneMeldung(name){
   return '<div class="ag" data-name="'+esc(name)+'" data-ip=""><span class="dot"></span>'+
     '<span class="agn">'+esc(name)+'</span><span class="agip">'+esc(T('noch nicht gemeldet'))+'</span></div>';
 }
+// Knoepfe der Karte (Kopf und Zeilen): Steuerung, Ansicht wechseln (Auswahl der Zeile
+// "Zeigt"), Entfernen, Feinschliff (Editor der Ansicht)
+function gkAktionenBinden(k, wurzel){
+  const name=k.dataset.gk, ag=k.querySelector('.gk-kopf .ag');
+  wurzel.querySelectorAll('button[data-act]').forEach(b=>{
+    b.onclick=()=>{ const s=k.querySelector('.agsel');
+      if(b.dataset.act==='entfernen') devEntfernen(name, b.dataset.online==='1');
+      else deviceAction(b.dataset.act, name, ag?ag.dataset.ip:'', s?s.value:''); }; });
+  wurzel.querySelectorAll('[data-fein]').forEach(b=>{ b.onclick=()=>{ cur=b.dataset.fein; tileSel=null; renderList(); setRubric('pconf'); }; });
+}
+// Kopf und Zeile "Zeigt" folgen der Abfrage (nicht, wo gerade jemand waehlt)
 function koepfeZeichnen(){
   const box=$('#geraete'); if(!box) return;
   const f=document.activeElement;
-  const fk=(f && f.tagName!=='BUTTON' && f.closest) ? f.closest('.gk-kopf') : null;   // dort waehlt jemand gerade
-  const nach={}; GERAETE_LISTE.forEach(d=>{ nach[d.name]=d; });
+  const fk=(f && f.tagName!=='BUTTON' && f.closest) ? (f.closest('.gk-kopf') || f.closest('.gz[data-gz="zeigt"]')) : null;
   box.querySelectorAll(':scope > .gk').forEach(k=>{
-    const kopf=k.querySelector('.gk-kopf'); if(kopf===fk) return;
-    const s=kopf.querySelector('.agsel'), d=nach[k.dataset.gk];
-    kopf.innerHTML = d ? deviceRow(d, s?s.value:undefined) : kopfOhneMeldung(k.dataset.gk);
-    kopf.querySelectorAll('button[data-act]').forEach(b=>{
-      const row=b.closest('.ag');
-      b.onclick=()=>b.dataset.act==='entfernen' ? devEntfernen(row.dataset.name, b.dataset.online==='1')
-        : deviceAction(b.dataset.act, row.dataset.name, row.dataset.ip, row.querySelector('.agsel').value);
-    });
+    const kopf=k.querySelector('.gk-kopf'), d=geraetDaten(k.dataset.gk);
+    if(kopf!==fk){ kopf.innerHTML = GERAETE_LISTE.some(x=>x.name===k.dataset.gk) ? deviceRow(d) : kopfOhneMeldung(k.dataset.gk); gkAktionenBinden(k, kopf); }
+    const z=k.querySelector('.gz[data-gz="zeigt"]');
+    if(z && z!==fk){ const s=z.querySelector('.agsel'); const neu=document.createElement('div'); neu.innerHTML=zeigtHtml(k.dataset.gk, d, s?s.value:undefined);
+      z.replaceWith(neu.firstChild); gkAktionenBinden(k, k.querySelector('.gz[data-gz="zeigt"]')); }
+    gzWerteZeichnen(k);   // Display, Betriebsmodi, Technik, Entfernen: Herkunft folgt der Ansicht und der Zuordnung
   });
 }
 function renderDeviceList(j){
@@ -5846,6 +5883,7 @@ async function deviceAction(act, name, ip, panel){
     else if(act==='dispon') j=await postJson('/api/display',{device:name,on:true});
     else return;
     const n=(j.sent!==undefined)?j.sent:j.reloaded;
+    if(act==='switch' && j.ok && j.offline){ flash($('#ag_toast'), '✓ '+T('zugeordnet – {g} zeigt die Ansicht, sobald es verbindet').replace('{g}', name), true); return; }
     const ok=!!j.ok && (n===undefined || n>0);
     flash($('#ag_toast'), ok?('✓ '+act+(n!==undefined?(' → '+n):'')):('Fehler: '+(j.error||(n===0?T('Gerät nicht erreicht'):('HTTP '+j.status)))), ok);
   }catch(e){ flash($('#ag_toast'),'Fehler: '+e,false); }
@@ -5856,7 +5894,7 @@ async function deviceAction(act, name, ip, panel){
 // verbunden, meldet die naechste Abfrage es wieder - dann ohne Einstellungen.
 async function devEntfernen(name, online){
   if(!confirm(T('Gerät entfernen:')+' '+name+'\n\n'+
-      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder) gehen verloren. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.')+
+      T('Seine Einstellungen (Betriebsmodi, Display-Steuerung, Skalierung, Zielkachel, Präsenzmelder, Display aus, Zuordnung) gehen verloren; die Ansicht bleibt. Gilt sofort, ohne „Speichern“; andere offene Änderungen bleiben offen.')+
       (online?'\n'+T('Es ist gerade verbunden und erscheint danach wieder, ohne Einstellungen.'):''))) return;
   readDevFromDom();
   const alt=DEV[name]; delete DEV[name];
@@ -5870,7 +5908,7 @@ async function devEntfernen(name, online){
     const j=await devSpeichern(liste);
     if(!j.ok){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+(j.error||''),false); return; }
     KNOWN_NAMES=KNOWN_NAMES.filter(n=>n!==name);
-    renderDevices(); devGespeichert(j, T('✓ Gespeichert')); zielAuswahlAuffrischen();
+    renderDevices(); devGespeichert(j, T('✓ Gespeichert'));
     flash($('#ag_toast'), '✓ '+T('Entfernt:')+' '+name, true);
     pollDevices();
   }catch(e){ DEV[name]=alt; renderDevices(); flash($('#ag_toast'),'Fehler: '+e,false); }
@@ -5968,7 +6006,6 @@ async function pollDevices(){
     const isNew=names.some(n=>KNOWN_NAMES.indexOf(n)<0);
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew||vorschlagNeu){ readDevFromDom(); renderDevices(); }   // neues Panel oder neuer Vorschlag -> Editor ergaenzen (Eingaben behalten)
-    if(isNew) zielAuswahlAuffrischen();                             // Reiter Allgemein: neues Geraet als Zielgeraet anbieten
     mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
     neuBannerZeichnen(j);  // nach DEVICE_SCREENS: "Geraet einrichten" braucht die Groesse des Geraets
   }catch(e){}
@@ -5980,7 +6017,7 @@ function profOpts(sel){
     PANEL_IDS.map(id=>'<option'+(sel===id?' selected':'')+'>'+esc(id)+'</option>').join('');
 }
 function devRow(name){
-  const d=DEV[name]||{auto:true,modes:[]};
+  const d=DEV[name]||{auto:true,modes:[]}, g=geraetDaten(name);
   const pairs=d.modes&&d.modes.length?d.modes:[['','']];
   const rows=pairs.map(([m,p])=>
     '<div class="dmrow" style="display:flex;gap:6px;align-items:center;margin:4px 0">'+
@@ -5989,37 +6026,53 @@ function devRow(name){
       '<select class="dm_prof" style="flex:1;min-width:120px">'+profOpts(p)+'</select>'+
       '<button class="btn sm ghost dm_del" type="button" title="'+T('Zeile entfernen')+'">✕</button>'+
     '</div>').join('');
-  // Teile der Karte: Betriebsmodi, Am Geraet, Praesenzmelder, Display-Steuerung
+  const editor=(key, inhalt)=>'<div class="gz-editor" data-gze="'+key+'"'+(GK_AUF.has(name+'/'+key)?'':' hidden')+'>'+inhalt+'</div>';
+  const w=displayGilt(name), leer=gesetzt(w.v) ? wertText('dpmsOff', w.v)+' · '+w.quelle : wertText('dpmsOff', null);
+  // Fuenf Zeilen: Zeigt, Display, Betriebsmodi, Technik, Entfernen; "Aendern" klappt den Editor darunter auf
   return '<div class="dev" data-name="'+esc(name)+'">'+
-    '<div class="gk-teil">'+T('Betriebsmodi')+'</div>'+
-    '<label style="font-size:13px;opacity:.85"><input type="checkbox" class="dev_auto"'+(d.auto?' checked':'')+'> '+T('Automatik aktiv')+'</label>'+
-    '<div class="dmrows">'+rows+'</div>'+
-    '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>'+
-    '<div class="gk-teil">'+T('Am Gerät')+'</div>'+
-    '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
-      '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
-      '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie in der Ansicht'))+'</select>'+
-    '</div>'+'<div class="erbt" data-gerbt="scale"></div>'+
-    '<div class="dtrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
-      '<span style="font-size:13px;opacity:.85">'+T('Zielkachel (Automatik)')+'</span>'+
-      '<input type="number" class="dt_ziel" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+T('wie in der Ansicht')+'" value="'+(d.tileTarget||'')+'" style="width:90px">'+
-      '<span style="font-size:13px;opacity:.85">px</span>'+
-      '<span class="note dt_hinweis">'+esc(vorschlagText(name))+'</span>'+
-      (DEVICE_SUGGEST[name]?'<button class="btn sm ghost dt_nehmen" type="button">'+T('übernehmen')+'</button>':'')+
-    '</div>'+'<div class="erbt" data-gerbt="tileTarget"></div>'+
-    '<div class="gk-teil">'+T('Präsenzmelder')+'</div>'+
-    '<div class="dprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
-      '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
-      '<span class="note dp_state">'+esc(presenceText(name))+'</span>'+
-    '</div>'+
-    '<div class="gk-teil">'+T('Gesten')+'</div>'+
-    '<div class="dlrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
-      '<span style="font-size:13px;opacity:.85">'+T('Stimmung beim Einschalten')+'</span>'+
-      '<select class="dl_start" style="max-width:100%">'+lichtStartOptionen(d.lichtStart)+'</select>'+
-    '</div>'+
-    '<div class="note">'+T('Was zwei Finger in der Mitte einschalten, wenn im Raum alles aus ist; ihre Lichtsteuerung ist die, durch deren Stimmungen ein Tipp schaltet. Leer: die erste Stimmung der ersten Lichtsteuerung im Raum.')+'</div>'+
-    '<div class="gk-teil">'+T('Display-Steuerung')+'</div>'+
-    displayRow(d.display, name)+
+    zeigtHtml(name, g)+
+    editor('zeigt',
+      '<div class="gk-teil">'+T('Gesten')+'</div>'+
+      '<div class="dlrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Stimmung beim Einschalten')+'</span>'+
+        '<select class="dl_start" style="max-width:100%">'+lichtStartOptionen(d.lichtStart)+'</select>'+
+      '</div>'+
+      '<div class="note">'+T('Was zwei Finger in der Mitte einschalten, wenn im Raum alles aus ist; ihre Lichtsteuerung ist die, durch deren Stimmungen ein Tipp schaltet. Leer: die erste Stimmung der ersten Lichtsteuerung im Raum.')+'</div>')+
+    displayHtml(name)+
+    editor('display',
+      '<div class="ddprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Display aus nach (Sek.)')+'</span>'+
+        '<input type="number" class="dd_dpms" min="0" max="3600" step="30" placeholder="'+esc(gesetzt(w.v)?String(w.v):'')+'" value="'+esc(gesetzt(d.dpmsOff)?d.dpmsOff:'')+'" style="width:90px">'+
+        '<span class="note">'+esc(T('Leer gilt:')+' '+leer+'. '+T('0 = Display bleibt an.'))+'</span>'+
+      '</div>'+
+      '<div class="gk-teil">'+T('Präsenzmelder')+'</div>'+
+      '<div class="dprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
+        '<span class="note dp_state">'+esc(presenceText(name))+'</span>'+
+      '</div>')+
+    modiHtml(name)+
+    editor('modi',
+      '<label style="font-size:13px;opacity:.85"><input type="checkbox" class="dev_auto"'+(d.auto?' checked':'')+'> '+T('Automatik aktiv')+'</label>'+
+      '<div class="dmrows">'+rows+'</div>'+
+      '<button class="btn sm ghost dm_add" type="button" style="margin-top:4px">'+T('+ Modus')+'</button>')+
+    technikHtml(name, g)+
+    editor('technik',
+      '<div class="gk-teil">'+T('Am Gerät')+'</div>'+
+      '<div class="dsrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Skalierung')+'</span>'+
+        '<select class="ds_scale skal">'+scaleOptions(d.scale,T('Wie in der Ansicht'))+'</select>'+
+      '</div>'+'<div class="erbt" data-gerbt="scale"></div>'+
+      '<div class="dtrow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
+        '<span style="font-size:13px;opacity:.85">'+T('Zielkachel (Automatik)')+'</span>'+
+        '<input type="number" class="dt_ziel" min="'+kachelZiel().min+'" max="'+kachelZiel().max+'" step="10" placeholder="'+T('wie in der Ansicht')+'" value="'+(d.tileTarget||'')+'" style="width:90px">'+
+        '<span style="font-size:13px;opacity:.85">px</span>'+
+        '<span class="note dt_hinweis">'+esc(vorschlagText(name))+'</span>'+
+        (DEVICE_SUGGEST[name]?'<button class="btn sm ghost dt_nehmen" type="button">'+T('übernehmen')+'</button>':'')+
+      '</div>'+'<div class="erbt" data-gerbt="tileTarget"></div>'+
+      '<div class="gk-teil">'+T('Display-Steuerung')+'</div>'+
+      '<div class="note">'+T('Nur für Fully Kiosk oder WallPanel nötig; die LoxPanel-App und der Linux-Agent schalten das Display selbst.')+'</div>'+
+      displayRow(d.display, name))+
+    entfernenHtml(name, g)+
   '</div>';
 }
 // Auswahl Praesenzmelder: alle Bausteine mit active-State (wie beim Nacht-
@@ -6097,10 +6150,11 @@ function readDevFromDom(){
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
     const sc=n.querySelector('.ds_scale'), pr=n.querySelector('.dp_presence'), tz=n.querySelector('.dt_ziel');
-    const ls=n.querySelector('.dl_start');
+    const ls=n.querySelector('.dl_start'), dp=n.querySelector('.dd_dpms');
     DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
                          scale:sc?scaleValue(sc.value):'', presence:pr?pr.value:'',
                          tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):'',
+                         dpmsOff:(dp&&dp.value.trim()!=='')?Math.max(0, Math.min(3600, Number(dp.value))):'',
                          lichtStart:ls?ls.value:'',
                          panel:(DEV[n.dataset.name]||{}).panel||''};   // Zuordnung (Schritt 2): setzt nur "Ansicht wechseln"
   });
@@ -6108,8 +6162,16 @@ function readDevFromDom(){
 function renderDevices(){
   const box=$('#geraete'); if(!box) return;
   geraeteKarten();
-  box.querySelectorAll(':scope > .gk').forEach(k=>{ k.querySelector('.gk-body').innerHTML=devRow(k.dataset.gk); });
+  box.querySelectorAll(':scope > .gk').forEach(k=>{ k.querySelector('.gk-body').innerHTML=devRow(k.dataset.gk); gkAktionenBinden(k, k.querySelector('.gk-body')); });
   koepfeZeichnen(); geraetErbtZeichnen();
+  // "Aendern"/"Einrichten"/"Gesten": den Editor der Zeile auf- und zuklappen; offen bleibt offen
+  box.querySelectorAll('.gz-auf').forEach(b=>b.onclick=()=>{
+    const k=b.closest('.gk'), key=b.dataset.gz, ed=k.querySelector('.gz-editor[data-gze="'+key+'"]'), auf=ed.hidden;
+    ed.hidden=!auf; if(auf) GK_AUF.add(k.dataset.gk+'/'+key); else GK_AUF.delete(k.dataset.gk+'/'+key);
+    b.setAttribute('aria-expanded', String(auf)); b.textContent=b.textContent.replace(/[▾▸]$/, auf?'▾':'▸'); });
+  // Wert und Herkunft der Zeilen Display, Betriebsmodi und Technik folgen den Eingaben
+  box.querySelectorAll('.dd_dpms, .dp_presence, .dm_mode, .dm_prof, .dev_auto, .ds_scale, .dt_ziel, .dd_drv').forEach(el=>{
+    el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input', ()=>{ readDevFromDom(); gzWerteZeichnen(el.closest('.gk')); }); });
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
     (DEV[name]=DEV[name]||{auto:true,modes:[]}).modes.push(['','']); bereichOffen('geraete'); renderDevices();
@@ -6130,6 +6192,19 @@ function renderDevices(){
     readDevFromDom(); DEV[name].modes.splice(idx,1); bereichOffen('geraete'); renderDevices();
   });
 }
+// Zeilen Display, Betriebsmodi und Technik neu beschriften (die Editoren bleiben, wie sie sind)
+function gzWerteZeichnen(k){
+  if(!k) return;
+  const name=k.dataset.gk, g=geraetDaten(name);
+  if(!k.querySelector('.dev')) return;   // Zeilen noch nicht gezeichnet (renderDevices kommt)
+  const neu={display:displayHtml(name), modi:modiHtml(name), technik:technikHtml(name, g), entfernen:entfernenHtml(name, g)};
+  Object.keys(neu).forEach(key=>{ const z=k.querySelector('.gz[data-gz="'+key+'"]'); if(!z) return;
+    const h=document.createElement('div'); h.innerHTML=neu[key]; const n=h.firstChild;
+    const alt=z.querySelector('.gz-auf'), nb=n.querySelector('.gz-auf');
+    if(alt && nb){ nb.setAttribute('aria-expanded', alt.getAttribute('aria-expanded')); nb.textContent=nb.textContent.replace(/[▾▸]$/, alt.textContent.slice(-1)); nb.onclick=alt.onclick; }
+    z.replaceWith(n); });
+  gkAktionenBinden(k, k.querySelector('.gk-body'));
+}
 // Speicher-Daten fuer /api/devices aus der Arbeitskopie DEV - eine Quelle fuer
 // "Speichern" und den Betriebsmodus-Assistenten. Ein Geraet bleibt, sobald es
 // Modi, einen Display-Treiber, eine Skalierung oder einen Praesenzmelder traegt
@@ -6144,9 +6219,11 @@ function devicesPayload(quelle=DEV){
     const presence=d.presence||'';
     const ziel=(parseInt(d.tileTarget)>0)?parseInt(d.tileTarget):0;   // Zielkachel je Geraet; ohne sie ging sie beim Speichern verloren
     const lichtStart=lichtStartAusWert(d.lichtStart);   // Stimmung beim Einschalten (Gesten)
-    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel){
+    const dpms=(d.dpmsOff===''||d.dpmsOff===undefined||d.dpmsOff===null||isNaN(Number(d.dpmsOff)))?null:Number(d.dpmsOff);   // Display aus nach Sek.
+    if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel || dpms!==null){
       devices[name]={auto:d.auto!==false, modes};
       if(d.panel) devices[name].panel=d.panel;
+      if(dpms!==null) devices[name].dpmsOff=dpms;
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;

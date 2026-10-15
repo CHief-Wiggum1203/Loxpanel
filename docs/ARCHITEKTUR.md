@@ -2232,7 +2232,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Speichern“ des Miniservers bleibt ein eigener Knopf, weil er zuerst die Verbindung
   prüft.
 - **Sechs Reiter je Ansicht** (seit 10.10.2026, Schritt 3): `PCONF_TABS` =
-  Allgemein (Titel, Zielgerät, Sprache, Kennung mit Duplizieren und Löschen),
+  Allgemein (Titel, Sprache, Kennung mit Duplizieren und Löschen),
   Inhalt (untere Leiste, Räume, Kategorien, Widget/Kopfzeile/Werteleiste je
   Standard-Seite in `#panePerTab`), Seiten (Seiten-Editor samt `#sePaneBox` für
   die gewählte freie Seite), Raster (Kachel-Layout, Zielkachel, Bildschirm
@@ -2285,8 +2285,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
     die Ansicht zeigen und den Wert selbst setzen („am Gerät wand: 125 %“).
   - In den Vorgaben zählt die Zeile, für wie viele Ansichten der Wert gilt, und
     nennt die mit eigenem Wert.
-  - Auf der Gerätekarte (Am Gerät) steht, was aus der gezeigten Ansicht kommt
-    (`geraetAnsicht()`: die gemeldete, sonst die, deren Zielgerät es ist).
+  - Auf der Gerätekarte (Technik) steht, was aus der gezeigten Ansicht kommt
+    (`geraetAnsicht()`: die gemeldete, sonst die zugeordnete, `DEVICE_ZUORDNUNG`).
   - Welche Schlüssel eine Vorgabe haben, liefert `/api/meta` als `themeKeys`
     (= `THEME_UI_KEYS`); Standardwerte kommen aus `sizeDefaults`, `nightDefaults`
     und `kachelZiel`. „Zurücksetzen“ löscht den Schlüssel, das ist überall die Form
@@ -2368,18 +2368,47 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   steht. Die Tests öffnen ihn direkt (`wzOpen()`): `test_assistent_geraet_browser.py`,
   `test_assistent_vorschlag_browser.py`, `test_seiten_editor_browser.py`,
   `test_vorschau_geraet_browser.py` u. a.
-- **Eine Karte je Gerät** (seit 10.10.2026, Schritt 4): `#geraete` hält je Gerät
-  eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`, `geraeteKarten()`).
-  Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Typ, IP, Ansicht wählen, Neu laden,
-  Display, Agent, Entfernen) folgt der Abfrage alle 6 s (`koepfeZeichnen()`, nicht
-  während dort jemand wählt); der Körper (`.gk-body`, `devRow()`) trägt die
-  Einstellungen in vier Teilen: Betriebsmodi, Am Gerät (Skalierung, Zielkachel),
-  Präsenzmelder, Display-Steuerung. Aufgeklappte Karten merkt `GK_AUF`. Nur
-  Eingaben im Körper melden `geraete` bei der Speicherleiste, die Wahl der Ansicht
-  im Kopf schaltet live. Darunter: Geräte ohne Kennung (`#ag_anon`), „Neues Gerät
-  einrichten“, die Erklärung zu Betriebsmodus und Display-Steuerung und „Erprobte
-  Hardware“ (vorher eigene Rubrik). Der Nachtmodus steht seit Schritt 5 unter
-  Vorgaben → Nacht.
+- **Eine Karte je Gerät, fünf Zeilen** (seit 10.10.2026 Schritt 4, seit
+  15.10.2026 in der Form der Einrichtung neu, Schritt 4): `#geraete` hält je
+  Gerät eine `.gk` (Namen aus `/api/devices`, `KNOWN_NAMES` und `DEV`,
+  `geraeteKarten()`). Der Kopf (`.gk-kopf`, `deviceRow()`: Zustand, Name, Typ,
+  IP, Neu laden, Display an/aus, Agent, Diagnose) und darunter fünf Zeilen
+  (`.gz`, `gzZeile()`: Name der Zeile, Wert und Herkunft, Aktion):
+  - *Zeigt* (`zeigtHtml()`): die Auswahl der Ansicht (`.agsel`) mit „Ansicht
+    wechseln“ (`/api/device/switch`, auch für ein Gerät, das nicht verbunden ist:
+    die Zuordnung, Schritt 2), Kennung, Raster und Kachel-Set der Ansicht, ein
+    Betriebsmodus, der gerade gilt; „Feinschliff ›“ öffnet die Ansicht im
+    Editor. Editor: Gesten (Stimmung beim Einschalten).
+  - *Display* (`displayHtml()`, `displayGilt()`): „Aus nach n s“ und woher –
+    am Gerät (`devices[name].dpmsOff`), aus der Ansicht (älterer Eintrag),
+    aus den Vorgaben oder Standard – und der Präsenzmelder. Editor: Display aus
+    nach (Sek.) am Gerät und Präsenzmelder.
+  - *Betriebsmodi* (`modiHtml()`): die Modi mit ihren Ansichten oder „Keine“.
+    Editor: Automatik, Modus → Ansicht.
+  - *Technik* (`technikHtml()`): Typ, Display-Treiber, Skalierung und Zielkachel
+    mit Herkunft. Editor: Skalierung, Zielkachel, Display-Steuerung.
+  - *Entfernen* (`entfernenHtml()`): nur für ein Gerät mit Einstellungen; die
+    Ansicht bleibt.
+  „Ändern“/„Einrichten“/„Gesten“ (`.gz-auf`) klappt den Editor der Zeile
+  (`.gz-editor`) auf; offene merkt `GK_AUF` als `<gerät>/<zeile>`. Kopf und
+  Zeile Zeigt folgen der Abfrage alle 6 s (`koepfeZeichnen()`, nicht, wo gerade
+  jemand wählt), die Werte der übrigen Zeilen folgen der Abfrage und jeder
+  Eingabe (`gzWerteZeichnen()`). Nur Eingaben in den Editoren melden `geraete`
+  bei der Speicherleiste, die Auswahl der Ansicht schaltet live. Darunter:
+  Geräte ohne Kennung (`#ag_anon`), „Neues Gerät verbinden“ (zu Hause in
+  `#wzHeim`, geliehen vom ausführlichen Assistenten) und „Erprobte Hardware“.
+  Der Nachtmodus steht unter Vorgaben → Nacht. `test_geraetekarte_browser.py`
+  hält die fünf Zeilen fest.
+- **„Display aus nach“ in den Vorgaben und am Gerät** (seit 15.10.2026,
+  Einrichtung neu Schritt 4): `devices[name].dpmsOff` (Sek., 0..3600) gilt vor
+  einem Eintrag der Ansicht und vor den Vorgaben (`panel_dpms(pid, roh, dev)`;
+  die theme-Nachricht an die Visu und die Antwort an den Agenten nehmen das
+  Gerät mit). Die Ansicht hat das Feld nicht mehr (Reiter Verhalten:
+  `neustartFeld()` statt `displayFelder()`); trägt sie noch einen Wert aus einer
+  älteren Fassung, nennt der Reiter ihn mit „Eintrag entfernen“, und die
+  Gerätekarte nennt ihn als Herkunft. Der ausführliche Assistent schreibt kein
+  `dpmsOff` mehr. Nacht (Abdunkeln, Aufhellen, Nacht-Uhr) bleibt vorerst in
+  Vorgaben und Ansicht. `tests/test_display_geraet.py`.
 - **Löschen gilt sofort.** „Ansicht löschen“ schickt nach der Rückfrage den zuletzt
   gespeicherten Stand (`GESPEICHERT`) ohne die Ansicht, „Entfernen“ unter Geräte
   bei offenen Eingaben ebenso `GER_GESPEICHERT` ohne das Gerät. Offene Änderungen an
@@ -2579,19 +2608,16 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   `tests/browser/test_assistent_geraet_browser.py`: Maße und Vorrechnung
   gleich der Visu auf fünf Standardgeräten in vier Profilen, der Ablauf bis
   zum umgeschalteten Gerät und die Zielkachel unter Displays.
-- Zielgerät eines Profils (Punkt 15, 08.10.2026): Im Reiter Titel wählt
-  „Zielgerät“ eines der bekannten Geräte (`KNOWN_NAMES` aus `/api/devices`
-  und die konfigurierten aus `/api/meta`; meldet `/api/devices` ein neues
-  Gerät, während der Reiter offen ist, frischt `zielAuswahlAuffrischen()`
-  die Auswahl auf); gespeichert wird `device` mit Name und der zuletzt
-  gemeldeten Größe des Geräts (`DEVICE_SCREENS`, `_clean_zielgeraet()` im
-  Server, dieselbe Obergrenze `BILDSCHIRM_PX_MAX` wie die Bildschirmmeldung
-  in `_clean_screen()`). Die Geräteliste unter Displays zeigt
-  neben dem Typ eine Warnung (`zielAbweichung()`), wenn das Profil eines
-  Geräts für ein anderes Gerät gemacht ist oder die gemeldete Größe je
-  Seite um mehr als `ZIEL_TOLERANZ` (10 %) abweicht, Drehung zählt nicht.
-  Geprüft in `tests/test_zielgeraet.py` und
-  `tests/browser/test_zielgeraet_browser.py`.
+- Gerät eines Profils (`device`, Punkt 15, 08.10.2026; seit 15.10.2026 ohne
+  Feld und Warnung): „Gerät einrichten“ und der ausführliche Assistent schreiben
+  `device` mit Name und der zuletzt gemeldeten Größe des Geräts
+  (`DEVICE_SCREENS`, `_clean_zielgeraet()` im Server, dieselbe Obergrenze
+  `BILDSCHIRM_PX_MAX` wie die Bildschirmmeldung in `_clean_screen()`). Der
+  Seiten-Editor und „Am Gerät ansehen“ nehmen es als Vorschaugerät
+  (`seGeraetReiter()`). Welche Ansicht ein Gerät zeigt, sagt seit der
+  Einrichtung neu allein die Zuordnung (`devices[name].panel`, Schritt 2):
+  das Feld „Zielgerät“ im Reiter Allgemein und die Warnung „Ansicht ist für …
+  gemacht“ unter Geräte sind weg. Geprüft in `tests/test_zielgeraet.py`.
 - Reiter Displays: Die Geräteliste fragt `GET /api/devices` alle 6 s ab, von
   dort gehen „Ansicht wechseln" (`/api/device/switch`) und „Namen vergeben"
   (`/api/device/name`). Der Editor darunter speichert Modi, Display-Treiber,
@@ -2762,7 +2788,11 @@ scheitert. Geprüft in `tests/test_agent.py` und
 `PANEL`, `AUTOSTART`, `X`, `DPMS_OFF`, `PROFILE_DIR`, `BL_DEVICE`, `BL_ON`,
 `PAUSE_ON_BLANK`, `RELOAD_HOURS`, `STATE_FILE`, `KIOSK_RESTART_SECS`,
 `KIOSK_RESTART_MAX_SECS`. Die Beispieldatei dokumentiert alle außer
-`PROFILE_DIR` und `BL_DEVICE`.
+`PROFILE_DIR` und `BL_DEVICE`. Pflicht ist nur `SERVER`: `PANEL` ist die
+Startansicht, bis der Server dem Gerät eine Ansicht zuordnet (Konfigurator,
+Geräte), und `DPMS_OFF` gilt nur, solange der Server keinen Wert schickt
+(Vorgaben oder Gerät, `panel_dpms()`); der Installer schreibt beide nur, wenn
+sie gesetzt sind (seit 15.10.2026, Einrichtung neu Schritt 4).
 
 **Funktionen:** Chromium-Kiosk mit festen Flags, Crash-Dialog-Bereinigung in
 `Default/Preferences`, DPMS über `xset`, echte Backlight-Abschaltung über alle
