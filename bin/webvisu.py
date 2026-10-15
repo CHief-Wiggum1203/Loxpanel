@@ -97,6 +97,8 @@ CONFIG_HTML = _WEB / "config.html"
 SETTINGS_HTML = _WEB / "settings.html"
 I18N_JS = _WEB / "i18n.js"
 RASTER_JS = _WEB / "raster.js"   # Rasterrechnung fuer Visu und Konfigurator (Punkt 9)
+CONFIG_CSS = _WEB / "config.css"  # Stylesheet des Konfigurators
+CONFIG_JS = _WEB / "config"       # die Teile des Konfigurator-Skripts, config.html laedt sie der Reihe nach
 INSTALL_SH = Path(__file__).resolve().parent.parent / "deploy" / "install-agent.sh"
 _CFGDIR = Path(__file__).resolve().parent.parent / "config"
 PANELS_FILE = _CFGDIR / "panels.json"
@@ -8991,8 +8993,26 @@ async def i18n_js(request: web.Request) -> web.Response:
 
 async def raster_js(request: web.Request) -> web.Response:
     """Gemeinsame Rasterrechnung: die Visu baut damit ihr Raster, der
-    Konfigurator rechnet im Assistenten ein Geraet damit vor."""
+    Seiten-Editor des Konfigurators zeichnet ein Geraet damit vor."""
     return _web_file(RASTER_JS, "application/javascript")
+
+
+async def config_css(request: web.Request) -> web.Response:
+    """Stylesheet des Konfigurators (webfrontend/html/config.css)."""
+    return _web_file(CONFIG_CSS, "text/css")
+
+
+_CONFIG_JS_NAME = re.compile(r"^[a-z][a-z0-9-]*\.js$")
+
+
+async def config_js(request: web.Request) -> web.Response:
+    """Ein Teil des Konfigurator-Skripts (webfrontend/html/config/<name>.js).
+    config.html laedt die Teile in fester Reihenfolge; nur schlichte Namen,
+    damit kein Pfad aus dem Ordner herausfuehrt."""
+    name = request.match_info["name"]
+    if not _CONFIG_JS_NAME.match(name):
+        raise web.HTTPNotFound()
+    return _web_file(CONFIG_JS / name, "application/javascript")
 
 
 async def api_kachelset(request: web.Request) -> web.Response:
@@ -11345,6 +11365,8 @@ def main() -> None:
     a.router.add_get("/settings", settings_index)
     a.router.add_get("/i18n.js", i18n_js)
     a.router.add_get("/raster.js", raster_js)
+    a.router.add_get("/config.css", config_css)
+    a.router.add_get("/config/{name}", config_js)
     a.router.add_get("/install-agent.sh", install_script)
     a.router.add_get("/api/meta", api_meta)
     a.router.add_get("/api/kachelset", api_kachelset)
