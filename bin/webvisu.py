@@ -99,6 +99,7 @@ I18N_JS = _WEB / "i18n.js"
 RASTER_JS = _WEB / "raster.js"   # Rasterrechnung fuer Visu und Konfigurator (Punkt 9)
 CONFIG_CSS = _WEB / "config.css"  # Stylesheet des Konfigurators
 CONFIG_JS = _WEB / "config"       # die Teile des Konfigurator-Skripts, config.html laedt sie der Reihe nach
+PANEL_TEILE = _WEB / "panel"      # Stylesheets und Skriptteile der Visu, panel.html laedt sie der Reihe nach
 INSTALL_SH = Path(__file__).resolve().parent.parent / "deploy" / "install-agent.sh"
 _CFGDIR = Path(__file__).resolve().parent.parent / "config"
 PANELS_FILE = _CFGDIR / "panels.json"
@@ -9015,6 +9016,21 @@ async def config_js(request: web.Request) -> web.Response:
     return _web_file(CONFIG_JS / name, "application/javascript")
 
 
+_PANEL_TEIL_NAME = re.compile(r"^[a-z][a-z0-9-]*\.(js|css)$")
+_TEIL_TYPEN = {"js": "application/javascript", "css": "text/css"}
+
+
+async def panel_teil(request: web.Request) -> web.Response:
+    """Ein Stylesheet oder ein Teil des Visu-Skripts (webfrontend/html/panel/
+    <name>.css|.js). panel.html laedt sie in fester Reihenfolge; nur schlichte
+    Namen, damit kein Pfad aus dem Ordner herausfuehrt."""
+    name = request.match_info["name"]
+    m = _PANEL_TEIL_NAME.match(name)
+    if not m:
+        raise web.HTTPNotFound()
+    return _web_file(PANEL_TEILE / name, _TEIL_TYPEN[m.group(1)])
+
+
 async def api_kachelset(request: web.Request) -> web.Response:
     """Nachgerechnete Kontraste eines Kachel-Sets zu Farbton und aktiver Kachel
     (?set=touch&farbton=95&aktiv=dunkel), fuer "Nachgerechnet" und die
@@ -11367,6 +11383,7 @@ def main() -> None:
     a.router.add_get("/raster.js", raster_js)
     a.router.add_get("/config.css", config_css)
     a.router.add_get("/config/{name}", config_js)
+    a.router.add_get("/panel/{name}", panel_teil)
     a.router.add_get("/install-agent.sh", install_script)
     a.router.add_get("/api/meta", api_meta)
     a.router.add_get("/api/kachelset", api_kachelset)
