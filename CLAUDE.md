@@ -11,7 +11,8 @@ priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
 `bin/webvisu.py` (aiohttp) verbindet sich per WebSocket mit dem Miniserver, rendert
 alle Ansichten serverseitig als JSON und schickt sie per WebSocket an
 `webfrontend/html/panel.html`, das nur noch anzeigt. Konfigurator und Einstellungen
-liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Rubriken „Ansichten",
+liegen seit Upstream 0.3.2 gemeinsam in `config.html` (Markup; Stil in `config.css`, Skript in
+`config/*.js`, Rubriken „Ansichten",
 „Vorgaben", „Geräte" und „Einstellungen"), `settings.html` leitet nur noch weiter; beide
 sprechen `/api/*`. Die Wörter der Oberfläche (Ansicht, Gerät, Vorgaben,
 Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
@@ -30,7 +31,7 @@ Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP mit Wiederholung nach RFC 3261, Anmeldung per Digest (MD5, SHA-256, `-sess`), Codecs aus dem SDP. Löst keinen Anruf aus. Nur Standardbibliothek; aufgerufen von `/api/sip/pruefen` |
 | `bin/version_info.py` | Welcher Stand läuft: Version, Commit und Bauzeit aus `bin/version.json`, die APK-Build (`syncLoxpanelAssets`), Dockerfile und `.deb`-Bau (`packaging/deb/build.sh`) schreiben; ohne die Datei Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git; ohne Commit (lokaler `docker compose`-Build) ein Prüfwert über den Code (`inhalt`), an dem offene Seiten ein Update erkennen. Konfigurator (Seitenleiste), `/api/settings`, `/api/health` |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
-| `webfrontend/html/*.html`, `i18n.js`, `raster.js` | Frontend, Vanilla JS, kein Build; `raster.js` ist die gemeinsame Rasterrechnung von Visu und Konfigurator (`/raster.js`) |
+| `webfrontend/html/*.html`, `i18n.js`, `raster.js`, `config.css`, `config/*.js` | Frontend, Vanilla JS, kein Build; `raster.js` ist die gemeinsame Rasterrechnung von Visu und Konfigurator (`/raster.js`); der Konfigurator lädt sein Skript in elf Teilen aus `config/` (Reihenfolge in `config.html`, alle Funktionen global, `docs/ARCHITEKTUR.md` §7.2) |
 | `agent/loxpanel-agent.py` | Panel-Agent für Wandpanels; Kopie liegt als Heredoc in `deploy/install-agent.sh` |
 | `android/` | LoxPanel-App für Android (Lenardos #61): Server per Chaquopy im Gerät, Visu in eigener WebView mit der JS-Brücke `LoxKiosk`. Ein Wächter im Server-Dienst startet die App neu, wenn `/api/health` ausfällt (Regeln in `Waechter.kt`). Der Build kopiert `bin/`, `webfrontend/`, `deploy/` und aus `config/` nur die Vorlagen aus dem Arbeitsbaum in die App (`syncLoxpanelAssets`, gewacht von `tests/test_apk_inhalt.py`); Anleitung in `android/README.md` |
 | `packaging/deb/` | Lenardos `.deb`-Paket für Linux-Panels (#62), im Fork nicht weiterentwickelt |

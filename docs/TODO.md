@@ -1151,6 +1151,22 @@ selbst aktuell.
 
 ## 6. Wartbarkeit
 
+- [ ] **Große Dateien zerlegen** (Reihenfolge nach Nutzen je Aufwand, Wache
+      `tests/test_dateigroessen.py`: keine Quelldatei über 1500 Zeilen, die
+      Altlasten stehen dort mit ihrem Stand als Ausnahme und dürfen nur
+      schrumpfen). Protokoll zwischen Server und Visu bleibt bei jedem Schritt
+      gleich. **L**
+  - [x] Schritt 1, Konfigurator: `config.html` behält nur das Markup, das
+        Stylesheet liegt in `config.css` (`/config.css`), das Skript in elf
+        Teilen `config/*.js` (`/config/{name}`), die nacheinander laden; alle
+        Funktionen bleiben global. Aufteilung in `ARCHITEKTUR.md` §7.2.
+  - [ ] Schritt 2, Visu: `panel.html` genauso in `panel.css` und `panel/*.js`
+        (Verbindung, Kacheln, Detailseiten, Front, Kiosk-Brücke).
+  - [ ] Schritt 3, Server: die Bausteinketten `_control_item()` und
+        `_view_control_inner()` aus `webvisu.py` in ein Modul je
+        Bausteinfamilie, siehe „Bausteinketten aufteilen" unten.
+  - [ ] Schritt 4, Server: den Rest der `App`-Klasse nach Themen trennen
+        (Konfigurator-API, Audioserver, Intercom, Front, Diagnose).
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
       unter `/loxpanel-agent.py` aus, `install-agent.sh` holt die Datei per
       `curl` statt sie als Heredoc zu enthalten. (W2) **S**

@@ -117,11 +117,16 @@ class _Markiert(HTMLParser):
 
 
 def _zu_uebersetzen(datei: str) -> set:
+    """Die Texte einer Seite: markierte im HTML und T('...') im Skript, auch in
+    den Skriptteilen, die die Seite per script src laedt (config/*.js)."""
     quelle = (HTML / datei).read_text(encoding="utf-8")
     p = _Markiert()
     p.feed(quelle)
     texte = {t for t in p.texte if t}
-    texte |= {_text(m) for m in re.findall(rf"\bT\(\s*({ZEICHENKETTE})\s*\)", quelle)}
+    skripte = [quelle] + [(HTML / teil).read_text(encoding="utf-8")
+                          for teil in re.findall(r'<script src="/([a-z0-9/_.-]+\.js)"', quelle) if (HTML / teil).is_file()]
+    for skript in skripte:
+        texte |= {_text(m) for m in re.findall(rf"\bT\(\s*({ZEICHENKETTE})\s*\)", skript)}
     return texte
 
 

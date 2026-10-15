@@ -195,7 +195,9 @@ def test_pin_merken_im_konfigurator():
     m = asyncio.run(meta())
     assert m["pinMerken"] == {"standard": W.PIN_MERKEN_STANDARD, "max": W.PIN_MERKEN_MAX}
     assert m["panels"]["test"]["ui"]["pinMerken"] == 90
-    html = (ROOT / "webfrontend/html/config.html").read_text(encoding="utf-8")
+    # Der Konfigurator liegt in config.html und den Teilen config/*.js
+    quellen = [ROOT / "webfrontend/html/config.html", *sorted((ROOT / "webfrontend/html/config").glob("*.js"))]
+    html = "\n".join(q.read_text(encoding="utf-8") for q in quellen)
     assert 'data-ui="pinMerken"' in html
 
 
