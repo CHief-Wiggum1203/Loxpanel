@@ -923,19 +923,50 @@
   .ghilfe .gh-unten{flex:0 0 auto;margin:0 8px;}
   .ghilfe .gh-tipps{padding:12px 16px;display:flex;flex-direction:column;gap:4px;font-size:14px;}
   .ghilfe .gh-tipps b{font-weight:650;}
-  .geste{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;min-width:180px;max-width:80%;
-    padding:16px 22px;border-radius:18px;background:var(--screen);border:1px solid var(--line);color:var(--ink);
-    box-shadow:0 20px 50px rgba(0,0,0,.6);text-align:center;pointer-events:none;
-    display:flex;flex-direction:column;gap:8px;}
+  /* Gesten-Einblendung ueber die ganze Flaeche (gesteBild): Pegel von unten
+     (Licht --glow, Musik --accent), Vorhang der Jalousie von oben, gekippte
+     Lamellen; Schrift in zwei Ebenen (gs-auf auf der Fuellung). Masse wachsen
+     mit der Flaeche (Container-Einheiten, davor px fuer Browser ohne sie).
+     Farben aus theme_colors.geste_farben() (--geste-*). */
+  .geste{position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden;container-type:size;
+    background:var(--screen);color:var(--ink);text-align:center;}
   .geste.hidden{display:none;}
-  .geste .gs-titel{font-size:14px;color:var(--muted);}
-  .geste .gs-wert{font-size:40px;font-weight:600;line-height:1.1;word-break:break-word;}
-  .geste .gs-balken{height:6px;border-radius:3px;background:rgba(var(--wash,255,255,255),.12);overflow:hidden;}
-  .geste .gs-balken i{display:block;height:100%;background:var(--accent);}
-  .geste .gs-balken[hidden]{display:none;}
-  .geste.fehl .gs-wert{font-size:18px;color:var(--crit);}
-  /* Im Dunkeln (Uhr-Seite, Nacht): schwach, damit das Panel nicht aufleuchtet */
-  .geste.leise{background:#000;border-color:transparent;box-shadow:none;opacity:.55;}
+  .geste .gs-fuell,.geste .gs-vorhang,.geste .gs-lamellen{position:absolute;left:0;right:0;display:none;}
+  .geste.pegel .gs-fuell,.geste.vorhang .gs-vorhang,.geste.lamellen .gs-lamellen{display:block;}
+  .geste .gs-fuell{bottom:0;height:0;background:var(--glow);transition:height .1s linear;}
+  .geste.musik .gs-fuell{background:var(--accent);}
+  .geste .gs-vorhang{top:0;height:0;box-sizing:border-box;transition:height .1s linear;
+    --gs-teil:24px;--gs-linie:2px;--gs-leiste:8px;
+    background:repeating-linear-gradient(to bottom,var(--geste-vorhang) 0 calc(var(--gs-teil) - var(--gs-linie)),
+      var(--geste-lamelle) calc(var(--gs-teil) - var(--gs-linie)) var(--gs-teil));
+    border-bottom:var(--gs-leiste) solid var(--geste-lamelle);}
+  .geste .gs-lamellen{top:0;bottom:0;--gs-teil:40px;--gs-dicke:calc(3px + 37px * var(--gs-kippung,0));
+    background:repeating-linear-gradient(to bottom,var(--geste-lamelle) 0 var(--gs-dicke),var(--geste-vorhang) var(--gs-dicke) var(--gs-teil));}
+  @supports (width:1cqh){
+    .geste .gs-vorhang{--gs-teil:5cqh;--gs-linie:.42cqh;--gs-leiste:1.7cqh;}
+    .geste .gs-lamellen{--gs-teil:8.3cqh;--gs-dicke:calc(.62cqh + 7.7cqh * var(--gs-kippung,0));}
+  }
+  .geste .gs-ebene{position:absolute;inset:0;transition:clip-path .1s linear;}
+  .geste .gs-auf{color:var(--geste-licht-ink);}
+  .geste.musik .gs-auf{color:var(--geste-musik-ink);}
+  .geste .gs-titel{position:absolute;left:5%;right:5%;top:4%;font-size:15px;font-size:max(14px,3.2cqmin);font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .geste .gs-ico{position:absolute;left:0;right:0;top:11%;display:flex;justify-content:center;}
+  .geste .gs-ico svg{width:44px;height:44px;width:max(32px,9.2cqmin);height:max(32px,9.2cqmin);}
+  .geste .gs-wert{position:absolute;left:5%;right:5%;top:50%;transform:translateY(-45%);font-weight:600;line-height:1.05;
+    letter-spacing:-.02em;overflow-wrap:anywhere;font-size:56px;font-size:max(28px,12cqmin);}
+  .geste .gs-wert.zahl{font-size:132px;font-size:max(64px,27cqmin);line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;}
+  .geste .gs-einheit{font-size:.33em;font-weight:500;letter-spacing:0;}
+  .geste .gs-sub{position:absolute;left:5%;right:5%;bottom:7%;font-size:17px;font-size:max(15px,3.6cqmin);font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .geste.fehl .gs-wert{font-size:22px;font-size:max(18px,5cqmin);color:var(--crit);}
+  /* Im Dunkeln (Uhr-Seite, Nacht): gedaempft auf Schwarz, damit das Panel nicht aufleuchtet */
+  .geste.leise{background:var(--nacht-grund);color:var(--geste-nacht-ink);
+    --geste-vorhang:var(--geste-nacht-vorhang);--geste-lamelle:var(--geste-nacht-lamelle);}
+  .geste.leise .gs-fuell{background:var(--geste-nacht-licht);}
+  .geste.leise.musik .gs-fuell{background:var(--geste-nacht-musik);}
+  .geste.leise .gs-auf,.geste.leise.fehl .gs-wert{color:var(--geste-nacht-ink);}
+  @media (prefers-reduced-motion:reduce){ .geste .gs-fuell,.geste .gs-vorhang,.geste .gs-ebene{transition:none;} }
   .pinbox{background:var(--screen);border:1px solid var(--line);border-radius:16px;padding:20px;width:78%;max-width:300px;
     box-shadow:0 20px 50px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px;}
   .pinttl{font-weight:600;font-size:16px;text-align:center;}
