@@ -56,7 +56,7 @@ class Diagnosedaten:
                            "struktur": bool(self.controls), "bausteine": len(self.controls),
                            "raeume": len(self.rooms), "kategorien": len(self.cats), **self.ms_struktur},
             "audioserver": [{"host": h, "port": c.port, "verbunden": c.verbunden,
-                             "gekoppelt": c.paired, "angemeldet": c.authed}
+                             "gekoppelt": c.paired, "angemeldet": c.authed, "anmeldung": c.anmeldung}
                             for h, c in sorted(self.audio_clients.items())],
         }
         if geraet:

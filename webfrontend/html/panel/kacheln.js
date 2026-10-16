@@ -573,7 +573,9 @@ function renderPanel(blocks){
   if(fb&&fe){ fe.querySelectorAll('.fav').forEach(n=>{ const f=fb.items[+n.dataset.f]; if(!f)return;
     // Wie die Tasten auf der Kachel erst beim Tippen: die Favoriten liegen im
     // scrollenden Raster, ein Wischer darueber startet sonst einen Sender.
-    n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,{ok:back}); }); }); }
+    // Die Musikauswahl geht danach zurueck zur Zone, deren Detailseite
+    // (bleiben) bleibt stehen.
+    n.addEventListener('click',()=>{ if(f.cmd) sendCmd(f.cmd.uuid,f.cmd.cmd,view&&view.secured,fb.bleiben?{}:{ok:back}); }); }); }
   g.dataset.bsig=blockSig(blocks);   // Grundlage fuer den In-place-Abgleich in updatePanel
   intercomBind(g);
   renderTabs();
