@@ -15,7 +15,7 @@ ENDUNGEN = {".py", ".js", ".html", ".css"}
 GRENZE = 1500
 # Noch zu zerlegen (Zeilenzahl beim Anlegen der Wache, 15.10.2026); nur nach unten aendern
 AUSNAHMEN = {
-    "bin/webvisu.py": 6450,
+    "bin/webvisu.py": 5700,
 }
 
 

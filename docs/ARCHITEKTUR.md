@@ -64,6 +64,8 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `webvisu.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
+| `bin/haus.py` | Hausübersicht (Tab `haus`) als Mixin `Haus`: Raumkarten, „Gerade aktiv“, Schnellaktionen über die Zentral-Bausteine, Hinweise, Spieler mit Sendern, Energie, die Aufbauten (`HAUS_*`); `_view_haus()` liefert die Seite, §7.1 „Hausübersicht“. Importiert `webvisu` nicht |
+| `bin/gesten.py` | Gesten wie auf den Loxone-Tastern als Mixin `Gesten`: `geste()` (Nachricht `{t:"geste"}`), `gesten_hilfe()`, Lichtgruppen und Stimmungen, die Auswahl im Konfigurator (`geste_taster_optionen()`, `licht_stimmung_optionen()`), `GESTEN_*_TYPEN`. Importiert `webvisu` nicht |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
@@ -212,8 +214,9 @@ Miniserver-Zugang. So bleibt `/config` immer bedienbar.
 ### 3.3 Zentrale Klasse `App` (`webvisu.py`)
 
 `App` setzt sich aus Mixin-Klassen der Themenmodule zusammen, die sie erbt
-(Schritt 4 des Zerlegens, §7.2): `Statistik` (`statistik.py`, Verläufe) und
-`BausteinHelfer` (`bausteine/`, Helfer und Unterseiten der Bausteine). Die
+(Schritt 4 des Zerlegens, §7.2): `Statistik` (`statistik.py`, Verläufe),
+`BausteinHelfer` (`bausteine/`, Helfer und Unterseiten der Bausteine), `Haus`
+(`haus.py`, Hausübersicht) und `Gesten` (`gesten.py`). Die
 Methoden arbeiten mit dem Zustand der App (`self`), Aufrufe bleiben gleich.
 
 Wichtige Felder:
@@ -1941,7 +1944,7 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
 - Hausübersicht (Tab `haus`, 11.10.2026, Entwurf im Design-Canvas „LoxPanel
   Kachel-Set Loxone“, Boards „iPad quer – Hausübersicht B“ und „iPad hochkant
   – Hausübersicht“): eine eigene Seite ohne Kachelraster für Tablets und große
-  Displays. Der Server rechnet sie in `_view_haus()` (`layout:"haus"`), die
+  Displays. Der Server rechnet sie in `_view_haus()` (`bin/haus.py`, `layout:"haus"`), die
   Visu zeichnet sie in `renderHaus()`.
   - **Wo sie steht:** als Tab `haus` der klassischen Leiste oder als freie
     Seite der eigenen Auswahl mit dem Inhalt `haus` (`pickTabs[].widget`,
@@ -2155,7 +2158,7 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     Uhr-Seite (`gesteErlaubt()`). Die Einblendung `#geste` zeigt Art und
     Raum, beim Dimmen Prozent und Balken; ein Fingerweg über die ganze Höhe
     sind 0 → 100 %, Zwischenwerte gehen höchstens alle `GESTE_TAKT_MS`.
-  - **Server:** `App.geste()` sucht Raum, Bausteine und Befehle selbst, die
+  - **Server:** `App.geste()` (`bin/gesten.py`) sucht Raum, Bausteine und Befehle selbst, die
     Visu nennt nur Art und Wert. Raum ist der der Seite (Raum-Tab oder Raum
     unter „Räume“), sonst `ui.gestenRaum` der Ansicht (`geste_raum()`). Die
     Bausteine sind die der Raumseite (Kategorie-Filter, Ausblendungen),
@@ -2300,12 +2303,13 @@ ihrem jetzigen Stand drin und darf nur schrumpfen; `panel.html` ist seit
 Schritt 2 aufgeteilt, §7.1; Schritt 3 hat die Bausteine nach `bausteine/`
 gebracht, §6, Schritt 4a Konfiguration und Sicherung nach `konfig.py` und
 `sicherung.py`, Schritt 4b die Verläufe nach `statistik.py` und die Helfer der
-Bausteine als Mixins nach `bausteine/`). Beim Zerlegen des Servers gilt: die herausgelösten Module
+Bausteine als Mixins nach `bausteine/`, Schritt 4c Hausübersicht und Gesten
+nach `haus.py` und `gesten.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
 importieren `webvisu` nie, `webvisu` importiert sie; wer in Tests eine
 Konstante oder einen Helfer ersetzt, nimmt `ersetzen()` aus `tests/lox.py`,
 das in jedem Server-Modul mit diesem Namen patcht (`tests/test_schichten.py`).
 Methoden der App, die in ein Thema gehören, wandern als Mixin-Klasse in ihr
-Modul (`Statistik`, `BausteinHelfer`); `App` erbt sie, Aufrufe über `self.`
+Modul (`Statistik`, `BausteinHelfer`, `Haus`, `Gesten`); `App` erbt sie, Aufrufe über `self.`
 bleiben. Ein neues herausgelöstes Modul gehört in `ZERLEGT` in `tests/lox.py`,
 sonst wirkt `ersetzen()` dort nicht.
 
