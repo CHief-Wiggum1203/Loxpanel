@@ -5,9 +5,13 @@ Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer
 die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
+import logging
+from urllib.parse import quote
+
 from bausteine import detail, kachel
 from bausteine.gemeinsam import _clean
-from urllib.parse import quote
+
+log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
 
 
 @kachel("AudioZone")
@@ -123,8 +127,9 @@ def detail_audiozone_v2(app, uuid, c, route):
 
 
 class AudioHelfer:
-    """Helfer der Familie Audio fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie ueber
-    bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+    """Helfer der Familie Audio fuer Kachel, Detailseite und Unterseiten, dazu die Bloecke des
+    Spielers (Pane und Hausuebersicht). Mixin: App erbt sie ueber bausteine.BausteinHelfer,
+    gerufen wird ueber self bzw. app."""
 
     def _song(self, control: dict) -> str:
         """songName, aber rohe Stream-URLs (Radio) ausblenden."""
@@ -204,3 +209,18 @@ class AudioHelfer:
         elif t != "AudioZone":
             return None
         return ("/cover?u=" + quote(str(cover), safe="")) if cover else None
+
+    def player_blocks(self, uuid: str, mehr: bool = False):
+        """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
+        AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
+        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt,
+        ausser mit mehr=True (Spieler der Hausseite: ⋮ zur Musikauswahl)."""
+        c = self.controls.get(uuid or "")
+        if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
+            return None
+        try:
+            v = self._view_control_inner(uuid)
+        except Exception:
+            log.exception("player_blocks fehlgeschlagen (%s)", uuid)
+            return None
+        return [b for b in (v.get("blocks") or []) if mehr or b.get("k") != "more"]

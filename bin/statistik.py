@@ -20,7 +20,8 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 import aiohttp
-from bausteine.gemeinsam import _clean
+
+from bausteine.gemeinsam import _clean, STAT_WEEKDAYS
 from konfig import STAT_RANGES, SV_STATUS_MAX
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
@@ -41,11 +42,10 @@ STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aend
 # (Gesamtverbrauch kWh). Zaehlerstaende zeigen den Verbrauch je Stunde/Tag als Balken.
 STAT_KIND = {1: "digital", 2: "counter"}
 
-STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
-
 _STAT_ROW = re.compile(r"<S\s([^>]*?)/?>")
 
 _STAT_ATTR = re.compile(r'(\w+)="([^"]*)"')
+
 
 def _parse_stat_xml(text: str) -> list:
     """Loxone-Statistik-Monatsdatei -> [(sekunden, [werte ...])], zeitlich sortiert.
@@ -76,6 +76,7 @@ def _parse_stat_xml(text: str) -> list:
     out.sort(key=lambda r: r[0])
     return out
 
+
 def _stat_fmt(fmt) -> tuple[int, str]:
     """Loxone-Zahlenformat -> (Nachkommastellen, Einheit). Zwei Schreibweisen:
     printf wie bei `statistic` ("%.1f °C", "%.0f%", "%.0fLx") und die Maske von
@@ -88,6 +89,7 @@ def _stat_fmt(fmt) -> tuple[int, str]:
     if m:
         return len(m.group(1) or ""), m.group(2).strip()
     return 0, ""
+
 
 def _parse_stat2_bin(body: bytes, nvals: int = 1) -> list | None:
     """Antwort von jdev/sps/getStatistic/.../raw/... -> [(sekunden, [werte])].
@@ -108,6 +110,7 @@ def _parse_stat2_bin(body: bytes, nvals: int = 1) -> list | None:
     out.sort(key=lambda r: r[0])
     return out
 
+
 def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
     """Linie auf hoechstens n Punkte ausduennen: je Zeitfenster der Mittelwert
     (Analog) bzw. das Maximum (Digital: ein kurzes "Ein" soll sichtbar bleiben)."""
@@ -126,6 +129,7 @@ def _stat_thin(pts: list, t0: int, t1: int, n: int, digital: bool) -> list:
             out.append((int(sum(t for t, _ in items) / len(items)),
                         sum(v for _, v in items) / len(items)))
     return out
+
 
 def _stat_buckets(pts: list, edges: list, t_end: int) -> list:
     """Zeitgewichteter Mittelwert je Abschnitt [edges[i], edges[i+1]). Ein Messwert
@@ -152,6 +156,7 @@ def _stat_buckets(pts: list, edges: list, t_end: int) -> list:
         out.append(acc / dur if dur else None)
     return out
 
+
 def _stat_day_range(pts: list, edges: list, t_end: int) -> list:
     """Tiefst- und Hoechstwert je Abschnitt, mit dem Stand, der zu Beginn des
     Abschnitts galt. Abschnitte ohne bekannten Wert oder nach t_end -> None."""
@@ -166,6 +171,7 @@ def _stat_day_range(pts: list, edges: list, t_end: int) -> list:
             vals.append(prev[-1])
         out.append((min(vals), max(vals)) if vals else None)
     return out
+
 
 def _stat_bars(pts: list, edges: list) -> list:
     """Zaehlerstaende -> Verbrauch je Abschnitt [edges[i], edges[i+1]).

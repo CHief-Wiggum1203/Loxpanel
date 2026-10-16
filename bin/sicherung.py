@@ -9,8 +9,6 @@ Die Routen /api/backup und /api/restore liegen in webvisu.py und rufen hier.
 Importiert webvisu.py nicht."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import copy
 import io
 import json
@@ -21,6 +19,7 @@ import zipfile
 import zlib
 from datetime import datetime
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from audioserver import make_backend
@@ -55,6 +54,7 @@ BACKUP_LIESMICH = "LIESMICH.txt"
 # verlaesslich und zaehlt nicht.
 LIESMICH_KENNWOERTER = "Kennwörter sind entfernt (leer), weil diese Datei ohne Anmeldung"
 
+
 def _ohne_kennwoerter(obj, pfad: tuple = ()) -> tuple:
     """Kopie ohne Kennwoerter (leer statt Wert) -> (daten, [entfernte Pfade]).
     Ein Pfad ist ein Tupel aus Schluesseln und Listen-Indizes."""
@@ -78,12 +78,14 @@ def _ohne_kennwoerter(obj, pfad: tuple = ()) -> tuple:
         return out, weg
     return obj, []
 
+
 def _pfad_text(pfad) -> str:
     """Pfad als Text, wie ihn die LIESMICH.txt nennt: a.b[0].c"""
     s = ""
     for t in pfad:
         s += f"[{t}]" if isinstance(t, int) else (f".{t}" if s else str(t))
     return s
+
 
 def _backup_zip(cfgdir: Path) -> bytes:
     """Die Einstellungs-Dateien als ZIP, Kennwoerter entfernt, mit LIESMICH.txt.
@@ -126,6 +128,7 @@ def _backup_zip(cfgdir: Path) -> bytes:
              "dateien": drin, "kennwoerter_entfernt": vermerk},
             ensure_ascii=False, indent=2) + "\n")
     return buf.getvalue()
+
 
 # Groesste Datei, die das Einspielen annimmt (entpackt). Die Einstellungsdateien
 # haben wenige KB; die Grenze haelt eine ZIP-Datei, die sich beim Entpacken
@@ -177,8 +180,10 @@ _CFG_TYPEN = {
                  "fore_days": int, "lat": (int, float, type(None)), "lon": (int, float, type(None))},
 }
 
+
 def _keine_konstante(c):
     raise ValueError(f"{c} ist keine Zahl")
+
 
 def _utf8_ok(s: str) -> bool:
     try:
@@ -186,6 +191,7 @@ def _utf8_ok(s: str) -> bool:
     except UnicodeEncodeError:
         return False
     return True
+
 
 def _inhalt_pruefen(obj, datei: str) -> None:
     """Was der Server aus einer Sicherung nicht verkraftet: NaN, Unendlich und
@@ -225,6 +231,7 @@ def _inhalt_pruefen(obj, datei: str) -> None:
             raise ValueError(f"{datei}: {pfad(e)} ist keine gültige Zahl.")
         elif isinstance(v, str) and not _utf8_ok(v):
             raise ValueError(f"{datei}: {pfad(e)} enthält ungültige Zeichen.")
+
 
 def _sicherung_lesen(daten: bytes) -> tuple:
     """ZIP aus /api/backup lesen und pruefen -> ({datei: objekt}, vermerk).
@@ -287,6 +294,7 @@ def _sicherung_lesen(daten: bytes) -> tuple:
                          + " noch ".join(BACKUP_FILES) + ".")
     return gefunden, vermerk
 
+
 def _typ_ok(v, erwartet) -> bool:
     if erwartet == "port":
         return isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= 65535
@@ -294,6 +302,7 @@ def _typ_ok(v, erwartet) -> bool:
     if isinstance(v, bool) and bool not in typen:
         return False
     return isinstance(v, typen)
+
 
 def _cfg_pruefen(cfg: dict) -> None:
     """Typen der Abschnitte von loxpanel.cfg pruefen, die der Server liest
@@ -326,6 +335,7 @@ def _cfg_pruefen(cfg: dict) -> None:
                                               for k in ("url", "name", "color", "key")):
             raise ValueError(f"loxpanel.cfg: calendar.sources[{i}] hat einen ungültigen Wert.")
 
+
 def _leere_geheimnisse(obj):
     """Pfade aller leeren Kennwort-Felder (_SECRET_KEYS) in obj."""
     stapel = [((), obj)]
@@ -339,6 +349,7 @@ def _leere_geheimnisse(obj):
                     stapel.append((pfad + (k,), v))
         elif isinstance(knoten, list):
             stapel += [(pfad + (i,), v) for i, v in reversed(list(enumerate(knoten)))]
+
 
 def _vermerk_pfade(vermerk, name: str, obj):
     """Pfade der entfernten Kennwoerter einer Datei (obj = ihr Inhalt), None
@@ -356,6 +367,7 @@ def _vermerk_pfade(vermerk, name: str, obj):
     if isinstance(vermerk.get("liesmich"), frozenset):
         return [p for p in _leere_geheimnisse(obj) if f"{name}: {_pfad_text(p)}" in vermerk["liesmich"]]
     return None
+
 
 def _leere_kennwoerter(obj, datei: str) -> list:
     """Aeltere Sicherung ohne Vermerk: leere Kennwoerter an den bekannten
@@ -377,6 +389,7 @@ def _leere_kennwoerter(obj, datei: str) -> list:
                 out.append(p + (key,))
     return out
 
+
 def _knoten(obj, pfad: tuple):
     """Wert an einem Pfad (Schluessel/Indizes), None wenn es ihn nicht gibt."""
     for t in pfad:
@@ -387,6 +400,7 @@ def _knoten(obj, pfad: tuple):
         else:
             return None
     return obj
+
 
 def _kennwoerter_einsetzen(neu, alt, pfade, nur_wo_eins_war: bool = False) -> tuple:
     """Setzt entfernte Kennwoerter aus dem bisherigen Stand wieder ein, aber nur
@@ -410,6 +424,7 @@ def _kennwoerter_einsetzen(neu, alt, pfade, nur_wo_eins_war: bool = False) -> tu
             fehlen.append(pfad)
     return behalten, fehlen
 
+
 def _kennwort_ziel(datei: str, pfad: tuple, namen: dict) -> dict:
     """Wozu ein Kennwort gehoert, fuer die Anzeige im Konfigurator."""
     if datei == "loxpanel.cfg" and pfad == ("miniserver", "pass"):
@@ -420,6 +435,7 @@ def _kennwort_ziel(datei: str, pfad: tuple, namen: dict) -> dict:
         return {"art": "display", "name": str(pfad[1])}
     return {"art": "sonst", "name": f"{datei}: {_pfad_text(pfad)}"}
 
+
 def _profil_pruefen(datei: str, wer: str, fn, *args):
     """Vorhandene Sanitizer laufen lassen; stuerzen sie an einem falschen Typ
     ab, ist die Sicherung kaputt -> ValueError mit dem Ort."""
@@ -428,8 +444,10 @@ def _profil_pruefen(datei: str, wer: str, fn, *args):
     except (TypeError, AttributeError, ValueError, OverflowError, KeyError) as err:
         raise ValueError(f"{datei}: {wer} hat einen ungültigen Wert ({err}).") from err
 
+
 def _zugang_komplett(ms) -> bool:
     return isinstance(ms, dict) and all(str(ms.get(k) or "").strip() for k in ("host", "user", "pass"))
+
 
 def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
     """Alles pruefen und vorbereiten, nichts schreiben -> Plan fuer
@@ -548,6 +566,7 @@ def _sicherung_pruefen(app: "App", dateien: dict, vermerk) -> dict:
                                  "LoxPanel-Sicherung sein darf.")
     return plan
 
+
 def _vorher_sichern(f: Path) -> None:
     """Eine Generation Sicherung vor dem Ueberschreiben (wie panels.json.bak);
     best effort, ein Fehler darf das Einspielen nicht blockieren."""
@@ -556,6 +575,7 @@ def _vorher_sichern(f: Path) -> None:
             _atomic_write(f.with_name(f.name + ".bak"), f.read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
         log.warning("%s.bak nicht geschrieben: %s", f.name, err)
+
 
 async def _sicherung_schreiben(app: "App", plan: dict) -> dict:
     """Plan aus _sicherung_pruefen schreiben und den laufenden Server

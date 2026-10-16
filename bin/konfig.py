@@ -36,6 +36,7 @@ CFG_FILE = _CFGDIR / "loxpanel.cfg"
 CFG_EXAMPLE = _CFGDIR / "loxpanel.cfg.example"
 THEME_FILE = _CFGDIR / "theme.json"
 
+
 def _load_cfg() -> dict:
     for f in (CFG_FILE, CFG_EXAMPLE):
         if f.is_file():
@@ -50,6 +51,7 @@ def _load_cfg() -> dict:
                 cfg.pop("miniserver", None)
             return cfg
     return {}
+
 
 def _atomic_write(path: Path, text: str) -> None:
     """Schreibt text atomar: erst nach <datei>.tmp, fsync, dann os.replace, zum
@@ -79,8 +81,10 @@ def _atomic_write(path: Path, text: str) -> None:
     except OSError:
         pass                   # nicht auf jeder Plattform/FS moeglich, best effort
 
+
 def _write_cfg(cfg: dict) -> None:
     _atomic_write(CFG_FILE, json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
+
 
 VALID_TABS = ["favoriten", "zentral", "raeume", "kategorien"]
 
@@ -92,9 +96,11 @@ PICK_TAB = "auswahl"
 
 PICK_TABS_MAX = 4
 
+
 def _pick_key(i):
     """Tab-Kennung der i-ten freien Seite: auswahl, auswahl2, auswahl3, auswahl4."""
     return PICK_TAB if i == 0 else PICK_TAB + str(i + 1)
+
 
 def _pick_index(t):
     """Index (0..3) eines Auswahl-Tabs, sonst -1."""
@@ -106,8 +112,10 @@ def _pick_index(t):
             return int(s) - 1
     return -1
 
+
 def _is_pick(t):
     return _pick_index(t) >= 0
+
 
 def _seiten_layout(v) -> list | None:
     """Anordnung einer freien Seite aus dem Seiten-Editor (pickTabs[i].layout,
@@ -129,6 +137,7 @@ def _seiten_layout(v) -> list | None:
         out.append({"id": u, "w": 2 if h == 2 else w, "h": h})
     return out
 
+
 def _layout_mit_picks(layout, picks: list) -> tuple[list, list | None]:
     """picks bestimmt, was auf der Seite steht, das Layout Reihenfolge und
     Groesse: Eintraege, die nicht (mehr) in picks stehen, fallen weg, Bausteine
@@ -141,6 +150,7 @@ def _layout_mit_picks(layout, picks: list) -> tuple[list, list | None]:
     layout = [e for e in layout if e["id"] in drin]
     im_layout = {e["id"] for e in layout}
     return [e["id"] for e in layout] + [u for u in picks if u not in im_layout], layout
+
 
 def _pick_tabs(prof):
     """Freie Seiten eines Profils als [{name, picks}] (max 4). Rueckwaerts-
@@ -173,6 +183,7 @@ def _pick_tabs(prof):
                  "picks": [u for u in prof.get("picks") if isinstance(u, str)],
                  "icon": ""}]
     return []
+
 
 # Kalender und Wetter als eigene Seite in der unteren Leiste. Der Inhalt kommt
 # aus der Front ({t:"front"}), die jedes Panel ohnehin bekommt; die Seite sagt
@@ -208,6 +219,7 @@ GESTEN_HINWEIS_STANDARD = True
 # Display-Treiber fuer Kiosk-Apps (Android) mit Standard-Port ihrer HTTP-Schnittstelle
 DISPLAY_DRIVERS = {"fully": 2323, "wallpanel": 2971}
 
+
 def _is_tab(t) -> bool:
     """Gueltiges Tab-Kennzeichen: einer der 4 Standard-Tabs, die freie Auswahl
     (`auswahl`), Kalender/Wetter (FRONT_TABS), die Hausuebersicht (HAUS_TAB)
@@ -219,6 +231,7 @@ def _is_tab(t) -> bool:
         return False
     return ((t.startswith("cat:") and len(t) > 4)
             or (t.startswith("room:") and len(t) > 5))
+
 
 # Verlaufs-Diagramme fuer Bausteine mit `statistic` in der Struktur. Die Daten
 # liegen am Miniserver als Monatsdateien /stats/<uuidAction>.<JJJJMM>.xml (so
@@ -319,12 +332,15 @@ PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDA
 
 _COLOR_RE = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|[a-zA-Z]{3,20})$")
 
+
 def _color_ok(v) -> bool:
     return isinstance(v, str) and bool(_COLOR_RE.match(v.strip()))
+
 
 # Unterstuetzte Panel-Sprachen (Basis-Codes). Steuert vorerst nur Datum/Uhr am
 # Panel; die Uebersetzung der festen UI-/Statustexte folgt (i18n-Ausbau).
 SUPPORTED_LANGS = ("de", "en", "fr", "it", "es", "nl")
+
 
 def _pin_merken(v) -> int:
     """Sekunden, die die Visu eine richtige PIN behaelt; ungueltig -> Standard.
@@ -333,12 +349,14 @@ def _pin_merken(v) -> int:
         return PIN_MERKEN_STANDARD
     return max(0, min(PIN_MERKEN_MAX, int(v)))
 
+
 def _clean_lang(v):
     """Sprach-Code validieren (z.B. 'de', 'en', 'en-US'); '' wenn nicht unterstuetzt."""
     if not isinstance(v, str):
         return ""
     v = v.strip().lower()[:8]
     return v if v.split("-")[0] in SUPPORTED_LANGS else ""
+
 
 # Screensaver: hoechstens so viele Status-Kacheln in der rechten Spalte. Mehr
 # passt neben Uhr und Wetter auf keinem Panel lesbar hin.
@@ -384,10 +402,12 @@ NACHT_STANDARD = {"nightDim": 0, "nightWake": 20, "nightClock": False, "nightClo
 # abdunkeln"; unter NACHT_UHR_HELL_MIN waere sie nicht mehr zu lesen.
 NACHT_UHR_HELL_MIN = 5
 
+
 def _clean_kachel_set(v):
     """Kachel-Set eines Profils (ui.tileSet): ein Name aus
     theme_colors.KACHEL_SETS, sonst None (= Standard, Farben aus der Grundfarbe)."""
     return v if isinstance(v, str) and v in theme_colors.KACHEL_SETS else None
+
 
 def _clean_kachel_farbton(v):
     """Farbton des Kachel-Sets mit Rechnung (ui.tileHue): ganze Grad 0-359,
@@ -396,11 +416,13 @@ def _clean_kachel_farbton(v):
         return None
     return int(v)
 
+
 def _clean_kachel_aktiv(v):
     """Aktive Kachel des Kachel-Sets mit Rechnung (ui.tileActive): ein Schluessel
     aus theme_colors.KACHEL_SETS["touch"]["aktiv"], sonst None (= Standard)."""
     keys = [a["key"] for a in theme_colors.KACHEL_SETS["touch"]["aktiv"]["auswahl"]]
     return v if v in keys else None
+
 
 def _clean_scale(v):
     """Skalierungswert pruefen: "off" | "auto" | Zahl in [SCALE_MIN, SCALE_MAX]
@@ -419,6 +441,7 @@ def _clean_scale(v):
         return None
     return round(max(SCALE_MIN, min(SCALE_MAX, float(v))), 2)
 
+
 def _clean_kachelziel(v) -> int | None:
     """Zielgroesse einer Kachel (ui.tileSize, devices[name].tileTarget) als
     Zahl in CSS-Pixeln: Zahl oder Ziffernfolge in [KACHEL_ZIEL_MIN,
@@ -436,6 +459,7 @@ def _clean_kachelziel(v) -> int | None:
         return None
     return int(round(max(KACHEL_ZIEL_MIN, min(KACHEL_ZIEL_MAX, float(v)))))
 
+
 def _clean_pane_spalten(v) -> int | None:
     """Feste Breite des Widgets im automatischen Raster (ui.paneCols) in
     Kachelspalten, hochkant Kachelzeilen: ganze Zahl oder Ziffernfolge ab 1,
@@ -451,11 +475,13 @@ def _clean_pane_spalten(v) -> int | None:
         return None
     return int(min(PANE_SPALTEN_MAX, int(v)))
 
+
 # Groesste Bildschirmkante in CSS-px, die der Server annimmt: fuer die Meldung
 # eines Panels (_clean_screen) und fuer die im Profil gespeicherte Zielgroesse
 # (_clean_zielgeraet) dieselbe Grenze, sonst passt eine gemeldete Groesse nicht
 # in das Profil und der Abgleich unter Displays kann nie warnen.
 BILDSCHIRM_PX_MAX = 20000
+
 
 def _clean_zielgeraet(v) -> dict | None:
     """Zielgeraet eines Profils (profil.device): {"name": Geraetename, dazu
@@ -476,6 +502,7 @@ def _clean_zielgeraet(v) -> dict | None:
         out["vw"], out["vh"] = int(vw), int(vh)
     return out
 
+
 def _kachel_breite(v) -> int | None:
     """Breite einer Kachel in Spalten (tiles[uuid].w): 1 oder 2, auch als
     Ziffer; True/False und alles andere ergibt None = nach Typ."""
@@ -484,6 +511,7 @@ def _kachel_breite(v) -> int | None:
     if isinstance(v, str) and v.strip().isdigit():
         v = int(v.strip())
     return int(v) if isinstance(v, (int, float)) and int(v) == v and int(v) in KACHEL_BREITEN else None
+
 
 def _kachel_vorschlag(screen) -> int | None:
     """Vorschlag fuer die Zielkachel eines Geraets aus seiner Bildschirmmeldung
@@ -500,6 +528,7 @@ def _kachel_vorschlag(screen) -> int | None:
         return KACHEL_ZIEL_STANDARD
     kurz = min(screen["vw"], screen["vh"])
     return int(max(KACHEL_ZIEL_STANDARD, min(300, round(kurz / 5 / 10) * 10)))
+
 
 def _clean_screen(d) -> dict:
     """Bildschirmmeldung eines Panels ({t:"screen"}) auf plausible Zahlen
@@ -524,6 +553,7 @@ def _clean_screen(d) -> dict:
            "rc": zahl("rc", 1, 50), "rr": zahl("rr", 1, 50)}            # Raster der Kachelansicht
     return {k: v for k, v in out.items() if v is not None}
 
+
 def _clean_camera(v: str) -> str:
     """Kamera-Widget pruefen: "camera:<uuid>" oder "camera:<uuid>|<uuid>,<uuid>,..."
     Hinter dem senkrechten Strich stehen frei gewaehlte Werte (wie "status:"),
@@ -540,6 +570,7 @@ def _clean_camera(v: str) -> str:
         return ""
     uu = [x.strip() for x in werte.split(",") if x.strip()][:SV_STATUS_MAX]
     return kopf + cam + ("|" + ",".join(uu) if uu else "")
+
 
 def _clean_tabpane(v) -> str:
     """Split-Pane eines Tabs pruefen: "weather" | "calendar" | "player:<uuid>"
@@ -574,6 +605,7 @@ def _clean_tabpane(v) -> str:
             return "header:" + ",".join(uu) if uu else "header"
     return ""
 
+
 def _clean_widget_tab(v) -> str:
     """Widget einer freien Seite (pickTabs[].widget, Vollbild-Tab): dieselbe
     Grammatik wie eine Tab-Pane, nur die Kopfzeile nicht - sie ist eine Zeile
@@ -584,6 +616,7 @@ def _clean_widget_tab(v) -> str:
         return v
     w = _clean_tabpane(v)
     return "" if w == "header" or w.startswith("header:") else w
+
 
 def _clean_werteleiste(v) -> list:
     """Seiten, deren Anzeige-Bausteine als Werteleiste ueber dem Raster stehen
@@ -599,11 +632,13 @@ def _clean_werteleiste(v) -> list:
             out.append(t)
     return out
 
+
 def _clean_kennung(v) -> str:
     """UUID eines Bausteins oder Raums aus einer Einstellung: getrimmt, hoechstens
     60 Zeichen, sonst "". Ob es ihn gibt, entscheidet erst die Struktur - wie bei
     presence und hide bleibt die Kennung, auch wenn der Miniserver gerade fehlt."""
     return v.strip()[:60] if isinstance(v, str) else ""
+
 
 def _clean_raum_verlassen(v) -> dict:
     """Taster je Raum fuer "Raum verlassen" (Vorgaben, ui.raumVerlassen):
@@ -617,6 +652,7 @@ def _clean_raum_verlassen(v) -> dict:
             out[ru] = tu
     return out
 
+
 def _clean_licht_start(v) -> dict | None:
     """Stimmung beim Einschalten eines Geraets (devices[name].lichtStart):
     {lc: Lichtsteuerung, mood: Stimmungs-ID aus ihrer moodList}, sonst None."""
@@ -628,6 +664,7 @@ def _clean_licht_start(v) -> dict | None:
     except (TypeError, ValueError):
         return None
     return {"lc": lc, "mood": mood} if lc and mood >= 0 else None
+
 
 def _clean_svpane(v) -> str:
     """Rechte Spalte der Uhr-Seite (Screensaver) pruefen und normieren.
@@ -655,12 +692,14 @@ def _clean_svpane(v) -> str:
                 return kopf + ",".join(uu)
     return ""
 
+
 # Loxone-Icon-Bibliothek: SVGs des LoxBerry-Plugins "loxoneicons", read-only in
 # den Container gemountet (docker-compose). Fehlt der Mount/das Plugin, ist der
 # Ordner leer -> die Icon-Quelle erscheint gar nicht. Ueber Env ueberschreibbar.
 LOXLIB_DIR = os.environ.get("LOXPANEL_LOXLIB_DIR", "/app/loxone-icons/filled")
 
 _LOXLIB_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.svg$")
+
 
 def _loxlib_names() -> list:
     """Dateinamen der Loxone-Bibliothek (flache .svg im gemounteten Ordner)."""
@@ -669,6 +708,7 @@ def _loxlib_names() -> list:
                       if _LOXLIB_NAME.match(fn) and ".." not in fn)
     except OSError:
         return []
+
 
 def _clean_icon(ic):
     """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner)."""
@@ -689,6 +729,7 @@ def _clean_icon(ic):
         return {"src": "custom", "file": ic["file"]}
     return None
 
+
 def _sanitize_overlay(ov) -> dict:
     """Overlay-Config aus der Config-Seite auf erlaubte Werte eindampfen."""
     if not isinstance(ov, dict):
@@ -706,8 +747,10 @@ def _sanitize_overlay(ov) -> dict:
         out["rw"] = max(1, min(12, int(ov["rw"])))
     return out
 
+
 def _config() -> dict:
     return _ms_zugang()[0]
+
 
 def _ms_zugang() -> tuple[dict, str]:
     """Wirksamer Miniserver-Zugang und seine Quelle: "datei", wenn der
@@ -745,6 +788,7 @@ def _ms_zugang() -> tuple[dict, str]:
     # in stream_task und zeigt den Panels den Einrichtungshinweis.
     return {}, ""
 
+
 def _ms_sekunden(schluessel: str, standard: float) -> float:
     """Zeitwert in s aus dem Abschnitt miniserver der loxpanel.cfg. Fehlt er
     oder ist er keine Zahl > 0, gilt `standard` (ungueltig: mit Warnung)."""
@@ -757,6 +801,7 @@ def _ms_sekunden(schluessel: str, standard: float) -> float:
                     schluessel, wert, standard)
     return float(standard)
 
+
 def _ms_antwortfrist() -> float:
     """Sekunden, die der Miniserver fuer eine Antwort bekommt (loxpanel.cfg,
     miniserver.response_timeout), etwa auf die Anmeldung beim Pruefen eines
@@ -767,10 +812,12 @@ def _ms_antwortfrist() -> float:
     soll niemand vor "Verbinden & Speichern" warten."""
     return _ms_sekunden("response_timeout", MS_CMD_TIMEOUT)
 
+
 def _ms_keepalive_abstand() -> float:
     """Sekunden zwischen zwei keepalive an den Miniserver-WebSocket
     (loxpanel.cfg, miniserver.keepalive_interval), Standard MS_KEEPALIVE."""
     return _ms_sekunden("keepalive_interval", MS_KEEPALIVE)
+
 
 def _audio_config() -> dict:
     """Audio-Backend-Config (Loxone-Audioserver / MS4H auf Port 7091).
@@ -788,6 +835,7 @@ def _audio_config() -> dict:
     except (ValueError, OSError):
         return {}
     return cfg if isinstance(cfg, dict) else {}
+
 
 def _audiometa_config() -> dict:
     """Metadaten-Quelle Audioserver4Home/Sonn (REST /api/v1/zones, Port 7090).
@@ -807,6 +855,7 @@ def _audiometa_config() -> dict:
         return {}
     return cfg if isinstance(cfg, dict) else {}
 
+
 def _audiometa_sekunden(am: dict, schluessel: str, standard: float) -> float:
     """Eine Zeit (s) des Audioserver-Ereignis-Clients aus loxpanel.cfg
     audiometa.<schluessel> (retry_interval, response_timeout). Ohne gueltigen
@@ -818,6 +867,7 @@ def _audiometa_sekunden(am: dict, schluessel: str, standard: float) -> float:
     if wert is not None:
         log.warning("loxpanel.cfg: audiometa.%s %r ungueltig, es gelten %s s", schluessel, wert, standard)
     return float(standard)
+
 
 def _intercom_config() -> dict:
     base = Path(__file__).resolve().parent.parent / "config"
@@ -835,6 +885,7 @@ def _intercom_config() -> dict:
             cfg[k] = v.strip()
     return cfg
 
+
 def _night_config() -> dict:
     """Nachtmodus-Block aus loxpanel.cfg `night`: {"control": "<uuid>"}. Der
     `active`-State dieses Bausteins schaltet den Nachtmodus. Leer = kein
@@ -848,6 +899,7 @@ def _night_config() -> dict:
     except (ValueError, OSError):
         return {}
     return cfg if isinstance(cfg, dict) else {}
+
 
 def _calendar_config() -> dict:
     """Kalender-/Wetter-Block aus loxpanel.cfg `calendar`:
@@ -866,8 +918,10 @@ def _calendar_config() -> dict:
         return {}
     return cfg if isinstance(cfg, dict) else {}
 
+
 DEFAULT_THEME = {"states": {"active": "#e0a24d", "good": "#52b881",
                             "warn": "#d6a24a", "crit": "#e2695f"}}
+
 
 def load_theme() -> dict:
     # Groessen nur, wenn eingestellt: sonst gilt GROESSEN_STANDARD des
@@ -889,6 +943,7 @@ def load_theme() -> dict:
             pass
     return theme
 
+
 def load_panels() -> dict:
     """Panel-Profile aus config/panels.json (Auswahl per URL ?panel=<id>).
 
@@ -908,6 +963,7 @@ def load_panels() -> dict:
             pass
     return {}
 
+
 def load_devices() -> dict:
     """Geraete-Automatik aus config/panels.json (`devices`): pro physischem
     Panel (Schluessel = Agent-Name) eine Zuordnung Betriebsmodus -> Panel-Profil.
@@ -924,10 +980,12 @@ def load_devices() -> dict:
             pass
     return {}
 
+
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber
 # ("password"). /api/settings gibt sie nie heraus, das Backup auch nicht,
 # /api/meta nennt beim Display nur hasPass (_devices_export).
 _SECRET_KEYS = {"pass", "password"}
+
 
 def _cfg_datei() -> dict:
     """Nur die geschriebene loxpanel.cfg, ohne Rueckfall auf das Beispiel: Das
@@ -1151,6 +1209,7 @@ def _sanitize_panels(panels: dict) -> dict:
         out[pid] = e
     return out
 
+
 def _panels_verworfen(roh: dict, sauber: dict, namen: dict | None = None) -> list[str]:
     """Was _sanitize_panels nicht uebernommen hat, als lesbare Pfade
     ("<Panel>: ui.cols", "<Panel>: tabs: foo"), damit der Konfigurator es
@@ -1220,6 +1279,7 @@ def _panels_verworfen(roh: dict, sauber: dict, namen: dict | None = None) -> lis
             vergleich(p, sauber[pid], (), titel or pid)
     return out
 
+
 def _panels_doc(panels: dict, devices: dict) -> dict:
     """Inhalt von config/panels.json, wie _persist_panels_file ihn schreibt."""
     doc = {"_comment": "Von der LoxPanel-Konfigurationsseite (/config bzw. "
@@ -1230,6 +1290,7 @@ def _panels_doc(panels: dict, devices: dict) -> dict:
     if devices:
         doc["devices"] = devices
     return doc
+
 
 def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
     """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
@@ -1303,6 +1364,7 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         out[name.strip()[:60]] = entry
     return out
 
+
 def _sanitize_display(d) -> dict | None:
     """Display-Treiber eines Geraets: {driver: fully|wallpanel, host, port,
     password}. Ohne gueltigen Treiber oder Host -> None."""
@@ -1321,6 +1383,7 @@ def _sanitize_display(d) -> dict | None:
     return {"driver": drv, "host": host, "port": max(1, min(65535, port)),
             "password": str(d.get("password") or "")[:100]}
 
+
 def _devices_export(devices: dict) -> dict:
     """Geraete fuer den Konfigurator (/api/meta, Antwort von POST
     /api/devices): das Display-Kennwort nur als hasPass, wie Miniserver
@@ -1333,6 +1396,7 @@ def _devices_export(devices: dict) -> dict:
             e = {**e, "display": {**disp, "hasPass": bool(e["display"].get("password"))}}
         out[name] = e
     return out
+
 
 def _sanitize_theme_ui(ui: dict) -> dict:
     """Globale Darstellungs-ui (theme.json) validieren: nur bekannte Keys."""
@@ -1388,6 +1452,7 @@ def _sanitize_theme_ui(ui: dict) -> dict:
     if _rv:
         out["raumVerlassen"] = _rv
     return out
+
 
 def _sanitize_categories(cats) -> dict:
     """categories aus dem Config-Editor validieren. Wert = Farbe (nur Icon)

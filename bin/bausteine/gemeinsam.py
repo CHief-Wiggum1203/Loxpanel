@@ -14,6 +14,8 @@ from adapters import JalousieAdapter, LightControllerV2Adapter
 LIGHT = LightControllerV2Adapter()
 JAL = JalousieAdapter()
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
+# Wochentage kurz, Montag zuerst (datetime.weekday()): Verlaeufe, Wecker, Klingelzeiten
+STAT_WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 # Betriebsarten des Sauna-Bausteins (State "mode", 0..6), Zuordnung aus der
 # offiziellen Loxone-Sauna-Dokumentation. Als Klartext auf Kachel und Detailseite.
 SAUNA_MODES = {0: "Manuell", 1: "Finnisch manuell", 2: "Feuchte manuell",
