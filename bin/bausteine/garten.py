@@ -62,6 +62,9 @@ def detail_bewaesserung(app, uuid, c, route):
         {"label": "Alle Zonen", "cmd": {"uuid": ua, "cmd": f"select/{IRR_SELECT_ALLE}"}},
         {"label": "Alles aus", "cmd": {"uuid": ua, "cmd": f"select/{IRR_SELECT_AUS}"}},
     ]})
+    # Verlauf aus dem Unterbaustein Tracker (Strukturdoku: Sub-Controls Tracker)
+    if app._verlauf_sub(c)[1] is not None:
+        rows.append({"k": "row", "cells": [{"label": "Verlauf", "nav": {"view": "verlauf", "id": uuid}}]})
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "anchor": "bottom", "blocks": [
         {"k": "hero", "icon": "info"},

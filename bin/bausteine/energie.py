@@ -8,7 +8,14 @@ from __future__ import annotations
 import math
 
 from bausteine import detail, kachel
-from bausteine.gemeinsam import _clean
+from bausteine.gemeinsam import _clean, PROZENT_SCHRITT
+
+# Energiemanager (EnergyManager2, Strukturdoku): Schritt fuer MaxSpwr (kW) und
+# die Befehle je Verbraucher ({uuid}/activate bzw. deactivate gelten bis
+# Mitternacht, automatic gibt ihn zurueck an den Manager)
+EM_LEISTUNG_SCHRITT = 0.5
+EM_VERBRAUCHER_BEFEHLE = (("Ein bis Mitternacht", "activate"), ("Aus bis Mitternacht", "deactivate"),
+                          ("Automatik", "automatic"))
 
 
 @kachel("Fronius")
@@ -123,21 +130,33 @@ def detail_energiemanager(app, uuid, c, route):
         sp = app._flow_text(app._state(c, "Spwr"), "%.2f kW", "Speicher entlädt", "Speicher lädt", "Speicher")
         if sp:
             rows.append({"k": "status", "text": sp})
+    ua = c.get("uuidAction")
     soc = app._endlich(c, "Ssoc")
     if soc is not None and det.get("HasSsoc", True):
-        txt = f"Speicher {app._fmt_num(soc, '%.0f')} %"
-        mn = app._endlich(c, "MinSoc")
-        if mn is not None:
-            txt += f" (Reserve {app._fmt_num(mn, '%.0f')} %)"
-        rows.append({"k": "status", "text": txt})
-    loads = app._named_items(app._json_state(c, "loads"))
+        rows.append({"k": "status", "text": f"Speicher {app._fmt_num(soc, '%.0f')} %"})
+    # Speicher-Parameter (setMinSoc, setMaxSpwr); gesperrt, wenn am Eingang
+    # des Bausteins etwas haengt (MinSocLocked, MaxSpwrLocked)
+    mn = app._endlich(c, "MinSoc")
+    if mn is not None and det.get("HasSsoc", True):
+        rows.append({"k": "stepper", "label": "Reserve", "value": mn, "fmt": "prozent",
+                     **({"sub": "von der Logik vorgegeben"} if det.get("MinSocLocked") else
+                        {"step": PROZENT_SCHRITT, "min": 0, "max": 100,
+                         "cmd": {"uuid": ua, "tmpl": "setMinSoc/{v}"}})})
+    mx = app._endlich(c, "MaxSpwr")
+    if mx is not None and det.get("HasSpwr", True):
+        rows.append({"k": "stepper", "label": "Max. Speicherleistung", "value": mx, "unit": "kW",
+                     **({"sub": "von der Logik vorgegeben"} if det.get("MaxSpwrLocked") else
+                        {"step": EM_LEISTUNG_SCHRITT, "min": 0,
+                         "cmd": {"uuid": ua, "tmpl": "setMaxSpwr/{v}"}})})
+    loads = app._em_verbraucher(c)
     if loads:
         rows.append({"k": "head", "text": "Verbraucher"})
-        for label, e in loads:
-            st = e.get("status", e.get("state", e.get("active")))
-            if isinstance(st, bool) or st in (0, 1, "0", "1"):
-                st = "Ein" if st in (True, 1, "1") else "Aus"
-            rows.append({"k": "status", "text": label + (f": {st}" if st not in (None, "") else "")})
+        rows.append({"k": "row", "wrap": True, "cells": [
+            {"label": f"{v['name']}: {v['zustand']}", "on": v["an"], "menu": [
+                {"label": text, "cmd": {"uuid": ua, "cmd": f"{v['uuid']}/{befehl}"}}
+                for text, befehl in EM_VERBRAUCHER_BEFEHLE]} if v["uuid"] else
+            {"label": f"{v['name']}: {v['zustand']}", "on": v["an"]}
+            for v in loads]})
     eb = app.energy_blocks(uuid)   # Radial auch beim Antippen (4"-Panel ohne Split)
     head = ([{"k": "eflow", "e": eb}] if eb else
             [{"k": "hero", "icon": "central"},
@@ -173,6 +192,26 @@ def detail_pv_prognose(app, uuid, c, route):
 class EnergieHelfer:
     """Helfer der Familie Energie fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie
     ueber bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _em_verbraucher(self, c: dict) -> list[dict]:
+        """Verbraucher des Energiemanagers aus dem State loads (Strukturdoku:
+        [{name, uuid, active, activatedManually, deactivatedManually, pwr}])
+        -> [{name, uuid, an, zustand}]; zustand nennt die Leistung und, ob
+        von Hand geschaltet."""
+        out = []
+        for label, e in self._named_items(self._json_state(c, "loads")):
+            an = bool(e.get("active"))
+            zustand = "Ein" if an else "Aus"
+            try:
+                pwr = float(e.get("pwr"))
+            except (TypeError, ValueError):
+                pwr = None
+            if an and pwr is not None and math.isfinite(pwr):
+                zustand += " " + self._fmt_num(pwr, "%.2f kW")
+            if e.get("activatedManually") or e.get("deactivatedManually"):
+                zustand += " (von Hand)"
+            out.append({"name": label, "uuid": e.get("uuid") or "", "an": an, "zustand": zustand})
+        return out
 
     def _flow_text(self, value, fmt: str, pos: str, neg: str, zero: str | None = None) -> str:
         """Leistung mit Richtung: Vorzeichen -> Text (z.B. Bezug/Einspeisung).
