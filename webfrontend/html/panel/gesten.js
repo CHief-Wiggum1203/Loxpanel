@@ -3,15 +3,19 @@
 // was beim Laden ausgefuehrt wird, darf nur Funktionen frueherer Teile rufen.
 
 // ---- Gesten wie auf den Loxone-Tastern (docs/TODO.md §9) ----
-// Zwei Finger bedienen den Raum der Seite: Mitte Licht (hoch/runter dimmt, ein
-// Tipp schaltet ein bzw. zur naechsten Stimmung), links Beschattung, rechts
-// Musik; Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt nur
+// Zwei Finger bedienen den Raum der Seite, auf der Hausuebersicht den der
+// Raumkarte unter den Fingern: Mitte Licht (hoch/runter dimmt, quer
+// vorige/naechste Stimmung, ein Tipp schaltet ein bzw. zur naechsten
+// Stimmung), links Beschattung (hoch/runter auf/ab, quer Lamellen, Tipp
+// beschatten), rechts Musik (hoch/runter Lautstaerke, quer Sender, Tipp
+// Wiedergabe); Doppeltipp Raum verlassen, Dreifachtipp Haus aus. Die Visu erkennt nur
 // die Geste - welche Bausteine sie trifft und welche Befehle gehen, entscheidet
 // der Server ({t:'geste'}, App.geste). Touch-Events statt Pointer-Events: nur
 // touchstart/touchmove mit preventDefault halten Scrollen und Klick an. Ein
 // Finger bleibt, wie er war: Kacheln, Scrollen, Blaettern, "zurueck".
 const GESTE_SPALTEN=[1/3, 2/3];   // Grenzen links | Mitte | rechts als Anteil der Breite, wie am Taster
-const GESTE_MINDESTWEG=0.04;      // ab diesem Weg (Anteil der Hoehe) wischen zwei Finger statt zu tippen
+const GESTE_MINDESTWEG=0.04;      // ab diesem Weg (Anteil der Hoehe) wischen zwei Finger statt zu tippen;
+                                  // quer zaehlt der Weg ueber die ganze Breite wie hoch/runter ueber die Hoehe
 const GESTE_KNEIFEN=0.5;          // aendert sich der Fingerabstand um mehr als diesen Anteil des Wegs: Kneifen
 const GESTE_TIPP_MS=400;          // laenger liegen zwei Finger fuer einen Tipp nicht
 const GESTE_MEHRFACH_MS=350;      // so lange wartet ein Tipp auf den naechsten (Doppel-, Dreifachtipp)
@@ -19,20 +23,28 @@ const GESTE_TAKT_MS=150;          // beim Dimmen hoechstens so oft einen Zwische
 const GESTE_KLICKSPERRE_MS=400;   // nach einer Geste so lange keinen Klick auf Kacheln durchlassen
 const GESTE_ANZEIGE_MS=1500;      // Einblendung nach dem Ende so lange stehen lassen
 const GESTE_TITEL={licht:'Licht', musik:'Musik', beschattung:'Beschattung', stimmung:'Licht',
-                   verlassen:'Raum verlassen', hausaus:'Haus aus'};
+                   stimmungwechsel:'Licht', beschatten:'Beschattung', lamellen:'Lamellen', wiedergabe:'Musik',
+                   sender:'Musik', verlassen:'Raum verlassen', hausaus:'Haus aus'};
 // Die drei Spalten von links (Grenzen GESTE_SPALTEN): was zwei Finger dort
-// bedienen, ihr Symbol (Nacht-Uhr, Hilfe des Hinweises) und was hoch/runter
-// und ein Tipp dort tun (Hilfe). Umgesetzt wird es in App.geste().
+// bedienen, ihr Symbol (Nacht-Uhr, Hilfe des Hinweises), die Art fuer
+// hoch/runter (art), quer (quer, dabei: wert = Regler wie beim Dimmen, sonst
+// ein Schritt vor/zurueck beim Loslassen) und Tipp (tipp), dazu die Hilfe.
+// Umgesetzt wird es in App.geste().
 const GESTE_ARTEN=[
-  {spalte:'links', art:'beschattung', ico:'blind', hilfe:'Hoch: auf · Runter: ab · Fährt sie, hält sie an'},
-  {spalte:'mitte', art:'licht', ico:'bulb', hilfe:'Hoch/runter: dimmen, ganz unten aus · Tipp: an bzw. nächste Stimmung'},
-  {spalte:'rechts', art:'musik', ico:'music', hilfe:'Hoch: lauter · Runter: leiser'}];
+  {spalte:'links', art:'beschattung', quer:'lamellen', querWert:true, tipp:'beschatten', ico:'blind',
+   hilfe:'Hoch: auf · Runter: ab · Fährt sie, hält sie an · Quer: Lamellen · Tipp: beschatten'},
+  {spalte:'mitte', art:'licht', quer:'stimmungwechsel', tipp:'stimmung', ico:'bulb',
+   hilfe:'Hoch/runter: dimmen, ganz unten aus · Quer: vorige/nächste Stimmung · Tipp: an bzw. nächste Stimmung'},
+  {spalte:'rechts', art:'musik', quer:'sender', tipp:'wiedergabe', ico:'music',
+   hilfe:'Hoch: lauter · Runter: leiser · Quer: voriger/nächster Sender · Tipp: Play/Pause'}];
+// Arten, die beim Wischen einen Wert stellen (Startwert vom Server, Zwischenwerte im Takt)
+const GESTE_WERT_ARTEN=['licht', 'musik', 'lamellen'];
 let gestenAn=false;        // kommt mit dem theme (Vorgaben/Ansicht)
 let gestenHinweis=false;   // ... mit Hinweis-Symbol unter dem Kachelfeld
 let geste=null;            // laufende Beruehrung mit zwei Fingern
 let gesteSequenz=false;    // seit zwei Finger lagen, bis alle oben sind: kein Scrollen, kein "zurueck"
 let gesteNach=null;        // Wisch zu Ende, bevor der Server den Startwert schickte
-let gesteTipps=0, gesteTippT=null, gesteTippSpalte='';
+let gesteTipps=0, gesteTippT=null, gesteTippSpalte='', gesteTippKarte='';
 let gesteKlickSperre=0;
 const gesteFlaeche=document.querySelector('.screen');
 function gesteErlaubt(){
@@ -66,9 +78,15 @@ function gestenHilfeWeg(){ const n=el('gestenHilfe'); if(n) n.remove(); }
 function gesteFinger(t){
   return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2,
           d:Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY)}; }
-function gesteSenden(m){
+// karte: Raum der Raumkarte unter den Fingern (Hausuebersicht), der Server prueft ihn
+function gesteSenden(m, karte){
   if(verbindungGesperrt()){ verbindungZeigen(true); return false; }
-  send({t:'geste', ...m}); return true; }
+  send({t:'geste', ...m, ...(karte ? {raum:karte} : {})}); return true; }
+// Raumkarte der Hausuebersicht an dieser Stelle (data-hb "r:<Raum>"), sonst ''
+function gesteKarte(x, y){
+  if(!view || view.layout!=='haus') return '';
+  const e=document.elementFromPoint(x, y), k=e && e.closest('[data-hb^="r:"]');
+  return k ? k.dataset.hb.slice(2) : ''; }
 function gesteZeigen(titel, text, wert, fehler){
   let n=el('geste');
   if(!n){ n=document.createElement('div'); n.id='geste'; n.className='geste hidden';
@@ -84,8 +102,11 @@ function gesteZeigen(titel, text, wert, fehler){
 function gesteAusblenden(){ const n=el('geste'); if(!n) return; clearTimeout(n._t);
   n._t=setTimeout(()=>n.classList.add('hidden'), GESTE_ANZEIGE_MS); }
 function gesteTitel(art, raum){ return (GESTE_TITEL[art]||'')+(raum?' · '+raum:''); }
-// Wert aus dem Weg seit Beginn des Wischens: die ganze Hoehe sind 0 -> 100 %
-function gesteWert(gs, y){ return Math.max(0, Math.min(100, gs.start+(gs.yWisch-y)/gs.h*100)); }
+// Wert aus dem Weg seit Beginn des Wischens: die ganze Hoehe (hoch = mehr)
+// bzw. quer die ganze Breite (nach rechts = mehr) sind 0 -> 100 %
+function gesteWert(gs, p){
+  const weg = gs.achse==='x' ? (p-gs.pWisch)/gs.w : (gs.pWisch-p)/gs.h;
+  return Math.max(0, Math.min(100, gs.start+weg*100)); }
 function gesteWertZeigen(gs){
   const w=Math.round(gs.wert);
   const text=(gs.art==='licht' && gs.stimmung) ? (w>0 ? gs.stimmung : '▲ '+gs.stimmung)
@@ -94,21 +115,25 @@ function gesteWertZeigen(gs){
 }
 function gesteWertSchicken(gs, phase){
   clearTimeout(gs.timer); gs.timer=null; gs.zuletzt=Date.now();
-  gesteSenden({art:gs.art, phase, wert:Math.round(gs.wert)});
+  gesteSenden({art:gs.art, phase, wert:Math.round(gs.wert)}, gs.karte);
 }
-function gesteBewegt(gs, y){
+function gesteBewegt(gs, p){
   if(gs.start==null) return;   // Startwert vom Server steht noch aus
-  gs.wert=gesteWert(gs, y); gesteWertZeigen(gs);
+  gs.wert=gesteWert(gs, p); gesteWertZeigen(gs);
   const warte=GESTE_TAKT_MS-(Date.now()-(gs.zuletzt||0));
   if(warte<=0) gesteWertSchicken(gs, 'wert');
   else if(!gs.timer) gs.timer=setTimeout(()=>{ if(geste===gs) gesteWertSchicken(gs, 'wert'); }, warte);
 }
-function gesteTipp(spalte){
-  gesteTipps++; if(gesteTipps===1) gesteTippSpalte=spalte;
+// Schritt-Gesten zeigen beim Wischen nur die Richtung: Beschattung hoch/runter,
+// Stimmung und Sender quer
+function gesteRichtungZeigen(gs){
+  gesteZeigen(GESTE_TITEL[gs.art], gs.achse==='x' ? (gs.dx>0 ? '▶' : '◀') : (gs.dy<0 ? '▲' : '▼')); }
+function gesteTipp(spalte, karte){
+  gesteTipps++; if(gesteTipps===1){ gesteTippSpalte=spalte; gesteTippKarte=karte; }
   clearTimeout(gesteTippT);
-  const los=()=>{ const n=gesteTipps, sp=gesteTippSpalte; gesteTipps=0; gesteTippT=null;
-    const art = n>=3 ? 'hausaus' : (n===2 ? 'verlassen' : (sp==='mitte' ? 'stimmung' : ''));
-    if(art && gesteSenden({art})) gesteZeigen(GESTE_TITEL[art], '…'); };
+  const los=()=>{ const n=gesteTipps, sp=gesteTippSpalte, k=gesteTippKarte; gesteTipps=0; gesteTippT=null;
+    const art = n>=3 ? 'hausaus' : (n===2 ? 'verlassen' : (GESTE_ARTEN.find(a=>a.spalte===sp)||{}).tipp);
+    if(art && gesteSenden({art}, k)) gesteZeigen(GESTE_TITEL[art], '…'); };
   // Mehr als drei gibt es nicht: der dritte Tipp loest sofort aus
   if(gesteTipps>=3) los(); else gesteTippT=setTimeout(los, GESTE_MEHRFACH_MS);
 }
@@ -116,11 +141,13 @@ function gesteTipp(spalte){
 function gesteFertig(gs){
   geste=null; clearTimeout(gs.timer);
   if(gs.wisch && !gs.abgebrochen){
-    if(gs.art==='beschattung') gesteSenden({art:'beschattung', richtung: gs.dy<0 ? 'auf' : 'ab'});
+    if(gs.art==='beschattung') gesteSenden({art:'beschattung', richtung: gs.dy<0 ? 'auf' : 'ab'}, gs.karte);
+    else if(!GESTE_WERT_ARTEN.includes(gs.art))   // quer ein Schritt: Stimmung, Sender
+      gesteSenden({art:gs.art, richtung: gs.dx>0 ? 'vor' : 'zurueck'}, gs.karte);
     else if(gs.start!=null){ gesteWertSchicken(gs, 'ende'); gesteAusblenden(); }
     else gesteNach=gs;          // der Startwert kommt noch: dann das Ende schicken
   } else if(!gs.wisch && !gs.abgebrochen && Date.now()-gs.t0<=GESTE_TIPP_MS){
-    gesteTipp(gs.spalte);
+    gesteTipp(gs.spalte, gs.karte);
   } else if(gs.wisch){
     gesteAusblenden();          // abgebrochen (dritter Finger): Einblendung weg
   }
@@ -133,8 +160,9 @@ gesteFlaeche.addEventListener('touchstart', e=>{
   if(!e.cancelable) return;
   e.preventDefault();
   const f=gesteFinger(e.touches), r=gesteFlaeche.getBoundingClientRect(), anteil=(f.x-r.left)/(r.width||1);
-  geste={x0:f.x, y0:f.y, d0:f.d, t0:Date.now(), h:r.height||window.innerHeight||1, dy:0,
-         spalte: anteil<GESTE_SPALTEN[0] ? 'links' : (anteil>GESTE_SPALTEN[1] ? 'rechts' : 'mitte'),
+  geste={x0:f.x, y0:f.y, d0:f.d, t0:Date.now(), h:r.height||window.innerHeight||1, w:r.width||window.innerWidth||1,
+         dx:0, dy:0, spalte: anteil<GESTE_SPALTEN[0] ? 'links' : (anteil>GESTE_SPALTEN[1] ? 'rechts' : 'mitte'),
+         karte:gesteKarte(f.x, f.y), achse:'y',
          art:'', wisch:false, abgebrochen:false, start:null, wert:null, raum:'', stimmung:'', timer:null, zuletzt:0};
   gesteSequenz=true;
   weckenAbsagen();   // im Dunkeln: zwei Finger wecken nicht
@@ -143,21 +171,25 @@ gesteFlaeche.addEventListener('touchmove', e=>{
   if(gesteSequenz && e.cancelable) e.preventDefault();
   const gs=geste; if(!gs || gs.abgebrochen || e.touches.length!==2) return;
   const f=gesteFinger(e.touches), dx=f.x-gs.x0, dy=f.y-gs.y0, weg=Math.hypot(dx, dy);
-  gs.dy=dy; gs.yLetzt=f.y;
+  gs.dx=dx; gs.dy=dy;
   if(!gs.wisch){
     if(weg<GESTE_MINDESTWEG*gs.h) return;
-    // Kneifen oder waagerecht: keine Geste (waagerecht ist nicht belegt)
-    if(Math.abs(f.d-gs.d0)>GESTE_KNEIFEN*weg || Math.abs(dx)>Math.abs(dy)){ gs.abgebrochen=true; return; }
-    gs.wisch=true; gs.yWisch=f.y;
+    // Kneifen: keine Geste
+    if(Math.abs(f.d-gs.d0)>GESTE_KNEIFEN*weg){ gs.abgebrochen=true; return; }
+    const a=GESTE_ARTEN.find(x=>x.spalte===gs.spalte);
+    gs.wisch=true; gs.achse = Math.abs(dx)>Math.abs(dy) ? 'x' : 'y';
+    gs.pWisch = gs.achse==='x' ? f.x : f.y;
     clearTimeout(gesteTippT); gesteTipps=0;   // ein Wisch beendet eine Tippfolge
-    gs.art = GESTE_ARTEN.find(a=>a.spalte===gs.spalte).art;
-    if(gs.art==='beschattung') gesteZeigen(GESTE_TITEL.beschattung, dy<0 ? '▲' : '▼');
-    else if(gesteSenden({art:gs.art, phase:'start'})) gesteZeigen(GESTE_TITEL[gs.art], '…');
+    gs.art = gs.achse==='x' ? a.quer : a.art;
+    if(!GESTE_WERT_ARTEN.includes(gs.art)) gesteRichtungZeigen(gs);
+    else if(gesteSenden({art:gs.art, phase:'start'}, gs.karte)) gesteZeigen(GESTE_TITEL[gs.art], '…');
     else gs.abgebrochen=true;
+    gs.pLetzt=gs.pWisch;
     return;
   }
-  if(gs.art==='beschattung') gesteZeigen(GESTE_TITEL.beschattung, dy<0 ? '▲' : '▼');
-  else gesteBewegt(gs, f.y);
+  gs.pLetzt = gs.achse==='x' ? f.x : f.y;
+  if(!GESTE_WERT_ARTEN.includes(gs.art)) gesteRichtungZeigen(gs);
+  else gesteBewegt(gs, gs.pLetzt);
 }, {passive:false});
 function gesteLos(e){
   if(!gesteSequenz) return;
@@ -199,7 +231,7 @@ function gesteAntwort(msg){
     gesteZeigen(gesteTitel(msg.art, msg.raum), msg.fehler, null, true); gesteAusblenden(); return; }
   if(msg.phase==='start' && gs && gs.start==null){
     gs.start=+msg.wert||0; gs.raum=msg.raum||''; gs.stimmung=msg.text||'';
-    gs.wert=(gs.yLetzt!=null && gs.yWisch!=null) ? gesteWert(gs, gs.yLetzt) : gs.start;   // Weg bis hierher zaehlt
+    gs.wert=(gs.pLetzt!=null && gs.pWisch!=null) ? gesteWert(gs, gs.pLetzt) : gs.start;   // Weg bis hierher zaehlt
     if(gs===gesteNach){ gesteNach=null; gesteWertSchicken(gs, 'ende'); gesteWertZeigen(gs); gesteAusblenden(); return; }
     gesteWertZeigen(gs); return; }
   // Waehrend des Wischens (Stimmung eingeschaltet, Befehl fehlgeschlagen): Text, die Geste laeuft weiter
