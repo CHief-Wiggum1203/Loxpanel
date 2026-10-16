@@ -22,10 +22,11 @@ Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 
 | Datei | Inhalt |
 |---|---|
-| `bin/webvisu.py` | der Server: `App` (Miniserver-Verbindung, Rendering, Geräte, Front), die Routen-Handler und `main()` am Ende; rund 6.400 Zeilen, wird weiter zerlegt |
+| `bin/webvisu.py` | der Server: `App` (Miniserver-Verbindung, Rendering, Geräte, Front), die Routen-Handler und `main()` am Ende; rund 5.650 Zeilen, wird weiter zerlegt |
 | `bin/konfig.py` | die Konfigdateien unter `config/`: Pfade, Laden und atomares Schreiben, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()` …), die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL` …), die Wertprüfer (`_clean_*`) und die Sanitizer (`_sanitize_panels()` …, in `App` als statische Methoden erreichbar) |
 | `bin/sicherung.py` | Backup als ZIP ohne Kennwörter und das Einspielen einer Sicherung (lesen, prüfen, Kennwörter einsetzen, schreiben); die Routen `/api/backup` und `/api/restore` bleiben in `webvisu.py` |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser, Ausdünnen, Tagesbalken und als Mixin `Statistik` (erbt `App`) Laden mit Cache, Verlaufsblöcke der Detailseite und Mini-Verläufe der Kacheln |
+| `bin/haus.py`, `bin/gesten.py` | Hausübersicht (Mixin `Haus`, `_view_haus()`, `HAUS_*`) und Gesten der Visu (Mixin `Gesten`, `geste()`, `gesten_hilfe()`, `GESTEN_*_TYPEN`); `App` erbt beide |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie (licht, schalten, beschattung, klima, audio, intercom, werte, sicherheit, wecker, energie, garten, wellness, zentral); `@kachel("Typ")` und `@detail("Typ")` tragen die Funktionen in die Tabellen ein, `gemeinsam.py` hält die Typmengen, Konstanten der Strukturdoku, Adapter und reine Helfer; die Helfer der Bausteine sind Mixins (`helfer.py` `Grundhelfer`, je Familie z. B. `KlimaHelfer`), `BausteinHelfer` fasst sie zusammen, `App` erbt es |
 | `bin/loxone_ws.py` | Loxone-WebSocket und Binärparser |
 | `bin/audioserver.py`, `bin/audioserver_events.py`, `bin/audioserver_auth.py` | Audioserver-Backends: Gen1/MS4H, Gen2-Events (Port 7091) und die App-Anmeldung am gekoppelten Audioserver (RSA/AES, braucht `cryptography`) |

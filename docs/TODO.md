@@ -1186,8 +1186,9 @@ selbst aktuell.
           Mixins in `bausteine/` (`helfer.py` `Grundhelfer`, je Familie ein
           `…Helfer` samt Unterseiten; `BausteinHelfer` fasst sie zusammen).
           `App` erbt beide, Aufrufe bleiben. `ZERLEGT` in `tests/lox.py`.
-    - [ ] 4c: Hausübersicht und Gesten (`_haus_*`, `_geste*`, `licht_gruppen`)
-          als eigene Module.
+    - [x] 4c: `haus.py` (Mixin `Haus`: `_haus_*`, `_view_haus()`, `HAUS_*`,
+          `HINWEIS_*`) und `gesten.py` (Mixin `Gesten`: `geste()`, `_geste_*`,
+          `licht_gruppen()`, `gesten_hilfe()`, `GESTEN_*_TYPEN`).
     - [ ] 4d: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,
           Geräte und Agent, Audio, Intercom und SIP, Diagnose), `main()`
           registriert je Modul.

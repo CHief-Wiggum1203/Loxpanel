@@ -11,7 +11,7 @@ import math
 import pytest
 from aiohttp.test_utils import make_mocked_request
 
-from lox import anlage, EM2, haus_anlage, HAUS_FAVORITEN, konfig, W
+from lox import anlage, EM2, haus, haus_anlage, HAUS_FAVORITEN, konfig, W
 
 from bausteine.gemeinsam import SAUNA_STOERUNG, SAUNA_WASSER  # noqa: E402  # bin/ liegt durch lox auf dem Pfad
 
@@ -68,7 +68,7 @@ def test_raumkarten():
     assert ab["nav"] == {"view": "group", "kind": "room", "id": "r7"} and ab["anzahl"] == 2
     # schaltbare zuerst, hoechstens HAUS_SYMBOLE; die Lueftung laeuft, zaehlt aber nicht als "an"
     zentral = _raum(v, "Zentral")
-    assert len(zentral["symbole"]) == W.HAUS_SYMBOLE and zentral["symbole"][0]["icon"] == "switch"
+    assert len(zentral["symbole"]) == haus.HAUS_SYMBOLE and zentral["symbole"][0]["icon"] == "switch"
     assert zentral["an"] == 1
 
 
@@ -214,7 +214,7 @@ def test_raeume_direkt():
     app.states = st
     app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus"], "ui": {"hausAufbau": "raeume"}}})
     kueche = next(r for r in _haus(app, app.resolve_profile("p"))["raeume"] if r["name"] == "Küche")
-    assert [x["id"] for x in kueche["tasten"]] == ["S0", "S1", "S2"] == [f"S{i}" for i in range(W.HAUS_TASTEN)]
+    assert [x["id"] for x in kueche["tasten"]] == ["S0", "S1", "S2"] == [f"S{i}" for i in range(haus.HAUS_TASTEN)]
 
 
 def test_spalte_auf_einen_blick():
@@ -289,7 +289,7 @@ def test_spieler():
     assert sp["titel"] == "Hitradio Ö3"
     assert [t["icon"] for t in sp["tasten"]] == ["prev", "pause", "next"]
     assert sp["laut"] == {"wert": 24, "cmd": {"uuid": "AZ", "tmpl": "volume/{v}"}, "min": 0, "max": 100,
-                          "schritt": W.PROZENT_SCHRITT}
+                          "schritt": haus.PROZENT_SCHRITT}
     assert [(z["id"], z["name"], z["spielt"]) for z in sp["zonen"]] == [
         ("AB", "Abstellraum", False), ("AZ", "Essen-Kochen-Wohnen", True)]
     # ⋮ wie auf der Detailseite: Musikauswahl der Zone; der Split-Spieler bleibt ohne
@@ -326,7 +326,7 @@ def test_sender_im_spieler():
     assert _sender(_app(az2="  hitradio ö3 "))[0][2]
     # hoechstens HAUS_SENDER
     viele = json.dumps({"getroomfavs_result": [{"items": [{"slot": i, "name": f"Sender {i}"} for i in range(1, 13)]}]})
-    assert len(_sender(_app(az4=viele))) == W.HAUS_SENDER < 12
+    assert len(_sender(_app(az4=viele))) == haus.HAUS_SENDER < 12
     # die Zone Abstellraum hat keine Favoriten (ohne Ereignisschleife fordert
     # der Server auch keine an)
     assert _sender(app, zone="AB") == []
@@ -366,7 +366,7 @@ def test_sender_anfordern():
             assert _haus(app)["spieler"]["sender"] == []
             await asyncio.sleep(0)
         assert gefragt == ["AZ"]
-        app._haus_sender_zeit["AZ"] -= W.HAUS_SENDER_NEU_S
+        app._haus_sender_zeit["AZ"] -= haus.HAUS_SENDER_NEU_S
         _haus(app)
         await asyncio.sleep(0)
         assert gefragt == ["AZ", "AZ"]
