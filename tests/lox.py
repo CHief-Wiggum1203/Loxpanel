@@ -37,15 +37,23 @@ if str(ROOT / "bin") not in sys.path:
     sys.path.insert(0, str(ROOT / "bin"))
 
 import webvisu as W  # noqa: E402
+import bausteine  # noqa: E402
 import konfig  # noqa: E402
 import sicherung  # noqa: E402
+import statistik  # noqa: E402
 
-SERVER_MODULE = (W, konfig, sicherung)
+# Die aus webvisu.py herausgeloesten Module (docs/TODO.md, Zerlegen): sie
+# importieren webvisu nie (tests/test_schichten.py), webvisu importiert aus
+# ihnen. Ein neues Modul gehoert hier dazu, sonst ersetzt ersetzen() dort nichts.
+_ZERLEGT_MODULE = (konfig, sicherung, statistik)
+ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
+SERVER_MODULE = (W, *_ZERLEGT_MODULE,
+                 *(m for n, m in sorted(sys.modules.items()) if n.split(".")[0] == bausteine.__name__))
 
 
 def ersetzen(monkeypatch, name: str, wert) -> None:
     """Einen Namen in jedem Server-Modul ersetzen, das ihn kennt: webvisu.py
-    importiert Konstanten und Helfer aus konfig.py und sicherung.py (eigene
+    importiert Konstanten und Helfer aus den herausgeloesten Modulen (eigene
     Bindung je Modul), ein Patch nur an W traefe den Aufrufer dort nicht."""
     getroffen = False
     for modul in SERVER_MODULE:

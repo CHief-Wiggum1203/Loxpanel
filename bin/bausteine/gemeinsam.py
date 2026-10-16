@@ -10,6 +10,7 @@ import re
 
 from adapters import JalousieAdapter, LightControllerV2Adapter
 
+
 LIGHT = LightControllerV2Adapter()
 JAL = JalousieAdapter()
 SWITCHY = {"Switch"}   # TimedSwitch wird eigen behandelt (anderer State)
@@ -95,3 +96,12 @@ def _dauer_text(sek) -> str:
     if m:
         return f"{m} min" + (f" {r} s" if r else "")
     return f"{r} s"
+
+
+# Schrittweite der -/+ Tasten fuer Dauern (Laufzeit einer Zone, Wecker-Dauern)
+# und Prozentwerte (Lautstaerke, Helligkeit)
+DAUER_SCHRITT = 60
+
+PROZENT_SCHRITT = 5
+
+

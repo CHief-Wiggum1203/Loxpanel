@@ -22,10 +22,11 @@ Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 
 | Datei | Inhalt |
 |---|---|
-| `bin/webvisu.py` | der Server: `App` (Miniserver-Verbindung, Rendering, Geräte, Front), die Routen-Handler und `main()` am Ende; rund 8.000 Zeilen, wird weiter zerlegt |
+| `bin/webvisu.py` | der Server: `App` (Miniserver-Verbindung, Rendering, Geräte, Front), die Routen-Handler und `main()` am Ende; rund 6.400 Zeilen, wird weiter zerlegt |
 | `bin/konfig.py` | die Konfigdateien unter `config/`: Pfade, Laden und atomares Schreiben, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()` …), die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL` …), die Wertprüfer (`_clean_*`) und die Sanitizer (`_sanitize_panels()` …, in `App` als statische Methoden erreichbar) |
 | `bin/sicherung.py` | Backup als ZIP ohne Kennwörter und das Einspielen einer Sicherung (lesen, prüfen, Kennwörter einsetzen, schreiben); die Routen `/api/backup` und `/api/restore` bleiben in `webvisu.py` |
-| `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie (licht, schalten, beschattung, klima, audio, intercom, werte, sicherheit, wecker, energie, garten, wellness, zentral); `@kachel("Typ")` und `@detail("Typ")` tragen die Funktionen in die Tabellen ein, `gemeinsam.py` hält die Typmengen, Konstanten der Strukturdoku, Adapter und reine Helfer |
+| `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser, Ausdünnen, Tagesbalken und als Mixin `Statistik` (erbt `App`) Laden mit Cache, Verlaufsblöcke der Detailseite und Mini-Verläufe der Kacheln |
+| `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie (licht, schalten, beschattung, klima, audio, intercom, werte, sicherheit, wecker, energie, garten, wellness, zentral); `@kachel("Typ")` und `@detail("Typ")` tragen die Funktionen in die Tabellen ein, `gemeinsam.py` hält die Typmengen, Konstanten der Strukturdoku, Adapter und reine Helfer; die Helfer der Bausteine sind Mixins (`helfer.py` `Grundhelfer`, je Familie z. B. `KlimaHelfer`), `BausteinHelfer` fasst sie zusammen, `App` erbt es |
 | `bin/loxone_ws.py` | Loxone-WebSocket und Binärparser |
 | `bin/audioserver.py`, `bin/audioserver_events.py`, `bin/audioserver_auth.py` | Audioserver-Backends: Gen1/MS4H, Gen2-Events (Port 7091) und die App-Anmeldung am gekoppelten Audioserver (RSA/AES, braucht `cryptography`) |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`): jeder Wert eines Sets steht nur dort, die Visu hängt ihre Regeln an die Art (`data-kachelset-aufbau`/`-leiste`), nie an den Namen. Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
@@ -113,7 +114,8 @@ python3 -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
   Kopf und Fuß der Kachel, `App._view_control()` hängt Verlauf und verlinkte
   Objekte an. Ein Typ darf nur einmal eingetragen sein (sonst Fehler beim
   Import), `tests/test_bausteine.py` kennt die Liste. Die Helfer (`_state`,
-  `_fmt_num`, `_jal_fahrt` …) sind Methoden von `App`, aufgerufen über `app.`.
+  `_fmt_num`, `_jal_fahrt` …) sind Methoden der Mixins in `bausteine/` (ein
+  neuer Helfer einer Familie in deren `…Helfer`-Klasse), aufgerufen über `app.`.
   Nennt die zweite Zeile der Kachel keinen Zustand, sondern
   beschreibt nur („Türsprechanlage“), `subInfo=True` setzen, sonst steht sie
   im neuen Kachel-Aufbau groß vorn. Schriftgrößen ohne Einstellung stehen
@@ -127,9 +129,10 @@ python3 -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
   `LOXPANEL_MS_*`-Variablen (`konfig._ms_zugang()`).
 - Tests, die eine Konstante oder einen Helfer des Servers ersetzen, nehmen
   `ersetzen(monkeypatch, name, wert)` aus `tests/lox.py`: `webvisu.py` importiert
-  aus `konfig.py` und `sicherung.py` mit eigener Bindung je Modul, ein Patch nur
-  an `W` träfe den Aufrufer dort nicht. `konfig`, `sicherung` und `bausteine`
-  importieren `webvisu` nie (`tests/test_schichten.py`).
+  aus den herausgelösten Modulen mit eigener Bindung je Modul, ein Patch nur
+  an `W` träfe den Aufrufer dort nicht. Die herausgelösten Module (`ZERLEGT` in
+  `tests/lox.py`, dazu `bausteine`) importieren `webvisu` nie
+  (`tests/test_schichten.py`); App-Methoden eines Themas wandern als Mixin.
 - Beim Ändern des Agenten beide Stellen anfassen: `agent/loxpanel-agent.py` und
   den Heredoc in `deploy/install-agent.sh`.
 - Die Brücke `LoxKiosk` der App hat zwei Seiten: `KioskBridge` in

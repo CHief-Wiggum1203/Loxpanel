@@ -63,6 +63,7 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 | `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `webvisu.py` rufen hier (§4). Importiert `webvisu` nicht |
+| `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
@@ -208,7 +209,12 @@ baut `App(_config(), _audio_config())`, registriert alle Routen und startet beim
 `broadcaster()` (Verteilung) und `audio_events_task()` (Audioserver-Gen2-Events). Der HTTP-Server ist sofort erreichbar, auch ohne
 Miniserver-Zugang. So bleibt `/config` immer bedienbar.
 
-### 3.3 Zentrale Klasse `App` (`webvisu.py:328`)
+### 3.3 Zentrale Klasse `App` (`webvisu.py`)
+
+`App` setzt sich aus Mixin-Klassen der Themenmodule zusammen, die sie erbt
+(Schritt 4 des Zerlegens, §7.2): `Statistik` (`statistik.py`, Verläufe) und
+`BausteinHelfer` (`bausteine/`, Helfer und Unterseiten der Bausteine). Die
+Methoden arbeiten mit dem Zustand der App (`self`), Aufrufe bleiben gleich.
 
 Wichtige Felder:
 
@@ -509,6 +515,9 @@ V="…"/>`, bei mehreren Ausgängen weitere Wert-Attribute. So listet sie
 `/stats/`, und so führt sie die Loxone-App (Befehlstabelle `STATISTIC` in
 `scripts4.js` der Weboberfläche); ermittelt an der Anlage mit
 `bin/statistic_probe.py`.
+
+Der Code liegt in `bin/statistik.py` (Parser auf Modulebene, die Methoden als
+Mixin `Statistik`, das `App` erbt).
 
 - **Abruf:** `_stat_load()` holt eine Monatsdatei über `_ms_http()` (Token,
   Erneuerung bei 401, §3.4), im Hintergrund (`_spawn`), sobald eine Detailseite sie
@@ -1196,9 +1205,16 @@ PresenceDetector, WindowMonitor, MailBox), `wecker` (AlarmClock), `energie`
 `wellness` (Sauna, SteakThermo), `zentral` (Präfix `Central`, nur Kachel, die
 Detailseite ist die Gruppe). Jede Funktion trägt sich mit `@kachel("Typ", …)`
 bzw. `@detail("Typ", …)` ein, ein Typ höchstens einmal je Tabelle (ein zweiter
-Eintrag ist ein Fehler beim Import). Die Helfer der Bausteine (`_state`,
-`_fmt_num`, `_jal_fahrt`, `_alarm_entries` …) sind weiter Methoden von `App`
-und werden über `app.` gerufen; Typmengen, Konstanten der Strukturdoku (Sauna,
+Eintrag ist ein Fehler beim Import). Die Helfer der Bausteine sind Methoden
+von Mixin-Klassen (seit Schritt 4b des Zerlegens): die allgemeinen (`_state`,
+`_text`, `_json_state`, `_fmt_num`, `_named_items`, `_big_view` …) in
+`bausteine/helfer.py` (`Grundhelfer`), die einer Familie in ihrem Modul
+(`KlimaHelfer` mit `_irc1()`, `WeckerHelfer` mit `_alarm_entries()`,
+`BeschattungHelfer` mit `_jal_fahrt()`, `EnergieHelfer` mit `energy_blocks()` …),
+dort auch die Unterseiten der Familie (Weckzeit und Wecker-Einstellungen,
+Bewässerungszone, Klingelbilder, Favoriten der Zone, Anlagenschema).
+`bausteine.BausteinHelfer` fasst sie zusammen, `App` erbt es; gerufen wird
+weiter über `app.` bzw. `self.`. Typmengen, Konstanten der Strukturdoku (Sauna,
 Raumregelung v1/v2, Bewässerung, Intercom), die Adapter `LIGHT`/`JAL` und die
 reinen Helfer `_clean()`, `_pos_pct()`, `_dauer_text()` liegen in
 `bausteine/gemeinsam.py`, `webvisu.py` importiert, was es selbst braucht.
@@ -2283,10 +2299,15 @@ Zeilen wächst (die noch zu zerlegende `webvisu.py` steht als Ausnahme mit
 ihrem jetzigen Stand drin und darf nur schrumpfen; `panel.html` ist seit
 Schritt 2 aufgeteilt, §7.1; Schritt 3 hat die Bausteine nach `bausteine/`
 gebracht, §6, Schritt 4a Konfiguration und Sicherung nach `konfig.py` und
-`sicherung.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
+`sicherung.py`, Schritt 4b die Verläufe nach `statistik.py` und die Helfer der
+Bausteine als Mixins nach `bausteine/`). Beim Zerlegen des Servers gilt: die herausgelösten Module
 importieren `webvisu` nie, `webvisu` importiert sie; wer in Tests eine
 Konstante oder einen Helfer ersetzt, nimmt `ersetzen()` aus `tests/lox.py`,
 das in jedem Server-Modul mit diesem Namen patcht (`tests/test_schichten.py`).
+Methoden der App, die in ein Thema gehören, wandern als Mixin-Klasse in ihr
+Modul (`Statistik`, `BausteinHelfer`); `App` erbt sie, Aufrufe über `self.`
+bleiben. Ein neues herausgelöstes Modul gehört in `ZERLEGT` in `tests/lox.py`,
+sonst wirkt `ersetzen()` dort nicht.
 
 **Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
 ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:

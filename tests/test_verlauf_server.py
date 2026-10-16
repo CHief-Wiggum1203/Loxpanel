@@ -4,7 +4,7 @@ Speichern der zugehoerigen Panel-Optionen."""
 import asyncio
 from datetime import datetime
 
-from lox import Miniserver, W, bloecke, hauslast, neue_app, pv_leistung, v1_bausteine, zaehlerstand
+from lox import bloecke, hauslast, Miniserver, neue_app, pv_leistung, statistik, v1_bausteine, W, zaehlerstand, ersetzen
 
 JETZT = datetime.now().replace(second=0, microsecond=0)
 
@@ -29,7 +29,7 @@ def test_detailseite_v1(miniserver_http):
             v = app.render({"view": "control", "id": "T"})
             assert bloecke(v, "chart")[0]["state"] == "loading" and v["route"]["range"] == "24h"
             c = bloecke(await _geladen(app, {"view": "control", "id": "T"}), "chart")[0]
-            assert c["state"] == "ok" and c["unit"] == "°C" and 30 < len(c["series"][0]["pts"]) <= W.STAT_MAX_POINTS
+            assert c["state"] == "ok" and c["unit"] == "°C" and 30 < len(c["series"][0]["pts"]) <= statistik.STAT_MAX_POINTS
 
             cz = bloecke(await _geladen(app, {"view": "control", "id": "Z"}), "chart")
             assert [b["kind"] for b in cz] == ["counter", "line"] and "ranges" not in cz[1]
@@ -111,7 +111,7 @@ def test_kachel_stile(miniserver_http, monkeypatch):
         def now(cls, tz=None):
             return jetzt.replace(tzinfo=tz)
 
-    monkeypatch.setattr(W, "datetime", FesteZeit)
+    ersetzen(monkeypatch, "datetime", FesteZeit)   # die Verlaufsrechnung liest die Uhr in statistik.py
 
     async def lauf():
         ms = await Miniserver().start()
@@ -136,7 +136,7 @@ def test_kachel_stile(miniserver_http, monkeypatch):
             assert t["style"] == "trend" and t["badge"].endswith("in 24 h") and t["lo"] and t["hi"]
             assert len(t["pts"]) <= 48
             m = sp[("T", "pattern")]
-            assert len(m["cells"]) == 168 and m["days"][-1] == W.STAT_WEEKDAYS[gezeichnet.weekday()]
+            assert len(m["cells"]) == 168 and m["days"][-1] == statistik.STAT_WEEKDAYS[gezeichnet.weekday()]
             # Die laufende Stunde traegt den zuletzt gueltigen Wert bis zur vollen
             # Minute; in ihrer ersten Minute hat sie noch keine Dauer und bleibt
             # leer. Die Stunde davor ist immer voll (um Mitternacht: 23 Uhr in der

@@ -19,7 +19,7 @@ import shutil
 import aiohttp
 import pytest
 
-from lox import karte_auf, KONFIGURATOR_GELADEN, ROOT, W, anlage, visu_starten
+from lox import anlage, ersetzen, karte_auf, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -129,7 +129,7 @@ def test_widget_belegt_ganze_kachelspalten(tmp_path, monkeypatch, geraet):
     # Geprueft wird, welche Spalten das Widget im Raster der Zielkachel belegt:
     # ohne Wachsen und Schrumpfen (gridGrow 1), sonst rechnete die Seite ohne
     # Widget mit 40 Kacheln ein anderes Raster (10" quer: 8 x 5 statt 7 x 4)
-    monkeypatch.setattr(W, "KACHEL_WACHSEN", 1)
+    ersetzen(monkeypatch, "KACHEL_WACHSEN", 1)
     breite, hoehe = GERAETE[geraet]
     ohne = _laufen({"grid": "auto"}, breite, hoehe)
     mit = _laufen({"grid": "auto", "panes": {"favoriten": "weather"}}, breite, hoehe,
@@ -378,7 +378,7 @@ def test_widget_breite_fest_in_kachelspalten(tmp_path, monkeypatch, geraet, spal
     Kachelzeilen) das Widget belegt, statt des Anteils der Automatik. Die
     Kacheln bleiben so gross wie ohne Widget - im Raster der Zielkachel, ohne
     Wachsen und Schrumpfen (gridGrow 1); beides prueft je ein eigener Test."""
-    monkeypatch.setattr(W, "KACHEL_WACHSEN", 1)
+    ersetzen(monkeypatch, "KACHEL_WACHSEN", 1)
     breite, hoehe = GERAETE[geraet]
     ohne = _laufen({"grid": "auto"}, breite, hoehe)
     mit = _laufen({"grid": "auto", "panes": {"favoriten": "weather"}, "paneCols": spalten}, breite, hoehe,
