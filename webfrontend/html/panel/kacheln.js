@@ -477,7 +477,7 @@ function renderPanel(blocks){
     if(b.k==='value') return '<div class="pbar">'+esc(b.text||'')+'</div>';
     if(b.k==='big') return '<div class="pbig'+(b.tone==='good'?' good':(b.tone==='crit'?' crit':''))+'">'+esc(b.text||'')+'</div>';
     if(b.k==='astat') return '<div class="astat'+(b.tone==='crit'?' crit':'')+'">'+esc(b.text||'')+(b.sub?'<div class="astatsub">'+esc(b.sub)+'</div>':'')+'</div>';
-    if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span><button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
+    if(b.k==='slider') return '<div class="srow"><span class="sico">'+svg(ICONS[b.icon]||ICONS.vol)+'</span>'+(b.label?'<span class="slbl">'+esc(b.label)+'</span>':'')+'<button type="button" class="sbtn" data-sd="dn">−</button><input type="range" class="sld" min="'+b.min+'" max="'+b.max+'"'+(b.step?' step="'+b.step+'"':'')+' value="'+b.value+'"><button type="button" class="sbtn" data-sd="up">+</button><span class="sval">'+b.value+'</span></div>';
     if(b.k==='row') return '<div class="brow'+(b.cells.some(c=>c.icon)?' transport':'')+(b.wrap?' wraprow':'')+(b.hidden?' collapsed':'')+'"'+(b.id?' data-rowid="'+esc(b.id)+'"':'')+'>'+b.cells.map(cellHtml).join('')+'</div>';
     if(b.k==='intercom-talk') return intercomTalkHtml(b);
     if(b.k==='head') return '<div class="phead">'+esc(b.text||'')+'</div>';
@@ -612,7 +612,8 @@ function updatePanel(blocks){
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const srows=[...g.querySelectorAll('.srow')];
   if(!sldDragging) blocks.filter(b=>b.k==='slider').forEach((sb,i)=>{ const sr=srows[i], sld=sr&&sr.querySelector('.sld');
-    if(!sld) return; sld.value=sb.value; sldFill(sld); const sv=sr.querySelector('.sval'); if(sv)sv.textContent=sb.value; });
+    if(!sld) return; sld.value=sb.value; sld._tmpl=sb.cmd.tmpl; sldFill(sld);   // tmpl traegt bei Farblicht die Farbe
+    const sv=sr.querySelector('.sval'); if(sv)sv.textContent=sb.value; });
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
   paintCharts(g,blocks);   // Verlauf nachgeladen oder Fenster vorgerueckt: neu zeichnen, Knoepfe bleiben
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;

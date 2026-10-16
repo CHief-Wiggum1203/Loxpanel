@@ -1087,6 +1087,34 @@ def zaehler_baustein(art="bidirectional", **werte) -> tuple[dict, dict]:
     return control, {states[n]: w[n] for n in namen}
 
 
+LC_STIMMUNGEN = [{"id": 1, "name": "Hell"}, {"id": 2, "name": "Abend"}, {"id": 3, "name": "Kino"},
+                 {"id": 4, "name": "Putzen"}, {"id": 778, "name": "Aus"}]
+
+
+def lichtsteuerung_baustein(favoriten=True, **werte) -> tuple[dict, dict]:
+    """Lichtsteuerung (LightControllerV2) mit fuenf Stimmungen, "Abend" aktiv;
+    favoriteMoods [2, 1, 778], additionalMoods [4, 3] (Strukturdoku). Unter-
+    bausteine: Master-Helligkeit (details.masterValue), ein Dimmer, ein
+    Farb-Lichtkreis (ColorPickerV2, Farbtemperatur) und ein Schaltkreis."""
+    subs = {
+        "LV-M": {"name": "Master", "type": "Dimmer", "uuidAction": "LV-M",
+                 "states": {"position": "lv-mp", "min": "lv-mmin", "max": "lv-mmax", "step": "lv-mst"}},
+        "LV-1": {"name": "Esstisch", "type": "Dimmer", "uuidAction": "LV-1",
+                 "states": {"position": "lv-1p", "min": "lv-1min", "max": "lv-1max", "step": "lv-1st"}},
+        "LV-2": {"name": "Stripe", "type": "ColorPickerV2", "uuidAction": "LV-2", "states": {"color": "lv-2c"}},
+        "LV-3": {"name": "Steckdose", "type": "Switch", "uuidAction": "LV-3", "states": {"active": "lv-3a"}},
+    }
+    states = {"activeMoods": "lv-am", "moodList": "lv-ml"}
+    if favoriten:
+        states.update(favoriteMoods="lv-fav", additionalMoods="lv-add")
+    control = {"name": "Licht Wohnen", "type": "LightControllerV2", "uuidAction": "LV", "room": "r1", "cat": "c1",
+               "details": {"masterValue": "LV-M"}, "states": states, "subControls": subs}
+    w = {"lv-am": "[2]", "lv-ml": json.dumps(LC_STIMMUNGEN), "lv-fav": "[2, 1, 778]", "lv-add": "[4, 3]",
+         "lv-mp": 70, "lv-mmin": 0, "lv-mmax": 100, "lv-mst": 1, "lv-1p": 40, "lv-1min": 0, "lv-1max": 100,
+         "lv-1st": 1, "lv-2c": "temp(55,3000)", "lv-3a": 0, **werte}
+    return control, w
+
+
 def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
     """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
     (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen

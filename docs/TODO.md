@@ -1403,6 +1403,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`setSensor/<index>/<ziel>/<name>`), Timer stellen, starten und stoppen
       (`setTimerDuration`, `startTimer`, `stopTimer`), Alarm quittieren
       (`quitAlarm`), Gerätezustand (`deviceState`), Akku nur ohne Netzteil. **S**
+- [x] `LightControllerV2` (Lichtsteuerung): seit 16.10.2026 statt der reinen
+      Stimmungsliste eine Seite mit den Lieblingsstimmungen (`favoriteMoods`)
+      zuerst, den weiteren (`additionalMoods`) darunter, vorige/nächste
+      Stimmung (`minus`, `plus`), der Master-Helligkeit (`details.masterValue`)
+      und jedem Lichtkreis: Dimmer und Farblicht als beschrifteter Regler
+      (Farbe bzw. Farbtemperatur bleibt), Schaltkreise als Taste; Befehle an
+      den Lichtkreis selbst. Stimmungen anlernen, umbenennen, löschen und
+      sortieren (`learn`, `setmoodname`, `delete`, `move…`) bleiben der
+      Loxone-App. **M**
 - [x] `Meter` (Zähler): seit 16.10.2026 nach der Strukturdoku (ab 13.01)
       Zählerstand und je Zeitraum heute/Woche/Monat/Jahr (`totalDay` …
       `totalYear`), bei `details.type` `bidirectional`/`storage` Bezug und
