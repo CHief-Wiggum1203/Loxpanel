@@ -65,8 +65,8 @@ def detail_audiozone(app, uuid, c, route):
     vol = int(app._state(c, "volume") or 0)
     cover = app._audio_cover(c)
     blocks = [{"k": "cover", "src": cover}] if cover else []
+    blocks += [{"k": "title", "text": title, "sub": sub}, *app._sender_bloecke(uuid)]
     blocks += [
-        {"k": "title", "text": title, "sub": sub},
         {"k": "row", "cells": [
             {"icon": "prev", "cmd": {"uuid": ua, "cmd": "queueminus"}},
             {"icon": "pause" if playing else "play", "big": True,
@@ -76,8 +76,8 @@ def detail_audiozone(app, uuid, c, route):
         {"k": "slider", "icon": "vol", "value": vol, "min": 0, "max": 100,
          "cmd": {"uuid": ua, "tmpl": "volume/{v}"}},
     ]
-    # Quellen (Radio/Playlist/Spotify) immer auf Unterseite erreichbar
-    # (Favoriten werden dort per prime_favs frisch angefordert).
+    # Die Musikauswahl (alle Favoriten umbrechend) bleibt ueber die drei Punkte
+    # erreichbar; angefordert werden die Favoriten beim Oeffnen (prime_favs).
     blocks.append({"k": "more", "route": {"view": "sources", "id": uuid}})
     # Bedienleiste (Transport + Lautstaerke) unten andocken; Cover/Titel
     # oben zentriert. Ohne laufende Musik rutscht so nichts nach oben.
@@ -109,8 +109,8 @@ def detail_audiozone_v2(app, uuid, c, route):
     if not title:
         title = "Spielt" if playing else "Aus"
     blocks = [{"k": "cover", "src": cover} if cover else {"k": "hero", "icon": "music"}]
+    blocks += [{"k": "title", "text": title, "sub": sub}, *app._sender_bloecke(uuid)]
     blocks += [
-        {"k": "title", "text": title, "sub": sub},
         {"k": "row", "cells": [
             {"icon": "prev", "cmd": {"uuid": ua, "cmd": "prev"}},
             {"icon": "pause" if playing else "play", "big": True,
@@ -120,7 +120,7 @@ def detail_audiozone_v2(app, uuid, c, route):
         {"k": "slider", "icon": "vol", "value": vol, "min": 0, "max": 100,
          "cmd": {"uuid": ua, "tmpl": "volume/{v}"}},
     ]
-    # 3-Punkte -> Quellen/Favoriten (Sonn via API, sonst Loxone-roomfav)
+    # 3-Punkte -> Musikauswahl (Sonn via API, sonst Loxone-roomfav)
     blocks.append({"k": "more", "route": {"view": "sources", "id": uuid}})
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "anchor": "bottom", "blocks": blocks}
@@ -162,31 +162,47 @@ class AudioHelfer:
         return ([{"label": f["name"], "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f['slot']}"},
                   "cover": cover(f["cover"])} for f in self._audio_favs(c)], False)
 
+    def _favoriten_grund(self, uuid: str) -> str:
+        """Warum eine Zone keine Favoriten liefern kann, als Satz fuer die
+        Visu; leer, wenn kein Grund bekannt ist (noch nicht geladen, oder es
+        sind wirklich keine angelegt). Bei einer Gen-2-Zone kommen sie nur
+        ueber den Audioserver-Kanal: ohne Verbindung keine, und ein
+        gekoppelter Audioserver gibt sie erst nach der Anmeldung heraus
+        (der Ausweg ueber den Miniserver, sourceList, fehlt dieser Zone)."""
+        c = self.controls.get(uuid) or {}
+        if c.get("type") not in ("AudioZone", "AudioZoneV2"):
+            return ""
+        cl, pid = self._audio_client_for(c)
+        if cl is None or pid is None:
+            return ""
+        if not cl.verbunden:
+            return "Keine Verbindung zum Audioserver"
+        if cl.paired and not cl.authed and cl.anmeldung:
+            return f"Anmeldung am Audioserver gescheitert: {cl.anmeldung}"
+        return ""
+
+    def _sender_bloecke(self, uuid: str) -> list:
+        """Favoriten einer Zone fuer ihre Detailseite: eine Reihe Cover zum
+        Abspielen, die Seite bleibt dabei stehen (bleiben); ohne Favoriten der
+        Grund (_favoriten_grund) oder nichts."""
+        items, _ = self._zonen_favoriten(uuid)
+        if items:
+            return [{"k": "favs", "items": items, "bleiben": True}]
+        grund = self._favoriten_grund(uuid)
+        return [{"k": "status", "text": grund}] if grund else []
+
     def _view_sources(self, uuid: str) -> dict:
-        """Musikauswahl einer AudioZone: feste Rubriken (immer sichtbar, auch leer).
-
-        'Favoriten' = die Zonen-Favoriten (_zonen_favoriten). 'Playlisten' ist
-        vorerst ein Platzhalter (Bibliothek/Playlisten liegen im Audioserver
-        und werden noch nicht abgefragt).
-        """
+        """Musikauswahl einer AudioZone: alle Favoriten der Zone
+        (_zonen_favoriten), umbrechend. Ohne Favoriten der Grund
+        (_favoriten_grund), sonst der Hinweis, wo sie angelegt werden."""
         c = self.controls.get(uuid, {})
-        items, vom_kanal = self._zonen_favoriten(uuid)
-        if vom_kanal:
-            body = ({"k": "favs", "wrap": True, "items": items} if items else
-                    {"k": "status", "text": "noch keine – in der App/am Tablet anlegen"})
-            return {"t": "view", "title": _clean(c.get("name")),
-                    "route": {"view": "sources", "id": uuid},
-                    "blocks": [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
-                               {"k": "head", "text": "Favoriten"}, body]}
-
-        empty = {"k": "status", "text": "noch keine – im Tablet / der App anlegen"}
-        blocks = [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
-                  {"k": "head", "text": "Favoriten"},
-                  {"k": "favs", "wrap": True, "items": items} if items else dict(empty),
-                  {"k": "head", "text": "Playlisten"},
-                  dict(empty)]
+        items, _ = self._zonen_favoriten(uuid)
+        body = ({"k": "favs", "wrap": True, "items": items} if items else
+                {"k": "status", "text": self._favoriten_grund(uuid) or "noch keine – in der Loxone-App anlegen"})
         return {"t": "view", "title": _clean(c.get("name")),
-                "route": {"view": "sources", "id": uuid}, "blocks": blocks}
+                "route": {"view": "sources", "id": uuid},
+                "blocks": [{"k": "title", "text": _clean(c.get("name")), "sub": "Musikauswahl"},
+                           {"k": "head", "text": "Favoriten"}, body]}
 
     def _audio_cover(self, c: dict) -> str | None:
         """Bild einer Audiozone als fertige /cover-URL, None ohne Bild - fuer

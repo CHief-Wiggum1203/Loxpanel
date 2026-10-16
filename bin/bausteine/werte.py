@@ -101,16 +101,9 @@ def detail_anlagenschema(app, uuid, c, route):
 
 @detail("Tracker")
 def detail_tracker(app, uuid, c, route):
-    lines = app._tracker_lines(c)
-    if not lines:
+    items = app._tracker_items(uuid, c)
+    if not items:
         return app._big_view(uuid, "list", "Keine Einträge")
-    items = []
-    for i, ln in enumerate(lines):
-        ts, txt = app._split_ts(ln)
-        entry = {"id": f"{uuid}:{i}", "icon": "list", "label": txt}
-        if ts:
-            entry["sublabel"] = ts
-        items.append(entry)
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "layout": "list", "items": items}
 
@@ -240,6 +233,44 @@ class WerteHelfer:
         for sep in ("\r\n", "\\r\\n", "\\n", "\\r", "\r"):
             txt = txt.replace(sep, "\n")
         return [ln.strip() for ln in txt.split("\n") if ln.strip()]
+
+    def _tracker_items(self, uuid: str, tracker: dict) -> list[dict]:
+        """Eintraege eines Trackers als Listenzeilen, neueste zuerst: Text als
+        Name, ein fuehrender Zeitstempel darunter."""
+        items = []
+        for i, ln in enumerate(self._tracker_lines(tracker)):
+            ts, txt = self._split_ts(ln)
+            entry = {"id": f"{uuid}:{i}", "icon": "list", "label": txt}
+            if ts:
+                entry["sublabel"] = ts
+            items.append(entry)
+        return items
+
+    @staticmethod
+    def _verlauf_sub(c: dict) -> tuple[str | None, dict | None]:
+        """Der Verlauf eines Bausteins: sein erster Unterbaustein vom Typ
+        Tracker (Strukturdoku, etwa MailBox: Subcontrol Tracker) als
+        (UUID, Baustein), sonst (None, None)."""
+        for su, s in (c.get("subControls") or {}).items():
+            if isinstance(s, dict) and s.get("type") == "Tracker":
+                return su, s
+        return None, None
+
+    def _view_verlauf(self, uuid: str) -> dict:
+        """Unterseite Verlauf eines Bausteins (Route view=verlauf): die
+        Eintraege seines Tracker-Unterbausteins wie auf der Detailseite eines
+        Trackers."""
+        c = self.controls.get(uuid or "") or {}
+        route = {"view": "verlauf", "id": uuid}
+        su, tracker = self._verlauf_sub(c)
+        titel = f"{_clean(c.get('name'))} · Verlauf"
+        if tracker is None:
+            return self._gone_view(route, titel, "Dieser Baustein hat keinen Verlauf.")
+        items = self._tracker_items(su, tracker)
+        if not items:
+            return {"t": "view", "title": titel, "route": route,
+                    "blocks": [{"k": "status", "text": "Keine Einträge"}]}
+        return {"t": "view", "title": titel, "route": route, "layout": "list", "items": items}
 
     # ---- Anlagenschema (SystemScheme) -----------------------------------
     def _resolve_control(self, uuid: str | None) -> dict | None:

@@ -1415,8 +1415,15 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       den erwarteten Niederschlag. An der Anlage prüfen, siehe 8.1. **M**
 - [ ] `AlarmChain`, `AalEmergency`, `AalSmartAlarm` (Alarmkette, Notfall,
       Smart Alarm): Zustand und Quittieren nach dem Muster von `Alarm`. **S**
-- [x] `MailBox` (Briefkasten): Post da / Paket da / leer als Anzeige.
-      Offen: Quittieren, Befehlsname auf der Anlage prüfen. **S**
+- [x] `MailBox` (Briefkasten): Post da / Paket da / leer, seit 16.10.2026
+      mit der Bedienung aus der Strukturdoku: „Post entnommen“/„Paket
+      entnommen“ (`confirmMail`, `confirmPacket`, nur für das, was drin ist),
+      Benachrichtigungen 1 h / 4 h / 24 h pausieren
+      (`disableNotifications/{Sekunden}`), „pausiert bis …“ aus
+      `disableEndTime` mit „Wieder an“ (`disableNotifications/0`), der Hinweis,
+      wenn die Logik sie aussetzt (`notificationsDisabledInput`), und der
+      Verlauf aus dem Unterbaustein Tracker (letzter Eintrag auf der Seite,
+      alle auf der Unterseite `verlauf`). An der Anlage prüfen, siehe 8.1. **S**
 - [ ] `LeafSystem`, `PowerUnit`: Anzeige-Bausteine, nur Werte. **S**
 - [ ] `UpDownLeftRightAnalog`, `UpDownLeftRightDigital`: vier Richtungstasten,
       nach dem Muster von `UpDownDigital`. **S**

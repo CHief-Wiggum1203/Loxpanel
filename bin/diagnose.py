@@ -177,8 +177,10 @@ def zusammenfassung(d: dict) -> list[str]:
         if a.get("verbunden"):
             art = "gekoppelt" if a.get("gekoppelt") else ("nicht gekoppelt" if a.get("gekoppelt") is False
                                                           else "Kopplung unbekannt")
-            saetze.append(f"Audioserver {a['host']} verbunden ({art}, "
-                          + ("angemeldet" if a.get("angemeldet") else "nicht angemeldet") + ").")
+            anm = "angemeldet" if a.get("angemeldet") else "nicht angemeldet"
+            if not a.get("angemeldet") and a.get("anmeldung"):
+                anm += ": " + a["anmeldung"]
+            saetze.append(f"Audioserver {a['host']} verbunden ({art}, {anm}).")
         else:
             saetze.append(f"Audioserver {a['host']} nicht verbunden.")
     srv = d.get("server") or {}
