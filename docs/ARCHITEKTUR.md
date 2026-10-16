@@ -401,7 +401,7 @@ Server → Browser (`panel.html:700`):
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
 | `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
-| `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen, für die Lautstärke bzw. die Lamellen, der Name der eingeschalteten Stimmung oder des Senders, „Beschattung ab“, „Lamellen 70 %“, „Pause“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Die Visu blendet sie in der Mitte ein |
+| `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen, für die Lautstärke bzw. die Lamellen, der Name der eingeschalteten Stimmung oder des Senders, „Beschattung ab“, „Lamellen 70 %“, „Pause“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Nach `beschattung`/`beschatten` dazu `wert` (Stellung in %) und danach von sich aus `phase` `wert`/`ende` mit `wert` und `text`, solange die Jalousien fahren (`geste_fahrten()`). Die Visu zeigt sie im Vollbild (§7.1 „Gesten“) |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -2223,8 +2223,9 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     (`gesteSequenz`), gibt es kein „zurück“ und danach `GESTE_KLICKSPERRE_MS`
     keinen Klick auf Kacheln. Aus bleiben die Gesten im Grundriss (dort
     zoomen zwei Finger), auf Detailseiten, im PIN-Feld, in Menüs und auf der
-    Uhr-Seite (`gesteErlaubt()`). Die Einblendung `#geste` zeigt Art und
-    Raum, beim Dimmen Prozent und Balken. Ein Fingerweg über die ganze Höhe
+    Uhr-Seite (`gesteErlaubt()`). Die Einblendung `#geste` deckt das ganze
+    Display (Vollbild, 16.10.2026, Vorbild ist das Display von Apple Home),
+    siehe „Einblendung im Vollbild“ unten. Ein Fingerweg über die ganze Höhe
     sind 0 → 100 %, quer bei den Lamellen die ganze Breite (nach rechts =
     mehr), beides gezählt ab dem Punkt, an dem das Wischen erkannt ist;
     Zwischenwerte gehen höchstens alle `GESTE_TAKT_MS`. Welche Arten einen
@@ -2273,11 +2274,44 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     `shadePosition` und `details.animation` Raffstore), Startwert das Mittel
     ihrer Lamellenstellung. Tipp links schickt `shade` an alle Jalousien
     des Raums; Tipp rechts pausiert, was im Raum spielt, sonst startet er
-    die erste Zone (`play`).
+    die erste Zone (`play`). Nach auf/ab und beschatten meldet der Server
+    die Stellung der Jalousien des Raums, solange sie fahren
+    (`geste_fahrten()`, jeder Takt des Broadcasters): die Antwort trägt ihr
+    Mittel (`wert`, State `position` in Prozent), danach `{t:"geste",
+    phase:"wert"}` mit Stellung und „Fährt ab“/„Fährt auf“, sobald sich
+    etwas ändert, und am Ende `phase:"ende"` („Geschlossen“, „Offen“, „40 %
+    geschlossen“). Bis der Miniserver die Fahrt meldet, schickt er nichts;
+    fährt nach `GESTEN_FAHRT_ANLAUF_S` keine los (Endlage), endet es,
+    länger als `GESTEN_FAHRT_MAX_S` beobachtet er nicht. Die Beobachtung
+    steht in `conn_geste` wie ein laufendes Dimmen, die nächste Geste der
+    Verbindung löst sie ab.
+  - **Einblendung im Vollbild:** `gesteBild()` legt `#geste` fest über das
+    ganze Fenster (am `body`, nicht in `.screen`, die höchstens so groß wie
+    ihre Kacheln ist und skaliert). Licht und Musik füllen es von unten bis
+    zum Wert (`pegel`, in `--glow` bzw. `--accent`), die Jalousie fährt als
+    Vorhang mit Lamellen von oben ins Bild (`vorhang`, live mit der
+    Stellung vom Server), die Lamellen zeigen ihre Kippung (`lamellen`,
+    Streifen so dick wie gekippt). Oben stehen Art und Raum mit Symbol, in
+    der Mitte groß der Wert (`.gs-wert`, „48 %“) oder das Wort (Stimmung,
+    Sender, Fehler), darunter, was der Server dazu meldet (`.gs-sub`). Die
+    Schrift steht in zwei Ebenen: über der Füllung `--ink`, auf ihr die
+    Schrift zur Füllfarbe; `clip-path` teilt sie an der Kante, auch mitten
+    durch die Ziffern. Die Maße wachsen mit dem Display (Container-Einheiten
+    wie die Nacht-Uhr, die Zahl 27 % der kürzeren Seite, davor px für
+    Browser ohne sie). Im Dunkeln (`leise`) liegt alles gedämpft auf
+    `--nacht-grund`, die Nacht-Auflage `#nightdim` bleibt darüber. Die
+    Farben rechnet der Server (`theme_colors.geste_farben()`, als
+    `--geste-*` im theme): Schrift auf Licht und Musik nach `schrift_auf()`,
+    Vorhang und Lamellen in `--ink` über der Fläche, nachts alles von
+    `nacht_schrift()` aus (helle Sets haben dunkle Schrift- und
+    Rollenfarben, die auf Schwarz verschwänden). Jede Deckung ist eine
+    Obergrenze (`GESTE_*`): trägt die Schrift darauf kein AA mehr, nimmt
+    `_deckend_bis()` weniger. Ohne Set und Grundfarbe gelten die
+    Standardfarben der Visu (`VISU_STANDARD`, dieselben wie in `grund.css`).
   - **Im Dunkeln (Stufe 5):** Auf der Uhr-Seite und im abgedunkelten
     Nachtmodus weckt ein Finger wie bisher, zwei Finger sind eine Geste, die
     das Panel dunkel lässt: keine Uhr weg, kein Aufhellen, die Einblendung
-    `leise`. Ob ein zweiter Finger kommt, steht erst kurz nach dem ersten
+    `leise` (gedämpft auf Schwarz). Ob ein zweiter Finger kommt, steht erst kurz nach dem ersten
     fest, so lange wartet das Wecken (`GESTE_ZWEITER_FINGER_MS`,
     `weckenAufschieben()`); losgelassen weckt er sofort. Ohne Gesten weckt
     jede Berührung ohne Wartezeit wie bisher. Die Geste gilt der Seite unter
@@ -2324,11 +2358,12 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     Wetter und Terminen lag die Nacht-Uhr quer über dem Inhalt, statt ihn zu
     ersetzen.
   - Geprüft in `tests/test_gesten.py` (Befehle am Miniserver-Nachbau,
-    Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr),
+    Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr, Farben der
+    Einblendung in jedem Theme, Fahrt der Jalousie),
     `tests/browser/test_gesten_browser.py` (zwei Finger über das
     DevTools-Protokoll, `Input.dispatchTouchEvent`; Uhr-Seite, Nacht,
     nachgebaute App-Brücke, Nacht-Uhr, quer wischen, Raumkarte der
-    Hausübersicht) und
+    Hausübersicht, Vollbild auf drei Displaygrößen, Vorhang live) und
     `android/.../SchonerBeruehrungTest.kt`.
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs

@@ -80,13 +80,14 @@ async def _warten(ms, anzahl, sekunden=3.0, ohne=()):
 
 
 def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, groesse=(BREITE, HOEHE),
-            tabs=("room:r1",), vorgaben=None, anpassen=None, warten="#grid .tile[data-id]"):
+            tabs=("room:r1",), vorgaben=None, anpassen=None, warten="#grid .tile[data-id]", mit_app=False):
     """uhr: die Uhr-Seite (Bildschirmschoner) stehen lassen; nacht: Nacht ist
     schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke);
     front: Wetter und Termine wie vom Server geladen (dann ist die Uhr-Seite
     quer in zwei Spalten geteilt); vorgaben: ui der Vorgaben (theme.json);
     anpassen(struktur, states): die Anlage vor dem Start aendern; warten:
-    woran die erste Seite fertig ist (die Hausuebersicht hat keine Kacheln)."""
+    woran die erste Seite fertig ist (die Hausuebersicht hat keine Kacheln);
+    mit_app: schritte(ms, pg, cdp, app), um Zustaende zu melden wie der Miniserver."""
     async def lauf():
         ms = Miniserver()
         await ms.start()
@@ -126,7 +127,7 @@ def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, gr
                     await pg.wait_for_selector("#saver.hidden", state="attached")
                 await pg.wait_for_timeout(500)
                 cdp = await ctx.new_cdp_session(pg)
-                ergebnis = await schritte(ms, pg, cdp)
+                ergebnis = await (schritte(ms, pg, cdp, app) if mit_app else schritte(ms, pg, cdp))
                 await b.close()
         finally:
             bc.cancel()
@@ -139,9 +140,10 @@ def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, gr
 
 
 def _einblendung(pg):
+    """[Titel, grosser Wert, Zeile darunter] der Einblendung, None ohne sie."""
     return pg.evaluate("""() => { const n = document.getElementById('geste');
       return n && !n.classList.contains('hidden') ? [n.querySelector('.gs-titel').textContent,
-        n.querySelector('.gs-wert').textContent] : null; }""")
+        n.querySelector('.gs-wert').textContent, n.querySelector('.gs-sub').textContent] : null; }""")
 
 
 @pytest.mark.parametrize("nacheinander", [False, True], ids=["zugleich", "nacheinander"])
@@ -242,7 +244,7 @@ def test_quer_links_stellt_die_lamellen_beim_loslassen():
     erkannt = x0 + next(i for i in range(1, n + 1) if i * schritt >= mindestweg * h) * schritt
     wert = math.floor(50 + (x1 - erkannt) / w * 100 + 0.5)       # wie Math.round der Visu
     assert 60 < wert < 85 and io == [f"sps/io/J2/manualLamelle/{wert}"], (io, wert)
-    assert einblendung == ["Lamellen · Essen-Kochen-Wohnen", f"Lamellen {wert} %"], einblendung
+    assert einblendung == ["Lamellen · Essen-Kochen-Wohnen", f"{wert} %", f"Lamellen {wert} %"], einblendung
 
 
 def test_hausuebersicht_bedient_den_raum_der_karte():
@@ -385,11 +387,16 @@ def test_konfigurator_speichert_die_gesten(cfg_ordner, tmp_path):
 
 def _dunkel(pg):
     """Uhr-Seite sichtbar, Nacht-Uhr, Auflage der Nacht (inline gesetzt, ohne
-    Uebergang) und ob die Einblendung leise ist."""
+    Uebergang), ob die Einblendung leise ist und ob ihr Grund und ihre
+    Fuellung die gedaempften Farben der Nacht tragen."""
     return pg.evaluate("""() => { const n = document.getElementById('geste'), d = document.getElementById('nightdim');
+      const farbe = v => { const e = document.createElement('i'); e.style.color = `var(${v})`; document.body.appendChild(e);
+        const c = getComputedStyle(e).color; e.remove(); return c; };
       return {uhr: !document.getElementById('saver').classList.contains('hidden'),
               nacht: document.getElementById('saver').classList.contains('nacht'),
-              auflage: d ? +d.style.opacity : null, leise: !!n && n.classList.contains('leise')}; }""")
+              auflage: d ? +d.style.opacity : null, leise: !!n && n.classList.contains('leise'),
+              gedaempft: !!n && getComputedStyle(n).backgroundColor === farbe('--nacht-grund')
+                && getComputedStyle(n.querySelector('.gs-fuell')).backgroundColor === farbe('--geste-nacht-licht')}; }""")
 
 
 def test_auf_der_uhr_seite_dimmen_zwei_finger_ohne_zu_wecken():
@@ -406,7 +413,7 @@ def test_auf_der_uhr_seite_dimmen_zwei_finger_ohne_zu_wecken():
         return io, nach_geste, await _dunkel(pg), list(ms.io)
     io, nach_geste, nach_tipp, alles = _laufen(schritte, uhr=True)
     assert io and all(c.split("/")[2] in ("LK-1", "LK-2") for c in io), io
-    assert nach_geste["uhr"] and nach_geste["leise"], nach_geste
+    assert nach_geste["uhr"] and nach_geste["leise"] and nach_geste["gedaempft"], nach_geste
     assert not nach_tipp["uhr"], "ein Finger weckt"
     assert alles == io, "der weckende Finger loest nichts aus"
 
@@ -592,3 +599,72 @@ def test_hinweis_symbol_und_hilfe(tmp_path):
 def test_kein_symbol_wo_es_nichts_hilft(ui, tabs, groesse, fuss):
     m = _laufen(lambda ms, pg, cdp: pg.evaluate(HINWEIS), ui=ui, tabs=tabs, groesse=groesse)
     assert m["fuss"] is fuss and not m["sichtbar"], m
+
+
+# ---- Einblendung ueber die ganze Flaeche ------------------------------------
+
+MESSEN = """() => { const n = document.getElementById('geste');
+  const r = n.getBoundingClientRect(), f = n.querySelector('.gs-fuell');
+  const auf = n.querySelector('.gs-auf'), z = n.querySelector('.gs-wert');
+  const farbe = v => { const e = document.createElement('i'); e.style.color = `var(${v})`; document.body.appendChild(e);
+    const c = getComputedStyle(e).color; e.remove(); return c; };
+  return {deckt: [r.left, r.top, r.width, r.height].map(Math.round), display: [0, 0, innerWidth, innerHeight],
+          fuell: f.getBoundingClientRect().height / r.height * 100, wert: parseInt(z.textContent),
+          kante: parseFloat((getComputedStyle(auf).clipPath.match(/inset\\(([\\d.]+)%/) || [])[1]),
+          aufFarbe: getComputedStyle(auf).color === farbe('--geste-licht-ink'),
+          fuellFarbe: getComputedStyle(f).backgroundColor === farbe('--glow'),
+          zahl: parseFloat(getComputedStyle(z).fontSize), seite: Math.min(r.width, r.height)}; }"""
+
+
+@pytest.mark.parametrize("groesse", [(BREITE, HOEHE), (480, 480), (1280, 800)], ids=["tablet", "480", "gross"])
+def test_licht_fuellt_die_ganze_flaeche(groesse):
+    """Mitte hoch, die Finger noch auf dem Glas: die Einblendung deckt das
+    ganze Display (auch den Rand um die Kacheln), die Fuellung in --glow steht so hoch wie der Wert, die
+    Schrift darauf (--geste-licht-ink) beginnt genau an ihrer Kante. Die Zahl
+    waechst mit der Flaeche: 27 % ihrer kleineren Seite, auf jedem Display."""
+    b, h = groesse
+
+    async def schritte(ms, pg, cdp):
+        a, c = b / 2 - 30, b / 2 + 30
+        await _finger(cdp, "touchStart", [(a, h * 0.7), (c, h * 0.7)])
+        for i in range(1, 9):
+            y = h * 0.7 - h * 0.25 * i / 8
+            await _finger(cdp, "touchMove", [(a, y), (c, y)])
+            await asyncio.sleep(0.03)
+        await pg.wait_for_function("document.querySelector('#geste .gs-wert').classList.contains('zahl')")
+        await asyncio.sleep(0.4)                  # Uebergang der Fuellung
+        mass = await pg.evaluate(MESSEN)
+        await _finger(cdp, "touchEnd", [])
+        await _warten(ms, 1)
+        return mass
+    m = _laufen(schritte, groesse=groesse)
+    assert m["deckt"] == m["display"], m
+    assert abs(m["fuell"] - m["wert"]) <= 1.5 and abs(m["kante"] - (100 - m["fuell"])) <= 1.5, m
+    assert m["aufFarbe"] and m["fuellFarbe"], m
+    assert abs(m["zahl"] - max(64, 0.27 * m["seite"])) <= 1.5, m
+
+
+def test_jalousie_faehrt_live_im_vorhang():
+    """Links runter: FullDown an beide Jalousien, der Vorhang steht auf ihrer
+    mittleren Stellung (J1 0 %, J2 30 %) und folgt dem, was der Miniserver
+    meldet: faehrt ab bei 60 %, dann zu ("Geschlossen"), danach blendet er aus."""
+    async def schritte(ms, pg, cdp, app):
+        await zwei_finger(cdp, BREITE * 0.15, HOEHE * 0.3, HOEHE * 0.6)
+        io = await _warten(ms, 2)
+        await pg.wait_for_function("document.getElementById('geste').classList.contains('vorhang')")
+        anfang = await _einblendung(pg)
+        for uuid, wert in (("j1-d", 1), ("j2-d", 1), ("j1-p", 0.5), ("j2-p", 0.7)):
+            app._on_value(uuid, wert)
+        await pg.wait_for_function("document.querySelector('#geste .gs-wert').textContent === '60 %'")
+        fahrt = [*await _einblendung(pg), await pg.evaluate("document.querySelector('#geste .gs-vorhang').style.height")]
+        for uuid, wert in (("j1-p", 1.0), ("j2-p", 1.0), ("j1-d", 0), ("j2-d", 0)):
+            app._on_value(uuid, wert)
+        await pg.wait_for_function("document.querySelector('#geste .gs-sub').textContent === 'Geschlossen'")
+        ende = await _einblendung(pg)
+        await pg.wait_for_function("document.getElementById('geste').classList.contains('hidden')", timeout=4000)
+        return io, anfang, fahrt, ende
+    io, anfang, fahrt, ende = _laufen(schritte, mit_app=True)
+    assert io == ["sps/io/J1/FullDown", "sps/io/J2/FullDown"]
+    assert anfang == ["Beschattung · Essen-Kochen-Wohnen", "15 %", "Beschattung ab"], anfang
+    assert fahrt == ["Beschattung · Essen-Kochen-Wohnen", "60 %", "Fährt ab", "60%"], fahrt
+    assert ende == ["Beschattung · Essen-Kochen-Wohnen", "100 %", "Geschlossen"], ende

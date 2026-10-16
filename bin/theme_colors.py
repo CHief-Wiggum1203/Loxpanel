@@ -322,6 +322,61 @@ def nacht_schrift(ink: str) -> str:
     return _aus_hls(farbton, HELLE_SCHRIFT[0], min(saettigung, HELLE_SCHRIFT[1]))
 
 
+# ---- Gesten im Vollbild (panel/gesten.js, Einblendung #geste) ----
+# Standardfarben der Visu (panel/grund.css, :root), die gelten, wenn weder
+# Kachel-Set noch Grundfarbe welche nennt. geste_farben() rechnet dann aus
+# ihnen; tests/test_gesten.py vergleicht sie mit grund.css.
+VISU_STANDARD = {"--screen": "#0f1512", "--ink": "#e7ede7", "--glow": "#e0a24d", "--accent": "#52b881"}
+# Hoechste Deckung ueber dem Grund: Vorhang und Lamellen der Jalousie in der
+# Schrift des Themes; im Dunkeln Fuellung, Vorhang, Lamellen und Schrift auf
+# NACHT_GRUND, damit das Panel nachts nicht aufleuchtet. Traegt die Schrift
+# darauf kein AA mehr, nimmt _deckend_bis() weniger.
+GESTE_VORHANG = 0.16
+GESTE_LAMELLE = 0.30
+GESTE_NACHT_FUELLUNG = 0.22
+GESTE_NACHT_VORHANG = 0.10
+GESTE_NACHT_LAMELLE = 0.20
+GESTE_NACHT_SCHRIFT = 0.62
+
+
+def _deckend_bis(vorn: str, hinten: str, deckung: float, schrift: str) -> str:
+    """vorn ueber hinten mit hoechstens `deckung`, aber nur so viel, wie
+    schrift darauf noch AA traegt (in Schritten von 0,01)."""
+    for d in range(round(deckung * 100), -1, -1):
+        farbe = ueber(vorn, hinten, d / 100)
+        if kontrast(schrift, farbe) >= AA:
+            return farbe
+    return hinten
+
+
+def geste_farben(v: dict) -> dict:
+    """Farben der Gesten-Einblendung ueber die ganze Flaeche aus dem Satz v
+    (--screen, --ink, --glow, --accent; was fehlt oder kein #rrggbb ist, aus
+    VISU_STANDARD): Schrift auf der Fuellung von Licht (--glow) und Musik
+    (--accent) wie schrift_auf(), Vorhang und Lamellen der Jalousie, und
+    dasselbe gedaempft auf NACHT_GRUND fuer Nachtmodus und Uhr-Seite. Die
+    Nachtfarben gehen von nacht_schrift() aus: helle Themes haben dunkle
+    Schrift und Rollenfarben, die auf Schwarz verschwaenden."""
+    f = {k: (v[k] if isinstance(v.get(k), str) and _HEX.match(v[k].strip()) else std).strip()
+         for k, std in VISU_STANDARD.items()}
+    screen, ink, glow, akzent = f["--screen"], f["--ink"], f["--glow"], f["--accent"]
+    nacht = nacht_schrift(ink)
+    nacht_ink = ueber(nacht, NACHT_GRUND, GESTE_NACHT_SCHRIFT)
+    return {
+        "--geste-licht-ink": schrift_auf(glow),
+        "--geste-musik-ink": schrift_auf(akzent),
+        "--geste-vorhang": _deckend_bis(ink, screen, GESTE_VORHANG, ink),
+        "--geste-lamelle": _deckend_bis(ink, screen, GESTE_LAMELLE, ink),
+        "--geste-nacht-ink": nacht_ink,
+        # Fuellung in ihrem Farbton, hell genug fuer Schwarz: in hellen Sets
+        # sind --glow und --accent dunkle Schriftfarben
+        "--geste-nacht-licht": _deckend_bis(nacht_schrift(glow), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
+        "--geste-nacht-musik": _deckend_bis(nacht_schrift(akzent), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
+        "--geste-nacht-vorhang": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_VORHANG, nacht_ink),
+        "--geste-nacht-lamelle": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_LAMELLE, nacht_ink),
+    }
+
+
 # So viele Grundfarben bleiben gemerkt - mehr als ein Haus je an Profilen hat.
 DERIVE_MERKEN = 256
 

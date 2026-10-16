@@ -2410,6 +2410,12 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       beim Loslassen). Auf der Hausübersicht gilt die Geste dem Raum der
       Raumkarte unter den Fingern. Das Hinweis-Symbol fehlt dort weiter
       (keine Fußzeile).
+      *Erledigt 16.10.2026: Einblendung im Vollbild* (wie das Display von
+      Apple Home): Licht und Lautstärke füllen das ganze Display von unten,
+      die Jalousie fährt als Vorhang von oben, live mit der Stellung vom
+      Miniserver, die Lamellen zeigen ihre Kippung. Auf allen Displaygrößen,
+      im Dunkeln gedämpft auf Schwarz; Farben aus dem Theme, in jedem Set
+      mit AA nachgerechnet.
       Offen, an der Anlage prüfen: ob die Lichtsteuerung beim Dimmen
       „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg, Wartezeit
       des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am

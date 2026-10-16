@@ -13,6 +13,8 @@
 Anlage: lox.gesten_anlage()."""
 import asyncio
 import json
+import re
+from pathlib import Path
 
 import aiohttp
 import pytest
@@ -20,7 +22,8 @@ from aiohttp.test_utils import make_mocked_request
 
 from lox import gesten_anlage, konfig, Miniserver, neue_app, visu_starten, W
 
-import theme_colors  # bin/ liegt durch lox auf dem Pfad
+import gesten  # bin/ liegt durch lox auf dem Pfad
+import theme_colors
 
 pytestmark = pytest.mark.usefixtures("miniserver_http")
 
@@ -592,3 +595,103 @@ def test_geste_auf_der_raumkarte():
     assert karte["raum"] == "Essen-Kochen-Wohnen" and karte["text"] == "Putzen"
     assert daneben["fehler"] == "Kein Raum auf dieser Seite"
     assert io == ["sps/io/LK/changeTo/2"]
+
+
+# ---- Vollbild: Farben und Fahrt der Jalousie --------------------------------
+
+GESTE_PAARE = (("--geste-licht-ink", "--glow"), ("--geste-musik-ink", "--accent"),
+               ("--ink", "--geste-vorhang"), ("--ink", "--geste-lamelle"),
+               ("--geste-nacht-ink", "--nacht-grund"), ("--geste-nacht-ink", "--geste-nacht-licht"),
+               ("--geste-nacht-ink", "--geste-nacht-musik"), ("--geste-nacht-ink", "--geste-nacht-vorhang"),
+               ("--geste-nacht-ink", "--geste-nacht-lamelle"))
+
+
+def test_vollbild_traegt_in_jedem_theme():
+    """Die Einblendung ueber die ganze Flaeche: die Schrift auf der Fuellung
+    (Licht, Musik), auf Vorhang und Lamellen der Jalousie und im Dunkeln auf
+    Schwarz und den gedaempften Fuellungen traegt AA. Nachts bleibt die
+    Fuellung sichtbar, auch in hellen Sets, deren --glow eine dunkle
+    Schriftfarbe ist. Ohne Set und Grundfarbe aus den Standardfarben der Visu."""
+    tc = theme_colors
+    for ui in [{}, *_themes()]:
+        v = W.App._theme_vars(dict(konfig.DEFAULT_THEME["states"]), ui)
+        f = {**tc.VISU_STANDARD, **v}
+        for schrift, flaeche in GESTE_PAARE:
+            assert tc.kontrast(f[schrift], f[flaeche]) >= tc.AA, (ui, schrift, flaeche, f[schrift], f[flaeche])
+        for fuellung in ("--geste-nacht-licht", "--geste-nacht-musik"):
+            assert tc.kontrast(f[fuellung], tc.NACHT_GRUND) >= 1.3, (ui, fuellung, f[fuellung])
+
+
+def test_standardfarben_wie_in_der_visu():
+    """VISU_STANDARD ist, was grund.css ohne Set und Grundfarbe zeigt."""
+    css = (Path(W.__file__).parent.parent / "webfrontend/html/panel/grund.css").read_text(encoding="utf-8")
+    for name, wert in theme_colors.VISU_STANDARD.items():
+        assert re.search(re.escape(name) + r"\s*:\s*" + re.escape(wert) + r"\s*;", css), (name, wert)
+
+
+def test_gewaehlte_zustandsfarbe_geht_in_die_einblendung():
+    states = {**konfig.DEFAULT_THEME["states"], "active": "#3a6df0", "good": "#c0392b"}
+    v = W.App._theme_vars(states, {})
+    assert v["--geste-licht-ink"] == theme_colors.schrift_auf("#3a6df0")
+    assert v["--geste-musik-ink"] == theme_colors.schrift_auf("#c0392b")
+
+
+class MitSenden(Sitzung):
+    """Sitzung, die mitschreibt, was der Server ihr von sich aus schickt."""
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.gesendet = []
+
+    async def send_json(self, msg):
+        self.gesendet.append(msg)
+
+
+def test_jalousie_faehrt_live():
+    """Links runter: die Antwort nennt die mittlere Stellung (J1 0 %, J2 30 %);
+    bis der Miniserver eine Fahrt meldet, schickt der Takt nichts. Dann die
+    Stellung, solange sie faehrt, und am Ende "Geschlossen"."""
+    async def schritte(app):
+        s = MitSenden(app, RAUM)
+        antwort = await s(art="beschattung", richtung="ab")
+        await app.geste_fahrten()
+        vor_der_fahrt = list(s.gesendet)
+        app.states.update({"j1-d": 1, "j2-d": 1, "j1-p": 0.4, "j2-p": 0.6})
+        await app.geste_fahrten()
+        await app.geste_fahrten()                  # nichts geaendert: nichts doppelt
+        app.states.update({"j1-d": 0, "j2-d": 0, "j1-p": 1.0, "j2-p": 1.0})
+        await app.geste_fahrten()
+        return antwort, vor_der_fahrt, s.gesendet, s in app.conn_geste
+    (antwort, vorher, gesendet, beobachtet), io = _mit_nachbau(schritte)
+    assert (antwort["text"], antwort["wert"]) == ("Beschattung ab", 15) and vorher == []
+    assert [(m["phase"], m["wert"], m["text"]) for m in gesendet] == [("wert", 50, "Fährt ab"),
+                                                                      ("ende", 100, "Geschlossen")]
+    assert all(m["art"] == "beschattung" and m["raum"] == "Essen-Kochen-Wohnen" for m in gesendet)
+    assert not beobachtet and io == ["sps/io/J1/FullDown", "sps/io/J2/FullDown"]
+
+
+def test_jalousie_ohne_fahrt_endet_nach_dem_anlauf():
+    """Faehrt keine los (schon in der Endlage), endet die Meldung nach
+    GESTEN_FAHRT_ANLAUF_S mit der Stellung."""
+    async def schritte(app):
+        s = MitSenden(app, RAUM)
+        await s(art="beschatten")
+        app.conn_geste[s]["start"] -= gesten.GESTEN_FAHRT_ANLAUF_S + 1
+        await app.geste_fahrten()
+        return s.gesendet, s in app.conn_geste
+    (gesendet, beobachtet), io = _mit_nachbau(schritte)
+    assert [(m["art"], m["phase"], m["wert"], m["text"]) for m in gesendet] == [
+        ("beschatten", "ende", 15, "15 % geschlossen")]
+    assert not beobachtet and io == ["sps/io/J1/shade", "sps/io/J2/shade"]
+
+
+def test_neue_geste_loest_die_fahrt_ab():
+    async def schritte(app):
+        s = MitSenden(app, RAUM)
+        await s(art="beschattung", richtung="auf")
+        await s(art="licht", phase="start")
+        app.states.update({"j1-u": 1, "j2-p": 0.1})
+        await app.geste_fahrten()
+        return s.gesendet
+    gesendet, _io = _mit_nachbau(schritte)
+    assert gesendet == []

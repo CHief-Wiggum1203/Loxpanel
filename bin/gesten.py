@@ -12,6 +12,7 @@ Zustand der App. Importiert webvisu nicht."""
 from __future__ import annotations
 
 import asyncio
+import time
 
 from adapters import LightControllerV2Adapter
 from bausteine.beschattung import JAL_RAFFSTORE
@@ -35,6 +36,15 @@ GESTEN_DIMMER_TYPEN = ("Dimmer", "EIBDimmer")
 GESTEN_AUDIO_TYPEN = ("AudioZone", "AudioZoneV2")
 
 GESTEN_BESCHATTUNG_TYPEN = ("Jalousie",)
+
+# Nach einer Geste der Beschattung (auf/ab, beschatten) meldet der Server die
+# Stellung der Jalousien an die Visu, solange sie fahren (geste_fahrten(),
+# jeder Takt des Broadcasters): Die Einblendung zeigt den Vorhang live. Faehrt
+# nach GESTEN_FAHRT_ANLAUF_S keine los (schon in der Endlage), endet die
+# Meldung; laenger als GESTEN_FAHRT_MAX_S beobachtet er keine Fahrt.
+GESTEN_FAHRT_ANLAUF_S = 3.0
+
+GESTEN_FAHRT_MAX_S = 240.0
 
 
 class Gesten:
@@ -260,8 +270,9 @@ class Gesten:
             if not jal:
                 return {**antwort, "fehler": f"Keine Beschattung in {raum}"}
             fehl = await self._geste_befehle([(self.controls[u].get("uuidAction") or u, "shade") for u in jal])
-            return {**antwort, **({"fehler": f"{fehl} von {len(jal)} Befehlen nicht ausgeführt"}
-                                  if fehl else {"text": "Beschatten"})}
+            if fehl:
+                return {**antwort, "fehler": f"{fehl} von {len(jal)} Befehlen nicht ausgeführt"}
+            return {**antwort, "text": "Beschatten", **self._geste_fahrt_beobachten(ws, art, antwort["raum"], jal)}
         if art == "beschattung":
             jal = self._geste_bausteine(ru, prof, GESTEN_BESCHATTUNG_TYPEN)
             if not jal:
@@ -275,8 +286,9 @@ class Gesten:
                 befehle = [(self.controls[u].get("uuidAction") or u, "FullUp" if auf else "FullDown") for u in jal]
                 text = "Beschattung auf" if auf else "Beschattung ab"
             fehl = await self._geste_befehle(befehle)
-            return {**antwort, **({"fehler": f"{fehl} von {len(befehle)} Befehlen nicht ausgeführt"}
-                                  if fehl else {"text": text})}
+            if fehl:
+                return {**antwort, "fehler": f"{fehl} von {len(befehle)} Befehlen nicht ausgeführt"}
+            return {**antwort, "text": text, **self._geste_fahrt_beobachten(ws, art, antwort["raum"], jal)}
         if art == "verlassen":
             ziel = ((self.theme.get("ui") or {}).get("raumVerlassen") or {}).get(ru)
             if ziel:
@@ -385,6 +397,64 @@ class Gesten:
         if await self._geste_befehle([(favs[i]["cmd"]["uuid"], favs[i]["cmd"]["cmd"])]):
             return {"fehler": "Miniserver hat nicht umgeschaltet"}
         return {"text": favs[i]["label"]}
+
+    def _geste_jal_stand(self, jal: list) -> dict:
+        """Stellung der Jalousien fuer die Einblendung: Mittel der States
+        position (0 oben .. 1 unten) in Prozent, None ohne Stellung, und die
+        Fahrt aus up/down (_jal_fahrt): "ab", "auf" oder ""."""
+        cs = [self.controls[u] for u in jal if u in self.controls]
+        pos = [p for p in (self._endlich(c, "position") for c in cs) if p is not None]
+        fahrt = [self._jal_fahrt(c)[:2] for c in cs]
+        return {"wert": round(max(0.0, min(1.0, sum(pos) / len(pos))) * 100) if pos else None,
+                "fahrt": "ab" if any(ab for _a, ab in fahrt) else ("auf" if any(a for a, _b in fahrt) else "")}
+
+    def _geste_fahrt_beobachten(self, ws, art: str, raum: str, jal: list) -> dict:
+        """Nach den Befehlen einer Beschattungs-Geste: die Stellung fuer die
+        Antwort ({wert}) und, wenn es eine gibt, die Jalousien fuer
+        geste_fahrten() merken. Wie ein laufendes Dimmen in conn_geste: die
+        naechste Geste dieser Verbindung loest es ab."""
+        stand = self._geste_jal_stand(jal)
+        if stand["wert"] is None:
+            return {}
+        jetzt = time.monotonic()
+        # Der Stand vor der Fahrt gilt als gemeldet: bis der Miniserver sie
+        # meldet, bleibt der Text der Antwort ("Beschattung ab") stehen
+        vorher = {"t": "geste", "art": art, "raum": raum, "phase": "wert", "wert": stand["wert"],
+                  "text": self._geste_fahrt_text(stand, False)}
+        self.conn_geste[ws] = {"art": "fahrt", "geste": art, "raum": raum, "jal": list(jal), "start": jetzt,
+                               "bis": jetzt + GESTEN_FAHRT_MAX_S, "bewegt": False, "gesendet": vorher}
+        return {"wert": stand["wert"]}
+
+    @staticmethod
+    def _geste_fahrt_text(stand: dict, ende: bool) -> str:
+        if not ende and stand["fahrt"]:
+            return "Fährt ab" if stand["fahrt"] == "ab" else "Fährt auf"
+        w = stand["wert"]
+        if w is None:
+            return ""
+        return "Geschlossen" if w >= 100 else ("Offen" if w <= 0 else f"{w} % geschlossen")
+
+    async def geste_fahrten(self) -> None:
+        """Jeder Takt des Broadcasters: die Stellung der Jalousien, die eine
+        Geste fahren liess, an ihre Verbindung ({t:"geste", phase:"wert"}),
+        sobald sie sich aendert; am Ende der Fahrt phase "ende". Die Werte
+        kommen aus den States des Miniservers, die Visu zeichnet den Vorhang."""
+        jetzt = time.monotonic()
+        for ws, lauf in list(self.conn_geste.items()):
+            if lauf.get("art") != "fahrt":
+                continue
+            stand = self._geste_jal_stand(lauf["jal"])
+            if stand["fahrt"]:
+                lauf["bewegt"] = True
+            ende = (stand["wert"] is None or jetzt > lauf["bis"]
+                    or (not stand["fahrt"] and (lauf["bewegt"] or jetzt - lauf["start"] > GESTEN_FAHRT_ANLAUF_S)))
+            msg = {"t": "geste", "art": lauf["geste"], "raum": lauf["raum"], "phase": "ende" if ende else "wert",
+                   "wert": stand["wert"], "text": self._geste_fahrt_text(stand, ende)}
+            if ende and self.conn_geste.get(ws) is lauf:
+                self.conn_geste.pop(ws, None)
+            if ende or msg != lauf["gesendet"]:
+                lauf["gesendet"] = msg
+                await self._send_or_drop(ws, msg)
 
     async def _geste_wert(self, lauf: dict, wert: float, ende: bool) -> str:
         """Zwischen- oder Endwert einer laufenden Geste umsetzen; Text fuer die
