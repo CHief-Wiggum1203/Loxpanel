@@ -1362,7 +1362,10 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       Trocknung, Tür, Betriebstemperatur, Wassermangel, Timer und Störung.
       Bedienung: Ein/Aus (`on`/`off`), Solltemperatur (`temp/<wert>`, ±1/±5 °C)
       und Betriebsart (`mode/<0..6>` als Aufklapper). States und Befehle an der
-      echten Anlage verifiziert (`bin/sauna_probe.py`). **M**
+      echten Anlage verifiziert (`bin/sauna_probe.py`). Seit 16.10.2026 nach
+      der Strukturdoku auch Sollfeuchte mit Verdampfer (`humidity/<wert>`),
+      Lüftung (`fanon`/`fanoff`, an nur bei aktiver Sauna) und die Sanduhr
+      (`starttimer`, Rest aus `timer`). An der Anlage prüfen, siehe 8.1. **M**
 - [ ] `PoolController` (Pool): Modus, Temperaturen, Filterlauf, Befehle. **M**
 - [ ] `LightsceneRGB` (RGB-Lichtszene): Szenenliste, aktive Szene, Farbe
       setzen; Farbwahl aus `ColorPickerV2` wiederverwenden. **M**
@@ -1370,7 +1373,12 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
 - [ ] `Wallbox` (Ladestation): Ladeleistung, Energie, Ladezustand, Modus und
       Leistungsgrenze setzen. **M**
 - [x] `EnergyManager2` (Energiemanager): Erzeugung, Netz, Speicher mit
-      Ladestand und Reserve, Verbraucherliste aus `loads`; nur Anzeige. **M**
+      Ladestand und Reserve, Verbraucherliste aus `loads`. Seit 16.10.2026
+      bedienbar: Reserve (`setMinSoc/<%>`) und maximale Speicherleistung
+      (`setMaxSpwr/<kW>`, 0,5-kW-Schritte), beide nur, wenn die Logik sie
+      nicht vorgibt (`MinSocLocked`, `MaxSpwrLocked`); je Verbraucher Ein/Aus
+      bis Mitternacht und Automatik (`{uuid}/activate|deactivate|automatic`).
+      An der Anlage prüfen, siehe 8.1. **M**
 - [ ] `SpotPriceOptimizer` (Strompreis-Optimierer): Preisverlauf und Plan,
       nur Anzeige. **M**
 - [ ] `MediaClient` (Media Client, alt): Steuerung veralteter Geräte;
@@ -1390,7 +1398,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Zeitraum, danach, Anlagenleistung. **S**
 - [x] `SteakThermo` (Touch & Grill Thermometer): Fühlertemperaturen aus
       `currentTemperatures`, Zielwerte, Alarmtext, Timer, Akku. Struktur von
-      `currentTemperatures` auf der Anlage gegenprüfen. **S**
+      `currentTemperatures` auf der Anlage gegenprüfen. Seit 16.10.2026
+      bedienbar: Ziel je Fühler mit Namen aus `sensorInfo`
+      (`setSensor/<index>/<ziel>/<name>`), Timer stellen, starten und stoppen
+      (`setTimerDuration`, `startTimer`, `stopTimer`), Alarm quittieren
+      (`quitAlarm`), Gerätezustand (`deviceState`), Akku nur ohne Netzteil. **S**
+- [x] `SmokeAlarm` (Brand- und Wassermelder): seit 16.10.2026 Stufe
+      (Voralarm/Hauptalarm) mit Ursache aus `alarmCause`, überwachte Arten aus
+      `availableAlarms`, Quittieren (`confirm`), Sirene aus (`mute`, nur bei
+      `acousticAlarm`), Revisionsmodus 1 h / 4 h / ohne Ende
+      (`servicemode/<s>`, `/1`, beenden mit `/0`, Rest aus `timeServiceMode`)
+      und Probealarm (`startDrill`), beide mit Rückfrage. **S**
+- [x] `Alarm` (Alarmanlage): seit 16.10.2026 der Bewegungsmelder an/aus
+      (`dismv/1`, `dismv/0`, State `disabledMove`) und beim verzögerten
+      Scharfschalten die Uhrzeit aus `armedAt`. **S**
 - [ ] `EnergyManager` (Energiemanager, alte Version), `Wallbox2`, `CarCharger`:
       ältere bzw. neuere Varianten der Energie-Bausteine. **M**
 - [x] `IntercomV2` (Baustein Intercom, die neue Türsprechstelle): seit
@@ -1424,6 +1445,8 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       wenn die Logik sie aussetzt (`notificationsDisabledInput`), und der
       Verlauf aus dem Unterbaustein Tracker (letzter Eintrag auf der Seite,
       alle auf der Unterseite `verlauf`). An der Anlage prüfen, siehe 8.1. **S**
+      Dieselbe Unterseite zeigt seit 16.10.2026 den Verlauf der Bewässerung
+      (Unterbaustein Tracker laut Strukturdoku).
 - [ ] `LeafSystem`, `PowerUnit`: Anzeige-Bausteine, nur Werte. **S**
 - [ ] `UpDownLeftRightAnalog`, `UpDownLeftRightDigital`: vier Richtungstasten,
       nach dem Muster von `UpDownDigital`. **S**

@@ -207,13 +207,16 @@ function formBind(g){
 const STP_SENDEN_MS = 900, STP_HALTEN_MS = 3000;
 function dauerText(s){ s=Math.max(0,Math.round(+s||0)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), r=s%60;
   if(!s) return '0 min'; if(h) return h+' h'+(m?' '+m+' min':''); if(m) return m+' min'+(r?' '+r+' s':''); return r+' s'; }
-function stpText(b,v){ return b.fmt==='dauer' ? dauerText(v) : b.fmt==='prozent' ? v+' %' : String(v); }
+// Mit unit (z. B. "kW", "°C") deutsch mit Komma und Einheit
+function stpText(b,v){ return b.fmt==='dauer' ? dauerText(v) : b.fmt==='prozent' ? v+' %'
+  : b.unit ? String(v).replace('.',',')+' '+b.unit : String(v); }
 function stepperBind(e,b){ e._b=b; e._v=+b.value||0;
   e.querySelectorAll('.sbtn[data-st]').forEach(btn=>wiederholen(btn,()=>{
     const bb=e._b, d=+btn.dataset.st, st=+bb.step||1;
     const mn=bb.min!=null?+bb.min:-Infinity, mx=bb.max!=null?+bb.max:Infinity;
-    // Liegt der Wert schon ausserhalb der Grenzen, fuehrt ein Schritt nie weiter hinaus
-    let v=e._v+d*st;
+    // Liegt der Wert schon ausserhalb der Grenzen, fuehrt ein Schritt nie weiter hinaus;
+    // auf die Stellen des Schritts gerundet (0,5er-Schritte ohne Rechenrest)
+    let v=+(e._v+d*st).toFixed(Math.max(stellen(st),stellen(e._v)));
     v=d<0 ? Math.max(v,Math.min(mn,e._v)) : Math.min(v,Math.max(mx,e._v));
     if(v===e._v) return;
     e._v=v; e._lokal=Date.now(); e.querySelector('.stpv').textContent=stpText(bb,v);

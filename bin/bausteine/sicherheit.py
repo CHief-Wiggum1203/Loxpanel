@@ -16,12 +16,44 @@ BRIEFKASTEN_PAUSEN = (3600, 4 * 3600, 24 * 3600)
 # disableEndTime zaehlt laut Strukturdoku Sekunden seit 1.1.2009 in UTC
 LOX_EPOCH_UTC = 1230768000
 
+# Rauchmelder (SmokeAlarm, Strukturdoku): Bits von availableAlarms (details)
+# und alarmCause (State)
+RAUCH_ARTEN = ((0x01, "Rauch"), (0x02, "Wasser"), (0x04, "Temperatur"), (0x08, "Fehlerlichtbogen"))
+# State level: 1 Voralarm, 2 Hauptalarm
+RAUCH_STUFEN = {1: "Voralarm", 2: "Hauptalarm"}
+# Revisionsmodus: servicemode/0 aus, /1 ohne Ende (timeServiceMode meldet dann
+# RAUCH_REVISION_ENDLOS), sonst Sekunden
+RAUCH_REVISION_AUS, RAUCH_REVISION_DAUERHAFT, RAUCH_REVISION_ENDLOS = 0, 1, 99999
+RAUCH_REVISION_DAUERN = (3600, 4 * 3600)
+
+
+def _bits_text(maske, arten=RAUCH_ARTEN) -> str:
+    """Bitmaske (availableAlarms, alarmCause) als Liste der Namen."""
+    try:
+        m = int(float(maske or 0))
+    except (TypeError, ValueError):
+        return ""
+    return ", ".join(name for bit, name in arten if m & bit)
+
+
+def _rauch_zustand(app, c: dict) -> tuple[str, str | None]:
+    """(Text, Ton) eines Rauchmelders: Alarm mit Stufe und Ursache,
+    Probealarm, Revisionsmodus oder alles ok."""
+    lvl = int(app._endlich(c, "level") or 0)
+    if lvl:
+        ursache = _bits_text(app._state(c, "alarmCause"))
+        return (RAUCH_STUFEN.get(lvl, "Alarm") + (f": {ursache}" if ursache else ""), "crit")
+    if app._state(c, "testAlarm"):
+        return "Probealarm", None
+    if (app._endlich(c, "timeServiceMode") or 0) > 0:
+        return "Revisionsmodus", None
+    return "Alles ok", "good"
+
 
 @kachel("SmokeAlarm")
 def kachel_rauchmelder(app, uuid, c, it):
-    ok = (app._state(c, "level") or 0) == 0
-    it.update(icon="alarm", sublabel=("Alles ok" if ok else "Alarm!"),
-              tone=("good" if ok else "crit"))
+    text, ton = _rauch_zustand(app, c)
+    it.update(icon="alarm", sublabel=text, tone=ton, nav={"view": "control", "id": uuid})
 
 
 @kachel("PresenceDetector")
@@ -93,9 +125,41 @@ def detail_fensterueberwachung(app, uuid, c, route):
 
 @detail("SmokeAlarm")
 def detail_rauchmelder(app, uuid, c, route):
-    ok = (app._state(c, "level") or 0) == 0
-    return app._big_view(uuid, "alarm", "Alles ok" if ok else "Alarm!",
-                          tone=("good" if ok else "crit"))
+    """Rauchmelder (Strukturdoku SmokeAlarm): Zustand mit Ursache, im Alarm
+    Sirene aus (mute) und Quittieren (confirm), Revisionsmodus
+    (servicemode/{n}) und Probealarm (startDrill), beide mit Rueckfrage."""
+    ua = c.get("uuidAction")
+    text, ton = _rauch_zustand(app, c)
+    blocks = [{"k": "hero", "icon": "alarm"}, {"k": "big", "text": text, **({"tone": ton} if ton else {})}]
+    ueberwacht = _bits_text((c.get("details") or {}).get("availableAlarms"))
+    if ueberwacht:
+        blocks.append({"k": "status", "text": f"Überwacht: {ueberwacht}"})
+    rest = app._endlich(c, "timeServiceMode") or 0
+    if rest >= RAUCH_REVISION_ENDLOS:
+        blocks.append({"k": "status", "text": "Revisionsmodus ohne Ende"})
+    elif rest > 0:
+        blocks.append({"k": "status", "text": f"Revisionsmodus noch {_dauer_text(rest)}"})
+    if app._state(c, "areAlarmSignalsOff"):
+        blocks.append({"k": "status", "text": "Alarmsignale aus"})
+    if int(app._endlich(c, "level") or 0) or app._state(c, "testAlarm"):
+        cells = [{"label": "Quittieren", "cmd": {"uuid": ua, "cmd": "confirm"}}]
+        if app._state(c, "acousticAlarm"):
+            cells.insert(0, {"label": "Sirene aus", "cmd": {"uuid": ua, "cmd": "mute"}})
+        blocks.append({"k": "row", "cells": cells})
+    blocks.append({"k": "head", "text": "Revisionsmodus"})
+    if rest > 0:
+        blocks.append({"k": "row", "cells": [
+            {"label": "Beenden", "cmd": {"uuid": ua, "cmd": f"servicemode/{RAUCH_REVISION_AUS}"}}]})
+    else:
+        blocks.append({"k": "row", "cells": [
+            *({"label": _dauer_text(sek), "confirm": "Melder aussetzen?",
+               "cmd": {"uuid": ua, "cmd": f"servicemode/{sek}"}} for sek in RAUCH_REVISION_DAUERN),
+            {"label": "Ohne Ende", "confirm": "Melder aussetzen?",
+             "cmd": {"uuid": ua, "cmd": f"servicemode/{RAUCH_REVISION_DAUERHAFT}"}}]})
+        blocks.append({"k": "row", "cells": [
+            {"label": "Probealarm", "confirm": "Alarm auslösen?", "cmd": {"uuid": ua, "cmd": "startDrill"}}]})
+    return {"t": "view", "title": _clean(c.get("name")), "route": route,
+            "anchor": "bottom", "blocks": blocks}
 
 
 @detail("PresenceDetector")
@@ -127,13 +191,19 @@ def detail_alarmanlage(app, uuid, c, route):
         sub = "Bereit zum Scharfschalten"
         cells = [{"label": "Scharf", "cmd": {"uuid": ua, "cmd": "on"}},
                  {"label": "Verzögert", "cmd": {"uuid": ua, "cmd": "delayedon"}}]
+    ab = app._endlich(c, "armedAt") or 0
+    if not armed and ab > time.time():        # verzoegert: armedAt ist ein Unix-Zeitstempel
+        sub = f"Wird scharf um {datetime.fromtimestamp(ab).strftime('%H:%M:%S')}"
+    blocks = [{"k": "hero", "icon": "alarm"}, big, {"k": "status", "text": sub},
+              {"k": "row", "cells": cells}]
+    # Bewegungsmelder (dismv/1 ein, dismv/0 aus; State disabledMove)
+    if "disabledMove" in (c.get("states") or {}):
+        bewegung = not app._state(c, "disabledMove")
+        blocks.append({"k": "row", "cells": [
+            {"label": "Bewegungsmelder", "on": bewegung,
+             "cmd": {"uuid": ua, "cmd": f"dismv/{0 if bewegung else 1}"}}]})
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
-            "anchor": "bottom", "blocks": [
-        {"k": "hero", "icon": "alarm"},
-        big,
-        {"k": "status", "text": sub},
-        {"k": "row", "cells": cells},
-    ]}
+            "anchor": "bottom", "blocks": blocks}
 
 
 def _pause_bis(app, c: dict) -> datetime | None:
