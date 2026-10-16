@@ -1060,6 +1060,79 @@ def jalousie_baustein(automatik=True, animation=0, **werte) -> tuple[dict, dict]
     return control, {states[n]: w[n] for n in namen}
 
 
+ZAEHLER_ZEITRAUM_STATES = ("totalDay", "totalWeek", "totalMonth", "totalYear")
+
+
+def zaehler_baustein(art="bidirectional", **werte) -> tuple[dict, dict]:
+    """Stromzaehler (Meter, ab 13.01) in beide Richtungen: actual in kW,
+    total/totalNeg in kWh und je Zeitraum (Strukturdoku: totalDay ...
+    totalYear, totalNegDay ...); art "unidirectional" ohne Gegenrichtung,
+    "storage" mit Fuellstand (storage, storageMax 10 kWh)."""
+    namen = ["actual", "total", *ZAEHLER_ZEITRAUM_STATES]
+    if art != "unidirectional":
+        namen += ["totalNeg", *(n.replace("total", "totalNeg") for n in ZAEHLER_ZEITRAUM_STATES)]
+    if art == "storage":
+        namen.append("storage")
+    states = {n: f"zm-{n}" for n in namen}
+    det = {"actualFormat": "%.2f kW", "totalFormat": "%.1f kWh", "type": art}
+    if art != "unidirectional":
+        det["totalFormatNeg"] = "%.1f kWh"
+    if art == "storage":
+        det.update(storageFormat="%.1f kWh", storageMax=10)
+    control = {"name": "Netz", "type": "Meter", "uuidAction": "ZM", "room": "r1", "cat": "c1",
+               "details": det, "states": states}
+    w = {"actual": 1.25, "total": 12345.6, "totalDay": 8.4, "totalWeek": 52.1, "totalMonth": 210.0,
+         "totalYear": 2480.5, "totalNeg": 4321.0, "totalNegDay": 3.2, "totalNegWeek": 20.0,
+         "totalNegMonth": 90.5, "totalNegYear": 1100.0, "storage": 7.5, **werte}
+    return control, {states[n]: w[n] for n in namen}
+
+
+LC_STIMMUNGEN = [{"id": 1, "name": "Hell"}, {"id": 2, "name": "Abend"}, {"id": 3, "name": "Kino"},
+                 {"id": 4, "name": "Putzen"}, {"id": 778, "name": "Aus"}]
+
+
+def lichtsteuerung_baustein(favoriten=True, **werte) -> tuple[dict, dict]:
+    """Lichtsteuerung (LightControllerV2) mit fuenf Stimmungen, "Abend" aktiv;
+    favoriteMoods [2, 1, 778], additionalMoods [4, 3] (Strukturdoku). Unter-
+    bausteine: Master-Helligkeit (details.masterValue), ein Dimmer, ein
+    Farb-Lichtkreis (ColorPickerV2, Farbtemperatur) und ein Schaltkreis."""
+    subs = {
+        "LV-M": {"name": "Master", "type": "Dimmer", "uuidAction": "LV-M",
+                 "states": {"position": "lv-mp", "min": "lv-mmin", "max": "lv-mmax", "step": "lv-mst"}},
+        "LV-1": {"name": "Esstisch", "type": "Dimmer", "uuidAction": "LV-1",
+                 "states": {"position": "lv-1p", "min": "lv-1min", "max": "lv-1max", "step": "lv-1st"}},
+        "LV-2": {"name": "Stripe", "type": "ColorPickerV2", "uuidAction": "LV-2", "states": {"color": "lv-2c"}},
+        "LV-3": {"name": "Steckdose", "type": "Switch", "uuidAction": "LV-3", "states": {"active": "lv-3a"}},
+    }
+    states = {"activeMoods": "lv-am", "moodList": "lv-ml"}
+    if favoriten:
+        states.update(favoriteMoods="lv-fav", additionalMoods="lv-add")
+    control = {"name": "Licht Wohnen", "type": "LightControllerV2", "uuidAction": "LV", "room": "r1", "cat": "c1",
+               "details": {"masterValue": "LV-M"}, "states": states, "subControls": subs}
+    w = {"lv-am": "[2]", "lv-ml": json.dumps(LC_STIMMUNGEN), "lv-fav": "[2, 1, 778]", "lv-add": "[4, 3]",
+         "lv-mp": 70, "lv-mmin": 0, "lv-mmax": 100, "lv-mst": 1, "lv-1p": 40, "lv-1min": 0, "lv-1max": 100,
+         "lv-1st": 1, "lv-2c": "temp(55,3000)", "lv-3a": 0, **werte}
+    return control, w
+
+
+def praesenz_baustein(tracker=False, logik=False, **werte) -> tuple[dict, dict]:
+    """Praesenzmelder (PresenceDetector) anwesend seit 10 Minuten (activeSince
+    in Sekunden seit 2009 UTC), Nachlaufzeit 5 min; logik: parameterConnections
+    Bit 0 (Nachlaufzeit von der Logik), tracker: Unterbaustein Tracker."""
+    namen = ("active", "activeSince", "locked", "infoText", "time")
+    states = {n: f"pd-{n}" for n in namen}
+    control = {"name": "Präsenz Flur", "type": "PresenceDetector", "uuidAction": "PD", "room": "r1", "cat": "c1",
+               "details": {"maxEntries": 20, "parameterConnections": 1 if logik else 0}, "states": states}
+    w = {"active": 1, "activeSince": int(time.time()) - 1230768000 - 600, "locked": 0, "infoText": "",
+         "time": 300, **werte}
+    out = {states[n]: w[n] for n in namen}
+    if tracker:
+        control["subControls"] = {"PD/t": {"name": "Verlauf", "type": "Tracker", "uuidAction": "PD/t",
+                                           "states": {"entries": "pd-t"}}}
+        out["pd-t"] = "16.10.2026 07:12 Anwesend"
+    return control, out
+
+
 def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
     """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
     (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen

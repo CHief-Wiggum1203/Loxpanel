@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote, unquote
 
 from bausteine import detail, kachel
-from bausteine.gemeinsam import _clean, DAUER_SCHRITT, PROZENT_SCHRITT, STAT_WEEKDAYS
+from bausteine.gemeinsam import _clean, DAUER_SCHRITT, _dauer_text, PROZENT_SCHRITT, STAT_WEEKDAYS
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
 
@@ -50,11 +50,22 @@ def detail_wecker(app, uuid, c, route):
         stat["tone"] = "crit"
     if room:
         stat["sub"] = room
-    blocks = [{"k": "hero", "icon": "alarm"}, stat, {"k": "alarmlist", "entries": entries}]
+    blocks = [{"k": "hero", "icon": "alarm"}, stat]
+    # Schlummern (snoozeTime: Sekunden bis zum naechsten Klingeln) und eine
+    # Weckzeit, die bestaetigt werden muss (confirmationNeeded, Strukturdoku)
+    schlummer = app._endlich(c, "snoozeTime") or 0
+    if schlummer > 0:
+        blocks.append({"k": "status", "text": f"Schlummert noch {_dauer_text(schlummer)}"})
+    bestaetigen = bool(app._state(c, "confirmationNeeded"))
+    if bestaetigen:
+        blocks.append({"k": "status", "text": "Bitte bestätigen"})
+    blocks.append({"k": "alarmlist", "entries": entries})
     if ringing:
         blocks.append({"k": "row", "cells": [
             {"label": "Schlummer", "cmd": {"uuid": ua, "cmd": "snooze"}},
             {"label": "Wecker aus", "cmd": {"uuid": ua, "cmd": "dismiss"}}]})
+    elif bestaetigen or schlummer > 0:
+        blocks.append({"k": "row", "cells": [{"label": "Wecker aus", "cmd": {"uuid": ua, "cmd": "dismiss"}}]})
     if (app._alarm_raw(c) or ({}, False))[1]:
         blocks.append({"k": "row", "cells": [
             {"label": "Neue Weckzeit", "nav": {"view": "alarmentry", "id": uuid, "entry": ""}},

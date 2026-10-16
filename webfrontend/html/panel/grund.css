@@ -766,6 +766,10 @@
   html[data-kachelset-aufbau] .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
   html[data-kachelset-aufbau] .btn{background:var(--taste,var(--tile));border-color:transparent;border-radius:var(--taste-radius,12px);}
   html[data-kachelset-aufbau] .btn:active{background:var(--kachel-an,var(--tile));}
+  /* Aktive Taste (Stimmung, Automatik, Bluetooth ...): Flaeche und Schrift der
+     aktiven Kachel, deren Kontrast das Set nachrechnet - die Regel oben setzt
+     sonst die Taste ein, und --an-text stuende auf ihr zu schwach */
+  html[data-kachelset-aufbau] .btn.on{background:var(--kachel-an,var(--tile));color:var(--kachel-an-ink,var(--ink));}
   /* -/+ neben einem Schieber (Lautstaerke im Player) sind Tasten wie alle anderen */
   html[data-kachelset-aufbau] .sbtn{background:var(--taste,var(--tile));border-color:transparent;color:var(--ink);}
   html[data-kachelset-aufbau] .sbtn:active{background:var(--kachel-an,var(--tile));color:var(--kachel-an-ink,var(--ink));}

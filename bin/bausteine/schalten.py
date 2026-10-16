@@ -16,6 +16,9 @@ def kachel_schalter(app, uuid, c, it):
     on = bool(app._state(c, "active"))
     it.update(on=on, sublabel="Ein" if on else "Aus", icon="switch",
               cmd={"uuid": c.get("uuidAction"), "cmd": "off" if on else "on"})
+    # lockedOn (Strukturdoku): die Logik haelt ihn an, Aus wirkt nicht
+    if on and app._state(c, "lockedOn"):
+        it["sublabel"] = "Ein (von der Logik gehalten)"
 
 
 @kachel("TimedSwitch")

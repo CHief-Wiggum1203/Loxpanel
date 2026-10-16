@@ -43,6 +43,14 @@ def kachel_digitalwert(app, uuid, c, it):
     it.update(on=on, sublabel=(txt.get("on") if on else txt.get("off")) or ("Ein" if on else "Aus"))
 
 
+# Zaehler (Strukturdoku Meter, ab 13.01): Zeitraeume als State-Endung,
+# details.type mit Gegenrichtung (totalNeg...) und ihre Namen
+ZAEHLER_ZEITRAEUME = (("Heute", "Day"), ("Woche", "Week"), ("Monat", "Month"), ("Jahr", "Year"))
+ZAEHLER_BEIDSEITIG = frozenset({"bidirectional", "storage"})
+ZAEHLER_SPEICHER = "storage"
+ZAEHLER_RICHTUNG = ("Bezug", "Lieferung")
+
+
 @kachel("Meter")
 def kachel_zaehler(app, uuid, c, it):
     det = c.get("details") or {}
@@ -111,10 +119,44 @@ def detail_tracker(app, uuid, c, route):
 # --- Status-Bausteine: grosse 1/1-Wertseite ---
 @detail("Meter")
 def detail_zaehler(app, uuid, c, route):
+    """Zaehler (Strukturdoku Meter): Leistung bzw. Durchfluss gross, der
+    Zaehlerstand, beim Speicher der Fuellstand, und je Zeitraum
+    (totalDay ... totalYear) der Stand; ein Zaehler in beide Richtungen
+    (details.type bidirectional/storage) nennt dazu die Gegenrichtung
+    (totalNeg...)."""
     det = c.get("details") or {}
+    fmt, fmt_neg = det.get("totalFormat", "%.1f"), det.get("totalFormatNeg") or det.get("totalFormat", "%.1f")
     a = app._fmt_num(app._state(c, "actual"), det.get("actualFormat", "%.1f"))
-    tot = app._fmt_num(app._state(c, "total"), det.get("totalFormat", "%.1f"))
-    return app._big_view(uuid, "info", a or "–", (tot + " gesamt") if tot else "")
+    beide = det.get("type") in ZAEHLER_BEIDSEITIG
+    pos, neg = ZAEHLER_RICHTUNG if beide else ("", "")
+    blocks = app._big_view(uuid, "info", a or "–")["blocks"]   # Loxone-Symbol wie auf der Kachel
+    if det.get("powerName"):
+        blocks.append({"k": "status", "text": _clean(det["powerName"])})
+    stand = [(pos or "Zählerstand", app._fmt_num(app._state(c, "total"), fmt))]
+    if beide:
+        stand.append((neg, app._fmt_num(app._state(c, "totalNeg"), fmt_neg)))
+    blocks += [{"k": "status", "text": f"{t} {w}"} for t, w in stand if w]
+    if det.get("type") == ZAEHLER_SPEICHER:
+        voll = app._endlich(c, "storage")
+        if voll is not None:
+            txt = "Speicher " + app._fmt_num(voll, det.get("storageFormat") or fmt)
+            try:
+                mx = float(det.get("storageMax"))
+            except (TypeError, ValueError):
+                mx = 0
+            if mx > 0:
+                txt += f" ({app._fmt_num(voll / mx * 100, '%.0f')} %)"
+            blocks.append({"k": "status", "text": txt})
+    zeilen = []
+    for name, endung in ZAEHLER_ZEITRAEUME:
+        w = app._fmt_num(app._state(c, "total" + endung), fmt)
+        if not w:
+            continue
+        w_neg = app._fmt_num(app._state(c, "totalNeg" + endung), fmt_neg) if beide else ""
+        zeilen.append({"k": "status", "text": f"{name}: " + (f"{pos} {w} · {neg} {w_neg}" if w_neg else w)})
+    if zeilen:
+        blocks += [{"k": "head", "text": "Verbrauch" if not beide else "Zeiträume"}, *zeilen]
+    return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
 
 
 @detail("Slider", "UpDownAnalog")

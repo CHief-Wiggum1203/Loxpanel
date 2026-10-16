@@ -17,6 +17,10 @@ STEAK_FARBEN = ("Gelb", "Grün")
 STEAK_GERAET = {1: "Gerät offline", 2: "Gerät ausgeschaltet", 3: "Gerätefehler", 4: "Gerät schläft"}
 STEAK_NETZ = 1
 STEAK_ZIEL_SCHRITT = 1
+# Schalter am Geraet: (State, Befehl, Text, details-Schluessel "Logik haengt dran")
+STEAK_SCHALTER = (("touchProtection", "setTouchProtection", "Tastensperre", "isTouchProtectConnected"),
+                  ("displayAlwaysOnBat", "setDisplayAlwaysOnBat", "Display an (Akku)", None),
+                  ("displayAlwaysOnDc", "setDisplayAlwaysOnDc", "Display an (Netz)", None))
 
 
 @kachel("Sauna")
@@ -195,6 +199,7 @@ def detail_grillthermometer(app, uuid, c, route):
     bat = app._endlich(c, "batteryStateOfCharge")
     if bat is not None and app._endlich(c, "powerMode") != STEAK_NETZ:
         blocks.append({"k": "status", "text": f"Akku {app._fmt_num(bat, '%.0f')} %"})
+    blocks += app._steak_geraet(c)
     return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
 
 
@@ -223,6 +228,35 @@ class WellnessHelfer:
         return [{"name": farbe, "connected": None, "target": self._endlich(c, state)}
                 for farbe, state in zip(STEAK_FARBEN, ("targetYellow", "targetGreen"))
                 if state in (c.get("states") or {})]
+
+    def _steak_geraet(self, c: dict) -> list[dict]:
+        """Einstellungen am Touch & Grill (Strukturdoku SteakThermo):
+        Display-Helligkeit (setDisplayBrightness, ab 10.3), Tastensperre
+        (setTouchProtection) und Display immer an im Akku- bzw. Netzbetrieb
+        (setDisplayAlwaysOnBat, setDisplayAlwaysOnDc). Haengt Logik am
+        Eingang (details.isBrightnessConnected, isTouchProtectConnected), nur
+        Anzeige. Nur, was die Anlage als State liefert."""
+        det, ua, st = c.get("details") or {}, c.get("uuidAction"), c.get("states") or {}
+        out, zellen = [], []
+        hell = self._endlich(c, "displayBrightness")
+        if hell is not None:
+            b = {"k": "stepper", "label": "Display-Helligkeit", "value": hell, "fmt": "prozent"}
+            if det.get("isBrightnessConnected"):
+                b["sub"] = "von der Logik vorgegeben"
+            else:
+                b.update(step=PROZENT_SCHRITT, min=0, max=100, cmd={"uuid": ua, "tmpl": "setDisplayBrightness/{v}"})
+            out.append(b)
+        for state, befehl, text, logik in STEAK_SCHALTER:
+            if state not in st:
+                continue
+            an = bool(self._state(c, state))
+            z = {"label": text, "on": an}
+            if not (logik and det.get(logik)):
+                z["cmd"] = {"uuid": ua, "cmd": f"{befehl}/{0 if an else 1}"}
+            zellen.append(z)
+        if zellen:
+            out += [{"k": "head", "text": "Gerät"}, {"k": "row", "wrap": True, "cells": zellen}]
+        return out
 
     def _steak_alarme(self, c: dict) -> list[dict]:
         """Alarme der Fuehler (sensorAlarms, Liste [{text, time, ringing}])."""
