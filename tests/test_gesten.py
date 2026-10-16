@@ -466,3 +466,129 @@ def test_hilfe_nur_wo_gesten_wirken(route, ui, theme_ui, erwartet):
     Vorgaben wie geste() sie ausloest."""
     app = _app(ui=ui, theme_ui=theme_ui)
     assert app.render(route, app.resolve_profile("test")).get("gestenHilfe") == erwartet
+
+
+# ---- Tipp links/rechts, quer wischen (Stufe 6) -----------------------------
+
+LK_AUS = {"LK-am": json.dumps([778])}
+SENDER = ["Hitradio Ö3", "FM4", "Ö1"]
+
+
+def _mit_sendern(app, laeuft=None, spielt=True):
+    """Favoriten an der Audio-Zone (sourceList wie nach roomfav/get) und was
+    sie gerade spielt (songName)."""
+    st = app.controls["AZ"]["states"]
+    st.update(sourceList="az-sl", songName="az-sn")
+    app.states.update({"az-sl": json.dumps({"getroomfavs_result": [{"items": [
+        {"slot": i, "name": n, "coverurl": ""} for i, n in enumerate(SENDER, 1)]}]}),
+        "az-sn": laeuft or "", "az-ps": 2 if spielt else 0})
+
+
+def test_tipp_links_beschattet():
+    async def schritte(app):
+        return await Sitzung(app, RAUM)(art="beschatten")
+    antwort, io = _mit_nachbau(schritte)
+    assert antwort["text"] == "Beschatten" and io == ["sps/io/J1/shade", "sps/io/J2/shade"]
+
+
+def test_tipp_rechts_wiedergabe():
+    async def schritte(app):
+        s = Sitzung(app, RAUM)
+        pause = await s(art="wiedergabe")
+        app.states["az-ps"] = 1
+        return pause, await s(art="wiedergabe"), await Sitzung(app, BAD)(art="wiedergabe")
+    (pause, spielt, bad), io = _mit_nachbau(schritte)
+    assert (pause["text"], spielt["text"], bad["fehler"]) == ("Pause", "Spielt", "Keine Musik in Bad")
+    assert io == ["sps/io/AZ/pause", "sps/io/AZ/play"]
+
+
+@pytest.mark.parametrize("states, richtung, text, befehl", [
+    ({}, "vor", "Putzen", "sps/io/LK/changeTo/2"),
+    ({"LK-am": json.dumps([2])}, "vor", "Kochen", "sps/io/LK/changeTo/1"),       # am Ende: wieder vorn
+    ({}, "zurueck", "Putzen", "sps/io/LK/changeTo/2"),                           # am Anfang: hinten
+    (LK_AUS, "vor", "Kochen", "sps/io/LK/changeTo/1"),                              # aus: erste
+    (LK_AUS, "zurueck", "Putzen", "sps/io/LK/changeTo/2"),                          # aus: letzte
+], ids=["vor", "vor-wieder-vorn", "zurueck", "aus-vor", "aus-zurueck"])
+def test_quer_mitte_stimmung(states, richtung, text, befehl):
+    async def schritte(app):
+        return await Sitzung(app, RAUM)(art="stimmungwechsel", richtung=richtung)
+    antwort, io = _mit_nachbau(schritte, states=states)
+    assert antwort["text"] == text and io == [befehl]
+
+
+def test_quer_mitte_ohne_lichtsteuerung():
+    async def schritte(app):
+        return await Sitzung(app, BAD)(art="stimmungwechsel", richtung="vor")
+    antwort, io = _mit_nachbau(schritte)
+    assert antwort["fehler"] == "Keine Lichtsteuerung in Bad" and io == []
+
+
+@pytest.mark.parametrize("laeuft, spielt, richtung, text, befehl", [
+    ("FM4", True, "vor", "Ö1", "sps/io/AZ/roomfav/play/3"),
+    ("FM4", True, "zurueck", "Hitradio Ö3", "sps/io/AZ/roomfav/play/1"),
+    ("Ö1", True, "vor", "Hitradio Ö3", "sps/io/AZ/roomfav/play/1"),                # am Ende: wieder vorn
+    ("Ein Lied", True, "vor", "Hitradio Ö3", "sps/io/AZ/roomfav/play/1"),          # kein Favorit laeuft
+    ("FM4", False, "zurueck", "Ö1", "sps/io/AZ/roomfav/play/3"),                   # pausiert: von hinten
+], ids=["vor", "zurueck", "wieder-vorn", "kein-favorit", "pausiert"])
+def test_quer_rechts_sender(laeuft, spielt, richtung, text, befehl):
+    async def schritte(app):
+        _mit_sendern(app, laeuft, spielt)
+        return await Sitzung(app, RAUM)(art="sender", richtung=richtung)
+    antwort, io = _mit_nachbau(schritte)
+    assert antwort["text"] == text and io == [befehl]
+
+
+def test_quer_rechts_ohne_sender():
+    async def schritte(app):
+        return await Sitzung(app, RAUM)(art="sender", richtung="vor")
+    antwort, io = _mit_nachbau(schritte)
+    assert antwort["fehler"] == "Keine Sender in Essen-Kochen-Wohnen" and io == []
+
+
+def test_quer_links_lamellen():
+    """Nur Raffstores (shadePosition, animation 0); Zwischenwerte schicken
+    nichts, erst das Loslassen stellt die Lamellen."""
+    async def schritte(app):
+        app.controls["J2"]["states"]["shadePosition"] = "j2-sp"
+        app.controls["J2"]["details"] = {"animation": 0}
+        app.states["j2-sp"] = 0.5
+        s = Sitzung(app, RAUM)
+        start = await s(art="lamellen", phase="start")
+        zwischen = await s(art="lamellen", phase="wert", wert=70)
+        ende = await s(art="lamellen", phase="ende", wert=80)
+        return start, zwischen, ende
+    (start, zwischen, ende), io = _mit_nachbau(schritte)
+    assert start["wert"] == 50 and zwischen is None and ende["text"] == "Lamellen 80 %"
+    assert io == ["sps/io/J2/manualLamelle/80"]
+
+
+def test_quer_links_ohne_lamellen():
+    async def schritte(app):
+        return await Sitzung(app, RAUM)(art="lamellen", phase="start")
+    antwort, io = _mit_nachbau(schritte)
+    assert antwort["fehler"] == "Keine Lamellen in Essen-Kochen-Wohnen" and io == []
+
+
+# ---- Hausuebersicht: der Raum der Karte unter den Fingern -------------------
+
+HAUS = {"view": "tab", "tab": "haus"}
+
+
+def test_raum_der_karte_auf_der_hausuebersicht():
+    app = _app(ui={"gestenRaum": "r3"})
+    prof = app.resolve_profile("test")
+    assert app.geste_raum(HAUS, prof, "r2") == "r2"
+    assert app.geste_raum(HAUS, prof, None) == "r3"                       # neben den Karten: fester Raum
+    assert app.geste_raum(HAUS, prof, "gibts-nicht") == "r3"
+    assert app.geste_raum(RAUM, prof, "r2") == "r1"                       # nur auf der Hausuebersicht
+    assert app.geste_raum(HAUS, {**prof, "rooms": ["r1"]}, "r2") == "r3"  # Raum, den die Ansicht nicht zeigt
+
+
+def test_geste_auf_der_raumkarte():
+    async def schritte(app):
+        s = Sitzung(app, HAUS)
+        return await s(art="stimmung", raum="r1"), await s(art="stimmung")
+    (karte, daneben), io = _mit_nachbau(schritte)
+    assert karte["raum"] == "Essen-Kochen-Wohnen" and karte["text"] == "Putzen"
+    assert daneben["fehler"] == "Kein Raum auf dieser Seite"
+    assert io == ["sps/io/LK/changeTo/2"]

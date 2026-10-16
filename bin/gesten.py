@@ -1,7 +1,9 @@
 """Gesten wie auf den Loxone-Tastern (docs/TODO.md §9): zwei Finger bedienen
-den Raum der Seite, Mitte Licht (dimmen, Stimmung weiter), links
-Beschattung, rechts Musik; Tipp, Doppel- und Dreifachtipp schalten die
-Taster der Ansicht. geste() nimmt die Nachricht der Visu ({t:"geste"}) und
+den Raum der Seite (auf der Hausuebersicht den der Raumkarte unter den
+Fingern), Mitte Licht (dimmen, Stimmung weiter und zurueck), links
+Beschattung (auf/ab, beschatten, Lamellen), rechts Musik (Lautstaerke,
+Wiedergabe, Sender); Doppel- und Dreifachtipp schalten die Taster der
+Ansicht. geste() nimmt die Nachricht der Visu ({t:"geste"}) und
 schickt die Befehle, gesten_hilfe() beschreibt sie fuer das Hinweis-Symbol,
 die *_optionen() fuellen die Auswahl im Konfigurator.
 
@@ -12,6 +14,7 @@ from __future__ import annotations
 import asyncio
 
 from adapters import LightControllerV2Adapter
+from bausteine.beschattung import JAL_RAFFSTORE
 from bausteine.gemeinsam import _clean, LIGHT
 from haus import HAUS_AUS
 
@@ -61,16 +64,22 @@ class Gesten:
         return sorted(out, key=lambda d: (d["room"], d["name"]))
 
     # ---- Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9) ----
-    def geste_raum(self, route: dict | None, prof: dict | None) -> str | None:
+    def geste_raum(self, route: dict | None, prof: dict | None, karte=None) -> str | None:
         """Raum, den eine Geste trifft: der der Seite (Raum-Tab oder Raum unter
-        "Raeume"), sonst der feste Raum der Ansicht (gestenRaum). None, wenn es
-        keinen gibt oder der Miniserver ihn nicht kennt."""
+        "Raeume"), auf der Hausuebersicht der der Raumkarte unter den Fingern
+        (karte, nur ein Raum, den die Ansicht zeigt), sonst der feste Raum der
+        Ansicht (gestenRaum). None, wenn es keinen gibt oder der Miniserver
+        ihn nicht kennt."""
         r = route or {}
         ru = None
         if r.get("view") == "group" and r.get("kind") == "room":
             ru = r.get("id")
         elif r.get("view") == "tab" and isinstance(r.get("tab"), str) and r["tab"].startswith("room:"):
             ru = r["tab"][5:]
+        elif r.get("view") == "tab" and self._haus_seite(r.get("tab"), prof) and isinstance(karte, str):
+            erlaubt = (prof or {}).get("rooms")
+            if karte in self.rooms and (erlaubt is None or karte in erlaubt):
+                ru = karte
         if not ru:
             ru = (prof or {}).get("gestenRaum")
         return ru if isinstance(ru, str) and ru in self.rooms else None
@@ -192,9 +201,12 @@ class Gesten:
         None: nichts zu melden (Zwischenwert beim Dimmen) oder Gesten aus.
 
         art: "licht" und "musik" mit phase start/wert/ende (Mitte bzw. rechts
-        hoch/runter), "stimmung" (Tipp Mitte), "beschattung" mit richtung
-        auf/ab (links hoch/runter), "verlassen" (Doppeltipp), "hausaus"
-        (Dreifachtipp)."""
+        hoch/runter), "lamellen" ebenso (links quer, Befehl erst am Ende),
+        "stimmung" (Tipp Mitte), "beschatten" (Tipp links), "wiedergabe" (Tipp
+        rechts), "stimmungwechsel" und "sender" mit richtung vor/zurueck (Mitte
+        bzw. rechts quer), "beschattung" mit richtung auf/ab (links
+        hoch/runter), "verlassen" (Doppeltipp), "hausaus" (Dreifachtipp). Auf
+        der Hausuebersicht nennt raum die Raumkarte unter den Fingern."""
         prof = self.conn_prof.get(ws) or {}
         art = str(data.get("art") or "")
         if not prof.get("gesten"):
@@ -206,16 +218,17 @@ class Gesten:
                         "fehler": "„Haus aus“ ist nicht eingerichtet (Vorgaben → Verhalten)"}
             return {"t": "geste", "art": art, **await self._geste_taster(
                 ziel, "Haus aus", "Taster für „Haus aus“ nicht gefunden")}
-        ru = self.geste_raum(self.conn_route.get(ws), prof)
+        ru = self.geste_raum(self.conn_route.get(ws), prof, data.get("raum"))
         if not ru:
             return {"t": "geste", "art": art, "fehler": "Kein Raum auf dieser Seite"}
         antwort = {"t": "geste", "art": art, "raum": _clean(self.rooms[ru].get("name"))}
         raum = antwort["raum"] or "diesem Raum"
-        if art in ("licht", "musik"):
+        if art in ("licht", "musik", "lamellen"):
             phase = data.get("phase")
             if phase == "start":
-                lauf, start = (self._geste_licht_start(ru, prof, self.conn_dev.get(ws, ""))
-                               if art == "licht" else self._geste_musik_start(ru, prof))
+                lauf, start = (self._geste_licht_start(ru, prof, self.conn_dev.get(ws, "")) if art == "licht"
+                               else self._geste_musik_start(ru, prof) if art == "musik"
+                               else self._geste_lamellen_start(ru, prof))
                 if not lauf:
                     self.conn_geste.pop(ws, None)
                     return {**antwort, "fehler": start}
@@ -234,6 +247,21 @@ class Gesten:
             return {**antwort, "text": text} if text else None
         if art == "stimmung":
             return {**antwort, **await self._geste_stimmung(ru, prof, self.conn_dev.get(ws, ""), raum)}
+        vor = data.get("richtung") != "zurueck"
+        if art == "stimmungwechsel":
+            return {**antwort, **await self._geste_stimmung(ru, prof, self.conn_dev.get(ws, ""), raum,
+                                                            schritt=1 if vor else -1)}
+        if art == "sender":
+            return {**antwort, **await self._geste_sender(ru, prof, raum, vor)}
+        if art == "wiedergabe":
+            return {**antwort, **await self._geste_wiedergabe(ru, prof, raum)}
+        if art == "beschatten":
+            jal = self._geste_bausteine(ru, prof, GESTEN_BESCHATTUNG_TYPEN)
+            if not jal:
+                return {**antwort, "fehler": f"Keine Beschattung in {raum}"}
+            fehl = await self._geste_befehle([(self.controls[u].get("uuidAction") or u, "shade") for u in jal])
+            return {**antwort, **({"fehler": f"{fehl} von {len(jal)} Befehlen nicht ausgeführt"}
+                                  if fehl else {"text": "Beschatten"})}
         if art == "beschattung":
             jal = self._geste_bausteine(ru, prof, GESTEN_BESCHATTUNG_TYPEN)
             if not jal:
@@ -305,6 +333,59 @@ class Gesten:
                  "gesendet": {}},
                 {"wert": round(start)})
 
+    def _geste_lamellen_start(self, ru: str, prof: dict | None) -> tuple:
+        """Beginn von links quer wischen: die Lamellen der Raffstores des Raums
+        (Jalousien mit shadePosition, details.animation Raffstore), Startwert
+        ihr Mittel in % (0 waagrecht, 100 senkrecht wie manualLamelle)."""
+        raff = [u for u in self._geste_bausteine(ru, prof, GESTEN_BESCHATTUNG_TYPEN)
+                if (self.controls[u].get("details") or {}).get("animation", JAL_RAFFSTORE) == JAL_RAFFSTORE
+                and self._endlich(self.controls[u], "shadePosition") is not None]
+        if not raff:
+            return None, "Keine Lamellen in " + (_clean(self.rooms[ru].get("name")) or "diesem Raum")
+        start = sum(self._endlich(self.controls[u], "shadePosition") for u in raff) / len(raff) * 100
+        return ({"art": "lamellen", "jal": [self.controls[u].get("uuidAction") or u for u in raff], "gesendet": {}},
+                {"wert": round(start)})
+
+    def _geste_zone(self, ru: str, prof: dict | None) -> str | None:
+        """Audio-Zone des Raums fuer Wiedergabe und Sender: die erste, die
+        spielt, sonst die erste."""
+        zonen = self._geste_bausteine(ru, prof, GESTEN_AUDIO_TYPEN)
+        return next((u for u in zonen if self._state(self.controls[u], "playState") == 2), zonen[0] if zonen else None)
+
+    async def _geste_wiedergabe(self, ru: str, prof: dict | None, raum: str) -> dict:
+        """Tipp rechts: spielt eine Zone des Raums, pausieren alle, die spielen;
+        sonst spielt die erste (play schaltet den Client laut Strukturdoku ein)."""
+        zonen = self._geste_bausteine(ru, prof, GESTEN_AUDIO_TYPEN)
+        if not zonen:
+            return {"fehler": f"Keine Musik in {raum}"}
+        spielen = [u for u in zonen if self._state(self.controls[u], "playState") == 2]
+        ziel, cmd, text = (spielen, "pause", "Pause") if spielen else (zonen[:1], "play", "Spielt")
+        if await self._geste_befehle([(self.controls[u].get("uuidAction") or u, cmd) for u in ziel]):
+            return {"fehler": "Miniserver hat nicht umgeschaltet"}
+        return {"text": text}
+
+    async def _geste_sender(self, ru: str, prof: dict | None, raum: str, vor: bool) -> dict:
+        """Rechts quer wischen: naechster bzw. voriger Favorit der Zone
+        (_zonen_favoriten, derselbe Befehl wie die Musikauswahl). Welcher
+        laeuft, erkennt die Hausseite am Namen (_laufende_namen); laeuft
+        keiner, beginnt es vorn bzw. hinten."""
+        zone = self._geste_zone(ru, prof)
+        if not zone:
+            return {"fehler": f"Keine Musik in {raum}"}
+        favs, _ = self._zonen_favoriten(zone)
+        if not favs:
+            self._haus_sender_anfordern(zone)
+            return {"fehler": f"Keine Sender in {raum}"}
+        jetzt = None
+        if self._state(self.controls[zone], "playState") == 2:
+            t = next((b for b in (self.player_blocks(zone) or []) if b.get("k") == "title"), {})
+            namen = self._laufende_namen(zone, (t.get("text"), t.get("sub")))
+            jetzt = next((i for i, f in enumerate(favs) if str(f["label"]).strip().casefold() in namen), None)
+        i = (jetzt + (1 if vor else -1)) % len(favs) if jetzt is not None else (0 if vor else len(favs) - 1)
+        if await self._geste_befehle([(favs[i]["cmd"]["uuid"], favs[i]["cmd"]["cmd"])]):
+            return {"fehler": "Miniserver hat nicht umgeschaltet"}
+        return {"text": favs[i]["label"]}
+
     async def _geste_wert(self, lauf: dict, wert: float, ende: bool) -> str:
         """Zwischen- oder Endwert einer laufenden Geste umsetzen; Text fuer die
         Einblendung, wenn es einen gibt. Jeder Kreis bekommt nur einen Befehl,
@@ -317,6 +398,13 @@ class Gesten:
             befehle = [(z, f"volume/{v}") for z in lauf["zonen"] if lauf["gesendet"].get(z) != v]
             for z, _c in befehle:
                 lauf["gesendet"][z] = v
+        elif lauf["art"] == "lamellen":
+            # Erst beim Loslassen: jeder Zwischenwert liesse den Antrieb anlaufen
+            if not ende:
+                return ""
+            v = round(wert)
+            befehle = [(j, f"manualLamelle/{v}") for j in lauf["jal"]]
+            text = f"Lamellen {v} %"
         elif lauf["modus"] == "stimmung":
             # Erst die Bewegung nach oben schaltet ein, genau einmal; weiter
             # gedimmt wird mit der naechsten Geste, wenn die Kreise leuchten
@@ -349,10 +437,12 @@ class Gesten:
             fehl += await self._geste_befehle(danach)
         return "Nicht alle Befehle ausgeführt" if fehl else text
 
-    async def _geste_stimmung(self, ru: str, prof: dict | None, dev: str, raum: str) -> dict:
-        """Tipp Mitte: aus -> Stimmung beim Einschalten, an -> naechste Stimmung
-        derselben Lichtsteuerung (changeTo, "Aus" uebersprungen). Ohne
-        Lichtsteuerung schaltet er die einzelnen Dimmer ein."""
+    async def _geste_stimmung(self, ru: str, prof: dict | None, dev: str, raum: str, schritt: int = 0) -> dict:
+        """Tipp Mitte (schritt 0): aus -> Stimmung beim Einschalten, an ->
+        naechste Stimmung derselben Lichtsteuerung (changeTo, "Aus"
+        uebersprungen). Quer wischen (schritt +1/-1): naechste bzw. vorige
+        Stimmung, auch aus dem Aus heraus. Ohne Lichtsteuerung schaltet der
+        Tipp die einzelnen Dimmer ein, das Wischen meldet es."""
         gruppen = self.licht_gruppen(ru, prof)
         g, mood = self._geste_lichtsteuerung(gruppen, dev)
         if g:
@@ -360,13 +450,18 @@ class Gesten:
             if not stimmungen:
                 return {"fehler": f"Keine Stimmungen in {raum}"}
             ids = [m for m, _n in stimmungen]
-            if g["an"]:
-                aktiv = [m for m in LIGHT.active_moods(self._with_uuid(g["uuid"]), self.states) if m in ids]
+            aktiv = [m for m in LIGHT.active_moods(self._with_uuid(g["uuid"]), self.states) if m in ids]
+            if schritt:
+                mood = (ids[(ids.index(aktiv[0]) + schritt) % len(ids)] if g["an"] and aktiv
+                        else ids[0] if schritt > 0 else ids[-1])
+            elif g["an"]:
                 mood = ids[(ids.index(aktiv[0]) + 1) % len(ids)] if aktiv else ids[0]
             ua = self.controls[g["uuid"]].get("uuidAction") or g["uuid"]
             if await self._geste_befehle([(ua, f"changeTo/{mood}")]):
                 return {"fehler": "Miniserver hat nicht umgeschaltet"}
             return {"text": dict(stimmungen)[mood]}
+        if schritt:
+            return {"fehler": f"Keine Lichtsteuerung in {raum}"}
         dimmer = [gr for gr in gruppen if gr["typ"] in GESTEN_DIMMER_TYPEN]
         if not dimmer:
             return {"fehler": f"Kein Licht in {raum}"}

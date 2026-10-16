@@ -284,10 +284,7 @@ class Haus:
         if not favs:
             self._haus_sender_anfordern(zone)
             return []
-        jetzt = set()
-        if spielt:
-            sm = self._sonn_for(self.controls.get(zone) or {}) or {}
-            jetzt = {str(t).strip().casefold() for t in (*texte, sm.get("name"), sm.get("album")) if t}
+        jetzt = self._laufende_namen(zone, texte) if spielt else set()
         out = []
         for f in favs[:HAUS_SENDER]:
             x = {"name": f["label"], "cover": f["cover"], "cmd": f["cmd"]}
@@ -295,6 +292,14 @@ class Haus:
                 x["laeuft"] = True
             out.append(x)
         return out
+
+    def _laufende_namen(self, zone: str, texte: tuple) -> set:
+        """Namen, unter denen ein Favorit der Zone als laufend gilt: die Texte
+        ihres Titels (Titel, Zweitzeile) und was der Audioserver-Kanal als
+        Name bzw. Album meldet, ohne Gross-/Kleinschreibung. Der Miniserver
+        sagt nicht, welcher Favorit laeuft."""
+        sm = self._sonn_for(self.controls.get(zone) or {}) or {}
+        return {str(t).strip().casefold() for t in (*texte, sm.get("name"), sm.get("album")) if t}
 
     def _haus_sender_anfordern(self, zone: str) -> None:
         """Favoriten einer Zone im Hintergrund anfordern (prime_favs), wie es

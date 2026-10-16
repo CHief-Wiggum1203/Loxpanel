@@ -401,7 +401,7 @@ Server → Browser (`panel.html:700`):
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
 | `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
-| `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen bzw. für die Lautstärke, der Name der eingeschalteten Stimmung, „Beschattung ab“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Die Visu blendet sie in der Mitte ein |
+| `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen, für die Lautstärke bzw. die Lamellen, der Name der eingeschalteten Stimmung oder des Senders, „Beschattung ab“, „Lamellen 70 %“, „Pause“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Die Visu blendet sie in der Mitte ein |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
 | (Browser → Server) `idle` | | Visu ohne Kiosk-JS meldet Leerlauf nach `dpmsOff`; Server schaltet über den Display-Treiber aus |
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
@@ -413,7 +413,7 @@ Browser → Server (`ws_handler` in `routen/visu.py`):
 |---|---|
 | `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste` (`"aktiv"`: Unterseite „Gerade aktiv“, `"hinweise"`: alle Hinweise). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), `{"view":"verlauf","id"}` (Verlauf aus dem Tracker-Unterbaustein, etwa beim Briefkasten), `{"view":"ircset","id"}` (Einstellungen einer Raumregelung V2), `{"view":"durchsage","id"}` (Durchsage einer Audio-Zone Gen. 2), `{"view":"sources","id"}` (Musikauswahl einer Audio-Zone), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
-| `geste` | `art` (`licht` \| `musik` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
+| `geste` | `art` (`licht` \| `musik` \| `lamellen` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschatten`; `wiedergabe`; `stimmungwechsel` \| `sender` mit `richtung` `vor`/`zurueck`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`), auf der Hausübersicht dazu `raum` (Raumkarte unter den Fingern) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
 | `setchart` | `uuid`, `range` — Bausteine (komma-getrennt, getrimmt, höchstens `SV_STATUS_MAX`) und Zeitraum der Verlaufs-Pane des aktiven Tabs bzw. der Uhr-Seite (`uuid` leer = keine). Der Server antwortet sofort mit `chart` und hält den Stand je Verbindung (`conn_chart`: Bausteine als Tupel, Zeitraum) |
 | `setsvstatus` | `uuids[]` — die Bausteine der Status-Spalte auf der Uhr-Seite (leer = keine). Der Server antwortet sofort mit `svstatus` und hält den Stand je Verbindung (`conn_status`) |
@@ -2199,18 +2199,23 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     `haus_spalte` und mit Hinweisen `haus_hinweise`, `haus_spalte_hinweise`;
     in allen die Sender im Spieler).
 - Gesten (13.10.2026, Konzept in `docs/TODO.md` §9 „Loxone-Standard als
-  Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster.
+  Gesten“): Zwei Finger bedienen den Raum der Seite wie ein Loxone-Taster,
+  auf der Hausübersicht den der Raumkarte unter den Fingern (16.10.2026).
   Die Fläche (`.screen`) ist in drei Spalten geteilt (`GESTE_SPALTEN`):
-  Mitte Licht (hoch/runter dimmt, Tipp schaltet ein bzw. zur nächsten
-  Stimmung), links Beschattung (hoch/runter: ganz auf/ab, fährt sie schon,
-  hält sie an), rechts Musik (hoch/runter: Lautstärke); Doppeltipp Raum
-  verlassen, Dreifachtipp Haus aus, beide egal wo. Ein Finger bleibt, wie er
-  war.
+  Mitte Licht (hoch/runter dimmt, quer vorige/nächste Stimmung, Tipp
+  schaltet ein bzw. zur nächsten Stimmung), links Beschattung (hoch/runter:
+  ganz auf/ab, fährt sie schon, hält sie an; quer die Lamellen; Tipp
+  beschatten), rechts Musik (hoch/runter: Lautstärke, quer voriger/nächster
+  Sender, Tipp Play/Pause); Doppeltipp Raum verlassen, Dreifachtipp Haus
+  aus, beide egal wo. Ein Finger bleibt, wie er war. Was jede Spalte tut,
+  steht einmal in `GESTE_ARTEN` (`art` für hoch/runter, `quer`, `tipp`);
+  daraus lesen Erkennung, Hilfe und Nacht-Uhr.
   - **Visu:** Touch-Events, nicht Pointer-Events: Nur `touchstart` und
     `touchmove` mit `preventDefault()` (nicht passiv, auf `.screen`) halten
     Scrollen und Klick an. Die Geste springt an bei genau zwei Fingern, die
     sich gemeinsam um `GESTE_MINDESTWEG` (Anteil der Höhe) bewegen, ohne zu
-    kneifen (`GESTE_KNEIFEN`); waagerecht ist nicht belegt. Scrollt der erste
+    kneifen (`GESTE_KNEIFEN`). Ob hoch/runter oder quer, entscheidet die
+    größere Richtung in diesem Moment, sie gilt bis zum Loslassen. Scrollt der erste
     Finger schon (`cancelable === false`), gibt es keine Geste statt einer
     halben. Ein Tipp sind zwei Finger, die nicht wandern und nach höchstens
     `GESTE_TIPP_MS` oben sind; er wartet `GESTE_MEHRFACH_MS` auf den
@@ -2219,11 +2224,21 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     keinen Klick auf Kacheln. Aus bleiben die Gesten im Grundriss (dort
     zoomen zwei Finger), auf Detailseiten, im PIN-Feld, in Menüs und auf der
     Uhr-Seite (`gesteErlaubt()`). Die Einblendung `#geste` zeigt Art und
-    Raum, beim Dimmen Prozent und Balken; ein Fingerweg über die ganze Höhe
-    sind 0 → 100 %, Zwischenwerte gehen höchstens alle `GESTE_TAKT_MS`.
+    Raum, beim Dimmen Prozent und Balken. Ein Fingerweg über die ganze Höhe
+    sind 0 → 100 %, quer bei den Lamellen die ganze Breite (nach rechts =
+    mehr), beides gezählt ab dem Punkt, an dem das Wischen erkannt ist;
+    Zwischenwerte gehen höchstens alle `GESTE_TAKT_MS`. Welche Arten einen
+    Wert stellen, sagt `GESTE_WERT_ARTEN`; Stimmung und Sender quer sind
+    ein Schritt beim Loslassen (`richtung` `vor`/`zurueck`), bis dahin
+    zeigt die Einblendung nur die Richtung. Auf der Hausübersicht schickt
+    die Visu den Raum der Karte unter der Mitte der Finger mit
+    (`gesteKarte()`, `data-hb="r:<Raum>"`), bei einer Tippfolge den des
+    ersten Tipps.
   - **Server:** `App.geste()` (`bin/gesten.py`) sucht Raum, Bausteine und Befehle selbst, die
     Visu nennt nur Art und Wert. Raum ist der der Seite (Raum-Tab oder Raum
-    unter „Räume“), sonst `ui.gestenRaum` der Ansicht (`geste_raum()`). Die
+    unter „Räume“), auf der Hausübersicht der der Raumkarte (`raum` der
+    Nachricht, nur ein Raum, den die Ansicht zeigt), sonst `ui.gestenRaum`
+    der Ansicht (`geste_raum()`). Die
     Bausteine sind die der Raumseite (Kategorie-Filter, Ausblendungen),
     ohne Visu-Passwort, denn eine PIN-Abfrage mitten in der Geste geht nicht.
     Licht rechnet mit **Lichtgruppen** (`licht_gruppen()`): jede
@@ -2246,6 +2261,19 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     was an ist und sich abschalten lässt (`HAUS_AUS`, wie „Gerade aktiv“;
     das Raumklima bleibt dann unberührt). Haus aus wirkt nur mit dem Taster
     aus `ui.hausAus`. Ein laufendes Dimmen hält `conn_geste` je Verbindung.
+    Quer geht die Stimmung in der Folge des Tipps vor oder zurück (ist das
+    Licht aus: die erste bzw. letzte). Der Sender läuft durch die Favoriten
+    der Zone (`_zonen_favoriten()`, dieselben wie auf Detailseite und
+    Hausübersicht), vom laufenden aus, wenn er sich am Namen erkennen lässt
+    (Titel, Sender oder Album des Spielers, `_laufende_namen()`), sonst vom
+    ersten bzw. letzten; kennt der Server noch keine, fragt er sie an und
+    meldet „Keine Sender“. Die Lamellen bekommen erst beim Loslassen einen
+    Befehl, denn jeder Zwischenwert ließe den Antrieb anlaufen:
+    `manualLamelle/{v}` an alle Raffstores des Raums (Jalousien mit
+    `shadePosition` und `details.animation` Raffstore), Startwert das Mittel
+    ihrer Lamellenstellung. Tipp links schickt `shade` an alle Jalousien
+    des Raums; Tipp rechts pausiert, was im Raum spielt, sonst startet er
+    die erste Zone (`play`).
   - **Im Dunkeln (Stufe 5):** Auf der Uhr-Seite und im abgedunkelten
     Nachtmodus weckt ein Finger wie bisher, zwei Finger sind eine Geste, die
     das Panel dunkel lässt: keine Uhr weg, kein Aufhellen, die Einblendung
@@ -2262,7 +2290,7 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     denen Gesten wirken, ein kleines Symbol (zwei Finger mit Doppelpfeil,
     `ICONS.zweiFinger`, in `--muted`). Ein Tipp öffnet die Hilfe
     (`gestenHilfeZeigen()`): die drei Spalten genau dort, wo sie wirken, mit
-    Symbol, Titel und was hoch/runter und ein Tipp tun (`GESTE_ARTEN`, aus
+    Symbol, Titel und was hoch/runter, quer und ein Tipp tun (`GESTE_ARTEN`, aus
     derselben Liste lesen Erkennung und Nacht-Uhr), darunter Doppel- und
     Dreifachtipp mit den Tastern aus den Vorgaben. Diese Zeilen baut der
     Server (`view.gestenHilfe`, `gesten_hilfe()`), denn nur er kennt die
@@ -2299,7 +2327,8 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     Anlage `lox.gesten_anlage()`, Einstellungen der Nacht-Uhr),
     `tests/browser/test_gesten_browser.py` (zwei Finger über das
     DevTools-Protokoll, `Input.dispatchTouchEvent`; Uhr-Seite, Nacht,
-    nachgebaute App-Brücke, Nacht-Uhr) und
+    nachgebaute App-Brücke, Nacht-Uhr, quer wischen, Raumkarte der
+    Hausübersicht) und
     `android/.../SchonerBeruehrungTest.kt`.
 - Sprungmarken: Besteht die untere Leiste aus einem einzigen Raum-Tab
   (`room:`) oder einer einzigen freien Seite, ersetzt `view.catTabs` die Tabs

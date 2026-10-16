@@ -2272,8 +2272,9 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
       | | Links | Mitte | Rechts |
       |---|---|---|---|
-      | Tipp | – | Licht an bzw. nächste Stimmung | – |
+      | Tipp | beschatten (`shade`) | Licht an bzw. nächste Stimmung | Play/Pause |
       | hoch/runter wischen | Beschattung auf/ab, nochmal = Stopp | dimmen | Musik lauter/leiser |
+      | quer wischen | Lamellen (nur Raffstores) | vorige/nächste Stimmung | voriger/nächster Sender |
       | Doppeltipp, egal wo | Raum verlassen | | |
       | Dreifachtipp, egal wo | Haus aus | | |
 
@@ -2402,6 +2403,13 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Seiten, auf denen Gesten wirken; ein Tipp zeigt die drei Spalten und
       was Doppel- und Dreifachtipp dort auslösen (`ui.gestenHinweis`, ohne
       Eintrag an; nicht auf schmalen Schirmen).
+      *Erledigt 16.10.2026: Stufe 6* (freie Plätze belegt): Tipp links
+      beschattet (`shade`), Tipp rechts Play/Pause; quer wischen Mitte
+      vorige/nächste Stimmung, rechts voriger/nächster Sender aus den
+      Favoriten der Zone, links die Lamellen der Raffstores (Befehl erst
+      beim Loslassen). Auf der Hausübersicht gilt die Geste dem Raum der
+      Raumkarte unter den Fingern. Das Hinweis-Symbol fehlt dort weiter
+      (keine Fußzeile).
       Offen, an der Anlage prüfen: ob die Lichtsteuerung beim Dimmen
       „Manuell“ zeigt, wie es sich am Panel anfühlt (Mindestweg, Wartezeit
       des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am
