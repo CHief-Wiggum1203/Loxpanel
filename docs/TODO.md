@@ -1403,6 +1403,20 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`setSensor/<index>/<ziel>/<name>`), Timer stellen, starten und stoppen
       (`setTimerDuration`, `startTimer`, `stopTimer`), Alarm quittieren
       (`quitAlarm`), Gerätezustand (`deviceState`), Akku nur ohne Netzteil. **S**
+- [x] Restliche Lücken laut Strukturdoku, seit 16.10.2026:
+      `AudioZoneV2` Hinweise bei Audioserver/Lautsprecher nicht online
+      (`serverState`, `clientState`) und gesperrt (`isLocked`), Bluetooth
+      an/aus (`bluetooth/1|0`, nur Anzeige mit `parameterConnections` Bit 10,
+      weg mit `disableFeature` Bit 2), Unterseite Durchsage (`durchsage`,
+      `tts/{text}`); `AlarmClock` Schlummer-Rest (`snoozeTime`) und
+      Bestätigung (`confirmationNeeded`, dann „Wecker aus“); `Alarm`
+      nächste Stufe um (`nextLevel`, `nextLevelAt`), `SmokeAlarm` nächste
+      Stufe in (`nextLevelDelay`/`Total`); `PresenceDetector` seit
+      (`activeSince`), gesperrt mit Grund, Nachlaufzeit (`time/{s}`, gesperrt
+      mit `parameterConnections` Bit 0), Verlauf; `Switch` von der Logik
+      gehalten (`lockedOn`); `SteakThermo` Display-Helligkeit, Tastensperre und
+      Display an im Akku- bzw. Netzbetrieb. Offen: `Daytimer` `modeslist`
+      (Einrichtung, bleibt der Loxone-App). **M**
 - [x] `LightControllerV2` (Lichtsteuerung): seit 16.10.2026 statt der reinen
       Stimmungsliste eine Seite mit den Lieblingsstimmungen (`favoriteMoods`)
       zuerst, den weiteren (`additionalMoods`) darunter, vorige/nächste

@@ -1115,6 +1115,24 @@ def lichtsteuerung_baustein(favoriten=True, **werte) -> tuple[dict, dict]:
     return control, w
 
 
+def praesenz_baustein(tracker=False, logik=False, **werte) -> tuple[dict, dict]:
+    """Praesenzmelder (PresenceDetector) anwesend seit 10 Minuten (activeSince
+    in Sekunden seit 2009 UTC), Nachlaufzeit 5 min; logik: parameterConnections
+    Bit 0 (Nachlaufzeit von der Logik), tracker: Unterbaustein Tracker."""
+    namen = ("active", "activeSince", "locked", "infoText", "time")
+    states = {n: f"pd-{n}" for n in namen}
+    control = {"name": "Präsenz Flur", "type": "PresenceDetector", "uuidAction": "PD", "room": "r1", "cat": "c1",
+               "details": {"maxEntries": 20, "parameterConnections": 1 if logik else 0}, "states": states}
+    w = {"active": 1, "activeSince": int(time.time()) - 1230768000 - 600, "locked": 0, "infoText": "",
+         "time": 300, **werte}
+    out = {states[n]: w[n] for n in namen}
+    if tracker:
+        control["subControls"] = {"PD/t": {"name": "Verlauf", "type": "Tracker", "uuidAction": "PD/t",
+                                           "states": {"entries": "pd-t"}}}
+        out["pd-t"] = "16.10.2026 07:12 Anwesend"
+    return control, out
+
+
 def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
     """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
     (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen
