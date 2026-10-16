@@ -447,7 +447,9 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
   vorn ein Schalter (schaltet, öffnet nichts), mit `nav` öffnet ein Tipp auf die
   Zeile die Unterseite.
 - `stepper`: Wert mit −/+ (`label`, `value`, `step`, `min`, `max`, `fmt`
-  `dauer` oder `prozent`, `sub`). Ohne `cmd` nur Anzeige. Die Visu zählt selbst
+  `dauer` oder `prozent`, sonst `unit` wie `kW` oder `°C` mit deutschem
+  Komma, `sub`). Die Visu rundet auf die Stellen des Schritts, 0,5er-Schritte
+  kommen ohne Rechenrest an. Ohne `cmd` nur Anzeige. Die Visu zählt selbst
   und schickt `cmd.tmpl` mit `{v}` erst, wenn 0,9 s niemand tippt
   (`STP_SENDEN_MS`); gedrückt halten zählt weiter.
 - Formular: `field` (Text), `timepick` (Uhrzeit in Sekunden ab Mitternacht) und

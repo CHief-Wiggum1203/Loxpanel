@@ -1045,6 +1045,86 @@ def aufab_baustein(wert=1, fehler=0, **details) -> tuple[dict, dict]:
     return control, {"uda-v": wert, "uda-e": fehler, "uda-l": ""}
 
 
+def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
+    """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
+    (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen
+    (level, alarmCause, testAlarm, acousticAlarm, timeServiceMode ...)."""
+    namen = ("level", "alarmCause", "testAlarm", "acousticAlarm", "timeServiceMode", "areAlarmSignalsOff",
+             "nextLevel", "nextLevelDelay", "nextLevelDelayTotal", "startTime")
+    states = {n: f"sm-{n}" for n in namen}
+    control = {"name": "Brandmeldezentrale", "type": "SmokeAlarm", "uuidAction": "SM", "room": "r1", "cat": "c1",
+               "details": {"hasAcousticAlarm": True, "availableAlarms": 3}, "states": states}
+    w = {n: 0 for n in namen}
+    w.update(werte)
+    return control, {states[n]: w[n] for n in namen}
+
+
+def alarmanlage_baustein(**werte) -> tuple[dict, dict]:
+    """Alarmanlage (Alarm) unscharf, Bewegungsmelder an; armedAt und
+    nextLevelAt sind Unix-Zeitstempel (0 = keiner)."""
+    namen = ("armed", "level", "disabledMove", "armedAt", "nextLevelAt", "startTime")
+    states = {n: f"al-{n}" for n in namen}
+    control = {"name": "Alarmanlage", "type": "Alarm", "uuidAction": "ALM", "room": "r1", "cat": "c1",
+               "details": {"presenceConnected": True}, "states": states}
+    w = {n: 0 for n in namen}
+    w.update(werte)
+    return control, {states[n]: w[n] for n in namen}
+
+
+STEAK_SENSOREN = [{"name": "Brisket", "connected": True, "target": 85},
+                  {"name": "Rind & Lamm", "connected": True, "target": 56}]
+
+
+def steak_baustein(**werte) -> tuple[dict, dict]:
+    """Touch & Grill Air (SteakThermo) mit zwei Fuehlern; JSON-States als
+    Text wie vom Miniserver (sensorInfo, sensorAlarms, timerInfo)."""
+    namen = ("currentTemperatures", "temperatureYellow", "temperatureGreen", "sensorInfo", "targetYellow",
+             "targetGreen", "sensorAlarms", "yellowAlarmActive", "greenAlarmActive", "activeAlarmText",
+             "timerRemaining", "timerInfo", "timerAlarmActive", "deviceState", "isActive", "powerMode",
+             "batteryStateOfCharge")
+    states = {n: f"st-{n}" for n in namen}
+    control = {"name": "Touch & Grill Air", "type": "SteakThermo", "uuidAction": "STK", "room": "r1", "cat": "c1",
+               "details": {"deviceType": 1}, "states": states}
+    w = {"currentTemperatures": "[82, 48]", "temperatureYellow": 82, "temperatureGreen": 48,
+         "sensorInfo": json.dumps(STEAK_SENSOREN), "targetYellow": 85, "targetGreen": 56, "sensorAlarms": "[]",
+         "yellowAlarmActive": 0, "greenAlarmActive": 0, "activeAlarmText": "", "timerRemaining": 0,
+         "timerInfo": json.dumps({"active": False, "duration": 300}), "timerAlarmActive": 0, "deviceState": 0,
+         "isActive": 1, "powerMode": 2, "batteryStateOfCharge": 64, **werte}
+    return control, {states[n]: w[n] for n in namen}
+
+
+def sauna_baustein(verdampfer=True, **werte) -> tuple[dict, dict]:
+    """Sauna mit Verdampfer, aktiv, Finnisch manuell; timerTotal 15 min."""
+    namen = ("active", "power", "tempActual", "tempBench", "tempTarget", "fan", "drying", "doorClosed",
+             "error", "saunaError", "timer", "timerTotal", "lessWater", "humidityActual", "humidityTarget", "mode")
+    states = {n: f"sa-{n}" for n in namen}
+    control = {"name": "Saunasteuerung", "type": "Sauna", "uuidAction": "SAU", "room": "r1", "cat": "c1",
+               "details": {"hasVaporizer": verdampfer, "hasDoorSensor": True}, "states": states}
+    w = {"active": 1, "power": 1, "tempActual": 72.0, "tempBench": 60.0, "tempTarget": 90.0, "fan": 0,
+         "drying": 0, "doorClosed": 1, "error": 0, "saunaError": 0, "timer": 0, "timerTotal": 900,
+         "lessWater": 0, "humidityActual": 20.0, "humidityTarget": 35.0, "mode": 1, **werte}
+    return control, {states[n]: w[n] for n in namen}
+
+
+EM2_VERBRAUCHER = [{"prio": 0, "id": 0, "name": "Wallbox", "uuid": "L1", "pwr": 3.7, "active": True,
+                    "activatedManually": False, "deactivatedManually": False},
+                   {"prio": 1, "id": 1, "name": "Heizstab", "uuid": "L2", "pwr": 0, "active": False,
+                    "activatedManually": False, "deactivatedManually": True}]
+
+
+def energiemanager_baustein(**details) -> tuple[dict, dict]:
+    """Energiemanager Gen. 2 mit Speicher (MinSoc 20 %, MaxSpwr 5 kW) und
+    zwei Verbrauchern; details ueberschreibt etwa MinSocLocked."""
+    namen = ("Gpwr", "Spwr", "Ppwr", "Ssoc", "MinSoc", "MaxSpwr", "loads")
+    states = {n: f"em-{n}" for n in namen}
+    control = {"name": "Energiemanager", "type": "EnergyManager2", "uuidAction": "EM", "room": "r1", "cat": "c1",
+               "details": {"MinSocLocked": False, "MaxSpwrLocked": False, "HasSsoc": True, "HasSpwr": True,
+                           **details}, "states": states}
+    w = {"Gpwr": -1.2, "Spwr": -0.8, "Ppwr": 6.1, "Ssoc": 64, "MinSoc": 20, "MaxSpwr": 5,
+         "loads": json.dumps(EM2_VERBRAUCHER)}
+    return control, {states[n]: w[n] for n in namen}
+
+
 def briefkasten_baustein(post=0, paket=0, pause_bis=0, logik_aus=0, eintraege=None) -> tuple[dict, dict]:
     """Briefkasten (MailBox) wie an einer echten Anlage: States mailReceived,
     packetReceived, disableEndTime (Sekunden seit 1.1.2009 UTC, 0 = keine
