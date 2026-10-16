@@ -11,7 +11,7 @@ import math
 import pytest
 from aiohttp.test_utils import make_mocked_request
 
-from lox import EM2, HAUS_FAVORITEN, W, anlage, haus_anlage
+from lox import anlage, EM2, haus_anlage, HAUS_FAVORITEN, konfig, W
 
 from bausteine.gemeinsam import SAUNA_STOERUNG, SAUNA_WASSER  # noqa: E402  # bin/ liegt durch lox auf dem Pfad
 
@@ -170,7 +170,7 @@ def test_aufbau_je_ansicht():
                                 "c": {"title": "C", "ui": {"hausAufbau": "status"}},
                                 "d": {"title": "D", "ui": {"hausAufbau": "quer"}}})
     assert [(p[k].get("ui") or {}).get("hausAufbau") for k in "abcd"] == ["raeume", "spalte", None, None]
-    assert W.PANEL_STANDARD[("ui", "hausAufbau")] == W.HAUS_AUFBAU_STANDARD == "status"
+    assert konfig.PANEL_STANDARD[("ui", "hausAufbau")] == W.HAUS_AUFBAU_STANDARD == "status"
     app = _app()
     app.panels = p
     assert app._panel_export(p["a"])["ui"]["hausAufbau"] == "raeume"

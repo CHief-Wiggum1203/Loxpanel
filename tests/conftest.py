@@ -11,8 +11,9 @@
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
-from lox import ROOT, W
+from lox import ROOT, SERVER_MODULE, W, ersetzen
 
 
 def _config_stand() -> dict:
@@ -40,10 +41,11 @@ def cfg_ordner(tmp_path, monkeypatch):
     danach anlegen, sie liest in __init__."""
     cfg = tmp_path / "config"
     cfg.mkdir()
-    monkeypatch.setattr(W, "__file__", str(tmp_path / "bin" / "webvisu.py"))
+    for modul in SERVER_MODULE:   # die Leser werten Path(__file__) ihres Moduls aus
+        monkeypatch.setattr(modul, "__file__", str(tmp_path / "bin" / Path(modul.__file__).name))
     for name, pfad in (("_CFGDIR", cfg), ("CFG_FILE", cfg / "loxpanel.cfg"),
                        ("CFG_EXAMPLE", cfg / "loxpanel.cfg.example"),
                        ("PANELS_FILE", cfg / "panels.json"), ("THEME_FILE", cfg / "theme.json")):
-        monkeypatch.setattr(W, name, pfad)
+        ersetzen(monkeypatch, name, pfad)
     monkeypatch.delenv("LOXPANEL_MS_HOST", raising=False)   # sonst nimmt _config() die Umgebung
     return cfg

@@ -473,6 +473,9 @@ Loxone Miniserver ──WebSocket(Token)──►  webvisu.py (aiohttp)   ─┐
 - **adapters.py**: pro Control-Typ ein Adapter (Zustand → Kachel, Aktion → Befehl).
 - **webvisu.py**: Server – baut Views/Blocks, streamt sie per WebSocket, proxyt
   Icons/Cover/MJPEG, sendet das Theme.
+- **konfig.py**: liest, prüft und schreibt die Konfigdateien unter `config/`;
+  **sicherung.py**: Backup und Einspielen einer Sicherung; **bausteine/**:
+  Kachel und Detailseite je Bausteintyp.
 - **panel.html** und **panel/**: die Single-Page-Visu (Kacheln, Detail-Panels, Tabs,
   Theme); das Markup in `panel.html`, Stylesheets und Skriptteile in `panel/`.
 - **agent/loxpanel-agent.py**: der [Panel-Agent](#der-panel-agent-wandpanel-kiosk)
