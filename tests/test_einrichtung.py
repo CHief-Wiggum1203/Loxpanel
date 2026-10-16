@@ -12,7 +12,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import ROOT, W, anlage, visu_starten
+from lox import anlage, ersetzen, geraete, miniserver, ROOT, visu_starten, W
 
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
                    "states": {"active": "l"}}}
@@ -65,7 +65,7 @@ def _app(host="", fehler=""):
 
 
 def test_einrichtung_je_zustand(monkeypatch):
-    monkeypatch.setattr(W, "_lan_adressen", lambda: ["192.168.1.37"])
+    ersetzen(monkeypatch, "_lan_adressen", lambda: ["192.168.1.37"])
     frisch = _app()._einrichtung_msg(_app()._einrichtung_stand())
     assert frisch == {"t": "einrichtung", "aktiv": True, "titel": "Miniserver einrichten",
                       "grund": "Noch kein Miniserver eingetragen.",
@@ -109,7 +109,7 @@ def test_settings_nennen_den_stand(cfg_ordner):
 
 @pytest.mark.parametrize("fehler, erwartet", [
     (ConnectionError("Anmeldung\n   abgelehnt"), "Anmeldung abgelehnt"),
-    (ConnectionError("x" * 500), "x" * W.EINRICHTUNG_FEHLER_MAX + " …"),
+    (ConnectionError("x" * 500), "x" * miniserver.EINRICHTUNG_FEHLER_MAX + " …"),
     (TimeoutError(), "TimeoutError"),
 ], ids=["zeilen", "lang", "ohne-text"])
 def test_verbindungsfehler_landet_im_hinweis(fehler, erwartet):
@@ -161,14 +161,14 @@ class _Socket:
                                                (None, [])], ids=["wlan", "loopback", "keine-route"])
 def test_adresse_im_netz(monkeypatch, adresse, erwartet):
     monkeypatch.setattr(_Socket, "adresse", adresse)
-    monkeypatch.setattr(W, "socket", types.SimpleNamespace(socket=_Socket, AF_INET=2, SOCK_DGRAM=2))
+    monkeypatch.setattr(geraete, "socket", types.SimpleNamespace(socket=_Socket, AF_INET=2, SOCK_DGRAM=2))
     assert W._lan_adressen() == erwartet
 
 
 def test_panel_bekommt_hinweis_und_dessen_ende(monkeypatch):
     """Beim Verbinden kommt der Hinweis; sobald die Struktur da ist, schickt
     der Broadcaster das Ende."""
-    monkeypatch.setattr(W, "_lan_adressen", lambda: ["192.168.1.37"])
+    ersetzen(monkeypatch, "_lan_adressen", lambda: ["192.168.1.37"])
 
     async def naechste(ws):
         while True:

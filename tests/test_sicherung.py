@@ -712,7 +712,7 @@ def test_teilweise_geschrieben_nennt_nur_geschriebenes(cfg_ordner, tmp_path, mon
     _schreiben(cfg_ordner)
     sicherung = _sicherung_von(tmp_path / "quelle", cfg={**CFG, "miniserver": {**MS, "host": "10.0.0.6"}},
                                theme={**THEME, "states": {"active": "rot!"}})
-    echt = W._atomic_write
+    echt = konfig._atomic_write
 
     def schreiben(pfad, text):
         if pfad == konfig.THEME_FILE:
@@ -736,7 +736,7 @@ def test_teilweise_geschrieben_nennt_nur_geschriebenes(cfg_ordner, tmp_path, mon
 
 def test_abgebrochenes_schreiben_laesst_keine_tmp_liegen(tmp_path):
     with pytest.raises(UnicodeEncodeError):
-        W._atomic_write(tmp_path / "x.json", "a\ud800")
+        konfig._atomic_write(tmp_path / "x.json", "a\ud800")
     assert list(tmp_path.iterdir()) == []
 
 

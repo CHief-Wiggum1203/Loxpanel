@@ -20,7 +20,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import Miniserver, W, anlage
+from lox import anlage, ersetzen, konfig, Miniserver, W
 from test_uebersetzung import _katalog_en
 
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
@@ -276,7 +276,7 @@ def test_nicht_erreichbar_bei_bestehender_verbindung(cfg_ordner, miniserver_http
     """Verbunden mit A, gespeichert wird B, der gerade nicht erreichbar ist:
     gespeichert mit Warnung, die Verbindung zu A bleibt. Bricht sie ab, baut
     der Loop sie mit B neu auf."""
-    monkeypatch.setattr(W, "MS_RETRY", (0.05,))
+    ersetzen(monkeypatch, "MS_RETRY", (0.05,))
 
     async def lauf():
         a = await _ms()
@@ -314,7 +314,7 @@ def test_nicht_erreichbar_bei_bestehender_verbindung(cfg_ordner, miniserver_http
 def test_nicht_erreichbar_ohne_verbindung(cfg_ordner, miniserver_http, monkeypatch):
     """Ersteinrichtung, der Miniserver ist noch aus: gespeichert, und der Loop
     versucht es ohne Neustart mit dem neuen Zugang."""
-    monkeypatch.setattr(W, "MS_RETRY", (0.05,))
+    ersetzen(monkeypatch, "MS_RETRY", (0.05,))
 
     async def lauf():
         app = W.App(W._config())
@@ -358,12 +358,12 @@ def test_antwortfrist(cfg_ordner, miniserver_http):
     assert j["gespeichert"] is True and j["fehler"] == "keine Antwort innerhalb von 0.3 s"
 
 
-@pytest.mark.parametrize("wert, frist", [(None, W.MS_CMD_TIMEOUT), (2.5, 2.5), (20, 20), (0, W.MS_CMD_TIMEOUT),
-                                         (-1, W.MS_CMD_TIMEOUT), ("zehn", W.MS_CMD_TIMEOUT),
-                                         (True, W.MS_CMD_TIMEOUT)])
+@pytest.mark.parametrize("wert, frist", [(None, konfig.MS_CMD_TIMEOUT), (2.5, 2.5), (20, 20), (0, konfig.MS_CMD_TIMEOUT),
+                                         (-1, konfig.MS_CMD_TIMEOUT), ("zehn", konfig.MS_CMD_TIMEOUT),
+                                         (True, konfig.MS_CMD_TIMEOUT)])
 def test_antwortfrist_einstellung(cfg_ordner, wert, frist):
     _cfg_schreiben(cfg_ordner, {} if wert is None else {"response_timeout": wert})
-    assert W._ms_antwortfrist() == frist
+    assert konfig._ms_antwortfrist() == frist
 
 
 def test_einspielen_wartet_auf_speichern(cfg_ordner, tmp_path):

@@ -15,7 +15,7 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 import theme_colors
 from audioserver_events import AudioEventClient
-from lox import AUDIO_GEKOPPELT, Audioserver, Miniserver, W, anlage, bloecke, neue_app, serve
+from lox import anlage, AUDIO_GEKOPPELT, Audioserver, bloecke, medien, Miniserver, miniserver, neue_app, serve, W
 
 
 class _Ersatz:
@@ -48,9 +48,9 @@ def test_icon_cache_begrenzt():
         async def http(path, timeout, renew=True):
             return 200, b"<svg/>", "image/svg+xml"
         app._ms_http = http
-        for i in range(W.ICON_CACHE_MAX + 50):
+        for i in range(medien.ICON_CACHE_MAX + 50):
             await app.fetch_icon(f"i{i}.svg")
-        assert len(app.icon_cache) == W.ICON_CACHE_MAX and next(iter(app.icon_cache)) == "i50.svg"
+        assert len(app.icon_cache) == medien.ICON_CACHE_MAX and next(iter(app.icon_cache)) == "i50.svg"
         await app.fetch_icon("i50.svg")        # Treffer -> zuletzt benutzt
         await app.fetch_icon("neu.svg")        # verdraengt jetzt i51
         assert "i50.svg" in app.icon_cache and "i51.svg" not in app.icon_cache
@@ -66,7 +66,7 @@ def _wartezeiten(monkeypatch, app, anzahl):
         if len(waits) >= anzahl:
             raise asyncio.CancelledError
         await echt(0)
-    monkeypatch.setattr(W, "asyncio", _Ersatz(asyncio, sleep=schlaf))
+    monkeypatch.setattr(miniserver, "asyncio", _Ersatz(asyncio, sleep=schlaf))
 
     async def lauf():
         try:
@@ -91,7 +91,7 @@ def test_backoff_von_vorn_erst_nach_stabiler_verbindung(monkeypatch):
     """Trennt der Miniserver sofort wieder, waechst die Wartezeit weiter; erst
     eine Verbindung, die MS_RETRY[-1] Sekunden Daten lieferte, setzt sie
     zurueck (stumme Verbindungen: test_miniserver_ws.py)."""
-    halten = iter([1, 1, 1, W.MS_RETRY[-1] + 40, 1])
+    halten = iter([1, 1, 1, miniserver.MS_RETRY[-1] + 40, 1])
 
     class Verbindung:
         def __init__(self, dauer):

@@ -23,7 +23,7 @@ import pytest
 from aiohttp import web
 
 import loxone_ws
-from lox import Miniserver, W, Zertifizierungsstelle, anlage, serve
+from lox import Miniserver, W, Zertifizierungsstelle, anlage, miniserver, serve
 from loxone_ws import LoxoneWS
 
 BILD = b"\xff\xd8\xff\xe0Cover"
@@ -182,7 +182,7 @@ def test_kontext_entsteht_neben_der_ereignisschleife(truststore, cfg_ordner, mon
         threads.append(threading.get_ident())
         return echt(verify_tls)
     monkeypatch.setattr(loxone_ws, "ms_ssl_kontext", mitschreiben)
-    monkeypatch.setattr(W, "ms_ssl_kontext", mitschreiben)
+    monkeypatch.setattr(miniserver, "ms_ssl_kontext", mitschreiben)
 
     async def lauf() -> int:
         ms = await _miniserver(truststore.server(NAME))

@@ -10,7 +10,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import Miniserver, W, anlage, bloecke, intercom_baustein, intercom_v2_baustein, neue_app, serve
+from lox import anlage, bausteine, bloecke, intercom_baustein, intercom_v2_baustein, intercomdienst, Miniserver, neue_app, serve, W
 
 KAMERA_PASS = "Bild-Kennwort-2"
 
@@ -23,15 +23,15 @@ KAMERA_PASS = "Bild-Kennwort-2"
     ({"videoInfo": {"streamUrl": "https://user@10.0.0.8:8443/live"}},
      {"url": "https://user@10.0.0.8:8443/live", "user": "", "pass": ""}),
     # Platzhalter ohne Miniserver-Adresse: kein Video (der Aufrufer gibt sie immer mit)
-    ({"videoInfo": {"streamUrl": "http://cloudDNS:8081/mjpg/video.mjpg"}}, {"grund": W.KEIN_VIDEO}),
-    ({"videoInfo": {"streamUrl": "https://remoteConnect/cam/1"}}, {"grund": W.KEIN_VIDEO}),
-    ({"videoInfo": {"streamUrl": "", "user": "kamera"}, "audioInfo": {"host": "10.0.0.9"}}, {"grund": W.KEIN_VIDEO}),
-    ({"audioInfo": {"host": "10.0.0.9"}}, {"grund": W.KEIN_VIDEO}),
-    ({"videoInfo": "kaputt"}, {"grund": W.KEIN_VIDEO}),
-    ({"videoInfo": {"streamUrl": "http://[::1/x"}}, {"grund": W.KEIN_VIDEO}),
+    ({"videoInfo": {"streamUrl": "http://cloudDNS:8081/mjpg/video.mjpg"}}, {"grund": bausteine.intercom.KEIN_VIDEO}),
+    ({"videoInfo": {"streamUrl": "https://remoteConnect/cam/1"}}, {"grund": bausteine.intercom.KEIN_VIDEO}),
+    ({"videoInfo": {"streamUrl": "", "user": "kamera"}, "audioInfo": {"host": "10.0.0.9"}}, {"grund": bausteine.intercom.KEIN_VIDEO}),
+    ({"audioInfo": {"host": "10.0.0.9"}}, {"grund": bausteine.intercom.KEIN_VIDEO}),
+    ({"videoInfo": "kaputt"}, {"grund": bausteine.intercom.KEIN_VIDEO}),
+    ({"videoInfo": {"streamUrl": "http://[::1/x"}}, {"grund": bausteine.intercom.KEIN_VIDEO}),
 ])
 def test_kamera_aus_details(details, soll):
-    assert W._kamera_aus_details(details) == soll
+    assert intercomdienst._kamera_aus_details(details) == soll
 
 
 @pytest.mark.parametrize("stream, soll", [
@@ -50,9 +50,9 @@ def test_platzhalter_werden_zum_miniserver(stream, soll):
     """Strukturdoku 17.0 (Intercom, streamUrl): cloudDNS wird durch die IP des
     Miniservers ersetzt, remoteConnect durch Host und Port des Miniservers mit
     https; der Miniserver leitet das Kamerabild weiter (Codex-Befund an #110)."""
-    assert W._kamera_aus_details({"videoInfo": {"streamUrl": stream, "user": "k", "pass": "p"}},
+    assert intercomdienst._kamera_aus_details({"videoInfo": {"streamUrl": stream, "user": "k", "pass": "p"}},
                                  "192.168.1.5", 8443) == {"url": soll, "user": "k", "pass": "p"}
-    ipv6 = W._kamera_aus_details({"videoInfo": {"streamUrl": "http://cloudDNS:8081/v"}}, "fd00::7", 443)
+    ipv6 = intercomdienst._kamera_aus_details({"videoInfo": {"streamUrl": "http://cloudDNS:8081/v"}}, "fd00::7", 443)
     assert ipv6["url"] == "http://[fd00::7]:8081/v"
 
 
@@ -147,8 +147,8 @@ def test_eigene_adresse_hat_vorrang(miniserver_http):
 
 
 @pytest.mark.parametrize("gesichert, grund", [
-    ({"audioInfo": {"host": "10.0.0.9"}}, W.KEIN_VIDEO),
-    ({"videoInfo": {"streamUrl": "", "user": "kamera"}}, W.KEIN_VIDEO),
+    ({"audioInfo": {"host": "10.0.0.9"}}, bausteine.intercom.KEIN_VIDEO),
+    ({"videoInfo": {"streamUrl": "", "user": "kamera"}}, bausteine.intercom.KEIN_VIDEO),
 ])
 def test_ohne_kamera_beim_miniserver(miniserver_http, gesichert, grund):
     """Nennt der Miniserver keine nutzbare Kamera, sagt die Seite warum - auch
@@ -220,7 +220,7 @@ def test_ohne_kennzeichen_keine_anfrage(miniserver_http):
             async with cl:
                 assert (await _hole(cl, "IC2V"))[0] == 404
                 assert ms.fenc == [] and app.ms_video == {}
-                assert _video(app, "IC2V") == {"k": "status", "text": W.KEIN_VIDEO}
+                assert _video(app, "IC2V") == {"k": "status", "text": bausteine.intercom.KEIN_VIDEO}
         finally:
             await app.icon_session.close()
             await ms.stop()

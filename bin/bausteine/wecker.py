@@ -5,14 +5,13 @@ Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer
 die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
-from bausteine import detail, kachel
-from bausteine.gemeinsam import _clean, DAUER_SCHRITT, PROZENT_SCHRITT
 import json
 import logging
 from datetime import datetime, timedelta
 from urllib.parse import quote, unquote
 
-from statistik import STAT_WEEKDAYS
+from bausteine import detail, kachel
+from bausteine.gemeinsam import _clean, DAUER_SCHRITT, PROZENT_SCHRITT, STAT_WEEKDAYS
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
 

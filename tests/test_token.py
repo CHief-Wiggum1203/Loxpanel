@@ -7,13 +7,13 @@ import time
 import aiohttp
 from aiohttp import web
 
-from lox import Anmeldung, Miniserver, W, neue_app, serve
+from lox import Anmeldung, konfig, Miniserver, miniserver, neue_app, serve, W
 
 
 def _ablaufen(app, ms):
     """Token am Nachbau ungueltig machen und die Anmeldesperre abgelaufen setzen."""
     ms.token = "ABGELAUFEN"
-    app._auth_at -= W.TOKEN_RENEW_MIN
+    app._auth_at -= miniserver.TOKEN_RENEW_MIN
 
 
 def _lauf(koerper):
@@ -49,18 +49,18 @@ def test_gleichzeitige_befehle_eine_anmeldung(miniserver_http):
 def test_401_aus_anderem_grund_keine_anmeldeflut(miniserver_http):
     async def k(app, ms):
         ms.deny.add("sps/io/NORIGHT")
-        app._auth_at -= W.TOKEN_RENEW_MIN
+        app._auth_at -= miniserver.TOKEN_RENEW_MIN
         assert await app.command("NORIGHT", "on") == "401" and app.client.n == 1
         for _ in range(3):
             assert await app.command("NORIGHT", "on") == "401"
-        assert app.client.n == 1, f"hoechstens eine Anmeldung je {W.TOKEN_RENEW_MIN} s"
+        assert app.client.n == 1, f"hoechstens eine Anmeldung je {miniserver.TOKEN_RENEW_MIN} s"
     _lauf(k)
 
 
 def test_gesicherter_befehl(miniserver_http):
     async def k(app, ms):
         ms.deny.add("sps/ios/")
-        app._auth_at -= W.TOKEN_RENEW_MIN
+        app._auth_at -= miniserver.TOKEN_RENEW_MIN
         assert await app.command("S", "on", pin="1234") == "401" and app.client.n == 0   # falsche PIN
         ms.deny.clear()
         assert await app.command("S", "on", pin="1234") == "200"
@@ -100,7 +100,7 @@ def test_miniserver_weg(miniserver_http):
     async def k(app, ms):
         await ms.stop()
         t = time.monotonic()
-        assert await app.command("U1", "on") is None and time.monotonic() - t < W.MS_CMD_TIMEOUT
+        assert await app.command("U1", "on") is None and time.monotonic() - t < konfig.MS_CMD_TIMEOUT
     _lauf(k)
 
 

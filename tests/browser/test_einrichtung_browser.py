@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, ersetzen, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -18,7 +18,7 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
 
 
 def test_karte_bis_die_struktur_da_ist(tmp_path, monkeypatch):
-    monkeypatch.setattr(W, "_lan_adressen", lambda: ["192.168.1.37"])
+    ersetzen(monkeypatch, "_lan_adressen", lambda: ["192.168.1.37"])
 
     async def lauf():
         app = W.App({"host": "", "port": 443})

@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from lox import ROOT, SERVER_MODULE, W, ersetzen
+from lox import ersetzen, ROOT, SERVER_MODULE
 
 
 def _config_stand() -> dict:
@@ -30,7 +30,7 @@ def config_unveraendert():
 
 @pytest.fixture
 def miniserver_http(monkeypatch):
-    monkeypatch.setattr(W, "_ms_https", lambda port: False)
+    ersetzen(monkeypatch, "_ms_https", lambda port: False)
 
 
 @pytest.fixture

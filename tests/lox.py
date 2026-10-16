@@ -37,17 +37,29 @@ if str(ROOT / "bin") not in sys.path:
     sys.path.insert(0, str(ROOT / "bin"))
 
 import webvisu as W  # noqa: E402
+import ansicht  # noqa: E402
+import audiodienst  # noqa: E402
 import bausteine  # noqa: E402
+import diagnosedaten  # noqa: E402
+import front  # noqa: E402
+import geraete  # noqa: E402
 import gesten  # noqa: E402
 import haus  # noqa: E402
+import intercomdienst  # noqa: E402
 import konfig  # noqa: E402
+import medien  # noqa: E402
+import miniserver  # noqa: E402
+import seiten  # noqa: E402
 import sicherung  # noqa: E402
 import statistik  # noqa: E402
+import verteilung  # noqa: E402
 
 # Die aus webvisu.py herausgeloesten Module (docs/TODO.md, Zerlegen): sie
 # importieren webvisu nie (tests/test_schichten.py), webvisu importiert aus
 # ihnen. Ein neues Modul gehoert hier dazu, sonst ersetzt ersetzen() dort nichts.
-_ZERLEGT_MODULE = (konfig, sicherung, statistik, haus, gesten)
+# Reihenfolge: wer einen Namen anbietet, vor dem, der ihn importiert.
+_ZERLEGT_MODULE = (konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
+                   intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten)
 ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
 SERVER_MODULE = (W, *_ZERLEGT_MODULE,
                  *(m for n, m in sorted(sys.modules.items()) if n.split(".")[0] == bausteine.__name__))

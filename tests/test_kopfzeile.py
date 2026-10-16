@@ -2,20 +2,20 @@
 ueber dem Kachelraster statt einer Pane daneben. Hier die Server-Seite: die
 Grammatik in ui.panes, der Rundweg durch Speichern und Export, und dass eine
 freie Seite (Widget-Tab) und die Uhr-Seite die Kopfzeile nicht annehmen."""
-from lox import W
+from lox import konfig, W
 
 
 def test_grammatik_der_kopfzeile():
-    assert W._clean_tabpane("header") == "header"
-    assert W._clean_tabpane("header:") == "header"            # ohne Werte: Uhr und Wetter
-    assert W._clean_tabpane("header:A, B,,") == "header:A,B"  # Werte getrimmt, Leere weg
+    assert konfig._clean_tabpane("header") == "header"
+    assert konfig._clean_tabpane("header:") == "header"            # ohne Werte: Uhr und Wetter
+    assert konfig._clean_tabpane("header:A, B,,") == "header:A,B"  # Werte getrimmt, Leere weg
     zu_viele = "header:" + ",".join(f"U{i}" for i in range(W.SV_STATUS_MAX + 3))
-    assert W._clean_tabpane(zu_viele).count(",") == W.SV_STATUS_MAX - 1
-    assert W._clean_tabpane("headerx") == "" and W._clean_tabpane("kopf") == ""
+    assert konfig._clean_tabpane(zu_viele).count(",") == W.SV_STATUS_MAX - 1
+    assert konfig._clean_tabpane("headerx") == "" and konfig._clean_tabpane("kopf") == ""
     # Widget-Tab (ganze Seite) und Uhr-Seite kennen keine Kopfzeile
-    assert W._clean_widget_tab("header") == "" and W._clean_widget_tab("header:A") == ""
-    assert W._clean_widget_tab("weather") == "weather" and W._clean_widget_tab("status:A") == "status:A"
-    assert W._clean_svpane("header") == "" and W._clean_svpane("header:A") == ""
+    assert konfig._clean_widget_tab("header") == "" and konfig._clean_widget_tab("header:A") == ""
+    assert konfig._clean_widget_tab("weather") == "weather" and konfig._clean_widget_tab("status:A") == "status:A"
+    assert konfig._clean_svpane("header") == "" and konfig._clean_svpane("header:A") == ""
 
 
 def test_kopfzeile_speichern_und_exportieren():

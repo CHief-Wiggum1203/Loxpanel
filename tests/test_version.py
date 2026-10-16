@@ -17,7 +17,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 import version_info as V
-from lox import ROOT, W
+from lox import ersetzen, ROOT, W
 
 STAND = {"version": "9.8.7", "commit": "abcdef0123456789abcdef0123456789abcdef01", "gebaut": "2026-10-03T12:15:00Z"}
 
@@ -91,7 +91,7 @@ def test_der_echte_stand():
 
 
 def test_settings_und_health_nennen_die_version(cfg_ordner, monkeypatch):
-    monkeypatch.setattr(W, "VERSION", STAND)
+    ersetzen(monkeypatch, "VERSION", STAND)
 
     async def lauf():
         ui = web.Application()

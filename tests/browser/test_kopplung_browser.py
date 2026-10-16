@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import anlage, geraete, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -25,7 +25,7 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
 PANELS = {"panels": {"wohnen": {"title": "Wohnen", "tabs": ["favoriten"]}}}
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
           ("POST", "/api/device/name", W.api_device_name)]
-CODE = re.compile(rf"^[{W.KOPPLUNG_ZEICHEN}]{{{W.KOPPLUNG_LAENGE}}}$")
+CODE = re.compile(rf"^[{geraete.KOPPLUNG_ZEICHEN}]{{{geraete.KOPPLUNG_LAENGE}}}$")
 
 
 async def _bis(bedingung, was, sekunden=10):

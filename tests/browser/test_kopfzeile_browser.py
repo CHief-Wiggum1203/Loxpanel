@@ -8,7 +8,7 @@ import asyncio
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, konfig, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -215,7 +215,7 @@ def test_konfigurator_bietet_die_kopfzeile_an():
     assert res["danach"] == "weather"
     assert res["helfer"] == "header", "die Widget-Wahl der Seite kennt die Kopfzeile"
     # Was der Konfigurator schreibt, nimmt der Server unveraendert
-    assert W._clean_tabpane(res["mit"]) == res["mit"]
+    assert konfig._clean_tabpane(res["mit"]) == res["mit"]
 
 
 def test_konfigurator_ohne_split_nur_die_kopfzeile():

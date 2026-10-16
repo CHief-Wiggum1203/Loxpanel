@@ -17,7 +17,7 @@ import time
 import aiohttp
 import pytest
 
-from lox import Miniserver, W, anlage, neue_app, visu_starten
+from lox import anlage, ersetzen, Miniserver, neue_app, verteilung, visu_starten, W
 
 UUID = "0f1e2d3c-0001-0002-0102030405060708"
 AUSSEN = 5.0      # s: Grenze des Tests selbst; greift sie, haengt der Code
@@ -29,7 +29,7 @@ STRUKTUR = anlage({"S1": {"name": "Stehlampe", "type": "Switch", "uuidAction": "
 def kurz(cfg_ordner, miniserver_http, monkeypatch):
     (cfg_ordner / "loxpanel.cfg").write_text(json.dumps({"miniserver": {
         "response_timeout": 0.3, "keepalive_interval": 0.2}}), encoding="utf-8")
-    monkeypatch.setattr(W, "MS_RETRY", (0.05, 0.1))
+    ersetzen(monkeypatch, "MS_RETRY", (0.05, 0.1))
     return cfg_ordner
 
 
@@ -103,15 +103,15 @@ def test_ohne_struktur_gilt_er_als_erreichbar():
 
 def test_texte_nennen_ihre_platzhalter():
     """Die Visu setzt Uhrzeiten an {seit} und {stand} ein."""
-    t = W.VERBINDUNG_TEXTE
+    t = verteilung.VERBINDUNG_TEXTE
     assert "{seit}" in t["ms"] and "{seit}" in t["server"] and "{stand}" in t["stand"] and t["gesperrt"]
-    assert W.VERBINDUNG_STUMM > 2 * W.VERBINDUNG_TAKT, "ein verspaeteter Takt darf nichts abreissen"
+    assert verteilung.VERBINDUNG_STUMM > 2 * verteilung.VERBINDUNG_TAKT, "ein verspaeteter Takt darf nichts abreissen"
 
 
 def test_panel_bekommt_zustand_und_lebenszeichen(monkeypatch):
     """Beim Verbinden bekommt das Panel den Stand samt Takt, Fristen und
     Texten, danach im Takt erneut, und jede Aenderung sofort."""
-    monkeypatch.setattr(W, "VERBINDUNG_TAKT", 0.4)
+    ersetzen(monkeypatch, "VERBINDUNG_TAKT", 0.4)
 
     async def lauf():
         app = W.App({"host": "", "port": 80})
@@ -144,8 +144,8 @@ def test_panel_bekommt_zustand_und_lebenszeichen(monkeypatch):
 
     erste = meldungen[0][1]
     assert erste == {"t": "verbindung", "ms": True, "seit": None, "stand": None, "takt": 0.4,
-                     "stumm": W.VERBINDUNG_STUMM, "hinweis": W.VERBINDUNG_HINWEIS,
-                     "texte": W.VERBINDUNG_TEXTE}, erste
+                     "stumm": verteilung.VERBINDUNG_STUMM, "hinweis": verteilung.VERBINDUNG_HINWEIS,
+                     "texte": verteilung.VERBINDUNG_TEXTE}, erste
     abstaende = [b[0] - a[0] for a, b in zip(meldungen[:3], meldungen[1:3])]
     assert all(0.3 <= x <= 1.0 for x in abstaende), abstaende
     ausfall = next(d for _, d in meldungen if not d["ms"])

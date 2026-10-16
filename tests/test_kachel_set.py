@@ -9,7 +9,7 @@ und beide Arten der aktiven Kachel. Was geprueft wird, haengt an der Art des
 Sets (Aufbau, Leiste), so wie panel.html die Farben aufeinander setzt."""
 import pytest
 
-from lox import W, anlage
+from lox import anlage, konfig, W
 
 import theme_colors as TC
 
@@ -123,7 +123,7 @@ def test_ausdrueckliche_zustandsfarbe_gilt_auch_im_set(name):
 def test_vorgabe_zustandsfarbe_ueberschreibt_das_set_nicht(name):
     """load_theme() fuellt states immer aus DEFAULT_THEME - diese Vorgabe ist
     keine Wahl und darf die Farben des Sets nicht ueberdecken."""
-    prof = _app({"tileSet": name}, dict(W.DEFAULT_THEME["states"])).resolve_profile("p")
+    prof = _app({"tileSet": name}, dict(konfig.DEFAULT_THEME["states"])).resolve_profile("p")
     assert prof["vars"]["--glow"] == TC.kachel_set(name)["--glow"]
 
 
@@ -316,6 +316,6 @@ def test_touch_satz_folgt_der_rechnung(aktiv_hell):
 def test_schrift_auf_eingestellter_ok_farbe(ui, farbe):
     """Eine eingestellte OK-Farbe zieht den Akzent mit (Kalender "heute",
     Entwurfsmarke) - und die Schrift darauf mit ihr, mit oder ohne Set."""
-    v = W.App._theme_vars({**W.DEFAULT_THEME["states"], "good": farbe}, ui)
+    v = W.App._theme_vars({**konfig.DEFAULT_THEME["states"], "good": farbe}, ui)
     assert v["--accent"] == farbe
     assert TC.kontrast(v["--on-accent"], farbe) >= TC.AA, (ui, farbe, v["--on-accent"])
