@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 from bausteine import detail, kachel
-from bausteine.gemeinsam import _clean, _dauer_text
+from bausteine.gemeinsam import _clean, DAUER_SCHRITT, _dauer_text
 
 # Briefkasten (MailBox, Strukturdoku): so lange setzen die Tasten die
 # Benachrichtigungen aus (disableNotifications/{Sekunden}); 0 hebt die Pause auf.
@@ -25,6 +25,10 @@ RAUCH_STUFEN = {1: "Voralarm", 2: "Hauptalarm"}
 # RAUCH_REVISION_ENDLOS), sonst Sekunden
 RAUCH_REVISION_AUS, RAUCH_REVISION_DAUERHAFT, RAUCH_REVISION_ENDLOS = 0, 1, 99999
 RAUCH_REVISION_DAUERN = (3600, 4 * 3600)
+# Alarmstufen (State nextLevel bei Alarmanlage und Rauchmelder)
+ALARM_STUFEN = {1: "Still", 2: "Akustisch", 3: "Optisch", 4: "Intern", 5: "Extern", 6: "Fernalarm"}
+# Praesenzmelder: parameterConnections Bit 0 = Nachlaufzeit von der Logik
+PRAESENZ_ZEIT_GESPERRT = 1
 
 
 def _bits_text(maske, arten=RAUCH_ARTEN) -> str:
@@ -141,6 +145,11 @@ def detail_rauchmelder(app, uuid, c, route):
         blocks.append({"k": "status", "text": f"Revisionsmodus noch {_dauer_text(rest)}"})
     if app._state(c, "areAlarmSignalsOff"):
         blocks.append({"k": "status", "text": "Alarmsignale aus"})
+    # naechste Stufe: nextLevelDelay zaehlt bis nextLevelDelayTotal hoch
+    stufe = ALARM_STUFEN.get(int(app._endlich(c, "nextLevel") or 0))
+    gesamt, bisher = app._endlich(c, "nextLevelDelayTotal") or 0, app._endlich(c, "nextLevelDelay") or 0
+    if int(app._endlich(c, "level") or 0) and stufe and gesamt > bisher:
+        blocks.append({"k": "status", "text": f"Nächste Stufe ({stufe}) in {_dauer_text(gesamt - bisher)}"})
     if int(app._endlich(c, "level") or 0) or app._state(c, "testAlarm"):
         cells = [{"label": "Quittieren", "cmd": {"uuid": ua, "cmd": "confirm"}}]
         if app._state(c, "acousticAlarm"):
@@ -164,10 +173,39 @@ def detail_rauchmelder(app, uuid, c, route):
 
 @detail("PresenceDetector")
 def detail_praesenzmelder(app, uuid, c, route):
+    """Praesenzmelder (Strukturdoku PresenceDetector): anwesend seit
+    (activeSince), gesperrt mit Grund (locked, infoText), die Nachlaufzeit
+    (time, Befehl time/{Sekunden}, gesperrt mit parameterConnections Bit 0)
+    und der Verlauf aus dem Tracker."""
+    ua = c.get("uuidAction")
     on = bool(app._state(c, "active"))
     itxt = app._text(c, "infoText")
-    big = itxt if (itxt and itxt.lower() not in ("on", "off")) else ("Anwesend" if on else "Abwesend")
-    return app._big_view(uuid, "info", big)
+    gesperrt = bool(app._state(c, "locked"))
+    big = itxt if (itxt and not gesperrt and itxt.lower() not in ("on", "off")) else \
+        ("Anwesend" if on else "Abwesend")
+    v = app._big_view(uuid, "info", big, tone="good" if on else None)
+    blocks = v["blocks"]
+    seit = app._endlich(c, "activeSince") or 0
+    if on and seit > 0:
+        blocks.append({"k": "status", "text": "seit " + _uhrzeit_text(datetime.fromtimestamp(LOX_EPOCH_UTC + seit))})
+    if gesperrt:
+        blocks.append({"k": "status", "text": "Gesperrt" + (f": {itxt}" if itxt else "")})
+    zeit = app._endlich(c, "time")
+    if zeit is not None:
+        b = {"k": "stepper", "label": "Nachlaufzeit", "value": zeit, "fmt": "dauer"}
+        try:
+            logik = int((c.get("details") or {}).get("parameterConnections") or 0) & PRAESENZ_ZEIT_GESPERRT
+        except (TypeError, ValueError):
+            logik = 0
+        if logik:
+            b["sub"] = "von der Logik vorgegeben"
+        else:
+            b.update(step=DAUER_SCHRITT, min=0, cmd={"uuid": ua, "tmpl": "time/{v}"})
+        blocks.append(b)
+    if app._verlauf_sub(c)[1] is not None:
+        blocks.append({"k": "row", "cells": [{"label": "Verlauf", "nav": {"view": "verlauf", "id": uuid}}]})
+    v.update(route=route, anchor="bottom")
+    return v
 
 
 @detail("Alarm")
@@ -194,6 +232,10 @@ def detail_alarmanlage(app, uuid, c, route):
     ab = app._endlich(c, "armedAt") or 0
     if not armed and ab > time.time():        # verzoegert: armedAt ist ein Unix-Zeitstempel
         sub = f"Wird scharf um {datetime.fromtimestamp(ab).strftime('%H:%M:%S')}"
+    stufe = ALARM_STUFEN.get(int(app._endlich(c, "nextLevel") or 0))
+    na = app._endlich(c, "nextLevelAt") or 0       # Unix-Zeitstempel, 0 = keine
+    if lvl and stufe and na > time.time():
+        sub += f" · nächste Stufe ({stufe}) um {datetime.fromtimestamp(na).strftime('%H:%M:%S')}"
     blocks = [{"k": "hero", "icon": "alarm"}, big, {"k": "status", "text": sub},
               {"k": "row", "cells": cells}]
     # Bewegungsmelder (dismv/1 ein, dismv/0 aus; State disabledMove)

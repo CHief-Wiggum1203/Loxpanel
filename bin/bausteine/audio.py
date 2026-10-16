@@ -14,6 +14,19 @@ from bausteine.gemeinsam import _clean
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
 
 
+# Audio-Zone Gen. 2 (Strukturdoku AudioZoneV2): serverState/clientState
+# 2 = online, sonst der Hinweis; details.disableFeature Bit 2 = Bluetooth an
+# der Zone abgeschaltet, details.parameterConnections Bit 10 = Bluetooth von
+# der Logik vorgegeben
+ZONE_ONLINE = 2
+ZONE_SERVER = {-5: "Audioserver startet neu", -2: "Audioserver nicht erreichbar", 0: "Audioserver offline",
+               1: "Audioserver startet", None: "Audioserver nicht bereit"}
+ZONE_CLIENT = {-5: "Lautsprecher startet neu", 0: "Lautsprecher offline", 1: "Lautsprecher startet",
+               None: "Lautsprecher nicht bereit"}
+ZONE_BT_ABGESCHALTET = 1 << 2
+ZONE_BT_LOGIK = 1 << 9
+
+
 @kachel("AudioZone")
 def kachel_audiozone(app, uuid, c, it):
     playing = app._state(c, "playState") == 2
@@ -109,7 +122,9 @@ def detail_audiozone_v2(app, uuid, c, route):
     if not title:
         title = "Spielt" if playing else "Aus"
     blocks = [{"k": "cover", "src": cover} if cover else {"k": "hero", "icon": "music"}]
-    blocks += [{"k": "title", "text": title, "sub": sub}, *app._sender_bloecke(uuid)]
+    blocks += [{"k": "title", "text": title, "sub": sub},
+               *({"k": "status", "text": t} for t in app._zone_hinweise(c)),
+               *app._sender_bloecke(uuid)]
     blocks += [
         {"k": "row", "cells": [
             {"icon": "prev", "cmd": {"uuid": ua, "cmd": "prev"}},
@@ -120,6 +135,12 @@ def detail_audiozone_v2(app, uuid, c, route):
         {"k": "slider", "icon": "vol", "value": vol, "min": 0, "max": 100,
          "cmd": {"uuid": ua, "tmpl": "volume/{v}"}},
     ]
+    # Bluetooth (bluetooth/1|0, ab 15.0) und Durchsage (tts, Unterseite)
+    extra = [{"label": "Durchsage", "nav": {"view": "durchsage", "id": uuid}}]
+    bt = app._zone_bluetooth(c)
+    if bt:
+        extra.insert(0, bt)
+    blocks.append({"k": "row", "cells": extra})
     # 3-Punkte -> Musikauswahl (Sonn via API, sonst Loxone-roomfav)
     blocks.append({"k": "more", "route": {"view": "sources", "id": uuid}})
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
@@ -161,6 +182,55 @@ class AudioHelfer:
                      for f in cl.favs.get(pid, []) if f.get("slot") is not None], True)
         return ([{"label": f["name"], "cmd": {"uuid": ua, "cmd": f"roomfav/play/{f['slot']}"},
                   "cover": cover(f["cover"])} for f in self._audio_favs(c)], False)
+
+    def _zone_hinweise(self, c: dict) -> list[str]:
+        """Was eine Gen-2-Zone am Spielen hindert (Strukturdoku AudioZoneV2):
+        Audioserver nicht online (serverState), Lautsprecher nicht online
+        (clientState), gesperrt (isLocked, Reset-Eingang). Nur, wenn die
+        Anlage den State liefert."""
+        out = []
+        for state, texte in (("serverState", ZONE_SERVER), ("clientState", ZONE_CLIENT)):
+            v = self._endlich(c, state)
+            if v is not None and int(v) != ZONE_ONLINE:
+                out.append(texte.get(int(v), texte[None]))
+        if self._state(c, "isLocked"):
+            out.append("Zone gesperrt")
+        return out
+
+    def _zone_bluetooth(self, c: dict) -> dict | None:
+        """Zelle Bluetooth an/aus einer Gen-2-Zone (State bluetooth, Befehl
+        bluetooth/1|0); nur Anzeige, wenn die Logik den Parameter vorgibt
+        (details.parameterConnections Bit 10), keine, wenn Bluetooth an der
+        Zone abgeschaltet ist (details.disableFeature Bit 2) oder der State
+        fehlt."""
+        if "bluetooth" not in (c.get("states") or {}):
+            return None
+        det = c.get("details") or {}
+        try:
+            aus = int(det.get("disableFeature") or 0) & ZONE_BT_ABGESCHALTET
+            logik = int(det.get("parameterConnections") or 0) & ZONE_BT_LOGIK
+        except (TypeError, ValueError):
+            aus, logik = 0, 0
+        if aus:
+            return None
+        an = bool(self._state(c, "bluetooth"))
+        zelle = {"label": "Bluetooth", "on": an}
+        if not logik:
+            zelle["cmd"] = {"uuid": c.get("uuidAction"), "cmd": f"bluetooth/{0 if an else 1}"}
+        return zelle
+
+    def _view_durchsage(self, uuid: str) -> dict:
+        """Unterseite Durchsage einer Gen-2-Zone (Route view=durchsage): Text
+        eingeben, die Zone spricht ihn (Strukturdoku: tts/{text})."""
+        c = self.controls.get(uuid or "") or {}
+        route = {"view": "durchsage", "id": uuid}
+        if c.get("type") != "AudioZoneV2":
+            return self._gone_view(route, "Durchsage", "Diese Zone gibt es nicht mehr.")
+        return {"t": "view", "title": f"{_clean(c.get('name'))} · Durchsage", "route": route, "blocks": [
+            {"k": "title", "text": _clean(c.get("name")), "sub": "Durchsage"},
+            {"k": "field", "name": "text", "label": "Text", "value": ""},
+            {"k": "row", "cells": [{"label": "Sprechen", "back": True,
+                                    "form": {"uuid": c.get("uuidAction"), "tmpl": "tts/{text}"}}]}]}
 
     def _favoriten_grund(self, uuid: str) -> str:
         """Warum eine Zone keine Favoriten liefern kann, als Satz fuer die
