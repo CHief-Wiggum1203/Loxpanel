@@ -74,12 +74,12 @@ def detail_lichtsteuerung_v2(app, uuid, c, route):
         blocks.append({"k": "row", "wrap": True, "cells": [zelle(m) for m in favs]})
     blocks.append({"k": "row", "cells": [{"icon": "prev", "cmd": {"uuid": ua, "cmd": "minus"}},
                                          {"icon": "next", "cmd": {"uuid": ua, "cmd": "plus"}}]})
-    if weitere:
-        blocks += [{"k": "head", "text": "Weitere Stimmungen"},
-                   {"k": "row", "wrap": True, "cells": [zelle(m) for m in weitere]}]
     master, kreise = app._lc_kreise(c)
     if master:
         blocks.append(master)
+    if weitere:
+        blocks += [{"k": "head", "text": "Weitere Stimmungen"},
+                   {"k": "row", "wrap": True, "cells": [zelle(m) for m in weitere]}]
     if kreise:
         blocks += [{"k": "head", "text": "Lichtkreise"}, *kreise]
     return {"t": "view", "title": _clean(c.get("name")), "route": route, "blocks": blocks}
