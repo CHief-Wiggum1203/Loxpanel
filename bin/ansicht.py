@@ -274,6 +274,10 @@ class Ansicht:
         v["--nacht-grund"] = theme_colors.NACHT_GRUND
         if v.get("--ink"):
             v["--nacht-ink"] = theme_colors.nacht_schrift(v["--ink"])
+        # Gesten im Vollbild: Schrift auf der Fuellung, Vorhang der Jalousie,
+        # gedaempft fuer die Nacht. Ohne Set und Grundfarbe aus den
+        # Standardfarben der Visu, eine gewaehlte Zustandsfarbe geht mit.
+        v.update(theme_colors.geste_farben(v))
         return {k: val for k, val in v.items() if val}
 
     def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:

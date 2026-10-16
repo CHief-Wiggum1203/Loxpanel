@@ -114,6 +114,7 @@ class Verteilung:
     async def _broadcast_tick(self) -> None:
         await self._einrichtung_melden()
         await self._verbindung_melden()
+        await self.geste_fahrten()   # Jalousien nach einer Geste: Stellung live an die Einblendung
         if self.vorschau_geraet:   # Vorschau am Geraet abgelaufen: zurueck zur vorigen Ansicht
             jetzt = time.time()
             for dev in [d for d, e in self.vorschau_geraet.items() if jetzt > e["bis"]]:
