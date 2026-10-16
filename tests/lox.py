@@ -1045,6 +1045,23 @@ def aufab_baustein(wert=1, fehler=0, **details) -> tuple[dict, dict]:
     return control, {"uda-v": wert, "uda-e": fehler, "uda-l": ""}
 
 
+def briefkasten_baustein(post=0, paket=0, pause_bis=0, logik_aus=0, eintraege=None) -> tuple[dict, dict]:
+    """Briefkasten (MailBox) wie an einer echten Anlage: States mailReceived,
+    packetReceived, disableEndTime (Sekunden seit 1.1.2009 UTC, 0 = keine
+    Pause) und notificationsDisabledInput. Mit eintraege (Text des States
+    entries, neueste zuerst) hat er den Unterbaustein Tracker der Strukturdoku."""
+    control = {"name": "Postkasten", "type": "MailBox", "uuidAction": "MB", "room": "r2", "cat": "c1",
+               "details": {"deviceType": 0, "jLockable": True},
+               "states": {"mailReceived": "mb-m", "packetReceived": "mb-p", "disableEndTime": "mb-d",
+                          "notificationsDisabledInput": "mb-n"}}
+    states = {"mb-m": post, "mb-p": paket, "mb-d": pause_bis, "mb-n": logik_aus}
+    if eintraege is not None:
+        control["subControls"] = {"MB/tracker": {"name": "Verlauf", "type": "Tracker",
+                                                 "uuidAction": "MB/tracker", "states": {"entries": "mb-t"}}}
+        states["mb-t"] = eintraege
+    return control, states
+
+
 # Zonen einer Bewaesserung: id ab 0, Laufzeit in Sekunden; die Hecke gibt die
 # Logik vor (setByLogic).
 BEW_ZONEN = [{"id": 0, "name": "Rasen vorne", "duration": 600, "setByLogic": False},

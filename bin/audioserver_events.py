@@ -96,6 +96,9 @@ class AudioEventClient:
         self.paired: bool | None = None
         # True, sobald secure/authenticate auf dieser Verbindung erfolgreich war.
         self.authed = False
+        # Warum die letzte Anmeldung scheiterte (Klartext fuer Musikauswahl und
+        # Diagnosepaket); leer, solange keine scheiterte oder nach einer geglueckten.
+        self.anmeldung = ""
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._session: aiohttp.ClientSession | None = None
         self._on_change = None
@@ -320,12 +323,14 @@ class AudioEventClient:
         Verbindung bleibt zum Hoeren bestehen."""
         self.authed = False
         if not _auth.HAVE_CRYPTO:
+            self.anmeldung = "Paket cryptography fehlt"
             log.warning("Audioserver %s: Paket 'cryptography' fehlt, keine Anmeldung "
                         "(Favoriten/Steuerung ueber 7091 nicht moeglich)", self.host)
             return
         user = self.user
         jwt = await self._get_jwt()
         if not (user and jwt):
+            self.anmeldung = "kein Benutzer oder Token vom Miniserver"
             log.debug("Audioserver %s: kein Benutzer/Token fuer die Anmeldung", self.host)
             return
 
@@ -355,20 +360,25 @@ class AudioEventClient:
         greet = await read_until("__greeting__", 4)
         token = (greet or {}).get("__greeting__", {}).get("token") if greet else None
         if not token:
+            self.anmeldung = "keine Begrüßung mit Sitzungsschlüssel"
             log.warning("Audioserver %s: kein Banner mit Session-Token", self.host); return
         await ws.send_str("audio/cfg/getkey")
         gk = await read_until("getkey_result", 5)
         pubkey = _auth.public_key_from_getkey(gk) if gk else None
         if pubkey is None:
+            self.anmeldung = "kein RSA-Schlüssel (getkey)"
             log.warning("Audioserver %s: kein RSA-Schluessel (getkey)", self.host); return
         try:
             cmd = _auth.build_authenticate(user, jwt, token, pubkey)
         except Exception as err:
+            self.anmeldung = f"Anmeldebefehl nicht baubar ({err})"
             log.warning("Audioserver %s: Anmeldebefehl nicht baubar: %s", self.host, err); return
         await ws.send_str(cmd)
         res = await read_until("authenticate_result", 6)
         result = _auth.auth_result(res) if res else None
         self.authed = (result == _auth.AUTH_OK)
+        self.anmeldung = ("" if self.authed else "keine Antwort" if result is None
+                          else f"abgelehnt ({result or 'ohne Angabe'})")
         log.info("Audioserver %s: Anmeldung %s", self.host,
                  "erfolgreich (Favoriten/Steuerung ueber 7091)" if self.authed
                  else f"fehlgeschlagen ({result!r})")

@@ -197,6 +197,17 @@ Loxone-App an (`bin/audioserver_auth.py`): Session-Token aus dem Banner,
 und `key:iv:sessionToken` per RSA an `secure/authenticate`. Danach laufen
 `getroomfavs` und `roomfav/play/<id>` über dieselbe Verbindung.
 
+Die Favoriten einer Zone stehen als Reihe Cover direkt unter dem Titel ihrer
+Detailseite (`_sender_bloecke()`, Block `favs` mit `bleiben`), alle zusammen
+umbrechend in der Musikauswahl hinter ⋮ (`_view_sources()`). Eine
+`AudioZoneV2` bekommt sie nur über den Ereigniskanal, der Miniserver-State
+`sourceList` fehlt ihr. Scheitert die Anmeldung am gekoppelten Audioserver,
+bleibt die Liste deshalb überall leer. Den Grund hält der Client in
+`anmeldung` fest (`keine Antwort`, `abgelehnt (…)`, `Paket cryptography fehlt`
+…), die Detailseite und die Musikauswahl zeigen ihn statt einer leeren Liste
+(`_favoriten_grund()`), und das Diagnosepaket schreibt ihn in die
+Zusammenfassung („nicht angemeldet: abgelehnt (denied)“).
+
 Tree-Turbo-Geräte (Stereo Extension, Install Speaker/Sub/Satellite Master,
 künftig das Wall Display 10") hängen laut Loxone per IP-Powerline an einer
 Tree-Turbo-Schnittstelle des Audioservers bzw. Miniserver Compact und holen sich
@@ -400,7 +411,7 @@ Browser → Server (`ws_handler` in `routen/visu.py`):
 
 | `t` | Inhalt |
 |---|---|
-| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste` (`"aktiv"`: Unterseite „Gerade aktiv“, `"hinweise"`: alle Hinweise). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), siehe §6 |
+| `nav` | `route` (z. B. `{"view":"tab","tab":"raeume"}` oder `{"view":"control","id":uuid}`). Hausübersicht: `{"view":"tab","tab":"haus"}`, dazu `zone` (Audio-Zone des Spielers) und `liste` (`"aktiv"`: Unterseite „Gerade aktiv“, `"hinweise"`: alle Hinweise). Unterseiten einzelner Bausteine: `{"view":"irrzone","id","zone"}` (Zone einer Bewässerung), `{"view":"alarmentry","id","entry"}` (Weckzeit, `entry` leer = neue), `{"view":"alarmsettings","id"}` (Einstellungen eines Weckers), `{"view":"bells","id"}` (verpasste Klingeln), `{"view":"verlauf","id"}` (Verlauf aus dem Tracker-Unterbaustein, etwa beim Briefkasten), `{"view":"sources","id"}` (Musikauswahl einer Audio-Zone), siehe §6 |
 | `cmd` | `uuid`, `cmd`, optional `pin` |
 | `geste` | `art` (`licht` \| `musik` mit `phase` `start`/`wert`/`ende` und `wert` 0–100; `stimmung`; `beschattung` mit `richtung` `auf`/`ab`; `verlassen`; `hausaus`) — Zwei-Finger-Geste (§7.1 „Gesten“). Der Server sucht Raum, Bausteine und Befehle selbst; ein laufendes Dimmen hält er je Verbindung (`conn_geste`). Nur, wenn das Profil Gesten erlaubt |
 | `screen` | `vw`, `vh` (sichtbare Fläche, CSS-px), `sw`, `sh` (Bildschirm laut Gerät), `dpr` (Pixeldichte), `bw`, `bh` (ungeskalierter Kasten der Visu), `k` (wirksamer Faktor), `rc`, `rr` (Spalten und Zeilen der Kachelansicht, beim automatischen Raster das Ergebnis). Beim Verbinden, nach jeder Größenänderung und nach jedem Neuaufbau des Rasters, entprellt und nur bei Änderung. Nur zur Anzeige unter Displays; geprüft in `_clean_screen()`, abgelegt in `conn_info[ws]["screen"]` |
@@ -449,6 +460,10 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
   nicht beim Aufsetzen des Fingers. `confirm` fragt beim ersten Tipp nach,
   `back` geht nach dem Befehl eine Seite zurück.
 - `gallery`: Bilder (`src`, `label`); ein Tipp zeigt eins groß.
+- `favs`: Cover zum Abspielen (`items` mit `label`, `cover`, `cmd`). Mit `wrap`
+  umbrechend (Musikauswahl), sonst eine waagrecht scrollende Reihe. Nach dem
+  Tippen geht die Visu eine Seite zurück, mit `bleiben` nicht (Detailseite
+  der Zone).
 
 `chart` (Verlaufs-Diagramm) trägt `kind` (`line`, `digital`, `counter`), `unit`,
 `t0`/`t1`, `series[]` (`name`, `dec`, `pts` als `[sekunden, wert]`) und `state`

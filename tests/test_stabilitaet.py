@@ -13,6 +13,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
+import diagnose
 import theme_colors
 from audioserver_events import AudioEventClient
 from lox import (
@@ -151,10 +152,11 @@ async def _bis(bedingung, frist=5.0):
         await asyncio.sleep(0.02)
 
 
-def _audio_lauf(koerper, **nachbau):
+def _audio_lauf(koerper, client_jwt=None, **nachbau):
     """Miniserver- und Audioserver-Nachbau, App mit einer AudioZoneV2 (Zone 1,
     Favorit des Miniservers im sourceList-State) und laufendem Ereignis-Client
-    wie aus audio_events_task(), nur mit kurzer Pause zwischen den Versuchen."""
+    wie aus audio_events_task(), nur mit kurzer Pause zwischen den Versuchen.
+    client_jwt: dieses Token nimmt der Client statt des richtigen."""
     async def lauf():
         ms = await Miniserver().start()
         asv = await Audioserver(**nachbau).start()
@@ -165,7 +167,7 @@ def _audio_lauf(koerper, **nachbau):
         app._apply_structure(st)
         app.states["SL"] = json.dumps({"getroomfavs_result": [{"items": [{"slot": 3, "name": "Radio Miniserver"}]}]})
         app.audio_cfg = {"port": asv.port}            # Direkt-Backend an den Nachbau statt an 7091
-        cl = AudioEventClient("127.0.0.1", asv.port, user=ms.benutzer, token_provider=lambda: asv.jwt)
+        cl = AudioEventClient("127.0.0.1", asv.port, user=ms.benutzer, token_provider=lambda: client_jwt or asv.jwt)
         cl.neu_versuch_s = 0.3
         app.audio_clients["127.0.0.1"] = cl
         lauf_cl = asyncio.create_task(cl.run(app._mark_dirty))
@@ -252,6 +254,24 @@ def test_audioserver_falsch_ungekoppelt_heilt(miniserver_http):
         assert cl.paired is True and len(asv.verbindungen) == 2
         await _bis(lambda: _favoriten(app) == ["Radio 7091"])
     _audio_lauf(k, cfg_all=[(404, "not found"), (200, AUDIO_GEKOPPELT)])
+
+
+def test_audioserver_anmeldung_abgelehnt(miniserver_http):
+    """Lehnt der gekoppelte Audioserver die Anmeldung ab, nennt der Client den
+    Grund (anmeldung): die Diagnose schreibt ihn hin, und eine Zone ohne
+    Favoriten zeigt ihn statt einer leeren Liste."""
+    async def k(app, ms, asv, cl):
+        await _bis(lambda: cl.anmeldung)
+        assert not cl.authed and cl.paired is True and cl.anmeldung == "abgelehnt (denied)"
+        satz = "Audioserver 127.0.0.1 verbunden (gekoppelt, nicht angemeldet: abgelehnt (denied))."
+        assert satz in diagnose.zusammenfassung(app.diagnose_daten()[0])
+        app.states["SL"] = ""
+        assert _favoriten(app) == []
+        assert [b["text"] for b in bloecke(app._view_sources("Z"), "status")] == [
+            "Anmeldung am Audioserver gescheitert: abgelehnt (denied)"]
+        assert bloecke(app.render({"view": "control", "id": "Z"}), "status") == [
+            {"k": "status", "text": "Anmeldung am Audioserver gescheitert: abgelehnt (denied)"}]
+    _audio_lauf(k, client_jwt="JWT-alt")
 
 
 def test_audioserver_nachbau_nach_503(miniserver_http):
