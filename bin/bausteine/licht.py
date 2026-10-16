@@ -1,11 +1,13 @@
 """Bausteine der Visu, Familie Licht: Lichtsteuerung V2 und V1, Dimmer, Farbwahl.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import detail, kachel
 from bausteine.gemeinsam import LIGHT, _clean, _pos_pct
+import re
 
 
 @kachel("LightControllerV2")
@@ -125,3 +127,13 @@ def detail_farbwahl(app, uuid, c, route):
         ]
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "anchor": "bottom", "blocks": blocks}
+
+
+class LichtHelfer:
+    """Helfer der Familie Licht fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie ueber
+    bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _lc_scenes(self, c: dict) -> dict:
+        """LightController-V1 sceneList (Loxone-Format id=\"name\") -> {id:name}."""
+        raw = str(self._state(c, "sceneList") or "")
+        return {int(m.group(1)): m.group(2) for m in re.finditer(r'(\d+)="([^"]*)"', raw)}

@@ -1,7 +1,7 @@
 """Bausteine der Visu, Familie Sicherheit und Melder: Alarmanlage, Rauchmelder, Praesenzmelder, Fensterueberwachung, Postkasten.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins in helfer.py und den Familien, App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import detail, kachel

@@ -1,11 +1,13 @@
 """Bausteine der Visu, Familie Schalten: Schalter, Zeitschalter, Schaltuhr, Taster, Auf/Ab digital, Radiotaste.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import detail, kachel
 from bausteine.gemeinsam import SWITCHY, _clean
+import re
 
 
 @kachel(*SWITCHY)
@@ -129,3 +131,30 @@ def detail_auf_ab_digital(app, uuid, c, route):
             {"icon": "down", "hold": True, "cmd": {"uuid": ua, "cmd": "DownOn"},
              "release": {"uuid": ua, "cmd": "DownOff"}}]},
     ]}
+
+
+class SchaltenHelfer:
+    """Helfer der Familie Schalten fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie
+    ueber bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _daytimer_mode(self, c: dict) -> str:
+        """Aktiver Modus/Tag eines Daytimers als Name. `mode` (Zahl) wird ueber
+        `modeList` aufgeloest, Format: '0:mode=0;name=\"Feiertag\",1:mode=3;
+        name=\"Montag\",...' (Anfuehrungszeichen escaped)."""
+        raw = str(self._state(c, "modeList") or "").replace('\\"', '"')
+        modes = {int(m): n for m, n in re.findall(r'mode=(\d+);name="([^"]*)"', raw)}
+        try:
+            return modes.get(int(float(self._state(c, "mode"))), "")
+        except (TypeError, ValueError):
+            return ""
+
+    def _daytimer_value(self, c: dict) -> str:
+        """Aktueller Wert eines Daytimers als Text: 0/leer -> „Aus"; analog ->
+        formatiert (details.format); digital -> „Ein"."""
+        val = self._state(c, "value")
+        if not val:
+            return "Aus"
+        det = c.get("details") or {}
+        if det.get("analog"):
+            return self._fmt_num(val, det.get("format") or "%.1f")
+        return "Ein"

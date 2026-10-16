@@ -1,7 +1,8 @@
 """Bausteine der Visu, Familie Wellness und Kueche: Sauna, Grillthermometer.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import detail, kachel
@@ -143,3 +144,21 @@ def detail_grillthermometer(app, uuid, c, route):
         {"k": "status", "text": "Grillthermometer" + ("" if act else " · aus")},
         *rows,
     ]}
+
+
+class WellnessHelfer:
+    """Helfer der Familie Wellness fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie
+    ueber bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _steak_temps(self, c: dict) -> list[tuple[str, float]]:
+        """Fuehler-Temperaturen des Grillthermometers aus currentTemperatures
+        (Liste von Zahlen oder Objekten mit name/value)."""
+        data = self._json_state(c, "currentTemperatures")
+        out = []
+        for label, e in self._named_items(data):
+            v = e.get("value", e.get("temperature", e.get("temp")))
+            try:
+                out.append((label if not label.isdigit() else f"Fühler {label}", float(v)))
+            except (TypeError, ValueError):
+                continue
+        return out

@@ -1,13 +1,17 @@
 """Bausteine der Visu, Familie Klima: Raumregelung V2 und V1, Klimaanlage, Klimaregler, Lueftung.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 import json
 
 from bausteine import detail, kachel
-from bausteine.gemeinsam import IRC1_ECO, IRC1_MANUELL, IRC1_TEMPS, IRC1_TIMER_S, _clean
+from bausteine.gemeinsam import (
+    _clean, IRC1_BETRIEBSARTEN, IRC1_ECO, IRC1_KOMFORT_HEIZEN, IRC1_KOMFORT_KUEHLEN,
+    IRC1_KUEHL_MODI, IRC1_MANUELL, IRC1_MANUELL_MODI, IRC1_NUR_HEIZEN, IRC1_NUR_KUEHLEN, IRC1_TEMPS,
+    IRC1_TIMER_S, IRC2_BETRIEBSARTEN, IRC2_MANUELL)
 
 
 @kachel("IRoomControllerV2", "IRoomController")
@@ -269,3 +273,116 @@ def detail_klimaregler(app, uuid, c, route):
         pass
     return app._big_view(uuid, "thermo", big, " · ".join(sbits),
                           tone=("crit" if dc else None))
+
+
+class KlimaHelfer:
+    """Helfer der Familie Klima fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie ueber
+    bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _irc_modes(self, c: dict) -> dict:
+        """IRoomControllerV2: Temperatur-/Timer-Modi aus details.timerModes ->
+        {id: Name} (z. B. 0=Eco, 1=Komfort, 2=Gebaeudeschutz)."""
+        tm = (c.get("details") or {}).get("timerModes") or []
+        return {int(m["id"]): _clean(m.get("name"))
+                for m in tm if isinstance(m, dict) and m.get("id") is not None}
+
+    @staticmethod
+    def _irc_activity(prep, win) -> list:
+        """Aktivitaets-Hinweise fuer die Raumregelung: heizt/kuehlt + Fenster."""
+        bits = []
+        try:
+            p = float(prep)
+        except (TypeError, ValueError):
+            p = 0.0
+        if p > 0:
+            bits.append("heizt")
+        elif p < 0:
+            bits.append("kühlt")
+        if win:
+            bits.append("Fenster")
+        return bits
+
+    def _irc1(self, c: dict) -> dict:
+        """Zustand der alten Raumregelung (IRoomController, v1):
+          kuehlen   laeuft die Kuehlperiode (State mode, IRC1_KUEHL_MODI)
+          ix/name   aktive Temperatur (currCoolTempIx bzw. currHeatTempIx)
+          stell_ix  Temperatur, die -/+ verstellt: manuell die manuelle, sonst
+                    Komfort der Periode
+          stell     ihr aktueller Wert; None, wenn unbekannt oder relativ zu
+                    Komfort (dann gibt es kein -/+, statt einen Wert zu raten)
+          komfort_ix Komfort der Periode (fuer den Komfort-Knopf)
+          prep      fuer _irc_activity: Ventil Heizen > 0 = 1, Kuehlen > 0 = -1"""
+        def num(name):
+            try:
+                return float(self._state(c, name))
+            except (TypeError, ValueError):
+                return None
+
+        mode = num("mode")
+        mode = int(mode) if mode is not None else None
+        kuehlen = mode in IRC1_KUEHL_MODI
+        ix = num("currCoolTempIx" if kuehlen else "currHeatTempIx")
+        ix = int(ix) if ix is not None else None
+        komfort_ix = IRC1_KOMFORT_KUEHLEN if kuehlen else IRC1_KOMFORT_HEIZEN
+        if mode in IRC1_MANUELL_MODI:
+            stell_ix, stell = IRC1_MANUELL, num("tempTarget")
+        else:
+            stell_ix = komfort_ix
+            stell = self._irc1_temp(c, komfort_ix) if self._irc1_absolut(c, komfort_ix) else None
+        prep = 1 if (num("valveHeat") or 0) > 0 else (-1 if (num("valveCool") or 0) > 0 else 0)
+        return {"kuehlen": kuehlen, "ix": ix, "name": IRC1_TEMPS.get(ix), "stell_ix": stell_ix,
+                "stell": stell, "komfort_ix": komfort_ix, "prep": prep}
+
+    def _irc_betriebsart(self, c: dict) -> tuple[dict | None, str | None]:
+        """Aufklapper "Betriebsart" einer Raumregelung und der Name fuer die
+        Statuszeile, wenn manuell geregelt wird (dann laeuft kein Zeitplan).
+        V2: State operatingMode, setOperatingMode/<Nr>. Alt: State mode,
+        mode/<Nr>; "Automatik, heizt/kuehlt gerade" (1/2) gilt als Automatik,
+        details.restrictedToMode blendet Heizen bzw. Kuehlen aus.
+        (None, None), wenn der Baustein den State nicht hat."""
+        v2 = c.get("type") == "IRoomControllerV2"
+        name = "operatingMode" if v2 else "mode"
+        ua = c.get("uuidAction")
+        if not ua or name not in (c.get("states") or {}):
+            return None, None
+        try:
+            cur = int(float(self._state(c, name)))
+        except (TypeError, ValueError):
+            cur = None
+        if v2:
+            arten, befehl, manuell = IRC2_BETRIEBSARTEN, "setOperatingMode", IRC2_MANUELL
+            markiert = cur
+        else:
+            nur = (c.get("details") or {}).get("restrictedToMode")
+            weg = {IRC1_NUR_KUEHLEN: {3, 5}, IRC1_NUR_HEIZEN: {4, 6}}.get(nur, set())
+            arten = {n: nm for n, nm in IRC1_BETRIEBSARTEN.items() if n not in weg}
+            befehl, manuell = "mode", IRC1_MANUELL_MODI
+            markiert = 0 if cur in (1, 2) else cur
+        zelle = {"label": "Betriebsart", "menu": [
+            {"label": nm, "on": n == markiert, "cmd": {"uuid": ua, "cmd": f"{befehl}/{n}"}}
+            for n, nm in arten.items()]}
+        return zelle, (arten.get(cur) if cur in manuell else None)
+
+    def _irc1_temp(self, c: dict, ix: int):
+        """Wert der Temperatur Nr. ix: der State "temperatures" ist bei der
+        alten Raumregelung eine Liste mit einer UUID je Nummer."""
+        lst = (c.get("states") or {}).get("temperatures")
+        if not isinstance(lst, list) or not 0 <= ix < len(lst):
+            return None
+        try:
+            return float(self.states.get(lst[ix]))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _irc1_absolut(c: dict, ix: int) -> bool:
+        """details.temperatures[ix].isAbsolute: True = fester Wert, False =
+        haengt von Komfort ab. Nummern als Schluessel ("0".."6") oder Liste."""
+        tt = (c.get("details") or {}).get("temperatures")
+        if isinstance(tt, dict):
+            e = tt.get(str(ix), tt.get(ix))
+        elif isinstance(tt, list) and 0 <= ix < len(tt):
+            e = tt[ix]
+        else:
+            e = None
+        return bool(isinstance(e, dict) and e.get("isAbsolute"))

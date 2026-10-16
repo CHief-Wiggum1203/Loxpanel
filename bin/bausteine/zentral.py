@@ -1,10 +1,12 @@
 """Bausteine der Visu, Familie Zentralbausteine (Typen mit Praefix Central): nur die Kachel, die Detailseite ist die Gruppe.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import kachel_praefix
+from bausteine.gemeinsam import LIGHT
 
 
 @kachel_praefix("Central")
@@ -26,3 +28,24 @@ def kachel_zentralbaustein(app, uuid, c, it):
         it.update(sublabel="Zentral", subInfo=True)
     it.update(icon="central", on=(n > 0),
               nav={"view": "group", "kind": "central", "id": uuid})
+
+
+class ZentralHelfer:
+    """Helfer der Familie Zentral fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie
+    ueber bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _zentral_an(self, c: dict) -> int:
+        """Wie viele Mitglieder eines Zentral-Bausteins (details.controls) an
+        sind: Lichtsteuerungen mit aktiver Stimmung, Audio-Zonen, die spielen,
+        Tore und Fenster, die offen stehen. Andere Zentralen: 0. Dieselbe Zahl
+        zeigen seine Kachel und die Schnellaktion der Hausseite."""
+        t = c.get("type")
+        muuids = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
+                  if m.get("uuid") in self.controls]
+        if t == "CentralLightController":
+            return sum(1 for mu in muuids if LIGHT.render(self._with_uuid(mu), self.states)["on"])
+        if t == "CentralAudioZone":
+            return sum(1 for mu in muuids if self._state(self.controls[mu], "playState") == 2)
+        if t in ("CentralGate", "CentralWindow"):
+            return sum(1 for mu in muuids if (self._state(self.controls[mu], "position") or 0) > 0)
+        return 0

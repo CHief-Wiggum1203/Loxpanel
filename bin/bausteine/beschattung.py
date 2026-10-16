@@ -1,7 +1,8 @@
 """Bausteine der Visu, Familie Beschattung und Antriebe: Jalousie, Tor, Fenster.
 
 Kachel (@kachel) und Detailseite (@detail) je Typ, siehe bausteine/__init__.py.
-Die Helfer (app._state, app._fmt_num ...) sind Methoden von App in webvisu.py."""
+Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer.py,
+die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
 from bausteine import detail, kachel
@@ -125,3 +126,30 @@ def detail_fenster(app, uuid, c, route):
             {"label": "Zu", "cmd": {"uuid": ua, "cmd": "fullclose"}},
             {"label": "Auf", "cmd": {"uuid": ua, "cmd": "fullopen"}}]},
     ]}
+
+
+class BeschattungHelfer:
+    """Helfer der Familie Beschattung fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie
+    ueber bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _jal_status(self, c: dict) -> str:
+        s = c.get("states") or {}
+        ai = s.get("autoInfoText")
+        if ai and self.states.get(ai):
+            return str(self.states.get(ai))
+        aa = s.get("autoActive")
+        if aa:
+            return "Automatik aktiv" if self.states.get(aa) else "Sonnenstandsautomatik inaktiv"
+        return "Manuell"
+
+    def _jal_fahrt(self, c: dict) -> tuple[bool, bool, dict, dict]:
+        """(faehrt auf, faehrt ab, Befehl Auf, Befehl Ab) einer Jalousie, wie in
+        der Original-Visu: Im Stand startet die Richtung die Fahrt, waehrend
+        der Fahrt haelt jede der beiden an. Kachel und Detailansicht nehmen
+        beide dies, damit sie sich gleich bedienen."""
+        s = c.get("states") or {}
+        auf = bool(self.states.get(s.get("up")))
+        ab = bool(self.states.get(s.get("down")))
+        ua = c.get("uuidAction")
+        return (auf, ab, {"uuid": ua, "cmd": "Stop" if auf or ab else "Up"},
+                {"uuid": ua, "cmd": "Stop" if auf or ab else "Down"})
