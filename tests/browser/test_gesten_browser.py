@@ -5,11 +5,15 @@ Playwright selbst kennt nur einen Finger; die Beruehrungen kommen ueber das
 DevTools-Protokoll (Input.dispatchTouchEvent), so wie ein Touchscreen sie
 meldet. Geprueft: Mitte hoch/runter dimmt anteilig, Tipp Mitte schaltet die
 Stimmung weiter, links hoch faehrt die Beschattung, Doppeltipp verlaesst den
-Raum; ein Finger scrollt und tippt wie bisher, eine Zwei-Finger-Geste ueber
-einer Kachel oeffnet sie nicht, und ausgeschaltete Gesten tun nichts.
+Raum; Tipp links beschattet, Tipp rechts pausiert, quer wischen schaltet
+Stimmung und Sender weiter und stellt die Lamellen, auf der Hausuebersicht
+gilt die Geste dem Raum der Karte; ein Finger scrollt und tippt wie bisher,
+eine Zwei-Finger-Geste ueber einer Kachel oeffnet sie nicht, und
+ausgeschaltete Gesten tun nichts.
 Anlage: lox.gesten_anlage()."""
 import asyncio
 import json
+import math
 
 import pytest
 
@@ -43,6 +47,17 @@ async def zwei_finger(cdp, x, y0, y1, schritte=8, abstand=60, nacheinander=False
     await _finger(cdp, "touchEnd", [])
 
 
+async def zwei_finger_quer(cdp, y, x0, x1, schritte=8, abstand=60):
+    """Zwei Finger uebereinander bei y, von x0 nach x1 (quer wischen)."""
+    a, b = y - abstand / 2, y + abstand / 2
+    await _finger(cdp, "touchStart", [(x0, a), (x0, b)])
+    for i in range(1, schritte + 1):
+        x = x0 + (x1 - x0) * i / schritte
+        await _finger(cdp, "touchMove", [(x, a), (x, b)])
+        await asyncio.sleep(0.03)
+    await _finger(cdp, "touchEnd", [])
+
+
 async def ein_finger(cdp, x, y0, y1, schritte=8):
     await _finger(cdp, "touchStart", [(x, y0)])
     for i in range(1, schritte + 1):
@@ -51,26 +66,34 @@ async def ein_finger(cdp, x, y0, y1, schritte=8):
     await _finger(cdp, "touchEnd", [])
 
 
-async def _warten(ms, anzahl, sekunden=3.0):
+async def _warten(ms, anzahl, sekunden=3.0, ohne=()):
+    """ohne: Befehle, die nicht von der Geste kommen (Anfang des Pfads), etwa
+    die Senderliste, die die Hausuebersicht beim Laden abfragt."""
+    def befehle():
+        return [c for c in ms.io if not any(c.startswith(o) for o in ohne)]
     for _ in range(int(sekunden / 0.05)):
-        if len(ms.io) >= anzahl:
+        if len(befehle()) >= anzahl:
             break
         await asyncio.sleep(0.05)
     await asyncio.sleep(0.3)        # was danach noch kaeme, soll auffallen
-    return list(ms.io)
+    return befehle()
 
 
 def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, groesse=(BREITE, HOEHE),
-            tabs=("room:r1",), vorgaben=None):
+            tabs=("room:r1",), vorgaben=None, anpassen=None, warten="#grid .tile[data-id]"):
     """uhr: die Uhr-Seite (Bildschirmschoner) stehen lassen; nacht: Nacht ist
     schon beim Verbinden (theme); init: Skript vor der Seite (Kiosk-Bruecke);
     front: Wetter und Termine wie vom Server geladen (dann ist die Uhr-Seite
-    quer in zwei Spalten geteilt); vorgaben: ui der Vorgaben (theme.json)."""
+    quer in zwei Spalten geteilt); vorgaben: ui der Vorgaben (theme.json);
+    anpassen(struktur, states): die Anlage vor dem Start aendern; warten:
+    woran die erste Seite fertig ist (die Hausuebersicht hat keine Kacheln)."""
     async def lauf():
         ms = Miniserver()
         await ms.start()
         app = neue_app(ms)
         struktur, states = gesten_anlage()
+        if anpassen:
+            anpassen(struktur, states)
         app._apply_structure(struktur)
         app.states = states
         if front:
@@ -94,7 +117,7 @@ def _laufen(schritte, ui=None, uhr=False, nacht=False, init=None, front=None, gr
                 pg = await ctx.new_page()
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
                 await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
-                await pg.wait_for_selector("#grid .tile[data-id]", state="attached")
+                await pg.wait_for_selector(warten, state="attached")
                 if uhr:
                     await pg.evaluate("showSaver()")
                     await pg.wait_for_selector("#saver:not(.hidden)", state="attached")
@@ -163,6 +186,81 @@ def test_doppeltipp_verlaesst_den_raum():
             await asyncio.sleep(0.1)
         return await _warten(ms, 2)
     assert sorted(_laufen(schritte)) == ["sps/io/AZ/pause", "sps/io/LK/changeTo/778"]
+
+
+def test_tipp_links_beschattet_und_rechts_pausiert():
+    async def schritte(ms, pg, cdp):
+        await zwei_finger(cdp, BREITE * 0.15, HOEHE / 2, HOEHE / 2, schritte=1)
+        links = await _warten(ms, 2)
+        await asyncio.sleep(0.5)                  # keine Tippfolge mit dem naechsten
+        await zwei_finger(cdp, BREITE * 0.85, HOEHE / 2, HOEHE / 2, schritte=1)
+        return links, (await _warten(ms, 3))[len(links):]
+    links, rechts = _laufen(schritte)
+    assert links == ["sps/io/J1/shade", "sps/io/J2/shade"] and rechts == ["sps/io/AZ/pause"]
+
+
+def test_quer_mitte_naechste_stimmung_und_rechts_sender():
+    """Mitte nach rechts: naechste Stimmung; rechts nach links: voriger Sender."""
+    def anpassen(struktur, states):
+        struktur["controls"]["AZ"]["states"].update(sourceList="az-sl", songName="az-sn")
+        states.update({"az-sl": json.dumps({"getroomfavs_result": [{"items": [
+            {"slot": i, "name": n, "coverurl": ""} for i, n in enumerate(["Ö3", "FM4", "Ö1"], 1)]}]}),
+            "az-sn": "FM4"})
+
+    async def schritte(ms, pg, cdp):
+        await zwei_finger_quer(cdp, HOEHE / 2, BREITE * 0.4, BREITE * 0.6)
+        stimmung = await _warten(ms, 1)
+        await pg.wait_for_function("document.querySelector('#geste .gs-wert').textContent === 'Putzen'")
+        await zwei_finger_quer(cdp, HOEHE / 2, BREITE * 0.9, BREITE * 0.7)
+        sender = (await _warten(ms, 2))[len(stimmung):]
+        await pg.wait_for_function("document.querySelector('#geste .gs-wert').textContent === 'Ö3'")
+        return stimmung, sender
+    stimmung, sender = _laufen(schritte, anpassen=anpassen)
+    assert stimmung == ["sps/io/LK/changeTo/2"] and sender == ["sps/io/AZ/roomfav/play/1"]
+
+
+def test_quer_links_stellt_die_lamellen_beim_loslassen():
+    """Links quer: die Einblendung zaehlt mit, der Raffstore bekommt erst beim
+    Loslassen einen Befehl. Die ganze Breite sind 100 Prozentpunkte, gezaehlt
+    wie beim Dimmen ab dem Punkt, an dem die Visu das Wischen erkennt
+    (GESTE_MINDESTWEG): der Test rechnet ihn aus der Flaeche der Seite nach."""
+    def anpassen(struktur, states):
+        struktur["controls"]["J2"]["states"]["shadePosition"] = "j2-sp"
+        struktur["controls"]["J2"]["details"] = {"animation": 0}
+        states["j2-sp"] = 0.5
+    x0, x1, n = BREITE * 0.05, BREITE * 0.35, 8
+
+    async def schritte(ms, pg, cdp):
+        w, h, mindestweg = await pg.evaluate("""() => { const r = document.querySelector('.screen').getBoundingClientRect();
+          return [r.width, r.height, GESTE_MINDESTWEG]; }""")
+        await zwei_finger_quer(cdp, HOEHE / 2, x0, x1, schritte=n)
+        io = await _warten(ms, 1)
+        await pg.wait_for_function("document.querySelector('#geste .gs-wert').textContent.endsWith(' %')")
+        return io, await _einblendung(pg), w, h, mindestweg
+    io, einblendung, w, h, mindestweg = _laufen(schritte, anpassen=anpassen)
+    schritt = (x1 - x0) / n
+    erkannt = x0 + next(i for i in range(1, n + 1) if i * schritt >= mindestweg * h) * schritt
+    wert = math.floor(50 + (x1 - erkannt) / w * 100 + 0.5)       # wie Math.round der Visu
+    assert 60 < wert < 85 and io == [f"sps/io/J2/manualLamelle/{wert}"], (io, wert)
+    assert einblendung == ["Lamellen · Essen-Kochen-Wohnen", f"Lamellen {wert} %"], einblendung
+
+
+def test_hausuebersicht_bedient_den_raum_der_karte():
+    """Zwei Finger auf der Raumkarte Essen-Kochen-Wohnen: die Geste gilt
+    diesem Raum (je nach Spalte der Karte Licht, Beschattung oder Musik)."""
+    async def schritte(ms, pg, cdp):
+        await pg.wait_for_selector('[data-hb="r:r1"]')
+        k = await pg.evaluate("""() => { const r = document.querySelector('[data-hb="r:r1"]').getBoundingClientRect();
+          return [r.left + r.width / 2, r.top + r.height / 2]; }""")
+        erwartet = (["sps/io/J1/shade", "sps/io/J2/shade"] if k[0] < BREITE / 3 else
+                    ["sps/io/AZ/pause"] if k[0] > BREITE * 2 / 3 else ["sps/io/LK/changeTo/2"])
+        await zwei_finger(cdp, k[0], k[1], k[1], schritte=1, abstand=20)
+        # die Hausuebersicht fragt beim Laden die Senderliste der Zone ab
+        io = await _warten(ms, len(erwartet), ohne=("sps/io/AZ/roomfav/get/",))
+        await pg.wait_for_function("document.querySelector('#geste .gs-titel').textContent.includes(' · ')")
+        return erwartet, io, await _einblendung(pg)
+    erwartet, io, einblendung = _laufen(schritte, tabs=("haus",), warten='[data-hb^="r:"]')
+    assert io == erwartet and einblendung[0].endswith("· Essen-Kochen-Wohnen"), (io, einblendung)
 
 
 def test_ueber_einer_kachel_keine_detailseite():
