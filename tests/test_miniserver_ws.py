@@ -21,7 +21,7 @@ import time
 
 import pytest
 
-from lox import konfig, Miniserver, neue_app, W
+from lox import ersetzen, konfig, Miniserver, miniserver, neue_app
 
 UUID = "0f1e2d3c-0001-0002-0102030405060708"
 FRIST, ABSTAND = 0.3, 0.2      # s: response_timeout und keepalive_interval im Test
@@ -183,8 +183,8 @@ def test_pause_nach_abbruch(kurz, monkeypatch, caplog, modus, trennen, waechst):
     weil eine stumme Verbindung so lange offen war (Abstand + Frist ist hier
     wie im Betrieb laenger als MS_RETRY[-1]): Sonst meldete sich LoxPanel bei
     einem dauerhaft stummen Miniserver in kurzem Takt neu an."""
-    monkeypatch.setattr(W, "MS_RETRY", (0.05, 0.1, 0.2))
-    assert ABSTAND + FRIST > W.MS_RETRY[-1]
+    ersetzen(monkeypatch, "MS_RETRY", (0.05, 0.1, 0.2))
+    assert ABSTAND + FRIST > miniserver.MS_RETRY[-1]
 
     async def lauf():
         ms = await _nachbau(modus, ws_trennen_nach=trennen)
@@ -213,6 +213,6 @@ def test_keepalive_abstand_einstellung(cfg_ordner, caplog, wert, erwartet):
     """miniserver.keepalive_interval: Zahl > 0, sonst der Standard (mit Warnung)."""
     ms = {} if wert is None else {"keepalive_interval": wert}
     (cfg_ordner / "loxpanel.cfg").write_text(json.dumps({"miniserver": ms}), encoding="utf-8")
-    assert W._ms_keepalive_abstand() == (konfig.MS_KEEPALIVE if erwartet is None else erwartet)
+    assert konfig._ms_keepalive_abstand() == (konfig.MS_KEEPALIVE if erwartet is None else erwartet)
     warnt = "keepalive_interval" in caplog.text
     assert warnt == (wert is not None and erwartet is None)

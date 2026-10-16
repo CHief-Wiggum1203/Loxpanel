@@ -1189,11 +1189,28 @@ selbst aktuell.
     - [x] 4c: `haus.py` (Mixin `Haus`: `_haus_*`, `_view_haus()`, `HAUS_*`,
           `HINWEIS_*`) und `gesten.py` (Mixin `Gesten`: `geste()`, `_geste_*`,
           `licht_gruppen()`, `gesten_hilfe()`, `GESTEN_*_TYPEN`).
-    - [ ] 4d: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,
+    - [x] 4d: die übrigen Themen der App als Mixins: `miniserver.py`
+          (Verbindung, Token, Struktur, Befehle, gesicherte Details),
+          `geraete.py` (Zuordnung, Vorschau, Entwurf, Kopplung, Display,
+          Agenten), `audiodienst.py`, `front.py` (Kalender und Wetter),
+          `verteilung.py` (Broadcaster, `push()`, Hinweise), `medien.py`
+          (Icons, Cover, Klingelbilder), `diagnosedaten.py`, `ansicht.py`
+          (Profil, Theme, Export) und `seiten.py` (`render()`, Tabs, Kacheln,
+          Detailseiten), `intercomdienst.py` (SIP-Zugang, Kamera,
+          Kamera-Pane); die Blöcke des Spielers in `AudioHelfer`.
+          `STAT_WEEKDAYS` steht jetzt in `bausteine/gemeinsam.py`: Die
+          Bausteine importieren kein Themenmodul mehr (der Kreis
+          `statistik` ↔ `bausteine` aus 4b fiel nur nicht auf, weil
+          `webvisu` `bausteine` zuerst lud), `tests/test_schichten.py`
+          lädt jedes Server-Modul einmal als erstes. In `webvisu.py` bleiben
+          `App.__init__()`, `_spawn()`, `close()`, die Routen und `main()`
+          (rund 2.100 Zeilen). Vor die Routen gezogen, weil die Handler
+          Konstanten dieser Themen brauchen (`AGENT_*`, `KIOSK_APPS`,
+          `ZugangFehler` …) und die herausgelösten Module `webvisu` nicht
+          importieren dürfen.
+    - [ ] 4e: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,
           Geräte und Agent, Audio, Intercom und SIP, Diagnose), `main()`
           registriert je Modul.
-    - [ ] 4e: Front (Uhr, Kalender, Wetter), Audioserver, Intercom, Diagnose
-          und die Miniserver-Verbindung aus `App` in eigene Module.
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
       unter `/loxpanel-agent.py` aus, `install-agent.sh` holt die Datei per
       `curl` statt sie als Heredoc zu enthalten. (W2) **S**

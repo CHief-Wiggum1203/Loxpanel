@@ -29,7 +29,7 @@ def _panels(device) -> dict:
 ], ids=["voll", "nur-name", "zeichenkette", "gekuerzt", "gerundet", "gross", "zu-gross", "halb", "ziffern", "null", "wahr",
         "ohne-name", "leer-name", "leer", "nichts", "zahl", "liste"])
 def test_pruefer(wert, erwartet):
-    assert W._clean_zielgeraet(wert) == erwartet
+    assert konfig._clean_zielgeraet(wert) == erwartet
 
 
 def test_gemeldete_groesse_passt_immer_ins_profil():
@@ -39,7 +39,7 @@ def test_gemeldete_groesse_passt_immer_ins_profil():
     for kante in (1, 4000, 12000, konfig.BILDSCHIRM_PX_MAX):
         gemeldet = W._clean_screen({"vw": kante, "vh": 600})
         assert gemeldet["vw"] == kante
-        assert W._clean_zielgeraet({"name": "t", "vw": gemeldet["vw"], "vh": gemeldet["vh"]}) == \
+        assert konfig._clean_zielgeraet({"name": "t", "vw": gemeldet["vw"], "vh": gemeldet["vh"]}) == \
             {"name": "t", "vw": kante, "vh": 600}
 
 

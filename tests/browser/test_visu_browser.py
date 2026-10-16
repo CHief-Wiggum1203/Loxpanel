@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pytest
 
-from lox import Miniserver, W, anlage, neue_app, pv_leistung, v1_bausteine, visu_starten, zaehlerstand
+from lox import anlage, miniserver, Miniserver, neue_app, pv_leistung, v1_bausteine, visu_starten, W, zaehlerstand
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -749,7 +749,7 @@ def test_befehl_bedienung(tmp_path, miniserver_http):
             await pg.evaluate("ws.onmessage({data:'{kaputt'}); ws.onmessage({data:'null'}); ws.onmessage({data:'42'})")
             licht = pg.locator(".tile", has_text="Licht")
             u.ms.token = "ABGELAUFEN"
-            u.app._auth_at -= W.TOKEN_RENEW_MIN
+            u.app._auth_at -= miniserver.TOKEN_RENEW_MIN
             await licht.click()
             await pg.wait_for_timeout(1000)
             assert u.ms.io == ["sps/io/LA/on"] and u.app.client.n == 1

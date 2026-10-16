@@ -15,7 +15,7 @@ from datetime import datetime
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, ersetzen, verteilung, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -42,7 +42,7 @@ LEISTE = """() => { const b = document.getElementById('verbindung');
 
 @pytest.fixture(autouse=True)
 def _kurz(monkeypatch):
-    monkeypatch.setattr(W, "VERBINDUNG_HINWEIS", HINWEIS)
+    ersetzen(monkeypatch, "VERBINDUNG_HINWEIS", HINWEIS)
 
 
 def _app(ui=None):
@@ -117,7 +117,7 @@ def test_miniserver_weg_sperrt_und_zeigt_die_leiste(ui, tmp_path):
     assert not m["sofort"]["sichtbar"] and not m["sofort"]["blass"], m
     leiste = m["nach_frist"]
     assert leiste["sichtbar"] and leiste["blass"], leiste
-    t = W.VERBINDUNG_TEXTE
+    t = verteilung.VERBINDUNG_TEXTE
     assert leiste["titel"].startswith(t["ms"].split("{seit}")[0]) and "{" not in leiste["titel"], leiste
     assert leiste["stand"] == t["stand"].replace("{stand}", _uhr(stand, True)) + " · " + t["gesperrt"], leiste
     assert m["gesperrt_befehle"] == m["vorher_befehle"], "gesperrt: kein Befehl"
@@ -189,7 +189,7 @@ def test_server_weg_und_zurueck():
 
     m, fehler = asyncio.run(lauf())
     seit, bestaetigt = m["zeiten"]
-    t = W.VERBINDUNG_TEXTE
+    t = verteilung.VERBINDUNG_TEXTE
     assert m["weg"]["sichtbar"] and m["weg"]["blass"], m
     assert m["weg"]["titel"] == t["server"].replace("{seit}", _uhr(seit)), m
     assert m["weg"]["stand"] == t["stand"].replace("{stand}", _uhr(bestaetigt, True)) + " · " + t["gesperrt"], m
@@ -202,9 +202,9 @@ def test_stummer_server_wird_neu_verbunden(monkeypatch):
     """Ein Server, der die Verbindung offen haelt, aber nichts mehr schickt,
     wird nach VERBINDUNG_STUMM s aufgegeben und neu verbunden - ohne Leiste,
     weil die neue Verbindung binnen der Frist steht."""
-    monkeypatch.setattr(W, "VERBINDUNG_TAKT", 60)
-    monkeypatch.setattr(W, "VERBINDUNG_STUMM", 1.5)
-    monkeypatch.setattr(W, "VERBINDUNG_HINWEIS", 8)
+    ersetzen(monkeypatch, "VERBINDUNG_TAKT", 60)
+    ersetzen(monkeypatch, "VERBINDUNG_STUMM", 1.5)
+    ersetzen(monkeypatch, "VERBINDUNG_HINWEIS", 8)
 
     async def lauf():
         app = _app()

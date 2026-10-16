@@ -7,7 +7,7 @@ import asyncio
 
 import aiohttp
 
-from lox import W, anlage, visu_starten
+from lox import anlage, ersetzen, visu_starten, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "isFavorite": True, "states": {"active": "s"}}})
@@ -108,7 +108,7 @@ def test_entwurf_ans_geraet_und_zurueck_auf_knopfdruck(cfg_ordner):
 
 
 def test_ablauf_speichern_und_umschalten_beenden_die_vorschau(cfg_ordner, monkeypatch):
-    monkeypatch.setattr(W, "VORSCHAU_GERAET_DAUER", 0.5)
+    ersetzen(monkeypatch, "VORSCHAU_GERAET_DAUER", 0.5)
 
     async def schritte(app, s, basis, post):
         _, j = await post("/api/entwurf", {"id": "a", "panel": ENTWURF})
@@ -131,7 +131,7 @@ def test_ablauf_speichern_und_umschalten_beenden_die_vorschau(cfg_ordner, monkey
             assert app.vorschau_geraet == {}
 
         # Speichern beendet sie: das Geraet zeigt das gespeicherte Profil (entwurfEnde), nichts mehr zu tun
-        monkeypatch.setattr(W, "VORSCHAU_GERAET_DAUER", 60)
+        ersetzen(monkeypatch, "VORSCHAU_GERAET_DAUER", 60)
         _, j = await post("/api/entwurf", {"id": "a", "panel": ENTWURF})
         token = j["token"]
         async with s.ws_connect(f"{basis}/ws?panel=a&device=wand&entwurf={token}") as wand:

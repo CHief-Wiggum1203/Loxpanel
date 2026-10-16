@@ -9,7 +9,7 @@ import asyncio
 import aiohttp
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, ersetzen, visu_starten, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "isFavorite": True, "states": {"active": "s"}}})
@@ -58,14 +58,14 @@ def test_ablegen_pruefen_ersetzen_verfallen(cfg_ordner, monkeypatch):
             app.entwurf_ablegen(pid, roh)
 
     # abgelaufen: nicht mehr abrufbar, und das naechste Ablegen raeumt auf
-    monkeypatch.setattr(W, "ENTWURF_DAUER", -1)
+    ersetzen(monkeypatch, "ENTWURF_DAUER", -1)
     assert app.entwurf_profil(token, "p") is None
     app.entwurf_ablegen("r", {"title": "R", "tabs": ["favoriten"]})
     assert len(app.entwuerfe) == 1, list(app.entwuerfe)
 
 
 def test_platz_ist_begrenzt_der_aelteste_geht(monkeypatch):
-    monkeypatch.setattr(W, "ENTWURF_MAX", 3)
+    ersetzen(monkeypatch, "ENTWURF_MAX", 3)
     app = _app()
     tokens = [app.entwurf_ablegen(f"p{i}", {"title": f"P{i}", "tabs": ["favoriten"]})[0] for i in range(5)]
     assert list(app.entwuerfe) == tokens[2:], "die drei neuesten bleiben"

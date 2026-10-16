@@ -5,7 +5,7 @@ Prüfer, was der Sanitizer speichert und als verworfen meldet, der Export für
 den Konfigurator, das Profil und die Angaben in /api/meta."""
 import pytest
 
-from lox import W, anlage
+from lox import anlage, konfig, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "states": {"active": "s"}}})
@@ -23,7 +23,7 @@ def _panels(ui: dict) -> dict:
 ], ids=["eins", "zwei", "drei", "ziffer", "ziffer-rand", "zwei-float", "abgerundet", "zu-gross", "viel-zu-gross",
         "null", "negativ", "null-ziffer", "leer", "wort", "einheit", "nichts", "wahr", "falsch", "nan", "liste"])
 def test_pruefer_der_widget_breite(wert, erwartet):
-    assert W._clean_pane_spalten(wert) == erwartet
+    assert konfig._clean_pane_spalten(wert) == erwartet
 
 
 def test_grenzen_vom_server():

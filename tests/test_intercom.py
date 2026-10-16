@@ -11,7 +11,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from lox import KLINGELN, Miniserver, W, anlage, bloecke, intercom_baustein, neue_app, serve
+from lox import anlage, bloecke, ersetzen, intercom_baustein, KLINGELN, Miniserver, neue_app, serve, W
 
 NEUESTE_ZUERST = sorted(KLINGELN, reverse=True)
 
@@ -117,7 +117,7 @@ def test_bild_vom_miniserver(miniserver_http):
 
 
 def test_bild_zwischenspeicher_begrenzt(miniserver_http, monkeypatch):
-    monkeypatch.setattr(W, "BELL_CACHE_MAX", 2)
+    ersetzen(monkeypatch, "BELL_CACHE_MAX", 2)
 
     async def lauf():
         ms = await Miniserver().start()

@@ -6,7 +6,7 @@ import asyncio
 import pytest
 from aiohttp import web
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, serve
+from lox import anlage, ersetzen, KONFIGURATOR_GELADEN, serve, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -42,13 +42,13 @@ def test_versionszeile(cfg_ordner, monkeypatch, tmp_path):
                     el = pg.locator("#lpver")
                     return await el.inner_text(), await el.get_attribute("title")
 
-                monkeypatch.setattr(W, "VERSION", {"version": "9.8.7", "commit": COMMIT,
+                ersetzen(monkeypatch, "VERSION", {"version": "9.8.7", "commit": COMMIT,
                                                    "gebaut": "2026-10-03T12:15:00Z"})
                 res["de"] = await zeile()
                 await pg.screenshot(path=str(tmp_path / "version.png"))
                 await pg.evaluate("localStorage.setItem('lp_ui_lang', 'en')")
                 res["en"] = await zeile()
-                monkeypatch.setattr(W, "VERSION", {"version": "", "commit": "", "gebaut": ""})
+                ersetzen(monkeypatch, "VERSION", {"version": "", "commit": "", "gebaut": ""})
                 res["unbekannt"] = await zeile()
                 await b.close()
         finally:

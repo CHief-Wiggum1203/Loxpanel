@@ -4,7 +4,7 @@ Speichern der zugehoerigen Panel-Optionen."""
 import asyncio
 from datetime import datetime
 
-from lox import bloecke, hauslast, Miniserver, neue_app, pv_leistung, statistik, v1_bausteine, W, zaehlerstand, ersetzen
+from lox import bloecke, ersetzen, hauslast, konfig, Miniserver, neue_app, pv_leistung, statistik, v1_bausteine, W, zaehlerstand
 
 JETZT = datetime.now().replace(second=0, microsecond=0)
 
@@ -172,7 +172,7 @@ def test_panel_optionen_speichern():
     p = W.App._sanitize_panels(roh)["test"]
     assert p["ui"]["panes"] == {"favoriten": "chart:P"}
     assert p["tiles"] == {"T": {"chart": "24h", "chartStyle": "pattern"}, "P": {"chart": "7d"}, "Q": {"chart": "7d"}}
-    assert W._clean_tabpane("chart:P") == "chart:P" and W._clean_tabpane("chart:") == ""
+    assert konfig._clean_tabpane("chart:P") == "chart:P" and konfig._clean_tabpane("chart:") == ""
 
 
 def test_mehrere_bausteine_gestapelt(miniserver_http):
@@ -199,8 +199,8 @@ def test_mehrere_bausteine_gestapelt(miniserver_http):
             await app.icon_session.close()
             await ms.stop()
     asyncio.run(lauf())
-    assert W._clean_tabpane("chart:T, R,,") == "chart:T,R"
-    assert W._clean_svpane(" chart:T,R ") == "chart:T,R" and W._clean_svpane("chart:") == ""
+    assert konfig._clean_tabpane("chart:T, R,,") == "chart:T,R"
+    assert konfig._clean_svpane(" chart:T,R ") == "chart:T,R" and konfig._clean_svpane("chart:") == ""
 
 
 def test_veralteter_stapel_kommt_nicht_hinterher(miniserver_http):

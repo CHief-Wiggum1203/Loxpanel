@@ -50,7 +50,7 @@ def test_je_kachel_uebersteuerbar():
     (1, 1), (2, 2), ("1", 1), ("2", 2), (2.0, 2), (3, None), (0, None), (True, None), ("breit", None), (1.5, None),
 ])
 def test_breite_wird_geprueft(wert, gespeichert):
-    assert W._kachel_breite(wert) == gespeichert
+    assert konfig._kachel_breite(wert) == gespeichert
     e = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "tiles": {"S": {"w": wert}}}})["p"]
     assert (e.get("tiles") or {}).get("S", {}).get("w") == gespeichert
 

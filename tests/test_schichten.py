@@ -5,9 +5,11 @@ Exemplar des Servers). Dazu: die statischen Sanitizer der App sind genau die
 Funktionen aus konfig.py, und die Pfade der Konfigdateien gibt es in jedem
 Modul, das sie liest, unter demselben Namen (Fixture cfg_ordner)."""
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
-from lox import SERVER_MODULE, ZERLEGT, W, konfig, sicherung
+from lox import konfig, SERVER_MODULE, sicherung, W, ZERLEGT
 
 ROOT = Path(__file__).resolve().parents[1]
 UNTEN = [*(f"bin/{n}.py" for n in ZERLEGT),
@@ -70,4 +72,37 @@ def test_pfade_heissen_ueberall_gleich():
         traeger = [m for m in SERVER_MODULE if hasattr(m, name)]
         assert konfig in traeger, name
         assert all(getattr(m, name) == getattr(konfig, name) for m in traeger), name
-    assert sicherung.CFG_FILE == konfig.CFG_FILE and W.PANELS_FILE == konfig.PANELS_FILE
+    assert sicherung.CFG_FILE == konfig.CFG_FILE and konfig.PANELS_FILE == konfig.PANELS_FILE
+
+
+def test_bausteine_importieren_keine_themen():
+    """Die Bausteine sind die untere Schicht: die Themenmodule (statistik,
+    miniserver, seiten ...) importieren aus bausteine, nie umgekehrt. Sonst
+    laedt bausteine/__init__.py beim ersten Import eines Themas dessen halb
+    fertiges Modul (Kreis)."""
+    erlaubt = {"bausteine", "adapters", "__future__", *sys.stdlib_module_names}
+    for datei in sorted((ROOT / "bin/bausteine").glob("*.py")):
+        fremd = _importe(datei) - erlaubt
+        assert not fremd, f"{datei.name} importiert {sorted(fremd)}"
+
+
+def test_jedes_modul_laedt_auch_als_erstes():
+    """Kein Kreis zwischen den Server-Modulen: jedes laesst sich als erstes
+    importieren, nicht nur ueber webvisu (Werkzeuge, Tests, ein kuenftiger
+    Einstieg). Ein eigener Interpreter; vor jedem Modul fliegen die Module aus
+    bin/ wieder aus sys.modules, sonst laege der Rest schon geladen da."""
+    skript = (
+        "import importlib, sys\n"
+        "bin_ = sys.argv[1]; sys.path.insert(0, bin_); fehler = []\n"
+        "for name in sys.argv[2:]:\n"
+        "    for k in [k for k, m in list(sys.modules.items()) if (getattr(m, '__file__', '') or '').startswith(bin_)]:\n"
+        "        del sys.modules[k]\n"
+        "    try:\n"
+        "        importlib.import_module(name)\n"
+        "    except Exception as e:\n"
+        "        fehler.append(f'{name}: {e!r}')\n"
+        "print('\\n'.join(fehler))\n")
+    namen = sorted(m.__name__ for m in SERVER_MODULE)
+    r = subprocess.run([sys.executable, "-c", skript, str(ROOT / "bin"), *namen],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0 and not r.stdout.strip(), r.stdout + r.stderr

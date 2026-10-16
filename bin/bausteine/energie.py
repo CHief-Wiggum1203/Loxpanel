@@ -5,9 +5,10 @@ Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer
 die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
+import math
+
 from bausteine import detail, kachel
 from bausteine.gemeinsam import _clean
-import math
 
 
 @kachel("Fronius")

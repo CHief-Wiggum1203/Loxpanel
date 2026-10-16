@@ -50,7 +50,10 @@ alle Commits stammen von einem Autor, Version 0.3.2 (Upstream-Stand vom
 es gibt Tests gegen einen Miniserver-Nachbau (`tests/`, Abschnitt 9.3), aber keine Authentifizierung und einige
 Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
-**Umfang:** rund 9.900 Zeilen, davon `bin/webvisu.py` allein 3.080 Zeilen.
+**Umfang** (Oktober 2026): rund 20.800 Zeilen Python in `bin/` (mit den
+Probe- und Testskripten), davon `bin/webvisu.py` rund 2.100; Visu und
+Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
+31.400 Zeilen.
 
 ---
 
@@ -60,21 +63,31 @@ Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
 | Pfad | Rolle |
 |---|---|
-| `bin/webvisu.py` | Der gesamte Server: aiohttp-App, Miniserver-Verbindung, Rendering aller Ansichten, alle Routen, WebSocket zum Browser. Monolith. |
+| `bin/webvisu.py` | Der Kern des Servers: die Klasse `App` (Felder, Hintergrundaufgaben, Schließen; ihre Themen erbt sie als Mixins aus den Modulen unten, §3.3), alle Routen-Handler, der WebSocket zum Browser (`ws_handler`) und `main()` |
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `webvisu.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
 | `bin/haus.py` | Hausübersicht (Tab `haus`) als Mixin `Haus`: Raumkarten, „Gerade aktiv“, Schnellaktionen über die Zentral-Bausteine, Hinweise, Spieler mit Sendern, Energie, die Aufbauten (`HAUS_*`); `_view_haus()` liefert die Seite, §7.1 „Hausübersicht“. Importiert `webvisu` nicht |
 | `bin/gesten.py` | Gesten wie auf den Loxone-Tastern als Mixin `Gesten`: `geste()` (Nachricht `{t:"geste"}`), `gesten_hilfe()`, Lichtgruppen und Stimmungen, die Auswahl im Konfigurator (`geste_taster_optionen()`, `licht_stimmung_optionen()`), `GESTEN_*_TYPEN`. Importiert `webvisu` nicht |
+| `bin/miniserver.py` | Mixin `Miniserver`: Verbindung zum Miniserver (`start()`, `reconnect()`, `stream_task()` mit wachsender Pause), Token und seine Erneuerung, die Struktur übernehmen (`_apply_structure()`), Werte aus dem WebSocket (`_on_value()`), Befehle (`command()`, gesichert mit Visu-PIN), HTTP an den Miniserver (`_ms_http()`, `_ms_jdev()`) und die gesicherten Details (`secured_details()`), §3.4 und §3.10. Importiert `webvisu` nicht |
+| `bin/geraete.py` | Mixin `Geraete`: welche Ansicht ein Gerät zeigt (`ansicht_fuer_geraet()`, Zuordnung, Betriebsmodus, Vorschau am Gerät, Entwurf), Kopplungscode, Anwesenheit, Display (Abschalten, Nacht, Neuladen, Skalierung, Displaytreiber), Agenten-Befehle, `device_list()` und das Schreiben von `panels.json`; dazu `KIOSK_APPS`, `AGENT_*`, `_lan_adressen()`. Importiert `webvisu` nicht |
+| `bin/audiodienst.py` | Mixin `Audiodienst`: Ereignis-Clients der Audioserver (`audio_events_task()`), das Backend je Zone, Cover der laufenden Titel und die Favoriten der Zonen. Importiert `webvisu` nicht |
+| `bin/intercomdienst.py` | Mixin `Intercomdienst`: SIP-Zugang einer Intercom aus den gesicherten Details (`intercom_sip()`, für Gegensprechen und SIP-Prüfung), die Kamera für den MJPEG-Proxy (`intercom_video()`, aus `loxpanel.cfg` oder den gesicherten Details, `_kamera_aus_details()`) und die Blöcke der Kamera-Pane (`intercom_blocks()`), §3.10. Kachel und Detailseite bleiben in `bausteine/intercom.py`. Importiert `webvisu` nicht |
+| `bin/front.py` | Mixin `Front`: Kalender und Wetter der Uhr-Seite, regelmäßig geholt (`front_task()`) und als `{t:"front"}` verteilt, Loxone-Wetterserver mit Vorrang (§3.8), Sonnenzeiten. Importiert `webvisu` nicht |
+| `bin/verteilung.py` | Mixin `Verteilung`: der Broadcaster (`broadcaster()`, `_broadcast_tick()`), `push()` an ausgewählte Browser, Neuladen und die Hinweise zur Verbindung und zur Einrichtung (§3.5). Importiert `webvisu` nicht |
+| `bin/medien.py` | Mixin `Medien`: Adressen der Icons, Icons und Klingelbilder vom Miniserver mit Cache (`fetch_icon()`, `fetch_bell_image()`), Cover über den Proxy (`fetch_cover()`), die Liste der Loxone-Icons. Importiert `webvisu` nicht |
+| `bin/diagnosedaten.py` | Mixin `Diagnosedaten`: die Angaben fürs Diagnosepaket (`diagnose_daten()`) und die Typübersicht für `/api/types` (`types_overview()`); dazu `VERSION`. Importiert `webvisu` nicht |
+| `bin/ansicht.py` | Mixin `Ansicht`: das wirksame Profil einer Ansicht (`resolve_profile()`), die Theme-Variablen der Visu (`_theme_vars()`), Kategorie-Farben, der Export für den Konfigurator (`_panel_export()`) und das Schreiben von `theme.json`. Importiert `webvisu` nicht |
+| `bin/seiten.py` | Mixin `Seiten`: `render()` mit den Tabs, Gruppen und Detailseiten (`_view_tab()`, `_view_control()`), die Kachel (`_control_item()` mit Kopf, Typ-Funktion aus `bausteine/` und Fuß, `_apply_tile_style()`), die Werteleiste und die Status-Pane; `STATUS_BIG`, `_ANALOG`, `KACHEL_BREIT_TYPEN`. Importiert `webvisu` nicht |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
 | `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
-| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. `webvisu.py` ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
+| `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. Das Mixin `Front` (`front.py`) ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
 | `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
-| `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
+| `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()` in `miniserver.py`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
@@ -205,7 +218,7 @@ als Ersatz für das Wall Display anzubinden, statt es zu kaufen.
 
 ### 3.2 Start
 
-`main()` (`webvisu.py:3036`) liest `--port` bzw. `LOXPANEL_PORT` (Default 8099),
+`main()` (am Ende von `webvisu.py`) liest `--port` bzw. `LOXPANEL_PORT` (Default 8099),
 baut `App(_config(), _audio_config())`, registriert alle Routen und startet beim
 `on_startup` drei Dauer-Tasks: `stream_task()` (Miniserver-Verbindung),
 `broadcaster()` (Verteilung) und `audio_events_task()` (Audioserver-Gen2-Events). Der HTTP-Server ist sofort erreichbar, auch ohne
@@ -215,9 +228,18 @@ Miniserver-Zugang. So bleibt `/config` immer bedienbar.
 
 `App` setzt sich aus Mixin-Klassen der Themenmodule zusammen, die sie erbt
 (Schritt 4 des Zerlegens, §7.2): `Statistik` (`statistik.py`, Verläufe),
-`BausteinHelfer` (`bausteine/`, Helfer und Unterseiten der Bausteine), `Haus`
-(`haus.py`, Hausübersicht) und `Gesten` (`gesten.py`). Die
-Methoden arbeiten mit dem Zustand der App (`self`), Aufrufe bleiben gleich.
+`BausteinHelfer` (`bausteine/`, Helfer und Unterseiten der Bausteine, Blöcke
+des Spielers), `Haus` (`haus.py`, Hausübersicht), `Gesten` (`gesten.py`),
+`Miniserver` (`miniserver.py`, Verbindung, Struktur, Befehle), `Geraete`
+(`geraete.py`, Geräte, Agenten, Display), `Audiodienst` (`audiodienst.py`),
+`Intercomdienst` (`intercomdienst.py`, SIP-Zugang und Kamera der Intercom),
+`Front` (`front.py`, Kalender und Wetter), `Verteilung`
+(`verteilung.py`, Senden an die Browser), `Medien` (`medien.py`, Icons, Cover,
+Klingelbilder), `Diagnosedaten` (`diagnosedaten.py`), `Ansicht` (`ansicht.py`,
+Profil und Theme) und `Seiten` (`seiten.py`, `render()` und Kacheln). In
+`webvisu.py` selbst stehen nur noch `__init__()` mit allen Feldern,
+`_spawn()` und `close()`. Die Methoden arbeiten mit dem Zustand der App
+(`self`), Aufrufe bleiben gleich.
 
 Wichtige Felder:
 
@@ -240,9 +262,9 @@ Wichtige Felder:
 
 ### 3.4 Verbindung und Reconnect
 
-- `App.start()` (`:414`): Client bauen, `getkey2`, `authenticate` (JWT), Struktur
+- `App.start()` (alles in diesem Abschnitt steht in `miniserver.py`): Client bauen, `getkey2`, `authenticate` (JWT), Struktur
   laden, Icon-Session anlegen, WebSocket öffnen.
-- `stream_task()` (`:2409`): Endlosschleife. Bei Fehler wird das Token erneuert,
+- `stream_task()`: Endlosschleife. Bei Fehler wird das Token erneuert,
   scheitert das, wird die Verbindung hart zurückgesetzt. Danach wachsende Pause
   (`MS_RETRY`: 5, 10, 20, 40, 60 s). Von vorn beginnt sie erst, wenn eine
   Verbindung mindestens 60 s lang Nachrichten lieferte (`LoxoneWS.lebenszeit()`,
@@ -323,7 +345,7 @@ Wichtige Felder:
   Visu-Passwort. Befehle haben `MS_CMD_TIMEOUT` (10 s), weil sie den
   Nachrichten-Loop ihres Panels blockieren. Scheitert ein Befehl trotzdem,
   bekommt das Panel einen gelben Hinweis (`notify`) statt nichts.
-- `reconnect()` (`:438`): zweiter Weg über `/api/settings/miniserver`. Baut einen
+- `reconnect()`: zweiter Weg über `/api/settings/miniserver`. Baut einen
   neuen Client und übernimmt ihn nur bei Erfolg, die alte Verbindung überlebt
   einen Fehlversuch. Die Anmeldung (`getkey2`, `getjwt`) hat eine Frist,
   `miniserver.response_timeout` in `loxpanel.cfg`, Standard `MS_CMD_TIMEOUT`
@@ -335,7 +357,7 @@ Wichtige Felder:
 
 ### 3.5 Verteilung an die Browser
 
-`broadcaster()` (`:2443`) pollt alle 0,3 s das `_dirty`-Flag. Ist es gesetzt,
+`broadcaster()` (`verteilung.py`) pollt alle 0,3 s das `_dirty`-Flag. Ist es gesetzt,
 wird für jede offene Verbindung die aktuell betrachtete Route komplett neu
 gerendert und als vollständige `view`-Nachricht geschickt. Es gibt kein
 Delta-Protokoll und keine Drosselung. Bei vielen laufenden Werten (Zähler,
@@ -373,7 +395,7 @@ Server → Browser (`panel.html:700`):
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 | `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026). Ein Vorschaufenster des Konfigurators (`?entwurf=`, auch mit abgelaufenem Token) bekommt keine Nachricht und keinen Code und steht nicht unter `anonymous` (`conn_info.vorschau`) |
 
-Browser → Server (`ws_handler`, `webvisu.py:2991`):
+Browser → Server (`ws_handler` in `webvisu.py`):
 
 | `t` | Inhalt |
 |---|---|
@@ -760,7 +782,7 @@ Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
-Alle Routen werden in `main()` (`webvisu.py:3044`) registriert. Es gibt keine
+Alle Routen werden in `main()` (`webvisu.py`) registriert. Es gibt keine
 Authentifizierung, keine Middleware, kein CORS auf den allgemeinen Routen.
 Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 ([`INTERCOM_GEN1.md`](INTERCOM_GEN1.md)).
@@ -829,7 +851,7 @@ gewinnt, sonst wäre der Live-Test beim nächsten Push weg. Ohne gemerkten Wert
 gilt wieder, was unter *Ansichten → Aussehen → Aktiv-Overlay* (Positionsring) eingestellt ist.
 
 Fehlend: `_apply_tile_style()` erzeugt URLs `/gicon?name=` und `/uicon?f=` für
-Google- und Custom-Icons (`:1598`, `:1601`), aber diese Routen sind nicht
+Google- und Custom-Icons (`seiten.py`), aber diese Routen sind nicht
 registriert. Im Konfigurator ist der entsprechende Reiter deaktiviert.
 
 ---
@@ -837,7 +859,7 @@ registriert. Im Konfigurator ist der entsprechende Reiter deaktiviert.
 ## 5. Konfigurationsdateien
 
 Alle liegen in `config/` (im Container `/app/config`, als Volume gemountet).
-Pfade sind Modul-Globals in `webvisu.py:67-70`.
+Pfade sind Modul-Globals in `konfig.py` (`CFG_FILE`, `PANELS_FILE`, `THEME_FILE`).
 
 ### 5.1 Miniserver-Zugang, Priorität
 
@@ -1215,12 +1237,16 @@ von Mixin-Klassen (seit Schritt 4b des Zerlegens): die allgemeinen (`_state`,
 (`KlimaHelfer` mit `_irc1()`, `WeckerHelfer` mit `_alarm_entries()`,
 `BeschattungHelfer` mit `_jal_fahrt()`, `EnergieHelfer` mit `energy_blocks()` …),
 dort auch die Unterseiten der Familie (Weckzeit und Wecker-Einstellungen,
-Bewässerungszone, Klingelbilder, Favoriten der Zone, Anlagenschema).
+Bewässerungszone, Klingelbilder, Favoriten der Zone, Anlagenschema), beim
+Audio die Blöcke des Spielers (`player_blocks()`). Was den Miniserver braucht,
+etwa SIP-Zugang und Kamera der Intercom, steht in einem Themenmodul
+(`intercomdienst.py`): Die Bausteine sind die untere Schicht und importieren
+kein Themenmodul, die Themen importieren aus ihnen.
 `bausteine.BausteinHelfer` fasst sie zusammen, `App` erbt es; gerufen wird
 weiter über `app.` bzw. `self.`. Typmengen, Konstanten der Strukturdoku (Sauna,
 Raumregelung v1/v2, Bewässerung, Intercom), die Adapter `LIGHT`/`JAL` und die
 reinen Helfer `_clean()`, `_pos_pct()`, `_dauer_text()` liegen in
-`bausteine/gemeinsam.py`, `webvisu.py` importiert, was es selbst braucht.
+`bausteine/gemeinsam.py`; `webvisu.py` und die Themenmodule importieren, was sie brauchen.
 `tests/test_bausteine.py` kennt die Typen je Familie und prüft Tabellen,
 Signaturen, Doppeleinträge und den Rückfall für unbekannte Typen.
 
@@ -1239,10 +1265,10 @@ der Fahrt, alle vier Raster für Beschattung und Player).
 
 Sonderfälle:
 
-- Schalter mit `active`-State stehen in der Konstante `SWITCHY` (`:88`).
-- Reine Anzeigen stehen in `STATUS_BIG` (`:98`) und bekommen eine generische
+- Schalter mit `active`-State stehen in der Konstante `SWITCHY` (`bausteine/gemeinsam.py`).
+- Reine Anzeigen stehen in `STATUS_BIG` (`seiten.py`) und bekommen eine generische
   Großansicht über `_big_view()`.
-- Analoge Werte ohne An/Aus stehen in `_ANALOG` (`:102`), damit die
+- Analoge Werte ohne An/Aus stehen in `_ANALOG` (`seiten.py`), damit die
   Kategorie-Ampel neutral bleibt.
 - Zentralbausteine laufen über den Präfix `Central` (`kachel_praefix`), erst
   nach der genauen Tabelle.
@@ -2304,14 +2330,23 @@ Schritt 2 aufgeteilt, §7.1; Schritt 3 hat die Bausteine nach `bausteine/`
 gebracht, §6, Schritt 4a Konfiguration und Sicherung nach `konfig.py` und
 `sicherung.py`, Schritt 4b die Verläufe nach `statistik.py` und die Helfer der
 Bausteine als Mixins nach `bausteine/`, Schritt 4c Hausübersicht und Gesten
-nach `haus.py` und `gesten.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
+nach `haus.py` und `gesten.py`, Schritt 4d die übrigen Themen der App nach
+`miniserver.py`, `geraete.py`, `audiodienst.py`, `front.py`, `verteilung.py`,
+`intercomdienst.py`, `medien.py`, `diagnosedaten.py`, `ansicht.py` und `seiten.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
 importieren `webvisu` nie, `webvisu` importiert sie; wer in Tests eine
 Konstante oder einen Helfer ersetzt, nimmt `ersetzen()` aus `tests/lox.py`,
 das in jedem Server-Modul mit diesem Namen patcht (`tests/test_schichten.py`).
 Methoden der App, die in ein Thema gehören, wandern als Mixin-Klasse in ihr
-Modul (`Statistik`, `BausteinHelfer`, `Haus`, `Gesten`); `App` erbt sie, Aufrufe über `self.`
-bleiben. Ein neues herausgelöstes Modul gehört in `ZERLEGT` in `tests/lox.py`,
-sonst wirkt `ersetzen()` dort nicht.
+Modul (`Statistik`, `BausteinHelfer`, `Haus`, `Gesten`, `Miniserver`, `Geraete`, `Audiodienst`,
+`Intercomdienst`, `Front`, `Verteilung`, `Medien`, `Diagnosedaten`, `Ansicht`, `Seiten`); `App`
+erbt sie, Aufrufe über `self.` bleiben. Braucht ein Themenmodul einen Namen eines anderen,
+importiert es ihn von dort (`verteilung.py` `_lan_adressen()` aus `geraete.py`, `seiten.py` die
+Overlay-Rechnung aus `ansicht.py`, `intercomdienst.py` `ZugangFehler` aus `miniserver.py`). Die
+Bausteine importieren kein Themenmodul (sonst lädt `bausteine/__init__.py` beim ersten Import
+eines Themas dessen halb fertiges Modul), und jedes Server-Modul muss sich auch als erstes
+laden lassen; beides prüft `tests/test_schichten.py`. Ein neues herausgelöstes Modul gehört in `_ZERLEGT_MODULE` in `tests/lox.py`, und zwar
+hinter die Module, aus denen es importiert, sonst wirkt `ersetzen()` dort nicht oder
+`ZERLEGT` ordnet einen Namen dem falschen Modul zu.
 
 **Begriffe der Oberfläche** (seit 10.10.2026, Konzept „Konfigurator neu
 ordnen“). Jedes Wort hat genau eine Bedeutung; neue Texte halten sich daran:
@@ -3242,10 +3277,10 @@ erledigt).
    oder `controls`.
 2. Detailseite: Funktion `@detail("<Typ>")` mit `(app, uuid, c, route)`, die
    die `view`-Nachricht liefert. Blöcke aus dem Vokabular in Abschnitt 3.7.
-   Für reine Anzeigen reicht `app._big_view()` plus ein Eintrag in `STATUS_BIG`.
+   Für reine Anzeigen reicht `app._big_view()` plus ein Eintrag in `STATUS_BIG` (`seiten.py`).
 3. Den Typ in `tests/test_bausteine.py` bei seiner Familie eintragen; optional
-   `SWITCHY` (`bausteine/gemeinsam.py`), `_ANALOG`, Flanken-Erkennung in
-   `_apply_structure()`.
+   `SWITCHY` (`bausteine/gemeinsam.py`), `_ANALOG` (`seiten.py`), Flanken-Erkennung in
+   `_apply_structure()` (`miniserver.py`).
 4. Neues Icon: `ICONS` in `panel.html:273` und, falls im Konfigurator wählbar,
    `BICONS` in `config.html:191`.
 5. Neuer Blocktyp: Zweig in `bh()` (`panel.html:486`), ggf. `updatePanel()` und CSS.
@@ -3254,8 +3289,8 @@ Das Frontend muss im Regelfall nicht angefasst werden.
 
 ### (b) Neuen API-Endpunkt
 
-Handler als Modul-Funktion zwischen `:2489` und `:2960`, `app: App =
-request.app["app"]`, Registrierung in `main()` bei `:3044`. Für JSON-Body das
+Handler als Modul-Funktion in `webvisu.py` vor `main()`, `app: App =
+request.app["app"]`, Registrierung in `main()`. Für JSON-Body das
 Muster `try: await request.json() except (ValueError, aiohttp.ContentTypeError)`,
 für GET+POST `_json_or_empty()` und `_push_filter()`, für Pushes `_push()`.
 
@@ -3274,9 +3309,9 @@ neuer POST-Handler, Rubrik „Settings" in `config.html`, `i18n.js`. Bei Env-Ove
 2. Handler in `bindAppearance()` (`:295`) mit `markDirty()`.
 3. Server-Whitelist in `_sanitize_panels()` bzw. `_sanitize_theme_ui()` (global
    zusätzlich `THEME_UI_KEYS`), sonst wird die Option verworfen. Für Panels
-   auch in `_panel_export()`, sonst geht sie beim nächsten Speichern verloren.
-4. Wirkung: CSS-Variable in `_theme_vars()` (`:728`) oder Verhalten in
-   `resolve_profile()` (`:766`) plus `theme`-Payload plus Frontend.
+   auch in `_panel_export()` (`ansicht.py`), sonst geht sie beim nächsten Speichern verloren.
+4. Wirkung: CSS-Variable in `_theme_vars()` oder Verhalten in
+   `resolve_profile()` (beide `ansicht.py`) plus `theme`-Payload plus Frontend.
 5. Übersetzung in `i18n.js`.
 
 ### (e) Neue Sprache oder neuer Text
@@ -3306,7 +3341,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 
 | Nr. | Befund | Stelle |
 |---|---|---|
-| F1 | Routen `/gicon` und `/uicon` werden erzeugt, aber nie registriert | `webvisu.py:1598`, `:1601` |
+| F1 | Routen `/gicon` und `/uicon` werden erzeugt, aber nie registriert | `seiten.py` `_apply_tile_style()` |
 | F2 | `op_modes` fehlt in `App.__init__` — behoben, `/api/types` warf ohne Miniserver einen `AttributeError` | `:394`, Workaround `:1235` |
 | F3 | Push-Stellen fangen nur `ConnectionError`. Ein `RuntimeError` beim Senden würde den Broadcaster-Task beenden, alle Panels blieben stumm, ohne Log — behoben, alle Push-Stellen senden über `_send_or_drop()` (jeder Fehler, 5 s Zeitlimit) | `:2452-2467`, `:2797` |
 | F4 | `icon_cache` unbegrenzt, kein Limit, keine TTL — behoben, `ICON_CACHE_MAX` | `:359`, `:1139` |
@@ -3316,7 +3351,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F8 | `fetch_icon` hat kein Timeout und fängt `asyncio.TimeoutError` nicht — behoben, ebenso `fetch_cover` (`COVER_TIMEOUT`) | `:1123` |
 | F9 | `JSON.parse` im WebSocket-Handler ohne try/catch — behoben | `panel.html:701` |
 | F10 | `esc()` in der Visu escapt keine Anführungszeichen, Ausgabe landet in Attributen. Freitext-Schriftarten und Miniserver-Namen mit `"` zerlegen das Markup | `panel.html:316`, `:631`, `:637` |
-| F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `webvisu.py:979` |
+| F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `konfig.py` `_sanitize_panels()`, `ansicht.py` `resolve_profile()` |
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
 | F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebte keinen Reboot — behoben, Ablage nach XDG beim Login-Benutzer, §8 | `agent/loxpanel-agent.py` `STATE_FILE`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |

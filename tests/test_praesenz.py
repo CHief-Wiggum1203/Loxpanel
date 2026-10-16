@@ -13,7 +13,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import W, anlage, visu_starten, ersetzen
+from lox import anlage, ersetzen, konfig, visu_starten, W
 
 BAUSTEINE = {
     "PM": {"name": "Präsenz Küche", "type": "PresenceDetector", "uuidAction": "PM", "room": "r1", "cat": "c1",
@@ -166,11 +166,11 @@ def test_gescheitertes_speichern_laesst_den_laufenden_stand(cfg_ordner, monkeypa
     async def lauf():
         app, geschaltet = _app({"kueche": {"scale": "auto"}}, anwesend=True)
         app._persist_panels_file(app.panels, app.devices)       # Ausgangsstand auf der Platte
-        vorher = W.PANELS_FILE.read_text(encoding="utf-8")
-        echt = W._atomic_write
+        vorher = konfig.PANELS_FILE.read_text(encoding="utf-8")
+        echt = konfig._atomic_write
 
         def schreiben(pfad, text):
-            if pfad == W.PANELS_FILE:
+            if pfad == konfig.PANELS_FILE:
                 raise fehler
             echt(pfad, text)
         ersetzen(monkeypatch, "_atomic_write", schreiben)
@@ -186,7 +186,7 @@ def test_gescheitertes_speichern_laesst_den_laufenden_stand(cfg_ordner, monkeypa
         return app, antwort, vorher, geschaltet
     app, (status, j), vorher, geschaltet = asyncio.run(lauf())
     assert status == 500 and j["ok"] is False and str(fehler) in j["error"]
-    assert W.PANELS_FILE.read_text(encoding="utf-8") == vorher
+    assert konfig.PANELS_FILE.read_text(encoding="utf-8") == vorher
     assert app.devices == {"kueche": {"auto": True, "modes": {}, "scale": "auto"}}, \
         "der laufende Server folgt der Datei, nicht dem gescheiterten Speichern"
     assert app.presence_map == {} and geschaltet == []

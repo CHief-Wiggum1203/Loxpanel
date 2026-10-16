@@ -6,7 +6,7 @@ bleibt, wenn der Raum nicht vorkommt oder nichts uebrig bliebe. Seiten ueber
 mehrere Raeume (Favoriten, Kategorie) behalten die vollen Namen."""
 import pytest
 
-from lox import W
+from lox import seiten, W
 
 STRUKTUR = {
     "rooms": {"r1": {"name": "Wohnzimmer"}, "r2": {"name": "Essen-Kochen-Wohnen"}},
@@ -41,7 +41,7 @@ STRUKTUR = {
     ("Licht", "", "Licht"), ("", "Wohnzimmer", ""),
 ])
 def test_raumname_faellt_aus_dem_kachelnamen(name, raum, erwartet):
-    assert W._ohne_raum(name, raum) == erwartet
+    assert seiten._ohne_raum(name, raum) == erwartet
 
 
 def _app() -> W.App:

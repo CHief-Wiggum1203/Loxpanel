@@ -21,7 +21,7 @@ import pytest
 from aiohttp import web
 from icalendar import Calendar
 
-from lox import W, serve, ersetzen
+from lox import ersetzen, front, serve, W
 
 front_info = W.front_info
 QUELLE = {"name": "Familie", "url": "https://kalender.invalid/familie.ics", "color": "#e0a24d"}
@@ -111,7 +111,7 @@ def test_nach_wetter_push_nur_restzeit_warten(abrufe, monkeypatch):
     async def lauf():
         async with _front({"temp": 5.0}) as app:
             await _bis(lambda: zeiten)
-            assert zeiten[-1] == pytest.approx(W.FRONT_INTERVAL, abs=5)
+            assert zeiten[-1] == pytest.approx(front.FRONT_INTERVAL, abs=5)
             app._front_cal_due = time.monotonic() + 30   # Kalender in 30 s wieder faellig
             vorher = len(zeiten)
             app._on_weather("wetter-aktuell", [{"temperature": 7.0}])

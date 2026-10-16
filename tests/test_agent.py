@@ -36,7 +36,7 @@ from pathlib import Path
 import aiohttp
 import pytest
 
-from lox import ROOT, W, anlage, visu_starten
+from lox import anlage, geraete, ROOT, visu_starten, W
 
 AGENT = ROOT / "agent" / "loxpanel-agent.py"
 INSTALL = ROOT / "deploy" / "install-agent.sh"
@@ -740,8 +740,8 @@ def test_online_schwelle_folgt_dem_meldetakt():
     schleife = next(f for f in baum.body if isinstance(f, ast.FunctionDef) and f.name == "announce_loop")
     schlaf = [n.args[0].value for n in ast.walk(schleife) if isinstance(n, ast.Call)
               and getattr(n.func, "attr", "") == "sleep"]
-    assert schlaf == [W.AGENT_MELDETAKT]
-    assert W.AGENT_ONLINE == 4 * W.AGENT_MELDETAKT
+    assert schlaf == [geraete.AGENT_MELDETAKT]
+    assert W.AGENT_ONLINE == 4 * geraete.AGENT_MELDETAKT
 
 
 def test_ausdrueckliche_wahl_hebt_den_betriebsmodus_auf(cfg_ordner):

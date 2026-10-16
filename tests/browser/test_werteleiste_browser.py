@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, konfig, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -236,4 +236,4 @@ def test_konfigurator_schaltet_die_leiste_je_seite():
     assert res["felder"] == ["favoriten", "raeume"] and res["vorher"] is None
     assert res["eine"] == ["favoriten"] and res["zwei"] == ["favoriten", "raeume"] and res["gemerkt"] == [True, True]
     assert res["danach"] is None, "ohne Seite faellt der Schluessel weg"
-    assert W._clean_werteleiste(res["zwei"]) == res["zwei"], "was der Konfigurator schreibt, nimmt der Server unveraendert"
+    assert konfig._clean_werteleiste(res["zwei"]) == res["zwei"], "was der Konfigurator schreibt, nimmt der Server unveraendert"

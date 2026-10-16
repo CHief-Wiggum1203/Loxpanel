@@ -5,7 +5,7 @@ dem Bedienbaren. Je Seite waehlbar: ui.valueBar nennt die Tab-Kennungen
 ("raeume"/"kategorien" gelten fuer die Raum- und Kategorie-Seiten darunter).
 Hier die Server-Seite: Pruefer, Speichern, Export, aufgeloestes Profil und
 die Trennung in den Ansichten (view.items / view.leiste)."""
-from lox import W
+from lox import konfig, seiten, W
 
 STRUKTUR = {
     "rooms": {"r1": {"name": "Wohnzimmer"}, "r2": {"name": "Küche"}, "r3": {"name": "Keller"}},
@@ -64,15 +64,15 @@ def test_typen_der_leiste():
     assert W.WERTE_LEISTE_TYPEN == {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
                                     "InfoOnlyDigital", "PresenceDetector", "Hourcounter"}
     assert "SmokeAlarm" not in W.WERTE_LEISTE_TYPEN and "ClimateControllerUS" not in W.WERTE_LEISTE_TYPEN
-    assert W.WERTE_LEISTE_TYPEN < W.STATUS_BIG, "Werte der Leiste sind reine Anzeige-Bausteine"
+    assert W.WERTE_LEISTE_TYPEN < seiten.STATUS_BIG, "Werte der Leiste sind reine Anzeige-Bausteine"
 
 
 def test_pruefer():
-    assert W._clean_werteleiste(["favoriten", "foo", "favoriten", 3, None, "room:r1", "auswahl2", "cat:c1",
+    assert konfig._clean_werteleiste(["favoriten", "foo", "favoriten", 3, None, "room:r1", "auswahl2", "cat:c1",
                                  "raeume", "kategorien", "zentral", "kalender"]) == \
         ["favoriten", "room:r1", "auswahl2", "cat:c1", "raeume", "kategorien", "zentral", "kalender"]
-    assert W._clean_werteleiste("favoriten") == [] and W._clean_werteleiste(None) == []
-    assert W._clean_werteleiste({"favoriten": True}) == [] and W._clean_werteleiste([]) == []
+    assert konfig._clean_werteleiste("favoriten") == [] and konfig._clean_werteleiste(None) == []
+    assert konfig._clean_werteleiste({"favoriten": True}) == [] and konfig._clean_werteleiste([]) == []
 
 
 def test_speichern_exportieren_und_aufloesen():

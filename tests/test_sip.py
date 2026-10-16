@@ -11,7 +11,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from lox import Miniserver, SipTuer, W, anlage, intercom_baustein, intercom_v2_baustein, neue_app, serve
+from lox import anlage, ersetzen, intercom_baustein, intercom_v2_baustein, Miniserver, neue_app, serve, SipTuer, W
 
 SIP_PASS, BILD_PASS = "Sip-Kennwort-1", "Bild-Kennwort-2"
 GESICHERT = {"videoInfo": {"streamUrl": "http://192.168.1.201/cgi-bin/faststream.jpg?stream=full",
@@ -79,7 +79,7 @@ def test_neuer_schluessel_nach_neustart(miniserver_http):
 def test_token_abgelaufen(miniserver_http, monkeypatch):
     """LL-Code 401 im entschluesselten Ergebnis: das Token gilt nicht mehr ->
     neu anmelden und mit dem neuen Token wiederholen."""
-    monkeypatch.setattr(W, "TOKEN_RENEW_MIN", 0)
+    ersetzen(monkeypatch, "TOKEN_RENEW_MIN", 0)
 
     async def lauf():
         ms, app = await _aufbau()

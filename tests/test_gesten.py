@@ -18,7 +18,7 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import make_mocked_request
 
-from lox import Miniserver, W, gesten_anlage, neue_app, visu_starten
+from lox import gesten_anlage, konfig, Miniserver, neue_app, visu_starten, W
 
 pytestmark = pytest.mark.usefixtures("miniserver_http")
 
@@ -364,7 +364,7 @@ def test_ueber_den_websocket():
 
 def test_nacht_uhr_speichern():
     ui = W.App._sanitize_theme_ui({"nightClock": True, "nightClockBright": 2})
-    assert ui == {"nightClock": True, "nightClockBright": W.NACHT_UHR_HELL_MIN}
+    assert ui == {"nightClock": True, "nightClockBright": konfig.NACHT_UHR_HELL_MIN}
     # der Standard wird nicht gespeichert, ein Wahrheitswert ist keine Helligkeit
     assert W.App._sanitize_theme_ui({"nightClock": W.NACHT_STANDARD["nightClock"], "nightClockBright": True}) == {}
     p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"nightClock": False, "nightClockBright": 150}}})
@@ -406,7 +406,7 @@ def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
     tc = W.theme_colors
     hell_geworden = 0
     for ui in _themes():
-        v = W.App._theme_vars(dict(W.DEFAULT_THEME["states"]), ui)
+        v = W.App._theme_vars(dict(konfig.DEFAULT_THEME["states"]), ui)
         assert v["--nacht-grund"] == tc.NACHT_GRUND, ui
         if "--ink" not in v:            # Grundfarbe ohne tragfaehiges Theme: Standardfarben
             assert "--nacht-ink" not in v, ui
@@ -417,7 +417,7 @@ def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
         else:
             hell_geworden += 1
     assert hell_geworden >= 3, "helle Themes muessen dabei sein, sonst prueft der Test nichts"
-    standard = W.App._theme_vars(dict(W.DEFAULT_THEME["states"]), {})
+    standard = W.App._theme_vars(dict(konfig.DEFAULT_THEME["states"]), {})
     assert standard["--nacht-grund"] == tc.NACHT_GRUND and "--nacht-ink" not in standard
 
 

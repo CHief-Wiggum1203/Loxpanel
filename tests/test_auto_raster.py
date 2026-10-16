@@ -9,7 +9,7 @@ Bildschirmmeldung und das Raster, das ein Panel mit seiner Bildschirmgroesse
 meldet (rc/rr)."""
 import pytest
 
-from lox import W, anlage
+from lox import anlage, konfig, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "states": {"active": "s"}}})
@@ -70,7 +70,7 @@ def test_export_nennt_die_zielkachel_als_zahl():
     (True, None), (float("nan"), None), ([170], None),
 ])
 def test_pruefer_der_zielkachel(wert, erwartet):
-    assert W._clean_kachelziel(wert) == erwartet
+    assert konfig._clean_kachelziel(wert) == erwartet
 
 
 @pytest.mark.parametrize("ui, ziel", [
@@ -123,7 +123,7 @@ def test_zielkachel_je_geraet_wird_geprueft(cfg, gespeichert):
     ({}, None), ({"dpr": 2}, None), (None, None),
 ], ids=["tablet", "taba9", "panel10", "fullhd", "ohne-dpr", "wqxga", "4k", "4zoll", "leer", "nur-dpr", "nichts"])
 def test_vorschlag_aus_der_bildschirmmeldung(screen, vorschlag):
-    assert W._kachel_vorschlag(screen) == vorschlag
+    assert konfig._kachel_vorschlag(screen) == vorschlag
 
 
 def test_geraeteliste_traegt_den_vorschlag():

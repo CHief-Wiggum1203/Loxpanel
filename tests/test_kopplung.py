@@ -11,7 +11,7 @@ import itertools
 
 import aiohttp
 
-from lox import W, anlage, visu_starten
+from lox import anlage, geraete, visu_starten, W
 
 STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                          "isFavorite": True, "states": {"active": "s"}}})
@@ -49,8 +49,8 @@ def test_code_kommt_beim_verbinden_und_bleibt():
             async with aiohttp.ClientSession() as s:
                 async with s.ws_connect(f"{basis}/ws") as ws:                     # ohne Namen, ohne Profil
                     m = await _naechste(ws, "kopplung", 3)
-                    assert m and W._KOPPLUNG_RE.fullmatch(m["code"]) and len(m["code"]) == W.KOPPLUNG_LAENGE, m
-                    assert set(m["code"]) <= set(W.KOPPLUNG_ZEICHEN)
+                    assert m and geraete._KOPPLUNG_RE.fullmatch(m["code"]) and len(m["code"]) == geraete.KOPPLUNG_LAENGE, m
+                    assert set(m["code"]) <= set(geraete.KOPPLUNG_ZEICHEN)
                     assert m["karte"] is True and m["pfad"] == "/config" and m["titel"] and m["hinweis"] and m["weg"], m
                     code = m["code"]
                     anon = app.device_list()["anonymous"]
@@ -65,7 +65,7 @@ def test_code_kommt_beim_verbinden_und_bleibt():
                     assert [a["code"] for a in app.device_list()["anonymous"]] == [], "... und steht nicht in der Geraeteliste"
                 async with s.ws_connect(f"{basis}/ws?code=abc0") as ws:                # ungueltig (0 ist nicht im Alphabet)
                     m = await _naechste(ws, "kopplung", 3)
-                    assert m["code"] != "ABC0" and W._KOPPLUNG_RE.fullmatch(m["code"]), m
+                    assert m["code"] != "ABC0" and geraete._KOPPLUNG_RE.fullmatch(m["code"]), m
                 async with s.ws_connect(f"{basis}/ws?device=wand") as ws:              # mit Kennung: kein Code
                     assert await _naechste(ws, "theme", 3)
                     assert await _naechste(ws, "kopplung", 0.5) is None
@@ -115,7 +115,7 @@ def test_neuer_code_meidet_vergebene(monkeypatch):
     app = _app()
     app.conn_info[object()] = {"dev": "", "code": "AAAA"}
     folge = itertools.chain("AAAA", "BBBB")
-    monkeypatch.setattr(W.secrets, "choice", lambda _zeichen: next(folge))
+    monkeypatch.setattr(geraete.secrets, "choice", lambda _zeichen: next(folge))
     assert app.kopplungscode("") == "BBBB"
     assert app.kopplungscode(" cdef ") == "CDEF", "ein gueltiger Wunsch wird uebernommen"
     assert app.kopplungscode("AAAA") == "AAAA", "ein zurueckgeschickter Code bleibt, auch wenn er doppelt waere"
