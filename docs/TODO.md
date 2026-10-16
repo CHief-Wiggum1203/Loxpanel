@@ -1403,6 +1403,16 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`setSensor/<index>/<ziel>/<name>`), Timer stellen, starten und stoppen
       (`setTimerDuration`, `startTimer`, `stopTimer`), Alarm quittieren
       (`quitAlarm`), Gerätezustand (`deviceState`), Akku nur ohne Netzteil. **S**
+- [x] `Jalousie` und `CentralJalousie`: seit 16.10.2026 nach der
+      Strukturdoku Position per Schieberegler (`manualPosition/<0..100>`),
+      beim Raffstore (`details.animation` 0) die Lamellen
+      (`manualLamelle/<0..100>`), Automatik an/aus (`auto`/`NoAuto`, nur mit
+      `details.isAutomatic`) und als Hinweis auf Kachel und Seite, wenn sie
+      gesperrt ist (`locked`, geht vor), die Sicherheitsabschaltung greift
+      (`safetyActive`, beide mit Grund aus `infoText`) oder das Gerät offline
+      ist (`deviceState` 1). Die Zentral-Jalousie hat Auf/Ab auf der Kachel und
+      eine eigene Seite mit `FullUp`, `stop`, `FullDown`, `shade`, `auto`,
+      `NoAuto` und den einzelnen Jalousien. An der Anlage prüfen, siehe 8.1. **S**
 - [x] `SmokeAlarm` (Brand- und Wassermelder): seit 16.10.2026 Stufe
       (Voralarm/Hauptalarm) mit Ursache aus `alarmCause`, überwachte Arten aus
       `availableAlarms`, Quittieren (`confirm`), Sirene aus (`mute`, nur bei

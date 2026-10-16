@@ -8,6 +8,11 @@ from __future__ import annotations
 from bausteine import detail, kachel
 from bausteine.gemeinsam import JAL, _clean, _pos_pct
 
+# Jalousie (Strukturdoku): details.animation 0 = Raffstore (nur er hat
+# Lamellen), deviceState 1 = Geraet offline
+JAL_RAFFSTORE = 0
+JAL_OFFLINE = 1
+
 
 @kachel("Jalousie")
 def kachel_jalousie(app, uuid, c, it):
@@ -23,6 +28,9 @@ def kachel_jalousie(app, uuid, c, it):
     # Verb benennt die Richtung eindeutig (wie beim Tor, :3219), der
     # Trenner macht die Stellung als zweite Angabe kenntlich.
     sub = r["label"]
+    sperre = app._jal_sperre(c)
+    if sperre:
+        sub = sperre.split(":")[0] + " · " + sub
     if up_move:
         sub = "▲ öffnet · " + sub
     elif down_move:
@@ -77,19 +85,57 @@ def detail_jalousie(app, uuid, c, route):
     # Fahrt sendet Stop (haelt an); im Stand startet er die Fahrt.
     auf = {"label": "Auf", "on": up_move, "cmd": auf_cmd}
     ab = {"label": "Ab", "on": down_move, "cmd": ab_cmd}
-    blocks = [
-        {"k": "hero", "icon": "blind"},
-        {"k": "status", "text": app._jal_status(cu)},
-        {"k": "value", "text": val},
+    det = c.get("details") or {}
+    blocks = [{"k": "hero", "icon": "blind"}, {"k": "status", "text": app._jal_status(cu)}]
+    sperre = app._jal_sperre(c)
+    if sperre:
+        blocks.append({"k": "status", "text": sperre})
+    blocks.append({"k": "value", "text": val})
+    # Position und Lamellen frei waehlen (Strukturdoku: manualPosition und
+    # manualLamelle, 0..100; 0 = offen bzw. Lamellen waagrecht). Lamellen
+    # nur beim Raffstore (details.animation JAL_RAFFSTORE).
+    if pct is not None:
+        blocks.append({"k": "slider", "icon": "blind", "value": pct, "min": 0, "max": 100,
+                       "cmd": {"uuid": ua, "tmpl": "manualPosition/{v}"}})
+    lam = app._endlich(c, "shadePosition")
+    if lam is not None and det.get("animation", JAL_RAFFSTORE) == JAL_RAFFSTORE:
+        blocks.append({"k": "slider", "icon": "lamelle", "value": round(lam * 100), "min": 0, "max": 100,
+                       "cmd": {"uuid": ua, "tmpl": "manualLamelle/{v}"}})
+    zusatz = [{"label": "Beschatten", "cmd": {"uuid": ua, "cmd": "shade"}}]
+    if det.get("isAutomatic"):
+        auto = bool(app._state(c, "autoActive"))
+        zusatz.append({"label": "Automatik", "on": auto, "cmd": {"uuid": ua, "cmd": "NoAuto" if auto else "auto"}})
+    blocks += [
         {"k": "row", "cells": [auf, ab]},
         {"k": "row", "cells": [
             {"label": "Ganz Auf", "cmd": {"uuid": ua, "cmd": "FullUp"}},
             {"label": "Ganz Ab", "cmd": {"uuid": ua, "cmd": "FullDown"}},
         ]},
-        {"k": "row", "cells": [{"label": "Beschatten", "cmd": {"uuid": ua, "cmd": "shade"}}]},
+        {"k": "row", "cells": zusatz},
     ]
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "anchor": "bottom", "blocks": blocks}
+
+
+@detail("CentralJalousie")
+def detail_zentral_jalousie(app, uuid, c, route):
+    """Zentral-Jalousie (Strukturdoku Central Objects): alle Jalousien auf, ab,
+    stoppen, beschatten, Automatik an und aus, darunter die einzelnen zum
+    Oeffnen."""
+    ua = c.get("uuidAction")
+    blocks = [{"k": "hero", "icon": "blind"}, {"k": "status", "text": "Alle Jalousien"},
+              {"k": "row", "cells": [{"label": "Ganz Auf", "cmd": {"uuid": ua, "cmd": "FullUp"}},
+                                     {"label": "Stopp", "cmd": {"uuid": ua, "cmd": "stop"}},
+                                     {"label": "Ganz Ab", "cmd": {"uuid": ua, "cmd": "FullDown"}}]},
+              {"k": "row", "cells": [{"label": "Beschatten", "cmd": {"uuid": ua, "cmd": "shade"}},
+                                     {"label": "Automatik an", "cmd": {"uuid": ua, "cmd": "auto"}},
+                                     {"label": "Automatik aus", "cmd": {"uuid": ua, "cmd": "NoAuto"}}]}]
+    mitglieder = [m.get("uuid") for m in ((c.get("details") or {}).get("controls") or [])
+                  if m.get("uuid") in app.controls]
+    if mitglieder:
+        blocks += [{"k": "head", "text": "Einzeln"},
+                   {"k": "row", "wrap": True, "cells": [app._jal_zelle(mu) for mu in mitglieder]}]
+    return {"t": "view", "title": _clean(c.get("name")), "route": route, "anchor": "bottom", "blocks": blocks}
 
 
 @detail("Gate")
@@ -141,6 +187,25 @@ class BeschattungHelfer:
         if aa:
             return "Automatik aktiv" if self.states.get(aa) else "Sonnenstandsautomatik inaktiv"
         return "Manuell"
+
+    def _jal_sperre(self, c: dict) -> str:
+        """Warum eine Jalousie nicht faehrt (Strukturdoku): gesperrt (locked,
+        Ausgang QI, geht vor) oder Sicherheitsabschaltung (safetyActive), mit
+        dem Grund aus infoText; dazu ein Geraet, das offline ist."""
+        grund = self._text(c, "infoText")
+        for state, text in (("locked", "Gesperrt"), ("safetyActive", "Sicherheitsabschaltung")):
+            if self._state(c, state):
+                return text + (f": {grund}" if grund else "")
+        if self._endlich(c, "deviceState") == JAL_OFFLINE:
+            return "Gerät offline"
+        return ""
+
+    def _jal_zelle(self, uuid: str) -> dict:
+        """Zelle einer Jalousie in der Zentral-Jalousie: Name und Stellung wie
+        auf ihrer Kachel, ein Tipp oeffnet sie."""
+        it = self._control_item(uuid)
+        return {"label": " · ".join(x for x in (it.get("label"), it.get("sublabel")) if x),
+                "on": bool(it.get("on")), "nav": {"view": "control", "id": uuid}}
 
     def _jal_fahrt(self, c: dict) -> tuple[bool, bool, dict, dict]:
         """(faehrt auf, faehrt ab, Befehl Auf, Befehl Ab) einer Jalousie, wie in

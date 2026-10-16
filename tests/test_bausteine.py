@@ -32,6 +32,9 @@ KACHEL_TYPEN = {
 # Typen ohne eigene Detailseite: Pushbutton und TimedSwitch schalten direkt,
 # die Switch-Kachel auch; die Zentralbausteine oeffnen die Gruppe
 NUR_KACHEL = {"Switch", "TimedSwitch", "Pushbutton"}
+# Detailseiten ohne eigene Kachel: die Zentral-Jalousie (Kachel ueber das
+# Praefix Central, die Seite mit den Zentralbefehlen in ihrer Familie)
+NUR_DETAIL = {"CentralJalousie": "beschattung"}
 
 
 def _app(controls: dict, states: dict | None = None):
@@ -44,7 +47,7 @@ def _app(controls: dict, states: dict | None = None):
 def test_tabellen_kennen_genau_die_typen_der_ketten():
     erwartet = {t for typen in KACHEL_TYPEN.values() for t in typen}
     assert set(bausteine.KACHEL) == erwartet
-    assert set(bausteine.DETAIL) == erwartet - NUR_KACHEL
+    assert set(bausteine.DETAIL) == (erwartet - NUR_KACHEL) | set(NUR_DETAIL)
     assert [p for p, _ in bausteine.KACHEL_PRAEFIX] == ["Central"]
 
 
@@ -53,6 +56,9 @@ def test_jede_familie_traegt_ihre_typen(familie):
     for t in KACHEL_TYPEN[familie]:
         assert bausteine.KACHEL[t].__module__ == f"bausteine.{familie}", t
         if t not in NUR_KACHEL:
+            assert bausteine.DETAIL[t].__module__ == f"bausteine.{familie}", t
+    for t, fam in NUR_DETAIL.items():
+        if fam == familie:
             assert bausteine.DETAIL[t].__module__ == f"bausteine.{familie}", t
 
 

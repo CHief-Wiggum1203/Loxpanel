@@ -10,6 +10,7 @@ const ICONS = {
   central:'<path d="M3 11 12 4l9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>',
   blind:'<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9h16M4 13h16M4 17h16"/>',
+  lamelle:'<path d="M4 4h16"/><path d="M5 8l14 3M5 12l14 3M5 16l14 3"/>',
   up:'<path d="m6 15 6-6 6 6"/>',
   down:'<path d="m6 9 6 6 6-6"/>',
   stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',

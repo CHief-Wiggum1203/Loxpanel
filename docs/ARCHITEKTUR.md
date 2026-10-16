@@ -462,6 +462,10 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
   nicht beim Aufsetzen des Fingers. `confirm` fragt beim ersten Tipp nach,
   `back` geht nach dem Befehl eine Seite zurück.
 - `gallery`: Bilder (`src`, `label`); ein Tipp zeigt eins groß.
+- `slider`: Regler mit −/+ (`icon`, `value`, `min`, `max`, `step`, `cmd.tmpl`
+  mit `{v}`), schickt beim Loslassen. Eine Seite kann mehrere haben
+  (Jalousie: Position und Lamellen); die Visu bindet und patcht jeden an
+  seiner Stelle.
 - `favs`: Cover zum Abspielen (`items` mit `label`, `cover`, `cmd`). Mit `wrap`
   umbrechend (Musikauswahl), sonst eine waagrecht scrollende Reihe. Nach dem
   Tippen geht die Visu eine Seite zurück, mit `bleiben` nicht (Detailseite

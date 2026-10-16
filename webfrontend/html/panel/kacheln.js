@@ -530,17 +530,21 @@ function renderPanel(blocks){
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img){img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
   const vid=blocks.find(b=>b.k==='video'); const vimg=g.querySelector('.video img');
   if(vid&&vimg){ vimg.src=vid.src; }   // MJPEG-Stream: einmal laden, läuft live
-  const sb=blocks.find(b=>b.k==='slider'); const sld=g.querySelector('.sld');
-  if(sb&&sld){ sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl; sldFill(sld);
+  // Jeder Schieberegler der Seite (Jalousie: Position und Lamellen) mit
+  // seinem Befehl, in der Reihenfolge der Bloecke
+  const srows=[...g.querySelectorAll('.srow')];
+  blocks.filter(b=>b.k==='slider').forEach((sb,i)=>{ const sr=srows[i], sld=sr&&sr.querySelector('.sld');
+    if(!sld) return; const sv=sr.querySelector('.sval');
+    sld._uuid=sb.cmd.uuid; sld._tmpl=sb.cmd.tmpl; sldFill(sld);
     // PIN abgebrochen: Regler wieder auf den Stand des Servers
     const zurueck=()=>{ if(view&&view.blocks&&el('grid').classList.contains('panel')) updatePanel(view.blocks); };
-    sld.addEventListener('input',()=>{ sldDragging=true; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sld.value; });
+    sld.addEventListener('input',()=>{ sldDragging=true; sldFill(sld); if(sv)sv.textContent=sld.value; });
     sld.addEventListener('change',()=>{ sldDragging=false; sendCmd(sld._uuid,sld._tmpl.replace('{v}',sld.value),view&&view.secured,{abbruch:zurueck}); });
-    const sdn=g.querySelector('.srow .sbtn[data-sd="dn"]'), sup=g.querySelector('.srow .sbtn[data-sd="up"]');
+    const sdn=sr.querySelector('.sbtn[data-sd="dn"]'), sup=sr.querySelector('.sbtn[data-sd="up"]');
     const step=(sb.step&&+sb.step>0)?+sb.step:SLD_STEP;
-    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,g.querySelector('.sval'),view&&view.secured,zurueck); });
-    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,g.querySelector('.sval'),view&&view.secured,zurueck); });
-  }
+    if(sdn) sdn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,-step,sv,view&&view.secured,zurueck); });
+    if(sup) sup.addEventListener('pointerdown',ev=>{ ev.preventDefault(); nudgeSld(sld,step,sv,view&&view.secured,zurueck); });
+  });
   const rows=[...g.querySelectorAll('.brow')]; let ri=0;
   for(const b of blocks){ if(b.k!=='row') continue; const rowEl=rows[ri++];
     b.cells.forEach((c,ci)=>{ const btn=rowEl.querySelector('[data-c="'+ci+'"]'); if(!btn)return;
@@ -606,7 +610,9 @@ function updatePanel(blocks){
   nth('title','.ptitle',(e,b)=>{ e.childNodes[0].nodeValue=b.text||''; const su=e.querySelector('.psub'); if(su)su.textContent=b.sub||''; });
   nth('astat','.astat',(e,b)=>{ e.childNodes[0].nodeValue=b.text||''; e.className='astat'+(b.tone==='crit'?' crit':''); const su=e.querySelector('.astatsub'); if(su)su.textContent=b.sub||''; });
   const cov=blocks.find(b=>b.k==='cover'); if(cov){const img=g.querySelector('#coverimg'); if(img&&img.getAttribute('src')!==cov.src){img.style.opacity='0'; img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cov.src;}}
-  const sb=blocks.find(b=>b.k==='slider'); if(sb){const sld=g.querySelector('.sld'); if(sld&&!sldDragging){ sld.value=sb.value; sldFill(sld); const sv=g.querySelector('.sval'); if(sv)sv.textContent=sb.value; }}
+  const srows=[...g.querySelectorAll('.srow')];
+  if(!sldDragging) blocks.filter(b=>b.k==='slider').forEach((sb,i)=>{ const sr=srows[i], sld=sr&&sr.querySelector('.sld');
+    if(!sld) return; sld.value=sb.value; sldFill(sld); const sv=sr.querySelector('.sval'); if(sv)sv.textContent=sb.value; });
   const efb=blocks.find(b=>b.k==='eflow'); if(efb){ const d=g.querySelector('[data-eflow]'); if(d) paintEnergy(d, efb.e); }   // Radial live aktualisieren (in-place)
   paintCharts(g,blocks);   // Verlauf nachgeladen oder Fenster vorgerueckt: neu zeichnen, Knoepfe bleiben
   rowBlocks.forEach((b,ri)=>{ const rowEl=rows[ri]; if(!rowEl)return;
