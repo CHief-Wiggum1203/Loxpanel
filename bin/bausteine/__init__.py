@@ -12,8 +12,12 @@ Funktionen in die Tabellen KACHEL und DETAIL eintraegt.
 
 Ein Typ steht in jeder Tabelle hoechstens einmal, ein zweiter Eintrag ist ein
 Fehler beim Import. Die Helfer der Bausteine (_state, _fmt_num, _jal_fahrt ...)
-bleiben Methoden von App und werden ueber app. gerufen; gemeinsame Konstanten,
-Adapter und reine Helfer liegen in gemeinsam.py. Die Familien: licht, schalten,
+sind Methoden von Mixin-Klassen: die allgemeinen in helfer.py (Grundhelfer),
+die einer Familie in ihrem Modul (KlimaHelfer, WeckerHelfer ...), dort auch die
+Unterseiten (Weckzeit, Bewaesserungszone, Klingelbilder, Favoriten).
+BausteinHelfer unten fasst sie zusammen, App erbt es; gerufen wird ueber
+app. bzw. self. Gemeinsame Konstanten, Adapter und reine Helfer liegen in
+gemeinsam.py. Die Familien: licht, schalten,
 beschattung, klima, audio, intercom, werte, sicherheit, wecker, energie, garten,
 wellness, zentral. Ein neuer Typ bekommt seine Funktionen in der passenden
 Familie (oder einer neuen, die unten importiert wird), nicht in webvisu.py."""
@@ -82,5 +86,14 @@ def typen() -> dict[str, dict]:
 
 
 # Die Familien registrieren sich beim Import; Reihenfolge nur fuer die Lesbarkeit.
-from . import licht, schalten, beschattung, klima, audio, intercom, werte  # noqa: E402,F401
-from . import sicherheit, wecker, energie, garten, wellness, zentral  # noqa: E402,F401
+from . import licht, schalten, beschattung, klima, audio, intercom, werte  # noqa: E402
+from . import sicherheit, wecker, energie, garten, wellness, zentral  # noqa: E402,F401  # sicherheit traegt nur Tabellen
+from . import helfer  # noqa: E402
+
+
+class BausteinHelfer(helfer.Grundhelfer, licht.LichtHelfer, schalten.SchaltenHelfer,
+                     beschattung.BeschattungHelfer, klima.KlimaHelfer, audio.AudioHelfer,
+                     intercom.IntercomHelfer, werte.WerteHelfer, wecker.WeckerHelfer,
+                     energie.EnergieHelfer, garten.GartenHelfer, wellness.WellnessHelfer,
+                     zentral.ZentralHelfer):
+    """Alle Helfer der Bausteine in einer Klasse; App erbt sie (Mixin)."""

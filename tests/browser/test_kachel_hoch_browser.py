@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, ersetzen, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -40,7 +40,7 @@ def _layout(picks, hoch):
 
 def _lauf(ui, breite, hoehe, picks, layout, schritte=MESSEN, wachsen=None, monkeypatch=None, tiles=None):
     if wachsen is not None:
-        monkeypatch.setattr(W, "KACHEL_WACHSEN", wachsen)
+        ersetzen(monkeypatch, "KACHEL_WACHSEN", wachsen)
 
     async def lauf():
         app = W.App({"host": "", "port": 80})

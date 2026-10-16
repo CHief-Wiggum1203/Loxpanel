@@ -1181,9 +1181,11 @@ selbst aktuell.
           (Backup und Einspielen; die Routen bleiben). `App.push()` ersetzt
           `_push()` als Methode, die Hülle bleibt für die Routen. Tests
           ersetzen Server-Namen über `ersetzen()` in allen Server-Modulen.
-    - [ ] 4b: Statistik (`_stat_*`, `_parse_stat_*`, Verlaufsblöcke) und die
-          Helfer der Bausteine (`_state`, `_fmt_num`, `_alarm_*`, `_irc*`,
-          `_jal_*`, `_irr_*` …) aus `App` zu den Familien in `bausteine/`.
+    - [x] 4b: `statistik.py` (Parser, Laden mit Cache, Verlaufsblöcke,
+          Mini-Verläufe; Mixin `Statistik`) und die Helfer der Bausteine als
+          Mixins in `bausteine/` (`helfer.py` `Grundhelfer`, je Familie ein
+          `…Helfer` samt Unterseiten; `BausteinHelfer` fasst sie zusammen).
+          `App` erbt beide, Aufrufe bleiben. `ZERLEGT` in `tests/lox.py`.
     - [ ] 4c: Hausübersicht und Gesten (`_haus_*`, `_geste*`, `licht_gruppen`)
           als eigene Module.
     - [ ] 4d: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,

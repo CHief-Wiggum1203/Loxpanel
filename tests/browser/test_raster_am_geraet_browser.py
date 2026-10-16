@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, karte_auf, visu_starten
+from lox import anlage, ersetzen, karte_auf, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -62,7 +62,7 @@ def test_seiten_editor_rechnet_wie_die_visu(cfg_ordner, monkeypatch):
     Standardgeraet und in jedem Profil genau das Raster, das der Seiten-Editor
     fuer dieses Geraet zeichnet; im automatischen Raster auch die Kachelbreite.
     Die Masse der Visu sind die von raster.js."""
-    monkeypatch.setattr(W, "KACHEL_WACHSEN", 1)
+    ersetzen(monkeypatch, "KACHEL_WACHSEN", 1)
     app = _app(cfg_ordner, {pid: {"title": pid, "tabs": ["auswahl"], "pickTabs": [{"name": "Alle", "picks": list(KACHELN)}],
                                   "ui": ui} for pid, ui in PROFILE.items()})
 

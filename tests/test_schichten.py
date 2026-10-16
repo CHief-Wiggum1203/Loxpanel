@@ -7,10 +7,11 @@ Modul, das sie liest, unter demselben Namen (Fixture cfg_ordner)."""
 import ast
 from pathlib import Path
 
-from lox import SERVER_MODULE, W, konfig, sicherung
+from lox import SERVER_MODULE, ZERLEGT, W, konfig, sicherung
 
 ROOT = Path(__file__).resolve().parents[1]
-UNTEN = ["bin/konfig.py", "bin/sicherung.py", *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "bin/bausteine").glob("*.py"))]
+UNTEN = [*(f"bin/{n}.py" for n in ZERLEGT),
+         *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "bin/bausteine").glob("*.py"))]
 
 
 def _importe(datei: Path) -> set:
@@ -42,7 +43,18 @@ def test_untere_module_importieren_webvisu_nicht():
 
 
 def test_webvisu_nutzt_die_unteren_module():
-    assert {"konfig", "sicherung", "bausteine"} <= _importe(ROOT / "bin/webvisu.py")
+    assert {*ZERLEGT, "bausteine"} <= _importe(ROOT / "bin/webvisu.py")
+
+
+def test_jedes_herausgeloeste_modul_ist_ein_server_modul():
+    """ersetzen() und cfg_ordner wirken nur in SERVER_MODULE; ein Modul, das aus
+    webvisu herausgeloest wurde und dort fehlt, behielte gepatchte Werte."""
+    namen = {m.__name__ for m in SERVER_MODULE}
+    assert {"webvisu", *ZERLEGT} <= namen
+    assert {f"bausteine.{p.stem}" for p in (ROOT / "bin/bausteine").glob("*.py") if p.stem != "__init__"} <= namen
+    for datei in (ROOT / "bin").glob("*.py"):
+        if datei.stem not in ("webvisu", *ZERLEGT):
+            assert "from webvisu" not in datei.read_text(encoding="utf-8"), datei
 
 
 def test_sanitizer_der_app_sind_die_aus_konfig():
@@ -59,4 +71,3 @@ def test_pfade_heissen_ueberall_gleich():
         assert konfig in traeger, name
         assert all(getattr(m, name) == getattr(konfig, name) for m in traeger), name
     assert sicherung.CFG_FILE == konfig.CFG_FILE and W.PANELS_FILE == konfig.PANELS_FILE
-    assert len(SERVER_MODULE) == 3
