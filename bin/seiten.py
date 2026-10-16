@@ -653,6 +653,8 @@ class Seiten:
             return self._view_bells(route.get("id"))
         if v == "verlauf":
             return self._view_verlauf(route.get("id"))
+        if v == "ircset":
+            return self._view_irc_einstellungen(route.get("id"))
         if v == "tab" and self._haus_seite((route or {}).get("tab"), prof):
             # Hausuebersicht braucht die ganze Route (gewaehlte Zone, Unterseite)
             return self._view_haus(route, prof)

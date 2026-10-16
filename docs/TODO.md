@@ -1403,6 +1403,22 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`setSensor/<index>/<ziel>/<name>`), Timer stellen, starten und stoppen
       (`setTimerDuration`, `startTimer`, `stopTimer`), Alarm quittieren
       (`quitAlarm`), Gerätezustand (`deviceState`), Akku nur ohne Netzteil. **S**
+- [x] `Meter` (Zähler): seit 16.10.2026 nach der Strukturdoku (ab 13.01)
+      Zählerstand und je Zeitraum heute/Woche/Monat/Jahr (`totalDay` …
+      `totalYear`), bei `details.type` `bidirectional`/`storage` Bezug und
+      Lieferung (`totalNeg…`, `totalFormatNeg`), beim Speicher der Füllstand
+      (`storage`, in % von `storageMax`). `reset` (alle Werte auf 0) bewusst
+      nicht auf dem Panel. **S**
+- [x] `IRoomControllerV2` (Raumregelung): seit 16.10.2026 Unterseite
+      Einstellungen (`ircset`) mit Komfort Heizen/Kühlen, Toleranz (0,5–3,0),
+      Eco nach unten/oben, Beschattungstemperaturen (nur mit
+      `possibleCapabilities` Beschattung), mit einer einzigen
+      Komforttemperatur (`SingleComfortTemperature`) die Varianten dafür;
+      gesperrt, was `details.connectedInputs` der Logik zuweist. Dazu
+      Gebäudeschutz als Anzeige (V2 hat dafür keinen Befehl) und auf der
+      Detailseite Außentemperatur, Feuchte und CO₂. Offen: Heiz-/Kühlgrenze
+      (`setHeatingBoundary`/`setCoolingBoundary`), die Struktur liefert den
+      aktuellen Wert nicht. **M**
 - [x] `Jalousie` und `CentralJalousie`: seit 16.10.2026 nach der
       Strukturdoku Position per Schieberegler (`manualPosition/<0..100>`),
       beim Raffstore (`details.animation` 0) die Lamellen

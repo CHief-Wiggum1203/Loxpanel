@@ -13,6 +13,31 @@ from bausteine.gemeinsam import (
     IRC1_KUEHL_MODI, IRC1_MANUELL, IRC1_MANUELL_MODI, IRC1_NUR_HEIZEN, IRC1_NUR_KUEHLEN, IRC1_TEMPS,
     IRC1_TIMER_S, IRC2_BETRIEBSARTEN, IRC2_MANUELL)
 
+# Raumregelung V2 (Strukturdoku Intelligent Room Controller v2): die
+# einstellbaren Temperaturen mit State, Befehl und Bit in
+# details.connectedInputs (1 = niedrigstes Bit; gesetzt = von der Logik
+# vorgegeben); faehigkeit = noetiges Bit in possibleCapabilities (4 =
+# Beschattung moeglich). Die Toleranz liegt laut Doku zwischen 0,5 und 3,0.
+IRC2_SCHRITT = 0.5
+IRC2_EINSTELLUNGEN = (
+    {"state": "comfortTemperature", "befehl": "setComfortTemperature", "bit": 1,
+     "label": "Komfort Heizen", "einzeln": "Komforttemperatur"},
+    {"state": "comfortTemperatureCool", "befehl": "setComfortTemperatureCool", "bit": 2, "label": "Komfort Kühlen"},
+    {"state": "comfortTolerance", "befehl": "setComfortTolerance", "bit": 4, "label": "Komfort-Toleranz (±)",
+     "min": 0.5, "max": 3.0},
+    {"state": "absentMinOffset", "befehl": "setAbsentMinTemperature", "bit": 5, "label": "Eco nach unten",
+     "einzeln": "Eco-Abweichung (±)"},
+    {"state": "absentMaxOffset", "befehl": "setAbsentMaxTemperature", "bit": 6, "label": "Eco nach oben"},
+    {"state": "shadingHeatTemp", "befehl": "setshadingtemperatureheat", "bit": 8, "label": "Beschatten ab (Heizen)",
+     "faehigkeit": 4},
+    {"state": "shadingCoolTemp", "befehl": "setshadingtemperaturecool", "bit": 9, "label": "Beschatten ab (Kühlen)",
+     "faehigkeit": 4},
+)
+# Mit einer einzigen Komforttemperatur entfallen die getrennten Werte
+IRC2_NUR_GETRENNT = frozenset({"comfortTemperatureCool", "absentMaxOffset"})
+# actualOutdoorTemp -1000 = keine Aussentemperatur
+IRC2_KEINE_AUSSENTEMP = -1000
+
 
 @kachel("IRoomControllerV2", "IRoomController")
 def kachel_raumregelung(app, uuid, c, it):
@@ -121,6 +146,22 @@ def detail_raumregelung_v2(app, uuid, c, route):
         cells.append({"label": "Automatik",
                       "cmd": {"uuid": ua, "cmd": "stopOverride"}})
         blocks.append({"k": "row", "cells": cells})
+    # Raumklima, soweit die Anlage es liefert (Strukturdoku: -1000 = keine
+    # Aussentemperatur, co2 und humidityActual ab 15.1)
+    klima = []
+    aussen = app._endlich(c, "actualOutdoorTemp")
+    if aussen is not None and aussen > IRC2_KEINE_AUSSENTEMP:
+        klima.append(f"Außen {app._fmt_num(aussen, '%.1f')} °C")
+    feuchte = app._endlich(c, "humidityActual")
+    if feuchte is not None:
+        klima.append(f"Feuchte {app._fmt_num(feuchte, '%.0f')} %")
+    co2 = app._endlich(c, "co2")
+    if co2 is not None:
+        klima.append(f"CO₂ {app._fmt_num(co2, '%.0f')} ppm")
+    if klima:
+        blocks.insert(2, {"k": "status", "text": " · ".join(klima)})
+    if app._irc2_einstellungen(c):
+        blocks.append({"k": "row", "cells": [{"label": "Einstellungen", "nav": {"view": "ircset", "id": uuid}}]})
     return {"t": "view", "title": _clean(c.get("name")), "route": route,
             "anchor": "bottom", "blocks": blocks}
 
@@ -278,6 +319,61 @@ def detail_klimaregler(app, uuid, c, route):
 class KlimaHelfer:
     """Helfer der Familie Klima fuer Kachel, Detailseite und Unterseiten. Mixin: App erbt sie ueber
     bausteine.BausteinHelfer, gerufen wird ueber self bzw. app."""
+
+    def _irc2_einstellungen(self, c: dict) -> list[dict]:
+        """Einstellbare Temperaturen einer Raumregelung V2 (IRC2_EINSTELLUNGEN)
+        als stepper, nur die, deren State die Anlage liefert. Gibt die Logik
+        einen Wert vor (details.connectedInputs), steht er nur da. Mit einer
+        einzigen Komforttemperatur (SingleComfortTemperature, ab 15.1) gilt
+        comfortTemperature fuer Heizen und Kuehlen und absentMinOffset als
+        Abweichung in Eco (±), die Werte fuer Kuehlen entfallen."""
+        det = c.get("details") or {}
+        try:
+            gesperrt = int(det.get("connectedInputs") or 0)
+        except (TypeError, ValueError):
+            gesperrt = 0
+        einzeln = bool(det.get("SingleComfortTemperature"))
+        try:
+            kann = int(det.get("possibleCapabilities"))
+        except (TypeError, ValueError):
+            kann = None
+        ua = c.get("uuidAction")
+        out = []
+        for e in IRC2_EINSTELLUNGEN:
+            if einzeln and e["state"] in IRC2_NUR_GETRENNT:
+                continue
+            if e.get("faehigkeit") and kann is not None and not kann & e["faehigkeit"]:
+                continue
+            wert = self._endlich(c, e["state"])
+            if wert is None:
+                continue
+            label = e["einzeln"] if einzeln and e.get("einzeln") else e["label"]
+            b = {"k": "stepper", "label": label, "value": wert, "unit": "°C"}
+            if gesperrt & (1 << (e["bit"] - 1)):
+                b["sub"] = "von der Logik vorgegeben"
+            else:
+                b.update(step=IRC2_SCHRITT, cmd={"uuid": ua, "tmpl": e["befehl"] + "/{v}"},
+                         **{k: e[k] for k in ("min", "max") if k in e})
+            out.append(b)
+        return out
+
+    def _view_irc_einstellungen(self, uuid: str) -> dict:
+        """Unterseite Einstellungen einer Raumregelung V2 (Route view=ircset):
+        die Temperaturen aus _irc2_einstellungen, dazu der Gebaeudeschutz
+        (laut Strukturdoku V2 ohne Befehl, nur Anzeige)."""
+        c = self.controls.get(uuid or "") or {}
+        route = {"view": "ircset", "id": uuid}
+        titel = f"{_clean(c.get('name'))} · Einstellungen"
+        if c.get("type") != "IRoomControllerV2":
+            return self._gone_view(route, titel, "Diesen Baustein gibt es nicht mehr.")
+        blocks = [{"k": "title", "text": _clean(c.get("name")), "sub": "Einstellungen"},
+                  *self._irc2_einstellungen(c)]
+        frost, hitze = self._endlich(c, "frostProtectTemperature"), self._endlich(c, "heatProtectTemperature")
+        if frost is not None or hitze is not None:
+            teile = [f"{t} {self._fmt_num(v, '%.1f')} °C" for t, v in (("Frost", frost), ("Hitze", hitze))
+                     if v is not None]
+            blocks.append({"k": "status", "text": "Gebäudeschutz: " + " · ".join(teile)})
+        return {"t": "view", "title": titel, "route": route, "blocks": blocks}
 
     def _irc_modes(self, c: dict) -> dict:
         """IRoomControllerV2: Temperatur-/Timer-Modi aus details.timerModes ->

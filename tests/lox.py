@@ -1060,6 +1060,33 @@ def jalousie_baustein(automatik=True, animation=0, **werte) -> tuple[dict, dict]
     return control, {states[n]: w[n] for n in namen}
 
 
+ZAEHLER_ZEITRAUM_STATES = ("totalDay", "totalWeek", "totalMonth", "totalYear")
+
+
+def zaehler_baustein(art="bidirectional", **werte) -> tuple[dict, dict]:
+    """Stromzaehler (Meter, ab 13.01) in beide Richtungen: actual in kW,
+    total/totalNeg in kWh und je Zeitraum (Strukturdoku: totalDay ...
+    totalYear, totalNegDay ...); art "unidirectional" ohne Gegenrichtung,
+    "storage" mit Fuellstand (storage, storageMax 10 kWh)."""
+    namen = ["actual", "total", *ZAEHLER_ZEITRAUM_STATES]
+    if art != "unidirectional":
+        namen += ["totalNeg", *(n.replace("total", "totalNeg") for n in ZAEHLER_ZEITRAUM_STATES)]
+    if art == "storage":
+        namen.append("storage")
+    states = {n: f"zm-{n}" for n in namen}
+    det = {"actualFormat": "%.2f kW", "totalFormat": "%.1f kWh", "type": art}
+    if art != "unidirectional":
+        det["totalFormatNeg"] = "%.1f kWh"
+    if art == "storage":
+        det.update(storageFormat="%.1f kWh", storageMax=10)
+    control = {"name": "Netz", "type": "Meter", "uuidAction": "ZM", "room": "r1", "cat": "c1",
+               "details": det, "states": states}
+    w = {"actual": 1.25, "total": 12345.6, "totalDay": 8.4, "totalWeek": 52.1, "totalMonth": 210.0,
+         "totalYear": 2480.5, "totalNeg": 4321.0, "totalNegDay": 3.2, "totalNegWeek": 20.0,
+         "totalNegMonth": 90.5, "totalNegYear": 1100.0, "storage": 7.5, **werte}
+    return control, {states[n]: w[n] for n in namen}
+
+
 def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
     """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
     (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen
