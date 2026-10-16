@@ -7,6 +7,7 @@ Energie fuer den Kopf. Anlage: lox.haus_anlage()."""
 import asyncio
 import json
 import math
+from urllib.parse import quote
 
 import pytest
 from aiohttp.test_utils import make_mocked_request
@@ -33,7 +34,7 @@ def _raum(v, name):
 
 
 def test_haus_ist_ein_tab():
-    assert W._is_tab("haus")
+    assert konfig._is_tab("haus")
     panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["haus", "favoriten"]}})
     assert panels["p"]["tabs"] == ["haus", "favoriten"]
     app = _app()
@@ -170,7 +171,7 @@ def test_aufbau_je_ansicht():
                                 "c": {"title": "C", "ui": {"hausAufbau": "status"}},
                                 "d": {"title": "D", "ui": {"hausAufbau": "quer"}}})
     assert [(p[k].get("ui") or {}).get("hausAufbau") for k in "abcd"] == ["raeume", "spalte", None, None]
-    assert konfig.PANEL_STANDARD[("ui", "hausAufbau")] == W.HAUS_AUFBAU_STANDARD == "status"
+    assert konfig.PANEL_STANDARD[("ui", "hausAufbau")] == konfig.HAUS_AUFBAU_STANDARD == "status"
     app = _app()
     app.panels = p
     assert app._panel_export(p["a"])["ui"]["hausAufbau"] == "raeume"
@@ -271,7 +272,7 @@ def test_hinweise_in_jedem_aufbau_und_als_unterseite():
     """Jeder Aufbau hat die Hinweise; die Route liste="hinweise" ist ihre
     Unterseite, eine unbekannte Liste keine. Was die Ansicht ausblendet,
     meldet auch keinen Hinweis."""
-    for aufbau in W.HAUS_AUFBAUTEN:
+    for aufbau in konfig.HAUS_AUFBAUTEN:
         _app_, v = _aufbau(aufbau, ic=1)
         assert [h["id"] for h in v["hinweise"]] == ["IC"], aufbau
     app = _app(ic=1)
@@ -347,7 +348,7 @@ def test_sender_vom_audioserver():
     sender = _haus(app)["spieler"]["sender"]
     assert [(s["name"], s["cmd"]["cmd"], s.get("laeuft", False)) for s in sender] == [
         ("Radio 7091", "roomfav/play/4", True), ("FM4", "roomfav/play/5", False)]
-    assert sender[0]["cover"] == "/cover?u=" + W.quote("http://bild/1.png", safe="") and sender[1]["cover"] == ""
+    assert sender[0]["cover"] == "/cover?u=" + quote("http://bild/1.png", safe="") and sender[1]["cover"] == ""
 
 
 def test_sender_anfordern():

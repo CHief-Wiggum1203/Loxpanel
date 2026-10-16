@@ -47,7 +47,7 @@ def _schreiben(ordner, cfg=CFG, panels=PANELS, theme=THEME):
 def _sicherung_von(ordner, **dateien) -> bytes:
     """Sicherung eines anderen Servers: dessen Dateien schreiben, /api/backup-ZIP bauen."""
     _schreiben(ordner, **dateien)
-    return W._backup_zip(ordner)
+    return sicherung._backup_zip(ordner)
 
 
 def _lesen(ordner, name):
@@ -74,7 +74,7 @@ def _ohne_verbindung(app, fehler=None):
 
 
 async def _einspielen(app, daten):
-    return await W._sicherung_schreiben(app, W._sicherung_pruefen(app, *W._sicherung_lesen(daten)))
+    return await sicherung._sicherung_schreiben(app, sicherung._sicherung_pruefen(app, *sicherung._sicherung_lesen(daten)))
 
 
 def _zip(dateien: dict, verfahren=zipfile.ZIP_DEFLATED) -> bytes:
@@ -93,8 +93,8 @@ def _mit_version(daten: bytes, version: int) -> bytes:
 
 def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
     _schreiben(cfg_ordner)
-    sicherung = W._backup_zip(cfg_ordner)
-    with zipfile.ZipFile(io.BytesIO(sicherung)) as z:
+    zip_daten = sicherung._backup_zip(cfg_ordner)
+    with zipfile.ZipFile(io.BytesIO(zip_daten)) as z:
         assert "GEHEIM" not in "".join(z.read(n).decode("utf-8") for n in z.namelist())
     # danach aendert sich hier einiges, das die Sicherung zurueckholt - bei
     # gleichen Zielen, damit die Kennwoerter bleiben duerfen
@@ -111,7 +111,7 @@ def test_rundlauf_behaelt_kennwoerter_und_frischt_auf(cfg_ordner):
         aufrufe = _ohne_verbindung(app)
         vorher = (dict(app.presence_map), app.audiometa_cfg, set(app.intercom_cfg),
                   app.calendar_cfg["sources"][0]["name"])
-        j = await _einspielen(app, sicherung)
+        j = await _einspielen(app, zip_daten)
         await app._broadcast_tick()      # koppelt die eingespielten Praesenzmelder (_presence_quelle)
         return app, j, aufrufe, vorher
     app, j, aufrufe, vorher = asyncio.run(lauf())
@@ -153,7 +153,7 @@ def test_anderes_ziel_bekommt_kein_kennwort(cfg_ordner, tmp_path):
     _schreiben(cfg_ordner)
     fremd_panels = copy.deepcopy(PANELS)
     fremd_panels["devices"]["Küche"]["display"]["host"] = "10.0.0.99"
-    sicherung = _sicherung_von(
+    zip_daten = _sicherung_von(
         tmp_path / "anderer-server",
         cfg={**CFG, "miniserver": {**MS, "host": "10.9.9.9"},
              "intercom": {"IC": {"url": "http://andere-kamera/mjpeg", "user": "admin", "pass": "X"}}},
@@ -162,7 +162,7 @@ def test_anderes_ziel_bekommt_kein_kennwort(cfg_ordner, tmp_path):
     async def lauf():
         app = _app()
         aufrufe = _ohne_verbindung(app)
-        return await _einspielen(app, sicherung), aufrufe
+        return await _einspielen(app, zip_daten), aufrufe
     j, aufrufe = asyncio.run(lauf())
 
     assert j["ok"] and j["kennwoerter"]["behalten"] == []
@@ -173,7 +173,7 @@ def test_anderes_ziel_bekommt_kein_kennwort(cfg_ordner, tmp_path):
     assert cfg["miniserver"] == MS, "ein funktionierender Zugang bleibt; ohne Kennwort waere er nach dem Neustart tot"
     assert cfg["intercom"]["IC"]["pass"] == ""
     assert _lesen(cfg_ordner, "panels.json")["devices"]["Küche"]["display"]["password"] == ""
-    alles = "".join((cfg_ordner / n).read_text(encoding="utf-8") for n in W.BACKUP_FILES)
+    alles = "".join((cfg_ordner / n).read_text(encoding="utf-8") for n in sicherung.BACKUP_FILES)
     assert "GEHEIM-CAM" not in alles and "GEHEIM-FULLY" not in alles, "kein Kennwort geht an ein anderes Ziel"
 
 
@@ -359,7 +359,7 @@ def test_viele_profile_und_geraete_bleiben_schnell(cfg_ordner):
                                   "devices": {f"d{i}": {} for i in range(20_000)}}})
     beginn = time.perf_counter()
     try:
-        W._sicherung_pruefen(_app(), *W._sicherung_lesen(daten))
+        sicherung._sicherung_pruefen(_app(), *sicherung._sicherung_lesen(daten))
     except ValueError:
         pass                                   # ob angenommen, ist hier egal
     dauer = time.perf_counter() - beginn
@@ -373,7 +373,7 @@ def test_einspielen_haelt_die_visu_nicht_an(cfg_ordner, monkeypatch):
     den GIL haelt wie die echte Pruefung - so haengt der Test nicht am Tempo
     des Rechners."""
     daten = _zip({"panels.json": PANELS})
-    echt = W._sicherung_pruefen
+    echt = sicherung._sicherung_pruefen
 
     def langsam(*args):
         ende = time.perf_counter() + 1.0
@@ -415,7 +415,7 @@ def test_zwei_einspielen_laufen_nacheinander(cfg_ordner, tmp_path, monkeypatch):
     _schreiben(cfg_ordner)
     daten = _sicherung_von(tmp_path / "quelle")
     ablauf = []
-    pruefen, schreiben = W._sicherung_pruefen, W._sicherung_schreiben
+    pruefen, schreiben = sicherung._sicherung_pruefen, sicherung._sicherung_schreiben
 
     def gepruefter(*args):
         ablauf.append("pruefen")
@@ -506,7 +506,7 @@ def test_kaputte_sicherung_wird_abgelehnt_und_schreibt_nichts(cfg_ordner, daten,
 def test_zu_grosse_datei_in_der_zip(cfg_ordner):
     daten = _zip({"loxpanel.cfg": " " * (sicherung.RESTORE_MAX_DATEI + 1)})
     with pytest.raises(ValueError, match="zu groß"):
-        W._sicherung_lesen(daten)
+        sicherung._sicherung_lesen(daten)
 
 
 def test_neu_gepackte_zip_mit_ordner_und_mac_resten(cfg_ordner, tmp_path):
@@ -543,7 +543,7 @@ def test_aeltere_sicherung_ohne_vermerk_behaelt_kennwoerter(cfg_ordner, monkeypa
     panels["devices"]["Flur"] = {"display": {"driver": "wallpanel", "host": "10.0.0.8", "port": 2971,
                                              "password": ""}}
     _schreiben(cfg_ordner, cfg={**CFG, "mqtt": {"host": "127.0.0.1", "pass": ""}}, panels=panels)
-    with zipfile.ZipFile(io.BytesIO(W._backup_zip(cfg_ordner))) as z:
+    with zipfile.ZipFile(io.BytesIO(sicherung._backup_zip(cfg_ordner))) as z:
         weg = (sicherung.BACKUP_VERMERK,) + (() if liesmich else (sicherung.BACKUP_LIESMICH,))
         alt = _zip({**{n: z.read(n) for n in z.namelist() if n not in weg},
                     **({sicherung.BACKUP_VERMERK: vermerk} if vermerk else {})})

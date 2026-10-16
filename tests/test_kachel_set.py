@@ -108,7 +108,7 @@ def test_set_schlaegt_die_grundfarbe_und_den_klassischen_aufbau(name):
     prof = _app({"tileSet": name, "baseColor": "#3a6ea5", "tileLayout": "classic"}).resolve_profile("p")
     assert prof["vars"]["--screen"] == TC.kachel_set(name)["--screen"]
     assert prof["tileLayout"] == "", "das Set bringt seinen eigenen Aufbau mit"
-    std = {**W.GROESSEN_STANDARD["neu"], **(TC.KACHEL_SETS[name].get("groessen") or {})}
+    std = {**konfig.GROESSEN_STANDARD["neu"], **(TC.KACHEL_SETS[name].get("groessen") or {})}
     assert prof["vars"]["--name-size"] == f"{std['nameSize']}px", "Groessen des neuen Aufbaus (und des Sets)"
 
 
@@ -147,7 +147,14 @@ def test_auswahl_fuer_den_konfigurator():
 
 
 def test_meta_nennt_die_sets():
-    assert W.theme_colors.kachel_set_liste() == TC.kachel_set_liste()
+    """/api/meta bringt dem Konfigurator die Kachel-Sets mit, wie theme_colors
+    sie fuehrt (kachelSets); er rechnet sie nicht selbst nach."""
+    import asyncio
+    import json
+
+    from aiohttp.test_utils import make_mocked_request
+    m = json.loads(asyncio.run(W.api_meta(make_mocked_request("GET", "/api/meta", app={"app": _app({})}))).body)
+    assert m["kachelSets"] == TC.kachel_set_liste()
 
 
 @pytest.mark.parametrize("name", SETS)
@@ -169,7 +176,7 @@ def test_groessen_des_sets(name):
     """Standardgroessen des Sets gelten ohne eigene Einstellung, eine
     eingestellte geht vor."""
     gr = TC.KACHEL_SETS[name].get("groessen") or {}
-    std = {**W.GROESSEN_STANDARD["neu"], **gr}
+    std = {**konfig.GROESSEN_STANDARD["neu"], **gr}
     vars_ = _app({"tileSet": name}).resolve_profile("p")["vars"]
     assert vars_["--ico-size"] == f"{std['iconSize']}px" and vars_["--name-size"] == f"{std['nameSize']}px"
     assert _app({"tileSet": name, "iconSize": 30}).resolve_profile("p")["vars"]["--ico-size"] == "30px"

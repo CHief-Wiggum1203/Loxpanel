@@ -19,7 +19,7 @@ import shutil
 import aiohttp
 import pytest
 
-from lox import anlage, ersetzen, karte_auf, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
+from lox import anlage, ersetzen, karte_auf, konfig, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -110,7 +110,7 @@ def test_raster_aus_der_bildschirmgroesse(tmp_path, geraet):
     breite, hoehe = GERAETE[geraet]
     m = _laufen({"grid": "auto"}, breite, hoehe, tmp_path=tmp_path, bild=f"auto_{geraet}")
     cols, rows = m["raster"]
-    ziel = W.KACHEL_ZIEL["medium"]
+    ziel = konfig.KACHEL_ZIEL["medium"]
     # Der Kasten ist der ganze Schirm, nichts ragt seitlich heraus
     assert m["screen"] == [breite, hoehe] and not m["quer"] and "auto" in m["klassen"], m
     # Kacheln etwa in der Zielgroesse und etwa quadratisch: mehr Flaeche, mehr Kacheln
@@ -153,14 +153,14 @@ def test_widget_belegt_ganze_kachelspalten(tmp_path, monkeypatch, geraet):
 
 
 def test_zielkachel_als_zahl_und_alte_stufe():
-    ziele = (W.KACHEL_ZIEL["small"], W.KACHEL_ZIEL_STANDARD, W.KACHEL_ZIEL["large"])
+    ziele = (konfig.KACHEL_ZIEL["small"], konfig.KACHEL_ZIEL_STANDARD, konfig.KACHEL_ZIEL["large"])
     m = {z: _laufen({"grid": "auto", "tileSize": z}, 893, 533) for z in ziele}
     spalten = [m[z]["raster"][0] for z in ziele]
     breiten = [m[z]["kachel"][0] for z in ziele]
     assert spalten[0] > spalten[1] > spalten[2] and breiten[0] < breiten[1] < breiten[2], m
     # eine bestehende Datei nennt noch die Stufe: dieselbe Zahl, dasselbe Raster
     alt = _laufen({"grid": "auto", "tileSize": "large"}, 893, 533)
-    assert alt["raster"] == m[W.KACHEL_ZIEL["large"]]["raster"] and alt["kachel"] == m[W.KACHEL_ZIEL["large"]]["kachel"]
+    assert alt["raster"] == m[konfig.KACHEL_ZIEL["large"]]["raster"] and alt["kachel"] == m[konfig.KACHEL_ZIEL["large"]]["kachel"]
 
 
 @pytest.mark.parametrize("anzahl, widget", [(5, False), (5, True), (ANZAHL, False)], ids=["fuenf", "fuenf-widget", "vierzig"])
@@ -175,7 +175,7 @@ def test_wenige_kacheln_wachsen_bis_zur_grenze(tmp_path, anzahl, widget):
     Spalten liesse sich sein Anteil von rund 40 % nicht halten."""
     ui = {"grid": "auto", **({"panes": {"favoriten": "weather"}} if widget else {})}
     m = _laufen(ui, 1280, 800, anzahl=anzahl, tmp_path=tmp_path, bild=f"auto_wachsen_{anzahl}{'_widget' if widget else ''}")
-    ziel, wachsen = W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN
+    ziel, wachsen = konfig.KACHEL_ZIEL_STANDARD, konfig.KACHEL_WACHSEN
     cols, rows = m["raster"]
     assert m["sichtbar"] == min(anzahl, cols * rows) and "auto" in m["klassen"], m
     if anzahl < cols * rows and not widget:
@@ -210,7 +210,7 @@ def test_zielkachel_je_geraet_wirkt_sofort(cfg_ordner):
         await speichern({"wand": {"tileTarget": 300}})
         stand["geraet"] = await bis(300)
         await speichern({"wand": {"scale": "off"}})   # Zielkachel wieder weg, Geraet bleibt
-        stand["zurueck"] = await bis(W.KACHEL_ZIEL_STANDARD)
+        stand["zurueck"] = await bis(konfig.KACHEL_ZIEL_STANDARD)
         return stand
     stand = _laufen({"grid": "auto"}, 1280, 800, schritte, routen=[("POST", "/api/devices", W.api_save_devices)],
                     geraet="wand")
@@ -337,10 +337,10 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
                 await pg.locator(".rub", has_text="Geräte").click()
                 stand["geraet"] = await pg.locator('#geraete .gk[data-gk="tab"] .agscr').text_content()
                 await karte_auf(pg, "tab")
-                await pg.locator('#geraete .gk[data-gk="tab"] .dt_ziel').fill(str(W.KACHEL_ZIEL["large"]))
+                await pg.locator('#geraete .gk[data-gk="tab"] .dt_ziel').fill(str(konfig.KACHEL_ZIEL["large"]))
                 async with pg.expect_response(lambda r: r.url.endswith("/api/devices") and r.request.method == "POST"):
                     await pg.locator("#saveBtn").click()
-                await tablet.wait_for_function(f"gridAuto === {W.KACHEL_ZIEL['large']}")
+                await tablet.wait_for_function(f"gridAuto === {konfig.KACHEL_ZIEL['large']}")
                 stand["tablet_ziel"] = await tablet.evaluate("[gridAuto, gridCols, gridRows]")
                 stand["geraet_datei"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["devices"]["tab"]
                 await pg.locator(".rub", has_text="Ansichten").click()
@@ -363,11 +363,11 @@ def test_automatisch_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["anfang"] == ("3x3", aus), stand
     assert stand["auto"] == an and stand["ohne_felder"] == 0, "Widget-Breite statt Bildschirm fuellen; Zielkachel und Skalierung am Geraet"
     assert stand["gespeichert"] == {"grid": "auto"}, "cols/rows gelten nicht mehr"
-    assert stand["tablet"] == W.KACHEL_ZIEL_STANDARD, stand
+    assert stand["tablet"] == konfig.KACHEL_ZIEL_STANDARD, stand
     assert stand["nach_neuladen"] == ("auto", an), stand
     assert stand["geraet"].startswith("893×533 quer"), stand
-    assert stand["tablet_ziel"] == [W.KACHEL_ZIEL["large"], 4, 2], stand
-    assert stand["geraet_datei"]["tileTarget"] == W.KACHEL_ZIEL["large"], stand
+    assert stand["tablet_ziel"] == [konfig.KACHEL_ZIEL["large"], 4, 2], stand
+    assert stand["geraet_datei"]["tileTarget"] == konfig.KACHEL_ZIEL["large"], stand
     assert stand["fest"] == aus and stand["zurueck"] == {"cols": 3, "rows": 3}, stand
 
 
@@ -402,7 +402,7 @@ def test_feste_widget_breite_waechst_mit(tmp_path):
     ui = {"grid": "auto", "panes": {"favoriten": "weather"}}
     anteil = _laufen(ui, 1280, 800, anzahl=5)
     fest = _laufen({**ui, "paneCols": 2}, 1280, 800, anzahl=5, tmp_path=tmp_path, bild="auto_widget_fest_wachsen")
-    ziel, wachsen = W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN
+    ziel, wachsen = konfig.KACHEL_ZIEL_STANDARD, konfig.KACHEL_WACHSEN
     assert 0.8 * ziel <= anteil["kachel"][0] <= 1.25 * ziel, anteil
     assert 1.1 * ziel < fest["kachel"][0] <= wachsen * ziel + 1, fest
     cols, rows = fest["raster"]
@@ -477,8 +477,8 @@ def test_widget_breite_im_konfigurator(cfg_ordner, tmp_path):
         return stand
     stand = asyncio.run(lauf())
 
-    assert stand["sichtbar"] and stand["grenze"] == str(W.PANE_SPALTEN_MAX), stand
-    assert stand["anfang"].startswith("Automatisch") and f"{round(W.PANE_ANTEIL * 100)} %" in stand["anfang"], stand
+    assert stand["sichtbar"] and stand["grenze"] == str(konfig.PANE_SPALTEN_MAX), stand
+    assert stand["anfang"].startswith("Automatisch") and f"{round(konfig.PANE_ANTEIL * 100)} %" in stand["anfang"], stand
     assert stand["text2"] == "2 Kachelspalten", stand
     assert stand["gespeichert"] == {"grid": "auto", "paneCols": 2}, stand
     assert stand["nach_neuladen"] == ("2", "2 Kachelspalten"), stand
@@ -524,9 +524,9 @@ def test_schrumpfen_spart_eine_seite(geraet, anzahl, ui, spart):
     b, h = GERAETE[geraet]
     m = _laufen({"grid": "auto", **ui}, b, h, SCHRUMPFEN, anzahl=anzahl)
     mit, ohne = m["mit"], m["ohne"]
-    assert (m["ziel"], m["wachsen"]) == (W.KACHEL_ZIEL_STANDARD, W.KACHEL_WACHSEN), m
+    assert (m["ziel"], m["wachsen"]) == (konfig.KACHEL_ZIEL_STANDARD, konfig.KACHEL_WACHSEN), m
     assert m["wieder"] == mit, ("zurueck auf gridGrow: dasselbe Raster wie vorher", m)
-    assert mit["kachel"] >= W.KACHEL_ZIEL_STANDARD / W.KACHEL_WACHSEN - 1, ("nie unter Zielgroesse / Wachsen", m)
+    assert mit["kachel"] >= konfig.KACHEL_ZIEL_STANDARD / konfig.KACHEL_WACHSEN - 1, ("nie unter Zielgroesse / Wachsen", m)
     assert sum(mit["seiten"]) == sum(ohne["seiten"]) == anzahl, m
     zu_leer = len(ohne["seiten"]) > 1 and 3 * (ohne["zellen"] - ohne["seiten"][-1]) > ohne["zellen"]
     if spart:

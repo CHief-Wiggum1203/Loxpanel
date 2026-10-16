@@ -17,7 +17,7 @@ from urllib.parse import quote, quote_plus
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import W, anlage
+from lox import anlage, diagnosedaten, W
 
 import diagnose
 
@@ -107,7 +107,7 @@ def test_paket_eines_geraets(cfg_ordner):
     status, kopf, dateien = _holen(cfg_ordner, "/api/diagnose?device=K%C3%BCche")
     assert kopf["Content-Disposition"].startswith('attachment; filename="loxpanel-diagnose-K_che-')
     d = json.loads(dateien["diagnose.json"])
-    assert d["version"] == json.loads(json.dumps(W.VERSION))
+    assert d["version"] == json.loads(json.dumps(diagnosedaten.VERSION))
     assert d["geraet"]["name"] == "Küche" and d["geraet"]["eingerichtet"] and not d["geraet"]["online"]
     assert d["geraet"]["einstellungen"]["display"]["password"] == diagnose.ENTFERNT
     assert "geraete" not in d

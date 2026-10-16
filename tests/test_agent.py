@@ -724,7 +724,7 @@ def test_wechsel_ueber_den_agenten_nur_wenn_er_online_ist(cfg_ordner):
     die Visu; der Agent bekommt nichts (kein Warten auf ein totes Panel)."""
     async def lauf(w: Wand):
         await w.post("/api/agent/announce", _meldung("10.0.0.11"))
-        w.app.agents["10.0.0.11"]["ts"] -= W.AGENT_ONLINE + 1
+        w.app.agents["10.0.0.11"]["ts"] -= geraete.AGENT_ONLINE + 1
         ws, _ = await w.verbinden("?panel=day&device=linaro")
         j = await w.post("/api/device/switch", {"device": "linaro", "ip": "10.0.0.11", "panel": "night"})
         assert j == {"ok": True, "sent": 1, "via": "ws", "agent": ""}
@@ -741,7 +741,7 @@ def test_online_schwelle_folgt_dem_meldetakt():
     schlaf = [n.args[0].value for n in ast.walk(schleife) if isinstance(n, ast.Call)
               and getattr(n.func, "attr", "") == "sleep"]
     assert schlaf == [geraete.AGENT_MELDETAKT]
-    assert W.AGENT_ONLINE == 4 * geraete.AGENT_MELDETAKT
+    assert geraete.AGENT_ONLINE == 4 * geraete.AGENT_MELDETAKT
 
 
 def test_ausdrueckliche_wahl_hebt_den_betriebsmodus_auf(cfg_ordner):
@@ -808,7 +808,7 @@ def test_betriebsmodus_beim_verbinden_erreicht_den_agenten(panel, cfg_ordner, vo
         await w.lp.run_in_executor(None, w.panel.starten, w.m, "night")
         if vorher == "offline":
             await w.melden()
-            w.app.agents["127.0.0.1"]["ts"] -= W.AGENT_ONLINE + 1
+            w.app.agents["127.0.0.1"]["ts"] -= geraete.AGENT_ONLINE + 1
         async with w.s.get(w.basis + "/api/mode/tag") as r:
             assert (await r.json())["switched"] == [
                 {"panel": "wand", "profile": "day", "ok": False, "error": "Gerät nicht online"}]

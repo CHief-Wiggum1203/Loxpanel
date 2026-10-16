@@ -6,7 +6,7 @@ Einstellung steht einmal in NACHT_STANDARD und geht ueber /api/meta an den
 Konfigurator. Die Bedienung im Browser prueft tests/browser/test_vorgaben_browser.py."""
 import pytest
 
-from lox import W
+from lox import konfig, W
 
 
 @pytest.mark.parametrize("ui, erwartet", [
@@ -24,7 +24,7 @@ def test_vorgabe_gilt_wo_die_ansicht_nichts_setzt(cfg_ordner):
     app.panels = W.App._sanitize_panels({"flur": {"title": "Flur", "tabs": ["favoriten"]},
                                          "kueche": {"title": "Küche", "tabs": ["favoriten"],
                                                     "ui": {"nightDim": 10}}})
-    std = W.NACHT_STANDARD
+    std = konfig.NACHT_STANDARD
 
     def nacht(pid):   # Abdunkeln und Aufhellen; die Nacht-Uhr prueft test_gesten.py
         return {k: app.panel_night(pid)[k] for k in ("dim", "wake")}
@@ -35,7 +35,7 @@ def test_vorgabe_gilt_wo_die_ansicht_nichts_setzt(cfg_ordner):
     assert nacht("kueche") == {"dim": 10, "wake": 5}
     app._write_theme(W.App._sanitize_theme_ui({}))     # Feld geleert: wieder der Standard
     assert nacht("flur") == {"dim": std["nightDim"], "wake": std["nightWake"]}
-    assert set(W.NACHT_STANDARD) <= set(W.THEME_UI_KEYS), "sonst schreibt _write_theme sie nicht"
+    assert set(konfig.NACHT_STANDARD) <= set(konfig.THEME_UI_KEYS), "sonst schreibt _write_theme sie nicht"
 
 
 @pytest.mark.parametrize("ui, erwartet", [

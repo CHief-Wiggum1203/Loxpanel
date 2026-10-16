@@ -9,7 +9,7 @@ import asyncio
 import aiohttp
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, geraete, visu_starten, W
 
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "LA", "room": "r1", "cat": "c1",
                    "isFavorite": True, "states": {"active": "sl"}}}
@@ -50,14 +50,14 @@ async def _theme(s, basis):
 def test_theme_nachricht(ui, stunden):
     m = asyncio.run(_mit_server(ui, _theme))
     assert m["reloadHours"] == stunden
-    assert m["reloadAt"] == W.NEULADEN_STUNDE
+    assert m["reloadAt"] == geraete.NEULADEN_STUNDE
 
 
 def test_konfigurator_bekommt_die_stunde():
     async def meta(s, basis):
         async with s.get(f"{basis}/api/meta") as r:
             return await r.json()
-    assert asyncio.run(_mit_server({}, meta))["reloadAt"] == W.NEULADEN_STUNDE
+    assert asyncio.run(_mit_server({}, meta))["reloadAt"] == geraete.NEULADEN_STUNDE
 
 
 @pytest.mark.parametrize("ui, stunden", [({}, None), ({"reloadHours": 0}, 0), ({"reloadHours": 6}, 6)],
@@ -72,4 +72,4 @@ def test_agent_behaelt_seinen_wert(ui, stunden):
 
 
 def test_stunde_ist_eine_uhrzeit():
-    assert isinstance(W.NEULADEN_STUNDE, int) and 0 <= W.NEULADEN_STUNDE <= 23
+    assert isinstance(geraete.NEULADEN_STUNDE, int) and 0 <= geraete.NEULADEN_STUNDE <= 23

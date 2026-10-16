@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import front_info
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, konfig, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -30,12 +30,12 @@ AUTO = {"grid": "auto"}
 AUTO_GROSS = {"grid": "auto", "tileSize": "large"}  # hochkant bleibt dem Widget wenig Hoehe
 WERTE = {f"V{i}": {"name": f"Vorlauftemperatur Kreis {i}", "type": "InfoOnlyAnalog", "uuidAction": f"VA{i}",
                    "room": "r1", "cat": "c1", "details": {"format": "%.1f°"}, "states": {"value": f"v{i}"}}
-         for i in range(W.SV_STATUS_MAX)}
+         for i in range(konfig.SV_STATUS_MAX)}
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "LA", "room": "r1", "cat": "c1",
                    "isFavorite": True, "states": {"active": "sl"}},
              "T": {"name": "Außentemperatur", "type": "InfoOnlyAnalog", "uuidAction": "TA", "room": "r1",
                    "cat": "c1", "details": {"format": "%.1f°"}, "states": {"value": "tv"}}, **WERTE}
-ZUSTAND = {"sl": 0, "tv": 17.3, **{f"v{i}": 30 + i for i in range(W.SV_STATUS_MAX)}}
+ZUSTAND = {"sl": 0, "tv": 17.3, **{f"v{i}": 30 + i for i in range(konfig.SV_STATUS_MAX)}}
 
 # Was eine Pruefung ueber die Seite wissen muss, in einem Zug gemessen
 MESSEN = """() => {
@@ -354,7 +354,7 @@ def test_viele_werte(monkeypatch):
     async def schritt(pg):
         m = await pg.evaluate(MESSEN)
         z = m["zeilen"]
-        assert len(z) == W.SV_STATUS_MAX
+        assert len(z) == konfig.SV_STATUS_MAX
         assert min(x["h"] for x in z) >= 40 and min(x["wert"] for x in z) >= 15, z
         assert m["paneScrollt"]
     _ansehen(monkeypatch, HOCH, schritt, _pane("status:" + ",".join(WERTE), AUTO))

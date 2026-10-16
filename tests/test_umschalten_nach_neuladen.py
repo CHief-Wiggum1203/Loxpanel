@@ -5,7 +5,7 @@ als erreicht zaehlen, sonst meldete /api/device/switch "ok", und das Geraet
 kaeme mit dem alten Panel zurueck. Erreicht wird erst die neue Verbindung."""
 import asyncio
 
-from lox import W
+from lox import routen, W
 
 
 class Ws:
@@ -32,11 +32,11 @@ def test_umschalten_erreicht_erst_die_neue_verbindung():
     async def lauf():
         alt = _verbinden(app, "tablet", "alt")
         anderes = _verbinden(app, "wand", "alt")
-        assert await W._push(app, {"t": "reload"}) == 2
+        assert await routen.gemeinsam._push(app, {"t": "reload"}) == 2
         # die alte Verbindung laedt neu: nichts mehr an sie, auch kein Umschalten
-        assert await W._push(app, {"t": "switch", "panel": "flur"}, "", "tablet") == 0
+        assert await routen.gemeinsam._push(app, {"t": "switch", "panel": "flur"}, "", "tablet") == 0
         neu = _verbinden(app, "tablet", "alt")          # nach dem Neuladen wieder da
-        assert await W._push(app, {"t": "switch", "panel": "flur"}, "", "tablet") == 1
+        assert await routen.gemeinsam._push(app, {"t": "switch", "panel": "flur"}, "", "tablet") == 1
         return alt, anderes, neu
     alt, anderes, neu = asyncio.run(lauf())
     assert alt.nachrichten == [{"t": "reload"}], alt.nachrichten
@@ -54,7 +54,7 @@ def test_neuladen_aus_dem_takt_zaehlt_genauso():
         ws = _verbinden(app, "tablet", "")
         app._pending_reload = True
         await app._broadcast_tick()
-        return ws, await W._push(app, {"t": "switch", "panel": "flur"}, "", "tablet")
+        return ws, await routen.gemeinsam._push(app, {"t": "switch", "panel": "flur"}, "", "tablet")
     ws, n = asyncio.run(lauf())
     arten = [m.get("t") for m in ws.nachrichten]
     assert "reload" in arten and "switch" not in arten and n == 0, (arten, n)

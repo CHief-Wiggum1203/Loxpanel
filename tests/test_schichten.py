@@ -9,11 +9,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from lox import konfig, SERVER_MODULE, sicherung, W, ZERLEGT
+from lox import konfig, PAKETE, SERVER_MODULE, sicherung, W, ZERLEGT
 
 ROOT = Path(__file__).resolve().parents[1]
 UNTEN = [*(f"bin/{n}.py" for n in ZERLEGT),
-         *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "bin/bausteine").glob("*.py"))]
+         *sorted(p.relative_to(ROOT).as_posix() for paket in PAKETE
+                 for p in (ROOT / "bin" / paket.__name__).glob("*.py"))]
 
 
 def _importe(datei: Path) -> set:
@@ -44,8 +45,13 @@ def test_untere_module_importieren_webvisu_nicht():
         assert "webvisu" not in laufzeit, f"{rel} importiert webvisu"
 
 
-def test_webvisu_nutzt_die_unteren_module():
-    assert {*ZERLEGT, "bausteine"} <= _importe(ROOT / "bin/webvisu.py")
+def test_jedes_untere_modul_haengt_am_server():
+    """Kein herausgeloestes Modul liegt tot herum: webvisu importiert es selbst
+    oder ein anderes Server-Modul tut es (sicherung etwa nur noch die Routen)."""
+    genutzt = _importe(ROOT / "bin/webvisu.py")
+    for rel in UNTEN:
+        genutzt |= _importe(ROOT / rel) - {Path(rel).stem}
+    assert {*ZERLEGT, *(p.__name__ for p in PAKETE)} <= genutzt
 
 
 def test_jedes_herausgeloeste_modul_ist_ein_server_modul():
@@ -53,7 +59,9 @@ def test_jedes_herausgeloeste_modul_ist_ein_server_modul():
     webvisu herausgeloest wurde und dort fehlt, behielte gepatchte Werte."""
     namen = {m.__name__ for m in SERVER_MODULE}
     assert {"webvisu", *ZERLEGT} <= namen
-    assert {f"bausteine.{p.stem}" for p in (ROOT / "bin/bausteine").glob("*.py") if p.stem != "__init__"} <= namen
+    for paket in PAKETE:
+        assert {f"{paket.__name__}.{p.stem}" for p in (ROOT / "bin" / paket.__name__).glob("*.py")
+                if p.stem != "__init__"} <= namen, paket.__name__
     for datei in (ROOT / "bin").glob("*.py"):
         if datei.stem not in ("webvisu", *ZERLEGT):
             assert "from webvisu" not in datei.read_text(encoding="utf-8"), datei

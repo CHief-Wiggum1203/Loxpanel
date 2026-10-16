@@ -19,13 +19,13 @@ QUER, HOCH, GROSS, VIERZOLL = (893, 533), (533, 893), (1280, 800), (480, 480)
 ANZAHL = 14
 WERTE = {f"V{i}": {"name": f"Vorlauftemperatur Kreis {i}", "type": "InfoOnlyAnalog", "uuidAction": f"VA{i}",
                    "room": "r1", "cat": "c1", "details": {"format": "%.1f°"}, "states": {"value": f"v{i}"}}
-         for i in range(W.SV_STATUS_MAX)}
+         for i in range(konfig.SV_STATUS_MAX)}
 BAUSTEINE = {**{f"S{i}": {"name": f"Licht {i}", "type": "Switch", "uuidAction": f"S{i}", "room": "r1", "cat": "c1",
                           "isFavorite": True, "states": {"active": f"s{i}"}} for i in range(ANZAHL)},
              "T": {"name": "Außentemperatur", "type": "InfoOnlyAnalog", "uuidAction": "TA", "room": "r1",
                    "cat": "c1", "details": {"format": "%.1f°"}, "states": {"value": "tv"}}, **WERTE}
 ZUSTAND = {**{f"s{i}": i % 2 for i in range(ANZAHL)}, "tv": 17.3,
-           **{f"v{i}": 30 + i for i in range(W.SV_STATUS_MAX)}}
+           **{f"v{i}": 30 + i for i in range(konfig.SV_STATUS_MAX)}}
 
 MESSEN = """() => {
   const sc = document.querySelector('.screen'), kz = document.getElementById('kopfzeile');
@@ -133,11 +133,11 @@ def test_kopfzeile_mit_festem_raster_am_4zoll_panel(monkeypatch):
 
 
 def test_zu_viele_werte_bleiben_weg(monkeypatch):
-    werte = "header:" + ",".join(f"V{i}" for i in range(W.SV_STATUS_MAX))
+    werte = "header:" + ",".join(f"V{i}" for i in range(konfig.SV_STATUS_MAX))
     m = _ansehen(monkeypatch, QUER, {"grid": "auto", "panes": {"favoriten": werte}})
     _zeile_steht(m)
     gezeigt = [w for w in m["werte"] if not w["weg"]]
-    assert 1 <= len(gezeigt) < W.SV_STATUS_MAX, "auf 893 px passen nicht alle acht, aber mindestens einer"
+    assert 1 <= len(gezeigt) < konfig.SV_STATUS_MAX, "auf 893 px passen nicht alle acht, aber mindestens einer"
     assert all(w["rechts"] <= m["werteBox"]["r"] + 1 for w in gezeigt), "kein gezeigter Wert ragt heraus"
     assert all(w["rechts"] <= m["kopf"]["r"] for w in gezeigt)
 
@@ -158,7 +158,7 @@ def test_faktor_haengt_nicht_an_der_seite_davor(monkeypatch):
             await pg.wait_for_timeout(300)
             danach[start] = await pg.evaluate(MESSEN)
         return frisch, danach
-    werte = "header:" + ",".join(f"V{i}" for i in range(W.SV_STATUS_MAX))
+    werte = "header:" + ",".join(f"V{i}" for i in range(konfig.SV_STATUS_MAX))
     # 800 x 480 mit festem 3x2: die Hoehe begrenzt den Faktor (Kachel etwa 250 x 170),
     # und neben Uhr und Wetter passen Werte in die Zeile
     frisch, danach = _ansehen(monkeypatch, (800, 480), {"cols": 3, "rows": 2, "split": False,

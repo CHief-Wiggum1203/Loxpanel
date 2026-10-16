@@ -62,7 +62,7 @@ def test_backup_ohne_kennwoerter(tmp_path):
         "devices": {"Tablet": {"driver": {"driver": "fully", "host": "10.0.0.9", "password": "GEHEIM-FULLY"}}}}),
         encoding="utf-8")
     (tmp_path / "theme.json").write_text('{"ui": {"accent": "#52b881"}}', encoding="utf-8")
-    dateien = _zip_lesen(W._backup_zip(tmp_path))
+    dateien = _zip_lesen(sicherung._backup_zip(tmp_path))
     assert set(dateien) == {"loxpanel.cfg", "panels.json", "theme.json", "LIESMICH.txt", sicherung.BACKUP_VERMERK}
     alles = "".join(dateien.values())
     assert "GEHEIM" not in alles, "kein Kennwort im Backup"
@@ -85,7 +85,7 @@ def test_backup_ohne_kennwoerter(tmp_path):
 
 def test_backup_kaputte_datei_bleibt_draussen(tmp_path):
     (tmp_path / "loxpanel.cfg").write_text('{"miniserver": {"pass": "GEHEIM"', encoding="utf-8")   # abgeschnitten
-    dateien = _zip_lesen(W._backup_zip(tmp_path))
+    dateien = _zip_lesen(sicherung._backup_zip(tmp_path))
     assert set(dateien) == {"LIESMICH.txt", sicherung.BACKUP_VERMERK} and "GEHEIM" not in dateien["LIESMICH.txt"]
     assert json.loads(dateien[sicherung.BACKUP_VERMERK])["kennwoerter_entfernt"] == {}
     assert "Nicht enthalten, weil nicht lesbar: loxpanel.cfg" in dateien["LIESMICH.txt"]

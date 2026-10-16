@@ -5,14 +5,14 @@ Schleife; derselbe Stand und ein Server ganz ohne Kennung laden nie neu. Ohne
 Commit (lokaler Build ohne Git) gilt die Kennung des Inhalts genauso. Der
 Konfigurator fragt den Stand ueber /api/devices ab: ohne offene Aenderungen
 laedt er neu, mit offenen sagt es die Speicherleiste und er laedt erst nach
-dem Speichern. Das Update stellt der Test nach, indem er W.VERSION aendert
+dem Speichern. Das Update stellt der Test nach, indem er diagnosedaten.VERSION aendert
 und die Verbindungen der Visu vom Server aus schliesst."""
 import asyncio
 import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import anlage, diagnosedaten, KONFIGURATOR_GELADEN, visu_starten, W
 from test_kachel_set_browser import ROUTEN
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -46,9 +46,9 @@ async def _bis(pg, ausdruck, ms=6000):
 @pytest.mark.parametrize("feld, commit", [("commit", "alt-1234"), ("inhalt", "alt-1234"), ("commit", "")],
                          ids=["commit", "inhalt-ohne-git", "ohne-kennung"])
 def test_visu_laedt_nach_update_neu(feld, commit, monkeypatch):
-    monkeypatch.setitem(W.VERSION, "commit", "")
-    monkeypatch.setitem(W.VERSION, "inhalt", "")
-    monkeypatch.setitem(W.VERSION, feld, commit)
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, "inhalt", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, feld, commit)
 
     async def lauf():
         app = _app()
@@ -73,7 +73,7 @@ def test_visu_laedt_nach_update_neu(feld, commit, monkeypatch):
                 erg["gleich"] = [await pg.evaluate("window.__alteSeite === true"), len(ladungen)]
 
                 # neuer Stand
-                monkeypatch.setitem(W.VERSION, feld, commit and "neu-5678")
+                monkeypatch.setitem(diagnosedaten.VERSION, feld, commit and "neu-5678")
                 await _trennen(app)
                 await pg.wait_for_timeout(3500)
                 await pg.wait_for_selector(".tile[data-id]", state="attached")
@@ -105,9 +105,9 @@ def test_visu_laedt_nach_update_neu(feld, commit, monkeypatch):
 def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
     (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"]}}}),
                                             encoding="utf-8")
-    monkeypatch.setitem(W.VERSION, "commit", "")
-    monkeypatch.setitem(W.VERSION, "inhalt", "")
-    monkeypatch.setitem(W.VERSION, feld, "alt-1234")
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, "inhalt", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, feld, "alt-1234")
 
     async def lauf():
         app = _app()
@@ -125,7 +125,7 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
                 await _bis(pg, "SERVER_STAND === 'alt-1234'")
 
                 # ohne offene Aenderungen: neu laden
-                monkeypatch.setitem(W.VERSION, feld, "neu-5678")
+                monkeypatch.setitem(diagnosedaten.VERSION, feld, "neu-5678")
                 await pg.evaluate("pollDevices()")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await _bis(pg, "SERVER_STAND === 'neu-5678'")
@@ -135,7 +135,7 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
                 await pg.locator("#plist .pitem", has_text="?panel=flur").click()
                 await pg.locator(".stab[data-sub='aussehen']").click()
                 await pg.fill("#pconfHost input[data-ui='iconSize']", "40")
-                monkeypatch.setitem(W.VERSION, feld, "neu-9999")
+                monkeypatch.setitem(diagnosedaten.VERSION, feld, "neu-9999")
                 await pg.evaluate("pollDevices()")
                 await _bis(pg, "!document.getElementById('standNeu').hidden")
                 erg["hinweis"] = [len(ladungen), await pg.locator("#standNeu").inner_text(), await pg.evaluate(OFFEN)]

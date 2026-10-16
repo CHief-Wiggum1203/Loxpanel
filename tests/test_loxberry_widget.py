@@ -18,7 +18,7 @@ import subprocess
 import pytest
 from aiohttp import web
 
-from lox import Miniserver, W, anlage, serve
+from lox import anlage, konfig, Miniserver, serve, W
 from loxberry import PERL, Widget
 from test_miniserver_zugang import _freier_port
 
@@ -63,7 +63,7 @@ def _widget(tmp_path, felder=None, miniserver=None, mit_ms=True, mit_server=True
             ms = await ms.start(0)
         port = ms.port if ms else _freier_port()
         if verbunden:
-            W._write_cfg({"miniserver": {"host": "127.0.0.1", "user": "loxpanel", "pass": "richtig", "port": port}})
+            konfig._write_cfg({"miniserver": {"host": "127.0.0.1", "user": "loxpanel", "pass": "richtig", "port": port}})
         app = W.App(W._config())
         if verbunden:
             await app.reconnect()

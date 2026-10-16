@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from lox import W, anlage, visu_starten
+from lox import anlage, konfig, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -176,9 +176,9 @@ def test_automatik_rechnet_mit_der_breite(schalter, eine_seite):
     schmal = next(t for t in m["tiles"] if not t["w2"])
     assert (seiten == 1) == eine_seite and m["blaettert"] == (seiten > 1), (seiten, m["blaettert"])
     if eine_seite:
-        assert schmal["breite"] > 1.1 * W.KACHEL_ZIEL_STANDARD, schmal
+        assert schmal["breite"] > 1.1 * konfig.KACHEL_ZIEL_STANDARD, schmal
     else:
-        assert 0.8 * W.KACHEL_ZIEL_STANDARD <= schmal["breite"] <= 1.25 * W.KACHEL_ZIEL_STANDARD, schmal
+        assert 0.8 * konfig.KACHEL_ZIEL_STANDARD <= schmal["breite"] <= 1.25 * konfig.KACHEL_ZIEL_STANDARD, schmal
 
 
 def test_breite_im_kachel_editor():

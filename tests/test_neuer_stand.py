@@ -7,28 +7,28 @@ import json
 
 from aiohttp.test_utils import make_mocked_request
 
-from lox import W
+from lox import diagnosedaten, routen, W
 
 
 def test_stand_ist_der_commit(monkeypatch):
-    monkeypatch.setitem(W.VERSION, "inhalt", "")
-    monkeypatch.setitem(W.VERSION, "commit", "abc123")
-    assert W.server_stand() == "abc123"
-    monkeypatch.setitem(W.VERSION, "commit", "")
-    assert W.server_stand() == ""
+    monkeypatch.setitem(diagnosedaten.VERSION, "inhalt", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "abc123")
+    assert routen.gemeinsam.server_stand() == "abc123"
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "")
+    assert routen.gemeinsam.server_stand() == ""
 
 
 def test_ohne_commit_die_kennung_des_inhalts(monkeypatch):
     """Lokaler Build ohne Git (docker compose up --build): der Pruefwert des Codes."""
-    monkeypatch.setitem(W.VERSION, "commit", "")
-    monkeypatch.setitem(W.VERSION, "inhalt", "0123456789abcdef")
-    assert W.server_stand() == "0123456789abcdef"
-    monkeypatch.setitem(W.VERSION, "commit", "abc123")
-    assert W.server_stand() == "abc123", "ein Commit geht vor"
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "")
+    monkeypatch.setitem(diagnosedaten.VERSION, "inhalt", "0123456789abcdef")
+    assert routen.gemeinsam.server_stand() == "0123456789abcdef"
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "abc123")
+    assert routen.gemeinsam.server_stand() == "abc123", "ein Commit geht vor"
 
 
 def test_geraeteliste_nennt_den_stand(monkeypatch):
-    monkeypatch.setitem(W.VERSION, "commit", "abc123")
+    monkeypatch.setitem(diagnosedaten.VERSION, "commit", "abc123")
     app = W.App({"host": "", "port": 80})
     r = make_mocked_request("GET", "/api/devices", app={"app": app})
     d = json.loads(asyncio.run(W.api_devices_get(r)).body)

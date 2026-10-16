@@ -1,10 +1,9 @@
 """Wache gegen das Zuwachsen der Quelldateien: Keine Datei unter bin/, agent/ und
-webfrontend/html/ wird laenger als GRENZE Zeilen. Die Altlasten, die heute
-darueber liegen, stehen mit ihrem jetzigen Stand in AUSNAHMEN und duerfen nur
-schrumpfen - wer eine Ausnahme braucht, senkt die Zahl, wenn er die Datei
-kleiner gemacht hat, und hebt sie nie an. Hintergrund: das Zerlegen der grossen
-Dateien (docs/ARCHITEKTUR.md Abschnitt 7.2, Konfigurator in config/*.js, Visu in panel/*.js,
-Bausteine in bin/bausteine/)."""
+webfrontend/html/ wird laenger als GRENZE Zeilen. Seit dem Zerlegen der grossen
+Dateien (docs/ARCHITEKTUR.md Abschnitt 7.2: Konfigurator in config/*.js, Visu in
+panel/*.js, Bausteine in bin/bausteine/, der Server in Themenmodule und
+bin/routen/) liegt keine mehr darueber, AUSNAHMEN ist leer. Waechst eine Datei
+darueber, wird sie aufgeteilt, nicht hier eingetragen."""
 from pathlib import Path
 
 import pytest
@@ -13,10 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ORDNER = ("bin", "agent", "webfrontend/html")
 ENDUNGEN = {".py", ".js", ".html", ".css"}
 GRENZE = 1500
-# Noch zu zerlegen (Zeilenzahl beim Anlegen der Wache, 15.10.2026); nur nach unten aendern
-AUSNAHMEN = {
-    "bin/webvisu.py": 2150,
-}
+# Datei -> erlaubte Zeilen; leer seit Schritt 4e (webvisu.py zuletzt mit 2150)
+AUSNAHMEN: dict[str, int] = {}
 
 
 def _quelldateien():

@@ -53,7 +53,7 @@ jobs:
 
       - name: Syntax (Python, Workflows, Unraid-Vorlage)
         run: |
-          python -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
+          python -m py_compile bin/*.py bin/bausteine/*.py bin/routen/*.py agent/loxpanel-agent.py
           python -c "import glob, yaml; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"
           python -c "import xml.dom.minidom as m; m.parse('unraid/loxpanel.xml')"
 

@@ -17,7 +17,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 import version_info as V
-from lox import ersetzen, ROOT, W
+from lox import diagnosedaten, ersetzen, ROOT, W
 
 STAND = {"version": "9.8.7", "commit": "abcdef0123456789abcdef0123456789abcdef01", "gebaut": "2026-10-03T12:15:00Z"}
 
@@ -87,7 +87,7 @@ def test_der_echte_stand():
     if (ROOT / "bin" / "version.json").exists():
         pytest.skip("bin/version.json liegt im Arbeitsbaum")
     soll = re.search(r"^VERSION=(\S+)", (ROOT / "loxberry-plugin" / "plugin.cfg").read_text(encoding="utf-8"), re.M)
-    assert W.VERSION["version"] == soll.group(1) and W.VERSION == V.lesen()
+    assert diagnosedaten.VERSION["version"] == soll.group(1) and diagnosedaten.VERSION == V.lesen()
 
 
 def test_settings_und_health_nennen_die_version(cfg_ordner, monkeypatch):

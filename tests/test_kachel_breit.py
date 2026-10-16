@@ -5,7 +5,7 @@ Feld w in der Kachelliste; was beim Speichern nicht 1 oder 2 ist, meldet der
 Server als verworfen. Der Konfigurator bekommt die Typen aus /api/meta."""
 import pytest
 
-from lox import anlage, EFM, konfig, W
+from lox import anlage, EFM, konfig, seiten, W
 
 BAUSTEINE = {
     "S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
@@ -38,7 +38,7 @@ def _breiten(app: W.App) -> dict:
 
 def test_breit_nach_typ():
     assert _breiten(_app()) == {"S": None, "AZ": 2, "A1": 2, "RC": 2, "F": 2}
-    assert "AudioZone" in W.KACHEL_BREIT_TYPEN and "EFM" in W.KACHEL_BREIT_TYPEN
+    assert "AudioZone" in seiten.KACHEL_BREIT_TYPEN and "EFM" in seiten.KACHEL_BREIT_TYPEN
 
 
 def test_je_kachel_uebersteuerbar():
@@ -70,6 +70,6 @@ def test_export_und_rundweg():
 
 
 def test_meta_nennt_die_breiten_typen():
-    assert sorted(W.KACHEL_BREIT_TYPEN) == ["AudioZone", "AudioZoneV2", "EFM", "EnergyManager2",
+    assert sorted(seiten.KACHEL_BREIT_TYPEN) == ["AudioZone", "AudioZoneV2", "EFM", "EnergyManager2",
                                              "IRoomController", "IRoomControllerV2"]
     assert konfig.KACHEL_BREITEN == (1, 2)

@@ -24,13 +24,13 @@ def _panels(ui: dict) -> dict:
     ({"grid": "auto", "tileSize": 200}, {"grid": "auto", "tileSize": 200}),
     ({"grid": "auto", "tileSize": "240"}, {"grid": "auto", "tileSize": 240}),
     ({"grid": "auto", "tileSize": 150.4}, {"grid": "auto", "tileSize": 150}),
-    ({"grid": "auto", "tileSize": "small"}, {"grid": "auto", "tileSize": W.KACHEL_ZIEL["small"]}),
-    ({"grid": "auto", "tileSize": "large"}, {"grid": "auto", "tileSize": W.KACHEL_ZIEL["large"]}),
+    ({"grid": "auto", "tileSize": "small"}, {"grid": "auto", "tileSize": konfig.KACHEL_ZIEL["small"]}),
+    ({"grid": "auto", "tileSize": "large"}, {"grid": "auto", "tileSize": konfig.KACHEL_ZIEL["large"]}),
     ({"grid": "auto", "tileSize": "medium"}, {"grid": "auto"}),
-    ({"grid": "auto", "tileSize": W.KACHEL_ZIEL_STANDARD}, {"grid": "auto"}),
+    ({"grid": "auto", "tileSize": konfig.KACHEL_ZIEL_STANDARD}, {"grid": "auto"}),
     ({"grid": "auto", "tileSize": "riesig"}, {"grid": "auto"}),
-    ({"grid": "auto", "tileSize": 10}, {"grid": "auto", "tileSize": W.KACHEL_ZIEL_MIN}),
-    ({"grid": "auto", "tileSize": 9999}, {"grid": "auto", "tileSize": W.KACHEL_ZIEL_MAX}),
+    ({"grid": "auto", "tileSize": 10}, {"grid": "auto", "tileSize": konfig.KACHEL_ZIEL_MIN}),
+    ({"grid": "auto", "tileSize": 9999}, {"grid": "auto", "tileSize": konfig.KACHEL_ZIEL_MAX}),
     ({"grid": "auto", "tileSize": True}, {"grid": "auto"}),
     ({"grid": "Auto"}, {}), ({"grid": True}, {}), ({"grid": "3x3"}, {}),
 ], ids=["auto", "zahl", "ziffern", "gerundet", "klein-alt", "gross-alt", "mittel-alt", "standard", "unbekannt",
@@ -44,7 +44,7 @@ def test_standard_wird_nicht_gespeichert_und_ist_kein_verlust():
     """Der Standard wird bewusst nicht gespeichert (PANEL_STANDARD), in beiden
     Schreibweisen (Zahl und alte Stufe "medium"): der Konfigurator meldet ihn
     nicht als verworfen. Eine unbekannte Stufe schon."""
-    for wert in (W.KACHEL_ZIEL_STANDARD, "medium"):
+    for wert in (konfig.KACHEL_ZIEL_STANDARD, "medium"):
         roh = _panels({"grid": "auto", "tileSize": wert})
         assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh), {}) == [], wert
     roh = _panels({"grid": "auto", "tileSize": "riesig"})
@@ -58,15 +58,15 @@ def test_export_nennt_die_zielkachel_als_zahl():
     app._apply_structure(STRUKTUR)
     alt = {"title": "P", "tabs": ["favoriten"], "ui": {"grid": "auto", "tileSize": "large"}}
     exp = app._panel_export(alt)
-    assert exp["ui"]["tileSize"] == W.KACHEL_ZIEL["large"] and exp["ui"]["grid"] == "auto"
-    assert W.App._sanitize_panels({"p": exp})["p"]["ui"]["tileSize"] == W.KACHEL_ZIEL["large"]
+    assert exp["ui"]["tileSize"] == konfig.KACHEL_ZIEL["large"] and exp["ui"]["grid"] == "auto"
+    assert W.App._sanitize_panels({"p": exp})["p"]["ui"]["tileSize"] == konfig.KACHEL_ZIEL["large"]
     assert "tileSize" not in app._panel_export({"title": "P", "tabs": ["favoriten"], "ui": {"tileSize": "riesig"}})["ui"]
 
 
 @pytest.mark.parametrize("wert, erwartet", [
-    (170, 170), ("170", 170), (" 200 ", 200), (123.6, 124), ("small", W.KACHEL_ZIEL["small"]),
-    ("LARGE", W.KACHEL_ZIEL["large"]), (W.KACHEL_ZIEL_MIN - 1, W.KACHEL_ZIEL_MIN),
-    (W.KACHEL_ZIEL_MAX + 100, W.KACHEL_ZIEL_MAX), ("12px", None), ("", None), (None, None),
+    (170, 170), ("170", 170), (" 200 ", 200), (123.6, 124), ("small", konfig.KACHEL_ZIEL["small"]),
+    ("LARGE", konfig.KACHEL_ZIEL["large"]), (konfig.KACHEL_ZIEL_MIN - 1, konfig.KACHEL_ZIEL_MIN),
+    (konfig.KACHEL_ZIEL_MAX + 100, konfig.KACHEL_ZIEL_MAX), ("12px", None), ("", None), (None, None),
     (True, None), (float("nan"), None), ([170], None),
 ])
 def test_pruefer_der_zielkachel(wert, erwartet):
@@ -75,8 +75,8 @@ def test_pruefer_der_zielkachel(wert, erwartet):
 
 @pytest.mark.parametrize("ui, ziel", [
     ({}, 0), ({"cols": 3, "rows": 3}, 0), ({"tileSize": 200}, 0),
-    ({"grid": "auto"}, W.KACHEL_ZIEL_STANDARD), ({"grid": "auto", "tileSize": 150}, 150),
-    ({"grid": "auto", "tileSize": "large"}, W.KACHEL_ZIEL["large"]),
+    ({"grid": "auto"}, konfig.KACHEL_ZIEL_STANDARD), ({"grid": "auto", "tileSize": 150}, 150),
+    ({"grid": "auto", "tileSize": "large"}, konfig.KACHEL_ZIEL["large"]),
 ], ids=["ohne", "fest-3x3", "ziel-ohne-auto", "auto", "auto-150", "auto-gross-alt"])
 def test_profil_meldet_die_zielkachel(ui, ziel):
     app = W.App({"host": "", "port": 80})
@@ -96,15 +96,15 @@ def test_geraet_vor_profil():
     assert app.devices["wand"] == {"auto": True, "modes": {}, "tileTarget": 260}, "ein Geraet nur mit Zielkachel bleibt"
     auto, fest = app.resolve_profile("auto"), app.resolve_profile("fest")
     assert app.effective_grid_auto(auto, "wand") == 260
-    assert app.effective_grid_auto(auto, "tab") == W.KACHEL_ZIEL_STANDARD, "ohne Zielkachel am Geraet gilt das Profil"
-    assert app.effective_grid_auto(auto, "") == W.KACHEL_ZIEL_STANDARD
+    assert app.effective_grid_auto(auto, "tab") == konfig.KACHEL_ZIEL_STANDARD, "ohne Zielkachel am Geraet gilt das Profil"
+    assert app.effective_grid_auto(auto, "") == konfig.KACHEL_ZIEL_STANDARD
     assert app.effective_grid_auto(fest, "wand") == 0, "festes Raster bleibt fest"
     assert app.effective_grid_auto(None, "wand") == 0
 
 
 @pytest.mark.parametrize("cfg, gespeichert", [
-    ({"tileTarget": 300}, 300), ({"tileTarget": "300"}, 300), ({"tileTarget": "large"}, W.KACHEL_ZIEL["large"]),
-    ({"tileTarget": 5}, W.KACHEL_ZIEL_MIN), ({"tileTarget": "gross"}, None), ({"tileTarget": None}, None),
+    ({"tileTarget": 300}, 300), ({"tileTarget": "300"}, 300), ({"tileTarget": "large"}, konfig.KACHEL_ZIEL["large"]),
+    ({"tileTarget": 5}, konfig.KACHEL_ZIEL_MIN), ({"tileTarget": "gross"}, None), ({"tileTarget": None}, None),
 ])
 def test_zielkachel_je_geraet_wird_geprueft(cfg, gespeichert):
     devs = W.App._sanitize_devices({"g": {**cfg, "scale": "off"}}, set())
@@ -112,14 +112,14 @@ def test_zielkachel_je_geraet_wird_geprueft(cfg, gespeichert):
 
 
 @pytest.mark.parametrize("screen, vorschlag", [
-    ({"vw": 1280, "vh": 800, "dpr": 2}, W.KACHEL_ZIEL_STANDARD),          # 10"-Tablet in der Hand
-    ({"vw": 893, "vh": 533, "dpr": 1.5}, W.KACHEL_ZIEL_STANDARD),         # Tab A9
-    ({"vw": 1280, "vh": 800, "dpr": 1}, W.KACHEL_ZIEL_STANDARD),          # 10"-Panel ohne Pixeldichte: 160 -> Standard
+    ({"vw": 1280, "vh": 800, "dpr": 2}, konfig.KACHEL_ZIEL_STANDARD),          # 10"-Tablet in der Hand
+    ({"vw": 893, "vh": 533, "dpr": 1.5}, konfig.KACHEL_ZIEL_STANDARD),         # Tab A9
+    ({"vw": 1280, "vh": 800, "dpr": 1}, konfig.KACHEL_ZIEL_STANDARD),          # 10"-Panel ohne Pixeldichte: 160 -> Standard
     ({"vw": 1920, "vh": 1080, "dpr": 1}, 220),                            # FullHD-Monitor
     ({"vw": 1920, "vh": 1080}, 220),                                      # ohne dpr = 1
     ({"vw": 2560, "vh": 1600, "dpr": 1}, 300),                            # Obergrenze
     ({"vw": 3840, "vh": 2160, "dpr": 1}, 300),
-    ({"vw": 480, "vh": 480, "dpr": 1}, W.KACHEL_ZIEL_STANDARD),           # 4"-Panel
+    ({"vw": 480, "vh": 480, "dpr": 1}, konfig.KACHEL_ZIEL_STANDARD),           # 4"-Panel
     ({}, None), ({"dpr": 2}, None), (None, None),
 ], ids=["tablet", "taba9", "panel10", "fullhd", "ohne-dpr", "wqxga", "4k", "4zoll", "leer", "nur-dpr", "nichts"])
 def test_vorschlag_aus_der_bildschirmmeldung(screen, vorschlag):
@@ -130,18 +130,18 @@ def test_geraeteliste_traegt_den_vorschlag():
     app = W.App({"host": "", "port": 80})
     app._apply_structure(STRUKTUR)
     app.conn_info["ws1"] = {"dev": "wand", "kiosk": "", "ip": "10.0.0.5", "ts": 1.0,
-                            "screen": W._clean_screen({"vw": 1920, "vh": 1080, "dpr": 1})}
+                            "screen": konfig._clean_screen({"vw": 1920, "vh": 1080, "dpr": 1})}
     app.conn_info["ws2"] = {"dev": "neu", "kiosk": "", "ip": "10.0.0.6", "ts": 1.0}
     geraete = {d["name"]: d for d in app.device_list()["devices"]}
     assert geraete["wand"]["tileSuggest"] == 220 and geraete["neu"]["tileSuggest"] is None
 
 
 def test_wachstum_kommt_vom_server():
-    assert 1 < W.KACHEL_WACHSEN <= 2
-    assert W.KACHEL_ZIEL_MIN < W.KACHEL_ZIEL["small"] < W.KACHEL_ZIEL_STANDARD < W.KACHEL_ZIEL["large"] < W.KACHEL_ZIEL_MAX
+    assert 1 < konfig.KACHEL_WACHSEN <= 2
+    assert konfig.KACHEL_ZIEL_MIN < konfig.KACHEL_ZIEL["small"] < konfig.KACHEL_ZIEL_STANDARD < konfig.KACHEL_ZIEL["large"] < konfig.KACHEL_ZIEL_MAX
 
 
 def test_bildschirmmeldung_traegt_das_raster():
-    assert W._clean_screen({"vw": 893, "vh": 533, "rc": 5, "rr": 3}) == {"vw": 893, "vh": 533, "rc": 5, "rr": 3}
-    unsinn = W._clean_screen({"rc": "5", "rr": 999, "k": True})
+    assert konfig._clean_screen({"vw": 893, "vh": 533, "rc": 5, "rr": 3}) == {"vw": 893, "vh": 533, "rc": 5, "rr": 3}
+    unsinn = konfig._clean_screen({"rc": "5", "rr": 999, "k": True})
     assert "rc" not in unsinn and unsinn["rr"] == 50 and "k" not in unsinn
