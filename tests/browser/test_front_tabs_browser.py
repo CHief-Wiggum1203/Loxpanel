@@ -10,7 +10,7 @@ import pytest
 from aiohttp import web
 
 import front_info
-from lox import W, anlage, serve, visu_starten
+from lox import anlage, konfig, routen, serve, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -82,7 +82,7 @@ async def _front(monkeypatch):
 
 
 def test_tabs_im_server():
-    assert W._is_tab("kalender") and W._is_tab("wetter")
+    assert konfig._is_tab("kalender") and konfig._is_tab("wetter")
     app = W.App({"host": "", "port": 80})
     v = app._view_tab("kalender")
     assert v["front"] == "calendar" and v["title"] == "Kalender" and v["items"] == []
@@ -164,7 +164,7 @@ def test_kalender_und_wetter_tab(tmp_path, monkeypatch):
 
                     # Neue Front-Daten zeichnen die offene Seite neu
                     neu = dict(app._front, weather=dict(app._front["weather"], temp=9.8))
-                    await W._push(app, neu)
+                    await routen.gemeinsam._push(app, neu)
                     await pg.wait_for_timeout(400)
                     assert await pg.locator(".ft-wx .fp-now .t").text_content() == "9,8°"
 

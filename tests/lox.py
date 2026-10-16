@@ -49,6 +49,7 @@ import intercomdienst  # noqa: E402
 import konfig  # noqa: E402
 import medien  # noqa: E402
 import miniserver  # noqa: E402
+import routen  # noqa: E402
 import seiten  # noqa: E402
 import sicherung  # noqa: E402
 import statistik  # noqa: E402
@@ -61,8 +62,12 @@ import verteilung  # noqa: E402
 _ZERLEGT_MODULE = (konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
                    intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten)
 ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
+# Pakete: jedes Modul darin ist ein Server-Modul. bausteine importiert aus
+# keinem Thema, routen (die Handler) aus allen, darum zuletzt.
+PAKETE = (bausteine, routen)
 SERVER_MODULE = (W, *_ZERLEGT_MODULE,
-                 *(m for n, m in sorted(sys.modules.items()) if n.split(".")[0] == bausteine.__name__))
+                 *(m for paket in PAKETE for n, m in sorted(sys.modules.items())
+                   if n.split(".")[0] == paket.__name__))
 
 
 def ersetzen(monkeypatch, name: str, wert) -> None:

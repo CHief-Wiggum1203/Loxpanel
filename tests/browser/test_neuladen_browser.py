@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import anlage, geraete, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -108,8 +108,8 @@ async def _zeit(pg) -> datetime:
 def test_ohne_eintrag_einmal_je_nacht():
     async def schritt(pg, ladungen):
         assert await pg.evaluate("DISP.reloadHours") is None
-        assert await pg.evaluate("DISP.reloadAt") == W.NEULADEN_STUNDE
-        nacht = ABEND.replace(hour=W.NEULADEN_STUNDE) + timedelta(days=1)
+        assert await pg.evaluate("DISP.reloadAt") == geraete.NEULADEN_STUNDE
+        nacht = ABEND.replace(hour=geraete.NEULADEN_STUNDE) + timedelta(days=1)
         await _kein_neuladen(pg, ladungen, nacht - await _zeit(pg) - timedelta(minutes=1))
         await _neuladen(pg, timedelta(minutes=2))
         assert len(ladungen) == 2
@@ -122,7 +122,7 @@ def test_ohne_eintrag_einmal_je_nacht():
 
 def test_nicht_unter_den_fingern():
     async def schritt(pg, ladungen):
-        nacht = ABEND.replace(hour=W.NEULADEN_STUNDE) + timedelta(days=1)
+        nacht = ABEND.replace(hour=geraete.NEULADEN_STUNDE) + timedelta(days=1)
         await _kein_neuladen(pg, ladungen, nacht - await _zeit(pg) - timedelta(seconds=30))
         assert await pg.evaluate("saverOn()"), "nach einer Minute Ruhe steht die Uhr-Seite"
         await pg.mouse.click(400, 240)                    # jemand tippt: Uhr-Seite weg
@@ -172,7 +172,7 @@ def test_app_bleibt_dunkel():
     async def schritt(pg, ladungen):
         await pg.wait_for_timeout(300)
         assert "saver:true" in aufrufe and "dpms:60" in aufrufe, aufrufe
-        nacht = ABEND.replace(hour=W.NEULADEN_STUNDE) + timedelta(days=1)
+        nacht = ABEND.replace(hour=geraete.NEULADEN_STUNDE) + timedelta(days=1)
         await _kein_neuladen(pg, ladungen, nacht - await _zeit(pg) - timedelta(minutes=1))
         aufrufe.clear()
         await _neuladen(pg, timedelta(minutes=2))
@@ -183,8 +183,8 @@ def test_app_bleibt_dunkel():
 
 
 @pytest.mark.parametrize("sprache, grau, hinweis", [
-    ("de-DE", f"nachts um {W.NEULADEN_STUNDE} Uhr", f"jede Nacht um {W.NEULADEN_STUNDE} Uhr"),
-    ("en-US", f"at night at {W.NEULADEN_STUNDE}:00", f"every night at {W.NEULADEN_STUNDE}:00"),
+    ("de-DE", f"nachts um {geraete.NEULADEN_STUNDE} Uhr", f"jede Nacht um {geraete.NEULADEN_STUNDE} Uhr"),
+    ("en-US", f"at night at {geraete.NEULADEN_STUNDE}:00", f"every night at {geraete.NEULADEN_STUNDE}:00"),
 ])
 def test_konfigurator_nennt_die_stunde(sprache, grau, hinweis):
     async def lauf():

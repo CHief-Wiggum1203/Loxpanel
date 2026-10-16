@@ -11,7 +11,9 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from lox import anlage, ersetzen, intercom_baustein, intercom_v2_baustein, Miniserver, neue_app, serve, SipTuer, W
+from lox import (
+    anlage, ersetzen, intercom_baustein, intercom_v2_baustein, intercomdienst, miniserver, Miniserver,
+    neue_app, serve, SipTuer, W)
 
 SIP_PASS, BILD_PASS = "Sip-Kennwort-1", "Bild-Kennwort-2"
 GESICHERT = {"videoInfo": {"streamUrl": "http://192.168.1.201/cgi-bin/faststream.jpg?stream=full",
@@ -100,7 +102,7 @@ def test_token_abgelehnt_kurz_nach_anmeldung(miniserver_http):
         ms, app = await _aufbau()
         try:
             ms.token = "neu"
-            with pytest.raises(W.ZugangFehler, match=re.escape("lehnt die Anmeldung von LoxPanel ab (Code 401)")):
+            with pytest.raises(miniserver.ZugangFehler, match=re.escape("lehnt die Anmeldung von LoxPanel ab (Code 401)")):
                 await app.secured_details("IC")
             assert app.client.n == 0 and len(ms.fenc) == 1
         finally:
@@ -117,7 +119,7 @@ def test_miniserver_lehnt_ab(miniserver_http, code, fehler):
         ms, app = await _aufbau()
         ms.gesichert_code = code
         try:
-            with pytest.raises(W.ZugangFehler, match=re.escape(fehler)):
+            with pytest.raises(miniserver.ZugangFehler, match=re.escape(fehler)):
                 await app.secured_details("IC")
         finally:
             await _abbau(ms, app)
@@ -131,9 +133,9 @@ def test_ohne_kennzeichen_keine_anfrage(miniserver_http):
         ms, app = await _aufbau()
         del app.controls["IC"]["securedDetails"]
         try:
-            with pytest.raises(W.OhneGesicherteDetails, match="Der Baustein hat keine gesicherten Details"):
+            with pytest.raises(miniserver.OhneGesicherteDetails, match="Der Baustein hat keine gesicherten Details"):
                 await app.secured_details("IC")
-            with pytest.raises(W.OhneGesicherteDetails):
+            with pytest.raises(miniserver.OhneGesicherteDetails):
                 await app.secured_details("NIX")
             assert ms.fenc == [] and ms.schluessel_abrufe == 0
         finally:
@@ -143,7 +145,7 @@ def test_ohne_kennzeichen_keine_anfrage(miniserver_http):
 
 def test_ohne_verbindung():
     async def lauf():
-        with pytest.raises(W.ZugangFehler, match="Keine Verbindung zum Miniserver"):
+        with pytest.raises(miniserver.ZugangFehler, match="Keine Verbindung zum Miniserver"):
             await W.App({"host": "", "port": 80}).secured_details("IC")
     asyncio.run(lauf())
 
@@ -153,7 +155,7 @@ def test_miniserver_weg(miniserver_http):
         ms, app = await _aufbau()
         await ms.stop()
         try:
-            with pytest.raises(W.ZugangFehler, match="Miniserver nicht erreichbar"):
+            with pytest.raises(miniserver.ZugangFehler, match="Miniserver nicht erreichbar"):
                 await app.secured_details("IC")
         finally:
             await app.icon_session.close()
@@ -184,7 +186,7 @@ def test_intercom_ohne_sip(miniserver_http, gesichert, fehler):
     async def lauf():
         ms, app = await _aufbau({"IC": gesichert})
         try:
-            with pytest.raises(W.ZugangFehler, match=fehler):
+            with pytest.raises(miniserver.ZugangFehler, match=fehler):
                 await app.intercom_sip("IC")
         finally:
             await _abbau(ms, app)
@@ -261,7 +263,7 @@ def test_api_sip_ohne_passwort(miniserver_http):
 
 
 def test_gesichert_felder():
-    assert W._gesichert_felder({"a": "x", "b": "", "c": {"d": 0, "e": [1], "f": None}, "g": []}) == {
+    assert intercomdienst._gesichert_felder({"a": "x", "b": "", "c": {"d": 0, "e": [1], "f": None}, "g": []}) == {
         "a": True, "b": False, "c": {"d": False, "e": True, "f": False}, "g": False}
 
 

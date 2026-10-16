@@ -1151,11 +1151,10 @@ selbst aktuell.
 
 ## 6. Wartbarkeit
 
-- [ ] **Große Dateien zerlegen** (Reihenfolge nach Nutzen je Aufwand, Wache
-      `tests/test_dateigroessen.py`: keine Quelldatei über 1500 Zeilen, die
-      Altlasten stehen dort mit ihrem Stand als Ausnahme und dürfen nur
-      schrumpfen). Protokoll zwischen Server und Visu bleibt bei jedem Schritt
-      gleich. **L**
+- [x] **Große Dateien zerlegen** (Reihenfolge nach Nutzen je Aufwand, Wache
+      `tests/test_dateigroessen.py`: keine Quelldatei über 1500 Zeilen, seit
+      Schritt 4e ohne Ausnahme). Protokoll zwischen Server und Visu blieb bei
+      jedem Schritt gleich. **L**
   - [x] Schritt 1, Konfigurator: `config.html` behält nur das Markup, das
         Stylesheet liegt in `config.css` (`/config.css`), das Skript in elf
         Teilen `config/*.js` (`/config/{name}`), die nacheinander laden; alle
@@ -1172,7 +1171,7 @@ selbst aktuell.
         Konstanten, Adapter und reine Helfer in `bausteine/gemeinsam.py`.
         Die Helfer der Bausteine bleiben vorerst Methoden von `App`
         (Schritt 4). `ARCHITEKTUR.md` §6 und §10 (a).
-  - [ ] Schritt 4, Server: den Rest von `webvisu.py` nach Themen trennen, in
+  - [x] Schritt 4, Server: den Rest von `webvisu.py` nach Themen trennen, in
         mehreren PRs. Regel: die herausgelösten Module importieren `webvisu`
         nie, `webvisu` importiert sie (`tests/test_schichten.py`).
     - [x] 4a: `konfig.py` (Pfade, Laden und Schreiben, Leser der
@@ -1208,9 +1207,14 @@ selbst aktuell.
           Konstanten dieser Themen brauchen (`AGENT_*`, `KIOSK_APPS`,
           `ZugangFehler` …) und die herausgelösten Module `webvisu` nicht
           importieren dürfen.
-    - [ ] 4e: Routen-Handler nach Themen (`routen/`: Oberfläche, Konfigurator,
-          Geräte und Agent, Audio, Intercom und SIP, Diagnose), `main()`
-          registriert je Modul.
+    - [x] 4e: die Routen-Handler je Thema in `bin/routen/`: `oberflaeche`,
+          `visu` (WebSocket), `konfigurator`, `einstellungen` (mit Sicherung),
+          `intercom`, `geraete`, `medien`, `system`; `gemeinsam.py` für
+          `_push()`, `_push_filter()`, `_json_or_empty()`, `_NOCACHE` und
+          `server_stand()`. `main()` behält die Routentabelle an einer Stelle
+          und importiert die Handler. Die Handler rufen die Prüffunktionen aus
+          `konfig.py` direkt statt über `App`. `webvisu.py` hat noch rund 460
+          Zeilen, `test_dateigroessen.py` braucht keine Ausnahme mehr.
 - [ ] **Agent nur einmal pflegen**: Server liefert `agent/loxpanel-agent.py`
       unter `/loxpanel-agent.py` aus, `install-agent.sh` holt die Datei per
       `curl` statt sie als Heredoc zu enthalten. (W2) **S**

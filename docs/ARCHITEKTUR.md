@@ -51,7 +51,7 @@ es gibt Tests gegen einen Miniserver-Nachbau (`tests/`, Abschnitt 9.3), aber kei
 Altlasten aus einer früheren Konzeptphase (openHASP/MQTT).
 
 **Umfang** (Oktober 2026): rund 20.800 Zeilen Python in `bin/` (mit den
-Probe- und Testskripten), davon `bin/webvisu.py` rund 2.100; Visu und
+Probe- und Testskripten), davon `bin/webvisu.py` rund 460; Visu und
 Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 31.400 Zeilen.
 
@@ -63,9 +63,10 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 
 | Pfad | Rolle |
 |---|---|
-| `bin/webvisu.py` | Der Kern des Servers: die Klasse `App` (Felder, Hintergrundaufgaben, Schließen; ihre Themen erbt sie als Mixins aus den Modulen unten, §3.3), alle Routen-Handler, der WebSocket zum Browser (`ws_handler`) und `main()` |
+| `bin/webvisu.py` | Der Kern des Servers: die Klasse `App` (Felder, Hintergrundaufgaben, Schließen; ihre Themen erbt sie als Mixins aus den Modulen unten, §3.3), Start und Logging und `main()` mit der Routentabelle; die Handler liegen in `bin/routen/` |
+| `bin/routen/` | Die Routen-Handler je Thema: `oberflaeche.py` (Dateien der Oberfläche), `visu.py` (WebSocket `/ws`), `konfigurator.py`, `einstellungen.py` (dazu Sicherung), `intercom.py` (SIP, Gegensprechen, MJPEG), `geraete.py` (Geräte und Agenten), `medien.py` (Icons, Cover, Klingelbilder), `system.py` (`/api/health`, `/api/diagnose`); `gemeinsam.py` hält `_push()`, `_push_filter()`, `_json_or_empty()`, `_NOCACHE` und `server_stand()`. Die Handler holen die App aus `request.app["app"]`, `main()` trägt sie ein (§4). Importiert `webvisu` nur für die Typangabe `App` unter `TYPE_CHECKING` |
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
-| `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `webvisu.py` rufen hier (§4). Importiert `webvisu` nicht |
+| `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `routen/einstellungen.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
 | `bin/haus.py` | Hausübersicht (Tab `haus`) als Mixin `Haus`: Raumkarten, „Gerade aktiv“, Schnellaktionen über die Zentral-Bausteine, Hinweise, Spieler mit Sendern, Energie, die Aufbauten (`HAUS_*`); `_view_haus()` liefert die Seite, §7.1 „Hausübersicht“. Importiert `webvisu` nicht |
 | `bin/gesten.py` | Gesten wie auf den Loxone-Tastern als Mixin `Gesten`: `geste()` (Nachricht `{t:"geste"}`), `gesten_hilfe()`, Lichtgruppen und Stimmungen, die Auswahl im Konfigurator (`geste_taster_optionen()`, `licht_stimmung_optionen()`), `GESTEN_*_TYPEN`. Importiert `webvisu` nicht |
@@ -395,7 +396,7 @@ Server → Browser (`panel.html:700`):
 | `setdevice` | `name` | Gerät wurde in den Einstellungen benannt: Visu merkt sich den Namen und verbindet neu |
 | `kopplung` | `code`, `karte`, `titel`, `hinweis`, `pfad`, `adressen[]`, `unbekannt`, `weg` | Browser ohne Gerätekennung, beim Verbinden: sein Kopplungscode (`kopplungscode()`: ein gültig zurückgeschickter `?code=` bleibt, sonst ein neuer aus `KOPPLUNG_ZEICHEN`, `KOPPLUNG_LAENGE` Zeichen, keiner einer anderen Verbindung). Die Visu merkt ihn sich (`lp_kopplung`) und schickt ihn beim nächsten Verbinden zurück. `karte` nur ohne `?panel=` in der Adresse (mit `?panel=` hat jemand das Gerät bewusst eingerichtet, die Karte läge sonst nach jedem Neustart über der Visu): dann zeigt das Panel „Dieses Gerät einrichten“ mit Code und Konfigurator-Adresse (wie `einrichtung`), ein Tipp blendet sie bis zum nächsten Laden aus. Derselbe Code steht unter Displays (`/api/devices` `anonymous[].code`), „Namen vergeben“ dort schickt `setdevice` an genau diese Verbindung; danach vergisst die Visu den Code (Punkt 11, 08.10.2026). Ein Vorschaufenster des Konfigurators (`?entwurf=`, auch mit abgelaufenem Token) bekommt keine Nachricht und keinen Code und steht nicht unter `anonymous` (`conn_info.vorschau`) |
 
-Browser → Server (`ws_handler` in `webvisu.py`):
+Browser → Server (`ws_handler` in `routen/visu.py`):
 
 | `t` | Inhalt |
 |---|---|
@@ -782,7 +783,20 @@ Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
 
 ## 4. HTTP- und WebSocket-Schnittstelle
 
-Alle Routen werden in `main()` (`webvisu.py`) registriert. Es gibt keine
+Alle Routen werden in `main()` (`webvisu.py`) registriert, die Handler stehen
+je Thema in `bin/routen/`: `oberflaeche.py` (`/`, `/config`, `/settings`,
+`/i18n.js`, `/raster.js`, `/config.css`, `/config/{name}`, `/panel/{name}`),
+`visu.py` (`/ws`), `konfigurator.py` (`/api/meta`, `/api/kachelset`,
+`/api/panels`, `/api/entwurf`, `/api/theme`, `/api/types`), `einstellungen.py`
+(`/api/settings`, `/api/settings/miniserver`, `…/night`, `…/audiometa`,
+`…/calendar`, `/api/backup`, `/api/restore`), `intercom.py`
+(`/api/settings/intercom`, `/api/sip`, `/api/sip/pruefen`,
+`/api/intercom/talk/*`, `/mjpeg`), `geraete.py` (`/install-agent.sh`,
+`/api/agent/*`, `/api/agents`, `/api/devices`, `/api/device/*`,
+`/api/vorschau/beenden`, `/api/display`, `/api/mode`, `/api/reload`,
+`/api/goto`, `/api/notify`, `/api/testtone`), `medien.py` (`/icon`,
+`/api/loxicons`, `/loxlib`, `/bellimg`, `/cover`) und `system.py`
+(`/api/health`, `/api/diagnose`). Es gibt keine
 Authentifizierung, keine Middleware, kein CORS auf den allgemeinen Routen.
 Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 ([`INTERCOM_GEN1.md`](INTERCOM_GEN1.md)).
@@ -2324,15 +2338,16 @@ Oberflächen-Dateien mit `no-cache`. Der Übersetzungstest durchsucht auch die
 per `script src` geladenen Teile, der Rauchtest ruft `/config.css` und
 `/config/kern.js` ab; APK-Sync, Dockerfile und `.deb` nehmen `webfrontend/`
 ganz. `tests/test_dateigroessen.py` wacht, dass keine Quelldatei über 1.500
-Zeilen wächst (die noch zu zerlegende `webvisu.py` steht als Ausnahme mit
-ihrem jetzigen Stand drin und darf nur schrumpfen; `panel.html` ist seit
+Zeilen wächst (seit Schritt 4e ohne Ausnahme; `panel.html` ist seit
 Schritt 2 aufgeteilt, §7.1; Schritt 3 hat die Bausteine nach `bausteine/`
 gebracht, §6, Schritt 4a Konfiguration und Sicherung nach `konfig.py` und
 `sicherung.py`, Schritt 4b die Verläufe nach `statistik.py` und die Helfer der
 Bausteine als Mixins nach `bausteine/`, Schritt 4c Hausübersicht und Gesten
 nach `haus.py` und `gesten.py`, Schritt 4d die übrigen Themen der App nach
 `miniserver.py`, `geraete.py`, `audiodienst.py`, `front.py`, `verteilung.py`,
-`intercomdienst.py`, `medien.py`, `diagnosedaten.py`, `ansicht.py` und `seiten.py`). Beim Zerlegen des Servers gilt: die herausgelösten Module
+`intercomdienst.py`, `medien.py`, `diagnosedaten.py`, `ansicht.py` und `seiten.py`,
+Schritt 4e die Routen-Handler nach `bin/routen/`; `webvisu.py` hat noch rund 460
+Zeilen). Beim Zerlegen des Servers gilt: die herausgelösten Module
 importieren `webvisu` nie, `webvisu` importiert sie; wer in Tests eine
 Konstante oder einen Helfer ersetzt, nimmt `ersetzen()` aus `tests/lox.py`,
 das in jedem Server-Modul mit diesem Namen patcht (`tests/test_schichten.py`).
@@ -3289,10 +3304,13 @@ Das Frontend muss im Regelfall nicht angefasst werden.
 
 ### (b) Neuen API-Endpunkt
 
-Handler als Modul-Funktion in `webvisu.py` vor `main()`, `app: App =
-request.app["app"]`, Registrierung in `main()`. Für JSON-Body das
-Muster `try: await request.json() except (ValueError, aiohttp.ContentTypeError)`,
-für GET+POST `_json_or_empty()` und `_push_filter()`, für Pushes `_push()`.
+Handler als Modul-Funktion im passenden Modul unter `bin/routen/` (ein neues
+Thema bekommt ein eigenes), `app: App = request.app["app"]` mit `App` nur
+unter `TYPE_CHECKING` importiert, Registrierung in `main()` (`webvisu.py`)
+samt Import oben. Für JSON-Body das Muster
+`try: await request.json() except (ValueError, aiohttp.ContentTypeError)`,
+für GET+POST `_json_or_empty()` und `_push_filter()`, für Pushes `_push()`
+(alle drei aus `routen/gemeinsam.py`).
 
 ### (c) Neue Einstellung in `loxpanel.cfg`
 

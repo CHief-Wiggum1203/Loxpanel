@@ -17,7 +17,7 @@ def _panels(ui: dict) -> dict:
 
 @pytest.mark.parametrize("wert, erwartet", [
     (1, 1), (2, 2), (3, 3), ("2", 2), (" 3 ", 3), (2.0, 2), (2.7, 2),
-    (W.PANE_SPALTEN_MAX + 1, W.PANE_SPALTEN_MAX), (99, W.PANE_SPALTEN_MAX),
+    (konfig.PANE_SPALTEN_MAX + 1, konfig.PANE_SPALTEN_MAX), (99, konfig.PANE_SPALTEN_MAX),
     (0, None), (-1, None), ("0", None), ("", None), ("zwei", None), ("2px", None),
     (None, None), (True, None), (False, None), (float("nan"), None), ([2], None),
 ], ids=["eins", "zwei", "drei", "ziffer", "ziffer-rand", "zwei-float", "abgerundet", "zu-gross", "viel-zu-gross",
@@ -27,14 +27,14 @@ def test_pruefer_der_widget_breite(wert, erwartet):
 
 
 def test_grenzen_vom_server():
-    assert 0 < W.PANE_ANTEIL < 1 and W.PANE_SPALTEN_MAX >= 1
+    assert 0 < konfig.PANE_ANTEIL < 1 and konfig.PANE_SPALTEN_MAX >= 1
 
 
 @pytest.mark.parametrize("ui, gespeichert", [
     ({"grid": "auto", "paneCols": 2}, {"grid": "auto", "paneCols": 2}),
     ({"grid": "auto", "paneCols": "3"}, {"grid": "auto", "paneCols": 3}),
     ({"grid": "auto", "paneCols": 0}, {"grid": "auto"}),
-    ({"grid": "auto", "paneCols": 7}, {"grid": "auto", "paneCols": W.PANE_SPALTEN_MAX}),
+    ({"grid": "auto", "paneCols": 7}, {"grid": "auto", "paneCols": konfig.PANE_SPALTEN_MAX}),
     ({"grid": "auto", "paneCols": "breit"}, {"grid": "auto"}),
     ({"paneCols": 2}, {"paneCols": 2}),   # ohne "auto" gespeichert, wirkt erst mit dem automatischen Raster
 ], ids=["zwei", "ziffer", "automatik", "begrenzt", "unbekannt", "ohne-auto"])
@@ -83,4 +83,4 @@ def test_meta_nennt_grenze_und_anteil():
         async with TestClient(TestServer(ui)) as cl:
             r = await cl.get("/api/meta")
             return (await r.json())["paneCols"]
-    assert asyncio.run(lauf()) == {"max": W.PANE_SPALTEN_MAX, "anteil": W.PANE_ANTEIL}
+    assert asyncio.run(lauf()) == {"max": konfig.PANE_SPALTEN_MAX, "anteil": konfig.PANE_ANTEIL}

@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import anlage, konfig, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -69,7 +69,7 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 await dim.fill("40")
                 assert await pg.locator("#nightWakeField").is_visible()
                 assert await pg.locator("#pconfHost [data-ui='nightWake']").get_attribute("placeholder") == \
-                    str(W.NACHT_STANDARD["nightWake"])
+                    str(konfig.NACHT_STANDARD["nightWake"])
                 assert await pg.evaluate(OFFEN) == "Nicht gespeichert: Vorgaben, Nachtmodus"
                 await pg.screenshot(path=str(tmp_path / "vorgaben_nacht.png"), full_page=True)
 
@@ -92,7 +92,7 @@ def test_vorgaben_als_rubrik(cfg_ordner, tmp_path):
                 await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
                 theme = json.loads((cfg_ordner / "theme.json").read_text(encoding="utf-8"))
                 assert theme["ui"]["nightDim"] == 40, theme
-                assert W._load_cfg()["night"]["control"] == "N"
+                assert konfig._load_cfg()["night"]["control"] == "N"
                 assert app.panel_night("flur")["dim"] == 40, "Vorgabe gilt"
                 assert app.panel_night("kueche")["dim"] == 10, "die Ansicht ueberschreibt sie"
 

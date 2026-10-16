@@ -20,7 +20,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import anlage, ersetzen, konfig, Miniserver, W
+from lox import anlage, ersetzen, konfig, Miniserver, sicherung, W
 from test_uebersetzung import _katalog_en
 
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
@@ -213,7 +213,7 @@ def test_umgebung_speichern_ohne_kennwortfeld(cfg_ordner, miniserver_http, monke
         assert _datei_ms(cfg_ordner) == _zugang(port, verify_tls=True)
     else:
         assert not (cfg_ordner / "loxpanel.cfg").exists(), "das Kennwort der Umgebung wird nicht kopiert"
-        assert W._ms_zugang() == (_zugang(port), "umgebung")
+        assert konfig._ms_zugang() == (_zugang(port), "umgebung")
 
 
 def test_umgebung_bleibt_bei_ablehnung(cfg_ordner, miniserver_http, monkeypatch):
@@ -372,7 +372,7 @@ def test_einspielen_wartet_auf_speichern(cfg_ordner, tmp_path):
     quelle = tmp_path / "quelle"
     quelle.mkdir()
     (quelle / "loxpanel.cfg").write_text(json.dumps({"night": {"control": ""}}), encoding="utf-8")
-    daten = W._backup_zip(quelle)
+    daten = sicherung._backup_zip(quelle)
 
     async def lauf():
         app = W.App(W._config())
@@ -398,7 +398,7 @@ def test_einspielen_ersetzt_ungeprueften_zugang(cfg_ordner, miniserver_http, tmp
         quelle = tmp_path / "quelle"
         quelle.mkdir()
         _cfg_schreiben(quelle, _zugang(a.port))
-        daten = W._backup_zip(quelle)            # Kennwort entfernt, gleicher Host und Benutzer
+        daten = sicherung._backup_zip(quelle)            # Kennwort entfernt, gleicher Host und Benutzer
         app = W.App(W._config())
         await app.reconnect()
         async with TestClient(TestServer(_ui(app))) as cl:

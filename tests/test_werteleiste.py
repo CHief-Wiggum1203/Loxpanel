@@ -61,10 +61,10 @@ def _ids(xs) -> list:
 
 
 def test_typen_der_leiste():
-    assert W.WERTE_LEISTE_TYPEN == {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
+    assert seiten.WERTE_LEISTE_TYPEN == {"Meter", "InfoOnlyAnalog", "TextState", "InfoOnlyText",
                                     "InfoOnlyDigital", "PresenceDetector", "Hourcounter"}
-    assert "SmokeAlarm" not in W.WERTE_LEISTE_TYPEN and "ClimateControllerUS" not in W.WERTE_LEISTE_TYPEN
-    assert W.WERTE_LEISTE_TYPEN < seiten.STATUS_BIG, "Werte der Leiste sind reine Anzeige-Bausteine"
+    assert "SmokeAlarm" not in seiten.WERTE_LEISTE_TYPEN and "ClimateControllerUS" not in seiten.WERTE_LEISTE_TYPEN
+    assert seiten.WERTE_LEISTE_TYPEN < seiten.STATUS_BIG, "Werte der Leiste sind reine Anzeige-Bausteine"
 
 
 def test_pruefer():

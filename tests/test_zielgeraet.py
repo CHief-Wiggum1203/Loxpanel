@@ -37,7 +37,7 @@ def test_gemeldete_groesse_passt_immer_ins_profil():
     _clean_zielgeraet() auch an - sonst verliert das Profil die Groesse und
     Displays kann fuer dieses Geraet nie warnen."""
     for kante in (1, 4000, 12000, konfig.BILDSCHIRM_PX_MAX):
-        gemeldet = W._clean_screen({"vw": kante, "vh": 600})
+        gemeldet = konfig._clean_screen({"vw": kante, "vh": 600})
         assert gemeldet["vw"] == kante
         assert konfig._clean_zielgeraet({"name": "t", "vw": gemeldet["vw"], "vh": gemeldet["vh"]}) == \
             {"name": "t", "vw": kante, "vh": 600}

@@ -20,6 +20,8 @@ from aiohttp.test_utils import make_mocked_request
 
 from lox import gesten_anlage, konfig, Miniserver, neue_app, visu_starten, W
 
+import theme_colors  # bin/ liegt durch lox auf dem Pfad
+
 pytestmark = pytest.mark.usefixtures("miniserver_http")
 
 
@@ -31,7 +33,7 @@ def _app(ms=None, ui=None, theme_ui=None, devices=None, states=None):
     app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": ["room:r1", "favoriten"],
                                                   "ui": {"gesten": True, **(ui or {})}}})
     app.theme = {**app.theme, "ui": {**{k: v for k, v in (app.theme.get("ui") or {}).items()
-                                        if k not in W.THEME_UI_KEYS},
+                                        if k not in konfig.THEME_UI_KEYS},
                                      **W.App._sanitize_theme_ui(theme_ui or {})}}
     app.devices = W.App._sanitize_devices(devices or {}, set(app.panels))
     return app
@@ -296,7 +298,7 @@ def test_einstellungen_speichern():
     ui = W.App._sanitize_theme_ui({"gesten": True, "hausAus": " TH ", "raumVerlassen": {"r1": "TV", "r2": "", 3: "x"}})
     assert ui == {"gesten": True, "hausAus": "TH", "raumVerlassen": {"r1": "TV"}}
     # der Standard wird nicht gespeichert
-    assert "gesten" not in W.App._sanitize_theme_ui({"gesten": W.GESTEN_STANDARD})
+    assert "gesten" not in W.App._sanitize_theme_ui({"gesten": konfig.GESTEN_STANDARD})
     p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"gesten": False, "gestenRaum": "r1"}},
                                 "q": {"title": "Q", "ui": {"gesten": "ja", "gestenRaum": 5}}})
     assert p["p"]["ui"] == {"gesten": False, "gestenRaum": "r1"}
@@ -308,7 +310,7 @@ def test_einstellungen_speichern():
 
 
 @pytest.mark.parametrize("vorgabe, ansicht, gilt", [
-    (None, None, W.GESTEN_STANDARD), (True, None, True), (True, False, False), (None, True, True)])
+    (None, None, konfig.GESTEN_STANDARD), (True, None, True), (True, False, False), (None, True, True)])
 def test_ansicht_vor_vorgabe(vorgabe, ansicht, gilt):
     app = _app(theme_ui={} if vorgabe is None else {"gesten": vorgabe})
     app.panels["test"]["ui"].pop("gesten")
@@ -326,7 +328,7 @@ def test_auswahl_im_konfigurator():
     licht = {e["name"]: [s["name"] for s in e["moods"]] for e in m["lichtStimmungen"]}
     assert licht == {"Licht Abstellraum": ["Hell"], "Licht Kochen": ["Kochen", "Putzen"],
                      "Licht Wohnen": ["Essen", "Fernsehen"]}
-    assert m["gestenStandard"] is W.GESTEN_STANDARD and "gesten" in m["themeKeys"]
+    assert m["gestenStandard"] is konfig.GESTEN_STANDARD and "gesten" in m["themeKeys"]
 
 
 # ---- Weg ueber den WebSocket -----------------------------------------------
@@ -366,13 +368,13 @@ def test_nacht_uhr_speichern():
     ui = W.App._sanitize_theme_ui({"nightClock": True, "nightClockBright": 2})
     assert ui == {"nightClock": True, "nightClockBright": konfig.NACHT_UHR_HELL_MIN}
     # der Standard wird nicht gespeichert, ein Wahrheitswert ist keine Helligkeit
-    assert W.App._sanitize_theme_ui({"nightClock": W.NACHT_STANDARD["nightClock"], "nightClockBright": True}) == {}
+    assert W.App._sanitize_theme_ui({"nightClock": konfig.NACHT_STANDARD["nightClock"], "nightClockBright": True}) == {}
     p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"nightClock": False, "nightClockBright": 150}}})
     assert p["p"]["ui"] == {"nightClock": False, "nightClockBright": 100}
 
 
 @pytest.mark.parametrize("vorgabe, ansicht, uhr, hell", [
-    ({}, {}, W.NACHT_STANDARD["nightClock"], W.NACHT_STANDARD["nightClockBright"]),
+    ({}, {}, konfig.NACHT_STANDARD["nightClock"], konfig.NACHT_STANDARD["nightClockBright"]),
     ({"nightClock": True, "nightClockBright": 30}, {}, True, 30),
     ({"nightClock": True, "nightClockBright": 30}, {"nightClock": False, "nightClockBright": 60}, False, 60),
 ], ids=["standard", "vorgabe", "ansicht-vor-vorgabe"])
@@ -385,7 +387,7 @@ def test_nacht_uhr_geht_mit_der_nacht_an_die_visu(vorgabe, ansicht, uhr, hell):
 def _themes():
     """Jedes Kachel-Set (touch in jedem Farbton der Schnellwahl und beiden Arten
     der aktiven Kachel) und Grundfarben ueber Farbkreis und Helligkeit."""
-    for name, e in W.theme_colors.KACHEL_SETS.items():
+    for name, e in theme_colors.KACHEL_SETS.items():
         if "farbton" not in e:
             yield {"tileSet": name}
             continue
@@ -394,7 +396,7 @@ def _themes():
                 yield {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
     for farbton in range(0, 360, 45):
         for hell in (12, 50, 92):
-            yield {"baseColor": W.theme_colors._aus_hls(farbton / 360, hell / 100, 0.4)}
+            yield {"baseColor": theme_colors._aus_hls(farbton / 360, hell / 100, 0.4)}
 
 
 def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
@@ -403,7 +405,7 @@ def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
     Jedes Theme bringt deshalb eine Schrift fuer die Nacht-Uhr mit, die dort AAA
     traegt; dunkle Themes behalten ihre Schrift. Ohne Set und Grundfarbe gelten
     die Standardfarben der Visu (helle Schrift), dann kommt keine eigene mit."""
-    tc = W.theme_colors
+    tc = theme_colors
     hell_geworden = 0
     for ui in _themes():
         v = W.App._theme_vars(dict(konfig.DEFAULT_THEME["states"]), ui)
@@ -424,18 +426,18 @@ def test_nacht_uhr_traegt_auf_ihrem_grund_in_jedem_theme():
 def test_hinweis_symbol_speichern_und_mischen():
     """Hinweis-Symbol der Gesten: in Vorgaben nur gespeichert, was vom Standard
     abweicht, in der Ansicht jeder Wahrheitswert; die Ansicht geht vor."""
-    assert W.App._sanitize_theme_ui({"gestenHinweis": not W.GESTEN_HINWEIS_STANDARD}) == \
-        {"gestenHinweis": not W.GESTEN_HINWEIS_STANDARD}
-    assert W.App._sanitize_theme_ui({"gestenHinweis": W.GESTEN_HINWEIS_STANDARD}) == {}
+    assert W.App._sanitize_theme_ui({"gestenHinweis": not konfig.GESTEN_HINWEIS_STANDARD}) == \
+        {"gestenHinweis": not konfig.GESTEN_HINWEIS_STANDARD}
+    assert W.App._sanitize_theme_ui({"gestenHinweis": konfig.GESTEN_HINWEIS_STANDARD}) == {}
     assert W.App._sanitize_theme_ui({"gestenHinweis": "ja"}) == {}
-    assert "gestenHinweis" in W.THEME_UI_KEYS
+    assert "gestenHinweis" in konfig.THEME_UI_KEYS
     p = W.App._sanitize_panels({"p": {"title": "P", "ui": {"gestenHinweis": True}}})
     assert p["p"]["ui"]["gestenHinweis"] is True
     app = _app(ui={"gestenHinweis": False})
     assert app._panel_export(app.panels["test"])["ui"]["gestenHinweis"] is False
     assert app.resolve_profile("test")["gestenHinweis"] is False                # Ansicht
     assert _app(theme_ui={"gestenHinweis": False}).resolve_profile("test")["gestenHinweis"] is False   # Vorgabe
-    assert _app().resolve_profile("test")["gestenHinweis"] is W.GESTEN_HINWEIS_STANDARD                # Standard
+    assert _app().resolve_profile("test")["gestenHinweis"] is konfig.GESTEN_HINWEIS_STANDARD                # Standard
 
 
 @pytest.mark.parametrize("route, ui, theme_ui, erwartet", [

@@ -11,7 +11,7 @@ import shutil
 
 import pytest
 
-from lox import ROOT, W, anlage, raum_anlage
+from lox import anlage, konfig, raum_anlage, ROOT, W
 
 STRUKTUR_PANEL = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
                                "states": {"active": "s"}}})
@@ -49,7 +49,7 @@ def test_groessen_ohne_einstellung_je_aufbau(cfg_ordner, aufbau):
     ui = {"tileLayout": "classic"} if aufbau == "classic" else {}
     app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "ui": ui},
                                          "q": {"title": "Q", "tabs": ["favoriten"], "ui": {**ui, "nameSize": 22}}})
-    std = W.GROESSEN_STANDARD[aufbau]
+    std = konfig.GROESSEN_STANDARD[aufbau]
 
     def groessen(pid):
         v = app.resolve_profile(pid)["vars"]

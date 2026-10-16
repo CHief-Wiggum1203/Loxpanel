@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import anlage, konfig, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -106,7 +106,7 @@ def test_ein_bildschirm_vom_geraet_bis_zur_ansicht(cfg_ordner, tmp_path):
                 await pg.locator('#geLinks [data-ge-art="haus"]').click()
                 await pg.wait_for_function("(document.getElementById('geFrame').getAttribute('src') || '').startsWith('/?panel=haus&')")
                 st = await pg.evaluate(STAND)
-                assert (st["art"], st["name"], st["id"], st["aufbau"]) == ("haus", "Haus", "haus", W.HAUS_AUFBAU_STANDARD), st
+                assert (st["art"], st["name"], st["id"], st["aufbau"]) == ("haus", "Haus", "haus", konfig.HAUS_AUFBAU_STANDARD), st
                 await vorschau.locator("#grid[data-layout='haus'], .haus, [data-haus]").first.wait_for(timeout=15000)
                 await pg.screenshot(path=str(tmp_path / "geraet_einrichten_haus.png"))
 

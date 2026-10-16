@@ -9,8 +9,8 @@ def test_grammatik_der_kopfzeile():
     assert konfig._clean_tabpane("header") == "header"
     assert konfig._clean_tabpane("header:") == "header"            # ohne Werte: Uhr und Wetter
     assert konfig._clean_tabpane("header:A, B,,") == "header:A,B"  # Werte getrimmt, Leere weg
-    zu_viele = "header:" + ",".join(f"U{i}" for i in range(W.SV_STATUS_MAX + 3))
-    assert konfig._clean_tabpane(zu_viele).count(",") == W.SV_STATUS_MAX - 1
+    zu_viele = "header:" + ",".join(f"U{i}" for i in range(konfig.SV_STATUS_MAX + 3))
+    assert konfig._clean_tabpane(zu_viele).count(",") == konfig.SV_STATUS_MAX - 1
     assert konfig._clean_tabpane("headerx") == "" and konfig._clean_tabpane("kopf") == ""
     # Widget-Tab (ganze Seite) und Uhr-Seite kennen keine Kopfzeile
     assert konfig._clean_widget_tab("header") == "" and konfig._clean_widget_tab("header:A") == ""

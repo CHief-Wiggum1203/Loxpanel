@@ -4,6 +4,7 @@ config/ mit) hat keinen Miniserver-Zugang. Der Platzhalter der Vorlage
 solange der Server keine Struktur hat, wo der Konfigurator zu oeffnen ist.
 Config-Ordner umgeleitet (Fixture cfg_ordner)."""
 import asyncio
+import json
 import shutil
 import types
 
@@ -12,7 +13,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import anlage, ersetzen, geraete, miniserver, ROOT, visu_starten, W
+from lox import anlage, ersetzen, geraete, konfig, miniserver, ROOT, visu_starten, W
 
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room": "r1", "cat": "c1",
                    "states": {"active": "l"}}}
@@ -27,7 +28,7 @@ def mit_vorlage(cfg_ordner):
 
 def test_vorlage_ist_kein_zugang(mit_vorlage):
     assert W._config() == {}, "mit dem Platzhalter wuerde sich der Server endlos anmelden"
-    cfg = W._load_cfg()
+    cfg = konfig._load_cfg()
     assert "miniserver" not in cfg and cfg["audio"]["enabled"] is True, "die uebrigen Vorgaben gelten weiter"
 
 
@@ -54,7 +55,7 @@ def test_konfigurator_auf_frischem_geraet(mit_vorlage):
     assert ms["host"] == "" and ms["user"] == "" and ms["hasPass"] is False
     assert ohne_kennwort == (400, {"ok": False, "error": "Passwort fehlt"})
     assert nacht == 200
-    cfg = W.json.loads((mit_vorlage / "loxpanel.cfg").read_text(encoding="utf-8"))
+    cfg = json.loads((mit_vorlage / "loxpanel.cfg").read_text(encoding="utf-8"))
     assert cfg["night"]["control"] == "L" and "miniserver" not in cfg
 
 
@@ -162,7 +163,7 @@ class _Socket:
 def test_adresse_im_netz(monkeypatch, adresse, erwartet):
     monkeypatch.setattr(_Socket, "adresse", adresse)
     monkeypatch.setattr(geraete, "socket", types.SimpleNamespace(socket=_Socket, AF_INET=2, SOCK_DGRAM=2))
-    assert W._lan_adressen() == erwartet
+    assert geraete._lan_adressen() == erwartet
 
 
 def test_panel_bekommt_hinweis_und_dessen_ende(monkeypatch):

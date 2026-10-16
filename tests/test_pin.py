@@ -15,8 +15,9 @@ import re
 import aiohttp
 import pytest
 
-from lox import ROOT, Miniserver, W, anlage, bewaesserung_baustein, intercom_baustein, neue_app, \
-    visu_starten, wecker_baustein
+from lox import (
+    anlage, bewaesserung_baustein, intercom_baustein, konfig, Miniserver, neue_app, ROOT, visu_starten, W,
+    wecker_baustein)
 
 PIN = "4711"
 ZONE = {"name": "Küche Musik", "type": "AudioZone", "uuidAction": "ZA", "room": "r1", "cat": "c1",
@@ -147,9 +148,9 @@ def test_cmdresult_nennt_befehl_und_code(miniserver_http):
     ("std", None),                       # Standard: nicht gespeichert, kein Verlust
 ])
 def test_pin_merken_speichern(wert, gespeichert):
-    roh = {"p": {"title": "P", "ui": {"pinMerken": W.PIN_MERKEN_STANDARD if wert == "std" else wert}}}
+    roh = {"p": {"title": "P", "ui": {"pinMerken": konfig.PIN_MERKEN_STANDARD if wert == "std" else wert}}}
     sauber = W.App._sanitize_panels(roh)
-    soll = W.PIN_MERKEN_MAX if gespeichert == "max" else gespeichert
+    soll = konfig.PIN_MERKEN_MAX if gespeichert == "max" else gespeichert
     assert (sauber["p"].get("ui") or {}).get("pinMerken") == soll
     assert W.App._panels_verworfen(roh, sauber) == []
 
@@ -167,14 +168,14 @@ def test_pin_merken_standard_ist_begruendet_klein():
     offen stehen: kuerzer als die Ruhe, nach der die Visu zur Uhr-Seite geht."""
     src = _visu_quelltext()
     ruhe_ms = int(re.search(r"const SAVER_IDLE_MS\s*=\s*(\d+)", src).group(1))
-    assert 0 < W.PIN_MERKEN_STANDARD <= W.PIN_MERKEN_MAX
-    assert W.PIN_MERKEN_STANDARD * 1000 < ruhe_ms
+    assert 0 < konfig.PIN_MERKEN_STANDARD <= konfig.PIN_MERKEN_MAX
+    assert konfig.PIN_MERKEN_STANDARD * 1000 < ruhe_ms
 
 
 @pytest.mark.parametrize("ui, sekunden", [({}, "std"), ({"pinMerken": 0}, 0), ({"pinMerken": 90}, 90)])
 def test_pin_merken_kommt_mit_dem_theme(ui, sekunden):
     app = _app(ui=ui)
-    soll = W.PIN_MERKEN_STANDARD if sekunden == "std" else sekunden
+    soll = konfig.PIN_MERKEN_STANDARD if sekunden == "std" else sekunden
     assert app.resolve_profile("test")["pinMerken"] == soll
     assert asyncio.run(_ws(app, lambda ws: _bis(ws, "theme")))["pinMerken"] == soll
 
@@ -193,7 +194,7 @@ def test_pin_merken_im_konfigurator():
             bc.cancel()
             await runner.cleanup()
     m = asyncio.run(meta())
-    assert m["pinMerken"] == {"standard": W.PIN_MERKEN_STANDARD, "max": W.PIN_MERKEN_MAX}
+    assert m["pinMerken"] == {"standard": konfig.PIN_MERKEN_STANDARD, "max": konfig.PIN_MERKEN_MAX}
     assert m["panels"]["test"]["ui"]["pinMerken"] == 90
     # Der Konfigurator liegt in config.html und den Teilen config/*.js
     quellen = [ROOT / "webfrontend/html/config.html", *sorted((ROOT / "webfrontend/html/config").glob("*.js"))]

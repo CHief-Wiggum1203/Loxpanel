@@ -17,7 +17,7 @@ import sys
 
 import pytest
 
-from lox import ROOT, W
+from lox import konfig, ROOT, W
 
 # Anleitungen, nach denen jemand installiert (nicht Journal/TODO unter docs/)
 ANLEITUNGEN = [ROOT / "README.md", *sorted((ROOT / "deploy").glob("*.md")),
@@ -100,7 +100,7 @@ def test_doku_nennt_den_vorrang_wie_der_server(cfg_ordner, monkeypatch, stelle):
     monkeypatch.setenv("LOXPANEL_MS_HOST", "10.0.0.2")
     (cfg_ordner / "loxpanel.cfg").write_text(json.dumps({"miniserver": {"host": "10.0.0.1"}}),
                                              encoding="utf-8")
-    assert W._ms_zugang()[0]["host"] == "10.0.0.1", "Server: gespeicherter Zugang vor LOXPANEL_MS_*"
+    assert konfig._ms_zugang()[0]["host"] == "10.0.0.1", "Server: gespeicherter Zugang vor LOXPANEL_MS_*"
 
     roh = (ROOT / stelle).read_text(encoding="utf-8")
     text = " ".join(z.strip().lstrip("#").strip() for z in roh.splitlines())

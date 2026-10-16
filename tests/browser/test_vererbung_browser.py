@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, karte_auf, visu_starten
+from lox import anlage, geraete, karte_auf, konfig, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -41,7 +41,7 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
         app.states = {"sl": 0}
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler = []
-        icon_std = W.GROESSEN_STANDARD["neu"]["iconSize"]
+        icon_std = konfig.GROESSEN_STANDARD["neu"]["iconSize"]
         try:
             async with async_playwright() as p:
                 b = await p.chromium.launch()
@@ -60,7 +60,7 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                     f"{icon_std} px · Standard · gilt für 3 von 3 Ansichten"
                 assert (await _zeile(pg, "font").text_content()).startswith("Standard · gilt"), "nicht doppelt"
                 assert await _zeile(pg, "reloadHours").text_content() == \
-                    f"nachts um {W.NEULADEN_STUNDE} Uhr · gilt für 3 von 3 Ansichten"
+                    f"nachts um {geraete.NEULADEN_STUNDE} Uhr · gilt für 3 von 3 Ansichten"
                 await pg.screenshot(path=str(tmp_path / "vorgaben_herkunft.png"), full_page=True)
 
                 # Ansicht Flur: leer = Vorgabe oder Standard; das Geraet ueberstimmt die Skalierung
@@ -71,7 +71,7 @@ def test_herkunft_und_zuruecksetzen(cfg_ordner, tmp_path):
                 await pg.locator(".stab[data-sub='verhalten']").click()
                 assert await pg.locator("#pconfHost input[data-ui='dpmsOff']").count() == 0, \
                     "Display aus steht in den Vorgaben und am Geraet (Schritt 4), nicht in der Ansicht"
-                assert await _zeile(pg, "reloadHours").text_content() == f"nachts um {W.NEULADEN_STUNDE} Uhr"
+                assert await _zeile(pg, "reloadHours").text_content() == f"nachts um {geraete.NEULADEN_STUNDE} Uhr"
                 await pg.locator(".stab[data-sub='raster']").click()
                 assert await pg.locator("#pconfHost #fScale, #pconfHost #fTileSize").count() == 0, \
                     "Skalierung und Zielkachel stehen am Geraet (Schritt 4b), nicht in der Ansicht"

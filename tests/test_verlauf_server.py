@@ -4,7 +4,9 @@ Speichern der zugehoerigen Panel-Optionen."""
 import asyncio
 from datetime import datetime
 
-from lox import bloecke, ersetzen, hauslast, konfig, Miniserver, neue_app, pv_leistung, statistik, v1_bausteine, W, zaehlerstand
+from lox import (
+    bloecke, ersetzen, hauslast, konfig, Miniserver, neue_app, pv_leistung, statistik, v1_bausteine, W,
+    zaehlerstand)
 
 JETZT = datetime.now().replace(second=0, microsecond=0)
 
@@ -187,9 +189,9 @@ def test_mehrere_bausteine_gestapelt(miniserver_http):
             app.states = {"sv": 57.3, "sa": 0.6, "st": 1024.5, "sr": 0, "sx": 5}
             st = app.chart_stack(("R", "T", "X", "gibtsnicht"), "7d")
             assert st["controls"] == ["R", "T"] and [c["name"] for c in st["charts"]] == ["Regen", "Boiler"]
-            assert st["range"] == "7d" and [r[0] for r in st["ranges"]] == list(W.STAT_RANGES)
+            assert st["range"] == "7d" and [r[0] for r in st["ranges"]] == list(konfig.STAT_RANGES)
             assert all(b["k"] == "chart" for c in st["charts"] for b in c["blocks"])
-            assert app.chart_stack(("T",), "quatsch")["range"] == W.STAT_DEFAULT_RANGE
+            assert app.chart_stack(("T",), "quatsch")["range"] == statistik.STAT_DEFAULT_RANGE
             assert app.chart_stack(("X",))["charts"] == []
             for _ in range(40):                      # angestossene Abrufe auslaufen lassen
                 await asyncio.sleep(0.05)

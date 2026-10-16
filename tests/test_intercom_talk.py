@@ -5,7 +5,7 @@ import aiohttp
 from aiohttp import web
 import pytest
 
-from lox import Miniserver, W, anlage, intercom_baustein, intercom_v2_baustein, neue_app, serve
+from lox import anlage, intercom_baustein, intercom_v2_baustein, miniserver, Miniserver, neue_app, serve, W
 from intercom_talk import IntercomTalk, TalkBusy
 
 SESSION = "12345678-1234-1234-1234-123456789012"
@@ -148,12 +148,12 @@ def test_stop_waehrend_altes_gespraech_aufraeumt():
 def test_credential_fehler_verhindert_anruf():
     async def run():
         async def credentials(uuid):
-            raise ValueError(W.KEIN_SIP)
+            raise ValueError(miniserver.KEIN_SIP)
         manager = IntercomTalk(credentials)
         try:
             await manager.start(SESSION, "IC", 12345)
             await _until(lambda: manager.state == "error")
-            assert manager.status(SESSION)["message"] == W.KEIN_SIP
+            assert manager.status(SESSION)["message"] == miniserver.KEIN_SIP
             assert manager.call is None
         finally:
             await manager.close()
@@ -268,7 +268,7 @@ def test_native_api_ohne_sip_hat_keinen_kamera_fallback(secured, audio, miniserv
                     assert r.status == 200
                     data = await r.json()
                 assert data["state"] == "error"
-                assert data["message"] == (W.KEIN_SIP if secured else "Der Baustein hat keine gesicherten Details")
+                assert data["message"] == (miniserver.KEIN_SIP if secured else "Der Baustein hat keine gesicherten Details")
                 assert "media" not in data
                 assert all(secret not in str(data) for secret in (SIP["pass"], "bild-pass", "eigener-pass"))
                 assert created == [] and app.intercom_talk.call is None

@@ -22,9 +22,10 @@ Einstellungen) stehen in `docs/ARCHITEKTUR.md` §7.2.
 
 | Datei | Inhalt |
 |---|---|
-| `bin/webvisu.py` | der Kern des Servers: `App` (`__init__()` mit allen Feldern, `_spawn()`, `close()`; die Themen erbt sie als Mixins), die Routen-Handler und `main()` am Ende; rund 2.100 Zeilen, wird weiter zerlegt |
+| `bin/webvisu.py` | der Kern des Servers: `App` (`__init__()` mit allen Feldern, `_spawn()`, `close()`; die Themen erbt sie als Mixins), Start, Logging und `main()` mit der Routentabelle; rund 460 Zeilen |
+| `bin/routen/` | die Routen-Handler je Thema (`oberflaeche`, `visu` mit dem WebSocket `/ws`, `konfigurator`, `einstellungen`, `intercom`, `geraete`, `medien`, `system`), `gemeinsam.py` mit `_push()`, `_push_filter()`, `_json_or_empty()`, `_NOCACHE`, `server_stand()`; `main()` importiert die Handler und trägt sie ein |
 | `bin/konfig.py` | die Konfigdateien unter `config/`: Pfade, Laden und atomares Schreiben, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()` …), die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL` …), die Wertprüfer (`_clean_*`) und die Sanitizer (`_sanitize_panels()` …, in `App` als statische Methoden erreichbar) |
-| `bin/sicherung.py` | Backup als ZIP ohne Kennwörter und das Einspielen einer Sicherung (lesen, prüfen, Kennwörter einsetzen, schreiben); die Routen `/api/backup` und `/api/restore` bleiben in `webvisu.py` |
+| `bin/sicherung.py` | Backup als ZIP ohne Kennwörter und das Einspielen einer Sicherung (lesen, prüfen, Kennwörter einsetzen, schreiben); die Routen `/api/backup` und `/api/restore` stehen in `routen/einstellungen.py` |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser, Ausdünnen, Tagesbalken und als Mixin `Statistik` (erbt `App`) Laden mit Cache, Verlaufsblöcke der Detailseite und Mini-Verläufe der Kacheln |
 | `bin/haus.py`, `bin/gesten.py` | Hausübersicht (Mixin `Haus`, `_view_haus()`, `HAUS_*`) und Gesten der Visu (Mixin `Gesten`, `geste()`, `gesten_hilfe()`, `GESTEN_*_TYPEN`); `App` erbt beide |
 | `bin/miniserver.py`, `geraete.py`, `audiodienst.py`, `intercomdienst.py`, `front.py`, `verteilung.py`, `medien.py`, `diagnosedaten.py`, `ansicht.py`, `seiten.py` | die übrigen Themen der `App`, je ein Mixin: Verbindung, Token, Struktur und Befehle (`Miniserver`), Geräte, Agenten, Display und `panels.json` schreiben (`Geraete`, dazu `KIOSK_APPS`, `AGENT_*`), Audioserver-Anbindung (`Audiodienst`), SIP-Zugang und Kamera der Intercom (`Intercomdienst`), Kalender und Wetter der Uhr-Seite (`Front`), Broadcaster und `push()` (`Verteilung`), Icons, Cover und Klingelbilder (`Medien`), Diagnose und `/api/types` (`Diagnosedaten`, dazu `VERSION`), wirksames Profil, Theme und Export (`Ansicht`), `render()`, Tabs, Kacheln und Detailseiten (`Seiten`) |
@@ -68,7 +69,7 @@ jedem PR, jedem Push auf `main` und jedem `v*`-Tag aus. Lokal dasselbe:
 ```bash
 .venv/bin/pip install -r requirements-dev.txt     # einmalig, dazu für Browser-Tests:
 .venv/bin/python -m playwright install chromium    # einmalig
-python3 -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
+python3 -m py_compile bin/*.py bin/bausteine/*.py bin/routen/*.py agent/loxpanel-agent.py
 .venv/bin/ruff check --select F,E9 bin agent tests
 .venv/bin/pytest                  # alles; -m "not browser" ohne Chromium (~15 s)
 ```
@@ -133,8 +134,11 @@ python3 -m py_compile bin/*.py bin/bausteine/*.py agent/loxpanel-agent.py
   `ersetzen(monkeypatch, name, wert)` aus `tests/lox.py`: `webvisu.py` importiert
   aus den herausgelösten Modulen mit eigener Bindung je Modul, ein Patch nur
   an `W` träfe den Aufrufer dort nicht. Die herausgelösten Module (`ZERLEGT` in
-  `tests/lox.py`, dazu `bausteine`) importieren `webvisu` nie
-  (`tests/test_schichten.py`); App-Methoden eines Themas wandern als Mixin.
+  `tests/lox.py`, dazu die Pakete `bausteine` und `routen`, `PAKETE`)
+  importieren `webvisu` nie, die Routen `App` nur als Typangabe unter
+  `TYPE_CHECKING` (`tests/test_schichten.py`); App-Methoden eines Themas
+  wandern als Mixin, ein neuer Endpunkt kommt nach `bin/routen/<thema>.py`
+  und wird in `main()` eingetragen.
   Ein neues Modul kommt in `_ZERLEGT_MODULE` hinter die Module, aus denen es
   importiert. Die Bausteine importieren kein Themenmodul (Kreis über
   `bausteine/__init__.py`); was den Miniserver braucht, gehört in ein Thema.

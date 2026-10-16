@@ -70,7 +70,7 @@ def test_karte_code_und_benennen(cfg_ordner, tmp_path):
                 assert k1["sichtbar"] and CODE.match(k1["code"]) and k1["titel"] == "Dieses Gerät einrichten", k1
                 # Ueber 127.0.0.1 geladen (die App auf dem Panel selbst) nennt die Karte
                 # wie der Einrichtungshinweis die Adresse des Servers im Netz
-                assert k1["urls"] == [f"http://{a}:{port}/config" for a in W._lan_adressen()], k1
+                assert k1["urls"] == [f"http://{a}:{port}/config" for a in geraete._lan_adressen()], k1
                 assert k1["gemerkt"] == k1["code"], k1
                 await neu.screenshot(path=str(tmp_path / "kopplung_karte.png"))
                 code = k1["code"]

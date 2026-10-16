@@ -15,7 +15,8 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 import theme_colors
 from audioserver_events import AudioEventClient
-from lox import anlage, AUDIO_GEKOPPELT, Audioserver, bloecke, medien, Miniserver, miniserver, neue_app, serve, W
+from lox import (
+    anlage, AUDIO_GEKOPPELT, Audioserver, bloecke, medien, miniserver, Miniserver, neue_app, routen, serve, W)
 
 
 class _Ersatz:
@@ -31,9 +32,9 @@ class _Ersatz:
 
 
 def test_fehlende_datei_404():
-    r = W._web_file(Path("/nicht/da/panel.html"), "text/html")
+    r = routen.oberflaeche._web_file(Path("/nicht/da/panel.html"), "text/html")
     assert r.status == 404 and "panel.html" in r.text
-    r = W._web_file(W.HTML, "text/html")
+    r = routen.oberflaeche._web_file(routen.oberflaeche.HTML, "text/html")
     assert r.status == 200 and "<html" in r.text.lower()
 
 
@@ -363,7 +364,7 @@ def test_haengendes_panel_blockiert_push_nicht():
             app.conn_route[w] = {}
             app.conn_info[w] = {}
         t = time.monotonic()
-        n = await W._push(app, {"t": "notify", "text": "x"})
+        n = await routen.gemeinsam._push(app, {"t": "notify", "text": "x"})
         assert n == 1 and o.got and 4.5 < time.monotonic() - t < 7
         assert h not in app.conn_prof and h not in app.conn_info, "haengendes Panel wird getrennt"
     asyncio.run(lauf())
@@ -451,7 +452,7 @@ def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch):
         s = aiohttp.ClientSession(*a, **kw)
         sitzungen.append(s)
         return s
-    monkeypatch.setattr(W, "aiohttp", _Ersatz(aiohttp, ClientSession=zaehler))
+    monkeypatch.setattr(routen.intercom, "aiohttp", _Ersatz(aiohttp, ClientSession=zaehler))
 
     async def lauf():
         angekommen, weiter = asyncio.Event(), asyncio.Event()

@@ -14,8 +14,9 @@ import time
 
 import pytest
 
-from lox import (BETRIEBSARTEN, KONFIGURATOR_GELADEN, Miniserver, W, anlage, bewaesserung_baustein,
-                 intercom_baustein, neue_app, visu_starten, wecker_baustein)
+from lox import (
+    anlage, BETRIEBSARTEN, bewaesserung_baustein, intercom_baustein, konfig, KONFIGURATOR_GELADEN, Miniserver,
+    neue_app, visu_starten, W, wecker_baustein)
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -610,7 +611,7 @@ def test_pin_merken_im_konfigurator(cfg_ordner, tmp_path):
                 await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
                 await visu.wait_for_function("pinMerkenS > 0")
                 stand["visu"] = await visu.evaluate("pinMerkenS")
-                await feld.fill(str(W.PIN_MERKEN_STANDARD))
+                await feld.fill(str(konfig.PIN_MERKEN_STANDARD))
                 stand["standard"] = (await speichern()).get("ui")
                 await b.close()
         finally:
@@ -619,7 +620,7 @@ def test_pin_merken_im_konfigurator(cfg_ordner, tmp_path):
         assert not fehler, fehler
         return stand
     stand = asyncio.run(lauf())
-    assert stand["grau"] == (str(W.PIN_MERKEN_STANDARD), str(W.PIN_MERKEN_MAX), ""), stand
+    assert stand["grau"] == (str(konfig.PIN_MERKEN_STANDARD), str(konfig.PIN_MERKEN_MAX), ""), stand
     assert stand["gespeichert"] == {"pinMerken": 45}, stand
     assert stand["neu_geladen"] == "45" and stand["visu"] == 45, stand
     assert stand["standard"] is None, stand

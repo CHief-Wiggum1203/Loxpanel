@@ -13,7 +13,7 @@ import shutil
 
 import pytest
 
-from lox import EFM, EFM_NODES, KONFIGURATOR_GELADEN, ROOT, W, visu_starten
+from lox import EFM, EFM_NODES, konfig, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -376,7 +376,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
     assert stand["anfang"] == "", "ohne Einstellung der neue Aufbau"
     # Leere Felder zeigen grau, was gilt: den Standard des Aufbaus vom Server,
     # beim Umstellen sofort den des anderen, und was das Panel global erbt
-    neu, klassisch = ({k: str(v) for k, v in W.GROESSEN_STANDARD[a].items()} for a in ("neu", "classic"))
+    neu, klassisch = ({k: str(v) for k, v in konfig.GROESSEN_STANDARD[a].items()} for a in ("neu", "classic"))
     assert neu != klassisch
     assert stand["grau_neu"] == neu and stand["grau_klassisch"] == klassisch, stand
     assert stand["grau_global"] == neu, stand

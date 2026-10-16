@@ -9,7 +9,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, serve
+from lox import anlage, KONFIGURATOR_GELADEN, serve, sicherung, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -113,7 +113,7 @@ def test_herunterladen_und_wieder_einspielen(cfg_ordner, tmp_path):
 
 def test_abbrechen_und_kaputte_datei(cfg_ordner, tmp_path):
     (cfg_ordner / "panels.json").write_text(json.dumps(PANELS), encoding="utf-8")
-    sicherung = W._backup_zip(cfg_ordner)
+    zip_daten = sicherung._backup_zip(cfg_ordner)
 
     async def lauf():
         app, _ = _app()
@@ -125,7 +125,7 @@ def test_abbrechen_und_kaputte_datei(cfg_ordner, tmp_path):
             # Abbrechen: nichts wird hochgeladen
             pg.once("dialog", lambda d: asyncio.ensure_future(d.dismiss()))
             await pg.locator("#rs_file").set_input_files(
-                {"name": "sicherung.zip", "mimeType": "application/zip", "buffer": sicherung})
+                {"name": "sicherung.zip", "mimeType": "application/zip", "buffer": zip_daten})
             await pg.wait_for_timeout(500)
             abgebrochen = list(anfragen)
             # kaputte Datei: Meldung bleibt stehen, die Seite laedt nicht neu
