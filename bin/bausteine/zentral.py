@@ -21,13 +21,19 @@ def kachel_zentralbaustein(app, uuid, c, it):
     elif t in ("CentralGate", "CentralWindow"):
         it["sublabel"] = f"{n} offen" if n else "Alle geschlossen"
     elif t == "CentralJalousie":
-        it.update(sublabel="Beschattung", subInfo=True)
+        # Auf/Ab direkt auf der Kachel wie bei einer Jalousie; ein Tipp
+        # oeffnet die Detailseite mit allen Zentralbefehlen
+        ua = c.get("uuidAction")
+        it.update(sublabel="Alle Jalousien", subInfo=True,
+                  controls=[{"icon": "triup", "cmd": {"uuid": ua, "cmd": "FullUp"}},
+                            {"icon": "tridown", "cmd": {"uuid": ua, "cmd": "FullDown"}}])
     elif t == "CentralAlarm":
         it.update(sublabel="Alarmzentrale", subInfo=True)
     if "sublabel" not in it:
         it.update(sublabel="Zentral", subInfo=True)
-    it.update(icon="central", on=(n > 0),
-              nav={"view": "group", "kind": "central", "id": uuid})
+    jal = t == "CentralJalousie"
+    it.update(icon="blind" if jal else "central", on=(n > 0),
+              nav={"view": "control", "id": uuid} if jal else {"view": "group", "kind": "central", "id": uuid})
 
 
 class ZentralHelfer:

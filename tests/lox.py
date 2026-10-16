@@ -1045,6 +1045,21 @@ def aufab_baustein(wert=1, fehler=0, **details) -> tuple[dict, dict]:
     return control, {"uda-v": wert, "uda-e": fehler, "uda-l": ""}
 
 
+def jalousie_baustein(automatik=True, animation=0, **werte) -> tuple[dict, dict]:
+    """Raffstore mit Automatik (Jalousie, animation 0) auf 40 % zu, Lamellen
+    halb; werte ueberschreibt States nach Namen (Strukturdoku: up, down,
+    position, shadePosition, safetyActive, autoAllowed, autoActive, locked,
+    infoText, deviceState)."""
+    namen = ("up", "down", "position", "shadePosition", "safetyActive", "autoAllowed", "autoActive", "locked",
+             "infoText", "deviceState")
+    states = {n: f"ja-{n}" for n in namen}
+    control = {"name": "Raffstore Süd", "type": "Jalousie", "uuidAction": "JA", "room": "r1", "cat": "c1",
+               "details": {"isAutomatic": automatik, "animation": animation}, "states": states}
+    w = {"up": 0, "down": 0, "position": 0.4, "shadePosition": 0.5, "safetyActive": 0, "autoAllowed": 1,
+         "autoActive": 1, "locked": 0, "infoText": "", "deviceState": 2, **werte}
+    return control, {states[n]: w[n] for n in namen}
+
+
 def rauchmelder_baustein(**werte) -> tuple[dict, dict]:
     """Rauchmelder (SmokeAlarm) ohne Alarm, ueberwacht Rauch und Wasser
     (availableAlarms 0x01|0x02); werte ueberschreibt States nach Namen
