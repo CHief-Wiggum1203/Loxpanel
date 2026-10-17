@@ -3,8 +3,8 @@ Detailseite je Typ in die Tabellen KACHEL und DETAIL eintraegt. Geprueft wird,
 dass die Tabellen genau die Typen der frueheren elif-Ketten kennen (kein Typ
 geht beim Umbau verloren, keiner kommt still dazu), dass ein Typ nicht doppelt
 eingetragen werden kann, dass die Zentralbausteine ueber ihr Praefix laufen und
-dass App._control_item()/_view_control_inner() fuer einen unbekannten Typ wie
-bisher die stumme Kachel bzw. die Einzelkachel-Seite liefern."""
+dass App._control_item()/_view_control_inner() fuer einen unbekannten Typ eine
+Kachel liefern, die das sagt, bzw. die Einzelkachel-Seite."""
 import inspect
 
 import pytest
@@ -15,7 +15,7 @@ import bausteine  # noqa: E402  # bin/ liegt durch lox auf dem Pfad
 
 # Typen der Kachel-Kette (Stand vor dem Umbau, 15.10.2026) und ihre Familie
 KACHEL_TYPEN = {
-    "licht": {"LightControllerV2", "LightController", "Dimmer", "EIBDimmer", "Colorpicker", "ColorPickerV2"},
+    "licht": {"LightControllerV2", "LightController", "Dimmer", "EIBDimmer", "ColorPickerV2"},
     "schalten": {"Switch", "TimedSwitch", "Daytimer", "Pushbutton", "UpDownDigital", "Radio"},
     "beschattung": {"Jalousie", "Gate", "Window"},
     "klima": {"IRoomControllerV2", "IRoomController", "AcControl", "ClimateControllerUS", "Ventilation"},
@@ -96,15 +96,36 @@ def test_typen_uebersicht():
     assert typen["Pushbutton"] == {"modul": "schalten", "kachel": True}
 
 
-def test_unbekannter_typ_bleibt_stumme_kachel_und_einzelseite():
+def test_unbekannter_typ_sagt_es_und_bleibt_einzelseite():
+    """Statt einer leeren Kachel "Typ nicht unterstuetzt" als beschreibende
+    Zweitzeile (subInfo). /api/types fuehrt den Typ trotzdem als nicht
+    unterstuetzt und die Kachel unter den toten; hide blendet sie aus."""
     app = _app({"X": {"name": "Neuer Baustein", "type": "GanzNeu", "uuidAction": "X", "room": "r1", "cat": "c1",
-                      "states": {}}})
+                      "isFavorite": True, "states": {}}})
     it = app._control_item("X")
     assert it["label"] == "Neuer Baustein" and it["icon"] == "info" and it["on"] is False
     assert "nav" not in it and "cmd" not in it and "controls" not in it
+    assert it["sublabel"] == "Typ nicht unterstützt" and it["subInfo"] is True
     v = app._view_control_inner("X")
     assert v["title"] == "Neuer Baustein" and v["route"] == {"view": "control", "id": "X"}
     assert [e["id"] for e in v["items"]] == ["X"]
+    uebersicht = app.types_overview()
+    assert [(t["type"], t["status"]) for t in uebersicht["types"]] == [("GanzNeu", "none")]
+    assert [d["uuid"] for d in uebersicht["unsupportedControls"]] == ["X"]
+    for hide, ids in (([], ["X"]), (["X"], [])):
+        app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["favoriten"], "hide": hide}})
+        seite = app.render({"view": "tab", "tab": "favoriten"}, app.resolve_profile("p"))
+        assert [i["id"] for i in seite["items"]] == ids
+
+
+def test_bekannter_typ_ohne_zweitzeile_bleibt_unterstuetzt():
+    """Nur Typen ohne Kachel-Funktion gelten als unbekannt: eine Kachel aus den
+    Tabellen behaelt, was ihre Funktion setzt."""
+    app = _app({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "room": "r1", "cat": "c1",
+                      "states": {"active": "s"}}}, {"s": 0})
+    it = app._control_item("S")
+    assert "unbekannt" not in it and it["sublabel"] != "Typ nicht unterstützt"
+    assert [(t["type"], t["status"]) for t in app.types_overview()["types"]] == [("Switch", "full")]
 
 
 def test_kachel_und_detail_laufen_ueber_die_tabellen():
