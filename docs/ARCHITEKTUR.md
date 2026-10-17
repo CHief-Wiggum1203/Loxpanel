@@ -75,14 +75,14 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/audiodienst.py` | Mixin `Audiodienst`: Ereignis-Clients der Audioserver (`audio_events_task()`), das Backend je Zone, Cover der laufenden Titel und die Favoriten der Zonen. Importiert `webvisu` nicht |
 | `bin/intercomdienst.py` | Mixin `Intercomdienst`: SIP-Zugang einer Intercom aus den gesicherten Details (`intercom_sip()`, für Gegensprechen und SIP-Prüfung), die Kamera für den MJPEG-Proxy (`intercom_video()`, aus `loxpanel.cfg` oder den gesicherten Details, `_kamera_aus_details()`) und die Blöcke der Kamera-Pane (`intercom_blocks()`), §3.10. Kachel und Detailseite bleiben in `bausteine/intercom.py`. Importiert `webvisu` nicht |
 | `bin/front.py` | Mixin `Front`: Kalender und Wetter der Uhr-Seite, regelmäßig geholt (`front_task()`) und als `{t:"front"}` verteilt, Loxone-Wetterserver mit Vorrang (§3.8), Sonnenzeiten. Importiert `webvisu` nicht |
-| `bin/verteilung.py` | Mixin `Verteilung`: der Broadcaster (`broadcaster()`, `_broadcast_tick()`), `push()` an ausgewählte Browser, Neuladen und die Hinweise zur Verbindung und zur Einrichtung (§3.5). Importiert `webvisu` nicht |
+| `bin/verteilung.py` | Mixin `Verteilung`: der Broadcaster (`broadcaster()`, `_broadcast_tick()`), der je Verbindung nur rendert, was betroffen ist (`_Lesespur`, `_neu_rendern()`, `_rendern()`, `RENDER_SPAETESTENS_S`), `push()` an ausgewählte Browser, Neuladen und die Hinweise zur Verbindung und zur Einrichtung (§3.5). Importiert `webvisu` nicht |
 | `bin/medien.py` | Mixin `Medien`: Adressen der Icons, Icons und Klingelbilder vom Miniserver mit Cache (`fetch_icon()`, `fetch_bell_image()`), Cover über den Proxy (`fetch_cover()`), die Liste der Loxone-Icons. Importiert `webvisu` nicht |
 | `bin/diagnosedaten.py` | Mixin `Diagnosedaten`: die Angaben fürs Diagnosepaket (`diagnose_daten()`) und die Typübersicht für `/api/types` (`types_overview()`); dazu `VERSION`. Importiert `webvisu` nicht |
 | `bin/ansicht.py` | Mixin `Ansicht`: das wirksame Profil einer Ansicht (`resolve_profile()`), die Theme-Variablen der Visu (`_theme_vars()`), Kategorie-Farben, der Export für den Konfigurator (`_panel_export()`) und das Schreiben von `theme.json`. Importiert `webvisu` nicht |
 | `bin/seiten.py` | Mixin `Seiten`: `render()` mit den Tabs, Gruppen und Detailseiten (`_view_tab()`, `_view_control()`), die Kachel (`_control_item()` mit Kopf, Typ-Funktion aus `bausteine/` und Fuß, `_apply_tile_style()`), die Werteleiste und die Status-Pane; `STATUS_BIG`, `_ANALOG`, `KACHEL_BREIT_TYPEN`. Importiert `webvisu` nicht |
 | `bin/bausteine/` | Kachel und Detailseite je Bausteintyp, ein Modul je Familie; `__init__.py` hält die Tabellen `KACHEL`/`DETAIL` und die Dekoratoren, `gemeinsam.py` Typmengen, Konstanten der Strukturdoku, die Adapter und reine Helfer (§6) |
 | `bin/loxone_ws.py` | Loxone-WebSocket-Client: Token-Handshake, Binärparsing der Value-, Text- und Wetter-Tabellen. Nicht behandelte Kennungen werden einmal pro Verbindung protokolliert. Lebenszeichen: Frist je Antwort, `keepalive` im Stream (Werte vom Aufrufer, §3.4) |
-| `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. |
+| `bin/adapters.py` | Nur `LightControllerV2Adapter` und `JalousieAdapter` werden genutzt. Die Adapter-Registry darin ist aufgegeben. Dazu `json_aus_text()`: JSON-States je Text einmal parsen (LRU-Cache, `JSON_TEXTE_MAX`), genutzt von den Adaptern und den Helfern der Bausteine (§3.5) |
 | `bin/audioserver.py` | Backend für Loxone-Audioserver Gen1 / MS4H über WebSocket Port 7091 |
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. Das Mixin `Front` (`front.py`) ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
@@ -140,13 +140,13 @@ Loxone Miniserver
    │  WebSocket ws(s)://host/ws/rfc6455, Token-Auth, Binär-States
    ▼
 LoxoneWS.stream()  ──► App._on_value(uuid, wert)  ──► App.states[uuid] = wert
-                                                     _dirty = True
+                                                     _geaendert.add(uuid)
                                                      Flanken: Klingel, Wecker
    ┌───────────────────────────────────────────────────────────┘
    ▼
 App.broadcaster()  alle 0,3 s:
-   für jede offene Browser-Verbindung:
-      render(route, profil)  ──► {"t":"view", ...}  ──► Browser
+   für jede offene Browser-Verbindung, deren Seite betroffen ist (§3.5):
+      render(route, profil)  ──► {"t":"view", ...}  ──► Browser (nur bei Änderung)
    ▲
    │  {"t":"nav"} / {"t":"cmd"}
 Browser (panel.html)
@@ -369,12 +369,37 @@ Wichtige Felder:
 
 ### 3.5 Verteilung an die Browser
 
-`broadcaster()` (`verteilung.py`) pollt alle 0,3 s das `_dirty`-Flag. Ist es gesetzt,
-wird für jede offene Verbindung die aktuell betrachtete Route komplett neu
-gerendert und als vollständige `view`-Nachricht geschickt. Es gibt kein
-Delta-Protokoll und keine Drosselung. Bei vielen laufenden Werten (Zähler,
-Temperaturen) bedeutet das bis zu drei Voll-Renderings pro Sekunde pro Panel.
-Das ist die wahrscheinlichste Skalierungsgrenze.
+`broadcaster()` (`verteilung.py`) läuft alle 0,3 s (`_broadcast_tick()`) und
+rendert je offene Verbindung nur, was betroffen ist:
+
+- `_on_value()` sammelt die geänderten States in `_geaendert`. Jedes Rendern
+  einer Verbindung liest die States über eine Lesespur (`_Lesespur`), die
+  festhält, welche es gelesen hat (`get`, `[]`, `in`); sie steht mit Profil,
+  Schlüssel und Zeit in `_render_spur`. Neu gerendert wird eine Verbindung
+  (`_neu_rendern()`), wenn ihr letztes Rendern einen der geänderten States
+  gelesen hat, wenn sie Seite (Route), Profil oder einen Bereich (Player,
+  Energiefluss, Verlauf, Kamera, Statusspalte) gewechselt hat oder wenn es
+  `RENDER_SPAETESTENS_S` (10 s) her ist. Die Frist deckt, was an der Uhr hängt
+  statt an einem State: Countdowns („wird scharf um …“, Briefkasten-Pause),
+  „heute“/„morgen“ beim Wecker und im Klingelarchiv, das Nachladen der
+  Verläufe.
+- Liest ein Rendern die States im Ganzen (Durchlaufen, Länge, `items()`),
+  weiß die Spur nicht, welche es braucht (`alles`): dann rendert die
+  Verbindung bei jedem Takt mit einer Änderung.
+- `_dirty` heißt „außerhalb der States hat sich etwas geändert“ (Struktur,
+  Theme, Audioserver, Verläufe, Intercom-Bild, Sicherung) und rendert alle
+  Verbindungen neu.
+- Scheitert ein Rendern, bleibt seine Spur bis dahin stehen: Es wird nicht
+  jeden Takt wiederholt (das Log liefe voll), sondern wieder, wenn sich etwas
+  ändert, das es gelesen hat, oder nach der Frist.
+
+Gerendert wird je Verbindung in `_rendern()`: Ansicht und Bereiche. Geschickt
+wird danach nur, was sich seit der letzten Zustellung an diese Verbindung
+geändert hat (`_last_sent`); ein Delta-Protokoll innerhalb einer Ansicht gibt
+es nicht. JSON-States (`moodList`, `entryList`, `sourceList` …) parst der
+Server je Text einmal (`adapters.json_aus_text()`, LRU-Cache mit
+`JSON_TEXTE_MAX` Einträgen); ein unlesbarer wird je Text einmal gemeldet
+(`_json_fehler_melden()`), nicht bei jedem Rendern.
 
 ### 3.6 Nachrichtenprotokoll
 
@@ -3515,7 +3540,9 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 
 - P1: Vollrendering jeder offenen Ansicht bei jeder State-Änderung, alle 0,3 s,
   inklusive JSON-Parsing von `moodList`, `entryList`, `sourceList` in jedem
-  Durchlauf (Abschnitt 3.5).
+  Durchlauf (Abschnitt 3.5) — behoben: Eine Verbindung rendert nur, wenn ihre
+  Seite einen geänderten State liest (Lesespur), und JSON-States werden je
+  Text einmal geparst (§3.5).
 - P2: `panels.json` wird bei jedem Zugriff zweimal geöffnet (`load_panels`,
   `load_devices`) — behoben, `load_panels_doc()` liest einmal.
 - P3: Ring- und Alarm-Pushes gehen an alle Verbindungen ohne Panel-Filter —
@@ -3598,9 +3625,11 @@ Priorisiert nach Nutzen für einen eigenen Betrieb auf Unraid:
 2. **Broadcaster absichern** (F3). `except Exception` mit Logging um jede
    `send_json`, sonst kann ein einzelner Fehler alle Panels stumm schalten.
 3. **Escaping in der Visu** (F10). `esc()` um `"` und `'` ergänzen, eine Zeile.
-4. **Delta-Rendering oder Drosselung** (P1). Mindestens: pro Verbindung das
+4. ~~**Delta-Rendering oder Drosselung** (P1). Mindestens: pro Verbindung das
    letzte gesendete JSON merken und nur senden, wenn es sich geändert hat. Das
-   allein spart bei laufenden Werten einen Großteil der WebSocket-Last.
+   allein spart bei laufenden Werten einen Großteil der WebSocket-Last.~~
+   Erledigt: nur senden, was sich geändert hat (`_last_sent`), und nur
+   rendern, was betroffen ist (§3.5).
 5. **Einfacher Zugriffsschutz** (S1). Für ein Heimnetz reicht ein optionales
    Token, das `/config` und die schreibenden `/api/*`-Routen
    schützt, während `/`, `/ws` und die Bild-Proxys frei bleiben. Alternativ ein

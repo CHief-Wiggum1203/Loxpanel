@@ -5,12 +5,13 @@ Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer
 die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta
 from urllib.parse import quote, unquote
 
+from adapters import json_aus_text
 from bausteine import detail, kachel
+from bausteine.helfer import _json_fehler_melden
 from bausteine.gemeinsam import _clean, DAUER_SCHRITT, _dauer_text, PROZENT_SCHRITT, STAT_WEEKDAYS
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
@@ -140,10 +141,9 @@ class WeckerHelfer:
         data = raw
         if isinstance(raw, str):
             txt = unquote(raw).strip()
-            try:
-                data = json.loads(txt)
-            except ValueError:
-                log.warning("Wecker entryList nicht als JSON parsebar: %r", txt[:200])
+            ok, data = json_aus_text(txt)
+            if not ok:
+                _json_fehler_melden("Wecker entryList", txt)
                 return None
         if isinstance(data, dict):
             return {str(k): e for k, e in data.items() if isinstance(e, dict)}, True
