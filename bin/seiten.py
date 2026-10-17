@@ -276,21 +276,12 @@ class Seiten:
             if s == "builtin" and ic.get("id"):
                 it["icon"] = ic["id"]
                 it.pop("iconUrl", None)
-                it.pop("iconImg", None)
             elif s == "loxone" and ic.get("p"):
                 u = self._icon_url(ic["p"])
                 if u:
                     it["iconUrl"] = u
-                    it.pop("iconImg", None)
             elif s == "loxlib" and ic.get("name"):
                 it["iconUrl"] = "/loxlib?n=" + quote(str(ic["name"]))
-                it.pop("iconImg", None)
-            elif s == "google" and ic.get("name"):
-                it["iconUrl"] = "/gicon?name=" + quote(str(ic["name"]))
-                it.pop("iconImg", None)
-            elif s == "custom" and ic.get("file"):
-                it["iconImg"] = "/uicon?f=" + quote(str(ic["file"]))
-                it.pop("iconUrl", None)
         # Mini-Verlauf in der Kachel (tiles.<uuid>.chart = Zeitraum), nur fuer
         # Bausteine mit Aufzeichnung. Ein Tipp oeffnet wie bisher die Detailseite.
         rng = ov.get("chart")

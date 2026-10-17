@@ -30,7 +30,6 @@
   .hero .circle svg{width:38px;height:38px;}
   .hero .circle .himg{width:38px;height:38px;background-color:currentColor;
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
-  .hero .circle .rawico{width:38px;height:38px;object-fit:contain;}
   .status{text-align:center;color:var(--muted);font-size:14px;padding:2px 6px;}
   /* Wecker-Status: moderat gross (nicht so riesig wie .pbig), Raum als Unterzeile */
   .astat{text-align:center;font-size:30px;font-weight:600;line-height:1.18;letter-spacing:-.01em;padding:0 16px;}
@@ -460,7 +459,6 @@
     background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:7px 11px;}
   .sv-st .ico{width:22px;height:22px;flex:none;display:grid;place-items:center;color:var(--ico,var(--ink));}
   .sv-st .ico svg{width:100%;height:100%;}
-  .sv-st .ico img{width:100%;height:100%;object-fit:contain;}
   .sv-st .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .sv-st .nm{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -554,7 +552,7 @@
   button.hs-c{font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
   button.hs-c:active{transform:scale(.98);}
   .hs-i{width:calc(30px * var(--hk));height:calc(30px * var(--hk));flex:none;display:grid;place-items:center;color:var(--ink);}
-  .hs-i svg,.hs-i img{width:100%;height:100%;object-fit:contain;}
+  .hs-i svg{width:100%;height:100%;object-fit:contain;}
   .hs-i.img{display:inline-block;background-color:currentColor;
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .hs-c.on .hs-i{color:var(--glow);}

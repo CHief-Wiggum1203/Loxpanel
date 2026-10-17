@@ -9,7 +9,7 @@ import time
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import ROOT, W, anlage
+from lox import konfig, ROOT, W, anlage
 
 
 def _meldung(panels: dict, namen: dict | None = None) -> list[str]:
@@ -111,3 +111,68 @@ def test_speichern_antwortet_mit_dem_gespeicherten_stand(cfg_ordner):
         doc = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))
         assert sorted(doc["panels"]) == sorted(j["panels"])
     asyncio.run(lauf())
+
+
+def test_zustandsfarben_nur_gueltige():
+    """Zustandsfarben einer Ansicht landen als CSS-Variablen im Panel (--glow,
+    --good ...). Was keine Farbe ist, uebernimmt der Server nicht und meldet es."""
+    roh = {"wz": {"title": "Wohnzimmer", "tabs": ["favoriten"],
+                  "states": {"active": " #e0a24d ", "good": "rgb(1,2,3)",
+                             "warn": "red;}body{display:none", "crit": 5}}}
+    p = W.App._sanitize_panels(roh)["wz"]
+    assert p["states"] == {"active": "#e0a24d", "good": "rgb(1,2,3)"}
+    assert sorted(_meldung(roh)) == ["Wohnzimmer: states.crit", "Wohnzimmer: states.warn"]
+
+
+SEITEN_ICONS_GUT = ["/icon?p=IconsFilled%2Flight.svg", "/loxlib?n=lampe.svg", "IconsFilled/light.svg",
+                    "Icons/bild.png"]
+SEITEN_ICONS_FREMD = ["//fremd.example/x.png", "https://fremd.example/x.png", "/fremd/x.svg",
+                      "../x.svg", "IconsFilled/../x.svg", "javascript:x.svg", "\\\\fremd.example\\x.png",
+                      "IconsFilled/light"]
+
+
+def test_seiten_icon_nur_eigene_adressen():
+    """Icon einer freien Seite: was die Icon-Auswahl schreibt (/icon?, /loxlib?)
+    oder ein Loxone-Pfad. "//fremd..." faengt mit "/" an und lud das Bild frueher
+    vom fremden Host."""
+    for ic in SEITEN_ICONS_GUT:
+        assert konfig._clean_seiten_icon(ic) == ic, ic
+    for ic in SEITEN_ICONS_FREMD:
+        assert konfig._clean_seiten_icon(ic) == "", ic
+    roh = {"wz": {"title": "Wohnzimmer", "tabs": ["auswahl"],
+                  "pickTabs": [{"name": "Seite", "picks": ["U1"], "icon": "//fremd.example/x.png"}]}}
+    assert "icon" not in W.App._sanitize_panels(roh)["wz"]["pickTabs"][0]
+    assert _meldung(roh) == ["Wohnzimmer: pickTabs.1.icon"]
+
+
+def test_seiten_icon_aus_aelterer_datei():
+    """panels.json wird beim Laden nicht sanitisiert: eine fremde Adresse aus
+    einem aelteren Stand erreicht weder die Tab-Leiste noch den Konfigurator."""
+    app = W.App({"host": "", "port": 80})
+    for ic in SEITEN_ICONS_FREMD:
+        prof = {"tabs": ["auswahl"], "pickTabs": [{"name": "Seite", "picks": [], "icon": ic}]}
+        assert konfig._pick_tabs(prof)[0]["icon"] == "", ic
+        assert app._tab_meta(["auswahl"], prof)["auswahl"]["iconUrl"] == "", ic
+    prof = {"tabs": ["auswahl"], "pickTabs": [{"name": "Seite", "picks": [], "icon": "IconsFilled/light.svg"}]}
+    assert app._tab_meta(["auswahl"], prof)["auswahl"]["iconUrl"] == "/icon?p=IconsFilled/light.svg"
+
+
+def test_kachel_icon_nur_angebotene_quellen():
+    """Google- und eigene Icons (/gicon, /uicon) hat der Server nie ausgeliefert
+    und der Kachel-Editor nie angeboten: der Server nimmt sie nicht an, und eine
+    von Hand geschriebene Angabe erzeugt keine Adresse ins Leere."""
+    roh = {"wz": {"title": "Wohnzimmer", "tabs": ["favoriten"],
+                  "tiles": {"U1": {"icon": {"src": "google", "name": "lightbulb"}},
+                            "U2": {"icon": {"src": "custom", "file": "lampe.png"}},
+                            "U3": {"icon": {"src": "loxlib", "name": "lampe.svg"}}}}}
+    p = W.App._sanitize_panels(roh)["wz"]
+    assert p["tiles"] == {"U3": {"icon": {"src": "loxlib", "name": "lampe.svg"}}}
+    assert sorted(_meldung(roh)) == ["Wohnzimmer: tiles.U1.icon.name", "Wohnzimmer: tiles.U1.icon.src",
+                                     "Wohnzimmer: tiles.U2.icon.file", "Wohnzimmer: tiles.U2.icon.src"]
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage({u: {"name": f"Licht {u}", "type": "Switch", "uuidAction": u, "room": "r1",
+                                     "cat": "c1", "states": {"active": f"s{u}"}} for u in ("U1", "U2", "U3")}))
+    kacheln = {u: app._control_item(u, roh["wz"]) for u in ("U1", "U2", "U3")}
+    for u in ("U1", "U2"):
+        assert "gicon" not in str(kacheln[u]) and "uicon" not in str(kacheln[u]) and "iconImg" not in kacheln[u]
+    assert kacheln["U3"]["iconUrl"] == "/loxlib?n=lampe.svg"

@@ -134,12 +134,11 @@ class Haus:
 
     @staticmethod
     def _haus_symbol(it: dict) -> dict:
-        """Symbol einer Kachel fuer die Hausseite (eingebaut, Loxone-Symbol oder
-        eigenes Bild, wie auf der Kachel)."""
+        """Symbol einer Kachel fuer die Hausseite (eingebaut oder Loxone-Symbol,
+        wie auf der Kachel)."""
         s = {"icon": it.get("icon") or "info"}
-        for k in ("iconUrl", "iconImg"):
-            if it.get(k):
-                s[k] = it[k]
+        if it.get("iconUrl"):
+            s["iconUrl"] = it["iconUrl"]
         return s
 
     def _haus_aus(self, uuid: str) -> dict | None:

@@ -219,8 +219,7 @@ function svStatusZeilen(){
     return '<div class="fp-empty">'+(svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
   return items.map(it=>{
     const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
-    const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
-      : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+    const ico = it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
       : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
     return '<div class="sv-st'+ton+'"'+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
       '<span class="nm">'+esc(it.label||'')+

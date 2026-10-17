@@ -318,7 +318,6 @@
     align-items:center;flex:none;background:var(--tile);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:5px 10px;}
   .kz-w .ico{grid-area:ico;width:calc(22px * var(--ks,1));height:calc(22px * var(--ks,1));display:grid;place-items:center;color:var(--ico,var(--ink));}
   .kz-w .ico svg{width:100%;height:100%;}
-  .kz-w .ico img{width:100%;height:100%;object-fit:contain;}
   .kz-w .ico.img{display:inline-block;background-color:var(--ico,var(--ink));
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .kz-w .vl{grid-area:vl;font-size:calc(15px * var(--ks,1));font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
@@ -492,7 +491,6 @@
   .tile .ico,.tile .icowrap{color:var(--ico,var(--muted));}
   .tile.on .ico,.tile.on .icowrap{color:var(--ico-fixed,var(--glow));}
   .tile .ico svg{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));}
-  .tile .ico .rawico{width:calc(var(--ico-size,38px) * var(--ks,1));height:calc(var(--ico-size,38px) * var(--ks,1));object-fit:contain;display:block;}
   /* Positionsring: Stellung von Rollladen, Tor, Fenster und Dimmer als Bogen
      um das Icon. Der Server schickt "pos" nur fuer diese Bausteine; ohne den
      Wert entsteht gar kein Element und die Kachel sieht aus wie immer.
@@ -792,7 +790,6 @@
   html[data-kachelset-aufbau="kreis"] .tile .kreis{display:inline-grid;place-items:center;flex:none;
     width:var(--k-kreis,52px);height:var(--k-kreis,52px);border-radius:50%;background:var(--taste,var(--tile));}
   html[data-kachelset-aufbau="kreis"] .tile .kreis .ico svg,
-  html[data-kachelset-aufbau="kreis"] .tile .kreis .ico .rawico,
   html[data-kachelset-aufbau="kreis"] .tile .kreis .ico.img{
     width:calc(var(--k-kreis,52px) * var(--kreis-anteil,.54));height:calc(var(--k-kreis,52px) * var(--kreis-anteil,.54));}
   html[data-kachelset-aufbau="kreis"] .tile.on .kreis{background:var(--glow);}

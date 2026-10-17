@@ -73,7 +73,7 @@ MESSEN = """() => {
   const kacheln = [...g.querySelectorAll('.tile[data-id]')];
   const je = id => kacheln.find(k => k.dataset.id === id);
   const ganz = e => !e || (e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1);
-  const kachel = k => { if (!k) return null; const nm = k.querySelector('.name'), ico = k.querySelector('.ico svg, .ico.img, .ico .rawico');
+  const kachel = k => { if (!k) return null; const nm = k.querySelector('.name'), ico = k.querySelector('.ico svg, .ico.img');
     return {breite: k.clientWidth, hoehe: k.clientHeight, klassen: [...k.classList],
             name: nm ? parseFloat(cs(nm).fontSize) : null, nameGanz: ganz(nm), icon: ico ? Math.round(r(ico).width) : null,
             ueberlauf: k.scrollHeight > k.clientHeight + 1,

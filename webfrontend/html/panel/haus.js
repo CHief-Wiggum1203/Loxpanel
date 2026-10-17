@@ -34,7 +34,6 @@ const HS_HINWEIS_MIN=240, HS_HINWEIS_PLUS=72, HS_HINWEIS_HOCH=60;
 const HS_SENDER_MIN=104, HS_SENDER_MEHR=96, HS_SENDER_HOCH=108, HS_SENDER_SPALTE=3;
 function hsIco(s, extra){
   const k='hs-i'+(extra?' '+extra:'');
-  if(s.iconImg) return '<span class="'+k+'"><img src="'+esc(s.iconImg)+'" alt=""></span>';
   if(s.iconUrl) return '<span class="'+k+' img" style="--u:url(\''+esc(s.iconUrl)+'\')"></span>';
   return '<span class="'+k+'">'+svg(ICONS[s.icon]||ICONS.info)+'</span>';
 }

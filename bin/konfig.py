@@ -168,7 +168,9 @@ def _pick_tabs(prof):
                                                   [u for u in (e.get("picks") or []) if isinstance(u, str)])
                 seite = {"name": str(e.get("name") or "Auswahl"),
                          "picks": picks,
-                         "icon": str(e.get("icon") or ""),
+                         # auch hier geprueft: panels.json aus aelteren Staenden
+                         # ist nie durch _sanitize_panels gelaufen
+                         "icon": _clean_seiten_icon(e.get("icon")),
                          # Statt Kacheln kann eine freie Seite ein Widget sein
                          # (Wetter/Kalender/Energie/Kamera/Verlauf/Werte/Audio),
                          # als Vollbild-Tab. Leer = Kachelseite (picks).
@@ -711,7 +713,10 @@ def _loxlib_names() -> list:
 
 
 def _clean_icon(ic):
-    """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner)."""
+    """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner).
+    Nur die Quellen, die der Kachel-Editor anbietet und der Server ausliefert:
+    eingebaut, Loxone-Icon des Miniservers (/icon) und Loxone-Bibliothek
+    (/loxlib)."""
     if not isinstance(ic, dict):
         return None
     s = ic.get("src")
@@ -723,11 +728,22 @@ def _clean_icon(ic):
     if s == "loxlib" and isinstance(ic.get("name"), str) and _LOXLIB_NAME.match(ic["name"]) \
             and ".." not in ic["name"]:
         return {"src": "loxlib", "name": ic["name"]}
-    if s == "google" and isinstance(ic.get("name"), str) and re.match(r"^[a-z0-9_]{1,48}$", ic["name"]):
-        return {"src": "google", "name": ic["name"]}
-    if s == "custom" and isinstance(ic.get("file"), str) and re.match(r"^[A-Za-z0-9._-]{1,80}$", ic["file"]):
-        return {"src": "custom", "file": ic["file"]}
     return None
+
+
+def _clean_seiten_icon(ic) -> str:
+    """Icon einer freien Seite: die fertige Adresse aus der Icon-Auswahl des
+    Konfigurators (/icon?p=... oder /loxlib?n=...) oder ein Loxone-Icon-Pfad,
+    den der Server ueber /icon vom Miniserver holt (relativ, ohne Schema).
+    Alles andere -> "", vor allem fremde Adressen: "//host/x.png" faengt mit
+    "/" an und ginge sonst unveraendert an die Visu, die das Bild dann von
+    dort laedt."""
+    ic = str(ic or "").strip()[:200]
+    if ic.startswith("/icon?") or ic.startswith("/loxlib?"):
+        return ic
+    if ic.startswith("/") or ":" in ic or "\\" in ic or ".." in ic:
+        return ""
+    return ic if ic.endswith(".svg") or ic.endswith(".png") else ""
 
 
 def _sanitize_overlay(ov) -> dict:
@@ -1044,12 +1060,7 @@ def _sanitize_panels(panels: dict) -> dict:
                     continue
                 ps = [str(x) for x in (it.get("picks") or []) if isinstance(x, str)][:60]
                 nm = str(it.get("name") or "").strip()[:40]
-                ic = str(it.get("icon") or "").strip()[:200]
-                # Nur erlaubte Icon-Formen behalten: interne Endpunkte oder
-                # ein Loxone-Icon-Pfad. Alles andere (z. B. externe URL) raus.
-                if ic and not (ic.startswith("/icon?") or ic.startswith("/loxlib?")
-                               or ic.endswith(".svg") or ic.endswith(".png")):
-                    ic = ""
+                ic = _clean_seiten_icon(it.get("icon"))
                 # Widget-Seite statt Kacheln (Wetter/Kalender/Energie/Kamera/
                 # Verlauf/Werte/Audio) - Form pruefen wie eine Tab-Pane,
                 # nur die Kopfzeile nicht (_clean_widget_tab).
@@ -1171,8 +1182,9 @@ def _sanitize_panels(panels: dict) -> dict:
         if cui:
             e["ui"] = cui
         st = p.get("states") or {}
-        cst = {k: str(st[k]) for k in ("active", "good", "warn", "crit")
-               if isinstance(st.get(k), str)}
+        # Zustandsfarben landen als CSS-Variablen im Panel: nur gueltige Farben
+        cst = {k: st[k].strip() for k in ("active", "good", "warn", "crit")
+               if _color_ok(st.get(k))}
         if cst:
             e["states"] = cst
         tiles = p.get("tiles")

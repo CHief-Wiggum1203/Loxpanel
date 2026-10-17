@@ -216,8 +216,7 @@ function kopfHoehe(ks){ return kopfAktiv() ? Math.round(KOPF_H*(ks||kachelFaktor
 // die Zweitzeile: "21,0°" passt in die Zeile, "21,0° → 22,5° · heizt" oft nicht.
 function kopfWertHtml(it, attrs){
   const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
-  const ico = it.iconImg ? '<span class="ico"><img src="'+esc(it.iconImg)+'" alt=""></span>'
-    : it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+  const ico = it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
     : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
   return '<div class="kz-w'+ton+'"'+(attrs||'')+(it.color?' style="--ico:'+esc(it.color)+'"':'')+'>'+ico+
     '<span class="vl">'+esc(it.big||it.sublabel||'')+'</span><span class="nm">'+esc(it.label||'')+'</span></div>';
