@@ -528,7 +528,7 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 13.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
+Stand 17.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
 #34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`).
 
 Lenardo hat die Geschichte seines Repos am 04.10.2026 neu begonnen; sein
@@ -537,23 +537,33 @@ gemeinsame Basis mehr mit seinem `main`, ein PR daraus lässt sich nicht
 mergen. Neue Zweige deshalb immer von `upstream/main` (Ablauf A in
 `CONTRIBUTING.md`).
 
-**Eingereicht und offen** (13.10.2026), jeder auf `upstream/main`
-(`c34320c`) und gegen Lenardos Code geprüft: die Fork-Tests lagen
-vorübergehend auf dem Zweig, mit der Änderung grün, ohne sie rot; wo Lenardo
-dafür keinen Testaufbau hat, mit dem echten Server bzw. Konfigurator in
-Chromium vorher gegen nachher. Alle acht vertragen sich untereinander
-(`git merge-tree`), die Reihenfolge ist egal.
+**Eingereicht und offen** (17.10.2026): der ganze Fork-Stand in sechs
+Etappen, die aufeinander aufbauen, und der LoxBerry-Fix für sich. Lenardo
+mergt die Etappen der Reihe nach, als Merge-Commit oder „Rebase and merge“,
+nicht per Squash; sonst zeigt die nächste die gemergten Änderungen noch
+einmal. #83 (SIP Schritt 1) steckt vollständig in #102 und kann geschlossen
+werden.
 
 | PR | Zweig | Fork | Inhalt |
 |---|---|---|---|
-| [#83](https://github.com/Lenardo1/loxpanel/pull/83) | `up/sip-zugang` (`99a661e`) | – | SIP Schritt 1: Zugang der Intercom aus den gesicherten Details (Command Encryption), Prüfung der Türstation (OPTIONS mit Digest), Reiter *Settings → SIP*. Am 13.10.2026 neu aufgesetzt (vorher ohne gemeinsame Basis), dazu die Absicherung der Digest-Anmeldung aus #127 |
-| [#94](https://github.com/Lenardo1/loxpanel/pull/94) | `up/apk-vorlagen` (`f8d176b`) | #166 | Die APK nimmt aus `config/` nur die Vorlagen, nie Laufzeitdateien samt Sicherungen (`loxpanel.cfg.bak` mit dem Miniserver-Zugang) |
-| [#95](https://github.com/Lenardo1/loxpanel/pull/95) | `up/energie-nan` (`45c40d8`) | #161 | Energiefluss: NaN und unendliche Werte gelten als unbekannt (sonst ungültiges JSON, Ladestand 100 %, „nan kW“) |
-| [#96](https://github.com/Lenardo1/loxpanel/pull/96) | `up/seiten-loeschen` (`2f77776`) | #161 | Freie Seiten löschen: Widgets (`ui.panes`, `WZ.pane2`) rücken mit der Seite nach, im Editor, beim ✕ und in `wzBuild()` |
-| [#97](https://github.com/Lenardo1/loxpanel/pull/97) | `up/agent-standardansicht` (`73c7b92`) | #146, #161 | Unbekannte Ansicht gilt überall als Standardprofil: Abschaltzeit, Nachtmodus und Neustartintervall des Agenten, Geräteliste, Betriebsmodus |
-| [#98](https://github.com/Lenardo1/loxpanel/pull/98) | `up/speichern-waehrend-anfrage` (`427ef63`) | – | Speichern: was während der Anfrage geändert wird, gilt nicht als gespeichert (nur bei Lenardo; der Fork hat die Speicherleiste) |
-| [#99](https://github.com/Lenardo1/loxpanel/pull/99) | `up/visu-neuverbindung` (`5c02315`) | #112 | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (ohne „PIN merken“), eine PIN-Abfrage gehört zur Seite, auf der getippt wurde |
-| [#100](https://github.com/Lenardo1/loxpanel/pull/100) | `up/miniserver-verbindung` (`fae9d0c`) | #113 | Stumme Verbindung erkennen (Fristen, keepalive, `miniserver.keepalive_interval`), „Zertifikat prüfen“ lädt die Standard-CAs |
+| [#103](https://github.com/Lenardo1/loxpanel/pull/103) | `up/loxberry-port` (`351a0a5`) | #209 | LoxBerry: Port am LoxBerry einstellbar, belegten Port erkennen und nennen, Zugang nur an LoxPanel, „Stoppen“ bis „Starten“ oder Neustart, „HTTPS bevorzugen“, fehlender Benutzer. Eigenständig, nur `loxberry-plugin/` |
+| [#102](https://github.com/Lenardo1/loxpanel/pull/102) | `up/etappe-1-grundlage` (`7341922`) | bis #171 | Etappe 1: Gesamtstand bis zum Abgleich vom 13.10.2026 als ein Commit (davor keine gemeinsame Geschichte): SIP, Intercom v2, Gegensprechen Gen 1, die vier Bausteine, Kachel-Aufbau, Raster, Kachel-Sets, Hausübersicht, Pane 2, Konfigurator neu geordnet, Verbindungszustand, Diagnose, `/api/health` |
+| [#104](https://github.com/Lenardo1/loxpanel/pull/104) | `up/etappe-2-gesten` (`5aa6198`) | #172–#178 | Etappe 2: Gesten, Gesten im Dunkeln, Nacht-Uhr |
+| [#105](https://github.com/Lenardo1/loxpanel/pull/105) | `up/etappe-3-hausuebersicht` (`dafabd8`) | #179–#181 | Etappe 3: Hausübersicht mit Schnellaktionen, Hinweisen, Sender-Covern |
+| [#106](https://github.com/Lenardo1/loxpanel/pull/106) | `up/etappe-4-einrichtung` (`ed4e55c`) | #182–#187 | Etappe 4: Einrichtung neu |
+| [#107](https://github.com/Lenardo1/loxpanel/pull/107) | `up/etappe-5-zerlegen` (`28af398`) | #188–#195 | Etappe 5: Zerlegung in Module |
+| [#108](https://github.com/Lenardo1/loxpanel/pull/108) | `up/etappe-6-bausteine` (`d7f6934`) | #196–#208 | Etappe 6: Bausteine laut Strukturdoku, Gesten-Vollbild, gesperrte Bausteine, Fehler aus §3, §4 und §8.1 |
+
+Gebaut aus dem Fork-Baum (Ablauf D in `CONTRIBUTING.md`): Lenardos README,
+LoxBerry-Plugin und `docker-image.yml` bleiben seine; Tests, `docs/`,
+`CLAUDE.md`, Unraid, `tests.yml`, `android-tests.yml`, `pytest.ini` und
+`requirements-dev.txt` bleiben im Fork; der Image-Name ist seiner. Ab #172
+ist jeder Fork-Commit einer, mit Autor, Datum und Text (Verweise als
+`CHief-Wiggum1203/Loxpanel#…`); ohne Code-Änderung entfielen #174, #175 und
+#202. Geprüft: Die Fork-Tests laufen gegen Etappe 6 mit 1415 grünen Tests,
+rot nur die Prüfungen fork-eigener Dateien und die eine LoxBerry-Prüfung, die
+#103 nachliefert; die LoxBerry-Tests laufen gegen die Plugin-Dateien aus #103
+grün.
 
 - [x] **#83 neu aufsetzen** (13.10.2026): Der Commit liegt jetzt auf
       `c34320c`, die Roadmap-Zeile wie bei Lenardo plus der SIP-Hinweis,
@@ -571,16 +581,11 @@ Chromium vorher gegen nachher. Alle acht vertragen sich untereinander
       „Fork-eigene Patches“ in `CONTRIBUTING.md` beachten und den Eintrag dort
       auf „in Upstream“ setzen, den Zweig im Fork löschen.
 
-Fork #108 (Datum der Wetter-Vorschau bleibt eng einzeilig) geht nicht mit:
-Er sitzt in `wetterEinpassen()`, das zu „Pane 2 nutzt ihre Fläche“ gehört
-und bei Lenardo fehlt.
-
-Noch nicht reif zum Einreichen: die vier Bausteine (erst die Prüfung an der
-Anlage, §8.1), die Stabilität der App (braucht `/api/health` und einen Test
-auf dem Gerät), „Pane 2 nutzt ihre Fläche“ (baut auf den fork-eigenen
-Wetter- und Kalender-Tabs auf, für Lenardo erst auf seinen Wetter-Aufbau
-umbauen), Kachel-Aufbau, automatisches Raster und Schriften (erst
-vorschlagen) und die Icon-Bibliothek (oben).
+Was hier bisher als noch nicht reif zum Einreichen stand, ist mit den
+Etappen bei Lenardo: die vier Bausteine, die Stabilität der App samt
+`/api/health`, „Pane 2 nutzt ihre Fläche“ (mit Fork #108), Kachel-Aufbau,
+automatisches Raster und Schriften sowie die Icon-Bibliothek. Ob er sie
+übernimmt, entscheidet er mit #102.
 
 | PR | Inhalt |
 |---|---|
@@ -634,6 +639,13 @@ vorschlagen) und die Icon-Bibliothek (oben).
 | [#91](https://github.com/Lenardo1/loxpanel/pull/91) | „Ansicht wechseln“ und Betriebsmodus erreichen den Linux-Agenten, die Ansicht übersteht Neustarts (Fork #115) |
 | [#92](https://github.com/Lenardo1/loxpanel/pull/92) | LoxBerry: Wiederherstellen prüft das Backup, Sicherungen überleben Plugin-Updates, Zeitzone des LoxBerry im Container (Fork #116) |
 | [#93](https://github.com/Lenardo1/loxpanel/pull/93) | Das `.deb` nimmt die Version aus `loxberry-plugin/plugin.cfg` und trägt Version, Commit und Bauzeit in `bin/version.json` |
+| [#94](https://github.com/Lenardo1/loxpanel/pull/94) | Die APK nimmt aus `config/` nur die Vorlagen, nie Laufzeitdateien samt Sicherungen (Fork #166) |
+| [#95](https://github.com/Lenardo1/loxpanel/pull/95) | Energiefluss: NaN und unendliche Werte gelten als unbekannt (Fork #161) |
+| [#96](https://github.com/Lenardo1/loxpanel/pull/96) | Freie Seiten löschen: Widgets rücken mit der Seite nach (Fork #161) |
+| [#97](https://github.com/Lenardo1/loxpanel/pull/97) | Unbekannte Ansicht gilt überall als Standardprofil (Fork #146, #161) |
+| [#98](https://github.com/Lenardo1/loxpanel/pull/98) | Speichern: was während der Anfrage geändert wird, gilt nicht als gespeichert (nur bei Lenardo; der Fork hat die Speicherleiste) |
+| [#99](https://github.com/Lenardo1/loxpanel/pull/99) | Widget-Abos nach einer Neuverbindung, Musik-Favoriten folgen dem Server, PIN auf jedem Bedienweg (Fork #112) |
+| [#100](https://github.com/Lenardo1/loxpanel/pull/100) | Stumme Miniserver-Verbindung erkennen, „Zertifikat prüfen“ lädt die Standard-CAs (Fork #113) |
 
 #52–#59 hat Lenardo am 29.09.2026 per Squash gemergt; beim Abgleich am
 30.09.2026 kamen sie patch-gleich zurück. #63–#76 hat er am 02.10.2026
@@ -646,6 +658,9 @@ er am 07.10.2026 als Merge-Commits übernommen; beim Abgleich am 13.10.2026
 (echter Merge von `upstream/main` bis `c34320c`) stand ihr Inhalt im Fork
 schon, die Fork-Fassung blieb. Neu kamen nur #93 sowie von Lenardo das `.deb`
 mit gzip und die erweiterte englische Übersetzung des Konfigurators.
+#94–#100 hat er am 14.10.2026 per Squash gemergt; ein Abgleich damit steht
+aus. Am einfachsten nach den Etappen #102–#108: Danach ist sein Code der des
+Forks, und der Abgleich bringt kaum Konflikte.
 
 Über #45 übernommen:
 

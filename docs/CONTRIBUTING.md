@@ -63,6 +63,39 @@ Zweig auf `upstream/main` neu aufsetzen (die eigenen Commits per
 
 Ist die PR bei Upstream gemergt → **Ablauf C** holt sie in den Fork zurück.
 
+## Ablauf D – Den Fork-Stand in Etappen einreichen
+
+Ist der Fork weit voraus (am 17.10.2026: über 30 000 Zeilen, `webvisu.py`
+zerlegt), lässt sich nicht jedes Feature einzeln auf Lenardos Stand
+nachbauen. Dann geht der Fork-Stand selbst zu ihm, in Etappen entlang der
+Fork-Geschichte (am 17.10.2026 Lenardos #102–#108, TODO §0b):
+
+- Je Etappe ein Zweig `up/etappe-<n>-<thema>` auf dem vorigen, der erste auf
+  `upstream/main`. Jeder Commit hat als Baum den Fork-Baum des entsprechenden
+  Fork-Commits; Lenardos eigene Pfade (README, `loxberry-plugin/`,
+  `docker-image.yml`) und die Fork-eigenen (`tests/`, `docs/`, `CLAUDE.md`,
+  `unraid/`, `deploy/UNRAID.md`, `tests.yml`, `android-tests.yml`,
+  `pytest.ini`, `requirements-dev.txt`) nimmt er aus `upstream/main`, den
+  Image-Namen in `docker-compose.yml` setzt er auf `lenardo1`. Gebaut mit
+  `git read-tree`, `git update-index` und `git commit-tree`, kein
+  Cherry-Pick: so gibt es keine Konflikte, und jede Etappe ist genau ein
+  Fork-Stand.
+- Ab dem letzten Abgleich (gemeinsame Geschichte) ein Commit je Fork-Commit,
+  mit Autor, Datum und Text; `(#N)` wird `(CHief-Wiggum1203/Loxpanel#N)`,
+  sonst zeigt es bei Lenardo auf seine PRs. Commits ohne Änderung danach
+  (Version, TODO, nur Tests) entfallen. Davor ein Gesamtstand.
+- Prüfen: Die letzte Etappe darf vom Fork-Code nur in den ersetzten Zeilen
+  abweichen (`git diff` ohne die Pfade oben), Lenardos eigene Pfade gar
+  nicht. Die Fork-Tests über die letzte Etappe legen (`git archive … tests
+  pytest.ini requirements-dev.txt`) und laufen lassen: rot nur, was
+  Fork-Eigenes prüft.
+- PR-Texte nennen die Reihenfolge und bitten um Merge-Commit oder „Rebase
+  and merge“: Bei Squash zeigt die nächste Etappe die gemergten Änderungen
+  noch einmal. Mehr als ein Commit füllt GitHub die Beschreibung nicht vor;
+  die Links tragen Titel und Text darum als `title=` und `body=`.
+- Was nur ein Teil des Plugins betrifft und dringend ist (LoxBerry, #103),
+  geht zusätzlich für sich (Ablauf A) und bleibt aus den Etappen heraus.
+
 ## Ablauf B – Etwas rein Fork-eigenes (Identität / Unraid)
 
 Das, was nicht nach Upstream soll. Normal im Fork, Squash/Rebase ist hier ok
@@ -159,6 +192,10 @@ Workflow `:latest`, sobald die Tests grün sind, und die kennen nur den Nachbau:
 
 Falls etwas unvermeidbar nur im Fork liegt, hier eintragen, damit ein Sync es
 nicht unbemerkt entfernt:
+
+Seit dem 17.10.2026 ist alles in dieser Liste mit den Etappen #102–#108 bei
+Lenardo eingereicht (Ablauf D, TODO §0b). Mergt er sie, steht es in beiden;
+bis dahin gelten die Hinweise unten für jeden Abgleich weiter.
 
 - Icon-Bibliothek einer freien Seite (`pickIcoGridNeu()` und
   `bindPickIcons()` in `config.html`): Kommt die Bibliothek nach, füllt sie nur
