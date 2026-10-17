@@ -5,8 +5,7 @@ Die Helfer (app._state, app._fmt_num ...) sind Mixins: die allgemeinen in helfer
 die dieser Familie in der Klasse unten; App erbt sie ueber bausteine.BausteinHelfer."""
 from __future__ import annotations
 
-import json
-
+from adapters import json_aus_text
 from bausteine import detail, kachel
 from bausteine.gemeinsam import (
     _clean, IRC1_BETRIEBSARTEN, IRC1_ECO, IRC1_KOMFORT_HEIZEN, IRC1_KOMFORT_KUEHLEN,
@@ -297,10 +296,9 @@ def detail_klimaregler(app, uuid, c, route):
     dc = app._state(c, "demandCool") or 0
     big = "Heizt" if dh else ("Kühlt" if dc else "Bereit")
     # verwaltete AC-Einheiten + wie viele gerade Bedarf anmelden
-    try:
-        units = json.loads(app._state(c, "controls") or "[]")
-    except (ValueError, TypeError):
-        units = []
+    roh = app._state(c, "controls")
+    units = json_aus_text(roh)[1] if isinstance(roh, str) else None
+    units = units if isinstance(units, list) else []
     active = sum(1 for u in units if isinstance(u, dict) and u.get("demand"))
     sbits = [f"{active}/{len(units)} Anlagen aktiv"] if units else []
     hum = app._state(c, "humidity") or 0

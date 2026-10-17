@@ -178,6 +178,11 @@ class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
         # NACH erfolgreichem Senden - ein abgebrochener Versuch darf nie als
         # zugestellt gelten.
         self._last_sent: dict = {}
+        # Nur rendern, was betroffen ist (verteilung.py): die seit dem letzten
+        # Tick geaenderten States (_on_value) und je Verbindung, welche States ihr
+        # letztes Rendern gelesen hat, fuer welche Seite und wann
+        self._geaendert: set[str] = set()
+        self._render_spur: dict = {}
         self.jwt: str | None = None
         self.alg: str = "SHA1"
         self._ms_pubkey = None           # RSA-Schluessel des Miniservers fuer verschluesselte Befehle

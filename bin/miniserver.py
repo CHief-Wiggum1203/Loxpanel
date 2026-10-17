@@ -530,7 +530,8 @@ class Miniserver:
 
     def _on_value(self, uuid: str, value: object) -> None:
         self.states[uuid] = value
-        self._dirty = True
+        # neu gerendert wird nur, wessen Seite diesen State liest (_broadcast_tick)
+        self._geaendert.add(uuid)
         if uuid in self.bell_map:
             if value and not self._bell_prev.get(uuid):
                 self._pending_ring = self.bell_map[uuid]

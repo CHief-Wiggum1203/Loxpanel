@@ -38,6 +38,53 @@ VERBINDUNG_TEXTE = {
     "gesperrt": "Bedienung gesperrt",
 }
 
+# Eine Verbindung rendert nur neu, wenn sich ein State geaendert hat, den ihre
+# Seite liest, oder etwas ausserhalb der States (_dirty). Spaetestens nach so
+# vielen Sekunden aber auf jeden Fall: Countdowns und Uhrzeiten auf der Seite
+# ("wird scharf um ...", Briefkasten-Pause, "heute"/"morgen" beim Wecker und
+# im Klingelarchiv) und das Nachladen der Verlaeufe haengen an der Zeit, nicht
+# an einem State.
+RENDER_SPAETESTENS_S = 10
+
+
+class _Lesespur:
+    """Sicht auf App.states fuer ein Rendern, die mitschreibt, welche States es
+    liest (get, [], in). Was die States im Ganzen braucht (Durchlaufen, Laenge,
+    andere Methoden), setzt `alles`: dann rendert die Verbindung bei jedem Tick."""
+    __slots__ = ("quelle", "gelesen", "alles")
+
+    def __init__(self, quelle):
+        self.quelle, self.gelesen, self.alles = quelle, set(), False
+
+    def get(self, k, default=None):
+        self.gelesen.add(k)
+        return self.quelle.get(k, default)
+
+    def __getitem__(self, k):
+        self.gelesen.add(k)
+        return self.quelle[k]
+
+    def __contains__(self, k):
+        self.gelesen.add(k)
+        return k in self.quelle
+
+    def __setitem__(self, k, v):
+        self.quelle[k] = v
+
+    def __iter__(self):
+        self.alles = True
+        return iter(self.quelle)
+
+    def __len__(self):
+        self.alles = True
+        return len(self.quelle)
+
+    def __getattr__(self, name):
+        if name in _Lesespur.__slots__:
+            raise AttributeError(name)
+        self.alles = True
+        return getattr(self.quelle, name)
+
 
 class Verteilung:
     """Senden an die Browser; Mixin der App (self ist die App)."""
@@ -181,6 +228,8 @@ class Verteilung:
             # Verbindung schliessen, daran gedacht werden muss.
             for _tot in [w for w in self._last_sent if w not in self.conn_route]:
                 del self._last_sent[_tot]
+        for _tot in [w for w in self._render_spur if w not in self.conn_route]:
+            del self._render_spur[_tot]
         night = self._night_now()
         if night != self._night_on:
             # Nur beim Wechsel senden — die Panels halten den Zustand selbst.
@@ -188,65 +237,34 @@ class Verteilung:
             log.info("Nachtmodus %s", "an" if night else "aus")
             for ws in list(self.conn_route):
                 await self._send_or_drop(ws, {"t": "night", "on": night})
-        if self._dirty and self.conn_route:
-            self._dirty = False
+        # Neu gerendert wird je Verbindung nur, was betroffen ist (_neu_rendern):
+        # _dirty heisst "ausserhalb der States hat sich etwas geaendert" (Struktur,
+        # Theme, Audioserver, Verlaeufe ...) und rendert alle neu, _on_value
+        # sammelt die geaenderten States in _geaendert.
+        alles, self._dirty = self._dirty, False
+        geaendert, self._geaendert = self._geaendert, set()
+        if self.conn_route:
+            jetzt = time.monotonic()
             for ws, route in list(self.conn_route.items()):
                 prof = self.conn_prof.get(ws)
-                try:
-                    msg = self.render(route, prof)
-                except Exception:
-                    # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-Update-
-                    # Schleife killen. Fehler loggen, diese Verbindung ueberspringen.
-                    log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
+                schluessel = (dict(route), self.conn_player.get(ws), self.conn_energy.get(ws),
+                              self.conn_chart.get(ws), self.conn_camera.get(ws), self.conn_status.get(ws))
+                if not (alles or self._neu_rendern(self._render_spur.get(ws), prof, schluessel,
+                                                   geaendert, jetzt)):
                     continue
-                # Split-Layout: Player-Pane des aktiven Tabs mitrendern (Zone kommt
-                # vom Client via setplayer -> conn_player). Fehler isolieren.
-                player_msg = None
-                _zone = self.conn_player.get(ws)
-                if _zone:
-                    try:
-                        pb = self.player_blocks(_zone)
-                        player_msg = self._pane_msg("player", _zone, pb) if pb is not None else None
-                    except Exception:
-                        log.exception("player_blocks fehlgeschlagen (%s)", _zone)
-                # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
-                # kommt vom Client via setenergy -> conn_energy). Fehler isolieren.
-                energy_msg = None
-                _euid = self.conn_energy.get(ws)
-                if _euid:
-                    try:
-                        eb = self.energy_blocks(_euid)
-                        energy_msg = {"t": "energy", **eb} if eb is not None else None
-                    except Exception:
-                        log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
-                # Split-Layout: Verlaufs-Pane (chart:<uuid>) des aktiven Tabs
-                # mitrendern (kommt vom Client via setchart -> conn_chart).
-                chart_msg = None
-                _chart = self.conn_chart.get(ws)
-                if _chart:
-                    try:
-                        chart_msg = {"t": "chart", **self.chart_stack(*_chart)}
-                    except Exception:
-                        log.exception("chart_stack fehlgeschlagen (%s)", _chart)
-                # Split-Layout: Kamera-Pane (Intercom-Vollansicht) des aktiven Tabs
-                # mitrendern (kommt vom Client via setcamera -> conn_camera).
-                camera_msg = None
-                _cuid = self.conn_camera.get(ws)
-                if _cuid:
-                    try:
-                        ib = self.intercom_blocks(_cuid)
-                        camera_msg = self._pane_msg("camera", _cuid, ib) if ib is not None else None
-                    except Exception:
-                        log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
-                # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
-                # Panels (kommt vom Client via setsvstatus -> conn_status).
-                status_msg = None
-                _suu = self.conn_status.get(ws)
-                if _suu:
-                    try:
-                        status_msg = {"t": "svstatus", "items": self.status_blocks(_suu)}
-                    except Exception:
-                        log.exception("status_blocks fehlgeschlagen")
+                # Rendern ist synchron: solange es laeuft, liest es die States
+                # ueber die Spur, und nichts anderes kommt dazwischen
+                lesen = _Lesespur(self.states)
+                self.states = lesen
+                try:
+                    teile = self._rendern(ws, route, prof)
+                finally:
+                    self.states = lesen.quelle
+                self._render_spur[ws] = {"prof": prof, "schluessel": schluessel, "zeit": jetzt,
+                                         "liest": None if lesen.alles else lesen.gelesen}
+                if teile is None:
+                    continue
+                msg, player_msg, energy_msg, chart_msg, _chart, camera_msg, status_msg = teile
                 # Nur senden, was sich seit der letzten Zustellung an DIESE
                 # Verbindung geaendert hat. Der Tick laeuft, sobald sich
                 # irgendein Wert im Haus bewegt — meist betrifft das die
@@ -291,6 +309,78 @@ class Verteilung:
                         last["svstatus"] = status_msg
                     else:
                         self._last_sent.pop(ws, None)
+
+    @staticmethod
+    def _neu_rendern(spur: dict | None, prof, schluessel: tuple, geaendert: set, jetzt: float) -> bool:
+        """Muss diese Verbindung neu rendern? Ja, wenn sie es noch nie getan hat,
+        Profil, Seite oder Bereiche gewechselt haben, ihr letztes Rendern einen
+        der geaenderten States gelesen hat (oder die States im Ganzen) oder es
+        RENDER_SPAETESTENS_S her ist."""
+        return (spur is None or spur["prof"] is not prof or spur["schluessel"] != schluessel
+                or jetzt - spur["zeit"] >= RENDER_SPAETESTENS_S
+                or spur["liest"] is None or not spur["liest"].isdisjoint(geaendert))
+
+    def _rendern(self, ws, route: dict, prof) -> tuple | None:
+        """Ansicht und Bereiche (Player, Energiefluss, Verlauf, Kamera,
+        Statusspalte) einer Verbindung rechnen -> (view, player, energy,
+        chart, Verlaufs-Auswahl, camera, svstatus); None, wenn die Ansicht
+        selbst scheitert. Ein Bereich, der scheitert, fehlt nur (None)."""
+        try:
+            msg = self.render(route, prof)
+        except Exception:
+            # EINE fehlerhafte Kachel/Route darf NIEMALS die Live-Update-
+            # Schleife killen. Fehler loggen, diese Verbindung ueberspringen.
+            log.exception("render() fehlgeschlagen (route=%s) — uebersprungen", route)
+            return None
+        # Split-Layout: Player-Pane des aktiven Tabs mitrendern (Zone kommt
+        # vom Client via setplayer -> conn_player). Fehler isolieren.
+        player_msg = None
+        _zone = self.conn_player.get(ws)
+        if _zone:
+            try:
+                pb = self.player_blocks(_zone)
+                player_msg = self._pane_msg("player", _zone, pb) if pb is not None else None
+            except Exception:
+                log.exception("player_blocks fehlgeschlagen (%s)", _zone)
+        # Split-Layout: Energiefluss-Pane des aktiven Tabs mitrendern (Kachel
+        # kommt vom Client via setenergy -> conn_energy). Fehler isolieren.
+        energy_msg = None
+        _euid = self.conn_energy.get(ws)
+        if _euid:
+            try:
+                eb = self.energy_blocks(_euid)
+                energy_msg = {"t": "energy", **eb} if eb is not None else None
+            except Exception:
+                log.exception("energy_blocks fehlgeschlagen (%s)", _euid)
+        # Split-Layout: Verlaufs-Pane (chart:<uuid>) des aktiven Tabs
+        # mitrendern (kommt vom Client via setchart -> conn_chart).
+        chart_msg = None
+        _chart = self.conn_chart.get(ws)
+        if _chart:
+            try:
+                chart_msg = {"t": "chart", **self.chart_stack(*_chart)}
+            except Exception:
+                log.exception("chart_stack fehlgeschlagen (%s)", _chart)
+        # Split-Layout: Kamera-Pane (Intercom-Vollansicht) des aktiven Tabs
+        # mitrendern (kommt vom Client via setcamera -> conn_camera).
+        camera_msg = None
+        _cuid = self.conn_camera.get(ws)
+        if _cuid:
+            try:
+                ib = self.intercom_blocks(_cuid)
+                camera_msg = self._pane_msg("camera", _cuid, ib) if ib is not None else None
+            except Exception:
+                log.exception("intercom_blocks fehlgeschlagen (%s)", _cuid)
+        # Screensaver-Statusspalte: frei gewaehlte Bausteine dieses
+        # Panels (kommt vom Client via setsvstatus -> conn_status).
+        status_msg = None
+        _suu = self.conn_status.get(ws)
+        if _suu:
+            try:
+                status_msg = {"t": "svstatus", "items": self.status_blocks(_suu)}
+            except Exception:
+                log.exception("status_blocks fehlgeschlagen")
+        return msg, player_msg, energy_msg, chart_msg, _chart, camera_msg, status_msg
 
     def _einrichtung_info(self) -> dict | None:
         """Stand der Ersteinrichtung, solange der Server keine Struktur vom
