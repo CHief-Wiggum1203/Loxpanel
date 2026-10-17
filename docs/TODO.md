@@ -2494,6 +2494,22 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
       Gesamtaufwand **L**.
 
+- [ ] **KI im Haus** (Bauplan vom 17.10.2026 in [`KI.md`](KI.md)). Das Haus
+      soll selbst erkennen, was zu tun ist, und es vorschlagen oder in
+      freigegebenen Grenzen selbst tun. Loxone bleibt die Steuerung, die KI
+      bedient nur, was das Panel anbietet, und die Grenzen prüft der Server,
+      nicht das Sprachmodell. Stufen:
+      0. Zugriffs-Token für `/mcp` (Teil von S1 in §10). **S**
+      1. MCP-Server zum Lesen: Haus, Baustein mit Bedienung, Verlauf, Wetter,
+         Termine; sichtbar ist nur, was eine gewählte Ansicht zeigt. **M**
+      2. Ereignis-Gedächtnis in SQLite mit Quelle (Panel, Geste, extern, KI). **M**
+      3. Agent im Server mit Vorschlägen am Panel (Ja, Nein, Immer), Protokoll
+         und Tagesbudget. **L**
+      4. Freigaben, Rückgängig, Not-Aus über einen Loxone-Eingang und Regeln
+         ohne Sprachmodell aus „Immer“. **L**
+
+      Fünf Entscheidungen stehen vor dem Start an, siehe `KI.md`.
+
 ## 10. Sicherheit (zurückgestuft)
 
 Nur relevant, wenn der Server jemals außerhalb des Heimnetzes erreichbar wird
@@ -2501,7 +2517,8 @@ oder Gäste im WLAN nicht vertrauenswürdig sind.
 
 - [ ] **Optionales Zugriffs-Token** für `/config` und alle
       schreibenden `/api/*`-Routen; `/`, `/ws` und die Bild-Proxys bleiben frei.
-      Abschaltbar per Umgebungsvariable. (S1) **M**
+      Abschaltbar per Umgebungsvariable. (S1) **M** Die KI-Schnittstelle
+      braucht davon zuerst den Teil für `/mcp` (`KI.md`, Stufe 0).
 - [ ] **Cover-Proxy auf bekannte Hosts** (Miniserver, Audioserver)
       einschränken. (S2) **S**
 - [ ] **Agent-HTTP absichern**: gemeinsames Token zwischen Server und Agent,
