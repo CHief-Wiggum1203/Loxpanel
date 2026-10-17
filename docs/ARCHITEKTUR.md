@@ -479,7 +479,7 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
 und `ranges` für die Zeitraum-Knöpfe. Gezeichnet in `paintChart()` der Visu.
 
 Kachelseiten bestehen aus `items[]` mit `id`, `label`, `sublabel`, `room`,
-`icon|iconUrl|iconImg`, `on`, `tone`, `color`, `style`, `nav` oder `cmd`,
+`icon|iconUrl`, `on`, `tone`, `color`, `style`, `nav` oder `cmd`,
 `controls[]`, `secured`.
 
 Ein Tippfehler im Server erzeugt stumm eine leere Seite.
@@ -887,9 +887,12 @@ danach greift `posringOverride()` erneut. Das ist gewollt — der Wert am Gerät
 gewinnt, sonst wäre der Live-Test beim nächsten Push weg. Ohne gemerkten Wert
 gilt wieder, was unter *Ansichten → Aussehen → Aktiv-Overlay* (Positionsring) eingestellt ist.
 
-Fehlend: `_apply_tile_style()` erzeugt URLs `/gicon?name=` und `/uicon?f=` für
-Google- und Custom-Icons (`seiten.py`), aber diese Routen sind nicht
-registriert. Im Konfigurator ist der entsprechende Reiter deaktiviert.
+Kachel-Icons kommen aus drei Quellen, genau denen des Kachel-Editors:
+eingebaut (`builtin`), Loxone-Icon des Miniservers (`loxone`, über `/icon`)
+und Loxone-Bibliothek (`loxlib`, über `/loxlib`). Google- und eigene Icons
+(`google`, `custom`) aus Upstream erzeugten Adressen `/gicon` und `/uicon`,
+die es nie gab. Seit 17.10.2026 nimmt `_clean_icon()` sie nicht mehr an, und
+die Visu kennt kein `iconImg` mehr.
 
 ---
 
@@ -2688,7 +2691,11 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
 - Kachelliste auf 400 Einträge begrenzt.
 - Freie Auswahl: bis zu vier Seiten je Panel (`pickTabs`, Tabs `auswahl` bis
   `auswahl4`), je Seite Name, Icon und Inhalt (Kacheln in Klickreihenfolge
-  oder ein Widget). `/api/meta` muss `pickTabs` mitliefern: Fehlt es, kennt der
+  oder ein Widget). Als Icon gilt nur, was die Icon-Auswahl schreibt
+  (`/icon?p=…`, `/loxlib?n=…`) oder ein relativer Loxone-Pfad, den der Server
+  über `/icon` holt (`_clean_seiten_icon()`, beim Speichern und in
+  `_pick_tabs()` auch für ältere Dateien). Eine fremde Adresse wie
+  `//host/x.png` lud die Visu früher vom fremden Host. `/api/meta` muss `pickTabs` mitliefern: Fehlt es, kennt der
   Editor nach dem Neuladen nur eine Seite und kürzt beim nächsten Speichern
   die Leiste (so geschehen vor #47). Geprüft über Speichern, Neuladen,
   Weiterbearbeiten und die Visu in `tests/browser/test_auswahl_seiten_browser.py`.
@@ -3446,7 +3453,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 
 | Nr. | Befund | Stelle |
 |---|---|---|
-| F1 | Routen `/gicon` und `/uicon` werden erzeugt, aber nie registriert | `seiten.py` `_apply_tile_style()` |
+| F1 | Routen `/gicon` und `/uicon` werden erzeugt, aber nie registriert — behoben, die Quellen `google` und `custom` sind entfernt (§4, Kachel-Icons) | `seiten.py` `_apply_tile_style()` |
 | F2 | `op_modes` fehlt in `App.__init__` — behoben, `/api/types` warf ohne Miniserver einen `AttributeError` | `:394`, Workaround `:1235` |
 | F3 | Push-Stellen fangen nur `ConnectionError`. Ein `RuntimeError` beim Senden würde den Broadcaster-Task beenden, alle Panels blieben stumm, ohne Log — behoben, alle Push-Stellen senden über `_send_or_drop()` (jeder Fehler, 5 s Zeitlimit) | `:2452-2467`, `:2797` |
 | F4 | `icon_cache` unbegrenzt, kein Limit, keine TTL — behoben, `ICON_CACHE_MAX` | `:359`, `:1139` |
@@ -3456,7 +3463,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | F8 | `fetch_icon` hat kein Timeout und fängt `asyncio.TimeoutError` nicht — behoben, ebenso `fetch_cover` (`COVER_TIMEOUT`) | `:1123` |
 | F9 | `JSON.parse` im WebSocket-Handler ohne try/catch — behoben | `panel.html:701` |
 | F10 | `esc()` in der Visu escapt keine Anführungszeichen, Ausgabe landet in Attributen. Freitext-Schriftarten und Miniserver-Namen mit `"` zerlegen das Markup | `panel.html:316`, `:631`, `:637` |
-| F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` | `konfig.py` `_sanitize_panels()`, `ansicht.py` `resolve_profile()` |
+| F11 | Panel-`states`-Farben werden nicht validiert und landen direkt in `setProperty` — behoben, `_sanitize_panels()` nimmt nur, was `_color_ok()` besteht, und meldet den Rest als verworfen | `konfig.py` `_sanitize_panels()`, `ansicht.py` `resolve_profile()` |
 | F12 | `updatePanel()` mappt Blöcke per Index und erstem Treffer, zwei `status`-Blöcke aktualisieren das falsche Element | `panel.html:550-574` |
 | F13 | Agent-State-Datei in root-eigenem Verzeichnis, Panel-Wahl überlebte keinen Reboot — behoben, Ablage nach XDG beim Login-Benutzer, §8 | `agent/loxpanel-agent.py` `STATE_FILE`, `install-agent.sh:33` |
 | F14 | `requests` wird von drei Skripten importiert, steht aber nicht in `requirements.txt` | `cover_test.py`, `proxy_test.py`, `loxone_client.py` |

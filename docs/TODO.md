@@ -1029,13 +1029,18 @@ selbst aktuell.
 
 - [x] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft
       Attribute mit Miniserver-Namen und Freitext-Schriftarten. (F10) **S**
-- [ ] **Panel-`states`-Farben validieren** mit `_color_ok` in
+- [x] **Panel-`states`-Farben validieren** mit `_color_ok` in
       `_sanitize_panels`, oder das Feld entfernen, da der Konfigurator es nicht
-      anbietet. (F11) **S**
-- [ ] **Icon-Routen `/gicon` und `/uicon`**: entweder registrieren (Google
+      anbietet. (F11) **S** Erledigt 17.10.2026: validiert statt entfernt, denn
+      eine eingespielte oder von Hand geschriebene `panels.json` kann es
+      tragen. Ungültiges meldet die Antwort als `verworfen`.
+- [x] **Icon-Routen `/gicon` und `/uicon`**: entweder registrieren (Google
       Material Icons per Proxy, Upload-Verzeichnis für eigene Icons) oder die
       Erzeugung in `_apply_tile_style` und die Annahme in `_clean_icon`
       entfernen, bis das Feature gebaut wird. (F1) **S** (entfernen) / **M** (bauen)
+      Erledigt 17.10.2026: entfernt. Der Kachel-Editor hat die beiden Quellen
+      nie angeboten. Mit ihnen gehen `iconImg` und die Bildregeln (`.rawico`)
+      aus der Visu.
 - [x] **`updatePanel()` robust machen**: gelöst über eine Struktur-Signatur
       (`blockSig()`): weicht Art/Reihenfolge der Blöcke vom zuletzt Gerenderten
       ab, wird komplett neu aufgebaut, sonst weiter in-place (kein Flackern).
@@ -1055,12 +1060,17 @@ selbst aktuell.
       Änderung meldet nichts. Tests: `tests/test_nicht_uebernommen.py`,
       `tests/browser/test_speichern_browser.py`. An Upstream eingereicht als
       [#59](https://github.com/Lenardo1/loxpanel/pull/59). (W7) **M**
-- [ ] **Freie Seite: fremde Icon-Adressen**: `_sanitize_panels` soll laut
+- [x] **Freie Seite: fremde Icon-Adressen**: `_sanitize_panels` soll laut
       Kommentar externe URLs als Seiten-Icon verwerfen, lässt aber jede
       Adresse durch, die auf `.svg`/`.png` endet (z. B.
       `https://fremd.example/x.png`). Das Panel lädt das Bild dann von dort.
       Beim Bau der Meldung für den stillen Verlust gefunden; Adressen mit
       Schema (`://`) ausschließen, Loxone-Icon-Pfade sind relativ. **S**
+      Erledigt 17.10.2026 (`_clean_seiten_icon()`): Eine Adresse mit Schema
+      holte der Server nur als Pfad vom Miniserver, wirklich fremd lud die
+      Visu `//host/x.png`, weil es mit `/` anfängt. Jetzt gelten nur
+      `/icon?…`, `/loxlib?…` und relative Loxone-Pfade, auch für ältere
+      Dateien (`_pick_tabs()`).
 - [x] **Speicher-Vorzeichen im Energiefluss**: Loxone zählt aus Sicht des
       Hauses, ein positiver `Spwr` heißt „Speicher entlädt“ (fließt ins Haus,
       wie Netzbezug). `classify()` und die Texte der Detailseiten hatten es
