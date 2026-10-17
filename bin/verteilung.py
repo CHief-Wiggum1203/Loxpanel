@@ -123,15 +123,28 @@ class Verteilung:
             rid, self._pending_ring = self._pending_ring, None
             log.info("Klingel → Popup: %s", rid)
             self._spawn(self.display_drivers(True))   # Kiosk-Apps ueber HTTP wecken
+            # Die Haustuer klingelt auf jedem Panel, auch einem, dessen Ansicht nur
+            # andere Raeume zeigt; nur wer die Tuersprechanlage ausblendet (hide),
+            # bekommt nichts
             for ws in list(self.conn_route):
-                await self._send_or_drop(ws, {"t": "ring", "id": rid})
+                if self._shown(rid, self.conn_prof.get(ws)):
+                    await self._send_or_drop(ws, {"t": "ring", "id": rid})
         while self._pending_alarm:
             ev = self._pending_alarm.pop(0)
             log.info("Wecker %s → %s", "an" if ev["on"] else "aus", ev["id"])
-            if ev["on"]:
-                self._spawn(self.display_drivers(True))
+            # Der Weckton nur, wo die Ansicht den Wecker zeigt (Raum, Kategorie,
+            # hide), und nur deren Display geht an (Kiosk-App ueber HTTP); "aus"
+            # an alle, sonst toente ein Panel, das waehrenddessen die Ansicht
+            # gewechselt hat, weiter
+            geweckt: set[str] = set()
             for ws in list(self.conn_route):
+                if ev["on"] and not self._sichtbar(ev["id"], self.conn_prof.get(ws)):
+                    continue
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
+                dev = self.conn_dev.get(ws)
+                if ev["on"] and dev and dev not in geweckt:
+                    geweckt.add(dev)
+                    self._spawn(self.display_drivers(True, dev))
         if self._presence_quelle[0] is not self.devices or self._presence_quelle[1] is not self.controls:
             self._presence_rebuild()   # Geraete oder Struktur ersetzt, ohne neu zu koppeln
         ereignisse, self._pending_presence = self._pending_presence, []

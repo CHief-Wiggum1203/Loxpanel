@@ -65,7 +65,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 |---|---|
 | `bin/webvisu.py` | Der Kern des Servers: die Klasse `App` (Felder, Hintergrundaufgaben, Schließen; ihre Themen erbt sie als Mixins aus den Modulen unten, §3.3), Start und Logging und `main()` mit der Routentabelle; die Handler liegen in `bin/routen/` |
 | `bin/routen/` | Die Routen-Handler je Thema: `oberflaeche.py` (Dateien der Oberfläche), `visu.py` (WebSocket `/ws`), `konfigurator.py`, `einstellungen.py` (dazu Sicherung), `intercom.py` (SIP, Gegensprechen, MJPEG), `geraete.py` (Geräte und Agenten), `medien.py` (Icons, Cover, Klingelbilder), `system.py` (`/api/health`, `/api/diagnose`); `gemeinsam.py` hält `_push()`, `_push_filter()`, `_json_or_empty()`, `_NOCACHE` und `server_stand()`. Die Handler holen die App aus `request.app["app"]`, `main()` trägt sie ein (§4). Importiert `webvisu` nur für die Typangabe `App` unter `TYPE_CHECKING` |
-| `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels()`/`load_devices()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
+| `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels_doc()`/`load_panels()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `routen/einstellungen.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
 | `bin/haus.py` | Hausübersicht (Tab `haus`) als Mixin `Haus`: Raumkarten, „Gerade aktiv“, Schnellaktionen über die Zentral-Bausteine, Hinweise, Spieler mit Sendern, Energie, die Aufbauten (`HAUS_*`); `_view_haus()` liefert die Seite, §7.1 „Hausübersicht“. Importiert `webvisu` nicht |
@@ -384,8 +384,8 @@ Server → Browser (`panel.html:700`):
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`) |
-| `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
-| `alarm` | `id`, `on` | Weckton starten/stoppen |
+| `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite. An jedes Panel, außer dessen Ansicht blendet die Türsprechanlage aus (`hide`) |
+| `alarm` | `id`, `on` | Weckton starten/stoppen. `on: true` nur an Panels, deren Ansicht den Wecker zeigt (Raum, Kategorie, `hide`: `_sichtbar()`), und nur deren Display geht an; `on: false` an alle, damit ein Panel, das die Ansicht gewechselt hat, nicht weitertönt |
 | `testtone` | | Testton |
 | `switch` | `panel` | Betriebsmodus: Seite mit neuem Profil neu laden |
 | `reload` | | `location.reload()` |
@@ -976,7 +976,8 @@ Settings-Endpunkte. Passwörter liegen im Klartext.
 
 ### 5.3 `panels.json`
 
-Gelesen von `load_panels()` und `load_devices()`, geschrieben über
+Gelesen in einem Zug von `load_panels_doc()` (Ansichten und Geräte; `load_panels()`
+liefert nur die Ansichten), geschrieben über
 `POST /api/panels` bzw. `POST /api/devices`. Struktur:
 
 ```jsonc
@@ -3516,8 +3517,10 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
   inklusive JSON-Parsing von `moodList`, `entryList`, `sourceList` in jedem
   Durchlauf (Abschnitt 3.5).
 - P2: `panels.json` wird bei jedem Zugriff zweimal geöffnet (`load_panels`,
-  `load_devices`).
-- P3: Ring- und Alarm-Pushes gehen an alle Verbindungen ohne Panel-Filter.
+  `load_devices`) — behoben, `load_panels_doc()` liest einmal.
+- P3: Ring- und Alarm-Pushes gehen an alle Verbindungen ohne Panel-Filter —
+  behoben: die Klingel an alle außer bei ausgeblendeter Türsprechanlage, der
+  Wecker nur, wo die Ansicht ihn zeigt (Nachrichtenprotokoll §3.6).
 
 ### Wartbarkeit
 

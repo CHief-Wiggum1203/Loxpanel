@@ -62,7 +62,7 @@ def test_ein_bildschirm_vom_geraet_bis_zur_ansicht(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(BAUSTEINE))
         app.states = {"l1": 0, "l2": 0}
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler = []
         try:
@@ -207,7 +207,7 @@ def test_raum_zum_geraetenamen(cfg_ordner):
         struktur["rooms"].update({"r3": {"name": "Bad"}, "r4": {"name": "Badezimmer"}})
         app._apply_structure(struktur)
         app.states = {"l1": 0, "l2": 0, "b3": 0, "b4": 0}
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler = []
         try:

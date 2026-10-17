@@ -3,7 +3,7 @@ panels.json, theme.json) lesen, pruefen und schreiben.
 
 - Pfade und atomares Schreiben (_atomic_write), die Leser der loxpanel.cfg
   (_config/_ms_zugang fuer den Miniserver, _audio_config, _intercom_config,
-  _night_config, _calendar_config ...), load_theme/load_panels/load_devices.
+  _night_config, _calendar_config ...), load_theme/load_panels_doc/load_panels.
 - Was eine Ansicht, ein Geraet und die Vorgaben enthalten duerfen: die
   Konstanten (PANEL_STANDARD, THEME_UI_KEYS, KACHEL_ZIEL, GERAETE_KATALOG ...),
   die Wertepruefer (_clean_*, _color_ok, _pin_merken) und die Sanitizer
@@ -960,41 +960,34 @@ def load_theme() -> dict:
     return theme
 
 
-def load_panels() -> dict:
-    """Panel-Profile aus config/panels.json (Auswahl per URL ?panel=<id>).
+def load_panels_doc() -> tuple[dict, dict]:
+    """config/panels.json in einem Zug gelesen -> (Panel-Profile, Geraete).
 
-    Jedes Profil kann Theme-Overrides (ui/states) + Sichtbarkeits-Whitelists
-    (rooms/cats als UUID ODER Name) + Tab-Auswahl tragen. Leere/fehlende
-    Whitelist = alles sichtbar. Wird später von der LoxBerry-Config-Seite
-    befuellt (Räume/Kategorien anklickbar pro Gerät).
+    Profile (`panels`, Auswahl per URL ?panel=<id>): Theme-Overrides
+    (ui/states), Sichtbarkeits-Whitelists (rooms/cats als UUID ODER Name) und
+    Tab-Auswahl; leere/fehlende Whitelist = alles sichtbar. Geraete
+    (`devices`, Schluessel = Agent-Name): Ansicht, Display und die Zuordnung
+    Betriebsmodus -> Profil; Loxone schickt per virtuellem Ausgang nur den
+    Modusnamen an /api/mode, der Server schaltet jedes Geraet mit passender
+    Zuordnung um. Fehlt die Datei oder ist sie kaputt, beide leer.
     """
     f = Path(__file__).resolve().parent.parent / "config" / "panels.json"
+    data = {}
     if f.is_file():
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            p = data.get("panels")
-            if isinstance(p, dict):
-                return {k: v for k, v in p.items() if not k.startswith("_")}
         except ValueError:
-            pass
-    return {}
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    p, d = data.get("panels"), data.get("devices")
+    return ({k: v for k, v in p.items() if not k.startswith("_")} if isinstance(p, dict) else {},
+            d if isinstance(d, dict) else {})
 
 
-def load_devices() -> dict:
-    """Geraete-Automatik aus config/panels.json (`devices`): pro physischem
-    Panel (Schluessel = Agent-Name) eine Zuordnung Betriebsmodus -> Panel-Profil.
-    Loxone schickt per virtuellem Ausgang nur den Modusnamen an /api/mode; der
-    Server schaltet dann jedes Panel mit passender Zuordnung auf sein Profil um.
-    """
-    f = Path(__file__).resolve().parent.parent / "config" / "panels.json"
-    if f.is_file():
-        try:
-            d = json.loads(f.read_text(encoding="utf-8")).get("devices")
-            if isinstance(d, dict):
-                return d
-        except ValueError:
-            pass
-    return {}
+def load_panels() -> dict:
+    """Nur die Panel-Profile aus config/panels.json (load_panels_doc)."""
+    return load_panels_doc()[0]
 
 
 # Schluessel mit Kennwoertern: Miniserver und Kamera ("pass"), Display-Treiber

@@ -9,7 +9,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import anlage, KONFIGURATOR_GELADEN, serve, sicherung, W
+from lox import konfig, anlage, KONFIGURATOR_GELADEN, serve, sicherung, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -82,7 +82,7 @@ def test_herunterladen_und_wieder_einspielen(cfg_ordner, tmp_path):
             # am Server aendert sich etwas, das die Sicherung zurueckholt
             (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"anders": {"title": "Anders"}}}),
                                                     encoding="utf-8")
-            app.panels = W.load_panels()
+            app.panels = konfig.load_panels()
 
             async def ja(d):
                 dialoge.append(d.message)

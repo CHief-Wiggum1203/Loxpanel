@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from lox import anlage, ersetzen, karte_auf, KONFIGURATOR_GELADEN, visu_starten, W
+from lox import konfig, anlage, ersetzen, karte_auf, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -48,7 +48,7 @@ def _app(cfg_ordner, panels, devices=None):
     app = W.App({"host": "", "port": 80})
     app._apply_structure(anlage(KACHELN))
     app.states = dict(STATES)
-    app.panels = W.load_panels()
+    app.panels = konfig.load_panels()
     return app
 
 

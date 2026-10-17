@@ -17,7 +17,7 @@ import pytest
 
 from aiohttp import web
 
-from lox import HAUS_FAVORITEN, Miniserver, W, haus_anlage, neue_app, serve, visu_starten
+from lox import konfig, HAUS_FAVORITEN, Miniserver, W, haus_anlage, neue_app, serve, visu_starten
 from test_front_tabs_browser import _front
 
 import theme_colors as TC
@@ -376,7 +376,7 @@ def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(struktur)
         app.states = states
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler, erg = [], {}
         try:
@@ -396,7 +396,7 @@ def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):
                     await pg.locator("#saveBtn").click()
                 erg["antwort"] = await (await antwort.value).json()
                 erg["flur"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]
-                app.panels = W.load_panels()
+                app.panels = konfig.load_panels()
                 visu = await b.new_page(viewport={"width": 820, "height": 1180}, locale="de-DE")
                 visu.on("pageerror", lambda e: fehler.append(str(e)))
                 await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
@@ -436,7 +436,7 @@ def test_haus_taste_in_der_klassischen_leiste(cfg_ordner):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(struktur)
         app.states = states
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler, erg = [], {}
         try:
@@ -744,7 +744,7 @@ def test_aufbau_im_konfigurator(cfg_ordner):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(struktur)
         app.states = states
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler, erg = [], {}
         try:
@@ -766,7 +766,7 @@ def test_aufbau_im_konfigurator(cfg_ordner):
                     erg[wert] = [(await (await antwort.value).json())["ok"],
                                  json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]]
                     if wert == "raeume":
-                        app.panels = W.load_panels()
+                        app.panels = konfig.load_panels()
                         visu = await b.new_page(viewport={"width": 1180, "height": 820}, locale="de-DE")
                         visu.on("pageerror", lambda e: fehler.append(str(e)))
                         await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")

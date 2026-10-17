@@ -18,7 +18,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, visu_starten
+from lox import konfig, KONFIGURATOR_GELADEN, W, visu_starten
 from test_kachel_aufbau_browser import MESSEN, STATES, STRUKTUR, _visu
 
 import theme_colors as TC
@@ -511,7 +511,7 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(STRUKTUR)
         app.states = dict(STATES)
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler, st = [], {}
         try:

@@ -313,7 +313,7 @@ def test_aufbau_und_schrift_im_konfigurator(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(STRUKTUR)
         app.states = dict(STATES)
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, routen)
         fehler = []
         try:
