@@ -12,9 +12,11 @@ from bausteine.gemeinsam import LIGHT, _clean, _pos_pct
 
 # Lichtkreise einer Lichtsteuerung nach Typ der Unterbausteine; ein
 # Farb-Lichtkreis ohne bekannte Farbtemperatur bekommt diese (Kelvin), wie
-# die Farbwahl-Seite (detail_farbwahl)
+# die Farbwahl-Seite (detail_farbwahl). Der alte ColorPicker (Strukturdoku:
+# nur Kreis der Lichtsteuerung Generation 1, Farbtemperatur als lumitech(...))
+# gehoert nicht dazu: deren Detailseite zeigt nur die Szenen.
 LC_DIMMER_TYPEN = frozenset({"Dimmer", "EIBDimmer"})
-LC_FARB_TYPEN = frozenset({"ColorPickerV2", "Colorpicker"})
+LC_FARB_TYPEN = frozenset({"ColorPickerV2"})
 LC_SCHALT_TYPEN = frozenset({"Switch"})
 LC_KELVIN = 4000
 
@@ -34,7 +36,7 @@ def kachel_dimmer(app, uuid, c, it):
               sublabel=(f"{round(pos)} %" if pos > 0 else "Aus"))
 
 
-@kachel("Colorpicker", "ColorPickerV2")
+@kachel("ColorPickerV2")
 def kachel_farbwahl(app, uuid, c, it):
     mode, a, b, v = app._color_parse(app._state(c, "color"))
     bright = a if mode == "temp" else v
@@ -119,7 +121,7 @@ def detail_dimmer(app, uuid, c, route):
     ]}
 
 
-@detail("Colorpicker", "ColorPickerV2")
+@detail("ColorPickerV2")
 def detail_farbwahl(app, uuid, c, route):
     ua = c.get("uuidAction")
     mode, a, b, v = app._color_parse(app._state(c, "color"))

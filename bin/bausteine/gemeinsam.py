@@ -71,6 +71,8 @@ INTERCOM_TYPES = ("Intercom", "IntercomV2")
 # = nicht gesperrt. Gesperrt nimmt der Baustein keine Befehle an.
 SPERRE_DURCH = {1: "über die Visualisierung", 2: "durch die Logik"}
 SPERRE_KURZ = "Gesperrt"
+# Zweitzeile einer Kachel, deren Bausteintyp LoxPanel nicht kennt
+TYP_UNBEKANNT = "Typ nicht unterstützt"
 
 
 def _pos_pct(value) -> int | None:

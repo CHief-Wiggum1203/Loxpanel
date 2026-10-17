@@ -108,7 +108,7 @@ class Diagnosedaten:
                 except Exception as err:  # Diagnose darf nie an einem Baustein scheitern
                     log.warning("types_overview: %s (%s): %s", name, t, err)
                     it = {}
-                if any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+                if not it.get("unbekannt") and any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
                     e["supported"] = True
         out, dead = [], []
         for t in sorted(types, key=str.lower):
