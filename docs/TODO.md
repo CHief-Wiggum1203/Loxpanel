@@ -1338,18 +1338,33 @@ Strukturdatei (`LoxAPP3.json`) des Miniservers ablesen.
       in `ARCHITEKTUR.md` §7.1 „Gesperrte Bausteine“. An der Anlage noch zu
       sehen, ob der Miniserver den Grund prozentkodiert liefert; gelesen wird
       beides.
-- [ ] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
+- [x] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
       Untertitel „Typ nicht unterstützt" statt leerer Kachel, und die Kachel
-      per `hide` ausblendbar lassen. **S**
-- [ ] **README-Tabelle angleichen**: `AudioZoneV2` und `EIBDimmer` sind im Code
+      per `hide` ausblendbar lassen. **S** Erledigt 17.10.2026: als
+      beschreibende Zweitzeile (`subInfo`) mit `unbekannt`, damit `/api/types`
+      den Typ weiter als nicht unterstützt zählt.
+- [x] **README-Tabelle angleichen**: `AudioZoneV2` und `EIBDimmer` sind im Code
       umgesetzt, fehlen aber in der Tabelle (die Roadmap nennt `AudioZoneV2`
       noch als offen). `ColorPicker` steht als „voll" in der Tabelle, der Code
       prüft `Colorpicker` (kleines p); den tatsächlichen Typnamen in der
-      Strukturdatei prüfen und Code oder Tabelle korrigieren. **S**
+      Strukturdatei prüfen und Code oder Tabelle korrigieren. **S** Erledigt
+      17.10.2026: `AudioZoneV2` und `EIBDimmer` standen schon drin. Die
+      Strukturdoku 17.1 nennt den Typ `ColorPicker` und führt ihn nur als Kreis
+      der Lichtsteuerung Generation 1, deren Seite nur die Szenen zeigt. Der
+      Eintrag `Colorpicker` traf also nie; er ist entfernt, die README führt
+      `ColorPicker` als geplant (§8.2), die Zählung oben stimmt wieder
+      (50 voll, 5 teilweise, 14 geplant).
 
-### 8.2 Komplett fehlend, im README als geplant geführt (16)
+### 8.2 Komplett fehlend, im README als geplant geführt (17)
 
 Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
+
+- [ ] `ColorPicker` (Farbauswahl, alt) und die übrigen Kreise der
+      Lichtsteuerung Generation 1 (`LightController`): ihre Detailseite zeigt
+      bisher nur die Szenen. Die Kreise (Dimmer, Schalter, `ColorPicker`) wie
+      bei `LightControllerV2` darunter (`_lc_kreise()`), der alte Farbwähler
+      laut Strukturdoku mit `hsv(…)` und für die Farbtemperatur
+      `lumitech(Helligkeit,Kelvin)` statt `temp(…)`, auch im State `color`. **M**
 
 - [ ] `MoodSwitch` (Stimmungsschalter): wie `LightControllerV2`, Stimmungsliste
       und aktive Stimmung, Befehl `changeTo/<id>`; Licht-Adapter wiederverwenden. **S**

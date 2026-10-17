@@ -130,7 +130,7 @@ im Browser – ganz ohne Programmierung und ohne die Loxone-App.
 
 ## Unterstützte Bausteine
 
-LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **51 voll unterstützt**, **4 teilweise**, **13 geplant**. Welche Typen in der eigenen Anlage vorkommen und wie sie unterstützt werden, zeigt `/api/types?format=text`.
+LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein manuelles Anlegen von Bedienelementen). Aktueller Stand: **50 voll unterstützt**, **5 teilweise**, **14 geplant**. Welche Typen in der eigenen Anlage vorkommen und wie sie unterstützt werden, zeigt `/api/types?format=text`.
 
 **Legende:** ✅ unterstützt · 🟡 teilweise · ⬜ geplant
 
@@ -147,7 +147,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>Pushbutton</code></td><td>Virtueller Taster</td><td align="center">✅</td><td>Puls</td></tr>
 <tr><td><code>Slider</code></td><td>Schieberegler / Analogwert</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Switch</code></td><td>Schalter</td><td align="center">✅</td><td>Ein/Aus</td></tr>
-<tr><td><code>ColorPicker</code></td><td>Farbauswahl (alt)</td><td align="center">✅</td><td></td></tr>
+<tr><td><code>ColorPicker</code></td><td>Farbauswahl (alt)</td><td align="center">⬜</td><td>nur als Kreis der Beleuchtung Generation 1, deren Seite zeigt bisher nur die Szenen</td></tr>
 <tr><td><code>MoodSwitch</code></td><td>Stimmungsschalter</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Remote</code></td><td>Fernbedienung</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>TextInput</code></td><td>Texteingabe</td><td align="center">🟡</td><td></td></tr>

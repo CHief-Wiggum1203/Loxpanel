@@ -1260,7 +1260,7 @@ geplant). Technisch gibt es zwei Ebenen; seit Schritt 3 des Zerlegens
   verlinkte Objekte an.
 
 Die Familien (je ein Modul): `licht` (LightControllerV2, LightController,
-Dimmer, Colorpicker), `schalten` (Switch, TimedSwitch, Daytimer, Pushbutton,
+Dimmer, ColorPickerV2), `schalten` (Switch, TimedSwitch, Daytimer, Pushbutton,
 UpDownDigital, Radio), `beschattung` (Jalousie, Gate, Window), `klima`
 (IRoomControllerV2, IRoomController, AcControl, ClimateControllerUS,
 Ventilation), `audio` (AudioZone, AudioZoneV2), `intercom`, `werte`
@@ -1314,11 +1314,18 @@ Sonderfälle:
 - Zentralbausteine laufen über den Präfix `Central` (`kachel_praefix`), erst
   nach der genauen Tabelle.
 
-**Unbekannte Typen:** Steht der Typ in keiner Tabelle, bleibt die Kachel bei
-`{"label": name, "icon": "info", "on": false}` ohne `nav` und ohne `cmd`, ist also
-sichtbar, aber tot. Welche Typen der eigenen Anlage betroffen sind, zeigt
-`/api/types` (`App.types_overview()`, Status aus dem Rendering abgeleitet,
-`PARTIAL_TYPES` markiert die teilweise umgesetzten).
+**Unbekannte Typen:** Steht der Typ in keiner Tabelle und ist er keine
+Wertseite (`STATUS_BIG`), zeigt die Kachel `{"label": name, "icon": "info", "on":
+false}` mit der Zweitzeile „Typ nicht unterstützt“ (`TYP_UNBEKANNT`, als
+`subInfo`) und `unbekannt`, ohne `nav` und ohne `cmd`. Ausblenden geht wie bei jeder
+Kachel über `hide`. Welche Typen der eigenen Anlage betroffen sind, zeigt
+`/api/types` (`App.types_overview()`, Status aus dem Rendering abgeleitet: eine
+Kachel mit `nav`, `cmd`, `controls` oder Zweitzeile gilt als unterstützt, außer
+sie trägt `unbekannt`; `PARTIAL_TYPES` markiert die teilweise umgesetzten).
+Den alten `ColorPicker` gibt es laut Strukturdoku nur als Kreis der
+Lichtsteuerung Generation 1 (`LightController`); deren Seite zeigt nur die
+Szenen, er ist deshalb nirgends eingetragen (früher als `Colorpicker`, ein Name,
+den die Struktur nie liefert).
 
 **Bedienung nach der Loxone-Strukturdoku.** Befehle und Bedeutung der States
 stehen in der Strukturdoku von Loxone („Structure File“, Stand 16.0,

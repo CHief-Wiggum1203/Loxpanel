@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import bausteine
 from ansicht import _hex_rgb, _inactive_border, _overlay_alphas, _posring
-from bausteine.gemeinsam import _clean, SPERRE_KURZ
+from bausteine.gemeinsam import _clean, SPERRE_KURZ, TYP_UNBEKANNT
 from konfig import (
     _clean_widget_tab, FRONT_TABS, HAUS_TAB, _is_pick, _kachel_breite, _pick_index, _pick_tabs,
     STAT_RANGES, STAT_TILE_STYLES, SV_STATUS_MAX)
@@ -213,6 +213,11 @@ class Seiten:
         # Status-Bausteine antippbar machen -> grosse Wertseite
         if t in STATUS_BIG and "nav" not in it and "cmd" not in it:
             it["nav"] = {"view": "control", "id": uuid}
+        # Typ, den LoxPanel nicht kennt: sagen statt einer leeren Kachel. Der
+        # Text beschreibt nur (subInfo); ausblenden wie jede Kachel ueber hide.
+        # unbekannt: /api/types zaehlt ihn trotz Zweitzeile als nicht unterstuetzt
+        if not fn and not any(k in it for k in ("nav", "cmd", "controls", "sublabel")):
+            it.update(sublabel=TYP_UNBEKANNT, subInfo=True, unbekannt=True)
         # Gesperrt (jLocked): die Kachel schaltet nicht, ein Tipp oeffnet die
         # Detailseite, die nennt, wer gesperrt hat und warum
         if self._sperre_text(uuid):
