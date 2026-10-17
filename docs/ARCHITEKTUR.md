@@ -3269,18 +3269,46 @@ dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
 ### 9.1 LoxBerry-Plugin
 
 Das Plugin ist nur ein Docker-Starter. `loxpanel-ctl.sh` kennt `start` (pull +
-up), `stop` (Marker-Datei + down), `restart`, `check` (Cron alle 5 min und beim
-Boot), `backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container
-als root, Rotation nach `KEEP` im Skript, das Widget fragt die Zahl über
-`loxpanel-ctl.sh keep` ab). Das Widget `index.cgi` (Perl) spricht
-`http://localhost:8099/api/settings` und `/api/settings/miniserver`. Von dort
-zeigt es `error` und darunter `fehler`, `gespeichert` (nicht erreichbar,
-trotzdem gespeichert) als Warnung. Eine Antwort mit JSON ist immer eine Meldung
-des Servers, auch mit 400 oder 500; „Container nicht erreichbar" heißt es nur
-ohne JSON. Die Texte des Servers kodiert es vor der Ausgabe nach UTF-8: `decode_json`
-liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als Bytes hinaus.
-„Aus LoxBerry übernehmen" ohne Benutzer in der LoxBerry-Konfiguration
-meldet das selbst (`tests/test_loxberry_widget.py`).
+up), `stop` (Marker-Datei `loxpanel_stopped.cfg` + down), `restart`, `check`
+(Cron alle 5 min), `boot` (Daemon beim Start des LoxBerry: wie `check`, löscht
+vorher die Marker-Datei, „Stoppen“ hält also nur bis zum nächsten Neustart),
+`backup` und `restore` (tar.gz des Config-Ordners, erzeugt im Container als
+root, Rotation nach `KEEP` im Skript, das Widget fragt die Zahl über
+`loxpanel-ctl.sh keep` ab), `port` und `zustand`.
+
+Port am LoxBerry: `PORT=` in `loxpanel_plugin.cfg` im Config-Ordner des
+Plugins, ohne Datei oder bei einem ungültigen Eintrag `PORT_STANDARD` (8099,
+derselbe wie `LOXPANEL_PORT` im Container). `port` gibt ihn aus, `port <port>`
+prüft ihn (1–65535, nicht belegt), schreibt die Datei und fährt ein laufendes
+LoxPanel damit neu hoch (`up -d` ohne pull legt den Container neu an). `start`
+schreibt `docker-compose.port.env` (`LOXPANEL_LB_PORT`) und ruft Compose mit
+`--env-file`; über `sudo` käme eine Umgebungsvariable nicht an. Die
+Compose-Datei hat `${LOXPANEL_LB_PORT:-8099}:8099`. Vor dem Hochfahren prüft
+`start`, ob jemand anderes als LoxPanel den Port hält (Verbindungsaufbau über
+`/dev/tcp/127.0.0.1`, wer: `docker ps --filter publish=`), und startet dann
+nicht erst: Docker scheiterte erst nach dem Anlegen, und das Widget erreichte
+unter dem Port das andere Programm. `start`, `restart`, `check` und `boot`
+enden dann mit 1. `zustand` meldet dem Widget `port`, `laeuft`, `gestoppt`
+(seit wann, aus dem Zeitstempel der Marker-Datei) und `belegt`.
+`preroot.sh`/`postroot.sh` nehmen `loxpanel_plugin.cfg` über ein Update mit
+(`/tmp/loxpanel-upgrade-plugin.cfg`); scheitert der Start danach, meldet
+`postroot.sh` es als `<WARNING>`.
+
+Das Widget `index.cgi` (Perl) fragt den Port bei `loxpanel-ctl.sh port` ab und
+spricht `http://localhost:<port>/api/settings` und `/api/settings/miniserver`.
+LoxPanel erkennt es an `/api/settings` mit `miniserver` und `version`;
+antwortet dort etwas anderes, schickt es keinen Zugang und nennt im
+Status-Feld den Grund aus `zustand`: Port belegt (von wem, wo umstellen),
+gestoppt (seit wann, wie es wieder startet), Container läuft, antwortet aber
+nicht, sonst „Container nicht erreichbar“. Von LoxPanel zeigt es `error` und
+darunter `fehler`, `gespeichert` (nicht erreichbar, trotzdem gespeichert) als
+Warnung. Eine Antwort mit JSON ist immer eine Meldung des Servers, auch mit 400
+oder 500. Die Texte des Servers kodiert es vor der Ausgabe nach UTF-8:
+`decode_json` liefert Zeichen, die Seite geht aber ohne Kodierungsschicht als
+Bytes hinaus. „Aus LoxBerry übernehmen" ohne Benutzer in der
+LoxBerry-Konfiguration meldet das selbst; bei „HTTPS bevorzugen“
+(`PreferHttps`, als JSON-Wahrheitswert oder Text) nimmt es `PortHttps`, sonst
+`Port` (`tests/test_loxberry_widget.py`, `tests/test_loxberry_port.py`).
 
 `backup` schreibt ein Archiv erst als `.part`, liest es ganz zurück und benennt
 es danach um, das Widget bietet also nie ein halbes Archiv an; ein vorhandenes
