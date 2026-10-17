@@ -1025,6 +1025,21 @@ selbst aktuell.
       Prüft jetzt dieselbe Bedingung wie `prime_favs()` (nicht gekoppelt oder
       angemeldet). **S**
 
+- [x] **LoxBerry: Portkonflikt, „Stoppen“ für immer, HTTPS bevorzugen**
+      (gemeldet von einem Nutzer mit 0.7.0): Belegte ein anderes Plugin Port
+      8099, startete LoxPanel nicht, das Widget schickte den Miniserver-Zugang
+      an das andere Plugin und meldete nur „Container nicht erreichbar“. Ein
+      einmaliges „Stoppen“ hielt LoxPanel für immer an, auch über einen
+      Neustart, ohne Meldung. „Aus LoxBerry übernehmen“ nahm immer den
+      HTTP-Port. Erledigt 17.10.2026: Port am LoxBerry im Widget einstellbar
+      (`loxpanel_plugin.cfg`, übersteht Updates), `start` prüft ihn vorher und
+      nennt, wer ihn belegt; das Widget schickt den Zugang nur an LoxPanel und
+      zeigt, warum es nicht läuft; „Stoppen“ hält bis „Starten“ oder zum
+      nächsten Neustart (`boot`); bei „HTTPS bevorzugen“ gilt `PortHttps`
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §9.1). Für Nutzer kommt es mit dem
+      nächsten Plugin-Release (Versions-Bump in `plugin.cfg` und
+      `release.cfg`). **M**
+
 ## 3. Sichtbare Fehler in der Visu
 
 - [x] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft

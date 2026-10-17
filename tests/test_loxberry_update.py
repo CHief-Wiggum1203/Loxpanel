@@ -155,6 +155,6 @@ def test_widget_nennt_keep_aus_dem_steuerskript(lb, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert lb.ctl("keep").stdout.strip() == "3"
     assert len(list(lb.backups.glob("loxpanel-config-*.tar.gz"))) == 3
-    html = Widget(tmp_path, lb.htmlauth / "index.cgi").aufruf()
+    html = Widget(tmp_path, lb.htmlauth / "index.cgi", umgebung=lb.env).aufruf()
     assert "Behalten werden die letzten 3." in html
     assert "Plugin-Updates nehmen diese Sicherungen mit" in html

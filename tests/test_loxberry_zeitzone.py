@@ -66,7 +66,8 @@ def test_start_reicht_zeitzone_des_loxberry_durch(lb, localtime):
     r = lb.ctl("start", LOXPANEL_CTL_LOCALTIME=str(localtime))
     assert r.returncode == 0, r.stdout + r.stderr
     override = lb.configdir / OVERRIDE
-    dateien = f"-f {lb.configdir / 'docker-compose.yml'} -f {override} "
+    dateien = (f"--env-file {lb.configdir / 'docker-compose.port.env'} "
+               f"-f {lb.configdir / 'docker-compose.yml'} -f {override} ")
     aufrufe = _compose(lb)
     assert len(aufrufe) == 2 and all(a.startswith(f"compose {dateien}") for a in aufrufe), aufrufe
     dienst = yaml.safe_load(override.read_text(encoding="utf-8"))["services"]["loxpanel"]

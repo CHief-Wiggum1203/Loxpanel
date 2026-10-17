@@ -14,7 +14,12 @@ Containers loxpanel in einer Datei (laeuft, gestoppt, fehlt). Jeder Aufruf
 steht als eine Zeile in docker.log: Zustand vor dem Aufruf, dann die Argumente.
 Steuerbar ueber die Umgebung: DOCKER_ULIMIT_F begrenzt die Dateigroesse im
 Container (ulimit -f, wie ein voller Datentraeger), DOCKER_VERZOEGERUNG
-verlangsamt jeden Lauf (Sekunden).
+verlangsamt jeden Lauf (Sekunden), DOCKER_FREMD ist der Name eines anderen
+Containers, den `ps --filter publish=PORT` nennt (er belegt den Port).
+
+Jeder Nachbau stellt den Standard-Port des Steuerskripts (LOXPANEL_CTL_PORT)
+auf einen freien Port: Ein Dienst auf 8099 am Rechner des Tests hiesse sonst
+"Port belegt".
 """
 from __future__ import annotations
 
@@ -22,6 +27,7 @@ import json
 import os
 import resource
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 from urllib.parse import urlencode
@@ -31,7 +37,7 @@ from lox import ROOT
 PLUGIN = ROOT / "loxberry-plugin"
 CTL = PLUGIN / "bin" / "loxpanel-ctl.sh"
 CGI = PLUGIN / "webfrontend" / "htmlauth" / "index.cgi"
-WERKZEUGE = ("bash", "sh", "tar", "gzip", "find", "flock", "mktemp", "cp")
+WERKZEUGE = ("bash", "sh", "tar", "gzip", "find", "flock", "mktemp", "cp", "timeout")
 FEHLENDE_WERKZEUGE = [w for w in WERKZEUGE if not shutil.which(w)]
 PERL = shutil.which("perl")
 
@@ -65,7 +71,11 @@ case "$1" in
     [ -n "$DOCKER_ULIMIT_F" ] && ulimit -f "$DOCKER_ULIMIT_F"
     [ -n "$DOCKER_VERZOEGERUNG" ] && sleep "$DOCKER_VERZOEGERUNG"
     exec /bin/sh -c "${befehl//\/data/$quelle}" "$@" ;;
-  ps) [ "$zustand" = laeuft ] && echo 0123456789ab; exit 0 ;;
+  ps)
+    case " $* " in
+      *" publish="*) [ -n "$DOCKER_FREMD" ] && echo "$DOCKER_FREMD"; exit 0 ;;
+    esac
+    [ "$zustand" = laeuft ] && echo 0123456789ab; exit 0 ;;
   stop) [ "$zustand" = fehlt ] && { echo "No such container: $2" >&2; exit 1; }; setzen gestoppt ;;
   start|restart) [ "$zustand" = fehlt ] && { echo "No such container: $2" >&2; exit 1; }; setzen laeuft ;;
   rm) setzen fehlt ;;
@@ -86,8 +96,9 @@ exit 1
 
 # Perl-Module fuer index.cgi. LoxBerry::* gibt es nur auf einem LoxBerry; CGI
 # und LWP::UserAgent fehlen oft, JSON ebenso (JSON::PP und HTTP::Tiny sind
-# Kernmodule). LWP spricht ueber HTTP::Tiny mit LOXBERRY_TEST_API statt
-# localhost:8099; ohne LOXBERRY_TEST_API ist kein Container erreichbar.
+# Kernmodule). LWP fragt ueber HTTP::Tiny wirklich unter der Adresse an, die
+# das Widget nennt (localhost als 127.0.0.1, dort lauschen die Server der
+# Tests); antwortet dort niemand, kommt 500 wie bei LWP.
 # decoded_content liefert Bytes wie LWP bei application/json (Zeichensatz
 # dekodiert LWP nur bei text/* und XML).
 PERL_MODULE = {
@@ -116,9 +127,7 @@ sub get { my ($self, $url) = @_; return $self->_anfrage('GET', $url); }
 sub post { my ($self, $url, %h) = @_; return $self->_anfrage('POST', $url, %h); }
 sub _anfrage {
     my ($self, $methode, $url, %h) = @_;
-    my $ziel = $ENV{LOXBERRY_TEST_API};
-    return LWP::UserAgent::Antwort->new(500, "Can't connect to localhost:8099") unless $ziel;
-    $url =~ s{^http://localhost:8099}{$ziel};
+    $url =~ s{^http://localhost:}{http://127.0.0.1:};
     my $inhalt = delete $h{Content};
     my $r = HTTP::Tiny->new(timeout => $self->{timeout})->request($methode, $url,
         { headers => \%h, defined $inhalt ? (content => $inhalt) : () });
@@ -175,6 +184,13 @@ def _ersetzungen(home: Path) -> tuple[tuple[str, str], ...]:
             ("REPLACELBPBINDIR", f"{home}/bin/plugins/{pf}"))
 
 
+def freier_port() -> int:
+    """Ein Port, auf dem am Rechner des Tests gerade niemand lauscht."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
 def _ausfuehrbar(pfad: Path, text: str) -> Path:
     pfad.write_text(text, encoding="utf-8")
     pfad.chmod(0o755)
@@ -203,9 +219,11 @@ class LoxBerry:
         self.log = tmp / "docker.log"
         self.zustand = tmp / "container"
         self.zustand.write_text(container + "\n")
+        self.port = freier_port()
         self.env = dict(os.environ, PATH=f"{self.fakebin}{os.pathsep}{os.environ['PATH']}",
                         DOCKER_LOG=str(self.log), DOCKER_ZUSTAND=str(self.zustand),
-                        LOXPANEL_CTL_CONFIGDIR=str(self.configdir), LOXPANEL_CTL_DATADIR=str(self.data))
+                        LOXPANEL_CTL_CONFIGDIR=str(self.configdir), LOXPANEL_CTL_DATADIR=str(self.data),
+                        LOXPANEL_CTL_PORT=str(self.port))
 
     def ctl(self, *args: str, **umgebung: str) -> subprocess.CompletedProcess:
         return subprocess.run(["bash", str(CTL), *args], env={**self.env, **umgebung},
@@ -288,9 +306,10 @@ class Installation:
         self.log = tmp / "docker.log"
         self.zustand = tmp / "container"
         self.zustand.write_text(container + "\n")
+        self.port = freier_port()
         self.env = dict(os.environ, PATH=f"{fakebin}{os.pathsep}{os.environ['PATH']}",
                         DOCKER_LOG=str(self.log), DOCKER_ZUSTAND=str(self.zustand),
-                        LOXPANEL_UPGRADE_TMP=str(self.zwischen))
+                        LOXPANEL_UPGRADE_TMP=str(self.zwischen), LOXPANEL_CTL_PORT=str(self.port))
         # preroot legt sonst echte apt-Quellen fuer Docker an
         assert shutil.which("docker", path=self.env["PATH"]) == str(fakebin / "docker")
         self._pakete = 0
@@ -362,34 +381,47 @@ class Installation:
 class Widget:
     """index.cgi mit perl ausfuehren, wie Apache ein CGI aufruft (POST-Felder
     auf stdin). Die Perl-Module aus PERL_MODULE liegen in tmp_path.
-    api: Adresse des LoxPanel-Servers (sonst ist kein Container erreichbar),
+
+    Ohne skript laeuft index.cgi aus dem Repo neben einem LoxBerry-Nachbau (lb,
+    sonst ein eigener): Platzhalter wie nach der Installation, das echte
+    loxpanel-ctl.sh mit den Stellvertretern fuer docker und sudo. Den Port
+    fragt das Widget dort ab (lb.port oder loxpanel_plugin.cfg) und spricht
+    LoxPanel wirklich darunter an. skript: ein schon installiertes index.cgi,
+    umgebung dazu (etwa Installation.env).
     miniserver: Miniserver aus der LoxBerry-Konfiguration (get_miniservers)."""
 
-    def __init__(self, tmp: Path, skript: Path = CGI) -> None:
-        self.skript = skript
+    def __init__(self, tmp: Path, skript: Path | None = None, lb: LoxBerry | None = None,
+                 umgebung: dict | None = None) -> None:
         self.module = tmp / "perl5"
         for name, text in PERL_MODULE.items():
             (self.module / name).parent.mkdir(parents=True, exist_ok=True)
             (self.module / name).write_text(text, encoding="utf-8")
+        if skript is None:
+            self.lb = lb or LoxBerry(tmp / "widget")
+            text = CGI.read_text(encoding="utf-8")
+            for alt, neu in (("REPLACELBPBINDIR/loxpanel-ctl.sh", str(CTL)),
+                             ("REPLACELBPDATADIR", str(self.lb.data))):
+                text = text.replace(alt, neu)
+            skript = tmp / "index.cgi"
+            skript.write_text(text, encoding="utf-8")
+            umgebung = self.lb.env
+        self.skript = skript
+        self.umgebung = umgebung or {}
 
-    def befehl(self, felder: dict | None = None, api: str | None = None,
-               miniserver: dict | None = None) -> dict:
+    def befehl(self, felder: dict | None = None, miniserver: dict | None = None) -> dict:
         """Argumente fuer subprocess.run (auch aus einem Thread heraus). Die
         Seite muss gueltiges UTF-8 sein (charset=utf-8 im Kopf), sonst
         scheitert schon das Lesen der Ausgabe."""
-        env = {k: v for k, v in os.environ.items() if not k.startswith("LOXBERRY_TEST_")}
+        env = {k: v for k, v in {**os.environ, **self.umgebung}.items() if not k.startswith("LOXBERRY_TEST_")}
         rumpf = urlencode(felder or {})
         env.update(REQUEST_METHOD="POST" if felder else "GET", QUERY_STRING="",
                    CONTENT_TYPE="application/x-www-form-urlencoded", CONTENT_LENGTH=str(len(rumpf)))
-        if api:
-            env["LOXBERRY_TEST_API"] = api
         if miniserver is not None:
             env["LOXBERRY_TEST_MINISERVER"] = json.dumps(miniserver)
         return {"args": [PERL, "-I", str(self.module), str(self.skript)], "env": env, "input": rumpf,
                 "capture_output": True, "encoding": "utf-8", "timeout": 60}
 
-    def aufruf(self, felder: dict | None = None, api: str | None = None,
-               miniserver: dict | None = None) -> str:
-        r = subprocess.run(**self.befehl(felder, api, miniserver))
+    def aufruf(self, felder: dict | None = None, miniserver: dict | None = None) -> str:
+        r = subprocess.run(**self.befehl(felder, miniserver))
         assert r.returncode == 0, r.stderr
         return r.stdout
