@@ -173,6 +173,16 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")
+                sperre = app._sperre_text(data.get("uuid"))
+                if sperre:
+                    # Gesperrter Baustein (jLocked) nimmt keine Befehle an: nicht
+                    # schicken, sondern sagen, warum. gesperrt: die Visu fragt
+                    # nicht erneut nach der PIN, die war nicht falsch.
+                    if pin is not None:
+                        await ws.send_json({"t": "cmdresult", "ok": False, "gesperrt": True, "code": None,
+                                            "uuid": data.get("uuid"), "cmd": data.get("cmd")})
+                    await ws.send_json({"t": "notify", "level": "warn", "secs": 4, "text": sperre})
+                    continue
                 code = await app.command(data.get("uuid"), data.get("cmd"), pin)
                 if pin is not None:
                     # uuid/cmd: die Visu ordnet das Ergebnis ihrem Befehl zu

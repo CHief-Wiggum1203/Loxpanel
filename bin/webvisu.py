@@ -251,6 +251,9 @@ class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
         self._front_last: dict | None = None
         self._front_cal_due = 0.0
         self._front_session: aiohttp.ClientSession | None = None
+        # Gesperrte Bausteine (jLocked): Befehlsempfaenger (Baustein, uuidAction,
+        # Unterbaustein) -> State-UUID von jLocked, die fuer ihn gilt
+        self.sperre_state: dict[str, str] = {}
         self.bell_map: dict[str, str] = {}
         self._bell_prev: dict[str, object] = {}
         self._pending_ring: str | None = None

@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import bausteine
 from ansicht import _hex_rgb, _inactive_border, _overlay_alphas, _posring
-from bausteine.gemeinsam import _clean
+from bausteine.gemeinsam import _clean, SPERRE_KURZ
 from konfig import (
     _clean_widget_tab, FRONT_TABS, HAUS_TAB, _is_pick, _kachel_breite, _pick_index, _pick_tabs,
     STAT_RANGES, STAT_TILE_STYLES, SV_STATUS_MAX)
@@ -213,6 +213,16 @@ class Seiten:
         # Status-Bausteine antippbar machen -> grosse Wertseite
         if t in STATUS_BIG and "nav" not in it and "cmd" not in it:
             it["nav"] = {"view": "control", "id": uuid}
+        # Gesperrt (jLocked): die Kachel schaltet nicht, ein Tipp oeffnet die
+        # Detailseite, die nennt, wer gesperrt hat und warum
+        if self._sperre_text(uuid):
+            it["sublabel"] = SPERRE_KURZ
+            it.pop("subInfo", None)
+            if "bigSub" in it:
+                it["bigSub"] = SPERRE_KURZ
+            it.pop("cmd", None)
+            it.pop("controls", None)
+            it.setdefault("nav", {"view": "control", "id": uuid})
         # Kategorie-Ampel: Bausteine mit an/aus-Zustand einer Kategorie mit
         # Zustandsfarben leuchten aktiv (on-Farbe) bzw. ok (off-Farbe). Analoge
         # Anzeigen, Zentralbausteine und Bausteine mit eigenem tone (Rauch/…)
@@ -624,6 +634,16 @@ class Seiten:
         if (out.get("route") or {}).get("view") not in ("group", "tab") \
                 and self._gesichert((route or {}).get("id")):
             out["secured"] = True
+        # Ebenso gesperrt (jLocked): oben steht, wer gesperrt hat und warum, die
+        # Visu nimmt der Bedienung dieses Bausteins die Wirkung (gesperrt);
+        # verlinkte Objekte bleiben bedienbar
+        sperre = self._sperre_text((route or {}).get("id"))
+        if sperre and (out.get("route") or {}).get("view") not in ("group", "tab"):
+            out["gesperrt"] = sperre
+            bl = out.get("blocks")
+            if isinstance(bl, list):
+                i = next((n for n, b in enumerate(bl) if b.get("k") not in ("hero", "cover", "video")), len(bl))
+                out["blocks"] = bl[:i] + [{"k": "status", "text": sperre}] + bl[i:]
         return out
 
     def _render_seite(self, route: dict, prof: dict | None = None) -> dict:

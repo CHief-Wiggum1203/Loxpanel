@@ -1322,13 +1322,22 @@ Strukturdatei (`LoxAPP3.json`) des Miniservers ablesen.
       Tage und Namen ändern, neue anlegen, löschen, Schlummerdauer. Intercom:
       verpasste Klingeln mit Bildern, „Klingel abstellen“ beim Klingeln.
       UpDownAnalog: −/+ bei „2=Opt. Helligkeit 3= Opt. Kühlung“. **S**
-- [ ] **Gesperrte Bedienung anzeigen (`jLocked`)**: Laut Strukturdoku kann
+- [x] **Gesperrte Bedienung anzeigen (`jLocked`)**: Laut Strukturdoku kann
       jeder Baustein mit `details.jLockable` gesperrt sein; der Text-State
       `jLocked` ist dann ein JSON mit `locked` (1 = per Visu, 2 = per Logik)
       und `reason`. LoxPanel wertet das bei keinem Typ aus: Kachel und
       Detailseite sollten „Gesperrt“ samt Grund zeigen und keine Befehle
       anbieten. Betrifft alle Typen, an der eigenen Anlage u. a. Wecker,
-      Bewässerung, Intercom und UpDownAnalog. **M**
+      Bewässerung, Intercom und UpDownAnalog. **M** Erledigt 17.10.2026 für
+      alle Typen (Strukturdoku 17.1, S. 15 f.): Die Kachel nennt „Gesperrt“
+      und öffnet die Detailseite, die oben sagt, wer gesperrt hat und warum,
+      und deren Bedienung gedimmt und ohne Wirkung ist; verlinkte Objekte
+      bleiben bedienbar. Befehle an einen gesperrten Baustein oder seine
+      Unterbausteine schickt der Server nicht zum Miniserver, die Visu
+      bekommt den Grund als Meldung, Gesten überspringen ihn. Beschreibung
+      in `ARCHITEKTUR.md` §7.1 „Gesperrte Bausteine“. An der Anlage noch zu
+      sehen, ob der Miniserver den Grund prozentkodiert liefert; gelesen wird
+      beides.
 - [ ] **Unbekannte Typen sichtbar machen**: im Fallback von `_control_item()`
       Untertitel „Typ nicht unterstützt" statt leerer Kachel, und die Kachel
       per `hide` ausblendbar lassen. **S**

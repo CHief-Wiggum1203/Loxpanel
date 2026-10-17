@@ -123,6 +123,22 @@ class Miniserver:
             key=lambda c: self.cats[c].get("name", ""))
         self.bell_map = {}
         self.alarm_map = {}
+        # Sperre (jLocked): je Befehlsempfaenger der State, der fuer ihn gilt.
+        # Ein Unterbaustein ohne eigenen jLocked folgt seinem Baustein.
+        self.sperre_state = {}
+
+        def _sperre_eintragen(u: str, c: dict, erbe: str | None) -> None:
+            st = (c.get("states") or {}).get("jLocked") or erbe
+            if st:
+                for k in (u, c.get("uuidAction")):
+                    if isinstance(k, str) and k:
+                        self.sperre_state[k] = st
+            for su, s in (c.get("subControls") or {}).items():
+                if isinstance(s, dict):
+                    _sperre_eintragen(su, s, st)
+        for _u, _c in self.controls.items():
+            if isinstance(_c, dict):
+                _sperre_eintragen(_u, _c, None)
         # Betriebsarten (id -> Name) fuer die Wecker-Wiederholung: die `modes`
         # eines Eintrags verweisen hierauf (z.B. Wochentage Mo-So).
         self.op_modes = {str(k): v for k, v in (st.get("operatingModes") or {}).items()}

@@ -82,6 +82,9 @@ function pinErgebnis(msg){
       clearTimeout(pinMerkT); pinMerkT=setTimeout(()=>{ pinMerk=null; }, pinMerkenS*1000); }
     if(w.job.ok && w.seite===pinSeite()) w.job.ok();
     return; }
+  // Baustein gesperrt (jLocked): die PIN war nicht falsch, keine neue Abfrage;
+  // warum, sagt die Meldung des Servers
+  if(msg.gesperrt){ if(w.job.abbruch) w.job.abbruch(); return; }
   w.fehl=true; pinMerk=null;      // abgelehnt: auch eine gemerkte PIN gilt nicht mehr
   if(w.zu && w.zu.fehl) return;   // Loslassen zu abgelehntem Druecken: die neue Abfrage schickt beide
   // Seite inzwischen gewechselt: keine Abfrage fuer einen fremden Befehl, abgebrochen

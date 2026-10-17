@@ -6,6 +6,8 @@ sie weiter findet. Keine Abhaengigkeit zum Server, nur Standardbibliothek und
 adapters.py."""
 from __future__ import annotations
 
+import functools
+import json
 import re
 
 from adapters import JalousieAdapter, LightControllerV2Adapter
@@ -62,6 +64,13 @@ IRR_SELECT_AUS, IRR_SELECT_ALLE = 0, 9
 # als Pushbutton-Subcontrols; v2 dazu Antworten (playTts), Stumm (mute) und
 # den Geraetezustand (deviceState).
 INTERCOM_TYPES = ("Intercom", "IntercomV2")
+# Gesperrte Bausteine (Strukturdoku "Locking and Unlocking Controls", seit
+# 11.3.2.11): details.jLockable sagt, ob ein Baustein sich sperren laesst, der
+# Text-State jLocked haelt bei einer Sperre ein JSON {locked, reason}. locked:
+# 0 nicht gesperrt, 1 ueber die Visualisierung, 2 durch die Logik; leerer Text
+# = nicht gesperrt. Gesperrt nimmt der Baustein keine Befehle an.
+SPERRE_DURCH = {1: "über die Visualisierung", 2: "durch die Logik"}
+SPERRE_KURZ = "Gesperrt"
 
 
 def _pos_pct(value) -> int | None:
@@ -75,6 +84,24 @@ def _pos_pct(value) -> int | None:
         return max(0, min(100, int(round(float(value)))))
     except (TypeError, ValueError):
         return None
+
+
+@functools.lru_cache(maxsize=256)
+def _sperre_lesen(text: str) -> tuple | None:
+    """(locked, Grund) aus dem Text des States jLocked, None = nicht gesperrt.
+    Zwischengespeichert, denn jede Kachel fragt bei jedem Rendern."""
+    try:
+        d = json.loads(text) if text else None
+    except ValueError:
+        return None
+    if not isinstance(d, dict):
+        return None
+    art = d.get("locked")
+    if isinstance(art, bool):
+        art = int(art)
+    if not isinstance(art, int) or not art:
+        return None
+    return art, str(d.get("reason") or "").strip()
 
 
 def _clean(name: str) -> str:
