@@ -12,7 +12,7 @@ import math
 import re
 from urllib.parse import unquote
 
-from bausteine.gemeinsam import _clean
+from bausteine.gemeinsam import _clean, _sperre_lesen, SPERRE_DURCH, SPERRE_KURZ
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
 
@@ -47,6 +47,19 @@ class Grundhelfer:
         """Text-State, URL-dekodiert (Loxone liefert songName/artist prozentkodiert)."""
         v = self._state(control, name)
         return unquote(str(v)) if v not in (None, "") else ""
+
+    def _sperre_text(self, uuid) -> str | None:
+        """Sperre des Bausteins, an den ein Befehl an `uuid` geht (Baustein,
+        uuidAction oder Unterbaustein, Zuordnung in sperre_state): Klartext wie
+        "Gesperrt durch die Logik: Wartung", None = nicht gesperrt."""
+        su = self.sperre_state.get(uuid) if isinstance(uuid, str) else None
+        roh = self.states.get(su) if su else None
+        sp = _sperre_lesen(unquote(roh).strip()) if isinstance(roh, str) else None
+        if not sp:
+            return None
+        art, grund = sp
+        wer = SPERRE_DURCH.get(art)
+        return SPERRE_KURZ + (f" {wer}" if wer else "") + (f": {grund}" if grund else "")
 
     def _json_state(self, control: dict, name: str):
         """JSON-State (Loxone liefert Listen/Objekte als ggf. prozentkodierten

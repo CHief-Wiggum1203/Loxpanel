@@ -455,6 +455,8 @@ function renderPanel(blocks){
   el('grid').classList.toggle('bigpage', blocks.some(b=>b.k==='big'));
   el('grid').classList.toggle('chartpage', blocks.some(b=>b.k==='chart'));
   el('grid').classList.toggle('intercom-page', blocks.some(b=>b.k==='intercom-talk'));
+  // Gesperrter Baustein (jLocked): seine Bedienung ohne Wirkung (seiten.css)
+  el('grid').classList.toggle('gesperrt', !!(view && view.gesperrt));
   const g=el('grid');
   // anchor:bottom -> Anzeige (big/status) oben zentriert, Bedienung unten
   // verankert; aufklappende Auswahl waechst dann nach oben ueber die festen Zeilen.
@@ -591,6 +593,7 @@ function panelEinpassen(){
 function updatePanel(blocks){
   blocks=intercomBlocks(blocks);
   const g=el('grid');
+  g.classList.toggle('gesperrt', !!(view && view.gesperrt));
   // Struktur anders als zuletzt gerendert (Zeile/Status/Favorit dazu oder weg,
   // Favoriten per roomfav/get nachgeliefert)? Dann komplett neu aufbauen.
   if(g.dataset.bsig!==blockSig(blocks)){ renderPanel(blocks); return; }

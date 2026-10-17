@@ -31,6 +31,12 @@
   .hero .circle .himg{width:38px;height:38px;background-color:currentColor;
     -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
   .status{text-align:center;color:var(--muted);font-size:14px;padding:2px 6px;}
+  /* Gesperrter Baustein (jLocked, view.gesperrt): seine Bedienung gedimmt und
+     ohne Wirkung. Was nur weiterfuehrt (nav) und die verlinkten Objekte, also
+     andere Bausteine, bleiben bedienbar; der Server lehnt Befehle ohnehin ab. */
+  .panel.gesperrt .srow,.panel.gesperrt .stp .sbtn,.panel.gesperrt .favs,.panel.gesperrt .asw,
+  .panel.gesperrt .fld,.panel.gesperrt .tpk,.panel.gesperrt .chipset,
+  .panel.gesperrt .brow:not([data-rowid^="links:"]) .btn:not(.nav){opacity:.4;pointer-events:none;}
   /* Wecker-Status: moderat gross (nicht so riesig wie .pbig), Raum als Unterzeile */
   .astat{text-align:center;font-size:30px;font-weight:600;line-height:1.18;letter-spacing:-.01em;padding:0 16px;}
   .astat.crit{color:var(--crit);}

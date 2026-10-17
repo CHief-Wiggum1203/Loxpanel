@@ -383,7 +383,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`) |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`) |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite |
 | `alarm` | `id`, `on` | Weckton starten/stoppen |
 | `testtone` | | Testton |
@@ -393,7 +393,7 @@ Server → Browser (`panel.html:700`):
 | `notify` | `text`, `level`, `secs` | Einblendung |
 | `verbindung` | `ms`, `seit`, `stand` (ms seit 1970, `null` bei erreichbarem Miniserver), `takt`, `stumm`, `hinweis` (s), `texte` (`ms`, `server`, `stand`, `gesperrt`, mit `{seit}`/`{stand}`) | Verbindungszustand und Lebenszeichen (§3.4, `_verbindung_melden()`): beim Verbinden, bei jeder Änderung und alle `VERBINDUNG_TAKT` s |
 | `einrichtung` | `aktiv`, dazu bei `aktiv`: `titel`, `grund`, `hinweis`, `pfad`, `adressen[]`, `unbekannt` | Einrichtungshinweis, solange der Server keine Struktur vom Miniserver hat und entweder kein Zugang eingetragen ist oder der letzte Versuch scheiterte (`_einrichtung_stand()` nach `_einrichtung_info()`, Fehlertext aus `stream_task`, höchstens `EINRICHTUNG_FEHLER_MAX` Zeichen). Beim Verbinden und bei jeder Änderung (`_einrichtung_melden()`). Die Visu setzt die Adresse des Konfigurators zusammen: die, über die sie geladen wurde, bei `127.0.0.1` (App auf dem Panel) eine aus `adressen` (`_lan_adressen()`: Quelladresse der Standardroute, ohne Paket) |
-| `cmdresult` | `ok`, `code`, `uuid`, `cmd` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“ |
+| `cmdresult` | `ok`, `code`, `uuid`, `cmd`, `gesperrt` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“. `gesperrt`: der Baustein ist gesperrt, der Befehl ging nicht zum Miniserver; die Visu fragt nicht erneut nach der PIN, den Grund nennt ein `notify` |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
@@ -1252,7 +1252,8 @@ geplant). Technisch gibt es zwei Ebenen; seit Schritt 3 des Zerlegens
   aus der Tabelle `bausteine.KACHEL` (`kachel_fuer(t)`, `fn(app, uuid, c, it)`
   ergänzt `icon`, `on`/`tone`, `sublabel` und entweder `nav` (Detailseite) oder
   `cmd` (Direktschaltung) oder `controls[]` (Mini-Buttons)) und schließt mit dem
-  Fuß (Status-Bausteine antippbar, Kategorie-Ampel, `_apply_tile_style()`).
+  Fuß (Status-Bausteine antippbar, gesperrt mit „Gesperrt“ und `nav` statt
+  `cmd`/`controls`, Kategorie-Ampel, `_apply_tile_style()`).
 - **Detailseite:** `App._view_control_inner()` ruft die Detail-Funktion des Typs
   aus `bausteine.DETAIL` (`detail_fuer(t)`, `fn(app, uuid, c, route)` liefert die
   `view`-Nachricht mit `blocks[]`); `_view_control()` hängt Verlauf und
@@ -2401,6 +2402,25 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
   X schaltet dann selbst ab); die LoxPanel-App dunkelt erst nach der Uhr-Seite
   ab. Ohne gemerkte PIN wirkt eine Halten-Taste wie ein Tipp. Wisch nach rechts =
   zurück. Reconnect nach 1,5 s.
+- Gesperrte Bausteine (Strukturdoku „Locking and Unlocking Controls“):
+  `details.jLockable` sagt, ob ein Baustein sich sperren lässt, der Text-State
+  `jLocked` hält bei einer Sperre ein JSON `{locked, reason}` (1 = über die
+  Visualisierung, 2 = durch die Logik, leer = frei). Gesperrt nimmt der Baustein
+  keine Befehle an. `sperre_state` (`_apply_structure()`) ordnet jedem
+  Befehlsempfänger (Baustein, `uuidAction`, Unterbaustein, der ohne eigenen
+  `jLocked` seinem Baustein folgt) den State zu, `_sperre_text()` (`Grundhelfer`,
+  geparst in `_sperre_lesen()`, zwischengespeichert) liefert „Gesperrt durch die
+  Logik: Grund“. Die Kachel nennt „Gesperrt“ und öffnet die Detailseite statt zu
+  schalten; `render()` setzt `gesperrt` auf jede Seite des Bausteins (wie
+  `secured`) und stellt den Text als `status` nach `hero`/`cover`/`video`. Die
+  Visu dimmt dann Regler, Tasten, Favoriten und Formulare des Bausteins und nimmt
+  ihnen die Wirkung (`.panel.gesperrt` in `seiten.css`); Zellen mit `nav` und
+  die verlinkten Objekte bleiben bedienbar. Der WebSocket-Handler schickt einen
+  Befehl an einen gesperrten Empfänger nicht zum Miniserver, sondern antwortet
+  mit `notify` (mit PIN dazu `cmdresult` mit `gesperrt`); Gesten überspringen
+  ihn (`_geste_befehle()`), bei einem einzigen Ziel nennt die Einblendung den
+  Grund. `command()` selbst prüft nicht, damit Abfragen wie `roomfav/get` weiter
+  laufen. Tests: `tests/test_sperre.py`, `tests/browser/test_sperre_browser.py`.
 - Sprache wirkt nur auf Datum und Uhrzeit. Alle anderen Panel-Texte sind hart
   deutsch, sowohl im Frontend als auch in den vom Server erzeugten Texten
   („Offen", „Heizt", „Heute", Wochentage, Button-Beschriftungen).

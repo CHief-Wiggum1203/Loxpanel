@@ -192,9 +192,12 @@ class Gesten:
         return None, None
 
     async def _geste_befehle(self, befehle: list) -> int:
-        """Befehle einer Geste gleichzeitig schicken; Zahl der fehlgeschlagenen."""
-        codes = await asyncio.gather(*(self.command(u, c) for u, c in befehle))
-        return sum(1 for code in codes if code != "200")
+        """Befehle einer Geste gleichzeitig schicken; Zahl der fehlgeschlagenen.
+        Ein gesperrter Baustein (jLocked) bekommt keinen und zaehlt als nicht
+        ausgefuehrt."""
+        frei = [(u, c) for u, c in befehle if not self._sperre_text(u)]
+        codes = await asyncio.gather(*(self.command(u, c) for u, c in frei))
+        return len(befehle) - len(frei) + sum(1 for code in codes if code != "200")
 
     async def _geste_taster(self, uuid: str, text: str, fehlt: str) -> dict:
         """Taster aus Loxone Config ausloesen (pulse): Raum verlassen, Haus aus."""
@@ -202,7 +205,7 @@ class Gesten:
         if not c or c.get("type") not in GESTEN_TASTER_TYPEN or c.get("isSecured"):
             return {"fehler": fehlt}
         if await self._geste_befehle([(c.get("uuidAction") or uuid, "pulse")]):
-            return {"fehler": "Miniserver hat nicht ausgelöst"}
+            return {"fehler": self._sperre_text(uuid) or "Miniserver hat nicht ausgelöst"}
         return {"text": text}
 
     async def geste(self, ws, data: dict) -> dict | None:
@@ -373,7 +376,8 @@ class Gesten:
         spielen = [u for u in zonen if self._state(self.controls[u], "playState") == 2]
         ziel, cmd, text = (spielen, "pause", "Pause") if spielen else (zonen[:1], "play", "Spielt")
         if await self._geste_befehle([(self.controls[u].get("uuidAction") or u, cmd) for u in ziel]):
-            return {"fehler": "Miniserver hat nicht umgeschaltet"}
+            return {"fehler": next((s for u in ziel if (s := self._sperre_text(u))), None)
+                    or "Miniserver hat nicht umgeschaltet"}
         return {"text": text}
 
     async def _geste_sender(self, ru: str, prof: dict | None, raum: str, vor: bool) -> dict:
@@ -395,7 +399,7 @@ class Gesten:
             jetzt = next((i for i, f in enumerate(favs) if str(f["label"]).strip().casefold() in namen), None)
         i = (jetzt + (1 if vor else -1)) % len(favs) if jetzt is not None else (0 if vor else len(favs) - 1)
         if await self._geste_befehle([(favs[i]["cmd"]["uuid"], favs[i]["cmd"]["cmd"])]):
-            return {"fehler": "Miniserver hat nicht umgeschaltet"}
+            return {"fehler": self._sperre_text(favs[i]["cmd"]["uuid"]) or "Miniserver hat nicht umgeschaltet"}
         return {"text": favs[i]["label"]}
 
     def _geste_jal_stand(self, jal: list) -> dict:
@@ -528,7 +532,7 @@ class Gesten:
                 mood = ids[(ids.index(aktiv[0]) + 1) % len(ids)] if aktiv else ids[0]
             ua = self.controls[g["uuid"]].get("uuidAction") or g["uuid"]
             if await self._geste_befehle([(ua, f"changeTo/{mood}")]):
-                return {"fehler": "Miniserver hat nicht umgeschaltet"}
+                return {"fehler": self._sperre_text(ua) or "Miniserver hat nicht umgeschaltet"}
             return {"text": dict(stimmungen)[mood]}
         if schritt:
             return {"fehler": f"Keine Lichtsteuerung in {raum}"}
