@@ -463,9 +463,7 @@ function renderPanel(blocks){
   const TOPK = {hero:1,cover:1,video:1,status:1,title:1,value:1,big:1,astat:1,eflow:1};
   const bh = b => {
     if(b.k==='eflow') return '<div class="epane-detail" data-eflow></div>';   // Radial; wird nach dem Einfuegen von paintEnergy gefuellt
-    if(b.k==='hero'){ const hic = b.iconImg
-        ? '<img class="rawico" src="'+esc(b.iconImg)+'" alt="">'
-        : b.iconUrl
+    if(b.k==='hero'){ const hic = b.iconUrl
         ? '<span class="himg" style="--u:url(\''+esc(b.iconUrl)+'\')"></span>'
         : svg(ICONS[b.icon]||ICONS.info);
       return '<div class="hero"><div class="circle">'+hic+'</div></div>'; }

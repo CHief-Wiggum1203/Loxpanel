@@ -372,9 +372,7 @@ function render(){
   let _i=-1;
   for(const it of items){
     _i++;
-    const icoHtml = it.iconImg
-      ? '<span class="ico"><img class="rawico" src="'+esc(it.iconImg)+'" alt=""></span>'
-      : it.iconUrl
+    const icoHtml = it.iconUrl
       ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
       : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
     // Positionsring: nur fuer Bausteine, die eine Stellung haben. Bei 0 %
