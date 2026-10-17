@@ -9,10 +9,11 @@ dem Speichern. Das Update stellt der Test nach, indem er diagnosedaten.VERSION a
 und die Verbindungen der Visu vom Server aus schliesst."""
 import asyncio
 import json
+import re
 
 import pytest
 
-from lox import anlage, diagnosedaten, KONFIGURATOR_GELADEN, visu_starten, W
+from lox import anlage, diagnosedaten, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
 from test_kachel_set_browser import ROUTEN
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -23,6 +24,9 @@ pytestmark = pytest.mark.browser
 BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "LA", "room": "r1", "cat": "c1",
                    "isFavorite": True, "states": {"active": "sl"}}}
 OFFEN = "document.querySelector('#offenTxt').textContent"
+# So oft fragt der Konfigurator /api/devices von sich aus ab (setInterval in config/start.js)
+ABFRAGE_TAKT_S = int(re.search(r"setInterval\(pollDevices,\s*(\d+)\)",
+                               (ROOT / "webfrontend/html/config/start.js").read_text(encoding="utf-8"))[1]) / 1000
 
 
 def _app():
@@ -124,9 +128,12 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await _bis(pg, "SERVER_STAND === 'alt-1234'")
 
-                # ohne offene Aenderungen: neu laden
-                monkeypatch.setitem(diagnosedaten.VERSION, feld, "neu-5678")
-                await pg.evaluate("pollDevices()")
+                # ohne offene Aenderungen: die naechste Abfrage des Konfigurators
+                # (alle ABFRAGE_TAKT_S) sieht den neuen Stand und laedt neu. Der
+                # Test ruft pollDevices() hier nicht selbst auf: das Neuladen kaeme
+                # mitten in sein evaluate(), das dabei seinen Kontext verloere
+                async with pg.expect_event("load", timeout=(ABFRAGE_TAKT_S + 9) * 1000):
+                    monkeypatch.setitem(diagnosedaten.VERSION, feld, "neu-5678")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 await _bis(pg, "SERVER_STAND === 'neu-5678'")
                 erg["ohne"] = len(ladungen)
