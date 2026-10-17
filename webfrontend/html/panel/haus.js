@@ -14,8 +14,6 @@ const HS_LEISER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5"/>';
 const HS_LAUTER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5M18.5 9.5v5"/>';
 const HS_ENERGIE='<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', HS_RUHIG='<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const HS_TASTE={prev:'Zurück', play:'Wiedergabe', pause:'Pause', next:'Weiter'};
-// ⋮ wie auf der Detailseite der Audio-Zone: oeffnet die Musikauswahl
-const HS_DREI='<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>';
 const HS_SCHNELL_ICO={licht:'bulb', audio:'music'};
 // Mindestbreite einer Karte unter "Gerade aktiv" und einer Raumkarte, die
 // Hoehe, ab der Raumkarten scrollen statt schrumpfen, und das Seitenverhaeltnis,
@@ -267,7 +265,7 @@ function hausBloecke(v, L){
       '<button type="button" class="btn hs-b" data-hs="laut" data-d="1" aria-label="Lauter">'+svg(HS_LAUTER)+'</button></div>' : '';
     const kl=' class="hs-c hs-sp'+(sp.spielt?' spielt':'')+(L.spalte?'':' leiste'+(sp.spielt?' on':''))+'" data-hb="sp"';
     const drei=sp.mehr ? '<button type="button" class="btn hs-b hs-drei" data-hs="quellen" aria-label="'+
-      esc('Musikauswahl '+sp.name)+'">'+svgF(HS_DREI)+'</button>' : '';
+      esc('Musikauswahl '+sp.name)+'">'+svgF(ICONS.drei)+'</button>' : '';
     // Sender: so viele, wie die Lage vorsieht (L.fc), der Rest in der Musikauswahl
     const sender=(sp.sender||[]).slice(0, L.fc), alle=sp.mehr ? 'aria-label="'+esc('Alle Sender und Favoriten, '+sp.name)+'"' : '';
     if(L.spalte){

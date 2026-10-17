@@ -381,6 +381,14 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #playerpane .pptrans{display:flex;gap:14px;justify-content:center;align-items:center;}
   #playerpane .ppvol{display:flex;align-items:center;gap:8px;}
+  /* ⋮ zur Musikauswahl rechts oben auf der Seite, wie .moreb der Detailseite */
+  #playerpane .pppage{position:relative;}
+  #playerpane .ppmehr{position:absolute;top:8px;right:8px;z-index:2;width:44px;height:44px;padding:0;border:0;
+    border-radius:50%;display:grid;place-items:center;color:var(--muted);cursor:pointer;
+    background:rgba(var(--wash,255,255,255),.06);}
+  #playerpane .ppmehr[hidden]{display:none;}
+  #playerpane .ppmehr:active{transform:scale(.92);}
+  #playerpane .ppmehr svg{width:22px;height:22px;}
   #playerpane .ppvol .sico{color:var(--muted);} #playerpane .ppvol .sico svg{width:20px;height:20px;}
   #playerpane .ppvol .sld{flex:1;}
   #playerpane .ppvol .sval{min-width:34px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}

@@ -424,7 +424,7 @@ Server → Browser (`panel.html:700`):
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
 | `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
-| `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone ohne `more`; nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
+| `player` | `blocks[]` | Player-Pane: die Blöcke der Audio-Zone samt `more`, daraus rechts oben das ⋮ zur Musikauswahl (`renderPlayer()`, `#ppmehr`; nach der Wahl eines Senders zurück zur Seite davor); nach `setplayer` und bei jeder Änderung (`player_blocks()`) |
 | `chart` | `controls[]`, `range`, `ranges[]`, `charts[]` (je Baustein `control`, `name`, `value`, `blocks[]` mit Blöcken `chart`, §3.7) | Verlaufs-Pane (Pane 2, Widget-Seite, Uhr-Seite) mit einem oder mehreren Bausteinen; nach `setchart` und bei jeder Änderung, die der Broadcaster sieht (gebaut in `chart_stack()`, je Baustein `chart_blocks()`). `controls` nennt nur Bausteine mit Aufzeichnung. Die Visu verwirft eine Nachricht, die Bausteine außerhalb ihrer Anfrage nennt (ein Push, der beim Wechsel schon unterwegs war), und der Broadcaster schickt keine, wenn die Verbindung nach dem Berechnen einen anderen Stapel angemeldet hat |
 | `geste` | `art`, `raum`, dazu `phase:"start"` mit `wert` (0–100) und bei „Stimmung beim Einschalten“ `text`, sonst `text` oder `fehler` | Antwort auf eine Geste (`App.geste()`): Startwert zum Dimmen, für die Lautstärke bzw. die Lamellen, der Name der eingeschalteten Stimmung oder des Senders, „Beschattung ab“, „Lamellen 70 %“, „Pause“, „… verlassen“ oder warum nichts geht („Kein Raum auf dieser Seite“). Nach `beschattung`/`beschatten` dazu `wert` (Stellung in %) und danach von sich aus `phase` `wert`/`ende` mit `wert` und `text`, solange die Jalousien fahren (`geste_fahrten()`). Die Visu zeigt sie im Vollbild (§7.1 „Gesten“) |
 | `svstatus` | `items[]` (dieselbe Form wie Kachel-`items`, ohne `nav`/`controls`) | Werte der frei gewählten Bausteine für die rechte Spalte der Uhr-Seite; gebaut in `status_blocks()` über `_control_item()`, also dieselbe Kette wie jede Kachel |
@@ -2177,8 +2177,9 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     Wie auf der Detailseite der Zone öffnen die drei Punkte (⋮) die
     Musikauswahl mit Sendern und Favoriten: quer rechts oben in der Spalte,
     hochkant am Ende der ersten Zeile der Leiste. Die Route kommt aus dem
-    `more`-Block der Detailseite (`player_blocks(mehr=True)`, im Spieler
-    `mehr`), zurück führt zur Hausseite (14.10.2026).
+    `more`-Block der Detailseite (`player_blocks()`, im Spieler `mehr`),
+    zurück führt zur Hausseite (14.10.2026). Seit 17.10.2026 hat der Player
+    im Split-Layout dasselbe ⋮ rechts oben.
     **Sender** (14.10.2026, Entwurf „Variante große Cover“): die Favoriten
     der Zone als große Cover-Kacheln (`_haus_sender()`, im Spieler
     `sender`, höchstens `HAUS_SENDER`). Sie kommen aus derselben Quelle wie

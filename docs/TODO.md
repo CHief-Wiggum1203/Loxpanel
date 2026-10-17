@@ -1057,6 +1057,13 @@ selbst aktuell.
 
 ## 3. Sichtbare Fehler in der Visu
 
+- [x] **Split-Player ohne Senderwahl** (Test 17.10.2026): Im Player des
+      Split-Layouts fehlten die drei Punkte zur Musikauswahl, der Server
+      strich den `more`-Block für die Pane. Jetzt liefert `player_blocks()`
+      ihn immer mit, der Split-Player zeigt rechts oben das ⋮ wie der Spieler
+      der Hausübersicht, nach der Wahl eines Senders geht es zurück zum Tab
+      (`test_split_player_musikauswahl`). **S**
+
 - [x] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft
       Attribute mit Miniserver-Namen und Freitext-Schriftarten. (F10) **S**
 - [x] **Panel-`states`-Farben validieren** mit `_color_ok` in
