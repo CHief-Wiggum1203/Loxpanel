@@ -242,7 +242,7 @@ class Haus:
         kacheln = {u: self._control_item(u, prof) for u in zonen}
         spielt = {u: bool(kacheln[u].get("on")) for u in zonen}
         zone = wahl if wahl in zonen else next((u for u in zonen if spielt[u]), zonen[0])
-        bloecke = self.player_blocks(zone, mehr=True) or []
+        bloecke = self.player_blocks(zone) or []
 
         def block(k):
             return next((b for b in bloecke if b.get("k") == k), {})

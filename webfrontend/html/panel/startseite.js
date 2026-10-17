@@ -113,16 +113,20 @@ function showNotify(text, level, secs){
 }
 // Fester Player im Split-Layout (linke Spalte). Baut das Grundgeruest einmal
 // auf und aktualisiert danach nur Cover/Titel/Transport/Lautstaerke in-place
-// (kein Neu-Rendern bei jedem 0.3s-Update -> kein Cover-Flackern).
+// (kein Neu-Rendern bei jedem 0.3s-Update -> kein Cover-Flackern). Rechts oben
+// das ⋮ zur Musikauswahl der Zone (Route des more-Blocks) wie im Spieler der
+// Hausseite; nach der Wahl eines Senders geht sie zurueck zur Seite davor.
 function renderPlayer(blocks){
   const pane=el('playerpane'); if(!pane||!Array.isArray(blocks)) return;
   const cover=blocks.find(b=>b.k==='cover');
   const title=blocks.find(b=>b.k==='title');
   const row=blocks.find(b=>b.k==='row');
   const sl=blocks.find(b=>b.k==='slider');
+  const mehr=blocks.find(b=>b.k==='more');
   if(!_playerBuilt){
     pane.innerHTML=
       '<div class="fp-page solo pppage">'+
+      '<button type="button" class="ppmehr" id="ppmehr" aria-label="Musikauswahl" hidden>'+svgF(ICONS.drei)+'</button>'+
       '<div class="ppcover"><div class="coverph">'+svg(ICONS.music)+'</div><img id="ppimg" alt=""></div>'+
       '<div class="pptitle" id="pptitle"></div>'+
       '<div class="ppsub" id="ppsub"></div>'+
@@ -138,8 +142,10 @@ function renderPlayer(blocks){
     s.addEventListener('input',()=>{ _playerVolDrag=true; sldFill(s); el('ppsldv').textContent=s.value; });
     s.addEventListener('change',()=>{ _playerVolDrag=false;
       if(s._uuid&&s._tmpl) sendCmd(s._uuid,s._tmpl.replace('{v}',s.value),playerSecured,{abbruch:zurueck}); });
+    el('ppmehr').addEventListener('click',()=>{ const r=el('ppmehr')._route; if(r) nav(r); });
     _playerBuilt=true;
   }
+  const mb=el('ppmehr'); mb._route=(mehr&&mehr.route)||null; mb.hidden=!mb._route;
   // Cover nur bei Aenderung neu laden (sonst Flackern)
   const img=el('ppimg');
   if(img){ if(cover&&cover.src){ if(img.getAttribute('src')!==cover.src){

@@ -296,11 +296,11 @@ class AudioHelfer:
             return None
         return ("/cover?u=" + quote(str(cover), safe="")) if cover else None
 
-    def player_blocks(self, uuid: str, mehr: bool = False):
+    def player_blocks(self, uuid: str):
         """Player-Bloecke (Cover/Titel/Transport/Lautstaerke) einer festen
-        AudioZone fuer die linke Split-Player-Region. None, wenn keine gueltige
-        Audio-Zone. Der `more`-Block (schwebender ⋮-Button) wird entfernt,
-        ausser mit mehr=True (Spieler der Hausseite: ⋮ zur Musikauswahl)."""
+        AudioZone fuer den Split-Player und den Spieler der Hausseite, samt
+        `more`-Block: beide zeigen daraus das ⋮ zur Musikauswahl. None, wenn
+        keine gueltige Audio-Zone."""
         c = self.controls.get(uuid or "")
         if not c or c.get("type") not in ("AudioZone", "AudioZoneV2"):
             return None
@@ -309,4 +309,4 @@ class AudioHelfer:
         except Exception:
             log.exception("player_blocks fehlgeschlagen (%s)", uuid)
             return None
-        return [b for b in (v.get("blocks") or []) if mehr or b.get("k") != "more"]
+        return list(v.get("blocks") or [])

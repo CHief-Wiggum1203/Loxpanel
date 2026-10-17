@@ -3,6 +3,8 @@
 // was beim Laden ausgefuehrt wird, darf nur Funktionen frueherer Teile rufen.
 
 const ICONS = {
+  // ⋮ zur Musikauswahl einer Audio-Zone (Spieler der Hausseite und im Split), gefuellt (svgF)
+  drei:'<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>',
   folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.8 1 1.4 1 2.5h6c0-1.1.3-1.7 1-2.5A6 6 0 0 0 12 3Z"/>',
   switch:'<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="8" cy="12" r="2.5"/>',
