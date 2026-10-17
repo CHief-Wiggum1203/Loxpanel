@@ -6,12 +6,13 @@ bausteine.BausteinHelfer, gerufen wird ueber self bzw. app. Importiert
 webvisu nicht."""
 from __future__ import annotations
 
-import json
+import functools
 import logging
 import math
 import re
 from urllib.parse import unquote
 
+from adapters import json_aus_text, JSON_TEXTE_MAX
 from bausteine.gemeinsam import _clean, _sperre_lesen, SPERRE_DURCH, SPERRE_KURZ
 
 log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: die Methoden gehoeren zu App
@@ -24,6 +25,12 @@ _TS_RE = re.compile(r"^\s*(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}[ ,]+\d{1,2}:\d{2}(?
 _NUMFMT = re.compile(r"^(%[-+ 0-9.]*[dfeg])(.*)$")
 
 _PREFIX = ["k", "M", "G", "T"]
+
+
+@functools.lru_cache(maxsize=JSON_TEXTE_MAX)
+def _json_fehler_melden(wo: str, txt: str) -> None:
+    """Unlesbaren JSON-State einmal je Text melden, nicht bei jedem Rendern."""
+    log.warning("%s nicht als JSON parsebar: %r", wo, txt[:200])
 
 
 class Grundhelfer:
@@ -70,11 +77,10 @@ class Grundhelfer:
         if not isinstance(raw, str):
             return raw
         txt = unquote(raw).strip()
-        try:
-            return json.loads(txt)
-        except ValueError:
-            log.warning("%s.%s nicht als JSON parsebar: %r", control.get("type"), name, txt[:160])
-            return None
+        ok, wert = json_aus_text(txt)
+        if not ok:
+            _json_fehler_melden(f"{control.get('type')}.{name}", txt)
+        return wert
 
     @staticmethod
     def _named_items(data) -> list[tuple[str, dict]]:
@@ -104,11 +110,10 @@ class Grundhelfer:
     def _json_list_map(self, c: dict, name: str) -> dict:
         """State-Wert = JSON-Array [{id,name}] -> {id:name}."""
         raw = self._state(c, name)
-        try:
-            arr = json.loads(raw) if isinstance(raw, str) else raw
-        except (ValueError, TypeError):
+        arr = json_aus_text(raw)[1] if isinstance(raw, str) else raw
+        if not isinstance(arr, list):
             return {}
-        return {int(x["id"]): x.get("name") for x in (arr or [])
+        return {int(x["id"]): x.get("name") for x in arr
                 if isinstance(x, dict) and x.get("id") is not None}
 
     def _fmt_num(self, value, fmt: str) -> str:

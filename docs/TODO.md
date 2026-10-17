@@ -1133,12 +1133,22 @@ selbst aktuell.
       sondern auch `player`, `energy` und `camera` werden je Verbindung
       verglichen und bei Gleichheit übersprungen. Upstream angenommen als
       [#21](https://github.com/Lenardo1/loxpanel/pull/21). (P1) **S**
-- [ ] **Nur rendern, was betroffen ist**: pro Route die Menge der State-UUIDs
+- [x] **Nur rendern, was betroffen ist**: pro Route die Menge der State-UUIDs
       merken, die sie liest, und nur bei Änderung einer dieser UUIDs neu rendern.
-      Zweiter Schritt nach dem ersten Punkt. (P1) **M**
-- [ ] **JSON-States einmal parsen**: `moodList`, `entryList`, `sourceList`
+      Zweiter Schritt nach dem ersten Punkt. (P1) **M** Erledigt 17.10.2026:
+      Jedes Rendern liest die States über eine Lesespur, `_on_value` sammelt
+      die geänderten; eine Verbindung rendert nur, wenn ihre Seite einen davon
+      liest, sie Seite, Profil oder Bereich gewechselt hat, `_dirty` gesetzt ist
+      (Änderung außerhalb der States) oder spätestens nach
+      `RENDER_SPAETESTENS_S` (Countdowns, „heute“/„morgen“, Verläufe)
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.5).
+- [x] **JSON-States einmal parsen**: `moodList`, `entryList`, `sourceList`
       beim Eintreffen in `_on_value` parsen und geparst cachen statt bei jedem
-      Rendering. (P1) **M**
+      Rendering. (P1) **M** Erledigt 17.10.2026, nicht in `_on_value`, sondern
+      je Text: `json_aus_text()` (`adapters.py`) hält die geparsten Werte in
+      einem LRU-Cache, derselbe Text wird also einmal geparst, wo immer er
+      gelesen wird. Ein unlesbarer State wird je Text einmal gemeldet statt
+      bei jedem Rendern.
 - [x] **`panels.json` einmal lesen**: `load_panels` und `load_devices`
       zusammenlegen. (P2) **S** Erledigt 17.10.2026: `load_panels_doc()`
       liefert Ansichten und Geräte aus einem Lesen, `load_devices()` ist weg;

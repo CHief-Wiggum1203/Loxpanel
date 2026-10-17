@@ -7,7 +7,6 @@ Zustand (self ist die App). Importiert webvisu nicht."""
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 import time
@@ -15,6 +14,7 @@ from urllib.parse import quote, unquote, urlencode
 
 import aiohttp
 
+from adapters import json_aus_text
 from audioserver import AudioBackend, make_backend
 from audioserver_events import AudioEventClient
 from konfig import _audiometa_sekunden
@@ -82,11 +82,10 @@ class Audiodienst:
         (siehe prime_favs). Wir sammeln alle Items mit gueltigem 'slot' ein.
         """
         raw = self._state(c, "sourceList")
-        if not raw:
+        if not raw or not isinstance(raw, str):
             return []
-        try:
-            data = json.loads(raw)
-        except (ValueError, TypeError):
+        ok, data = json_aus_text(raw)
+        if not ok or not isinstance(data, dict):
             return []
         buckets = []
         res = data.get("getroomfavs_result")

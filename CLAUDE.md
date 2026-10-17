@@ -128,6 +128,11 @@ python3 -m py_compile bin/*.py bin/bausteine/*.py bin/routen/*.py agent/loxpanel
   patcht `updatePanel()` ihn nie und er friert ein. Befehle und State-Bedeutung
   eines Bausteins aus der Loxone-Strukturdoku („Structure File“), nicht
   raten; Unterseiten (Zone, Weckzeit …) sind eigene `view`-Routen in `render()`.
+- Der Broadcaster rendert eine Verbindung nur neu, wenn ihre Seite einen
+  geänderten State liest (Lesespur über `self.states`, `docs/ARCHITEKTUR.md`
+  §3.5). States beim Rendern darum nur über `self.states` lesen. Baut eine
+  Seite aus etwas anderem (Cache, Audioserver, Datei), setzt dessen Änderung
+  `_dirty`, sonst erscheint sie erst nach `RENDER_SPAETESTENS_S`.
 - `loxpanel.cfg` aus `/config` (Einstellungen → Miniserver) hat Vorrang vor
   `LOXPANEL_MS_*`-Variablen (`konfig._ms_zugang()`).
 - Tests, die eine Konstante oder einen Helfer des Servers ersetzen, nehmen
