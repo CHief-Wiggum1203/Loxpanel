@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, visu_starten
+from lox import konfig, KONFIGURATOR_GELADEN, W, anlage, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -49,7 +49,7 @@ def test_duplizieren_mit_raumtausch(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(BAUSTEINE))
         app.states = {u.lower(): 0 for u in BAUSTEINE}
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, [("POST", "/api/panels", W.api_save_panels)])
         fehler = []
         try:

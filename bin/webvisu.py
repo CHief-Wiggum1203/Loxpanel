@@ -42,7 +42,7 @@ from intercom_talk import IntercomTalk  # noqa: E402
 import diagnose  # noqa: E402  # Diagnosepaket (/api/diagnose) und Log-Puffer
 import konfig  # noqa: E402  # Konfigdateien: Pfade, Laden, Pruefen, Schreiben
 from konfig import (  # noqa: E402  # Konfigdateien: Pfade, Laden, Pruefen, Schreiben
-    _audio_config, _audiometa_config, _calendar_config, _config, _intercom_config, load_devices, load_panels,
+    _audio_config, _audiometa_config, _calendar_config, _config, _intercom_config, load_panels_doc,
     load_theme, _night_config)
 # App setzt sich aus Mixins zusammen, je Thema ein Modul (Reihenfolge wie die Basisklassen).
 from statistik import Statistik  # noqa: E402  # Verlaeufe (Statistik-Dateien)
@@ -152,14 +152,15 @@ class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
         self.conn_status: dict[web.WebSocketResponse, tuple] = {}  # ws -> UUIDs der Status-Kacheln auf der Uhr-Seite (via setsvstatus)
         self.conn_chart: dict[web.WebSocketResponse, tuple[tuple[str, ...], str]] = {}   # ws -> (Baustein-UUIDs, Zeitraum) der Verlaufs-Pane (via setchart)
         self.conn_geste: dict[web.WebSocketResponse, dict] = {}   # ws -> laufende Geste (Dimmen, Lautstaerke), App.geste()
-        self.panels = load_panels()
+        # Profile und Geraete aus derselben Datei, einmal gelesen
+        # (Geraete: Agent-Name -> {panel, auto, modes:{modus:profil}, display ...})
+        self.panels, self.devices = load_panels_doc()
         self.entwuerfe: dict[str, dict] = {}   # Token -> {id, panel (gesaeubert), ts}, nur im Speicher
         # Geraet -> {token, id, zurueck (Profil davor), bis}: zeigt gerade einen Entwurf (Punkt 12)
         self.vorschau_geraet: dict[str, dict] = {}
         # ... beendet, als keine Verbindung des Geraets den Entwurf zeigte (es lud gerade neu
         # oder war offline): Geraet -> {token, zurueck}. Gilt, bis es mit dem Token wiederkommt
         self.vorschau_ende: dict[str, dict] = {}
-        self.devices = load_devices()   # Agent-Name -> {auto, modes:{modus:profil}}
         self.last_mode = ""             # zuletzt gesetzter Betriebsmodus (fuer Nachziehen beim Verbinden)
         # Geraete, deren Ansicht unter Displays ausdruecklich gewaehlt wurde: der
         # Betriebsmodus zieht sie beim Verbinden nicht um, bis er neu wechselt.

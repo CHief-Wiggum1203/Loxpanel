@@ -1139,10 +1139,16 @@ selbst aktuell.
 - [ ] **JSON-States einmal parsen**: `moodList`, `entryList`, `sourceList`
       beim Eintreffen in `_on_value` parsen und geparst cachen statt bei jedem
       Rendering. (P1) **M**
-- [ ] **`panels.json` einmal lesen**: `load_panels` und `load_devices`
-      zusammenlegen. (P2) **S**
-- [ ] **Klingel- und Wecker-Pushes filtern**: nur an Panels, die den
-      betreffenden Baustein überhaupt anzeigen dürfen. (P3) **S**
+- [x] **`panels.json` einmal lesen**: `load_panels` und `load_devices`
+      zusammenlegen. (P2) **S** Erledigt 17.10.2026: `load_panels_doc()`
+      liefert Ansichten und Geräte aus einem Lesen, `load_devices()` ist weg;
+      eine kaputte Datei gibt beides leer statt eines `AttributeError`.
+- [x] **Klingel- und Wecker-Pushes filtern**: nur an Panels, die den
+      betreffenden Baustein überhaupt anzeigen dürfen. (P3) **S** Erledigt
+      17.10.2026, abgestimmt: Die Haustür klingelt weiter überall, nur eine
+      Ansicht, die die Türsprechanlage ausblendet (`hide`), bekommt nichts.
+      Der Wecker tönt nur, wo die Ansicht ihn zeigt (Raum, Kategorie, `hide`),
+      und nur dort geht das Display an; „aus“ geht an alle.
 
 ## 5. Unraid-Betrieb
 

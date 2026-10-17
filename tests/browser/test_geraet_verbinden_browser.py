@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from lox import anlage, geraete, KONFIGURATOR_GELADEN, visu_starten, W
+from lox import konfig, anlage, geraete, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -46,7 +46,7 @@ def test_drei_wege_mit_lan_adresse(cfg_ordner, tmp_path):
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(BAUSTEINE))
         app.states = {"sl": 0}
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         lan = (geraete._lan_adressen() or ["127.0.0.1"])[0]
         host = f"{lan}:{port}"

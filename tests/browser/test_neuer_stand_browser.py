@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from lox import anlage, diagnosedaten, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
+from lox import konfig, anlage, diagnosedaten, KONFIGURATOR_GELADEN, ROOT, visu_starten, W
 from test_kachel_set_browser import ROUTEN
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -115,7 +115,7 @@ def test_konfigurator_laedt_nach_update_neu(cfg_ordner, monkeypatch, feld):
 
     async def lauf():
         app = _app()
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, ROUTEN)
         fehler, ladungen, erg = [], [], {}
         try:

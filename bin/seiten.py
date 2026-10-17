@@ -147,6 +147,11 @@ class Seiten:
         (zusaetzlich zum Raum-/Kategorie-Filter). Gilt panelweit."""
         return not (prof and uuid in prof.get("hide", ()))
 
+    def _sichtbar(self, uuid: str, prof: dict | None) -> bool:
+        """Darf die Ansicht diesen Baustein zeigen: Raum, Kategorie und hide wie
+        auf ihren Seiten. Fuer Meldungen, die an keiner Seite haengen (Wecker)."""
+        return self._room_ok(uuid, prof) and self._cat_ok(uuid, prof) and self._shown(uuid, prof)
+
     # ---- Kachel fuer ein Control ----
     def _spans_rooms(self, uuids) -> bool:
         """True, wenn die Bausteine ueber mehr als einen bekannten Raum verteilt

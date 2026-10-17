@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from lox import KONFIGURATOR_GELADEN, W, anlage, irc2_baustein, visu_starten
+from lox import konfig, KONFIGURATOR_GELADEN, W, anlage, irc2_baustein, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -98,7 +98,7 @@ def test_kopfzeile_zeigt_die_gewaehlten_werte(cfg_ordner, monkeypatch, groesse, 
         daten = await _front(monkeypatch)
         app = W.App({"host": "", "port": 80})
         app._apply_structure(struktur)
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         app._front = app._front_payload(daten)
         app.states = {**{f"s{i}": 0 for i in range(6)}, "lf": 54, **werte}
         runner, port, bc = await visu_starten(app)

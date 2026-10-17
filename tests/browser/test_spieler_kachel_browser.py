@@ -12,7 +12,7 @@ import asyncio
 
 import pytest
 
-from lox import W, visu_starten
+from lox import konfig, W, visu_starten
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -207,7 +207,7 @@ def test_seiten_editor_zeigt_die_spieler_spalte(klassisch, cfg_ordner, tmp_path)
 
     async def lauf():
         app, _ = _app({})
-        app.panels = W.load_panels()
+        app.panels = konfig.load_panels()
         runner, port, bc = await visu_starten(app, [("GET", "/cover", W.cover_handler)])
         fehler = []
         try:
