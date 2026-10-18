@@ -1057,6 +1057,13 @@ selbst aktuell.
 
 ## 3. Sichtbare Fehler in der Visu
 
+- [x] **„Auf einen Blick“ springt beim Scrollen nach oben** (Test
+      18.10.2026, Spalte links mit vielen Geräten): Jeder neue Wert in der
+      Liste ersetzte den ganzen Block samt Scroll-Fläche. `updateHaus()`
+      gleicht Blöcke jetzt an (`hsAngleichen()`), die Liste bleibt derselbe
+      Knoten; nach einem Neuaufbau setzt `renderHaus()` die Position wieder.
+      Gilt für jede Scroll-Fläche der Hausseite, auch die Zonen des
+      Spielers (`test_auf_einen_blick_bleibt_beim_scrollen_stehen`). **S**
 - [x] **Split-Player ohne Senderwahl** (Test 17.10.2026): Im Player des
       Split-Layouts fehlten die drei Punkte zur Musikauswahl, der Server
       strich den `more`-Block für die Pane. Jetzt liefert `player_blocks()`
