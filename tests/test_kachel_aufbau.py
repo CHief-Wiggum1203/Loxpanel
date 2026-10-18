@@ -81,7 +81,7 @@ VOLL = {
            "tileHue": 95, "tileActive": "dunkel",
            "grid": "auto", "tileSize": "small", "paneCols": 2, "player": "Z1", "panes": {"room:r1": "weather"},
            "valueBar": ["room:r1"], "gesten": True, "gestenRaum": "r1", "gestenHinweis": False, "nightClock": True, "nightClockBright": 30,
-           "hausAufbau": "raeume",
+           "hausAufbau": "raeume", "hausAktivOhne": ["audio"], "hausEnergie": "E1",
            "svPane": "calendar", "scale": "auto", "textColor": "#ffffff", "baseColor": "#3a6ea5",
            "bold": True, "lang": "en", "overlay": OVERLAY_VOLL},
     "states": {"active": "#00ff00", "good": "#00aa00", "warn": "#ffaa00", "crit": "#ff0000"},

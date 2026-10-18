@@ -311,8 +311,9 @@ function renderEditor(){
        T('Grundfarbe und Kachel-Aufbau kommen aus dem gewählten Set.')+' '+T('Eigene Zustandsfarben und Farben aus „Kacheln gestalten“ gelten weiter.'),
        null, ' id="fAgAusSet"'+((p.ui||{}).tileSet?'':' hidden'))+
      aussehenGruppe(T('Schrift'), schriftFelder(p.ui||{}))+
-     aussehenGruppe(T('Hausübersicht'), hausAufbauFeld(p.ui||{}),
-       T('Wie die Hausübersicht dieser Ansicht aufgebaut ist. „Status zuerst“: oben, was gerade an ist, mit Aus-Taste. „Räume direkt“: jede Raumkarte schaltet Licht, Musik und Co. mit runden Tasten. „Spalte links“: Uhr, Energie, „Auf einen Blick“ und die Schnellaktionen in einer Spalte links, für breite Schirme; wo sie nicht passt (hochkant, schmal), zeigt das Gerät „Status zuerst“.'))+
+     aussehenGruppe(T('Hausübersicht'), hausAufbauFeld(p.ui||{})+hausAktivFeld(p.ui||{})+hausEnergieFeld(p.ui||{}),
+       T('Wie die Hausübersicht dieser Ansicht aufgebaut ist. „Status zuerst“: oben, was gerade an ist, mit Aus-Taste. „Räume direkt“: jede Raumkarte schaltet Licht, Musik und Co. mit runden Tasten. „Spalte links“: Uhr, Energie, „Auf einen Blick“ und die Schnellaktionen in einer Spalte links, für breite Schirme; wo sie nicht passt (hochkant, schmal), zeigt das Gerät „Status zuerst“.')+' '+
+       T('Was unter „Gerade aktiv“ zählt, zählt auch in „n an“ der Raumkarten; ohne Haken gibt es die Zeile nicht. „Energie im Kopf“: automatisch der erste Energiefluss bzw. Energiemanager der Seite, sonst der Anlage.'))+
      groessenGruppe(p.ui||{}, sizeStd((p.ui||{}).tileLayout,true,(p.ui||{}).tileSet),
        T('Ein leeres Feld übernimmt die Vorgabe, sonst den Standard des Kachel-Aufbaus; grau steht, was dann gilt.'))+
    '</div>'+
@@ -394,6 +395,14 @@ function renderEditor(){
   { const fh=$('#fHausAufbau'); if(fh) fh.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value && e.target.value!==(META&&META.hausAufbauStandard)) p.ui.hausAufbau=e.target.value; else delete p.ui.hausAufbau;
       markDirty(); }; }
+  // ... "Gerade aktiv": gespeichert wird, was nicht zaehlt (alle angehakt = nichts)
+  { const arten=[...document.querySelectorAll('[data-haus-art]')];
+    arten.forEach(cb=>cb.onchange=()=>{ p.ui=p.ui||{};
+      const ohne=arten.filter(x=>!x.checked).map(x=>x.dataset.hausArt);
+      if(ohne.length) p.ui.hausAktivOhne=ohne; else delete p.ui.hausAktivOhne; markDirty(); }); }
+  // ... und die Energie im Kopf: leer (automatisch) wird nicht gespeichert
+  { const fe=$('#fHausEnergie'); if(fe) fe.onchange=e=>{ p.ui=p.ui||{};
+      if(e.target.value) p.ui.hausEnergie=e.target.value; else delete p.ui.hausEnergie; markDirty(); }; }
   // Kachel-Aufbau: nur "classic" wird gespeichert, der neue ist der Standard
   { const ftl=$('#fTileLayout'); if(ftl) ftl.onchange=e=>{ p.ui=p.ui||{};
       if(e.target.value==='classic') p.ui.tileLayout='classic'; else delete p.ui.tileLayout;

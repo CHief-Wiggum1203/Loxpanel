@@ -22,14 +22,15 @@ from geraete import _lan_adressen, NEULADEN_STUNDE, VORSCHAU_GERAET_DAUER
 from haus import HAUS_TITEL
 from konfig import (
     _clean_kachel_aktiv, _clean_kachel_farbton, _clean_kachel_set, _devices_export, FRONT_TABS,
-    GERAETE_KATALOG, GESTEN_HINWEIS_STANDARD, GESTEN_STANDARD, GROESSEN_STANDARD,
-    HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN, HAUS_TAB, KACHEL_WACHSEN, KACHEL_ZIEL, KACHEL_ZIEL_MAX,
-    KACHEL_ZIEL_MIN, KACHEL_ZIEL_STANDARD, _loxlib_names, NACHT_STANDARD, PANE_ANTEIL,
+    GERAETE_KATALOG, GESTEN_HINWEIS_STANDARD, GESTEN_STANDARD, GROESSEN_STANDARD, HAUS_AKTIV_ARTEN,
+    HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN, HAUS_ENERGIE_AUS, HAUS_TAB, KACHEL_WACHSEN, KACHEL_ZIEL,
+    KACHEL_ZIEL_MAX, KACHEL_ZIEL_MIN, KACHEL_ZIEL_STANDARD, NACHT_STANDARD, PANE_ANTEIL,
     PANE_SPALTEN_MAX, _panels_verworfen, PICK_TAB, PIN_MERKEN_MAX, PIN_MERKEN_STANDARD,
     _sanitize_categories, _sanitize_panels, _sanitize_theme_ui, SCALE_MAX, SCALE_MIN, STAT_RANGES,
     SV_STATUS_MAX, THEME_UI_KEYS)
 from routen.gemeinsam import _push
 from seiten import KACHEL_BREIT_TYPEN, WERTE_LEISTE_TYPEN
+from symbolquellen import _loxlib_names
 
 if TYPE_CHECKING:   # nur fuer die Typangabe, kein Import zur Laufzeit (webvisu importiert hierher)
     from webvisu import App
@@ -156,6 +157,11 @@ async def api_meta(request: web.Request) -> web.Response:
         # Aufbau der Hausseite: Auswahl je Ansicht (Aussehen) und ihr Standard
         "hausAufbauten": [{"key": k, "label": v} for k, v in HAUS_AUFBAUTEN.items()],
         "hausAufbauStandard": HAUS_AUFBAU_STANDARD,
+        # ... was unter "Gerade aktiv" zaehlen kann und die Energie-Bausteine
+        # fuer den Kopf (dazu der Wert fuer "keine")
+        "hausAktivArten": [{"key": k, "label": v[0]} for k, v in HAUS_AKTIV_ARTEN.items()],
+        "hausEnergien": app.haus_energie_optionen(),
+        "hausEnergieAus": HAUS_ENERGIE_AUS,
         "wsDevices": sorted({d for d in app.conn_dev.values() if d}),
         # LAN-Adresse dieses Servers fuer "Geraet verbinden" (auch wenn der
         # Konfigurator ueber 127.0.0.1 laeuft); leer ohne Route ins Netz

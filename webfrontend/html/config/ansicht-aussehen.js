@@ -261,6 +261,29 @@ function hausAufbauFeld(ui){
     '<select id="fHausAufbau" style="width:100%;max-width:none">'+((META&&META.hausAufbauten)||[]).map(a=>
       '<option value="'+esc(a.key)+'"'+(a.key===wert?' selected':'')+'>'+esc(T(a.label))+'</option>').join('')+'</select></div></div>';
 }
+// "Gerade aktiv" der Hausuebersicht: welche Arten dort zaehlen (Auswahl aus
+// /api/meta, HAUS_AKTIV_ARTEN). Gespeichert wird, was NICHT zaehlt
+// (ui.hausAktivOhne); alle angehakt = nichts gespeichert
+function hausAktivFeld(ui){
+  const ohne=Array.isArray(ui.hausAktivOhne) ? ui.hausAktivOhne : [];
+  return '<div class="field" style="max-width:none"><label class="lbl">'+T('Zählt unter „Gerade aktiv“')+'</label>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:4px 18px">'+((META&&META.hausAktivArten)||[]).map(a=>
+      '<label class="chk" style="margin:0"><input type="checkbox" data-haus-art="'+esc(a.key)+'"'+(ohne.indexOf(a.key)<0?' checked':'')+'> '+
+        esc(T(a.label))+'</label>').join('')+'</div></div>';
+}
+// Energie im Kopf der Hausuebersicht (ui.hausEnergie): leer = automatisch,
+// META.hausEnergieAus = keine, sonst ein Baustein aus META.hausEnergien
+function hausEnergieFeld(ui){
+  const aus=(META&&META.hausEnergieAus)||'', wert=ui.hausEnergie||'';
+  const opts=((META&&META.hausEnergien)||[]).slice();
+  if(wert && wert!==aus && !opts.some(o=>o.uuid===wert)) opts.unshift({uuid:wert, name:wert+' ('+T('nicht in der Struktur')+')', room:''});
+  return '<div class="sizes"><div class="field" style="max-width:none;min-width:280px"><label class="lbl">'+T('Energie im Kopf')+'</label>'+
+    '<select id="fHausEnergie" style="width:100%;max-width:none">'+
+      '<option value="">'+T('Automatisch')+'</option>'+
+      (aus?'<option value="'+esc(aus)+'"'+(wert===aus?' selected':'')+'>'+T('Keine')+'</option>':'')+
+      opts.map(o=>'<option value="'+esc(o.uuid)+'"'+(o.uuid===wert?' selected':'')+'>'+
+        esc((o.room?o.room+' · ':'')+o.name)+'</option>').join('')+'</select></div></div>';
+}
 function schriftFelder(ui){
   return '<div class="sizes">'+
     '<div class="field" style="max-width:220px"><label class="lbl">'+T('Schriftart')+'</label>'+

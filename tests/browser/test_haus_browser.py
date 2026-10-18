@@ -787,6 +787,104 @@ def test_aufbau_im_konfigurator(cfg_ordner):
     assert erg["status"][0] and "hausAufbau" not in (erg["status"][1].get("ui") or {}), erg["status"]
 
 
+def test_gerade_aktiv_und_energie_im_konfigurator(cfg_ordner):
+    """Aussehen der Ansicht, Gruppe "Hausübersicht": was unter "Gerade aktiv"
+    zaehlt (Haken je Art aus /api/meta) und die Energie im Kopf (automatisch,
+    keine, ein Baustein). Gespeichert wird, was nicht zaehlt, und nur eine
+    gewaehlte Energie; die Visu zeigt danach ohne Musik die Zone nicht mehr
+    unter "Gerade aktiv", ohne Haken keine Zeile (auch keine Zahl in "Räume
+    direkt") und mit "Keine" keine Energie im Kopf."""
+    from lox import KONFIGURATOR_GELADEN
+    from test_auswahl_seiten_browser import ROUTEN
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {
+        "title": "Flur", "tabs": ["haus"]}}}), encoding="utf-8")
+    pfad = cfg_ordner / "panels.json"
+
+    async def lauf():
+        struktur, states = haus_anlage()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = konfig.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+
+                async def speichern():
+                    async with pg.expect_response(lambda r: r.url.endswith("/api/panels")) as antwort:
+                        await pg.locator("#saveBtn").click()
+                    ok = (await (await antwort.value).json())["ok"]
+                    app.panels = konfig.load_panels()
+                    return ok, json.loads(pfad.read_text(encoding="utf-8"))["panels"]["flur"].get("ui") or {}
+
+                async def visu(warten):
+                    s = await b.new_page(viewport={"width": 1180, "height": 820}, locale="de-DE")
+                    s.on("pageerror", lambda e: fehler.append(str(e)))
+                    await s.goto(f"http://127.0.0.1:{port}/?panel=flur")
+                    await s.wait_for_selector(warten, state="attached")
+                    w = await s.evaluate("""() => ({aktiv: view.aktiv.map(a => a.id), zeile: view.aktivZeile,
+                        kopf: !!document.querySelector('[data-hb="akopf"]'),
+                        karten: document.querySelectorAll('.hs-aktiv .hs-a').length,
+                        titel: (document.querySelector('[data-hb="rkopf"] .n') || {}).textContent,
+                        energie: !!document.querySelector('[data-hs="energie"]')})""")
+                    await s.close()
+                    return w
+
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator(".stab[data-sub='aussehen']").click()
+                arten = pg.locator("[data-haus-art]")
+                erg["arten"] = await arten.evaluate_all(
+                    "l => l.map(x => [x.dataset.hausArt, x.checked, x.parentElement.textContent.trim()])")
+                energie = pg.locator("#fHausEnergie")
+                erg["energien"] = await energie.locator("option").evaluate_all("o => o.map(x => [x.value, x.textContent])")
+                erg["energieVorher"] = await energie.input_value()
+                # ohne Musik
+                await pg.locator("[data-haus-art='audio']").uncheck()
+                erg["ohneMusik"] = await speichern()
+                erg["visuOhneMusik"] = await visu("#grid.haus .hs-aktiv .hs-a")
+                # nichts zaehlt, Energie "Keine"
+                for a in ("licht", "schalter", "sauna"):
+                    await pg.locator(f"[data-haus-art='{a}']").uncheck()
+                await energie.select_option(konfig.HAUS_ENERGIE_AUS)
+                erg["nichts"] = await speichern()
+                erg["visuNichts"] = await visu("#grid.haus .hs-r")
+                app.panels["flur"]["ui"]["hausAufbau"] = "raeume"
+                erg["visuRaeume"] = await visu("#grid.haus .hs-r.direkt")
+                # wieder alles, Energie ein bestimmter Baustein, dann automatisch
+                for a in konfig.HAUS_AKTIV_ARTEN:
+                    await pg.locator(f"[data-haus-art='{a}']").check()
+                await energie.select_option("F")
+                erg["alles"] = await speichern()
+                await energie.select_option("")
+                erg["auto"] = await speichern()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["arten"] == [["licht", True, "Licht"], ["audio", True, "Musik"],
+                            ["schalter", True, "Schalter"], ["sauna", True, "Sauna"]], erg["arten"]
+    assert erg["energien"] == [["", "Automatisch"], ["aus", "Keine"], ["F", "Zentral · Energieflussmonitor"]], erg
+    assert erg["energieVorher"] == "", erg
+    assert erg["ohneMusik"] == (True, {"hausAktivOhne": ["audio"]}), erg["ohneMusik"]
+    v = erg["visuOhneMusik"]
+    assert v["aktiv"] == ["LA", "AL", "FS"] and v["zeile"] and v["kopf"] and v["karten"] == 3 and v["energie"], v
+    assert erg["nichts"] == (True, {"hausAktivOhne": list(konfig.HAUS_AKTIV_ARTEN), "hausEnergie": "aus"}), erg
+    v = erg["visuNichts"]
+    assert v["aktiv"] == [] and v["zeile"] is False and not v["kopf"] and not v["karten"] and not v["energie"], v
+    assert erg["visuRaeume"]["titel"] == "" and not erg["visuRaeume"]["energie"], erg["visuRaeume"]
+    assert erg["alles"] == (True, {"hausEnergie": "F"}), erg["alles"]
+    assert erg["auto"] == (True, {}), erg["auto"]
+
+
 # Vier Hinweise, je Stufe einer: Klingel und Fenster offen, waehrend die Kueche
 # heizt (dringend), Wassermangel der Sauna (Warnung), Post (an)
 HINWEIS_STATES = {"ic": 1, "ir4": 1, "sa3": 1, "mb1": 1}

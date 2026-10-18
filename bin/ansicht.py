@@ -15,9 +15,9 @@ import theme_colors
 from bausteine.gemeinsam import _clean
 from konfig import (
     _atomic_write, _clean_kachel_aktiv, _clean_kachel_farbton, _clean_kachel_set, _clean_kachelziel,
-    _clean_kennung, _clean_pane_spalten, _clean_scale, _clean_svpane, _clean_tabpane,
+    _clean_haus_aktiv_ohne, _clean_kennung, _clean_pane_spalten, _clean_scale, _clean_svpane, _clean_tabpane,
     _clean_werteleiste, _clean_zielgeraet, DEFAULT_THEME, GESTEN_HINWEIS_STANDARD, GESTEN_STANDARD,
-    GROESSEN_STANDARD, HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN, _is_tab, KACHEL_ZIEL_STANDARD,
+    GROESSEN_STANDARD, HAUS_AKTIV_ARTEN, HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN, _is_tab, KACHEL_ZIEL_STANDARD,
     load_theme, _pick_tabs, _pin_merken, THEME_UI_KEYS, VALID_TABS)
 
 
@@ -365,6 +365,11 @@ class Ansicht:
                               else GESTEN_HINWEIS_STANDARD),
             # Aufbau der Hausseite (HAUS_AUFBAUTEN)
             "hausAufbau": ui["hausAufbau"] if ui.get("hausAufbau") in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD,
+            # ... welche Arten dort unter "Gerade aktiv" zaehlen (HAUS_AKTIV_ARTEN
+            # ohne ui.hausAktivOhne; leer = keine Zeile) ...
+            "hausAktiv": [a for a in HAUS_AKTIV_ARTEN if a not in _clean_haus_aktiv_ohne(ui.get("hausAktivOhne"))],
+            # ... und woher die Energie im Kopf kommt ("" = automatisch)
+            "hausEnergie": _clean_kennung(ui.get("hausEnergie")),
         }
 
     # ---- Config-Seite (Panel-Editor) ----
@@ -382,7 +387,7 @@ class Ansicht:
                        "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
                        "grid", "tileSize", "pinMerken",
                        "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
-                       "nightClock", "nightClockBright", "hausAufbau")}
+                       "nightClock", "nightClockBright", "hausAufbau", "hausAktivOhne", "hausEnergie")}
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst

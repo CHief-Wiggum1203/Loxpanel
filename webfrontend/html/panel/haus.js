@@ -55,7 +55,8 @@ function hausLage(v){
   const mainW=w-seiteW-(links?linksW:0);
   // Schnellaktionen: als Zeile ueber den Raumkarten, in "spalte" links unten
   const schnell=v.schnell.length>0 && !links;
-  const zeile=aufbau==='status' && (v.aktiv.length>0 || v.schnell.length>0) && !v.liste;
+  // Zeile "Gerade aktiv" nur, wenn die Ansicht dort etwas zaehlt (aktivZeile)
+  const zeile=aufbau==='status' && v.aktivZeile!==false && (v.aktiv.length>0 || v.schnell.length>0) && !v.liste;
   const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
   // Hinweise als Leiste unter dem Kopf ("spalte": oben in "Auf einen Blick"):
   // so viele Spalten, wie Karten in der Mindestbreite passen; sind es mehr
@@ -246,11 +247,12 @@ function hausBloecke(v, L){
       if(v.aktiv.length>zeigen) B.push(['mehr','aktiv','<button type="button" class="hs-c hs-a hs-mehr" data-hb="mehr" data-hs="mehr" '+
         'aria-label="Alle '+v.aktiv.length+' aktiven Geräte zeigen">+'+(v.aktiv.length-zeigen)+' weitere'+svg(HS_PFEIL)+'</button>']);
       if(!v.aktiv.length) B.push(['ruhig','aktiv','<div class="hs-c hs-a" data-hb="ruhig"><span class="hs-i ok">'+svg(HS_RUHIG)+'</span>'+
-        '<span class="tx"><span class="z">Alles ruhig</span><span class="w">Kein Licht an, keine Musik</span></span></div>']);
+        '<span class="tx"><span class="z">Alles ruhig</span><span class="w">'+esc(v.ruhig||'')+'</span></span></div>']);
     }
     // "raeume" und "spalte": statt "Gerade aktiv" eine Titelzeile mit der Zahl
+    // (ohne, wenn die Ansicht nichts als aktiv zaehlt)
     if(L.aufbau!=='status') B.push(['rkopf','main','<div class="hs-zeile" data-hb="rkopf"><h2>Räume</h2><span class="n">'+
-      (v.aktiv.length===1 ? '1 Gerät an' : v.aktiv.length+' Geräte an')+'</span></div>']);
+      (v.aktivZeile===false ? '' : v.aktiv.length===1 ? '1 Gerät an' : v.aktiv.length+' Geräte an')+'</span></div>']);
     v.raeume.forEach((r,i)=>B.push(['r:'+r.id,'raeume', L.aufbau==='raeume' ? hsRaumTasten(r,i) : hsRaumKarte(r,i,L)]));
   }
   const sp=v.spieler;

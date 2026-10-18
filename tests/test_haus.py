@@ -381,6 +381,84 @@ def test_energie_im_kopf():
     assert e["wert"] == "PV 0,00 kW · Bezug 0,80 kW" and e["nav"] == {"view": "control", "id": "F"}
 
 
+def test_gerade_aktiv_je_ansicht():
+    """ui.hausAktivOhne: Was die Ansicht nicht zaehlt, steht nicht unter
+    "Gerade aktiv" und nicht in "n an" der Raumkarten; zaehlt sie nichts, gibt
+    es die Zeile nicht (aktivZeile). Gespeichert wird nur Bekanntes, einmal und
+    in der Folge von HAUS_AKTIV_ARTEN; Unbekanntes meldet das Speichern."""
+    alle = list(konfig.HAUS_AKTIV_ARTEN)
+    roh = {"a": {"title": "A", "ui": {"hausAktivOhne": ["sauna", "audio", "audio", "garage"]}},
+           "b": {"title": "B", "ui": {"hausAktivOhne": alle}},
+           "c": {"title": "C", "ui": {"hausAktivOhne": ["garage"]}},
+           "d": {"title": "D", "ui": {"hausAktivOhne": "audio"}}}
+    p = W.App._sanitize_panels(roh)
+    assert p["a"]["ui"]["hausAktivOhne"] == ["audio", "sauna"] and p["b"]["ui"]["hausAktivOhne"] == alle
+    assert all("hausAktivOhne" not in (p[k].get("ui") or {}) for k in "cd")
+    assert "A: ui.hausAktivOhne: garage" in konfig._panels_verworfen(roh, p)
+    app = _app()
+    app.panels = p
+    assert app._panel_export(p["a"])["ui"]["hausAktivOhne"] == ["audio", "sauna"]
+    assert app.resolve_profile("a")["hausAktiv"] == ["licht", "schalter"]
+    assert app.resolve_profile("b")["hausAktiv"] == [] and app.resolve_profile("c")["hausAktiv"] == alle
+    # ohne Musik: die laufende Zone fehlt unter "Gerade aktiv" und in "n an",
+    # bleibt aber Symbol ihrer Raumkarte und im Spieler
+    v = _haus(app, app.resolve_profile("a"))
+    assert [a["id"] for a in v["aktiv"]] == ["LA", "AL", "FS"]
+    ekw = _raum(v, "Essen-Kochen-Wohnen")
+    assert ekw["an"] == 0 and any(s["on"] for s in ekw["symbole"]) and v["spieler"]["zone"] == "AZ"
+    assert _raum(v, "Abstellraum")["an"] == 1
+    assert v["aktivZeile"] is True and v["ruhig"] == "Kein Licht an, kein Schalter an"
+    # nichts zaehlt: keine Zeile, keine Zahl; die Tasten von "Räume direkt" bleiben
+    v = _haus(app, app.resolve_profile("b"))
+    assert v["aktiv"] == [] and v["aktivZeile"] is False and "ruhig" not in v
+    assert all(r["an"] == 0 for r in v["raeume"])
+    v = _haus(app, {**app.resolve_profile("b"), "hausAufbau": "raeume"})
+    assert any(t["an"] for r in v["raeume"] for t in r["tasten"])
+    # ohne Einstellung zaehlt alles wie bisher
+    v = _haus(app)
+    assert [a["id"] for a in v["aktiv"]] == ["LA", "AL", "AZ", "FS"]
+    assert v["aktivZeile"] is True and v["ruhig"] == "Kein Licht an, keine Musik"
+    r = make_mocked_request("GET", "/api/meta", app={"app": app})
+    meta = json.loads(asyncio.run(W.api_meta(r)).body)
+    assert [a["key"] for a in meta["hausAktivArten"]] == alle
+    assert [a["label"] for a in meta["hausAktivArten"]] == ["Licht", "Musik", "Schalter", "Sauna"]
+
+
+def test_energie_je_ansicht():
+    """ui.hausEnergie: ein bestimmter Energie-Baustein, "aus" (keiner) oder
+    leer (automatisch: der erste der Seite, sonst der Anlage). Gibt es den
+    gewaehlten nicht (mehr), ist er kein Energie-Baustein oder blendet die
+    Ansicht ihn aus, gilt wieder automatisch. /api/meta nennt die
+    Energie-Bausteine der Anlage und den Wert fuer "keine"."""
+    struktur, st = haus_anlage()
+    struktur["controls"]["M"] = dict(EM2)
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(struktur)
+    app.states = st
+    roh = {"m": {"title": "M", "ui": {"hausEnergie": "M"}},
+           "aus": {"title": "Aus", "ui": {"hausEnergie": konfig.HAUS_ENERGIE_AUS}},
+           "weg": {"title": "Weg", "ui": {"hausEnergie": "GIBTSNICHT"}},
+           "falsch": {"title": "Falsch", "ui": {"hausEnergie": "FS"}},
+           "versteckt": {"title": "Versteckt", "ui": {"hausEnergie": "M"}, "hide": ["M"]},
+           "auto": {"title": "Auto", "ui": {"hausEnergie": "  "}}}
+    p = W.App._sanitize_panels(roh)
+    assert p["m"]["ui"]["hausEnergie"] == "M" and p["aus"]["ui"]["hausEnergie"] == "aus"
+    assert "hausEnergie" not in (p["auto"].get("ui") or {})
+    app.panels = p
+    assert app._panel_export(p["m"])["ui"]["hausEnergie"] == "M"
+
+    def energie(k):
+        return _haus(app, app.resolve_profile(k))["energie"]
+    m = energie("m")
+    assert m["id"] == "M" and m["label"] == "Energiemanager" and m["nav"] == {"view": "control", "id": "M"}
+    assert energie("aus") is None
+    assert [energie(k)["id"] for k in ("weg", "falsch", "versteckt", "auto")] == ["F"] * 4
+    r = make_mocked_request("GET", "/api/meta", app={"app": app})
+    meta = json.loads(asyncio.run(W.api_meta(r)).body)
+    assert {e["uuid"] for e in meta["hausEnergien"]} == {"F", "M"} and meta["hausEnergieAus"] == "aus"
+    assert all(e["name"] and e["room"] == "Zentral" for e in meta["hausEnergien"]), meta["hausEnergien"]
+
+
 def test_freie_seite_als_hausuebersicht():
     """Eine Seite der eigenen Auswahl kann die Hausuebersicht sein (Seiten-
     Editor, Seiteninhalt "Hausuebersicht"): sie bleibt beim Speichern und im

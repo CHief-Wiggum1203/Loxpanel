@@ -2103,10 +2103,19 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       passt, was die Zone gerade nennt. Ein Cover, das nicht lädt, zeigt das
       Musik-Symbol. Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1
       „Hausübersicht“. **S**
-- [ ] **Hausübersicht Teil 3: Konfigurator und Assistent.** Die Gruppe
-      „Hausübersicht“ im Aussehen-Reiter gibt es seit 14.10.2026 mit dem
-      Aufbau. Offen: Zeile „Gerade aktiv“ und Energie-Quelle wählbar, im
-      Assistenten „Hausübersicht als erste Seite“. **M**
+- [x] **Hausübersicht Teil 3: Konfigurator und Assistent** (18.10.2026). In
+      der Gruppe „Hausübersicht“ im Aussehen-Reiter steht neben dem Aufbau
+      jetzt, was unter „Gerade aktiv“ zählt (Haken für Licht, Musik, Schalter,
+      Sauna; `ui.hausAktivOhne` speichert, was nicht zählt, ohne Haken gibt es
+      die Zeile nicht), und die „Energie im Kopf“ (automatisch, keine oder ein
+      bestimmter Energiefluss bzw. Energiemanager, `ui.hausEnergie`). Was
+      nicht zählt, fehlt auch in „n an“ der Raumkarten; „Alles ruhig“ nennt
+      die gezählten Arten. „Hausübersicht als erste Seite“ gibt es seit der
+      Einrichtung neu (§0a2, Schritt 3): „Gerät einrichten“ → „Das ganze
+      Haus“ legt `["haus", "favoriten"]` an (`test_geraet_einrichten_browser.py`).
+      Details in [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §7.1 „Hausübersicht“.
+      Tests: `test_gerade_aktiv_je_ansicht`, `test_energie_je_ansicht`,
+      `test_gerade_aktiv_und_energie_im_konfigurator`. **M**
 - [ ] **Anzeige und Einrichtung: angenommene Vorschläge vom 06.10.2026.**
       Grundlage war eine Messreihe mit 23 Favoriten in acht Bildschirmgrößen
       (480×480 bis 2560×1600) und fünf Profilvarianten: Die Kachel*anzahl*
