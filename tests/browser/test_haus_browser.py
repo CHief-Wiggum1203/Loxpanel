@@ -157,16 +157,19 @@ def test_bedienen(tmp_path, miniserver_http):
                 await pg.locator('[data-hs="schnell"][data-art="audio"]').click()
                 erg["schnell"] = (await _befehle(ms, 2))[1:]
                 # Lautstaerke +, dann meldet der Miniserver den neuen Wert: nur der
-                # Spieler-Block wird getauscht, der Kopf bleibt dasselbe Element
+                # Wert im Spieler aendert sich (hsAngleichen), Kopf, Spieler-Block
+                # und Cover bleiben dieselben Elemente
                 await pg.locator('[data-hs="laut"][data-d="1"]').click()
                 erg["laut"] = (await _befehle(ms, 3))[2:]
                 await pg.evaluate("window.__kopf = document.querySelector('[data-hb=kopf]');"
-                                  "window.__sp = document.querySelector('[data-hb=sp]')")
+                                  "window.__sp = document.querySelector('[data-hb=sp]');"
+                                  "window.__cov = document.querySelector('[data-hb=sp] .hs-cov')")
                 app.states["az3"] = 29
                 app._dirty = True
                 await pg.wait_for_function("document.querySelector('.hs-laut .v span').textContent === '29'")
                 erg["patch"] = await pg.evaluate("[window.__kopf === document.querySelector('[data-hb=kopf]'),"
-                                                 " window.__sp === document.querySelector('[data-hb=sp]')]")
+                                                 " window.__sp === document.querySelector('[data-hb=sp]'),"
+                                                 " !!window.__cov && window.__cov === document.querySelector('[data-hb=sp] .hs-cov')]")
                 # Zone wechseln (Leiste: eine Taste schaltet weiter), dann Wiedergabe
                 await pg.locator('.hs-sp [data-hs="zone"]').click()
                 await pg.wait_for_function("view.spieler && view.spieler.zone === 'AB'")
@@ -195,7 +198,7 @@ def test_bedienen(tmp_path, miniserver_http):
     assert not erg["liste_lage"]["quer"] and not erg["liste_lage"]["klein"], erg["liste_lage"]
     assert erg["schnell"] == ["sps/io/CA/pause"], erg
     assert erg["laut"] == ["sps/io/AZ/volume/29"], erg
-    assert erg["patch"] == [True, False], erg
+    assert erg["patch"] == [True, True, True], erg
     # Zonenwechsel ersetzt die Route, statt eine Seite auf den Stapel zu legen
     assert erg["zone_route"] == ["AB", 1], erg
     assert erg["play"] == ["sps/io/AB/play", "sps/io/AB/roomfav/get/0/20"], erg
