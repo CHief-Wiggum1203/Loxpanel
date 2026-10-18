@@ -55,8 +55,9 @@ function hausLage(v){
   const mainW=w-seiteW-(links?linksW:0);
   // Schnellaktionen: als Zeile ueber den Raumkarten, in "spalte" links unten
   const schnell=v.schnell.length>0 && !links;
-  // Zeile "Gerade aktiv" nur, wenn die Ansicht dort etwas zaehlt (aktivZeile)
-  const zeile=aufbau==='status' && v.aktivZeile!==false && (v.aktiv.length>0 || v.schnell.length>0) && !v.liste;
+  // Zeile "Gerade aktiv", wenn die Ansicht dort etwas zaehlt (aktivZeile);
+  // ist nichts an, steht dort "Alles ruhig" - auch ohne Schnellaktionen
+  const zeile=aufbau==='status' && v.aktivZeile!==false && !v.liste;
   const sp=Math.max(1, Math.floor((mainW+gap)/(HS_AKTIV_MIN*hk+gap)));
   // Hinweise als Leiste unter dem Kopf ("spalte": oben in "Auf einen Blick"):
   // so viele Spalten, wie Karten in der Mindestbreite passen; sind es mehr

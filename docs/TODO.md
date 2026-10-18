@@ -2331,28 +2331,21 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       - Verbindung: bei Störung ein klarer Hinweis und gesperrte Tasten statt
         des Punkts mitten im Raster.
       - Tipp-Regel: lang drücken öffnet immer die Detailseite.
-- [ ] **Bedienelemente direkt auf der Kachel** (zurückgestellt am
-      02.10.2026). Vorbild ist der Fork von najrefisch („LoxPanel
+- [x] **Bedienelemente direkt auf der Kachel** (18.10.2026, zurückgestellt
+      am 02.10.2026). Vorbild war der Fork von najrefisch („LoxPanel
       Favoriten-Fork 0.19.0-fav4“,
-      [actionhero-zz/loxohnepanel](https://github.com/actionhero-zz/loxohnepanel),
-      vorgestellt im Loxforum-Thread „loxpanel“ mit „Bedient euch gerne!“,
-      gleiche Lizenz). Heute haben nur Beschattung (▲▼, während der Fahrt
-      Stop) und Audio (⏮ ⏯ ⏭) Tasten auf der Kachel (`controls`, `.tctrls`).
-      Es fehlen:
-      - Schalter und Zeitschalter: ein Schieber oben rechts, der den Zustand
-        zeigt und erst beim Tippen schaltet (`click` wie die übrigen
-        Kachel-Tasten; bei najrefisch `pointerdown`, dort schaltet also auch
-        ein Wischer übers Raster). Der Tipp auf die übrige Kachel schaltet
-        weiterhin.
-      - Lichtsteuerung: ‹ › für die vorige und die nächste Stimmung
-        (`changeTo/<id>`, „Aus“ übersprungen, wie bei najrefisch). Der Tipp auf
-        die Kachel öffnet weiter die Detailseite. Nicht übernehmen: seinen
-        Doppeltipp für Aus (jeder einfache Tipp wartet dafür 350 ms) und das
-        feste Gelb `#f2c14e`, das am abgeleiteten Farbsatz vorbeigeht.
-      - Taster: ein runder Knopf; heute löst der Tipp auf die Kachel aus.
-
-      Dazu Browser-Tests (Tippen schaltet, Wischen nicht), danach als Beitrag
-      zu Lenardo. **M**
+      [actionhero-zz/loxohnepanel](https://github.com/actionhero-zz/loxohnepanel)).
+      Schalter und Zeitschalter haben oben rechts einen Schieber, der den
+      Zustand zeigt, der Taster einen runden Knopf; ein Tipp darauf ist ein
+      Tipp auf die Kachel (`click`, ein Wischer scrollt). Die Lichtsteuerung
+      hat ‹ › für die vorige und nächste Stimmung (`changeTo/<id>`, „Aus“
+      übersprungen, dieselbe Regel wie das Quer-Wischen der Gesten), der Tipp
+      auf die Kachel öffnet weiter die Detailseite. Nicht übernommen: der
+      Doppeltipp für Aus und das feste Gelb `#f2c14e`; die Farben kommen aus
+      dem Theme (`--glow`, `--on-glow`). Details in
+      [`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6 „Taste oben rechts“. Tests:
+      `tests/test_kachel_bedienung.py`, `test_schieber_knopf_und_stimmungen`,
+      `test_kopftaste_in_jedem_aufbau`. Offen: als Beitrag zu Lenardo. **M**
 
 - [ ] **Loxone-Standard als Gesten** (Konzept vom 13.10.2026). Das Panel
       bedient den Raum blind wie ein Loxone-Taster, ohne Kachel zu treffen und

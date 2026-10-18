@@ -97,7 +97,7 @@ class Seiten:
             # Die Uhr-Seite zeigt nur an — Navigation und Steuer-Buttons haetten
             # dort keine Wirkung (ein Tipp weckt das Panel) und wuerden Platz
             # kosten. Deshalb hier raus, statt sie im Panel zu ignorieren.
-            for k in ("nav", "controls", "secured"):
+            for k in ("nav", "controls", "kopfTaste", "secured"):
                 it.pop(k, None)
             raus.append(it)
         return raus
@@ -230,8 +230,8 @@ class Seiten:
             it.pop("subInfo", None)
             if "bigSub" in it:
                 it["bigSub"] = SPERRE_KURZ
-            it.pop("cmd", None)
-            it.pop("controls", None)
+            for k in ("cmd", "controls", "kopfTaste"):
+                it.pop(k, None)
             it.setdefault("nav", {"view": "control", "id": uuid})
         # Kategorie-Ampel: Bausteine mit an/aus-Zustand einer Kategorie mit
         # Zustandsfarben leuchten aktiv (on-Farbe) bzw. ok (off-Farbe). Analoge

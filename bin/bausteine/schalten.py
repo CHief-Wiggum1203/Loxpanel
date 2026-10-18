@@ -14,7 +14,9 @@ from bausteine.gemeinsam import SWITCHY, _clean
 @kachel(*SWITCHY)
 def kachel_schalter(app, uuid, c, it):
     on = bool(app._state(c, "active"))
-    it.update(on=on, sublabel="Ein" if on else "Aus", icon="switch",
+    # kopfTaste: Schieber oben rechts, er zeigt den Zustand; ein Tipp darauf
+    # ist ein Tipp auf die Kachel, die schon schaltet (cmd)
+    it.update(on=on, sublabel="Ein" if on else "Aus", icon="switch", kopfTaste="schieber",
               cmd={"uuid": c.get("uuidAction"), "cmd": "off" if on else "on"})
     # lockedOn (Strukturdoku): die Logik haelt ihn an, Aus wirkt nicht
     if on and app._state(c, "lockedOn"):
@@ -38,7 +40,7 @@ def kachel_zeitschalter(app, uuid, c, it):
         sub = "Ein"
     else:
         sub = "Aus"
-    it.update(on=on, sublabel=sub, icon="bulb",
+    it.update(on=on, sublabel=sub, icon="bulb", kopfTaste="schieber",
               cmd={"uuid": c.get("uuidAction"), "cmd": "off" if on else "pulse"})
 
 
@@ -59,7 +61,9 @@ def kachel_auf_ab_digital(app, uuid, c, it):
 
 @kachel("Pushbutton")
 def kachel_taster(app, uuid, c, it):
-    it.update(icon="switch", sublabel="Taster",
+    # runder Knopf oben rechts (kopfTaste), ausgeloest wird wie bisher ueber
+    # den Tipp auf die Kachel (cmd)
+    it.update(icon="switch", sublabel="Taster", kopfTaste="rund",
               cmd={"uuid": c.get("uuidAction"), "cmd": "pulse"})
 
 

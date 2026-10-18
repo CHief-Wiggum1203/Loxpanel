@@ -633,6 +633,34 @@
      sie weg, und der Tipp auf die Kachel oeffnet die Detailseite. display:flex
      schlaegt das hidden-Attribut, darum ausdruecklich. */
   .tctrls[hidden]{display:none;}
+  /* Taste oben rechts (it.kopfTaste, kopfTasteHtml()): Schieber (Schalter,
+     Zeitschalter), aktiv in --glow mit dem Knopf in --on-glow (beide gegen
+     die Kacheln gerechnet, theme_colors), sonst wie .arow .asw; oder runder
+     Knopf (Taster) in --ink. Sie steht im Kopf ganz rechts und waechst mit
+     dem Faktor der Kachel. Ziel ist die ganze Kachel (der Tipp darauf ist ein
+     Tipp auf die Kachel), darum keine 44 px fuer sie selbst. */
+  .tile .ktaste{flex:none;align-self:center;position:relative;margin-left:auto;}
+  .tile .ktaste.schieber{width:calc(40px * var(--ks,1));height:calc(24px * var(--ks,1));border-radius:calc(12px * var(--ks,1));
+    background:rgba(var(--wash,255,255,255),.18);transition:background .15s;}
+  .tile .ktaste.schieber::after{content:'';position:absolute;top:calc(3px * var(--ks,1));left:calc(3px * var(--ks,1));
+    width:calc(18px * var(--ks,1));height:calc(18px * var(--ks,1));border-radius:50%;background:var(--ink);transition:left .15s;}
+  .tile.on .ktaste.schieber{background:var(--glow);}
+  .tile.on .ktaste.schieber::after{left:calc(19px * var(--ks,1));background:var(--on-glow);}
+  .tile .ktaste.rund{width:calc(30px * var(--ks,1));height:calc(30px * var(--ks,1));border-radius:50%;box-sizing:border-box;
+    border:calc(2px * var(--ks,1)) solid currentColor;color:var(--ink);}
+  .tile .ktaste.rund::after{content:'';position:absolute;inset:calc(5px * var(--ks,1));border-radius:50%;background:currentColor;}
+  .tile.kt:active .ktaste.rund{color:var(--glow);}
+  /* Neuer Aufbau: passt der Raum neben Symbol und Taste nicht (schmale Kachel,
+     Kreis des Sets kreis; fitTile setzt .kt-raum), steht er unter der Taste,
+     rechtsbuendig; das Symbol reicht ueber beide Zeilen */
+  .grid.lx:not(.list) .tile.kt-raum>.head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:start;row-gap:0;}
+  .grid.lx:not(.list) .tile.kt-raum>.head>:first-child{grid-row:1/3;}
+  .grid.lx:not(.list) .tile.kt-raum>.head .ktaste{grid-column:3;grid-row:1;margin:0;}
+  .grid.lx:not(.list) .tile.kt-raum>.head .room{grid-column:2/4;grid-row:2;margin:calc(3px * var(--ks,1)) 0 0;}
+  /* Liste (Mitglieder einer Zentrale): rechts in der Zeile */
+  .grid.list .tile.kt{position:relative;padding-right:calc(18px + 54px * var(--ks,1));}
+  .grid.list .tile .ktaste{position:absolute;right:18px;top:50%;transform:translateY(-50%);}
   /* "nichts hier" im Kachelraster. Nur dort: ein globales .empty traf auch die
      Leerfelder vor dem 1. im Monatskalender (fp-mon-c empty), die dann eine ganze
      Zeile belegten - jeder Monat begann so am Montag. */
@@ -767,6 +795,7 @@
   html[data-kachelset-aufbau] .kz-w:not(.on):not(.good):not(.crit) .ico.img,
   html[data-kachelset-aufbau] .sv-st:not(.on):not(.good):not(.crit) .ico.img{background-color:var(--ico-fixed,var(--ink));}
   html[data-kachelset-aufbau] .tctrls .tb{background:var(--taste,var(--tile));}
+  html[data-kachelset-aufbau] .tile:not(.on) .ktaste.schieber{background:var(--taste,var(--tile));}
   html[data-kachelset-aufbau] .tctrls .tb:active{background:var(--kachel-an,var(--tile));}
   html[data-kachelset-aufbau] .grid.lx:not(.list) .tile>.tctrls .tb,
   html[data-kachelset-aufbau] .grid.lx:not(.list) .tile.spieler .tplay>.tctrls .tb{border-radius:calc(var(--taste-radius,12px) * var(--ks,1));}
@@ -814,6 +843,7 @@
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.head{display:contents;}
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.head .room{order:2;flex:0 1 auto;
     align-self:flex-start;max-width:35%;margin:0;}
+  html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.head .ktaste{order:2;align-self:flex-start;}
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tspark{order:3;}
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tctrls{order:4;}
   html[data-kachelset-aufbau="kreis"] .grid.lx:not(.list) .tile.w2:not(.bigk):not(.spieler)>.tspark,
@@ -836,6 +866,13 @@
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .body{align-items:center;margin-bottom:auto;max-width:100%;}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .name{white-space:pre-line;font-weight:var(--tile-fw,max(600,var(--name-weight,450)));}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile>.tctrls{align-self:stretch;}
+  /* ... die Taste oben rechts steht dort in der Ecke, der Kopf bleibt mittig;
+     aktiv kippt sie mit der Kachel (Schrift und Flaeche der aktiven Kachel) */
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.kt{position:relative;}
+  html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile .ktaste{position:absolute;top:var(--kpad);right:var(--kpad);margin:0;}
+  html[data-kachelset-aufbau="mitte"] .tile.on .ktaste.schieber{background:var(--kachel-an-ink,var(--ink));}
+  html[data-kachelset-aufbau="mitte"] .tile.on .ktaste.schieber::after{background:var(--kachel-an,var(--tile));}
+  html[data-kachelset-aufbau="mitte"] .tile.on .ktaste.rund{color:var(--kachel-an-ink,var(--ink));}
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on,
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .name,
   html[data-kachelset-aufbau="mitte"] .grid.lx:not(.list) .tile.on .bigv,

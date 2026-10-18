@@ -11,6 +11,8 @@ import pytest
 
 from lox import W, anlage, visu_starten
 
+import theme_colors as TC
+
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
 
@@ -569,3 +571,201 @@ def test_neue_hoehe_ohne_faktorwechsel():
     assert nachher["hoehe"] > vorher["hoehe"] + 15, (vorher, nachher)   # der Kasten endet bei 2 x 240 px
     assert vorher["tasten"] and vorher["eigener"] and vorher["eigener"] < vorher["ks"], vorher
     assert nachher["tasten"] and nachher["eigener"] is None and nachher["ueberlauf"] <= 1, nachher
+
+
+# Schalter, Taster und Lichtsteuerung vorn, dahinter genug Rollos, dass das
+# Raster bei 480x480 scrollt
+BEDIENUNG = {
+    "S1": {"name": "Flurlicht", "type": "Switch", "uuidAction": "S1", "room": "r1", "cat": "c1",
+           "isFavorite": True, "states": {"active": "s1-a"}},
+    "P1": {"name": "Gartentor", "type": "Pushbutton", "uuidAction": "P1", "room": "r1", "cat": "c1",
+           "isFavorite": True, "states": {"active": "p1-a"}},
+    "L1": {"name": "Wohnen", "type": "LightControllerV2", "uuidAction": "L1", "room": "r1", "cat": "c1",
+           "isFavorite": True, "states": {"activeMoods": "l1-am", "moodList": "l1-ml"}},
+    **ROLLOS,
+}
+STIMMUNGEN = json.dumps([{"id": 778, "name": "Aus"}, {"id": 1, "name": "Hell"},
+                         {"id": 2, "name": "Lesen"}, {"id": 3, "name": "Kino"}])
+
+# Lage des Schiebers der Kachel S1: Rolle, Zustand, Farbe der Flaeche, --glow
+# (aufgeloest) und ob die Kachel noch derselbe Knoten ist (__alt)
+SCHIEBER = """() => {
+  const t = document.querySelector('.tile[data-id="S1"]'), k = t.querySelector('.ktaste');
+  const p = document.createElement('span'); p.style.color = 'var(--glow)'; t.appendChild(p);
+  const glow = getComputedStyle(p).color; p.remove();
+  return {rolle: k.getAttribute('role'), an: k.getAttribute('aria-checked'), kachelAn: t.classList.contains('on'),
+          flaeche: getComputedStyle(k).backgroundColor, glow, derselbe: !!t.__alt};
+}"""
+
+
+async def _mitte(pg, sel):
+    loc = pg.locator(sel).first
+    await loc.scroll_into_view_if_needed()
+    box = await loc.bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+def test_schieber_knopf_und_stimmungen(tmp_path):
+    """Bedienelemente direkt auf der Kachel am Touch-Display: Der Schieber des
+    Schalters und der runde Knopf des Tasters senden beim Tippen den Befehl
+    der Kachel genau einmal und oeffnen nichts; ein Wischer, der auf dem
+    Schieber beginnt, scrollt und sendet nichts. Meldet der Miniserver den
+    Schalter an, folgt der Schieber in --glow, ohne dass die Kachel neu
+    entsteht. ‹ › der Lichtsteuerung schalten die vorige und naechste
+    Stimmung, der Tipp auf die Kachel oeffnet ihre Detailseite."""
+    async def lauf():
+        befehle = []
+        app = _app(befehle, BEDIENUNG)
+        app.states.update({"s1-a": 0, "p1-a": 0, "l1-am": "[2]", "l1-ml": STIMMUNGEN})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                ctx = await b.new_context(viewport={"width": 480, "height": 480}, has_touch=True)
+                pg = await ctx.new_page()
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="S1"] .ktaste.schieber')
+                await pg.evaluate("hideSaver()")
+                erg["knopf"] = await pg.locator('.tile[data-id="P1"] .ktaste').get_attribute("class")
+                erg["symbole"] = await pg.evaluate(SYMBOLE, "L1")
+                erg["vorher"] = await pg.evaluate(SCHIEBER)
+                await pg.screenshot(path=str(tmp_path / "kachel_bedienung.png"))
+
+                # Wischer nach oben, Beginn auf dem Schieber: das Raster scrollt, kein Befehl
+                x, y = await _mitte(pg, '.tile[data-id="S1"] .ktaste')
+                await pg.evaluate(SCROLL_BEOBACHTEN)
+                cdp = await ctx.new_cdp_session(pg)
+                await _wischen(cdp, x, y, -150)
+                await _warten(befehle, 1, pg)
+                erg["gewischt"] = list(befehle), await pg.evaluate("__scrollMax")
+
+                # Tippen auf den Schieber: genau ein Befehl, keine Detailseite
+                await pg.evaluate("el('grid').scrollTop = 0")
+                await pg.wait_for_timeout(300)
+                x, y = await _mitte(pg, '.tile[data-id="S1"] .ktaste')
+                await pg.touchscreen.tap(x, y)
+                await _warten(befehle, 1, pg)
+                erg["schieber"] = list(befehle), await pg.evaluate("stack.length")
+
+                # Der Miniserver meldet den Schalter an: der Schieber folgt, die Kachel bleibt
+                await pg.evaluate("document.querySelector('.tile[data-id=S1]').__alt = true")
+                app._on_value("s1-a", 1.0)
+                await pg.wait_for_function("document.querySelector('.tile[data-id=S1] .ktaste')"
+                                           ".getAttribute('aria-checked') === 'true'")
+                await pg.wait_for_timeout(200)
+                erg["nachher"] = await pg.evaluate(SCHIEBER)
+                await pg.screenshot(path=str(tmp_path / "kachel_bedienung_an.png"))
+
+                # Runder Knopf des Tasters
+                befehle.clear()
+                x, y = await _mitte(pg, '.tile[data-id="P1"] .ktaste')
+                await pg.touchscreen.tap(x, y)
+                await _warten(befehle, 1, pg)
+                erg["taster"] = list(befehle), await pg.evaluate("stack.length")
+
+                # ‹ und › der Lichtsteuerung, dann der Tipp auf die Kachel
+                befehle.clear()
+                for i in (0, 1):
+                    await pg.locator('.tile[data-id="L1"]').scroll_into_view_if_needed()
+                    (x, y) = (await _tasten_von(pg, "L1"))[i]
+                    await pg.touchscreen.tap(x, y)
+                    await _warten(befehle, i + 1, pg)
+                erg["stimmungen"] = list(befehle), await pg.evaluate("stack.length")
+                x, y = await _mitte(pg, '.tile[data-id="L1"] .name')
+                await pg.touchscreen.tap(x, y)
+                await pg.wait_for_timeout(500)
+                erg["detail"] = await pg.evaluate("view.route"), len(befehle)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+
+    assert "rund" in erg["knopf"], erg["knopf"]
+    assert erg["symbole"] == ["zurueck", "weiter"], erg["symbole"]
+    v = erg["vorher"]
+    assert v["rolle"] == "switch" and v["an"] == "false" and not v["kachelAn"], v
+    befehle, scroll = erg["gewischt"]
+    assert befehle == [] and scroll > 0, f"ein Wischer vom Schieber aus scrollt nur: {befehle}"
+    assert erg["schieber"] == ([("S1", "on")], 1), "Tippen auf den Schieber: ein Befehl, keine Detailseite"
+    n = erg["nachher"]
+    assert n["an"] == "true" and n["kachelAn"] and n["derselbe"], n
+    assert n["flaeche"] == n["glow"] != v["flaeche"], "angeschaltet steht der Schieber in --glow"
+    assert erg["taster"] == ([("P1", "pulse")], 1), "Tippen auf den Knopf loest aus, keine Detailseite"
+    assert erg["stimmungen"] == ([("L1", "changeTo/1"), ("L1", "changeTo/3")], 1), erg["stimmungen"]
+    assert erg["detail"] == ({"view": "control", "id": "L1"}, 2), "der Tipp auf die Kachel oeffnet die Detailseite"
+
+
+# Lage der Tasten oben rechts: ragt eine aus ihrer Kachel, liegt sie ueber
+# Symbol, Raum, Name oder Zustand, und welche Farbe hat der Schieber (an: die
+# Flaeche, --glow bzw. im Aufbau "mitte" --kachel-an-ink)
+KOPFTASTEN = """() => {
+  const r = e => e.getBoundingClientRect(), ueber = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5
+    && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+  const farbe = (t, wert) => { const p = document.createElement('span'); p.style.color = wert; t.appendChild(p);
+    const c = getComputedStyle(p).color; p.remove(); return c; };
+  return [...document.querySelectorAll('.tile .ktaste')].map(k => {
+    const t = k.closest('.tile'), kb = r(k), tb = r(t);
+    const andere = [...t.querySelectorAll('.ico,.icowrap,.kreis,.room,.name,.sub')].filter(e => r(e).width > 0);
+    // Raum im Kopf: ganz zu sehen, oder (zu lang) unter der Taste ueber die
+    // ganze Breite neben dem Symbol - so viel Platz wie ohne Taste
+    const raum = t.querySelector('.head .room'), kopf = t.querySelector('.head');
+    const neben = raum && r(kopf).width - r(kopf.firstElementChild).width - parseFloat(getComputedStyle(kopf).columnGap);
+    return {id: t.dataset.id, art: k.classList[1], raumGanz: !raum || raum.scrollWidth <= raum.clientWidth + 1,
+            raumPlatz: !raum || r(raum).width >= neben - 1,
+            raus: kb.left < tb.left || kb.right > tb.right || kb.top < tb.top
+              || kb.bottom > tb.bottom, ueber: andere.filter(e => ueber(kb, r(e))).map(e => e.className),
+            breit: kb.width, flaeche: getComputedStyle(k).backgroundColor,
+            glow: farbe(t, 'var(--glow)'), anInk: farbe(t, 'var(--kachel-an-ink, var(--ink))')};
+  });
+}"""
+
+
+@pytest.mark.parametrize("kset, ui", [("", {}), ("", {"tileLayout": "classic"}), ("", {"cols": 3, "rows": 3}),
+                                      *((k, {"tileSet": k}) for k in TC.KACHEL_SETS)],
+                         ids=["neu", "klassisch", "3x3", *TC.KACHEL_SETS])
+def test_kopftaste_in_jedem_aufbau(kset, ui, tmp_path):
+    """Schieber (an und aus) und runder Knopf im neuen und klassischen
+    Kachel-Aufbau, im 3x3-Raster und in jedem Kachel-Set, die Kacheln ueber
+    zwei Raeume (Raum im Kopf): die Taste bleibt in ihrer Kachel und liegt
+    ueber nichts, der Raum steht ganz da (passt er nicht neben die Taste,
+    darunter), der eingeschaltete Schieber steht in --glow (Aufbau "mitte":
+    in der Schrift der aktiven Kachel)."""
+    bausteine = {**BEDIENUNG, "S2": {**BEDIENUNG["S1"], "name": "Terrasse", "uuidAction": "S2", "room": "r2",
+                                      "states": {"active": "s2-a"}}}
+
+    async def lauf():
+        app = _app([], bausteine, ui=ui)
+        app.states.update({"s1-a": 0, "s2-a": 1, "p1-a": 0, "l1-am": "[2]", "l1-ml": STIMMUNGEN})
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 800, "height": 480})
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=test")
+                await pg.wait_for_selector('.tile[data-id="S2"] .ktaste')
+                await pg.evaluate("hideSaver()")
+                await pg.wait_for_timeout(300)
+                lage = await pg.evaluate(KOPFTASTEN)
+                aufbau = await pg.evaluate("kachelAufbau")
+                await pg.screenshot(path=str(tmp_path / "kopftaste.png"))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return lage, aufbau
+    lage, aufbau = asyncio.run(lauf())
+    assert {(x["id"], x["art"]) for x in lage} >= {("S1", "schieber"), ("S2", "schieber"), ("P1", "rund")}, lage
+    for x in lage:
+        assert not x["raus"] and not x["ueber"], x
+        assert x["raumGanz"] if x["id"] in ("S1", "P1") else (x["raumGanz"] or x["raumPlatz"]), x
+        assert x["breit"] >= 20, x
+    an = next(x for x in lage if x["id"] == "S2")
+    assert an["flaeche"] == (an["anInk"] if aufbau == "mitte" else an["glow"]), (aufbau, an)

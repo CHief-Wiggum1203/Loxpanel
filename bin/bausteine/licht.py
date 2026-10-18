@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from adapters import LightControllerV2Adapter
 from bausteine import detail, kachel
 from bausteine.gemeinsam import LIGHT, _clean, _pos_pct
 
@@ -26,6 +27,13 @@ def kachel_lichtsteuerung_v2(app, uuid, c, it):
     r = LIGHT.render(app._with_uuid(uuid), app.states)
     it.update(on=r["on"], sublabel=r["label"], icon="bulb",
               nav={"view": "control", "id": uuid})
+    # ‹ › auf der Kachel: vorige und naechste Stimmung, dieselbe Regel wie das
+    # Quer-Wischen der Gesten (_lc_schritt: "Aus" uebersprungen, rundum). Erst
+    # ab zwei Stimmungen; der Tipp auf die Kachel oeffnet weiter die Detailseite.
+    ua = c.get("uuidAction")
+    if ua and len(app._lc_ohne_aus(uuid)) > 1:
+        it["controls"] = [{"icon": icon, "cmd": {"uuid": ua, "cmd": f"changeTo/{app._lc_schritt(uuid, s, r['on'])}"}}
+                          for icon, s in (("zurueck", -1), ("weiter", 1))]
 
 
 @kachel("Dimmer", "EIBDimmer")
@@ -177,6 +185,33 @@ class LichtHelfer:
         reihe = [i for i in (rest if isinstance(rest, list) else []) if i in nach_id and i not in fav]
         reihe += [i for i in nach_id if i not in fav and i not in reihe]
         return favs, [nach_id[i] for i in reihe]
+
+    def _lc_ohne_aus(self, uuid: str) -> list:
+        """Stimmungen einer Lichtsteuerung ohne "Aus", in der Folge ihrer
+        moodList: [(id, name)]."""
+        out = []
+        for m in LIGHT.moods(self._with_uuid(uuid), self.states):
+            try:
+                mid = int(m.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if mid != LightControllerV2Adapter.OFF_MOOD:
+                out.append((mid, _clean(m.get("name")) or str(mid)))
+        return out
+
+    def _lc_schritt(self, uuid: str, schritt: int, an: bool) -> int | None:
+        """Stimmung einen Schritt weiter (+1 die naechste, -1 die vorige) in
+        der Folge von _lc_ohne_aus, "Aus" uebersprungen und rundum: von der
+        ersten aktiven aus, solange das Licht an ist, sonst die erste bzw.
+        letzte. None ohne Stimmung. Gilt fuer das Quer-Wischen der Gesten und
+        die Tasten ‹ › der Kachel."""
+        ids = [m for m, _n in self._lc_ohne_aus(uuid)]
+        if not ids:
+            return None
+        aktiv = [m for m in LIGHT.active_moods(self._with_uuid(uuid), self.states) if m in ids]
+        if an and aktiv:
+            return ids[(ids.index(aktiv[0]) + schritt) % len(ids)]
+        return ids[0] if schritt > 0 else ids[-1]
 
     def _lc_kreise(self, c: dict) -> tuple[dict | None, list[dict]]:
         """Master-Helligkeit (details.masterValue) und Lichtkreise einer

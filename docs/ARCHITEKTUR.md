@@ -506,7 +506,7 @@ und `ranges` für die Zeitraum-Knöpfe. Gezeichnet in `paintChart()` der Visu.
 
 Kachelseiten bestehen aus `items[]` mit `id`, `label`, `sublabel`, `room`,
 `icon|iconUrl`, `on`, `tone`, `color`, `style`, `nav` oder `cmd`,
-`controls[]`, `secured`.
+`controls[]`, `kopfTaste` (`schieber` | `rund`, Taste oben rechts), `secured`.
 
 Ein Tippfehler im Server erzeugt stumm eine leere Seite.
 
@@ -1319,7 +1319,13 @@ reinen Helfer `_clean()`, `_pos_pct()`, `_dauer_text()` liegen in
 Signaturen, Doppeleinträge und den Rückfall für unbekannte Typen.
 
 **Tasten auf der Kachel** (`controls[]`, je `icon` und `cmd`) haben der Player
-(◀ ⏯ ▶) und die Beschattung (▲ ▼). Die Beschattung sendet dieselben Befehle wie
+(◀ ⏯ ▶), die Beschattung (▲ ▼) und die Lichtsteuerung (‹ ›, seit 18.10.2026).
+Die Lichtsteuerung schaltet damit die vorige bzw. nächste Stimmung
+(`changeTo/<id>`), nach derselben Regel wie das Quer-Wischen der Gesten
+(`_lc_schritt()` in `LichtHelfer`, die Liste ohne „Aus“ aus `_lc_ohne_aus()`):
+„Aus“ übersprungen, rundum, aus dem Aus heraus die erste bzw. letzte. Erst ab
+zwei Stimmungen; der Tipp auf die Kachel öffnet weiter die Detailseite. Die
+Beschattung sendet dieselben Befehle wie
 Auf/Ab der Detailseite (`_jal_fahrt()`): Im Stand startet eine Taste die
 Fahrt, während der Fahrt halten beide an (`Stop`), und die fahrende Richtung
 zeigt ■. Die Visu bindet die Tasten an `click`; ein Wischer, der auf einer
@@ -1330,6 +1336,25 @@ sonst bleiben sie weg, und der Tipp auf die Kachel öffnet die Detailseite,
 die dieselben Befehle hat. Geprüft in `tests/test_beschattung.py` und
 `tests/browser/test_kachel_tasten_browser.py` (Tippen, Wischen, Stop während
 der Fahrt, alle vier Raster für Beschattung und Player).
+
+**Taste oben rechts** (`kopfTaste`, seit 18.10.2026): Schalter und
+Zeitschalter haben einen Schieber (`schieber`), der den Zustand zeigt, der
+Taster einen runden Knopf (`rund`). Keine eigenen Befehle: Ein Tipp darauf ist
+ein Tipp auf die Kachel, die schon schaltet (`cmd`); so sendet er genau einmal,
+und ein Wischer, der dort beginnt, scrollt (`click`). Die Visu setzt sie in
+`kopfTasteHtml()` ans Ende des Kopfs (Klasse `kt` an der Kachel), im Aufbau
+„mitte“ in die Ecke, in Listen rechts in die Zeile. Passt der Raum im Kopf
+nicht mehr daneben (schmale Kachel, Kreis des Sets kreis), rückt er unter die
+Taste (`fitTile()`, `.kt-raum`). Aktiv steht der Schieber in `--glow` mit dem
+Knopf in `--on-glow`, im Aufbau „mitte“ in Schrift und Fläche der aktiven
+Kachel; `--on-glow` rechnet `_theme_vars()` zu dem `--glow`, der gilt (auch zu
+einer gewählten Zustandsfarbe und ohne Set und Grundfarbe). Ein Zustandswechsel
+zieht nur `aria-checked` und die Klasse `on` nach (`updateGrid()`); gesperrt
+(`jLocked`) und auf der Uhr-Seite gibt es die Taste nicht. Kommen, gehen oder
+wechseln Tasten einer Kachel (`controls`, `kopfTaste`), baut `updateGrid()` sie
+neu, statt alte Befehle an den Tasten zu lassen. Geprüft in
+`tests/test_kachel_bedienung.py` und `tests/browser/test_kachel_tasten_browser.py`
+(Tippen, Wischen, Zustand live, jeder Aufbau und jedes Set).
 
 Sonderfälle:
 
@@ -2114,7 +2139,9 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     auch nicht die Zahl in der Titelzeile von „Räume direkt“ und „Spalte
     links“. Ist nichts an, steht dort „Alles ruhig“ und darunter, was die
     ersten beiden gezählten Arten sagen (`ruhig`, `_haus_ruhig()`, etwa „Kein
-    Licht an, keine Musik“). Die Zeile scrollt nie
+    Licht an, keine Musik“), auch ohne Schnellaktionen (bis 18.10.2026 fiel
+    die Zeile dann ganz weg, ein Rest aus der Zeit, als die Zentral-Tasten
+    in ihr standen; Codex-Befund an #212). Die Zeile scrollt nie
     waagerecht, dort blättert der Wisch die Seiten: Sie zeigt so viele Karten
     wie Spalten passen (`hausLage()`, Mindestbreite `HS_AKTIV_MIN`), bei mehr
     wird die letzte Stelle „+n weitere“. Ein Tipp darauf öffnet die

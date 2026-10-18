@@ -136,8 +136,8 @@ function updateGrid(items){
     // Klassen, die tastenEinpassen()/fitTile()/paintSpark() nach dem Messen
     // setzen, bleiben stehen: sonst verloere eine enge Kachel bei jedem
     // Zustandswechsel, der ihren Text nicht aendert (Player: Pause), ihre Stufen.
-    const cls='tile'+tileTone(it)+aufbauKlassen(it)+kachelKlassen(groessen[i])+spielerKlasse(it, groessen[i])+(snapAt(i)?' snap':'')+
-      [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||c==='ohnecover'||c==='spbreit'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
+    const cls='tile'+tileTone(it)+aufbauKlassen(it)+kachelKlassen(groessen[i])+spielerKlasse(it, groessen[i])+kopfKlasse(it)+(snapAt(i)?' snap':'')+
+      [...n.classList].filter(c=>c.startsWith('spark')||c==='ohnetasten'||c==='ohnecover'||c==='spbreit'||c==='kt-raum'||/^(eng|kst)\d$/.test(c)).map(c=>' '+c).join('');
     // Spieler-Spalte: kommt sie oder ihr Cover hinzu oder fallen sie weg, aendert
     // sich der Aufbau der Kachel; sonst nur das Bild nachziehen
     const spieler=spielerKachel(it, groessen[i]), coverEl=n.querySelector('.tcover');
@@ -160,11 +160,20 @@ function updateGrid(items){
     const bigEl=n.querySelector('.bigv'), mitBig=kachelNeu() && it.big!=null;
     if(!!bigEl!==mitBig) ok=false;
     else if(bigEl){ const h=bigHtml(it.big); if(bigEl.innerHTML!==h) bigEl.innerHTML=h; }
-    if(it.controls){ const tbs=n.querySelectorAll('.tctrls .tb');
-      if(tbs.length===it.controls.length) it.controls.forEach((c,ci)=>{ const b=tbs[ci]; if(!b) return;
+    // Tasten der Kachel: kommen, gehen (gesperrt, Stimmungen geladen) oder
+    // aendert sich ihre Zahl, baut die Kachel neu, sonst blieben alte Befehle
+    // an den Tasten; gleich viele bekommen Befehl und Symbol neu
+    const tbs=n.querySelectorAll('.tctrls .tb');
+    if(tbs.length!==(it.controls ? it.controls.length : 0)) ok=false;
+    else if(it.controls){ it.controls.forEach((c,ci)=>{ const b=tbs[ci];
         b._cmd=c.cmd; b._secured=it.secured;
         const nh=svgF(ICONS[c.icon]||ICONS.info); if(b.innerHTML!==nh) b.innerHTML=nh; });
       tastenEinpassen(n); }
+    // Taste oben rechts: Art gewechselt (gesperrt) -> neu, sonst nur der Zustand
+    const kt=n.querySelector('.ktaste');
+    if((kt ? kt.classList[1] : '')!==(kopfKlasse(it) ? it.kopfTaste : '')) ok=false;
+    else if(kt && kt.getAttribute('role')==='switch' && kt.getAttribute('aria-checked')!==String(!!it.on))
+      kt.setAttribute('aria-checked', String(!!it.on));
     fitTile(n);
     if(!updateTileRing(n,it)) ok=false;   // Positionsring live nachziehen
     // Mini-Verlauf: dazu oder weg -> neu aufbauen, sonst nur bei Aenderung neu zeichnen
@@ -258,6 +267,17 @@ function kachelGroesse(it){
   return LoxRaster.groesse({w:it.w===2?2:1, h:it.h===2?2:1}, gridCols, gridRows);
 }
 function kachelKlassen(g){ return (g.w===2?' w2':'')+(g.h===2?' h2':''); }
+// Taste oben rechts (it.kopfTaste vom Server): Schieber (Schalter, Zeitschalter;
+// er zeigt den Zustand) oder runder Knopf (Taster). Ohne eigenen Befehl: ein
+// Tipp darauf ist ein Tipp auf die Kachel, die schon schaltet (it.cmd) - so
+// sendet er genau einmal, und ein Wischer, der dort beginnt, scrollt.
+const KOPF_TASTEN = ['schieber', 'rund'];
+function kopfTasteHtml(it){
+  if(KOPF_TASTEN.indexOf(it.kopfTaste)<0) return '';
+  const rolle=it.kopfTaste==='schieber' ? 'role="switch" aria-checked="'+(!!it.on)+'"' : 'role="button"';
+  return '<span class="ktaste '+it.kopfTaste+'" '+rolle+' aria-label="'+esc(it.label||'')+'"></span>';
+}
+function kopfKlasse(it){ return KOPF_TASTEN.indexOf(it.kopfTaste)<0 ? '' : ' kt'; }
 // Breite Kachel mit Tasten im neuen Aufbau: rechts die Spieler-Spalte (Cover
 // und Tasten, CSS .spieler), nicht in der Liste und nicht im klassischen Aufbau
 function spielerKachel(it, g){ return kachelNeu() && view.layout!=='list' && g.w===2 && !!(it.controls && it.controls.length); }
@@ -406,9 +426,9 @@ function render(){
     const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
     // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
     // im Text (im Kopf stuende sie neben dem Raum).
-    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+spielerKlasse(it, groessen[_i])+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+spielerKlasse(it, groessen[_i])+kopfKlasse(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
               '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
-                (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+'</div>'+
+                (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+kopfTasteHtml(it)+'</div>'+
               (it.spark?'<div class="tspark"></div>':'')+
               '<div class="body">'+
               (!lx&&it.room?'<div class="room">'+esc(it.room)+'</div>':'')+

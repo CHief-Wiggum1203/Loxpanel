@@ -391,6 +391,11 @@ function fitTile(tile){
   if(tile._fitText===text && tile._fitH===h && tile._fitW===w && tile._fitKs===kachelFaktor && tile._fitKt===tile._kt) return;
   tile._fitText=text; tile._fitH=h; tile._fitW=w; tile._fitKs=kachelFaktor; tile._fitKt=tile._kt;
   tile.classList.remove('eng1','eng2','eng3','kst1','kst2','kst3');
+  // Taste oben rechts (Schieber, Knopf): passt der Raum neben Symbol und
+  // Taste nicht ganz in den Kopf, rueckt er unter die Taste (.kt-raum) - vor
+  // den Textstufen, denn der Kopf kann dabei etwas hoeher werden
+  const raum=kachelNeu() && tile.classList.contains('kt') ? tile.querySelector('.head .room') : null;
+  if(raum){ tile.classList.remove('kt-raum'); if(raum.scrollWidth>raum.clientWidth+1) tile.classList.add('kt-raum'); }
   // Textfaktor: passt eine Textzeile der Kachel (Name oder Zustand) nicht in
   // ihre Zeilen - gekappt durch line-clamp, im klassischen Aufbau mit "..." -,
   // bekommt der Text Stufe fuer Stufe weniger Faktor (kst1..kst3, CSS). Ueber
