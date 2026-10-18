@@ -53,13 +53,14 @@ import routen  # noqa: E402
 import seiten  # noqa: E402
 import sicherung  # noqa: E402
 import statistik  # noqa: E402
+import symbolquellen  # noqa: E402
 import verteilung  # noqa: E402
 
 # Die aus webvisu.py herausgeloesten Module (docs/TODO.md, Zerlegen): sie
 # importieren webvisu nie (tests/test_schichten.py), webvisu importiert aus
 # ihnen. Ein neues Modul gehoert hier dazu, sonst ersetzt ersetzen() dort nichts.
 # Reihenfolge: wer einen Namen anbietet, vor dem, der ihn importiert.
-_ZERLEGT_MODULE = (konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
+_ZERLEGT_MODULE = (symbolquellen, konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
                    intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten)
 ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
 # Pakete: jedes Modul darin ist ein Server-Modul. bausteine importiert aus

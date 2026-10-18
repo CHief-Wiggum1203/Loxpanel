@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from bausteine.intercom import _BELL_TS
-from konfig import _LOXLIB_NAME, _loxlib_names, LOXLIB_DIR
+from symbolquellen import _LOXLIB_NAME, _loxlib_names, LOXLIB_DIR
 
 if TYPE_CHECKING:   # nur fuer die Typangabe, kein Import zur Laufzeit (webvisu importiert hierher)
     from webvisu import App

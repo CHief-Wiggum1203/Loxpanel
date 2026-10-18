@@ -13,23 +13,25 @@ import time
 
 from adapters import LightControllerV2Adapter
 from bausteine.gemeinsam import _clean, PROZENT_SCHRITT
-from konfig import _is_pick, _pick_index, _pick_tabs, HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN, HAUS_TAB
+from konfig import (_is_pick, _pick_index, _pick_tabs, HAUS_AKTIV_ARTEN, HAUS_AUFBAU_STANDARD, HAUS_AUFBAUTEN,
+                    HAUS_ENERGIE_AUS, HAUS_TAB)
 
 HAUS_TITEL = "Haus"
 
-# Aus-Befehl je Bausteintyp (Loxone-Strukturdoku) und die Beschriftung seiner
-# Taste. Nur was hier steht, zaehlt unter "Gerade aktiv": ein Geraet, das an
-# ist UND sich abschalten laesst. Die Lueftung (Ventilation) hat keinen
-# Aus-Befehl, sie bleibt Anzeige.
+# Aus-Befehl je Bausteintyp (Loxone-Strukturdoku), die Beschriftung seiner
+# Taste und seine Art (HAUS_AKTIV_ARTEN). Nur was hier steht, zaehlt unter
+# "Gerade aktiv": ein Geraet, das an ist UND sich abschalten laesst, und nur,
+# wenn die Ansicht seine Art zaehlt (ui.hausAktivOhne). Die Lueftung
+# (Ventilation) hat keinen Aus-Befehl, sie bleibt Anzeige.
 HAUS_AUS = {
-    "Switch": ("off", "Aus"),
-    "TimedSwitch": ("off", "Aus"),
-    "Dimmer": ("off", "Aus"),
-    "EIBDimmer": ("off", "Aus"),
-    "LightControllerV2": (f"changeTo/{LightControllerV2Adapter.OFF_MOOD}", "Aus"),
-    "AudioZone": ("pause", "Pause"),
-    "AudioZoneV2": ("pause", "Pause"),
-    "Sauna": ("off", "Aus"),
+    "Switch": ("off", "Aus", "schalter"),
+    "TimedSwitch": ("off", "Aus", "schalter"),
+    "Dimmer": ("off", "Aus", "licht"),
+    "EIBDimmer": ("off", "Aus", "licht"),
+    "LightControllerV2": (f"changeTo/{LightControllerV2Adapter.OFF_MOOD}", "Aus", "licht"),
+    "AudioZone": ("pause", "Pause", "audio"),
+    "AudioZoneV2": ("pause", "Pause", "audio"),
+    "Sauna": ("off", "Aus", "sauna"),
 }
 
 # Schnellaktionen der Hausseite: ein Befehl an den Zentral-Baustein der
@@ -84,6 +86,11 @@ HAUS_LISTEN = ("aktiv", "hinweise")
 HAUS_SENDER = 8
 
 HAUS_SENDER_NEU_S = 300
+
+# Energie im Kopf der Hausseite: Bausteine, die Erzeugung und Verbrauch melden
+# (energy_blocks), automatisch der erste davon oder der der Ansicht
+# (ui.hausEnergie)
+HAUS_ENERGIE_TYPEN = ("EFM", "EnergyManager2")
 
 
 class Haus:
@@ -142,13 +149,21 @@ class Haus:
         return s
 
     def _haus_aus(self, uuid: str) -> dict | None:
-        """Aus-Befehl eines Bausteins fuer die Hausseite ({uuid, cmd, taste}) oder
-        None, wenn sein Typ keinen hat (HAUS_AUS)."""
+        """Aus-Befehl eines Bausteins fuer die Hausseite ({uuid, cmd, taste,
+        art}) oder None, wenn sein Typ keinen hat (HAUS_AUS)."""
         c = self.controls.get(uuid) or {}
         e = HAUS_AUS.get(c.get("type"))
         if not e or not c.get("uuidAction"):
             return None
-        return {"uuid": c["uuidAction"], "cmd": e[0], "taste": e[1]}
+        return {"uuid": c["uuidAction"], "cmd": e[0], "taste": e[1], "art": e[2]}
+
+    @staticmethod
+    def _haus_ruhig(arten: list) -> str:
+        """Was die Zeile "Gerade aktiv" sagt, wenn nichts an ist: die ersten
+        beiden Arten, die dort zaehlen (HAUS_AKTIV_ARTEN), etwa "Kein Licht
+        an, keine Musik"."""
+        text = ", ".join(HAUS_AKTIV_ARTEN[a][1] for a in arten[:2])
+        return text[:1].upper() + text[1:]
 
     def _haus_ein(self, uuid: str) -> dict | None:
         """Ein-Befehl eines Bausteins fuer die Tasten der Raumkarte (Aufbau
@@ -318,14 +333,23 @@ class Haus:
         self._spawn(self.prime_favs(zone))
 
     def _haus_energie(self, uuids: list, prof: dict | None) -> dict | None:
-        """Energie fuer den Kopf der Hausseite: der erste Energieflussmonitor bzw.
-        Energiemanager unter den Bausteinen der Seite, sonst der erste sichtbare
-        der Anlage. Text wie auf seiner Kachel, dazu Erzeugung und Verbrauch in
-        Watt wie im Energiefluss (energy_blocks); ein Tipp oeffnet ihn."""
-        typen = ("EFM", "EnergyManager2")
-        u = next((x for x in uuids if (self.controls.get(x) or {}).get("type") in typen), None)
+        """Energie fuer den Kopf der Hausseite: der Baustein der Ansicht
+        (ui.hausEnergie, keiner bei HAUS_ENERGIE_AUS). Ohne Wahl, oder gibt es
+        den gewaehlten nicht (mehr) bzw. blendet die Ansicht ihn aus, der erste
+        Energieflussmonitor bzw. Energiemanager (HAUS_ENERGIE_TYPEN) unter den
+        Bausteinen der Seite, sonst der erste sichtbare der Anlage. Text wie auf
+        seiner Kachel, dazu Erzeugung und Verbrauch in Watt wie im Energiefluss
+        (energy_blocks); ein Tipp oeffnet ihn."""
+        wahl = (prof or {}).get("hausEnergie")
+        if wahl == HAUS_ENERGIE_AUS:
+            return None
+        u = wahl if (self.controls.get(wahl) or {}).get("type") in HAUS_ENERGIE_TYPEN \
+            and self._shown(wahl, prof) else None
         if u is None:
-            u = next((x for x, c in self.controls.items() if c.get("type") in typen and self._shown(x, prof)), None)
+            u = next((x for x in uuids if (self.controls.get(x) or {}).get("type") in HAUS_ENERGIE_TYPEN), None)
+        if u is None:
+            u = next((x for x, c in self.controls.items()
+                      if c.get("type") in HAUS_ENERGIE_TYPEN and self._shown(x, prof)), None)
         if u is None:
             return None
         it = self._control_item(u, prof)
@@ -341,6 +365,14 @@ class Haus:
             if prod is not None:
                 e["prod"] = prod
         return e
+
+    def haus_energie_optionen(self) -> list:
+        """Energie-Bausteine der Anlage fuer die Auswahl "Energie im Kopf" der
+        Hausseite (HAUS_ENERGIE_TYPEN): [{uuid, name, room}]."""
+        out = [{"uuid": u, "name": _clean(c.get("name")),
+                "room": _clean((self.rooms.get(c.get("room")) or {}).get("name"))}
+               for u, c in self.controls.items() if c.get("type") in HAUS_ENERGIE_TYPEN]
+        return sorted(out, key=lambda d: (d["room"], d["name"]))
 
     def _haus_schnell(self, prof: dict | None) -> list:
         """Schnellaktionen der Hausseite (HAUS_SCHNELL): je Art der erste
@@ -374,9 +406,13 @@ class Haus:
         allen Hinweisen). Die Hinweise (_haus_hinweise) hat jeder Aufbau.
         Der Aufbau der Ansicht (HAUS_AUFBAUTEN) bringt dazu: "raeume" je
         Raumkarte ihre Tasten (_haus_tasten), "spalte" "Auf einen Blick"
-        (_haus_blick)."""
+        (_haus_blick). Unter "Gerade aktiv" und in "n an" zaehlen nur die
+        Arten der Ansicht (hausAktiv, ohne Profil alle); zaehlt keine, gibt es
+        die Zeile nicht (aktivZeile)."""
         aufbau = (prof or {}).get("hausAufbau")
         aufbau = aufbau if aufbau in HAUS_AUFBAUTEN else HAUS_AUFBAU_STANDARD
+        arten = (prof or {}).get("hausAktiv")
+        arten = list(HAUS_AKTIV_ARTEN) if arten is None else [a for a in arten if a in HAUS_AKTIV_ARTEN]
         raeume, aktiv, zonen, alle, blick_roh, kacheln = [], [], [], [], [], []
         for ru, uuids in self._haus_raeume(prof):
             name = _clean(self.rooms[ru].get("name")) or "Raum"
@@ -393,7 +429,7 @@ class Haus:
                 if it.get("big") is None:
                     # mit grossem Wert steht der Baustein schon als Hauptwert da
                     (schaltbar if aus else sonst).append(it)
-                if aus and it.get("on"):
+                if aus and it.get("on") and aus["art"] in arten:
                     an += 1
                     a = {"id": u, "label": it.get("label") or "", "raum": name,
                          "zustand": it.get("sublabel") or "", "aus": {"uuid": aus["uuid"], "cmd": aus["cmd"]},
@@ -423,7 +459,9 @@ class Haus:
         out = {"t": "view", "title": titel, "tab": tab, "route": route, "layout": "haus", "aufbau": aufbau,
                "raeume": raeume, "aktiv": aktiv, "hinweise": hinweise, "schnell": self._haus_schnell(prof),
                "spieler": self._haus_spieler(zonen, (route or {}).get("zone"), prof),
-               "energie": energie}
+               "energie": energie, "aktivZeile": bool(arten)}
+        if arten:
+            out["ruhig"] = self._haus_ruhig(arten)
         if aufbau == "spalte":
             eid, mit = (energie or {}).get("id"), {h["id"] for h in hinweise}
             out["blick"] = [b for uuids, items, name in blick_roh

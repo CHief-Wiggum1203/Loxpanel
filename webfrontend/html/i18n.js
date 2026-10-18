@@ -697,6 +697,15 @@
       'Spalte links': 'Left column',
       'Wie die Hausübersicht dieser Ansicht aufgebaut ist. „Status zuerst“: oben, was gerade an ist, mit Aus-Taste. „Räume direkt“: jede Raumkarte schaltet Licht, Musik und Co. mit runden Tasten. „Spalte links“: Uhr, Energie, „Auf einen Blick“ und die Schnellaktionen in einer Spalte links, für breite Schirme; wo sie nicht passt (hochkant, schmal), zeigt das Gerät „Status zuerst“.':
         'How the house overview of this view is laid out. “Status first”: at the top, what is on right now, with an off button. “Rooms direct”: every room card switches lights, music and more with round buttons. “Left column”: clock, energy, “At a glance” and the quick actions in a column on the left, for wide screens; where it does not fit (portrait, narrow), the device shows “Status first”.',
+      // ... was unter "Gerade aktiv" zaehlt (HAUS_AKTIV_ARTEN) und die Energie im Kopf
+      'Zählt unter „Gerade aktiv“': 'Counts under “On right now”',
+      'Licht': 'Lights',
+      'Musik': 'Music',
+      'Schalter': 'Switches',
+      'Sauna': 'Sauna',
+      'Energie im Kopf': 'Energy in the header',
+      'Was unter „Gerade aktiv“ zählt, zählt auch in „n an“ der Raumkarten; ohne Haken gibt es die Zeile nicht. „Energie im Kopf“: automatisch der erste Energiefluss bzw. Energiemanager der Seite, sonst der Anlage.':
+        'What counts under “On right now” also counts in “n on” of the room cards; with nothing ticked, the row is left out. “Energy in the header”: automatically the first energy flow monitor or energy manager of the page, otherwise of the installation.',
       'Diese Seite zeigt die Hausübersicht: Räume, was gerade an ist, Audio, Uhr, Wetter und Energie. Sie stellt sich aus der Anlage selbst zusammen, hier gibt es nichts anzuordnen.':
         'This page shows the house overview: rooms, what is on right now, audio, clock, weather and energy. It builds itself from your installation, there is nothing to arrange here.',
       'Name': 'Name',

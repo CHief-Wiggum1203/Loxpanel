@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 
 import theme_colors
+from symbolquellen import _clean_icon, _clean_seiten_icon
 
 log = logging.getLogger("loxpanel.konfig")
 
@@ -205,6 +206,20 @@ HAUS_TAB = "haus"
 HAUS_AUFBAUTEN = {"status": "Status zuerst", "raeume": "Räume direkt", "spalte": "Spalte links"}
 
 HAUS_AUFBAU_STANDARD = "status"
+
+# "Gerade aktiv" der Hausseite je Ansicht: welche Arten dort (und in "n an" der
+# Raumkarten) zaehlen, Art -> (Beschriftung im Konfigurator, was die Zeile
+# sagt, wenn nichts davon an ist). Die Bausteintypen je Art stehen in
+# haus.HAUS_AUS. Gespeichert wird, was NICHT zaehlt (ui.hausAktivOhne, in
+# dieser Folge): fehlt = alle; zaehlt keine, hat die Seite keine Zeile.
+HAUS_AKTIV_ARTEN = {"licht": ("Licht", "kein Licht an"), "audio": ("Musik", "keine Musik"),
+                    "schalter": ("Schalter", "kein Schalter an"), "sauna": ("Sauna", "Sauna aus")}
+
+# Energie im Kopf der Hausseite je Ansicht (ui.hausEnergie): fehlt =
+# automatisch (der erste Energie-Baustein der Seite, sonst der Anlage),
+# HAUS_ENERGIE_AUS = keine, sonst die UUID eines Bausteins aus
+# haus.HAUS_ENERGIE_TYPEN.
+HAUS_ENERGIE_AUS = "aus"
 
 # Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9): zwei Finger
 # bedienen den Raum der Seite - Mitte Licht, links Beschattung, rechts Musik,
@@ -642,6 +657,13 @@ def _clean_kennung(v) -> str:
     return v.strip()[:60] if isinstance(v, str) else ""
 
 
+def _clean_haus_aktiv_ohne(v) -> list:
+    """Arten, die unter "Gerade aktiv" der Hausseite nicht zaehlen
+    (ui.hausAktivOhne): nur bekannte (HAUS_AKTIV_ARTEN), jede einmal, in
+    deren Folge."""
+    return [a for a in HAUS_AKTIV_ARTEN if a in v] if isinstance(v, list) else []
+
+
 def _clean_raum_verlassen(v) -> dict:
     """Taster je Raum fuer "Raum verlassen" (Vorgaben, ui.raumVerlassen):
     {Raum-UUID: Taster-UUID}, nur Paare mit beiden Kennungen."""
@@ -693,57 +715,6 @@ def _clean_svpane(v) -> str:
             if uu:
                 return kopf + ",".join(uu)
     return ""
-
-
-# Loxone-Icon-Bibliothek: SVGs des LoxBerry-Plugins "loxoneicons", read-only in
-# den Container gemountet (docker-compose). Fehlt der Mount/das Plugin, ist der
-# Ordner leer -> die Icon-Quelle erscheint gar nicht. Ueber Env ueberschreibbar.
-LOXLIB_DIR = os.environ.get("LOXPANEL_LOXLIB_DIR", "/app/loxone-icons/filled")
-
-_LOXLIB_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.svg$")
-
-
-def _loxlib_names() -> list:
-    """Dateinamen der Loxone-Bibliothek (flache .svg im gemounteten Ordner)."""
-    try:
-        return sorted(fn for fn in os.listdir(LOXLIB_DIR)
-                      if _LOXLIB_NAME.match(fn) and ".." not in fn)
-    except OSError:
-        return []
-
-
-def _clean_icon(ic):
-    """Icon-Referenz einer Kachel validieren (Quelle + sicherer Bezeichner).
-    Nur die Quellen, die der Kachel-Editor anbietet und der Server ausliefert:
-    eingebaut, Loxone-Icon des Miniservers (/icon) und Loxone-Bibliothek
-    (/loxlib)."""
-    if not isinstance(ic, dict):
-        return None
-    s = ic.get("src")
-    if s == "builtin" and isinstance(ic.get("id"), str) and re.match(r"^[A-Za-z0-9_]{1,32}$", ic["id"]):
-        return {"src": "builtin", "id": ic["id"]}
-    if s == "loxone" and isinstance(ic.get("p"), str) and ".." not in ic["p"] \
-            and (ic["p"].endswith(".svg") or ic["p"].endswith(".png")):
-        return {"src": "loxone", "p": ic["p"]}
-    if s == "loxlib" and isinstance(ic.get("name"), str) and _LOXLIB_NAME.match(ic["name"]) \
-            and ".." not in ic["name"]:
-        return {"src": "loxlib", "name": ic["name"]}
-    return None
-
-
-def _clean_seiten_icon(ic) -> str:
-    """Icon einer freien Seite: die fertige Adresse aus der Icon-Auswahl des
-    Konfigurators (/icon?p=... oder /loxlib?n=...) oder ein Loxone-Icon-Pfad,
-    den der Server ueber /icon vom Miniserver holt (relativ, ohne Schema).
-    Alles andere -> "", vor allem fremde Adressen: "//host/x.png" faengt mit
-    "/" an und ginge sonst unveraendert an die Visu, die das Bild dann von
-    dort laedt."""
-    ic = str(ic or "").strip()[:200]
-    if ic.startswith("/icon?") or ic.startswith("/loxlib?"):
-        return ic
-    if ic.startswith("/") or ":" in ic or "\\" in ic or ".." in ic:
-        return ""
-    return ic if ic.endswith(".svg") or ic.endswith(".png") else ""
 
 
 def _sanitize_overlay(ov) -> dict:
@@ -1120,6 +1091,12 @@ def _sanitize_panels(panels: dict) -> dict:
             cui["tileLayout"] = "classic"   # bisheriger Kachel-Aufbau; fehlt = neuer
         if ui.get("hausAufbau") in HAUS_AUFBAUTEN and ui["hausAufbau"] != HAUS_AUFBAU_STANDARD:
             cui["hausAufbau"] = ui["hausAufbau"]   # Aufbau der Hausseite; fehlt = HAUS_AUFBAU_STANDARD
+        _hao = _clean_haus_aktiv_ohne(ui.get("hausAktivOhne"))
+        if _hao:
+            cui["hausAktivOhne"] = _hao     # Arten ohne "Gerade aktiv"; fehlt = alle zaehlen
+        _he = _clean_kennung(ui.get("hausEnergie"))
+        if _he:
+            cui["hausEnergie"] = _he        # Energie der Hausseite (HAUS_ENERGIE_AUS, UUID); fehlt = automatisch
         _ks = _clean_kachel_set(ui.get("tileSet"))
         if _ks:
             cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
