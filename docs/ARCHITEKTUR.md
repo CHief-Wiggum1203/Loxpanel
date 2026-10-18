@@ -2257,12 +2257,21 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     `--glow`. Im Aufbau „mitte“ kippt sie mit `--kachel-an-ink`/`-muted`, im
     Aufbau „kreis“ steht ein aktives Symbol im `--glow`-Kreis.
   - **Live:** Die Seite besteht aus benannten Blöcken (`data-hb`). Kommt
-    dieselbe Seite neu, tauscht `updateHaus()` nur die Blöcke, deren HTML sich
-    geändert hat, solange Lage und Blockfolge (`hausSig()`) gleich bleiben;
-    zur Lage zählt, ob die Raumkarten scrollen, nicht ihre Höhe in Pixeln
-    (die zieht `hausMasse()` mit `--hk` nach, sonst baute im Scroll-Fall jede
-    Größenänderung die Seite neu). Bedient wird über einen Klick-Verteiler
-    (`hausKlick()`).
+    dieselbe Seite neu, gleicht `updateHaus()` nur die Blöcke an, deren HTML
+    sich geändert hat, solange Lage und Blockfolge (`hausSig()`) gleich
+    bleiben; zur Lage zählt, ob die Raumkarten scrollen, nicht ihre Höhe in
+    Pixeln (die zieht `hausMasse()` mit `--hk` nach, sonst baute im
+    Scroll-Fall jede Größenänderung die Seite neu). Angleichen statt
+    ersetzen (`hsAngleichen()`, seit 18.10.2026): Was gleich ist, bleibt
+    derselbe Knoten, nur Geändertes kommt neu (Attribute, Text, Kinder). So
+    bleibt eine Scroll-Fläche in einem Block stehen („Auf einen Blick“, die
+    Zonen des Spielers) und behält ihre Position, auch während eines Wischs;
+    vorher zog jeder neue Wert darin die Liste nach oben. Baut
+    `renderHaus()` die Seite neu (Drehen, andere Lage, Zone gewechselt),
+    merkt es sich vorher, wie weit jede Scroll-Fläche gescrollt war (je
+    Block und Klasse, `hsScrollStand()`), und setzt das am Ende wieder
+    (`hsScrollZurueck()`, nach Uhr und Leiste, die noch Höhen ändern).
+    Bedient wird über einen Klick-Verteiler (`hausKlick()`).
   - Geprüft in `tests/test_haus.py` (Anlage `lox.haus_anlage()`) und
     `tests/browser/test_haus_browser.py`: iPad quer und hochkant und großes
     Display, ohne Set und in jedem Set; kein waagerechtes Scrollen, Tasten ab

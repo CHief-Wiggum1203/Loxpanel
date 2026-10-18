@@ -1191,3 +1191,66 @@ def test_sender_im_spieler(tmp_path, miniserver_http):
     assert erg["befehle"] == ["sps/io/AZ/roomfav/get/0/20", "sps/io/AZ/roomfav/play/2"], erg
     assert [k["name"] for k in erg["danach"]["kacheln"] if k["gedrueckt"]] == ["FM4"], erg["danach"]
     assert erg["alle"] == erg["mehr"] == {"view": "sources", "id": "AZ"}, erg
+
+
+# "Auf einen Blick" mit langer Statusliste: acht Lueftungen mehr, die Liste scrollt
+LUEFTUNGEN = {f"LV{i}": {"name": f"Lüftung {i}", "type": "Ventilation", "uuidAction": f"LV{i}", "room": "r1",
+                         "cat": "c1", "states": {"speed": f"lv{i}"}} for i in range(8)}
+
+# Lage der Liste in "Auf einen Blick": wie weit gescrollt, wie weit es geht,
+# ob sie noch derselbe Knoten ist (__alt) und ihr Text
+BLICK_LISTE = """() => { const l = document.querySelector('.hs-blick .liste');
+  return {oben: l.scrollTop, max: l.scrollHeight - l.clientHeight, derselbe: !!l.__alt, text: l.innerText}; }"""
+
+
+def test_auf_einen_blick_bleibt_beim_scrollen_stehen(tmp_path):
+    """Gefunden an der Anlage (Spalte links, viele Geraete): die Liste in "Auf
+    einen Blick" liess sich nicht nach unten scrollen, jeder neue Zustand zog
+    sie zurueck nach oben - updateHaus ersetzte den ganzen Block samt
+    Scroll-Flaeche. Jetzt gleicht es ihn an (hsAngleichen): Die Liste bleibt
+    derselbe Knoten und behaelt ihre Position, auch wenn sich ein Wert darin
+    aendert. Baut renderHaus die Seite neu, setzt es die Position wieder."""
+    struktur, states = haus_anlage()
+    struktur["controls"].update(LUEFTUNGEN)
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(struktur)
+        app.states = {**states, **{f"lv{i}": 40 for i in range(8)}}
+        app.panels = W.App._sanitize_panels({"haus": {"title": "Haus", "tabs": ["haus"],
+                                                      "ui": {"grid": "auto", "hausAufbau": "spalte"}}})
+        runner, port, bc = await visu_starten(app)
+        fehler, erg = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await _seite(b, port, *GERAETE["display"], fehler)
+                await pg.wait_for_selector(".hs-blick .liste .hs-bz")
+                erg["vorher"] = await pg.evaluate(BLICK_LISTE)
+                await pg.evaluate("""() => { const l = document.querySelector('.hs-blick .liste');
+                  l.scrollTop = l.scrollHeight; l.__alt = true; }""")
+                erg["unten"] = await pg.evaluate(BLICK_LISTE)
+                # ein Wert in der Liste aendert sich (Lueftung 7: 40 % -> 80 %)
+                app.states["lv7"] = 80
+                app._dirty = True
+                await pg.wait_for_function("document.querySelector('.hs-blick .liste').innerText.includes('80 %')")
+                erg["neu"] = await pg.evaluate(BLICK_LISTE)
+                await pg.screenshot(path=str(tmp_path / "haus_blick_gescrollt.png"))
+                # die Seite entsteht neu (Drehen, andere Lage): die Position bleibt
+                await pg.evaluate("renderHaus()")
+                erg["neu_gebaut"] = await pg.evaluate(BLICK_LISTE)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return erg
+    erg = asyncio.run(lauf())
+    assert erg["vorher"]["max"] > 40, f"die Liste muss scrollen koennen: {erg['vorher']}"
+    unten = erg["unten"]
+    assert unten["oben"] >= unten["max"] - 1, unten
+    neu = erg["neu"]
+    assert neu["derselbe"] and abs(neu["oben"] - unten["oben"]) <= 1, ("die Liste springt nach oben", unten, neu)
+    gebaut = erg["neu_gebaut"]
+    assert not gebaut["derselbe"] and abs(gebaut["oben"] - unten["oben"]) <= 1, \
+        ("nach dem Neuaufbau", gebaut["oben"], gebaut["max"], unten["oben"])

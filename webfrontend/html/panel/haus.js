@@ -5,10 +5,11 @@
 // ---- Hausuebersicht (Tab "haus", Server: _view_haus) ----
 // Die Seite besteht aus benannten Bloecken (data-hb: Kopf, Zeile, je
 // aktivem Geraet, je Raum, Spieler). renderHaus baut alles; kommt dieselbe
-// Seite mit neuen Zustaenden, ersetzt updateHaus nur die Bloecke, deren HTML
-// sich geaendert hat - solange Lage und Blockfolge (Signatur) gleich bleiben.
-// Bedient wird ueber einen Klick-Verteiler am Raster (hausKlick), deshalb
-// brauchen ersetzte Bloecke keine eigenen Handler.
+// Seite mit neuen Zustaenden, gleicht updateHaus nur die Bloecke an, deren
+// HTML sich geaendert hat (hsAngleichen, Scroll-Flaechen bleiben stehen) -
+// solange Lage und Blockfolge (Signatur) gleich bleiben. Bedient wird ueber
+// einen Klick-Verteiler am Raster (hausKlick), deshalb brauchen neue Knoten
+// keine eigenen Handler.
 const HS_PFEIL='<path d="m9 6 6 6-6 6"/>', HS_ZURUECK='<path d="M15 5l-7 7 7 7"/>';
 const HS_LEISER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5"/>';
 const HS_LAUTER='<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 12h5M18.5 9.5v5"/>';
@@ -331,6 +332,7 @@ function renderHaus(){
   else { main+=(L.zeile?'<div class="hs-aktiv">'+teil('aktiv')+'</div>':'')+teil('schnell')+'<div class="hs-raeume">'+teil('raeume')+'</div>'; }
   main+=teil('unten');
   const links=L.links ? '<div class="hs-links">'+teil('links')+'</div>' : '';
+  const stand=hsScrollStand(g);
   g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+(L.links?' links':'')+'">'+links+'<div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
   hausReihen(g);
@@ -338,8 +340,39 @@ function renderHaus(){
   if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); g.addEventListener('error', hsCoverFehlt, true); }
   tickClock();
   renderTabs();
+  // erst jetzt: Uhr, Datum und Leiste aendern noch die Hoehen
+  hsScrollZurueck(g, stand);
 }
-// Gleiche Seite, neue Zustaende: nur geaenderte Bloecke tauschen. false ->
+// Block angleichen statt ersetzen: was gleich ist, bleibt derselbe Knoten,
+// nur Geaendertes kommt neu (Attribute, Text, Kinder; aendert sich ihre Zahl,
+// alle Kinder). So bleibt eine Scroll-Flaeche im Block ("Auf einen Blick",
+// Zonen des Spielers) stehen: Sie behaelt ihre Position, und ein Wisch, der
+// gerade laeuft, reisst nicht ab. Liefert den Knoten, der danach im Baum steht.
+function hsAngleichen(alt, neu){
+  if(alt.nodeType!==neu.nodeType || alt.nodeName!==neu.nodeName){ alt.replaceWith(neu); return neu; }
+  if(alt.nodeType!==1){ if(alt.nodeValue!==neu.nodeValue) alt.nodeValue=neu.nodeValue; return alt; }
+  for(const a of [...alt.attributes]) if(!neu.hasAttribute(a.name)) alt.removeAttribute(a.name);
+  for(const a of [...neu.attributes]) if(alt.getAttribute(a.name)!==a.value) alt.setAttribute(a.name, a.value);
+  const ak=[...alt.childNodes], nk=[...neu.childNodes];
+  if(ak.length!==nk.length) alt.replaceChildren(...nk);
+  else ak.forEach((k,i)=>{ if(!k.isEqualNode(nk[i])) hsAngleichen(k, nk[i]); });
+  return alt;
+}
+// Wie weit die Scroll-Flaechen der Hausseite gescrollt sind, je naechstem
+// Block (data-hb) und Klasse: renderHaus baut die Seite neu (Drehen, andere
+// Lage, Zone gewechselt) und setzt sie danach wieder (hsScrollZurueck)
+function hsScrollSchluessel(e){ const b=e.closest('[data-hb]'); return (b ? b.dataset.hb : '')+'|'+e.className; }
+function hsScrollStand(g){
+  const m=new Map();
+  // nur, wenn bisher die Hausseite dasteht (renderHaus setzt .haus schon vorher)
+  const hs=g.firstElementChild;
+  if(hs && hs.classList.contains('hs')) hs.querySelectorAll('*').forEach(e=>{ if(e.scrollTop>0) m.set(hsScrollSchluessel(e), e.scrollTop); });
+  return m;
+}
+function hsScrollZurueck(g, stand){
+  if(stand.size) g.querySelectorAll('*').forEach(e=>{ const s=stand.get(hsScrollSchluessel(e)); if(s) e.scrollTop=s; });
+}
+// Gleiche Seite, neue Zustaende: nur geaenderte Bloecke angleichen. false ->
 // Lage oder Blockfolge anders, renderHaus baut neu.
 function updateHaus(){
   const g=el('grid'), v=view;
@@ -352,7 +385,7 @@ function updateHaus(){
     const n=g.querySelector('[data-hb="'+CSS.escape(k)+'"]');
     if(!n || n._h===h) return;
     const t=document.createElement('template'); t.innerHTML=h;
-    const m=t.content.firstElementChild; m._h=h; n.replaceWith(m);
+    hsAngleichen(n, t.content.firstElementChild)._h=h;
   });
   hausReihen(g);
   tickClock();
