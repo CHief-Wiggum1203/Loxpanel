@@ -173,7 +173,7 @@ class Haus:
         if not c.get("uuidAction"):
             return None
         if c.get("type") == "LightControllerV2":
-            stimmungen = self._geste_stimmungen(uuid)
+            stimmungen = self._lc_ohne_aus(uuid)
             return {"uuid": c["uuidAction"], "cmd": f"changeTo/{stimmungen[0][0]}"} if stimmungen else None
         cmd = HAUS_EIN.get(c.get("type"))
         return {"uuid": c["uuidAction"], "cmd": cmd} if cmd else None

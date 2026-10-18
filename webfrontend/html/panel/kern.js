@@ -20,6 +20,9 @@ const ICONS = {
   // Linien und ergaeben gefuellt nur flache Keile.
   triup:'<path d="M12 6.5 19.5 17h-15z"/>',
   tridown:'<path d="M12 17.5 4.5 7h15z"/>',
+  // Gefuellte Winkel fuer vorige/naechste Stimmung auf der Kachel der Lichtsteuerung (svgF)
+  zurueck:'<path d="M15.4 5.4 14 4l-8 8 8 8 1.4-1.4L8.8 12z"/>',
+  weiter:'<path d="M8.6 5.4 10 4l8 8-8 8-1.4-1.4 6.6-6.6z"/>',
   music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   // zwei Finger, daneben hoch/runter: Hinweis-Symbol der Gesten
   zweiFinger:'<path d="M7 21v-9.5a1.5 1.5 0 0 1 3 0V21"/><path d="M10 21V8.5a1.5 1.5 0 0 1 3 0V21"/><path d="M18 3v10M16 5l2-2 2 2M16 11l2 2 2-2"/>',

@@ -144,9 +144,9 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>AudioZoneV2</code></td><td>Audiozone (Audioserver Gen 2)</td><td align="center">✅</td><td>Play/Pause/Skip, Lautstärke, Titel, Sender, Cover und Radio-Favoriten; beim gekoppelten Loxone-Audioserver meldet sich LoxPanel dafür wie die App an (RSA/AES mit dem Miniserver-Token)</td></tr>
 <tr><td><code>MediaClient</code></td><td>Media Client</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Bedienelemente</th></tr>
-<tr><td><code>Pushbutton</code></td><td>Virtueller Taster</td><td align="center">✅</td><td>Puls</td></tr>
+<tr><td><code>Pushbutton</code></td><td>Virtueller Taster</td><td align="center">✅</td><td>Puls, runder Knopf auf der Kachel</td></tr>
 <tr><td><code>Slider</code></td><td>Schieberegler / Analogwert</td><td align="center">✅</td><td></td></tr>
-<tr><td><code>Switch</code></td><td>Schalter</td><td align="center">✅</td><td>Ein/Aus</td></tr>
+<tr><td><code>Switch</code></td><td>Schalter</td><td align="center">✅</td><td>Ein/Aus, Schieber auf der Kachel</td></tr>
 <tr><td><code>ColorPicker</code></td><td>Farbauswahl (alt)</td><td align="center">⬜</td><td>nur als Kreis der Beleuchtung Generation 1, deren Seite zeigt bisher nur die Szenen</td></tr>
 <tr><td><code>MoodSwitch</code></td><td>Stimmungsschalter</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>Remote</code></td><td>Fernbedienung</td><td align="center">⬜</td><td></td></tr>
@@ -157,7 +157,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><th colspan="4" align="left">Beleuchtung</th></tr>
 <tr><td><code>CentralLightController</code></td><td>Zentral Beleuchtung</td><td align="center">✅</td><td>Sammelsteuerung</td></tr>
 <tr><td><code>LightController</code></td><td>Beleuchtung (Generation 1)</td><td align="center">✅</td><td></td></tr>
-<tr><td><code>LightControllerV2</code></td><td>Beleuchtung (Lichtsteuerung)</td><td align="center">✅</td><td>Szenen/Stimmungen als Liste</td></tr>
+<tr><td><code>LightControllerV2</code></td><td>Beleuchtung (Lichtsteuerung)</td><td align="center">✅</td><td>Szenen/Stimmungen als Liste, ‹ › auf der Kachel</td></tr>
 <tr><td><code>ColorPickerV2</code></td><td>Farbauswahl RGB/Lumitech</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>Dimmer</code></td><td>Dimmer</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>EIBDimmer</code></td><td>KNX-Dimmer</td><td align="center">✅</td><td>wie Dimmer</td></tr>
@@ -214,7 +214,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>IntercomV2</code></td><td>Türsprechanlage (Baustein Intercom)</td><td align="center">🟡</td><td>Live-Klingelanzeige, Tür/Ausgänge öffnen, Klingel abstellen, Antworten abspielen, Stumm, Gerätezustand; Kamera mit eigener Adresse oder vom Miniserver, falls er sie nennt; Gegensprechen fehlt</td></tr>
 <tr><td><code>NfcCodeTouch</code></td><td>NFC Code Touch</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Zeit / Automatik</th></tr>
-<tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off</td></tr>
+<tr><td><code>TimedSwitch</code></td><td>Treppenhaus-/Zeitschalter</td><td align="center">✅</td><td>Restzeit, pulse/off, Schieber auf der Kachel</td></tr>
 <tr><td><code>AlarmClock</code></td><td>Wecker</td><td align="center">✅</td><td>Weckzeiten ein/aus, bearbeiten (Name, Uhrzeit, Tage mit Feiertag/Urlaub), anlegen, löschen; Schlummerdauer, Weckdauer, Vorweckzeit, mit Touch Nightlight auch Wecksound und Helligkeit; Weckton am Panel, Schlummer/Aus beim Klingeln</td></tr>
 <tr><td><code>Daytimer</code></td><td>Wochenuhr / Zeitplan</td><td align="center">✅</td><td></td></tr>
 </tbody>

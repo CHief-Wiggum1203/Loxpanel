@@ -274,6 +274,12 @@ class Ansicht:
         v["--nacht-grund"] = theme_colors.NACHT_GRUND
         if v.get("--ink"):
             v["--nacht-ink"] = theme_colors.nacht_schrift(v["--ink"])
+        # Auf --glow (Knopf des Schiebers einer aktiven Kachel, Symbol im Kreis
+        # des Sets kreis): die Gegenfarbe zu dem --glow, der gilt - auch zu
+        # einer gewaehlten Zustandsfarbe und ohne Set und Grundfarbe zur
+        # Standardfarbe der Visu
+        if _gewaehlt("active") or not v.get("--on-glow"):
+            v["--on-glow"] = theme_colors.schrift_auf(v.get("--glow") or theme_colors.VISU_STANDARD["--glow"])
         # Gesten im Vollbild: Schrift auf der Fuellung, Vorhang der Jalousie,
         # gedaempft fuer die Nacht. Ohne Set und Grundfarbe aus den
         # Standardfarben der Visu, eine gewaehlte Zustandsfarbe geht mit.

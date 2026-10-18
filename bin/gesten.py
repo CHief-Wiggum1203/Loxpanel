@@ -70,7 +70,7 @@ class Gesten:
                 continue
             out.append({"uuid": u, "name": _clean(c.get("name")),
                         "room": _clean((self.rooms.get(c.get("room")) or {}).get("name")),
-                        "moods": [{"id": m, "name": n} for m, n in self._geste_stimmungen(u)]})
+                        "moods": [{"id": m, "name": n} for m, n in self._lc_ohne_aus(u)]})
         return sorted(out, key=lambda d: (d["room"], d["name"]))
 
     # ---- Gesten (Loxone-Standard wie auf den Tastern, docs/TODO.md §9) ----
@@ -162,19 +162,6 @@ class Gesten:
                         "an": any(k["wert"] > 0 for k in kreise) if an is None else an})
         return out
 
-    def _geste_stimmungen(self, uuid: str) -> list:
-        """Stimmungen einer Lichtsteuerung ohne "Aus", in der Folge ihrer
-        moodList: [(id, name)]."""
-        out = []
-        for m in LIGHT.moods(self._with_uuid(uuid), self.states):
-            try:
-                mid = int(m.get("id"))
-            except (TypeError, ValueError):
-                continue
-            if mid != LightControllerV2Adapter.OFF_MOOD:
-                out.append((mid, _clean(m.get("name")) or str(mid)))
-        return out
-
     def _geste_lichtsteuerung(self, gruppen: list, dev: str) -> tuple:
         """Lichtsteuerung des Geraets und ihre Stimmung beim Einschalten
         (devices[dev].lichtStart), wenn sie in diesem Raum liegt, sonst die
@@ -184,10 +171,10 @@ class Gesten:
         start = (self.devices.get(dev) or {}).get("lichtStart") if dev else None
         for g in lcs:
             if start and g["uuid"] == start.get("lc"):
-                ids = [m for m, _n in self._geste_stimmungen(g["uuid"])]
+                ids = [m for m, _n in self._lc_ohne_aus(g["uuid"])]
                 return g, (start.get("mood") if start.get("mood") in ids else (ids[0] if ids else None))
         if lcs:
-            ids = [m for m, _n in self._geste_stimmungen(lcs[0]["uuid"])]
+            ids = [m for m, _n in self._lc_ohne_aus(lcs[0]["uuid"])]
             return lcs[0], (ids[0] if ids else None)
         return None, None
 
@@ -327,7 +314,7 @@ class Gesten:
                     {"wert": round(start)})
         g, mood = self._geste_lichtsteuerung(gruppen, dev)
         if g and not g["an"] and mood is not None:
-            name = dict(self._geste_stimmungen(g["uuid"])).get(mood, "")
+            name = dict(self._lc_ohne_aus(g["uuid"])).get(mood, "")
             return ({"art": "licht", "modus": "stimmung", "lc": g["uuid"], "mood": mood, "name": name,
                      "gesendet": {}},
                     {"wert": 0, "text": name})
@@ -520,16 +507,12 @@ class Gesten:
         gruppen = self.licht_gruppen(ru, prof)
         g, mood = self._geste_lichtsteuerung(gruppen, dev)
         if g:
-            stimmungen = self._geste_stimmungen(g["uuid"])
+            stimmungen = self._lc_ohne_aus(g["uuid"])
             if not stimmungen:
                 return {"fehler": f"Keine Stimmungen in {raum}"}
-            ids = [m for m, _n in stimmungen]
-            aktiv = [m for m in LIGHT.active_moods(self._with_uuid(g["uuid"]), self.states) if m in ids]
-            if schritt:
-                mood = (ids[(ids.index(aktiv[0]) + schritt) % len(ids)] if g["an"] and aktiv
-                        else ids[0] if schritt > 0 else ids[-1])
-            elif g["an"]:
-                mood = ids[(ids.index(aktiv[0]) + 1) % len(ids)] if aktiv else ids[0]
+            if schritt or g["an"]:
+                # an ohne Wischen: die naechste wie beim Wischen nach vorn
+                mood = self._lc_schritt(g["uuid"], schritt or 1, g["an"])
             ua = self.controls[g["uuid"]].get("uuidAction") or g["uuid"]
             if await self._geste_befehle([(ua, f"changeTo/{mood}")]):
                 return {"fehler": self._sperre_text(ua) or "Miniserver hat nicht umgeschaltet"}
