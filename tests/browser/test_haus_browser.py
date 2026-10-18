@@ -330,7 +330,8 @@ def test_musikauswahl_im_spieler(tmp_path):
 def test_ohne_zentral_baustein_kein_knopf(tmp_path):
     """Ohne Zentral-Licht und Audio-Zentral gibt es keine Schnellaktion, auch
     wenn Licht und Musik an sind; "Gerade aktiv" bleibt, nichts ist zu klein
-    oder abgeschnitten."""
+    oder abgeschnitten. Ist dann alles aus, steht dort "Alles ruhig" - die
+    Zeile haengt nicht an den Schnellaktionen."""
     struktur, states = haus_anlage()
     del struktur["controls"]["CL"], struktur["controls"]["CA"]
 
@@ -348,15 +349,25 @@ def test_ohne_zentral_baustein_kein_knopf(tmp_path):
                 lage = await pg.evaluate(LAGE)
                 lage["zeile"] = await pg.locator(".hs-schnell").count()
                 await pg.screenshot(path=str(tmp_path / "haus_ohne_zentral.png"))
+                # alles aus: Licht (Stimmung Aus), Dimmer, Schalter, Zone
+                app.states.update({"la1": json.dumps([778]), "al": 0, "fs": 0, "az1": 0})
+                app._dirty = True
+                await pg.wait_for_selector('[data-hb="ruhig"]')
+                ruhig = {**await pg.evaluate(LAGE),
+                         "text": await pg.locator('[data-hb="ruhig"]').inner_text(),
+                         "kopf": await pg.locator('[data-hb="akopf"]').count()}
+                await pg.screenshot(path=str(tmp_path / "haus_ohne_zentral_ruhig.png"))
                 await b.close()
         finally:
             bc.cancel()
             await runner.cleanup()
         assert not fehler, fehler
-        return lage
-    lage = asyncio.run(lauf())
+        return lage, ruhig
+    lage, ruhig = asyncio.run(lauf())
     assert lage["schnell"] == 0 and lage["zeile"] == 0, lage
     assert lage["aktiv"] >= 1 and not lage["klein"] and not lage["ab"] and not lage["quer"], lage
+    assert ruhig["kopf"] == 1 and ruhig["text"].split("\n") == ["Alles ruhig", "Kein Licht an, keine Musik"], ruhig
+    assert ruhig["aktiv"] == 0 and not ruhig["klein"] and not ruhig["ab"] and not ruhig["quer"], ruhig
 
 
 def test_hausseite_aus_dem_seiten_editor(cfg_ordner, tmp_path):

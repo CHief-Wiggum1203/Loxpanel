@@ -2139,7 +2139,9 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     auch nicht die Zahl in der Titelzeile von „Räume direkt“ und „Spalte
     links“. Ist nichts an, steht dort „Alles ruhig“ und darunter, was die
     ersten beiden gezählten Arten sagen (`ruhig`, `_haus_ruhig()`, etwa „Kein
-    Licht an, keine Musik“). Die Zeile scrollt nie
+    Licht an, keine Musik“), auch ohne Schnellaktionen (bis 18.10.2026 fiel
+    die Zeile dann ganz weg, ein Rest aus der Zeit, als die Zentral-Tasten
+    in ihr standen; Codex-Befund an #212). Die Zeile scrollt nie
     waagerecht, dort blättert der Wisch die Seiten: Sie zeigt so viele Karten
     wie Spalten passen (`hausLage()`, Mindestbreite `HS_AKTIV_MIN`), bei mehr
     wird die letzte Stelle „+n weitere“. Ein Tipp darauf öffnet die
