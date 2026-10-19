@@ -288,6 +288,7 @@ bis dahin gelten die Hinweise unten für jeden Abgleich weiter.
   erwarten. Der Agent-Code ist gleich, `loxpanel-ctl.sh` und `preroot.sh`
   weichen nur in Kommentaren zu den Testpfaden ab. Wachen:
   `tests/test_miniserver_zugang.py`, `test_miniserver_ws.py`, `test_tls.py`,
+  `test_schema_wahl.py`,
   `test_stabilitaet.py`, `test_front_abruf.py`, `test_installation.py`,
   `test_agent.py`, `test_loxberry_ctl.py`, `test_loxberry_update.py`,
   `test_loxberry_widget.py`, `test_loxberry_zeitzone.py`,

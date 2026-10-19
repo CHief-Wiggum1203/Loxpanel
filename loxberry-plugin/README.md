@@ -30,8 +30,8 @@ Einstellungen-Seite und in `data/plugins/loxpanel/config/loxpanel.cfg`
 (Docker-Volume) gespeichert. Das Widget reicht ihn nur weiter, wenn unter dem
 Port wirklich LoxPanel antwortet. **„Aus LoxBerry übernehmen“** nimmt den
 ersten Miniserver aus LoxBerry; ist dort „HTTPS bevorzugen“ an, dessen
-HTTPS-Port, sonst den HTTP-Port (LoxPanel wählt das Schema am Port: 80 = HTTP,
-sonst HTTPS).
+HTTPS-Port, sonst den HTTP-Port (LoxPanel erkennt selbst, ob am Port HTTP oder
+HTTPS antwortet).
 
 ## Port am LoxBerry
 

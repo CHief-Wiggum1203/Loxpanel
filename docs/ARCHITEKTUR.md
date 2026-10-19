@@ -365,8 +365,23 @@ Wichtige Felder:
   (`_ms_antwortfrist()`); das Laden der Struktur hängt an ihrer Größe und hat
   keine. `api_settings_ms` übergibt den zu prüfenden Zugang und schreibt erst
   danach (§5.1).
-- Bei Port 80 (Gen1) wird die Basis-URL von Hand auf `http://` gesetzt, weil
-  `loxone-api` HTTPS annimmt.
+- HTTP oder HTTPS erkennt die Anmeldung selbst (`_ms_oeffnen()`): Gen1
+  spricht nur HTTP, Gen2 beides, und beide Ports sind in Loxone Config
+  einstellbar oder liegen hinter einer Weiterleitung. Der erste Abruf
+  (`getkey2`) nimmt das Schema, das der Port nahelegt (`_ms_https()`: 80 =
+  HTTP, sonst HTTPS). Scheitert er, ohne dass der Miniserver antwortet, folgt
+  das andere Schema (`_anderes_schema()`). Das trifft etwa einen HTTP-Port
+  wie 8006, an dem auf den TLS-Gruß Klartext kommt („WRONG_VERSION_NUMBER“),
+  oder eine Gegenstelle, die schließt oder bis zur Antwortfrist schweigt. Hat
+  der Miniserver geantwortet (auch mit Fehler) oder passt das Zertifikat
+  nicht, bleibt es beim ersten Schema. Mit „Zertifikat prüfen“ geht es nie
+  von HTTPS auf HTTP. Scheitert auch der zweite Versuch, meldet LoxPanel
+  dessen Fehler nur, wenn dort jemand geantwortet hat, sonst den ersten. Das
+  Ergebnis steht in `App.ms_tls`; WebSocket (`ws`/`wss`) und `_ms_http()`
+  folgen ihm, das Diagnosepaket nennt es (`verschluesselt`). Gemerkt wird es
+  nicht, jede neue Anmeldung erkennt es neu. Ohne TLS stellt `_make_client()`
+  die Basis-URL von Hand auf `http://`, weil `loxone-api` HTTPS annimmt. Bei
+  `remoteConnect` der Intercom-Kamera bleibt HTTPS Pflicht (Strukturdoku).
 
 ### 3.5 Verteilung an die Browser
 

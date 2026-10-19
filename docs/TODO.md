@@ -1054,6 +1054,18 @@ selbst aktuell.
       ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §9.1). Für Nutzer kommt es mit dem
       nächsten Plugin-Release (Versions-Bump in `plugin.cfg` und
       `release.cfg`). **M**
+- [x] **Miniserver mit HTTP an einem anderen Port als 80 ging nicht**
+      (gemeldet mit Screenshot, Port 8006): LoxPanel wählte das Schema nur am
+      Port (80 = HTTP, sonst HTTPS). Ein HTTP-Port wie 8006 scheiterte schon
+      beim Speichern mit „[SSL: WRONG_VERSION_NUMBER]“, weil auf den TLS-Gruß
+      Klartext kam. Gen1 spricht nur HTTP, Gen2 beides, und beide Ports sind
+      in Loxone Config einstellbar. Erledigt 19.10.2026: Die Anmeldung erkennt
+      das Schema selbst. Erst das, was der Port nahelegt; kommt dabei keine
+      Antwort zustande, das andere. Mit „Zertifikat prüfen“ nie
+      unverschlüsselt. WebSocket und Befehle folgen dem Ergebnis, das
+      Diagnosepaket nennt es ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.4,
+      `tests/test_schema_wahl.py`). Die Sonden in `bin/*_probe.py` wählen
+      weiter am Port. **S**
 
 ## 3. Sichtbare Fehler in der Visu
 
