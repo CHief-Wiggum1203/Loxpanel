@@ -101,6 +101,9 @@ class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
         self.host, self.port = ms.get("host", ""), ms.get("port", 443)
         self.user, self.password = ms.get("user", ""), ms.get("pass", "")
         self.verify_tls = ms.get("verify_tls", False)
+        # Spricht der Miniserver an seinem Port TLS? Erkennt jede Anmeldung
+        # (miniserver._ms_oeffnen), None = noch keine.
+        self.ms_tls: bool | None = None
         # Einrichtungshinweis an die Panels (_einrichtung_stand): letzter Fehler
         # beim Verbinden mit dem Miniserver, und welcher Stand zuletzt rausging.
         self._ms_fehler = ""

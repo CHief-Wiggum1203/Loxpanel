@@ -31,21 +31,75 @@ log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server: 
 
 
 def _ms_https(port) -> bool:
-    """Schema-Wahl fuer den Miniserver: Loxone Gen1 spricht nur HTTP (Port 80),
-    Gen2+ nutzt HTTPS/TLS (443, …). Port 80 -> HTTP/ws, sonst HTTPS/wss."""
+    """Erster Versuch der Schema-Wahl: Port 80 -> HTTP/ws, sonst HTTPS/wss.
+    Ob das stimmt, zeigt erst die Verbindung (_ms_oeffnen): Gen1 spricht nur
+    HTTP, Gen2 HTTP und HTTPS, beide Ports sind in Loxone Config einstellbar,
+    dazu kommen Weiterleitungen im Router."""
     try:
         return int(port) != 80
     except (TypeError, ValueError):
         return True
 
 
-def _make_client(host, user, password, port, verify_tls) -> LoxoneClient:
-    """LoxoneClient bauen und bei Gen1 (Port 80) auf HTTP umstellen – die
-    loxone_api setzt die Basis-URL sonst fest auf https://…"""
+def _make_client(host, user, password, port, verify_tls, tls: bool) -> LoxoneClient:
+    """LoxoneClient bauen, ohne TLS auf HTTP umgestellt – die loxone_api setzt
+    die Basis-URL sonst fest auf https://…"""
     c = LoxoneClient(host=host, user=user, password=password, port=port, verify_tls=verify_tls)
-    if not _ms_https(port):
+    if not tls:
         c.base_url = f"http://{host}:{port}/"
     return c
+
+
+def _anderes_schema(err: BaseException) -> bool:
+    """Lohnt nach diesem Fehler das andere Schema? Ja, wenn keine Antwort des
+    Miniservers zustande kam: Auf den TLS-Gruss kam Klartext
+    ("WRONG_VERSION_NUMBER", ein HTTP-Port), die Gegenstelle schloss oder
+    schwieg. Ist der Port zu, scheitert das andere ebenso schnell. Nein, wenn
+    er geantwortet hat (LoxoneRequestError aus loxone_api) oder das Zertifikat
+    nicht passt: Dann spricht er TLS."""
+    if isinstance(err, _ssl.SSLCertVerificationError):
+        return False
+    return isinstance(err, (aiohttp.ClientError, _ssl.SSLError, OSError))   # OSError: auch TimeoutError
+
+
+async def _ms_oeffnen(host, user, password, port, verify_tls,
+                      frist: float) -> tuple[LoxoneClient, object, bool]:
+    """Client oeffnen und getkey2 holen, das Schema dabei erkennen.
+    -> (Client, Antwort von getkey2, TLS ja/nein). Erst das Schema nach dem
+    Port (_ms_https), scheitert getkey2 damit ohne Antwort des Miniservers
+    (_anderes_schema), das andere. Von TLS auf HTTP nie mit verify_tls: Wer
+    das Zertifikat pruefen laesst, will verschluesselt verbinden. Scheitert
+    auch das andere, gilt dessen Fehler nur, wenn dort jemand geantwortet hat,
+    sonst der des ersten Versuchs. frist: Sekunden je Versuch (sonst haengt
+    ein stummer Port bis zur Frist des TLS-Handshakes, 60 s). Bei Fehler ist
+    kein Client offen."""
+    async def versuch(tls: bool) -> tuple[LoxoneClient, object, bool]:
+        c = _make_client(host, user, password, port, verify_tls, tls)
+        try:
+            await c.__aenter__()
+            return c, await asyncio.wait_for(c.getkey2(), frist), tls
+        except BaseException as err:
+            try:
+                await c.close()
+            except Exception:
+                pass
+            if isinstance(err, asyncio.TimeoutError) and not str(err):   # Frist von wait_for
+                raise TimeoutError(f"keine Antwort innerhalb von {frist:g} s") from err
+            raise
+
+    tls = _ms_https(port)
+    try:
+        return await versuch(tls)
+    except Exception as err:
+        if not _anderes_schema(err) or (tls and verify_tls):
+            raise
+        erster = err
+    log.debug("Miniserver %s:%s über %s: %s – versuche %s", host, port, "HTTPS" if tls else "HTTP",
+              erster or type(erster).__name__, "HTTP" if tls else "HTTPS")
+    try:
+        return await versuch(not tls)
+    except Exception as err:
+        raise (erster if _ms_unerreichbar(err) else err)
 
 
 TOKEN_RENEW_MIN = 60     # s: nicht oefter neu anmelden (401 kann auch fehlende Rechte heissen)
@@ -223,12 +277,22 @@ class Miniserver:
         self._dirty = True
         return True
 
+    def _ms_verschluesselt(self) -> bool:
+        """Spricht LoxPanel mit dem Miniserver TLS (https/wss)? So, wie es die
+        letzte Verbindung erkannt hat (_ms_oeffnen), davor nach dem Port."""
+        return _ms_https(self.port) if self.ms_tls is None else self.ms_tls
+
+    def _schema_melden(self, tls: bool) -> None:
+        if tls != _ms_https(self.port):
+            log.info("Miniserver %s:%s spricht %s, verbunden über %s.", self.host, self.port,
+                     "TLS" if tls else "kein TLS", "HTTPS/WSS" if tls else "HTTP/WS (unverschlüsselt)")
+
     async def start(self) -> None:
         try:
-            self.client = _make_client(self.host, self.user, self.password,
-                                       self.port, self.verify_tls)
-            await self.client.__aenter__()
-            self.alg = (await self.client.getkey2()).hashAlg
+            self.client, key2, self.ms_tls = await _ms_oeffnen(
+                self.host, self.user, self.password, self.port, self.verify_tls, _ms_antwortfrist())
+            self._schema_melden(self.ms_tls)
+            self.alg = key2.hashAlg
             self._set_token(await self.client.authenticate())
             self._ms_pubkey = None
             st = await self.client.load_structure()
@@ -259,6 +323,7 @@ class Miniserver:
         self.host, self.port = ms["host"], ms.get("port", 443)
         self.user, self.password = ms["user"], ms["pass"]
         self.verify_tls = ms.get("verify_tls", False)
+        self.ms_tls = None          # Schema erkennt die naechste Anmeldung
         self._zugang_neu = None
 
     async def reconnect(self, ms: dict | None = None) -> int:
@@ -276,11 +341,11 @@ class Miniserver:
                 + ", ".join(missing) + "). Bitte unter Einstellungen -> "
                 "Miniserver Host, Benutzer und Passwort eintragen.")
         frist = _ms_antwortfrist()
-        newc = _make_client(ms["host"], ms["user"], ms["pass"],
-                            ms.get("port", 443), ms.get("verify_tls", False))
+        newc = None
         try:
-            await newc.__aenter__()
-            alg = (await asyncio.wait_for(newc.getkey2(), frist)).hashAlg
+            newc, key2, tls = await _ms_oeffnen(ms["host"], ms["user"], ms["pass"], ms.get("port", 443),
+                                                ms.get("verify_tls", False), frist)
+            alg = key2.hashAlg
             jwt = await asyncio.wait_for(newc.authenticate(), frist)
             st = await newc.load_structure()
             # Kontext der icon_session schon hier (CAs laden blockiert -> Thread),
@@ -288,7 +353,8 @@ class Miniserver:
             ssl_ctx = await asyncio.to_thread(ms_ssl_kontext, ms.get("verify_tls", False))
         except Exception as err:
             try:
-                await newc.close()
+                if newc is not None:
+                    await newc.close()
             except Exception:
                 pass
             if isinstance(err, asyncio.TimeoutError) and not str(err):   # Frist von wait_for
@@ -296,6 +362,8 @@ class Miniserver:
             raise
         # Erfolg -> uebernehmen
         self._zugang_setzen(ms)
+        self.ms_tls = tls
+        self._schema_melden(tls)
         old_client, self.client = self.client, newc
         self.alg = alg
         self._set_token(jwt)
@@ -323,7 +391,7 @@ class Miniserver:
     async def _connect_ws(self) -> None:
         self.ws = LoxoneWS(host=self.host, port=self.port, user=self.user, jwt=self.jwt,
                            hash_alg=self.alg, verify_tls=self.verify_tls,
-                           secure=_ms_https(self.port), antwortfrist=_ms_antwortfrist(),
+                           secure=self._ms_verschluesselt(), antwortfrist=_ms_antwortfrist(),
                            keepalive_abstand=_ms_keepalive_abstand())
         await self.ws.connect()
 
@@ -363,7 +431,7 @@ class Miniserver:
         async def once() -> tuple[int, bytes, str]:
             if self.icon_session is None:
                 raise ConnectionError("keine Verbindung zum Miniserver")
-            scheme = "https" if _ms_https(self.port) else "http"
+            scheme = "https" if self._ms_verschluesselt() else "http"
             headers = {"Authorization": f"Bearer {self.jwt}"} if self.jwt else {}
             async with self.icon_session.get(f"{scheme}://{self.host}:{self.port}/{path.lstrip('/')}",
                                              headers=headers,

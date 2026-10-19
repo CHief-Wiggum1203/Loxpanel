@@ -1,8 +1,9 @@
 """pytest-Einstellungen fuer LoxPanel.
 
 - bin/ liegt im Suchpfad (ueber lox.py), die Tests importieren webvisu direkt.
-- `miniserver_http`: der Nachbau spricht HTTP; webvisu entscheidet das Schema
-  sonst am Port (nur 80 = HTTP).
+- `miniserver_http`: der Nachbau spricht HTTP; die Anmeldung versucht dann
+  gleich HTTP. Ohne die Fixture versucht sie erst HTTPS (jeder Port ausser 80)
+  und wechselt danach auf HTTP (tests/test_schema_wahl.py).
 - Waechter: kein Test darf config/ veraendern - dort liegen im Betrieb die
   echten Einstellungen (Volume /app/config).
 - `cfg_ordner`: config/ fuer einen Test nach tmp_path umleiten, Lesen UND

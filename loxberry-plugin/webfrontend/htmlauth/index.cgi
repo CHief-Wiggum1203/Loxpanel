@@ -93,8 +93,8 @@ sub _lox_cred {
 }
 
 # Port des Miniservers aus der LoxBerry-Konfiguration: bei "HTTPS bevorzugen"
-# (PreferHttps) der HTTPS-Port, sonst der HTTP-Port. Das Schema waehlt der
-# Server am Port (80 = HTTP, sonst HTTPS: _ms_https in miniserver.py).
+# (PreferHttps) der HTTPS-Port, sonst der HTTP-Port. Ob dort HTTP oder HTTPS
+# antwortet, erkennt der Server selbst (_ms_oeffnen in miniserver.py).
 # PreferHttps kommt je nach LoxBerry als JSON-Wahrheitswert oder als Text.
 sub _lox_port {
     my ($m) = @_;
