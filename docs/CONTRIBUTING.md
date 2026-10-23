@@ -134,6 +134,11 @@ git merge upstream/main
 #    modified in upstream/main“): gelöscht lassen (git rm), sonst
 #    veröffentlicht sie wieder ohne Tests. Nötiges in den Job
 #    veroeffentlichen in tests.yml übertragen (Fork-eigene Patches unten).
+#    Workflows: Upstream schreibt `uses: …@v4`, der Fork den Commit
+#    (`@<sha> # v4.x.y`). Den Commit behalten; hebt Upstream eine Action auf
+#    eine neue Hauptversion, deren Commit eintragen (Abschnitt
+#    „Abhängigkeiten“ unten). Ändert der Merge requirements.txt, die
+#    Sperrliste neu erzeugen, sonst wird tests/test_abhaengigkeiten.py rot.
 
 # 4. Rauchtest (siehe unten), mindestens die Wache über die Workflows:
 .venv/bin/pytest tests/test_workflows.py
@@ -408,6 +413,44 @@ nicht still entfernt):
    `ghcr.io/chief-wiggum1203/loxpanel` (klein), `ARCHIVEURL` auf den Fork und
    `plugin.cfg` NAME/FOLDER/AUTHOR unverändert sind.
 
+## Abhängigkeiten
+
+Fremder Code kommt nur festgenagelt ins Image, damit eine neue oder
+manipulierte Version nicht still beim nächsten Bauen hineinrutscht:
+
+| Quelle | Festgenagelt in | Aktualisiert durch |
+|---|---|---|
+| Python-Pakete, auch die mitgezogenen | `requirements-lock.txt`: genaue Versionen, jede Datei mit Prüfsumme; Image und CI installieren mit `--require-hashes` | Dependabot (Gruppe `python`), monatlich |
+| Grundimage `python:3.12-slim` | `FROM …@sha256:` im `Dockerfile` | Dependabot, monatlich, nur neue Stände von 3.12 |
+| GitHub Actions | `uses: …@<Commit> # vX.Y.Z` in allen Workflows | Dependabot (Gruppe `actions`), monatlich |
+
+`requirements.txt` bleibt die Liste mit Bereichen: Danach installieren die App
+(Chaquopy bringt eigene Android-Pakete mit), das `.deb` und die Anleitungen ohne
+Docker, jeweils mit ihrem eigenen Python. Die Sperrliste gilt nur für Python
+3.12, wie Image und CI.
+
+**Ein Paket hinzufügen oder einen Bereich ändern:** `requirements.txt`
+anpassen, dann die Sperrliste unter Python 3.12 neu erzeugen (derselbe Befehl
+steht in ihrem Kopf):
+
+```bash
+python3.12 -m venv /tmp/pt && /tmp/pt/bin/pip install pip-tools
+/tmp/pt/bin/pip-compile --generate-hashes --allow-unsafe --strip-extras \
+    --no-emit-index-url --output-file=requirements-lock.txt requirements.txt
+```
+
+Ohne `--upgrade` bleiben alle übrigen Pakete, wie sie sind. `pip-compile` lädt
+jede Datei einmal, um ihre Prüfsumme selbst zu rechnen; das dauert einige
+Minuten. `tests/test_abhaengigkeiten.py` meldet eine Sperrliste, die nicht mehr
+zu `requirements.txt` passt.
+
+**Pull Requests von Dependabot** laufen durch dieselben Tests wie jede andere
+Änderung; grün heißt mergen. Eine Obergrenze in `requirements.txt` (etwa
+`icalendar<7`) ist Absicht: `.github/dependabot.yml` schließt die nächste
+Hauptversion aus, angehoben wird sie von Hand. Sicherheitsupdates kommen davon
+unabhängig sofort, wenn in den Repo-Einstellungen unter „Code security“ die
+„Dependabot security updates“ an sind.
+
 ## Prüfen vor jedem Push
 
 Die GitHub-Action „Tests und Image“ (`.github/workflows/tests.yml`) läuft auf
@@ -419,6 +462,7 @@ alles davor grün ist. Ein PR wird erst gemergt, wenn sie grün ist. Lokal
 dasselbe (Einzelheiten in `CLAUDE.md`):
 
 ```bash
+.venv/bin/pip install --require-hashes -r requirements-lock.txt   # Python 3.12
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m playwright install chromium
 .venv/bin/ruff check --select F,E9 bin agent tests

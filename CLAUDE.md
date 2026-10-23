@@ -67,6 +67,7 @@ Tests liegen in `tests/` (pytest), die GitHub-Action `tests.yml` führt sie auf
 jedem PR, jedem Push auf `main` und jedem `v*`-Tag aus. Lokal dasselbe:
 
 ```bash
+.venv/bin/pip install --require-hashes -r requirements-lock.txt   # einmalig, Python 3.12 wie Image und CI
 .venv/bin/pip install -r requirements-dev.txt     # einmalig, dazu für Browser-Tests:
 .venv/bin/python -m playwright install chromium    # einmalig
 python3 -m py_compile bin/*.py bin/bausteine/*.py bin/routen/*.py agent/loxpanel-agent.py
@@ -163,6 +164,15 @@ python3 -m py_compile bin/*.py bin/bausteine/*.py bin/routen/*.py agent/loxpanel
   `main` baut `:latest` neu, aber erst, wenn die Tests desselben Laufs grün sind
   (Job `veroeffentlichen` in `tests.yml`). Einen eigenen Docker-Workflow gibt es
   im Fork nicht mehr, `tests/test_workflows.py` wacht darüber.
+- Abhängigkeiten sind festgenagelt. `requirements.txt` nennt die Pakete als
+  Bereiche (App, `.deb`, Installation ohne Docker, jeweils mit eigenem Python),
+  `requirements-lock.txt` sperrt sie für Python 3.12 mit Prüfsummen: Image und
+  CI installieren nur daraus (`--require-hashes`). Wer `requirements.txt`
+  ändert, erzeugt die Sperrliste neu (Befehl in ihrem Kopf,
+  `docs/CONTRIBUTING.md`). Grundimage (`FROM …@sha256:`) und Actions
+  (`uses: …@<Commit> # vX.Y.Z`) stehen ebenso fest; neue Stände kommen als PR
+  von Dependabot (`.github/dependabot.yml`). `tests/test_abhaengigkeiten.py`
+  wacht darüber.
 - Root-`plugin.cfg`, `daemon/`, `postinstall.sh`, `apt`,
   `webfrontend/htmlauth/index.php`, `config/visu.*` sind Altlasten ohne Funktion.
 

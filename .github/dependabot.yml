@@ -1,0 +1,45 @@
+# Neue Staende der festgenagelten Abhaengigkeiten kommen als Pull Request,
+# nie still beim Bauen: Python-Pakete (requirements-lock.txt mit Pruefsummen,
+# Grenzen aus requirements.txt), das Grundimage (Dockerfile, ueber seine
+# Pruefsumme) und die GitHub Actions (ueber den Commit). Jeder dieser Pull
+# Requests laeuft durch dieselben Tests wie jede andere Aenderung; erst der
+# Merge bringt den neuen Stand ins Image. Sicherheitsupdates kommen davon
+# unabhaengig sofort, wenn sie in den Repo-Einstellungen eingeschaltet sind
+# (Code security -> Dependabot security updates).
+# tests/test_abhaengigkeiten.py wacht ueber diese Datei.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    # Bereiche in requirements.txt nur anfassen, wenn der neue Stand sonst
+    # nicht hineinpasst; die gesperrte Liste bekommt immer die genaue Version.
+    versioning-strategy: increase-if-necessary
+    groups:
+      python:
+        patterns: ["*"]
+    ignore:
+      # Obergrenzen in requirements.txt sind bewusst gesetzt (icalendar 7 ist
+      # nicht erprobt, die App bekam einmal 7.3.0 statt 6.3.2). Ueber sie
+      # hinweg schlaegt Dependabot nichts vor; das hebt man selbst an.
+      - dependency-name: icalendar
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+    ignore:
+      # Nur neue Staende von 3.12-slim (Pruefsumme), keine andere
+      # Python-Version: Die gesperrte Liste und die CI sind fuer 3.12 gebaut.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

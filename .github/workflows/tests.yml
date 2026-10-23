@@ -8,7 +8,8 @@ name: Tests und Image
 # Pruef-Jobs DIESES Laufs (also desselben Commits) gruen sind. Einen eigenen
 # Docker-Workflow gibt es dafuer nicht mehr: Er lief neben den Tests her und
 # war fertig, bevor sie es waren. tests/test_workflows.py wacht darueber.
-# Lokal dasselbe: pip install -r requirements-dev.txt, dann pytest.
+# Lokal dasselbe: pip install --require-hashes -r requirements-lock.txt, dann
+# pip install -r requirements-dev.txt und pytest.
 
 on:
   pull_request:
@@ -38,18 +39,23 @@ jobs:
     # sind 360 min).
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"     # wie im Image (Dockerfile)
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements-lock.txt
             requirements-dev.txt
 
       - name: Abhaengigkeiten
-        run: pip install -r requirements-dev.txt
+        # Erst die gesperrte Liste mit Pruefsummen, also dieselben Versionen wie
+        # im Image, dann die Werkzeuge (pytest, ruff ...); die Bereiche aus
+        # requirements.txt sind damit schon erfuellt und bleiben, wie sie sind.
+        run: |
+          pip install --require-hashes -r requirements-lock.txt
+          pip install -r requirements-dev.txt
 
       - name: Syntax (Python, Workflows, Unraid-Vorlage)
         run: |
@@ -70,18 +76,19 @@ jobs:
     # wie oben.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements-lock.txt
             requirements-dev.txt
 
       - name: Abhaengigkeiten und Chromium
         run: |
+          pip install --require-hashes -r requirements-lock.txt
           pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
 
@@ -90,7 +97,7 @@ jobs:
 
       - name: Screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: screenshots
           path: ${{ runner.temp }}/pytest/**/*.png
@@ -102,11 +109,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64
@@ -130,10 +137,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -145,7 +152,7 @@ jobs:
 
       - name: Image-Metadaten (Tags/Labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -154,13 +161,13 @@ jobs:
             type=sha,format=short
 
       - name: QEMU (Multi-Arch)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       - name: Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Build & Push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v7
