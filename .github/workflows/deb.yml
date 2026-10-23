@@ -1,13 +1,12 @@
 name: Debian Package
 
-# Baut das LoxPanel-Server .deb bei jedem v*-Tag (und manuell) und haengt es an
-# den GitHub-Release. Das Paket ist Architecture: all — Python 3.12 + venv werden
-# beim Installieren per uv eingerichtet, daher kein Cross-Compile noetig.
-# Die Version kommt aus loxberry-plugin/plugin.cfg (wie bei der APK).
+# Baut das LoxPanel-Server .deb NUR noch auf manuellen Anstoss (workflow_dispatch).
+# Seit 0.9.9 liefert ein Release nur Plugin-ZIP und Android-APK; das .deb wird
+# nicht mehr automatisch am v*-Tag gebaut/angehaengt. Das Paket ist Architecture:
+# all — Python 3.12 + venv werden beim Installieren per uv eingerichtet, daher kein
+# Cross-Compile noetig. Die Version kommt aus loxberry-plugin/plugin.cfg.
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 # Das Release anlegen und die Datei anhaengen braucht Schreibrecht auf den

@@ -436,6 +436,7 @@ und ohne LoxBerry.
 
 Vollständige Release-Notes: [GitHub Releases](https://github.com/Lenardo1/Loxpanel/releases).
 
+- **0.9.9** – Letzter Schritt vor 1.0.0. **Natives SIP-Gegensprechen** an der Loxone-Intercom (Gen1), **alle Bausteine bedienbar** (Jalousien/Beschattung, Rauchmelder, Alarm, Sauna/Wellness, Energiemanager, Briefkasten u. a.), neuer **Kachel-Aufbau** mit drei Kachel-Sets (Loxone/Touch/Kreide), **Hausübersicht**, überarbeitete **Einrichtung**, Gesten, Verbindungszustand und Diagnose (`/api/health`, `/api/diagnose`). Miniserver erkennt **HTTP/HTTPS am Port** selbst (behebt `WRONG_VERSION_NUMBER`), LoxBerry-**Port frei einstellbar**. Intern: großer Modul-Refactor (Server und Oberfläche in Module zerlegt), ohne Verhaltensänderung. Hinweis: Release liefert nur noch **Plugin-ZIP** und **Android-APK** (kein `.deb` mehr).
 - **0.7.0** – Direkt aufs Gerät: **Android-App (APK, inkl. 32-bit/armeabi-v7a)** und **Linux-.deb** mit eingebautem Server (ohne LoxBerry/Docker). Verlauf-Widget stapelbar, Neu-Laden gegen Einfrieren, Version/Commit/Bauzeit sichtbar; diverse Detailkorrekturen.
 - **0.6.0** – Einheitliches **Widget-Konzept** (Pane 2 / Screensaver / eigener Tab), freie Tab-Inhalte, **Panel-Assistent**, Displays-Reiter + Betriebsmodus-Automatik, Verlaufs-Diagramme, Anzeige-Skalierung.
 - **0.5.0** – **Raum-Panel**, Theme aus einer **Panel-Farbe** + Nachtmodus, Pane-2-Flächen (Energiefluss/Anlagenschema/Kamera), Wetter vom Loxone-Wetterserver, Positionsring, volle Loxone-Icon-Bibliothek.
