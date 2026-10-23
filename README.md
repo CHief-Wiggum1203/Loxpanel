@@ -7,12 +7,10 @@ im Browser – ganz ohne Programmierung und ohne die Loxone-App.
 
 **Drei Wege zur Wahl – dieselbe Visu:**
 
-- 🧩 **LoxBerry-Plugin (Docker):** Plug&Play; **ein** zentraler Server versorgt
+- **LoxBerry-Plugin (Docker):** Plug&Play; **ein** zentraler Server versorgt
   beliebig viele Displays und Panel-Profile an einer Stelle.
-- 📱 **Android-App (APK):** installiert sich direkt aufs Tablet/Wandpanel, der
+- **Android-App (APK):** installiert sich direkt aufs Tablet/Wandpanel, der
   Server ist eingebaut – **läuft autonom, ohne LoxBerry oder Docker**.
-- 🐧 **Linux-Panel (.deb):** Server + Kiosk-Autostart direkt auf dem Gerät –
-  ebenfalls **eigenständig**, nichts weiter nötig.
 
 > Status: **lauffähig & produktiv einsetzbar.** Verbindet sich per WebSocket mit
 > dem Miniserver (Token-Auth), liest die Struktur automatisch ein und steuert live.
