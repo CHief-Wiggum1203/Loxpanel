@@ -3482,6 +3482,39 @@ auf Unraid über `/config` (Settings, dort auch *Sicherung* = `/api/backup` und
 | `android-apk.yml` | Tags `v*`, manuell | `LoxPanel-Server.apk`, signiert mit dem festen Schlüssel aus den Secrets `LOXPANEL_KEYSTORE_B64`, `LOXPANEL_KEYSTORE_PASSWORD`, `LOXPANEL_KEY_ALIAS` und `LOXPANEL_KEY_PASSWORD`; ohne sie bricht der Lauf mit einem Hinweis ab, die übrigen Workflows hängen nicht daran |
 | `deb.yml` | Tags `v*`, manuell | `loxpanel-server_<version>_all.deb` aus `packaging/deb/` am Release: Version aus `loxberry-plugin/plugin.cfg` (der Tag muss dazu passen), `bin/version.json` mit Version, Commit und Bauzeit im Paket, gepackt mit gzip, weil dpkg 1.20 (Debian 11) kein zstd kennt (`test_deb_paket` in `tests/test_version.py`) |
 
+**Abhängigkeiten (Lieferkette).** Fremder Code kommt nur festgenagelt ins
+Image. Bis Oktober 2026 zog jeder Bau die jeweils neueste Version: die
+Python-Pakete über Mindestversionen in `requirements.txt`, das Grundimage über
+das Etikett `3.12-slim`, die Actions über Etiketten wie `v4`. Eine manipulierte
+Version, etwa von `loxone-api` (kleines Projekt, bekommt das
+Miniserver-Kennwort zu sehen), wäre beim nächsten Push ungeprüft im Image
+gelandet. Jetzt:
+
+- `requirements-lock.txt` sperrt alle Pakete aus `requirements.txt` samt den
+  mitgezogenen für Python 3.12, je Paket genau eine Version, jede Datei mit
+  Prüfsumme (`pip-compile --generate-hashes`, der Befehl steht in ihrem Kopf).
+  `Dockerfile` und die Test-Jobs in `tests.yml` installieren nur daraus, mit
+  `--require-hashes`: Weicht eine Datei ab oder fehlt ein Paket, bricht der Bau
+  ab. Die Tests laufen so mit denselben Versionen wie das Image.
+- `requirements.txt` bleibt die Liste mit Bereichen. Danach installieren die
+  App (Chaquopy hat eigene Android-Pakete, deren Prüfsummen nicht die von PyPI
+  sind), das `.deb` und die Anleitungen ohne Docker, jeweils mit ihrem eigenen
+  Python; eine Sperrliste für 3.12 passte dort nicht.
+- Das Grundimage steht über die Prüfsumme seines Index (`FROM
+  python:3.12-slim@sha256:…`, gilt für amd64, arm64 und arm/v7), jede Action
+  über ihren Commit (`uses: …@<sha> # vX.Y.Z`).
+- Neue Stände bringt Dependabot als Pull Request, monatlich und je Quelle
+  gruppiert (`.github/dependabot.yml`); sie laufen durch dieselben Tests.
+  Obergrenzen aus `requirements.txt` und die Python-Version des Grundimages
+  schließt die Datei aus. Sicherheitsupdates kommen sofort, wenn sie in den
+  Repo-Einstellungen an sind.
+
+`tests/test_abhaengigkeiten.py` wacht darüber: Sperrliste vollständig fest mit
+Prüfsummen und passend zu `requirements.txt`, dasselbe Python in Sperrliste,
+Image und CI, Installation nur aus der Sperrliste, Actions auf Commits,
+Dependabot für alle drei Quellen. Ablauf zum Ändern und Aktualisieren:
+[`CONTRIBUTING.md`](CONTRIBUTING.md), Abschnitt „Abhängigkeiten“.
+
 Welcher Stand läuft, steht in der Seitenleiste des Konfigurators und in
 `/api/health` (`bin/version.json`, `bin/version_info.py`): Version aus
 `loxberry-plugin/plugin.cfg`, Commit und Bauzeit. `tests.yml` reicht den
@@ -3634,6 +3667,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | S5 | LoxBerry-`sudoers`: `docker` ohne Passwort ist faktisch Root. |
 | S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session. |
 | S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. `true` prüft gegen den Standard-Truststore und klappt nur mit dem Namen aus dem Zertifikat als Host, nicht mit der IP-Adresse (§5.1). |
+| S8 | Python-Pakete, Grundimage und GitHub Actions kamen bei jedem Bau in der jeweils neuesten Version, ungeprüft ins Image — behoben: Sperrliste mit Prüfsummen, Grundimage und Actions über Prüfsumme bzw. Commit, neue Stände als Pull Request von Dependabot (§9.3). |
 
 ### Performance
 

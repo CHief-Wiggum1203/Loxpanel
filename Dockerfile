@@ -1,17 +1,24 @@
 # LoxPanel — Web-Touch-Visu fuer Loxone (Server + Frontend)
-FROM python:3.12-slim
+# Grundimage fest ueber seine Pruefsumme (Index ueber alle Plattformen), nicht
+# nur ueber das Etikett, das jederzeit auf ein anderes Image zeigen kann. Neue
+# Staende kommen als Pull Request von Dependabot (.github/dependabot.yml).
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
 
 WORKDIR /app
 
 # Abhaengigkeiten (loxone-api zieht aiohttp mit; cryptography fuer die
-# Audioserver-Anmeldung). Auf 32-bit-ARM (linux/arm/v7) gibt es kein fertiges
+# Audioserver-Anmeldung) aus der gesperrten Liste: jedes Paket in genau einer
+# Version, jede Datei mit Pruefsumme (--require-hashes). Weicht eine Datei ab
+# oder fehlt ein Paket in der Liste, bricht der Bau ab, statt still eine andere
+# Version einzubauen. Die Liste entsteht aus requirements.txt (Kopf von
+# requirements-lock.txt). Auf 32-bit-ARM (linux/arm/v7) gibt es kein fertiges
 # cffi-Paket -> Compiler + libffi/libc nur zum Bauen installieren und danach
 # wieder entfernen, damit das Image schlank bleibt (amd64/arm64 nutzen Wheels).
-COPY requirements.txt .
+COPY requirements-lock.txt .
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends gcc libc6-dev libffi-dev; \
-    pip install --no-cache-dir -r requirements.txt; \
+    pip install --no-cache-dir --require-hashes -r requirements-lock.txt; \
     apt-get purge -y --auto-remove gcc libc6-dev libffi-dev; \
     rm -rf /var/lib/apt/lists/*
 

@@ -2618,3 +2618,16 @@ oder Gäste im WLAN nicht vertrauenswürdig sind.
 - [ ] **HTTPS** über einen Reverse-Proxy auf Unraid; dann muss der
       Installer-Befehl in `config.html` das Schema übernehmen. (S3) **M**
 - [ ] LoxBerry-`sudoers` enger fassen. Betrifft nur den LoxBerry-Betrieb. (S5) **S**
+- [x] **Abhängigkeiten festnageln (Lieferkette)**, angestoßen von RHC im
+      Loxforum (Oktober 2026): Python-Pakete, Grundimage und Actions kamen bei
+      jedem Bau in der neuesten Version. Jetzt sperrt `requirements-lock.txt`
+      alle 18 Pakete für Python 3.12 mit Prüfsummen (Image und CI installieren
+      nur daraus), das Grundimage steht über seine Prüfsumme, jede Action über
+      ihren Commit, neue Stände kommen monatlich als PR von Dependabot.
+      `requirements.txt` bleibt die Liste mit Bereichen für App, `.deb` und
+      Installation ohne Docker. Wache: `tests/test_abhaengigkeiten.py`;
+      ARCHITEKTUR §9.3, CONTRIBUTING „Abhängigkeiten“. (S8) **M**
+- [ ] **Dependabot-Sicherheitsupdates einschalten**: in den Repo-Einstellungen
+      unter „Code security“ „Dependabot alerts“ und „Dependabot security
+      updates“. Ohne sie kommen Sicherheitskorrekturen erst mit dem monatlichen
+      Pull Request. (S8) **S**
