@@ -316,6 +316,20 @@ function hausReihen(g){
   if(karten.some(k=>k.scrollHeight>k.clientHeight+1))
     g.style.setProperty('--hs-rh', Math.ceil(Math.max(...karten.map(k=>k.scrollHeight)))+'px');
 }
+// Scrollt das Raumgitter (feste Reihenhoehe --hs-rh), die sichtbare Hoehe auf
+// ganze Reihen deckeln: sonst steht unten eine halbe Karte. Nach hausReihen,
+// das die endgueltige Reihenhoehe setzt. Ohne Scroll (--hs-rh = 1fr) nichts tun.
+function hausDeckeln(g){
+  const r=g.querySelector('.hs-raeume');
+  if(!r) return;
+  r.style.maxHeight='';                        // erst zuruecksetzen -> volle Hoehe messen
+  const rh=parseFloat(getComputedStyle(r).getPropertyValue('--hs-rh'));
+  if(!(rh>0)) return;                          // minmax(0,1fr): passt ohne Scroll, nichts zu deckeln
+  const gap=parseFloat(getComputedStyle(r).rowGap)||0, avail=r.clientHeight;
+  if(avail<=0) return;
+  const reihen=Math.max(1, Math.floor((avail+gap)/(rh+gap))), hoch=reihen*(rh+gap)-gap;
+  if(hoch<avail-1) r.style.maxHeight=hoch+'px';
+}
 function renderHaus(){
   const g=el('grid'), v=view;
   g.classList.remove('list','snapy','lx','hpages','punkte','fuss','panel','bigpage','anchorbot','scheme','fronttab','chartpage');
@@ -333,6 +347,7 @@ function renderHaus(){
   g.innerHTML='<div class="hs'+(L.spalte?' spalte':'')+(L.links?' links':'')+'">'+links+'<div class="hs-main">'+main+'</div>'+teil('seite')+'</div>';
   B.forEach(b=>{ const n=g.querySelector('[data-hb="'+CSS.escape(b[0])+'"]'); if(n) n._h=b[2]; });
   hausReihen(g);
+  hausDeckeln(g);
   g._hsSig=hausSig(L, B);
   if(!g._hsKlick){ g._hsKlick=true; g.addEventListener('click', hausKlick); g.addEventListener('error', hsCoverFehlt, true); }
   tickClock();
@@ -354,6 +369,7 @@ function updateHaus(){
     const m=t.content.firstElementChild; m._h=h; n.replaceWith(m);
   });
   hausReihen(g);
+  hausDeckeln(g);
   tickClock();
   return true;
 }
