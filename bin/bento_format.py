@@ -30,6 +30,19 @@ BENTO_URL_MAX = 2000
 BENTO_NAME_MAX = 40
 BENTO_UHR = "clock"
 BENTO_IFRAME = "iframe"
+BENTO_WETTER = "weather"
+BENTO_KALENDER = "calendar"
+BENTO_SPIELER = "player:"
+BENTO_ENERGIE = "energy:"
+# Ab welchem Seitenverhaeltnis (Breite/Hoehe) ein Schirm ein Streifen ist; gleich
+# der Schwelle der Huelle (loxos/src/monitor.js, ein Test vergleicht beide)
+STREIFEN_AB = 2.5
+# Zielgeraet (VISION.md "Begriffe"), wenn ein Geraet noch keinen Schirm gemeldet hat
+BENTO_FORMAT_STANDARD = {"vw": 2560, "vh": 720}
+# Name der vorgeschlagenen Seite
+BENTO_VORSCHLAG_NAME = "Start"
+# Mass der Zellen im Vorschlag: Uhr ueber alle Zeilen, Wetter/Audio/Energie breit
+BENTO_UHR_BREITE, BENTO_WIDGET_BREITE = 1, 2
 
 
 def _clean_iframe_url(v) -> str:
@@ -155,6 +168,61 @@ def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int) -> dict |
     out["cells"] = zellen
     return out
 
+
+def _erste_freie_stelle(belegt: set, spalten: int, zeilen: int, w: int, h: int):
+    """Erste Stelle (Zeile fuer Zeile, links zuerst), an der w x h frei ist, oder None."""
+    for y in range(zeilen - h + 1):
+        for x in range(spalten - w + 1):
+            if not any((x + i, y + j) in belegt for i in range(w) for j in range(h)):
+                return x, y
+    return None
+
+
+def bento_vorschlag(format_: dict | None, quellen: dict, favoriten: list) -> dict:
+    """Vorschlag fuer die Startseite eines Streifens (Assistent, VISION.md):
+    {"bento": {cols, rows, format, cells}, "picks": [uuid, ...]}. quellen =
+    {"energy": uuid|None, "player": uuid|None, "kalender": bool}; Uhr und
+    Wetter gibt es immer. Reihenfolge und Platz: Uhr (ueber alle Zeilen),
+    Wetter, Audio, Energie, Kalender, dann je ein Favorit in einer Zelle, so
+    viele wie frei sind. Jedes Stueck nimmt die erste freie Stelle (Zeile fuer
+    Zeile); was nicht mehr passt oder fehlt, laesst seinen Platz den Favoriten.
+    Rein: kennt weder die Anlage noch die App, bekommt alles als einfache Daten.
+    Das Ergebnis besteht bento_seite() unveraendert."""
+    spalten, zeilen = BENTO_SPALTEN_STANDARD, BENTO_ZEILEN_STANDARD
+    vw = _ganzzahl((format_ or {}).get("vw"), 1, 10 ** 6)
+    vh = _ganzzahl((format_ or {}).get("vh"), 1, 10 ** 6)
+    fmt = {"vw": vw, "vh": vh} if vw and vh else dict(BENTO_FORMAT_STANDARD)
+    stuecke = [(BENTO_UHR, BENTO_UHR_BREITE, zeilen), (BENTO_WETTER, BENTO_WIDGET_BREITE, 1)]
+    if quellen.get("player"):
+        stuecke.append((BENTO_SPIELER + quellen["player"], BENTO_WIDGET_BREITE, 1))
+    if quellen.get("energy"):
+        stuecke.append((BENTO_ENERGIE + quellen["energy"], BENTO_WIDGET_BREITE, 1))
+    if quellen.get("kalender"):
+        stuecke.append((BENTO_KALENDER, 1, 1))
+    belegt: set = set()
+    zellen: list = []
+
+    def setze(inhalt: dict, w: int, h: int) -> bool:
+        stelle = _erste_freie_stelle(belegt, spalten, zeilen, w, h)
+        if stelle is None:
+            return False
+        x, y = stelle
+        belegt.update((x + i, y + j) for i in range(w) for j in range(h))
+        zellen.append({"x": x, "y": y, "w": w, "h": h, **inhalt})
+        return True
+
+    for widget, w, h in stuecke:
+        setze({"widget": widget}, w, h)
+    # Bausteine, die schon als Widget stehen, kommen nicht noch einmal als Kachel
+    schon = {quellen.get("player"), quellen.get("energy")}
+    picks: list = []
+    for u in favoriten:
+        if not isinstance(u, str) or u in schon or u in picks:
+            continue
+        if not setze({"ids": [u]}, 1, 1):
+            break
+        picks.append(u)
+    return {"bento": {"cols": spalten, "rows": zeilen, "format": fmt, "cells": zellen}, "picks": picks}
 
 
 def bento_grenzen() -> dict:

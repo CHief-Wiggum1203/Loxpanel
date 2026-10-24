@@ -18,9 +18,11 @@ from aiohttp import web
 
 import theme_colors
 from bausteine.gemeinsam import _clean
-from bento_format import bento_grenzen   # LoxOS
+from bento_format import BENTO_VORSCHLAG_NAME, bento_grenzen, bento_vorschlag, STREIFEN_AB   # LoxOS
+from front_info import calendar_sources   # LoxOS
+from gesten import GESTEN_AUDIO_TYPEN   # LoxOS
 from geraete import _lan_adressen, NEULADEN_STUNDE, VORSCHAU_GERAET_DAUER
-from haus import HAUS_TITEL
+from haus import HAUS_ENERGIE_TYPEN, HAUS_TITEL
 from konfig import (
     _clean_kachel_aktiv, _clean_kachel_farbton, _clean_kachel_set, _devices_export, FRONT_TABS,
     GERAETE_KATALOG, GESTEN_HINWEIS_STANDARD, GESTEN_STANDARD, GROESSEN_STANDARD, HAUS_AKTIV_ARTEN,
@@ -55,6 +57,28 @@ async def api_kachelset(request: web.Request) -> web.Response:
     return web.json_response({"set": name, "kachel": theme_colors.kachel_set_kachel(name, farbton, aktiv),
                               "vorschau": theme_colors.kachel_set_vorschau(name, farbton, aktiv),
                               "pruefung": theme_colors.kachel_set_pruefung(name, farbton, aktiv)})
+
+
+async def api_bento_vorschlag(request: web.Request) -> web.Response:
+    """LoxOS (Fork): Vorschlag fuer die Bento-Startseite eines Streifens
+    (?device=<Name>), Schritt 4 des Assistenten. Sammelt, was die Anlage hat -
+    erste Audiozone, Energiefluss (EFM, sonst Energiemanager), Kalender-Abo,
+    Favoriten in Strukturreihenfolge - und das gemeldete Format des Geraets
+    (wie /api/devices); gerechnet wird in bento_format.bento_vorschlag().
+    Nur lesend, speichert nichts."""
+    app: App = request.app["app"]
+    name = request.query.get("device", "")
+    schirm = next((d["screen"] for d in app.device_list()["devices"] if d["name"] == name), {})
+    format_ = {k: schirm[k] for k in ("vw", "vh") if k in schirm}
+    bekannt = len(format_) == 2
+    energie = next((u for t in HAUS_ENERGIE_TYPEN for u, c in app.controls.items() if c.get("type") == t), None)
+    zone = next((u for u, c in app.controls.items() if c.get("type") in GESTEN_AUDIO_TYPEN), None)
+    favoriten = [u for u, c in app.controls.items() if c.get("isFavorite") and c.get("name")]
+    v = bento_vorschlag(format_ if bekannt else None,
+                        {"energy": energie, "player": zone, "kalender": bool(calendar_sources(app.calendar_cfg))},
+                        favoriten)
+    return web.json_response({"pickTab": {"name": BENTO_VORSCHLAG_NAME, "picks": v["picks"], "bento": v["bento"]},
+                              "format": v["bento"]["format"], "formatBekannt": bekannt})
 
 
 async def api_meta(request: web.Request) -> web.Response:
@@ -98,6 +122,7 @@ async def api_meta(request: web.Request) -> web.Response:
         "svStatusMax": SV_STATUS_MAX,
         # LoxOS (Fork): Grenzen und Standards der Bento-Seiten fuer den Editor
         "bento": bento_grenzen(),
+        "streifenAb": STREIFEN_AB,           # LoxOS: ab diesem Seitenverhaeltnis ist ein Schirm ein Streifen
         # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
         # innerhalb davon an.
         "scaleRange": [SCALE_MIN, SCALE_MAX],
