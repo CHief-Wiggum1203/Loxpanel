@@ -295,7 +295,9 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   `/api/entwurf`).
 - **Schritt 5 – Fertig:** Legt eine **neue** Ansicht „LoxOS · <Gerät>“ an
   (bestehende werden nie überschrieben; gibt es den Namen schon, wird
-  durchgezählt), ordnet sie dem Gerät zu (`/api/device/switch`), speichert
+  durchgezählt), speichert nur sie (offene Änderungen an anderen Ansichten
+  und an den Vorgaben bleiben offen), ordnet sie dem Gerät zu
+  (`/api/device/switch`), speichert
   Melder und `ruhe` (`/api/devices`). Danach steht der Bento-Editor offen,
   um die Seite anzupassen.
 - Die neue Ansicht enthält **nur** diese Bento-Seite (`tabs` = die eine
@@ -342,7 +344,8 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   und Farbton (`tileSet`, `tileHue`, `tileHueEdge`, `tileActive`); sie stehen
   in der Liste, aber nur mit eigenem Knopf. Welche Schlüssel zu welcher Gruppe gehören, steht
   als benannte Liste im Code (`ABWEICHUNG_BLEIBT`), nicht nur hier; dazu
-  gehört auch `player` (Audio-Zone des Widgets). Vor dem
+  gehören auch `player` (Audio-Zone des Widgets) und `hausEnergie` (der
+  gewählte Energie-Baustein der Hausübersicht). Vor dem
   Zurücksetzen fragt eine Bestätigung in der Seite (kein Browser-Dialog), was
   zurückgesetzt wird; in den Vorgaben nennt sie dazu, für wie viele Ansichten
   die Werte gelten („gilt für n von m“).
@@ -477,6 +480,11 @@ LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
   `theme_colors.py`, Datenparameter der Widget-Renderer (`front.js`,
   `kacheln.js`), das Set in `KACHEL_SETS` mit seiner Übersetzung, Weiche im Seiten-Editor, Script- und Stylesheet-Tags in
   `panel.html` und `config.html`.
+- **`PANEL_UI_EXPORT`** (`bin/ansicht.py`) hält seit Stufe 2.5 die frühere
+  Liste der `ui`-Schlüssel, die in `_panel_export()` inline stand. Fügt
+  Upstream dort einen Schlüssel hinzu, kollidiert der Merge an dieser
+  Konstante und wird dort gelöst: der neue Schlüssel kommt in
+  `PANEL_UI_EXPORT`.
 - **Nach jedem Upstream-Merge** laufen die LoxOS-Tests mit; ein Konflikt an
   einer Andockstelle wird dort gelöst, nicht durch Kopieren von
   Upstream-Code in LoxOS-Dateien.

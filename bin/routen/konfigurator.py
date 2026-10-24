@@ -30,7 +30,7 @@ from konfig import (
     KACHEL_ZIEL_MAX, KACHEL_ZIEL_MIN, KACHEL_ZIEL_STANDARD, NACHT_STANDARD, PANE_ANTEIL,
     PANE_SPALTEN_MAX, _panels_verworfen, PICK_TAB, PIN_MERKEN_MAX, PIN_MERKEN_STANDARD,
     _sanitize_categories, _sanitize_panels, _sanitize_theme_ui, SCALE_MAX, SCALE_MIN, STAT_RANGES,
-    SV_STATUS_MAX, THEME_UI_KEYS)
+    SV_STATUS_MAX, THEME_UI_KEYS, TITEL_MAX)
 from routen.gemeinsam import _push
 from seiten import KACHEL_BREIT_TYPEN, WERTE_LEISTE_TYPEN
 from symbolquellen import _loxlib_names
@@ -123,6 +123,7 @@ async def api_meta(request: web.Request) -> web.Response:
         # LoxOS (Fork): Grenzen und Standards der Bento-Seiten fuer den Editor
         "bento": bento_grenzen(),
         "streifenAb": STREIFEN_AB,           # LoxOS: ab diesem Seitenverhaeltnis ist ein Schirm ein Streifen
+        "titelMax": TITEL_MAX,               # LoxOS: so lang speichert der Server einen Ansichtstitel (Assistent)
         # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
         # innerhalb davon an.
         "scaleRange": [SCALE_MIN, SCALE_MAX],

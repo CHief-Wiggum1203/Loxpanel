@@ -160,6 +160,7 @@ def test_vorgaben_nennen_die_ansichten(cfg_ordner, tmp_path):
         name = _zeile(pg, "nameSize")
         assert await name.locator(".abw-wert").text_content() == "19 px"
         assert await name.locator(".abw-ohne").text_content() ==             f"sonst gilt: {konfig.GROESSEN_STANDARD['neu']['nameSize']} px · Standard"
+        assert await name.locator("[data-abw-reiter]").count() == 0, "kein Sprung in den Reiter, in dem die Karte steht"
         await _zeile(pg, "dpmsOff").locator("[data-abw-reiter]").click()
         assert await pg.locator(".stab.active").get_attribute("data-sub") == "verhalten"
         await pg.locator(".stab[data-sub='appearance']").click()
@@ -177,6 +178,22 @@ def test_vorgaben_nennen_die_ansichten(cfg_ordner, tmp_path):
     _laufen(cfg_ordner, {"flur": {"title": "Flur", "tabs": ["favoriten"]},
                          "kueche": {"title": "Küche", "tabs": ["favoriten"], "ui": {"nameSize": 22}}},
             {"nameSize": 19, "dpmsOff": 60}, schritte)
+
+
+def test_werte_lesbar(cfg_ordner):
+    """Seiten der Werteleiste mit ihrem Namen, Auswahlwerte mit dem Text, den der
+    Editor zeigt, nicht mit dem Schluessel."""
+    ui = {"valueBar": ["favoriten", "auswahl"], "tileLayout": "classic", "hausAufbau": "raeume",
+          "hausAktivOhne": ["licht", "audio"]}
+
+    async def schritte(pg):
+        await _ansicht(pg, "flur")
+        wert = {k: await _zeile(pg, k).locator(".abw-wert").text_content() for k in ui}
+        assert wert == {"valueBar": "Favoriten, Meine Seite", "tileLayout": "Klassisch",
+                        "hausAufbau": konfig.HAUS_AUFBAUTEN["raeume"],
+                        "hausAktivOhne": ", ".join(konfig.HAUS_AKTIV_ARTEN[a][0] for a in ("licht", "audio"))}, wert
+    _laufen(cfg_ordner, {"flur": {"title": "Flur", "tabs": ["favoriten", "auswahl"],
+                                  "pickTabs": [{"name": "Meine Seite", "picks": ["L"]}], "ui": ui}}, {}, schritte)
 
 
 def test_ohne_abweichungen(cfg_ordner):

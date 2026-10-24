@@ -1005,6 +1005,9 @@ def _cfg_datei() -> dict:
 # ---- Sanitizer: was beim Speichern einer Ansicht, eines Geraets und der
 # Vorgaben bleibt. Statisch, App haelt sie als staticmethod-Aliase.
 
+TITEL_MAX = 40   # LoxOS: so lang wird ein Ansichtstitel gespeichert; /api/meta titelMax (Assistent)
+
+
 def _sanitize_panels(panels: dict) -> dict:
     out: dict = {}
     for pid, p in panels.items():
@@ -1012,7 +1015,7 @@ def _sanitize_panels(panels: dict) -> dict:
             continue
         e: dict = {}
         if p.get("title"):
-            e["title"] = str(p["title"])[:40]
+            e["title"] = str(p["title"])[:TITEL_MAX]
         tabs = [t for t in (p.get("tabs") or []) if _is_tab(t)][:4]
         e["tabs"] = tabs or list(VALID_TABS)
         e["rooms"] = [str(x) for x in (p.get("rooms") or []) if isinstance(x, str)]

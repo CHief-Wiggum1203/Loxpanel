@@ -881,7 +881,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
 | GET | `/api/bento/vorschlag` | `api_bento_vorschlag` | LoxOS (Fork): Vorschlag für die Bento-Startseite eines Streifens, `?device=<Name>`: `{pickTab: {name, picks[], bento}, format: {vw, vh}, formatBekannt}`. Sammelt erste Audiozone, Energiefluss (EFM, sonst EnergyManager2), Kalender-Abo (`calendar_sources()`) und Favoriten (`isFavorite`, Strukturreihenfolge) und das gemeldete Format des Geräts (`device_list()`, ohne: `BENTO_FORMAT_STANDARD`); gerechnet wird in der reinen Funktion `bento_vorschlag()` (`bento_format.py`). Nur lesend | Konfigurator (LoxOS-Assistent, Schritt 4) |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`); im Fork (LoxOS) `bento` (Grenzen der Bento-Seiten) und `streifenAb` (`STREIFEN_AB`, Seitenverhältnis, ab dem ein Schirm ein Streifen ist, gleich der Schwelle der Hülle) | Konfigurator, Einstellungen |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`); im Fork (LoxOS) `bento` (Grenzen der Bento-Seiten), `streifenAb` (`STREIFEN_AB`, Seitenverhältnis, ab dem ein Schirm ein Streifen ist, gleich der Schwelle der Hülle) und `titelMax` (`konfig.TITEL_MAX`, so lang speichert der Server einen Ansichtstitel; der LoxOS-Assistent zählt Titel damit) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden) | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
@@ -2835,14 +2835,20 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Bis „Fertig“ bleiben `PANELS`, `DEV` und `cur` unberührt; Abbrechen, ✕, Esc
   oder Klick daneben ändern nichts und ersetzen den iframe (wie `geClose()`).
   `loxFertig()` legt die Ansicht `loxProfil()` an: Titel „LoxOS · <Gerät>“
-  (`loxTitel()`; gibt es den Titel schon, „… 2“, „… 3“), Kennung über
+  (`loxTitel()`; gibt es den Titel schon, „… 2“, „… 3“; gezählt wird am Titel,
+  wie ihn der Server speichert, gekürzt auf `/api/meta` `titelMax`), Kennung über
   `idAusName()`, `tabs` nur die eine freie Seite (`pickKey(0)`, keine Leiste am
   Gerät), `ui: {tileSet: "edge", tileHueEdge?}`, `pickTabs` = der Vorschlag,
-  `device` mit dem Format des Vorschlags. Dann `ansichtAmGeraet()` (speichern,
-  `/api/device/switch`) und `devSpeichern()` mit `loxGeraeteListe()`: dem
-  gespeicherten Stand der Geräte (offene Änderungen an anderen Geräten gehen
-  nicht mit), jeder Zuordnung aus `DEVICE_ZUORDNUNG` und für dieses Gerät
-  Zuordnung, Melder und `ruhe`; Betriebsmodi bleiben. Danach steht der
+  `device` mit dem Format des Vorschlags. `loxAnsichtSpeichern()` speichert nur
+  sie: den zuletzt gespeicherten Stand (`GESPEICHERT`) plus die neue Ansicht an
+  `POST /api/panels`, über dieselbe Kette wie `ansichtLoeschen()`; offene
+  Änderungen an anderen Ansichten und an den Vorgaben bleiben offen, die neue
+  gilt als gespeichert. Danach schaltet `ansichtAmGeraet()` nur noch um
+  (`/api/device/switch`), und `devSpeichern()` schickt `loxGeraeteListe()`:
+  den gespeicherten Stand der Geräte (offene Änderungen an anderen Geräten
+  gehen nicht mit) und für dieses Gerät Zuordnung, Melder und `ruhe`. Die
+  anderen Geräte behalten ihre gespeicherte Zuordnung, weil `POST /api/devices`
+  `panel` aus dem Bestand einsetzt, wenn es fehlt; Betriebsmodi bleiben. Danach steht der
   Bento-Editor der neuen Seite offen (Ansichten → Seiten).
   `tests/browser/test_loxos_assistent_browser.py` hält den Weg fest.
 - **Übersicht „Was ist eingestellt?“** (Fork, `docs/VISION.md`, Stufe 2.5):
@@ -2852,13 +2858,16 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   ein `ui`-Schlüssel, den die Ansicht selbst setzt (in den Vorgaben jeder
   gesetzte; leere Objekte und Listen zählen nicht), mit Namen und Reiter aus
   `ABWEICHUNG_FELDER` (unbekannte mit technischem Namen), Wert (`abwWert()`
-  über `wertText()`), „sonst gilt“ (`wasGiltOhneEigenen()`/`giltText()`, in den
+  über `wertText()`; Seiten der Werteleiste mit `seitenName()`, Auswahlwerte
+  wie `tileLayout`, `hausAufbau`, `hausAktivOhne` mit dem Text des Editors),
+  „sonst gilt“ (`wasGiltOhneEigenen()`/`giltText()`, in den
   Vorgaben der Standard), Sprung zum Reiter (`ABWEICHUNG_REITER_VORGABEN` für
-  die Vorgaben) und „× zurücksetzen“ (entfernt den Eintrag). „Alles auf
+  die Vorgaben; nicht zu dem Reiter, in dem die Karte steht) und „× zurücksetzen“ (entfernt den Eintrag). „Alles auf
   Standard“ fragt in der Seite (`.abw-frage`, kein Browser-Dialog) und nennt,
   was zurückgesetzt wird, in den Vorgaben je Schlüssel „gilt für n von m
   Ansichten“; die Schlüssel in `ABWEICHUNG_BLEIBT` (Widgets, Werteleiste,
-  Audio-Zone des Widgets, Kachel-Set, Farbton, aktive Kachel) bleiben und
+  Audio-Zone des Widgets, Energie im Kopf der Hausübersicht, Kachel-Set,
+  Farbton, aktive Kachel) bleiben und
   haben nur ihren eigenen Knopf. Geändert wird die Arbeitskopie (`markDirty()`,
   dann `renderEditor()`), wirksam mit „Speichern“. Eingehängt mit einem Aufruf
   `abweichungenEinhaengen()` am Ende von `erbtZeichnen()`, das `renderEditor()`
