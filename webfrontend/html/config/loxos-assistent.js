@@ -20,6 +20,7 @@
 
 const LOX_SET='edge';               // Kachel-Set des Streifens (theme_colors.KACHEL_SETS)
 const LOX_TITEL='LoxOS · ';         // Titel der neuen Ansicht: davor der Geraetename
+const LOX_TITEL_MAX=40;             // so lang speichert der Server einen Titel (konfig._sanitize_panels)
 const LOX_VORSCHAU_MS=350;          // Entwurf erst nach dieser Pause schicken (wie geVorschau)
 const LOX={step:0, device:'', vorschlag:null, presence:'', ruhe:true, ton:null, token:'', url:'', timer:0,
   benannt:'', _sig:'', _wired:false, _laeuft:false};
@@ -55,8 +56,10 @@ function loxModi(){ return ((DEV[LOX.device]||{}).modes||[]).filter(([m,p])=>m&&
 // ---- Die neue Ansicht -------------------------------------------------------------
 function loxTitel(){
   const titel=new Set(Object.values(PANELS).map(p=>p && p.title));
-  const t=LOX_TITEL+LOX.device; let k=t, n=2;
-  while(titel.has(k)) k=t+' '+(n++);
+  // verglichen und gezaehlt wird der Titel, wie er gespeichert wird: der Zaehler bleibt drin
+  const t=LOX_TITEL+LOX.device, mit=z=>t.slice(0, LOX_TITEL_MAX-z.length)+z;
+  let k=mit(''), n=2;
+  while(titel.has(k)) k=mit(' '+(n++));
   return k;
 }
 function loxId(){ return idAusName(loxTitel()); }
@@ -71,9 +74,12 @@ function loxProfil(){
 }
 async function loxVorschlagHolen(){
   const n=LOX.device; if(!n || LOX.vorschlag) return;
-  try{ const r=await fetch('/api/bento/vorschlag?device='+encodeURIComponent(n)); const j=await r.json();
-    if(LOX.device===n && j && j.pickTab) LOX.vorschlag=j; }
-  catch(e){ flash($('#loxToast'), T('Vorschlag nicht geladen:')+' '+e.message, false); }
+  let fehler='';
+  try{ const r=await fetch('/api/bento/vorschlag?device='+encodeURIComponent(n)); const j=await r.json().catch(()=>null);
+    if(j && j.pickTab){ if(LOX.device===n) LOX.vorschlag=j; }
+    else fehler=(j && j.error) || ('HTTP '+r.status); }
+  catch(e){ fehler=e.message; }
+  if(fehler) flash($('#loxToast'), T('Vorschlag nicht geladen:')+' '+fehler, false);
 }
 
 // ---- Vorschau ---------------------------------------------------------------------
@@ -231,12 +237,10 @@ function loxClose(){
   $('#loxOv').hidden=true;
 }
 // Geraeteliste fuer /api/devices: der gespeicherte Stand (offene Aenderungen an
-// anderen Geraeten gehen nicht nebenbei mit), dazu jede Zuordnung, die der
-// Server kennt (ein Geraet nur mit Zuordnung fehlt in GER_GESPEICHERT und ginge
-// sonst verloren), und fuer dieses Geraet Zuordnung, Melder und Ruhe.
+// anderen Geraeten gehen nicht nebenbei mit; ihre Zuordnung traegt der Server ein)
+// und fuer dieses Geraet Zuordnung, Melder und Ruhe.
 function loxGeraeteListe(name, id){
   const liste=JSON.parse(JSON.stringify(GER_GESPEICHERT||{}));
-  Object.entries(DEVICE_ZUORDNUNG).forEach(([n,z])=>{ if(z && !liste[n]) liste[n]={auto:true, modes:{}, panel:z}; });
   const d=liste[name]||(liste[name]={auto:true, modes:{}});
   d.panel=id;
   if(LOX.presence) d.presence=LOX.presence; else delete d.presence;
@@ -253,11 +257,19 @@ async function loxFertig(){
     await ansichtAmGeraet(id, name, true, 0);   // speichert die Ansicht und ordnet sie zu
     if(!GESPEICHERT[id]) return;                // Speichern gescheitert: die Leiste meldet es
     const j=await devSpeichern(loxGeraeteListe(name, id));
-    if(j.ok){ if(!OFFEN.has('geraete')) DEV=devAusServer(j.devices); renderDevices(); }
+    if(j.ok){
+      if(!OFFEN.has('geraete')) DEV=devAusServer(j.devices);
+      else {   // offene Aenderungen unter Geraete bleiben; dieses Geraet bekommt, was der Assistent gespeichert hat
+        readDevFromDom();
+        const s=devAusServer(j.devices)[name]||{}, d=DEV[name]||(DEV[name]={auto:true, modes:[]});
+        d.presence=s.presence||''; d.ruhe=!!s.ruhe; d.panel=s.panel||'';
+      }
+      renderDevices();
+    }
     else flash($('#toast'), T('Geräte')+': '+(j.error||T('Fehler')), false);
     // der Bento-Editor der neuen Seite
     subMerken('pconf','seiten'); setRubric('pconf'); renderSubtabs(); showSub('seiten');
-  }catch(e){ flash($('#toast'), 'Fehler: '+e, false); }
+  }catch(e){ flash($('#toast'), T('Fehler:')+' '+e, false); }
   finally{ LOX._laeuft=false; }
 }
 ['#loxOpenBtn','#ovLoxOS'].forEach(sel=>{ const k=$(sel); if(k) k.onclick=loxOpen; });

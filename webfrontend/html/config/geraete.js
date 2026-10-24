@@ -49,7 +49,8 @@ function devAusServer(devices){
                dpmsOff:(d.dpmsOff===undefined||d.dpmsOff===null)?'':d.dpmsOff,   // '' = Ansicht oder Vorgaben (Schritt 4)
                nightDim:(d.nightDim===undefined||d.nightDim===null)?'':d.nightDim,   // Nacht am Geraet (Schritt 4b)
                nightWake:(d.nightWake===undefined||d.nightWake===null)?'':d.nightWake,
-               lichtStart:lichtStartWert(d.lichtStart)};  // '' = erste Stimmung im Raum
+               lichtStart:lichtStartWert(d.lichtStart),   // '' = erste Stimmung im Raum
+               panel:d.panel||''};   // LoxOS: Zuordnung behalten (nur als Merker, siehe devicesPayload)
   });
   return out;
 }
@@ -607,7 +608,9 @@ function devicesPayload(quelle=DEV){
     const dpms=zahl(d.dpmsOff), dim=zahl(d.nightDim), wake=zahl(d.nightWake);   // Display aus nach Sek., Nacht
     if(Object.keys(modes).length || display || scale!==null || presence || ziel || lichtStart || d.panel || dpms!==null || dim!==null || wake!==null){
       devices[name]={auto:d.auto!==false, modes};
-      if(d.panel) devices[name].panel=d.panel;
+      // LoxOS: Zuordnung behalten - ein Geraet nur mit Zuordnung bleibt in der Liste (sonst
+      // ersetzte /api/devices sie durch nichts); den Wert setzt nur /api/device/switch, der
+      // Server traegt den gespeicherten ein (api_save_devices), ein veralteter ginge nicht mit.
       if(dpms!==null) devices[name].dpmsOff=dpms;
       if(dim!==null) devices[name].nightDim=dim;
       if(wake!==null) devices[name].nightWake=wake;
