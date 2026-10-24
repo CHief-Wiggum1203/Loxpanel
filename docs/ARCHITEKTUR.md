@@ -1529,7 +1529,7 @@ Assistenten des Konfigurators.
 
 **Aufteilung** (seit 15.10.2026, Schritt 2 des Zerlegens der großen Dateien):
 `panel.html` hält nur noch das Markup (rund 60 Zeilen) und lädt aus
-`webfrontend/html/panel/` zwei Stylesheets und zwölf Skriptteile per `<link>`
+`webfrontend/html/panel/` drei Stylesheets und vierzehn Skriptteile per `<link>`
 und `<script src>` an den Stellen, an denen vorher Stylesheet und Skript
 standen. Stylesheets: `grund.css` (Kasten, Panes, Kopfzeile und Werteleiste,
 Kachelfeld, Kacheln, Kachel-Sets, Leisten) und `seiten.css` (Detailseite,
