@@ -233,6 +233,24 @@ def test_mit_weiteren_seiten_bleibt_die_leiste():
     assert fehler == [] and not erg["voll"] and erg["sichtbar"] and erg["tabs"] == 2, erg
 
 
+@pytest.mark.parametrize("format_", ["2560x720", "1920x480"])
+def test_automatisches_raster_laesst_den_bento_faktor(format_):
+    """Ansicht mit automatischem Raster (ui.grid "auto"): der Kachelfaktor der
+    Bento-Seite kommt aus ihrer Einheitszelle, nicht aus der Rasterrechnung der
+    Kachelseiten - sonst bleiben Symbol und Schrift einer grossen Zelle klein
+    (Befund am Wohnzimmer-Streifen, Luftdruck in einer 1x1-Zelle)."""
+    app = _app("https://drucker.invalid/")
+    app.panels["streifen"]["ui"]["grid"] = "auto"
+
+    async def aktion(pg):
+        await pg.evaluate("onScreenResize()")   # wie der ResizeObserver des Kastens
+        return await pg.evaluate("""() => { const br=bentoMessen(el('grid'));
+          return {soll: LoxRaster.kachelFaktorFuer(br.zw, br.zh),
+                  ist: parseFloat(getComputedStyle(document.querySelector('.screen')).getPropertyValue('--ks'))}; }""")
+    erg, fehler = asyncio.run(_lauf_mit(app, aktion, *FORMATE[format_]))
+    assert fehler == [] and abs(erg["ist"] - erg["soll"]) < 0.01, erg
+
+
 # ---- Wischen zwischen Bento-Seiten (docs/VISION.md "Wischen zwischen Bento-Seiten") ----
 # Leiste: Bento-Seite A, eine normale Seite, Bento-Seite B. A traegt einen
 # Spieler (Tasten), eine kleine und eine grosse Kachel, B eine Uhr und eine Kachel.
