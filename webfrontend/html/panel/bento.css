@@ -53,8 +53,18 @@ html[data-kachelset-leiste="links"] .screen.bento.bentovoll{padding-left:0;}
 /* Audio */
 .grid.bento .bz-spieler{position:absolute;inset:0;display:grid;box-sizing:border-box;
   padding:calc(min(var(--bz-b), var(--bz-h)) * .07);gap:calc(min(var(--bz-b), var(--bz-h)) * .05);
-  grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;
-  grid-template-areas:"cover titel" "trans trans" "vol vol";align-items:center;}
+  grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto;
+  grid-template-areas:"raum raum" "cover titel" "trans trans" "vol vol";align-items:center;}
+/* Favoriten-Reihe (data-favs aus bento.js bentoFavsLage): unten in hohen Zellen,
+   rechts neben dem Spieler in breiten; sonst keine (Tipp auf den Raum) */
+.grid.bento .bz[data-favs="unten"] .bz-spieler{grid-template-rows:auto minmax(0,1fr) auto auto auto;
+  grid-template-areas:"raum raum" "cover titel" "trans trans" "vol vol" "favs favs";}
+.grid.bento .bz[data-favs="rechts"] .bz-spieler{grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);
+  grid-template-areas:"raum raum raum" "cover titel favs" "trans trans favs" "vol vol favs";}
+/* Raum oben klein in Grossbuchstaben wie an den Kacheln (.tile .room); Tipp -> Musikauswahl */
+.grid.bento .bz-raum{grid-area:raum;min-width:0;cursor:pointer;color:var(--muted);letter-spacing:.06em;
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:calc(var(--room-size,12px) * var(--ks,1));}
 .grid.bento .bz-cover{grid-area:cover;position:relative;height:100%;aspect-ratio:1;max-height:calc(var(--bz-h) * .45);
   border-radius:calc(var(--kachel-radius,16px) * .6);overflow:hidden;background:var(--taste);
   display:flex;align-items:center;justify-content:center;color:var(--muted);}
@@ -71,9 +81,20 @@ html[data-kachelset-leiste="links"] .screen.bento.bentovoll{padding-left:0;}
 .grid.bento .bz-vol{grid-area:vol;display:flex;align-items:center;gap:calc(8px * var(--ks,1));min-width:0;}
 .grid.bento .bz-vol .sld{flex:1 1 auto;min-width:0;}
 .grid.bento .bz-vol[hidden]{display:none;}
+/* Favoriten: eine waagerecht scrollende Reihe (das Seitenwischen laesst sie aus) */
+.grid.bento .bz-favs{grid-area:favs;min-width:0;padding:0;gap:calc(8px * var(--ks,1));
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+.grid.bento .bz-favs::-webkit-scrollbar{display:none;}
+.grid.bento .bz-favs[hidden], .grid.bento .bz:not([data-favs]) .bz-favs{display:none;}
+.grid.bento .bz-favs .fav{width:calc(56px * var(--ks,1));}
+.grid.bento .bz-favs .favc{width:100%;height:auto;aspect-ratio:1;border-radius:calc(var(--kachel-radius,16px) * .5);}
+.grid.bento .bz-favs .favc svg{width:40%;height:40%;}
+.grid.bento .bz-favs .favn{font-size:calc(11px * var(--ks,1));margin-top:calc(4px * var(--ks,1));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:none;}
 .grid.bento .bz[data-stufe="klein"] .bz-vol,
 .grid.bento .bz[data-stufe="klein"] .bz-t2{display:none;}
-.grid.bento .bz[data-stufe="klein"] .bz-spieler{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"cover titel" "trans trans";}
+.grid.bento .bz[data-stufe="klein"] .bz-spieler{grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"raum raum" "cover titel" "trans trans";}
 
 /* Webseite: Kopf mit Name, darunter der iframe oder die Fehlerzelle */
 .grid.bento .bz-web{position:absolute;inset:0;display:flex;flex-direction:column;box-sizing:border-box;

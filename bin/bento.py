@@ -25,6 +25,7 @@ import logging
 
 import aiohttp
 
+from bausteine.gemeinsam import _clean
 from bento_format import BENTO_IFRAME
 from konfig import _pick_tabs
 from statistik import STAT_DEFAULT_RANGE
@@ -146,6 +147,7 @@ class Bento:
                 pb = self.player_blocks(arg)
                 if pb is not None:
                     d["player"] = self._bento_pane("player", arg, pb)
+                    d["raum"] = self._bento_raum(arg)
             elif art == "energy":
                 eb = self.energy_blocks(arg)
                 if eb is not None:
@@ -174,6 +176,13 @@ class Bento:
         m = self._pane_msg(art, uuid, blocks)
         m.pop("t", None)
         return m
+
+    def _bento_raum(self, uuid: str) -> str:
+        """Kopfzeile der Audio-Zelle: Loxone-Raum der Zone wie an den Kacheln,
+        ohne Raum ihr Name. Die Favoriten traegt schon player_blocks (die
+        Detailseite haengt _sender_bloecke an)."""
+        c = self.controls.get(uuid) or {}
+        return _clean((self.rooms.get(c.get("room")) or {}).get("name")) or _clean(c.get("name"))
 
     def _bento_webseite(self, c: dict) -> dict:
         """Adresse, Name und Pruefergebnis einer Webseiten-Zelle. Eine noch nie
