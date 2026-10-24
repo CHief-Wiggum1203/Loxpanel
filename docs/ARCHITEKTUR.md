@@ -101,7 +101,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu, im Fork das Bento-Raster: `bentoRaster`, `bentoMass`, `bentoStufe(n)`, `bentoFrei`), §7.5 |
-| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) und `loxos-assistent.js` (LoxOS: Assistent „LoxOS-Streifen einrichten“, §7.2, nach `sicherung.js` geladen) |
+| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) `loxos-assistent.js` (LoxOS: Assistent „LoxOS-Streifen einrichten“, §7.2, nach `sicherung.js` geladen) und `abweichungen.js` (LoxOS: Übersicht „Was ist eingestellt?“, §7.2, danach geladen) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
@@ -2845,6 +2845,28 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   Zuordnung, Melder und `ruhe`; Betriebsmodi bleiben. Danach steht der
   Bento-Editor der neuen Seite offen (Ansichten → Seiten).
   `tests/browser/test_loxos_assistent_browser.py` hält den Weg fest.
+- **Übersicht „Was ist eingestellt?“** (Fork, `docs/VISION.md`, Stufe 2.5):
+  `config/abweichungen.js`, nach `loxos-assistent.js` geladen. Eine Karte
+  `#abwKarte` oben im Reiter Allgemein der Ansicht; die Vorgaben haben keinen
+  Reiter Allgemein, dort steht sie oben im ersten Reiter Darstellung. Je Zeile
+  ein `ui`-Schlüssel, den die Ansicht selbst setzt (in den Vorgaben jeder
+  gesetzte; leere Objekte und Listen zählen nicht), mit Namen und Reiter aus
+  `ABWEICHUNG_FELDER` (unbekannte mit technischem Namen), Wert (`abwWert()`
+  über `wertText()`), „sonst gilt“ (`wasGiltOhneEigenen()`/`giltText()`, in den
+  Vorgaben der Standard), Sprung zum Reiter (`ABWEICHUNG_REITER_VORGABEN` für
+  die Vorgaben) und „× zurücksetzen“ (entfernt den Eintrag). „Alles auf
+  Standard“ fragt in der Seite (`.abw-frage`, kein Browser-Dialog) und nennt,
+  was zurückgesetzt wird, in den Vorgaben je Schlüssel „gilt für n von m
+  Ansichten“; die Schlüssel in `ABWEICHUNG_BLEIBT` (Widgets, Werteleiste,
+  Audio-Zone des Widgets, Kachel-Set, Farbton, aktive Kachel) bleiben und
+  haben nur ihren eigenen Knopf. Geändert wird die Arbeitskopie (`markDirty()`,
+  dann `renderEditor()`), wirksam mit „Speichern“. Eingehängt mit einem Aufruf
+  `abweichungenEinhaengen()` am Ende von `erbtZeichnen()`, das `renderEditor()`
+  und `markDirty()` rufen; so zeigt die Karte auch Änderungen aus anderen
+  Reitern. Die Liste der `ui`-Schlüssel des Exports steht als
+  `ansicht.PANEL_UI_EXPORT`; `tests/test_abweichungen.py` prüft, dass jeder
+  davon und jeder aus `THEME_UI_KEYS` einen Eintrag mit englischem Namen hat,
+  `tests/browser/test_abweichungen_browser.py` den Weg im Browser.
 - **Der frühere sechsstufige Assistent** (`wz*`, „Selbst zusammenstellen“)
   ist seit 15.10.2026 abgebaut: Was er konnte, leisten „Gerät einrichten“
   (Raum, Haus, Kopie mit Raumtausch, Vorschau, Fertig mit Zuordnung) und der
