@@ -186,6 +186,8 @@ def test_assistent_vom_geraet_bis_zur_bento_seite(cfg_ordner, tmp_path):
         assert datei["devices"]["streifen"] == {"auto": True, "modes": {}, "panel": "loxos-streifen", "presence": "PM", "ruhe": True}, datei["devices"]
         # die Visu des Streifens zeigt die Bento-Seite, ohne Leiste
         await visus["streifen"].wait_for_selector("#grid.bento > .bz", state="attached", timeout=15000)
+        assert await visus["streifen"].evaluate("document.querySelector('.screen').classList.contains('bentovoll')"), \
+            "nur die eine Seite: keine Leiste"
         # danach steht der Bento-Editor der neuen Ansicht offen
         ed = await pg.evaluate("[cur, rubric, subPconf, curPickIdx]")
         assert ed == ["loxos-streifen", "pconf", "seiten", 0], ed
