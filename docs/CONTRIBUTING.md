@@ -470,6 +470,13 @@ Hauptversion aus, angehoben wird sie von Hand. Sicherheitsupdates kommen davon
 unabhängig sofort, wenn in den Repo-Einstellungen unter „Code security“ die
 „Dependabot security updates“ an sind.
 
+**CodeQL** prüft den Code selbst (Python, JavaScript, Actions) in der
+Einstellung „Default“: GitHub verwaltet die Prüfung, im Repo liegt keine
+Workflow-Datei. Eine `codeql.yml` aus „Advanced“ gehört nicht dazu: Neben
+„Default“ nimmt GitHub ihre Ergebnisse nicht an, und ihre Actions stehen auf
+Etiketten statt auf Commits, was `tests/test_abhaengigkeiten.py` als Fehler
+meldet (am 24.10.2026 so geschehen, `main` war rot).
+
 ## Prüfen vor jedem Push
 
 Die GitHub-Action „Tests und Image“ (`.github/workflows/tests.yml`) läuft auf
