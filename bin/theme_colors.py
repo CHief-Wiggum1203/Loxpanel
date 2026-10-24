@@ -337,6 +337,9 @@ GESTE_NACHT_FUELLUNG = 0.22
 GESTE_NACHT_VORHANG = 0.10
 GESTE_NACHT_LAMELLE = 0.20
 GESTE_NACHT_SCHRIFT = 0.62
+# Kontrast, ab dem die Fuellung von Licht und Musik nachts auf NACHT_GRUND noch
+# zu sehen ist (der Akzent von edge muss ihn halten, _edge_satz)
+GESTE_NACHT_SICHTBAR = 1.3
 
 
 def _deckend_bis(vorn: str, hinten: str, deckung: float, schrift: str) -> str:
@@ -347,6 +350,13 @@ def _deckend_bis(vorn: str, hinten: str, deckung: float, schrift: str) -> str:
         if kontrast(schrift, farbe) >= AA:
             return farbe
     return hinten
+
+
+def _nacht_fuellung(farbe: str, ink: str) -> str:
+    """Fuellung von Licht und Musik nachts: `farbe` gedaempft auf NACHT_GRUND,
+    soweit die Schrift der Nacht-Einblendung darauf AA traegt."""
+    nacht_ink = ueber(nacht_schrift(ink), NACHT_GRUND, GESTE_NACHT_SCHRIFT)
+    return _deckend_bis(nacht_schrift(farbe), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink)
 
 
 def geste_farben(v: dict) -> dict:
@@ -370,8 +380,8 @@ def geste_farben(v: dict) -> dict:
         "--geste-nacht-ink": nacht_ink,
         # Fuellung in ihrem Farbton, hell genug fuer Schwarz: in hellen Sets
         # sind --glow und --accent dunkle Schriftfarben
-        "--geste-nacht-licht": _deckend_bis(nacht_schrift(glow), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
-        "--geste-nacht-musik": _deckend_bis(nacht_schrift(akzent), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
+        "--geste-nacht-licht": _nacht_fuellung(glow, ink),
+        "--geste-nacht-musik": _nacht_fuellung(akzent, ink),
         "--geste-nacht-vorhang": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_VORHANG, nacht_ink),
         "--geste-nacht-lamelle": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_LAMELLE, nacht_ink),
     }
@@ -594,6 +604,7 @@ KACHEL_SETS = {
             "kachel": (18, 8.6),                                  # --tile
             "kachel_an": (18, 13),                                # --kachel-an
             "taste": (18, 14),                                    # --taste
+            "linie": (15, 15.7),                                  # Kante der Karten (--kachel-schatten)
             "ink": {"s": 14, "l": 95, "schritt": 1, "ziel": AAA},  # auf Grund und Leiste
             # Akzent (--glow, --accent) auf Kachel und aktiver Kachel; liegt der
             # Farbton zu nah an einer Zustandsfarbe, weicht er in Stufen von
@@ -688,6 +699,10 @@ def _kreisabstand(a: float, b: float) -> float:
     return min(d, 360 - d)
 
 
+# Hex-Farbe innerhalb eines Masses (Kante der Karten in --kachel-schatten)
+_HEX_IN_TEXT = re.compile(r"#[0-9a-fA-F]{6}\b")
+
+
 @functools.lru_cache(maxsize=360)
 def _edge_satz(farbton: int) -> tuple:
     """Rechnung "dunkel" (edge): Flaechen dunkel im Farbton, helle Schrift, die
@@ -695,7 +710,8 @@ def _edge_satz(farbton: int) -> tuple:
     Zustandsfarben haelt. Der Akzent sucht vom gewaehlten Farbton aus nach
     wachsendem Abstand (0, +s, -s, +2s ...) den ersten Ton, der nach dem
     Wandern auf Kachel und aktiver Kachel traegt, EDGE_AKZENT_ABSTAND zu
-    --good, --warn und --crit haelt und sich von --good und --muted trennt."""
+    --good, --warn und --crit haelt, sich von --good und --muted trennt und
+    dessen Gesten-Fuellung nachts sichtbar bleibt (GESTE_NACHT_SICHTBAR)."""
     e = KACHEL_SETS["edge"]
     p, fest = e["satz"], e["farben"]
     grund, leiste = _hsl(farbton, *p["grund"]), _hsl(farbton, *p["leiste"])
@@ -713,11 +729,14 @@ def _edge_satz(farbton: int) -> tuple:
             glow = _wandern(farbton + richtung * stufe * a["ton_schritt"], a["s"], a["l"], traeger,
                             a["ziel"], a["schritt"], 100)
             if all(_kreisabstand(_hls(glow)[0] * 360, z) >= EDGE_AKZENT_ABSTAND for z in zustand) \
-                    and trennbar(glow, fest["--good"]) and trennbar(glow, muted):
+                    and trennbar(glow, fest["--good"]) and trennbar(glow, muted)                     and kontrast(_nacht_fuellung(glow, ink), NACHT_GRUND) >= GESTE_NACHT_SICHTBAR:
+                # die Kante behaelt die Form aus masse, nur ihre Farbe folgt dem Farbton
+                kante = _HEX_IN_TEXT.sub(_hsl(farbton, *p["linie"]), e["masse"]["--kachel-schatten"])
                 return tuple({
                     "--bg": grund, "--screen": grund, "--rahmen": grund, "--tabbar": leiste,
                     "--tile": tile, "--kachel-an": an, "--taste": taste,
                     "--ink": ink, "--muted": muted, "--glow": glow, "--accent": glow,
+                    "--kachel-schatten": kante,
                 }.items())
     raise ValueError(f"edge: kein Akzent fuer Farbton {farbton}")
 
@@ -820,13 +839,15 @@ def kachel_set(name, farbton=None, aktiv=None) -> dict | None:
         return None
     v = dict(eintrag.get("farben") or {})
     ton = _farbton(eintrag, farbton) if "satz" in eintrag else None
-    if ton is not None:
-        v.update(satz_farben(name, ton, aktiv))
+    gerechnet = satz_farben(name, ton, aktiv) if ton is not None else {}
+    v.update(gerechnet)
     _ergaenzen(v, kippt=eintrag["aufbau"] == "mitte")
     for rolle, tripel in _SET_TRIPEL.items():
         if _HEX.match(v.get(rolle, "")):
             v[tripel] = "%d,%d,%d" % _rgb(v[rolle])
-    v.update(eintrag.get("masse") or {})
+    masse = eintrag.get("masse") or {}
+    v.update(masse)
+    v.update({r: w for r, w in gerechnet.items() if r in masse})   # ein Mass, das der Farbton faerbt, gilt vor dem festen
     return v
 
 

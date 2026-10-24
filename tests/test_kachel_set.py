@@ -18,9 +18,6 @@ STRUKTUR = anlage({"S": {"name": "Licht", "type": "Switch", "uuidAction": "S", "
 SETS = sorted(TC.KACHEL_SETS)
 MIT_SATZ = sorted(n for n, e in TC.KACHEL_SETS.items() if "satz" in e)
 AKTIV = {n: [a["key"] for a in TC.KACHEL_SETS[n]["aktiv"]["auswahl"]] for n in MIT_SATZ if "aktiv" in TC.KACHEL_SETS[n]}
-# Speichern und Profil laufen ueber ui.tileHue; den Schluessel weiterer Sets
-# (tileHueEdge) schaltet der Sanitizer noch nicht frei
-MIT_TILEHUE = [n for n in MIT_SATZ if TC.KACHEL_SETS[n]["farbton"]["schluessel"] == "tileHue"]
 
 
 def _app(ui: dict, states: dict | None = None):
@@ -57,18 +54,21 @@ def test_unbekanntes_set_wird_gemeldet():
     assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh))
 
 
-@pytest.mark.parametrize("name", MIT_TILEHUE)
+@pytest.mark.parametrize("name", MIT_SATZ)
 def test_farbton_und_aktive_kachel_speichern(name):
     e = TC.KACHEL_SETS[name]
     hue = e["farbton"]["schluessel"]
-    std_ton, std_aktiv = e["farbton"]["standard"], e["aktiv"]["standard"]
-    anders = next(k for k in AKTIV[name] if k != std_aktiv)
+    std_ton = e["farbton"]["standard"]
     ton = next(f["wert"] for f in e["farbton"]["auswahl"] if f["wert"] != std_ton)
-    assert _gespeichert({"tileSet": name, hue: ton, "tileActive": anders}) == \
-        {"tileSet": name, hue: ton, "tileActive": anders}
+    # die aktive Kachel gibt es nur bei Sets mit Auswahl
+    aktiv = {"tileActive": next(k for k in AKTIV[name] if k != e["aktiv"]["standard"])} if name in AKTIV else {}
+    assert _gespeichert({"tileSet": name, hue: ton, **aktiv}) == {"tileSet": name, hue: ton, **aktiv}
     assert _gespeichert({"tileSet": name, hue: 12.7}) == {"tileSet": name, hue: 12}
     # der Standard wird nicht gespeichert und ist kein Verlust
-    roh = {"p": {"title": "P", "tabs": ["favoriten"], "ui": {"tileSet": name, hue: std_ton, "tileActive": std_aktiv}}}
+    std = {hue: std_ton} if std_ton is not None else {}
+    if name in AKTIV:
+        std["tileActive"] = e["aktiv"]["standard"]
+    roh = {"p": {"title": "P", "tabs": ["favoriten"], "ui": {"tileSet": name, **std}}}
     assert W.App._sanitize_panels(roh)["p"]["ui"] == {"tileSet": name}
     assert W.App._panels_verworfen(roh, W.App._sanitize_panels(roh)) == []
     # Ungueltiges faellt weg und wird gemeldet
@@ -89,16 +89,54 @@ def test_profil_traegt_name_art_und_werte_des_sets(name):
         assert prof["vars"][var] == wert, var
 
 
-@pytest.mark.parametrize("name", MIT_TILEHUE)
+@pytest.mark.parametrize("name", MIT_SATZ)
 def test_farbton_wirkt_im_profil(name):
     e = TC.KACHEL_SETS[name]
-    anders = next(k for k in AKTIV[name] if k != e["aktiv"]["standard"])
-    ton = next(f["wert"] for f in e["farbton"]["auswahl"] if f["wert"] != e["farbton"]["standard"])
+    # ein Ton, der von der Stellung ohne Wahl abweicht (edge: der feste Look liegt bei "regler")
+    ohne = e["farbton"]["standard"] if e["farbton"]["standard"] is not None else e["farbton"]["regler"]
+    ton = next(f["wert"] for f in e["farbton"]["auswahl"] if f["wert"] != ohne)
+    anders = next((k for k in AKTIV.get(name, []) if k != e["aktiv"]["standard"]), None)
     std = _app({"tileSet": name}).resolve_profile("p")["vars"]
-    mit = _app({"tileSet": name, e["farbton"]["schluessel"]: ton, "tileActive": anders}).resolve_profile("p")["vars"]
+    mit = _app({"tileSet": name, e["farbton"]["schluessel"]: ton, **({"tileActive": anders} if anders else {})}
+               ).resolve_profile("p")["vars"]
     assert std["--tile"] == TC.kachel_set(name)["--tile"]
     assert mit["--tile"] == TC.kachel_set(name, ton)["--tile"] != std["--tile"]
-    assert mit["--kachel-an"] == TC.kachel_set(name, ton, anders)["--kachel-an"] != TC.kachel_set(name, ton)["--kachel-an"]
+    if anders:
+        assert mit["--kachel-an"] == TC.kachel_set(name, ton, anders)["--kachel-an"] != TC.kachel_set(name, ton)["--kachel-an"]
+
+
+def test_edge_farbton_eigener_schluessel():
+    assert _gespeichert({"tileSet": "edge", "tileHueEdge": 200}) == {"tileSet": "edge", "tileHueEdge": 200}
+    # ein alter touch-Farbton faerbt edge nicht
+    vars_ = _app({"tileSet": "edge", "tileHue": 95}).resolve_profile("p")["vars"]
+    assert vars_["--tile"] == TC.KACHEL_SETS["edge"]["farben"]["--tile"]
+    vars_ = _app({"tileSet": "edge", "tileHueEdge": 200}).resolve_profile("p")["vars"]
+    assert vars_["--tile"] == TC.kachel_set("edge", 200)["--tile"]
+    # und umgekehrt faerbt tileHueEdge touch nicht
+    vars_ = _app({"tileSet": "touch", "tileHueEdge": 200}).resolve_profile("p")["vars"]
+    assert vars_["--tile"] == TC.kachel_set("touch")["--tile"]
+
+
+def test_edge_farbton_uebersteht_den_export():
+    app = _app({"tileSet": "edge", "tileHueEdge": 200})
+    assert app._panel_export(app.panels["p"])["ui"]["tileHueEdge"] == 200
+
+
+def test_edge_kante_der_karten_folgt_dem_farbton():
+    """--kachel-schatten behaelt die Form aus masse, nur die Farbe folgt dem
+    Farbton; ohne Farbton bleibt sie genau die feste."""
+    fest = TC.KACHEL_SETS["edge"]["masse"]["--kachel-schatten"]
+    assert TC.kachel_set("edge")["--kachel-schatten"] == fest
+    assert _app({"tileSet": "edge"}).resolve_profile("p")["vars"]["--kachel-schatten"] == fest
+    farbe = TC._HEX_IN_TEXT.search(fest).group(0)
+    kanten = set()
+    for ton in (30, 150, 285, 345):
+        kante = _app({"tileSet": "edge", "tileHueEdge": ton}).resolve_profile("p")["vars"]["--kachel-schatten"]
+        assert TC._HEX_IN_TEXT.sub(farbe, kante) == fest, "gleiche Form, nur andere Farbe"
+        kanten.add(kante)
+    assert fest not in kanten and len(kanten) == 4
+    # touch hat keine Kante im Satz: dort aendert sich nichts
+    assert "--kachel-schatten" not in TC.kachel_set("touch", 95)
 
 
 def test_ohne_set_bleibt_alles_wie_bisher():
@@ -383,3 +421,13 @@ def test_schrift_auf_eingestellter_ok_farbe(ui, farbe):
     v = W.App._theme_vars({**konfig.DEFAULT_THEME["states"], "good": farbe}, ui)
     assert v["--accent"] == farbe
     assert TC.kontrast(v["--on-accent"], farbe) >= TC.AA, (ui, farbe, v["--on-accent"])
+
+
+def test_edge_gesten_fuellung_bleibt_nachts_sichtbar_auf_dem_ganzen_farbkreis():
+    """Der Akzent von edge folgt dem Farbton und haelt dabei die Fuellung von
+    Licht und Musik der Gesten-Einblendung nachts sichtbar."""
+    for ton in range(360):
+        v = TC.kachel_set("edge", ton)
+        f = TC.geste_farben(v)
+        for fuellung in ("--geste-nacht-licht", "--geste-nacht-musik"):
+            assert TC.kontrast(f[fuellung], TC.NACHT_GRUND) >= TC.GESTE_NACHT_SICHTBAR, (ton, fuellung)

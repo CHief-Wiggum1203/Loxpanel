@@ -85,7 +85,7 @@ VOLL = {
     "ui": {"iconSize": 30, "nameSize": 20, "subSize": 14, "roomSize": 12, "bigSize": 40, "font": "Inter",
            "nudgeX": 4, "dpmsOff": 60, "reloadHours": 24, "nightDim": 50, "nightWake": 20, "pinMerken": 90,
            "cols": 3, "rows": 3, "fill": True, "split": False, "catFilter": True, "tileLayout": "classic", "tileSet": "loxone",
-           "tileHue": 95, "tileActive": "dunkel",
+           "tileHue": 95, "tileHueEdge": 200, "tileActive": "dunkel",
            "grid": "auto", "tileSize": "small", "paneCols": 2, "player": "Z1", "panes": {"room:r1": "weather"},
            "valueBar": ["room:r1"], "gesten": True, "gestenRaum": "r1", "gestenHinweis": False, "nightClock": True, "nightClockBright": 30,
            "hausAufbau": "raeume", "hausAktivOhne": ["audio"], "hausEnergie": "E1",

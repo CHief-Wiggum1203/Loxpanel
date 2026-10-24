@@ -1091,6 +1091,7 @@ liefert nur die Ansichten), geschrieben über
         "tileSet": "touch",                  // Kachel-Set aus theme_colors.KACHEL_SETS; fehlt = Farben aus
                                              // der Grundfarbe, "classic" gilt mit Set nicht (§5.4)
         "tileHue": 160,                      // Farbton des Sets "touch", 0-359; fehlt = 270
+        "tileHueEdge": 200,                  // Farbton des Sets "edge", 0-359; fehlt = feste Farben (Original)
         "tileActive": "dunkel",              // aktive Kachel bei "touch": "hell" | "dunkel"; fehlt = "hell"
         "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
         "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
@@ -1262,20 +1263,29 @@ mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
 `ui.tileLayout` nicht. Ein Set mit `satz` rechnet seine Farben aus einem
 Farbton; `satz_farben(name, farbton, aktiv)` wählt die Rechnung nach
 `satz["rechnung"]`, nie nach dem Namen. `farbton` nennt den Schlüssel in `ui`
-(`FARBTON_SCHLUESSEL`), den Standard und die Schnellwahl. „touch“ (Rechnung
+(`FARBTON_SCHLUESSEL`: „touch“ `ui.tileHue`, „edge“ `ui.tileHueEdge`, jedes Set
+hat seinen eigenen Platz, ein alter Farbton von „touch“ färbt „edge“ nicht),
+den Standard und die Schnellwahl. Speichern, `_theme_vars()` und
+`_panel_export()` laufen über diese Schlüssel; der Konfigurator liest sie aus
+`/api/meta` (`kachelSets[].farbton.schluessel`). „touch“ (Rechnung
 `hell`) hat statt fester Farben nur den `satz`: `touch_satz(farbton,
 aktiv_hell)` rechnet Schrift, Kachel, Fläche, Taste, aktive Kachel (Auswahl
 `aktiv`: hell oder dunkel) und Tab-Symbole aus dem Farbton (`ui.tileHue`) und
 lässt jede Helligkeit wandern, bis ihr Kontrast erreicht ist. „edge“ (Rechnung
 `dunkel`, `_edge_satz()`) hat keinen Standard-Farbton: Ohne Wahl gelten seine
 festen `farben` (Grund bläulich, Akzent Mint), der Regler steht dann auf
-`regler`. Mit Farbton färbt die Rechnung Grund, Leiste, Karten und Tasten
+`regler` und die Taste „Original“ ist gedrückt (löscht den Farbton wieder);
+den Umschalter „Aktive Kachel“ gibt es nur bei Sets mit `aktiv`. Mit Farbton färbt die Rechnung Grund, Leiste, Karten und Tasten
 dunkel im Ton, die Schrift hell, die Zweitzeile wie `_ergaenzen()`
 (`_zweitzeile()`), und der Akzent (`--glow`, `--accent`) wandert mit: Liegt
 der Ton näher als `EDGE_AKZENT_ABSTAND` (30°) an `--good`, `--warn` oder
 `--crit` oder trennt er sich nicht von `--good` und `--muted`, weicht er in
 Stufen von `ton_schritt` auf den nächsten tragfähigen Ton aus; seine
-Helligkeit wandert, bis er auf Kachel und aktiver Kachel AA trägt. Die
+Helligkeit wandert, bis er auf Kachel und aktiver Kachel AA trägt und die
+Füllung der Gesten-Einblendung nachts sichtbar bleibt
+(`GESTE_NACHT_SICHTBAR`). Die feine Kante der Karten (`--kachel-schatten`,
+Form aus `masse`) nimmt mit Farbton den Ton aus `satz["linie"]` an; ohne
+Farbton bleibt sie, wie `masse` sie nennt. Die
 Zustandsfarben bleiben fest. Rollen, die ein Set
 nicht nennt (Zweitzeile, Zustandsfarben, Störung, Text auf dem Akzent),
 rechnet `_ergaenzen()` nach denselben Regeln wie `derive()` gegen die Flächen

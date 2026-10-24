@@ -348,7 +348,8 @@ PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDA
                   ("ui", "hausAufbau"): HAUS_AUFBAU_STANDARD,
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("ui", "paneCols"): 0,
-                  # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch)
+                  # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch); edge hat
+                  # keinen Standardfarbton (tileHueEdge fehlt = feste Farben)
                   ("ui", "tileHue"): theme_colors.KACHEL_SETS["touch"]["farbton"]["standard"],
                   ("ui", "tileActive"): theme_colors.KACHEL_SETS["touch"]["aktiv"]["standard"],
                   ("tiles", "*", "chartStyle"): "trend",
@@ -434,7 +435,7 @@ def _clean_kachel_set(v):
 
 
 def _clean_kachel_farbton(v):
-    """Farbton des Kachel-Sets mit Rechnung (ui.tileHue): ganze Grad 0-359,
+    """Farbton eines Kachel-Sets mit Rechnung (ui.tileHue, tileHueEdge): ganze Grad 0-359,
     sonst None (= Standard aus theme_colors.KACHEL_SETS)."""
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < 360:
         return None
@@ -1127,9 +1128,10 @@ def _sanitize_panels(panels: dict) -> dict:
         _ks = _clean_kachel_set(ui.get("tileSet"))
         if _ks:
             cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
-        _kh = _clean_kachel_farbton(ui.get("tileHue"))
-        if _kh is not None and _kh != PANEL_STANDARD[("ui", "tileHue")]:
-            cui["tileHue"] = _kh            # Farbton des Sets mit Rechnung (touch); fehlt = Standard
+        for _fs in theme_colors.FARBTON_SCHLUESSEL:     # Farbton je Set mit Rechnung (touch, edge)
+            _kh = _clean_kachel_farbton(ui.get(_fs))
+            if _kh is not None and _kh != PANEL_STANDARD.get(("ui", _fs)):
+                cui[_fs] = _kh              # fehlt = Standard des Sets (edge: feste Farben)
         _ka = _clean_kachel_aktiv(ui.get("tileActive"))
         if _ka and _ka != PANEL_STANDARD[("ui", "tileActive")]:
             cui["tileActive"] = _ka         # aktive Kachel hell oder dunkel; fehlt = Standard
