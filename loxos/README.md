@@ -4,7 +4,23 @@ LoxOS zeigt die Visu von Loxpanel auf einem flachen Streifen-Display neben dem
 Monitor (etwa 2560 × 720, ein Klon des Corsair Xeneon Edge). Ziel und Roadmap
 stehen in [`docs/VISION.md`](../docs/VISION.md). Fork-eigen, nicht für Upstream.
 
-## Starten
+## Installieren
+
+Die Installer baut der Workflow `LoxOS` (`.github/workflows/loxos.yml`) auf
+echten Windows-, macOS- und Linux-Rechnern. Sie hängen am Release `loxos-v…`
+(oder als Artefakt am Lauf, wenn der Workflow von Hand gestartet wurde):
+
+| System | Datei | Hinweis |
+|---|---|---|
+| Windows | `LoxOS-Setup-<Version>.exe` | Installiert für den angemeldeten Benutzer, ohne Adminrechte. Das Programm ist nicht signiert: SmartScreen fragt beim ersten Start, „Weitere Informationen“ → „Trotzdem ausführen“. |
+| macOS | `LoxOS-<Version>-mac.dmg` | Nicht signiert. Nach dem Kopieren nach „Programme“ einmal im Terminal: `codesign --force --deep -s - /Applications/LoxOS.app` und `xattr -cr /Applications/LoxOS.app`, dann starten. |
+| Linux | `LoxOS-<Version>-x86_64.AppImage` | Ausführbar machen (`chmod +x`) und starten; Autostart richtet die Desktop-Umgebung ein. |
+
+Beim ersten Start fragt LoxOS nach der Adresse von Loxpanel und dem Namen des
+Geräts. Unter diesem Namen erscheint der Rechner in Loxpanel unter „Geräte“;
+dort ordnest du ihm die Ansicht mit der Bento-Seite zu.
+
+## Aus dem Quelltext starten
 
 Voraussetzung: Node.js 20 oder neuer.
 
@@ -14,9 +30,16 @@ npm ci          # Electron und Pakete genau aus package-lock.json (mit Prüfsumm
 npm start
 ```
 
-Beim ersten Start fragt LoxOS nach der Adresse von Loxpanel und dem Namen des
-Geräts. Unter diesem Namen erscheint der Rechner in Loxpanel unter „Geräte“;
-dort ordnest du ihm die Ansicht mit der Bento-Seite zu.
+## Neues Release
+
+1. In `loxos/package.json` die `version` anheben (etwa `1.0.1`).
+2. Committen, dann den Tag setzen und pushen:
+   `git tag loxos-v1.0.1 && git push origin loxos-v1.0.1`.
+3. Der Workflow prüft, dass Tag und Version zusammenpassen, lässt die Tests
+   laufen, baut die drei Installer und hängt sie an den Release.
+
+Selbst bauen geht mit `npm run dist` – auf jedem System nur dessen eigener
+Installer (Windows-Programme lassen sich unter Linux nicht sauber bauen).
 
 ## Bedienung
 
@@ -56,5 +79,6 @@ npm test                                   # reine Logik (Node)
 cd .. && python -m pytest tests/test_loxos_huelle.py
 ```
 
-Der Python-Test prüft außerdem die festgenagelten Versionen und startet die
-echte Hülle unter Xvfb, sobald `npm ci` gelaufen ist.
+Der Python-Test prüft außerdem die festgenagelten Versionen, die
+Build-Konfiguration und den Workflow und startet die echte Hülle unter Xvfb –
+aus dem Quelltext, sobald `npm ci` gelaufen ist, und gepackt nach `npm run dist`.
