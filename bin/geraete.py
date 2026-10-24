@@ -492,6 +492,12 @@ class Geraete:
         if jetzt:
             log.info("Präsenz: %d Gerät(e) an einen Präsenzmelder gekoppelt", len(jetzt))
 
+    def _ruhe_an(self, dev: str) -> bool:
+        """Hat dieses Geraet den Ruhemodus (devices[name].ruhe)? Dann schaltet
+        der leere Raum sein Display nicht ab: die Visu zeigt die Ruhe-Ansicht."""
+        cfg = (self.devices or {}).get(dev)
+        return isinstance(cfg, dict) and cfg.get("ruhe") is True
+
     async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
         """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully
         Kiosk Remote Admin, WallPanel). Betroffen sind Geraete mit `display`-

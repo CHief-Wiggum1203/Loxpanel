@@ -192,6 +192,8 @@ async def api_save_devices(request: web.Request) -> web.Response:
         # ... und die Zielkachel je Geraet: die Visu baut ihr Raster neu
         await app._send_or_drop(ws, {"t": "gridAuto", "gridAuto": app.effective_grid_auto(
             app.conn_prof.get(ws), info.get("dev", ""))})
+        # ... und den Ruhemodus: die Visu schaltet ihn ohne Neuladen um
+        await app._send_or_drop(ws, {"t": "ruhe", "ruhe": app._ruhe_an(info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": _devices_export(devices),
                               "kennwortVerworfen": [p[1] for p in verworfen]})
 

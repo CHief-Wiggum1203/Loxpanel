@@ -203,7 +203,9 @@ class Verteilung:
             # des Sendens dazukommt, laeuft im naechsten Takt.
             log.info("Präsenz %s: %s → Display %s", ev["dev"],
                      "jemand da" if ev["presence"] else "Raum leer", "an" if ev["on"] else "aus")
-            if ((self.devices.get(ev["dev"]) or {}).get("display")):
+            # Mit Ruhemodus bleibt das Display an; nur das Abschalten entfaellt,
+            # das Wecken laeuft wie sonst.
+            if (self.devices.get(ev["dev"]) or {}).get("display") and (ev["on"] or not self._ruhe_an(ev["dev"])):
                 self._spawn(self.display_drivers(ev["on"], ev["dev"]))
             for ws, info in list(self.conn_info.items()):
                 if info.get("dev") == ev["dev"]:
