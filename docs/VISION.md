@@ -294,10 +294,30 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   durchgezählt), ordnet sie dem Gerät zu (`/api/device/switch`), speichert
   Melder und `ruhe` (`/api/devices`). Danach steht der Bento-Editor offen,
   um die Seite anzupassen.
+- Die neue Ansicht enthält **nur** diese Bento-Seite (`tabs` = die eine
+  freie Seite, keine Räume oder Kategorien): Auf dem Streifen erscheint
+  damit keine Leiste. Weitere Seiten (etwa eine zweite Bento-Seite zum
+  Wischen) legt man danach im Seiten-Editor an.
+- **Gerät ohne gemeldeten Schirm** (Hülle noch nie verbunden): steht unten in
+  der Liste mit dem Hinweis „Größe noch unbekannt“; der Vorschlag nimmt dann
+  das Format des Zielgeräts aus einer benannten Konstante (2560 × 720, siehe
+  oben „Zielgerät“). Der Bento-Editor warnt später wie gewohnt, wenn das Gerät
+  anders meldet.
+- **Betriebsmodi** des Geräts (`devices[name].modes`) bleiben unangetastet;
+  hat das Gerät welche, sagt Schritt 5, dass ein Moduswechsel auf eine andere
+  Ansicht schalten kann und wo man das ändert.
 - Abbrechen ändert nichts; gespeichert wird nur in Schritt 5.
 
 ### Übersicht „Was ist eingestellt?“
 
+- **Was zählt:** nur `ui`-Schlüssel. Eine Zeile ist jeder Schlüssel, den die
+  Ansicht **selbst setzt** (eigener Eintrag), auch wenn er zufällig dem Wert
+  der Vorgaben gleicht; in den Vorgaben jeder gesetzte Schlüssel. Inhalt
+  außerhalb von `ui` (`tabs`, `pickTabs`, `rooms`, `cats`, `roomCats`,
+  `title`) erscheint nicht; den ändert man im Reiter „Inhalt“ bzw. „Seiten“.
+- **Zurücksetzen** entfernt den eigenen Eintrag: In einer Ansicht gilt danach
+  die Vorgabe (oder der Standard), in den Vorgaben der eingebaute Standard.
+  Es wird nie ein Wert erzwungen.
 - Neue Karte oben im Reiter „Allgemein“ jeder Ansicht und der Vorgaben
   (`config/abweichungen.js`, Fork; Einhängen als ein Aufruf in
   `ansicht-editor.js`): eine Liste **aller Einstellungen, die vom Standard
@@ -312,9 +332,10 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   aus der Liste von `_panel_export()` einen Eintrag hat.
 - **„Alles auf Standard“** setzt alle aufgelisteten **Darstellungs- und
   Verhaltenswerte** zurück (Größen, Schrift, Farben, Raster, Nacht, Display,
-  Gesten). **Nicht** zurückgesetzt werden Inhalt und Look: Seiten, Räume,
-  Kategorien, Widgets/Panes, Kachel-Set und Farbton; sie stehen in der Liste,
-  aber mit eigenem Knopf. Welche Schlüssel zu welcher Gruppe gehören, steht
+  Gesten). **Nicht** zurückgesetzt werden die `ui`-Werte, die Inhalt oder
+  Look bestimmen: Widgets/Panes (`panes`, `svPane`, `valueBar`), Kachel-Set
+  und Farbton (`tileSet`, `tileHue`, `tileHueEdge`, `tileActive`); sie stehen
+  in der Liste, aber nur mit eigenem Knopf. Welche Schlüssel zu welcher Gruppe gehören, steht
   als benannte Liste im Code (`ABWEICHUNG_BLEIBT`), nicht nur hier. Vor dem
   Zurücksetzen fragt eine Bestätigung in der Seite (kein Browser-Dialog), was
   zurückgesetzt wird; in den Vorgaben nennt sie dazu, für wie viele Ansichten
