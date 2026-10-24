@@ -204,7 +204,51 @@ function autoRaster(e){
   return r;
 }
 
+// ---- LoxOS (Fork, docs/VISION.md): Bento-Seiten ----------------------------
+// Ein Bento-Raster hat feste Spalten und Zeilen; jede Zelle liegt mit Spalte,
+// Zeile, Breite und Hoehe darin. Gerechnet wird hier fuer Visu und Editor.
+//
+// Groessenstufe einer Zelle aus ihrem Verhaeltnis zur Bezugskachel (dieselbe
+// Rechnung wie kachelFaktorFuer, nur ohne Grenzen): darunter "klein", ab der
+// zweiten Schwelle "gross". Widgets zeigen je Stufe weniger oder mehr, statt
+// abgeschnitten zu werden (VISION.md).
+const BENTO_STUFE_KLEIN=0.9, BENTO_STUFE_GROSS=1.6;
+
+// Masse der Einheitszelle (1 x 1) aus Flaeche, Raster, Abstand und Innenrand.
+function bentoRaster(breite, hoehe, cols, rows, abstand, innen){
+  const c=Math.max(1, cols|0), r=Math.max(1, rows|0);
+  return {cols:c, rows:r, abstand, innen,
+          zw:Math.max(0, (breite-2*innen-(c-1)*abstand)/c),
+          zh:Math.max(0, (hoehe-2*innen-(r-1)*abstand)/r)};
+}
+// Pixelmasse einer Zelle mit Breite w und Hoehe h (in Feldern).
+function bentoMass(br, w, h){
+  return {b:w*br.zw+(w-1)*br.abstand, h:h*br.zh+(h-1)*br.abstand};
+}
+// Groessenstufe einer Zelle: "klein" | "mittel" | "gross".
+function bentoStufe(b, h){
+  const k=Math.min(b/KACHEL_REF, h/KACHEL_REF_H);
+  return k<BENTO_STUFE_KLEIN ? 'klein' : (k>=BENTO_STUFE_GROSS ? 'gross' : 'mittel');
+}
+// Stufen je Achse (Breite gegen die Bezugsbreite, Hoehe gegen die Bezugshoehe):
+// eine 2 x 1-Zelle auf einem flachen Streifen ist breit, aber flach - Widgets
+// blenden nach der Hoehe anderes aus als nach der Breite.
+function bentoStufen(b, h){
+  const s=k=> k<BENTO_STUFE_KLEIN ? 'klein' : (k>=BENTO_STUFE_GROSS ? 'gross' : 'mittel');
+  return {b:s(b/KACHEL_REF), h:s(h/KACHEL_REF_H)};
+}
+// Passt kand {x,y,w,h} ins Raster, ohne eine Zelle aus zellen zu treffen?
+// ohne: Index einer Zelle, die nicht zaehlt (die gerade verschobene).
+function bentoFrei(zellen, cols, rows, kand, ohne){
+  if(!kand || kand.x<0 || kand.y<0 || kand.w<1 || kand.h<1 ||
+     kand.x+kand.w>cols || kand.y+kand.h>rows) return false;
+  return !(zellen||[]).some((z, i)=> i!==ohne &&
+    kand.x<z.x+z.w && z.x<kand.x+kand.w && kand.y<z.y+z.h && z.y<kand.y+kand.h);
+}
+// ---- Ende LoxOS -----------------------------------------------------------
+
 g.LoxRaster={KACHEL_REF, KACHEL_REF_H, KS_MIN, KS_MAX, KOPF_H, LEISTE_H, VISU_MASSE, SCHMAL_UNTER,
   LEISTE_MASSE, LEISTE_ANTEILIG, kachelFaktorFuer, quadratisch, groesse, rasterLage, festesRaster, autoRaster, schmal, fussH, setMass,
-  leisteSchmal, leisteMass};
+  leisteSchmal, leisteMass,
+  BENTO_STUFE_KLEIN, BENTO_STUFE_GROSS, bentoRaster, bentoMass, bentoStufe, bentoStufen, bentoFrei};   // Bento: LoxOS
 })(typeof window!=='undefined' ? window : globalThis);

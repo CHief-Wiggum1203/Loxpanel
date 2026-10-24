@@ -96,19 +96,22 @@ function chartBoxHtml(b,withRange){
 // aendern, sonst nur neu gezeichnet. Die Zeitraum-Knoepfe melden den Zeitraum
 // dem Server neu (setchart), statt wie auf der Detailseite die Route zu ersetzen:
 // links bleibt die Kachelseite stehen.
-function renderChartPane(elc){ if(!elc) return;
+// daten: Stapel einer Bento-Zelle statt chartData (LoxOS) - ohne Zeitraum-Tasten,
+// die Zelle zeigt den Standard-Zeitraum des Servers.
+function renderChartPane(elc, daten){ if(!elc) return;
+  const quelle=(daten!==undefined)?daten:chartData;
   // Verlaufs-Pane zeigt einen oder mehrere Bausteine gestapelt (Server:
   // {t:'chart', charts:[{control,name,value,blocks}], range, ranges}). Welche
   // Bausteine, meldet applyPane() dem Server per setchart; der Push landet in
   // chartData. Ab zwei Bausteinen scrollt die Pane (.stack), sonst "fit" wie bisher.
-  const d=(chartData && Array.isArray(chartData.charts)) ? chartData : null;
+  const d=(quelle && Array.isArray(quelle.charts)) ? quelle : null;
   const charts=d ? d.charts : [];
   const multi=charts.length>1;
   const sig=(d?d.controls.join(','):'-')+'|'+(d?d.range:'')+'|'+
             charts.map(c=>(c.blocks||[]).length).join('.');
   let page=elc.querySelector('.fp-page.cpage');
   if(!page || page.dataset.sig!==sig){
-    const rngRow=(d && d.ranges && d.ranges.length)
+    const rngRow=(daten===undefined && d && d.ranges && d.ranges.length)
       ? '<div class="chrng cpr">'+d.ranges.map(r=>'<button type="button" class="chip'+
           (r[0]===d.range?' on':'')+'" data-rng="'+esc(r[0])+'">'+esc(r[1])+'</button>').join('')+'</div>'
       : '';

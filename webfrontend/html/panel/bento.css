@@ -1,0 +1,116 @@
+/* LoxOS (Fork, docs/VISION.md): Bento-Seiten der Visu (bento.js).
+   Farben nur aus den Variablen von Theme und Kachel-Set, keine eigenen; die
+   Optik der Widgets uebernimmt bento.js zur Laufzeit von den Panes
+   (bentoPaneStile). Groessen kommen aus den Zellmassen --bz-b/--bz-h (px, aus
+   raster.js) und der Groessenstufe data-stufe ("klein" | "mittel" | "gross"). */
+
+/* Kasten: volle Breite; mit nur dieser einen Seite auch ohne Leiste */
+/* Hoeher als die Breitenregeln der Leisten (html[data-kachelset-leiste] .screen ...) */
+html .screen.bento, html[data-kachelset-leiste] .screen.bento{max-width:none;max-height:none;width:100vw;}
+.screen.bento.bentovoll #tabs{display:none;}
+html[data-kachelset-leiste="links"] .screen.bento.bentovoll{padding-left:0;}
+
+/* Raster: Abstand und Innenrand wie das Kachelfeld des Sets */
+.grid.bento{--b-gap:var(--kachel-abstand,var(--gap));--b-pad:var(--feld-innen,var(--pad));
+  display:grid;grid-template-columns:repeat(var(--b-cols,6),minmax(0,1fr));
+  grid-template-rows:repeat(var(--b-rows,2),minmax(0,1fr));grid-auto-flow:row;
+  gap:var(--b-gap);padding:var(--b-pad);overflow:hidden;}
+.grid.bento > .bz{position:relative;min-width:0;min-height:0;overflow:hidden;box-sizing:border-box;
+  border-radius:var(--kachel-radius,16px);background:var(--tile);box-shadow:var(--kachel-schatten,none);color:var(--ink);}
+.grid.bento > .bz-leer{grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;
+  padding:24px;text-align:center;color:var(--muted);font-size:calc(18px * var(--ks,1));}
+.grid.bento .bz-hinweis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:12px;text-align:center;color:var(--muted);font-size:calc(14px * var(--ks,1));}
+
+/* Widget-Kasten: fuellt die Zelle, die Pane-Renderer zeichnen hinein */
+.grid.bento .bz-box{position:absolute;inset:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+.grid.bento .bz-box > .fp-page{flex:1 1 0;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box;
+  margin:0;border-radius:inherit;}
+.grid.bento .bz-box > .fp-page.cpage.stack .cpbody{overflow-y:auto;}
+/* Eine Zelle zeigt die erste Seite eines Widgets (Wetter: Aktuell, Kurve,
+   Vorschau); weitere Seiten wie die Details gibt es in der Pane zum Scrollen */
+.grid.bento .bz-box > .fp-page ~ .fp-page{display:none;}
+
+/* Kacheln: eine fuellt die Zelle, mehrere stehen untereinander */
+.grid.bento > .bz.bz-kacheln{background:transparent;box-shadow:none;display:grid;gap:var(--b-gap);
+  grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(var(--bz-n,1),minmax(0,1fr));}
+.grid.bento > .bz.bz-kacheln > .tile{grid-column:auto !important;grid-row:auto !important;min-width:0;min-height:0;
+  width:auto;height:auto;}
+
+/* Uhr: Schrift aus der Zellgroesse; hohe Zellen stapeln Stunden und Minuten */
+.grid.bento > .bz[data-widget="clock"]{display:flex;}
+.grid.bento .bz-uhr{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;
+  gap:calc(var(--bz-h) * .03);padding:calc(min(var(--bz-b), var(--bz-h)) * .08);box-sizing:border-box;}
+.grid.bento .bz-zeit{font-weight:700;line-height:.9;letter-spacing:-.04em;font-variant-numeric:tabular-nums;
+  white-space:nowrap;font-size:calc(min(var(--bz-h) * .5, var(--bz-b) * .22));}
+.grid.bento .bz[data-form="hoch"] .bz-zeit{display:flex;flex-direction:column;
+  font-size:calc(min(var(--bz-h) * .3, var(--bz-b) * .46));}
+.grid.bento .bz-min{color:var(--glow);}
+.grid.bento .bz-datum{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+  font-size:calc(min(var(--bz-h) * .08, var(--bz-b) * .065));}
+.grid.bento .bz[data-stufe="klein"] .bz-datum{display:none;}
+
+/* Audio */
+.grid.bento .bz-spieler{position:absolute;inset:0;display:grid;box-sizing:border-box;
+  padding:calc(min(var(--bz-b), var(--bz-h)) * .07);gap:calc(min(var(--bz-b), var(--bz-h)) * .05);
+  grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;
+  grid-template-areas:"cover titel" "trans trans" "vol vol";align-items:center;}
+.grid.bento .bz-cover{grid-area:cover;position:relative;height:100%;aspect-ratio:1;max-height:calc(var(--bz-h) * .45);
+  border-radius:calc(var(--kachel-radius,16px) * .6);overflow:hidden;background:var(--taste);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.grid.bento .bz-cover .coverph svg{width:40%;height:40%;}
+.grid.bento .bz-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;}
+.grid.bento .bz-titel{grid-area:titel;min-width:0;}
+.grid.bento .bz-t1{font-weight:600;font-size:calc(19px * var(--ks,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.grid.bento .bz-t2{color:var(--muted);font-size:calc(14px * var(--ks,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.grid.bento .bz-trans{grid-area:trans;display:flex;gap:calc(8px * var(--ks,1));justify-content:center;}
+.grid.bento .bz-trans .btn{flex:0 0 auto;width:calc(44px * var(--ks,1));height:calc(44px * var(--ks,1));padding:0;
+  border:0;border-radius:50%;background:var(--taste);color:var(--ink);display:flex;align-items:center;justify-content:center;}
+.grid.bento .bz-trans .btn.big{background:var(--glow);color:var(--on-glow);}
+.grid.bento .bz-trans .btn svg{width:45%;height:45%;}
+.grid.bento .bz-vol{grid-area:vol;display:flex;align-items:center;gap:calc(8px * var(--ks,1));min-width:0;}
+.grid.bento .bz-vol .sld{flex:1 1 auto;min-width:0;}
+.grid.bento .bz-vol[hidden]{display:none;}
+.grid.bento .bz[data-stufe="klein"] .bz-vol,
+.grid.bento .bz[data-stufe="klein"] .bz-t2{display:none;}
+.grid.bento .bz[data-stufe="klein"] .bz-spieler{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"cover titel" "trans trans";}
+
+/* Webseite: Kopf mit Name, darunter der iframe oder die Fehlerzelle */
+.grid.bento .bz-web{position:absolute;inset:0;display:flex;flex-direction:column;box-sizing:border-box;
+  padding:calc(10px * var(--ks,1));gap:calc(8px * var(--ks,1));}
+.grid.bento .bz-wkopf{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  color:var(--muted);font-size:calc(14px * var(--ks,1));}
+.grid.bento .bz-wname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.grid.bento .bz-wwarn{flex:0 0 auto;color:var(--warn);display:flex;}
+.grid.bento .bz-wwarn svg{width:calc(18px * var(--ks,1));height:calc(18px * var(--ks,1));}
+.grid.bento .bz-wrahmen{flex:1 1 0;min-height:0;position:relative;border-radius:calc(var(--kachel-radius,16px) * .6);
+  overflow:hidden;background:var(--screen);}
+.grid.bento .bz-wrahmen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;
+  /* Grund einer Seite ohne eigenen Hintergrund wie im Browser: die Systemfarbe
+     Canvas im hellen Schema - keine Designfarbe, sonst stuende dunkle Schrift auf --screen */
+  color-scheme:light;background:Canvas;}
+.grid.bento .bz-wfehler{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:8px;text-align:center;border-radius:calc(var(--kachel-radius,16px) * .6);background:var(--taste);
+  color:var(--muted);font-size:calc(13px * var(--ks,1));}
+.grid.bento .bz-wrahmen > .bz-wfehler{position:absolute;inset:0;}
+.grid.bento .bz-wfehler svg{width:calc(28px * var(--ks,1));height:calc(28px * var(--ks,1));color:var(--crit);}
+.grid.bento .bz-wfehler b{color:var(--ink);font-weight:600;font-size:calc(15px * var(--ks,1));}
+.grid.bento .bz-wfehler span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.grid.bento .bz[data-stufe="klein"] .bz-wfehler span{display:none;}
+
+/* Wetter und Kalender in flachen Zellen (Hoehe nicht "gross"): Wetter ohne
+   Ueberschrift und Stundenkurve, nur Lage und Vorschau; Kalender nur die
+   Termine. Schmale Zellen zeigen weniger Vorschautage. */
+.grid.bento .bz[data-widget="weather"]:not([data-hstufe="gross"]) .fp-h,
+.grid.bento .bz[data-widget="weather"]:not([data-hstufe="gross"]) .fp-curve{display:none;}
+.grid.bento .bz[data-widget="weather"]:not([data-hstufe="gross"]):not([data-form="breit"]) .fp-fore{display:none;}
+.grid.bento .bz[data-widget="weather"]:not([data-bstufe="gross"]) .fp-fore > .fp-fc:nth-child(n+5){display:none;}
+/* flach und breit: Lage links, Vorschau rechts daneben (wischbar) */
+.grid.bento .bz[data-widget="weather"][data-form="breit"]:not([data-hstufe="gross"]) .fp-page.wx{
+  display:flex;flex-direction:row;align-items:center;gap:calc(16px * var(--ks,1));}
+.grid.bento .bz[data-widget="weather"][data-form="breit"]:not([data-hstufe="gross"]) .fp-now{flex:0 0 auto;}
+.grid.bento .bz[data-widget="weather"][data-form="breit"]:not([data-hstufe="gross"]) .fp-fore{
+  flex:1 1 0;min-width:0;overflow-x:auto;overflow-y:hidden;}
+.grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .kal-monat{display:none;}
+.grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .fp-page.kal{display:flex;flex-direction:column;}
+.grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .kal-liste{flex:1 1 0;min-height:0;width:auto;max-width:none;}

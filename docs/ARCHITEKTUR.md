@@ -99,7 +99,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
-| `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu), §7.5 |
+| `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu, im Fork das Bento-Raster: `bentoRaster`, `bentoMass`, `bentoStufe(n)`, `bentoFrei`), §7.5 |
 | `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
@@ -1521,6 +1521,18 @@ Energie, Kamera, Pane 2), `haus` (Hausübersicht), `startseite` (Uhr-Seite an
 und aus, Einrichtung und Kopplung, Hinweise, fester Spieler, Ruhe-Timer),
 `display` (Nachtmodus, Nacht-Uhr, Kiosk-App, Skalierung, Bildschirm melden,
 Display-Einstellungen, Neuladen), `start` (Uhren, Uhr-Seite, `connect()`).
+Dazu im Fork (LoxOS, [`VISION.md`](VISION.md)) `bento.css` nach `seiten.css`
+und `bento.js` nach `front`: Bento-Seiten. `renderBento()` zeichnet das Raster
+(Maße, Größenstufen je Achse und Kollision aus `raster.js`), Kacheln mit
+`kachelHtml()`/`kachelBinden()` aus `kachelfeld` (dieselben Funktionen, die
+`render()` nutzt), Widgets mit den Pane-Renderern und den Daten der Zelle als
+Parameter (`renderCameraPane(elc, q)`, `renderChartPane(elc, daten)`,
+`svStatusZeilen(daten)`, `paintEnergy`); `updateBento()` zieht bei gleichem
+Aufbau nur geänderte Zellen nach (Webseite und Kamerabild laufen weiter).
+Die Optik der Panes hängt an `#frontpane`; `bentoPaneStile()` übernimmt beim
+ersten Aufbau jede Regel für Pane-Inhalte mit `.grid.bento .bz-box` statt
+kopierter Regeln. Mit nur dieser einen Seite und ohne Detailseite darüber
+fällt die Tab-Leiste weg (`.screen.bentovoll`).
 Wie beim Konfigurator (§7.2): kein Build, keine ES-Module, alle Funktionen
 bleiben global, was ein Teil beim Laden ausführt, ruft nur Funktionen
 früherer Teile; der Code ist nur verschoben. Der Server liefert

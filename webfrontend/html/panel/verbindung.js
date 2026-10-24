@@ -186,6 +186,7 @@ function connect(){
     if(msg.t==='front'){ frontData=msg; renderFront(); if(FRONT_TEST) renderFrontRich(el('frontPage')); applyPane();
       if(view && view.front && el('grid').classList.contains('fronttab')) renderFrontTab();
       if(view && view.layout==='haus' && el('grid').classList.contains('haus') && !updateHaus()) render();   // Kopf: Wetter, Termin
+      if(view && view.bento && el('grid').classList.contains('bento')) bentoFront();   // LoxOS: Wetter-/Kalender-Zellen
       return; }   // Kalender/Wetter fuer die Uhr-Seite
     if(msg.t==='player'){ playerData=Array.isArray(msg.blocks)?msg.blocks:[]; playerSecured=!!msg.secured;
       if(svSideOn()){ renderFront(); return; }   // Screensaver oben -> Audio als zweite Uhr-Spalte
@@ -253,6 +254,12 @@ function connect(){
       const sameH = view && key(view.route)===key(msg.route);
       view=msg; renderLeiste();
       if(!(sameH && updateHaus())) render();
+      return;
+    }
+    if(msg.bento){   // LoxOS: Bento-Seite - gleiche Seite und Aufbau -> nur die Zellen nachziehen
+      const sameB = view && key(view.route)===key(msg.route) && el('grid').classList.contains('bento');
+      view=msg; renderLeiste();
+      if(!(sameB && updateBento())) render();
       return;
     }
     if(msg.widget){ view=msg; render(); return; }   // Widget-Seite (Vollbild-Tab)
