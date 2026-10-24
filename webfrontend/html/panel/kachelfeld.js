@@ -335,8 +335,78 @@ function rasterKey(widget){
   return (w>h?'quer':(h>w?'hoch':'quadrat'))+':'+rasterFuer(widget).join('x')+(a ? ':'+a.k+'/'+a.p+(a.hoch?':unter':'') : '')
     +(seitenQuer()?':seiten':'');
 }
+// Eine Kachel als HTML - fuer render() und die Zellen einer Bento-Seite
+// (LoxOS, bento.js). gr: Groesse im Raster {w,h} (kachelGroesse), zusatz:
+// weitere Klassen (' snap'), stStr: Inline-Stil (kachelStil).
+function kachelHtml(it, gr, zusatz, stStr){
+  const icoHtml = it.iconUrl
+    ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
+    : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
+  // Positionsring: nur fuer Bausteine, die eine Stellung haben. Bei 0 %
+  // bleibt allein die Spur stehen - ein runder Abschluss auf der Laenge null
+  // wuerde sonst als Punkt erscheinen und wie ein Fehler aussehen.
+  const posv = ringPos(it);
+  const icoCell = posv===null ? icoHtml
+    : '<span class="icowrap"><svg class="posring" viewBox="0 0 100 100" aria-hidden="true">'+
+        '<g transform="rotate(-90 50 50)">'+
+          '<circle class="trk" cx="50" cy="50" r="46"/>'+
+          (posv>0 ? '<circle class="val" cx="50" cy="50" r="46" stroke-dasharray="'+
+            ringDash(posv)+'"/>' : '')+
+        '</g></svg>'+icoHtml+'</span>';
+  const lx = kachelNeu(), tx = kachelTexte(it), sub = tx.sub;
+  // Aufbau "kreis" (Kachel-Set): das Symbol steht in einem Kreis
+  const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>'
+    : (lx && kachelAufbau==='kreis') ? '<span class="kreis">'+icoCell+'</span>' : icoCell;
+  const chev = (!lx && it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
+  const tasten = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
+  const ctrls = spielerKachel(it, gr)
+    ? '<div class="tplay">'+(it.cover?'<img class="tcover" src="'+esc(it.cover)+'" alt="">':'')+tasten+'</div>' : tasten;
+  const tone = tileTone(it);
+  const ts=it.style||{};
+  const st = stStr?' style="'+esc(stStr)+'"':'';
+  const nsv=[];
+  if(ts.txt) nsv.push('color:'+ts.txt);
+  if(ts.font) nsv.push('font-family:'+ts.font);
+  if(ts.weight) nsv.push('font-weight:'+ts.weight);
+  if(ts.italic) nsv.push('font-style:italic');
+  const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
+  // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
+  // im Text (im Kopf stuende sie neben dem Raum).
+  return '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(gr)+spielerKlasse(it, gr)+kopfKlasse(it)+zusatz+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
+            '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
+              (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+kopfTasteHtml(it)+'</div>'+
+            (it.spark?'<div class="tspark"></div>':'')+
+            '<div class="body">'+
+            (!lx&&it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
+            (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
+            '<div class="name"'+nst+'>'+esc(tx.name)+'</div>'+
+            (sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
+            ctrls+
+          '</div>';
+}
+// Eine gezeichnete Kachel verdrahten: Mini-Verlauf, Tasten, Einpassen, Tippen
+// (render() und Bento-Zellen). n._it traegt die aktuellen Daten.
+function kachelBinden(n, it){
+  if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
+  if(it.controls){
+    n.querySelectorAll('.tctrls .tb').forEach(b=>{
+      b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
+      // Erst beim Tippen (click: Aufsetzen und Loslassen ohne Wischen), nicht
+      // schon beim Aufsetzen: ein Wischer, der auf der Taste beginnt, scrollt
+      // das Raster, statt den Befehl zu senden.
+      b.addEventListener('click', ()=>{
+        if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
+    });
+    tastenEinpassen(n);
+  }
+  fitTile(n);
+  n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
+    if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
+}
+
 function render(){
   if(!view) return;
+  if(view.bento){ renderBento(); return; }   // LoxOS: Bento-Seite (bento.js) rechnet ihr eigenes Raster
   const _k = themeSplit ? paneKind(paneForTab(activeTab())) : null;   // Split aus -> nie Pane/Verdopplung
   const _widget = (_k==='player'||_k==='weather'||_k==='calendar'||_k==='energy'||_k==='camera'||_k==='chart'||_k==='status');
   // Entscheidung merken: beim Kiosk-Start / Auto-Reload meldet das Fenster
@@ -392,51 +462,8 @@ function render(){
   let _i=-1;
   for(const it of items){
     _i++;
-    const icoHtml = it.iconUrl
-      ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
-      : '<span class="ico">'+svg(ICONS[it.icon]||ICONS.info)+'</span>';
-    // Positionsring: nur fuer Bausteine, die eine Stellung haben. Bei 0 %
-    // bleibt allein die Spur stehen - ein runder Abschluss auf der Laenge null
-    // wuerde sonst als Punkt erscheinen und wie ein Fehler aussehen.
-    const posv = ringPos(it);
-    const icoCell = posv===null ? icoHtml
-      : '<span class="icowrap"><svg class="posring" viewBox="0 0 100 100" aria-hidden="true">'+
-          '<g transform="rotate(-90 50 50)">'+
-            '<circle class="trk" cx="50" cy="50" r="46"/>'+
-            (posv>0 ? '<circle class="val" cx="50" cy="50" r="46" stroke-dasharray="'+
-              ringDash(posv)+'"/>' : '')+
-          '</g></svg>'+icoHtml+'</span>';
-    const lx = kachelNeu(), tx = kachelTexte(it), sub = tx.sub;
-    // Aufbau "kreis" (Kachel-Set): das Symbol steht in einem Kreis
-    const kopf = (lx && it.big!=null) ? '<span class="bigv">'+bigHtml(it.big)+'</span>'
-      : (lx && kachelAufbau==='kreis') ? '<span class="kreis">'+icoCell+'</span>' : icoCell;
-    const chev = (!lx && it.nav && !it.controls) ? '<span class="chev">'+svg('<path d="m9 6 6 6-6 6"/>')+'</span>' : '';
-    const tasten = it.controls ? '<div class="tctrls">'+it.controls.map((c,i)=>'<span class="tb" data-c="'+i+'">'+svgF(ICONS[c.icon]||ICONS.info)+'</span>').join('')+'</div>' : '';
-    const ctrls = spielerKachel(it, groessen[_i])
-      ? '<div class="tplay">'+(it.cover?'<img class="tcover" src="'+esc(it.cover)+'" alt="">':'')+tasten+'</div>' : tasten;
-    const tone = tileTone(it);
-    const ts=it.style||{};
     const stStr = kachelStil(it, lage, groessen, _i, quer);
-    const st = stStr?' style="'+esc(stStr)+'"':'';
-    const nsv=[];
-    if(ts.txt) nsv.push('color:'+ts.txt);
-    if(ts.font) nsv.push('font-family:'+ts.font);
-    if(ts.weight) nsv.push('font-weight:'+ts.weight);
-    if(ts.italic) nsv.push('font-style:italic');
-    const nst = nsv.length?' style="'+esc(nsv.join(';'))+'"':'';
-    // Neuer Aufbau: Raum im Kopf rechts, die Angabe zum Mini-Verlauf als Zeile
-    // im Text (im Kopf stuende sie neben dem Raum).
-    const kachel = '<div class="tile'+tone+aufbauKlassen(it)+kachelKlassen(groessen[_i])+spielerKlasse(it, groessen[_i])+kopfKlasse(it)+(snapAt(_i)?' snap':'')+'" data-id="'+esc(it.id)+'"'+(it.catKey?' data-cat="'+esc(it.catKey)+'"':'')+st+'>'+
-              '<div class="head">'+kopf+(!lx&&it.spark&&it.spark.badge?'<span class="tsbadge">'+esc(it.spark.badge)+'</span>':'')+
-                (lx&&it.room&&kachelAufbau!=='mitte'?'<span class="room">'+esc(it.room)+'</span>':'')+chev+kopfTasteHtml(it)+'</div>'+
-              (it.spark?'<div class="tspark"></div>':'')+
-              '<div class="body">'+
-              (!lx&&it.room?'<div class="room">'+esc(it.room)+'</div>':'')+
-              (it.spark&&it.spark.badge?'<div class="room tsline">'+esc(it.spark.badge)+'</div>':'')+
-              '<div class="name"'+nst+'>'+esc(tx.name)+'</div>'+
-              (sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
-              ctrls+
-            '</div>';
+    const kachel = kachelHtml(it, groessen[_i], snapAt(_i)?' snap':'', stStr);
     if(seiten) seiten[Math.floor(lage.zeile[_i]/Math.max(1,gridRows))] += kachel; else html += kachel;
   }
   const fuss=quer && hinweisFuss();
@@ -462,22 +489,8 @@ function render(){
     const it = items.find(x=>String(x.id)===n.dataset.id);
     n._it = it;   // aktuelle Daten am Knoten -> updateGrid kann sie in-place ersetzen
     n._stStr = kachelStil(it, lage, groessen, items.indexOf(it), quer);   // Vergleichswert fuer updateGrid (s. dort)
-    if(it && it.spark) paintSpark(n.querySelector('.tspark'), it.spark);   // erst jetzt ist die Groesse bekannt
-    if(it.controls){
-      n.querySelectorAll('.tctrls .tb').forEach(b=>{
-        b._cmd = it.controls[+b.dataset.c].cmd; b._secured = it.secured;
-        // Erst beim Tippen (click: Aufsetzen und Loslassen ohne Wischen), nicht
-        // schon beim Aufsetzen: ein Wischer, der auf der Taste beginnt, scrollt
-        // das Raster, statt den Befehl zu senden.
-        b.addEventListener('click', ()=>{
-          if(b._cmd) sendCmd(b._cmd.uuid,b._cmd.cmd,b._secured); });
-      });
-      tastenEinpassen(n);
-    }
-    fitTile(n);
+    kachelBinden(n, it);
     _kachelM=kachelMass();   // fuer faktorNachziehen: neu einpassen, wenn sich das Mass aendert
-    n.onclick=(e)=>{ if(e.target.closest('.tctrls')) return; const t=n._it||it;
-      if(t.nav) nav(t.nav); else if(t.cmd) sendCmd(t.cmd.uuid,t.cmd.cmd,(view&&view.secured)||t.secured); };
   });
   // Eine LEERE Liste ist eine Aussage ("diese Seite hat keine Sprungmarken"),
   // kein fehlender Wert: sie muss die gemerkten loeschen. Sonst blieben nach
@@ -588,6 +601,7 @@ function fensterGeaendert(){
   // Hausuebersicht: Lage (Spieler als Spalte oder Leiste, Spalten) neu
   // rechnen; nur wenn sie kippt, baut renderHaus neu
   if(view && view.layout==='haus' && el('grid').classList.contains('haus')){ if(!updateHaus()) render(); }
+  if(view && view.bento){ renderBento(); return; }   // LoxOS: Zellen neu einmessen
   else if(view && !el('grid').classList.contains('scheme')){
     if(rasterKey(_lastWidget) !== _lastRaster) render();
     else if(gridAuto) autoMasseSetzen(autoRaster(_lastWidget));   // gleiches Raster, andere Pixel (Hochkant-Widget)

@@ -24,6 +24,7 @@ function tickClock(){
   // tauscht nur, was sich geaendert hat, und ruft tickClock in derselben Minute
   const minute=d.toDateString()+' '+d.getHours()+':'+d.getMinutes();
   if(minute!==hsMinute){ hsMinute=minute; if(document.querySelector('#grid.haus .hs-blick')) hausNeu(); }
+  if(view && view.bento) bentoUhr(d);   // LoxOS: Uhr-Zellen im selben Takt
 }
 // ---- Front-Extras (Kalender/Wetter) auf dem Screensaver ----
 // Daten kommen vom Server ({t:'front', weather, events, calName}); das Panel
@@ -213,10 +214,12 @@ function werteEinpassen(box){
     const zh=z.offsetHeight; s.style.setProperty('--zh', zh+'px'); s.classList.toggle('hoch', zh>=WERTE_HOCH); }
 }
 // Zeilen der gewaehlten Werte (Uhr-Seite und Pane 2), ohne Werte ein Hinweis.
-function svStatusZeilen(){
-  const items=Array.isArray(svStatusData)?svStatusData:[];
+// daten: Liste statt svStatusData (LoxOS: Werte einer Bento-Zelle)
+function svStatusZeilen(daten){
+  const quelle=(daten!==undefined)?daten:svStatusData;
+  const items=Array.isArray(quelle)?quelle:[];
   if(!items.length)
-    return '<div class="fp-empty">'+(svStatusData===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
+    return '<div class="fp-empty">'+(quelle===null?'Werte werden geladen …':'Keine Werte gewählt.')+'</div>';
   return items.map(it=>{
     const ton=(it.tone==='good')?' good':((it.tone==='crit')?' crit':(it.on?' on':''));
     const ico = it.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(it.iconUrl)+'\')"></span>'
@@ -502,8 +505,12 @@ function renderEnergyPane(elc){ if(!elc) return;
 // wird wie beim Baustein direkt geladen (kein onload-Gate -> zeigt auch in Browsern, die
 // ein nacktes MJPEG-<img> nicht rendern). Struktur nur bei Änderung neu bauen, sonst nur
 // Buttons/Klingel in-place aktualisieren -> der Video-Stream läuft ununterbrochen weiter.
-function renderCameraPane(elc){ if(!elc) return;
-  const blocks=cameraData&&cameraData.blocks ? intercomBlocks(cameraData.blocks) : null;
+// q: Daten einer Bento-Zelle {camera, status} statt der Pane (LoxOS); ohne q
+// cameraData und die Werte der Pane wie bisher.
+function renderCameraPane(elc, q){ if(!elc) return;
+  elc._camQ=q||null;   // fuer den Tuerdruecker beim Tippen: PIN-Pflicht dieser Kamera
+  const cd=q ? (q.camera||null) : cameraData, werteAn=q ? Array.isArray(q.status) : !!camPaneWerte(qargCamNow());
+  const blocks=cd&&cd.blocks ? intercomBlocks(cd.blocks) : null;
   if(blocks===null){   // Push noch nicht da -> Platzhalter
     if(elc.dataset.cam!=='wait'){ elc.dataset.cam='wait'; delete elc.dataset.camsig;
       elc.innerHTML='<div class="fp-page solo campage"><div class="camwait">'+svg(ICONS.cam)+'<span>Kamera lädt …</span></div></div>'; }
@@ -512,7 +519,7 @@ function renderCameraPane(elc){ if(!elc) return;
   const video=blocks.find(b=>b.k==='video'), row=blocks.find(b=>b.k==='row');
   const bell=blocks.find(b=>b.k==='astat'), nostat=blocks.find(b=>b.k==='status');
   const talk=blocks.find(b=>b.k==='intercom-talk');
-  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|'+(camPaneWerte(qargCamNow())?'w':'')+'|';
+  const baseSig=(video?'v':'')+'|'+(row?row.cells.length:0)+'|'+(nostat?nostat.text:'')+'|'+(werteAn?'w':'')+'|';
   const sig=baseSig+(talk?talk.uuid:'');
   if(talk && elc.dataset.camsig===baseSig){   // Gegensprechen kommt dazu: vor die Werte unter dem Bild
     const page=elc.querySelector('.campage'), werte=page&&page.querySelector('.camwerte');
@@ -527,19 +534,19 @@ function renderCameraPane(elc){ if(!elc) return;
                  : '<div class="status">'+esc(nostat?nostat.text:'Kein Video')+'</div>';
     if(row) html+='<div class="brow'+(row.wrap?' wraprow':'')+'">'+row.cells.map(cellHtml).join('')+'</div>';
     if(talk) html+=intercomTalkHtml(talk);
-    if(camPaneWerte(qargCamNow())) html+='<div class="camwerte werte"></div>';   // Werte unter dem Bild
+    if(werteAn) html+='<div class="camwerte werte"></div>';   // Werte unter dem Bild
     elc.innerHTML='<div class="fp-page solo campage'+(talk?' intercom-page':'')+'">'+html+'</div>';
-    renderCameraWerte(elc);
+    renderCameraWerte(elc, q ? q.status : undefined);
     const vimg=elc.querySelector('.video img'); if(vimg&&video) vimg.src=video.src;   // direkt, KEIN onload-Gate
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(!btn)return;
-        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd) sendCmd(c.cmd.uuid,c.cmd.cmd,!!(cameraData&&cameraData.secured)); }); }); }
+        btn.addEventListener('pointerdown',ev=>{ ev.preventDefault(); if(c.cmd){ const qq=elc._camQ, dd=qq ? qq.camera : cameraData; sendCmd(c.cmd.uuid,c.cmd.cmd,!!(dd&&dd.secured)); } }); }); }
   } else {                                // gleiche Struktur -> nur Buttons und Werte aktualisieren (Video unangetastet)
     if(row){ const btns=elc.querySelectorAll('.brow [data-c]');
       row.cells.forEach((c,i)=>{ const btn=btns[i]; if(btn){ btn.textContent=c.label||''; btn.className='btn'+(c.on?' on':''); } }); }
     // Werte unter dem Bild: auch hier nachziehen - auf der Uhr-Seite kommt ein
     // Werte-Push ueber renderFront() hier an, nicht ueber renderCameraWerte()
-    renderCameraWerte(elc);
+    renderCameraWerte(elc, q ? q.status : undefined);
   }
   const be=elc.querySelector('.cambell'); if(be){ if(bell){ be.textContent=bell.text||''; be.hidden=false; } else be.hidden=true; }
   intercomBind(elc);
@@ -550,9 +557,9 @@ function renderCameraPane(elc){ if(!elc) return;
 function qargCamNow(){ const raw=(svSideOn() ? svSideRaw() : paneRawNow())||''; return raw.indexOf('camera:')===0 ? raw.slice(7) : ''; }
 // Werte unter dem Kamerabild: nur dieser Block wird neu gezeichnet (bei jedem
 // {t:'svstatus'}-Push), das Video und die Tasten bleiben stehen.
-function renderCameraWerte(elc){
+function renderCameraWerte(elc, daten){
   const box=elc && elc.querySelector('.campage .camwerte'); if(!box) return;
-  box.innerHTML=svStatusZeilen();
+  box.innerHTML=svStatusZeilen(daten);
   werteEinpassen(box);
 }
 function renderWeatherPane(elc){ if(!elc) return; const d=frontData||{}, w=d.weather;

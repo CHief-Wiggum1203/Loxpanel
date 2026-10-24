@@ -89,7 +89,7 @@ Phase auf der vorigen aufbaut.
 | 1 | Datenformat und Sanitizer (`bento_format.py`): `pickTabs[].bento` in `_sanitize_panels()` und `_pick_tabs()`, iframe-Adresse nur http/https, Überlappung und Rand geprüft |
 | 2 | Server: Mixin `bin/bento.py` rendert die Zellen mit Inline-Daten der Widgets, Weiche in `_view_tab()`, Webseiten-Prüfung als Hintergrundaufgabe `bento_task()`; Verlaufs-Zellen zeigen den Standard-Zeitraum (`STAT_DEFAULT_RANGE`) |
 | 3 | Kachel-Set `edge` in `theme_colors.py` aus vorhandenen Arten (Aufbau `lx`, Leiste `links`), Kontrastprüfung wie bei allen Sets |
-| 4 | `raster.js` (Bento-Raster, Kollision, Kachelfaktor je Zelle), `panel/bento.js`, keine Tab-Leiste bei nur einer Bento-Seite |
+| 4 | `raster.js` (Bento-Raster, Kollision, Größenstufen je Achse), `panel/bento.js` und `bento.css`, keine Tab-Leiste bei nur einer Bento-Seite; Kacheln über `kachelHtml()`/`kachelBinden()` aus `render()` herausgelöst, Pane-Optik zur Laufzeit übernommen, eigener Zellen-Spieler (der Pane-Spieler hängt an festen IDs) |
 | 5 | Seiten-Editor: Ziehen, Größengriff, Tastatur, Kollision, Vorschau am Gerät |
 | 6 | Browser-Abnahme bei 2560×720, 1920×480 und 1280×400 mit Screenshots |
 | 7 | Hülle `loxos/` (Electron) |

@@ -194,6 +194,7 @@ function applyHoch(){
 // ODER die Pane 2 des aktiven Tabs (nur im 2-Pane-Betrieb). Damit finden die
 // Push-Handler (energy/camera/chart/status) auch das Widget eines Widget-Tabs.
 function paneRawNow(){ if(view && view.widget) return view.widget;
+  if(view && view.bento) return null;   // LoxOS: Bento-Seite bringt ihre Widgets in den Zellen mit
   // Die Hausuebersicht bringt Kopf und Spieler selbst mit: keine Pane, keine Kopfzeile
   if(view && view.layout==='haus') return null;
   const v=paneForTab(activeTab());
