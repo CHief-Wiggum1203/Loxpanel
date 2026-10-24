@@ -113,7 +113,14 @@ zeigt die aktive Seite, Punkte kosteten Höhe auf 720 px), Bento-Automatik
 - `edge` bekommt wie `touch` einen `satz` mit `farbton` (Standard und
   Schnellwahl) und wird im Konfigurator über denselben Farbton-Regler
   eingestellt. Gefärbt werden Grund (`--bg`, `--screen`, `--rahmen`),
-  Karten, Tasten, Leiste und der Akzent; das Set bleibt dunkel.
+  Karten, Tasten und Leiste, dunkel eingetönt; das Set bleibt dunkel.
+- **Der Akzent wandert mit** (`--glow`, `--accent`, zeigt „an“ im Aufbau
+  `lx`). Die Rechnung hält ihn sichtbar entfernt von `--good`, `--warn` und
+  `--crit`, damit „an“ nie wie „OK“, „Warnung“ oder „Alarm“ aussieht: Liegt
+  der gewählte Ton zu nah an einem davon, weicht der Akzent auf den nächsten
+  Ton mit genug Abstand aus (Abstand als benannte Konstante, gesucht wie in
+  `_schiebe()`/`_ergaenzen()`). Die Zustandsfarben bleiben fest
+  (entschieden am 24.10.2026).
 - Die Rechnung aus `_touch_satz()` wird verallgemeinert: Jedes Set mit `satz`
   bringt seine Parameter mit, eine gemeinsame Funktion rechnet daraus die
   Farben. `kachel_set()`, die Kachelfarbe neben dem Regler und die
@@ -125,9 +132,10 @@ zeigt die aktive Seite, Punkte kosteten Höhe auf 720 px), Bento-Automatik
   `_sanitize_panels()` und `_panel_export()`. Eine Ansicht, die früher
   einen Farbton für `touch` gespeichert hat und jetzt `edge` nutzt, bleibt
   nach dem Update unverändert.
-- Der Standard-Farbton von `edge` gibt den heutigen Edge-Look wieder, so nah
-  es die Rechnung erlaubt; wer nichts einstellt, sieht keinen Unterschied
-  über das hinaus, was der Test als Abweichung zulässt.
+- Ohne gewählten Farbton bleibt `edge` genau wie heute (die festen Farben
+  aus `farben`); die Rechnung greift erst, wenn ein Farbton gewählt ist. Ein
+  einzelner Ton kann den heutigen Look nicht treffen, er hat zwei (Grund
+  bläulich um 225°, Akzent Mint um 162°).
 - Kontrast wie bei allen Sets: `tests/test_kachel_set.py` prüft `edge` über
   den ganzen Farbkreis (alle Grad oder feine Schritte), AAA Hauptschrift, AA
   Rest, 3:1 Grafik, auch für Bento-Widgets und die Nacht-Uhr (`--nacht-ink`).
