@@ -45,7 +45,7 @@ test('Ganze Einstellungen: Standard, Pflichtfelder, Verworfenes', () => {
   const p = E.pruefeEinstellungen({ server: 'http://lp:8080', geraet: 'Streifen', monitor: { breite: 2560, hoehe: 720 },
                                     modus: 'desktop', autostart: false, unbekannt: 1, kuerzelModus: 'L' }, 'pc');
   assert.deepEqual(p.werte, { server: 'http://lp:8080', geraet: 'Streifen', monitor: { breite: 2560, hoehe: 720 },
-                              modus: 'desktop', autostart: false, kuerzelModus: E.STANDARD.kuerzelModus });
+                              modus: 'desktop', autostart: false, bildschirmWach: true, kuerzelModus: E.STANDARD.kuerzelModus });
   assert.deepEqual(p.verworfen.sort(), ['kuerzelModus', 'unbekannt']);
   assert.deepEqual(p.fehlt, []);
   assert.deepEqual(E.pruefeEinstellungen([], 'pc').fehlt, ['server']);
@@ -58,4 +58,21 @@ test('Adresse der Visu und gleiche Herkunft', () => {
   assert.ok(!E.gleicheHerkunft(w, 'http://lp:9090/'));
   assert.ok(!E.gleicheHerkunft(w, 'https://lp:8080/'));
   assert.ok(!E.gleicheHerkunft(w, 'kaputt'));
+});
+
+test('Bildschirme wach halten: Standard an, false bleibt, Text wird verworfen', () => {
+  assert.equal(E.STANDARD.bildschirmWach, true);
+  assert.equal(E.pruefeEinstellungen({ server: 'http://lp:8080' }, 'pc').werte.bildschirmWach, true);
+  const aus = E.pruefeEinstellungen({ server: 'http://lp:8080', bildschirmWach: false }, 'pc');
+  assert.equal(aus.werte.bildschirmWach, false);
+  assert.deepEqual(aus.verworfen, []);
+  const ja = E.pruefeEinstellungen({ server: 'http://lp:8080', bildschirmWach: 'ja' }, 'pc');
+  assert.equal(ja.werte.bildschirmWach, true);
+  assert.deepEqual(ja.verworfen, ['bildschirmWach']);
+});
+
+test('wachHalten: nur im Widget-Modus und nur mit Schalter', () => {
+  assert.equal(E.wachHalten({ bildschirmWach: true }, 'widget'), true);
+  assert.equal(E.wachHalten({ bildschirmWach: true }, 'desktop'), false);
+  assert.equal(E.wachHalten({ bildschirmWach: false }, 'widget'), false);
 });

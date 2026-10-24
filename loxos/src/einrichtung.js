@@ -11,6 +11,7 @@ async function fuellen() {
   $('kuerzel').value = werte.kuerzelModus;
   $('widget').checked = werte.modus === 'widget';
   $('autostart').checked = werte.autostart;
+  $('wach').checked = werte.bildschirmWach;
   const sel = $('monitor');
   const auto = document.createElement('option');
   auto.value = 'auto'; auto.textContent = 'Automatisch (der Streifen)';
@@ -30,7 +31,7 @@ $('form').addEventListener('submit', async ev => {
   const m = $('monitor').value;
   const antwort = await window.loxos.speichern({
     server: $('server').value, geraet: $('geraet').value, kuerzelModus: $('kuerzel').value,
-    modus: $('widget').checked ? 'widget' : 'desktop', autostart: $('autostart').checked,
+    modus: $('widget').checked ? 'widget' : 'desktop', autostart: $('autostart').checked, bildschirmWach: $('wach').checked,
     monitor: m === 'auto' ? 'auto' : { id: Number(m) },
   });
   if (antwort.ok) return;
