@@ -118,6 +118,7 @@ function erbtZeichnen(){
     }
     el.innerHTML=knopf+(teile.length?'<span>'+esc(teile.join(' · '))+'</span>':'');
   });
+  abweichungenEinhaengen();   // LoxOS: Uebersicht "Was ist eingestellt?" (config/abweichungen.js)
 }
 // Gerätekarte, Teil "Am Gerät": leer gilt, was die gezeigte Ansicht sagt
 function geraetErbtZeichnen(){

@@ -126,7 +126,7 @@ def test_ansicht_in_gruppen(cfg_ordner, tmp_path):
 def test_vorgaben(cfg_ordner, tmp_path):
     async def schritte(pg, breite, erg):
         await pg.locator(".rub", has_text="Vorgaben").click()
-        karte = ".spane[data-sub='appearance'] .card"
+        karte = ".spane[data-sub='appearance'] .card:not(.abw)"   # LoxOS: oben steht die Uebersicht (abweichungen.js)
         await pg.wait_for_selector(karte + " .agr")
         erg[("vorgaben", breite)] = await pg.evaluate(GRUPPEN, karte)
         await pg.locator(karte).screenshot(path=str(tmp_path / f"vorgaben_{breite}.png"))

@@ -905,6 +905,38 @@
       '{g} hat Betriebsmodi ({m}): Schaltet Loxone den Modus um, kann das Gerät auf eine andere Ansicht wechseln. Sie bleiben, wie sie sind; ändern unter Geräte → {g} → Betriebsmodi.':
         '{g} has operating modes ({m}): when Loxone switches the mode, the device can change to another view. They stay as they are; change them under Devices → {g} → Operating modes.',
       'Bestehende Ansichten bleiben unverändert. Weitere Seiten legst du danach im Seiten-Editor an.': 'Existing views stay unchanged. Add more pages afterwards in the page editor.',
+      // LoxOS: Übersicht „Was ist eingestellt?" (config/abweichungen.js)
+      'Was ist eingestellt?': 'What is set?',
+      'Alles, was diese Ansicht selbst einstellt. Zurücksetzen entfernt den eigenen Wert, dann gilt die Vorgabe oder der Standard. Wirksam mit „Speichern“.':
+        'Everything this view sets itself. Resetting removes its own value, then the default or the standard applies. Takes effect with “Save”.',
+      'Alles, was die Vorgaben einstellen. Zurücksetzen entfernt den Wert, dann gilt der Standard in jeder Ansicht ohne eigenen Wert. Wirksam mit „Speichern“.':
+        'Everything the defaults set. Resetting removes the value, then the standard applies in every view without its own value. Takes effect with “Save”.',
+      'Alles auf Standard': 'Everything to standard',
+      'Alles auf Standard – diese Ansicht stellt nichts selbst ein, es gelten Vorgaben und Standard.':
+        'Everything at standard – this view sets nothing itself, the defaults and the standard apply.',
+      'Alles auf Standard – die Vorgaben stellen nichts ein.': 'Everything at standard – the defaults set nothing.',
+      'sonst gilt: {w}': 'otherwise: {w}',
+      'eigene Einstellung': 'own setting',
+      'Das wird zurückgesetzt:': 'This will be reset:',
+      'Bleibt, mit eigenem Knopf: {liste}': 'Stays, with its own button: {liste}',
+      'Wirksam erst mit „Speichern“.': 'Takes effect only with “Save”.',
+      'Zurücksetzen': 'Reset',
+      'Audio-Zone des Widgets': 'Audio zone of the widget',
+      'Werteleiste': 'Value bar',
+      'Kachel-Layout: Spalten': 'Tile layout: columns',
+      'Kachel-Layout: Zeilen': 'Tile layout: rows',
+      'Bildschirm füllen': 'Fill screen',
+      'Split-Screen': 'Split screen',
+      'Farbton (Touch)': 'Hue (Touch)',
+      'Farbton (Edge)': 'Hue (Edge)',
+      'Schriftstärke': 'Font weight',
+      'Hausübersicht: Aufbau': 'House overview: layout',
+      'Hausübersicht: zählt nicht unter „Gerade aktiv“': 'House overview: not counted under “On right now”',
+      'Hausübersicht: Energie im Kopf': 'House overview: energy in the header',
+      'Screensaver: zweite Fläche': 'Screensaver: second area',
+      'Nachts abdunkeln': 'Dim at night',
+      'Aufhellen bei Berührung': 'Brighten on touch',
+      'Helligkeit der Nacht-Uhr': 'Night clock brightness',
       // --- Ansicht duplizieren mit Raumtausch (Punkt 14) ---
       'Duplizieren': 'Duplicate',
       'Ansicht duplizieren': 'Duplicate view',
