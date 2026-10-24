@@ -91,7 +91,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. Das Mixin `Front` (`front.py`) ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
-| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ und „edge“ rechnen ihre Farben aus einem Farbton (`satz_farben()`, je nach Art der Rechnung `touch_satz()` oder `_edge_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()` in `miniserver.py`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
@@ -1259,10 +1259,24 @@ am Kasten). `--pille-tab-breite` macht die Pille je Eintrag so breit, höchstens
 560 px wie ohne das Maß; `renderTabs()` setzt die Zahl der Einträge
 (`--tab-n`). `groessen` sind Standardgrößen der Kachel, die das Set
 mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
-`ui.tileLayout` nicht. „touch“ hat statt fester Farben einen
-`satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,
-Taste, aktive Kachel und Tab-Symbole aus dem Farbton (`ui.tileHue`) und lässt
-jede Helligkeit wandern, bis ihr Kontrast erreicht ist. Rollen, die ein Set
+`ui.tileLayout` nicht. Ein Set mit `satz` rechnet seine Farben aus einem
+Farbton; `satz_farben(name, farbton, aktiv)` wählt die Rechnung nach
+`satz["rechnung"]`, nie nach dem Namen. `farbton` nennt den Schlüssel in `ui`
+(`FARBTON_SCHLUESSEL`), den Standard und die Schnellwahl. „touch“ (Rechnung
+`hell`) hat statt fester Farben nur den `satz`: `touch_satz(farbton,
+aktiv_hell)` rechnet Schrift, Kachel, Fläche, Taste, aktive Kachel (Auswahl
+`aktiv`: hell oder dunkel) und Tab-Symbole aus dem Farbton (`ui.tileHue`) und
+lässt jede Helligkeit wandern, bis ihr Kontrast erreicht ist. „edge“ (Rechnung
+`dunkel`, `_edge_satz()`) hat keinen Standard-Farbton: Ohne Wahl gelten seine
+festen `farben` (Grund bläulich, Akzent Mint), der Regler steht dann auf
+`regler`. Mit Farbton färbt die Rechnung Grund, Leiste, Karten und Tasten
+dunkel im Ton, die Schrift hell, die Zweitzeile wie `_ergaenzen()`
+(`_zweitzeile()`), und der Akzent (`--glow`, `--accent`) wandert mit: Liegt
+der Ton näher als `EDGE_AKZENT_ABSTAND` (30°) an `--good`, `--warn` oder
+`--crit` oder trennt er sich nicht von `--good` und `--muted`, weicht er in
+Stufen von `ton_schritt` auf den nächsten tragfähigen Ton aus; seine
+Helligkeit wandert, bis er auf Kachel und aktiver Kachel AA trägt. Die
+Zustandsfarben bleiben fest. Rollen, die ein Set
 nicht nennt (Zweitzeile, Zustandsfarben, Störung, Text auf dem Akzent),
 rechnet `_ergaenzen()` nach denselben Regeln wie `derive()` gegen die Flächen
 des Sets nach. `_theme_vars()` schickt Farben und Maße als CSS-Variablen,
@@ -1270,8 +1284,8 @@ des Sets nach. `_theme_vars()` schickt Farben und Maße als CSS-Variablen,
 die Auswahl als `kachelSets` (mit den fertigen Farben der Schnellwahl).
 Ausdrücklich gewählte Zustandsfarben und Farben aus „Kacheln gestalten“
 gelten auch mit Set. `tests/test_kachel_set.py` rechnet jedes Paar nach, das
-die Visu bei der Art des Sets aufeinander setzt, für „touch“ über alle
-Farbtöne in 5er-Schritten. Die Trennbarkeit für rot-grün-blinde Augen
+die Visu bei der Art des Sets aufeinander setzt, für jedes Set mit `satz`
+über alle Farbtöne in 5er-Schritten. Die Trennbarkeit für rot-grün-blinde Augen
 verlangt er nur beim Aufbau `lx`, wo allein die Tönung „aktiv“ zeigt: Bei
 `mitte` und `kreis` trägt die Form den Zustand, und die festen Farben von
 „Kreide“ (Orange, Grün, Grau) fallen unter Deuteranopie zusammen.

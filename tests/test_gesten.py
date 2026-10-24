@@ -388,15 +388,16 @@ def test_nacht_uhr_geht_mit_der_nacht_an_die_visu(vorgabe, ansicht, uhr, hell):
 
 
 def _themes():
-    """Jedes Kachel-Set (touch in jedem Farbton der Schnellwahl und beiden Arten
+    """Jedes Kachel-Set (die Sets mit Rechnung in jedem Farbton der Schnellwahl und jeder Art
     der aktiven Kachel) und Grundfarben ueber Farbkreis und Helligkeit."""
     for name, e in theme_colors.KACHEL_SETS.items():
         if "farbton" not in e:
             yield {"tileSet": name}
             continue
         for wahl in e["farbton"]["auswahl"]:
-            for aktiv in e["aktiv"]["auswahl"]:
-                yield {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
+            for aktiv in (e["aktiv"]["auswahl"] if "aktiv" in e else [None]):
+                yield {"tileSet": name, e["farbton"]["schluessel"]: wahl["wert"],
+                       **({"tileActive": aktiv["key"]} if aktiv else {})}
     for farbton in range(0, 360, 45):
         for hell in (12, 50, 92):
             yield {"baseColor": theme_colors._aus_hls(farbton / 360, hell / 100, 0.4)}
