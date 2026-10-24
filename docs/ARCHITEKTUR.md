@@ -97,11 +97,11 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
 | `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` drei Stylesheets und vierzehn Skriptteile in fester Reihenfolge (§7.1) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, im Fork LoxOS-Streifen einrichten, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu, im Fork das Bento-Raster: `bentoRaster`, `bentoMass`, `bentoStufe(n)`, `bentoFrei`), §7.5 |
-| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) |
+| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) und `loxos-assistent.js` (LoxOS: Assistent „LoxOS-Streifen einrichten“, §7.2, nach `sicherung.js` geladen) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
@@ -2812,6 +2812,39 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   (`createBlankPanel()`). `test_geraet_einrichten_browser.py` hält den Weg fest:
   Tablet aus dem Banner, Raum, Haus, Kopie mit Raumtausch, Fertig mit Zuordnung,
   4″-Panel ohne Haus, „＋ Neue Ansicht“ mit genau diesen drei Karten.
+- **Assistent: LoxOS-Streifen einrichten** (Fork, `docs/VISION.md`
+  „LoxOS-Assistent“, Phase 12): `config/loxos-assistent.js`, Overlay `#loxOv`,
+  `loxOpen()`/`loxClose()`, Zustand `LOX`, Schritte aus `loxFlow()` nach dem
+  Muster des Betriebsmodus-Assistenten. Einstieg: `#loxOpenBtn` unter Geräte und
+  `#ovLoxOS` in der Übersicht neben „Gerät einrichten“. Aufbau wie dort: links
+  der Schritt, rechts die echte Visu als Vorschau (`loxVorschau()`,
+  `POST /api/entwurf`, eigener Token, `loxVorschauMass()` verkleinert per
+  `transform`). (1) *Gerät*: alle bekannten Geräte (`alleGeraeteNamen()`),
+  Streifen zuerst (gemeldeter Schirm mit `vw/vh` ab `/api/meta` `streifenAb`),
+  dann mit gemeldeter Größe, unten ohne mit „Größe noch unbekannt“; Geräte ohne
+  Namen werden hier benannt (`nameDevice()`, `/api/device/name`), `pollDevices()`
+  zieht den Schritt über `loxGeraeteNeu()` nach und wählt das benannte. „Weiter“
+  holt `GET /api/bento/vorschlag?device=` (`LOX.vorschlag`). (2) *Anwesenheit*:
+  Melder aus `ACTIVE_OPTS` (dieselbe Liste wie unter Geräte) oder „ohne Melder“,
+  „Ruhe-Uhr statt Display aus“ vorausgewählt und nur mit Melder wirksam.
+  (3) *Aussehen*: Set `LOX_SET` (`edge`), Farbton aus `kachelSetMeta('edge')`
+  `farbton.auswahl`, „Original“ vorausgewählt (dann kein `tileHueEdge`).
+  (4) *Startseite*: die Zellen des Vorschlags, die Vorschau zeigt sie in
+  Gerätegröße. (5) *Fertig*: Zusammenfassung; hat das Gerät Betriebsmodi, ein
+  Hinweis, dass ein Moduswechsel umschalten kann und wo man das ändert.
+  Bis „Fertig“ bleiben `PANELS`, `DEV` und `cur` unberührt; Abbrechen, ✕, Esc
+  oder Klick daneben ändern nichts und ersetzen den iframe (wie `geClose()`).
+  `loxFertig()` legt die Ansicht `loxProfil()` an: Titel „LoxOS · <Gerät>“
+  (`loxTitel()`; gibt es den Titel schon, „… 2“, „… 3“), Kennung über
+  `idAusName()`, `tabs` nur die eine freie Seite (`pickKey(0)`, keine Leiste am
+  Gerät), `ui: {tileSet: "edge", tileHueEdge?}`, `pickTabs` = der Vorschlag,
+  `device` mit dem Format des Vorschlags. Dann `ansichtAmGeraet()` (speichern,
+  `/api/device/switch`) und `devSpeichern()` mit `loxGeraeteListe()`: dem
+  gespeicherten Stand der Geräte (offene Änderungen an anderen Geräten gehen
+  nicht mit), jeder Zuordnung aus `DEVICE_ZUORDNUNG` und für dieses Gerät
+  Zuordnung, Melder und `ruhe`; Betriebsmodi bleiben. Danach steht der
+  Bento-Editor der neuen Seite offen (Ansichten → Seiten).
+  `tests/browser/test_loxos_assistent_browser.py` hält den Weg fest.
 - **Der frühere sechsstufige Assistent** (`wz*`, „Selbst zusammenstellen“)
   ist seit 15.10.2026 abgebaut: Was er konnte, leisten „Gerät einrichten“
   (Raum, Haus, Kopie mit Raumtausch, Vorschau, Fertig mit Zuordnung) und der
