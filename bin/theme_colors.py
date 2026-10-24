@@ -555,6 +555,30 @@ KACHEL_SETS = {
                   "--rail-breite": "208px", "--rail-breite-schmal": "68px",
                   "--kachel-schatten": "0 1px 3px rgba(27,26,23,.08)"},
     },
+    # LoxOS (Fork, docs/VISION.md): Edge-Look fuer flache Streifen-Displays.
+    # Vorhandene Arten: Aufbau "lx" (Symbol oben, Zustand ueber Toenung und
+    # Akzent), Leiste "links" - auf einem 32:9-Streifen kostet eine
+    # Seitenleiste Breite statt der knappen Hoehe. Die feine Kante der Karten
+    # ist ein Innenrand ueber --kachel-schatten.
+    "edge": {
+        "label": "Edge (dunkel, für Streifen)",
+        "info": "Tiefschwarzer Grund, Karten mit feiner Kante, ein heller Akzent; die Tabs als schmale "
+                "Seitenleiste – gebaut für flache Streifen-Displays.",
+        "aufbau": "lx", "leiste": "links",
+        "farben": {
+            "--bg": "#07080c", "--screen": "#07080c", "--rahmen": "#07080c",
+            "--tile": "#12141a", "--kachel-an": "#1b1f28", "--taste": "#1e2129", "--tabbar": "#0c0d11",
+            "--line": "rgba(255,255,255,.08)", "--wash": "255,255,255",
+            "--ink": "#f2f3f5", "--muted": "#8b919d",
+            "--glow": "#62f0c6", "--accent": "#62f0c6", "--good": "#9ad94f",
+            "--warn": "#ffb454", "--crit": "#ff6b6b", "--cool": "#6cb4f0",
+        },
+        "masse": {"--kachel-radius": "22px", "--taste-radius": "14px",
+                  "--kachel-schatten": "inset 0 0 0 1px #22252e",
+                  "--kachel-abstand": "12px", "--kachel-abstand-schmal": "8px",
+                  "--feld-innen": "12px", "--feld-innen-schmal": "8px",
+                  "--rail-breite": "184px", "--rail-breite-schmal": "64px"},
+    },
 }
 
 # Rollen, zu denen panel.html zusaetzlich das R,G,B-Tripel braucht (Auflagen

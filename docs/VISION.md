@@ -23,7 +23,7 @@ dort als Wahrheit. Hier bleibt die Richtung.
 | Widget | Inhalt ohne eigenen Loxone-Baustein-Typ: Uhr, Wetter, Kalender, Audio, Energie, Kamera, Verlauf, Werte, Webseite |
 | Fließraster | Das heutige Raster freier Seiten: Kacheln fließen in Reihenfolge, die Visu rechnet die Position |
 | Hülle | Die Desktop-App „LoxOS“ (Electron), die die Visu auf dem Streifen zeigt |
-| Edge-Look | Das Kachel-Set `edge` mit dem Aufbau `karte` |
+| Edge-Look | Das Kachel-Set `edge` (Aufbau `lx`, Leiste `links`) |
 
 ## Was Bento ist – und was nicht
 
@@ -88,7 +88,7 @@ Phase auf der vorigen aufbaut.
 | 0 | Diese Datei, `pickTabs` in `ARCHITEKTUR.md` §5.3, Fork-Ausnahme in `CONTRIBUTING.md`; Mockups im Edge-Look freigeben |
 | 1 | Datenformat und Sanitizer (`bento_format.py`): `pickTabs[].bento` in `_sanitize_panels()` und `_pick_tabs()`, iframe-Adresse nur http/https, Überlappung und Rand geprüft |
 | 2 | Server: Mixin `bin/bento.py` rendert die Zellen mit Inline-Daten der Widgets, Weiche in `_view_tab()`, Webseiten-Prüfung als Hintergrundaufgabe `bento_task()`; Verlaufs-Zellen zeigen den Standard-Zeitraum (`STAT_DEFAULT_RANGE`) |
-| 3 | Kachel-Set `edge` mit Aufbau `karte` in `theme_colors.py`, eigene CSS-Datei, Kontrastprüfung |
+| 3 | Kachel-Set `edge` in `theme_colors.py` aus vorhandenen Arten (Aufbau `lx`, Leiste `links`), Kontrastprüfung wie bei allen Sets |
 | 4 | `raster.js` (Bento-Raster, Kollision, Kachelfaktor je Zelle), `panel/bento.js`, keine Tab-Leiste bei nur einer Bento-Seite |
 | 5 | Seiten-Editor: Ziehen, Größengriff, Tastatur, Kollision, Vorschau am Gerät |
 | 6 | Browser-Abnahme bei 2560×720, 1920×480 und 1280×400 mit Screenshots |
@@ -165,9 +165,15 @@ Regeln, die alle Stufen einhalten:
   Energie, Prozentzahl beim Audio). Die Schwellen leiten sich aus den
   vorhandenen Kachel-Ziel-Konstanten ab, nicht aus eigenen Zahlen.
 - **Edge-Look als Kachel-Set.** Das Set `edge` wirkt auf die ganze Visu,
-  nicht nur auf Bento-Seiten; Regeln hängen an der Art des Sets
-  (`data-kachelset-aufbau="karte"`), nie am Namen. Die Kontrastprüfung gilt
-  auch für Widgets.
+  nicht nur auf Bento-Seiten. Es nutzt vorhandene Arten – Aufbau `lx`
+  (Zustand über Tönung und Akzent) und Leiste `links` (auf einem
+  32:9-Streifen kostet eine Seitenleiste Breite statt der knappen Höhe) –
+  und bringt nur Farben und Maße mit; die feine Kante der Karten ist ein
+  Innenrand über `--kachel-schatten`. Ein eigener Aufbau wäre eine zweite
+  Kachel-Darstellung in Upstream-Dateien gewesen. Regeln hängen wie immer
+  an der Art, nie am Namen. Die Kontrastprüfung gilt auch für Widgets.
+  Feste Farben in Stufe 1; ein Farbton-Regler wie bei `touch` folgt in
+  Stufe 2 (die Rechnung ist heute fest an `touch` gebunden).
 - **Hülle mit Electron** in `loxos/`, Einstellungen in `loxos.json`. Die
   Abhängigkeiten sind festgenagelt wie die übrigen (Sperrdatei, Dependabot).
 
@@ -176,6 +182,7 @@ Regeln, die alle Stufen einhalten:
 | Stufe | Baut auf |
 |---|---|
 | 2 Hintergrund | Set-Variablen des Kachel-Sets; Sonnenauf- und -untergang und Wetterlage aus `{t:"front"}` |
+| 2 Farbton für `edge` | die Rechnung aus `touch_satz()` auf mehrere Sets verallgemeinert |
 | 2 Ruhemodus | Nacht-Uhr und Uhr-Widget |
 | 2 Aufwachen | `devices.presence` (Loxone), UniFi als weitere Quelle |
 | 2 Bento-Automatik | leere `cells` (Regel 5) |
@@ -190,7 +197,7 @@ Regeln, die alle Stufen einhalten:
 LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 
 - **Neue Dateien statt Änderungen.** Logik steht in eigenen Modulen
-  (`bin/bento_format.py`, `bin/bento.py`, `panel/bento.js`, `panel/karte.css`,
+  (`bin/bento_format.py`, `bin/bento.py`, `panel/bento.js`, `panel/bento.css`,
   `config/bento-editor.js`, `loxos/`).
 - **Kleine Andockstellen** in Upstream-Dateien, jede als zusammenhängender
   Block: Aufruf des Prüfers in `_sanitize_panels()` und `_pick_tabs()`
@@ -198,7 +205,7 @@ LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
   `bento_format.py`, weil `konfig.py` an der Längengrenze von
   `test_dateigroessen.py` liegt), Weiche in `_view_tab()` (`seiten.py`), Set in
   `theme_colors.py`, Datenparameter der Widget-Renderer (`front.js`,
-  `kacheln.js`), Weiche im Seiten-Editor, Script- und Stylesheet-Tags in
+  `kacheln.js`), das Set in `KACHEL_SETS` mit seiner Übersetzung, Weiche im Seiten-Editor, Script- und Stylesheet-Tags in
   `panel.html` und `config.html`.
 - **Nach jedem Upstream-Merge** laufen die LoxOS-Tests mit; ein Konflikt an
   einer Andockstelle wird dort gelöst, nicht durch Kopieren von

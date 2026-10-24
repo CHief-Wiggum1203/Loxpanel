@@ -804,6 +804,9 @@
       'Kreide (hell)': 'Chalk (light)',
       'Weiße Kacheln auf hellem Grund, das Symbol im Kreis, die Tabs als Seitenleiste links.':
         'White tiles on a light background, the icon in a circle, the tabs as a sidebar on the left.',
+      'Edge (dunkel, für Streifen)': 'Edge (dark, for strip displays)',
+      'Tiefschwarzer Grund, Karten mit feiner Kante, ein heller Akzent; die Tabs als schmale Seitenleiste – gebaut für flache Streifen-Displays.':
+        'Deep black background, cards with a fine edge, one bright accent; the tabs as a slim sidebar – made for flat strip displays.',
       'Farbton': 'Hue',
       'Aktive Kachel': 'Active tile',
       'Hell': 'Light',
