@@ -315,6 +315,9 @@ def _paare(name: str, v: dict) -> list:
               ("--muted", "--kachel-an", TC.AA, "Zweitzeile auf der aktiven Kachel")]
         an_text = "--an-text" if "--an-text" in v else "--glow"
         k += [(an_text, f, TC.AA, "Zustand an") for f in ("--tile", "--kachel-an")]
+        # Bento-Widgets (bento.css .bz-wfehler, .bz-cover) setzen die
+        # Zweitzeile auf die Taste; touch (Aufbau mitte) betrifft das nicht
+        k += [("--muted", "--taste", TC.AA, "Zweitzeile auf der Taste")]
         k += [("--glow", f, TC.GRAFIK, "Symbol an") for f in ("--tile", "--kachel-an")]
     if aufbau == "kreis":
         k += [("--ink", "--taste", TC.GRAFIK, "Symbol im Kreis"),

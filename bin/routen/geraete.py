@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import aiohttp
 from aiohttp import web
 
-from geraete import AGENT_BEFEHL_TIMEOUT, AGENT_KANN_PANEL, AGENT_ONLINE, VORSCHAU_GERAET_DAUER
+from geraete import AGENT_BEFEHL_TIMEOUT, AGENT_DPMS_NIE, AGENT_KANN_PANEL, AGENT_ONLINE, VORSCHAU_GERAET_DAUER
 from konfig import _devices_export, _is_tab, _sanitize_devices
 from routen.gemeinsam import _json_or_empty, _push, _push_filter, server_stand
 from sicherung import _kennwoerter_einsetzen
@@ -70,7 +70,10 @@ async def api_agent_announce(request: web.Request) -> web.Response:
     pid = panel if wunsch is None else wunsch
     # Panel-spezifische Geraeteeinstellungen an den Agenten zurueckgeben
     # (der wendet sie am Geraet an, z.B. Display-Abschaltung per xset).
-    out = {"ok": True, "dpmsOff": app.panel_dpms(pid, dev=app.agents[ip]["name"]), "reloadHours": app.panel_reload(pid)}
+    # Mit Ruhemodus schaltet das Display nie ab: dort zeigt die Visu die Ruhe-Uhr.
+    dev = app.agents[ip]["name"]
+    dpms = AGENT_DPMS_NIE if app._ruhe_an(dev) else app.panel_dpms(pid, dev=dev)
+    out = {"ok": True, "dpmsOff": dpms, "reloadHours": app.panel_reload(pid)}
     if wunsch is not None:
         out["panel"] = wunsch
     return web.json_response(out)

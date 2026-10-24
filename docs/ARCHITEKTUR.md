@@ -96,7 +96,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
-| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` zwei Stylesheets und zwölf Skriptteile in fester Reihenfolge (§7.1) |
+| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` drei Stylesheets und vierzehn Skriptteile in fester Reihenfolge (§7.1) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
@@ -1563,14 +1563,16 @@ kopierter Regeln. Mit nur dieser einen Seite und ohne Detailseite darüber
 fällt die Tab-Leiste weg (`.screen.bentovoll`).
 **Bento: Wischen.** In einer Ansicht mit mindestens zwei Bento-Seiten (`tabMeta[t].bento`) blättert ein Finger waagerecht zur nächsten bzw. vorigen Bento-Seite der Leiste (`bentoNachbar()`, normale Seiten dazwischen übersprungen, kein Rundlauf). Es zählt ein Weg ab `BENTO_WISCH_WEG` der Flächenbreite, waagerecht mindestens `BENTO_WISCH_RICHTUNG`-mal so viel wie senkrecht. Touch-Events auf `#grid` wie das Wischen im Kachelfeld; ein zweiter Finger ist eine Geste (`gesten.js`) und bricht ab. Kein Start auf den Tasten der Kachel, der Kopf-Taste, Spieler und Lautstärke einer Zelle, Reglern und Knöpfen, Verlaufs- und Webseiten-Zellen und in einem waagerecht scrollenden Bereich (`BENTO_WISCH_AUS`, `bentoQuerScroller()`); nach einem Wisch lässt `BENTO_KLICKSPERRE_MS` keinen Klick durch. `bentoWechsel()` gleitet mit `document.startViewTransition`: `data-bento-richtung` (`vor` | `zurueck`) an `<html>` wählt die Keyframes in `bento.css`, nur das Raster gleitet (`view-transition-name`), Dauer `BENTO_WECHSEL_MS` als `--bento-wechsel`. Der Übergang navigiert erst im Rückruf (`goTab()`) und wartet, bis `renderBento()`/`updateBento()` die Zielseite gezeichnet hat (`bentoGezeichnet()`), höchstens `BENTO_WECHSEL_GRENZE_MS`, dann bricht er ohne Gleiten ab. Ohne die Schnittstelle nur `goTab()`. Ein Tipp in die Leiste von einer Bento- zu einer anderen Bento-Seite nimmt denselben Übergang (`bentoTabWechsel()`, eingehängt in `renderTabs()` in `seiten.js`), alle anderen Tipps wechseln wie bisher. Geprüft in `tests/browser/test_bento_browser.py` bei 2560×720 und 1920×480.
 Ebenso im Fork `ruhe.js` nach `display`: der Ruhemodus (§8). Die Ruhe-Uhr ist
-die Nacht-Uhr: `nachtUhrAn()` gilt auch, solange `ruheAn()` (Ruhemodus an und
-der Melder meldet niemanden), zu jeder Tageszeit, mit `nightClockBright`.
+die Nacht-Uhr: `nachtUhrAn()` gilt auch, solange `ruheAn()` (Ruhemodus an, der
+Melder meldet niemanden und es ist keine Entwurfs-Vorschau, `ENTWURF`), zu jeder Tageszeit, mit `nightClockBright`.
 `ruheAnwenden()` legt den Stand des Melders auf die Uhr-Seite (niemand da:
 `showSaver()`, sonst `hideSaver()` und `resetIdle()`, die Seite von vorher
 bleibt), `ruheNachLeerlauf()` in `nachRuhe()` hält den Ruhe-Timer davon ab,
 die Seite zu wechseln oder bei Anwesenheit die Uhr zu zeigen. Mit `RUHE`
 schalten `armDpms()`, `appLeerlauf()` und die `display`-Nachricht des
-Melders nichts ab. Geprüft in `tests/browser/test_ruhe_browser.py`.
+Melders nichts ab; `ruheSetzen()` hält beim Einschalten einen laufenden
+Display-Timer an und übergeht einen unveränderten Wert (`{t:"ruhe"}` kommt
+nach jedem Speichern der Geräte). Geprüft in `tests/browser/test_ruhe_browser.py`.
 Wie beim Konfigurator (§7.2): kein Build, keine ES-Module, alle Funktionen
 bleiben global, was ein Teil beim Laden ausführt, ruft nur Funktionen
 früherer Teile; der Code ist nur verschoben. Der Server liefert
@@ -3424,7 +3426,10 @@ dafür stehen `ruhe` in der `theme`-Nachricht und die Nachricht
 `{t:"ruhe", ruhe}`, die `POST /api/devices` jeder Verbindung mit dem Wert ihres
 Geräts schickt (die Visu dazu §7.1, `ruhe.js`). Ein ausdrücklicher Befehl
 `/api/display?on=0` (etwa aus Loxone) schaltet auch mit `ruhe` ab: Er kommt
-ohne `presence` an und ist kein Melder-Ereignis. Geräte ohne `ruhe` verhalten
+ohne `presence` an und ist kein Melder-Ereignis. Auch ein Agent-Panel mit
+`ruhe` schaltet nie ab: Die Announce-Antwort nennt ihm `dpmsOff` 0
+(`AGENT_DPMS_NIE`) statt der Abschaltzeit, sonst ginge sein Display per
+`xset dpms` aus, während die Visu die Ruhe-Uhr zeigt. Geräte ohne `ruhe` verhalten
 sich wie zuvor. Geprüft in `tests/test_ruhe.py` und
 `tests/browser/test_ruhe_browser.py`. Präsenz-Tests: `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.

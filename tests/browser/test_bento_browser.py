@@ -412,6 +412,27 @@ def test_wisch_auf_taste_blaettert_nicht(format_, monkeypatch):
 
 
 @pytest.mark.parametrize("format_", STREIFEN)
+def test_verlorener_wisch_blaettert_spaeter_nicht(format_, monkeypatch):
+    """Erreicht das Ende eines Fingers #grid nicht (die Kachel unter ihm fiel
+    weg), darf sein Anfang keinen spaeteren Wisch auf einer Taste zum
+    Blaettern machen."""
+    app = _zwei_seiten(monkeypatch, [])
+    w = FORMATE[format_][0]
+
+    async def aktion(pg, cdp):
+        x, y = await _mitte(pg, '.tile[data-id="S3"]')
+        await cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+        # die Kachel unter dem Finger faellt weg: ihr touchend erreicht #grid nicht
+        await pg.evaluate("""() => document.querySelector('.tile[data-id="S3"]').remove()""")
+        await cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+        tx, ty = await _mitte(pg, '.bz[data-widget="player"] .bz-trans .btn')
+        await _wisch(cdp, tx, ty, -0.2 * w)
+        return await _bleibt(pg, "auswahl")
+    bleibt, fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [] and bleibt, fehler
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
 def test_zwei_finger_blaettern_nicht(format_, monkeypatch):
     from test_gesten_browser import zwei_finger_quer
     app = _zwei_seiten(monkeypatch, [], ui={"gesten": True})

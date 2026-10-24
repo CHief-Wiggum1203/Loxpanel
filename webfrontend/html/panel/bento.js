@@ -320,7 +320,8 @@ const BENTO_WISCH_WEG=0.06;          // Mindestweg als Anteil der Flaechenbreite
 const BENTO_WISCH_RICHTUNG=1.5;      // waagerecht mindestens so viel mal senkrecht
 const BENTO_WECHSEL_MS=280;          // Dauer des Uebergangs
 const BENTO_WECHSEL_GRENZE_MS=1500;  // spaetestens dann endet der Uebergang, auch ohne view
-const BENTO_KLICKSPERRE_MS=GESTE_KLICKSPERRE_MS;   // nach einem Wisch so lange keinen Klick auf Kacheln
+const BENTO_KLICKSPERRE_MS=GESTE_KLICKSPERRE_MS;   // nach einem Wisch so lange gar keinen Klick
+const BENTO_QUER_TOLERANZ_PX=1;     // so viel breiter darf der Inhalt sein, ohne als Scroller zu gelten (Rundung)
 // Wo ein Wisch nicht blaettert, weil das Element ihn selbst braucht: Tasten der
 // Kachel, Kopf-Taste, Spieler und Lautstaerke der Zelle, Regler, Knoepfe,
 // Verlauf und Webseite
@@ -348,7 +349,7 @@ function bentoNachbar(richtung){
 function bentoQuerScroller(n){
   for(let p=n; p && p.nodeType===1 && !p.classList.contains('bz'); p=p.parentElement){
     const ox=getComputedStyle(p).overflowX;
-    if((ox==='auto' || ox==='scroll') && p.scrollWidth>p.clientWidth+1) return true;
+    if((ox==='auto' || ox==='scroll') && p.scrollWidth>p.clientWidth+BENTO_QUER_TOLERANZ_PX) return true;
   }
   return false;
 }
@@ -389,7 +390,10 @@ function bentoTabWechsel(tab){
 }
 
 el('grid').addEventListener('touchstart', e=>{
-  if(e.touches.length!==1 || gesteSequenz){ bentoWisch=null; return; }   // zwei Finger: Geste
+  // ein Anfang, dessen Ende #grid nie erreichte (Element unter dem Finger
+  // fiel weg), gilt nicht fuer diesen Finger
+  bentoWisch=null;
+  if(e.touches.length!==1 || gesteSequenz) return;   // zwei Finger: Geste
   if(!bentoNachbar(1) && !bentoNachbar(-1)) return;
   const t=e.target;
   if(t.closest && t.closest(BENTO_WISCH_AUS)) return;
@@ -407,6 +411,6 @@ el('grid').addEventListener('touchend', e=>{
   if(ziel) bentoWechsel(ziel, richtung);
 }, {passive:true});
 el('grid').addEventListener('touchcancel', ()=>{ bentoWisch=null; }, {passive:true});
-// Ein Klick, den der Browser aus dem Wisch noch macht, erreicht keine Kachel
+// Ein Klick, den der Browser aus dem Wisch noch macht, erreicht nichts
 document.addEventListener('click', e=>{
   if(Date.now()<bentoKlickSperre){ e.preventDefault(); e.stopPropagation(); } }, true);
