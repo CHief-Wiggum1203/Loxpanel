@@ -231,3 +231,230 @@ def test_mit_weiteren_seiten_bleibt_die_leiste():
           sichtbar: getComputedStyle(document.getElementById('tabs')).display!=='none'})""")
     erg, fehler = asyncio.run(_lauf_mit(app, aktion))
     assert fehler == [] and not erg["voll"] and erg["sichtbar"] and erg["tabs"] == 2, erg
+
+
+# ---- Wischen zwischen Bento-Seiten (docs/VISION.md "Wischen zwischen Bento-Seiten") ----
+# Leiste: Bento-Seite A, eine normale Seite, Bento-Seite B. A traegt einen
+# Spieler (Tasten), eine kleine und eine grosse Kachel, B eine Uhr und eine Kachel.
+STREIFEN = ["2560x720", "1920x480"]
+SEITE_A = [{"x": 0, "y": 0, "w": 1, "h": 2, "widget": "clock"},
+           {"x": 1, "y": 0, "w": 2, "h": 1, "widget": "player:Z1"},
+           {"x": 1, "y": 1, "w": 1, "h": 1, "ids": ["S1"]},
+           {"x": 3, "y": 0, "w": 3, "h": 2, "ids": ["S3"]}]
+SEITE_B = [{"x": 0, "y": 0, "w": 2, "h": 2, "widget": "clock"},
+           {"x": 2, "y": 0, "w": 1, "h": 1, "ids": ["S2"]}]
+ZONE = {"name": "Musik", "type": "AudioZone", "uuidAction": "Z1", "room": "r1", "cat": "c1",
+        "states": {"playState": "z-ps"}}
+
+
+def _spieler(zone):
+    """Bloecke des Spielers wie player_blocks: Titel und die drei Tasten."""
+    return [{"k": "title", "text": "Lied", "sub": "Band"},
+            {"k": "row", "cells": [{"icon": "prev", "label": "Zurück", "cmd": {"uuid": zone, "cmd": "prev"}},
+                                   {"icon": "play", "label": "Wiedergabe", "big": True,
+                                    "cmd": {"uuid": zone, "cmd": "play"}},
+                                   {"icon": "next", "label": "Weiter", "cmd": {"uuid": zone, "cmd": "next"}}]}]
+
+
+def _zwei_seiten(monkeypatch, befehle: list, ui=None) -> W.App:
+    struktur, states = raum_anlage()
+    struktur["controls"]["Z1"] = ZONE
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(struktur)
+    app.states = {**states, "z-ps": 0}
+    app.panels = W.App._sanitize_panels({"streifen": {
+        "title": "Streifen", "tabs": ["auswahl", "favoriten", "auswahl2"], "ui": {"tileSet": "edge", **(ui or {})},
+        "pickTabs": [{"name": "A", "picks": ["S1", "S3", "Z1"], "bento": {"cols": 6, "rows": 2, "cells": SEITE_A}},
+                     {"name": "B", "picks": ["S2"], "bento": {"cols": 6, "rows": 2, "cells": SEITE_B}}]}})
+    monkeypatch.setattr(app, "player_blocks", _spieler)
+
+    async def command(uuid, cmd, pin=None):
+        befehle.append((uuid, cmd))
+        return "200"
+    app.command = command
+    return app
+
+
+def _streifen_lauf(app, format_, aktion):
+    """Visu mit Touch-Display im Format starten, aktion(pg, cdp) -> (Ergebnis, Skriptfehler)."""
+    w, h = FORMATE[format_]
+
+    async def lauf():
+        runner, port, bc = await visu_starten(app)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                ctx = await b.new_context(viewport={"width": w, "height": h}, has_touch=True, locale="de-DE")
+                pg = await ctx.new_page()
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=streifen")
+                await pg.wait_for_selector("#grid.bento > .bz", state="attached")
+                await pg.evaluate("wake()")
+                await pg.wait_for_timeout(900)
+                cdp = await ctx.new_cdp_session(pg)
+                erg = await aktion(pg, cdp)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        return erg, fehler
+    return asyncio.run(lauf())
+
+
+async def _mitte(pg, selektor):
+    box = await pg.locator(selektor).first.bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+async def _wisch(cdp, x, y, dx, schritte=12):
+    """Ein Finger bei (x, y) aufsetzen, waagerecht um dx ziehen, loslassen."""
+    await cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+    for i in range(1, schritte + 1):
+        await cdp.send("Input.dispatchTouchEvent",
+                       {"type": "touchMove", "touchPoints": [{"x": x + dx * i / schritte, "y": y}]})
+        await asyncio.sleep(0.016)
+    await cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+
+async def _tipp(cdp, x, y):
+    await cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+    await cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+
+
+async def _auf_seite(pg, tab):
+    """Bis die Seite steht und der Uebergang vorbei ist."""
+    await pg.wait_for_function(f"view && view.tab==={tab!r} && !document.documentElement.dataset.bentoRichtung"
+                               " && !!document.querySelector('#grid.bento > .bz')", timeout=5000)
+
+
+async def _bleibt(pg, tab):
+    """Laenger als ein Uebergang warten: bleibt die Seite stehen?"""
+    await pg.wait_for_timeout(await pg.evaluate("BENTO_WECHSEL_MS") + 400)
+    return await pg.evaluate("[view.tab, stack[0].tab]") == [tab, tab]
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
+def test_wisch_wechselt_zur_naechsten_bento_seite(format_, monkeypatch):
+    app = _zwei_seiten(monkeypatch, [])
+    w = FORMATE[format_][0]
+
+    async def aktion(pg, cdp):
+        x, y = await _mitte(pg, '.tile[data-id="S3"]')
+        await _wisch(cdp, x, y, -0.2 * w)            # nach links: naechste Bento-Seite, favoriten uebersprungen
+        await _auf_seite(pg, "auswahl2")
+        x, y = await _mitte(pg, '.bz[data-widget="clock"]')
+        await _wisch(cdp, x, y, 0.2 * w)             # nach rechts: zurueck
+        await _auf_seite(pg, "auswahl")
+        x, y = await _mitte(pg, '.tile[data-id="S3"]')
+        await _wisch(cdp, x, y, 0.2 * w)             # nach rechts auf der ersten: kein Rundlauf
+        return await _bleibt(pg, "auswahl")
+    bleibt, fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [] and bleibt, fehler
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
+def test_tipp_in_die_leiste_gleitet(format_, monkeypatch):
+    app = _zwei_seiten(monkeypatch, [])
+
+    async def aktion(pg, cdp):
+        # wann der Uebergang endet: mit der Antwort, nicht erst an der Grenze
+        richtung = await pg.evaluate("""() => { const h=document.documentElement, t0=performance.now();
+          new MutationObserver((l, o)=>{ if(!h.dataset.bentoRichtung){ window.__ende=performance.now()-t0; o.disconnect(); } })
+            .observe(h, {attributes:true, attributeFilter:['data-bento-richtung']});
+          document.querySelector('#tabs .tab[data-tab="auswahl2"]').click();
+          return h.dataset.bentoRichtung || ''; }""")
+        await pg.wait_for_timeout(await pg.evaluate("BENTO_WECHSEL_GRENZE_MS"))
+        nach = await pg.evaluate("[document.documentElement.dataset.bentoRichtung || '', view.tab]")
+        ende = await pg.evaluate("[window.__ende, BENTO_WECHSEL_MS, BENTO_WECHSEL_GRENZE_MS]")
+        # zur normalen Seite wie bisher: ohne Uebergang
+        normal = await pg.evaluate("""() => { document.querySelector('#tabs .tab[data-tab="favoriten"]').click();
+          return document.documentElement.dataset.bentoRichtung || ''; }""")
+        await pg.wait_for_function("view && view.tab==='favoriten'", timeout=5000)
+        return richtung, nach, normal, ende
+    (richtung, nach, normal, (ende, dauer, grenze)), fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [], fehler
+    assert richtung == "vor" and nach == ["", "auswahl2"] and normal == "", (richtung, nach, normal)
+    assert dauer <= ende < grenze, (ende, dauer, grenze)
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
+def test_wisch_auf_taste_blaettert_nicht(format_, monkeypatch):
+    befehle = []
+    app = _zwei_seiten(monkeypatch, befehle)
+    w = FORMATE[format_][0]
+
+    async def aktion(pg, cdp):
+        tasten = await pg.locator('.bz[data-widget="player"] .bz-trans .btn').count()
+        x, y = await _mitte(pg, '.bz[data-widget="player"] .bz-trans .btn')
+        await _wisch(cdp, x, y, -0.2 * w)
+        auf_taste = await _bleibt(pg, "auswahl")
+        # Seiten-Wisch am Rand (kein Ziel), gleich danach ein Tipp auf eine Kachel: gesperrt
+        sx, sy = await _mitte(pg, '.tile[data-id="S3"]')
+        await _wisch(cdp, sx, sy, 0.2 * w)
+        kx, ky = await _mitte(pg, '.tile[data-id="S1"]')
+        await _tipp(cdp, kx, ky)
+        await pg.wait_for_timeout(300)
+        direkt = [b for b in befehle if b[0] == "S1"]
+        # nach der Sperre wirkt der Tipp wieder
+        await pg.wait_for_timeout(await pg.evaluate("BENTO_KLICKSPERRE_MS"))
+        await _tipp(cdp, kx, ky)
+        await pg.wait_for_timeout(400)
+        spaeter = [b for b in befehle if b[0] == "S1"]
+        # und von der grossen Kachel aus blaettert derselbe Wisch
+        await _wisch(cdp, sx, sy, -0.2 * w)
+        await _auf_seite(pg, "auswahl2")
+        return tasten, auf_taste, direkt, spaeter
+    (tasten, auf_taste, direkt, spaeter), fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [], fehler
+    assert tasten == 3 and auf_taste, (tasten, auf_taste)
+    assert direkt == [] and len(spaeter) == 1, (direkt, spaeter)
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
+def test_zwei_finger_blaettern_nicht(format_, monkeypatch):
+    from test_gesten_browser import zwei_finger_quer
+    app = _zwei_seiten(monkeypatch, [], ui={"gesten": True})
+    gesten = []
+
+    async def geste(ws, data):
+        gesten.append(data)
+        return None
+    app.geste = geste
+    w = FORMATE[format_][0]
+
+    async def aktion(pg, cdp):
+        x, y = await _mitte(pg, '.tile[data-id="S3"]')
+        await zwei_finger_quer(cdp, y, x, x - 0.2 * w)
+        return await _bleibt(pg, "auswahl")
+    bleibt, fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [] and bleibt, fehler
+    assert gesten and all(g.get("t") == "geste" for g in gesten), gesten
+
+
+# Stellvertreter fuer eine Antwort, die nie kommt: die Visu verwirft die
+# view-Nachricht der Seite B, bevor sie sie zeichnet
+VIEW_B_VERWERFEN = """() => { const echt=ws.onmessage;
+  ws.onmessage=e=>{ let m=null; try{ m=JSON.parse(e.data); }catch(x){}
+    if(m && m.t==='view' && m.tab==='auswahl2') return; echt.call(ws, e); }; }"""
+
+
+@pytest.mark.parametrize("format_", STREIFEN)
+def test_uebergang_haengt_nicht(format_, monkeypatch):
+    befehle = []
+    app = _zwei_seiten(monkeypatch, befehle)
+
+    async def aktion(pg, cdp):
+        await pg.evaluate(VIEW_B_VERWERFEN)
+        richtung = await pg.evaluate("""() => { document.querySelector('#tabs .tab[data-tab="auswahl2"]').click();
+          return document.documentElement.dataset.bentoRichtung || ''; }""")
+        await pg.wait_for_timeout(await pg.evaluate("BENTO_WECHSEL_GRENZE_MS") + 100)
+        nach = await pg.evaluate("document.documentElement.dataset.bentoRichtung || ''")
+        kx, ky = await _mitte(pg, '.tile[data-id="S1"]')
+        await _tipp(cdp, kx, ky)
+        await pg.wait_for_timeout(400)
+        return richtung, nach
+    (richtung, nach), fehler = _streifen_lauf(app, format_, aktion)
+    assert fehler == [], fehler
+    assert richtung == "vor" and nach == "", (richtung, nach)
+    assert [b for b in befehle if b[0] == "S1"], befehle

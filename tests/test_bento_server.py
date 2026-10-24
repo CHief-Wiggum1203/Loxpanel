@@ -67,6 +67,19 @@ def test_ohne_bento_bleibt_die_seite_wie_sie_war():
     assert "bento" not in v and [it["id"] for it in v["items"]] == ["S1"]
 
 
+def test_tabmeta_kennt_bento_seiten():
+    """Die Visu blaettert nur zwischen Bento-Seiten (bento.js bentoNachbar):
+    tabMeta sagt ihr, welche Seiten der Leiste das sind."""
+    app = _app()
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl", "favoriten", "auswahl2"],
+                                               "pickTabs": [{"name": "A", "picks": ["S1"],
+                                                             "bento": {"cells": [zelle(0, 0, ids=["S1"])]}},
+                                                            {"name": "B", "picks": ["S2"]}]}})
+    meta = app._tab_meta(["auswahl", "favoriten", "auswahl2"], app.resolve_profile("p"))
+    assert meta["auswahl"]["bento"] is True
+    assert "bento" not in meta["auswahl2"] and "favoriten" not in meta
+
+
 def test_ausgeblendete_und_unbekannte_bausteine_fallen_aus_der_zelle():
     app = _app()
     v = _seite(app, {"cells": [zelle(0, 0, ids=["S1", "S2"]), zelle(1, 0, ids=["S3"])]},
