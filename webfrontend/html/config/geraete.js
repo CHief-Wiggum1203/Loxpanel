@@ -369,6 +369,7 @@ async function pollDevices(){
     KNOWN_NAMES=Array.from(new Set(KNOWN_NAMES.concat(names)));
     if(isNew||vorschlagNeu){ readDevFromDom(); renderDevices(); }   // neues Panel oder neuer Vorschlag -> Editor ergaenzen (Eingaben behalten)
     mzGeraeteNeu(names);   // offener Betriebsmodus-Assistent: neu benanntes Geraet uebernehmen
+    loxGeraeteNeu();       // LoxOS: offener Assistent (loxos-assistent.js), Schritt 1 nachziehen
     neuBannerZeichnen(j);  // nach DEVICE_SCREENS: "Geraet einrichten" braucht die Groesse des Geraets
   }catch(e){}
 }
