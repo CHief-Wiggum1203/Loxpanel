@@ -212,6 +212,14 @@ nichts. Neu:
 Jede Phase endet mit grünem `pytest`, umgesetztes wandert nach
 `ARCHITEKTUR.md`.
 
+**Stand 24.10.2026:** Die Phasen 8, 9 und 10 sind umgesetzt und stehen in
+`ARCHITEKTUR.md`: Farbton für `edge` (`tileHueEdge`) in §5.3 (`panels.json`)
+und §5.4 (`theme.json`), Ruhemodus (`ruhe`, `{t:"display"}`) in §3.6
+(Nachrichtenprotokoll), §7.1 (`ruhe.js`) und §8; `bildschirmWach` der Hülle
+in der Zeile `loxos/` der Dateitabelle und in `loxos/README.md`; Wischen
+zwischen Bento-Seiten (`tabMeta`) in §3.6 und §7.1 (Bento: Wischen). Die
+Abschnitte oben bleiben als Richtung stehen.
+
 ## Datenformat
 
 Bento erweitert eine freie Seite um den Schlüssel `bento`. Fehlt er, bleibt
