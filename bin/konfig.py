@@ -1307,7 +1307,8 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
     """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
     (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
     Skalierung, Praesenzmelder (`presence` = Control-UUID), "Display aus nach"
-    (`dpmsOff`, Sek.) und Nacht (`nightDim` %, `nightWake` Sek.; Einrichtung
+    (`dpmsOff`, Sek.), Ruhemodus (`ruhe`, nur mit Praesenzmelder: bei leerem
+    Raum zeigt die Visu die Ruhe-Ansicht, das Display bleibt an) und Nacht (`nightDim` %, `nightWake` Sek.; Einrichtung
     Schritt 4 und 4b: vor Ansicht und Vorgaben) und die
     zugeordnete Ansicht (`panel`, Einrichtung Schritt 2: die eine Stelle,
     die sagt, was das Geraet zeigt). Nur existierende Profile werden
@@ -1341,6 +1342,9 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         # wenn der Miniserver gerade nicht verbunden ist.
         presence = cfg.get("presence")
         presence = presence.strip()[:60] if isinstance(presence, str) else ""
+        # Ruhemodus: nur ein echtes True, und nur mit Melder (er sagt, wann
+        # der Raum leer ist)
+        ruhe = cfg.get("ruhe") is True and bool(presence)
         # Stimmung beim Einschalten (Gesten): was angeht, wenn im Raum alles
         # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
         licht_start = _clean_licht_start(cfg.get("lichtStart"))
@@ -1364,6 +1368,8 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
             entry["tileTarget"] = ziel
         if presence:
             entry["presence"] = presence
+        if ruhe:
+            entry["ruhe"] = True
         if licht_start:
             entry["lichtStart"] = licht_start
         if dpms is not None:

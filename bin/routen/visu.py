@@ -104,6 +104,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         # Meldet der Praesenzmelder des Geraets gerade jemanden,
                         # bleibt das Display an - auch nach einem Neuladen.
                         "presence": app._presence_on.get(dev, False),
+                        # Ruhemodus: bei leerem Raum Ruhe-Ansicht statt Display aus
+                        "ruhe": app._ruhe_an(dev),
                         "agent": app._has_agent(dev),
                         # Vorschau eines ungespeicherten Entwurfs: die Visu kennzeichnet sie;
                         # ein Token, der nichts mehr trifft (abgelaufen), meldet sie auch
@@ -169,7 +171,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             elif data.get("t") == "idle":
                 # Visu ohne Kiosk-JS meldet Leerlauf -> Display ueber Treiber aus,
                 # ausser der Praesenzmelder des Geraets sieht gerade jemanden
-                if dev and not app._presence_on.get(dev):
+                # oder das Geraet hat den Ruhemodus (Display bleibt an)
+                if dev and not app._presence_on.get(dev) and not app._ruhe_an(dev):
                     app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")

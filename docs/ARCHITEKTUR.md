@@ -426,7 +426,7 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence`, `ruhe` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) und ob das Gerät den Ruhemodus hat (`ruhe`, §8). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
 | `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `aktivZeile` (false: die Ansicht zählt nichts als aktiv, keine Zeile), `ruhig` (Text der Zeile, wenn nichts an ist), `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`); auf einer Bento-Seite (LoxOS, Fork) statt dessen `bento` (`cols`, `rows`) und `cells[]` (je Zelle `x`, `y`, `w`, `h` und entweder `items[]` oder `widget` mit den Daten inline: `energy`, `chart`, `player`, `camera`, `status` wie die gleichnamigen Nachrichten ohne `t`, bei `iframe` `url`, `name`, `pruefung` (`stand`: `ok` \| `eingeschraenkt` \| `gesperrt` \| `fehler` \| `offen`, `grund`) und `ladenS`; `fehler: true`, wenn ein Blockbauer scheiterte), gebaut in `_view_bento()` (`bento.py`) |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite. An jedes Panel, außer dessen Ansicht blendet die Türsprechanlage aus (`hide`) |
 | `alarm` | `id`, `on` | Weckton starten/stoppen. `on: true` nur an Panels, deren Ansicht den Wecker zeigt (Raum, Kategorie, `hide`: `_sichtbar()`), und nur deren Display geht an; `on: false` an alle, damit ein Panel, das die Ansicht gewechselt hat, nicht weitertönt |
@@ -440,6 +440,7 @@ Server → Browser (`panel.html:700`):
 | `cmdresult` | `ok`, `code`, `uuid`, `cmd`, `gesperrt` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“. `gesperrt`: der Baustein ist gesperrt, der Befehl ging nicht zum Miniserver; die Visu fragt nicht erneut nach der PIN, den Grund nennt ein `notify` |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
+| `ruhe` | `ruhe` (bool) | Ruhemodus des Geräts live umstellen (§8), gesendet nach `POST /api/devices` an alle verbundenen Panels, jedem mit dem Wert seines Geräts — ohne Neuladen |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
 | `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
@@ -1161,6 +1162,8 @@ liefert nur die Ansichten), geschrieben über
                                              // (Gerät vor Profil, nur im Kachel-Layout „Automatisch“; §7.1)
       "presence": "<control-uuid>",          // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
+      "ruhe": true,                          // optional, nur mit presence und nur als echtes true;
+                                             // leerer Raum = Ruhe-Ansicht statt Display aus (§8)
       "lichtStart": {"lc": "<uuid>", "mood": 1}   // optional; Stimmung beim Einschalten (Gesten, §7.1):
                                              // was zwei Finger einschalten, wenn im Raum alles aus ist,
                                              // und zu welcher Lichtsteuerung das Gerät gehört
@@ -3399,7 +3402,18 @@ nur der Melder selbst, wenn der Raum leer wird: Wird ein Melder gewählt,
 während jemand da ist, weckt das Speichern das Gerät; wird er entfernt, fällt
 nur das Halten weg (`on: true, presence: false`), danach gilt wieder die
 Leerlaufzeit. Linux-Panels mit Agent schalten ihr Display per DPMS selbst,
-dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
+dort wirkt der Melder nicht.
+
+**Ruhemodus:** `devices[name].ruhe` (nur als echtes `true` und nur mit
+`presence`, sonst verwirft `_sanitize_devices()` es) macht aus „Raum leer“
+keinen Abschaltbefehl: Der Broadcaster schickt weiter `{t:"display", on:false,
+presence:false}` an die Visu des Geräts, schaltet aber dessen Display-Treiber
+nicht aus (`_ruhe_an()`); das Wecken (`on: true`) läuft wie sonst. Auch die
+`idle`-Meldung der Visu schaltet nichts ab. Die Visu zeigt die Ruhe-Ansicht;
+dafür stehen `ruhe` in der `theme`-Nachricht und die Nachricht
+`{t:"ruhe", ruhe}`, die `POST /api/devices` jeder Verbindung mit dem Wert ihres
+Geräts schickt. Geräte ohne `ruhe` verhalten sich wie zuvor. Geprüft in
+`tests/test_ruhe.py`. Präsenz-Tests: `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.
 
 ---
