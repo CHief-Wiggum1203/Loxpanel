@@ -69,6 +69,12 @@ Farbton wählbar für das Set `edge`, Ruhemodus mit großer gedimmter Uhr, wenn
 niemand da ist, Aufwachen über einen Loxone-Bewegungsmelder, Wischen zwischen
 Bento-Seiten mit weichem Übergang.
 
+### Stufe 2.5 – Einfacher einrichten
+
+Audio-Zelle mit Raum und Raumfavoriten, LoxOS-Assistent (Streifen in fünf
+Schritten einrichten), Übersicht „Was ist eingestellt?“ mit „Alles auf
+Standard“.
+
 ### Stufe 3 – Ereignisse
 
 Vollbild-Karten (Türklingel mit Kamera, Sauna bereit, Alarm, Bewässerung),
@@ -219,6 +225,99 @@ und §5.4 (`theme.json`), Ruhemodus (`ruhe`, `{t:"display"}`) in §3.6
 in der Zeile `loxos/` der Dateitabelle und in `loxos/README.md`; Wischen
 zwischen Bento-Seiten (`tabMeta`) in §3.6 und §7.1 (Bento: Wischen). Die
 Abschnitte oben bleiben als Richtung stehen.
+
+## Stufe 2.5 im Detail
+
+Festgelegt am 24.10.2026 aus den Befunden am Streifen: „Ich habe generell
+ein kleines Problem mit dem Einrichten, es ist schon viel“ und „man hat
+keinen Überblick, was eingestellt ist“. Der Nutzer hat die Entscheidungen
+an die Umsetzung übergeben; sie stehen hier als getroffen.
+
+**Ziel:** Wer einen Streifen hat, richtet ihn ohne Wissen über Rubriken und
+Reiter ein; wer herumprobiert hat, sieht, was er geändert hat, und kommt mit
+einem Klick zurück.
+
+**Nicht Teil von Stufe 2.5:** Bento-Automatik für bestehende Seiten, ein
+Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellungen
+(die stehen schon gesammelt unter „Geräte“).
+
+### Audio-Zelle mit Raum und Raumfavoriten
+
+- Die Zelle zeigt oben klein in Großbuchstaben den **Raum der Audiozone**
+  (Loxone-Raum des Bausteins), wie der Raumname auf den Kacheln; ohne Raum
+  den Namen der Zone.
+- Darunter bzw. unter den Tasten eine **Reihe der Raumfavoriten**: derselbe
+  `favs`-Block, den Spieler-Pane und Detailseite aus dem Server bekommen
+  (`_sender_bloecke()`/`_zonen_favoriten()`), dieselben Befehle, Cover und
+  Name. Die Reihe scrollt waagerecht; das Seitenwischen lässt waagerechte
+  Scroller schon aus.
+- Reicht die Höhe der Zelle nicht (Höhenstufe `klein`, `data-hstufe`),
+  fällt die Reihe weg. Ein Tipp auf den Raumnamen öffnet dann wie überall
+  die Musikauswahl (`view: sources`), so bleiben die Favoriten auch in
+  kleinen Zellen erreichbar.
+- Ohne Favoriten (Audioserver nicht verbunden o. ä.) bleibt die Zeile leer;
+  den Grund zeigt die Musikauswahl.
+
+### LoxOS-Assistent
+
+- Eigenes Overlay im Konfigurator (`config/loxos-assistent.js`, Fork), nach
+  dem Muster des Mehrschritt-Ablaufs der Betriebsmodi (`mzFlow()` in
+  `geraete.js`). Einstieg: Knopf **„LoxOS-Streifen einrichten“** in der Rubrik
+  „Geräte“ und auf der Übersicht neben „Gerät einrichten“.
+- **Schritt 1 – Gerät:** Auswahl aus den bekannten Geräten; Geräte, deren
+  gemeldeter Schirm ein Streifen ist (Seitenverhältnis ab 2,5, dieselbe
+  Schwelle wie die Hülle), stehen oben. Ein noch unbenanntes Gerät wird hier
+  benannt (`/api/device/name`).
+- **Schritt 2 – Anwesenheit:** Präsenz- oder Bewegungsmelder wählen (dieselbe
+  Auswahl wie unter „Geräte“), „Ruhe-Uhr statt Display aus“ vorausgewählt;
+  „ohne Melder“ ist erlaubt und lässt beides weg.
+- **Schritt 3 – Aussehen:** Set `edge` ist gesetzt; Farbton über dieselbe
+  Schnellwahl wie im Konfigurator, „Original“ vorausgewählt.
+- **Schritt 4 – Startseite:** Eine Bento-Seite mit **Vorbelegung**, die der
+  Server rechnet (reine Funktion `bento_vorschlag()` in `bento_format.py`,
+  Endpunkt im Konfigurator): Raster im Standard (`BENTO_*`), Uhr, Wetter,
+  Energiefluss (wenn die Anlage einen hat), Audio (erste Zone der Anlage),
+  Kalender (wenn ein Abo eingerichtet ist), freie Zellen mit den
+  Favoriten-Bausteinen der Anlage (`isFavorite`), höchstens so viele, wie
+  Zellen frei sind. Was die Anlage nicht hat, fällt weg; die Lücken füllen
+  Favoriten. Rechts eine Live-Vorschau in Gerätegröße (wie „Gerät
+  einrichten“, `/api/entwurf`).
+- **Schritt 5 – Fertig:** Legt eine **neue** Ansicht „LoxOS · <Gerät>“ an
+  (bestehende werden nie überschrieben; gibt es den Namen schon, wird
+  durchgezählt), ordnet sie dem Gerät zu (`/api/device/switch`), speichert
+  Melder und `ruhe` (`/api/devices`). Danach steht der Bento-Editor offen,
+  um die Seite anzupassen.
+- Abbrechen ändert nichts; gespeichert wird nur in Schritt 5.
+
+### Übersicht „Was ist eingestellt?“
+
+- Neue Karte oben im Reiter „Allgemein“ jeder Ansicht und der Vorgaben
+  (`config/abweichungen.js`, Fork; Einhängen als ein Aufruf in
+  `ansicht-editor.js`): eine Liste **aller Einstellungen, die vom Standard
+  abweichen**, je Zeile Name, eigener Wert, was ohne ihn gälte
+  (`wasGiltOhneEigenen()`/`giltText()`), ein Knopf „× zurücksetzen“ und ein
+  Sprung zum Reiter, in dem die Einstellung steht.
+- Grundlage sind die vorhandenen Bausteine: `standardWert()`, `wertText()`,
+  `wasGiltOhneEigenen()`; dazu eine Tabelle Schlüssel → Name → Reiter für alle
+  `ui`-Schlüssel, die `_panel_export()` ausgibt (`ABWEICHUNG_FELDER`), Namen
+  über `i18n.js`. Ein Schlüssel ohne Eintrag erscheint mit seinem
+  technischen Namen, nie gar nicht.
+- **„Alles auf Standard“** setzt alle aufgelisteten **Darstellungs- und
+  Verhaltenswerte** zurück (Größen, Schrift, Farben, Raster, Nacht, Display,
+  Gesten). **Nicht** zurückgesetzt werden Inhalt und Look: Seiten, Räume,
+  Kategorien, Widgets/Panes, Kachel-Set und Farbton; sie stehen in der Liste,
+  aber mit eigenem Knopf. Vor dem Zurücksetzen fragt eine Bestätigung in der
+  Seite (kein Browser-Dialog), was zurückgesetzt wird.
+- Zurückgesetzt wird in der Arbeitskopie; wirksam erst mit „Speichern“, wie
+  jede andere Änderung im Konfigurator.
+
+### Phasen
+
+| Phase | Inhalt |
+|---|---|
+| 11 | Audio-Zelle: Raum oben, Favoriten-Reihe, Tipp auf den Raum öffnet die Musikauswahl; Server liefert Raum und `favs` in den Zelldaten; Tests am Nachbau und im Browser |
+| 12 | Übersicht „Was ist eingestellt?“ mit Zurücksetzen je Zeile und „Alles auf Standard“, für Ansichten und Vorgaben; Browser-Tests |
+| 13 | LoxOS-Assistent: `bento_vorschlag()` mit Tests, Endpunkt, Overlay mit fünf Schritten, Live-Vorschau, Speichern; Browser-Test vom Gerät bis zur fertigen Bento-Seite |
 
 ## Datenformat
 
