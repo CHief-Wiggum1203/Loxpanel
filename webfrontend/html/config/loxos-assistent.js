@@ -9,8 +9,10 @@
    unberuehrt, Abbrechen aendert nichts (nur das Benennen eines Geraets in
    Schritt 1 gilt sofort, wie ueberall). "Fertig" legt eine NEUE Ansicht
    "LoxOS · <Geraet>" an (gibt es den Titel schon, wird durchgezaehlt, die
-   Kennung folgt aus idAusName()), speichert sie, ordnet sie dem Geraet zu
-   (ansichtAmGeraet: /api/panels, /api/device/switch), speichert Melder und
+   Kennung folgt aus idAusName()), speichert NUR sie auf dem gespeicherten
+   Stand (loxAnsichtSpeichern, /api/panels wie ansichtLoeschen; offene
+   Aenderungen an anderen Ansichten und an den Vorgaben bleiben offen), ordnet
+   sie dem Geraet zu (ansichtAmGeraet: /api/device/switch), speichert Melder und
    Ruhe (/api/devices) und oeffnet den Bento-Editor der Seite. Betriebsmodi
    des Geraets bleiben, wie sie sind; Schritt 5 nennt sie.
 
@@ -20,8 +22,8 @@
 
 const LOX_SET='edge';               // Kachel-Set des Streifens (theme_colors.KACHEL_SETS)
 const LOX_TITEL='LoxOS · ';         // Titel der neuen Ansicht: davor der Geraetename
-const LOX_TITEL_MAX=40;             // so lang speichert der Server einen Titel (konfig._sanitize_panels)
 const LOX_VORSCHAU_MS=350;          // Entwurf erst nach dieser Pause schicken (wie geVorschau)
+const LOX_VORSCHAU_RAND=16;         // Luft um die skalierte Vorschau (px, zusammen fuer beide Seiten), wie geVorschauMass()
 const LOX={step:0, device:'', vorschlag:null, presence:'', ruhe:true, ton:null, token:'', url:'', timer:0,
   benannt:'', _sig:'', _wired:false, _laeuft:false};
 function loxFlow(){ return ['geraet','anwesenheit','aussehen','startseite','fertig']; }
@@ -56,8 +58,9 @@ function loxModi(){ return ((DEV[LOX.device]||{}).modes||[]).filter(([m,p])=>m&&
 // ---- Die neue Ansicht -------------------------------------------------------------
 function loxTitel(){
   const titel=new Set(Object.values(PANELS).map(p=>p && p.title));
-  // verglichen und gezaehlt wird der Titel, wie er gespeichert wird: der Zaehler bleibt drin
-  const t=LOX_TITEL+LOX.device, mit=z=>t.slice(0, LOX_TITEL_MAX-z.length)+z;
+  // verglichen und gezaehlt wird der Titel, wie er gespeichert wird (/api/meta titelMax =
+  // konfig.TITEL_MAX): der Zaehler bleibt drin
+  const t=LOX_TITEL+LOX.device, mit=z=>t.slice(0, META.titelMax-z.length)+z;
   let k=mit(''), n=2;
   while(titel.has(k)) k=mit(' '+(n++));
   return k;
@@ -88,7 +91,7 @@ function loxVorschauMass(){
   const m=$('#loxVorMass');
   if(!v){ if(m) m.textContent=''; return; }
   const vw=v.format.vw, vh=v.format.vh;
-  const s=Math.min(1, (box.clientWidth-16)/vw, (box.clientHeight-16)/vh);
+  const s=Math.min(1, (box.clientWidth-LOX_VORSCHAU_RAND)/vw, (box.clientHeight-LOX_VORSCHAU_RAND)/vh);
   f.style.width=vw+'px'; f.style.height=vh+'px'; f.style.transform='scale('+s+')';
   f.style.left=Math.round((box.clientWidth-vw*s)/2)+'px'; f.style.top=Math.round((box.clientHeight-vh*s)/2)+'px';
   if(m) m.textContent=vw+' × '+vh+(s<1 ? ' · '+Math.round(s*100)+' %' : '');
@@ -247,6 +250,24 @@ function loxGeraeteListe(name, id){
   if(LOX.presence && LOX.ruhe) d.ruhe=true; else delete d.ruhe;
   return liste;
 }
+// Nur die neue Ansicht speichern: der zuletzt gespeicherte Stand plus sie (wie
+// ansichtLoeschen, ueber dieselbe Kette). Offene Aenderungen an anderen Ansichten
+// und an den Vorgaben bleiben offen; die neue gilt danach als gespeichert. -> ok
+async function loxAnsichtSpeichern(id, p){
+  return ansichtenAuftrag(async()=>{
+    const stand=offenStand(k=>k==='ansicht:'+id);
+    const panels=tiefKopie(GESPEICHERT); panels[id]=tiefKopie(p);
+    let j;
+    try{ j=await postJson('/api/panels', {panels}); }catch(e){ j={ok:false, error:String(e)}; }
+    if(!j.ok){ meldungZeigen([{ok:false, text:'Fehler: '+(j.error||'?')}]); return false; }
+    gespeichertSetzen(j, panels); erledigt(stand); leisteZeigen();
+    if(ENTWURF.id===id) entwurfBeendet();
+    const weg=j.verworfen||[];
+    if(weg.length) meldungZeigen([{ok:true, warn:true, text:T('Nicht übernommen:')+' '+weg.join('; ')}]);
+    try{ await loadPanelIds(); renderDevices(); }catch(e){}
+    return true;
+  });
+}
 async function loxFertig(){
   const p=loxProfil(); if(!p || LOX._laeuft) return;
   LOX._laeuft=true; $('#loxNext').disabled=true; $('#loxBack').disabled=true;
@@ -254,8 +275,8 @@ async function loxFertig(){
   try{
     PANELS[id]=p; cur=id; tileSel=null; curPickIdx=0; renderList(); markDirty();
     loxClose();
-    await ansichtAmGeraet(id, name, true, 0);   // speichert die Ansicht und ordnet sie zu
-    if(!GESPEICHERT[id]) return;                // Speichern gescheitert: die Leiste meldet es
+    if(!(await loxAnsichtSpeichern(id, p))) return;   // gescheitert: die Meldung steht, die Ansicht bleibt offen
+    await ansichtAmGeraet(id, name, true, 0);   // gespeichert und nicht offen: schaltet nur noch um
     const j=await devSpeichern(loxGeraeteListe(name, id));
     if(j.ok){
       if(!OFFEN.has('geraete')) DEV=devAusServer(j.devices);

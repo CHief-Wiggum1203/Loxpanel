@@ -48,4 +48,6 @@ def test_jeder_name_ist_uebersetzt():
 def test_bleibt_liste():
     bleibt = set(re.findall(r"'(\w+)'", _block("ABWEICHUNG_BLEIBT")))
     assert bleibt <= set(_felder()), bleibt - set(_felder())
-    assert {"panes", "svPane", "valueBar", "tileSet", "tileHue", "tileHueEdge", "tileActive"} <= bleibt
+    # Inhalt und Look: Widgets, Werteleiste, Audio-Zone und Energie-Baustein, Kachel-Set, Farbton
+    assert {"panes", "svPane", "valueBar", "player", "hausEnergie",
+            "tileSet", "tileHue", "tileHueEdge", "tileActive"} <= bleibt

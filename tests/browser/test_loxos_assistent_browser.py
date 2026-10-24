@@ -328,6 +328,34 @@ def test_offene_geraete_aenderung_behaelt_melder(cfg_ordner, tmp_path):
     _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {"streifen": STREIFEN}, schritte)
 
 
+def test_fertig_speichert_nur_die_neue_ansicht(cfg_ordner, tmp_path):
+    """Offene Aenderungen an einer anderen Ansicht und an den Vorgaben gehen mit
+    "Fertig" nicht nebenbei mit: gespeichert wird nur die neue Ansicht auf dem
+    gespeicherten Stand, die anderen bleiben offen."""
+    theme = cfg_ordner / "theme.json"
+
+    async def schritte(pg, app, visus, port, b):
+        theme_vorher = theme.read_bytes() if theme.exists() else None
+        await pg.evaluate("""() => { PANELS.zentral.title = 'Zentral offen'; markieren('ansicht:zentral');
+            PANELS.__global__.ui.nameSize = 23; markieren('ansicht:__global__'); leisteZeigen(); }""")
+        await _oeffnen(pg)
+        await _bis_schritt5(pg)
+        await pg.locator("#loxNext").click()
+        await _zeigt(app, "streifen", "loxos-streifen")
+        await _bis(lambda: (_datei(cfg_ordner).get("devices") or {}).get("streifen", {}).get("presence") == "PM",
+                   "Melder gespeichert")
+        datei = _datei(cfg_ordner)
+        assert "loxos-streifen" in datei["panels"], datei["panels"].keys()
+        assert datei["panels"]["zentral"]["title"] == "Zentral", "die offene Aenderung an Zentral geht nicht mit"
+        assert (theme.read_bytes() if theme.exists() else None) == theme_vorher, "die Vorgaben gehen nicht mit"
+        st = await pg.evaluate("""() => [PANELS.zentral.title, PANELS.__global__.ui.nameSize,
+            OFFEN.has('ansicht:zentral'), OFFEN.has('ansicht:__global__'), OFFEN.has('ansicht:loxos-streifen'),
+            document.querySelector('#offenTxt').textContent]""")
+        assert st[:5] == ["Zentral offen", 23, True, True, False], st
+        assert "Ansicht Zentral offen" in st[5] and "Vorgaben" in st[5] and "LoxOS" not in st[5], st
+    _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {"streifen": STREIFEN}, schritte)
+
+
 def test_zuordnung_bleibt_beim_speichern_der_geraete(cfg_ordner, tmp_path):
     """Ein Geraet, das nur eine Zuordnung hat, verliert sie nicht, wenn unter
     Geraete ein anderes gespeichert wird (/api/devices ersetzt die ganze Liste)."""
@@ -345,9 +373,10 @@ def test_zuordnung_bleibt_beim_speichern_der_geraete(cfg_ordner, tmp_path):
 
 
 def test_langer_geraetename_zweimal(cfg_ordner, tmp_path):
-    """Der Server kuerzt Titel auf 40 Zeichen: zweimal derselbe lange Name ergibt
-    zwei verschiedene gespeicherte Titel."""
+    """Der Server kuerzt Titel auf konfig.TITEL_MAX Zeichen: zweimal derselbe
+    lange Name ergibt zwei verschiedene gespeicherte Titel."""
     lang = "streifen-wohnzimmer-ost-sehr-lang"
+    assert len("LoxOS · " + lang) > konfig.TITEL_MAX, "der Titel muss gekuerzt werden"
 
     async def schritte(pg, app, visus, port, b):
         for _ in range(2):
@@ -357,7 +386,7 @@ def test_langer_geraetename_zweimal(cfg_ordner, tmp_path):
             await pg.wait_for_selector("#loxOv[hidden]", state="attached")
             await pg.wait_for_function("rubric === 'pconf' && OFFEN.size === 0")
         titel = sorted(p["title"] for p in _datei(cfg_ordner)["panels"].values() if (p.get("device") or {}).get("name") == lang)
-        assert len(titel) == 2 and titel[0] != titel[1] and all(len(t) <= 40 for t in titel), titel
+        assert len(titel) == 2 and titel[0] != titel[1] and all(len(t) <= konfig.TITEL_MAX for t in titel), titel
         assert sum(t.endswith(" 2") for t in titel) == 1, titel
     _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {lang: STREIFEN}, schritte)
 

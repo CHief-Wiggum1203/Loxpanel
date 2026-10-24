@@ -14,6 +14,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 import bento
+import konfig
 from lox import EFM, HAUS_FAVORITEN, W, anlage, haus_anlage, raum_anlage
 from verteilung import _Lesespur
 
@@ -301,8 +302,11 @@ def test_api_bento_vorschlag(monkeypatch):
     app = _app(struktur, states)
     efm = next(u for u, c in app.controls.items() if c["type"] == "EFM")
     app.calendar_cfg = {"sources": [{"name": "Familie", "url": "https://example.org/a.ics"}]}
-    favs = [u for u, c in app.controls.items() if c.get("isFavorite")]
     zone = next(u for u, c in app.controls.items() if c["type"] in ("AudioZone", "AudioZoneV2"))
+    # Favoriten: die Zone (steht schon als Widget) und mehr Bausteine, als Felder frei sind
+    kandidaten = [u for u, c in app.controls.items() if u not in (zone, efm)][:4]
+    for u in [zone, *kandidaten]:
+        app.controls[u]["isFavorite"] = True
     # Geraet ohne gemeldeten Schirm: Standardformat, formatBekannt false
     a = _vorschlag_antwort(app)
     assert a["format"] == BENTO_FORMAT_STANDARD and a["formatBekannt"] is False
@@ -310,7 +314,10 @@ def test_api_bento_vorschlag(monkeypatch):
     assert seite["bento"]["format"] == BENTO_FORMAT_STANDARD
     widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
     assert widgets == ["clock", "weather", "player:" + zone, "energy:" + efm, "calendar"]
-    assert seite["picks"] == [u for u in favs if u not in (zone, efm)][:len(seite["picks"])]
+    # freie Felder neben den Widgets: je eines bekommt einen Favoriten, in der Reihenfolge der Favoriten
+    frei = seite["bento"]["cols"] * seite["bento"]["rows"] - sum(c["w"] * c["h"] for c in seite["bento"]["cells"] if "widget" in c)
+    assert frei == 3 and len(kandidaten) > frei, (frei, kandidaten)
+    assert seite["picks"] == kandidaten[:frei]
     assert W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "pickTabs": [seite]}})["p"]["pickTabs"][0]["bento"] == seite["bento"]
     # Geraet mit gemeldetem Schirm
     _verbunden(app, "streifen", {"vw": 3440, "vh": 600})
@@ -327,6 +334,16 @@ def test_api_bento_vorschlag_ohne_energie_und_kalender():
     widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
     assert widgets == ["clock", "weather"] + [w for w in widgets[2:] if w.startswith("player:")]
     assert "calendar" not in widgets and not any(w.startswith("energy:") for w in widgets)
+
+
+def test_meta_meldet_titel_max():
+    """Der Assistent zaehlt Titel so, wie der Server sie kuerzt: /api/meta nennt die Grenze."""
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    r = make_mocked_request("GET", "/api/meta", app={"app": _app()})
+    assert json.loads(asyncio.run(W.api_meta(r)).body)["titelMax"] == konfig.TITEL_MAX
+    lang = "x" * (konfig.TITEL_MAX + 5)
+    assert W.App._sanitize_panels({"p": {"title": lang}})["p"]["title"] == lang[:konfig.TITEL_MAX]
 
 
 def test_meta_meldet_streifen_ab():

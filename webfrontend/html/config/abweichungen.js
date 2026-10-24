@@ -57,8 +57,9 @@ const ABWEICHUNG_FELDER={
   raumVerlassen:{name:'Raum verlassen (Doppeltipp)', reiter:'verhalten'},
 };
 // Was "Alles auf Standard" nicht anfasst: Inhalt und Look (Widgets, Werteleiste, die
-// Audio-Zone des Widgets, Kachel-Set und Farbton). Sie stehen in der Liste mit eigenem Knopf.
-const ABWEICHUNG_BLEIBT=['panes','svPane','valueBar','player','tileSet','tileHue','tileHueEdge','tileActive'];
+// Audio-Zone des Widgets, der Energie-Baustein der Hausuebersicht, Kachel-Set und Farbton).
+// Sie stehen in der Liste mit eigenem Knopf.
+const ABWEICHUNG_BLEIBT=['panes','svPane','valueBar','player','hausEnergie','tileSet','tileHue','tileHueEdge','tileActive'];
 // Reiter der Ansicht -> Reiter der Vorgaben (VG_TABS), in dem derselbe Schluessel steht
 const ABWEICHUNG_REITER_VORGABEN={allgemein:'appearance', inhalt:'appearance', seiten:'appearance',
   raster:'appearance', aussehen:'appearance', verhalten:'verhalten'};
@@ -85,14 +86,23 @@ function abwUuidName(v){
   const m=META||{}, alle=[].concat(m.rooms||[], m.controls||[], m.gestenTaster||[], m.hausEnergien||[]);
   const o=alle.find(x=>x && x.uuid===v); return o ? o.name : String(v);
 }
+// Beschriftung eines Schluessels aus einer Auswahl von /api/meta ([{key, label}]), sonst der Schluessel
+function abwAuswahl(liste, v){ const a=(liste||[]).find(x=>x.key===v); return a ? T(a.label) : String(v); }
 // Wert als Text: wertText() fuer alles, was es kennt; Listen, Objekte, An/Aus, Kachel-Set,
-// Farbton und aktive Kachel hier, damit nie "[object Object]" oder "true" dasteht
-function abwWert(k, v){
+// Farbton, aktive Kachel und Auswahlwerte hier, mit dem Text, den der Editor zeigt, damit
+// nie "[object Object]", "true" oder ein Schluessel dasteht. p: die Ansicht (Seitennamen)
+function abwWert(k, v, p){
+  const m=META||{};
+  if(k==='valueBar' && Array.isArray(v)) return v.map(t=>seitenName(p||{}, t)).join(', ');
+  if(k==='hausAktivOhne' && Array.isArray(v)) return v.map(a=>abwAuswahl(m.hausAktivArten, a)).join(', ');
   if(Array.isArray(v)) return v.map(String).join(', ');
   if(typeof v==='object') return T('eigene Einstellung');
   if(k==='grid' && v==='auto') return T('Automatisch (Tablet)');
   if(k==='tileSet'){ const s=kachelSetMeta(v); return s ? T(s.label) : String(v); }
-  const sets=(META&&META.kachelSets)||[];
+  if(k==='tileLayout') return v==='classic' ? T('Klassisch') : T('Neu (wie die Loxone-App)');
+  if(k==='hausAufbau') return abwAuswahl(m.hausAufbauten, v);
+  if(k==='hausEnergie' && v===m.hausEnergieAus) return T('Keine');
+  const sets=m.kachelSets||[];
   const ton=sets.find(s=>s.farbton && s.farbton.schluessel===k);
   if(ton){ const a=ton.farbton.auswahl.find(x=>x.wert===Number(v)); return (a ? T(a.label)+' ' : '')+fmtZahl(v)+'°'; }
   if(k==='tileActive'){ const s=sets.find(x=>x.aktiv), a=s && s.aktiv.auswahl.find(x=>x.key===v); return a ? T(a.label) : String(v); }
@@ -111,15 +121,16 @@ function abwGiltFuer(k){
   return T('gilt für {n} von {m} Ansichten').replace('{n}',ids.length-eigene.length).replace('{m}',ids.length);
 }
 
-function abweichungenHtml(ui, istVorgabe){
+function abweichungenHtml(ui, istVorgabe, p){
   ui=ui||{};
   const keys=abwSchluessel(ui), weg=keys.filter(k=>ABWEICHUNG_BLEIBT.indexOf(k)<0);
-  const tabs=istVorgabe ? VG_TABS : PCONF_TABS, eigen=istVorgabe ? '' : 'allgemein';
+  // kein Sprung in den Reiter, in dem die Karte selbst steht
+  const tabs=istVorgabe ? VG_TABS : PCONF_TABS, eigen=istVorgabe ? VG_TABS[0].k : 'allgemein';
   const zeilen=keys.map(k=>{
     const ohne=abwOhne(k, ui, istVorgabe), r=abwReiter(k, istVorgabe), tab=tabs.find(t=>t.k===r);
     return '<div class="abw-zeile" data-abw="'+esc(k)+'"><div class="abw-text">'+
         '<b class="abw-name">'+esc(abwName(k))+'</b>'+
-        '<span class="abw-wert">'+esc(abwWert(k, ui[k]))+'</span>'+
+        '<span class="abw-wert">'+esc(abwWert(k, ui[k], p))+'</span>'+
         '<span class="abw-ohne">'+esc(T('sonst gilt: {w}').replace('{w}', ohne))+'</span></div>'+
       '<div class="abw-knoepfe">'+
         (tab && r!==eigen ? '<button type="button" class="minibtn" data-abw-reiter="'+esc(r)+'">'+esc(T(tab.label))+' →</button>' : '')+
@@ -168,7 +179,7 @@ function abweichungenEinhaengen(){
   const istVorgabe=!!p.__global, sec=host.querySelector('.spane[data-sub="'+(istVorgabe ? VG_TABS[0].k : 'allgemein')+'"]');
   if(!sec) return;
   const alt=sec.querySelector('#abwKarte'), neu=document.createElement('div');
-  neu.innerHTML=abweichungenHtml(p.ui, istVorgabe);
+  neu.innerHTML=abweichungenHtml(p.ui, istVorgabe, p);
   if(alt) alt.replaceWith(neu.firstChild); else sec.prepend(neu.firstChild);
   abweichungenBinden(host, p.ui||{}, ()=>{ markDirty(); renderEditor(); });
 }
