@@ -251,10 +251,14 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   (`_sender_bloecke()`/`_zonen_favoriten()`), dieselben Befehle, Cover und
   Name. Die Reihe scrollt waagerecht; das Seitenwischen lässt waagerechte
   Scroller schon aus.
-- Reicht die Höhe der Zelle nicht (Höhenstufe `klein`, `data-hstufe`),
-  fällt die Reihe weg. Ein Tipp auf den Raumnamen öffnet dann wie überall
-  die Musikauswahl (`view: sources`), so bleiben die Favoriten auch in
-  kleinen Zellen erreichbar.
+- Wo die Reihe steht, entscheidet die Größe der Zelle (`bentoFavsLage()`,
+  `BENTO_FAVS_UNTEN_H` in `panel/bento.js`): In breiten Zellen steht sie
+  **rechts neben** dem Spieler; sonst **darunter**, aber nur, wenn die Höhe
+  der Zelle geteilt durch den Kachelfaktor mindestens `BENTO_FAVS_UNTEN_H`
+  beträgt; sonst gibt es keine Reihe. In Zellen der Höhenstufe `klein` nie.
+  Ohne Reihe öffnet ein Tipp auf den Raumnamen wie überall die
+  Musikauswahl (`view: sources`), so bleiben die Favoriten auch in kleinen
+  Zellen erreichbar.
 - Ohne Favoriten (Audioserver nicht verbunden o. ä.) bleibt die Zeile leer;
   den Grund zeigt die Musikauswahl.
 
@@ -318,7 +322,8 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
 - **Zurücksetzen** entfernt den eigenen Eintrag: In einer Ansicht gilt danach
   die Vorgabe (oder der Standard), in den Vorgaben der eingebaute Standard.
   Es wird nie ein Wert erzwungen.
-- Neue Karte oben im Reiter „Allgemein“ jeder Ansicht und der Vorgaben
+- Neue Karte oben im Reiter „Allgemein“ jeder Ansicht; die Vorgaben haben
+  keinen Reiter „Allgemein“, dort steht die Karte oben in „Darstellung“
   (`config/abweichungen.js`, Fork; Einhängen als ein Aufruf in
   `ansicht-editor.js`): eine Liste **aller Einstellungen, die vom Standard
   abweichen**, je Zeile Name, eigener Wert, was ohne ihn gälte
@@ -336,7 +341,8 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   Look bestimmen: Widgets/Panes (`panes`, `svPane`, `valueBar`), Kachel-Set
   und Farbton (`tileSet`, `tileHue`, `tileHueEdge`, `tileActive`); sie stehen
   in der Liste, aber nur mit eigenem Knopf. Welche Schlüssel zu welcher Gruppe gehören, steht
-  als benannte Liste im Code (`ABWEICHUNG_BLEIBT`), nicht nur hier. Vor dem
+  als benannte Liste im Code (`ABWEICHUNG_BLEIBT`), nicht nur hier; dazu
+  gehört auch `player` (Audio-Zone des Widgets). Vor dem
   Zurücksetzen fragt eine Bestätigung in der Seite (kein Browser-Dialog), was
   zurückgesetzt wird; in den Vorgaben nennt sie dazu, für wie viele Ansichten
   die Werte gelten („gilt für n von m“).
@@ -350,6 +356,14 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
 | 11 | Audio-Zelle: Raum oben, Favoriten-Reihe, Tipp auf den Raum öffnet die Musikauswahl; Server liefert Raum und `favs` in den Zelldaten; Tests am Nachbau und im Browser |
 | 12 | LoxOS-Assistent: `bento_vorschlag()` mit Tests, Endpunkt, Overlay mit fünf Schritten, Live-Vorschau, Speichern; Browser-Test vom Gerät bis zur fertigen Bento-Seite |
 | 13 | Übersicht „Was ist eingestellt?“ mit Zurücksetzen je Zeile und „Alles auf Standard“, für Ansichten und Vorgaben; Browser-Tests |
+
+**Stand 25.10.2026:** Die Phasen 11, 12 und 13 sind umgesetzt und stehen in
+`ARCHITEKTUR.md`: Audio-Zelle mit Raum und Favoriten-Reihe (`.bz-raum`) in
+§7.1 (Bento), Vorschlag der Startseite (`bento_vorschlag()`,
+`GET /api/bento/vorschlag`, `STREIFEN_AB`) in §4 bei den Routen des
+Konfigurators, Assistent (`config/loxos-assistent.js`) und Übersicht
+(`config/abweichungen.js`, `ansicht.PANEL_UI_EXPORT`) in §7.2. Die Abschnitte
+oben bleiben als Richtung stehen.
 
 ## Datenformat
 
