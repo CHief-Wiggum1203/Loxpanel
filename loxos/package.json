@@ -1,0 +1,15 @@
+{
+  "name": "loxos",
+  "version": "1.0.0",
+  "description": "LoxOS: Huelle fuer Loxpanel auf flachen Streifen-Displays (Fork, docs/VISION.md)",
+  "private": true,
+  "license": "SEE LICENSE IN ../LICENSE.md",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "44.7.0"
+  }
+}

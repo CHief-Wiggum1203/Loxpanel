@@ -43,3 +43,14 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # LoxOS-Huelle (Fork, docs/VISION.md): Electron und seine Pakete aus
+  # loxos/package-lock.json (mit Pruefsummen); tests/test_loxos_huelle.py
+  # wacht darueber.
+  - package-ecosystem: npm
+    directory: "/loxos"
+    schedule:
+      interval: monthly
+    groups:
+      loxos:
+        patterns: ["*"]

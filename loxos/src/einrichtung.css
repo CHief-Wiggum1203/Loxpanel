@@ -1,0 +1,13 @@
+/* Systemfarben statt einer eigenen Palette: das Fenster folgt dem Hell/Dunkel des Systems */
+:root{color-scheme:light dark;}
+body{margin:0;padding:24px 28px;background:Canvas;color:CanvasText;font:15px system-ui,sans-serif;}
+h1{margin:0 0 4px;font-size:22px;}
+.hinweis{margin:0 0 18px;opacity:.75;}
+form{display:flex;flex-direction:column;gap:6px;}
+label{font-weight:600;margin-top:10px;}
+label.zeile{font-weight:400;display:flex;gap:8px;align-items:center;}
+input[type=url],input[type=text],select{font:inherit;padding:8px 10px;border:1px solid GrayText;border-radius:6px;background:Field;color:FieldText;}
+button{margin-top:18px;align-self:flex-start;font:inherit;font-weight:600;padding:9px 20px;border-radius:6px;
+  border:1px solid ButtonBorder;background:ButtonFace;color:ButtonText;cursor:pointer;}
+.fehler{margin:2px 0 0;font-size:13px;font-weight:600;}
+.fehler::before{content:"⚠ ";}
