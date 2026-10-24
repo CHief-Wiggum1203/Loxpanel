@@ -13,6 +13,8 @@
                    "desktop"-Modus (Huelle im Tray, Streifen frei).
      kuerzelModus  Tastenkuerzel zum Umschalten (Electron-Accelerator).
      autostart     mit der Anmeldung starten.
+     bildschirmWach  verhindert im Widget-Modus, dass der Energiesparplan des
+                   PCs die Bildschirme abschaltet (Standard: an).
    Unbekannte oder ungueltige Felder fallen weg und werden gemeldet. */
 
 const STANDARD = Object.freeze({
@@ -21,6 +23,7 @@ const STANDARD = Object.freeze({
   modus: 'widget',
   kuerzelModus: 'CommandOrControl+Alt+L',
   autostart: true,
+  bildschirmWach: true,
 });
 const MODI = ['widget', 'desktop'];
 const GERAET_MAX = 40;
@@ -78,6 +81,7 @@ function pruefeEinstellungen(roh, rechner) {
     server: pruefeServer, geraet: pruefeGeraet, monitor: pruefeMonitor, kuerzelModus: pruefeKuerzel,
     modus: v => (MODI.includes(v) ? v : ''),
     autostart: v => (typeof v === 'boolean' ? v : null),
+    bildschirmWach: v => (typeof v === 'boolean' ? v : null),
   };
   for (const k of Object.keys(r)) {
     if (!(k in pruefer)) { verworfen.push(k); continue; }
@@ -89,6 +93,12 @@ function pruefeEinstellungen(roh, rechner) {
   if (!werte.server) fehlt.push('server');
   if (!werte.geraet) fehlt.push('geraet');
   return { werte, verworfen, fehlt };
+}
+
+// Soll die Huelle die Bildschirme wach halten? Nur im Widget-Modus: im
+// Desktop-Modus zeigt der Streifen keine Visu, der PC darf sparen.
+function wachHalten(werte, modus) {
+  return !!werte.bildschirmWach && modus === 'widget';
 }
 
 // Adresse der Visu fuer dieses Geraet
@@ -104,5 +114,5 @@ function gleicheHerkunft(werte, adresse) {
 module.exports = {
   STANDARD, MODI, GERAET_MAX, KUERZEL_MAX, SERVER_MAX,
   pruefeServer, pruefeGeraet, geraetAusRechner, pruefeMonitor, pruefeKuerzel,
-  pruefeEinstellungen, visuAdresse, gleicheHerkunft,
+  pruefeEinstellungen, wachHalten, visuAdresse, gleicheHerkunft,
 };

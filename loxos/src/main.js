@@ -13,7 +13,7 @@
    draussen oeffnet der Browser des Systems. Das Mikrofon (Gegensprechen an
    der Tuerstation) bekommt nur Loxpanel. */
 
-const { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, powerSaveBlocker, screen, session, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -28,6 +28,7 @@ let fenster = null;      // die Visu
 let einrichtung = null;  // Fenster der Einrichtung
 let tray = null;
 let modus = 'widget';
+let wachId = null;       // Kennung des Blockers gegen das Abschalten der Bildschirme
 
 function laden() {
   let roh = {};
@@ -70,17 +71,26 @@ function widgetModus() {
   if (d) { fenster.setFullScreen(false); fenster.setBounds(d.bounds); }
   fenster.show();
   fenster.setFullScreen(true);
+  wachSetzen();
   trayMenu();
 }
 function desktopModus() {
   modus = 'desktop';
   if (fenster) { fenster.setFullScreen(false); fenster.hide(); }
+  wachSetzen();
   trayMenu();
 }
 function umschalten() { if (modus === 'widget') desktopModus(); else widgetModus(); }
 
 // Bildschirme dazu, weg oder umgestellt: im Widget-Modus neu einpassen
 function bildschirmeGeaendert() { if (modus === 'widget' && fenster) widgetModus(); }
+
+// Hoechstens ein Blocker zugleich; er haelt auch den Hauptmonitor an.
+function wachSetzen() {
+  const soll = E.wachHalten(werte, modus);
+  if (soll && wachId === null) wachId = powerSaveBlocker.start('prevent-display-sleep');
+  else if (!soll && wachId !== null) { powerSaveBlocker.stop(wachId); wachId = null; }
+}
 
 // ---- Tray, Kuerzel, Autostart -----------------------------------------------------
 function trayMenu() {
@@ -94,6 +104,8 @@ function trayMenu() {
     { label: 'Einstellungen …', click: einrichtungOeffnen },
     { label: 'Mit der Anmeldung starten', type: 'checkbox', checked: werte.autostart,
       click: m => { werte.autostart = m.checked; speichern(werte); autostartSetzen(); } },
+    { label: 'Bildschirme wach halten', type: 'checkbox', checked: werte.bildschirmWach,
+      click: m => { werte.bildschirmWach = m.checked; speichern(werte); wachSetzen(); } },
     { type: 'separator' },
     { label: 'Beenden', click: () => app.quit() },
   ]));
@@ -138,6 +150,7 @@ ipcMain.handle('loxos:speichern', (ev, roh) => {
   werte = p.werte;
   speichern(werte);
   autostartSetzen();
+  wachSetzen();
   if (erstesMal) starten(); else { kuerzelSetzen(); if (fenster) fenster.loadURL(E.visuAdresse(werte)); trayMenu(); }
   if (einrichtung) einrichtung.close();
   return { ok: true };
