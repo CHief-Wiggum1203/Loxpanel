@@ -114,3 +114,23 @@ html[data-kachelset-leiste="links"] .screen.bento.bentovoll{padding-left:0;}
 .grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .kal-monat{display:none;}
 .grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .fp-page.kal{display:flex;flex-direction:column;}
 .grid.bento .bz[data-widget="calendar"]:not([data-hstufe="gross"]) .kal-liste{flex:1 1 0;min-height:0;width:auto;max-width:none;}
+
+/* Wechsel zwischen Bento-Seiten (bento.js bentoWechsel): nur das Raster gleitet,
+   in Wischrichtung hinaus und die neue Seite herein (data-bento-richtung
+   "vor" nach links, "zurueck" nach rechts); Leiste und Rest wechseln ohne
+   Ueberblenden. Dauer aus BENTO_WECHSEL_MS (--bento-wechsel). */
+html[data-bento-richtung] .grid.bento{view-transition-name:bento-seite;}
+html[data-bento-richtung]::view-transition-old(root){display:none;}
+html[data-bento-richtung]::view-transition-new(root){animation:none;}
+html[data-bento-richtung]::view-transition-group(bento-seite){overflow:clip;animation-duration:var(--bento-wechsel);}
+html[data-bento-richtung]::view-transition-old(bento-seite),
+html[data-bento-richtung]::view-transition-new(bento-seite){mix-blend-mode:normal;
+  animation-duration:var(--bento-wechsel);animation-timing-function:ease-out;animation-fill-mode:both;}
+html[data-bento-richtung="vor"]::view-transition-old(bento-seite){animation-name:bento-raus-links;}
+html[data-bento-richtung="vor"]::view-transition-new(bento-seite){animation-name:bento-rein-rechts;}
+html[data-bento-richtung="zurueck"]::view-transition-old(bento-seite){animation-name:bento-raus-rechts;}
+html[data-bento-richtung="zurueck"]::view-transition-new(bento-seite){animation-name:bento-rein-links;}
+@keyframes bento-raus-links{to{transform:translateX(-100%);}}
+@keyframes bento-raus-rechts{to{transform:translateX(100%);}}
+@keyframes bento-rein-rechts{from{transform:translateX(100%);}}
+@keyframes bento-rein-links{from{transform:translateX(-100%);}}

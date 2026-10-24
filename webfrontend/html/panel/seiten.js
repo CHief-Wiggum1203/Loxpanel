@@ -91,7 +91,7 @@ function renderTabs(){
   el('tabs').innerHTML = items.join('');
   el('tabs').style.setProperty('--tab-n', items.length);   // Pille so breit wie ihre Eintraege (--pille-tab-breite)
   if(ct) el('tabs').querySelectorAll('.tab[data-cat]').forEach(n => n.onclick=()=>katTipp(n.dataset.cat));
-  else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>goTab(n.dataset.tab));
+  else   el('tabs').querySelectorAll('.tab').forEach(n => n.onclick=()=>{ if(!bentoTabWechsel(n.dataset.tab)) goTab(n.dataset.tab); });   // LoxOS: zwischen Bento-Seiten mit Uebergang (bento.js)
   const tb = el('tabs').querySelector('#tabback'); if(tb) tb.onclick = back;
   applyPane();
 }

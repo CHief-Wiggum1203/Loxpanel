@@ -121,6 +121,7 @@ function renderBento(){
     bentoFuellen(z, c);
   }
   g._bentoAufbau=bentoAufbau(view);
+  bentoGezeichnet();
 }
 
 // Gleiche Seite, gleicher Aufbau: nur geaenderte Zellen neu fuellen.
@@ -130,6 +131,7 @@ function updateBento(){
   const zs=[...g.querySelectorAll(':scope > .bz')], cells=view.cells||[];
   if(zs.length!==cells.length) return false;
   cells.forEach((c, i)=>{ const z=zs[i]; if(JSON.stringify(z._c)!==JSON.stringify(c)) bentoFuellen(z, c); });
+  bentoGezeichnet();
   return true;
 }
 
@@ -304,3 +306,107 @@ function bentoWebseite(z, c){
     const r=z.querySelector('.bz-wrahmen'); if(r) r.innerHTML=bentoWebFehler(pr.grund, c.url); }, (c.ladenS||0)*1000);
   f.src=c.url;
 }
+
+// ---- Wischen zwischen Bento-Seiten ----------------------------------------------
+// In einer Ansicht mit mindestens zwei Bento-Seiten blaettert ein Finger
+// waagerecht zur naechsten bzw. vorigen Bento-Seite der Leiste (normale Seiten
+// dazwischen uebersprungen, kein Rundlauf). Der Server rendert nur die aktuelle
+// Seite: die Seite folgt dem Finger nicht, sondern gleitet nach dem Loslassen
+// hinaus und die neue herein, sobald ihre view-Nachricht gezeichnet ist (View
+// Transitions, bento.css; ohne die Schnittstelle wechselt sie hart). Touch-
+// Events wie das Wischen im Kachelfeld (kachelfeld.js) und die Gesten
+// (gesten.js): ein zweiter Finger ist eine Geste und bricht das Blaettern ab.
+const BENTO_WISCH_WEG=0.06;          // Mindestweg als Anteil der Flaechenbreite
+const BENTO_WISCH_RICHTUNG=1.5;      // waagerecht mindestens so viel mal senkrecht
+const BENTO_WECHSEL_MS=280;          // Dauer des Uebergangs
+const BENTO_WECHSEL_GRENZE_MS=1500;  // spaetestens dann endet der Uebergang, auch ohne view
+const BENTO_KLICKSPERRE_MS=GESTE_KLICKSPERRE_MS;   // nach einem Wisch so lange keinen Klick auf Kacheln
+// Wo ein Wisch nicht blaettert, weil das Element ihn selbst braucht: Tasten der
+// Kachel, Kopf-Taste, Spieler und Lautstaerke der Zelle, Regler, Knoepfe,
+// Verlauf und Webseite
+const BENTO_WISCH_AUS='.tctrls, .ktaste, .bz-trans, .bz-vol, input, button, select, textarea, '+
+                      '.bz[data-widget="chart"], .bz[data-widget="iframe"]';
+let bentoWisch=null;        // {x, y}: laufender Wisch eines Fingers
+let bentoKlickSperre=0;
+let bentoUebergang=null;    // {tab, t, timer, da}: laufender Uebergang
+
+function bentoSeite(tab){ return !!(tabMeta[tab] && tabMeta[tab].bento); }
+// Aktuelle Bento-Seite (Tab ohne Detailseite darueber), sonst null
+function bentoAktuell(){
+  if(!view || !view.bento || !view.route || view.route.view!=='tab' || stack.length>1) return null;
+  return bentoSeite(view.tab) ? view.tab : null;
+}
+// Naechste (1) bzw. vorige (-1) Bento-Seite der Leiste ab der aktuellen
+function bentoNachbar(richtung){
+  const von=bentoAktuell(); if(!von) return null;
+  for(let i=tabsCfg.indexOf(von)+richtung; i>=0 && i<tabsCfg.length; i+=richtung)
+    if(bentoSeite(tabsCfg[i])) return tabsCfg[i];
+  return null;
+}
+// Liegt der Finger in einem waagerecht scrollenden Bereich der Zelle (Vorschau
+// des Wetters)? Dort scrollt er, statt zu blaettern.
+function bentoQuerScroller(n){
+  for(let p=n; p && p.nodeType===1 && !p.classList.contains('bz'); p=p.parentElement){
+    const ox=getComputedStyle(p).overflowX;
+    if((ox==='auto' || ox==='scroll') && p.scrollWidth>p.clientWidth+1) return true;
+  }
+  return false;
+}
+
+function bentoWechsel(tab, richtung){
+  if(typeof document.startViewTransition!=='function'){ goTab(tab); return; }
+  bentoUebergangEnde(true);   // ein laufender endet sofort
+  const h=document.documentElement, u={tab, da:null};
+  h.style.setProperty('--bento-wechsel', BENTO_WECHSEL_MS+'ms');
+  h.dataset.bentoRichtung = richtung>0 ? 'vor' : 'zurueck';
+  bentoUebergang=u;
+  u.timer=setTimeout(()=>{ if(bentoUebergang===u) bentoUebergangEnde(true); }, BENTO_WECHSEL_GRENZE_MS);
+  // Erst im Rueckruf navigieren: dann steht das Bild der alten Seite schon,
+  // und die Antwort trifft auf einen wartenden Uebergang
+  u.t=document.startViewTransition(()=>new Promise(fertig=>{ u.da=fertig; goTab(tab); }));
+  u.t.ready.catch(()=>{});   // abgebrochen (skipTransition): kein Fehler, der Wechsel gilt
+  u.t.finished.finally(()=>{ if(bentoUebergang===u) bentoUebergangEnde(false); });
+}
+// abbrechen: ohne Gleiten (Grenze erreicht, neuer Wechsel)
+function bentoUebergangEnde(abbrechen){
+  const u=bentoUebergang; if(!u) return;
+  bentoUebergang=null; clearTimeout(u.timer);
+  if(u.da) u.da();
+  if(abbrechen && u.t) u.t.skipTransition();
+  delete document.documentElement.dataset.bentoRichtung;
+}
+// renderBento()/updateBento(): steht die erwartete Seite, gleitet sie herein
+function bentoGezeichnet(){
+  const u=bentoUebergang; if(!u || !u.da || !view || view.tab!==u.tab) return;
+  clearTimeout(u.timer); u.da(); u.da=null;
+}
+// Tipp in die Leiste (seiten.js): von einer Bento- zu einer anderen Bento-Seite
+// mit demselben Uebergang -> true; sonst false, die Leiste wechselt wie bisher
+function bentoTabWechsel(tab){
+  const von=bentoAktuell(); if(!von || tab===von || !bentoSeite(tab)) return false;
+  bentoWechsel(tab, tabsCfg.indexOf(tab)>tabsCfg.indexOf(von) ? 1 : -1);
+  return true;
+}
+
+el('grid').addEventListener('touchstart', e=>{
+  if(e.touches.length!==1 || gesteSequenz){ bentoWisch=null; return; }   // zwei Finger: Geste
+  if(!bentoNachbar(1) && !bentoNachbar(-1)) return;
+  const t=e.target;
+  if(t.closest && t.closest(BENTO_WISCH_AUS)) return;
+  if(bentoQuerScroller(t)) return;
+  bentoWisch={x:e.touches[0].clientX, y:e.touches[0].clientY};
+}, {passive:true});
+el('grid').addEventListener('touchend', e=>{
+  const w=bentoWisch; if(!w || e.touches.length) return;
+  bentoWisch=null;
+  if(gesteSequenz || !bentoAktuell()) return;
+  const p=e.changedTouches[0], dx=p.clientX-w.x, dy=p.clientY-w.y;
+  if(Math.abs(dx)<BENTO_WISCH_WEG*el('grid').clientWidth || Math.abs(dx)<BENTO_WISCH_RICHTUNG*Math.abs(dy)) return;
+  bentoKlickSperre=Date.now()+BENTO_KLICKSPERRE_MS;
+  const richtung=dx<0 ? 1 : -1, ziel=bentoNachbar(richtung);
+  if(ziel) bentoWechsel(ziel, richtung);
+}, {passive:true});
+el('grid').addEventListener('touchcancel', ()=>{ bentoWisch=null; }, {passive:true});
+// Ein Klick, den der Browser aus dem Wisch noch macht, erreicht keine Kachel
+document.addEventListener('click', e=>{
+  if(Date.now()<bentoKlickSperre){ e.preventDefault(); e.stopPropagation(); } }, true);
