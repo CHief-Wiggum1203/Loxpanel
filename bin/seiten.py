@@ -339,6 +339,8 @@ class Seiten:
             _pts = _pick_tabs(prof)
             _i = _pick_index(tab)
             _entry = _pts[_i] if 0 <= _i < len(_pts) else {"name": "Auswahl", "picks": []}
+            if _entry.get("bento") is not None:   # LoxOS: Raster mit Zellen (bento.py)
+                return self._view_bento(tab, _entry, prof)
             # Widget-Seite: die ganze Seite ist EIN Widget (Vollbild-Tab), keine
             # Kacheln. Das Panel rendert es wie eine Pane, nur ueber die volle
             # Flaeche; der Datenkanal (energy/camera/status/player/chart) laeuft

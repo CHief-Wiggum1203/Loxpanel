@@ -87,7 +87,7 @@ Phase auf der vorigen aufbaut.
 |---|---|
 | 0 | Diese Datei, `pickTabs` in `ARCHITEKTUR.md` §5.3, Fork-Ausnahme in `CONTRIBUTING.md`; Mockups im Edge-Look freigeben |
 | 1 | Datenformat und Sanitizer (`bento_format.py`): `pickTabs[].bento` in `_sanitize_panels()` und `_pick_tabs()`, iframe-Adresse nur http/https, Überlappung und Rand geprüft |
-| 2 | Server: Mixin `bin/bento.py` rendert die Zellen mit Inline-Daten der Widgets, Weiche in `_view_tab()` |
+| 2 | Server: Mixin `bin/bento.py` rendert die Zellen mit Inline-Daten der Widgets, Weiche in `_view_tab()`, Webseiten-Prüfung als Hintergrundaufgabe `bento_task()`; Verlaufs-Zellen zeigen den Standard-Zeitraum (`STAT_DEFAULT_RANGE`) |
 | 3 | Kachel-Set `edge` mit Aufbau `karte` in `theme_colors.py`, eigene CSS-Datei, Kontrastprüfung |
 | 4 | `raster.js` (Bento-Raster, Kollision, Kachelfaktor je Zelle), `panel/bento.js`, keine Tab-Leiste bei nur einer Bento-Seite |
 | 5 | Seiten-Editor: Ziehen, Größengriff, Tastatur, Kollision, Vorschau am Gerät |
