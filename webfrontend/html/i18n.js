@@ -880,6 +880,7 @@
       'Streifen (Seitenverhältnis ab {a} : 1) stehen oben. Ein Gerät ohne gemeldete Größe bekommt das Format des Zielgeräts; der Bento-Editor warnt, wenn es anders meldet.':
         'Strips (aspect ratio from {a} : 1) are listed first. A device without a reported size gets the format of the target device; the Bento editor warns if it reports a different one.',
       'Vorschlag nicht geladen:': 'Suggestion not loaded:',
+      'Fehler:': 'Error:',
       'Wer sagt, ob jemand da ist?': 'Who tells whether someone is there?',
       'Präsenz- oder Bewegungsmelder': 'Presence or motion detector',
       '— ohne Melder —': '— no detector —',

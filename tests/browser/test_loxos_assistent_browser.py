@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from lox import anlage, konfig, KONFIGURATOR_GELADEN, visu_starten, W
+from lox import anlage, karte_auf, konfig, KONFIGURATOR_GELADEN, visu_starten, W
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
 from playwright.async_api import async_playwright  # noqa: E402
@@ -303,3 +303,73 @@ def test_hinweis_bei_betriebsmodi(cfg_ordner, tmp_path):
                    "Melder gespeichert")
         assert _datei(cfg_ordner)["devices"]["streifen"]["modes"] == {"nacht": "zentral"}, "Betriebsmodi bleiben"
     _lauf(cfg_ordner, tmp_path, inhalt, {"streifen": STREIFEN}, schritte)
+
+
+def test_offene_geraete_aenderung_behaelt_melder(cfg_ordner, tmp_path):
+    """Offene Aenderung unter Geraete, dann der Assistent, dann das normale
+    Speichern: Melder und Ruhe des Assistenten bleiben, die offene Aenderung auch."""
+    async def schritte(pg, app, visus, port, b):
+        await pg.locator(".rub", has_text="Geräte").click()
+        await karte_auf(pg, "streifen")
+        await pg.locator('#geraete .gk[data-gk="streifen"] .dd_dpms').fill("120")
+        assert await pg.evaluate("OFFEN.has('geraete')")
+        await _oeffnen(pg)
+        await _bis_schritt5(pg)
+        await pg.locator("#loxNext").click()
+        await _zeigt(app, "streifen", "loxos-streifen")
+        await _bis(lambda: (_datei(cfg_ordner).get("devices") or {}).get("streifen", {}).get("presence") == "PM",
+                   "Melder gespeichert")
+        assert await pg.evaluate("OFFEN.has('geraete')"), "die offene Aenderung bleibt offen"
+        await pg.locator("#saveBtn").click()
+        await _bis(lambda: (_datei(cfg_ordner).get("devices") or {}).get("streifen", {}).get("dpmsOff") == 120,
+                   "die offene Aenderung gespeichert")
+        d = _datei(cfg_ordner)["devices"]["streifen"]
+        assert (d.get("presence"), d.get("ruhe"), d.get("panel")) == ("PM", True, "loxos-streifen"), d
+    _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {"streifen": STREIFEN}, schritte)
+
+
+def test_zuordnung_bleibt_beim_speichern_der_geraete(cfg_ordner, tmp_path):
+    """Ein Geraet, das nur eine Zuordnung hat, verliert sie nicht, wenn unter
+    Geraete ein anderes gespeichert wird (/api/devices ersetzt die ganze Liste)."""
+    inhalt = {"panels": {"zentral": ZENTRAL}, "devices": {"tablet": {"panel": "zentral"}, "streifen": {"presence": "PM"}}}
+
+    async def schritte(pg, app, visus, port, b):
+        await pg.locator(".rub", has_text="Geräte").click()
+        await karte_auf(pg, "streifen")
+        await pg.locator('#geraete .gk[data-gk="streifen"] .dd_dpms').fill("60")
+        await pg.locator("#saveBtn").click()
+        await _bis(lambda: (_datei(cfg_ordner).get("devices") or {}).get("streifen", {}).get("dpmsOff") == 60,
+                   "gespeichert")
+        assert _datei(cfg_ordner)["devices"].get("tablet", {}).get("panel") == "zentral", _datei(cfg_ordner)["devices"]
+    _lauf(cfg_ordner, tmp_path, inhalt, {}, schritte)
+
+
+def test_langer_geraetename_zweimal(cfg_ordner, tmp_path):
+    """Der Server kuerzt Titel auf 40 Zeichen: zweimal derselbe lange Name ergibt
+    zwei verschiedene gespeicherte Titel."""
+    lang = "streifen-wohnzimmer-ost-sehr-lang"
+
+    async def schritte(pg, app, visus, port, b):
+        for _ in range(2):
+            await _oeffnen(pg)
+            await _bis_schritt5(pg, geraet=lang)
+            await pg.locator("#loxNext").click()
+            await pg.wait_for_selector("#loxOv[hidden]", state="attached")
+            await pg.wait_for_function("rubric === 'pconf' && OFFEN.size === 0")
+        titel = sorted(p["title"] for p in _datei(cfg_ordner)["panels"].values() if (p.get("device") or {}).get("name") == lang)
+        assert len(titel) == 2 and titel[0] != titel[1] and all(len(t) <= 40 for t in titel), titel
+        assert sum(t.endswith(" 2") for t in titel) == 1, titel
+    _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {lang: STREIFEN}, schritte)
+
+
+def test_vorschlag_fehlt_meldet_und_bleibt(cfg_ordner, tmp_path):
+    async def schritte(pg, app, visus, port, b):
+        await pg.route("**/api/bento/vorschlag*", lambda r: r.fulfill(status=500, content_type="application/json",
+                                                                       body=json.dumps({"error": "kaputt"})))
+        await _oeffnen(pg)
+        await pg.locator('#loxBody [data-lox-geraet="streifen"]').click()
+        await pg.locator("#loxNext").click()
+        await pg.wait_for_function("document.getElementById('loxToast').textContent.includes('Vorschlag nicht geladen: kaputt')")
+        st = await pg.evaluate(STAND)
+        assert st["schritt"] == "Schritt 1 / 5" and not st["weiterAus"], st
+    _lauf(cfg_ordner, tmp_path, {"panels": {"zentral": ZENTRAL}}, {"streifen": STREIFEN}, schritte)
