@@ -1045,6 +1045,22 @@ liefert nur die Ansichten), geschrieben über
       "roomCats": ["<cat-uuid>"],            // Raum-Panel: Kategorien der unteren Leiste, max. 4,
                                              // in Klickreihenfolge; fehlt = die ersten 4 im Raum
       "hide":  ["<control-uuid>"],           // einzelne Kacheln ausblenden
+      "pickTabs": [{                         // freie Seiten, max. PICK_TABS_MAX; ihre Tabs heißen
+                                             // "auswahl", "auswahl2" … in "tabs"; ein altes
+                                             // picks/pickName wird zur ersten Seite
+        "name": "Auswahl",                   // max. 40 Zeichen; fehlt = „Auswahl“
+        "icon": "/icon?p=…",                 // optional, nur Adressen der Icon-Auswahl
+                                             // (_clean_seiten_icon)
+        "picks": ["<control-uuid>"],         // Bausteine der Seite, max. 60
+        "widget": "energy:<uuid>",           // optional: ein Widget als ganze Seite statt
+                                             // Kacheln, Grammatik wie "panes" ohne "header"
+                                             // (_clean_widget_tab)
+        "layout": [{"id": "<uuid>", "w": 2, "h": 1}],   // optional, Seiten-Editor: Reihenfolge
+                                             // und Größe 1×1, 2×1, 2×2; Bausteine ohne Eintrag
+                                             // hängen hinten an (_layout_mit_picks)
+        "byRoom": false                      // optional; fehlt = in der Visu nach Raum gruppiert
+      }],                                    // Bento-Seiten (LoxOS, Fork) ergänzen "bento",
+                                             // Format in docs/VISION.md
       "device": {"name": "tablet", "vw": 1024, "vh": 600},   // Zielgerät: für welches Gerät das Profil gemacht
                                              // ist, mit der beim Wählen gemeldeten Größe (CSS-px,
                                              // optional); Displays warnt bei Abweichung (§6); auch ein
