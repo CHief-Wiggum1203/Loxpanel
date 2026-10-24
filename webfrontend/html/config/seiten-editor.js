@@ -226,11 +226,13 @@ function seLeisteHtml(ctx){
 // Seiteninhalt: Bausteine (Kacheln) ODER ein Widget ueber die ganze Flaeche,
 // mit seiner Wahl (Musikzone, Baustein, Werte/Verlauf gestapelt)
 function seInhaltHtml(w){
-  const k=wKind(w), arg=wArg(w);
+  const k=(w==='bento') ? 'bento' : wKind(w), arg=(w==='bento') ? '' : wArg(w);   // bento: LoxOS
   const opt=(v,n)=>'<option value="'+v+'"'+(k===v?' selected':'')+'>'+T(n)+'</option>';
   let h='<div class="field"><label class="lbl">'+T('Seiteninhalt')+'</label>'+
     '<select data-se-inhalt>'+
       '<option value=""'+(k===''?' selected':'')+'>'+T('Bausteine (Kacheln)')+'</option>'+opt('haus','Hausübersicht')+
+      (beGrenzen() ? opt('bento','Bento (frei im Raster)') : '')+   // LoxOS: bento-editor.js
+      
       '<optgroup label="'+esc(T('Widget (Vollbild)'))+'">'+opt('weather','Wetter')+opt('calendar','Kalender')+
         (firstAudioZone()?opt('player','Audio'):'')+(firstEnergyControl()?opt('energy','Energiefluss'):'')+
         (firstCamera()?opt('camera','Kamera'):'')+(statControls().length?opt('chart','Verlauf'):'')+opt('status','Werte')+
@@ -261,7 +263,7 @@ function seEigenHtml(ctx){
   return '<div class="se-eigen">'+
     '<div class="field"><label class="lbl">'+T('Name der Seite')+'</label>'+
       '<input type="text" maxlength="40" data-se-name value="'+esc(e.name||'')+'" placeholder="'+esc(T('Auswahl'))+'"></div>'+
-    seInhaltHtml(e.widget||'')+
+    seInhaltHtml(e.bento ? 'bento' : (e.widget||''))+   // bento: LoxOS
     '<details class="se-icon" data-se-icon><summary>'+T('Icon der Seite')+' <span data-se-icon-jetzt>'+seIconJetzt(e.icon)+'</span></summary>'+
       '<input class="pgi-search" oninput="pickIcoFilter(this.value, this.parentNode)" placeholder="'+esc(T('Icon suchen…'))+'">'+
       '<div class="picogrid" data-se-icons></div></details></div>';
@@ -286,6 +288,8 @@ function seIconSetzen(host, v){
 // Inhalt der Seite setzen: Kacheln ('') oder ein Widget mit seiner Vorgabe
 function seInhalt(ctx, k){
   const e=ctx.seite();
+  if(k==='bento'){ beAnlegen(ctx); ctx.geaendert(); return; }   // LoxOS: Bento-Seite (bento-editor.js)
+  delete e.bento;
   if(!k) delete e.widget;
   else if(k==='weather'||k==='calendar'||k==='haus') e.widget=k;
   else if(k==='player') e.widget='player:'+(firstAudioZone()||'');
@@ -446,6 +450,7 @@ function seRender(host, ctx){
   seZeichnen(host);
 }
 function seZeichnen(host){
+  if(beZeichnen(host)) return;   // LoxOS: Bento-Seite zeichnet bento-editor.js
   const ctx=host._se, st=seZustand(ctx.key), a=seAnsicht(ctx);
   if(st.sel && !a.raster.some(e=>e.id===st.sel)) st.sel=null;
   const teil=k=>host.querySelector('[data-se-'+k+']');

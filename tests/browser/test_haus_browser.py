@@ -646,9 +646,11 @@ def test_aufbauten_auf_tablet_und_display(aufbau, kset, tmp_path):
         assert not m["ab"], (wo, "Karte schneidet ab", m["ab"])
         assert m["raeume"] == 7, (wo, m)
         # "spalte" braucht quer Platz fuer sich, zwei Raumspalten und den Spieler:
-        # hochkant nie, auf dem iPad quer nicht neben der Leiste links (Kreide)
+        # hochkant nie, auf dem iPad quer nicht neben der Leiste links (Kreide,
+        # Edge) - an der Art des Sets, nicht am Namen, wie die Visu entscheidet
         erwartet = aufbau
-        if aufbau == "spalte" and (name == "ipad_hoch" or (name == "ipad_quer" and kset == "kreide")):
+        links = bool(kset) and TC.kachel_set_art(kset)[1] == "links"
+        if aufbau == "spalte" and (name == "ipad_hoch" or (name == "ipad_quer" and links)):
             erwartet = "status"
         assert m["aufbau"] == erwartet, (wo, m)
         if erwartet == "raeume":

@@ -100,7 +100,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu, im Fork das Bento-Raster: `bentoRaster`, `bentoMass`, `bentoStufe(n)`, `bentoFrei`), §7.5 |
-| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2) |
+| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
