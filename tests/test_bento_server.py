@@ -14,7 +14,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 import bento
-from lox import EFM, W, anlage, raum_anlage
+from lox import EFM, HAUS_FAVORITEN, W, anlage, haus_anlage, raum_anlage
 from verteilung import _Lesespur
 
 
@@ -137,6 +137,22 @@ def test_audio_mit_pin_schutz(monkeypatch):
     monkeypatch.setattr(app, "_gesichert", lambda u: False)
     c = _seite(app, {"cells": [zelle(0, 0, widget="player:Z1")]})["cells"][0]
     assert c["player"] == {"blocks": [{"type": "player", "zone": "Z1"}]}
+
+
+def test_audio_zelle_traegt_raum_und_favoriten():
+    """Die Zelle nennt den Loxone-Raum der Zone (ohne Raum ihren Namen) und
+    traegt die Favoriten als favs-Block wie Pane und Detailseite."""
+    struktur, states = haus_anlage()
+    struktur["controls"]["AZ"]["name"] = "Musik"          # Zonenname != Raumname
+    struktur["controls"]["AB"].pop("room")
+    app = _app(struktur, states)
+    v = _seite(app, {"cells": [zelle(0, 0, 2, 1, widget="player:AZ"), zelle(2, 0, widget="player:AB")]},
+               picks=())
+    mit, ohne = v["cells"]
+    assert mit["raum"] == "Essen-Kochen-Wohnen" and ohne["raum"] == "Audio-Zone"
+    favs = [b for b in mit["player"]["blocks"] if b["k"] == "favs"]
+    assert len(favs) == 1 and [f["label"] for f in favs[0]["items"]] == HAUS_FAVORITEN
+    assert favs[0]["items"][0]["cmd"] == {"uuid": "AZ", "cmd": "roomfav/play/1"}
 
 
 def test_kaputter_blockbauer_reisst_die_seite_nicht_mit(monkeypatch):

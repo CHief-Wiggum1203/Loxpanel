@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from aiohttp import web
 
-from lox import EFM, W, raum_anlage, serve, visu_starten
+from lox import EFM, HAUS_FAVORITEN, W, haus_anlage, raum_anlage, serve, visu_starten
 from test_front_tabs_browser import _front
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -497,3 +497,98 @@ def test_uebergang_haengt_nicht(format_, monkeypatch):
     assert fehler == [], fehler
     assert richtung == "vor" and nach == "", (richtung, nach)
     assert [b for b in befehle if b[0] == "S1"], befehle
+
+
+# ---- Audio-Zelle mit Raum und Raumfavoriten (docs/VISION.md) --------------------
+# Zone Essen-Kochen-Wohnen aus haus_anlage() mit fuenf Favoriten, umbenannt,
+# damit Raum und Zonenname sich unterscheiden.
+
+def _audio_app(befehle: list, zelle: dict, zeilen: int = 2) -> W.App:
+    struktur, states = haus_anlage()
+    struktur["controls"]["AZ"]["name"] = "Musik"
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(struktur)
+    app.states = states
+    app.panels = W.App._sanitize_panels({"streifen": {
+        "title": "Streifen", "tabs": ["auswahl"], "ui": {"tileSet": "edge"},
+        "pickTabs": [{"name": "Streifen", "picks": [],
+                      "bento": {"cols": 6, "rows": zeilen, "cells": [zelle]}}]}})
+
+    async def command(uuid, cmd, pin=None):
+        befehle.append((uuid, cmd))
+        return "200"
+    app.command = command
+    return app
+
+
+# Pruefung (PRUEFEN) nur fuer die Audio-Zelle
+PRUEFEN_AUDIO = "() => (" + PRUEFEN + ")().filter(p => p.startsWith('player'))"
+
+
+def test_audio_zelle_zeigt_raum_und_favoriten():
+    befehle = []
+    app = _audio_app(befehle, {"x": 0, "y": 0, "w": 2, "h": 2, "widget": "player:AZ"})
+
+    async def aktion(pg):
+        lage = await pg.evaluate("""() => { const z=document.querySelector('.bz[data-widget="player"]'),
+            r=z.querySelector('.bz-raum'), f=z.querySelector('.bz-favs');
+          f._mark=1;
+          return {raum: r.textContent, gross: getComputedStyle(r).textTransform,
+                  favs: z.querySelectorAll('.bz-favs .fav').length,
+                  namen: [...z.querySelectorAll('.bz-favs .favn')].map(n=>n.textContent),
+                  sichtbar: f.getBoundingClientRect().height>0}; }""")
+        probleme = await pg.evaluate(PRUEFEN_AUDIO)
+        # Lautstaerke aendert sich: die Reihe bleibt derselbe Knoten (Scrollstand, Cover)
+        app.states["az3"] = 40
+        app._mark_dirty()
+        await pg.wait_for_function("document.querySelector('.bz[data-widget=\"player\"] .sld').value==='40'",
+                                   timeout=5000)
+        bleibt = await pg.evaluate("document.querySelector('.bz-favs')._mark===1")
+        await pg.click('.bz-favs .fav[data-f="1"]')
+        await pg.wait_for_timeout(400)
+        await pg.click('.bz-raum')
+        await pg.wait_for_function("view && view.route && view.route.view==='sources'", timeout=5000)
+        ziel = await pg.evaluate("view.route")
+        return lage, probleme, bleibt, ziel
+    (lage, probleme, bleibt, ziel), fehler = asyncio.run(_lauf_mit(app, aktion, *FORMATE["2560x720"]))
+    assert fehler == [], fehler
+    assert lage["raum"] == "Essen-Kochen-Wohnen" and lage["gross"] == "uppercase", lage
+    assert lage["favs"] == len(HAUS_FAVORITEN) and lage["namen"] == HAUS_FAVORITEN and lage["sichtbar"], lage
+    assert probleme == [], probleme
+    assert bleibt
+    assert ("AZ", "roomfav/play/2") in befehle, befehle
+    assert ziel == {"view": "sources", "id": "AZ"}, ziel
+
+
+@pytest.mark.parametrize("zeilen, hstufe", [(3, "klein"), (2, "mittel")])
+def test_kleine_audio_zelle_ohne_favoriten(zeilen, hstufe):
+    """Hoehenstufe klein: keine Reihe (Spec). Eine 1x1-Zelle mittlerer Hoehe hat
+    unter Tasten und Lautstaerke auch keinen Platz (bento.js bentoFavsLage)."""
+    app = _audio_app([], {"x": 0, "y": 0, "w": 1, "h": 1, "widget": "player:AZ"}, zeilen=zeilen)
+
+    async def aktion(pg):
+        lage = await pg.evaluate("""() => { const z=document.querySelector('.bz[data-widget="player"]'),
+            f=z.querySelector('.bz-favs'), r=z.querySelector('.bz-raum');
+          return {hstufe: z.dataset.hstufe, favs: !!f && f.getBoundingClientRect().height>0,
+                  raum: !!r && r.getBoundingClientRect().height>0}; }""")
+        return lage, await pg.evaluate(PRUEFEN_AUDIO)
+    (lage, probleme), fehler = asyncio.run(_lauf_mit(app, aktion, *FORMATE["1280x400"]))
+    assert fehler == [], fehler
+    assert lage == {"hstufe": hstufe, "favs": False, "raum": True}, lage
+    assert probleme == [], probleme
+
+
+@pytest.mark.parametrize("format_", list(FORMATE))
+def test_breite_audio_zelle_stellt_favoriten_daneben(format_):
+    """2x1 auf dem Streifen ist breit, aber flach: die Reihe steht rechts neben
+    dem Spieler und nichts ragt heraus."""
+    app = _audio_app([], {"x": 0, "y": 0, "w": 2, "h": 1, "widget": "player:AZ"})
+
+    async def aktion(pg):
+        lage = await pg.evaluate("""() => { const z=document.querySelector('.bz[data-widget="player"]');
+          return {favs: z.dataset.favs, sichtbar: z.querySelector('.bz-favs').getBoundingClientRect().height>0}; }""")
+        return lage, await pg.evaluate(PRUEFEN_AUDIO)
+    (lage, probleme), fehler = asyncio.run(_lauf_mit(app, aktion, *FORMATE[format_]))
+    assert fehler == [], fehler
+    assert lage == {"favs": "rechts", "sichtbar": True}, lage
+    assert probleme == [], probleme

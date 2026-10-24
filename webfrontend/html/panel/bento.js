@@ -133,6 +133,8 @@ function bentoFaktorNachziehen(){
   if(Math.abs(ks-kachelFaktor)>=0.01){
     setzeFaktor(ks);
     g.querySelectorAll(':scope > .bz.bz-kacheln').forEach(z=>bentoZellFaktor(z, z.querySelectorAll(':scope > .tile').length));
+    // Favoriten der Audio-Zellen haengen am Faktor (bentoFavsLage)
+    g.querySelectorAll(':scope > .bz[data-widget="player"]').forEach(z=>{ if(z._c && z._c.player) bentoSpieler(z, z._c.player); });
     kachelnNeuMessen();
   }
   return true;
@@ -248,21 +250,47 @@ function bentoFront(){
 }
 
 // ---- Audio --------------------------------------------------------------------
-// Cover, Titel, Transport und Lautstaerke; dieselben Bloecke wie die Pane
-// (player_blocks), PIN-Pflicht der Zone aus secured.
+// Raum, Cover, Titel, Transport, Lautstaerke und Favoriten; dieselben Bloecke
+// wie die Pane (player_blocks), PIN-Pflicht der Zone aus secured. Der Raum
+// (bento.py, ohne Raum der Zonenname) oeffnet die Musikauswahl, so bleiben die
+// Favoriten auch in Zellen ohne Favoriten-Reihe erreichbar (bento.css).
+// Die Favoriten-Reihe hat das Markup des favs-Blocks der Pane (kacheln.js,
+// dort lokal in renderPanel), damit die Optik von grund.css mitzieht; neu
+// gebaut wird sie nur, wenn sich die Favoriten aendern (Scrollstand, Cover).
+// Wo die Reihe Platz hat: Hoehe der Zelle in Kachel-Pixeln (geteilt durch den
+// Faktor der Seite, mit dem Tasten und Regler wachsen). Ab BENTO_FAVS_UNTEN_H
+// passt sie unter Tasten und Lautstaerke; breite Zellen stellen sie rechts
+// daneben. In kleinen Zellen (Stufe "klein", auch nur der Hoehe nach) nie.
+const BENTO_FAVS_UNTEN_H=280;
+function bentoFavsLage(z){
+  if(z.dataset.stufe==='klein' || z.dataset.hstufe==='klein') return '';
+  if(z.dataset.form==='breit') return 'rechts';
+  const hk=parseFloat(z.style.getPropertyValue('--bz-h'))/(kachelFaktor||1);
+  return hk>=BENTO_FAVS_UNTEN_H ? 'unten' : '';
+}
+function bentoFavHtml(f, i){
+  return '<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+
+         '</div><div class="favn">'+esc(f.label)+'</div></div>';
+}
 function bentoSpieler(z, p){
   const b=p.blocks||[], cover=b.find(x=>x.k==='cover'), title=b.find(x=>x.k==='title');
   const row=b.find(x=>x.k==='row'), sl=b.find(x=>x.k==='slider');
   z._sec=!!p.secured;
   let s=z.querySelector('.bz-spieler');
   if(!s){
-    z.innerHTML='<div class="bz-spieler"><div class="bz-cover"><span class="coverph">'+svg(ICONS.music)+'</span><img alt=""></div>'+
+    z.innerHTML='<div class="bz-spieler"><div class="bz-raum"></div><div class="bz-cover"><span class="coverph">'+svg(ICONS.music)+'</span><img alt=""></div>'+
       '<div class="bz-titel"><div class="bz-t1"></div><div class="bz-t2"></div></div>'+
       '<div class="bz-trans"></div>'+
       '<div class="bz-vol"><button type="button" class="sbtn" data-sd="dn" aria-label="Leiser">−</button>'+
       '<input type="range" class="sld" min="0" max="100" value="0" aria-label="Lautstärke">'+
-      '<button type="button" class="sbtn" data-sd="up" aria-label="Lauter">+</button></div></div>';
+      '<button type="button" class="sbtn" data-sd="up" aria-label="Lauter">+</button></div>'+
+      '<div class="bz-favs favs"></div></div>';
     s=z.querySelector('.bz-spieler');
+    s.querySelector('.bz-raum').addEventListener('click', ()=>nav({view:'sources', id:(z._c.widget||'').split(':')[1]}));
+    // Wie in der Pane erst beim Klick: ein Wischer ueber die Reihe startet sonst einen Sender
+    const fv=s.querySelector('.bz-favs');
+    fv.addEventListener('click', ev=>{ const n=ev.target.closest('.fav'), f=n && (fv._items||[])[+n.dataset.f];
+      if(f && f.cmd) sendCmd(f.cmd.uuid, f.cmd.cmd, z._sec); });
     const sld=s.querySelector('.sld'), zurueck=()=>bentoSpieler(z, z._c.player);
     s.querySelector('[data-sd="dn"]').addEventListener('pointerdown', ev=>{ ev.preventDefault(); nudgeSld(sld, -SLD_STEP, null, z._sec, zurueck); });
     s.querySelector('[data-sd="up"]').addEventListener('pointerdown', ev=>{ ev.preventDefault(); nudgeSld(sld, SLD_STEP, null, z._sec, zurueck); });
@@ -270,6 +298,14 @@ function bentoSpieler(z, p){
     sld.addEventListener('change', ()=>{ z._ziehen=false;
       if(sld._uuid && sld._tmpl) sendCmd(sld._uuid, sld._tmpl.replace('{v}', sld.value), z._sec, {abbruch:zurueck}); });
   }
+  const raum=s.querySelector('.bz-raum'), rt=z._c.raum||'';
+  if(raum.textContent!==rt) raum.textContent=rt;
+  const fb=b.find(x=>x.k==='favs'), fv=s.querySelector('.bz-favs'), favs=(fb && fb.items)||[];
+  const fsig=JSON.stringify(favs.map(f=>[f.label, f.cover, f.cmd]));
+  if(fv._sig!==fsig){ fv._sig=fsig; fv.innerHTML=favs.map(bentoFavHtml).join(''); }
+  fv._items=favs; fv.hidden=!favs.length;
+  const lage=favs.length ? bentoFavsLage(z) : '';
+  if(lage) z.dataset.favs=lage; else delete z.dataset.favs;
   const img=s.querySelector('.bz-cover img');
   if(cover && cover.src){ if(img.getAttribute('src')!==cover.src){
       img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cover.src; } }
