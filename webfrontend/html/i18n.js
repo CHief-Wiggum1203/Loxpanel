@@ -428,6 +428,8 @@
       'Display bleibt an': 'Display stays on',
       '0 = Display bleibt an.': '0 = display stays on.',
       'kein Präsenzmelder': 'no presence sensor',
+      'Ruhe-Uhr statt Display aus': 'Rest clock instead of display off',
+      'Ist niemand da, zeigt die Visu die Nacht-Uhr, das Display bleibt an. Nur mit Präsenzmelder.': 'When nobody is there, the visu shows the night clock and the display stays on. Only with a presence sensor.',
       'Automatik aus': 'automation off',
       'Loxone schaltet die Ansicht über /api/mode/<modus> um; „Ansicht wechseln“ hebt den Modus für dieses Gerät auf.': 'Loxone switches the view via /api/mode/<mode>; "Switch view" overrides the mode for this device.',
       'Erst nötig, wenn Loxone die Ansicht umschalten soll (Gäste, Nacht, Urlaub).': 'Only needed when Loxone should switch the view (guests, night, holiday).',

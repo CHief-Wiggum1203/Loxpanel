@@ -171,7 +171,9 @@ function connect(){
       if(msg.night){ NIGHT.dim=+msg.night.dim||0; NIGHT.wake=+msg.night.wake||0;
         NIGHT.uhr=(msg.night.uhr===true); NIGHT.uhrHell=+msg.night.uhrHell||0; setNight(msg.night.on); }
       if(Array.isArray(msg.tabs)&&msg.tabs.length) tabsCfg=msg.tabs;
+      RUHE=(msg.ruhe===true);   // LoxOS: Ruhemodus - vor applyDisplayCfg, Leerlauf und Display-Timer fragen RUHE
       applyDisplayCfg(msg);   // Display aus / Auto-Neustart ohne Agent (Kiosk-App)
+      if(RUHE) ruheAnwenden();   // LoxOS: Ruhemodus - Melder entscheidet ueber die Uhr-Seite
       pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
       gestenAn=(msg.gesten===true);   // Zwei-Finger-Gesten (Vorgaben/Ansicht)
       gestenHinweis=(msg.gestenHinweis===true);   // ... mit Hinweis-Symbol
@@ -235,8 +237,12 @@ function connect(){
     if(msg.t==='notify'){ wake(); showNotify(msg.text, msg.level, msg.secs); return; }  // Nachricht einblenden
     if(msg.t==='display'){   // Server schaltet Display (Kiosk-App); presence = Praesenzmelder des Geraets
       if(typeof msg.presence==='boolean'){ DISP.presence=msg.presence; appLeerlauf(); }
+      // LoxOS: Ruhemodus - Melder (mit presence) zeigt oder nimmt die Ruhe-Uhr, schaltet nie ab;
+      // ein Befehl ohne presence (/api/display, etwa aus Loxone) schaltet wie sonst
+      if(RUHE && typeof msg.presence==='boolean'){ if(msg.on) wake(); ruheAnwenden(); return; }
       if(msg.on) wake(); else { clearTimeout(dpmsTimer); pinVergessen(); screenOff(); }
       return; }
+    if(msg.t==='ruhe'){ ruheSetzen(msg.ruhe===true); return; }   // LoxOS: Ruhemodus live umgestellt (Geraete gespeichert)
     if(msg.t==='setdevice'){ if(msg.name){ try{ localStorage.setItem('lp_device', msg.name); }catch(e){}
         DEVICE_ID=msg.name; kopplungVergessen(); ws.close(); } return; }   // in den Einstellungen benannt -> mit Namen neu verbinden
     if(msg.t==='cmdresult'){ pinErgebnis(msg); return; }
