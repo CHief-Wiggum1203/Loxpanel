@@ -1,0 +1,76 @@
+name: LoxOS
+
+# LoxOS-Huelle (Fork, docs/VISION.md): baut die Installer auf den echten
+# Systemen - Windows (NSIS), macOS (DMG, universal) und Linux (AppImage) - bei
+# jedem loxos-v*-Tag und manuell. Die Version kommt aus loxos/package.json, der
+# Tag muss dazu passen. Ohne Signatur: Windows zeigt beim ersten Start
+# SmartScreen, macOS Gatekeeper (loxos/README.md: wie man es freigibt).
+
+on:
+  push:
+    tags: ["loxos-v*"]
+  workflow_dispatch:
+
+# Das Release anlegen und die Dateien anhaengen braucht Schreibrecht auf den
+# Inhalt; ohne die Angabe gilt die Voreinstellung des Repos.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: loxos
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+
+      - name: Tag passt zur Version
+        if: startsWith(github.ref, 'refs/tags/loxos-v')
+        shell: bash
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if [ "loxos-v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu loxos/package.json (version $v)"
+            exit 1
+          fi
+
+      # Genau die Staende aus package-lock.json, jede Datei gegen ihre Pruefsumme
+      - name: Pakete aus der Sperrdatei
+        run: npm ci --no-audit --no-fund
+
+      - name: Tests der Logik
+        run: npm test
+
+      - name: Installer bauen
+        run: npm run dist
+        env:
+          # kein Zertifikat zum Signieren: nicht danach suchen
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Als Artefakt (auch ohne Tag)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: loxos-${{ matrix.os }}
+          path: |
+            loxos/dist/*.exe
+            loxos/dist/*.dmg
+            loxos/dist/*.AppImage
+          if-no-files-found: error
+
+      - name: An den Release haengen
+        if: startsWith(github.ref, 'refs/tags/loxos-v')
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: |
+            loxos/dist/*.exe
+            loxos/dist/*.dmg
+            loxos/dist/*.AppImage

@@ -7,9 +7,71 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
-    "electron": "44.7.0"
-  }
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0"
+  },
+  "author": "CHief-Wiggum1203",
+  "homepage": "https://github.com/CHief-Wiggum1203/Loxpanel",
+  "build": {
+    "appId": "io.github.chief-wiggum1203.loxos",
+    "productName": "LoxOS",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "publish": null,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "LoxOS-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "identity": null,
+      "extendInfo": {
+        "LSUIElement": true
+      },
+      "artifactName": "LoxOS-${version}-mac.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "artifactName": "LoxOS-${version}-${arch}.${ext}"
+    }
+  },
+  "desktopName": "loxos.desktop"
 }
