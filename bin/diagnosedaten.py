@@ -13,6 +13,7 @@ import time
 from datetime import datetime
 
 import loxone_weather
+import theme_colors
 import version_info
 from bausteine.gemeinsam import _clean
 
@@ -73,8 +74,9 @@ class Diagnosedaten:
             if roh is not None:
                 exp = self._panel_export(roh)
                 ui = exp.get("ui") or {}
+                _fb = theme_colors.KACHEL_SETS.get(ui.get("tileSet"), {}).get("farbton")   # Schluessel je Set
                 daten["ansicht"] = {"id": e["profile"], "titel": exp.get("title") or "", "tabs": exp.get("tabs"),
-                                    "kachelSet": ui.get("tileSet") or "", "farbton": ui.get("tileHue"),
+                                    "kachelSet": ui.get("tileSet") or "", "farbton": ui.get(_fb["schluessel"]) if _fb else None,
                                     "aktiv": ui.get("tileActive"), "raster": ui.get("grid") or
                                     ([ui.get("cols"), ui.get("rows")] if ui.get("cols") else None)}
                 daten["ansicht_einstellungen"] = exp

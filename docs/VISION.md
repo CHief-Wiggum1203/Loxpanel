@@ -65,8 +65,9 @@ Widget-/Desktop-Modus per Tastenkürzel, Autostart, Tray).
 
 ### Stufe 2 – Wow-Design
 
-Hintergrund nach Sonnenstand und Wetter, Ruhemodus mit großer Uhr, Aufwachen
-über Anwesenheit (UniFi/Loxone), weiche Seitenübergänge.
+Farbton wählbar für das Set `edge`, Ruhemodus mit großer gedimmter Uhr, wenn
+niemand da ist, Aufwachen über einen Loxone-Bewegungsmelder, Wischen zwischen
+Bento-Seiten mit weichem Übergang.
 
 ### Stufe 3 – Ereignisse
 
@@ -93,6 +94,123 @@ Phase auf der vorigen aufbaut.
 | 5 | Seiten-Editor `config/bento-editor.js`: Seiteninhalt „Bento“, Spalten/Zeilen, Formatanzeige, Fläche in Geräteform (Gerätewahl und Live-Vorschau des Seiten-Editors), Ziehen, Größengriff, Tastatur, Kollision, Palette, „Nicht platziert“, Quelle bzw. Adresse (dieselbe Regel wie der Server); Grenzen aus `/api/meta` |
 | 6 | Browser-Abnahme bei 2560×720, 1920×480 und 1280×400 mit Screenshots |
 | 7 | Hülle `loxos/` (Electron 44, exakt gepinnt mit Sperrdatei und Dependabot): Widget-/Desktop-Modus per Tastenkürzel und Tray, Streifen automatisch erkannt (Seitenverhältnis ab 2,5), Autostart, Einrichtung beim ersten Start, Navigation nur zu Loxpanel, Mikrofon nur für Loxpanel; Logik mit Node getestet, Rauchtest der echten Hülle unter Xvfb; Installer über electron-builder (Windows NSIS ohne Adminrechte, macOS DMG, Linux AppImage), gebaut vom Workflow `loxos.yml` bei jedem Tag `loxos-v*` auf den echten Systemen, unsigniert |
+
+## Stufe 2 im Detail
+
+Festgelegt am 24.10.2026. Ziel ist ein Streifen, der neben dem Monitor ruhig
+mitläuft: farbig im eigenen Ton, gedimmt mit großer Uhr, solange niemand da
+ist, sofort wach, sobald der Bewegungsmelder auslöst, und zwischen zwei
+Bento-Seiten per Wisch umschaltbar.
+
+**Nicht Teil von Stufe 2:** Hintergrund nach Sonnenstand oder Wetter (gestrichen,
+der Farbton bleibt fest, bis man ihn ändert), UniFi als Anwesenheitsquelle
+(gestrichen, es zählt nur der Loxone-Melder), Seitenpunkte (die Leiste links
+zeigt die aktive Seite, Punkte kosteten Höhe auf 720 px), Bento-Automatik
+(später). Für alle Geräte ohne die neue Einstellung ändert sich nichts.
+
+### Farbton für `edge`
+
+- `edge` bekommt wie `touch` einen `satz` mit `farbton` (Standard und
+  Schnellwahl) und wird im Konfigurator über denselben Farbton-Regler
+  eingestellt. Gefärbt werden Grund (`--bg`, `--screen`, `--rahmen`),
+  Karten, Tasten und Leiste, dunkel eingetönt; das Set bleibt dunkel.
+- **Der Akzent wandert mit** (`--glow`, `--accent`, zeigt „an“ im Aufbau
+  `lx`). Die Rechnung hält ihn sichtbar entfernt von `--good`, `--warn` und
+  `--crit`, damit „an“ nie wie „OK“, „Warnung“ oder „Alarm“ aussieht: Liegt
+  der gewählte Ton zu nah an einem davon, weicht der Akzent auf den nächsten
+  Ton mit genug Abstand aus (Abstand als benannte Konstante, gesucht wie in
+  `_schiebe()`/`_ergaenzen()`). Die Zustandsfarben bleiben fest
+  (entschieden am 24.10.2026).
+- Die Rechnung aus `_touch_satz()` wird verallgemeinert: Jedes Set mit `satz`
+  bringt seine Parameter mit, eine gemeinsame Funktion rechnet daraus die
+  Farben. `kachel_set()`, die Kachelfarbe neben dem Regler und die
+  Schnellwahl im Konfigurator (heute direkt `touch_satz()`) gehen über sie.
+  `touch` sieht danach Wert für Wert aus wie vorher (Test).
+- **Eigener Speicherplatz je Set:** Der Farbton von `edge` steht nicht in
+  `ui.tileHue` (das bleibt bei `touch`), sondern in einem eigenen Schlüssel
+  mit eigenem Standard in `PANEL_STANDARD`, freigeschaltet in
+  `_sanitize_panels()` und `_panel_export()`. Eine Ansicht, die früher
+  einen Farbton für `touch` gespeichert hat und jetzt `edge` nutzt, bleibt
+  nach dem Update unverändert.
+- Ohne gewählten Farbton bleibt `edge` genau wie heute (die festen Farben
+  aus `farben`); die Rechnung greift erst, wenn ein Farbton gewählt ist. Ein
+  einzelner Ton kann den heutigen Look nicht treffen, er hat zwei (Grund
+  bläulich um 225°, Akzent Mint um 162°).
+- Kontrast wie bei allen Sets: `tests/test_kachel_set.py` prüft `edge` über
+  den ganzen Farbkreis (alle Grad oder feine Schritte), AAA Hauptschrift, AA
+  Rest, 3:1 Grafik, auch für Bento-Widgets und die Nacht-Uhr (`--nacht-ink`).
+
+### Ruhemodus
+
+Heute zeigt jede Visu nach `SAVER_IDLE_MS` (60 s) ohne Berührung die
+Uhr-Seite, auch wenn jemand davorsitzt; `{t:"display", on:false}` vom
+Präsenzmelder macht in einem Browser ohne Kiosk-App (also in der Hülle)
+nichts. Neu:
+
+- **Einstellung je Gerät** neben dem Präsenzmelder (`devices[name]`,
+  Einstellungen → Geräte), Name `ruhe` (bool), Standard aus. Wählbar nur mit
+  gekoppeltem Präsenzmelder. Freigeschaltet in `_sanitize_devices()`
+  (`konfig.py`) und zurückgegeben über `/api/devices`, damit sie ein
+  Speichern übersteht; an die Visu geht sie mit der `theme`-Nachricht wie
+  `presence`.
+- **Mit `ruhe` an** steuert der Melder die Uhr-Seite statt der 60-s-Zeit:
+  - Meldet er jemanden, bleibt die zuletzt gezeigte Seite stehen, der
+    Ruhe-Timer (`resetIdle()`/`nachRuhe()`) läuft nicht.
+  - Meldet er niemanden (`{t:"display", on:false}` oder `presence:false`
+    beim Laden), zeigt die Visu die Nacht-Uhr, zu jeder Tageszeit: derselbe
+    Weg über `.saver.nacht`/`nachtUhrSetzen()`, mit erweiterter Bedingung
+    (Nacht-Uhr an **oder** Ruhe), kein zweiter Uhr-Bauer. Helligkeit aus
+    `nightClockBright` der Ansicht, Drift gegen Einbrennen wie heute, Wetter,
+    Termine und Kamera ruhen. Das Display wird nie ausgeschaltet.
+  - Meldet er wieder jemanden (`{t:"display", on:true}`), verschwindet die
+    Uhr sofort und die Seite von vorher steht wieder da (nicht die erste
+    Seite wie bei `nachRuhe()`).
+  - Ein Tipp weckt ebenfalls (`wake()`). Meldet der Melder dann weiter
+    niemanden, kehrt die Ruhe-Uhr nach `SAVER_IDLE_MS` ohne Berührung zurück.
+- Klingel, Wecker, `notify` und `goto` wecken wie heute.
+- **„Nie aus“ gilt für alle Wege:** Mit `ruhe` an zeigt das Gerät bei
+  „niemand da“ die Ruhe-Uhr statt abzuschalten, auch wenn es sonst
+  abschalten könnte (Display-Treiber in `verteilung.py`, `screenOff()` der
+  Kiosk-App, `idle` nach `dpmsOff`, `setDisplayOff()` der Android-App).
+  Ohne `ruhe` bleibt jeder dieser Wege, wie er ist.
+- Die Visu in der Hülle zeigt die Ruhe-Uhr selbst. Die Hülle verhindert
+  dazu, dass der Energiesparplan des PCs die Bildschirme abschaltet
+  (`powerSaveBlocker('prevent-display-sleep')`); das hält auch den
+  Hauptmonitor an. Schalter `bildschirmWach` in `loxos.json`, Standard an,
+  in der Einrichtung und im Tray änderbar (entschieden am 24.10.2026).
+
+### Wischen zwischen Bento-Seiten
+
+- Gilt in jeder Ansicht mit mindestens zwei Bento-Seiten und nur auf
+  Bento-Seiten. Das Ziel ist die nächste bzw. vorige Bento-Seite in der
+  Reihenfolge der Leiste; normale Seiten dazwischen werden übersprungen.
+- Ein Finger waagerecht über die Fläche (Mindestweg und Richtungsregel nach
+  dem Muster der Gesten in `gesten.js`, `GESTE_MINDESTWEG`, als eigene
+  benannte Konstanten in `panel/bento.js`; die Kachelseiten des Tablets
+  blättern dagegen per nativem Scroll-Snap und haben keine), beim Loslassen
+  wechselt die Seite über `goTab()`/`nav()`. Am Rand der ersten bzw. letzten
+  Seite passiert nichts (kein Rundlauf).
+- **Übergang:** Der Server rendert nur die aktuelle Seite; die Nachbarseite
+  liegt nicht im DOM. Die Seite folgt dem Finger darum nicht, sondern gleitet
+  nach dem Loslassen in Wischrichtung hinaus und die neue herein, sobald die
+  `view`-Nachricht da ist (View Transitions in Chromium/Electron; ohne die
+  Schnittstelle wechselt sie hart). Dauer als benannte Konstante. Ein Tipp in
+  die Leiste wechselt mit demselben Übergang.
+- Was nicht blättert: Wischen auf Kachel-Tasten, Reglern und Diagrammen
+  (sie behalten ihre Gesten), Zwei-Finger-Gesten (unverändert), Wischen in
+  einer Webseiten-Zelle (das iframe bekommt die Berührung, die Visu sieht sie
+  nicht).
+
+### Phasen
+
+| Phase | Inhalt |
+|---|---|
+| 8 | Farbton für `edge`: Rechnung verallgemeinert, `edge` mit `satz`, Konfigurator-Regler, Kontrasttest über den Farbkreis, `touch` unverändert |
+| 9 | Ruhemodus: Geräte-Einstellung `ruhe` (Sanitizer, `/api/devices`, `theme`), Ruhe-Uhr über die Nacht-Uhr, Melder statt 60-s-Zeit, kein Abschalten mit `ruhe`; Hülle mit `bildschirmWach` (Node-Test); Tests am Miniserver-Nachbau und im Browser |
+| 10 | Wischen zwischen Bento-Seiten mit Übergang, Browser-Tests bei 2560×720 und 1920×480 |
+
+Jede Phase endet mit grünem `pytest`, umgesetztes wandert nach
+`ARCHITEKTUR.md`.
 
 ## Datenformat
 
@@ -128,8 +246,8 @@ Regeln, die alle Stufen einhalten:
 4. **Widget-Grammatik wie bei den Panes** (`_clean_tabpane`), dazu `clock`
    und `iframe`. Die Adresse des iframe steht im eigenen Feld `url`, weil
    Adressen Doppelpunkte enthalten; erlaubt sind nur `http` und `https`.
-5. **Leere `cells`** sind gültig und heißen ab Stufe 2 „Bento-Automatik“: Der
-   Server verteilt die `picks` selbst. In Stufe 1 zeigt eine leere Seite
+5. **Leere `cells`** sind gültig und heißen später „Bento-Automatik“: Der
+   Server verteilt die `picks` selbst. Bis dahin zeigt eine leere Seite
    einen Hinweis zum Editor.
 6. **Nichts im Code festgelegt:** Grenzen sind benannte Konstanten
    (`BENTO_*` in `bento_format.py`, über `konfig.py` erreichbar), Farben
@@ -173,7 +291,7 @@ Regeln, die alle Stufen einhalten:
   Kachel-Darstellung in Upstream-Dateien gewesen. Regeln hängen wie immer
   an der Art, nie am Namen. Die Kontrastprüfung gilt auch für Widgets.
   Feste Farben in Stufe 1; ein Farbton-Regler wie bei `touch` folgt in
-  Stufe 2 (die Rechnung ist heute fest an `touch` gebunden).
+  Stufe 2 (siehe „Stufe 2 im Detail“).
 - **Hülle mit Electron** in `loxos/`, Einstellungen in `loxos.json`. Die
   Abhängigkeiten sind festgenagelt wie die übrigen (Sperrdatei, Dependabot).
 
@@ -181,11 +299,10 @@ Regeln, die alle Stufen einhalten:
 
 | Stufe | Baut auf |
 |---|---|
-| 2 Hintergrund | Set-Variablen des Kachel-Sets; Sonnenauf- und -untergang und Wetterlage aus `{t:"front"}` |
 | 2 Farbton für `edge` | die Rechnung aus `touch_satz()` auf mehrere Sets verallgemeinert |
-| 2 Ruhemodus | Nacht-Uhr und Uhr-Widget |
-| 2 Aufwachen | `devices.presence` (Loxone), UniFi als weitere Quelle |
-| 2 Bento-Automatik | leere `cells` (Regel 5) |
+| 2 Ruhemodus | Nacht-Uhr (`.saver.nacht`, `nightClockBright`) |
+| 2 Aufwachen | `devices.presence` (Loxone) und `{t:"display"}` |
+| später Bento-Automatik | leere `cells` (Regel 5) |
 | 3 Ereigniskarten | Server-Push über `push()`, eine Karte ist eine Zelle über die ganze Fläche |
 | 3 Seitenwechsel | `devices.modes` ordnet heute Betriebsmodi Ansichten zu; erweitert auf Seiten |
 | 4 Bambu P1S | ein weiterer Zellbauer im Mixin `bento.py` |

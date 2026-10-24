@@ -147,9 +147,12 @@ def _faelle():
             yield name, {"tileSet": name}
             continue
         for wahl in e["farbton"]["auswahl"]:
+            if "aktiv" not in e:
+                yield f"{name}-{wahl['wert']}", {"tileSet": name, e["farbton"]["schluessel"]: wahl["wert"]}
+                continue
             for aktiv in e["aktiv"]["auswahl"]:
                 yield f"{name}-{wahl['wert']}-{aktiv['key']}", \
-                    {"tileSet": name, "tileHue": wahl["wert"], "tileActive": aktiv["key"]}
+                    {"tileSet": name, e["farbton"]["schluessel"]: wahl["wert"], "tileActive": aktiv["key"]}
 
 
 def _app(ui, tabs, daten, werte=False, zustaende=None):
