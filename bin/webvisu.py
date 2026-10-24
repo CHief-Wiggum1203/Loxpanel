@@ -59,6 +59,7 @@ from medien import Medien  # noqa: E402  # Icons, Cover, Klingelbilder
 from diagnosedaten import Diagnosedaten  # noqa: E402  # Diagnose und /api/types
 from ansicht import Ansicht  # noqa: E402  # Profil, Theme, Export
 from seiten import Seiten  # noqa: E402  # Seiten, Kacheln, Detailseiten
+from bento import Bento  # noqa: E402  # LoxOS: Bento-Seiten (Fork, docs/VISION.md)
 # Routen-Handler je Thema (routen/); main() traegt sie unten in die Routentabelle ein.
 from routen.oberflaeche import (  # noqa: E402
     config_css, config_index, config_js, i18n_js, index, panel_teil, raster_js, settings_index)
@@ -82,7 +83,8 @@ log = logging.getLogger("loxpanel.webvisu")
 
 
 class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
-          Geraete, Audiodienst, Intercomdienst, Front, Verteilung, Medien, Diagnosedaten, Ansicht, Seiten):
+          Geraete, Audiodienst, Intercomdienst, Front, Verteilung, Medien, Diagnosedaten, Ansicht, Seiten,
+          Bento):   # Bento: LoxOS (Fork, docs/VISION.md)
     # Pruefen und Exportieren der Konfiguration liegt in konfig.py; hier als
     # statische Methoden erreichbar, weil Server, Sicherung und Tests sie so rufen.
     _sanitize_panels = staticmethod(konfig._sanitize_panels)
@@ -337,7 +339,8 @@ async def on_startup(a: web.Application) -> None:
     a["tasks"] = {"miniserver": asyncio.create_task(app.stream_task()),
                   "broadcaster": asyncio.create_task(app.broadcaster()),
                   "audio": asyncio.create_task(app.audio_events_task()),
-                  "front": asyncio.create_task(app.front_task())}
+                  "front": asyncio.create_task(app.front_task()),
+                  "bento": asyncio.create_task(app.bento_task())}   # LoxOS: Webseiten pruefen
     a["started"] = time.monotonic()
 
 
