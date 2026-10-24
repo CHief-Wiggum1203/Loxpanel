@@ -265,8 +265,10 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   `geraete.js`). Einstieg: Knopf **„LoxOS-Streifen einrichten“** in der Rubrik
   „Geräte“ und auf der Übersicht neben „Gerät einrichten“.
 - **Schritt 1 – Gerät:** Auswahl aus den bekannten Geräten; Geräte, deren
-  gemeldeter Schirm ein Streifen ist (Seitenverhältnis ab 2,5, dieselbe
-  Schwelle wie die Hülle), stehen oben. Ein noch unbenanntes Gerät wird hier
+  gemeldeter Schirm ein Streifen ist (Seitenverhältnis ab 2,5), stehen oben.
+  Die Schwelle ist eine benannte Konstante im Server, über `/api/meta`
+  erreichbar; ein Test prüft, dass sie der Schwelle der Hülle
+  (`loxos/src/monitor.js`) entspricht. Ein noch unbenanntes Gerät wird hier
   benannt (`/api/device/name`).
 - **Schritt 2 – Anwesenheit:** Präsenz- oder Bewegungsmelder wählen (dieselbe
   Auswahl wie unter „Geräte“), „Ruhe-Uhr statt Display aus“ vorausgewählt;
@@ -280,8 +282,13 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   Kalender (wenn ein Abo eingerichtet ist), freie Zellen mit den
   Favoriten-Bausteinen der Anlage (`isFavorite`), höchstens so viele, wie
   Zellen frei sind. Was die Anlage nicht hat, fällt weg; die Lücken füllen
-  Favoriten. Rechts eine Live-Vorschau in Gerätegröße (wie „Gerät
-  einrichten“, `/api/entwurf`).
+  Favoriten. Der Vorschlag trägt `format` (`vw`, `vh`) aus dem gemeldeten
+  Schirm des Geräts, sonst warnt der Bento-Editor sofort. `bento_vorschlag()`
+  bleibt rein (kein Import aus `konfig.py` oder der App): Der Endpunkt
+  sammelt, was die Anlage hat, und reicht es als einfache Daten hinein; der
+  Vorschlag besteht `bento_seite()` unverändert, nichts wird verworfen
+  (Test). Rechts eine Live-Vorschau in Gerätegröße (wie „Gerät einrichten“,
+  `/api/entwurf`).
 - **Schritt 5 – Fertig:** Legt eine **neue** Ansicht „LoxOS · <Gerät>“ an
   (bestehende werden nie überschrieben; gibt es den Namen schon, wird
   durchgezählt), ordnet sie dem Gerät zu (`/api/device/switch`), speichert
@@ -301,13 +308,17 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
   `wasGiltOhneEigenen()`; dazu eine Tabelle Schlüssel → Name → Reiter für alle
   `ui`-Schlüssel, die `_panel_export()` ausgibt (`ABWEICHUNG_FELDER`), Namen
   über `i18n.js`. Ein Schlüssel ohne Eintrag erscheint mit seinem
-  technischen Namen, nie gar nicht.
+  technischen Namen, nie gar nicht; ein Test prüft, dass jeder `ui`-Schlüssel
+  aus der Liste von `_panel_export()` einen Eintrag hat.
 - **„Alles auf Standard“** setzt alle aufgelisteten **Darstellungs- und
   Verhaltenswerte** zurück (Größen, Schrift, Farben, Raster, Nacht, Display,
   Gesten). **Nicht** zurückgesetzt werden Inhalt und Look: Seiten, Räume,
   Kategorien, Widgets/Panes, Kachel-Set und Farbton; sie stehen in der Liste,
-  aber mit eigenem Knopf. Vor dem Zurücksetzen fragt eine Bestätigung in der
-  Seite (kein Browser-Dialog), was zurückgesetzt wird.
+  aber mit eigenem Knopf. Welche Schlüssel zu welcher Gruppe gehören, steht
+  als benannte Liste im Code (`ABWEICHUNG_BLEIBT`), nicht nur hier. Vor dem
+  Zurücksetzen fragt eine Bestätigung in der Seite (kein Browser-Dialog), was
+  zurückgesetzt wird; in den Vorgaben nennt sie dazu, für wie viele Ansichten
+  die Werte gelten („gilt für n von m“).
 - Zurückgesetzt wird in der Arbeitskopie; wirksam erst mit „Speichern“, wie
   jede andere Änderung im Konfigurator.
 
@@ -316,8 +327,8 @@ Assistent für andere Geräte als Streifen, Übersicht über Geräte-Einstellung
 | Phase | Inhalt |
 |---|---|
 | 11 | Audio-Zelle: Raum oben, Favoriten-Reihe, Tipp auf den Raum öffnet die Musikauswahl; Server liefert Raum und `favs` in den Zelldaten; Tests am Nachbau und im Browser |
-| 12 | Übersicht „Was ist eingestellt?“ mit Zurücksetzen je Zeile und „Alles auf Standard“, für Ansichten und Vorgaben; Browser-Tests |
-| 13 | LoxOS-Assistent: `bento_vorschlag()` mit Tests, Endpunkt, Overlay mit fünf Schritten, Live-Vorschau, Speichern; Browser-Test vom Gerät bis zur fertigen Bento-Seite |
+| 12 | LoxOS-Assistent: `bento_vorschlag()` mit Tests, Endpunkt, Overlay mit fünf Schritten, Live-Vorschau, Speichern; Browser-Test vom Gerät bis zur fertigen Bento-Seite |
+| 13 | Übersicht „Was ist eingestellt?“ mit Zurücksetzen je Zeile und „Alles auf Standard“, für Ansichten und Vorgaben; Browser-Tests |
 
 ## Datenformat
 
