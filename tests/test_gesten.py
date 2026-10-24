@@ -620,7 +620,7 @@ def test_vollbild_traegt_in_jedem_theme():
         for schrift, flaeche in GESTE_PAARE:
             assert tc.kontrast(f[schrift], f[flaeche]) >= tc.AA, (ui, schrift, flaeche, f[schrift], f[flaeche])
         for fuellung in ("--geste-nacht-licht", "--geste-nacht-musik"):
-            assert tc.kontrast(f[fuellung], tc.NACHT_GRUND) >= 1.3, (ui, fuellung, f[fuellung])
+            assert tc.kontrast(f[fuellung], tc.NACHT_GRUND) >= tc.GESTE_NACHT_SICHTBAR, (ui, fuellung, f[fuellung])
 
 
 def test_standardfarben_wie_in_der_visu():

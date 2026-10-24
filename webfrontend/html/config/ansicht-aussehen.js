@@ -131,7 +131,13 @@ const BASE_COLORS = [
 ];
 // ---- Kachel-Set (ui.tileSet; theme_colors.KACHEL_SETS ueber /api/meta) ----
 function kachelSetMeta(k){ return ((META&&META.kachelSets)||[]).find(x=>x.key===k)||null; }
-function ksFarbton(ui, s){ const v=parseInt(ui.tileHue); return (v>=0 && v<360) ? v : s.farbton.standard; }
+// Gewaehlter Farbton des Sets (unter dem Schluessel des Sets in ui), sonst null
+function ksGewaehlt(ui, s){ const v=parseInt(ui[s.farbton.schluessel]); return (v>=0 && v<360) ? v : null; }
+// Farbton fuer Regler und Schnellwahl: gewaehlt, sonst der Standard des Sets,
+// ohne Standard (feste Farben, "Original") die Stellung des Reglers
+function ksFarbton(ui, s){ const v=ksGewaehlt(ui, s); return v!==null ? v : (s.farbton.standard!==null ? s.farbton.standard : s.farbton.regler); }
+// Anzeige neben dem Regler: der Farbton, ohne Wahl und ohne Standard "Original"
+function ksFarbtonText(ui, s){ return (s.farbton.standard===null && ksGewaehlt(ui, s)===null) ? T('Original') : ksFarbton(ui, s)+'°'; }
 // Vorschau eines Sets auf seiner Karte: Rahmen, Flaeche, zwei Kacheln und
 // die aktive mit Akzent - die Farben kommen vom Server (kachel_set_vorschau)
 function kachelSetMini(v){
@@ -161,18 +167,20 @@ function kachelSetKartenWahl(host, key){
 // wenn das gewaehlte Set keinen Farbton hat.
 function kachelSetExtraHtml(ui){
   const s=kachelSetMeta(ui.tileSet); if(!s || !s.farbton) return '';
-  const h=ksFarbton(ui, s), ak=ui.tileActive||s.aktiv.standard, v=s.farbton.verlauf;
+  const h=ksFarbton(ui, s), ak=s.aktiv ? (ui.tileActive||s.aktiv.standard) : null, v=s.farbton.verlauf, orig=s.farbton.standard===null, gew=ksGewaehlt(ui, s);
   const verlauf='linear-gradient(to right,'+v.concat([v[0]]).join(',')+')';
   return '<div class="ks-extra">'+
     '<div><div class="ks-kopf"><label class="lbl" for="ksHue" style="margin:0">'+T('Farbton')+'</label>'+
-      '<span class="cval" data-ks-wert>'+h+'°</span></div>'+
+      '<span class="cval" data-ks-wert>'+esc(ksFarbtonText(ui, s))+'</span></div>'+
     '<input type="range" class="ks-hue" id="ksHue" min="0" max="359" step="1" value="'+h+'" data-ks-hue style="--ks-verlauf:'+esc(verlauf)+'"></div>'+
-    '<div><div class="lbl">'+T('Schnellwahl')+'</div><div class="ks-schnell">'+s.farbton.auswahl.map(f=>
-      '<button type="button" class="ks-ton'+(f.wert===h?' on':'')+'" data-ks-ton="'+f.wert+'" aria-pressed="'+(f.wert===h)+'">'+
-      '<span class="ks-punkt" style="background:'+esc(f.farbe)+'"></span>'+esc(T(f.label))+'</button>').join('')+'</div></div>'+
-    '<div><div class="lbl">'+T('Aktive Kachel')+'</div>'+
+    '<div><div class="lbl">'+T('Schnellwahl')+'</div><div class="ks-schnell">'+
+      (orig ? '<button type="button" class="ks-ton'+(gew===null?' on':'')+'" data-ks-original aria-pressed="'+(gew===null)+'">'+T('Original')+'</button>' : '')+
+      s.farbton.auswahl.map(f=>{ const an=f.wert===gew || (!orig && f.wert===h);
+      return '<button type="button" class="ks-ton'+(an?' on':'')+'" data-ks-ton="'+f.wert+'" aria-pressed="'+an+'">'+
+      '<span class="ks-punkt" style="background:'+esc(f.farbe)+'"></span>'+esc(T(f.label))+'</button>'; }).join('')+'</div></div>'+
+    (s.aktiv ? '<div><div class="lbl">'+T('Aktive Kachel')+'</div>'+
     '<div class="segmode" role="group" aria-label="'+esc(T('Aktive Kachel'))+'">'+s.aktiv.auswahl.map(a=>'<button type="button" data-ks-aktiv="'+esc(a.key)+'" aria-pressed="'+(a.key===ak)+'"'+
-      (a.key===ak?' class="on"':'')+'>'+esc(T(a.label))+'</button>').join('')+'</div></div>'+
+      (a.key===ak?' class="on"':'')+'>'+esc(T(a.label))+'</button>').join('')+'</div></div>' : '')+
     '<div class="ks-pruefung" data-ks-pruefung><div class="lbl" style="margin:0">'+T('Nachgerechnet')+'</div></div></div>';
 }
 // "Nachgerechnet": die Kontraste zu Farbton und aktiver Kachel rechnet der
@@ -182,14 +190,17 @@ let _ksAbruf=0;
 async function kachelSetPruefen(host, ui){
   const box=host && host.querySelector('[data-ks-pruefung]'), s=kachelSetMeta(ui.tileSet);
   if(!box || !s || !s.farbton) return;
-  const nr=++_ksAbruf, q=new URLSearchParams({set:ui.tileSet, farbton:String(ksFarbton(ui, s)), aktiv:ui.tileActive||s.aktiv.standard});
+  const nr=++_ksAbruf, q=new URLSearchParams({set:ui.tileSet});
+  const gew=ksGewaehlt(ui, s), ton=gew!==null ? gew : s.farbton.standard;   // ohne Wahl und Standard: feste Farben
+  if(ton!==null) q.set('farbton', String(ton));
+  if(s.aktiv) q.set('aktiv', ui.tileActive||s.aktiv.standard);
   let d=null;
   try{ const r=await fetch('/api/kachelset?'+q.toString()); if(r.ok) d=await r.json(); }catch(e){ d=null; }
   if(nr!==_ksAbruf || !d) return;
   const zahl=x=>String(x.toFixed(1)).replace('.',',')+' : 1';
   box.innerHTML='<div class="lbl" style="margin:0">'+T('Nachgerechnet')+'</div>'+(d.pruefung||[]).map(k=>
     '<div class="ks-zeile" data-ks-paar><span>'+esc(T(k.name))+' ('+esc(T('Ziel'))+' '+esc(zahl(k.ziel))+')</span><b>'+esc(zahl(k.wert))+'</b></div>').join('');
-  const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=ksFarbton(ui, s)+'° · '+(d.kachel||'');
+  const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=ksFarbtonText(ui, s)+' · '+(d.kachel||'');
   // die Karte des Sets zeigt den gewaehlten Farbton
   const mini=document.querySelector('.ks-karte[data-ks-set="'+ui.tileSet+'"] [data-ks-mini]');
   if(mini && d.vorschau) mini.outerHTML=kachelSetMini(d.vorschau);
@@ -199,13 +210,18 @@ async function kachelSetPruefen(host, ui){
 // gespeichert (PANEL_STANDARD im Server).
 function kachelSetExtraBinden(host, ui, fertig){
   const s=host && kachelSetMeta(ui().tileSet); if(!s || !s.farbton) return;
-  const setzeTon=v=>{ const u=ui(); if(v===s.farbton.standard) delete u.tileHue; else u.tileHue=v;
-    const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=v+'°';
-    const r=host.querySelector('[data-ks-hue]'); if(r && +r.value!==v) r.value=v;
-    host.querySelectorAll('[data-ks-ton]').forEach(b=>{ const an=+b.dataset.ksTon===v; b.classList.toggle('on', an); b.setAttribute('aria-pressed', String(an)); });
+  const schl=s.farbton.schluessel;
+  // v null: "Original" (kein Farbton gewaehlt); sonst Grad, der Standard wird nicht gespeichert
+  const setzeTon=v=>{ const u=ui(); if(v===null || v===s.farbton.standard) delete u[schl]; else u[schl]=v;
+    const w=host.querySelector('[data-ks-wert]'); if(w) w.textContent=ksFarbtonText(u, s);
+    const r=host.querySelector('[data-ks-hue]'); if(r && v!==null && +r.value!==v) r.value=v; else if(r && v===null) r.value=ksFarbton(u, s);
+    const gew=ksGewaehlt(u, s), eff=ksFarbton(u, s);
+    host.querySelectorAll('[data-ks-ton]').forEach(b=>{ const an=+b.dataset.ksTon===(s.farbton.standard===null ? gew : eff); b.classList.toggle('on', an); b.setAttribute('aria-pressed', String(an)); });
+    host.querySelectorAll('[data-ks-original]').forEach(b=>{ const an=gew===null; b.classList.toggle('on', an); b.setAttribute('aria-pressed', String(an)); });
     kachelSetPruefen(host, u); fertig(); };
   const r=host.querySelector('[data-ks-hue]'); if(r) r.oninput=()=>setzeTon(+r.value);
   host.querySelectorAll('[data-ks-ton]').forEach(b=>{ b.onclick=()=>setzeTon(+b.dataset.ksTon); });
+  host.querySelectorAll('[data-ks-original]').forEach(b=>{ b.onclick=()=>setzeTon(null); });
   host.querySelectorAll('[data-ks-aktiv]').forEach(b=>{ b.onclick=()=>{ const u=ui(), k=b.dataset.ksAktiv;
     if(k===s.aktiv.standard) delete u.tileActive; else u.tileActive=k;
     host.querySelectorAll('[data-ks-aktiv]').forEach(x=>{ const an=x===b; x.classList.toggle('on', an); x.setAttribute('aria-pressed', String(an)); });

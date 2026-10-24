@@ -175,8 +175,10 @@ class Ansicht:
         # es aendert sich nichts gegenueber frueher.
         # Ein Kachel-Set bringt seine Farben fertig mit und ersetzt die Herleitung
         # aus der Grundfarbe; ausdruecklich gewaehlte Zustandsfarben gelten auch dort.
-        _set = theme_colors.kachel_set(_clean_kachel_set(ui.get("tileSet")),
-                                       _clean_kachel_farbton(ui.get("tileHue")),
+        _name = _clean_kachel_set(ui.get("tileSet"))
+        _fb = theme_colors.KACHEL_SETS.get(_name, {}).get("farbton")      # Farbton liegt je Set unter eigenem Schluessel
+        _set = theme_colors.kachel_set(_name,
+                                       _clean_kachel_farbton(ui.get(_fb["schluessel"])) if _fb else None,
                                        _clean_kachel_aktiv(ui.get("tileActive")))
         if _set:
             v = _set
@@ -390,7 +392,7 @@ class Ansicht:
                        "dpmsOff", "reloadHours", "nightDim", "nightWake",
                        "cols", "rows", "fill", "baseColor",
                        "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
+                       "svPane", "scale", "catFilter", "tileLayout", "tileSet", *theme_colors.FARBTON_SCHLUESSEL, "tileActive",
                        "grid", "tileSize", "pinMerken",
                        "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
                        "nightClock", "nightClockBright", "hausAufbau", "hausAktivOhne", "hausEnergie")}
