@@ -1561,6 +1561,15 @@ Die Optik der Panes hängt an `#frontpane`; `bentoPaneStile()` übernimmt beim
 ersten Aufbau jede Regel für Pane-Inhalte mit `.grid.bento .bz-box` statt
 kopierter Regeln. Mit nur dieser einen Seite und ohne Detailseite darüber
 fällt die Tab-Leiste weg (`.screen.bentovoll`).
+Ebenso im Fork `ruhe.js` nach `display`: der Ruhemodus (§8). Die Ruhe-Uhr ist
+die Nacht-Uhr: `nachtUhrAn()` gilt auch, solange `ruheAn()` (Ruhemodus an und
+der Melder meldet niemanden), zu jeder Tageszeit, mit `nightClockBright`.
+`ruheAnwenden()` legt den Stand des Melders auf die Uhr-Seite (niemand da:
+`showSaver()`, sonst `hideSaver()` und `resetIdle()`, die Seite von vorher
+bleibt), `ruheNachLeerlauf()` in `nachRuhe()` hält den Ruhe-Timer davon ab,
+die Seite zu wechseln oder bei Anwesenheit die Uhr zu zeigen. Mit `RUHE`
+schalten `armDpms()`, `appLeerlauf()` und die `display`-Nachricht des
+Melders nichts ab. Geprüft in `tests/browser/test_ruhe_browser.py`.
 Wie beim Konfigurator (§7.2): kein Build, keine ES-Module, alle Funktionen
 bleiben global, was ein Teil beim Laden ausführt, ruft nur Funktionen
 früherer Teile; der Code ist nur verschoben. Der Server liefert
@@ -3412,8 +3421,11 @@ nicht aus (`_ruhe_an()`); das Wecken (`on: true`) läuft wie sonst. Auch die
 `idle`-Meldung der Visu schaltet nichts ab. Die Visu zeigt die Ruhe-Ansicht;
 dafür stehen `ruhe` in der `theme`-Nachricht und die Nachricht
 `{t:"ruhe", ruhe}`, die `POST /api/devices` jeder Verbindung mit dem Wert ihres
-Geräts schickt. Geräte ohne `ruhe` verhalten sich wie zuvor. Geprüft in
-`tests/test_ruhe.py`. Präsenz-Tests: `tests/test_praesenz.py` und
+Geräts schickt (die Visu dazu §7.1, `ruhe.js`). Ein ausdrücklicher Befehl
+`/api/display?on=0` (etwa aus Loxone) schaltet auch mit `ruhe` ab: Er kommt
+ohne `presence` an und ist kein Melder-Ereignis. Geräte ohne `ruhe` verhalten
+sich wie zuvor. Geprüft in `tests/test_ruhe.py` und
+`tests/browser/test_ruhe_browser.py`. Präsenz-Tests: `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.
 
 ---

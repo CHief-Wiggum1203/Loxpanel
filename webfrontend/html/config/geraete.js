@@ -44,6 +44,7 @@ function devAusServer(devices){
     out[name]={auto:d.auto!==false, modes:Object.entries(d.modes||{}), display:d.display||null,
                scale:(d.scale===undefined?'':d.scale),   // '' = wie in der Ansicht
                presence:d.presence||'',                  // '' = kein Praesenzmelder
+               ruhe:d.ruhe===true,                       // LoxOS: Ruhemodus (nur mit Melder)
                tileTarget:d.tileTarget||'',               // '' = Zielkachel wie in der Ansicht
                dpmsOff:(d.dpmsOff===undefined||d.dpmsOff===null)?'':d.dpmsOff,   // '' = Ansicht oder Vorgaben (Schritt 4)
                nightDim:(d.nightDim===undefined||d.nightDim===null)?'':d.nightDim,   // Nacht am Geraet (Schritt 4b)
@@ -420,6 +421,9 @@ function devRow(name){
       '<div class="dprow" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">'+
         '<select class="dp_presence" style="max-width:100%">'+presenceOptions(d.presence)+'</select>'+
         '<span class="note dp_state">'+esc(presenceText(name))+'</span>'+
+        // LoxOS: Ruhemodus - nur mit Melder waehlbar (er sagt, wann der Raum leer ist)
+        '<label style="font-size:13px;opacity:.85" title="'+esc(T('Ist niemand da, zeigt die Visu die Nacht-Uhr, das Display bleibt an. Nur mit Präsenzmelder.'))+'">'+
+          '<input type="checkbox" class="dp_ruhe"'+(d.ruhe&&d.presence?' checked':'')+(d.presence?'':' disabled')+'> '+T('Ruhe-Uhr statt Display aus')+'</label>'+
       '</div>')+
     modiHtml(name)+
     editor('modi',
@@ -522,10 +526,12 @@ function readDevFromDom(){
       port:parseInt(n.querySelector('.dd_port').value)||DRIVER_PORT[drv]||0,
       password:n.querySelector('.dd_pw').value}:null;
     const sc=n.querySelector('.ds_scale'), pr=n.querySelector('.dp_presence'), tz=n.querySelector('.dt_ziel');
+    const rk=n.querySelector('.dp_ruhe');   // LoxOS: Ruhemodus
     const ls=n.querySelector('.dl_start'), dp=n.querySelector('.dd_dpms'), dn=n.querySelector('.dd_dim'), dw=n.querySelector('.dd_wake');
     const zahl=(el, max)=>(el&&el.value.trim()!=='')?Math.max(0, Math.min(max, Number(el.value))):'';
     DEV[n.dataset.name]={auto:n.querySelector('.dev_auto').checked, modes, display,
                          scale:sc?scaleValue(sc.value):'', presence:pr?pr.value:'',
+                         ruhe:!!(rk&&rk.checked&&!rk.disabled),
                          tileTarget:(tz&&parseInt(tz.value)>0)?parseInt(tz.value):'',
                          dpmsOff:zahl(dp, 3600), nightDim:zahl(dn, 90), nightWake:zahl(dw, 300),
                          lichtStart:ls?ls.value:'',
@@ -543,7 +549,11 @@ function renderDevices(){
     ed.hidden=!auf; if(auf) GK_AUF.add(k.dataset.gk+'/'+key); else GK_AUF.delete(k.dataset.gk+'/'+key);
     b.setAttribute('aria-expanded', String(auf)); b.textContent=b.textContent.replace(/[▾▸]$/, auf?'▾':'▸'); });
   // Wert und Herkunft der Zeilen Display, Betriebsmodi und Technik folgen den Eingaben
-  box.querySelectorAll('.dd_dpms, .dd_dim, .dd_wake, .dp_presence, .dm_mode, .dm_prof, .dev_auto, .ds_scale, .dt_ziel, .dd_drv').forEach(el=>{
+  // LoxOS: Ruhemodus - das Kaestchen folgt dem Melder (vor dem Lesen unten)
+  box.querySelectorAll('.dp_presence').forEach(sel=>sel.addEventListener('change', ()=>{
+    const rk=sel.closest('.dev').querySelector('.dp_ruhe'); if(!rk) return;
+    rk.disabled=!sel.value; if(!sel.value) rk.checked=false; }));
+  box.querySelectorAll('.dd_dpms, .dd_dim, .dd_wake, .dp_presence, .dp_ruhe, .dm_mode, .dm_prof, .dev_auto, .ds_scale, .dt_ziel, .dd_drv').forEach(el=>{
     el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input', ()=>{ readDevFromDom(); gzWerteZeichnen(el.closest('.gk')); }); });
   box.querySelectorAll('.dm_add').forEach(b=>b.onclick=()=>{
     readDevFromDom(); const name=b.closest('.dev').dataset.name;
@@ -603,6 +613,7 @@ function devicesPayload(quelle=DEV){
       if(display) devices[name].display=display;
       if(scale!==null) devices[name].scale=scale;
       if(presence) devices[name].presence=presence;
+      if(presence && d.ruhe) devices[name].ruhe=true;   // LoxOS: Ruhemodus
       if(ziel) devices[name].tileTarget=ziel;
       if(lichtStart) devices[name].lichtStart=lichtStart;
     }
