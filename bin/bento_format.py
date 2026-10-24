@@ -155,3 +155,13 @@ def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int) -> dict |
     out["cells"] = zellen
     return out
 
+
+
+def bento_grenzen() -> dict:
+    """Grenzen und Standards fuer den Seiten-Editor (/api/meta "bento"): der
+    Konfigurator liest sie hier ab, statt sie ein zweites Mal zu fuehren."""
+    return {"spaltenMin": BENTO_SPALTEN_MIN, "spaltenMax": BENTO_SPALTEN_MAX,
+            "spaltenStandard": BENTO_SPALTEN_STANDARD,
+            "zeilenMin": BENTO_ZEILEN_MIN, "zeilenMax": BENTO_ZEILEN_MAX,
+            "zeilenStandard": BENTO_ZEILEN_STANDARD,
+            "bausteineMax": BENTO_ZELLE_BAUSTEINE_MAX, "urlMax": BENTO_URL_MAX, "nameMax": BENTO_NAME_MAX}

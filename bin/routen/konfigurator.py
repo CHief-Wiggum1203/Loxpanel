@@ -18,6 +18,7 @@ from aiohttp import web
 
 import theme_colors
 from bausteine.gemeinsam import _clean
+from bento_format import bento_grenzen   # LoxOS
 from geraete import _lan_adressen, NEULADEN_STUNDE, VORSCHAU_GERAET_DAUER
 from haus import HAUS_TITEL
 from konfig import (
@@ -95,6 +96,8 @@ async def api_meta(request: web.Request) -> web.Response:
         # Wie viele Werte-Kacheln die Uhr-Seite traegt. Der Konfigurator liest
         # die Zahl hier ab, statt sie ein zweites Mal zu fuehren.
         "svStatusMax": SV_STATUS_MAX,
+        # LoxOS (Fork): Grenzen und Standards der Bento-Seiten fuer den Editor
+        "bento": bento_grenzen(),
         # Grenzen des Skalierungsfaktors; der Konfigurator bietet nur Stufen
         # innerhalb davon an.
         "scaleRange": [SCALE_MIN, SCALE_MAX],
