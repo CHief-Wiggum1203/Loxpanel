@@ -40,6 +40,7 @@ import webvisu as W  # noqa: E402
 import ansicht  # noqa: E402
 import audiodienst  # noqa: E402
 import bausteine  # noqa: E402
+import bento_format  # noqa: E402
 import diagnosedaten  # noqa: E402
 import front  # noqa: E402
 import geraete  # noqa: E402
@@ -60,7 +61,7 @@ import verteilung  # noqa: E402
 # importieren webvisu nie (tests/test_schichten.py), webvisu importiert aus
 # ihnen. Ein neues Modul gehoert hier dazu, sonst ersetzt ersetzen() dort nichts.
 # Reihenfolge: wer einen Namen anbietet, vor dem, der ihn importiert.
-_ZERLEGT_MODULE = (symbolquellen, konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
+_ZERLEGT_MODULE = (symbolquellen, bento_format, konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
                    intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten)
 ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
 # Pakete: jedes Modul darin ist ein Server-Modul. bausteine importiert aus
