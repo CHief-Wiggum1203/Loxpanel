@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'">
+<title>LoxOS · Einstellungen</title>
+<link rel="stylesheet" href="einrichtung.css">
+</head>
+<body>
+<h1>LoxOS</h1>
+<p class="hinweis">LoxOS zeigt die Visu von Loxpanel auf einem flachen Streifen-Display.</p>
+<form id="form" novalidate>
+  <label for="server">Adresse von Loxpanel</label>
+  <input id="server" type="url" placeholder="http://…" required autocomplete="off">
+  <p class="fehler" id="server-fehler" hidden>Nur http- oder https-Adressen mit Host, ohne Zugangsdaten.</p>
+
+  <label for="geraet">Name dieses Geräts</label>
+  <input id="geraet" type="text" maxlength="40" required>
+  <p class="fehler" id="geraet-fehler" hidden>Buchstaben, Ziffern, Leerzeichen, Punkt, Unterstrich und Bindestrich.</p>
+
+  <label for="monitor">Bildschirm für die Visu</label>
+  <select id="monitor"></select>
+
+  <label for="kuerzel">Tastenkürzel Widget-/Desktop-Modus</label>
+  <input id="kuerzel" type="text" maxlength="60">
+  <p class="fehler" id="kuerzel-fehler" hidden>Tasten mit + verbunden, etwa CommandOrControl+Alt+L.</p>
+
+  <label class="zeile"><input id="widget" type="checkbox"> Im Widget-Modus starten</label>
+  <label class="zeile"><input id="autostart" type="checkbox"> Mit der Anmeldung starten</label>
+
+  <button type="submit">Speichern</button>
+  <p class="fehler" id="meldung" role="status" hidden></p>
+</form>
+<script src="einrichtung.js"></script>
+</body>
+</html>

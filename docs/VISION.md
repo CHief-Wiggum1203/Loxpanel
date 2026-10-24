@@ -92,7 +92,7 @@ Phase auf der vorigen aufbaut.
 | 4 | `raster.js` (Bento-Raster, Kollision, Größenstufen je Achse), `panel/bento.js` und `bento.css`, keine Tab-Leiste bei nur einer Bento-Seite; Kacheln über `kachelHtml()`/`kachelBinden()` aus `render()` herausgelöst, Pane-Optik zur Laufzeit übernommen, eigener Zellen-Spieler (der Pane-Spieler hängt an festen IDs) |
 | 5 | Seiten-Editor `config/bento-editor.js`: Seiteninhalt „Bento“, Spalten/Zeilen, Formatanzeige, Fläche in Geräteform (Gerätewahl und Live-Vorschau des Seiten-Editors), Ziehen, Größengriff, Tastatur, Kollision, Palette, „Nicht platziert“, Quelle bzw. Adresse (dieselbe Regel wie der Server); Grenzen aus `/api/meta` |
 | 6 | Browser-Abnahme bei 2560×720, 1920×480 und 1280×400 mit Screenshots |
-| 7 | Hülle `loxos/` (Electron) |
+| 7 | Hülle `loxos/` (Electron 44, exakt gepinnt mit Sperrdatei und Dependabot): Widget-/Desktop-Modus per Tastenkürzel und Tray, Streifen automatisch erkannt (Seitenverhältnis ab 2,5), Autostart, Einrichtung beim ersten Start, Navigation nur zu Loxpanel, Mikrofon nur für Loxpanel; Logik mit Node getestet, Rauchtest der echten Hülle unter Xvfb |
 
 ## Datenformat
 
