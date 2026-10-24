@@ -124,6 +124,29 @@ function renderBento(){
   bentoGezeichnet();
 }
 
+// Kasten oder Fenster anders gross (faktorNachziehen): Faktor wie in
+// renderBento() aus der Einheitszelle, nie aus der Rasterrechnung der
+// Kachelseiten (automatisches Raster). -> true auf einer Bento-Seite.
+function bentoFaktorNachziehen(){
+  const g=el('grid'); if(!g || !view || !view.bento || !g.classList.contains('bento')) return false;
+  const br=bentoMessen(g), ks=LoxRaster.kachelFaktorFuer(br.zw, br.zh);
+  if(Math.abs(ks-kachelFaktor)>=0.01){
+    setzeFaktor(ks);
+    g.querySelectorAll(':scope > .bz.bz-kacheln').forEach(z=>bentoZellFaktor(z, z.querySelectorAll(':scope > .tile').length));
+    kachelnNeuMessen();
+  }
+  return true;
+}
+// Faktor der Kacheln einer Zelle aus der Groesse, die jede wirklich hat:
+// mehrere stehen untereinander und teilen sich die Hoehe. Die Zelle traegt
+// ihn als --ks (die Kacheln erben ihn), --ksg bleibt der Faktor der Seite.
+function bentoZellFaktor(z, n){
+  const b=parseFloat(z.style.getPropertyValue('--bz-b')), h=parseFloat(z.style.getPropertyValue('--bz-h'));
+  if(!(b>0 && h>0 && n>0)) return;
+  const gap=parseFloat(getComputedStyle(z).rowGap)||0;
+  z.style.setProperty('--ks', LoxRaster.kachelFaktorFuer(b, (h-(n-1)*gap)/n).toFixed(3));
+}
+
 // Gleiche Seite, gleicher Aufbau: nur geaenderte Zellen neu fuellen.
 // -> false, wenn sich der Aufbau geaendert hat (dann baut render() neu).
 function updateBento(){
@@ -188,6 +211,7 @@ function bentoKacheln(z, c){
   const gr={w:Math.min(2, c.w), h:n===1 ? Math.min(2, c.h) : 1};
   z.classList.add('bz-kacheln');
   z.style.setProperty('--bz-n', n);
+  bentoZellFaktor(z, n);
   z.innerHTML=its.map(it=>kachelHtml(it, gr, '', tileVarStyle(it))).join('');
   z.querySelectorAll(':scope > .tile[data-id]').forEach((t, i)=>{ t._it=its[i]; kachelBinden(t, its[i]); });
 }

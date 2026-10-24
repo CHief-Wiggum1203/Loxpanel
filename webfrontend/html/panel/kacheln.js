@@ -265,6 +265,7 @@ let _kachelM='';
 function kachelMass(){ const t=el('grid').querySelector('.tile[data-id]'); return t ? t.clientWidth+'x'+t.clientHeight : ''; }
 function faktorNachziehen(){
   if(!view || view.widget || el('grid').classList.contains('panel')) return;
+  if(bentoFaktorNachziehen()) return;   // LoxOS: Bento-Seite misst ihren Faktor selbst (bento.js)
   const vorher=kachelFaktor;
   if(gridAuto){ const ks=autoRaster(_lastWidget).ks; if(Math.abs(ks-vorher)>=0.01) setzeFaktor(ks); }
   else faktorEinmessen();
