@@ -134,6 +134,10 @@ Regeln, die alle Stufen einhalten:
 6. **Nichts im Code festgelegt:** Grenzen sind benannte Konstanten in
    `konfig.py`, Farben kommen aus dem Kachel-Set, Inhalte vom Miniserver oder
    aus der Konfiguration.
+7. **Widgets mit Quelle dürfen mehrfach stehen** (Audio, Kamera, Verlauf,
+   Werte, Energie, Webseite – je mit eigener Quelle), Widgets ohne Quelle
+   (Uhr, Wetter, Kalender) einmal je Seite. Der Editor blendet bereits
+   gesetzte aus, der Sanitizer verwirft Doppelte und meldet sie.
 
 ## Architektur-Entscheidungen
 
@@ -153,7 +157,12 @@ Regeln, die alle Stufen einhalten:
   (etwa `localhost` neben der Hülle), kann der Server nicht prüfen.
 - **Skalierung über den Kachelfaktor.** Schrift, Icons und Diagramme
   wachsen je Zelle über `kachelFaktorFuer()` in `raster.js`; ein 6×2-Blatt
-  bleibt auf jedem Streifen 6×2.
+  bleibt auf jedem Streifen 6×2. Reicht Schrumpfen nicht, zeigt ein Widget
+  weniger statt abzuschneiden: `raster.js` gibt jeder Zelle eine Stufe
+  (`data-stufe`, aus der Zellgröße im Verhältnis zur Zielkachel), und je
+  Stufe fallen Nebenzeilen weg (Wind beim Wetter, Tagessummen bei der
+  Energie, Prozentzahl beim Audio). Die Schwellen leiten sich aus den
+  vorhandenen Kachel-Ziel-Konstanten ab, nicht aus eigenen Zahlen.
 - **Edge-Look als Kachel-Set.** Das Set `edge` wirkt auf die ganze Visu,
   nicht nur auf Bento-Seiten; Regeln hängen an der Art des Sets
   (`data-kachelset-aufbau="karte"`), nie am Namen. Die Kontrastprüfung gilt
