@@ -68,6 +68,10 @@ AGENT_BEFEHL_TIMEOUT = 8
 # Antwort ohne Chromium-Neustart. Aeltere Agenten bekommen stattdessen /start.
 AGENT_KANN_PANEL = "panel"
 
+# dpmsOff in der Announce-Antwort: 0 = Display nie abschalten (xset dpms aus).
+# Bekommt ein Agent-Panel mit Ruhemodus (_ruhe_an), dort zeigt die Visu die Ruhe-Uhr.
+AGENT_DPMS_NIE = 0
+
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
 # konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
 NIGHT_FROM, NIGHT_TO = "22:00", "06:00"

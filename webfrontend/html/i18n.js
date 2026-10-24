@@ -844,6 +844,7 @@
       'Ziel': 'target',
       'Schrift auf Kachel': 'Text on tile',
       'Schrift auf aktiver Kachel': 'Text on active tile',
+      'Akzent auf Kachel': 'Accent on tile',
       'Symbol auf Taste': 'Icon on button',
       'Salbei': 'Sage',
       'Mint': 'Mint',

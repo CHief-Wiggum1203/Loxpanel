@@ -167,3 +167,18 @@ def test_speichern_meldet_ruhe():
             await runner.cleanup()
     an, aus = asyncio.run(lauf())
     assert an == {"t": "ruhe", "ruhe": True} and aus == {"t": "ruhe", "ruhe": False}
+
+
+def test_agent_mit_ruhe_schaltet_nie_ab():
+    """Ein Agent-Panel mit Ruhemodus bekommt dpmsOff 0: sonst schaltet xset das
+    Display nach der Abschaltzeit ab, obwohl die Visu die Ruhe-Uhr zeigt."""
+    async def lauf(ruhe: bool):
+        app, _ = _app({"wand": {"presence": "PM", "dpmsOff": 120, **({"ruhe": True} if ruhe else {})}})
+        ui = web.Application()
+        ui["app"] = app
+        ui.router.add_post("/api/agent/announce", W.api_agent_announce)
+        async with TestClient(TestServer(ui)) as cl:
+            r = await cl.post("/api/agent/announce", json={"name": "wand", "panel": "test", "ip": "10.0.0.9"})
+            return (await r.json())["dpmsOff"]
+    assert asyncio.run(lauf(True)) == 0
+    assert asyncio.run(lauf(False)) == 120

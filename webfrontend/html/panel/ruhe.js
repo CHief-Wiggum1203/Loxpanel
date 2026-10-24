@@ -14,8 +14,9 @@
    (ruheNachLeerlauf() in nachRuhe()). */
 
 let RUHE=false;
-// Ruhe-Uhr jetzt? Nur mit Ruhemodus und solange der Melder niemanden meldet
-function ruheAn(){ return RUHE && !DISP.presence; }
+// Ruhe-Uhr jetzt? Nur mit Ruhemodus und solange der Melder niemanden meldet;
+// nie in der Vorschau eines Entwurfs (ENTWURF, verbindung.js): die zeigt Seiten
+function ruheAn(){ return RUHE && !DISP.presence && !ENTWURF; }
 // Stand des Melders auf die Uhr-Seite legen: niemand da -> Ruhe-Uhr, sonst
 // die Seite von vorher und der Ruhe-Timer neu. Zuerst die Nacht-Uhr setzen,
 // damit showSaver() die zweite Spalte (Kamera) gar nicht erst anmeldet.
@@ -23,12 +24,15 @@ function ruheAnwenden(){
   nachtUhrSetzen();
   if(ruheAn()) showSaver(); else { hideSaver(); resetIdle(); }
 }
-// Ruhemodus an- oder abschalten (theme, {t:"ruhe"}). Ohne Ruhemodus gilt
-// wieder die Leerlaufzeit: Nacht-Uhr nach NIGHT, Display-Timer neu.
+// Ruhemodus an- oder abschalten ({t:"ruhe"}, nach jedem Speichern der Geraete
+// an alle Panels: ein gleicher Wert aendert nichts). Mit Ruhemodus haelt ein
+// laufender Display-Timer an, ohne gilt wieder die Leerlaufzeit: Nacht-Uhr
+// nach NIGHT, Display-Timer neu.
 function ruheSetzen(an){
+  if(!!an===RUHE) return;
   RUHE=!!an;
   appLeerlauf();
-  if(RUHE){ ruheAnwenden(); return; }
+  if(RUHE){ clearTimeout(dpmsTimer); ruheAnwenden(); return; }
   nachtUhrSetzen();
   resetIdle();
 }

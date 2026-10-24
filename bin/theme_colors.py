@@ -719,8 +719,9 @@ def _edge_satz(farbton: int) -> tuple:
     i = p["ink"]
     # helle Schrift: die hellere Flaeche ist die schwerere
     ink = _wandern(farbton, i["s"], i["l"], max(grund, leiste, key=luminanz), i["ziel"], i["schritt"], 100)
-    # Text steht im Aufbau lx auf Kachel, Flaeche und aktiver Kachel
-    muted = _zweitzeile(ink, [tile, grund, an], hell=False)
+    # Text steht im Aufbau lx auf Kachel, Flaeche und aktiver Kachel, in den
+    # Bento-Widgets (bento.css) auch auf der Taste
+    muted = _zweitzeile(ink, [tile, grund, an, taste], hell=False)
     a = p["akzent"]
     traeger = max(tile, an, key=luminanz)
     zustand = [_hls(fest[r])[0] * 360 for r in ("--good", "--warn", "--crit")]

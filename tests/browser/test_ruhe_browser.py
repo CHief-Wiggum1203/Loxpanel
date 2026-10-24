@@ -37,10 +37,16 @@ RUHE_UHR = """() => { const s = document.getElementById('saver');
 UHR_WEG = "() => document.getElementById('saver').classList.contains('hidden')"
 
 
-def _app(ruhe: bool = True, dpms: int = 1):
+# Nur die Leerlauf-Schnittstelle der LoxPanel-App (ohne turnScreenOff, die
+# Kiosk-App bleibt Fully): protokolliert jedes setDisplayOff
+LEERLAUF_JS = """window.__leerlauf = []; window.LoxKiosk = {
+  setDisplayOff(s) { window.__leerlauf.push(s); } };"""
+
+
+def _app(ruhe: bool = True, dpms: int = 1, anwesend: bool = True):
     app = W.App({"host": "", "port": 80})
     app._apply_structure(anlage(BAUSTEINE))
-    app.states = {"pm_a": 1.0, "sl": 0}              # jemand ist im Raum
+    app.states = {"pm_a": 1.0 if anwesend else 0.0, "sl": 0}   # jemand ist im Raum (Standard)
     app.panels = W.App._sanitize_panels({"test": {"title": "Test", "tabs": TABS, "ui": {"dpmsOff": dpms}}})
     geraet = {"presence": "PM", **({"ruhe": True} if ruhe else {})}
     app.devices = W.App._sanitize_devices({"streifen": geraet}, set(app.panels))
@@ -49,19 +55,20 @@ def _app(ruhe: bool = True, dpms: int = 1):
     return app
 
 
-async def _mit_visu(app, schritte, tmp_path, bild):
+async def _mit_visu(app, schritte, tmp_path, bild, extra_js="", adresse=""):
     """Visu des Geraets streifen (2560x720) oeffnen, warten, bis sie steht,
-    dann schritte(pg) ausfuehren. Seitenfehler scheitern den Test."""
+    dann schritte(pg) ausfuehren. Seitenfehler scheitern den Test. extra_js:
+    weiteres Init-Skript, adresse: angehaengt an die Adresse der Visu."""
     runner, port, bc = await visu_starten(app)
     fehler = []
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch()
             ctx = await b.new_context(viewport={"width": 2560, "height": 720})
-            await ctx.add_init_script(FULLY_JS)
+            await ctx.add_init_script(FULLY_JS + extra_js)
             pg = await ctx.new_page()
             pg.on("pageerror", lambda e: fehler.append(str(e)))
-            await pg.goto(f"http://127.0.0.1:{port}/?panel=test&device=streifen")
+            await pg.goto(f"http://127.0.0.1:{port}/?panel=test&device=streifen{adresse}")
             await pg.wait_for_function("() => typeof view !== 'undefined' && !!view && !!view.route")
             await schritte(pg)
             await pg.screenshot(path=str(tmp_path / bild))
@@ -166,6 +173,66 @@ def test_ruhe_aus_per_nachricht(tmp_path):
         assert await pg.evaluate("nachtUhrAn()") is False, "tagsueber keine Nacht-Uhr mehr"
         assert await pg.evaluate("document.getElementById('saver').classList.contains('nacht')") is False
     asyncio.run(_mit_visu(app, schritte, tmp_path, "ruhe_aus.png"))
+
+
+def test_raum_leer_beim_laden_zeigt_gleich_die_ruhe_uhr(tmp_path):
+    app = _app(anwesend=False)
+
+    async def schritte(pg):
+        await pg.wait_for_function(RUHE_UHR)
+        await pg.wait_for_timeout(1500)                   # laenger als die Leerlaufzeit (1 s)
+        assert await pg.evaluate("__fully") == [], "Ruhemodus: das Display bleibt an"
+        assert await pg.evaluate(RUHE_UHR)
+    asyncio.run(_mit_visu(app, schritte, tmp_path, "ruhe_beim_laden.png"))
+
+
+def test_entwurf_zeigt_keine_ruhe_uhr(tmp_path):
+    """Die Vorschau eines Entwurfs am Geraet zeigt die Seiten, auch wenn der
+    Raum leer ist."""
+    app = _app(anwesend=False)
+    token, _ = app.entwurf_ablegen("test", app.panels["test"])
+
+    async def schritte(pg):
+        await pg.wait_for_function("() => RUHE === true")
+        await pg.wait_for_timeout(500)
+        assert await pg.evaluate(UHR_WEG), "Entwurf: keine Ruhe-Uhr"
+        assert await pg.evaluate("ruheAn()") is False
+    asyncio.run(_mit_visu(app, schritte, tmp_path, "ruhe_entwurf.png", adresse=f"&entwurf={token}"))
+
+
+def test_unveraenderte_ruhe_nachricht_stoert_nicht(tmp_path):
+    """Speichern der Geraete schickt jedem Panel {t:"ruhe"}; bleibt der Wert
+    gleich, setzt die Visu weder Leerlauf noch Timer neu."""
+    app = _app(ruhe=False)
+
+    async def schritte(pg):
+        await pg.wait_for_timeout(500)
+        vorher = await pg.evaluate("__leerlauf.length")
+        for ws in list(app.conn_info):                    # so schickt es POST /api/devices
+            await app._send_or_drop(ws, {"t": "ruhe", "ruhe": False})
+        await pg.wait_for_timeout(300)
+        assert await pg.evaluate("__leerlauf.length") == vorher, "gleicher Wert: kein setDisplayOff"
+        assert await pg.evaluate("RUHE") is False
+    asyncio.run(_mit_visu(app, schritte, tmp_path, "ruhe_unveraendert.png", extra_js=LEERLAUF_JS))
+
+
+def test_ruhe_an_haelt_den_laufenden_display_timer_an(tmp_path):
+    """Ruhemodus wird eingeschaltet, waehrend der Display-Timer laeuft (Raum
+    leer, Display nach einem Tipp wieder an): er schaltet nicht mehr ab."""
+    app = _app(ruhe=False, dpms=2, anwesend=False)
+
+    async def schritte(pg):
+        await pg.wait_for_function("() => __fully.includes('aus')")   # Raum leer, ohne Ruhe: aus
+        await pg.mouse.click(1280, 360)                   # Tipp weckt, der Display-Timer laeuft
+        await pg.wait_for_function(UHR_WEG)
+        await pg.evaluate("__fully.length = 0")
+        for ws in list(app.conn_info):                    # so schickt es POST /api/devices
+            await app._send_or_drop(ws, {"t": "ruhe", "ruhe": True})
+        await pg.wait_for_function(RUHE_UHR)
+        await pg.wait_for_timeout(2500)                   # laenger als die Abschaltzeit (2 s)
+        assert "aus" not in await pg.evaluate("__fully"), "Ruhemodus: der alte Timer schaltet nicht ab"
+        assert await pg.evaluate(RUHE_UHR)
+    asyncio.run(_mit_visu(app, schritte, tmp_path, "ruhe_timer.png"))
 
 
 def test_display_aus_per_befehl_auch_mit_ruhe(tmp_path):
