@@ -119,6 +119,12 @@ zeigt die aktive Seite, Punkte kosteten Höhe auf 720 px), Bento-Automatik
   Farben. `kachel_set()`, die Kachelfarbe neben dem Regler und die
   Schnellwahl im Konfigurator (heute direkt `touch_satz()`) gehen über sie.
   `touch` sieht danach Wert für Wert aus wie vorher (Test).
+- **Eigener Speicherplatz je Set:** Der Farbton von `edge` steht nicht in
+  `ui.tileHue` (das bleibt bei `touch`), sondern in einem eigenen Schlüssel
+  mit eigenem Standard in `PANEL_STANDARD`, freigeschaltet in
+  `_sanitize_panels()` und `_panel_export()`. Eine Ansicht, die früher
+  einen Farbton für `touch` gespeichert hat und jetzt `edge` nutzt, bleibt
+  nach dem Update unverändert.
 - Der Standard-Farbton von `edge` gibt den heutigen Edge-Look wieder, so nah
   es die Rechnung erlaubt; wer nichts einstellt, sieht keinen Unterschied
   über das hinaus, was der Test als Abweichung zulässt.
@@ -154,15 +160,22 @@ nichts. Neu:
   - Ein Tipp weckt ebenfalls (`wake()`). Meldet der Melder dann weiter
     niemanden, kehrt die Ruhe-Uhr nach `SAVER_IDLE_MS` ohne Berührung zurück.
 - Klingel, Wecker, `notify` und `goto` wecken wie heute.
-- Die Hülle braucht dafür nichts Neues, die Visu darin zeigt die Ruhe-Uhr
-  selbst. Ob die Hülle den Bildschirmschoner des Betriebssystems verhindert
-  (`powerSaveBlocker`), regelt der Abschnitt „Offene Punkte“.
+- **„Nie aus“ gilt für alle Wege:** Mit `ruhe` an zeigt das Gerät bei
+  „niemand da“ die Ruhe-Uhr statt abzuschalten, auch wenn es sonst
+  abschalten könnte (Display-Treiber in `verteilung.py`, `screenOff()` der
+  Kiosk-App, `idle` nach `dpmsOff`, `setDisplayOff()` der Android-App).
+  Ohne `ruhe` bleibt jeder dieser Wege, wie er ist.
+- Die Visu in der Hülle zeigt die Ruhe-Uhr selbst. Die Hülle verhindert
+  dazu, dass der Energiesparplan des PCs die Bildschirme abschaltet
+  (`powerSaveBlocker('prevent-display-sleep')`); das hält auch den
+  Hauptmonitor an. Schalter `bildschirmWach` in `loxos.json`, Standard an,
+  in der Einrichtung und im Tray änderbar (entschieden am 24.10.2026).
 
 ### Wischen zwischen Bento-Seiten
 
-- Gilt in jeder Ansicht mit mindestens zwei Bento-Seiten, nur auf
-  Bento-Seiten und nur, wenn das Ziel ebenfalls eine Bento-Seite ist; die
-  Reihenfolge ist die der Leiste.
+- Gilt in jeder Ansicht mit mindestens zwei Bento-Seiten und nur auf
+  Bento-Seiten. Das Ziel ist die nächste bzw. vorige Bento-Seite in der
+  Reihenfolge der Leiste; normale Seiten dazwischen werden übersprungen.
 - Ein Finger waagerecht über die Fläche (Mindestweg und Richtungsregel nach
   dem Muster der Gesten in `gesten.js`, `GESTE_MINDESTWEG`, als eigene
   benannte Konstanten in `panel/bento.js`; die Kachelseiten des Tablets
@@ -185,7 +198,7 @@ nichts. Neu:
 | Phase | Inhalt |
 |---|---|
 | 8 | Farbton für `edge`: Rechnung verallgemeinert, `edge` mit `satz`, Konfigurator-Regler, Kontrasttest über den Farbkreis, `touch` unverändert |
-| 9 | Ruhemodus: Geräte-Einstellung `ruhe` (Sanitizer, `/api/devices`, `theme`), Ruhe-Uhr über die Nacht-Uhr, Melder statt 60-s-Zeit, Tests am Miniserver-Nachbau und im Browser |
+| 9 | Ruhemodus: Geräte-Einstellung `ruhe` (Sanitizer, `/api/devices`, `theme`), Ruhe-Uhr über die Nacht-Uhr, Melder statt 60-s-Zeit, kein Abschalten mit `ruhe`; Hülle mit `bildschirmWach` (Node-Test); Tests am Miniserver-Nachbau und im Browser |
 | 10 | Wischen zwischen Bento-Seiten mit Übergang, Browser-Tests bei 2560×720 und 1920×480 |
 
 Jede Phase endet mit grünem `pytest`, umgesetztes wandert nach
@@ -313,7 +326,3 @@ LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 - Mehrere Kamera-Zellen heißen mehrere Video-Streams zur Türstation.
 - Monitor-Erkennung der Hülle unter Windows und macOS (Streifen über
   Auflösung oder Kennung aus `loxos.json`).
-- Stufe 2, Ruhemodus: Schaltet der Energiesparplan des PCs die Bildschirme
-  ab, wird auch der Streifen dunkel. Verhindert die Hülle das
-  (`powerSaveBlocker('prevent-display-sleep')`), bleibt auch der
-  Hauptmonitor an. Zu entscheiden vor Phase 9.
