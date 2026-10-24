@@ -28,6 +28,7 @@ jedem Upstream-Update dieselben Konflikte neu.
 | Front/Screensaver, Audio, Bugfixes | Repo-/Archiv-Links, `ARCHIVEURL` in `loxberry-plugin/release.cfg` |
 | Allgemeine Doku (`ARCHITEKTUR.md`, `TODO.md`) | `plugin.cfg` NAME/FOLDER/AUTHOR |
 | Alles, wovon andere Nutzer profitieren | `unraid/`-Template + Unraid-Doku, diese `CONTRIBUTING.md`, `CLAUDE.md` |
+| | LoxOS: Bento-Seiten, Kachel-Set `edge`, Hülle `loxos/` (Ablauf E, [`VISION.md`](VISION.md)) |
 
 ## Voraussetzung: upstream-Remote
 
@@ -107,6 +108,24 @@ git checkout -b fix/unraid-xyz main
 # ... ändern ...
 git push -u origin fix/unraid-xyz     # PR gegen den Fork-main
 ```
+
+## Ablauf E – LoxOS (Fork-eigenes Feature)
+
+LoxOS ist die eine bewusste Ausnahme vom Mentalmodell oben: ein allgemeines
+Feature, das trotzdem im Fork bleibt. Ziel, Roadmap und Datenformat stehen in
+[`VISION.md`](VISION.md). Damit die Fork-Schicht trotz LoxOS berechenbar bleibt,
+gelten die Fork-Regeln aus `VISION.md`: Logik in eigenen Dateien, in
+Upstream-Dateien nur kleine, zusammenhängende Andockstellen.
+
+```bash
+git checkout -b feat/loxos-<thema> main
+# ... entwickeln, Rauchtest (siehe unten) ...
+git push -u origin feat/loxos-<thema>   # PR gegen den Fork-main
+```
+
+Beim Upstream-Abgleich (Ablauf C) laufen die LoxOS-Tests mit. Ein Konflikt an
+einer Andockstelle wird dort gelöst; Upstream-Code wird nicht in LoxOS-Dateien
+kopiert, um einem Konflikt auszuweichen.
 
 ## Ablauf C – Den Fork synchron halten (das „gleich halten")
 
