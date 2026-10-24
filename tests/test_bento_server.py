@@ -280,3 +280,58 @@ def test_pruefrunde_ueber_gespeicherte_und_gerenderte_adressen():
             assert await app._bento_runde(s) is False
     asyncio.run(lauf())
 
+
+
+# ---- Vorschlag fuer die Startseite: GET /api/bento/vorschlag ----------------------------
+
+def _vorschlag_antwort(app, geraet="streifen"):
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    r = make_mocked_request("GET", "/api/bento/vorschlag?device=" + geraet, app={"app": app})
+    return json.loads(asyncio.run(W.api_bento_vorschlag(r)).body)
+
+
+def _verbunden(app, geraet, screen):
+    app.conn_info[object()] = {"dev": geraet, "screen": screen, "ts": 1}
+
+
+def test_api_bento_vorschlag(monkeypatch):
+    from bento_format import BENTO_FORMAT_STANDARD
+    struktur, states = haus_anlage()
+    app = _app(struktur, states)
+    efm = next(u for u, c in app.controls.items() if c["type"] == "EFM")
+    app.calendar_cfg = {"sources": [{"name": "Familie", "url": "https://example.org/a.ics"}]}
+    favs = [u for u, c in app.controls.items() if c.get("isFavorite")]
+    zone = next(u for u, c in app.controls.items() if c["type"] in ("AudioZone", "AudioZoneV2"))
+    # Geraet ohne gemeldeten Schirm: Standardformat, formatBekannt false
+    a = _vorschlag_antwort(app)
+    assert a["format"] == BENTO_FORMAT_STANDARD and a["formatBekannt"] is False
+    seite = a["pickTab"]
+    assert seite["bento"]["format"] == BENTO_FORMAT_STANDARD
+    widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
+    assert widgets == ["clock", "weather", "player:" + zone, "energy:" + efm, "calendar"]
+    assert seite["picks"] == [u for u in favs if u not in (zone, efm)][:len(seite["picks"])]
+    assert W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "pickTabs": [seite]}})["p"]["pickTabs"][0]["bento"] == seite["bento"]
+    # Geraet mit gemeldetem Schirm
+    _verbunden(app, "streifen", {"vw": 3440, "vh": 600})
+    a = _vorschlag_antwort(app)
+    assert a["format"] == {"vw": 3440, "vh": 600} and a["formatBekannt"] is True
+    assert a["pickTab"]["bento"]["format"] == {"vw": 3440, "vh": 600}
+
+
+def test_api_bento_vorschlag_ohne_energie_und_kalender():
+    struktur, states = raum_anlage()
+    app = _app(struktur, states)
+    app.calendar_cfg = {}
+    seite = _vorschlag_antwort(app)["pickTab"]
+    widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
+    assert widgets == ["clock", "weather"] + [w for w in widgets[2:] if w.startswith("player:")]
+    assert "calendar" not in widgets and not any(w.startswith("energy:") for w in widgets)
+
+
+def test_meta_meldet_streifen_ab():
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    from bento_format import STREIFEN_AB
+    r = make_mocked_request("GET", "/api/meta", app={"app": _app()})
+    assert json.loads(asyncio.run(W.api_meta(r)).body)["streifenAb"] == STREIFEN_AB

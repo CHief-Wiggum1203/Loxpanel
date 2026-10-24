@@ -854,7 +854,7 @@ Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
 Alle Routen werden in `main()` (`webvisu.py`) registriert, die Handler stehen
 je Thema in `bin/routen/`: `oberflaeche.py` (`/`, `/config`, `/settings`,
 `/i18n.js`, `/raster.js`, `/config.css`, `/config/{name}`, `/panel/{name}`),
-`visu.py` (`/ws`), `konfigurator.py` (`/api/meta`, `/api/kachelset`,
+`visu.py` (`/ws`), `konfigurator.py` (`/api/meta`, `/api/kachelset`, `/api/bento/vorschlag`,
 `/api/panels`, `/api/entwurf`, `/api/theme`, `/api/types`), `einstellungen.py`
 (`/api/settings`, `/api/settings/miniserver`, `…/night`, `…/audiometa`,
 `…/calendar`, `/api/backup`, `/api/restore`), `intercom.py`
@@ -880,7 +880,8 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/panel/{name}` | `panel_teil` | Stylesheets und Skriptteile der Visu (`webfrontend/html/panel/<name>.css|.js`, nur schlichte Namen) | Visu |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
+| GET | `/api/bento/vorschlag` | `api_bento_vorschlag` | LoxOS (Fork): Vorschlag für die Bento-Startseite eines Streifens, `?device=<Name>`: `{pickTab: {name, picks[], bento}, format: {vw, vh}, formatBekannt}`. Sammelt erste Audiozone, Energiefluss (EFM, sonst EnergyManager2), Kalender-Abo (`calendar_sources()`) und Favoriten (`isFavorite`, Strukturreihenfolge) und das gemeldete Format des Geräts (`device_list()`, ohne: `BENTO_FORMAT_STANDARD`); gerechnet wird in der reinen Funktion `bento_vorschlag()` (`bento_format.py`). Nur lesend | Konfigurator (LoxOS-Assistent, Schritt 4) |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`); im Fork (LoxOS) `bento` (Grenzen der Bento-Seiten) und `streifenAb` (`STREIFEN_AB`, Seitenverhältnis, ab dem ein Schirm ein Streifen ist, gleich der Schwelle der Hülle) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden) | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |

@@ -156,3 +156,11 @@ def test_workflow_baut_auf_allen_systemen():
     assert any("loxos-v$v" in r for r in laeufe), "Tag muss zur Version passen"
     ausloeser = wf.get("on") or wf.get(True)    # yaml liest "on" als True
     assert ausloeser["push"]["tags"] == ["loxos-v*"]
+
+
+def test_schwelle_gleich_der_huelle():
+    """Ab welchem Seitenverhaeltnis ein Schirm ein Streifen ist, steht einmal im
+    Server (STREIFEN_AB, /api/meta) und einmal in der Huelle: beide gleich."""
+    from bento_format import STREIFEN_AB
+    js = (LOXOS / "src" / "monitor.js").read_text(encoding="utf-8")
+    assert STREIFEN_AB == float(re.search(r"const STREIFEN_AB = ([\d.]+);", js).group(1))
