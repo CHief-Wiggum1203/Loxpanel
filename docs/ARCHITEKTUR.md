@@ -66,6 +66,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/webvisu.py` | Der Kern des Servers: die Klasse `App` (Felder, Hintergrundaufgaben, Schließen; ihre Themen erbt sie als Mixins aus den Modulen unten, §3.3), Start und Logging und `main()` mit der Routentabelle; die Handler liegen in `bin/routen/` |
 | `bin/routen/` | Die Routen-Handler je Thema: `oberflaeche.py` (Dateien der Oberfläche), `visu.py` (WebSocket `/ws`), `konfigurator.py`, `einstellungen.py` (dazu Sicherung), `intercom.py` (SIP, Gegensprechen, MJPEG), `geraete.py` (Geräte und Agenten), `medien.py` (Icons, Cover, Klingelbilder), `system.py` (`/api/health`, `/api/diagnose`); `gemeinsam.py` hält `_push()`, `_push_filter()`, `_json_or_empty()`, `_NOCACHE` und `server_stand()`. Die Handler holen die App aus `request.app["app"]`, `main()` trägt sie ein (§4). Importiert `webvisu` nur für die Typangabe `App` unter `TYPE_CHECKING` |
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels_doc()`/`load_panels()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
+| `bin/bento_format.py` | LoxOS (Fork, [`VISION.md`](VISION.md)): Prüfung der Bento-Seiten (`pickTabs[].bento`), `bento_seite()` und `_clean_iframe_url()`, die Konstanten `BENTO_*`. Importiert nichts aus `konfig.py`; das ruft `bento_seite()` mit `_bento_widget` und `BILDSCHIRM_PX_MAX` (§5.3) |
 | `bin/symbolquellen.py` | Symbolquellen der Kacheln und freien Seiten (18.10.2026 aus `konfig.py`, das an die Grenze von `test_dateigroessen.py` kam): die Loxone-Icon-Bibliothek (`LOXLIB_DIR`, `_loxlib_names()`, Route `/loxlib` in `routen/medien.py`) und die Prüfung der Icon-Angaben (`_clean_icon()`, `_clean_seiten_icon()`), die `_sanitize_panels()` anwendet. Nur Standardbibliothek, importiert kein Server-Modul |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `routen/einstellungen.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
@@ -1059,8 +1060,22 @@ liefert nur die Ansichten), geschrieben über
                                              // und Größe 1×1, 2×1, 2×2; Bausteine ohne Eintrag
                                              // hängen hinten an (_layout_mit_picks)
         "byRoom": false                      // optional; fehlt = in der Visu nach Raum gruppiert
-      }],                                    // Bento-Seiten (LoxOS, Fork) ergänzen "bento",
-                                             // Format in docs/VISION.md
+        "bento": {                           // optional, LoxOS (Fork, VISION.md): Raster mit festen
+                                             // Zellen; Vorrang beim Anzeigen bento > widget > Kacheln
+          "cols": 6, "rows": 2,              // BENTO_SPALTEN_MIN..MAX, BENTO_ZEILEN_MIN..MAX (begrenzt);
+                                             // fehlt = BENTO_SPALTEN_STANDARD, BENTO_ZEILEN_STANDARD
+          "format": {"vw": 2560, "vh": 720}, // optional: Fläche des Vorschaugeräts (CSS-px)
+          "cells": [                         // leer = gültig; je Zelle Spalte, Zeile, Breite, Höhe
+            {"x": 0, "y": 0, "w": 1, "h": 2, "widget": "clock"},   // Widget: wie "widget" oben ohne
+                                             // "haus", dazu "clock"; gleiche Quelle je Seite einmal
+            {"x": 1, "y": 0, "w": 2, "h": 1, "ids": ["<uuid>"]},  // Bausteine aus picks, je Seite
+                                             // einmal, max. BENTO_ZELLE_BAUSTEINE_MAX je Zelle
+            {"x": 3, "y": 0, "w": 1, "h": 1, "widget": "iframe",
+             "url": "https://…", "name": "Drucker"}               // Webseite: nur http/https mit Host,
+                                             // ohne Zugangsdaten (_clean_iframe_url); name optional
+          ]                                  // ragt eine Zelle über den Rand oder überlappt eine
+        }                                    // frühere, fällt sie weg und wird gemeldet (verworfen)
+      }],
       "device": {"name": "tablet", "vw": 1024, "vh": 600},   // Zielgerät: für welches Gerät das Profil gemacht
                                              // ist, mit der beim Wählen gemeldeten Größe (CSS-px,
                                              // optional); Displays warnt bei Abweichung (§6); auch ein

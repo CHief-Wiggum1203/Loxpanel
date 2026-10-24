@@ -86,7 +86,7 @@ Phase auf der vorigen aufbaut.
 | Phase | Inhalt |
 |---|---|
 | 0 | Diese Datei, `pickTabs` in `ARCHITEKTUR.md` §5.3, Fork-Ausnahme in `CONTRIBUTING.md`; Mockups im Edge-Look freigeben |
-| 1 | Datenformat und Sanitizer: `pickTabs[].bento` in `_sanitize_panels()` und `_pick_tabs()`, iframe-Adresse nur http/https, Überlappung und Rand geprüft |
+| 1 | Datenformat und Sanitizer (`bento_format.py`): `pickTabs[].bento` in `_sanitize_panels()` und `_pick_tabs()`, iframe-Adresse nur http/https, Überlappung und Rand geprüft |
 | 2 | Server: Mixin `bin/bento.py` rendert die Zellen mit Inline-Daten der Widgets, Weiche in `_view_tab()` |
 | 3 | Kachel-Set `edge` mit Aufbau `karte` in `theme_colors.py`, eigene CSS-Datei, Kontrastprüfung |
 | 4 | `raster.js` (Bento-Raster, Kollision, Kachelfaktor je Zelle), `panel/bento.js`, keine Tab-Leiste bei nur einer Bento-Seite |
@@ -103,7 +103,7 @@ die Seite, was sie heute ist (Kacheln oder Widget).
 "pickTabs": [{
   "name": "Streifen", "icon": "", "picks": ["<control-uuid>", "…"],
   "bento": {
-    "cols": 6, "rows": 2,                  // Grenzen: BENTO_COLS_MIN..MAX, BENTO_ROWS_MIN..MAX
+    "cols": 6, "rows": 2,                  // Grenzen: BENTO_SPALTEN_MIN..MAX, BENTO_ZEILEN_MIN..MAX
     "format": {"vw": 2560, "vh": 720},     // für welches Format gebaut (CSS-px des Vorschaugeräts)
     "cells": [
       {"x": 0, "y": 0, "w": 1, "h": 2, "widget": "clock"},
@@ -131,9 +131,10 @@ Regeln, die alle Stufen einhalten:
 5. **Leere `cells`** sind gültig und heißen ab Stufe 2 „Bento-Automatik“: Der
    Server verteilt die `picks` selbst. In Stufe 1 zeigt eine leere Seite
    einen Hinweis zum Editor.
-6. **Nichts im Code festgelegt:** Grenzen sind benannte Konstanten in
-   `konfig.py`, Farben kommen aus dem Kachel-Set, Inhalte vom Miniserver oder
-   aus der Konfiguration.
+6. **Nichts im Code festgelegt:** Grenzen sind benannte Konstanten
+   (`BENTO_*` in `bento_format.py`, über `konfig.py` erreichbar), Farben
+   kommen aus dem Kachel-Set, Inhalte vom Miniserver oder aus der
+   Konfiguration.
 7. **Widgets mit Quelle dürfen mehrfach stehen** (Audio, Kamera, Verlauf,
    Werte, Energie, Webseite – je mit eigener Quelle), Widgets ohne Quelle
    (Uhr, Wetter, Kalender) einmal je Seite. Der Editor blendet bereits
@@ -189,11 +190,13 @@ Regeln, die alle Stufen einhalten:
 LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 
 - **Neue Dateien statt Änderungen.** Logik steht in eigenen Modulen
-  (`bin/bento.py`, `panel/bento.js`, `panel/karte.css`,
+  (`bin/bento_format.py`, `bin/bento.py`, `panel/bento.js`, `panel/karte.css`,
   `config/bento-editor.js`, `loxos/`).
 - **Kleine Andockstellen** in Upstream-Dateien, jede als zusammenhängender
-  Block: Prüfer in `_sanitize_panels()` und `_pick_tabs()` (`konfig.py`, laut
-  `CLAUDE.md` der Pflichtort), Weiche in `_view_tab()` (`seiten.py`), Set in
+  Block: Aufruf des Prüfers in `_sanitize_panels()` und `_pick_tabs()`
+  (`konfig.py`, laut `CLAUDE.md` der Pflichtort; die Prüfung selbst steht in
+  `bento_format.py`, weil `konfig.py` an der Längengrenze von
+  `test_dateigroessen.py` liegt), Weiche in `_view_tab()` (`seiten.py`), Set in
   `theme_colors.py`, Datenparameter der Widget-Renderer (`front.js`,
   `kacheln.js`), Weiche im Seiten-Editor, Script- und Stylesheet-Tags in
   `panel.html` und `config.html`.

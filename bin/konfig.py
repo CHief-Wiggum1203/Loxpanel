@@ -25,6 +25,10 @@ import re
 from pathlib import Path
 
 import theme_colors
+from bento_format import (BENTO_IFRAME, BENTO_UHR, bento_seite,  # noqa: F401 (LoxOS)
+                          BENTO_NAME_MAX, BENTO_SPALTEN_MAX, BENTO_SPALTEN_MIN, BENTO_SPALTEN_STANDARD,
+                          BENTO_URL_MAX, BENTO_ZEILEN_MAX, BENTO_ZEILEN_MIN, BENTO_ZEILEN_STANDARD,
+                          BENTO_ZELLE_BAUSTEINE_MAX, _clean_iframe_url)
 from symbolquellen import _clean_icon, _clean_seiten_icon
 
 log = logging.getLogger("loxpanel.konfig")
@@ -179,6 +183,9 @@ def _pick_tabs(prof):
                          "byRoom": e.get("byRoom") is not False}
                 if layout is not None:
                     seite["layout"] = layout
+                bento = _bento_seite(e.get("bento"), picks)   # LoxOS
+                if bento is not None:
+                    seite["bento"] = bento
                 out.append(seite)
         return out
     if prof.get("picks"):
@@ -635,6 +642,23 @@ def _clean_widget_tab(v) -> str:
     return "" if w == "header" or w.startswith("header:") else w
 
 
+# ---- LoxOS (Fork, docs/VISION.md): Bento-Seiten, Pruefung in bento_format ----
+def _bento_widget(v) -> str:
+    """Widget einer Bento-Zelle: Grammatik der Widget-Seiten (_clean_widget_tab)
+    ohne die Hausuebersicht - die ist eine ganze Seite -, dazu Uhr und Webseite."""
+    if v in (BENTO_UHR, BENTO_IFRAME):
+        return v
+    w = _clean_widget_tab(v)
+    return "" if w == HAUS_TAB else w
+
+
+def _bento_seite(v, picks: list) -> dict | None:
+    """pickTabs[].bento pruefen (bento_format.bento_seite) mit dem
+    Widget-Pruefer und der Bildschirmgrenze von hier. None = keine Bento-Seite."""
+    return bento_seite(v, picks, _bento_widget, BILDSCHIRM_PX_MAX)
+# ---- Ende LoxOS ---------------------------------------------------------------
+
+
 def _clean_werteleiste(v) -> list:
     """Seiten, deren Anzeige-Bausteine als Werteleiste ueber dem Raster stehen
     statt als Kacheln (ui.valueBar): Tab-Kennungen wie in "tabs" - auch
@@ -1032,7 +1056,8 @@ def _sanitize_panels(panels: dict) -> dict:
                 # Seiten-Editor (Punkt 10): Reihenfolge und Groesse je
                 # Baustein, und ob die Visu die Seite nach Raum gruppiert
                 ps, lay = _layout_mit_picks(_seiten_layout(it.get("layout")), ps)
-                if ps or nm or ic or wdg:
+                bento = _bento_seite(it.get("bento"), ps)   # LoxOS: Raster mit Zellen
+                if ps or nm or ic or wdg or bento is not None:
                     entry = {"name": nm or "Auswahl", "picks": ps}
                     if ic:
                         entry["icon"] = ic
@@ -1042,6 +1067,8 @@ def _sanitize_panels(panels: dict) -> dict:
                         entry["layout"] = lay
                     if it.get("byRoom") is False:
                         entry["byRoom"] = False
+                    if bento is not None:
+                        entry["bento"] = bento
                     cpt.append(entry)
             if cpt:
                 e["pickTabs"] = cpt
