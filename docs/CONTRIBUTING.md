@@ -477,6 +477,13 @@ Workflow-Datei. Eine `codeql.yml` aus „Advanced“ gehört nicht dazu: Neben
 Etiketten statt auf Commits, was `tests/test_abhaengigkeiten.py` als Fehler
 meldet (am 24.10.2026 so geschehen, `main` war rot).
 
+**setup-gradle** cacht mit `cache-provider: basic`, der offenen Variante über
+`actions/cache` (MIT). Ab v6 ist „enhanced“ der Standard und lädt die
+proprietäre Bibliothek `gradle-actions-caching` mit eigenen
+Nutzungsbedingungen; im APK-Release liefe sie neben den Signierschlüsseln.
+Eine neue Hauptversion von Dependabot ändert daran nichts, die Zeile bleibt
+stehen; `tests/test_abhaengigkeiten.py` meldet einen Gradle-Schritt ohne sie.
+
 ## Prüfen vor jedem Push
 
 Die GitHub-Action „Tests und Image“ (`.github/workflows/tests.yml`) läuft auf
