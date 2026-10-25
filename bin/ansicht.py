@@ -21,6 +21,19 @@ from konfig import (
     load_theme, _pick_tabs, _pin_merken, THEME_UI_KEYS, VALID_TABS)
 
 
+# LoxOS: die ui-Schluessel, die _panel_export() dem Konfigurator gibt; als
+# Konstante, damit tests/test_abweichungen.py jeden gegen die Uebersicht
+# "Was ist eingestellt?" (config/abweichungen.js) pruefen kann.
+PANEL_UI_EXPORT = ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "nudgeX",
+                   "dpmsOff", "reloadHours", "nightDim", "nightWake",
+                   "cols", "rows", "fill", "baseColor",
+                   "overlay", "textColor", "bold", "lang", "player", "panes", "split",
+                   "svPane", "scale", "catFilter", "tileLayout", "tileSet", *theme_colors.FARBTON_SCHLUESSEL, "tileActive",
+                   "grid", "tileSize", "pinMerken",
+                   "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
+                   "nightClock", "nightClockBright", "hausAufbau", "hausAktivOhne", "hausEnergie")
+
+
 def _kachel_klassisch(ui: dict) -> bool:
     """Bisheriger Kachel-Aufbau (ui.tileLayout "classic")? Nicht mit einem
     Kachel-Set: das bringt seinen eigenen, neuen Aufbau mit (lx, mitte, kreis)."""
@@ -175,8 +188,10 @@ class Ansicht:
         # es aendert sich nichts gegenueber frueher.
         # Ein Kachel-Set bringt seine Farben fertig mit und ersetzt die Herleitung
         # aus der Grundfarbe; ausdruecklich gewaehlte Zustandsfarben gelten auch dort.
-        _set = theme_colors.kachel_set(_clean_kachel_set(ui.get("tileSet")),
-                                       _clean_kachel_farbton(ui.get("tileHue")),
+        _name = _clean_kachel_set(ui.get("tileSet"))
+        _fb = theme_colors.KACHEL_SETS.get(_name, {}).get("farbton")      # Farbton liegt je Set unter eigenem Schluessel
+        _set = theme_colors.kachel_set(_name,
+                                       _clean_kachel_farbton(ui.get(_fb["schluessel"])) if _fb else None,
                                        _clean_kachel_aktiv(ui.get("tileActive")))
         if _set:
             v = _set
@@ -385,15 +400,7 @@ class Ansicht:
         r = self._resolve_ids(raw.get("rooms"), self.rooms)
         c = self._resolve_ids(raw.get("cats"), self.cats)
         tabs = [t for t in (raw.get("tabs") or VALID_TABS) if _is_tab(t)]
-        ui = {k: v for k, v in (raw.get("ui") or {}).items()
-              if k in ("iconSize", "nameSize", "subSize", "roomSize", "bigSize", "font", "nudgeX",
-                       "dpmsOff", "reloadHours", "nightDim", "nightWake",
-                       "cols", "rows", "fill", "baseColor",
-                       "overlay", "textColor", "bold", "lang", "player", "panes", "split",
-                       "svPane", "scale", "catFilter", "tileLayout", "tileSet", "tileHue", "tileActive",
-                       "grid", "tileSize", "pinMerken",
-                       "valueBar", "paneCols", "gesten", "gestenRaum", "gestenHinweis",
-                       "nightClock", "nightClockBright", "hausAufbau", "hausAktivOhne", "hausEnergie")}
+        ui = {k: v for k, v in (raw.get("ui") or {}).items() if k in PANEL_UI_EXPORT}   # LoxOS: Liste als Konstante
         # Widget je Tab: nur gueltige Tab-Kennung und gueltiger Pane-Wert, und
         # zwar der NORMIERTE ("header:A, B" -> "header:A,B"): Dateien von Hand
         # oder ueber die API koennen Leerzeichen tragen, die das Panel sonst

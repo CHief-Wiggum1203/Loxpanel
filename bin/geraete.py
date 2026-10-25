@@ -68,6 +68,10 @@ AGENT_BEFEHL_TIMEOUT = 8
 # Antwort ohne Chromium-Neustart. Aeltere Agenten bekommen stattdessen /start.
 AGENT_KANN_PANEL = "panel"
 
+# dpmsOff in der Announce-Antwort: 0 = Display nie abschalten (xset dpms aus).
+# Bekommt ein Agent-Panel mit Ruhemodus (_ruhe_an), dort zeigt die Visu die Ruhe-Uhr.
+AGENT_DPMS_NIE = 0
+
 # Nachtmodus: Rueckfall-Fenster, wenn keine Sonnenzeiten vorliegen (kein Wetter
 # konfiguriert). Sobald Sonnenauf-/-untergang bekannt sind, gelten die.
 NIGHT_FROM, NIGHT_TO = "22:00", "06:00"
@@ -491,6 +495,12 @@ class Geraete:
         self._presence_on = jetzt
         if jetzt:
             log.info("Präsenz: %d Gerät(e) an einen Präsenzmelder gekoppelt", len(jetzt))
+
+    def _ruhe_an(self, dev: str) -> bool:
+        """Hat dieses Geraet den Ruhemodus (devices[name].ruhe)? Dann schaltet
+        der leere Raum sein Display nicht ab: die Visu zeigt die Ruhe-Ansicht."""
+        cfg = (self.devices or {}).get(dev)
+        return isinstance(cfg, dict) and cfg.get("ruhe") is True
 
     async def display_drivers(self, on: bool, device: str = "", panel: str = "") -> list:
         """Display ueber die HTTP-Schnittstelle der Kiosk-App schalten (Fully

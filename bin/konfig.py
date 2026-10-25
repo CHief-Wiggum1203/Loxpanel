@@ -348,7 +348,8 @@ PANEL_STANDARD = {("ui", "split"): True, ("ui", "tileSize"): (KACHEL_ZIEL_STANDA
                   ("ui", "hausAufbau"): HAUS_AUFBAU_STANDARD,
                   ("ui", "pinMerken"): PIN_MERKEN_STANDARD,
                   ("ui", "paneCols"): 0,
-                  # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch)
+                  # Farbton und aktive Kachel des Kachel-Sets mit Rechnung (touch); edge hat
+                  # keinen Standardfarbton (tileHueEdge fehlt = feste Farben)
                   ("ui", "tileHue"): theme_colors.KACHEL_SETS["touch"]["farbton"]["standard"],
                   ("ui", "tileActive"): theme_colors.KACHEL_SETS["touch"]["aktiv"]["standard"],
                   ("tiles", "*", "chartStyle"): "trend",
@@ -434,7 +435,7 @@ def _clean_kachel_set(v):
 
 
 def _clean_kachel_farbton(v):
-    """Farbton des Kachel-Sets mit Rechnung (ui.tileHue): ganze Grad 0-359,
+    """Farbton eines Kachel-Sets mit Rechnung (ui.tileHue, tileHueEdge): ganze Grad 0-359,
     sonst None (= Standard aus theme_colors.KACHEL_SETS)."""
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < 360:
         return None
@@ -1004,6 +1005,9 @@ def _cfg_datei() -> dict:
 # ---- Sanitizer: was beim Speichern einer Ansicht, eines Geraets und der
 # Vorgaben bleibt. Statisch, App haelt sie als staticmethod-Aliase.
 
+TITEL_MAX = 40   # LoxOS: so lang wird ein Ansichtstitel gespeichert; /api/meta titelMax (Assistent)
+
+
 def _sanitize_panels(panels: dict) -> dict:
     out: dict = {}
     for pid, p in panels.items():
@@ -1011,7 +1015,7 @@ def _sanitize_panels(panels: dict) -> dict:
             continue
         e: dict = {}
         if p.get("title"):
-            e["title"] = str(p["title"])[:40]
+            e["title"] = str(p["title"])[:TITEL_MAX]
         tabs = [t for t in (p.get("tabs") or []) if _is_tab(t)][:4]
         e["tabs"] = tabs or list(VALID_TABS)
         e["rooms"] = [str(x) for x in (p.get("rooms") or []) if isinstance(x, str)]
@@ -1127,9 +1131,10 @@ def _sanitize_panels(panels: dict) -> dict:
         _ks = _clean_kachel_set(ui.get("tileSet"))
         if _ks:
             cui["tileSet"] = _ks            # Kachel-Set (fertiger Look); fehlt = Farben aus der Grundfarbe
-        _kh = _clean_kachel_farbton(ui.get("tileHue"))
-        if _kh is not None and _kh != PANEL_STANDARD[("ui", "tileHue")]:
-            cui["tileHue"] = _kh            # Farbton des Sets mit Rechnung (touch); fehlt = Standard
+        for _fs in theme_colors.FARBTON_SCHLUESSEL:     # Farbton je Set mit Rechnung (touch, edge)
+            _kh = _clean_kachel_farbton(ui.get(_fs))
+            if _kh is not None and _kh != PANEL_STANDARD.get(("ui", _fs)):
+                cui[_fs] = _kh              # fehlt = Standard des Sets (edge: feste Farben)
         _ka = _clean_kachel_aktiv(ui.get("tileActive"))
         if _ka and _ka != PANEL_STANDARD[("ui", "tileActive")]:
             cui["tileActive"] = _ka         # aktive Kachel hell oder dunkel; fehlt = Standard
@@ -1305,7 +1310,8 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
     """Geraete-Automatik validieren: Schluessel = Agent-Name; je Panel `auto`
     (bool) + `modes` = {Modusname -> Profil-Id}, dazu Display-Treiber,
     Skalierung, Praesenzmelder (`presence` = Control-UUID), "Display aus nach"
-    (`dpmsOff`, Sek.) und Nacht (`nightDim` %, `nightWake` Sek.; Einrichtung
+    (`dpmsOff`, Sek.), Ruhemodus (`ruhe`, nur mit Praesenzmelder: bei leerem
+    Raum zeigt die Visu die Ruhe-Ansicht, das Display bleibt an) und Nacht (`nightDim` %, `nightWake` Sek.; Einrichtung
     Schritt 4 und 4b: vor Ansicht und Vorgaben) und die
     zugeordnete Ansicht (`panel`, Einrichtung Schritt 2: die eine Stelle,
     die sagt, was das Geraet zeigt). Nur existierende Profile werden
@@ -1339,6 +1345,9 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
         # wenn der Miniserver gerade nicht verbunden ist.
         presence = cfg.get("presence")
         presence = presence.strip()[:60] if isinstance(presence, str) else ""
+        # Ruhemodus: nur ein echtes True, und nur mit Melder (er sagt, wann
+        # der Raum leer ist)
+        ruhe = cfg.get("ruhe") is True and bool(presence)
         # Stimmung beim Einschalten (Gesten): was angeht, wenn im Raum alles
         # aus ist, und zu welcher Lichtsteuerung das Geraet gehoert
         licht_start = _clean_licht_start(cfg.get("lichtStart"))
@@ -1362,6 +1371,8 @@ def _sanitize_devices(devices: dict, panel_ids: set) -> dict:
             entry["tileTarget"] = ziel
         if presence:
             entry["presence"] = presence
+        if ruhe:
+            entry["ruhe"] = True
         if licht_start:
             entry["lichtStart"] = licht_start
         if dpms is not None:

@@ -14,7 +14,8 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 import bento
-from lox import EFM, W, anlage, raum_anlage
+import konfig
+from lox import EFM, HAUS_FAVORITEN, W, anlage, haus_anlage, raum_anlage
 from verteilung import _Lesespur
 
 
@@ -65,6 +66,19 @@ def test_ohne_bento_bleibt_die_seite_wie_sie_war():
                                                "pickTabs": [{"picks": ["S1"]}]}})
     v = app._view_tab("auswahl", app.resolve_profile("p"))
     assert "bento" not in v and [it["id"] for it in v["items"]] == ["S1"]
+
+
+def test_tabmeta_kennt_bento_seiten():
+    """Die Visu blaettert nur zwischen Bento-Seiten (bento.js bentoNachbar):
+    tabMeta sagt ihr, welche Seiten der Leiste das sind."""
+    app = _app()
+    app.panels = W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl", "favoriten", "auswahl2"],
+                                               "pickTabs": [{"name": "A", "picks": ["S1"],
+                                                             "bento": {"cells": [zelle(0, 0, ids=["S1"])]}},
+                                                            {"name": "B", "picks": ["S2"]}]}})
+    meta = app._tab_meta(["auswahl", "favoriten", "auswahl2"], app.resolve_profile("p"))
+    assert meta["auswahl"]["bento"] is True
+    assert "bento" not in meta["auswahl2"] and "favoriten" not in meta
 
 
 def test_ausgeblendete_und_unbekannte_bausteine_fallen_aus_der_zelle():
@@ -124,6 +138,22 @@ def test_audio_mit_pin_schutz(monkeypatch):
     monkeypatch.setattr(app, "_gesichert", lambda u: False)
     c = _seite(app, {"cells": [zelle(0, 0, widget="player:Z1")]})["cells"][0]
     assert c["player"] == {"blocks": [{"type": "player", "zone": "Z1"}]}
+
+
+def test_audio_zelle_traegt_raum_und_favoriten():
+    """Die Zelle nennt den Loxone-Raum der Zone (ohne Raum ihren Namen) und
+    traegt die Favoriten als favs-Block wie Pane und Detailseite."""
+    struktur, states = haus_anlage()
+    struktur["controls"]["AZ"]["name"] = "Musik"          # Zonenname != Raumname
+    struktur["controls"]["AB"].pop("room")
+    app = _app(struktur, states)
+    v = _seite(app, {"cells": [zelle(0, 0, 2, 1, widget="player:AZ"), zelle(2, 0, widget="player:AB")]},
+               picks=())
+    mit, ohne = v["cells"]
+    assert mit["raum"] == "Essen-Kochen-Wohnen" and ohne["raum"] == "Audio-Zone"
+    favs = [b for b in mit["player"]["blocks"] if b["k"] == "favs"]
+    assert len(favs) == 1 and [f["label"] for f in favs[0]["items"]] == HAUS_FAVORITEN
+    assert favs[0]["items"][0]["cmd"] == {"uuid": "AZ", "cmd": "roomfav/play/1"}
 
 
 def test_kaputter_blockbauer_reisst_die_seite_nicht_mit(monkeypatch):
@@ -251,3 +281,74 @@ def test_pruefrunde_ueber_gespeicherte_und_gerenderte_adressen():
             assert await app._bento_runde(s) is False
     asyncio.run(lauf())
 
+
+
+# ---- Vorschlag fuer die Startseite: GET /api/bento/vorschlag ----------------------------
+
+def _vorschlag_antwort(app, geraet="streifen"):
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    r = make_mocked_request("GET", "/api/bento/vorschlag?device=" + geraet, app={"app": app})
+    return json.loads(asyncio.run(W.api_bento_vorschlag(r)).body)
+
+
+def _verbunden(app, geraet, screen):
+    app.conn_info[object()] = {"dev": geraet, "screen": screen, "ts": 1}
+
+
+def test_api_bento_vorschlag(monkeypatch):
+    from bento_format import BENTO_FORMAT_STANDARD
+    struktur, states = haus_anlage()
+    app = _app(struktur, states)
+    efm = next(u for u, c in app.controls.items() if c["type"] == "EFM")
+    app.calendar_cfg = {"sources": [{"name": "Familie", "url": "https://example.org/a.ics"}]}
+    zone = next(u for u, c in app.controls.items() if c["type"] in ("AudioZone", "AudioZoneV2"))
+    # Favoriten: die Zone (steht schon als Widget) und mehr Bausteine, als Felder frei sind
+    kandidaten = [u for u, c in app.controls.items() if u not in (zone, efm)][:4]
+    for u in [zone, *kandidaten]:
+        app.controls[u]["isFavorite"] = True
+    # Geraet ohne gemeldeten Schirm: Standardformat, formatBekannt false
+    a = _vorschlag_antwort(app)
+    assert a["format"] == BENTO_FORMAT_STANDARD and a["formatBekannt"] is False
+    seite = a["pickTab"]
+    assert seite["bento"]["format"] == BENTO_FORMAT_STANDARD
+    widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
+    assert widgets == ["clock", "weather", "player:" + zone, "energy:" + efm, "calendar"]
+    # freie Felder neben den Widgets: je eines bekommt einen Favoriten, in der Reihenfolge der Favoriten
+    frei = seite["bento"]["cols"] * seite["bento"]["rows"] - sum(c["w"] * c["h"] for c in seite["bento"]["cells"] if "widget" in c)
+    assert frei == 3 and len(kandidaten) > frei, (frei, kandidaten)
+    assert seite["picks"] == kandidaten[:frei]
+    assert W.App._sanitize_panels({"p": {"title": "P", "tabs": ["auswahl"], "pickTabs": [seite]}})["p"]["pickTabs"][0]["bento"] == seite["bento"]
+    # Geraet mit gemeldetem Schirm
+    _verbunden(app, "streifen", {"vw": 3440, "vh": 600})
+    a = _vorschlag_antwort(app)
+    assert a["format"] == {"vw": 3440, "vh": 600} and a["formatBekannt"] is True
+    assert a["pickTab"]["bento"]["format"] == {"vw": 3440, "vh": 600}
+
+
+def test_api_bento_vorschlag_ohne_energie_und_kalender():
+    struktur, states = raum_anlage()
+    app = _app(struktur, states)
+    app.calendar_cfg = {}
+    seite = _vorschlag_antwort(app)["pickTab"]
+    widgets = [c["widget"] for c in seite["bento"]["cells"] if "widget" in c]
+    assert widgets == ["clock", "weather"] + [w for w in widgets[2:] if w.startswith("player:")]
+    assert "calendar" not in widgets and not any(w.startswith("energy:") for w in widgets)
+
+
+def test_meta_meldet_titel_max():
+    """Der Assistent zaehlt Titel so, wie der Server sie kuerzt: /api/meta nennt die Grenze."""
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    r = make_mocked_request("GET", "/api/meta", app={"app": _app()})
+    assert json.loads(asyncio.run(W.api_meta(r)).body)["titelMax"] == konfig.TITEL_MAX
+    lang = "x" * (konfig.TITEL_MAX + 5)
+    assert W.App._sanitize_panels({"p": {"title": lang}})["p"]["title"] == lang[:konfig.TITEL_MAX]
+
+
+def test_meta_meldet_streifen_ab():
+    import json
+    from aiohttp.test_utils import make_mocked_request
+    from bento_format import STREIFEN_AB
+    r = make_mocked_request("GET", "/api/meta", app={"app": _app()})
+    assert json.loads(asyncio.run(W.api_meta(r)).body)["streifenAb"] == STREIFEN_AB

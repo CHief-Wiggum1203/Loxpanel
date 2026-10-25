@@ -337,6 +337,9 @@ GESTE_NACHT_FUELLUNG = 0.22
 GESTE_NACHT_VORHANG = 0.10
 GESTE_NACHT_LAMELLE = 0.20
 GESTE_NACHT_SCHRIFT = 0.62
+# Kontrast, ab dem die Fuellung von Licht und Musik nachts auf NACHT_GRUND noch
+# zu sehen ist (der Akzent von edge muss ihn halten, _edge_satz)
+GESTE_NACHT_SICHTBAR = 1.3
 
 
 def _deckend_bis(vorn: str, hinten: str, deckung: float, schrift: str) -> str:
@@ -347,6 +350,13 @@ def _deckend_bis(vorn: str, hinten: str, deckung: float, schrift: str) -> str:
         if kontrast(schrift, farbe) >= AA:
             return farbe
     return hinten
+
+
+def _nacht_fuellung(farbe: str, ink: str) -> str:
+    """Fuellung von Licht und Musik nachts: `farbe` gedaempft auf NACHT_GRUND,
+    soweit die Schrift der Nacht-Einblendung darauf AA traegt."""
+    nacht_ink = ueber(nacht_schrift(ink), NACHT_GRUND, GESTE_NACHT_SCHRIFT)
+    return _deckend_bis(nacht_schrift(farbe), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink)
 
 
 def geste_farben(v: dict) -> dict:
@@ -370,8 +380,8 @@ def geste_farben(v: dict) -> dict:
         "--geste-nacht-ink": nacht_ink,
         # Fuellung in ihrem Farbton, hell genug fuer Schwarz: in hellen Sets
         # sind --glow und --accent dunkle Schriftfarben
-        "--geste-nacht-licht": _deckend_bis(nacht_schrift(glow), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
-        "--geste-nacht-musik": _deckend_bis(nacht_schrift(akzent), NACHT_GRUND, GESTE_NACHT_FUELLUNG, nacht_ink),
+        "--geste-nacht-licht": _nacht_fuellung(glow, ink),
+        "--geste-nacht-musik": _nacht_fuellung(akzent, ink),
         "--geste-nacht-vorhang": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_VORHANG, nacht_ink),
         "--geste-nacht-lamelle": _deckend_bis(nacht, NACHT_GRUND, GESTE_NACHT_LAMELLE, nacht_ink),
     }
@@ -448,8 +458,11 @@ def _derive(grundfarbe: str) -> tuple | None:
 #           liest der Konfigurator aus /api/meta, die Visu aus dem CSS.
 #   groessen  Standardgroessen der Kachel (wie GROESSEN_STANDARD), die das Set
 #           mitbringt; eine eingestellte Groesse geht vor.
-#   satz    statt fester Farben eine Rechnung aus einem Farbton (touch_satz),
-#           dazu farbton (Standard, Schnellwahl) und aktiv (Standard, Auswahl).
+#   satz    Rechnung aus einem Farbton (satz_farben), ihre Art in "rechnung":
+#           "hell" (touch_satz) oder "dunkel" (_edge_satz), nie am Namen des
+#           Sets. Dazu farbton (Schluessel in ui, Standard, Schnellwahl; Standard
+#           None: ohne Wahl gelten die festen farben, "regler" ist dann die
+#           Stellung des Reglers) und, wo es sie gibt, aktiv (Standard, Auswahl).
 #   label, info  Name und Beschreibung im Konfigurator (i18n.js uebersetzt sie).
 #
 # Die Kontraste rechnet tests/test_kachel_set.py mit kontrast() nach, mit
@@ -504,8 +517,8 @@ KACHEL_SETS = {
                 "die Tab-Leiste steht nur mit Symbolen oben.",
         "aufbau": "mitte", "leiste": "oben",
         "farben": {"--tab-an": "#ffffff"},
-        # Farbton in Grad: Standard und Schnellwahl im Konfigurator
-        "farbton": {"standard": 270, "auswahl": [
+        # Farbton in Grad: Schluessel in ui, Standard und Schnellwahl im Konfigurator
+        "farbton": {"schluessel": "tileHue", "standard": 270, "auswahl": [
             {"label": "Salbei", "wert": 95}, {"label": "Mint", "wert": 160},
             {"label": "Himmel", "wert": 205}, {"label": "Lavendel", "wert": 270},
             {"label": "Rosé", "wert": 345}, {"label": "Sand", "wert": 40}]},
@@ -516,6 +529,7 @@ KACHEL_SETS = {
         # Farbton ist der gewaehlte. "schritt" ist die Richtung, in der die
         # Helligkeit wandert (+1 heller, -1 dunkler), bis "ziel" erreicht ist.
         "satz": {
+            "rechnung": "hell",                                   # satz_farben(): touch_satz()
             "rahmen": "#0b0b0b",                                  # Tab-Leiste und Rand (--rahmen)
             "ink": (35, 12),
             "kachel": {"s": 42, "l": 70, "bis": 93, "ziel": AAA},  # ink darauf
@@ -573,6 +587,30 @@ KACHEL_SETS = {
             "--glow": "#62f0c6", "--accent": "#62f0c6", "--good": "#9ad94f",
             "--warn": "#ffb454", "--crit": "#ff6b6b", "--cool": "#6cb4f0",
         },
+        # Farbton in Grad: ohne Wahl kein Standard, dann gelten die festen
+        # farben (Grund und Akzent haben dort zwei Toene); der Regler steht
+        # dann auf "regler". Schnellwahl im Konfigurator, die Wahl ist frei.
+        "farbton": {"schluessel": "tileHueEdge", "standard": None, "regler": 225, "auswahl": [
+            {"label": "Stahl", "wert": 225}, {"label": "Petrol", "wert": 190},
+            {"label": "Tanne", "wert": 150}, {"label": "Pflaume", "wert": 285},
+            {"label": "Bordeaux", "wert": 345}, {"label": "Bronze", "wert": 30}]},
+        # _edge_satz(): (Saettigung, Helligkeit) in Prozent wie CSS hsl() je
+        # Flaeche, der Farbton ist der gewaehlte; das Set bleibt dunkel. Schrift
+        # und Akzent wandern um "schritt" (+1 heller), bis "ziel" erreicht ist.
+        "satz": {
+            "rechnung": "dunkel",                                 # satz_farben(): _edge_satz()
+            "grund": (18, 3.5),                                   # --bg, --screen, --rahmen
+            "leiste": (18, 5.7),                                  # --tabbar
+            "kachel": (18, 8.6),                                  # --tile
+            "kachel_an": (18, 13),                                # --kachel-an
+            "taste": (18, 14),                                    # --taste
+            "linie": (15, 15.7),                                  # Kante der Karten (--kachel-schatten)
+            "ink": {"s": 14, "l": 95, "schritt": 1, "ziel": AAA},  # auf Grund und Leiste
+            # Akzent (--glow, --accent) auf Kachel und aktiver Kachel; liegt der
+            # Farbton zu nah an einer Zustandsfarbe, weicht er in Stufen von
+            # "ton_schritt" Grad aus (EDGE_AKZENT_ABSTAND)
+            "akzent": {"s": 83, "l": 66, "schritt": 1, "ziel": AA, "ton_schritt": 5},
+        },
         "masse": {"--kachel-radius": "22px", "--taste-radius": "14px",
                   "--kachel-schatten": "inset 0 0 0 1px #22252e",
                   "--kachel-abstand": "12px", "--kachel-abstand-schmal": "8px",
@@ -580,6 +618,13 @@ KACHEL_SETS = {
                   "--rail-breite": "184px", "--rail-breite-schmal": "64px"},
     },
 }
+
+# ui-Schluessel der Farbtoene aller Sets mit Rechnung, in Definitionsreihenfolge
+FARBTON_SCHLUESSEL = tuple(e["farbton"]["schluessel"] for e in KACHEL_SETS.values() if "farbton" in e)
+
+# Mindestabstand (Grad auf dem Farbkreis) des Akzents von edge zu --good,
+# --warn und --crit: "an" darf nie wie "OK", "Warnung" oder "Alarm" aussehen
+EDGE_AKZENT_ABSTAND = 30
 
 # Rollen, zu denen panel.html zusaetzlich das R,G,B-Tripel braucht (Auflagen
 # mit eigener Deckkraft). Werden aus dem Hex-Wert des Sets gerechnet.
@@ -640,6 +685,76 @@ def touch_satz(farbton, aktiv_hell: bool) -> dict:
     return dict(_touch_satz(int(farbton) % 360, bool(aktiv_hell)))
 
 
+def _zweitzeile(ink: str, flaechen: list[str], hell: bool) -> str:
+    """Zweitzeile (--muted) im Farbton der Schrift, so weit verschoben, bis sie
+    auf allen `flaechen` AA traegt. hell: helle Kacheln, dunkle Schrift."""
+    richtung, basis = (-1, 0.55) if hell else (1, 0.45)
+    farbton, _, saettigung = _hls(ink)
+    return _schiebe(_aus_hls(farbton, basis, min(saettigung, 0.25)), flaechen, AA, richtung)
+
+
+def _kreisabstand(a: float, b: float) -> float:
+    """Abstand zweier Farbtoene (Grad) auf dem Farbkreis."""
+    d = abs(a - b) % 360
+    return min(d, 360 - d)
+
+
+# Hex-Farbe innerhalb eines Masses (Kante der Karten in --kachel-schatten)
+_HEX_IN_TEXT = re.compile(r"#[0-9a-fA-F]{6}\b")
+
+
+@functools.lru_cache(maxsize=360)
+def _edge_satz(farbton: int) -> tuple:
+    """Rechnung "dunkel" (edge): Flaechen dunkel im Farbton, helle Schrift, die
+    Zweitzeile nach _zweitzeile() und ein Akzent, der Abstand zu den festen
+    Zustandsfarben haelt. Der Akzent sucht vom gewaehlten Farbton aus nach
+    wachsendem Abstand (0, +s, -s, +2s ...) den ersten Ton, der nach dem
+    Wandern auf Kachel und aktiver Kachel traegt, EDGE_AKZENT_ABSTAND zu
+    --good, --warn und --crit haelt, sich von --good und --muted trennt und
+    dessen Gesten-Fuellung nachts sichtbar bleibt (GESTE_NACHT_SICHTBAR)."""
+    e = KACHEL_SETS["edge"]
+    p, fest = e["satz"], e["farben"]
+    grund, leiste = _hsl(farbton, *p["grund"]), _hsl(farbton, *p["leiste"])
+    tile, an, taste = _hsl(farbton, *p["kachel"]), _hsl(farbton, *p["kachel_an"]), _hsl(farbton, *p["taste"])
+    i = p["ink"]
+    # helle Schrift: die hellere Flaeche ist die schwerere
+    ink = _wandern(farbton, i["s"], i["l"], max(grund, leiste, key=luminanz), i["ziel"], i["schritt"], 100)
+    # Text steht im Aufbau lx auf Kachel, Flaeche und aktiver Kachel, in den
+    # Bento-Widgets (bento.css) auch auf der Taste
+    muted = _zweitzeile(ink, [tile, grund, an, taste], hell=False)
+    a = p["akzent"]
+    traeger = max(tile, an, key=luminanz)
+    zustand = [_hls(fest[r])[0] * 360 for r in ("--good", "--warn", "--crit")]
+    for stufe in range(180 // a["ton_schritt"] + 1):
+        for richtung in ((1, -1) if stufe else (1,)):
+            glow = _wandern(farbton + richtung * stufe * a["ton_schritt"], a["s"], a["l"], traeger,
+                            a["ziel"], a["schritt"], 100)
+            if all(_kreisabstand(_hls(glow)[0] * 360, z) >= EDGE_AKZENT_ABSTAND for z in zustand) \
+                    and trennbar(glow, fest["--good"]) and trennbar(glow, muted)                     and kontrast(_nacht_fuellung(glow, ink), NACHT_GRUND) >= GESTE_NACHT_SICHTBAR:
+                # die Kante behaelt die Form aus masse, nur ihre Farbe folgt dem Farbton
+                kante = _HEX_IN_TEXT.sub(_hsl(farbton, *p["linie"]), e["masse"]["--kachel-schatten"])
+                return tuple({
+                    "--bg": grund, "--screen": grund, "--rahmen": grund, "--tabbar": leiste,
+                    "--tile": tile, "--kachel-an": an, "--taste": taste,
+                    "--ink": ink, "--muted": muted, "--glow": glow, "--accent": glow,
+                    "--kachel-schatten": kante,
+                }.items())
+    raise ValueError(f"edge: kein Akzent fuer Farbton {farbton}")
+
+
+def satz_farben(name: str, farbton: int, aktiv: str | None) -> dict:
+    """Farben der Rechnung eines Sets mit satz aus einem Farbton (Grad); die
+    Art haengt an satz["rechnung"], nicht am Namen. aktiv gilt nur fuer ein Set
+    mit Auswahl der aktiven Kachel. Jedes Mal ein eigenes dict."""
+    e = KACHEL_SETS[name]
+    rechnung = e["satz"]["rechnung"]
+    if rechnung == "hell":
+        return touch_satz(farbton, _aktiv(e, aktiv) == "hell")
+    if rechnung == "dunkel":
+        return dict(_edge_satz(int(farbton) % 360))
+    raise ValueError(f"unbekannte Rechnung {rechnung!r}")
+
+
 def _ergaenzen(v: dict, kippt: bool) -> dict:
     """Rollen, die ein Set nicht nennt, nach denselben Regeln wie derive()
     gegen die Flaechen des Sets nachrechnen. kippt: die aktive Kachel hat ihre
@@ -655,8 +770,7 @@ def _ergaenzen(v: dict, kippt: bool) -> dict:
     # Kachel), auf der Taste nur Symbole in --ink
     flaechen = [v["--tile"], v["--screen"]] + ([] if kippt else [v["--kachel-an"]])
     if "--muted" not in v:
-        farbton, _, saettigung = _hls(v["--ink"])
-        v["--muted"] = _schiebe(_aus_hls(farbton, basis, min(saettigung, 0.25)), flaechen, AA, richtung)
+        v["--muted"] = _zweitzeile(v["--ink"], flaechen, hell)
     for rolle in ("--glow", "--good", "--crit", "--warn", "--cool"):
         if rolle in v:
             continue
@@ -699,15 +813,19 @@ def schrift_auf(flaeche: str) -> str:
     return _schiebe(schrift, [flaeche], AA, -1 if luminanz(schrift) < luminanz(flaeche) else 1) or schrift
 
 
-def _farbton(eintrag: dict, wert) -> int:
-    """Gewaehlter Farbton eines Sets mit Rechnung, sonst sein Standard."""
+def _farbton(eintrag: dict, wert) -> int | None:
+    """Gewaehlter Farbton eines Sets mit Rechnung, sonst sein Standard (None:
+    ohne Wahl gelten die festen farben)."""
     if isinstance(wert, (int, float)) and not isinstance(wert, bool) and 0 <= wert < 360:
         return int(wert)
     return eintrag["farbton"]["standard"]
 
 
-def _aktiv(eintrag: dict, wert) -> str:
-    """Gewaehlte Art der aktiven Kachel eines Sets mit Rechnung, sonst ihr Standard."""
+def _aktiv(eintrag: dict, wert) -> str | None:
+    """Gewaehlte Art der aktiven Kachel eines Sets mit Rechnung, sonst ihr
+    Standard; None fuer ein Set ohne diese Auswahl."""
+    if "aktiv" not in eintrag:
+        return None
     keys = [a["key"] for a in eintrag["aktiv"]["auswahl"]]
     return wert if wert in keys else eintrag["aktiv"]["standard"]
 
@@ -715,33 +833,42 @@ def _aktiv(eintrag: dict, wert) -> str:
 def kachel_set(name, farbton=None, aktiv=None) -> dict | None:
     """CSS-Variablen eines Kachel-Sets (Farben und Masse), None bei unbekanntem
     Namen. farbton und aktiv gelten fuer ein Set mit Rechnung (satz), ungueltig
-    oder fehlend gilt dessen Standard. Jedes Mal ein eigenes dict (der Aufrufer
-    ergaenzt es)."""
+    oder fehlend gilt dessen Standard; ohne Standard (None) bleibt es bei den
+    festen farben. Jedes Mal ein eigenes dict (der Aufrufer ergaenzt es)."""
     eintrag = KACHEL_SETS.get(name) if isinstance(name, str) else None
     if not eintrag:
         return None
     v = dict(eintrag.get("farben") or {})
-    if "satz" in eintrag:
-        v.update(touch_satz(_farbton(eintrag, farbton), _aktiv(eintrag, aktiv) == "hell"))
+    ton = _farbton(eintrag, farbton) if "satz" in eintrag else None
+    gerechnet = satz_farben(name, ton, aktiv) if ton is not None else {}
+    v.update(gerechnet)
     _ergaenzen(v, kippt=eintrag["aufbau"] == "mitte")
     for rolle, tripel in _SET_TRIPEL.items():
         if _HEX.match(v.get(rolle, "")):
             v[tripel] = "%d,%d,%d" % _rgb(v[rolle])
-    v.update(eintrag.get("masse") or {})
+    masse = eintrag.get("masse") or {}
+    v.update(masse)
+    v.update({r: w for r, w in gerechnet.items() if r in masse})   # ein Mass, das der Farbton faerbt, gilt vor dem festen
     return v
 
 
 def kachel_set_pruefung(name, farbton=None, aktiv=None) -> list[dict]:
     """Nachgerechnete Kontraste eines Sets mit Rechnung fuer den Konfigurator
-    ("Nachgerechnet"): je Ziel aus dem satz {name, wert, ziel}. Leer fuer ein
+    ("Nachgerechnet"): je Paar {name, wert, ziel}, die Paare nach dem Aufbau des
+    Sets (auch ohne gewaehlten Farbton, dann die festen Farben). Leer fuer ein
     Set ohne Rechnung (seine festen Farben prueft tests/test_kachel_set.py)."""
     e = KACHEL_SETS.get(name) if isinstance(name, str) else None
     if not e or "satz" not in e:
         return []
     p, v = e["satz"], kachel_set(name, farbton, aktiv)
-    paare = (("Schrift auf Kachel", "--ink", "--tile", p["kachel"]["ziel"]),
-             ("Schrift auf aktiver Kachel", "--kachel-an-ink", "--kachel-an", p["aktiv"][_aktiv(e, aktiv)]["ziel"]),
-             ("Symbol auf Taste", "--ink", "--taste", p["taste"]["ziel"]))
+    if e["aufbau"] == "mitte":
+        paare = (("Schrift auf Kachel", "--ink", "--tile", p["kachel"]["ziel"]),
+                 ("Schrift auf aktiver Kachel", "--kachel-an-ink", "--kachel-an", p["aktiv"][_aktiv(e, aktiv)]["ziel"]),
+                 ("Symbol auf Taste", "--ink", "--taste", p["taste"]["ziel"]))
+    else:   # lx: "an" zeigt der Akzent auf der Kachel
+        paare = (("Schrift auf Kachel", "--ink", "--tile", AA),
+                 ("Akzent auf Kachel", "--glow", "--tile", p["akzent"]["ziel"]),
+                 ("Symbol auf Taste", "--ink", "--taste", AA))
     return [{"name": n, "wert": round(kontrast(v[a], v[b]), 2), "ziel": z} for n, a, b, z in paare]
 
 
@@ -774,22 +901,27 @@ VERLAUF_SCHRITT = 30
 
 def kachel_set_liste() -> list[dict]:
     """Auswahl fuer den Konfigurator in Definitionsreihenfolge: {key, label,
-    info, aufbau, leiste, masse, groessen, vorschau}. Ein Set mit Rechnung bringt dazu farbton (Standard,
+    info, aufbau, leiste, masse, groessen, vorschau}. Ein Set mit Rechnung bringt dazu farbton (Schluessel,
+    Standard, Stellung des Reglers ohne Wahl "regler", falls es sie gibt,
     Schnellwahl je mit der Kachelfarbe "farbe", "verlauf" als Kachelfarben in
-    VERLAUF_SCHRITT-Stufen fuer den Regler) und aktiv (Standard, Auswahl) mit -
-    die Farben rechnet touch_satz(), der Konfigurator zeigt sie nur."""
+    VERLAUF_SCHRITT-Stufen fuer den Regler) und, wo es sie gibt, aktiv
+    (Standard, Auswahl) mit - die Farben rechnet satz_farben(), der
+    Konfigurator zeigt sie nur."""
     liste = []
     for k, e in KACHEL_SETS.items():
         eintrag = {"key": k, "label": e["label"], "info": e["info"], "aufbau": e["aufbau"], "leiste": e["leiste"],
                    "masse": dict(e.get("masse") or {}), "groessen": dict(e.get("groessen") or {}),
                    "vorschau": kachel_set_vorschau(k)}
         if "satz" in e:
-            hell = e["aktiv"]["standard"] == "hell"
+            f = e["farbton"]
+            aktiv = e["aktiv"]["standard"] if "aktiv" in e else None
             eintrag["farbton"] = {
-                "standard": e["farbton"]["standard"],
-                "auswahl": [{**a, "farbe": touch_satz(a["wert"], hell)["--tile"]} for a in e["farbton"]["auswahl"]],
-                "verlauf": [touch_satz(h, hell)["--tile"] for h in range(0, 360, VERLAUF_SCHRITT)],
+                "schluessel": f["schluessel"], "standard": f["standard"],
+                **({"regler": f["regler"]} if "regler" in f else {}),
+                "auswahl": [{**a, "farbe": satz_farben(k, a["wert"], aktiv)["--tile"]} for a in f["auswahl"]],
+                "verlauf": [satz_farben(k, h, aktiv)["--tile"] for h in range(0, 360, VERLAUF_SCHRITT)],
             }
-            eintrag["aktiv"] = e["aktiv"]
+            if "aktiv" in e:
+                eintrag["aktiv"] = e["aktiv"]
         liste.append(eintrag)
     return liste

@@ -172,7 +172,8 @@ function renderPlayer(blocks){
 // Nach Ruhe zurueck zur Startseite und zur Uhr. Ein gesetzter Filter der
 // Sprungmarken faellt dabei weg, sonst zeigte das Wandpanel dauerhaft nur
 // eine Gruppe.
-function nachRuhe(){ katFilter=null; goTab(tabsCfg[0]||'favoriten'); showSaver(); }
+function nachRuhe(){ if(ruheNachLeerlauf()) return;   // LoxOS: Ruhemodus - der Melder entscheidet (ruhe.js)
+  katFilter=null; goTab(tabsCfg[0]||'favoriten'); showSaver(); }
 function resetIdle(){ clearTimeout(idleTimer);
   idleTimer=setTimeout(nachRuhe, SAVER_IDLE_MS);
   armDpms(); }

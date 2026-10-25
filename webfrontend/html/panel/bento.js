@@ -121,6 +121,32 @@ function renderBento(){
     bentoFuellen(z, c);
   }
   g._bentoAufbau=bentoAufbau(view);
+  bentoGezeichnet();
+}
+
+// Kasten oder Fenster anders gross (faktorNachziehen): Faktor wie in
+// renderBento() aus der Einheitszelle, nie aus der Rasterrechnung der
+// Kachelseiten (automatisches Raster). -> true auf einer Bento-Seite.
+function bentoFaktorNachziehen(){
+  const g=el('grid'); if(!g || !view || !view.bento || !g.classList.contains('bento')) return false;
+  const br=bentoMessen(g), ks=LoxRaster.kachelFaktorFuer(br.zw, br.zh);
+  if(Math.abs(ks-kachelFaktor)>=0.01){
+    setzeFaktor(ks);
+    g.querySelectorAll(':scope > .bz.bz-kacheln').forEach(z=>bentoZellFaktor(z, z.querySelectorAll(':scope > .tile').length));
+    // Favoriten der Audio-Zellen haengen am Faktor (bentoFavsLage)
+    g.querySelectorAll(':scope > .bz[data-widget="player"]').forEach(z=>{ if(z._c && z._c.player) bentoSpieler(z, z._c.player); });
+    kachelnNeuMessen();
+  }
+  return true;
+}
+// Faktor der Kacheln einer Zelle aus der Groesse, die jede wirklich hat:
+// mehrere stehen untereinander und teilen sich die Hoehe. Die Zelle traegt
+// ihn als --ks (die Kacheln erben ihn), --ksg bleibt der Faktor der Seite.
+function bentoZellFaktor(z, n){
+  const b=parseFloat(z.style.getPropertyValue('--bz-b')), h=parseFloat(z.style.getPropertyValue('--bz-h'));
+  if(!(b>0 && h>0 && n>0)) return;
+  const gap=parseFloat(getComputedStyle(z).rowGap)||0;
+  z.style.setProperty('--ks', LoxRaster.kachelFaktorFuer(b, (h-(n-1)*gap)/n).toFixed(3));
 }
 
 // Gleiche Seite, gleicher Aufbau: nur geaenderte Zellen neu fuellen.
@@ -130,6 +156,7 @@ function updateBento(){
   const zs=[...g.querySelectorAll(':scope > .bz')], cells=view.cells||[];
   if(zs.length!==cells.length) return false;
   cells.forEach((c, i)=>{ const z=zs[i]; if(JSON.stringify(z._c)!==JSON.stringify(c)) bentoFuellen(z, c); });
+  bentoGezeichnet();
   return true;
 }
 
@@ -186,6 +213,7 @@ function bentoKacheln(z, c){
   const gr={w:Math.min(2, c.w), h:n===1 ? Math.min(2, c.h) : 1};
   z.classList.add('bz-kacheln');
   z.style.setProperty('--bz-n', n);
+  bentoZellFaktor(z, n);
   z.innerHTML=its.map(it=>kachelHtml(it, gr, '', tileVarStyle(it))).join('');
   z.querySelectorAll(':scope > .tile[data-id]').forEach((t, i)=>{ t._it=its[i]; kachelBinden(t, its[i]); });
 }
@@ -222,21 +250,47 @@ function bentoFront(){
 }
 
 // ---- Audio --------------------------------------------------------------------
-// Cover, Titel, Transport und Lautstaerke; dieselben Bloecke wie die Pane
-// (player_blocks), PIN-Pflicht der Zone aus secured.
+// Raum, Cover, Titel, Transport, Lautstaerke und Favoriten; dieselben Bloecke
+// wie die Pane (player_blocks), PIN-Pflicht der Zone aus secured. Der Raum
+// (bento.py, ohne Raum der Zonenname) oeffnet die Musikauswahl, so bleiben die
+// Favoriten auch in Zellen ohne Favoriten-Reihe erreichbar (bento.css).
+// Die Favoriten-Reihe hat das Markup des favs-Blocks der Pane (kacheln.js,
+// dort lokal in renderPanel), damit die Optik von grund.css mitzieht; neu
+// gebaut wird sie nur, wenn sich die Favoriten aendern (Scrollstand, Cover).
+// Wo die Reihe Platz hat: Hoehe der Zelle in Kachel-Pixeln (geteilt durch den
+// Faktor der Seite, mit dem Tasten und Regler wachsen). Ab BENTO_FAVS_UNTEN_H
+// passt sie unter Tasten und Lautstaerke; breite Zellen stellen sie rechts
+// daneben. In kleinen Zellen (Stufe "klein", auch nur der Hoehe nach) nie.
+const BENTO_FAVS_UNTEN_H=280;
+function bentoFavsLage(z){
+  if(z.dataset.stufe==='klein' || z.dataset.hstufe==='klein') return '';
+  if(z.dataset.form==='breit') return 'rechts';
+  const hk=parseFloat(z.style.getPropertyValue('--bz-h'))/(kachelFaktor||1);
+  return hk>=BENTO_FAVS_UNTEN_H ? 'unten' : '';
+}
+function bentoFavHtml(f, i){
+  return '<div class="fav" data-f="'+i+'"><div class="favc">'+(f.cover?'<img loading="lazy" src="'+esc(f.cover)+'" alt="">':svg(ICONS.music))+
+         '</div><div class="favn">'+esc(f.label)+'</div></div>';
+}
 function bentoSpieler(z, p){
   const b=p.blocks||[], cover=b.find(x=>x.k==='cover'), title=b.find(x=>x.k==='title');
   const row=b.find(x=>x.k==='row'), sl=b.find(x=>x.k==='slider');
   z._sec=!!p.secured;
   let s=z.querySelector('.bz-spieler');
   if(!s){
-    z.innerHTML='<div class="bz-spieler"><div class="bz-cover"><span class="coverph">'+svg(ICONS.music)+'</span><img alt=""></div>'+
+    z.innerHTML='<div class="bz-spieler"><div class="bz-raum"></div><div class="bz-cover"><span class="coverph">'+svg(ICONS.music)+'</span><img alt=""></div>'+
       '<div class="bz-titel"><div class="bz-t1"></div><div class="bz-t2"></div></div>'+
       '<div class="bz-trans"></div>'+
       '<div class="bz-vol"><button type="button" class="sbtn" data-sd="dn" aria-label="Leiser">−</button>'+
       '<input type="range" class="sld" min="0" max="100" value="0" aria-label="Lautstärke">'+
-      '<button type="button" class="sbtn" data-sd="up" aria-label="Lauter">+</button></div></div>';
+      '<button type="button" class="sbtn" data-sd="up" aria-label="Lauter">+</button></div>'+
+      '<div class="bz-favs favs"></div></div>';
     s=z.querySelector('.bz-spieler');
+    s.querySelector('.bz-raum').addEventListener('click', ()=>nav({view:'sources', id:(z._c.widget||'').split(':')[1]}));
+    // Wie in der Pane erst beim Klick: ein Wischer ueber die Reihe startet sonst einen Sender
+    const fv=s.querySelector('.bz-favs');
+    fv.addEventListener('click', ev=>{ const n=ev.target.closest('.fav'), f=n && (fv._items||[])[+n.dataset.f];
+      if(f && f.cmd) sendCmd(f.cmd.uuid, f.cmd.cmd, z._sec); });
     const sld=s.querySelector('.sld'), zurueck=()=>bentoSpieler(z, z._c.player);
     s.querySelector('[data-sd="dn"]').addEventListener('pointerdown', ev=>{ ev.preventDefault(); nudgeSld(sld, -SLD_STEP, null, z._sec, zurueck); });
     s.querySelector('[data-sd="up"]').addEventListener('pointerdown', ev=>{ ev.preventDefault(); nudgeSld(sld, SLD_STEP, null, z._sec, zurueck); });
@@ -244,6 +298,14 @@ function bentoSpieler(z, p){
     sld.addEventListener('change', ()=>{ z._ziehen=false;
       if(sld._uuid && sld._tmpl) sendCmd(sld._uuid, sld._tmpl.replace('{v}', sld.value), z._sec, {abbruch:zurueck}); });
   }
+  const raum=s.querySelector('.bz-raum'), rt=z._c.raum||'';
+  if(raum.textContent!==rt) raum.textContent=rt;
+  const fb=b.find(x=>x.k==='favs'), fv=s.querySelector('.bz-favs'), favs=(fb && fb.items)||[];
+  const fsig=JSON.stringify(favs.map(f=>[f.label, f.cover, f.cmd]));
+  if(fv._sig!==fsig){ fv._sig=fsig; fv.innerHTML=favs.map(bentoFavHtml).join(''); }
+  fv._items=favs; fv.hidden=!favs.length;
+  const lage=favs.length ? bentoFavsLage(z) : '';
+  if(lage) z.dataset.favs=lage; else delete z.dataset.favs;
   const img=s.querySelector('.bz-cover img');
   if(cover && cover.src){ if(img.getAttribute('src')!==cover.src){
       img.onload=()=>img.style.opacity='1'; img.onerror=()=>img.style.opacity='0'; img.src=cover.src; } }
@@ -304,3 +366,111 @@ function bentoWebseite(z, c){
     const r=z.querySelector('.bz-wrahmen'); if(r) r.innerHTML=bentoWebFehler(pr.grund, c.url); }, (c.ladenS||0)*1000);
   f.src=c.url;
 }
+
+// ---- Wischen zwischen Bento-Seiten ----------------------------------------------
+// In einer Ansicht mit mindestens zwei Bento-Seiten blaettert ein Finger
+// waagerecht zur naechsten bzw. vorigen Bento-Seite der Leiste (normale Seiten
+// dazwischen uebersprungen, kein Rundlauf). Der Server rendert nur die aktuelle
+// Seite: die Seite folgt dem Finger nicht, sondern gleitet nach dem Loslassen
+// hinaus und die neue herein, sobald ihre view-Nachricht gezeichnet ist (View
+// Transitions, bento.css; ohne die Schnittstelle wechselt sie hart). Touch-
+// Events wie das Wischen im Kachelfeld (kachelfeld.js) und die Gesten
+// (gesten.js): ein zweiter Finger ist eine Geste und bricht das Blaettern ab.
+const BENTO_WISCH_WEG=0.06;          // Mindestweg als Anteil der Flaechenbreite
+const BENTO_WISCH_RICHTUNG=1.5;      // waagerecht mindestens so viel mal senkrecht
+const BENTO_WECHSEL_MS=280;          // Dauer des Uebergangs
+const BENTO_WECHSEL_GRENZE_MS=1500;  // spaetestens dann endet der Uebergang, auch ohne view
+const BENTO_KLICKSPERRE_MS=GESTE_KLICKSPERRE_MS;   // nach einem Wisch so lange gar keinen Klick
+const BENTO_QUER_TOLERANZ_PX=1;     // so viel breiter darf der Inhalt sein, ohne als Scroller zu gelten (Rundung)
+// Wo ein Wisch nicht blaettert, weil das Element ihn selbst braucht: Tasten der
+// Kachel, Kopf-Taste, Spieler und Lautstaerke der Zelle, Regler, Knoepfe,
+// Verlauf und Webseite
+const BENTO_WISCH_AUS='.tctrls, .ktaste, .bz-trans, .bz-vol, input, button, select, textarea, '+
+                      '.bz[data-widget="chart"], .bz[data-widget="iframe"]';
+let bentoWisch=null;        // {x, y}: laufender Wisch eines Fingers
+let bentoKlickSperre=0;
+let bentoUebergang=null;    // {tab, t, timer, da}: laufender Uebergang
+
+function bentoSeite(tab){ return !!(tabMeta[tab] && tabMeta[tab].bento); }
+// Aktuelle Bento-Seite (Tab ohne Detailseite darueber), sonst null
+function bentoAktuell(){
+  if(!view || !view.bento || !view.route || view.route.view!=='tab' || stack.length>1) return null;
+  return bentoSeite(view.tab) ? view.tab : null;
+}
+// Naechste (1) bzw. vorige (-1) Bento-Seite der Leiste ab der aktuellen
+function bentoNachbar(richtung){
+  const von=bentoAktuell(); if(!von) return null;
+  for(let i=tabsCfg.indexOf(von)+richtung; i>=0 && i<tabsCfg.length; i+=richtung)
+    if(bentoSeite(tabsCfg[i])) return tabsCfg[i];
+  return null;
+}
+// Liegt der Finger in einem waagerecht scrollenden Bereich der Zelle (Vorschau
+// des Wetters)? Dort scrollt er, statt zu blaettern.
+function bentoQuerScroller(n){
+  for(let p=n; p && p.nodeType===1 && !p.classList.contains('bz'); p=p.parentElement){
+    const ox=getComputedStyle(p).overflowX;
+    if((ox==='auto' || ox==='scroll') && p.scrollWidth>p.clientWidth+BENTO_QUER_TOLERANZ_PX) return true;
+  }
+  return false;
+}
+
+function bentoWechsel(tab, richtung){
+  if(typeof document.startViewTransition!=='function'){ goTab(tab); return; }
+  bentoUebergangEnde(true);   // ein laufender endet sofort
+  const h=document.documentElement, u={tab, da:null};
+  h.style.setProperty('--bento-wechsel', BENTO_WECHSEL_MS+'ms');
+  h.dataset.bentoRichtung = richtung>0 ? 'vor' : 'zurueck';
+  bentoUebergang=u;
+  u.timer=setTimeout(()=>{ if(bentoUebergang===u) bentoUebergangEnde(true); }, BENTO_WECHSEL_GRENZE_MS);
+  // Erst im Rueckruf navigieren: dann steht das Bild der alten Seite schon,
+  // und die Antwort trifft auf einen wartenden Uebergang
+  u.t=document.startViewTransition(()=>new Promise(fertig=>{ u.da=fertig; goTab(tab); }));
+  u.t.ready.catch(()=>{});   // abgebrochen (skipTransition): kein Fehler, der Wechsel gilt
+  u.t.finished.finally(()=>{ if(bentoUebergang===u) bentoUebergangEnde(false); });
+}
+// abbrechen: ohne Gleiten (Grenze erreicht, neuer Wechsel)
+function bentoUebergangEnde(abbrechen){
+  const u=bentoUebergang; if(!u) return;
+  bentoUebergang=null; clearTimeout(u.timer);
+  if(u.da) u.da();
+  if(abbrechen && u.t) u.t.skipTransition();
+  delete document.documentElement.dataset.bentoRichtung;
+}
+// renderBento()/updateBento(): steht die erwartete Seite, gleitet sie herein
+function bentoGezeichnet(){
+  const u=bentoUebergang; if(!u || !u.da || !view || view.tab!==u.tab) return;
+  clearTimeout(u.timer); u.da(); u.da=null;
+}
+// Tipp in die Leiste (seiten.js): von einer Bento- zu einer anderen Bento-Seite
+// mit demselben Uebergang -> true; sonst false, die Leiste wechselt wie bisher
+function bentoTabWechsel(tab){
+  const von=bentoAktuell(); if(!von || tab===von || !bentoSeite(tab)) return false;
+  bentoWechsel(tab, tabsCfg.indexOf(tab)>tabsCfg.indexOf(von) ? 1 : -1);
+  return true;
+}
+
+el('grid').addEventListener('touchstart', e=>{
+  // ein Anfang, dessen Ende #grid nie erreichte (Element unter dem Finger
+  // fiel weg), gilt nicht fuer diesen Finger
+  bentoWisch=null;
+  if(e.touches.length!==1 || gesteSequenz) return;   // zwei Finger: Geste
+  if(!bentoNachbar(1) && !bentoNachbar(-1)) return;
+  const t=e.target;
+  if(t.closest && t.closest(BENTO_WISCH_AUS)) return;
+  if(bentoQuerScroller(t)) return;
+  bentoWisch={x:e.touches[0].clientX, y:e.touches[0].clientY};
+}, {passive:true});
+el('grid').addEventListener('touchend', e=>{
+  const w=bentoWisch; if(!w || e.touches.length) return;
+  bentoWisch=null;
+  if(gesteSequenz || !bentoAktuell()) return;
+  const p=e.changedTouches[0], dx=p.clientX-w.x, dy=p.clientY-w.y;
+  if(Math.abs(dx)<BENTO_WISCH_WEG*el('grid').clientWidth || Math.abs(dx)<BENTO_WISCH_RICHTUNG*Math.abs(dy)) return;
+  bentoKlickSperre=Date.now()+BENTO_KLICKSPERRE_MS;
+  const richtung=dx<0 ? 1 : -1, ziel=bentoNachbar(richtung);
+  if(ziel) bentoWechsel(ziel, richtung);
+}, {passive:true});
+el('grid').addEventListener('touchcancel', ()=>{ bentoWisch=null; }, {passive:true});
+// Ein Klick, den der Browser aus dem Wisch noch macht, erreicht nichts
+document.addEventListener('click', e=>{
+  if(Date.now()<bentoKlickSperre){ e.preventDefault(); e.stopPropagation(); } }, true);

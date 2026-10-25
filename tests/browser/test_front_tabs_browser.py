@@ -17,7 +17,11 @@ from playwright.async_api import async_playwright  # noqa: E402
 
 pytestmark = pytest.mark.browser
 
-HEUTE = date.today()
+# Das Datum erst beim Aufruf lesen, nie beim Laden der Datei: ein Lauf, der kurz
+# vor Mitternacht sammelt und danach prueft, verlor sonst die Termine von
+# "heute" (CI am 25.10.2026: 21 statt 23 Termine).
+def _heute() -> date:
+    return date.today()
 
 
 def _ics() -> str:
@@ -29,11 +33,12 @@ def _ics() -> str:
         else:
             beginn = f"DTSTART;VALUE=DATE:{tag:%Y%m%d}\nDTEND;VALUE=DATE:{tag + timedelta(days=1):%Y%m%d}"
         return f"BEGIN:VEVENT\nUID:{uid}\nSUMMARY:{titel}\n{beginn}\n{extra}END:VEVENT\n"
+    heute = _heute()
     return ("BEGIN:VCALENDAR\nVERSION:2.0\n"
-            + ev("a", "Elternabend", HEUTE, "1800")
-            + ev("b", "Müllabfuhr", HEUTE + timedelta(days=1))
-            + ev("c", "Zahnarzt", HEUTE + timedelta(days=5), "0930")
-            + ev("d", "Hund füttern", HEUTE, "0700", "RRULE:FREQ=DAILY;COUNT=20\n")
+            + ev("a", "Elternabend", heute, "1800")
+            + ev("b", "Müllabfuhr", heute + timedelta(days=1))
+            + ev("c", "Zahnarzt", heute + timedelta(days=5), "0930")
+            + ev("d", "Hund füttern", heute, "0700", "RRULE:FREQ=DAILY;COUNT=20\n")
             + "END:VCALENDAR\n")
 
 
@@ -41,7 +46,7 @@ def _open_meteo() -> dict:
     """Antwort im Format von Open-Meteo fuer heute und 7 Tage."""
     jetzt = datetime.now().replace(minute=0, second=0, microsecond=0)
     stunden = [jetzt + timedelta(hours=i) for i in range(-2, 46)]
-    tage = [HEUTE + timedelta(days=i) for i in range(7)]
+    tage = [_heute() + timedelta(days=i) for i in range(7)]
     return {
         "current": {"time": jetzt.strftime("%Y-%m-%dT%H:%M"), "temperature_2m": 17.4, "relative_humidity_2m": 64,
                     "apparent_temperature": 16.2, "is_day": 1, "weather_code": 2, "wind_speed_10m": 12.3,
@@ -137,8 +142,9 @@ def test_kalender_und_wetter_tab(tmp_path, monkeypatch):
                           .map(c => c.dataset.day); }""")
                     assert not falsch, f"Tage unter falschem Wochentag: {falsch[:5]}"
                     await pg.screenshot(path=str(tmp_path / f"kalender_{breite}.png"))
-                    in5 = HEUTE + timedelta(days=5)
-                    if in5.month != HEUTE.month:           # Monatsende: erst weiterblaettern
+                    heute = _heute()
+                    in5 = heute + timedelta(days=5)
+                    if in5.month != heute.month:           # Monatsende: erst weiterblaettern
                         await pg.locator('.ft .fp-mnav[data-mnav="1"]').click()
                         await pg.wait_for_timeout(300)
                     await pg.locator(f'.ft .fp-mon-c[data-day="{in5.isoformat()}"]').click()
@@ -149,7 +155,7 @@ def test_kalender_und_wetter_tab(tmp_path, monkeypatch):
                     await pg.locator(".ft-b [data-calall]").click()
                     await pg.wait_for_timeout(300)
                     assert await pg.locator(".ft-b .fp-ev").count() == len(daten["events"])
-                    if in5.month != HEUTE.month:
+                    if in5.month != heute.month:
                         await pg.locator('.ft .fp-mnav[data-mnav="-1"]').click()
 
                     # Wetter: Lage, Kurve, 7 Tage, Details

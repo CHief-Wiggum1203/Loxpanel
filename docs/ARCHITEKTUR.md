@@ -68,7 +68,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/konfig.py` | Die Konfigdateien unter `config/`: Pfade, `_load_cfg()`/`_write_cfg()`/`_atomic_write()`, die Leser der `loxpanel.cfg` (`_config()`, `_ms_zugang()`, `_audio_config()`, `_intercom_config()`, `_night_config()`, `_calendar_config()`), `load_theme()`/`load_panels_doc()`/`load_panels()`, die Optionskonstanten (`PANEL_STANDARD`, `THEME_UI_KEYS`, `KACHEL_ZIEL`, `GERAETE_KATALOG` …), die Wertprüfer (`_clean_*`, `_color_ok()`, `_pin_merken()`) und die Sanitizer (`_sanitize_panels()`, `_sanitize_devices()`, `_sanitize_theme_ui()`, `_sanitize_categories()`, `_panels_verworfen()`, `_devices_export()`), die `App` als statische Methoden hält (§5.3). Importiert `webvisu` nicht |
 | `bin/bento_format.py` | LoxOS (Fork, [`VISION.md`](VISION.md)): Prüfung der Bento-Seiten (`pickTabs[].bento`), `bento_seite()` und `_clean_iframe_url()`, die Konstanten `BENTO_*`. Importiert nichts aus `konfig.py`; das ruft `bento_seite()` mit `_bento_widget` und `BILDSCHIRM_PX_MAX` (§5.3) |
 | `bin/bento.py` | LoxOS (Fork, [`VISION.md`](VISION.md)): Mixin `Bento`. `_view_bento()` rendert eine Bento-Seite mit Widget-Daten inline (dieselben Blockbauer wie die Panes, gelesen über die Lesespur), `bento_task()` prüft die Webseiten-Adressen im Hintergrund (Erreichbarkeit, `X-Frame-Options`, CSP `frame-ancestors`; `einbetten_stand()`, `webseite_pruefen()`). Andockstellen: Weiche in `_view_tab()`, Basisklasse von `App`, Task in `on_startup` |
-| `loxos/` | LoxOS-Hülle (Fork, [`VISION.md`](VISION.md)): Electron-App, die die Visu als `?device=<Name>` auf einem Streifen-Display zeigt; `src/einstellungen.js` und `src/monitor.js` reine Logik (Node-Tests in `loxos/test/`), `src/main.js` Fenster, Modi, Tray, Kürzel, Autostart, `src/einrichtung.*` Einstellungen; Versionen festgenagelt (`package-lock.json`, Dependabot), `tests/test_loxos_huelle.py`; Installer mit electron-builder (`build` in `package.json`), gebaut vom Workflow `.github/workflows/loxos.yml` bei Tags `loxos-v*` |
+| `loxos/` | LoxOS-Hülle (Fork, [`VISION.md`](VISION.md)): Electron-App, die die Visu als `?device=<Name>` auf einem Streifen-Display zeigt; `src/einstellungen.js` und `src/monitor.js` reine Logik (Node-Tests in `loxos/test/`), `src/main.js` Fenster, Modi, Tray, Kürzel, Autostart, Wachhalten der Bildschirme (`bildschirmWach`, `powerSaveBlocker`, nur im Widget-Modus), `src/einrichtung.*` Einstellungen; Versionen festgenagelt (`package-lock.json`, Dependabot), `tests/test_loxos_huelle.py`; Installer mit electron-builder (`build` in `package.json`), gebaut vom Workflow `.github/workflows/loxos.yml` bei Tags `loxos-v*` |
 | `bin/symbolquellen.py` | Symbolquellen der Kacheln und freien Seiten (18.10.2026 aus `konfig.py`, das an die Grenze von `test_dateigroessen.py` kam): die Loxone-Icon-Bibliothek (`LOXLIB_DIR`, `_loxlib_names()`, Route `/loxlib` in `routen/medien.py`) und die Prüfung der Icon-Angaben (`_clean_icon()`, `_clean_seiten_icon()`), die `_sanitize_panels()` anwendet. Nur Standardbibliothek, importiert kein Server-Modul |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `routen/einstellungen.py` rufen hier (§4). Importiert `webvisu` nicht |
 | `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
@@ -91,17 +91,17 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/audioserver_events.py` | Event-Client für Audioserver Gen2 (WebSocket Port 7091): Cover, Titel, Favoriten; Adressen aus der Struktur |
 | `bin/front_info.py` | Front (Screensaver): iCal-Abo laden und parsen (`icalendar` + `python-dateutil`, löst Serientermine auf) und Wetter von Open-Meteo (kein API-Key, nur Koordinaten). Eigenständig, keine Fremdabhängigkeit. Das Mixin `Front` (`front.py`) ruft `load_front()` im `front_task` (alle 15 Min) und pusht das Ergebnis als `{t:"front"}` an die Panels. Ein einzeln abgesagter, verschobener oder geänderter Serientermin (eigenes VEVENT mit derselben UID und `RECURRENCE-ID`) ersetzt sein ursprüngliches Auftreten. Bewusst nicht unterstützt ist `RANGE=THISANDFUTURE`: Die Ausnahme ersetzt nur ihr eines Auftreten, eine eigene RRULE an ihr bleibt unbeachtet. Abgeglichen wird in der Ortszeit des Servers. Trägt die Ausnahme einer ganztägigen Serie eine Uhrzeit (Exchange-Form), trifft sie ihr Original nur bei richtig eingestellter Zeitzone des Containers, sonst stehen beide da |
 | `bin/loxone_weather.py` | Wetter vom Loxone-Wetterserver: rechnet die Wetter-Tabelle des Miniservers in genau die Form um, die `front_info.fetch_weather()` liefert, und hat damit Vorrang vor Open-Meteo. Wetterlage-Texte und Einheiten kommen aus der Struktur (`weatherServer`), nicht aus einer Tabelle im Code. Gibt `None` zurück, wenn sich die Daten nicht sicher beschriften lassen — dann bleibt Open-Meteo |
-| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ rechnet seine Farben aus einem Farbton (`touch_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
+| `bin/theme_colors.py` | Leitet aus EINER Grundfarbe den ganzen Panel-Farbsatz ab (Flächen, Schrift, Icon- und Zustandsfarben) und rechnet jeden Wert gegen die Fläche nach, auf der er steht: Hauptschrift AAA, Rest AA, Grafik 3:1, dazu Deuteranopie und Protanopie. Liefert `None`, wenn eine Farbe kein tragfähiges Theme hergibt. Dazu die Kachel-Sets (`KACHEL_SETS`, §5.4): fertige Looks mit Farben, Maßen und einer Art für Kachel und Tab-Leiste; „touch“ und „edge“ rechnen ihre Farben aus einem Farbton (`satz_farben()`, je nach Art der Rechnung `touch_satz()` oder `_edge_satz()`). Und die Schrift der Nacht-Uhr auf ihrem schwarzen Grund (`nacht_schrift()`, `NACHT_GRUND`). Nur Standardbibliothek. Aufgerufen aus `_theme_vars()` |
 | `bin/loxone_secure.py` | Verschlüsselte Befehle an den Miniserver (Command Encryption über HTTP, `jdev/sys/fenc`). Grundlage für die gesicherten Details (`App.secured_details()` in `miniserver.py`), siehe Abschnitt 3.10. Braucht `cryptography`; fehlt das Paket, läuft der Server ohne diese Befehle weiter |
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
-| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` zwei Stylesheets und zwölf Skriptteile in fester Reihenfolge (§7.1) |
-| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
+| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` drei Stylesheets und vierzehn Skriptteile in fester Reihenfolge (§7.1) |
+| `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, im Fork LoxOS-Streifen einrichten, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
 | `webfrontend/html/raster.js` | Rasterrechnung für Visu und Konfigurator (Kachelfaktor, Lage, automatisches und festes Raster, Standardmaße der Visu, im Fork das Bento-Raster: `bentoRaster`, `bentoMass`, `bentoStufe(n)`, `bentoFrei`), §7.5 |
-| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`) |
+| `webfrontend/html/config.css`, `webfrontend/html/config/*.js` | Stylesheet und die elf Skriptteile des Konfigurators; `config.html` hält nur das Markup und lädt sie in fester Reihenfolge (§7.2); im Fork dazu `bento-editor.js` (LoxOS: Seiten-Editor für Bento-Seiten, eingehängt über `seInhalt()`/`seZeichnen()` in `seiten-editor.js`, Grenzen aus `/api/meta` `bento`, Stile am Ende von `config.css`), `loxos-assistent.js` (LoxOS: Assistent „LoxOS-Streifen einrichten“, §7.2, nach `sicherung.js` geladen) und `abweichungen.js` (LoxOS: Übersicht „Was ist eingestellt?“, §7.2, danach geladen) |
 | `agent/loxpanel-agent.py` | Panel-Agent auf dem Wandpanel |
 | `deploy/install-agent.sh` | Installer für den Agenten. Enthält den Agent-Quelltext als eingebettete Kopie. |
 | `config/*.example` | Vorlagen für `loxpanel.cfg`, `panels.json`, `theme.json` |
@@ -426,8 +426,8 @@ Server → Browser (`panel.html:700`):
 
 | `t` | Inhalt | Zweck |
 |---|---|---|
-| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `aktivZeile` (false: die Ansicht zählt nichts als aktiv, keine Zeile), `ruhig` (Text der Zeile, wenn nichts an ist), `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`); auf einer Bento-Seite (LoxOS, Fork) statt dessen `bento` (`cols`, `rows`) und `cells[]` (je Zelle `x`, `y`, `w`, `h` und entweder `items[]` oder `widget` mit den Daten inline: `energy`, `chart`, `player`, `camera`, `status` wie die gleichnamigen Nachrichten ohne `t`, bei `iframe` `url`, `name`, `pruefung` (`stand`: `ok` \| `eingeschraenkt` \| `gesperrt` \| `fehler` \| `offen`, `grund`) und `ladenS`; `fehler: true`, wenn ein Blockbauer scheiterte), gebaut in `_view_bento()` (`bento.py`) |
+| `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence`, `ruhe` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) und ob das Gerät den Ruhemodus hat (`ruhe`, §8). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`). `tabMeta`: Name und Symbol der dynamischen Seiten (`_tab_meta()`), bei einer freien Seite als Hausübersicht `haus: true`, im Fork (LoxOS) bei einer Bento-Seite `bento: true` – nur zwischen diesen Seiten blättert die Visu (§7.1 „Bento: Wischen“) |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `aktivZeile` (false: die Ansicht zählt nichts als aktiv, keine Zeile), `ruhig` (Text der Zeile, wenn nichts an ist), `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`); auf einer Bento-Seite (LoxOS, Fork) statt dessen `bento` (`cols`, `rows`) und `cells[]` (je Zelle `x`, `y`, `w`, `h` und entweder `items[]` oder `widget` mit den Daten inline: `energy`, `chart`, `player`, `camera`, `status` wie die gleichnamigen Nachrichten ohne `t`, bei `player` dazu `raum` (Loxone-Raum der Zone, ohne Raum ihr Name; die Favoriten stehen als `favs`-Block in `player.blocks` wie in der Pane), bei `iframe` `url`, `name`, `pruefung` (`stand`: `ok` \| `eingeschraenkt` \| `gesperrt` \| `fehler` \| `offen`, `grund`) und `ladenS`; `fehler: true`, wenn ein Blockbauer scheiterte), gebaut in `_view_bento()` (`bento.py`) |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite. An jedes Panel, außer dessen Ansicht blendet die Türsprechanlage aus (`hide`) |
 | `alarm` | `id`, `on` | Weckton starten/stoppen. `on: true` nur an Panels, deren Ansicht den Wecker zeigt (Raum, Kategorie, `hide`: `_sichtbar()`), und nur deren Display geht an; `on: false` an alle, damit ein Panel, das die Ansicht gewechselt hat, nicht weitertönt |
 | `testtone` | | Testton |
@@ -440,6 +440,7 @@ Server → Browser (`panel.html:700`):
 | `cmdresult` | `ok`, `code`, `uuid`, `cmd`, `gesperrt` | Ergebnis eines PIN-gesicherten Befehls. `uuid` und `cmd` ordnen es dem Befehl zu (Drücken und Loslassen einer Halten-Taste kommen kurz hintereinander), `code` `null` heißt „keine Antwort“, nicht „PIN falsch“. `gesperrt`: der Baustein ist gesperrt, der Befehl ging nicht zum Miniserver; die Visu fragt nicht erneut nach der PIN, den Grund nennt ein `notify` |
 | `display` | `on`, optional `presence` | Display über die Kiosk-App aus- oder einschalten. `presence` kommt vom Präsenzmelder des Geräts (§8): solange `true`, schaltet der Leerlauf nicht ab |
 | `front` | `weather` (`temp`, `cond`, `icon`, `hi`, `lo`, `wind` + `wind_unit`, `forecast[]`), `events[]` (`day`, `time`, `title`), `calName` | Kalender + Wetter für den Screensaver; beim Verbinden und alle 15 Min bzw. nach dem Speichern (`front_task`) — oder sofort, wenn der Miniserver neues Wetter schickt (§3.8) |
+| `ruhe` | `ruhe` (bool) | Ruhemodus des Geräts live umstellen (§8), gesendet nach `POST /api/devices` an alle verbundenen Panels, jedem mit dem Wert seines Geräts — ohne Neuladen |
 | `scale` | `scale` (`"off"` \| `"auto"` \| Faktor) | Skalierung live umstellen, gesendet nach `POST /api/devices` an alle verbundenen Panels — ohne Neuladen |
 | `energy` | `control`, `name`, `nodes[]`, `totals` (`prod`, `cons`, `grid`) | Energiefluss-Pane (Pane 2, Widget-Seite, Uhr-Seite); nach `setenergy` und bei jeder Änderung, die der Broadcaster sieht (`energy_blocks()`) |
 | `camera` | `blocks[]` | Kamera-Pane: die Intercom-Ansicht ohne `more` und ohne die Zeile `klingel` (Klingel abstellen, verpasste Klingeln); nach `setcamera` und bei jeder Änderung (`intercom_blocks()`) |
@@ -853,7 +854,7 @@ Umfang, Schnittstelle, Tests und Hardware-Prüfliste:
 Alle Routen werden in `main()` (`webvisu.py`) registriert, die Handler stehen
 je Thema in `bin/routen/`: `oberflaeche.py` (`/`, `/config`, `/settings`,
 `/i18n.js`, `/raster.js`, `/config.css`, `/config/{name}`, `/panel/{name}`),
-`visu.py` (`/ws`), `konfigurator.py` (`/api/meta`, `/api/kachelset`,
+`visu.py` (`/ws`), `konfigurator.py` (`/api/meta`, `/api/kachelset`, `/api/bento/vorschlag`,
 `/api/panels`, `/api/entwurf`, `/api/theme`, `/api/types`), `einstellungen.py`
 (`/api/settings`, `/api/settings/miniserver`, `…/night`, `…/audiometa`,
 `…/calendar`, `/api/backup`, `/api/restore`), `intercom.py`
@@ -879,7 +880,8 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/panel/{name}` | `panel_teil` | Stylesheets und Skriptteile der Visu (`webfrontend/html/panel/<name>.css|.js`, nur schlichte Namen) | Visu |
 | GET | `/install-agent.sh` | `install_script` | Installer als Text | Panel-Installation |
 | GET | `/api/kachelset` | `api_kachelset` | Nachgerechnete Kontraste eines Kachel-Sets mit Rechnung zu `farbton` und `aktiv` (`theme_colors.kachel_set_pruefung()`) und seine Kachelfarbe, nur lesend; unbekanntes Set 404 | Konfigurator („Nachgerechnet“) |
-| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`) | Konfigurator, Einstellungen |
+| GET | `/api/bento/vorschlag` | `api_bento_vorschlag` | LoxOS (Fork): Vorschlag für die Bento-Startseite eines Streifens, `?device=<Name>`: `{pickTab: {name, picks[], bento}, format: {vw, vh}, formatBekannt}`. Sammelt erste Audiozone, Energiefluss (EFM, sonst EnergyManager2), Kalender-Abo (`calendar_sources()`) und Favoriten (`isFavorite`, Strukturreihenfolge) und das gemeldete Format des Geräts (`device_list()`, ohne: `BENTO_FORMAT_STANDARD`); gerechnet wird in der reinen Funktion `bento_vorschlag()` (`bento_format.py`). Nur lesend | Konfigurator (LoxOS-Assistent, Schritt 4) |
+| GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`); im Fork (LoxOS) `bento` (Grenzen der Bento-Seiten), `streifenAb` (`STREIFEN_AB`, Seitenverhältnis, ab dem ein Schirm ein Streifen ist, gleich der Schwelle der Hülle) und `titelMax` (`konfig.TITEL_MAX`, so lang speichert der Server einen Ansichtstitel; der LoxOS-Assistent zählt Titel damit) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
 | POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden) | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
@@ -1091,6 +1093,7 @@ liefert nur die Ansichten), geschrieben über
         "tileSet": "touch",                  // Kachel-Set aus theme_colors.KACHEL_SETS; fehlt = Farben aus
                                              // der Grundfarbe, "classic" gilt mit Set nicht (§5.4)
         "tileHue": 160,                      // Farbton des Sets "touch", 0-359; fehlt = 270
+        "tileHueEdge": 200,                  // Farbton des Sets "edge", 0-359; fehlt = feste Farben (Original)
         "tileActive": "dunkel",              // aktive Kachel bei "touch": "hell" | "dunkel"; fehlt = "hell"
         "grid": "auto",                      // automatisches Raster (Tablet): cols/rows gelten dann nicht (§7.1)
         "tileSize": 200,                     // Zielkachel des automatischen Rasters in px (KACHEL_ZIEL_MIN
@@ -1160,6 +1163,8 @@ liefert nur die Ansichten), geschrieben über
                                              // (Gerät vor Profil, nur im Kachel-Layout „Automatisch“; §7.1)
       "presence": "<control-uuid>",          // optional; Präsenzmelder (Baustein mit active-State):
                                              // Display an, solange er jemanden meldet (§8)
+      "ruhe": true,                          // optional, nur mit presence und nur als echtes true;
+                                             // leerer Raum = Ruhe-Ansicht statt Display aus (§8)
       "lichtStart": {"lc": "<uuid>", "mood": 1}   // optional; Stimmung beim Einschalten (Gesten, §7.1):
                                              // was zwei Finger einschalten, wenn im Raum alles aus ist,
                                              // und zu welcher Lichtsteuerung das Gerät gehört
@@ -1259,10 +1264,33 @@ am Kasten). `--pille-tab-breite` macht die Pille je Eintrag so breit, höchstens
 560 px wie ohne das Maß; `renderTabs()` setzt die Zahl der Einträge
 (`--tab-n`). `groessen` sind Standardgrößen der Kachel, die das Set
 mitbringt (touch: größeres Symbol), eine eingestellte geht vor; mit Set gilt
-`ui.tileLayout` nicht. „touch“ hat statt fester Farben einen
-`satz`: `touch_satz(farbton, aktiv_hell)` rechnet Schrift, Kachel, Fläche,
-Taste, aktive Kachel und Tab-Symbole aus dem Farbton (`ui.tileHue`) und lässt
-jede Helligkeit wandern, bis ihr Kontrast erreicht ist. Rollen, die ein Set
+`ui.tileLayout` nicht. Ein Set mit `satz` rechnet seine Farben aus einem
+Farbton; `satz_farben(name, farbton, aktiv)` wählt die Rechnung nach
+`satz["rechnung"]`, nie nach dem Namen. `farbton` nennt den Schlüssel in `ui`
+(`FARBTON_SCHLUESSEL`: „touch“ `ui.tileHue`, „edge“ `ui.tileHueEdge`, jedes Set
+hat seinen eigenen Platz, ein alter Farbton von „touch“ färbt „edge“ nicht),
+den Standard und die Schnellwahl. Speichern, `_theme_vars()` und
+`_panel_export()` laufen über diese Schlüssel; der Konfigurator liest sie aus
+`/api/meta` (`kachelSets[].farbton.schluessel`). „touch“ (Rechnung
+`hell`) hat statt fester Farben nur den `satz`: `touch_satz(farbton,
+aktiv_hell)` rechnet Schrift, Kachel, Fläche, Taste, aktive Kachel (Auswahl
+`aktiv`: hell oder dunkel) und Tab-Symbole aus dem Farbton (`ui.tileHue`) und
+lässt jede Helligkeit wandern, bis ihr Kontrast erreicht ist. „edge“ (Rechnung
+`dunkel`, `_edge_satz()`) hat keinen Standard-Farbton: Ohne Wahl gelten seine
+festen `farben` (Grund bläulich, Akzent Mint), der Regler steht dann auf
+`regler` und die Taste „Original“ ist gedrückt (löscht den Farbton wieder);
+den Umschalter „Aktive Kachel“ gibt es nur bei Sets mit `aktiv`. Mit Farbton färbt die Rechnung Grund, Leiste, Karten und Tasten
+dunkel im Ton, die Schrift hell, die Zweitzeile wie `_ergaenzen()`
+(`_zweitzeile()`), und der Akzent (`--glow`, `--accent`) wandert mit: Liegt
+der Ton näher als `EDGE_AKZENT_ABSTAND` (30°) an `--good`, `--warn` oder
+`--crit` oder trennt er sich nicht von `--good` und `--muted`, weicht er in
+Stufen von `ton_schritt` auf den nächsten tragfähigen Ton aus; seine
+Helligkeit wandert, bis er auf Kachel und aktiver Kachel AA trägt und die
+Füllung der Gesten-Einblendung nachts sichtbar bleibt
+(`GESTE_NACHT_SICHTBAR`). Die feine Kante der Karten (`--kachel-schatten`,
+Form aus `masse`) nimmt mit Farbton den Ton aus `satz["linie"]` an; ohne
+Farbton bleibt sie, wie `masse` sie nennt. Die
+Zustandsfarben bleiben fest. Rollen, die ein Set
 nicht nennt (Zweitzeile, Zustandsfarben, Störung, Text auf dem Akzent),
 rechnet `_ergaenzen()` nach denselben Regeln wie `derive()` gegen die Flächen
 des Sets nach. `_theme_vars()` schickt Farben und Maße als CSS-Variablen,
@@ -1270,8 +1298,8 @@ des Sets nach. `_theme_vars()` schickt Farben und Maße als CSS-Variablen,
 die Auswahl als `kachelSets` (mit den fertigen Farben der Schnellwahl).
 Ausdrücklich gewählte Zustandsfarben und Farben aus „Kacheln gestalten“
 gelten auch mit Set. `tests/test_kachel_set.py` rechnet jedes Paar nach, das
-die Visu bei der Art des Sets aufeinander setzt, für „touch“ über alle
-Farbtöne in 5er-Schritten. Die Trennbarkeit für rot-grün-blinde Augen
+die Visu bei der Art des Sets aufeinander setzt, für jedes Set mit `satz`
+über alle Farbtöne in 5er-Schritten. Die Trennbarkeit für rot-grün-blinde Augen
 verlangt er nur beim Aufbau `lx`, wo allein die Tönung „aktiv“ zeigt: Bei
 `mitte` und `kreis` trägt die Form den Zustand, und die festen Farben von
 „Kreide“ (Orange, Grün, Grau) fallen unter Deuteranopie zusammen.
@@ -1502,7 +1530,7 @@ Assistenten des Konfigurators.
 
 **Aufteilung** (seit 15.10.2026, Schritt 2 des Zerlegens der großen Dateien):
 `panel.html` hält nur noch das Markup (rund 60 Zeilen) und lädt aus
-`webfrontend/html/panel/` zwei Stylesheets und zwölf Skriptteile per `<link>`
+`webfrontend/html/panel/` drei Stylesheets und vierzehn Skriptteile per `<link>`
 und `<script src>` an den Stellen, an denen vorher Stylesheet und Skript
 standen. Stylesheets: `grund.css` (Kasten, Panes, Kopfzeile und Werteleiste,
 Kachelfeld, Kacheln, Kachel-Sets, Leisten) und `seiten.css` (Detailseite,
@@ -1534,6 +1562,28 @@ Die Optik der Panes hängt an `#frontpane`; `bentoPaneStile()` übernimmt beim
 ersten Aufbau jede Regel für Pane-Inhalte mit `.grid.bento .bz-box` statt
 kopierter Regeln. Mit nur dieser einen Seite und ohne Detailseite darüber
 fällt die Tab-Leiste weg (`.screen.bentovoll`).
+**Bento: Audio-Zelle.** `bentoSpieler()` zeigt oben den Raum der Zone
+(`.bz-raum`, Großbuchstaben wie an den Kacheln; ein Tipp öffnet die
+Musikauswahl `view: sources`) und die Raumfavoriten als waagerecht scrollende
+Reihe `.bz-favs` im Markup des `favs`-Blocks (`.fav`, ein Klick sendet den
+Befehl des Favoriten). Wo die Reihe steht, legt `bentoFavsLage()` als
+`data-favs` an der Zelle fest: `rechts` neben dem Spieler in breiten Zellen,
+`unten` ab `BENTO_FAVS_UNTEN_H` Zellhöhe in Kachel-Pixeln (Höhe geteilt durch
+den Kachelfaktor der Seite), sonst keine – nie bei Größen- oder Höhenstufe
+`klein`. Neu gebaut wird die Reihe nur, wenn sich die Favoriten ändern
+(Scrollstand und Cover bleiben).
+**Bento: Wischen.** In einer Ansicht mit mindestens zwei Bento-Seiten (`tabMeta[t].bento`) blättert ein Finger waagerecht zur nächsten bzw. vorigen Bento-Seite der Leiste (`bentoNachbar()`, normale Seiten dazwischen übersprungen, kein Rundlauf). Es zählt ein Weg ab `BENTO_WISCH_WEG` der Flächenbreite, waagerecht mindestens `BENTO_WISCH_RICHTUNG`-mal so viel wie senkrecht. Touch-Events auf `#grid` wie das Wischen im Kachelfeld; ein zweiter Finger ist eine Geste (`gesten.js`) und bricht ab. Kein Start auf den Tasten der Kachel, der Kopf-Taste, Spieler und Lautstärke einer Zelle, Reglern und Knöpfen, Verlaufs- und Webseiten-Zellen und in einem waagerecht scrollenden Bereich (`BENTO_WISCH_AUS`, `bentoQuerScroller()`); nach einem Wisch lässt `BENTO_KLICKSPERRE_MS` keinen Klick durch. `bentoWechsel()` gleitet mit `document.startViewTransition`: `data-bento-richtung` (`vor` | `zurueck`) an `<html>` wählt die Keyframes in `bento.css`, nur das Raster gleitet (`view-transition-name`), Dauer `BENTO_WECHSEL_MS` als `--bento-wechsel`. Der Übergang navigiert erst im Rückruf (`goTab()`) und wartet, bis `renderBento()`/`updateBento()` die Zielseite gezeichnet hat (`bentoGezeichnet()`), höchstens `BENTO_WECHSEL_GRENZE_MS`, dann bricht er ohne Gleiten ab. Ohne die Schnittstelle nur `goTab()`. Ein Tipp in die Leiste von einer Bento- zu einer anderen Bento-Seite nimmt denselben Übergang (`bentoTabWechsel()`, eingehängt in `renderTabs()` in `seiten.js`), alle anderen Tipps wechseln wie bisher. Geprüft in `tests/browser/test_bento_browser.py` bei 2560×720 und 1920×480.
+Ebenso im Fork `ruhe.js` nach `display`: der Ruhemodus (§8). Die Ruhe-Uhr ist
+die Nacht-Uhr: `nachtUhrAn()` gilt auch, solange `ruheAn()` (Ruhemodus an, der
+Melder meldet niemanden und es ist keine Entwurfs-Vorschau, `ENTWURF`), zu jeder Tageszeit, mit `nightClockBright`.
+`ruheAnwenden()` legt den Stand des Melders auf die Uhr-Seite (niemand da:
+`showSaver()`, sonst `hideSaver()` und `resetIdle()`, die Seite von vorher
+bleibt), `ruheNachLeerlauf()` in `nachRuhe()` hält den Ruhe-Timer davon ab,
+die Seite zu wechseln oder bei Anwesenheit die Uhr zu zeigen. Mit `RUHE`
+schalten `armDpms()`, `appLeerlauf()` und die `display`-Nachricht des
+Melders nichts ab; `ruheSetzen()` hält beim Einschalten einen laufenden
+Display-Timer an und übergeht einen unveränderten Wert (`{t:"ruhe"}` kommt
+nach jedem Speichern der Geräte). Geprüft in `tests/browser/test_ruhe_browser.py`.
 Wie beim Konfigurator (§7.2): kein Build, keine ES-Module, alle Funktionen
 bleiben global, was ein Teil beim Laden ausführt, ruft nur Funktionen
 früherer Teile; der Code ist nur verschoben. Der Server liefert
@@ -2762,6 +2812,70 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   (`createBlankPanel()`). `test_geraet_einrichten_browser.py` hält den Weg fest:
   Tablet aus dem Banner, Raum, Haus, Kopie mit Raumtausch, Fertig mit Zuordnung,
   4″-Panel ohne Haus, „＋ Neue Ansicht“ mit genau diesen drei Karten.
+- **Assistent: LoxOS-Streifen einrichten** (Fork, `docs/VISION.md`
+  „LoxOS-Assistent“, Phase 12): `config/loxos-assistent.js`, Overlay `#loxOv`,
+  `loxOpen()`/`loxClose()`, Zustand `LOX`, Schritte aus `loxFlow()` nach dem
+  Muster des Betriebsmodus-Assistenten. Einstieg: `#loxOpenBtn` unter Geräte und
+  `#ovLoxOS` in der Übersicht neben „Gerät einrichten“. Aufbau wie dort: links
+  der Schritt, rechts die echte Visu als Vorschau (`loxVorschau()`,
+  `POST /api/entwurf`, eigener Token, `loxVorschauMass()` verkleinert per
+  `transform`). (1) *Gerät*: alle bekannten Geräte (`alleGeraeteNamen()`),
+  Streifen zuerst (gemeldeter Schirm mit `vw/vh` ab `/api/meta` `streifenAb`),
+  dann mit gemeldeter Größe, unten ohne mit „Größe noch unbekannt“; Geräte ohne
+  Namen werden hier benannt (`nameDevice()`, `/api/device/name`), `pollDevices()`
+  zieht den Schritt über `loxGeraeteNeu()` nach und wählt das benannte. „Weiter“
+  holt `GET /api/bento/vorschlag?device=` (`LOX.vorschlag`). (2) *Anwesenheit*:
+  Melder aus `ACTIVE_OPTS` (dieselbe Liste wie unter Geräte) oder „ohne Melder“,
+  „Ruhe-Uhr statt Display aus“ vorausgewählt und nur mit Melder wirksam.
+  (3) *Aussehen*: Set `LOX_SET` (`edge`), Farbton aus `kachelSetMeta('edge')`
+  `farbton.auswahl`, „Original“ vorausgewählt (dann kein `tileHueEdge`).
+  (4) *Startseite*: die Zellen des Vorschlags, die Vorschau zeigt sie in
+  Gerätegröße. (5) *Fertig*: Zusammenfassung; hat das Gerät Betriebsmodi, ein
+  Hinweis, dass ein Moduswechsel umschalten kann und wo man das ändert.
+  Bis „Fertig“ bleiben `PANELS`, `DEV` und `cur` unberührt; Abbrechen, ✕, Esc
+  oder Klick daneben ändern nichts und ersetzen den iframe (wie `geClose()`).
+  `loxFertig()` legt die Ansicht `loxProfil()` an: Titel „LoxOS · <Gerät>“
+  (`loxTitel()`; gibt es den Titel schon, „… 2“, „… 3“; gezählt wird am Titel,
+  wie ihn der Server speichert, gekürzt auf `/api/meta` `titelMax`), Kennung über
+  `idAusName()`, `tabs` nur die eine freie Seite (`pickKey(0)`, keine Leiste am
+  Gerät), `ui: {tileSet: "edge", tileHueEdge?}`, `pickTabs` = der Vorschlag,
+  `device` mit dem Format des Vorschlags. `loxAnsichtSpeichern()` speichert nur
+  sie: den zuletzt gespeicherten Stand (`GESPEICHERT`) plus die neue Ansicht an
+  `POST /api/panels`, über dieselbe Kette wie `ansichtLoeschen()`; offene
+  Änderungen an anderen Ansichten und an den Vorgaben bleiben offen, die neue
+  gilt als gespeichert. Danach schaltet `ansichtAmGeraet()` nur noch um
+  (`/api/device/switch`), und `devSpeichern()` schickt `loxGeraeteListe()`:
+  den gespeicherten Stand der Geräte (offene Änderungen an anderen Geräten
+  gehen nicht mit) und für dieses Gerät Zuordnung, Melder und `ruhe`. Die
+  anderen Geräte behalten ihre gespeicherte Zuordnung, weil `POST /api/devices`
+  `panel` aus dem Bestand einsetzt, wenn es fehlt; Betriebsmodi bleiben. Danach steht der
+  Bento-Editor der neuen Seite offen (Ansichten → Seiten).
+  `tests/browser/test_loxos_assistent_browser.py` hält den Weg fest.
+- **Übersicht „Was ist eingestellt?“** (Fork, `docs/VISION.md`, Stufe 2.5):
+  `config/abweichungen.js`, nach `loxos-assistent.js` geladen. Eine Karte
+  `#abwKarte` oben im Reiter Allgemein der Ansicht; die Vorgaben haben keinen
+  Reiter Allgemein, dort steht sie oben im ersten Reiter Darstellung. Je Zeile
+  ein `ui`-Schlüssel, den die Ansicht selbst setzt (in den Vorgaben jeder
+  gesetzte; leere Objekte und Listen zählen nicht), mit Namen und Reiter aus
+  `ABWEICHUNG_FELDER` (unbekannte mit technischem Namen), Wert (`abwWert()`
+  über `wertText()`; Seiten der Werteleiste mit `seitenName()`, Auswahlwerte
+  wie `tileLayout`, `hausAufbau`, `hausAktivOhne` mit dem Text des Editors),
+  „sonst gilt“ (`wasGiltOhneEigenen()`/`giltText()`, in den
+  Vorgaben der Standard), Sprung zum Reiter (`ABWEICHUNG_REITER_VORGABEN` für
+  die Vorgaben; nicht zu dem Reiter, in dem die Karte steht) und „× zurücksetzen“ (entfernt den Eintrag). „Alles auf
+  Standard“ fragt in der Seite (`.abw-frage`, kein Browser-Dialog) und nennt,
+  was zurückgesetzt wird, in den Vorgaben je Schlüssel „gilt für n von m
+  Ansichten“; die Schlüssel in `ABWEICHUNG_BLEIBT` (Widgets, Werteleiste,
+  Audio-Zone des Widgets, Energie im Kopf der Hausübersicht, Kachel-Set,
+  Farbton, aktive Kachel) bleiben und
+  haben nur ihren eigenen Knopf. Geändert wird die Arbeitskopie (`markDirty()`,
+  dann `renderEditor()`), wirksam mit „Speichern“. Eingehängt mit einem Aufruf
+  `abweichungenEinhaengen()` am Ende von `erbtZeichnen()`, das `renderEditor()`
+  und `markDirty()` rufen; so zeigt die Karte auch Änderungen aus anderen
+  Reitern. Die Liste der `ui`-Schlüssel des Exports steht als
+  `ansicht.PANEL_UI_EXPORT`; `tests/test_abweichungen.py` prüft, dass jeder
+  davon und jeder aus `THEME_UI_KEYS` einen Eintrag mit englischem Namen hat,
+  `tests/browser/test_abweichungen_browser.py` den Weg im Browser.
 - **Der frühere sechsstufige Assistent** (`wz*`, „Selbst zusammenstellen“)
   ist seit 15.10.2026 abgebaut: Was er konnte, leisten „Gerät einrichten“
   (Raum, Haus, Kopie mit Raumtausch, Vorschau, Fertig mit Zuordnung) und der
@@ -3375,7 +3489,24 @@ nur der Melder selbst, wenn der Raum leer wird: Wird ein Melder gewählt,
 während jemand da ist, weckt das Speichern das Gerät; wird er entfernt, fällt
 nur das Halten weg (`on: true, presence: false`), danach gilt wieder die
 Leerlaufzeit. Linux-Panels mit Agent schalten ihr Display per DPMS selbst,
-dort wirkt der Melder nicht. Geprüft in `tests/test_praesenz.py` und
+dort wirkt der Melder nicht.
+
+**Ruhemodus:** `devices[name].ruhe` (nur als echtes `true` und nur mit
+`presence`, sonst verwirft `_sanitize_devices()` es) macht aus „Raum leer“
+keinen Abschaltbefehl: Der Broadcaster schickt weiter `{t:"display", on:false,
+presence:false}` an die Visu des Geräts, schaltet aber dessen Display-Treiber
+nicht aus (`_ruhe_an()`); das Wecken (`on: true`) läuft wie sonst. Auch die
+`idle`-Meldung der Visu schaltet nichts ab. Die Visu zeigt die Ruhe-Ansicht;
+dafür stehen `ruhe` in der `theme`-Nachricht und die Nachricht
+`{t:"ruhe", ruhe}`, die `POST /api/devices` jeder Verbindung mit dem Wert ihres
+Geräts schickt (die Visu dazu §7.1, `ruhe.js`). Ein ausdrücklicher Befehl
+`/api/display?on=0` (etwa aus Loxone) schaltet auch mit `ruhe` ab: Er kommt
+ohne `presence` an und ist kein Melder-Ereignis. Auch ein Agent-Panel mit
+`ruhe` schaltet nie ab: Die Announce-Antwort nennt ihm `dpmsOff` 0
+(`AGENT_DPMS_NIE`) statt der Abschaltzeit, sonst ginge sein Display per
+`xset dpms` aus, während die Visu die Ruhe-Uhr zeigt. Geräte ohne `ruhe` verhalten
+sich wie zuvor. Geprüft in `tests/test_ruhe.py` und
+`tests/browser/test_ruhe_browser.py`. Präsenz-Tests: `tests/test_praesenz.py` und
 `tests/browser/test_praesenz_browser.py`.
 
 ---

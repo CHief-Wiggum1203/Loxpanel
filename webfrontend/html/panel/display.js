@@ -47,7 +47,7 @@ function setNight(on){ const vorher=NIGHT.on; NIGHT.on=!!on; clearTimeout(nightW
 // Mitte jeder Spalte (GESTE_SPALTEN). Wetter, Termine und die zweite Spalte
 // ruhen dann: keine Kamera laeuft die ganze Nacht. "Nachts abdunkeln" wirkt
 // zusaetzlich wie auf jeder Seite.
-function nachtUhrAn(){ return NIGHT.on && NIGHT.uhr; }
+function nachtUhrAn(){ return (NIGHT.on && NIGHT.uhr) || ruheAn(); }   // LoxOS: Ruhemodus - Ruhe-Uhr = Nacht-Uhr (ruhe.js)
 function nachtUhrSetzen(){
   const s=el('saver'), n=el('svNacht'); if(!s || !n) return;
   const an=nachtUhrAn(), vorher=s.classList.contains('nacht');
@@ -98,7 +98,7 @@ function screenOn(){ const f=kiosk(); if(!f) return;
 // Solange der Praesenzmelder des Geraets jemanden sieht, setzt er aus (0) -
 // sonst dunkelte die App trotz Anwesenheit ab.
 function appLeerlauf(){
-  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff(DISP.presence ? 0 : DISP.dpmsOff); }catch(e){} }
+  try{ if(window.LoxKiosk && LoxKiosk.setDisplayOff) LoxKiosk.setDisplayOff((DISP.presence || RUHE) ? 0 : DISP.dpmsOff); }catch(e){} }   // LoxOS: Ruhemodus - nie aus
 function armDpms(){ clearTimeout(dpmsTimer);
   if(window.LoxKiosk) return;   // native LoxPanel-Kiosk-App schaltet selbst ab (eigener Screensaver)
   // Mit Agent schaltet X (xset dpms) nach dpmsOff Sekunden ohne Eingabe ab, auch
@@ -108,6 +108,7 @@ function armDpms(){ clearTimeout(dpmsTimer);
   // und die vergisst die PIN schon.
   if(DISP.agent && DISP.dpmsOff>0){ dpmsTimer=setTimeout(pinVergessen, DISP.dpmsOff*1000); return; }
   if(DISP.agent || DISP.presence || !(DISP.dpmsOff>0)) return;
+  if(RUHE) return;   // LoxOS: Ruhemodus - Display bleibt an, die Ruhe-Uhr kommt ueber nachRuhe()
   // Mit Kiosk-JS (Fully) direkt abschalten; sonst dem Server Leerlauf melden,
   // der schaltet ueber den Display-Treiber des Geraets (Fully REST / WallPanel).
   dpmsTimer=setTimeout(()=>{ pinVergessen(); if(kiosk()) screenOff(); else send({t:'idle'}); }, DISP.dpmsOff*1000); }

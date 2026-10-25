@@ -120,6 +120,8 @@ class Seiten:
                 meta[t] = {"label": (_e.get("name") or "Auswahl"), "iconUrl": _url}
                 if _e.get("widget") == HAUS_TAB:
                     meta[t]["haus"] = True   # ohne eigenes Symbol das Haus der Leiste
+                if isinstance(_e.get("bento"), dict):
+                    meta[t]["bento"] = True   # LoxOS: zwischen Bento-Seiten blaettert die Visu (bento.js)
             elif isinstance(t, str) and t.startswith("cat:"):
                 cat = self.cats.get(t[4:], {})
                 meta[t] = {"label": _clean(cat.get("name")) or "Kategorie",

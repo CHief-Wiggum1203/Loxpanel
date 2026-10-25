@@ -582,6 +582,76 @@ def test_kachel_set_im_konfigurator(cfg_ordner, tmp_path):
     assert st["standard"] == {"tileSet": satz["key"], "tileActive": anders}, st["standard"]
 
 
+def test_edge_farbton_im_konfigurator(cfg_ordner, tmp_path):
+    """Set ohne Standardfarbton (edge): der Regler steht auf der Stellung "regler",
+    "Original" ist gedrueckt und es gibt keinen Umschalter fuer die aktive
+    Kachel. Der Regler setzt tileHueEdge, "Original" loescht ihn; "Nachgerechnet"
+    zeigt drei Zeilen, ohne Wahl die der festen Farben."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {"flur": {"title": "Flur", "tabs": ["favoriten"]}}}),
+                                            encoding="utf-8")
+    edge = next(s for s in TC.kachel_set_liste() if s["key"] == "edge")
+    f = edge["farbton"]
+    assert f["standard"] is None and "aktiv" not in edge
+    wahl = next(a for a in f["auswahl"] if a["wert"] != f["regler"])
+    fest = [f"{k['wert']:.1f}".replace(".", ",") + " : 1" for k in TC.kachel_set_pruefung("edge")]
+    gewaehlt = [f"{k['wert']:.1f}".replace(".", ",") + " : 1" for k in TC.kachel_set_pruefung("edge", wahl["wert"])]
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = dict(STATES)
+        app.panels = konfig.load_panels()
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler, st = [], {}
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1280, "height": 900}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="?panel=flur").click()
+                await pg.locator(".stab[data-sub='aussehen']").click()
+                await pg.locator("#pconfHost [data-ks-set='edge']").click()
+                await pg.wait_for_function("document.querySelectorAll('#fKsExtra [data-ks-paar]').length === 3")
+
+                async def lesen():
+                    return [await pg.locator("#fKsExtra [data-ks-hue]").input_value(),
+                            await pg.locator("#fKsExtra [data-ks-original]").get_attribute("aria-pressed"),
+                            await pg.locator("#fKsExtra [data-ks-aktiv]").count(),
+                            await pg.eval_on_selector_all("#fKsExtra [data-ks-paar] b", "l => l.map(b => b.textContent)")]
+                st["start"] = await lesen()
+                await pg.locator(f"#fKsExtra [data-ks-ton='{wahl['wert']}']").click()
+                await pg.wait_for_function("(soll) => JSON.stringify([...document.querySelectorAll("
+                                           "'#fKsExtra [data-ks-paar] b')].map(b => b.textContent)) === soll",
+                                           arg=json.dumps(gewaehlt, ensure_ascii=False, separators=(",", ":")))
+                st["ton"] = await lesen()
+                await pg.locator("#saveBtn").click()
+                await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
+                st["gespeichert"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]["ui"]
+                await pg.locator("#fKsExtra [data-ks-original]").click()
+                await pg.wait_for_function("(soll) => JSON.stringify([...document.querySelectorAll("
+                                           "'#fKsExtra [data-ks-paar] b')].map(b => b.textContent)) === soll",
+                                           arg=json.dumps(fest, ensure_ascii=False, separators=(",", ":")))
+                st["original"] = await lesen()
+                await pg.locator("#saveBtn").click()
+                await pg.wait_for_function(OFFEN + " === 'Alles gespeichert'")
+                st["geloescht"] = json.loads((cfg_ordner / "panels.json").read_text(encoding="utf-8"))["panels"]["flur"]["ui"]
+                await pg.screenshot(path=str(tmp_path / "konfigurator_edge_farbton.png"), full_page=True)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return st
+    st = asyncio.run(lauf())
+    assert st["start"] == [str(f["regler"]), "true", 0, fest], st["start"]
+    assert st["ton"] == [str(wahl["wert"]), "false", 0, gewaehlt], st["ton"]
+    assert st["gespeichert"] == {"tileSet": "edge", "tileHueEdge": wahl["wert"]}, st["gespeichert"]
+    assert st["original"][1:] == ["true", 0, fest], st["original"]
+    assert st["geloescht"] == {"tileSet": "edge"}, st["geloescht"]
+
+
 def test_seiten_editor_rechnet_die_seitenleiste_mit():
     """Seiten-Editor: ein Set mit Seitenleiste links nimmt dem Raster Breite statt
     Hoehe, das Bild des Editors (seRaster, seGeometrie) zeigt das (raster.js railW)."""

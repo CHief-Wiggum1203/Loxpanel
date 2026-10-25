@@ -46,6 +46,7 @@
       <!-- Übersicht / Beschreibung -->
       <div id="overviewHost" class="ovw">
         <button class="as-start" id="ovGeraetEinrichten" data-i18n>＋ Gerät einrichten</button>
+        <button class="as-start lox-start" id="ovLoxOS" data-i18n>LoxOS-Streifen einrichten</button>   <!-- LoxOS: loxos-assistent.js -->
         <p class="lead" style="margin-top:6px" data-i18n>Ein Gerät, das die Visu öffnet, meldet sich oben von selbst. „Gerät einrichten“ fragt nur, was es zeigen soll – einen Raum, das ganze Haus oder dasselbe wie ein anderes Gerät – und zeigt es sofort.</p>
         <p class="lead">LoxPanel baut auf einem quadratischen <b>480×480-Pane</b> auf – der Größe eines 4″-Wandpanels. Das 4″-Wandpanel zeigt eines, das Tablet zwei – quer nebeneinander (Visu links, Widget rechts), hochkant übereinander (Visu oben, Widget unten). Hier ein Überblick, darunter die einstellbaren Bereiche.</p>
 
@@ -119,6 +120,7 @@
           <div class="actions" style="margin-top:0"><button class="btn prim" id="geraetEinrichtenBtn" data-i18n>＋ Gerät einrichten</button>
             <button class="btn" id="geraetVerbindenBtn" data-i18n>＋ Gerät verbinden</button>
             <button class="btn" id="mzOpenBtn" data-i18n>🧭 Betriebsmodus-Assistent</button>
+            <button class="btn" id="loxOpenBtn" data-i18n>LoxOS-Streifen einrichten</button>   <!-- LoxOS: loxos-assistent.js -->
             <span class="note" style="margin-left:10px" data-i18n>Geführt: Modi → Ansicht je Gerät, mit fertiger Loxone-Adresse.</span></div>
           <div id="geraete"><div class="muted" data-i18n>Suche Geräte…</div></div>
           <div class="toast" id="ag_toast" style="margin-top:8px"></div>
@@ -384,6 +386,8 @@
 <script src="/config/einstellungen.js"></script>
 <script src="/config/geraete.js"></script>
 <script src="/config/sicherung.js"></script>
+<script src="/config/loxos-assistent.js"></script>   <!-- LoxOS: Assistent "LoxOS-Streifen einrichten" -->
+<script src="/config/abweichungen.js"></script>   <!-- LoxOS: Uebersicht "Was ist eingestellt?" -->
 <script src="/config/start.js"></script>
 <!-- Gerät verbinden (Einrichtung neu, Schritt 5): gvOpen(), drei Wege mit je einer Zeile zum Kopieren -->
 <div id="gvOv" class="wzov" hidden>
@@ -426,6 +430,28 @@
       <button class="wzbtn" id="dupCancel">Abbrechen</button>
       <div style="display:flex;gap:10px">
         <button class="wzbtn prim" id="dupGo">Anlegen</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- LoxOS: LoxOS-Streifen einrichten (config/loxos-assistent.js), fuenf Schritte mit Vorschau -->
+<div id="loxOv" class="wzov" hidden>
+  <div class="wzbox ge">
+    <div class="wzhd"><b data-i18n>LoxOS-Streifen einrichten</b><span class="wzstep" id="loxStep"></span><span class="wzstep" id="loxKopf"></span><button class="wzx" id="loxX" title="Schließen" aria-label="Schließen" data-i18n-title="Schließen">✕</button></div>
+    <div class="ge-body">
+      <div class="ge-links" id="loxBody"></div>
+      <div class="ge-rechts">
+        <div class="ge-vorkopf"><span class="wzq" style="margin:0" data-i18n>Vorschau</span><span class="wznote" style="margin:0" id="loxVorMass"></span></div>
+        <div class="ge-vor" id="loxVor"><iframe id="loxFrame" title="Vorschau" data-i18n-title="Vorschau"></iframe></div>
+        <div class="wznote" id="loxVorHinweis"></div>
+      </div>
+    </div>
+    <div class="wzft">
+      <button class="wzbtn" id="loxBack" data-i18n>← Zurück</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="toast" id="loxToast"></span>
+        <button class="wzbtn" id="loxAbbrechen" data-i18n>Abbrechen</button>
+        <button class="wzbtn prim" id="loxNext"></button>
       </div>
     </div>
   </div>

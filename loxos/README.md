@@ -48,7 +48,7 @@ Installer (Windows-Programme lassen sich unter Linux nicht sauber bauen).
 - Umschalten mit dem Tastenkürzel (Standard `Strg+Alt+L`, am Mac `Cmd+Alt+L`),
   mit einem Klick auf das Symbol im Tray oder über dessen Menü.
 - Im Tray außerdem: Neu laden, Konfigurator öffnen, Einstellungen, Autostart,
-  Beenden.
+  Bildschirme wach halten, Beenden.
 
 ## Einstellungen
 
@@ -64,6 +64,7 @@ Einrichtung im Tray schreibt sie.
 | `modus` | Start im `"widget"`- oder `"desktop"`-Modus |
 | `kuerzelModus` | Tastenkürzel zum Umschalten (Electron-Schreibweise) |
 | `autostart` | mit der Anmeldung starten (Windows, macOS) |
+| `bildschirmWach` | verhindert im Widget-Modus, dass der Energiesparplan des PCs die Bildschirme abschaltet (auch den Hauptmonitor); Standard an, im Desktop-Modus ruht die Sperre |
 
 ## Sicherheit
 

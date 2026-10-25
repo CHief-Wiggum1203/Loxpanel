@@ -256,3 +256,67 @@ def test_grenzen_sind_konstanten_im_konfig_modul():
     for name in ("BENTO_SPALTEN_MIN", "BENTO_SPALTEN_MAX", "BENTO_ZEILEN_MIN", "BENTO_ZEILEN_MAX",
                  "BENTO_ZELLE_BAUSTEINE_MAX", "BENTO_URL_MAX", "BENTO_NAME_MAX"):
         assert isinstance(getattr(konfig, name), int)
+
+
+# ---- Vorschlag fuer die Startseite (Assistent Schritt 4) ----------------------------
+
+VOLL = {"energy": "EF", "player": "AZ", "kalender": True}
+FAVS = ["F1", "F2", "F3", "F4", "F5"]
+
+
+def _felder(c):
+    return {(c["x"] + i, c["y"] + j) for i in range(c["w"]) for j in range(c["h"])}
+
+
+def _vorschlag(format_=None, quellen=VOLL, favoriten=FAVS):
+    from bento_format import bento_vorschlag
+    return bento_vorschlag(format_, dict(quellen), list(favoriten))
+
+
+def test_vorschlag_volle_anlage():
+    v = _vorschlag()
+    b = v["bento"]
+    assert (b["cols"], b["rows"]) == (BENTO_SPALTEN_STANDARD, BENTO_ZEILEN_STANDARD)
+    widgets = [c["widget"] for c in b["cells"] if "widget" in c]
+    assert widgets == ["clock", "weather", "player:AZ", "energy:EF", "calendar"]
+    uhr = b["cells"][0]
+    assert (uhr["x"], uhr["y"], uhr["w"], uhr["h"]) == (0, 0, 1, BENTO_ZEILEN_STANDARD)
+    assert all((c["w"], c["h"]) == (2, 1) for c in b["cells"] if c.get("widget") in ("weather", "player:AZ", "energy:EF"))
+    favs = [c for c in b["cells"] if "ids" in c]
+    assert all((c["w"], c["h"]) == (1, 1) and len(c["ids"]) == 1 for c in favs)
+    # die Favoriten in Reihenfolge, so viele wie frei sind (12 Felder - 2 - 2*3 - 1 = 3)
+    assert [c["ids"][0] for c in favs] == FAVS[:3] == v["picks"]
+    alle = [f for c in b["cells"] for f in _felder(c)]
+    assert len(alle) == len(set(alle)) == 12     # nichts ueberlappt, alles im Raster, voll belegt
+    assert all(0 <= x < b["cols"] and 0 <= y < b["rows"] for x, y in alle)
+
+
+def test_vorschlag_mit_karger_anlage():
+    v = _vorschlag(quellen={"energy": None, "player": None, "kalender": False}, favoriten=["F1"])
+    assert [c.get("widget") or c["ids"] for c in v["bento"]["cells"]] == ["clock", "weather", ["F1"]]
+    assert v["picks"] == ["F1"]
+
+
+def test_vorschlag_ohne_quellen_gibt_den_platz_den_favoriten():
+    voll = _vorschlag()["bento"]["cells"]
+    karg = _vorschlag(quellen={"energy": None, "player": None, "kalender": False})["bento"]["cells"]
+    assert sum("ids" in c for c in karg) == len(FAVS) and sum("ids" in c for c in voll) < len(FAVS)
+
+
+def test_vorschlag_laesst_favoriten_der_widget_zellen_weg():
+    v = _vorschlag(favoriten=["AZ", "F1", "EF", "F1"])
+    assert v["picks"] == ["F1"]
+
+
+@pytest.mark.parametrize("quellen,favs", [(VOLL, FAVS), ({"energy": None, "player": None, "kalender": False}, ["F1"]),
+                                           (VOLL, [])])
+def test_vorschlag_besteht_bento_seite(quellen, favs):
+    v = _vorschlag(quellen=quellen, favoriten=favs)
+    assert _bento_seite(v["bento"], v["picks"]) == v["bento"]
+
+
+def test_vorschlag_ohne_format_nimmt_standard():
+    from bento_format import BENTO_FORMAT_STANDARD
+    assert _vorschlag()["bento"]["format"] == BENTO_FORMAT_STANDARD == {"vw": 2560, "vh": 720}
+    assert _vorschlag({"vw": 1920, "vh": 480})["bento"]["format"] == {"vw": 1920, "vh": 480}
+
