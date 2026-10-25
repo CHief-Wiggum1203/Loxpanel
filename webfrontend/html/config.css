@@ -705,6 +705,12 @@
 .be-lage label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);}
 .be-lage input{width:100%;box-sizing:border-box;}
 .be-weg{color:var(--crit);align-self:flex-start;}
+.be-knoepfe{display:flex;flex-direction:column;gap:8px;}
+.be-knopf{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--line);border-radius:10px;}
+.be-kkopf{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;}
+.be-kkopf b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.be-kkopf .x{cursor:pointer;color:var(--muted);padding:0 4px;}
+.be-knopf select,.be-knopf input[type=text]{width:100%;box-sizing:border-box;}
 /* ---- LoxOS (Fork, docs/VISION.md): Assistent „LoxOS-Streifen einrichten" (config/loxos-assistent.js) ---- */
 .as-start.lox-start{margin-left:8px;}
 #loxOv .wzstep + .wzstep{margin-left:8px;}

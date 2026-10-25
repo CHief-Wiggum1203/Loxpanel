@@ -65,7 +65,8 @@ from routen.oberflaeche import (  # noqa: E402
     config_css, config_index, config_js, i18n_js, index, panel_teil, raster_js, settings_index)
 from routen.visu import ws_handler  # noqa: E402
 from routen.konfigurator import (  # noqa: E402
-    api_bento_vorschlag, api_entwurf, api_kachelset, api_meta, api_save_panels, api_save_theme, api_types)
+    api_bento_aktionen, api_bento_vorschlag, api_entwurf, api_kachelset, api_meta, api_save_panels, api_save_theme,
+    api_types)
 from routen.einstellungen import (  # noqa: E402
     api_backup, api_restore, api_settings, api_settings_audiometa, api_settings_calendar, api_settings_ms,
     api_settings_night)
@@ -418,6 +419,7 @@ def main() -> None:
     a.router.add_get("/api/meta", api_meta)
     a.router.add_get("/api/kachelset", api_kachelset)
     a.router.add_get("/api/bento/vorschlag", api_bento_vorschlag)   # LoxOS: Assistent, Startseite
+    a.router.add_get("/api/bento/aktionen", api_bento_aktionen)   # LoxOS: Knoepfe der Schnellaktionen
     a.router.add_post("/api/panels", api_save_panels)
     a.router.add_post("/api/entwurf", api_entwurf)
     a.router.add_post("/api/theme", api_save_theme)

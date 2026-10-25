@@ -125,6 +125,33 @@ html[data-kachelset-leiste="links"] .screen.bento.bentovoll{padding-left:0;}
 .grid.bento .bz-ansicht{position:absolute;inset:0;overflow:hidden;border-radius:inherit;}
 .grid.bento .bz-ansicht > iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0;transform-origin:0 0;}
 
+/* Schnellaktionen: Knoepfe in einem Raster (Spalten/Zeilen aus bentoSchnell),
+   Symbol ueber dem Namen, darunter klein die Aktion. Aussehen und an-Zustand
+   wie die Kacheln (Kachel-Set: --taste, --kachel-an), Groessen mit --ks. */
+.grid.bento .bz-schnell{position:absolute;inset:0;display:grid;box-sizing:border-box;
+  grid-template-columns:repeat(var(--sk-sp,1),minmax(0,1fr));grid-template-rows:repeat(var(--sk-zl,1),minmax(0,1fr));
+  gap:calc(8px * var(--ks,1));padding:calc(8px * var(--ks,1));}
+.grid.bento .bz-sk{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:calc(4px * var(--ks,1));padding:calc(6px * var(--ks,1));border:0;cursor:pointer;font:inherit;color:var(--ink);
+  border-radius:calc(var(--kachel-radius,16px) * .7);background:var(--taste,rgba(var(--wash,255,255,255),.06));
+  transition:background .16s,transform .07s;}
+.grid.bento .bz-sk:active{transform:scale(.96);}
+.grid.bento .bz-sk.on{background:var(--kachel-an,rgba(var(--on-rgb,224,162,77),var(--ov-fill,.16)));}
+.grid.bento .bz-sk .ico{color:var(--ico-fixed,var(--ink));display:flex;}
+.grid.bento .bz-sk .ico svg,.grid.bento .bz-sk .ico.img{width:calc(30px * var(--ks,1));height:calc(30px * var(--ks,1));}
+.grid.bento .bz-sk .ico.img{display:inline-block;background-color:var(--ico-fixed,var(--ink));
+  -webkit-mask:var(--u) no-repeat center/contain;mask:var(--u) no-repeat center/contain;}
+.grid.bento .bz-sk.on .ico{color:var(--ico-fixed,var(--glow));}
+.grid.bento .bz-sk.on .ico.img{background-color:var(--ico-fixed,var(--glow));}
+.grid.bento .bz-skn{max-width:100%;font-size:calc(14px * var(--ks,1));font-weight:600;line-height:1.15;text-align:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.grid.bento .bz-skz{max-width:100%;font-size:calc(12px * var(--ks,1));color:var(--muted);line-height:1.1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.grid.bento .bz-sk.on .bz-skz{color:var(--an-text,var(--glow));}
+.grid.bento .bz-sk.arm{box-shadow:inset 0 0 0 2px var(--warn);}
+.grid.bento .bz-sk:disabled{opacity:.4;cursor:default;}
+.grid.bento .bz-sk.gesperrt .bz-skz{color:var(--warn);}
+
 /* Wetter und Kalender in flachen Zellen (Hoehe nicht "gross"): Wetter ohne
    Ueberschrift und Stundenkurve, nur Lage und Vorschau; Kalender nur die
    Termine. Schmale Zellen zeigen weniger Vorschautage. */
