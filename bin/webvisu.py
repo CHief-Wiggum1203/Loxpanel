@@ -60,6 +60,7 @@ from diagnosedaten import Diagnosedaten  # noqa: E402  # Diagnose und /api/types
 from ansicht import Ansicht  # noqa: E402  # Profil, Theme, Export
 from seiten import Seiten  # noqa: E402  # Seiten, Kacheln, Detailseiten
 from bento import Bento  # noqa: E402  # LoxOS: Bento-Seiten (Fork, docs/VISION.md)
+from systemstatus import Systemstatus  # noqa: E402  # LoxOS: Widget Systemstatus
 # Routen-Handler je Thema (routen/); main() traegt sie unten in die Routentabelle ein.
 from routen.oberflaeche import (  # noqa: E402
     config_css, config_index, config_js, i18n_js, index, panel_teil, raster_js, settings_index)
@@ -85,7 +86,7 @@ log = logging.getLogger("loxpanel.webvisu")
 
 class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
           Geraete, Audiodienst, Intercomdienst, Front, Verteilung, Medien, Diagnosedaten, Ansicht, Seiten,
-          Bento):   # Bento: LoxOS (Fork, docs/VISION.md)
+          Bento, Systemstatus):   # Bento, Systemstatus: LoxOS (Fork, docs/VISION.md)
     # Pruefen und Exportieren der Konfiguration liegt in konfig.py; hier als
     # statische Methoden erreichbar, weil Server, Sicherung und Tests sie so rufen.
     _sanitize_panels = staticmethod(konfig._sanitize_panels)
@@ -174,6 +175,7 @@ class App(Statistik, BausteinHelfer, Haus, Gesten, Miniserver,
         self._struct_sig: str | None = None   # Signatur der Loxone-Struktur (erkennt Config-Aenderungen)
         self._pending_reload = False          # -> Panels beim naechsten Tick neu laden ({t:"reload"})
         self.global_states: dict = {}   # globale States der Anlage (Name -> UUID), s. _apply_structure
+        self.meldezentrale: dict = {}   # LoxOS: States des Systemstatus (messageCenter), s. _apply_structure
         self.op_modes: dict = {}        # Betriebsarten der Anlage (Id -> Name), s. _apply_structure
         self._night_on = False          # Nachtmodus aktiv? (-> {t:"night"} an die Panels)
         self.night_cfg = _night_config()  # {"control": uuid} -> dessen active-State = Nacht
@@ -341,7 +343,8 @@ async def on_startup(a: web.Application) -> None:
                   "broadcaster": asyncio.create_task(app.broadcaster()),
                   "audio": asyncio.create_task(app.audio_events_task()),
                   "front": asyncio.create_task(app.front_task()),
-                  "bento": asyncio.create_task(app.bento_task())}   # LoxOS: Webseiten pruefen
+                  "bento": asyncio.create_task(app.bento_task()),     # LoxOS: Webseiten pruefen
+                  "system": asyncio.create_task(app.system_task())}   # LoxOS: Systemstatus abfragen
     a["started"] = time.monotonic()
 
 

@@ -42,6 +42,11 @@ BENTO_ANSICHT = "ansicht:"
 BENTO_SCHNELL = "schnell"
 BENTO_KNOEPFE_MAX = 12
 BENTO_AKTION_MAX = 60
+# Systemstatus: was der Miniserver ueber sich hergibt (systemstatus.py)
+BENTO_SYSTEM = "system"
+# Widgets ohne Quelle, die es nur hier gibt (nicht als Widget-Seite);
+# Uhr, Wetter und Kalender kennt auch die Grammatik der Widget-Seiten
+BENTO_FESTE = (BENTO_UHR, BENTO_IFRAME, BENTO_SCHNELL, BENTO_SYSTEM)
 # Ab welchem Seitenverhaeltnis (Breite/Hoehe) ein Schirm ein Streifen ist; gleich
 # der Schwelle der Huelle (loxos/src/monitor.js, ein Test vergleicht beide)
 STREIFEN_AB = 2.5

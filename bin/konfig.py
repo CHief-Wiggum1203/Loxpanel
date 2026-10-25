@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 
 import theme_colors
-from bento_format import (BENTO_IFRAME, BENTO_SCHNELL, BENTO_UHR, bento_ansicht_widget, bento_seite,  # noqa: F401 (LoxOS)
+from bento_format import (BENTO_FESTE, bento_ansicht_widget, bento_seite,  # noqa: F401 (LoxOS)
                           BENTO_NAME_MAX, BENTO_SPALTEN_MAX, BENTO_SPALTEN_MIN, BENTO_SPALTEN_STANDARD,
                           BENTO_URL_MAX, BENTO_ZEILEN_MAX, BENTO_ZEILEN_MIN, BENTO_ZEILEN_STANDARD,
                           BENTO_ZELLE_BAUSTEINE_MAX, _clean_iframe_url)
@@ -646,9 +646,9 @@ def _clean_widget_tab(v) -> str:
 # ---- LoxOS (Fork, docs/VISION.md): Bento-Seiten, Pruefung in bento_format ----
 def _bento_widget(v) -> str:
     """Widget einer Bento-Zelle: Grammatik der Widget-Seiten (_clean_widget_tab)
-    ohne die Hausuebersicht - die ist eine ganze Seite -, dazu Uhr, Webseite,
-    Schnellaktionen und Raum-Display (eine ganze Ansicht, bento_ansicht_widget)."""
-    if v in (BENTO_UHR, BENTO_IFRAME, BENTO_SCHNELL) or bento_ansicht_widget(v):
+    ohne die Hausuebersicht - die ist eine ganze Seite -, dazu die Widgets ohne
+    Quelle (BENTO_FESTE) und das Raum-Display (eine ganze Ansicht)."""
+    if v in BENTO_FESTE or bento_ansicht_widget(v):
         return v
     w = _clean_widget_tab(v)
     return "" if w == HAUS_TAB else w

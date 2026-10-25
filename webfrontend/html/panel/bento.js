@@ -195,6 +195,7 @@ function bentoFuellen(z, c){
   else if(art==='iframe') bentoWebseite(z, c);
   else if(art==='ansicht') bentoAnsicht(z, c);
   else if(art==='schnell') bentoSchnell(z, c);
+  else if(art==='system') bentoSystem(z, c);
 }
 
 // Fester Innenkasten einer Widget-Zelle: die Pane-Renderer zeichnen dort
@@ -442,6 +443,31 @@ function bentoKnopf(btn, k){
   }
   clearTimeout(btn._armT); btn._armed=false; btn.classList.remove('arm'); n.textContent=k.name;
   if(k.cmd) sendCmd(k.cmd.uuid, k.cmd.cmd, !!k.secured);
+}
+
+// ---- Systemstatus (systemstatus.py) ---------------------------------------------
+// Kopf mit Miniserver und Verbindung, die letzte Mitteilung (Stufe und Zeit,
+// Titel, Text), darunter Gruppen mit Name und Wert. Alle Texte kommen fertig
+// vom Server; breite Zellen stellen die Gruppen nebeneinander (bento.css).
+// Neue Werte zeichnen die Zelle neu, die Scrollposition bleibt.
+function bentoSystem(z, c){
+  const s=c.system;
+  if(!s){ bentoHinweis(z, 'Systemstatus nicht verfügbar'); return; }
+  const k=s.kopf||{}, m=s.meldung, alt=z.querySelector(':scope > .bz-system'), oben=alt ? alt.scrollTop : 0;
+  z.innerHTML='<div class="bz-system">'+
+    '<div class="bz-sy-kopf'+(k.ok ? ' ok' : ' weg')+'"><span class="bz-sy-punkt"></span>'+
+      '<span class="bz-sy-name">'+esc(k.name||'')+'</span>'+
+      (k.typ ? '<span class="bz-sy-typ">'+esc(k.typ)+'</span>' : '')+
+      '<span class="bz-sy-verb">'+esc(k.text||'')+'</span></div>'+
+    (m ? '<div class="bz-sy-meldung'+(m.stufe ? ' stufe'+m.stufe : '')+'">'+
+      (m.stufeText || m.zeit ? '<div class="bz-sy-mkopf">'+(m.stufeText ? '<span class="bz-sy-stufe">'+esc(m.stufeText)+'</span>' : '')+
+        (m.zeit ? '<span class="bz-sy-mzeit">'+esc(m.zeit)+'</span>' : '')+'</div>' : '')+
+      (m.titel ? '<div class="bz-sy-mtitel">'+esc(m.titel)+'</div>' : '')+
+      (m.text ? '<div class="bz-sy-mtext">'+esc(m.text)+'</div>' : '')+'</div>' : '')+
+    '<div class="bz-sy-gruppen">'+(s.gruppen||[]).map(g=>'<div class="bz-sy-gruppe"><div class="bz-sy-titel">'+esc(g.titel||'')+'</div>'+
+      (g.zeilen||[]).map(r=>'<div class="bz-sy-zeile"><span class="k">'+esc(r.k||'')+'</span><span class="v">'+esc(r.v||'')+'</span></div>').join('')+
+      '</div>').join('')+'</div></div>';
+  z.firstChild.scrollTop=oben;
 }
 
 // ---- Wischen zwischen Bento-Seiten ----------------------------------------------

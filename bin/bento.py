@@ -26,7 +26,7 @@ import logging
 import aiohttp
 
 from bausteine.gemeinsam import _clean
-from bento_format import BENTO_ANSICHT, BENTO_IFRAME, BENTO_SCHNELL
+from bento_format import BENTO_ANSICHT, BENTO_IFRAME, BENTO_SCHNELL, BENTO_SYSTEM
 from konfig import _pick_tabs
 from statistik import STAT_DEFAULT_RANGE
 
@@ -148,6 +148,8 @@ class Bento:
                 d.update(self._bento_ansicht(w[len(BENTO_ANSICHT):], prof))
             elif w == BENTO_SCHNELL:
                 d["knoepfe"] = [self._bento_knopf(k, prof) for k in c.get("knoepfe") or ()]
+            elif w == BENTO_SYSTEM:
+                d["system"] = self._bento_system()
             elif art == "player":
                 pb = self.player_blocks(arg)
                 if pb is not None:
