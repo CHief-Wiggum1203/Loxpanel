@@ -54,9 +54,12 @@
         }
       ],
       "category": "public.app-category.utilities",
-      "identity": null,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "LSUIElement": true
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "LoxOS braucht das Mikrofon zum Gegensprechen an der Türstation."
       },
       "artifactName": "LoxOS-${version}-mac.${ext}"
     },

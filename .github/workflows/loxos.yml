@@ -3,8 +3,10 @@ name: LoxOS
 # LoxOS-Huelle (Fork, docs/VISION.md): baut die Installer auf den echten
 # Systemen - Windows (NSIS), macOS (DMG, universal) und Linux (AppImage) - bei
 # jedem loxos-v*-Tag und manuell. Die Version kommt aus loxos/package.json, der
-# Tag muss dazu passen. Ohne Signatur: Windows zeigt beim ersten Start
-# SmartScreen, macOS Gatekeeper (loxos/README.md: wie man es freigibt).
+# Tag muss dazu passen. Windows ist nicht signiert (SmartScreen fragt beim
+# ersten Start). macOS wird signiert und von Apple beglaubigt, sobald die
+# Secrets dafuer im Repo stehen (loxos/README.md "Signierte Mac-Version");
+# ohne sie baut der Workflow die Mac-Version unsigniert wie bisher.
 
 on:
   push:
@@ -23,6 +25,10 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # "true", sobald das Developer-ID-Zertifikat als Secret hinterlegt ist;
+      # die Secrets selbst stehen nur im Schritt, der signiert
+      MAC_SIGNIEREN: ${{ secrets.MAC_ZERTIFIKAT_P12 != '' }}
     defaults:
       run:
         working-directory: loxos
@@ -50,11 +56,43 @@ jobs:
       - name: Tests der Logik
         run: npm test
 
+      # bash auch unter Windows: PowerShell verschluckt das "--" vor der Option
       - name: Installer bauen
-        run: npm run dist
+        if: runner.os != 'macOS' || env.MAC_SIGNIEREN != 'true'
+        shell: bash
+        run: npm run dist -- -c.mac.identity=null
         env:
           # kein Zertifikat zum Signieren: nicht danach suchen
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      # electron-builder legt das Zertifikat (CSC_LINK, Base64 der .p12) in
+      # einen eigenen Schluesselbund, signiert mit Hardened Runtime und den
+      # Rechten aus build/entitlements.mac.plist und laesst die App ueber den
+      # App-Store-Connect-Schluessel von Apple beglaubigen (notarytool, danach
+      # angeheftet), bevor er das DMG baut. Fehlt einer der Schluesselwerte,
+      # bricht er ab, statt still unbeglaubigt zu bauen.
+      - name: Installer bauen (macOS, signiert und beglaubigt)
+        if: runner.os == 'macOS' && env.MAC_SIGNIEREN == 'true'
+        run: |
+          printf '%s\n' "$APPLE_API_KEY_INHALT" > "$RUNNER_TEMP/apple-api-key.p8"
+          APPLE_API_KEY="$RUNNER_TEMP/apple-api-key.p8" npm run dist
+        env:
+          CSC_LINK: ${{ secrets.MAC_ZERTIFIKAT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_ZERTIFIKAT_KENNWORT }}
+          APPLE_API_KEY_INHALT: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Signatur und Beglaubigung pruefen
+        if: runner.os == 'macOS' && env.MAC_SIGNIEREN == 'true'
+        run: |
+          app=$(ls -d dist/mac*/LoxOS.app | head -n 1)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          # erst ganz lesen: grep -q bricht die Pipe beim ersten Treffer ab (pipefail)
+          rechte=$(codesign -d --entitlements - "$app" 2>/dev/null)
+          grep -q com.apple.security.device.audio-input <<< "$rechte"
+          spctl --assess --type execute --verbose=4 "$app"
+          xcrun stapler validate "$app"
 
       - name: Als Artefakt (auch ohne Tag)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
