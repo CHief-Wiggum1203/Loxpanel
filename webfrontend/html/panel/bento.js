@@ -193,6 +193,7 @@ function bentoFuellen(z, c){
     bentoSpieler(z, c.player);
   }
   else if(art==='iframe') bentoWebseite(z, c);
+  else if(art==='ansicht') bentoAnsicht(z, c);
 }
 
 // Fester Innenkasten einer Widget-Zelle: die Pane-Renderer zeichnen dort
@@ -367,6 +368,38 @@ function bentoWebseite(z, c){
   f.src=c.url;
 }
 
+// ---- Raum-Display (eine ganze Ansicht) ---------------------------------------------
+// Die Ansicht laeuft als eigene Visu derselben Herkunft im iframe (eingebettet.js
+// haelt ihre Regeln). Mit format (Bildschirm ihres Zielgeraets, bento.py) hat der
+// iframe genau diese Groesse und wird in die Zelle eingepasst - die Zelle zeigt
+// sie wie auf dem Display, fuer das sie gebaut ist; ohne format fuellt er die
+// Zelle. Gleiche Ansicht -> der iframe bleibt (kein Neuladen bei jedem Push).
+function bentoAnsicht(z, c){
+  const a=c.ansicht;
+  if(EINGEBETTET){ bentoHinweis(z, 'Ein Raum-Display zeigt kein weiteres Raum-Display'); return; }
+  if(!a){ bentoHinweis(z, 'Ansicht nicht gefunden'); return; }
+  if(a.selbst){ bentoHinweis(z, 'Diese Ansicht kann sich nicht selbst zeigen'); return; }
+  if(z._ansicht===a.id && z.querySelector('iframe')){ bentoAnsichtEinpassen(z); return; }
+  z._ansicht=a.id;
+  z.innerHTML='<div class="bz-ansicht"><iframe></iframe></div>';
+  const f=z.querySelector('iframe');
+  f.title=a.name;
+  const u=new URL(location.pathname, location.href);
+  u.searchParams.set('panel', a.id); u.searchParams.set('eingebettet', '1');
+  f.src=u.toString();
+  if(!z._einpassen && window.ResizeObserver){ z._einpassen=new ResizeObserver(()=>bentoAnsichtEinpassen(z)); z._einpassen.observe(z); }
+  bentoAnsichtEinpassen(z);
+}
+function bentoAnsichtEinpassen(z){
+  const f=z.querySelector('.bz-ansicht > iframe'), fm=z._c && z._c.ansicht && z._c.ansicht.format;
+  if(!f) return;
+  if(!fm){ f.style.width=f.style.height='100%'; f.style.transform=''; return; }
+  const b=z.clientWidth, h=z.clientHeight; if(!(b>0 && h>0)) return;
+  const k=Math.min(b/fm.vw, h/fm.vh);
+  f.style.width=fm.vw+'px'; f.style.height=fm.vh+'px';
+  f.style.transform='translate('+((b-fm.vw*k)/2).toFixed(1)+'px,'+((h-fm.vh*k)/2).toFixed(1)+'px) scale('+k.toFixed(4)+')';
+}
+
 // ---- Wischen zwischen Bento-Seiten ----------------------------------------------
 // In einer Ansicht mit mindestens zwei Bento-Seiten blaettert ein Finger
 // waagerecht zur naechsten bzw. vorigen Bento-Seite der Leiste (normale Seiten
@@ -384,9 +417,9 @@ const BENTO_KLICKSPERRE_MS=GESTE_KLICKSPERRE_MS;   // nach einem Wisch so lange 
 const BENTO_QUER_TOLERANZ_PX=1;     // so viel breiter darf der Inhalt sein, ohne als Scroller zu gelten (Rundung)
 // Wo ein Wisch nicht blaettert, weil das Element ihn selbst braucht: Tasten der
 // Kachel, Kopf-Taste, Spieler und Lautstaerke der Zelle, Regler, Knoepfe,
-// Verlauf und Webseite
+// Verlauf, Webseite und Raum-Display
 const BENTO_WISCH_AUS='.tctrls, .ktaste, .bz-trans, .bz-vol, input, button, select, textarea, '+
-                      '.bz[data-widget="chart"], .bz[data-widget="iframe"]';
+                      '.bz[data-widget="chart"], .bz[data-widget="iframe"], .bz[data-widget="ansicht"]';
 let bentoWisch=null;        // {x, y}: laufender Wisch eines Fingers
 let bentoKlickSperre=0;
 let bentoUebergang=null;    // {tab, t, timer, da}: laufender Uebergang

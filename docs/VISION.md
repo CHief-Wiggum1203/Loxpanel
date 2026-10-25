@@ -23,6 +23,7 @@ dort als Wahrheit. Hier bleibt die Richtung.
 | Widget | Inhalt ohne eigenen Loxone-Baustein-Typ: Uhr, Wetter, Kalender, Audio, Energie, Kamera, Verlauf, Werte, Webseite |
 | Fließraster | Das heutige Raster freier Seiten: Kacheln fließen in Reihenfolge, die Visu rechnet die Position |
 | Hülle | Die Desktop-App „LoxOS“ (Electron), die die Visu auf dem Streifen zeigt |
+| Raum-Display | Zelle, die eine ganze gespeicherte Ansicht (etwa die eines 480×480-Raumpanels) als eigene Visu zeigt |
 | Edge-Look | Das Kachel-Set `edge` (Aufbau `lx`, Leiste `links`) |
 
 ## Was Bento ist – und was nicht
@@ -74,6 +75,15 @@ Bento-Seiten mit weichem Übergang.
 Audio-Zelle mit Raum und Raumfavoriten, LoxOS-Assistent (Streifen in fünf
 Schritten einrichten), Übersicht „Was ist eingestellt?“ mit „Alles auf
 Standard“.
+
+### Stufe 2.6 – Mehr auf dem Streifen
+
+Festgelegt am 25.10.2026: Raum-Display (eine ganze Ansicht in einer Zelle,
+in der Form ihres Zielgeräts), Widget „Schnellaktionen“ (Knöpfe mit Icon,
+deren Aktionen die Detailseite des Bausteins anbietet), Widget
+„Systemstatus“ (was der Miniserver über Struktur und Schnittstelle hergibt,
+dazu der Zustand von Loxpanel), Hülle für macOS signiert und beglaubigt.
+Je Punkt ein PR; umgesetzt ist, was in `ARCHITEKTUR.md` steht.
 
 ### Stufe 3 – Ereignisse
 
@@ -471,7 +481,7 @@ LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 
 - **Neue Dateien statt Änderungen.** Logik steht in eigenen Modulen
   (`bin/bento_format.py`, `bin/bento.py`, `panel/bento.js`, `panel/bento.css`,
-  `config/bento-editor.js`, `loxos/`).
+  `panel/eingebettet.js`, `config/bento-editor.js`, `loxos/`).
 - **Kleine Andockstellen** in Upstream-Dateien, jede als zusammenhängender
   Block: Aufruf des Prüfers in `_sanitize_panels()` und `_pick_tabs()`
   (`konfig.py`, laut `CLAUDE.md` der Pflichtort; die Prüfung selbst steht in

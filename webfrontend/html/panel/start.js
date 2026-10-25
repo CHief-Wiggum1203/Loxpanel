@@ -7,8 +7,9 @@ setInterval(neuladenPruefen, 60*1000);
 function wake(){ screenOn(); nightWake(); hideSaver(); resetIdle(); }
 setInterval(tickClock, 1000);
 // Startseite = Uhr; ein Vorschaufenster (?entwurf=, Konfigurator "Geraet einrichten"
-// und Editor) zeigt gleich den Inhalt - dort will jemand die Ansicht sehen, nicht die Uhr
-if(ENTWURF) hideSaver(); else showSaver();
+// und Editor) zeigt gleich den Inhalt - dort will jemand die Ansicht sehen, nicht die Uhr.
+// LoxOS: ebenso eine Raum-Display-Zelle (EINGEBETTET), die Uhr zeigt die Visu um sie
+if(ENTWURF || EINGEBETTET) hideSaver(); else showSaver();
 resetIdle();
 
 connect();

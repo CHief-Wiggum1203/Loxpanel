@@ -8,6 +8,10 @@ const PANEL_ID = new URLSearchParams(location.search).get('panel') || '';
 // unter diesem Token im Speicher gehalten (/api/entwurf). Laeuft er ab, zeigt die
 // Visu das gespeicherte Profil und sagt es (entwurfZeigen).
 const ENTWURF = new URLSearchParams(location.search).get('entwurf') || '';
+// LoxOS: Visu in einer Raum-Display-Zelle einer Bento-Seite (?eingebettet=1,
+// bento.js und eingebettet.js) - kein Geraet, keine Uhr-Seite, keine eigene
+// Display-Steuerung; das macht die Visu um die Zelle
+const EINGEBETTET = new URLSearchParams(location.search).get('eingebettet')==='1';
 function entwurfZeigen(gilt){
   const m=el('entwurfMarke'); if(!m) return;
   if(!ENTWURF || gilt===undefined || gilt===null){ m.classList.add('hidden'); return; }
@@ -20,6 +24,7 @@ function entwurfZeigen(gilt){
 // unter Einstellungen -> Panels vergebener Name (t:'setdevice', localStorage).
 let DEVICE_ID = new URLSearchParams(location.search).get('device') || '';
 try{ if(!DEVICE_ID) DEVICE_ID = localStorage.getItem('lp_device') || ''; }catch(e){}
+if(EINGEBETTET) DEVICE_ID='';   // LoxOS: der localStorage ist der der Visu um die Zelle
 let LANG='de-DE';   // Panel-Sprache (aus dem Profil, Server sendet sie im theme); steuert Datum/Uhr
 // Horizontaler Feinversatz der ganzen Visu — live einstellbar ohne Redeploy:
 //   ?x=-6  -> 6px nach links     ?x=8 -> nach rechts     ?x=0 -> zuruecksetzen
@@ -114,6 +119,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(ENTWURF) q.push('entwurf='+encodeURIComponent(ENTWURF));
+  if(EINGEBETTET) q.push('eingebettet=1');   // LoxOS: Raum-Display-Zelle
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
   else if(KOPPLUNG) q.push('code='+encodeURIComponent(KOPPLUNG));   // Kopplungscode behalten (s. zeigeKopplung)
   const kk=kioskKind(); if(kk) q.push('kiosk='+kk);   // Kiosk-App melden -> Typ in der Geraeteliste

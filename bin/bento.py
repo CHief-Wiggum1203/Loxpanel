@@ -26,7 +26,7 @@ import logging
 import aiohttp
 
 from bausteine.gemeinsam import _clean
-from bento_format import BENTO_IFRAME
+from bento_format import BENTO_ANSICHT, BENTO_IFRAME
 from konfig import _pick_tabs
 from statistik import STAT_DEFAULT_RANGE
 
@@ -128,22 +128,25 @@ class Bento:
                     continue
                 z["items"] = items
             else:
-                z.update(self._bento_widget_daten(c))
+                z.update(self._bento_widget_daten(c, prof))
             zellen.append(z)
         return {"t": "view", "title": entry.get("name") or "", "tab": tab,
                 "route": {"view": "tab", "tab": tab}, "items": [],
                 "bento": {"cols": b["cols"], "rows": b["rows"]}, "cells": zellen}
 
-    def _bento_widget_daten(self, c: dict) -> dict:
+    def _bento_widget_daten(self, c: dict, prof: dict | None = None) -> dict:
         """Inhalt einer Widget-Zelle. Fehlt die Quelle (Baustein geloescht,
         Zone unbekannt), bleibt nur der Widget-Name stehen und die Visu zeigt
         die Zelle als nicht verfuegbar; scheitert ein Blockbauer, steht
-        fehler=True - eine kaputte Zelle darf die Seite nicht mitreissen."""
+        fehler=True - eine kaputte Zelle darf die Seite nicht mitreissen.
+        prof = Profil der Seite (das Raum-Display darf nicht sich selbst zeigen)."""
         w = c["widget"]
         d: dict = {"widget": w}
         art, _, arg = w.partition(":")
         try:
-            if art == "player":
+            if w.startswith(BENTO_ANSICHT):
+                d.update(self._bento_ansicht(w[len(BENTO_ANSICHT):], prof))
+            elif art == "player":
                 pb = self.player_blocks(arg)
                 if pb is not None:
                     d["player"] = self._bento_pane("player", arg, pb)
@@ -169,6 +172,55 @@ class Bento:
             log.exception("Bento-Zelle %s fehlgeschlagen", w)
             d["fehler"] = True
         return d
+
+    def _bento_ansicht(self, pid: str, prof: dict | None) -> dict:
+        """Raum-Display: eine gespeicherte Ansicht, die die Visu in der Zelle
+        als eigene, eingebettete Visu laedt (?panel=<pid>&eingebettet=1).
+        format = Bildschirm des Zielgeraets der Ansicht (profil.device): in
+        dieser Groesse rendert die Zelle sie und passt sie dann ein, so sieht
+        sie aus wie auf dem Display, fuer das sie gebaut ist; ohne Zielgeraet
+        mit Groesse fuellt sie die Zelle. Unbekannt -> {} (die Visu sagt "nicht
+        gefunden"); die eigene Ansicht -> selbst=True (sie zeigte sich sonst
+        endlos in sich selbst)."""
+        roh = self.panels.get(pid)
+        if not isinstance(roh, dict):
+            return {}
+        a: dict = {"id": pid, "name": _clean(roh.get("title")) or pid}
+        ziel = roh.get("device") or {}
+        if ziel.get("vw") and ziel.get("vh"):
+            a["format"] = {"vw": ziel["vw"], "vh": ziel["vh"]}
+        if (prof or {}).get("id") == pid:
+            a["selbst"] = True
+        return {"ansicht": a}
+
+    # ---- Die Visu in einer Raum-Display-Zelle (?eingebettet=1) ----------------
+    def _eingebettet(self, ws) -> bool:
+        """Ist die Verbindung die Visu einer Raum-Display-Zelle? Sie ist kein
+        Geraet: kein Kopplungscode, nicht in der Geraeteliste, keine Klingel,
+        kein Wecker, keine Nacht, keine Display-Befehle und keine Pushes an
+        Ansicht oder Geraet ausser dem Neuladen (Ansicht gespeichert) - das
+        alles macht die Visu, die die Zelle zeigt, einmal fuer die ganze
+        Flaeche."""
+        return bool((self.conn_info.get(ws) or {}).get("eingebettet"))
+
+    def _masse_geraet(self, ws) -> str:
+        """Geraet, dessen Skalierung und Zielkachel fuer eine Verbindung gelten:
+        ihr eigenes, bei einer Raum-Display-Zelle das Zielgeraet ihrer Ansicht
+        (profil.device) - so sieht die Zelle aus wie dessen Display."""
+        if not self._eingebettet(ws):
+            return (self.conn_info.get(ws) or {}).get("dev", "")
+        prof = self.conn_prof.get(ws) or {}
+        return ((self.panels.get(prof.get("id", "")) or {}).get("device") or {}).get("name", "")
+
+    def _eingebettet_theme(self, ws, msg: dict, prof: dict) -> dict:
+        """theme-Nachricht einer eingebetteten Visu: Skalierung und Zielkachel
+        wie am Zielgeraet der Ansicht (_masse_geraet), ohne eigene
+        Display-Steuerung (keine Abschaltzeit, keine Nacht, kein Melder, kein
+        Ruhemodus, kein Agent)."""
+        ziel = self._masse_geraet(ws)
+        msg.update({"scale": self.effective_scale(prof, ziel), "gridAuto": self.effective_grid_auto(prof, ziel),
+                    "dpmsOff": 0, "night": {"on": False}, "presence": False, "ruhe": False, "agent": False})
+        return msg
 
     def _bento_pane(self, art: str, uuid: str, blocks: list) -> dict:
         """Wie _pane_msg (inkl. secured fuer PIN-geschuetzte Zonen und
