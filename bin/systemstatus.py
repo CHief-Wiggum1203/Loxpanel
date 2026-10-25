@@ -149,12 +149,21 @@ class Systemstatus:
 
     def _system_loxpanel(self) -> list:
         """Verbundene Displays (Geraete mit Namen einmal, Browser ohne Namen je
-        Verbindung; ohne Vorschaufenster und Raum-Display-Zellen) und Version."""
+        Verbindung; ohne Raum-Display-Zellen) und Version. Ein Vorschaufenster
+        des Konfigurators erbt den Geraetenamen aus dem localStorage
+        (routen/visu.py): es zaehlt nur, wenn sein Geraet gerade selbst einen
+        Entwurf zeigt (vorschau_geraet), sonst ist es kein Display."""
         namen, ohne = set(), 0
         for info in self.conn_info.values():
-            if info.get("dev"):
-                namen.add(info["dev"])
-            elif not (info.get("vorschau") or info.get("eingebettet")):
+            dev = info.get("dev")
+            if info.get("eingebettet"):
+                continue
+            if info.get("vorschau"):
+                if dev and dev in self.vorschau_geraet:
+                    namen.add(dev)
+            elif dev:
+                namen.add(dev)
+            else:
                 ohne += 1
         zeilen = [{"k": "Displays verbunden", "v": str(len(namen) + ohne)}]
         version = VERSION.get("version") or ""

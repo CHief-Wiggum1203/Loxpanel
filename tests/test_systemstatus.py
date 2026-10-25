@@ -140,12 +140,16 @@ def test_getrennt_seit():
 
 def test_loxpanel_displays_und_version(monkeypatch):
     app = _app()
+    # 7: Vorschaufenster mit geerbtem Namen eines Geraets, das gerade nichts zeigt: kein Display;
+    # 8: das Geraet "Flur" zeigt selbst einen Entwurf (vorschau_geraet): verbunden
     app.conn_info = {1: {"dev": "Kueche"}, 2: {"dev": "Kueche"}, 3: {"dev": ""}, 4: {"vorschau": True},
-                     5: {"eingebettet": True}, 6: {}}
+                     5: {"eingebettet": True}, 6: {}, 7: {"dev": "Bad", "vorschau": True},
+                     8: {"dev": "Flur", "vorschau": True, "entwurf": "t1"}}
+    app.vorschau_geraet = {"Flur": {"token": "t1", "id": "p", "zurueck": "", "bis": time.time() + 60}}
     monkeypatch.setattr(systemstatus, "VERSION", {"version": "0.3.4", "commit": "abcdef0123456789"})
-    assert _gruppe(_system(app), "LoxPanel") == {"Displays verbunden": "3", "Version": "0.3.4 (abcdef0)"}
+    assert _gruppe(_system(app), "LoxPanel") == {"Displays verbunden": "4", "Version": "0.3.4 (abcdef0)"}
     monkeypatch.setattr(systemstatus, "VERSION", {"version": "", "commit": ""})
-    assert _gruppe(_system(app), "LoxPanel") == {"Displays verbunden": "3"}
+    assert _gruppe(_system(app), "LoxPanel") == {"Displays verbunden": "4"}
 
 
 def test_antworten_unveraendert_und_codes():
