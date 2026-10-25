@@ -34,6 +34,8 @@ BENTO_WETTER = "weather"
 BENTO_KALENDER = "calendar"
 BENTO_SPIELER = "player:"
 BENTO_ENERGIE = "energy:"
+# Raum-Display: eine ganze Ansicht (Kennung aus panels.json) in der Zelle
+BENTO_ANSICHT = "ansicht:"
 # Ab welchem Seitenverhaeltnis (Breite/Hoehe) ein Schirm ein Streifen ist; gleich
 # der Schwelle der Huelle (loxos/src/monitor.js, ein Test vergleicht beide)
 STREIFEN_AB = 2.5
@@ -67,6 +69,20 @@ def _clean_iframe_url(v) -> str:
     if teile.username is not None or teile.password is not None:
         return ""
     return u
+
+
+def bento_ansicht_widget(v) -> str:
+    """Widget einer Raum-Display-Zelle: "ansicht:<Kennung>". Die Kennung folgt
+    der Regel von _sanitize_panels (nicht leer, kein "_" vorn), dazu ohne Leer-
+    und Steuerzeichen - sie steht in der Adresse des iframe. Ob es die Ansicht
+    gibt, entscheidet erst das Rendern (geloescht -> Zelle "nicht gefunden"),
+    wie bei einem geloeschten Baustein. "" = ungueltig."""
+    if not isinstance(v, str) or not v.startswith(BENTO_ANSICHT):
+        return ""
+    pid = v[len(BENTO_ANSICHT):]
+    if not pid or pid.startswith("_") or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in pid):
+        return ""
+    return v
 
 
 def _ganzzahl(v, lo: int, hi: int):

@@ -411,6 +411,8 @@ class Geraete:
             if not info.get("dev"):
                 if info.get("vorschau"):   # Vorschaufenster des Konfigurators: kein Geraet
                     continue
+                if info.get("eingebettet"):   # LoxOS: Raum-Display-Zelle (bento.py): kein Geraet
+                    continue
                 anonymous.append({"ip": info.get("ip", ""), "code": info.get("code", ""), "profile": prof,
                                   "kiosk": info.get("kiosk", ""), "since": info.get("ts", 0),
                                   "screen": info.get("screen") or {}})

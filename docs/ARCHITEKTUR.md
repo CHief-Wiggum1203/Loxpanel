@@ -96,7 +96,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/sip_probe.py` | SIP-Prüfung der Türstation: OPTIONS über UDP, Anmeldung per Digest, Codecs aus dem SDP. Nur Standardbibliothek, siehe Abschnitt 3.10 |
 | `bin/version_info.py` | Welcher Stand läuft: liest `bin/version.json` (Version, Commit, Bauzeit), die beim Bauen entsteht: in der APK schreibt sie `syncLoxpanelAssets` (Commit aus `LOXPANEL_COMMIT` oder Git), im Image das Dockerfile über `python bin/version_info.py schreiben` (Commit als Build-Argument aus `tests.yml`, Job `veroeffentlichen`). Ohne die Datei, also im Git-Checkout, Version aus `loxberry-plugin/plugin.cfg` und Commit aus Git. Die App packt bei jedem Update `bin/` neu aus, deshalb liegt die Datei dort |
 | `bin/diagnose.py` | Diagnosepaket (`/api/diagnose`, je Gerät oder für den Server): ZIP mit `diagnose.md` (Zusammenfassung oben), `diagnose.json`, den Einstellungen und den letzten Log-Zeilen (Puffer `LOG` am Root-Logger, `LOG_ZEILEN`, `LOG_MINUTEN`). Entfernt Kennwörter und Tokens, kürzt Kalender-Abos auf den Host, streicht Zugangsdaten in Adressen und den Standort und schwärzt jeden gefundenen Wert auch im Log, auch URL-kodiert. Nur Standardbibliothek; die Angaben sammelt `App.diagnose_daten()` |
-| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` drei Stylesheets und vierzehn Skriptteile in fester Reihenfolge (§7.1) |
+| `webfrontend/html/panel.html`, `webfrontend/html/panel/` | Die Visu (Kacheln, Detailseiten, Screensaver mit Wetter + Terminen, PIN, Weckton); `panel.html` hält nur das Markup und lädt aus `panel/` drei Stylesheets und fünfzehn Skriptteile in fester Reihenfolge (§7.1) |
 | `webfrontend/html/config.html` | Konfigurator mit den Rubriken „Übersicht", „Ansichten" (Liste der Ansichten, je Ansicht die Reiter Allgemein, Inhalt, Seiten, Raster, Aussehen, Verhalten), „Vorgaben" (Darstellung, Kategorie-Farben, Verhalten), „Geräte" (eine Karte je Gerät, Gerät einrichten, Betriebsmodus-Assistent, im Fork LoxOS-Streifen einrichten, Geräte ohne Namen, Erprobte Hardware) und „Einstellungen" (Miniserver, Kamera / Türstation, SIP, Audio, Kalender & Wetter, Sicherung). Begriffe siehe §7.2 |
 | `webfrontend/html/settings.html` | Nur noch Weiterleitung nach `/config`, ohne Anker: der Konfigurator wertet keinen aus |
 | `webfrontend/html/i18n.js` | Übersetzungskatalog de/en für Konfigurator und Einstellungen |
@@ -427,7 +427,7 @@ Server → Browser (`panel.html:700`):
 | `t` | Inhalt | Zweck |
 |---|---|---|
 | `theme` | `vars`, `tabs`, `tabMeta`, `title`, `lang`, `fill`, `split`, `catFilter`, `tileLayout`, `tileSet`, `tileSetAufbau`, `tileSetLeiste`, `gridAuto`, `gridGrow`, `panes`, `svPane`, `scale`, `dpmsOff`, `pinMerken`, `gesten`, `reloadHours`, `reloadAt`, `night`, `agent`, `presence`, `ruhe` | einmalig nach Verbindungsaufbau: CSS-Variablen, Tab-Leiste, Sprache, Sprungmarken springen oder filtern, Kachel-Aufbau, Kachel-Set mit seiner Art (§5.4), beim automatischen Raster die Zielkachel in px (`gridAuto`, Gerät vor Profil über `effective_grid_auto()`, 0 = festes Raster, §7.1) und bis zu welchem Vielfachen die Kacheln wachsen, wenn alle auf eine Seite passen (`gridGrow` = `KACHEL_WACHSEN`), Split-Panes je Tab, die rechte Spalte der Uhr-Seite, die wirksame Skalierung (Gerät vor Profil vor global, `effective_scale()`) und die Display-Einstellungen ohne Agent: Leerlaufzeit, Auto-Neustart (`reloadHours`, `null` ohne Eintrag: dann nachts um `reloadAt` Uhr), Nachtmodus, ob ein Agent das Display übernimmt, und ob der Präsenzmelder des Geräts gerade jemanden meldet (`presence`, dann schaltet der Leerlauf nicht ab) und ob das Gerät den Ruhemodus hat (`ruhe`, §8). `pinMerken`: so viele Sekunden behält die Visu eine bestätigte PIN (0 = jedes Mal fragen). `gesten`: Zwei-Finger-Gesten an (§7.1 „Gesten“; Ansicht vor Vorgaben, ohne beides `GESTEN_STANDARD`), `gestenHinweis`: dazu das Hinweis-Symbol (Ansicht vor Vorgaben, ohne beides `GESTEN_HINWEIS_STANDARD`). `tabMeta`: Name und Symbol der dynamischen Seiten (`_tab_meta()`), bei einer freien Seite als Hausübersicht `haus: true`, im Fork (LoxOS) bei einer Bento-Seite `bento: true` – nur zwischen diesen Seiten blättert die Visu (§7.1 „Bento: Wischen“) |
-| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `aktivZeile` (false: die Ansicht zählt nichts als aktiv, keine Zeile), `ruhig` (Text der Zeile, wenn nichts an ist), `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`); auf einer Bento-Seite (LoxOS, Fork) statt dessen `bento` (`cols`, `rows`) und `cells[]` (je Zelle `x`, `y`, `w`, `h` und entweder `items[]` oder `widget` mit den Daten inline: `energy`, `chart`, `player`, `camera`, `status` wie die gleichnamigen Nachrichten ohne `t`, bei `player` dazu `raum` (Loxone-Raum der Zone, ohne Raum ihr Name; die Favoriten stehen als `favs`-Block in `player.blocks` wie in der Pane), bei `iframe` `url`, `name`, `pruefung` (`stand`: `ok` \| `eingeschraenkt` \| `gesperrt` \| `fehler` \| `offen`, `grund`) und `ladenS`; `fehler: true`, wenn ein Blockbauer scheiterte), gebaut in `_view_bento()` (`bento.py`) |
+| `view` | `title`, `tab`, `route`, `items[]` **oder** `blocks[]`, `layout`, `anchor`, `secured`, `gesperrt`, `front`, `leiste[]`, `gestenHilfe` | eine komplette Ansicht. `gesperrt` (Text, wer gesperrt hat und warum) auf jeder Seite eines gesperrten Bausteins (`jLocked`), siehe §7.1 „Gesperrte Bausteine“. `gestenHilfe` nur auf Seiten, auf denen Gesten wirken und ihr Hinweis an ist (`gesten_hilfe()`): `{raum, doppel, dreifach}`, was zwei Finger hier tun (§7.1 „Gesten“). `leiste` (nur auf Seiten aus `ui.valueBar`): die Anzeige-Bausteine der Seite als Werteleiste über dem Raster, gleiche Form wie `items`, dort fehlen sie dann (§7.1 „Werteleiste“). `front` (`calendar`/`weather`) bei den Tabs `kalender`/`wetter`: `items` ist leer, das Panel zeichnet die Seite aus den zuletzt empfangenen `front`-Daten (`renderFrontTab()`) und neu, sobald neue kommen. `layout:"haus"` beim Tab `haus` (Hausübersicht, §7.1): statt `items` die Felder `aufbau`, `raeume[]`, `aktiv[]`, `aktivZeile` (false: die Ansicht zählt nichts als aktiv, keine Zeile), `ruhig` (Text der Zeile, wenn nichts an ist), `hinweise[]`, `schnell[]`, `spieler`, `energie`, im Aufbau „Spalte links“ `blick[]` und auf einer Unterseite `liste` (`"aktiv"` oder `"hinweise"`); auf einer Bento-Seite (LoxOS, Fork) statt dessen `bento` (`cols`, `rows`) und `cells[]` (je Zelle `x`, `y`, `w`, `h` und entweder `items[]` oder `widget` mit den Daten inline: `energy`, `chart`, `player`, `camera`, `status` wie die gleichnamigen Nachrichten ohne `t`, bei `player` dazu `raum` (Loxone-Raum der Zone, ohne Raum ihr Name; die Favoriten stehen als `favs`-Block in `player.blocks` wie in der Pane), bei `iframe` `url`, `name`, `pruefung` (`stand`: `ok` \| `eingeschraenkt` \| `gesperrt` \| `fehler` \| `offen`, `grund`) und `ladenS`; bei `ansicht:<Kennung>` (Raum-Display) `ansicht` mit `id`, `name` (Titel der Ansicht), `format` (`vw`, `vh` ihres Zielgeräts `device`, fehlt ohne Größe) und `selbst: true`, wenn die Seite ihre eigene Ansicht zeigen soll – unbekannte Ansicht: kein `ansicht`; `fehler: true`, wenn ein Blockbauer scheiterte), gebaut in `_view_bento()` (`bento.py`) |
 | `ring` | `id` | Klingel: Panel springt auf die Intercom-Seite. An jedes Panel, außer dessen Ansicht blendet die Türsprechanlage aus (`hide`) |
 | `alarm` | `id`, `on` | Weckton starten/stoppen. `on: true` nur an Panels, deren Ansicht den Wecker zeigt (Raum, Kategorie, `hide`: `_sichtbar()`), und nur deren Display geht an; `on: false` an alle, damit ein Panel, das die Ansicht gewechselt hat, nicht weitertönt |
 | `testtone` | | Testton |
@@ -915,7 +915,22 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
 | GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation: die in LoxPanel eingetragene Kamera, sonst die aus den gesicherten Details des Miniservers (`App.intercom_video()`, Abschnitt 3.10); 404 ohne Kamera | Visu |
 | GET | `/bellimg?id=&ts=` | `bellimg_handler` | Bild einer verpassten Klingel (`camimage/{uuidAction}/{ts}` vom Miniserver), 24 h Cache, die letzten `BELL_CACHE_MAX` im Speicher | Visu |
-| GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket | Visu |
+| GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket; mit `eingebettet=1` die Visu einer Raum-Display-Zelle (LoxOS, unten) | Visu |
+
+**Raum-Display-Zelle (LoxOS, Fork).** Mit `?eingebettet=1` ist die
+Verbindung die Visu einer Raum-Display-Zelle einer Bento-Seite (§7.1
+„Bento: Raum-Display“) und kein Gerät: `ws_handler` verwirft ein `device=`
+und vergibt keinen Kopplungscode (`conn_info.eingebettet`), die Geräteliste
+führt sie nicht (`device_list()`), „Namen vergeben“ nach IP schickt ihr kein
+`setdevice` (der Name landete im localStorage der Visu um die Zelle). Die
+`theme`-Nachricht bekommt Skalierung und Zielkachel des Zielgeräts ihrer
+Ansicht (`_masse_geraet()`, auch beim Speichern der Geräte), keine
+Abschaltzeit, keine Nacht, keinen Melder, keinen Ruhemodus, keinen Agenten
+(`_eingebettet_theme()`). Klingel, Wecker, der Wechsel der Nacht, Testton und
+alle Pushes von `push()` außer `reload` gehen an sie nicht – das alles macht
+die Visu um die Zelle einmal für die ganze Fläche; nach dem Speichern einer
+Ansicht lädt die Zelle neu. Beides in `bento.py` (`_eingebettet()`), geprüft
+in `tests/test_raum_display.py`.
 
 ### Parameter an der Panel-URL
 
@@ -1075,8 +1090,11 @@ liefert nur die Ansichten), geschrieben über
             {"x": 1, "y": 0, "w": 2, "h": 1, "ids": ["<uuid>"]},  // Bausteine aus picks, je Seite
                                              // einmal, max. BENTO_ZELLE_BAUSTEINE_MAX je Zelle
             {"x": 3, "y": 0, "w": 1, "h": 1, "widget": "iframe",
-             "url": "https://…", "name": "Drucker"}               // Webseite: nur http/https mit Host,
+             "url": "https://…", "name": "Drucker"},              // Webseite: nur http/https mit Host,
                                              // ohne Zugangsdaten (_clean_iframe_url); name optional
+            {"x": 4, "y": 0, "w": 2, "h": 2, "widget": "ansicht:kueche"}  // Raum-Display: eine ganze
+                                             // Ansicht (Kennung wie in panels, bento_ansicht_widget);
+                                             // gibt es sie nicht (mehr), zeigt die Zelle das an
           ]                                  // ragt eine Zelle über den Rand oder überlappt eine
         }                                    // frühere, fällt sie weg und wird gemeldet (verworfen)
       }],
@@ -1530,7 +1548,7 @@ Assistenten des Konfigurators.
 
 **Aufteilung** (seit 15.10.2026, Schritt 2 des Zerlegens der großen Dateien):
 `panel.html` hält nur noch das Markup (rund 60 Zeilen) und lädt aus
-`webfrontend/html/panel/` drei Stylesheets und vierzehn Skriptteile per `<link>`
+`webfrontend/html/panel/` drei Stylesheets und fünfzehn Skriptteile per `<link>`
 und `<script src>` an den Stellen, an denen vorher Stylesheet und Skript
 standen. Stylesheets: `grund.css` (Kasten, Panes, Kopfzeile und Werteleiste,
 Kachelfeld, Kacheln, Kachel-Sets, Leisten) und `seiten.css` (Detailseite,
@@ -1562,6 +1580,31 @@ Die Optik der Panes hängt an `#frontpane`; `bentoPaneStile()` übernimmt beim
 ersten Aufbau jede Regel für Pane-Inhalte mit `.grid.bento .bz-box` statt
 kopierter Regeln. Mit nur dieser einen Seite und ohne Detailseite darüber
 fällt die Tab-Leiste weg (`.screen.bentovoll`).
+**Bento: Raum-Display.** Eine Zelle `ansicht:<Kennung>` zeigt eine ganze
+gespeicherte Ansicht als eigene Visu derselben Herkunft im iframe
+(`bentoAnsicht()`, Adresse `?panel=<Kennung>&eingebettet=1`). Mit `format`
+(Bildschirm des Zielgeräts der Ansicht) hat der iframe genau diese Größe und
+wird mittig in die Zelle eingepasst (`bentoAnsichtEinpassen()`, auch bei
+jeder Größenänderung der Zelle, `ResizeObserver`) – die Zelle zeigt die
+Ansicht wie auf ihrem Display, in deren eigener Optik; ohne `format` füllt
+er die Zelle. Gleiche Ansicht: der iframe bleibt bei jedem Push stehen. Die
+eigene Ansicht, eine unbekannte und ein Raum-Display in einer eingebetteten
+Visu zeigen nur einen Hinweis (sonst bettete sich die Visu endlos in sich
+selbst ein). Was die eingebettete Visu anders macht, steht in
+`eingebettet.js` (Fork, nach `ruhe.js`): `EINGEBETTET` (`verbindung.js`)
+nimmt keinen Gerätenamen – auch nicht aus dem localStorage, den sie mit der
+Visu um die Zelle teilt – und meldet `eingebettet=1`; keine Uhr-Seite beim
+Start (`start.js`); nach `SAVER_IDLE_MS` zurück auf die erste Seite, PIN und
+Gesten-Hilfe weg, ohne Uhr (`eingebettetNachLeerlauf()`, über
+`ruheNachLeerlauf()`); die Brücken der Kiosk-Apps (`KIOSK_APPS`) werden im
+iframe verdeckt, denn in der App sieht ein iframe sie mit und schaltete sonst
+Schoner und Display des ganzen Geräts. Jede Bedienung in der Zelle meldet sie
+der Visu um sie per `postMessage` (`EINGEBETTET_AKTIV`, höchstens alle
+`EINGEBETTET_MELDEN_MS`); die nimmt nur Nachrichten derselben Herkunft aus
+einem ihrer Raum-Display-iframes und weckt wie bei einer eigenen Berührung
+(`nightWake()`, `resetIdle()`) – sonst käme ihre Uhr-Seite mitten in der
+Bedienung. Der Server-Teil: §4 `/ws` (`eingebettet`). Geprüft in
+`tests/browser/test_raum_display_browser.py` und `test_bento_editor_browser.py`.
 **Bento: Audio-Zelle.** `bentoSpieler()` zeigt oben den Raum der Zone
 (`.bz-raum`, Großbuchstaben wie an den Kacheln; ein Tipp öffnet die
 Musikauswahl `view: sources`) und die Raumfavoriten als waagerecht scrollende

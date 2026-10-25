@@ -116,6 +116,8 @@ class Verteilung:
                 continue
             if (self.conn_info.get(ws) or {}).get("neuLaden"):
                 continue
+            if msg.get("t") != "reload" and self._eingebettet(ws):
+                continue   # LoxOS: Raum-Display-Zelle - nur Neuladen, den Rest bekommt die Visu um sie herum
             if await (self._neu_laden(ws) if msg.get("t") == "reload" else self._send_or_drop(ws, msg)):
                 n += 1
         return n
@@ -174,7 +176,7 @@ class Verteilung:
             # andere Raeume zeigt; nur wer die Tuersprechanlage ausblendet (hide),
             # bekommt nichts
             for ws in list(self.conn_route):
-                if self._shown(rid, self.conn_prof.get(ws)):
+                if self._shown(rid, self.conn_prof.get(ws)) and not self._eingebettet(ws):   # LoxOS: nicht je Zelle
                     await self._send_or_drop(ws, {"t": "ring", "id": rid})
         while self._pending_alarm:
             ev = self._pending_alarm.pop(0)
@@ -186,6 +188,8 @@ class Verteilung:
             geweckt: set[str] = set()
             for ws in list(self.conn_route):
                 if ev["on"] and not self._sichtbar(ev["id"], self.conn_prof.get(ws)):
+                    continue
+                if self._eingebettet(ws):   # LoxOS: der Weckton nicht je Raum-Display-Zelle
                     continue
                 await self._send_or_drop(ws, {"t": "alarm", "id": ev["id"], "on": ev["on"]})
                 dev = self.conn_dev.get(ws)
@@ -238,7 +242,8 @@ class Verteilung:
             self._night_on = night
             log.info("Nachtmodus %s", "an" if night else "aus")
             for ws in list(self.conn_route):
-                await self._send_or_drop(ws, {"t": "night", "on": night})
+                if not self._eingebettet(ws):   # LoxOS: die Visu um die Zelle dunkelt die ganze Flaeche
+                    await self._send_or_drop(ws, {"t": "night", "on": night})
         # Neu gerendert wird je Verbindung nur, was betroffen ist (_neu_rendern):
         # _dirty heisst "ausserhalb der States hat sich etwas geaendert" (Struktur,
         # Theme, Audioserver, Verlaeufe ...) und rendert alle neu, _on_value

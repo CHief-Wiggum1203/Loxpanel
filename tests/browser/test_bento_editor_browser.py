@@ -120,3 +120,64 @@ def test_bento_seite_im_editor_bauen(cfg_ordner, tmp_path):
     ], bento["cells"]
     assert "widget" not in flur["pickTabs"][0]
     assert anzahl == 4
+
+
+def test_raum_display_im_editor(cfg_ordner, tmp_path):
+    """Raum-Display: die Palette legt eine Zelle mit der ersten anderen Ansicht
+    an, die Auswahl bietet alle Ansichten ausser der bearbeiteten, der Hinweis
+    nennt das Format des Zielgeraets. Gespeichert zeigt die Visu die Ansicht."""
+    (cfg_ordner / "panels.json").write_text(json.dumps({"panels": {
+        "flur": {"title": "Flur", "tabs": ["auswahl"], "device": {"name": "streifen", "vw": 2560, "vh": 720},
+                 "pickTabs": [{"name": "Streifen", "picks": []}]},
+        "kueche": {"title": "Küche", "tabs": ["favoriten"], "device": {"name": "kueche-panel", "vw": 480, "vh": 480}},
+        "bad": {"title": "Bad", "tabs": ["favoriten"]}}}), encoding="utf-8")
+
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(STRUKTUR)
+        app.states = {"s" + u: 0 for u in STRUKTUR["controls"]}
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1400, "height": 1000}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator("#plist .pitem", has_text="Flur").click()
+                await pg.locator("#tabMode button[data-mode='pick']").click()
+                await pg.locator("#pickZumEditor").click()
+                await pg.locator("#seHost [data-se-inhalt]").select_option("bento")
+                await pg.locator("#seHost [data-be]").wait_for()
+                await pg.locator("#seHost [data-be-neu=ansicht]").click()
+                quelle = pg.locator("#seHost [data-be-quelle]")
+                optionen = await quelle.evaluate("s => [...s.options].map(o => o.value)")
+                erste = await quelle.input_value()
+                hinweis_kueche = await pg.locator("#seHost .be-aus .hint").first.inner_text()
+                await quelle.select_option("bad")
+                hinweis_bad = await pg.locator("#seHost .be-aus .hint").first.inner_text()
+                await pg.locator("#seHost [data-be-neu=ansicht]").click()
+                namen = await pg.evaluate(_zellen_js())
+                flur = await _speichern(pg, cfg_ordner)
+
+                visu = await b.new_page(viewport={"width": 2560, "height": 720}, locale="de-DE")
+                visu.on("pageerror", lambda e: fehler.append(str(e)))
+                await visu.goto(f"http://127.0.0.1:{port}/?panel=flur")
+                await visu.wait_for_selector('#grid.bento > .bz[data-widget="ansicht"] iframe', state="attached")
+                iframes = await visu.locator('#grid.bento > .bz[data-widget="ansicht"] iframe').count()
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        return optionen, erste, hinweis_kueche, hinweis_bad, namen, flur, iframes, fehler
+
+    optionen, erste, hinweis_kueche, hinweis_bad, namen, flur, iframes, fehler = asyncio.run(lauf())
+    assert fehler == [], fehler
+    assert "flur" not in optionen and {"kueche", "bad"} <= set(optionen), optionen
+    assert erste == "kueche"
+    assert "480 × 480" in hinweis_kueche and "kueche-panel" in hinweis_kueche
+    assert "kein Zielgerät" in hinweis_bad
+    assert namen == ["Raum-Display · Bad", "Raum-Display · Küche"], namen
+    assert [c["widget"] for c in flur["pickTabs"][0]["bento"]["cells"]] == ["ansicht:bad", "ansicht:kueche"]
+    assert iframes == 2

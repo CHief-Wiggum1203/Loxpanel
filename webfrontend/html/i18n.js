@@ -827,6 +827,11 @@
       'Zellen lägen außerhalb des Rasters – erst verschieben oder verkleinern.': 'Cells would lie outside the grid – move or shrink them first.',
       'Uhr': 'Clock',
       'Webseite': 'Web page',
+      'Raum-Display': 'Room display',
+      'Ansicht nicht gefunden': 'View not found',
+      'die Zelle zeigt sie in dieser Form.': 'the cell shows it in this shape.',
+      'Die Ansicht kennt kein Zielgerät mit Größe und füllt deshalb die Zelle. Legt „Gerät einrichten“ eine Ansicht für ein Display an, merkt sie sich dessen Größe.':
+        'The view knows no target device with a size and therefore fills the cell. When “Set up device” creates a view for a display, it remembers its size.',
       'Spalte': 'Column',
       'Zeile': 'Row',
       'Höhe': 'Height',

@@ -31,6 +31,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     dev = (request.query.get("device", "") or "").strip()[:60]
+    # LoxOS: Visu einer Raum-Display-Zelle (bento.py, _eingebettet) - nie ein Geraet
+    eingebettet = request.query.get("eingebettet") == "1"
+    if eingebettet:
+        dev = ""
     pid = request.query.get("panel", "")
     # ?entwurf=<Token>: ein noch nicht gespeichertes Profil (Vorschau aus dem Konfigurator).
     # Er geht der Geraete-Zuordnung unten vor: ein Vorschau-Fenster erbt die Geraetekennung
@@ -68,7 +72,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         app.conn_info[ws]["entwurf"] = ent   # api_entwurf laedt diese Vorschau bei Aenderungen neu
     if ent:
         app.conn_info[ws]["vorschau"] = True   # Vorschaufenster, auch mit abgelaufenem Token: kein Geraet
-    if not dev:   # Browser ohne Namen: Kopplungscode (mitgeschickt oder neu)
+    if eingebettet:
+        app.conn_info[ws]["eingebettet"] = True   # LoxOS: Raum-Display-Zelle
+    elif not dev:   # Browser ohne Namen: Kopplungscode (mitgeschickt oder neu)
         app.conn_info[ws]["code"] = app.kopplungscode(request.query.get("code", ""))
     first_tab = prof["tabs"][0] if prof["tabs"] else "favoriten"
     app.conn_route[ws] = {"view": "tab", "tab": first_tab}
@@ -78,7 +84,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # Display-Einstellungen gehen auch an die Visu: ohne Agent (Android-Panel,
     # Tablet mit Kiosk-App) schaltet die Seite das Display selbst ab und laedt
     # sich periodisch neu. `agent` sagt ihr, ob ein Agent das uebernimmt.
-    await ws.send_json({"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
+    theme = {"t": "theme", "vars": prof["vars"], "tabs": prof["tabs"],
                         "tabMeta": app._tab_meta(prof["tabs"], prof), "title": prof["title"],
                         "lang": prof["lang"], "fill": prof["fill"], "split": prof["split"],
                         "catFilter": prof["catFilter"],   # Leiste filtert statt zu springen
@@ -110,7 +116,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         # Vorschau eines ungespeicherten Entwurfs: die Visu kennzeichnet sie;
                         # ein Token, der nichts mehr trifft (abgelaufen), meldet sie auch
                         "entwurf": bool(prof.get("entwurf")) if ent else None,
-                        "stand": server_stand()})   # anderer Stand als beim Laden: Seite neu laden
+                        "stand": server_stand()}   # anderer Stand als beim Laden: Seite neu laden
+    if eingebettet:
+        app._eingebettet_theme(ws, theme, prof)   # LoxOS: Masse des Zielgeraets, keine Display-Steuerung
+    await ws.send_json(theme)
     _first = app.render(app.conn_route[ws], prof)
     await ws.send_json(_first)
     app._last_sent.setdefault(ws, {})["view"] = _first
@@ -131,7 +140,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # Tipps ab. Der Konfigurator meldet das Geraet mit seinem Code trotzdem
     # (Banner "Neues Geraet gefunden", device_list anonymous[].code). Ein
     # Vorschaufenster des Konfigurators (?entwurf=) ist kein Geraet: kein Code.
-    if not dev and not ent:
+    if not dev and not ent and not eingebettet:
         await ws.send_json(app._kopplung_msg(app.conn_info[ws]["code"], not request.query.get("panel")))
     # Player-Pane fordert der Client selbst an (setplayer), sobald ein Tab mit
     # Player-Pane aktiv ist — je Tab eine eigene Zone moeglich.

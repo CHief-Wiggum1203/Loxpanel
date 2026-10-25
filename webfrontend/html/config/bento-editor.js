@@ -17,7 +17,8 @@
    Umschalt + Pfeil aendert die Groesse, Entf nimmt die Zelle von der Seite. */
 
 const BE_WIDGETS=[['clock','Uhr'],['weather','Wetter'],['calendar','Kalender'],['player','Audio'],
-  ['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf'],['status','Werte'],['iframe','Webseite']];
+  ['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf'],['status','Werte'],['iframe','Webseite'],
+  ['ansicht','Raum-Display']];
 // Ohne Quelle: einmal je Seite (wie bento_format.py)
 const BE_EINZELN=['clock','weather','calendar'];
 // Seitenverhaeltnis von Seite und Vorschaugeraet: mehr Abweichung -> Warnung
@@ -74,6 +75,21 @@ function beUrlOk(u){
   let t; try{ t=new URL(u); }catch(e){ return false; }
   return (t.protocol==='http:' || t.protocol==='https:') && !!t.hostname && !t.username && !t.password;
 }
+// Raum-Display: Ansichten, die eine Zelle zeigen kann - alle ausser der, die
+// gerade bearbeitet wird (sie zeigte sich sonst in sich selbst, bento.py)
+function beAnsichten(ctx){ return Object.keys(PANELS).filter(id=>id!=='__global__' && PANELS[id]!==ctx.panel); }
+function beAnsichtOptionen(arg, ctx){
+  const ids=beAnsichten(ctx);
+  return (arg && ids.indexOf(arg)<0 ? '<option value="'+esc(arg)+'" selected>'+esc(arg+' – '+T('Ansicht nicht gefunden'))+'</option>' : '')+
+    ids.map(id=>'<option value="'+esc(id)+'"'+(id===arg ? ' selected' : '')+'>'+esc(ansichtName(id))+'</option>').join('');
+}
+// Format der Zelle: der Bildschirm des Zielgeraets der Ansicht (wie bento.py)
+function beAnsichtFormat(arg){
+  const d=(PANELS[arg]||{}).device||{};
+  return (d.vw && d.vh)
+    ? '<p class="hint">'+esc(T('Gebaut für')+' '+(d.name ? d.name+' · ' : '')+d.vw+' × '+d.vh)+' – '+T('die Zelle zeigt sie in dieser Form.')+'</p>'
+    : '<p class="hint">'+T('Die Ansicht kennt kein Zielgerät mit Größe und füllt deshalb die Zelle. Legt „Gerät einrichten“ eine Ansicht für ein Display an, merkt sie sich dessen Größe.')+'</p>';
+}
 // Bausteine der Seite ohne Zelle
 function beOffen(e){ const drin=new Set(e.bento.cells.flatMap(c=>c.ids||[])); return (e.picks||[]).filter(u=>!drin.has(u)); }
 
@@ -81,6 +97,7 @@ function beName(c){
   if(c.ids) return c.ids.map(u=>{ const k=seCtrl(u); return k ? k.name : u; }).join(', ');
   const art=wKind(c.widget||''), arg=wArg(c.widget||''), n=T((BE_WIDGETS.find(x=>x[0]===art)||[art, art])[1]);
   if(art==='iframe') return n+(c.name ? ' · '+c.name : (c.url ? ' · '+c.url : ''));
+  if(art==='ansicht') return n+(arg ? ' · '+ansichtName(arg) : '');
   if(art==='player' || art==='energy' || art==='camera'){ const k=seCtrl(arg.split('|')[0]); return n+(k ? ' · '+k.name : ''); }
   if(art==='chart' || art==='status'){ const uu=arg.split(',').filter(Boolean); return n+(uu.length ? ' · '+uu.length : ''); }
   return n;
@@ -146,7 +163,8 @@ function beHtml(ctx){
 }
 function bePaletteHtml(ctx){
   const da=new Set(ctx.seite().bento.cells.map(c=>c.widget).filter(Boolean));
-  const geht={player:!!firstAudioZone(), energy:!!firstEnergyControl(), camera:!!firstCamera(), chart:statControls().length>0};
+  const geht={player:!!firstAudioZone(), energy:!!firstEnergyControl(), camera:!!firstCamera(), chart:statControls().length>0,
+    ansicht:beAnsichten(ctx).length>0};
   return '<div class="lbl">'+T('Widgets')+'</div><div class="be-wid">'+BE_WIDGETS.filter(([k])=>geht[k]!==false).map(([k, n])=>
     '<button type="button" class="minibtn" data-be-neu="'+k+'"'+(BE_EINZELN.includes(k) && da.has(k) ? ' disabled' : '')+'>'+T(n)+'</button>').join('')+'</div>';
 }
@@ -171,6 +189,7 @@ function beAusHtml(ctx){
   if(art==='player') h+=feld('Musikzone', '<select data-be-quelle>'+audioZoneOptions(arg)+'</select>');
   else if(art==='energy') h+=feld('Baustein', '<select data-be-quelle>'+energyControlOptions(arg)+'</select>');
   else if(art==='camera') h+=feld('Baustein', '<select data-be-quelle>'+cameraOptions(arg.split('|')[0])+'</select>');
+  else if(art==='ansicht') h+=feld('Ansicht', '<select data-be-quelle>'+beAnsichtOptionen(arg, ctx)+'</select>')+beAnsichtFormat(arg);
   else if(art==='chart' || art==='status'){
     const uu=arg.split(',').filter(Boolean);
     h+=feld('Bausteine', (art==='chart' ? '<select data-be-wneu>'+chartAddOptions()+'</select>'
@@ -209,12 +228,15 @@ function beNeueZelle(host, ctx, inhalt){
   st.sel=b.cells.length-1; st.meldung=''; st.urlFehler=false;
   beFertig(host, ctx, st.sel);
 }
-function beWidgetWert(k){
+function beWidgetWert(k, ctx){
   if(k==='player') return 'player:'+(firstAudioZone()||'');
   if(k==='energy') return 'energy:'+(firstEnergyControl()||'');
   if(k==='camera') return 'camera:'+(firstCamera()||'');
   if(k==='chart') return 'chart:'+(firstChartControl()||'');
   if(k==='status'){ const c=((META && META.controls)||[])[0]; return 'status:'+(c ? c.uuid : ''); }
+  if(k==='ansicht'){ // die erste Ansicht, die noch keine Zelle der Seite zeigt
+    const da=new Set(ctx.seite().bento.cells.map(c=>c.widget)), ids=beAnsichten(ctx);
+    return 'ansicht:'+(ids.find(id=>!da.has('ansicht:'+id)) || ids[0] || ''); }
   return k;
 }
 // Zelle i auf lage setzen, wenn frei -> true
@@ -236,7 +258,7 @@ function beKlick(host, ev){
   const ziel=s=>t.closest('['+s+']');
   let n;
   if((n=ziel('data-be-neu'))){ const k=n.dataset.beNeu;
-    beNeueZelle(host, ctx, {widget:k==='iframe' ? 'iframe' : beWidgetWert(k)}); return; }
+    beNeueZelle(host, ctx, {widget:k==='iframe' ? 'iframe' : beWidgetWert(k, ctx)}); return; }
   if((n=ziel('data-be-raus'))){ const u=n.dataset.beRaus; e.picks=(e.picks||[]).filter(x=>x!==u); beFertig(host, ctx); return; }
   if((n=ziel('data-be-platz'))){ beNeueZelle(host, ctx, {ids:[n.dataset.bePlatz]}); return; }
   if((n=ziel('data-be-format'))){ const g=ctx.geraet(); b.format={vw:g.vw, vh:g.vh}; beFertig(host, ctx); return; }

@@ -190,11 +190,12 @@ async def api_save_devices(request: web.Request) -> web.Response:
     # seinen (evtl. neuen) wirksamen Faktor schicken - ohne Neuladen, das
     # beim Speichern von Profilen noetig ist, hier aber nicht.
     for ws, info in list(app.conn_info.items()):
+        # LoxOS: _masse_geraet - eine Raum-Display-Zelle misst wie das Zielgeraet ihrer Ansicht
         await app._send_or_drop(ws, {"t": "scale", "scale": app.effective_scale(
-            app.conn_prof.get(ws), info.get("dev", ""))})
+            app.conn_prof.get(ws), app._masse_geraet(ws))})
         # ... und die Zielkachel je Geraet: die Visu baut ihr Raster neu
         await app._send_or_drop(ws, {"t": "gridAuto", "gridAuto": app.effective_grid_auto(
-            app.conn_prof.get(ws), info.get("dev", ""))})
+            app.conn_prof.get(ws), app._masse_geraet(ws))})
         # ... und den Ruhemodus: die Visu schaltet ihn ohne Neuladen um
         await app._send_or_drop(ws, {"t": "ruhe", "ruhe": app._ruhe_an(info.get("dev", ""))})
     return web.json_response({"ok": True, "devices": _devices_export(devices),
@@ -317,6 +318,10 @@ async def api_device_name(request: web.Request) -> web.Response:
     for ws, info in list(app.conn_info.items()):
         if info.get("dev") or (info.get("code") != code if code else info.get("ip") != ip):
             continue
+        if app._eingebettet(ws):
+            # LoxOS: eine Raum-Display-Zelle teilt den localStorage mit der Visu,
+            # die sie zeigt - der Name landete dort und benannte den Streifen um
+            continue
         try:
             await ws.send_json({"t": "setdevice", "name": name})
             n += 1
@@ -418,6 +423,8 @@ async def api_testtone(request: web.Request) -> web.Response:
     n = 0
     for ws, prof in list(app.conn_prof.items()):
         if target and (prof or {}).get("id") != target:
+            continue
+        if app._eingebettet(ws):   # LoxOS: eine Raum-Display-Zelle ist kein Geraet, der Ton kommt vom Streifen
             continue
         if await app._send_or_drop(ws, {"t": "testtone"}):
             n += 1

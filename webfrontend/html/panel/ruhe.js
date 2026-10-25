@@ -39,6 +39,7 @@ function ruheSetzen(an){
 // Ruhe-Timer abgelaufen (nachRuhe): Mit Ruhemodus entscheidet der Melder,
 // die Seite bleibt, wie sie ist. true = nachRuhe() tut nichts weiter.
 function ruheNachLeerlauf(){
+  if(EINGEBETTET){ eingebettetNachLeerlauf(); return true; }   // Raum-Display-Zelle: Startseite statt Uhr
   if(!RUHE) return false;
   if(ruheAn()) showSaver();
   return true;
