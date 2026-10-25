@@ -81,6 +81,21 @@ async def api_bento_vorschlag(request: web.Request) -> web.Response:
                               "format": v["bento"]["format"], "formatBekannt": bekannt})
 
 
+async def api_bento_aktionen(request: web.Request) -> web.Response:
+    """LoxOS (Fork): Was ein Knopf der Schnellaktionen fuer den Baustein ?id=
+    tun kann - die Aktionen seiner Detailseite (Beschriftungen,
+    _detail_aktionen) und ob ein Tipp auf seine Kachel etwas tut (kachel:
+    "cmd" schaltet, "nav" oeffnet, "" nichts). Fuer die Auswahl im
+    Bento-Editor; nur lesend."""
+    app: App = request.app["app"]
+    u = request.query.get("id", "")
+    if u not in app.controls:
+        return web.json_response({"ok": False, "error": "Baustein unbekannt"}, status=404)
+    it = app._control_item(u)
+    return web.json_response({"ok": True, "aktionen": [a["label"] for a in app._detail_aktionen(u)],
+                              "kachel": "cmd" if it.get("cmd") else ("nav" if it.get("nav") else "")})
+
+
 async def api_meta(request: web.Request) -> web.Response:
     """Alle Räume/Kategorien der Anlage + aktuelle Profile (für den Editor)."""
     app: App = request.app["app"]

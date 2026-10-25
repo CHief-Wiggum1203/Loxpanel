@@ -36,6 +36,12 @@ BENTO_SPIELER = "player:"
 BENTO_ENERGIE = "energy:"
 # Raum-Display: eine ganze Ansicht (Kennung aus panels.json) in der Zelle
 BENTO_ANSICHT = "ansicht:"
+# Schnellaktionen: Knoepfe mit Symbol, je Knopf ein Baustein und eine Aktion
+# (cells[].knoepfe); so viele Knoepfe hoechstens je Zelle, so lang die Aktion
+# (Beschriftung eines Knopfs der Detailseite)
+BENTO_SCHNELL = "schnell"
+BENTO_KNOEPFE_MAX = 12
+BENTO_AKTION_MAX = 60
 # Ab welchem Seitenverhaeltnis (Breite/Hoehe) ein Schirm ein Streifen ist; gleich
 # der Schwelle der Huelle (loxos/src/monitor.js, ein Test vergleicht beide)
 STREIFEN_AB = 2.5
@@ -85,6 +91,35 @@ def bento_ansicht_widget(v) -> str:
     return v
 
 
+def _knoepfe(v, icon_pruefer: Callable) -> list:
+    """Knoepfe einer Schnellaktionen-Zelle, je Knopf: id (Baustein), aktion
+    (Beschriftung eines Knopfs seiner Detailseite; fehlt = wie ein Tipp auf
+    seine Kachel), optional name (eigener Text) und icon (wie das Symbol einer
+    freien Seite: die Adresse aus der Icon-Auswahl, icon_pruefer; fehlt = das
+    Symbol der Kachel). Ein Eintrag ohne Baustein faellt weg; ob es den
+    Baustein und die Aktion gibt, entscheidet erst das Rendern - wie bei einem
+    geloeschten Baustein."""
+    out = []
+    for k in (v if isinstance(v, list) else [])[:BENTO_KNOEPFE_MAX]:
+        if not isinstance(k, dict):
+            continue
+        uid = k.get("id")
+        if not isinstance(uid, str) or not uid or any(c.isspace() or ord(c) < 32 for c in uid):
+            continue
+        e: dict = {"id": uid}
+        aktion = k.get("aktion")
+        if isinstance(aktion, str) and aktion.strip():
+            e["aktion"] = aktion.strip()[:BENTO_AKTION_MAX]
+        name = k.get("name")
+        if isinstance(name, str) and name.strip():
+            e["name"] = name.strip()[:BENTO_NAME_MAX]
+        ic = icon_pruefer(k.get("icon"))
+        if ic:
+            e["icon"] = ic
+        out.append(e)
+    return out
+
+
 def _ganzzahl(v, lo: int, hi: int):
     """Ganzzahl in [lo, hi] oder None; bool zaehlt nicht (True waere sonst 1)."""
     return v if isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi else None
@@ -97,7 +132,8 @@ def _klemmen(v, lo: int, hi: int, standard: int) -> int:
     return max(lo, min(hi, int(v)))
 
 
-def _zelle(z, spalten: int, zeilen: int, drin: set, widget_pruefer: Callable) -> dict | None:
+def _zelle(z, spalten: int, zeilen: int, drin: set, widget_pruefer: Callable,
+           icon_pruefer: Callable) -> dict | None:
     """Eine Zelle pruefen: Lage im Raster und Inhalt, ohne Blick auf die
     anderen Zellen (das macht bento_seite). Inhalt ist entweder ein Widget oder
     eine Liste von Bausteinen aus drin; was ueber den Rand ragt, keinen
@@ -127,6 +163,8 @@ def _zelle(z, spalten: int, zeilen: int, drin: set, widget_pruefer: Callable) ->
             name = str(z.get("name") or "").strip()[:BENTO_NAME_MAX]
             if name:
                 c["name"] = name
+        elif wdg == BENTO_SCHNELL:
+            c["knoepfe"] = _knoepfe(z.get("knoepfe"), icon_pruefer)
         return c
     roh = z.get("ids")
     ids: list = []
@@ -139,14 +177,17 @@ def _zelle(z, spalten: int, zeilen: int, drin: set, widget_pruefer: Callable) ->
     return c
 
 
-def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int) -> dict | None:
+def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int,
+                icon_pruefer: Callable = lambda v: None) -> dict | None:
     """Bento-Raster einer freien Seite pruefen: Spalten und Zeilen begrenzt,
     Format des Vorschaugeraets (bis px_max), Zellen. Regeln (VISION.md):
     Zellen liegen im Raster und ueberlappen nicht (die spaetere faellt weg),
     Bausteine stammen aus picks und stehen je Seite einmal, ein Widget mit
-    gleicher Quelle (bei Uhr, Wetter und Kalender: ueberhaupt) einmal. Leere
-    cells sind gueltig (spaeter Bento-Automatik). widget_pruefer gibt das
-    bereinigte Widget oder "" zurueck. None = keine Bento-Seite."""
+    gleicher Quelle (bei Uhr, Wetter und Kalender: ueberhaupt) einmal,
+    Schnellaktionen beliebig oft. Leere cells sind gueltig (spaeter
+    Bento-Automatik). widget_pruefer gibt das bereinigte Widget oder ""
+    zurueck, icon_pruefer das Symbol eines Knopfs oder None. None = keine
+    Bento-Seite."""
     if not isinstance(v, dict):
         return None
     spalten = _klemmen(v.get("cols"), BENTO_SPALTEN_MIN, BENTO_SPALTEN_MAX, BENTO_SPALTEN_STANDARD)
@@ -166,7 +207,7 @@ def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int) -> dict |
     roh = v.get("cells")
     # mehr Zellen als Felder kann es nicht geben
     for z in (roh if isinstance(roh, list) else [])[:spalten * zeilen]:
-        c = _zelle(z, spalten, zeilen, drin - bausteine, widget_pruefer)
+        c = _zelle(z, spalten, zeilen, drin - bausteine, widget_pruefer, icon_pruefer)
         if c is None:
             continue
         felder = {(c["x"] + i, c["y"] + j) for i in range(c["w"]) for j in range(c["h"])}
@@ -176,7 +217,8 @@ def bento_seite(v, picks: list, widget_pruefer: Callable, px_max: int) -> dict |
             quelle = (c["widget"], c.get("url", ""))
             if quelle in widgets:
                 continue
-            widgets.add(quelle)
+            if c["widget"] != BENTO_SCHNELL:
+                widgets.add(quelle)
         else:
             bausteine.update(c["ids"])
         belegt |= felder
@@ -248,4 +290,5 @@ def bento_grenzen() -> dict:
             "spaltenStandard": BENTO_SPALTEN_STANDARD,
             "zeilenMin": BENTO_ZEILEN_MIN, "zeilenMax": BENTO_ZEILEN_MAX,
             "zeilenStandard": BENTO_ZEILEN_STANDARD,
-            "bausteineMax": BENTO_ZELLE_BAUSTEINE_MAX, "urlMax": BENTO_URL_MAX, "nameMax": BENTO_NAME_MAX}
+            "bausteineMax": BENTO_ZELLE_BAUSTEINE_MAX, "urlMax": BENTO_URL_MAX, "nameMax": BENTO_NAME_MAX,
+            "knoepfeMax": BENTO_KNOEPFE_MAX}

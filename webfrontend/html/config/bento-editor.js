@@ -18,7 +18,9 @@
 
 const BE_WIDGETS=[['clock','Uhr'],['weather','Wetter'],['calendar','Kalender'],['player','Audio'],
   ['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf'],['status','Werte'],['iframe','Webseite'],
-  ['ansicht','Raum-Display']];
+  ['schnell','Schnellaktionen'],['ansicht','Raum-Display']];
+// Ohne Quelle, aber beliebig oft je Seite (bento_format.py)
+const BE_MEHRFACH=['schnell'];
 // Ohne Quelle: einmal je Seite (wie bento_format.py)
 const BE_EINZELN=['clock','weather','calendar'];
 // Seitenverhaeltnis von Seite und Vorschaugeraet: mehr Abweichung -> Warnung
@@ -90,6 +92,60 @@ function beAnsichtFormat(arg){
     ? '<p class="hint">'+esc(T('Gebaut für')+' '+(d.name ? d.name+' · ' : '')+d.vw+' × '+d.vh)+' – '+T('die Zelle zeigt sie in dieser Form.')+'</p>'
     : '<p class="hint">'+T('Die Ansicht kennt kein Zielgerät mit Größe und füllt deshalb die Zelle. Legt „Gerät einrichten“ eine Ansicht für ein Display an, merkt sie sich dessen Größe.')+'</p>';
 }
+// ---- Schnellaktionen --------------------------------------------------------------
+// Je Knopf: Baustein, Aktion (eine Taste seiner Detailseite oder wie ein Tipp
+// auf die Kachel), eigener Text und Symbol (Icon-Auswahl wie bei Seiten). Was
+// die Detailseite anbietet, fragt der Editor beim Server ab (einmal je Baustein).
+// Kommt die Antwort, tauscht er nur die Auswahl der Aktion aus - ein Neuzeichnen
+// nahm einem Textfeld, in das gerade jemand tippt, Fokus und Buchstaben.
+const BE_AKTIONEN={};   // uuid -> {aktionen, kachel} | 'laedt'
+function beAktionenLaden(u){
+  if(BE_AKTIONEN[u]) return;
+  BE_AKTIONEN[u]='laedt';
+  fetch('/api/bento/aktionen?id='+encodeURIComponent(u)).then(r=>r.json())
+    .then(j=>{ BE_AKTIONEN[u]=j.ok ? {aktionen:j.aktionen||[], kachel:j.kachel||''} : {aktionen:[], kachel:''}; })
+    .catch(()=>{ delete BE_AKTIONEN[u]; })
+    .then(()=>document.querySelectorAll('[data-be] select[data-be-kaktion]').forEach(sel=>{
+      if(sel.dataset.beKid===u) sel.innerHTML=beAktionOptionen({id:u, aktion:sel.dataset.beKwert||''}); }));
+}
+function beAktionOptionen(k){
+  const a=BE_AKTIONEN[k.id];
+  if(!a || a==='laedt') return '<option value="'+esc(k.aktion||'')+'">'+T('lädt …')+'</option>';
+  const tipp={cmd:'Wie ein Tipp auf die Kachel', nav:'Detailseite öffnen'}[a.kachel]||'Keine Aktion';
+  return '<option value=""'+(k.aktion ? '' : ' selected')+'>'+T(tipp)+'</option>'+
+    a.aktionen.map(l=>'<option value="'+esc(l)+'"'+(l===k.aktion ? ' selected' : '')+'>'+esc(l)+'</option>').join('')+
+    (k.aktion && a.aktionen.indexOf(k.aktion)<0
+      ? '<option value="'+esc(k.aktion)+'" selected>'+esc(k.aktion+' – '+T('nicht mehr auf der Detailseite'))+'</option>' : '');
+}
+function beSchnellHtml(c, gr){
+  const ks=c.knoepfe||(c.knoepfe=[]);
+  let h='<div class="field"><label class="lbl">'+T('Knöpfe')+'</label><div class="be-knoepfe">';
+  ks.forEach((k, i)=>{
+    beAktionenLaden(k.id);
+    const s=seCtrl(k.id), n=s ? s.name : k.id;
+    h+='<div class="be-knopf"><div class="be-kkopf"><b>'+esc(n)+'</b>'+
+      '<span class="x" data-be-kweg="'+i+'" aria-label="'+esc(T('Knopf entfernen'))+'">×</span></div>'+
+      '<select data-be-kaktion="'+i+'" data-be-kid="'+esc(k.id)+'" data-be-kwert="'+esc(k.aktion||'')+
+      '" aria-label="'+esc(T('Aktion'))+'">'+beAktionOptionen(k)+'</select>'+
+      '<input type="text" data-be-kname="'+i+'" maxlength="'+gr.nameMax+'" placeholder="'+esc(n)+'" value="'+esc(k.name||'')+
+      '" aria-label="'+esc(T('Text'))+'">'+
+      '<details class="se-icon" data-be-kicon="'+i+'"><summary>'+T('Symbol')+' '+seIconJetzt(k.icon)+'</summary>'+
+      '<input class="pgi-search" oninput="pickIcoFilter(this.value, this.parentNode)" placeholder="'+esc(T('Icon suchen…'))+'">'+
+      '<div class="picogrid" data-be-kicons="'+i+'"></div></details></div>';
+  });
+  h+='</div>'+(ks.length<gr.knoepfeMax
+    ? '<select data-be-kneu aria-label="'+esc(T('Knopf hinzufügen'))+'"><option value="">'+T('＋ Knopf …')+'</option>'+controlOptions()+'</select>'
+    : '<p class="hint">'+T('Mehr Knöpfe passen nicht in eine Zelle.')+'</p>');
+  return h+'</div>';
+}
+// Symbolauswahl eines Knopfs beim Aufklappen fuellen (wie seIconsFuellen)
+function beKnopfIcons(host, d){
+  const ctx=host._se, c=ctx.seite().bento.cells[beZustand(ctx).sel], i=+d.dataset.beKicon;
+  const g=d.querySelector('[data-be-kicons]'), k=c && c.knoepfe && c.knoepfe[i]; if(!g || !k || !d.open) return;
+  g.innerHTML=icoGridBody(k.icon||'');
+  const q=d.querySelector('.pgi-search'); if(q && q.value) pickIcoFilter(q.value, d);
+  if(LOXLIB===null) loadLoxlib(()=>{ if(document.body.contains(g)) beKnopfIcons(host, d); });
+}
 // Bausteine der Seite ohne Zelle
 function beOffen(e){ const drin=new Set(e.bento.cells.flatMap(c=>c.ids||[])); return (e.picks||[]).filter(u=>!drin.has(u)); }
 
@@ -98,6 +154,7 @@ function beName(c){
   const art=wKind(c.widget||''), arg=wArg(c.widget||''), n=T((BE_WIDGETS.find(x=>x[0]===art)||[art, art])[1]);
   if(art==='iframe') return n+(c.name ? ' · '+c.name : (c.url ? ' · '+c.url : ''));
   if(art==='ansicht') return n+(arg ? ' · '+ansichtName(arg) : '');
+  if(art==='schnell') return n+' · '+(c.knoepfe||[]).length;
   if(art==='player' || art==='energy' || art==='camera'){ const k=seCtrl(arg.split('|')[0]); return n+(k ? ' · '+k.name : ''); }
   if(art==='chart' || art==='status'){ const uu=arg.split(',').filter(Boolean); return n+(uu.length ? ' · '+uu.length : ''); }
   return n;
@@ -190,6 +247,7 @@ function beAusHtml(ctx){
   else if(art==='energy') h+=feld('Baustein', '<select data-be-quelle>'+energyControlOptions(arg)+'</select>');
   else if(art==='camera') h+=feld('Baustein', '<select data-be-quelle>'+cameraOptions(arg.split('|')[0])+'</select>');
   else if(art==='ansicht') h+=feld('Ansicht', '<select data-be-quelle>'+beAnsichtOptionen(arg, ctx)+'</select>')+beAnsichtFormat(arg);
+  else if(art==='schnell') h+=beSchnellHtml(c, gr);
   else if(art==='chart' || art==='status'){
     const uu=arg.split(',').filter(Boolean);
     h+=feld('Bausteine', (art==='chart' ? '<select data-be-wneu>'+chartAddOptions()+'</select>'
@@ -220,7 +278,7 @@ function beFertig(host, ctx, fokus){
 }
 function beNeueZelle(host, ctx, inhalt){
   const e=ctx.seite(), b=e.bento, st=beZustand(ctx);
-  if(inhalt.widget && b.cells.some(c=>c.widget===inhalt.widget && (c.url||'')===(inhalt.url||''))){
+  if(inhalt.widget && BE_MEHRFACH.indexOf(inhalt.widget)<0 && b.cells.some(c=>c.widget===inhalt.widget && (c.url||'')===(inhalt.url||''))){
     st.meldung=T('Dieses Widget steht mit derselben Quelle schon auf der Seite.'); beZeichnen(host); return; }
   const platz=bePlatz(b, 1, 1);
   if(!platz){ st.meldung=T('Kein Feld mehr frei – Zellen verkleinern oder das Raster vergrößern.'); beZeichnen(host); return; }
@@ -252,13 +310,22 @@ function beBinden(box, host){
   box.addEventListener('change', ev=>beAenderung(host, ev));
   box.addEventListener('keydown', ev=>beTaste(host, ev));
   box.addEventListener('pointerdown', ev=>beDown(host, ev));
+  // toggle steigt nicht auf: in der Capture-Phase (Symbolauswahl eines Knopfs aufgeklappt)
+  box.addEventListener('toggle', ev=>{ const d=ev.target;
+    if(d.matches && d.matches('[data-be-kicon]')) beKnopfIcons(host, d); }, true);
 }
 function beKlick(host, ev){
   const ctx=host._se, e=ctx.seite(), b=e.bento, st=beZustand(ctx), t=ev.target;
   const ziel=s=>t.closest('['+s+']');
   let n;
-  if((n=ziel('data-be-neu'))){ const k=n.dataset.beNeu;
-    beNeueZelle(host, ctx, {widget:k==='iframe' ? 'iframe' : beWidgetWert(k, ctx)}); return; }
+  if((n=ziel('data-be-neu'))){ const k=n.dataset.beNeu, inhalt={widget:k==='iframe' ? 'iframe' : beWidgetWert(k, ctx)};
+    if(k==='schnell') inhalt.knoepfe=[];
+    beNeueZelle(host, ctx, inhalt); return; }
+  if((n=ziel('data-be-kweg'))){ b.cells[st.sel].knoepfe.splice(+n.dataset.beKweg, 1); beFertig(host, ctx); return; }
+  if((n=ziel('data-pic')) && n.closest('[data-be-kicons]')){
+    const k=b.cells[st.sel].knoepfe[+n.closest('[data-be-kicons]').dataset.beKicons];
+    if(n.dataset.pic) k.icon=n.dataset.pic; else delete k.icon;
+    beFertig(host, ctx); return; }
   if((n=ziel('data-be-raus'))){ const u=n.dataset.beRaus; e.picks=(e.picks||[]).filter(x=>x!==u); beFertig(host, ctx); return; }
   if((n=ziel('data-be-platz'))){ beNeueZelle(host, ctx, {ids:[n.dataset.bePlatz]}); return; }
   if((n=ziel('data-be-format'))){ const g=ctx.geraet(); b.format={vw:g.vw, vh:g.vh}; beFertig(host, ctx); return; }
@@ -301,6 +368,19 @@ function beAenderung(host, ev){
   }
   if(t.hasAttribute('data-be-dazu') && t.value){
     e.picks=e.picks||[]; if(e.picks.indexOf(t.value)<0) e.picks.push(t.value);
+    beFertig(host, ctx); return;
+  }
+  if(t.hasAttribute('data-be-kneu') && c && t.value){
+    if(c.knoepfe.length<gr.knoepfeMax) c.knoepfe.push({id:t.value});
+    beFertig(host, ctx); return;
+  }
+  if(t.dataset.beKaktion!==undefined && c){
+    const k=c.knoepfe[+t.dataset.beKaktion]; if(t.value) k.aktion=t.value; else delete k.aktion;
+    beFertig(host, ctx); return;
+  }
+  if(t.dataset.beKname!==undefined && c){
+    const k=c.knoepfe[+t.dataset.beKname], nm=t.value.trim().slice(0, gr.nameMax);
+    if(nm) k.name=nm; else delete k.name;
     beFertig(host, ctx); return;
   }
   if(t.hasAttribute('data-be-url') && c){

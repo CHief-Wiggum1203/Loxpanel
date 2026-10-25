@@ -26,7 +26,7 @@ import logging
 import aiohttp
 
 from bausteine.gemeinsam import _clean
-from bento_format import BENTO_ANSICHT, BENTO_IFRAME
+from bento_format import BENTO_ANSICHT, BENTO_IFRAME, BENTO_SCHNELL
 from konfig import _pick_tabs
 from statistik import STAT_DEFAULT_RANGE
 
@@ -146,6 +146,8 @@ class Bento:
         try:
             if w.startswith(BENTO_ANSICHT):
                 d.update(self._bento_ansicht(w[len(BENTO_ANSICHT):], prof))
+            elif w == BENTO_SCHNELL:
+                d["knoepfe"] = [self._bento_knopf(k, prof) for k in c.get("knoepfe") or ()]
             elif art == "player":
                 pb = self.player_blocks(arg)
                 if pb is not None:
@@ -192,6 +194,88 @@ class Bento:
         if (prof or {}).get("id") == pid:
             a["selbst"] = True
         return {"ansicht": a}
+
+    # ---- Schnellaktionen ---------------------------------------------------------
+    def _detail_aktionen(self, uuid: str) -> list:
+        """Aktionen der Detailseite eines Bausteins: jede Taste mit Beschriftung
+        und festem Befehl - Zellen einer row mit cmd, Cover der favs - in der
+        Reihenfolge der Seite, je Beschriftung die erste. Nicht dabei, was die
+        Seite selbst braucht: Halten und Loslassen, Formular, Sprung, Menue,
+        Regler; auch nicht die verlinkten Objekte (andere Bausteine) und die
+        Verlaeufe (_view_control_inner statt _view_control). Gelesen wird ueber
+        self.states wie beim Zeichnen der Seite: Die Zelle zieht nach, wenn
+        sich ein Zustand aendert (on, Befehl einer Umschalt-Taste).
+        -> [{label, cmd, on?, confirm?}]"""
+        v = self._view_control_inner(uuid)
+        out, da = [], set()
+        for b in v.get("blocks") or ():
+            if b.get("k") == "row":
+                zellen = b.get("cells") or ()
+            elif b.get("k") == "favs":
+                zellen = b.get("items") or ()
+            else:
+                continue
+            for z in zellen:
+                lab, cmd = _clean(z.get("label")), z.get("cmd")
+                if not lab or lab in da or not isinstance(cmd, dict) or not cmd.get("uuid") or not cmd.get("cmd") \
+                        or any(z.get(k) for k in ("hold", "release", "menu", "form", "nav")):
+                    continue
+                da.add(lab)
+                a: dict = {"label": lab, "cmd": {"uuid": cmd["uuid"], "cmd": cmd["cmd"]}}
+                if z.get("on"):
+                    a["on"] = True
+                if z.get("confirm"):
+                    a["confirm"] = z["confirm"]
+                out.append(a)
+        return out
+
+    def _bento_knopf(self, k: dict, prof: dict | None) -> dict:
+        """Ein Knopf der Schnellaktionen: name, zusatz (die Aktion, wenn kein
+        eigener Name sie schon sagt), Symbol (eigenes, sonst das der Kachel),
+        on, secured und was ein Tipp tut - ohne Aktion wie ein Tipp auf die
+        Kachel (cmd oder nav), mit Aktion deren Befehl aus der Detailseite
+        (_detail_aktionen), samt Rueckfrage (confirm). Gesperrt (jLocked)
+        oeffnet er die Detailseite, die sagt, warum. Fehlt der Baustein
+        (geloescht, in der Ansicht ausgeblendet) oder die Aktion, steht der
+        Knopf mit fehlt=True da - die Visu zeigt ihn gesperrt, statt die
+        anderen zu verschieben."""
+        u = k["id"]
+        if u not in self.controls or not self._shown(u, prof):
+            return {"name": k.get("name") or k.get("aktion") or "?", "fehlt": True}
+        it = self._control_item(u, prof)
+        kn: dict = {"name": k.get("name") or it.get("label") or "?", "on": bool(it.get("on"))}
+        ic = k.get("icon")
+        if ic:
+            # wie das Symbol einer freien Seite (_tab_meta): fertige Adresse oder Loxone-Pfad
+            kn["iconUrl"] = ic if ic.startswith("/") else (self._icon_url(ic) or "")
+        elif it.get("iconUrl"):
+            kn["iconUrl"] = it["iconUrl"]
+        else:
+            kn["icon"] = it.get("icon") or "info"
+        if it.get("secured"):
+            kn["secured"] = True
+        aktion = k.get("aktion")
+        if aktion:
+            if not k.get("name"):
+                kn["zusatz"] = aktion
+            a = next((a for a in self._detail_aktionen(u) if a["label"] == aktion), None)
+            if a is None:
+                kn["fehlt"] = True
+                return kn
+            kn["cmd"], kn["on"] = a["cmd"], bool(a.get("on"))
+            if a.get("confirm"):
+                kn["confirm"] = a["confirm"]
+        elif it.get("cmd"):
+            kn["cmd"] = it["cmd"]
+        elif it.get("nav"):
+            kn["nav"] = it["nav"]
+        else:
+            kn["fehlt"] = True
+        if self._sperre_text(u):
+            kn.pop("cmd", None)
+            kn.pop("confirm", None)
+            kn["nav"], kn["gesperrt"] = {"view": "control", "id": u}, True
+        return kn
 
     # ---- Die Visu in einer Raum-Display-Zelle (?eingebettet=1) ----------------
     def _eingebettet(self, ws) -> bool:

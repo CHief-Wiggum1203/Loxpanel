@@ -194,6 +194,7 @@ function bentoFuellen(z, c){
   }
   else if(art==='iframe') bentoWebseite(z, c);
   else if(art==='ansicht') bentoAnsicht(z, c);
+  else if(art==='schnell') bentoSchnell(z, c);
 }
 
 // Fester Innenkasten einer Widget-Zelle: die Pane-Renderer zeichnen dort
@@ -398,6 +399,49 @@ function bentoAnsichtEinpassen(z){
   const k=Math.min(b/fm.vw, h/fm.vh);
   f.style.width=fm.vw+'px'; f.style.height=fm.vh+'px';
   f.style.transform='translate('+((b-fm.vw*k)/2).toFixed(1)+'px,'+((h-fm.vh*k)/2).toFixed(1)+'px) scale('+k.toFixed(4)+')';
+}
+
+// ---- Schnellaktionen ---------------------------------------------------------------
+// Knoepfe mit Symbol (bento.py _bento_knopf): ein Tipp schickt den Befehl (cmd,
+// mit Rueckfrage, wenn confirm - wie die Zellen der Detailseite, zelleTippen)
+// oder oeffnet die Seite (nav). Ein Knopf, dessen Baustein oder Aktion fehlt,
+// steht gesperrt da. Die Knoepfe teilen die Zelle in ein Raster, dessen
+// Spaltenzahl sie so nah wie moeglich ans Quadrat bringt.
+function bentoSchnellSpalten(n, b, h){
+  let beste=1, abw=Infinity;
+  for(let sp=1; sp<=n; sp++){
+    const zl=Math.ceil(n/sp), a=Math.abs(Math.log((b/sp)/(h/zl)));
+    if(a<abw-1e-9){ abw=a; beste=sp; }
+  }
+  return beste;
+}
+function bentoKnopfSymbol(k){
+  return k.iconUrl ? '<span class="ico img" style="--u:url(\''+esc(k.iconUrl)+'\')"></span>'
+                   : '<span class="ico">'+svg(ICONS[k.icon]||ICONS.info)+'</span>';
+}
+function bentoSchnell(z, c){
+  const ks=c.knoepfe||[];
+  if(!ks.length){ bentoHinweis(z, 'Noch keine Knöpfe – im Konfigurator unter „Seiten“ hinzufügen'); return; }
+  const b=parseFloat(z.style.getPropertyValue('--bz-b'))||z.clientWidth||1;
+  const h=parseFloat(z.style.getPropertyValue('--bz-h'))||z.clientHeight||1;
+  const sp=bentoSchnellSpalten(ks.length, b, h);
+  z.innerHTML='<div class="bz-schnell" style="--sk-sp:'+sp+';--sk-zl:'+Math.ceil(ks.length/sp)+'">'+ks.map((k, i)=>
+    '<button type="button" class="bz-sk'+(k.on ? ' on' : '')+(k.gesperrt ? ' gesperrt' : '')+'" data-i="'+i+'"'+
+    (k.fehlt ? ' disabled' : '')+'>'+bentoKnopfSymbol(k)+'<span class="bz-skn">'+esc(k.name)+'</span>'+
+    (k.zusatz ? '<span class="bz-skz">'+esc(k.zusatz)+'</span>' : '')+'</button>').join('')+'</div>';
+  z.querySelectorAll('.bz-sk').forEach(btn=>btn.addEventListener('click', ()=>bentoKnopf(btn, ks[+btn.dataset.i])));
+}
+function bentoKnopf(btn, k){
+  if(!k || k.fehlt) return;
+  if(k.nav){ nav(k.nav); return; }
+  const n=btn.querySelector('.bz-skn');
+  if(k.confirm && !btn._armed){
+    btn._armed=true; btn.classList.add('arm'); n.textContent=k.confirm;
+    btn._armT=setTimeout(()=>{ btn._armed=false; btn.classList.remove('arm'); n.textContent=k.name; }, ZELLE_BESTAETIGEN_MS);
+    return;
+  }
+  clearTimeout(btn._armT); btn._armed=false; btn.classList.remove('arm'); n.textContent=k.name;
+  if(k.cmd) sendCmd(k.cmd.uuid, k.cmd.cmd, !!k.secured);
 }
 
 // ---- Wischen zwischen Bento-Seiten ----------------------------------------------
