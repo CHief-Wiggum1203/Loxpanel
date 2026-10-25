@@ -10,6 +10,10 @@
 - Grundimage und GitHub Actions stehen auf einer Pruefsumme bzw. einem Commit,
   nicht auf einem Etikett wie `v4` oder `3.12-slim`, das sich verschieben laesst.
 - Neue Staende kommen als Pull Request (Dependabot) und laufen durch die Tests.
+- Keine geschlossene Bibliothek im Bau: setup-gradle cacht mit dem offenen
+  Anbieter (`cache-provider: basic`). Ab v6 laedt sein Standard "enhanced"
+  die proprietaere `gradle-actions-caching` mit eigenen Nutzungsbedingungen,
+  auch im APK-Release neben den Signierschluesseln.
 
 Gelesen werden die echten Dateien; die Gegenproben unten zeigen an
 abgewandelten Texten, dass die Pruefungen jeden Fehler erkennen.
@@ -109,6 +113,15 @@ def _uses_fehler(wfs: dict) -> list[str]:
     return falsch
 
 
+def _gradle_fehler(wfs: dict) -> list[str]:
+    """Schritte mit setup-gradle, die nicht den offenen Cache-Anbieter nehmen."""
+    return [f"{name} {jn}: {(s.get('with') or {}).get('cache-provider')!r}"
+            for name, wf in wfs.items() for jn, job in (wf.get("jobs") or {}).items()
+            for s in job.get("steps") or []
+            if str(s.get("uses", "")).startswith("gradle/actions/setup-gradle")
+            and (s.get("with") or {}).get("cache-provider") != "basic"]
+
+
 # ---- die echten Dateien ----
 
 def test_sperrliste_jede_version_fest_mit_pruefsumme():
@@ -188,6 +201,13 @@ def test_dependabot_deckt_alles_ab():
         assert ignoriert(je["docker"], "python", art), art
 
 
+def test_gradle_nur_mit_offenem_cache():
+    wfs = _workflows()
+    assert any(str(s.get("uses", "")).startswith("gradle/actions/setup-gradle")
+               for wf in wfs.values() for job in (wf.get("jobs") or {}).values() for s in job.get("steps") or [])
+    assert _gradle_fehler(wfs) == []
+
+
 # ---- Gegenproben: die Pruefungen erkennen jeden Fehler ----
 
 _GUT = "aiohttp==3.14.5 \\\n    --hash=sha256:" + "a" * 64 + "\n    # via loxone-api\n"
@@ -216,3 +236,11 @@ def test_gegenprobe_actions():
     assert _uses_fehler({"x.yml": {"jobs": {"j": {"steps": [{"uses": "actions/checkout@" + "0" * 40}]}}}}) == []
     for u in ("actions/checkout@v4", "actions/checkout@main", "actions/checkout@" + "0" * 39):
         assert _uses_fehler({"x.yml": {"jobs": {"j": {"steps": [{"uses": u}]}}}}), u
+
+
+def test_gegenprobe_gradle():
+    def wf(mit):
+        return {"x.yml": {"jobs": {"j": {"steps": [{"uses": "gradle/actions/setup-gradle@" + "0" * 40, "with": mit}]}}}}
+    assert _gradle_fehler(wf({"gradle-version": "8.7", "cache-provider": "basic"})) == []
+    for mit in ({"gradle-version": "8.7"}, {"cache-provider": "enhanced"}, None):
+        assert _gradle_fehler(wf(mit)), mit
