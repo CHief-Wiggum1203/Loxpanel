@@ -20,10 +20,11 @@ dort als Wahrheit. Hier bleibt die Richtung.
 | Streifen | Flaches Breitformat-Display, typisch 32:9 bis 4:1 (2560×720, 1920×480, 1280×400) |
 | Bento-Seite | Freie Seite (`pickTabs[]`), deren Inhalt ein Raster mit fest platzierten Zellen ist |
 | Zelle | Rechteck im Bento-Raster mit Spalte, Zeile, Breite, Höhe; trägt Bausteine oder ein Widget |
-| Widget | Inhalt ohne eigenen Loxone-Baustein-Typ: Uhr, Wetter, Kalender, Audio, Energie, Kamera, Verlauf, Werte, Webseite |
+| Widget | Inhalt ohne eigenen Loxone-Baustein-Typ: Uhr, Wetter, Kalender, Audio, Energie, Kamera, Verlauf, Werte, Webseite, Schnellaktionen, Systemstatus |
 | Fließraster | Das heutige Raster freier Seiten: Kacheln fließen in Reihenfolge, die Visu rechnet die Position |
 | Hülle | Die Desktop-App „LoxOS“ (Electron), die die Visu auf dem Streifen zeigt |
 | Raum-Display | Zelle, die eine ganze gespeicherte Ansicht (etwa die eines 480×480-Raumpanels) als eigene Visu zeigt |
+| Systemstatus | Widget mit dem, was der Miniserver über sich hergibt (Struktur, Mitteilungen, Webservices), und dem Zustand von LoxPanel |
 | Edge-Look | Das Kachel-Set `edge` (Aufbau `lx`, Leiste `links`) |
 
 ## Was Bento ist – und was nicht
@@ -421,7 +422,8 @@ Regeln, die alle Stufen einhalten:
    Konfiguration.
 7. **Widgets mit Quelle dürfen mehrfach stehen** (Audio, Kamera, Verlauf,
    Werte, Energie, Webseite – je mit eigener Quelle), Widgets ohne Quelle
-   (Uhr, Wetter, Kalender) einmal je Seite. Der Editor blendet bereits
+   (Uhr, Wetter, Kalender, Systemstatus) einmal je Seite; Schnellaktionen
+   beliebig oft. Der Editor blendet bereits
    gesetzte aus, der Sanitizer verwirft Doppelte und meldet sie.
 
 ## Architektur-Entscheidungen
@@ -480,14 +482,16 @@ Regeln, die alle Stufen einhalten:
 LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 
 - **Neue Dateien statt Änderungen.** Logik steht in eigenen Modulen
-  (`bin/bento_format.py`, `bin/bento.py`, `panel/bento.js`, `panel/bento.css`,
-  `panel/eingebettet.js`, `config/bento-editor.js`, `loxos/`).
+  (`bin/bento_format.py`, `bin/bento.py`, `bin/systemstatus.py`,
+  `panel/bento.js`, `panel/bento.css`, `panel/eingebettet.js`,
+  `config/bento-editor.js`, `loxos/`).
 - **Kleine Andockstellen** in Upstream-Dateien, jede als zusammenhängender
   Block: Aufruf des Prüfers in `_sanitize_panels()` und `_pick_tabs()`
   (`konfig.py`, laut `CLAUDE.md` der Pflichtort; die Prüfung selbst steht in
   `bento_format.py`, weil `konfig.py` an der Längengrenze von
   `test_dateigroessen.py` liegt), Weiche in `_view_tab()` (`seiten.py`), Set in
-  `theme_colors.py`, Datenparameter der Widget-Renderer (`front.js`,
+  `theme_colors.py`, die States des Systemstatus (`messageCenter`) in
+  `_apply_structure()` (`miniserver.py`), Datenparameter der Widget-Renderer (`front.js`,
   `kacheln.js`), das Set in `KACHEL_SETS` mit seiner Übersetzung, Weiche im Seiten-Editor, Script- und Stylesheet-Tags in
   `panel.html` und `config.html`.
 - **`PANEL_UI_EXPORT`** (`bin/ansicht.py`) hält seit Stufe 2.5 die frühere

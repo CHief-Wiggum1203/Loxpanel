@@ -56,6 +56,7 @@ import seiten  # noqa: E402
 import sicherung  # noqa: E402
 import statistik  # noqa: E402
 import symbolquellen  # noqa: E402
+import systemstatus  # noqa: E402
 import verteilung  # noqa: E402
 
 # Die aus webvisu.py herausgeloesten Module (docs/TODO.md, Zerlegen): sie
@@ -63,7 +64,7 @@ import verteilung  # noqa: E402
 # ihnen. Ein neues Modul gehoert hier dazu, sonst ersetzt ersetzen() dort nichts.
 # Reihenfolge: wer einen Namen anbietet, vor dem, der ihn importiert.
 _ZERLEGT_MODULE = (symbolquellen, bento_format, konfig, sicherung, statistik, haus, gesten, miniserver, geraete, audiodienst,
-                   intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten, bento)
+                   intercomdienst, front, verteilung, medien, diagnosedaten, ansicht, seiten, bento, systemstatus)
 ZERLEGT = tuple(m.__name__ for m in _ZERLEGT_MODULE)
 # Pakete: jedes Modul darin ist ein Server-Modul. bausteine importiert aus
 # keinem Thema, routen (die Handler) aus allen, darum zuletzt.
@@ -203,6 +204,8 @@ class Miniserver:
     ios        angekommene gesicherte Befehle (sps/ios) als (uuid/cmd, Code)
     pin_code   LL-Code fuer einen abgelehnten gesicherten Befehl (ohne PIN oder
                mit falscher); am Geraet nicht geprueft, der Fehlerbericht nennt 403
+    system     Webservices des Systemstatus (etwa "cfg/version", "sys/cpu") ->
+               (LL-Code, Wert); system_abrufe zaehlt die Anfragen je Pfad
     hash_alg   hashAlg aus getkey2; gilt fuer getjwt, die Anmeldung am
                WebSocket (authwithtoken) und autht in verschluesselten Befehlen
     ws_modus   WebSocket /ws/rfc6455 fuer die Live-Werte. "an" (Standard):
@@ -261,6 +264,8 @@ class Miniserver:
         self.gesichert_io: set[str] = set()
         self.ios: list[tuple[str, str]] = []
         self.pin_code = "403"
+        self.system: dict[str, tuple[str, object]] = {}
+        self.system_abrufe: dict[str, int] = {}
         self.getkey = "4C6F78506F6E656C"    # Schluessel aus jdev/sys/getkey (hex)
         self.hash_alg = "SHA256"
         self.ws_befehle: list[str] = []
@@ -368,6 +373,10 @@ class Miniserver:
             return web.Response(status=401, text="Unauthorized")
         if tail.startswith("sps/getStatistic/"):
             return await self._getstatistic(tail)
+        if tail in self.system:
+            self.system_abrufe[tail] = self.system_abrufe.get(tail, 0) + 1
+            code, wert = self.system[tail]
+            return self._ll(tail, wert, code)
         if tail.startswith("sys/getvisusalt/"):
             return web.json_response({"LL": {"control": tail, "Code": "200",
                                              "value": {"key": self.visu_key, "salt": self.visu_salz,

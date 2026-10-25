@@ -18,11 +18,11 @@
 
 const BE_WIDGETS=[['clock','Uhr'],['weather','Wetter'],['calendar','Kalender'],['player','Audio'],
   ['energy','Energiefluss'],['camera','Kamera'],['chart','Verlauf'],['status','Werte'],['iframe','Webseite'],
-  ['schnell','Schnellaktionen'],['ansicht','Raum-Display']];
+  ['schnell','Schnellaktionen'],['ansicht','Raum-Display'],['system','Systemstatus']];
 // Ohne Quelle, aber beliebig oft je Seite (bento_format.py)
 const BE_MEHRFACH=['schnell'];
 // Ohne Quelle: einmal je Seite (wie bento_format.py)
-const BE_EINZELN=['clock','weather','calendar'];
+const BE_EINZELN=['clock','weather','calendar','system'];
 // Seitenverhaeltnis von Seite und Vorschaugeraet: mehr Abweichung -> Warnung
 const BE_FORMAT_TOLERANZ=0.1;
 const BE_ZUSTAND={};   // je Seite (ctx.key): gewaehlte Zelle, Meldung
@@ -248,6 +248,7 @@ function beAusHtml(ctx){
   else if(art==='camera') h+=feld('Baustein', '<select data-be-quelle>'+cameraOptions(arg.split('|')[0])+'</select>');
   else if(art==='ansicht') h+=feld('Ansicht', '<select data-be-quelle>'+beAnsichtOptionen(arg, ctx)+'</select>')+beAnsichtFormat(arg);
   else if(art==='schnell') h+=beSchnellHtml(c, gr);
+  else if(art==='system') h+='<p class="hint">'+T('Zeigt, was der Miniserver über sich meldet: Firmware, Auslastung, Programmierstand und die letzte Mitteilung, dazu die Verbindung von LoxPanel. Auslastung und Firmware gibt der Miniserver nur mit den nötigen Rechten heraus.')+'</p>';
   else if(art==='chart' || art==='status'){
     const uu=arg.split(',').filter(Boolean);
     h+=feld('Bausteine', (art==='chart' ? '<select data-be-wneu>'+chartAddOptions()+'</select>'

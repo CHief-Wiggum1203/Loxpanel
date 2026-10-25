@@ -200,6 +200,8 @@ class Miniserver:
         # die aktiven Betriebsmodi. Die Werte kommen ueber den WS-Stream in
         # self.states. Roh uebernehmen, die Belegung ist je Anlage verschieden.
         self.global_states = dict(st.get("globalStates") or {})
+        # LoxOS (Fork): States des Systemstatus (messageCenter, Strukturdoku) fuer das Widget Systemstatus
+        self.meldezentrale = dict((st.get("messageCenter") or {}).get("states") or {})
         # Loxone-Wetterdienst: nur vorhanden, wenn die Anlage ihn gebucht hat.
         # Enthaelt die State-UUIDs (actual/forecast), die Wetterlage-Texte und
         # die Formatstrings mit den Einheiten. Der Wetterpuffer gehoert zu diesen

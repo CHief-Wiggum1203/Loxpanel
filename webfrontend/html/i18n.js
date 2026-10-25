@@ -829,6 +829,9 @@
       'Webseite': 'Web page',
       'Raum-Display': 'Room display',
       'Schnellaktionen': 'Quick actions',
+      'Systemstatus': 'System status',
+      'Zeigt, was der Miniserver über sich meldet: Firmware, Auslastung, Programmierstand und die letzte Mitteilung, dazu die Verbindung von LoxPanel. Auslastung und Firmware gibt der Miniserver nur mit den nötigen Rechten heraus.':
+        'Shows what the Miniserver reports about itself: firmware, load, programming state and the latest notification, plus the LoxPanel connection. The Miniserver only hands out load and firmware with the required rights.',
       'Knöpfe': 'Buttons',
       'lädt …': 'loading …',
       'Wie ein Tipp auf die Kachel': 'Like a tap on the tile',
