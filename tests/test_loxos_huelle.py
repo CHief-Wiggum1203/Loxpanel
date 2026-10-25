@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import plistlib
 import re
 import shutil
 import subprocess
@@ -146,16 +147,65 @@ def test_installer_konfiguration():
     assert kopf[:8] == b"\x89PNG\r\n\x1a\n" and int.from_bytes(kopf[16:20], "big") >= 512
 
 
+def test_mac_signierbar_mit_mikrofon():
+    """Die Mac-Version laesst sich signieren (keine Identitaet null fest im
+    Paket, die setzt nur der unsignierte Bau), mit Hardened Runtime und
+    Rechten, die Electron und das Mikrofon (Gegensprechen) brauchen; ohne
+    Begruendungstext verweigert macOS das Mikrofon."""
+    mac = json.loads((LOXOS / "package.json").read_text(encoding="utf-8"))["build"]["mac"]
+    assert "identity" not in mac and mac["hardenedRuntime"] is True
+    assert mac["entitlements"] == mac["entitlementsInherit"] == "build/entitlements.mac.plist"
+    rechte = plistlib.loads((LOXOS / mac["entitlements"]).read_bytes())
+    assert rechte == {"com.apple.security.cs.allow-jit": True,
+                      "com.apple.security.cs.allow-unsigned-executable-memory": True,
+                      "com.apple.security.cs.disable-library-validation": True,
+                      "com.apple.security.device.audio-input": True}
+    assert "Mikrofon" in mac["extendInfo"]["NSMicrophoneUsageDescription"]
+
+
 def test_workflow_baut_auf_allen_systemen():
     wf = yaml.safe_load((ROOT / ".github" / "workflows" / "loxos.yml").read_text(encoding="utf-8"))
     job = wf["jobs"]["build"]
     assert sorted(job["strategy"]["matrix"]["os"]) == ["macos-latest", "ubuntu-latest", "windows-latest"]
     laeufe = [s.get("run", "") for s in job["steps"]]
     assert "npm ci --no-audit --no-fund" in laeufe, "nur aus der Sperrdatei"
-    assert laeufe.index("npm test") < laeufe.index("npm run dist"), "erst die Tests, dann bauen"
+    bauen = [i for i, r in enumerate(laeufe) if "npm run dist" in r]
+    assert len(bauen) == 2 and laeufe.index("npm test") < min(bauen), "erst die Tests, dann bauen"
     assert any("loxos-v$v" in r for r in laeufe), "Tag muss zur Version passen"
     ausloeser = wf.get("on") or wf.get(True)    # yaml liest "on" als True
     assert ausloeser["push"]["tags"] == ["loxos-v*"]
+
+
+def test_mac_signatur_nur_mit_secrets():
+    """Ohne Zertifikat-Secret baut der Workflow wie bisher unsigniert (auch
+    Windows und Linux ueber diesen Schritt); mit ihm signiert und beglaubigt
+    er die Mac-Version und prueft das Ergebnis. Die Secrets stehen nur im
+    signierenden Schritt; ihre Namen nennt loxos/README.md."""
+    wf = yaml.safe_load((ROOT / ".github" / "workflows" / "loxos.yml").read_text(encoding="utf-8"))
+    job = wf["jobs"]["build"]
+    assert job["env"]["MAC_SIGNIEREN"] == "${{ secrets.MAC_ZERTIFIKAT_P12 != '' }}"
+    schritte = {s.get("name"): s for s in job["steps"]}
+    ohne = schritte["Installer bauen"]
+    assert ohne["if"] == "runner.os != 'macOS' || env.MAC_SIGNIEREN != 'true'"
+    assert ohne["run"] == "npm run dist -- -c.mac.identity=null" and ohne["shell"] == "bash"
+    mit = schritte["Installer bauen (macOS, signiert und beglaubigt)"]
+    assert mit["if"] == "runner.os == 'macOS' && env.MAC_SIGNIEREN == 'true'"
+    secrets = {k: v for k, v in mit["env"].items()}
+    assert secrets == {"CSC_LINK": "${{ secrets.MAC_ZERTIFIKAT_P12 }}",
+                       "CSC_KEY_PASSWORD": "${{ secrets.MAC_ZERTIFIKAT_KENNWORT }}",
+                       "APPLE_API_KEY_INHALT": "${{ secrets.APPLE_API_KEY }}",
+                       "APPLE_API_KEY_ID": "${{ secrets.APPLE_API_KEY_ID }}",
+                       "APPLE_API_ISSUER": "${{ secrets.APPLE_API_ISSUER }}"}
+    andere = [s for s in job["steps"] if s is not mit]
+    assert not any("secrets." in json.dumps(s) for s in andere), "Secrets nur im signierenden Schritt"
+    pruefen = schritte["Signatur und Beglaubigung pruefen"]
+    assert pruefen["if"] == mit["if"]
+    for befehl in ("codesign --verify --deep --strict", "spctl --assess --type execute", "xcrun stapler validate",
+                   "com.apple.security.device.audio-input"):
+        assert befehl in pruefen["run"]
+    liesmich = (LOXOS / "README.md").read_text(encoding="utf-8")
+    for name in ("MAC_ZERTIFIKAT_P12", "MAC_ZERTIFIKAT_KENNWORT", "APPLE_API_KEY", "APPLE_API_KEY_ID", "APPLE_API_ISSUER"):
+        assert f"`{name}`" in liesmich, name
 
 
 def test_schwelle_gleich_der_huelle():

@@ -13,12 +13,51 @@ echten Windows-, macOS- und Linux-Rechnern. Sie hängen am Release `loxos-v…`
 | System | Datei | Hinweis |
 |---|---|---|
 | Windows | `LoxOS-Setup-<Version>.exe` | Installiert für den angemeldeten Benutzer, ohne Adminrechte. Das Programm ist nicht signiert: SmartScreen fragt beim ersten Start, „Weitere Informationen“ → „Trotzdem ausführen“. |
-| macOS | `LoxOS-<Version>-mac.dmg` | Nicht signiert. Nach dem Kopieren nach „Programme“ einmal im Terminal: `codesign --force --deep -s - /Applications/LoxOS.app` und `xattr -cr /Applications/LoxOS.app`, dann starten. |
+| macOS | `LoxOS-<Version>-mac.dmg` | Signiert und von Apple beglaubigt, wenn die Secrets für die Mac-Signatur im Repo stehen (unten): öffnen, nach „Programme“ ziehen, starten. Ohne sie baut der Workflow unsigniert; dann nach dem Kopieren einmal im Terminal `codesign --force --deep -s - /Applications/LoxOS.app` und `xattr -cr /Applications/LoxOS.app`. |
 | Linux | `LoxOS-<Version>-x86_64.AppImage` | Ausführbar machen (`chmod +x`) und starten; Autostart richtet die Desktop-Umgebung ein. |
 
 Beim ersten Start fragt LoxOS nach der Adresse von Loxpanel und dem Namen des
 Geräts. Unter diesem Namen erscheint der Rechner in Loxpanel unter „Geräte“;
 dort ordnest du ihm die Ansicht mit der Bento-Seite zu.
+
+## Signierte Mac-Version
+
+Mit einem Apple-Entwicklerkonto signiert der Workflow die Mac-Version mit
+deiner „Developer ID“ und lässt sie von Apple beglaubigen (Notarisierung).
+Dann startet LoxOS auf jedem Mac ohne Warnung von Gatekeeper. Dafür braucht
+das Repo fünf Secrets. Die Werte gehören nur dorthin, nie in eine Datei des
+Repos und nie in einen Chat.
+
+1. **Zertifikat „Developer ID Application“** anlegen (nur der Kontoinhaber
+   kann das): in Xcode unter Einstellungen → Accounts → „Manage
+   Certificates…“ → „+“ → „Developer ID Application“, oder auf
+   developer.apple.com unter „Certificates, IDs & Profiles“ mit einer
+   Zertifikatsanfrage aus der Schlüsselbundverwaltung.
+2. In der **Schlüsselbundverwaltung** unter „Meine Zertifikate“ das
+   Zertifikat „Developer ID Application: <Name> (<Team-ID>)“ samt
+   privatem Schlüssel als `.p12` exportieren und ein Kennwort vergeben.
+3. Die `.p12` in Base64 umwandeln: `base64 -i Zertifikat.p12 | pbcopy`.
+   Das ist das Secret `MAC_ZERTIFIKAT_P12`, das Kennwort aus Schritt 2 das
+   Secret `MAC_ZERTIFIKAT_KENNWORT`.
+4. **Schlüssel für die Notarisierung** in App Store Connect: „Benutzer und
+   Zugriff“ → „Integrationen“ → „App Store Connect API“ → „Team-Schlüssel“
+   (beim ersten Mal den Zugriff anfordern) → „+“, Zugriff „Developer“.
+   Die Datei `AuthKey_<Schlüssel-ID>.p8` lässt sich nur einmal laden.
+   Ihr ganzer Inhalt (mit den Zeilen `BEGIN` und `END`) ist das Secret
+   `APPLE_API_KEY`, die Schlüssel-ID das Secret `APPLE_API_KEY_ID`, die
+   „Issuer ID“ über der Liste das Secret `APPLE_API_ISSUER`.
+5. Auf GitHub im Repo unter Settings → Secrets and variables → Actions je
+   Wert „New repository secret“ mit genau diesen Namen anlegen.
+
+Beim nächsten Tag `loxos-v…` (oder einem Lauf von Hand) baut der Workflow die
+Mac-Version signiert. electron-builder signiert mit Hardened Runtime und den
+Rechten aus `build/entitlements.mac.plist`: drei, die Electron braucht, und
+das Mikrofon für das Gegensprechen. Der Text, mit dem macOS nach dem Mikrofon
+fragt, steht in `package.json` (`NSMicrophoneUsageDescription`). Danach
+schickt electron-builder die App zu Apple (`notarytool`) und heftet die
+Beglaubigung an. Der Schritt „Signatur und Beglaubigung pruefen“ prüft das
+Ergebnis mit `codesign`, `spctl` und `stapler`. Fehlt eines der vier
+übrigen Secrets, bricht der Lauf ab, statt still unbeglaubigt zu bauen.
 
 ## Aus dem Quelltext starten
 
