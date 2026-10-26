@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from aiohttp import web
 
-from lox import EFM, HAUS_FAVORITEN, W, anlage, haus_anlage, raum_anlage, serve, visu_starten
+from lox import EFM, HAUS_FAVORITEN, Kamera, W, anlage, haus_anlage, raum_anlage, serve, visu_starten
 from test_front_tabs_browser import _front
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -609,30 +609,9 @@ BILDER = """() => [...document.querySelectorAll('#grid.bento > .bz')].map(z => {
           imgKasten: i ? r(i) : null, feld: i ? r(i.parentElement) : null}; })"""
 
 
-async def _kameras() -> tuple:
-    """Kameras, die MJPEG senden, bis der Abrufer trennt -> (runner, port,
-    offene Stroeme je Pfad, alle Abrufe)."""
-    offen, abrufe = {}, []
-
-    async def strom(request):
-        abrufe.append(request.path)
-        resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=bild"})
-        await resp.prepare(request)
-        offen[request.path] = offen.get(request.path, 0) + 1
-        try:
-            while True:
-                await resp.write(b"--bild\r\nContent-Type: image/png\r\nContent-Length: %d\r\n\r\n%s\r\n"
-                                 % (len(BILD), BILD))
-                await asyncio.sleep(0.2)
-        except ConnectionResetError:
-            pass
-        finally:
-            offen[request.path] -= 1
-        return resp
-    cam = web.Application()
-    cam.router.add_get("/{pfad}", strom)
-    runner, port = await serve(cam)
-    return runner, port, offen, abrufe
+def _kamera() -> Kamera:
+    """Kamera, die ein 4:3-PNG als MJPEG sendet, bis der Abrufer trennt."""
+    return Kamera(inhalt=lambda pfad, n: BILD, typ="image/png", takt=0.2)
 
 
 def test_zwei_kameras_untereinander(tmp_path):
@@ -642,11 +621,11 @@ def test_zwei_kameras_untereinander(tmp_path):
     laufen zugleich, je mit eigenem Strom ueber /mjpeg zur Kamera, und ein
     neuer Stand vom Server laesst beide Bilder und Stroeme stehen."""
     async def lauf():
-        crunner, cport, offen, abrufe = await _kameras()
+        cam = await _kamera().start()
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(KAMERAS))
         app.states = {"k1-bell": 0, "k2-bell": 0}
-        app.intercom_cfg = {u: {"url": f"http://127.0.0.1:{cport}/{u.lower()}"} for u in KAMERAS}
+        app.intercom_cfg = {u: {"url": cam.adresse(f"/{u.lower()}")} for u in KAMERAS}
         app.panels = W.App._sanitize_panels({"kameras": {
             "title": "Kameras", "tabs": ["auswahl"],
             "pickTabs": [{"name": "Kameras", "picks": [], "bento": {"cols": 1, "rows": 3, "cells": [
@@ -668,18 +647,19 @@ def test_zwei_kameras_untereinander(tmp_path):
                 probleme = await pg.evaluate(PRUEFEN)
                 await pg.screenshot(path=str(tmp_path / "bento_zwei_kameras.png"))
                 _ablegen(tmp_path, "bento_zwei_kameras.png")
-                stroeme = dict(offen)
+                stroeme = dict(cam.offen)
                 await pg.evaluate("() => document.querySelectorAll('#grid.bento .video img').forEach(i => i._mark=1)")
                 app._dirty = True                       # neuer Stand: die Zellen kommen neu
                 await pg.wait_for_timeout(1500)
                 bleibt = await pg.evaluate(
                     "() => [...document.querySelectorAll('#grid.bento .video img')].map(i => i._mark === 1)")
-                danach = (dict(offen), len(abrufe))
+                danach = (dict(cam.offen), len(cam.abrufe))
                 await b.close()
         finally:
             bc.cancel()
             await runner.cleanup()
-            await crunner.cleanup()
+            await app.close()
+            await cam.stop()
         return lage, probleme, stroeme, bleibt, danach, fehler
     lage, probleme, stroeme, bleibt, danach, fehler = asyncio.run(lauf())
     assert fehler == [], fehler
@@ -692,3 +672,46 @@ def test_zwei_kameras_untereinander(tmp_path):
     assert stroeme == {"/k1": 1, "/k2": 1}, stroeme                 # beide zugleich, je einer
     assert bleibt == [True, True], "die Bilder bleiben dieselben Knoten"
     assert danach == ({"/k1": 1, "/k2": 1}, 2), danach             # kein neuer Abruf, nichts getrennt
+
+
+def test_zwei_panels_eine_kamera():
+    """Wandpanel und Tablet zeigen dieselbe Kamera (zwei Geraete, je eigener
+    Browser): Jedes holt sein Bild ueber /mjpeg, die Kamera sieht trotzdem
+    EINEN Strom (kamerastrom.py). Bisher hatte sie je Panel einen."""
+    async def lauf():
+        cam = await _kamera().start()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(anlage(KAMERAS))
+        app.states = {"k1-bell": 0, "k2-bell": 0}
+        app.intercom_cfg = {"K1": {"url": cam.adresse("/k1")}}
+        app.panels = W.App._sanitize_panels({"kameras": {
+            "title": "Kameras", "tabs": ["auswahl"],
+            "pickTabs": [{"name": "Kameras", "picks": [], "bento": {"cols": 1, "rows": 1, "cells": [
+                {"x": 0, "y": 0, "w": 1, "h": 1, "widget": "camera:K1"}]}}]}})
+        runner, port, bc = await visu_starten(app, [("GET", "/mjpeg", W.mjpeg_handler)])
+        fehler, abrufe_der_panels = [], []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                for groesse in ({"width": 800, "height": 480}, {"width": 1280, "height": 800}):
+                    pg = await (await b.new_context(viewport=groesse, locale="de-DE")).new_page()
+                    pg.on("pageerror", lambda e: fehler.append(str(e)))
+                    pg.on("request", lambda r: abrufe_der_panels.append(r.url.split("/", 3)[3])
+                          if "/mjpeg" in r.url else None)
+                    await pg.goto(f"http://127.0.0.1:{port}/?panel=kameras")
+                    await pg.wait_for_selector("#grid.bento > .bz", state="attached")
+                    await pg.evaluate("wake()")
+                    await pg.wait_for_function("""() => { const i=document.querySelector('#grid.bento .video img');
+                        return i && i.complete && i.naturalWidth>0; }""", timeout=8000)
+                stroeme, abrufe = dict(cam.offen), list(cam.abrufe)
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+            await app.close()
+            await cam.stop()
+        return abrufe_der_panels, stroeme, abrufe, fehler
+    abrufe_der_panels, stroeme, abrufe, fehler = asyncio.run(lauf())
+    assert fehler == [], fehler
+    assert abrufe_der_panels == ["mjpeg?id=K1", "mjpeg?id=K1"], abrufe_der_panels
+    assert stroeme == {"/k1": 1} and abrufe == ["/k1"], (stroeme, abrufe)

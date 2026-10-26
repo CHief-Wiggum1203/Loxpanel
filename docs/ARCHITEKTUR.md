@@ -79,6 +79,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `bin/geraete.py` | Mixin `Geraete`: welche Ansicht ein Gerät zeigt (`ansicht_fuer_geraet()`, Zuordnung, Betriebsmodus, Vorschau am Gerät, Entwurf), Kopplungscode, Anwesenheit, Display (Abschalten, Nacht, Neuladen, Skalierung, Displaytreiber), Agenten-Befehle, `device_list()` und das Schreiben von `panels.json`; dazu `KIOSK_APPS`, `AGENT_*`, `_lan_adressen()`. Importiert `webvisu` nicht |
 | `bin/audiodienst.py` | Mixin `Audiodienst`: Ereignis-Clients der Audioserver (`audio_events_task()`), das Backend je Zone, Cover der laufenden Titel und die Favoriten der Zonen. Importiert `webvisu` nicht |
 | `bin/intercomdienst.py` | Mixin `Intercomdienst`: SIP-Zugang einer Intercom aus den gesicherten Details (`intercom_sip()`, für Gegensprechen und SIP-Prüfung), die Kamera für den MJPEG-Proxy (`intercom_video()`, aus `loxpanel.cfg` oder den gesicherten Details, `_kamera_aus_details()`) und die Blöcke der Kamera-Pane (`intercom_blocks()`), §3.10. Kachel und Detailseite bleiben in `bausteine/intercom.py`. Importiert `webvisu` nicht |
+| `bin/kamerastrom.py` | Ein Strom je Kamera für `/mjpeg` (26.10.2026): `Kameraverteiler` (in `App` als `kamerastroeme`) hält je Kamera (Adresse und Anmeldung) einen `Kamerastrom`, der den MJPEG-Strom mit `MjpegZerleger` in Bilder zerlegt und jedem Zuschauer das neueste gibt; Neuverbinden, Nachlauf, Einzelbild, Obergrenze je Kamera, §3.10. Nur aiohttp, importiert kein Server-Modul |
 | `bin/front.py` | Mixin `Front`: Kalender und Wetter der Uhr-Seite, regelmäßig geholt (`front_task()`) und als `{t:"front"}` verteilt, Loxone-Wetterserver mit Vorrang (§3.8), Sonnenzeiten. Importiert `webvisu` nicht |
 | `bin/verteilung.py` | Mixin `Verteilung`: der Broadcaster (`broadcaster()`, `_broadcast_tick()`), der je Verbindung nur rendert, was betroffen ist (`_Lesespur`, `_neu_rendern()`, `_rendern()`, `RENDER_SPAETESTENS_S`), `push()` an ausgewählte Browser, Neuladen und die Hinweise zur Verbindung und zur Einrichtung (§3.5). Importiert `webvisu` nicht |
 | `bin/medien.py` | Mixin `Medien`: Adressen der Icons, Icons und Klingelbilder vom Miniserver mit Cache (`fetch_icon()`, `fetch_bell_image()`), Cover über den Proxy (`fetch_cover()`), die Liste der Loxone-Icons. Importiert `webvisu` nicht |
@@ -818,6 +819,53 @@ das Video, solange offen ist, ob der Miniserver eine Kamera nennt
 (`_intercom_video_block()`); `/mjpeg` fragt ihn, setzt `_dirty`, und danach
 stehen Bild oder Grund da.
 
+Das Bild selbst holt der Server **einmal je Kamera** und verteilt es an alle
+Zuschauer (`bin/kamerastrom.py`, 26.10.2026). Vorher hatte jeder Zuschauer
+von `/mjpeg` einen eigenen Strom zur Kamera; drei Panels und zwei
+Bento-Zellen waren fünf Ströme an der Türstation. Jetzt meldet
+`mjpeg_handler` jeden Zuschauer beim `Kameraverteiler` (`App.kamerastroeme`)
+an. Der hält je Kamera, also je Adresse, Benutzer und Kennwort, einen
+`Kamerastrom`:
+
+- **Zerlegen:** `MjpegZerleger` liest die Teile der Kamera. Die Grenze kommt
+  aus dem `boundary` (mit oder ohne führende `--`, auch in
+  Anführungszeichen), ohne `boundary` gilt die erste Zeile mit `--`. Ein Teil
+  endet nach `Content-Length` oder vor der nächsten Grenze; ohne
+  `Content-Length` kommt ein Bild also erst mit dem Beginn des nächsten.
+  CRLF oder LF, Teile ohne Kopf und Text vor der ersten Grenze gehen auch.
+  Die Zuschauer bekommen jedes Bild als eigenen Teil mit `Content-Length`
+  (boundary `GRENZE`).
+- **Verteilen:** Jeder Zuschauer wartet auf das jeweils neueste Bild. Ein
+  langsames Panel überspringt Bilder, statt die anderen aufzuhalten; hängt
+  es `SCHREIBEN_S` an einem Bild, ist es weg. Wer dazukommt, bekommt sofort
+  das letzte Bild, solange der Strom läuft (auch bei einer Kamera, die selten
+  eines schickt); ist die Kamera weg, nur, wenn es jünger als
+  `BILD_FRISCH_S` ist.
+- **Neu verbinden:** Endet der Strom der Kamera oder reißt er ab, verbindet
+  der Strom mit wachsender Pause neu (`PAUSE_MIN_S` bis `PAUSE_MAX_S`). Die
+  Zuschauer bleiben verbunden und sehen bis dahin das letzte Bild.
+  Verbindungsaufbau `VERBINDEN_S`, Schweigen der Kamera `LESEN_S`.
+- **Trennen:** `NACHLAUF_S` nach dem letzten Zuschauer (ein Seitenwechsel
+  holt ihn ohne neuen Abruf zurück), beim Herunterfahren sofort: Ohne
+  `on_shutdown` (`webvisu.py`) endete eine `/mjpeg`-Antwort nie von selbst,
+  und aiohttp wartete 60 s auf sie.
+- **Antworten wie vorher:** 404 ohne Kamera, 502 mit Grund, wenn sie nicht
+  erreichbar ist oder nicht mit 200 antwortet, 200, sobald sie es tut, auch
+  wenn ihr Strom danach abreißt. Schickt sie ein Einzelbild statt multipart
+  (`snap.jpeg`), geht es unverändert durch, und jeder Abruf holt ein neues.
+  Neu: 503 ab `ZUSCHAUER_MAX` Zuschauern je Kamera (Befund S6).
+- **Wenn die Kamera weg ist:** Wer dann kommt, bekommt das letzte Bild,
+  solange es frisch ist. Sonst kürzt er die Pause vor dem nächsten Versuch
+  ab und wartet auf dessen Ergebnis: Ist die Kamera wieder da, läuft das
+  Bild, sonst 502. Ohne das bekäme er bis zum Ende einer Pause von bis zu
+  `PAUSE_MAX_S` 502, auch wenn die Kamera längst zurück ist.
+- **Log:** Von der Adresse steht dort nur der Host, Anmeldedaten in der
+  Adresse bleiben draußen. Die Session zur Kamera ist eine eigene, nicht
+  `icon_session`: Mit deren SSL-Connector liefert die Mobotix nur ein
+  Einzelbild.
+- **LoxPanel-App:** Dort läuft der Server auf dem Gerät selbst, jedes
+  App-Gerät holt die Kamera also weiter einmal für sich.
+
 `sip_probe.pruefen()` schickt ein OPTIONS (RFC 3261, Abschnitt 11) über UDP,
 das bei der Türstation keinen Anruf auslöst:
 
@@ -918,7 +966,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET/POST | `/api/notify` | `api_notify` | Nachricht einblenden | Loxone, extern |
 | GET | `/icon?p=` | `icon_handler` | Loxone-Icon-Proxy, 24 h Cache | Visu, Konfigurator |
 | GET | `/cover?u=` | `cover_handler` | Cover-Bild-Proxy, 60 s Cache | Visu |
-| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG-Relais der Türstation: die in LoxPanel eingetragene Kamera, sonst die aus den gesicherten Details des Miniservers (`App.intercom_video()`, Abschnitt 3.10); 404 ohne Kamera | Visu |
+| GET | `/mjpeg?id=` | `mjpeg_handler` | MJPEG der Türstation: die in LoxPanel eingetragene Kamera, sonst die aus den gesicherten Details des Miniservers (`App.intercom_video()`), je Kamera ein Strom für alle Zuschauer (`kamerastrom.py`), Abschnitt 3.10; 404 ohne Kamera, 502, wenn sie nicht erreichbar ist oder ablehnt, 503 bei zu vielen Zuschauern | Visu |
 | GET | `/bellimg?id=&ts=` | `bellimg_handler` | Bild einer verpassten Klingel (`camimage/{uuidAction}/{ts}` vom Miniserver), 24 h Cache, die letzten `BELL_CACHE_MAX` im Speicher | Visu |
 | GET | `/ws?panel=&device=` | `ws_handler` | Haupt-WebSocket; mit `eingebettet=1` die Visu einer Raum-Display-Zelle (LoxOS, unten) | Visu |
 
@@ -3978,7 +4026,7 @@ Defaults in `_theme_vars()`. Admin-CSS liegt seit der Zusammenlegung nur noch in
 | S3 | Miniserver- und Kamera-Passwörter im Klartext in `loxpanel.cfg`. PIN wird im Klartext über den WebSocket übertragen. Gesamter Verkehr ist HTTP. |
 | S4 | Agent-HTTP auf `0.0.0.0:8130` ohne Auth. Jeder im LAN kann Panels umschalten oder abschalten, der `panel`-Wert wird persistiert. |
 | S5 | LoxBerry-`sudoers`: `docker` ohne Passwort ist faktisch Root. |
-| S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session. |
+| S6 | `/mjpeg` ohne Begrenzung gleichzeitiger Streams, jeder hält eine eigene Session — behoben: je Kamera ein Strom für alle Zuschauer, höchstens `ZUSCHAUER_MAX` je Kamera, §3.10. |
 | S7 | `verify_tls: false` ist überall Standard und im LoxBerry-Widget fest verdrahtet. `true` prüft gegen den Standard-Truststore und klappt nur mit dem Namen aus dem Zertifikat als Host, nicht mit der IP-Adresse (§5.1). |
 | S8 | Python-Pakete, Grundimage und GitHub Actions kamen bei jedem Bau in der jeweils neuesten Version, ungeprüft ins Image — behoben: Sperrliste mit Prüfsummen, Grundimage und Actions über Prüfsumme bzw. Commit, neue Stände als Pull Request von Dependabot (§9.3). |
 

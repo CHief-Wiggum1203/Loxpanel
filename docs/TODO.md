@@ -1244,6 +1244,22 @@ selbst aktuell.
       Ansicht, die die Türsprechanlage ausblendet (`hide`), bekommt nichts.
       Der Wecker tönt nur, wo die Ansicht ihn zeigt (Raum, Kategorie, `hide`),
       und nur dort geht das Display an; „aus“ geht an alle.
+- [x] **Ein Strom je Kamera** (26.10.2026, angestoßen von der Frage im
+      Forum, wie viele Ströme eine Türstation hergibt): `/mjpeg` holte für
+      jeden Zuschauer einen eigenen Strom von der Kamera, drei Panels und zwei
+      Bento-Zellen waren fünf Ströme an der Türstation, und riss einer ab,
+      blieb sein Bild stehen. Jetzt holt der Server jede Kamera einmal und
+      verteilt die Bilder (`bin/kamerastrom.py`): Ein langsames Panel
+      überspringt Bilder, statt die anderen aufzuhalten. Bricht die Kamera ab,
+      verbindet er mit wachsender Pause neu, die Panels bleiben verbunden.
+      Nach dem letzten Zuschauer trennt er nach `NACHLAUF_S`, beim
+      Herunterfahren sofort (`on_shutdown`).
+      Gemessen vorher, je Zuschauer ein eigener Strom: Die CPU des Servers
+      ist kein Engpass (8 Zuschauer in 1080p bei 15 fps: 3,3 % eines Kerns).
+      Es bremsen die Datenmenge (MJPEG in 1080p rund 30 Mbit/s je Strom),
+      das Entpacken auf dem Panel und die Ströme an der Kamera.
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.10, `tests/test_kamerastrom.py`,
+      `test_zwei_panels_eine_kamera`). (P1, S6) **M**
 
 ## 5. Unraid-Betrieb
 
@@ -1753,6 +1769,26 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       Log-Zeilen; Geheimnisse entfernt und im Log geschwärzt
       ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §9.2, `bin/diagnose.py`). Erster
       Umfang: Version, Konfiguration, Verbindungen, Log. **M**
+- [ ] **Kameras ohne Intercom** (Plan vom 26.10.2026; Schritt 1, ein
+      Strom je Kamera, ist erledigt, §4). Bisher hängt jede Kamera an einem
+      Baustein `Intercom` oder `IntercomV2`; im Forum gibt es Kameras ohne
+      Loxone-Intercom (Reolink, Hikvision, Dahua an der Haustür, dazu Garage
+      oder Garten). Sinnvoll sind zwei bis vier, mehr ist die Aufgabe eines
+      Videorekorders (UniFi Protect, Frigate), nicht eines Bedienpanels.
+      1. Eigene Kameras in Einstellungen → Kameras: Name, Adresse, Benutzer,
+         Kennwort, Art „Live (MJPEG)“ oder „Standbild alle N s“ (der Server
+         holt die Bilder und verteilt sie wie einen Strom), Anmeldung Basic
+         oder Digest (aiohttp 3.14 bringt Digest mit), Knopf „Prüfen“ mit
+         Vorschau. Kennwörter wie bei der Intercom: nie heraus, nicht in der
+         Sicherung, im Diagnosepaket geschwärzt. **M**
+      2. Auswahl in Kamera-Widget, Uhr-Seite und Screensaver (Bento im Fork),
+         eine eigene Kamera ohne Türknöpfe; einer Intercom eine eigene Kamera
+         als Bild zuordnen. **S**
+      3. Grenze statt Ausbau: höchstens vier Live-Bilder auf einer Seite, die
+         übrigen als Standbild (ein Browser hält je Server sechs
+         Verbindungen). **S**
+      4. RTSP: Anleitung für go2rtc als Unraid-Container (RTSP zu MJPEG), kein
+         ffmpeg im Image. **S**
 - [ ] **Diagnosepaket erweitern:** das Ergebnis der letzten SIP-Prüfung
       (`/api/sip/pruefen`) merken und beilegen; ein Bildschirmfoto des Panels
       (die Visu müsste es auf Anfrage schicken); in der LoxPanel-App die
@@ -2660,7 +2696,10 @@ oder Gäste im WLAN nicht vertrauenswürdig sind.
       einschränken. (S2) **S**
 - [ ] **Agent-HTTP absichern**: gemeinsames Token zwischen Server und Agent,
       alternativ nur Anfragen von der Server-IP annehmen. (S4) **S**
-- [ ] **Gleichzeitige MJPEG-Streams begrenzen**. (S6) **S**
+- [x] **Gleichzeitige MJPEG-Streams begrenzen**. (S6) **S** Erledigt
+      26.10.2026 mit dem Kamera-Verteiler (§4): je Kamera ein Strom, egal wie
+      viele `/mjpeg` öffnen, und höchstens `ZUSCHAUER_MAX` Zuschauer je
+      Kamera, danach 503.
 - [ ] **HTTPS** über einen Reverse-Proxy auf Unraid; dann muss der
       Installer-Befehl in `config.html` das Schema übernehmen. (S3) **M**
 - [ ] LoxBerry-`sudoers` enger fassen. Betrifft nur den LoxBerry-Betrieb. (S5) **S**
