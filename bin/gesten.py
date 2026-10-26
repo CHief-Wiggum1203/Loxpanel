@@ -5,19 +5,23 @@ Beschattung (auf/ab, beschatten, Lamellen), rechts Musik (Lautstaerke,
 Wiedergabe, Sender); Doppel- und Dreifachtipp schalten die Taster der
 Ansicht. geste() nimmt die Nachricht der Visu ({t:"geste"}) und
 schickt die Befehle, gesten_hilfe() beschreibt sie fuer das Hinweis-Symbol,
-die *_optionen() fuellen die Auswahl im Konfigurator.
+die *_optionen() fuellen die Auswahl im Konfigurator. In der Gesten-Probe des
+Konfigurators (prof["probe"], gesten_probe_pruefen()) haelt geste() die
+Befehle fest und schickt sie nur, wenn die Probe wirklich schalten soll.
 
 Die Methoden sind ein Mixin (Gesten): App erbt sie; sie arbeiten mit dem
 Zustand der App. Importiert webvisu nicht."""
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import time
 
 from adapters import LightControllerV2Adapter
 from bausteine.beschattung import JAL_RAFFSTORE
 from bausteine.gemeinsam import _clean, LIGHT
 from haus import HAUS_AUS
+from konfig import _sanitize_theme_ui
 
 # Raum verlassen und Haus aus loesen einen Taster aus Loxone Config aus. Laut
 # Strukturdoku nimmt nur der Taster (Pushbutton, virtueller Eingang) einen
@@ -45,6 +49,14 @@ GESTEN_BESCHATTUNG_TYPEN = ("Jalousie",)
 GESTEN_FAHRT_ANLAUF_S = 3.0
 
 GESTEN_FAHRT_MAX_S = 240.0
+
+# Gesten-Probe (Konfigurator, Vorgaben -> Verhalten): die Visu im Fenster der
+# Probe bedient sich mit der Maus wie mit zwei Fingern. Waehrend geste() fuer
+# eine solche Verbindung laeuft, sammelt _PROBE die Befehle der Geste ({name,
+# befehl, gesperrt}); ohne "schalten" gehen sie nicht an den Miniserver
+# (Probelauf). Eine ContextVar statt eines Parameters: jeder Befehl laeuft
+# ueber _geste_befehle(), gleich wie tief in den Gesten er entsteht.
+_PROBE: contextvars.ContextVar[dict | None] = contextvars.ContextVar("geste_probe", default=None)
 
 
 class Gesten:
@@ -104,7 +116,7 @@ class Gesten:
         ru = self.geste_raum(route, prof)
         if not ru:
             return None
-        ui = self.theme.get("ui") or {}
+        ui = self._gesten_ui(prof)
         raum = _clean(self.rooms[ru].get("name")) or "diesem Raum"
 
         def taster(uuid) -> str:
@@ -117,6 +129,43 @@ class Gesten:
                 "doppel": f"{raum} verlassen: " + (taster(verlassen) if verlassen
                                                     else "aus, was an ist und sich abschalten lässt"),
                 "dreifach": "Haus aus: " + (taster(haus) if haus else "nicht eingerichtet (Vorgaben → Verhalten)")}
+
+    def gesten_probe_pruefen(self, d) -> dict | None:
+        """Angaben der Gesten-Probe aus dem Konfigurator ({schalten, vorgaben,
+        geraet}) pruefen: schalten nur bei True, die Vorgaben (ungespeichert)
+        wie beim Speichern, das Geraet nur, wenn es bekannt ist (seine Stimmung
+        beim Einschalten gilt dann). None ohne Angaben."""
+        if not isinstance(d, dict):
+            return None
+        vorgaben = d.get("vorgaben")
+        geraet = d.get("geraet")
+        return {"schalten": d.get("schalten") is True,
+                "ui": _sanitize_theme_ui(vorgaben if isinstance(vorgaben, dict) else {}),
+                "geraet": geraet if isinstance(geraet, str) and geraet in self.devices else ""}
+
+    def _gesten_ui(self, prof: dict | None) -> dict:
+        """Vorgaben der Gesten (Taster fuer Raum verlassen und Haus aus): in der
+        Gesten-Probe die ungespeicherten aus dem Konfigurator, sonst die
+        gespeicherten."""
+        probe = (prof or {}).get("probe")
+        return probe["ui"] if probe else (self.theme.get("ui") or {})
+
+    def _geste_geraet(self, ws, prof: dict | None) -> str:
+        """Geraet, dessen Stimmung beim Einschalten gilt (devices[].lichtStart):
+        in der Gesten-Probe das dort gewaehlte, sonst das der Verbindung."""
+        probe = (prof or {}).get("probe")
+        return probe["geraet"] if probe else self.conn_dev.get(ws, "")
+
+    def _probe_name(self, uuid: str) -> str:
+        """Empfaenger eines Befehls fuer die Liste der Gesten-Probe: der Name
+        des Bausteins, beim Unterbaustein (Lichtkreis) "Baustein · Kreis"."""
+        for u, c in self.controls.items():
+            if uuid in (u, c.get("uuidAction")):
+                return _clean(c.get("name")) or uuid
+            for su, s in (c.get("subControls") or {}).items():
+                if isinstance(s, dict) and uuid in (su, s.get("uuidAction")):
+                    return " · ".join(n for n in (_clean(c.get("name")), _clean(s.get("name"))) if n) or uuid
+        return uuid
 
     def _geste_bausteine(self, ru: str, prof: dict | None, typen: tuple) -> list:
         """Bausteine dieser Typen im Raum, so wie seine Raumseite sie zeigt
@@ -181,8 +230,18 @@ class Gesten:
     async def _geste_befehle(self, befehle: list) -> int:
         """Befehle einer Geste gleichzeitig schicken; Zahl der fehlgeschlagenen.
         Ein gesperrter Baustein (jLocked) bekommt keinen und zaehlt als nicht
-        ausgefuehrt."""
+        ausgefuehrt. In der Gesten-Probe haelt _PROBE jeden fest; im Probelauf
+        geht keiner an den Miniserver, nicht ausgefuehrt sind dann nur die
+        gesperrten."""
         frei = [(u, c) for u, c in befehle if not self._sperre_text(u)]
+        probe = _PROBE.get()
+        if probe is not None:
+            for u, c in befehle:
+                sperre = self._sperre_text(u)
+                probe["befehle"].append({"name": self._probe_name(u), "befehl": c,
+                                         **({"gesperrt": sperre} if sperre else {})})
+            if not probe["schalten"]:
+                return len(befehle) - len(frei)
         codes = await asyncio.gather(*(self.command(u, c) for u, c in frei))
         return len(befehle) - len(frei) + sum(1 for code in codes if code != "200")
 
@@ -206,13 +265,32 @@ class Gesten:
         rechts), "stimmungwechsel" und "sender" mit richtung vor/zurueck (Mitte
         bzw. rechts quer), "beschattung" mit richtung auf/ab (links
         hoch/runter), "verlassen" (Doppeltipp), "hausaus" (Dreifachtipp). Auf
-        der Hausuebersicht nennt raum die Raumkarte unter den Fingern."""
+        der Hausuebersicht nennt raum die Raumkarte unter den Fingern.
+
+        In der Gesten-Probe (prof["probe"]) traegt die Antwort die Befehle der
+        Geste (befehle), auch eine, die sonst nichts meldete (Zwischenwert beim
+        Dimmen); im Probelauf gehen sie nicht an den Miniserver."""
         prof = self.conn_prof.get(ws) or {}
+        probe = prof.get("probe")
+        if not probe:
+            return await self._geste_ausfuehren(ws, data, prof)
+        befehle: list = []
+        marke = _PROBE.set({"schalten": probe["schalten"], "befehle": befehle})
+        try:
+            antwort = await self._geste_ausfuehren(ws, data, prof)
+        finally:
+            _PROBE.reset(marke)
+        if befehle:
+            antwort = {**(antwort or {"t": "geste", "art": str(data.get("art") or "")}), "befehle": befehle}
+        return antwort
+
+    async def _geste_ausfuehren(self, ws, data: dict, prof: dict) -> dict | None:
+        """geste() fuer das Profil der Verbindung."""
         art = str(data.get("art") or "")
         if not prof.get("gesten"):
             return None
         if art == "hausaus":
-            ziel = (self.theme.get("ui") or {}).get("hausAus")
+            ziel = self._gesten_ui(prof).get("hausAus")
             if not ziel:
                 return {"t": "geste", "art": art,
                         "fehler": "„Haus aus“ ist nicht eingerichtet (Vorgaben → Verhalten)"}
@@ -226,7 +304,7 @@ class Gesten:
         if art in ("licht", "musik", "lamellen"):
             phase = data.get("phase")
             if phase == "start":
-                lauf, start = (self._geste_licht_start(ru, prof, self.conn_dev.get(ws, "")) if art == "licht"
+                lauf, start = (self._geste_licht_start(ru, prof, self._geste_geraet(ws, prof)) if art == "licht"
                                else self._geste_musik_start(ru, prof) if art == "musik"
                                else self._geste_lamellen_start(ru, prof))
                 if not lauf:
@@ -246,10 +324,10 @@ class Gesten:
             text = await self._geste_wert(lauf, wert, phase == "ende")
             return {**antwort, "text": text} if text else None
         if art == "stimmung":
-            return {**antwort, **await self._geste_stimmung(ru, prof, self.conn_dev.get(ws, ""), raum)}
+            return {**antwort, **await self._geste_stimmung(ru, prof, self._geste_geraet(ws, prof), raum)}
         vor = data.get("richtung") != "zurueck"
         if art == "stimmungwechsel":
-            return {**antwort, **await self._geste_stimmung(ru, prof, self.conn_dev.get(ws, ""), raum,
+            return {**antwort, **await self._geste_stimmung(ru, prof, self._geste_geraet(ws, prof), raum,
                                                             schritt=1 if vor else -1)}
         if art == "sender":
             return {**antwort, **await self._geste_sender(ru, prof, raum, vor)}
@@ -268,6 +346,7 @@ class Gesten:
             if not jal:
                 return {**antwort, "fehler": f"Keine Beschattung in {raum}"}
             fahrend = [u for u in jal if any(self._jal_fahrt(self.controls[u])[:2])]
+            ziel = None     # Stellung nach den Befehlen in %, wenn sie feststeht (Probelauf)
             if fahrend:
                 befehle = [(self.controls[u].get("uuidAction") or u, "Stop") for u in fahrend]
                 text = "Beschattung gestoppt"
@@ -275,12 +354,13 @@ class Gesten:
                 auf = data.get("richtung") == "auf"
                 befehle = [(self.controls[u].get("uuidAction") or u, "FullUp" if auf else "FullDown") for u in jal]
                 text = "Beschattung auf" if auf else "Beschattung ab"
+                ziel = 0 if auf else 100
             fehl = await self._geste_befehle(befehle)
             if fehl:
                 return {**antwort, "fehler": f"{fehl} von {len(befehle)} Befehlen nicht ausgeführt"}
-            return {**antwort, "text": text, **self._geste_fahrt_beobachten(ws, art, antwort["raum"], jal)}
+            return {**antwort, "text": text, **self._geste_fahrt_beobachten(ws, art, antwort["raum"], jal, ziel)}
         if art == "verlassen":
-            ziel = ((self.theme.get("ui") or {}).get("raumVerlassen") or {}).get(ru)
+            ziel = (self._gesten_ui(prof).get("raumVerlassen") or {}).get(ru)
             if ziel:
                 return {**antwort, **await self._geste_taster(
                     ziel, f"{raum} verlassen", f"Taster für „{raum} verlassen“ nicht gefunden")}
@@ -399,14 +479,27 @@ class Gesten:
         return {"wert": round(max(0.0, min(1.0, sum(pos) / len(pos))) * 100) if pos else None,
                 "fahrt": "ab" if any(ab for _a, ab in fahrt) else ("auf" if any(a for a, _b in fahrt) else "")}
 
-    def _geste_fahrt_beobachten(self, ws, art: str, raum: str, jal: list) -> dict:
+    def _geste_fahrt_beobachten(self, ws, art: str, raum: str, jal: list, ziel: int | None = None) -> dict:
         """Nach den Befehlen einer Beschattungs-Geste: die Stellung fuer die
         Antwort ({wert}) und, wenn es eine gibt, die Jalousien fuer
         geste_fahrten() merken. Wie ein laufendes Dimmen in conn_geste: die
-        naechste Geste dieser Verbindung loest es ab."""
+        naechste Geste dieser Verbindung loest es ab.
+
+        Im Probelauf faehrt nichts: die Antwort ist gleich das Ende ({phase
+        "ende", von, wert, fahrt, ende}), die Visu zeigt die Fahrt von der
+        Stellung jetzt (von) zu der nach den Befehlen (ziel; ohne ziel bleibt
+        sie: Stopp, und die Stellung zum Beschatten rechnet der Miniserver)."""
         stand = self._geste_jal_stand(jal)
         if stand["wert"] is None:
             return {}
+        probe = _PROBE.get()
+        if probe is not None and not probe["schalten"]:
+            von = stand["wert"]
+            nach = von if ziel is None else ziel
+            richtung = "ab" if nach > von else ("auf" if nach < von else "")
+            return {"phase": "ende", "von": von, "wert": nach,
+                    "fahrt": self._geste_fahrt_text({"wert": von, "fahrt": richtung}, False) if richtung else "",
+                    "ende": self._geste_fahrt_text({"wert": nach, "fahrt": ""}, True)}
         jetzt = time.monotonic()
         # Der Stand vor der Fahrt gilt als gemeldet: bis der Miniserver sie
         # meldet, bleibt der Text der Antwort ("Beschattung ab") stehen

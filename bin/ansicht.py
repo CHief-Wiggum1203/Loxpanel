@@ -301,9 +301,13 @@ class Ansicht:
         v.update(theme_colors.geste_farben(v))
         return {k: val for k, val in v.items() if val}
 
-    def resolve_profile(self, pid: str | None, entwurf: dict | None = None) -> dict:
+    def resolve_profile(self, pid: str | None, entwurf: dict | None = None,
+                        probe: dict | None = None) -> dict:
         """Aufgeloestes Panel-Profil: Theme-Vars, Tabs, Raum-/Kategorie-Filter.
         Mit `entwurf` (entwurf_profil) gilt dieses Profil statt des gespeicherten.
+        Mit `probe` (Gesten-Probe des Konfigurators, entwurf_probe) gelten seine
+        ungespeicherten Vorgaben statt der gespeicherten, die Gesten sind immer
+        an, und das Profil traegt die Probe (geste() liest sie).
         Ein unbekanntes Profil (geloescht, vertippt) zeigt das Standardprofil und
         heisst auch so: sonst nennte die Geraeteliste eine Ansicht, die es nicht
         mehr gibt."""
@@ -311,6 +315,11 @@ class Ansicht:
             (self.panels.get(pid or "") or self.panels.get("default") or {})
         pid = pid if pid and (entwurf is not None or pid in self.panels) else "default"
         ui = {**self.theme.get("ui", {}), **(prof.get("ui") or {})}
+        if probe:
+            # Die Vorgaben der Probe ersetzen die gespeicherten ganz (THEME_UI_KEYS):
+            # was dort fehlt, ist im Konfigurator zurueckgesetzt
+            ui = {**{k: v for k, v in self.theme.get("ui", {}).items() if k not in THEME_UI_KEYS},
+                  **probe["ui"], **(prof.get("ui") or {}), "gesten": True}
         states = {**self.theme.get("states", {}), **(prof.get("states") or {})}
         tabs = [t for t in (prof.get("tabs") or ui.get("tabs") or []) if _is_tab(t)] or \
             ["favoriten", "zentral", "raeume", "kategorien"]
@@ -319,6 +328,7 @@ class Ansicht:
             # Entwurf (nicht gespeichert): die Visu zeigt es an, die ID-Nachschlager
             # (panel_dpms, panel_night, panel_reload) lesen dann `roh` statt der Datei
             **({"entwurf": True, "roh": prof} if entwurf is not None else {}),
+            **({"probe": probe} if probe else {}),
             "title": prof.get("title") or "LoxPanel",
             "tabs": list(tabs),
             "rooms": self._resolve_ids(prof.get("rooms"), self.rooms),

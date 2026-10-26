@@ -109,6 +109,28 @@
   /* Gruppen-Ueberschrift innerhalb einer Einstellungs-Karte (Aufraeumen) */
   .grph{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line);}
   .grph:first-of-type{margin-top:4px;}
+  /* Vorgaben -> Verhalten: Karte Gesten und daneben "Gesten ausprobieren"
+     (gestenProbeKarte); auf schmalen Fenstern rutscht die Probe darunter */
+  .gp-reihe{display:flex;flex-wrap:wrap;gap:0 18px;align-items:flex-start;}
+  .gp-reihe>.card{flex:1 1 480px;}
+  .gp-reihe>.gp-karte{flex:1 1 340px;max-width:520px;}
+  .gp-wahl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px;}
+  .gp-modus{font-size:12.5px;color:var(--muted);margin:0 0 10px;}
+  .gp-modus.scharf{color:var(--crit);}
+  .gp-vor{position:relative;overflow:hidden;border-radius:12px;background:#000;border:1px solid var(--line);}
+  .gp-vor iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000;}
+  .gp-vor.gesperrt iframe{pointer-events:none;opacity:.45;}
+  .gp-liste{margin-top:6px;}
+  .gp-geste{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .gp-geste:last-child{border-bottom:0;}
+  .gp-kopf{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline;}
+  .gp-wie{margin-left:auto;color:var(--muted);font-size:12px;}
+  .gp-text{color:var(--fg);margin-top:2px;}
+  .gp-fehler{color:var(--crit);margin-top:2px;font-size:13px;}
+  .gp-befehle{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;}
+  .gp-befehle li{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;color:var(--muted);}
+  .gp-befehle code{color:var(--fg);font-size:12px;}
+  .gp-befehle em{color:var(--crit);font-style:normal;font-size:12px;}
   /* Modus-Umschalter (z. B. Tabs: Raum-Ansicht / Klassisch) */
   .segmode{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:2px 0 14px;}
   .segmode button{border:0;background:transparent;color:var(--muted);padding:7px 16px;cursor:pointer;font-size:13px;font-family:inherit;}

@@ -1,4 +1,4 @@
-// LoxPanel-Konfigurator, Teil 2 von 11: Aktiv-Overlay, Kachel-Set, Gesten.
+// LoxPanel-Konfigurator, Teil 2 von 11: Aktiv-Overlay, Kachel-Set, Gesten und ihre Probe.
 // Die Teile laden nacheinander aus config.html (script src), alle Funktionen sind global;
 // was beim Laden ausgefuehrt wird, darf nur Funktionen frueherer Teile rufen.
 
@@ -356,7 +356,7 @@ function renderGlobalEditor(p){
       '<div class="sizes">'+displayFelder(ui, null, null)+'</div>'+
       '<div class="hint" style="padding-top:4px">'+esc(autoNeustartHinweis())+'</div>'+
       '<p class="note">'+T('„Display aus nach“ gilt für jedes Gerät ohne eigenen Wert (Zeile Display), der Auto-Neustart für alle Ansichten, die unter Verhalten nichts eintragen.')+'</p>'+
-    '</div>'+gestenVorgabenKarte(ui)+'</section>';
+    '</div><div class="gp-reihe">'+gestenVorgabenKarte(ui)+gestenProbeKarte()+'</div></section>';
   bindAppearance(p);
   nachtZeichnen();
   { const s=$('#nt_control'); if(s) s.onchange=()=>{ NACHT.control=s.value; bereichOffen('nacht'); }; }
@@ -364,6 +364,7 @@ function renderGlobalEditor(p){
   altEintragBinden(p);
   renderCatColors(p);
   gestenVorgabenBinden(p);
+  gestenProbeBinden();
   $('#delSlot').innerHTML='';
   erbtZeichnen();
   renderSubtabs(); showSub(subVg);
@@ -418,19 +419,216 @@ function gestenVorgabenBinden(p){
   const gg=$('#gGesten');
   if(gg) gg.onchange=()=>{ const u=ui();
     if(gg.value==='an') u.gesten=true; else if(gg.value==='aus') u.gesten=false; else delete u.gesten;
-    markDirty(); erbtZeichnen(); };
+    markDirty(); erbtZeichnen(); gestenProbeSenden(); };
   const gh=$('#gHinweis');
   if(gh) gh.onchange=()=>{ const u=ui();
     if(gh.value==='an') u.gestenHinweis=true; else if(gh.value==='aus') u.gestenHinweis=false; else delete u.gestenHinweis;
-    markDirty(); erbtZeichnen(); };
+    markDirty(); erbtZeichnen(); gestenProbeSenden(); };
   const ha=$('#gHausAus');
-  if(ha) ha.onchange=()=>{ const u=ui(); if(ha.value) u.hausAus=ha.value; else delete u.hausAus; markDirty(); };
+  if(ha) ha.onchange=()=>{ const u=ui(); if(ha.value) u.hausAus=ha.value; else delete u.hausAus; markDirty(); gestenProbeSenden(); };
   document.querySelectorAll('#pconfHost [data-gv-raum]').forEach(sel=>sel.onchange=()=>{
     const u=ui(), rv=Object.assign({}, u.raumVerlassen||{});
     if(sel.value) rv[sel.dataset.gvRaum]=sel.value; else delete rv[sel.dataset.gvRaum];
     if(Object.keys(rv).length) u.raumVerlassen=rv; else delete u.raumVerlassen;
-    markDirty(); });
+    markDirty(); gestenProbeSenden(); });
 }
+// ---- Gesten ausprobieren (Vorgaben -> Verhalten, neben der Karte Gesten) ----
+// Die echte Visu in der Groesse eines Geraets, auf der Seite eines Raums: ein
+// Entwurf der Ansicht mit dem Raum als erstem Tab und gestenProbe
+// (/api/entwurf). Die Maus spielt dort zwei Finger (panel/gesten.js). Es
+// gelten die Vorgaben, wie sie hier gerade stehen (auch ungespeichert), und
+// die Ansicht mit ihren Filtern: Sie entscheiden, welche Bausteine eine Geste
+// trifft. Der Server haelt die Befehle jeder Geste fest und schickt sie nur
+// mit "Wirklich schalten"; die Visu meldet sie per postMessage, die Liste
+// unter dem Bild zeigt sie (je Empfaenger der letzte Befehl). Bedienen laesst
+// sich das Bild erst, wenn die Visu den Stand meldet, den der Server zur
+// letzten Anfrage nannte (stand, bestaetigt), und die Karte seither nichts
+// geaendert hat (gesendet): Bis sie nach einer Aenderung neu verbunden ist,
+// schaltete sie sonst noch im alten Modus oder Raum. Die Anfragen gehen
+// nacheinander (unterwegs, nochmal), sonst ueberholte eine aeltere die neuere.
+const GP={geraet:'', ansicht:'', raum:'', schalten:false, stand:'', bestaetigt:'', token:'', url:'', gesendet:'',
+          timer:null, unterwegs:false, nochmal:false, gesten:[], erneuert:0, _wired:false};
+const GP_ERNEUERN_MS=10000; // eine verlorene Probe hoechstens so oft von selbst neu anlegen
+const GP_LISTE_MAX=6;       // so viele Gesten stehen in der Liste, die neueste oben
+const GP_HOEHE_ANTEIL=0.6;  // das Bild der Visu ist hoechstens so hoch (Anteil der Fensterhoehe)
+function gestenProbeKarte(){
+  return '<div class="card gp-karte" id="gpKarte"><h3>'+T('Gesten ausprobieren')+'</h3>'+
+    '<p class="note">'+T('Die echte Visu auf der Seite eines Raums, mit den Einstellungen links, auch ungespeichert. Die Maus spielt zwei Finger: ziehen wischt hoch/runter oder quer, ein Klick tippt, zwei und drei Klicks schnell hintereinander sind Doppel- und Dreifachtipp.')+'</p>'+
+    '<div class="gp-wahl">'+
+      '<div class="field"><label class="lbl" for="gpGeraet">'+T('Gerät')+'</label><select id="gpGeraet"></select></div>'+
+      '<div class="field"><label class="lbl" for="gpAnsicht">'+T('Ansicht')+'</label><select id="gpAnsicht"></select></div>'+
+      '<div class="field"><label class="lbl" for="gpRaum">'+T('Raum')+'</label><select id="gpRaum"></select></div>'+
+    '</div>'+
+    '<label class="chk"><input type="checkbox" id="gpSchalten"> '+T('Wirklich schalten')+'</label>'+
+    '<div class="gp-modus" id="gpModus"></div>'+
+    '<div class="gp-vor" id="gpVor"><iframe id="gpFrame" title="'+esc(T('Gesten ausprobieren'))+'"></iframe></div>'+
+    '<div class="gp-liste" id="gpListe"></div>'+
+  '</div>';
+}
+// Geraete mit gemeldeter Groesse, dann der Katalog (wie im Seiten-Editor)
+function gpGeraete(){ return [...geraeteMitGroesse(), ...geraeteKatalog()]; }
+function gpGeraetKey(g){ return g.quelle+':'+g.name; }
+function gpGeraet(){ const l=gpGeraete(); return l.find(g=>gpGeraetKey(g)===GP.geraet)||l[0]||null; }
+// Raeume, die die Ansicht zeigt (ohne Filter alle)
+function gpRaeume(id){
+  const r=(PANELS[id]||{}).rooms, alle=!Array.isArray(r) || !r.length;
+  return (META.rooms||[]).filter(x=>alle || r.indexOf(x.uuid)>-1);
+}
+// Vorschlag fuer den Raum: der feste Raum der Gesten in der Ansicht, ihr erster
+// Raum-Tab, der Raum zum Namen des Geraets, sonst der erste
+function gpRaumVorschlag(id, g){
+  const p=PANELS[id]||{}, raeume=gpRaeume(id), da=u=>raeume.some(x=>x.uuid===u);
+  const fest=(p.ui||{}).gestenRaum, tab=((p.tabs||[]).find(t=>String(t).indexOf('room:')===0)||'').slice(5);
+  const nachName=(g && g.quelle==='geraet') ? raumZumGeraet(g.name) : null;
+  return [fest, tab, nachName && nachName.uuid].find(u=>u && da(u)) || (raeume[0]||{}).uuid || '';
+}
+// Gelten die Gesten in dieser Ansicht? Ansicht vor Vorgaben vor Standard
+function gpGestenAn(id){
+  const a=((PANELS[id]||{}).ui||{}).gesten, v=((PANELS.__global__||{}).ui||{}).gesten;
+  return typeof a==='boolean' ? a : (typeof v==='boolean' ? v : standardWert('gesten'));
+}
+function gpWahlZeichnen(){
+  const sg=$('#gpGeraet'), sa=$('#gpAnsicht'), sr=$('#gpRaum'); if(!sg) return;
+  const g=gpGeraet();
+  if(g) GP.geraet=gpGeraetKey(g);
+  sg.innerHTML=gpGeraete().map(x=>'<option value="'+esc(gpGeraetKey(x))+'"'+(gpGeraetKey(x)===GP.geraet?' selected':'')+'>'+
+    esc(x.name+' · '+x.vw+'×'+x.vh)+'</option>').join('');
+  const ids=ansichtIds();
+  if(ids.indexOf(GP.ansicht)<0){
+    const zu=(g && g.quelle==='geraet') ? DEVICE_ZUORDNUNG[g.name] : '';
+    GP.ansicht=(zu && ids.indexOf(zu)>-1) ? zu : (ersteAnsicht()||ids[0]||'');
+  }
+  sa.innerHTML=ids.map(id=>'<option value="'+esc(id)+'"'+(id===GP.ansicht?' selected':'')+'>'+esc(ansichtName(id))+'</option>').join('');
+  const raeume=gpRaeume(GP.ansicht);
+  if(!raeume.some(x=>x.uuid===GP.raum)) GP.raum=gpRaumVorschlag(GP.ansicht, g);
+  sr.innerHTML=raeume.map(x=>'<option value="'+esc(x.uuid)+'"'+(x.uuid===GP.raum?' selected':'')+'>'+esc(x.name)+'</option>').join('');
+  $('#gpSchalten').checked=GP.schalten;
+  gpModusZeichnen();
+}
+// Modus ueber dem Bild; solange die Visu ihn nicht bestaetigt hat, ist das Bild gesperrt
+function gpModusZeichnen(){
+  const m=$('#gpModus'), v=$('#gpVor'); if(!m || !v) return;
+  const d=gpDaten(), bereit=!!d && !!GP.stand && GP.bestaetigt===GP.stand && GP.gesendet===JSON.stringify(d);
+  v.classList.toggle('gesperrt', !bereit);
+  m.classList.toggle('scharf', bereit && GP.schalten);
+  m.innerHTML=esc(!bereit ? T('Die Probe lädt …')
+    : (GP.schalten ? T('Schaltet wirklich: Licht, Beschattung und Musik reagieren wie am Gerät.')
+                   : T('Probelauf: Die Befehle stehen unten, an den Miniserver geht keiner.')))+
+    (gpGestenAn(GP.ansicht) ? '' : '<br>'+esc(T('In dieser Ansicht sind die Gesten aus; am Gerät wirken sie so nicht. Die Probe zeigt sie trotzdem.')));
+}
+// Bild der Visu in Geraetegroesse, verkleinert auf die Breite der Karte
+function gpMass(){
+  const box=$('#gpVor'), f=$('#gpFrame'), g=gpGeraet(); if(!box || !f || !g || !box.clientWidth) return;
+  const s=Math.min(1, box.clientWidth/g.vw, window.innerHeight*GP_HOEHE_ANTEIL/g.vh);
+  f.style.width=g.vw+'px'; f.style.height=g.vh+'px'; f.style.transform='scale('+s+')';
+  box.style.height=Math.round(g.vh*s)+'px';
+}
+// Was die Probe an /api/entwurf schickt, aus dem Stand der Karte und der
+// Vorgaben: die Ansicht mit dem Raum als erstem Tab. null ohne Ansicht oder Raum.
+function gpDaten(){
+  const p=PANELS[GP.ansicht]; if(!p || !GP.raum) return null;
+  const tab='room:'+GP.raum, prof=JSON.parse(JSON.stringify(p));
+  prof.tabs=[tab, ...(prof.tabs||[]).filter(t=>t!==tab)];
+  const g=gpGeraet();
+  return {id:GP.ansicht, panel:prof,
+    gestenProbe:{schalten:GP.schalten, vorgaben:(PANELS.__global__||{}).ui||{}, geraet:(g && g.quelle==='geraet') ? g.name : ''}};
+}
+// Entwurf an den Server; das Fenster folgt der Adresse. Gleicher Token: der
+// Server laedt die Visu selbst neu (api_entwurf), darum nur, wenn sich etwas
+// geaendert hat. Nur, solange die Karte sichtbar ist. Bis die Visu den neuen
+// Stand meldet, ist das Bild gesperrt (gpModusZeichnen).
+function gestenProbeSenden(){
+  gpModusZeichnen();
+  clearTimeout(GP.timer);
+  GP.timer=setTimeout(gpSenden, 350);
+}
+async function gpSenden(){
+  const f=$('#gpFrame'); if(!f || !f.offsetParent) return;
+  if(GP.unterwegs){ GP.nochmal=true; return; }   // nach der laufenden Anfrage mit dem neuesten Stand
+  const daten=gpDaten();
+  if(!daten){ gpFehler(T('Es fehlt eine Ansicht mit einem Raum.')); return; }
+  const json=JSON.stringify(daten);
+  if(json===GP.gesendet && GP.url && f.getAttribute('src')===GP.url){ gpMass(); return; }
+  GP.unterwegs=true;
+  try{
+    const j=await postJson('/api/entwurf', {...daten, token:GP.token});
+    if(!j.ok){ gpFehler(j.error||T('Fehler')); return; }
+    GP.token=j.token; GP.gesendet=json; GP.stand=j.stand||''; GP.url=j.url;
+    // Das Fenster von jetzt: die Karte kann waehrend der Anfrage neu gezeichnet
+    // worden sein. Steht es schon auf der Adresse, laedt der Server es selbst neu.
+    const fj=$('#gpFrame');
+    if(fj && fj.getAttribute('src')!==j.url) fj.src=j.url;
+    gpMass();
+  }catch(e){ gpFehler(e.message); }
+  finally{
+    GP.unterwegs=false; gpModusZeichnen();
+    if(GP.nochmal){ GP.nochmal=false; gpSenden(); }
+  }
+}
+function gpFehler(text){ const l=$('#gpListe'); if(l) l.innerHTML='<div class="gp-fehler">'+esc(T('Probe nicht möglich:')+' '+text)+'</div>'; }
+// Bewegung einer Geste fuer die Liste
+function gpWie(g){
+  const sp={links:T('links'), mitte:T('Mitte'), rechts:T('rechts')}[g.spalte]||'';
+  const bw={tipp:T('Tipp'), doppel:T('Doppeltipp'), dreifach:T('Dreifachtipp'),
+            hochrunter:T('hoch/runter wischen'), quer:T('quer wischen')}[g.bewegung]||'';
+  return [sp, bw].filter(Boolean).join(' · ');
+}
+function gpListe(){
+  const l=$('#gpListe'); if(!l) return;
+  if(!GP.gesten.length){ l.innerHTML='<div class="hint">'+T('Noch keine Geste.')+'</div>'; return; }
+  l.innerHTML='<div class="grph">'+(GP.schalten ? T('Gesendet') : T('Hätte gesendet'))+'</div>'+GP.gesten.map(g=>
+    '<div class="gp-geste"><div class="gp-kopf"><b>'+esc(g.titel)+'</b>'+(g.raum ? '<span>· '+esc(g.raum)+'</span>' : '')+
+      '<span class="gp-wie">'+esc(gpWie(g))+'</span></div>'+
+      (g.fehler ? '<div class="gp-fehler">'+esc(g.fehler)+'</div>' : (g.text ? '<div class="gp-text">'+esc(g.text)+'</div>' : ''))+
+      (g.befehle.length ? '<ul class="gp-befehle">'+g.befehle.map(b=>'<li><span>'+esc(b.name)+'</span><code>'+esc(b.befehl)+'</code>'+
+          (b.gesperrt ? '<em>'+esc(b.gesperrt)+'</em>' : '')+'</li>').join('')+'</ul>'
+        : (g.fehler ? '' : '<div class="hint">'+T('Kein Befehl')+'</div>'))+
+    '</div>').join('');
+}
+// Meldung der Visu (panel/gesten.js probeMelden): ihr Modus, Beginn einer
+// Geste oder eine Antwort des Servers dazu; je Empfaenger zaehlt der letzte Befehl
+function gpMeldung(m){
+  if(m.bereit && !m.entwurf){
+    // Der Entwurf gilt nicht mehr (abgelaufen, Server neu gestartet): die Visu
+    // laeuft als Probelauf auf dem gespeicherten Profil. Gesperrt lassen und neu anlegen.
+    GP.bestaetigt=''; gpModusZeichnen();
+    if(Date.now()-GP.erneuert<GP_ERNEUERN_MS){ gpFehler(T('Der Server hält die Probe nicht.')); return; }
+    GP.erneuert=Date.now(); GP.gesendet=''; GP.token=''; gestenProbeSenden(); return;
+  }
+  if(m.bereit){ GP.bestaetigt=m.stand||''; gpModusZeichnen(); return; }
+  if(m.neu){
+    GP.gesten.unshift({art:m.art, titel:m.titel||m.art, spalte:m.spalte||'', bewegung:m.bewegung||'', raum:'', text:'', fehler:'', befehle:[]});
+    GP.gesten.length=Math.min(GP.gesten.length, GP_LISTE_MAX);
+  } else {
+    const g=GP.gesten.find(x=>x.art===m.art); if(!g) return;
+    if(m.raum) g.raum=m.raum;
+    if(m.text) g.text=m.text;
+    if(m.fehler) g.fehler=m.fehler;
+    (m.befehle||[]).forEach(b=>{ const i=g.befehle.findIndex(x=>x.name===b.name); if(i<0) g.befehle.push(b); else g.befehle[i]=b; });
+  }
+  gpListe();
+}
+function gestenProbeBinden(){
+  if(!$('#gpKarte')) return;
+  GP.url=''; GP.gesendet=''; GP.stand=''; GP.bestaetigt='';   // neu gezeichnet: das Fenster ist leer, der Token bleibt
+  if(!GP._wired){
+    GP._wired=true;
+    window.addEventListener('message', e=>{
+      const f=$('#gpFrame'), m=e.data;
+      if(e.origin!==location.origin || !f || e.source!==f.contentWindow || !m || m.t!=='gestenProbe') return;
+      gpMeldung(m);
+    });
+    window.addEventListener('resize', gpMass);
+  }
+  const neu=()=>{ GP.gesten=[]; gpWahlZeichnen(); gpListe(); gestenProbeSenden(); };
+  $('#gpGeraet').onchange=e=>{ GP.geraet=e.target.value; GP.ansicht=''; GP.raum=''; neu(); };
+  $('#gpAnsicht').onchange=e=>{ GP.ansicht=e.target.value; GP.raum=''; neu(); };
+  $('#gpRaum').onchange=e=>{ GP.raum=e.target.value; neu(); };
+  $('#gpSchalten').onchange=e=>{ GP.schalten=e.target.checked; gpWahlZeichnen(); gpListe(); gestenProbeSenden(); };
+  gpWahlZeichnen(); gpListe();
+}
+// Reiter Verhalten der Vorgaben sichtbar (showSub): erst dann laedt die Visu
+function gestenProbeZeigen(){ if($('#gpKarte')){ gpWahlZeichnen(); gestenProbeSenden(); } }
 // Felder "Nachts abdunkeln" und "Aufhellen bei Beruehrung" (Vorgaben -> Nacht und
 // Ansicht -> Verhalten). Ein leeres Feld zeigt grau, was ohne Eintrag gilt.
 function nachtPlatzhalter(k,v){

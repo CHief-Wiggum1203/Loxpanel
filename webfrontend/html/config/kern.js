@@ -180,4 +180,5 @@ function showSub(k){
   if(!found&&panes.length){ panes[0].classList.add('active'); }
   if(rubric==='settings'&&k==='sip') loadSip();
   if(rubric==='pconf'&&k==='seiten') seReiterZeichnen();   // Auswahl unter Inhalt inzwischen geaendert
+  if(rubric==='vorgaben'&&k==='verhalten') gestenProbeZeigen();   // Gesten-Probe laedt erst, wenn sie zu sehen ist
 }

@@ -12,9 +12,14 @@ const ENTWURF = new URLSearchParams(location.search).get('entwurf') || '';
 // bento.js und eingebettet.js) - kein Geraet, keine Uhr-Seite, keine eigene
 // Display-Steuerung; das macht die Visu um die Zelle
 const EINGEBETTET = new URLSearchParams(location.search).get('eingebettet')==='1';
-function entwurfZeigen(gilt){
+// Fenster der Gesten-Probe im Konfigurator (?probe=1, api_entwurf): der Server
+// schaltet darin nur, wenn ihr gueltiger Entwurf es erlaubt (ws_handler)
+const PROBE = new URLSearchParams(location.search).get('probe')==='1';
+// Die Gesten-Probe (probe) traegt kein Etikett: der Konfigurator sagt ueber
+// ihrem Fenster, ob sie schaltet, und oben stehen hier die Namen der Spalten
+function entwurfZeigen(gilt, probe){
   const m=el('entwurfMarke'); if(!m) return;
-  if(!ENTWURF || gilt===undefined || gilt===null){ m.classList.add('hidden'); return; }
+  if(!ENTWURF || gilt===undefined || gilt===null || probe){ m.classList.add('hidden'); return; }
   m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeicherte Ansicht';
   m.classList.toggle('alt', !gilt); m.classList.remove('hidden');
 }
@@ -119,6 +124,7 @@ function connect(){
   const q=[];
   if(PANEL_ID) q.push('panel='+encodeURIComponent(PANEL_ID));
   if(ENTWURF) q.push('entwurf='+encodeURIComponent(ENTWURF));
+  if(PROBE) q.push('probe=1');
   if(EINGEBETTET) q.push('eingebettet=1');   // LoxOS: Raum-Display-Zelle
   if(DEVICE_ID) q.push('device='+encodeURIComponent(DEVICE_ID));
   else if(KOPPLUNG) q.push('code='+encodeURIComponent(KOPPLUNG));   // Kopplungscode behalten (s. zeigeKopplung)
@@ -144,7 +150,7 @@ function connect(){
       for(const k of _themeVars) if(!v[k]) document.documentElement.style.removeProperty(k);
       _themeVars = Object.keys(v).filter(k=>v[k]);
       for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
-      entwurfZeigen(msg.entwurf);
+      entwurfZeigen(msg.entwurf, msg.gestenProbe);
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       profRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
@@ -183,6 +189,12 @@ function connect(){
       pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
       gestenAn=(msg.gesten===true);   // Zwei-Finger-Gesten (Vorgaben/Ansicht)
       gestenHinweis=(msg.gestenHinweis===true);   // ... mit Hinweis-Symbol
+      gestenProbe=(msg.gestenProbe && typeof msg.gestenProbe==='object') ? msg.gestenProbe : null;   // Gesten-Probe des Konfigurators
+      gesteProbeSpalten();
+      // ... der Konfigurator gibt sie erst frei, wenn dieser Modus seinem entspricht;
+      // gilt der Entwurf nicht mehr (abgelaufen, Server neu gestartet), legt er sie neu an
+      if(PROBE) probeMelden({bereit:true, entwurf:msg.entwurf===true, stand:(gestenProbe && gestenProbe.stand) || '',
+                             schalten:!!gestenProbe && gestenProbe.schalten===true});
       nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht
