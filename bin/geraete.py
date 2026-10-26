@@ -109,12 +109,15 @@ _KOPPLUNG_RE = re.compile(r"^[A-HJ-NP-Z2-9]{4,8}$")
 class Geraete:
     """Geraete, Agenten und Display; Mixin der App (self ist die App)."""
 
-    def entwurf_ablegen(self, pid: str, roh: dict, token: str = "") -> tuple[str, list]:
+    def entwurf_ablegen(self, pid: str, roh: dict, token: str = "",
+                        probe: dict | None = None) -> tuple[str, list]:
         """Entwurf eines Profils (UI-Form, wie der Konfigurator es speichert)
         im Speicher ablegen -> (Token, nicht uebernommene Angaben). Geprueft wird
         wie beim Speichern (_sanitize_panels), geschrieben wird nichts. Mit dem
         Token eines vorhandenen Entwurfs desselben Profils wird dieser ersetzt,
-        sonst entsteht ein neuer; ist der Platz voll, geht der aelteste."""
+        sonst entsteht ein neuer; ist der Platz voll, geht der aelteste.
+        `probe` (gesten_probe_pruefen) macht ihn zur Gesten-Probe; wechselt
+        sie die Ansicht, ersetzt der neue Entwurf ihren vorigen."""
         clean = self._sanitize_panels({pid: roh})
         if pid not in clean:
             raise ValueError("Ansicht nicht brauchbar (leere oder mit _ beginnende Kennung?)")
@@ -125,10 +128,12 @@ class Geraete:
             del self.entwuerfe[t]
         alt = self.entwuerfe.get(token)
         if not alt or alt["id"] != pid:
+            if alt and probe and alt.get("probe"):
+                del self.entwuerfe[token]
             token = secrets.token_urlsafe(9)
             while len(self.entwuerfe) >= ENTWURF_MAX:
                 del self.entwuerfe[min(self.entwuerfe, key=lambda t: self.entwuerfe[t]["ts"])]
-        self.entwuerfe[token] = {"id": pid, "panel": clean[pid], "ts": now}
+        self.entwuerfe[token] = {"id": pid, "panel": clean[pid], "ts": now, **({"probe": probe} if probe else {})}
         return token, weg
 
     def entwurf_profil(self, token: str, pid: str | None) -> dict | None:
@@ -140,6 +145,10 @@ class Geraete:
             return None
         e["ts"] = now
         return e["panel"]
+
+    def entwurf_probe(self, token: str) -> dict | None:
+        """Die Gesten-Probe des Entwurfs zu diesem Token, sonst None."""
+        return (self.entwuerfe.get(token or "") or {}).get("probe")
 
     def vorschau_zurueck(self, device: str) -> str:
         """Profil, zu dem ein Geraet nach der Vorschau zurueckkehrt: das, was es vor
@@ -689,7 +698,9 @@ class Geraete:
     def _write_panels(self, panels: dict) -> None:
         self._persist_panels_file(panels, self.devices)
         self.panels = load_panels()
-        self.entwuerfe.clear()   # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu)
+        # gespeichert: die Entwuerfe sind erledigt (die Visu laedt neu). Die
+        # Gesten-Probe bleibt: der Konfigurator zeigt sie weiter und frischt sie selbst auf
+        self.entwuerfe = {t: e for t, e in self.entwuerfe.items() if e.get("probe")}
         self.vorschau_geraet.clear()   # ... auch am Geraet: es zeigt jetzt das gespeicherte Profil
 
     def _write_devices(self, devices: dict) -> None:

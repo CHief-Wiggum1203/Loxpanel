@@ -238,8 +238,9 @@ async def api_save_panels(request: web.Request) -> web.Response:
     # Vorschau-Fenster mit einem Entwurf verlassen ihn: die Entwuerfe sind erledigt, sie
     # laden das gespeicherte Profil. Ein blosses Neuladen liesse sie auf der Entwurfs-
     # Adresse, und der Konfigurator koennte sie nicht sicher umlenken (Wettlauf).
+    # Die Gesten-Probe bleibt (_write_panels behaelt sie), sie laedt nur neu.
     for ws, info in list(app.conn_info.items()):
-        if info.get("entwurf"):
+        if info.get("entwurf") and not (app.conn_prof.get(ws) or {}).get("probe"):
             await app._neu_laden(ws, {"t": "entwurfEnde"})
     n = await _push(app, {"t": "reload"})   # offene Panels sofort neu laden
     log.info("panels.json gespeichert: %d Profile (%d Panels neu geladen)", len(clean), n)
@@ -253,12 +254,15 @@ async def api_save_panels(request: web.Request) -> web.Response:
 
 async def api_entwurf(request: web.Request) -> web.Response:
     """Entwurf eines Profils fuer die Vorschau in der echten Visu: {id, panel,
-    token?}. `panel` ist das Profil in der Form, in der der Konfigurator es
+    token?, gestenProbe?}. `panel` ist das Profil in der Form, in der der Konfigurator es
     speichert; es wird wie dort geprueft (was verworfen wuerde, steht in
     `verworfen`), aber nur im Speicher gehalten - panels.json bleibt unberuehrt.
     Antwort: `token` und `url` der Visu (/?panel=<id>&entwurf=<token>). Mit dem
     Token eines vorhandenen Entwurfs desselben Profils wird er ersetzt, und die
-    Visus, die ihn gerade zeigen, laden neu (`reloaded`)."""
+    Visus, die ihn gerade zeigen, laden neu (`reloaded`). `gestenProbe`
+    ({schalten, vorgaben, geraet}, Vorgaben -> Verhalten) macht ihn zur
+    Gesten-Probe: die Maus bedient die Visu wie zwei Finger, die Befehle
+    zeigt der Konfigurator, gesendet werden sie nur mit `schalten`."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -269,7 +273,8 @@ async def api_entwurf(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Felder 'id' und 'panel' fehlen"}, status=400)
     pid = pid.strip()
     try:
-        token, weg = app.entwurf_ablegen(pid, panel, str(data.get("token") or ""))
+        token, weg = app.entwurf_ablegen(pid, panel, str(data.get("token") or ""),
+                                         app.gesten_probe_pruefen(data.get("gestenProbe")))
     except ValueError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=400)
     n = 0

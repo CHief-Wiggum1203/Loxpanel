@@ -15,6 +15,7 @@
 // Finger bleibt, wie er war: Kacheln, Scrollen, Blaettern, "zurueck". Was
 // geschieht, zeigt die ganze Flaeche (gesteBild): Licht und Musik fuellen sich
 // von unten, die Jalousie faehrt von oben ins Bild, live mit ihrer Stellung.
+// In der Gesten-Probe des Konfigurators spielt die Maus die zwei Finger (unten).
 const GESTE_SPALTEN=[1/3, 2/3];   // Grenzen links | Mitte | rechts als Anteil der Breite, wie am Taster
 const GESTE_MINDESTWEG=0.04;      // ab diesem Weg (Anteil der Hoehe) wischen zwei Finger statt zu tippen;
                                   // quer zaehlt der Weg ueber die ganze Breite wie hoch/runter ueber die Hoehe
@@ -25,6 +26,7 @@ const GESTE_TAKT_MS=150;          // beim Dimmen hoechstens so oft einen Zwische
 const GESTE_KLICKSPERRE_MS=400;   // nach einer Geste so lange keinen Klick auf Kacheln durchlassen
 const GESTE_ANZEIGE_MS=1500;      // Einblendung nach dem Ende so lange stehen lassen
 const GESTE_FAHRT_STILL_MS=8000;  // faehrt die Jalousie, bleibt die Einblendung so lange ohne neue Stellung vom Server
+const GESTE_PROBE_FAHRT_MS=2000;  // Probelauf: so lange zeigt die Einblendung eine Fahrt ueber die ganze Hoehe
 // Symbol der Einblendung je Art (ICONS)
 const GESTE_ICO={licht:'bulb', stimmung:'bulb', stimmungwechsel:'bulb', beschattung:'blind', beschatten:'blind',
                  lamellen:'lamelle', musik:'vol', sender:'music', wiedergabe:'music'};
@@ -53,6 +55,7 @@ let gesteNach=null;        // Wisch zu Ende, bevor der Server den Startwert schi
 let gesteLetzte=null;      // zuletzt beendete Geste mit Wert: ihr gilt der Text, den der Server danach schickt
 let gesteTipps=0, gesteTippT=null, gesteTippSpalte='', gesteTippKarte='';
 let gesteKlickSperre=0;
+let gestenProbe=null;      // Gesten-Probe des Konfigurators ({schalten}, mit dem theme), sonst null
 const gesteFlaeche=document.querySelector('.screen');
 function gesteErlaubt(){
   // Auch auf der Uhr-Seite (Gesten im Dunkeln): sie gelten der Seite darunter,
@@ -86,9 +89,13 @@ function gesteFinger(t){
   return {x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2,
           d:Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY)}; }
 // karte: Raum der Raumkarte unter den Fingern (Hausuebersicht), der Server prueft ihn
-function gesteSenden(m, karte){
+// wie: erste Nachricht einer Geste ({spalte, bewegung}, gesteWie), die
+// Gesten-Probe meldet damit dem Konfigurator eine neue Geste
+function gesteSenden(m, karte, wie){
   if(verbindungGesperrt()){ verbindungZeigen(true); return false; }
+  if(gestenProbe && wie) probeMelden({neu:true, art:m.art, titel:GESTE_TITEL[m.art]||'', ...wie});
   send({t:'geste', ...m, ...(karte ? {raum:karte} : {})}); return true; }
+function gesteWie(gs){ return {spalte:gs.spalte, bewegung: gs.achse==='x' ? 'quer' : 'hochrunter'}; }
 // Raumkarte der Hausuebersicht an dieser Stelle (data-hb "r:<Raum>"), sonst ''
 function gesteKarte(x, y){
   if(!view || view.layout!=='haus') return '';
@@ -180,7 +187,8 @@ function gesteTipp(spalte, karte){
   clearTimeout(gesteTippT);
   const los=()=>{ const n=gesteTipps, sp=gesteTippSpalte, k=gesteTippKarte; gesteTipps=0; gesteTippT=null;
     const art = n>=3 ? 'hausaus' : (n===2 ? 'verlassen' : (GESTE_ARTEN.find(a=>a.spalte===sp)||{}).tipp);
-    if(art && gesteSenden({art}, k)) gesteBild({art, titel:GESTE_TITEL[art], text:'…'}); };
+    const wie = n>=2 ? {spalte:'', bewegung: n>=3 ? 'dreifach' : 'doppel'} : {spalte:sp, bewegung:'tipp'};
+    if(art && gesteSenden({art}, k, wie)) gesteBild({art, titel:GESTE_TITEL[art], text:'…'}); };
   // Mehr als drei gibt es nicht: der dritte Tipp loest sofort aus
   if(gesteTipps>=3) los(); else gesteTippT=setTimeout(los, GESTE_MEHRFACH_MS);
 }
@@ -189,9 +197,9 @@ function gesteFertig(gs){
   geste=null; clearTimeout(gs.timer);
   if(GESTE_WERT_ARTEN.includes(gs.art)) gesteLetzte=gs;
   if(gs.wisch && !gs.abgebrochen){
-    if(gs.art==='beschattung') gesteSenden({art:'beschattung', richtung: gs.dy<0 ? 'auf' : 'ab'}, gs.karte);
+    if(gs.art==='beschattung') gesteSenden({art:'beschattung', richtung: gs.dy<0 ? 'auf' : 'ab'}, gs.karte, gesteWie(gs));
     else if(!GESTE_WERT_ARTEN.includes(gs.art))   // quer ein Schritt: Stimmung, Sender
-      gesteSenden({art:gs.art, richtung: gs.dx>0 ? 'vor' : 'zurueck'}, gs.karte);
+      gesteSenden({art:gs.art, richtung: gs.dx>0 ? 'vor' : 'zurueck'}, gs.karte, gesteWie(gs));
     else if(gs.start!=null){ gesteWertSchicken(gs, 'ende'); gesteAusblenden(); }
     else gesteNach=gs;          // der Startwert kommt noch: dann das Ende schicken
   } else if(!gs.wisch && !gs.abgebrochen && Date.now()-gs.t0<=GESTE_TIPP_MS){
@@ -200,6 +208,18 @@ function gesteFertig(gs){
     gesteAusblenden();          // abgebrochen (dritter Finger): Einblendung weg
   }
 }
+// Beginn einer Geste: f ist die Mitte der Finger mit ihrem Abstand ({x, y, d},
+// gesteFinger; die Maus der Gesten-Probe hat keinen Abstand)
+function gesteBeginnen(f){
+  const r=gesteFlaeche.getBoundingClientRect(), anteil=(f.x-r.left)/(r.width||1);
+  gesteProbeFahrtStopp();
+  geste={x0:f.x, y0:f.y, d0:f.d, t0:Date.now(), h:r.height||window.innerHeight||1, w:r.width||window.innerWidth||1,
+         dx:0, dy:0, spalte: anteil<GESTE_SPALTEN[0] ? 'links' : (anteil>GESTE_SPALTEN[1] ? 'rechts' : 'mitte'),
+         karte:gesteKarte(f.x, f.y), achse:'y',
+         art:'', wisch:false, abgebrochen:false, start:null, wert:null, raum:'', stimmung:'', timer:null, zuletzt:0};
+  gesteSequenz=true;
+  weckenAbsagen();   // im Dunkeln: zwei Finger wecken nicht
+}
 gesteFlaeche.addEventListener('touchstart', e=>{
   if(geste && e.touches.length>2){ geste.abgebrochen=true; gesteFertig(geste); return; }
   if(e.touches.length!==2 || geste || !gesteErlaubt()) return;
@@ -207,18 +227,16 @@ gesteFlaeche.addEventListener('touchstart', e=>{
   // dann keine Geste statt einer halben
   if(!e.cancelable) return;
   e.preventDefault();
-  const f=gesteFinger(e.touches), r=gesteFlaeche.getBoundingClientRect(), anteil=(f.x-r.left)/(r.width||1);
-  geste={x0:f.x, y0:f.y, d0:f.d, t0:Date.now(), h:r.height||window.innerHeight||1, w:r.width||window.innerWidth||1,
-         dx:0, dy:0, spalte: anteil<GESTE_SPALTEN[0] ? 'links' : (anteil>GESTE_SPALTEN[1] ? 'rechts' : 'mitte'),
-         karte:gesteKarte(f.x, f.y), achse:'y',
-         art:'', wisch:false, abgebrochen:false, start:null, wert:null, raum:'', stimmung:'', timer:null, zuletzt:0};
-  gesteSequenz=true;
-  weckenAbsagen();   // im Dunkeln: zwei Finger wecken nicht
+  gesteBeginnen(gesteFinger(e.touches));
 }, {passive:false});
 gesteFlaeche.addEventListener('touchmove', e=>{
   if(gesteSequenz && e.cancelable) e.preventDefault();
-  const gs=geste; if(!gs || gs.abgebrochen || e.touches.length!==2) return;
-  const f=gesteFinger(e.touches), dx=f.x-gs.x0, dy=f.y-gs.y0, weg=Math.hypot(dx, dy);
+  if(e.touches.length===2) gesteBewegen(gesteFinger(e.touches));
+}, {passive:false});
+// Die Finger (f wie bei gesteBeginnen) haben sich bewegt
+function gesteBewegen(f){
+  const gs=geste; if(!gs || gs.abgebrochen) return;
+  const dx=f.x-gs.x0, dy=f.y-gs.y0, weg=Math.hypot(dx, dy);
   gs.dx=dx; gs.dy=dy;
   if(!gs.wisch){
     if(weg<GESTE_MINDESTWEG*gs.h) return;
@@ -230,7 +248,7 @@ gesteFlaeche.addEventListener('touchmove', e=>{
     clearTimeout(gesteTippT); gesteTipps=0;   // ein Wisch beendet eine Tippfolge
     gs.art = gs.achse==='x' ? a.quer : a.art;
     if(!GESTE_WERT_ARTEN.includes(gs.art)) gesteRichtungZeigen(gs);
-    else if(gesteSenden({art:gs.art, phase:'start'}, gs.karte)) gesteBild({art:gs.art, titel:GESTE_TITEL[gs.art], text:'…'});
+    else if(gesteSenden({art:gs.art, phase:'start'}, gs.karte, gesteWie(gs))) gesteBild({art:gs.art, titel:GESTE_TITEL[gs.art], text:'…'});
     else gs.abgebrochen=true;
     gs.pLetzt=gs.pWisch;
     return;
@@ -238,7 +256,7 @@ gesteFlaeche.addEventListener('touchmove', e=>{
   gs.pLetzt = gs.achse==='x' ? f.x : f.y;
   if(!GESTE_WERT_ARTEN.includes(gs.art)) gesteRichtungZeigen(gs);
   else gesteBewegt(gs, gs.pLetzt);
-}, {passive:false});
+}
 function gesteLos(e){
   if(!gesteSequenz) return;
   if(e.cancelable) e.preventDefault();   // aus zwei Fingern wird kein Klick
@@ -247,6 +265,64 @@ function gesteLos(e){
 }
 gesteFlaeche.addEventListener('touchend', gesteLos, {passive:false});
 gesteFlaeche.addEventListener('touchcancel', gesteLos, {passive:false});
+// ---- Gesten-Probe (Konfigurator, Vorgaben -> Verhalten) ----
+// Die Visu im Fenster der Probe (gestenProbe) bedient sich mit der Maus wie
+// mit zwei Fingern: ziehen wischt, ein Klick tippt, zwei und drei schnell
+// hintereinander sind Doppel- und Dreifachtipp. Kacheln erreicht der Klick
+// dabei nicht (Klicksperre wie nach einer Geste). Wo Gesten nicht wirken
+// (Detailseite, Grundriss, PIN), klickt die Maus wie sonst. Was eine Geste
+// ausloest, meldet probeMelden() dem Konfigurator; die Spalten blendet
+// gesteProbeSpalten() ueber der Seite ein.
+gesteFlaeche.addEventListener('pointerdown', e=>{
+  if(!gestenProbe || e.pointerType!=='mouse' || e.button!==0 || geste || !gesteErlaubt()) return;
+  e.preventDefault();
+  try{ gesteFlaeche.setPointerCapture(e.pointerId); }catch(x){}
+  gesteBeginnen({x:e.clientX, y:e.clientY, d:0});
+});
+gesteFlaeche.addEventListener('pointermove', e=>{
+  if(gestenProbe && e.pointerType==='mouse' && geste) gesteBewegen({x:e.clientX, y:e.clientY, d:0}); });
+function gesteProbeLos(e){
+  if(!gestenProbe || e.pointerType!=='mouse' || !gesteSequenz) return;
+  if(geste) gesteFertig(geste);
+  gesteSequenz=false; gesteKlickSperre=Date.now()+GESTE_KLICKSPERRE_MS;
+}
+gesteFlaeche.addEventListener('pointerup', gesteProbeLos);
+gesteFlaeche.addEventListener('pointercancel', gesteProbeLos);
+// Probe an oder aus (theme): Spalten mit Symbol und Titel aus GESTE_ARTEN,
+// genau an den Grenzen GESTE_SPALTEN; sichtbar, solange die Maus ueber der Seite steht
+function gesteProbeSpalten(){
+  let n=el('gesteSpalten');
+  if(!gestenProbe){ if(n) n.remove(); return; }
+  if(n) return;
+  const grenzen=[0, ...GESTE_SPALTEN, 1];
+  n=document.createElement('div'); n.id='gesteSpalten'; n.className='gprobe-spalten';
+  n.innerHTML=GESTE_ARTEN.map((a, i)=>'<div class="gp-sp" style="width:'+((grenzen[i+1]-grenzen[i])*100)+'%">'+
+    '<span class="gp-name">'+svg(ICONS[a.ico])+esc(GESTE_TITEL[a.art])+'</span></div>').join('');
+  gesteFlaeche.appendChild(n);
+}
+// An den Konfigurator, der die Probe zeigt: Beginn einer Geste ({neu, art,
+// titel, spalte, bewegung}) und jede Antwort des Servers ({art, raum, text,
+// fehler, befehle})
+function probeMelden(m){
+  if(window.parent===window) return;
+  try{ window.parent.postMessage({t:'gestenProbe', ...m}, location.origin); }catch(e){}
+}
+// Probelauf: nichts faehrt. Der Server schickt die Stellung jetzt (von) und
+// nach den Befehlen (wert); die Einblendung zeigt die Fahrt dazwischen, eine
+// ganze Hoehe in GESTE_PROBE_FAHRT_MS (ohne Bewegung, wenn das System es so will)
+function gesteProbeFahrt(msg, titel){
+  const n=gesteKnoten(), von=+msg.von, nach=+msg.wert;
+  const ruhig=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dauer=ruhig ? 0 : Math.abs(nach-von)/100*GESTE_PROBE_FAHRT_MS, t0=performance.now();
+  gesteProbeFahrtStopp();
+  const schritt=t=>{
+    const a=dauer ? Math.min(1, (t-t0)/dauer) : 1, w=von+(nach-von)*a;
+    gesteBild({art:msg.art, titel, zahl:Math.round(w), form:'vorhang', wert:w, sub: a<1 ? (msg.fahrt||msg.text||'') : (msg.ende||msg.text||'')});
+    if(a<1) n._fahrt=requestAnimationFrame(schritt); else { n._fahrt=0; gesteAusblenden(); }
+  };
+  schritt(t0);
+}
+function gesteProbeFahrtStopp(){ const n=el('geste'); if(n && n._fahrt){ cancelAnimationFrame(n._fahrt); n._fahrt=0; } }
 // ---- Gesten im Dunkeln (Stufe 5) ----
 // Auf der Uhr-Seite und im abgedunkelten Nachtmodus weckt ein Finger wie bisher,
 // zwei Finger sind eine Geste, die das Panel dunkel laesst (keine Uhr weg, kein
@@ -273,6 +349,8 @@ document.addEventListener('click', e=>{
 // Antwort des Servers: Startwert zum Dimmen, Text (Stimmung, "Raum verlassen"),
 // Stellung der Jalousie oder Fehler
 function gesteAntwort(msg){
+  if(gestenProbe) probeMelden({art:msg.art, raum:msg.raum||'', text:msg.text||'', fehler:msg.fehler||'',
+                               befehle:Array.isArray(msg.befehle) ? msg.befehle : []});
   const gs = (geste && geste.art===msg.art) ? geste : ((gesteNach && gesteNach.art===msg.art) ? gesteNach : null);
   const titel=gesteTitel(msg.art, msg.raum);
   if(msg.fehler){
@@ -287,6 +365,7 @@ function gesteAntwort(msg){
   // Jalousie nach einer Geste: der Vorhang folgt der Stellung, die der Server
   // aus dem Miniserver meldet (phase "wert"), bis die Fahrt endet ("ende")
   if(msg.wert!=null && (msg.art==='beschattung' || msg.art==='beschatten')){
+    if(msg.von!=null) return gesteProbeFahrt(msg, titel);
     gesteBild({art:msg.art, titel, zahl:Math.round(+msg.wert), form:'vorhang', wert:+msg.wert, sub:msg.text||''});
     if(msg.phase==='ende') gesteAusblenden(); else gesteFahrtHalten();
     return; }

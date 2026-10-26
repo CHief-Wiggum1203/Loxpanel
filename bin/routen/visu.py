@@ -42,6 +42,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     # umgelenkt. Unbekannt, abgelaufen oder fuer ein anderes Profil: das gespeicherte.
     ent = (request.query.get("entwurf", "") or "")[:64]
     roh = app.entwurf_profil(ent, pid) if ent else None
+    # Gesten-Probe des Konfigurators: nie ein Geraet (die Stimmung beim
+    # Einschalten nimmt geste() von dem Geraet, das die Probe nennt)
+    probe = app.entwurf_probe(ent) if roh is not None else None
+    if probe:
+        dev = ""
     agenten = app._agenten_der_visu(dev, request.remote or "") if dev else []
     # Wahl, die der Agent noch nicht gemeldet hat: Chromium startete vorher neu
     # (Absturz, Auto-Reload, Neustart des Agenten) und fragt nach der alten
@@ -62,7 +67,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             # Abschaltzeit und Neustartintervall, naechster Kiosk-Start)
             for a in agenten:
                 app.agent_wunsch[a["ip"]] = soll
-    prof = app.resolve_profile(pid, roh)
+    prof = app.resolve_profile(pid, roh, probe)
     app.conn_prof[ws] = prof
     app.conn_dev[ws] = dev
     kiosk = request.query.get("kiosk", "")
@@ -104,6 +109,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "gesten": prof["gesten"],         # Zwei-Finger-Gesten (Loxone-Standard) an
                         # ... mit Hinweis-Symbol (reserviert die Fusszeile unter dem Kachelfeld)
                         "gestenHinweis": prof["gesten"] and prof["gestenHinweis"],
+                        # Gesten-Probe: die Maus spielt zwei Finger; schalten = Befehle gehen raus
+                        "gestenProbe": {"schalten": prof["probe"]["schalten"]} if prof.get("probe") else None,
                         "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"], roh, dev), "on": app._night_on},

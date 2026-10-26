@@ -12,9 +12,11 @@ const ENTWURF = new URLSearchParams(location.search).get('entwurf') || '';
 // bento.js und eingebettet.js) - kein Geraet, keine Uhr-Seite, keine eigene
 // Display-Steuerung; das macht die Visu um die Zelle
 const EINGEBETTET = new URLSearchParams(location.search).get('eingebettet')==='1';
-function entwurfZeigen(gilt){
+// Die Gesten-Probe (probe) traegt kein Etikett: der Konfigurator sagt ueber
+// ihrem Fenster, ob sie schaltet, und oben stehen hier die Namen der Spalten
+function entwurfZeigen(gilt, probe){
   const m=el('entwurfMarke'); if(!m) return;
-  if(!ENTWURF || gilt===undefined || gilt===null){ m.classList.add('hidden'); return; }
+  if(!ENTWURF || gilt===undefined || gilt===null || probe){ m.classList.add('hidden'); return; }
   m.textContent = gilt ? 'Entwurf – nicht gespeichert' : 'Entwurf abgelaufen – gespeicherte Ansicht';
   m.classList.toggle('alt', !gilt); m.classList.remove('hidden');
 }
@@ -144,7 +146,7 @@ function connect(){
       for(const k of _themeVars) if(!v[k]) document.documentElement.style.removeProperty(k);
       _themeVars = Object.keys(v).filter(k=>v[k]);
       for(const k in v){ if(v[k]) document.documentElement.style.setProperty(k,v[k]); }
-      entwurfZeigen(msg.entwurf);
+      entwurfZeigen(msg.entwurf, msg.gestenProbe);
       posringOverride();      // ?ring= am Geraet schlaegt die Konfiguration
       profCols = (v['--cols']?(parseInt(v['--cols'])||2):2);
       profRows = (v['--rows']?(parseInt(v['--rows'])||2):2);
@@ -183,6 +185,8 @@ function connect(){
       pinMerkenS=(typeof msg.pinMerken==='number' && msg.pinMerken>0) ? msg.pinMerken : 0;
       gestenAn=(msg.gesten===true);   // Zwei-Finger-Gesten (Vorgaben/Ansicht)
       gestenHinweis=(msg.gestenHinweis===true);   // ... mit Hinweis-Symbol
+      gestenProbe=(msg.gestenProbe && typeof msg.gestenProbe==='object') ? msg.gestenProbe : null;   // Gesten-Probe des Konfigurators
+      gesteProbeSpalten();
       nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht

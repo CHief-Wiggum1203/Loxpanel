@@ -696,3 +696,143 @@ def test_neue_geste_loest_die_fahrt_ab():
         return s.gesendet
     gesendet, _io = _mit_nachbau(schritte)
     assert gesendet == []
+
+
+# ---- Gesten-Probe des Konfigurators (Vorgaben -> Verhalten) ------------------
+
+class Probe(MitSenden):
+    """Verbindung der Gesten-Probe: das Profil mit der Probe, wie ws_handler
+    es aus dem Entwurf aufloest (Probe aus gesten_probe_pruefen)."""
+
+    def __init__(self, app, route, schalten=False, vorgaben=None, geraet=""):
+        super().__init__(app, route)
+        probe = app.gesten_probe_pruefen({"schalten": schalten, "vorgaben": vorgaben or {}, "geraet": geraet})
+        app.conn_prof[self] = app.resolve_profile("test", app.panels["test"], probe)
+
+
+def test_probelauf_schickt_nichts_und_nennt_die_befehle():
+    """Dimmen, Beschattung und Raum verlassen im Probelauf: am Miniserver kommt
+    nichts an, jede Antwort nennt die Befehle mit dem Namen des Empfaengers,
+    auch eine, die sonst nichts meldete (Ende des Dimmens). Die Jalousie
+    faehrt nicht: die Antwort ist gleich das Ende, von der Stellung jetzt zu
+    der nach dem Befehl, und keine Fahrt wird beobachtet."""
+    async def schritte(app):
+        s = Probe(app, RAUM)
+        start = await s(art="licht", phase="start")
+        ende = await s(art="licht", phase="ende", wert=40)
+        jal = await s(art="beschattung", richtung="ab")
+        verlassen = await s(art="verlassen")
+        return start, ende, jal, verlassen, s in app.conn_geste
+    (start, ende, jal, verlassen, beobachtet), io = _mit_nachbau(schritte)
+    assert io == []
+    assert start["wert"] == 80 and "befehle" not in start
+    assert ende["befehle"] == [{"name": "Licht Kochen · Kochinsel", "befehl": "40"},
+                               {"name": "Licht Kochen · Arbeitsplatte", "befehl": "30"}]
+    assert {k: jal[k] for k in ("text", "phase", "von", "wert", "fahrt", "ende")} == {
+        "text": "Beschattung ab", "phase": "ende", "von": 15, "wert": 100, "fahrt": "Fährt ab", "ende": "Geschlossen"}
+    assert jal["befehle"] == [{"name": "Jalousie Terrasse", "befehl": "FullDown"},
+                              {"name": "Jalousie Küche", "befehl": "FullDown"}]
+    assert verlassen["text"] == "Essen-Kochen-Wohnen: 2 aus"
+    assert sorted(b["name"] + " " + b["befehl"] for b in verlassen["befehle"]) == [
+        "Licht Kochen changeTo/778", "Musik Wohnen pause"]
+    assert not beobachtet
+
+
+def test_probe_schaltet_wirklich():
+    """Mit "Wirklich schalten" gehen die Befehle raus wie am Geraet, die
+    Antwort nennt sie trotzdem, und die Fahrt wird live beobachtet."""
+    async def schritte(app):
+        s = Probe(app, RAUM, schalten=True)
+        return await s(art="beschattung", richtung="ab"), s in app.conn_geste
+    (jal, beobachtet), io = _mit_nachbau(schritte)
+    assert io == ["sps/io/J1/FullDown", "sps/io/J2/FullDown"]
+    assert jal["wert"] == 15 and "von" not in jal and beobachtet
+    assert [b["befehl"] for b in jal["befehle"]] == ["FullDown", "FullDown"]
+
+
+def test_probe_mit_ungespeicherten_vorgaben_und_geraet():
+    """Es gelten die Vorgaben der Probe, nicht die gespeicherten: dort ist der
+    Taster fuer "Raum verlassen" zurueckgesetzt und "Haus aus" neu. Die
+    Stimmung beim Einschalten kommt vom Geraet, das die Probe nennt."""
+    async def schritte(app):
+        s = Probe(app, RAUM, vorgaben={"hausAus": "TH"}, geraet="kueche")
+        return await s(art="verlassen"), await s(art="hausaus"), await s(art="stimmung")
+    (verlassen, haus, stimmung), io = _mit_nachbau(
+        schritte, theme_ui={"raumVerlassen": {"r1": "TV"}}, states=AUS,
+        devices={"kueche": {"lichtStart": {"lc": "LW", "mood": 4}}})
+    assert io == []
+    assert [b["name"] for b in verlassen["befehle"]] == ["Musik Wohnen"]   # ohne Taster: aus, was an ist
+    assert haus["text"] == "Haus aus" and haus["befehle"] == [{"name": "Haus aus", "befehl": "pulse"}]
+    assert stimmung["text"] == "Fernsehen" and stimmung["befehle"] == [{"name": "Licht Wohnen", "befehl": "changeTo/4"}]
+
+
+def test_probe_pruefen_und_profil():
+    """gesten_probe_pruefen nimmt nur, was taugt; im Profil ersetzen die
+    Vorgaben der Probe die gespeicherten ganz, die Gesten sind immer an,
+    auch wo die Ansicht sie ausschaltet."""
+    app = _app(ui={"gesten": False}, theme_ui={"gestenHinweis": False, "hausAus": "TH"},
+               devices={"kueche": {"lichtStart": {"lc": "LW", "mood": 4}}})
+    assert app.gesten_probe_pruefen(None) is None
+    assert app.gesten_probe_pruefen({"schalten": "ja", "vorgaben": [], "geraet": "flur"}) == {
+        "schalten": False, "ui": {}, "geraet": ""}
+    probe = app.gesten_probe_pruefen({"schalten": True, "vorgaben": {"hausAus": " TH ", "gesten": True},
+                                      "geraet": "kueche"})
+    assert probe == {"schalten": True, "ui": {"hausAus": "TH", "gesten": True}, "geraet": "kueche"}
+    prof = app.resolve_profile("test", app.panels["test"], app.gesten_probe_pruefen({}))
+    assert prof["gesten"] is True and prof["gestenHinweis"] is konfig.GESTEN_HINWEIS_STANDARD
+    assert prof["probe"]["ui"] == {} and app._gesten_ui(prof) == {}
+    assert app._gesten_ui(app.resolve_profile("test")) == app.theme["ui"]   # ohne Probe: die gespeicherten
+
+
+def test_probe_wechselt_die_ansicht():
+    """Dieselbe Ansicht: derselbe Token. Eine andere: ein neuer, der vorige
+    Entwurf der Probe ist erledigt. Ein Entwurf der Vorschau bleibt dabei,
+    und er ersetzt seinen vorigen bei anderer Ansicht nicht."""
+    app = _app()
+    probe = app.gesten_probe_pruefen({})
+    t1, _ = app.entwurf_ablegen("test", {"title": "T"}, "", probe)
+    t2, _ = app.entwurf_ablegen("test", {"title": "T2"}, t1, probe)
+    vorschau, _ = app.entwurf_ablegen("test", {"title": "V"})
+    andere, _ = app.entwurf_ablegen("andere", {"title": "W"}, vorschau)
+    t3, _ = app.entwurf_ablegen("andere", {"title": "A"}, t2, probe)
+    assert t1 == t2 and t3 != t2
+    assert set(app.entwuerfe) == {t3, vorschau, andere}
+    assert app.entwurf_probe(t3) == probe and app.entwurf_probe(vorschau) is None
+
+
+def test_probe_ueber_entwurf_und_websocket(cfg_ordner):
+    """/api/entwurf mit gestenProbe: die Visu mit dem Token bekommt sie im
+    theme, ist kein Geraet, und eine Geste schickt nichts. Speichern beendet
+    die anderen Entwuerfe, die Probe bleibt und bekommt kein entwurfEnde."""
+    async def schritte(app):
+        routen = [("POST", "/api/entwurf", W.api_entwurf), ("POST", "/api/panels", W.api_save_panels)]
+        runner, port, bc = await visu_starten(app, routen)
+        url = f"http://127.0.0.1:{port}"
+        try:
+            async with aiohttp.ClientSession() as s:
+                panel = {"title": "Test", "tabs": ["room:r1"], "ui": {"gesten": False}}
+                async with s.post(url + "/api/entwurf", json={
+                        "id": "test", "panel": panel,
+                        "gestenProbe": {"schalten": False, "vorgaben": {}, "geraet": ""}}) as r:
+                    probe = await r.json()
+                async with s.post(url + "/api/entwurf", json={"id": "test", "panel": panel}) as r:
+                    entwurf = await r.json()
+                async with s.ws_connect(url + "/ws" + probe["url"][1:] + "&device=kueche") as ws:
+                    theme = await _bis(ws, "theme")
+                    await ws.send_json({"t": "geste", "art": "beschattung", "richtung": "auf"})
+                    jal = await _bis(ws, "geste")
+                    geraet = next(i["dev"] for w, i in app.conn_info.items() if i.get("entwurf") == probe["token"])
+                    async with s.post(url + "/api/panels", json={"panels": {"test": panel}}) as r:
+                        assert (await r.json())["ok"]
+                    nach = await asyncio.wait_for(ws.receive_json(), 3)
+                return theme, jal, geraet, nach, set(app.entwuerfe), probe["token"], entwurf["token"]
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+    (theme, jal, geraet, nach, tokens, probe, entwurf), io = _mit_nachbau(schritte, devices={"kueche": {}})
+    assert theme["gestenProbe"] == {"schalten": False} and theme["gesten"] is True and theme["entwurf"] is True
+    assert geraet == "", "die Probe ist kein Geraet, auch mit ?device="
+    assert jal["text"] == "Beschattung auf" and [b["befehl"] for b in jal["befehle"]] == ["FullUp", "FullUp"]
+    assert io == []
+    assert nach["t"] == "reload", nach      # neu laden wie jede Visu, kein entwurfEnde
+    assert tokens == {probe} and entwurf != probe

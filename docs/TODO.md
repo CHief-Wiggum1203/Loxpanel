@@ -2614,6 +2614,16 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       des Tipps und des zweiten Fingers, Spaltenteilung), ob das Scrollen am
       4″-Panel ruckelt und wie die Nacht-Uhr im dunklen Raum wirkt.
       Gesamtaufwand **L**.
+      *Erledigt 26.10.2026: Gesten ausprobieren* (Vorgaben → Verhalten,
+      neben der Karte Gesten). Die Einstellungen waren schwer zu
+      durchschauen. Jetzt steht daneben die echte Visu einer Ansicht auf der
+      Seite eines Raums, in der Größe eines Geräts. Die Maus spielt dort zwei
+      Finger, die Einblendung im Vollbild erscheint wie am Panel. Im
+      Probelauf geht kein Befehl an den Miniserver: Die Liste darunter nennt
+      je Geste, was sie geschickt hätte, mit dem Namen des Empfängers, und
+      die Jalousie fährt in der Einblendung von ihrer Stellung zum Ziel. Mit
+      „Wirklich schalten“ verhält sich die Probe wie das Panel. Es gelten die
+      Einstellungen, wie sie gerade stehen, auch ungespeichert.
 
 - [ ] **„Jetzt wichtig“: Zeile mit gelernter Nutzung** (Konzept vom
       13.10.2026, zurückgestellt am 13.10.2026). Über dem Raster steht eine
