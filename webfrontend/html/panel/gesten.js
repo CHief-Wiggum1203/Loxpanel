@@ -268,26 +268,35 @@ gesteFlaeche.addEventListener('touchcancel', gesteLos, {passive:false});
 // ---- Gesten-Probe (Konfigurator, Vorgaben -> Verhalten) ----
 // Die Visu im Fenster der Probe (gestenProbe) bedient sich mit der Maus wie
 // mit zwei Fingern: ziehen wischt, ein Klick tippt, zwei und drei schnell
-// hintereinander sind Doppel- und Dreifachtipp. Kacheln erreicht der Klick
-// dabei nicht (Klicksperre wie nach einer Geste). Wo Gesten nicht wirken
-// (Detailseite, Grundriss, PIN), klickt die Maus wie sonst. Was eine Geste
+// hintereinander sind Doppel- und Dreifachtipp. Die Maus geht in der
+// Capture-Phase an die Geste, bevor eine Taste darunter sie sieht (Player und
+// Halten-Tasten schicken schon beim Druecken), danach haelt die Flaeche sie
+// fest (setPointerCapture); den Klick haelt die Klicksperre ab. Wo Gesten
+// nicht wirken (Detailseite, Grundriss, PIN) und auf der Uhr-Seite (die Maus
+// weckt sie wie ein Finger) klickt die Maus wie sonst. Was eine Geste
 // ausloest, meldet probeMelden() dem Konfigurator; die Spalten blendet
-// gesteProbeSpalten() ueber der Seite ein.
+// gesteProbeSpalten() ueber der Seite ein. Dass im Probelauf nichts schaltet,
+// sichert der Server (geste() und t:"cmd").
 gesteFlaeche.addEventListener('pointerdown', e=>{
-  if(!gestenProbe || e.pointerType!=='mouse' || e.button!==0 || geste || !gesteErlaubt()) return;
-  e.preventDefault();
+  if(!gestenProbe || e.pointerType!=='mouse' || e.button!==0 || geste || saverOn() || !gesteErlaubt()) return;
+  e.preventDefault(); e.stopPropagation();
   try{ gesteFlaeche.setPointerCapture(e.pointerId); }catch(x){}
+  resetIdle();   // wie jede Beruehrung: die Ruhe bis zur Uhr-Seite beginnt neu
   gesteBeginnen({x:e.clientX, y:e.clientY, d:0});
-});
+}, true);
 gesteFlaeche.addEventListener('pointermove', e=>{
-  if(gestenProbe && e.pointerType==='mouse' && geste) gesteBewegen({x:e.clientX, y:e.clientY, d:0}); });
+  if(!gestenProbe || e.pointerType!=='mouse' || !gesteSequenz) return;
+  e.stopPropagation();
+  if(geste) gesteBewegen({x:e.clientX, y:e.clientY, d:0});
+}, true);
 function gesteProbeLos(e){
   if(!gestenProbe || e.pointerType!=='mouse' || !gesteSequenz) return;
+  e.stopPropagation();
   if(geste) gesteFertig(geste);
   gesteSequenz=false; gesteKlickSperre=Date.now()+GESTE_KLICKSPERRE_MS;
 }
-gesteFlaeche.addEventListener('pointerup', gesteProbeLos);
-gesteFlaeche.addEventListener('pointercancel', gesteProbeLos);
+gesteFlaeche.addEventListener('pointerup', gesteProbeLos, true);
+gesteFlaeche.addEventListener('pointercancel', gesteProbeLos, true);
 // Probe an oder aus (theme): Spalten mit Symbol und Titel aus GESTE_ARTEN,
 // genau an den Grenzen GESTE_SPALTEN; sichtbar, solange die Maus ueber der Seite steht
 function gesteProbeSpalten(){
@@ -300,9 +309,9 @@ function gesteProbeSpalten(){
     '<span class="gp-name">'+svg(ICONS[a.ico])+esc(GESTE_TITEL[a.art])+'</span></div>').join('');
   gesteFlaeche.appendChild(n);
 }
-// An den Konfigurator, der die Probe zeigt: Beginn einer Geste ({neu, art,
-// titel, spalte, bewegung}) und jede Antwort des Servers ({art, raum, text,
-// fehler, befehle})
+// An den Konfigurator, der die Probe zeigt: der Modus der Verbindung ({bereit,
+// schalten}, mit jedem theme), Beginn einer Geste ({neu, art, titel, spalte,
+// bewegung}) und jede Antwort des Servers ({art, raum, text, fehler, befehle})
 function probeMelden(m){
   if(window.parent===window) return;
   try{ window.parent.postMessage({t:'gestenProbe', ...m}, location.origin); }catch(e){}

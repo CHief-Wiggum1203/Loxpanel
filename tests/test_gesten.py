@@ -802,8 +802,9 @@ def test_probe_wechselt_die_ansicht():
 
 def test_probe_ueber_entwurf_und_websocket(cfg_ordner):
     """/api/entwurf mit gestenProbe: die Visu mit dem Token bekommt sie im
-    theme, ist kein Geraet, und eine Geste schickt nichts. Speichern beendet
-    die anderen Entwuerfe, die Probe bleibt und bekommt kein entwurfEnde."""
+    theme, ist kein Geraet, und weder eine Geste noch ein Befehl (t:"cmd")
+    schickt etwas. Speichern beendet die anderen Entwuerfe, die Probe bleibt
+    und bekommt kein entwurfEnde."""
     async def schritte(app):
         routen = [("POST", "/api/entwurf", W.api_entwurf), ("POST", "/api/panels", W.api_save_panels)]
         runner, port, bc = await visu_starten(app, routen)
@@ -821,15 +822,23 @@ def test_probe_ueber_entwurf_und_websocket(cfg_ordner):
                     theme = await _bis(ws, "theme")
                     await ws.send_json({"t": "geste", "art": "beschattung", "richtung": "auf"})
                     jal = await _bis(ws, "geste")
+                    # auch ein Befehl ausserhalb der Gesten schaltet im Probelauf nicht
+                    await ws.send_json({"t": "cmd", "uuid": "J1", "cmd": "FullUp"})
+                    cmd = await _bis(ws, "notify")
+                    await ws.send_json({"t": "cmd", "uuid": "J1", "cmd": "FullUp", "pin": "1234"})
+                    pin = await _bis(ws, "cmdresult")
+                    await _bis(ws, "notify")
                     geraet = next(i["dev"] for w, i in app.conn_info.items() if i.get("entwurf") == probe["token"])
                     async with s.post(url + "/api/panels", json={"panels": {"test": panel}}) as r:
                         assert (await r.json())["ok"]
                     nach = await asyncio.wait_for(ws.receive_json(), 3)
-                return theme, jal, geraet, nach, set(app.entwuerfe), probe["token"], entwurf["token"]
+                return theme, jal, cmd, pin, geraet, nach, set(app.entwuerfe), probe["token"], entwurf["token"]
         finally:
             bc.cancel()
             await runner.cleanup()
-    (theme, jal, geraet, nach, tokens, probe, entwurf), io = _mit_nachbau(schritte, devices={"kueche": {}})
+    (theme, jal, cmd, pin, geraet, nach, tokens, probe, entwurf), io = _mit_nachbau(schritte, devices={"kueche": {}})
+    assert cmd["text"] == "Probelauf: nichts geschaltet"
+    assert pin["ok"] is False and pin["gesperrt"] is True, "die Visu fragt nicht noch einmal nach der PIN"
     assert theme["gestenProbe"] == {"schalten": False} and theme["gesten"] is True and theme["entwurf"] is True
     assert geraet == "", "die Probe ist kein Geraet, auch mit ?device="
     assert jal["text"] == "Beschattung auf" and [b["befehl"] for b in jal["befehle"]] == ["FullUp", "FullUp"]

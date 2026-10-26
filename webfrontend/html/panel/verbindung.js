@@ -187,6 +187,8 @@ function connect(){
       gestenHinweis=(msg.gestenHinweis===true);   // ... mit Hinweis-Symbol
       gestenProbe=(msg.gestenProbe && typeof msg.gestenProbe==='object') ? msg.gestenProbe : null;   // Gesten-Probe des Konfigurators
       gesteProbeSpalten();
+      // ... der Konfigurator gibt sie erst frei, wenn dieser Modus seinem entspricht
+      if(gestenProbe) probeMelden({bereit:true, schalten:gestenProbe.schalten===true});
       nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);
       _screenSent='';         // neue Verbindung: der Server kennt die Groesse noch nicht

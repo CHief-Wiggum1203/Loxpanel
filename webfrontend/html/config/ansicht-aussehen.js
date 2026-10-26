@@ -440,8 +440,12 @@ function gestenVorgabenBinden(p){
 // die Ansicht mit ihren Filtern: Sie entscheiden, welche Bausteine eine Geste
 // trifft. Der Server haelt die Befehle jeder Geste fest und schickt sie nur
 // mit "Wirklich schalten"; die Visu meldet sie per postMessage, die Liste
-// unter dem Bild zeigt sie (je Empfaenger der letzte Befehl).
-const GP={geraet:'', ansicht:'', raum:'', schalten:false, token:'', url:'', gesendet:'', timer:null, gesten:[], _wired:false};
+// unter dem Bild zeigt sie (je Empfaenger der letzte Befehl). Bedienen laesst
+// sich das Bild erst, wenn die Visu den Modus meldet, den die Karte zeigt
+// (bestaetigt): Bis sie nach einem Umschalten neu verbunden ist, schaltete
+// sie sonst noch im alten.
+const GP={geraet:'', ansicht:'', raum:'', schalten:false, bestaetigt:null, token:'', url:'', gesendet:'', timer:null,
+          gesten:[], _wired:false};
 const GP_LISTE_MAX=6;       // so viele Gesten stehen in der Liste, die neueste oben
 const GP_HOEHE_ANTEIL=0.6;  // das Bild der Visu ist hoechstens so hoch (Anteil der Fensterhoehe)
 function gestenProbeKarte(){
@@ -496,10 +500,17 @@ function gpWahlZeichnen(){
   if(!raeume.some(x=>x.uuid===GP.raum)) GP.raum=gpRaumVorschlag(GP.ansicht, g);
   sr.innerHTML=raeume.map(x=>'<option value="'+esc(x.uuid)+'"'+(x.uuid===GP.raum?' selected':'')+'>'+esc(x.name)+'</option>').join('');
   $('#gpSchalten').checked=GP.schalten;
-  const m=$('#gpModus');
-  m.classList.toggle('scharf', GP.schalten);
-  m.innerHTML=esc(GP.schalten ? T('Schaltet wirklich: Licht, Beschattung und Musik reagieren wie am Gerät.')
-                              : T('Probelauf: Die Befehle stehen unten, an den Miniserver geht keiner.'))+
+  gpModusZeichnen();
+}
+// Modus ueber dem Bild; solange die Visu ihn nicht bestaetigt hat, ist das Bild gesperrt
+function gpModusZeichnen(){
+  const m=$('#gpModus'), v=$('#gpVor'); if(!m || !v) return;
+  const bereit=GP.bestaetigt===GP.schalten;
+  v.classList.toggle('gesperrt', !bereit);
+  m.classList.toggle('scharf', bereit && GP.schalten);
+  m.innerHTML=esc(!bereit ? T('Die Probe lädt …')
+    : (GP.schalten ? T('Schaltet wirklich: Licht, Beschattung und Musik reagieren wie am Gerät.')
+                   : T('Probelauf: Die Befehle stehen unten, an den Miniserver geht keiner.')))+
     (gpGestenAn(GP.ansicht) ? '' : '<br>'+esc(T('In dieser Ansicht sind die Gesten aus; am Gerät wirken sie so nicht. Die Probe zeigt sie trotzdem.')));
 }
 // Bild der Visu in Geraetegroesse, verkleinert auf die Breite der Karte
@@ -528,7 +539,7 @@ function gestenProbeSenden(){
       const j=await postJson('/api/entwurf', {...daten, token:GP.token});
       if(!j.ok){ gpFehler(j.error||T('Fehler')); return; }
       GP.token=j.token; GP.gesendet=json;
-      if(j.url!==GP.url){ GP.url=j.url; f.src=j.url; }
+      if(j.url!==GP.url){ GP.url=j.url; GP.bestaetigt=null; gpModusZeichnen(); f.src=j.url; }
       gpMass();
     }catch(e){ gpFehler(e.message); }
   }, 350);
@@ -553,9 +564,10 @@ function gpListe(){
         : (g.fehler ? '' : '<div class="hint">'+T('Kein Befehl')+'</div>'))+
     '</div>').join('');
 }
-// Meldung der Visu (panel/gesten.js probeMelden): Beginn einer Geste oder
-// eine Antwort des Servers dazu; je Empfaenger zaehlt der letzte Befehl
+// Meldung der Visu (panel/gesten.js probeMelden): ihr Modus, Beginn einer
+// Geste oder eine Antwort des Servers dazu; je Empfaenger zaehlt der letzte Befehl
 function gpMeldung(m){
+  if(m.bereit){ GP.bestaetigt=m.schalten===true; gpModusZeichnen(); return; }
   if(m.neu){
     GP.gesten.unshift({art:m.art, titel:m.titel||m.art, spalte:m.spalte||'', bewegung:m.bewegung||'', raum:'', text:'', fehler:'', befehle:[]});
     GP.gesten.length=Math.min(GP.gesten.length, GP_LISTE_MAX);
@@ -570,7 +582,7 @@ function gpMeldung(m){
 }
 function gestenProbeBinden(){
   if(!$('#gpKarte')) return;
-  GP.url=''; GP.gesendet='';   // neu gezeichnet: das Fenster ist leer, der Token bleibt
+  GP.url=''; GP.gesendet=''; GP.bestaetigt=null;   // neu gezeichnet: das Fenster ist leer, der Token bleibt
   if(!GP._wired){
     GP._wired=true;
     window.addEventListener('message', e=>{

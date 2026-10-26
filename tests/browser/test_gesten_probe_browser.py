@@ -71,7 +71,7 @@ def test_gesten_probe(tmp_path):
                 await pg.locator(".stab[data-sub='verhalten']").click()
                 await pg.select_option("#gpAnsicht", "test")
                 await pg.select_option("#gpRaum", "r1")
-                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1')")
+                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && GP.bestaetigt === false")
                 # das Fenster steht auf der Adresse der Probe und zeigt Kacheln
                 await pg.wait_for_function("""() => { const f = document.querySelector('#gpFrame'), d = f.contentDocument;
                   return !!d && f.contentWindow.location.search.includes('entwurf=')
@@ -106,10 +106,13 @@ def test_gesten_probe(tmp_path):
                 verlassen = await pg.evaluate("GP.gesten[0]")
                 nach_doppel = list(ms.io)
 
-                # Wirklich schalten: ein Klick links beschattet
+                # Wirklich schalten: bis die Visu im neuen Modus verbunden ist, ist
+                # das Bild gesperrt; dann beschattet ein Klick links
                 await rahmen.evaluate("window.__vorher = 1")
                 await pg.locator("#gpSchalten").check()
+                gesperrt = await pg.evaluate("document.querySelector('#gpVor').classList.contains('gesperrt')")
                 await _neu_geladen(rahmen)
+                await pg.wait_for_function("GP.bestaetigt === true && !document.querySelector('#gpVor.gesperrt')")
                 await pg.wait_for_timeout(300)
                 await pg.mouse.click(box["x"] + box["width"] * 0.15, y)
                 for _ in range(60):
@@ -126,9 +129,11 @@ def test_gesten_probe(tmp_path):
             await app.icon_session.close()
             await ms.stop()
         assert not fehler, fehler
-        return spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, list(ms.io), modus_scharf
+        return spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, list(ms.io), modus_scharf, gesperrt
 
-    spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, io, modus_scharf = asyncio.run(lauf())
+    (spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, io, modus_scharf,
+     gesperrt) = asyncio.run(lauf())
+    assert gesperrt, "nach dem Umschalten ist das Bild gesperrt, bis die Visu den Modus bestaetigt"
     assert spalten == ["Beschattung", "Licht", "Musik"]
     assert modus.startswith("Probelauf") and "Gesten aus" in modus, modus   # in der Ansicht aus: Hinweis
     assert "vorhang" in vorhang[0] and vorhang[1].replace(" ", " ").strip() == "100 %", vorhang
@@ -139,3 +144,62 @@ def test_gesten_probe(tmp_path):
     assert verlassen["bewegung"] == "doppel" and verlassen["text"] == "Essen-Kochen-Wohnen verlassen", verlassen
     assert io == ["sps/io/J1/shade", "sps/io/J2/shade"], io
     assert modus_scharf.startswith("Schaltet wirklich"), modus_scharf
+
+
+def test_probe_faengt_tasten_ab():
+    """Die Maus geht an die Geste, bevor eine Taste darunter sie sieht: Die
+    Lautstaerke-Taste des Players schickt schon beim Druecken einen Befehl;
+    in der Probe wird daraus ein Tipp rechts (Wiedergabe), die Visu schickt
+    kein t:"cmd", und im Probelauf kommt am Miniserver nichts an."""
+    async def lauf():
+        ms = Miniserver()
+        await ms.start()
+        app = neue_app(ms)
+        struktur, states = gesten_anlage()
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"test": {"title": "Küche", "tabs": ["room:r1"],
+                                                      "ui": {"grid": "auto", "panes": {"room:r1": "player:AZ"}}}})
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1500, "height": 950}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator(".rub", has_text="Vorgaben").click()
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                geraete = await pg.eval_on_selector_all("#gpGeraet option", "l => l.map(o => o.value)")
+                await pg.select_option("#gpGeraet", next(g for g in geraete if "Galaxy Tab A9 quer" in g))
+                await pg.select_option("#gpAnsicht", "test")
+                await pg.select_option("#gpRaum", "r1")
+                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && GP.bestaetigt === false")
+                rahmen = await (await pg.query_selector("#gpFrame")).content_frame()
+                knopf = rahmen.locator(".ppvol .sbtn[data-sd='up']")
+                await knopf.wait_for(state="visible")
+                await rahmen.evaluate("""() => { window.__gesendet = []; const s0 = window.send;
+                  window.send = m => { window.__gesendet.push(m); s0(m); }; }""")
+                await pg.locator("#gpVor").scroll_into_view_if_needed()
+                bb = await knopf.bounding_box()
+                await pg.mouse.move(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+                await pg.mouse.down()
+                await asyncio.sleep(0.2)
+                await pg.mouse.up()
+                await pg.wait_for_function("(GP.gesten[0] || {}).art === 'wiedergabe'")
+                await pg.wait_for_timeout(500)
+                gesendet = await rahmen.evaluate("""window.__gesendet.filter(m => m.t === 'cmd' || m.t === 'geste')
+                  .map(m => m.t + ':' + (m.art || m.cmd || ''))""")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+            await app.icon_session.close()
+            await ms.stop()
+        assert not fehler, fehler
+        return gesendet, list(ms.io)
+
+    gesendet, io = asyncio.run(lauf())
+    assert gesendet == ["geste:wiedergabe"], gesendet
+    assert io == []

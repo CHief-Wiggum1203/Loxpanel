@@ -2760,14 +2760,21 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     (`resolve_profile(…, probe)`): die Vorgaben der Probe statt der
     gespeicherten, Gesten immer an, kein Gerät (auch mit `?device=`), und
     im theme `gestenProbe: {schalten}`. Die Visu spielt dann mit der Maus
-    zwei Finger (`pointerdown`/`move`/`up` auf `.screen` über dieselben
-    Funktionen wie die Touch-Ereignisse, `gesteBeginnen()`,
-    `gesteBewegen()`); Klicks erreichen keine Kachel, und über der Seite
-    stehen die drei Spalten (`gesteProbeSpalten()`, aus `GESTE_ARTEN`). Im
+    zwei Finger (`pointerdown`/`move`/`up` auf `.screen` in der
+    Capture-Phase, vor jeder Taste darunter, über dieselben Funktionen wie
+    die Touch-Ereignisse, `gesteBeginnen()`, `gesteBewegen()`); Klicks
+    erreichen keine Kachel, und über der Seite stehen die drei Spalten
+    (`gesteProbeSpalten()`, aus `GESTE_ARTEN`). Auf der Uhr-Seite und wo
+    Gesten nicht wirken, klickt die Maus wie sonst. Im
     Server sammelt `geste()` für eine solche Verbindung alle Befehle in
     `_PROBE` (ContextVar: jeder Befehl läuft über `_geste_befehle()`);
     ohne `schalten` gehen sie nicht an den Miniserver (Probelauf), die
-    Antwort trägt sie als `befehle` `[{name, befehl, gesperrt?}]`. Eine
+    Antwort trägt sie als `befehle` `[{name, befehl, gesperrt?}]`. Auch ein
+    `t:"cmd"` dieser Verbindung schickt im Probelauf nichts (Hinweis
+    „Probelauf: nichts geschaltet“). Bedienen lässt sich das Bild erst,
+    wenn die Visu den Modus meldet, den die Karte zeigt (`{bereit,
+    schalten}` mit jedem theme, `GP.bestaetigt`): Nach dem Umschalten von
+    „Wirklich schalten“ ist es gesperrt, bis sie neu verbunden ist. Eine
     Beschattungs-Geste antwortet im Probelauf gleich mit dem Ende (`von`,
     `wert`, `fahrt`, `ende`), die Visu zeigt die Fahrt dazwischen
     (`gesteProbeFahrt()`). Die Visu meldet jede Geste (`neu`, mit Spalte und

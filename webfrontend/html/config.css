@@ -119,6 +119,7 @@
   .gp-modus.scharf{color:var(--crit);}
   .gp-vor{position:relative;overflow:hidden;border-radius:12px;background:#000;border:1px solid var(--line);}
   .gp-vor iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#000;}
+  .gp-vor.gesperrt iframe{pointer-events:none;opacity:.45;}
   .gp-liste{margin-top:6px;}
   .gp-geste{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
   .gp-geste:last-child{border-bottom:0;}

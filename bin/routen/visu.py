@@ -194,6 +194,16 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                     app._spawn(app.display_drivers(False, dev))
             elif data.get("t") == "cmd":
                 pin = data.get("pin")
+                probe = (app.conn_prof.get(ws) or {}).get("probe")
+                if probe and not probe["schalten"]:
+                    # Gesten-Probe im Probelauf: auch ein Befehl ausserhalb der
+                    # Gesten (Taste, Regler) geht nicht an den Miniserver
+                    if pin is not None:
+                        await ws.send_json({"t": "cmdresult", "ok": False, "gesperrt": True, "code": None,
+                                            "uuid": data.get("uuid"), "cmd": data.get("cmd")})
+                    await ws.send_json({"t": "notify", "level": "warn", "secs": 3,
+                                        "text": "Probelauf: nichts geschaltet"})
+                    continue
                 sperre = app._sperre_text(data.get("uuid"))
                 if sperre:
                     # Gesperrter Baustein (jLocked) nimmt keine Befehle an: nicht
