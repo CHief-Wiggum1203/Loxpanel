@@ -506,6 +506,13 @@ LoxOS bleibt im Fork. Damit jeder Upstream-Abgleich berechenbar bleibt:
 
 ## Offene Punkte
 
-- Mehrere Kamera-Zellen heißen mehrere Video-Streams zur Türstation.
+- Mehrere Kamera-Zellen heißen mehrere Video-Streams zur Türstation: Jede
+  Zelle holt ihr Bild über `/mjpeg`, je Betrachter ein eigener Strom zur
+  Kamera. Zwei Kameras untereinander (Drittel und zwei Drittel) laufen
+  zugleich, ein neuer Stand vom Server startet keinen Strom neu
+  (`test_zwei_kameras_untereinander`). Offen: wie viele Ströme eine
+  Türstation zugleich hergibt (an der Anlage prüfen); ein Browser hält je
+  Server höchstens sechs Verbindungen, ab sechs Kamera-Zellen auf einer
+  Seite stünden die übrigen Abrufe der Visu.
 - Monitor-Erkennung der Hülle unter Windows und macOS (Streifen über
   Auflösung oder Kennung aus `loxos.json`).
