@@ -40,6 +40,10 @@ STAT_RETRY = 60          # nach einem Abruffehler fruehestens wieder versuchen
 
 STAT_CACHE_MAX = 240     # Monatsdateien im Speicher (abgeschlossene Monate aendern sich nicht)
 
+# Strompreis-Optimierer: aendert sich einer dieser States, gilt die Prognose als
+# alt (strompreis_prognose) - neue Preise oder ein neuer Plan
+PROGNOSE_STAND = ("forecastsTimestamp", "cycleFrom", "cycleUntil", "demand", "period")
+
 # visuType der Statistik-Ausgaenge, wie an der Anlage beobachtet: 0 Analogwert
 # (Temperatur, Leistung ...), 1 Digitalwert (Regen, Sonnenschein), 2 Zaehlerstand
 # (Gesamtverbrauch kWh). Zaehlerstaende zeigen den Verbrauch je Stunde/Tag als Balken.
@@ -616,11 +620,14 @@ class Statistik:
     def strompreis_prognose(self, uuid: str, c: dict) -> tuple[list | None, bool]:
         """Prognose eines Strompreis-Optimierers aus dem Cache -> (eintraege wie
         _prognose_lesen oder None nach Abruffehler, laedt_noch). Laut Strukturdoku
-        neu holen, sobald sich forecastsTimestamp aendert: Der State wird hier
+        neu holen, sobald sich forecastsTimestamp aendert; ebenso, wenn sich
+        Zyklus, Bedarf oder Zeitraum aendern, denn danach plant der Baustein
+        neu (planned), auch wenn die Preise bleiben. Die States werden hier
         gelesen, eine Aenderung rendert die Seite also neu (Lesespur), und die
         holt dann im Hintergrund nach. Bis dahin bleibt die alte Prognose; nach
-        einem Fehler fruehestens nach STAT_RETRY ein neuer Versuch."""
-        stand = self._state(c, "forecastsTimestamp")
+        einem Fehler fruehestens nach STAT_RETRY ein neuer Versuch. Gelesen ueber
+        _endlich: NaN waere sich selbst ungleich und holte bei jedem Takt neu."""
+        stand = tuple(self._endlich(c, s) for s in PROGNOSE_STAND)
         ent = self.prognose_cache.get(uuid)
         want = (ent is None or ent[0] != stand
                 or (ent[2] is None and time.monotonic() - ent[1] >= STAT_RETRY))

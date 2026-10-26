@@ -13,7 +13,7 @@ from datetime import date, datetime
 
 from bausteine.gemeinsam import LOX_EPOCH_UTC
 from lox import Miniserver, W, anlage, bloecke, neue_app
-from statistik import _prognose_lesen
+from statistik import PROGNOSE_STAND, _prognose_lesen
 
 FORMAT = "%.3f€/kWh"
 STATES = ("active", "current", "demand", "period", "minRuntime", "manualMax", "forecastsTimestamp",
@@ -45,8 +45,9 @@ def _app(app=None, details=None, **werte) -> W.App:
 
 
 def _mit_prognose(app: W.App, eintraege=PROGNOSE) -> W.App:
-    """Prognose wie nach einem Abruf zum aktuellen forecastsTimestamp."""
-    app.prognose_cache["SPO"] = (app.states["sp-forecastsTimestamp"], time.monotonic(), _prognose_lesen(eintraege))
+    """Prognose wie nach einem Abruf zum aktuellen Stand (PROGNOSE_STAND)."""
+    stand = tuple(app._endlich(app.controls["SPO"], s) for s in PROGNOSE_STAND)
+    app.prognose_cache["SPO"] = (stand, time.monotonic(), _prognose_lesen(eintraege))
     return app
 
 
@@ -101,7 +102,7 @@ def test_detailseite():
     # Zyklus: Bedarf und Zeitraum fuellen die Vorlage, die Mindestlaufzeit steht nur da
     stufen = {b["label"]: b for b in bloecke(v, "stepper")}
     assert stufen["Bedarf"] == {"k": "stepper", "label": "Bedarf", "value": 4, "unit": "h", "name": "bedarf",
-                                "step": 0.25, "min": 0}
+                                "step": 0.25, "min": 0.25}
     assert stufen["Zeitraum"] == {"k": "stepper", "label": "Zeitraum", "value": 24, "unit": "h",
                                   "name": "zeitraum", "step": 1, "min": 1}
     assert stufen["Mindestlaufzeit"] == {"k": "stepper", "label": "Mindestlaufzeit", "value": 1, "unit": "h"}
@@ -143,6 +144,14 @@ def test_von_der_logik_vorgegeben():
     assert bloecke(v, "row")[0]["cells"][0]["form"]["tmpl"] == "start/0/12.5"
     nur_bedarf = _seite(_mit_prognose(_app(details={"demandByLogic": True})))
     assert bloecke(nur_bedarf, "row")[0]["cells"][0]["form"]["tmpl"] == "start/0/{zeitraum}"
+
+
+def test_bedarf_und_zeitraum_nie_unter_dem_minimum():
+    """Bedarf 0 hiesse laut Strukturdoku "von der Logik", einen Zeitraum 0
+    gibt es nicht: Das Formular beginnt ohne Logik nie darunter."""
+    stufen = {b["label"]: b for b in bloecke(_seite(_mit_prognose(_app(demand=0, period=0))), "stepper")}
+    assert (stufen["Bedarf"]["value"], stufen["Bedarf"]["min"]) == (0.25, 0.25)
+    assert (stufen["Zeitraum"]["value"], stufen["Zeitraum"]["min"]) == (1, 1)
 
 
 def test_ohne_werte_kein_start():
@@ -192,6 +201,31 @@ def test_prognose_vom_miniserver(miniserver_http):
     assert "Prognose wird geladen …" in _texte(erst, "status") and not bloecke(erst, "chart")
     assert [b["kind"] for b in bloecke(dann, "chart")] == ["analog", "digital"]
     assert (einmal, zweimal) == (1, 2)
+
+
+def test_neuer_zyklus_und_nan(miniserver_http):
+    """Ein neuer Zyklus (cycleFrom, cycleUntil, Bedarf, Zeitraum) holt neu,
+    denn danach plant der Baustein neu, auch wenn die Preise bleiben. Ein
+    forecastsTimestamp NaN (Binaer-Double ohne Prognose) holt nicht bei jedem
+    Takt neu - NaN ist sich selbst ungleich."""
+    async def lauf():
+        ms = await Miniserver().start()
+        ms.system = {GET_FORECASTS: ("200", json.dumps(PROGNOSE))}
+        app = _app(neue_app(ms), forecastsTimestamp=float("nan"))
+        try:
+            for _ in range(3):
+                _seite(app)
+                await _hintergrund(app)
+            bei_nan = ms.system_abrufe.get(GET_FORECASTS)
+            app.states["sp-cycleUntil"] = STUNDE + 4 * 3600 - LOX_EPOCH_UTC   # Zyklus gestartet
+            for _ in range(2):
+                _seite(app)
+                await _hintergrund(app)
+            return bei_nan, ms.system_abrufe.get(GET_FORECASTS)
+        finally:
+            await app.icon_session.close()
+            await ms.stop()
+    assert asyncio.run(lauf()) == (1, 2)
 
 
 def test_prognose_nicht_abrufbar(miniserver_http):

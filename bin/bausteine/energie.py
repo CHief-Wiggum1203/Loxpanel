@@ -23,7 +23,8 @@ EM_VERBRAUCHER_BEFEHLE = (("Ein bis Mitternacht", "activate"), ("Aus bis Mittern
 # Bedarf in den guenstigsten Intervallen einschaltet; gibt die Logik den Bedarf
 # vor, steht dort 0. cancel bricht ihn ab. Bedarf, Zeitraum und Mindestlaufzeit
 # zaehlen Stunden (Loxone-Wissensdatenbank); der Bedarf geht in Viertelstunden
-# wie die kuerzesten Marktintervalle, der Zeitraum in ganzen Stunden.
+# wie die kuerzesten Marktintervalle (mindestens eine, 0 ist der Platzhalter der
+# Logik), der Zeitraum in ganzen Stunden.
 SPOT_BEDARF_SCHRITT = 0.25
 SPOT_ZEITRAUM_SCHRITT = 1
 
@@ -232,7 +233,8 @@ def detail_strompreis_optimierer(app, uuid, c, route):
     # gibt die Logik einen vor, steht sein Wert fest darin (beim Bedarf 0)
     stufen, vorlage = [], {}
     for name, label, wert, logik, schritt, minimum in (
-            ("bedarf", "Bedarf", app._endlich(c, "demand"), det.get("demandByLogic"), SPOT_BEDARF_SCHRITT, 0),
+            ("bedarf", "Bedarf", app._endlich(c, "demand"), det.get("demandByLogic"), SPOT_BEDARF_SCHRITT,
+             SPOT_BEDARF_SCHRITT),
             ("zeitraum", "Zeitraum", app._endlich(c, "period"), det.get("periodByLogic"),
              SPOT_ZEITRAUM_SCHRITT, SPOT_ZEITRAUM_SCHRITT)):
         if wert is None:
@@ -242,7 +244,8 @@ def detail_strompreis_optimierer(app, uuid, c, route):
             b["sub"] = "von der Logik vorgegeben"
             vorlage[name] = "0" if name == "bedarf" else f"{wert:g}"
         else:
-            b.update(name=name, step=schritt, min=minimum)
+            # nie unter dem Minimum: Bedarf 0 hiesse "von der Logik", Zeitraum 0 gaebe es nicht
+            b.update(name=name, value=max(wert, minimum), step=schritt, min=minimum)
             vorlage[name] = "{" + name + "}"
         stufen.append(b)
     mrt = app._endlich(c, "minRuntime")

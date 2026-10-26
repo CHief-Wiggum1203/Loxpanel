@@ -1523,9 +1523,12 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   seit 2009 in UTC. Die Prognose liefert nur der Befehl `getForecasts`
   (`[{u, v, s, e, planned}]`, Start und Ende Unix-UTC): `strompreis_prognose()`
   (`statistik.py`) holt sie im Hintergrund und legt sie mit dem Stand von
-  `forecastsTimestamp` ab (`prognose_cache`, danach `_dirty`). Weil das Rendern
-  den State liest, rendert eine neue Prognose die offene Seite neu, und die
-  holt nach, wie die Strukturdoku es verlangt. `prognose_bloecke()` zeichnet
+  `forecastsTimestamp`, Zyklus, Bedarf und Zeitraum ab (`PROGNOSE_STAND`,
+  `prognose_cache`, danach `_dirty`): Neue Preise verlangt die Strukturdoku,
+  nach einem neuen Zyklus plant der Baustein neu (`planned`). Weil das Rendern
+  die States liest (über `_endlich`, NaN wäre sich selbst ungleich), rendert
+  eine Änderung die offene Seite neu, und die holt nach. Der Bedarf geht nie
+  unter eine Viertelstunde, 0 ist der Platzhalter der Logik. `prognose_bloecke()` zeichnet
   den Preis als Linie in Stufen und die eingeplanten Zeiten digital; Bedarf und
   Zeitraum sind `stepper` eines Formulars (§3.7).
 - **AlarmClock:** `entryList/put/{entryID}/{name}/{alarmTime}/{isActive}/{modes|daily}`

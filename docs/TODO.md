@@ -1518,7 +1518,8 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       **vollständig** laut Strukturdoku 16.0. Kachel mit Preis und Ausgang;
       Detailseite mit Preis, Ausgang, laufendem Zyklus, nächstem Einsatz und
       der Prognose aus `getForecasts` (Preis als Linie, eingeplante Zeiten),
-      neu geholt bei jedem neuen `forecastsTimestamp`. Bedienung: Zyklus
+      neu geholt, sobald sich `forecastsTimestamp`, Zyklus, Bedarf oder
+      Zeitraum ändern (`PROGNOSE_STAND`). Bedienung: Zyklus
       starten mit Bedarf und Zeitraum (`start/{Bedarf}/{Zeitraum}`, fest, wenn
       die Logik sie vorgibt) und abbrechen (`cancel`). Dafür kann ein
       `stepper` jetzt Teil eines Formulars sein (`name`). Tests:
