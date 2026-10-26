@@ -209,6 +209,45 @@ def test_neustart_traegt_reihe_nach():
     assert "reihe" not in zuletzt["route"]
 
 
+def test_neustart_wartet_auf_alle_werte():
+    """Die Startwerte kommen in mehreren Tabellen. Tickt der Broadcaster, wenn
+    erst das geschlossene W1 und W3 gemeldet sind, darf er nichts merken:
+    Sonst stuende das offene W2 fest hinter W1."""
+    dump = _app().states
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage(BAUSTEINE))
+    ws = Ws()
+    app.conn_route[ws] = app.aufruf_route({"view": "group", "kind": "central", "id": "CW"})
+
+    async def lauf():
+        app._on_value("w1", dump["w1"])                  # erste Tabelle: W1 und W3 zu
+        app._on_value("w3", dump["w3"])
+        await app._broadcast_tick()
+        halb = dict(app.conn_route[ws])
+        app._on_value("w2", dump["w2"])                  # zweite Tabelle: W2 und W4 offen
+        app._on_value("w4", dump["w4"])
+        await app._broadcast_tick()
+        return halb, app.conn_route[ws].get("reihe"), ws.ansichten()[-1]
+    halb, gemerkt, zuletzt = asyncio.run(lauf())
+    assert "reihe" not in halb
+    assert gemerkt == ["W2", "W4", "W1", "W3"]
+    assert _folge(zuletzt) == ["W2", "W4", "W1", "W3"]
+
+
+def test_mitglied_ohne_state_haelt_nicht_auf():
+    """Ein Mitglied, dessen Struktur den State nicht kennt (hier eine
+    Lichtsteuerung ohne activeMoods), meldet nie einen Wert; gemerkt wird
+    trotzdem, sobald die uebrigen ihn haben."""
+    bausteine = {**BAUSTEINE, "CM": _zentrale("CM", "CentralLightController", ["L1", "LX", "L2"]),
+                 "LX": _b("LX", "LightControllerV2", {})}
+    app = W.App({"host": "", "port": 80})
+    app._apply_structure(anlage(bausteine))
+    app.states = {"lm1": STIMMUNGEN, "lm2": STIMMUNGEN, "l1": AUS}
+    assert "reihe" not in app.aufruf_route({"view": "group", "kind": "central", "id": "CM"})
+    app.states["l2"] = HELL
+    assert app.aufruf_route({"view": "group", "kind": "central", "id": "CM"})["reihe"] == ["L2", "L1", "LX"]
+
+
 def test_fenster_warten_auf_ihre_states():
     app = _app()
     app.states.pop("wm")
