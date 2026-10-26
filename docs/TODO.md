@@ -1188,7 +1188,8 @@ selbst aktuell.
       einem sicheren Kontext gibt (HTTPS, localhost). Über eine Adresse im
       Heimnetz brach der Klick ohne Meldung ab, auch der vorgesehene Hinweis
       „bitte manuell markieren“ kam nie. Jetzt kopiert `zwischenablage()`
-      (`config/kern.js`) dort über ein Textfeld; scheitert auch das, kommt
+      (`config/kern.js`) dort über ein Textfeld, ebenso wenn der Browser das
+      Schreiben verweigert (Berechtigung); scheitert auch das, kommt
       der Hinweis, im Assistenten ebenfalls. Der Browser-Test öffnet den
       Konfigurator über einen Namen, der für Chromium unsicher ist, und liest
       die Zwischenablage zurück (`test_zwischenablage_browser.py`). **S**

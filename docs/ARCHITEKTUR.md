@@ -3026,7 +3026,7 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   (`data-goto="verbinden"`).
   Drei Karten (`gvWeg()`), je eine Zeile zum Kopieren (`data-gv-copy`,
   `zwischenablage()`: `navigator.clipboard` gibt es nur über HTTPS oder
-  localhost, über `http://<IP>` kopiert ein Textfeld): die Server-Adresse für die LoxPanel-App, die Start-Adresse
+  localhost, über `http://<IP>` kopiert ein Textfeld, ebenso wenn der Browser verweigert): die Server-Adresse für die LoxPanel-App, die Start-Adresse
   `http://<host>/` ohne Parameter für Fully Kiosk, WallPanel oder einen
   Browser (Namen und Ansicht vergibt der Konfigurator über das Banner), und
   `curl -fsSL http://<host>/install-agent.sh | SERVER=<host> bash` für ein

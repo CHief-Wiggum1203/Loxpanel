@@ -5,7 +5,9 @@ sicherer Kontext, navigator.clipboard fehlt; frueher brach der Klick dann ohne
 Meldung ab (zwischenablage() in config/kern.js kopiert dort ueber ein
 Textfeld). Chromium loest hier lp.test auf 127.0.0.1 auf: http://lp.test ist
 fuer den Browser so unsicher wie eine IP im Heimnetz, 127.0.0.1 gilt als
-sicher. Was in der Zwischenablage steht, liest eine Seite auf 127.0.0.1 zurueck."""
+sicher. Verweigert der Browser das Schreiben trotz sicherem Ort (Berechtigung),
+springt das Textfeld ebenso ein. Was in der Zwischenablage steht, liest eine
+Seite auf 127.0.0.1 zurueck."""
 import asyncio
 
 import pytest
@@ -22,6 +24,10 @@ BAUSTEINE = {"L": {"name": "Licht", "type": "Switch", "uuidAction": "L", "room":
 ROUTEN = [("GET", "/api/devices", W.api_devices_get), ("POST", "/api/devices", W.api_save_devices),
           ("POST", "/api/device/name", W.api_device_name)]
 UNSICHER = "lp.test"
+# navigator.clipboard verweigert das Schreiben, wie ohne Berechtigung; zaehlt die Versuche
+VERWEIGERT = """window.__verweigert = 0;
+navigator.clipboard.writeText = () => { window.__verweigert++;
+  return Promise.reject(new DOMException('verweigert', 'NotAllowedError')); };"""
 
 
 async def _klick_und_meldung(pg, knopf, meldung: str) -> str:
@@ -44,8 +50,8 @@ async def _bis(bedingung, was, sekunden=10):
     raise AssertionError(f"nicht erreicht: {was}")
 
 
-@pytest.mark.parametrize("host", [UNSICHER, "127.0.0.1"])
-def test_kopieren_ueber_jede_adresse(cfg_ordner, host):
+@pytest.mark.parametrize("host, verweigert", [(UNSICHER, False), ("127.0.0.1", False), ("127.0.0.1", True)])
+def test_kopieren_ueber_jede_adresse(cfg_ordner, host, verweigert):
     async def lauf():
         app = W.App({"host": "", "port": 80})
         app._apply_structure(anlage(BAUSTEINE))
@@ -73,6 +79,8 @@ def test_kopieren_ueber_jede_adresse(cfg_ordner, host):
 
                 pg = await ctx.new_page()
                 pg.on("pageerror", lambda e: fehler.append(str(e)))
+                if verweigert:
+                    await pg.add_init_script(VERWEIGERT)
                 await pg.goto(f"http://{host}:{port}/config")
                 await pg.wait_for_function(KONFIGURATOR_GELADEN)
                 assert await pg.evaluate("window.isSecureContext") is (host != UNSICHER)
@@ -101,6 +109,8 @@ def test_kopieren_ueber_jede_adresse(cfg_ordner, host):
                 assert await _klick_und_meldung(pg, pg.locator("#mzCopy"), "dev_toast") == "✓ kopiert"
                 kopien.append((soll, await ablage()))
                 assert await pg.evaluate("document.activeElement.id") == "mzCopy", "der Fokus bleibt auf dem Knopf"
+                if verweigert:
+                    assert await pg.evaluate("window.__verweigert") == 4, "jeder Knopf versuchte es erst so"
                 await b.close()
         finally:
             bc.cancel()
