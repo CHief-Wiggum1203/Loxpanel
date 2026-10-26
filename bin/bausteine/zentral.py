@@ -12,6 +12,9 @@ from bausteine.gemeinsam import LIGHT
 # spielt, Tor oder Fenster offen): ihre Kachel zaehlt sie, ihre Seite zeigt sie
 # zuerst. Jalousie und Alarm kennen kein "an".
 ZENTRAL_MIT_AN = ("CentralLightController", "CentralAudioZone", "CentralGate", "CentralWindow")
+# State der Mitglieder, der sagt, ob sie an sind (_zentral_mitglied_an)
+ZENTRAL_STATE = {"CentralLightController": "activeMoods", "CentralAudioZone": "playState",
+                 "CentralGate": "position", "CentralWindow": "position"}
 
 
 @kachel_praefix("Central")
@@ -54,14 +57,24 @@ class ZentralHelfer:
     def _zentral_mitglied_an(self, t: str, mu: str) -> bool:
         """Ist das Mitglied mu einer Zentrale vom Typ t an: Lichtsteuerung mit
         aktiver Stimmung, Audio-Zone, die spielt, Tor oder Fenster, das offen
-        steht. Zentralen ausserhalb ZENTRAL_MIT_AN: nie."""
+        steht - offen wie auf seiner Kachel, ab einem gerundeten Prozent, sonst
+        stuende ein Fenster vorn, das "Geschlossen" zeigt. Zentralen ausserhalb
+        ZENTRAL_MIT_AN: nie."""
         if t == "CentralLightController":
             return bool(LIGHT.render(self._with_uuid(mu), self.states)["on"])
         if t == "CentralAudioZone":
             return self._state(self.controls[mu], "playState") == 2
         if t in ("CentralGate", "CentralWindow"):
-            return (self._state(self.controls[mu], "position") or 0) > 0
+            return round((self._state(self.controls[mu], "position") or 0) * 100) > 0
         return False
+
+    def _zentral_stand_da(self, c: dict) -> bool:
+        """Kennt der Server schon, ob die Mitglieder einer Zentrale an sind (ihr
+        State aus ZENTRAL_STATE hat einen Wert)? Vorher, etwa gleich nach einem
+        Neustart, ergaebe eine Reihenfolge nur die Folge der Struktur."""
+        name = ZENTRAL_STATE.get(c.get("type"))
+        return bool(name) and any(self._state(self.controls[mu], name) is not None
+                                  for mu in self._zentral_mitglieder(c))
 
     def _zentral_an(self, c: dict) -> int:
         """Wie viele Mitglieder eines Zentral-Bausteins an sind

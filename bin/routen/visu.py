@@ -156,13 +156,11 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             except ValueError:
                 continue
             if data.get("t") == "nav" and isinstance(data.get("route"), dict):
-                route = data["route"]
+                # Reihenfolge der Seite beim Aufruf merken (aktive zuerst); eine
+                # reihe vom Client faellt dabei weg
+                route = app.aufruf_route(data["route"])
                 app.conn_route[ws] = route
                 try:
-                    # Reihenfolge der Seite beim Aufruf merken (aktive zuerst);
-                    # scheitert das, gilt die Route wie gesendet
-                    route = app.aufruf_route(route)
-                    app.conn_route[ws] = route
                     view_msg = app.render(route, app.conn_prof.get(ws, prof))
                 except Exception:
                     # Detailseite wirft -> nicht die Verbindung abreissen lassen

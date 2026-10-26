@@ -649,17 +649,26 @@ class Seiten:
         ihre aktiven Mitglieder zuerst zeigen (Zentralbausteine,
         Fenster-/Tuerueberwachung), merken sich dabei die Reihenfolge von jetzt
         (reihe). Mit ihr rendert der Broadcaster die Seite, bis sie neu
-        aufgerufen wird: Wer dort schaltet, sieht keine Kachel springen, und die
-        Visu muss das Raster nicht neu aufbauen. Eine reihe vom Client gilt
-        nie; render() schickt sie nicht mit."""
+        aufgerufen wird (auch ein Neuverbinden ruft sie neu auf): Wer dort
+        schaltet, sieht keine Kachel springen, und die Visu muss das Raster
+        nicht neu aufbauen. Gemerkt wird erst, wenn Baustein und die States
+        seiner Mitglieder bekannt sind; kommt das nav vorher (Neustart des
+        Servers), traegt der Broadcaster die Reihenfolge nach. Eine reihe vom
+        Client gilt nie; render() schickt sie nicht mit. Wirft nie: Ohne
+        reihe ordnet die Seite beim Rendern selbst."""
         r = {k: v for k, v in route.items() if k != "reihe"}
-        uid = r.get("id")
-        c = self.controls.get(uid) if isinstance(uid, str) else None
-        reihe = None
-        if c and r.get("view") == "group" and r.get("kind") == "central":
-            reihe = self._zentral_reihe(c)
-        elif c and r.get("view") == "control" and c.get("type") == "WindowMonitor":
-            reihe = fenster_reihe(self, c)
+        try:
+            uid = r.get("id")
+            c = self.controls.get(uid) if isinstance(uid, str) else None
+            reihe = None
+            if c and r.get("view") == "group" and r.get("kind") == "central" and self._zentral_stand_da(c):
+                reihe = self._zentral_reihe(c)
+            elif c and r.get("view") == "control" and c.get("type") == "WindowMonitor" \
+                    and self._state(c, "windowStates") is not None:
+                reihe = fenster_reihe(self, c)
+        except Exception:
+            log.exception("aufruf_route fehlgeschlagen fuer route %s", r)
+            reihe = None
         if reihe is not None:
             r["reihe"] = reihe
         return r

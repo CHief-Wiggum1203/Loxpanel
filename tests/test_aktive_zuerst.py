@@ -164,3 +164,77 @@ def test_ueber_den_websocket():
     assert [it["on"] for it in erst["items"]] == [True, True, False, False]
     assert [it["on"] for it in dann["items"]] == [False, True, False, False]
     assert "reihe" not in erst["route"] and "reihe" not in dann["route"]
+
+
+class Ws:
+    def __init__(self):
+        self.nachrichten = []
+
+    async def send_json(self, msg):
+        self.nachrichten.append(msg)
+
+    def ansichten(self) -> list:
+        return [m for m in self.nachrichten if m.get("t") == "view"]
+
+
+def test_neustart_traegt_reihe_nach():
+    """Nach einem Neustart des Servers ruft die Visu ihre Seite auf, bevor
+    Struktur und States da sind. Gemerkt wird erst, wenn die States der
+    Mitglieder bekannt sind (sonst stuende nur die Folge der Struktur fest);
+    der Broadcaster traegt die Reihenfolge dann nach, und sie bleibt stehen."""
+    dump = _app().states
+    app = W.App({"host": "", "port": 80})
+    ws = Ws()
+    app.conn_route[ws] = app.aufruf_route({"view": "group", "kind": "central", "id": "CL"})
+
+    async def lauf():
+        ohne_struktur = dict(app.conn_route[ws])
+        app._apply_structure(anlage(BAUSTEINE))           # Struktur da, die States noch nicht
+        app._dirty = True
+        await app._broadcast_tick()
+        ohne_states = dict(app.conn_route[ws])
+        for k, v in dump.items():                          # der Miniserver schickt alle Werte
+            app._on_value(k, v)
+        await app._broadcast_tick()
+        gemerkt = app.conn_route[ws].get("reihe")
+        app._on_value("l2", AUS)                           # auf der Seite geschaltet
+        app._on_value("l3", HELL)
+        await app._broadcast_tick()
+        return ohne_struktur, ohne_states, gemerkt, ws.ansichten()[-1]
+    ohne_struktur, ohne_states, gemerkt, zuletzt = asyncio.run(lauf())
+    assert "reihe" not in ohne_struktur and "reihe" not in ohne_states
+    assert gemerkt == ["L2", "L4", "L1", "L3"]
+    assert _folge(zuletzt) == ["L2", "L4", "L1", "L3"]
+    assert [it["on"] for it in zuletzt["items"]] == [False, True, False, True]
+    assert "reihe" not in zuletzt["route"]
+
+
+def test_fenster_warten_auf_ihre_states():
+    app = _app()
+    app.states.pop("wm")
+    assert "reihe" not in app.aufruf_route({"view": "control", "id": "WM"})
+
+
+def test_aufruf_route_wirft_nie(monkeypatch, caplog):
+    """Scheitert das Ordnen (kaputte Struktur), bleibt die Route ohne reihe -
+    auch ohne die des Clients - und die Seite ordnet beim Rendern selbst."""
+    app = _app()
+
+    def kaputt(c):
+        raise ValueError("kaputt")
+    monkeypatch.setattr(app, "_zentral_reihe", kaputt)
+    r = app.aufruf_route({"view": "group", "kind": "central", "id": "CL", "reihe": [{"x": 1}]})
+    assert r == {"view": "group", "kind": "central", "id": "CL"}
+    assert "aufruf_route fehlgeschlagen" in caplog.text
+
+
+def test_offen_wie_auf_der_kachel():
+    """Ein Fenster bei 0,4 % zeigt auf seiner Kachel "Geschlossen": es zaehlt
+    nicht als offen und steht nicht vorn."""
+    app = _app()
+    app.states["w1"] = 0.004
+    assert app._control_item("W1")["sublabel"] == "Geschlossen"
+    assert app._zentral_an(app.controls["CW"]) == 2
+    assert _folge(app.render({"view": "group", "kind": "central", "id": "CW"})) == ["W2", "W4", "W1", "W3"]
+    app.states["w1"] = 0.006                               # gerundet 1 %: offen
+    assert _folge(app.render({"view": "group", "kind": "central", "id": "CW"})) == ["W1", "W2", "W4", "W3"]
