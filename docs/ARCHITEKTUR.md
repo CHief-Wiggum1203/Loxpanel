@@ -2722,7 +2722,7 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
 `config.html` hält nur noch das Markup (rund 450 Zeilen) und lädt `config.css`
 und elf Skriptteile aus `webfrontend/html/config/` per `<script src>` an der
 Stelle, an der vorher das eine Skript stand, in dieser Reihenfolge: `kern`
-(Zustand, Helfer, Rubriken), `ansicht-aussehen` (Aktiv-Overlay, Kachel-Set,
+(Zustand, Helfer wie `zwischenablage()`, Rubriken), `ansicht-aussehen` (Aktiv-Overlay, Kachel-Set,
 Gesten), `ansicht-editor` (Vererbung, Skalierung, der Editor je Ansicht),
 `speichern` (Speicherleiste, Vorschau in der Visu und am Gerät), `kacheln`
 (Kachel-Editor, eigene Auswahl, Kurzfassung), `seiten-editor`, `einrichten`
@@ -3025,7 +3025,8 @@ noch schmaler brechen sie um, statt die Seite waagerecht scrollen zu lassen.
   `#gvOv`, `gvOpen()`, aus Geräte (`#geraetVerbindenBtn`), der Übersicht
   (`data-goto="verbinden"`).
   Drei Karten (`gvWeg()`), je eine Zeile zum Kopieren (`data-gv-copy`,
-  Zwischenablage): die Server-Adresse für die LoxPanel-App, die Start-Adresse
+  `zwischenablage()`: `navigator.clipboard` gibt es nur über HTTPS oder
+  localhost, über `http://<IP>` kopiert ein Textfeld): die Server-Adresse für die LoxPanel-App, die Start-Adresse
   `http://<host>/` ohne Parameter für Fully Kiosk, WallPanel oder einen
   Browser (Namen und Ansicht vergibt der Konfigurator über das Banner), und
   `curl -fsSL http://<host>/install-agent.sh | SERVER=<host> bash` für ein

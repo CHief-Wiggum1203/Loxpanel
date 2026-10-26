@@ -1181,6 +1181,17 @@ selbst aktuell.
       Punkt, steht nur ohne Verbindung und meldet auch den Miniserver, nicht
       nur den Server; Bedienung gesperrt, Lebenszeichen alle 15 s
       ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §3.4). **S**
+- [x] **Kopieren im Konfigurator ging über `http://<IP>` nicht** (bei der
+      Prüfung der Forums-Rückmeldungen gefunden): „Adresse kopieren“,
+      „Befehl kopieren“ (Gerät verbinden) und „Adressen kopieren“
+      (Betriebsmodus-Assistent) riefen `navigator.clipboard`, das es nur in
+      einem sicheren Kontext gibt (HTTPS, localhost). Über eine Adresse im
+      Heimnetz brach der Klick ohne Meldung ab, auch der vorgesehene Hinweis
+      „bitte manuell markieren“ kam nie. Jetzt kopiert `zwischenablage()`
+      (`config/kern.js`) dort über ein Textfeld; scheitert auch das, kommt
+      der Hinweis, im Assistenten ebenfalls. Der Browser-Test öffnet den
+      Konfigurator über einen Namen, der für Chromium unsicher ist, und liest
+      die Zwischenablage zurück (`test_zwischenablage_browser.py`). **S**
 
 ## 4. Performance
 
