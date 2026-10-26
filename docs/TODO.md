@@ -1069,6 +1069,14 @@ selbst aktuell.
 
 ## 3. Sichtbare Fehler in der Visu
 
+- [x] **Wecker zeigt die nächste Weckzeit eine Stunde zu früh** (im
+      Forum gemeldet, Beitrag #82: 4:00 eingestellt, Kachel 3:00): `nextEntryTime`
+      zählt Sekunden seit 2009 in UTC, `_alarm_next_text()` las sie als
+      Wanduhr. Kachel und Statuszeile lagen um den UTC-Abstand daneben (im
+      Sommer zwei Stunden), die Liste stimmte. Jetzt in Ortszeit umgerechnet
+      wie beim Briefkasten (`LOX_EPOCH_UTC` nach `bausteine/gemeinsam.py`);
+      `test_naechste_weckzeit_in_ortszeit` stellt den Fall in Winter- und
+      Sommerzeit nach. **S**
 - [x] **„Auf einen Blick“ springt beim Scrollen nach oben** (Test
       18.10.2026, Spalte links mit vielen Geräten): Jeder neue Wert in der
       Liste ersetzte den ganzen Block samt Scroll-Fläche. `updateHaus()`

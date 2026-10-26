@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import pytest
 
+from bausteine.gemeinsam import LOX_EPOCH_UTC
 from lox import W
 from loxone_ws import LoxoneWS
 
@@ -35,9 +36,10 @@ def test_farbe_lesen():
 
 
 def _loxone_zeit(tage, hh=6, mm=30):
-    """Sekunden seit 1.1.2009 (Wanduhr) fuer heute + tage um hh:mm."""
+    """Sekunden seit 1.1.2009 UTC (so liefert der Miniserver nextEntryTime) fuer
+    heute + tage um hh:mm Ortszeit."""
     dt = datetime.combine(date.today() + timedelta(days=tage), uhrzeit(hh, mm))
-    return int((dt - datetime(2009, 1, 1)).total_seconds())
+    return int(dt.timestamp()) - LOX_EPOCH_UTC
 
 
 def test_naechste_weckzeit():

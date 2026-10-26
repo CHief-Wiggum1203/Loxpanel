@@ -7,10 +7,12 @@ setSnoozeDuration (60..1800 s laut Wissensdatenbank), setRingDuration und
 setPrepDuration; Wecksound, Lautstaerke und Helligkeit gibt es nur mit Touch
 Nightlight. Der Baustein kommt aus tests/lox.py (wecker_baustein)."""
 import json
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 
 import pytest
 
+from bausteine.gemeinsam import LOX_EPOCH_UTC
 from lox import BETRIEBSARTEN, WECKZEITEN, W, anlage, bloecke, wecker_baustein
 
 
@@ -195,3 +197,32 @@ def test_touch_nightlight_von_der_logik():
 
 def test_status_voll():
     assert {t["type"]: t["status"] for t in _app().types_overview()["types"]}["AlarmClock"] == "full"
+
+
+@pytest.fixture
+def wien(monkeypatch):
+    """Ortszeit des Servers fest auf Europe/Vienna. Beim Aufraeumen erst
+    monkeypatch zuruecksetzen, dann tzset(), sonst bliebe Wien fuer alle
+    spaeteren Tests."""
+    monkeypatch.setenv("TZ", "Europe/Vienna")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+@pytest.mark.parametrize("utc, text", [
+    (datetime(2025, 1, 15, 3, 0, tzinfo=timezone.utc), "15.01. 04:00"),   # Winterzeit, UTC+1
+    (datetime(2025, 7, 15, 2, 0, tzinfo=timezone.utc), "15.07. 04:00"),   # Sommerzeit, UTC+2
+])
+def test_naechste_weckzeit_in_ortszeit(wien, utc, text):
+    """nextEntryTime zaehlt Sekunden seit 1.1.2009 in UTC. Im Forum gemeldet:
+    Weckzeit 4:00, die Kachel zeigte 3:00, die Liste 4:00. Kachel, Statuszeile
+    und Liste nennen dieselbe Uhrzeit, im Sommer wie im Winter. Das Datum liegt
+    fest in der Vergangenheit, damit der Text es immer nennt (nicht "Heute")."""
+    app = _app({"1": dict(WECKZEITEN["1"], alarmTime=4 * 3600)},
+               nextEntryTime=int(utc.timestamp()) - LOX_EPOCH_UTC)
+    assert app._control_item("WK")["sublabel"] == text
+    v = _seite(app, view="control")
+    assert [b["text"] for b in bloecke(v, "astat")] == [text]
+    assert [e["hm"] for e in bloecke(v, "alarmlist")[0]["entries"]] == ["04:00"]
