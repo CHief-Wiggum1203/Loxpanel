@@ -289,7 +289,7 @@ function gvRender(){
       esc(a.lan ? T('Sie steht in jeder Zeile schon drin, auch wenn der Konfigurator über eine andere Adresse geöffnet ist.')
                 : T('Der Server kennt keine eigene Adresse im Netz; die Zeilen nehmen die Adresse dieses Fensters.'))+'</div>';
   b.querySelectorAll('[data-gv-copy]').forEach(k=>k.onclick=()=>{
-    navigator.clipboard.writeText(k.dataset.gvCopy).then(()=>flash($('#gvToast'), T('✓ kopiert'), true))
+    zwischenablage(k.dataset.gvCopy).then(()=>flash($('#gvToast'), T('✓ kopiert'), true))
       .catch(()=>flash($('#gvToast'), T('Kopieren nicht möglich – bitte manuell markieren'), false)); });
   gvStandZeichnen();
 }
