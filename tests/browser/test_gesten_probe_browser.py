@@ -273,3 +273,46 @@ def test_anfragen_ueberholen_sich_nicht():
     anfragen, karte, beim_server = asyncio.run(lauf())
     assert anfragen == ["room:r2", "room:r4"], anfragen
     assert karte == beim_server == "room:r4", (karte, beim_server)
+
+
+def test_neu_gezeichnet_waehrend_der_anfrage():
+    """Die Rubrik Vorgaben wird neu gezeichnet, waehrend die Anfrage der Probe
+    laeuft: Das neue Fenster bekommt die Adresse trotzdem und wird frei
+    (die Antwort traf sonst das entfernte, das neue bliebe leer und gesperrt)."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        struktur, states = gesten_anlage()
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"test": {"title": "Küche", "tabs": ["room:r1"], "ui": {"split": False}}})
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1500, "height": 950}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                anfragen = []
+
+                async def langsam(route):
+                    anfragen.append(1)
+                    if len(anfragen) == 1:
+                        await asyncio.sleep(1.5)
+                    await route.continue_()
+                await pg.route("**/api/entwurf", langsam)
+                await pg.locator(".rub", has_text="Vorgaben").click()
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                await pg.wait_for_function("GP.unterwegs")
+                await pg.locator(".rub", has_text="Vorgaben").click()    # zeichnet die Karte neu
+                await pg.wait_for_function("document.querySelector('#gpFrame') && " + FREI, timeout=15000)
+                src = await pg.evaluate("document.querySelector('#gpFrame').getAttribute('src')")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return src
+
+    assert "&probe=1" in asyncio.run(lauf())

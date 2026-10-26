@@ -548,13 +548,16 @@ async function gpSenden(){
   const daten=gpDaten();
   if(!daten){ gpFehler(T('Es fehlt eine Ansicht mit einem Raum.')); return; }
   const json=JSON.stringify(daten);
-  if(json===GP.gesendet && GP.url){ gpMass(); return; }
+  if(json===GP.gesendet && GP.url && f.getAttribute('src')===GP.url){ gpMass(); return; }
   GP.unterwegs=true;
   try{
     const j=await postJson('/api/entwurf', {...daten, token:GP.token});
     if(!j.ok){ gpFehler(j.error||T('Fehler')); return; }
-    GP.token=j.token; GP.gesendet=json; GP.stand=j.stand||'';
-    if(j.url!==GP.url){ GP.url=j.url; f.src=j.url; }
+    GP.token=j.token; GP.gesendet=json; GP.stand=j.stand||''; GP.url=j.url;
+    // Das Fenster von jetzt: die Karte kann waehrend der Anfrage neu gezeichnet
+    // worden sein. Steht es schon auf der Adresse, laedt der Server es selbst neu.
+    const fj=$('#gpFrame');
+    if(fj && fj.getAttribute('src')!==j.url) fj.src=j.url;
     gpMass();
   }catch(e){ gpFehler(e.message); }
   finally{
