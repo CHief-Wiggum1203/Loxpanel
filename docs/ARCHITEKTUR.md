@@ -1503,7 +1503,11 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   `setSnoozeDuration` (60..1800 s), `setRingDuration`, `setPrepDuration`; mit
   Touch Nightlight (`deviceState` 1 oder 2) auch Wecksound, lauter werdend,
   Signalton, Lautstärke und Helligkeit. `isEnabled` 0 (Eingang DisA) zeigt
-  „Ausgeschaltet“.
+  „Ausgeschaltet“. `nextEntryTime` zählt Sekunden seit dem 01.01.2009 in
+  **UTC** (`LOX_EPOCH_UTC` in `bausteine/gemeinsam.py`, wie beim Briefkasten);
+  die Strukturdoku nennt keine Zeitbasis. Als Wanduhr gelesen stand die
+  nächste Weckzeit auf Kachel und Statuszeile um den UTC-Abstand zu früh,
+  die Liste (`alarmTime`, Sekunden ab Mitternacht) stimmte.
 - **Intercom:** `answer` stellt die Klingel ab. `lastBellEvents` (JJJJMMTTHHMMSS,
   mit `|`) sind die Klingeln, auf die niemand reagiert hat; mit
   `details.lastBellEventImages` holt `/bellimg` das Bild dazu per
