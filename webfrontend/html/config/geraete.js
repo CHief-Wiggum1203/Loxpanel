@@ -733,8 +733,9 @@ function mzRender(){
     const go=()=>{ const lbl=(inp&&inp.value||'').trim(), k=mzKey(lbl); if(!k) return; if(!MZ.modes.some(x=>x.key===k)) MZ.modes.push({key:k,label:lbl||k,profile:''}); mzRender(); };
     if(add) add.onclick=go; if(inp) inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } }; }
   b.querySelectorAll('.mzprof').forEach(sel=>sel.onchange=()=>{ const m=MZ.modes.find(x=>x.key===sel.dataset.mzk); if(m) m.profile=sel.value; });
-  { const cp=$('#mzCopy'); if(cp) cp.onclick=()=>{ navigator.clipboard.writeText($('#mzLines').textContent)
-      .then(()=>flash($('#dev_toast'),T('✓ kopiert'),true)).catch(()=>{}); }; }
+  { const cp=$('#mzCopy'); if(cp) cp.onclick=()=>{ zwischenablage($('#mzLines').textContent)
+      .then(()=>flash($('#dev_toast'),T('✓ kopiert'),true))
+      .catch(()=>flash($('#dev_toast'),T('Kopieren nicht möglich – bitte manuell markieren'),false)); }; }
   $('#mzBack').disabled=MZ.step===0;
   $('#mzNext').textContent=(MZ.step===f.length-1)?T('Übernehmen ✓'):T('Weiter →');
   let ok=true;

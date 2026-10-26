@@ -54,6 +54,26 @@ const FONTS = [
 const sameFont=(f,v)=>((f||'')===(v||''));
 const customFont=(f)=>!!f && !FONTS.some(x=>x.v===f);
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// Text in die Zwischenablage -> Promise; abgelehnt, wenn der Browser nicht
+// kopieren laesst (die Aufrufer sagen dann "bitte manuell markieren").
+// navigator.clipboard gibt es nur in einem sicheren Kontext (HTTPS oder
+// localhost); ueber http://<IP> im Heimnetz fehlt es, dann kopiert ein
+// unsichtbares Textfeld (execCommand). Ebenso, wenn der Browser das Schreiben
+// verweigert (Berechtigung). Der Fokus geht danach zurueck.
+function zwischenablage(text){
+  const textfeld=()=>new Promise((ok,fehler)=>{
+    const vorher=document.activeElement, t=document.createElement('textarea');
+    t.value=text; t.setAttribute('readonly',''); t.style.cssText='position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(t); t.select();
+    let kopiert=false;
+    try{ kopiert=document.execCommand('copy'); }catch(e){}
+    t.remove();
+    if(vorher && vorher.focus) vorher.focus();
+    if(kopiert) ok(); else fehler(new Error('execCommand copy'));
+  });
+  return navigator.clipboard && navigator.clipboard.writeText
+    ? navigator.clipboard.writeText(text).catch(textfeld) : textfeld();
+}
 
 // Reiter-Definitionen je Rubrik
 // Schluessel der frei zusammengestellten Seite - derselbe Wert wie PICK_TAB
