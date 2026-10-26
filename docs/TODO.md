@@ -1709,6 +1709,14 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
 
 ## 9. Weitere Funktionen
 
+- [x] **Aktive zuerst bei Zentralen und Fensterüberwachung** (im Forum
+      gewünscht, „wie in der Loxone-App“): Licht-, Fenster-, Tor- und
+      Audio-Zentral zeigen eingeschaltete, offene bzw. spielende Mitglieder
+      vorn, die Fenster-/Türüberwachung offene und gekippte Fenster. Sortiert
+      wird beim Aufruf der Seite (`aufruf_route()`), danach bleibt jede
+      Kachel stehen, bis die Seite neu aufgerufen wird
+      ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) §6 „Aktive zuerst“,
+      `tests/test_aktive_zuerst.py`). **S**
 - [x] **Diagnosepaket** (Oktober 2026): Unter Geräte je Gerät und unter
       Einstellungen → Sicherung für den Server ein ZIP mit `diagnose.md`
       (Zusammenfassung oben), `diagnose.json`, Einstellungen und den letzten

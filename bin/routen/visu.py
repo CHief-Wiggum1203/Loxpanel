@@ -159,12 +159,16 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 route = data["route"]
                 app.conn_route[ws] = route
                 try:
+                    # Reihenfolge der Seite beim Aufruf merken (aktive zuerst);
+                    # scheitert das, gilt die Route wie gesendet
+                    route = app.aufruf_route(route)
+                    app.conn_route[ws] = route
                     view_msg = app.render(route, app.conn_prof.get(ws, prof))
                 except Exception:
                     # Detailseite wirft -> nicht die Verbindung abreissen lassen
                     # (sonst Reconnect-Loop). Fehler loggen, Hinweis anzeigen.
                     log.exception("render() (nav) fehlgeschlagen fuer route %s", route)
-                    view_msg = {"t": "view", "title": "Fehler", "route": route,
+                    view_msg = {"t": "view", "title": "Fehler", "route": data["route"],
                                 "blocks": [{"k": "status", "text": "Diese Ansicht konnte nicht geladen werden."}]}
                 await ws.send_json(view_msg)
                 # Auch die Navigation sendet am Tick vorbei — eintragen, sonst
