@@ -193,7 +193,7 @@ function connect(){
       gesteProbeSpalten();
       // ... der Konfigurator gibt sie erst frei, wenn dieser Modus seinem entspricht;
       // gilt der Entwurf nicht mehr (abgelaufen, Server neu gestartet), legt er sie neu an
-      if(PROBE) probeMelden({bereit:true, entwurf:msg.entwurf===true,
+      if(PROBE) probeMelden({bereit:true, entwurf:msg.entwurf===true, stand:(gestenProbe && gestenProbe.stand) || '',
                              schalten:!!gestenProbe && gestenProbe.schalten===true});
       nachtUhrSetzen();               // ihre Symbole auf der Nacht-Uhr
       uiScaleCfg=scaleCfg(msg.scale);

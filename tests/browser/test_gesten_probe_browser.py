@@ -7,9 +7,11 @@ die Jalousie als Vorhang bis „Geschlossen“, im Probelauf kommt am
 Miniserver-Nachbau nichts an, die Liste nennt die Befehle mit Namen. Ein
 ungespeicherter Taster fuer „Raum verlassen“ gilt in der Probe sofort
 (Doppelklick). Ist der Entwurf weg (abgelaufen, Server neu gestartet), legt
-die Karte die Probe neu an. Mit „Wirklich schalten“ ist das Bild gesperrt,
-bis die Visu den Modus bestaetigt, dann gehen die Befehle raus (Klick links:
-beschatten). Tasten unter der Maus (Player) sehen sie nicht.
+die Karte die Probe neu an. Nach jeder Aenderung (Taster, „Wirklich
+schalten“) ist das Bild gesperrt, bis die Visu den neuen Stand meldet; mit
+„Wirklich schalten“ gehen die Befehle raus (Klick links: beschatten). Tasten
+unter der Maus (Player) sehen sie nicht. Die Anfragen der Karte ueberholen
+sich nicht.
 Anlage: lox.gesten_anlage()."""
 import asyncio
 
@@ -23,6 +25,8 @@ from playwright.async_api import async_playwright  # noqa: E402
 pytestmark = [pytest.mark.browser, pytest.mark.usefixtures("miniserver_http")]
 
 ROUTEN = [("POST", "/api/entwurf", W.api_entwurf)]
+# Das Bild der Probe ist frei: die Visu meldet den Stand der letzten Anfrage
+FREI = "GP.stand && GP.bestaetigt === GP.stand && !document.querySelector('#gpVor.gesperrt')"
 EINBLENDUNG = """() => { const n = document.getElementById('geste');
   return n && !n.classList.contains('hidden') ? [n.className, n.querySelector('.gs-wert').textContent,
     n.querySelector('.gs-sub').textContent] : null; }"""
@@ -74,7 +78,7 @@ def test_gesten_probe(tmp_path):
                 await pg.locator(".stab[data-sub='verhalten']").click()
                 await pg.select_option("#gpAnsicht", "test")
                 await pg.select_option("#gpRaum", "r1")
-                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && GP.bestaetigt === false")
+                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && " + FREI)
                 # das Fenster steht auf der Adresse der Probe und zeigt Kacheln
                 await pg.wait_for_function("""() => { const f = document.querySelector('#gpFrame'), d = f.contentDocument;
                   return !!d && f.contentWindow.location.search.includes('entwurf=')
@@ -98,7 +102,9 @@ def test_gesten_probe(tmp_path):
                 # Taster fuer "Raum verlassen", nicht gespeichert: gilt in der Probe sofort
                 await rahmen.evaluate("window.__vorher = 1")
                 await pg.locator("[data-gv-raum='r1']").select_option("TV")
+                taster_gesperrt = await pg.evaluate("document.querySelector('#gpVor').classList.contains('gesperrt')")
                 await _neu_geladen(rahmen)
+                await pg.wait_for_function("GP.gesendet.includes('TV') && " + FREI)
                 await pg.wait_for_timeout(300)
                 box = await pg.locator("#gpVor").bounding_box()
                 x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
@@ -114,7 +120,7 @@ def test_gesten_probe(tmp_path):
                 alter_token = await pg.evaluate("GP.token")
                 app.entwuerfe.clear()
                 await rahmen.evaluate("setTimeout(() => location.reload(), 0)")
-                await pg.wait_for_function(f"GP.token && GP.token !== '{alter_token}' && GP.bestaetigt === false")
+                await pg.wait_for_function(f"GP.token && GP.token !== '{alter_token}' && " + FREI)
                 await _neu_geladen(rahmen)
                 neu_angelegt = (await pg.evaluate("GP.token"), rahmen.url)
                 await rahmen.evaluate("window.__vorher = 1")
@@ -125,7 +131,7 @@ def test_gesten_probe(tmp_path):
                 await pg.locator("#gpSchalten").check()
                 gesperrt = await pg.evaluate("document.querySelector('#gpVor').classList.contains('gesperrt')")
                 await _neu_geladen(rahmen)
-                await pg.wait_for_function("GP.bestaetigt === true && !document.querySelector('#gpVor.gesperrt')")
+                await pg.wait_for_function("GP.schalten && " + FREI)
                 await pg.wait_for_timeout(300)
                 await pg.mouse.click(box["x"] + box["width"] * 0.15, y)
                 for _ in range(60):
@@ -143,12 +149,12 @@ def test_gesten_probe(tmp_path):
             await ms.stop()
         assert not fehler, fehler
         return (spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, list(ms.io), modus_scharf,
-                gesperrt, neu_angelegt)
+                gesperrt and taster_gesperrt, neu_angelegt)
 
     (spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, io, modus_scharf,
      gesperrt, (token, url)) = asyncio.run(lauf())
     assert f"entwurf={token}&probe=1" in url, (token, url)
-    assert gesperrt, "nach dem Umschalten ist das Bild gesperrt, bis die Visu den Modus bestaetigt"
+    assert gesperrt, "nach jeder Aenderung ist das Bild gesperrt, bis die Visu den neuen Stand meldet"
     assert spalten == ["Beschattung", "Licht", "Musik"]
     assert modus.startswith("Probelauf") and "Gesten aus" in modus, modus   # in der Ansicht aus: Hinweis
     assert "vorhang" in vorhang[0] and vorhang[1].replace(" ", " ").strip() == "100 %", vorhang
@@ -190,7 +196,7 @@ def test_probe_faengt_tasten_ab():
                 await pg.select_option("#gpGeraet", next(g for g in geraete if "Galaxy Tab A9 quer" in g))
                 await pg.select_option("#gpAnsicht", "test")
                 await pg.select_option("#gpRaum", "r1")
-                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && GP.bestaetigt === false")
+                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && " + FREI)
                 rahmen = await (await pg.query_selector("#gpFrame")).content_frame()
                 knopf = rahmen.locator(".ppvol .sbtn[data-sd='up']")
                 await knopf.wait_for(state="visible")
@@ -218,3 +224,52 @@ def test_probe_faengt_tasten_ab():
     gesendet, io = asyncio.run(lauf())
     assert gesendet == ["geste:wiedergabe"], gesendet
     assert io == []
+
+
+def test_anfragen_ueberholen_sich_nicht():
+    """Raum zweimal kurz hintereinander gewechselt, die erste Anfrage ist
+    langsam: Die zweite geht erst danach raus, am Ende zeigt die Probe den
+    zuletzt gewaehlten Raum (sonst schriebe die langsame den alten zurueck)."""
+    async def lauf():
+        app = W.App({"host": "", "port": 80})
+        struktur, states = gesten_anlage()
+        app._apply_structure(struktur)
+        app.states = states
+        app.panels = W.App._sanitize_panels({"test": {"title": "Küche", "tabs": ["room:r1"], "ui": {"split": False}}})
+        runner, port, bc = await visu_starten(app, ROUTEN)
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 1500, "height": 950}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/config")
+                await pg.wait_for_function(KONFIGURATOR_GELADEN)
+                await pg.locator(".rub", has_text="Vorgaben").click()
+                await pg.locator(".stab[data-sub='verhalten']").click()
+                await pg.select_option("#gpAnsicht", "test")
+                await pg.wait_for_function("GP.url && GP.gesendet.includes('room:r1') && " + FREI)
+                anfragen = []
+
+                async def langsam(route):
+                    anfragen.append(route.request.post_data_json["panel"]["tabs"][0])
+                    if len(anfragen) == 1:
+                        await asyncio.sleep(1.5)
+                    await route.continue_()
+                await pg.route("**/api/entwurf", langsam)
+                await pg.select_option("#gpRaum", "r2")
+                await pg.wait_for_timeout(600)          # die erste Anfrage laeuft
+                await pg.select_option("#gpRaum", "r4")
+                await pg.wait_for_function("GP.gesendet.includes('room:r4') && " + FREI, timeout=15000)
+                await pg.wait_for_timeout(2500)         # laenger als die langsame Anfrage
+                token, karte = await pg.evaluate("[GP.token, JSON.parse(GP.gesendet).panel.tabs[0]]")
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+        assert not fehler, fehler
+        return anfragen, karte, app.entwuerfe[token]["panel"]["tabs"][0]
+
+    anfragen, karte, beim_server = asyncio.run(lauf())
+    assert anfragen == ["room:r2", "room:r4"], anfragen
+    assert karte == beim_server == "room:r4", (karte, beim_server)

@@ -441,11 +441,13 @@ function gestenVorgabenBinden(p){
 // trifft. Der Server haelt die Befehle jeder Geste fest und schickt sie nur
 // mit "Wirklich schalten"; die Visu meldet sie per postMessage, die Liste
 // unter dem Bild zeigt sie (je Empfaenger der letzte Befehl). Bedienen laesst
-// sich das Bild erst, wenn die Visu den Modus meldet, den die Karte zeigt
-// (bestaetigt): Bis sie nach einem Umschalten neu verbunden ist, schaltete
-// sie sonst noch im alten.
-const GP={geraet:'', ansicht:'', raum:'', schalten:false, bestaetigt:null, token:'', url:'', gesendet:'', timer:null,
-          gesten:[], erneuert:0, _wired:false};
+// sich das Bild erst, wenn die Visu den Stand meldet, den der Server zur
+// letzten Anfrage nannte (stand, bestaetigt), und die Karte seither nichts
+// geaendert hat (gesendet): Bis sie nach einer Aenderung neu verbunden ist,
+// schaltete sie sonst noch im alten Modus oder Raum. Die Anfragen gehen
+// nacheinander (unterwegs, nochmal), sonst ueberholte eine aeltere die neuere.
+const GP={geraet:'', ansicht:'', raum:'', schalten:false, stand:'', bestaetigt:'', token:'', url:'', gesendet:'',
+          timer:null, unterwegs:false, nochmal:false, gesten:[], erneuert:0, _wired:false};
 const GP_ERNEUERN_MS=10000; // eine verlorene Probe hoechstens so oft von selbst neu anlegen
 const GP_LISTE_MAX=6;       // so viele Gesten stehen in der Liste, die neueste oben
 const GP_HOEHE_ANTEIL=0.6;  // das Bild der Visu ist hoechstens so hoch (Anteil der Fensterhoehe)
@@ -506,7 +508,7 @@ function gpWahlZeichnen(){
 // Modus ueber dem Bild; solange die Visu ihn nicht bestaetigt hat, ist das Bild gesperrt
 function gpModusZeichnen(){
   const m=$('#gpModus'), v=$('#gpVor'); if(!m || !v) return;
-  const bereit=GP.bestaetigt===GP.schalten;
+  const d=gpDaten(), bereit=!!d && !!GP.stand && GP.bestaetigt===GP.stand && GP.gesendet===JSON.stringify(d);
   v.classList.toggle('gesperrt', !bereit);
   m.classList.toggle('scharf', bereit && GP.schalten);
   m.innerHTML=esc(!bereit ? T('Die Probe lädt …')
@@ -521,29 +523,44 @@ function gpMass(){
   f.style.width=g.vw+'px'; f.style.height=g.vh+'px'; f.style.transform='scale('+s+')';
   box.style.height=Math.round(g.vh*s)+'px';
 }
+// Was die Probe an /api/entwurf schickt, aus dem Stand der Karte und der
+// Vorgaben: die Ansicht mit dem Raum als erstem Tab. null ohne Ansicht oder Raum.
+function gpDaten(){
+  const p=PANELS[GP.ansicht]; if(!p || !GP.raum) return null;
+  const tab='room:'+GP.raum, prof=JSON.parse(JSON.stringify(p));
+  prof.tabs=[tab, ...(prof.tabs||[]).filter(t=>t!==tab)];
+  const g=gpGeraet();
+  return {id:GP.ansicht, panel:prof,
+    gestenProbe:{schalten:GP.schalten, vorgaben:(PANELS.__global__||{}).ui||{}, geraet:(g && g.quelle==='geraet') ? g.name : ''}};
+}
 // Entwurf an den Server; das Fenster folgt der Adresse. Gleicher Token: der
 // Server laedt die Visu selbst neu (api_entwurf), darum nur, wenn sich etwas
-// geaendert hat. Nur, solange die Karte sichtbar ist.
+// geaendert hat. Nur, solange die Karte sichtbar ist. Bis die Visu den neuen
+// Stand meldet, ist das Bild gesperrt (gpModusZeichnen).
 function gestenProbeSenden(){
+  gpModusZeichnen();
   clearTimeout(GP.timer);
-  GP.timer=setTimeout(async()=>{
-    const f=$('#gpFrame'), p=PANELS[GP.ansicht]; if(!f || !f.offsetParent) return;
-    if(!p || !GP.raum){ gpFehler(T('Es fehlt eine Ansicht mit einem Raum.')); return; }
-    const tab='room:'+GP.raum, prof=JSON.parse(JSON.stringify(p));
-    prof.tabs=[tab, ...(prof.tabs||[]).filter(t=>t!==tab)];
-    const g=gpGeraet();
-    const daten={id:GP.ansicht, panel:prof,
-      gestenProbe:{schalten:GP.schalten, vorgaben:(PANELS.__global__||{}).ui||{}, geraet:(g && g.quelle==='geraet') ? g.name : ''}};
-    const json=JSON.stringify(daten);
-    if(json===GP.gesendet && GP.url){ gpMass(); return; }
-    try{
-      const j=await postJson('/api/entwurf', {...daten, token:GP.token});
-      if(!j.ok){ gpFehler(j.error||T('Fehler')); return; }
-      GP.token=j.token; GP.gesendet=json;
-      if(j.url!==GP.url){ GP.url=j.url; GP.bestaetigt=null; gpModusZeichnen(); f.src=j.url; }
-      gpMass();
-    }catch(e){ gpFehler(e.message); }
-  }, 350);
+  GP.timer=setTimeout(gpSenden, 350);
+}
+async function gpSenden(){
+  const f=$('#gpFrame'); if(!f || !f.offsetParent) return;
+  if(GP.unterwegs){ GP.nochmal=true; return; }   // nach der laufenden Anfrage mit dem neuesten Stand
+  const daten=gpDaten();
+  if(!daten){ gpFehler(T('Es fehlt eine Ansicht mit einem Raum.')); return; }
+  const json=JSON.stringify(daten);
+  if(json===GP.gesendet && GP.url){ gpMass(); return; }
+  GP.unterwegs=true;
+  try{
+    const j=await postJson('/api/entwurf', {...daten, token:GP.token});
+    if(!j.ok){ gpFehler(j.error||T('Fehler')); return; }
+    GP.token=j.token; GP.gesendet=json; GP.stand=j.stand||'';
+    if(j.url!==GP.url){ GP.url=j.url; f.src=j.url; }
+    gpMass();
+  }catch(e){ gpFehler(e.message); }
+  finally{
+    GP.unterwegs=false; gpModusZeichnen();
+    if(GP.nochmal){ GP.nochmal=false; gpSenden(); }
+  }
 }
 function gpFehler(text){ const l=$('#gpListe'); if(l) l.innerHTML='<div class="gp-fehler">'+esc(T('Probe nicht möglich:')+' '+text)+'</div>'; }
 // Bewegung einer Geste fuer die Liste
@@ -571,11 +588,11 @@ function gpMeldung(m){
   if(m.bereit && !m.entwurf){
     // Der Entwurf gilt nicht mehr (abgelaufen, Server neu gestartet): die Visu
     // laeuft als Probelauf auf dem gespeicherten Profil. Gesperrt lassen und neu anlegen.
-    GP.bestaetigt=null; gpModusZeichnen();
+    GP.bestaetigt=''; gpModusZeichnen();
     if(Date.now()-GP.erneuert<GP_ERNEUERN_MS){ gpFehler(T('Der Server hält die Probe nicht.')); return; }
     GP.erneuert=Date.now(); GP.gesendet=''; GP.token=''; gestenProbeSenden(); return;
   }
-  if(m.bereit){ GP.bestaetigt=m.schalten===true; gpModusZeichnen(); return; }
+  if(m.bereit){ GP.bestaetigt=m.stand||''; gpModusZeichnen(); return; }
   if(m.neu){
     GP.gesten.unshift({art:m.art, titel:m.titel||m.art, spalte:m.spalte||'', bewegung:m.bewegung||'', raum:'', text:'', fehler:'', befehle:[]});
     GP.gesten.length=Math.min(GP.gesten.length, GP_LISTE_MAX);
@@ -590,7 +607,7 @@ function gpMeldung(m){
 }
 function gestenProbeBinden(){
   if(!$('#gpKarte')) return;
-  GP.url=''; GP.gesendet=''; GP.bestaetigt=null;   // neu gezeichnet: das Fenster ist leer, der Token bleibt
+  GP.url=''; GP.gesendet=''; GP.stand=''; GP.bestaetigt='';   // neu gezeichnet: das Fenster ist leer, der Token bleibt
   if(!GP._wired){
     GP._wired=true;
     window.addEventListener('message', e=>{

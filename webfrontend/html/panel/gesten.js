@@ -309,8 +309,8 @@ function gesteProbeSpalten(){
     '<span class="gp-name">'+svg(ICONS[a.ico])+esc(GESTE_TITEL[a.art])+'</span></div>').join('');
   gesteFlaeche.appendChild(n);
 }
-// An den Konfigurator, der die Probe zeigt: der Modus der Verbindung ({bereit,
-// entwurf, schalten}, mit jedem theme), Beginn einer Geste ({neu, art, titel,
+// An den Konfigurator, der die Probe zeigt: der Stand der Verbindung ({bereit,
+// entwurf, stand, schalten}, mit jedem theme), Beginn einer Geste ({neu, art, titel,
 // spalte, bewegung}) und jede Antwort des Servers ({art, raum, text, fehler, befehle})
 function probeMelden(m){
   if(window.parent===window) return;

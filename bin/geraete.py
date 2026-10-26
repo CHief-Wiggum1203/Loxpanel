@@ -117,7 +117,9 @@ class Geraete:
         Token eines vorhandenen Entwurfs desselben Profils wird dieser ersetzt,
         sonst entsteht ein neuer; ist der Platz voll, geht der aelteste.
         `probe` (gesten_probe_pruefen) macht ihn zur Gesten-Probe; wechselt
-        sie die Ansicht, ersetzt der neue Entwurf ihren vorigen."""
+        sie die Ansicht, ersetzt der neue Entwurf ihren vorigen. Jede Ablage
+        der Probe bekommt einen neuen `stand`: Die Visu meldet ihn dem
+        Konfigurator, der daran erkennt, dass sie diesen Stand zeigt."""
         clean = self._sanitize_panels({pid: roh})
         if pid not in clean:
             raise ValueError("Ansicht nicht brauchbar (leere oder mit _ beginnende Kennung?)")
@@ -133,7 +135,8 @@ class Geraete:
             token = secrets.token_urlsafe(9)
             while len(self.entwuerfe) >= ENTWURF_MAX:
                 del self.entwuerfe[min(self.entwuerfe, key=lambda t: self.entwuerfe[t]["ts"])]
-        self.entwuerfe[token] = {"id": pid, "panel": clean[pid], "ts": now, **({"probe": probe} if probe else {})}
+        self.entwuerfe[token] = {"id": pid, "panel": clean[pid], "ts": now,
+                                 **({"probe": {**probe, "stand": secrets.token_hex(4)}} if probe else {})}
         return token, weg
 
     def entwurf_profil(self, token: str, pid: str | None) -> dict | None:

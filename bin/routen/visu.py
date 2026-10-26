@@ -114,8 +114,10 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                         "gesten": prof["gesten"],         # Zwei-Finger-Gesten (Loxone-Standard) an
                         # ... mit Hinweis-Symbol (reserviert die Fusszeile unter dem Kachelfeld)
                         "gestenHinweis": prof["gesten"] and prof["gestenHinweis"],
-                        # Gesten-Probe: die Maus spielt zwei Finger; schalten = Befehle gehen raus
-                        "gestenProbe": {"schalten": prof["probe"]["schalten"]} if prof.get("probe") else None,
+                        # Gesten-Probe: die Maus spielt zwei Finger; schalten = Befehle gehen raus,
+                        # stand = welche Ablage des Entwurfs (leer ohne gueltigen Entwurf)
+                        "gestenProbe": {"schalten": prof["probe"]["schalten"], "stand": prof["probe"].get("stand", "")}
+                        if prof.get("probe") else None,
                         "reloadHours": app.panel_reload(prof["id"], roh),
                         "reloadAt": NEULADEN_STUNDE,   # nachts neu laden, wenn reloadHours fehlt
                         "night": {**app.panel_night(prof["id"], roh, dev), "on": app._night_on},

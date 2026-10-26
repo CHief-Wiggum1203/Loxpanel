@@ -262,7 +262,8 @@ async def api_entwurf(request: web.Request) -> web.Response:
     Visus, die ihn gerade zeigen, laden neu (`reloaded`). `gestenProbe`
     ({schalten, vorgaben, geraet}, Vorgaben -> Verhalten) macht ihn zur
     Gesten-Probe: die Maus bedient die Visu wie zwei Finger, die Befehle
-    zeigt der Konfigurator, gesendet werden sie nur mit `schalten`."""
+    zeigt der Konfigurator, gesendet werden sie nur mit `schalten`. Die
+    Antwort nennt dann den `stand`, den die Visu mit ihrem theme meldet."""
     app: App = request.app["app"]
     try:
         data = await request.json()
@@ -286,7 +287,8 @@ async def api_entwurf(request: web.Request) -> web.Response:
             v["bis"] = time.time() + VORSCHAU_GERAET_DAUER
     return web.json_response({"ok": True, "token": token, "reloaded": n, "verworfen": weg,
                               "url": "/?panel=" + quote(pid, safe="") + "&entwurf=" + token
-                              + ("&probe=1" if probe else "")})
+                              + ("&probe=1" if probe else ""),
+                              **({"stand": app.entwurf_probe(token)["stand"]} if probe else {})})
 
 
 async def api_save_theme(request: web.Request) -> web.Response:
