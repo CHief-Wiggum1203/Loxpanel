@@ -445,7 +445,8 @@ function gestenVorgabenBinden(p){
 // (bestaetigt): Bis sie nach einem Umschalten neu verbunden ist, schaltete
 // sie sonst noch im alten.
 const GP={geraet:'', ansicht:'', raum:'', schalten:false, bestaetigt:null, token:'', url:'', gesendet:'', timer:null,
-          gesten:[], _wired:false};
+          gesten:[], erneuert:0, _wired:false};
+const GP_ERNEUERN_MS=10000; // eine verlorene Probe hoechstens so oft von selbst neu anlegen
 const GP_LISTE_MAX=6;       // so viele Gesten stehen in der Liste, die neueste oben
 const GP_HOEHE_ANTEIL=0.6;  // das Bild der Visu ist hoechstens so hoch (Anteil der Fensterhoehe)
 function gestenProbeKarte(){
@@ -567,6 +568,13 @@ function gpListe(){
 // Meldung der Visu (panel/gesten.js probeMelden): ihr Modus, Beginn einer
 // Geste oder eine Antwort des Servers dazu; je Empfaenger zaehlt der letzte Befehl
 function gpMeldung(m){
+  if(m.bereit && !m.entwurf){
+    // Der Entwurf gilt nicht mehr (abgelaufen, Server neu gestartet): die Visu
+    // laeuft als Probelauf auf dem gespeicherten Profil. Gesperrt lassen und neu anlegen.
+    GP.bestaetigt=null; gpModusZeichnen();
+    if(Date.now()-GP.erneuert<GP_ERNEUERN_MS){ gpFehler(T('Der Server hält die Probe nicht.')); return; }
+    GP.erneuert=Date.now(); GP.gesendet=''; GP.token=''; gestenProbeSenden(); return;
+  }
   if(m.bereit){ GP.bestaetigt=m.schalten===true; gpModusZeichnen(); return; }
   if(m.neu){
     GP.gesten.unshift({art:m.art, titel:m.titel||m.art, spalte:m.spalte||'', bewegung:m.bewegung||'', raum:'', text:'', fehler:'', befehle:[]});

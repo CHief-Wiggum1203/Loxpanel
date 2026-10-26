@@ -818,6 +818,7 @@ def test_probe_ueber_entwurf_und_websocket(cfg_ordner):
                     probe = await r.json()
                 async with s.post(url + "/api/entwurf", json={"id": "test", "panel": panel}) as r:
                     entwurf = await r.json()
+                assert probe["url"].endswith("&probe=1") and "probe" not in entwurf["url"]
                 async with s.ws_connect(url + "/ws" + probe["url"][1:] + "&device=kueche") as ws:
                     theme = await _bis(ws, "theme")
                     await ws.send_json({"t": "geste", "art": "beschattung", "richtung": "auf"})
@@ -845,3 +846,30 @@ def test_probe_ueber_entwurf_und_websocket(cfg_ordner):
     assert io == []
     assert nach["t"] == "reload", nach      # neu laden wie jede Visu, kein entwurfEnde
     assert tokens == {probe} and entwurf != probe
+
+
+def test_probe_ohne_gueltigen_entwurf_bleibt_probelauf():
+    """Ist der Entwurf der Probe weg (abgelaufen, Server neu gestartet), bleibt
+    die Adresse der Probe (?probe=1) ein Probelauf auf dem gespeicherten
+    Profil: Gesten und Befehle schicken nichts, und das theme sagt, dass der
+    Entwurf nicht mehr gilt (der Konfigurator legt die Probe dann neu an)."""
+    async def schritte(app):
+        runner, port, bc = await visu_starten(app)
+        try:
+            async with aiohttp.ClientSession() as s, \
+                    s.ws_connect(f"http://127.0.0.1:{port}/ws?panel=test&entwurf=weg&probe=1&device=kueche") as ws:
+                theme = await _bis(ws, "theme")
+                await ws.send_json({"t": "geste", "art": "beschattung", "richtung": "ab"})
+                jal = await _bis(ws, "geste")
+                await ws.send_json({"t": "cmd", "uuid": "J1", "cmd": "FullUp"})
+                cmd = await _bis(ws, "notify")
+                dev = next(i["dev"] for i in app.conn_info.values())
+                return theme, jal, cmd, dev
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+    (theme, jal, cmd, dev), io = _mit_nachbau(schritte, devices={"kueche": {"lichtStart": {"lc": "LW", "mood": 4}}})
+    assert theme["gestenProbe"] == {"schalten": False} and theme["entwurf"] is False
+    assert dev == ""
+    assert [b["befehl"] for b in jal["befehle"]] == ["FullDown", "FullDown"]
+    assert cmd["text"] == "Probelauf: nichts geschaltet" and io == []

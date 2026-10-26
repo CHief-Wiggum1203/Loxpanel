@@ -310,8 +310,8 @@ function gesteProbeSpalten(){
   gesteFlaeche.appendChild(n);
 }
 // An den Konfigurator, der die Probe zeigt: der Modus der Verbindung ({bereit,
-// schalten}, mit jedem theme), Beginn einer Geste ({neu, art, titel, spalte,
-// bewegung}) und jede Antwort des Servers ({art, raum, text, fehler, befehle})
+// entwurf, schalten}, mit jedem theme), Beginn einer Geste ({neu, art, titel,
+// spalte, bewegung}) und jede Antwort des Servers ({art, raum, text, fehler, befehle})
 function probeMelden(m){
   if(window.parent===window) return;
   try{ window.parent.postMessage({t:'gestenProbe', ...m}, location.origin); }catch(e){}

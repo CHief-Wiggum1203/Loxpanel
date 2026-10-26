@@ -958,7 +958,7 @@ Ausnahme: die native Gegensprech-API verlangt Loopback und Prozess-Token
 | GET | `/api/bento/vorschlag` | `api_bento_vorschlag` | LoxOS (Fork): Vorschlag für die Bento-Startseite eines Streifens, `?device=<Name>`: `{pickTab: {name, picks[], bento}, format: {vw, vh}, formatBekannt}`. Sammelt erste Audiozone, Energiefluss (EFM, sonst EnergyManager2), Kalender-Abo (`calendar_sources()`) und Favoriten (`isFavorite`, Strukturreihenfolge) und das gemeldete Format des Geräts (`device_list()`, ohne: `BENTO_FORMAT_STANDARD`); gerechnet wird in der reinen Funktion `bento_vorschlag()` (`bento_format.py`). Nur lesend | Konfigurator (LoxOS-Assistent, Schritt 4) |
 | GET | `/api/meta` | `api_meta` | Räume, Kategorien, alle Controls, Icons, Profile, Geräte (Display-Kennwort nur als `hasPass`, `_devices_export()`), Theme, Bausteine mit `active`-State (`activeControls`, Auswahl Präsenzmelder), Stunde des nächtlichen Neuladens (`reloadAt`); im Fork (LoxOS) `bento` (Grenzen der Bento-Seiten), `streifenAb` (`STREIFEN_AB`, Seitenverhältnis, ab dem ein Schirm ein Streifen ist, gleich der Schwelle der Hülle) und `titelMax` (`konfig.TITEL_MAX`, so lang speichert der Server einen Ansichtstitel; der LoxOS-Assistent zählt Titel damit) | Konfigurator, Einstellungen |
 | POST | `/api/panels` | `api_save_panels` | `panels.json` schreiben, danach `reload` an alle Panels (Vorschau-Fenster mit einem Entwurf bekommen stattdessen `entwurfEnde`) und alle Entwürfe verwerfen; die Antwort nennt unter `verworfen`, was `_sanitize_panels` nicht übernommen hat | Konfigurator |
-| POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?, gestenProbe?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden). `gestenProbe` `{schalten, vorgaben, geraet}` macht ihn zur Gesten-Probe (§7.1 „Gesten ausprobieren“) | Konfigurator |
+| POST | `/api/entwurf` | `api_entwurf` | Entwurf eines Profils `{id, panel, token?, gestenProbe?}` für die Vorschau in der echten Visu: geprüft wie beim Speichern, nur im Speicher; Antwort `token`, `url` (`/?panel=<id>&entwurf=<token>`), `verworfen`, `reloaded` (Visus, die ihn zeigten und neu laden). `gestenProbe` `{schalten, vorgaben, geraet}` macht ihn zur Gesten-Probe, ihre `url` endet dann auf `&probe=1` (§7.1 „Gesten ausprobieren“) | Konfigurator |
 | POST | `/api/theme` | `api_save_theme` | `theme.json` schreiben, danach `reload` | Konfigurator |
 | GET | `/api/settings` | `api_settings` | Miniserver-Status (ohne Passwort), Intercom-Liste, Einrichtungsstand `einrichtung` (`_einrichtung_info()`: `stand` `kein_zugang`, `verbindet` oder `fehler`, dazu `host` und `fehler`; mit Struktur `null`), `version` (`version`, `commit`, `gebaut`; `version_info.lesen()`, Seitenleiste des Konfigurators) | Einstellungen, LoxBerry-Widget |
 | GET | `/api/health` | `api_health` | Zustand: Hintergrund-Aufgaben (`miniserver`, `broadcaster`, `audio`, `front`, im Fork dazu `bento` und `system`), Miniserver verbunden, Zahl der Panels, Laufzeit, `version` wie bei `/api/settings`. 503, sobald eine Aufgabe beendet ist; ein fehlender Miniserver allein ist kein Fehler | Docker-`HEALTHCHECK` (Unraid) |
@@ -2774,7 +2774,11 @@ stammen aus der Zeit vor der Aufteilung und sind Orientierung, keine Adresse.
     „Probelauf: nichts geschaltet“). Bedienen lässt sich das Bild erst,
     wenn die Visu den Modus meldet, den die Karte zeigt (`{bereit,
     schalten}` mit jedem theme, `GP.bestaetigt`): Nach dem Umschalten von
-    „Wirklich schalten“ ist es gesperrt, bis sie neu verbunden ist. Eine
+    „Wirklich schalten“ ist es gesperrt, bis sie neu verbunden ist. Die
+    Adresse der Probe trägt `&probe=1`: Gilt ihr Entwurf nicht mehr
+    (abgelaufen, verdrängt, Server neu gestartet), bleibt die Verbindung ein
+    Probelauf auf dem gespeicherten Profil, das theme meldet `entwurf:
+    false`, und der Konfigurator legt die Probe neu an. Eine
     Beschattungs-Geste antwortet im Probelauf gleich mit dem Ende (`von`,
     `wert`, `fahrt`, `ende`), die Visu zeigt die Fahrt dazwischen
     (`gesteProbeFahrt()`). Die Visu meldet jede Geste (`neu`, mit Spalte und

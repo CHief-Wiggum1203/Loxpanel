@@ -33,6 +33,7 @@
       'Die echte Visu auf der Seite eines Raums, mit den Einstellungen links, auch ungespeichert. Die Maus spielt zwei Finger: ziehen wischt hoch/runter oder quer, ein Klick tippt, zwei und drei Klicks schnell hintereinander sind Doppel- und Dreifachtipp.': 'The real visualisation on the page of a room, with the settings on the left, even unsaved. The mouse plays two fingers: dragging swipes up/down or sideways, a click taps, two and three quick clicks are double and triple tap.',
       'Wirklich schalten': 'Really switch',
       'Die Probe lädt …': 'Loading the trial …',
+      'Der Server hält die Probe nicht.': 'The server does not keep the trial.',
       'Schaltet wirklich: Licht, Beschattung und Musik reagieren wie am Gerät.': 'Really switches: lights, shading and music react as on the device.',
       'Probelauf: Die Befehle stehen unten, an den Miniserver geht keiner.': 'Dry run: the commands are listed below, none is sent to the Miniserver.',
       'In dieser Ansicht sind die Gesten aus; am Gerät wirken sie so nicht. Die Probe zeigt sie trotzdem.': 'Gestures are off in this view, so they do not work on the device. The trial shows them anyway.',

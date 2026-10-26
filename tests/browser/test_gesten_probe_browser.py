@@ -6,8 +6,11 @@ Geprueft: Die Spalten der Gesten stehen ueber der Seite. Links runter zieht
 die Jalousie als Vorhang bis „Geschlossen“, im Probelauf kommt am
 Miniserver-Nachbau nichts an, die Liste nennt die Befehle mit Namen. Ein
 ungespeicherter Taster fuer „Raum verlassen“ gilt in der Probe sofort
-(Doppelklick). Mit „Wirklich schalten“ gehen die Befehle raus (Klick links:
-beschatten). Anlage: lox.gesten_anlage()."""
+(Doppelklick). Ist der Entwurf weg (abgelaufen, Server neu gestartet), legt
+die Karte die Probe neu an. Mit „Wirklich schalten“ ist das Bild gesperrt,
+bis die Visu den Modus bestaetigt, dann gehen die Befehle raus (Klick links:
+beschatten). Tasten unter der Maus (Player) sehen sie nicht.
+Anlage: lox.gesten_anlage()."""
 import asyncio
 
 import pytest
@@ -106,6 +109,16 @@ def test_gesten_probe(tmp_path):
                 verlassen = await pg.evaluate("GP.gesten[0]")
                 nach_doppel = list(ms.io)
 
+                # Entwurf weg (abgelaufen, Server neu gestartet): die Visu bleibt ein
+                # Probelauf, meldet es, und die Karte legt die Probe neu an
+                alter_token = await pg.evaluate("GP.token")
+                app.entwuerfe.clear()
+                await rahmen.evaluate("setTimeout(() => location.reload(), 0)")
+                await pg.wait_for_function(f"GP.token && GP.token !== '{alter_token}' && GP.bestaetigt === false")
+                await _neu_geladen(rahmen)
+                neu_angelegt = (await pg.evaluate("GP.token"), rahmen.url)
+                await rahmen.evaluate("window.__vorher = 1")
+
                 # Wirklich schalten: bis die Visu im neuen Modus verbunden ist, ist
                 # das Bild gesperrt; dann beschattet ein Klick links
                 await rahmen.evaluate("window.__vorher = 1")
@@ -129,10 +142,12 @@ def test_gesten_probe(tmp_path):
             await app.icon_session.close()
             await ms.stop()
         assert not fehler, fehler
-        return spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, list(ms.io), modus_scharf, gesperrt
+        return (spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, list(ms.io), modus_scharf,
+                gesperrt, neu_angelegt)
 
     (spalten, modus, vorhang, liste_jal, probelauf, verlassen, nach_doppel, io, modus_scharf,
-     gesperrt) = asyncio.run(lauf())
+     gesperrt, (token, url)) = asyncio.run(lauf())
+    assert f"entwurf={token}&probe=1" in url, (token, url)
     assert gesperrt, "nach dem Umschalten ist das Bild gesperrt, bis die Visu den Modus bestaetigt"
     assert spalten == ["Beschattung", "Licht", "Musik"]
     assert modus.startswith("Probelauf") and "Gesten aus" in modus, modus   # in der Ansicht aus: Hinweis

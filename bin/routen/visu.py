@@ -43,8 +43,13 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     ent = (request.query.get("entwurf", "") or "")[:64]
     roh = app.entwurf_profil(ent, pid) if ent else None
     # Gesten-Probe des Konfigurators: nie ein Geraet (die Stimmung beim
-    # Einschalten nimmt geste() von dem Geraet, das die Probe nennt)
+    # Einschalten nimmt geste() von dem Geraet, das die Probe nennt). Gilt ihr
+    # Entwurf nicht mehr (abgelaufen, verdraengt, Server neu gestartet), bleibt
+    # sie ein Probelauf auf dem gespeicherten Profil: nichts schaltet, bis der
+    # Konfigurator sie neu anlegt (die Visu meldet ihm das, theme entwurf)
     probe = app.entwurf_probe(ent) if roh is not None else None
+    if not probe and request.query.get("probe") == "1":
+        probe = app.gesten_probe_pruefen({"vorgaben": app.theme.get("ui") or {}})
     if probe:
         dev = ""
     agenten = app._agenten_der_visu(dev, request.remote or "") if dev else []

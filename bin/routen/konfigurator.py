@@ -273,8 +273,8 @@ async def api_entwurf(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Felder 'id' und 'panel' fehlen"}, status=400)
     pid = pid.strip()
     try:
-        token, weg = app.entwurf_ablegen(pid, panel, str(data.get("token") or ""),
-                                         app.gesten_probe_pruefen(data.get("gestenProbe")))
+        probe = app.gesten_probe_pruefen(data.get("gestenProbe"))
+        token, weg = app.entwurf_ablegen(pid, panel, str(data.get("token") or ""), probe)
     except ValueError as err:
         return web.json_response({"ok": False, "error": str(err)}, status=400)
     n = 0
@@ -285,7 +285,8 @@ async def api_entwurf(request: web.Request) -> web.Response:
         if v["token"] == token:
             v["bis"] = time.time() + VORSCHAU_GERAET_DAUER
     return web.json_response({"ok": True, "token": token, "reloaded": n, "verworfen": weg,
-                              "url": "/?panel=" + quote(pid, safe="") + "&entwurf=" + token})
+                              "url": "/?panel=" + quote(pid, safe="") + "&entwurf=" + token
+                              + ("&probe=1" if probe else "")})
 
 
 async def api_save_theme(request: web.Request) -> web.Response:
