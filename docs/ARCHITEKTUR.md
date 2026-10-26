@@ -1467,6 +1467,23 @@ Sonderfälle:
   Kategorie-Ampel neutral bleibt.
 - Zentralbausteine laufen über den Präfix `Central` (`kachel_praefix`), erst
   nach der genauen Tabelle.
+- **Aktive zuerst** wie in der Loxone-App: Die Seite einer Licht-, Fenster-,
+  Tor- oder Audio-Zentrale (`ZENTRAL_MIT_AN`) zeigt die Mitglieder, die an
+  sind, vorn (`_zentral_reihe()`); was „an“ heißt, entscheidet
+  `_zentral_mitglied_an()`, dieselbe Regel zählt die Kachel (`_zentral_an()`).
+  Die Fenster-/Türüberwachung zeigt offene und gekippte Fenster vorn
+  (`fenster_reihe()`, `FENSTER_OFFEN`). Sortiert wird **beim Aufruf** der
+  Seite: `aufruf_route()` (`seiten.py`) merkt sich beim `nav` die Reihenfolge
+  in der Route der Verbindung (`reihe`), der Broadcaster rendert mit ihr. Wer
+  auf der Seite schaltet, sieht keine Kachel springen, und `updateGrid()` der
+  Visu kann patchen statt das Raster neu zu bauen. `render()` schickt `reihe`
+  nie mit, eine `reihe` vom Client gilt nicht. Was seit dem Aufruf
+  dazukam, steht hinten (`_nach_reihe()`). Gemerkt wird erst, wenn die States
+  der Mitglieder bekannt sind (`_zentral_stand_da()`, bei der
+  Fensterüberwachung `windowStates`): Nach einem Neustart des Servers kommt
+  das `nav` der Visu vor Struktur und Werten, dann trägt der Broadcaster die
+  Reihenfolge nach. Ein Neuverbinden ruft die Seite neu auf und ordnet frisch.
+  „Offen“ heißt bei Tor und Fenster wie auf der Kachel: ab gerundet 1 %.
 
 **Unbekannte Typen:** Steht der Typ in keiner Tabelle und ist er keine
 Wertseite (`STATUS_BIG`), zeigt die Kachel `{"label": name, "icon": "info", "on":
