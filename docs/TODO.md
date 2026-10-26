@@ -528,8 +528,10 @@ beim nächsten Mal wieder.
 
 ### Upstream-Beiträge
 
-Stand 17.10.2026. **In `upstream/main`** sind die Tabelle weiter unten und
-#34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`).
+Stand 26.10.2026. **In `upstream/main`** sind die Tabelle weiter unten,
+#34–#44 über unseren Sammel-PR #45 (Zweig `up/sammel`) und seit dem
+23.10.2026 die Etappen #102–#108 (`6f53346`, „Fork-Stand 6/6 … übernommen“)
+und der LoxBerry-Fix #103 (`4446c9f`).
 
 Lenardo hat die Geschichte seines Repos am 04.10.2026 neu begonnen; sein
 `main` beginnt seitdem mit `83966b5`. Zweige, die davor abgingen, haben keine
@@ -537,8 +539,29 @@ gemeinsame Basis mehr mit seinem `main`, ein PR daraus lässt sich nicht
 mergen. Neue Zweige deshalb immer von `upstream/main` (Ablauf A in
 `CONTRIBUTING.md`).
 
-**Eingereicht und offen** (17.10.2026): der ganze Fork-Stand in sechs
-Etappen, die aufeinander aufbauen, und der LoxBerry-Fix für sich. Lenardo
+**Eingereicht und offen** (26.10.2026): fünf Beiträge aus den Rückmeldungen
+im Forum, je ein Zweig von `upstream/main` (Ablauf A), nur `bin/` und
+`webfrontend/`. #114–#116 sind eigenständig. #117 baut auf #114 auf, #118 auf
+#117: Alle drei ändern dieselbe Importzeile in `bausteine/sicherheit.py`;
+Merge der Reihe nach als Merge-Commit oder „Rebase and merge“. Zusammen mit
+Lenardos offenen #110–#113 geprüft: alle zehn ohne Konflikt, #115 und #116
+mit seiner Kamera-Pane für mehrere Kameras (#113) in Chromium durchgespielt.
+
+| PR | Zweig | Fork | Inhalt |
+|---|---|---|---|
+| [#114](https://github.com/Lenardo1/loxpanel/pull/114) | `up/wecker-ortszeit` (`6ec1627`) | #231 | Wecker: nächste Weckzeit in Ortszeit statt eine Stunde zu früh; auf Lenardos `main` nachgeprüft (4:00 zeigte „03:00“) |
+| [#115](https://github.com/Lenardo1/loxpanel/pull/115) | `up/kamerabild-flache-felder` (`1399345`) | #235 | Kamerabild passt in flache Felder statt unten abgeschnitten zu werden, nur `seiten.css` |
+| [#116](https://github.com/Lenardo1/loxpanel/pull/116) | `up/kamera-ein-strom` (`f9cc246`) | #237 | Ein Strom je Kamera für alle Zuschauer, selbständig neu verbinden |
+| [#117](https://github.com/Lenardo1/loxpanel/pull/117) | `up/aktive-zuerst` (`d83d6ee`) | #234, #236 | Zentralen und Fensterüberwachung: aktive zuerst, sortiert beim Aufruf; baut auf #114 auf |
+| [#118](https://github.com/Lenardo1/loxpanel/pull/118) | `up/strompreis-optimierer` (`0dff2c1`) | #233 | Strompreis-Optimierer: Preis, Prognose, Zyklus starten und abbrechen; baut auf #117 auf |
+
+Noch nicht eingereicht: `up/zwischenablage-http` (`251d237`, Fork #232),
+Kopieren im Konfigurator über `http://` im Heimnetz, eigenständig.
+
+**Übernommen am 23.10.2026** (eingereicht am 17.10.2026): der ganze
+Fork-Stand in sechs Etappen, die aufeinander aufbauen, und der LoxBerry-Fix
+für sich. Lenardo hat die Etappen als einen Stand auf seinen `main` gebracht
+(`6f53346`), den LoxBerry-Fix als `4446c9f`. Für das Einreichen galt: Lenardo
 mergt die Etappen der Reihe nach, als Merge-Commit oder „Rebase and merge“,
 nicht per Squash; sonst zeigt die nächste die gemergten Änderungen noch
 einmal. #83 (SIP Schritt 1) steckt vollständig in #102 und kann geschlossen
