@@ -1514,8 +1514,16 @@ Kurz: was der Baustein ist und was ein Zweig mindestens braucht.
       nicht vorgibt (`MinSocLocked`, `MaxSpwrLocked`); je Verbraucher Ein/Aus
       bis Mitternacht und Automatik (`{uuid}/activate|deactivate|automatic`).
       An der Anlage prüfen, siehe 8.1. **M**
-- [ ] `SpotPriceOptimizer` (Strompreis-Optimierer): Preisverlauf und Plan,
-      nur Anzeige. **M**
+- [x] `SpotPriceOptimizer` (Strompreis-Optimierer, im Forum nachgefragt):
+      **vollständig** laut Strukturdoku 16.0. Kachel mit Preis und Ausgang;
+      Detailseite mit Preis, Ausgang, laufendem Zyklus, nächstem Einsatz und
+      der Prognose aus `getForecasts` (Preis als Linie, eingeplante Zeiten),
+      neu geholt bei jedem neuen `forecastsTimestamp`. Bedienung: Zyklus
+      starten mit Bedarf und Zeitraum (`start/{Bedarf}/{Zeitraum}`, fest, wenn
+      die Logik sie vorgibt) und abbrechen (`cancel`). Dafür kann ein
+      `stepper` jetzt Teil eines Formulars sein (`name`). Tests:
+      `tests/test_strompreis_optimierer.py`, Browser-Test bis zum Befehl am
+      Miniserver. An der Anlage prüfen, siehe 8.1. **M**
 - [ ] `MediaClient` (Media Client, alt): Steuerung veralteter Geräte;
       niedrige Priorität, nur bei Bedarf. **L**
 
