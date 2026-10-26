@@ -2,15 +2,16 @@
 eingetragene Adresse hat Vorrang, sonst nimmt LoxPanel die aus den gesicherten
 Details des Miniservers (videoInfo: streamUrl, user, pass; Strukturdoku 16.0
 und 17.0) und merkt sie bis zur naechsten Struktur. Miniserver (Command
-Encryption) und Kamera sind Nachbauten."""
+Encryption) und Kamera sind Nachbauten (tests/lox.py). Das Bild der
+Nachbau-Kamera ist der abgerufene Pfad."""
 import asyncio
 
-import aiohttp
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from lox import anlage, bausteine, bloecke, intercom_baustein, intercom_v2_baustein, intercomdienst, Miniserver, neue_app, serve, W
+from lox import (anlage, bausteine, bloecke, intercom_baustein, intercom_v2_baustein, intercomdienst, Kamera,
+                 Miniserver, mjpeg_erstes, neue_app, W)
 
 KAMERA_PASS = "Bild-Kennwort-2"
 
@@ -57,18 +58,9 @@ def test_platzhalter_werden_zum_miniserver(stream, soll):
 
 
 async def _kamera():
-    """Kamera mit Anmeldung (Basic) -> (runner, port, Abrufe)."""
-    abrufe = []
-
-    async def bild(request):
-        abrufe.append(request.path)
-        if request.headers.get("Authorization") != aiohttp.BasicAuth("kamera", KAMERA_PASS).encode():
-            return web.Response(status=401)
-        return web.Response(body=b"--frame " + request.path.encode(), content_type="multipart/x-mixed-replace")
-    cam = web.Application()
-    cam.router.add_get("/{pfad:.*}", bild)
-    runner, port = await serve(cam)
-    return runner, port, abrufe
+    """Kamera mit Anmeldung (Basic), ihr Bild ist der Pfad -> (Kamera, Port, Abrufe)."""
+    cam = await Kamera(inhalt=lambda pfad, n: pfad.encode(), anmeldung=("kamera", KAMERA_PASS)).start()
+    return cam, cam.port, cam.abrufe
 
 
 async def _aufbau(gesichert: dict, bausteine=None):
@@ -93,15 +85,15 @@ def _video(app, uuid="IC") -> dict:
 
 
 async def _hole(cl, uuid="IC") -> tuple[int, bytes]:
-    r = await cl.get("/mjpeg", params={"id": uuid})
-    return r.status, await r.read()
+    """(Status, erstes Bild) von /mjpeg."""
+    return await mjpeg_erstes(cl, uuid)
 
 
 def test_video_vom_miniserver(miniserver_http):
     """Ohne eigene Adresse: Kamera vom Miniserver, einmal gefragt und gemerkt,
     auch wenn zwei Panels zugleich laden; nach einer neuen Struktur neu."""
     async def lauf():
-        cam_runner, cam_port, abrufe = await _kamera()
+        cam, cam_port, abrufe = await _kamera()
         ms, app, cl = await _aufbau({"IC": {"videoInfo": {
             "streamUrl": f"127.0.0.1:{cam_port}/mjpg/video.mjpg", "user": "kamera", "pass": KAMERA_PASS},
             "audioInfo": {"host": "10.0.0.9"}}})
@@ -109,32 +101,34 @@ def test_video_vom_miniserver(miniserver_http):
             async with cl:
                 assert _video(app) == {"k": "video", "src": "/mjpeg?id=IC"}, "steht schon da, bevor gefragt ist"
                 app._dirty = False
-                assert await _hole(cl) == (200, b"--frame /mjpg/video.mjpg")
+                assert await _hole(cl) == (200, b"/mjpg/video.mjpg")
                 assert app._dirty, "Seite neu zeichnen: jetzt ist bekannt, ob es Bild gibt"
-                assert await _hole(cl) == (200, b"--frame /mjpg/video.mjpg")
-                assert len(ms.fenc) == 1 and len(abrufe) == 2
+                assert await _hole(cl) == (200, b"/mjpg/video.mjpg")
+                # beide Abrufe auf einem Strom zur Kamera (kamerastrom.py)
+                assert len(ms.fenc) == 1 and len(abrufe) == 1
                 assert _video(app) == {"k": "video", "src": "/mjpeg?id=IC"}
                 # neue Struktur (in Loxone Config gespeichert): neu fragen, zwei Panels zugleich -> einmal
                 app._apply_structure(anlage({"IC": intercom_baustein()[0]}))
                 assert app.ms_video == {}
-                assert await asyncio.gather(_hole(cl), _hole(cl)) == [(200, b"--frame /mjpg/video.mjpg")] * 2
+                assert await asyncio.gather(_hole(cl), _hole(cl)) == [(200, b"/mjpg/video.mjpg")] * 2
                 assert len(ms.fenc) == 2
         finally:
             await app.icon_session.close()
             await ms.stop()
-            await cam_runner.cleanup()
+            await app.close()
+            await cam.stop()
     asyncio.run(lauf())
 
 
 def test_eigene_adresse_hat_vorrang(miniserver_http):
     async def lauf():
-        cam_runner, cam_port, abrufe = await _kamera()
+        cam, cam_port, abrufe = await _kamera()
         ms, app, cl = await _aufbau({"IC": {"videoInfo": {"streamUrl": f"127.0.0.1:{cam_port}/vom-miniserver"}}})
         app.intercom_cfg = {"IC": {"url": f" http://127.0.0.1:{cam_port}/eigene ", "user": "kamera",
                                    "pass": KAMERA_PASS}}
         try:
             async with cl:
-                assert await _hole(cl) == (200, b"--frame /eigene")
+                assert await _hole(cl) == (200, b"/eigene")
                 assert ms.fenc == [] and abrufe == ["/eigene"]
                 app.intercom_cfg = {"IC": f"http://127.0.0.1:{cam_port}/alt"}   # altes Format: nur die Adresse
                 assert (await _hole(cl))[0] == 502, "ohne Anmeldung lehnt die Kamera ab"
@@ -142,7 +136,8 @@ def test_eigene_adresse_hat_vorrang(miniserver_http):
         finally:
             await app.icon_session.close()
             await ms.stop()
-            await cam_runner.cleanup()
+            await app.close()
+            await cam.stop()
     asyncio.run(lauf())
 
 
@@ -174,18 +169,19 @@ def test_clouddns_laeuft_ueber_den_miniserver(miniserver_http):
     Adresse des Miniservers mit dem Port aus der streamUrl - im Test ist das
     die Kamera auf 127.0.0.1."""
     async def lauf():
-        cam_runner, cam_port, abrufe = await _kamera()
+        cam, cam_port, abrufe = await _kamera()
         ms, app, cl = await _aufbau({"IC": {"videoInfo": {"streamUrl": f"http://cloudDNS:{cam_port}/v",
                                                            "user": "kamera", "pass": KAMERA_PASS}}})
         app.host = "127.0.0.1"
         try:
             async with cl:
-                assert await _hole(cl) == (200, b"--frame /v")
+                assert await _hole(cl) == (200, b"/v")
                 assert app.ms_video["IC"]["url"] == f"http://127.0.0.1:{cam_port}/v" and abrufe == ["/v"]
         finally:
             await app.icon_session.close()
             await ms.stop()
-            await cam_runner.cleanup()
+            await app.close()
+            await cam.stop()
     asyncio.run(lauf())
 
 
@@ -193,7 +189,7 @@ def test_fehler_wird_nicht_gemerkt(miniserver_http):
     """Keine Rechte oder Miniserver weg: nichts merken, beim naechsten Mal neu
     fragen; die Seite zeigt das Video weiter an."""
     async def lauf():
-        cam_runner, cam_port, _ = await _kamera()
+        cam, cam_port, _ = await _kamera()
         ms, app, cl = await _aufbau({"IC": {"videoInfo": {"streamUrl": f"http://127.0.0.1:{cam_port}/v",
                                                            "user": "kamera", "pass": KAMERA_PASS}}})
         ms.gesichert_code = "403"
@@ -202,12 +198,13 @@ def test_fehler_wird_nicht_gemerkt(miniserver_http):
                 assert (await _hole(cl))[0] == 404
                 assert app.ms_video == {} and _video(app)["k"] == "video"
                 ms.gesichert_code = "200"
-                assert await _hole(cl) == (200, b"--frame /v")
+                assert await _hole(cl) == (200, b"/v")
                 assert len(ms.fenc) == 2
         finally:
             await app.icon_session.close()
             await ms.stop()
-            await cam_runner.cleanup()
+            await app.close()
+            await cam.stop()
     asyncio.run(lauf())
 
 
@@ -231,16 +228,17 @@ def test_v2_mit_gesicherten_details(miniserver_http):
     """Eine andere Tuerstation am Baustein Intercom: nennt der Miniserver eine
     Kamera, zeigt LoxPanel sie wie bei der Tuersteuerung."""
     async def lauf():
-        cam_runner, cam_port, _ = await _kamera()
+        cam, cam_port, _ = await _kamera()
         ms, app, cl = await _aufbau({"IC2V": {"videoInfo": {"streamUrl": f"127.0.0.1:{cam_port}/tor",
                                                              "user": "kamera", "pass": KAMERA_PASS}}},
                                     [intercom_v2_baustein(geraet=0, gesichert=True)])
         try:
             async with cl:
                 assert _video(app, "IC2V") == {"k": "video", "src": "/mjpeg?id=IC2V"}
-                assert await _hole(cl, "IC2V") == (200, b"--frame /tor")
+                assert await _hole(cl, "IC2V") == (200, b"/tor")
         finally:
             await app.icon_session.close()
             await ms.stop()
-            await cam_runner.cleanup()
+            await app.close()
+            await cam.stop()
     asyncio.run(lauf())

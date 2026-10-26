@@ -14,6 +14,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 import diagnose
+import kamerastrom
 import theme_colors
 from audioserver_events import AudioEventClient
 from lox import (
@@ -461,18 +462,22 @@ def test_kamera_mit_tippfehler_meldet_502():
     assert asyncio.run(lauf()) == [502, 502, 200]
 
 
-def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch):
-    """Faehrt der Server herunter, waehrend die Kamera noch nicht geantwortet
-    hat, wird der Handler mitten im Verbindungsaufbau abgebrochen. Die Session
-    zur Kamera muss trotzdem zu sein, sonst bleiben Socket und Connector offen
-    ("Unclosed client session")."""
+@pytest.mark.parametrize("weg", ["nachlauf", "herunterfahren"])
+def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch, weg):
+    """Wird der Handler abgebrochen, waehrend die Kamera noch nicht geantwortet
+    hat (Panel weg, Server faehrt herunter), muss die Session zur Kamera danach
+    zu sein, sonst bleiben Socket und Connector offen ("Unclosed client
+    session"). Die Session gehoert dem Strom der Kamera (kamerastrom.py), nicht
+    dem Handler: Er trennt nach dem Nachlauf, beim Herunterfahren sofort
+    (on_shutdown -> Kameraverteiler.schliessen)."""
     sitzungen = []
 
     def zaehler(*a, **kw):
         s = aiohttp.ClientSession(*a, **kw)
         sitzungen.append(s)
         return s
-    monkeypatch.setattr(routen.intercom, "aiohttp", _Ersatz(aiohttp, ClientSession=zaehler))
+    monkeypatch.setattr(kamerastrom, "aiohttp", _Ersatz(aiohttp, ClientSession=zaehler))
+    monkeypatch.setattr(kamerastrom, "NACHLAUF_S", 0.1)
 
     async def lauf():
         angekommen, weiter = asyncio.Event(), asyncio.Event()
@@ -496,11 +501,15 @@ def test_kamera_schliesst_ihre_verbindung_auch_beim_abbruch(monkeypatch):
                 await handler
             except asyncio.CancelledError:
                 pass
-            return [s.closed for s in sitzungen]
+            if weg == "herunterfahren":
+                await W.on_shutdown(ui)
+            else:
+                await asyncio.sleep(0.5)
+            return [s.closed for s in sitzungen], app.kamerastroeme.anzahl()
         finally:
             weiter.set()
             await runner.cleanup()
-    assert asyncio.run(lauf()) == [True]
+    assert asyncio.run(lauf()) == ([True], 0)
 
 
 def test_kamera_ohne_text_als_adresse():

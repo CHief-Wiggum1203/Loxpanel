@@ -736,6 +736,127 @@ class Anmeldung:
         pass
 
 
+class Kamera:
+    """Nachbau einer IP-Kamera, die MJPEG ueber HTTP sendet (jeder Pfad), bis
+    der Abrufer trennt. Teile wie bei den meisten Kameras: boundary "bild",
+    je Teil Content-Type und Content-Length.
+
+    inhalt        (Pfad, Nummer) -> Inhalt eines Bildes; ohne: "<Pfad> <Nummer>",
+                  so sieht ein Test, welche Adresse und welches Bild ankam. Die
+                  Nummer zaehlt je Pfad ueber alle Abrufe weiter
+    groesse       jedes Bild auf so viele Bytes auffuellen
+    typ           Content-Type der Bilder
+    takt          Sekunden zwischen zwei Bildern
+    anmeldung     (Benutzer, Kennwort) fuer Basic; ohne sie 401
+    abbruch_nach  nach so vielen Bildern beendet sie den Strom
+    einzelbild    statt des Stroms je Abruf ein Bild (image/jpeg)
+    abrufe        alle Abrufe (Pfad), auch abgelehnte
+    offen         offene Stroeme je Pfad
+
+    stop() beendet auch die offenen Stroeme, wie eine Kamera, die vom Netz geht.
+    """
+
+    def __init__(self, inhalt=None, groesse: int = 0, takt: float = 0.02, anmeldung=None,
+                 abbruch_nach: int | None = None, einzelbild: bool = False, typ: str = "image/jpeg") -> None:
+        self.inhalt = inhalt or (lambda pfad, n: f"{pfad} {n}".encode())
+        self.groesse, self.takt, self.anmeldung, self.typ = groesse, takt, anmeldung, typ
+        self.abbruch_nach, self.einzelbild = abbruch_nach, einzelbild
+        self.abrufe: list[str] = []
+        self.offen: dict[str, int] = {}
+        self._nummer: dict[str, int] = {}
+        self._aus = False
+        self.runner: web.AppRunner | None = None
+        self.port = 0
+
+    def adresse(self, pfad: str) -> str:
+        return f"http://127.0.0.1:{self.port}{pfad}"
+
+    def _bild(self, pfad: str) -> bytes:
+        n = self._nummer[pfad] = self._nummer.get(pfad, 0) + 1
+        return self.inhalt(pfad, n).ljust(self.groesse, b".")
+
+    async def _abruf(self, r: web.Request) -> web.StreamResponse:
+        self.abrufe.append(r.path)
+        if self.anmeldung and r.headers.get("Authorization") != aiohttp.BasicAuth(*self.anmeldung).encode():
+            return web.Response(status=401)
+        if self.einzelbild:
+            return web.Response(body=self._bild(r.path), content_type=self.typ)
+        resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=bild"})
+        await resp.prepare(r)
+        self.offen[r.path] = self.offen.get(r.path, 0) + 1
+        try:
+            gesendet = 0
+            while not self._aus and (self.abbruch_nach is None or gesendet < self.abbruch_nach):
+                bild = self._bild(r.path)
+                await resp.write(b"--bild\r\nContent-Type: %s\r\nContent-Length: %d\r\n\r\n%s\r\n"
+                                 % (self.typ.encode(), len(bild), bild))
+                gesendet += 1
+                await asyncio.sleep(self.takt)
+        except ConnectionResetError:
+            pass
+        finally:
+            self.offen[r.path] -= 1
+        return resp
+
+    async def start(self, port: int = 0) -> "Kamera":
+        """port: fester Port, etwa derselbe wie eine Kamera, die vorher wegging."""
+        app = web.Application()
+        app.router.add_get("/{pfad:.*}", self._abruf)
+
+        async def aus(_app):
+            self._aus = True
+        app.on_shutdown.append(aus)
+        self.runner, self.port = await serve(app, port)
+        return self
+
+    async def stop(self) -> None:
+        if self.runner:
+            await self.runner.cleanup()
+
+
+async def mjpeg_bilder(antwort: aiohttp.ClientResponse):
+    """Die Bilder einer /mjpeg-Antwort der Reihe nach. Gelesen ohne
+    bin/kamerastrom.py, so wie LoxPanel sie schickt: zuerst Grenze und Kopf,
+    dann je Bild das Bild, CRLF und gleich Grenze und Kopf des naechsten
+    Teils. Ein Bild ist fertig, sobald dieser Kopf da ist (so zeigt es auch
+    Chromium). Endet mit der Antwort."""
+    grenze = b"--" + antwort.headers["Content-Type"].split("boundary=", 1)[1].encode()
+    trenner, puffer = b"\r\n" + grenze, b""
+
+    async def bis(bedingung) -> bool:
+        nonlocal puffer
+        while not bedingung():
+            daten = await antwort.content.readany()
+            if not daten:
+                return False
+            puffer += daten
+        return True
+    if not await bis(lambda: b"\r\n\r\n" in puffer):
+        return
+    kopf, _, puffer = puffer.partition(b"\r\n\r\n")
+    assert kopf.startswith(grenze), kopf
+    while await bis(lambda: trenner in puffer and b"\r\n\r\n" in puffer.partition(trenner)[2]):
+        bild, _, rest = puffer.partition(trenner)
+        puffer = rest.partition(b"\r\n\r\n")[2]
+        yield bild
+
+
+async def mjpeg_erstes(cl, uuid: str, frist: float = 10) -> tuple[int, bytes]:
+    """/mjpeg?id=uuid einmal abrufen -> (Status, erstes Bild); ohne Strom
+    (404, 502, Einzelbild) der Inhalt der Antwort. Danach trennt der Abrufer
+    wie ein Panel, das die Seite wechselt. Kommt in frist Sekunden nichts,
+    TimeoutError (der Test scheitert, statt zu haengen)."""
+    async def holen():
+        r = await cl.get("/mjpeg", params={"id": uuid})
+        try:
+            if r.status == 200 and r.headers.get("Content-Type", "").startswith("multipart/"):
+                return r.status, await anext(mjpeg_bilder(r))
+            return r.status, await r.read()
+        finally:
+            r.close()
+    return await asyncio.wait_for(holen(), frist)
+
+
 def neue_app(ms: Miniserver) -> W.App:
     """App-Objekt, das mit dem Nachbau spricht (angemeldet, HTTP statt HTTPS).
     Aufrufer schliesst app.icon_session am Ende."""
