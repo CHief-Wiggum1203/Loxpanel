@@ -8,16 +8,22 @@ in Bilder (MjpegZerleger) und gibt jedem Zuschauer das jeweils neueste: Ein
 langsames Panel ueberspringt Bilder, statt die anderen aufzuhalten.
 
 - Bricht die Kamera ab, verbindet der Strom mit wachsender Pause neu
-  (PAUSE_MIN_S bis PAUSE_MAX_S). Die Zuschauer bleiben verbunden und sehen
-  bis dahin das letzte Bild. Ein neuer Zuschauer kuerzt die Pause ab: Er
-  wartet auf einen Versuch von jetzt, nicht auf den letzten Fehlschlag.
+  (PAUSE_MIN_S bis PAUSE_MAX_S, klein wieder nach einem Strom, der
+  LAUF_MIN_S lief). Die Zuschauer bleiben verbunden und sehen bis dahin das
+  letzte Bild. Ein neuer Zuschauer kuerzt die Pause ab: Er wartet auf einen
+  Versuch von jetzt, nicht auf den letzten Fehlschlag. Ein 4xx (ausser 408
+  und 429) ist endgueltig: Wiederholte Fehlanmeldungen sperren manche Kameras.
+- Jedes Bild geht mit dem Kopf des naechsten Teils dahinter hinaus: Chromium
+  (auch Android-WebView und LoxOS) zeigt einen Teil erst, wenn der naechste
+  beginnt; sonst kaeme jedes Bild ein Bild zu spaet.
 - Nach dem letzten Zuschauer laeuft er noch NACHLAUF_S weiter (Seitenwechsel,
   neu aufgebaute Seite), dann trennt er.
 - Antworten wie bisher: 502, wenn die Kamera nicht erreichbar ist oder nicht
   mit 200 antwortet, 200, sobald sie es tut (auch wenn ihr Strom danach
   abreisst: der Zuschauer wartet dann aufs Neuverbinden). Ein neuer Zuschauer
   bekommt sofort das letzte Bild, solange der Strom laeuft; ist die Kamera
-  weg, nur, wenn es juenger als BILD_FRISCH_S ist, sonst 502. Schickt die Kamera ein Einzelbild statt multipart, geht es
+  weg, nur, wenn es juenger als BILD_FRISCH_S ist, sonst 502. Schickt die
+  Kamera auf den ersten Abruf ein Einzelbild statt multipart, geht es
   unveraendert an den Zuschauer, und jeder Abruf holt ein neues.
 - Je Kamera hoechstens ZUSCHAUER_MAX Zuschauer, danach 503 (docs/ARCHITEKTUR.md,
   Befund S6).
@@ -39,7 +45,8 @@ log = logging.getLogger("loxpanel.webvisu")   # derselbe Logger wie der Server
 
 NACHLAUF_S = 10.0          # so lange haelt der Strom nach dem letzten Zuschauer
 PAUSE_MIN_S = 1.0          # Pause vor dem ersten neuen Versuch, verdoppelt sich ...
-PAUSE_MAX_S = 30.0         # ... bis hierher; ein gelieferter Strom setzt sie zurueck
+PAUSE_MAX_S = 30.0         # ... bis hierher; ein Strom, der LAUF_MIN_S lief, setzt sie zurueck
+LAUF_MIN_S = 10.0          # so lange muss ein Strom laufen, damit sein Ende ein Abriss ist
 VERBINDEN_S = 10.0         # Verbindungsaufbau zur Kamera
 LESEN_S = 30.0             # so lange darf die Kamera schweigen (wie bisher)
 BILD_FRISCH_S = 30.0       # ein spaeter Zuschauer bekommt ein so junges letztes Bild sofort
@@ -80,12 +87,17 @@ class MjpegZerleger:
     boundary des Content-Type (mit oder ohne fuehrende "--"); ohne boundary
     gilt die erste Zeile, die mit "--" beginnt. Ein Teil endet nach seinem
     Content-Length oder vor der naechsten Grenze (ohne Content-Length kommt
-    ein Bild also erst mit dem Beginn des naechsten). Zeilen enden mit CRLF oder
-    LF, ein Teil ohne Kopf (gleich das JPEG) geht auch, Text vor der ersten
-    Grenze wird uebergangen. futter() -> fertige Bilder als (Content-Type,
-    Daten); ValueError, wenn ein Teil oder ein Kopf ueber die Grenzen waechst."""
+    ein Bild also erst mit dem Beginn des naechsten). Die Grenze darf wie in
+    Chromium auch ohne Zeilenumbruch direkt hinter dem Bild stehen. Folgt auf
+    ein Bild mit Content-Length etwas anderes als die Grenze, war die Laenge zu
+    klein: Ab dann gilt sie fuer diese Kamera nicht mehr (laenge_falsch, der
+    Kamerastrom gibt es an den naechsten Zerleger weiter). Zeilen enden mit
+    CRLF oder LF, ein Teil ohne Kopf (gleich das JPEG) geht auch, Text vor der
+    ersten Grenze wird uebergangen. futter() -> fertige Bilder als
+    (Content-Type, Daten); ValueError, wenn ein Teil oder ein Kopf ueber die
+    Grenzen waechst."""
 
-    def __init__(self, boundary: str = ""):
+    def __init__(self, boundary: str = "", laenge_falsch: bool = False):
         b = boundary.encode("latin-1", "replace")
         self._kandidaten = {b"--" + b, b} if b else set()
         self._grenze = b""
@@ -93,6 +105,8 @@ class MjpegZerleger:
         self._stand = "grenze"
         self._typ, self._laenge = "image/jpeg", None
         self._ab = 0                 # bis hierher ist der Puffer schon nach der Grenze durchsucht
+        self._nach_laenge = False    # das letzte Bild endete nach seinem Content-Length
+        self.laenge_falsch = laenge_falsch
 
     def _ist_grenze(self, zeile: bytes) -> bool:
         if self._grenze:
@@ -102,12 +116,43 @@ class MjpegZerleger:
             return True
         return False
 
+    def _reste(self, daten) -> None:
+        """Vor der Grenze steht mehr als Leerraum: nach einem Bild mit
+        Content-Length der Rest des Bildes, die Laenge war also zu klein."""
+        if self._nach_laenge and bytes(daten).strip():
+            self.laenge_falsch = True
+
+    def _grenze_suchen(self, p: bytearray) -> bool:
+        """Stand "grenze" mit bekannter Grenze: sie steht irgendwo, nicht
+        unbedingt am Zeilenanfang. True, wenn danach der Kopf kommt."""
+        i = p.find(self._grenze)
+        if i < 0:
+            behalten = len(self._grenze)
+            self._reste(p[:-behalten])
+            del p[:max(0, len(p) - behalten)]
+            return False
+        self._reste(p[:i])
+        del p[:i]
+        j = p.find(b"\n")
+        if j < 0:
+            if len(p) > KOPF_MAX:
+                raise ValueError("Grenze ohne Zeilenende im MJPEG-Strom")
+            return False
+        zeile = bytes(p[:j]).strip()
+        del p[:j + 1]
+        if self._ist_grenze(zeile):
+            self._stand, self._nach_laenge = "kopf", False
+        return True
+
     def futter(self, daten: bytes) -> list[tuple[str, bytes]]:
         self._puffer += daten
         fertig = []
         while True:
             p = self._puffer
-            if self._stand == "grenze":
+            if self._stand == "grenze" and self._grenze:
+                if not self._grenze_suchen(p):
+                    break
+            elif self._stand == "grenze":
                 i = p.find(b"\n")
                 if i < 0:
                     if len(p) > KOPF_MAX:
@@ -131,6 +176,8 @@ class MjpegZerleger:
                         break
                     ende, n = min(treffer)
                 self._typ, self._laenge = _kopf_lesen(bytes(p[:ende]).decode("latin-1"))
+                if self.laenge_falsch:
+                    self._laenge = None
                 del p[:ende + n]
                 self._stand, self._ab = "inhalt", 0
             elif self._laenge is not None:
@@ -138,32 +185,34 @@ class MjpegZerleger:
                     break
                 bild = bytes(p[:self._laenge])
                 del p[:self._laenge]
-                self._stand = "grenze"
+                self._stand, self._nach_laenge = "grenze", True
                 if bild:
                     fertig.append((self._typ, bild))
             else:
-                naechste = b"\n" + self._grenze
                 if p.startswith(self._grenze):               # leerer Teil
                     self._stand = "grenze"
                     continue
-                i = p.find(naechste, self._ab)
+                i = p.find(self._grenze, self._ab)
                 if i < 0:
                     if len(p) > BILD_MAX:
                         raise ValueError("Bild ohne Ende im MJPEG-Strom")
-                    self._ab = max(0, len(p) - len(naechste))
+                    self._ab = max(0, len(p) - len(self._grenze))
                     break
-                bild = bytes(p[:i - 1] if i and p[i - 1:i] == b"\r" else p[:i])
-                del p[:i + 1]
-                self._stand = "grenze"
+                bild = bytes(p[:i])
+                bild = bild[:-2] if bild.endswith(b"\r\n") else bild[:-1] if bild.endswith(b"\n") else bild
+                del p[:i]
+                self._stand, self._nach_laenge = "grenze", False
                 if bild:
                     fertig.append((self._typ, bild))
         return fertig
 
 
-def _teil(typ: str, bild: bytes) -> bytes:
-    """Ein Bild als Teil der Antwort an die Zuschauer (boundary GRENZE)."""
-    return (f"--{GRENZE}\r\nContent-Type: {typ}\r\nContent-Length: {len(bild)}\r\n\r\n"
-            .encode("latin-1") + bild + b"\r\n")
+def _kopf(typ: str) -> bytes:
+    """Grenze und Kopf eines Teils der Antwort an die Zuschauer (boundary
+    GRENZE), ohne Content-Length: Sie stehen hinter dem Bild davor, denn
+    Chromium (auch Android-WebView und LoxOS) zeigt einen Teil erst, wenn der
+    naechste beginnt."""
+    return f"--{GRENZE}\r\nContent-Type: {typ}\r\n\r\n".encode("latin-1")
 
 
 async def _ganz_lesen(antwort: aiohttp.ClientResponse) -> bytes:
@@ -192,7 +241,11 @@ class Kamerastrom:
             self.host = "?"
         self.zustand, self.fehler = "verbinden", ""
         self.einzelbild: tuple[str, bytes] | None = None
-        self.teil = b""              # das neueste Bild, fertig als Teil der Antwort
+        self.teil = b""              # das neueste Bild mit dem Kopf des naechsten Teils dahinter
+        self.typ = "image/jpeg"      # Content-Type des neuesten Bildes
+        self.war_strom = False       # hat die Kamera schon einmal multipart geschickt
+        self.endgueltig = False      # die Kamera lehnt ab (4xx): kein neuer Versuch
+        self._laenge_falsch = False  # ihr Content-Length stimmt nicht (MjpegZerleger)
         self.nummer = 0              # zaehlt die Bilder
         self.zeit = 0.0              # monotonic des neuesten Bildes
         self.zuschauer = 0
@@ -209,7 +262,8 @@ class Kamerastrom:
         signal.set()
 
     def _neues_bild(self, typ: str, bild: bytes) -> None:
-        self.teil = _teil(typ, bild)
+        self.teil = bild + b"\r\n" + _kopf(typ)
+        self.typ = typ
         self.nummer += 1
         self.zeit = time.monotonic()
         self._melden()
@@ -267,7 +321,7 @@ class Kamerastrom:
             while True:
                 if await self._einmal():
                     pause = PAUSE_MIN_S
-                if self.zustand == "einzelbild":
+                if self.zustand == "einzelbild" or self.endgueltig:
                     return
                 try:
                     await asyncio.wait_for(self._weck.wait(), pause)
@@ -292,17 +346,24 @@ class Kamerastrom:
         self.fehler = text
         self._ergebnis("fehler")
 
-    def _abgerissen(self, grund: object) -> None:
-        log.info("Kamera %s getrennt (%s), verbinde neu", self.host, grund)
+    def _abgerissen(self, grund: object, lange: bool) -> None:
+        """Der Strom endete nach einer 200; lange: er lief LAUF_MIN_S (sonst nur
+        ins Debug-Log, eine Kamera mit einem Bild je Verbindung schriebe es voll)."""
+        log.log(logging.INFO if lange else logging.DEBUG,
+                "Kamera %s getrennt (%s), verbinde neu", self.host, grund)
         self.zustand = "abgerissen"
         self._melden()
 
     async def _einmal(self) -> bool:
         """Ein Abruf bei der Kamera, bis sie den Strom beendet oder abbricht.
-        True, wenn er mindestens ein Bild brachte. Eigene ClientSession (nicht
-        icon_session): mit deren SSL-Connector liefert die Mobotix nur ein
-        Einzelbild statt des Stroms."""
-        vorher = self.nummer
+        True, wenn er LAUF_MIN_S lief (oder ein Einzelbild brachte): Dann
+        beginnt die Pause vor dem naechsten Versuch wieder klein.
+        - 4xx ausser 408 und 429 ist endgueltig (falsches Kennwort, falsche
+          Adresse): Wiederholte Fehlanmeldungen sperren manche Kameras.
+        - Eine Antwort ohne multipart ist nur als erste ein Einzelbild; spaeter
+          (etwa eine Fehlerseite unter Last) zaehlt sie wie ein Abriss.
+        Eigene ClientSession (nicht icon_session): mit deren SSL-Connector
+        liefert die Mobotix nur ein Einzelbild statt des Stroms."""
         self.zustand = "verbinden"
         sess = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(
             total=None, sock_connect=VERBINDEN_S, sock_read=LESEN_S))
@@ -312,10 +373,16 @@ class Kamerastrom:
             auth = aiohttp.BasicAuth(self.user, self.passwort) if self.user else None
             async with sess.get(self.url, auth=auth) as antwort:
                 if antwort.status != 200:
+                    if 400 <= antwort.status < 500 and antwort.status not in (408, 429):
+                        self.endgueltig = True
+                        log.warning("Kamera %s antwortet %d, kein neuer Versuch", self.host, antwort.status)
                     self._fehlschlag(f"camera status {antwort.status}")
                     return False
                 ctype = antwort.headers.get("Content-Type", "multipart/x-mixed-replace")
                 if not ctype.lower().startswith("multipart/"):
+                    if self.war_strom:
+                        self._abgerissen(f"kein MJPEG ({ctype})", False)
+                        return False
                     bild = await _ganz_lesen(antwort)
                     self.einzelbild = (ctype, bild)
                     self._beim_ende(self)    # der naechste Abruf holt ein neues Bild
@@ -323,9 +390,10 @@ class Kamerastrom:
                     self._neues_bild(typ if _TYP.fullmatch(typ) else "image/jpeg", bild)
                     self._ergebnis("einzelbild")
                     return True
-                zerleger = MjpegZerleger(_boundary(ctype))
-                self.fehler = ""
+                zerleger = MjpegZerleger(_boundary(ctype), self._laenge_falsch)
+                self.fehler, self.war_strom = "", True
                 self._ergebnis("laeuft")
+                beginn = time.monotonic()
                 try:
                     async for daten in antwort.content.iter_any():
                         for typ, bild in zerleger.futter(daten):
@@ -333,12 +401,16 @@ class Kamerastrom:
                     grund: object = "Strom zu Ende"
                 except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as err:
                     grund = err
-                self._abgerissen(grund)
+                finally:
+                    self._laenge_falsch = zerleger.laenge_falsch
+                lange = time.monotonic() - beginn >= LAUF_MIN_S
+                self._abgerissen(grund, lange)
+                return lange
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError):
             self._fehlschlag("camera unreachable")
+            return False
         finally:
             await sess.close()
-        return self.nummer > vorher
 
     async def _warten(self, bedingung, frist: float) -> None:
         """Warten, bis bedingung() gilt oder frist um ist."""
@@ -373,6 +445,7 @@ class Kamerastrom:
         await resp.prepare(request)
         gesehen = self.nummer - 1 if self.bild_gilt() else self.nummer
         try:
+            await asyncio.wait_for(resp.write(_kopf(self.typ)), SCHREIBEN_S)
             while True:
                 if self.nummer > gesehen:
                     gesehen = self.nummer
@@ -397,6 +470,7 @@ class Kameraverteiler:
 
     def __init__(self):
         self._stroeme: dict[tuple[str, str, str], Kamerastrom] = {}
+        self._geschlossen = False    # nach schliessen(): Herunterfahren, keine neuen Stroeme
 
     @staticmethod
     def schluessel(cam: dict) -> tuple[str, str, str]:
@@ -404,7 +478,11 @@ class Kameraverteiler:
 
     def anmelden(self, cam: dict) -> Kamerastrom | None:
         """Zuschauer fuer die Kamera cam ({"url", "user", "pass"}): den
-        laufenden Strom oder einen neuen. None, wenn sie schon ZUSCHAUER_MAX hat."""
+        laufenden Strom oder einen neuen. None, wenn sie schon ZUSCHAUER_MAX hat
+        oder der Server herunterfaehrt (ein Abruf, der erst nach on_shutdown
+        ankommt, bekaeme sonst einen Strom, den niemand mehr beendet)."""
+        if self._geschlossen:
+            return None
         strom = self._stroeme.get(self.schluessel(cam))
         if strom is None:
             strom = self._stroeme[self.schluessel(cam)] = Kamerastrom(cam, self._vergessen)
@@ -430,7 +508,9 @@ class Kameraverteiler:
 
     async def schliessen(self) -> None:
         """Alle Stroeme trennen und ihre Zuschauer entlassen; danach endet jede
-        offene /mjpeg-Antwort (Herunterfahren: aiohttp wartet sonst auf sie)."""
+        offene /mjpeg-Antwort (Herunterfahren: aiohttp wartet sonst auf sie).
+        Danach nimmt der Verteiler niemanden mehr an."""
+        self._geschlossen = True
         for strom in list(self._stroeme.values()):
             await strom.beenden()
         self._stroeme.clear()

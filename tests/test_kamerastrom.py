@@ -5,6 +5,7 @@ die Kamera ab, verbindet er neu. Dazu der Zerleger, der die Teile der Kameras
 liest (mit und ohne Content-Length, CRLF oder LF, boundary in vielen Formen).
 Kamera und Zuschauer sind Nachbauten (tests/lox.py)."""
 import asyncio
+import logging
 import time
 
 import aiohttp
@@ -59,6 +60,14 @@ ZERLEGEN = {
         ("multipart/x-mixed-replace; boundary=bild", _strom(JPEG, JPEG2, ende=True), [JPEG, JPEG2]),
     "leerer Kopf":
         ("multipart/x-mixed-replace; boundary=bild", _strom(b"\r\n" + JPEG, ende=True), [JPEG]),
+    "Grenze direkt hinter dem Bild, ohne Zeilenumbruch (so sucht auch Chromium)":
+        ("multipart/x-mixed-replace; boundary=bild",
+         b"--bild\r\n" + _ohne_laenge(JPEG) + b"--bild\r\n" + _ohne_laenge(JPEG2) + b"--bild--\r\n",
+         [JPEG, JPEG2]),
+    "Content-Length zu klein: das erste Bild abgeschnitten, ab dann ohne Laenge":
+        ("multipart/x-mixed-replace; boundary=bild",
+         _strom(*(b"Content-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n" % (len(JPEG) - 10) + JPEG
+                  for _ in range(3)), ende=True), [JPEG[:-10], JPEG, JPEG]),
     "Text vor der ersten Grenze, Abschluss am Ende":
         ("multipart/x-mixed-replace; boundary=bild",
          b"Willkommen\r\n\r\n" + _strom(_mit_laenge(JPEG), _ohne_laenge(JPEG), ende=True), [JPEG, JPEG]),
@@ -305,6 +314,110 @@ def test_langsame_kamera_zeigt_ihr_letztes_bild_sofort(monkeypatch):
             await cam.stop()
     zweiter, dauer = asyncio.run(lauf())
     assert zweiter == (200, b"/a 1") and dauer < 1, (zweiter, dauer)
+
+
+def test_ablehnung_ist_endgueltig(monkeypatch):
+    """Ein falsches Kennwort (401) wird nicht wiederholt, auch nicht im
+    Nachlauf: Manche Kameras sperren nach Fehlanmeldungen die Adresse, dann
+    auch fuer den richtigen Zugang. Lehnt die Kamera beim Neuverbinden eines
+    laufenden Stroms ab (Kennwort an der Kamera geaendert), versucht er es
+    einmal und entlaesst seine Zuschauer."""
+    monkeypatch.setattr(kamerastrom, "PAUSE_MIN_S", 0.02)
+
+    async def lauf():
+        cam = await Kamera(anmeldung=("tuer", "geheim"), abbruch_nach=2, takt=0.3).start()
+        app, ui = await _aufbau({"A": {"url": cam.adresse("/a"), "user": "tuer", "pass": "falsch"},
+                                 "B": {"url": cam.adresse("/b"), "user": "tuer", "pass": "geheim"}})
+        try:
+            async with TestClient(TestServer(ui)) as cl:
+                falsch = await mjpeg_erstes(cl, "A")
+                await asyncio.sleep(0.5)
+                r = await cl.get("/mjpeg", params={"id": "B"})
+                bilder = mjpeg_bilder(r)
+                erstes = await anext(bilder)
+                cam.anmeldung = ("tuer", "neu")              # an der Kamera geaendert
+                rest = await asyncio.wait_for(_alle(bilder), 5)   # die Antwort endet
+                await asyncio.sleep(0.3)
+                return falsch, erstes, rest, list(cam.abrufe), app.kamerastroeme.anzahl()
+        finally:
+            await app.close()
+            await cam.stop()
+    falsch, erstes, rest, abrufe, stroeme = asyncio.run(lauf())
+    assert falsch == (502, b"camera status 401")
+    assert erstes == b"/b 1" and rest == [b"/b 2"]
+    assert abrufe == ["/a", "/b", "/b"] and stroeme == 0
+
+
+async def _alle(bilder) -> list[bytes]:
+    return [b async for b in bilder]
+
+
+def test_kein_mjpeg_beim_neuverbinden(monkeypatch):
+    """Antwortet die Kamera beim Neuverbinden einmal ohne multipart (etwa eine
+    Fehlerseite unter Last), zaehlt das wie ein Abriss: Die Zuschauer bleiben
+    verbunden, bekommen die Seite nicht als Bild und danach wieder Bilder."""
+    monkeypatch.setattr(kamerastrom, "PAUSE_MIN_S", 0.05)
+    cam = Kamera(abbruch_nach=2, takt=0.05)
+    cam.inhalt = lambda pfad, n: b"SEITE" if cam.einzelbild else b"%s %d" % (pfad.encode(), n)
+
+    async def lauf():
+        await cam.start()
+        app, ui = await _aufbau({"A": {"url": cam.adresse("/a")}})
+        try:
+            async with TestClient(TestServer(ui)) as cl:
+                r = await cl.get("/mjpeg", params={"id": "A"})
+                bilder = mjpeg_bilder(r)
+                gesehen = [await anext(bilder), await anext(bilder)]
+                cam.einzelbild = True                         # der naechste Abruf: keine multipart-Antwort
+                await asyncio.sleep(0.3)
+                cam.einzelbild = False
+                for _ in range(3):
+                    gesehen.append(await asyncio.wait_for(anext(bilder), 5))
+                r.close()
+                return gesehen, len(cam.abrufe)
+        finally:
+            await app.close()
+            await cam.stop()
+    gesehen, abrufe = asyncio.run(lauf())
+    assert all(b.startswith(b"/a ") for b in gesehen) and len(gesehen) == 5, gesehen
+    assert abrufe >= 3
+
+
+def test_ein_bild_je_verbindung(monkeypatch, caplog):
+    """Eine Kamera, die je Verbindung ein Bild schickt und schliesst: Die Pause
+    vor dem naechsten Versuch waechst trotzdem (sonst ein Abruf je Sekunde),
+    und das Log bleibt leer ("getrennt" nur nach einem Strom, der LAUF_MIN_S
+    lief; sonst schriebe die Kamera Log und Diagnosepaket voll)."""
+    monkeypatch.setattr(kamerastrom, "PAUSE_MIN_S", 0.05)
+    caplog.set_level(logging.INFO, logger="loxpanel.webvisu")
+
+    async def lauf():
+        cam = await Kamera(abbruch_nach=1).start()
+        app, ui = await _aufbau({"A": {"url": cam.adresse("/a")}})
+        try:
+            async with TestClient(TestServer(ui)) as cl:
+                r = await cl.get("/mjpeg", params={"id": "A"})
+                await asyncio.sleep(1.6)
+                r.close()
+                return len(cam.abrufe)
+        finally:
+            await app.close()
+            await cam.stop()
+    abrufe = asyncio.run(lauf())
+    # Pausen 0,05 + 0,1 + 0,2 + 0,4 + 0,8 s: in 1,6 s etwa fuenf Abrufe, bei fester Pause ueber zwanzig
+    assert 3 <= abrufe <= 7, abrufe
+    assert "getrennt" not in caplog.text
+
+
+def test_nach_dem_herunterfahren_kein_neuer_strom():
+    """Ein Abruf, der erst nach on_shutdown ankommt (etwa noch beim Miniserver
+    nach der Kamera gefragt), bekommt keinen Strom mehr: Den beendete niemand,
+    und aiohttp wartete auf ihn."""
+    async def lauf():
+        verteiler = kamerastrom.Kameraverteiler()
+        await verteiler.schliessen()
+        return verteiler.anmelden({"url": "http://127.0.0.1:9/a"}), verteiler.anzahl()
+    assert asyncio.run(lauf()) == (None, 0)
 
 
 def test_einzelbild_wie_bisher():

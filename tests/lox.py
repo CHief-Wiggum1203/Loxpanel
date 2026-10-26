@@ -816,26 +816,29 @@ class Kamera:
 
 async def mjpeg_bilder(antwort: aiohttp.ClientResponse):
     """Die Bilder einer /mjpeg-Antwort der Reihe nach. Gelesen ohne
-    bin/kamerastrom.py: Grenze aus dem Content-Type, jeder Teil mit
-    Content-Length, wie LoxPanel ihn schickt. Endet mit der Antwort."""
+    bin/kamerastrom.py, so wie LoxPanel sie schickt: zuerst Grenze und Kopf,
+    dann je Bild das Bild, CRLF und gleich Grenze und Kopf des naechsten
+    Teils. Ein Bild ist fertig, sobald dieser Kopf da ist (so zeigt es auch
+    Chromium). Endet mit der Antwort."""
     grenze = b"--" + antwort.headers["Content-Type"].split("boundary=", 1)[1].encode()
-    puffer = b""
-    while True:
-        while b"\r\n\r\n" not in puffer:
+    trenner, puffer = b"\r\n" + grenze, b""
+
+    async def bis(bedingung) -> bool:
+        nonlocal puffer
+        while not bedingung():
             daten = await antwort.content.readany()
             if not daten:
-                return
+                return False
             puffer += daten
-        kopf, _, rest = puffer.partition(b"\r\n\r\n")
-        assert kopf.lstrip(b"\r\n").startswith(grenze), kopf
-        n = int(re.search(rb"Content-Length: (\d+)", kopf).group(1))
-        while len(rest) < n + 2:
-            daten = await antwort.content.readany()
-            if not daten:
-                return
-            rest += daten
-        yield rest[:n]
-        puffer = rest[n + 2:]
+        return True
+    if not await bis(lambda: b"\r\n\r\n" in puffer):
+        return
+    kopf, _, puffer = puffer.partition(b"\r\n\r\n")
+    assert kopf.startswith(grenze), kopf
+    while await bis(lambda: trenner in puffer and b"\r\n\r\n" in puffer.partition(trenner)[2]):
+        bild, _, rest = puffer.partition(trenner)
+        puffer = rest.partition(b"\r\n\r\n")[2]
+        yield bild
 
 
 async def mjpeg_erstes(cl, uuid: str, frist: float = 10) -> tuple[int, bytes]:

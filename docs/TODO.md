@@ -1251,8 +1251,11 @@ selbst aktuell.
       blieb sein Bild stehen. Jetzt holt der Server jede Kamera einmal und
       verteilt die Bilder (`bin/kamerastrom.py`): Ein langsames Panel
       überspringt Bilder, statt die anderen aufzuhalten. Bricht die Kamera ab,
-      verbindet er mit wachsender Pause neu, die Panels bleiben verbunden.
-      Nach dem letzten Zuschauer trennt er nach `NACHLAUF_S`, beim
+      verbindet er mit wachsender Pause neu, die Panels bleiben verbunden;
+      eine Ablehnung (4xx) ist endgültig, damit eine Kamera nach einem
+      Kennwortwechsel die Adresse nicht sperrt. Hinter jedem Bild steht gleich
+      der Kopf des nächsten Teils, sonst zeigt Chromium es erst mit dem
+      nächsten. Nach dem letzten Zuschauer trennt er nach `NACHLAUF_S`, beim
       Herunterfahren sofort (`on_shutdown`).
       Gemessen vorher, je Zuschauer ein eigener Strom: Die CPU des Servers
       ist kein Engpass (8 Zuschauer in 1080p bei 15 fps: 3,3 % eines Kerns).

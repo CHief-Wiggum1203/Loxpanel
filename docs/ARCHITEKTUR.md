@@ -831,10 +831,18 @@ an. Der hält je Kamera, also je Adresse, Benutzer und Kennwort, einen
   aus dem `boundary` (mit oder ohne führende `--`, auch in
   Anführungszeichen), ohne `boundary` gilt die erste Zeile mit `--`. Ein Teil
   endet nach `Content-Length` oder vor der nächsten Grenze; ohne
-  `Content-Length` kommt ein Bild also erst mit dem Beginn des nächsten.
-  CRLF oder LF, Teile ohne Kopf und Text vor der ersten Grenze gehen auch.
-  Die Zuschauer bekommen jedes Bild als eigenen Teil mit `Content-Length`
-  (boundary `GRENZE`).
+  `Content-Length` kommt ein Bild also erst mit dem Beginn des nächsten. Die
+  Grenze darf wie in Chromium ohne Zeilenumbruch direkt hinter dem Bild
+  stehen. Folgt auf ein Bild mit `Content-Length` etwas anderes als die
+  Grenze, war die Länge zu klein; ab dann gilt sie für diese Kamera nicht
+  mehr (`laenge_falsch`). CRLF oder LF, Teile ohne Kopf und Text vor der
+  ersten Grenze gehen auch.
+- **Format an die Zuschauer:** Jedes Bild geht mit Grenze und Kopf des
+  nächsten Teils dahinter hinaus, ohne `Content-Length` (boundary `GRENZE`).
+  Chromium (auch Android-WebView und LoxOS) zeigt einen Teil erst, wenn der
+  nächste beginnt, und wertet `Content-Length` nicht aus. Mit dem Kopf erst
+  vor dem nächsten Bild käme jedes Bild ein Bild zu spät, und ein neuer
+  Zuschauer sähe das letzte Bild nicht (`test_bild_steht_sofort`).
 - **Verteilen:** Jeder Zuschauer wartet auf das jeweils neueste Bild. Ein
   langsames Panel überspringt Bilder, statt die anderen aufzuhalten; hängt
   es `SCHREIBEN_S` an einem Bild, ist es weg. Wer dazukommt, bekommt sofort
@@ -842,13 +850,27 @@ an. Der hält je Kamera, also je Adresse, Benutzer und Kennwort, einen
   eines schickt); ist die Kamera weg, nur, wenn es jünger als
   `BILD_FRISCH_S` ist.
 - **Neu verbinden:** Endet der Strom der Kamera oder reißt er ab, verbindet
-  der Strom mit wachsender Pause neu (`PAUSE_MIN_S` bis `PAUSE_MAX_S`). Die
+  der Strom mit wachsender Pause neu (`PAUSE_MIN_S` bis `PAUSE_MAX_S`). Klein
+  wird die Pause erst wieder nach einem Strom, der `LAUF_MIN_S` lief; erst
+  dann steht auch „getrennt“ im Log. Eine Kamera mit einem Bild je
+  Verbindung schriebe sonst jede Sekunde einen Abruf und eine Logzeile. Die
   Zuschauer bleiben verbunden und sehen bis dahin das letzte Bild.
   Verbindungsaufbau `VERBINDEN_S`, Schweigen der Kamera `LESEN_S`.
+- **Endgültig:** Ein 4xx außer 408 und 429 (falsches Kennwort, falsche
+  Adresse) versucht der Strom nicht wieder, er endet und entlässt seine
+  Zuschauer. Manche Kameras sperren nach Fehlanmeldungen die Adresse, dann
+  auch für den richtigen Zugang. Der nächste Abruf macht einen neuen Versuch
+  mit dem Zugang von dann.
+- **Kein MJPEG beim Neuverbinden:** Als Einzelbild-Kamera gilt nur eine
+  Kamera, die auf den ersten Abruf ohne multipart antwortet. Später (etwa
+  eine Fehlerseite unter Last) zählt so eine Antwort wie ein Abriss und geht
+  nicht an die Zuschauer.
 - **Trennen:** `NACHLAUF_S` nach dem letzten Zuschauer (ein Seitenwechsel
   holt ihn ohne neuen Abruf zurück), beim Herunterfahren sofort: Ohne
   `on_shutdown` (`webvisu.py`) endete eine `/mjpeg`-Antwort nie von selbst,
-  und aiohttp wartete 60 s auf sie.
+  und aiohttp wartete 60 s auf sie. Danach nimmt der Verteiler niemanden
+  mehr an (503); ein Abruf, der erst dann ankommt, bekäme sonst einen
+  Strom, den niemand mehr beendet.
 - **Antworten wie vorher:** 404 ohne Kamera, 502 mit Grund, wenn sie nicht
   erreichbar ist oder nicht mit 200 antwortet, 200, sobald sie es tut, auch
   wenn ihr Strom danach abreißt. Schickt sie ein Einzelbild statt multipart
