@@ -25,7 +25,7 @@ KACHEL_TYPEN = {
               "TextState", "InfoOnlyText", "Meter", "Hourcounter", "Tracker", "Webpage", "SystemScheme"},
     "sicherheit": {"Alarm", "SmokeAlarm", "PresenceDetector", "WindowMonitor", "MailBox"},
     "wecker": {"AlarmClock"},
-    "energie": {"Fronius", "EFM", "EnergyManager2", "PvProductionForecast"},
+    "energie": {"Fronius", "EFM", "EnergyManager2", "PvProductionForecast", "SpotPriceOptimizer"},
     "garten": {"Irrigation"},
     "wellness": {"Sauna", "SteakThermo"},
 }

@@ -175,7 +175,7 @@ LoxPanel erkennt die Bausteine automatisch aus der Miniserver-Struktur (kein man
 <tr><td><code>Fronius</code></td><td>Fronius Wechselrichter</td><td align="center">✅</td><td></td></tr>
 <tr><td><code>LoadManager</code></td><td>Lastmanager</td><td align="center">⬜</td><td></td></tr>
 <tr><td><code>SolarPumpController</code></td><td>Solarpumpen-Steuerung</td><td align="center">⬜</td><td></td></tr>
-<tr><td><code>SpotPriceOptimizer</code></td><td>Strompreis-Optimierer</td><td align="center">⬜</td><td></td></tr>
+<tr><td><code>SpotPriceOptimizer</code></td><td>Strompreis-Optimierer</td><td align="center">✅</td><td>Preis, Prognose mit eingeplanten Zeiten, Zyklus starten und abbrechen</td></tr>
 <tr><td><code>Wallbox</code></td><td>Wallbox / Ladestation</td><td align="center">⬜</td><td></td></tr>
 <tr><th colspan="4" align="left">Klima / Heizung</th></tr>
 <tr><td><code>AcControl</code></td><td>Klimaanlage / AC</td><td align="center">✅</td><td>Modus/Fan/Soll</td></tr>

@@ -72,7 +72,7 @@ Konfigurator rund 13.600 Zeilen HTML, CSS und JavaScript; die Tests rund
 | `loxos/` | LoxOS-Hülle (Fork, [`VISION.md`](VISION.md)): Electron-App, die die Visu als `?device=<Name>` auf einem Streifen-Display zeigt; `src/einstellungen.js` und `src/monitor.js` reine Logik (Node-Tests in `loxos/test/`), `src/main.js` Fenster, Modi, Tray, Kürzel, Autostart, Wachhalten der Bildschirme (`bildschirmWach`, `powerSaveBlocker`, nur im Widget-Modus), `src/einrichtung.*` Einstellungen; Versionen festgenagelt (`package-lock.json`, Dependabot), `tests/test_loxos_huelle.py`; Installer mit electron-builder (`build` in `package.json`), gebaut vom Workflow `.github/workflows/loxos.yml` bei Tags `loxos-v*`; die Mac-Version signiert (Developer ID, Hardened Runtime, Rechte in `build/entitlements.mac.plist` mit Mikrofon) und von Apple beglaubigt, sobald die Secrets `MAC_ZERTIFIKAT_P12`, `MAC_ZERTIFIKAT_KENNWORT`, `APPLE_API_KEY`, `APPLE_API_KEY_ID` und `APPLE_API_ISSUER` im Repo stehen (`loxos/README.md` „Signierte Mac-Version“), sonst unsigniert |
 | `bin/symbolquellen.py` | Symbolquellen der Kacheln und freien Seiten (18.10.2026 aus `konfig.py`, das an die Grenze von `test_dateigroessen.py` kam): die Loxone-Icon-Bibliothek (`LOXLIB_DIR`, `_loxlib_names()`, Route `/loxlib` in `routen/medien.py`) und die Prüfung der Icon-Angaben (`_clean_icon()`, `_clean_seiten_icon()`), die `_sanitize_panels()` anwendet. Nur Standardbibliothek, importiert kein Server-Modul |
 | `bin/sicherung.py` | Sicherung: `_backup_zip()` (ZIP ohne Kennwörter, mit Vermerk `sicherung.json`) und das Einspielen `_sicherung_lesen()` → `_sicherung_pruefen()` → `_sicherung_schreiben()`; die Routen `/api/backup` und `/api/restore` in `routen/einstellungen.py` rufen hier (§4). Importiert `webvisu` nicht |
-| `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9. Importiert `webvisu` nicht |
+| `bin/statistik.py` | Verläufe aus den Statistik-Dateien des Miniservers: Parser (`_parse_stat_xml()`, `_parse_stat2_bin()`), Ausdünnen und Tagesbalken (`_stat_thin()`, `_stat_buckets()`, `_stat_bars()`), dazu als Mixin `Statistik` das Laden mit Cache (`_stat_load()`, `_stat2_load()`), die Verlaufsblöcke (`_stat_blocks()`, `chart_blocks()`, `chart_stack()`) und die Mini-Verläufe der Kacheln (`_stat_spark()`), §3.9; dazu die Prognose des Strompreis-Optimierers (`strompreis_prognose()`, `prognose_bloecke()`, §6). Importiert `webvisu` nicht |
 | `bin/haus.py` | Hausübersicht (Tab `haus`) als Mixin `Haus`: Raumkarten, „Gerade aktiv“, Schnellaktionen über die Zentral-Bausteine, Hinweise, Spieler mit Sendern, Energie, die Aufbauten (`HAUS_*`); `_view_haus()` liefert die Seite, §7.1 „Hausübersicht“. Importiert `webvisu` nicht |
 | `bin/gesten.py` | Gesten wie auf den Loxone-Tastern als Mixin `Gesten`: `geste()` (Nachricht `{t:"geste"}`), `gesten_hilfe()`, Lichtgruppen und Stimmungen, die Auswahl im Konfigurator (`geste_taster_optionen()`, `licht_stimmung_optionen()`), `GESTEN_*_TYPEN`. Importiert `webvisu` nicht |
 | `bin/miniserver.py` | Mixin `Miniserver`: Verbindung zum Miniserver (`start()`, `reconnect()`, `stream_task()` mit wachsender Pause), Token und seine Erneuerung, die Struktur übernehmen (`_apply_structure()`), Werte aus dem WebSocket (`_on_value()`), Befehle (`command()`, gesichert mit Visu-PIN), HTTP an den Miniserver (`_ms_http()`, `_ms_jdev()`) und die gesicherten Details (`secured_details()`), §3.4 und §3.10. Importiert `webvisu` nicht |
@@ -498,10 +498,13 @@ Server teilen dieses Vokabular, es ist aber nirgends formal spezifiziert:
   kommen ohne Rechenrest an. Ohne `cmd` nur Anzeige. Die Visu zählt selbst
   und schickt `cmd.tmpl` mit `{v}` erst, wenn 0,9 s niemand tippt
   (`STP_SENDEN_MS`); gedrückt halten zählt weiter.
-- Formular: `field` (Text), `timepick` (Uhrzeit in Sekunden ab Mitternacht) und
-  `chips` (Auswahl, `multi` für mehrere) tragen je einen `name`. Eine Zelle mit
+- Formular: `field` (Text), `timepick` (Uhrzeit in Sekunden ab Mitternacht),
+  `chips` (Auswahl, `multi` für mehrere) und `stepper` mit `name` statt `cmd`
+  (Zahl, etwa Bedarf und Zeitraum beim Strompreis-Optimierer; er schickt nichts
+  selbst, ein getippter Wert bleibt stehen, bis die Seite neu aufgebaut wird)
+  tragen je einen `name`. Eine Zelle mit
   `form` (`uuid`, `tmpl`) setzt beim Tippen deren Werte für `{name}` ein: Text
-  URL-kodiert, Auswahl mit Komma. Ist ein Feld leer oder nichts gewählt, bleibt
+  URL-kodiert, Auswahl mit Komma, Zahl mit Punkt. Ist ein Feld leer oder nichts gewählt, bleibt
   sie gesperrt. Die Werte gehören der Visu, bis gespeichert ist; Updates vom
   Server ändern sie nicht.
 - Zellen mit `nav`, `form`, `confirm` oder `back` wirken beim Tippen (`click`),
@@ -1396,7 +1399,7 @@ Ventilation), `audio` (AudioZone, AudioZoneV2), `intercom`, `werte`
 (ValueSelector, UpDownAnalog, Slider, TextInput, InfoOnly*, TextState, Meter,
 Hourcounter, Tracker, Webpage, SystemScheme), `sicherheit` (Alarm, SmokeAlarm,
 PresenceDetector, WindowMonitor, MailBox), `wecker` (AlarmClock), `energie`
-(Fronius, EFM, EnergyManager2, PvProductionForecast), `garten` (Irrigation),
+(Fronius, EFM, EnergyManager2, PvProductionForecast, SpotPriceOptimizer), `garten` (Irrigation),
 `wellness` (Sauna, SteakThermo), `zentral` (Präfix `Central`, nur Kachel, die
 Detailseite ist die Gruppe). Jede Funktion trägt sich mit `@kachel("Typ", …)`
 bzw. `@detail("Typ", …)` ein, ein Typ höchstens einmal je Tabelle (ein zweiter
@@ -1511,6 +1514,23 @@ Eingänge der Bausteine in der Loxone-Wissensdatenbank. Danach gebaut:
   Bausteins (Ventil 1..8, 0 alle aus, 9 alle an), eine Zone startet also mit
   `select/{id+1}` (`IRR_SELECT_*`). Laufzeit `setDuration/{id}={Sekunden}`, nicht
   bei `setByLogic`. Die Zone hat eine Unterseite (`irrzone`).
+- **SpotPriceOptimizer** (Strompreis-Optimierer, Strukturdoku 16.0):
+  `start/{Bedarf}/{Zeitraum}` startet einen Zyklus, `cancel` bricht ihn ab;
+  gibt die Logik den Bedarf vor (`demandByLogic`), steht dort 0, ein
+  vorgegebener Zeitraum geht mit seinem Wert mit. Bedarf, Zeitraum und
+  Mindestlaufzeit zählen Stunden (Loxone-Wissensdatenbank), die
+  Mindestlaufzeit hat keinen Befehl. `cycleFrom`/`cycleUntil` sind Sekunden
+  seit 2009 in UTC. Die Prognose liefert nur der Befehl `getForecasts`
+  (`[{u, v, s, e, planned}]`, Start und Ende Unix-UTC): `strompreis_prognose()`
+  (`statistik.py`) holt sie im Hintergrund und legt sie mit dem Stand von
+  `forecastsTimestamp`, Zyklus, Bedarf und Zeitraum ab (`PROGNOSE_STAND`,
+  `prognose_cache`, danach `_dirty`): Neue Preise verlangt die Strukturdoku,
+  nach einem neuen Zyklus plant der Baustein neu (`planned`). Weil das Rendern
+  die States liest (über `_endlich`, NaN wäre sich selbst ungleich), rendert
+  eine Änderung die offene Seite neu, und die holt nach. Der Bedarf geht nie
+  unter eine Viertelstunde, 0 ist der Platzhalter der Logik. `prognose_bloecke()` zeichnet
+  den Preis als Linie in Stufen und die eingeplanten Zeiten digital; Bedarf und
+  Zeitraum sind `stepper` eines Formulars (§3.7).
 - **AlarmClock:** `entryList/put/{entryID}/{name}/{alarmTime}/{isActive}/{modes|daily}`
   schreibt einen Eintrag, `entryList/delete/{entryID}` löscht ihn. Einträge mit
   `nightLight` kennen nur `daily` (einmalig/täglich), die übrigen Betriebsarten:
