@@ -1090,6 +1090,15 @@ selbst aktuell.
       ihn immer mit, der Split-Player zeigt rechts oben das ⋮ wie der Spieler
       der Hausübersicht, nach der Wahl eines Senders geht es zurück zum Tab
       (`test_split_player_musikauswahl`). **S**
+- [x] **Kamerabild in flachen Feldern unten abgeschnitten** (gefunden mit
+      dem Test für zwei Kameras untereinander, im Forum gewünscht): Ist das
+      Videofeld flacher als 4:3 (Bento-Zelle über ein Drittel, Pane 2, die
+      Intercom-Seite), bestimmte das Bild im Fluss die Höhe seiner Zeile und
+      ragte heraus; bei 4:3 fehlte in einer Drittel-Zelle ein Drittel des
+      Bildes. Jetzt liegt `.video img` absolut im Feld und wird eingepasst
+      (`seiten.css`). `test_zwei_kameras_untereinander` prüft beide Bilder
+      im Feld, zwei Ströme zugleich und dass ein neuer Stand keinen neu
+      startet. **S**
 
 - [x] **Escaping in `panel.html`**: `esc()` um `"` und `'` ergänzen. Betrifft
       Attribute mit Miniserver-Namen und Freitext-Schriftarten. (F10) **S**

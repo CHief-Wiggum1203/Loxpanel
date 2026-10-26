@@ -9,6 +9,7 @@ abgeschnitten, ohne weitere Seiten keine Tab-Leiste, keine Skriptfehler.
 Screenshots liegen im tmp_path (CI-Artefakt).
 """
 import asyncio
+import base64
 import shutil
 
 import aiohttp
@@ -17,7 +18,7 @@ from pathlib import Path
 import pytest
 from aiohttp import web
 
-from lox import EFM, HAUS_FAVORITEN, W, haus_anlage, raum_anlage, serve, visu_starten
+from lox import EFM, HAUS_FAVORITEN, W, anlage, haus_anlage, raum_anlage, serve, visu_starten
 from test_front_tabs_browser import _front
 
 pytest.importorskip("playwright.async_api", reason="Playwright fehlt (requirements-dev.txt)")
@@ -592,3 +593,102 @@ def test_breite_audio_zelle_stellt_favoriten_daneben(format_):
     assert fehler == [], fehler
     assert lage == {"favs": "rechts", "sichtbar": True}, lage
     assert probleme == [], probleme
+
+
+# Bild eines MJPEG-Stroms (multipart/x-mixed-replace): 16x12 Pixel, also 4:3 wie
+# eine Tuerstation, oben rot, unten blau - schneidet die Zelle ab, fehlt das Blau
+BILD = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharWAAAAGUlEQVR42mM4YGBAEmIYkRoMAg6QhEakBgAFPeQBx5WAEwAAAABJRU5ErkJggg==")
+KAMERAS = {f"K{i}": {"name": f"Kamera {i}", "type": "Intercom", "uuidAction": f"K{i}", "room": "r1", "cat": "c1",
+                     "details": {}, "states": {"bell": f"k{i}-bell"}} for i in (1, 2)}
+# Kamera-Zellen: Quelle und Hoehe des Bildes, Hoehe der Zelle
+BILDER = """() => [...document.querySelectorAll('#grid.bento > .bz')].map(z => {
+  const i=z.querySelector('.video img');
+  const r=e=>{ const b=e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; };
+  return {src: i ? i.getAttribute('src') : null, zelle: Math.round(z.getBoundingClientRect().height),
+          bild: i ? Math.round(i.getBoundingClientRect().height) : 0,
+          imgKasten: i ? r(i) : null, feld: i ? r(i.parentElement) : null}; })"""
+
+
+async def _kameras() -> tuple:
+    """Kameras, die MJPEG senden, bis der Abrufer trennt -> (runner, port,
+    offene Stroeme je Pfad, alle Abrufe)."""
+    offen, abrufe = {}, []
+
+    async def strom(request):
+        abrufe.append(request.path)
+        resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=bild"})
+        await resp.prepare(request)
+        offen[request.path] = offen.get(request.path, 0) + 1
+        try:
+            while True:
+                await resp.write(b"--bild\r\nContent-Type: image/png\r\nContent-Length: %d\r\n\r\n%s\r\n"
+                                 % (len(BILD), BILD))
+                await asyncio.sleep(0.2)
+        except ConnectionResetError:
+            pass
+        finally:
+            offen[request.path] -= 1
+        return resp
+    cam = web.Application()
+    cam.router.add_get("/{pfad}", strom)
+    runner, port = await serve(cam)
+    return runner, port, offen, abrufe
+
+
+def test_zwei_kameras_untereinander(tmp_path):
+    """Im Forum gewuenscht: mehrere Kamerabilder untereinander, je in
+    waehlbarer Hoehe (Drittel, Haelfte, ganz). Auf einer Bento-Seite ist das je
+    eine Zelle, hier oben ein Drittel und darunter zwei Drittel. Beide Bilder
+    laufen zugleich, je mit eigenem Strom ueber /mjpeg zur Kamera, und ein
+    neuer Stand vom Server laesst beide Bilder und Stroeme stehen."""
+    async def lauf():
+        crunner, cport, offen, abrufe = await _kameras()
+        app = W.App({"host": "", "port": 80})
+        app._apply_structure(anlage(KAMERAS))
+        app.states = {"k1-bell": 0, "k2-bell": 0}
+        app.intercom_cfg = {u: {"url": f"http://127.0.0.1:{cport}/{u.lower()}"} for u in KAMERAS}
+        app.panels = W.App._sanitize_panels({"kameras": {
+            "title": "Kameras", "tabs": ["auswahl"],
+            "pickTabs": [{"name": "Kameras", "picks": [], "bento": {"cols": 1, "rows": 3, "cells": [
+                {"x": 0, "y": 0, "w": 1, "h": 1, "widget": "camera:K1"},
+                {"x": 0, "y": 1, "w": 1, "h": 2, "widget": "camera:K2"}]}}]}})
+        runner, port, bc = await visu_starten(app, [("GET", "/mjpeg", W.mjpeg_handler)])
+        fehler = []
+        try:
+            async with async_playwright() as p:
+                b = await p.chromium.launch()
+                pg = await b.new_page(viewport={"width": 800, "height": 1280}, locale="de-DE")
+                pg.on("pageerror", lambda e: fehler.append(str(e)))
+                await pg.goto(f"http://127.0.0.1:{port}/?panel=kameras")
+                await pg.wait_for_selector("#grid.bento > .bz", state="attached")
+                await pg.evaluate("wake()")
+                await pg.wait_for_function("""() => { const b=[...document.querySelectorAll('#grid.bento .video img')];
+                    return b.length===2 && b.every(i => i.complete && i.naturalWidth>0); }""", timeout=8000)
+                lage = await pg.evaluate(BILDER)
+                probleme = await pg.evaluate(PRUEFEN)
+                await pg.screenshot(path=str(tmp_path / "bento_zwei_kameras.png"))
+                _ablegen(tmp_path, "bento_zwei_kameras.png")
+                stroeme = dict(offen)
+                await pg.evaluate("() => document.querySelectorAll('#grid.bento .video img').forEach(i => i._mark=1)")
+                app._dirty = True                       # neuer Stand: die Zellen kommen neu
+                await pg.wait_for_timeout(1500)
+                bleibt = await pg.evaluate(
+                    "() => [...document.querySelectorAll('#grid.bento .video img')].map(i => i._mark === 1)")
+                danach = (dict(offen), len(abrufe))
+                await b.close()
+        finally:
+            bc.cancel()
+            await runner.cleanup()
+            await crunner.cleanup()
+        return lage, probleme, stroeme, bleibt, danach, fehler
+    lage, probleme, stroeme, bleibt, danach, fehler = asyncio.run(lauf())
+    assert fehler == [], fehler
+    assert [z["src"] for z in lage] == ["/mjpeg?id=K1", "/mjpeg?id=K2"], lage
+    assert all(z["bild"] > 0 for z in lage), lage
+    assert 1.8 < lage[1]["zelle"] / lage[0]["zelle"] < 2.2, lage   # zwei Drittel unter einem Drittel
+    # das Bild passt in sein Feld (eingepasst, nicht abgeschnitten), auch in der flachen Zelle
+    assert [z["imgKasten"] for z in lage] == [z["feld"] for z in lage], lage
+    assert probleme == [], probleme
+    assert stroeme == {"/k1": 1, "/k2": 1}, stroeme                 # beide zugleich, je einer
+    assert bleibt == [True, True], "die Bilder bleiben dieselben Knoten"
+    assert danach == ({"/k1": 1, "/k2": 1}, 2), danach             # kein neuer Abruf, nichts getrennt
