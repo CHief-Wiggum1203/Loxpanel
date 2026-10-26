@@ -652,7 +652,7 @@ class Seiten:
         aufgerufen wird (auch ein Neuverbinden ruft sie neu auf): Wer dort
         schaltet, sieht keine Kachel springen, und die Visu muss das Raster
         nicht neu aufbauen. Gemerkt wird erst, wenn Baustein und die States
-        seiner Mitglieder bekannt sind; kommt das nav vorher (Neustart des
+        aller seiner Mitglieder bekannt sind; kommt das nav vorher (Neustart des
         Servers), traegt der Broadcaster die Reihenfolge nach. Eine reihe vom
         Client gilt nie; render() schickt sie nicht mit. Wirft nie: Ohne
         reihe ordnet die Seite beim Rendern selbst."""

@@ -69,12 +69,17 @@ class ZentralHelfer:
         return False
 
     def _zentral_stand_da(self, c: dict) -> bool:
-        """Kennt der Server schon, ob die Mitglieder einer Zentrale an sind (ihr
-        State aus ZENTRAL_STATE hat einen Wert)? Vorher, etwa gleich nach einem
-        Neustart, ergaebe eine Reihenfolge nur die Folge der Struktur."""
+        """Kennt der Server schon, ob die Mitglieder einer Zentrale an sind: Hat
+        der State aus ZENTRAL_STATE bei allen Mitgliedern, die ihn in der
+        Struktur haben, einen Wert? Vorher, etwa gleich nach einem Neustart,
+        ergaebe eine Reihenfolge nur die Folge der Struktur; die Startwerte
+        kommen in mehreren Tabellen, ein Mitglied ohne Wert stuende sonst fest
+        hinter einem, das schon einen hat. Mitglieder ohne den State (etwa eine
+        Lichtsteuerung ohne activeMoods) melden nie einen Wert und zaehlen nicht."""
         name = ZENTRAL_STATE.get(c.get("type"))
-        return bool(name) and any(self._state(self.controls[mu], name) is not None
-                                  for mu in self._zentral_mitglieder(c))
+        mit = [self.controls[mu] for mu in self._zentral_mitglieder(c)
+               if (self.controls[mu].get("states") or {}).get(name)]
+        return bool(name) and bool(mit) and all(self._state(m, name) is not None for m in mit)
 
     def _zentral_an(self, c: dict) -> int:
         """Wie viele Mitglieder eines Zentral-Bausteins an sind

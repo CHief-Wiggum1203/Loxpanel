@@ -1482,10 +1482,13 @@ Sonderfälle:
   Visu kann patchen statt das Raster neu zu bauen. `render()` schickt `reihe`
   nie mit, eine `reihe` vom Client gilt nicht. Was seit dem Aufruf
   dazukam, steht hinten (`_nach_reihe()`). Gemerkt wird erst, wenn die States
-  der Mitglieder bekannt sind (`_zentral_stand_da()`, bei der
+  aller Mitglieder bekannt sind (`_zentral_stand_da()`, bei der
   Fensterüberwachung `windowStates`): Nach einem Neustart des Servers kommt
   das `nav` der Visu vor Struktur und Werten, dann trägt der Broadcaster die
-  Reihenfolge nach. Ein Neuverbinden ruft die Seite neu auf und ordnet frisch.
+  Reihenfolge nach. Die Startwerte schickt der Miniserver in mehreren
+  Tabellen; ein Mitglied, dessen Wert noch fehlt, stünde sonst fest hinter
+  einem, das schon einen hat. Mitglieder, deren Struktur den State nicht
+  kennt, zählen dabei nicht. Ein Neuverbinden ruft die Seite neu auf und ordnet frisch.
   „Offen“ heißt bei Tor und Fenster wie auf der Kachel: ab gerundet 1 %.
 
 **Unbekannte Typen:** Steht der Typ in keiner Tabelle und ist er keine
