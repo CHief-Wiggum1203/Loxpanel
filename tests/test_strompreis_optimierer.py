@@ -112,17 +112,23 @@ def test_detailseite():
 def test_zyklus_laeuft():
     """cycleUntil zaehlt Sekunden seit 2009 in UTC; laeuft der Zyklus, steht bis
     wann, und er laesst sich abbrechen (mit Rueckfrage). Laeuft der eingeplante
-    Einsatz schon, heisst es "Eingeplant bis"."""
-    bis = STUNDE + 4 * 3600
-    app = _app(active=1, cycleFrom=STUNDE - LOX_EPOCH_UTC, cycleUntil=bis - LOX_EPOCH_UTC)
-    eintraege = [dict(e, planned=True) if i == 0 else e for i, e in enumerate(PROGNOSE)]
+    Einsatz schon, heisst es "Eingeplant bis"; aneinander anschliessende
+    eingeplante Intervalle zaehlen als einer. Zeiten ab jetzt, nicht ab der
+    Stunde beim Laden des Moduls (sonst kippte der Test am Stundenwechsel)."""
+    jetzt = int(time.time())
+    bis = jetzt + 4 * 3600
+    app = _app(active=1, cycleFrom=jetzt - 600 - LOX_EPOCH_UTC, cycleUntil=bis - LOX_EPOCH_UTC)
+    eintraege = [{"u": "a", "v": 0.1, "s": jetzt - 600, "e": jetzt + 1800, "planned": True},
+                 {"u": "b", "v": 0.1, "s": jetzt + 1800, "e": jetzt + 3600, "planned": True},
+                 {"u": "c", "v": 0.3, "s": jetzt + 3600, "e": jetzt + 7200},
+                 {"u": "d", "v": 0.1, "s": jetzt + 7200, "e": jetzt + 9000, "planned": True}]
     v = _seite(_mit_prognose(app, eintraege))
     assert bloecke(v, "big")[0]["tone"] == "good"
     assert _texte(v, "status")[:3] == ["Ausgang ein", f"Zyklus läuft bis {_zeit(bis)}",
-                                       f"Eingeplant bis {_zeit(STUNDE + 3600)}"]
+                                       f"Eingeplant bis {_zeit(jetzt + 3600)}"]
     assert bloecke(v, "row")[0]["cells"][1] == {"label": "Zyklus abbrechen", "confirm": "Zyklus wirklich abbrechen?",
                                                 "cmd": {"uuid": "SPO", "cmd": "cancel"}}
-    vorbei = _seite(_mit_prognose(_app(cycleUntil=STUNDE - 3600 - LOX_EPOCH_UTC)))
+    vorbei = _seite(_mit_prognose(_app(cycleUntil=jetzt - 3600 - LOX_EPOCH_UTC)))
     assert not any(t.startswith("Zyklus läuft") for t in _texte(vorbei, "status"))
     assert [c["label"] for c in bloecke(vorbei, "row")[0]["cells"]] == ["Zyklus starten"]
 
