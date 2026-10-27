@@ -1819,6 +1819,31 @@ Welche davon relevant sind, zeigt der Diagnose-Endpunkt aus 8.1.
       (`/api/sip/pruefen`) merken und beilegen; ein Bildschirmfoto des Panels
       (die Visu müsste es auf Anfrage schicken); in der LoxPanel-App die
       Meldungen des Wächters (`Waechter.kt`) und des Server-Dienstes. **M**
+- [ ] **Bausteine je Betriebsart zeigen** (Wunsch aus dem Forum vom
+      27.10.2026): etwa die Betriebsart „Weihnachten“ zeigt Schalter, die man
+      sonst das ganze Jahr nicht braucht. Heute geht das nur über ganze
+      Ansichten: Der Betriebsmodus-Assistent (Geräte) ordnet je Modus eine
+      Ansicht zu, Loxone ruft über einen virtuellen Ausgang
+      `/api/mode/<modus>` auf (`switch_mode()`). Für den Einzelfall ist das
+      umständlich: eine zweite Ansicht pflegen, Gerätenamen vergeben, einen
+      eigenen Modus für den Rückweg anlegen (ein Modus ohne Zuordnung lässt
+      das Gerät, wie es ist), Befehl bei EIN und bei AUS. Außerdem gilt nur
+      der zuletzt gemeldete Modus. Eine Anleitung fürs Forum dazu ist am
+      27.10.2026 entstanden.
+      1. Je Baustein „Nur zeigen, wenn [Baustein] an ist“ (oder aus), in der
+         Ansicht im Kachel-Editor. Die Bedingung ist ein Visu-Objekt: Loxone
+         liefert außer dem Kalendertag keine Betriebsart in der Struktur
+         ([`ARCHITEKTUR.md`](ARCHITEKTUR.md) „Lehrstück Betriebsmodi“), also
+         legt man die Betriebsart in Loxone Config auf einen Status-Baustein
+         oder Merker mit Raum und Kategorie. Der Server filtert beim Rendern
+         und liest den State über `self.states`, damit die Seite live
+         nachzieht (Lesespur). Gilt auf allen Seiten (Raum, Kategorie,
+         Favoriten, eigene Auswahl, Bento), mehrere Betriebsarten gleichzeitig
+         gehen. Keine zweite Ansicht, kein Gerätename nötig. **M**
+      2. Den Weg über ganze Ansichten vereinfachen: ein Aufruf, der den Modus
+         beendet und jedes Gerät auf seine Zuordnung zurückschickt (Befehl bei
+         AUS), statt eines eigenen Rückweg-Modus; der Assistent zeigt dann
+         genau die zwei Befehle für den virtuellen Ausgang. **S**
 
 - [x] **Positionsring: eingefroren, zu kräftig, und die Kachel schwieg zur
       Fahrt.** Drei Befunde aus einer Messung am echten Code, nicht aus dem
