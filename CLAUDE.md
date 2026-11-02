@@ -4,10 +4,15 @@ Web-Touch-Visu für den Loxone Miniserver. Fork von `Lenardo1/Loxpanel`, hier
 eigenständig weiterentwickelt und auf Unraid betrieben. Ausführliche Analyse in
 [`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md), dort stehen Datenfluss, Routen,
 Konfigurationsformate, Erweiterungs-Rezepte und bekannte Schwachstellen. Die
-priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md). Ziel und
-Roadmap von LoxOS (Bento-Seiten, Kachel-Set `edge`, Hülle `loxos/`; Fork-eigen,
-nicht für Upstream) stehen in [`docs/VISION.md`](docs/VISION.md), dort auch die
-Fork-Regeln für diese Arbeit.
+priorisierte Arbeitsliste steht in [`docs/TODO.md`](docs/TODO.md).
+
+**LoxOS gehört nicht mehr hierher.** LoxOS ist seit dem 27.10.2026 ein eigenes
+Projekt im Repo `CHief-Wiggum1203/LoxOS` (eigener Ordner) und wird nur dort
+weiterentwickelt. Der LoxOS-Code, der hier noch liegt (Bento-Seiten, Kachel-Set
+`edge`, Hülle `loxos/`, [`docs/VISION.md`](docs/VISION.md)), ist eingefroren:
+nicht erweitern, keine neuen LoxOS-Funktionen in diesem Fork. Dieser Fork
+bleibt LoxPanel, nah an `Lenardo1/Loxpanel`, und ist der Weg für Beiträge an
+Lenardo.
 
 ## Aufbau in einem Satz
 

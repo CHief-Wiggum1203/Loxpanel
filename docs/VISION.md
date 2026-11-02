@@ -5,8 +5,13 @@ dem Monitor (Zielgerät 2560×720 Touch, z. B. ein Klon des Corsair Xeneon
 Edge). Vorbild ist die Widget-Fläche des Xeneon Edge: verschieden große
 Widgets und Kacheln frei in einem Raster, alles auf einem Bildschirm.
 
-LoxOS ist **Fork-eigen** und geht nicht nach Upstream (`Lenardo1/Loxpanel`).
-Wie das zum Mentalmodell „Fork = Upstream + dünne Identitätsschicht“ passt,
+> **Eingefroren.** LoxOS ist seit dem 27.10.2026 ein eigenes Projekt im Repo
+> `CHief-Wiggum1203/LoxOS` und wird nur dort weiterentwickelt; die gültige
+> Vision steht dort. Diese Datei und der LoxOS-Code in diesem Fork bleiben
+> auf dem Stand vom 27.10.2026 und werden hier nicht mehr erweitert.
+
+LoxOS war **Fork-eigen** und ging nicht nach Upstream (`Lenardo1/Loxpanel`).
+Wie das zum Mentalmodell „Fork = Upstream + dünne Identitätsschicht“ passte,
 steht unten unter „Fork-Regeln“ und in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Diese Datei beschreibt das Ziel aller Stufen. Umgesetzt wird Stufe für Stufe;
